@@ -1,0 +1,295 @@
+/**
+ * Realistic mock data for Egypt — names, governorates, certificates, etc.
+ * Data here is generated deterministically (so re-renders show same data).
+ */
+(function() {
+  'use strict';
+
+  const ARABIC_FIRST_NAMES = [
+    'محمد','أحمد','محمود','مصطفى','عمر','يوسف','إبراهيم','عبدالله','عبدالرحمن',
+    'علي','حسن','حسين','خالد','طارق','وليد','هشام','أيمن','عماد','شريف','ياسر',
+    'كريم','سامح','أسامة','حازم','فادي','بلال','زياد','رامي','مروان','ساري'
+  ];
+  const ARABIC_LAST_NAMES = [
+    'محمد علي','حسن إبراهيم','عبدالعزيز','الشربيني','الفقي','المصري','الأنصاري',
+    'الخطيب','حافظ','رمضان','منصور','عبدالحليم','شاكر','عبدالباقي','رفاعي','الديب',
+    'البنا','الجمل','الزعيم','الجوهري','صبحي','فاروق','نصر','يحيى','زكي','شعبان'
+  ];
+  const GOVERNORATES = [
+    'القاهرة','الجيزة','الإسكندرية','الدقهلية','الشرقية','المنوفية','القليوبية',
+    'بني سويف','الفيوم','المنيا','أسيوط','سوهاج','قنا','أسوان','البحر الأحمر',
+    'الوادي الجديد','مرسى مطروح','شمال سيناء','جنوب سيناء','بورسعيد','دمياط','كفر الشيخ',
+    'الغربية','الإسماعيلية','السويس','الأقصر','البحيرة'
+  ];
+  const CERTIFICATES = [
+    { type: 'ثانوية عامة', section: 'علمي علوم' },
+    { type: 'ثانوية عامة', section: 'علمي رياضة' },
+    { type: 'ثانوية عامة', section: 'أدبي' },
+    { type: 'ثانوية أزهرية', section: 'علمي' },
+    { type: 'ثانوية أزهرية', section: 'أدبي' },
+  ];
+  const STATUSES = ['pending', 'under-review', 'approved', 'rejected', 'on-hold', 'documents-required'];
+  const STAGE_LABELS = [
+    'تسجيل أولي', 'دفع رسوم', 'بيانات الأسرة', 'بيانات الأقارب', 'موعد اختبار',
+    'كارت تردد', 'القومسيون الطبي', 'اختبار اللياقة', 'المقابلة الشخصية',
+    'الاختبار النهائي', 'النتيجة'
+  ];
+
+  // Deterministic pseudo-random
+  let seed = 42;
+  function rng() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  function pick(arr) { return arr[Math.floor(rng() * arr.length)]; }
+  function pickN(arr, n) { return Array.from({length:n},()=>pick(arr)); }
+
+  // National ID: 14 digits, follows Egyptian format
+  function genNationalId() {
+    // 1=20th century, 2=21st century. Year (2 digits), month (2), day (2),
+    // governorate code (2), serial (4), gender+check (1)
+    const century = 2;
+    const yr = String(rng() < 0.5 ? Math.floor(rng() * 9 + 1) : Math.floor(rng() * 5)).padStart(2, '0');
+    const mo = String(Math.floor(rng() * 12) + 1).padStart(2, '0');
+    const dy = String(Math.floor(rng() * 28) + 1).padStart(2, '0');
+    const gov = String(Math.floor(rng() * 27) + 1).padStart(2, '0');
+    const serial = String(Math.floor(rng() * 9999)).padStart(4, '0');
+    const last = String(Math.floor(rng() * 9));
+    return `${century}${yr}${mo}${dy}${gov}${serial}${last}`;
+  }
+
+  // Generate applicants
+  const applicants = [];
+  for (let i = 0; i < 240; i++) {
+    const fname = pick(ARABIC_FIRST_NAMES);
+    const lname1 = pick(ARABIC_FIRST_NAMES);
+    const lname2 = pick(ARABIC_LAST_NAMES);
+    const cert = pick(CERTIFICATES);
+    const totalScore = 380 + Math.floor(rng() * 30);
+    const status = pick(STATUSES);
+    const stage = Math.floor(rng() * STAGE_LABELS.length);
+    applicants.push({
+      id: `APP-${String(2026000 + i).padStart(7, '0')}`,
+      nationalId: genNationalId(),
+      name: `${fname} ${lname1} ${lname2}`,
+      gender: rng() < 0.85 ? 'male' : 'female',
+      birthDate: new Date(2002 + Math.floor(rng()*5), Math.floor(rng()*12), Math.floor(rng()*28)+1).toISOString(),
+      governorate: pick(GOVERNORATES),
+      city: pick(['مدينة نصر','المعادي','مصر الجديدة','الزمالك','حلوان','شبرا']),
+      certType: cert.type,
+      certSection: cert.section,
+      certScore: totalScore,
+      certPercent: ((totalScore / 410) * 100).toFixed(2),
+      certYear: 2025,
+      status,
+      stage,
+      stageLabel: STAGE_LABELS[stage],
+      committee: pick(['الأولى','الثانية','الثالثة','الرابعة','الخامسة']),
+      registeredAt: new Date(Date.now() - Math.floor(rng() * 60 * 24 * 3600 * 1000)).toISOString(),
+      paymentStatus: rng() < 0.7 ? 'paid' : 'pending',
+      paymentAmount: 1500,
+      hasDocuments: rng() < 0.6,
+      photo: null,
+      // Test results
+      results: {
+        medical: rng() < 0.5 ? null : (rng() < 0.75 ? 'pass' : 'fail'),
+        fitness: rng() < 0.6 ? null : (rng() < 0.7 ? 'pass' : 'fail'),
+        interview: rng() < 0.7 ? null : (rng() < 0.8 ? 'pass' : 'fail'),
+        finalExam: rng() < 0.85 ? null : (rng() < 0.6 ? 'pass' : 'fail'),
+      },
+      // Family members count for "وثيقة التعارف"
+      familySize: 4 + Math.floor(rng() * 4),
+      relativesCount: 6 + Math.floor(rng() * 8),
+      // Investigations status
+      investigation: rng() < 0.4 ? 'pending' : (rng() < 0.85 ? 'cleared' : 'flagged'),
+    });
+  }
+
+  // System users (officers & admins)
+  const users = [
+    { id: 'U-001', name: 'العميد د. أحمد محمود الفقي', role: 'super_admin', unit: 'كلية الشرطة', active: true, lastLogin: Date.now() - 3600000 },
+    { id: 'U-002', name: 'العقيد محمد إبراهيم حسن', role: 'committee_admin', unit: 'لجان القبول', active: true, lastLogin: Date.now() - 7200000 },
+    { id: 'U-003', name: 'الرائد طارق علي الخطيب', role: 'medical_admin', unit: 'القومسيون الطبي', active: true, lastLogin: Date.now() - 1800000 },
+    { id: 'U-004', name: 'النقيب يوسف أحمد المصري', role: 'investigator', unit: 'إدارة التحريات', active: true, lastLogin: Date.now() - 86400000 },
+    { id: 'U-005', name: 'النقيب وليد سامح الديب', role: 'committee_user', unit: 'لجنة طلبة 1', active: true, lastLogin: Date.now() - 600000 },
+    { id: 'U-006', name: 'الملازم أول عمر حازم البنا', role: 'biometric_user', unit: 'بوابة الأمن', active: true, lastLogin: Date.now() - 300000 },
+    { id: 'U-007', name: 'العقيد أيمن شريف رمضان', role: 'board_admin', unit: 'الهيئة', active: true, lastLogin: Date.now() - 14400000 },
+    { id: 'U-008', name: 'الرائد ياسر هشام منصور', role: 'exams_admin', unit: 'الاختبارات الإلكترونية', active: true, lastLogin: Date.now() - 4500000 },
+    { id: 'U-009', name: 'النقيب كريم زياد فاروق', role: 'records_clerk', unit: 'إدراج النتائج', active: false, lastLogin: Date.now() - 7 * 86400000 },
+    { id: 'U-010', name: 'الرائد د. حسن محمد عبدالباقي', role: 'medical_doctor', unit: 'عيادة الباطنة', active: true, lastLogin: Date.now() - 9000000 },
+  ];
+
+  // Audit trail entries
+  const AUDIT_ACTIONS = [
+    { action: 'create', label: 'إدراج', color: 'success' },
+    { action: 'update', label: 'تعديل', color: 'info' },
+    { action: 'delete', label: 'حذف', color: 'danger' },
+    { action: 'view', label: 'استعلام', color: 'neutral' },
+    { action: 'login', label: 'تسجيل دخول', color: 'neutral' },
+    { action: 'export', label: 'تصدير', color: 'warning' },
+  ];
+  const audit = [];
+  for (let i = 0; i < 80; i++) {
+    const u = pick(users);
+    const a = pick(AUDIT_ACTIONS);
+    const target = pick(applicants);
+    audit.push({
+      id: `AUD-${String(i+1).padStart(6,'0')}`,
+      userId: u.id,
+      userName: u.name,
+      action: a.action,
+      actionLabel: a.label,
+      actionColor: a.color,
+      entity: pick(['متقدم','مستخدم','نتيجة اختبار','تقرير','إعداد نظام']),
+      entityId: target.id,
+      details: pick([
+        `تعديل بيانات المتقدم ${target.name}`,
+        `إضافة نتيجة اختبار طبي`,
+        `استعلام عن سجل التحريات`,
+        `تسجيل دخول من IP 192.168.1.45`,
+        `تصدير تقرير إحصائي`,
+        `عرض الملف الإلكتروني`,
+      ]),
+      timestamp: Date.now() - Math.floor(rng() * 7 * 86400 * 1000),
+      ip: `192.168.${Math.floor(rng()*255)}.${Math.floor(rng()*255)}`,
+    });
+  }
+  audit.sort((a,b) => b.timestamp - a.timestamp);
+
+  // Question bank
+  const QUESTION_CATEGORIES = ['ثقافة عامة', 'لغة عربية', 'لغة إنجليزية', 'رياضيات', 'منطق', 'تاريخ مصر', 'جغرافيا'];
+  const sampleQuestions = [
+    {
+      id: 'Q-0001', category: 'ثقافة عامة', difficulty: 'سهل',
+      text: 'ما هي عاصمة جمهورية مصر العربية؟',
+      options: ['الإسكندرية','القاهرة','الجيزة','أسوان'],
+      correctIndex: 1,
+      usedCount: 248
+    },
+    {
+      id: 'Q-0002', category: 'تاريخ مصر', difficulty: 'متوسط',
+      text: 'في أي عام قامت ثورة 23 يوليو؟',
+      options: ['1948','1950','1952','1956'],
+      correctIndex: 2,
+      usedCount: 187
+    },
+    {
+      id: 'Q-0003', category: 'رياضيات', difficulty: 'متوسط',
+      text: 'إذا كان المتوسط الحسابي لخمسة أعداد يساوي 12، فما مجموعها؟',
+      options: ['50','55','60','65'],
+      correctIndex: 2,
+      usedCount: 312
+    },
+    {
+      id: 'Q-0004', category: 'لغة عربية', difficulty: 'سهل',
+      text: 'ما الجمع الصحيح لكلمة "كتاب"؟',
+      options: ['كتب','كتائب','كتابات','أكتاب'],
+      correctIndex: 0,
+      usedCount: 156
+    },
+    {
+      id: 'Q-0005', category: 'منطق', difficulty: 'صعب',
+      text: 'إذا كان جميع المهندسين مبدعين، وبعض المبدعين رياضيون، فإن:',
+      options: [
+        'جميع المهندسين رياضيون',
+        'بعض المهندسين رياضيون',
+        'لا يمكن تحديد العلاقة',
+        'لا يوجد مهندس رياضي'
+      ],
+      correctIndex: 2,
+      usedCount: 94
+    },
+    {
+      id: 'Q-0006', category: 'لغة إنجليزية', difficulty: 'متوسط',
+      text: 'Choose the correct sentence:',
+      options: [
+        'He don\'t know the answer.',
+        'He doesn\'t knows the answer.',
+        'He doesn\'t know the answer.',
+        'He not know the answer.'
+      ],
+      correctIndex: 2,
+      usedCount: 211
+    },
+    {
+      id: 'Q-0007', category: 'جغرافيا', difficulty: 'سهل',
+      text: 'أطول نهر في العالم هو:',
+      options: ['نهر الأمازون','نهر النيل','نهر اليانغتسي','نهر المسيسبي'],
+      correctIndex: 1,
+      usedCount: 178
+    },
+    {
+      id: 'Q-0008', category: 'ثقافة عامة', difficulty: 'متوسط',
+      text: 'في أي مدينة يقع مقر منظمة الأمم المتحدة الرئيسي؟',
+      options: ['جنيف','نيويورك','باريس','فيينا'],
+      correctIndex: 1,
+      usedCount: 145
+    },
+  ];
+
+  // Medical stations
+  const medicalStations = [
+    { id: 'MS-01', name: 'الباطنة', doctor: 'د. حسن محمد عبدالباقي', queue: 12, completed: 47 },
+    { id: 'MS-02', name: 'العظام', doctor: 'د. سامح فاروق نصر', queue: 8, completed: 52 },
+    { id: 'MS-03', name: 'الأنف والأذن والحنجرة', doctor: 'د. رامي شعبان', queue: 5, completed: 60 },
+    { id: 'MS-04', name: 'العيون', doctor: 'د. أسامة الجمل', queue: 14, completed: 41 },
+    { id: 'MS-05', name: 'الجلدية', doctor: 'د. مروان الأنصاري', queue: 3, completed: 65 },
+    { id: 'MS-06', name: 'الأسنان', doctor: 'د. زياد الزعيم', queue: 9, completed: 48 },
+    { id: 'MS-07', name: 'النفسية', doctor: 'د. هشام يحيى', queue: 11, completed: 44 },
+    { id: 'MS-08', name: 'الأشعة', doctor: 'د. كريم البنا', queue: 7, completed: 56 },
+  ];
+
+  // Committees
+  const committees = [
+    { id: 'C-01', name: 'لجنة طلبة 1', head: 'العقيد محمد إبراهيم', members: 5, applicants: 48, completed: 30 },
+    { id: 'C-02', name: 'لجنة طلبة 2', head: 'العقيد أحمد فاروق', members: 5, applicants: 52, completed: 27 },
+    { id: 'C-03', name: 'لجنة طلبة 3', head: 'الرائد طارق سامح', members: 4, applicants: 45, completed: 33 },
+    { id: 'C-04', name: 'لجنة طلبة 4', head: 'الرائد محمود الديب', members: 5, applicants: 50, completed: 28 },
+    { id: 'C-05', name: 'لجنة طلبة 5', head: 'الرائد عمر شعبان', members: 4, applicants: 47, completed: 31 },
+  ];
+
+  // Time series for charts (last 14 days)
+  const last14Days = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    last14Days.push({
+      date: d.toISOString(),
+      label: `${d.getDate()}/${d.getMonth()+1}`,
+      registrations: 80 + Math.floor(rng() * 80),
+      payments: 60 + Math.floor(rng() * 60),
+      tests: 40 + Math.floor(rng() * 50),
+    });
+  }
+
+  // KPIs
+  const kpis = {
+    totalApplicants: applicants.length,
+    paidApplicants: applicants.filter(a => a.paymentStatus === 'paid').length,
+    underReview: applicants.filter(a => a.status === 'under-review').length,
+    approved: applicants.filter(a => a.status === 'approved').length,
+    rejected: applicants.filter(a => a.status === 'rejected').length,
+    pending: applicants.filter(a => a.status === 'pending').length,
+    byGender: {
+      male: applicants.filter(a => a.gender === 'male').length,
+      female: applicants.filter(a => a.gender === 'female').length,
+    },
+    byCertType: applicants.reduce((acc, a) => {
+      acc[a.certType] = (acc[a.certType] || 0) + 1;
+      return acc;
+    }, {}),
+  };
+
+  // Reset seed for re-runs
+  seed = 42;
+
+  window.MockData = {
+    applicants,
+    users,
+    audit,
+    questions: sampleQuestions,
+    medicalStations,
+    committees,
+    last14Days,
+    kpis,
+    governorates: GOVERNORATES,
+    stageLabels: STAGE_LABELS,
+  };
+})();

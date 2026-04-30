@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="منظومة القبول بأكاديمية الشرطة — التحول الرقمي الكامل">
+<title>منظومة القبول · أكاديمية الشرطة</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="./styles/tokens.css">
+<link rel="stylesheet" href="./styles/base.css">
+<link rel="stylesheet" href="./styles/components.css">
+<link rel="stylesheet" href="./styles/layout.css">
+<link rel="stylesheet" href="./styles/apps.css">
+</head>
+<body>
+
+<div id="app"></div>
+
+<!-- Mock data MUST load before services that depend on it -->
+<script src="./js/services/mock-data.js"></script>
+
+<!-- State + UI utilities (Store needed by AuthService) -->
+<script src="./js/lib/store.js"></script>
+<script src="./js/lib/router.js"></script>
+<script src="./js/lib/ui.js"></script>
+<script src="./js/lib/charts.js"></script>
+<script src="./js/lib/shell.js"></script>
+
+<!-- Service layer -->
+<script src="./js/services/auth.service.js"></script>
+<script src="./js/services/applicants.service.js"></script>
+<script src="./js/services/committees.service.js"></script>
+<script src="./js/services/medical.service.js"></script>
+<script src="./js/services/biometric.service.js"></script>
+<script src="./js/services/exams.service.js"></script>
+<script src="./js/services/investigations.service.js"></script>
+<script src="./js/services/barcode.service.js"></script>
+<script src="./js/services/audit.service.js"></script>
+
+<!-- Pages -->
+<script src="./js/pages/login.js"></script>
+<script src="./js/pages/hub.js"></script>
+<script src="./js/pages/admin.js"></script>
+<script src="./js/pages/applicant.js"></script>
+<script src="./js/pages/committee.js"></script>
+<script src="./js/pages/board.js"></script>
+<script src="./js/pages/investigations.js"></script>
+<script src="./js/pages/medical.js"></script>
+<script src="./js/pages/barcode.js"></script>
+<script src="./js/pages/biometric.js"></script>
+<script src="./js/pages/question-bank.js"></script>
+<script src="./js/pages/architecture.js"></script>
+
+<!-- Bootstrap (must be last) -->
+<script src="./js/app.js"></script>
+
+</body>
+</html>
