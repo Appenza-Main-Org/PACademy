@@ -1,0 +1,108 @@
+/* ═══════════════════════════════════════════════════════════════════
+   PRINT — @media print rules
+   Source: Tasks/DESIGN_SYSTEM.md §6.4 + §4.16
+   Hides nav/sidebar/buttons; shows ministry header + Khayameya stripe.
+   Pages that need bespoke print layouts use <PrintLayout> (§4.16).
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm 14mm;
+  }
+
+  /* Reset background printing for ink-saving */
+  html, body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide chrome */
+  .header,
+  .sidebar,
+  .toast-stack,
+  .no-print,
+  [data-no-print="true"],
+  button:not(.print-keep),
+  nav:not(.print-keep) {
+    display: none !important;
+  }
+
+  /* Make main full-bleed */
+  .shell,
+  .shell-with-sidebar {
+    display: block !important;
+  }
+  .main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Cards drop shadows in print */
+  .card,
+  [data-print-card] {
+    box-shadow: none !important;
+    border: 1px solid var(--border-default) !important;
+    page-break-inside: avoid;
+  }
+
+  /* Tables: keep header on each page */
+  table { page-break-inside: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr    { page-break-inside: avoid; }
+
+  /* Headings stick with following content */
+  h1, h2, h3, h4 { page-break-after: avoid; }
+
+  /* Print-only utilities */
+  .print-only { display: block !important; }
+  .screen-only { display: none !important; }
+
+  /* Charts: thicker stroke for legibility on paper */
+  svg [data-chart-line]   { stroke-width: 1.5px !important; }
+  svg [data-chart-stroke] { stroke-width: 1px !important; }
+
+  /* Restricted stamp watermark — investigations only */
+  .print-stamp-restricted::before {
+    content: "سرّي للغاية";
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-ar-display);
+    font-size: 120px;
+    font-weight: var(--weight-bold);
+    color: rgba(200, 70, 44, 0.10);
+    transform: rotate(-30deg);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Khayameya stripe at top of any printable */
+  .print-khayameya {
+    height: 12px;
+    background: linear-gradient(to inline-end,
+      var(--teal-500)  0%,  var(--teal-500)  30%,
+      var(--gold-500)  30%, var(--gold-500)  50%,
+      var(--terra-500) 50%, var(--terra-500) 56%,
+      var(--ink-700)   56%, var(--ink-700)   100%);
+    margin-bottom: 8mm;
+  }
+
+  /* Default link color on paper */
+  a, a:visited {
+    color: #000000 !important;
+    text-decoration: none !important;
+  }
+
+  /* Force monochrome for unbranded outputs */
+  .print-monochrome { filter: grayscale(1); }
+}
+
+/* Screen-only / print-only helpers (always available, not just inside @media print) */
+.print-only { display: none; }

@@ -1,0 +1,104 @@
+/* ═══════════════════════════════════════════════════════════════════
+   MOTIFS — keyframes that ship with the design system
+   Source: Tasks/DESIGN_SYSTEM.md §2.7
+   Each animation has a prefers-reduced-motion no-op variant.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Stage stepper progression — connector line fills from start to end ── */
+@keyframes stageStepperProgress {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* ── Current stage pulsing ring ── */
+@keyframes stageStepperPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(26, 104, 104, 0.45); }
+  50%      { box-shadow: 0 0 0 8px rgba(26, 104, 104, 0); }
+}
+
+/* ── Toast slide-in from start-edge (RTL: right side) ── */
+@keyframes toastSlideIn {
+  from { transform: translateX(16px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes toastFadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* ── Modal entry — scale + fade ── */
+@keyframes modalEnter {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to   { opacity: 1; transform: scale(1)     translateY(0); }
+}
+@keyframes modalBackdropEnter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Drawer slide-in from end-edge (RTL: left side) ── */
+@keyframes drawerEnterEnd {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+/* ── Page enter — fade + 4px translate (per §2.7) ── */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Skeleton shimmer — for LoadingState — §4.10 ── */
+@keyframes skeletonShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Focus pulse (current wizard step) ── */
+@keyframes focusPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 164, 69, 0); }
+  50%      { box-shadow: 0 0 0 6px rgba(212, 164, 69, 0.18); }
+}
+
+/* ── Scan line (biometric / barcode preview) ── */
+@keyframes scanSweep {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+/* ── Reduced motion no-op variants ──
+   Every animation above is neutralised here so Sprint 0 ships with
+   accessible motion by default. The base.css universal rule already
+   sets duration to 0.01ms; this clause additionally removes translate
+   so reduced-motion users get instant snaps without slide. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes stageStepperProgress { from, to { transform: none; } }
+  @keyframes stageStepperPulse    { from, to { box-shadow: none; } }
+  @keyframes toastSlideIn         { from, to { transform: none; opacity: 1; } }
+  @keyframes toastFadeOut         { from, to { opacity: 1; } }
+  @keyframes modalEnter           { from, to { opacity: 1; transform: none; } }
+  @keyframes modalBackdropEnter   { from, to { opacity: 1; } }
+  @keyframes drawerEnterEnd       { from, to { transform: none; } }
+  @keyframes pageEnter            { from, to { opacity: 1; transform: none; } }
+  @keyframes skeletonShimmer      { from, to { background-position: 0 0; } }
+  @keyframes focusPulse           { from, to { box-shadow: none; } }
+  @keyframes scanSweep            { from, to { transform: none; opacity: 0; } }
+}
+
+/* ── Page enter helper class ── */
+.page-enter {
+  animation: pageEnter var(--duration-slow) var(--ease-standard);
+}
+
+/* ── Skeleton helper — used by LoadingState — §4.10 ── */
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--ink-100) 0%,
+    var(--ink-50)  50%,
+    var(--ink-100) 100%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}

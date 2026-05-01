@@ -1,561 +1,90 @@
 /* ═══════════════════════════════════════════════════════════════════
-   APP-SPECIFIC STYLES
+   PER-APP ACCENT OVERRIDES
+   Source: Tasks/DESIGN_SYSTEM.md §2.2
+   AppShell writes data-app="<key>" on its root; this file remaps the
+   --accent-* CSS variables for that subtree. Components consume
+   --accent-500 / --accent-50 etc. (never --teal-* directly) so they
+   pick up the per-app flavor automatically.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* ─── Login page ─── */
-.login-shell {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-.login-art {
-  background: linear-gradient(135deg, var(--brand-primary-700) 0%, var(--brand-primary) 50%, var(--brand-primary-600) 100%);
-  position: relative;
-  overflow: hidden;
-  color: white;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: var(--sp-12);
-}
-.login-art::before {
-  content: '';
-  position: absolute;
-  top: -100px; right: -100px;
-  width: 400px; height: 400px;
-  background: radial-gradient(circle, rgba(201,169,97,0.15), transparent 70%);
-  border-radius: 50%;
-}
-.login-art::after {
-  content: '';
-  position: absolute;
-  bottom: -200px; left: -100px;
-  width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(255,255,255,0.06), transparent 70%);
-  border-radius: 50%;
-}
-.login-art-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  font-size: var(--fs-md);
-  font-weight: 700;
-  position: relative;
-}
-.login-art-brand .brand-logo {
-  background: rgba(255,255,255,0.15);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.2);
-}
-.login-art-content {
-  position: relative;
-  z-index: 1;
-}
-.login-art h1 {
-  color: white;
-  font-size: var(--fs-4xl);
-  line-height: 1.3;
-  margin-bottom: var(--sp-4);
-}
-.login-art p {
-  font-size: var(--fs-md);
-  opacity: 0.85;
-  line-height: 1.9;
-  max-width: 420px;
-}
-.login-art-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--sp-4);
-  margin-top: var(--sp-8);
-  position: relative;
-}
-.login-art-stat-value {
-  font-size: var(--fs-3xl);
-  font-weight: 700;
-  font-family: var(--font-en);
-  color: var(--brand-accent);
-}
-.login-art-stat-label {
-  font-size: var(--fs-xs);
-  opacity: 0.7;
-  margin-top: 2px;
-}
-.login-art-foot {
-  font-size: var(--fs-xs);
-  opacity: 0.5;
-  position: relative;
+[data-app="admin"] {
+  --accent-50:  var(--teal-50);
+  --accent-500: var(--teal-600);
+  --accent-600: var(--teal-700);
+  --accent-700: var(--teal-800);
+  --shadow-focus-accent: var(--shadow-focus-teal);
 }
 
-.login-form-side {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--sp-6);
-  background: var(--surface-page);
-}
-.login-form {
-  width: 100%;
-  max-width: 420px;
-}
-.login-form h2 {
-  font-size: var(--fs-2xl);
-  margin-bottom: var(--sp-2);
-}
-.login-form > p {
-  color: var(--text-tertiary);
-  margin-bottom: var(--sp-6);
-}
-.login-roles {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-5);
-}
-.login-role {
-  padding: var(--sp-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
-  cursor: pointer;
-  transition: all var(--dur-fast) var(--ease-out);
-  text-align: center;
-  background: white;
-}
-.login-role:hover {
-  border-color: var(--brand-primary);
-  background: var(--brand-primary-50);
-}
-.login-role.selected {
-  border-color: var(--brand-primary);
-  background: var(--brand-primary-50);
-  box-shadow: 0 0 0 3px var(--brand-primary-100);
-}
-.login-role-icon { font-size: 22px; margin-bottom: 4px; }
-.login-role-label { font-size: var(--fs-xs); font-weight: 600; color: var(--text-secondary); }
-.login-role.selected .login-role-label { color: var(--brand-primary); }
-
-@media (max-width: 900px) {
-  .login-shell { grid-template-columns: 1fr; }
-  .login-art { display: none; }
+[data-app="applicant"] {
+  --accent-50:  var(--ink-50);
+  --accent-500: var(--teal-500);
+  --accent-600: var(--teal-600);
+  --accent-700: var(--teal-700);
+  --shadow-focus-accent: var(--shadow-focus-teal);
 }
 
-/* ─── Hub page (home gateway) ─── */
-.hub-hero {
-  background: linear-gradient(135deg, var(--brand-primary-700) 0%, var(--brand-primary) 100%);
-  border-radius: var(--r-xl);
-  padding: var(--sp-10) var(--sp-8);
-  color: white;
-  margin-bottom: var(--sp-8);
-  position: relative;
-  overflow: hidden;
-}
-.hub-hero::before {
-  content: '';
-  position: absolute;
-  top: -50px; left: -50px;
-  width: 250px; height: 250px;
-  background: radial-gradient(circle, rgba(201,169,97,0.2), transparent 70%);
-  border-radius: 50%;
-}
-.hub-hero h1 {
-  color: white;
-  font-size: var(--fs-3xl);
-  margin-bottom: var(--sp-3);
-  position: relative;
-}
-.hub-hero p {
-  font-size: var(--fs-md);
-  opacity: 0.9;
-  max-width: 600px;
-  position: relative;
-  line-height: 1.9;
-}
-.hub-hero-meta {
-  display: flex;
-  gap: var(--sp-6);
-  margin-top: var(--sp-5);
-  position: relative;
-}
-.hub-hero-meta-item {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font-size: var(--fs-sm);
-  opacity: 0.85;
+[data-app="committee"] {
+  --accent-50:  var(--gold-50);
+  --accent-500: var(--gold-500);
+  --accent-600: var(--gold-600);
+  --accent-700: var(--gold-700);
+  --shadow-focus-accent: var(--shadow-focus-gold);
 }
 
-.hub-section-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--sp-5);
-}
-.hub-section-title h2 {
-  font-size: var(--fs-xl);
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+[data-app="board"] {
+  --accent-50:  var(--gold-50);
+  --accent-500: var(--gold-700);
+  --accent-600: var(--gold-800);
+  --accent-700: var(--gold-900);
+  --shadow-focus-accent: var(--shadow-focus-gold);
 }
 
-.app-card {
-  background: white;
-  border-radius: var(--r-lg);
-  padding: var(--sp-5);
-  border: 1px solid var(--border-subtle);
-  cursor: pointer;
-  transition: all var(--dur-normal) var(--ease-out);
-  position: relative;
-  overflow: hidden;
-  text-decoration: none;
-  color: inherit;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-  min-height: 180px;
-}
-.app-card:hover {
-  border-color: var(--app-accent, var(--brand-primary));
-  box-shadow: var(--shadow-md);
-  transform: translateY(-3px);
-}
-.app-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: var(--app-accent, var(--brand-primary));
-  transform: scaleX(0);
-  transform-origin: right;
-  transition: transform var(--dur-normal) var(--ease-out);
-}
-.app-card:hover::before { transform: scaleX(1); }
-.app-card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sp-3);
-}
-.app-card-icon {
-  width: 48px; height: 48px;
-  border-radius: var(--r-md);
-  background: var(--app-accent-bg, var(--brand-primary-100));
-  color: var(--app-accent, var(--brand-primary));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  flex-shrink: 0;
-}
-.app-card-num {
-  font-family: var(--font-en);
-  font-weight: 700;
-  font-size: var(--fs-xs);
-  color: var(--text-tertiary);
-  background: var(--surface-muted);
-  padding: 3px 8px;
-  border-radius: var(--r-pill);
-}
-.app-card-title {
-  font-size: var(--fs-md);
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-top: var(--sp-2);
-}
-.app-card-desc {
-  font-size: var(--fs-sm);
-  color: var(--text-tertiary);
-  line-height: 1.7;
-  flex: 1;
-}
-.app-card-foot {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--border-subtle);
-  font-size: var(--fs-xs);
-  color: var(--text-tertiary);
-}
-.app-card-arrow {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  background: var(--surface-muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--dur-fast) var(--ease-out);
-}
-.app-card:hover .app-card-arrow {
-  background: var(--app-accent, var(--brand-primary));
-  color: white;
-  transform: translateX(-4px);
+[data-app="investigations"] {
+  --accent-50:  var(--terra-50);
+  --accent-500: var(--terra-500);
+  --accent-600: var(--terra-600);
+  --accent-700: var(--terra-700);
+  --shadow-focus-accent: var(--shadow-focus-terra);
 }
 
-/* ─── Profile menu ─── */
-.user-menu {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: 4px 14px 4px 4px;
-  border-radius: var(--r-pill);
-  background: var(--surface-muted);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.user-menu:hover { background: var(--brand-primary-100); }
-.user-menu-info { display: flex; flex-direction: column; line-height: 1.2; }
-.user-menu-name { font-size: var(--fs-sm); font-weight: 600; }
-.user-menu-role { font-size: var(--fs-xs); color: var(--text-tertiary); }
-
-/* ─── Detail row pattern ─── */
-.detail-row {
-  display: grid;
-  grid-template-columns: 160px 1fr;
-  gap: var(--sp-4);
-  padding: var(--sp-3) 0;
-  border-bottom: 1px dashed var(--border-subtle);
-  font-size: var(--fs-sm);
-}
-.detail-row:last-child { border-bottom: none; }
-.detail-label { color: var(--text-tertiary); font-weight: 500; }
-.detail-value { color: var(--text-primary); font-weight: 500; }
-
-/* ─── Filters bar ─── */
-.filters {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-bottom: var(--sp-4);
-  flex-wrap: wrap;
-}
-.filters .input, .filters .select {
-  height: 38px;
-  width: auto;
-  min-width: 140px;
-}
-.filters .search { flex: 1; min-width: 240px; }
-.filters .search input { height: 38px; }
-
-/* ─── Activity feed ─── */
-.activity {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.activity-item {
-  display: flex;
-  gap: var(--sp-3);
-  padding: var(--sp-3);
-  border-radius: var(--r-md);
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.activity-item:hover { background: var(--surface-muted); }
-.activity-icon {
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 14px;
-}
-.activity-body { flex: 1; min-width: 0; }
-.activity-title { font-size: var(--fs-sm); font-weight: 500; }
-.activity-meta { font-size: var(--fs-xs); color: var(--text-tertiary); margin-top: 2px; }
-
-/* ─── Architecture diagram ─── */
-.arch-canvas {
-  background: white;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
-  padding: var(--sp-6);
-  position: relative;
-}
-.arch-tier {
-  background: var(--surface-muted);
-  border: 1px dashed var(--border-default);
-  border-radius: var(--r-lg);
-  padding: var(--sp-4);
-  margin-bottom: var(--sp-3);
-}
-.arch-tier-label {
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-tertiary);
-  margin-bottom: var(--sp-3);
-}
-.arch-blocks {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--sp-3);
-}
-.arch-block {
-  background: white;
-  border-radius: var(--r-md);
-  padding: var(--sp-4);
-  border: 1px solid var(--border-subtle);
-  text-align: center;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  box-shadow: var(--shadow-xs);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.arch-block-icon {
-  font-size: 20px;
-  width: 36px; height: 36px;
-  border-radius: var(--r-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--app-accent-bg, var(--brand-primary-100));
-  color: var(--app-accent, var(--brand-primary));
-}
-.arch-block-meta {
-  font-size: var(--fs-xs);
-  color: var(--text-tertiary);
-  font-weight: 400;
+[data-app="medical"] {
+  --accent-50:  var(--teal-50);
+  --accent-500: var(--teal-400);
+  --accent-600: var(--teal-500);
+  --accent-700: var(--teal-600);
+  --shadow-focus-accent: var(--shadow-focus-teal);
 }
 
-/* ─── Biometric mock display ─── */
-.biometric-scan {
-  background: linear-gradient(135deg, #0F1A2E, #1B3A6B);
-  border-radius: var(--r-lg);
-  padding: var(--sp-6);
-  color: white;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-.biometric-frame {
-  width: 200px;
-  height: 200px;
-  margin: 0 auto var(--sp-4);
-  position: relative;
-  border-radius: var(--r-lg);
-  background: rgba(255,255,255,0.05);
-  border: 2px solid rgba(201,169,97,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 80px;
-}
-.biometric-frame::before,
-.biometric-frame::after {
-  content: '';
-  position: absolute;
-  width: 30px; height: 30px;
-  border: 3px solid var(--brand-accent);
-}
-.biometric-frame::before {
-  top: -3px; right: -3px;
-  border-bottom: none;
-  border-left: none;
-  border-radius: 0 var(--r-md) 0 0;
-}
-.biometric-frame::after {
-  bottom: -3px; left: -3px;
-  border-top: none;
-  border-right: none;
-  border-radius: 0 0 0 var(--r-md);
-}
-.biometric-status {
-  font-size: var(--fs-sm);
-  opacity: 0.8;
-}
-.biometric-match {
-  font-size: var(--fs-xl);
-  font-weight: 700;
-  color: var(--brand-accent);
-  margin-top: var(--sp-2);
+[data-app="barcode"] {
+  --accent-50:  var(--ink-100);
+  --accent-500: var(--ink-700);
+  --accent-600: var(--ink-800);
+  --accent-700: var(--ink-900);
+  --shadow-focus-accent: 0 0 0 3px rgba(28, 25, 15, 0.18);
 }
 
-/* ─── Question card ─── */
-.question-card {
-  background: white;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-lg);
-  padding: var(--sp-5);
-}
-.question-card .question-text {
-  font-size: var(--fs-md);
-  font-weight: 600;
-  margin-bottom: var(--sp-4);
-  line-height: 1.9;
-}
-.question-options { display: flex; flex-direction: column; gap: var(--sp-2); }
-.question-option {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
-  cursor: pointer;
-  transition: all var(--dur-fast) var(--ease-out);
-}
-.question-option:hover {
-  border-color: var(--brand-primary);
-  background: var(--brand-primary-50);
-}
-.question-option.selected {
-  border-color: var(--brand-primary);
-  background: var(--brand-primary-50);
-  box-shadow: 0 0 0 3px var(--brand-primary-100);
-}
-.question-option.correct {
-  border-color: var(--success);
-  background: var(--success-bg);
-}
-.question-option-letter {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  background: var(--surface-muted);
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-family: var(--font-en);
-  font-size: var(--fs-sm);
-  flex-shrink: 0;
-}
-.question-option.selected .question-option-letter {
-  background: var(--brand-primary);
-  color: white;
-}
-.question-option.correct .question-option-letter {
-  background: var(--success);
-  color: white;
+[data-app="biometric"] {
+  --accent-50:  var(--terra-50);
+  --accent-500: var(--terra-400);
+  --accent-600: var(--terra-500);
+  --accent-700: var(--terra-600);
+  --shadow-focus-accent: var(--shadow-focus-terra);
 }
 
-/* ─── Barcode visual ─── */
-.barcode-display {
-  background: white;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--r-md);
-  padding: var(--sp-4);
-  text-align: center;
+[data-app="exams"] {
+  --accent-50:  var(--gold-50);
+  --accent-500: var(--gold-600);
+  --accent-600: var(--gold-700);
+  --accent-700: var(--gold-800);
+  --shadow-focus-accent: var(--shadow-focus-gold);
 }
-.barcode-bars {
-  display: flex;
-  align-items: end;
-  justify-content: center;
-  gap: 1px;
-  height: 60px;
-  margin-bottom: var(--sp-2);
+
+/* Legacy aliases — old code reads --app-accent / --app-accent-bg */
+:root {
+  --app-accent: var(--accent-500);
+  --app-accent-bg: var(--accent-50);
 }
-.barcode-bar {
-  background: #0F1A2E;
-  height: 100%;
-}
-.barcode-num {
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  letter-spacing: 4px;
-  color: var(--text-secondary);
+[data-app] {
+  --app-accent: var(--accent-500);
+  --app-accent-bg: var(--accent-50);
 }

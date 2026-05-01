@@ -1,122 +1,256 @@
 /* ═══════════════════════════════════════════════════════════════════
-   DESIGN TOKENS — Police Academy Admissions Platform
+   DESIGN TOKENS — Arabic Heritage Modern
+   Source of truth: Tasks/DESIGN_SYSTEM.md §2
+   Police Academy Admissions Platform · منظومة القبول
    ═══════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Brand ── */
-  --brand-primary:      #1B3A6B;   /* Deep police navy */
-  --brand-primary-700:  #142C50;
-  --brand-primary-600:  #234A85;
-  --brand-primary-500:  #2D5BA0;
-  --brand-primary-400:  #4A78BD;
-  --brand-primary-300:  #7BA0D0;
-  --brand-primary-200:  #B4CCE5;
-  --brand-primary-100:  #DDE7F2;
-  --brand-primary-50:   #F0F5FB;
+  /* ── INK — neutral ramp (cream surface + body text) — §2.1 ── */
+  --ink-50:  #F4F2ED;
+  --ink-100: #ECE7DC;
+  --ink-200: #D8CFB8;
+  --ink-300: #B5A88A;
+  --ink-400: #8C7E5E;
+  --ink-500: #5C5238;
+  --ink-600: #3D3624;
+  --ink-700: #2A2517;
+  --ink-800: #1C190F;
+  --ink-900: #0E0C07;
 
-  /* ── Accent (Egyptian heritage gold) ── */
-  --brand-accent:       #C9A961;
-  --brand-accent-600:   #A8893F;
-  --brand-accent-200:   #E8D9A8;
-  --brand-accent-100:   #F5EDD4;
-  --brand-accent-50:    #FAF6E8;
+  /* ── TEAL — primary brand "navy of the Nile" — §2.1 ── */
+  --teal-50:  #E6F0F0;
+  --teal-100: #BFD8D8;
+  --teal-200: #95BDBD;
+  --teal-300: #6AA1A1;
+  --teal-400: #3F8585;
+  --teal-500: #1A6868;
+  --teal-600: #155454;
+  --teal-700: #103F3F;
+  --teal-800: #0A2B2B;
+  --teal-900: #051818;
 
-  /* ── Surfaces ── */
-  --surface-page:       #F7F9FC;
-  --surface-card:       #FFFFFF;
-  --surface-elevated:   #FFFFFF;
-  --surface-muted:      #EEF2F8;
-  --surface-overlay:    rgba(20, 44, 80, 0.55);
+  /* ── GOLD — accent / heritage / highlight — §2.1 ── */
+  --gold-50:  #FBF5E8;
+  --gold-100: #F4E5BD;
+  --gold-200: #ECD18C;
+  --gold-300: #E2BC5C;
+  --gold-400: #D4A445;
+  --gold-500: #B8862C;
+  --gold-600: #8E6620;
+  --gold-700: #674916;
+  --gold-800: #432F0D;
+  --gold-900: #221706;
 
-  /* ── Text ── */
-  --text-primary:       #0F1A2E;
-  --text-secondary:     #4A5568;
-  --text-tertiary:      #8B95A5;
-  --text-on-brand:      #FFFFFF;
-  --text-link:          #2D5BA0;
+  /* ── TERRACOTTA — critical / restricted / secrecy — §2.1 ── */
+  --terra-50:  #FDF0EB;
+  --terra-100: #F8D6CC;
+  --terra-200: #F1B19F;
+  --terra-300: #E68870;
+  --terra-400: #D85F44;
+  --terra-500: #C8462C;
+  --terra-600: #A53620;
+  --terra-700: #7B2718;
+  --terra-800: #501810;
+  --terra-900: #280B07;
 
-  /* ── Semantic ── */
-  --success:            #1A8754;
-  --success-bg:         #D7F0E1;
-  --warning:            #B8770A;
-  --warning-bg:         #FBE9CC;
-  --danger:             #B82C2C;
-  --danger-bg:          #FBD6D6;
-  --info:               #2D5BA0;
-  --info-bg:            #DDE7F2;
-  --neutral:            #6B7280;
-  --neutral-bg:         #E5E7EB;
+  /* ── SEMANTIC ── */
+  --success:    #2D7A4A;
+  --success-bg: #E8F3EC;
+  --warning:    var(--gold-500);
+  --warning-bg: var(--gold-50);
+  --danger:     var(--terra-500);
+  --danger-bg:  var(--terra-50);
+  --info:       var(--teal-500);
+  --info-bg:    var(--teal-50);
+  --neutral:    var(--ink-500);
+  --neutral-bg: var(--ink-100);
 
-  /* ── Borders ── */
-  --border-subtle:      #E2E8F0;
-  --border-default:     #CBD5E0;
-  --border-focus:       #2D5BA0;
+  /* ── SURFACES ── */
+  --surface-page:     var(--ink-50);
+  --surface-card:     #FFFFFF;
+  --surface-elevated: #FFFFFF;
+  --surface-sunken:   var(--ink-100);
+  --surface-overlay:  rgba(28, 25, 15, 0.55);
 
-  /* ── Radii ── */
-  --r-xs: 4px;
-  --r-sm: 6px;
-  --r-md: 10px;
-  --r-lg: 14px;
-  --r-xl: 20px;
-  --r-2xl: 28px;
-  --r-pill: 999px;
+  /* ── BORDERS ── */
+  --border-subtle:  rgba(28, 25, 15, 0.08);
+  --border-default: rgba(28, 25, 15, 0.14);
+  --border-strong:  rgba(28, 25, 15, 0.22);
+  --border-focus:   var(--teal-500);
 
-  /* ── Shadows (subtle, professional) ── */
-  --shadow-xs: 0 1px 2px rgba(15, 26, 46, 0.04);
-  --shadow-sm: 0 2px 4px rgba(15, 26, 46, 0.06), 0 1px 2px rgba(15, 26, 46, 0.04);
-  --shadow-md: 0 4px 12px rgba(15, 26, 46, 0.08), 0 2px 4px rgba(15, 26, 46, 0.04);
-  --shadow-lg: 0 10px 28px rgba(15, 26, 46, 0.10), 0 4px 8px rgba(15, 26, 46, 0.04);
-  --shadow-brand: 0 8px 24px rgba(45, 91, 160, 0.18);
+  /* ── TEXT ── */
+  --text-primary:   var(--ink-900);
+  --text-secondary: var(--ink-500);
+  --text-tertiary:  var(--ink-400);
+  --text-inverse:   #FFFFFF;
+  --text-on-teal:   #FFFFFF;
+  --text-on-gold:   var(--ink-900);
+  --text-on-terra:  #FFFFFF;
+  --text-link:      var(--teal-600);
 
-  /* ── Spacing ── */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  --sp-5: 20px;
-  --sp-6: 24px;
-  --sp-8: 32px;
-  --sp-10: 40px;
-  --sp-12: 48px;
-  --sp-16: 64px;
+  /* ── PER-APP ACCENT (overridden by [data-app="..."] in apps.css) ── */
+  --accent-50:  var(--teal-50);
+  --accent-500: var(--teal-500);
+  --accent-600: var(--teal-600);
+  --accent-700: var(--teal-700);
 
-  /* ── Typography ── */
-  --font-ar: 'Noto Sans Arabic', 'IBM Plex Sans Arabic', system-ui, sans-serif;
-  --font-en: 'Inter', system-ui, sans-serif;
-  --font-mono: 'SF Mono', Menlo, Consolas, monospace;
+  /* ── TYPOGRAPHY — §2.3 ── */
+  --font-ar:         'IBM Plex Sans Arabic', 'Noto Sans Arabic', system-ui, sans-serif;
+  --font-ar-display: 'Tajawal', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-en:         'Inter', system-ui, sans-serif;
+  --font-mono:       'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  --font-numeric:    'Inter', sans-serif;
 
-  --fs-xs: 11px;
-  --fs-sm: 13px;
-  --fs-base: 14px;
-  --fs-md: 15px;
-  --fs-lg: 17px;
-  --fs-xl: 20px;
-  --fs-2xl: 24px;
-  --fs-3xl: 30px;
-  --fs-4xl: 38px;
-  --fs-5xl: 48px;
+  /* font-size scale (modular, ratio 1.200) */
+  --text-2xs: 11px;
+  --text-xs:  12px;
+  --text-sm:  13px;
+  --text-base: 15px;
+  --text-md:  17px;
+  --text-lg:  20px;
+  --text-xl:  24px;
+  --text-2xl: 30px;
+  --text-3xl: 38px;
+  --text-4xl: 48px;
 
-  /* ── Animation ── */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --dur-fast: 150ms;
-  --dur-normal: 250ms;
-  --dur-slow: 400ms;
+  /* weights — only three, ever */
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-bold:    700;
 
-  /* ── Layout ── */
+  /* tracking */
+  --tracking-tight:  -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-arabic: 0;
+
+  /* leading */
+  --leading-tight:   1.25;
+  --leading-snug:    1.4;
+  --leading-normal:  1.6;
+  --leading-relaxed: 1.75;
+
+  /* ── SPACING — 4px base — §2.4 ── */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+  --space-11: 80px;
+  --space-12: 96px;
+
+  /* ── RADII — §2.5 ── */
+  --radius-none: 0;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   10px;
+  --radius-xl:   14px;
+  --radius-2xl:  20px;
+  --radius-pill: 999px;
+
+  /* ── SHADOWS — §2.6 ── */
+  --shadow-none: none;
+  --shadow-xs:   0 1px 2px rgba(28, 25, 15, 0.04);
+  --shadow-sm:   0 1px 3px rgba(28, 25, 15, 0.06), 0 1px 2px rgba(28, 25, 15, 0.04);
+  --shadow-md:   0 4px 8px rgba(28, 25, 15, 0.06), 0 2px 4px rgba(28, 25, 15, 0.04);
+  --shadow-lg:   0 12px 24px rgba(28, 25, 15, 0.08), 0 4px 8px rgba(28, 25, 15, 0.04);
+  --shadow-xl:   0 24px 48px rgba(28, 25, 15, 0.12);
+  --shadow-focus-teal:  0 0 0 3px rgba(26, 104, 104, 0.18);
+  --shadow-focus-terra: 0 0 0 3px rgba(200, 70, 44, 0.18);
+  --shadow-focus-gold:  0 0 0 3px rgba(212, 164, 69, 0.24);
+
+  /* ── MOTION — §2.7 ── */
+  --duration-instant: 80ms;
+  --duration-fast:    120ms;
+  --duration-base:    180ms;
+  --duration-slow:    240ms;
+  --duration-slower:  320ms;
+
+  --ease-standard:    cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized:  cubic-bezier(0.3, 0, 0, 1);
+  --ease-decelerate:  cubic-bezier(0, 0, 0, 1);
+  --ease-accelerate:  cubic-bezier(0.3, 0, 1, 1);
+
+  /* ── Z-INDEX — §2.8 ── */
+  --z-base:            0;
+  --z-raised:          10;
+  --z-sticky:          100;
+  --z-dropdown:        200;
+  --z-modal-backdrop:  900;
+  --z-modal:           1000;
+  --z-toast:           1100;
+  --z-tooltip:         1200;
+
+  /* ── LAYOUT ── */
   --header-h: 64px;
-  --sidebar-w: 264px;
-  --sidebar-w-collapsed: 72px;
+  --sidebar-w: 256px;
+  --sidebar-w-collapsed: 64px;
   --max-content: 1440px;
-}
+  --khayameya-h: 3px;
 
-/* Per-app accent colors (for variety across the 9 systems) */
-[data-app="admin"]          { --app-accent: #2D5BA0; --app-accent-bg: #DDE7F2; }
-[data-app="applicant"]      { --app-accent: #1A8754; --app-accent-bg: #D7F0E1; }
-[data-app="committee"]      { --app-accent: #6B46C1; --app-accent-bg: #E5DEF5; }
-[data-app="board"]          { --app-accent: #B8770A; --app-accent-bg: #FBE9CC; }
-[data-app="investigations"] { --app-accent: #B82C2C; --app-accent-bg: #FBD6D6; }
-[data-app="medical"]        { --app-accent: #0E8E8E; --app-accent-bg: #C8EBEB; }
-[data-app="barcode"]        { --app-accent: #4A5568; --app-accent-bg: #E5E7EB; }
-[data-app="biometric"]      { --app-accent: #C9501E; --app-accent-bg: #FAD9C7; }
-[data-app="exams"]          { --app-accent: #7C2D8E; --app-accent-bg: #EBD8F0; }
+  /* ───────────────────────────────────────────────────────────────
+     LEGACY COMPATIBILITY ALIASES
+     The names below were used by the original demo/components.css
+     mapping. They alias to the new ramps so legacy class selectors
+     in apps.css/layout.css continue to render without restyling.
+     Targeted for removal in Sprint 9 once all components are refactored.
+     ─────────────────────────────────────────────────────────────── */
+  --brand-primary:      var(--teal-500);
+  --brand-primary-700:  var(--teal-700);
+  --brand-primary-600:  var(--teal-600);
+  --brand-primary-500:  var(--teal-500);
+  --brand-primary-400:  var(--teal-400);
+  --brand-primary-300:  var(--teal-300);
+  --brand-primary-200:  var(--teal-200);
+  --brand-primary-100:  var(--teal-100);
+  --brand-primary-50:   var(--teal-50);
+  --brand-accent:       var(--gold-400);
+  --brand-accent-600:   var(--gold-500);
+  --brand-accent-200:   var(--gold-200);
+  --brand-accent-100:   var(--gold-100);
+  --brand-accent-50:    var(--gold-50);
+  --surface-muted:      var(--ink-100);
+  --text-on-brand:      var(--text-on-teal);
+  /* Legacy radius / spacing / font-size aliases */
+  --r-xs:  var(--radius-sm);
+  --r-sm:  var(--radius-sm);
+  --r-md:  var(--radius-md);
+  --r-lg:  var(--radius-lg);
+  --r-xl:  var(--radius-xl);
+  --r-2xl: var(--radius-2xl);
+  --r-pill: var(--radius-pill);
+  --sp-1:  var(--space-1);
+  --sp-2:  var(--space-2);
+  --sp-3:  var(--space-3);
+  --sp-4:  var(--space-4);
+  --sp-5:  var(--space-5);
+  --sp-6:  var(--space-6);
+  --sp-8:  var(--space-7);
+  --sp-10: var(--space-8);
+  --sp-12: var(--space-9);
+  --sp-16: var(--space-10);
+  --fs-xs:  var(--text-xs);
+  --fs-sm:  var(--text-sm);
+  --fs-base: var(--text-base);
+  --fs-md:  var(--text-md);
+  --fs-lg:  var(--text-lg);
+  --fs-xl:  var(--text-xl);
+  --fs-2xl: var(--text-2xl);
+  --fs-3xl: var(--text-3xl);
+  --fs-4xl: var(--text-4xl);
+  --fs-5xl: var(--text-4xl);
+  --ease-out:    var(--ease-standard);
+  --ease-spring: var(--ease-emphasized);
+  --dur-fast:    var(--duration-fast);
+  --dur-normal:  var(--duration-base);
+  --dur-slow:    var(--duration-slow);
+  --shadow-brand: var(--shadow-md);
+  --app-accent:    var(--accent-500);
+  --app-accent-bg: var(--accent-50);
+}
