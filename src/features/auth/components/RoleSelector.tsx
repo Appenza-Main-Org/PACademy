@@ -1,21 +1,40 @@
+/**
+ * RoleSelector — role picker for the demo login (per Tasks/PROMPT_2 §C).
+ *
+ * Uses lucide icons instead of emoji to honour DESIGN_SYSTEM.md §11
+ * ("emoji in production UI" prohibition). Each role gets the per-app
+ * accent of its primary app via inline style.
+ */
+
+import {
+  ClipboardList,
+  GraduationCap,
+  Scale,
+  ScrollText,
+  Search,
+  ShieldCheck,
+  Stethoscope,
+  UserCog,
+} from 'lucide-react';
+import type { ElementType } from 'react';
 import { cn } from '@/shared/lib/cn';
 import type { Role } from '../rbac';
 
 interface RoleOption {
   key: Role;
-  icon: string;
+  Icon: ElementType;
   label: string;
 }
 
-const ROLE_OPTIONS: RoleOption[] = [
-  { key: 'super_admin',     icon: '👤', label: 'مدير النظام' },
-  { key: 'committee_admin', icon: '📋', label: 'مدير لجنة' },
-  { key: 'medical_admin',   icon: '🩺', label: 'القومسيون الطبي' },
-  { key: 'investigator',    icon: '🔍', label: 'إدارة التحريات' },
-  { key: 'board_admin',     icon: '⚖️', label: 'الهيئة' },
-  { key: 'exams_admin',     icon: '📝', label: 'الاختبارات' },
-  { key: 'biometric_user',  icon: '🛡️', label: 'بوابة الأمن' },
-  { key: 'applicant',       icon: '🎓', label: 'متقدم' },
+const ROLE_OPTIONS: readonly RoleOption[] = [
+  { key: 'super_admin',     Icon: UserCog,        label: 'مدير النظام' },
+  { key: 'committee_admin', Icon: ClipboardList,  label: 'مدير لجنة' },
+  { key: 'medical_admin',   Icon: Stethoscope,    label: 'القومسيون الطبي' },
+  { key: 'investigator',    Icon: Search,         label: 'إدارة التحريات' },
+  { key: 'board_admin',     Icon: Scale,          label: 'الهيئة' },
+  { key: 'exams_admin',     Icon: ScrollText,     label: 'الاختبارات' },
+  { key: 'biometric_user',  Icon: ShieldCheck,    label: 'بوابة الأمن' },
+  { key: 'applicant',       Icon: GraduationCap,  label: 'متقدم' },
 ];
 
 interface RoleSelectorProps {
@@ -25,19 +44,29 @@ interface RoleSelectorProps {
 
 export function RoleSelector({ value, onChange }: RoleSelectorProps): JSX.Element {
   return (
-    <div className="login-roles">
-      {ROLE_OPTIONS.map((r) => (
-        <button
-          key={r.key}
-          type="button"
-          className={cn('login-role', value === r.key && 'selected')}
-          onClick={() => onChange(r.key)}
-          aria-pressed={value === r.key}
-        >
-          <div className="login-role-icon">{r.icon}</div>
-          <div className="login-role-label">{r.label}</div>
-        </button>
-      ))}
+    <div role="radiogroup" aria-label="الدور الوظيفي" className="grid grid-cols-2 gap-2">
+      {ROLE_OPTIONS.map(({ key, Icon, label }) => {
+        const selected = value === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(key)}
+            className={cn(
+              'flex flex-col items-center gap-1 rounded-md border bg-surface-card px-3 py-3 text-center text-xs font-medium transition-colors duration-fast ease-standard',
+              'focus-visible:shadow-focus-teal focus-visible:outline-none',
+              selected
+                ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-focus-teal'
+                : 'border-border-default text-ink-700 hover:border-border-strong hover:bg-ink-50',
+            )}
+          >
+            <Icon size={20} strokeWidth={1.75} />
+            <span>{label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

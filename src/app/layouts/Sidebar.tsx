@@ -1,3 +1,12 @@
+/**
+ * Sidebar — feature navigation.
+ * Source: Tasks/DESIGN_SYSTEM.md §4.14.
+ *
+ * 256px expanded, 64px collapsed (collapse handled by parent class). Active
+ * item: 3px start-edge accent + bg accent-50 + text accent-600. Hover bg ink-50.
+ * Section labels in 11px tracking-wide uppercase ink-500.
+ */
+
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/shared/lib/cn';
@@ -22,22 +31,52 @@ interface SidebarProps {
 
 export function Sidebar({ sections }: SidebarProps): JSX.Element {
   return (
-    <aside className="sidebar" aria-label="القائمة الجانبية">
+    <aside
+      aria-label="القائمة الجانبية"
+      className="sticky top-16 hidden h-[calc(100vh-67px)] w-64 flex-shrink-0 overflow-y-auto border-s border-border-subtle bg-surface-card px-3 py-4 md:block"
+    >
       {sections.map((section, i) => (
-        <div className="sidebar-section" key={section.label ?? `s-${i}`}>
-          {section.label && <div className="sidebar-label">{section.label}</div>}
-          {section.items.map((item) => (
-            <NavLink
-              key={item.key}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => cn('nav-item', isActive && 'active')}
-            >
-              <span className="nav-item-icon">{item.icon}</span>
-              <span className="nav-item-label">{item.label}</span>
-              {item.badge !== undefined && <span className="nav-item-badge">{item.badge}</span>}
-            </NavLink>
-          ))}
+        <div className="mb-6" key={section.label ?? `s-${i}`}>
+          {section.label && (
+            <p className="mb-1 px-3 py-1 text-2xs font-medium uppercase tracking-wide text-ink-500">
+              {section.label}
+            </p>
+          )}
+          <nav className="flex flex-col gap-0.5">
+            {section.items.map((item) => (
+              <NavLink
+                key={item.key}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  cn(
+                    'relative flex h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors duration-fast ease-standard',
+                    'text-ink-700 hover:bg-ink-50',
+                    'focus-visible:shadow-focus-teal focus-visible:outline-none',
+                    isActive && [
+                      'font-medium',
+                      'bg-[var(--accent-50)]',
+                      'text-[var(--accent-600)]',
+                      'before:absolute before:inset-y-1 before:start-0 before:w-0.5 before:rounded-pill before:bg-[var(--accent-500)]',
+                    ],
+                  )
+                }
+              >
+                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center text-current">
+                  {item.icon}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                {item.badge !== undefined && (
+                  <span
+                    className="rounded-pill px-2 py-0.5 text-2xs font-bold font-numeric tnum text-white"
+                    style={{ background: 'var(--accent-500)' }}
+                  >
+                    {item.badge}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </nav>
         </div>
       ))}
     </aside>

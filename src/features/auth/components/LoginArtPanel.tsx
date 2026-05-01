@@ -1,42 +1,78 @@
-import { Shield } from 'lucide-react';
+/**
+ * LoginArtPanel — left-side branded panel.
+ * Source: Tasks/DESIGN_SYSTEM.md §1 + Sprint 0 Part C.
+ *
+ * Calm, institutional, distinctly Egyptian: gold-foil-style header accent,
+ * tessellation watermark behind the form (rendered by PublicShell), three
+ * stat cards with Latin tabular figures, ministry attribution.
+ */
+
+import { KhayameyaStripe, Pattern } from '@/shared/components';
+import { IconSeal } from '@/shared/components/icons';
 
 export function LoginArtPanel(): JSX.Element {
   return (
-    <div className="login-art">
-      <div className="login-art-brand">
-        <div className="brand-logo">
-          <Shield size={18} strokeWidth={2.2} />
-        </div>
-        <div className="brand-text">
-          <span>منظومة القبول</span>
-          <span>أكاديمية الشرطة</span>
-        </div>
+    <aside
+      className="relative flex h-full min-h-screen flex-col justify-between overflow-hidden p-12 text-white"
+      style={{
+        background:
+          'linear-gradient(135deg, var(--teal-700) 0%, var(--teal-500) 60%, var(--teal-600) 100%)',
+      }}
+    >
+      <Pattern variant="tessellation-8" tile={96} opacity={0.08} color="var(--gold-300)" />
+      <div className="absolute inset-x-0 top-0">
+        <KhayameyaStripe height="md" />
       </div>
 
-      <div className="login-art-content">
-        <h1>التحول الرقمي الكامل لإجراءات القبول والاختبارات</h1>
-        <p>
-          منظومة معلوماتية متكاملة تربط ٩ تطبيقات على مستوى الإنترنت والشبكة الداخلية،
+      <header className="relative flex items-center gap-3">
+        <span
+          aria-hidden
+          className="inline-flex h-12 w-12 items-center justify-center rounded-md"
+          style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)' }}
+        >
+          <IconSeal width={26} height={26} color="var(--gold-300)" />
+        </span>
+        <div className="leading-tight">
+          <p className="font-ar-display text-md font-bold">منظومة القبول</p>
+          <p className="text-2xs text-white/70">أكاديمية الشرطة</p>
+        </div>
+      </header>
+
+      <div className="relative">
+        <p className="mb-3 inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1 text-2xs font-medium text-gold-300">
+          وزارة الداخلية · أكاديمية الشرطة
+        </p>
+        <h1 className="font-ar-display text-3xl font-bold leading-tight">
+          التحول الرقمي الكامل لإجراءات القبول والاختبارات
+        </h1>
+        <p className="mt-3 max-w-md text-sm leading-relaxed text-white/80">
+          منظومة معلوماتية متكاملة تربط تسعة تطبيقات على مستوى الإنترنت والشبكة الداخلية،
           بمستوى أمان وتشفير معتمد، لإدارة كامل دورة المتقدم بدقة وشفافية.
         </p>
-
-        <div className="login-art-stats">
-          <div>
-            <div className="login-art-stat-value">9</div>
-            <div className="login-art-stat-label">تطبيقات مترابطة</div>
-          </div>
-          <div>
-            <div className="login-art-stat-value">12K+</div>
-            <div className="login-art-stat-label">متقدم سنوياً</div>
-          </div>
-          <div>
-            <div className="login-art-stat-value">100%</div>
-            <div className="login-art-stat-label">رقمنة الإجراءات</div>
-          </div>
-        </div>
+        <dl className="mt-7 grid grid-cols-3 gap-4">
+          <Stat value="9" label="تطبيقات مترابطة" />
+          <Stat value="12K+" label="متقدم سنوياً" />
+          <Stat value="100%" label="رقمنة الإجراءات" />
+        </dl>
       </div>
 
-      <div className="login-art-foot">© 2026 وزارة الداخلية · أكاديمية الشرطة · جميع الحقوق محفوظة</div>
+      <footer className="relative text-2xs text-white/55">
+        © 2026 وزارة الداخلية · أكاديمية الشرطة · جميع الحقوق محفوظة
+      </footer>
+    </aside>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }): JSX.Element {
+  return (
+    <div>
+      <dt
+        className="font-numeric tnum text-2xl font-bold text-gold-300"
+        style={{ fontFeatureSettings: '"tnum"' }}
+      >
+        <span dir="ltr">{value}</span>
+      </dt>
+      <dd className="mt-0.5 text-2xs text-white/65">{label}</dd>
     </div>
   );
 }
