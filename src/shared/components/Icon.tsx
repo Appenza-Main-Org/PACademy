@@ -1,6 +1,9 @@
 /**
- * Icon — wrapper around lucide-react icons with sensible defaults.
- * Always renders 18px stroke-width 2 to match the demo's visual weight.
+ * Icon — thin wrapper around lucide-react icons with Heritage Modern defaults.
+ * Source: Tasks/DESIGN_SYSTEM.md §5.
+ *
+ * Default stroke-width 1.75 (per §5 — slightly chunkier than lucide's 2 reads
+ * better at small sizes against cream).
  */
 
 import type { LucideIcon, LucideProps } from 'lucide-react';
@@ -11,7 +14,7 @@ interface IconProps extends LucideProps {
 }
 
 export const Icon = forwardRef<SVGSVGElement, IconProps>(
-  ({ icon: LucideIconCmp, size = 18, strokeWidth = 2, ...rest }, ref) => (
+  ({ icon: LucideIconCmp, size = 18, strokeWidth = 1.75, ...rest }, ref) => (
     <LucideIconCmp ref={ref} size={size} strokeWidth={strokeWidth} {...rest} />
   ),
 );

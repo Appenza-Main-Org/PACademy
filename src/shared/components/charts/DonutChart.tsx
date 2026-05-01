@@ -1,8 +1,13 @@
 /**
- * Inline-SVG donut chart with center text + legend. Port of legacy charts.js.
+ * DonutChart — inline-SVG donut with center total + legend.
+ * Source: Tasks/DESIGN_SYSTEM.md §4.13.
+ *
+ * Re-skinned for Arabic Heritage Modern: heritage palette (teal/gold/terra/ink),
+ * tabular figures for the center total, animation respects reduced motion.
  */
 
 import { num } from '@/shared/lib/format';
+import { prefersReducedMotion } from '@/shared/lib/motion';
 
 interface DonutSlice {
   label: string;
@@ -14,19 +19,37 @@ interface DonutChartProps {
   data: readonly DonutSlice[];
   size?: number;
   centerLabel?: string;
+  ariaLabel?: string;
 }
 
-const PALETTE = ['#1B3A6B', '#C9A961', '#1A8754', '#B8770A', '#2D5BA0', '#7C2D8E', '#0E8E8E', '#C9501E', '#4A5568'];
+const PALETTE = [
+  'var(--teal-500)',
+  'var(--gold-500)',
+  'var(--terra-500)',
+  'var(--ink-700)',
+  'var(--teal-300)',
+  'var(--gold-300)',
+  'var(--terra-300)',
+  'var(--ink-400)',
+  'var(--teal-700)',
+];
 
-export function DonutChart({ data, size = 220, centerLabel }: DonutChartProps): JSX.Element {
+export function DonutChart({
+  data,
+  size = 220,
+  centerLabel,
+  ariaLabel = 'مخطط دائري',
+}: DonutChartProps): JSX.Element {
   const total = data.reduce((s, d) => s + d.value, 0);
-  if (total <= 0) return <div className="empty">لا توجد بيانات للعرض</div>;
-
+  if (total <= 0) {
+    return <p className="px-4 py-9 text-center text-sm text-ink-500">لا توجد بيانات للعرض</p>;
+  }
   const cx = size / 2;
   const cy = size / 2;
   const r = size / 2 - 12;
   const inner = r * 0.62;
   let cumulative = 0;
+  const animate = !prefersReducedMotion();
   const slices = data.map((d, i) => {
     const fraction = d.value / total;
     const startAngle = cumulative * Math.PI * 2;
@@ -46,26 +69,52 @@ export function DonutChart({ data, size = 220, centerLabel }: DonutChartProps): 
   });
 
   return (
-    <div className="flex items-center gap-6 flex-wrap">
-      <svg viewBox={`0 0 ${size} ${size}`} role="img" aria-label="donut chart" style={{ width: size, height: size, flexShrink: 0 }}>
+    <div className="flex flex-wrap items-center gap-6">
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        role="img"
+        aria-label={ariaLabel}
+        style={{ width: size, height: size, flexShrink: 0 }}
+      >
         {slices.map((s, i) => (
           <path key={i} d={s.path} fill={s.color}>
-            <animate attributeName="opacity" from={0} to={1} dur="0.5s" fill="freeze" />
+            {animate && (
+              <animate
+                attributeName="opacity"
+                from={0}
+                to={1}
+                dur="0.4s"
+                begin={`${i * 0.05}s`}
+                fill="freeze"
+              />
+            )}
           </path>
         ))}
-        <text x={cx} y={cy - 2} textAnchor="middle" fontSize={20} fontFamily="Inter" fontWeight={700} fill="#0F1A2E">
+        <text
+          x={cx}
+          y={cy - 2}
+          textAnchor="middle"
+          fontSize={20}
+          fontFamily="Inter"
+          fontWeight={700}
+          style={{ fontFeatureSettings: '"tnum"' }}
+          fill="var(--ink-900)"
+        >
           {num(total)}
         </text>
-        <text x={cx} y={cy + 18} textAnchor="middle" fontSize={11} fill="#8B95A5">
+        <text x={cx} y={cy + 18} textAnchor="middle" fontSize={11} fill="var(--ink-500)">
           {centerLabel ?? 'الإجمالي'}
         </text>
       </svg>
-      <ul className="flex flex-col gap-2 flex-1" style={{ minWidth: 160 }}>
+      <ul className="flex flex-1 flex-col gap-2" style={{ minWidth: 160 }}>
         {slices.map((s, i) => (
           <li key={i} className="flex items-center gap-3 text-sm">
-            <span style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-            <span className="flex-1 text-secondary">{s.label}</span>
-            <span className="font-semibold">{num(s.value)}</span>
+            <span
+              aria-hidden
+              style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }}
+            />
+            <span className="flex-1 text-ink-500">{s.label}</span>
+            <span className="font-medium font-numeric tnum">{num(s.value)}</span>
           </li>
         ))}
       </ul>

@@ -1,15 +1,65 @@
+/**
+ * Public component barrel — Tasks/DESIGN_SYSTEM.md §10.
+ * Named exports only; consumers never deep-import.
+ */
+
 export { Avatar } from './Avatar';
 export { Badge } from './Badge';
+export type { BadgeTone } from './Badge';
 export { Button } from './Button';
 export { Card, CardBody, CardFooter, CardHeader } from './Card';
+export type { CardVariant } from './Card';
+export { Combobox } from './Combobox';
+export type { ComboboxOption } from './Combobox';
+export { CornerFlourish } from './CornerFlourish';
+export type { Corner } from './CornerFlourish';
+export { DataTable } from './DataTable';
+export type {
+  DataTableColumn,
+  DataTableDensity,
+  DataTablePagination,
+  DataTableSelectionMode,
+  DataTableSort,
+} from './DataTable';
+export { DatePicker, ARABIC_MONTHS, ARABIC_WEEKDAYS_SAT_FIRST, CalendarGrid } from './DatePicker';
+export { DateRangePicker } from './DateRangePicker';
+export type { DateRange } from './DateRangePicker';
+export { Drawer } from './Drawer';
+export type { DrawerSize } from './Drawer';
 export { EmptyState } from './EmptyState';
+export type { EmptyVariant } from './EmptyState';
+export { ErrorState } from './ErrorState';
+export { FileUpload } from './FileUpload';
+export type { UploadFile, UploadStatus } from './FileUpload';
 export { Icon } from './Icon';
-export { Input } from './Input';
+export { Input, Textarea } from './Input';
+export { KhayameyaStripe } from './KhayameyaStripe';
+export type { KhayameyaHeight } from './KhayameyaStripe';
+export { LoadingState } from './LoadingState';
+export type { LoadingVariant } from './LoadingState';
+export { Modal } from './Modal';
+export type { ModalSize } from './Modal';
+export { MultiSelect } from './MultiSelect';
 export { PageHeader } from './PageHeader';
+export { Pattern } from './Pattern';
+export type { PatternVariant } from './Pattern';
+export { PrintLayout } from './PrintLayout';
 export { Select } from './Select';
 export { Skeleton, SkeletonRow } from './Skeleton';
 export { StageStepper } from './StageStepper';
+export type { StageDescriptor, StageState } from './StageStepper';
 export { StatCard } from './StatCard';
-export { InvestigationBadge, PaymentBadge, ResultBadge, StatusBadge } from './StatusBadge';
+export {
+  InvestigationBadge,
+  PaymentBadge,
+  ResultBadge,
+  StatusBadge,
+  SuspendedBadge,
+} from './StatusBadge';
 export { ToastViewport, toast } from './Toast';
+export type { ToastKind } from './Toast';
+export { Wizard } from './Wizard';
+export type { WizardStep, WizardStepState } from './Wizard';
+
 export * from './charts';
+export * from './icons';

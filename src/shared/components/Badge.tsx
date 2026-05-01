@@ -1,16 +1,72 @@
-import type { HTMLAttributes } from 'react';
+/**
+ * Badge — small label / pill.
+ * Source: Tasks/DESIGN_SYSTEM.md §4.5.
+ *
+ * Tones map onto the design system's semantic ramps:
+ *   success → success ramp · warning → gold · danger → terra · info → teal
+ *   neutral → ink · brand → teal · accent → per-app accent.
+ *
+ * Use a `dot` for "live" statuses (in-review, pending). Terminal states have
+ * no dot. Width: pill, padding 2px 10px, 11px medium.
+ */
+
+import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/shared/lib/cn';
 
-type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'brand' | 'accent';
+export type BadgeTone =
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info'
+  | 'neutral'
+  | 'brand'
+  | 'accent';
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  tone?: Tone;
+  tone?: BadgeTone;
+  /** Render a live indicator dot at the start. */
   dot?: boolean;
+  /** Optional icon at the start. */
+  icon?: ReactNode;
 }
 
-export function Badge({ tone = 'neutral', dot, className, children, ...rest }: BadgeProps): JSX.Element {
+const TONE_CLASS: Record<BadgeTone, string> = {
+  success:  'bg-success-bg text-success',
+  warning:  'bg-gold-50 text-gold-700',
+  danger:   'bg-terra-50 text-terra-700',
+  info:     'bg-teal-50 text-teal-700',
+  neutral:  'bg-ink-100 text-ink-700',
+  brand:    'bg-teal-50 text-teal-700',
+  accent:   'text-white',
+};
+
+export function Badge({
+  tone = 'neutral',
+  dot,
+  icon,
+  className,
+  children,
+  style,
+  ...rest
+}: BadgeProps): JSX.Element {
   return (
-    <span className={cn('badge', `badge-${tone}`, dot && 'badge-dot', className)} {...rest}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-2xs font-medium whitespace-nowrap',
+        TONE_CLASS[tone],
+        className,
+      )}
+      style={tone === 'accent' ? { background: 'var(--accent-500)', ...style } : style}
+      {...rest}
+    >
+      {dot && (
+        <span
+          aria-hidden
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ background: 'currentColor' }}
+        />
+      )}
+      {icon}
       {children}
     </span>
   );
