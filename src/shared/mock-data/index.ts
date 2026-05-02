@@ -30,6 +30,23 @@ import type {
 import { REFERENCE_DATA } from './referenceData';
 import { ADMISSION_CYCLES, ADMISSION_RULES } from './admissionCycles';
 import { EXAM_SLOTS, SAMPLE_DRAFT } from './applicantPortal';
+import {
+  BANK_QUESTIONS,
+  BARCODES,
+  BARCODE_SCANS,
+  BIOMETRIC_ENROLLMENTS,
+  BIOMETRIC_VERIFICATIONS,
+  BOARD_DECISIONS,
+  BOARD_MEMBERS,
+  BOARD_SESSIONS,
+  COMMITTEE_RESULTS,
+  EXAM_ATTEMPTS,
+  EXAM_CONFIGS,
+  INVESTIGATION_CASES,
+  MEDICAL_RESULTS,
+  NOTIFICATIONS,
+  OUTGOING_LETTERS,
+} from './sprint3to9';
 
 reseed(42);
 
@@ -251,4 +268,20 @@ export const MOCK = {
   /* Sprint 2 additions */
   examSlots: EXAM_SLOTS,
   sampleApplicantDraft: SAMPLE_DRAFT,
+  /* Sprints 3-9 additions */
+  committeeResults: COMMITTEE_RESULTS,
+  medicalResults: MEDICAL_RESULTS,
+  investigationCases: INVESTIGATION_CASES,
+  outgoingLetters: OUTGOING_LETTERS,
+  boardMembers: BOARD_MEMBERS,
+  boardSessions: BOARD_SESSIONS,
+  boardDecisions: BOARD_DECISIONS,
+  bankQuestions: BANK_QUESTIONS,
+  examConfigs: EXAM_CONFIGS,
+  examAttempts: EXAM_ATTEMPTS,
+  biometricEnrollments: BIOMETRIC_ENROLLMENTS,
+  biometricVerifications: BIOMETRIC_VERIFICATIONS,
+  barcodes: BARCODES,
+  barcodeScans: BARCODE_SCANS,
+  notifications: NOTIFICATIONS,
 };

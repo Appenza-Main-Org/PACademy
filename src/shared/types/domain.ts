@@ -388,3 +388,212 @@ export interface PaymentTransaction {
   initiatedAt: number;
   paidAt?: number;
 }
+
+/* ── Two-phase results pattern (committees + medical + exams) ────────── */
+
+export type ResultPhase = 'preliminary' | 'final' | 'rejected';
+
+/* ── Committees — Sprint 3 (KARASA §3) ──────────────────────────────── */
+
+export type CommitteeType = 'capacities' | 'traits' | 'sports' | 'interview';
+
+export interface CommitteeResult {
+  id: string;
+  committeeId: string;
+  applicantId: string;
+  applicantName: string;
+  enteredBy: string;
+  enteredAt: number;
+  approvedBy?: string;
+  approvedAt?: number;
+  phase: ResultPhase;
+  rejectionReason?: string;
+  scores: Record<string, number>;
+  passFail: 'pass' | 'fail';
+  notes?: string;
+}
+
+/* ── Medical — Sprint 4 (KARASA §6) ─────────────────────────────────── */
+
+export type MedicalStationKey =
+  | 'eye'
+  | 'ent'
+  | 'internal'
+  | 'orthopedic'
+  | 'neuro'
+  | 'psychology'
+  | 'surgery'
+  | 'bmi';
+export type MedicalVerdict = 'pass' | 'conditional' | 'fail';
+
+export interface MedicalExamResult {
+  id: string;
+  applicantId: string;
+  applicantName: string;
+  station: MedicalStationKey;
+  doctor: string;
+  enteredAt: number;
+  phase: ResultPhase;
+  verdict: MedicalVerdict;
+  fields: Record<string, string | number | boolean>;
+  notes?: string;
+}
+
+/* ── Investigations — Sprint 5 (KARASA §5) ─────────────────────────── */
+
+export type CaseStatus = 'open' | 'in-review' | 'pass' | 'fail' | 'defer-conditional';
+export type CasePriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface InvestigationCase {
+  id: string;
+  applicantId: string;
+  applicantName: string;
+  caseType: 'committee-A' | 'committee-C' | 'data-review';
+  assignedTo: string;
+  priority: CasePriority;
+  dueDate: string;
+  openedAt: number;
+  status: CaseStatus;
+  conclusion?: string;
+}
+
+export interface OutgoingLetter {
+  id: string;
+  caseId?: string;
+  to: string;
+  subject: string;
+  template: string;
+  status: 'drafted' | 'sent' | 'acknowledged' | 'responded' | 'closed';
+  sentAt?: number;
+}
+
+/* ── Board — Sprint 6 (KARASA §4) ───────────────────────────────────── */
+
+export interface BoardMember {
+  id: string;
+  name: string;
+  rank: string;
+  role: 'chair' | 'secretary' | 'member';
+}
+
+export interface BoardSession {
+  id: string;
+  date: string;
+  time: string;
+  location: string;
+  agenda: string[];
+  attendees: string[];
+  applicantIds: string[];
+  status: 'scheduled' | 'live' | 'closed';
+}
+
+export interface BoardDecision {
+  id: string;
+  number: string;
+  date: string;
+  hijriDate: string;
+  sessionId: string;
+  applicantId: string;
+  outcome: 'accepted' | 'rejected' | 'deferred';
+  body: string;
+  signatures: string[];
+}
+
+/* ── Question Bank & e-Exams — Sprint 7 (KARASA §9) ────────────────── */
+
+export type QuestionType = 'mcq' | 'true-false' | 'ordering' | 'fill-in';
+export type QuestionStatus = 'draft' | 'review' | 'approved' | 'live';
+
+export interface BankQuestion {
+  id: string;
+  category: string;
+  difficulty: 1 | 2 | 3 | 4 | 5;
+  type: QuestionType;
+  text: string;
+  options: string[];
+  correctIndex: number;
+  timeLimitSeconds: number;
+  notes?: string;
+  status: QuestionStatus;
+  version: number;
+  imageUrl?: string;
+}
+
+export interface ExamConfig {
+  id: string;
+  nameAr: string;
+  cycleId: string;
+  scheduledFor: string;
+  rules: { category: string; difficultyMin: number; difficultyMax: number; count: number; minutes: number }[];
+  questionIds: string[];
+  status: 'draft' | 'published' | 'completed';
+}
+
+export interface ExamAttempt {
+  id: string;
+  examId: string;
+  applicantId: string;
+  startedAt: number;
+  submittedAt?: number;
+  answers: Record<string, number>;
+  flagged: string[];
+  score?: number;
+  passFail?: 'pass' | 'fail';
+}
+
+/* ── Biometric — Sprint 8 (KARASA §8) ──────────────────────────────── */
+
+export interface BiometricEnrollment {
+  id: string;
+  applicantId: string;
+  enrolledAt: number;
+  faceCaptured: boolean;
+  fingerprintCaptured: boolean;
+  livenessConfirmed: boolean;
+  templateRef: string;
+}
+
+export interface BiometricVerification {
+  id: string;
+  applicantId: string;
+  station: 'gate' | 'exam-room' | 'committee';
+  ts: number;
+  method: 'face' | 'fingerprint' | 'barcode';
+  match: boolean;
+  confidence?: number;
+  override?: { by: string; reason: string };
+}
+
+/* ── Barcode — Sprint 8 (KARASA §7) ─────────────────────────────────── */
+
+export interface BarcodeRecord {
+  applicantId: string;
+  code: string;
+  cycleId: string;
+  governorateCode: string;
+  issuedAt: number;
+  void: boolean;
+  voidReason?: string;
+}
+
+export interface BarcodeScan {
+  id: string;
+  ts: number;
+  scannedBy: string;
+  applicantId: string;
+  station: string;
+  action: 'attendance' | 'gate-in' | 'gate-out' | 'forward';
+}
+
+/* ── Cross-cutting — Sprint 9 (KARASA §10) ─────────────────────────── */
+
+export interface NotificationItem {
+  id: string;
+  ts: number;
+  recipientRole: string;
+  type: string;
+  title: string;
+  body: string;
+  read: boolean;
+  href?: string;
+}

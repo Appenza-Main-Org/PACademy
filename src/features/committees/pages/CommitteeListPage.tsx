@@ -1,44 +1,76 @@
-import { PageHeader, Card, Badge } from '@/shared/components';
-import { MOCK } from '@/shared/mock-data';
+/**
+ * CommitteeListPage — table of all committees with link to detail.
+ */
+
+import { Link } from 'react-router-dom';
+import { Plus } from 'lucide-react';
+import {
+  Badge,
+  Button,
+  Card,
+  DataTable,
+  EmptyState,
+  PageHeader,
+} from '@/shared/components';
+import type { DataTableColumn } from '@/shared/components';
+import { CenteredShell } from '@/app/layouts/CenteredShell';
+import { ROUTES } from '@/config/routes';
 import { num } from '@/shared/lib/format';
+import { useCommittees } from '../api/committee.queries';
+import type { Committee } from '@/shared/types/domain';
 
 export function CommitteeListPage(): JSX.Element {
+  const { data, isLoading } = useCommittees();
+
+  const columns: DataTableColumn<Committee>[] = [
+    {
+      key: 'name',
+      label: 'اللجنة',
+      render: (c) => (
+        <Link to={`${ROUTES.committee.overview}/${c.id}`} className="font-medium text-gold-700 hover:underline">
+          {c.name}
+        </Link>
+      ),
+    },
+    { key: 'head', label: 'رئيس اللجنة', render: (c) => c.head },
+    { key: 'members', label: 'الأعضاء', numeric: true, render: (c) => num(c.members) },
+    { key: 'applicants', label: 'المتقدمون', numeric: true, render: (c) => num(c.applicants) },
+    { key: 'completed', label: 'مُنجَز', numeric: true, render: (c) => num(c.completed) },
+    {
+      key: 'progress',
+      label: 'الإنجاز',
+      render: (c) => {
+        const pct = Math.round((c.completed / Math.max(1, c.applicants)) * 100);
+        const tone = pct >= 70 ? 'success' : pct >= 40 ? 'warning' : 'danger';
+        return <Badge tone={tone}>{pct}%</Badge>;
+      },
+    },
+  ];
+
   return (
-    <>
-      <PageHeader title="قائمة اللجان" subtitle="عرض تفصيلي لكل لجنة وأعضائها" />
+    <CenteredShell>
+      <PageHeader
+        title="قائمة اللجان"
+        subtitle="عرض تفصيلي لكل لجنة وأعضائها"
+        actions={
+          <Link to={`${ROUTES.committee.overview}/create`}>
+            <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
+              لجنة جديدة
+            </Button>
+          </Link>
+        }
+      />
+
       <Card>
-        <div className="table-wrap" style={{ borderRadius: 0, border: 'none' }}>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>اللجنة</th>
-                <th>المسؤول</th>
-                <th>عدد الأعضاء</th>
-                <th>المتقدمون</th>
-                <th>تم</th>
-                <th>الحالة</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK.committees.map((c) => {
-                const pct = Math.round((c.completed / c.applicants) * 100);
-                return (
-                  <tr key={c.id}>
-                    <td className="font-bold">{c.name}</td>
-                    <td>{c.head}</td>
-                    <td className="mono">{num(c.members)}</td>
-                    <td className="mono">{num(c.applicants)}</td>
-                    <td className="mono">{num(c.completed)}</td>
-                    <td>
-                      {pct >= 70 ? <Badge tone="success">{pct}% — اكتمال جيد</Badge> : pct >= 40 ? <Badge tone="warning">{pct}% — متوسط</Badge> : <Badge tone="danger">{pct}% — متأخر</Badge>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          data={data ?? []}
+          columns={columns}
+          rowKey={(c) => c.id}
+          loading={isLoading}
+          empty={<EmptyState variant="generic" title="لا توجد لجان" />}
+          zebraStripes
+        />
       </Card>
-    </>
+    </CenteredShell>
   );
 }

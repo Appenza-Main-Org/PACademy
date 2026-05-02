@@ -38,9 +38,11 @@ import {
   UsersPage,
 } from '@/features/admin';
 import {
+  CommitteeCreatePage,
+  CommitteeDetailPage,
   CommitteeLayout,
-  CommitteeOverviewPage,
   CommitteeListPage,
+  CommitteeOverviewPage,
   CommitteeSchedulePage,
 } from '@/features/committees';
 import { BoardLayout, BoardOverviewPage, BoardSessionsPage, BoardDecisionsPage } from '@/features/board';
@@ -105,6 +107,8 @@ export const routes: RouteObject[] = [
       { index: true, element: <CommitteeOverviewPage /> },
       { path: 'list', element: <CommitteeListPage /> },
       { path: 'schedule', element: <CommitteeSchedulePage /> },
+      { path: 'create', element: <CommitteeCreatePage /> },
+      { path: ':id', element: <CommitteeDetailPage /> },
     ],
   },
 
