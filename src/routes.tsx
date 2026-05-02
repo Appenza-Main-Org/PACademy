@@ -46,7 +46,16 @@ import {
   CommitteeSchedulePage,
 } from '@/features/committees';
 import { BoardLayout, BoardOverviewPage, BoardSessionsPage, BoardDecisionsPage } from '@/features/board';
-import { InvestigationsLayout, InvestigationsCasesPage, IncomingPage, OutgoingPage } from '@/features/investigations';
+import {
+  DistributionPage,
+  InvestigationCreatePage,
+  InvestigationDetailPage,
+  InvestigationsCasesPage,
+  InvestigationsLayout,
+  IncomingPage,
+  OutgoingLettersPage,
+  OutgoingPage,
+} from '@/features/investigations';
 import {
   MedicalCertificatePage,
   MedicalLayout,
@@ -135,7 +144,11 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <InvestigationsCasesPage /> },
       { path: 'incoming', element: <IncomingPage /> },
-      { path: 'outgoing', element: <OutgoingPage /> },
+      { path: 'outgoing', element: <OutgoingLettersPage /> },
+      { path: 'incoming-legacy', element: <OutgoingPage /> },
+      { path: 'create', element: <InvestigationCreatePage /> },
+      { path: 'cases/:id', element: <InvestigationDetailPage /> },
+      { path: 'distribution', element: <DistributionPage /> },
     ],
   },
 

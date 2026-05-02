@@ -33,6 +33,9 @@ export const ROUTES = {
     overview: '/investigations',
     incoming: '/investigations/incoming',
     outgoing: '/investigations/outgoing',
+    distribution: '/investigations/distribution',
+    create: '/investigations/create',
+    detail: (id = ':id'): string => `/investigations/cases/${id}`,
   },
   medical: {
     overview: '/medical',
