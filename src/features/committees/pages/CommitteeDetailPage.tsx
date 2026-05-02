@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Ban, Check, FileSpreadsheet, ListChecks, Pencil, Upload } from 'lucide-react';
+import { Ban, CheckCircle2, Check, ClipboardCheck, FileSpreadsheet, Hourglass, ListChecks, Pencil, ShieldCheck, Upload, Users } from 'lucide-react';
 import {
   Avatar,
   Badge,
@@ -21,6 +21,7 @@ import {
   Modal,
   PageHeader,
   Select,
+  StatCard,
   SuspendedBadge,
   Textarea,
   toast,
@@ -28,7 +29,7 @@ import {
 import type { DataTableColumn } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
-import { date as fmtDate, num, shortName } from '@/shared/lib/format';
+import { date as fmtDate, shortName } from '@/shared/lib/format';
 import {
   useApproveResults,
   useBulkUploadResults,
@@ -170,19 +171,54 @@ export function CommitteeDetailPage(): JSX.Element {
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <Card>
-          <p className="text-xs text-ink-500">طابور اليوم</p>
-          <p className="mt-1 text-2xl font-bold font-numeric tnum text-ink-900">{num(queue?.length ?? 0)}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-ink-500">قيد المراجعة</p>
-          <p className="mt-1 text-2xl font-bold font-numeric tnum text-ink-900">{num(preliminary.length)}</p>
-        </Card>
-        <Card>
-          <p className="text-xs text-ink-500">المعتمد إجمالاً</p>
-          <p className="mt-1 text-2xl font-bold font-numeric tnum text-ink-900">{num((results ?? []).filter((r) => r.phase === 'final').length)}</p>
-        </Card>
+      {/* Two-phase workflow explainer */}
+      <Card className="mb-5 border-gold-300 bg-gold-50">
+        <div className="flex items-start gap-3">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-gold-500 text-white" aria-hidden>
+            <ShieldCheck size={18} strokeWidth={1.75} />
+          </span>
+          <div className="flex-1">
+            <p className="font-ar-display text-md font-bold text-gold-700">سياسة الاعتماد المزدوج · KARASA §3.C</p>
+            <p className="mt-1 text-2xs text-gold-700/85 leading-normal">
+              النتيجة المُدخَلة من العضو تُحفظ كـ <strong>«قيد المراجعة»</strong>؛ ولا تُعتبر معتمدة إلا بعد توقيع
+              رئيس اللجنة <strong>«{committee.head}»</strong> عليها — وذلك لمنع تغيير النتائج بصورة فردية.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+        <StatCard
+          label="طابور اليوم"
+          value={queue?.length ?? 0}
+          icon={<Users size={16} strokeWidth={1.75} />}
+          trend={{ label: 'بانتظار الاستدعاء', tone: 'neutral' }}
+        />
+        <StatCard
+          label="قيد مراجعة الرئيس"
+          value={preliminary.length}
+          icon={<Hourglass size={16} strokeWidth={1.75} />}
+          iconBg="var(--gold-50)"
+          iconColor="var(--gold-700)"
+          trend={{ label: 'في انتظار التوقيع', tone: 'neutral' }}
+        />
+        <StatCard
+          label="المعتمد"
+          value={(results ?? []).filter((r) => r.phase === 'final').length}
+          icon={<ClipboardCheck size={16} strokeWidth={1.75} />}
+          iconBg="var(--success-bg)"
+          iconColor="var(--success)"
+          trend={{ label: 'مُسجَّل بالملف', tone: 'success' }}
+        />
+        <StatCard
+          label="إجمالي المُسنَد"
+          value={committee.applicants}
+          icon={<CheckCircle2 size={16} strokeWidth={1.75} />}
+          trend={{
+            label: `${Math.round((committee.completed / Math.max(1, committee.applicants)) * 100)}% مكتمل`,
+            tone: 'success',
+          }}
+        />
       </div>
 
       <div className="my-6 grid gap-6 lg:grid-cols-2">
@@ -282,12 +318,24 @@ function ResultEntryDrawer({
     );
   }
 
+  const total = writtenTest + interview;
+  const avg = Math.round(total / 2);
+  const passThreshold = 60;
+  const meetsThreshold = avg >= passThreshold;
+
   return (
     <Drawer open={open} onClose={onClose} title={`إدخال نتيجة · ${shortName(applicant.name, 4)}`} size="md">
       <Drawer.Body>
-        <div className="mb-4 rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-sm">
-          <p className="font-medium text-ink-900">{applicant.name}</p>
-          <p className="text-2xs text-ink-500 font-mono" dir="ltr">{applicant.id} · {applicant.nationalId}</p>
+        <div className="mb-4 flex items-center gap-3 rounded-md border border-border-subtle bg-ink-50 px-3 py-3">
+          <Avatar name={applicant.name} size="md" />
+          <div className="flex-1">
+            <p className="font-medium text-ink-900">{applicant.name}</p>
+            <p className="text-2xs text-ink-500 font-mono" dir="ltr">{applicant.id} · {applicant.nationalId}</p>
+          </div>
+          <div className="text-end">
+            <p className="text-2xs text-ink-500">المحافظة</p>
+            <p className="text-sm font-medium text-ink-900">{applicant.governorate}</p>
+          </div>
         </div>
         <form
           onSubmit={(e) => {
@@ -303,8 +351,31 @@ function ResultEntryDrawer({
           }}
           className="flex flex-col gap-3"
         >
-          <Input label="درجة الاختبار التحريري" type="number" min={0} max={100} value={writtenTest} onChange={(e) => setWrittenTest(Number(e.target.value))} />
-          <Input label="درجة المقابلة الشخصية" type="number" min={0} max={100} value={interview} onChange={(e) => setInterview(Number(e.target.value))} />
+          <Input label="درجة الاختبار التحريري (من 100)" type="number" min={0} max={100} value={writtenTest} onChange={(e) => setWrittenTest(Number(e.target.value))} />
+          <Input label="درجة المقابلة الشخصية (من 100)" type="number" min={0} max={100} value={interview} onChange={(e) => setInterview(Number(e.target.value))} />
+
+          {/* Live score preview */}
+          <div className="rounded-md border border-border-subtle bg-surface-card p-3">
+            <p className="mb-2 text-2xs uppercase tracking-wide text-ink-500">المعاينة الحيّة</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-2xs text-ink-500">المجموع</p>
+                <p className="mt-0.5 font-mono text-md font-bold tnum text-ink-900" dir="ltr">{total} / 200</p>
+              </div>
+              <div>
+                <p className="text-2xs text-ink-500">المتوسط</p>
+                <p className={'mt-0.5 font-mono text-md font-bold tnum ' + (meetsThreshold ? 'text-success' : 'text-terra-600')} dir="ltr">{avg}%</p>
+              </div>
+              <div>
+                <p className="text-2xs text-ink-500">حدّ النجاح</p>
+                <p className="mt-0.5 font-mono text-md font-bold tnum text-ink-700" dir="ltr">{passThreshold}%</p>
+              </div>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink-100">
+              <div className={'h-full rounded-full ' + (meetsThreshold ? 'bg-success' : 'bg-terra-500')} style={{ width: `${Math.min(100, avg)}%` }} />
+            </div>
+          </div>
+
           <Select
             label="النتيجة"
             value={passFail}
@@ -321,7 +392,7 @@ function ResultEntryDrawer({
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>إلغاء</Button>
             <Button type="submit" variant="primary" leadingIcon={<Pencil size={14} strokeWidth={1.75} />}>
-              حفظ
+              حفظ كنتيجة أوليّة
             </Button>
           </div>
         </form>

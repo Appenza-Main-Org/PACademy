@@ -13,6 +13,7 @@ import {
   Hourglass,
   Plus,
   Users,
+  X,
 } from 'lucide-react';
 import {
   Avatar,
@@ -87,13 +88,13 @@ export function DashboardPage(): JSX.Element {
 
       <div
         className="mb-6 grid gap-5"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}
       >
         <StatCard
           label="إجمالي المتقدمين"
           value={k.totalApplicants}
           icon={<Users size={16} strokeWidth={1.75} />}
-          trend={{ label: '+12%', tone: 'success' }}
+          trend={{ label: '+12% عن دورة 2025', tone: 'success' }}
           sparkline={MOCK.last14Days.map((d) => d.registrations)}
         />
         <StatCard
@@ -101,7 +102,7 @@ export function DashboardPage(): JSX.Element {
           value={k.paidApplicants}
           icon={<CreditCard size={16} strokeWidth={1.75} />}
           trend={{
-            label: `${Math.round((k.paidApplicants / Math.max(1, k.totalApplicants)) * 100)}%`,
+            label: `${Math.round((k.paidApplicants / Math.max(1, k.totalApplicants)) * 100)}% من الإجمالي`,
             tone: 'success',
           }}
           sparkline={MOCK.last14Days.map((d) => d.payments)}
@@ -112,7 +113,7 @@ export function DashboardPage(): JSX.Element {
           icon={<Hourglass size={16} strokeWidth={1.75} />}
           iconBg="var(--gold-50)"
           iconColor="var(--gold-700)"
-          trend={{ label: '+5%', tone: 'neutral' }}
+          trend={{ label: 'بفترة الفحص الطبي', tone: 'neutral' }}
         />
         <StatCard
           label="تم القبول"
@@ -120,7 +121,15 @@ export function DashboardPage(): JSX.Element {
           icon={<Check size={16} strokeWidth={1.75} />}
           iconBg="var(--success-bg)"
           iconColor="var(--success)"
-          trend={{ label: 'مستقر', tone: 'neutral' }}
+          trend={{ label: 'بانتظار قرار الهيئة', tone: 'neutral' }}
+        />
+        <StatCard
+          label="مستبعد طبياً/أمنياً"
+          value={k.rejected}
+          icon={<X size={16} strokeWidth={1.75} />}
+          iconBg="var(--terra-50)"
+          iconColor="var(--terra-700)"
+          trend={{ label: 'وفقاً لكرّاسة §6.2', tone: 'neutral' }}
         />
       </div>
 

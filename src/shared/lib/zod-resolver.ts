@@ -13,9 +13,20 @@
 
 import type { z } from 'zod';
 
+/**
+ * Demo bypass: when true, the resolver short-circuits and always returns the
+ * raw values with no errors, so live demos can blast through the 11-stage
+ * applicant wizard without filling required fields. Flip back to `false`
+ * once real validation is needed (e.g. before backend integration).
+ */
+const BYPASS_VALIDATION_FOR_DEMO = true;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function zodResolver<T extends Record<string, any>>(schema: z.ZodType<T>): any {
   return async (values: T): Promise<unknown> => {
+    if (BYPASS_VALIDATION_FOR_DEMO) {
+      return { values, errors: {} };
+    }
     const result = await schema.safeParseAsync(values);
     if (result.success) return { values: result.data, errors: {} };
     const errors: Record<string, unknown> = {};

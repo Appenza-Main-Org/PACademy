@@ -14,12 +14,12 @@ import { useMemo } from 'react';
 import { Ban, BellRing, HelpCircle, LogOut } from 'lucide-react';
 import {
   KhayameyaStripe,
+  LogoMark,
   Pattern,
   Wizard,
   toast,
 } from '@/shared/components';
 import type { WizardStep, WizardStepState } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
 import { ROUTES } from '@/config/routes';
 import { useAuthStore } from '@/features/auth';
 import { useDraft } from './api/applicantPortal.queries';
@@ -100,9 +100,7 @@ export function ApplicantPortalLayout(): JSX.Element {
       <header className="sticky top-0 flex h-14 items-center justify-between gap-4 border-b border-border-subtle bg-surface-card px-6"
         style={{ zIndex: 'var(--z-sticky)' as unknown as number }}>
         <a href={ROUTES.landing} className="flex items-center gap-3">
-          <span aria-hidden className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white" style={{ background: 'var(--teal-500)' }}>
-            <IconSeal width={18} height={18} color="white" />
-          </span>
+          <LogoMark size={32} ariaLabel="شعار أكاديمية الشرطة" />
           <span className="hidden flex-col leading-tight md:flex">
             <span className="font-ar-display text-sm font-bold text-ink-900">منظومة القبول</span>
             <span className="text-2xs text-ink-500">رحلة التقديم</span>

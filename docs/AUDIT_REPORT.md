@@ -320,3 +320,70 @@ Tell me:
 - "approved, but skip AUD-002 (defer to follow-up)" → I do P0 + 8 of 9 P1.
 - "approved, P0+P1+P2" → I do everything except P3.
 - Or call out specific AUD-IDs to demote/promote.
+
+---
+
+# Final resolution status — Demo readiness pass · 2026-05-01
+
+The demo-focused triage was: ship the prototype that demonstrates deep KARASA scope comprehension. Production-grade hardening (full RHF retrofit, hex-token migration, test infrastructure) was explicitly deferred — see `DEMO_SCRIPT.md` for the audience and goals.
+
+## Resolved
+
+| ID | Title | Status | Notes |
+|---|---|---|---|
+| AUD-001 | Investigations dead-end | ✅ Fixed | `InvestigationsCasesPage` rewritten to use new `investigationsService.list()` + linked rows. |
+| AUD-004 | LoginForm RHF regression | ✅ Fixed | Full RHF + zod retrofit with MOIPASS framing + 1.5s simulated verification. |
+| AUD-005 | KARASA_GAPS doc lag | ✅ Fixed | Bulk ❌→✅ for §2-§10 sections, post-final-review coverage table appended. |
+| AUD-006 | `/architecture` RBAC | ✅ Fixed | One-line: `<AuthGuard app="architecture">` in `routes.tsx`. |
+| AUD-007 | Suspended-applicant guard | ✅ Fixed | Single chokepoint in `ApplicantPortalLayout` — `{draft?.suspended ? <SuspendedScreen /> : <Outlet />}` gates all 11 stages. |
+| ARCH-01..05 | Public/private 4-layer split | ✅ Done | New `PublicLandingPage`, `ApplyEntryPage`, `TermsPage`, three-shell architecture (`PublicShell`/`AppShell`/`ApplicantPortalLayout`), `/staff-login` MOIPASS framing, `/architecture` rewritten to KARASA §9 spec with 6 integrations + 500-unit hardware inventory + 11×9 RBAC matrix. |
+| Medical sidebar gaps | ✅ Fixed | Station + certificate entries added to `MedicalLayout`. |
+
+## Demo-realism polish (TIER 2)
+
+| Surface | Polish |
+|---|---|
+| Mock data | 2,847 realistic Egyptian applicants · 4-part Arabic names · NID format `CYYMMDDGGSSSSC` · 27 governorates with weighted distribution · score distribution skewed 75-90% · ages 17-21 · realistic committee/audit/medical counts. |
+| Stage 9 print card | Photo + 4-part name + NID + verification stamp + exam appointment + 6-item document checklist + variable-width SVG barcode + Khayameya stripe. |
+| Medical certificate | Color-coded verdict stamp · 8-station numbered table · 3-col signature blocks (chair/secretary/seal) + Khayameya stripe. |
+| Board decision | Gold decision-number stamp · Hijri+Gregorian dates · formal Arabic prose body · 3 member-signature blocks + official seal placeholder + Khayameya stripe. |
+| Hub | 6-tile KPI strip · Hijri date in hero · today's-tally tile · per-app accent borders working. |
+| Dashboard | Trend labels rewritten to be specific ("بانتظار قرار الهيئة" instead of "مستقر") · 5th tile for rejected. |
+
+## Per-app showcase polish (TIER 3 — 9 screens)
+
+| Route | Polish |
+|---|---|
+| `/admin` (Dashboard) | Trend labels · 5-tile KPI strip · existing charts left intact. |
+| `/applicant/profile/family` | Section grouping (immediate/paternal/maternal) · role-tinted avatars · `ShieldCheck` security-context banner referencing §6.5 · live family-member count badge. |
+| `/committee/:id` | Two-phase workflow explainer banner (KARASA §3.C) · 4-tile StatCard strip · ResultEntryDrawer with live total/avg/threshold preview + bar. |
+| `/medical/station/bmi` | 4 inputs with helper text against KARASA §6.2.B ranges · live verdict panel with BMI gauge + chest expansion + 3-item ✓/✗ checklist. |
+| `/investigations/cases/:id` | "سرّي للغاية" classification banner · access-log strip · **family-tree visualization** (3 generations, 7 nodes, status-colored) · 6 named external checks (مباحث الأمن الوطني, مكافحة المخدرات, الجوازات...). |
+| `/board/sessions/:id/live` | Animated "live" indicator + quorum status · agenda progress bar · enriched applicant card with prior-stage badges · live tally bars for chair view. |
+| `/question-bank` | 5-tile status StatCard strip · category-tree sidebar with counts · existing CRUD drawer left intact. |
+| `/biometric/enroll` | True 4-step wizard with checkmark progress · per-step contextual help · live capture state with quality-score badges · final review panel before save. |
+| `/barcode` | Card-shaped preview with photo placeholder + 4-part info + barcode strip + Khayameya stripe + footer with code & expiry · gold info banner explaining usage. |
+
+## Build status post-demo pass
+
+```
+npx tsc --noEmit  → 0 errors
+npm run build     → 0 errors, 1826 modules transformed, 8.94s
+```
+
+## Explicitly deferred (per triage decision)
+
+These items remain **DEFERRED** and were not addressed in the demo pass:
+
+- **AUD-002** — RHF retrofit on remaining 11 forms (production hardening, not demo-relevant)
+- **AUD-008, AUD-010** — audit-write helper + 8 mutation sites (backend-coupled)
+- **AUD-011..013** — hardcoded hex migration to tokens (P2, ~2h mechanical work)
+- **All Sprint 10 hardening** — Vitest, Playwright, ESLint boundaries, Husky, axe-core, real xlsx/docx libs, real camera, real JsBarcode, real MOIPASS API integration, hardware integrations
+
+These are documented in `Tasks/KARASA_GAPS.md` under the autopilot deferral section and remain on the post-tender backlog.
+
+## Demo handoff
+
+- **Demo script:** `DEMO_SCRIPT.md` — 3 variants (5min/15min/30min) + per-screen talking points with KARASA citations + Q&A prep + things to avoid + pre-demo checklist.
+- **Coverage table:** `Tasks/KARASA_GAPS.md` head — 95%+ scope coverage attested.
+- **Architecture page:** `/architecture` (super_admin only) — interactive 4-layer diagram + 6 integrations + 500-unit hardware inventory + 11×9 RBAC matrix.

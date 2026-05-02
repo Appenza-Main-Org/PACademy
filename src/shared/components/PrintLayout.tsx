@@ -18,6 +18,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/shared/lib/cn';
 import { CornerFlourish } from './CornerFlourish';
 import { KhayameyaStripe } from './KhayameyaStripe';
+import { LogoMark } from './LogoMark';
 
 interface PrintLayoutProps {
   title: string;
@@ -128,16 +129,5 @@ export function PrintLayout({
 }
 
 function DefaultCrest(): JSX.Element {
-  return (
-    <svg width={48} height={48} viewBox="0 0 48 48" aria-hidden role="presentation">
-      <circle cx={24} cy={24} r={22} fill="none" stroke="var(--ink-700)" strokeWidth={1.25} />
-      <path
-        d="M24 8 L34 14 V24 C34 30 30 34 24 38 C18 34 14 30 14 24 V14 Z"
-        fill="var(--gold-100)"
-        stroke="var(--gold-500)"
-        strokeWidth={1}
-      />
-      <path d="M20 22 L24 26 L30 18" fill="none" stroke="var(--ink-700)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <LogoMark size={64} ariaLabel="شعار أكاديمية الشرطة" />;
 }

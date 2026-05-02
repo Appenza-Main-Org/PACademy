@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Printer, Search } from 'lucide-react';
-import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState } from '@/shared/components';
+import { CalendarRange, Hash, Printer, Search, Sparkles, User } from 'lucide-react';
+import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, KhayameyaStripe } from '@/shared/components';
 import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName, maskNationalId } from '@/shared/lib/format';
 import { barcodeService } from '../api/barcode.service';
@@ -39,11 +39,18 @@ export function BarcodeGeneratePage(): JSX.Element {
 
   return (
     <>
-      <PageHeader title="إنشاء كارت تردد" subtitle="توليد باركود فريد لكل متقدم لاستخدامه في كل المراحل" />
+      <PageHeader
+        title="إنشاء كارت تردد"
+        subtitle="توليد باركود فريد لكل متقدم لاستخدامه في كل المراحل · يربط بين العيادات واللجان والامتحانات"
+      />
 
-      <div className="grid mb-6" style={{ gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-5)' }}>
+      <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr]">
         <Card>
-          <CardHeader title="اختيار المتقدم" />
+          <CardHeader
+            title="اختيار المتقدم"
+            subtitle="حدّد المتقدم لتوليد كارت التردد الخاص به"
+            actions={<Badge tone="info" icon={<Sparkles size={11} strokeWidth={1.75} />}>توليد آلي</Badge>}
+          />
           <CardBody>
             <div className="filters">
               <select className="select flex-1" value={applicantId} onChange={(e) => { setApplicantId(e.target.value); setRecord(null); }}>
@@ -53,38 +60,103 @@ export function BarcodeGeneratePage(): JSX.Element {
               </select>
             </div>
             {applicant && (
-              <div className="flex flex-col gap-2 text-sm mb-4">
-                <div className="detail-row"><span className="detail-label">الاسم</span><span className="detail-value">{applicant.name}</span></div>
-                <div className="detail-row"><span className="detail-label">الرقم القومي</span><span className="detail-value mono">{maskNationalId(applicant.nationalId)}</span></div>
-                <div className="detail-row"><span className="detail-label">المحافظة</span><span className="detail-value">{applicant.governorate}</span></div>
-                <div className="detail-row"><span className="detail-label">اللجنة</span><span className="detail-value">اللجنة {applicant.committee}</span></div>
+              <div className="mt-3 mb-4 rounded-md border border-border-subtle bg-ink-50 p-3">
+                <div className="grid grid-cols-2 gap-2 text-2xs">
+                  <FieldRow label="الاسم بالكامل" value={applicant.name} />
+                  <FieldRow label="الرقم القومي" value={maskNationalId(applicant.nationalId)} mono />
+                  <FieldRow label="المحافظة" value={applicant.governorate} />
+                  <FieldRow label="اللجنة" value={`اللجنة ${applicant.committee}`} />
+                </div>
               </div>
             )}
-            <Button variant="primary" onClick={handleGenerate} isLoading={busy} fullWidth>توليد الباركود</Button>
+            <Button variant="primary" onClick={handleGenerate} isLoading={busy} fullWidth>
+              توليد كارت التردد
+            </Button>
+
+            <div className="mt-4 rounded-md border border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700">
+              <p className="font-bold mb-1">عن كارت التردد</p>
+              <p className="leading-normal">
+                كارت التردد هو الهوية الموحّدة للمتقدم داخل أكاديمية الشرطة طوال فترة الفحوصات.
+                يُستخدم في جميع العيادات الـ8 واللجان الـ5 وفي تسجيل الحضور الإلكتروني.
+              </p>
+            </div>
           </CardBody>
         </Card>
 
         <Card>
-          <CardHeader title="كارت التردد" subtitle={record ? `صادر بتاريخ ${fmtDate(record.issuedAt, 'short')}` : 'لم يتم التوليد بعد'} />
+          <CardHeader
+            title="معاينة الكارت"
+            subtitle={record ? `صادر بتاريخ ${fmtDate(record.issuedAt, 'short')}` : 'لم يتم التوليد بعد'}
+            actions={record && <Button variant="secondary" size="sm" leadingIcon={<Printer size={14} strokeWidth={1.75} />} onClick={() => window.print()}>طباعة</Button>}
+          />
           <CardBody>
             {!record ? (
-              <EmptyState title="لا يوجد كارت" description="اختر متقدماً واضغط على «توليد الباركود»" />
+              <EmptyState title="لا يوجد كارت" description="اختر متقدماً واضغط على «توليد كارت التردد»" />
             ) : (
-              <div className="barcode-display">
-                <div className="font-bold text-md mb-2">منظومة القبول · أكاديمية الشرطة</div>
-                <div className="text-xs text-tertiary mb-4">{shortName(applicant?.name ?? '', 3)} — {applicantId}</div>
-                <BarcodeBars code={record.code} />
-                <div className="barcode-num">{record.code.replace(/(.{4})/g, '$1 ').trim()}</div>
-                <div className="text-xs text-tertiary mt-3">صالح حتى {fmtDate(record.issuedAt + 90 * 86_400_000, 'short')}</div>
-                <div className="mt-4 flex justify-center">
-                  <Button variant="secondary" leadingIcon={<Printer size={16} />}>طباعة الكارت</Button>
+              <div className="mx-auto max-w-md overflow-hidden rounded-lg border-2 border-teal-500 bg-white shadow-md">
+                {/* Header strip */}
+                <div className="bg-teal-700 px-4 py-3 text-white">
+                  <p className="font-ar-display text-sm font-bold">أكاديمية الشرطة · منظومة القبول</p>
+                  <p className="text-2xs text-white/75">كارت تردد رسمي · دورة 2026</p>
                 </div>
+
+                {/* Card body */}
+                <div className="grid grid-cols-[auto_1fr] gap-3 p-4">
+                  <div className="flex h-24 w-20 flex-col items-center justify-center rounded-md border border-dashed border-ink-300 bg-ink-50 text-2xs text-ink-500">
+                    <User size={28} strokeWidth={1.5} aria-hidden />
+                    <span className="mt-1">صورة</span>
+                  </div>
+                  <div className="flex flex-col justify-between text-2xs">
+                    <div>
+                      <p className="text-ink-500">الاسم</p>
+                      <p className="text-sm font-bold text-ink-900">{applicant?.name ?? ''}</p>
+                    </div>
+                    <div>
+                      <p className="text-ink-500">رقم الطلب</p>
+                      <p className="font-mono text-sm font-bold text-ink-900" dir="ltr">{applicantId}</p>
+                    </div>
+                    <div>
+                      <p className="text-ink-500">المحافظة · اللجنة</p>
+                      <p className="text-ink-700">{applicant?.governorate} · لجنة {applicant?.committee}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Barcode strip */}
+                <div className="bg-ink-50 px-4 py-3 text-center">
+                  <BarcodeBars code={record.code} />
+                  <p className="mt-1 font-mono text-xs text-ink-700" dir="ltr">{record.code.replace(/(.{4})/g, '$1 ').trim()}</p>
+                </div>
+
+                {/* Footer */}
+                <div className="flex items-center justify-between border-t border-border-subtle px-4 py-2 text-2xs text-ink-500">
+                  <span className="inline-flex items-center gap-1">
+                    <Hash size={11} strokeWidth={1.75} />
+                    <span className="font-mono" dir="ltr">{record.code}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <CalendarRange size={11} strokeWidth={1.75} />
+                    صالح حتى {fmtDate(record.issuedAt + 90 * 86_400_000, 'short')}
+                  </span>
+                </div>
+
+                {/* Khayameya stripe */}
+                <KhayameyaStripe height="md" />
               </div>
             )}
           </CardBody>
         </Card>
       </div>
     </>
+  );
+}
+
+function FieldRow({ label, value, mono }: { label: string; value: string; mono?: boolean }): JSX.Element {
+  return (
+    <div>
+      <p className="text-ink-500">{label}</p>
+      <p className={mono ? 'mt-0.5 font-mono text-sm font-medium text-ink-900' : 'mt-0.5 text-sm font-medium text-ink-900'} {...(mono ? { dir: 'ltr' } : {})}>{value}</p>
+    </div>
   );
 }
 

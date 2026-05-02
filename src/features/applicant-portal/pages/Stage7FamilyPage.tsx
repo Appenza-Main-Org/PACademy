@@ -4,8 +4,8 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { useFieldArray, useForm } from 'react-hook-form';
-import { Plus, Trash2, Users } from 'lucide-react';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
+import { Info, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { Button, Card, Input, Select, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage7Schema, type Stage7Values } from '../schemas';
@@ -17,6 +17,15 @@ const APPLICANT_ID = 'APP-2026000';
 const RELATIONSHIP_OPTIONS = REF_RELATIONSHIPS.map((r) => ({ value: r.id, label: r.nameAr }));
 
 const emptyMember = { fullName: '', alive: true };
+
+const ROLE_TONES: Record<string, { bg: string; fg: string }> = {
+  father:               { bg: 'bg-teal-50',  fg: 'text-teal-700'  },
+  mother:               { bg: 'bg-gold-50',  fg: 'text-gold-700'  },
+  paternalGrandfather:  { bg: 'bg-ink-100',  fg: 'text-ink-700'   },
+  paternalGrandmother:  { bg: 'bg-ink-100',  fg: 'text-ink-700'   },
+  maternalGrandfather:  { bg: 'bg-ink-100',  fg: 'text-ink-700'   },
+  maternalGrandmother:  { bg: 'bg-ink-100',  fg: 'text-ink-700'   },
+};
 
 export function Stage7FamilyPage(): JSX.Element {
   const navigate = useNavigate();
@@ -50,27 +59,50 @@ export function Stage7FamilyPage(): JSX.Element {
     navigate('/applicant/exam-schedule');
   };
 
+  const watched = useWatch({ control });
+  const filledFixed = ['father', 'mother', 'paternalGrandfather', 'paternalGrandmother', 'maternalGrandfather', 'maternalGrandmother']
+    .filter((k) => Boolean((watched as Record<string, { fullName?: string }>)[k]?.fullName?.trim())).length;
+  const totalMembers = filledFixed + (watched?.siblings?.length ?? 0) + (watched?.relatives?.length ?? 0);
+
   return (
     <div className="flex flex-col gap-5">
       <Card>
-        <div className="mb-3 flex items-start gap-3">
-          <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-            <Users size={18} strokeWidth={1.75} />
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+            <Users size={20} strokeWidth={1.75} />
           </span>
-          <div>
+          <div className="flex-1">
             <h2 className="font-ar-display text-xl font-bold text-ink-900">بيانات الأسرة</h2>
-            <p className="mt-1 text-sm text-ink-500">
-              يلزم إدخال بيانات الوالدين والأجداد ومن بعدهم حتى الدرجة الرابعة.
+            <p className="mt-1 text-sm text-ink-500 leading-normal">
+              يلزم إدخال بيانات الوالدين والأجداد ومن بعدهم حتى الدرجة الرابعة. وتُستخدم هذه البيانات
+              لإجراء تحريات شاملة وفقاً لما تنصّ عليه كرّاسة الشروط.
             </p>
           </div>
+          <span className="hidden self-center rounded-pill bg-teal-50 px-3 py-1 text-2xs font-bold text-teal-700 md:inline-flex">
+            <span className="font-numeric tnum">{totalMembers}</span>
+            <span className="ms-1">فرداً مُسجّل</span>
+          </span>
+        </div>
+
+        <div className="mt-4 flex items-start gap-2 rounded-md border border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700">
+          <ShieldCheck size={14} strokeWidth={1.75} className="mt-0.5 flex-shrink-0" aria-hidden />
+          <p className="leading-normal">
+            <strong>تنبيه أمني:</strong> هذه البيانات تخضع لتحرّ مفصّل من إدارات قطاع الأمن العام
+            بالتعاون مع المخابرات العامة، وأي بيان غير صحيح يُعتبر إخلالاً بشروط التقدم وفقاً لكرّاسة §6.5.
+          </p>
         </div>
       </Card>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+        <SectionHeader title="الأسرة المباشرة" subtitle="الوالدان" />
         <FamilyMemberFields title="الأب" register={register} prefix="father" errors={errors} />
         <FamilyMemberFields title="الأم" register={register} prefix="mother" errors={errors} />
+
+        <SectionHeader title="من ناحية الأب" subtitle="الجدّان من جهة الوالد" />
         <FamilyMemberFields title="الجد لأب" register={register} prefix="paternalGrandfather" errors={errors} />
         <FamilyMemberFields title="الجدة لأب" register={register} prefix="paternalGrandmother" errors={errors} />
+
+        <SectionHeader title="من ناحية الأم" subtitle="الجدّان من جهة الوالدة" />
         <FamilyMemberFields title="الجد لأم" register={register} prefix="maternalGrandfather" errors={errors} />
         <FamilyMemberFields title="الجدة لأم" register={register} prefix="maternalGrandmother" errors={errors} />
 
@@ -172,9 +204,15 @@ function FamilyMemberFields({
   prefix: FixedMemberKey;
   errors: Record<string, unknown>;
 }): JSX.Element {
+  const tone = ROLE_TONES[prefix] ?? { bg: 'bg-ink-100', fg: 'text-ink-700' };
   return (
     <Card>
-      <h3 className="mb-3 font-ar-display text-md font-bold text-ink-900">{title}</h3>
+      <header className="mb-3 flex items-center gap-3">
+        <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md ${tone.bg} ${tone.fg}`} aria-hidden>
+          <Users size={14} strokeWidth={1.75} />
+        </span>
+        <h3 className="font-ar-display text-md font-bold text-ink-900">{title}</h3>
+      </header>
       <div className="grid gap-3 md:grid-cols-3">
         <Input label="الاسم بالكامل" required {...register(`${prefix}.fullName`)} />
         <Input label="الرقم القومي" dir="ltr" {...register(`${prefix}.nationalId`)} />
@@ -187,6 +225,21 @@ function FamilyMemberFields({
         </label>
       </div>
     </Card>
+  );
+}
+
+function SectionHeader({ title, subtitle }: { title: string; subtitle: string }): JSX.Element {
+  return (
+    <div className="-mb-2 flex items-center gap-3">
+      <span aria-hidden className="h-px flex-1 bg-border-default" />
+      <div className="flex items-center gap-2 text-2xs font-medium text-ink-500">
+        <Info size={11} strokeWidth={1.75} />
+        <span className="font-ar-display text-md font-bold text-ink-900">{title}</span>
+        <span>·</span>
+        <span>{subtitle}</span>
+      </div>
+      <span aria-hidden className="h-px flex-1 bg-border-default" />
+    </div>
   );
 }
 

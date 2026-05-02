@@ -7,8 +7,7 @@
  * stat cards with Latin tabular figures, ministry attribution.
  */
 
-import { KhayameyaStripe, Pattern } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
+import { KhayameyaStripe, LogoMark, Pattern } from '@/shared/components';
 
 export function LoginArtPanel(): JSX.Element {
   return (
@@ -25,13 +24,7 @@ export function LoginArtPanel(): JSX.Element {
       </div>
 
       <header className="relative flex items-center gap-3">
-        <span
-          aria-hidden
-          className="inline-flex h-12 w-12 items-center justify-center rounded-md"
-          style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)' }}
-        >
-          <IconSeal width={26} height={26} color="var(--gold-300)" />
-        </span>
+        <LogoMark size={56} ariaLabel="شعار أكاديمية الشرطة" />
         <div className="leading-tight">
           <p className="font-ar-display text-md font-bold">منظومة القبول</p>
           <p className="text-2xs text-white/70">أكاديمية الشرطة</p>

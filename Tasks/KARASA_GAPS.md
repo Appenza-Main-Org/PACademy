@@ -5,7 +5,7 @@
 
 ## Coverage status — post final review (2026-05-02)
 
-After Sprints 0–9 + the final-review architectural restructure (public/private 4-layer split per K§9), karasa coverage stands at **~95% of in-scope items shipped**. Remaining items are explicit deferrals to Sprint 10 hardening, all of which substitute behind a contract-stable shim today (e.g. browser print stands in for `react-pdf`, manual entry stands in for `getUserMedia()`, `IconBarcode` stands in for `JsBarcode`). See `AUDIT_REPORT.md` for the punch-list.
+After Sprints 0–9 + the final-review architectural restructure (public/private 4-layer split per K§9), karasa coverage stands at **~95% of in-scope items shipped**. Remaining items are explicit deferrals to Sprint 10 hardening, all of which substitute behind a contract-stable shim today (e.g. browser print stands in for `react-pdf`, manual entry stands in for `getUserMedia()`, `IconBarcode` stands in for `JsBarcode`). See `../docs/AUDIT_REPORT.md` for the punch-list.
 
 | Section | Status |
 |---|---|

@@ -6,10 +6,13 @@
 import { reseed, rng, pick } from './seed';
 import {
   ARABIC_FIRST_NAMES,
+  ARABIC_MIDDLE_NAMES,
   ARABIC_LAST_NAMES,
   GOVERNORATES,
+  GOVERNORATE_WEIGHTS,
   CITIES,
   CERTIFICATES,
+  EGYPTIAN_SCHOOLS,
   STATUSES,
   STAGE_LABELS,
   COMMITTEES_NAMES,
@@ -50,33 +53,81 @@ import {
 
 reseed(42);
 
-function genNationalId(): string {
-  const century = '2';
-  const yr = String(rng() < 0.5 ? Math.floor(rng() * 9 + 1) : Math.floor(rng() * 5)).padStart(2, '0');
-  const mo = String(Math.floor(rng() * 12) + 1).padStart(2, '0');
-  const dy = String(Math.floor(rng() * 28) + 1).padStart(2, '0');
-  const gov = String(Math.floor(rng() * 27) + 1).padStart(2, '0');
-  const serial = String(Math.floor(rng() * 9999)).padStart(4, '0');
-  const last = String(Math.floor(rng() * 9));
-  return `${century}${yr}${mo}${dy}${gov}${serial}${last}`;
+/* TIER 2 realism — Egyptian National ID format: CYYMMDDGGSSSSC
+ *  C   century: 2 = born 1900s, 3 = born 2000s
+ *  YY  birth year (last two digits)
+ *  MM  birth month (01-12)
+ *  DD  birth day (01-28)
+ *  GG  governorate code (01-27 + 88 for foreign)
+ *  SSSS serial within (G,Y,M,D)
+ *  C   checksum digit (we don't compute Luhn here; demo only)
+ * Applicants for cycle 2026 are 17-21 → born 2005-2008. */
+
+const GOV_NID_CODES: Record<string, string> = {
+  'القاهرة': '01', 'الإسكندرية': '02', 'بورسعيد': '03', 'السويس': '04', 'دمياط': '11',
+  'الدقهلية': '12', 'الشرقية': '13', 'القليوبية': '14', 'كفر الشيخ': '15', 'الغربية': '16',
+  'المنوفية': '17', 'البحيرة': '18', 'الإسماعيلية': '19', 'الجيزة': '21', 'بني سويف': '22',
+  'الفيوم': '23', 'المنيا': '24', 'أسيوط': '25', 'سوهاج': '26', 'قنا': '27',
+  'أسوان': '28', 'الأقصر': '29', 'البحر الأحمر': '31', 'الوادي الجديد': '32',
+  'مرسى مطروح': '33', 'شمال سيناء': '34', 'جنوب سيناء': '35',
+};
+
+function pickWeightedGovernorate(): string {
+  const total = GOVERNORATES.reduce((s, g) => s + (GOVERNORATE_WEIGHTS[g] ?? 1), 0);
+  let r = rng() * total;
+  for (const g of GOVERNORATES) {
+    r -= GOVERNORATE_WEIGHTS[g] ?? 1;
+    if (r <= 0) return g;
+  }
+  return GOVERNORATES[0]!;
 }
 
+function genNationalIdFor(governorate: string, birth: Date): string {
+  const yr = String(birth.getFullYear()).slice(-2);
+  const mo = String(birth.getMonth() + 1).padStart(2, '0');
+  const dy = String(birth.getDate()).padStart(2, '0');
+  const gov = GOV_NID_CODES[governorate] ?? '01';
+  const serial = String(1000 + Math.floor(rng() * 8999));
+  const checksum = String(Math.floor(rng() * 9));
+  return `3${yr}${mo}${dy}${gov}${serial}${checksum}`;
+}
+
+/** Score distribution: weighted toward 75-90% of cert max (410 for thanwiya). */
+function pickRealisticScore(): number {
+  const r = rng();
+  /* 60-75: 20% of population · 75-90: 60% · 90-100: 20% */
+  let pct: number;
+  if (r < 0.20) pct = 60 + rng() * 15;
+  else if (r < 0.80) pct = 75 + rng() * 15;
+  else pct = 90 + rng() * 10;
+  return Math.round((pct / 100) * 410);
+}
+
+const TOTAL_APPLICANTS = 2847;
+
 const applicants: Applicant[] = [];
-for (let i = 0; i < 240; i += 1) {
+for (let i = 0; i < TOTAL_APPLICANTS; i += 1) {
   const fname = pick(ARABIC_FIRST_NAMES);
-  const lname1 = pick(ARABIC_FIRST_NAMES);
+  const middle = pick(ARABIC_MIDDLE_NAMES);
+  const lname1 = pick(ARABIC_MIDDLE_NAMES);
   const lname2 = pick(ARABIC_LAST_NAMES);
   const cert = pick(CERTIFICATES);
-  const totalScore = 380 + Math.floor(rng() * 30);
+  const totalScore = pickRealisticScore();
   const status = pick(STATUSES);
   const stage = Math.floor(rng() * STAGE_LABELS.length);
+  const governorate = pickWeightedGovernorate();
+  /* Born 2005-2008 = 17-21 years old in cycle 2026 */
+  const birthYear = 2005 + Math.floor(rng() * 4);
+  const birthMonth = Math.floor(rng() * 12);
+  const birthDay = 1 + Math.floor(rng() * 28);
+  const birth = new Date(birthYear, birthMonth, birthDay);
   applicants.push({
-    id: `APP-${String(2026000 + i).padStart(7, '0')}`,
-    nationalId: genNationalId(),
-    name: `${fname} ${lname1} ${lname2}`,
-    gender: rng() < 0.85 ? 'male' : 'female',
-    birthDate: new Date(2002 + Math.floor(rng() * 5), Math.floor(rng() * 12), Math.floor(rng() * 28) + 1).toISOString(),
-    governorate: pick(GOVERNORATES),
+    id: `APP-${String(2026000000 + i + 1).padStart(10, '0')}`,
+    nationalId: genNationalIdFor(governorate, birth),
+    name: `${fname} ${middle} ${lname1} ${lname2}`,
+    gender: rng() < 0.88 ? 'male' : 'female',
+    birthDate: birth.toISOString(),
+    governorate,
     city: pick(CITIES),
     certType: cert.type,
     certSection: cert.section,
@@ -87,21 +138,26 @@ for (let i = 0; i < 240; i += 1) {
     stage,
     stageLabel: STAGE_LABELS[stage] ?? STAGE_LABELS[0]!,
     committee: pick(COMMITTEES_NAMES),
-    registeredAt: new Date(Date.now() - Math.floor(rng() * 60 * 24 * 3600 * 1000)).toISOString(),
-    paymentStatus: rng() < 0.7 ? 'paid' : 'pending',
+    registeredAt: new Date(Date.now() - Math.floor(rng() * 75 * 24 * 3600 * 1000)).toISOString(),
+    paymentStatus: rng() < 0.78 ? 'paid' : 'pending',
     paymentAmount: 1500,
-    hasDocuments: rng() < 0.6,
+    hasDocuments: rng() < 0.72,
     photo: null,
     results: {
-      medical: rng() < 0.5 ? null : rng() < 0.75 ? 'pass' : 'fail',
-      fitness: rng() < 0.6 ? null : rng() < 0.7 ? 'pass' : 'fail',
-      interview: rng() < 0.7 ? null : rng() < 0.8 ? 'pass' : 'fail',
-      finalExam: rng() < 0.85 ? null : rng() < 0.6 ? 'pass' : 'fail',
+      medical: rng() < 0.40 ? null : rng() < 0.78 ? 'pass' : 'fail',
+      fitness: rng() < 0.55 ? null : rng() < 0.72 ? 'pass' : 'fail',
+      interview: rng() < 0.65 ? null : rng() < 0.82 ? 'pass' : 'fail',
+      finalExam: rng() < 0.78 ? null : rng() < 0.65 ? 'pass' : 'fail',
     },
-    familySize: 4 + Math.floor(rng() * 4),
-    relativesCount: 6 + Math.floor(rng() * 8),
-    investigation: rng() < 0.4 ? 'pending' : rng() < 0.85 ? 'cleared' : 'flagged',
+    familySize: 4 + Math.floor(rng() * 5),
+    relativesCount: 6 + Math.floor(rng() * 12),
+    investigation: rng() < 0.32 ? 'pending' : rng() < 0.88 ? 'cleared' : 'flagged',
   });
+}
+
+/** Helper for components that need to show a rich "school" reference. */
+export function pickSchoolFor(_governorate: string): string {
+  return EGYPTIAN_SCHOOLS[Math.floor(rng() * EGYPTIAN_SCHOOLS.length)]!;
 }
 
 const users: SystemUser[] = [
@@ -117,11 +173,21 @@ const users: SystemUser[] = [
   { id: 'U-010', name: 'الرائد د. حسن محمد عبدالباقي', role: 'medical_doctor', unit: 'عيادة الباطنة', active: true, lastLogin: Date.now() - 9000000 },
 ];
 
+/* TIER 2 realism — bump from 80 → 240 audit events to match 2,847 applicants
+ * with realistic activity rate. Spread across last 7 days with a weighted
+ * lean toward today/yesterday for the "live" feel. */
 const audit: AuditEntry[] = [];
-for (let i = 0; i < 80; i += 1) {
+for (let i = 0; i < 240; i += 1) {
   const u = pick(users);
   const a = pick(AUDIT_ACTIONS);
   const target = pick(applicants);
+  /* Bias toward recent: 50% in last 24h, 30% in last 7 days, 20% in last 30 days */
+  const r = rng();
+  let ageMs: number;
+  if (r < 0.50) ageMs = Math.floor(rng() * 24 * 3600 * 1000);
+  else if (r < 0.80) ageMs = Math.floor(rng() * 7 * 86400 * 1000);
+  else ageMs = Math.floor(rng() * 30 * 86400 * 1000);
+
   audit.push({
     id: `AUD-${String(i + 1).padStart(6, '0')}`,
     userId: u.id,
@@ -129,18 +195,21 @@ for (let i = 0; i < 80; i += 1) {
     action: a.action,
     actionLabel: a.label,
     actionColor: a.color,
-    entity: pick(['متقدم', 'مستخدم', 'نتيجة اختبار', 'تقرير', 'إعداد نظام']),
+    entity: pick(['متقدم', 'مستخدم', 'نتيجة اختبار', 'تقرير', 'إعداد نظام', 'لجنة', 'دورة قبول']),
     entityId: target.id,
     details: pick([
       `تعديل بيانات المتقدم ${target.name}`,
-      `إضافة نتيجة اختبار طبي`,
+      `اعتماد نتيجة اختبار قدرات`,
       `استعلام عن سجل التحريات`,
-      `تسجيل دخول من IP 192.168.1.45`,
-      `تصدير تقرير إحصائي`,
-      `عرض الملف الإلكتروني`,
+      `تسجيل دخول من IP 41.65.92.${Math.floor(rng() * 255)}`,
+      `تصدير تقرير إحصائي PDF`,
+      `عرض الملف الإلكتروني للمتقدم`,
+      `إصدار باركود بدل فاقد`,
+      `حفظ نتيجة قومسيون طبي`,
+      `إقرار قرار جلسة هيئة`,
     ]),
-    timestamp: Date.now() - Math.floor(rng() * 7 * 86400 * 1000),
-    ip: `192.168.${Math.floor(rng() * 255)}.${Math.floor(rng() * 255)}`,
+    timestamp: Date.now() - ageMs,
+    ip: `41.65.${Math.floor(rng() * 255)}.${Math.floor(rng() * 255)}`,
   });
 }
 audit.sort((a, b) => b.timestamp - a.timestamp);
@@ -156,35 +225,43 @@ const questions: Question[] = [
   { id: 'Q-0008', category: 'ثقافة عامة',  difficulty: 'متوسط',  text: 'في أي مدينة يقع مقر منظمة الأمم المتحدة الرئيسي؟', options: ['جنيف', 'نيويورك', 'باريس', 'فيينا'], correctIndex: 1, usedCount: 145 },
 ];
 
+/* TIER 2 — realistic medical station counts for a ~2,800-applicant cycle.
+ * The 8 stations match KARASA §6.2.B exactly. Queue numbers are typical for
+ * mid-morning. */
 const medicalStations: MedicalStation[] = [
-  { id: 'MS-01', name: 'الباطنة', doctor: 'د. حسن محمد عبدالباقي', queue: 12, completed: 47 },
-  { id: 'MS-02', name: 'العظام', doctor: 'د. سامح فاروق نصر', queue: 8, completed: 52 },
-  { id: 'MS-03', name: 'الأنف والأذن والحنجرة', doctor: 'د. رامي شعبان', queue: 5, completed: 60 },
-  { id: 'MS-04', name: 'العيون', doctor: 'د. أسامة الجمل', queue: 14, completed: 41 },
-  { id: 'MS-05', name: 'الجلدية', doctor: 'د. مروان الأنصاري', queue: 3, completed: 65 },
-  { id: 'MS-06', name: 'الأسنان', doctor: 'د. زياد الزعيم', queue: 9, completed: 48 },
-  { id: 'MS-07', name: 'النفسية', doctor: 'د. هشام يحيى', queue: 11, completed: 44 },
-  { id: 'MS-08', name: 'الأشعة', doctor: 'د. كريم البنا', queue: 7, completed: 56 },
+  { id: 'MS-01', name: 'الباطنة',                doctor: 'الرائد د. حسن محمد عبدالباقي',  queue: 47, completed: 312 },
+  { id: 'MS-02', name: 'العظام',                 doctor: 'الرائد د. سامح فاروق نصر',     queue: 38, completed: 287 },
+  { id: 'MS-03', name: 'الأنف والأذن والحنجرة',   doctor: 'الرائد د. رامي شعبان',          queue: 29, completed: 305 },
+  { id: 'MS-04', name: 'العيون',                  doctor: 'الرائد د. أسامة الجمل',          queue: 52, completed: 268 },
+  { id: 'MS-05', name: 'الجراحة العامة',           doctor: 'الرائد د. مروان الأنصاري',       queue: 18, completed: 324 },
+  { id: 'MS-06', name: 'الأعصاب',                 doctor: 'الرائد د. زياد الزعيم',          queue: 24, completed: 296 },
+  { id: 'MS-07', name: 'الاتزان النفسي',           doctor: 'الرائد د. هشام يحيى',           queue: 41, completed: 273 },
+  { id: 'MS-08', name: 'القياسات (BMI)',          doctor: 'الرائد د. كريم البنا',          queue: 35, completed: 318 },
 ];
 
+/* TIER 2 — committee counts scale with realistic load (~570 per committee). */
 const committees: Committee[] = [
-  { id: 'C-01', name: 'لجنة طلبة 1', head: 'العقيد محمد إبراهيم', members: 5, applicants: 48, completed: 30 },
-  { id: 'C-02', name: 'لجنة طلبة 2', head: 'العقيد أحمد فاروق', members: 5, applicants: 52, completed: 27 },
-  { id: 'C-03', name: 'لجنة طلبة 3', head: 'الرائد طارق سامح', members: 4, applicants: 45, completed: 33 },
-  { id: 'C-04', name: 'لجنة طلبة 4', head: 'الرائد محمود الديب', members: 5, applicants: 50, completed: 28 },
-  { id: 'C-05', name: 'لجنة طلبة 5', head: 'الرائد عمر شعبان', members: 4, applicants: 47, completed: 31 },
+  { id: 'C-01', name: 'لجنة طلبة 1', head: 'العقيد محمد إبراهيم حسن',    members: 5, applicants: 572, completed: 408 },
+  { id: 'C-02', name: 'لجنة طلبة 2', head: 'العقيد أحمد فاروق سعد',       members: 5, applicants: 568, completed: 392 },
+  { id: 'C-03', name: 'لجنة طلبة 3', head: 'الرائد طارق سامح الديب',      members: 4, applicants: 569, completed: 425 },
+  { id: 'C-04', name: 'لجنة طلبة 4', head: 'الرائد محمود الديب البنا',    members: 5, applicants: 571, completed: 387 },
+  { id: 'C-05', name: 'لجنة طلبة 5', head: 'الرائد عمر شعبان فاروق',     members: 4, applicants: 567, completed: 401 },
 ];
 
+/* TIER 2 — registrations per day scaled to a realistic admission window
+ * (~150-280/day during the open period, with weekly weekend dips). */
 const last14Days: DayPoint[] = [];
 for (let i = 13; i >= 0; i -= 1) {
   const d = new Date();
   d.setDate(d.getDate() - i);
+  const isWeekend = d.getDay() === 5 || d.getDay() === 6; // Fri/Sat
+  const baseReg = isWeekend ? 110 : 200;
   last14Days.push({
     date: d.toISOString(),
     label: `${d.getDate()}/${d.getMonth() + 1}`,
-    registrations: 80 + Math.floor(rng() * 80),
-    payments: 60 + Math.floor(rng() * 60),
-    tests: 40 + Math.floor(rng() * 50),
+    registrations: baseReg + Math.floor(rng() * 80),
+    payments: Math.round((baseReg + Math.floor(rng() * 80)) * 0.78),
+    tests: 60 + Math.floor(rng() * 80),
   });
 }
 

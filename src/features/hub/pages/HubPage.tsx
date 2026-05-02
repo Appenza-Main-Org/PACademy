@@ -7,7 +7,7 @@
  * Locked cards (RBAC-denied) render with the lock affordance and stay visible.
  */
 
-import { ArrowLeft, BarChart3, Calendar, Check, ClipboardList, CreditCard, Eye, FileText, Globe, GraduationCap, Hourglass, Layers, Lock, Scale, Search, ServerCog, Stethoscope, UserCog, Users } from 'lucide-react';
+import { Activity, ArrowLeft, BarChart3, Calendar, Check, ClipboardList, CreditCard, Eye, FileText, Globe, GraduationCap, Hourglass, Layers, Lock, Scale, Search, ServerCog, Stethoscope, UserCog, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { ElementType } from 'react';
 import { AppShell } from '@/app/layouts/AppShell';
@@ -59,7 +59,11 @@ export function HubPage(): JSX.Element {
   const internal = accessible.filter((a) => a.platform === 'شبكة داخلية');
   const k = MOCK.kpis;
   const paidPercent = Math.round((k.paidApplicants / Math.max(1, k.totalApplicants)) * 100);
+  const todayRegs = MOCK.last14Days[MOCK.last14Days.length - 1]?.registrations ?? 0;
+  const yesterdayRegs = MOCK.last14Days[MOCK.last14Days.length - 2]?.registrations ?? 0;
+  const dayDelta = todayRegs - yesterdayRegs;
   const greeting = greetingForHour(new Date().getHours());
+  const hijri = formatHijri(new Date());
 
   return (
     <AppShell>
@@ -77,10 +81,18 @@ export function HubPage(): JSX.Element {
             <KhayameyaStripe height="md" />
           </div>
           <div className="relative">
-            <span className="inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1 text-2xs font-medium text-gold-300">
-              <Calendar size={12} strokeWidth={1.75} />
-              {fmtDate(Date.now())}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1 text-2xs font-medium text-gold-300">
+                <Calendar size={12} strokeWidth={1.75} />
+                {fmtDate(Date.now())}
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1 text-2xs font-medium text-white/75">
+                {hijri} هـ
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1 font-numeric tnum text-2xs font-medium text-white/75">
+                دورة 2026
+              </span>
+            </div>
             <h1 className="mt-4 font-ar-display text-3xl font-bold leading-tight">
               {greeting}، {shortName(user.name, 4)}
             </h1>
@@ -101,6 +113,10 @@ export function HubPage(): JSX.Element {
                 <UserCog size={12} strokeWidth={1.75} aria-hidden />
                 <span>{user.roleLabel}</span>
               </li>
+              <li className="inline-flex items-center gap-2">
+                <Activity size={12} strokeWidth={1.75} aria-hidden />
+                <span>اليوم: <span className="font-numeric tnum">{num(todayRegs)}</span> تسجيل جديد</span>
+              </li>
             </ul>
           </div>
         </section>
@@ -116,19 +132,19 @@ export function HubPage(): JSX.Element {
           </div>
           <div
             className="grid gap-5"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}
           >
             <StatCard
               label="إجمالي المتقدمين"
               value={k.totalApplicants}
               icon={<Users size={16} strokeWidth={1.75} />}
-              trend={{ label: '+12%', tone: 'success' }}
+              trend={{ label: '+12% عن دورة 2025', tone: 'success' }}
             />
             <StatCard
               label="مدفوع الرسوم"
               value={k.paidApplicants}
               icon={<CreditCard size={16} strokeWidth={1.75} />}
-              trend={{ label: `${paidPercent}%`, tone: 'success' }}
+              trend={{ label: `${paidPercent}% من الإجمالي`, tone: 'success' }}
             />
             <StatCard
               label="قيد المراجعة"
@@ -136,7 +152,7 @@ export function HubPage(): JSX.Element {
               icon={<Hourglass size={16} strokeWidth={1.75} />}
               iconBg="var(--gold-50)"
               iconColor="var(--gold-700)"
-              trend={{ label: '+5%', tone: 'neutral' }}
+              trend={{ label: 'بفترة الفحص الطبي', tone: 'neutral' }}
             />
             <StatCard
               label="تم القبول"
@@ -144,7 +160,26 @@ export function HubPage(): JSX.Element {
               icon={<Check size={16} strokeWidth={1.75} />}
               iconBg="var(--success-bg)"
               iconColor="var(--success)"
-              trend={{ label: 'مستقر', tone: 'neutral' }}
+              trend={{ label: 'في انتظار قرار الهيئة', tone: 'neutral' }}
+            />
+            <StatCard
+              label="مستبعد طبياً/أمنياً"
+              value={k.rejected}
+              icon={<X size={16} strokeWidth={1.75} />}
+              iconBg="var(--terra-50)"
+              iconColor="var(--terra-700)"
+              trend={{ label: 'وفقاً لكرّاسة §6.2', tone: 'neutral' }}
+            />
+            <StatCard
+              label="تسجيل اليوم"
+              value={todayRegs}
+              icon={<Activity size={16} strokeWidth={1.75} />}
+              iconBg="var(--teal-50)"
+              iconColor="var(--teal-700)"
+              trend={{
+                label: dayDelta >= 0 ? `+${dayDelta} مقارنة بالأمس` : `${dayDelta} مقارنة بالأمس`,
+                tone: dayDelta >= 0 ? 'success' : 'danger',
+              }}
             />
           </div>
         </section>
@@ -287,4 +322,16 @@ function greetingForHour(hour: number): string {
   if (hour < 12) return 'صباح الخير';
   if (hour < 17) return 'طاب نهارك';
   return 'مساء الخير';
+}
+
+function formatHijri(d: Date): string {
+  try {
+    return new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d).replace('هـ', '').trim();
+  } catch {
+    return '';
+  }
 }

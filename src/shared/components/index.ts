@@ -39,6 +39,8 @@ export { KhayameyaStripe } from './KhayameyaStripe';
 export type { KhayameyaHeight } from './KhayameyaStripe';
 export { LoadingState } from './LoadingState';
 export type { LoadingVariant } from './LoadingState';
+export { LogoMark } from './LogoMark';
+export type { LogoMarkProps } from './LogoMark';
 export { Modal } from './Modal';
 export type { ModalSize } from './Modal';
 export { MultiSelect } from './MultiSelect';

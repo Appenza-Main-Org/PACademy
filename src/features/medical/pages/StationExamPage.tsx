@@ -289,19 +289,80 @@ function StationFields({
   /* bmi */
   const heightCm = Number(fields.heightCm ?? 178);
   const weightKg = Number(fields.weightKg ?? 73);
+  const chestInhale = Number(fields.chestInhale ?? 92);
+  const chestExhale = Number(fields.chestExhale ?? 86);
   const bmi = +(weightKg / Math.pow(heightCm / 100, 2)).toFixed(1);
+  const expansion = +(chestInhale - chestExhale).toFixed(1);
+
+  const heightOk = heightCm >= 170 && heightCm <= 195;
+  const weightOk = weightKg >= 60 && weightKg <= 95;
+  const bmiCategory =
+    bmi < 18.5 ? { label: 'نقص وزن', tone: 'warning' as const, ok: false }
+    : bmi < 25  ? { label: 'مثالي', tone: 'success' as const, ok: true }
+    : bmi < 30  ? { label: 'زيادة طفيفة', tone: 'warning' as const, ok: true }
+    :             { label: 'سُمنة', tone: 'danger' as const, ok: false };
+  const expansionOk = expansion >= 5;
+
   return (
-    <div className="grid gap-4 md:grid-cols-[1fr_auto]">
-      <div className="grid gap-3 md:grid-cols-2">
-        <Input label="الطول (سم)" type="number" value={heightCm} onChange={(e) => set('heightCm', Number(e.target.value))} />
-        <Input label="الوزن (كجم)" type="number" value={weightKg} onChange={(e) => set('weightKg', Number(e.target.value))} />
-        <Input label="محيط الصدر — شهيق" type="number" value={Number(fields.chestInhale ?? 92)} onChange={(e) => set('chestInhale', Number(e.target.value))} />
-        <Input label="محيط الصدر — زفير" type="number" value={Number(fields.chestExhale ?? 86)} onChange={(e) => set('chestExhale', Number(e.target.value))} />
+    <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input
+          label="الطول (سم)"
+          type="number"
+          value={heightCm}
+          onChange={(e) => set('heightCm', Number(e.target.value))}
+          helper={heightOk ? 'ضمن المعدل المطلوب 170-195' : 'خارج النطاق المطلوب §6.2.B'}
+        />
+        <Input
+          label="الوزن (كجم)"
+          type="number"
+          value={weightKg}
+          onChange={(e) => set('weightKg', Number(e.target.value))}
+          helper={weightOk ? 'ضمن النطاق المعتاد' : 'يحتاج مراجعة'}
+        />
+        <Input label="محيط الصدر — شهيق (سم)" type="number" value={chestInhale} onChange={(e) => set('chestInhale', Number(e.target.value))} />
+        <Input label="محيط الصدر — زفير (سم)" type="number" value={chestExhale} onChange={(e) => set('chestExhale', Number(e.target.value))} />
       </div>
-      <div className="flex flex-col items-center gap-2 rounded-md border border-border-subtle bg-ink-50 p-4">
-        <Stethoscope size={16} strokeWidth={1.75} className="text-teal-700" aria-hidden />
-        <Gauge value={bmi} min={15} max={40} label="BMI" />
-        <p className="text-2xs text-ink-500">المعدل الصحي بين 19 و 28</p>
+
+      {/* Live verdict panel */}
+      <div className="flex flex-col gap-3 rounded-lg border border-border-default bg-ink-50 p-4">
+        <header className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-2 text-2xs font-bold uppercase tracking-wide text-teal-700">
+            <Stethoscope size={12} strokeWidth={1.75} aria-hidden />
+            معاينة فورية
+          </span>
+          <Badge tone={bmiCategory.tone}>{bmiCategory.label}</Badge>
+        </header>
+
+        <div className="flex justify-center">
+          <Gauge value={bmi} min={15} max={40} label="BMI" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-2xs">
+          <div className="rounded-md border border-border-subtle bg-surface-card p-2 text-center">
+            <p className="text-ink-500">معدل BMI</p>
+            <p className={'mt-0.5 font-mono text-md font-bold tnum ' + (bmiCategory.ok ? 'text-success' : 'text-terra-600')} dir="ltr">{bmi}</p>
+          </div>
+          <div className="rounded-md border border-border-subtle bg-surface-card p-2 text-center">
+            <p className="text-ink-500">سعة الصدر</p>
+            <p className={'mt-0.5 font-mono text-md font-bold tnum ' + (expansionOk ? 'text-success' : 'text-terra-600')} dir="ltr">+{expansion} سم</p>
+          </div>
+        </div>
+
+        <ul className="border-t border-border-subtle pt-2 text-2xs text-ink-700">
+          <li className="flex items-center justify-between gap-2">
+            <span>BMI ضمن النطاق المثالي 18.5-25</span>
+            <span className={bmiCategory.ok ? 'text-success' : 'text-terra-600'}>{bmiCategory.ok ? '✓' : '✗'}</span>
+          </li>
+          <li className="mt-1 flex items-center justify-between gap-2">
+            <span>سعة الصدر ≥ 5 سم</span>
+            <span className={expansionOk ? 'text-success' : 'text-terra-600'}>{expansionOk ? '✓' : '✗'}</span>
+          </li>
+          <li className="mt-1 flex items-center justify-between gap-2">
+            <span>الطول ضمن المعدل 170-195</span>
+            <span className={heightOk ? 'text-success' : 'text-terra-600'}>{heightOk ? '✓' : '✗'}</span>
+          </li>
+        </ul>
       </div>
     </div>
   );

@@ -9,8 +9,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ArrowRight,
+  BookOpen,
+  CheckCircle2,
   Eye,
+  FileText,
   Flag,
+  Folder,
   Pencil,
   Plus,
   Send,
@@ -21,6 +25,7 @@ import {
   Badge,
   Button,
   Card,
+  CardHeader,
   DataTable,
   Drawer,
   EmptyState,
@@ -29,6 +34,7 @@ import {
   LoadingState,
   PageHeader,
   Select,
+  StatCard,
   Textarea,
   toast,
 } from '@/shared/components';
@@ -51,10 +57,25 @@ const STATUS_TONE: Record<QuestionStatus, 'neutral' | 'warning' | 'info' | 'succ
 export function QuestionBankCRUDPage(): JSX.Element {
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
+  const { data: allQuestions } = useQuery({
+    queryKey: ['exams', 'questions', 'all'],
+    queryFn: () => examsService.listQuestions({}),
+  });
   const { data, isLoading } = useQuery({
-    queryKey: ['exams', 'questions', { status: statusFilter }],
+    queryKey: ['exams', 'questions', { status: statusFilter, category: categoryFilter }],
     queryFn: () => examsService.listQuestions({ status: statusFilter }),
   });
+  const filtered = (data ?? []).filter((q) => categoryFilter === 'all' || q.category === categoryFilter);
+
+  const categoryCounts = (allQuestions ?? []).reduce<Record<string, number>>((acc, q) => {
+    acc[q.category] = (acc[q.category] ?? 0) + 1;
+    return acc;
+  }, {});
+  const statusCounts = (allQuestions ?? []).reduce<Record<QuestionStatus, number>>(
+    (acc, q) => { acc[q.status] = (acc[q.status] ?? 0) + 1; return acc; },
+    { draft: 0, review: 0, approved: 0, live: 0 },
+  );
   const publishMut = useMutation({
     mutationFn: (id: string) => examsService.publishQuestion(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['exams', 'questions'] }),
@@ -102,9 +123,89 @@ export function QuestionBankCRUDPage(): JSX.Element {
           </div>
         }
       />
-      <Card>
-        <DataTable data={data ?? []} columns={columns} rowKey={(q) => q.id} loading={isLoading} empty={<EmptyState variant="no-questions" />} zebraStripes density="compact" />
-      </Card>
+      {/* Status stat strip */}
+      <div className="mb-5 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+        <StatCard
+          label="إجمالي الأسئلة"
+          value={allQuestions?.length ?? 0}
+          icon={<FileText size={16} strokeWidth={1.75} />}
+        />
+        <StatCard
+          label="مسودّات"
+          value={statusCounts.draft}
+          icon={<Pencil size={16} strokeWidth={1.75} />}
+          iconBg="var(--ink-100)"
+          iconColor="var(--ink-700)"
+        />
+        <StatCard
+          label="قيد المراجعة"
+          value={statusCounts.review}
+          icon={<Eye size={16} strokeWidth={1.75} />}
+          iconBg="var(--gold-50)"
+          iconColor="var(--gold-700)"
+        />
+        <StatCard
+          label="معتمد"
+          value={statusCounts.approved}
+          icon={<ShieldCheck size={16} strokeWidth={1.75} />}
+          iconBg="var(--teal-50)"
+          iconColor="var(--teal-700)"
+        />
+        <StatCard
+          label="منشور"
+          value={statusCounts.live}
+          icon={<CheckCircle2 size={16} strokeWidth={1.75} />}
+          iconBg="var(--success-bg)"
+          iconColor="var(--success)"
+        />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
+        {/* Category tree sidebar */}
+        <Card>
+          <CardHeader title="فئات الأسئلة" subtitle={`${Object.keys(categoryCounts).length} فئة`} />
+          <ul className="flex flex-col gap-1 text-sm">
+            <li>
+              <button
+                type="button"
+                onClick={() => setCategoryFilter('all')}
+                className={
+                  'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-start ' +
+                  (categoryFilter === 'all' ? 'bg-teal-50 font-medium text-teal-700' : 'text-ink-700 hover:bg-ink-50')
+                }
+              >
+                <span className="inline-flex items-center gap-2">
+                  <BookOpen size={13} strokeWidth={1.75} />
+                  جميع الفئات
+                </span>
+                <span className="font-numeric tnum text-2xs text-ink-500">{allQuestions?.length ?? 0}</span>
+              </button>
+            </li>
+            {Object.entries(categoryCounts).map(([cat, count]) => (
+              <li key={cat}>
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilter(cat)}
+                  className={
+                    'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-start ' +
+                    (categoryFilter === cat ? 'bg-teal-50 font-medium text-teal-700' : 'text-ink-700 hover:bg-ink-50')
+                  }
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Folder size={13} strokeWidth={1.75} />
+                    <span className="truncate">{cat}</span>
+                  </span>
+                  <span className="font-numeric tnum text-2xs text-ink-500">{count}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card>
+          <DataTable data={filtered} columns={columns} rowKey={(q) => q.id} loading={isLoading} empty={<EmptyState variant="no-questions" />} zebraStripes density="compact" />
+        </Card>
+      </div>
 
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="سؤال جديد" size="lg">
         <Drawer.Body>

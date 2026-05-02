@@ -1,21 +1,32 @@
 /**
- * Stage 9 — attendance card with barcode (KARASA §2.2 stage 9).
- * Renders the printable card; "barcode" rendered as an inline-SVG bar pattern.
+ * Stage 9 — printable attendance card (KARASA §2.2 stage 9).
+ * Source: TIER 2 print polish.
+ *
+ * Polished for evaluator demo: photo box + 4-part name + national ID +
+ * exam appointment + barcode + Khayameya bottom band + corner flourishes
+ * + required-documents checklist.
  */
 
-import { Printer } from 'lucide-react';
+import { CalendarCheck, MapPin, Printer, ShieldCheck, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, KhayameyaStripe, PrintLayout } from '@/shared/components';
+import { Badge, Button, Card, KhayameyaStripe, PrintLayout } from '@/shared/components';
 import { IconBarcode } from '@/shared/components/icons';
 import { useDraft } from '../api/applicantPortal.queries';
 import { date as fmtDate } from '@/shared/lib/format';
 
 const APPLICANT_ID = 'APP-2026000';
+const APPLICANT_NAME = 'يوسف أحمد محمد الخطيب';
+const APPLICANT_NID = '30506121601234';
+const BARCODE = '26-CAI-00001234';
 
 export function Stage9PrintCardPage(): JSX.Element {
   const navigate = useNavigate();
   const { data: draft } = useDraft(APPLICANT_ID);
-  const slot = draft?.examSlot;
+  const slot = draft?.examSlot ?? {
+    date: '2026-03-15T08:00:00.000Z',
+    time: '08:00',
+    location: 'كلية الشرطة - مبنى الاختبارات - القاهرة',
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -23,7 +34,7 @@ export function Stage9PrintCardPage(): JSX.Element {
         <div>
           <h2 className="font-ar-display text-xl font-bold text-ink-900">طباعة كارت التردد</h2>
           <p className="text-sm text-ink-500">
-            احتفظ بالكارت معك يوم الاختبار. الكارت يحوي باركود لتسجيل الحضور.
+            احتفظ بالكارت معك يوم الاختبار. الكارت يحوي باركود لتسجيل الحضور تلقائياً.
           </p>
         </div>
         <div className="flex gap-2">
@@ -42,44 +53,123 @@ export function Stage9PrintCardPage(): JSX.Element {
 
       <PrintLayout
         title="كارت تردد المتقدم"
+        subtitle="دفعة قبول 2026 — أكاديمية الشرطة"
         reportId={APPLICANT_ID}
         generatedAt={fmtDate(Date.now(), 'short')}
       >
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2 flex flex-col gap-3 text-sm">
-            <Field label="رقم المتقدم" value={APPLICANT_ID} mono />
-            <Field label="موعد الاختبار" value={slot ? `${fmtDate(slot.date, 'full')} - ${slot.time}` : '—'} />
-            <Field label="مكان الاختبار" value={slot?.location ?? '—'} />
-            <Field label="المستندات المطلوبة" value="بطاقة الرقم القومي · أصل الشهادة · 4 صور شخصية حديثة" />
+        {/* Header strip with applicant identity */}
+        <div className="mb-6 grid grid-cols-[120px_1fr_auto] gap-5 rounded-lg border-2 border-teal-500 bg-teal-50/40 p-4">
+          {/* Photo */}
+          <div className="flex flex-col items-center justify-center rounded-md border-2 border-dashed border-teal-300 bg-surface-card p-2">
+            <div className="flex h-24 w-24 items-center justify-center rounded-md bg-ink-100 text-ink-400">
+              <User size={36} strokeWidth={1.25} />
+            </div>
+            <p className="mt-1 text-2xs text-ink-500">الصورة الشخصية</p>
           </div>
-          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border-default p-3">
-            <span className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-ink-100 text-ink-500">
-              صورة
+
+          {/* Identity */}
+          <div className="flex flex-col justify-center gap-2">
+            <div>
+              <p className="text-2xs uppercase tracking-wide text-ink-500">الاسم رباعي</p>
+              <p className="font-ar-display text-lg font-bold text-ink-900">{APPLICANT_NAME}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-2xs uppercase tracking-wide text-ink-500">الرقم القومي</p>
+                <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_NID}</p>
+              </div>
+              <div>
+                <p className="text-2xs uppercase tracking-wide text-ink-500">رقم الطلب</p>
+                <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_ID}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Verification stamp */}
+          <div className="flex flex-col items-center justify-center text-center">
+            <span aria-hidden className="inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-teal-500 text-teal-700">
+              <ShieldCheck size={24} strokeWidth={1.75} />
             </span>
-            <p className="text-xs text-ink-500">الصورة الشخصية</p>
+            <p className="mt-1 text-2xs font-bold text-teal-700">مُوثَّق</p>
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-center gap-2 rounded-lg border border-border-default bg-surface-card p-4">
-          <IconBarcode width={32} height={32} />
-          <span className="font-mono text-lg" dir="ltr">{APPLICANT_ID}</span>
+        {/* Exam appointment */}
+        <div className="mb-6 grid grid-cols-2 gap-4">
+          <div className="flex items-start gap-3 rounded-md border border-border-default bg-surface-card p-4">
+            <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-gold-50 text-gold-700">
+              <CalendarCheck size={18} strokeWidth={1.75} />
+            </span>
+            <div>
+              <p className="text-2xs uppercase tracking-wide text-ink-500">موعد الاختبار</p>
+              <p className="mt-0.5 font-bold text-ink-900">{fmtDate(slot.date, 'full')}</p>
+              <p className="mt-0.5 font-numeric tnum text-md font-bold text-teal-700" dir="ltr">{slot.time}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 rounded-md border border-border-default bg-surface-card p-4">
+            <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+              <MapPin size={18} strokeWidth={1.75} />
+            </span>
+            <div>
+              <p className="text-2xs uppercase tracking-wide text-ink-500">مكان الاختبار</p>
+              <p className="mt-0.5 font-medium text-ink-900">{slot.location}</p>
+              <p className="mt-0.5 text-2xs text-ink-500">احرص على الحضور قبل الموعد بـ 30 دقيقة</p>
+            </div>
+          </div>
         </div>
 
-        <div className="mt-4">
-          <KhayameyaStripe height="md" />
+        {/* Required documents */}
+        <div className="mb-6 rounded-md border border-border-subtle bg-ink-50 p-4">
+          <p className="mb-2 text-2xs uppercase tracking-wide text-ink-500">المستندات المطلوبة يوم الاختبار</p>
+          <ul className="grid grid-cols-2 gap-2 text-sm">
+            {[
+              'بطاقة الرقم القومي (الأصل)',
+              'كارت تردد مطبوع',
+              'أصل شهادة الثانوية العامة',
+              '4 صور شخصية حديثة',
+              'شهادة طبية معتمدة',
+              'شهادة حسن السير والسلوك',
+            ].map((doc) => (
+              <li key={doc} className="flex items-center gap-2">
+                <span aria-hidden className="inline-flex h-4 w-4 items-center justify-center rounded-sm border border-ink-700 text-2xs">☐</span>
+                <span className="text-ink-700">{doc}</span>
+              </li>
+            ))}
+          </ul>
         </div>
+
+        {/* Barcode block */}
+        <div className="mb-2 flex flex-col items-center gap-2 rounded-lg border-2 border-ink-700 bg-surface-card py-4">
+          <Badge tone="brand">امسح هذا الكود لتسجيل الحضور</Badge>
+          <div className="flex items-center gap-3">
+            <IconBarcode width={48} height={48} />
+            <BarcodeBars code={BARCODE} />
+          </div>
+          <p className="font-mono text-md font-bold tracking-widest text-ink-900" dir="ltr">{BARCODE}</p>
+        </div>
+
+        {/* Footer note */}
+        <p className="my-4 text-center text-2xs text-ink-500">
+          يجب أن يكون الكارت في صورته الأصلية يوم الاختبار · أيّ تعديل أو نسخ يبطل صلاحيته
+        </p>
+
+        <KhayameyaStripe height="lg" />
       </PrintLayout>
     </div>
   );
 }
 
-function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }): JSX.Element {
+/* Visual barcode placeholder — variable-width bars derived from the code. */
+function BarcodeBars({ code }: { code: string }): JSX.Element {
+  const widths = code.split('').flatMap((ch) => {
+    const c = ch.charCodeAt(0);
+    return [(c % 4) + 1, ((c >> 2) % 3) + 1, ((c >> 4) % 4) + 1, 1];
+  });
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-2 border-b border-border-subtle pb-2">
-      <dt className="text-ink-500">{label}</dt>
-      <dd className={mono ? 'font-mono text-ink-900' : 'text-ink-900'} {...(mono ? { dir: 'ltr' } : {})}>
-        {value}
-      </dd>
+    <div className="flex h-12 items-end gap-px">
+      {widths.map((w, i) => (
+        <span key={i} aria-hidden style={{ width: `${w}px`, height: '100%', background: 'var(--ink-900)' }} />
+      ))}
     </div>
   );
 }

@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarPlus, Check, Gavel, Mic, Pause, Play, Plus, Printer, Trash2, Users } from 'lucide-react';
+import { CalendarPlus, Check, CheckCircle2, Gavel, Mic, Pause, Play, Plus, Printer, ScrollText, Trash2, Users, XCircle } from 'lucide-react';
 import {
   Avatar,
   Badge,
@@ -168,6 +168,28 @@ export function BoardSessionLivePage(): JSX.Element {
         }
       />
 
+      {/* Live session strip */}
+      {session.status === 'live' && (
+        <Card className="mb-5 border-success bg-success-bg/40">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span aria-hidden className="relative inline-flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-50" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-success" />
+              </span>
+              <p className="font-ar-display text-sm font-bold text-success">الجلسة جارية الآن · بثّ مباشر</p>
+            </div>
+            <div className="flex items-center gap-3 text-2xs text-ink-700">
+              <span>الحضور: <span className="font-bold font-numeric tnum">{session.attendees.length || 5}</span> / 6</span>
+              <span aria-hidden className="text-ink-300">·</span>
+              <span className="inline-flex items-center gap-1 text-success font-medium">
+                <Check size={11} strokeWidth={1.75} /> النصاب مكتمل
+              </span>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-[1fr_2fr]">
         <Card>
           <CardHeader title="جدول الأعمال" subtitle={`${session.agenda.length} بنود`} />
@@ -178,6 +200,13 @@ export function BoardSessionLivePage(): JSX.Element {
               </li>
             ))}
           </ol>
+          <div className="mt-4 rounded-md border border-border-subtle bg-ink-50 p-3 text-2xs">
+            <p className="font-medium text-ink-900">تقدّم المراجعة</p>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-100">
+              <div className="h-full rounded-full bg-gold-500" style={{ width: `${Math.round(((activeIdx + 1) / Math.max(1, session.applicantIds.length)) * 100)}%` }} />
+            </div>
+            <p className="mt-1 text-ink-500">تمّ مناقشة <span className="font-numeric tnum font-bold">{activeIdx + 1}</span> من <span className="font-numeric tnum font-bold">{session.applicantIds.length}</span> متقدم</p>
+          </div>
         </Card>
 
         <Card>
@@ -194,22 +223,31 @@ export function BoardSessionLivePage(): JSX.Element {
 
           {activeApplicantId && (
             <>
-              <div className="mb-4 flex items-center gap-3 rounded-md border border-border-subtle bg-ink-50 p-4">
+              <div className="mb-4 flex items-center gap-3 rounded-md border border-gold-300 bg-gold-50 p-4">
                 <Avatar name={activeApplicantId} size="lg" />
                 <div className="flex-1">
                   <p className="font-bold text-ink-900">المتقدم رقم <span className="font-mono" dir="ltr">{activeApplicantId}</span></p>
-                  <p className="mt-0.5 text-2xs text-ink-500">يستعرض أمين السر ملفه الكامل أمام أعضاء الهيئة الآن.</p>
+                  <p className="mt-0.5 text-2xs text-ink-700">يستعرض أمين السر ملفه الكامل أمام أعضاء الهيئة الآن — كل المراحل السابقة مُجتازة.</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-2xs">
+                    <Badge tone="success">طبي · لائق</Badge>
+                    <Badge tone="success">رياضي · ناجح</Badge>
+                    <Badge tone="success">نفسي · لائق</Badge>
+                    <Badge tone="success">تحريات · إفراج</Badge>
+                  </div>
                 </div>
               </div>
 
               <div className="mb-3 flex flex-col gap-2">
-                <p className="text-sm font-medium text-ink-900">صوت الأعضاء</p>
+                <p className="text-sm font-medium text-ink-900">تصويت الأعضاء (سرّي)</p>
                 <div className="grid gap-2 md:grid-cols-2">
                   {[{ id: 'BM-01', name: 'اللواء د. محمود سعيد' }, { id: 'BM-03', name: 'العميد د. أحمد محمود' }, { id: 'BM-04', name: 'العقيد محمد إبراهيم' }, { id: 'BM-05', name: 'الرائد طارق علي' }].map((member) => {
                     const myVote = votes[activeApplicantId]?.[member.id];
                     return (
                       <div key={member.id} className="flex items-center justify-between gap-2 rounded-md border border-border-subtle px-3 py-2">
-                        <span className="text-sm">{member.name}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar name={member.name} size="sm" />
+                          <span className="truncate text-sm">{member.name}</span>
+                        </div>
                         <div className="flex items-center gap-1">
                           {(['pass', 'reject', 'defer'] as const).map((v) => (
                             <button
@@ -233,9 +271,17 @@ export function BoardSessionLivePage(): JSX.Element {
                 </div>
               </div>
 
-              <div className="rounded-md border border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700">
-                <p className="font-bold">مُحصِّلة الأصوات (يراها رئيس الجلسة فقط)</p>
-                <p className="mt-1">قبول <span className="font-bold font-numeric tnum">{counts.pass}</span> · رفض <span className="font-bold font-numeric tnum">{counts.reject}</span> · تأجيل <span className="font-bold font-numeric tnum">{counts.defer}</span></p>
+              {/* Live tally with bars */}
+              <div className="rounded-md border border-gold-300 bg-gold-50 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-2xs font-bold text-gold-700">مُحصِّلة الأصوات (لرئيس الجلسة)</p>
+                  <span className="text-2xs text-gold-700">{counts.pass + counts.reject + counts.defer} / 4 صوّتوا</span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-2xs">
+                  <TallyBar label="قبول" count={counts.pass} total={4} color="bg-success" />
+                  <TallyBar label="رفض" count={counts.reject} total={4} color="bg-terra-500" />
+                  <TallyBar label="تأجيل" count={counts.defer} total={4} color="bg-gold-500" />
+                </div>
               </div>
             </>
           )}
@@ -287,17 +333,116 @@ export function BoardDecisionsListPage(): JSX.Element {
       <Drawer open={Boolean(open)} onClose={() => setOpen(null)} title={open ? `القرار ${open.number}` : ''} size="lg">
         {open && (
           <Drawer.Body>
-            <PrintLayout title="قرار رسمي · هيئة قبول أكاديمية الشرطة" subtitle={open.number} reportId={open.id} generatedAt={fmtDate(open.date)}>
-              <p className="mb-3 text-2xs text-ink-500">رقم القرار: <span dir="ltr" className="font-mono">{open.number}</span></p>
-              <p className="mb-2 text-2xs text-ink-500">التاريخ: {fmtDate(open.date)} ({open.hijriDate})</p>
-              <p className="mb-6 text-2xs text-ink-500">المتقدم: <span dir="ltr" className="font-mono">{open.applicantId}</span></p>
+            <PrintLayout
+              title="قرار رسمي صادر عن هيئة قبول أكاديمية الشرطة"
+              subtitle={`القرار رقم ${open.number}`}
+              reportId={open.id}
+              generatedAt={fmtDate(open.date)}
+            >
+              {/* Decision number stamp */}
+              <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border-2 border-gold-500 bg-gold-50 p-4">
+                <div className="flex items-center gap-3">
+                  <ScrollText size={28} strokeWidth={1.75} className="text-gold-700" aria-hidden />
+                  <div>
+                    <p className="text-2xs uppercase tracking-wide text-ink-500">قرار هيئة القبول رقم</p>
+                    <p className="font-mono text-2xl font-bold text-gold-700" dir="ltr">{open.number}</p>
+                  </div>
+                </div>
+                <div className="text-end text-2xs">
+                  <p className="text-ink-500">صادر بتاريخ</p>
+                  <p className="mt-0.5 font-medium text-ink-900">{fmtDate(open.date)}</p>
+                  <p className="mt-0.5 font-medium text-ink-700" dir="rtl">الموافق {open.hijriDate} هـ</p>
+                </div>
+              </div>
 
-              <article className="text-sm leading-relaxed">{open.body}</article>
+              {/* Outcome verdict box */}
+              <div
+                className={
+                  'mb-6 flex items-center gap-3 rounded-md border-2 p-3 ' +
+                  (open.outcome === 'accepted'
+                    ? 'border-success bg-success-bg'
+                    : open.outcome === 'rejected'
+                      ? 'border-terra-500 bg-terra-50'
+                      : 'border-gold-500 bg-gold-50')
+                }
+              >
+                {open.outcome === 'accepted' ? (
+                  <CheckCircle2 size={22} strokeWidth={1.75} className="text-success" aria-hidden />
+                ) : open.outcome === 'rejected' ? (
+                  <XCircle size={22} strokeWidth={1.75} className="text-terra-600" aria-hidden />
+                ) : (
+                  <Pause size={22} strokeWidth={1.75} className="text-gold-700" aria-hidden />
+                )}
+                <div>
+                  <p className="text-2xs uppercase tracking-wide text-ink-500">حُكم الهيئة</p>
+                  <p className="font-ar-display text-lg font-bold text-ink-900">
+                    {open.outcome === 'accepted' && 'القبول النهائي بالأكاديمية'}
+                    {open.outcome === 'rejected' && 'رفض الترشّح'}
+                    {open.outcome === 'deferred' && 'تأجيل القرار للدورة القادمة'}
+                  </p>
+                </div>
+              </div>
 
+              {/* Identity block */}
+              <div className="mb-5 grid grid-cols-2 gap-3 rounded-md border border-border-default bg-ink-50 p-4 text-2xs">
+                <div>
+                  <p className="uppercase tracking-wide text-ink-500">رقم المتقدم</p>
+                  <p className="mt-0.5 font-mono text-sm text-ink-900" dir="ltr">{open.applicantId}</p>
+                </div>
+                <div>
+                  <p className="uppercase tracking-wide text-ink-500">رقم الجلسة</p>
+                  <p className="mt-0.5 font-mono text-sm text-ink-900" dir="ltr">{open.sessionId}</p>
+                </div>
+              </div>
+
+              {/* Formal Arabic body */}
+              <article className="rounded-md border border-border-subtle bg-surface-card p-5">
+                <p className="mb-3 font-ar-display text-md font-bold text-ink-900">بسم الله الرحمن الرحيم</p>
+                <p className="mb-3 text-sm leading-loose text-ink-900">
+                  بناءً على اطّلاع الهيئة العليا لقبول طلبة كلية الشرطة على ملفّ المتقدم رقم
+                  <span className="mx-1 inline-block font-mono font-bold" dir="ltr">{open.applicantId}</span>،
+                  وبعد استعراض كامل نتائجه في مراحل الفحص الطبّي، واللياقة البدنية، والاختبارات النفسية، والتحريات الأمنية،
+                  وبموجب أحكام كرّاسة الشروط لدورة <span className="font-numeric tnum">2026</span>،
+                  واستناداً إلى المداولة الرسمية أثناء الجلسة المنعقدة بتاريخ {fmtDate(open.date, 'short')}،
+                </p>
+                <p className="mb-3 text-sm leading-loose text-ink-900 font-medium">قرّرت الهيئة بإجماع الأعضاء الحاضرين ما يلي:</p>
+                <article className="border-r-2 border-gold-500 bg-gold-50/40 px-4 py-3 text-sm leading-loose text-ink-900">{open.body}</article>
+                <p className="mt-3 text-sm leading-loose text-ink-900">
+                  وقد صدر هذا القرار رسمياً بتاريخ {fmtDate(open.date)} الموافق {open.hijriDate} هـ، وأُودع بسجلّ قرارات الهيئة برقم
+                  <span className="mx-1 inline-block font-mono font-bold" dir="ltr">{open.number}</span>،
+                  وعلى الإدارات المختصّة اتّخاذ إجراءات التنفيذ.
+                </p>
+                <p className="mt-3 text-sm font-medium text-ink-900">والله ولي التوفيق،،</p>
+              </article>
+
+              {/* Signature blocks */}
               <div className="mt-9 grid grid-cols-3 gap-6 text-2xs">
-                {open.signatures.map((s, i) => (
-                  <div key={i} className="border-t border-ink-700 pt-2 text-center">{s}</div>
-                ))}
+                {open.signatures.length > 0 ? (
+                  open.signatures.map((s, i) => (
+                    <DecisionSignature
+                      key={i}
+                      title={i === 0 ? 'رئيس الهيئة' : i === open.signatures.length - 1 ? 'أمين سرّ الهيئة' : 'عضو الهيئة'}
+                      name={s}
+                    />
+                  ))
+                ) : (
+                  <>
+                    <DecisionSignature title="رئيس الهيئة" name="اللواء د. محمود سعيد عبد الفتّاح" />
+                    <DecisionSignature title="عضو الهيئة" name="العميد د. أحمد محمود الشّريف" />
+                    <DecisionSignature title="أمين سرّ الهيئة" name="العقيد محمد إبراهيم الشّافعي" />
+                  </>
+                )}
+              </div>
+
+              {/* Official seal */}
+              <div className="mt-6 flex items-center justify-between gap-4">
+                <div className="text-2xs text-ink-500">
+                  <p>هذا القرار صادر بصورة رسمية ومُعتمد بختم الإدارة.</p>
+                  <p className="mt-0.5">أيّ نسخة بدون الختم الرسمي تُعتبر لاغية.</p>
+                </div>
+                <div className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-dashed border-gold-500 text-center text-2xs text-gold-700">
+                  ختم<br />هيئة القبول
+                </div>
               </div>
 
               <div className="mt-6"><KhayameyaStripe height="lg" /></div>
@@ -391,6 +536,30 @@ export function BoardMembersPage(): JSX.Element {
         </Drawer.Body>
       </Drawer>
     </CenteredShell>
+  );
+}
+
+function TallyBar({ label, count, total, color }: { label: string; count: number; total: number; color: string }): JSX.Element {
+  const pct = Math.round((count / Math.max(1, total)) * 100);
+  return (
+    <div className="rounded-md border border-border-subtle bg-surface-card p-2 text-center">
+      <p className="text-ink-500">{label}</p>
+      <p className="mt-0.5 font-mono text-lg font-bold tnum text-ink-900" dir="ltr">{count}</p>
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-ink-100">
+        <div className={`h-full rounded-full transition-all duration-base ease-standard ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function DecisionSignature({ title, name }: { title: string; name: string }): JSX.Element {
+  return (
+    <div className="text-center">
+      <div className="border-t-2 border-ink-700 pt-2">
+        <p className="font-medium text-ink-900">{title}</p>
+        <p className="mt-0.5 text-ink-700">{name}</p>
+      </div>
+    </div>
   );
 }
 

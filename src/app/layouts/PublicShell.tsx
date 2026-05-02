@@ -15,8 +15,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { HelpCircle, Phone } from 'lucide-react';
-import { KhayameyaStripe, Pattern } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
+import { KhayameyaStripe, LogoMark, Pattern } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 
 interface PublicShellProps {
@@ -34,9 +33,7 @@ export function PublicShell({ children, bareHeader }: PublicShellProps): JSX.Ele
         <header className="sticky top-0 flex h-14 items-center justify-between gap-4 border-b border-border-subtle bg-surface-card px-6"
           style={{ zIndex: 'var(--z-sticky)' as unknown as number }}>
           <Link to={ROUTES.landing} className="flex items-center gap-3 rounded-md px-1 py-1 hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none">
-            <span aria-hidden className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white" style={{ background: 'var(--teal-500)' }}>
-              <IconSeal width={18} height={18} color="white" />
-            </span>
+            <LogoMark size={32} ariaLabel="شعار أكاديمية الشرطة" />
             <span className="hidden flex-col leading-tight md:flex">
               <span className="font-ar-display text-sm font-bold text-ink-900">منظومة القبول</span>
               <span className="text-2xs text-ink-500">أكاديمية الشرطة</span>

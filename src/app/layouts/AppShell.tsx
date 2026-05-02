@@ -14,11 +14,11 @@ import {
   Button,
   CommandPalette,
   KhayameyaStripe,
+  LogoMark,
   NotificationCenter,
   toast,
   useCommandPaletteShortcut,
 } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
 import { useAuthStore } from '@/features/auth';
 import { useLogoutMutation } from '@/features/auth/api/auth.queries';
 import { shortName } from '@/shared/lib/format';
@@ -71,13 +71,7 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
             to="/hub"
             className="flex items-center gap-3 rounded-md px-1 py-1 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
           >
-            <span
-              aria-hidden
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-white shadow-xs"
-              style={{ background: 'var(--teal-500)' }}
-            >
-              <IconSeal width={20} height={20} color="white" />
-            </span>
+            <LogoMark size={36} ariaLabel="شعار أكاديمية الشرطة" className="rounded-full shadow-xs" />
             <span className="hidden flex-col leading-tight md:flex">
               <span className="font-ar-display text-sm font-bold text-ink-900">منظومة القبول</span>
               <span className="text-2xs text-ink-500">أكاديمية الشرطة</span>

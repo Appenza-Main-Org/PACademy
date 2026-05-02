@@ -28,9 +28,9 @@ import {
   Badge,
   CornerFlourish,
   KhayameyaStripe,
+  LogoMark,
   Pattern,
 } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
 import { ROUTES } from '@/config/routes';
 
 const APPLICATION_OPEN = '15 يناير 2026';
@@ -58,13 +58,7 @@ export function PublicLandingPage(): JSX.Element {
           aria-hidden
         />
         <div className="relative mx-auto flex max-w-content flex-col items-center gap-6 px-6 py-16 text-center">
-          <span
-            aria-hidden
-            className="inline-flex h-20 w-20 items-center justify-center rounded-2xl shadow-md"
-            style={{ background: 'var(--teal-500)' }}
-          >
-            <IconSeal width={44} height={44} color="var(--gold-300)" />
-          </span>
+          <LogoMark size={96} ariaLabel="شعار أكاديمية الشرطة" className="drop-shadow-md" />
 
           <div>
             <p className="mb-2 inline-flex items-center gap-2 rounded-pill bg-gold-50 px-4 py-1.5 text-2xs font-bold uppercase tracking-wide text-gold-700">
