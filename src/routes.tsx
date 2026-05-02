@@ -15,6 +15,7 @@ import { AuthGuard } from '@/app/providers/AuthGuard';
 import { LoginPage } from '@/features/auth';
 import { HubPage } from '@/features/hub';
 import { ArchitecturePage } from '@/features/architecture';
+import { RevampComparisonPage } from '@/features/design-revamp';
 import { ProfilePage } from '@/features/profile';
 import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
@@ -127,6 +128,10 @@ export const routes: RouteObject[] = [
   {
     path: '/architecture',
     element: <AuthGuard app="architecture"><ArchitecturePage /></AuthGuard>,
+  },
+  {
+    path: '/design-revamp',
+    element: <AuthGuard app="architecture"><RevampComparisonPage /></AuthGuard>,
   },
   { path: '/profile', element: <AuthGuard><ProfilePage /></AuthGuard> },
 

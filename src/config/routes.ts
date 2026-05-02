@@ -13,6 +13,7 @@ export const ROUTES = {
   /* ── Staff surface (AuthGuard required) ── */
   hub: '/hub',
   architecture: '/architecture',
+  designRevamp: '/design-revamp',
   profile: '/profile',
   admin: {
     dashboard: '/admin',
