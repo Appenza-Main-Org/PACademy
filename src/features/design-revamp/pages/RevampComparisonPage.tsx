@@ -1,63 +1,56 @@
 /**
  * RevampComparisonPage — visual before/after companion to DESIGN_REVAMP.md.
  *
- * Renders four side-by-side renders of /hub, /staff-login, /committee/C-01,
- * /investigations/cases/CASE-00001 — each pair shows the current teal-heavy
- * chrome on the left and the proposed "Heritage Modern v2" treatment on the
- * right. A tokens summary panel sits at the bottom.
+ * Renders four 1920×1080 side-by-side renders of /hub, /staff-login,
+ * /committee/C-01, /investigations/cases/CASE-00001 — each pair shows
+ * the current teal-heavy chrome on the right and the proposed
+ * "Heritage Modern v2 · Ministerial Navy" treatment on the left.
  *
- * The "after" mocks render with v2 palette values inlined as plain styles —
- * NO global token changes — so this page can ship for stakeholder review
- * without touching the live design system. Source: design bundle handoff
- * (claude.ai/design), DESIGN_REVAMP.md §3 + §2.
+ * Each mock canvas renders at fixed 1920×1080 then scales down via
+ * `transform: scale()` to fit the responsive container (matches the
+ * source design's pattern). A tokens summary panel sits at the bottom.
+ *
+ * Source: handoff bundle (claude.ai/design) — DESIGN_REVAMP.md +
+ * revamp-comparison.html. Direction B "Ministerial Navy #143764"
+ * is the brand-defining decision; gold = heritage accent only;
+ * terra = restricted ops only; teal = medical-app accent only.
  */
 
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Activity,
-  Bell,
-  Briefcase,
-  CheckCircle2,
-  ChevronLeft,
-  ClipboardCheck,
-  Eye,
-  FileText,
-  Hourglass,
-  Layers,
-  ShieldAlert,
-  Stethoscope,
-  Users,
-} from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
-import { Card, KhayameyaStripe, PageHeader } from '@/shared/components';
+import { PageHeader } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 
-/* ─────────── v2 palette inline (DESIGN_REVAMP §2.1) ─────────── */
+/* ─── v2 palette inline (DESIGN_REVAMP §2.1, Direction B) ─── */
 const v2 = {
-  n0:    '#FFFFFF',
-  n25:   '#FAFAF7',
-  n50:   '#F4F4F0',
-  n100:  '#E9E8E1',
-  n200:  '#D4D2C8',
-  n400:  '#807E70',
-  n500:  '#54524A',
-  n700:  '#26251F',
-  n900:  '#0A0907',
-  p50:   '#E8F2F2',
-  p100:  '#C4DEDE',
-  p500:  '#1F7575',
-  p700:  '#0E3F3F',
-  p900:  '#051C1C',
-  g50:   '#FBF5E8',
-  g300:  '#DDB85A',
-  g500:  '#B0822A',
-  g700:  '#674916',
-  t50:   '#FCEFEA',
-  t500:  '#B8412A',
-  t700:  '#7B2718',
-  cyan:  '#0E8A8A',
-  navy:  '#2069A8',
-  amber: '#B27500',
+  /* neutrals — warm slate */
+  n0: '#FFFFFF', n25: '#FAFAF7', n50: '#F4F2ED', n100: '#ECE7DC',
+  n200: '#D8CFB8', n300: '#B5A88A', n400: '#8C7E5E', n500: '#5C5238',
+  n600: '#3D3624', n700: '#2A2517', n800: '#1C190F', n900: '#0E0C07',
+  /* primary — Ministerial Navy */
+  p50: '#EAF0F8', p100: '#C9D7EC', p300: '#5478A8', p500: '#2C5489',
+  p600: '#1E4373', p700: '#143764', p800: '#0A2548', p900: '#04152D',
+  /* heritage accent — gold */
+  g50: '#FBF5E8', g100: '#F4E5BD', g300: '#DDB85A', g500: '#B0822A',
+  g600: '#8E6620', g700: '#674916',
+  /* restricted — terra */
+  t50: '#FCEFEA', t100: '#F8D6CC', t500: '#B8412A', t700: '#7B2718',
+  /* medical accent — cyan-teal */
+  c50: '#E6F2F2', c500: '#0E8A8A', c700: '#0A5A5A',
+  /* semantic */
+  success500: '#2E8755', success50: '#E6F1EB',
+  warning500: '#B27500', warning50: '#FFF4DC',
+  danger500: '#C8362A', danger50: '#FCEAE7',
+  info500: '#2C5489', info50: '#EAF0F8',
+};
+
+/* ─── old palette (BEFORE mocks render with these to surface the contrast) ─── */
+const v1 = {
+  teal500: '#1A6868', teal600: '#155454', teal700: '#0E3F3F', teal900: '#051C1C',
+  gold500: '#B8862C', gold700: '#7A5A1A', terra500: '#C44A30',
+  cream: '#F4F2ED', cream2: '#F7F4EB', ink500: '#5A574E', ink700: '#2A2820',
 };
 
 /* ─────────── Page ─────────── */
@@ -67,7 +60,7 @@ export function RevampComparisonPage(): JSX.Element {
     <CenteredShell>
       <PageHeader
         title="نظام التصميم — مقارنة قبل وبعد"
-        subtitle="عرض مرئي للنسخة المقترحة «Heritage Modern v2» على أربع شاشات رئيسية"
+        subtitle="مقارنة جنباً إلى جنب لأربع شاشات أساسية بين النظام الحالي والنسخة المقترحة «Heritage Modern v2 · Ministerial Navy». كل إطار بمقاس 1920×1080."
         breadcrumbs={[
           { label: 'المعمارية', href: ROUTES.architecture },
           { label: 'مقارنة التصميم' },
@@ -84,50 +77,89 @@ export function RevampComparisonPage(): JSX.Element {
       />
 
       <Section
-        index={1}
+        index="01"
         route="/hub"
-        title="لوحة الوصول الرئيسية"
-        beforeNote="الـ hero بلون تيل مطلق يستهلك ٣٨٪ من الشاشة، والمؤشرات تختفي تحت الطية."
-        afterNote="شريط ترحيب أبيض مدمج (١٢٪)، والمؤشرات الست تأخذ مكان البطل، وسجل النشاط بجوارها لا تحته."
+        title="لوحة الإدارة الرئيسية"
+        beforeNote={[
+          '«صباح الخير» يستهلك ثلث الشاشة دون معلومات حقيقية.',
+          'كل سطح بنفس درجة التيركواز — لا توجد طبقات.',
+          'الـ KPIs مضغوطة في شريط واحد أسفل الـ hero.',
+          'سجل النشاط مفقود تحت الطيّ.',
+        ]}
+        afterNote={[
+          'الـ hero أصبح شريطاً مدمجاً بسطر ترحيب + معلومات الدورة (12% من الشاشة بدل 38%).',
+          'الـ KPIs أصبحت بطل الشاشة — شبكة 3×2 مع sparklines وأرقام Tabular.',
+          'سجل النشاط ظاهر مباشرة بجانب الـ KPIs.',
+          'السايد بار بخلفية بيضاء + قضيب هوية navy 4px على الحافة.',
+          '«المنظومة تعمل» شارة خضراء مستقلة دلالياً — ليست تيركواز.',
+        ]}
         before={<HubBefore />}
         after={<HubAfter />}
       />
 
       <Section
-        index={2}
+        index="02"
         route="/staff-login"
-        title="تسجيل دخول الموظفين"
-        beforeNote="تقسيم ٥٠/٥٠ بلون التيل الداكن — تسجيل الدخول يبدو كأنه شاشة لوحة تحكم أخرى."
-        afterNote="تقسيم ٦٠/٤٠ يفضّل النموذج، الجزء الأيسر صورة مبنى الأكاديمية مع طبقة شفافة — ظهور الشعار والاسم فقط."
+        title="شاشة الدخول"
+        beforeNote={[
+          'تقسيم 50/50 يجعل النموذج (سبب الزيارة) مساوياً للمحتوى التسويقي.',
+          'اللوحة اليسرى مجرد سطح تيركواز آخر.',
+          'إحصائيات (9 / 11 / 2,847) لا معنى لها قبل تسجيل الدخول.',
+          'الزر بظلّ ثقيل وحركة تيركواز كثيفة.',
+        ]}
+        afterNote={[
+          'تقسيم 60/40 لصالح النموذج — هو الغرض من الشاشة.',
+          'اللوحة اليسرى مساحة لصورة فوتوغرافية حقيقية (مبنى الأكاديمية) خلف طبقة navy شفافة.',
+          'إزالة إحصائيات ما قبل الدخول — استُبدلت بـ status strip حقيقي.',
+          'الحقل المُركَّز عليه يُظهر ring navy 2px فقط.',
+          'زر مسطّح بدون ظل — حركة هادئة تليق ببوابة وزارية.',
+        ]}
         before={<LoginBefore />}
         after={<LoginAfter />}
       />
 
       <Section
-        index={3}
+        index="03"
         route="/committee/C-01"
-        title="تفاصيل لجنة القبول"
-        beforeNote="التيل في كل مكان؛ زر «اعتماد» نفس لون شريط التنقل والترويسة — لا يبرز."
-        afterNote="شريط الهوية الجانبي + زر «اعتماد ٢» باللون الذهبي، وبطاقة التوقيع المزدوج بخلفية ذهبية فاتحة."
+        title="لجنة القبول — اعتماد مزدوج"
+        beforeNote={[
+          'زر «اعتماد الملف» تيركواز — نفس لون كل شيء. لا يميَّز كحدث حرج.',
+          'التطبيق لا يبدو مختلفاً عن الـ Hub أو القومسيون.',
+          'كرت التواقيع بنفس درجة باقي الكروت — لا يأخذ أهميته.',
+        ]}
+        afterNote={[
+          'قضيب هوية ذهبي 4px على السايد بار — اللجنة لها لون.',
+          'زر «اعتماد الملف» الذهبي هو الشيء الذهبي الوحيد في الشاشة.',
+          'كرت التواقيع بخلفية ذهبية فاتحة + إطار، يأخذ أهميته دون صراخ.',
+          'إشارة KARASA §3.C صريحة — تتبع كل ميزة لمصدرها في الكرّاسة.',
+          'الأرقام بخط Tabular يضمن تراصّ الأعمدة.',
+        ]}
         before={<CommitteeBefore />}
         after={<CommitteeAfter />}
       />
 
       <Section
-        index={4}
+        index="04"
         route="/investigations/cases/CASE-00001"
-        title="ملف التحريات السرّي"
-        beforeNote="نفس قشرة التيل مع شارة «سرّي» صغيرة — لا تشعر الشاشة بالحساسية."
-        afterNote="شريط هوية بلون terra، وشريط أعلى الصفحة «CLASSIFIED · LEVEL 3» مع رقم جلسة المستخدم؛ بقية القشرة محايدة."
+        title="التحريات — قضية مُصنَّفة"
+        beforeNote={[
+          '«CLASSIFIED» مجرد شارة صغيرة في العنوان — لا تنبيه بصري كافٍ.',
+          'السايد بار بنفس التيركواز — لا يوجد تحذير من حساسية البيانات.',
+          'شجرة الأسرة قائمة نصية — لا هرمية درجات.',
+          '«يحتاج مراجعة» بلون التيراكوتا — نفس لون «CLASSIFIED» — تصادم دلالي.',
+        ]}
+        afterNote={[
+          'شريط CLASSIFIED · LEVEL 3 ثابت بأعلى الشاشة + رقم الجلسة والمستخدم.',
+          'قضيب هوية تيراكوتا 4px — التطبيق نفسه يحمل هويته البصرية.',
+          'شجرة الأسرة منظَّمة في 4 درجات صريحة، مع 3 حالات ملوّنة.',
+          '«درجة المخاطرة» Tabular numeric — يُقرأ ويُقارن.',
+          'إحالة KARASA §6.5 صريحة لشجرة الأسرة.',
+        ]}
         before={<InvestigationsBefore />}
         after={<InvestigationsAfter />}
       />
 
-      <TokensPanel />
-
-      <div className="mt-6">
-        <KhayameyaStripe height="lg" />
-      </div>
+      <TokensSection />
     </CenteredShell>
   );
 }
@@ -135,498 +167,801 @@ export function RevampComparisonPage(): JSX.Element {
 /* ─────────── Section frame ─────────── */
 
 function Section({
-  index,
-  route,
-  title,
-  beforeNote,
-  afterNote,
-  before,
-  after,
+  index, route, title, beforeNote, afterNote, before, after,
 }: {
-  index: number;
+  index: string;
   route: string;
   title: string;
-  beforeNote: string;
-  afterNote: string;
+  beforeNote: string[];
+  afterNote: string[];
   before: JSX.Element;
   after: JSX.Element;
 }): JSX.Element {
   return (
-    <section className="mb-8">
-      <header className="mb-4 flex items-center gap-3">
-        <span
-          aria-hidden
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md font-numeric tnum text-sm font-bold text-white"
-          style={{ background: v2.p500 }}
-        >
+    <section className="mb-12">
+      <header className="mb-4 flex items-baseline gap-3">
+        <span className="font-mono text-xs font-bold tracking-widest" style={{ color: v2.g500 }} dir="ltr">
           {index}
         </span>
-        <div className="flex-1">
-          <h2 className="font-ar-display text-xl font-bold text-ink-900">{title}</h2>
-          <p className="font-mono text-2xs text-ink-500" dir="ltr">{route}</p>
-        </div>
+        <h2 className="font-ar-display text-xl font-bold text-ink-900">{title}</h2>
+        <span className="ms-auto font-mono text-2xs" style={{ color: v2.n400 }} dir="ltr">{route}</span>
       </header>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="overflow-hidden p-0">
-          <header className="flex items-center justify-between border-b border-border-subtle bg-ink-50 px-4 py-2">
-            <span className="text-2xs font-bold uppercase tracking-wide text-terra-700">قبل</span>
-            <span className="text-2xs text-ink-500">النسخة الحالية</span>
-          </header>
-          <div className="aspect-[16/9] overflow-hidden bg-ink-50">{before}</div>
-          <p className="border-t border-border-subtle px-4 py-3 text-2xs leading-normal text-ink-700">{beforeNote}</p>
-        </Card>
-        <Card className="overflow-hidden p-0" style={{ borderColor: v2.p500 }}>
-          <header className="flex items-center justify-between border-b px-4 py-2" style={{ background: v2.p50, borderColor: v2.p100 }}>
-            <span className="text-2xs font-bold uppercase tracking-wide" style={{ color: v2.p700 }}>بعد · v2</span>
-            <span className="text-2xs" style={{ color: v2.n500 }}>Heritage Modern v2</span>
-          </header>
-          <div className="aspect-[16/9] overflow-hidden" style={{ background: v2.n25 }}>{after}</div>
-          <p className="border-t px-4 py-3 text-2xs leading-normal" style={{ borderColor: v2.n100, color: v2.n700 }}>{afterNote}</p>
-        </Card>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <div>
+          <MockFrame label="BEFORE" labelBg={v1.ink700} labelFg={v1.gold500}>
+            {before}
+          </MockFrame>
+          <NotePanel kind="before" items={beforeNote} title="ما المشكلة؟" />
+        </div>
+        <div>
+          <MockFrame label="AFTER · v2" labelBg={v2.p700} labelFg="#fff">
+            {after}
+          </MockFrame>
+          <NotePanel kind="after" items={afterNote} title="ما الذي تغيّر؟" />
+        </div>
       </div>
     </section>
   );
 }
 
-/* ═══════════ MOCKS — BEFORE ═══════════ */
+function NotePanel({
+  title, items, kind,
+}: { title: string; items: string[]; kind: 'before' | 'after' }): JSX.Element {
+  const accent = kind === 'after' ? v2.g500 : v1.gold500;
+  return (
+    <div
+      className="mt-3 rounded-md border p-4 text-2xs leading-loose"
+      style={{ borderColor: v2.n100, background: v2.n0, color: v2.n700 }}
+    >
+      <p className="mb-1 font-bold" style={{ color: accent }}>{title}</p>
+      <ul className="list-disc space-y-1 pe-4">
+        {items.map((it, i) => <li key={i}>{it}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+/* ─── 1920×1080 mock canvas with auto-scaler ─── */
+
+function MockFrame({
+  label, labelBg, labelFg, children,
+}: {
+  label: string;
+  labelBg: string;
+  labelFg: string;
+  children: JSX.Element;
+}): JSX.Element {
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const scalerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function rescale(): void {
+      const c = canvasRef.current, s = scalerRef.current;
+      if (!c || !s) return;
+      s.style.transform = `scale(${c.clientWidth / 1920})`;
+    }
+    rescale();
+    const ro = new ResizeObserver(rescale);
+    if (canvasRef.current) ro.observe(canvasRef.current);
+    return (): void => ro.disconnect();
+  }, []);
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-lg shadow-md"
+      style={{ background: '#fff', aspectRatio: '16 / 9' }}
+    >
+      <span
+        className="absolute z-10 font-mono text-[9px] font-bold tracking-widest"
+        style={{
+          insetInlineStart: '12px', top: '12px',
+          padding: '5px 9px', borderRadius: '4px', letterSpacing: '0.18em',
+          background: labelBg, color: labelFg, direction: 'ltr',
+        }}
+      >
+        {label}
+      </span>
+      <div ref={canvasRef} className="absolute inset-0 overflow-hidden">
+        <div
+          ref={scalerRef}
+          className="absolute"
+          style={{
+            insetInlineStart: 0, top: 0,
+            width: 1920, height: 1080,
+            transformOrigin: 'top right',
+            direction: 'rtl',
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+                          BEFORE — HUB
+   ════════════════════════════════════════════════════════════════ */
 
 function HubBefore(): JSX.Element {
+  const NAV = ['اللوحة الرئيسية', 'المتقدمون', 'اللجان', 'القومسيون الطبي', 'الهيئة العليا', 'التحريات', 'بنك الأسئلة', 'التقارير'];
   return (
-    <div className="flex h-full flex-col">
-      <div
-        className="relative flex-1 px-5 py-4 text-white"
-        style={{ background: 'linear-gradient(135deg, var(--teal-700) 0%, var(--teal-500) 100%)', minHeight: '38%' }}
-      >
-        <div className="flex items-center justify-between">
-          <span className="rounded-pill bg-white/20 px-2 py-0.5 text-[10px]">١ مايو ٢٠٢٦</span>
-          <Bell size={12} className="text-white/70" aria-hidden />
+    <div style={{ display: 'flex', flexDirection: 'row-reverse', height: '100%', background: v1.cream, fontFamily: 'IBM Plex Sans Arabic, sans-serif' }}>
+      <aside style={{ width: 280, background: v1.teal700, color: v1.cream, padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 28, borderBottom: '1px solid rgba(221,184,90,0.2)', marginBottom: 24 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 8, background: 'radial-gradient(circle at 30% 30%, #DDB85A, #7A5A1A)', display: 'grid', placeItems: 'center', color: v1.teal900, fontWeight: 800, fontSize: 18, fontFamily: 'Tajawal' }}>أ.ش</div>
+          <div style={{ fontFamily: 'Tajawal', fontWeight: 800, fontSize: 18, lineHeight: 1.2 }}>أكاديمية الشرطة<small style={{ display: 'block', fontWeight: 400, fontSize: 12, opacity: 0.7, marginTop: 2 }}>منظومة القبول</small></div>
         </div>
-        <p className="mt-3 font-ar-display text-md font-bold">صباح الخير، العميد د. أحمد</p>
-        <p className="mt-1 text-[10px] text-white/70">المنظومة الكاملة للتحول الرقمي بإجراءات القبول</p>
-      </div>
-      <div className="grid grid-cols-4 gap-2 bg-ink-50 p-3">
-        {[2847, 2236, 1892, 1456].map((n) => (
-          <div key={n} className="rounded border border-border-subtle bg-surface-card p-2">
-            <p className="text-[8px] text-ink-500">إجمالي</p>
-            <p className="mt-0.5 font-numeric tnum text-sm font-bold text-ink-900" dir="ltr">{n.toLocaleString()}</p>
+        {NAV.map((n, i) => (
+          <div key={n} style={{ padding: '12px 16px', borderRadius: 8, fontSize: 15, display: 'flex', gap: 12, alignItems: 'center', color: i === 0 ? v1.teal900 : '#C9DDDD', background: i === 0 ? v1.gold500 : 'transparent', fontWeight: i === 0 ? 600 : 400 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: i === 0 ? v1.teal900 : 'rgba(255,255,255,.25)' }} />
+            {n}
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function LoginBefore(): JSX.Element {
-  return (
-    <div className="grid h-full grid-cols-2">
-      <div
-        className="flex flex-col justify-center p-5 text-white"
-        style={{ background: 'linear-gradient(135deg, var(--teal-700) 0%, var(--teal-500) 100%)' }}
-      >
-        <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded bg-white/15">
-          <Layers size={14} className="text-gold-300" aria-hidden />
+      </aside>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ height: 72, background: v1.teal600, color: v1.cream2, display: 'flex', alignItems: 'center', padding: '0 40px', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 14, opacity: 0.85 }}>الرئيسية / لوحة الإدارة</div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {['دورة القبول 2026', 'المهندس · أحمد عبدالعزيز'].map((c) => (
+              <span key={c} style={{ background: 'rgba(255,255,255,.12)', border: '1px solid rgba(221,184,90,.4)', padding: '6px 14px', borderRadius: 999, fontSize: 13, color: '#DDB85A' }}>{c}</span>
+            ))}
+          </div>
         </div>
-        <p className="font-ar-display text-sm font-bold">منظومة القبول</p>
-        <p className="mt-2 text-[10px] text-white/70 leading-relaxed">التحول الرقمي الكامل لإجراءات القبول والاختبارات</p>
-        <div className="mt-3 grid grid-cols-3 gap-1 text-center">
-          {['9', '12K+', '100%'].map((s) => (
-            <p key={s} className="font-numeric tnum text-sm font-bold text-gold-300" dir="ltr">{s}</p>
-          ))}
+        <div style={{ background: `linear-gradient(135deg, ${v1.teal700}, ${v1.teal600} 60%, ${v1.teal500})`, color: v1.cream2, padding: '56px 56px 48px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(45deg, rgba(221,184,90,.08) 0 2px, transparent 2px 14px)' }} />
+          <div style={{ position: 'relative' }}>
+            <h1 style={{ fontFamily: 'Tajawal', fontWeight: 800, fontSize: 56, margin: '0 0 16px', lineHeight: 1.15 }}>صباح الخير، أحمد</h1>
+            <p style={{ fontSize: 20, opacity: 0.85, margin: '0 0 28px', maxWidth: 720, lineHeight: 1.6 }}>لوحة الإدارة الموحَّدة لمنظومة القبول الإلكتروني — أكاديمية الشرطة، دورة 2026</p>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {[['المتقدمون النشطون', '2,847'], ['قيد المراجعة', '318'], ['جلسات الهيئة اليوم', '2']].map(([l, vl]) => (
+                <div key={l} style={{ padding: '10px 18px', borderRadius: 999, background: 'rgba(247,244,235,.1)', border: '1px solid rgba(221,184,90,.4)', color: '#FBF5E8', fontSize: 14 }}>
+                  {l} <b style={{ color: '#DDB85A', fontWeight: 600, marginInlineStart: 8 }}>{vl}</b>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="flex flex-col justify-center bg-surface-card p-5">
-        <p className="text-2xs font-bold text-ink-900">دخول الموظفين</p>
-        <input className="mt-2 rounded border border-border-default bg-surface-card px-2 py-1 text-[10px]" placeholder="الرقم القومي" dir="ltr" />
-        <input className="mt-1 rounded border border-border-default bg-surface-card px-2 py-1 text-[10px]" placeholder="كلمة المرور" type="password" />
-        <button className="mt-2 rounded bg-teal-500 px-2 py-1 text-[10px] text-white">دخول</button>
-      </div>
-    </div>
-  );
-}
-
-function CommitteeBefore(): JSX.Element {
-  return (
-    <div className="flex h-full">
-      <div className="w-16 bg-teal-500 p-2 text-[8px] text-white">
-        <p className="font-bold">لجان</p>
-        <ul className="mt-2 space-y-1">
-          <li className="rounded bg-white/15 px-1 py-0.5">القائمة</li>
-          <li className="opacity-70">الجدول</li>
-        </ul>
-      </div>
-      <div className="flex-1 p-3">
-        <p className="font-ar-display text-sm font-bold text-ink-900">لجنة طلبة 1</p>
-        <p className="text-[10px] text-ink-500">العقيد محمد إبراهيم — ٥ أعضاء</p>
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          {['طابور', 'مراجعة', 'معتمد'].map((l) => (
-            <div key={l} className="rounded border border-border-subtle p-2">
-              <p className="text-[8px] text-ink-500">{l}</p>
-              <p className="font-numeric tnum text-md font-bold text-ink-900" dir="ltr">42</p>
+        <div style={{ height: 18, background: `repeating-linear-gradient(90deg, ${v1.gold500} 0 14px, ${v1.teal500} 14px 28px, ${v1.terra500} 28px 42px, ${v1.teal600} 42px 56px)` }} />
+        <div style={{ padding: '32px 40px', flex: 1, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, alignContent: 'start' }}>
+          {[['إجمالي الطلبات', '2,847', '+ 4.2% week'], ['قيد التحريات', '412', 'stage 7'], ['القومسيون الطبي', '186', 'today'], ['قرارات الهيئة', '94', 'cycle']].map(([l, val, d]) => (
+            <div key={l} style={{ background: '#fff', border: '1px solid rgba(15,14,8,.08)', borderRadius: 10, padding: 20 }}>
+              <div style={{ fontSize: 13, color: v1.ink500, marginBottom: 8 }}>{l}</div>
+              <div style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 32, color: '#0F0E08' }}>{val}</div>
+              <div style={{ fontSize: 12, color: v1.teal500, marginTop: 6, fontFamily: 'JetBrains Mono', direction: 'ltr', textAlign: 'left' }}>{d}</div>
             </div>
           ))}
         </div>
-        <button className="mt-3 rounded bg-teal-500 px-3 py-1 text-[10px] font-bold text-white">اعتماد ٢</button>
-      </div>
+      </main>
     </div>
   );
 }
 
-function InvestigationsBefore(): JSX.Element {
-  return (
-    <div className="flex h-full">
-      <div className="w-16 bg-teal-500 p-2 text-[8px] text-white">
-        <p className="font-bold">تحريات</p>
-        <ul className="mt-2 space-y-1">
-          <li className="rounded bg-white/15 px-1 py-0.5">القضايا</li>
-          <li className="opacity-70">الوارد</li>
-        </ul>
-      </div>
-      <div className="flex-1 p-3">
-        <div className="flex items-center justify-between">
-          <p className="font-ar-display text-sm font-bold text-ink-900">قضية CASE-00001</p>
-          <span className="rounded-pill bg-terra-50 px-2 py-0.5 text-[8px] font-bold text-terra-700">سرّي</span>
-        </div>
-        <p className="text-[10px] text-ink-500">المتقدم: حسن الخطيب</p>
-        <div className="mt-2 rounded border border-border-subtle bg-ink-50 p-2 text-[8px] text-ink-700">
-          ملخص ملف التقدم — للقراءة فقط
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════ MOCKS — AFTER (v2) ═══════════ */
+/* ════════════════════════════════════════════════════════════════
+                         AFTER — HUB (v2 · Navy)
+   ════════════════════════════════════════════════════════════════ */
 
 function HubAfter(): JSX.Element {
   return (
-    <div className="flex h-full flex-col" style={{ background: v2.n25 }}>
-      {/* Compact greeting bar — 12% */}
-      <div className="flex items-center justify-between border-b px-5 py-2.5" style={{ background: v2.n0, borderColor: v2.n100 }}>
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-2 w-2 rounded-full" style={{ background: '#2E8755' }} aria-hidden />
-          <p className="font-ar-display text-xs font-bold" style={{ color: v2.n900 }}>صباح الخير، العميد د. أحمد</p>
+    <div style={{ display: 'flex', flexDirection: 'row-reverse', height: '100%', background: v2.n25, fontFamily: 'IBM Plex Sans Arabic, sans-serif' }}>
+      <aside style={{ width: 264, background: '#fff', borderInlineStart: `1px solid ${v2.n100}`, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        <span style={{ position: 'absolute', top: 0, bottom: 0, insetInlineEnd: 0, width: 4, background: v2.p700 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '28px 24px 20px', borderBottom: `1px solid ${v2.n100}` }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, background: v2.p50, border: `1px solid ${v2.p100}`, display: 'grid', placeItems: 'center', color: v2.p700, fontWeight: 700, fontSize: 16, fontFamily: 'Tajawal' }}>أ.ش</div>
+          <div style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 16, color: v2.n800, lineHeight: 1.2 }}>
+            أكاديمية الشرطة
+            <small style={{ display: 'block', fontWeight: 400, fontSize: 11, color: v2.n400, marginTop: 3, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em', direction: 'ltr', textAlign: 'right' }}>ADMIN HUB</small>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-[10px]" style={{ color: v2.n500 }}>
-          <span className="font-mono uppercase">CYCLE 2026</span>
-          <span style={{ color: v2.n200 }}>·</span>
-          <span>١ مايو ٢٠٢٦</span>
-        </div>
-      </div>
-
-      {/* KPI hero + activity side by side */}
-      <div className="grid flex-1 grid-cols-[1.6fr_1fr] gap-3 p-3">
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { l: 'إجمالي المتقدمين', v: '2,847', c: v2.p500, i: <Users size={12} /> },
-            { l: 'مدفوع الرسوم', v: '2,236', c: v2.p500, i: <ClipboardCheck size={12} /> },
-            { l: 'قيد المراجعة', v: '459', c: v2.amber, i: <Hourglass size={12} /> },
-            { l: 'مقبول', v: '432', c: '#2E8755', i: <CheckCircle2 size={12} /> },
-            { l: 'مستبعد', v: '375', c: v2.t500, i: <ShieldAlert size={12} /> },
-            { l: 'اليوم', v: '218', c: v2.cyan, i: <Activity size={12} /> },
-          ].map((k) => (
-            <div key={k.l} className="rounded-md border p-2.5" style={{ background: v2.n0, borderColor: v2.n200 }}>
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[8px] uppercase" style={{ color: v2.n400 }}>{k.l}</span>
-                <span style={{ color: k.c }}>{k.i}</span>
-              </div>
-              <p className="mt-1 font-numeric tnum text-md font-bold" dir="ltr" style={{ color: v2.n900 }}>{k.v}</p>
+        <nav style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <NavGroup label="OVERVIEW" items={[['اللوحة الرئيسية', true], ['المتقدمون'], ['التقارير']]} />
+          <NavGroup label="APPLICATIONS" items={[['اللجان'], ['القومسيون الطبي'], ['الهيئة العليا'], ['التحريات'], ['بنك الأسئلة']]} />
+          <NavGroup label="SYSTEM" items={[['الإعدادات']]} />
+        </nav>
+      </aside>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: v2.n25 }}>
+        <div style={{ height: 64, background: '#fff', borderBottom: `1px solid ${v2.n100}`, display: 'flex', alignItems: 'center', padding: '0 32px', justifyContent: 'space-between' }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 12, color: v2.n400, letterSpacing: '0.06em', direction: 'ltr' }}>
+            <span>HUB</span> / <span style={{ color: v2.n700 }}>DASHBOARD</span>
+          </div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', padding: '5px 12px', background: v2.success50, color: v2.success500, borderRadius: 999, fontSize: 13 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: v2.success500, boxShadow: 'rgba(46,135,85,.18) 0 0 0 3px' }} />
+              المنظومة تعمل
+            </span>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13.5, color: v2.n600 }}>
+              <span>المهندس أحمد عبدالعزيز</span>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: v2.n100, display: 'grid', placeItems: 'center', fontFamily: 'Tajawal', color: v2.n600, fontWeight: 600, fontSize: 13 }}>أع</div>
             </div>
-          ))}
+          </div>
         </div>
-        <div className="rounded-md border p-2.5" style={{ background: v2.n0, borderColor: v2.n200 }}>
-          <p className="mb-2 font-mono text-[8px] uppercase" style={{ color: v2.n400 }}>ACTIVITY</p>
-          <ul className="space-y-1.5 text-[9px]">
-            {['اعتماد ٤ نتائج', 'فحص طبي مكتمل', 'قرار هيئة جديد', 'تحرّ مغلق'].map((a, i) => (
-              <li key={i} className="flex items-center justify-between gap-2">
-                <span style={{ color: v2.n700 }}>{a}</span>
-                <span className="font-numeric tnum" style={{ color: v2.n400 }} dir="ltr">{i + 2}m</span>
-              </li>
+        <div style={{ padding: '24px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${v2.n100}`, background: '#fff' }}>
+          <div>
+            <h1 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 26, margin: '0 0 4px', color: v2.n800 }}>صباح الخير، أحمد</h1>
+            <p style={{ margin: 0, fontSize: 14, color: v2.n500 }}>دورة القبول 2026 — اليوم الـ 38 من 90</p>
+          </div>
+          <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+            {[['CYCLE', '2026 / Q2', false], ['STAGE', 'المرحلة 6', true], ['UPDATED', '14:32', false]].map(([k, val, ar]) => (
+              <div key={k as string} style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: v2.n400, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em', direction: 'ltr' }}>{k}</div>
+                <div style={{ fontFamily: ar ? 'Tajawal' : 'Inter Tight', fontWeight: 600, fontSize: 18, color: v2.n800, fontFeatureSettings: '"tnum"', direction: 'ltr' }}>{val}</div>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
+        <div style={{ padding: '24px 32px', flex: 1, display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, alignContent: 'start' }}>
+            <Kpi label="TOTAL APPLICANTS" value="2,847" delta="+118 this week" />
+            <Kpi label="UNDER INVESTIGATION" value="412" delta="+12 today" />
+            <Kpi label="MEDICAL TODAY" value="186" delta="94% capacity" />
+            <Kpi label="BOARD DECISIONS" value="94" delta="2 sessions today" />
+            <Kpi label="PENDING REVIEW" value="318" delta="−12 since 12:00" deltaDown />
+            <Kpi label="EXAM SLOTS" value="1,240" delta="71% booked" />
+          </div>
+          <aside style={{ background: '#fff', border: `1px solid ${v2.n100}`, borderRadius: 10, padding: 20 }}>
+            <h3 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 15, margin: '0 0 14px', color: v2.n800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              سجل النشاط <a style={{ fontSize: 11.5, color: v2.p500, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', direction: 'ltr' }}>VIEW ALL</a>
+            </h3>
+            {[
+              ['س.ع', 'سامي عمر', 'اعتمد جلسة C-01 — 17 ملف', '14:32', 'COMMITTEE'],
+              ['د.م', 'د. محمود', 'أنهى فحص BMI لـ 24 متقدم', '14:18', 'MEDICAL'],
+              ['ع.ر', 'عمر رشاد', 'فتح قضية CASE-00318', '14:02', 'INVESTIGATIONS'],
+              ['ل.ا', 'د. ليلى أحمد', 'رفعت قرار الهيئة SES-0007', '13:45', 'BOARD'],
+              ['ن.ك', 'نادر كمال', 'أضاف 12 سؤال للبنك', '13:21', 'QUESTION BANK'],
+            ].map(([av, name, body, t, src], i, arr) => (
+              <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${v2.n50}`, fontSize: 13.5 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: v2.p50, color: v2.p700, display: 'grid', placeItems: 'center', fontFamily: 'Tajawal', fontWeight: 600, fontSize: 12, flexShrink: 0 }}>{av}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div><b style={{ color: v2.n800, fontWeight: 600 }}>{name}</b> <span style={{ color: v2.n600 }}>{body}</span></div>
+                  <div style={{ color: v2.n400, fontSize: 11.5, marginTop: 2, fontFamily: 'JetBrains Mono', direction: 'ltr', textAlign: 'right' }}>{t} · {src}</div>
+                </div>
+              </div>
+            ))}
+          </aside>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function NavGroup({ label, items }: { label: string; items: [string, boolean?][] }): JSX.Element {
+  return (
+    <>
+      <div style={{ fontFamily: 'JetBrains Mono', fontSize: 10, letterSpacing: '0.16em', color: v2.n400, padding: '12px 12px 6px', direction: 'ltr', textAlign: 'right' }}>{label}</div>
+      {items.map(([n, active]) => (
+        <div key={n} style={{ padding: '10px 12px', borderRadius: 6, fontSize: 14.5, display: 'flex', gap: 10, alignItems: 'center', color: active ? v2.p700 : v2.n600, background: active ? v2.p50 : 'transparent', fontWeight: active ? 600 : 400 }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: active ? v2.p500 : v2.n300 }} />
+          {n}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function Kpi({ label, value, delta, deltaDown }: { label: string; value: string; delta: string; deltaDown?: boolean }): JSX.Element {
+  const stroke = deltaDown ? v2.danger500 : v2.p500;
+  const points = deltaDown ? '0,8 10,10 20,9 30,12 40,14 50,13 60,16 70,18' : '0,18 10,15 20,16 30,12 40,10 50,8 60,6 70,4';
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${v2.n100}`, borderRadius: 10, padding: 20, position: 'relative' }}>
+      <div style={{ fontSize: 12, color: v2.n500, marginBottom: 12, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', direction: 'ltr', textAlign: 'right', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontFamily: 'Inter Tight', fontWeight: 600, fontSize: 38, color: v2.n800, fontFeatureSettings: '"tnum"', lineHeight: 1, direction: 'ltr', textAlign: 'right' }}>{value}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+        <div style={{ fontSize: 12, color: deltaDown ? v2.danger500 : v2.success500, fontFamily: 'Inter Tight', fontWeight: 500, direction: 'ltr' }}>{delta}</div>
+        <svg width={70} height={24} viewBox="0 0 70 24"><polyline points={points} fill="none" stroke={stroke} strokeWidth={1.5} /></svg>
       </div>
     </div>
   );
 }
+
+/* ════════════════════════════════════════════════════════════════
+                          BEFORE — LOGIN
+   ════════════════════════════════════════════════════════════════ */
+
+function LoginBefore(): JSX.Element {
+  return (
+    <div style={{ display: 'flex', height: '100%', background: v1.cream2, fontFamily: 'IBM Plex Sans Arabic, sans-serif' }}>
+      <div style={{ flex: 1, background: `linear-gradient(135deg, ${v1.teal900}, ${v1.teal700}, ${v1.teal600})`, color: v1.cream2, padding: 80, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(45deg, rgba(221,184,90,.08) 0 2px, transparent 2px 14px)', opacity: 0.6 }} />
+        <div style={{ position: 'relative', display: 'flex', gap: 16, alignItems: 'center' }}>
+          <div style={{ width: 80, height: 80, borderRadius: 14, background: 'radial-gradient(circle at 30% 30%, #DDB85A, #7A5A1A)', display: 'grid', placeItems: 'center', color: v1.teal900, fontWeight: 800, fontSize: 32, fontFamily: 'Tajawal' }}>أ.ش</div>
+          <div>
+            <h1 style={{ fontFamily: 'Tajawal', fontWeight: 800, fontSize: 30, margin: '0 0 6px' }}>أكاديمية الشرطة</h1>
+            <p style={{ margin: 0, fontSize: 16, opacity: 0.75 }}>منظومة القبول الإلكتروني · 2026</p>
+          </div>
+        </div>
+        <div style={{ position: 'relative' }}>
+          <h2 style={{ fontFamily: 'Tajawal', fontWeight: 800, fontSize: 60, lineHeight: 1.15, margin: '0 0 20px' }}>منظومة القبول الإلكتروني الموحّدة</h2>
+          <p style={{ fontSize: 18, lineHeight: 1.7, opacity: 0.8, maxWidth: 540, margin: 0 }}>منظومة متكاملة تربط 9 تطبيقات و11 مرحلة قبول و6 جهات حكومية في واجهة واحدة آمنة وخاضعة للرقابة الكاملة.</p>
+        </div>
+        <div style={{ position: 'relative', display: 'flex', gap: 48, paddingTop: 24, borderTop: '1px solid rgba(221,184,90,.2)' }}>
+          {[['9', 'تطبيقات'], ['11', 'مراحل'], ['2,847', 'متقدم']].map(([val, l]) => (
+            <div key={l}>
+              <div style={{ fontFamily: 'Tajawal', fontWeight: 800, fontSize: 36, color: '#DDB85A' }}>{val}</div>
+              <div style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ flex: 1, padding: 80, display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: 720 }}>
+        <h2 style={{ fontFamily: 'Tajawal', fontWeight: 800, fontSize: 36, margin: '0 0 12px', color: '#0F0E08' }}>تسجيل الدخول</h2>
+        <p style={{ fontSize: 16, color: v1.ink500, margin: '0 0 36px' }}>أدخل بياناتك للوصول إلى لوحة التحكم</p>
+        {[['اسم المستخدم', 'ahmed.abdelaziz'], ['كلمة المرور', '••••••••••']].map(([l, val]) => (
+          <div key={l} style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: v1.ink700, marginBottom: 8 }}>{l}</label>
+            <div style={{ width: '100%', height: 52, borderRadius: 8, border: '1.5px solid rgba(15,14,8,.12)', background: '#fff', padding: '0 16px', fontSize: 15, color: '#0F0E08', display: 'flex', alignItems: 'center' }}>{val}</div>
+          </div>
+        ))}
+        <button style={{ width: '100%', height: 56, borderRadius: 8, border: 'none', background: v1.teal600, color: '#fff', fontFamily: 'Tajawal', fontWeight: 700, fontSize: 17, marginTop: 12, boxShadow: '0 8px 20px -8px rgba(26,104,104,.5)' }}>تسجيل الدخول</button>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+                       AFTER — LOGIN (v2 · Navy)
+   ════════════════════════════════════════════════════════════════ */
 
 function LoginAfter(): JSX.Element {
   return (
-    <div className="grid h-full" style={{ gridTemplateColumns: '40% 60%' }}>
-      {/* Photographic backdrop placeholder — 40% */}
-      <div
-        className="relative flex flex-col justify-end p-4 text-white"
-        style={{
-          background: `linear-gradient(180deg, ${v2.p700}30 0%, ${v2.p700}cc 100%), linear-gradient(135deg, ${v2.n700}, ${v2.p900})`,
-        }}
-      >
-        <div className="absolute inset-0 opacity-10" aria-hidden style={{ background: 'repeating-linear-gradient(45deg, white 0 1px, transparent 1px 8px)' }} />
-        <div className="relative">
-          <div className="mb-2 inline-flex h-7 w-7 items-center justify-center rounded" style={{ background: v2.p500 }}>
-            <Layers size={12} aria-hidden />
+    <div style={{ display: 'flex', height: '100%', background: v2.n25, fontFamily: 'IBM Plex Sans Arabic, sans-serif' }}>
+      <div style={{ flex: '0 0 40%', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 56, color: '#fff' }}>
+        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(160deg, rgba(20,55,100,.85), rgba(30,67,115,.6)), repeating-linear-gradient(45deg, rgba(255,255,255,.04) 0 1px, transparent 1px 8px), linear-gradient(180deg, ${v2.p500}, ${v2.p800})` }} />
+        <div style={{ position: 'absolute', bottom: 16, insetInlineEnd: 16, fontFamily: 'JetBrains Mono', fontSize: 10, color: 'rgba(255,255,255,.4)', letterSpacing: '0.16em', direction: 'ltr' }}>PLACEHOLDER · ACADEMY BUILDING PHOTO</div>
+        <div style={{ position: 'relative', display: 'flex', gap: 14, alignItems: 'center' }}>
+          <div style={{ width: 56, height: 56, borderRadius: 10, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(221,184,90,.3)', display: 'grid', placeItems: 'center', color: v2.g300, fontWeight: 700, fontSize: 22, fontFamily: 'Tajawal' }}>أ.ش</div>
+          <div>
+            <h1 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 20, margin: '0 0 2px' }}>أكاديمية الشرطة</h1>
+            <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,.7)', fontFamily: 'JetBrains Mono', letterSpacing: '0.06em', direction: 'ltr', textAlign: 'right' }}>POLICE ACADEMY · ADMISSIONS</p>
           </div>
-          <p className="font-ar-display text-xs font-bold">منظومة القبول</p>
-          <p className="text-[9px] opacity-75">أكاديمية الشرطة</p>
+        </div>
+        <div style={{ position: 'relative', marginTop: 'auto' }}>
+          <h2 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 36, lineHeight: 1.3, margin: '0 0 12px', maxWidth: 520 }}>منظومة القبول الإلكتروني الموحّدة لدورة 2026.</h2>
+          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7, color: 'rgba(255,255,255,.65)', maxWidth: 520 }}>وصول مُؤمَّن وخاضع للرقابة الكاملة، مرتبط مباشرة بأنظمة وزارة الداخلية والجهات الحكومية المعنية.</p>
+          <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: 'JetBrains Mono', fontSize: 11, color: 'rgba(255,255,255,.5)', letterSpacing: '0.12em', direction: 'ltr' }}>
+            <span>SYSTEM v2.0.4</span>
+            <span>● ALL SYSTEMS OPERATIONAL</span>
+          </div>
         </div>
       </div>
-      {/* Form — 60% */}
-      <div className="flex flex-col justify-center px-6 py-5" style={{ background: v2.n0 }}>
-        <p className="font-mono text-[9px] uppercase" style={{ color: v2.n400 }}>STAFF LOGIN</p>
-        <p className="mt-1 font-ar-display text-md font-bold" style={{ color: v2.n900 }}>دخول الموظفين</p>
-        <div className="mt-4 space-y-2">
-          <div>
-            <p className="text-[9px]" style={{ color: v2.n500 }}>الرقم القومي</p>
-            <div className="mt-1 rounded px-2 py-1.5 text-[10px]" style={{ background: v2.n50, color: v2.n700 }} dir="ltr">14 رقماً</div>
-          </div>
-          <div>
-            <p className="text-[9px]" style={{ color: v2.n500 }}>كلمة المرور</p>
-            <div className="mt-1 rounded px-2 py-1.5 text-[10px]" style={{ background: v2.n50, color: v2.n400 }} dir="ltr">••••••••</div>
-          </div>
-          <button className="w-full rounded px-3 py-1.5 text-[10px] font-bold text-white" style={{ background: v2.p500 }}>
-            متابعة عبر MOIPASS
-          </button>
+      <div style={{ flex: 1, padding: '80px 96px', display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: 760 }}>
+        <div style={{ fontFamily: 'JetBrains Mono', fontSize: 11.5, letterSpacing: '0.18em', color: v2.p500, marginBottom: 16, direction: 'ltr', textAlign: 'right', textTransform: 'uppercase' }}>/ STAFF SIGN-IN</div>
+        <h2 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 32, margin: '0 0 10px', color: v2.n800 }}>أهلاً بعودتك</h2>
+        <p style={{ fontSize: 15, color: v2.n500, margin: '0 0 40px', lineHeight: 1.6 }}>أدخل بيانات الدخول الموحَّدة (MOIPASS) للوصول إلى لوحات التطبيقات.</p>
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500, color: v2.n700, marginBottom: 8 }}>اسم المستخدم<span /></label>
+          <div style={{ width: '100%', height: 52, borderRadius: 8, background: v2.n50, padding: '0 16px', fontSize: 15, color: v2.n800, display: 'flex', alignItems: 'center' }}>ahmed.abdelaziz</div>
+        </div>
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500, color: v2.n700, marginBottom: 8 }}>
+            كلمة المرور<span style={{ color: v2.p500, fontSize: 12, fontWeight: 500 }}>نسيت كلمة المرور؟</span>
+          </label>
+          <div style={{ width: '100%', height: 52, borderRadius: 8, background: '#fff', padding: '0 16px', fontSize: 15, color: v2.n800, display: 'flex', alignItems: 'center', outline: `2px solid ${v2.p500}`, outlineOffset: 0 }}>••••••••••</div>
+        </div>
+        <button style={{ width: '100%', height: 52, borderRadius: 8, border: 'none', background: v2.p500, color: '#fff', fontFamily: 'Tajawal', fontWeight: 700, fontSize: 16, marginTop: 8 }}>الدخول إلى المنظومة</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: v2.n500, marginTop: 24, paddingTop: 24, borderTop: `1px solid ${v2.n100}` }}>
+          <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: v2.n400, letterSpacing: '0.08em', direction: 'ltr' }}>ENTER ↵ to submit</span>
+          <span>تواصل مع <a style={{ color: v2.p500, fontWeight: 500 }}>الدعم الفني</a></span>
         </div>
       </div>
     </div>
   );
 }
+
+/* ════════════════════════════════════════════════════════════════
+                       BEFORE — COMMITTEE
+   ════════════════════════════════════════════════════════════════ */
+
+function CommitteeBefore(): JSX.Element {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'row-reverse', height: '100%', background: v1.cream, fontFamily: 'IBM Plex Sans Arabic, sans-serif' }}>
+      <aside style={{ width: 240, background: v1.teal700, color: v1.cream, padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {[['COMMITTEE C-01', null], ['الاعتماد المزدوج', true], ['الملفات (570)', false], ['السجل', false], ['الأعضاء', false], ['SHORTCUTS', null], ['الرئيسية', false], ['التقارير', false]].map(([label, active], i) => (
+          active === null
+            ? <div key={i} style={{ fontSize: 11, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em', opacity: 0.5, padding: '12px 12px 6px', direction: 'ltr', textAlign: 'right' }}>{label}</div>
+            : <div key={i} style={{ padding: '10px 14px', fontSize: 14, borderRadius: 6, opacity: active ? 1 : 0.8, background: active ? v1.gold500 : 'transparent', color: active ? v1.teal900 : 'inherit', fontWeight: active ? 600 : 400 }}>{label}</div>
+        ))}
+      </aside>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: v1.teal600, color: v1.cream2, padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ margin: 0, fontFamily: 'Tajawal', fontWeight: 800, fontSize: 24 }}>لجنة القبول C-01 — جلسة الاعتماد</h1>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button style={{ background: 'rgba(255,255,255,.08)', color: v1.cream, padding: '10px 18px', borderRadius: 6, fontSize: 14, border: 'none' }}>رفض</button>
+            <button style={{ background: v1.teal500, color: '#fff', padding: '10px 22px', borderRadius: 6, fontSize: 14, fontWeight: 600, border: '1px solid rgba(221,184,90,.3)' }}>اعتماد الملف</button>
+          </div>
+        </div>
+        <div style={{ flex: 1, padding: 32, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+          <div style={{ background: '#fff', border: '1px solid rgba(15,14,8,.08)', borderRadius: 8, padding: 24 }}>
+            <h3 style={{ fontFamily: 'Tajawal', fontWeight: 800, fontSize: 18, margin: '0 0 16px', color: v1.teal600 }}>بيانات المتقدم — APP-2026-00318</h3>
+            {[['الاسم', 'محمد أحمد عبدالرحمن السيد'], ['الرقم القومي', '29812150100918'], ['المحافظة', 'القاهرة'], ['المؤهل', 'الثانوية العامة 2024'], ['المجموع', '395 / 410 (96.3%)'], ['القومسيون الطبي', 'مكتمل · لائق'], ['التحريات', 'مكتمل · مقبول']].map(([l, val]) => (
+              <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(15,14,8,.06)', fontSize: 14 }}>
+                <span style={{ color: v1.ink500 }}>{l}</span><span style={{ color: '#0F0E08', fontWeight: 500, fontFamily: 'Tajawal' }}>{val}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ background: '#fff', border: '1px solid rgba(15,14,8,.08)', borderRadius: 8, padding: 24 }}>
+            <h3 style={{ fontFamily: 'Tajawal', fontWeight: 800, fontSize: 18, margin: '0 0 16px', color: v1.teal600 }}>التواقيع المطلوبة</h3>
+            <div style={{ background: '#E6EFEF', border: '1px solid #C9DDDD', padding: '14px 18px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontSize: 14, color: v1.teal600, fontWeight: 600, fontFamily: 'Tajawal' }}>رئيس اللجنة</span>
+              <span style={{ fontSize: 13, color: v1.teal500, fontFamily: 'JetBrains Mono', direction: 'ltr' }}>SIGNED · 14:18</span>
+            </div>
+            <div style={{ background: '#fff', border: '1px solid #DDB85A', padding: '14px 18px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 14, color: v1.gold700, fontWeight: 600, fontFamily: 'Tajawal' }}>عضو اللجنة الثاني</span>
+              <span style={{ fontSize: 13, color: v1.gold500, fontFamily: 'JetBrains Mono', direction: 'ltr' }}>PENDING</span>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+                  AFTER — COMMITTEE (v2 · Gold rail)
+   ════════════════════════════════════════════════════════════════ */
 
 function CommitteeAfter(): JSX.Element {
   return (
-    <div className="flex h-full" style={{ background: v2.n25 }}>
-      {/* Sidebar with gold rail */}
-      <div className="relative w-20 px-2 py-3" style={{ background: v2.n0, borderInlineEnd: `1px solid ${v2.n100}` }}>
-        <span className="absolute inset-y-0 inset-inline-end-0 w-1" style={{ background: v2.g500 }} aria-hidden />
-        <div className="mb-2 flex items-center gap-1.5">
-          <Briefcase size={10} style={{ color: v2.g500 }} aria-hidden />
-          <p className="text-[9px] font-bold" style={{ color: v2.n900 }}>اللجان</p>
-        </div>
-        <ul className="space-y-1 text-[8px]">
-          <li className="rounded px-1.5 py-1" style={{ background: v2.g50, color: v2.g700 }}>القائمة</li>
-          <li className="px-1.5 py-1" style={{ color: v2.n500 }}>الجدول</li>
-          <li className="px-1.5 py-1" style={{ color: v2.n500 }}>المتقدمون</li>
-        </ul>
-      </div>
-      {/* Body */}
-      <div className="flex-1 p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <div>
-            <p className="font-mono text-[8px] uppercase" style={{ color: v2.n400 }}>COMMITTEE C-01</p>
-            <p className="font-ar-display text-sm font-bold" style={{ color: v2.n900 }}>لجنة طلبة ١</p>
+    <div style={{ display: 'flex', flexDirection: 'row-reverse', height: '100%', background: v2.n25, fontFamily: 'IBM Plex Sans Arabic, sans-serif' }}>
+      <aside style={{ width: 240, background: '#fff', borderInlineStart: `1px solid ${v2.n100}`, position: 'relative', display: 'flex', flexDirection: 'column', padding: '16px 12px' }}>
+        <span style={{ position: 'absolute', insetInlineEnd: 0, top: 0, bottom: 0, width: 4, background: v2.g500 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px 14px', marginBottom: 8, borderBottom: `1px solid ${v2.n100}` }}>
+          <div style={{ width: 30, height: 30, borderRadius: 6, background: v2.g50, color: v2.g700, display: 'grid', placeItems: 'center', fontFamily: 'Tajawal', fontWeight: 700, fontSize: 14 }}>L1</div>
+          <div style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 14, color: v2.n800 }}>
+            لجنة القبول
+            <small style={{ display: 'block', fontSize: 10.5, fontWeight: 400, color: v2.n400, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em', direction: 'ltr', textAlign: 'right', marginTop: 1 }}>COMMITTEE · C-01</small>
           </div>
         </div>
-        {/* Dual-sig card with gold-50 background */}
-        <div className="mb-2 rounded-md border p-2" style={{ background: v2.g50, borderColor: v2.g300 }}>
-          <p className="text-[9px] font-bold" style={{ color: v2.g700 }}>سياسة الاعتماد المزدوج · KARASA §3.C</p>
-          <p className="mt-0.5 text-[8px]" style={{ color: v2.n700 }}>النتيجة لا تُعتبر معتمدة إلا بتوقيع رئيس اللجنة.</p>
+        <NavGroupGold label="SESSION" items={[['الاعتماد المزدوج', true], ['الملفات النشطة'], ['سجل القرارات']]} />
+        <NavGroupGold label="COMMITTEE" items={[['الأعضاء'], ['الإحصائيات']]} />
+      </aside>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: '#fff', borderBottom: `1px solid ${v2.n100}`, padding: '14px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: 12, color: v2.n400, letterSpacing: '0.06em', direction: 'ltr' }}>
+            COMMITTEES / <span style={{ color: v2.n800 }}>C-01</span> / SESSION
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {['حفظ كمسودّة', 'رفض'].map((b) => (
+              <button key={b} style={{ background: '#fff', border: `1px solid ${v2.n200}`, color: v2.n700, padding: '8px 16px', borderRadius: 6, fontSize: 13.5 }}>{b}</button>
+            ))}
+            <button style={{ background: v2.g500, color: '#fff', padding: '8px 18px', borderRadius: 6, fontSize: 13.5, fontWeight: 600, border: 'none', display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
+              اعتماد الملف
+            </button>
+          </div>
         </div>
-        <div className="mb-2 grid grid-cols-3 gap-2">
-          {[{ l: 'طابور', v: '42' }, { l: 'مراجعة الرئيس', v: '12' }, { l: 'معتمد', v: '408' }].map((k) => (
-            <div key={k.l} className="rounded border p-1.5" style={{ background: v2.n0, borderColor: v2.n200 }}>
-              <p className="font-mono text-[7px] uppercase" style={{ color: v2.n400 }}>{k.l}</p>
-              <p className="mt-0.5 font-numeric tnum text-sm font-bold" dir="ltr" style={{ color: v2.n900 }}>{k.v}</p>
+        <div style={{ padding: '28px 32px 20px', background: '#fff', borderBottom: `1px solid ${v2.n100}`, display: 'grid', gridTemplateColumns: '1fr auto', gap: 32, alignItems: 'center' }}>
+          <div>
+            <h1 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 26, margin: '0 0 4px', color: v2.n800 }}>جلسة الاعتماد · APP-2026-00318</h1>
+            <p style={{ margin: 0, fontSize: 14, color: v2.n500 }}>محمد أحمد عبدالرحمن السيد — القاهرة — جميع المراحل السابقة مكتملة</p>
+          </div>
+          <div style={{ display: 'flex', gap: 32 }}>
+            {[['17 / 24', 'PROGRESS'], ['1 / 2', 'SIGNATURES'], ['14:32', 'UPDATED']].map(([val, l]) => (
+              <div key={l} style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: 'Inter Tight', fontWeight: 600, fontSize: 24, color: v2.n800, fontFeatureSettings: '"tnum"', direction: 'ltr' }}>{val}</div>
+                <div style={{ fontSize: 11, color: v2.n400, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em', direction: 'ltr', marginTop: 2 }}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ flex: 1, padding: '24px 32px', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+          <div style={{ background: '#fff', border: `1px solid ${v2.n100}`, borderRadius: 10, padding: '20px 24px' }}>
+            <h3 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 15, margin: '0 0 16px', color: v2.n800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              بيانات المتقدم
+              <span style={{ background: v2.n50, color: v2.n500, fontSize: 11, padding: '3px 10px', borderRadius: 999, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em', fontWeight: 400, direction: 'ltr' }}>FROM STAGE 1–6</span>
+            </h3>
+            {[
+              ['الاسم الرباعي', 'محمد أحمد عبدالرحمن السيد', false],
+              ['الرقم القومي', '2 9812 15 010 0918', true],
+              ['المحافظة', 'القاهرة', false],
+              ['المؤهل الدراسي', 'الثانوية العامة — 2024', false],
+              ['المجموع', '395 / 410 · 96.3%', true],
+              ['القومسيون الطبي', 'مكتمل · لائق طبياً', false],
+              ['التحريات الأمنية', 'مكتمل · مقبول (مستوى 2)', false],
+              ['قرار الهيئة', 'في انتظار اعتماد اللجنة', false],
+            ].map(([l, val, mono], i, arr) => (
+              <div key={l as string} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${v2.n50}`, fontSize: 13.5 }}>
+                <span style={{ color: v2.n500 }}>{l}</span>
+                <span style={{ color: v2.n800, fontWeight: 500, fontFamily: mono ? 'JetBrains Mono' : 'Tajawal', fontSize: mono ? 12.5 : undefined, direction: mono ? 'ltr' : undefined }}>{val}</span>
+              </div>
+            ))}
+          </div>
+          <aside style={{ background: v2.g50, border: '1px solid #EBD79B', borderRadius: 10, padding: '20px 24px' }}>
+            <h3 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 15, margin: '0 0 14px', color: v2.g700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              التواقيع المطلوبة
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: v2.g700, opacity: 0.7, fontWeight: 400, letterSpacing: '0.06em', direction: 'ltr' }}>KARASA §3.C</span>
+            </h3>
+            {[
+              { name: 'رئيس اللجنة', who: 'العقيد سامي عمر', t: '14:18', signed: true },
+              { name: 'العضو الثاني', who: 'المقدّم خالد منصور', t: 'PENDING', signed: false },
+            ].map((s) => (
+              <div key={s.name} style={{ background: '#fff', border: '1px solid #EBD79B', padding: '14px 16px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontSize: 14, color: v2.n800, fontFamily: 'Tajawal', fontWeight: 600 }}>
+                  {s.name}<small style={{ display: 'block', fontSize: 11.5, color: v2.n500, fontWeight: 400, marginTop: 2 }}>{s.who}</small>
+                </div>
+                <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 12, color: s.signed ? v2.success500 : v2.g700, fontFamily: 'Inter Tight', fontWeight: 500 }}>
+                  <span>{s.signed ? '✓' : '○'}</span>{s.t}
+                </div>
+              </div>
+            ))}
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed #EBD79B', fontSize: 12, color: v2.g700, fontFamily: 'Tajawal', lineHeight: 1.6 }}>
+              لا يصبح القرار نافذاً إلا بعد اكتمال التوقيعين. سيتم إخطار الهيئة العليا تلقائياً عند الاعتماد.
             </div>
-          ))}
+          </aside>
         </div>
-        {/* The only gold thing on screen */}
-        <button className="rounded px-3 py-1.5 text-[10px] font-bold text-white" style={{ background: v2.g500 }}>
-          اعتماد ٢ نتائج
-        </button>
-      </div>
+      </main>
     </div>
   );
 }
+
+function NavGroupGold({ label, items }: { label: string; items: [string, boolean?][] }): JSX.Element {
+  return (
+    <>
+      <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono', letterSpacing: '0.16em', color: v2.n400, padding: '14px 12px 6px', direction: 'ltr', textAlign: 'right', textTransform: 'uppercase' }}>{label}</div>
+      {items.map(([n, active]) => (
+        <div key={n} style={{ padding: '9px 12px', fontSize: 14, borderRadius: 6, color: active ? v2.g700 : v2.n600, background: active ? v2.g50 : 'transparent', fontWeight: active ? 600 : 400, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: active ? v2.g500 : v2.n300 }} />
+          {n}
+        </div>
+      ))}
+    </>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+                     BEFORE — INVESTIGATIONS
+   ════════════════════════════════════════════════════════════════ */
+
+function InvestigationsBefore(): JSX.Element {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'row-reverse', height: '100%', background: v1.cream, fontFamily: 'IBM Plex Sans Arabic, sans-serif' }}>
+      <aside style={{ width: 240, background: v1.teal700, color: v1.cream, padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {[['INVESTIGATIONS', null], ['صندوق القضايا', false], ['CASE-00001', true], ['CASE-00002', false], ['CASE-00003', false], ['REFERENCES', null], ['قاعدة الأسماء', false], ['السجل التاريخي', false]].map(([label, active], i) => (
+          active === null
+            ? <div key={i} style={{ fontSize: 11, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em', opacity: 0.5, padding: '12px 12px 6px', direction: 'ltr', textAlign: 'right' }}>{label}</div>
+            : <div key={i} style={{ padding: '10px 14px', fontSize: 14, borderRadius: 6, opacity: active ? 1 : 0.8, background: active ? v1.gold500 : 'transparent', color: active ? v1.teal900 : 'inherit', fontWeight: active ? 600 : 400 }}>{label}</div>
+        ))}
+      </aside>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ background: v1.teal600, color: v1.cream2, padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ margin: 0, fontFamily: 'Tajawal', fontSize: 22, fontWeight: 800 }}>
+            <span style={{ display: 'inline-block', background: v1.terra500, color: '#fff', fontSize: 11, padding: '3px 10px', borderRadius: 4, marginInlineStart: 12, fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', verticalAlign: 'middle' }}>CLASSIFIED</span>
+            قضية تحريات — CASE-00001
+          </h1>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button style={{ background: 'rgba(255,255,255,.08)', color: v1.cream, padding: '10px 18px', borderRadius: 6, border: 'none', fontSize: 14 }}>إغلاق</button>
+            <button style={{ background: v1.teal500, color: '#fff', padding: '10px 22px', borderRadius: 6, border: '1px solid rgba(221,184,90,.3)', fontWeight: 600, fontSize: 14 }}>رفع للهيئة</button>
+          </div>
+        </div>
+        <div style={{ flex: 1, padding: 32, display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 24 }}>
+          <div style={{ background: '#fff', border: '1px solid rgba(15,14,8,.08)', padding: 24, borderRadius: 8 }}>
+            <h3 style={{ fontFamily: 'Tajawal', fontWeight: 800, fontSize: 16, margin: '0 0 16px', color: v1.teal600 }}>بيانات المتقدم</h3>
+            <div style={{ fontSize: 14, lineHeight: 1.9, color: v1.ink700 }}>
+              <div>الاسم: عمر سامي محمد فؤاد</div>
+              <div>الرقم القومي: 30005120103847</div>
+              <div>الجنسية: مصري</div>
+              <div>درجة المخاطرة: متوسطة</div>
+              <div>تاريخ الفتح: 2026-04-12</div>
+            </div>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid rgba(15,14,8,.08)', padding: 24, borderRadius: 8 }}>
+            <h3 style={{ fontFamily: 'Tajawal', fontWeight: 800, fontSize: 16, margin: '0 0 16px', color: v1.teal600 }}>شجرة الأسرة (حتى الدرجة الرابعة)</h3>
+            <div style={{ fontSize: 13.5, lineHeight: 1.9, color: v1.ink700 }}>
+              <div>الأب: سامي محمد · مقبول</div>
+              <div>الأم: فاطمة عبدالله · مقبول</div>
+              <div>الجد لأب: محمد علي · مقبول</div>
+              <div>الجدة لأب: زينب أحمد · مقبول</div>
+              <div>عم: حسام محمد · <span style={{ color: v1.terra500, fontWeight: 600 }}>يحتاج مراجعة</span></div>
+              <div>ابن عم: طارق حسام · مقبول</div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════
+                AFTER — INVESTIGATIONS (v2 · Terra rail)
+   ════════════════════════════════════════════════════════════════ */
 
 function InvestigationsAfter(): JSX.Element {
   return (
-    <div className="flex h-full flex-col" style={{ background: v2.n25 }}>
-      {/* CLASSIFIED strip */}
-      <div className="flex items-center justify-between px-3 py-1 text-white" style={{ background: v2.t700 }}>
-        <span className="font-mono text-[8px] tracking-widest" dir="ltr">CLASSIFIED · LEVEL 3</span>
-        <span className="font-mono text-[8px]" dir="ltr">SESSION U-DEMO · 14:32</span>
+    <div style={{ display: 'flex', flexDirection: 'row-reverse', height: '100%', background: v2.n25, fontFamily: 'IBM Plex Sans Arabic, sans-serif', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 0, insetInlineStart: 0, insetInlineEnd: 0, height: 28, background: v2.t700, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', zIndex: 5, fontFamily: 'JetBrains Mono', fontSize: 11, letterSpacing: '0.18em', direction: 'ltr' }}>
+        <span style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: v2.t500, boxShadow: 'rgba(255,255,255,.18) 0 0 0 3px' }} />
+          CLASSIFIED · LEVEL 3 · INVESTIGATIONS
+        </span>
+        <span>SESSION SES-44712 · 14:32 · O.RASHAD</span>
       </div>
-      <div className="flex flex-1">
-        {/* Sidebar with terra rail */}
-        <div className="relative w-20 px-2 py-3" style={{ background: v2.n0, borderInlineEnd: `1px solid ${v2.n100}` }}>
-          <span className="absolute inset-y-0 inset-inline-end-0 w-1" style={{ background: v2.t500 }} aria-hidden />
-          <div className="mb-2 flex items-center gap-1.5">
-            <Eye size={10} style={{ color: v2.t500 }} aria-hidden />
-            <p className="text-[9px] font-bold" style={{ color: v2.n900 }}>التحريات</p>
+      <aside style={{ width: 240, background: '#fff', borderInlineStart: `1px solid ${v2.n100}`, position: 'relative', display: 'flex', flexDirection: 'column', padding: '40px 12px 16px' }}>
+        <span style={{ position: 'absolute', insetInlineEnd: 0, top: 28, bottom: 0, width: 4, background: v2.t500 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px 14px', marginBottom: 8, borderBottom: `1px solid ${v2.n100}` }}>
+          <div style={{ width: 30, height: 30, borderRadius: 6, background: v2.t50, color: v2.t700, display: 'grid', placeItems: 'center', fontFamily: 'Tajawal', fontWeight: 700, fontSize: 14 }}>L3</div>
+          <div style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 14, color: v2.n800 }}>
+            التحريات
+            <small style={{ display: 'block', fontSize: 10.5, fontWeight: 400, color: v2.n400, fontFamily: 'JetBrains Mono', letterSpacing: '0.06em', direction: 'ltr', textAlign: 'right', marginTop: 1 }}>INVESTIGATIONS</small>
           </div>
-          <ul className="space-y-1 text-[8px]">
-            <li className="rounded px-1.5 py-1" style={{ background: v2.t50, color: v2.t700 }}>القضايا</li>
-            <li className="px-1.5 py-1" style={{ color: v2.n500 }}>الوارد</li>
-            <li className="px-1.5 py-1" style={{ color: v2.n500 }}>التوزيع</li>
-          </ul>
         </div>
-        {/* Body — neutral chrome */}
-        <div className="flex-1 p-3">
-          <div className="mb-2">
-            <p className="font-mono text-[8px] uppercase" style={{ color: v2.n400 }}>CASE · CASE-00001</p>
-            <p className="font-ar-display text-sm font-bold" style={{ color: v2.n900 }}>قضية حسن الخطيب</p>
+        <NavGroupTerra label="CASES" items={[['صندوق الوارد'], ['CASE-00001', true], ['CASE-00002'], ['CASE-00003']]} />
+        <NavGroupTerra label="REFERENCES" items={[['قاعدة الأسماء'], ['السجل التاريخي']]} />
+      </aside>
+      <main style={{ flex: 1, paddingTop: 28, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '18px 32px', background: '#fff', borderBottom: `1px solid ${v2.n100}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 22, margin: 0, color: v2.n800 }}>
+            قضية تحريات
+            <small style={{ display: 'block', fontSize: 11.5, color: v2.n400, fontFamily: 'JetBrains Mono', letterSpacing: '0.1em', direction: 'ltr', textAlign: 'right', marginTop: 3, fontWeight: 400 }}>CASE-00001 · OPENED 2026-04-12 · MEDIUM RISK</small>
+          </h1>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', padding: '6px 12px', background: v2.t50, color: v2.t700, borderRadius: 4, fontFamily: 'JetBrains Mono', fontSize: 11.5, letterSpacing: '0.1em', fontWeight: 600, direction: 'ltr' }}>● LEVEL 3</span>
+            <button style={{ background: '#fff', border: `1px solid ${v2.n200}`, color: v2.n700, padding: '8px 16px', borderRadius: 6, fontSize: 13.5 }}>حفظ</button>
+            <button style={{ background: v2.t500, color: '#fff', padding: '8px 18px', borderRadius: 6, fontSize: 13.5, fontWeight: 600, border: 'none' }}>رفع للهيئة</button>
           </div>
-          {/* Identity card — neutral */}
-          <div className="mb-2 grid grid-cols-2 gap-2 rounded-md border p-2" style={{ background: v2.n0, borderColor: v2.n200 }}>
-            <div>
-              <p className="font-mono text-[7px] uppercase" style={{ color: v2.n400 }}>NID</p>
-              <p className="font-mono text-[10px] font-bold" dir="ltr" style={{ color: v2.n900 }}>30506••••••413</p>
-            </div>
-            <div>
-              <p className="font-mono text-[7px] uppercase" style={{ color: v2.n400 }}>STATUS</p>
-              <p className="text-[10px] font-bold" style={{ color: v2.t700 }}>قيد التحرّي</p>
-            </div>
-          </div>
-          {/* Mini family tree row */}
-          <div className="grid grid-cols-3 gap-1 text-center text-[7px]">
-            {['الأب', 'الأم', 'المتقدم'].map((l, i) => (
-              <div key={l} className="rounded border px-1 py-1" style={{ background: v2.n0, borderColor: i === 2 ? v2.t500 : v2.n200 }}>
-                <p style={{ color: v2.n400 }}>{l}</p>
-                <p className="mt-0.5" style={{ color: i === 2 ? v2.t500 : '#2E8755' }}>{i === 2 ? 'تحرّي' : 'نظيف'}</p>
+        </div>
+        <div style={{ flex: 1, padding: '24px 32px', display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 24 }}>
+          <div style={{ background: '#fff', border: `1px solid ${v2.n100}`, borderRadius: 10, padding: '20px 24px', borderInlineStart: `3px solid ${v2.t500}` }}>
+            <h3 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 14.5, margin: '0 0 14px', color: v2.n800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              بيانات المتقدم
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: v2.n400, fontWeight: 400, letterSpacing: '0.06em', direction: 'ltr' }}>APP-2026-00417</span>
+            </h3>
+            {([
+              ['الاسم الرباعي', 'عمر سامي محمد فؤاد', null],
+              ['الرقم القومي', '3 0005 12 010 3847', 'mono'],
+              ['الجنسية', 'مصري', null],
+              ['المحافظة', 'الإسكندرية', null],
+              ['درجة المخاطرة', 'MEDIUM · 0.42', 'terra'],
+              ['تاريخ الفتح', '2026-04-12', 'mono'],
+              ['المسؤول', 'العقيد عمر رشاد', null],
+            ] as [string, string, null | 'mono' | 'terra'][]).map(([l, val, kind], i, arr) => (
+              <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: i === arr.length - 1 ? 'none' : `1px solid ${v2.n50}`, fontSize: 13.5 }}>
+                <span style={{ color: v2.n500 }}>{l}</span>
+                <span style={{
+                  color: kind === 'terra' ? v2.t700 : v2.n800,
+                  fontWeight: 500,
+                  fontFamily: kind === 'mono' ? 'JetBrains Mono' : kind === 'terra' ? 'Inter Tight' : 'Tajawal',
+                  fontSize: kind === 'mono' || kind === 'terra' ? 12.5 : undefined,
+                  fontFeatureSettings: kind === 'terra' ? '"tnum"' : undefined,
+                  direction: kind ? 'ltr' : undefined,
+                }}>{val}</span>
               </div>
             ))}
           </div>
+          <div style={{ background: '#fff', border: `1px solid ${v2.n100}`, borderRadius: 10, padding: '20px 24px' }}>
+            <h3 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 14.5, margin: '0 0 14px', color: v2.n800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              شجرة الأسرة — حتى الدرجة الرابعة
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: v2.n400, fontWeight: 400, letterSpacing: '0.06em', direction: 'ltr' }}>KARASA §6.5</span>
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '4px 0' }}>
+              <FamilyDeg deg="DEG · 1" nodes={[['الأب · سامي م.'], ['الأم · فاطمة ع.']]} />
+              <FamilyDeg deg="DEG · 2" nodes={[['جد لأب'], ['جدة لأب'], ['جد لأم'], ['جدة لأم']]} />
+              <FamilyDeg deg="DEG · 3" nodes={[
+                ['عمّ · أحمد م.'],
+                ['عمّ · حسام م. · مراجعة', 'flag'],
+                ['عمّة · سعاد م.'],
+                ['خال · يوسف ع.'],
+                ['خالة · هند ع. · بانتظار', 'pend'],
+              ]} />
+              <FamilyDeg deg="DEG · 4" nodes={[
+                ['ابن عمّ · طارق ح.'],
+                ['ابن عمّ · أيمن أ.'],
+                ['بنت عمّة · ريم س.'],
+                ['ابن خال · مازن ي.'],
+                ['+8 آخرون'],
+              ]} />
+            </div>
+          </div>
         </div>
+      </main>
+    </div>
+  );
+}
+
+function NavGroupTerra({ label, items }: { label: string; items: [string, boolean?][] }): JSX.Element {
+  return (
+    <>
+      <div style={{ fontSize: 10.5, fontFamily: 'JetBrains Mono', letterSpacing: '0.16em', color: v2.n400, padding: '14px 12px 6px', direction: 'ltr', textAlign: 'right', textTransform: 'uppercase' }}>{label}</div>
+      {items.map(([n, active]) => (
+        <div key={n} style={{ padding: '9px 12px', fontSize: 14, borderRadius: 6, color: active ? v2.t700 : v2.n600, background: active ? v2.t50 : 'transparent', fontWeight: active ? 600 : 400, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: active ? v2.t500 : v2.n300 }} />
+          {n}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function FamilyDeg({ deg, nodes }: { deg: string; nodes: ([string] | [string, 'flag' | 'pend'])[] }): JSX.Element {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: `1px dashed ${v2.n100}` }}>
+      <div style={{ width: 64, flexShrink: 0, fontFamily: 'JetBrains Mono', fontSize: 11, color: v2.n400, letterSpacing: '0.08em', direction: 'ltr', textAlign: 'right' }}>{deg}</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 1 }}>
+        {nodes.map(([label, kind], i) => {
+          const palette = kind === 'flag'
+            ? { bg: v2.t50, fg: v2.t700, dot: v2.t500, weight: 500 }
+            : kind === 'pend'
+              ? { bg: v2.warning50, fg: v2.warning500, dot: v2.warning500, weight: 400 }
+              : { bg: v2.n50, fg: v2.n700, dot: v2.success500, weight: 400 };
+          return (
+            <span key={i} style={{ background: palette.bg, color: palette.fg, padding: '5px 10px', borderRadius: 4, fontSize: 12.5, display: 'inline-flex', gap: 6, alignItems: 'center', fontWeight: palette.weight }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: palette.dot }} />
+              {label}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-/* ═══════════ TOKENS PANEL ═══════════ */
+/* ════════════════════════════════════════════════════════════════
+                 TOKENS SECTION (before vs after panels)
+   ════════════════════════════════════════════════════════════════ */
 
-function TokensPanel(): JSX.Element {
-  const groups: { title: string; subtitle: string; swatches: { name: string; value: string; text?: string }[] }[] = [
-    {
-      title: 'NEUTRALS',
-      subtitle: 'warm slate, lower chroma',
-      swatches: [
-        { name: 'n-0',   value: v2.n0,   text: v2.n900 },
-        { name: 'n-25',  value: v2.n25,  text: v2.n900 },
-        { name: 'n-100', value: v2.n100, text: v2.n900 },
-        { name: 'n-200', value: v2.n200, text: v2.n900 },
-        { name: 'n-500', value: v2.n500, text: v2.n0 },
-        { name: 'n-700', value: v2.n700, text: v2.n0 },
-        { name: 'n-900', value: v2.n900, text: v2.n0 },
-      ],
-    },
-    {
-      title: 'PRIMARY · TEAL',
-      subtitle: 'demoted to brand + primary action only',
-      swatches: [
-        { name: 'p-50',  value: v2.p50,  text: v2.p700 },
-        { name: 'p-100', value: v2.p100, text: v2.p700 },
-        { name: 'p-500', value: v2.p500, text: v2.n0 },
-        { name: 'p-700', value: v2.p700, text: v2.n0 },
-      ],
-    },
-    {
-      title: 'ACCENT · GOLD',
-      subtitle: 'heritage only — not warning',
-      swatches: [
-        { name: 'g-50',  value: v2.g50,  text: v2.g700 },
-        { name: 'g-300', value: v2.g300, text: v2.g700 },
-        { name: 'g-500', value: v2.g500, text: v2.n0 },
-        { name: 'g-700', value: v2.g700, text: v2.n0 },
-      ],
-    },
-    {
-      title: 'CRITICAL · TERRA',
-      subtitle: 'restricted ops only',
-      swatches: [
-        { name: 't-50',  value: v2.t50,  text: v2.t700 },
-        { name: 't-500', value: v2.t500, text: v2.n0 },
-        { name: 't-700', value: v2.t700, text: v2.n0 },
-      ],
-    },
-    {
-      title: 'SEMANTIC',
-      subtitle: 'separated from brand',
-      swatches: [
-        { name: 'success', value: '#2E8755', text: v2.n0 },
-        { name: 'warning', value: v2.amber, text: v2.n0 },
-        { name: 'danger',  value: '#C8362A', text: v2.n0 },
-        { name: 'info',    value: v2.navy,  text: v2.n0 },
-      ],
-    },
-  ];
-
+function TokensSection(): JSX.Element {
   return (
-    <section className="mt-10">
-      <header className="mb-4 flex items-center gap-3">
-        <FileText size={18} strokeWidth={1.75} style={{ color: v2.p500 }} aria-hidden />
-        <div>
-          <h2 className="font-ar-display text-xl font-bold text-ink-900">رموز التصميم — Heritage Modern v2</h2>
-          <p className="text-2xs text-ink-500">المرجع الكامل في DESIGN_REVAMP.md §2.1</p>
-        </div>
+    <section className="mb-10">
+      <header className="mb-4 flex items-baseline gap-3">
+        <span className="font-mono text-xs font-bold tracking-widest" style={{ color: v2.g500 }} dir="ltr">05</span>
+        <h2 className="font-ar-display text-xl font-bold text-ink-900">خلاصة التوكنز · ما الذي يتغيَّر فعلاً</h2>
+        <span className="ms-auto font-mono text-2xs" style={{ color: v2.n400 }} dir="ltr">tokens.css → tokens-v2.css</span>
       </header>
-
-      <div className="rounded-lg border bg-surface-card p-5" style={{ borderColor: v2.n200 }}>
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {groups.map((g) => (
-            <div key={g.title}>
-              <p className="font-mono text-2xs font-bold uppercase tracking-wider" style={{ color: v2.n900 }}>{g.title}</p>
-              <p className="mt-0.5 text-2xs" style={{ color: v2.n500 }}>{g.subtitle}</p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {g.swatches.map((s) => (
-                  <div
-                    key={s.name}
-                    className="flex h-12 w-16 flex-col justify-between rounded-md border p-1.5"
-                    style={{ background: s.value, borderColor: v2.n200, color: s.text }}
-                    title={s.value}
-                  >
-                    <span className="font-mono text-[9px] font-bold">{s.name}</span>
-                    <span className="font-mono text-[8px] opacity-80" dir="ltr">{s.value}</span>
-                  </div>
-                ))}
-              </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <div className="rounded-lg p-6" style={{ background: '#fff', border: `1px solid ${v2.n100}` }}>
+          <h3 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 18, margin: '0 0 16px', color: v2.n800 }}>قبل · النظام الحالي</h3>
+          <div className="flex flex-col gap-3.5">
+            <SwatchRow swatches={[v1.teal500]} title="teal-500" desc="#1A6868 · everywhere" />
+            <SwatchRow swatches={[v1.gold500]} title="gold-500" desc="#B8862C · brand + warning (collision)" />
+            <SwatchRow swatches={[v1.terra500]} title="terra-500" desc="#C44A30 · used decoratively" />
+            <SwatchRow swatches={[v1.cream]} title="cream" desc="#F4F2ED · single neutral" border />
+            <div className="border-t pt-3" style={{ borderColor: v2.n100 }}>
+              <SwatchRow swatches={[]} customSwatch={
+                <div style={{ width: 80, height: 48, background: `repeating-linear-gradient(45deg, ${v1.gold500} 0 8px, ${v1.teal500} 8px 16px, ${v1.terra500} 16px 24px, ${v1.teal600} 24px 32px)`, borderRadius: 6 }} />
+              } title="khayameya" desc="decorative · everywhere" />
             </div>
-          ))}
-        </div>
-
-        {/* Typography ruler */}
-        <div className="mt-6 grid gap-4 border-t pt-4 md:grid-cols-2" style={{ borderColor: v2.n100 }}>
-          <div>
-            <p className="font-mono text-2xs font-bold uppercase tracking-wider" style={{ color: v2.n900 }}>TYPOGRAPHY</p>
-            <ul className="mt-2 space-y-1 text-xs" style={{ color: v2.n700 }}>
-              <li><span className="font-mono text-2xs" style={{ color: v2.n400 }}>display</span> — Tajawal 700 (≥28px)</li>
-              <li><span className="font-mono text-2xs" style={{ color: v2.n400 }}>body</span> — IBM Plex Sans Arabic 400/500</li>
-              <li><span className="font-mono text-2xs" style={{ color: v2.n400 }}>numeric</span> — Inter Tight 500 tabular</li>
-              <li><span className="font-mono text-2xs" style={{ color: v2.n400 }}>mono</span> — JetBrains Mono — IDs / routes / eyebrows</li>
-            </ul>
-          </div>
-          <div>
-            <p className="font-mono text-2xs font-bold uppercase tracking-wider" style={{ color: v2.n900 }}>SPACING</p>
-            <p className="mt-2 font-mono text-xs" dir="ltr" style={{ color: v2.n700 }}>
-              4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 · 56 · 80 · 120
-            </p>
-            <p className="mt-1 text-2xs" style={{ color: v2.n500 }}>4-px base, denser middle. Card pad 20/24/32. Page gutters 24/32/48.</p>
           </div>
         </div>
-
-        {/* Per-app rail legend */}
-        <div className="mt-6 border-t pt-4" style={{ borderColor: v2.n100 }}>
-          <p className="font-mono text-2xs font-bold uppercase tracking-wider" style={{ color: v2.n900 }}>PER-APP IDENTITY RAIL</p>
-          <p className="mt-0.5 text-2xs" style={{ color: v2.n500 }}>4-pixel rail down the inside edge of the sidebar</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { app: 'Admin / Hub',          color: v2.p500,  icon: <Layers size={12} /> },
-              { app: 'Applicant',            color: '#5FA0A0', icon: <Users size={12} /> },
-              { app: 'Committees',           color: v2.g500,  icon: <Briefcase size={12} /> },
-              { app: 'Medical',              color: v2.cyan,  icon: <Stethoscope size={12} /> },
-              { app: 'Investigations',       color: v2.t500,  icon: <Eye size={12} /> },
-              { app: 'Board',                color: v2.g700,  icon: <CheckCircle2 size={12} /> },
-              { app: 'Question Bank',        color: '#5A4FCF', icon: <FileText size={12} /> },
-              { app: 'Biometric',            color: v2.navy,  icon: <Activity size={12} /> },
-              { app: 'Barcode',              color: v2.n700,  icon: <ClipboardCheck size={12} /> },
-            ].map((r) => (
-              <div key={r.app} className="flex items-center gap-2 rounded-md border p-2" style={{ borderColor: v2.n200, background: v2.n0 }}>
-                <span className="h-6 w-1 rounded-sm" style={{ background: r.color }} aria-hidden />
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded" style={{ background: `${r.color}15`, color: r.color }}>{r.icon}</span>
-                <span className="text-2xs font-medium" style={{ color: v2.n900 }}>{r.app}</span>
-                <span className="ms-auto font-mono text-[9px]" dir="ltr" style={{ color: v2.n400 }}>{r.color}</span>
-              </div>
-            ))}
+        <div className="rounded-lg p-6" style={{ background: '#fff', border: `1px solid ${v2.n100}` }}>
+          <h3 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 18, margin: '0 0 16px', color: v2.n800 }}>بعد · Heritage Modern v2 · Ministerial Navy</h3>
+          <div className="flex flex-col gap-3.5">
+            <SwatchRow swatches={[v2.p50, v2.p300, v2.p500, v2.p700]} title="primary · navy scale" desc="brand surface + primary action · #143764 hero" />
+            <SwatchRow swatches={[v2.g50, v2.g300, v2.g500, v2.g700]} title="accent · gold" desc="heritage · committee app · NOT warning" />
+            <SwatchRow swatches={[v2.t50, v2.t500, v2.t700]} title="restricted · terra" desc="classified surfaces only" wide />
+            <SwatchRow swatches={[v2.c50, v2.c500, v2.c700]} title="medical · cyan-teal" desc="medical app accent only" wide />
+            <SwatchRow swatches={[v2.n25, v2.n100, v2.n300, v2.n500, v2.n700, v2.n900]} title="neutrals · warm slate" desc="9 stops · proper UI ramp" border />
+            <div className="border-t pt-3" style={{ borderColor: v2.n100 }}>
+              <SwatchRow swatches={[v2.success500, v2.warning500, v2.danger500, v2.info500]} title="semantic · separate" desc="success · warning · danger · info" wide />
+            </div>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function SwatchRow({
+  swatches, title, desc, border, wide, customSwatch,
+}: {
+  swatches: string[];
+  title: string;
+  desc: string;
+  border?: boolean;
+  wide?: boolean;
+  customSwatch?: JSX.Element;
+}): JSX.Element {
+  const stripeWidth = wide ? 30 : swatches.length >= 6 ? 14 : 20;
+  return (
+    <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+      {customSwatch ?? (
+        <div style={{ display: 'flex', borderRadius: 6, overflow: 'hidden', border: border ? `1px solid ${v2.n100}` : 'none' }}>
+          {swatches.map((c, i) => (
+            <span key={i} style={{ width: stripeWidth, height: 48, background: c }} />
+          ))}
+        </div>
+      )}
+      <div>
+        <b style={{ fontFamily: 'Tajawal', color: v2.n800 }}>{title}</b>
+        <div style={{ fontFamily: 'JetBrains Mono', fontSize: 12, color: v2.n400, direction: 'ltr' }}>{desc}</div>
+      </div>
+    </div>
   );
 }
