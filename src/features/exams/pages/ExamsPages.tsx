@@ -14,8 +14,12 @@ export function QuestionBankPage(): JSX.Element {
 
   const { data: categories } = useQuery({ queryKey: ['exams', 'categories'], queryFn: () => examsService.getCategories() });
   const { data: questions } = useQuery({
-    queryKey: ['exams', 'questions', category, difficulty],
-    queryFn: () => examsService.listQuestions({ category, difficulty }),
+    queryKey: ['exams', 'legacy-questions'],
+    queryFn: () => examsService.listLegacyQuestions(),
+    select: (rows) =>
+      rows
+        .filter((q) => (category === 'all' ? true : q.category === category))
+        .filter((q) => (difficulty === 'all' ? true : q.difficulty === difficulty)),
   });
 
   return (

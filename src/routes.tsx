@@ -76,7 +76,17 @@ import {
 } from '@/features/medical';
 import { BarcodeLayout, BarcodeGeneratePage, BarcodeLookupPage, BarcodeBatchPage } from '@/features/barcode';
 import { BiometricLayout, BiometricVerifyPage, BiometricEnrollPage, BiometricHistoryPage } from '@/features/biometric';
-import { ExamsLayout, QuestionBankPage, ExamsListPage, ExamsResultsPage } from '@/features/exams';
+import {
+  ExamCreatePage,
+  ExamsLayout,
+  ExamsListPage,
+  ExamsListPageNew,
+  ExamsResultsPage,
+  LiveExamPage,
+  ProctorViewPage,
+  QuestionBankCRUDPage,
+  QuestionBankPage,
+} from '@/features/exams';
 
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
@@ -204,7 +214,12 @@ export const routes: RouteObject[] = [
     element: <AuthGuard app="exams"><ExamsLayout /></AuthGuard>,
     children: [
       { index: true, element: <QuestionBankPage /> },
-      { path: 'exams', element: <ExamsListPage /> },
+      { path: 'manage', element: <QuestionBankCRUDPage /> },
+      { path: 'exams', element: <ExamsListPageNew /> },
+      { path: 'exams-legacy', element: <ExamsListPage /> },
+      { path: 'exams/create', element: <ExamCreatePage /> },
+      { path: 'exams/:examId/take', element: <LiveExamPage /> },
+      { path: 'exams/:examId/proctor', element: <ProctorViewPage /> },
       { path: 'results', element: <ExamsResultsPage /> },
     ],
   },

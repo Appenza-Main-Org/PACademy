@@ -59,7 +59,11 @@ export const ROUTES = {
   },
   questionBank: {
     overview: '/question-bank',
+    crud: '/question-bank/manage',
     exams: '/question-bank/exams',
+    examCreate: '/question-bank/exams/create',
+    examTake: (id = ':examId'): string => `/question-bank/exams/${id}/take`,
+    examProctor: (id = ':examId'): string => `/question-bank/exams/${id}/proctor`,
     results: '/question-bank/results',
   },
 } as const;
