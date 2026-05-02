@@ -27,7 +27,10 @@ export const ROUTES = {
   board: {
     overview: '/board',
     sessions: '/board/sessions',
+    sessionCreate: '/board/sessions/create',
+    sessionLive: (id = ':id'): string => `/board/sessions/${id}/live`,
     decisions: '/board/decisions',
+    members: '/board/members',
   },
   investigations: {
     overview: '/investigations',

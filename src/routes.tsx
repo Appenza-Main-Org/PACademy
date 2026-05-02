@@ -45,7 +45,17 @@ import {
   CommitteeOverviewPage,
   CommitteeSchedulePage,
 } from '@/features/committees';
-import { BoardLayout, BoardOverviewPage, BoardSessionsPage, BoardDecisionsPage } from '@/features/board';
+import {
+  BoardDecisionsListPage,
+  BoardDecisionsPage,
+  BoardLayout,
+  BoardMembersPage,
+  BoardOverviewPage,
+  BoardSessionCreatePage,
+  BoardSessionLivePage,
+  BoardSessionsListPage,
+  BoardSessionsPage,
+} from '@/features/board';
 import {
   DistributionPage,
   InvestigationCreatePage,
@@ -133,8 +143,13 @@ export const routes: RouteObject[] = [
     element: <AuthGuard app="board"><BoardLayout /></AuthGuard>,
     children: [
       { index: true, element: <BoardOverviewPage /> },
-      { path: 'sessions', element: <BoardSessionsPage /> },
-      { path: 'decisions', element: <BoardDecisionsPage /> },
+      { path: 'sessions', element: <BoardSessionsListPage /> },
+      { path: 'sessions/create', element: <BoardSessionCreatePage /> },
+      { path: 'sessions/:id/live', element: <BoardSessionLivePage /> },
+      { path: 'sessions-legacy', element: <BoardSessionsPage /> },
+      { path: 'decisions', element: <BoardDecisionsListPage /> },
+      { path: 'decisions-legacy', element: <BoardDecisionsPage /> },
+      { path: 'members', element: <BoardMembersPage /> },
     ],
   },
 
