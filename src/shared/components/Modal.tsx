@@ -129,7 +129,7 @@ export function Modal({
         className="absolute inset-0"
         style={{
           background: 'var(--surface-overlay)',
-          backdropFilter: reducedMotion ? undefined : 'blur(4px)',
+          backdropFilter: reducedMotion ? undefined : 'blur(2px)',
           animation: reducedMotion
             ? undefined
             : 'modalBackdropEnter var(--duration-base) var(--ease-standard)',

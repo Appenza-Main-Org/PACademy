@@ -70,7 +70,7 @@
   --surface-card:     #FFFFFF;
   --surface-elevated: #FFFFFF;
   --surface-sunken:   var(--ink-100);
-  --surface-overlay:  rgba(28, 25, 15, 0.55);
+  --surface-overlay:  rgba(28, 25, 15, 0.28);
 
   /* ── BORDERS ── */
   --border-subtle:  rgba(28, 25, 15, 0.08);

@@ -11,7 +11,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { CircleHelp, Layers, LogOut, Search, UserCircle } from 'lucide-react';
 import {
   Avatar,
-  Button,
   CommandPalette,
   KhayameyaStripe,
   LogoMark,
@@ -126,15 +125,16 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
             </div>
             <UserCircle size={14} strokeWidth={1.75} className="text-ink-500 md:hidden" />
           </Link>
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            type="button"
             onClick={handleLogout}
             title="تسجيل الخروج"
             aria-label="تسجيل الخروج"
+            className="inline-flex items-center gap-1.5 rounded-md border border-terra-500 bg-terra-50 px-3 py-1.5 text-xs font-medium text-terra-700 transition-colors duration-fast ease-standard hover:bg-terra-500 hover:text-white focus-visible:shadow-focus-terra focus-visible:outline-none"
           >
-            <LogOut size={18} strokeWidth={1.75} />
-          </Button>
+            <LogOut size={14} strokeWidth={1.75} />
+            <span className="hidden md:inline">خروج</span>
+          </button>
         </div>
       </header>
 

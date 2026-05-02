@@ -4,8 +4,8 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Activity, AlertCircle, CheckCircle2, Clock, ShieldQuestion, XCircle } from 'lucide-react';
-import { Badge, Card, LoadingState } from '@/shared/components';
+import { Activity, AlertCircle, ArrowLeft, CheckCircle2, Clock, ShieldQuestion, XCircle } from 'lucide-react';
+import { Badge, Button, Card, LoadingState } from '@/shared/components';
 import { useDraft, useFollowUp } from '../api/applicantPortal.queries';
 import type { PipelineState } from '@/shared/types/domain';
 import { ROUTES } from '@/config/routes';
@@ -88,6 +88,15 @@ export function Stage10FollowUpPage(): JSX.Element {
           </div>
         </Card>
       )}
+
+      {/* Always-visible advance CTA so the wizard isn't a dead-end */}
+      <div className="flex justify-end pt-2">
+        <Link to={`${ROUTES.applicant}/acquaintance-doc`}>
+          <Button variant="primary" size="lg" trailingIcon={<ArrowLeft size={14} strokeWidth={1.75} />}>
+            المتابعة إلى وثيقة التعارف
+          </Button>
+        </Link>
+      </div>
     </div>
   );
 }

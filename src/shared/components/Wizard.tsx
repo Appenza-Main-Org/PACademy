@@ -107,7 +107,7 @@ export function Wizard({
                   <button
                     type="button"
                     onClick={() => onStepClick?.(s.key)}
-                    disabled={s.state === 'blocked' || s.state === 'upcoming'}
+                    disabled={s.state === 'blocked'}
                     className={cn(
                       'rounded-md px-2 py-1 transition-colors duration-fast ease-standard',
                       s.key === activeStepKey
@@ -174,7 +174,8 @@ function VerticalStepper({
     <ol className="flex flex-col gap-1">
       {steps.map((s, i) => {
         const isActive = s.key === activeKey;
-        const clickable = s.state !== 'blocked' && s.state !== 'upcoming' && Boolean(onStepClick);
+        // Demo mode: any step that has a click handler is reachable, including upcoming ones.
+        const clickable = s.state !== 'blocked' && Boolean(onStepClick);
         return (
           <li key={s.key} className="relative">
             {i < steps.length - 1 && (
