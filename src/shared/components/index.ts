@@ -10,6 +10,8 @@ export { Button } from './Button';
 export { Card, CardBody, CardFooter, CardHeader } from './Card';
 export type { CardVariant } from './Card';
 export { Combobox } from './Combobox';
+export { CommandPalette, useCommandPaletteShortcut } from './CommandPalette';
+export { NotificationCenter } from './NotificationCenter';
 export type { ComboboxOption } from './Combobox';
 export { CornerFlourish } from './CornerFlourish';
 export type { Corner } from './CornerFlourish';

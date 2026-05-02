@@ -1,7 +1,8 @@
-import { Globe, Building2, Cog, Database, Cloud, Code2, ServerCog, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { Building2, Cloud, Code2, Cog, Database, Globe, Lock, Network, ServerCog } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
-import { PageHeader, Card, CardHeader, CardBody, Badge } from '@/shared/components';
+import { Badge, Card, CardBody, CardHeader, Drawer, PageHeader } from '@/shared/components';
 
 const TIERS = [
   { label: 'طبقة الإنترنت', color: '#1A8754', bg: '#D7F0E1', blocks: [{ icon: '🌐', title: 'موقع المتقدمين', meta: '1.2' }, { icon: '⚙️', title: 'إدارة المنظومة', meta: '1.1' }] },
@@ -31,6 +32,8 @@ const INTEGRATIONS = [
 ];
 
 export function ArchitecturePage(): JSX.Element {
+  const [openIntegration, setOpenIntegration] = useState<typeof INTEGRATIONS[number] | null>(null);
+
   return (
     <AppShell appLabel="معمارية النظام">
       <CenteredShell>
@@ -40,7 +43,19 @@ export function ArchitecturePage(): JSX.Element {
         />
 
         <Card className="mb-6">
-          <CardHeader title="مفتاح الألوان" subtitle="كل طبقة لها لون وغرض" />
+          <CardHeader title="المعمارية الرئيسية — 4 طبقات (K§9)" subtitle="نموذج عالي المستوى لاتصال الواجهات والخدمات والبيانات" actions={<Network size={16} strokeWidth={1.75} />} />
+          <CardBody>
+            <div className="grid gap-3 md:grid-cols-4">
+              <FourLayerCard color="var(--teal-500)" title="بوابات عامة" subtitle="Public Portals" items={['موقع المتقدمين', 'بوابة الإعلانات', 'CDN'] } />
+              <FourLayerCard color="var(--gold-500)" title="الـ Middleware" subtitle="API Gateway · Auth · ESB" items={['API Gateway', 'OAuth2/OIDC', 'Event Bus', 'WAF + IDS']} />
+              <FourLayerCard color="var(--terra-500)" title="بوابات خاصة" subtitle="Private Portals" items={['الإدارة', 'اللجان', 'الهيئة', 'التحريات', 'القومسيون', 'الباركود/البيومتري', 'بنك الأسئلة']} />
+              <FourLayerCard color="var(--ink-700)" title="طبقة البيانات" subtitle="Database · Object Store" items={['PostgreSQL', 'Elasticsearch', 'ClickHouse', 'Redis', 'MinIO']} />
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader title="تفصيل الطبقات" subtitle="لون لكل طبقة من الـ 6" />
           <CardBody>
             <div className="flex flex-wrap gap-3">
               {TIERS.map((t) => (
@@ -89,9 +104,9 @@ export function ArchitecturePage(): JSX.Element {
               </thead>
               <tbody>
                 {INTEGRATIONS.map((i) => (
-                  <tr key={i.system}>
+                  <tr key={i.system} className="cursor-pointer hover:bg-ink-50" onClick={() => setOpenIntegration(i)}>
                     <td className="font-bold">{i.system}</td>
-                    <td className="mono text-xs">{i.endpoint}</td>
+                    <td className="mono text-xs" dir="ltr">{i.endpoint}</td>
                     <td className="text-sm">{i.auth}</td>
                     <td className="text-sm text-secondary">{i.purpose}</td>
                     <td>{i.status === 'متصل' ? <Badge tone="success">{i.status}</Badge> : <Badge tone="warning">{i.status}</Badge>}</td>
@@ -129,7 +144,48 @@ export function ArchitecturePage(): JSX.Element {
             <div>كل البيانات تستضاف داخل البنية التحتية الحكومية المعتمدة، مع تشفير at-rest وaudit log لكل API call.</div>
           </div>
         </div>
+
+        <Drawer open={Boolean(openIntegration)} onClose={() => setOpenIntegration(null)} title={openIntegration?.system ?? ''} size="md">
+          {openIntegration && (
+            <Drawer.Body>
+              <dl className="grid grid-cols-3 gap-3 text-sm">
+                <div className="rounded-md border border-border-subtle bg-ink-50 px-3 py-2">
+                  <dt className="text-2xs text-ink-500">Endpoint</dt>
+                  <dd className="font-mono text-ink-900" dir="ltr">{openIntegration.endpoint}</dd>
+                </div>
+                <div className="rounded-md border border-border-subtle bg-ink-50 px-3 py-2">
+                  <dt className="text-2xs text-ink-500">المصادقة</dt>
+                  <dd>{openIntegration.auth}</dd>
+                </div>
+                <div className="rounded-md border border-border-subtle bg-ink-50 px-3 py-2">
+                  <dt className="text-2xs text-ink-500">الحالة</dt>
+                  <dd>{openIntegration.status === 'متصل' ? <Badge tone="success">{openIntegration.status}</Badge> : <Badge tone="warning">{openIntegration.status}</Badge>}</dd>
+                </div>
+              </dl>
+              <h3 className="mt-4 text-sm font-medium text-ink-900">تدفق البيانات</h3>
+              <ol className="mt-2 flex flex-col gap-2 text-sm">
+                <li className="rounded-md border border-border-subtle bg-surface-card px-3 py-2">1. الواجهة تطلب التحقق عبر API Gateway.</li>
+                <li className="rounded-md border border-border-subtle bg-surface-card px-3 py-2">2. الـ Gateway يتحقق من JWT ويستدعي خدمة التكامل عبر mTLS.</li>
+                <li className="rounded-md border border-border-subtle bg-surface-card px-3 py-2">3. خدمة التكامل تطلب البيانات من الجهة الحكومية وترجع الاستجابة.</li>
+                <li className="rounded-md border border-border-subtle bg-surface-card px-3 py-2">4. النتيجة تُسجَّل في الـ audit وتُعاد للواجهة.</li>
+              </ol>
+            </Drawer.Body>
+          )}
+        </Drawer>
       </CenteredShell>
     </AppShell>
+  );
+}
+
+function FourLayerCard({ color, title, subtitle, items }: { color: string; title: string; subtitle: string; items: string[] }): JSX.Element {
+  return (
+    <div className="rounded-lg border bg-surface-card p-4" style={{ borderColor: color }}>
+      <span aria-hidden className="inline-block h-2 w-10 rounded-pill" style={{ background: color }} />
+      <p className="mt-2 font-bold text-ink-900">{title}</p>
+      <p className="text-2xs text-ink-500" dir="ltr">{subtitle}</p>
+      <ul className="mt-2 flex flex-col gap-1 text-2xs text-ink-700">
+        {items.map((it) => <li key={it}>· {it}</li>)}
+      </ul>
+    </div>
   );
 }

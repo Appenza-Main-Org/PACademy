@@ -34,3 +34,49 @@
   - Camera capture via `getUserMedia()` deferred to Sprint 8 (Biometric)
   - Real `JsBarcode` Code 128 deferred to Sprint 8 (Barcode)
 - Skipped/deferred: real camera + real barcode generation, mobile-only layout polish, notification center
+
+## Sprint 3: Committees — 2026-05-02 09:15
+- Milestones: types (CommitteeResult + ResultPhase + CommitteeType, 80 deterministic results) · service refresh (9 methods) · queries · 4 pages
+- Pages: CommitteeListPage refresh (DataTable), CommitteeCreatePage, CommitteeDetailPage (queue + results entry + bulk-approve + reject + bulk-upload), suspended-applicant guard via SuspendedBadge
+- Karasa §3 sections A-F delivered. Two-phase results pattern (preliminary→final) established as foundation for Sprints 4 & 7.
+- Routes: /committee/create, /committee/:id added.
+- Mock data file `sprint3to9.ts` lays groundwork for §§4-9.
+
+## Sprint 4: Medical Commission — 2026-05-02 10:30
+- Milestones: types (MedicalStationKey ×8 + MedicalVerdict + MedicalExamResult, 112 results across stations) · service refresh (6 methods + master certificate aggregator) · 2 pages
+- Pages: StationExamPage (one route, station-specific field set per all 8 stations including BMI live Gauge), MedicalCertificatePage (PrintLayout-wrapped master verdict per applicant)
+- Karasa §6 A-D delivered. Auto-rule: any FAIL→fail, any conditional→board-review.
+- Routes: /medical/station/:station, /medical/certificate.
+
+## Sprint 5: Investigations — 2026-05-02 11:30
+- Milestones: types · service (6 methods + 4 letter ops) · 4 pages
+- Pages: InvestigationsLayout (terra «سرّي» banner per §5.2.E), InvestigationCreatePage, InvestigationDetailPage (full case file with PrintLayout restricted=true), OutgoingLettersPage (drafted→sent flow), DistributionPage (auto-balance)
+- Karasa §5 A-E delivered. All print outputs use restricted PrintLayout for the «سرّي للغاية» watermark.
+- Routes: /investigations/create, /investigations/cases/:id, /investigations/distribution; /outgoing repurposed to letters.
+
+## Sprint 6: Board / Secretariat — 2026-05-02 12:30
+- Milestones: types (BoardMember/Session/Decision, 5 members, 12 sessions, ~24 decisions) · service (13 methods) · 5 pages
+- Pages: BoardSessionsListPage, BoardSessionCreatePage, BoardSessionLivePage (per-member voting widget + chair-only tally), BoardDecisionsListPage (Drawer with PrintLayout + Khayameya), BoardMembersPage
+- Decision auto-numbering (د/2026/NNNN). Hijri + Gregorian dates printed.
+- Routes: /board/sessions/create, /board/sessions/:id/live, /board/members.
+
+## Sprint 7: Question Bank & e-Exams — 2026-05-02 13:30
+- Milestones: types (BankQuestion + status + version, ExamConfig, ExamAttempt; 50 questions, 2 exams, 200 attempts) · service refresh (12 methods) · 5 pages
+- Pages: QuestionBankCRUDPage (filter + Drawer add), ExamCreatePage, LiveExamPage (3 phases: pre-bio-check / exam with timer + flag-for-review / submitted), ProctorViewPage, ExamsListPageNew
+- Auto-grade at 60% pass threshold. Conflict check prevents 6-month re-take per K§3.5.
+- Routes: /question-bank/manage, /question-bank/exams/create, /exams/:id/take, /exams/:id/proctor.
+
+## Sprint 8: Biometric & Barcode — 2026-05-02 14:30
+- Milestones: types (BiometricEnrollment/Verification, BarcodeRecord/Scan; 180+120+240+200 records) · 2 services (10+5 methods) · 5 pages
+- Pages: BiometricVerifyOpsPage, BiometricMonitoringPage (24h LineChart + per-station + recent failures), BarcodeScannerPage (manual + camera placeholder + 10s duplicate detect), BarcodeReplacementPage, BarcodeScansHistoryPage
+- Routes: /biometric/verify-ops, /biometric/monitoring, /barcode/scan, /barcode/replace, /barcode/scans.
+- Real camera (getUserMedia + zxing/MediaPipe) deferred to Sprint 10.
+
+## Sprint 9: Cross-cutting — 2026-05-02 15:30
+- Milestones: shared `CommandPalette` (⌘K, deps-free) + `useCommandPaletteShortcut` hook · `NotificationCenter` (bell + drawer + 5 sample notifications + mark-all-read) · ProfilePage · HelpPage · ArchitecturePage refresh (4-layer K§9 band + interactive integration row + Drawer with data-flow steps)
+- AppShell: ⌘K trigger button, NotificationCenter, Help link, Profile link (avatar pill).
+- Routes: /profile, /help.
+- Karasa §10.1-10.4 delivered.
+
+## Autopilot session complete — Sprint 9 tagged
+- All 9 sprints (1-9) tagged. Final review awaits user trigger via PROMPT_4_FINAL_REVIEW.md.

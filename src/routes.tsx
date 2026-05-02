@@ -8,6 +8,8 @@ import { AuthGuard } from '@/app/providers/AuthGuard';
 import { LoginPage } from '@/features/auth';
 import { HubPage } from '@/features/hub';
 import { ArchitecturePage } from '@/features/architecture';
+import { ProfilePage } from '@/features/profile';
+import { HelpPage } from '@/features/help';
 import {
   ApplicantPortalLayout,
   ApplicantPortalPage,
@@ -112,6 +114,9 @@ export const routes: RouteObject[] = [
     path: '/architecture',
     element: <AuthGuard><ArchitecturePage /></AuthGuard>,
   },
+
+  { path: '/profile', element: <AuthGuard><ProfilePage /></AuthGuard> },
+  { path: '/help', element: <AuthGuard><HelpPage /></AuthGuard> },
 
   {
     path: '/admin',

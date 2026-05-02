@@ -4,6 +4,8 @@ export const ROUTES = {
   login: '/login',
   hub: '/',
   architecture: '/architecture',
+  profile: '/profile',
+  help: '/help',
   admin: {
     dashboard: '/admin',
     applicants: '/admin/applicants',
