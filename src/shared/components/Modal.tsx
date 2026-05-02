@@ -37,8 +37,9 @@ interface ModalProps {
   closeOnEsc?: boolean;
   /** Render heritage corner flourishes inside the modal. Defaults to true. */
   withFlourishes?: boolean;
-  /** Render a transparent backdrop (no dim, no blur). Use for popovers
-   *  like the command palette where the page should remain readable. */
+  /** Render a transparent backdrop (no dim, no blur).
+   *  Defaults to TRUE — modals behave as popovers, the page stays
+   *  readable behind them. Set to false if you want the heavy dim. */
   transparentBackdrop?: boolean;
   ariaLabel?: string;
   children: ReactNode;
@@ -56,7 +57,7 @@ export function Modal({
   closeOnBackdrop = true,
   closeOnEsc = true,
   withFlourishes = true,
-  transparentBackdrop = false,
+  transparentBackdrop = true,
   ariaLabel,
   children,
   className,

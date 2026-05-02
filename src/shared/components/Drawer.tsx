@@ -35,9 +35,9 @@ interface DrawerProps {
   ariaLabel?: string;
   children: ReactNode;
   className?: string;
-  /** Render a transparent backdrop (no dim, no blur). Use for popovers
-   *  like notifications and the command palette where the page should
-   *  remain readable behind the panel. */
+  /** Render a transparent backdrop (no dim, no blur).
+   *  Defaults to TRUE — drawers behave as popovers, the page stays
+   *  readable behind them. Set to false if you want the heavy dim. */
   transparentBackdrop?: boolean;
 }
 
@@ -54,7 +54,7 @@ export function Drawer({
   ariaLabel,
   children,
   className,
-  transparentBackdrop = false,
+  transparentBackdrop = true,
 }: DrawerProps): JSX.Element | null {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
