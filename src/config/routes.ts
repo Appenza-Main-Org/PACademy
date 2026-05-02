@@ -38,6 +38,8 @@ export const ROUTES = {
     overview: '/medical',
     queue: '/medical/queue',
     results: '/medical/results',
+    station: (key = ':station'): string => `/medical/station/${key}`,
+    certificate: '/medical/certificate',
   },
   barcode: {
     overview: '/barcode',

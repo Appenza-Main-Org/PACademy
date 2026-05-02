@@ -47,7 +47,14 @@ import {
 } from '@/features/committees';
 import { BoardLayout, BoardOverviewPage, BoardSessionsPage, BoardDecisionsPage } from '@/features/board';
 import { InvestigationsLayout, InvestigationsCasesPage, IncomingPage, OutgoingPage } from '@/features/investigations';
-import { MedicalLayout, MedicalOverviewPage, MedicalQueuePage, MedicalResultsPage } from '@/features/medical';
+import {
+  MedicalCertificatePage,
+  MedicalLayout,
+  MedicalOverviewPage,
+  MedicalQueuePage,
+  MedicalResultsPage,
+  StationExamPage,
+} from '@/features/medical';
 import { BarcodeLayout, BarcodeGeneratePage, BarcodeLookupPage, BarcodeBatchPage } from '@/features/barcode';
 import { BiometricLayout, BiometricVerifyPage, BiometricEnrollPage, BiometricHistoryPage } from '@/features/biometric';
 import { ExamsLayout, QuestionBankPage, ExamsListPage, ExamsResultsPage } from '@/features/exams';
@@ -139,6 +146,8 @@ export const routes: RouteObject[] = [
       { index: true, element: <MedicalOverviewPage /> },
       { path: 'queue', element: <MedicalQueuePage /> },
       { path: 'results', element: <MedicalResultsPage /> },
+      { path: 'station/:station', element: <StationExamPage /> },
+      { path: 'certificate', element: <MedicalCertificatePage /> },
     ],
   },
 
