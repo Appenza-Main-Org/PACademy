@@ -11,6 +11,8 @@
  */
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ROUTES } from '@/config/routes';
 import {
   Building2,
   ChevronLeft,
@@ -246,7 +248,18 @@ export function ArchitecturePage(): JSX.Element {
         <PageHeader
           title="معمارية المنظومة"
           subtitle="نموذج 4 طبقات بحسب الكرّاسة §9 — يربط 9 تطبيقات بـ 6 تكاملات حكومية على بنية تحتية مُؤمَّنة"
-          actions={<Badge tone="brand">دفعة 2026</Badge>}
+          actions={
+            <div className="flex items-center gap-2">
+              <Link
+                to={ROUTES.designRevamp}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gold-300 bg-gold-50 px-3 py-1.5 text-2xs font-medium text-gold-700 hover:bg-gold-100"
+                title="نظام التصميم — Heritage Modern v2"
+              >
+                نظام التصميم · v2
+              </Link>
+              <Badge tone="brand">دفعة 2026</Badge>
+            </div>
+          }
         />
 
         {/* SECTION 1 — 4-LAYER DIAGRAM */}
