@@ -303,3 +303,88 @@ export interface ReportDocument {
   cycleId: string | null;
   rows: ReportRow[];
 }
+
+/* ── Applicant portal — Sprint 2 (KARASA_GAPS §2) ────────────────────── */
+
+export type ApplicantStageKey =
+  | 'auth-1'
+  | 'auth-2'
+  | 'personal'
+  | 'education'
+  | 'marital'
+  | 'payment'
+  | 'family'
+  | 'exam-schedule'
+  | 'print-card'
+  | 'follow-up'
+  | 'acquaintance-doc';
+
+export interface FamilyMember {
+  id: string;
+  fullName: string;
+  nationalId?: string;
+  occupation?: string;
+  alive: boolean;
+  causeOfDeath?: string;
+  governorate?: string;
+  education?: string;
+}
+
+export interface RelativeMember extends FamilyMember {
+  relationshipId: string;
+}
+
+export interface SpouseInfo {
+  fullName: string;
+  nationalId: string;
+  marriageDate: string;
+  occupation?: string;
+}
+
+export type PipelineState = 'pending' | 'in-progress' | 'passed' | 'failed' | 'awaiting-approval';
+
+export interface ApplicantDraft {
+  applicantId: string;
+  cycleId: string;
+  furthestStage: number;
+  suspended: boolean;
+  lastSavedAt: number;
+  auth?: {
+    nationalId: string;
+    phoneNumber: string;
+    smsVerifiedAt?: number;
+  };
+  personal?: Record<string, unknown>;
+  education?: Record<string, unknown>;
+  marital?: Record<string, unknown>;
+  payment?: {
+    method: 'fawry' | 'card';
+    fawryCode?: string;
+    refNumber?: string;
+    amount: number;
+    paidAt?: number;
+  };
+  family?: Record<string, unknown>;
+  examSlot?: { slotId: string; date: string; time: string; location: string };
+  followUp?: Record<string, PipelineState>;
+  acquaintance?: Record<string, unknown>;
+}
+
+export interface ExamSlot {
+  id: string;
+  date: string;
+  time: string;
+  location: string;
+  capacity: number;
+  reserved: number;
+}
+
+export interface PaymentTransaction {
+  refNumber: string;
+  applicantId: string;
+  method: 'fawry' | 'card';
+  amount: number;
+  status: 'pending' | 'success' | 'failed';
+  initiatedAt: number;
+  paidAt?: number;
+}

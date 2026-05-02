@@ -8,7 +8,21 @@ import { AuthGuard } from '@/app/providers/AuthGuard';
 import { LoginPage } from '@/features/auth';
 import { HubPage } from '@/features/hub';
 import { ArchitecturePage } from '@/features/architecture';
-import { ApplicantPortalPage } from '@/features/applicant-portal';
+import {
+  ApplicantPortalLayout,
+  ApplicantPortalPage,
+  Stage10FollowUpPage,
+  Stage11AcquaintanceDocPage,
+  Stage1AuthPhonePage,
+  Stage2AuthSmsPage,
+  Stage3PersonalPage,
+  Stage4EducationPage,
+  Stage5MaritalPage,
+  Stage6PaymentPage,
+  Stage7FamilyPage,
+  Stage8ExamSchedulePage,
+  Stage9PrintCardPage,
+} from '@/features/applicant-portal';
 import {
   AdminLayout,
   AdmissionRulesPage,
@@ -67,7 +81,21 @@ export const routes: RouteObject[] = [
 
   {
     path: '/applicant',
-    element: <AuthGuard app="applicant"><ApplicantPortalPage /></AuthGuard>,
+    element: <AuthGuard app="applicant"><ApplicantPortalLayout /></AuthGuard>,
+    children: [
+      { index: true, element: <ApplicantPortalPage /> },
+      { path: 'auth/step-1', element: <Stage1AuthPhonePage /> },
+      { path: 'auth/step-2', element: <Stage2AuthSmsPage /> },
+      { path: 'profile/personal', element: <Stage3PersonalPage /> },
+      { path: 'profile/education', element: <Stage4EducationPage /> },
+      { path: 'profile/marital', element: <Stage5MaritalPage /> },
+      { path: 'payment', element: <Stage6PaymentPage /> },
+      { path: 'profile/family', element: <Stage7FamilyPage /> },
+      { path: 'exam-schedule', element: <Stage8ExamSchedulePage /> },
+      { path: 'print-card', element: <Stage9PrintCardPage /> },
+      { path: 'follow-up', element: <Stage10FollowUpPage /> },
+      { path: 'acquaintance-doc', element: <Stage11AcquaintanceDocPage /> },
+    ],
   },
 
   {

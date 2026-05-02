@@ -22,3 +22,15 @@
   - MOIPASS-backed login (§1.2.A) deferred to Sprint 9 cross-cutting since auth is shared across all 9 apps.
   - Reference data tabs use a discriminated union (`ReferenceRowMap`) typed per tab; service erases generic to `unknown[]` internally to avoid TS variance pitfalls, casts at the boundary so consumers stay fully typed.
 - Skipped/deferred: MOIPASS login screen, real xlsx/docx/PDF libs, Excel bulk-import parsing for reference data (drag-and-drop UI placeholder shows "Sprint 10" toast).
+
+## Sprint 2: Applicant Portal — 2026-05-02 07:30
+- Milestones: types · mock data · service+queries · 11 zod schemas · ApplicantPortalLayout (Wizard wrapper + suspended-applicant guard + help dock) · 11 stage pages
+- New routes: 11 stages under `/applicant/*` (auth/step-1, auth/step-2, profile/personal, profile/education, profile/marital, payment, profile/family, exam-schedule, print-card, follow-up, acquaintance-doc)
+- New services: applicantPortalService with all 12 INTEGRATION CONTRACT methods
+- Karasa items resolved (KARASA_GAPS §2): all 11 stages from §2.2, plus §2.3 cross-cutting (suspended-applicant guard banner, support FAB)
+- Typecheck: ✅  Build: ✅ (chunk-size warning at 625 kB JS — Sprint 10 will introduce React.lazy code-splitting)
+- Notable decisions:
+  - Inline `zodResolver` (40 LoC) instead of installing `@hookform/resolvers` to keep dependency cost zero
+  - Camera capture via `getUserMedia()` deferred to Sprint 8 (Biometric)
+  - Real `JsBarcode` Code 128 deferred to Sprint 8 (Barcode)
+- Skipped/deferred: real camera + real barcode generation, mobile-only layout polish, notification center

@@ -29,6 +29,7 @@ import type {
 } from '@/shared/types/domain';
 import { REFERENCE_DATA } from './referenceData';
 import { ADMISSION_CYCLES, ADMISSION_RULES } from './admissionCycles';
+import { EXAM_SLOTS, SAMPLE_DRAFT } from './applicantPortal';
 
 reseed(42);
 
@@ -247,4 +248,7 @@ export const MOCK = {
   admissionCycles: ADMISSION_CYCLES,
   admissionRules: ADMISSION_RULES,
   heatmapHourDay,
+  /* Sprint 2 additions */
+  examSlots: EXAM_SLOTS,
+  sampleApplicantDraft: SAMPLE_DRAFT,
 };

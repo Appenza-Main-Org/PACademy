@@ -1,1 +1,13 @@
+export { ApplicantPortalLayout, STAGE_KEYS as APPLICANT_STAGE_KEYS, STAGE_LABELS as APPLICANT_STAGE_LABELS } from './ApplicantPortalLayout';
 export { ApplicantPortalPage } from './pages/ApplicantPortalPage';
+export { Stage1AuthPhonePage } from './pages/Stage1AuthPhonePage';
+export { Stage2AuthSmsPage } from './pages/Stage2AuthSmsPage';
+export { Stage3PersonalPage } from './pages/Stage3PersonalPage';
+export { Stage4EducationPage } from './pages/Stage4EducationPage';
+export { Stage5MaritalPage } from './pages/Stage5MaritalPage';
+export { Stage6PaymentPage } from './pages/Stage6PaymentPage';
+export { Stage7FamilyPage } from './pages/Stage7FamilyPage';
+export { Stage8ExamSchedulePage } from './pages/Stage8ExamSchedulePage';
+export { Stage9PrintCardPage } from './pages/Stage9PrintCardPage';
+export { Stage10FollowUpPage } from './pages/Stage10FollowUpPage';
+export { Stage11AcquaintanceDocPage } from './pages/Stage11AcquaintanceDocPage';

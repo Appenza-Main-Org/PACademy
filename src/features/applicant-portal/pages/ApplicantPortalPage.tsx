@@ -1,96 +1,110 @@
-import { Upload, FileText, Phone, Mail, HelpCircle, Calendar, Shield, GraduationCap } from 'lucide-react';
-import { AppShell } from '@/app/layouts/AppShell';
-import { CenteredShell } from '@/app/layouts/CenteredShell';
-import { Card, CardHeader, CardBody, Badge, Button, StageStepper } from '@/shared/components';
-import { STAGE_LABELS } from '@/shared/lib/constants';
-import { date as fmtDate } from '@/shared/lib/format';
+/**
+ * ApplicantPortalPage — index landing of the applicant portal.
+ * Shown when the user lands on /applicant before picking a stage.
+ */
 
-const DOCS = [
-  { key: 'national-id', icon: '🪪', title: 'بطاقة الرقم القومي', desc: 'صورة واضحة من الجهتين', required: true },
-  { key: 'cert',         icon: '🎓', title: 'شهادة الثانوية',     desc: 'الأصل + صورة', required: true },
-  { key: 'photo',        icon: '🖼️', title: 'صورة شخصية',          desc: 'بخلفية بيضاء — 4×6', required: true },
-  { key: 'birth',        icon: '📜', title: 'شهادة الميلاد',       desc: 'مميكنة حديثة', required: true },
-  { key: 'family',       icon: '👨‍👩‍👧‍👦', title: 'وثيقة التعارف الأسري', desc: 'يتم استخراجها من القسم', required: true },
-  { key: 'good-conduct', icon: '🏛️', title: 'شهادة حسن السير والسلوك', desc: 'سارية لمدة 6 أشهر', required: false },
-];
+import { Link } from 'react-router-dom';
+import { Calendar, FileText, GraduationCap, HelpCircle, Mail, Phone, ShieldCheck } from 'lucide-react';
+import { Badge, Button, Card } from '@/shared/components';
+import { useDraft } from '../api/applicantPortal.queries';
+import { date as fmtDate } from '@/shared/lib/format';
+import { ROUTES } from '@/config/routes';
+
+const APPLICANT_ID = 'APP-2026000';
 
 export function ApplicantPortalPage(): JSX.Element {
-  const currentStage = 2; // Demo stage: docs upload
+  const { data: draft } = useDraft(APPLICANT_ID);
+  const next = nextStagePath(draft?.furthestStage ?? 0);
 
   return (
-    <AppShell app="applicant" appLabel="موقع المتقدمين · 1.2">
-      <CenteredShell>
-        <section className="hub-hero" style={{ background: 'linear-gradient(135deg, #0E7240, #1A8754)' }}>
-          <h1>أهلاً بك في منظومة القبول الإلكتروني</h1>
-          <p>تابع كل مراحل تقدمك من تسجيل الطلب وحتى ظهور النتيجة النهائية. أي خطوة لها مستندات أو إجراءات يتم إخطارك بها فور اعتمادها.</p>
-          <div className="hub-hero-meta">
-            <div className="hub-hero-meta-item">
-              <Calendar size={16} />
-              <span>اليوم: {fmtDate(Date.now())}</span>
-            </div>
-            <div className="hub-hero-meta-item">
-              <GraduationCap size={16} />
-              <span>كود التقدم: APP-2026000142</span>
-            </div>
-            <div className="hub-hero-meta-item">
-              <Shield size={16} />
-              <span>تم التحقق من الهوية ✓</span>
-            </div>
+    <div className="flex flex-col gap-5">
+      <Card>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="font-ar-display text-2xl font-bold text-ink-900">
+              أهلاً بك في منظومة القبول الإلكتروني
+            </h1>
+            <p className="mt-1 text-sm text-ink-500">
+              تابع كل مراحل تقدمك من تسجيل الطلب وحتى ظهور النتيجة النهائية.
+            </p>
+            <ul className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-2xs text-ink-500">
+              <li className="inline-flex items-center gap-1">
+                <Calendar size={12} strokeWidth={1.75} />
+                {fmtDate(Date.now(), 'short')}
+              </li>
+              <li className="inline-flex items-center gap-1">
+                <GraduationCap size={12} strokeWidth={1.75} />
+                <span dir="ltr" className="font-mono">{APPLICANT_ID}</span>
+              </li>
+              <li className="inline-flex items-center gap-1">
+                <ShieldCheck size={12} strokeWidth={1.75} />
+                <Badge tone="success">حساب مفعّل</Badge>
+              </li>
+            </ul>
           </div>
-        </section>
+          <Link to={`${ROUTES.applicant}/${next.path}`}>
+            <Button variant="primary" size="lg">
+              {next.label}
+            </Button>
+          </Link>
+        </div>
+      </Card>
 
-        <Card className="mb-6">
-          <CardHeader title="مراحل ملف التقدم" subtitle={`أنت حالياً في المرحلة ${currentStage + 1}: ${STAGE_LABELS[currentStage]}`} />
-          <CardBody>
-            <StageStepper stages={STAGE_LABELS} currentIndex={currentStage} />
-          </CardBody>
-        </Card>
-
-        <Card className="mb-6">
-          <CardHeader
-            title="المستندات المطلوبة"
-            subtitle="ارفع المستندات الستة لاستكمال هذه المرحلة"
-            actions={<Badge tone="warning">في انتظار 6 / 6</Badge>}
-          />
-          <CardBody>
-            <div className="grid grid-cols-auto" style={{ gap: 16 }}>
-              {DOCS.map((d) => (
-                <div key={d.key} className="card" style={{ padding: 20, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div className="flex items-center justify-between">
-                    <span style={{ fontSize: 28 }}>{d.icon}</span>
-                    {d.required ? <Badge tone="danger">إلزامي</Badge> : <Badge tone="neutral">اختياري</Badge>}
-                  </div>
-                  <div className="font-bold text-md">{d.title}</div>
-                  <div className="text-sm text-tertiary flex-1">{d.desc}</div>
-                  <Button variant="secondary" leadingIcon={<Upload size={16} />}>رفع المستند</Button>
-                </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-
-        <section className="section">
-          <h2 className="section-title"><HelpCircle size={20} /> الدعم والمساعدة</h2>
-          <div className="grid grid-3">
-            <SupportCard icon={<Phone size={20} />} title="الخط الساخن" body="19000" hint="من الأحد إلى الخميس · 9 ص — 9 م" />
-            <SupportCard icon={<Mail size={20} />} title="البريد الإلكتروني" body="support@police-academy.gov.eg" hint="ردنا خلال 24 ساعة عمل" />
-            <SupportCard icon={<FileText size={20} />} title="الأسئلة الشائعة" body="مكتبة الإجابات" hint="مفهرسة بحسب مرحلة التقدم" />
-          </div>
-        </section>
-      </CenteredShell>
-    </AppShell>
+      <section>
+        <h2 className="mb-3 inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
+          <HelpCircle size={18} strokeWidth={1.75} />
+          الدعم والمساعدة
+        </h2>
+        <div
+          className="grid gap-4"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}
+        >
+          <SupportCard icon={<Phone size={18} strokeWidth={1.75} />} title="الخط الساخن" body="19000" hint="الأحد إلى الخميس · 9 ص — 9 م" />
+          <SupportCard icon={<Mail size={18} strokeWidth={1.75} />} title="البريد الإلكتروني" body="support@police-academy.gov.eg" hint="ردنا خلال 24 ساعة عمل" />
+          <SupportCard icon={<FileText size={18} strokeWidth={1.75} />} title="الأسئلة الشائعة" body="مكتبة الإجابات" hint="مفهرسة بحسب مرحلة التقدم" />
+        </div>
+      </section>
+    </div>
   );
 }
 
-function SupportCard({ icon, title, body, hint }: { icon: React.ReactNode; title: string; body: string; hint: string }): JSX.Element {
+function nextStagePath(furthestStage: number): { path: string; label: string } {
+  const stages = [
+    { path: 'auth/step-1', label: 'ابدأ التسجيل' },
+    { path: 'auth/step-2', label: 'استكمل التحقق' },
+    { path: 'profile/personal', label: 'أكمل البيانات الشخصية' },
+    { path: 'profile/education', label: 'أدخل البيانات التعليمية' },
+    { path: 'profile/marital', label: 'حدّد الحالة الاجتماعية' },
+    { path: 'payment', label: 'سدّد رسوم التقديم' },
+    { path: 'profile/family', label: 'أكمل بيانات الأسرة' },
+    { path: 'exam-schedule', label: 'احجز موعد الاختبار' },
+    { path: 'print-card', label: 'اطبع كارت التردد' },
+    { path: 'follow-up', label: 'تابع إجراءاتك' },
+    { path: 'acquaintance-doc', label: 'وثيقة التعارف' },
+  ];
+  const idx = Math.min(stages.length - 1, Math.max(0, furthestStage));
+  return stages[idx]!;
+}
+
+function SupportCard({
+  icon,
+  title,
+  body,
+  hint,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  hint: string;
+}): JSX.Element {
   return (
     <Card>
-      <CardBody>
-        <div className="stat-icon mb-3" style={{ background: 'var(--brand-primary-100)', color: 'var(--brand-primary)' }}>{icon}</div>
-        <div className="font-bold text-md mb-2">{title}</div>
-        <div className="font-semibold mb-2 mono" style={{ direction: 'ltr', textAlign: 'right' }}>{body}</div>
-        <div className="text-xs text-tertiary">{hint}</div>
-      </CardBody>
+      <span className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+        {icon}
+      </span>
+      <p className="text-md font-bold text-ink-900">{title}</p>
+      <p className="mt-1 font-mono text-sm text-ink-700" dir="ltr">{body}</p>
+      <p className="mt-1 text-2xs text-ink-500">{hint}</p>
     </Card>
   );
 }
