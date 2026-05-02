@@ -102,7 +102,7 @@ export function MultiSelect({
           disabled={disabled}
           onClick={() => !disabled && setOpen((prev) => !prev)}
           className={cn(
-            'flex min-h-[36px] w-full items-center gap-2 rounded-md border bg-surface-card px-2 py-1 text-start text-sm transition-colors duration-fast ease-standard',
+            'flex min-h-[36px] w-full items-center gap-2 rounded-md border bg-surface-card ps-3 pe-3 py-1.5 text-start text-sm transition-colors duration-fast ease-standard',
             error ? 'border-terra-500' : 'border-border-default hover:border-border-strong',
             'focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none',
             disabled && 'cursor-not-allowed opacity-60',
@@ -115,7 +115,7 @@ export function MultiSelect({
               selectedOptions.map((opt) => (
                 <span
                   key={opt.value}
-                  className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2 py-0.5 text-xs text-teal-700"
+                  className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2.5 py-1 text-xs text-teal-700"
                 >
                   {opt.label}
                   <button
@@ -197,7 +197,7 @@ export function MultiSelect({
                     </span>
                     <span className="min-w-0 flex-1 truncate">{opt.label}</span>
                     {opt.badge && (
-                      <span className="rounded-pill bg-ink-100 px-2 py-0.5 text-2xs text-ink-700">
+                      <span className="rounded-pill bg-ink-100 px-2.5 py-1 text-2xs text-ink-700">
                         {opt.badge}
                       </span>
                     )}

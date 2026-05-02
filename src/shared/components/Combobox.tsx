@@ -234,7 +234,7 @@ export function Combobox({
                     {opt.icon && <span className="flex-shrink-0">{opt.icon}</span>}
                     <span className="min-w-0 flex-1 truncate">{opt.label}</span>
                     {opt.badge && (
-                      <span className="rounded-pill bg-ink-100 px-2 py-0.5 text-2xs text-ink-700">
+                      <span className="rounded-pill bg-ink-100 px-2.5 py-1 text-2xs text-ink-700">
                         {opt.badge}
                       </span>
                     )}

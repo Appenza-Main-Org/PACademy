@@ -52,7 +52,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-pill px-2.5 py-0.5 text-2xs font-medium whitespace-nowrap',
+        'inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-2xs font-medium leading-none whitespace-nowrap',
         TONE_CLASS[tone],
         className,
       )}
@@ -62,7 +62,7 @@ export function Badge({
       {dot && (
         <span
           aria-hidden
-          className="h-1.5 w-1.5 rounded-full"
+          className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full"
           style={{ background: 'currentColor' }}
         />
       )}
