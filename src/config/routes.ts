@@ -12,6 +12,11 @@ export const ROUTES = {
     audit: '/admin/audit',
     settings: '/admin/settings',
     reports: '/admin/reports',
+    referenceData: (tab = ':tab'): string => `/admin/reference-data/${tab}`,
+    referenceDataRoot: '/admin/reference-data',
+    admissionRules: '/admin/admission-rules',
+    cycles: '/admin/cycles',
+    cycleDetail: (id = ':id'): string => `/admin/cycles/${id}`,
   },
   applicant: '/applicant',
   committee: {

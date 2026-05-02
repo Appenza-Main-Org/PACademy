@@ -11,13 +11,17 @@ import { ArchitecturePage } from '@/features/architecture';
 import { ApplicantPortalPage } from '@/features/applicant-portal';
 import {
   AdminLayout,
-  DashboardPage,
-  ApplicantsPage,
+  AdmissionRulesPage,
   ApplicantDetailPage,
-  UsersPage,
+  ApplicantsPage,
   AuditPage,
-  SettingsPage,
+  CycleDetailPage,
+  CyclesPage,
+  DashboardPage,
+  ReferenceDataPage,
   ReportsPage,
+  SettingsPage,
+  UsersPage,
 } from '@/features/admin';
 import {
   CommitteeLayout,
@@ -53,6 +57,11 @@ export const routes: RouteObject[] = [
       { path: 'audit', element: <AuditPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'reports', element: <ReportsPage /> },
+      { path: 'reference-data', element: <ReferenceDataPage /> },
+      { path: 'reference-data/:tab', element: <ReferenceDataPage /> },
+      { path: 'admission-rules', element: <AdmissionRulesPage /> },
+      { path: 'cycles', element: <CyclesPage /> },
+      { path: 'cycles/:id', element: <CycleDetailPage /> },
     ],
   },
 

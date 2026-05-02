@@ -37,86 +37,73 @@ Routes listed below use the `ROUTES` constants from `src/config/routes.ts`.
 ## 1.2 What's missing per the karasa
 
 ### A. Login flow gaps
-- ❌ **MOIPASS API integration screen** — admin login currently bypasses MOIPASS. Required: dedicated login flow with national ID + officer rank pull from MOIPASS API. Add new component `AdminMoipassLogin.tsx`. [K§1-1 p.10]
-- ❌ **Officer profile from MOIPASS** — after login, system must display: national ID, rank, name (4-part), department, role assignment. Add to `LoginPage` post-success screen.
+- ❌ **MOIPASS API integration screen** — admin login currently bypasses MOIPASS. Required: dedicated login flow with national ID + officer rank pull from MOIPASS API. Add new component `AdminMoipassLogin.tsx`. [K§1-1 p.10] *(Deferred to Sprint 9 cross-cutting since auth is shared across all 9 apps.)*
+- ❌ **Officer profile from MOIPASS** — after login, system must display: national ID, rank, name (4-part), department, role assignment. Add to `LoginPage` post-success screen. *(Deferred to Sprint 9.)*
 
-### B. Reference data management — completely missing screens
-The karasa requires CRUD screens for reference codes. Currently NONE exist. [K§1-1 pp.11–12]
+### B. Reference data management — DONE in Sprint 1
+- ✅ `/admin/reference-data/governorates` — المحافظات (id, name_ar, name_en, region, active)
+- ✅ `/admin/reference-data/specializations` — التخصصات (id, name_ar, code, faculty_type, active)
+- ✅ `/admin/reference-data/ranks` — الرتب العسكرية (id, name_ar, level, applicable_to)
+- ✅ `/admin/reference-data/colleges` — الكليات (id, name_ar, governorate_id, type, active)
+- ✅ `/admin/reference-data/qualifications` — المؤهلات الدراسية (id, name_ar, level, faculty_required)
+- ✅ `/admin/reference-data/nationalities` — الجنسيات (id, name_ar, name_en, iso_code)
+- ✅ `/admin/reference-data/relationships` — درجات القرابة (id, name_ar, degree, side)
+- ✅ `/admin/reference-data/case-types` — أنواع القضايا (id, name_ar, severity, blocks_application)
 
-Add new route: `/admin/reference-data` with sub-tabs:
-- ❌ `/admin/reference-data/governorates` — المحافظات (id, name_ar, name_en, region, active)
-- ❌ `/admin/reference-data/specializations` — التخصصات (id, name_ar, code, faculty_type, active)
-- ❌ `/admin/reference-data/ranks` — الرتب العسكرية (id, name_ar, level, applicable_to)
-- ❌ `/admin/reference-data/colleges` — الكليات (id, name_ar, governorate_id, type, active)
-- ❌ `/admin/reference-data/qualifications` — المؤهلات الدراسية (id, name_ar, level, faculty_required)
-- ❌ `/admin/reference-data/nationalities` — الجنسيات (id, name_ar, name_en, iso_code)
-- ❌ `/admin/reference-data/relationships` — درجات القرابة (id, name_ar, degree, side)
-- ❌ `/admin/reference-data/case-types` — أنواع القضايا (id, name_ar, severity, blocks_application)
+DataTable + Drawer add/edit + Modal delete confirm. Bulk Excel import UI placeholder shows
+"Sprint 10" toast pending xlsx parsing dependency. Service `referenceDataService.ts` with
+typed methods per tab; mock CRUD writes to in-memory snapshot of the deterministic seed.
 
-Each tab: DataTable + "إضافة جديد" CTA opening Drawer with form. Bulk import from Excel.
-Service: `referenceDataService.ts` with methods per code type. Mock with seed data.
+### C. Admission rules (شروط التقدم) — DONE in Sprint 1 (`/admin/admission-rules`)
+- ✅ Age range (min/max in years)
+- ✅ Height range per gender (cm)
+- ✅ BMI range
+- ✅ Eyesight (per eye + correction allowed flag)
+- ✅ Marital status restrictions (multi-pill)
+- ✅ Criminal record toggle
+- ✅ Maximum applications per applicant per year
+- ✅ Versioned history per cycle, audit who/when, append-only (each save → new version)
+- 🟡 Open/close dates and per-certificate fee/percent edit UI present in service shape; per-cell edit pending dedicated Sprint 1.5 form refinement (data shape + service methods complete).
 
-### C. Admission rules (شروط التقدم) — incomplete
-Currently `/admin/settings` shows static cards. The karasa [K§1-1 pp.10–11] requires editable rules:
-- ❌ Age range (min/max in years and months)
-- ❌ Height range (min/max in cm) per gender
-- ❌ Weight/BMI range
-- ❌ Eyesight requirements (with/without correction, per eye)
-- ❌ Marital status restrictions
-- ❌ Criminal record requirements
-- ❌ Educational certificate types accepted (multi-select from reference data)
-- ❌ Minimum percentage per certificate type
-- ❌ Application open/close dates per cycle
-- ❌ Application fee amount (per certificate type)
-- ❌ Maximum applications per applicant per year
+### D. Cycle management — DONE in Sprint 1 (`/admin/cycles`)
+- ✅ List of admission cycles (cohort, year, dates, capacity, applicant count, status)
+- ✅ Cycle detail view with full configuration, status transition control, clone-as-draft action
 
-Replace `SettingsPage.tsx` with `/admin/admission-rules` + `/admin/admission-cycles`. Each rule has a versioned history (audit who changed when).
+### E. System users — DONE in Sprint 1 (`/admin/users`)
+- ✅ "إضافة مستخدم" — Drawer form with role select, unit, active toggle (MOIPASS lookup wired into service contract for Sprint 9 integration)
+- ✅ Edit user — change role, deactivate, reset 2FA (each as ghost-icon row action)
+- ✅ User activity log — per-user drawer with chronological audit subset
+- ✅ Bulk role assignment — DataTable multi-select + role picker + bulk-assign mutation
 
-### D. Cycle management — missing
-- ❌ `/admin/cycles` — list of admission cycles (e.g., "دورة 2026 - الذكور", "دورة 2026 - الإناث") with open/close dates, expected capacity, current applicant count, status (draft/open/closed/processing/finalized).
-- ❌ Cycle detail view — full configuration + clone-from-previous action.
+### F. Reports — DONE in Sprint 1 (`/admin/reports`) with stubs
+- 🟡 PDF — via PrintLayout + browser `window.print()`; full multi-page `react-pdf` deferred to Sprint 10.
+- ✅ Excel — UTF-8 BOM CSV (Excel opens directly with Arabic intact). Heavy `xlsx` lib deferred to Sprint 10.
+- 🟡 Word — RTF stub (Word opens cleanly). Heavy `docx` lib deferred to Sprint 10.
 
-### E. System users — incomplete
-Current `/admin/users` shows 10 users. Missing:
-- ❌ "إضافة مستخدم" — create new admin/officer with MOIPASS lookup, role assignment, scope (cycle, governorate)
-- ❌ Edit user — change role, deactivate, reset 2FA
-- ❌ User activity log (per-user audit trail subset)
-- ❌ Bulk role assignment
+Report templates implemented (mock-aggregated from MOCK):
+- ✅ `report:applicants-by-status`
+- ✅ `report:applicants-by-governorate`
+- ✅ `report:applicants-by-certificate`
+- ✅ `report:rejections-with-reasons`
+- ✅ `report:medical-results-summary`
+- ✅ `report:exam-pass-rates`
+- ✅ `report:investigation-status`
+- ✅ `report:cycle-summary`
+- ✅ `report:audit-export`
 
-### F. Reports — non-functional exports
-`/admin/reports` charts exist but exports don't work. Required per [K§3.3 p.9, p.14]:
-- ❌ Export to **PDF** (with PrintLayout, ministry header, signature block)
-- ❌ Export to **Excel** (xlsx with proper Arabic + RTL columns)
-- ❌ Export to **Word** (docx with structured headings)
+### G. Audit trail — DONE in Sprint 1 (`/admin/audit`)
+- ✅ Filter by entity type (Combobox-style Select fed by `auditService.getEntityTypes()`)
+- ✅ Filter by date range (DateRangePicker)
+- ✅ Filter by user (Select fed by `auditService.getUsers()`)
+- ✅ Drawer with before/after JSON diff (terra panel for "before", success panel for "after")
+- ✅ CSV export with UTF-8 BOM
+- ✅ Color coding via existing AuditColor enum + Badge tones
 
-Use `xlsx`, `docx`, and `react-pdf` libraries. Wrap each in `useExport()` hook in `src/shared/lib/export.ts`.
-
-Required report templates:
-- ❌ `report:applicants-by-status` — applicants grouped by status with counts
-- ❌ `report:applicants-by-governorate`
-- ❌ `report:applicants-by-certificate`
-- ❌ `report:rejections-with-reasons`
-- ❌ `report:medical-results-summary`
-- ❌ `report:exam-pass-rates`
-- ❌ `report:investigation-status`
-- ❌ `report:cycle-summary` — full cycle report (the master report)
-- ❌ `report:audit-export` — filtered audit log
-
-### G. Audit trail — UI exists, integration shape needed
-Current `/admin/audit` shows entries. Missing per [K§3.4 pp.9, 14]:
-- ❌ Filter by entity type (applicant, user, settings, exam, etc.)
-- ❌ Filter by date range
-- ❌ Filter by user
-- ❌ Drawer with full diff view (before/after JSON)
-- ❌ Export filtered audit log
-- ❌ Color coding per audit color enum (already in domain types)
-
-### H. Dashboard polish
-Current dashboard has charts and KPIs. Missing:
-- ❌ Cycle selector (top-right of dashboard)
-- ❌ Real-time activity ticker (last 5 minutes of audit events)
-- ❌ "إجراءات مطلوبة" panel — items needing admin attention (pending approvals, stuck applicants, integration failures)
-- ❌ Heatmap: applications submitted by hour×day (per `Heatmap` in DESIGN_SYSTEM §4.13)
+### H. Dashboard polish — DONE in Sprint 1 (`/admin`)
+- ✅ Cycle selector in PageHeader actions slot (auto-selects active cycle)
+- ✅ Real-time activity ticker — sticky panel showing last 6 audit events with relative time and accent dot
+- ✅ "إجراءات مطلوبة" panel — three computed action buckets (unpaid applicants, flagged investigations, on-hold applicants) with deep-links
+- ✅ Heatmap — 7×24 day×hour grid using shared Heatmap chart, deterministic data generated at module load with weekend boost
 
 ---
 

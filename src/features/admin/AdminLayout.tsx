@@ -1,5 +1,15 @@
 import { Outlet } from 'react-router-dom';
-import { LayoutDashboard, Users, Shield, FileText, Settings, BarChart3, ClipboardList } from 'lucide-react';
+import {
+  BarChart3,
+  CalendarDays,
+  ClipboardList,
+  Database,
+  LayoutDashboard,
+  Settings,
+  Shield,
+  SlidersHorizontal,
+  Users,
+} from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
@@ -15,11 +25,18 @@ const SIDEBAR: SidebarSection[] = [
     ],
   },
   {
-    label: 'الإعدادات والتقارير',
+    label: 'البيانات المرجعية والإعدادات',
     items: [
-      { key: 'reports',  label: 'التقارير',          icon: <BarChart3 size={18} />, to: ROUTES.admin.reports },
-      { key: 'settings', label: 'الإعدادات العامة',  icon: <Settings size={18} />,  to: ROUTES.admin.settings },
-      { key: 'docs',     label: 'الوثائق المرجعية',  icon: <FileText size={18} />,  to: ROUTES.admin.settings },
+      { key: 'reference-data', label: 'البيانات المرجعية', icon: <Database size={18} />,           to: ROUTES.admin.referenceDataRoot },
+      { key: 'admission-rules', label: 'شروط القبول',      icon: <SlidersHorizontal size={18} />,  to: ROUTES.admin.admissionRules },
+      { key: 'cycles',          label: 'الدورات',           icon: <CalendarDays size={18} />,        to: ROUTES.admin.cycles },
+      { key: 'settings',        label: 'الإعدادات العامة',  icon: <Settings size={18} />,           to: ROUTES.admin.settings },
+    ],
+  },
+  {
+    label: 'التقارير',
+    items: [
+      { key: 'reports', label: 'التقارير', icon: <BarChart3 size={18} />, to: ROUTES.admin.reports },
     ],
   },
 ];

@@ -17,6 +17,7 @@ import {
 } from './dictionaries';
 import type {
   Applicant,
+  AuditDiff,
   AuditEntry,
   Committee,
   DayPoint,
@@ -24,7 +25,10 @@ import type {
   MedicalStation,
   Question,
   SystemUser,
+  UserActivityEntry,
 } from '@/shared/types/domain';
+import { REFERENCE_DATA } from './referenceData';
+import { ADMISSION_CYCLES, ADMISSION_RULES } from './admissionCycles';
 
 reseed(42);
 
@@ -183,12 +187,54 @@ const kpis: Kpis = {
   }, {}),
 };
 
+/* ── Per-user activity log derived from audit entries (Sprint 1 §1.2.E) ─── */
+const userActivity: UserActivityEntry[] = audit.map((a) => ({
+  ts: a.timestamp,
+  userId: a.userId,
+  action: a.actionLabel,
+  detail: a.details,
+  ip: a.ip,
+}));
+
+/* ── Audit diffs (Sprint 1 §1.2.G) — deterministic before/after per entry ── */
+const auditDiffs: Record<string, AuditDiff> = {};
+for (const a of audit) {
+  if (a.action === 'create') {
+    auditDiffs[a.id] = { before: null, after: { id: a.entityId, status: 'pending' } };
+  } else if (a.action === 'delete') {
+    auditDiffs[a.id] = { before: { id: a.entityId, status: 'pending' }, after: null };
+  } else if (a.action === 'update') {
+    auditDiffs[a.id] = {
+      before: { id: a.entityId, status: 'pending', stage: 1 },
+      after: { id: a.entityId, status: 'under-review', stage: 2 },
+    };
+  } else {
+    auditDiffs[a.id] = { before: null, after: null };
+  }
+}
+
+/* ── Hour×day heatmap data (Sprint 1 §1.2.H) — 7 days × 24 hours of registration counts. ── */
+const heatmapHourDay: number[][] = [];
+for (let day = 0; day < 7; day += 1) {
+  const row: number[] = [];
+  for (let hour = 0; hour < 24; hour += 1) {
+    /* Peak hours 9-13 + 18-22 with lower activity at night, weekend bump on Fri/Sat. */
+    const isPeak = (hour >= 9 && hour <= 13) || (hour >= 18 && hour <= 22);
+    const weekendBoost = day >= 5 ? 1.2 : 1;
+    const base = isPeak ? 18 : hour < 7 || hour > 23 ? 1 : 6;
+    row.push(Math.floor(base * weekendBoost * (0.7 + rng() * 0.6)));
+  }
+  heatmapHourDay.push(row);
+}
+
 reseed(42);
 
 export const MOCK = {
   applicants,
   users,
   audit,
+  auditDiffs,
+  userActivity,
   questions,
   medicalStations,
   committees,
@@ -196,4 +242,9 @@ export const MOCK = {
   kpis,
   governorates: GOVERNORATES,
   stageLabels: STAGE_LABELS,
+  /* Sprint 1 additions */
+  referenceData: REFERENCE_DATA,
+  admissionCycles: ADMISSION_CYCLES,
+  admissionRules: ADMISSION_RULES,
+  heatmapHourDay,
 };

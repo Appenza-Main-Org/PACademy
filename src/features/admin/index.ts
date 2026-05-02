@@ -6,3 +6,7 @@ export { UsersPage } from './pages/UsersPage';
 export { AuditPage } from './pages/AuditPage';
 export { SettingsPage } from './pages/SettingsPage';
 export { ReportsPage } from './pages/ReportsPage';
+export { ReferenceDataPage } from './pages/ReferenceDataPage';
+export { CyclesPage } from './pages/CyclesPage';
+export { CycleDetailPage } from './pages/CycleDetailPage';
+export { AdmissionRulesPage } from './pages/AdmissionRulesPage';
