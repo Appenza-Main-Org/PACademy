@@ -74,8 +74,23 @@ import {
   MedicalResultsPage,
   StationExamPage,
 } from '@/features/medical';
-import { BarcodeLayout, BarcodeGeneratePage, BarcodeLookupPage, BarcodeBatchPage } from '@/features/barcode';
-import { BiometricLayout, BiometricVerifyPage, BiometricEnrollPage, BiometricHistoryPage } from '@/features/biometric';
+import {
+  BarcodeBatchPage,
+  BarcodeGeneratePage,
+  BarcodeLayout,
+  BarcodeLookupPage,
+  BarcodeReplacementPage,
+  BarcodeScannerPage,
+  BarcodeScansHistoryPage,
+} from '@/features/barcode';
+import {
+  BiometricEnrollPage,
+  BiometricHistoryPage,
+  BiometricLayout,
+  BiometricMonitoringPage,
+  BiometricVerifyOpsPage,
+  BiometricVerifyPage,
+} from '@/features/biometric';
 import {
   ExamCreatePage,
   ExamsLayout,
@@ -196,6 +211,9 @@ export const routes: RouteObject[] = [
       { index: true, element: <BarcodeGeneratePage /> },
       { path: 'lookup', element: <BarcodeLookupPage /> },
       { path: 'batch', element: <BarcodeBatchPage /> },
+      { path: 'scan', element: <BarcodeScannerPage /> },
+      { path: 'replace', element: <BarcodeReplacementPage /> },
+      { path: 'scans', element: <BarcodeScansHistoryPage /> },
     ],
   },
 
@@ -206,6 +224,8 @@ export const routes: RouteObject[] = [
       { index: true, element: <BiometricVerifyPage /> },
       { path: 'enroll', element: <BiometricEnrollPage /> },
       { path: 'history', element: <BiometricHistoryPage /> },
+      { path: 'verify-ops', element: <BiometricVerifyOpsPage /> },
+      { path: 'monitoring', element: <BiometricMonitoringPage /> },
     ],
   },
 

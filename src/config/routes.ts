@@ -51,11 +51,16 @@ export const ROUTES = {
     overview: '/barcode',
     lookup: '/barcode/lookup',
     batch: '/barcode/batch',
+    scan: '/barcode/scan',
+    replace: '/barcode/replace',
+    scans: '/barcode/scans',
   },
   biometric: {
     overview: '/biometric',
     enroll: '/biometric/enroll',
     history: '/biometric/history',
+    verifyOps: '/biometric/verify-ops',
+    monitoring: '/biometric/monitoring',
   },
   questionBank: {
     overview: '/question-bank',

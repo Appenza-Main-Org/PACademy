@@ -3,7 +3,8 @@ import { Printer, Search } from 'lucide-react';
 import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState } from '@/shared/components';
 import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName, maskNationalId } from '@/shared/lib/format';
-import { barcodeService, type BarcodeRecord } from '../api/barcode.service';
+import { barcodeService } from '../api/barcode.service';
+import type { BarcodeRecord } from '@/shared/types/domain';
 
 function BarcodeBars({ code }: { code: string }): JSX.Element {
   const widths = code.split('').flatMap((ch) => {
@@ -74,7 +75,7 @@ export function BarcodeGeneratePage(): JSX.Element {
                 <div className="text-xs text-tertiary mb-4">{shortName(applicant?.name ?? '', 3)} — {applicantId}</div>
                 <BarcodeBars code={record.code} />
                 <div className="barcode-num">{record.code.replace(/(.{4})/g, '$1 ').trim()}</div>
-                <div className="text-xs text-tertiary mt-3">صالح حتى {fmtDate(record.validUntil, 'short')}</div>
+                <div className="text-xs text-tertiary mt-3">صالح حتى {fmtDate(record.issuedAt + 90 * 86_400_000, 'short')}</div>
                 <div className="mt-4 flex justify-center">
                   <Button variant="secondary" leadingIcon={<Printer size={16} />}>طباعة الكارت</Button>
                 </div>
@@ -93,7 +94,7 @@ export function BarcodeLookupPage(): JSX.Element {
 
   const handleLookup = async (): Promise<void> => {
     const r = await barcodeService.lookup(query);
-    setTarget(r);
+    setTarget(r.applicant);
   };
 
   return (
