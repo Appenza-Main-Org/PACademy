@@ -36,7 +36,7 @@ export function NotificationCenter(): JSX.Element {
         )}
       </button>
 
-      <Drawer open={open} onClose={() => setOpen(false)} title="مركز الإشعارات" subtitle={`${unread} إشعار غير مقروء`} size="sm">
+      <Drawer open={open} onClose={() => setOpen(false)} title="مركز الإشعارات" subtitle={`${unread} إشعار غير مقروء`} size="sm" transparentBackdrop>
         <Drawer.Body>
           <div className="mb-3 flex items-center justify-between">
             <span className="text-2xs text-ink-500">{items.length} إشعار</span>

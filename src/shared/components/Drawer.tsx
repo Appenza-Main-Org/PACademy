@@ -35,6 +35,10 @@ interface DrawerProps {
   ariaLabel?: string;
   children: ReactNode;
   className?: string;
+  /** Render a transparent backdrop (no dim, no blur). Use for popovers
+   *  like notifications and the command palette where the page should
+   *  remain readable behind the panel. */
+  transparentBackdrop?: boolean;
 }
 
 const SIZE_PX: Record<DrawerSize, number> = { sm: 480, md: 640, lg: 840 };
@@ -50,6 +54,7 @@ export function Drawer({
   ariaLabel,
   children,
   className,
+  transparentBackdrop = false,
 }: DrawerProps): JSX.Element | null {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
@@ -115,8 +120,8 @@ export function Drawer({
         onClick={closeOnBackdrop ? onClose : undefined}
         className="absolute inset-0"
         style={{
-          background: 'var(--surface-overlay)',
-          backdropFilter: reducedMotion ? undefined : 'blur(2px)',
+          background: transparentBackdrop ? 'transparent' : 'var(--surface-overlay)',
+          backdropFilter: transparentBackdrop || reducedMotion ? undefined : 'blur(2px)',
           animation: reducedMotion
             ? undefined
             : 'modalBackdropEnter var(--duration-base) var(--ease-standard)',

@@ -59,7 +59,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps): JSX.Elem
   }, [term]);
 
   return (
-    <Modal open={open} onClose={onClose} title="بحث عام في المنظومة" size="md" withFlourishes={false}>
+    <Modal open={open} onClose={onClose} title="بحث عام في المنظومة" size="md" withFlourishes={false} transparentBackdrop>
       <Modal.Body>
         <Input
           autoFocus
