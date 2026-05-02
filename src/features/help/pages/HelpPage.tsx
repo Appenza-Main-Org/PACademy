@@ -8,6 +8,8 @@ import { useState } from 'react';
 import { Card, CardHeader, PageHeader } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { AppShell } from '@/app/layouts/AppShell';
+import { PublicShell } from '@/app/layouts/PublicShell';
+import { useAuthStore } from '@/features/auth';
 
 const SHORTCUTS = [
   { keys: '⌘ K', label: 'البحث العام' },
@@ -25,9 +27,11 @@ const FAQ = [
 
 export function HelpPage(): JSX.Element {
   const [open, setOpen] = useState<number | null>(0);
+  const user = useAuthStore((s) => s.user);
+  const Shell = user ? AppShell : PublicShell;
 
   return (
-    <AppShell appLabel="الدعم والمساعدة">
+    <Shell appLabel="الدعم والمساعدة">
       <CenteredShell>
         <PageHeader
           title="مركز الدعم"
@@ -86,6 +90,6 @@ export function HelpPage(): JSX.Element {
           </ul>
         </Card>
       </CenteredShell>
-    </AppShell>
+    </Shell>
   );
 }

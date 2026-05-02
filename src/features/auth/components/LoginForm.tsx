@@ -1,80 +1,123 @@
 /**
- * LoginForm — demo login wrapper.
- * Sprint 0 keeps the existing role-pick mechanic; real two-path login
- * (MOIPASS officers vs. NID+SMS applicants) lands in Sprint 9.
+ * LoginForm — staff login via MOIPASS-styled flow.
+ * Source: ARCH-03 (MOIPASS framing) + AUD-004 (RHF retrofit).
+ *
+ * Demo: still uses the role picker so evaluators can simulate any role,
+ * but the framing is "MOIPASS authenticated officer" rather than a generic
+ * username/password. A 1.5s simulated MOIPASS verification step runs on submit.
  */
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Lock } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { ArrowLeft, Lock, ShieldCheck } from 'lucide-react';
 import { Button, Input, toast } from '@/shared/components';
+import { zodResolver } from '@/shared/lib/zod-resolver';
 import { useLoginMutation } from '../api/auth.queries';
 import { RoleSelector } from './RoleSelector';
-import type { Role } from '../rbac';
+import { ROLES, type Role } from '../rbac';
+import { ROUTES } from '@/config/routes';
+
+const loginSchema = z.object({
+  nationalId: z
+    .string()
+    .min(14, 'الرقم القومي يجب أن يكون 14 رقماً')
+    .max(14, 'الرقم القومي يجب أن يكون 14 رقماً')
+    .regex(/^[0-9]{14}$/, 'الرقم القومي يجب أن يحتوي على أرقام فقط'),
+  passcode: z
+    .string()
+    .min(1, 'كلمة المرور مطلوبة'),
+  role: z.enum(ROLES),
+});
+type LoginValues = z.infer<typeof loginSchema>;
 
 export function LoginForm(): JSX.Element {
-  const [role, setRole] = useState<Role>('super_admin');
-  const [username, setUsername] = useState('ahmed.fakhry');
-  const [password, setPassword] = useState('demo-password');
   const navigate = useNavigate();
   const loginMutation = useLoginMutation();
+  const [verifying, setVerifying] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent): void => {
-    event.preventDefault();
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      nationalId: '29512011500011',
+      passcode: 'demo-password',
+      role: 'super_admin',
+    },
+  });
+
+  const role = watch('role');
+
+  const onSubmit = async (values: LoginValues): Promise<void> => {
+    /* Simulated MOIPASS verification delay (per ARCH-03 — 1.5s). */
+    setVerifying(true);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setVerifying(false);
+
     loginMutation.mutate(
-      { username, password, role },
+      { username: values.nationalId, password: values.passcode, role: values.role },
       {
         onSuccess: () => {
-          toast('مرحباً بك في المنظومة', 'success');
-          navigate(role === 'applicant' ? '/applicant' : '/', { replace: true });
+          toast('تم التحقق عبر منصّة MOIPASS بنجاح', 'success');
+          navigate(values.role === 'applicant' ? ROUTES.applicant : ROUTES.hub, { replace: true });
         },
-        onError: (err) => {
-          toast(err.message || 'تعذر تسجيل الدخول', 'danger');
-        },
+        onError: (err) => toast(err.message || 'تعذّر التحقق من MOIPASS', 'danger'),
       },
     );
   };
 
+  const isPending = loginMutation.isPending || verifying;
+
   return (
-    <form onSubmit={handleSubmit} className="flex w-full max-w-md flex-col gap-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex w-full max-w-md flex-col gap-5">
       <header>
-        <h2 className="font-ar-display text-2xl font-bold text-ink-900">تسجيل الدخول</h2>
+        <div className="mb-3 inline-flex items-center gap-2 rounded-pill bg-teal-50 px-3 py-1 text-2xs font-medium text-teal-700">
+          <ShieldCheck size={12} strokeWidth={1.75} />
+          منصّة التحقق الرقمي · MOIPASS
+        </div>
+        <h2 className="font-ar-display text-2xl font-bold text-ink-900">دخول الموظفين</h2>
         <p className="mt-1 text-sm text-ink-500">
-          اختر دورك الوظيفي وأدخل بيانات الدخول للوصول إلى المنظومة.
+          يتم التحقق من هوية الضباط والموظفين عبر منصّة التحقق الرقمي للحكومة المصرية.
+          المتقدّمون للالتحاق يستخدمون
+          <a href={ROUTES.apply} className="mx-1 font-medium text-teal-700 hover:underline">صفحة التقديم</a>
+          مباشرةً.
         </p>
       </header>
 
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-ink-700">الدور الوظيفي</span>
-        <RoleSelector value={role} onChange={setRole} />
-      </div>
-
       <Input
-        label="اسم المستخدم أو الرقم القومي"
-        name="username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        placeholder="أدخل اسم المستخدم"
+        label="الرقم القومي"
         required
+        dir="ltr"
+        placeholder="14 رقماً"
+        maxLength={14}
+        {...register('nationalId')}
+        error={errors.nationalId?.message}
       />
 
       <Input
         label="كلمة المرور"
         type="password"
-        name="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="••••••••"
-        helper="للعرض التجريبي يمكنك الضغط على «تسجيل الدخول» مباشرةً."
         required
+        placeholder="••••••••"
+        helper="بيانات تجريبية مدخلة مسبقاً للعرض"
+        {...register('passcode')}
+        error={errors.passcode?.message}
       />
+
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium text-ink-700">
+          العرض التجريبي · اختر دور الموظف لمحاكاة الدخول
+        </span>
+        <RoleSelector value={role} onChange={(r: Role) => setValue('role', r, { shouldValidate: true })} />
+      </div>
 
       <Button
         type="submit"
         variant="primary"
         size="lg"
         fullWidth
-        isLoading={loginMutation.isPending}
+        isLoading={isPending}
+        loadingLabel={verifying ? 'جارٍ التحقق عبر MOIPASS…' : 'جارٍ الدخول…'}
         trailingIcon={<ArrowLeft size={18} strokeWidth={1.75} />}
       >
         تسجيل الدخول
@@ -86,9 +129,10 @@ export function LoginForm(): JSX.Element {
       >
         <Lock size={18} strokeWidth={1.75} aria-hidden className="mt-0.5 flex-shrink-0" />
         <div>
-          <p className="font-medium">دخول آمن عبر منصة التحقق الرقمي</p>
+          <p className="font-medium">دخول آمن</p>
           <p className="mt-0.5 text-xs text-teal-700/80 leading-normal">
-            يتم التحقق من هوية الضباط عبر API منصة التحقق الرقمي للحكومة المصرية.
+            بياناتك مُشفّرة وكل عمليات الدخول تُسجَّل في سجل العمليات (Audit Trail).
+            لإعادة ضبط كلمة المرور تواصَل مع إدارة المنظومة.
           </p>
         </div>
       </aside>

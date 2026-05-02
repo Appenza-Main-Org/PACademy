@@ -46,7 +46,7 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
     logoutMutation.mutate(undefined, {
       onSuccess: () => {
         toast('تم تسجيل الخروج بنجاح', 'success');
-        navigate('/login', { replace: true });
+        navigate('/staff-login', { replace: true });
       },
     });
   };
@@ -68,7 +68,7 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
       >
         <div className="flex items-center gap-4">
           <Link
-            to="/"
+            to="/hub"
             className="flex items-center gap-3 rounded-md px-1 py-1 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
           >
             <span

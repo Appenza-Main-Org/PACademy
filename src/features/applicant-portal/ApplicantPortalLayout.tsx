@@ -1,17 +1,27 @@
 /**
- * ApplicantPortalLayout — wraps every applicant-portal route with the
- * shared Wizard, pulls draft + suspension state, and renders the
- * suspended-applicant guard banner per KARASA_GAPS §2.3.
+ * ApplicantPortalLayout — minimal chrome for the 11-stage applicant wizard.
+ * Source: ARCH-04 (third shell — minimal, no sidebar, focus on the wizard).
+ *
+ * Differences vs. AppShell (staff shell):
+ *  - No app-key sidebar (the Wizard is the only navigation)
+ *  - Slim public-style header with academy crest + small "خروج"
+ *  - Same Khayameya stripe up top + tessellation watermark behind
+ *  - Suspended banner + auto-save indicator + FloatingHelp at bottom-end
  */
 
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
-import { Ban, BellRing, HelpCircle } from 'lucide-react';
-import { AppShell } from '@/app/layouts/AppShell';
-import { CenteredShell } from '@/app/layouts/CenteredShell';
-import { Wizard } from '@/shared/components';
+import { Ban, BellRing, HelpCircle, LogOut } from 'lucide-react';
+import {
+  KhayameyaStripe,
+  Pattern,
+  Wizard,
+  toast,
+} from '@/shared/components';
 import type { WizardStep, WizardStepState } from '@/shared/components';
+import { IconSeal } from '@/shared/components/icons';
 import { ROUTES } from '@/config/routes';
+import { useAuthStore } from '@/features/auth';
 import { useDraft } from './api/applicantPortal.queries';
 
 export const STAGE_KEYS = [
@@ -44,10 +54,17 @@ export const STAGE_LABELS = [
 
 const APPLICANT_ID = 'APP-2026000';
 
+/** Compute the URL of the next stage the applicant should resume at. */
+export function nextApplicantStageUrl(furthestStage: number): string {
+  const idx = Math.min(STAGE_KEYS.length - 1, Math.max(0, furthestStage));
+  return `${ROUTES.applicant}/${STAGE_KEYS[idx]}`;
+}
+
 export function ApplicantPortalLayout(): JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
   const { data: draft } = useDraft(APPLICANT_ID);
+  const clear = useAuthStore((s) => s.clear);
 
   const activeIndex = useMemo(() => {
     const path = location.pathname.replace(/^\/applicant\/?/, '');
@@ -68,23 +85,88 @@ export function ApplicantPortalLayout(): JSX.Element {
 
   const autoSaveStatus = draft && Date.now() - draft.lastSavedAt < 4_000 ? 'saved' : 'idle';
 
+  const handleExit = (): void => {
+    if (!window.confirm('هل تريد الخروج من ملف التقديم؟ سيتم حفظ تقدّمك تلقائياً.')) return;
+    clear();
+    toast('تم الخروج. يمكنك العودة لاحقاً عبر صفحة التقديم.', 'info');
+    navigate(ROUTES.landing, { replace: true });
+  };
+
   return (
-    <AppShell app="applicant" appLabel="موقع المتقدمين · 1.2">
-      {draft?.suspended && <SuspendedBanner />}
-      <CenteredShell>
+    <div data-app="applicant" className="page-enter relative flex min-h-screen flex-col bg-surface-page">
+      <KhayameyaStripe height="sm" />
+
+      {/* Slim public-style header — applicant doesn't get the staff sidebar/chrome */}
+      <header className="sticky top-0 flex h-14 items-center justify-between gap-4 border-b border-border-subtle bg-surface-card px-6"
+        style={{ zIndex: 'var(--z-sticky)' as unknown as number }}>
+        <a href={ROUTES.landing} className="flex items-center gap-3">
+          <span aria-hidden className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white" style={{ background: 'var(--teal-500)' }}>
+            <IconSeal width={18} height={18} color="white" />
+          </span>
+          <span className="hidden flex-col leading-tight md:flex">
+            <span className="font-ar-display text-sm font-bold text-ink-900">منظومة القبول</span>
+            <span className="text-2xs text-ink-500">رحلة التقديم</span>
+          </span>
+        </a>
+        <div className="flex items-center gap-2 text-2xs text-ink-500">
+          {draft?.applicantId && (
+            <span className="hidden font-mono md:inline" dir="ltr">{draft.applicantId}</span>
+          )}
+          <button
+            type="button"
+            onClick={handleExit}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-ink-700 hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+          >
+            <LogOut size={14} strokeWidth={1.75} /> خروج
+          </button>
+        </div>
+      </header>
+
+      <Pattern variant="tessellation-8" tile={96} opacity={0.04} />
+
+      <div className="relative mx-auto w-full max-w-[1200px] flex-1 px-6 pb-12 pt-6">
+        {draft?.suspended && <SuspendedBanner />}
         <Wizard
-          title="رحلة المتقدم"
+          title="رحلة المتقدم · دفعة 2026"
           steps={steps}
           activeStepKey={STAGE_KEYS[activeIndex] ?? STAGE_KEYS[0]}
-          onStepClick={(key) => navigate(`${ROUTES.applicant}/${key}`)}
+          onStepClick={(key) => {
+            if (draft?.suspended && key !== STAGE_KEYS[0]) {
+              toast('طلبك موقوف مؤقتاً — لا يمكن التنقّل.', 'warning');
+              return;
+            }
+            navigate(`${ROUTES.applicant}/${key}`);
+          }}
           autoSaveStatus={autoSaveStatus}
         >
-          <Outlet />
+          {/* AUD-007 — when suspended, gate every stage form behind a single
+              read-only screen instead of rendering the Outlet's form. */}
+          {draft?.suspended ? <SuspendedScreen /> : <Outlet />}
         </Wizard>
-      </CenteredShell>
+      </div>
 
       <FloatingHelp />
-    </AppShell>
+    </div>
+  );
+}
+
+function SuspendedScreen(): JSX.Element {
+  return (
+    <div className="rounded-lg border border-terra-500 bg-terra-50 p-6">
+      <div className="flex items-start gap-4">
+        <span aria-hidden className="inline-flex h-12 w-12 items-center justify-center rounded-md bg-terra-500 text-white">
+          <Ban size={22} strokeWidth={1.75} />
+        </span>
+        <div>
+          <p className="font-ar-display text-md font-bold text-terra-700">طلبك موقوف مؤقتاً</p>
+          <p className="mt-1 text-sm text-terra-700/85 leading-normal">
+            لا يمكن إجراء أيّ تعديل أو إرسال على ملف التقديم في الوقت الحالي. سيتم إخطارك فور
+            تحديث الحالة. للاستفسار، تواصل عبر الخط الساخن
+            <span className="mx-1 inline-block font-mono font-bold" dir="ltr">19000</span>.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 

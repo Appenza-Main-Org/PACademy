@@ -1,6 +1,13 @@
 /**
  * Route registry — every route in the app maps here.
- * Keep this file thin: it composes page components + AuthGuard, nothing else.
+ * Source: ARCH-04 (public/private split).
+ *
+ * Three surfaces:
+ *  - PUBLIC (no auth)   → /, /apply, /staff-login, /terms, /help
+ *  - APPLICANT (Stage1+2 auth) → /applicant/*
+ *  - STAFF (AuthGuard)  → /hub, /admin/*, /committee/*, /board/*, /investigations/*,
+ *                         /medical/*, /barcode/*, /biometric/*, /question-bank/*,
+ *                         /architecture, /profile
  */
 
 import { Navigate, type RouteObject } from 'react-router-dom';
@@ -10,6 +17,7 @@ import { HubPage } from '@/features/hub';
 import { ArchitecturePage } from '@/features/architecture';
 import { ProfilePage } from '@/features/profile';
 import { HelpPage } from '@/features/help';
+import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
 import {
   ApplicantPortalLayout,
   ApplicantPortalPage,
@@ -106,17 +114,21 @@ import {
 } from '@/features/exams';
 
 export const routes: RouteObject[] = [
-  { path: '/login', element: <LoginPage /> },
+  /* ── PUBLIC SURFACE — no auth required ───────────────────── */
+  { path: '/', element: <PublicLandingPage /> },
+  { path: '/apply', element: <ApplyEntryPage /> },
+  { path: '/staff-login', element: <LoginPage /> },
+  { path: '/login', element: <Navigate to="/staff-login" replace /> },
+  { path: '/terms', element: <TermsPage /> },
+  { path: '/help', element: <HelpPage /> },
 
-  { path: '/', element: <AuthGuard><HubPage /></AuthGuard> },
-
+  /* ── STAFF SURFACE — AuthGuard required ─────────────────── */
+  { path: '/hub', element: <AuthGuard><HubPage /></AuthGuard> },
   {
     path: '/architecture',
-    element: <AuthGuard><ArchitecturePage /></AuthGuard>,
+    element: <AuthGuard app="architecture"><ArchitecturePage /></AuthGuard>,
   },
-
   { path: '/profile', element: <AuthGuard><ProfilePage /></AuthGuard> },
-  { path: '/help', element: <AuthGuard><HelpPage /></AuthGuard> },
 
   {
     path: '/admin',
@@ -137,6 +149,7 @@ export const routes: RouteObject[] = [
     ],
   },
 
+  /* ── APPLICANT SURFACE — Stage 1+2 IS the auth ──────────── */
   {
     path: '/applicant',
     element: <AuthGuard app="applicant"><ApplicantPortalLayout /></AuthGuard>,
@@ -156,6 +169,7 @@ export const routes: RouteObject[] = [
     ],
   },
 
+  /* ── STAFF INTERNAL APPS ─────────────────────────────────── */
   {
     path: '/committee',
     element: <AuthGuard app="committee"><CommitteeLayout /></AuthGuard>,
@@ -249,5 +263,6 @@ export const routes: RouteObject[] = [
     ],
   },
 
+  /* ── 404 FALLBACK → public landing ───────────────────────── */
   { path: '*', element: <Navigate to="/" replace /> },
 ];

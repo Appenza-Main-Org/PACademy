@@ -1,112 +1,215 @@
+/**
+ * InvestigationsCasesPage — primary `/investigations` landing.
+ * Source: AUD-001 (P0 fix — link list rows to /investigations/cases/:id).
+ *
+ * Uses the new InvestigationCase shape (`CASE-XXXXX` ids) and the shared
+ * DataTable so every row is clickable and navigates to the detail page.
+ *
+ * IncomingPage / OutgoingPage are kept as thin filtered views for the
+ * older sidebar entries.
+ */
+
 import { useState } from 'react';
-import { ShieldAlert, AlertTriangle, ShieldCheck, Hourglass } from 'lucide-react';
-import { PageHeader, Card, CardBody, StatCard, Skeleton } from '@/shared/components';
+import { Link, useNavigate } from 'react-router-dom';
+import { AlertTriangle, Briefcase, Hourglass, Plus, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import {
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  DataTable,
+  EmptyState,
+  PageHeader,
+  Select,
+  StatCard,
+} from '@/shared/components';
+import type { DataTableColumn } from '@/shared/components';
+import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { investigationsService } from '../api/investigations.service';
-import { date as fmtDate, num, shortName, maskNationalId } from '@/shared/lib/format';
-import type { InvestigationStatus } from '@/shared/types/domain';
-import { InvestigationBadge } from '@/shared/components/StatusBadge';
+import { date as fmtDate, num, shortName } from '@/shared/lib/format';
+import { ROUTES } from '@/config/routes';
+import type { CasePriority, CaseStatus, InvestigationCase } from '@/shared/types/domain';
 
-function useCases(filters: { status?: InvestigationStatus | 'all' }) {
-  return useQuery({ queryKey: ['investigations', 'cases', filters], queryFn: () => investigationsService.getCases(filters) });
-}
-function useStats() {
-  return useQuery({ queryKey: ['investigations', 'stats'], queryFn: () => investigationsService.getStats() });
-}
+const STATUS_LABEL: Record<CaseStatus, string> = {
+  open: 'مفتوحة',
+  'in-review': 'قيد المراجعة',
+  pass: 'إفراج',
+  fail: 'إيقاف',
+  'defer-conditional': 'تأجيل بشرط',
+};
 
-function CasesTable({ filter }: { filter: 'all' | InvestigationStatus }): JSX.Element {
-  const { data, isLoading } = useCases({ status: filter });
-  if (isLoading) return <Skeleton height={220} />;
-  if (!data || data.length === 0) return <div className="empty"><div className="empty-title">لا توجد قضايا</div></div>;
-  return (
-    <div className="table-wrap" style={{ borderRadius: 0, border: 'none' }}>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>المتقدم</th>
-            <th>الرقم القومي</th>
-            <th>المحافظة</th>
-            <th>المحقق</th>
-            <th>الإحالة</th>
-            <th>الاستلام</th>
-            <th>الحالة</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((c) => (
-            <tr key={c.applicantId}>
-              <td>
-                <div className="font-semibold">{shortName(c.applicantName, 3)}</div>
-                <div className="text-xs text-tertiary mono">{c.applicantId}</div>
-              </td>
-              <td className="mono">{maskNationalId(c.nationalId)}</td>
-              <td>{c.governorate}</td>
-              <td className="text-sm">{shortName(c.officer, 3)}</td>
-              <td className="text-xs text-tertiary">{fmtDate(c.sentAt, 'short')}</td>
-              <td className="text-xs text-tertiary">{c.receivedAt ? fmtDate(c.receivedAt, 'short') : '—'}</td>
-              <td><InvestigationBadge status={c.status} /></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+const STATUS_TONE: Record<CaseStatus, 'warning' | 'info' | 'success' | 'danger'> = {
+  open: 'warning',
+  'in-review': 'info',
+  pass: 'success',
+  fail: 'danger',
+  'defer-conditional': 'warning',
+};
+
+const PRIORITY_LABEL: Record<CasePriority, string> = {
+  low: 'منخفضة',
+  medium: 'متوسطة',
+  high: 'مرتفعة',
+  critical: 'حرجة',
+};
+
+const PRIORITY_TONE: Record<CasePriority, 'neutral' | 'info' | 'warning' | 'danger'> = {
+  low: 'neutral',
+  medium: 'info',
+  high: 'warning',
+  critical: 'danger',
+};
 
 export function InvestigationsCasesPage(): JSX.Element {
-  const [filter, setFilter] = useState<'all' | InvestigationStatus>('all');
-  const { data: stats } = useStats();
-  return (
-    <>
-      <PageHeader title="ملفات التحريات" subtitle="جميع ملفات التحريات الجارية والمنتهية" />
+  const navigate = useNavigate();
+  const [statusFilter, setStatusFilter] = useState<CaseStatus | 'all'>('all');
 
-      <div className="alert alert-warning mb-5">
-        <ShieldAlert size={20} />
-        <div className="alert-body">
-          <div className="alert-title">معلومات سرية</div>
-          <div>الرقم القومي مخفي جزئياً · لا يجوز تصدير هذه البيانات إلا بإذن أمين السر</div>
+  const { data: cases, isLoading } = useQuery({
+    queryKey: ['investigations', 'cases-v2', statusFilter],
+    queryFn: () => investigationsService.list({ status: statusFilter }),
+  });
+  const { data: stats } = useQuery({
+    queryKey: ['investigations', 'stats-v2'],
+    queryFn: () => investigationsService.stats(),
+  });
+
+  const columns: DataTableColumn<InvestigationCase>[] = [
+    {
+      key: 'id',
+      label: 'القضية',
+      width: 110,
+      render: (c) => (
+        <Link to={ROUTES.investigations.detail(c.id)} className="font-mono font-medium text-terra-700 hover:underline" dir="ltr">
+          {c.id}
+        </Link>
+      ),
+    },
+    {
+      key: 'applicant',
+      label: 'المتقدم',
+      render: (c) => (
+        <div>
+          <p className="text-sm font-medium text-ink-900">{shortName(c.applicantName, 3)}</p>
+          <p className="text-2xs text-ink-500 font-mono" dir="ltr">{c.applicantId}</p>
         </div>
-      </div>
+      ),
+    },
+    { key: 'caseType', label: 'النوع', render: (c) => CASE_TYPE_LABEL[c.caseType], hideOn: 'sm' },
+    {
+      key: 'assignedTo',
+      label: 'المحقّق',
+      render: (c) => <span className="text-2xs text-ink-700 font-mono" dir="ltr">{c.assignedTo}</span>,
+      hideOn: 'sm',
+    },
+    {
+      key: 'priority',
+      label: 'الأولوية',
+      render: (c) => <Badge tone={PRIORITY_TONE[c.priority]}>{PRIORITY_LABEL[c.priority]}</Badge>,
+    },
+    {
+      key: 'dueDate',
+      label: 'الاستحقاق',
+      render: (c) => <span className="text-2xs text-ink-500">{fmtDate(c.dueDate, 'short')}</span>,
+      hideOn: 'md',
+    },
+    {
+      key: 'status',
+      label: 'الحالة',
+      render: (c) => <Badge tone={STATUS_TONE[c.status]} dot={c.status === 'open' || c.status === 'in-review'}>{STATUS_LABEL[c.status]}</Badge>,
+    },
+  ];
 
-      <div className="grid grid-4 mb-6">
-        <StatCard label="إجمالي القضايا" value={stats?.total ?? 0}    icon={<ShieldAlert size={18} />} iconBg="#FBD6D6" iconColor="#B82C2C" />
-        <StatCard label="قيد الفحص"      value={stats?.pending ?? 0}  icon={<Hourglass size={18} />}   iconBg="#FBE9CC" iconColor="#B8770A" />
-        <StatCard label="تم الإفراج"     value={stats?.cleared ?? 0}  icon={<ShieldCheck size={18} />} iconBg="#D7F0E1" iconColor="#1A8754" />
-        <StatCard label="تم الإيقاف"     value={stats?.flagged ?? 0}  icon={<AlertTriangle size={18} />} iconBg="#FBD6D6" iconColor="#B82C2C" />
+  return (
+    <CenteredShell>
+      <PageHeader
+        title="ملفات التحريات"
+        subtitle="جميع القضايا الجارية والمنتهية · انقر صفّاً لفتح ملف القضية"
+        actions={
+          <Link to={ROUTES.investigations.create}>
+            <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
+              فتح قضية جديدة
+            </Button>
+          </Link>
+        }
+      />
+
+      <div
+        className="mb-6 grid gap-5"
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}
+      >
+        <StatCard label="إجمالي القضايا" value={stats?.total ?? 0} icon={<Briefcase size={16} strokeWidth={1.75} />} />
+        <StatCard label="مفتوحة"          value={stats?.open ?? 0}  icon={<Hourglass size={16} strokeWidth={1.75} />} />
+        <StatCard label="قيد المراجعة"     value={stats?.inReview ?? 0} icon={<ShieldAlert size={16} strokeWidth={1.75} />} />
+        <StatCard label="تم الإفراج"      value={stats?.pass ?? 0}  icon={<ShieldCheck size={16} strokeWidth={1.75} />} />
+        <StatCard label="تم الإيقاف"      value={stats?.fail ?? 0}  icon={<AlertTriangle size={16} strokeWidth={1.75} />} />
       </div>
 
       <Card>
-        <CardBody>
-          <div className="filters">
-            <select className="select" value={filter} onChange={(e) => setFilter(e.target.value as 'all' | InvestigationStatus)}>
-              <option value="all">كل الحالات</option>
-              <option value="pending">قيد الفحص</option>
-              <option value="cleared">تم الإفراج</option>
-              <option value="flagged">تم الإيقاف</option>
-            </select>
-            <span className="chip">{num(stats?.total ?? 0)} قضية</span>
-          </div>
-          <CasesTable filter={filter} />
-        </CardBody>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <Select
+            aria-label="فلتر الحالة"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as CaseStatus | 'all')}
+            options={[
+              { value: 'all', label: 'كل الحالات' },
+              ...Object.entries(STATUS_LABEL).map(([v, l]) => ({ value: v, label: l })),
+            ]}
+            containerClassName="max-w-xs"
+          />
+          <span className="text-2xs text-ink-500">
+            <span className="font-numeric tnum">{num(cases?.length ?? 0)}</span> قضية
+          </span>
+        </div>
+        <DataTable
+          data={cases ?? []}
+          columns={columns}
+          rowKey={(c) => c.id}
+          loading={isLoading}
+          empty={<EmptyState variant="no-cases" />}
+          onRowClick={(c) => navigate(ROUTES.investigations.detail(c.id))}
+          zebraStripes
+          stickyHeader
+          density="compact"
+        />
       </Card>
-    </>
+    </CenteredShell>
   );
 }
 
+const CASE_TYPE_LABEL: Record<InvestigationCase['caseType'], string> = {
+  'committee-A': 'لجنة (أ)',
+  'committee-C': 'لجنة (ج)',
+  'data-review': 'مراجعة',
+};
+
+/* Sub-page filtered views — kept for sidebar parity. */
 export function IncomingPage(): JSX.Element {
   return (
-    <>
+    <CenteredShell>
       <PageHeader title="الوارد" subtitle="ملفات تم استلامها من قطاع الأمن العام" />
-      <Card><CardBody><CasesTable filter="cleared" /></CardBody></Card>
-    </>
+      <Card>
+        <CardBody>
+          <p className="text-sm text-ink-500">
+            استخدم صفحة "كل القضايا" مع فلتر «قيد المراجعة» لعرض القضايا الواردة.
+          </p>
+        </CardBody>
+      </Card>
+    </CenteredShell>
   );
 }
 
 export function OutgoingPage(): JSX.Element {
   return (
-    <>
-      <PageHeader title="الصادر" subtitle="ملفات تم إرسالها للأمن العام بانتظار الرد" />
-      <Card><CardBody><CasesTable filter="pending" /></CardBody></Card>
-    </>
+    <CenteredShell>
+      <PageHeader title="الصادر — Legacy" subtitle="موجَّهة لـ /investigations/outgoing الجديدة (الكتب الرسمية)" />
+      <Card>
+        <CardBody>
+          <p className="text-sm text-ink-500">
+            انتقل إلى <Link to={ROUTES.investigations.outgoing} className="font-medium text-teal-700 hover:underline">صفحة الصادر</Link> لإدارة الكتب الرسمية.
+          </p>
+        </CardBody>
+      </Card>
+    </CenteredShell>
   );
 }

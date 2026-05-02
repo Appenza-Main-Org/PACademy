@@ -1,11 +1,19 @@
 import type { AppKey } from '@/shared/lib/constants';
 
 export const ROUTES = {
-  login: '/login',
-  hub: '/',
+  /* ── Public surface (no auth required) ── */
+  landing: '/',
+  apply: '/apply',
+  staffLogin: '/staff-login',
+  /** Backwards-compat alias — `/login` redirects to `/staff-login`. */
+  login: '/staff-login',
+  terms: '/terms',
+  help: '/help',
+
+  /* ── Staff surface (AuthGuard required) ── */
+  hub: '/hub',
   architecture: '/architecture',
   profile: '/profile',
-  help: '/help',
   admin: {
     dashboard: '/admin',
     applicants: '/admin/applicants',
@@ -20,7 +28,11 @@ export const ROUTES = {
     cycles: '/admin/cycles',
     cycleDetail: (id = ':id'): string => `/admin/cycles/${id}`,
   },
+
+  /* ── Applicant surface (own auth via Stage 1+2) ── */
   applicant: '/applicant',
+
+  /* ── Internal staff apps ── */
   committee: {
     overview: '/committee',
     list: '/committee/list',
