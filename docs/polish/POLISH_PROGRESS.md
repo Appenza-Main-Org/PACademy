@@ -122,3 +122,33 @@ is English-LTR, printable, and directly cites §1 / §3.1 / §3.2 / §3.4 /
 - Smoke-test the print output (Cmd+P) in a browser and screenshot the
   on-screen + print views for the demo handoff.
 - Phase 1 polish work (per POLISH_PLAN.md) continues separately.
+
+---
+
+## 2026-05-03 · Phase 1 — flagship screens 1–5 complete (SPEED MODE)
+
+### Completed in this batch
+1. **Screen 1 — `/hub`** (commit `ba76759`). Hero status strip rebuilt as a single-baseline `dl` row with vertical dividers; signal-dot now pulses (motion-safe); today's-registration delta shown in gold-300/terra-300. New "آخر الأحداث" recent-activity strip showing 3 most-recent audit entries above the App grids. iPad-portrait verified.
+2. **Screen 2 — `/architecture`** (commit `73e2b0c`, **subsequently superseded** by user's English-LTR rebuild — see preceding log entry). My pass softened the saturated 4-layer borders, added a flow-line connector between layers, replaced the RBAC `●`/`○` unicode glyphs with proper lucide `Check`/`Minus` icons, added zebra striping + a legend strip. The user's rebuild replaced the page entirely with a 9-section technical reference; my polish lives in git history (`73e2b0c`) but is no longer on disk.
+3. **Screen 3 — Stage 9 attendance card** (commit `9b8b8be`). Added a 3-column signature block (applicant · receiving officer · ministry seal w/ IconSeal) before the Khayameya footer. Hijri date inline under Gregorian on the appointment.
+4. **Screen 4 — medical certificate** (commit `9f76db2`). `SignatureBlock` rebuilt with a real signing surface (dashed-bottom line above title); seal variant uses IconSeal. Verdict stamp gains Hijri date inline.
+5. **Screen 5 — board decision drawer** (commit `1748f2c`). `DecisionSignature` mirrors the new `SignatureBlock`; dashed-circle "ختم" wireframe replaced with IconSeal at 72px. Verdict box now carries a trailing-edge `fmtDate · hijriDate هـ` pair.
+
+All commits ship typecheck-clean. Build verified after Phase 0.5 close; subsequent commits typecheck-only.
+
+### Hours spent vs budget
+- **Estimated ~6 h consumed in this batch** on top of the ~3.5 h pre-existing → **~9.5 h / 80 h** total.
+- Original Phase-1 estimate for these 5 screens was 13 h (3+4+2+2+2 from POLISH_PLAN §2). Closed in ~6 h thanks to mechanical visual-coherence pattern (3 print docs share a SignatureBlock shape).
+- **Pace: ON-TRACK.** 9 flagship screens remaining; 70.5 h of budget remaining.
+
+### Judgment calls flagged
+- **JUDGMENT CALL (architecture overwrite):** my Screen-2 polish (`73e2b0c`) was applied to the previous Arabic-RTL ArchitecturePage. The user then replaced the entire page with an English-LTR technical reference. I did not revert — per the system note "this change was intentional" — and I am noting the polish is now historical. The new architecture page may need its own polish pass (different screen, different architecture, different design language). Flagging for the final-cohesion review (Phase 4).
+- **JUDGMENT CALL (visual coherence across the 3 print docs):** rather than three independent signature treatments, I applied the SAME shape (dashed-bottom signature line above title + IconSeal for seal variant) across all three print docs. This is a small but explicit cohesion choice — the 3 print documents are likely to be seen together by demo-evaluators, and divergent signature blocks would read as drift.
+- **JUDGMENT CALL (before screenshots only on later screens):** I captured before-state for Screen 2 and Screen 3 but not for Screens 1, 4, 5 (the changes were already on disk before the dev server initialized for those screens). The git history at `b58df7d^...HEAD~5` preserves the pre-polish state for any of the 5 screens if a comparison is needed retroactively.
+
+### New issues discovered
+- None outside the audit's 10 + the architecture rebuild. **Total budget projection unchanged.**
+
+### What's next
+- Continue Phase 1 — Screen 6 = `/` (PublicLandingPage), per POLISH_PLAN.md ordering.
+- Next progress entry: at the close of Phase 1 (after screen 14), or at the 10-screen mark.
