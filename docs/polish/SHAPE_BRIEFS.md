@@ -260,3 +260,25 @@
 
 ### Decision shorthand
 `classification → 2-row stamp (mono Latin top rail + Arabic body)`.
+
+---
+
+## Screen 10 — `/applicant/profile/family` (Stage 7)
+
+**File:** [src/features/applicant-portal/pages/Stage7FamilyPage.tsx](../../src/features/applicant-portal/pages/Stage7FamilyPage.tsx)
+**Demo role:** Applicant fills in 4 generations of family. Investigations app reads from this. The most consequential single applicant form.
+**Pass-1 input:** Section-grouped + role-tinted + ShieldCheck banner done. **Principle #4 styling for "preliminary" state.**
+
+### What's wrong
+- Submit row is just the button on the trailing edge with nothing communicating that the saved data enters a preliminary state pending the security investigation. PRODUCT.md §4 makes the two-phase pattern explicit: data committed by the applicant should visibly indicate it's awaiting verification.
+
+### What good looks like (after polish)
+- Submit row becomes a 2-column flex on `sm+`: an inline §4-aligned "preliminary save" notice on the leading edge (`border-dashed border-gold-300 bg-gold-50 text-2xs text-gold-700` — same shape as the CommitteeDetail "preliminary" panel) reading the canonical "ستُحفظ هذه البيانات بصورة «أوليّة» ولن تُعتمد إلا بعد اكتمال التحريات الأمنية..." copy. Submit button stays on the trailing edge.
+
+### What must NOT change
+- Form structure: father/mother/paternal-grandparents/maternal-grandparents fixed + siblings + relatives field arrays.
+- Role tones (teal-50 for father, gold-50 for mother, ink-100 for grandparents).
+- ShieldCheck info banner at the top.
+
+### Decision shorthand
+`+ §4 preliminary-save notice on the trailing-row, leading edge`.

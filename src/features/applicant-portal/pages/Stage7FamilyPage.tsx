@@ -176,7 +176,11 @@ export function Stage7FamilyPage(): JSX.Element {
           </div>
         </Card>
 
-        <div className="flex justify-end pt-2">
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700 leading-normal">
+            ستُحفظ هذه البيانات بصورة <span className="font-bold">«أوليّة»</span> ولن تُعتمد إلا بعد اكتمال
+            التحريات الأمنية على جميع الدرجات. أيّ بيان غير دقيق قد يؤدي إلى إيقاف الترشّح.
+          </div>
           <Button type="submit" variant="primary" size="lg" isLoading={isSubmitting}>
             حفظ والمتابعة
           </Button>
