@@ -205,3 +205,29 @@ POLISH_REPORT.md                                                         (this f
 ## 9 · Tag
 
 `git tag polish-complete` — points at the commit that includes this report.
+
+---
+
+## 7 · Post-polish gaps closure (2026-05-04)
+
+> Append-only — does not amend the polish closeout above.
+
+After the polish program tagged at `polish-complete`, two stakeholder documents (`Acidemia_.docx` and `كلية_الشرطة_الاقسام_والشروط.docx`) prompted a focused 5-bucket gaps batch. Shipped against the same demo deadline (2026-05-29).
+
+**Bucket A — Wizard bug fixes**: NID-derived DOB and gender on Stage 3 (read-only via `parseNationalId`); nationality field removed; Stage 6 receipt modal sized lg with grid layout that wraps long ref numbers; Stage 11 political/religious section deleted from form, schema, and printable doc.
+
+**Bucket B — Pre-wizard category gate**: `/applicant/start` (CategorySelectionPage) and `/applicant/eligibility` (EligibilityCheckPage). Public list filters out the 4 nomination-only departments; eligibility check applies cycle conditionOverrides and surfaces 11 specific Arabic rejection reasons. Wizard header carries a category Badge with "تغيير الفئة" until Stage 6 commits. The 7 spec departments are seeded in `MOCK.categories` with verbatim Arabic from the كلية_الشرطة spec doc.
+
+**Bucket C — Test schedule & results**: `/applicant/tests` (TestScheduleAndResultsPage) — next-action banner + current-test details + history table + per-test-kind instructions accordion. Three deterministic test schedules seeded for the demo applicant.
+
+**Bucket D — Admin Categories**: `/admin/categories` and `/admin/categories/:key` for managing the 7-spec departments (immutable label/key/nominationOnly) plus custom departments. Sidebar entry "فئات التقديم" added between "شروط القبول" and "الدورات".
+
+**Bucket E — Admission Cycles**: `AdmissionCycle` extended additively (kept `nameAr`/`openDate`/`closeDate` to preserve CyclesPage/AdmissionRule references); added `openCategories`, `conditionOverrides`, `labelEn`, `createdAt`, `updatedAt`. `CycleStatus` widened with `'active'` and `'archived'`. New `/admin/cycles/new` replaces the previous "قيد التنفيذ" stub. CycleDetailPage now has a per-category open/closed/capacity/notes table plus a lifecycle action bar (activate/close/archive) with confirmation Modals. Single-active invariant enforced at the service layer; activating a cycle auto-closes the previously-active one. Every cycle mutation pushes an audit entry to `MOCK.audit` (visible at `/admin/audit`) and invalidates the `['categories']` query prefix so the applicant-side list reflects changes.
+
+**Reconciliation decisions** (recorded so future-me knows why):
+- Cycles work was extended additively rather than rewritten — existing 4 cycles + AdmissionRule references intact. The brief's 3-cycle seed is approximated by augmenting the 4 existing cycles + adding `CYC-2027-M` as a draft.
+- `CycleStatus` widened (open ≡ active, finalized ≡ archived) rather than renamed; service-layer `normalizeCycleStatus()` maps to the brief's 4-state vocabulary.
+- `parseNationalId()` already extracted DOB and gender — reused directly instead of adding new helpers.
+- The political/religious section was located in Stage 11 (acquaintance doc), not Stage 5/Stage 7 as the brief speculated; removal was scoped to that section.
+
+**Verification gates met**: TypeScript clean for all new/modified files. Build passes for the post-polish surface area (an unrelated user WIP file in `src/features/exams/lib/import-questions.ts` with a readonly-array compile error is outside this batch's scope).

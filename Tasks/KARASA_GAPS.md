@@ -811,4 +811,44 @@ Phase the work as follows so each step is shippable and demoable:
 
 ---
 
+## Post-Polish Coverage — Acidemia Gaps Batch (2026-05-04)
+
+Five-bucket implementation following the stakeholder review (`Acidemia_.docx` + `كلية_الشرطة_الاقسام_والشروط.docx`). All buckets shipped with the demo on track.
+
+**Bucket A — Wizard bug fixes**
+- `Stage 3` derives DOB and gender from the National ID (read-only display rows via `parseNationalId`); nationality field removed entirely.
+- `Stage 6` payment receipt modal restructured to lg size with a responsive `<dl>` grid that wraps long ref numbers.
+- `Stage 11` political/religious affiliations section deleted from form, schema, and printable doc.
+
+**Bucket B — Pre-wizard category gate**
+- 7 verbatim faculty departments seeded in `MOCK.categories` (officers_general, officers_specialized, postgraduate, institute_officers_training, institute_traffic, institute_guarding, special_units).
+- `/applicant/start` (CategorySelectionPage) — active-cycle banner + the 3 public departments. Nomination-only departments filtered at the service layer.
+- `/applicant/eligibility` (EligibilityCheckPage) — NID-driven eligibility check with cycle-aware `application_closed` reason and conditionOverrides applied on top of category defaults.
+- Wizard header shows category Badge with "تغيير الفئة" link until Stage 6 payment commits.
+- Public service `categoriesPublicService` + queries with cycle invalidation.
+
+**Bucket C — Test schedule & results**
+- `/applicant/tests` (TestScheduleAndResultsPage) with 4 sections: next-required-action banner, current-test details, history table, instructions accordion.
+- `testScheduleService` + queries; 3 deterministic test schedules seeded for the demo applicant.
+
+**Bucket D — Admin Categories**
+- `/admin/categories` (CategoriesListPage) — 7-spec + custom-allowed list; spec departments cannot be deleted.
+- `/admin/categories/:key` (CategoryEditPage) — full conditions + tests + procedures editor with up/down reorder.
+- Sidebar entry "فئات التقديم" between "شروط القبول" and "الدورات".
+
+**Bucket E — Admission Cycles**
+- `AdmissionCycle` extended with `openCategories`, `conditionOverrides`, `labelEn`, `createdAt`, `updatedAt`.
+- `CycleStatus` extended with `'active'` and `'archived'` (alongside legacy `'open'`/`'finalized'`).
+- `cyclesService` extended with activate/close/archive/remove/toggleCategory/updateCategoryOverride. Single-active invariant enforced.
+- `/admin/cycles/new` (CycleNewPage) — replaces the previous "قيد التنفيذ" stub.
+- `/admin/cycles/:id` extended with per-category open/closed/capacity/notes table + lifecycle action bar with confirmation modals.
+- All cycle mutations push audit entries into `MOCK.audit` (visible at `/admin/audit`).
+- All cycle mutations invalidate the `['categories']` query prefix so the public list reflects changes immediately.
+
+**Demo seed**
+- `MOCK.activeCycleId = 'CYC-2025-F'` (the female cycle, closeDate bumped to 2026-12-31 so it reads as active during the demo window).
+- `CYC-2027-M` added as a forward-looking draft for cycle-management UI exercise.
+
+---
+
 *Last updated alongside DESIGN_SYSTEM.md. When the karasa is amended, this file is amended first.*
