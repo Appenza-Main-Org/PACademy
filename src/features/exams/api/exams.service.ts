@@ -5,6 +5,7 @@
  *   GET    /api/questions?status=&category=                  → BankQuestion[]
  *   GET    /api/questions/:id                                → BankQuestion
  *   POST   /api/questions                                    → BankQuestion (draft)
+ *   POST   /api/questions/batch                              → BatchCreateResult (bulk import)
  *   PATCH  /api/questions/:id                                → BankQuestion (++version)
  *   POST   /api/questions/:id/publish                        → BankQuestion (status: live)
  *   GET    /api/exams                                        → ExamConfig[]
@@ -14,7 +15,7 @@
  *   POST   /api/exams/:id/take/start                         → ExamAttempt
  *   POST   /api/exams/:id/take/submit                        → ExamAttempt (auto-graded)
  *   GET    /api/exams/:id/attempts                           → ExamAttempt[]
- *   GET    /api/exams/:id/proctor                            → live attempts feed
+ *   GET    /api/exams/:id/sessions/live                      → LiveSessionsResponse
  *   GET    /api/exams/categories                             → category counts
  */
 
@@ -22,15 +23,21 @@ import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import type {
   BankQuestion,
+  BatchCreateResult,
   ExamAttempt,
   ExamConfig,
+  ExamSession,
+  LiveSessionsResponse,
   Question,
+  QuestionDraft,
   QuestionStatus,
+  SessionStatus,
 } from '@/shared/types/domain';
 
 const QS_STATE: BankQuestion[] = [...MOCK.bankQuestions];
 const EX_STATE: ExamConfig[] = [...MOCK.examConfigs];
 const ATT_STATE: ExamAttempt[] = [...MOCK.examAttempts];
+const SESSIONS_STATE: ExamSession[] = MOCK.liveExamSessions.map((s) => ({ ...s }));
 let qId = QS_STATE.length + 1;
 let eId = EX_STATE.length + 1;
 let aId = ATT_STATE.length + 1;

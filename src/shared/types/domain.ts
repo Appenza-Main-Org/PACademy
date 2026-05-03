@@ -684,6 +684,53 @@ export interface ExamAttempt {
   passFail?: 'pass' | 'fail';
 }
 
+/** Payload for the bulk import wizard — mirrors a manually-created question.
+ *  Resolves to a `BankQuestion` after the service stamps id/status/version.
+ *  See `examsService.createQuestionBatch`. */
+export interface QuestionDraft {
+  category: string;
+  difficulty: 1 | 2 | 3 | 4 | 5;
+  type: QuestionType;
+  text: string;
+  options: string[];
+  correctIndex: number;
+  timeLimitSeconds: number;
+  notes?: string;
+}
+
+export interface BatchCreateResult {
+  created: number;
+  skipped: number;
+  ids: string[];
+}
+
+/** Live proctor surface — one session row per applicant in a running exam. */
+export type SessionStatus = 'not-started' | 'started' | 'in-progress' | 'dropped' | 'finished';
+
+export interface ExamSession {
+  id: string;
+  examId: string;
+  applicantId: string;
+  applicantName: string;
+  status: SessionStatus;
+  startedAt: number | null;
+  lastHeartbeatAt: number | null;
+  questionsAnswered: number;
+  totalQuestions: number;
+  durationSeconds: number;
+  ip: string;
+  mac: string;
+}
+
+export interface LiveSessionsResponse {
+  sessions: ExamSession[];
+  totalsByStatus: Record<SessionStatus, number>;
+  /** ISO timestamp — used by the polling ticker to render "آخر تحديث منذ N". */
+  lastUpdated: string;
+  /** 24-cell strip of "answers in the last 60s" per minute over the last hour. */
+  answersPerMinute: number[];
+}
+
 /* ── Biometric — Sprint 8 (RFP Scope Document §8) ──────────────────────────────── */
 
 export interface BiometricEnrollment {

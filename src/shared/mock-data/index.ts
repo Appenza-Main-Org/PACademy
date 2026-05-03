@@ -32,6 +32,8 @@ import type {
 } from '@/shared/types/domain';
 import { REFERENCE_DATA } from './referenceData';
 import { ADMISSION_CYCLES, ADMISSION_RULES } from './admissionCycles';
+import { APPLICANT_CATEGORIES, ACTIVE_CYCLE_ID } from './categories';
+import { TEST_SCHEDULES } from './testSchedules';
 import { EXAM_SLOTS, SAMPLE_DRAFT } from './applicantPortal';
 import {
   BANK_QUESTIONS,
@@ -361,4 +363,9 @@ export const MOCK = {
   barcodes: BARCODES,
   barcodeScans: BARCODE_SCANS,
   notifications: NOTIFICATIONS,
+  /* Post-polish additions (Buckets B/C/E) */
+  categories: APPLICANT_CATEGORIES,
+  cycles: ADMISSION_CYCLES,
+  activeCycleId: ACTIVE_CYCLE_ID,
+  testSchedules: TEST_SCHEDULES,
 };

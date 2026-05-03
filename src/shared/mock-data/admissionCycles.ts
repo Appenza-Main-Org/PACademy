@@ -1,8 +1,18 @@
 /**
- * Admission cycles + versioned admission rules — Sprint 1 (KARASA_GAPS §1.2.C-D).
+ * Admission cycles + versioned admission rules — Sprint 1 (KARASA_GAPS §1.2.C-D),
+ * extended post-polish (Bucket E) with openCategories + conditionOverrides
+ * + createdAt/updatedAt + a forward-looking 2027 draft.
  *
- * Three cycles: 2024 finalized, 2025 active, 2026 draft. Each cycle has at
- * least one versioned admission-rule snapshot showing who changed what when.
+ * Cycle status mapping:
+ *   2024-M     finalized → reads as archived in new flows
+ *   2025-M     processing → reads as closed
+ *   2025-F     open       → reads as ACTIVE (the demo cycle)
+ *   2026-M     draft
+ *   2027-M     draft (post-polish addition for the cycles UI)
+ *
+ * The 2025-F cycle's closeDate is bumped to 2026-12-31 so its window is
+ * open as of the 2026-05 demo. Existing AdmissionRule rows reference
+ * these IDs; do not rename.
  */
 
 import type { AdmissionCycle, AdmissionRule } from '@/shared/types/domain';
@@ -11,6 +21,7 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
   {
     id: 'CYC-2024-M',
     nameAr: 'دورة 2024 - الذكور',
+    labelEn: 'Cycle 2024 (Male)',
     cohort: 'male',
     year: 2024,
     openDate: '2024-01-15T00:00:00.000Z',
@@ -18,10 +29,17 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     expectedCapacity: 1500,
     applicantCount: 1487,
     status: 'finalized',
+    openCategories: {
+      officers_general: { isOpen: false, capacity: 1500, notes: 'دورة 2024 — منتهية' },
+    },
+    conditionOverrides: {},
+    createdAt: '2023-11-01T00:00:00.000Z',
+    updatedAt: '2024-03-31T00:00:00.000Z',
   },
   {
     id: 'CYC-2025-M',
     nameAr: 'دورة 2025 - الذكور',
+    labelEn: 'Cycle 2025 (Male)',
     cohort: 'male',
     year: 2025,
     openDate: '2025-01-15T00:00:00.000Z',
@@ -29,21 +47,43 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     expectedCapacity: 1800,
     applicantCount: 1762,
     status: 'processing',
+    openCategories: {
+      officers_general: { isOpen: false, capacity: 1800, notes: 'تحت المعالجة' },
+      officers_specialized: { isOpen: false, capacity: 200, notes: '' },
+    },
+    conditionOverrides: {},
+    createdAt: '2024-11-01T00:00:00.000Z',
+    updatedAt: '2025-04-01T00:00:00.000Z',
   },
   {
     id: 'CYC-2025-F',
     nameAr: 'دورة 2025 - الإناث',
+    labelEn: 'Cycle 2025 (Female)',
     cohort: 'female',
     year: 2025,
     openDate: '2025-02-15T00:00:00.000Z',
-    closeDate: '2025-04-15T00:00:00.000Z',
+    /* Bumped from 2025-04-15 so the demo (May 2026) reads as open. */
+    closeDate: '2026-12-31T23:59:59.000Z',
     expectedCapacity: 240,
     applicantCount: 238,
     status: 'open',
+    openCategories: {
+      officers_general: { isOpen: true, capacity: 200, notes: 'الفئة الرئيسية للدورة' },
+      officers_specialized: { isOpen: true, capacity: 40, notes: 'تقديم لخريجي الجامعات' },
+      postgraduate: { isOpen: true, capacity: 20, notes: 'برامج الدراسات العليا' },
+      institute_officers_training: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
+      institute_traffic: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
+      institute_guarding: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
+      special_units: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
+    },
+    conditionOverrides: {},
+    createdAt: '2024-12-15T00:00:00.000Z',
+    updatedAt: '2026-04-01T00:00:00.000Z',
   },
   {
     id: 'CYC-2026-M',
     nameAr: 'دورة 2026 - الذكور',
+    labelEn: 'Cycle 2026 (Male)',
     cohort: 'male',
     year: 2026,
     openDate: '2026-01-15T00:00:00.000Z',
@@ -51,6 +91,30 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     expectedCapacity: 2000,
     applicantCount: 0,
     status: 'draft',
+    openCategories: {
+      officers_general: { isOpen: false, capacity: 2000, notes: 'مسودة — قيد الإعداد' },
+    },
+    conditionOverrides: {},
+    createdAt: '2025-11-01T00:00:00.000Z',
+    updatedAt: '2025-12-15T00:00:00.000Z',
+  },
+  {
+    id: 'CYC-2027-M',
+    nameAr: 'دورة 2027 - الذكور',
+    labelEn: 'Cycle 2027 (Male)',
+    cohort: 'male',
+    year: 2027,
+    openDate: '2027-01-15T00:00:00.000Z',
+    closeDate: '2027-03-31T00:00:00.000Z',
+    expectedCapacity: 2200,
+    applicantCount: 0,
+    status: 'draft',
+    openCategories: {
+      officers_general: { isOpen: false, capacity: 2200, notes: 'مسودة' },
+    },
+    conditionOverrides: {},
+    createdAt: '2026-04-15T00:00:00.000Z',
+    updatedAt: '2026-04-15T00:00:00.000Z',
   },
 ];
 
