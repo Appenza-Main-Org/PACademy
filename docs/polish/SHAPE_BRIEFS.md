@@ -208,3 +208,29 @@
 
 ### Decision shorthand
 `art panel + page + form → responsive padding/typography for iPad-portrait stacked layout`. Visual deferred.
+
+---
+
+## Screen 8 — `/admin` (DashboardPage)
+
+**File:** [src/features/admin/pages/DashboardPage.tsx](../../src/features/admin/pages/DashboardPage.tsx)
+**Demo role:** Decision-maker control panel. KPIs, live ticker, charts, heatmap, recent activity, governorate distribution.
+**Pass-1 input:** KPI strip + heatmap + activity ticker shipped. **Principles: align two-phase sig styling with §4.**
+
+### What's wrong
+- **Live activity ticker** uses a single `var(--accent-500)` dot for every event regardless of action color. Each row already carries an `actionColor` (success/warning/danger/info/neutral) — the dot should track it. As-is, the ticker reads as visually flat; a quick scan can't surface the danger entries.
+- **Geographic distribution bars** use hardcoded `bg-teal-500` — token-aligned for admin app accent (teal-600) but not respecting `data-app` accent. Per S1 audit finding, hardcoded brand should consume `var(--accent-*)`.
+
+### What good looks like (after polish)
+- Live ticker dot keyed by action color via a small `TICKER_DOT` lookup map. Same shape as the hub's new `AUDIT_DOT`. Cross-screen consistency.
+- Live ticker rows gain `hover:border-ink-300` for affordance.
+- Geographic bars consume `var(--accent-500)` so the admin's teal-600 accent flows through automatically and any future `data-app` override propagates without further edits.
+
+### What must NOT change
+- The 5-tile KPI strip; the cycle selector + "ملخص جديد" CTA in the page header.
+- "إجراءات مطلوبة" warning panel.
+- Donut + line chart + heatmap — already inline-SVG, already canonical.
+- "آخر النشاط" Badge-based recent-activity list — already uses `e.actionColor` for the Badge tone (the §4 alignment was already correct here; the new ticker treatment now matches it).
+
+### Decision shorthand
+`live ticker dot → action-colored`, `geo bars → var(--accent-500)`. Cross-screen coherence with hub's new activity strip.

@@ -42,6 +42,14 @@ import { useCycles } from '../api/cycles.queries';
 const HEATMAP_DAY_LABELS = ['السبت', 'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
 const HEATMAP_HOUR_LABELS = Array.from({ length: 24 }, (_, h) => (h % 4 === 0 ? String(h) : ''));
 
+const TICKER_DOT: Record<'success' | 'warning' | 'danger' | 'info' | 'neutral', string> = {
+  success: 'var(--success)',
+  warning: 'var(--gold-500)',
+  danger: 'var(--terra-500)',
+  info: 'var(--teal-500)',
+  neutral: 'var(--ink-400)',
+};
+
 export function DashboardPage(): JSX.Element {
   const { data: cycles } = useCycles();
   const [cycleId, setCycleId] = useState<string>('');
@@ -176,12 +184,12 @@ export function DashboardPage(): JSX.Element {
               {(ticker ?? []).map((e) => (
                 <li
                   key={e.id}
-                  className="flex items-start gap-2 rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-xs"
+                  className="flex items-start gap-2 rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-xs transition-colors duration-fast ease-standard hover:border-ink-300"
                 >
                   <span
                     aria-hidden
-                    className="mt-0.5 inline-block h-1.5 w-1.5 rounded-full"
-                    style={{ background: 'var(--accent-500)' }}
+                    className="mt-1 inline-block h-1.5 w-1.5 flex-none rounded-full"
+                    style={{ background: TICKER_DOT[e.actionColor] }}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-ink-900">
@@ -323,7 +331,7 @@ export function DashboardPage(): JSX.Element {
                     <span className="text-xs text-ink-500 font-numeric tnum">{num(g.value)}</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-ink-100">
-                    <div className="h-full rounded-full bg-teal-500" style={{ width: `${pct}%` }} />
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--accent-500)' }} />
                   </div>
                 </div>
               );
