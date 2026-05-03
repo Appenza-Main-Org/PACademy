@@ -78,3 +78,29 @@
 
 ### Decision shorthand
 `layer diagram → calmer borders + flow-line connector`, `RBAC → proper Check/Minus + zebra + legend`. No new shared components. No token edits.
+
+---
+
+## Screen 3 — `/applicant/print-card` (Stage 9 attendance card, print)
+
+**File:** [src/features/applicant-portal/pages/Stage9PrintCardPage.tsx](../../src/features/applicant-portal/pages/Stage9PrintCardPage.tsx)
+**Demo role:** First of 3 print documents — the applicant's gate pass on exam day.
+**Pass-1 input:** Photo + 4-part name + barcode shipped. **Final pass on signature block + Khayameya footer.**
+
+### What's wrong
+- **No signature block.** The card is a printable attendance pass with no place for officer/applicant signatures or a ministry seal. POLISH_PLAN explicitly flags this.
+- The exam appointment shows only Gregorian — for ministerial gravity an inline Hijri equivalent is expected.
+
+### What good looks like (after polish)
+- **3-column signature block** at the bottom, before the Khayameya footer:
+  1. `توقيع المتقدم` — empty signature line (dashed-bottom).
+  2. `موظف الاستقبال — الاسم والرتبة` — empty signature line.
+  3. `ختم الإدارة` — `<IconSeal width={36} height={36} />` in `text-gold-600` over a labelled tile.
+- **Hijri inline** under the appointment Gregorian date, in `text-2xs text-ink-500`.
+
+### What must NOT change
+- Photo box, identity grid, barcode block, documents checklist, KhayameyaStripe footer.
+- The `border-2 border-ink-700` on the barcode block — print legibility justifies it.
+
+### Decision shorthand
+`+ 3-col signature block (IconSeal for ministry stamp)`, `+ Hijri inline date`. No new shared component (helpers stay file-local).

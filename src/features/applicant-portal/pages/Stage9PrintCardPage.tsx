@@ -10,7 +10,7 @@
 import { CalendarCheck, MapPin, Printer, ShieldCheck, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button, Card, KhayameyaStripe, PrintLayout } from '@/shared/components';
-import { IconBarcode } from '@/shared/components/icons';
+import { IconBarcode, IconSeal } from '@/shared/components/icons';
 import { useDraft } from '../api/applicantPortal.queries';
 import { date as fmtDate } from '@/shared/lib/format';
 
@@ -103,7 +103,8 @@ export function Stage9PrintCardPage(): JSX.Element {
             <div>
               <p className="text-2xs uppercase tracking-wide text-ink-500">موعد الاختبار</p>
               <p className="mt-0.5 font-bold text-ink-900">{fmtDate(slot.date, 'full')}</p>
-              <p className="mt-0.5 font-numeric tnum text-md font-bold text-teal-700" dir="ltr">{slot.time}</p>
+              <p className="mt-0.5 text-2xs text-ink-500">{formatHijri(new Date(slot.date))} هـ</p>
+              <p className="mt-1 font-numeric tnum text-md font-bold text-teal-700" dir="ltr">{slot.time}</p>
             </div>
           </div>
           <div className="flex items-start gap-3 rounded-md border border-border-default bg-surface-card p-4">
@@ -148,6 +149,18 @@ export function Stage9PrintCardPage(): JSX.Element {
           <p className="font-mono text-md font-bold tracking-widest text-ink-900" dir="ltr">{BARCODE}</p>
         </div>
 
+        {/* Signature block */}
+        <div className="mb-4 grid grid-cols-3 gap-4">
+          <SignatureLine label="توقيع المتقدم" />
+          <SignatureLine label="موظف الاستقبال — الاسم والرتبة" />
+          <div className="flex flex-col items-center gap-1.5 rounded-md border border-border-subtle bg-ink-50 px-3 pt-3 pb-2">
+            <span aria-hidden className="text-gold-600">
+              <IconSeal width={36} height={36} />
+            </span>
+            <span className="text-2xs uppercase tracking-wide text-ink-500">ختم الإدارة</span>
+          </div>
+        </div>
+
         {/* Footer note */}
         <p className="my-4 text-center text-2xs text-ink-500">
           يجب أن يكون الكارت في صورته الأصلية يوم الاختبار · أيّ تعديل أو نسخ يبطل صلاحيته
@@ -157,6 +170,27 @@ export function Stage9PrintCardPage(): JSX.Element {
       </PrintLayout>
     </div>
   );
+}
+
+function SignatureLine({ label }: { label: string }): JSX.Element {
+  return (
+    <div className="flex flex-col items-center gap-1.5 rounded-md border border-border-subtle bg-ink-50 px-3 pt-3 pb-2">
+      <span aria-hidden className="block h-10 w-full border-b border-dashed border-ink-700/60" />
+      <span className="text-2xs uppercase tracking-wide text-ink-500">{label}</span>
+    </div>
+  );
+}
+
+function formatHijri(d: Date): string {
+  try {
+    return new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d).replace('هـ', '').trim();
+  } catch {
+    return '';
+  }
 }
 
 /* Visual barcode placeholder — variable-width bars derived from the code. */
