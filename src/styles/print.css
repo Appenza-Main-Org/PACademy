@@ -107,6 +107,38 @@
 /* Screen-only / print-only helpers (always available, not just inside @media print) */
 .print-only { display: none; }
 
+/* System diagram — info panel layout (screen) */
+.arch-system-info {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+  border-radius: 8px;
+  min-height: 78px;
+}
+.arch-system-info--idle {
+  background: var(--ink-50);
+  border-style: dashed;
+  border-color: var(--border-subtle);
+}
+
+/* Tablet portrait (768–1024px): hide minor connector labels to reduce density. */
+@media (max-width: 1024px) {
+  .arch-system-diagram .arch-conn-label-minor { display: none; }
+}
+
+/* SVG focus visibility */
+.arch-system-diagram svg [tabindex]:focus { outline: none; }
+.arch-system-diagram svg [tabindex]:focus-visible rect:not([fill="none"]),
+.arch-system-diagram svg [tabindex]:focus-visible ellipse {
+  filter: drop-shadow(0 0 0 var(--teal-500));
+}
+
+/* Reduced-motion: no transitions on the diagram. */
+@media (prefers-reduced-motion: reduce) {
+  .arch-system-diagram svg * { transition: none !important; }
+}
+
 /* ───────────────────────────────────────────────────────────
    Architecture page (`/architecture`) — print handout
    Source: feature/architecture rebuild (technical reference).
@@ -218,6 +250,30 @@
 
   /* Thicker SVG strokes for paper legibility (overrides global rule). */
   .arch-page svg [data-chart-stroke] { stroke-width: 1.25px !important; }
+
+  /* System diagram (§2) — print mode tweaks. */
+  .arch-system-diagram .arch-region-tint {
+    opacity: 0.85 !important; /* tints visible on paper */
+  }
+  .arch-system-diagram .arch-conn,
+  .arch-system-diagram .arch-node,
+  .arch-system-diagram .arch-data-bus,
+  .arch-system-diagram .arch-audit-bus {
+    opacity: 1 !important; /* drop any hover dimming for the handout */
+  }
+  .arch-system-diagram .arch-conn-label-minor {
+    display: inline !important; /* show every label on paper */
+  }
+  .arch-system-diagram svg [data-chart-line] { stroke-width: 1.75px !important; }
+  .arch-system-diagram svg [data-chart-stroke] { stroke-width: 1.25px !important; }
+  /* Idle-state info panel is redundant on paper — hide it. */
+  .arch-system-info--idle { display: none !important; }
+  /* Tighten diagram height for a single page. */
+  .arch-system-diagram svg { max-height: 165mm !important; }
+  .arch-system-legend {
+    margin-top: 4mm !important;
+    page-break-inside: avoid;
+  }
 
   /* Tables: keep them tight on paper. */
   .arch-page table { font-size: 9.5pt; }

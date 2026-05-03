@@ -41,16 +41,15 @@ import {
   EXEC_TILES,
   HOSTING,
   INTEGRATIONS,
-  LAYERS,
   NFRS,
   SECTIONS,
   SECURITY_TIERS,
   type AppRow,
   type NfrRow,
 } from '../data';
-import { FourLayerDiagram } from '../components/FourLayerDiagram';
 import { IntegrationCard } from '../components/IntegrationCard';
 import { SectionTOC } from '../components/SectionTOC';
+import { SystemDiagram } from '../components/SystemDiagram';
 
 const GENERATION_DATE_FALLBACK = 'Generated on demand';
 
@@ -209,15 +208,46 @@ function Section2(): JSX.Element {
     <SectionShell
       id="layers"
       eyebrow="Section 2"
-      title="The Four Layers"
-      subtitle="Public Portals → Middleware → Private Portals → Database. Click any layer for detail."
-      citation="Karasa §9 (Architecture Overview)"
+      title="System Architecture"
+      subtitle="All applications, layers, and integrations on a single canvas. Hover any element for detail; click to navigate to its full description."
+      citation="Karasa §9 (Architecture Overview) · §1.1, §1.2, §3.1, §3.2"
     >
       <Card>
         <CardBody>
-          <FourLayerDiagram layers={LAYERS} />
+          <SystemDiagram />
         </CardBody>
       </Card>
+
+      <div className="mt-6 grid max-w-5xl gap-4 text-sm leading-relaxed text-ink-700 md:grid-cols-3">
+        <p>
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700">
+            The bands
+          </span>
+          The system is structured in four bands. External systems (top) are integrated outward
+          from our applications. The application layer (middle) splits across a public Internet
+          surface and the academy intranet, separated by a network boundary enforced at the
+          infrastructure layer. The middleware band carries cross-app coordination. The data layer
+          (bottom) consolidates application data, reporting workloads, and the immutable audit
+          trail.
+        </p>
+        <p>
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700">
+            Connector legend
+          </span>
+          Solid teal connectors are external integrations. Gold dashed connectors are internal
+          cross-app workflows propagated through the middleware service bus. Ink connectors are
+          data persistence flows. Terracotta dotted connectors represent audit writes — every
+          state-changing operation across all nine applications writes to the audit database.
+        </p>
+        <p>
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700">
+            Karasa anchor
+          </span>
+          This architecture realizes the four-layer model described in the Karasa overview, with
+          the public/private split per §1 (pp.5–37) and the integration layer per §3.1–3.2
+          (pp.7, 40).
+        </p>
+      </div>
     </SectionShell>
   );
 }

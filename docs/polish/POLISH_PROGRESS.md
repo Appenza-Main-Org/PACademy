@@ -210,3 +210,69 @@ All commits ship typecheck-clean. Build verified after Phase 0.5 close; subseque
 ### What's next
 - **Phase 2 begins:** batch fixes S5, S7, S8, S10. S1, S2, S3, S4, S6 already addressed in Phase 0.5 + Phase 1.
 - Next progress entry: at Phase 2 close.
+
+---
+
+## 2026-05-03 · `/architecture` §2 — comprehensive system diagram
+
+### Why
+Follow-up to the architecture rebuild. Section 2 previously had a 4-layer
+diagram that was high-level on its own. The brief asked for an upgrade —
+a single canvas that shows all 4 layers, all 9 applications inside their
+layers, all 5 external integrations, the network boundary, the middleware
+band, and the data layer (Primary · Reporting · Audit), with colour-coded
+connectors for external / cross-app / data / audit.
+
+### Completed in this session
+- **New** `src/features/architecture/components/SystemDiagram.tsx` — one
+  viewBox=1600x1000 inline-SVG diagram. All colours via design-system
+  tokens (no hardcoded hex). Per-app accent border-top on every app box.
+  Network boundary at y=395 rendered as a 2px dashed terra line with a
+  centred ministry-grade label — visually unmistakable, as the brief asked.
+  Audit DB rendered terracotta (visually distinct from the two ink DBs);
+  audit connectors rendered as a faint terra-dotted bus.
+- **Interactivity:** hover any rectangle dims unrelated connectors and
+  highlights the related ones; hover any connector thickens it. Click any
+  rectangle smooth-scrolls to its detail section (`#integrations`,
+  `#applications`, `#audit`). All elements are keyboard-focusable; Enter
+  triggers click. A persistent info panel below the diagram updates with
+  the hovered/focused element's purpose, citation, and (for connectors)
+  data-exchanged + auth method.
+- **Mobile fallback:** below 768px the SVG is replaced by a stacked card
+  view grouped by region. The card view preserves the per-app accent
+  border-top so the hierarchy still reads.
+- **Print rules** added to `src/styles/print.css`: hover dimming forced
+  off, all opacity 1, region tints higher contrast, minor connector labels
+  visible (overrides the tablet `display:none`), max-height clamped to
+  165mm so the diagram fits one A4 portrait page.
+- **Replaced + cleaned up:** `FourLayerDiagram.tsx` deleted. `LAYERS` and
+  `LayerSpec` removed from `data.ts`. Section 2 copy rewritten as three
+  short paragraphs (the bands / connector legend / karasa anchor) per the
+  brief. TOC label updated from "The Four Layers" to "System Architecture".
+- **KARASA_GAPS.md §10.2** updated to reflect the new diagram.
+
+### Judgment calls flagged
+- **Audit bus instead of 9 per-app dotted lines.** The brief allowed both
+  ("a faint dotted line from each application rectangle to the Audit DB"
+  vs. "they should read as 'every app writes audit' without dominating").
+  I rendered both: per-app dotted stubs from each app drop to a shared
+  terra-dotted horizontal "audit bus" at y=832, which then drops to the
+  Audit DB. This communicates "every app writes audit" without 9 long
+  diagonal lines. Same pattern applied to the data bus (ink solid rail
+  at y=820) collecting all apps into Primary + Reporting.
+- **Tooltips replaced by a persistent below-diagram info panel.** The
+  brief described floating tooltips. A persistent panel is more
+  accessible (always available to focus state), more legible at projector
+  scale, and avoids positioning bugs. The panel updates on hover/focus and
+  is empty (with a hint) when nothing is selected.
+- **Connector hit-areas widened to 14px transparent strokes.** Without
+  this, hovering a 1.5px line on touch/trackpad is fiddly. Visual width
+  unchanged.
+- **Cross-app connectors capped at 4** per the brief's guidance. They
+  illustrate the pattern (Committees → Investigations, Biometric → Exams,
+  Barcode → Committees, Medical → Board) without becoming spaghetti.
+
+### What's next
+- Smoke-test on a real screen (Cmd+P preview + `npm run dev` walk-through)
+  before the demo. Build + typecheck both green.
+- Continue Phase 2 / Phase 3 polish work per POLISH_PLAN.md.

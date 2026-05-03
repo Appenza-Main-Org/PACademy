@@ -677,7 +677,7 @@ Rebuilt 2026-05-03 as a printable technical-evaluator handout. The page now
 covers the §3.1 / §3.2 / §4.1 / §4.2 reference content directly on-screen
 and via Cmd+P. Section breakdown:
 - ✅ §1 Executive Overview — 4-tile metric strip (apps · roles · layers · integrations)
-- ✅ §2 Four Layers — interactive inline-SVG diagram + click-to-expand detail per layer (K§9)
+- ✅ §2 System Architecture — single-canvas inline-SVG diagram showing all 4 layers, all 9 apps inside their layers, all 5 external integrations, the network boundary, the middleware band, the data layer (Primary · Reporting · Audit), and 4 colour-coded connector classes (external · cross-app · data · audit). Hover for details, click to navigate to the full description (K§9 + K§1 + K§3.1–3.2). Replaces the older 4-layer-only diagram.
 - ✅ §3 Nine Applications — DataTable with surface, primary users, hosting tier, karasa citation per row
 - ✅ §4 Integrations — six expandable cards (MOIPASS · MoE · Al-Azhar · Payment Gateway · Hardware SDK · Internal cross-app) with direction, auth, data, frequency, failure handling, citation (K§3.1, §3.2)
 - ✅ §5 Security Architecture — six tiers (Network · Transport · Identity · Application · Data · Operational), high-level posture only, defers configurations to Phase 2 (K§4.1)

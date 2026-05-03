@@ -10,80 +10,10 @@
  * paths (PDF, JSON, etc.).
  */
 
-/* ── §2 — Four Layers ──────────────────────────────────────── */
-
-export type LayerId = 'public' | 'middleware' | 'private' | 'database';
-
-export interface LayerSpec {
-  id: LayerId;
-  title: string;
-  surface: 'Internet' | 'Internet ↔ Intranet' | 'Intranet' | 'Internal';
-  whatRuns: readonly string[];
-  boundary: string;
-  flow: string;
-  citation: string;
-}
-
-export const LAYERS: readonly LayerSpec[] = [
-  {
-    id: 'public',
-    title: 'Public Portals',
-    surface: 'Internet',
-    whatRuns: [
-      'Administrator Site (Application 1.1)',
-      'Applicant Site (Application 1.2)',
-      'Public DNS, TLS termination, WAF',
-    ],
-    boundary: 'Hosted in the Ministry of Interior data-centre DMZ. Direct internet exposure, perimeter-protected by WAF and rate-limiting at the network edge.',
-    flow: 'Inbound HTTPS from citizens and officers. Outbound traffic only to the middleware layer over mutually-authenticated channels.',
-    citation: 'Karasa §1.1 pp.5–14 · §1.2 pp.15–37 · §9 architecture overview',
-  },
-  {
-    id: 'middleware',
-    title: 'Middleware Layer',
-    surface: 'Internet ↔ Intranet',
-    whatRuns: [
-      'API Gateway (authentication, authorization, throttling)',
-      'Service Bus (cross-application event distribution)',
-      'Identity broker (MOIPASS adapter, NID+OTP issuer, RBAC enforcement)',
-      'Integration adapters (MoE, Al-Azhar, Payment Gateway, Hardware SDK)',
-    ],
-    boundary: 'Sits in a dedicated network segment with strict egress allow-lists. The only path between the public DMZ and the private intranet runs through this layer.',
-    flow: 'Receives requests from public portals and external integrations; routes domain operations to private portals; emits events back to subscribers.',
-    citation: 'Karasa §3.1 p.7 · §3.2 p.40',
-  },
-  {
-    id: 'private',
-    title: 'Private Portals',
-    surface: 'Intranet',
-    whatRuns: [
-      'Admission Committees (Application 2.1)',
-      'Board / Secretariat (Application 2.2)',
-      'Investigations (Application 2.3) — restricted',
-      'Medical Commission (Application 2.4)',
-      'Barcode (Application 2.5)',
-      'Biometric (Application 2.6)',
-      'Question Bank & e-Exams (Application 2.7)',
-    ],
-    boundary: 'Hosted on the Police Academy intranet, air-gapped from the public internet. Access is reachable only through the authenticated middleware layer.',
-    flow: 'Inbound from middleware only. Outbound is limited to the database layer and audit pipeline.',
-    citation: 'Karasa §2.1–§2.7 pp.38–99',
-  },
-  {
-    id: 'database',
-    title: 'Database Layer',
-    surface: 'Internal',
-    whatRuns: [
-      'Primary OLTP database (applicants, decisions, workflow state)',
-      'Reporting database (read-replica for analytics and exports)',
-      'Audit database (append-only, separate retention policy)',
-      'Object store (uploaded documents, biometric templates)',
-    ],
-    boundary: 'Reachable only from the middleware and private portal layers. Encryption at rest, no internet egress, replication to a ministry-approved DR site.',
-    flow: 'Inbound writes from private portals and middleware. Replicated to the secondary site continuously; backups taken on the ministry retention schedule.',
-    citation: 'Karasa §3.4 pp.9, 14 · §4.1 p.101 (Backup & Recovery)',
-  },
-];
+/* ── §2 (System Architecture) is rendered by SystemDiagram.tsx ─
+   The legacy LayerSpec data lived here; it was removed when the
+   four-layer diagram was replaced by the comprehensive single-canvas
+   SystemDiagram. The diagram itself is the data source now. */
 
 /* ── §3 — Nine Applications ────────────────────────────────── */
 
@@ -355,7 +285,7 @@ export interface SectionMeta {
 
 export const SECTIONS: readonly SectionMeta[] = [
   { id: 'overview',       num: 1, label: 'Executive Overview'       },
-  { id: 'layers',         num: 2, label: 'The Four Layers'          },
+  { id: 'layers',         num: 2, label: 'System Architecture'      },
   { id: 'applications',   num: 3, label: 'The Nine Applications'    },
   { id: 'integrations',   num: 4, label: 'Integrations'             },
   { id: 'security',       num: 5, label: 'Security Architecture'    },
