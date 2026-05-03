@@ -9,10 +9,11 @@
  *  - Suspended banner + auto-save indicator + FloatingHelp at bottom-end
  */
 
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
-import { Ban, BellRing, HelpCircle, LogOut } from 'lucide-react';
+import { Ban, BellRing, HelpCircle, LogOut, Pencil } from 'lucide-react';
 import {
+  Badge,
   KhayameyaStripe,
   LogoMark,
   Pattern,
@@ -20,9 +21,11 @@ import {
   toast,
 } from '@/shared/components';
 import type { WizardStep, WizardStepState } from '@/shared/components';
+import { MOCK } from '@/shared/mock-data';
 import { ROUTES } from '@/config/routes';
 import { useAuthStore } from '@/features/auth';
 import { useDraft } from './api/applicantPortal.queries';
+import { useApplicantPortalStore } from './store/applicantPortal.store';
 
 export const STAGE_KEYS = [
   'auth/step-1',
@@ -65,6 +68,13 @@ export function ApplicantPortalLayout(): JSX.Element {
   const navigate = useNavigate();
   const { data: draft } = useDraft(APPLICANT_ID);
   const clear = useAuthStore((s) => s.clear);
+  const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  const selectedCategory = selectedCategoryKey
+    ? MOCK.categories.find((c) => c.key === selectedCategoryKey) ?? null
+    : null;
+  /* "Irreversible step" = Stage 6 payment committed. After that the user
+   * cannot switch category without an admin action; the badge becomes read-only. */
+  const categoryLocked = Boolean(draft?.payment?.paidAt);
 
   const activeIndex = useMemo(() => {
     const path = location.pathname.replace(/^\/applicant\/?/, '');
@@ -107,6 +117,19 @@ export function ApplicantPortalLayout(): JSX.Element {
           </span>
         </a>
         <div className="flex items-center gap-2 text-2xs text-ink-500">
+          {selectedCategory && (
+            <span className="hidden items-center gap-2 md:inline-flex">
+              <Badge tone="brand">{selectedCategory.labelAr}</Badge>
+              {!categoryLocked && (
+                <Link
+                  to={ROUTES.applicantStart}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-2xs text-ink-700 hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                >
+                  <Pencil size={12} strokeWidth={1.75} /> تغيير الفئة
+                </Link>
+              )}
+            </span>
+          )}
           {draft?.applicantId && (
             <span className="hidden font-mono md:inline" dir="ltr">{draft.applicantId}</span>
           )}

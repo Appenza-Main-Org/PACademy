@@ -4,9 +4,10 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Calendar, FileText, GraduationCap, HelpCircle, Mail, Phone, ShieldCheck } from 'lucide-react';
+import { Calendar, ClipboardList, FileText, GraduationCap, HelpCircle, Mail, Phone, ShieldCheck } from 'lucide-react';
 import { Badge, Button, Card } from '@/shared/components';
 import { useDraft } from '../api/applicantPortal.queries';
+import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { date as fmtDate } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
 
@@ -14,7 +15,9 @@ const APPLICANT_ID = 'APP-2026000';
 
 export function ApplicantPortalPage(): JSX.Element {
   const { data: draft } = useDraft(APPLICANT_ID);
+  const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const next = nextStagePath(draft?.furthestStage ?? 0);
+  const hasStartedApplication = Boolean(selectedCategoryKey);
 
   return (
     <div className="flex flex-col gap-5">
@@ -42,11 +45,30 @@ export function ApplicantPortalPage(): JSX.Element {
               </li>
             </ul>
           </div>
-          <Link to={`${ROUTES.applicant}/${next.path}`}>
-            <Button variant="primary" size="lg">
-              {next.label}
-            </Button>
-          </Link>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center">
+            {!hasStartedApplication && (
+              <Link to={ROUTES.applicantStart}>
+                <Button variant="primary" size="lg">
+                  ابدأ التقديم
+                </Button>
+              </Link>
+            )}
+            {hasStartedApplication && (
+              <Link to={`${ROUTES.applicant}/${next.path}`}>
+                <Button variant="primary" size="lg">
+                  {next.label}
+                </Button>
+              </Link>
+            )}
+            <Link to={ROUTES.applicantTests}>
+              <Button
+                variant="secondary"
+                leadingIcon={<ClipboardList size={14} strokeWidth={1.75} />}
+              >
+                مواعيد الاختبارات
+              </Button>
+            </Link>
+          </div>
         </div>
       </Card>
 
