@@ -12,7 +12,7 @@ import { KhayameyaStripe, LogoMark, Pattern } from '@/shared/components';
 export function LoginArtPanel(): JSX.Element {
   return (
     <aside
-      className="relative flex h-full min-h-screen flex-col justify-between overflow-hidden p-12 text-white"
+      className="relative flex h-full flex-col justify-between overflow-hidden p-8 text-white lg:min-h-screen lg:p-12"
       style={{
         background:
           'linear-gradient(135deg, var(--teal-700) 0%, var(--teal-500) 60%, var(--teal-600) 100%)',
@@ -31,25 +31,25 @@ export function LoginArtPanel(): JSX.Element {
         </div>
       </header>
 
-      <div className="relative">
+      <div className="relative mt-6 lg:mt-0">
         <p className="mb-3 inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1 text-2xs font-medium text-gold-300">
           وزارة الداخلية · أكاديمية الشرطة
         </p>
-        <h1 className="font-ar-display text-3xl font-bold leading-tight">
+        <h1 className="font-ar-display text-2xl font-bold leading-tight lg:text-3xl">
           التحول الرقمي الكامل لإجراءات القبول والاختبارات
         </h1>
         <p className="mt-3 max-w-md text-sm leading-relaxed text-white/80">
           منظومة معلوماتية متكاملة تربط تسعة تطبيقات على مستوى الإنترنت والشبكة الداخلية،
           بمستوى أمان وتشفير معتمد، لإدارة كامل دورة المتقدم بدقة وشفافية.
         </p>
-        <dl className="mt-7 grid grid-cols-3 gap-4">
+        <dl className="mt-6 grid grid-cols-3 gap-4 lg:mt-7">
           <Stat value="9" label="تطبيقات مترابطة" />
           <Stat value="12K+" label="متقدم سنوياً" />
           <Stat value="100%" label="رقمنة الإجراءات" />
         </dl>
       </div>
 
-      <footer className="relative text-2xs text-white/55">
+      <footer className="relative mt-6 text-2xs text-white/55 lg:mt-0">
         © 2026 وزارة الداخلية · أكاديمية الشرطة · جميع الحقوق محفوظة
       </footer>
     </aside>

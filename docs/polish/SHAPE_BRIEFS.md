@@ -179,3 +179,32 @@
 
 ### Decision shorthand
 `headline → text-5xl on md+`, `meta strip → dl + dividers`, `+ IconSeal anchor on bottom bar`.
+
+---
+
+## Screen 7 — `/staff-login`
+
+**Files:** [src/features/auth/pages/LoginPage.tsx](../../src/features/auth/pages/LoginPage.tsx) · [src/features/auth/components/LoginArtPanel.tsx](../../src/features/auth/components/LoginArtPanel.tsx) · [src/features/auth/components/LoginForm.tsx](../../src/features/auth/components/LoginForm.tsx)
+**Demo role:** Auth gate for officers. MOIPASS-styled framing + role picker.
+**Pass-1 input:** LoginArtPanel + RHF+zod + 1.5s MOIPASS sim done. **Final pass on form-pane density at iPad.**
+
+### What's wrong
+- `LoginArtPanel` is `min-h-screen` regardless of viewport — at iPad portrait (`<lg`), the panel pushes the form a full screen below the fold.
+- `LoginPage`'s right pane is `p-6` everywhere — at iPad portrait the form is centered in a tall vertically-empty container.
+- `LoginForm` uses `gap-5` and `text-2xl` headline — slightly heavy on the smaller stacked layout.
+
+### What good looks like (after polish)
+- `LoginArtPanel` becomes responsive: `p-8` and natural-height on `<lg`, `min-h-screen` + `p-12` only on `lg+`. The hero text scales `text-2xl → text-3xl` at `lg`, the stat strip mt-margin tightens on small viewports.
+- `LoginPage` right pane: `px-6 py-10` on small, `p-6` (centered) on `lg`.
+- `LoginForm`: `gap-4` on small, `gap-5` on `lg`. Headline scales `text-xl → text-2xl`. Paragraph gains `leading-relaxed` for readability.
+
+### What must NOT change
+- The demo bootstrap (`ensureDemoUser()` in `App.tsx`) — that's a debug shortcut, not part of the demo path. It happens to make /staff-login skip on demo runs.
+- LoginForm's RHF + zod + MOIPASS-styled flow + role picker.
+- The teal gradient + KhayameyaStripe header on the art panel — brand register elements that are appropriate here (login is the boundary between brand and product).
+
+### Visual verification
+- Could not screenshot `/staff-login` directly — `App.tsx`'s `ensureDemoUser()` auto-seeds a super_admin user on startup, and `LoginPage` redirects authenticated users straight to `/hub`. Polish was applied based on file-level review; **typecheck clean**, **build clean**. Visual verification deferred to Phase 4 cohesion review (which can run with the demo bootstrap temporarily disabled).
+
+### Decision shorthand
+`art panel + page + form → responsive padding/typography for iPad-portrait stacked layout`. Visual deferred.

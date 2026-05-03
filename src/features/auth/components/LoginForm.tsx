@@ -69,14 +69,14 @@ export function LoginForm(): JSX.Element {
   const isPending = loginMutation.isPending || verifying;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex w-full max-w-md flex-col gap-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex w-full max-w-md flex-col gap-4 lg:gap-5">
       <header>
         <div className="mb-3 inline-flex items-center gap-2 rounded-pill bg-teal-50 px-3 py-1 text-2xs font-medium text-teal-700">
           <ShieldCheck size={12} strokeWidth={1.75} />
           منصّة التحقق الرقمي · MOIPASS
         </div>
-        <h2 className="font-ar-display text-2xl font-bold text-ink-900">دخول الموظفين</h2>
-        <p className="mt-1 text-sm text-ink-500">
+        <h2 className="font-ar-display text-xl font-bold text-ink-900 lg:text-2xl">دخول الموظفين</h2>
+        <p className="mt-1 text-sm leading-relaxed text-ink-500">
           يتم التحقق من هوية الضباط والموظفين عبر منصّة التحقق الرقمي للحكومة المصرية.
           المتقدّمون للالتحاق يستخدمون
           <a href={ROUTES.apply} className="mx-1 font-medium text-teal-700 hover:underline">صفحة التقديم</a>
