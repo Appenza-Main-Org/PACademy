@@ -37,7 +37,7 @@ export function BiometricVerifyPage(): JSX.Element {
           <CardBody>
             <div className="biometric-scan" style={{ position: 'relative' }}>
               <div className="biometric-frame" style={{ position: 'relative' }}>
-                {mode === 'face' ? <ScanFace size={88} color="#C9A961" /> : <Fingerprint size={88} color="#C9A961" />}
+                {mode === 'face' ? <ScanFace size={88} color="var(--gold-300)" /> : <Fingerprint size={88} color="var(--gold-300)" />}
                 {busy && <span className="scan-pulse" />}
               </div>
               <div className="biometric-status">{busy ? 'جارٍ المسح…' : 'جاهز للمسح'}</div>
@@ -270,7 +270,7 @@ function BiometricCapture({
     <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
       <div className="biometric-scan" style={{ position: 'relative' }}>
         <div className="biometric-frame" style={{ position: 'relative' }}>
-          {kind === 'face' ? <ScanFace size={88} color="#C9A961" /> : <Fingerprint size={88} color="#C9A961" />}
+          {kind === 'face' ? <ScanFace size={88} color="var(--gold-300)" /> : <Fingerprint size={88} color="var(--gold-300)" />}
           {scanning && <span className="scan-pulse" />}
         </div>
         <div className="biometric-status">

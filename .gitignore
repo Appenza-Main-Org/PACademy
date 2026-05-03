@@ -12,3 +12,10 @@ dist-ssr
 !.vscode/extensions.json
 coverage
 tsconfig.tsbuildinfo
+
+# Agent harness directories
+.agents/
+.claude/
+.devin/
+.windsurf/
+skills-lock.json

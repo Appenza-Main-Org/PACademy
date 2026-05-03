@@ -30,10 +30,10 @@ export function BoardOverviewPage(): JSX.Element {
     <>
       <PageHeader title="الهيئة وأمانة السر" subtitle="إدارة جلسات الهيئة وقراراتها" />
       <div className="grid grid-4 mb-6">
-        <StatCard label="عدد الأعضاء" value={MEMBERS.length} icon={<Users size={18} />} iconBg="#FBE9CC" iconColor="#B8770A" />
-        <StatCard label="جلسات هذا الشهر" value={6} icon={<CalendarClock size={18} />} iconBg="#DDE7F2" iconColor="#2D5BA0" />
-        <StatCard label="قرارات مُعتمدة" value={28} icon={<Gavel size={18} />} iconBg="#D7F0E1" iconColor="#1A8754" />
-        <StatCard label="ملفات قيد المراجعة" value={MOCK.kpis.underReview} icon={<Briefcase size={18} />} iconBg="#FBD6D6" iconColor="#B82C2C" />
+        <StatCard label="عدد الأعضاء" value={MEMBERS.length} icon={<Users size={18} />} iconBg="var(--warning-bg)" iconColor="var(--warning)" />
+        <StatCard label="جلسات هذا الشهر" value={6} icon={<CalendarClock size={18} />} iconBg="var(--teal-50)" iconColor="var(--teal-600)" />
+        <StatCard label="قرارات مُعتمدة" value={28} icon={<Gavel size={18} />} iconBg="var(--success-bg)" iconColor="var(--success)" />
+        <StatCard label="ملفات قيد المراجعة" value={MOCK.kpis.underReview} icon={<Briefcase size={18} />} iconBg="var(--danger-bg)" iconColor="var(--danger)" />
       </div>
 
       <div className="grid mb-6" style={{ gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-5)' }}>

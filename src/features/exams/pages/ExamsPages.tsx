@@ -81,7 +81,7 @@ export function QuestionBankPage(): JSX.Element {
                     <div key={i} className={`question-option ${i === q.correctIndex ? 'correct' : ''}`}>
                       <span className="question-option-letter">{String.fromCharCode(65 + i)}</span>
                       <span className="flex-1">{o}</span>
-                      {i === q.correctIndex && <CheckCircle size={18} color="#1A8754" />}
+                      {i === q.correctIndex && <CheckCircle size={18} color="var(--success)" />}
                     </div>
                   ))}
                 </div>
@@ -148,15 +148,15 @@ export function ExamsResultsPage(): JSX.Element {
               { label: '70-80', value: 64 },
               { label: '80-90', value: 88 },
               { label: '90-100', value: 48 },
-            ]} color="#7C2D8E" />
+            ]} color="var(--gold-500)" />
           </CardBody>
         </Card>
         <Card>
           <CardHeader title="معدل الاجتياز" />
           <CardBody>
             <DonutChart data={[
-              { label: 'ناجح', value: 200, color: '#1A8754' },
-              { label: 'راسب', value: 40, color: '#B82C2C' },
+              { label: 'ناجح', value: 200, color: 'var(--success)' },
+              { label: 'راسب', value: 40, color: 'var(--danger)' },
             ]} centerLabel="ممتحن" />
           </CardBody>
         </Card>

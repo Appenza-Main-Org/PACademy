@@ -27,6 +27,7 @@ import {
   toast,
 } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
+import { IconStamp } from '@/shared/components/icons';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
@@ -115,6 +116,7 @@ export function CommitteeDetailPage(): JSX.Element {
       label: 'الحالة',
       render: (r) => (
         <Badge tone={r.phase === 'final' ? 'success' : r.phase === 'rejected' ? 'danger' : 'warning'}>
+          {r.phase === 'final' && <IconStamp width={12} height={12} className="me-1 inline-block" />}
           {r.phase === 'final' ? 'معتمد' : r.phase === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}
         </Badge>
       ),

@@ -57,7 +57,7 @@ export function Sidebar({ sections }: SidebarProps): JSX.Element {
                       'font-medium',
                       'bg-[var(--accent-50)]',
                       'text-[var(--accent-600)]',
-                      'before:absolute before:inset-y-1 before:start-0 before:w-0.5 before:rounded-pill before:bg-[var(--accent-500)]',
+                      'before:absolute before:inset-y-1 before:start-0 before:w-1 before:rounded-pill before:bg-[var(--accent-500)]',
                     ],
                   )
                 }

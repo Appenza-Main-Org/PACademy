@@ -14,6 +14,7 @@ import {
   CardHeader,
   DataTable,
   EmptyState,
+  ErrorState,
   Input,
   PageHeader,
   Select,
@@ -137,7 +138,7 @@ export function BarcodeReplacementPage(): JSX.Element {
 }
 
 export function BarcodeScansHistoryPage(): JSX.Element {
-  const { data, isLoading } = useQuery({ queryKey: ['barcode', 'scans'], queryFn: () => barcodeService.listScans() });
+  const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: ['barcode', 'scans'], queryFn: () => barcodeService.listScans() });
 
   const columns: DataTableColumn<BarcodeScan>[] = [
     { key: 'id', label: 'الرقم', render: (s) => <span className="font-mono" dir="ltr">{s.id}</span> },
@@ -156,7 +157,7 @@ export function BarcodeScansHistoryPage(): JSX.Element {
         actions={<Badge tone="info"><History size={11} strokeWidth={1.75} className="me-1 inline-block" /> {data?.length ?? 0} عملية</Badge>}
       />
       <Card>
-        <DataTable data={data ?? []} columns={columns} rowKey={(s) => s.id} loading={isLoading} empty={<EmptyState variant="generic" title="لا توجد عمليات مسح" />} zebraStripes density="compact" />
+        <DataTable data={data ?? []} columns={columns} rowKey={(s) => s.id} loading={isLoading} error={isError ? <ErrorState error={error} onRetry={() => refetch()} /> : undefined} empty={<EmptyState variant="generic" title="لا توجد عمليات مسح" />} zebraStripes density="compact" />
       </Card>
     </CenteredShell>
   );

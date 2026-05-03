@@ -14,6 +14,7 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  ErrorState,
   Input,
   KhayameyaStripe,
   LoadingState,
@@ -59,6 +60,8 @@ export function MedicalCertificatePage(): JSX.Element {
 
       {certQ.isLoading ? (
         <LoadingState variant="detail" />
+      ) : certQ.isError ? (
+        <ErrorState error={certQ.error} onRetry={() => certQ.refetch()} />
       ) : !certQ.data ? (
         <EmptyState variant="generic" title="لا توجد بيانات" />
       ) : (

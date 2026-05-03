@@ -11,6 +11,7 @@ import {
   Card,
   DataTable,
   EmptyState,
+  ErrorState,
   PageHeader,
   PrintLayout,
   toast,
@@ -22,7 +23,7 @@ import type { InvestigationCase } from '@/shared/types/domain';
 
 export function DistributionPage(): JSX.Element {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['investigations', 'cases', { status: 'open' }],
     queryFn: () => investigationsService.list({ status: 'open' }),
   });
@@ -78,6 +79,7 @@ export function DistributionPage(): JSX.Element {
             columns={columns}
             rowKey={(c) => c.id}
             loading={isLoading}
+            error={isError ? <ErrorState error={error} onRetry={() => refetch()} /> : undefined}
             empty={<EmptyState variant="no-cases" />}
             density="compact"
           />

@@ -16,6 +16,7 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  ErrorState,
   Input,
   LoadingState,
   PageHeader,
@@ -24,6 +25,7 @@ import {
   toast,
 } from '@/shared/components';
 import { Gauge } from '@/shared/components/charts';
+import { IconStamp } from '@/shared/components/icons';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -56,6 +58,7 @@ export function StationExamPage(): JSX.Element {
   const [notes, setNotes] = useState('');
 
   if (stationsQ.isLoading) return <CenteredShell><LoadingState variant="page" /></CenteredShell>;
+  if (stationsQ.isError) return <CenteredShell><ErrorState error={stationsQ.error} onRetry={() => stationsQ.refetch()} /></CenteredShell>;
 
   return (
     <CenteredShell>
@@ -181,6 +184,7 @@ export function StationExamPage(): JSX.Element {
                     {r.verdict === 'pass' ? 'لائق' : r.verdict === 'fail' ? 'غير لائق' : 'بشرط'}
                   </Badge>
                   <Badge tone={r.phase === 'final' ? 'success' : 'warning'}>
+                    {r.phase === 'final' && <IconStamp width={12} height={12} className="me-1 inline-block" />}
                     {r.phase === 'final' ? 'معتمد' : 'قيد المراجعة'}
                   </Badge>
                 </div>

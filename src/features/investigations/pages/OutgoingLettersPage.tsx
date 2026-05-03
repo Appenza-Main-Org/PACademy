@@ -13,6 +13,7 @@ import {
   DataTable,
   Drawer,
   EmptyState,
+  ErrorState,
   Input,
   PageHeader,
   Select,
@@ -56,7 +57,7 @@ const STATUS_TONE: Record<OutgoingLetter['status'], 'neutral' | 'info' | 'warnin
 
 export function OutgoingLettersPage(): JSX.Element {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['investigations', 'letters'],
     queryFn: () => investigationsService.listLetters(),
   });
@@ -118,6 +119,7 @@ export function OutgoingLettersPage(): JSX.Element {
           columns={columns}
           rowKey={(l) => l.id}
           loading={isLoading}
+          error={isError ? <ErrorState error={error} onRetry={() => refetch()} /> : undefined}
           empty={<EmptyState variant="generic" title="لا توجد كتب صادرة" />}
           zebraStripes
         />

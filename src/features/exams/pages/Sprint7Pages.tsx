@@ -39,6 +39,7 @@ import {
   toast,
 } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
+import { IconStamp } from '@/shared/components/icons';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, num } from '@/shared/lib/format';
@@ -51,7 +52,7 @@ const STATUS_LABEL: Record<QuestionStatus, string> = {
   draft: 'مسودّة', review: 'قيد المراجعة', approved: 'معتمد', live: 'منشور',
 };
 const STATUS_TONE: Record<QuestionStatus, 'neutral' | 'warning' | 'info' | 'success'> = {
-  draft: 'neutral', review: 'warning', approved: 'info', live: 'success',
+  draft: 'neutral', review: 'warning', approved: 'success', live: 'info',
 };
 
 export function QuestionBankCRUDPage(): JSX.Element {
@@ -93,7 +94,7 @@ export function QuestionBankCRUDPage(): JSX.Element {
     { key: 'category', label: 'الفئة', render: (q) => q.category },
     { key: 'difficulty', label: 'الصعوبة', numeric: true, render: (q) => '★'.repeat(q.difficulty) },
     { key: 'text', label: 'نص السؤال', render: (q) => <span className="block max-w-md truncate">{q.text}</span> },
-    { key: 'status', label: 'الحالة', render: (q) => <Badge tone={STATUS_TONE[q.status]}>{STATUS_LABEL[q.status]}</Badge> },
+    { key: 'status', label: 'الحالة', render: (q) => <Badge tone={STATUS_TONE[q.status]}>{q.status === 'approved' && <IconStamp width={12} height={12} className="me-1 inline-block" />}{STATUS_LABEL[q.status]}</Badge> },
     {
       key: '_actions',
       label: <span className="sr-only">إجراءات</span>,
@@ -148,15 +149,15 @@ export function QuestionBankCRUDPage(): JSX.Element {
           label="معتمد"
           value={statusCounts.approved}
           icon={<ShieldCheck size={16} strokeWidth={1.75} />}
-          iconBg="var(--teal-50)"
-          iconColor="var(--teal-700)"
+          iconBg="var(--success-bg)"
+          iconColor="var(--success)"
         />
         <StatCard
           label="منشور"
           value={statusCounts.live}
           icon={<CheckCircle2 size={16} strokeWidth={1.75} />}
-          iconBg="var(--success-bg)"
-          iconColor="var(--success)"
+          iconBg="var(--teal-50)"
+          iconColor="var(--teal-700)"
         />
       </div>
 

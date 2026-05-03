@@ -16,10 +16,10 @@ export function MedicalOverviewPage(): JSX.Element {
       <PageHeader title="القومسيون الطبي" subtitle="8 عيادات تخصصية تستقبل المتقدمين" />
 
       <div className="grid grid-4 mb-6">
-        <StatCard label="عيادات نشطة" value={MOCK.medicalStations.length} icon={<Stethoscope size={18} />} iconBg="#C8EBEB" iconColor="#0E8E8E" />
-        <StatCard label="في الانتظار"   value={totalQueue}                      icon={<Clock size={18} />}      iconBg="#FBE9CC" iconColor="#B8770A" />
-        <StatCard label="تم اليوم"       value={totalCompleted}                  icon={<CheckCircle size={18} />} iconBg="#D7F0E1" iconColor="#1A8754" />
-        <StatCard label="متقدمون اليوم"  value={totalQueue + totalCompleted}    icon={<Users size={18} />}      iconBg="#DDE7F2" iconColor="#2D5BA0" />
+        <StatCard label="عيادات نشطة" value={MOCK.medicalStations.length} icon={<Stethoscope size={18} />} iconBg="var(--teal-100)" iconColor="var(--teal-700)" />
+        <StatCard label="في الانتظار"   value={totalQueue}                      icon={<Clock size={18} />}      iconBg="var(--warning-bg)" iconColor="var(--warning)" />
+        <StatCard label="تم اليوم"       value={totalCompleted}                  icon={<CheckCircle size={18} />} iconBg="var(--success-bg)" iconColor="var(--success)" />
+        <StatCard label="متقدمون اليوم"  value={totalQueue + totalCompleted}    icon={<Users size={18} />}      iconBg="var(--teal-50)" iconColor="var(--teal-600)" />
       </div>
 
       <div className="grid grid-cols-auto">
@@ -29,7 +29,7 @@ export function MedicalOverviewPage(): JSX.Element {
             <Card key={s.id}>
               <CardBody>
                 <div className="flex items-center justify-between mb-3">
-                  <div className="stat-icon" style={{ background: '#C8EBEB', color: '#0E8E8E' }}>
+                  <div className="stat-icon" style={{ background: 'var(--teal-100)', color: 'var(--teal-700)' }}>
                     <Stethoscope size={18} />
                   </div>
                   <Badge tone="info">{s.id}</Badge>

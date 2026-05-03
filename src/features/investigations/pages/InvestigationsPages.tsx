@@ -20,6 +20,7 @@ import {
   CardBody,
   DataTable,
   EmptyState,
+  ErrorState,
   PageHeader,
   Select,
   StatCard,
@@ -65,7 +66,7 @@ export function InvestigationsCasesPage(): JSX.Element {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<CaseStatus | 'all'>('all');
 
-  const { data: cases, isLoading } = useQuery({
+  const { data: cases, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['investigations', 'cases-v2', statusFilter],
     queryFn: () => investigationsService.list({ status: statusFilter }),
   });
@@ -166,6 +167,7 @@ export function InvestigationsCasesPage(): JSX.Element {
           columns={columns}
           rowKey={(c) => c.id}
           loading={isLoading}
+          error={isError ? <ErrorState error={error} onRetry={() => refetch()} /> : undefined}
           empty={<EmptyState variant="no-cases" />}
           onRowClick={(c) => navigate(ROUTES.investigations.detail(c.id))}
           zebraStripes
