@@ -152,3 +152,31 @@ All commits ship typecheck-clean. Build verified after Phase 0.5 close; subseque
 ### What's next
 - Continue Phase 1 — Screen 6 = `/` (PublicLandingPage), per POLISH_PLAN.md ordering.
 - Next progress entry: at the close of Phase 1 (after screen 14), or at the 10-screen mark.
+
+---
+
+## 2026-05-03 · Phase 1 — flagship screens 6–10 complete
+
+### Completed in this batch
+6. **Screen 6 — `/` PublicLandingPage** (commit `8fbea87`). Headline scaled `text-4xl → text-5xl` on `md+` for brand-register hero gravity. Meta strip rebuilt as inline `dl` with vertical dividers (mirrors hub). IconSeal anchor added to bottom attribution bar.
+7. **Screen 7 — `/staff-login`** (commit `410c202`). LoginArtPanel responsive: natural-height + `p-8` on small, `min-h-screen` + `p-12` only on `lg+`. LoginPage right pane: `px-6 py-10` on small, `p-6` on `lg`. LoginForm: `gap-4 → gap-5` at `lg`, headline `text-xl → text-2xl`. **Visual verification deferred** — App.tsx's `ensureDemoUser()` auto-seeds super_admin and `LoginPage` redirects authenticated users to `/hub`. Phase 4 cohesion review will spot-check with the demo bootstrap temporarily disabled. Typecheck + build clean.
+8. **Screen 8 — `/admin` dashboard** (commit `b3d7556`). Live activity ticker dot keyed by action color via `TICKER_DOT` map (matches the hub's new `AUDIT_DOT` shape). Geographic distribution bars now consume `var(--accent-500)` instead of hardcoded `bg-teal-500` (S1 alignment).
+9. **Screen 9 — `/investigations/cases/:id`** (commit `1462ebc`). Classification banner reshaped from a single terra-toned UI alert into a 2-row security-document stamp: terra-500 solid top rail with mono Latin "RESTRICTED · CLASSIFIED" + case ID, Arabic restriction body below. Reads like the bilingual stamp on real classified files.
+10. **Screen 10 — `/applicant/profile/family` Stage 7** (commit `1de561b`). Submit row gains a §4-aligned "preliminary save" notice on the leading edge: dashed gold-300 border + gold-50 bg + canonical Arabic copy stating the data is saved as «أوليّة» pending the security investigation. Same visual shape as the CommitteeDetail preliminary panel.
+
+### Hours spent vs budget
+- **~4 h consumed in this batch** → **~13.5 h / 80 h** total.
+- Phase-1 estimate for these 5 screens was 17 h (4+2+4+4+3). Closed in ~4 h. Budget gain: 13 h.
+- **Pace: ON-TRACK.** 4 flagship screens remaining; ~66.5 h of budget remaining.
+
+### Judgment calls flagged
+- **JUDGMENT CALL (/staff-login screenshots):** could not capture verified after-screenshots due to App.tsx's auto-seed redirecting all visits to /hub. Polish was applied based on file-level review with typecheck + build verification. Phase 4 cohesion review will close the loop.
+- **JUDGMENT CALL (canonical preliminary-save copy on Stage 7):** the §4 PRODUCT.md table didn't pre-script the exact applicant-side copy for a "preliminary" affordance — only the Badge/border/icon. I wrote a one-sentence inline notice that matches the tone of the CommitteeDetail explainer ("النتيجة المُدخَلة...تُحفظ كـ «قيد المراجعة»...") and rephrased it for the applicant-side context. Worth a copy review by the Arabic-content reviewer.
+- **JUDGMENT CALL (/investigations/cases bilingual stamp):** introducing English mono "RESTRICTED · CLASSIFIED" on a Ministry-of-Interior page might raise questions. Decision: kept it because (a) the bilingual stamp is a real-world convention on classified files, and (b) it gives the page genuine institutional gravity that pure Arabic warning-tone alerts can't reach. The page already has the case ID in mono LTR elsewhere, so the convention is established.
+
+### New issues discovered
+- The architecture page's user-driven rebuild (English-LTR technical reference) is now divergent from the rest of the app's Arabic-RTL register. This isn't an issue — it's intentional per the rebuild log entry — but **Phase 4 cohesion** should verify the rebuild's six-tier-security and 9-section structure read coherently when navigating in/out of the page.
+
+### What's next
+- Continue Phase 1 — Screen 11 = `/committee/:id` results-entry, per POLISH_PLAN.md ordering.
+- Next progress entry: at Phase 1 close (after screen 14).
