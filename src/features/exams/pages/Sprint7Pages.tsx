@@ -172,8 +172,9 @@ export function QuestionBankCRUDPage(): JSX.Element {
                 onClick={() => setCategoryFilter('all')}
                 className={
                   'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-start ' +
-                  (categoryFilter === 'all' ? 'bg-teal-50 font-medium text-teal-700' : 'text-ink-700 hover:bg-ink-50')
+                  (categoryFilter === 'all' ? 'font-medium' : 'text-ink-700 hover:bg-ink-50')
                 }
+                style={categoryFilter === 'all' ? { background: 'var(--accent-50)', color: 'var(--accent-700)' } : undefined}
               >
                 <span className="inline-flex items-center gap-2">
                   <BookOpen size={13} strokeWidth={1.75} />
@@ -189,8 +190,9 @@ export function QuestionBankCRUDPage(): JSX.Element {
                   onClick={() => setCategoryFilter(cat)}
                   className={
                     'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-start ' +
-                    (categoryFilter === cat ? 'bg-teal-50 font-medium text-teal-700' : 'text-ink-700 hover:bg-ink-50')
+                    (categoryFilter === cat ? 'font-medium' : 'text-ink-700 hover:bg-ink-50')
                   }
+                  style={categoryFilter === cat ? { background: 'var(--accent-50)', color: 'var(--accent-700)' } : undefined}
                 >
                   <span className="inline-flex items-center gap-2">
                     <Folder size={13} strokeWidth={1.75} />
@@ -370,9 +372,15 @@ export function LiveExamPage(): JSX.Element {
                   <button
                     type="button"
                     onClick={() => setAnswers({ ...answers, [activeQ.id]: i })}
-                    className={'flex w-full items-center gap-3 rounded-md border px-3 py-2 text-start text-sm ' + (checked ? 'border-teal-500 bg-teal-50' : 'border-border-default hover:bg-ink-50')}
+                    className={'flex w-full items-center gap-3 rounded-md border px-3 py-2 text-start text-sm ' + (checked ? '' : 'border-border-default hover:bg-ink-50')}
+                    style={checked ? { borderColor: 'var(--accent-500)', background: 'var(--accent-50)' } : undefined}
                   >
-                    <span className={'inline-flex h-5 w-5 items-center justify-center rounded-full ' + (checked ? 'bg-teal-500 text-white' : 'border border-border-strong')}>{i + 1}</span>
+                    <span
+                      className={'inline-flex h-5 w-5 items-center justify-center rounded-full ' + (checked ? 'text-white' : 'border border-border-strong')}
+                      style={checked ? { background: 'var(--accent-500)' } : undefined}
+                    >
+                      {i + 1}
+                    </span>
                     {opt}
                   </button>
                 </li>
