@@ -39,3 +39,42 @@
 
 ### Decision shorthand
 `hero status strip → tighter`, `+ activity strip (3 events, no new shared component)`, `iPad-portrait sanity`.
+
+---
+
+## Screen 2 — `/architecture`
+
+**File:** [src/features/architecture/pages/ArchitecturePage.tsx](../../src/features/architecture/pages/ArchitecturePage.tsx)
+**Demo role:** Scope-comprehension showcase. Decision-makers click here to verify the karasa coverage. Truth in numbers.
+**Pass-1 input:** 4-layer diagram + 6 integrations + 11×9 RBAC + 500-unit hardware shipped. **Principle #2 visibility check.**
+
+### Current state (before polish)
+- 4-layer diagram with `border-2` colored boxes (teal/gold/terra/ink), saturated bg-50 fills. Connector between layers = a 14px-tall lucide ChevronLeft icon.
+- 6-row Integrations table — clickable rows hover into teal-50 → opens Drawer with flow steps.
+- Hardware inventory: 7-tile auto-fit grid, all teal-50 swatches, font-numeric tnum counts.
+- RBAC matrix: 11 roles × 9 apps. "Allowed" = solid `●` Unicode bullet in teal-500 square. "Not allowed" = `○` empty Unicode circle. No legend, no row striping.
+- Stack: 6-card grid, fine.
+
+### What's wrong
+1. **Layer diagram screams** — `border-2` in saturated terra/gold/teal makes the 4 layers fight each other. The chevron connector reads as a UI control, not as a flow indicator.
+2. **RBAC dots are unicode glyphs** at small size — they pixel-snap inconsistently and lack the institutional crispness of a proper Check icon. The `○` is too prominent for "not allowed" — should fade.
+3. **No RBAC legend** — a Ministry decision-maker reading this needs the legend visible without inferring meaning.
+4. **No row striping on RBAC** — the eye loses track between roles 5 and 8.
+
+### What good looks like (after polish)
+- **Layer diagram → calmer**: drop `border-2` to a 4px **start-edge color rail** + a 1px subtle border-subtle around the rest, plus `shadow-sm` for depth. Replace the chevron with a thin 1px gradient line (border-subtle → ink-300) for a flow connector that reads as wire, not control.
+- **Inner block hover**: subtle `hover:border-ink-300` for affordance.
+- **RBAC matrix**:
+  - Allowed → `<Check size={14} strokeWidth={2.5} />` inside a `bg-teal-500` square — same visual weight as before, but a proper icon.
+  - Not allowed → `<Minus size={12} />` in `text-ink-300` — recedes properly.
+  - **Zebra striping** on rows (alternate `bg-surface-card` / `bg-ink-50/40`) so the eye doesn't lose its place across 11 rows.
+  - **Legend strip** at the end: small inline pair `[Check] مسموح · [Minus] غير مسموح` in `text-2xs text-ink-500`.
+
+### What must NOT change
+- The 4 sections (diagram → integrations → hardware → RBAC → stack → sovereignty footer + Khayameya stripe close).
+- Per-layer colors (teal/gold/terra/ink) — they're meaningful (DMZ vs intranet), not decorative.
+- Integrations table behavior (click → Drawer with flow steps).
+- Hardware-inventory monochrome — varying accent-per-tile would be AI-slop.
+
+### Decision shorthand
+`layer diagram → calmer borders + flow-line connector`, `RBAC → proper Check/Minus + zebra + legend`. No new shared components. No token edits.

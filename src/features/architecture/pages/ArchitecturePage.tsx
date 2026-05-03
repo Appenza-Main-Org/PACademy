@@ -15,7 +15,7 @@ import { Link } from 'react-router-dom';
 import { ROUTES } from '@/config/routes';
 import {
   Building2,
-  ChevronLeft,
+  Check,
   Cloud,
   Code2,
   Cpu,
@@ -25,6 +25,7 @@ import {
   HardDrive,
   Layers,
   Lock,
+  Minus,
   Monitor,
   Network,
   Printer,
@@ -270,8 +271,8 @@ export function ArchitecturePage(): JSX.Element {
               {LAYERS.map((layer, idx) => (
                 <div key={layer.id} className="relative">
                   <div
-                    className="rounded-lg border-2 p-4"
-                    style={{ borderColor: layer.color, background: layer.bg }}
+                    className="rounded-lg border-s-4 border border-border-subtle p-4 shadow-sm"
+                    style={{ borderInlineStartColor: layer.color, background: layer.bg }}
                   >
                     <div className="mb-3 flex items-center justify-between">
                       <div>
@@ -282,8 +283,8 @@ export function ArchitecturePage(): JSX.Element {
                     </div>
                     <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
                       {layer.blocks.map((b) => (
-                        <div key={b.title} className="flex items-start gap-2 rounded-md border border-border-subtle bg-surface-card p-2.5">
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md text-white" style={{ background: layer.color }}>
+                        <div key={b.title} className="flex items-start gap-2 rounded-md border border-border-subtle bg-surface-card p-2.5 transition-colors duration-fast ease-standard hover:border-ink-300">
+                          <span className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-white" style={{ background: layer.color }}>
                             {b.icon}
                           </span>
                           <div className="min-w-0 flex-1">
@@ -295,8 +296,8 @@ export function ArchitecturePage(): JSX.Element {
                     </div>
                   </div>
                   {idx < LAYERS.length - 1 && (
-                    <div aria-hidden className="my-1 flex justify-center text-ink-400">
-                      <ChevronLeft size={14} strokeWidth={1.75} className="rotate-[-90deg]" />
+                    <div aria-hidden className="flex justify-center" style={{ height: 14 }}>
+                      <span className="block w-px" style={{ background: 'linear-gradient(to bottom, var(--border-subtle), var(--ink-300))' }} />
                     </div>
                   )}
                 </div>
@@ -469,43 +470,63 @@ const APP_LABELS: Record<AppKey, string> = {
 function RbacMatrix(): JSX.Element {
   const apps = APP_KEYS.filter((a): a is Exclude<AppKey, 'architecture'> => a !== 'architecture');
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-ink-50 text-2xs uppercase tracking-wide text-ink-500">
-            <th className="sticky inset-inline-start-0 bg-ink-50 px-3 py-2 text-start">الدور</th>
-            {apps.map((a) => (
-              <th key={a} className="px-2 py-2 text-center">{APP_LABELS[a]}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {ROLES.map((role: Role) => {
-            const def = ROLE_DEFINITIONS[role];
-            return (
-              <tr key={role} className="border-b border-border-subtle last:border-b-0">
-                <td className="sticky inset-inline-start-0 bg-surface-card px-3 py-2 text-2xs text-ink-900">
-                  <span className="font-medium">{def.labelAr}</span>
-                  <br />
-                  <span className="text-ink-500 font-mono" dir="ltr">{role}</span>
-                </td>
-                {apps.map((a) => {
-                  const has = def.apps.includes(a);
-                  return (
-                    <td key={a} className="text-center">
-                      {has ? (
-                        <span aria-label="مسموح" className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-teal-500 font-bold text-white">●</span>
-                      ) : (
-                        <span aria-label="غير مسموح" className="inline-flex h-6 w-6 items-center justify-center text-2xs text-ink-300">○</span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="bg-ink-50 text-2xs uppercase tracking-wide text-ink-500">
+              <th className="sticky inset-inline-start-0 bg-ink-50 px-3 py-2 text-start">الدور</th>
+              {apps.map((a) => (
+                <th key={a} className="px-2 py-2 text-center">{APP_LABELS[a]}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ROLES.map((role: Role, ri) => {
+              const def = ROLE_DEFINITIONS[role];
+              return (
+                <tr key={role} className={'border-b border-border-subtle last:border-b-0 ' + (ri % 2 === 0 ? 'bg-surface-card' : 'bg-ink-50/40')}>
+                  <td className="sticky inset-inline-start-0 bg-inherit px-3 py-2 text-2xs text-ink-900">
+                    <span className="font-medium">{def.labelAr}</span>
+                    <br />
+                    <span className="text-ink-500 font-mono" dir="ltr">{role}</span>
+                  </td>
+                  {apps.map((a) => {
+                    const has = def.apps.includes(a);
+                    return (
+                      <td key={a} className="text-center">
+                        {has ? (
+                          <span aria-label="مسموح" className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-teal-500 text-white">
+                            <Check size={14} strokeWidth={2.5} aria-hidden />
+                          </span>
+                        ) : (
+                          <span aria-label="غير مسموح" className="inline-flex h-6 w-6 items-center justify-center text-ink-300">
+                            <Minus size={12} strokeWidth={1.75} aria-hidden />
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-3 flex items-center justify-end gap-4 text-2xs text-ink-500">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex h-4 w-4 items-center justify-center rounded-sm bg-teal-500 text-white">
+            <Check size={10} strokeWidth={2.5} aria-hidden />
+          </span>
+          مسموح
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex h-4 w-4 items-center justify-center text-ink-300">
+            <Minus size={10} strokeWidth={1.75} aria-hidden />
+          </span>
+          غير مسموح
+        </span>
+      </div>
     </div>
   );
 }
