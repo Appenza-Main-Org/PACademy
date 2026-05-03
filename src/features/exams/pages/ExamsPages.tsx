@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle, Plus } from 'lucide-react';
 import { PageHeader, Card, CardHeader, CardBody, Button, Badge } from '@/shared/components';
@@ -27,25 +28,38 @@ export function QuestionBankPage(): JSX.Element {
       <PageHeader
         title="بنك الأسئلة"
         subtitle="إدارة وتصنيف أسئلة الاختبارات الإلكترونية"
-        actions={<Button variant="primary" leadingIcon={<Plus size={16} />}>سؤال جديد</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            <Link to="/question-bank/manage" className="text-2xs text-ink-500 transition-colors duration-fast ease-standard hover:text-ink-900">
+              إدارة الأسئلة (دفق الاعتماد) ←
+            </Link>
+            <Button variant="primary" leadingIcon={<Plus size={16} />}>سؤال جديد</Button>
+          </div>
+        }
       />
 
       <Card className="mb-6">
         <CardHeader title="التصنيفات" subtitle="الأسئلة المُتاحة حسب المادة" />
         <CardBody>
-          <div className="grid grid-cols-auto" style={{ gap: 12 }}>
-            {(categories ?? []).map((c) => (
-              <button
-                key={c.name}
-                type="button"
-                className={cn('card', category === c.name && 'border-2')}
-                style={{ padding: 14, textAlign: 'right', borderColor: category === c.name ? 'var(--brand-primary)' : undefined }}
-                onClick={() => setCategory(category === c.name ? 'all' : c.name)}
-              >
-                <div className="font-bold">{c.name}</div>
-                <div className="text-xs text-tertiary mt-2">{num(c.count)} سؤال</div>
-              </button>
-            ))}
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            {(categories ?? []).map((c) => {
+              const active = category === c.name;
+              return (
+                <button
+                  key={c.name}
+                  type="button"
+                  className={cn(
+                    'rounded-md border bg-surface-card px-4 py-3 text-end transition-all duration-fast ease-standard hover:border-ink-300',
+                    active ? 'shadow-sm' : 'border-border-subtle',
+                  )}
+                  style={active ? { borderColor: 'var(--accent-500)', borderWidth: 2 } : undefined}
+                  onClick={() => setCategory(active ? 'all' : c.name)}
+                >
+                  <div className="text-sm font-bold text-ink-900">{c.name}</div>
+                  <div className="mt-1 font-numeric tnum text-2xs text-ink-500">{num(c.count)} سؤال</div>
+                </button>
+              );
+            })}
           </div>
         </CardBody>
       </Card>

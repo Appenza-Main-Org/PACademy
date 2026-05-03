@@ -353,3 +353,26 @@
 
 ### Decision shorthand
 `tally container → adaptive border-s-4 + IconStamp Badge on decided pass verdict`.
+
+---
+
+## Screen 14 — `/question-bank`
+
+**File:** [src/features/exams/pages/ExamsPages.tsx](../../src/features/exams/pages/ExamsPages.tsx) (`QuestionBankPage`)
+**Demo role:** Question repository overview. Read-only catalogue. Different page from `/question-bank/manage` (the §4 workflow lives there, polished in Phase 0.5).
+**Pass-1 input:** 5-tile stats + category-tree sidebar done. **Principle #4 across draft/review/approved/live workflow.**
+
+### What's wrong
+- Category buttons use legacy CSS (`.card`, `.text-tertiary`, inline `borderColor: var(--brand-primary)`) — token-bypass and not token-aligned.
+- No discoverability link to the management page (`/question-bank/manage`) where the §4 workflow lives.
+
+### What good looks like (after polish)
+- Category buttons rebuilt with Tailwind: `rounded-md border bg-surface-card px-4 py-3 text-end transition-all duration-fast ease-standard hover:border-ink-300`. Active state: `shadow-sm` + inline `borderColor: var(--accent-500), borderWidth: 2` (S1 alignment).
+- "إدارة الأسئلة (دفق الاعتماد) ←" deep link added to the page header next to the "سؤال جديد" CTA — surfaces the §4 workflow on the management page (which is where Phase 0.5's `IconStamp` on approved Badge already lives).
+
+### What must NOT change
+- The question list rendering with `.question-card` legacy CSS — this is a Phase 3 concern (S7 audit: ad-hoc bordered divs codemod). Out of scope here.
+- The `categories` query and filtering behavior.
+
+### Decision shorthand
+`category buttons → Tailwind + var(--accent-500) active`, `+ deep link to /manage`. Legacy `.question-card` deferred to Phase 3.
