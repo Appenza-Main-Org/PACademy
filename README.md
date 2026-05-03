@@ -2,6 +2,8 @@
 
 > **React 18 + TypeScript + Vite + TanStack Query + Zustand + Tailwind**
 > Production-grade rebuild of the Police Academy Admissions Platform — 12 routes, 11 RBAC roles, 9 connected applications, fully RTL Arabic-first.
+>
+> **Status:** feature-complete + polish-complete (tag `polish-complete`, 2026-05-03). Demo cut tagged `v0.2.0-demo`. Backend integration is a later phase. See [POLISH_REPORT.md](POLISH_REPORT.md) for the polish closeout, [CLAUDE.md](CLAUDE.md) for full operating context.
 
 ---
 

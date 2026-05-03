@@ -10,8 +10,8 @@
 
 - **Owner:** وزارة الداخلية · أكاديمية الشرطة (Ministry of Interior · Police Academy)
 - **Built by:** Appenza Studio — Engineering Manager: Mortada
-- **Status:** Frontend complete; backend integration is a later session
-- **Repo state:** single commit (`63337db feat: initial Police Academy Admissions frontend`)
+- **Status:** Frontend feature-complete; design polish complete (`polish-complete` tag, 2026-05-03); backend integration is a later session.
+- **Demo deadline:** 2026-05-29 (~4 weeks out). The polish program (POLISH_REPORT.md) was sized against this date.
 
 The app is a **production-grade rebuild** of a vanilla HTML/JS demo (preserved under [_legacy/](_legacy/)). The legacy demo is the **functional, visual, and data spec** — recreate, do not reinvent.
 
@@ -301,17 +301,22 @@ Mini Zustand-backed toast in [src/shared/components/Toast.tsx](src/shared/compon
   - `motion.ts` helper — reduced-motion-aware durations and transitions.
 - **Pre-Sprint baseline** (from initial commit): Vite + TS + Tailwind, deterministic mock data (LCG seed=42), 11-role RBAC, all 12 top-level routes wired, ToastViewport, AuthGuard, sessionStorage persistence.
 
-🚧 **Next sprints** (per [Tasks/KARASA_GAPS.md §12](Tasks/KARASA_GAPS.md))
-- **Sprint 1 — Admin Portal**: reference data CRUD (8 entities), admission rules editor (versioned), cycles management, real PDF/Excel/Word exports, heatmap-enriched dashboard.
-- **Sprint 2 — Applicant Portal**: 11-stage Wizard refactor with per-stage zod schemas, payment integration, exam-slot reservation, attendance card + acquaintance doc PDFs.
-- **Sprints 3–9**: Committees → Medical → Investigations → Board → Exams → Biometric/Barcode → Cross-cutting (search, notifications, profile, help, architecture refresh).
+✅ **Done (additional, post-Sprint 0)**
+- **Sprints 1–9 shipped** (tags `sprint-1-complete` through `sprint-9-complete`): Admin Portal, Applicant Portal 11-stage Wizard, Committees, Board, Investigations, Medical Commission, Barcode, Biometric, Question Bank + Exams.
+- **Demo cut** (tag `v0.2.0-demo`).
+- **Polish program** (tag `polish-complete`, 2026-05-03): 4-phase 80-hour program closed in ~24h. 16 flagship screens polished; all 10 audit findings (S1–S10) addressed. Cross-screen visual coherence patterns canonized: §4 two-phase signature affordance (preliminary notice + IconStamp on معتمد Badge), shared `SignatureBlock` shape across the 3 print docs, action-color dot lookup map across hub + admin tickers. See [POLISH_REPORT.md](POLISH_REPORT.md).
+- **`/architecture` rebuilt** as a 9-section English-LTR technical reference with comprehensive system diagram (apps + integrations on one canvas), citation-rich, print-friendly. See `src/features/architecture/`.
+- **Terminology rename:** all `KARASA` references in code and inline copy renamed to `RFP Scope Document`. The `Tasks/KARASA_GAPS.md` file retains its filename for git-history continuity but the user-facing term is now "RFP Scope Document."
+
+🚧 **Next sprints**
 - **Sprint 10 — Hardening**: Vitest + Testing Library, Playwright smoke E2E, `eslint-plugin-boundaries`, Husky pre-commit, accessibility audit, print polish.
+- **Backend integration** (post-demo): replace `simulateLatency()` + `MOCK` reads in every `*.service.ts` with real `apiClient.get/post(...)` calls. See §6 for the integration pattern. Component/query/type contracts stay unchanged.
 
 ---
 
 ## 12. Working with this repo — Claude-specific guidance
 
-1. **Always start by reading this CLAUDE.md, then the affected feature's `index.ts`** to understand what it exports.
+1. **Always start by reading this CLAUDE.md, then the affected feature's `index.ts`** to understand what it exports. For visual changes, also read [POLISH_REPORT.md](POLISH_REPORT.md) §5 (cross-screen coherence wins) and the relevant entry in [docs/polish/SHAPE_BRIEFS.md](docs/polish/SHAPE_BRIEFS.md).
 2. **The legacy demo is the spec.** When recreating a screen, open the matching file under [_legacy/js/pages/](_legacy/js/pages/) and the styles in [_legacy/styles/](_legacy/styles/). Don't invent.
 3. **Mock service contracts are real.** The JSDoc `INTEGRATION CONTRACT` headers in `*.service.ts` document the real REST endpoints — keep them in sync if you add methods.
 4. **Don't break Clean Arch.** `shared/` cannot import `features/`. Cross-feature imports must go through the source feature's `index.ts` barrel.
@@ -321,6 +326,10 @@ Mini Zustand-backed toast in [src/shared/components/Toast.tsx](src/shared/compon
 8. **For UI changes, run `npm run dev` and click through the affected route.** Do not claim a UI feature works without exercising it.
 9. **No backend.** This frontend is pre-integration. Any "fetch from API" answer is wrong — the answer is "extend the mock service and add a query hook."
 10. **Arabic content is exact** — copy-paste from the legacy demo or existing files; do not retype Arabic strings (rendering edge cases bite).
+11. **Per-app surfaces consume `var(--accent-*)`, never hardcoded `bg-teal-*` / `text-gold-*`.** The S1 audit (POLISH_REPORT §3) closed this across 7 of 9 apps. New per-app surfaces must use `var(--accent-500/700/50)` via inline `style` so the `data-app="<key>"` overrides flow through.
+12. **§4 two-phase signature canon** (PRODUCT.md §4): any "preliminary save" affordance uses the dashed `border-gold-300 bg-gold-50 text-gold-700` notice shape; any "final / approved / معتمد" Badge carries the `<IconStamp width={12} height={12} />` glyph on the start edge. Don't invent new affordances for the same workflow.
+13. **App.tsx auto-seeds a super_admin demo user** (`ensureDemoUser()`). To verify `/staff-login` visually, temporarily disable that block — `LoginPage` redirects authenticated users straight to `/hub`.
+14. **Terminology — use "RFP Scope Document" not "karasa"** in code, comments, and user-facing copy. The `Tasks/KARASA_GAPS.md` filename stays for git-history continuity, but the term inside is "RFP Scope Document."
 
 ---
 
@@ -338,4 +347,28 @@ Mini Zustand-backed toast in [src/shared/components/Toast.tsx](src/shared/compon
 | Validate national ID | [src/shared/lib/national-id.ts](src/shared/lib/national-id.ts) |
 | Toast | `import { toast } from '@/shared/components'` |
 | Per-app theming | wrap shell with `<AppShell app="medical" appLabel="القومسيون الطبي">` |
+| Per-app accent in styles | inline `style={{ background: 'var(--accent-500)' }}` |
+| §4 preliminary notice | `border border-dashed border-gold-300 bg-gold-50 text-2xs text-gold-700` |
+| §4 final stamp on Badge | `<IconStamp width={12} height={12} className="me-1 inline-block" />` inside `<Badge tone="success">` |
+| Ministerial seal | `<IconSeal width={N} height={N} className="text-gold-600" />` |
 | URL constants | `import { ROUTES } from '@/config/routes'` |
+
+---
+
+## 14. Context-document index
+
+| Doc | Purpose | Status |
+|---|---|---|
+| [CLAUDE.md](CLAUDE.md) | This file — operating context for Claude Code | Live (always read first) |
+| [PRODUCT.md](PRODUCT.md) | Strategic context: users, brand, anti-references, §4 two-phase canon | Live (read for product/UX decisions) |
+| [DESIGN.md](DESIGN.md) → [Tasks/DESIGN_SYSTEM.md](Tasks/DESIGN_SYSTEM.md) | Visual constitution — tokens, type, motion | Live (read before any visual work) |
+| [POLISH_REPORT.md](POLISH_REPORT.md) | Closeout report on the 4-phase polish program | Live snapshot at 2026-05-03 |
+| [docs/polish/SHAPE_BRIEFS.md](docs/polish/SHAPE_BRIEFS.md) | Per-screen shape briefs for all 16 flagship screens | Reference (read before re-touching a flagship) |
+| [docs/polish/POLISH_PROGRESS.md](docs/polish/POLISH_PROGRESS.md) | Append-only live log of the polish program | Historical record |
+| [POLISH_PLAN.md](POLISH_PLAN.md) | Original polish program plan + 10 audit findings (S1–S10) | Historical (superseded by POLISH_REPORT.md) |
+| [HANDOFF.md](HANDOFF.md) | Session-handoff doc that ran the polish work | Historical (polish is complete) |
+| [Tasks/DESIGN_SYSTEM.md](Tasks/DESIGN_SYSTEM.md) | Visual constitution (Arabic Heritage Modern) | Live |
+| [Tasks/KARASA_GAPS.md](Tasks/KARASA_GAPS.md) | RFP Scope Document coverage map | Live (filename retained; terminology inside is "RFP Scope Document") |
+| [Tasks/tasks.md](Tasks/tasks.md) | Original sprint task plan | Reference |
+| [Tasks/CLAUDE_CODE_BRIEF.md](Tasks/CLAUDE_CODE_BRIEF.md) | Original Claude-Code project brief | Historical (kickoff context) |
+| [README.md](README.md) | Public-facing README + quick-start | Live |

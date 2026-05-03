@@ -1,6 +1,16 @@
 # HANDOFF — pick up the polish program in a new session
 
-**Status:** Phase 0 done. Phase 0.5 batch is **mid-flight, uncommitted**. Tree is typecheck-clean (`npx tsc --noEmit` → 0 errors); no commits made yet this run.
+> ## ⚠ HISTORICAL DOCUMENT — POLISH PROGRAM COMPLETE
+>
+> The polish program described in this handoff was executed and closed on **2026-05-03** under the `polish-complete` tag. **Do not act on the instructions below.** They are preserved for git-history continuity.
+>
+> For the closeout report, read [POLISH_REPORT.md](POLISH_REPORT.md).
+> For the per-screen briefs, read [docs/polish/SHAPE_BRIEFS.md](docs/polish/SHAPE_BRIEFS.md).
+> For the live progress log, read [docs/polish/POLISH_PROGRESS.md](docs/polish/POLISH_PROGRESS.md).
+
+---
+
+**Status (at the time of writing):** Phase 0 done. Phase 0.5 batch is **mid-flight, uncommitted**. Tree is typecheck-clean (`npx tsc --noEmit` → 0 errors); no commits made yet this run.
 
 **The next session should finish Phase 0.5, commit once, then proceed under "speed mode" through Phase 1 → Phase 4.**
 

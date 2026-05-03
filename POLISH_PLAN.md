@@ -1,5 +1,13 @@
 # POLISH_PLAN.md
 
+> ## ⚠ HISTORICAL DOCUMENT — POLISH PROGRAM COMPLETE
+>
+> This is the **original plan** for the 4-phase polish program. It was executed and closed on **2026-05-03** under the `polish-complete` tag.
+>
+> For the closeout report (what actually happened, audit findings status, demo-path tour, hours-vs-budget), read [POLISH_REPORT.md](POLISH_REPORT.md). The plan below is preserved as-written for git-history continuity.
+
+---
+
 > Two-pass polish across the entire app to flagship the 15 demo-path screens and bring the remaining ~55 to consistent quality. Owner: Appenza Studio · Engineering. Hard deadline: tender demo, 4 weeks.
 
 ## Status legend

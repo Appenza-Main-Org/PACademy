@@ -1,8 +1,9 @@
 # Product
 
-> **Bootstrap source:** CLAUDE.md, Tasks/DESIGN_SYSTEM.md §1, Tasks/KARASA_GAPS.md, docs/DEMO_SCRIPT.md, docs/archive/DESIGN_REVAMP.md.
+> **Bootstrap source:** CLAUDE.md, Tasks/DESIGN_SYSTEM.md §1, Tasks/KARASA_GAPS.md (RFP Scope Document coverage map — filename retained for git-history continuity), docs/DEMO_SCRIPT.md, docs/archive/DESIGN_REVAMP.md.
 > **Nothing in this file was synthesized from a one-line prompt.** Every claim traces back to one of those documents.
 > **Authoritative DESIGN.md** — `Tasks/DESIGN_SYSTEM.md` is the source of truth (the v2 navy proposal in `docs/archive/DESIGN_REVAMP.md` is a future direction not yet adopted).
+> **Status:** Polish program complete (tag `polish-complete`, 2026-05-03). See [POLISH_REPORT.md](POLISH_REPORT.md) for the closeout. Demo cut tagged `v0.2.0-demo`.
 
 ## Register
 
@@ -19,7 +20,7 @@ Three concrete user groups. Each occupies a different shell and has a distinct j
 ### 1 · Applicants — public surface (`/applicant/*`)
 - **Who:** Egyptian high-school graduates (~17–21 years old) applying to the Police Academy. Cycle 2026 expects ~2,847 of them. Mostly first-time users; many on mobile.
 - **Context:** At home, possibly under family supervision, in Arabic only. The flow is high-stakes — failure to complete blocks them from a year-long admission cycle.
-- **Job:** Complete the 11 KARASA-defined stages — phone OTP, NID verification, personal data, education, marital, payment, family-up-to-4th-degree, exam slot, attendance card print, follow-up, acquaintance document — without losing progress, without re-typing what the system already knows.
+- **Job:** Complete the 11 RFP-Scope-Document-defined stages — phone OTP, NID verification, personal data, education, marital, payment, family-up-to-4th-degree, exam slot, attendance card print, follow-up, acquaintance document — without losing progress, without re-typing what the system already knows.
 
 **Sub-segments — different polish defaults**
 - **First-time nervous applicant** (Stages 1–9): never opened the system before. Polish defaults to **calm + verbose**: explicit progress, generous helper text under every input, confirmation copy before any irreversible step ("نعم، أرسِل" not "إرسال"). Errors are recoverable in-place; never blocking.
@@ -50,11 +51,11 @@ Three concrete user groups. Each occupies a different shell and has a distinct j
 - A unified frontend that digitises the entire 11-stage admissions cycle and binds it to 9 connected staff applications behind a single shell.
 - Built by **Appenza Studio** for the Egyptian Ministry of Interior · Police Academy (per CLAUDE.md §1).
 - The product's purpose is **threefold**, in this priority order:
-  1. **Win the tender** — this codebase is the visible proof that Appenza Studio comprehends the karasa, has built a modern frontend, and can ship. The demo on 2026-05-29 (4 weeks out) is the decision moment.
-  2. **Demonstrate scope coverage** — every karasa requirement (108-page tender document) is mapped to an actual route, page, or component. The `Tasks/KARASA_GAPS.md` file proves ~95% in-scope coverage.
+  1. **Win the tender** — this codebase is the visible proof that Appenza Studio comprehends the RFP Scope Document, has built a modern frontend, and can ship. The demo on 2026-05-29 (4 weeks out) is the decision moment.
+  2. **Demonstrate scope coverage** — every RFP Scope Document requirement (108-page tender document) is mapped to an actual route, page, or component. The `Tasks/KARASA_GAPS.md` file proves ~95% in-scope coverage.
   3. **Run the admissions cycle** — once the tender is won and the backend integrates, the same codebase becomes the working system used by ~2,847 applicants and dozens of staff per cycle.
 
-**Success looks like:** the Ministry of Interior decision committee leaves the tender presentation believing Appenza is the only vendor that has actually built what the karasa describes.
+**Success looks like:** the Ministry of Interior decision committee leaves the tender presentation believing Appenza is the only vendor that has actually built what the RFP Scope Document describes.
 
 ---
 
@@ -63,10 +64,10 @@ Three concrete user groups. Each occupies a different shell and has a distinct j
 **Three words:** Institutional. Heritage. Disciplined.
 
 - **Voice:** Formal, calm, ministerial Arabic. First-person plural ("نقدّم"). No hype, no marketing adjectives. Numbers carry weight; copy doesn't try to.
-- **Tone:** The interface should feel like it was made *for* the Ministry of Interior, not *sold to* it. The product knows the karasa intimately; that knowledge shows.
+- **Tone:** The interface should feel like it was made *for* the Ministry of Interior, not *sold to* it. The product knows the RFP Scope Document intimately; that knowledge shows.
 - **Emotional goal — applicants:** quiet confidence. The system is heavy and serious, but never punishes a typo. Errors recover gracefully.
 - **Emotional goal — staff:** shoulders relax. The chrome stays out of the way; data is dense but legible; every two-phase signature loop is visually obvious so the wrong button is never clicked.
-- **Emotional goal — decision-makers:** scope comprehension lands without being told. They click a screen, recognise the karasa section it implements, and trust grows.
+- **Emotional goal — decision-makers:** scope comprehension lands without being told. They click a screen, recognise the RFP Scope Document section it implements, and trust grows.
 
 ---
 
@@ -101,8 +102,8 @@ Five strategic principles, derived from `Tasks/DESIGN_SYSTEM.md §1` and the dem
 ### 1. Distinctly Egyptian, distinctly modern, distinctly institutional
 Three sources, refuses to look like any one of them: Egyptian heritage typography + ornamentation; government-grade trust signals; 2026-era product UI craftsmanship. The test: if the screen could plausibly belong to a Western SaaS, a Gulf ministry, or a 2015 gov portal, it has failed.
 
-### 2. The karasa is visible
-Every screen ties back to a karasa section (`KARASA §6.2.B`, `§3.C`, etc.) — sometimes literally rendered as a `JetBrains Mono` reference tag. Decision-makers reading the screen recognise the spec being implemented. **Scope comprehension is the product.**
+### 2. The RFP Scope Document is visible
+Every screen ties back to an RFP Scope Document section (`RFP Scope Document §6.2.B`, `§3.C`, etc.) — sometimes literally rendered as a `JetBrains Mono` reference tag. Decision-makers reading the screen recognise the spec being implemented. **Scope comprehension is the product.**
 
 ### 3. Density with discipline
 Government workflows show a lot of data. Embrace it — but with strict typographic hierarchy, generous line-height, and ruthless whitespace between groups. A dashboard showing 6 KPIs + an activity feed + a heatmap is correct; the same dashboard with everything in identical 16px gray text is wrong.
