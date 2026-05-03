@@ -376,3 +376,27 @@
 
 ### Decision shorthand
 `category buttons → Tailwind + var(--accent-500) active`, `+ deep link to /manage`. Legacy `.question-card` deferred to Phase 3.
+
+---
+
+## Screen 15 — `/biometric/enroll`
+
+**File:** [src/features/biometric/pages/BiometricPages.tsx](../../src/features/biometric/pages/BiometricPages.tsx) (`BiometricEnrollPage`)
+**Demo role:** 4-step biometric enrollment wizard. Face scan + fingerprint + commit.
+**Pass-1 input:** 4-step wizard + capture state + quality badges done. **Final pass on micro-interactions.**
+
+### What's wrong
+- Step indicator's "current" state uses hardcoded `bg-teal-500 text-white ring-4 ring-teal-100` and `text-teal-700` for the label — biometric's per-app accent is terra-400 per CLAUDE.md §8, but the indicator forces teal regardless of `data-app`.
+- Without per-app accent, the wizard reads as generic-teal, not biometric-app-flavored.
+
+### What good looks like (after polish)
+- Step indicator's current-state circle: drop the teal Tailwind classes, use inline `style={{ background: 'var(--accent-500)', boxShadow: '0 0 0 4px var(--accent-50)' }}` so the active swatch and ring read as biometric's terra accent (or whichever app the wizard is rendered under).
+- Current label: `style={{ color: 'var(--accent-700)' }}` instead of `text-teal-700`.
+
+### What must NOT change
+- 4-step structure (تحديد ← وجه ← بصمة ← اعتماد).
+- BiometricCapture component (face/fp scan UI).
+- Quality badges, before-you-start tips card, save-confirmation surface.
+
+### Decision shorthand
+`step indicator current state → var(--accent-500/50/700) via inline style`. S1 partial fix in-place.

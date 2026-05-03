@@ -145,13 +145,19 @@ export function BiometricEnrollPage(): JSX.Element {
                     className={
                       'mb-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold transition-colors duration-fast ' +
                       (done ? 'bg-success text-white'
-                        : current ? 'bg-teal-500 text-white ring-4 ring-teal-100'
+                        : current ? 'text-white'
                         : 'bg-ink-100 text-ink-500')
                     }
+                    style={current ? { background: 'var(--accent-500)', boxShadow: '0 0 0 4px var(--accent-50)' } : undefined}
                   >
                     {done ? <CheckCircle2 size={16} strokeWidth={2.2} /> : i + 1}
                   </span>
-                  <p className={'text-2xs font-medium ' + (current ? 'text-teal-700' : done ? 'text-ink-900' : 'text-ink-500')}>{s.label}</p>
+                  <p
+                    className={'text-2xs font-medium ' + (done ? 'text-ink-900' : current ? '' : 'text-ink-500')}
+                    style={current ? { color: 'var(--accent-700)' } : undefined}
+                  >
+                    {s.label}
+                  </p>
                 </li>
               );
             })}
