@@ -1,6 +1,6 @@
 /**
  * MedicalCertificatePage — master verdict aggregating 8 stations.
- * Source: KARASA §6.2.D + TIER 2 print polish.
+ * Source: RFP Scope Document §6.2.D + TIER 2 print polish.
  *
  * Polished print layout: stamped overall verdict box + per-station table
  * + chair signature blocks + medical commission seal placeholder.
@@ -147,7 +147,7 @@ export function MedicalCertificatePage(): JSX.Element {
 
           {/* Auto-rule note */}
           <p className="mt-4 text-2xs text-ink-500 leading-normal">
-            هذه الشهادة مولَّدة آلياً وفقاً لـ KARASA §6.2.D — أيّ حُكم «بشرط» يُحال إلى مراجعة الهيئة،
+            هذه الشهادة مولَّدة آلياً وفقاً لـ RFP Scope Document §6.2.D — أيّ حُكم «بشرط» يُحال إلى مراجعة الهيئة،
             وأيّ «غير لائق» في عيادة واحدة يُسقط الترشّح طبياً.
           </p>
 

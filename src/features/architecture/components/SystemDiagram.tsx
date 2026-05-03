@@ -942,7 +942,7 @@ function DiagramInfoPanel({
           {hoveredConn.purpose && <InfoRow label="Purpose" value={hoveredConn.purpose} />}
           {hoveredConn.data && <InfoRow label="Data exchanged" value={hoveredConn.data} />}
           {hoveredConn.auth && <InfoRow label="Auth" value={hoveredConn.auth} />}
-          {hoveredConn.citation && <InfoRow label="Karasa" value={hoveredConn.citation} mono />}
+          {hoveredConn.citation && <InfoRow label="RFP Scope Document" value={hoveredConn.citation} mono />}
         </dl>
       </div>
     );

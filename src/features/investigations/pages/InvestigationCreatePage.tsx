@@ -1,6 +1,6 @@
 /**
  * InvestigationCreatePage — open a new investigation case.
- * Source: KARASA §5.2.A.
+ * Source: RFP Scope Document §5.2.A.
  */
 
 import { useState } from 'react';

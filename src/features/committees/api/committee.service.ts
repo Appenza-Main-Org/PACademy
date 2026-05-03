@@ -1,5 +1,5 @@
 /**
- * Committees API — Sprint 3 (KARASA §3).
+ * Committees API — Sprint 3 (RFP Scope Document §3).
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/committees                              → Committee[]

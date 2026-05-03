@@ -1,5 +1,5 @@
 /**
- * Stage 8 — exam schedule (KARASA §2.2 stage 8).
+ * Stage 8 — exam schedule (RFP Scope Document §2.2 stage 8).
  * Picker grid of available slots; reserve and confirm.
  */
 

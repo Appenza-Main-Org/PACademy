@@ -1,6 +1,6 @@
 /**
  * Sprint 8 — Biometric verification + monitoring.
- * Source: KARASA §8 sections B, C.
+ * Source: RFP Scope Document §8 sections B, C.
  */
 
 import { useState } from 'react';

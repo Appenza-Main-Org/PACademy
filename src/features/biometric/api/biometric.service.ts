@@ -1,5 +1,5 @@
 /**
- * Biometric API — Sprint 8 (KARASA §8).
+ * Biometric API — Sprint 8 (RFP Scope Document §8).
  *
  * INTEGRATION CONTRACT:
  *   POST   /api/biometric/enroll                         → BiometricEnrollment

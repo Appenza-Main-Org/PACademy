@@ -1,5 +1,5 @@
 /**
- * Stage 9 — printable attendance card (KARASA §2.2 stage 9).
+ * Stage 9 — printable attendance card (RFP Scope Document §2.2 stage 9).
  * Source: TIER 2 print polish.
  *
  * Polished for evaluator demo: photo box + 4-part name + national ID +

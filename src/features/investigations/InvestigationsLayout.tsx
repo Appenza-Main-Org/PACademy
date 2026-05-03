@@ -1,6 +1,6 @@
 /**
  * InvestigationsLayout — wraps every investigations route with the
- * persistent "سرّي" banner per KARASA §5.2.E.
+ * persistent "سرّي" banner per RFP Scope Document §5.2.E.
  */
 
 import { Outlet } from 'react-router-dom';

@@ -1,6 +1,6 @@
 /**
  * CommitteeCreatePage — wizard-style form to create a new committee.
- * Source: KARASA §3.2.A.
+ * Source: RFP Scope Document §3.2.A.
  */
 
 import { useState } from 'react';

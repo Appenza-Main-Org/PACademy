@@ -1,7 +1,7 @@
 /**
  * data.ts — content for the /architecture technical reference page.
  *
- * Every karasa citation in this file traces to the 108-page Karasa
+ * Every RFP Scope Document citation in this file traces to the 108-page RFP Scope Document
  * (كرّاسة الشروط والمواصفات الفنية). Page numbers refer to that document
  * unless explicitly noted otherwise.
  *
@@ -62,7 +62,7 @@ export const INTEGRATIONS: readonly IntegrationSpec[] = [
     dataExchanged: 'National ID → 4-part name, military rank, department, and assigned role.',
     frequency: 'Per officer login + token refresh.',
     failureHandling: 'If MOIPASS is unreachable, officer login degrades to locally-cached credentials with reduced privileges and an audit-flagged warning. Cache TTL is set during Phase 2.',
-    citation: 'Karasa §1.1 p.10 · §3.1 p.7',
+    citation: 'RFP Scope Document §1.1 p.10 · §3.1 p.7',
   },
   {
     id: 'moe',
@@ -73,7 +73,7 @@ export const INTEGRATIONS: readonly IntegrationSpec[] = [
     dataExchanged: 'National ID + certificate year → full transcript, total score, percentage, school details.',
     frequency: 'One call during the applicant Stage 4 (Educational Data) submission.',
     failureHandling: 'Transient failures retry with exponential backoff. On persistent failure, manual override is allowed with a written reason, fully captured in the audit trail.',
-    citation: 'Karasa §1.2 pp.17–19 · §3.1 p.7',
+    citation: 'RFP Scope Document §1.2 pp.17–19 · §3.1 p.7',
   },
   {
     id: 'azhar',
@@ -84,7 +84,7 @@ export const INTEGRATIONS: readonly IntegrationSpec[] = [
     dataExchanged: 'National ID + certificate year → transcript, total score, percentage, stream (scientific/literary), school details.',
     frequency: 'One call during the applicant Stage 4 submission for Azhari applicants.',
     failureHandling: 'Same retry + manual-override-with-reason behaviour as the MoE integration. Override is logged.',
-    citation: 'Karasa §1.2 pp.17–19',
+    citation: 'RFP Scope Document §1.2 pp.17–19',
   },
   {
     id: 'payment',
@@ -95,7 +95,7 @@ export const INTEGRATIONS: readonly IntegrationSpec[] = [
     dataExchanged: 'Payment intent → reference number / Fawry code; callback with payment status + transaction reference.',
     frequency: 'Per applicant payment + a daily reconciliation batch.',
     failureHandling: 'Idempotent retries on outbound calls; webhook deduplication; manual reconciliation flow for disputed or orphaned payments, with full audit capture.',
-    citation: 'Karasa §1.2 p.19 · §3.1 p.7',
+    citation: 'RFP Scope Document §1.2 p.19 · §3.1 p.7',
   },
   {
     id: 'hardware',
@@ -106,7 +106,7 @@ export const INTEGRATIONS: readonly IntegrationSpec[] = [
     dataExchanged: 'Enrollment templates, verification queries, liveness-check results, device health events.',
     frequency: 'Real-time during enrollment and verification operations.',
     failureHandling: 'Device offline → graceful UI degradation with a documented manual fallback path; events are queued and replayed on reconnect.',
-    citation: 'Karasa §2.6 pp.83–87',
+    citation: 'RFP Scope Document §2.6 pp.83–87',
   },
   {
     id: 'internal',
@@ -117,7 +117,7 @@ export const INTEGRATIONS: readonly IntegrationSpec[] = [
     dataExchanged: 'Domain events: applicant.approved, exam.completed, investigation.opened, medical.passed, decision.recorded.',
     frequency: 'Real-time, event-driven.',
     failureHandling: 'Event sourcing with replay; transactional outbox pattern on the producer side; idempotent consumers.',
-    citation: 'Karasa §3.2 p.40',
+    citation: 'RFP Scope Document §3.2 p.40',
   },
 ];
 
@@ -159,7 +159,7 @@ export const SECURITY_TIERS: readonly SecurityTier[] = [
       'Session timeout and concurrent-session detection.',
       'Two-factor required for high-privilege roles (super_admin, investigator, board_admin).',
     ],
-    citations: ['Karasa §1.1 p.10 (MOIPASS)', 'Karasa §1.2 p.16 (NID+OTP)', 'Karasa §1.1 p.11 (role scoping)'],
+    citations: ['RFP Scope Document §1.1 p.10 (MOIPASS)', 'RFP Scope Document §1.2 p.16 (NID+OTP)', 'RFP Scope Document §1.1 p.11 (role scoping)'],
   },
   {
     num: 4,
@@ -170,7 +170,7 @@ export const SECURITY_TIERS: readonly SecurityTier[] = [
       'Output encoding for all rendered content.',
       'Server-side authorization checks on every protected operation — no client-side trust.',
     ],
-    citations: ['Karasa §4.1 p.100 (Code Review acceptance)'],
+    citations: ['RFP Scope Document §4.1 p.100 (Code Review acceptance)'],
   },
   {
     num: 5,
@@ -182,7 +182,7 @@ export const SECURITY_TIERS: readonly SecurityTier[] = [
       'Investigations data carries view-level audit (every read logged, not just writes).',
       'Backup and Recovery procedures verified during acceptance testing.',
     ],
-    citations: ['Karasa §2.6 p.83 (templates only)', 'Karasa §3.4 pp.9, 14 (CUD audit)', 'Karasa §4.1 p.101 (Backup & Recovery)'],
+    citations: ['RFP Scope Document §2.6 p.83 (templates only)', 'RFP Scope Document §3.4 pp.9, 14 (CUD audit)', 'RFP Scope Document §4.1 p.101 (Backup & Recovery)'],
   },
   {
     num: 6,
@@ -194,7 +194,7 @@ export const SECURITY_TIERS: readonly SecurityTier[] = [
       'Annual penetration testing.',
       'Code Review acceptance gate before each release.',
     ],
-    citations: ['Karasa §4.1 p.100 (Code Review)'],
+    citations: ['RFP Scope Document §4.1 p.100 (Code Review)'],
   },
 ];
 
@@ -211,7 +211,7 @@ export const HOSTING: readonly HostingBlock[] = [
     id: 'public',
     title: '6.1 — Public Platform Hosting',
     bullets: [
-      'Hosted at the Ministry of Interior main IT data centre per Karasa requirement (non-negotiable).',
+      'Hosted at the Ministry of Interior main IT data centre per RFP Scope Document requirement (non-negotiable).',
       'Application stack containerized for repeatable deployment and hardening per the CIS benchmark family.',
       'Public DNS managed by the ministry; TLS certificates issued from a ministry-approved CA.',
       'DDoS protection at the network edge.',
@@ -221,7 +221,7 @@ export const HOSTING: readonly HostingBlock[] = [
     id: 'private',
     title: '6.2 — Private Platform Hosting',
     bullets: [
-      'Hosted on the Police Academy intranet per Karasa requirement.',
+      'Hosted on the Police Academy intranet per RFP Scope Document requirement.',
       'Air-gapped from the public internet except for documented integration egress (MOIPASS, MoE/Al-Azhar APIs, Payment Gateway callbacks).',
       'Identical container stack as the public side for operational consistency.',
       'Separate management plane reserved for academy IT staff.',

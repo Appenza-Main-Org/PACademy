@@ -1,5 +1,5 @@
 /**
- * Medical Commission API — Sprint 4 (KARASA §6).
+ * Medical Commission API — Sprint 4 (RFP Scope Document §6).
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/medical/stations                              → MedicalStation[]

@@ -131,7 +131,7 @@ export function RevampComparisonPage(): JSX.Element {
           'قضيب هوية ذهبي 4px على السايد بار — اللجنة لها لون.',
           'زر «اعتماد الملف» الذهبي هو الشيء الذهبي الوحيد في الشاشة.',
           'كرت التواقيع بخلفية ذهبية فاتحة + إطار، يأخذ أهميته دون صراخ.',
-          'إشارة KARASA §3.C صريحة — تتبع كل ميزة لمصدرها في الكرّاسة.',
+          'إشارة RFP Scope Document §3.C صريحة — تتبع كل ميزة لمصدرها في الكرّاسة.',
           'الأرقام بخط Tabular يضمن تراصّ الأعمدة.',
         ]}
         before={<CommitteeBefore />}
@@ -153,7 +153,7 @@ export function RevampComparisonPage(): JSX.Element {
           'قضيب هوية تيراكوتا 4px — التطبيق نفسه يحمل هويته البصرية.',
           'شجرة الأسرة منظَّمة في 4 درجات صريحة، مع 3 حالات ملوّنة.',
           '«درجة المخاطرة» Tabular numeric — يُقرأ ويُقارن.',
-          'إحالة KARASA §6.5 صريحة لشجرة الأسرة.',
+          'إحالة RFP Scope Document §6.5 صريحة لشجرة الأسرة.',
         ]}
         before={<InvestigationsBefore />}
         after={<InvestigationsAfter />}
@@ -668,7 +668,7 @@ function CommitteeAfter(): JSX.Element {
           <aside style={{ background: v2.g50, border: '1px solid #EBD79B', borderRadius: 10, padding: '20px 24px' }}>
             <h3 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 15, margin: '0 0 14px', color: v2.g700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               التواقيع المطلوبة
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: v2.g700, opacity: 0.7, fontWeight: 400, letterSpacing: '0.06em', direction: 'ltr' }}>KARASA §3.C</span>
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: v2.g700, opacity: 0.7, fontWeight: 400, letterSpacing: '0.06em', direction: 'ltr' }}>RFP Scope Document §3.C</span>
             </h3>
             {[
               { name: 'رئيس اللجنة', who: 'العقيد سامي عمر', t: '14:18', signed: true },
@@ -829,7 +829,7 @@ function InvestigationsAfter(): JSX.Element {
           <div style={{ background: '#fff', border: `1px solid ${v2.n100}`, borderRadius: 10, padding: '20px 24px' }}>
             <h3 style={{ fontFamily: 'Tajawal', fontWeight: 700, fontSize: 14.5, margin: '0 0 14px', color: v2.n800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               شجرة الأسرة — حتى الدرجة الرابعة
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: v2.n400, fontWeight: 400, letterSpacing: '0.06em', direction: 'ltr' }}>KARASA §6.5</span>
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: v2.n400, fontWeight: 400, letterSpacing: '0.06em', direction: 'ltr' }}>RFP Scope Document §6.5</span>
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '4px 0' }}>
               <FamilyDeg deg="DEG · 1" nodes={[['الأب · سامي م.'], ['الأم · فاطمة ع.']]} />

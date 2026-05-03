@@ -393,7 +393,7 @@ export interface PaymentTransaction {
 
 export type ResultPhase = 'preliminary' | 'final' | 'rejected';
 
-/* ── Committees — Sprint 3 (KARASA §3) ──────────────────────────────── */
+/* ── Committees — Sprint 3 (RFP Scope Document §3) ──────────────────────────────── */
 
 export type CommitteeType = 'capacities' | 'traits' | 'sports' | 'interview';
 
@@ -413,7 +413,7 @@ export interface CommitteeResult {
   notes?: string;
 }
 
-/* ── Medical — Sprint 4 (KARASA §6) ─────────────────────────────────── */
+/* ── Medical — Sprint 4 (RFP Scope Document §6) ─────────────────────────────────── */
 
 export type MedicalStationKey =
   | 'eye'
@@ -439,7 +439,7 @@ export interface MedicalExamResult {
   notes?: string;
 }
 
-/* ── Investigations — Sprint 5 (KARASA §5) ─────────────────────────── */
+/* ── Investigations — Sprint 5 (RFP Scope Document §5) ─────────────────────────── */
 
 export type CaseStatus = 'open' | 'in-review' | 'pass' | 'fail' | 'defer-conditional';
 export type CasePriority = 'low' | 'medium' | 'high' | 'critical';
@@ -467,7 +467,7 @@ export interface OutgoingLetter {
   sentAt?: number;
 }
 
-/* ── Board — Sprint 6 (KARASA §4) ───────────────────────────────────── */
+/* ── Board — Sprint 6 (RFP Scope Document §4) ───────────────────────────────────── */
 
 export interface BoardMember {
   id: string;
@@ -499,7 +499,7 @@ export interface BoardDecision {
   signatures: string[];
 }
 
-/* ── Question Bank & e-Exams — Sprint 7 (KARASA §9) ────────────────── */
+/* ── Question Bank & e-Exams — Sprint 7 (RFP Scope Document §9) ────────────────── */
 
 export type QuestionType = 'mcq' | 'true-false' | 'ordering' | 'fill-in';
 export type QuestionStatus = 'draft' | 'review' | 'approved' | 'live';
@@ -541,7 +541,7 @@ export interface ExamAttempt {
   passFail?: 'pass' | 'fail';
 }
 
-/* ── Biometric — Sprint 8 (KARASA §8) ──────────────────────────────── */
+/* ── Biometric — Sprint 8 (RFP Scope Document §8) ──────────────────────────────── */
 
 export interface BiometricEnrollment {
   id: string;
@@ -564,7 +564,7 @@ export interface BiometricVerification {
   override?: { by: string; reason: string };
 }
 
-/* ── Barcode — Sprint 8 (KARASA §7) ─────────────────────────────────── */
+/* ── Barcode — Sprint 8 (RFP Scope Document §7) ─────────────────────────────────── */
 
 export interface BarcodeRecord {
   applicantId: string;
@@ -585,7 +585,7 @@ export interface BarcodeScan {
   action: 'attendance' | 'gate-in' | 'gate-out' | 'forward';
 }
 
-/* ── Cross-cutting — Sprint 9 (KARASA §10) ─────────────────────────── */
+/* ── Cross-cutting — Sprint 9 (RFP Scope Document §10) ─────────────────────────── */
 
 export interface NotificationItem {
   id: string;

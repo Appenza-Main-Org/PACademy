@@ -62,7 +62,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <ChevronDown
             size={16}
             strokeWidth={1.75}
-            className="pointer-events-none absolute inset-y-0 inset-inline-end-3 my-auto text-ink-500"
+            className="pointer-events-none absolute inset-y-0 end-3 my-auto text-ink-500"
             aria-hidden
           />
         </div>

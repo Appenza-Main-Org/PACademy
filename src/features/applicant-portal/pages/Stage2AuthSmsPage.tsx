@@ -1,5 +1,5 @@
 /**
- * Stage 2 — SMS verification (KARASA §2.2 stage 2).
+ * Stage 2 — SMS verification (RFP Scope Document §2.2 stage 2).
  * 6-digit OTP, 5-min countdown, resend rate-limited; demo accepts any
  * 6-digit code except 000000.
  */

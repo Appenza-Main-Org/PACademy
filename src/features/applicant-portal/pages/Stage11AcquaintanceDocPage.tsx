@@ -1,6 +1,6 @@
 /**
  * Stage 11 — Acquaintance Document (وثيقة التعارف).
- * Source: KARASA §2.2 stage 11.
+ * Source: RFP Scope Document §2.2 stage 11.
  * Comprehensive form for investigations; submit generates a printable PDF.
  */
 

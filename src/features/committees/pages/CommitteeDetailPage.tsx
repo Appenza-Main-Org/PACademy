@@ -1,6 +1,6 @@
 /**
  * Committee detail + results entry + chair approval + bulk upload.
- * Source: KARASA §3 sections B, C, D, F.
+ * Source: RFP Scope Document §3 sections B, C, D, F.
  */
 
 import { useState } from 'react';
@@ -181,7 +181,7 @@ export function CommitteeDetailPage(): JSX.Element {
               <ShieldCheck size={18} strokeWidth={1.75} />
             </span>
             <div className="flex-1">
-              <p className="font-ar-display text-md font-bold text-gold-700">سياسة الاعتماد المزدوج · KARASA §3.C</p>
+              <p className="font-ar-display text-md font-bold text-gold-700">سياسة الاعتماد المزدوج · RFP Scope Document §3.C</p>
               <p className="mt-1 text-2xs text-gold-700/85 leading-normal">
                 النتيجة المُدخَلة من العضو تُحفظ كـ <strong>«قيد المراجعة»</strong>؛ ولا تُعتبر معتمدة إلا بعد توقيع
                 رئيس اللجنة <strong>«{committee.head}»</strong> عليها — وذلك لمنع تغيير النتائج بصورة فردية.

@@ -1,6 +1,6 @@
 /**
  * Sprint 7 — Question Bank & e-Exams new pages.
- * Source: KARASA §9 sections A-G.
+ * Source: RFP Scope Document §9 sections A-G.
  */
 
 import { useEffect, useMemo, useState } from 'react';

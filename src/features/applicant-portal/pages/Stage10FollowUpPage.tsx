@@ -1,5 +1,5 @@
 /**
- * Stage 10 — pipeline follow-up (KARASA §2.2 stage 10).
+ * Stage 10 — pipeline follow-up (RFP Scope Document §2.2 stage 10).
  * Status of every downstream stage + next-action CTA.
  */
 

@@ -1,5 +1,5 @@
 /**
- * Stage 6 — payment (KARASA §2.2 stage 6).
+ * Stage 6 — payment (RFP Scope Document §2.2 stage 6).
  * Two methods: Fawry (24h code) or card (gateway redirect). Auto-verify
  * after demo wait, show printable receipt.
  */

@@ -1,6 +1,6 @@
 /**
  * Sprint 8 — Barcode scanner + replacement.
- * Source: KARASA §7 sections B, C, E.
+ * Source: RFP Scope Document §7 sections B, C, E.
  */
 
 import { useState } from 'react';

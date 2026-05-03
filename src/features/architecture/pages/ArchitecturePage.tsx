@@ -19,7 +19,7 @@
  *   8. Audit & Compliance
  *   9. Non-Functional Targets
  *
- * Karasa coverage from this page: §1.1 §1.2 §2.1–§2.7 §3.1 §3.2 §3.4
+ * RFP Scope Document coverage from this page: §1.1 §1.2 §2.1–§2.7 §3.1 §3.2 §3.4
  * §4.1 §4.2 §4.3 §4.4 §9 (architecture overview).
  */
 
@@ -95,7 +95,7 @@ export function ArchitecturePage(): JSX.Element {
                 Technical reference for the platform: nine applications, four
                 architectural layers, five external integrations, eleven user
                 roles, and the security posture binding them together.
-                Every section cites the relevant Karasa pages.
+                Every section cites the relevant RFP Scope Document pages.
               </p>
             </div>
             <div className="flex items-center gap-2" data-no-print="true">
@@ -167,7 +167,7 @@ export function ArchitecturePage(): JSX.Element {
 
 function Section1(): JSX.Element {
   return (
-    <SectionShell id="overview" eyebrow="Section 1" title="Executive Overview" citation="Per Karasa §1.0 (Project Overview, p.4)">
+    <SectionShell id="overview" eyebrow="Section 1" title="Executive Overview" citation="Per RFP Scope Document §1.0 (Project Overview, p.4)">
       <p className="max-w-3xl text-sm leading-relaxed text-ink-700">
         The Police Academy Admissions System is a single, ministry-grade
         platform that unifies nine connected applications behind a shared
@@ -210,7 +210,7 @@ function Section2(): JSX.Element {
       eyebrow="Section 2"
       title="System Architecture"
       subtitle="All applications, layers, and integrations on a single canvas. Hover any element for detail; click to navigate to its full description."
-      citation="Karasa §9 (Architecture Overview) · §1.1, §1.2, §3.1, §3.2"
+      citation="RFP Scope Document §9 (Architecture Overview) · §1.1, §1.2, §3.1, §3.2"
     >
       <Card>
         <CardBody>
@@ -241,9 +241,9 @@ function Section2(): JSX.Element {
         </p>
         <p>
           <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700">
-            Karasa anchor
+            RFP Scope Document anchor
           </span>
-          This architecture realizes the four-layer model described in the Karasa overview, with
+          This architecture realizes the four-layer model described in the RFP Scope Document overview, with
           the public/private split per §1 (pp.5–37) and the integration layer per §3.1–3.2
           (pp.7, 40).
         </p>
@@ -272,7 +272,7 @@ function Section3(): JSX.Element {
     { key: 'hostingTier',  label: 'Hosting tier',   accessor: 'hostingTier'  },
     {
       key: 'citation',
-      label: 'Karasa §',
+      label: 'RFP Scope Document §',
       width: 130,
       render: (row) => (
         <span className="font-mono text-[11px] text-ink-500">{row.citation}</span>
@@ -285,7 +285,7 @@ function Section3(): JSX.Element {
       id="applications"
       eyebrow="Section 3"
       title="The Nine Applications"
-      citation="Karasa §1.1, §1.2, §2.1–§2.7"
+      citation="RFP Scope Document §1.1, §1.2, §2.1–§2.7"
     >
       <Card>
         <DataTable<AppRow>
@@ -309,7 +309,7 @@ function Section4(): JSX.Element {
       eyebrow="Section 4"
       title="Integrations"
       subtitle="Five external integrations plus internal cross-application coordination. Click any card for the full spec."
-      citation="Karasa §3.1 p.7 · §3.2 p.40"
+      citation="RFP Scope Document §3.1 p.7 · §3.2 p.40"
     >
       <div className="grid gap-3">
         {INTEGRATIONS.map((integration, idx) => (
@@ -335,7 +335,7 @@ function Section5(): JSX.Element {
       eyebrow="Section 5"
       title="Security Architecture"
       subtitle="Six tiers, top to bottom. High-level posture — concrete configurations are finalised in Phase 2."
-      citation="Karasa §4.1 p.100 · §3.4 pp.9, 14"
+      citation="RFP Scope Document §4.1 p.100 · §3.4 pp.9, 14"
     >
       <div className="grid gap-3 md:grid-cols-2">
         {SECURITY_TIERS.map((tier) => (
@@ -396,7 +396,7 @@ function Section6(): JSX.Element {
       id="hosting"
       eyebrow="Section 6"
       title="Hosting & Deployment"
-      citation="Karasa §1.0 (deployment locale) · §4.1 p.101 (Backup & Recovery)"
+      citation="RFP Scope Document §1.0 (deployment locale) · §4.1 p.101 (Backup & Recovery)"
     >
       <div className="grid gap-3 md:grid-cols-3">
         {HOSTING.map((block) => (
@@ -454,7 +454,7 @@ function Section7(): JSX.Element {
       eyebrow="Section 7"
       title="RBAC Matrix"
       subtitle="11 roles × 9 applications. Tick = has access. Detailed permissions (read / write / approve / audit-view) are enforced server-side per operation."
-      citation="Karasa §1.1 p.11 (role scoping) · src/features/auth/rbac.ts"
+      citation="RFP Scope Document §1.1 p.11 (role scoping) · src/features/auth/rbac.ts"
     >
       <Card>
         <CardBody>
@@ -545,14 +545,14 @@ function Section8(): JSX.Element {
       id="audit"
       eyebrow="Section 8"
       title="Audit & Compliance"
-      citation="Karasa §3.4 pp.9, 14 · §4.1 pp.100–101 · §4.2 pp.103–104"
+      citation="RFP Scope Document §3.4 pp.9, 14 · §4.1 pp.100–101 · §4.2 pp.103–104"
     >
       <Card>
         <CardHeader title="Audit posture" subtitle="Every change is recoverable; every read on restricted data is accountable." />
         <CardBody>
           <ul className="grid gap-2 text-sm leading-relaxed text-ink-700 md:grid-cols-2">
-            <li>· Audit trail on every Create / Update / Delete (Karasa §3.4).</li>
-            <li>· View-level audit on Investigations data (Karasa §2.3).</li>
+            <li>· Audit trail on every Create / Update / Delete (RFP Scope Document §3.4).</li>
+            <li>· View-level audit on Investigations data (RFP Scope Document §2.3).</li>
             <li>· Audit log retention: per ministry policy, default 7 years.</li>
             <li>· Audit log is append-only and stored separately from the OLTP database.</li>
           </ul>
@@ -560,7 +560,7 @@ function Section8(): JSX.Element {
       </Card>
 
       <Card className="mt-3">
-        <CardHeader title="Source-code ownership" subtitle="Karasa §4.2 pp.103–104." />
+        <CardHeader title="Source-code ownership" subtitle="RFP Scope Document §4.2 pp.103–104." />
         <CardBody>
           <p className="text-sm leading-relaxed text-ink-700">
             Full source-code delivery to the ministry on acceptance — no
@@ -592,7 +592,7 @@ function Section8(): JSX.Element {
       </Card>
 
       <Card className="mt-3">
-        <CardHeader title="Acceptance criteria" subtitle="Karasa §4.1 pp.100–101 — the six gates." />
+        <CardHeader title="Acceptance criteria" subtitle="RFP Scope Document §4.1 pp.100–101 — the six gates." />
         <CardBody>
           <ul className="grid gap-2 text-sm leading-relaxed text-ink-700 md:grid-cols-3">
             <li>· Fit-to-Requirements</li>
@@ -632,7 +632,7 @@ function Section9(): JSX.Element {
       eyebrow="Section 9"
       title="Non-Functional Targets"
       subtitle="Bidder-proposed baselines. Final SLA values are negotiated and documented during Phase 2 with the ministry's operations function."
-      citation="Karasa §4.1 pp.100–101"
+      citation="RFP Scope Document §4.1 pp.100–101"
     >
       <Card>
         <DataTable<NfrRow>

@@ -1,5 +1,5 @@
 /**
- * Exams / Question Bank API — Sprint 7 (KARASA §9).
+ * Exams / Question Bank API — Sprint 7 (RFP Scope Document §9).
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/questions?status=&category=                  → BankQuestion[]

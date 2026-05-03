@@ -1,6 +1,6 @@
 /**
  * StationExamPage — per-station medical exam form.
- * Source: KARASA §6.2.B (eight stations, station-specific fields).
+ * Source: RFP Scope Document §6.2.B (eight stations, station-specific fields).
  *
  * Switches the field set by `:station` route param. Saves as preliminary
  * (two-phase pattern shared with committees/exams).
@@ -159,7 +159,7 @@ export function StationExamPage(): JSX.Element {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700 leading-normal">
                   ستُحفظ هذه النتيجة كـ <span className="font-bold">«قيد المراجعة»</span> ولن تُعتمد إلا
-                  بتوقيع رئيس القومسيون · KARASA §6.2.D
+                  بتوقيع رئيس القومسيون · RFP Scope Document §6.2.D
                 </div>
                 <Button type="submit" variant="primary" size="lg" leadingIcon={<Save size={14} strokeWidth={1.75} />}>
                   حفظ كنتيجة أولية

@@ -1,6 +1,6 @@
 /**
  * Sprint 6 — Board / Secretariat new pages.
- * Source: KARASA §4 sections A, B, C, D.
+ * Source: RFP Scope Document §4 sections A, B, C, D.
  */
 
 import { useMemo, useState } from 'react';

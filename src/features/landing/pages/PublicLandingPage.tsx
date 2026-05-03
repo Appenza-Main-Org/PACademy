@@ -1,6 +1,6 @@
 /**
  * PublicLandingPage — the unauthenticated home of the platform.
- * Source: ARCH-01 (public/private split per karasa §9 4-layer architecture).
+ * Source: ARCH-01 (public/private split per RFP Scope Document §9 4-layer architecture).
  *
  * What an Internet visitor sees first. Two CTAs split the public surface
  * cleanly between المتقدم and الموظف paths:

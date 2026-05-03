@@ -1,5 +1,5 @@
 /**
- * Stage 3 — personal data (KARASA §2.2 stage 3).
+ * Stage 3 — personal data (RFP Scope Document §2.2 stage 3).
  * Comprehensive 4-part name + address + photo upload.
  */
 

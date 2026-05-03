@@ -226,7 +226,7 @@ const questions: Question[] = [
 ];
 
 /* TIER 2 — realistic medical station counts for a ~2,800-applicant cycle.
- * The 8 stations match KARASA §6.2.B exactly. Queue numbers are typical for
+ * The 8 stations match RFP Scope Document §6.2.B exactly. Queue numbers are typical for
  * mid-morning. */
 const medicalStations: MedicalStation[] = [
   { id: 'MS-01', name: 'الباطنة',                doctor: 'الرائد د. حسن محمد عبدالباقي',  queue: 47, completed: 312 },

@@ -7,9 +7,9 @@
  * Locked cards (RBAC-denied) render with the lock affordance and stay visible.
  */
 
-import { Activity, ArrowLeft, BarChart3, Calendar, Check, ClipboardList, CreditCard, Eye, FileText, Globe, GraduationCap, History, Hourglass, Lock, Scale, Search, ServerCog, Stethoscope, Users, X } from 'lucide-react';
+import { Activity, ArrowLeft, BarChart3, Calendar, Check, ClipboardList, CreditCard, Download, Eye, FilePlus2, FileText, Globe, GraduationCap, History, Hourglass, Lock, LogIn, Pencil, Scale, Search, ServerCog, Stethoscope, Trash2, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { ElementType } from 'react';
+import type { CSSProperties, ElementType } from 'react';
 import { AppShell } from '@/app/layouts/AppShell';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
@@ -24,13 +24,23 @@ import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/cn';
 import type { AppKey } from '@/shared/lib/constants';
+import type { AuditAction, AuditColor } from '@/shared/types/domain';
 
-const AUDIT_DOT: Record<'success' | 'warning' | 'danger' | 'info' | 'neutral', string> = {
-  success: 'bg-success',
-  warning: 'bg-gold-500',
-  danger: 'bg-terra-500',
-  info: 'bg-teal-500',
-  neutral: 'bg-ink-400',
+const ACTION_ICON: Record<AuditAction, ElementType> = {
+  create: FilePlus2,
+  update: Pencil,
+  delete: Trash2,
+  view: Search,
+  login: LogIn,
+  export: Download,
+};
+
+const ACTION_TONE: Record<AuditColor, { bg: string; fg: string; ring: string }> = {
+  success: { bg: 'var(--success-bg)', fg: 'var(--success)',    ring: 'rgba(46, 125, 50, 0.16)' },
+  warning: { bg: 'var(--gold-50)',    fg: 'var(--gold-700)',   ring: 'rgba(212, 164, 69, 0.20)' },
+  danger:  { bg: 'var(--terra-50)',   fg: 'var(--terra-700)',  ring: 'rgba(200, 70, 44, 0.18)' },
+  info:    { bg: 'var(--teal-50)',    fg: 'var(--teal-700)',   ring: 'rgba(26, 104, 104, 0.18)' },
+  neutral: { bg: 'var(--ink-100)',    fg: 'var(--ink-700)',    ring: 'rgba(28, 25, 15, 0.12)' },
 };
 
 interface AppDef {
@@ -203,36 +213,91 @@ export function HubPage(): JSX.Element {
           </div>
         </section>
 
-        {/* Recent activity strip */}
+        {/* Recent activity feed */}
         {recentEvents.length > 0 && (
           <section className="mb-9">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
-                <History size={16} strokeWidth={1.75} aria-hidden />
-                آخر الأحداث
-              </h2>
-              <Link to="/admin/audit" className="text-xs text-ink-500 transition-colors duration-fast ease-standard hover:text-ink-900">
-                عرض السجل الكامل ←
+            <div className="mb-3 flex items-end justify-between">
+              <div className="flex items-center gap-3">
+                <h2 className="inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
+                  <History size={16} strokeWidth={1.75} aria-hidden />
+                  آخر الأحداث
+                </h2>
+                <span className="inline-flex items-center gap-1.5 rounded-pill bg-ink-50 px-2 py-0.5 text-2xs text-ink-500">
+                  <span aria-hidden className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inset-0 rounded-full bg-gold-500 opacity-60 motion-safe:animate-ping" />
+                    <span className="relative h-1.5 w-1.5 rounded-full bg-gold-500" />
+                  </span>
+                  مباشر
+                </span>
+              </div>
+              <Link
+                to="/admin/audit"
+                className="group/link inline-flex items-center gap-1 text-xs text-ink-500 transition-colors duration-fast ease-standard hover:text-[var(--teal-700)]"
+              >
+                <span>عرض السجل الكامل</span>
+                <ArrowLeft
+                  size={12}
+                  strokeWidth={2}
+                  className="transition-transform duration-fast ease-standard group-hover/link:-translate-x-0.5"
+                  aria-hidden
+                />
               </Link>
             </div>
-            <ul className="overflow-hidden rounded-md border border-border-subtle bg-surface-card">
-              {recentEvents.map((e, i) => (
-                <li
-                  key={e.id}
-                  className={cn(
-                    'flex items-center gap-3 px-4 py-2.5 text-2xs',
-                    i < recentEvents.length - 1 && 'border-b border-border-subtle',
-                  )}
-                >
-                  <span aria-hidden className={cn('h-1.5 w-1.5 flex-none rounded-full', AUDIT_DOT[e.actionColor])} />
-                  <span className="text-ink-500">{shortName(e.userName, 3)}</span>
-                  <span className="font-medium text-ink-900">{e.actionLabel}</span>
-                  <span className="text-ink-700">{e.entity}</span>
-                  <span className="font-mono text-2xs text-ink-500" dir="ltr">{e.entityId}</span>
-                  <span className="ms-auto text-ink-500">{fmtDate(e.timestamp, 'rel')}</span>
-                </li>
-              ))}
-            </ul>
+            <ol className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-[0_1px_0_rgba(28,25,15,0.02),0_8px_24px_-18px_rgba(28,25,15,0.18)]">
+              {recentEvents.map((e, i) => {
+                const Icon = ACTION_ICON[e.action] ?? History;
+                const tone = ACTION_TONE[e.actionColor];
+                return (
+                  <li
+                    key={e.id}
+                    className={cn(
+                      'group/row relative flex items-center gap-4 px-4 py-3 motion-safe:animate-page-enter',
+                      'transition-colors duration-fast ease-standard hover:bg-ink-50/60',
+                      i < recentEvents.length - 1 && 'border-b border-border-subtle',
+                    )}
+                    style={{ animationDelay: `${i * 60}ms`, animationFillMode: 'backwards' }}
+                  >
+                    {/* Inline-start accent edge — appears on hover */}
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-y-2 start-0 w-[2px] origin-center scale-y-0 rounded-pill transition-transform duration-base ease-standard group-hover/row:scale-y-100"
+                      style={{ background: tone.fg }}
+                    />
+                    {/* Action icon — tinted square */}
+                    <span
+                      aria-hidden
+                      className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-md ring-1 transition-transform duration-base ease-standard group-hover/row:scale-[1.04]"
+                      style={{ background: tone.bg, color: tone.fg, '--tw-ring-color': tone.ring } as CSSProperties}
+                    >
+                      <Icon size={15} strokeWidth={1.75} />
+                    </span>
+
+                    {/* Primary line: action · entity · entity-id */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="font-ar-display text-sm font-bold text-ink-900">
+                          {e.actionLabel}
+                        </span>
+                        <span className="text-xs text-ink-700">{e.entity}</span>
+                        <span
+                          dir="ltr"
+                          className="rounded-sm bg-ink-50 px-1.5 py-0.5 font-mono text-2xs font-medium tracking-tight text-ink-700"
+                        >
+                          {e.entityId}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2 text-2xs text-ink-500">
+                        <span className="truncate">{shortName(e.userName, 3)}</span>
+                        <span aria-hidden className="h-1 w-1 flex-none rounded-full bg-ink-300" />
+                        <time dateTime={new Date(e.timestamp).toISOString()} className="font-numeric tnum">
+                          {fmtDate(e.timestamp, 'rel')}
+                        </time>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           </section>
         )}
 

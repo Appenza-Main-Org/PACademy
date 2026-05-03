@@ -30,7 +30,7 @@ export function StatusBadge({ status }: { status: ApplicantStatus }): JSX.Elemen
 
 /**
  * Suspended-applicant badge — strong terra tone with Ban icon.
- * Used wherever the karasa requires the suspended-applicant guard
+ * Used wherever the RFP Scope Document requires the suspended-applicant guard
  * (Tasks/KARASA_GAPS.md §3.2.E and elsewhere).
  */
 export function SuspendedBadge(): JSX.Element {

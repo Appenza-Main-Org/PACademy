@@ -1,5 +1,5 @@
 /**
- * Stage 1 — phone verification (KARASA §2.2 stage 1).
+ * Stage 1 — phone verification (RFP Scope Document §2.2 stage 1).
  * Captures national ID + Egyptian mobile, requests SMS via service.
  */
 

@@ -1,5 +1,5 @@
 /**
- * Stage 5 — marital status (KARASA §2.2 stage 5).
+ * Stage 5 — marital status (RFP Scope Document §2.2 stage 5).
  */
 
 import { useNavigate } from 'react-router-dom';

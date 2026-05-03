@@ -1,6 +1,6 @@
 /**
  * InvestigationDetailPage — full case file with conclusion + decision.
- * Source: KARASA §5.2.B.
+ * Source: RFP Scope Document §5.2.B.
  */
 
 import { useState } from 'react';
@@ -117,7 +117,7 @@ export function InvestigationDetailPage(): JSX.Element {
           </Card>
         </div>
 
-        {/* Family tree visualization (KARASA §6.5 — investigations extend to 4th degree) */}
+        {/* Family tree visualization (RFP Scope Document §6.5 — investigations extend to 4th degree) */}
         <Card className="mt-5">
           <CardHeader
             title="شجرة الأسرة قيد التحرّي"

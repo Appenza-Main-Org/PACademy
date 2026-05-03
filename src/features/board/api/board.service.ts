@@ -1,5 +1,5 @@
 /**
- * Board API — Sprint 6 (KARASA §4).
+ * Board API — Sprint 6 (RFP Scope Document §4).
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/board/members                       → BoardMember[]

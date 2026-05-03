@@ -1,5 +1,5 @@
 /**
- * Stage 4 — education (KARASA §2.2 stage 4).
+ * Stage 4 — education (RFP Scope Document §2.2 stage 4).
  * Certificate fields + التربية والتعليم verification with override flow.
  */
 

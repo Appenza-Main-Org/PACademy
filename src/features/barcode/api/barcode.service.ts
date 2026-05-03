@@ -1,5 +1,5 @@
 /**
- * Barcode API — Sprint 8 (KARASA §7).
+ * Barcode API — Sprint 8 (RFP Scope Document §7).
  *
  * INTEGRATION CONTRACT:
  *   POST   /api/barcode/generate/:applicantId             → BarcodeRecord

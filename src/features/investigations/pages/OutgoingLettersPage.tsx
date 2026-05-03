@@ -1,6 +1,6 @@
 /**
  * OutgoingLettersPage — صادر workflow.
- * Source: KARASA §5.2.C.
+ * Source: RFP Scope Document §5.2.C.
  */
 
 import { useState } from 'react';

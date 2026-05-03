@@ -1,6 +1,6 @@
 /**
  * DistributionPage — توزيع كشوف على المحقّقين.
- * Source: KARASA §5.2.D.
+ * Source: RFP Scope Document §5.2.D.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';

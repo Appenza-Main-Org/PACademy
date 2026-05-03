@@ -1,5 +1,5 @@
 /**
- * Stage 7 — family data (KARASA §2.2 stage 7).
+ * Stage 7 — family data (RFP Scope Document §2.2 stage 7).
  * Father/mother/grandparents fixed; siblings + relatives via useFieldArray.
  */
 

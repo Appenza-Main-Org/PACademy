@@ -1,5 +1,5 @@
 /**
- * Investigations API — Sprint 5 (KARASA §5).
+ * Investigations API — Sprint 5 (RFP Scope Document §5).
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/investigations?status=&priority=             → InvestigationCase[]
