@@ -27,6 +27,7 @@ import {
   toast,
 } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
+import { IconSeal } from '@/shared/components/icons';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
@@ -358,7 +359,7 @@ export function BoardDecisionsListPage(): JSX.Element {
               {/* Outcome verdict box */}
               <div
                 className={
-                  'mb-6 flex items-center gap-3 rounded-md border-2 p-3 ' +
+                  'mb-6 flex items-center justify-between gap-3 rounded-md border-2 p-3 ' +
                   (open.outcome === 'accepted'
                     ? 'border-success bg-success-bg'
                     : open.outcome === 'rejected'
@@ -366,20 +367,26 @@ export function BoardDecisionsListPage(): JSX.Element {
                       : 'border-gold-500 bg-gold-50')
                 }
               >
-                {open.outcome === 'accepted' ? (
-                  <CheckCircle2 size={22} strokeWidth={1.75} className="text-success" aria-hidden />
-                ) : open.outcome === 'rejected' ? (
-                  <XCircle size={22} strokeWidth={1.75} className="text-terra-600" aria-hidden />
-                ) : (
-                  <Pause size={22} strokeWidth={1.75} className="text-gold-700" aria-hidden />
-                )}
-                <div>
-                  <p className="text-2xs uppercase tracking-wide text-ink-500">حُكم الهيئة</p>
-                  <p className="font-ar-display text-lg font-bold text-ink-900">
-                    {open.outcome === 'accepted' && 'القبول النهائي بالأكاديمية'}
-                    {open.outcome === 'rejected' && 'رفض الترشّح'}
-                    {open.outcome === 'deferred' && 'تأجيل القرار للدورة القادمة'}
-                  </p>
+                <div className="flex items-center gap-3">
+                  {open.outcome === 'accepted' ? (
+                    <CheckCircle2 size={22} strokeWidth={1.75} className="text-success" aria-hidden />
+                  ) : open.outcome === 'rejected' ? (
+                    <XCircle size={22} strokeWidth={1.75} className="text-terra-600" aria-hidden />
+                  ) : (
+                    <Pause size={22} strokeWidth={1.75} className="text-gold-700" aria-hidden />
+                  )}
+                  <div>
+                    <p className="text-2xs uppercase tracking-wide text-ink-500">حُكم الهيئة</p>
+                    <p className="font-ar-display text-lg font-bold text-ink-900">
+                      {open.outcome === 'accepted' && 'القبول النهائي بالأكاديمية'}
+                      {open.outcome === 'rejected' && 'رفض الترشّح'}
+                      {open.outcome === 'deferred' && 'تأجيل القرار للدورة القادمة'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-end font-mono text-2xs text-ink-700" dir="ltr">
+                  <p>{fmtDate(open.date, 'short')}</p>
+                  <p className="text-ink-500">{open.hijriDate} هـ</p>
                 </div>
               </div>
 
@@ -440,8 +447,11 @@ export function BoardDecisionsListPage(): JSX.Element {
                   <p>هذا القرار صادر بصورة رسمية ومُعتمد بختم الإدارة.</p>
                   <p className="mt-0.5">أيّ نسخة بدون الختم الرسمي تُعتبر لاغية.</p>
                 </div>
-                <div className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-dashed border-gold-500 text-center text-2xs text-gold-700">
-                  ختم<br />هيئة القبول
+                <div className="flex flex-col items-center gap-1.5">
+                  <span aria-hidden className="text-gold-600">
+                    <IconSeal width={72} height={72} />
+                  </span>
+                  <p className="text-2xs font-medium text-gold-700">ختم هيئة القبول</p>
                 </div>
               </div>
 
@@ -554,11 +564,10 @@ function TallyBar({ label, count, total, color }: { label: string; count: number
 
 function DecisionSignature({ title, name }: { title: string; name: string }): JSX.Element {
   return (
-    <div className="text-center">
-      <div className="border-t-2 border-ink-700 pt-2">
-        <p className="font-medium text-ink-900">{title}</p>
-        <p className="mt-0.5 text-ink-700">{name}</p>
-      </div>
+    <div className="flex flex-col items-center text-center">
+      <span aria-hidden className="block h-12 w-full border-b border-dashed border-ink-700/60" />
+      <p className="mt-2 font-medium text-ink-900">{title}</p>
+      <p className="mt-0.5 text-ink-700">{name}</p>
     </div>
   );
 }

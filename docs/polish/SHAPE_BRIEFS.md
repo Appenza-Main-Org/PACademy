@@ -127,3 +127,29 @@
 
 ### Decision shorthand
 `SignatureBlock → dashed signature line + IconSeal seal variant`, `+ Hijri inline date`.
+
+---
+
+## Screen 5 — Board decision drawer (`/board/decisions` → drawer, print)
+
+**File:** [src/features/board/pages/Sprint6Pages.tsx](../../src/features/board/pages/Sprint6Pages.tsx) (`BoardDecisionsListPage` + `DecisionSignature`)
+**Demo role:** Print document #3. The signed, sealed, dated final decision the board hands down.
+**Pass-1 input:** Hijri+Gregorian dates + formal Arabic prose + member signatures done. **Final pass on stamp typography.**
+
+### What's wrong
+- `DecisionSignature` uses a `border-t-2 border-ink-700` rule above the title — same separator-not-signing-surface anti-pattern as the medical certificate.
+- The "ختم هيئة القبول" placeholder is a 24×24 dashed circle in gold-500 with literal text "ختم"/"هيئة القبول" inside it — reads as a wireframe note, not a ministerial seal.
+- Verdict box has identity/outcome on the start, no date on the trailing edge — the Gregorian+Hijri pair already exists in the decision-number stamp above, but the verdict box itself is undated. For a one-page formal print where each block must stand alone, the date pair belongs there too.
+
+### What good looks like (after polish)
+- `DecisionSignature` rebuilt: dashed-bottom signature line above title (signing surface) + title + name. Same shape as the new `MedicalCertificate` `SignatureBlock` — visual coherence across the 3 print docs is an explicit Phase-1 goal.
+- Official seal swapped: `<IconSeal width={72} height={72} className="text-gold-600" />` + a single `text-2xs font-medium text-gold-700` label "ختم هيئة القبول". Drops the wireframe-circle.
+- Verdict box gets a trailing-edge date pair (`fmtDate · hijriDate هـ`) in `font-mono text-2xs`.
+
+### What must NOT change
+- Decision-number stamp (gold border, ScrollText icon, formal number) — already canonical.
+- Formal Arabic body, "بسم الله الرحمن الرحيم" opening, formal closing.
+- Khayameya footer.
+
+### Decision shorthand
+`DecisionSignature → match SignatureBlock`, `seal placeholder → IconSeal`, `+ verdict-box trailing date pair`.
