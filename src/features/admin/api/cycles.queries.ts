@@ -1,12 +1,35 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cyclesService } from './cycles.service';
-import type { AdmissionCycle, CycleStatus } from '@/shared/types/domain';
+import type {
+  AdmissionCycle,
+  AdmissionCycleCategoryConfig,
+  ApplicantCategoryKey,
+  CategoryCondition,
+  CycleStatus,
+} from '@/shared/types/domain';
 
 export const cyclesKeys = {
   all: ['cycles'] as const,
   list: () => [...cyclesKeys.all, 'list'] as const,
   detail: (id: string) => [...cyclesKeys.all, 'detail', id] as const,
+  active: () => [...cyclesKeys.all, 'active'] as const,
 };
+
+/**
+ * The applicant-side `useCategories()` snapshot computes `isOpen` from the
+ * active cycle's openCategories map, so cycle changes must also invalidate
+ * the categories prefix. Both the applicant-portal and admin `categories.queries.ts`
+ * use `['categories']` as their root key — a literal prefix match here
+ * keeps Clean Arch (admin doesn't import from applicant-portal).
+ */
+const CATEGORIES_PREFIX = ['categories'] as const;
+
+function invalidateCycle(qc: ReturnType<typeof useQueryClient>, id: string): void {
+  qc.invalidateQueries({ queryKey: cyclesKeys.list() });
+  qc.invalidateQueries({ queryKey: cyclesKeys.detail(id) });
+  qc.invalidateQueries({ queryKey: cyclesKeys.active() });
+  qc.invalidateQueries({ queryKey: CATEGORIES_PREFIX });
+}
 
 export function useCycles() {
   return useQuery({ queryKey: cyclesKeys.list(), queryFn: () => cyclesService.list() });
@@ -20,11 +43,15 @@ export function useCycle(id: string | null) {
   });
 }
 
+export function useActiveCycle() {
+  return useQuery({ queryKey: cyclesKeys.active(), queryFn: () => cyclesService.getActive() });
+}
+
 export function useCycleClone() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => cyclesService.clone(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: cyclesKeys.list() }),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
   });
 }
 
@@ -32,10 +59,7 @@ export function useCycleTransition() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, next }: { id: string; next: CycleStatus }) => cyclesService.transition(id, next),
-    onSuccess: (cycle: AdmissionCycle) => {
-      qc.invalidateQueries({ queryKey: cyclesKeys.list() });
-      qc.invalidateQueries({ queryKey: cyclesKeys.detail(cycle.id) });
-    },
+    onSuccess: (cycle: AdmissionCycle) => invalidateCycle(qc, cycle.id),
   });
 }
 
@@ -44,9 +68,81 @@ export function useCycleUpdate() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<AdmissionCycle> }) =>
       cyclesService.update(id, patch),
-    onSuccess: (cycle: AdmissionCycle) => {
+    onSuccess: (cycle: AdmissionCycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
+export function useCycleCreate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>) => cyclesService.create(payload),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
+export function useCycleActivate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cyclesService.activate(id),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
+export function useCycleClose() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cyclesService.close(id),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
+export function useCycleArchive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cyclesService.archive(id),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
+export function useCycleRemove() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cyclesService.remove(id),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: cyclesKeys.list() });
-      qc.invalidateQueries({ queryKey: cyclesKeys.detail(cycle.id) });
+      qc.invalidateQueries({ queryKey: CATEGORIES_PREFIX });
     },
+  });
+}
+
+export function useToggleCycleCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      cycleId,
+      categoryKey,
+      config,
+    }: {
+      cycleId: string;
+      categoryKey: ApplicantCategoryKey;
+      config: AdmissionCycleCategoryConfig;
+    }) => cyclesService.toggleCategory(cycleId, categoryKey, config),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
+export function useUpdateCycleCategoryOverride() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      cycleId,
+      categoryKey,
+      overrides,
+    }: {
+      cycleId: string;
+      categoryKey: ApplicantCategoryKey;
+      overrides: Partial<CategoryCondition>;
+    }) => cyclesService.updateCategoryOverride(cycleId, categoryKey, overrides),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
   });
 }
