@@ -1,28 +1,60 @@
 /**
  * Stage 3 — personal data (RFP Scope Document §2.2 stage 3).
  * Comprehensive 4-part name + address + photo upload.
+ *
+ * Date of birth and gender are derived from the validated National ID
+ * (Stage 1/2) and rendered as read-only display rows. The schema fields
+ * are kept (and synced via setValue) so downstream consumers see them.
  */
 
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Button, Card, FileUpload, Input, Select, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage3Schema, type Stage3Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
-import { REF_GOVERNORATES, REF_NATIONALITIES } from '@/shared/mock-data/referenceData';
+import { useApplicantPortalStore } from '../store/applicantPortal.store';
+import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
+import { parseNationalId } from '@/shared/lib/national-id';
 
 const APPLICANT_ID = 'APP-2026000';
 
+const formatDobIso = (d: Date): string => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const formatDobAr = (d: Date): string =>
+  d.toLocaleDateString('ar-EG', { day: '2-digit', month: 'long', year: 'numeric' });
+
 export function Stage3PersonalPage(): JSX.Element {
   const navigate = useNavigate();
+  const nationalId = useApplicantPortalStore((s) => s.nationalId);
+
+  const nidInfo = useMemo(() => (nationalId ? parseNationalId(nationalId) : null), [nationalId]);
+  const derivedDob = nidInfo?.birthDate ?? null;
+  const derivedGender = nidInfo?.gender ?? null;
+  const hasDerived = Boolean(derivedDob && derivedGender);
+
   const { register, handleSubmit, formState: { errors, isSubmitting }, watch, setValue } = useForm<Stage3Values>({
     resolver: zodResolver(stage3Schema),
     defaultValues: {
-      gender: 'male',
+      gender: derivedGender ?? 'male',
+      dateOfBirth: derivedDob ? formatDobIso(derivedDob) : '',
       religion: 'مسلم',
       permanentSameAsCurrent: false,
     },
   });
+
+  /* Sync derived NID values back into the form state so submission carries
+   * them even though the user can't edit the inputs. */
+  useEffect(() => {
+    if (derivedDob) setValue('dateOfBirth', formatDobIso(derivedDob), { shouldValidate: true });
+    if (derivedGender) setValue('gender', derivedGender, { shouldValidate: true });
+  }, [derivedDob, derivedGender, setValue]);
 
   const sameAsCurrent = watch('permanentSameAsCurrent');
   const currentAddress = watch('currentAddress');
@@ -43,22 +75,33 @@ export function Stage3PersonalPage(): JSX.Element {
         <Input label="اسم الجد" required {...register('thirdName')} error={errors.thirdName?.message} />
         <Input label="اللقب العائلي" required {...register('fourthName')} error={errors.fourthName?.message} />
 
-        <Input
-          label="تاريخ الميلاد"
-          type="date"
-          required
-          {...register('dateOfBirth')}
-          error={errors.dateOfBirth?.message}
-        />
-        <Select
-          label="النوع"
-          required
-          {...register('gender')}
-          options={[
-            { value: 'male', label: 'ذكر' },
-            { value: 'female', label: 'أنثى' },
-          ]}
-        />
+        {hasDerived ? (
+          <>
+            <DerivedRow label="تاريخ الميلاد" value={formatDobAr(derivedDob!)} />
+            <DerivedRow label="النوع" value={derivedGender === 'male' ? 'ذكر' : 'أنثى'} />
+            <input type="hidden" {...register('dateOfBirth')} />
+            <input type="hidden" {...register('gender')} />
+          </>
+        ) : (
+          <>
+            <Input
+              label="تاريخ الميلاد"
+              type="date"
+              required
+              {...register('dateOfBirth')}
+              error={errors.dateOfBirth?.message}
+            />
+            <Select
+              label="النوع"
+              required
+              {...register('gender')}
+              options={[
+                { value: 'male', label: 'ذكر' },
+                { value: 'female', label: 'أنثى' },
+              ]}
+            />
+          </>
+        )}
         <Select
           label="محل الميلاد"
           required
@@ -76,14 +119,6 @@ export function Stage3PersonalPage(): JSX.Element {
           ]}
         />
 
-        <Select
-          label="الجنسية"
-          required
-          {...register('nationalityId')}
-          options={REF_NATIONALITIES.map((n) => ({ value: n.id, label: n.nameAr }))}
-          containerClassName="md:col-span-2"
-          error={errors.nationalityId?.message}
-        />
         <Input
           label="رقم المحمول"
           required
@@ -155,5 +190,15 @@ export function Stage3PersonalPage(): JSX.Element {
         </div>
       </form>
     </Card>
+  );
+}
+
+function DerivedRow({ label, value }: { label: string; value: string }): JSX.Element {
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-border-default bg-ink-50/40 p-3">
+      <span className="text-2xs uppercase tracking-wide text-ink-500">{label}</span>
+      <span className="text-sm font-medium text-ink-900">{value}</span>
+      <span className="text-2xs text-ink-500">مأخوذ من الرقم القومي</span>
+    </div>
   );
 }

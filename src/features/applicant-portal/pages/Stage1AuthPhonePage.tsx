@@ -10,9 +10,11 @@ import { Button, Card, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage1Schema, type Stage1Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
+import { useApplicantPortalStore } from '../store/applicantPortal.store';
 
 export function Stage1AuthPhonePage(): JSX.Element {
   const navigate = useNavigate();
+  const setNationalId = useApplicantPortalStore((s) => s.setNationalId);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Stage1Values>({
     resolver: zodResolver(stage1Schema),
   });
@@ -20,6 +22,7 @@ export function Stage1AuthPhonePage(): JSX.Element {
   const onSubmit = async (values: Stage1Values): Promise<void> => {
     try {
       await applicantPortalService.initiateAuth(values.nationalId, values.phoneNumber);
+      setNationalId(values.nationalId);
       const masked = `${values.phoneNumber.slice(0, 3)}-XXX-XX${values.phoneNumber.slice(-4)}`;
       toast(`تم إرسال كلمة المرور إلى الرقم ${masked}`, 'success');
       navigate('/applicant/auth/step-2');

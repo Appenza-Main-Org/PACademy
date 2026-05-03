@@ -27,11 +27,11 @@ export const stage3Schema = z.object({
   secondName: z.string().min(2, 'مطلوب'),
   thirdName: z.string().min(2, 'مطلوب'),
   fourthName: z.string().min(2, 'مطلوب'),
+  /* dateOfBirth and gender are derived from the National ID — see Stage3PersonalPage */
   dateOfBirth: z.string().min(1, 'مطلوب'),
   gender: z.enum(['male', 'female']),
   placeOfBirth: z.string().min(1, 'مطلوب'),
   religion: z.enum(['مسلم', 'مسيحي']),
-  nationalityId: z.string().min(1, 'مطلوب'),
   currentAddress: z.string().min(5, 'مطلوب'),
   permanentAddress: z.string().min(5, 'مطلوب'),
   permanentSameAsCurrent: z.boolean().optional().default(false),
