@@ -308,3 +308,25 @@
 
 ### Decision shorthand
 `explainer card → border-s-4 rail + lg-only mini-pictogram showing preliminary→final transition`.
+
+---
+
+## Screen 12 — `/medical/station/bmi`
+
+**File:** [src/features/medical/pages/StationExamPage.tsx](../../src/features/medical/pages/StationExamPage.tsx)
+**Demo role:** Two-phase signature flagship (medical-side). BMI gauge + verdict commit.
+**Pass-1 input:** BMI gauge + ✓/✗ checklist done. **Principle #4 for verdict commit + cyan-teal accent (per app rail).**
+
+### What's wrong
+- Submit row is just the button on the trailing edge, no §4 preliminary indicator. The KARASA §6.2.D two-phase rule (officer enters, chief signs) isn't visible at the commit moment.
+- Active station pill in the header uses hardcoded `bg-teal-500` — per S1 audit, hardcoded brand colors on per-app surfaces should consume `var(--accent-500)` so the medical app's accent (teal-400 per CLAUDE.md §8) reads through.
+
+### What good looks like (after polish)
+- Submit row becomes 2-column flex on `sm+` with a §4-aligned dashed gold-300 notice on the leading edge: "ستُحفظ هذه النتيجة كـ «قيد المراجعة» ولن تُعتمد إلا بتوقيع رئيس القومسيون · KARASA §6.2.D". Same shape as the CommitteeDetail and Stage 7 preliminary notices — cross-screen §4 coherence.
+- Active station pill consumes `var(--accent-500)` via inline `style` (Tailwind doesn't allow `bg-[var(...)]` on conditionals cleanly here without arbitrary values).
+
+### What must NOT change
+- BMI gauge widget; per-station field set; verdict select; existing IconStamp on معتمد in the today-results list (Phase 0.5).
+
+### Decision shorthand
+`+ §4 preliminary notice on submit row`, `active-station pill → var(--accent-500)`. S1 partial fix in-place.

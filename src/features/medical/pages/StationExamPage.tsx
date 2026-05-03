@@ -77,8 +77,9 @@ export function StationExamPage(): JSX.Element {
                 href={`${ROUTES.medical.overview}/station/${s}`}
                 className={
                   'rounded-pill px-3 py-1 text-2xs transition-colors duration-fast ease-standard ' +
-                  (s === station ? 'bg-teal-500 text-white' : 'bg-ink-100 text-ink-700 hover:bg-ink-200')
+                  (s === station ? 'text-white' : 'bg-ink-100 text-ink-700 hover:bg-ink-200')
                 }
+                style={s === station ? { background: 'var(--accent-500)' } : undefined}
               >
                 {STATION_LABELS[s]}
               </a>
@@ -155,7 +156,11 @@ export function StationExamPage(): JSX.Element {
                 ]}
               />
               <Textarea label="ملاحظات الطبيب" value={notes} onChange={(e) => setNotes(e.target.value)} />
-              <div className="flex justify-end">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700 leading-normal">
+                  ستُحفظ هذه النتيجة كـ <span className="font-bold">«قيد المراجعة»</span> ولن تُعتمد إلا
+                  بتوقيع رئيس القومسيون · KARASA §6.2.D
+                </div>
                 <Button type="submit" variant="primary" size="lg" leadingIcon={<Save size={14} strokeWidth={1.75} />}>
                   حفظ كنتيجة أولية
                 </Button>
