@@ -31,6 +31,7 @@ import {
   LogoMark,
   Pattern,
 } from '@/shared/components';
+import { IconSeal } from '@/shared/components/icons';
 import { ROUTES } from '@/config/routes';
 
 const APPLICATION_OPEN = '15 يناير 2026';
@@ -65,31 +66,33 @@ export function PublicLandingPage(): JSX.Element {
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-gold-500" />
               التقديم متاح الآن · دفعة 2026
             </p>
-            <h1 className="font-ar-display text-4xl font-bold leading-tight text-ink-900 md:text-4xl">
+            <h1 className="font-ar-display text-4xl font-bold leading-[1.15] text-ink-900 md:text-5xl">
               منظومة القبول الإلكتروني
               <br />
               <span style={{ color: 'var(--teal-700)' }}>أكاديمية الشرطة</span>
             </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-md leading-relaxed text-ink-700">
+            <p className="mx-auto mt-5 max-w-2xl text-md leading-relaxed text-ink-700">
               منصّة موحّدة لاستقبال طلبات الالتحاق بأكاديمية الشرطة، وإدارة كافّة مراحل القبول
               من التسجيل وحتى صدور القرار النهائي للهيئة. خدمة رسمية مقدّمة من
               وزارة الداخلية.
             </p>
           </div>
 
-          <ul className="mt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-2xs text-ink-700">
-            <li className="inline-flex items-center gap-2">
-              <CalendarDays size={14} strokeWidth={1.75} />
-              فتح الباب: <span className="font-numeric tnum font-bold" dir="rtl">{APPLICATION_OPEN}</span>
-            </li>
-            <li className="inline-flex items-center gap-2">
-              <CalendarDays size={14} strokeWidth={1.75} />
-              إغلاق الباب: <span className="font-numeric tnum font-bold" dir="rtl">{APPLICATION_CLOSE}</span>
-            </li>
-            <li>
-              <Badge tone="success" dot>المتقدّمون حتى الآن: <span className="font-numeric tnum">2,847</span></Badge>
-            </li>
-          </ul>
+          <dl className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-2xs text-ink-700">
+            <div className="inline-flex items-baseline gap-1.5">
+              <CalendarDays size={12} strokeWidth={1.75} className="text-ink-500" aria-hidden />
+              <dt className="text-ink-500">فتح الباب</dt>
+              <dd className="font-numeric tnum font-medium text-ink-900" dir="rtl">{APPLICATION_OPEN}</dd>
+            </div>
+            <span aria-hidden className="hidden h-3 w-px bg-border-subtle sm:inline-block" />
+            <div className="inline-flex items-baseline gap-1.5">
+              <CalendarDays size={12} strokeWidth={1.75} className="text-ink-500" aria-hidden />
+              <dt className="text-ink-500">إغلاق الباب</dt>
+              <dd className="font-numeric tnum font-medium text-ink-900" dir="rtl">{APPLICATION_CLOSE}</dd>
+            </div>
+            <span aria-hidden className="hidden h-3 w-px bg-border-subtle sm:inline-block" />
+            <Badge tone="success" dot>المتقدّمون حتى الآن: <span className="font-numeric tnum">2,847</span></Badge>
+          </dl>
         </div>
       </section>
 
@@ -145,10 +148,15 @@ export function PublicLandingPage(): JSX.Element {
       {/* ── BOTTOM ATTRIBUTION BAR ─────────────────────────────── */}
       <section className="relative border-t border-border-subtle bg-ink-50/50 py-6">
         <div className="mx-auto flex max-w-content flex-wrap items-center justify-between gap-4 px-6 text-2xs text-ink-500">
-          <p>
-            هذه خدمة رسمية تُدار بواسطة وزارة الداخلية المصرية. جميع البيانات
-            مُشفّرة ومحميّة بمستوى السيادة الرقمية الحكومية.
-          </p>
+          <div className="flex items-center gap-3">
+            <span aria-hidden className="text-gold-600">
+              <IconSeal width={28} height={28} />
+            </span>
+            <p>
+              هذه خدمة رسمية تُدار بواسطة وزارة الداخلية المصرية. جميع البيانات
+              مُشفّرة ومحميّة بمستوى السيادة الرقمية الحكومية.
+            </p>
+          </div>
           <div className="inline-flex items-center gap-2">
             <KhayameyaStripe height="sm" className="w-32" />
           </div>

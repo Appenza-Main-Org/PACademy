@@ -153,3 +153,29 @@
 
 ### Decision shorthand
 `DecisionSignature → match SignatureBlock`, `seal placeholder → IconSeal`, `+ verdict-box trailing date pair`.
+
+---
+
+## Screen 6 — `/` PublicLandingPage (BRAND register, only one)
+
+**File:** [src/features/landing/pages/PublicLandingPage.tsx](../../src/features/landing/pages/PublicLandingPage.tsx)
+**Demo role:** Brand-register front door. The only screen polished against brand laws (not product). The first thing a citizen visitor sees.
+**Pass-1 input:** Hero + 4 highlights + footer done. **Flagship pass.**
+
+### What's wrong
+- **Hero headline** is `text-4xl md:text-4xl` — too small for a brand-register hero. The product-register equivalent (hub) has `text-3xl` for a greeting; the brand entry page should sit a step above.
+- **Meta strip** uses a flex-wrap `<ul>` with 3 unrelated items: two date entries + a Badge. Same shape problem the hub had — fixed there, drifted here.
+- **Bottom attribution bar** has the Khayameya stripe at the trailing edge but no anchoring on the leading edge; reads as decorative-only.
+
+### What good looks like (after polish)
+- Headline scales `text-4xl` → `text-5xl` on `md+`, with tighter `leading-[1.15]` for ministerial display gravity.
+- Meta strip rebuilt as a tight inline `dl` with label/value pairs and vertical dividers (mirroring the hub's improved status strip — visual coherence).
+- Bottom bar gains an `IconSeal` (28px) anchor in `text-gold-600` on the leading edge — the ministerial seal balances the Khayameya tail.
+
+### What must NOT change
+- Cycle badge (gold-50, dot, "التقديم متاح الآن"); the `<LogoMark>` hero anchor; the radial-gradient + tessellation Pattern hero treatment.
+- Dual CTA cards (teal applicants, gold staff) — they're already canonical and PRODUCT.md anti-references confirm dual-color institutional accents are correct, not Stripe-y.
+- 4-highlight card grid; Khayameya stripe at the bottom corner.
+
+### Decision shorthand
+`headline → text-5xl on md+`, `meta strip → dl + dividers`, `+ IconSeal anchor on bottom bar`.
