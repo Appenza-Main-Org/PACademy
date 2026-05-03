@@ -26,6 +26,7 @@ import { useQuery } from '@tanstack/react-query';
 import { medicalService, STATION_LABELS, ALL_STATION_KEYS } from '../api/medical.service';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate } from '@/shared/lib/format';
+import { IconSeal } from '@/shared/components/icons';
 
 const APPLICANT_NAME_DEMO = 'يوسف أحمد محمد الخطيب';
 const APPLICANT_NID_DEMO = '30506121601234';
@@ -109,7 +110,10 @@ export function MedicalCertificatePage(): JSX.Element {
                 </p>
               </div>
             </div>
-            <p className="font-mono text-2xs text-ink-500" dir="ltr">{fmtDate(Date.now(), 'short')}</p>
+            <div className="text-end">
+              <p className="font-mono text-2xs text-ink-500" dir="ltr">{fmtDate(Date.now(), 'short')}</p>
+              <p className="mt-0.5 text-2xs text-ink-500">{formatHijri(new Date())} هـ</p>
+            </div>
           </div>
 
           {/* Per-station table */}
@@ -174,16 +178,33 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
 
 function SignatureBlock({ title, name }: { title: string; name?: string }): JSX.Element {
   return (
-    <div className="text-center">
-      <div className="border-t-2 border-ink-700 pt-2">
-        <p className="font-medium text-ink-900">{title}</p>
-        {name && <p className="mt-0.5 text-ink-500">{name}</p>}
-        {!name && (
-          <div className="mx-auto mt-2 inline-flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-ink-300 text-2xs text-ink-400">
-            ختم
-          </div>
-        )}
-      </div>
+    <div className="flex flex-col items-center text-center">
+      {name ? (
+        <>
+          <span aria-hidden className="block h-12 w-full border-b border-dashed border-ink-700/60" />
+          <p className="mt-2 font-medium text-ink-900">{title}</p>
+          <p className="mt-0.5 text-ink-500">{name}</p>
+        </>
+      ) : (
+        <>
+          <span aria-hidden className="text-gold-600">
+            <IconSeal width={56} height={56} />
+          </span>
+          <p className="mt-2 font-medium text-ink-900">{title}</p>
+        </>
+      )}
     </div>
   );
+}
+
+function formatHijri(d: Date): string {
+  try {
+    return new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d).replace('هـ', '').trim();
+  } catch {
+    return '';
+  }
 }

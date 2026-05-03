@@ -104,3 +104,26 @@
 
 ### Decision shorthand
 `+ 3-col signature block (IconSeal for ministry stamp)`, `+ Hijri inline date`. No new shared component (helpers stay file-local).
+
+---
+
+## Screen 4 — `/medical/certificate` (medical certificate, print)
+
+**File:** [src/features/medical/pages/MedicalCertificatePage.tsx](../../src/features/medical/pages/MedicalCertificatePage.tsx)
+**Demo role:** Print document #2. The pass/fail verdict the medical commission hands to the board.
+**Pass-1 input:** Color-coded verdict stamp + per-station table done. **Final pass on 3-col signature + seal placement.**
+
+### What's wrong
+- Existing `SignatureBlock` uses a `border-t-2 border-ink-700` rule above the title — the rule reads as a separator, not as a place to sign on. No room for a real signature.
+- The "ختم" placeholder is a dashed circle with text — not ministerial.
+- Verdict stamp shows Gregorian only.
+
+### What good looks like (after polish)
+- `SignatureBlock` rebuilt: dashed-bottom signature line above title (signing surface), then title + name. For the seal variant: replace dashed-circle with `<IconSeal width={56} height={56} />` in `text-gold-600`.
+- Verdict stamp gets Hijri inline below the Gregorian on the trailing edge.
+
+### What must NOT change
+- Verdict-stamp color logic (success/terra/gold/ink); per-station table; KhayameyaStripe footer; auto-rule note.
+
+### Decision shorthand
+`SignatureBlock → dashed signature line + IconSeal seal variant`, `+ Hijri inline date`.
