@@ -11,3 +11,8 @@ export { Stage8ExamSchedulePage } from './pages/Stage8ExamSchedulePage';
 export { Stage9PrintCardPage } from './pages/Stage9PrintCardPage';
 export { Stage10FollowUpPage } from './pages/Stage10FollowUpPage';
 export { Stage11AcquaintanceDocPage } from './pages/Stage11AcquaintanceDocPage';
+
+/* Post-polish gate — Bucket B */
+export { CategorySelectionPage } from './pages/CategorySelectionPage';
+export { EligibilityCheckPage } from './pages/EligibilityCheckPage';
+export { useApplicantPortalStore } from './store/applicantPortal.store';

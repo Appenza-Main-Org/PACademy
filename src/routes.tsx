@@ -22,6 +22,8 @@ import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing
 import {
   ApplicantPortalLayout,
   ApplicantPortalPage,
+  CategorySelectionPage,
+  EligibilityCheckPage,
   Stage10FollowUpPage,
   Stage11AcquaintanceDocPage,
   Stage1AuthPhonePage,
@@ -155,6 +157,14 @@ export const routes: RouteObject[] = [
   },
 
   /* ── APPLICANT SURFACE — Stage 1+2 IS the auth ──────────── */
+  {
+    path: '/applicant/start',
+    element: <AuthGuard app="applicant"><CategorySelectionPage /></AuthGuard>,
+  },
+  {
+    path: '/applicant/eligibility',
+    element: <AuthGuard app="applicant"><EligibilityCheckPage /></AuthGuard>,
+  },
   {
     path: '/applicant',
     element: <AuthGuard app="applicant"><ApplicantPortalLayout /></AuthGuard>,

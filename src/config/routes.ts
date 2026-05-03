@@ -28,10 +28,19 @@ export const ROUTES = {
     admissionRules: '/admin/admission-rules',
     cycles: '/admin/cycles',
     cycleDetail: (id = ':id'): string => `/admin/cycles/${id}`,
+    cycleNew: '/admin/cycles/new',
+    categories: '/admin/categories',
+    categoryEdit: (key = ':key'): string => `/admin/categories/${key}`,
   },
 
-  /* ── Applicant surface (own auth via Stage 1+2) ── */
+  /* ── Applicant surface (own auth via Stage 1+2) ──
+   *  `applicant` is a string for backwards-compat with concatenations
+   *  like `${ROUTES.applicant}/auth/step-1`. Pre-wizard gate routes are
+   *  flat top-level keys to avoid breaking those callsites. */
   applicant: '/applicant',
+  applicantStart: '/applicant/start',
+  applicantEligibility: '/applicant/eligibility',
+  applicantTests: '/applicant/tests',
 
   /* ── Internal staff apps ── */
   committee: {
