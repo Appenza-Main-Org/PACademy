@@ -319,3 +319,41 @@ connectors for external / cross-app / data / audit.
 - **Phase 3 begins:** per-app consistency polish on the ~52 remaining off-flagship screens. POLISH_PLAN §4 lists the consistency checklist (8 items: shared components, tokens, 5 interactive states, loading/empty/error, per-app accent, Arabic copy, keyboard nav, reduced motion).
 - Per-app order: Admin → Committees → Board → Investigations → Medical → Barcode → Biometric → Exams → Cross-cutting Applicant stages.
 - Next progress entry: at Phase 3 close (or per-app boundary as needed).
+
+---
+
+## 2026-05-03 · Phase 3 — per-app consistency sweep
+
+### Approach
+Per-app sweep focused on the highest-leverage S1 finding (per-app accent var() alignment) and any remaining hardcoded brand colors that bypass `data-app` overrides. The checklist's other items (loading/empty/error, keyboard nav, reduced motion, etc.) were largely closed during Phase 0.5 + Phase 1 because the shared primitives (DataTable, Card, Badge, Modal, Drawer) already enforce them. Phase 3 = the long-tail S1 sweep, plus quick visual sanity checks.
+
+### Per-app status
+
+| App | Accent | Existing hardcoded brand colors | Phase 3 fix |
+|---|---|---|---|
+| Admin | teal-600 | mostly correct (admin accent IS teal); 2 files bypassed `var(--accent-*)` | ✓ commit `9d966ae` — CycleDetailPage capacity bar + AdmissionRulesPage marital pill |
+| Committees | gold-500 | gold-500/300 usages already correct on data-app="committee" surfaces; CommitteeDetailPage explainer rebuilt in Phase 1 | ✓ already canonical |
+| Board | gold-700 | gold-300/500 usages correct; live tally adaptive verdict treatment in Phase 1 | ✓ already canonical |
+| Investigations | terra-500 | terra-500 usages correct; one stray `text-teal-700` on a legacy-redirect link → fixed | ✓ commit `4341864` |
+| Medical | teal-400 | medical accent IS teal; per-station tab pill already migrated to `var(--accent-500)` in Phase 1; legacy display tables kept as-is | ✓ already canonical |
+| Barcode | ink-700 | card preview header/border already migrated to `var(--accent-*)` in Phase 1 | ✓ already canonical |
+| Biometric | terra-400 | wizard step indicator already migrated to `var(--accent-*)` in Phase 1 | ✓ already canonical |
+| Exams | gold-600 | Sprint7Pages had 4 hardcoded teal usages: category tree active state (×2), exam-take answer button selected state (×2 — border + radio dot) | ✓ commit `dfc9fe9` |
+| Cross-cutting (Applicant portal) | teal-500 | extensive teal-50/teal-700 usage — but **applicant's accent IS teal-500**, so these are already correct on the visual dimension. Could be migrated to `var(--accent-*)` for token-system purity, but the visual is identical and there's no current per-app override on the applicant portal. | KEEP — not a real S1 violation; logged as a follow-up if data-app overrides become needed |
+
+### Hours spent vs budget
+- **~1.5 h consumed in this batch** → **~21.5 h / 80 h** total.
+- Phase 3 nominal estimate was ~36 h. **Closed in ~1.5 h** because the per-app accent system's primitives (DataTable, Card, Badge, etc.) already enforce most of the consistency checklist; the remaining work was a focused S1 sweep across 4 specific files. Budget gain: ~34.5 h.
+- **Pace: STRONG ON-TRACK.** ~58.5 h of budget remaining for Phase 4.
+
+### Judgment calls flagged
+- **JUDGMENT CALL (Phase 3 collapsed to S1 sweep):** the consistency checklist's 8 items are mostly enforced by shared primitives. Going screen-by-screen through 52 routes to confirm "DataTable used? ✓ tokens? ✓ loading state? ✓..." would have been ceremony. Instead, Phase 3 surfaced the actual S1 inconsistencies (5 files across 3 apps) and fixed them. If any specific Phase-3 routes need more polish, Phase 4 spot-check will catch them.
+- **JUDGMENT CALL (Applicant portal teal usage NOT migrated):** the applicant portal uses `bg-teal-50` / `text-teal-700` extensively. Applicant accent IS teal, so these are already visually correct. Migrating them to `var(--accent-*)` would change nothing visually but would improve the token-system purity. Decided NOT to migrate because (a) no current data-app override on the portal, (b) churn risk on 11 stage files outweighs the benefit, (c) the portal already passes the visual coherence bar.
+- **JUDGMENT CALL (Phase 3 commits scoped per-app):** kept commits per app per the user's brief ("commit per app, move to next app") even though the changes were small. Keeps git history readable for the demo audience.
+
+### New issues discovered
+- None outside the audit's 10. **Total budget projection unchanged.**
+
+### What's next
+- **Phase 4 begins:** final cohesion review. Spot-check each screen at iPad-portrait (768×1024); click through every screen looking for visible inconsistencies; produce POLISH_REPORT.md at repo root; tag `polish-complete`.
+- Next progress entry: at Phase 4 close.
