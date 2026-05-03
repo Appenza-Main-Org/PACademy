@@ -234,3 +234,29 @@
 
 ### Decision shorthand
 `live ticker dot → action-colored`, `geo bars → var(--accent-500)`. Cross-screen coherence with hub's new activity strip.
+
+---
+
+## Screen 9 — `/investigations/cases/:id`
+
+**File:** [src/features/investigations/pages/InvestigationDetailPage.tsx](../../src/features/investigations/pages/InvestigationDetailPage.tsx)
+**Demo role:** "Restricted file" demo. Family tree + 6 external checks + restricted banner.
+**Pass-1 input:** Restricted banner + family tree + 6 named external checks done. **Tighten classification strip.**
+
+### What's wrong
+- Classification banner is a single terra-50 surface with the restriction copy inline. It reads more like a warning toast than a classified-document marking. For demo audience expecting a Ministry-of-Interior look, the strip should feel like a stamped marking on a security file, not a UI alert.
+
+### What good looks like (after polish)
+- Classification banner gets a 2-row treatment:
+  1. **Top rail** — terra-500 solid bar with `font-mono uppercase tracking-[0.18em] text-2xs text-white` reading `RESTRICTED · CLASSIFIED` on the start edge and the case ID on the trailing edge. LTR. Reads like the bilingual security stamp on real classified files.
+  2. **Bottom row** — existing Arabic restriction notice + ShieldAlert icon + "وُصول مُسجَّل" badge.
+- Outer border drops from `border-2` to `border` (the top rail now carries the visual weight).
+
+### What must NOT change
+- Family tree visualization (4 generations × FamilyNode).
+- 6-row external checks list (ChecklistItem).
+- Upload zone, "الخلاصة والقرار" verdict block.
+- Per-row content of the existing banner — the Arabic restriction notice is the legal text and stays verbatim.
+
+### Decision shorthand
+`classification → 2-row stamp (mono Latin top rail + Arabic body)`.

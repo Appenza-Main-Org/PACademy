@@ -69,17 +69,23 @@ export function InvestigationDetailPage(): JSX.Element {
         restricted
       >
         {/* Restricted classification banner */}
-        <div className="mb-5 flex items-center justify-between gap-3 rounded-md border-2 border-terra-500 bg-terra-50 p-3">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-terra-500 text-white" aria-hidden>
-              <ShieldAlert size={18} strokeWidth={1.75} />
-            </span>
-            <div>
-              <p className="font-ar-display text-md font-bold text-terra-700">سرّي للغاية · الوصول مقيّد</p>
-              <p className="text-2xs text-terra-700/85">يُسمح بالاطلاع لأعضاء قطاع الأمن العام المخوّلين فقط · أيّ تسريب يستوجب الملاحقة</p>
-            </div>
+        <div className="mb-5 overflow-hidden rounded-md border border-terra-500 bg-terra-50">
+          <div className="flex items-center justify-between gap-3 border-b border-terra-500/40 bg-terra-500 px-3 py-1 font-mono text-2xs font-bold uppercase tracking-[0.18em] text-white" dir="ltr">
+            <span>RESTRICTED · CLASSIFIED</span>
+            <span>{c.id}</span>
           </div>
-          <Badge tone="danger" icon={<Eye size={11} strokeWidth={1.75} />}>وُصول مُسجَّل</Badge>
+          <div className="flex items-center justify-between gap-3 p-3">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-terra-500 text-white" aria-hidden>
+                <ShieldAlert size={18} strokeWidth={1.75} />
+              </span>
+              <div>
+                <p className="font-ar-display text-md font-bold text-terra-700">سرّي للغاية · الوصول مقيّد</p>
+                <p className="text-2xs text-terra-700/85">يُسمح بالاطلاع لأعضاء قطاع الأمن العام المخوّلين فقط · أيّ تسريب يستوجب الملاحقة</p>
+              </div>
+            </div>
+            <Badge tone="danger" icon={<Eye size={11} strokeWidth={1.75} />}>وُصول مُسجَّل</Badge>
+          </div>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[2fr_1fr]">
