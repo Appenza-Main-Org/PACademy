@@ -35,6 +35,7 @@ import {
   Stage7FamilyPage,
   Stage8ExamSchedulePage,
   Stage9PrintCardPage,
+  TestScheduleAndResultsPage,
 } from '@/features/applicant-portal';
 import {
   AdminLayout,
@@ -164,6 +165,10 @@ export const routes: RouteObject[] = [
   {
     path: '/applicant/eligibility',
     element: <AuthGuard app="applicant"><EligibilityCheckPage /></AuthGuard>,
+  },
+  {
+    path: '/applicant/tests',
+    element: <AuthGuard app="applicant"><TestScheduleAndResultsPage /></AuthGuard>,
   },
   {
     path: '/applicant',

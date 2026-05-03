@@ -90,7 +90,10 @@ export function Stage10FollowUpPage(): JSX.Element {
       )}
 
       {/* Always-visible advance CTA so the wizard isn't a dead-end */}
-      <div className="flex justify-end pt-2">
+      <div className="flex flex-wrap justify-end gap-2 pt-2">
+        <Link to={ROUTES.applicantTests}>
+          <Button variant="secondary">مواعيد الاختبارات</Button>
+        </Link>
         <Link to={`${ROUTES.applicant}/acquaintance-doc`}>
           <Button variant="primary" size="lg" trailingIcon={<ArrowLeft size={14} strokeWidth={1.75} />}>
             المتابعة إلى وثيقة التعارف

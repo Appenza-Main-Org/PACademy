@@ -16,3 +16,6 @@ export { Stage11AcquaintanceDocPage } from './pages/Stage11AcquaintanceDocPage';
 export { CategorySelectionPage } from './pages/CategorySelectionPage';
 export { EligibilityCheckPage } from './pages/EligibilityCheckPage';
 export { useApplicantPortalStore } from './store/applicantPortal.store';
+
+/* Post-polish test schedule — Bucket C */
+export { TestScheduleAndResultsPage } from './pages/TestScheduleAndResultsPage';
