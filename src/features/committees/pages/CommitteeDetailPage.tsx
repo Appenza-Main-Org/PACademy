@@ -174,17 +174,30 @@ export function CommitteeDetailPage(): JSX.Element {
       />
 
       {/* Two-phase workflow explainer */}
-      <Card className="mb-5 border-gold-300 bg-gold-50">
-        <div className="flex items-start gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-gold-500 text-white" aria-hidden>
-            <ShieldCheck size={18} strokeWidth={1.75} />
-          </span>
-          <div className="flex-1">
-            <p className="font-ar-display text-md font-bold text-gold-700">سياسة الاعتماد المزدوج · KARASA §3.C</p>
-            <p className="mt-1 text-2xs text-gold-700/85 leading-normal">
-              النتيجة المُدخَلة من العضو تُحفظ كـ <strong>«قيد المراجعة»</strong>؛ ولا تُعتبر معتمدة إلا بعد توقيع
-              رئيس اللجنة <strong>«{committee.head}»</strong> عليها — وذلك لمنع تغيير النتائج بصورة فردية.
-            </p>
+      <Card className="mb-5 border-s-4 border-gold-500 bg-gold-50">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-gold-500 text-white" aria-hidden>
+              <ShieldCheck size={18} strokeWidth={1.75} />
+            </span>
+            <div className="flex-1">
+              <p className="font-ar-display text-md font-bold text-gold-700">سياسة الاعتماد المزدوج · KARASA §3.C</p>
+              <p className="mt-1 text-2xs text-gold-700/85 leading-normal">
+                النتيجة المُدخَلة من العضو تُحفظ كـ <strong>«قيد المراجعة»</strong>؛ ولا تُعتبر معتمدة إلا بعد توقيع
+                رئيس اللجنة <strong>«{committee.head}»</strong> عليها — وذلك لمنع تغيير النتائج بصورة فردية.
+              </p>
+            </div>
+          </div>
+          <div className="hidden items-center gap-2 rounded-md border border-dashed border-gold-300 bg-surface-card px-3 py-2 text-2xs lg:flex">
+            <Badge tone="warning">
+              <Hourglass size={11} strokeWidth={1.75} className="me-1 inline-block" />
+              قيد المراجعة
+            </Badge>
+            <Check size={12} strokeWidth={1.75} className="text-gold-700" aria-hidden />
+            <Badge tone="success">
+              <IconStamp width={11} height={11} className="me-1 inline-block" />
+              معتمد
+            </Badge>
           </div>
         </div>
       </Card>

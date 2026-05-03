@@ -282,3 +282,29 @@
 
 ### Decision shorthand
 `+ §4 preliminary-save notice on the trailing-row, leading edge`.
+
+---
+
+## Screen 11 — `/committee/:id` (results-entry surface)
+
+**File:** [src/features/committees/pages/CommitteeDetailPage.tsx](../../src/features/committees/pages/CommitteeDetailPage.tsx)
+**Demo role:** Two-phase signature flagship — KARASA §3.C dual-approval workflow.
+**Pass-1 input:** Two-phase explainer + live score preview done. **Canonical signature treatment per S2.**
+
+### What's wrong
+- **S2 already partially addressed in Phase 0.5** — IconStamp glyph on the `معتمد` Badge ✓.
+- The two-phase explainer card uses `border-gold-300` all-around. Per §4 visual canon for surface-emphasis, a **start-edge color rail** reads stronger and reduces visual noise.
+- The explainer says "preliminary → final" in prose but doesn't show the visual transition. For the demo audience, a small inline pictogram of the actual `[Hourglass] قيد المراجعة → [IconStamp] معتمد` flow makes the workflow legible at a glance.
+
+### What good looks like (after polish)
+- Explainer card border drops from `border-gold-300` (full) to `border-s-4 border-gold-500` (start-edge rail) — same shape as the architecture page's 4-layer treatment. Less visual noise, stronger semantic.
+- Trailing edge of the explainer (visible on `lg+`): a dashed `border-gold-300` mini-pictogram showing the canonical state transition: warning Badge with Hourglass icon → Check arrow → success Badge with IconStamp.
+
+### What must NOT change
+- Result row's phase Badge with IconStamp on `معتمد` (Phase 0.5 work).
+- "اعتماد المحدد ({n})" multi-select bulk-approve flow.
+- Live score preview drawer.
+- 4-tile KPI strip.
+
+### Decision shorthand
+`explainer card → border-s-4 rail + lg-only mini-pictogram showing preliminary→final transition`.
