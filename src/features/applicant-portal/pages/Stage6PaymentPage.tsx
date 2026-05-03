@@ -103,21 +103,19 @@ export function Stage6PaymentPage(): JSX.Element {
         </div>
       )}
 
-      <Modal open={showReceipt} onClose={() => setShowReceipt(false)} title="إيصال الدفع" size="md">
+      <Modal open={showReceipt} onClose={() => setShowReceipt(false)} title="إيصال الدفع" size="lg">
         <Modal.Body>
           <PrintLayout
             title="إيصال سداد رسوم التقديم"
             reportId={refNumber ?? ''}
             generatedAt={new Date().toLocaleString('ar-EG')}
           >
-            <table className="w-full text-sm">
-              <tbody>
-                <tr><td className="py-1 text-ink-500">رقم المتقدم</td><td className="py-1 font-mono" dir="ltr">{APPLICANT_ID}</td></tr>
-                <tr><td className="py-1 text-ink-500">طريقة الدفع</td><td className="py-1">{method === 'fawry' ? 'فوري' : 'بطاقة ائتمانية'}</td></tr>
-                <tr><td className="py-1 text-ink-500">رقم المرجع</td><td className="py-1 font-mono" dir="ltr">{refNumber}</td></tr>
-                <tr><td className="py-1 text-ink-500">المبلغ</td><td className="py-1 font-numeric tnum">{FEE.toLocaleString('en-US')} جنيه</td></tr>
-              </tbody>
-            </table>
+            <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+              <ReceiptRow label="رقم المتقدم" value={APPLICANT_ID} mono />
+              <ReceiptRow label="طريقة الدفع" value={method === 'fawry' ? 'فوري' : 'بطاقة ائتمانية'} />
+              <ReceiptRow label="رقم المرجع" value={refNumber ?? '—'} mono fullWidth />
+              <ReceiptRow label="المبلغ" value={`${FEE.toLocaleString('en-US')} جنيه`} numeric fullWidth />
+            </dl>
           </PrintLayout>
         </Modal.Body>
         <Modal.Footer>
@@ -126,6 +124,36 @@ export function Stage6PaymentPage(): JSX.Element {
         </Modal.Footer>
       </Modal>
     </Card>
+  );
+}
+
+function ReceiptRow({
+  label,
+  value,
+  mono,
+  numeric,
+  fullWidth,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  numeric?: boolean;
+  fullWidth?: boolean;
+}): JSX.Element {
+  return (
+    <div className={fullWidth ? 'sm:col-span-2' : undefined}>
+      <dt className="text-2xs uppercase tracking-wide text-ink-500">{label}</dt>
+      <dd
+        className={
+          'mt-1 text-sm text-ink-900 ' +
+          (mono ? 'font-mono break-all' : '') +
+          (numeric ? 'font-numeric tnum font-medium' : '')
+        }
+        dir={mono ? 'ltr' : undefined}
+      >
+        {value}
+      </dd>
+    </div>
   );
 }
 
