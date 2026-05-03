@@ -1,16 +1,50 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Download } from 'lucide-react';
-import { PageHeader, Card, Avatar, Button, EmptyState, Skeleton, Badge } from '@/shared/components';
+import { PageHeader, Card, Avatar, Button, EmptyState, Badge, DataTable } from '@/shared/components';
+import type { DataTableColumn } from '@/shared/components';
 import { StatusBadge, PaymentBadge } from '@/shared/components/StatusBadge';
 import { useApplicants } from '@/features/applicants/api/applicant.queries';
 import { ROUTES } from '@/config/routes';
 import { MOCK } from '@/shared/mock-data';
-import { date as fmtDate, num, shortName, maskNationalId } from '@/shared/lib/format';
+import { date as fmtDate, shortName, maskNationalId } from '@/shared/lib/format';
 import { STATUS_LABELS } from '@/shared/mock-data/dictionaries';
-import type { ApplicantStatus } from '@/shared/types/domain';
+import type { Applicant, ApplicantStatus } from '@/shared/types/domain';
 
 const PAGE_SIZE = 15;
+
+const APPLICANT_COLUMNS: DataTableColumn<Applicant>[] = [
+  {
+    key: 'name',
+    label: 'المتقدم',
+    render: (a) => (
+      <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex items-center gap-3">
+        <Avatar name={a.name} size="sm" />
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-ink-900">{shortName(a.name, 3)}</span>
+          <span className="font-mono text-2xs text-ink-500" dir="ltr">{a.id}</span>
+        </div>
+      </Link>
+    ),
+  },
+  { key: 'nationalId', label: 'الرقم القومي', render: (a) => <span className="font-mono" dir="ltr">{maskNationalId(a.nationalId)}</span>, hideOn: 'sm' },
+  { key: 'governorate', label: 'المحافظة', render: (a) => a.governorate, hideOn: 'sm' },
+  {
+    key: 'certType',
+    label: 'الشهادة',
+    render: (a) => (
+      <div className="text-2xs">
+        <p className="text-ink-700">{a.certType}</p>
+        <p className="text-ink-500">{a.certSection}</p>
+      </div>
+    ),
+    hideOn: 'md',
+  },
+  { key: 'paymentStatus', label: 'الدفع', render: (a) => <PaymentBadge status={a.paymentStatus} /> },
+  { key: 'stageLabel', label: 'المرحلة', render: (a) => <Badge tone="info">{a.stageLabel}</Badge>, hideOn: 'md' },
+  { key: 'status', label: 'الحالة', render: (a) => <StatusBadge status={a.status} /> },
+  { key: 'registeredAt', label: 'التسجيل', render: (a) => <span className="text-2xs text-ink-500">{fmtDate(a.registeredAt, 'short')}</span>, hideOn: 'sm' },
+];
 
 export function ApplicantsPage(): JSX.Element {
   const [page, setPage] = useState(1);
@@ -62,60 +96,17 @@ export function ApplicantsPage(): JSX.Element {
             </select>
           </div>
 
-          {isLoading ? (
-            <div className="flex flex-col gap-3"><Skeleton height={48} /><Skeleton height={48} /><Skeleton height={48} /><Skeleton height={48} /></div>
-          ) : !data || data.data.length === 0 ? (
-            <EmptyState title="لا توجد نتائج" description="جرّب تعديل عوامل التصفية" />
-          ) : (
-            <>
-              <div className="table-wrap">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>المتقدم</th>
-                      <th>الرقم القومي</th>
-                      <th>المحافظة</th>
-                      <th>الشهادة</th>
-                      <th>الدفع</th>
-                      <th>المرحلة</th>
-                      <th>الحالة</th>
-                      <th>التسجيل</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.data.map((a) => (
-                      <tr key={a.id}>
-                        <td>
-                          <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex items-center gap-3">
-                            <Avatar name={a.name} size="sm" />
-                            <div className="flex flex-col">
-                              <span className="font-semibold">{shortName(a.name, 3)}</span>
-                              <span className="text-xs text-tertiary mono">{a.id}</span>
-                            </div>
-                          </Link>
-                        </td>
-                        <td className="mono">{maskNationalId(a.nationalId)}</td>
-                        <td>{a.governorate}</td>
-                        <td className="text-xs text-secondary">{a.certType}<br /><span className="text-tertiary">{a.certSection}</span></td>
-                        <td><PaymentBadge status={a.paymentStatus} /></td>
-                        <td><Badge tone="info">{a.stageLabel}</Badge></td>
-                        <td><StatusBadge status={a.status} /></td>
-                        <td className="text-xs text-tertiary">{fmtDate(a.registeredAt, 'short')}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex items-center justify-between mt-4">
-                <span className="text-sm text-tertiary">{num(data.total)} نتيجة · صفحة {num(data.page)} من {num(data.totalPages)}</span>
-                <div className="flex gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => setPage(Math.max(1, page - 1))} disabled={data.page <= 1}>السابق</Button>
-                  <Button variant="secondary" size="sm" onClick={() => setPage(Math.min(data.totalPages, page + 1))} disabled={data.page >= data.totalPages}>التالي</Button>
-                </div>
-              </div>
-            </>
-          )}
+          <DataTable<Applicant>
+            data={data?.data ?? []}
+            columns={APPLICANT_COLUMNS}
+            rowKey={(a) => a.id}
+            loading={isLoading}
+            empty={<EmptyState title="لا توجد نتائج" description="جرّب تعديل عوامل التصفية" />}
+            zebraStripes
+            stickyHeader
+            density="compact"
+            pagination={data ? { page: data.page, pageSize: PAGE_SIZE, total: data.total, onPageChange: setPage } : undefined}
+          />
         </div>
       </Card>
     </>
