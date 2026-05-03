@@ -1,531 +1,673 @@
 /**
- * ArchitecturePage — the scope-comprehension showcase.
- * Source: ARCH-05 (4-layer karasa §9 architecture, expanded for demo).
+ * ArchitecturePage — System Architecture & Security Posture (technical reference).
  *
- * Sections:
- *  1. 4-layer architecture diagram (Public Portals · Middleware · Private Portals · Database)
- *  2. External integrations table (interactive — click for data flow)
- *  3. Hardware inventory (171 PCs, 130 biometric devices, 19 printers, …)
- *  4. RBAC matrix (11 roles × 9 apps)
- *  5. Tech stack with versions
+ * English-LTR technical reference page. The rest of the application chrome
+ * (sidebar, header) stays Arabic-RTL — only this page's content body sets
+ * dir="ltr". Used by:
+ *   - Technical evaluators reviewing the system in-product (in-screen).
+ *   - Printable handout (Cmd+P → clean A4 PDF) — see styles/print.css
+ *     (.arch-page section).
+ *
+ * Sections (anchored, with sticky right-rail TOC):
+ *   1. Executive Overview
+ *   2. The Four Layers — interactive diagram
+ *   3. The Nine Applications
+ *   4. Integrations — expandable cards
+ *   5. Security Architecture — six tiers (high-level posture only)
+ *   6. Hosting & Deployment
+ *   7. RBAC Matrix — 11 roles × 9 apps
+ *   8. Audit & Compliance
+ *   9. Non-Functional Targets
+ *
+ * Karasa coverage from this page: §1.1 §1.2 §2.1–§2.7 §3.1 §3.2 §3.4
+ * §4.1 §4.2 §4.3 §4.4 §9 (architecture overview).
  */
 
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ROUTES } from '@/config/routes';
-import {
-  Building2,
-  Check,
-  Cloud,
-  Code2,
-  Cpu,
-  Database,
-  Fingerprint,
-  Globe,
-  HardDrive,
-  Layers,
-  Lock,
-  Minus,
-  Monitor,
-  Network,
-  Printer,
-  Router,
-  ScanLine,
-  ServerCog,
-  Shield,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, Minus, Printer, Shield } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
-import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
   Badge,
   Card,
   CardBody,
   CardHeader,
-  Drawer,
-  KhayameyaStripe,
-  PageHeader,
+  DataTable,
+  type DataTableColumn,
 } from '@/shared/components';
-import { num } from '@/shared/lib/format';
-import { ROLE_DEFINITIONS, ROLES, type Role } from '@/features/auth';
+import { ROLES, ROLE_DEFINITIONS, type Role } from '@/features/auth';
 import { APP_KEYS, type AppKey } from '@/shared/lib/constants';
+import {
+  APPLICATIONS,
+  EXEC_TILES,
+  HOSTING,
+  INTEGRATIONS,
+  LAYERS,
+  NFRS,
+  SECTIONS,
+  SECURITY_TIERS,
+  type AppRow,
+  type NfrRow,
+} from '../data';
+import { FourLayerDiagram } from '../components/FourLayerDiagram';
+import { IntegrationCard } from '../components/IntegrationCard';
+import { SectionTOC } from '../components/SectionTOC';
 
-/* ── 4-LAYER MODEL (KARASA §9) ────────────────────────────── */
-
-interface Layer {
-  id: 'public' | 'middleware' | 'private' | 'database';
-  title: string;
-  subtitle: string;
-  color: string;
-  bg: string;
-  blocks: { icon: React.ReactNode; title: string; meta: string }[];
-}
-
-const LAYERS: readonly Layer[] = [
-  {
-    id: 'public',
-    title: 'البوابات العامة',
-    subtitle: 'Public Portals — Internet',
-    color: 'var(--teal-500)',
-    bg: 'var(--teal-50)',
-    blocks: [
-      { icon: <Globe size={18} strokeWidth={1.75} />,    title: 'موقع المتقدمين',      meta: 'تطبيق 1.2 · NID + SMS' },
-      { icon: <Building2 size={18} strokeWidth={1.75} />, title: 'بوابة موظفي المنظومة', meta: 'تطبيق 1.1 · MOIPASS' },
-    ],
-  },
-  {
-    id: 'middleware',
-    title: 'الوسيط (Middleware)',
-    subtitle: 'API Gateway · ESB · WAF',
-    color: 'var(--gold-500)',
-    bg: 'var(--gold-50)',
-    blocks: [
-      { icon: <Shield size={18} strokeWidth={1.75} />,    title: 'WAF + IDS',        meta: 'حماية الطبقة 7' },
-      { icon: <Lock size={18} strokeWidth={1.75} />,      title: 'API Gateway',       meta: 'OAuth2 / JWT / mTLS' },
-      { icon: <Network size={18} strokeWidth={1.75} />,   title: 'Enterprise Bus',    meta: 'ESB + Event Streaming' },
-      { icon: <Cpu size={18} strokeWidth={1.75} />,       title: 'Identity Service',  meta: 'RBAC + 2FA + Audit' },
-    ],
-  },
-  {
-    id: 'private',
-    title: 'البوابات الخاصة',
-    subtitle: 'Private Portals — Intranet (LAN)',
-    color: 'var(--terra-500)',
-    bg: 'var(--terra-50)',
-    blocks: [
-      { icon: <Layers size={18} strokeWidth={1.75} />, title: 'لجان القبول',           meta: 'تطبيق 2.1' },
-      { icon: <Layers size={18} strokeWidth={1.75} />, title: 'الهيئة وأمانة السر',    meta: 'تطبيق 2.2' },
-      { icon: <Layers size={18} strokeWidth={1.75} />, title: 'إدارة التحريات',        meta: 'تطبيق 2.3 · سرّي' },
-      { icon: <Layers size={18} strokeWidth={1.75} />, title: 'القومسيون الطبي',       meta: 'تطبيق 2.4' },
-      { icon: <Layers size={18} strokeWidth={1.75} />, title: 'الباركود',              meta: 'تطبيق 2.5' },
-      { icon: <Layers size={18} strokeWidth={1.75} />, title: 'البيومتري',             meta: 'تطبيق 2.6' },
-      { icon: <Layers size={18} strokeWidth={1.75} />, title: 'بنك الأسئلة + الاختبارات', meta: 'تطبيق 2.7' },
-    ],
-  },
-  {
-    id: 'database',
-    title: 'طبقة البيانات',
-    subtitle: 'Database · Object Store · Cache',
-    color: 'var(--ink-700)',
-    bg: 'var(--ink-100)',
-    blocks: [
-      { icon: <Database size={18} strokeWidth={1.75} />,   title: 'PostgreSQL 16', meta: 'OLTP — البيانات الرئيسية' },
-      { icon: <HardDrive size={18} strokeWidth={1.75} />,  title: 'MinIO',         meta: 'مستندات + صور' },
-      { icon: <Database size={18} strokeWidth={1.75} />,   title: 'Elasticsearch', meta: 'بحث + متابعة' },
-      { icon: <Database size={18} strokeWidth={1.75} />,   title: 'ClickHouse',    meta: 'تقارير وتحليلات' },
-      { icon: <Database size={18} strokeWidth={1.75} />,   title: 'Redis 7',       meta: 'Cache + Sessions' },
-    ],
-  },
-];
-
-/* ── INTEGRATIONS (interactive) ───────────────────────────── */
-
-interface Integration {
-  id: string;
-  system: string;
-  endpoint: string;
-  auth: string;
-  purpose: string;
-  status: 'متصل' | 'تحت التشغيل';
-  flow: string[];
-}
-
-const INTEGRATIONS: readonly Integration[] = [
-  {
-    id: 'INT-MOIPASS',
-    system: 'منصّة التحقق الرقمي MOIPASS',
-    endpoint: 'POST /moipass/verify-officer',
-    auth: 'mTLS + OAuth2',
-    purpose: 'التحقق من هوية الضباط ودخولهم للمنظومة',
-    status: 'متصل',
-    flow: [
-      'الضابط يدخل رقمه القومي + كلمة المرور في /staff-login.',
-      'API Gateway يصادق الـ JWT ويستدعي MOIPASS عبر mTLS.',
-      'MOIPASS يردّ بالرتبة والوحدة والاسم رباعي.',
-      'يُنشأ session token + يُسجَّل الدخول في الـ Audit.',
-    ],
-  },
-  {
-    id: 'INT-NID',
-    system: 'الإدارة العامة للأحوال المدنية',
-    endpoint: 'POST /civil-records/verify-nid',
-    auth: 'mTLS + API Key',
-    purpose: 'التحقق من الرقم القومي للمتقدمين وأقاربهم',
-    status: 'متصل',
-    flow: [
-      'المتقدم يُدخل رقمه القومي في Stage 1.',
-      'الواجهة ترسل الطلب عبر API Gateway.',
-      'خدمة التكامل تستدعي الأحوال المدنية، تستخرج: تاريخ الميلاد، النوع، محل الميلاد.',
-      'البيانات المسترجعة تُحفظ في الـ draft، تُقفل الحقول المشتقّة.',
-    ],
-  },
-  {
-    id: 'INT-EDU',
-    system: 'وزارة التربية والتعليم',
-    endpoint: 'POST /education/verify-certificate',
-    auth: 'API Key + IP whitelist',
-    purpose: 'التحقق من بيانات الثانوية العامة',
-    status: 'متصل',
-    flow: [
-      'المتقدم يُدخل رقم الجلوس في Stage 4.',
-      'النظام يستعلم عن الشهادة ودرجاتها.',
-      'في حال عدم التطابق: تُعرض رسالة + يُطلب سبب التجاوز.',
-      'يُسجَّل سبب التجاوز في الـ Audit وتُعاد المراجعة.',
-    ],
-  },
-  {
-    id: 'INT-AZHAR',
-    system: 'الأزهر الشريف',
-    endpoint: 'POST /azhar/verify-certificate',
-    auth: 'API Key',
-    purpose: 'التحقق من بيانات الثانوية الأزهرية',
-    status: 'متصل',
-    flow: [
-      'مماثل لتكامل التربية والتعليم لكن لشهادات الأزهر.',
-      'يستخرج القسم (علمي/أدبي) إضافةً للدرجات.',
-    ],
-  },
-  {
-    id: 'INT-PAY',
-    system: 'بوابة الدفع الإلكتروني الحكومية',
-    endpoint: 'POST /e-pay/initiate · GET /e-pay/verify/:ref',
-    auth: 'OAuth2 Client Credentials',
-    purpose: 'سداد رسوم التقديم (فوري + بطاقة)',
-    status: 'متصل',
-    flow: [
-      'المتقدم يختار طريقة الدفع في Stage 6.',
-      'الطلب يُرسل لبوابة الدفع، تُرجع كود فوري أو URL للبطاقة.',
-      'بعد السداد، البوابة تُرسل callback، يُحدَّث الـ draft.',
-      'إيصال السداد يُولَّد ويُتاح للطباعة.',
-    ],
-  },
-  {
-    id: 'INT-SECURITY',
-    system: 'قطاع الأمن العام',
-    endpoint: 'POST /general-security/inquiry',
-    auth: 'mTLS + Token',
-    purpose: 'استعلامات التحريات الأمنية',
-    status: 'تحت التشغيل',
-    flow: [
-      'المحقّق يفتح قضية في تطبيق التحريات.',
-      'يُرسَل استعلام إلى قطاع الأمن العام، يُرفَق ملف الأسرة.',
-      'القطاع يردّ خلال 2-7 أيام عمل بنتيجة + ملاحظات.',
-      'النتيجة تُسجَّل في الـ Audit وتُعرض للهيئة.',
-    ],
-  },
-];
-
-/* ── HARDWARE INVENTORY (KARASA) ──────────────────────────── */
-
-const HARDWARE: { icon: React.ReactNode; label: string; count: number; note?: string }[] = [
-  { icon: <Monitor size={18} strokeWidth={1.75} />,     label: 'أجهزة كمبيوتر مكتبية',   count: 171, note: 'لجان القبول، القومسيون، الإدارة' },
-  { icon: <Fingerprint size={18} strokeWidth={1.75} />, label: 'أجهزة بصمة وجه',          count: 130, note: 'بوابات + قاعات اختبار' },
-  { icon: <Printer size={18} strokeWidth={1.75} />,     label: 'طابعات ليزر',             count: 19,  note: 'A4 + A6 لكروت التردد' },
-  { icon: <ScanLine size={18} strokeWidth={1.75} />,    label: 'ماسحات ضوئية',           count: 5,   note: 'لرفع المستندات الورقية' },
-  { icon: <Network size={18} strokeWidth={1.75} />,     label: 'Switches',                count: 9,   note: '24-port managed' },
-  { icon: <Router size={18} strokeWidth={1.75} />,      label: 'خزائن (Racks)',           count: 6,   note: '42U' },
-  { icon: <Globe size={18} strokeWidth={1.75} />,       label: 'نقاط شبكة',                count: 160, note: 'CAT6 منظَّمة' },
-];
-
-/* ── TECH STACK ───────────────────────────────────────────── */
-
-const STACK = [
-  { icon: <Code2 size={18} strokeWidth={1.75} />,     title: 'Frontend',    items: ['React 18.3', 'TypeScript 5.6', 'Vite 5.4', 'Tailwind 3.4', 'TanStack Query 5', 'Zustand 4.5', 'react-hook-form + zod'] },
-  { icon: <ServerCog size={18} strokeWidth={1.75} />, title: 'Backend',     items: ['Node.js 22 / .NET 8', 'REST + GraphQL', 'BPMN Workflow', 'CQRS + Event Sourcing'] },
-  { icon: <Database size={18} strokeWidth={1.75} />,  title: 'Data',        items: ['PostgreSQL 16', 'Elasticsearch 8', 'ClickHouse 24', 'Redis 7', 'MinIO Object Store'] },
-  { icon: <Lock size={18} strokeWidth={1.75} />,      title: 'Security',    items: ['OAuth2 + JWT', 'mTLS داخلي', 'WAF + IDS', 'Encryption at-rest + in-transit', 'Audit Trail شامل'] },
-  { icon: <Cloud size={18} strokeWidth={1.75} />,     title: 'DevOps',      items: ['Kubernetes 1.30', 'GitOps (ArgoCD)', 'Prometheus + Grafana', 'OpenTelemetry'] },
-  { icon: <Globe size={18} strokeWidth={1.75} />,     title: 'Integration', items: ['ESB ESCo', 'منصّات حكومية', 'EAI Gateway', 'Kafka Event Streaming'] },
-];
-
-/* ── PAGE ─────────────────────────────────────────────────── */
+const GENERATION_DATE_FALLBACK = 'Generated on demand';
 
 export function ArchitecturePage(): JSX.Element {
-  const [openInt, setOpenInt] = useState<Integration | null>(null);
-  const totalHw = HARDWARE.reduce((s, h) => s + h.count, 0);
+  // Generation date set once on mount (locale-stable: en-GB → "3 May 2026").
+  const [generatedAt, setGeneratedAt] = useState<string>(GENERATION_DATE_FALLBACK);
+  useEffect(() => {
+    const today = new Date();
+    setGeneratedAt(
+      new Intl.DateTimeFormat('en-GB', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(today),
+    );
+  }, []);
+
+  const handlePrint = (): void => {
+    if (typeof window !== 'undefined') window.print();
+  };
 
   return (
     <AppShell appLabel="معمارية النظام">
-      <CenteredShell>
-        <PageHeader
-          title="معمارية المنظومة"
-          subtitle="نموذج 4 طبقات بحسب الكرّاسة §9 — يربط 9 تطبيقات بـ 6 تكاملات حكومية على بنية تحتية مُؤمَّنة"
-          actions={
-            <div className="flex items-center gap-2">
-              <Link
-                to={ROUTES.designRevamp}
-                className="inline-flex items-center gap-1.5 rounded-md border border-gold-300 bg-gold-50 px-3 py-1.5 text-2xs font-medium text-gold-700 hover:bg-gold-100"
-                title="نظام التصميم — Heritage Modern v2"
-              >
-                نظام التصميم · v2
-              </Link>
-              <Badge tone="brand">دفعة 2026</Badge>
-            </div>
-          }
-        />
+      {/* Print-only ministry header (rendered above page body, hidden on screen). */}
+      <PrintHeader generatedAt={generatedAt} />
 
-        {/* SECTION 1 — 4-LAYER DIAGRAM */}
-        <Card className="mb-6">
-          <CardHeader title="الطبقات الأربع · 4-Layer Architecture" subtitle="من الأعلى للأسفل: ما يراه المستخدم → ما تراه قاعدة البيانات" />
-          <CardBody>
-            <div className="flex flex-col gap-3">
-              {LAYERS.map((layer, idx) => (
-                <div key={layer.id} className="relative">
-                  <div
-                    className="rounded-lg border-s-4 border border-border-subtle p-4 shadow-sm"
-                    style={{ borderInlineStartColor: layer.color, background: layer.bg }}
-                  >
-                    <div className="mb-3 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-ar-display text-md font-bold" style={{ color: layer.color }}>{layer.title}</h3>
-                        <p className="text-2xs text-ink-500" dir="ltr">{layer.subtitle}</p>
-                      </div>
-                      <Badge tone="neutral">{layer.blocks.length} مكوّن</Badge>
-                    </div>
-                    <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
-                      {layer.blocks.map((b) => (
-                        <div key={b.title} className="flex items-start gap-2 rounded-md border border-border-subtle bg-surface-card p-2.5 transition-colors duration-fast ease-standard hover:border-ink-300">
-                          <span className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-white" style={{ background: layer.color }}>
-                            {b.icon}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-ink-900">{b.title}</p>
-                            <p className="truncate text-2xs text-ink-500">{b.meta}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {idx < LAYERS.length - 1 && (
-                    <div aria-hidden className="flex justify-center" style={{ height: 14 }}>
-                      <span className="block w-px" style={{ background: 'linear-gradient(to bottom, var(--border-subtle), var(--ink-300))' }} />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-5 flex flex-wrap items-center gap-3 rounded-md border border-border-subtle bg-ink-50 p-3 text-2xs text-ink-700">
-              <span className="font-medium">الحدود:</span>
-              <Badge tone="info">طبقات 1+2 على الإنترنت — DMZ</Badge>
-              <Badge tone="warning">طبقتا 3+4 على الشبكة الداخلية فقط</Badge>
-              <Badge tone="danger">جميع الاتصالات الداخلية بـ mTLS</Badge>
-            </div>
-          </CardBody>
-        </Card>
-
-        {/* SECTION 2 — INTEGRATIONS */}
-        <Card className="mb-6">
-          <CardHeader title="التكاملات الخارجية" subtitle="6 تكاملات مع جهات حكومية · انقر لعرض تدفّق البيانات" actions={<Network size={16} strokeWidth={1.75} />} />
-          <CardBody>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-ink-50 text-2xs uppercase tracking-wide text-ink-500">
-                  <tr>
-                    <th className="px-3 py-2 text-start">المنظومة</th>
-                    <th className="px-3 py-2 text-start">Endpoint</th>
-                    <th className="px-3 py-2 text-start">المصادقة</th>
-                    <th className="px-3 py-2 text-start">الغرض</th>
-                    <th className="px-3 py-2 text-start">الحالة</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {INTEGRATIONS.map((i) => (
-                    <tr
-                      key={i.id}
-                      className="cursor-pointer border-b border-border-subtle transition-colors duration-fast ease-standard last:border-b-0 hover:bg-teal-50"
-                      onClick={() => setOpenInt(i)}
-                    >
-                      <td className="px-3 py-3 font-medium">{i.system}</td>
-                      <td className="px-3 py-3 font-mono text-2xs text-ink-700" dir="ltr">{i.endpoint}</td>
-                      <td className="px-3 py-3 text-2xs text-ink-500">{i.auth}</td>
-                      <td className="px-3 py-3 text-2xs text-ink-700">{i.purpose}</td>
-                      <td className="px-3 py-3">
-                        {i.status === 'متصل' ? <Badge tone="success" dot>{i.status}</Badge> : <Badge tone="warning" dot>{i.status}</Badge>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardBody>
-        </Card>
-
-        {/* SECTION 3 — HARDWARE INVENTORY */}
-        <Card className="mb-6">
-          <CardHeader
-            title="جرد الأجهزة والبنية التحتية"
-            subtitle={`إجمالي ${num(totalHw)} وحدة · بحسب جدول الكرّاسة`}
-            actions={<HardDrive size={16} strokeWidth={1.75} />}
-          />
-          <CardBody>
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              {HARDWARE.map((h) => (
-                <div key={h.label} className="flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-card p-4">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-teal-50 text-teal-700">{h.icon}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="text-sm font-medium text-ink-900">{h.label}</p>
-                      <p className="font-numeric tnum text-lg font-bold text-ink-900">{num(h.count)}</p>
-                    </div>
-                    {h.note && <p className="mt-0.5 text-2xs text-ink-500">{h.note}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-
-        {/* SECTION 4 — RBAC MATRIX */}
-        <Card className="mb-6">
-          <CardHeader title="مصفوفة الصلاحيات (RBAC)" subtitle="11 دور وظيفي × 9 تطبيقات" actions={<Shield size={16} strokeWidth={1.75} />} />
-          <CardBody>
-            <RbacMatrix />
-          </CardBody>
-        </Card>
-
-        {/* SECTION 5 — TECH STACK */}
-        <h2 className="mt-8 mb-4 inline-flex items-center gap-2 font-ar-display text-xl font-bold text-ink-900">
-          <Cpu size={18} strokeWidth={1.75} /> Stack المنظومة
-        </h2>
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-          {STACK.map((s) => (
-            <Card key={s.title}>
-              <span className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-md bg-teal-50 text-teal-700">{s.icon}</span>
-              <p className="text-md font-bold text-ink-900">{s.title}</p>
-              <ul className="mt-2 flex flex-col gap-1 text-2xs text-ink-700">
-                {s.items.map((it) => <li key={it}>· {it}</li>)}
-              </ul>
-            </Card>
-          ))}
-        </div>
-
-        {/* SOVEREIGNTY NOTE + STRIPE */}
-        <Card className="mt-6 border-teal-300 bg-teal-50">
-          <div className="flex items-start gap-3">
-            <Building2 size={18} strokeWidth={1.75} className="mt-0.5 text-teal-700" />
+      <div
+        dir="ltr"
+        className="arch-page font-en text-ink-900"
+        data-arch-page="true"
+      >
+        {/* Page header — built inline (PageHeader uses Arabic display font). */}
+        <header className="arch-page-header mx-auto mb-8 max-w-[1280px] px-6 pt-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-700">
+            Police Academy Admissions System
+          </p>
+          <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="font-medium text-teal-700">السيادة الرقمية</p>
-              <p className="mt-1 text-2xs text-teal-700/85 leading-normal">
-                كل البيانات تُستضاف داخل البنية التحتية الحكومية المعتمدة، مع تشفير at-rest +
-                in-transit وaudit log لكل API call. لا تنتقل أيّ بيانات شخصيّة خارج حدود الجمهورية.
+              <h1 className="text-3xl font-bold leading-tight text-ink-900">
+                Architecture &amp; Security Posture
+              </h1>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-700">
+                Technical reference for the platform: nine applications, four
+                architectural layers, five external integrations, eleven user
+                roles, and the security posture binding them together.
+                Every section cites the relevant Karasa pages.
               </p>
             </div>
+            <div className="flex items-center gap-2" data-no-print="true">
+              <span className="hidden font-mono text-xs text-ink-500 md:inline">
+                Generated {generatedAt}
+              </span>
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-card px-3 py-1.5 text-sm font-medium text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+              >
+                <Printer size={14} strokeWidth={1.75} />
+                Print this page
+              </button>
+            </div>
           </div>
-        </Card>
+        </header>
 
-        <div className="mt-6"><KhayameyaStripe height="md" /></div>
+        {/* Body — main column + sticky right-rail TOC */}
+        <div className="arch-page-grid mx-auto grid max-w-[1280px] gap-8 px-6 pb-16 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="arch-main flex flex-col gap-12">
+            <Section1 />
+            <Section2 />
+            <Section3 />
+            <Section4 />
+            <Section5 />
+            <Section6 />
+            <Section7 />
+            <Section8 />
+            <Section9 />
+          </div>
+          <aside
+            className="arch-toc-rail order-first hidden lg:order-last lg:block"
+            data-no-print="true"
+          >
+            <div className="sticky top-20">
+              <SectionTOC sections={SECTIONS} />
+            </div>
+          </aside>
+        </div>
 
-        {/* INTEGRATION DRAWER */}
-        <Drawer open={Boolean(openInt)} onClose={() => setOpenInt(null)} title={openInt?.system ?? ''} size="md">
-          {openInt && (
-            <Drawer.Body>
-              <dl className="grid grid-cols-3 gap-2 text-sm">
-                <Field label="Endpoint" mono>{openInt.endpoint}</Field>
-                <Field label="المصادقة">{openInt.auth}</Field>
-                <Field label="الحالة">{openInt.status === 'متصل' ? <Badge tone="success">{openInt.status}</Badge> : <Badge tone="warning">{openInt.status}</Badge>}</Field>
-              </dl>
-              <p className="mt-4 mb-2 text-sm font-medium text-ink-900">الغرض</p>
-              <p className="rounded-md bg-ink-50 px-3 py-2 text-sm text-ink-700">{openInt.purpose}</p>
-              <h3 className="mt-4 mb-2 text-sm font-medium text-ink-900">تدفّق البيانات</h3>
-              <ol className="flex flex-col gap-2 text-sm">
-                {openInt.flow.map((step, i) => (
-                  <li key={i} className="flex items-start gap-3 rounded-md border border-border-subtle bg-surface-card px-3 py-2">
-                    <span aria-hidden className="inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-pill bg-teal-500 font-numeric tnum text-2xs font-bold text-white">{i + 1}</span>
-                    <span className="text-ink-700">{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </Drawer.Body>
-          )}
-        </Drawer>
-      </CenteredShell>
+        {/* Tablet/mobile horizontal TOC — collapses sticky bottom nav. */}
+        <div
+          className="arch-toc-mobile sticky bottom-0 left-0 right-0 z-10 border-t border-border-default bg-surface-card lg:hidden"
+          data-no-print="true"
+        >
+          <ol className="flex gap-1 overflow-x-auto px-4 py-2 text-xs">
+            {SECTIONS.map((s) => (
+              <li key={s.id} className="flex-none">
+                <a
+                  href={`#${s.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-pill border border-border-subtle bg-surface-card px-3 py-1 text-ink-700 hover:bg-ink-50"
+                >
+                  <span className="font-numeric tnum text-ink-500">{s.num}</span>
+                  <span>{s.label}</span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
     </AppShell>
   );
 }
 
-function Field({ label, mono, children }: { label: string; mono?: boolean; children: React.ReactNode }): JSX.Element {
+/* ─────────────────────────────────────────────────────────── */
+/* Section 1 — Executive Overview                              */
+/* ─────────────────────────────────────────────────────────── */
+
+function Section1(): JSX.Element {
   return (
-    <div className="rounded-md border border-border-subtle bg-ink-50 px-3 py-2">
-      <dt className="text-2xs uppercase tracking-wide text-ink-500">{label}</dt>
-      <dd className={mono ? 'mt-0.5 font-mono text-sm text-ink-900' : 'mt-0.5 text-sm text-ink-900'} {...(mono ? { dir: 'ltr' } : {})}>{children}</dd>
-    </div>
+    <SectionShell id="overview" eyebrow="Section 1" title="Executive Overview" citation="Per Karasa §1.0 (Project Overview, p.4)">
+      <p className="max-w-3xl text-sm leading-relaxed text-ink-700">
+        The Police Academy Admissions System is a single, ministry-grade
+        platform that unifies nine connected applications behind a shared
+        identity and audit fabric. Two public surfaces expose the system to
+        officers and to citizen applicants; seven private surfaces run on the
+        Academy intranet for committees, the board, investigations, the
+        medical commission, barcoding, biometrics, and the question bank /
+        e-exams. A middleware layer brokers identity, integrations, and
+        cross-application events; a hardened database tier holds the system
+        of record.
+      </p>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {EXEC_TILES.map((tile) => (
+          <div
+            key={tile.label}
+            className="rounded-lg border border-border-subtle bg-surface-card p-5 shadow-xs"
+          >
+            <p className="font-numeric tnum text-3xl font-bold leading-none text-ink-900">
+              {tile.value}
+            </p>
+            <p className="mt-2 text-xs uppercase tracking-[0.12em] text-ink-500">
+              {tile.label}
+            </p>
+          </div>
+        ))}
+      </div>
+    </SectionShell>
   );
 }
 
-/* ── RBAC MATRIX ─────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────── */
+/* Section 2 — The Four Layers                                 */
+/* ─────────────────────────────────────────────────────────── */
 
-const APP_LABELS: Record<AppKey, string> = {
-  admin: 'الإدارة',
-  applicant: 'المتقدمين',
-  committee: 'اللجان',
-  board: 'الهيئة',
-  investigations: 'التحريات',
-  medical: 'القومسيون',
-  barcode: 'الباركود',
-  biometric: 'البيومتري',
-  exams: 'الاختبارات',
-  architecture: 'المعمارية',
+function Section2(): JSX.Element {
+  return (
+    <SectionShell
+      id="layers"
+      eyebrow="Section 2"
+      title="The Four Layers"
+      subtitle="Public Portals → Middleware → Private Portals → Database. Click any layer for detail."
+      citation="Karasa §9 (Architecture Overview)"
+    >
+      <Card>
+        <CardBody>
+          <FourLayerDiagram layers={LAYERS} />
+        </CardBody>
+      </Card>
+    </SectionShell>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Section 3 — The Nine Applications                           */
+/* ─────────────────────────────────────────────────────────── */
+
+function Section3(): JSX.Element {
+  const columns: DataTableColumn<AppRow>[] = [
+    { key: 'num',          label: '#',              accessor: 'num',          width: 64,  numeric: true,  align: 'start' },
+    { key: 'app',          label: 'Application',    accessor: 'app',          width: 220 },
+    {
+      key: 'surface',
+      label: 'Surface',
+      width: 110,
+      render: (row) => (
+        <Badge tone={row.surface === 'Public' ? 'info' : 'neutral'}>{row.surface}</Badge>
+      ),
+    },
+    { key: 'primaryUsers', label: 'Primary users',  accessor: 'primaryUsers' },
+    { key: 'hostingTier',  label: 'Hosting tier',   accessor: 'hostingTier'  },
+    {
+      key: 'citation',
+      label: 'Karasa §',
+      width: 130,
+      render: (row) => (
+        <span className="font-mono text-[11px] text-ink-500">{row.citation}</span>
+      ),
+    },
+  ];
+
+  return (
+    <SectionShell
+      id="applications"
+      eyebrow="Section 3"
+      title="The Nine Applications"
+      citation="Karasa §1.1, §1.2, §2.1–§2.7"
+    >
+      <Card>
+        <DataTable<AppRow>
+          columns={columns}
+          data={APPLICATIONS as readonly AppRow[]}
+          density="default"
+        />
+      </Card>
+    </SectionShell>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Section 4 — Integrations                                    */
+/* ─────────────────────────────────────────────────────────── */
+
+function Section4(): JSX.Element {
+  return (
+    <SectionShell
+      id="integrations"
+      eyebrow="Section 4"
+      title="Integrations"
+      subtitle="Five external integrations plus internal cross-application coordination. Click any card for the full spec."
+      citation="Karasa §3.1 p.7 · §3.2 p.40"
+    >
+      <div className="grid gap-3">
+        {INTEGRATIONS.map((integration, idx) => (
+          <IntegrationCard
+            key={integration.id}
+            integration={integration}
+            defaultOpen={idx === 0}
+          />
+        ))}
+      </div>
+    </SectionShell>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Section 5 — Security Architecture                           */
+/* ─────────────────────────────────────────────────────────── */
+
+function Section5(): JSX.Element {
+  return (
+    <SectionShell
+      id="security"
+      eyebrow="Section 5"
+      title="Security Architecture"
+      subtitle="Six tiers, top to bottom. High-level posture — concrete configurations are finalised in Phase 2."
+      citation="Karasa §4.1 p.100 · §3.4 pp.9, 14"
+    >
+      <div className="grid gap-3 md:grid-cols-2">
+        {SECURITY_TIERS.map((tier) => (
+          <Card key={tier.num}>
+            <div className="flex items-start gap-3">
+              <span
+                aria-hidden
+                className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-teal-50 text-teal-700"
+              >
+                <Shield size={16} strokeWidth={1.75} />
+              </span>
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-500">
+                  Tier {tier.num}
+                </p>
+                <h3 className="mt-0.5 text-md font-bold text-ink-900">{tier.title}</h3>
+                <ul className="mt-2 list-disc pl-5 text-sm leading-relaxed text-ink-700">
+                  {tier.bullets.map((b) => (
+                    <li key={b} className="leading-snug">{b}</li>
+                  ))}
+                </ul>
+                {tier.citations && tier.citations.length > 0 && (
+                  <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {tier.citations.map((c) => (
+                      <li
+                        key={c}
+                        className="rounded-sm border border-border-subtle bg-ink-50 px-1.5 py-0.5 font-mono text-[10px] text-ink-500"
+                      >
+                        {c}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <p className="mt-6 max-w-3xl rounded-md border border-border-subtle bg-ink-50 p-4 text-sm leading-relaxed text-ink-700">
+        Detailed technical configurations (TLS versions, cipher suites,
+        hardening benchmarks, key management) will be finalized during
+        Phase 2 (Requirements Analysis &amp; Design) and approved with the
+        ministry&apos;s information-security function. This page presents the
+        posture; specifics follow.
+      </p>
+    </SectionShell>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Section 6 — Hosting & Deployment                            */
+/* ─────────────────────────────────────────────────────────── */
+
+function Section6(): JSX.Element {
+  return (
+    <SectionShell
+      id="hosting"
+      eyebrow="Section 6"
+      title="Hosting & Deployment"
+      citation="Karasa §1.0 (deployment locale) · §4.1 p.101 (Backup & Recovery)"
+    >
+      <div className="grid gap-3 md:grid-cols-3">
+        {HOSTING.map((block) => (
+          <Card key={block.id}>
+            <h3 className="text-md font-bold text-ink-900">{block.title}</h3>
+            <ul className="mt-3 list-disc pl-5 text-sm leading-relaxed text-ink-700">
+              {block.bullets.map((b) => (
+                <li key={b} className="leading-snug">{b}</li>
+              ))}
+            </ul>
+          </Card>
+        ))}
+      </div>
+    </SectionShell>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Section 7 — RBAC Matrix                                     */
+/* ─────────────────────────────────────────────────────────── */
+
+const APP_LABELS_EN: Record<AppKey, string> = {
+  admin:          'Admin',
+  applicant:      'Applicant',
+  committee:      'Committees',
+  board:          'Board',
+  investigations: 'Investigations',
+  medical:        'Medical',
+  barcode:        'Barcode',
+  biometric:      'Biometric',
+  exams:          'Exams',
+  architecture:   'Architecture',
 };
 
-function RbacMatrix(): JSX.Element {
+const ROLE_LABELS_EN: Record<Role, string> = {
+  super_admin:     'Super Admin',
+  committee_admin: 'Committee Admin',
+  committee_user:  'Committee User',
+  medical_admin:   'Medical Admin',
+  medical_doctor:  'Medical Doctor',
+  investigator:    'Investigator',
+  board_admin:     'Board Admin / Secretary',
+  exams_admin:     'Exams Admin',
+  biometric_user:  'Biometric Operator',
+  records_clerk:   'Records Clerk',
+  applicant:       'Applicant',
+};
+
+function Section7(): JSX.Element {
   const apps = APP_KEYS.filter((a): a is Exclude<AppKey, 'architecture'> => a !== 'architecture');
+
   return (
-    <div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-ink-50 text-2xs uppercase tracking-wide text-ink-500">
-              <th className="sticky inset-inline-start-0 bg-ink-50 px-3 py-2 text-start">الدور</th>
-              {apps.map((a) => (
-                <th key={a} className="px-2 py-2 text-center">{APP_LABELS[a]}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {ROLES.map((role: Role, ri) => {
-              const def = ROLE_DEFINITIONS[role];
-              return (
-                <tr key={role} className={'border-b border-border-subtle last:border-b-0 ' + (ri % 2 === 0 ? 'bg-surface-card' : 'bg-ink-50/40')}>
-                  <td className="sticky inset-inline-start-0 bg-inherit px-3 py-2 text-2xs text-ink-900">
-                    <span className="font-medium">{def.labelAr}</span>
-                    <br />
-                    <span className="text-ink-500 font-mono" dir="ltr">{role}</span>
-                  </td>
-                  {apps.map((a) => {
-                    const has = def.apps.includes(a);
-                    return (
-                      <td key={a} className="text-center">
-                        {has ? (
-                          <span aria-label="مسموح" className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-teal-500 text-white">
-                            <Check size={14} strokeWidth={2.5} aria-hidden />
-                          </span>
-                        ) : (
-                          <span aria-label="غير مسموح" className="inline-flex h-6 w-6 items-center justify-center text-ink-300">
-                            <Minus size={12} strokeWidth={1.75} aria-hidden />
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
+    <SectionShell
+      id="rbac"
+      eyebrow="Section 7"
+      title="RBAC Matrix"
+      subtitle="11 roles × 9 applications. Tick = has access. Detailed permissions (read / write / approve / audit-view) are enforced server-side per operation."
+      citation="Karasa §1.1 p.11 (role scoping) · src/features/auth/rbac.ts"
+    >
+      <Card>
+        <CardBody>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="bg-ink-50 text-[10px] uppercase tracking-[0.14em] text-ink-500">
+                  <th className="sticky left-0 z-10 bg-ink-50 px-3 py-2 text-left">Role</th>
+                  {apps.map((a) => (
+                    <th key={a} className="px-2 py-2 text-center font-medium">
+                      {APP_LABELS_EN[a]}
+                    </th>
+                  ))}
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-3 flex items-center justify-end gap-4 text-2xs text-ink-500">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex h-4 w-4 items-center justify-center rounded-sm bg-teal-500 text-white">
-            <Check size={10} strokeWidth={2.5} aria-hidden />
-          </span>
-          مسموح
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex h-4 w-4 items-center justify-center text-ink-300">
-            <Minus size={10} strokeWidth={1.75} aria-hidden />
-          </span>
-          غير مسموح
-        </span>
+              </thead>
+              <tbody>
+                {ROLES.map((role: Role, ri) => {
+                  const def = ROLE_DEFINITIONS[role];
+                  return (
+                    <tr
+                      key={role}
+                      className={
+                        'border-b border-border-subtle last:border-b-0 ' +
+                        (ri % 2 === 0 ? 'bg-surface-card' : 'bg-ink-50/40')
+                      }
+                    >
+                      <td className="sticky left-0 z-[1] bg-inherit px-3 py-2">
+                        <span className="block font-medium text-ink-900">{ROLE_LABELS_EN[role]}</span>
+                        <span className="font-mono text-[10px] text-ink-500" dir="ltr">
+                          {role}
+                        </span>
+                      </td>
+                      {apps.map((a) => {
+                        const has = def.apps.includes(a);
+                        return (
+                          <td key={a} className="text-center">
+                            {has ? (
+                              <span
+                                aria-label={`${ROLE_LABELS_EN[role]} has access to ${APP_LABELS_EN[a]}`}
+                                className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-teal-500 text-white"
+                              >
+                                <Check size={12} strokeWidth={2.5} aria-hidden />
+                              </span>
+                            ) : (
+                              <span
+                                aria-label={`${ROLE_LABELS_EN[role]} does not have access to ${APP_LABELS_EN[a]}`}
+                                className="inline-flex h-6 w-6 items-center justify-center text-ink-300"
+                              >
+                                <Minus size={10} strokeWidth={1.75} aria-hidden />
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-4 text-[11px] text-ink-500">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-sm bg-teal-500 text-white">
+                <Check size={9} strokeWidth={2.5} aria-hidden />
+              </span>
+              Has access
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex h-4 w-4 items-center justify-center text-ink-300">
+                <Minus size={9} strokeWidth={1.75} aria-hidden />
+              </span>
+              No access
+            </span>
+          </div>
+        </CardBody>
+      </Card>
+    </SectionShell>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Section 8 — Audit & Compliance                              */
+/* ─────────────────────────────────────────────────────────── */
+
+function Section8(): JSX.Element {
+  return (
+    <SectionShell
+      id="audit"
+      eyebrow="Section 8"
+      title="Audit & Compliance"
+      citation="Karasa §3.4 pp.9, 14 · §4.1 pp.100–101 · §4.2 pp.103–104"
+    >
+      <Card>
+        <CardHeader title="Audit posture" subtitle="Every change is recoverable; every read on restricted data is accountable." />
+        <CardBody>
+          <ul className="grid gap-2 text-sm leading-relaxed text-ink-700 md:grid-cols-2">
+            <li>· Audit trail on every Create / Update / Delete (Karasa §3.4).</li>
+            <li>· View-level audit on Investigations data (Karasa §2.3).</li>
+            <li>· Audit log retention: per ministry policy, default 7 years.</li>
+            <li>· Audit log is append-only and stored separately from the OLTP database.</li>
+          </ul>
+        </CardBody>
+      </Card>
+
+      <Card className="mt-3">
+        <CardHeader title="Source-code ownership" subtitle="Karasa §4.2 pp.103–104." />
+        <CardBody>
+          <p className="text-sm leading-relaxed text-ink-700">
+            Full source-code delivery to the ministry on acceptance — no
+            encrypted, obfuscated, or hidden parts. Build pipelines and
+            dependency manifests are delivered alongside the source so the
+            ministry can independently rebuild the system.
+          </p>
+        </CardBody>
+      </Card>
+
+      <Card className="mt-3">
+        <CardHeader title="Regulatory &amp; standards alignment" />
+        <CardBody>
+          <ul className="grid gap-2 text-sm leading-relaxed text-ink-700 md:grid-cols-2">
+            <li>
+              <span className="font-medium text-ink-900">ISO/IEC 27001 alignment.</span>{' '}
+              Information-security controls mapped during Phase 2; certification,
+              if pursued, is a separate process owned by the ministry.
+            </li>
+            <li>
+              <span className="font-medium text-ink-900">
+                Egyptian Personal Data Protection Law (Law 151 of 2020).
+              </span>{' '}
+              Applicant-consent flow, data-subject rights, and breach-notification
+              procedures embedded in the system.
+            </li>
+          </ul>
+        </CardBody>
+      </Card>
+
+      <Card className="mt-3">
+        <CardHeader title="Acceptance criteria" subtitle="Karasa §4.1 pp.100–101 — the six gates." />
+        <CardBody>
+          <ul className="grid gap-2 text-sm leading-relaxed text-ink-700 md:grid-cols-3">
+            <li>· Fit-to-Requirements</li>
+            <li>· Usability</li>
+            <li>· Performance</li>
+            <li>· Security</li>
+            <li>· Code Review</li>
+            <li>· Backup &amp; Recovery</li>
+          </ul>
+        </CardBody>
+      </Card>
+    </SectionShell>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Section 9 — Non-Functional Targets                          */
+/* ─────────────────────────────────────────────────────────── */
+
+function Section9(): JSX.Element {
+  const columns: DataTableColumn<NfrRow>[] = [
+    { key: 'metric', label: 'Metric', accessor: 'metric', width: 320 },
+    {
+      key: 'target',
+      label: 'Target',
+      width: 220,
+      render: (row) => (
+        <span className="font-numeric tnum font-medium text-ink-900">{row.target}</span>
+      ),
+    },
+    { key: 'notes', label: 'Notes', accessor: 'notes' },
+  ];
+
+  return (
+    <SectionShell
+      id="nfr"
+      eyebrow="Section 9"
+      title="Non-Functional Targets"
+      subtitle="Bidder-proposed baselines. Final SLA values are negotiated and documented during Phase 2 with the ministry's operations function."
+      citation="Karasa §4.1 pp.100–101"
+    >
+      <Card>
+        <DataTable<NfrRow>
+          columns={columns}
+          data={NFRS as readonly NfrRow[]}
+          density="default"
+        />
+      </Card>
+    </SectionShell>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* SectionShell — anchor target + heading + spacing            */
+/* ─────────────────────────────────────────────────────────── */
+
+interface SectionShellProps {
+  id: string;
+  eyebrow: string;
+  title: string;
+  subtitle?: string;
+  citation?: string;
+  children: React.ReactNode;
+}
+
+function SectionShell({ id, eyebrow, title, subtitle, citation, children }: SectionShellProps): JSX.Element {
+  return (
+    <section id={id} className="arch-section scroll-mt-24">
+      <header className="mb-5 border-b border-border-subtle pb-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-teal-700">
+          {eyebrow}
+        </p>
+        <h2 className="mt-1 text-2xl font-bold leading-tight text-ink-900">{title}</h2>
+        {subtitle && (
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink-700">{subtitle}</p>
+        )}
+        {citation && (
+          <p className="mt-2 font-mono text-[11px] text-ink-500">{citation}</p>
+        )}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* PrintHeader — visible only when @media print fires          */
+/* ─────────────────────────────────────────────────────────── */
+
+function PrintHeader({ generatedAt }: { generatedAt: string }): JSX.Element {
+  return (
+    <div className="arch-print-header print-only" aria-hidden>
+      <div className="arch-print-stripe" />
+      <div className="arch-print-headband">
+        <div>
+          <p className="font-ar-display arch-print-ministry">
+            وزارة الداخلية · أكاديمية الشرطة
+          </p>
+          <p className="arch-print-ministry-en">Ministry of Interior — Police Academy</p>
+        </div>
+        <div className="arch-print-doc-meta">
+          <p>Police Academy Admissions System</p>
+          <p>Architecture &amp; Security Posture · Technical Reference</p>
+          <p>Generated {generatedAt}</p>
+        </div>
       </div>
     </div>
   );

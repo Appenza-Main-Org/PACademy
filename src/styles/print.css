@@ -106,3 +106,130 @@
 
 /* Screen-only / print-only helpers (always available, not just inside @media print) */
 .print-only { display: none; }
+
+/* ───────────────────────────────────────────────────────────
+   Architecture page (`/architecture`) — print handout
+   Source: feature/architecture rebuild (technical reference).
+   Goals: hide app chrome and TOC, force-expand collapsibles,
+   render ministry header + Khayameya stripe, page-break by
+   section, thicken chart strokes for paper.
+   ─────────────────────────────────────────────────────────── */
+
+/* Architecture print header is screen-hidden by default. */
+.arch-print-header { display: none; }
+
+@media print {
+  /* Hide remaining app chrome that the global selectors above miss. */
+  body:has(.arch-page) header[class*="sticky"],
+  body:has(.arch-page) aside,
+  body:has(.arch-page) [data-no-print="true"] {
+    display: none !important;
+  }
+
+  /* Force the page body into a single full-bleed column. */
+  .arch-page {
+    direction: ltr;
+  }
+  .arch-page-grid {
+    display: block !important;
+    max-width: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+  }
+  .arch-toc-rail,
+  .arch-toc-mobile {
+    display: none !important;
+  }
+  .arch-page-header {
+    margin: 0 0 6mm 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  /* Reveal print-only ministry header. */
+  .arch-print-header {
+    display: block !important;
+    margin-bottom: 6mm;
+  }
+  .arch-print-stripe {
+    height: 12px;
+    background: linear-gradient(to right,
+      var(--teal-500)  0%,  var(--teal-500)  30%,
+      var(--gold-500)  30%, var(--gold-500)  50%,
+      var(--terra-500) 50%, var(--terra-500) 56%,
+      var(--ink-700)   56%, var(--ink-700)   100%);
+    margin-bottom: 4mm;
+  }
+  .arch-print-headband {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12mm;
+    border-bottom: 1px solid var(--ink-700);
+    padding-bottom: 4mm;
+    color: var(--ink-900);
+  }
+  .arch-print-ministry {
+    font-size: 14pt;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .arch-print-ministry-en {
+    font-size: 9pt;
+    color: var(--ink-500);
+    margin-top: 1mm;
+  }
+  .arch-print-doc-meta {
+    text-align: right;
+    font-size: 9pt;
+    color: var(--ink-500);
+    line-height: 1.5;
+  }
+  .arch-print-doc-meta p:first-child {
+    color: var(--ink-900);
+    font-weight: 600;
+  }
+
+  /* Force-expand every collapsible inside the architecture page so the
+     handout shows complete content. */
+  .arch-page [aria-expanded="false"] + div,
+  .arch-page .arch-integration > div[id^="int-"],
+  .arch-page [data-arch-layer-panel] > div[id^="layer-panel-body-"] {
+    display: block !important;
+  }
+  .arch-page button[aria-expanded] svg.lucide-chevron-down {
+    display: none !important;
+  }
+
+  /* Section page-breaks. */
+  .arch-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .arch-section + .arch-section {
+    page-break-before: auto;
+  }
+  /* Force a page break before sections 5 (Security) and 8 (Audit) where
+     content density justifies a visual reset. */
+  #security,
+  #audit {
+    page-break-before: always;
+  }
+
+  /* Thicker SVG strokes for paper legibility (overrides global rule). */
+  .arch-page svg [data-chart-stroke] { stroke-width: 1.25px !important; }
+
+  /* Tables: keep them tight on paper. */
+  .arch-page table { font-size: 9.5pt; }
+  .arch-page thead th { font-size: 8pt; }
+
+  /* Print footer — page numbers via @page where supported. */
+  @page {
+    @bottom-center {
+      content: "Police Academy Admissions System — Technical Reference — Page " counter(page) " of " counter(pages);
+      font-family: 'Inter', sans-serif;
+      font-size: 8pt;
+      color: #6b6b6b;
+    }
+  }
+}

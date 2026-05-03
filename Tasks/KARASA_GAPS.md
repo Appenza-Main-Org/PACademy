@@ -672,12 +672,21 @@ Fields:
 - ✅ Time-of-day greeting + officer name (from MOIPASS mock)
 - 🟡 "آخر النشاطات" feed across-apps + per-role quick-actions deferred — service shape supports them
 
-## 10.2 Architecture page (`/architecture`) — DONE (final-review ARCH-05)
-- ✅ 4-layer K§9 architecture exactly (Public Portals · Middleware · Private Portals · Database)
-- ✅ Interactive integrations table — click row → Drawer with 4-step data-flow narrative
-- ✅ Tech stack with versions (6 categories)
-- ✅ Hardware inventory section (171 PCs, 130 biometric, 19 printers, 5 scanners, 9 switches, 6 racks, 160 net-points)
-- ✅ RBAC matrix (11 roles × 9 apps)
+## 10.2 Architecture page (`/architecture`) — REBUILT (technical reference, English LTR)
+Rebuilt 2026-05-03 as a printable technical-evaluator handout. The page now
+covers the §3.1 / §3.2 / §4.1 / §4.2 reference content directly on-screen
+and via Cmd+P. Section breakdown:
+- ✅ §1 Executive Overview — 4-tile metric strip (apps · roles · layers · integrations)
+- ✅ §2 Four Layers — interactive inline-SVG diagram + click-to-expand detail per layer (K§9)
+- ✅ §3 Nine Applications — DataTable with surface, primary users, hosting tier, karasa citation per row
+- ✅ §4 Integrations — six expandable cards (MOIPASS · MoE · Al-Azhar · Payment Gateway · Hardware SDK · Internal cross-app) with direction, auth, data, frequency, failure handling, citation (K§3.1, §3.2)
+- ✅ §5 Security Architecture — six tiers (Network · Transport · Identity · Application · Data · Operational), high-level posture only, defers configurations to Phase 2 (K§4.1)
+- ✅ §6 Hosting & Deployment — public, private, DR with RPO/RTO targets (K§4.1 p.101)
+- ✅ §7 RBAC Matrix — 11 roles × 9 applications, English labels
+- ✅ §8 Audit & Compliance — CUD audit, view-level audit on investigations, source-code ownership (K§4.2), ISO 27001 alignment, Law 151/2020, the six acceptance gates (K§4.1)
+- ✅ §9 Non-Functional Targets — 10-row table; bidder-proposed baselines, Phase 2 negotiated
+- ✅ Sticky right-rail TOC with IntersectionObserver scroll-spy; horizontal sticky bar on tablet/mobile
+- ✅ Print stylesheet: chrome hidden, all collapsibles force-expanded, ministry header band + Khayameya stripe at top, Inter typography, page-breaks before §5 and §8
 
 ## 10.3 Login & auth surface — DONE (final-review ARCH-01..03)
 - ✅ Public landing at `/` with two clear paths (المتقدمين / الموظفين)
