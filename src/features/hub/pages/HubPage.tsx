@@ -7,7 +7,7 @@
  * Locked cards (RBAC-denied) render with the lock affordance and stay visible.
  */
 
-import { Activity, ArrowLeft, BarChart3, Calendar, Check, ClipboardList, CreditCard, Eye, FileText, Globe, GraduationCap, Hourglass, Layers, Lock, Scale, Search, ServerCog, Stethoscope, UserCog, Users, X } from 'lucide-react';
+import { Activity, ArrowLeft, BarChart3, Calendar, Check, ClipboardList, CreditCard, Eye, FileText, Globe, GraduationCap, History, Hourglass, Lock, Scale, Search, ServerCog, Stethoscope, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { ElementType } from 'react';
 import { AppShell } from '@/app/layouts/AppShell';
@@ -24,6 +24,14 @@ import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/cn';
 import type { AppKey } from '@/shared/lib/constants';
+
+const AUDIT_DOT: Record<'success' | 'warning' | 'danger' | 'info' | 'neutral', string> = {
+  success: 'bg-success',
+  warning: 'bg-gold-500',
+  danger: 'bg-terra-500',
+  info: 'bg-teal-500',
+  neutral: 'bg-ink-400',
+};
 
 interface AppDef {
   key: AppKey;
@@ -64,6 +72,7 @@ export function HubPage(): JSX.Element {
   const dayDelta = todayRegs - yesterdayRegs;
   const greeting = greetingForHour(new Date().getHours());
   const hijri = formatHijri(new Date());
+  const recentEvents = MOCK.audit.slice(0, 3);
 
   return (
     <AppShell>
@@ -100,24 +109,34 @@ export function HubPage(): JSX.Element {
               المنظومة الكاملة للتحول الرقمي بإجراءات القبول والاختبارات. تسعة تطبيقات مترابطة على
               مستوى الإنترنت والشبكة الداخلية تعمل بصورة موحدة.
             </p>
-            <ul className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-2xs text-white/75">
-              <li className="inline-flex items-center gap-2">
-                <span aria-hidden className="h-2 w-2 rounded-full bg-success" />
-                كل الخدمات نشطة
-              </li>
-              <li className="inline-flex items-center gap-2">
-                <Layers size={12} strokeWidth={1.75} aria-hidden />
-                <span>منصة التحقق الرقمي · مفعّلة</span>
-              </li>
-              <li className="inline-flex items-center gap-2">
-                <UserCog size={12} strokeWidth={1.75} aria-hidden />
-                <span>{user.roleLabel}</span>
-              </li>
-              <li className="inline-flex items-center gap-2">
-                <Activity size={12} strokeWidth={1.75} aria-hidden />
-                <span>اليوم: <span className="font-numeric tnum">{num(todayRegs)}</span> تسجيل جديد</span>
-              </li>
-            </ul>
+            <dl className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-2xs text-white/80">
+              <div className="inline-flex items-center gap-2">
+                <span aria-hidden className="relative flex h-2 w-2">
+                  <span className="absolute inset-0 rounded-full bg-success opacity-60 motion-safe:animate-ping" />
+                  <span className="relative h-2 w-2 rounded-full bg-success" />
+                </span>
+                <dt className="sr-only">حالة المنظومة</dt>
+                <dd>كل الخدمات نشطة</dd>
+              </div>
+              <span aria-hidden className="hidden h-3 w-px bg-white/20 sm:inline-block" />
+              <div className="inline-flex items-baseline gap-1.5">
+                <dt className="text-white/60">الدور</dt>
+                <dd className="font-medium text-white/90">{user.roleLabel}</dd>
+              </div>
+              <span aria-hidden className="hidden h-3 w-px bg-white/20 sm:inline-block" />
+              <div className="inline-flex items-baseline gap-1.5">
+                <dt className="text-white/60">تسجيل اليوم</dt>
+                <dd className="font-numeric tnum font-medium text-white/90">{num(todayRegs)}</dd>
+                <span className={cn('font-numeric tnum text-2xs', dayDelta >= 0 ? 'text-gold-300' : 'text-terra-300')} dir="ltr">
+                  {dayDelta >= 0 ? `+${dayDelta}` : dayDelta}
+                </span>
+              </div>
+              <span aria-hidden className="hidden h-3 w-px bg-white/20 sm:inline-block" />
+              <div className="inline-flex items-baseline gap-1.5">
+                <dt className="text-white/60">منصة التحقق</dt>
+                <dd className="font-medium text-white/90">مفعّلة</dd>
+              </div>
+            </dl>
           </div>
         </section>
 
@@ -183,6 +202,39 @@ export function HubPage(): JSX.Element {
             />
           </div>
         </section>
+
+        {/* Recent activity strip */}
+        {recentEvents.length > 0 && (
+          <section className="mb-9">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
+                <History size={16} strokeWidth={1.75} aria-hidden />
+                آخر الأحداث
+              </h2>
+              <Link to="/admin/audit" className="text-xs text-ink-500 transition-colors duration-fast ease-standard hover:text-ink-900">
+                عرض السجل الكامل ←
+              </Link>
+            </div>
+            <ul className="overflow-hidden rounded-md border border-border-subtle bg-surface-card">
+              {recentEvents.map((e, i) => (
+                <li
+                  key={e.id}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-2.5 text-2xs',
+                    i < recentEvents.length - 1 && 'border-b border-border-subtle',
+                  )}
+                >
+                  <span aria-hidden className={cn('h-1.5 w-1.5 flex-none rounded-full', AUDIT_DOT[e.actionColor])} />
+                  <span className="text-ink-500">{shortName(e.userName, 3)}</span>
+                  <span className="font-medium text-ink-900">{e.actionLabel}</span>
+                  <span className="text-ink-700">{e.entity}</span>
+                  <span className="font-mono text-2xs text-ink-500" dir="ltr">{e.entityId}</span>
+                  <span className="ms-auto text-ink-500">{fmtDate(e.timestamp, 'rel')}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* App grids */}
         {internet.length > 0 && (
