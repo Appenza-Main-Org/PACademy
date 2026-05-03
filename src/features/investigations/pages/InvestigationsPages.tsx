@@ -208,7 +208,7 @@ export function OutgoingPage(): JSX.Element {
       <Card>
         <CardBody>
           <p className="text-sm text-ink-500">
-            انتقل إلى <Link to={ROUTES.investigations.outgoing} className="font-medium text-teal-700 hover:underline">صفحة الصادر</Link> لإدارة الكتب الرسمية.
+            انتقل إلى <Link to={ROUTES.investigations.outgoing} className="font-medium hover:underline" style={{ color: 'var(--accent-700)' }}>صفحة الصادر</Link> لإدارة الكتب الرسمية.
           </p>
         </CardBody>
       </Card>
