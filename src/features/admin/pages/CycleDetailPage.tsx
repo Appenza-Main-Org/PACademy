@@ -101,7 +101,7 @@ export function CycleDetailPage(): JSX.Element {
             {num(cycle.applicantCount)}
           </p>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-100">
-            <div className="h-full rounded-full bg-teal-500" style={{ width: `${Math.min(100, fillPct)}%` }} />
+            <div className="h-full rounded-full" style={{ width: `${Math.min(100, fillPct)}%`, background: 'var(--accent-500)' }} />
           </div>
           <p className="mt-1 text-2xs text-ink-500">{fillPct}% من السعة</p>
         </Card>

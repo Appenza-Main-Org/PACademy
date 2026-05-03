@@ -255,9 +255,10 @@ export function AdmissionRulesPage(): JSX.Element {
                         className={
                           'rounded-pill border px-3 py-1 text-xs transition-colors duration-fast ease-standard ' +
                           (active
-                            ? 'border-teal-500 bg-teal-50 text-teal-700'
+                            ? ''
                             : 'border-border-default text-ink-700 hover:bg-ink-50')
                         }
+                        style={active ? { borderColor: 'var(--accent-500)', background: 'var(--accent-50)', color: 'var(--accent-700)' } : undefined}
                       >
                         {opt.label}
                       </button>
