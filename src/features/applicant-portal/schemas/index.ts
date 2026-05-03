@@ -112,12 +112,6 @@ export type Stage10Values = z.infer<typeof stage10Schema>;
 
 export const stage11Schema = z.object({
   housing: z.enum(['own', 'rent', 'family-owned']),
-  politicalAffiliation: z.object({
-    has: z.boolean(),
-    details: z.string().optional(),
-  }),
-  religiousGroup: z.string().optional(),
-  religiousRole: z.string().optional(),
   travelHistory: z.array(
     z.object({
       country: z.string(),

@@ -13,7 +13,6 @@ import {
   Input,
   PrintLayout,
   Select,
-  Textarea,
   toast,
 } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
@@ -24,11 +23,10 @@ const APPLICANT_ID = 'APP-2026000';
 
 export function Stage11AcquaintanceDocPage(): JSX.Element {
   const navigate = useNavigate();
-  const { register, handleSubmit, control, watch, formState: { errors, isSubmitting } } = useForm<Stage11Values>({
+  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<Stage11Values>({
     resolver: zodResolver(stage11Schema),
     defaultValues: {
       housing: 'family-owned',
-      politicalAffiliation: { has: false },
       travelHistory: [],
       socialAccounts: [],
     },
@@ -36,7 +34,6 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
 
   const travelArr = useFieldArray({ control, name: 'travelHistory' });
   const socialArr = useFieldArray({ control, name: 'socialAccounts' });
-  const hasPolitical = watch('politicalAffiliation.has');
 
   const onSubmit = async (values: Stage11Values): Promise<void> => {
     await applicantPortalService.submitStage(APPLICANT_ID, 11, { acquaintance: values });
@@ -77,30 +74,6 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
           ]}
           error={errors.housing?.message}
         />
-      </Card>
-
-      <Card>
-        <h3 className="mb-3 font-ar-display text-md font-bold text-ink-900">الانتماءات السياسية والدينية</h3>
-        <label className="mb-3 flex items-center gap-2 text-sm text-ink-700">
-          <input
-            type="checkbox"
-            {...register('politicalAffiliation.has')}
-            className="h-4 w-4 cursor-pointer accent-teal-500"
-          />
-          هل لديك أو أحد أفراد أسرتك انتماء لجهة سياسية؟
-        </label>
-        {hasPolitical && (
-          <Textarea
-            label="التفاصيل"
-            required
-            {...register('politicalAffiliation.details')}
-            error={errors.politicalAffiliation?.details?.message}
-          />
-        )}
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <Input label="الجماعة الدينية (اختياري)" {...register('religiousGroup')} />
-          <Input label="الدور (اختياري)" {...register('religiousRole')} />
-        </div>
       </Card>
 
       <Card>
