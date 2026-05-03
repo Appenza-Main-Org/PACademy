@@ -14,3 +14,4 @@ export { AdmissionRulesPage } from './pages/AdmissionRulesPage';
 /* Post-polish admin pages — Buckets D and E */
 export { CategoriesListPage } from './pages/CategoriesListPage';
 export { CategoryEditPage } from './pages/CategoryEditPage';
+export { CycleNewPage } from './pages/CycleNewPage';

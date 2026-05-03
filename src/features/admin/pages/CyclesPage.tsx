@@ -3,14 +3,15 @@
  * Source: Tasks/KARASA_GAPS.md §1.2.D.
  */
 
-import { Link } from 'react-router-dom';
-import { Copy, Plus } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { CalendarRange, Copy, Plus } from 'lucide-react';
 import {
   Badge,
   Button,
   Card,
   DataTable,
   EmptyState,
+  IconStamp,
   PageHeader,
   toast,
 } from '@/shared/components';
@@ -19,7 +20,7 @@ import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import type { AdmissionCycle, CycleStatus } from '@/shared/types/domain';
-import { useCycleClone, useCycles } from '../api/cycles.queries';
+import { useActiveCycle, useCycleClone, useCycles } from '../api/cycles.queries';
 
 const STATUS_LABEL: Record<CycleStatus, string> = {
   draft: 'مسودة',
@@ -42,7 +43,9 @@ const STATUS_TONE: Record<CycleStatus, 'neutral' | 'success' | 'warning' | 'info
 };
 
 export function CyclesPage(): JSX.Element {
+  const navigate = useNavigate();
   const { data, isLoading } = useCycles();
+  const { data: activeCycle } = useActiveCycle();
   const cloneMut = useCycleClone();
 
   const columns: DataTableColumn<AdmissionCycle>[] = [
@@ -120,12 +123,39 @@ export function CyclesPage(): JSX.Element {
           <Button
             variant="primary"
             leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-            onClick={() => toast('إنشاء دورة جديدة — قيد التنفيذ', 'info')}
+            onClick={() => navigate(ROUTES.admin.cycleNew)}
           >
-            دورة جديدة
+            إنشاء دورة جديدة
           </Button>
         }
       />
+
+      {activeCycle && (
+        <Card variant="elevated" className="mb-4 border-l-2 border-l-teal-500">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+              <CalendarRange size={20} strokeWidth={1.75} />
+            </span>
+            <div className="flex-1">
+              <p className="font-ar-display text-md font-bold text-ink-900">
+                الدورة النشطة: {activeCycle.nameAr}
+              </p>
+              <p className="mt-0.5 text-2xs text-ink-500">
+                {fmtDate(activeCycle.openDate, 'short')} إلى {fmtDate(activeCycle.closeDate, 'short')}
+                {' · '}
+                {Object.values(activeCycle.openCategories ?? {}).filter((c) => c?.isOpen).length} فئات مفتوحة
+              </p>
+            </div>
+            <Badge tone="success">
+              <IconStamp width={12} height={12} className="me-1 inline-block" />
+              نشطة
+            </Badge>
+            <Link to={ROUTES.admin.cycleDetail(activeCycle.id)}>
+              <Button variant="primary" size="sm">إدارة الدورة</Button>
+            </Link>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <DataTable

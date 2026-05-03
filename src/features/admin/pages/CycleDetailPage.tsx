@@ -3,25 +3,45 @@
  * Source: Tasks/KARASA_GAPS.md §1.2.D.
  */
 
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronRight, Copy, ListChecks } from 'lucide-react';
+import { Archive, ChevronRight, Copy, ListChecks, PauseCircle, PlayCircle } from 'lucide-react';
 import {
   Badge,
   Button,
   Card,
   EmptyState,
   ErrorState,
+  IconStamp,
+  Input,
   LoadingState,
+  Modal,
   PageHeader,
   Select,
+  Textarea,
   toast,
 } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, num } from '@/shared/lib/format';
-import { useCycle, useCycleClone, useCycleTransition } from '../api/cycles.queries';
+import {
+  useCycle,
+  useCycleActivate,
+  useCycleArchive,
+  useCycleClone,
+  useCycleClose,
+  useCycleTransition,
+  useToggleCycleCategory,
+} from '../api/cycles.queries';
+import { useCategoriesAdmin } from '../api/categories.queries';
 import { useRulesForCycle } from '../api/admissionRules.queries';
-import type { CycleStatus } from '@/shared/types/domain';
+import type {
+  AdmissionCycle,
+  AdmissionCycleCategoryConfig,
+  ApplicantCategory,
+  CycleStatus,
+} from '@/shared/types/domain';
+
 
 const STATUS_OPTIONS: CycleStatus[] = ['draft', 'open', 'active', 'closed', 'processing', 'finalized', 'archived'];
 
@@ -39,8 +59,14 @@ export function CycleDetailPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const { data: cycle, isLoading, error, refetch } = useCycle(id);
   const { data: rules } = useRulesForCycle(id);
+  const { data: categories = [] } = useCategoriesAdmin();
   const cloneMut = useCycleClone();
   const transitionMut = useCycleTransition();
+  const activateMut = useCycleActivate();
+  const closeMut = useCycleClose();
+  const archiveMut = useCycleArchive();
+  const toggleCategoryMut = useToggleCycleCategory();
+  const [pendingTransition, setPendingTransition] = useState<'activate' | 'close' | 'archive' | null>(null);
 
   if (isLoading) return <CenteredShell><LoadingState variant="page" /></CenteredShell>;
   if (error) return <CenteredShell><ErrorState error={error} onRetry={() => refetch()} /></CenteredShell>;
@@ -128,6 +154,23 @@ export function CycleDetailPage(): JSX.Element {
         </Card>
       </div>
 
+      <CategoriesPanel
+        cycle={cycle}
+        categories={categories}
+        readOnly={cycle.status === 'archived' || cycle.status === 'finalized'}
+        onToggle={(categoryKey, config) => {
+          toggleCategoryMut.mutate(
+            { cycleId: cycle.id, categoryKey, config },
+            { onSuccess: () => toast('تم تحديث حالة الفئة', 'success') },
+          );
+        }}
+      />
+
+      <LifecycleActions
+        cycle={cycle}
+        onRequest={setPendingTransition}
+      />
+
       <section className="mt-6">
         <h2 className="mb-3 font-ar-display text-xl font-bold text-ink-900">سجل تحديثات شروط القبول</h2>
         <Card>
@@ -154,6 +197,238 @@ export function CycleDetailPage(): JSX.Element {
           </ul>
         </Card>
       </section>
+
+      <Modal
+        open={pendingTransition !== null}
+        onClose={() => setPendingTransition(null)}
+        title={
+          pendingTransition === 'activate'
+            ? 'تأكيد تفعيل الدورة'
+            : pendingTransition === 'close'
+            ? 'تأكيد إغلاق الدورة'
+            : 'تأكيد أرشفة الدورة'
+        }
+        size="md"
+      >
+        <Modal.Body>
+          {pendingTransition === 'activate' && (
+            <p className="text-sm text-ink-700">
+              سيتم تفعيل دورة "{cycle.nameAr}" وإغلاق أي دورة نشطة أخرى تلقائياً. هل تريد المتابعة؟
+            </p>
+          )}
+          {pendingTransition === 'close' && (
+            <p className="text-sm text-ink-700">
+              سيتم إغلاق دورة "{cycle.nameAr}". لن يتمكن المتقدمون الجدد من التقديم. هل تريد المتابعة؟
+            </p>
+          )}
+          {pendingTransition === 'archive' && (
+            <p className="text-sm text-ink-700">
+              سيتم أرشفة دورة "{cycle.nameAr}" وإخراجها من قائمة الدورات النشطة. هل تريد المتابعة؟
+            </p>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="ghost" onClick={() => setPendingTransition(null)}>إلغاء</Button>
+          <Button
+            variant="primary"
+            isLoading={activateMut.isPending || closeMut.isPending || archiveMut.isPending}
+            onClick={() => {
+              const handlers = { onSuccess: () => toast('تم تحديث الدورة', 'success'), onError: (err: Error) => toast(err.message, 'danger') };
+              if (pendingTransition === 'activate') activateMut.mutate(cycle.id, handlers);
+              else if (pendingTransition === 'close') closeMut.mutate(cycle.id, handlers);
+              else if (pendingTransition === 'archive') archiveMut.mutate(cycle.id, handlers);
+              setPendingTransition(null);
+            }}
+          >
+            تأكيد
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </CenteredShell>
+  );
+}
+
+function CategoriesPanel({
+  cycle,
+  categories,
+  readOnly,
+  onToggle,
+}: {
+  cycle: AdmissionCycle;
+  categories: ApplicantCategory[];
+  readOnly: boolean;
+  onToggle: (key: ApplicantCategory['key'], config: AdmissionCycleCategoryConfig) => void;
+}): JSX.Element {
+  return (
+    <section className="mt-6">
+      <h2 className="mb-3 font-ar-display text-xl font-bold text-ink-900">حالة الفئات في هذه الدورة</h2>
+      <Card>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">
+              <tr>
+                <th className="py-2 text-start">الفئة</th>
+                <th className="py-2 text-start">النوع</th>
+                <th className="py-2 text-start">الحالة</th>
+                <th className="py-2 text-start">السعة</th>
+                <th className="py-2 text-start">ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categories.map((cat) => {
+                const cfg = cycle.openCategories?.[cat.key] ?? {
+                  isOpen: false,
+                  capacity: null,
+                  notes: '',
+                };
+                return (
+                  <CategoryRow
+                    key={cat.key}
+                    cycle={cycle}
+                    category={cat}
+                    config={cfg}
+                    readOnly={readOnly}
+                    onToggle={(c) => onToggle(cat.key, c)}
+                  />
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </section>
+  );
+}
+
+function CategoryRow({
+  cycle,
+  category,
+  config,
+  readOnly,
+  onToggle,
+}: {
+  cycle: AdmissionCycle;
+  category: ApplicantCategory;
+  config: AdmissionCycleCategoryConfig;
+  readOnly: boolean;
+  onToggle: (config: AdmissionCycleCategoryConfig) => void;
+}): JSX.Element {
+  const [draft, setDraft] = useState(config);
+  const dirty =
+    draft.isOpen !== config.isOpen ||
+    draft.capacity !== config.capacity ||
+    draft.notes !== config.notes;
+
+  return (
+    <tr className="border-b border-border-subtle last:border-b-0">
+      <td className="py-3 font-medium text-ink-900">{category.labelAr}</td>
+      <td className="py-3">
+        {category.conditions.nominationOnly ? (
+          <Badge tone="warning">بالترشيح</Badge>
+        ) : (
+          <Badge tone="neutral">تقديم عام</Badge>
+        )}
+      </td>
+      <td className="py-3">
+        <label className="flex items-center gap-2 text-sm text-ink-700">
+          <input
+            type="checkbox"
+            checked={draft.isOpen}
+            disabled={readOnly}
+            onChange={(e) => setDraft({ ...draft, isOpen: e.target.checked })}
+            className="h-4 w-4 cursor-pointer accent-teal-500"
+          />
+          {draft.isOpen ? 'مفتوح' : 'مغلق'}
+        </label>
+      </td>
+      <td className="py-3">
+        <Input
+          type="number"
+          value={draft.capacity ?? ''}
+          disabled={readOnly}
+          onChange={(e) => setDraft({ ...draft, capacity: e.target.value ? Number(e.target.value) : null })}
+          containerClassName="!mb-0"
+          className="w-24"
+        />
+      </td>
+      <td className="py-3">
+        <div className="flex items-center gap-2">
+          <Textarea
+            value={draft.notes}
+            disabled={readOnly}
+            onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+            containerClassName="!mb-0 flex-1"
+            rows={1}
+          />
+          {dirty && !readOnly && (
+            <Button variant="primary" size="sm" onClick={() => onToggle(draft)}>
+              حفظ
+            </Button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+  void cycle;
+}
+
+function LifecycleActions({
+  cycle,
+  onRequest,
+}: {
+  cycle: AdmissionCycle;
+  onRequest: (next: 'activate' | 'close' | 'archive') => void;
+}): JSX.Element {
+  const isActive = cycle.status === 'active' || cycle.status === 'open';
+  const isClosed = cycle.status === 'closed' || cycle.status === 'finalized' || cycle.status === 'processing';
+  const isArchived = cycle.status === 'archived';
+  return (
+    <section className="mt-6">
+      <Card variant="elevated">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-ar-display text-md font-bold text-ink-900">إجراءات الدورة</h3>
+            <p className="mt-0.5 text-2xs text-ink-500">
+              تفعيل / إغلاق / أرشفة هذه الدورة
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {!isActive && !isArchived && (
+              <Button
+                variant="primary"
+                leadingIcon={<PlayCircle size={14} strokeWidth={1.75} />}
+                onClick={() => onRequest('activate')}
+              >
+                تفعيل
+              </Button>
+            )}
+            {isActive && (
+              <Button
+                variant="secondary"
+                leadingIcon={<PauseCircle size={14} strokeWidth={1.75} />}
+                onClick={() => onRequest('close')}
+              >
+                إغلاق
+              </Button>
+            )}
+            {isClosed && (
+              <Button
+                variant="ghost"
+                leadingIcon={<Archive size={14} strokeWidth={1.75} />}
+                onClick={() => onRequest('archive')}
+              >
+                أرشفة
+              </Button>
+            )}
+            {isActive && (
+              <Badge tone="success">
+                <IconStamp width={12} height={12} className="me-1 inline-block" />
+                نشطة
+              </Badge>
+            )}
+          </div>
+        </div>
+      </Card>
+    </section>
   );
 }
