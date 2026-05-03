@@ -24,17 +24,21 @@ import { useCycleClone, useCycles } from '../api/cycles.queries';
 const STATUS_LABEL: Record<CycleStatus, string> = {
   draft: 'مسودة',
   open: 'مفتوحة',
+  active: 'نشطة',
   closed: 'مغلقة',
   processing: 'تحت المعالجة',
   finalized: 'مختومة',
+  archived: 'مؤرشفة',
 };
 
 const STATUS_TONE: Record<CycleStatus, 'neutral' | 'success' | 'warning' | 'info' | 'brand'> = {
   draft: 'neutral',
   open: 'success',
+  active: 'success',
   closed: 'warning',
   processing: 'info',
   finalized: 'brand',
+  archived: 'neutral',
 };
 
 export function CyclesPage(): JSX.Element {

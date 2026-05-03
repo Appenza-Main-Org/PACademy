@@ -23,14 +23,16 @@ import { useCycle, useCycleClone, useCycleTransition } from '../api/cycles.queri
 import { useRulesForCycle } from '../api/admissionRules.queries';
 import type { CycleStatus } from '@/shared/types/domain';
 
-const STATUS_OPTIONS: CycleStatus[] = ['draft', 'open', 'closed', 'processing', 'finalized'];
+const STATUS_OPTIONS: CycleStatus[] = ['draft', 'open', 'active', 'closed', 'processing', 'finalized', 'archived'];
 
 const STATUS_LABEL: Record<CycleStatus, string> = {
   draft: 'مسودة',
   open: 'مفتوحة',
+  active: 'نشطة',
   closed: 'مغلقة',
   processing: 'تحت المعالجة',
   finalized: 'مختومة',
+  archived: 'مؤرشفة',
 };
 
 export function CycleDetailPage(): JSX.Element {

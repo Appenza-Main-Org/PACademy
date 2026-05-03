@@ -130,6 +130,101 @@ export interface TimelineEvent {
   color: AuditColor;
 }
 
+/* ── Applicant categories — Post-polish (RFP Scope Document §2.1) ─────
+ *
+ * Source spec: كلية_الشرطة_الاقسام_والشروط — 7 faculty departments with
+ * their conditions and required-test sequences. Departments 4–7 are
+ * `nominationOnly: true` (ترشيح) and never appear in the public picker.
+ */
+
+export type ApplicantCategoryKey =
+  | 'officers_general'
+  | 'officers_specialized'
+  | 'postgraduate'
+  | 'institute_officers_training'
+  | 'institute_traffic'
+  | 'institute_guarding'
+  | 'special_units';
+
+export type RequiredQualification =
+  | 'thanaweya_amma'
+  | 'azhar'
+  | 'bachelor'
+  | 'bachelor_law'
+  | 'bachelor_medicine'
+  | 'bachelor_engineering'
+  | 'bachelor_media'
+  | 'police_academy_grad'
+  | 'serving_officer'
+  | 'any';
+
+export interface CategoryCondition {
+  ageMin: number | null;
+  ageMax: number | null;
+  minScorePercent: number | null;
+  requiredQualification: RequiredQualification;
+  gender: 'male' | 'female' | 'any';
+  minHeightCm: number | null;
+  medicalRequired: boolean;
+  maritalStatus: 'single' | 'any';
+  conductCheck: boolean;
+  egyptianNationalityRequired: boolean;
+  employerApprovalRequired: boolean;
+  nominationOnly: boolean;
+  freeText: string[];
+}
+
+export type RequiredTestKind =
+  | 'aptitude'
+  | 'posture'
+  | 'medical'
+  | 'physical'
+  | 'psychological'
+  | 'interview'
+  | 'drug'
+  | 'security_review'
+  | 'tactical_training'
+  | 'security_training'
+  | 'specialized_courses';
+
+export interface RequiredTest {
+  kind: RequiredTestKind;
+  order: number;
+  passingCriteria: string;
+}
+
+export interface ApplicantCategory {
+  key: ApplicantCategoryKey;
+  labelAr: string;
+  labelEn: string;
+  description: string;
+  /** Computed snapshot from `MOCK.activeCycleId → cycle.openCategories[key]`. */
+  isOpen: boolean;
+  conditions: CategoryCondition;
+  requiredTests: RequiredTest[];
+  procedures: string[];
+}
+
+export type EligibilityRejectionReason =
+  | 'age_out_of_range'
+  | 'gender_mismatch'
+  | 'data_not_found'
+  | 'score_below_min'
+  | 'application_closed'
+  | 'cycle_not_active'
+  | 'nid_already_used'
+  | 'qualification_mismatch'
+  | 'height_below_min'
+  | 'marital_status_mismatch'
+  | 'nomination_required';
+
+export interface EligibilityResult {
+  categoryKey: ApplicantCategoryKey;
+  cycleId: string | null;
+  eligible: boolean;
+  reasons: EligibilityRejectionReason[];
+}
+
 /* ── Reference data — Sprint 1 (Tasks/KARASA_GAPS.md §1.2.B) ────────── */
 
 export type ReferenceTab =
@@ -213,9 +308,24 @@ export type ReferenceRowMap = {
   'case-types': RefCaseType;
 };
 
-/* ── Admission cycles — Sprint 1 (§1.2.D) ─────────────────────────────── */
+/* ── Admission cycles — Sprint 1 (§1.2.D), extended post-polish ─────────
+ *
+ * Post-polish extension: `openCategories`, `conditionOverrides`,
+ * `createdAt`/`updatedAt`, and the additional `'active'`/`'archived'`
+ * status tokens. Existing fields (`nameAr`, `openDate`, `closeDate`,
+ * `cohort`, `year`, `expectedCapacity`, `applicantCount`) are kept as-is
+ * for backwards compatibility with CyclesPage/CycleDetailPage and
+ * AdmissionRule references. Map old↔new at the service layer:
+ *   'open' ≡ 'active', 'finalized' ≡ 'archived', 'processing' is internal.
+ */
 
-export type CycleStatus = 'draft' | 'open' | 'closed' | 'processing' | 'finalized';
+export type CycleStatus = 'draft' | 'open' | 'active' | 'closed' | 'processing' | 'finalized' | 'archived';
+
+export interface AdmissionCycleCategoryConfig {
+  isOpen: boolean;
+  capacity: number | null;
+  notes: string;
+}
 
 export interface AdmissionCycle {
   id: string;
@@ -228,6 +338,16 @@ export interface AdmissionCycle {
   expectedCapacity: number;
   applicantCount: number;
   status: CycleStatus;
+  /** English label, optional — defaults to a computed transliteration in UI. */
+  labelEn?: string;
+  /** Per-category open/closed/capacity/notes within this cycle.
+   *  Missing key === closed for that category in this cycle. */
+  openCategories?: Partial<Record<ApplicantCategoryKey, AdmissionCycleCategoryConfig>>;
+  /** Cycle-level overrides on category conditions. Override semantics: a
+   *  defined field replaces the category default; missing fields fall through. */
+  conditionOverrides?: Partial<Record<ApplicantCategoryKey, Partial<CategoryCondition>>>;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /* ── Admission rules — Sprint 1 (§1.2.C) ──────────────────────────────── */
@@ -387,6 +507,29 @@ export interface PaymentTransaction {
   status: 'pending' | 'success' | 'failed';
   initiatedAt: number;
   paidAt?: number;
+}
+
+/* ── Test schedule — Post-polish (Bucket C) ───────────────────────── */
+
+export type TestStatus =
+  | 'scheduled'
+  | 'attended'
+  | 'missed'
+  | 'passed'
+  | 'failed'
+  | 'pending_result';
+
+export interface TestSchedule {
+  id: string;
+  applicantId: string;
+  kind: RequiredTestKind;
+  scheduledAt: string; // ISO
+  location: string;
+  status: TestStatus;
+  resultAt?: string;
+  score?: number;
+  notes?: string;
+  instructions: string[];
 }
 
 /* ── Two-phase results pattern (committees + medical + exams) ────────── */
