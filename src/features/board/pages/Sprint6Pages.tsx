@@ -27,7 +27,7 @@ import {
   toast,
 } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
+import { IconSeal, IconStamp } from '@/shared/components/icons';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
@@ -273,17 +273,42 @@ export function BoardSessionLivePage(): JSX.Element {
               </div>
 
               {/* Live tally with bars */}
-              <div className="rounded-md border border-gold-300 bg-gold-50 p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-2xs font-bold text-gold-700">مُحصِّلة الأصوات (لرئيس الجلسة)</p>
-                  <span className="text-2xs text-gold-700">{counts.pass + counts.reject + counts.defer} / 4 صوّتوا</span>
-                </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-2xs">
-                  <TallyBar label="قبول" count={counts.pass} total={4} color="bg-success" />
-                  <TallyBar label="رفض" count={counts.reject} total={4} color="bg-terra-500" />
-                  <TallyBar label="تأجيل" count={counts.defer} total={4} color="bg-gold-500" />
-                </div>
-              </div>
+              {(() => {
+                const totalCast = counts.pass + counts.reject + counts.defer;
+                const decided = totalCast === 4;
+                const verdict = decided
+                  ? counts.pass > counts.reject && counts.pass > counts.defer
+                    ? 'pass'
+                    : counts.reject > counts.pass && counts.reject > counts.defer
+                      ? 'reject'
+                      : 'defer'
+                  : null;
+                const containerCls = verdict === 'pass'
+                  ? 'border-success bg-success-bg/40'
+                  : verdict === 'reject'
+                    ? 'border-terra-500 bg-terra-50'
+                    : 'border-gold-300 bg-gold-50';
+                return (
+                  <div className={`rounded-md border-s-4 p-3 ${containerCls}`}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-2xs font-bold text-gold-700">مُحصِّلة الأصوات (لرئيس الجلسة)</p>
+                      {decided && verdict === 'pass' ? (
+                        <Badge tone="success">
+                          <IconStamp width={11} height={11} className="me-1 inline-block" />
+                          قرار: قبول · جاهز للاعتماد
+                        </Badge>
+                      ) : (
+                        <span className="text-2xs text-gold-700">{totalCast} / 4 صوّتوا</span>
+                      )}
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-2xs">
+                      <TallyBar label="قبول" count={counts.pass} total={4} color="bg-success" />
+                      <TallyBar label="رفض" count={counts.reject} total={4} color="bg-terra-500" />
+                      <TallyBar label="تأجيل" count={counts.defer} total={4} color="bg-gold-500" />
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           )}
         </Card>

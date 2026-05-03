@@ -330,3 +330,26 @@
 
 ### Decision shorthand
 `+ §4 preliminary notice on submit row`, `active-station pill → var(--accent-500)`. S1 partial fix in-place.
+
+---
+
+## Screen 13 — `/board/sessions/:id/live`
+
+**File:** [src/features/board/pages/Sprint6Pages.tsx](../../src/features/board/pages/Sprint6Pages.tsx) (`BoardSessionLivePage`)
+**Demo role:** Live board deliberation. Quorum + 4 voting members + tally.
+**Pass-1 input:** Live indicator + quorum + tally bars done. **Principle #4 for vote-passed state.**
+
+### What's wrong
+- Tally container is a static `border-gold-300 bg-gold-50` regardless of vote outcome. When all 4 members have voted and the result is decided, the surface should communicate that the decision is **final** (the §4 Final state) — currently it stays in the same warning-tone container.
+- "مُحصِّلة الأصوات" label gets a "{n} / 4 صوّتوا" counter on the trailing edge — when the count reaches a clear majority decision, that counter is the wrong affordance.
+
+### What good looks like (after polish)
+- Tally container becomes adaptive: `border-s-4` start-edge rail with **success / terra / gold** color depending on `verdict` (computed from counts when totalCast === 4 and one outcome strictly dominates).
+- When verdict resolves to **pass**, replace the "{n}/4 صوّتوا" counter with a `<Badge tone="success">` containing an `IconStamp` glyph and the canonical Arabic copy "قرار: قبول · جاهز للاعتماد". Decision-makers see at a glance: vote is in, decision is final, ready for the secretary's sign-off.
+- Other verdicts (reject, defer) get the appropriate border color but keep the counter — only the "passed" outcome warrants the §4 Final affordance because that's the consequential commit moment.
+
+### What must NOT change
+- 3-bar tally (pass/reject/defer); 4-member voting grid; agenda list; live indicator strip.
+
+### Decision shorthand
+`tally container → adaptive border-s-4 + IconStamp Badge on decided pass verdict`.
