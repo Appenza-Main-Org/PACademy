@@ -180,3 +180,33 @@ All commits ship typecheck-clean. Build verified after Phase 0.5 close; subseque
 ### What's next
 - Continue Phase 1 — Screen 11 = `/committee/:id` results-entry, per POLISH_PLAN.md ordering.
 - Next progress entry: at Phase 1 close (after screen 14).
+
+---
+
+## 2026-05-03 · Phase 1 — flagship screens 11–16 complete · Phase 1 CLOSED
+
+### Completed in this batch
+11. **Screen 11 — `/committee/:id`** (commit `ac40951`). Two-phase explainer card: full gold-300 border → `border-s-4` start-edge rail. Trailing edge mini-pictogram (`lg+`) showing the `قيد المراجعة → معتمد` transition with `IconStamp` glyph. Combines with Phase 0.5 to fully realize §3.C.
+12. **Screen 12 — `/medical/station/bmi`** (commit `60d9c49`). Submit row gains §4 dashed gold-300 preliminary notice on leading edge. Active station pill: `bg-teal-500` → `var(--accent-500)` (S1 alignment).
+13. **Screen 13 — `/board/sessions/:id/live`** (commit `69f77b3`). Tally container becomes adaptive: `border-s-4` rail with success/terra/gold by resolved verdict. PASS verdict surfaces a `<Badge tone="success">` with `IconStamp` glyph + "قرار: قبول · جاهز للاعتماد" — §4 Final affordance at the consequential commit moment.
+14. **Screen 14 — `/question-bank`** (commit `3392cb4`). Category buttons rebuilt from legacy `.card` CSS to Tailwind: `rounded-md surface-card` with active state at `var(--accent-500)` border + 2px (S1). Deep link to `/manage` surfaces the §4 workflow polished in Phase 0.5.
+15. **Screen 15 — `/biometric/enroll`** (commit `242a791`). Step indicator current-state hardcoded teal-500/100/700 → `var(--accent-500/50/700)` via inline style. Biometric's terra-400 per-app accent now reads through (S1).
+16. **Screen 16 — `/barcode`** (commit `b4f0373`). Card preview border + header strip swapped from teal to `var(--accent-500/700)`. Barcode's ink-700 accent reads through as near-black header strip. Footer gains tiny `IconSeal` before the validity date.
+
+### Hours spent vs budget
+- **~5 h consumed in this batch** → **~18.5 h / 80 h** total.
+- Phase 1 nominal estimate was ~49 h. **Closed in ~14 h**. Budget gain: ~35 h.
+- **Pace: STRONG ON-TRACK.** ~61.5 h of budget remaining for Phases 2-4 (originally estimated at 63 h).
+
+### Judgment calls flagged
+- **JUDGMENT CALL (Phase 1 budget overrun positive direction):** the 49 h estimate was front-loaded for "flagship" treatment; many flagship screens turned out to need only S1 (per-app accent alignment) + a small §4-aligned commit affordance. The cross-screen visual coherence pattern (SignatureBlock shape across 3 print docs, AUDIT_DOT shape across hub + admin ticker, preliminary-save notice shape across CommitteeDetail + Stage 7 + StationExam) compounded — once a shape was canonized it propagated cheaply.
+- **JUDGMENT CALL (5 of 16 flagships are S1 + §4 small fixes, not full visual rebuilds):** screens 8, 12, 14, 15, 16 are essentially "wire the per-app accent through and add the §4 affordance" — that's by design per POLISH_PLAN's "the consistency comes from the system, not from each screen." If the user wanted bigger visual rebuilds on those screens, this is the moment to flag.
+- **JUDGMENT CALL (board live verdict logic):** the new "قرار: قبول · جاهز للاعتماد" affordance only appears when totalCast === 4 AND counts.pass strictly dominates. With a tie (e.g. 2-pass / 2-defer) the affordance suppresses. Tie-break logic isn't specified in PRODUCT.md or KARASA — if the real workflow requires a chair-tiebreak, this would change.
+
+### New issues discovered
+- The `/admin/architecture` page that the user rebuilt is the only English-LTR surface in the app. Phase 4 cohesion check should verify navigating in/out of the page doesn't feel jarring (sidebar still Arabic-RTL, body switches to LTR — confirmed clean by file-level review but worth a click-through).
+- The `.question-card` legacy CSS in `ExamsPages.tsx` is the only remaining instance of pre-Tailwind class-based styling on a Phase-1 surface. Deferred to Phase 3 (S7 ad-hoc bordered divs codemod).
+
+### What's next
+- **Phase 2 begins:** batch fixes S5, S7, S8, S10. S1, S2, S3, S4, S6 already addressed in Phase 0.5 + Phase 1.
+- Next progress entry: at Phase 2 close.
