@@ -37,15 +37,15 @@ export function MedicalOverviewPage(): JSX.Element {
                 <div className="font-bold text-md mb-1">{s.name}</div>
                 <div className="text-xs text-tertiary mb-3">{s.doctor}</div>
                 <div className="flex items-center justify-between text-sm mb-2">
-                  <span><Clock size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> الانتظار</span>
+                  <span><Clock size={14} className="inline-block align-middle" /> الانتظار</span>
                   <span className="mono font-bold">{num(s.queue)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm mb-3">
-                  <span><CheckCircle size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> تم</span>
+                  <span><CheckCircle size={14} className="inline-block align-middle" /> تم</span>
                   <span className="mono font-bold">{num(s.completed)}</span>
                 </div>
                 <div className="progress mb-3"><div className="progress-fill success" style={{ width: `${pct}%` }} /></div>
-                <Link to={`${ROUTES.medical.queue}?station=${s.id}`} className="btn btn-secondary w-full" style={{ width: '100%', justifyContent: 'center' }}>
+                <Link to={`${ROUTES.medical.queue}?station=${s.id}`} className="btn btn-secondary inline-flex w-full items-center justify-center">
                   عرض القائمة <ArrowLeft size={14} />
                 </Link>
               </CardBody>
