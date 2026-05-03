@@ -400,3 +400,26 @@
 
 ### Decision shorthand
 `step indicator current state → var(--accent-500/50/700) via inline style`. S1 partial fix in-place.
+
+---
+
+## Screen 16 — `/barcode` (generator)
+
+**File:** [src/features/barcode/pages/BarcodePages.tsx](../../src/features/barcode/pages/BarcodePages.tsx)
+**Demo role:** Officers print attendance cards. Card-shaped preview + barcode bars + Khayameya stripe.
+**Pass-1 input:** Card-shaped preview + Khayameya stripe done. **Final pass on print preview density.**
+
+### What's wrong
+- Card preview header strip uses `bg-teal-700`, border uses `border-2 border-teal-500` — barcode app's per-app accent is **ink-700** per CLAUDE.md §8, not teal. Hardcoded teal forces a generic look that ignores barcode's institutional dark accent.
+- Footer (issued + valid-until row) lacks any seal mark — print outputs read as a plain receipt.
+
+### What good looks like (after polish)
+- Card border + header strip consume `var(--accent-500)` and `var(--accent-700)` via inline `style`. Barcode's ink-700 accent reads as a near-black header strip — that's the institutional treatment the page deserves.
+- Footer trailing-edge gains a tiny `IconSeal` (14px gold-600) inline before the validity date — a small ministerial stamp that anchors the print output as official.
+
+### What must NOT change
+- BarcodeBars rendering; mock-data identity strip; KhayameyaStripe.
+- Right-side applicant selector + "توليد كارت التردد" generate button.
+
+### Decision shorthand
+`card border + header → var(--accent-*)`, `+ tiny IconSeal at footer trailing edge`. S1 alignment.
