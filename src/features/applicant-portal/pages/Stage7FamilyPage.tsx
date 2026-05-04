@@ -88,7 +88,7 @@ export function Stage7FamilyPage(): JSX.Element {
           <ShieldCheck size={14} strokeWidth={1.75} className="mt-0.5 flex-shrink-0" aria-hidden />
           <p className="leading-normal">
             <strong>تنبيه أمني:</strong> هذه البيانات تخضع لتحرّ مفصّل من إدارات قطاع الأمن العام
-            بالتعاون مع المخابرات العامة، وأي بيان غير صحيح يُعتبر إخلالاً بشروط التقدم وفقاً لكرّاسة §6.5.
+            بالتعاون مع المخابرات العامة، وأي بيان غير صحيح يُعتبر إخلالاً بشروط التقدم.
           </p>
         </div>
       </Card>

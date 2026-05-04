@@ -12,6 +12,7 @@ import {
   ChevronUp,
   Copy,
   GripVertical,
+  ListOrdered,
   Plus,
   Trash2,
 } from 'lucide-react';
@@ -140,98 +141,105 @@ export function SortableStageCard({
       className={`relative flex flex-col gap-4 rounded-lg border bg-surface-card p-4 shadow-xs ${borderClass}`}
       aria-label={`المرحلة ${stage.order}: ${stage.name}`}
     >
-      <header className="flex items-start gap-3">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          aria-label={`اسحب لإعادة ترتيب المرحلة ${stage.name}`}
-          className="flex h-9 w-9 flex-shrink-0 cursor-grab items-center justify-center rounded-md text-ink-500 transition-colors duration-fast ease-standard hover:bg-ink-50 hover:text-ink-700 focus-visible:shadow-focus-teal focus-visible:outline-none active:cursor-grabbing"
-        >
-          <GripVertical size={18} strokeWidth={1.75} />
-        </button>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span
-              className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-ink-50 px-2 text-2xs font-bold text-ink-700 font-numeric tnum"
-              dir="ltr"
+      <header className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            aria-label={`اسحب لإعادة ترتيب المرحلة ${stage.name}`}
+            className="flex h-9 w-9 flex-shrink-0 cursor-grab items-center justify-center rounded-md text-ink-400 transition-colors duration-fast ease-standard hover:bg-ink-50 hover:text-ink-700 focus-visible:shadow-focus-teal focus-visible:outline-none active:cursor-grabbing"
+          >
+            <GripVertical size={18} strokeWidth={1.75} />
+          </button>
+          <span
+            className="inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-teal-50 px-2 text-sm font-bold text-teal-700 font-numeric tnum"
+            dir="ltr"
+            aria-hidden
+          >
+            {stage.order}
+          </span>
+          {editingName ? (
+            <input
+              autoFocus
+              value={stage.name}
+              onChange={(e) => onChange({ ...stage, name: e.target.value })}
+              onBlur={() => setEditingName(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false);
+              }}
+              className="min-w-0 flex-1 rounded-md border border-border-default bg-surface-card px-2 py-1 text-md font-bold text-ink-900 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditingName(true)}
+              className="min-w-0 flex-1 truncate rounded-md px-2 py-1 text-start text-md font-bold text-ink-900 hover:bg-ink-50 focus-visible:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
             >
-              {stage.order}
-            </span>
-            {editingName ? (
-              <input
-                autoFocus
-                value={stage.name}
-                onChange={(e) => onChange({ ...stage, name: e.target.value })}
-                onBlur={() => setEditingName(false)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === 'Escape') setEditingName(false);
+              {stage.name}
+            </button>
+          )}
+
+          <div className="flex flex-shrink-0 items-center gap-1">
+            <div className="flex h-9 items-center gap-1.5 rounded-md border border-border-default bg-surface-card pe-1 ps-2 text-2xs text-ink-500">
+              <ListOrdered size={12} strokeWidth={1.75} aria-hidden />
+              <span className="sr-only">ترتيب</span>
+              <Input
+                label={undefined}
+                type="number"
+                min={1}
+                max={totalStages}
+                value={stage.order}
+                onChange={(e) => {
+                  const n = Math.max(1, Math.min(totalStages, Number(e.target.value)));
+                  if (Number.isNaN(n)) return;
+                  onMoveTo(stage.id, n - 1);
                 }}
-                className="min-w-0 flex-1 rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm text-ink-900 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                containerClassName="!mb-0 w-12"
+                className="!h-7 border-0 bg-transparent !p-0 text-center text-sm font-bold text-ink-900 focus-visible:!shadow-none"
+                aria-label={`ترتيب المرحلة ${stage.name}`}
               />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setEditingName(true)}
-                className="min-w-0 flex-1 truncate rounded-md px-2 py-1 text-start text-sm font-bold text-ink-900 hover:bg-ink-50 focus-visible:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
-              >
-                {stage.name}
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-2xs text-ink-500">
-            <span>اختبارات: <span className="font-numeric tnum" dir="ltr">{stage.tests.length}</span></span>
-            <span>·</span>
-            <span>إلزامي: <span className="font-numeric tnum" dir="ltr">{stage.tests.filter((t) => t.required).length}</span></span>
-            {errors.length > 0 && (
-              <>
-                <span>·</span>
-                <Badge tone="danger">{errors.length} خطأ</Badge>
-              </>
-            )}
-            {warnings.length > 0 && (
-              <>
-                <span>·</span>
-                <Badge tone="warning">{warnings.length} تنبيه</Badge>
-              </>
-            )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              leadingIcon={<Copy size={12} strokeWidth={1.75} />}
+              onClick={() => onDuplicate(stage.id)}
+            >
+              نسخ
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              leadingIcon={<Trash2 size={12} strokeWidth={1.75} />}
+              onClick={() => onDelete(stage.id)}
+              aria-label={`حذف المرحلة ${stage.name}`}
+            >
+              حذف
+            </Button>
           </div>
         </div>
 
-        <div className="flex flex-shrink-0 items-center gap-1">
-          <Input
-            label={undefined}
-            type="number"
-            min={1}
-            max={totalStages}
-            value={stage.order}
-            onChange={(e) => {
-              const n = Math.max(1, Math.min(totalStages, Number(e.target.value)));
-              if (Number.isNaN(n)) return;
-              onMoveTo(stage.id, n - 1);
-            }}
-            containerClassName="!mb-0 w-16"
-            className="text-center"
-            aria-label={`ترتيب المرحلة ${stage.name}`}
-          />
-          <Button
-            variant="ghost"
-            size="sm"
-            leadingIcon={<Copy size={12} strokeWidth={1.75} />}
-            onClick={() => onDuplicate(stage.id)}
-          >
-            نسخ
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            leadingIcon={<Trash2 size={12} strokeWidth={1.75} />}
-            onClick={() => onDelete(stage.id)}
-            aria-label={`حذف المرحلة ${stage.name}`}
-          >
-            حذف
-          </Button>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 ps-12 text-2xs text-ink-500">
+          <span>
+            اختبارات: <span className="font-numeric tnum text-ink-700" dir="ltr">{stage.tests.length}</span>
+          </span>
+          <span aria-hidden className="text-ink-300">·</span>
+          <span>
+            إلزامي: <span className="font-numeric tnum text-ink-700" dir="ltr">{stage.tests.filter((t) => t.required).length}</span>
+          </span>
+          {errors.length > 0 && (
+            <>
+              <span aria-hidden className="text-ink-300">·</span>
+              <Badge tone="danger">{errors.length} خطأ</Badge>
+            </>
+          )}
+          {warnings.length > 0 && (
+            <>
+              <span aria-hidden className="text-ink-300">·</span>
+              <Badge tone="warning">{warnings.length} تنبيه</Badge>
+            </>
+          )}
         </div>
       </header>
 
@@ -439,10 +447,18 @@ function AllowedNextEditor({
   const toggle = (s: ApplicantStatus): void => {
     onChange(value.includes(s) ? value.filter((x) => x !== s) : [...value, s]);
   };
+  const selectedCount = value.length;
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-ink-700">الانتقالات المسموح بها</label>
-      <div className="flex flex-wrap gap-1.5 rounded-md border border-border-default bg-surface-card p-2 min-h-9">
+      <div className="flex items-baseline justify-between gap-2">
+        <label className="text-sm font-medium text-ink-700">الانتقالات المسموح بها</label>
+        <span className="text-2xs text-ink-500">
+          <span className="font-numeric tnum text-ink-700" dir="ltr">{selectedCount}</span>
+          {' / '}
+          <span className="font-numeric tnum" dir="ltr">{STATUS_OPTIONS.length}</span>
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5 rounded-md border border-border-default bg-ink-50/40 p-2 min-h-12">
         {STATUS_OPTIONS.map((s) => {
           const active = value.includes(s);
           return (
@@ -451,10 +467,10 @@ function AllowedNextEditor({
               type="button"
               onClick={() => toggle(s)}
               className={
-                'rounded-pill border px-2.5 py-0.5 text-2xs transition-colors duration-fast ease-standard ' +
+                'rounded-pill border px-3 py-1 text-2xs leading-none transition-colors duration-fast ease-standard ' +
                 (active
-                  ? ''
-                  : 'border-border-default text-ink-500 hover:bg-ink-50')
+                  ? 'shadow-xs'
+                  : 'border-border-default bg-surface-card text-ink-700 hover:bg-ink-50 hover:text-ink-900')
               }
               style={
                 active

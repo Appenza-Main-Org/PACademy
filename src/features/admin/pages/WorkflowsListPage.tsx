@@ -167,7 +167,7 @@ function WorkflowCard({ workflow }: { workflow: DepartmentWorkflow }): JSX.Eleme
           className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border-default bg-surface-card px-3 text-sm text-ink-900 transition-colors duration-fast ease-standard hover:bg-ink-50"
         >
           <span>تعديل</span>
-          <ChevronLeft size={14} strokeWidth={1.75} className="rtl:rotate-180" />
+          <ChevronLeft size={14} strokeWidth={1.75} aria-hidden />
         </Link>
         <span className="text-2xs text-ink-400">
           الدورة: <span dir="ltr" className="font-mono">{workflow.cycleId}</span>
