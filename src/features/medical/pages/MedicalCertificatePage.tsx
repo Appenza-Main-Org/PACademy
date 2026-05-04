@@ -26,7 +26,7 @@ import { useQuery } from '@tanstack/react-query';
 import { medicalService, STATION_LABELS, ALL_STATION_KEYS } from '../api/medical.service';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate } from '@/shared/lib/format';
-import { IconSeal } from '@/shared/components/icons';
+import { LogoMark } from '@/shared/components';
 
 const APPLICANT_NAME_DEMO = 'يوسف أحمد محمد الخطيب';
 const APPLICANT_NID_DEMO = '30506121601234';
@@ -187,9 +187,7 @@ function SignatureBlock({ title, name }: { title: string; name?: string }): JSX.
         </>
       ) : (
         <>
-          <span aria-hidden className="text-gold-600">
-            <IconSeal width={56} height={56} />
-          </span>
+          <LogoMark size={56} />
           <p className="mt-2 font-medium text-ink-900">{title}</p>
         </>
       )}

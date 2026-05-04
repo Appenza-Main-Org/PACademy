@@ -15,9 +15,9 @@ import {
   Card,
   Code128Barcode,
   KhayameyaStripe,
+  LogoMark,
   PrintLayout,
 } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
 import { useDraft } from '../api/applicantPortal.queries';
 import { date as fmtDate } from '@/shared/lib/format';
 
@@ -163,9 +163,7 @@ export function Stage9PrintCardPage(): JSX.Element {
           <SignatureLine label="توقيع المتقدم" />
           <SignatureLine label="موظف الاستقبال — الاسم والرتبة" />
           <div className="flex flex-col items-center gap-1.5 rounded-md border border-border-subtle bg-ink-50 px-3 pt-3 pb-2">
-            <span aria-hidden className="text-gold-600">
-              <IconSeal width={36} height={36} />
-            </span>
+            <LogoMark size={40} />
             <span className="text-2xs uppercase tracking-wide text-ink-500">ختم الإدارة</span>
           </div>
         </div>

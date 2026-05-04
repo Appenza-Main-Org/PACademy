@@ -6,8 +6,7 @@
 
 import { Activity } from 'lucide-react';
 import { num } from '@/shared/lib/format';
-import { Card } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
+import { Card, LogoMark } from '@/shared/components';
 import type { CycleSnapshot, IntegrationStatus } from '@/shared/types/domain';
 
 interface StatusPulseStripProps {
@@ -35,7 +34,7 @@ export function StatusPulseStrip({ snapshot, integrations }: StatusPulseStripPro
         <Tile
           label="الدورة النشطة"
           value={snapshot.cycleLabelAr}
-          icon={<IconSeal width={20} height={20} className="text-gold-600" />}
+          icon={<LogoMark size={22} />}
         />
         <Tile
           label="الأيام المتبقية للإغلاق"

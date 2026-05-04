@@ -9,8 +9,7 @@
  */
 
 import { useState } from 'react';
-import { LoadingState, PageHeader } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
+import { LoadingState, LogoMark, PageHeader } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
   useCycleSnapshot,
@@ -56,7 +55,7 @@ export function ReportsPage(): JSX.Element {
       <PageHeader
         title="لوحة قيادة منظومة القبول"
         subtitle="لوحة المتابعة المركزية لمدير المنظومة · RFP Scope Document §4(1-1) · Reports & Statistics"
-        actions={<IconSeal width={32} height={32} className="text-gold-600" />}
+        actions={<LogoMark size={36} />}
       />
 
       <ReportsExportRow

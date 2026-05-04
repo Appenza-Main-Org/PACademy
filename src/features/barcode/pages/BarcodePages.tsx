@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { CalendarRange, Hash, Printer, Search, Sparkles, User } from 'lucide-react';
-import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, KhayameyaStripe, Code128Barcode } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
+import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, KhayameyaStripe, Code128Barcode, LogoMark } from '@/shared/components';
 import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName, maskNationalId } from '@/shared/lib/format';
 import { barcodeService } from '../api/barcode.service';
@@ -135,9 +134,7 @@ export function BarcodeGeneratePage(): JSX.Element {
                     <span className="font-mono" dir="ltr">{record.code}</span>
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span aria-hidden className="text-gold-600">
-                      <IconSeal width={14} height={14} />
-                    </span>
+                    <LogoMark size={16} />
                     <span className="inline-flex items-center gap-1">
                       <CalendarRange size={11} strokeWidth={1.75} />
                       صالح حتى {fmtDate(record.issuedAt + 90 * 86_400_000, 'short')}

@@ -8,7 +8,6 @@
  */
 
 import { KhayameyaStripe, LogoMark, Pattern } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
 
 export function LoginArtPanel(): JSX.Element {
   return (
@@ -57,10 +56,7 @@ export function LoginArtPanel(): JSX.Element {
       <header className="relative flex items-center gap-3">
         <LogoMark size={56} ariaLabel="شعار أكاديمية الشرطة" />
         <div className="leading-tight">
-          <p className="inline-flex items-center gap-1.5 font-ar-display text-md font-bold">
-            منظومة القبول
-            <IconSeal width={12} height={12} className="text-gold-400/80" aria-hidden />
-          </p>
+          <p className="font-ar-display text-md font-bold">منظومة القبول</p>
           <p className="text-2xs text-white/65">أكاديمية الشرطة</p>
         </div>
       </header>
@@ -77,9 +73,8 @@ export function LoginArtPanel(): JSX.Element {
         </dl>
       </div>
 
-      <footer className="relative mt-6 inline-flex items-center gap-2 text-2xs text-white/55 lg:mt-0">
-        <IconSeal width={12} height={12} className="text-gold-400/70" aria-hidden />
-        <span>© 2026 · أكاديمية الشرطة</span>
+      <footer className="relative mt-6 text-2xs text-white/55 lg:mt-0">
+        © 2026 · أكاديمية الشرطة
       </footer>
     </aside>
   );

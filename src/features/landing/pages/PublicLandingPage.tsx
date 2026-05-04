@@ -31,7 +31,6 @@ import {
   LogoMark,
   Pattern,
 } from '@/shared/components';
-import { IconSeal } from '@/shared/components/icons';
 import { ROUTES } from '@/config/routes';
 
 const APPLICATION_OPEN = '15 يناير 2026';
@@ -149,9 +148,7 @@ export function PublicLandingPage(): JSX.Element {
       <section className="relative border-t border-border-subtle bg-ink-50/50 py-6">
         <div className="mx-auto flex max-w-content flex-wrap items-center justify-between gap-4 px-6 text-2xs text-ink-500">
           <div className="flex items-center gap-3">
-            <span aria-hidden className="text-gold-600">
-              <IconSeal width={28} height={28} />
-            </span>
+            <LogoMark size={32} />
             <p>
               هذه خدمة رسمية تُدار بواسطة وزارة الداخلية المصرية. جميع البيانات
               مُشفّرة ومحميّة بمستوى السيادة الرقمية الحكومية.

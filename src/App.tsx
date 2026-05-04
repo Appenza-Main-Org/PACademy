@@ -32,11 +32,16 @@ function ensureDemoUser(): void {
 ensureDemoUser();
 
 /**
- * One-shot redirect for the demo super_admin: when an auto-seeded super_admin
- * lands on the public root (/), send them to the admissions command center.
- * The ref guard ensures this only fires on the initial mount — users who
- * later navigate to / (e.g. via the public landing's logo) stay put.
+ * One-shot redirect for the demo super_admin: every fresh page load lands
+ * on the admissions command center, regardless of the URL the user typed
+ * or refreshed at. The ref guard ensures this only fires on the initial
+ * mount — subsequent in-app navigation is preserved.
+ *
+ * Public routes (landing/apply) are exempt so the public funnel still
+ * works during demos.
  */
+const PUBLIC_PATH_PREFIXES = ['/apply', '/staff-login', '/login', '/terms', '/help'];
+
 function DemoBootstrapRedirect(): null {
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,9 +51,11 @@ function DemoBootstrapRedirect(): null {
     if (fired.current) return;
     fired.current = true;
     const user = useAuthStore.getState().user;
-    if (user?.role === 'super_admin' && location.pathname === '/') {
-      navigate(ROUTES.admin.reports, { replace: true });
-    }
+    if (user?.role !== 'super_admin') return;
+    const isPublic = PUBLIC_PATH_PREFIXES.some((p) => location.pathname.startsWith(p));
+    if (isPublic) return;
+    if (location.pathname === ROUTES.admin.reports) return;
+    navigate(ROUTES.admin.reports, { replace: true });
   }, [navigate, location.pathname]);
 
   return null;

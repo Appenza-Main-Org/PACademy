@@ -15,10 +15,11 @@ import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
   Badge,
   KhayameyaStripe,
+  LogoMark,
   Pattern,
   StatCard,
 } from '@/shared/components';
-import { IconBarcode, IconSeal } from '@/shared/components/icons';
+import { IconBarcode } from '@/shared/components/icons';
 import { useAuthStore } from '@/features/auth';
 import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName } from '@/shared/lib/format';
@@ -112,13 +113,6 @@ export function HubPage(): JSX.Element {
                 'radial-gradient(circle at center, rgba(212, 164, 69, 0.22) 0%, rgba(212, 164, 69, 0) 70%)',
             }}
           />
-          {/* Embossed seal watermark on the end side */}
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -end-10 -bottom-10 hidden text-gold-400/15 sm:block"
-          >
-            <IconSeal width={260} height={260} strokeWidth={1.25} />
-          </span>
           {/* Gold-foil hairline at the bottom edge */}
           <span
             aria-hidden
@@ -374,7 +368,7 @@ export function HubPage(): JSX.Element {
             }}
           />
           <p className="inline-flex items-center justify-center gap-2 text-ink-700">
-            <IconSeal width={14} height={14} className="text-gold-600" aria-hidden />
+            <LogoMark size={16} />
             وزارة الداخلية · أكاديمية الشرطة · إدارة تكنولوجيا المعلومات
           </p>
           <p className="mt-1.5">

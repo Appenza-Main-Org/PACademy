@@ -20,6 +20,7 @@ import {
   Input,
   KhayameyaStripe,
   LoadingState,
+  LogoMark,
   PageHeader,
   PrintLayout,
   Select,
@@ -27,7 +28,7 @@ import {
   toast,
 } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
-import { IconSeal, IconStamp } from '@/shared/components/icons';
+import { IconStamp } from '@/shared/components/icons';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
@@ -473,9 +474,7 @@ export function BoardDecisionsListPage(): JSX.Element {
                   <p className="mt-0.5">أيّ نسخة بدون الختم الرسمي تُعتبر لاغية.</p>
                 </div>
                 <div className="flex flex-col items-center gap-1.5">
-                  <span aria-hidden className="text-gold-600">
-                    <IconSeal width={72} height={72} />
-                  </span>
+                  <LogoMark size={72} />
                   <p className="text-2xs font-medium text-gold-700">ختم هيئة القبول</p>
                 </div>
               </div>
