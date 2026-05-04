@@ -231,3 +231,17 @@ After the polish program tagged at `polish-complete`, two stakeholder documents 
 - The political/religious section was located in Stage 11 (acquaintance doc), not Stage 5/Stage 7 as the brief speculated; removal was scoped to that section.
 
 **Verification gates met**: TypeScript clean for all new/modified files. Build passes for the post-polish surface area (an unrelated user WIP file in `src/features/exams/lib/import-questions.ts` with a readonly-array compile error is outside this batch's scope).
+
+---
+
+## 8 · Reports command center (2026-05-04)
+
+> Append-only — does not amend the polish closeout or §7 gaps batch.
+
+`/admin/reports` is now the super-admin landing surface (login post-success, the LoginPage already-authenticated guard, and the demo bootstrap redirect in `App.tsx` all route `super_admin` here; other roles unchanged). The page itself was rebuilt as a 6-section command center for the Ministry-of-Interior demo audience: cycle overview, 11-stage pipeline funnel, department breakdown, test results, operational live status, governance & compliance — plus a 5-tile status pulse strip, a global time-range chip group, and a print-to-PDF / UTF-8-BOM CSV export row.
+
+The legacy 9-template report exporter (`useReportDocument`/`useExportCsv`/`useExportRtf`/`useExportPdf` + the `ReportTemplateKey`/`ReportRow`/`ReportDocument` types) was retired; only the existing `ReportsPage` consumed it. The new command-center service (`features/admin/api/reports.service.ts`) ships 7 methods with `INTEGRATION CONTRACT` JSDoc — every aggregate is computed from `MOCK` plus a pure FNV-1a string hash for synthesis, with a frozen `NOW` constant so the dashboard renders byte-identical numbers across reloads (LCG seed integrity preserved).
+
+A new chart primitive `HeatmapChart` (rectangular, RTL-aware, 3-stop pass-rate diverging scale OR 5-stop volume scale) was added alongside the existing `Heatmap` (day×hour single-teal grid) — both are inline SVG.
+
+**Cross-screen coherence carried in**: §4 two-phase canon (the `IconStamp` glyph appears on "معتمد" board sessions and signed-off committee chips); per-app accent lookups via `var(--accent-*)` only; the dl + vertical-divider shape from POLISH §5 reused for the status pulse strip; lucide-react icons match the test-kind mapping in `features/applicant-portal/lib/category-test-labels.ts`.
