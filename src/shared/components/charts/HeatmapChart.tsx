@@ -5,9 +5,9 @@
  * Distinct from the existing `Heatmap` (single teal scale, day×hour shape):
  * this primitive is **rectangular** with explicit row + col labels and
  * supports a 3-stop diverging "pass-rate" scale (terra → gold → success)
- * for "% passed" cells. RTL-aware: labels render at the start edge.
- *
- * Inline SVG only — no third-party charting libraries.
+ * for "% passed" cells. RTL-friendly: implemented as a CSS grid so labels
+ * flow naturally with the document direction and Arabic governorate
+ * names render with full text instead of clipping inside a fixed SVG box.
  *
  * Usage:
  *   <HeatmapChart
@@ -19,9 +19,6 @@
  *   />
  */
 
-import { useMemo } from 'react';
-import { prefersReducedMotion } from '@/shared/lib/motion';
-
 export type HeatmapColorScale = 'pass-rate' | 'volume';
 
 interface HeatmapChartProps {
@@ -32,12 +29,12 @@ interface HeatmapChartProps {
   colorScale?: HeatmapColorScale;
   /** Optional cell formatter (e.g. (v) => `${v}%`). Default: integer. */
   formatCell?: (value: number) => string;
-  /** Cell width in CSS px. Cells are square by default. */
+  /** Cell size in CSS px (cells are square). */
   cellSize?: number;
   ariaLabel?: string;
 }
 
-/** 3-stop diverging scale for pass-rate cells: terra (0%) → gold (50%) → success (100%). */
+/** 5-stop diverging scale for pass-rate cells. */
 const PASS_RATE_STOPS: { stop: number; color: string }[] = [
   { stop: 0, color: 'var(--terra-500)' },
   { stop: 25, color: 'var(--terra-300)' },
@@ -57,18 +54,23 @@ const VOLUME_STOPS: string[] = [
 
 function colorFor(value: number, scale: HeatmapColorScale, max: number): string {
   if (scale === 'pass-rate') {
-    /* Find the bracket whose stop <= value < next.stop. */
     const v = Math.min(100, Math.max(0, value));
     for (let i = PASS_RATE_STOPS.length - 1; i >= 0; i -= 1) {
-      if (v >= (PASS_RATE_STOPS[i]!.stop)) return PASS_RATE_STOPS[i]!.color;
+      if (v >= PASS_RATE_STOPS[i]!.stop) return PASS_RATE_STOPS[i]!.color;
     }
     return PASS_RATE_STOPS[0]!.color;
   }
-  /* volume scale */
   if (max === 0) return VOLUME_STOPS[0]!;
   const ratio = Math.min(1, Math.max(0, value / max));
   const idx = Math.min(VOLUME_STOPS.length - 1, Math.floor(ratio * VOLUME_STOPS.length));
   return VOLUME_STOPS[idx]!;
+}
+
+function textColorFor(value: number, scale: HeatmapColorScale, max: number): string {
+  if (scale === 'pass-rate') {
+    return value >= 50 ? 'var(--ink-50)' : 'var(--ink-900)';
+  }
+  return value > max * 0.55 ? 'var(--ink-50)' : 'var(--ink-900)';
 }
 
 export function HeatmapChart({
@@ -80,108 +82,84 @@ export function HeatmapChart({
   cellSize = 56,
   ariaLabel = 'مصفوفة كثافة',
 }: HeatmapChartProps): JSX.Element {
-  const animate = !prefersReducedMotion();
-  const max = useMemo(
-    () => Math.max(0, ...data.flatMap((row) => row.slice())),
-    [data],
-  );
+  const fmt = formatCell ?? ((v: number) => String(Math.round(v)));
 
   if (rows.length === 0 || cols.length === 0) {
     return <p className="px-4 py-9 text-center text-sm text-ink-500">لا توجد بيانات</p>;
   }
 
-  const rowLabelWidth = 96;
-  const colLabelHeight = 28;
-  const gap = 4;
-  const w = rowLabelWidth + cols.length * (cellSize + gap);
-  const h = colLabelHeight + rows.length * (cellSize + gap);
-
-  const fmt = formatCell ?? ((v: number) => String(Math.round(v)));
+  const max = Math.max(0, ...data.flatMap((row) => row.slice()));
+  const labelColMin = 96;
+  const gridTemplateColumns = `minmax(${labelColMin}px, max-content) repeat(${cols.length}, ${cellSize}px)`;
 
   return (
-    <div className="overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        role="img"
-        aria-label={ariaLabel}
-        style={{ width: '100%', maxWidth: w, height: 'auto' }}
-      >
-        {/* Column labels (test kinds) */}
+    <div className="overflow-x-auto" role="img" aria-label={ariaLabel}>
+      <div className="inline-grid gap-1" style={{ gridTemplateColumns }}>
+        {/* Header row: blank corner + col labels */}
+        <span aria-hidden />
         {cols.map((label, c) => (
-          <text
+          <span
             key={`col-${c}`}
-            x={rowLabelWidth + c * (cellSize + gap) + cellSize / 2}
-            y={colLabelHeight - 8}
-            textAnchor="middle"
-            fontSize={11}
-            fontWeight={500}
-            fill="var(--ink-700)"
+            className="pb-2 text-center text-xs font-medium text-ink-700"
+            style={{ width: cellSize }}
           >
             {label}
-          </text>
+          </span>
         ))}
 
-        {/* Row labels (governorates) — rendered at the start edge for RTL */}
-        {rows.map((label, r) => (
-          <text
+        {/* Data rows */}
+        {rows.map((rowLabel, r) => (
+          <RowFragment
             key={`row-${r}`}
-            x={rowLabelWidth - 8}
-            y={colLabelHeight + r * (cellSize + gap) + cellSize / 2 + 4}
-            textAnchor="end"
-            fontSize={11}
-            fill="var(--ink-700)"
-          >
-            {label}
-          </text>
+            label={rowLabel}
+            cellSize={cellSize}
+            cells={data[r] ?? []}
+            cols={cols}
+            colorScale={colorScale}
+            max={max}
+            fmt={fmt}
+          />
         ))}
-
-        {/* Cells */}
-        {data.map((row, r) =>
-          row.map((value, c) => {
-            const x = rowLabelWidth + c * (cellSize + gap);
-            const y = colLabelHeight + r * (cellSize + gap);
-            const fill = colorFor(value, colorScale, max);
-            const textFill =
-              colorScale === 'pass-rate'
-                ? value >= 50
-                  ? 'var(--ink-50)'
-                  : 'var(--ink-900)'
-                : value > max * 0.55
-                  ? 'var(--ink-50)'
-                  : 'var(--ink-900)';
-            return (
-              <g key={`cell-${r}-${c}`}>
-                <rect x={x} y={y} width={cellSize} height={cellSize} rx={6} fill={fill}>
-                  <title>{`${rows[r]} · ${cols[c]} · ${fmt(value)}`}</title>
-                  {animate && (
-                    <animate
-                      attributeName="opacity"
-                      from={0}
-                      to={1}
-                      dur="0.35s"
-                      begin={`${(r + c) * 0.02}s`}
-                      fill="freeze"
-                    />
-                  )}
-                </rect>
-                <text
-                  x={x + cellSize / 2}
-                  y={y + cellSize / 2 + 4}
-                  textAnchor="middle"
-                  fontSize={12}
-                  fontWeight={600}
-                  fontFamily="Inter"
-                  style={{ fontFeatureSettings: '"tnum"' }}
-                  fill={textFill}
-                >
-                  {fmt(value)}
-                </text>
-              </g>
-            );
-          }),
-        )}
-      </svg>
+      </div>
     </div>
+  );
+}
+
+interface RowFragmentProps {
+  label: string;
+  cellSize: number;
+  cells: readonly number[];
+  cols: readonly string[];
+  colorScale: HeatmapColorScale;
+  max: number;
+  fmt: (v: number) => string;
+}
+
+function RowFragment({ label, cellSize, cells, cols, colorScale, max, fmt }: RowFragmentProps): JSX.Element {
+  return (
+    <>
+      <span
+        className="flex items-center justify-end pe-3 text-xs text-ink-700"
+        style={{ height: cellSize }}
+      >
+        {label}
+      </span>
+      {cells.map((value, c) => (
+        <span
+          key={`cell-${c}`}
+          title={`${label} · ${cols[c]} · ${fmt(value)}`}
+          className="flex items-center justify-center rounded-md font-numeric tnum text-sm font-semibold"
+          style={{
+            width: cellSize,
+            height: cellSize,
+            background: colorFor(value, colorScale, max),
+            color: textColorFor(value, colorScale, max),
+          }}
+        >
+          {fmt(value)}
+        </span>
+      ))}
+    </>
   );
 }
 
@@ -201,7 +179,10 @@ export function HeatmapLegend({ scale = 'pass-rate', className }: HeatmapLegendP
           { label: '٧٥٪', color: 'var(--teal-300)' },
           { label: '١٠٠٪', color: 'var(--success)' },
         ]
-      : VOLUME_STOPS.map((color, i) => ({ label: i === 0 ? 'منخفض' : i === VOLUME_STOPS.length - 1 ? 'مرتفع' : '', color }));
+      : VOLUME_STOPS.map((color, i) => ({
+          label: i === 0 ? 'منخفض' : i === VOLUME_STOPS.length - 1 ? 'مرتفع' : '',
+          color,
+        }));
   return (
     <ul className={className} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
       {stops.map((s, i) => (
