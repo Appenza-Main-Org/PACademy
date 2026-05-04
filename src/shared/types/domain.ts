@@ -2,13 +2,21 @@
  * Cross-feature domain types — shapes used by mock-data and services.
  */
 
+import type { AppKey } from '@/shared/lib/constants';
+
 export type ApplicantStatus =
   | 'pending'
   | 'under-review'
   | 'approved'
   | 'rejected'
   | 'on-hold'
-  | 'documents-required';
+  | 'documents-required'
+  /* Workflow-runtime statuses (post-polish — RFP §3 / §6 pipeline). Additive
+   * to the legacy admin filter set; existing consumers keep working. */
+  | 'under_medical_review'
+  | 'passed_physical'
+  | 'failed_interview'
+  | 'awaiting_board_decision';
 
 export type PaymentStatus = 'paid' | 'pending';
 export type InvestigationStatus = 'pending' | 'cleared' | 'flagged';
@@ -49,7 +57,20 @@ export interface Applicant {
   investigation: InvestigationStatus;
 }
 
-export type AuditAction = 'create' | 'update' | 'delete' | 'view' | 'login' | 'export';
+export type AuditAction =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'view'
+  | 'login'
+  | 'export'
+  /* Workflow + applicant transitions (post-polish — RFP §3/§6 pipeline). */
+  | 'workflow.create'
+  | 'workflow.update'
+  | 'workflow.publish'
+  | 'workflow.reorder'
+  | 'workflow.delete'
+  | 'applicant.transition';
 export type AuditColor = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 export interface AuditEntry {
@@ -786,4 +807,120 @@ export interface NotificationItem {
   body: string;
   read: boolean;
   href?: string;
+}
+
+/* ── Department Workflow Builder — Post-polish (RFP §3 / §6) ───────────────
+ *
+ * A workflow is a per-department ordered pipeline of stages. Each stage
+ * carries one or more tests with pass criteria and declares which next
+ * statuses are reachable. Applicants attach to the workflow of their
+ * department on creation. Configurator route: /admin/workflows.
+ */
+
+export type DepartmentKey =
+  | 'general_first'
+  | 'general_second'
+  | 'special'
+  | 'lawyers'
+  | 'masters'
+  | 'doctorate';
+
+export const DEPARTMENT_LABELS: Record<DepartmentKey, string> = {
+  general_first: 'قسم عام · دور أول',
+  general_second: 'قسم عام · دور ثاني',
+  special: 'قسم خاص',
+  lawyers: 'الحقوقيين',
+  masters: 'ماجستير',
+  doctorate: 'دكتوراه',
+};
+
+export type TestKind =
+  | 'medical'
+  | 'physical'
+  | 'written'
+  | 'interview'
+  | 'biometric'
+  | 'investigation';
+
+export const TEST_KIND_LABELS: Record<TestKind, string> = {
+  medical: 'طبي',
+  physical: 'بدني',
+  written: 'تحريري',
+  interview: 'مقابلة شخصية',
+  biometric: 'تحقق حيوي',
+  investigation: 'تحريات',
+};
+
+export type PassCriterion =
+  | { type: 'minScore'; min: number; max: number }
+  | { type: 'boolean'; mustBe: 'pass' | 'fail' }
+  | { type: 'composite'; rule: 'all' | 'any'; min?: number };
+
+export interface WorkflowTest {
+  id: string;
+  name: string;
+  kind: TestKind;
+  required: boolean;
+  passCriterion: PassCriterion;
+  ownerApp: AppKey;
+  notes?: string;
+}
+
+export interface WorkflowStage {
+  id: string;
+  /** 1-based; drag-drop rewrites this. */
+  order: number;
+  name: string;
+  /** Status the applicant gets when entering this stage. */
+  statusOnEnter: ApplicantStatus;
+  /** Gate of legal next statuses; transition dialogs constrain to this set. */
+  allowedNextStatuses: ApplicantStatus[];
+  tests: WorkflowTest[];
+}
+
+export interface DepartmentWorkflow {
+  id: string;
+  department: DepartmentKey;
+  name: string;
+  cycleId: string;
+  stages: WorkflowStage[];
+  isActive: boolean;
+  /** Bumps on every save. Lets us answer "apply to existing applicants?". */
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface WorkflowTestResult {
+  stageId: string;
+  testId: string;
+  outcome: 'pass' | 'fail' | 'pending';
+  score?: number;
+  recordedAt: string;
+  recordedBy: string;
+}
+
+export interface ApplicantWorkflowProgress {
+  applicantId: string;
+  workflowId: string;
+  workflowVersion: number;
+  /** null = workflow completed (passed) or terminated (rejected). */
+  currentStageId: string | null;
+  completedStageIds: string[];
+  testResults: WorkflowTestResult[];
+}
+
+/** Audit trail row for stage transitions on a given applicant. */
+export interface WorkflowTransitionEvent {
+  id: string;
+  applicantId: string;
+  ts: number;
+  fromStatus: ApplicantStatus | null;
+  toStatus: ApplicantStatus;
+  fromStageId: string | null;
+  toStageId: string | null;
+  actorId: string;
+  actorName: string;
+  reason?: string;
 }
