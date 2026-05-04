@@ -30,21 +30,28 @@ export function PublicShell({ children, bareHeader }: PublicShellProps): JSX.Ele
       <KhayameyaStripe height="sm" />
 
       {!bareHeader && (
-        <header className="sticky top-0 flex h-14 items-center justify-between gap-4 border-b border-border-subtle bg-surface-card px-6"
+        <header className="sticky top-0 flex h-16 items-center justify-between gap-4 border-b border-border-subtle bg-surface-card px-6"
           style={{ zIndex: 'var(--z-sticky)' as unknown as number }}>
-          <Link to={ROUTES.landing} className="flex items-center gap-3 rounded-md px-1 py-1 hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none">
-            <LogoMark size={32} ariaLabel="شعار أكاديمية الشرطة" />
+          <Link to={ROUTES.landing} className="flex items-center gap-3 rounded-md px-1 py-1 -mx-1 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none">
+            <LogoMark size={36} ariaLabel="شعار أكاديمية الشرطة" className="rounded-full shadow-xs" />
             <span className="hidden flex-col leading-tight md:flex">
               <span className="font-ar-display text-sm font-bold text-ink-900">منظومة القبول</span>
               <span className="text-2xs text-ink-500">أكاديمية الشرطة</span>
             </span>
           </Link>
-          <nav className="flex items-center gap-2 text-sm">
-            <Link to={ROUTES.help} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-ink-700 hover:bg-ink-50">
-              <HelpCircle size={14} strokeWidth={1.75} /> الأسئلة الشائعة
+          <nav className="flex items-center gap-2">
+            <Link to={ROUTES.terms} className="hidden items-center gap-1.5 rounded-md px-3 py-2 text-sm text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none md:inline-flex">
+              شروط الاستخدام
             </Link>
-            <a href="tel:19000" className="inline-flex items-center gap-1 rounded-pill bg-teal-50 px-3 py-1 text-xs font-medium text-teal-700">
-              <Phone size={12} strokeWidth={1.75} /> الخط الساخن 19000
+            <Link to={ROUTES.help} className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none">
+              <HelpCircle size={15} strokeWidth={1.75} aria-hidden />
+              <span className="hidden sm:inline">الأسئلة الشائعة</span>
+            </Link>
+            <span aria-hidden className="mx-1 hidden h-6 w-px bg-border-subtle sm:inline-block" />
+            <a href="tel:19000" className="inline-flex items-center gap-1.5 rounded-pill bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition-colors duration-fast ease-standard hover:bg-teal-100 focus-visible:shadow-focus-teal focus-visible:outline-none">
+              <Phone size={13} strokeWidth={1.75} aria-hidden />
+              <span>الخط الساخن</span>
+              <span dir="ltr" className="font-mono">19000</span>
             </a>
           </nav>
         </header>
