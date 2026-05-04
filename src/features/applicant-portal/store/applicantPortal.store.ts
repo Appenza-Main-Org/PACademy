@@ -18,8 +18,10 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 interface ApplicantPortalState {
   nationalId: string | null;
   selectedCategoryKey: string | null;
+  selectedCycleId: string | null;
   setNationalId: (id: string | null) => void;
   setSelectedCategoryKey: (key: string | null) => void;
+  setSelectedCycleId: (id: string | null) => void;
   clear: () => void;
 }
 
@@ -28,9 +30,16 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
     (set) => ({
       nationalId: null,
       selectedCategoryKey: null,
+      selectedCycleId: null,
       setNationalId: (id) => set({ nationalId: id }),
       setSelectedCategoryKey: (key) => set({ selectedCategoryKey: key }),
-      clear: () => set({ nationalId: null, selectedCategoryKey: null }),
+      setSelectedCycleId: (id) => set({ selectedCycleId: id }),
+      clear: () =>
+        set({
+          nationalId: null,
+          selectedCategoryKey: null,
+          selectedCycleId: null,
+        }),
     }),
     {
       name: 'pa-applicant-portal',

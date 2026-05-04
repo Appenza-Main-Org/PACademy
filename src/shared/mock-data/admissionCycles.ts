@@ -6,13 +6,13 @@
  * Cycle status mapping:
  *   2024-M     finalized → reads as archived in new flows
  *   2025-M     processing → reads as closed
- *   2025-F     open       → reads as ACTIVE (the demo cycle)
- *   2026-M     draft
+ *   2025-F     open       → ACTIVE (female cohort)
+ *   2026-M     open       → ACTIVE (male cohort) — both run concurrently
  *   2027-M     draft (post-polish addition for the cycles UI)
  *
- * The 2025-F cycle's closeDate is bumped to 2026-12-31 so its window is
- * open as of the 2026-05 demo. Existing AdmissionRule rows reference
- * these IDs; do not rename.
+ * The 2025-F and 2026-M cycles both have windows bracketing the 2026-05 demo,
+ * so the public `/applicant/start` gate renders both as selectable. Existing
+ * AdmissionRule rows reference these IDs; do not rename.
  */
 
 import type { AdmissionCycle, AdmissionRule } from '@/shared/types/domain';
@@ -87,16 +87,25 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     cohort: 'male',
     year: 2026,
     openDate: '2026-01-15T00:00:00.000Z',
-    closeDate: '2026-03-31T00:00:00.000Z',
+    /* Bumped from 2026-03-31 so the demo (May 2026) reads as open alongside
+     * the 2025-F cycle — exercises the multi-active-cycle picker on
+     * /applicant/start. */
+    closeDate: '2026-12-31T23:59:59.000Z',
     expectedCapacity: 2000,
     applicantCount: 0,
-    status: 'draft',
+    status: 'open',
     openCategories: {
-      officers_general: { isOpen: false, capacity: 2000, notes: 'مسودة — قيد الإعداد' },
+      officers_general: { isOpen: true, capacity: 2000, notes: 'الفئة الرئيسية للدورة' },
+      officers_specialized: { isOpen: true, capacity: 240, notes: 'تقديم لخريجي الجامعات' },
+      postgraduate: { isOpen: false, capacity: null, notes: 'يفتح لاحقاً' },
+      institute_officers_training: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
+      institute_traffic: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
+      institute_guarding: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
+      special_units: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
     },
     conditionOverrides: {},
     createdAt: '2025-11-01T00:00:00.000Z',
-    updatedAt: '2025-12-15T00:00:00.000Z',
+    updatedAt: '2026-04-01T00:00:00.000Z',
   },
   {
     id: 'CYC-2027-M',

@@ -2,15 +2,16 @@
  * Applicant categories — Public API Contract (Bucket B2).
  *
  * INTEGRATION CONTRACT:
- *   GET    /api/applicant/categories                 → ApplicantCategory[] (public, nomination-only filtered out)
- *   GET    /api/applicant/cycles/active              → AdmissionCycle | null
- *   POST   /api/applicant/eligibility                → EligibilityResult
+ *   GET    /api/applicant/categories?cycleId=…       → ApplicantCategory[] (public, nomination-only filtered out)
+ *   GET    /api/applicant/cycles/active              → AdmissionCycle[] (all currently-active cycles)
+ *   POST   /api/applicant/eligibility                → EligibilityResult (body carries cycleId)
  *
- * The list endpoint computes each category's `isOpen` from the active
- * cycle's openCategories map plus the [opensAt, closesAt] window.
- * Eligibility check applies the active cycle's conditionOverrides on
- * top of the category's defaults (override field replaces, missing
- * fields fall through).
+ * The list endpoint computes each category's `isOpen` from the chosen
+ * cycle's openCategories map plus the [opensAt, closesAt] window. When
+ * `cycleId` is omitted the first active cycle is used (legacy single-cycle
+ * behaviour). Eligibility check applies the cycle's conditionOverrides on
+ * top of the category's defaults (override field replaces, missing fields
+ * fall through).
  */
 
 import { MOCK } from '@/shared/mock-data';
@@ -28,21 +29,43 @@ import type {
 interface EligibilityInput {
   categoryKey: ApplicantCategoryKey;
   nid: string;
+  cycleId?: string;
 }
 
-function getActiveCycle(): AdmissionCycle | null {
-  const id = MOCK.activeCycleId;
-  if (!id) return null;
-  const cycle = MOCK.cycles.find((c) => c.id === id);
-  if (!cycle) return null;
+function isCycleLive(cycle: AdmissionCycle): boolean {
   /* Treat `'open'` (legacy) and `'active'` as live; require status to be one
    * of those AND the time window to bracket now. */
-  if (cycle.status !== 'open' && cycle.status !== 'active') return null;
+  if (cycle.status !== 'open' && cycle.status !== 'active') return false;
   const now = Date.now();
   const open = new Date(cycle.openDate).getTime();
   const close = new Date(cycle.closeDate).getTime();
-  if (now < open || now > close) return null;
-  return cycle;
+  return now >= open && now <= close;
+}
+
+/** All currently-active cycles, ordered earliest-closing first. */
+function getActiveCycles(): AdmissionCycle[] {
+  return MOCK.cycles
+    .filter(isCycleLive)
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.closeDate).getTime() - new Date(b.closeDate).getTime(),
+    );
+}
+
+/** Resolve a single cycle: explicit id (if live) → MOCK.activeCycleId →
+ *  first live cycle. Returns null when nothing matches. */
+function resolveCycle(cycleId?: string): AdmissionCycle | null {
+  if (cycleId) {
+    const explicit = MOCK.cycles.find((c) => c.id === cycleId);
+    if (explicit && isCycleLive(explicit)) return explicit;
+    return null;
+  }
+  const pinned = MOCK.activeCycleId
+    ? MOCK.cycles.find((c) => c.id === MOCK.activeCycleId)
+    : undefined;
+  if (pinned && isCycleLive(pinned)) return pinned;
+  return getActiveCycles()[0] ?? null;
 }
 
 function isCategoryOpenInCycle(cycle: AdmissionCycle, key: ApplicantCategoryKey): boolean {
@@ -105,22 +128,29 @@ function qualificationMatches(
 }
 
 export const categoriesPublicService = {
-  /** Public list — filters out nomination-only, computes isOpen from active cycle. */
-  async list(): Promise<ApplicantCategory[]> {
+  /** Public list — filters out nomination-only, computes isOpen from the
+   *  chosen cycle (defaults to the first active cycle when omitted). */
+  async list(cycleId?: string): Promise<ApplicantCategory[]> {
     await simulateLatency();
-    const activeCycle = getActiveCycle();
+    const cycle = resolveCycle(cycleId);
     return MOCK.categories
       .filter((c) => !c.conditions.nominationOnly)
       .map((c) => ({
         ...c,
-        isOpen: activeCycle ? isCategoryOpenInCycle(activeCycle, c.key) : false,
+        isOpen: cycle ? isCategoryOpenInCycle(cycle, c.key) : false,
       }));
   },
 
-  /** Active cycle (or null if none, or current time is outside the window). */
+  /** All currently-active cycles. May be empty. */
+  async getActiveCycles(): Promise<AdmissionCycle[]> {
+    await simulateLatency(80, 200);
+    return getActiveCycles();
+  },
+
+  /** First active cycle (kept for legacy single-cycle consumers). */
   async getActiveCycle(): Promise<AdmissionCycle | null> {
     await simulateLatency(80, 200);
-    return getActiveCycle();
+    return resolveCycle();
   },
 
   async checkEligibility(input: EligibilityInput): Promise<EligibilityResult> {
@@ -137,7 +167,7 @@ export const categoriesPublicService = {
       };
     }
 
-    const activeCycle = getActiveCycle();
+    const activeCycle = resolveCycle(input.cycleId);
     if (!activeCycle) {
       return {
         categoryKey: input.categoryKey,

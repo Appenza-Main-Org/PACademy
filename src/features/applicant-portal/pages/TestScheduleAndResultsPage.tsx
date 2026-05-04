@@ -40,11 +40,12 @@ import {
   TEST_KIND_ICON,
   TEST_KIND_LABEL_AR,
 } from '../lib/category-test-labels';
-import { TEST_INSTRUCTIONS } from '../lib/test-instructions';
 import {
   useApplicantTests,
   useCurrentTest,
 } from '../api/test-schedule.queries';
+import { TestTimeline } from '../components/TestTimeline';
+import { TestInstructionsCards } from '../components/TestInstructionsCards';
 
 const APPLICANT_ID = 'APP-2026000';
 
@@ -111,6 +112,8 @@ export function TestScheduleAndResultsPage(): JSX.Element {
 
       <NextActionBanner test={current} hasAnyTest={tests.length > 0} />
 
+      <TestTimeline tests={tests} />
+
       {current && (current.status === 'scheduled' || current.status === 'attended' || current.status === 'pending_result') && (
         <CurrentTestDetails test={current} />
       )}
@@ -122,7 +125,7 @@ export function TestScheduleAndResultsPage(): JSX.Element {
         </Card>
       )}
 
-      <InstructionsAccordion tests={tests} />
+      <TestInstructionsCards tests={tests} />
 
       <Drawer open={Boolean(drawerTest)} onClose={() => setDrawerTest(null)} title="تعليمات الاختبار">
         {drawerTest && (
@@ -370,31 +373,4 @@ function PreviousTestsTable({
   );
 }
 
-function InstructionsAccordion({ tests }: { tests: TestSchedule[] }): JSX.Element {
-  const kinds = Array.from(new Set(tests.map((t) => t.kind)));
-  if (kinds.length === 0) return <></>;
-  return (
-    <Card>
-      <h3 className="mb-3 flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
-        <Info size={18} strokeWidth={1.75} />
-        إرشادات عامة
-      </h3>
-      <ul className="space-y-3">
-        {kinds.map((kind) => (
-          <li key={kind}>
-            <p className="text-sm font-bold text-ink-900">{TEST_KIND_LABEL_AR[kind]}</p>
-            <ul className="mt-1 space-y-1 ps-4 text-sm text-ink-700">
-              {TEST_INSTRUCTIONS[kind].map((line, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-ink-300" />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
-    </Card>
-  );
-}
 
