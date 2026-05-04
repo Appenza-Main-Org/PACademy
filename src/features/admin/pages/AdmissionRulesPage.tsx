@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { History, Save } from 'lucide-react';
+import { History, Save, Sparkles } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -47,14 +47,27 @@ export function AdmissionRulesPage(): JSX.Element {
     }
   }, [cycles, cycleId]);
 
-  const { data: current, isLoading: ruleLoading, error, refetch } = useCurrentRule(cycleId || null);
+  const { data: current, isLoading: ruleLoading, isFetching: ruleFetching, error, refetch } = useCurrentRule(cycleId || null);
   const { data: history } = useRulesForCycle(cycleId || null);
   const saveMut = useSaveRule();
 
   const [draft, setDraft] = useState<AdmissionRule | null>(null);
+  /* Hydrate the form from the cycle's current rule. If the cycle has no
+   * rule yet (data === null after the query settles), seed a sane default
+   * so the admin can author Version 1 instead of staring at a skeleton. */
   useEffect(() => {
-    if (current) setDraft({ ...current });
-  }, [current]);
+    if (!cycleId || ruleFetching) {
+      setDraft(null);
+      return;
+    }
+    if (current) {
+      setDraft({ ...current });
+    } else if (current === null) {
+      setDraft(buildDefaultRule(cycleId));
+    }
+  }, [cycleId, current, ruleFetching]);
+
+  const isFirstVersion = !current && Boolean(draft);
 
   const cycleOptions = useMemo(
     () => (cycles ?? []).map((c) => ({ value: c.id, label: c.nameAr })),
@@ -84,12 +97,35 @@ export function AdmissionRulesPage(): JSX.Element {
 
       {error ? (
         <ErrorState error={error} onRetry={() => refetch()} />
-      ) : ruleLoading || !draft ? (
+      ) : ruleLoading || ruleFetching || !draft ? (
         <LoadingState variant="detail" />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[2fr_1fr]">
           <Card>
-            <CardHeader title="إعدادات شروط القبول" subtitle={`الدورة: ${draft.cycleId}`} />
+            <CardHeader
+              title="إعدادات شروط القبول"
+              subtitle={`الدورة: ${cycleLabel(cycles, draft.cycleId)}`}
+            />
+            {isFirstVersion && (
+              <div
+                role="note"
+                className="mb-4 flex items-start gap-3 rounded-md border border-dashed border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700"
+              >
+                <Sparkles
+                  size={16}
+                  strokeWidth={1.75}
+                  className="mt-0.5 shrink-0"
+                  aria-hidden
+                />
+                <div>
+                  <p className="font-bold">لا توجد شروط محفوظة لهذه الدورة بعد</p>
+                  <p className="mt-0.5 leading-relaxed">
+                    تم تجهيز قيم افتراضية بناءً على آخر شروط قياسية. راجع الحقول
+                    وعدّل ما يلزم ثم احفظ لإصدار النسخة الأولى.
+                  </p>
+                </div>
+              </div>
+            )}
             <form
               className="flex flex-col gap-5"
               onSubmit={(e) => {
@@ -297,7 +333,7 @@ export function AdmissionRulesPage(): JSX.Element {
                   isLoading={saveMut.isPending}
                   leadingIcon={<Save size={14} strokeWidth={1.75} />}
                 >
-                  حفظ نسخة جديدة
+                  {isFirstVersion ? 'حفظ النسخة الأولى' : 'حفظ نسخة جديدة'}
                 </Button>
               </div>
             </form>
@@ -340,4 +376,39 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div className="grid gap-3 md:grid-cols-2">{children}</div>
     </fieldset>
   );
+}
+
+/** Render the cycle's nameAr if we have it, otherwise echo the id. */
+function cycleLabel(
+  cycles: ReadonlyArray<{ id: string; nameAr: string }> | undefined,
+  cycleId: string,
+): string {
+  return cycles?.find((c) => c.id === cycleId)?.nameAr ?? cycleId;
+}
+
+/** Sane defaults for a brand-new rule on a cycle that has none yet. The
+ *  admin tweaks the values and saves to mint Version 1. Mirrors the
+ *  baseline used in the seed in admissionCycles.ts so first-version saves
+ *  match what the rest of the demo expects. */
+function buildDefaultRule(cycleId: string): AdmissionRule {
+  return {
+    id: `RULE-${cycleId}-DRAFT`,
+    cycleId,
+    version: 0,
+    effectiveAt: new Date().toISOString(),
+    changedBy: { userId: 'U-001', name: 'العميد د. أحمد محمود الفقي' },
+    age: { minYears: 17, maxYears: 22 },
+    height: {
+      male: { min: 170, max: 195 },
+      female: { min: 162, max: 185 },
+    },
+    bmi: { min: 19, max: 28 },
+    eyesight: { minRightEye: '6/9', minLeftEye: '6/9', correctionAllowed: false },
+    maritalStatus: ['single'],
+    noCriminalRecord: true,
+    acceptedCertificates: ['ثانوية عامة', 'ثانوية أزهرية'],
+    minPercentByCertType: { 'ثانوية عامة': 75, 'ثانوية أزهرية': 75 },
+    applicationFee: { 'ثانوية عامة': 1500, 'ثانوية أزهرية': 1500 },
+    maxApplicationsPerYear: 1,
+  };
 }
