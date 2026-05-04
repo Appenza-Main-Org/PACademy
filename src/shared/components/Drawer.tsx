@@ -125,7 +125,6 @@ export function Drawer({
           animation: reducedMotion
             ? undefined
             : 'modalBackdropEnter var(--duration-base) var(--ease-standard)',
-          zIndex: 'var(--z-modal-backdrop)' as unknown as number,
         }}
       />
       <aside
