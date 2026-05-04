@@ -74,10 +74,10 @@ export function ApplyEntryPage(): JSX.Element {
 
           <ol className="mt-6 grid gap-3 text-sm md:grid-cols-2">
             {[
-              ['1', 'تحقق برقم قومي + هاتف'],
-              ['2', 'استلام رمز SMS'],
-              ['3', 'بيانات شخصية وأسرية'],
-              ['4', 'بيانات تعليمية وتحقق'],
+              ['1', 'اختيار دورة القبول والقسم'],
+              ['2', 'التحقق من الأهلية بالرقم القومي'],
+              ['3', 'تحقق برقم الهاتف برمز SMS'],
+              ['4', 'بيانات شخصية وتعليمية وأسرية'],
               ['5', 'سداد رسم التقديم'],
               ['6', 'حجز موعد الاختبار'],
             ].map(([n, label]) => (
@@ -106,7 +106,7 @@ export function ApplyEntryPage(): JSX.Element {
               variant="primary"
               size="lg"
               trailingIcon={<ArrowLeft size={16} strokeWidth={1.75} />}
-              onClick={() => navigate(`${ROUTES.applicant}/auth/step-1`)}
+              onClick={() => navigate(ROUTES.applicantStart)}
             >
               ابدأ التقديم
             </Button>
