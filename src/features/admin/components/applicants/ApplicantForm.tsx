@@ -541,7 +541,7 @@ export function ApplicantForm({
                 />
                 <Input label="فئة المدرسة" disabled={!allowPersonalAcademic} {...register('education.schoolCategory')} />
                 <Input label="سنة التخرج" type="number" required disabled={!allowPersonalAcademic} {...register('education.graduationYear' as const, { valueAsNumber: true })} />
-                <Input label="النسبة المئوية" type="number" disabled={!allowPersonalAcademic} {...register('education.percentage' as const, { valueAsNumber: true })} />
+                <Input label="النسبة المئوية" type="number" step="any" disabled={!allowPersonalAcademic} {...register('education.percentage' as const, { valueAsNumber: true })} />
               </div>
             )}
             {educationKind === 'overseas' && (
@@ -579,7 +579,7 @@ export function ApplicantForm({
                     <Input label="المجموع" type="number" required disabled={!allowPersonalAcademic} {...register('education.secondary.totalScore' as const, { valueAsNumber: true })} />
                     <Input label="فئة المدرسة" disabled={!allowPersonalAcademic} {...register('education.secondary.schoolCategory')} />
                     <Input label="الدولة" disabled={!allowPersonalAcademic} {...register('education.secondary.country')} />
-                    <Input label="النسبة المئوية" type="number" disabled={!allowPersonalAcademic} {...register('education.secondary.percentage' as const, { valueAsNumber: true })} />
+                    <Input label="النسبة المئوية" type="number" step="any" disabled={!allowPersonalAcademic} {...register('education.secondary.percentage' as const, { valueAsNumber: true })} />
                   </div>
                 </div>
               </div>
