@@ -304,9 +304,9 @@ const DIFFICULTY_FILTERS: ReadonlyArray<{ value: string; label: string }> = [
 ];
 
 const POOL_STATUS_FILTERS: ReadonlyArray<{ value: QuestionStatus | 'all'; label: string }> = [
-  { value: 'all', label: 'كل الحالات' },
-  { value: 'approved', label: 'معتمد' },
   { value: 'live', label: 'منشور' },
+  { value: 'approved', label: 'معتمد' },
+  { value: 'all', label: 'كل الحالات' },
   { value: 'review', label: 'قيد المراجعة' },
   { value: 'draft', label: 'مسودّة' },
 ];
@@ -318,7 +318,7 @@ export function ExamCreatePage(): JSX.Element {
   const [targetCount, setTargetCount] = useState(40);
   const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('approved');
+  const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('live');
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
