@@ -85,6 +85,26 @@ const DB_W = 220;
 const DB_H = 100;
 const DB_CX = [500, 800, 1100] as const;
 
+/* ── Deployment / scale annotation per node ────────────────── */
+/* Pulled inline so the diagram is self-documenting for evaluators. */
+const SCALE_BADGE: Record<string, string> = {
+  // public surface — autoscaling stateless containers behind a load balancer
+  admin:          'Autoscaled · ×N',
+  applicant:      'Autoscaled · ×N',
+  // private surface — fixed-size HA cluster (3 nodes)
+  committee:      'HA · ×3',
+  board:          'HA · ×3',
+  investigations: 'HA · ×3',
+  medical:        'HA · ×3',
+  barcode:        'HA · ×3',
+  biometric:      'HA · ×3',
+  exams:          'HA · ×3',
+  // data tier — three roles
+  primary:        'Active · Sync standby',
+  reporting:      'Read replica',
+  audit:          'Append-only · WORM',
+};
+
 /* ── Node model ────────────────────────────────────────────── */
 type NodeKind = 'external' | 'public-app' | 'private-app' | 'middleware' | 'database';
 
@@ -469,10 +489,10 @@ export function SystemDiagram({ className }: SystemDiagramProps): JSX.Element {
 
         {/* ── REGION LABELS ────────────────────────────────────── */}
         <RegionLabel x={70}    y={28}  text="EXTERNAL SYSTEMS" />
-        <RegionLabel x={70}    y={195} text="PUBLIC SURFACE — INTERNET" />
-        <RegionLabel x={70}    y={440} text="PRIVATE SURFACE — ACADEMY INTRANET" />
-        <RegionLabel x={70}    y={730} text="MIDDLEWARE" />
-        <RegionLabel x={70}    y={862} text="DATA LAYER" />
+        <RegionLabel x={70}    y={195} text="PUBLIC SURFACE · DMZ · HORIZONTAL AUTOSCALING" />
+        <RegionLabel x={70}    y={440} text="PRIVATE SURFACE · ACADEMY INTRANET · HA CLUSTER" />
+        <RegionLabel x={70}    y={730} text="MIDDLEWARE · API GATEWAY · SERVICE BUS · AUTH BROKER" />
+        <RegionLabel x={70}    y={862} text="DATA LAYER · ACTIVE/STANDBY + READ REPLICA + AUDIT WORM" />
 
         {/* ── NETWORK BOUNDARY (the most important visual line) ── */}
         <g className="arch-boundary" data-no-print="false">
@@ -835,6 +855,71 @@ function NodeBox({
       >
         {node.label}
       </text>
+      {/* Deployment / scale badge — only on app boxes, not externals. */}
+      {!isExternal && SCALE_BADGE[node.id] && (
+        <ScalePill
+          x={node.x + node.w - 6}
+          y={node.y + node.h - 6}
+          text={SCALE_BADGE[node.id] as string}
+          tone={node.kind === 'public-app' ? 'public' : 'private'}
+        />
+      )}
+    </g>
+  );
+}
+
+function ScalePill({
+  x,
+  y,
+  text,
+  tone,
+}: {
+  x: number;
+  y: number;
+  text: string;
+  tone: 'public' | 'private' | 'data';
+}): JSX.Element {
+  const charW = 5.4;
+  const padding = 6;
+  const w = Math.max(text.length * charW + padding * 2, 36);
+  const h = 14;
+  const fill =
+    tone === 'public' ? 'var(--teal-50)' :
+    tone === 'private' ? 'var(--ink-50)' :
+    'var(--terra-50)';
+  const stroke =
+    tone === 'public' ? 'var(--teal-500)' :
+    tone === 'private' ? 'var(--ink-400)' :
+    'var(--terra-500)';
+  const color =
+    tone === 'public' ? 'var(--teal-700)' :
+    tone === 'private' ? 'var(--ink-700)' :
+    'var(--terra-700)';
+  return (
+    <g pointerEvents="none" className="arch-scale-pill">
+      <rect
+        x={x - w}
+        y={y - h}
+        width={w}
+        height={h}
+        rx={7}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={0.75}
+        opacity={0.95}
+        data-chart-stroke
+      />
+      <text
+        x={x - w / 2}
+        y={y - 3}
+        fontSize={9}
+        fontFamily="var(--font-en)"
+        fontWeight={600}
+        fill={color}
+        textAnchor="middle"
+      >
+        {text}
+      </text>
     </g>
   );
 }
@@ -915,6 +1000,20 @@ function DbCylinder({
       >
         {node.label}
       </text>
+      {/* Deployment role caption beneath each cylinder. */}
+      {SCALE_BADGE[node.id] && (
+        <text
+          x={cx}
+          y={bottomY + 14}
+          fontSize={10}
+          fontFamily="var(--font-en)"
+          fontWeight={500}
+          fill="var(--ink-500)"
+          textAnchor="middle"
+        >
+          {SCALE_BADGE[node.id]}
+        </text>
+      )}
     </g>
   );
 }

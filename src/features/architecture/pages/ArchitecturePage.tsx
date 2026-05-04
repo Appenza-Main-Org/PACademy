@@ -42,6 +42,7 @@ import {
   HOSTING,
   INTEGRATIONS,
   NFRS,
+  SCALE_TILES,
   SECTIONS,
   SECURITY_TIERS,
   type AppRow,
@@ -117,8 +118,8 @@ export function ArchitecturePage(): JSX.Element {
         {/* Body — main column + sticky right-rail TOC */}
         <div className="arch-page-grid mx-auto grid max-w-[1280px] gap-8 px-6 pb-16 lg:grid-cols-[minmax(0,1fr)_220px]">
           <div className="arch-main flex flex-col gap-12">
-            <Section1 />
-            <Section2 />
+            <Section1Diagram />
+            <Section2Overview />
             <Section3 />
             <Section4 />
             <Section5 />
@@ -162,12 +163,112 @@ export function ArchitecturePage(): JSX.Element {
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Section 1 — Executive Overview                              */
+/* Section 1 — Architecture & Deployment Topology (HERO)       */
 /* ─────────────────────────────────────────────────────────── */
 
-function Section1(): JSX.Element {
+function Section1Diagram(): JSX.Element {
   return (
-    <SectionShell id="overview" eyebrow="Section 1" title="Executive Overview" citation="Per RFP Scope Document §1.0 (Project Overview, p.4)">
+    <SectionShell
+      id="layers"
+      eyebrow="Section 1 · The page hero"
+      title="Architecture & Deployment Topology"
+      subtitle="One canvas for the whole system: nine applications across a public DMZ and an air-gapped intranet, brokered by middleware and persisted to a high-availability data tier engineered for very high concurrency. Hover any element for detail; click to jump to its full description."
+      citation="RFP Scope Document §9 (Architecture Overview) · §1.1, §1.2, §3.1, §3.2 · §4.1 (Performance acceptance gate)"
+    >
+      <Card className="arch-hero-card">
+        <CardBody>
+          <SystemDiagram />
+        </CardBody>
+      </Card>
+
+      {/* Deployment & Concurrency band — the bold statement attached to the diagram. */}
+      <section
+        aria-labelledby="arch-scale-heading"
+        className="arch-scale-band mt-5 rounded-lg border border-teal-500/30 bg-teal-50/40 p-5"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-teal-700">
+              Engineered for very high concurrency
+            </p>
+            <h3
+              id="arch-scale-heading"
+              className="mt-1 text-lg font-bold leading-tight text-ink-900"
+            >
+              Deployment topology &amp; scale envelope
+            </h3>
+          </div>
+          <p className="max-w-md text-xs leading-relaxed text-ink-700">
+            Public-surface apps run as stateless containers behind a load balancer with
+            horizontal autoscaling. The data tier is active/standby with a synchronous
+            replica plus a read replica for analytics. Targets below are bidder-proposed
+            and finalized in Phase 2.
+          </p>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {SCALE_TILES.map((tile) => (
+            <div
+              key={tile.label}
+              className="relative overflow-hidden rounded-md border border-teal-500/30 bg-surface-card p-4 shadow-xs"
+            >
+              <span
+                aria-hidden
+                className="absolute inset-y-0 start-0 w-1 bg-teal-500"
+              />
+              <p className="font-numeric tnum text-3xl font-bold leading-none text-teal-700">
+                {tile.value}
+              </p>
+              <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-700">
+                {tile.label}
+              </p>
+              <p className="mt-1 text-xs leading-snug text-ink-500">{tile.detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="mt-6 grid max-w-5xl gap-4 text-sm leading-relaxed text-ink-700 md:grid-cols-3">
+        <p>
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700">
+            The bands
+          </span>
+          Four bands. External systems (top) integrate inward. The application layer (middle)
+          splits across a public Internet surface and the academy intranet, separated by a network
+          boundary enforced at the infrastructure layer. The middleware band carries cross-app
+          coordination. The data layer (bottom) consolidates application data, reporting workloads,
+          and the immutable audit trail.
+        </p>
+        <p>
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700">
+            Deployment shape
+          </span>
+          The two public apps run horizontally autoscaled behind a load balancer. The seven
+          intranet apps run as a fixed-size cluster of stateless containers. The data tier is
+          active/standby for OLTP, with a synchronous replica for HA and a read replica
+          ring-fenced for reporting and exports. The audit DB is append-only and isolated.
+        </p>
+        <p>
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700">
+            Connector legend
+          </span>
+          Teal solid connectors are external integrations. Gold dashed connectors are internal
+          cross-app workflows on the middleware service bus. Ink connectors are data persistence.
+          Terracotta dotted connectors are audit writes — every state-changing operation across
+          all nine applications writes to the audit database.
+        </p>
+      </div>
+    </SectionShell>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Section 2 — Executive Overview                              */
+/* ─────────────────────────────────────────────────────────── */
+
+function Section2Overview(): JSX.Element {
+  return (
+    <SectionShell id="overview" eyebrow="Section 2" title="Executive Overview" citation="Per RFP Scope Document §1.0 (Project Overview, p.4)">
       <p className="max-w-3xl text-sm leading-relaxed text-ink-700">
         The Police Academy Admissions System is a single, ministry-grade
         platform that unifies nine connected applications behind a shared
@@ -194,59 +295,6 @@ function Section1(): JSX.Element {
             </p>
           </div>
         ))}
-      </div>
-    </SectionShell>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────── */
-/* Section 2 — The Four Layers                                 */
-/* ─────────────────────────────────────────────────────────── */
-
-function Section2(): JSX.Element {
-  return (
-    <SectionShell
-      id="layers"
-      eyebrow="Section 2"
-      title="System Architecture"
-      subtitle="All applications, layers, and integrations on a single canvas. Hover any element for detail; click to navigate to its full description."
-      citation="RFP Scope Document §9 (Architecture Overview) · §1.1, §1.2, §3.1, §3.2"
-    >
-      <Card>
-        <CardBody>
-          <SystemDiagram />
-        </CardBody>
-      </Card>
-
-      <div className="mt-6 grid max-w-5xl gap-4 text-sm leading-relaxed text-ink-700 md:grid-cols-3">
-        <p>
-          <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700">
-            The bands
-          </span>
-          The system is structured in four bands. External systems (top) are integrated outward
-          from our applications. The application layer (middle) splits across a public Internet
-          surface and the academy intranet, separated by a network boundary enforced at the
-          infrastructure layer. The middleware band carries cross-app coordination. The data layer
-          (bottom) consolidates application data, reporting workloads, and the immutable audit
-          trail.
-        </p>
-        <p>
-          <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700">
-            Connector legend
-          </span>
-          Solid teal connectors are external integrations. Gold dashed connectors are internal
-          cross-app workflows propagated through the middleware service bus. Ink connectors are
-          data persistence flows. Terracotta dotted connectors represent audit writes — every
-          state-changing operation across all nine applications writes to the audit database.
-        </p>
-        <p>
-          <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-teal-700">
-            RFP Scope Document anchor
-          </span>
-          This architecture realizes the four-layer model described in the RFP Scope Document overview, with
-          the public/private split per §1 (pp.5–37) and the integration layer per §3.1–3.2
-          (pp.7, 40).
-        </p>
       </div>
     </SectionShell>
   );

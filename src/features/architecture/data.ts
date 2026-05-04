@@ -275,6 +275,37 @@ export const EXEC_TILES: readonly ExecTile[] = [
   { value: '5',  label: 'External Integrations'  },
 ];
 
+/* ── Deployment & Concurrency stat band (anchored to the diagram) ─ */
+
+export interface ScaleTile {
+  value: string;
+  label: string;
+  detail: string;
+}
+
+export const SCALE_TILES: readonly ScaleTile[] = [
+  {
+    value: '5,000',
+    label: 'Peak concurrent applicants',
+    detail: 'Registration window — horizontally scaled behind the load balancer.',
+  },
+  {
+    value: '500',
+    label: 'Concurrent staff sessions',
+    detail: 'Across all 7 intranet apps during peak operational hours.',
+  },
+  {
+    value: '99.5%',
+    label: 'Production uptime SLA',
+    detail: 'Active/standby DB · 4 h RTO · 15 min RPO.',
+  },
+  {
+    value: '< 2 s',
+    label: 'Page load p95 (LAN)',
+    detail: '< 3 s public · < 500 ms internal API · < 100 ms audit write.',
+  },
+];
+
 /* ── Section index for the TOC ────────────────────────────── */
 
 export interface SectionMeta {
@@ -284,14 +315,14 @@ export interface SectionMeta {
 }
 
 export const SECTIONS: readonly SectionMeta[] = [
-  { id: 'overview',       num: 1, label: 'Executive Overview'       },
-  { id: 'layers',         num: 2, label: 'System Architecture'      },
-  { id: 'applications',   num: 3, label: 'The Nine Applications'    },
-  { id: 'integrations',   num: 4, label: 'Integrations'             },
-  { id: 'security',       num: 5, label: 'Security Architecture'    },
-  { id: 'hosting',        num: 6, label: 'Hosting & Deployment'     },
-  { id: 'rbac',           num: 7, label: 'RBAC Matrix'              },
-  { id: 'audit',          num: 8, label: 'Audit & Compliance'       },
-  { id: 'nfr',            num: 9, label: 'Non-Functional Targets'   },
+  { id: 'layers',         num: 1, label: 'Architecture & Deployment' },
+  { id: 'overview',       num: 2, label: 'Executive Overview'        },
+  { id: 'applications',   num: 3, label: 'The Nine Applications'     },
+  { id: 'integrations',   num: 4, label: 'Integrations'              },
+  { id: 'security',       num: 5, label: 'Security Architecture'     },
+  { id: 'hosting',        num: 6, label: 'Hosting & Deployment'      },
+  { id: 'rbac',           num: 7, label: 'RBAC Matrix'               },
+  { id: 'audit',          num: 8, label: 'Audit & Compliance'        },
+  { id: 'nfr',            num: 9, label: 'Non-Functional Targets'    },
 ];
 
