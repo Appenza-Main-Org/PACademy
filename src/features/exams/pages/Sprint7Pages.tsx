@@ -35,7 +35,6 @@ import {
   CardHeader,
   DataTable,
   DonutChart,
-  Drawer,
   EmptyState,
   ErrorState,
   Input,
@@ -228,9 +227,17 @@ export function QuestionBankCRUDPage(): JSX.Element {
         </Card>
       </div>
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="سؤال جديد" size="lg">
-        <Drawer.Body>
+      <Modal
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title="سؤال جديد"
+        subtitle="أدخل بيانات السؤال وسيتم حفظه كمسودّة"
+        size="lg"
+        transparentBackdrop={false}
+      >
+        <Modal.Body>
           <form
+            id="new-question-form"
             className="flex flex-col gap-4"
             onSubmit={(e) => {
               e.preventDefault();
@@ -245,30 +252,40 @@ export function QuestionBankCRUDPage(): JSX.Element {
               }, { onSuccess: () => { toast('تم حفظ السؤال كمسودّة', 'success'); setDrawerOpen(false); } });
             }}
           >
-            <Select label="الفئة" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} options={['قدرات لفظية', 'قدرات عددية', 'منطق', 'سرعة بديهة', 'ثقافة عامة'].map((c) => ({ value: c, label: c }))} />
-            <Select label="الصعوبة" value={String(draft.difficulty)} onChange={(e) => setDraft({ ...draft, difficulty: Number(e.target.value) })} options={[1, 2, 3, 4, 5].map((d) => ({ value: String(d), label: `${d} نجوم` }))} />
-            <Textarea label="نص السؤال" required value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} />
-            {draft.options.map((opt, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="correct"
-                  checked={draft.correctIndex === i}
-                  onChange={() => setDraft({ ...draft, correctIndex: i })}
-                  className="h-4 w-4 cursor-pointer"
-                  style={{ accentColor: 'var(--accent-500)' }}
-                />
-                <Input label={`الخيار ${i + 1}`} value={opt} onChange={(e) => { const next = [...draft.options]; next[i] = e.target.value; setDraft({ ...draft, options: next }); }} containerClassName="flex-1" />
-              </div>
-            ))}
-            <Input label="الزمن (ثوانٍ)" type="number" value={draft.timeLimitSeconds} onChange={(e) => setDraft({ ...draft, timeLimitSeconds: Number(e.target.value) })} />
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" onClick={() => setDrawerOpen(false)}>إلغاء</Button>
-              <Button type="submit" variant="primary">حفظ كمسودّة</Button>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Select label="الفئة" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} options={['قدرات لفظية', 'قدرات عددية', 'منطق', 'سرعة بديهة', 'ثقافة عامة'].map((c) => ({ value: c, label: c }))} />
+              <Select label="الصعوبة" value={String(draft.difficulty)} onChange={(e) => setDraft({ ...draft, difficulty: Number(e.target.value) })} options={[1, 2, 3, 4, 5].map((d) => ({ value: String(d), label: `${d} نجوم` }))} />
             </div>
+            <Textarea label="نص السؤال" required value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} />
+            <div className="flex flex-col gap-3">
+              <p className="text-2xs font-medium uppercase tracking-wide text-ink-500">
+                الخيارات (اختر الإجابة الصحيحة)
+              </p>
+              {draft.options.map((opt, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="correct"
+                    checked={draft.correctIndex === i}
+                    onChange={() => setDraft({ ...draft, correctIndex: i })}
+                    className="h-4 w-4 cursor-pointer"
+                    style={{ accentColor: 'var(--accent-500)' }}
+                    aria-label={`الإجابة الصحيحة: الخيار ${i + 1}`}
+                  />
+                  <Input label={`الخيار ${i + 1}`} value={opt} onChange={(e) => { const next = [...draft.options]; next[i] = e.target.value; setDraft({ ...draft, options: next }); }} containerClassName="flex-1" />
+                </div>
+              ))}
+            </div>
+            <Input label="الزمن (ثوانٍ)" type="number" value={draft.timeLimitSeconds} onChange={(e) => setDraft({ ...draft, timeLimitSeconds: Number(e.target.value) })} containerClassName="md:max-w-[200px]" />
           </form>
-        </Drawer.Body>
-      </Drawer>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button type="button" variant="ghost" onClick={() => setDrawerOpen(false)}>إلغاء</Button>
+          <Button type="submit" form="new-question-form" variant="primary" isLoading={createMut.isPending}>
+            حفظ كمسودّة
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       <ImportWizard open={importOpen} onClose={() => setImportOpen(false)} />
     </CenteredShell>
