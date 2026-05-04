@@ -529,32 +529,164 @@ export interface AuditDiff {
   after: Record<string, unknown> | null;
 }
 
-/* ── Reports — Sprint 1 (§1.2.F) ──────────────────────────────────────── */
+/* ── Reports command center — super_admin /admin/reports ────────────────
+ *
+ * Aggregate shapes returned by the reports service. Every metric is
+ * derived from the existing MOCK collections (applicants, audit,
+ * committees, medicalStations, boardSessions, examConfigs, …) plus
+ * a deterministic string-hash for any synthesis. No parallel data
+ * store; LCG seed integrity is preserved.
+ */
 
-export type ReportTemplateKey =
-  | 'applicants-by-status'
-  | 'applicants-by-governorate'
-  | 'applicants-by-certificate'
-  | 'rejections-with-reasons'
-  | 'medical-results-summary'
-  | 'exam-pass-rates'
-  | 'investigation-status'
-  | 'cycle-summary'
-  | 'audit-export';
+export type TestKindForReport = 'medical' | 'physical' | 'psychological' | 'interview' | 'drug';
+export type IntegrationHealth = 'healthy' | 'degraded' | 'down';
 
-export interface ReportRow {
-  label: string;
-  value: number | string;
-  /** Optional secondary metric (e.g. percentage). */
-  secondary?: string;
+export interface CycleSnapshot {
+  cycleId: string;
+  cycleLabelAr: string;
+  openDateIso: string;
+  closeDateIso: string;
+  hijriCloseDate: string;
+  daysRemaining: number;
+  capacity: number | null;
+  totalApplicants: number;
+  finalApproved: number;
+  acceptanceRate: number;
+  prevCycleAcceptanceRate: number;
+  registrationTempo: {
+    thisCycle: { label: string; value: number }[];
+    prevCycle: { label: string; value: number }[];
+    deltaPercent: number;
+  };
+  categoriesOpen: { key: ApplicantCategoryKey; labelAr: string; isOpen: boolean; capacity: number | null }[];
+  integrationsHealthy: number;
+  integrationsTotal: number;
+  generatedAt: string;
 }
 
-export interface ReportDocument {
-  key: ReportTemplateKey;
-  title: string;
-  generatedAt: string;
-  cycleId: string | null;
-  rows: ReportRow[];
+export interface StageFunnelPoint {
+  stageIndex: number;
+  stageLabel: string;
+  count: number;
+  percentOfTotal: number;
+  dropOffFromPrevPercent: number;
+  avgDaysAtStage: number;
+  isBottleneck: boolean;
+}
+
+export interface DepartmentSummary {
+  key: ApplicantCategoryKey;
+  labelAr: string;
+  total: number;
+  percentOfTotal: number;
+  eligibilityPassed: number;
+  eligibilityFailed: number;
+  eligibilityPending: number;
+  eligibilityPassRate: number;
+}
+
+export interface RejectionReasonStat {
+  reason: EligibilityRejectionReason;
+  labelAr: string;
+  count: number;
+  percent: number;
+}
+
+export interface DepartmentReport {
+  byDepartment: DepartmentSummary[];
+  topRejectionReasons: RejectionReasonStat[];
+}
+
+export interface TestKindResult {
+  kind: TestKindForReport;
+  labelAr: string;
+  passed: number;
+  failed: number;
+  pending: number;
+  passRate: number;
+  prevCyclePassRate: number;
+  deltaPercent: number;
+}
+
+export interface TestResultsReport {
+  byKind: TestKindResult[];
+  governorateHeatmap: {
+    governorates: string[];
+    kinds: TestKindForReport[];
+    /** rows × cols matrix of pass-rate percentages (0..100). */
+    passRates: number[][];
+  };
+}
+
+export interface CommitteeOpStatus {
+  id: string;
+  name: string;
+  todayQueue: number;
+  todayProcessed: number;
+  signedOffToday: boolean;
+}
+
+export interface MedicalStationOpStatus {
+  id: string;
+  name: string;
+  queue: number;
+  avgWaitMinutes: number;
+}
+
+export interface BoardSessionOpStatus {
+  id: string;
+  label: string;
+  scheduledTime: string;
+  state: 'scheduled' | 'live' | 'decided';
+  memberCount: number;
+}
+
+export interface OngoingExamStatus {
+  id: string;
+  name: string;
+  startedTime: string;
+  takingCount: number;
+  avgCompletionPercent: number;
+  abandonedCount: number;
+}
+
+export interface OperationalStatus {
+  committees: CommitteeOpStatus[];
+  medicalStations: MedicalStationOpStatus[];
+  boardSessions: BoardSessionOpStatus[];
+  ongoingExams: OngoingExamStatus[];
+}
+
+export interface AuditHourBucket {
+  /** Hour-of-day label, e.g. "08". */
+  label: string;
+  total: number;
+  highSensitivity: number;
+}
+
+export interface AnomalySignal {
+  id: string;
+  timestamp: number;
+  actor: string;
+  actionLabel: string;
+  applicantId?: string;
+  detail: string;
+  reason: string;
+}
+
+export interface GovernanceReport {
+  hourly: AuditHourBucket[];
+  anomalies: AnomalySignal[];
+  totalLast24h: number;
+  highSensitivityLast24h: number;
+}
+
+export interface IntegrationStatus {
+  key: string;
+  nameAr: string;
+  status: IntegrationHealth;
+  lastCallRelative: string;
+  callsToday: number;
 }
 
 /* ── Applicant portal — Sprint 2 (KARASA_GAPS §2) ────────────────────── */

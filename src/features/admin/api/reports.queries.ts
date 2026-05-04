@@ -1,34 +1,67 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+/**
+ * TanStack Query hooks for the reports command center.
+ * One hook per service method; the page calls them all in parallel.
+ */
+
+import { useQuery } from '@tanstack/react-query';
 import { reportsService } from './reports.service';
-import type { ReportTemplateKey } from '@/shared/types/domain';
 
 export const reportsKeys = {
   all: ['reports'] as const,
-  doc: (key: ReportTemplateKey, cycleId: string | null) =>
-    [...reportsKeys.all, key, cycleId] as const,
+  cycleSnapshot: () => [...reportsKeys.all, 'cycle-snapshot'] as const,
+  funnel: () => [...reportsKeys.all, 'funnel'] as const,
+  byDepartment: () => [...reportsKeys.all, 'by-department'] as const,
+  testResults: () => [...reportsKeys.all, 'test-results'] as const,
+  operational: () => [...reportsKeys.all, 'operational-status'] as const,
+  governance: () => [...reportsKeys.all, 'governance'] as const,
+  integrations: () => [...reportsKeys.all, 'integrations'] as const,
 };
 
-export function useReportDocument(key: ReportTemplateKey, cycleId: string | null = null) {
+export function useCycleSnapshot() {
   return useQuery({
-    queryKey: reportsKeys.doc(key, cycleId),
-    queryFn: () => reportsService.generate(key, cycleId),
+    queryKey: reportsKeys.cycleSnapshot(),
+    queryFn: () => reportsService.getCycleSnapshot(),
   });
 }
 
-export function useExportCsv() {
-  return useMutation({
-    mutationFn: ({ key, cycleId }: { key: ReportTemplateKey; cycleId: string | null }) =>
-      reportsService.exportCsv(key, cycleId),
+export function useStageFunnel() {
+  return useQuery({
+    queryKey: reportsKeys.funnel(),
+    queryFn: () => reportsService.getStageFunnel(),
   });
 }
 
-export function useExportRtf() {
-  return useMutation({
-    mutationFn: ({ key, cycleId }: { key: ReportTemplateKey; cycleId: string | null }) =>
-      reportsService.exportRtf(key, cycleId),
+export function useDepartmentReports() {
+  return useQuery({
+    queryKey: reportsKeys.byDepartment(),
+    queryFn: () => reportsService.getDepartmentReport(),
   });
 }
 
-export function useExportPdf() {
-  return useMutation({ mutationFn: () => reportsService.exportPdf() });
+export function useTestResultsReport() {
+  return useQuery({
+    queryKey: reportsKeys.testResults(),
+    queryFn: () => reportsService.getTestResultsReport(),
+  });
+}
+
+export function useOperationalStatus() {
+  return useQuery({
+    queryKey: reportsKeys.operational(),
+    queryFn: () => reportsService.getOperationalStatus(),
+  });
+}
+
+export function useGovernanceReport() {
+  return useQuery({
+    queryKey: reportsKeys.governance(),
+    queryFn: () => reportsService.getGovernanceReport(),
+  });
+}
+
+export function useIntegrationStatus() {
+  return useQuery({
+    queryKey: reportsKeys.integrations(),
+    queryFn: () => reportsService.getIntegrationStatus(),
+  });
 }
