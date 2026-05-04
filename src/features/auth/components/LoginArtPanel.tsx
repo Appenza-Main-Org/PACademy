@@ -62,7 +62,7 @@ export function LoginArtPanel(): JSX.Element {
       </header>
 
       <div className="relative mt-6 lg:mt-0">
-        <h1 className="font-ar-display text-2xl font-bold leading-tight tracking-[-0.01em] lg:text-3xl">
+        <h1 className="font-ar-display text-2xl font-bold leading-tight tracking-[-0.01em] text-white lg:text-3xl">
           التحول الرقمي الكامل لإجراءات{' '}
           <span className="text-gold-300">القبول والاختبارات</span>
         </h1>

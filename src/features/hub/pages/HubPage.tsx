@@ -139,7 +139,7 @@ export function HubPage(): JSX.Element {
                 دورة 2026
               </span>
             </div>
-            <h1 className="mt-5 font-ar-display text-3xl font-bold leading-tight tracking-[-0.01em]">
+            <h1 className="mt-5 font-ar-display text-3xl font-bold leading-tight tracking-[-0.01em] text-white">
               {greeting}، <span className="text-gold-300">{shortName(user.name, 4)}</span>
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/75">
