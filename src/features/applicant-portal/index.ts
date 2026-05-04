@@ -1,4 +1,5 @@
 export { ApplicantPortalLayout, STAGE_KEYS as APPLICANT_STAGE_KEYS, STAGE_LABELS as APPLICANT_STAGE_LABELS } from './ApplicantPortalLayout';
+export { ApplicantPreWizardLayout } from './ApplicantPreWizardLayout';
 export { ApplicantPortalPage } from './pages/ApplicantPortalPage';
 export { Stage1AuthPhonePage } from './pages/Stage1AuthPhonePage';
 export { Stage2AuthSmsPage } from './pages/Stage2AuthSmsPage';

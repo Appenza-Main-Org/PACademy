@@ -48,6 +48,12 @@ import {
 
 const APPLICANT_ID = 'APP-2026000';
 
+const LINK_GHOST =
+  'inline-flex items-center gap-2 h-9 rounded-md px-3 text-sm font-semibold text-teal-600 transition-colors duration-fast ease-standard hover:bg-teal-50 focus-visible:shadow-focus-teal focus-visible:outline-none';
+
+const LINK_SECONDARY =
+  'inline-flex items-center gap-2 h-9 rounded-md border border-border-default bg-surface-card px-3 text-sm font-semibold text-ink-900 transition-colors duration-fast ease-standard hover:border-border-strong hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none';
+
 const STATUS_LABEL: Record<TestStatus, string> = {
   scheduled: 'محدد',
   attended: 'تم الحضور',
@@ -92,11 +98,11 @@ export function TestScheduleAndResultsPage(): JSX.Element {
         ]}
         actions={
           <>
-            <Link to={ROUTES.applicant} className="btn btn-ghost">
+            <Link to={ROUTES.applicant} className={LINK_GHOST}>
               <ArrowRight size={16} className="rtl:rotate-180" /> بوابة المتقدم
             </Link>
-            <Link to={ROUTES.hub} className="btn btn-secondary">
-              <Home size={16} className="me-1.5" />
+            <Link to={ROUTES.hub} className={LINK_SECONDARY}>
+              <Home size={16} />
               الرئيسية
             </Link>
           </>

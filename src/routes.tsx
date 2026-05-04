@@ -22,6 +22,7 @@ import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing
 import {
   ApplicantPortalLayout,
   ApplicantPortalPage,
+  ApplicantPreWizardLayout,
   CategorySelectionPage,
   EligibilityCheckPage,
   Stage10FollowUpPage,
@@ -174,16 +175,15 @@ export const routes: RouteObject[] = [
 
   /* ── APPLICANT SURFACE — Stage 1+2 IS the auth ──────────── */
   {
-    path: '/applicant/start',
-    element: <AuthGuard app="applicant"><CategorySelectionPage /></AuthGuard>,
-  },
-  {
-    path: '/applicant/eligibility',
-    element: <AuthGuard app="applicant"><EligibilityCheckPage /></AuthGuard>,
-  },
-  {
-    path: '/applicant/tests',
-    element: <AuthGuard app="applicant"><TestScheduleAndResultsPage /></AuthGuard>,
+    /* Pre-wizard public-ish pages share a slim layout (logo + back-to-hub
+     * nav) so users always have a way out. The 11-stage wizard below has
+     * its own ApplicantPortalLayout. */
+    element: <AuthGuard app="applicant"><ApplicantPreWizardLayout /></AuthGuard>,
+    children: [
+      { path: '/applicant/start', element: <CategorySelectionPage /> },
+      { path: '/applicant/eligibility', element: <EligibilityCheckPage /> },
+      { path: '/applicant/tests', element: <TestScheduleAndResultsPage /> },
+    ],
   },
   {
     path: '/applicant',
