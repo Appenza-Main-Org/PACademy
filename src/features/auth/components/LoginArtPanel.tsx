@@ -24,24 +24,26 @@ export function LoginArtPanel(): JSX.Element {
       <div className="absolute inset-x-0 top-0 z-[1]">
         <KhayameyaStripe height="md" />
       </div>
-      {/* Gold tessellation watermark */}
-      <Pattern variant="tessellation-8" tile={104} opacity={0.07} color="var(--gold-400)" />
+      {/* Gold tessellation watermark — kept faint */}
+      <Pattern variant="tessellation-8" tile={108} opacity={0.045} color="var(--gold-400)" />
       {/* Soft gold radial glow at the start-top corner */}
       <span
         aria-hidden
-        className="pointer-events-none absolute -start-32 -top-32 h-[520px] w-[520px] rounded-full"
+        className="pointer-events-none absolute -start-40 -top-40 h-[420px] w-[420px] rounded-full"
         style={{
           background:
-            'radial-gradient(circle at center, rgba(212, 164, 69, 0.22) 0%, rgba(212, 164, 69, 0) 70%)',
+            'radial-gradient(circle at center, rgba(212, 164, 69, 0.13) 0%, rgba(212, 164, 69, 0) 70%)',
         }}
       />
-      {/* Embossed seal watermark */}
+      {/* Subtle inside vignette so content area reads brighter than the edges */}
       <span
         aria-hidden
-        className="pointer-events-none absolute -end-16 bottom-24 hidden text-gold-400/15 lg:block"
-      >
-        <IconSeal width={340} height={340} strokeWidth={1.25} />
-      </span>
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 80% 70% at 30% 50%, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0) 100%)',
+        }}
+      />
       {/* Gold-foil hairline along the inside edge meeting the form */}
       <span
         aria-hidden
@@ -55,7 +57,10 @@ export function LoginArtPanel(): JSX.Element {
       <header className="relative flex items-center gap-3">
         <LogoMark size={56} ariaLabel="شعار أكاديمية الشرطة" />
         <div className="leading-tight">
-          <p className="font-ar-display text-md font-bold">منظومة القبول</p>
+          <p className="inline-flex items-center gap-1.5 font-ar-display text-md font-bold">
+            منظومة القبول
+            <IconSeal width={12} height={12} className="text-gold-400/80" aria-hidden />
+          </p>
           <p className="text-2xs text-white/65">أكاديمية الشرطة</p>
         </div>
       </header>
