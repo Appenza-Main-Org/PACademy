@@ -3,6 +3,8 @@ export type { ChartDatum } from './BarChart';
 export { LineChart } from './LineChart';
 export { DonutChart } from './DonutChart';
 export { Heatmap } from './Heatmap';
+export { HeatmapChart, HeatmapLegend } from './HeatmapChart';
+export type { HeatmapColorScale } from './HeatmapChart';
 export { Sparkline } from './Sparkline';
 export { Gauge } from './Gauge';
 export { Funnel } from './Funnel';
