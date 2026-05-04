@@ -86,8 +86,8 @@ export function NotificationCenter(): JSX.Element {
         size="sm"
         transparentBackdrop
       >
-        <Drawer.Body className="flex h-full flex-col gap-3 overflow-hidden">
-          <div className="flex shrink-0 items-center justify-between">
+        <Drawer.Body>
+          <div className="mb-3 flex items-center justify-between">
             <span className="text-2xs text-ink-500">{items.length} إشعار</span>
             <Button
               variant="ghost"
@@ -105,10 +105,7 @@ export function NotificationCenter(): JSX.Element {
               وضع كل العناصر كمقروءة
             </Button>
           </div>
-          <ul
-            className="-me-2 flex flex-1 flex-col gap-2 overflow-y-auto pe-2"
-            style={{ scrollbarGutter: 'stable', overscrollBehavior: 'contain' }}
-          >
+          <ul className="flex flex-col gap-2">
             {items.map((n) => (
               <NotificationRow
                 key={n.id}

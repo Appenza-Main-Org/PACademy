@@ -138,7 +138,7 @@ export function DateRangePicker({
     : 'اختر فترة';
 
   return (
-    <div ref={wrapperRef} className={cn('flex flex-col gap-1', className)}>
+    <div ref={wrapperRef} className={cn('relative flex flex-col gap-1', className)}>
       {label && (
         <label htmlFor={id} className="text-sm font-medium text-ink-700">
           {label}
@@ -168,8 +168,8 @@ export function DateRangePicker({
         <div
           role="dialog"
           aria-label="اختر فترة"
-          className="absolute mt-2 flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg md:flex-row"
-          style={{ zIndex: 'var(--z-dropdown)' as unknown as number, position: 'absolute' }}
+          className="absolute top-full mt-2 flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg md:flex-row"
+          style={{ zIndex: 'var(--z-dropdown)' as unknown as number, insetInlineEnd: 0 }}
         >
           <ul className="flex flex-row flex-wrap gap-1 md:flex-col md:border-e md:border-border-subtle md:pe-3">
             {QUICK_RANGES.map((qr) => (
