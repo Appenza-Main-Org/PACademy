@@ -150,14 +150,9 @@ export function Stage9PrintCardPage(): JSX.Element {
         <div className="mb-2 flex flex-col items-center gap-2 rounded-lg border-2 border-ink-700 bg-surface-card py-4 px-3">
           <Badge tone="brand">امسح هذا الكود لتسجيل الحضور</Badge>
           <Code128Barcode
-            value={buildBarcodePayload({
-              applicantId: APPLICANT_ID,
-              nationalId: APPLICANT_NID,
-              cardCode: BARCODE,
-              examIso: slot.date,
-            })}
-            height={72}
-            moduleWidth={1.5}
+            value={BARCODE}
+            height={80}
+            moduleWidth={2}
             showText={false}
           />
           <p className="font-mono text-md font-bold tracking-widest text-ink-900" dir="ltr">{BARCODE}</p>
@@ -207,20 +202,3 @@ function formatHijri(d: Date): string {
   }
 }
 
-/**
- * Pipe-delimited barcode payload — Code 128B safe (printable ASCII only).
- * Format: PA|{applicantId}|{nationalId}|{cardCode}|{examIsoMinute}
- *
- * Splitting on `|` gives a downstream scanner-aware system the full record
- * without a DB lookup. The `PA` prefix lets a generic scanner distinguish
- * Police Academy cards from other formats.
- */
-function buildBarcodePayload(args: {
-  applicantId: string;
-  nationalId: string;
-  cardCode: string;
-  examIso: string;
-}): string {
-  const examMinute = args.examIso.slice(0, 16);
-  return ['PA', args.applicantId, args.nationalId, args.cardCode, examMinute].join('|');
-}

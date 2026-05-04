@@ -74,7 +74,10 @@ export interface Code128BarcodeProps {
   value: string;
   /** Bar height in pixels. Default 64. */
   height?: number;
-  /** Width of one module in pixels. Default 1.6. */
+  /** Width of one module in pixels. Must be a positive integer for the
+   *  bars to render crisply — non-integer widths get snapped by the
+   *  rasterizer and break the bar/space ratio that scanners depend on.
+   *  Default 2. */
   moduleWidth?: number;
   /** Whether to render the human-readable text below the bars. Default true. */
   showText?: boolean;
@@ -84,10 +87,16 @@ export interface Code128BarcodeProps {
 export function Code128Barcode({
   value,
   height = 64,
-  moduleWidth = 1.6,
+  moduleWidth = 2,
   showText = true,
   className,
 }: Code128BarcodeProps): JSX.Element {
+  /* Scanners depend on integer-multiple bar/space widths. Force the
+   *  module width to an integer pixel even if a caller passes a float —
+   *  silently rounding here is far safer than letting the symbol render
+   *  unscannably. */
+  const mw = Math.max(1, Math.round(moduleWidth));
+
   const { bars, totalWidth } = useMemo(() => {
     const codes = encode(value);
     let x = 0;
@@ -95,18 +104,18 @@ export function Code128Barcode({
     for (const v of codes) {
       const pattern = PATTERNS[v];
       for (let i = 0; i < pattern.length; i++) {
-        const w = pattern[i] * moduleWidth;
+        const w = pattern[i] * mw;
         if (i % 2 === 0) out.push({ x, w });
         x += w;
       }
     }
     return { bars: out, totalWidth: x };
-  }, [value, moduleWidth]);
+  }, [value, mw]);
 
   const textHeight = showText ? 18 : 0;
   const totalHeight = height + textHeight;
   /* Leave a quiet zone of 10 modules either side so scanners can lock on. */
-  const quietZone = 10 * moduleWidth;
+  const quietZone = 10 * mw;
   const viewWidth = totalWidth + quietZone * 2;
 
   return (
@@ -114,6 +123,11 @@ export function Code128Barcode({
       viewBox={`0 0 ${viewWidth} ${totalHeight}`}
       width={viewWidth}
       height={totalHeight}
+      /* Lock CSS size to the natural size so global `svg { max-width: 100% }`
+       *  scales proportionally (height auto) when the container is narrower,
+       *  but never stretches the symbol beyond its native pixels — stretching
+       *  destroys bar-width ratios and makes the barcode unscannable. */
+      style={{ maxWidth: '100%', height: 'auto' }}
       className={cn('select-none', className)}
       role="img"
       aria-label={`باركود: ${value}`}
