@@ -50,7 +50,7 @@ export function Heatmap({
     return <p className="px-4 py-9 text-center text-sm text-ink-500">لا توجد بيانات</p>;
   }
 
-  const labelWidth = rowLabels ? 56 : 0;
+  const labelWidth = rowLabels ? 76 : 0;
   const labelHeight = colLabels ? 18 : 0;
   const gap = 2;
   const w = labelWidth + cols * (cellSize + gap);
