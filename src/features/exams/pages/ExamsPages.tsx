@@ -173,18 +173,35 @@ export function QuestionBankPage(): JSX.Element {
                     key={c.name}
                     type="button"
                     className={cn(
-                      'flex flex-col items-end rounded-md border bg-surface-card px-4 py-3 text-end transition-all duration-fast ease-standard hover:border-ink-300 focus-visible:outline-none focus-visible:shadow-focus-teal',
-                      active ? 'shadow-sm' : 'border-border-subtle',
+                      'group relative flex flex-col items-end overflow-hidden rounded-md border border-border-default bg-surface-card px-4 py-3 text-end transition-all duration-fast ease-standard hover:-translate-y-px hover:shadow-sm focus-visible:outline-none focus-visible:shadow-focus-teal',
+                      active && 'shadow-sm',
                     )}
-                    style={active ? { borderColor: 'var(--accent-500)', borderWidth: 2 } : undefined}
+                    style={
+                      active
+                        ? {
+                            borderColor: 'var(--accent-500)',
+                            background:
+                              'linear-gradient(to bottom, var(--accent-50) 0%, var(--surface-card) 60%)',
+                          }
+                        : undefined
+                    }
+                    aria-pressed={active}
                     onClick={() => setCategory(active ? 'all' : c.name)}
                   >
-                    <BookOpen
-                      size={14}
-                      strokeWidth={1.75}
-                      style={{ color: active ? 'var(--accent-600)' : 'var(--ink-400)' }}
+                    <span
                       aria-hidden
+                      className={cn(
+                        'absolute inset-x-0 top-0 h-[3px] origin-inline-end transition-transform duration-base ease-standard',
+                        active ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100',
+                      )}
+                      style={{ background: 'var(--accent-500)' }}
                     />
+                    <span
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors duration-fast ease-standard"
+                      style={{ background: 'var(--accent-50)', color: 'var(--accent-600)' }}
+                    >
+                      <BookOpen size={16} strokeWidth={1.75} aria-hidden />
+                    </span>
                     <span className="mt-2 text-sm font-bold text-ink-900">{c.name}</span>
                     <span className="mt-1 font-numeric tnum text-2xs text-ink-500">{num(c.count)} سؤال</span>
                   </button>
