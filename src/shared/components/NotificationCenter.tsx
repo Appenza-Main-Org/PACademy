@@ -19,6 +19,7 @@ import { create } from 'zustand';
 import { Drawer } from './Drawer';
 import { Button } from './Button';
 import { Badge } from './Badge';
+import { toast } from './Toast';
 import { MOCK } from '@/shared/mock-data';
 import type { NotificationItem } from '@/shared/types/domain';
 import { date as fmtDate } from '@/shared/lib/format';
@@ -85,20 +86,29 @@ export function NotificationCenter(): JSX.Element {
         size="sm"
         transparentBackdrop
       >
-        <Drawer.Body>
-          <div className="mb-3 flex items-center justify-between">
+        <Drawer.Body className="flex h-full flex-col gap-3 overflow-hidden">
+          <div className="flex shrink-0 items-center justify-between">
             <span className="text-2xs text-ink-500">{items.length} إشعار</span>
             <Button
               variant="ghost"
               size="sm"
               leadingIcon={<Check size={12} strokeWidth={1.75} />}
-              onClick={markAllRead}
-              disabled={unread === 0}
+              onClick={() => {
+                if (unread === 0) {
+                  toast('كل الإشعارات مقروءة بالفعل', 'info');
+                  return;
+                }
+                markAllRead();
+                toast(`تم وضع ${unread} إشعار كمقروء`, 'success');
+              }}
             >
               وضع كل العناصر كمقروءة
             </Button>
           </div>
-          <ul className="flex flex-col gap-2">
+          <ul
+            className="-me-2 flex flex-1 flex-col gap-2 overflow-y-auto pe-2"
+            style={{ scrollbarGutter: 'stable', overscrollBehavior: 'contain' }}
+          >
             {items.map((n) => (
               <NotificationRow
                 key={n.id}
