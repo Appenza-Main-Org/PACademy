@@ -135,4 +135,9 @@ export const STATUS_LABELS: Record<string, { label: string; color: 'success' | '
   rejected: { label: 'مرفوض', color: 'danger' },
   'on-hold': { label: 'موقوف', color: 'warning' },
   'documents-required': { label: 'مستندات ناقصة', color: 'info' },
+  /* Workflow-runtime statuses (post-polish — RFP §3 / §6 pipeline). */
+  under_medical_review: { label: 'قيد الكشف الطبي', color: 'info' },
+  passed_physical: { label: 'اجتاز اللياقة', color: 'success' },
+  failed_interview: { label: 'لم يجتز المقابلة', color: 'danger' },
+  awaiting_board_decision: { label: 'بانتظار قرار الهيئة', color: 'warning' },
 };

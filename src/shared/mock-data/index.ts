@@ -54,6 +54,11 @@ import {
   NOTIFICATIONS,
   OUTGOING_LETTERS,
 } from './sprint3to9';
+import {
+  APPLICANT_WORKFLOW_PROGRESS,
+  WORKFLOWS,
+  WORKFLOW_TRANSITIONS,
+} from './workflows';
 
 reseed(42);
 
@@ -218,6 +223,54 @@ for (let i = 0; i < 240; i += 1) {
 }
 audit.sort((a, b) => b.timestamp - a.timestamp);
 
+/* ── Per-applicant audit seed (admin-applicant-crud PR) ───────────────────
+ * Adds 5–10 entity='applicant' entries for each of the first 60 seeded
+ * applicants so the detail-page AuditTimeline never renders empty in demos.
+ * Uses the deterministic LCG (rng()) so the same seed yields the same set. */
+const APPLICANTS_WITH_AUDIT = applicants.slice(0, 60);
+const APPLICANT_AUDIT_TEMPLATES: Array<{
+  action: AuditEntry['action'];
+  label: string;
+  color: AuditEntry['actionColor'];
+  detailFor: (a: Applicant) => string;
+}> = [
+  { action: 'create', label: 'إضافة المتقدم', color: 'success', detailFor: (a) => `تم إضافة المتقدم ${a.name}` },
+  { action: 'update', label: 'تعديل بيانات المتقدم', color: 'info', detailFor: () => 'تعديل الحقول: contact.mobilePhone، currentAddress.detail' },
+  { action: 'update', label: 'تعديل بيانات المتقدم', color: 'info', detailFor: () => 'تعديل الحقول: religion، maritalStatus' },
+  { action: 'applicant.transition', label: 'تحديث حالة المتقدم', color: 'warning', detailFor: () => 'pending → under-review · استكمال الفحص الأولي' },
+  { action: 'view', label: 'استعلام عن الملف', color: 'neutral', detailFor: () => 'فتح ملف المتقدم للمراجعة' },
+  { action: 'applicant.transition', label: 'تحديث حالة المتقدم', color: 'warning', detailFor: () => 'under-review → under_medical_review · إحالة للقومسيون' },
+  { action: 'update', label: 'تعديل بيانات المتقدم', color: 'info', detailFor: () => 'تعديل الحقول: contact.email' },
+];
+
+let applicantAuditSerial = 1;
+for (const a of APPLICANTS_WITH_AUDIT) {
+  const baseTs = new Date(a.registeredAt).getTime();
+  const dayMs = 86_400_000;
+  const count = 5 + Math.floor(rng() * 6);
+  for (let i = 0; i < count; i += 1) {
+    const tpl = APPLICANT_AUDIT_TEMPLATES[i % APPLICANT_AUDIT_TEMPLATES.length]!;
+    const userIdx = Math.floor(rng() * users.length);
+    const u = users[userIdx]!;
+    const id = `AUD-AP-${String(applicantAuditSerial).padStart(6, '0')}`;
+    applicantAuditSerial += 1;
+    audit.push({
+      id,
+      userId: u.id,
+      userName: u.name,
+      action: tpl.action,
+      actionLabel: tpl.label,
+      actionColor: tpl.color,
+      entity: 'applicant',
+      entityId: a.id,
+      details: tpl.detailFor(a),
+      timestamp: baseTs + (i + 1) * dayMs * (0.3 + rng() * 0.8),
+      ip: `10.0.${Math.floor(rng() * 255)}.${Math.floor(rng() * 255)}`,
+    });
+  }
+}
+audit.sort((a, b) => b.timestamp - a.timestamp);
+
 const questions: Question[] = [
   { id: 'Q-0001', category: 'ثقافة عامة',  difficulty: 'سهل',    text: 'ما هي عاصمة جمهورية مصر العربية؟', options: ['الإسكندرية', 'القاهرة', 'الجيزة', 'أسوان'], correctIndex: 1, usedCount: 248 },
   { id: 'Q-0002', category: 'تاريخ مصر',    difficulty: 'متوسط',  text: 'في أي عام قامت ثورة 23 يوليو؟', options: ['1948', '1950', '1952', '1956'], correctIndex: 2, usedCount: 187 },
@@ -302,6 +355,17 @@ for (const a of audit) {
     auditDiffs[a.id] = { before: null, after: { id: a.entityId, status: 'pending' } };
   } else if (a.action === 'delete') {
     auditDiffs[a.id] = { before: { id: a.entityId, status: 'pending' }, after: null };
+  } else if (a.action === 'update' && a.entity === 'applicant') {
+    auditDiffs[a.id] = {
+      before: {
+        contact: { mobilePhone: '01001234567', email: 'old@example.com' },
+        currentAddress: { detail: '15 شارع الجلاء' },
+      },
+      after: {
+        contact: { mobilePhone: '01098765432', email: 'new@example.com' },
+        currentAddress: { detail: '7 شارع التحرير، الدور الثالث' },
+      },
+    };
   } else if (a.action === 'update') {
     auditDiffs[a.id] = {
       before: { id: a.entityId, status: 'pending', stage: 1 },
@@ -425,4 +489,8 @@ export const MOCK = {
   testSchedules: TEST_SCHEDULES,
   /* Live proctor surface (RFP §9.E) */
   liveExamSessions,
+  /* Department workflow builder (RFP §3 / §6) */
+  workflows: WORKFLOWS,
+  applicantWorkflowProgress: APPLICANT_WORKFLOW_PROGRESS,
+  workflowTransitions: WORKFLOW_TRANSITIONS,
 };

@@ -18,7 +18,9 @@ export const ROUTES = {
   admin: {
     dashboard: '/admin',
     applicants: '/admin/applicants',
+    applicantNew: '/admin/applicants/new',
     applicantDetail: (id = ':id'): string => `/admin/applicants/${id}`,
+    applicantEdit: (id = ':id'): string => `/admin/applicants/${id}/edit`,
     users: '/admin/users',
     audit: '/admin/audit',
     settings: '/admin/settings',
@@ -31,6 +33,9 @@ export const ROUTES = {
     cycleNew: '/admin/cycles/new',
     categories: '/admin/categories',
     categoryEdit: (key = ':key'): string => `/admin/categories/${key}`,
+    workflows: '/admin/workflows',
+    workflowEdit: (id = ':id'): string => `/admin/workflows/${id}`,
+    workflowNew: '/admin/workflows/new',
   },
 
   /* ── Applicant surface (own auth via Stage 1+2) ──

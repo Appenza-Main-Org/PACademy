@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Download } from 'lucide-react';
+import { Search, Download, UserPlus } from 'lucide-react';
 import { PageHeader, Card, Avatar, Button, EmptyState, Badge, DataTable } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
 import { StatusBadge, PaymentBadge } from '@/shared/components/StatusBadge';
@@ -68,7 +68,18 @@ export function ApplicantsPage(): JSX.Element {
         title="إدارة المتقدمين"
         subtitle="بحث وتصفية وإدارة طلبات التقدم"
         actions={
-          <Button variant="secondary" leadingIcon={<Download size={16} />}>تصدير CSV</Button>
+          <>
+            <Link
+              to={ROUTES.admin.applicantNew}
+              className="btn btn-primary"
+            >
+              <UserPlus size={14} strokeWidth={1.75} className="me-1.5" />
+              متقدم جديد
+            </Link>
+            <Button variant="secondary" leadingIcon={<Download size={16} />}>
+              تصدير CSV
+            </Button>
+          </>
         }
       />
 

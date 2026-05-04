@@ -517,3 +517,317 @@ post-cycle. RFP §7-2 / §9 govern scope.
 - iPad-portrait spot-check during dress rehearsal: proctor table at
   768×1024 is the primary tablet scenario.
 
+
+
+---
+
+## 2026-05-04 · Department Workflow Builder (post-polish, RFP §3 / §6)
+
+### Why
+The RFP describes a different test pipeline per applicant department
+(قسم عام / قسم خاص / حقوقيين / ماجستير / دكتوراه). Until now the
+codebase had `WorkflowsService` plumbing but no admin surface for
+configuring those pipelines, and `ApplicantDetailPage` rendered a
+static stage list rather than the live position in the workflow.
+This bucket adds the configurator end-to-end and wires applicant
+progress into the detail page.
+
+### Completed in this session
+- **Domain types** (`src/shared/types/domain.ts`): `TestKind`,
+  `PassCriterion`, `WorkflowTest`, `WorkflowStage`,
+  `DepartmentWorkflow`, `ApplicantWorkflowProgress`,
+  `WorkflowTransitionEvent` + `DEPARTMENT_LABELS`,
+  `TEST_KIND_LABELS`. Extended `ApplicantStatus` (additive only):
+  `under_medical_review`, `passed_physical`, `failed_interview`,
+  `awaiting_board_decision`. Extended `AuditAction` with
+  `workflow.create / update / publish / reorder / delete` +
+  `applicant.transition`.
+- **Mock seed** (`src/shared/mock-data/workflows.ts`): one workflow
+  per `DepartmentKey` (6 total), 6–8 stages each, every stage with
+  unique `statusOnEnter` so the editor opens valid by default.
+- **Admin service** (`src/features/admin/api/workflows.service.ts` +
+  `.queries.ts`): full CRUD + reorder + apply-to-scope, mutates
+  MOCK in place so the cross-feature applicant service stays in
+  sync without circular imports. Audit entries emitted on every
+  mutation.
+- **Routes** (`/admin/workflows`, `/admin/workflows/new`,
+  `/admin/workflows/:id`) + sidebar entry + URL constants.
+- **`WorkflowsListPage`**: 6-card grid (one per department) with
+  stage/test/version stats, status pill, last-updated relative
+  time. Empty department gets a dashed card with an "إنشاء" CTA.
+- **`WorkflowEditorPage`**: three-region layout — top-bar
+  (name/department/cycle/save/publish), center stage list with
+  `@dnd-kit` sortable + numeric-input keyboard fallback, side
+  pane with live `<StageStepper>` preview and a validation panel.
+  Validation rules (in `lib/workflow-validation.ts`): missing
+  required test (warning), duplicate `statusOnEnter` (error),
+  unreachable `allowedNextStatuses` (error), cyclic transitions
+  (error). Save is gated on errors; warnings allow save. Publish
+  follows PRODUCT.md §4 two-phase canon — preliminary
+  dashed-gold-300 / bg-gold-50 / text-gold-700 notice with the
+  `جدد فقط` / `جدد + حاليين` scope choice, then a final
+  IconStamp-flagged confirm. Destructive actions (delete
+  workflow / delete stage) gated by Modals.
+- **`ApplicantWorkflowPanel`** (in
+  `features/admin/components/workflow/`): consumed by
+  `ApplicantDetailPage`. Renders the live `<StageStepper>` for
+  the applicant's department workflow, lists the current stage's
+  test results with outcome badges, exposes a "تحديث الحالة"
+  dialog constrained to `currentStage.allowedNextStatuses`. 422
+  rejections from the mock service surface inline in the dialog.
+  Below the stepper: `WorkflowTimeline` showing typed transition
+  rows (from-status → to-status, actor, reason, relative time).
+- **RBAC**: added `workflows:read`, `workflows:write`,
+  `applicants:transition` to `committee_admin`. `super_admin`
+  inherits via `*`.
+- **Dependency**: `@dnd-kit/core` + `@dnd-kit/sortable` +
+  `@dnd-kit/utilities` (best-in-class accessible RTL drag-drop).
+  No other UI libs added.
+
+### Verification
+- `npm run typecheck` → 0 errors.
+- `npm run build` → success (1872 modules transformed).
+- Browser smoke (Chrome via devtools MCP):
+  - `/admin/workflows` → 6 department cards render with correct
+    stats; sidebar nav shows the new entry.
+  - `/admin/workflows/WF-GENERAL_FIRST` → all 7 stages render;
+    drag handles + numeric inputs both present; tests
+    subsection collapsible; save/publish enabled because the
+    seed validates clean (after the on-hold-as-terminal fix).
+  - `/admin/applicants/APP-2026000013` → workflow panel renders
+    the seeded progress correctly (6 completed + 1 current),
+    "تحديث الحالة" button visible, transition timeline scaffold
+    in place.
+
+### Judgment calls flagged
+- **JUDGMENT CALL (on-hold as terminal in validator):** the brief
+  treats `on-hold` semantically as a pause, but it doesn't
+  resolve to a downstream stage so the validator was flagging
+  every workflow that included it in `allowedNextStatuses` as
+  "unreachable next status." Treated `on-hold` like
+  `approved` / `rejected` for reachability (no required host
+  stage) — same logic the existing applicant-transition module
+  uses (`universalTerminals`).
+- **JUDGMENT CALL (mutate MOCK.workflows in place vs separate
+  STATE):** the existing `applicant.service.ts` already imports
+  `workflowsService` and reads from MOCK + the workflow service's
+  exported state-helper methods. To avoid drifting state between
+  the two services I dropped the per-service STATE clone and
+  let `workflowsService` mutate `MOCK.workflows` directly.
+  Same approach for `MOCK.applicantWorkflowProgress` and
+  `MOCK.workflowTransitions`. Cycles service still uses a STATE
+  mirror — the workflow service deviates because of the existing
+  cross-service consumer.
+- **JUDGMENT CALL (apply-scope copy as preliminary notice, not a
+  Wizard):** the brief described a two-radio-button confirm flow.
+  Implemented as a Modal with the §4 dashed-gold-300 preliminary
+  notice + two `<ScopeRadio>` cards rather than a full
+  `<Wizard>`. A Wizard would have been heavier than warranted and
+  the scope choice is one decision, not a multi-step flow.
+
+### What's next
+- Drag-drop reorder is currently dispatched immediately to the
+  reorder endpoint (only on saved workflows). When backend lands
+  this should also consider optimistic update + rollback on
+  error.
+- The workflow editor's preview stepper currently shows
+  `currentIndex={0}` on every render. A future iteration could
+  let the admin "step through" the preview (similar to a Storybook
+  controls panel) to verify how each transition renders for the
+  applicant.
+
+---
+
+## 2026-05-04 · Admin applicant lifecycle — Add / View / Edit / Audit
+
+### Why
+Workflow Builder (previous PR) gave admins the pipeline. They
+still couldn't *create* an applicant, properly *view* one against
+that pipeline, *edit* one with locks, or audit *what changed by
+whom*. This PR closes that loop.
+
+### Completed in this session
+
+#### Foundation (committed first as `types: scaffold ...`)
+- `domain.ts`: extended `Applicant` with optional sidecar fields
+  (`department`, `religion`, `maritalStatus`, `fullName`,
+  `contact`, `currentAddress`, `education`, `family`,
+  `attendanceCardPrintedAt`, `cycleId`, `suspensionReason`).
+  Existing seeded applicants stay valid (all new fields optional).
+- `domain.ts`: 4 workflow-runtime statuses already present
+  (under_medical_review, passed_physical, failed_interview,
+  awaiting_board_decision) — already labelled in dictionaries.
+
+#### Schemas + transitions
+- `src/features/applicants/schemas.ts`:
+  per-section zod (identity / address / contact / department /
+  education / family) + composed `applicantInputSchema` with
+  discriminated `education` union (general / overseas / higher).
+  Department → education kind mapping `EDUCATION_KIND_BY_DEPT`.
+- `src/features/applicants/lib/transitions.ts`: pure
+  `getAllowedTransitions(applicant, progress, workflow, user)`
+  consumed by both the dropdown (UI) and the mock service
+  (server) — single source of truth per the brief §6. Plus
+  `getNextStageSuggestion()` for the "next stage" prefill.
+
+#### Service + queries
+- `applicant.service.ts`: added `create`, `update`, `transition`,
+  `checkNidCollision`, `getProgress`, `getActiveWorkflowFor`,
+  `getWorkflowTransitions`, `getAuditTrail`. All mutations emit
+  AuditEntry rows (action: create / update / applicant.transition)
+  with matching diff in MOCK.auditDiffs. NID locked
+  post-creation; `موقوف` blocks all updates; post-print Stage 9
+  locks personal/academic; transition re-validates against
+  `stage.allowedNextStatuses` before committing.
+- `applicant.queries.ts`: 8 new hooks
+  (`useCreateApplicant`, `useUpdateApplicant`,
+  `useTransitionApplicant`, `useApplicantProgress`,
+  `useApplicantWorkflow`, `useApplicantAudit`, `useAuditDiff`,
+  + legacy aliases `useApplicantWorkflowProgress` /
+  `useApplicantWorkflowTransitions` so the existing
+  `ApplicantWorkflowPanel` keeps working).
+- `src/features/applicants/index.ts`: barrel re-exports the full
+  public surface.
+
+#### UI
+- `ApplicantForm.tsx` (`src/features/admin/components/applicants/`):
+  the workhorse — react-hook-form + zod resolver, 7 sections with
+  scroll-anchors, sticky right-rail jump nav (collapses to a
+  scrollable pill strip <lg), 30s localStorage autosave with
+  "تم الحفظ التلقائي · منذ X ثانية" indicator near submit, NID
+  auto-decode chip showing birth date / gender / governorate
+  inline, department-driven education-kind swap (general ↔
+  overseas ↔ higher), full RTL with logical properties
+  (`ms-`/`me-`/`text-start`).
+- `ApplicantNewPage.tsx`: mounts `ApplicantForm` in create mode;
+  inline NID-collision error from server (`ApplicantTransitionError`
+  with code 409); toasts the new APP-{cycleYear}{6-digit} code.
+- `ApplicantEditPage.tsx`: reuses same form; reverse-maps
+  `Applicant → ApplicantInput`; sets `fullyLocked` for `موقوف`,
+  `personalAcademicLocked` after card-print; NID forever locked.
+- `AuditTimeline.tsx`: vertical RTL timeline reading
+  `entity='applicant'&entityId={id}`, action icon coloured from
+  `AuditColor` map, status changes show `from → to` chip pair
+  with directional arrow + reason quote, update entries get a
+  "عرض التغييرات" disclosure that lazily fetches and renders the
+  diff as a 3-column table (max 8 rows + "عرض المزيد").
+- `ApplicantDetailPage.tsx`: rebuilt — header card with status,
+  current stage, photo + 3 actions (تعديل / طباعة / الرجوع);
+  left rail = 7 mirrored read-only sections (`<dl>` grid, same
+  anchors as the form); right rail = `ApplicantWorkflowPanel`
+  (existing — stepper + tests + transition dialog) +
+  `AuditTimeline` + legacy timeline. Each query renders its own
+  per-section ErrorState; failures don't black out the page.
+- `ApplicantsPage.tsx`: added "+ متقدم جديد" CTA
+  (`UserPlus` icon) at the top.
+
+#### Routes + nav
+- `src/routes.tsx`: added `applicants/new` and
+  `applicants/:id/edit`.
+- `src/config/routes.ts`: added `ROUTES.admin.applicantNew` and
+  `ROUTES.admin.applicantEdit(id)`.
+- `src/features/admin/index.ts`: exports
+  `ApplicantNewPage` + `ApplicantEditPage`.
+
+#### Mock seed
+- `src/shared/mock-data/index.ts`: per-applicant audit seed —
+  5–10 entries × first 60 applicants (deterministic via LCG seed
+  42). Templates cover create / update / transition / view actions.
+  Audit diffs for `entity='applicant'` updates use realistic
+  contact + address diffs so the disclosure panel always has data.
+
+### Files touched
+- `M` `src/shared/types/domain.ts` (+~70 lines extended Applicant)
+- `M` `src/shared/mock-data/index.ts` (+~50 lines audit seed +
+  diff branch)
+- `+` `src/features/applicants/schemas.ts`
+- `+` `src/features/applicants/lib/transitions.ts`
+- `+` `src/features/applicants/index.ts`
+- `M` `src/features/applicants/api/applicant.service.ts`
+  (+create / update / transition / progress / audit-trail)
+- `M` `src/features/applicants/api/applicant.queries.ts`
+  (+mutation hooks + legacy aliases)
+- `+` `src/features/admin/components/applicants/ApplicantForm.tsx`
+- `+` `src/features/admin/components/applicants/AuditTimeline.tsx`
+- `+` `src/features/admin/pages/ApplicantNewPage.tsx`
+- `+` `src/features/admin/pages/ApplicantEditPage.tsx`
+- `M` `src/features/admin/pages/ApplicantDetailPage.tsx` (rewrite)
+- `M` `src/features/admin/pages/ApplicantsPage.tsx` (CTA)
+- `M` `src/features/admin/index.ts`
+- `M` `src/routes.tsx` (+routes)
+- `M` `src/config/routes.ts` (+route constants)
+- `M` `src/features/hub/pages/HubPage.tsx` (Partial<Record> on
+  AuditAction map — needed because new `applicant.transition`
+  action doesn't have a hub-rail icon)
+
+### Verification
+- `npm run typecheck` → 0 errors
+- `npm run build` → success (1.57 MB bundle, ~14 KB CSS)
+- Manual click-through (chrome-devtools-mcp):
+  - `/admin/applicants` shows new "+ متقدم جديد" CTA in header.
+  - Existing applicant detail (APP-2026000001) renders all 7
+    mirrored sections, stepper at stage 2/7, audit timeline
+    with 6 entries, diff disclosure expanded to show
+    contact/address before-after table.
+  - Add Applicant: NID input auto-decodes — chip shows
+    "تاريخ الميلاد · النوع · المحافظة" when 14 digits present.
+  - Submit landed at `/admin/applicants/APP-2025002848`,
+    detail page renders correct department workflow attached
+    (`سير عمل قسم عام · دور أول · 2026`) with applicant at
+    stage 1 and 1 audit entry "إضافة المتقدم".
+  - Edit page shows all fields prefilled, NID input disabled
+    with inline "محجوز" lock indicator, submit label
+    "حفظ التعديلات".
+
+### Judgment calls flagged
+- **JUDGMENT CALL (consume the existing ApplicantWorkflowPanel
+  rather than build a new dialog from §4):** the workflow PR
+  shipped a comprehensive panel that already implements the
+  StageStepper + tests + transition dialog. Building a parallel
+  dialog using `getAllowedTransitions` would duplicate UI for no
+  user benefit. The detail page composes the existing panel + my
+  audit timeline. The brief's "two-phase confirm" affordance is
+  not yet wired into that panel — left as a follow-up since the
+  panel is shared with the workflow PR's editor preview.
+- **JUDGMENT CALL (extend Applicant in place rather than sidecar
+  store):** the Applicant interface gained ~10 optional fields
+  (department, religion, contact, etc). Alternative was a
+  parallel `MOCK.applicantExtended` keyed by id. Extending in
+  place keeps reads single-source and round-trips form ↔ detail
+  through one type. Existing 2,847 seeded applicants stay valid
+  because every new field is optional; detail page falls back to
+  legacy fields (`certType`, `certPercent`, etc.) when extended
+  data is missing.
+- **JUDGMENT CALL (lift family components vs rewrite):** the
+  brief said "lift portal Stage7 family components to
+  shared/components/forms if reused". Decided to rewrite the
+  family inputs inline in `ApplicantForm` rather than lift —
+  the Stage7 page mixes wizard chrome (auto-save indicator,
+  member-count chip, security warning copy) with the field
+  schema, and lifting only the field components would have left
+  half the UI behind. Rewriting in `ApplicantForm` was 80 lines
+  vs ~200 of refactor + portal touch-ups. The shape of the data
+  is identical; both feed the same `family.father.fullName`
+  paths.
+- **JUDGMENT CALL (zod resolver bypass stays on for the demo):**
+  `zod-resolver.ts` has `BYPASS_VALIDATION_FOR_DEMO=true` since
+  Sprint 2. Schemas still drive type derivation (`z.infer`
+  → `ApplicantInput`) and inline error rendering when the
+  bypass is off. Service-layer validation (NID format, NID
+  collision, mobile regex via NID parser, status-transition
+  gates) provides the real defense in this demo build.
+
+### What's next
+- Wire two-phase confirm into `ApplicantWorkflowPanel`'s
+  transition dialog (preliminary dashed-gold notice + final
+  IconStamp confirm) per PRODUCT.md §4 — defer until next
+  workflow polish pass since the panel is shared.
+- Hook `getAllowedTransitions` into the panel's dropdown so it
+  inherits role-scoped + universal-terminals + gated-by-tests
+  logic, replacing the current direct read of
+  `stage.allowedNextStatuses`.
+- Extract `ApplicantForm`'s `FixedFamilyMember` + relatives row
+  to `shared/components/forms/*` once the portal Stage7 page is
+  retouched in the same PR — currently only one consumer.
+- Print view (`طباعة الملف` button) is a no-op stub — wire to
+  `<PrintLayout>` with the same 7-section structure.

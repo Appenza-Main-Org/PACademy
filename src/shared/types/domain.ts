@@ -2,13 +2,21 @@
  * Cross-feature domain types — shapes used by mock-data and services.
  */
 
+import type { AppKey } from '@/shared/lib/constants';
+
 export type ApplicantStatus =
   | 'pending'
   | 'under-review'
   | 'approved'
   | 'rejected'
   | 'on-hold'
-  | 'documents-required';
+  | 'documents-required'
+  /* Workflow-runtime statuses (post-polish — RFP §3 / §6 pipeline). Additive
+   * to the legacy admin filter set; existing consumers keep working. */
+  | 'under_medical_review'
+  | 'passed_physical'
+  | 'failed_interview'
+  | 'awaiting_board_decision';
 
 export type PaymentStatus = 'paid' | 'pending';
 export type InvestigationStatus = 'pending' | 'cleared' | 'flagged';
@@ -21,7 +29,119 @@ export interface ApplicantResults {
   finalExam: ResultOutcome;
 }
 
-export interface Applicant {
+/* ── Extended applicant data (admin Add/Edit form — RFP pp.22-36) ───────────
+ * Optional sidecars on the base Applicant. The legacy MOCK seed leaves them
+ * empty; admin-created applicants populate them. View/Edit pages render
+ * sections only when their data exists. */
+
+export type DepartmentKey =
+  | 'general_first'
+  | 'general_second'
+  | 'special'
+  | 'lawyers'
+  | 'masters'
+  | 'doctorate';
+
+export type Religion = 'مسلم' | 'مسيحي';
+export type MaritalStatus = 'أعزب' | 'متزوج' | 'مطلق' | 'أرمل';
+
+export interface ApplicantContact {
+  homePhone?: string;
+  mobilePhone: string;
+  email?: string;
+  socialFacebook?: string;
+  socialInstagram?: string;
+  socialX?: string;
+  socialOther?: string;
+}
+
+export interface ApplicantAddress {
+  governorate: string;
+  city: string;
+  detail: string;
+  street?: string;
+}
+
+/** Discriminated by department; admin form swaps the rendered fields per §4. */
+export type ApplicantEducation =
+  | {
+      kind: 'general';
+      certificateName: string;
+      schoolName: string;
+      totalScore: number;
+      seatType?: string;
+      branch: 'علمي علوم' | 'علمي رياضة' | 'أدبي';
+      schoolCategory?: string;
+      graduationYear: number;
+      percentage?: number;
+    }
+  | {
+      kind: 'overseas';
+      certificateName: string;
+      schoolName: string;
+      totalScore: number;
+      seatType?: string;
+      schoolCategory?: string;
+      country: string;
+      graduationYear: number;
+    }
+  | {
+      kind: 'higher';
+      specialization: string;
+      university: string;
+      faculty: string;
+      totalScore: number;
+      grade?: string;
+      higherSpecialization?: string;
+      graduationYear: number;
+      secondary: {
+        certificateName: string;
+        totalScore: number;
+        schoolCategory?: string;
+        country?: string;
+        percentage?: number;
+      };
+    };
+
+export interface ApplicantFamilyMember {
+  fullName: string;
+  nationalId?: string;
+  occupation?: string;
+  alive: boolean;
+  governorate?: string;
+  education?: string;
+  /** Only used on the relatives array. */
+  relationshipId?: string;
+}
+
+export interface ApplicantFamily {
+  father?: ApplicantFamilyMember;
+  mother?: ApplicantFamilyMember;
+  paternalGrandfather?: ApplicantFamilyMember;
+  paternalGrandmother?: ApplicantFamilyMember;
+  maternalGrandfather?: ApplicantFamilyMember;
+  maternalGrandmother?: ApplicantFamilyMember;
+  siblings?: ApplicantFamilyMember[];
+  relatives?: ApplicantFamilyMember[];
+}
+
+export interface ApplicantExtended {
+  department?: DepartmentKey;
+  cycleId?: string;
+  religion?: Religion;
+  maritalStatus?: MaritalStatus;
+  fullName?: { first: string; second: string; third: string; fourth: string };
+  contact?: ApplicantContact;
+  currentAddress?: ApplicantAddress;
+  education?: ApplicantEducation;
+  family?: ApplicantFamily;
+  /** Free-text reason for any soft "موقوف" status applied by an admin. */
+  suspensionReason?: string;
+  /** Set when Stage 9 (attendance card print) has fired — locks personal data. */
+  attendanceCardPrintedAt?: string;
+}
+
+export interface Applicant extends ApplicantExtended {
   id: string;
   nationalId: string;
   name: string;
@@ -49,7 +169,20 @@ export interface Applicant {
   investigation: InvestigationStatus;
 }
 
-export type AuditAction = 'create' | 'update' | 'delete' | 'view' | 'login' | 'export';
+export type AuditAction =
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'view'
+  | 'login'
+  | 'export'
+  /* Workflow + applicant transitions (post-polish — RFP §3/§6 pipeline). */
+  | 'workflow.create'
+  | 'workflow.update'
+  | 'workflow.publish'
+  | 'workflow.reorder'
+  | 'workflow.delete'
+  | 'applicant.transition';
 export type AuditColor = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 export interface AuditEntry {
@@ -786,4 +919,112 @@ export interface NotificationItem {
   body: string;
   read: boolean;
   href?: string;
+}
+
+/* ── Department Workflow Builder — Post-polish (RFP §3 / §6) ───────────────
+ *
+ * A workflow is a per-department ordered pipeline of stages. Each stage
+ * carries one or more tests with pass criteria and declares which next
+ * statuses are reachable. Applicants attach to the workflow of their
+ * department on creation. Configurator route: /admin/workflows.
+ */
+
+export const DEPARTMENT_LABELS: Record<DepartmentKey, string> = {
+  general_first: 'قسم عام · دور أول',
+  general_second: 'قسم عام · دور ثاني',
+  special: 'قسم خاص',
+  lawyers: 'الحقوقيين',
+  masters: 'ماجستير',
+  doctorate: 'دكتوراه',
+};
+
+export type TestKind =
+  | 'medical'
+  | 'physical'
+  | 'written'
+  | 'interview'
+  | 'biometric'
+  | 'investigation';
+
+export const TEST_KIND_LABELS: Record<TestKind, string> = {
+  medical: 'طبي',
+  physical: 'بدني',
+  written: 'تحريري',
+  interview: 'مقابلة شخصية',
+  biometric: 'تحقق حيوي',
+  investigation: 'تحريات',
+};
+
+export type PassCriterion =
+  | { type: 'minScore'; min: number; max: number }
+  | { type: 'boolean'; mustBe: 'pass' | 'fail' }
+  | { type: 'composite'; rule: 'all' | 'any'; min?: number };
+
+export interface WorkflowTest {
+  id: string;
+  name: string;
+  kind: TestKind;
+  required: boolean;
+  passCriterion: PassCriterion;
+  ownerApp: AppKey;
+  notes?: string;
+}
+
+export interface WorkflowStage {
+  id: string;
+  /** 1-based; drag-drop rewrites this. */
+  order: number;
+  name: string;
+  /** Status the applicant gets when entering this stage. */
+  statusOnEnter: ApplicantStatus;
+  /** Gate of legal next statuses; transition dialogs constrain to this set. */
+  allowedNextStatuses: ApplicantStatus[];
+  tests: WorkflowTest[];
+}
+
+export interface DepartmentWorkflow {
+  id: string;
+  department: DepartmentKey;
+  name: string;
+  cycleId: string;
+  stages: WorkflowStage[];
+  isActive: boolean;
+  /** Bumps on every save. Lets us answer "apply to existing applicants?". */
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface WorkflowTestResult {
+  stageId: string;
+  testId: string;
+  outcome: 'pass' | 'fail' | 'pending';
+  score?: number;
+  recordedAt: string;
+  recordedBy: string;
+}
+
+export interface ApplicantWorkflowProgress {
+  applicantId: string;
+  workflowId: string;
+  workflowVersion: number;
+  /** null = workflow completed (passed) or terminated (rejected). */
+  currentStageId: string | null;
+  completedStageIds: string[];
+  testResults: WorkflowTestResult[];
+}
+
+/** Audit trail row for stage transitions on a given applicant. */
+export interface WorkflowTransitionEvent {
+  id: string;
+  applicantId: string;
+  ts: number;
+  fromStatus: ApplicantStatus | null;
+  toStatus: ApplicantStatus;
+  fromStageId: string | null;
+  toStageId: string | null;
+  actorId: string;
+  actorName: string;
+  reason?: string;
 }
