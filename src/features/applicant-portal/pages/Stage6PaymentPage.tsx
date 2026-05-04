@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard, FlaskConical, Receipt, Smartphone } from 'lucide-react';
 import { Badge, Button, Card, Modal, PrintLayout, toast } from '@/shared/components';
-import { applicantPortalService } from '../api/applicantPortal.service';
+import { useInitiatePayment, useVerifyPayment } from '../api/applicantPortal.queries';
 
 const APPLICANT_ID = 'APP-2026000';
 const FEE = 1500;
@@ -20,9 +20,11 @@ export function Stage6PaymentPage(): JSX.Element {
   const [fawryCode, setFawryCode] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const initiateMut = useInitiatePayment(APPLICANT_ID);
+  const verifyMut = useVerifyPayment(APPLICANT_ID);
 
   const initiate = async (): Promise<void> => {
-    const r = await applicantPortalService.initiatePayment(APPLICANT_ID, method, FEE);
+    const r = await initiateMut.mutateAsync({ method, amount: FEE });
     setRefNumber(r.refNumber);
     setFawryCode(r.fawryCode ?? null);
     if (method === 'card') toast('تم توجيهك إلى بوابة الدفع (محاكاة)', 'info');
@@ -30,7 +32,7 @@ export function Stage6PaymentPage(): JSX.Element {
 
   const verify = async (): Promise<void> => {
     if (!refNumber) return;
-    const r = await applicantPortalService.verifyPayment(refNumber);
+    const r = await verifyMut.mutateAsync(refNumber);
     if (r.status === 'success') {
       setPaid(true);
       toast('تم تأكيد عملية الدفع', 'success');

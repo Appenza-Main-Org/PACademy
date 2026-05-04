@@ -107,6 +107,9 @@ export const applicantPortalService = {
     DRAFT = {
       ...DRAFT,
       payment: { method: txn.method, refNumber: txn.refNumber, amount: txn.amount, paidAt: txn.paidAt },
+      /* Stage 6 is complete the moment payment is verified — mark it so the
+       * wizard sidebar checkmark + nextStage URL pick up the progress. */
+      furthestStage: Math.max(DRAFT.furthestStage, 6),
       lastSavedAt: Date.now(),
     };
     return { status: 'success', receipt: { ...txn } };

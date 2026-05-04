@@ -37,6 +37,21 @@ export function useExamSlots() {
   return useQuery({ queryKey: apKeys.slots(), queryFn: () => applicantPortalService.getExamSlots() });
 }
 
+export function useInitiatePayment(applicantId: string) {
+  return useMutation({
+    mutationFn: ({ method, amount }: { method: 'fawry' | 'card'; amount: number }) =>
+      applicantPortalService.initiatePayment(applicantId, method, amount),
+  });
+}
+
+export function useVerifyPayment(applicantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (refNumber: string) => applicantPortalService.verifyPayment(refNumber),
+    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+  });
+}
+
 export function useReserveSlot(applicantId: string) {
   const qc = useQueryClient();
   return useMutation({
