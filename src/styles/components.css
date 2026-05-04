@@ -143,6 +143,11 @@
   color: var(--text-primary);
   transition: all var(--dur-fast) var(--ease-out);
 }
+/* Reserve room for the native dropdown chevron on the inline-end edge so
+ * RTL labels (e.g. "كل الحالات") don't collide with it. */
+.select {
+  padding-inline-end: 32px;
+}
 .input:focus,
 .select:focus,
 .textarea:focus {

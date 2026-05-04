@@ -9,6 +9,8 @@ export type { BadgeTone } from './Badge';
 export { Button } from './Button';
 export { Card, CardBody, CardFooter, CardHeader } from './Card';
 export type { CardVariant } from './Card';
+export { Code128Barcode } from './Code128Barcode';
+export type { Code128BarcodeProps } from './Code128Barcode';
 export { Combobox } from './Combobox';
 export { CommandPalette, useCommandPaletteShortcut } from './CommandPalette';
 export { NotificationCenter } from './NotificationCenter';

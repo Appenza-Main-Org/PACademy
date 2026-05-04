@@ -9,6 +9,7 @@
  * Spec departments cannot be deleted; their delete button is hidden.
  */
 
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Layers, Pencil, PlusCircle, Trash2 } from 'lucide-react';
 import {
@@ -18,15 +19,21 @@ import {
   EmptyState,
   ErrorState,
   IconStamp,
+  Input,
   LoadingState,
+  Modal,
   PageHeader,
   toast,
 } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
-import type { ApplicantCategory } from '@/shared/types/domain';
+import type {
+  ApplicantCategory,
+  ApplicantCategoryKey,
+} from '@/shared/types/domain';
 import { ROUTES } from '@/config/routes';
 import {
   useCategoriesAdmin,
+  useCreateCategoryMutation,
   useRemoveCategoryMutation,
 } from '../api/categories.queries';
 import { useActiveCycle } from '../api/cycles.queries';
@@ -37,6 +44,7 @@ export function CategoriesListPage(): JSX.Element {
   const listQuery = useCategoriesAdmin();
   const cycleQuery = useActiveCycle();
   const removeMut = useRemoveCategoryMutation();
+  const [isAddOpen, setAddOpen] = useState(false);
 
   if (listQuery.isLoading) return <LoadingState variant="page" />;
   if (listQuery.error) {
@@ -168,7 +176,11 @@ export function CategoriesListPage(): JSX.Element {
                 إدارة الدورات والفترات
               </Button>
             </Link>
-            <Button variant="primary" leadingIcon={<PlusCircle size={14} strokeWidth={1.75} />}>
+            <Button
+              variant="primary"
+              leadingIcon={<PlusCircle size={14} strokeWidth={1.75} />}
+              onClick={() => setAddOpen(true)}
+            >
               إضافة فئة
             </Button>
           </div>
@@ -190,6 +202,161 @@ export function CategoriesListPage(): JSX.Element {
         }
         zebraStripes
       />
+
+      <NewCategoryDialog
+        open={isAddOpen}
+        onClose={() => setAddOpen(false)}
+        existingKeys={categories.map((c) => c.key)}
+        onCreated={(cat) => {
+          setAddOpen(false);
+          toast(`تم إنشاء "${cat.labelAr}"`, 'success');
+          navigate(ROUTES.admin.categoryEdit(cat.key));
+        }}
+      />
     </div>
+  );
+}
+
+const KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
+
+function NewCategoryDialog({
+  open,
+  onClose,
+  existingKeys,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  existingKeys: ApplicantCategoryKey[];
+  onCreated: (cat: ApplicantCategory) => void;
+}): JSX.Element {
+  const createMut = useCreateCategoryMutation();
+  const [key, setKey] = useState('');
+  const [labelAr, setLabelAr] = useState('');
+  const [labelEn, setLabelEn] = useState('');
+  const [nominationOnly, setNominationOnly] = useState(false);
+  const [errors, setErrors] = useState<{ key?: string; labelAr?: string }>({});
+
+  const reset = (): void => {
+    setKey('');
+    setLabelAr('');
+    setLabelEn('');
+    setNominationOnly(false);
+    setErrors({});
+  };
+
+  const handleClose = (): void => {
+    reset();
+    onClose();
+  };
+
+  const handleSubmit = (): void => {
+    const next: { key?: string; labelAr?: string } = {};
+    const trimmedKey = key.trim();
+    const trimmedLabelAr = labelAr.trim();
+    if (!trimmedKey) {
+      next.key = 'المفتاح مطلوب';
+    } else if (!KEY_PATTERN.test(trimmedKey)) {
+      next.key = 'يبدأ بحرف صغير ويتكوّن من أحرف لاتينية صغيرة وأرقام و _';
+    } else if (existingKeys.includes(trimmedKey as ApplicantCategoryKey)) {
+      next.key = 'هذا المفتاح موجود بالفعل';
+    }
+    if (!trimmedLabelAr) next.labelAr = 'الاسم بالعربية مطلوب';
+    if (next.key || next.labelAr) {
+      setErrors(next);
+      return;
+    }
+    setErrors({});
+
+    const payload: ApplicantCategory = {
+      key: trimmedKey as ApplicantCategoryKey,
+      labelAr: trimmedLabelAr,
+      labelEn: labelEn.trim(),
+      description: '',
+      isOpen: false,
+      conditions: {
+        ageMin: null,
+        ageMax: null,
+        minScorePercent: null,
+        requiredQualification: 'any',
+        gender: 'any',
+        minHeightCm: null,
+        medicalRequired: false,
+        maritalStatus: 'any',
+        conductCheck: false,
+        egyptianNationalityRequired: false,
+        employerApprovalRequired: false,
+        nominationOnly,
+        freeText: [],
+      },
+      requiredTests: [],
+      procedures: [],
+    };
+
+    createMut.mutate(payload, {
+      onSuccess: (cat) => {
+        reset();
+        onCreated(cat);
+      },
+      onError: (err) => toast((err as Error).message, 'danger'),
+    });
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title="إضافة فئة جديدة"
+      subtitle="أنشئ فئة مخصصة ثم أكمل شروطها واختباراتها في صفحة التعديل"
+      size="sm"
+    >
+      <div className="flex flex-col gap-3">
+        <Input
+          label="المفتاح"
+          dir="ltr"
+          required
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder="custom_department"
+          helper="معرّف لاتيني فريد — لا يمكن تغييره لاحقاً"
+          error={errors.key}
+        />
+        <Input
+          label="الاسم بالعربية"
+          required
+          value={labelAr}
+          onChange={(e) => setLabelAr(e.target.value)}
+          error={errors.labelAr}
+        />
+        <Input
+          label="Label (English)"
+          dir="ltr"
+          value={labelEn}
+          onChange={(e) => setLabelEn(e.target.value)}
+        />
+        <label className="flex items-center gap-2 text-sm text-ink-700">
+          <input
+            type="checkbox"
+            checked={nominationOnly}
+            onChange={(e) => setNominationOnly(e.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-teal-500"
+          />
+          بالترشيح فقط (لا يظهر في التقديم العام)
+        </label>
+      </div>
+      <div className="mt-5 flex items-center justify-end gap-2">
+        <Button variant="ghost" onClick={handleClose} disabled={createMut.isPending}>
+          إلغاء
+        </Button>
+        <Button
+          variant="primary"
+          onClick={handleSubmit}
+          isLoading={createMut.isPending}
+          leadingIcon={<PlusCircle size={14} strokeWidth={1.75} />}
+        >
+          إنشاء وفتح للتعديل
+        </Button>
+      </div>
+    </Modal>
   );
 }

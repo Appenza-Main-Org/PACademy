@@ -9,8 +9,15 @@
 
 import { CalendarCheck, MapPin, Printer, ShieldCheck, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Badge, Button, Card, KhayameyaStripe, PrintLayout } from '@/shared/components';
-import { IconBarcode, IconSeal } from '@/shared/components/icons';
+import {
+  Badge,
+  Button,
+  Card,
+  Code128Barcode,
+  KhayameyaStripe,
+  PrintLayout,
+} from '@/shared/components';
+import { IconSeal } from '@/shared/components/icons';
 import { useDraft } from '../api/applicantPortal.queries';
 import { date as fmtDate } from '@/shared/lib/format';
 
@@ -139,13 +146,20 @@ export function Stage9PrintCardPage(): JSX.Element {
           </ul>
         </div>
 
-        {/* Barcode block */}
-        <div className="mb-2 flex flex-col items-center gap-2 rounded-lg border-2 border-ink-700 bg-surface-card py-4">
+        {/* Barcode block — real Code 128 carrying the applicant payload */}
+        <div className="mb-2 flex flex-col items-center gap-2 rounded-lg border-2 border-ink-700 bg-surface-card py-4 px-3">
           <Badge tone="brand">امسح هذا الكود لتسجيل الحضور</Badge>
-          <div className="flex items-center gap-3">
-            <IconBarcode width={48} height={48} />
-            <BarcodeBars code={BARCODE} />
-          </div>
+          <Code128Barcode
+            value={buildBarcodePayload({
+              applicantId: APPLICANT_ID,
+              nationalId: APPLICANT_NID,
+              cardCode: BARCODE,
+              examIso: slot.date,
+            })}
+            height={72}
+            moduleWidth={1.5}
+            showText={false}
+          />
           <p className="font-mono text-md font-bold tracking-widest text-ink-900" dir="ltr">{BARCODE}</p>
         </div>
 
@@ -193,17 +207,20 @@ function formatHijri(d: Date): string {
   }
 }
 
-/* Visual barcode placeholder — variable-width bars derived from the code. */
-function BarcodeBars({ code }: { code: string }): JSX.Element {
-  const widths = code.split('').flatMap((ch) => {
-    const c = ch.charCodeAt(0);
-    return [(c % 4) + 1, ((c >> 2) % 3) + 1, ((c >> 4) % 4) + 1, 1];
-  });
-  return (
-    <div className="flex h-12 items-end gap-px">
-      {widths.map((w, i) => (
-        <span key={i} aria-hidden style={{ width: `${w}px`, height: '100%', background: 'var(--ink-900)' }} />
-      ))}
-    </div>
-  );
+/**
+ * Pipe-delimited barcode payload — Code 128B safe (printable ASCII only).
+ * Format: PA|{applicantId}|{nationalId}|{cardCode}|{examIsoMinute}
+ *
+ * Splitting on `|` gives a downstream scanner-aware system the full record
+ * without a DB lookup. The `PA` prefix lets a generic scanner distinguish
+ * Police Academy cards from other formats.
+ */
+function buildBarcodePayload(args: {
+  applicantId: string;
+  nationalId: string;
+  cardCode: string;
+  examIso: string;
+}): string {
+  const examMinute = args.examIso.slice(0, 16);
+  return ['PA', args.applicantId, args.nationalId, args.cardCode, examMinute].join('|');
 }

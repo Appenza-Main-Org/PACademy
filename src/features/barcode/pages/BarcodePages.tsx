@@ -1,24 +1,18 @@
 import { useState } from 'react';
 import { CalendarRange, Hash, Printer, Search, Sparkles, User } from 'lucide-react';
-import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, KhayameyaStripe } from '@/shared/components';
+import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, KhayameyaStripe, Code128Barcode } from '@/shared/components';
 import { IconSeal } from '@/shared/components/icons';
 import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName, maskNationalId } from '@/shared/lib/format';
 import { barcodeService } from '../api/barcode.service';
-import type { BarcodeRecord } from '@/shared/types/domain';
+import type { Applicant, BarcodeRecord } from '@/shared/types/domain';
 
-function BarcodeBars({ code }: { code: string }): JSX.Element {
-  const widths = code.split('').flatMap((ch) => {
-    const c = ch.charCodeAt(0);
-    return [(c % 4) + 1, ((c >> 2) % 3) + 1, ((c >> 4) % 4) + 1];
-  });
-  return (
-    <div className="barcode-bars">
-      {widths.map((w, i) => (
-        <span key={i} className="barcode-bar" style={{ width: w }} />
-      ))}
-    </div>
-  );
+/**
+ * Build the pipe-delimited Code 128B payload for an applicant card.
+ * Format: PA|{applicantId}|{nationalId}|{cardCode}|{committee}
+ */
+function buildPayload(applicant: Applicant, cardCode: string): string {
+  return ['PA', applicant.id, applicant.nationalId, cardCode, `C${applicant.committee}`].join('|');
 }
 
 export function BarcodeGeneratePage(): JSX.Element {
@@ -123,9 +117,14 @@ export function BarcodeGeneratePage(): JSX.Element {
                   </div>
                 </div>
 
-                {/* Barcode strip */}
-                <div className="bg-ink-50 px-4 py-3 text-center">
-                  <BarcodeBars code={record.code} />
+                {/* Barcode strip — real Code 128B carrying the card payload */}
+                <div className="flex flex-col items-center gap-1 bg-ink-50 px-4 py-3 text-center">
+                  <Code128Barcode
+                    value={applicant ? buildPayload(applicant, record.code) : record.code}
+                    height={56}
+                    moduleWidth={1.4}
+                    showText={false}
+                  />
                   <p className="mt-1 font-mono text-xs text-ink-700" dir="ltr">{record.code.replace(/(.{4})/g, '$1 ').trim()}</p>
                 </div>
 
@@ -212,13 +211,21 @@ export function BarcodeBatchPage(): JSX.Element {
             <div className="alert-body">يمكن طباعة دفعة كاملة (40 كارت في الصفحة الواحدة) لتوزيعها على لجان الفحص.</div>
           </div>
           <div className="grid grid-cols-auto" style={{ gap: 12 }}>
-            {MOCK.applicants.slice(0, 12).map((a) => (
-              <div key={a.id} className="barcode-display">
-                <div className="text-xs text-tertiary mb-2">{shortName(a.name, 2)}</div>
-                <BarcodeBars code={a.id.replace('APP-', '')} />
-                <div className="barcode-num">{a.id.replace('APP-', '').replace(/(.{4})/g, '$1 ').trim()}</div>
-              </div>
-            ))}
+            {MOCK.applicants.slice(0, 12).map((a) => {
+              const cardCode = `26-CAI-${a.id.replace('APP-', '').padStart(8, '0')}`;
+              return (
+                <div key={a.id} className="barcode-display flex flex-col items-center gap-1">
+                  <div className="text-xs text-tertiary mb-2">{shortName(a.name, 2)}</div>
+                  <Code128Barcode
+                    value={buildPayload(a, cardCode)}
+                    height={44}
+                    moduleWidth={1}
+                    showText={false}
+                  />
+                  <div className="barcode-num">{cardCode.replace(/(.{4})/g, '$1 ').trim()}</div>
+                </div>
+              );
+            })}
           </div>
           <div className="mt-4 flex justify-center">
             <Button variant="primary" leadingIcon={<Printer size={16} />}>طباعة {num(12)} كارت</Button>
