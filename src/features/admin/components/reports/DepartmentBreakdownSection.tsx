@@ -5,7 +5,7 @@
  */
 
 import { Card, CardBody, CardHeader } from '@/shared/components';
-import { BarChart, DonutChart } from '@/shared/components/charts';
+import { DonutChart } from '@/shared/components/charts';
 import { num } from '@/shared/lib/format';
 import type { DepartmentReport } from '@/shared/types/domain';
 import { SectionHeading } from './SectionHeading';
@@ -94,16 +94,64 @@ export function DepartmentBreakdownSection({ report }: DepartmentBreakdownSectio
             {report.topRejectionReasons.length === 0 ? (
               <p className="px-4 py-9 text-center text-sm text-ink-500">لا توجد بيانات</p>
             ) : (
-              <BarChart
-                height={220}
-                data={report.topRejectionReasons.map((r) => ({ label: r.labelAr, value: r.count }))}
-                color="var(--terra-500)"
-                ariaLabel="أسباب الرفض"
-              />
+              <RejectionReasonsList reasons={report.topRejectionReasons} />
             )}
           </CardBody>
         </Card>
       </div>
     </section>
+  );
+}
+
+/** Horizontal ranked-bar list — clearer than a vertical bar chart for
+ *  long Arabic labels with absolute + share-of-rejections context. */
+function RejectionReasonsList({
+  reasons,
+}: {
+  reasons: DepartmentReport['topRejectionReasons'];
+}): JSX.Element {
+  const max = Math.max(...reasons.map((r) => r.count), 1);
+  const total = reasons.reduce((s, r) => s + r.count, 0);
+
+  return (
+    <div>
+      <ol className="flex flex-col gap-3">
+        {reasons.map((r, i) => {
+          const fillPercent = Math.round((r.count / max) * 100);
+          const shareOfTop = total > 0 ? Math.round((r.count / total) * 100) : 0;
+          return (
+            <li key={r.reason} className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2.5">
+                <span
+                  aria-hidden
+                  className="font-numeric tnum inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-terra-50 text-2xs font-bold text-terra-700"
+                >
+                  {i + 1}
+                </span>
+                <p className="flex-1 text-sm leading-tight text-ink-900">{r.labelAr}</p>
+                <span className="font-numeric tnum text-sm font-bold text-terra-700" dir="ltr">
+                  {num(r.count)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 ps-9">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-pill bg-ink-100">
+                  <div
+                    className="h-full rounded-pill bg-terra-500 transition-all duration-base ease-standard"
+                    style={{ width: `${fillPercent}%` }}
+                  />
+                </div>
+                <span className="font-numeric tnum w-10 shrink-0 text-end text-2xs text-ink-500">
+                  {shareOfTop}%
+                </span>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="font-numeric tnum mt-4 border-t border-border-subtle pt-3 text-2xs text-ink-500">
+        إجمالي حالات الرفض في هذه الأسباب الخمسة:{' '}
+        <span className="font-bold text-ink-900">{num(total)}</span>
+      </p>
+    </div>
   );
 }
