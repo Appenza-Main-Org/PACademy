@@ -1,13 +1,28 @@
 /**
  * CategorySelectionPage — pre-wizard gate (Bucket B3).
- * Renders the active-cycle banner + the 3 public departments (general,
- * specialized, postgraduate) with conditions, tests, and procedures.
- * Departments where `nominationOnly: true` are filtered out at the
- * service layer and never reach this page.
+ *
+ * Step 1 — pick an active admission cycle. The platform may run more than
+ *          one cycle at the same time (e.g. a male and a female cohort
+ *          concurrently). When ≥2 cycles are live, the page shows a picker;
+ *          with exactly one, it auto-selects.
+ * Step 2 — pick one of the public departments (general, specialized,
+ *          postgraduate). Their open/closed state and conditions are
+ *          computed against the chosen cycle's openCategories +
+ *          conditionOverrides. Nomination-only departments are filtered
+ *          out at the service layer and never reach this page.
  */
 
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, CalendarRange, Home, Info, Lock } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  ArrowRight,
+  CalendarRange,
+  Check,
+  Home,
+  Info,
+  Lock,
+  Users,
+} from 'lucide-react';
 import {
   Badge,
   Button,
@@ -19,7 +34,9 @@ import {
   PageHeader,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
+import { cn } from '@/shared/lib/cn';
 import type {
+  AdmissionCycle,
   ApplicantCategory,
   CategoryCondition,
   RequiredTest,
@@ -29,7 +46,11 @@ import {
   TEST_KIND_ICON,
   TEST_KIND_LABEL_AR,
 } from '../lib/category-test-labels';
-import { useActiveCycle, useCategories } from '../api/categories.queries';
+import {
+  useActiveCycles,
+  useCategories,
+} from '../api/categories.queries';
+import { useApplicantPortalStore } from '../store/applicantPortal.store';
 
 const LINK_GHOST =
   'inline-flex items-center gap-2 h-9 rounded-md px-3 text-sm font-semibold text-teal-600 transition-colors duration-fast ease-standard hover:bg-teal-50 focus-visible:shadow-focus-teal focus-visible:outline-none';
@@ -50,31 +71,79 @@ const QUALIFICATION_LABEL: Record<CategoryCondition['requiredQualification'], st
   any: '',
 };
 
-export function CategorySelectionPage(): JSX.Element {
-  const cycleQuery = useActiveCycle();
-  const categoriesQuery = useCategories();
+const COHORT_LABEL: Record<AdmissionCycle['cohort'], string> = {
+  male: 'الذكور',
+  female: 'الإناث',
+};
 
-  if (cycleQuery.isLoading || categoriesQuery.isLoading) return <LoadingState variant="page" />;
-  if (cycleQuery.error || categoriesQuery.error) {
+export function CategorySelectionPage(): JSX.Element {
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const cyclesQuery = useActiveCycles();
+  const storedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
+  const setStoredCycleId = useApplicantPortalStore((s) => s.setSelectedCycleId);
+
+  const cycles = cyclesQuery.data ?? [];
+  const cycleParam = params.get('cycle');
+
+  /* Pick the active cycle. Order of precedence: explicit URL → store → only
+   * one available → none (forces user to choose when ≥2 are live). */
+  const selectedCycle = useMemo<AdmissionCycle | null>(() => {
+    if (!cycles.length) return null;
+    const tryFind = (id: string | null) =>
+      id ? cycles.find((c) => c.id === id) ?? null : null;
+    return (
+      tryFind(cycleParam) ??
+      tryFind(storedCycleId) ??
+      (cycles.length === 1 ? cycles[0]! : null)
+    );
+  }, [cycles, cycleParam, storedCycleId]);
+
+  /* Mirror the resolved cycle into the URL + store so deep-links and the
+   * eligibility step both inherit the choice. */
+  useEffect(() => {
+    if (!selectedCycle) return;
+    if (cycleParam !== selectedCycle.id) {
+      const next = new URLSearchParams(params);
+      next.set('cycle', selectedCycle.id);
+      setParams(next, { replace: true });
+    }
+    if (storedCycleId !== selectedCycle.id) {
+      setStoredCycleId(selectedCycle.id);
+    }
+  }, [selectedCycle, cycleParam, params, setParams, storedCycleId, setStoredCycleId]);
+
+  const categoriesQuery = useCategories(selectedCycle?.id);
+
+  if (cyclesQuery.isLoading) return <LoadingState variant="page" />;
+  if (cyclesQuery.error) {
     return (
       <ErrorState
-        error={(cycleQuery.error ?? categoriesQuery.error) as Error}
-        onRetry={() => {
-          cycleQuery.refetch();
-          categoriesQuery.refetch();
-        }}
+        error={cyclesQuery.error as Error}
+        onRetry={() => cyclesQuery.refetch()}
       />
     );
   }
 
-  const cycle = cycleQuery.data;
-  const categories = categoriesQuery.data ?? [];
+  const onPickCycle = (id: string): void => {
+    setStoredCycleId(id);
+    const next = new URLSearchParams(params);
+    next.set('cycle', id);
+    setParams(next, { replace: false });
+  };
+
+  const onSelectCategory = (categoryKey: string): void => {
+    if (!selectedCycle) return;
+    navigate(
+      `${ROUTES.applicantEligibility}?category=${categoryKey}&cycle=${selectedCycle.id}`,
+    );
+  };
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="اختر فئة التقديم"
-        subtitle="حدد قسم القبول المناسب وراجع شروطه واختباراته قبل بدء التقديم"
+        subtitle="حدد دورة القبول ثم القسم المناسب وراجع شروطه واختباراته قبل بدء التقديم"
         breadcrumbs={[
           { label: 'الرئيسية', href: ROUTES.hub },
           { label: 'بوابة المتقدم', href: ROUTES.applicant },
@@ -93,51 +162,196 @@ export function CategorySelectionPage(): JSX.Element {
         }
       />
 
-      {cycle ? (
-        <Card variant="compact" className="border-teal-500/40 bg-teal-50/40">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-teal-500 text-white">
-              <CalendarRange size={18} strokeWidth={1.75} />
-            </span>
-            <div className="flex-1">
-              <p className="font-ar-display text-md font-bold text-ink-900">
-                دورة القبول: {cycle.nameAr}
-              </p>
-              <p className="mt-0.5 text-2xs text-ink-500">
-                مفتوحة حتى {fmtDate(cycle.closeDate, 'short')}
-              </p>
-            </div>
-            <Badge tone="success">
-              <IconStamp width={12} height={12} className="me-1 inline-block" />
-              نشطة
-            </Badge>
-          </div>
-        </Card>
-      ) : (
+      {cycles.length === 0 ? (
         <EmptyState
           variant="generic"
           title="لا توجد دورة قبول نشطة حالياً"
           description="يرجى المتابعة لاحقاً لمتابعة فتح باب القبول."
         />
+      ) : (
+        <CyclePicker
+          cycles={cycles}
+          selectedId={selectedCycle?.id ?? null}
+          onPick={onPickCycle}
+        />
       )}
 
-      {cycle && categories.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {categories.map((category) => (
-            <CategoryCard key={category.key} category={category} />
-          ))}
-        </div>
+      {selectedCycle && (
+        <CategoriesSection
+          categoriesQuery={categoriesQuery}
+          onSelectCategory={onSelectCategory}
+        />
+      )}
+
+      {cycles.length > 1 && !selectedCycle && (
+        <Card variant="compact" className="border-dashed border-gold-300 bg-gold-50">
+          <p className="text-sm text-gold-700">
+            هناك أكثر من دورة قبول مفتوحة حالياً. اختر الدورة المناسبة من
+            القائمة أعلاه لعرض الفئات المتاحة فيها.
+          </p>
+        </Card>
       )}
     </div>
   );
 }
 
-function CategoryCard({ category }: { category: ApplicantCategory }): JSX.Element {
-  const navigate = useNavigate();
-  const onSelect = (): void => {
-    navigate(`${ROUTES.applicantEligibility}?category=${category.key}`);
-  };
+function CyclePicker({
+  cycles,
+  selectedId,
+  onPick,
+}: {
+  cycles: readonly AdmissionCycle[];
+  selectedId: string | null;
+  onPick: (id: string) => void;
+}): JSX.Element {
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-ar-display text-md font-bold text-ink-900">
+          {cycles.length > 1 ? 'دورات القبول النشطة' : 'دورة القبول النشطة'}
+        </h2>
+        {cycles.length > 1 && (
+          <Badge tone="info">
+            <Users size={12} strokeWidth={1.75} className="me-1 inline-block" />
+            {cycles.length} دورات مفتوحة
+          </Badge>
+        )}
+      </div>
 
+      <div
+        className={cn(
+          'grid gap-3',
+          cycles.length > 1 ? 'md:grid-cols-2 xl:grid-cols-3' : '',
+        )}
+      >
+        {cycles.map((cycle) => (
+          <CycleCard
+            key={cycle.id}
+            cycle={cycle}
+            selected={cycle.id === selectedId}
+            onPick={() => onPick(cycle.id)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CycleCard({
+  cycle,
+  selected,
+  onPick,
+}: {
+  cycle: AdmissionCycle;
+  selected: boolean;
+  onPick: () => void;
+}): JSX.Element {
+  const openCount = Object.values(cycle.openCategories ?? {}).filter(
+    (c) => c?.isOpen,
+  ).length;
+
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      aria-pressed={selected}
+      className={cn(
+        'group relative flex flex-col gap-3 rounded-lg border bg-surface-card p-4 text-start transition-all duration-fast ease-standard',
+        'focus-visible:shadow-focus-teal focus-visible:outline-none',
+        selected
+          ? 'border-teal-500 bg-teal-50/40 shadow-card'
+          : 'border-border-default hover:border-teal-500/40 hover:bg-teal-50/20',
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span
+            className={cn(
+              'inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors',
+              selected ? 'bg-teal-500 text-white' : 'bg-teal-50 text-teal-700',
+            )}
+          >
+            <CalendarRange size={18} strokeWidth={1.75} />
+          </span>
+          <div>
+            <p className="font-ar-display text-md font-bold text-ink-900">
+              {cycle.nameAr}
+            </p>
+            <p className="mt-0.5 text-2xs text-ink-500">
+              {COHORT_LABEL[cycle.cohort]} · مفتوحة حتى{' '}
+              {fmtDate(cycle.closeDate, 'short')}
+            </p>
+          </div>
+        </div>
+        {selected ? (
+          <Badge tone="success">
+            <Check size={12} strokeWidth={1.75} className="me-1 inline-block" />
+            مختارة
+          </Badge>
+        ) : (
+          <Badge tone="success">
+            <IconStamp width={12} height={12} className="me-1 inline-block" />
+            نشطة
+          </Badge>
+        )}
+      </div>
+      <dl className="grid grid-cols-2 gap-2 text-2xs text-ink-500">
+        <div className="rounded-md bg-ink-50 px-2 py-1.5">
+          <dt className="text-ink-500">السعة المتوقعة</dt>
+          <dd className="font-numeric tnum mt-0.5 font-bold text-ink-900">
+            {cycle.expectedCapacity}
+          </dd>
+        </div>
+        <div className="rounded-md bg-ink-50 px-2 py-1.5">
+          <dt className="text-ink-500">فئات مفتوحة</dt>
+          <dd className="font-numeric tnum mt-0.5 font-bold text-ink-900">
+            {openCount}
+          </dd>
+        </div>
+      </dl>
+    </button>
+  );
+}
+
+function CategoriesSection({
+  categoriesQuery,
+  onSelectCategory,
+}: {
+  categoriesQuery: ReturnType<typeof useCategories>;
+  onSelectCategory: (categoryKey: string) => void;
+}): JSX.Element {
+  if (categoriesQuery.isLoading) return <LoadingState variant="card-grid" count={3} />;
+  if (categoriesQuery.error) {
+    return (
+      <ErrorState
+        error={categoriesQuery.error as Error}
+        onRetry={() => categoriesQuery.refetch()}
+      />
+    );
+  }
+  const categories = categoriesQuery.data ?? [];
+  if (categories.length === 0) return <></>;
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {categories.map((category) => (
+        <CategoryCard
+          key={category.key}
+          category={category}
+          onSelect={() => onSelectCategory(category.key)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CategoryCard({
+  category,
+  onSelect,
+}: {
+  category: ApplicantCategory;
+  onSelect: () => void;
+}): JSX.Element {
   return (
     <Card variant="feature" className="flex flex-col gap-4">
       <header className="flex items-start justify-between gap-3">

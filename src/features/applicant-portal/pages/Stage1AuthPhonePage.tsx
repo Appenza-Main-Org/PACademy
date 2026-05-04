@@ -5,7 +5,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Phone } from 'lucide-react';
+import { CheckCircle2, Phone } from 'lucide-react';
 import { Button, Card, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage1Schema, type Stage1Values } from '../schemas';
@@ -15,8 +15,11 @@ import { useApplicantPortalStore } from '../store/applicantPortal.store';
 export function Stage1AuthPhonePage(): JSX.Element {
   const navigate = useNavigate();
   const setNationalId = useApplicantPortalStore((s) => s.setNationalId);
+  const storedNid = useApplicantPortalStore((s) => s.nationalId);
+  const carriedFromEligibility = Boolean(storedNid);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Stage1Values>({
     resolver: zodResolver(stage1Schema),
+    defaultValues: { nationalId: storedNid ?? '', phoneNumber: '' },
   });
 
   const onSubmit = async (values: Stage1Values): Promise<void> => {
@@ -51,6 +54,15 @@ export function Stage1AuthPhonePage(): JSX.Element {
           required
           placeholder="14 رقماً"
           dir="ltr"
+          readOnly={carriedFromEligibility}
+          helper={
+            carriedFromEligibility
+              ? 'تم نقله تلقائياً من خطوة التحقق من الأهلية'
+              : undefined
+          }
+          leadingIcon={
+            carriedFromEligibility ? <CheckCircle2 size={14} strokeWidth={1.75} className="text-success" /> : undefined
+          }
           {...register('nationalId')}
           error={errors.nationalId?.message}
         />

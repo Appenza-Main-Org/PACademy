@@ -31,7 +31,7 @@ import {
   TEST_KIND_LABEL_AR,
 } from '../lib/category-test-labels';
 import {
-  useActiveCycle,
+  useActiveCycles,
   useCategories,
   useEligibilityMutation,
 } from '../api/categories.queries';
@@ -79,17 +79,28 @@ export function EligibilityCheckPage(): JSX.Element {
   const [params] = useSearchParams();
   const setNationalId = useApplicantPortalStore((s) => s.setNationalId);
   const setSelectedCategoryKey = useApplicantPortalStore((s) => s.setSelectedCategoryKey);
-  const categoriesQuery = useCategories();
-  const cycleQuery = useActiveCycle();
+  const setSelectedCycleId = useApplicantPortalStore((s) => s.setSelectedCycleId);
+  const storedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
+  const cyclesQuery = useActiveCycles();
   const eligibilityMut = useEligibilityMutation();
   const [result, setResult] = useState<EligibilityResult | null>(null);
 
   const categoryParam = params.get('category');
+  const cycleParam = params.get('cycle');
+  const resolvedCycleId = cycleParam ?? storedCycleId ?? null;
+  const categoriesQuery = useCategories(resolvedCycleId ?? undefined);
 
   /* If the user hits this page without ?category=, send them back. */
   useEffect(() => {
     if (!categoryParam) navigate(ROUTES.applicantStart, { replace: true });
   }, [categoryParam, navigate]);
+
+  /* Mirror an explicit ?cycle= into the store so refreshing keeps it. */
+  useEffect(() => {
+    if (cycleParam && cycleParam !== storedCycleId) {
+      setSelectedCycleId(cycleParam);
+    }
+  }, [cycleParam, storedCycleId, setSelectedCycleId]);
 
   const category: ApplicantCategory | undefined = useMemo(
     () => categoriesQuery.data?.find((c) => c.key === categoryParam),
@@ -102,7 +113,7 @@ export function EligibilityCheckPage(): JSX.Element {
     formState: { errors },
   } = useForm<EligibilityFormValues>({ defaultValues: { nid: '' } });
 
-  if (categoriesQuery.isLoading || cycleQuery.isLoading) return <LoadingState variant="page" />;
+  if (categoriesQuery.isLoading || cyclesQuery.isLoading) return <LoadingState variant="page" />;
   if (categoriesQuery.error) {
     return <ErrorState error={categoriesQuery.error as Error} onRetry={() => categoriesQuery.refetch()} />;
   }
@@ -123,6 +134,7 @@ export function EligibilityCheckPage(): JSX.Element {
     const r = await eligibilityMut.mutateAsync({
       categoryKey: category.key,
       nid: values.nid,
+      cycleId: resolvedCycleId ?? undefined,
     });
     setResult(r);
     if (r.eligible) setNationalId(values.nid);
@@ -133,6 +145,10 @@ export function EligibilityCheckPage(): JSX.Element {
     navigate(ROUTES.applicant);
   };
 
+  const startUrl = resolvedCycleId
+    ? `${ROUTES.applicantStart}?cycle=${resolvedCycleId}`
+    : ROUTES.applicantStart;
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -141,12 +157,12 @@ export function EligibilityCheckPage(): JSX.Element {
         breadcrumbs={[
           { label: 'الرئيسية', href: ROUTES.hub },
           { label: 'بوابة المتقدم', href: ROUTES.applicant },
-          { label: 'اختيار الفئة', href: ROUTES.applicantStart },
+          { label: 'اختيار الفئة', href: startUrl },
           { label: 'التحقق من الأهلية' },
         ]}
         actions={
           <>
-            <Link to={ROUTES.applicantStart} className={LINK_GHOST}>
+            <Link to={startUrl} className={LINK_GHOST}>
               <ArrowRight size={16} className="rtl:rotate-180" /> اختيار الفئة
             </Link>
             <Link to={ROUTES.hub} className={LINK_SECONDARY}>

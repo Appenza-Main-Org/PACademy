@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Receipt, Smartphone } from 'lucide-react';
+import { CreditCard, FlaskConical, Receipt, Smartphone } from 'lucide-react';
 import { Badge, Button, Card, Modal, PrintLayout, toast } from '@/shared/components';
 import { applicantPortalService } from '../api/applicantPortal.service';
 
@@ -39,14 +39,57 @@ export function Stage6PaymentPage(): JSX.Element {
 
   return (
     <Card>
-      <div className="mb-5 flex items-start justify-between gap-3">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <h2 className="font-ar-display text-xl font-bold text-ink-900">سداد رسوم التقديم</h2>
+        {paid && <Badge tone="success">تم الدفع</Badge>}
+      </div>
+
+      <div
+        className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border p-5"
+        style={{
+          borderColor: 'var(--accent-500, #1A6868)',
+          background:
+            'linear-gradient(135deg, var(--accent-50, #E6F1F1) 0%, var(--surface-card, #FFFFFF) 100%)',
+        }}
+      >
         <div>
-          <h2 className="font-ar-display text-xl font-bold text-ink-900">سداد رسوم التقديم</h2>
-          <p className="mt-1 text-sm text-ink-500">
-            رسم التقديم: <span className="font-numeric tnum font-bold">{FEE.toLocaleString('en-US')}</span> جنيه
+          <p className="text-2xs font-bold uppercase tracking-wide text-ink-500">
+            رسم التقديم
+          </p>
+          <p className="mt-1 flex items-baseline gap-2">
+            <span
+              className="font-numeric tnum font-ar-display text-4xl font-bold text-ink-900"
+              dir="ltr"
+            >
+              {FEE.toLocaleString('en-US')}
+            </span>
+            <span className="text-md font-bold text-ink-700">جنيه</span>
           </p>
         </div>
-        {paid && <Badge tone="success">تم الدفع</Badge>}
+        <div className="text-end text-2xs text-ink-500">
+          <p>يُسدَّد مرة واحدة لهذه الدورة</p>
+          <p className="mt-0.5">قابل للاسترداد وفق اللائحة</p>
+        </div>
+      </div>
+
+      <div
+        role="note"
+        className="mb-5 flex items-start gap-3 rounded-md border border-dashed border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700"
+      >
+        <FlaskConical
+          size={16}
+          strokeWidth={1.75}
+          className="mt-0.5 shrink-0"
+          aria-hidden
+        />
+        <div>
+          <p className="font-bold">محاكاة عرض توضيحية</p>
+          <p className="mt-0.5 leading-relaxed">
+            هذه الخطوة عرض تجريبي ولا تتم أي عملية دفع حقيقية. لم يتم ربط
+            البوابة بمزوّد فوري أو بوابة الدفع الإلكتروني بعد، ولن يُخصم أي
+            مبلغ من حسابك.
+          </p>
+        </div>
       </div>
 
       <div className="mb-5 grid gap-3 md:grid-cols-2">
