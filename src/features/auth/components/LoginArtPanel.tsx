@@ -97,22 +97,16 @@ export function LoginArtPanel(): JSX.Element {
 
 function Stat({ value, label }: { value: string; label: string }): JSX.Element {
   return (
-    <div>
+    <div className="flex flex-col items-start gap-1.5">
       <dt
-        className="font-numeric tnum text-2xl font-bold text-gold-300"
+        dir="ltr"
+        className="font-numeric tnum text-2xl font-bold leading-none text-gold-300"
         style={{ fontFeatureSettings: '"tnum"' }}
       >
-        <span dir="ltr">{value}</span>
+        {value}
       </dt>
-      <dd className="mt-1 text-2xs text-white/60">{label}</dd>
-      <span
-        aria-hidden
-        className="mt-2 block h-px w-8"
-        style={{
-          background:
-            'linear-gradient(90deg, var(--gold-400) 0%, transparent 100%)',
-        }}
-      />
+      <dd className="text-2xs leading-tight text-white/60">{label}</dd>
+      <span aria-hidden className="block h-px w-8 bg-gold-400/70" />
     </div>
   );
 }
