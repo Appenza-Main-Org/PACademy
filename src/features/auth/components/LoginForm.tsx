@@ -59,7 +59,13 @@ export function LoginForm(): JSX.Element {
       {
         onSuccess: () => {
           toast('تم التحقق عبر منصّة MOIPASS بنجاح', 'success');
-          navigate(values.role === 'applicant' ? ROUTES.applicant : ROUTES.hub, { replace: true });
+          const landing =
+            values.role === 'applicant'
+              ? ROUTES.applicant
+              : values.role === 'super_admin'
+                ? ROUTES.admin.reports
+                : ROUTES.hub;
+          navigate(landing, { replace: true });
         },
         onError: (err) => toast(err.message || 'تعذّر التحقق من MOIPASS', 'danger'),
       },

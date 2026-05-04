@@ -16,9 +16,16 @@ import { ROUTES } from '@/config/routes';
 export function LoginPage(): JSX.Element {
   const user = useAuthStore((s) => s.user);
   /* Already-authenticated visitors: applicants → applicant portal,
-     all officers → staff hub. */
+     super_admin → admissions command center (/admin/reports),
+     all other officers → staff hub. */
   if (user) {
-    return <Navigate to={user.role === 'applicant' ? ROUTES.applicant : ROUTES.hub} replace />;
+    const dest =
+      user.role === 'applicant'
+        ? ROUTES.applicant
+        : user.role === 'super_admin'
+          ? ROUTES.admin.reports
+          : ROUTES.hub;
+    return <Navigate to={dest} replace />;
   }
 
   return (
