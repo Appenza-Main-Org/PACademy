@@ -107,38 +107,46 @@ export function ApplicantPortalLayout(): JSX.Element {
       <KhayameyaStripe height="sm" />
 
       {/* Slim public-style header — applicant doesn't get the staff sidebar/chrome */}
-      <header className="sticky top-0 flex h-14 items-center justify-between gap-4 border-b border-border-subtle bg-surface-card px-6"
+      <header className="sticky top-0 flex h-16 items-center justify-between gap-4 border-b border-border-subtle bg-surface-card px-6"
         style={{ zIndex: 'var(--z-sticky)' as unknown as number }}>
-        <a href={ROUTES.landing} className="flex items-center gap-3">
-          <LogoMark size={32} ariaLabel="شعار أكاديمية الشرطة" />
+        <a href={ROUTES.landing} className="flex items-center gap-3 rounded-md px-1 py-1 -mx-1 hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none">
+          <LogoMark size={36} ariaLabel="شعار أكاديمية الشرطة" />
           <span className="hidden flex-col leading-tight md:flex">
             <span className="font-ar-display text-sm font-bold text-ink-900">منظومة القبول</span>
             <span className="text-2xs text-ink-500">رحلة التقديم</span>
           </span>
         </a>
-        <div className="flex items-center gap-2 text-2xs text-ink-500">
+        <div className="flex items-center gap-2">
           {selectedCategory && (
-            <span className="hidden items-center gap-2 md:inline-flex">
-              <Badge tone="brand">{selectedCategory.labelAr}</Badge>
-              {!categoryLocked && (
+            <span className="hidden items-center md:inline-flex">
+              {categoryLocked ? (
+                <Badge tone="brand">{selectedCategory.labelAr}</Badge>
+              ) : (
                 <Link
                   to={ROUTES.applicantStart}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-2xs text-ink-700 hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                  title="تغيير الفئة"
+                  className="group inline-flex items-center gap-1.5 rounded-md border border-border-default bg-surface-page px-2.5 py-1.5 text-xs font-medium text-ink-800 transition-colors hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
                 >
-                  <Pencil size={12} strokeWidth={1.75} /> تغيير الفئة
+                  <span>{selectedCategory.labelAr}</span>
+                  <Pencil size={13} strokeWidth={1.75} className="text-ink-500 group-hover:text-teal-600" />
                 </Link>
               )}
             </span>
           )}
           {draft?.applicantId && (
-            <span className="hidden font-mono md:inline" dir="ltr">{draft.applicantId}</span>
+            <span
+              className="hidden rounded-md border border-border-subtle bg-ink-50 px-2.5 py-1.5 font-mono text-2xs text-ink-700 md:inline-flex"
+              dir="ltr"
+            >
+              {draft.applicantId}
+            </span>
           )}
           <button
             type="button"
             onClick={handleExit}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-ink-700 hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-ink-800 transition-colors hover:border-terra-500 hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
           >
-            <LogOut size={14} strokeWidth={1.75} /> خروج
+            <LogOut size={15} strokeWidth={1.75} /> خروج
           </button>
         </div>
       </header>
