@@ -29,7 +29,119 @@ export interface ApplicantResults {
   finalExam: ResultOutcome;
 }
 
-export interface Applicant {
+/* ── Extended applicant data (admin Add/Edit form — RFP pp.22-36) ───────────
+ * Optional sidecars on the base Applicant. The legacy MOCK seed leaves them
+ * empty; admin-created applicants populate them. View/Edit pages render
+ * sections only when their data exists. */
+
+export type DepartmentKey =
+  | 'general_first'
+  | 'general_second'
+  | 'special'
+  | 'lawyers'
+  | 'masters'
+  | 'doctorate';
+
+export type Religion = 'مسلم' | 'مسيحي';
+export type MaritalStatus = 'أعزب' | 'متزوج' | 'مطلق' | 'أرمل';
+
+export interface ApplicantContact {
+  homePhone?: string;
+  mobilePhone: string;
+  email?: string;
+  socialFacebook?: string;
+  socialInstagram?: string;
+  socialX?: string;
+  socialOther?: string;
+}
+
+export interface ApplicantAddress {
+  governorate: string;
+  city: string;
+  detail: string;
+  street?: string;
+}
+
+/** Discriminated by department; admin form swaps the rendered fields per §4. */
+export type ApplicantEducation =
+  | {
+      kind: 'general';
+      certificateName: string;
+      schoolName: string;
+      totalScore: number;
+      seatType?: string;
+      branch: 'علمي علوم' | 'علمي رياضة' | 'أدبي';
+      schoolCategory?: string;
+      graduationYear: number;
+      percentage?: number;
+    }
+  | {
+      kind: 'overseas';
+      certificateName: string;
+      schoolName: string;
+      totalScore: number;
+      seatType?: string;
+      schoolCategory?: string;
+      country: string;
+      graduationYear: number;
+    }
+  | {
+      kind: 'higher';
+      specialization: string;
+      university: string;
+      faculty: string;
+      totalScore: number;
+      grade?: string;
+      higherSpecialization?: string;
+      graduationYear: number;
+      secondary: {
+        certificateName: string;
+        totalScore: number;
+        schoolCategory?: string;
+        country?: string;
+        percentage?: number;
+      };
+    };
+
+export interface ApplicantFamilyMember {
+  fullName: string;
+  nationalId?: string;
+  occupation?: string;
+  alive: boolean;
+  governorate?: string;
+  education?: string;
+  /** Only used on the relatives array. */
+  relationshipId?: string;
+}
+
+export interface ApplicantFamily {
+  father?: ApplicantFamilyMember;
+  mother?: ApplicantFamilyMember;
+  paternalGrandfather?: ApplicantFamilyMember;
+  paternalGrandmother?: ApplicantFamilyMember;
+  maternalGrandfather?: ApplicantFamilyMember;
+  maternalGrandmother?: ApplicantFamilyMember;
+  siblings?: ApplicantFamilyMember[];
+  relatives?: ApplicantFamilyMember[];
+}
+
+export interface ApplicantExtended {
+  department?: DepartmentKey;
+  cycleId?: string;
+  religion?: Religion;
+  maritalStatus?: MaritalStatus;
+  fullName?: { first: string; second: string; third: string; fourth: string };
+  contact?: ApplicantContact;
+  currentAddress?: ApplicantAddress;
+  education?: ApplicantEducation;
+  family?: ApplicantFamily;
+  /** Free-text reason for any soft "موقوف" status applied by an admin. */
+  suspensionReason?: string;
+  /** Set when Stage 9 (attendance card print) has fired — locks personal data. */
+  attendanceCardPrintedAt?: string;
+}
+
+export interface Applicant extends ApplicantExtended {
   id: string;
   nationalId: string;
   name: string;
@@ -816,14 +928,6 @@ export interface NotificationItem {
  * statuses are reachable. Applicants attach to the workflow of their
  * department on creation. Configurator route: /admin/workflows.
  */
-
-export type DepartmentKey =
-  | 'general_first'
-  | 'general_second'
-  | 'special'
-  | 'lawyers'
-  | 'masters'
-  | 'doctorate';
 
 export const DEPARTMENT_LABELS: Record<DepartmentKey, string> = {
   general_first: 'قسم عام · دور أول',

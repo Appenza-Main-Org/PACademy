@@ -36,7 +36,16 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
   committee_admin: {
     labelAr: 'مدير لجنة قبول',
     apps: ['admin', 'committee', 'barcode', 'biometric'],
-    permissions: ['applicants:view', 'applicants:edit', 'committees:manage', 'barcode:print', 'biometric:verify'],
+    permissions: [
+      'applicants:view',
+      'applicants:edit',
+      'applicants:transition',
+      'committees:manage',
+      'barcode:print',
+      'biometric:verify',
+      'workflows:read',
+      'workflows:write',
+    ],
   },
   committee_user: {
     labelAr: 'موظف لجنة قبول',

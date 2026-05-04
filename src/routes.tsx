@@ -41,6 +41,8 @@ import {
   AdminLayout,
   AdmissionRulesPage,
   ApplicantDetailPage,
+  ApplicantEditPage,
+  ApplicantNewPage,
   ApplicantsPage,
   AuditPage,
   CategoriesListPage,
@@ -53,6 +55,8 @@ import {
   ReportsPage,
   SettingsPage,
   UsersPage,
+  WorkflowEditorPage,
+  WorkflowsListPage,
 } from '@/features/admin';
 import {
   CommitteeCreatePage,
@@ -147,7 +151,9 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'applicants', element: <ApplicantsPage /> },
+      { path: 'applicants/new', element: <ApplicantNewPage /> },
       { path: 'applicants/:id', element: <ApplicantDetailPage /> },
+      { path: 'applicants/:id/edit', element: <ApplicantEditPage /> },
       { path: 'users', element: <UsersPage /> },
       { path: 'audit', element: <AuditPage /> },
       { path: 'settings', element: <SettingsPage /> },
@@ -160,6 +166,9 @@ export const routes: RouteObject[] = [
       { path: 'cycles', element: <CyclesPage /> },
       { path: 'cycles/new', element: <CycleNewPage /> },
       { path: 'cycles/:id', element: <CycleDetailPage /> },
+      { path: 'workflows', element: <WorkflowsListPage /> },
+      { path: 'workflows/new', element: <WorkflowEditorPage /> },
+      { path: 'workflows/:id', element: <WorkflowEditorPage /> },
     ],
   },
 

@@ -26,7 +26,7 @@ import { cn } from '@/shared/lib/cn';
 import type { AppKey } from '@/shared/lib/constants';
 import type { AuditAction, AuditColor } from '@/shared/types/domain';
 
-const ACTION_ICON: Record<AuditAction, ElementType> = {
+const ACTION_ICON: Partial<Record<AuditAction, ElementType>> = {
   create: FilePlus2,
   update: Pencil,
   delete: Trash2,
