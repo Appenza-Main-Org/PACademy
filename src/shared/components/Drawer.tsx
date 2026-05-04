@@ -172,7 +172,9 @@ export function Drawer({
             </button>
           </header>
         )}
-        <div className="flex-1 overflow-auto">{children}</div>
+        {/* min-h-0 is required: without it the flex item's min-height:auto
+            makes the body grow to fit all content, defeating overflow-auto. */}
+        <div className="min-h-0 flex-1 overflow-auto">{children}</div>
       </aside>
     </div>
   );
