@@ -131,10 +131,10 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
             onClick={handleLogout}
             title="تسجيل الخروج"
             aria-label="تسجيل الخروج"
-            className="inline-flex items-center gap-1.5 rounded-md border border-terra-500 bg-terra-50 px-3 py-1.5 text-xs font-medium text-terra-700 transition-colors duration-fast ease-standard hover:bg-terra-500 hover:text-white focus-visible:shadow-focus-terra focus-visible:outline-none"
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-terra-500 bg-terra-50 px-4 text-sm font-semibold text-terra-700 transition-colors duration-fast ease-standard hover:bg-terra-500 hover:text-white focus-visible:shadow-focus-terra focus-visible:outline-none"
           >
-            <LogOut size={14} strokeWidth={1.75} />
-            <span className="hidden md:inline">خروج</span>
+            <LogOut size={16} strokeWidth={2} />
+            <span className="hidden md:inline">تسجيل الخروج</span>
           </button>
         </div>
       </header>

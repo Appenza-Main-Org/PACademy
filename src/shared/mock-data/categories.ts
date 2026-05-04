@@ -178,4 +178,4 @@ export const APPLICANT_CATEGORIES: readonly ApplicantCategory[] = [
 ];
 
 /** The cycle that the public applicant flow points at. */
-export const ACTIVE_CYCLE_ID = 'CYC-2025-F';
+export const ACTIVE_CYCLE_ID = 'CYC-2026-M';
