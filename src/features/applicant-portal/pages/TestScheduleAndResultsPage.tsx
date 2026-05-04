@@ -9,11 +9,14 @@
  */
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
+  ArrowRight,
   CalendarClock,
   CheckCircle2,
   HelpCircle,
+  Home,
   Info,
   MapPin,
   XCircle,
@@ -32,6 +35,7 @@ import {
 import type { DataTableColumn } from '@/shared/components';
 import type { TestSchedule, TestStatus } from '@/shared/types/domain';
 import { date as fmtDate } from '@/shared/lib/format';
+import { ROUTES } from '@/config/routes';
 import {
   TEST_KIND_ICON,
   TEST_KIND_LABEL_AR,
@@ -81,6 +85,22 @@ export function TestScheduleAndResultsPage(): JSX.Element {
       <PageHeader
         title="مواعيد ونتائج الاختبارات"
         subtitle="تابع جدول اختباراتك القادمة ونتائج الاختبارات السابقة"
+        breadcrumbs={[
+          { label: 'الرئيسية', href: ROUTES.hub },
+          { label: 'بوابة المتقدم', href: ROUTES.applicant },
+          { label: 'مواعيد ونتائج الاختبارات' },
+        ]}
+        actions={
+          <>
+            <Link to={ROUTES.applicant} className="btn btn-ghost">
+              <ArrowRight size={16} className="rtl:rotate-180" /> بوابة المتقدم
+            </Link>
+            <Link to={ROUTES.hub} className="btn btn-secondary">
+              <Home size={16} className="me-1.5" />
+              الرئيسية
+            </Link>
+          </>
+        }
       />
 
       <NextActionBanner test={current} hasAnyTest={tests.length > 0} />

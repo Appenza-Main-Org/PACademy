@@ -7,9 +7,9 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { ArrowLeft, ShieldCheck, XCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Home, ShieldCheck, XCircle } from 'lucide-react';
 import {
   Button,
   Card,
@@ -133,9 +133,22 @@ export function EligibilityCheckPage(): JSX.Element {
         title="التحقق من الأهلية"
         subtitle={`الفئة: ${category.labelAr}`}
         breadcrumbs={[
+          { label: 'الرئيسية', href: ROUTES.hub },
+          { label: 'بوابة المتقدم', href: ROUTES.applicant },
           { label: 'اختيار الفئة', href: ROUTES.applicantStart },
           { label: 'التحقق من الأهلية' },
         ]}
+        actions={
+          <>
+            <Link to={ROUTES.applicantStart} className="btn btn-ghost">
+              <ArrowRight size={16} className="rtl:rotate-180" /> اختيار الفئة
+            </Link>
+            <Link to={ROUTES.hub} className="btn btn-secondary">
+              <Home size={16} className="me-1.5" />
+              الرئيسية
+            </Link>
+          </>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-2">

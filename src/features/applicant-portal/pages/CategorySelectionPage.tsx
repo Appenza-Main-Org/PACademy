@@ -6,8 +6,8 @@
  * service layer and never reach this page.
  */
 
-import { useNavigate } from 'react-router-dom';
-import { CalendarRange, Info, Lock } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, CalendarRange, Home, Info, Lock } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -18,13 +18,13 @@ import {
   LoadingState,
   PageHeader,
 } from '@/shared/components';
+import { ROUTES } from '@/config/routes';
 import type {
   ApplicantCategory,
   CategoryCondition,
   RequiredTest,
 } from '@/shared/types/domain';
 import { date as fmtDate } from '@/shared/lib/format';
-import { ROUTES } from '@/config/routes';
 import {
   TEST_KIND_ICON,
   TEST_KIND_LABEL_AR,
@@ -69,6 +69,22 @@ export function CategorySelectionPage(): JSX.Element {
       <PageHeader
         title="اختر فئة التقديم"
         subtitle="حدد قسم القبول المناسب وراجع شروطه واختباراته قبل بدء التقديم"
+        breadcrumbs={[
+          { label: 'الرئيسية', href: ROUTES.hub },
+          { label: 'بوابة المتقدم', href: ROUTES.applicant },
+          { label: 'اختيار الفئة' },
+        ]}
+        actions={
+          <>
+            <Link to={ROUTES.applicant} className="btn btn-ghost">
+              <ArrowRight size={16} className="rtl:rotate-180" /> بوابة المتقدم
+            </Link>
+            <Link to={ROUTES.hub} className="btn btn-secondary">
+              <Home size={16} className="me-1.5" />
+              الرئيسية
+            </Link>
+          </>
+        }
       />
 
       {cycle ? (
