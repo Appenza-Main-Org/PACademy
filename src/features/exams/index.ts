@@ -5,5 +5,6 @@ export {
   ExamCreatePage,
   ExamsListPageNew,
   LiveExamPage,
+  ProctorListPage,
   ProctorViewPage,
 } from './pages/Sprint7Pages';

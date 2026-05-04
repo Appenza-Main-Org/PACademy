@@ -98,6 +98,7 @@ export const ROUTES = {
     examCreate: '/question-bank/exams/create',
     examTake: (id = ':examId'): string => `/question-bank/exams/${id}/take`,
     examProctor: (id = ':examId'): string => `/question-bank/exams/${id}/proctor`,
+    proctor: '/question-bank/proctor',
     results: '/question-bank/results',
   },
 } as const;

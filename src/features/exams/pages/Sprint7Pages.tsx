@@ -294,36 +294,224 @@ export function QuestionBankCRUDPage(): JSX.Element {
 
 /* ─────────── Exam create wizard (single-page, condensed) ─────────── */
 
+const DIFFICULTY_FILTERS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: 'all', label: 'كل المستويات' },
+  { value: '1', label: '★ — سهل جدًا' },
+  { value: '2', label: '★★ — سهل' },
+  { value: '3', label: '★★★ — متوسط' },
+  { value: '4', label: '★★★★ — صعب' },
+  { value: '5', label: '★★★★★ — صعب جدًا' },
+];
+
+const POOL_STATUS_FILTERS: ReadonlyArray<{ value: QuestionStatus | 'all'; label: string }> = [
+  { value: 'all', label: 'كل الحالات' },
+  { value: 'approved', label: 'معتمد' },
+  { value: 'live', label: 'منشور' },
+  { value: 'review', label: 'قيد المراجعة' },
+  { value: 'draft', label: 'مسودّة' },
+];
+
 export function ExamCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [scheduledFor, setScheduledFor] = useState(new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
-  const [count, setCount] = useState(40);
+  const [targetCount, setTargetCount] = useState(40);
+  const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
+  const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('approved');
+  const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const { data: pool, isLoading: poolLoading } = useQuery({
+    queryKey: ['exams', 'questions', 'all'],
+    queryFn: () => examsService.listQuestions({}),
+  });
+
+  const allQuestions = pool ?? [];
+  const categories = Array.from(new Set(allQuestions.map((q) => q.category))).sort();
+
+  const filteredPool = allQuestions.filter((q) => {
+    if (statusFilter !== 'all' && q.status !== statusFilter) return false;
+    if (categoryFilter !== 'all' && q.category !== categoryFilter) return false;
+    if (difficultyFilter !== 'all' && String(q.difficulty) !== difficultyFilter) return false;
+    if (search.trim()) {
+      const needle = search.trim().toLowerCase();
+      if (!q.text.toLowerCase().includes(needle) && !q.id.toLowerCase().includes(needle)) return false;
+    }
+    return true;
+  });
+
+  const selectedQuestions = allQuestions.filter((q) => selectedIds.includes(q.id));
+  const estimatedSeconds = selectedQuestions.reduce((acc, q) => acc + (q.timeLimitSeconds || 60), 0);
+  const estimatedMinutes = Math.max(1, Math.round(estimatedSeconds / 60));
+
+  const handleAutoPick = (): void => {
+    const eligible = filteredPool.filter((q) => !selectedIds.includes(q.id));
+    const remaining = Math.max(0, targetCount - selectedIds.length);
+    if (remaining === 0 || eligible.length === 0) {
+      toast('لا توجد أسئلة إضافية مطابقة للتصفية الحالية', 'warning');
+      return;
+    }
+    const pick = eligible.slice(0, remaining).map((q) => q.id);
+    setSelectedIds([...selectedIds, ...pick]);
+    toast(`تم اختيار ${pick.length} سؤال تلقائيًا`, 'success');
+  };
+
   const createMut = useMutation({
     mutationFn: () => examsService.createExam({
       nameAr: name || 'اختبار جديد',
       cycleId: 'CYC-2026-M',
       scheduledFor: new Date(scheduledFor).toISOString(),
-      rules: [{ category: 'قدرات لفظية', difficultyMin: 2, difficultyMax: 4, count, minutes: count }],
-      questionIds: [],
+      rules: [{
+        category: categoryFilter === 'all' ? 'متعدد' : categoryFilter,
+        difficultyMin: 1,
+        difficultyMax: 5,
+        count: selectedIds.length,
+        minutes: estimatedMinutes,
+      }],
+      questionIds: selectedIds,
     }),
     onSuccess: (next) => { toast(`تم إنشاء الاختبار ${next.id} كمسودّة`, 'success'); navigate(ROUTES.questionBank.exams); },
   });
 
+  const canSubmit = Boolean(name.trim()) && selectedIds.length > 0 && !createMut.isPending;
+  const countMatchesTarget = selectedIds.length === targetCount;
+
+  const poolColumns: DataTableColumn<BankQuestion>[] = [
+    { key: 'id', label: 'الرقم', width: 110, render: (q) => <span className="font-mono text-2xs" dir="ltr">{q.id}</span> },
+    { key: 'category', label: 'الفئة', render: (q) => <span className="text-2xs text-ink-700">{q.category}</span> },
+    { key: 'difficulty', label: 'الصعوبة', numeric: true, width: 90, render: (q) => <span className="text-2xs text-gold-700">{'★'.repeat(q.difficulty)}</span> },
+    { key: 'text', label: 'نص السؤال', render: (q) => <span className="block max-w-md truncate text-2xs">{q.text}</span> },
+    { key: 'time', label: 'الزمن', numeric: true, width: 80, render: (q) => <span className="font-numeric tnum text-2xs text-ink-500">{q.timeLimitSeconds}ث</span> },
+    { key: 'status', label: 'الحالة', width: 110, render: (q) => <Badge tone={STATUS_TONE[q.status]}>{q.status === 'approved' && <IconStamp width={10} height={10} className="me-1 inline-block" />}{STATUS_LABEL[q.status]}</Badge> },
+  ];
+
   return (
     <CenteredShell>
-      <PageHeader title="إنشاء اختبار" subtitle="حدّد الاسم، الموعد، وعدد الأسئلة المطلوبة" />
-      <Card>
-        <form className="grid gap-4 md:grid-cols-2" onSubmit={(e) => { e.preventDefault(); createMut.mutate(); }}>
-          <Input label="اسم الاختبار" required value={name} onChange={(e) => setName(e.target.value)} containerClassName="md:col-span-2" />
-          <Input label="موعد الاختبار" type="date" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} />
-          <Input label="عدد الأسئلة" type="number" min={10} max={100} value={count} onChange={(e) => setCount(Number(e.target.value))} />
-          <div className="md:col-span-2 flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => navigate(ROUTES.questionBank.exams)}>إلغاء</Button>
-            <Button type="submit" variant="primary" leadingIcon={<Pencil size={14} strokeWidth={1.75} />}>إنشاء كمسودّة</Button>
+      <PageHeader
+        title="إنشاء اختبار"
+        subtitle="حدّد الاسم والموعد، ثم اختر الأسئلة من بنك الأسئلة"
+      />
+
+      <div className="flex flex-col gap-5">
+        <Card>
+          <CardHeader title="تفاصيل الاختبار" subtitle="معلومات أساسية تظهر للمختبرين" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input label="اسم الاختبار" required value={name} onChange={(e) => setName(e.target.value)} containerClassName="md:col-span-2" />
+            <Input label="موعد الاختبار" type="date" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} />
+            <Input
+              label="العدد المستهدف للأسئلة"
+              type="number"
+              min={1}
+              max={200}
+              value={targetCount}
+              onChange={(e) => setTargetCount(Math.max(1, Number(e.target.value) || 1))}
+              helper="يُستخدم لزر «اختيار تلقائي» أدناه"
+            />
           </div>
-        </form>
-      </Card>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="اختر الأسئلة"
+            subtitle={`${num(selectedIds.length)} مختار من أصل ${num(allQuestions.length)} في البنك · مدة تقديرية ${num(estimatedMinutes)} دقيقة`}
+            actions={
+              <div className="flex items-center gap-2">
+                {selectedIds.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                    إلغاء التحديد
+                  </Button>
+                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leadingIcon={<Plus size={12} strokeWidth={1.75} />}
+                  onClick={handleAutoPick}
+                  disabled={poolLoading || filteredPool.length === 0 || selectedIds.length >= targetCount}
+                >
+                  اختيار تلقائي حتى {num(targetCount)}
+                </Button>
+              </div>
+            }
+          />
+
+          <div className="mb-4 grid gap-3 md:grid-cols-4">
+            <Input
+              label="بحث"
+              placeholder="ابحث في النص أو الرقم"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Select
+              label="الفئة"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              options={[{ value: 'all', label: 'كل الفئات' }, ...categories.map((c) => ({ value: c, label: c }))]}
+            />
+            <Select
+              label="الصعوبة"
+              value={difficultyFilter}
+              onChange={(e) => setDifficultyFilter(e.target.value)}
+              options={DIFFICULTY_FILTERS}
+            />
+            <Select
+              label="الحالة"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as QuestionStatus | 'all')}
+              options={POOL_STATUS_FILTERS}
+            />
+          </div>
+
+          {selectedIds.length > 0 && !countMatchesTarget && (
+            <div className="mb-3 rounded-md border border-dashed border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700">
+              العدد المختار ({num(selectedIds.length)}) لا يطابق العدد المستهدف ({num(targetCount)}). يمكنك المتابعة كمسودّة وضبط القائمة لاحقًا.
+            </div>
+          )}
+
+          <DataTable
+            data={filteredPool}
+            columns={poolColumns}
+            rowKey={(q) => q.id}
+            loading={poolLoading}
+            selectionMode="multi"
+            selectedRowKeys={selectedIds}
+            onSelectionChange={(keys) => setSelectedIds(keys.map((k) => String(k)))}
+            empty={
+              <EmptyState
+                variant="no-questions"
+                title="لا توجد أسئلة مطابقة"
+                description="جرّب توسعة التصفية أو غيّر الحالة المختارة."
+              />
+            }
+            zebraStripes
+            density="compact"
+            stickyHeader
+          />
+        </Card>
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-2xs text-ink-500">
+            {selectedIds.length === 0
+              ? 'اختر سؤالاً واحدًا على الأقل قبل الإنشاء.'
+              : `${num(selectedIds.length)} سؤال محدد · مدة الاختبار التقديرية ${num(estimatedMinutes)} دقيقة`}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="ghost" onClick={() => navigate(ROUTES.questionBank.exams)}>
+              إلغاء
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              leadingIcon={<Pencil size={14} strokeWidth={1.75} />}
+              isLoading={createMut.isPending}
+              disabled={!canSubmit}
+              onClick={() => createMut.mutate()}
+            >
+              إنشاء كمسودّة
+            </Button>
+          </div>
+        </div>
+      </div>
     </CenteredShell>
   );
 }
@@ -752,23 +940,6 @@ export function ExamsListPageNew(): JSX.Element {
         </Badge>
       ),
     },
-    {
-      key: '_actions',
-      label: <span className="sr-only">إجراءات</span>,
-      align: 'end',
-      render: (e) => (
-        <div className="inline-flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            leadingIcon={<Wifi size={12} strokeWidth={1.75} />}
-            onClick={() => navigate(ROUTES.questionBank.examProctor(e.id))}
-          >
-            مراقبة
-          </Button>
-        </div>
-      ),
-    },
   ];
 
   if (error) {
@@ -827,5 +998,177 @@ export function ExamsListPageNew(): JSX.Element {
         />
       </Card>
     </CenteredShell>
+  );
+}
+
+/* ─────────── Proctor landing — pick an exam to monitor ─────────── */
+
+export function ProctorListPage(): JSX.Element {
+  const navigate = useNavigate();
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['exams', 'list'],
+    queryFn: () => examsService.listExams(),
+  });
+
+  if (error) {
+    return (
+      <CenteredShell>
+        <ErrorState error={error} onRetry={() => refetch()} />
+      </CenteredShell>
+    );
+  }
+
+  const exams = data ?? [];
+  const now = Date.now();
+  const isLive = (e: ExamConfig): boolean => {
+    const t = new Date(e.scheduledFor).getTime();
+    /* "Live" = published and within the 4h monitoring window after scheduled start. */
+    return e.status === 'published' && t <= now && now - t < 4 * 60 * 60 * 1000;
+  };
+  const live = exams.filter(isLive);
+  const upcoming = exams.filter((e) => e.status === 'published' && !isLive(e));
+  const completed = exams.filter((e) => e.status === 'completed');
+
+  return (
+    <CenteredShell>
+      <PageHeader
+        title="مراقبة الاختبارات"
+        subtitle="اختر اختبارًا لمتابعة جلساته اللحظية وإدارة المختبرين"
+      />
+
+      {isLoading ? (
+        <LoadingState />
+      ) : exams.length === 0 ? (
+        <Card>
+          <EmptyState
+            variant="generic"
+            title="لا توجد اختبارات للمراقبة"
+            description="بعد نشر أول اختبار، ستظهر بطاقته هنا للمتابعة اللحظية."
+          />
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-6">
+          <ProctorSection
+            title="جارٍ الآن"
+            tone="live"
+            empty="لا يوجد اختبار قيد التشغيل في الوقت الحالي."
+            exams={live}
+            onMonitor={(id) => navigate(ROUTES.questionBank.examProctor(id))}
+            primaryCta
+          />
+          <ProctorSection
+            title="منشور · مجدول"
+            tone="upcoming"
+            empty="لا توجد اختبارات منشورة بانتظار البدء."
+            exams={upcoming}
+            onMonitor={(id) => navigate(ROUTES.questionBank.examProctor(id))}
+          />
+          {completed.length > 0 && (
+            <ProctorSection
+              title="منتهي"
+              tone="done"
+              empty=""
+              exams={completed}
+              onMonitor={(id) => navigate(ROUTES.questionBank.examProctor(id))}
+            />
+          )}
+        </div>
+      )}
+    </CenteredShell>
+  );
+}
+
+interface ProctorSectionProps {
+  title: string;
+  tone: 'live' | 'upcoming' | 'done';
+  empty: string;
+  exams: ExamConfig[];
+  onMonitor: (examId: string) => void;
+  primaryCta?: boolean;
+}
+
+function ProctorSection({ title, tone, empty, exams, onMonitor, primaryCta }: ProctorSectionProps): JSX.Element {
+  const dotColor =
+    tone === 'live' ? 'var(--success)' : tone === 'upcoming' ? 'var(--accent-500)' : 'var(--ink-400)';
+  return (
+    <section>
+      <header className="mb-3 flex items-center gap-2">
+        <span
+          aria-hidden
+          className="inline-block h-2 w-2 rounded-full"
+          style={{ background: dotColor, animation: tone === 'live' ? 'sessionPulse 1.6s ease-in-out infinite' : undefined }}
+        />
+        <h2 className="text-md font-bold text-ink-900">{title}</h2>
+        <span className="rounded-pill bg-ink-50 px-2 py-0.5 font-mono text-2xs text-ink-700" dir="ltr">
+          {exams.length}
+        </span>
+      </header>
+      {exams.length === 0 ? (
+        empty ? (
+          <p className="rounded-md border border-dashed border-border-default bg-surface-page px-4 py-6 text-center text-xs text-ink-500">
+            {empty}
+          </p>
+        ) : null
+      ) : (
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+          {exams.map((e) => (
+            <ProctorExamCard key={e.id} exam={e} tone={tone} onMonitor={onMonitor} primaryCta={primaryCta} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface ProctorExamCardProps {
+  exam: ExamConfig;
+  tone: 'live' | 'upcoming' | 'done';
+  onMonitor: (examId: string) => void;
+  primaryCta?: boolean;
+}
+
+function ProctorExamCard({ exam, tone, onMonitor, primaryCta }: ProctorExamCardProps): JSX.Element {
+  const badgeTone = tone === 'live' ? 'success' : tone === 'upcoming' ? 'info' : 'neutral';
+  const badgeLabel = tone === 'live' ? 'جارٍ الآن' : tone === 'upcoming' ? 'مجدول' : 'منتهي';
+  const ctaLabel = tone === 'done' ? 'عرض التقرير اللحظي' : 'مراقبة';
+  return (
+    <Card className="flex h-full flex-col gap-3 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold text-ink-900">{exam.nameAr}</p>
+          <p className="font-mono text-2xs text-ink-500" dir="ltr">{exam.id}</p>
+        </div>
+        <Badge tone={badgeTone}>{badgeLabel}</Badge>
+      </div>
+      <dl className="grid grid-cols-2 gap-2 text-2xs">
+        <div className="rounded-md bg-surface-page px-2 py-1.5">
+          <dt className="text-ink-500">الدورة</dt>
+          <dd className="font-mono text-ink-800" dir="ltr">{exam.cycleId}</dd>
+        </div>
+        <div className="rounded-md bg-surface-page px-2 py-1.5">
+          <dt className="text-ink-500">الموعد</dt>
+          <dd className="font-numeric tnum text-ink-800">{fmtDate(exam.scheduledFor, 'short')}</dd>
+        </div>
+        <div className="rounded-md bg-surface-page px-2 py-1.5">
+          <dt className="text-ink-500">عدد الأسئلة</dt>
+          <dd className="font-numeric tnum text-ink-800">{num(exam.questionIds.length)}</dd>
+        </div>
+        <div className="rounded-md bg-surface-page px-2 py-1.5">
+          <dt className="text-ink-500">المدّة</dt>
+          <dd className="font-numeric tnum text-ink-800">
+            {num(exam.rules.reduce((sum, r) => sum + r.minutes, 0))} د
+          </dd>
+        </div>
+      </dl>
+      <Button
+        variant={primaryCta ? 'primary' : 'secondary'}
+        size="sm"
+        leadingIcon={tone === 'live' ? <Wifi size={13} strokeWidth={1.75} /> : <Eye size={13} strokeWidth={1.75} />}
+        onClick={() => onMonitor(exam.id)}
+        className="mt-auto"
+      >
+        {ctaLabel}
+      </Button>
+    </Card>
   );
 }
