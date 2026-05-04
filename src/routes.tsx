@@ -139,6 +139,19 @@ function AdminIndexRoute(): JSX.Element {
   return <DashboardPage />;
 }
 
+/**
+ * HubIndexRoute — super_admin's "default home" is the admissions command
+ * center, so visiting /hub kicks them to /admin/reports. Every other
+ * authenticated officer (and the applicant escape hatch) gets the hub.
+ */
+function HubIndexRoute(): JSX.Element {
+  const user = useAuthStore((s) => s.user);
+  if (user?.role === 'super_admin') {
+    return <Navigate to={ROUTES.admin.reports} replace />;
+  }
+  return <HubPage />;
+}
+
 export const routes: RouteObject[] = [
   /* ── PUBLIC SURFACE — no auth required ───────────────────── */
   { path: '/', element: <PublicLandingPage /> },
@@ -149,7 +162,7 @@ export const routes: RouteObject[] = [
   { path: '/help', element: <HelpPage /> },
 
   /* ── STAFF SURFACE — AuthGuard required ─────────────────── */
-  { path: '/hub', element: <AuthGuard><HubPage /></AuthGuard> },
+  { path: '/hub', element: <AuthGuard><HubIndexRoute /></AuthGuard> },
   {
     path: '/architecture',
     element: <AuthGuard app="architecture"><ArchitecturePage /></AuthGuard>,
