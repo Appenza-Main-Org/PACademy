@@ -66,22 +66,12 @@ export function LoginArtPanel(): JSX.Element {
       </header>
 
       <div className="relative mt-6 lg:mt-0">
-        <p
-          className="mb-4 inline-flex items-center gap-2 rounded-pill border px-3 py-1 text-2xs font-medium text-gold-300"
-          style={{ borderColor: 'rgba(226, 188, 92, 0.30)', background: 'rgba(212, 164, 69, 0.08)' }}
-        >
-          وزارة الداخلية · أكاديمية الشرطة
-        </p>
         <h1 className="font-ar-display text-2xl font-bold leading-tight tracking-[-0.01em] lg:text-3xl">
           التحول الرقمي الكامل لإجراءات{' '}
           <span className="text-gold-300">القبول والاختبارات</span>
         </h1>
-        <p className="mt-3 max-w-md text-sm leading-relaxed text-white/75">
-          منظومة معلوماتية متكاملة تربط تسعة تطبيقات على مستوى الإنترنت والشبكة الداخلية،
-          بمستوى أمان وتشفير معتمد، لإدارة كامل دورة المتقدم بدقة وشفافية.
-        </p>
-        <dl className="mt-7 grid grid-cols-3 gap-4 lg:mt-8">
-          <Stat value="9" label="تطبيقات مترابطة" />
+        <dl className="mt-8 grid grid-cols-3 gap-4 lg:mt-10">
+          <Stat value="9" label="تطبيقات" />
           <Stat value="12K+" label="متقدم سنوياً" />
           <Stat value="100%" label="رقمنة الإجراءات" />
         </dl>
@@ -89,7 +79,7 @@ export function LoginArtPanel(): JSX.Element {
 
       <footer className="relative mt-6 inline-flex items-center gap-2 text-2xs text-white/55 lg:mt-0">
         <IconSeal width={12} height={12} className="text-gold-400/70" aria-hidden />
-        <span>© 2026 وزارة الداخلية · أكاديمية الشرطة · جميع الحقوق محفوظة</span>
+        <span>© 2026 · أكاديمية الشرطة</span>
       </footer>
     </aside>
   );
@@ -106,7 +96,6 @@ function Stat({ value, label }: { value: string; label: string }): JSX.Element {
         {value}
       </dt>
       <dd className="text-2xs leading-tight text-white/60">{label}</dd>
-      <span aria-hidden className="block h-px w-8 bg-gold-400/70" />
     </div>
   );
 }
