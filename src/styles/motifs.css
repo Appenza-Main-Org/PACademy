@@ -68,6 +68,21 @@
   100% { transform: translateY(100%); opacity: 0; }
 }
 
+/* ── Live exam session pulse — used on the proctor in-progress dot.
+   Soft opacity throb instead of size pulse so it doesn't shift layout. */
+@keyframes sessionPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+/* ── Status-cell flash — a 200ms accent-50 → transparent flash applied
+   when answered/total or status changes on the proctor table.
+   Cell-level so the row doesn't reflow. */
+@keyframes sessionCellFlash {
+  0%   { background-color: var(--accent-50); }
+  100% { background-color: transparent; }
+}
+
 /* ── Reduced motion no-op variants ──
    Every animation above is neutralised here so Sprint 0 ships with
    accessible motion by default. The base.css universal rule already
@@ -85,6 +100,8 @@
   @keyframes skeletonShimmer      { from, to { background-position: 0 0; } }
   @keyframes focusPulse           { from, to { box-shadow: none; } }
   @keyframes scanSweep            { from, to { transform: none; opacity: 0; } }
+  @keyframes sessionPulse         { from, to { opacity: 1; } }
+  @keyframes sessionCellFlash     { from, to { background-color: transparent; } }
 }
 
 /* ── Page enter helper class ── */

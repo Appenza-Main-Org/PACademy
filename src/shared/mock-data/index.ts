@@ -24,9 +24,11 @@ import type {
   AuditEntry,
   Committee,
   DayPoint,
+  ExamSession,
   Kpis,
   MedicalStation,
   Question,
+  SessionStatus,
   SystemUser,
   UserActivityEntry,
 } from '@/shared/types/domain';
@@ -310,6 +312,59 @@ for (const a of audit) {
   }
 }
 
+/* ── Live exam sessions — proctor surface (RFP Scope Document §9.E).
+ *  240 sessions for the first running exam, status-weighted to make the
+ *  proctor screen feel realistic (~60% in-progress, 25% started,
+ *  10% not-started, 5% dropped). The live service rotates statuses on
+ *  each poll so the demo shows movement.
+ */
+const PROCTOR_EXAM_ID = 'EXAM-0001';
+const PROCTOR_TOTAL_QUESTIONS = 50;
+const PROCTOR_DURATION_SECONDS = 60 * 60; // 60 minutes
+const PROCTOR_SESSION_COUNT = 240;
+
+function pickSessionStatus(): SessionStatus {
+  const r = rng();
+  if (r < 0.60) return 'in-progress';
+  if (r < 0.85) return 'started';
+  if (r < 0.95) return 'not-started';
+  return 'dropped';
+}
+
+const liveExamSessions: ExamSession[] = [];
+const nowSeed = Date.now();
+for (let i = 0; i < PROCTOR_SESSION_COUNT; i += 1) {
+  const applicant = applicants[i] ?? applicants[i % applicants.length]!;
+  const status = pickSessionStatus();
+  const startedOffsetMs = Math.floor(60_000 + rng() * 40 * 60_000); // 1–41 min ago
+  const startedAt = status === 'not-started' ? null : nowSeed - startedOffsetMs;
+  const heartbeatOffset = status === 'dropped'
+    ? Math.floor(120_000 + rng() * 600_000) // 2–12 min ago — clearly stale
+    : Math.floor(rng() * 45_000); // ≤ 45s ago
+  const lastHeartbeatAt = startedAt === null ? null : nowSeed - heartbeatOffset;
+  const answered = status === 'in-progress'
+    ? Math.floor(rng() * (PROCTOR_TOTAL_QUESTIONS - 4))
+    : status === 'started'
+      ? Math.floor(rng() * 3)
+      : status === 'dropped'
+        ? Math.floor(rng() * (PROCTOR_TOTAL_QUESTIONS / 2))
+        : 0;
+  liveExamSessions.push({
+    id: `SESS-${String(i + 1).padStart(5, '0')}`,
+    examId: PROCTOR_EXAM_ID,
+    applicantId: applicant.id,
+    applicantName: applicant.name,
+    status,
+    startedAt,
+    lastHeartbeatAt,
+    questionsAnswered: answered,
+    totalQuestions: PROCTOR_TOTAL_QUESTIONS,
+    durationSeconds: PROCTOR_DURATION_SECONDS,
+    ip: `10.${20 + Math.floor(rng() * 30)}.${Math.floor(rng() * 255)}.${Math.floor(rng() * 255)}`,
+    mac: Array.from({ length: 6 }, () => Math.floor(rng() * 256).toString(16).padStart(2, '0').toUpperCase()).join(':'),
+  });
+}
+
 /* ── Hour×day heatmap data (Sprint 1 §1.2.H) — 7 days × 24 hours of registration counts. ── */
 const heatmapHourDay: number[][] = [];
 for (let day = 0; day < 7; day += 1) {
@@ -368,4 +423,6 @@ export const MOCK = {
   cycles: ADMISSION_CYCLES,
   activeCycleId: ACTIVE_CYCLE_ID,
   testSchedules: TEST_SCHEDULES,
+  /* Live proctor surface (RFP §9.E) */
+  liveExamSessions,
 };

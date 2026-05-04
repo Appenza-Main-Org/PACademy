@@ -177,4 +177,89 @@ export const examsService = {
       createdAt: Date.now(),
     };
   },
+
+  /**
+   * INTEGRATION CONTRACT
+   * POST /api/v1/question-bank/questions/batch
+   * Body: { questions: QuestionDraft[] }   // up to 1000 rows
+   * Response: { created: number, skipped: number, ids: string[] }
+   * Auth: requires `exams:create` permission.
+   * Side-effect: emits audit entries (one per created question).
+   *
+   * Imported rows land in `draft` state — same lifecycle as a manually-created
+   * question (RFP Scope Document §9.A). The chief approves before they go live.
+   */
+  async createQuestionBatch(rows: QuestionDraft[]): Promise<BatchCreateResult> {
+    if (rows.length === 0) return { created: 0, skipped: 0, ids: [] };
+    if (rows.length > 1000) {
+      throw new Error('عدد الأسئلة يتجاوز الحد المسموح (1000 سؤال).');
+    }
+    /* Latency proportional to row count, clamped to keep the demo snappy. */
+    await simulateLatency(Math.min(800, 200 + rows.length * 2), Math.min(1400, 400 + rows.length * 3));
+    const ids: string[] = [];
+    for (const row of rows) {
+      const next: BankQuestion = {
+        ...row,
+        id: `Q-${String(qId++).padStart(5, '0')}`,
+        status: 'draft',
+        version: 1,
+      };
+      QS_STATE.unshift(next);
+      ids.push(next.id);
+    }
+    return { created: ids.length, skipped: 0, ids };
+  },
+
+  /**
+   * INTEGRATION CONTRACT
+   * GET /api/v1/exams/{examId}/sessions/live
+   * Response: { sessions: ExamSession[], totalsByStatus: Record<SessionStatus, number>, lastUpdated: string }
+   * Auth: requires `exams:proctor`.
+   * Polling: 5s recommended. Server sends only deltas if If-None-Match.
+   *
+   * Mock layer rotates a small percentage of sessions on every poll so the
+   * proctor surface feels alive in the demo. `answersPerMinute` is a 24-cell
+   * strip of "answers in the last 60s" sampled from the running totals.
+   */
+  async listLiveSessions(_examId: string): Promise<LiveSessionsResponse> {
+    await simulateLatency(120, 240);
+    const now = Date.now();
+    /* Drift: ~1 in 6 in-progress rows tick up an answer; ~1 in 30 transitions status. */
+    for (const s of SESSIONS_STATE) {
+      if (s.status === 'in-progress' && Math.random() < 0.32) {
+        s.questionsAnswered = Math.min(s.totalQuestions, s.questionsAnswered + 1);
+        s.lastHeartbeatAt = now;
+        if (s.questionsAnswered === s.totalQuestions) {
+          s.status = 'finished';
+        }
+      } else if (s.status === 'started' && Math.random() < 0.22) {
+        s.status = 'in-progress';
+        s.lastHeartbeatAt = now;
+      } else if (s.status === 'not-started' && Math.random() < 0.05) {
+        s.status = 'started';
+        s.startedAt = now;
+        s.lastHeartbeatAt = now;
+      } else if (s.status === 'in-progress' && Math.random() < 0.008) {
+        /* Connection drop (rare). */
+        s.status = 'dropped';
+      }
+    }
+    const totalsByStatus: Record<SessionStatus, number> = {
+      'not-started': 0, started: 0, 'in-progress': 0, dropped: 0, finished: 0,
+    };
+    for (const s of SESSIONS_STATE) totalsByStatus[s.status] += 1;
+
+    /* Cheap 24-bucket synthesis: lower at the head, peak in middle, taper. */
+    const answersPerMinute: number[] = [];
+    for (let i = 0; i < 24; i += 1) {
+      const phase = Math.sin((i / 24) * Math.PI);
+      answersPerMinute.push(Math.max(0, Math.round(8 + phase * 26 + (Math.random() - 0.5) * 6)));
+    }
+    return {
+      sessions: SESSIONS_STATE.map((s) => ({ ...s })),
+      totalsByStatus,
+      lastUpdated: new Date(now).toISOString(),
+      answersPerMinute,
+    };
+  },
 };

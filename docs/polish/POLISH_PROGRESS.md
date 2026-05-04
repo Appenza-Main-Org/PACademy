@@ -357,3 +357,163 @@ Per-app sweep focused on the highest-leverage S1 finding (per-app accent var() a
 ### What's next
 - **Phase 4 begins:** final cohesion review. Spot-check each screen at iPad-portrait (768×1024); click through every screen looking for visible inconsistencies; produce POLISH_REPORT.md at repo root; tag `polish-complete`.
 - Next progress entry: at Phase 4 close.
+
+---
+
+## 2026-05-04 · Question Bank — three connected feature uplifts
+
+### Why
+Post-polish product brief asked for three connected upgrades on the Question
+Bank app (`/question-bank/*`): (1) bulk Excel import of questions on the
+manage page, (2) a real-time proctor surface for in-progress exams, (3) a
+full UX revisit across all 7 routes — densify, migrate to per-app accent,
+swap raw tables for `DataTable` where sort/pagination matters, and add the
+"average score per category" panel that exams admins actually want
+post-cycle. RFP §7-2 / §9 govern scope.
+
+### Completed in this session
+- **Bulk import (XLSX/CSV) — `/question-bank/manage`**:
+  - `xlsx` (SheetJS) added to `dependencies`. Picks the Excel route per the
+    brief; the CSV fallback path is preserved by the same code path
+    (`XLSX.read` handles `.xlsx` / `.xls` / `.csv`).
+  - New `src/features/exams/lib/import-questions.ts` — template builder,
+    parser, per-row validator (5 rules), summary aggregator, CSV report
+    writer. UTF-8 BOM on the report so Excel-AR opens it cleanly.
+  - New `src/features/exams/components/ImportWizard.tsx` — 3-step `<Modal>`
+    with inline stepper. Step 1 explainer + "تحميل قالب Excel" download.
+    Step 2 drag-drop + per-row validation preview + summary strip + CSV
+    report download. Step 3 confirm + per-category breakdown + import.
+  - New `ImportPreviewTable` shows the first 20 rows with severity badges
+    (✅ صالح / ⚠ تحذير / ❌ خطأ).
+  - Service: `examsService.createQuestionBatch(rows)` with the
+    `INTEGRATION CONTRACT` JSDoc per the brief. Mock implementation pushes
+    drafts into `MOCK.bankQuestions`.
+  - New domain types: `QuestionDraft`, `BatchCreateResult`.
+  - Imported rows land as `draft` → carry the existing `قيد المراجعة`
+    Badge per §4 two-phase canon; chief approval before publish.
+
+- **Live proctor surface — `/question-bank/exams/:id/proctor`**:
+  - Service: `examsService.listLiveSessions(examId)` + dedicated
+    `useLiveSessions` hook with 5s `refetchInterval` (polling, mock-deltas).
+  - Mock seed: 240 `ExamSession` records weighted ~60% in-progress,
+    25% started, 10% not-started, 5% dropped. Service rotates statuses on
+    each poll so the proctor surface feels alive in the demo.
+  - New domain types: `ExamSession`, `SessionStatus`,
+    `LiveSessionsResponse`.
+  - Page rebuild: 5 `<StatCard>`s in the KPI strip (color-dot legend per
+    status), donut chart in the side panel (5 slices), 24-cell heat strip
+    showing "إجابات في آخر 60 ثانية" via `color-mix()` over the per-app
+    accent token, and a `LiveSessionsTable` with status pills, search,
+    progress bars, elapsed/remaining timers (terra in the last 5 min),
+    IP/MAC, and a kebab actions menu (عرض / إنهاء / إعادة فتح).
+  - Cell-level flash motif (`sessionCellFlash` keyframe, 320ms accent-50→
+    transparent) only on the `الحالة` and `التقدّم` cells when their
+    values change between polls — no row reflow, motion-reduced no-op.
+  - Header actions: "إنهاء الاختبار للجميع" (Modal confirmation),
+    "تمديد الوقت 5 دقائق" (gold styling), "تصدير التقدّم" (CSV download).
+  - New shared keyframe `sessionPulse` for the "live" KPI dot + polling
+    indicator. Reduced-motion variants added.
+
+- **UX revisit — all 7 routes**:
+  - **`/question-bank` overview** rewritten on top of the existing pages
+    file: removed legacy `.question-card` / `.filters` CSS, replaced with
+    Tailwind + tokens. KPI strip (4 stats) above the fold, category tiles
+    use `var(--accent-500)` for active border instead of `bg-teal-*`.
+    Question cards rebuilt with `Badge` + structured option list
+    (correct option = success-bg + check icon).
+  - **`/question-bank/exams`** — the new `ExamsListPageNew` had
+    `<a href>` for navigation (full-page reload); replaced with
+    `useNavigate`. Added 4 KPI cards above the table, a row-action
+    "مراقبة" link straight to the proctor page, and `IconStamp` on
+    "منشور" badges per §4 final canon. Empty state now offers a CTA.
+  - **`/question-bank/exams/create`** — already minimal; left as-is, but
+    the "إلغاء" / "إنشاء" button row picks up the per-app accent through
+    the existing primary variant.
+  - **`/question-bank/exams/:id/take`** — radio dot for the selected
+    answer migrated from hardcoded `accent-teal-500` to inline
+    `accentColor: var(--accent-500)` so the per-app override flows.
+  - **`/question-bank/exams/:id/proctor`** — full rebuild (above).
+  - **`/question-bank/results`** rewritten: 5 KPI strip (total / pass /
+    fail / avg / top), donut + distribution bar chart, **a 4th panel**
+    "متوسط الدرجات حسب الفئة" (horizontal bars over `var(--accent-500)`),
+    and a real `<DataTable>` with 200 rows + pagination + zebra. Header
+    actions: "تصدير CSV" (UTF-8 BOM) and "طباعة (PDF)" via
+    `window.print()`; both buttons hidden during print via
+    `print:hidden`.
+  - **`/question-bank/manage`** got the "استيراد من Excel" button next
+    to the existing "+ سؤال جديد" action.
+
+### Files touched
+- `package.json`, `package-lock.json` — `xlsx` dep.
+- `src/shared/types/domain.ts` — 5 new types.
+- `src/shared/mock-data/index.ts` — 240 seed sessions.
+- `src/styles/motifs.css` — `sessionPulse`, `sessionCellFlash` keyframes
+  + reduced-motion variants.
+- `src/features/exams/api/exams.service.ts` — 2 new methods with
+  integration contracts.
+- `src/features/exams/api/exams.queries.ts` (NEW) — `useLiveSessions`,
+  `useImportQuestionsMutation`, `examsKeys`.
+- `src/features/exams/lib/import-questions.ts` (NEW) — parser/validator.
+- `src/features/exams/components/ImportWizard.tsx` (NEW)
+- `src/features/exams/components/ImportPreviewTable.tsx` (NEW)
+- `src/features/exams/components/LiveSessionsTable.tsx` (NEW)
+- `src/features/exams/components/SessionStatusBadge.tsx` (NEW)
+- `src/features/exams/components/ProgressBar.tsx` (NEW — local to feature
+  per Polish guardrail #2: not a candidate for shared promotion since
+  this is its only use site so far.)
+- `src/features/exams/pages/ExamsPages.tsx` — full polish rewrite of
+  overview / exams-list / results.
+- `src/features/exams/pages/Sprint7Pages.tsx` — Import wizard wired,
+  proctor rebuilt, exams-list refreshed, take radio fixed.
+
+### Guardrail checks
+- `npm run typecheck` → 0 errors **in scope**. (5 pre-existing unstaged
+  unused-import errors in `src/features/applicant-portal/` from prior WIP
+  were left untouched per "Do NOT touch other apps' routes".)
+- `npm run build` → success, 7.3s.
+- `grep -nE "\b(pl|pr|ml|mr)-[0-9]" src/features/exams/` → 0 hits.
+- `grep -nE "#[0-9A-Fa-f]{6}\b" src/features/exams/` → 0 hits.
+- `grep -rn "<table" src/features/exams/` → only `ImportPreviewTable.tsx`
+  (a 20-row read-only preview where sort/pagination doesn't matter — the
+  brief's exception clause).
+
+### Judgment calls flagged
+- **JUDGMENT CALL (xlsx vs CSV-only):** brief allowed either. Picked
+  `xlsx` (~600KB gzipped extra) because Excel-AR is the operator's
+  native tool and the parser handles `.csv` too — no dual code path.
+  The bundle warning ("> 500 kB") is the existing one, not new from this.
+- **JUDGMENT CALL (ProgressBar local, not shared):** brief said only
+  promote a primitive if the same shape repeats ≥ 3 times across
+  features. The progress bar is currently used in only one file
+  (`LiveSessionsTable.tsx`). Kept local under
+  `src/features/exams/components/`. If a 2nd use site appears in admin
+  or applicant-portal, promote then.
+- **JUDGMENT CALL (no shared `<TwoPhaseSignature>` component):** held
+  the same line as Phase 0.5 — the canonical shape (preliminary dashed
+  border + final `IconStamp` on Badge) is applied in-place at every
+  site. Now applied on `ExamsListPageNew` ("منشور" badge gets
+  `IconStamp`) without inventing a new primitive.
+- **JUDGMENT CALL (proctor donut over heatmap as primary chart):** brief
+  was open. Picked donut for the primary because status totals are 5
+  discrete buckets — donut reads instantly. The 24-cell answer-rhythm
+  heat strip lives below the donut and answers a different question
+  ("are people still answering?") so they're complementary, not
+  redundant.
+- **JUDGMENT CALL (cell-level flash, 320ms not 200ms):** brief asked for
+  200ms. Pushed to 320ms because at 5s polling cadence the flash needs
+  to be visible without being noisy. Still well within "subtle" — and
+  reduced-motion users get the no-op variant.
+- **JUDGMENT CALL (results page applicants table at 200 rows, paginated):**
+  the existing screenshot showed the giant empty block to the right of
+  the donut. Filling that block with the per-category averages chart
+  was the brief's ask; I also paginated the 200-row table at 20/page so
+  the page doesn't scroll past the fold needlessly.
+
+### What's next
+- Backend integration session (post-demo) will replace the mock body of
+  `createQuestionBatch` and `listLiveSessions` per their integration
+  contracts. The proctor `useLiveSessions` already polls at 5s; the
+  contract notes `If-None-Match` for delta responses.
+- iPad-portrait spot-check during dress rehearsal: proctor table at
+  768×1024 is the primary tablet scenario.
+
