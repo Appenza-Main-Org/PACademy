@@ -9,7 +9,7 @@
 
 import { Activity, ArrowLeft, BarChart3, Calendar, Check, ClipboardList, CreditCard, Download, Eye, FilePlus2, FileText, Globe, GraduationCap, History, Hourglass, Lock, LogIn, Pencil, Scale, Search, ServerCog, Stethoscope, Trash2, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { CSSProperties, ElementType } from 'react';
+import type { CSSProperties, ElementType, ReactNode } from 'react';
 import { AppShell } from '@/app/layouts/AppShell';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
@@ -18,7 +18,7 @@ import {
   Pattern,
   StatCard,
 } from '@/shared/components';
-import { IconBarcode } from '@/shared/components/icons';
+import { IconBarcode, IconSeal } from '@/shared/components/icons';
 import { useAuthStore } from '@/features/auth';
 import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName } from '@/shared/lib/format';
@@ -87,76 +87,106 @@ export function HubPage(): JSX.Element {
   return (
     <AppShell>
       <CenteredShell>
-        {/* Hero */}
+        {/* Hero — Heritage Ink + Gold-Foil */}
         <section
-          className="relative mb-8 overflow-hidden rounded-2xl p-9 text-white"
+          className="relative mb-8 overflow-hidden rounded-2xl text-white"
           style={{
             background:
-              'linear-gradient(135deg, var(--teal-700) 0%, var(--teal-500) 60%, var(--teal-600) 100%)',
+              'linear-gradient(135deg, var(--ink-900) 0%, var(--ink-800) 55%, var(--ink-700) 100%)',
+            boxShadow:
+              '0 1px 0 rgba(212, 164, 69, 0.18) inset, 0 24px 48px -28px rgba(14, 12, 7, 0.65)',
           }}
         >
-          <Pattern variant="tessellation-8" tile={96} opacity={0.08} color="var(--gold-300)" />
-          <div className="absolute inset-x-0 top-0">
+          {/* Khayameya stripe at the top edge */}
+          <div className="absolute inset-x-0 top-0 z-[1]">
             <KhayameyaStripe height="md" />
           </div>
-          <div className="relative">
+          {/* Gold tessellation watermark */}
+          <Pattern variant="tessellation-8" tile={104} opacity={0.07} color="var(--gold-400)" />
+          {/* Soft gold radial glow at the start-top corner — depth */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -start-24 -top-24 h-[420px] w-[420px] rounded-full"
+            style={{
+              background:
+                'radial-gradient(circle at center, rgba(212, 164, 69, 0.22) 0%, rgba(212, 164, 69, 0) 70%)',
+            }}
+          />
+          {/* Embossed seal watermark on the end side */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -end-10 -bottom-10 hidden text-gold-400/15 sm:block"
+          >
+            <IconSeal width={260} height={260} strokeWidth={1.25} />
+          </span>
+          {/* Gold-foil hairline at the bottom edge */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-px"
+            style={{
+              background:
+                'linear-gradient(90deg, transparent 0%, var(--gold-500) 30%, var(--gold-300) 50%, var(--gold-500) 70%, transparent 100%)',
+            }}
+          />
+
+          <div className="relative px-9 pb-9 pt-12">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1 text-2xs font-medium text-gold-300">
+              <span
+                className="inline-flex items-center gap-2 rounded-pill border px-3 py-1 text-2xs font-medium text-gold-300"
+                style={{ borderColor: 'rgba(226, 188, 92, 0.30)', background: 'rgba(212, 164, 69, 0.08)' }}
+              >
                 <Calendar size={12} strokeWidth={1.75} />
                 {fmtDate(Date.now())}
               </span>
-              <span className="inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1 text-2xs font-medium text-white/75">
+              <span className="inline-flex items-center gap-2 rounded-pill bg-white/[0.06] px-3 py-1 text-2xs font-medium text-white/70">
                 {hijri} هـ
               </span>
-              <span className="inline-flex items-center gap-2 rounded-pill bg-white/10 px-3 py-1 font-numeric tnum text-2xs font-medium text-white/75">
+              <span className="inline-flex items-center gap-2 rounded-pill bg-white/[0.06] px-3 py-1 font-numeric tnum text-2xs font-medium text-white/70">
                 دورة 2026
               </span>
             </div>
-            <h1 className="mt-4 font-ar-display text-3xl font-bold leading-tight">
-              {greeting}، {shortName(user.name, 4)}
+            <h1 className="mt-5 font-ar-display text-3xl font-bold leading-tight tracking-[-0.01em]">
+              {greeting}، <span className="text-gold-300">{shortName(user.name, 4)}</span>
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/85">
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/75">
               المنظومة الكاملة للتحول الرقمي بإجراءات القبول والاختبارات. تسعة تطبيقات مترابطة على
               مستوى الإنترنت والشبكة الداخلية تعمل بصورة موحدة.
             </p>
-            <dl className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-2xs text-white/80">
+            <dl className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-2xs text-white/70">
               <div className="inline-flex items-center gap-2">
                 <span aria-hidden className="relative flex h-2 w-2">
                   <span className="absolute inset-0 rounded-full bg-success opacity-60 motion-safe:animate-ping" />
                   <span className="relative h-2 w-2 rounded-full bg-success" />
                 </span>
                 <dt className="sr-only">حالة المنظومة</dt>
-                <dd>كل الخدمات نشطة</dd>
+                <dd className="text-white/85">كل الخدمات نشطة</dd>
               </div>
-              <span aria-hidden className="hidden h-3 w-px bg-white/20 sm:inline-block" />
+              <span aria-hidden className="hidden h-3 w-px bg-white/15 sm:inline-block" />
               <div className="inline-flex items-baseline gap-1.5">
-                <dt className="text-white/60">الدور</dt>
-                <dd className="font-medium text-white/90">{user.roleLabel}</dd>
+                <dt className="text-white/50">الدور</dt>
+                <dd className="font-medium text-white/85">{user.roleLabel}</dd>
               </div>
-              <span aria-hidden className="hidden h-3 w-px bg-white/20 sm:inline-block" />
+              <span aria-hidden className="hidden h-3 w-px bg-white/15 sm:inline-block" />
               <div className="inline-flex items-baseline gap-1.5">
-                <dt className="text-white/60">تسجيل اليوم</dt>
-                <dd className="font-numeric tnum font-medium text-white/90">{num(todayRegs)}</dd>
+                <dt className="text-white/50">تسجيل اليوم</dt>
+                <dd className="font-numeric tnum font-medium text-white/85">{num(todayRegs)}</dd>
                 <span className={cn('font-numeric tnum text-2xs', dayDelta >= 0 ? 'text-gold-300' : 'text-terra-300')} dir="ltr">
                   {dayDelta >= 0 ? `+${dayDelta}` : dayDelta}
                 </span>
               </div>
-              <span aria-hidden className="hidden h-3 w-px bg-white/20 sm:inline-block" />
+              <span aria-hidden className="hidden h-3 w-px bg-white/15 sm:inline-block" />
               <div className="inline-flex items-baseline gap-1.5">
-                <dt className="text-white/60">منصة التحقق</dt>
-                <dd className="font-medium text-white/90">مفعّلة</dd>
+                <dt className="text-white/50">منصة التحقق</dt>
+                <dd className="font-medium text-white/85">مفعّلة</dd>
               </div>
             </dl>
           </div>
         </section>
 
         {/* KPI strip */}
-        <section className="mb-9">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="inline-flex items-center gap-2 font-ar-display text-xl font-bold text-ink-900">
-              <BarChart3 size={20} strokeWidth={1.75} aria-hidden />
-              لوحة المؤشرات
-            </h2>
+        <section className="mb-10">
+          <div className="mb-5 flex items-end justify-between">
+            <SectionTitle icon={BarChart3}>لوحة المؤشرات</SectionTitle>
             <span className="text-xs text-ink-500">آخر تحديث: {fmtDate(Date.now(), 'rel')}</span>
           </div>
           <div
@@ -215,13 +245,10 @@ export function HubPage(): JSX.Element {
 
         {/* Recent activity feed */}
         {recentEvents.length > 0 && (
-          <section className="mb-9">
-            <div className="mb-3 flex items-end justify-between">
+          <section className="mb-10">
+            <div className="mb-4 flex items-end justify-between">
               <div className="flex items-center gap-3">
-                <h2 className="inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
-                  <History size={16} strokeWidth={1.75} aria-hidden />
-                  آخر الأحداث
-                </h2>
+                <SectionTitle icon={History} size="md">آخر الأحداث</SectionTitle>
                 <span className="inline-flex items-center gap-1.5 rounded-pill bg-ink-50 px-2 py-0.5 text-2xs text-ink-500">
                   <span aria-hidden className="relative flex h-1.5 w-1.5">
                     <span className="absolute inset-0 rounded-full bg-gold-500 opacity-60 motion-safe:animate-ping" />
@@ -303,12 +330,9 @@ export function HubPage(): JSX.Element {
 
         {/* App grids */}
         {internet.length > 0 && (
-          <section className="mb-8">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="inline-flex items-center gap-2 font-ar-display text-xl font-bold text-ink-900">
-                <Globe size={18} strokeWidth={1.75} aria-hidden />
-                تطبيقات الإنترنت
-              </h2>
+          <section className="mb-10">
+            <div className="mb-5 flex items-end justify-between">
+              <SectionTitle icon={Globe}>تطبيقات الإنترنت</SectionTitle>
               <Badge tone="info">{num(internet.length)} تطبيقات</Badge>
             </div>
             <div
@@ -323,12 +347,9 @@ export function HubPage(): JSX.Element {
         )}
 
         {internal.length > 0 && (
-          <section className="mb-8">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="inline-flex items-center gap-2 font-ar-display text-xl font-bold text-ink-900">
-                <ServerCog size={18} strokeWidth={1.75} aria-hidden />
-                تطبيقات الشبكة الداخلية
-              </h2>
+          <section className="mb-10">
+            <div className="mb-5 flex items-end justify-between">
+              <SectionTitle icon={ServerCog}>تطبيقات الشبكة الداخلية</SectionTitle>
               <Badge tone="brand">{num(internal.length)} تطبيقات</Badge>
             </div>
             <div
@@ -342,9 +363,21 @@ export function HubPage(): JSX.Element {
           </section>
         )}
 
-        <footer className="mt-12 border-t border-border-subtle pt-6 text-center text-xs text-ink-500">
-          <p>وزارة الداخلية · أكاديمية الشرطة · إدارة تكنولوجيا المعلومات</p>
-          <p className="mt-1">
+        <footer className="mt-12 pt-7 text-center text-xs text-ink-500">
+          {/* Gold-foil hairline echoing the cover */}
+          <span
+            aria-hidden
+            className="mx-auto mb-5 block h-px w-40"
+            style={{
+              background:
+                'linear-gradient(90deg, transparent 0%, var(--gold-400) 50%, transparent 100%)',
+            }}
+          />
+          <p className="inline-flex items-center justify-center gap-2 text-ink-700">
+            <IconSeal width={14} height={14} className="text-gold-600" aria-hidden />
+            وزارة الداخلية · أكاديمية الشرطة · إدارة تكنولوجيا المعلومات
+          </p>
+          <p className="mt-1.5">
             تم الالتزام بكامل متطلبات السيادة الرقمية والأمن المعلوماتي · المنظومة آمنة ومُدققة
           </p>
         </footer>
@@ -431,6 +464,35 @@ function AppCard({ app }: { app: AppDef & { locked: boolean } }): JSX.Element {
     >
       {inner}
     </Link>
+  );
+}
+
+function SectionTitle({
+  icon: Icon,
+  size = 'lg',
+  children,
+}: {
+  icon: ElementType;
+  size?: 'md' | 'lg';
+  children: ReactNode;
+}): JSX.Element {
+  const titleSize = size === 'md' ? 'text-md' : 'text-xl';
+  const iconSize = size === 'md' ? 16 : 20;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <h2 className={cn('inline-flex items-center gap-2 font-ar-display font-bold text-ink-900', titleSize)}>
+        <Icon size={iconSize} strokeWidth={1.75} aria-hidden className="text-gold-600" />
+        {children}
+      </h2>
+      <span
+        aria-hidden
+        className="block h-[2px] w-10 rounded-pill"
+        style={{
+          background:
+            'linear-gradient(90deg, var(--gold-400) 0%, var(--gold-300) 60%, transparent 100%)',
+        }}
+      />
+    </div>
   );
 }
 
