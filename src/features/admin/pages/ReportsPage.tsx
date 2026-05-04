@@ -78,7 +78,11 @@ export function ReportsPage(): JSX.Element {
         <LoadingState variant="kpi" />
       )}
 
-      {cycle.data ? <CycleOverviewSection snapshot={cycle.data} /> : <LoadingState variant="card-grid" count={3} />}
+      {cycle.data ? (
+        <CycleOverviewSection snapshot={cycle.data} range={range} />
+      ) : (
+        <LoadingState variant="card-grid" count={3} />
+      )}
       {funnel.data ? <StagePipelineFunnel funnel={funnel.data} /> : <LoadingState variant="table" rows={6} />}
       {departments.data ? (
         <DepartmentBreakdownSection report={departments.data} />
@@ -92,7 +96,7 @@ export function ReportsPage(): JSX.Element {
         <LoadingState variant="card-grid" count={4} />
       )}
       {governance.data && integrations.data ? (
-        <GovernanceSection governance={governance.data} integrations={integrations.data} />
+        <GovernanceSection governance={governance.data} integrations={integrations.data} range={range} />
       ) : (
         <LoadingState variant="card-grid" count={3} />
       )}

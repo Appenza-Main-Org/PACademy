@@ -4,8 +4,8 @@
  */
 
 interface RegistrationTempoChartProps {
-  thisCycle: { label: string; value: number }[];
-  prevCycle: { label: string; value: number }[];
+  thisCycle: readonly { label: string; value: number }[];
+  prevCycle: readonly { label: string; value: number }[];
 }
 
 export function RegistrationTempoChart({ thisCycle, prevCycle }: RegistrationTempoChartProps): JSX.Element {
@@ -16,9 +16,10 @@ export function RegistrationTempoChart({ thisCycle, prevCycle }: RegistrationTem
   const plotH = h - padding.top - padding.bottom;
   const max = Math.max(1, ...thisCycle.map((d) => d.value), ...prevCycle.map((d) => d.value));
   const len = thisCycle.length;
+  const showPrev = prevCycle.length > 0;
   if (len === 0) return <p className="px-4 py-9 text-center text-sm text-ink-500">لا توجد بيانات</p>;
 
-  const path = (data: { value: number }[]): string =>
+  const path = (data: readonly { value: number }[]): string =>
     data
       .map((d, i) => {
         const x = padding.left + (i / Math.max(1, len - 1)) * plotW;
@@ -43,14 +44,16 @@ export function RegistrationTempoChart({ thisCycle, prevCycle }: RegistrationTem
           />
         );
       })}
-      <path
-        d={path(prevCycle)}
-        fill="none"
-        stroke="var(--gold-400)"
-        strokeWidth={2}
-        strokeOpacity={0.7}
-        strokeDasharray="5 4"
-      />
+      {showPrev && (
+        <path
+          d={path(prevCycle)}
+          fill="none"
+          stroke="var(--gold-400)"
+          strokeWidth={2}
+          strokeOpacity={0.7}
+          strokeDasharray="5 4"
+        />
+      )}
       <path d={path(thisCycle)} fill="none" stroke="var(--teal-500)" strokeWidth={2.5} />
     </svg>
   );

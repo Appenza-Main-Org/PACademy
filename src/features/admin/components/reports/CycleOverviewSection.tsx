@@ -9,13 +9,48 @@ import { date as fmtDate, num } from '@/shared/lib/format';
 import type { CycleSnapshot } from '@/shared/types/domain';
 import { RegistrationTempoChart } from './RegistrationTempoChart';
 import { SectionHeading } from './SectionHeading';
+import type { TimeRange } from './RangeChips';
 
 interface CycleOverviewSectionProps {
   snapshot: CycleSnapshot;
+  range: TimeRange;
 }
 
-export function CycleOverviewSection({ snapshot }: CycleOverviewSectionProps): JSX.Element {
-  const positive = snapshot.registrationTempo.deltaPercent >= 0;
+const RANGE_WINDOW_DAYS: Record<TimeRange, number | null> = {
+  today: 1,
+  '7d': 7,
+  '30d': 30,
+  cycle: null,
+  compare: null,
+};
+
+const RANGE_SUBTITLE: Record<TimeRange, string> = {
+  today: 'آخر يوم',
+  '7d': 'آخر ٧ أيام',
+  '30d': 'آخر ٣٠ يوم',
+  cycle: 'الدورة الكاملة',
+  compare: 'مقارنة بالدورة السابقة',
+};
+
+function sliceTail<T>(arr: readonly T[], n: number | null): readonly T[] {
+  if (n === null || n >= arr.length) return arr;
+  return arr.slice(arr.length - n);
+}
+
+export function CycleOverviewSection({ snapshot, range }: CycleOverviewSectionProps): JSX.Element {
+  const window = RANGE_WINDOW_DAYS[range];
+  const tempoThis = sliceTail(snapshot.registrationTempo.thisCycle, window);
+  const tempoPrev = sliceTail(snapshot.registrationTempo.prevCycle, window);
+  const showCompareLine = range === 'compare' || range === 'cycle';
+
+  const thisTotal = tempoThis.reduce((s, p) => s + p.value, 0);
+  const prevTotal = tempoPrev.reduce((s, p) => s + p.value, 0);
+  const windowDelta =
+    prevTotal > 0
+      ? Math.round(((thisTotal - prevTotal) / prevTotal) * 1000) / 10
+      : snapshot.registrationTempo.deltaPercent;
+
+  const positive = windowDelta >= 0;
   const TrendIcon = positive ? TrendingUp : TrendingDown;
   const capacity = snapshot.capacity ?? 0;
   const capacityRatio = capacity > 0 ? Math.min(1, snapshot.totalApplicants / capacity) : 0;
@@ -23,32 +58,36 @@ export function CycleOverviewSection({ snapshot }: CycleOverviewSectionProps): J
 
   return (
     <section className="mb-8">
-      <SectionHeading title="نظرة عامة على الدورة" eyebrow="RFP Scope Document §4(1-1) · Reports & Statistics" />
+      <SectionHeading
+        title="نظرة عامة على الدورة"
+        eyebrow={`RFP Scope Document §4(1-1) · ${RANGE_SUBTITLE[range]}`}
+      />
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {/* Tile A — Registration tempo (this cycle vs previous) */}
         <Card className="lg:col-span-2">
           <CardHeader
             title="إيقاع التقديم اليومي"
-            subtitle="المقارنة مع الدورة السابقة (٣٠ يوماً)"
+            subtitle={RANGE_SUBTITLE[range]}
             actions={
               <span className="inline-flex items-center gap-1 text-xs">
                 <TrendIcon size={12} strokeWidth={2} className={positive ? 'text-success' : 'text-terra-700'} />
                 <span className={positive ? 'text-success' : 'text-terra-700'}>
                   {positive ? '+' : ''}
-                  {snapshot.registrationTempo.deltaPercent}%
+                  {windowDelta}%
                 </span>
                 <span className="text-ink-500">مقارنةً بالعام الماضي</span>
               </span>
             }
           />
           <CardBody>
-            <RegistrationTempoChart
-              thisCycle={snapshot.registrationTempo.thisCycle}
-              prevCycle={snapshot.registrationTempo.prevCycle}
-            />
+            <RegistrationTempoChart thisCycle={tempoThis} prevCycle={showCompareLine ? tempoPrev : []} />
             <div className="mt-3 flex items-center gap-4 text-2xs text-ink-500">
               <LegendDot color="var(--teal-500)" label="الدورة الحالية" />
-              <LegendDot color="var(--gold-400)" label="الدورة السابقة" />
+              {showCompareLine && <LegendDot color="var(--gold-400)" label="الدورة السابقة" />}
+              <span className="ms-auto">
+                إجمالي النطاق:{' '}
+                <span className="font-numeric tnum text-ink-700">{num(thisTotal)}</span> متقدم
+              </span>
             </div>
           </CardBody>
         </Card>

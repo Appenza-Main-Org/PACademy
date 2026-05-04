@@ -11,11 +11,29 @@ import { num, relativeTime } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
 import type { GovernanceReport, IntegrationStatus } from '@/shared/types/domain';
 import { SectionHeading } from './SectionHeading';
+import type { TimeRange } from './RangeChips';
 
 interface GovernanceSectionProps {
   governance: GovernanceReport;
   integrations: readonly IntegrationStatus[];
+  range: TimeRange;
 }
+
+const HOURLY_WINDOW: Record<TimeRange, number> = {
+  today: 12,
+  '7d': 24,
+  '30d': 24,
+  cycle: 24,
+  compare: 24,
+};
+
+const ACTIVITY_SUBTITLE: Record<TimeRange, string> = {
+  today: 'النشاط المُدقَّق · آخر ١٢ ساعة',
+  '7d': 'النشاط المُدقَّق · آخر ٢٤ ساعة',
+  '30d': 'النشاط المُدقَّق · آخر ٢٤ ساعة',
+  cycle: 'النشاط المُدقَّق · آخر ٢٤ ساعة',
+  compare: 'النشاط المُدقَّق · آخر ٢٤ ساعة',
+};
 
 const STATUS_TONE: Record<IntegrationStatus['status'], { dot: string; label: string }> = {
   healthy: { dot: 'var(--success)', label: 'سليم' },
@@ -23,7 +41,12 @@ const STATUS_TONE: Record<IntegrationStatus['status'], { dot: string; label: str
   down: { dot: 'var(--terra-500)', label: 'متوقف' },
 };
 
-export function GovernanceSection({ governance, integrations }: GovernanceSectionProps): JSX.Element {
+export function GovernanceSection({ governance, integrations, range }: GovernanceSectionProps): JSX.Element {
+  const window = HOURLY_WINDOW[range];
+  const hourly = governance.hourly.slice(governance.hourly.length - window);
+  const total = hourly.reduce((s, b) => s + b.total, 0);
+  const highSens = hourly.reduce((s, b) => s + b.highSensitivity, 0);
+
   return (
     <section className="mb-8">
       <SectionHeading
@@ -34,22 +57,22 @@ export function GovernanceSection({ governance, integrations }: GovernanceSectio
         {/* Tile A — Audited activity */}
         <Card>
           <CardHeader
-            title="النشاط المُدقَّق · آخر ٢٤ ساعة"
+            title={ACTIVITY_SUBTITLE[range]}
             subtitle="الإجمالي مقابل العمليات حساسة الأثر"
           />
           <CardBody>
-            <DualLineChart hourly={governance.hourly} />
+            <DualLineChart hourly={hourly} />
             <dl className="mt-3 grid grid-cols-2 gap-3 text-2xs">
               <div>
                 <dt className="text-ink-500">إجمالي العمليات</dt>
                 <dd className="mt-0.5 font-numeric tnum text-md font-bold text-ink-900">
-                  {num(governance.totalLast24h)}
+                  {num(total)}
                 </dd>
               </div>
               <div>
                 <dt className="text-ink-500">حساسة الأثر</dt>
                 <dd className="mt-0.5 font-numeric tnum text-md font-bold text-terra-700">
-                  {num(governance.highSensitivityLast24h)}
+                  {num(highSens)}
                 </dd>
               </div>
             </dl>
@@ -125,7 +148,7 @@ export function GovernanceSection({ governance, integrations }: GovernanceSectio
 }
 
 interface DualLineChartProps {
-  hourly: GovernanceReport['hourly'];
+  hourly: readonly GovernanceReport['hourly'][number][];
 }
 
 function DualLineChart({ hourly }: DualLineChartProps): JSX.Element {

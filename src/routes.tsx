@@ -12,7 +12,8 @@
 
 import { Navigate, type RouteObject } from 'react-router-dom';
 import { AuthGuard } from '@/app/providers/AuthGuard';
-import { LoginPage } from '@/features/auth';
+import { LoginPage, useAuthStore } from '@/features/auth';
+import { ROUTES } from '@/config/routes';
 import { HubPage } from '@/features/hub';
 import { ArchitecturePage } from '@/features/architecture';
 import { RevampComparisonPage } from '@/features/design-revamp';
@@ -125,6 +126,19 @@ import {
   QuestionBankPage,
 } from '@/features/exams';
 
+/**
+ * AdminIndexRoute — super_admin sees the admissions command center
+ * (/admin/reports) as their /admin landing; other admin roles see the
+ * legacy DashboardPage.
+ */
+function AdminIndexRoute(): JSX.Element {
+  const user = useAuthStore((s) => s.user);
+  if (user?.role === 'super_admin') {
+    return <Navigate to={ROUTES.admin.reports} replace />;
+  }
+  return <DashboardPage />;
+}
+
 export const routes: RouteObject[] = [
   /* ── PUBLIC SURFACE — no auth required ───────────────────── */
   { path: '/', element: <PublicLandingPage /> },
@@ -150,7 +164,7 @@ export const routes: RouteObject[] = [
     path: '/admin',
     element: <AuthGuard app="admin"><AdminLayout /></AuthGuard>,
     children: [
-      { index: true, element: <DashboardPage /> },
+      { index: true, element: <AdminIndexRoute /> },
       { path: 'applicants', element: <ApplicantsPage /> },
       { path: 'applicants/new', element: <ApplicantNewPage /> },
       { path: 'applicants/:id', element: <ApplicantDetailPage /> },
