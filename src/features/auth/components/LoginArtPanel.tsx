@@ -12,7 +12,7 @@ import { KhayameyaStripe, LogoMark, Pattern } from '@/shared/components';
 export function LoginArtPanel(): JSX.Element {
   return (
     <aside
-      className="relative flex h-full flex-col justify-between overflow-hidden p-8 text-white lg:min-h-screen lg:p-12"
+      className="relative flex h-full flex-col justify-between overflow-hidden p-8 text-white lg:min-h-screen lg:p-12 lg:pe-20"
       style={{
         background:
           'linear-gradient(135deg, var(--ink-900) 0%, var(--ink-800) 55%, var(--ink-700) 100%)',
@@ -43,13 +43,14 @@ export function LoginArtPanel(): JSX.Element {
             'radial-gradient(ellipse 80% 70% at 30% 50%, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0) 100%)',
         }}
       />
-      {/* Gold-foil hairline along the inside edge meeting the form */}
+      {/* Gold-foil hairline along the inside edge meeting the form — sits in its own gutter so it never crowds text */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 inset-inline-end-0 hidden w-px lg:block"
+        className="pointer-events-none absolute inset-y-12 hidden w-px lg:block"
         style={{
+          insetInlineEnd: '32px',
           background:
-            'linear-gradient(180deg, transparent 0%, var(--gold-500) 25%, var(--gold-300) 50%, var(--gold-500) 75%, transparent 100%)',
+            'linear-gradient(180deg, transparent 0%, rgba(212, 164, 69, 0.55) 30%, rgba(229, 192, 109, 0.5) 50%, rgba(212, 164, 69, 0.55) 70%, transparent 100%)',
         }}
       />
 
