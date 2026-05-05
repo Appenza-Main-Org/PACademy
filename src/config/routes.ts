@@ -96,6 +96,7 @@ export const ROUTES = {
     crud: '/question-bank/manage',
     exams: '/question-bank/exams',
     examCreate: '/question-bank/exams/create',
+    examDetail: (id = ':examId'): string => `/question-bank/exams/${id}`,
     examTake: (id = ':examId'): string => `/question-bank/exams/${id}/take`,
     examProctor: (id = ':examId'): string => `/question-bank/exams/${id}/proctor`,
     proctor: '/question-bank/proctor',

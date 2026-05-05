@@ -116,6 +116,7 @@ import {
 } from '@/features/biometric';
 import {
   ExamCreatePage,
+  ExamDetailPage,
   ExamsLayout,
   ExamsListPage,
   ExamsListPageNew,
@@ -320,6 +321,7 @@ export const routes: RouteObject[] = [
       { path: 'exams', element: <ExamsListPageNew /> },
       { path: 'exams-legacy', element: <ExamsListPage /> },
       { path: 'exams/create', element: <ExamCreatePage /> },
+      { path: 'exams/:examId', element: <ExamDetailPage /> },
       { path: 'exams/:examId/take', element: <LiveExamPage /> },
       { path: 'exams/:examId/proctor', element: <ProctorViewPage /> },
       { path: 'proctor', element: <ProctorListPage /> },

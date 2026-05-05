@@ -3,6 +3,7 @@ export { QuestionBankPage, ExamsListPage, ExamsResultsPage } from './pages/Exams
 export {
   QuestionBankCRUDPage,
   ExamCreatePage,
+  ExamDetailPage,
   ExamsListPageNew,
   LiveExamPage,
   ProctorListPage,

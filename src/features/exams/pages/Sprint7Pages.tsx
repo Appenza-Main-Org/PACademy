@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  Calendar,
   CheckCircle2,
   Clock,
   Download,
@@ -17,11 +18,13 @@ import {
   FileText,
   Flag,
   Folder,
+  ListChecks,
   Pause,
   Pencil,
   Plus,
   Send,
   ShieldCheck,
+  Target,
   Timer,
   UploadCloud,
   Users,
@@ -940,6 +943,39 @@ export function ExamsListPageNew(): JSX.Element {
         </Badge>
       ),
     },
+    {
+      key: '_actions',
+      label: <span className="sr-only">إجراءات</span>,
+      align: 'end',
+      render: (e) => (
+        <div className="inline-flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            leadingIcon={<Eye size={12} strokeWidth={1.75} />}
+            onClick={(ev) => {
+              ev.stopPropagation();
+              navigate(ROUTES.questionBank.examDetail(e.id));
+            }}
+          >
+            تفاصيل
+          </Button>
+          {e.status === 'published' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              leadingIcon={<Wifi size={12} strokeWidth={1.75} />}
+              onClick={(ev) => {
+                ev.stopPropagation();
+                navigate(ROUTES.questionBank.examProctor(e.id));
+              }}
+            >
+              مراقبة
+            </Button>
+          )}
+        </div>
+      ),
+    },
   ];
 
   if (error) {
@@ -977,6 +1013,7 @@ export function ExamsListPageNew(): JSX.Element {
           columns={columns}
           rowKey={(e) => e.id}
           loading={isLoading}
+          onRowClick={(e) => navigate(ROUTES.questionBank.examDetail(e.id))}
           empty={
             <EmptyState
               variant="generic"
@@ -1170,5 +1207,271 @@ function ProctorExamCard({ exam, tone, onMonitor, primaryCta }: ProctorExamCardP
         {ctaLabel}
       </Button>
     </Card>
+  );
+}
+
+/* ─────────── Exam detail (read-only inspection of an exam config) ─────────── */
+
+const EXAM_STATUS_LABEL: Record<ExamConfig['status'], string> = {
+  draft: 'مسودّة',
+  published: 'منشور',
+  completed: 'منتهي',
+};
+
+const EXAM_STATUS_TONE: Record<ExamConfig['status'], 'warning' | 'success' | 'info'> = {
+  draft: 'warning',
+  published: 'success',
+  completed: 'info',
+};
+
+export function ExamDetailPage(): JSX.Element {
+  const { examId = '' } = useParams<{ examId: string }>();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  const { data: exam, isLoading, error, refetch } = useQuery({
+    queryKey: ['exams', 'config', examId],
+    queryFn: () => examsService.getExam(examId),
+    enabled: Boolean(examId),
+  });
+
+  const { data: questions } = useQuery({
+    queryKey: ['exams', 'config', examId, 'questions'],
+    queryFn: async () => {
+      if (!exam) return [] as BankQuestion[];
+      const results = await Promise.all(exam.questionIds.map((id) => examsService.getQuestion(id)));
+      return results.filter(Boolean) as BankQuestion[];
+    },
+    enabled: Boolean(exam),
+  });
+
+  const { data: attempts } = useQuery({
+    queryKey: ['exams', 'attempts', examId],
+    queryFn: () => examsService.getAttempts(examId),
+    enabled: Boolean(examId),
+  });
+
+  const publishMut = useMutation({
+    mutationFn: () => examsService.publishExam(examId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['exams', 'config', examId] });
+      qc.invalidateQueries({ queryKey: ['exams', 'list'] });
+      toast('تم نشر الاختبار', 'success');
+    },
+  });
+
+  if (isLoading) {
+    return <CenteredShell><LoadingState variant="page" /></CenteredShell>;
+  }
+  if (error) {
+    return <CenteredShell><ErrorState error={error} onRetry={() => refetch()} /></CenteredShell>;
+  }
+  if (!exam) {
+    return (
+      <CenteredShell>
+        <EmptyState
+          variant="generic"
+          title="الاختبار غير موجود"
+          description={`لا يوجد اختبار بالمعرّف ${examId}.`}
+          action={
+            <Button variant="primary" onClick={() => navigate(ROUTES.questionBank.exams)}>
+              العودة لقائمة الاختبارات
+            </Button>
+          }
+        />
+      </CenteredShell>
+    );
+  }
+
+  const qs = questions ?? [];
+  const totalSeconds = qs.reduce((acc, q) => acc + (q.timeLimitSeconds || 60), 0);
+  const totalMinutes = Math.max(1, Math.round(totalSeconds / 60));
+
+  const submitted = (attempts ?? []).filter((a) => a.submittedAt);
+  const passCount = submitted.filter((a) => a.passFail === 'pass').length;
+  const passRate = submitted.length > 0 ? Math.round((passCount / submitted.length) * 100) : 0;
+  const avgScore =
+    submitted.length > 0
+      ? Math.round(submitted.reduce((acc, a) => acc + (a.score ?? 0), 0) / submitted.length)
+      : 0;
+
+  /* Difficulty distribution for the questions in this exam. */
+  const difficultyBuckets = qs.reduce<Record<number, number>>((acc, q) => {
+    acc[q.difficulty] = (acc[q.difficulty] ?? 0) + 1;
+    return acc;
+  }, {});
+  const categoryBuckets = qs.reduce<Record<string, number>>((acc, q) => {
+    acc[q.category] = (acc[q.category] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const detailColumns: DataTableColumn<BankQuestion>[] = [
+    { key: 'id', label: 'الرقم', width: 110, render: (q) => <span className="font-mono text-2xs" dir="ltr">{q.id}</span> },
+    { key: 'category', label: 'الفئة', render: (q) => <span className="text-2xs text-ink-700">{q.category}</span> },
+    { key: 'difficulty', label: 'الصعوبة', numeric: true, width: 90, render: (q) => <span className="text-2xs text-gold-700">{'★'.repeat(q.difficulty)}</span> },
+    { key: 'text', label: 'نص السؤال', render: (q) => <span className="block max-w-md truncate text-2xs">{q.text}</span> },
+    { key: 'time', label: 'الزمن', numeric: true, width: 80, render: (q) => <span className="font-numeric tnum text-2xs text-ink-500">{q.timeLimitSeconds}ث</span> },
+    { key: 'status', label: 'الحالة', width: 110, render: (q) => <Badge tone={STATUS_TONE[q.status]}>{q.status === 'approved' && <IconStamp width={10} height={10} className="me-1 inline-block" />}{STATUS_LABEL[q.status]}</Badge> },
+  ];
+
+  return (
+    <CenteredShell>
+      <PageHeader
+        title={exam.nameAr}
+        subtitle={
+          <span className="inline-flex items-center gap-2 font-mono text-2xs text-ink-500" dir="ltr">
+            {exam.id}
+            <span aria-hidden className="h-1 w-1 rounded-full bg-ink-300" />
+            <span dir="rtl" className="font-ar">{exam.cycleId}</span>
+          </span>
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              leadingIcon={<ArrowRight size={14} strokeWidth={1.75} />}
+              onClick={() => navigate(ROUTES.questionBank.exams)}
+            >
+              العودة
+            </Button>
+            {exam.status === 'draft' && (
+              <Button
+                variant="primary"
+                leadingIcon={<Send size={14} strokeWidth={1.75} />}
+                isLoading={publishMut.isPending}
+                onClick={() => publishMut.mutate()}
+              >
+                نشر الاختبار
+              </Button>
+            )}
+            {exam.status === 'published' && (
+              <Button
+                variant="primary"
+                leadingIcon={<Wifi size={14} strokeWidth={1.75} />}
+                onClick={() => navigate(ROUTES.questionBank.examProctor(exam.id))}
+              >
+                مراقبة لحظية
+              </Button>
+            )}
+          </div>
+        }
+      />
+
+      <div className="mb-2 flex items-center gap-2">
+        <Badge tone={EXAM_STATUS_TONE[exam.status]}>
+          {exam.status === 'published' && <IconStamp width={12} height={12} className="me-1 inline-block" />}
+          {EXAM_STATUS_LABEL[exam.status]}
+        </Badge>
+      </div>
+
+      <div className="mb-6 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+        <StatCard
+          label="الموعد"
+          value={fmtDate(exam.scheduledFor, 'short')}
+          icon={<Calendar size={16} strokeWidth={1.75} />}
+        />
+        <StatCard
+          label="عدد الأسئلة"
+          value={exam.questionIds.length}
+          icon={<ListChecks size={16} strokeWidth={1.75} />}
+        />
+        <StatCard
+          label="مدة تقديرية"
+          value={`${num(totalMinutes)} د`}
+          icon={<Clock size={16} strokeWidth={1.75} />}
+          iconBg="var(--gold-50)"
+          iconColor="var(--gold-700)"
+        />
+        <StatCard
+          label="محاولات مُسلَّمة"
+          value={submitted.length}
+          icon={<Users size={16} strokeWidth={1.75} />}
+          iconBg="var(--teal-50)"
+          iconColor="var(--teal-700)"
+        />
+        {submitted.length > 0 && (
+          <StatCard
+            label="نسبة النجاح"
+            value={`${passRate}%`}
+            icon={<Target size={16} strokeWidth={1.75} />}
+            iconBg="var(--success-bg)"
+            iconColor="var(--success)"
+            trend={{ label: `متوسط ${avgScore}%`, tone: passRate >= 60 ? 'success' : 'danger' }}
+          />
+        )}
+      </div>
+
+      <div className="mb-6 grid gap-5 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="قواعد البناء" subtitle={`${exam.rules.length} قاعدة`} />
+          {exam.rules.length === 0 ? (
+            <p className="text-2xs text-ink-500">لم تُحدَّد قواعد لهذا الاختبار — تم اختيار الأسئلة يدويًا.</p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {exam.rules.map((r, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-2xs"
+                >
+                  <span className="font-medium text-ink-900">{r.category}</span>
+                  <span className="font-numeric tnum text-ink-700">
+                    {num(r.count)} سؤال · صعوبة {r.difficultyMin}-{r.difficultyMax} · {num(r.minutes)} د
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <CardHeader title="توزيع الأسئلة" subtitle="حسب الفئة والصعوبة" />
+          <div className="mb-3">
+            <p className="mb-1.5 text-2xs font-medium text-ink-500">حسب الفئة</p>
+            <ul className="flex flex-col gap-1">
+              {Object.entries(categoryBuckets).map(([cat, count]) => (
+                <li key={cat} className="flex items-center justify-between text-2xs">
+                  <span className="text-ink-700">{cat}</span>
+                  <span className="font-numeric tnum text-ink-500">{num(count)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="mb-1.5 text-2xs font-medium text-ink-500">حسب الصعوبة</p>
+            <ul className="flex flex-col gap-1">
+              {[1, 2, 3, 4, 5].map((d) => {
+                const count = difficultyBuckets[d] ?? 0;
+                if (count === 0) return null;
+                return (
+                  <li key={d} className="flex items-center justify-between text-2xs">
+                    <span className="text-gold-700">{'★'.repeat(d)}</span>
+                    <span className="font-numeric tnum text-ink-500">{num(count)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader title="أسئلة الاختبار" subtitle={`${num(qs.length)} سؤال مرتبط`} />
+        <DataTable
+          data={qs}
+          columns={detailColumns}
+          rowKey={(q) => q.id}
+          loading={!questions}
+          empty={
+            <EmptyState
+              variant="no-questions"
+              title="لا توجد أسئلة مرتبطة"
+              description="لم تُربط أسئلة بهذا الاختبار بعد."
+            />
+          }
+          zebraStripes
+          density="compact"
+        />
+      </Card>
+    </CenteredShell>
   );
 }
