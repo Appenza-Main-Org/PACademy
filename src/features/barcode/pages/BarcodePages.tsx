@@ -8,10 +8,19 @@ import type { Applicant, BarcodeRecord } from '@/shared/types/domain';
 
 /**
  * Build the pipe-delimited Code 128B payload for an applicant card.
- * Format: PA|{applicantId}|{nationalId}|{cardCode}|{committee}
+ * Format: PA|{applicantId}|{nationalId}|{cardCode}|C{committeeIdx}
+ *
+ * Committee is stored as an Arabic ordinal name ("الأولى"/"الثانية"/…) but
+ * Code 128B can only encode ASCII, so we map to a 1-based index. Falls back
+ * to "0" if the name is not in the canonical list.
  */
+const COMMITTEE_NAME_TO_INDEX: Record<string, number> = {
+  'الأولى': 1, 'الثانية': 2, 'الثالثة': 3, 'الرابعة': 4, 'الخامسة': 5,
+};
+
 function buildPayload(applicant: Applicant, cardCode: string): string {
-  return ['PA', applicant.id, applicant.nationalId, cardCode, `C${applicant.committee}`].join('|');
+  const committeeIdx = COMMITTEE_NAME_TO_INDEX[applicant.committee] ?? 0;
+  return ['PA', applicant.id, applicant.nationalId, cardCode, `C${committeeIdx}`].join('|');
 }
 
 export function BarcodeGeneratePage(): JSX.Element {

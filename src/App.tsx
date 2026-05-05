@@ -32,15 +32,21 @@ function ensureDemoUser(): void {
 ensureDemoUser();
 
 /**
- * One-shot redirect for the demo super_admin: every fresh page load lands
- * on the admissions command center, regardless of the URL the user typed
- * or refreshed at. The ref guard ensures this only fires on the initial
- * mount — subsequent in-app navigation is preserved.
+ * Demo super_admin redirect: when the user *reloads* the page (Cmd+R / F5)
+ * or hits the bare root URL, land them on the admissions command center.
+ * Direct navigation to a specific URL (typing the address, clicking a link,
+ * back/forward) stays on that URL so all routes remain reachable.
  *
- * Public routes (landing/apply) are exempt so the public funnel still
- * works during demos.
+ * Reload detection uses the Performance Navigation API
+ * (`performance.getEntriesByType('navigation')[0].type`).
  */
 const PUBLIC_PATH_PREFIXES = ['/apply', '/staff-login', '/login', '/terms', '/help'];
+
+function isReloadNavigation(): boolean {
+  if (typeof performance === 'undefined') return false;
+  const entries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+  return entries[0]?.type === 'reload';
+}
 
 function DemoBootstrapRedirect(): null {
   const navigate = useNavigate();
@@ -55,6 +61,11 @@ function DemoBootstrapRedirect(): null {
     const isPublic = PUBLIC_PATH_PREFIXES.some((p) => location.pathname.startsWith(p));
     if (isPublic) return;
     if (location.pathname === ROUTES.admin.reports) return;
+    /* Two cases redirect to the command center:
+     *  1. User reloaded the page (Cmd+R / F5).
+     *  2. User landed on the bare root "/".
+     * Direct navigation to any other URL is respected. */
+    if (!isReloadNavigation() && location.pathname !== '/') return;
     navigate(ROUTES.admin.reports, { replace: true });
   }, [navigate, location.pathname]);
 
