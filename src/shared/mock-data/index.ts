@@ -32,6 +32,7 @@ import type {
   SystemUser,
   UserActivityEntry,
 } from '@/shared/types/domain';
+import { QUESTION_POOL } from './questionPool';
 import { REFERENCE_DATA } from './referenceData';
 import { ADMISSION_CYCLES, ADMISSION_RULES } from './admissionCycles';
 import { APPLICANT_CATEGORIES, ACTIVE_CYCLE_ID } from './categories';
@@ -271,16 +272,19 @@ for (const a of APPLICANTS_WITH_AUDIT) {
 }
 audit.sort((a, b) => b.timestamp - a.timestamp);
 
-const questions: Question[] = [
-  { id: 'Q-0001', category: 'ثقافة عامة',  difficulty: 'سهل',    text: 'ما هي عاصمة جمهورية مصر العربية؟', options: ['الإسكندرية', 'القاهرة', 'الجيزة', 'أسوان'], correctIndex: 1, usedCount: 248 },
-  { id: 'Q-0002', category: 'تاريخ مصر',    difficulty: 'متوسط',  text: 'في أي عام قامت ثورة 23 يوليو؟', options: ['1948', '1950', '1952', '1956'], correctIndex: 2, usedCount: 187 },
-  { id: 'Q-0003', category: 'رياضيات',      difficulty: 'متوسط',  text: 'إذا كان المتوسط الحسابي لخمسة أعداد يساوي 12، فما مجموعها؟', options: ['50', '55', '60', '65'], correctIndex: 2, usedCount: 312 },
-  { id: 'Q-0004', category: 'لغة عربية',    difficulty: 'سهل',    text: 'ما الجمع الصحيح لكلمة "كتاب"؟', options: ['كتب', 'كتائب', 'كتابات', 'أكتاب'], correctIndex: 0, usedCount: 156 },
-  { id: 'Q-0005', category: 'منطق',         difficulty: 'صعب',   text: 'إذا كان جميع المهندسين مبدعين، وبعض المبدعين رياضيون، فإن:', options: ['جميع المهندسين رياضيون', 'بعض المهندسين رياضيون', 'لا يمكن تحديد العلاقة', 'لا يوجد مهندس رياضي'], correctIndex: 2, usedCount: 94 },
-  { id: 'Q-0006', category: 'لغة إنجليزية', difficulty: 'متوسط',  text: 'Choose the correct sentence:', options: ["He don't know the answer.", "He doesn't knows the answer.", "He doesn't know the answer.", 'He not know the answer.'], correctIndex: 2, usedCount: 211 },
-  { id: 'Q-0007', category: 'جغرافيا',      difficulty: 'سهل',    text: 'أطول نهر في العالم هو:', options: ['نهر الأمازون', 'نهر النيل', 'نهر اليانغتسي', 'نهر المسيسبي'], correctIndex: 1, usedCount: 178 },
-  { id: 'Q-0008', category: 'ثقافة عامة',  difficulty: 'متوسط',  text: 'في أي مدينة يقع مقر منظمة الأمم المتحدة الرئيسي؟', options: ['جنيف', 'نيويورك', 'باريس', 'فيينا'], correctIndex: 1, usedCount: 145 },
-];
+/* Legacy Question[] view of the shared pool — drives the cards visible at
+ * /question-bank. Categories deliberately match BANK_QUESTIONS (5 cats × 10),
+ * so the categories overview, the filter Select, and this list stay coherent.
+ * usedCount is deterministic (rng-driven) so the demo is reproducible. */
+const questions: Question[] = QUESTION_POOL.map((q, i) => ({
+  id: `Q-${String(i + 1).padStart(4, '0')}`,
+  category: q.category,
+  difficulty: q.difficultyLabel,
+  text: q.text,
+  options: [...q.options],
+  correctIndex: q.correctIndex,
+  usedCount: 50 + Math.floor(rng() * 320),
+}));
 
 /* TIER 2 — realistic medical station counts for a ~2,800-applicant cycle.
  * The 8 stations match RFP Scope Document §6.2.B exactly. Queue numbers are typical for

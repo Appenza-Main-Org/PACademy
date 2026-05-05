@@ -242,7 +242,7 @@ export function QuestionBankPage(): JSX.Element {
             <EmptyState variant="no-questions" />
           ) : (
             <ul className="flex flex-col gap-4">
-              {(questions ?? []).slice(0, 6).map((q) => (
+              {(questions ?? []).slice(0, 24).map((q) => (
                 <li
                   key={q.id}
                   className="rounded-md border border-border-subtle bg-surface-card p-4"

@@ -30,6 +30,7 @@ import type {
 /* The applicants array is generated earlier — this file consumes a
  * subset for cross-references via the seeded rng().                  */
 import { MOCK_APPLICANTS_FOR_REFS } from './_applicantsRefs';
+import { QUESTION_POOL } from './questionPool';
 
 const now = Date.now();
 const day = 86_400_000;
@@ -185,28 +186,28 @@ function outcomeBody(o: 'accepted' | 'rejected' | 'deferred'): string {
 }
 
 /* ── Sprint 7 — question bank + exams + attempts ─────────────────── */
-const Q_CATEGORIES = ['قدرات لفظية', 'قدرات عددية', 'منطق', 'سرعة بديهة', 'ثقافة عامة'];
+/* Backed by the shared QUESTION_POOL (50 real Arabic MCQs, 5 cats × 10).
+ * Difficulty is mapped from the pool's tri-tier label to the BankQuestion
+ * 1–5 scale; status is sliced (live/review/draft) so the CRUD screens have
+ * something to demonstrate the approval flow against. */
+const DIFFICULTY_FROM_LABEL: Record<'سهل' | 'متوسط' | 'صعب', 1 | 2 | 3 | 4 | 5> = {
+  سهل: 2,
+  متوسط: 3,
+  صعب: 4,
+};
 
-export const BANK_QUESTIONS: BankQuestion[] = (() => {
-  const out: BankQuestion[] = [];
-  for (let i = 0; i < 50; i += 1) {
-    const category = Q_CATEGORIES[i % Q_CATEGORIES.length] ?? Q_CATEGORIES[0]!;
-    const difficulty = (1 + Math.floor(rng() * 5)) as 1 | 2 | 3 | 4 | 5;
-    out.push({
-      id: `Q-${String(i + 1).padStart(5, '0')}`,
-      category,
-      difficulty,
-      type: 'mcq',
-      text: `سؤال نموذجي رقم ${i + 1} في فئة ${category}؟`,
-      options: ['الخيار الأول', 'الخيار الثاني', 'الخيار الثالث', 'الخيار الرابع'],
-      correctIndex: Math.floor(rng() * 4),
-      timeLimitSeconds: 45 + Math.floor(rng() * 75),
-      status: i < 35 ? 'live' : i < 45 ? 'review' : 'draft',
-      version: 1,
-    });
-  }
-  return out;
-})();
+export const BANK_QUESTIONS: BankQuestion[] = QUESTION_POOL.map((q, i) => ({
+  id: `Q-${String(i + 1).padStart(5, '0')}`,
+  category: q.category,
+  difficulty: DIFFICULTY_FROM_LABEL[q.difficultyLabel],
+  type: 'mcq',
+  text: q.text,
+  options: [...q.options],
+  correctIndex: q.correctIndex,
+  timeLimitSeconds: 45 + Math.floor(rng() * 75),
+  status: i < 35 ? 'live' : i < 45 ? 'review' : 'draft',
+  version: 1,
+}));
 
 export const EXAM_CONFIGS: ExamConfig[] = [
   {
