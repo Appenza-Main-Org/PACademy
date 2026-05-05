@@ -142,15 +142,13 @@ function AdminIndexRoute(): JSX.Element {
 }
 
 /**
- * HubIndexRoute — super_admin's "default home" is the admissions command
- * center, so visiting /hub kicks them to /admin/reports. Every other
- * authenticated officer (and the applicant escape hatch) gets the hub.
+ * HubIndexRoute — every authenticated officer (and the applicant escape
+ * hatch) gets the hub. super_admin used to be bounced to /admin/reports
+ * here, but that broke their primary path back to other apps once they
+ * landed on the command center. Initial-landing is now handled by
+ * LoginForm's onSuccess + DemoBootstrapRedirect, not by this route.
  */
 function HubIndexRoute(): JSX.Element {
-  const user = useAuthStore((s) => s.user);
-  if (user?.role === 'super_admin') {
-    return <Navigate to={ROUTES.admin.reports} replace />;
-  }
   return <HubPage />;
 }
 

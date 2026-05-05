@@ -4,6 +4,7 @@ import {
   CalendarDays,
   ClipboardList,
   Database,
+  Grid3x3,
   Layers,
   LayoutDashboard,
   Settings,
@@ -17,6 +18,12 @@ import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
 
 const SIDEBAR: SidebarSection[] = [
+  {
+    label: 'التنقل',
+    items: [
+      { key: 'hub', label: 'كل التطبيقات', icon: <Grid3x3 size={18} />, to: ROUTES.hub },
+    ],
+  },
   {
     label: 'الإدارة',
     items: [
