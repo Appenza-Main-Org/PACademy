@@ -259,8 +259,8 @@ function CycleCard({
         'group relative flex flex-col gap-3 rounded-lg border bg-surface-card p-4 text-start transition-all duration-fast ease-standard',
         'focus-visible:shadow-focus-teal focus-visible:outline-none',
         selected
-          ? 'border-teal-500 bg-teal-50/40 shadow-card'
-          : 'border-border-default hover:border-teal-500/40 hover:bg-teal-50/20',
+          ? 'border-teal-500 bg-teal-50 shadow-card ring-2 ring-teal-500/30'
+          : 'border-border-default hover:-translate-y-px hover:border-teal-500 hover:bg-teal-50 hover:shadow-sm',
       )}
     >
       <div className="flex items-start justify-between gap-3">
