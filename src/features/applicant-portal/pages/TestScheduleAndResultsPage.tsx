@@ -129,25 +129,27 @@ export function TestScheduleAndResultsPage(): JSX.Element {
 
       <Drawer open={Boolean(drawerTest)} onClose={() => setDrawerTest(null)} title="تعليمات الاختبار">
         {drawerTest && (
-          <div className="flex flex-col gap-3">
-            <p className="font-ar-display text-md font-bold text-ink-900">
-              {TEST_KIND_LABEL_AR[drawerTest.kind]}
-            </p>
-            <ul className="space-y-1.5 text-sm text-ink-700">
-              {drawerTest.instructions.map((line, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-            {drawerTest.notes && (
-              <div className="mt-2 rounded-md border border-dashed border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700">
-                <p className="font-bold">ملاحظات</p>
-                <p className="mt-1">{drawerTest.notes}</p>
-              </div>
-            )}
-          </div>
+          <Drawer.Body>
+            <div className="flex flex-col gap-3">
+              <p className="font-ar-display text-md font-bold text-ink-900">
+                {TEST_KIND_LABEL_AR[drawerTest.kind]}
+              </p>
+              <ul className="space-y-1.5 text-sm text-ink-700">
+                {drawerTest.instructions.map((line, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+              {drawerTest.notes && (
+                <div className="mt-2 rounded-md border border-dashed border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700">
+                  <p className="font-bold">ملاحظات</p>
+                  <p className="mt-1">{drawerTest.notes}</p>
+                </div>
+              )}
+            </div>
+          </Drawer.Body>
         )}
       </Drawer>
     </div>

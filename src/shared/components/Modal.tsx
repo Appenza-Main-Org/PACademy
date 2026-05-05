@@ -150,7 +150,7 @@ export function Modal({
         aria-label={!title ? ariaLabel : undefined}
         tabIndex={-1}
         className={cn(
-          'relative max-h-[90vh] w-full overflow-hidden bg-surface-elevated shadow-xl',
+          'relative flex max-h-[90vh] w-full flex-col overflow-hidden bg-surface-elevated shadow-xl',
           'rounded-xl border border-border-subtle',
           className,
         )}
@@ -171,7 +171,7 @@ export function Modal({
         )}
 
         {(title || subtitle) && (
-          <header className="border-b border-border-subtle px-6 py-5">
+          <header className="flex-none border-b border-border-subtle px-6 py-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 {title && (
@@ -195,7 +195,7 @@ export function Modal({
           </header>
         )}
 
-        <div className="overflow-auto">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       </div>
     </div>
   );
@@ -209,14 +209,14 @@ interface SectionProps {
 }
 
 Modal.Body = function ModalBody({ children, className }: SectionProps): JSX.Element {
-  return <div className={cn('px-6 py-6', className)}>{children}</div>;
+  return <div className={cn('min-h-0 flex-1 overflow-auto px-6 py-6', className)}>{children}</div>;
 };
 
 Modal.Footer = function ModalFooter({ children, className }: SectionProps): JSX.Element {
   return (
     <footer
       className={cn(
-        'flex items-center justify-end gap-2 border-t border-border-subtle px-6 py-4',
+        'flex flex-none items-center justify-end gap-2 border-t border-border-subtle px-6 py-4',
         className,
       )}
     >

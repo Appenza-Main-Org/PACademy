@@ -310,41 +310,43 @@ function NewCategoryDialog({
       subtitle="أنشئ فئة مخصصة ثم أكمل شروطها واختباراتها في صفحة التعديل"
       size="sm"
     >
-      <div className="flex flex-col gap-3">
-        <Input
-          label="المفتاح"
-          dir="ltr"
-          required
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder="custom_department"
-          helper="معرّف لاتيني فريد — لا يمكن تغييره لاحقاً"
-          error={errors.key}
-        />
-        <Input
-          label="الاسم بالعربية"
-          required
-          value={labelAr}
-          onChange={(e) => setLabelAr(e.target.value)}
-          error={errors.labelAr}
-        />
-        <Input
-          label="Label (English)"
-          dir="ltr"
-          value={labelEn}
-          onChange={(e) => setLabelEn(e.target.value)}
-        />
-        <label className="flex items-center gap-2 text-sm text-ink-700">
-          <input
-            type="checkbox"
-            checked={nominationOnly}
-            onChange={(e) => setNominationOnly(e.target.checked)}
-            className="h-4 w-4 cursor-pointer accent-teal-500"
+      <Modal.Body>
+        <div className="flex flex-col gap-3">
+          <Input
+            label="المفتاح"
+            dir="ltr"
+            required
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="custom_department"
+            helper="معرّف لاتيني فريد — لا يمكن تغييره لاحقاً"
+            error={errors.key}
           />
-          بالترشيح فقط (لا يظهر في التقديم العام)
-        </label>
-      </div>
-      <div className="mt-5 flex items-center justify-end gap-2">
+          <Input
+            label="الاسم بالعربية"
+            required
+            value={labelAr}
+            onChange={(e) => setLabelAr(e.target.value)}
+            error={errors.labelAr}
+          />
+          <Input
+            label="Label (English)"
+            dir="ltr"
+            value={labelEn}
+            onChange={(e) => setLabelEn(e.target.value)}
+          />
+          <label className="flex items-center gap-2 text-sm text-ink-700">
+            <input
+              type="checkbox"
+              checked={nominationOnly}
+              onChange={(e) => setNominationOnly(e.target.checked)}
+              className="h-4 w-4 cursor-pointer accent-teal-500"
+            />
+            بالترشيح فقط (لا يظهر في التقديم العام)
+          </label>
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
         <Button variant="ghost" onClick={handleClose} disabled={createMut.isPending}>
           إلغاء
         </Button>
@@ -356,7 +358,7 @@ function NewCategoryDialog({
         >
           إنشاء وفتح للتعديل
         </Button>
-      </div>
+      </Modal.Footer>
     </Modal>
   );
 }
