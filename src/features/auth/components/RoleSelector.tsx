@@ -27,14 +27,14 @@ interface RoleOption {
 }
 
 const ROLE_OPTIONS: readonly RoleOption[] = [
-  { key: 'super_admin',     Icon: UserCog,        label: 'مدير النظام' },
-  { key: 'committee_admin', Icon: ClipboardList,  label: 'مدير لجنة' },
+  { key: 'super_admin',     Icon: UserCog,        label: 'إدارة منظومة القبول' },
+  { key: 'committee_admin', Icon: ClipboardList,  label: 'لجان القبول' },
   { key: 'medical_admin',   Icon: Stethoscope,    label: 'القومسيون الطبي' },
-  { key: 'investigator',    Icon: Search,         label: 'إدارة التحريات' },
-  { key: 'board_admin',     Icon: Scale,          label: 'الهيئة' },
-  { key: 'exams_admin',     Icon: ScrollText,     label: 'الاختبارات' },
-  { key: 'biometric_user',  Icon: ShieldCheck,    label: 'بوابة الأمن' },
-  { key: 'applicant',       Icon: GraduationCap,  label: 'متقدم' },
+  { key: 'investigator',    Icon: Search,         label: 'التحريات' },
+  { key: 'board_admin',     Icon: Scale,          label: 'الهيئة وأمانة السر' },
+  { key: 'exams_admin',     Icon: ScrollText,     label: 'بنك الأسئلة والاختبارات' },
+  { key: 'biometric_user',  Icon: ShieldCheck,    label: 'تسجيل واستعلام بيومتري' },
+  { key: 'applicant',       Icon: GraduationCap,  label: 'موقع المتقدمين' },
 ];
 
 interface RoleSelectorProps {
@@ -44,7 +44,7 @@ interface RoleSelectorProps {
 
 export function RoleSelector({ value, onChange }: RoleSelectorProps): JSX.Element {
   return (
-    <div role="radiogroup" aria-label="الدور الوظيفي" className="grid grid-cols-2 gap-2">
+    <div role="radiogroup" aria-label="الدور الوظيفي" className="grid auto-rows-fr grid-cols-2 gap-2">
       {ROLE_OPTIONS.map(({ key, Icon, label }) => {
         const selected = value === key;
         return (
@@ -55,7 +55,7 @@ export function RoleSelector({ value, onChange }: RoleSelectorProps): JSX.Elemen
             aria-checked={selected}
             onClick={() => onChange(key)}
             className={cn(
-              'flex flex-col items-center gap-1 rounded-md border bg-surface-card px-3 py-3 text-center text-xs font-medium transition-colors duration-fast ease-standard',
+              'flex h-full min-h-[4.75rem] flex-col items-center justify-center gap-1.5 rounded-md border bg-surface-card px-2.5 py-3 text-center text-xs font-medium leading-tight transition-colors duration-fast ease-standard',
               'focus-visible:shadow-focus-teal focus-visible:outline-none',
               selected
                 ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-focus-teal'
@@ -63,7 +63,7 @@ export function RoleSelector({ value, onChange }: RoleSelectorProps): JSX.Elemen
             )}
           >
             <Icon size={20} strokeWidth={1.75} />
-            <span>{label}</span>
+            <span className="text-balance">{label}</span>
           </button>
         );
       })}
