@@ -151,7 +151,7 @@ export function ImportWizard({ open, onClose }: ImportWizardProps): JSX.Element 
       <Modal.Body>
         <Stepper step={step} />
         {step === 1 && (
-          <Step1Download onDownload={handleDownloadTemplate} />
+          <Step1Download onDownload={handleDownloadTemplate} onNext={() => setStep(2)} />
         )}
         {step === 2 && (
           <Step2Upload
@@ -170,6 +170,8 @@ export function ImportWizard({ open, onClose }: ImportWizardProps): JSX.Element 
             }}
             onDownloadReport={handleDownloadReport}
             onReset={reset}
+            onBack={() => setStep(1)}
+            onNext={() => setStep(3)}
           />
         )}
         {step === 3 && (
@@ -277,11 +279,11 @@ function Stepper({ step }: { step: Step }): JSX.Element {
   );
 }
 
-function Step1Download({ onDownload }: { onDownload: () => void }): JSX.Element {
+function Step1Download({ onDownload, onNext }: { onDownload: () => void; onNext: () => void }): JSX.Element {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <div
-        className="flex items-start gap-4 rounded-md border p-5"
+        className="flex items-start gap-4 rounded-md border p-4"
         style={{ borderColor: 'var(--accent-500)', background: 'var(--accent-50)' }}
       >
         <span
@@ -292,14 +294,14 @@ function Step1Download({ onDownload }: { onDownload: () => void }): JSX.Element 
           <Download size={18} strokeWidth={1.75} />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-md font-bold text-ink-900">قالب رفع الأسئلة (Excel)</h3>
-          <p className="mt-1 text-sm text-ink-700">
-            يحتوي القالب على الأعمدة المطلوبة وصف مثال لتسهيل التعبئة. أبقِ ترتيب الأعمدة كما هو.
+          <h3 className="text-sm font-bold text-ink-900">قالب رفع الأسئلة (Excel)</h3>
+          <p className="mt-1 text-2xs text-ink-700">
+            يحتوي القالب على الأعمدة المطلوبة وصف مثال لتسهيل التعبئة.
           </p>
           <Button
             variant="accent"
             size="sm"
-            className="mt-3"
+            className="mt-2"
             leadingIcon={<Download size={14} strokeWidth={1.75} />}
             onClick={onDownload}
           >
@@ -308,37 +310,45 @@ function Step1Download({ onDownload }: { onDownload: () => void }): JSX.Element 
         </div>
       </div>
 
-      <div className="rounded-md border border-border-subtle bg-surface-card p-5">
-        <h4 className="text-sm font-bold text-ink-900">قبل الرفع — تحقّق من النقاط التالية</h4>
-        <ul className="mt-3 flex flex-col gap-2 text-sm text-ink-700">
+      <div className="rounded-md border border-border-subtle bg-surface-card p-4">
+        <h4 className="text-2xs font-bold uppercase tracking-wide text-ink-500">قبل الرفع — تحقّق من النقاط التالية</h4>
+        <ul className="mt-2 grid gap-x-4 gap-y-1.5 text-2xs text-ink-700 sm:grid-cols-2">
           <Bullet>
-            احتفظ بترتيب الأعمدة وأسمائها كما في القالب: <span className="font-medium text-ink-900">الفئة، الصعوبة، نص السؤال، الإجابات الأربع، رقم الإجابة الصحيحة (1–4)، شرح الإجابة (اختياري)</span>.
+            الفئات: {ALLOWED_CATEGORIES.map((c) => `«${c}»`).join('، ')}.
           </Bullet>
           <Bullet>
-            الفئات المسموح بها: {ALLOWED_CATEGORIES.map((c) => `«${c}»`).join('، ')}.
+            الصعوبة <span dir="ltr" className="font-numeric tnum">1</span>–<span dir="ltr" className="font-numeric tnum">5</span>.
           </Bullet>
           <Bullet>
-            الصعوبة عدد صحيح بين <span dir="ltr" className="font-numeric tnum">1</span> و <span dir="ltr" className="font-numeric tnum">5</span>.
+            نص السؤال ≤ <span dir="ltr" className="font-numeric tnum">500</span> حرف.
           </Bullet>
           <Bullet>
-            نص السؤال: غير فارغ، حد أقصى <span dir="ltr" className="font-numeric tnum">500</span> حرف.
+            كل إجابة ≤ <span dir="ltr" className="font-numeric tnum">200</span> حرف.
           </Bullet>
           <Bullet>
-            كل إجابة: غير فارغة، حد أقصى <span dir="ltr" className="font-numeric tnum">200</span> حرف.
+            رقم الإجابة الصحيحة <span dir="ltr" className="font-numeric tnum">1</span>–<span dir="ltr" className="font-numeric tnum">4</span>.
           </Bullet>
           <Bullet>
-            الترميز <span dir="ltr">UTF-8</span>؛ الحد الأقصى <span dir="ltr" className="font-numeric tnum">{num(MAX_IMPORT_ROWS)}</span> صف لكل عملية رفع.
+            <span dir="ltr">UTF-8</span> · حتى <span dir="ltr" className="font-numeric tnum">{num(MAX_IMPORT_ROWS)}</span> صف.
           </Bullet>
         </ul>
         <div
-          className="mt-4 flex items-start gap-2 rounded-md border border-dashed p-3 text-2xs"
+          className="mt-3 flex items-start gap-2 rounded-md border border-dashed p-2 text-2xs"
           style={{ borderColor: 'var(--gold-300)', background: 'var(--gold-50)', color: 'var(--gold-700)' }}
         >
-          <AlertTriangle size={13} strokeWidth={1.75} className="mt-0.5 flex-shrink-0" aria-hidden />
-          <p>
-            الصفوف المُستوردة تُحفظ كـ <strong>مسودّات</strong> ولا تظهر للمتقدمين. يلزم اعتمادها من رئيس الاختبارات قبل النشر.
-          </p>
+          <AlertTriangle size={12} strokeWidth={1.75} className="mt-0.5 flex-shrink-0" aria-hidden />
+          <p>تُحفظ الصفوف كـ <strong>مسودّات</strong> ولا تظهر للمتقدمين قبل اعتمادها.</p>
         </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          variant="primary"
+          trailingIcon={<UploadCloud size={14} strokeWidth={1.75} />}
+          onClick={onNext}
+        >
+          انتقل للرفع
+        </Button>
       </div>
     </div>
   );
@@ -357,8 +367,11 @@ function Step2Upload(props: {
   onDrop: (file: File | undefined) => void;
   onDownloadReport: () => void;
   onReset: () => void;
+  onBack: () => void;
+  onNext: () => void;
 }): JSX.Element {
-  const { fileName, parsing, parseError, rows, summary, dragOver, onPick, onDragEnter, onDragLeave, onDrop, onDownloadReport, onReset } = props;
+  const { fileName, parsing, parseError, rows, summary, dragOver, onPick, onDragEnter, onDragLeave, onDrop, onDownloadReport, onReset, onBack, onNext } = props;
+  const canContinue = rows.length > 0 && summary.valid > 0;
 
   return (
     <div className="flex flex-col gap-5">
@@ -431,6 +444,21 @@ function Step2Upload(props: {
           </div>
         </>
       )}
+
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <Button variant="secondary" size="sm" onClick={onBack}>
+          ← السابق
+        </Button>
+        <Button
+          variant="primary"
+          size="sm"
+          trailingIcon={<Sparkles size={14} strokeWidth={1.75} />}
+          onClick={onNext}
+          disabled={!canContinue}
+        >
+          متابعة
+        </Button>
+      </div>
     </div>
   );
 }
