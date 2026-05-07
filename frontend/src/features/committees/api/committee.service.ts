@@ -17,6 +17,7 @@ import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
 import { ConflictError } from '@/shared/lib/errors';
+import { filterDeleted } from '@/shared/lib/soft-delete';
 import type {
   Applicant,
   Committee,
@@ -46,9 +47,9 @@ export interface CommitteePayload {
 }
 
 export const committeeService = {
-  async list(): Promise<Committee[]> {
+  async list(opts: { includeDeleted?: boolean } = {}): Promise<Committee[]> {
     await simulateLatency();
-    return [...COMMITTEES_STATE];
+    return [...filterDeleted(COMMITTEES_STATE, opts.includeDeleted)];
   },
 
   async getById(id: string): Promise<Committee | null> {

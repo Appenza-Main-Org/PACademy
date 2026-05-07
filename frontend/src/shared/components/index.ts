@@ -76,6 +76,7 @@ export {
   StatusBadge,
   SuspendedBadge,
 } from './StatusBadge';
+export { Tabs } from './Tabs';
 export { ToastViewport, toast } from './Toast';
 export type { ToastKind } from './Toast';
 export { Tooltip, TooltipProvider } from './Tooltip';
