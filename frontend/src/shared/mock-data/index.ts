@@ -62,6 +62,7 @@ import {
 } from './workflows';
 import { LOOKUP_SEED } from './lookups';
 import { ACADEMY_EXAMS, CYCLE_CATEGORY_EXAM_PLANS } from './academyExams';
+import { ROLE_DEFINITION_SEED } from './roles';
 
 reseed(42);
 
@@ -504,4 +505,6 @@ export const MOCK = {
   /* Academy exam catalogue (admin-gaps Gap J) */
   academyExams: ACADEMY_EXAMS,
   cycleCategoryExamPlans: CYCLE_CATEGORY_EXAM_PLANS,
+  /* Dynamic roles + permission matrix (admin-gaps Gap C) */
+  roleDefinitions: ROLE_DEFINITION_SEED,
 };

@@ -13,9 +13,15 @@
 
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
-import type { SystemUser, UserActivityEntry } from '@/shared/types/domain';
+import { emitAudit } from '@/shared/lib/audit';
+import type { SystemUser, SystemUserStatus, UserActivityEntry } from '@/shared/types/domain';
 
-const STATE: SystemUser[] = [...MOCK.users];
+/* Backfill `status` from the legacy `active` flag so existing seed rows
+ * carry the Gap C field without a migration. */
+const STATE: SystemUser[] = MOCK.users.map((u) => ({
+  ...u,
+  status: u.status ?? (u.active ? 'active' : 'suspended'),
+}));
 
 let userCounter = STATE.length + 1;
 
@@ -85,5 +91,32 @@ export const usersService = {
   async getActivity(id: string): Promise<UserActivityEntry[]> {
     await simulateLatency();
     return MOCK.userActivity.filter((e) => e.userId === id).sort((a, b) => b.ts - a.ts);
+  },
+
+  /**
+   * Set the typed status — `active` / `suspended` / `locked`. Emits audit
+   * with before/after; back-fills `active` for existing consumers.
+   */
+  async setStatus(id: string, status: SystemUserStatus, reason?: string): Promise<SystemUser> {
+    await simulateLatency();
+    const idx = STATE.findIndex((u) => u.id === id);
+    if (idx === -1) throw new Error('المستخدم غير موجود');
+    const before = { ...STATE[idx]! };
+    STATE[idx] = {
+      ...before,
+      status,
+      active: status === 'active',
+    };
+    emitAudit({
+      action: 'update',
+      module: 'users',
+      entityType: 'SystemUser',
+      entityLabel: 'مستخدم',
+      entityId: id,
+      details: reason ? `تغيير الحالة → ${status} (${reason})` : `تغيير الحالة → ${status}`,
+      before: { status: before.status, active: before.active },
+      after: { status, active: status === 'active' },
+    });
+    return STATE[idx]!;
   },
 };

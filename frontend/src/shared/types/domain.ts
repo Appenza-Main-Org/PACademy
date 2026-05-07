@@ -285,13 +285,45 @@ export interface AuditEntry {
   deviceMeta?: string;
 }
 
+/** SystemUser status — Gap C (admin-gaps). `active` kept for backwards
+ * compat; `status` is the typed primary going forward. */
+export type SystemUserStatus = 'active' | 'suspended' | 'locked';
+
 export interface SystemUser {
   id: string;
   name: string;
   role: string;
   unit: string;
   active: boolean;
+  status?: SystemUserStatus;
   lastLogin: number;
+}
+
+/* ── Dynamic roles + permission matrix — Gap C (admin-gaps) ──────────── */
+
+/** Permission identifiers — `module:action` (e.g. `applicants:view`).
+ *  System rows ship with the platform; admin can clone or extend. */
+export type Permission = string;
+
+export interface RoleDefinitionRow extends SoftDeleteFields {
+  id: string;
+  /** Stable key — used by `AuthUser.role` and the legacy 11-role union. */
+  key: string;
+  labelAr: string;
+  labelEn?: string;
+  /** True for the 11 seed roles + Finance Review; permissions/labels are
+   *  read-only for system rows but `scope` can still be edited. */
+  isSystem: boolean;
+  permissions: Permission[];
+  /** App access — same AppKey union as the legacy ROLE_DEFINITIONS. */
+  apps: readonly AppKey[];
+  /** Optional per-actor scoping (committee/department gating). */
+  scope?: {
+    committeeIds?: string[];
+    departmentIds?: string[];
+  };
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MedicalStation {
