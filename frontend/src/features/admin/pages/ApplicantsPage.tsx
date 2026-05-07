@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Download, UserPlus } from 'lucide-react';
-import { PageHeader, Card, Avatar, Button, EmptyState, Badge, DataTable } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
+import { PageHeader, Card, Avatar, Button, EmptyState, Badge, DataTable, SearchSelect } from '@/shared/components';
+import type { DataTableColumn, SearchSelectOption } from '@/shared/components';
 import { StatusBadge, PaymentBadge } from '@/shared/components/StatusBadge';
 import { useApplicants } from '@/features/applicants/api/applicant.queries';
 import { ROUTES } from '@/config/routes';
@@ -12,6 +12,11 @@ import { STATUS_LABELS } from '@/shared/mock-data/dictionaries';
 import type { Applicant, ApplicantStatus } from '@/shared/types/domain';
 
 const PAGE_SIZE = 15;
+
+const GOVERNORATE_OPTIONS: readonly SearchSelectOption[] = MOCK.governorates.map((g) => ({
+  value: g,
+  label: g,
+}));
 
 const APPLICANT_COLUMNS: DataTableColumn<Applicant>[] = [
   {
@@ -96,10 +101,19 @@ export function ApplicantsPage(): JSX.Element {
                 <option key={k} value={k}>{v.label}</option>
               ))}
             </select>
-            <select className="select" value={governorate} onChange={(e) => { setGovernorate(e.target.value); setPage(1); }}>
-              <option value="all">كل المحافظات</option>
-              {MOCK.governorates.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
+            <div className="min-w-[180px] flex-[0_1_200px]">
+              <SearchSelect
+                value={governorate === 'all' ? null : governorate}
+                onChange={(next) => {
+                  setGovernorate(next ?? 'all');
+                  setPage(1);
+                }}
+                options={GOVERNORATE_OPTIONS}
+                ariaLabel="تصفية حسب المحافظة"
+                placeholder="كل المحافظات"
+                className="h-[38px]"
+              />
+            </div>
             <select className="select" value={certType} onChange={(e) => { setCertType(e.target.value); setPage(1); }}>
               <option value="all">كل الشهادات</option>
               <option value="ثانوية عامة">ثانوية عامة</option>
