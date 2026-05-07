@@ -689,6 +689,19 @@ export type CycleStatus =
   | 'archived';
 
 /**
+ * Fawry payment config — Gap K (admin-gaps).
+ * Cycle-level integration parameters; editable from the cycle detail.
+ */
+export interface FawryConfig {
+  /** Issuer-side merchant code provided to the academy. */
+  merchantCode: string;
+  /** UI label rendered next to the Fawry payment option. */
+  label: string;
+  /** Window during which a payment can be retried before voiding. */
+  retryWindowHours: number;
+}
+
+/**
  * Per-cycle fee schedule — Gap F (admin-gaps).
  * Application fee is required; deposit / replacement / late fees are optional
  * because not every cycle exercises them. Typed numeric so tnum tabular
@@ -702,6 +715,27 @@ export interface CycleFees {
   replacementFee?: number;
   /** Late application fee — applied during the extension window. */
   lateFee?: number;
+  /** Fawry-specific integration config — Gap K. */
+  fawryConfig?: FawryConfig;
+}
+
+/* ── Admin-side Fawry payment record — Gap K (admin-gaps) ─────────────── */
+
+export type FawryPaymentStatus = 'pending' | 'paid' | 'failed' | 'expired' | 'refunded';
+
+export interface AdminPaymentRow {
+  id: string;
+  applicantId: string;
+  applicantName: string;
+  nationalId: string;
+  cycleId: string;
+  fawryReference: string;
+  amount: number;
+  status: FawryPaymentStatus;
+  /** ISO timestamp of last Fawry sync. */
+  lastSyncAt: string;
+  /** ISO timestamp of payment success (if paid). */
+  paidAt?: string;
 }
 
 export interface AdmissionCycleCategoryConfig {

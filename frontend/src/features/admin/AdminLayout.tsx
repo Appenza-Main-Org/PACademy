@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import {
+  Banknote,
   BarChart3,
   Bell,
   CalendarDays,
@@ -44,6 +45,7 @@ const SIDEBAR: SidebarSection[] = [
       { key: 'cycles',          label: 'الدورات',           icon: <CalendarDays size={18} />,        to: ROUTES.admin.cycles },
       { key: 'workflows',       label: 'سير العمل',          icon: <Workflow size={18} />,            to: ROUTES.admin.workflows },
       { key: 'notifications',   label: 'الإشعارات',          icon: <Bell size={18} />,                to: ROUTES.admin.notifications },
+      { key: 'payments',        label: 'المدفوعات',           icon: <Banknote size={18} />,            to: ROUTES.admin.payments },
       { key: 'settings',        label: 'الإعدادات العامة',  icon: <Settings size={18} />,           to: ROUTES.admin.settings },
     ],
   },

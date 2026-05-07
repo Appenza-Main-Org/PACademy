@@ -64,6 +64,7 @@ import { LOOKUP_SEED } from './lookups';
 import { ACADEMY_EXAMS, CYCLE_CATEGORY_EXAM_PLANS } from './academyExams';
 import { ROLE_DEFINITION_SEED } from './roles';
 import { ADMIN_NOTIFICATIONS_SEED } from './adminNotifications';
+import { buildAdminPayments } from './adminPayments';
 
 reseed(42);
 
@@ -510,4 +511,6 @@ export const MOCK = {
   roleDefinitions: ROLE_DEFINITION_SEED,
   /* Admin-authored notifications (admin-gaps Gap L) */
   adminNotifications: ADMIN_NOTIFICATIONS_SEED,
+  /* Admin Fawry payment ledger (admin-gaps Gap K) */
+  adminPayments: buildAdminPayments(applicants),
 };

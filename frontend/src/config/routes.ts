@@ -38,6 +38,7 @@ export const ROUTES = {
     workflowEdit: (id = ':id'): string => `/admin/workflows/${id}`,
     workflowNew: '/admin/workflows/new',
     notifications: '/admin/notifications',
+    payments: '/admin/payments',
   },
 
   /* ── Applicant surface (own auth via Stage 1+2) ──

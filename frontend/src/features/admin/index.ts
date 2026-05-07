@@ -7,6 +7,7 @@ export { ApplicantEditPage } from './pages/ApplicantEditPage';
 export { UsersPage } from './pages/UsersPage';
 export { RolesPage } from './pages/RolesPage';
 export { NotificationsPage } from './pages/NotificationsPage';
+export { PaymentsPage } from './pages/PaymentsPage';
 export { AuditPage } from './pages/AuditPage';
 
 /* Cross-feature exports (admin services consumed by applicant-portal etc.) */
