@@ -5,9 +5,10 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { GraduationCap, ShieldCheck } from 'lucide-react';
-import { Badge, Button, Card, Input, Select, Textarea, toast } from '@/shared/components';
+import { Badge, Button, Card, Input, SearchSelect, Select, Textarea, toast } from '@/shared/components';
+import type { SearchSelectOption } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage4Schema, type Stage4Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
@@ -20,11 +21,17 @@ const CERT_TYPES = [
   { value: 'ثانوية أزهرية', label: 'ثانوية أزهرية' },
 ];
 
+const GOV_SEARCH_OPTIONS: readonly SearchSelectOption[] = REF_GOVERNORATES.map((g) => ({
+  value: g.nameAr,
+  label: g.nameAr,
+  keywords: g.nameEn,
+}));
+
 export function Stage4EducationPage(): JSX.Element {
   const navigate = useNavigate();
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'pending' | 'verified' | 'mismatch'>('idle');
   const [overrideReason, setOverrideReason] = useState('');
-  const { register, handleSubmit, formState: { errors, isSubmitting }, getValues, watch } = useForm<Stage4Values>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, getValues, watch, control } = useForm<Stage4Values>({
     resolver: zodResolver(stage4Schema),
     defaultValues: { certificateYear: new Date().getFullYear() - 1 },
   });
@@ -121,13 +128,21 @@ export function Stage4EducationPage(): JSX.Element {
           {...register('schoolName')}
           error={errors.schoolName?.message}
         />
-        <Select
-          label="محافظة المدرسة"
-          required
-          {...register('schoolGovernorate')}
-          options={REF_GOVERNORATES.map((g) => ({ value: g.nameAr, label: g.nameAr }))}
-          error={errors.schoolGovernorate?.message}
-        />
+        <SearchSelectField label="محافظة المدرسة" required error={errors.schoolGovernorate?.message}>
+          <Controller
+            control={control}
+            name="schoolGovernorate"
+            render={({ field }) => (
+              <SearchSelect
+                value={field.value ? field.value : null}
+                onChange={(next) => field.onChange(next ?? '')}
+                options={GOV_SEARCH_OPTIONS}
+                ariaLabel="محافظة المدرسة"
+                placeholder="اختر المحافظة"
+              />
+            )}
+          />
+        </SearchSelectField>
         {certType === 'ثانوية أزهرية' && (
           <Select
             label="القسم"
@@ -167,5 +182,32 @@ export function Stage4EducationPage(): JSX.Element {
         </div>
       </form>
     </Card>
+  );
+}
+
+/**
+ * Local label/error chrome for SearchSelect — mirrors `<Select>` shape.
+ * Inline per CLAUDE.md §2.5 guardrail.
+ */
+function SearchSelectField({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: React.ReactNode;
+  required?: boolean;
+  error?: React.ReactNode;
+  children: React.ReactNode;
+}): JSX.Element {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-medium text-ink-700">
+        {label}
+        {required && <span className="ms-1 text-terra-500">*</span>}
+      </span>
+      {children}
+      {error && <span className="text-xs text-terra-700">{error}</span>}
+    </div>
   );
 }
