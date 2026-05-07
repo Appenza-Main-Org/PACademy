@@ -3,6 +3,7 @@
  * Named exports only; consumers never deep-import.
  */
 
+export { Accordion } from './Accordion';
 export { AlertDialog } from './AlertDialog';
 export type { AlertDialogTone } from './AlertDialog';
 export { Avatar } from './Avatar';
