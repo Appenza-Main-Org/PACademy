@@ -56,6 +56,7 @@ export type { ModalSize } from './Modal';
 export { MultiSelect } from './MultiSelect';
 export { PageHeader } from './PageHeader';
 export { Pattern } from './Pattern';
+export { Popover } from './Popover';
 export type { PatternVariant } from './Pattern';
 export { PrintLayout } from './PrintLayout';
 export { Select } from './Select';
