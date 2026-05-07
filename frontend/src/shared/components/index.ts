@@ -3,6 +3,8 @@
  * Named exports only; consumers never deep-import.
  */
 
+export { AlertDialog } from './AlertDialog';
+export type { AlertDialogTone } from './AlertDialog';
 export { Avatar } from './Avatar';
 export { Badge } from './Badge';
 export type { BadgeTone } from './Badge';
