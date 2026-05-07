@@ -14,7 +14,14 @@
 
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
-import type { ReferenceRowMap, ReferenceTab } from '@/shared/types/domain';
+import { emitAudit } from '@/shared/lib/audit';
+import {
+  applyRestore,
+  applySoftDelete,
+  filterDeleted,
+  type DependencyResult,
+} from '@/shared/lib/soft-delete';
+import type { ReferenceRowMap, ReferenceTab, SoftDeleteFields } from '@/shared/types/domain';
 
 /**
  * Internally we erase the generic to a record of `unknown[]` to avoid the
@@ -39,9 +46,13 @@ const newId = (tab: ReferenceTab): string =>
   `${tab.slice(0, 3).toUpperCase()}-NEW-${String(nextId++).padStart(3, '0')}`;
 
 export const referenceDataService = {
-  async list<K extends ReferenceTab>(tab: K): Promise<ReferenceRowMap[K][]> {
+  async list<K extends ReferenceTab>(
+    tab: K,
+    opts: { includeDeleted?: boolean } = {},
+  ): Promise<ReferenceRowMap[K][]> {
     await simulateLatency();
-    return [...(STATE[tab] as ReferenceRowMap[K][])];
+    const all = STATE[tab] as ReferenceRowMap[K][];
+    return [...filterDeleted(all as (ReferenceRowMap[K] & SoftDeleteFields)[], opts.includeDeleted)];
   },
 
   async create<K extends ReferenceTab>(
@@ -74,6 +85,64 @@ export const referenceDataService = {
       (r) => (r as { id: string }).id !== id,
     );
     return { ok: true };
+  },
+
+  /**
+   * Reference rows are leaf data — no child entities can reference them
+   * yet (the typed dependency graph is only modelled for cycles/categories
+   * in this gap). Returns an always-non-blocking result so the dialog
+   * still surfaces the audit reason input. Gap I will tighten this when
+   * the lookup matrix lands.
+   */
+  async getDependencies(): Promise<DependencyResult> {
+    await simulateLatency(60, 120);
+    return { counts: {}, blocking: false };
+  },
+
+  async softDelete<K extends ReferenceTab>(
+    tab: K,
+    id: string,
+    reason: string,
+  ): Promise<ReferenceRowMap[K]> {
+    await simulateLatency();
+    const list = STATE[tab] as (ReferenceRowMap[K] & SoftDeleteFields)[];
+    const idx = list.findIndex((r) => (r as { id: string }).id === id);
+    if (idx === -1) throw new Error('السجل غير موجود');
+    const before = { ...list[idx]! };
+    const next = applySoftDelete(list[idx]!, { reason }) as ReferenceRowMap[K] & SoftDeleteFields;
+    list[idx] = next;
+    emitAudit({
+      action: 'soft_delete',
+      module: 'lookups',
+      entityType: tab,
+      entityLabel: 'بيانات مرجعية',
+      entityId: id,
+      details: `تم حذف سجل من ${tab} — السبب: ${reason}`,
+      before,
+      after: next,
+    });
+    return next;
+  },
+
+  async restore<K extends ReferenceTab>(tab: K, id: string): Promise<ReferenceRowMap[K]> {
+    await simulateLatency();
+    const list = STATE[tab] as (ReferenceRowMap[K] & SoftDeleteFields)[];
+    const idx = list.findIndex((r) => (r as { id: string }).id === id);
+    if (idx === -1) throw new Error('السجل غير موجود');
+    const before = { ...list[idx]! };
+    const next = applyRestore(list[idx]!) as ReferenceRowMap[K] & SoftDeleteFields;
+    list[idx] = next;
+    emitAudit({
+      action: 'restore',
+      module: 'lookups',
+      entityType: tab,
+      entityLabel: 'بيانات مرجعية',
+      entityId: id,
+      details: `تم استعادة سجل من ${tab}`,
+      before,
+      after: next,
+    });
+    return next;
   },
 
   async bulkImport<K extends ReferenceTab>(

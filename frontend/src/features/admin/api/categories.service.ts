@@ -16,11 +16,23 @@
 
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
+import { emitAudit } from '@/shared/lib/audit';
+import {
+  applyRestore,
+  applySoftDelete,
+  DependencyBlockedError,
+  filterDeleted,
+  type DependencyResult,
+} from '@/shared/lib/soft-delete';
 import type {
   ApplicantCategory,
   ApplicantCategoryKey,
   AuditEntry,
 } from '@/shared/types/domain';
+
+const CATEGORY_DEP_LABELS: Record<string, string> = {
+  applicants: 'متقدم',
+};
 
 const SPEC_KEYS: ReadonlySet<ApplicantCategoryKey> = new Set<ApplicantCategoryKey>([
   'officers_general',
@@ -53,9 +65,9 @@ function pushAudit(action: 'create' | 'update' | 'delete', categoryKey: string, 
 }
 
 export const categoriesAdminService = {
-  async list(): Promise<ApplicantCategory[]> {
+  async list(opts: { includeDeleted?: boolean } = {}): Promise<ApplicantCategory[]> {
     await simulateLatency();
-    return STATE.map((c) => ({ ...c }));
+    return filterDeleted(STATE, opts.includeDeleted).map((c) => ({ ...c }));
   },
 
   async getByKey(key: ApplicantCategoryKey): Promise<ApplicantCategory | null> {
@@ -112,5 +124,75 @@ export const categoriesAdminService = {
 
   isSpecCategory(key: ApplicantCategoryKey): boolean {
     return SPEC_KEYS.has(key);
+  },
+
+  /**
+   * Dependency snapshot for soft delete. Returns the count of applicants
+   * whose certType maps to this category — non-zero blocks the action.
+   */
+  async getDependencies(key: ApplicantCategoryKey): Promise<DependencyResult> {
+    await simulateLatency(80, 200);
+    const cat = STATE.find((c) => c.key === key);
+    if (!cat) throw new Error('الفئة غير موجودة');
+    /* TIER 2 dataset uses cycleId/department mapping; approximate via
+     * the labelAr being a substring of certType to keep the demo realistic. */
+    const applicants = MOCK.applicants.filter(
+      (a) => a.certType?.includes(cat.labelAr) || a.department === (key as unknown as string),
+    ).length;
+    return {
+      counts: { applicants },
+      blocking: applicants > 0,
+    };
+  },
+
+  /**
+   * Soft-delete a category. Spec keys are protected even from soft delete
+   * (matches the existing `remove()` policy). Applicants referencing the
+   * category block the operation.
+   */
+  async softDelete(key: ApplicantCategoryKey, reason: string): Promise<ApplicantCategory> {
+    await simulateLatency();
+    if (SPEC_KEYS.has(key)) {
+      throw new Error('لا يمكن حذف فئات السبع المعتمدة من المواصفات');
+    }
+    const idx = STATE.findIndex((c) => c.key === key);
+    if (idx === -1) throw new Error('الفئة غير موجودة');
+    const before = { ...STATE[idx]! };
+    const dep = await categoriesAdminService.getDependencies(key);
+    if (dep.blocking) throw new DependencyBlockedError(dep, 'هذه الفئة', CATEGORY_DEP_LABELS);
+    const next = applySoftDelete(STATE[idx]!, { reason });
+    STATE[idx] = next;
+    emitAudit({
+      action: 'soft_delete',
+      module: 'categories',
+      entityType: 'ApplicantCategory',
+      entityLabel: 'فئة قبول',
+      entityId: key,
+      details: `تم حذف فئة "${next.labelAr}" — السبب: ${reason}`,
+      before,
+      after: next,
+    });
+    return next;
+  },
+
+  /** Restore a previously soft-deleted category. */
+  async restore(key: ApplicantCategoryKey): Promise<ApplicantCategory> {
+    await simulateLatency();
+    const idx = STATE.findIndex((c) => c.key === key);
+    if (idx === -1) throw new Error('الفئة غير موجودة');
+    const before = { ...STATE[idx]! };
+    const next = applyRestore(STATE[idx]!);
+    STATE[idx] = next;
+    emitAudit({
+      action: 'restore',
+      module: 'categories',
+      entityType: 'ApplicantCategory',
+      entityLabel: 'فئة قبول',
+      entityId: key,
+      details: `تم استعادة فئة "${next.labelAr}"`,
+      before,
+      after: next,
+    });
+    return next;
   },
 };

@@ -10,9 +10,11 @@ import type {
 
 export const cyclesKeys = {
   all: ['cycles'] as const,
-  list: () => [...cyclesKeys.all, 'list'] as const,
+  list: (opts?: { includeDeleted?: boolean }) =>
+    [...cyclesKeys.all, 'list', opts ?? null] as const,
   detail: (id: string) => [...cyclesKeys.all, 'detail', id] as const,
   active: () => [...cyclesKeys.all, 'active'] as const,
+  dependencies: (id: string) => [...cyclesKeys.all, 'dependencies', id] as const,
 };
 
 /**
@@ -25,14 +27,40 @@ export const cyclesKeys = {
 const CATEGORIES_PREFIX = ['categories'] as const;
 
 function invalidateCycle(qc: ReturnType<typeof useQueryClient>, id: string): void {
-  qc.invalidateQueries({ queryKey: cyclesKeys.list() });
+  /* The list key includes opts so the prefix `['cycles', 'list']` matches
+   * both the includeDeleted=true and =false variants. */
+  qc.invalidateQueries({ queryKey: [...cyclesKeys.all, 'list'] });
   qc.invalidateQueries({ queryKey: cyclesKeys.detail(id) });
   qc.invalidateQueries({ queryKey: cyclesKeys.active() });
   qc.invalidateQueries({ queryKey: CATEGORIES_PREFIX });
 }
 
-export function useCycles() {
-  return useQuery({ queryKey: cyclesKeys.list(), queryFn: () => cyclesService.list() });
+export function useCycles(opts: { includeDeleted?: boolean } = {}) {
+  return useQuery({ queryKey: cyclesKeys.list(opts), queryFn: () => cyclesService.list(opts) });
+}
+
+export function useCycleDependencies(id: string | null) {
+  return useQuery({
+    queryKey: cyclesKeys.dependencies(id ?? ''),
+    queryFn: () => cyclesService.getDependencies(id!),
+    enabled: Boolean(id),
+  });
+}
+
+export function useCycleSoftDelete() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => cyclesService.softDelete(id, reason),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
+export function useCycleRestore() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cyclesService.restore(id),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
 }
 
 export function useCycle(id: string | null) {

@@ -20,6 +20,14 @@
 
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
+import { emitAudit } from '@/shared/lib/audit';
+import {
+  applyRestore,
+  applySoftDelete,
+  DependencyBlockedError,
+  filterDeleted,
+  type DependencyResult,
+} from '@/shared/lib/soft-delete';
 import type {
   AdmissionCycle,
   AdmissionCycleCategoryConfig,
@@ -73,10 +81,18 @@ function pushAudit(entity: string, entityId: string, action: 'create' | 'update'
   (MOCK.audit as AuditEntry[]).unshift(entry);
 }
 
+/** Arabic labels for the dependency relations a cycle has children in. */
+const CYCLE_DEP_LABELS: Record<string, string> = {
+  applicants: 'متقدم',
+  categories: 'فئة قبول',
+  committees: 'لجنة قبول',
+};
+
 export const cyclesService = {
-  async list(): Promise<AdmissionCycle[]> {
+  async list(opts: { includeDeleted?: boolean } = {}): Promise<AdmissionCycle[]> {
     await simulateLatency();
-    return [...STATE].sort((a, b) => b.year - a.year);
+    const visible = filterDeleted(STATE, opts.includeDeleted);
+    return [...visible].sort((a, b) => b.year - a.year);
   },
 
   async getById(id: string): Promise<AdmissionCycle | null> {
@@ -264,6 +280,72 @@ export const cyclesService = {
       'update',
       `تم تعديل شروط فئة ${categoryKey} في دورة "${next.nameAr}"`,
     );
+    return next;
+  },
+
+  /**
+   * Returns the dependency snapshot used by SoftDeleteDialog. A cycle is
+   * blocked from deletion if any applicants reference it; categories or
+   * committees opened inside it count too but are non-blocking flags.
+   */
+  async getDependencies(id: string): Promise<DependencyResult> {
+    await simulateLatency(80, 200);
+    const cycle = STATE.find((c) => c.id === id);
+    if (!cycle) throw new Error('الدورة غير موجودة');
+    const applicants = MOCK.applicants.filter((a) => a.cycleId === id).length;
+    const categories = Object.keys(cycle.openCategories ?? {}).length;
+    const committees = MOCK.committees.length; /* simple proxy until Gap H wires linkedCycleId */
+    return {
+      counts: { applicants, categories, committees },
+      blocking: applicants > 0,
+    };
+  },
+
+  /**
+   * Soft-delete the cycle. Hard-rejects when applicants reference it
+   * (`getDependencies({ blocking: true })`).
+   */
+  async softDelete(id: string, reason: string): Promise<AdmissionCycle> {
+    await simulateLatency();
+    const idx = STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('الدورة غير موجودة');
+    const before = { ...STATE[idx]! };
+    const dep = await cyclesService.getDependencies(id);
+    if (dep.blocking) throw new DependencyBlockedError(dep, 'هذه الدورة', CYCLE_DEP_LABELS);
+    const next = applySoftDelete(STATE[idx]!, { reason });
+    STATE[idx] = next;
+    if (ACTIVE_ID === id) ACTIVE_ID = null;
+    emitAudit({
+      action: 'soft_delete',
+      module: 'cycles',
+      entityType: 'AdmissionCycle',
+      entityLabel: 'دورة قبول',
+      entityId: id,
+      details: `تم حذف دورة "${next.nameAr}" — السبب: ${reason}`,
+      before,
+      after: next,
+    });
+    return next;
+  },
+
+  /** Restore a previously soft-deleted cycle. Audit-emitting. */
+  async restore(id: string): Promise<AdmissionCycle> {
+    await simulateLatency();
+    const idx = STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('الدورة غير موجودة');
+    const before = { ...STATE[idx]! };
+    const next = applyRestore(STATE[idx]!);
+    STATE[idx] = next;
+    emitAudit({
+      action: 'restore',
+      module: 'cycles',
+      entityType: 'AdmissionCycle',
+      entityLabel: 'دورة قبول',
+      entityId: id,
+      details: `تم استعادة دورة "${next.nameAr}"`,
+      before,
+      after: next,
+    });
     return next;
   },
 };

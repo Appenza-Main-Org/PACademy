@@ -4,6 +4,23 @@
 
 import type { AppKey } from '@/shared/lib/constants';
 
+/**
+ * Soft-delete mixin — Gap D (admin-gaps).
+ *
+ * Adds optional tombstone fields to entities that support soft delete.
+ * `null` is the live state; an ISO `deletedAt` flips a row to soft-deleted.
+ * `list()` services filter out soft-deleted rows by default; a super-admin
+ * `includeDeleted` toggle restores them to view, never to use.
+ *
+ * Applicants and audit entries are explicitly excluded — applicants stay
+ * around for cycle-history queries; audit entries are append-only.
+ */
+export interface SoftDeleteFields {
+  deletedAt?: string;
+  deletedBy?: string;
+  deleteReason?: string;
+}
+
 export type ApplicantStatus =
   | 'pending'
   | 'under-review'
@@ -285,7 +302,7 @@ export interface MedicalStation {
   completed: number;
 }
 
-export interface Committee {
+export interface Committee extends SoftDeleteFields {
   id: string;
   name: string;
   head: string;
@@ -395,7 +412,7 @@ export interface RequiredTest {
   passingCriteria: string;
 }
 
-export interface ApplicantCategory {
+export interface ApplicantCategory extends SoftDeleteFields {
   key: ApplicantCategoryKey;
   labelAr: string;
   labelEn: string;
@@ -439,7 +456,7 @@ export type ReferenceTab =
   | 'relationships'
   | 'case-types';
 
-export interface RefGovernorate {
+export interface RefGovernorate extends SoftDeleteFields {
   id: string;
   nameAr: string;
   nameEn: string;
@@ -447,7 +464,7 @@ export interface RefGovernorate {
   active: boolean;
 }
 
-export interface RefSpecialization {
+export interface RefSpecialization extends SoftDeleteFields {
   id: string;
   nameAr: string;
   code: string;
@@ -455,14 +472,14 @@ export interface RefSpecialization {
   active: boolean;
 }
 
-export interface RefRank {
+export interface RefRank extends SoftDeleteFields {
   id: string;
   nameAr: string;
   level: number;
   applicableTo: 'officer' | 'enlisted' | 'civilian';
 }
 
-export interface RefCollege {
+export interface RefCollege extends SoftDeleteFields {
   id: string;
   nameAr: string;
   governorateId: string;
@@ -470,28 +487,28 @@ export interface RefCollege {
   active: boolean;
 }
 
-export interface RefQualification {
+export interface RefQualification extends SoftDeleteFields {
   id: string;
   nameAr: string;
   level: 'diploma' | 'bachelor' | 'master' | 'phd';
   facultyRequired: boolean;
 }
 
-export interface RefNationality {
+export interface RefNationality extends SoftDeleteFields {
   id: string;
   nameAr: string;
   nameEn: string;
   isoCode: string;
 }
 
-export interface RefRelationship {
+export interface RefRelationship extends SoftDeleteFields {
   id: string;
   nameAr: string;
   degree: 1 | 2 | 3 | 4;
   side: 'paternal' | 'maternal' | 'spouse' | 'self';
 }
 
-export interface RefCaseType {
+export interface RefCaseType extends SoftDeleteFields {
   id: string;
   nameAr: string;
   severity: 'low' | 'medium' | 'high';
@@ -529,7 +546,7 @@ export interface AdmissionCycleCategoryConfig {
   notes: string;
 }
 
-export interface AdmissionCycle {
+export interface AdmissionCycle extends SoftDeleteFields {
   id: string;
   nameAr: string;
   /** Year + cohort marker, e.g. 2026-male / 2026-female. */

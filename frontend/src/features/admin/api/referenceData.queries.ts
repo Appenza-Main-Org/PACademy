@@ -4,13 +4,17 @@ import type { ReferenceRowMap, ReferenceTab } from '@/shared/types/domain';
 
 export const referenceDataKeys = {
   all: ['reference-data'] as const,
-  list: (tab: ReferenceTab) => [...referenceDataKeys.all, tab] as const,
+  list: (tab: ReferenceTab, opts?: { includeDeleted?: boolean }) =>
+    [...referenceDataKeys.all, tab, opts ?? null] as const,
 };
 
-export function useReferenceData<K extends ReferenceTab>(tab: K) {
+export function useReferenceData<K extends ReferenceTab>(
+  tab: K,
+  opts: { includeDeleted?: boolean } = {},
+) {
   return useQuery({
-    queryKey: referenceDataKeys.list(tab),
-    queryFn: () => referenceDataService.list(tab),
+    queryKey: referenceDataKeys.list(tab, opts),
+    queryFn: () => referenceDataService.list(tab, opts),
   });
 }
 
@@ -40,7 +44,28 @@ export function useReferenceRemove<K extends ReferenceTab>(tab: K) {
   return useMutation({
     mutationFn: (id: string) => referenceDataService.remove(tab, id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: referenceDataKeys.list(tab) });
+      qc.invalidateQueries({ queryKey: [...referenceDataKeys.all, tab] });
+    },
+  });
+}
+
+export function useReferenceSoftDelete<K extends ReferenceTab>(tab: K) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      referenceDataService.softDelete(tab, id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...referenceDataKeys.all, tab] });
+    },
+  });
+}
+
+export function useReferenceRestore<K extends ReferenceTab>(tab: K) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => referenceDataService.restore(tab, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [...referenceDataKeys.all, tab] });
     },
   });
 }

@@ -25,6 +25,10 @@ export type {
   DataTableSelectionMode,
   DataTableSort,
 } from './DataTable';
+export { DependencyWarning } from './DependencyWarning';
+export type { DependencyWarningProps } from './DependencyWarning';
+export { SoftDeleteDialog } from './SoftDeleteDialog';
+export type { SoftDeleteDialogProps } from './SoftDeleteDialog';
 export { DatePicker, ARABIC_MONTHS, ARABIC_WEEKDAYS_SAT_FIRST, CalendarGrid } from './DatePicker';
 export { DateRangePicker } from './DateRangePicker';
 export type { DateRange } from './DateRangePicker';
