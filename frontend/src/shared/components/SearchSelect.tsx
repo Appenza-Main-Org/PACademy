@@ -167,11 +167,19 @@ export function SearchSelect({
           className={cn(
             'z-dropdown w-[var(--radix-popover-trigger-width)] min-w-48',
             'rounded-lg border border-border-subtle bg-surface-elevated shadow-md',
-            'p-2 outline-none font-ar',
+            'flex flex-col p-2 outline-none font-ar',
           )}
-          style={{ animation: 'pageEnter var(--duration-fast) var(--ease-standard)' }}
+          style={{
+            animation: 'pageEnter var(--duration-fast) var(--ease-standard)',
+            /* Clamp to whatever vertical space Radix Popper picked. Without
+               this the popover renders at full content height and clips off
+               the top of the viewport when flipped above a near-bottom
+               trigger (iPad portrait on Stage 4 was the original repro). */
+            maxHeight: 'var(--radix-popover-content-available-height)',
+            overflow: 'hidden',
+          }}
         >
-          <label className="relative flex h-9 items-center gap-2">
+          <label className="relative flex h-9 flex-none items-center gap-2">
             <Search size={14} className="absolute start-3 text-ink-400" aria-hidden />
             <input
               type="text"
@@ -192,7 +200,7 @@ export function SearchSelect({
             />
           </label>
 
-          <div className="mt-2 max-h-64 overflow-auto" aria-live="polite">
+          <div className="mt-2 max-h-64 min-h-0 flex-1 overflow-auto" aria-live="polite">
             {filtered.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-ink-400">{emptyText}</p>
             ) : (
