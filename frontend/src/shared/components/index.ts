@@ -59,6 +59,8 @@ export { Pattern } from './Pattern';
 export type { PatternVariant } from './Pattern';
 export { PrintLayout } from './PrintLayout';
 export { Select } from './Select';
+export { Sheet } from './Sheet';
+export type { SheetSize } from './Sheet';
 export { Skeleton, SkeletonRow } from './Skeleton';
 export { StageStepper } from './StageStepper';
 export type { StageDescriptor, StageState } from './StageStepper';
