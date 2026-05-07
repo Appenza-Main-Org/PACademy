@@ -113,7 +113,7 @@ The forms in Sprints 1–8 worked because (a) zod schemas already exist for some
 
 ## AUD-005 · documentation · KARASA_GAPS.md has 108 ❌ items that are actually shipped
 
-**Location:** [Tasks/KARASA_GAPS.md](Tasks/KARASA_GAPS.md)
+**Location:** [Tasks/KARASA_GAPS.md](../Tasks/KARASA_GAPS.md)
 
 **Issue:** Only Sprint 1 Admin section was updated to ✅ during autopilot. Sections §2 (Applicant Portal stages) through §10 (cross-cutting) still show ❌ for items that are demonstrably built and routable. Spot-checks confirmed these items work — the doc is the lagging indicator.
 
@@ -145,7 +145,7 @@ Minor mismatch — Hub stat for the Barcode app says "كارت تردد" when th
 
 ## AUD-009 · documentation · CLAUDE.md is stale (last updated end of Sprint 0)
 
-**Location:** [CLAUDE.md](CLAUDE.md) lines 232+ ("Next sprints" section).
+**Location:** [CLAUDE.md](../CLAUDE.md) lines 232+ ("Next sprints" section).
 
 **Issue:** CLAUDE.md still lists Sprints 1–9 as "🚧 Next sprints". After Phase 5 declaration this should reflect the final state.
 
