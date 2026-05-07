@@ -1,6 +1,10 @@
 import { PageHeader, Card, CardHeader, CardBody, Badge } from '@/shared/components';
+import { useAuthStore } from '@/features/auth';
+import { LockPolicyCard } from '../components/auth/LockPolicyCard';
 
 export function SettingsPage(): JSX.Element {
+  const isSuperAdmin = useAuthStore((s) => s.user?.role === 'super_admin');
+
   return (
     <>
       <PageHeader title="الإعدادات العامة" subtitle="ضبط شروط القبول والتكاملات الخارجية" />
@@ -35,6 +39,12 @@ export function SettingsPage(): JSX.Element {
           </CardBody>
         </Card>
       </div>
+
+      {isSuperAdmin && (
+        <div className="mt-5">
+          <LockPolicyCard />
+        </div>
+      )}
     </>
   );
 }

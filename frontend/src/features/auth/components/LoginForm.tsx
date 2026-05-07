@@ -14,9 +14,11 @@ import { z } from 'zod';
 import { ArrowLeft, Lock, ShieldCheck } from 'lucide-react';
 import { Button, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
-import { useLoginMutation } from '../api/auth.queries';
+import { useRequestOtpMutation } from '../api/auth.queries';
+import { OtpStep } from './OtpStep';
 import { RoleSelector } from './RoleSelector';
 import { ROLES, type Role } from '../rbac';
+import type { LoginCredentials } from '../types';
 import { ROUTES } from '@/config/routes';
 
 const loginSchema = z.object({
@@ -34,8 +36,13 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 export function LoginForm(): JSX.Element {
   const navigate = useNavigate();
-  const loginMutation = useLoginMutation();
+  const requestOtpMut = useRequestOtpMutation();
   const [verifying, setVerifying] = useState(false);
+  const [otpState, setOtpState] = useState<{
+    pendingId: string;
+    otpDevice: string;
+    credentials: LoginCredentials;
+  } | null>(null);
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -48,31 +55,58 @@ export function LoginForm(): JSX.Element {
 
   const role = watch('role');
 
+  const goToLanding = (chosenRole: Role): void => {
+    const landing =
+      chosenRole === 'applicant'
+        ? ROUTES.applicant
+        : chosenRole === 'super_admin'
+          ? ROUTES.admin.reports
+          : ROUTES.hub;
+    navigate(landing, { replace: true });
+  };
+
   const onSubmit = async (values: LoginValues): Promise<void> => {
     /* Simulated MOIPASS verification delay (per ARCH-03 — 1.5s). */
     setVerifying(true);
     await new Promise((resolve) => setTimeout(resolve, 1500));
     setVerifying(false);
 
-    loginMutation.mutate(
-      { username: values.nationalId, password: values.passcode, role: values.role },
-      {
-        onSuccess: () => {
-          toast('تم التحقق عبر منصّة MOIPASS بنجاح', 'success');
-          const landing =
-            values.role === 'applicant'
-              ? ROUTES.applicant
-              : values.role === 'super_admin'
-                ? ROUTES.admin.reports
-                : ROUTES.hub;
-          navigate(landing, { replace: true });
-        },
-        onError: (err) => toast(err.message || 'تعذّر التحقق من MOIPASS', 'danger'),
+    const credentials: LoginCredentials = {
+      username: values.nationalId,
+      password: values.passcode,
+      role: values.role,
+    };
+
+    requestOtpMut.mutate(credentials, {
+      onSuccess: ({ pendingId, otpDevice }) => {
+        toast('تم إرسال رمز التحقق', 'info');
+        setOtpState({ pendingId, otpDevice, credentials });
       },
-    );
+      onError: (err) => toast(err.message || 'تعذّر بدء الدخول', 'danger'),
+    });
   };
 
-  const isPending = loginMutation.isPending || verifying;
+  const isPending = requestOtpMut.isPending || verifying;
+
+  if (otpState) {
+    return (
+      <OtpStep
+        pendingId={otpState.pendingId}
+        otpDevice={otpState.otpDevice}
+        credentials={otpState.credentials}
+        onSuccess={(chosenRole) => {
+          setOtpState(null);
+          goToLanding(chosenRole);
+        }}
+        onBack={() => setOtpState(null)}
+        onResent={(next) =>
+          setOtpState((prev) =>
+            prev ? { ...prev, pendingId: next.pendingId, otpDevice: next.otpDevice } : prev,
+          )
+        }
+      />
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex w-full max-w-md flex-col gap-4 lg:gap-5">
