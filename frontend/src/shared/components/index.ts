@@ -37,6 +37,7 @@ export { DatePicker, ARABIC_MONTHS, ARABIC_WEEKDAYS_SAT_FIRST, CalendarGrid } fr
 export { DateRangePicker } from './DateRangePicker';
 export type { DateRange } from './DateRangePicker';
 export { Drawer } from './Drawer';
+export { DropdownMenu } from './DropdownMenu';
 export type { DrawerSize } from './Drawer';
 export { EmptyState } from './EmptyState';
 export type { EmptyVariant } from './EmptyState';
