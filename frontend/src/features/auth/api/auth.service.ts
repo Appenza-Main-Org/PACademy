@@ -98,17 +98,25 @@ function maskedPhone(): string {
   return '•••• 4521';
 }
 
+/**
+ * Build an AuthUser at login. Gap C wired this through the dynamic role
+ * matrix (MOCK.roleDefinitions) so admin edits to a role's permissions /
+ * apps / scope take effect on next login without code changes. Falls
+ * back to the static legacy ROLE_DEFINITIONS table if the dynamic seed
+ * has no row for the key (newly defined Role union members).
+ */
 function buildAuthUser(role: Role): AuthUser {
-  const roleDef = ROLE_DEFINITIONS[role];
+  const dyn = MOCK.roleDefinitions.find((r) => r.key === role && !r.deletedAt);
+  const legacy = ROLE_DEFINITIONS[role];
   const matchUser = MOCK.users.find((u) => u.role === role) ?? MOCK.users[0]!;
   return {
     id: matchUser.id,
     name: matchUser.name,
     role,
-    roleLabel: roleDef.labelAr,
+    roleLabel: dyn?.labelAr ?? legacy.labelAr,
     unit: matchUser.unit,
-    apps: roleDef.apps,
-    permissions: roleDef.permissions,
+    apps: dyn ? dyn.apps : legacy.apps,
+    permissions: dyn ? dyn.permissions : legacy.permissions,
     token: fakeJWT({ sub: matchUser.id, role, iat: Date.now() }),
     loggedInAt: Date.now(),
   };
