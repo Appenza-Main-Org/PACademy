@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useFieldArray, useForm, useWatch } from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import type { Resolver } from 'react-hook-form';
 import {
   AlertCircle,
@@ -27,7 +27,8 @@ import {
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
-import { Button, Card, CardHeader, Input, Select, Textarea } from '@/shared/components';
+import { Button, Card, CardHeader, Input, SearchSelect, Select, Textarea } from '@/shared/components';
+import type { SearchSelectOption } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { parseNationalId } from '@/shared/lib/national-id';
 import { date as fmtDate } from '@/shared/lib/format';
@@ -58,7 +59,10 @@ const RELATIONSHIP_OPTIONS = REF_RELATIONSHIPS.map((r) => ({
   label: r.nameAr,
 }));
 
-const GOV_OPTIONS = GOVERNORATES.map((g) => ({ value: g, label: g }));
+const GOV_OPTIONS: readonly SearchSelectOption[] = GOVERNORATES.map((g) => ({
+  value: g,
+  label: g,
+}));
 
 const DEPARTMENT_OPTIONS: { value: DepartmentKey; label: string }[] = (
   Object.entries(DEPARTMENT_LABELS) as [DepartmentKey, string][]
@@ -395,14 +399,26 @@ export function ApplicantForm({
           <Card>
             <CardHeader title={SECTION_LABELS.address} subtitle="عنوان الإقامة الفعلي" />
             <div className="grid gap-3 md:grid-cols-2">
-              <Select
+              <SearchSelectField
                 label="المحافظة"
                 required
-                disabled={!allowEdit}
                 error={errors.currentAddress?.governorate?.message}
-                options={[{ value: '', label: '— اختر —' }, ...GOV_OPTIONS]}
-                {...register('currentAddress.governorate')}
-              />
+              >
+                <Controller
+                  control={control}
+                  name="currentAddress.governorate"
+                  render={({ field }) => (
+                    <SearchSelect
+                      value={field.value ? field.value : null}
+                      onChange={(next) => field.onChange(next ?? '')}
+                      options={GOV_OPTIONS}
+                      ariaLabel="المحافظة"
+                      placeholder="اختر المحافظة"
+                      disabled={!allowEdit}
+                    />
+                  )}
+                />
+              </SearchSelectField>
               <Input
                 label="المدينة / القرية"
                 required
@@ -849,6 +865,40 @@ function FixedFamilyMember({
           على قيد الحياة
         </label>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Local wrapper that mirrors the `<Select>` chrome (label + required asterisk
+ * + error/helper text) so a `<SearchSelect>` swap stays visually identical.
+ *
+ * Inline per CLAUDE.md §2.5 guardrail — promote to `shared/components/Field.tsx`
+ * only after the certificate-type pilot confirms the same shape works there.
+ */
+function SearchSelectField({
+  label,
+  required,
+  error,
+  helper,
+  children,
+}: {
+  label: React.ReactNode;
+  required?: boolean;
+  error?: React.ReactNode;
+  helper?: React.ReactNode;
+  children: React.ReactNode;
+}): JSX.Element {
+  const helperText = error ?? helper;
+  const helperTone = error ? 'text-terra-700' : 'text-ink-500';
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-medium text-ink-700">
+        {label}
+        {required && <span className="ms-1 text-terra-500">*</span>}
+      </span>
+      {children}
+      {helperText && <span className={`text-xs ${helperTone}`}>{helperText}</span>}
     </div>
   );
 }
