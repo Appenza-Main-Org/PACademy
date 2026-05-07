@@ -1139,6 +1139,48 @@ export interface BoardDecision {
   signatures: string[];
 }
 
+/* ── Cycle category exam plan — Gap J (admin-gaps) ───────────────────
+ *
+ * Per-cycle, per-category ordered list of exams. Drives:
+ *   - the order applicants take exams
+ *   - per-exam fees (when cycle.fees has multiple line items)
+ *   - whether the exam is required (vs supplementary)
+ *
+ * Copy-from-previous-cycle uses `examsService.copyConfig` to clone an
+ * entire cycle's plans into a new draft cycle.
+ */
+
+export type ExamScoreType = 'numeric' | 'pass_fail' | 'qualitative';
+
+export interface AcademyExam extends SoftDeleteFields {
+  id: string;
+  /** Lookup-style stable key — joined to the examTypes lookup. */
+  key: string;
+  group: string;
+  nameAr: string;
+  scoreType: ExamScoreType;
+  /** When false, the exam is supplementary (failure does not block). */
+  isQualifying: boolean;
+}
+
+export interface CycleCategoryExamPlanEntry {
+  examId: string;
+  order: number;
+  fee?: number;
+  isRequired: boolean;
+}
+
+export interface CycleCategoryExamPlan {
+  id: string;
+  cycleId: string;
+  categoryId: ApplicantCategoryKey;
+  exams: CycleCategoryExamPlanEntry[];
+  updatedAt?: string;
+}
+
+/** Result-approval state machine — Gap J. */
+export type ExamResultStatus = 'draft' | 'review' | 'approved' | 'published';
+
 /* ── Question Bank & e-Exams — Sprint 7 (RFP Scope Document §9) ────────────────── */
 
 export type QuestionType = 'mcq' | 'true-false' | 'ordering' | 'fill-in';

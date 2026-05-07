@@ -61,6 +61,7 @@ import {
   WORKFLOW_TRANSITIONS,
 } from './workflows';
 import { LOOKUP_SEED } from './lookups';
+import { ACADEMY_EXAMS, CYCLE_CATEGORY_EXAM_PLANS } from './academyExams';
 
 reseed(42);
 
@@ -500,4 +501,7 @@ export const MOCK = {
   workflowTransitions: WORKFLOW_TRANSITIONS,
   /* Generic lookup matrix (admin-gaps Gap I) */
   lookups: LOOKUP_SEED,
+  /* Academy exam catalogue (admin-gaps Gap J) */
+  academyExams: ACADEMY_EXAMS,
+  cycleCategoryExamPlans: CYCLE_CATEGORY_EXAM_PLANS,
 };

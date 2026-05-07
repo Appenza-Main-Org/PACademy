@@ -42,10 +42,13 @@ import {
   useCycleClose,
   useCycleExtend,
   useCycleTransition,
+  useCycles,
   useToggleCycleCategory,
 } from '../api/cycles.queries';
 import { useCategoriesAdmin } from '../api/categories.queries';
 import { useRulesForCycle } from '../api/admissionRules.queries';
+import { useCopyExamConfig } from '../api/examPlans.queries';
+import { ExamPlanEditor } from '../components/exams/ExamPlanEditor';
 import type {
   AdmissionCycle,
   AdmissionCycleCategoryConfig,
@@ -89,7 +92,11 @@ export function CycleDetailPage(): JSX.Element {
   const closeMut = useCycleClose();
   const archiveMut = useCycleArchive();
   const extendMut = useCycleExtend();
+  const copyExamMut = useCopyExamConfig();
+  const allCyclesQuery = useCycles();
   const toggleCategoryMut = useToggleCycleCategory();
+  const [examPlanCategory, setExamPlanCategory] = useState<ApplicantCategory['key'] | null>(null);
+  const [copyFromCycleId, setCopyFromCycleId] = useState<string>('');
   const [pendingTransition, setPendingTransition] = useState<'activate' | 'close' | 'archive' | null>(null);
   const [extendOpen, setExtendOpen] = useState(false);
   const [extendDate, setExtendDate] = useState<Date | null>(null);
@@ -196,6 +203,74 @@ export function CycleDetailPage(): JSX.Element {
           );
         }}
       />
+
+      <section className="mt-6">
+        <header className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-ar-display text-xl font-bold text-ink-900">خطط الاختبارات</h2>
+            <p className="text-2xs text-ink-500">
+              لكل فئة قبول مفتوحة، حدّد ترتيب الاختبارات وإلزاميتها ورسومها.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={copyFromCycleId}
+              onChange={(e) => setCopyFromCycleId(e.target.value)}
+              options={[
+                { value: '', label: 'نسخ من دورة سابقة…' },
+                ...((allCyclesQuery.data ?? [])
+                  .filter((c) => c.id !== cycle.id)
+                  .map((c) => ({ value: c.id, label: c.nameAr }))),
+              ]}
+            />
+            <Button
+              variant="secondary"
+              leadingIcon={<Copy size={14} strokeWidth={1.75} />}
+              disabled={!copyFromCycleId}
+              isLoading={copyExamMut.isPending}
+              onClick={() => {
+                if (!copyFromCycleId) return;
+                copyExamMut.mutate(
+                  { fromCycleId: copyFromCycleId, toCycleId: cycle.id },
+                  {
+                    onSuccess: (plans) => {
+                      toast(`تم نسخ ${plans.length} خطة اختبارات`, 'success');
+                      setCopyFromCycleId('');
+                    },
+                    onError: (err) => toast((err as Error).message, 'danger'),
+                  },
+                );
+              }}
+            >
+              نسخ خطط الاختبارات
+            </Button>
+          </div>
+        </header>
+        <Card>
+          <div className="grid gap-2 md:grid-cols-3">
+            {categories.map((cat) => (
+              <button
+                key={cat.key}
+                type="button"
+                onClick={() => setExamPlanCategory(cat.key)}
+                className={
+                  'rounded-md border px-3 py-2 text-start text-sm transition-colors duration-fast ease-standard ' +
+                  (examPlanCategory === cat.key
+                    ? 'border-teal-500 bg-teal-50 text-teal-700'
+                    : 'border-border-default bg-surface-card text-ink-700 hover:bg-ink-50')
+                }
+              >
+                {cat.labelAr}
+              </button>
+            ))}
+          </div>
+          {examPlanCategory && (
+            <div className="mt-4">
+              <ExamPlanEditor cycleId={cycle.id} categoryId={examPlanCategory} />
+            </div>
+          )}
+        </Card>
+      </section>
 
       <LifecycleActions
         cycle={cycle}
