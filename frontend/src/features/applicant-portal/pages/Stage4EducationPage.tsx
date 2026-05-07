@@ -16,7 +16,7 @@ import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
 
 const APPLICANT_ID = 'APP-2026000';
 
-const CERT_TYPES = [
+const CERT_TYPES: readonly SearchSelectOption[] = [
   { value: 'ثانوية عامة', label: 'ثانوية عامة' },
   { value: 'ثانوية أزهرية', label: 'ثانوية أزهرية' },
 ];
@@ -86,13 +86,21 @@ export function Stage4EducationPage(): JSX.Element {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 md:grid-cols-2">
-        <Select
-          label="نوع الشهادة"
-          required
-          {...register('certificateType')}
-          options={CERT_TYPES}
-          error={errors.certificateType?.message}
-        />
+        <SearchSelectField label="نوع الشهادة" required error={errors.certificateType?.message}>
+          <Controller
+            control={control}
+            name="certificateType"
+            render={({ field }) => (
+              <SearchSelect
+                value={field.value ? field.value : null}
+                onChange={(next) => field.onChange(next ?? '')}
+                options={CERT_TYPES}
+                ariaLabel="نوع الشهادة"
+                placeholder="اختر نوع الشهادة"
+              />
+            )}
+          />
+        </SearchSelectField>
         <Input
           label="سنة الحصول"
           type="number"
