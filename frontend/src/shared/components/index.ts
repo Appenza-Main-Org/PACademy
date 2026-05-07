@@ -28,6 +28,8 @@ export type {
   DataTableSort,
 } from './DataTable';
 export { DependencyWarning } from './DependencyWarning';
+export { Dialog } from './Dialog';
+export type { DialogSize } from './Dialog';
 export type { DependencyWarningProps } from './DependencyWarning';
 export { SoftDeleteDialog } from './SoftDeleteDialog';
 export type { SoftDeleteDialogProps } from './SoftDeleteDialog';
