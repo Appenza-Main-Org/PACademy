@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { categoriesAdminService } from './categories.service';
-import type { ApplicantCategory, ApplicantCategoryKey } from '@/shared/types/domain';
+import type {
+  ApplicantCategory,
+  ApplicantCategoryKey,
+  CategoryConditions,
+} from '@/shared/types/domain';
 
 export const adminCategoriesKeys = {
   all: ['categories'] as const,
@@ -75,5 +79,37 @@ export function useCategoryRestore() {
   return useMutation({
     mutationFn: (key: ApplicantCategoryKey) => categoriesAdminService.restore(key),
     onSuccess: () => qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
+  });
+}
+
+export function usePreviewCategoryRuleChange() {
+  return useMutation({
+    mutationFn: ({ key, conditions }: { key: ApplicantCategoryKey; conditions: CategoryConditions }) =>
+      categoriesAdminService.previewRuleChangeImpact(key, conditions),
+  });
+}
+
+export function useUpdateExpandedConditions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      key,
+      conditions,
+      override,
+      impactedApplicantIds,
+    }: {
+      key: ApplicantCategoryKey;
+      conditions: CategoryConditions;
+      override?: boolean;
+      impactedApplicantIds?: string[];
+    }) =>
+      categoriesAdminService.updateExpandedConditions(key, conditions, {
+        override,
+        impactedApplicantIds,
+      }),
+    onSuccess: (cat) => {
+      qc.invalidateQueries({ queryKey: adminCategoriesKeys.all });
+      qc.invalidateQueries({ queryKey: adminCategoriesKeys.detail(cat.key) });
+    },
   });
 }

@@ -412,6 +412,37 @@ export interface RequiredTest {
   passingCriteria: string;
 }
 
+/**
+ * Expanded admin-side condition bag — Gap G (admin-gaps).
+ *
+ * Sits alongside the existing `CategoryCondition` (singular) which serves
+ * the applicant-portal eligibility check. The plural `CategoryConditions`
+ * captures the richer matrix the meeting notes called out (multi-select
+ * education-types and marital-statuses, required-document checklist,
+ * required-exam IDs, examOrder). Optional on `ApplicantCategory` so existing
+ * seeded rows keep typechecking.
+ */
+export interface CategoryConditions {
+  gender: 'male' | 'female' | 'any';
+  minAge: number | null;
+  maxAge: number | null;
+  /** ISO date used to evaluate age. Falls back to cycle.ageCalcDate. */
+  ageCalcDate?: string;
+  /** Lookup keys (`thanaweya_amma`, `azhar`, …) — driven by educationTypes lookup. */
+  educationTypes: string[];
+  /** Optional graduation-year filter; null = any. */
+  graduationYear?: number | null;
+  /** Lookup keys (`single`, `married`, …) — driven by maritalStatuses lookup. */
+  maritalStatuses: string[];
+  minScore?: number | null;
+  /** Free-text required-document checklist. */
+  requiredDocuments: string[];
+  /** Required exam ids — driven by examTypes lookup or examConfigs. */
+  requiredExamIds: string[];
+  /** Ordered exam ids — drives the per-cycle exam plan in Gap J. */
+  examOrder: string[];
+}
+
 export interface ApplicantCategory extends SoftDeleteFields {
   key: ApplicantCategoryKey;
   labelAr: string;
@@ -420,6 +451,8 @@ export interface ApplicantCategory extends SoftDeleteFields {
   /** Computed snapshot from `MOCK.activeCycleId → cycle.openCategories[key]`. */
   isOpen: boolean;
   conditions: CategoryCondition;
+  /** Gap G expanded condition matrix (admin-side rule builder). */
+  expandedConditions?: CategoryConditions;
   requiredTests: RequiredTest[];
   procedures: string[];
 }
