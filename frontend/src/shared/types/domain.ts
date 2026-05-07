@@ -182,21 +182,90 @@ export type AuditAction =
   | 'workflow.publish'
   | 'workflow.reorder'
   | 'workflow.delete'
-  | 'applicant.transition';
+  | 'applicant.transition'
+  /* Soft delete + restore (Gap D) */
+  | 'soft_delete'
+  | 'restore'
+  /* Login security events (Gap A) */
+  | 'login_success'
+  | 'login_failed'
+  | 'account_locked'
+  | 'account_unlocked'
+  | 'otp_sent'
+  | 'otp_verified'
+  | 'otp_failed'
+  /* Cycle lifecycle (Gap F) */
+  | 'cycle_activated'
+  | 'cycle_closed'
+  | 'cycle_extended'
+  | 'cycle_archived'
+  /* Category rule changes with override (Gap G) */
+  | 'category_rules_changed'
+  | 'category_rules_changed_with_override'
+  /* Notification authoring (Gap L) */
+  | 'notification_published'
+  | 'notification_unpublished'
+  /* Payment events (Gap K) */
+  | 'payment_status_changed'
+  | 'payment_refunded';
 export type AuditColor = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
+/** Typed module taxonomy — used by Gap E filters and the withAudit() helper. */
+export type AuditModule =
+  | 'admin'
+  | 'auth'
+  | 'cycles'
+  | 'categories'
+  | 'committees'
+  | 'lookups'
+  | 'exams'
+  | 'payments'
+  | 'notifications'
+  | 'roles'
+  | 'users'
+  | 'workflows'
+  | 'applicants';
+
+/**
+ * Audit entry — Sprint 1 baseline plus Gap E (admin-gaps) extensions.
+ *
+ * Existing fields (`userId`, `userName`, `entity`, `timestamp`, …) are kept
+ * for backwards compatibility with the 240 seeded mock entries and existing
+ * UI consumers. New optional fields land alongside:
+ *   - `role`: actor role at time of action
+ *   - `module`: typed module taxonomy
+ *   - `entityType`: typed entity name (Arabic-label-free)
+ *   - `before` / `after`: per-row diff (replaces the side-table MOCK.auditDiffs
+ *     for rows that ship them inline)
+ *   - `deviceMeta`: optional UA/device hint
+ *   - `at`: ISO mirror of `timestamp` (real backend will return ISO; mock
+ *     populates both so consumers can pick either)
+ */
 export interface AuditEntry {
   id: string;
   userId: string;
   userName: string;
+  /** Actor role at time of action (Gap E). */
+  role?: string;
   action: AuditAction;
   actionLabel: string;
   actionColor: AuditColor;
+  /** Module taxonomy (Gap E filters). */
+  module?: AuditModule;
+  /** Arabic entity label (existing). */
   entity: string;
+  /** Typed entity name (Gap E — `cycle`, `category`, `committee`, …). */
+  entityType?: string;
   entityId: string;
   details: string;
+  /** Inline before/after diff (Gap E). */
+  before?: unknown;
+  after?: unknown;
   timestamp: number;
+  /** ISO timestamp mirror (Gap E). */
+  at?: string;
   ip: string;
+  deviceMeta?: string;
 }
 
 export interface SystemUser {

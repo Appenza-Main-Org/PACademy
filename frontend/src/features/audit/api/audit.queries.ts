@@ -7,6 +7,8 @@ export const auditKeys = {
   detail: (id: string) => [...auditKeys.all, 'detail', id] as const,
   diff: (id: string) => [...auditKeys.all, 'diff', id] as const,
   entityTypes: () => [...auditKeys.all, 'entity-types'] as const,
+  modules: () => [...auditKeys.all, 'modules'] as const,
+  roles: () => [...auditKeys.all, 'roles'] as const,
   users: () => [...auditKeys.all, 'users'] as const,
 };
 
@@ -37,6 +39,20 @@ export function useAuditEntityTypes() {
   return useQuery({
     queryKey: auditKeys.entityTypes(),
     queryFn: () => auditService.getEntityTypes(),
+  });
+}
+
+export function useAuditModules() {
+  return useQuery({
+    queryKey: auditKeys.modules(),
+    queryFn: () => auditService.getModules(),
+  });
+}
+
+export function useAuditRoles() {
+  return useQuery({
+    queryKey: auditKeys.roles(),
+    queryFn: () => auditService.getRoles(),
   });
 }
 

@@ -11,7 +11,6 @@ import {
   Card,
   DataTable,
   DateRangePicker,
-  Drawer,
   EmptyState,
   Input,
   PageHeader,
@@ -22,20 +21,24 @@ import type { DataTableColumn, DateRange } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
 import { downloadBlob } from '@/shared/lib/download';
-import { auditService } from '@/features/audit/api/audit.service';
 import {
-  useAuditDiff,
+  AuditDiffDrawer,
+  auditService,
   useAuditEntityTypes,
   useAuditLog,
+  useAuditModules,
+  useAuditRoles,
   useAuditUsers,
-} from '@/features/audit/api/audit.queries';
+} from '@/features/audit';
 import { AUDIT_ACTIONS } from '@/shared/mock-data/dictionaries';
-import type { AuditAction, AuditEntry } from '@/shared/types/domain';
+import type { AuditAction, AuditEntry, AuditModule } from '@/shared/types/domain';
 
 export function AuditPage(): JSX.Element {
   const [action, setAction] = useState<AuditAction | 'all'>('all');
   const [userId, setUserId] = useState<string>('all');
   const [entity, setEntity] = useState<string>('all');
+  const [moduleFilter, setModuleFilter] = useState<AuditModule | 'all'>('all');
+  const [roleFilter, setRoleFilter] = useState<string>('all');
   const [range, setRange] = useState<DateRange>({ start: null, end: null });
   const [search, setSearch] = useState('');
 
@@ -43,12 +46,16 @@ export function AuditPage(): JSX.Element {
     action,
     userId,
     entity,
+    module: moduleFilter,
+    role: roleFilter,
     since: range.start?.getTime() ?? null,
     until: range.end?.getTime() ?? null,
   };
 
   const { data, isLoading } = useAuditLog(filters);
   const { data: entityTypes } = useAuditEntityTypes();
+  const { data: modules } = useAuditModules();
+  const { data: roles } = useAuditRoles();
   const { data: users } = useAuditUsers();
   const [openEntry, setOpenEntry] = useState<AuditEntry | null>(null);
 
@@ -130,7 +137,7 @@ export function AuditPage(): JSX.Element {
       />
 
       <Card>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <Input
             label="بحث"
             placeholder="بحث في التفاصيل…"
@@ -153,6 +160,24 @@ export function AuditPage(): JSX.Element {
             options={[
               { value: 'all', label: 'الكل' },
               ...((entityTypes ?? []).map((e) => ({ value: e, label: e }))),
+            ]}
+          />
+          <Select
+            label="الوحدة"
+            value={moduleFilter}
+            onChange={(e) => setModuleFilter(e.target.value as AuditModule | 'all')}
+            options={[
+              { value: 'all', label: 'كل الوحدات' },
+              ...((modules ?? []).map((m) => ({ value: m, label: m }))),
+            ]}
+          />
+          <Select
+            label="الدور"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            options={[
+              { value: 'all', label: 'كل الأدوار' },
+              ...((roles ?? []).map((r) => ({ value: r, label: r }))),
             ]}
           />
           <Select
@@ -183,89 +208,5 @@ export function AuditPage(): JSX.Element {
 
       <AuditDiffDrawer entry={openEntry} onClose={() => setOpenEntry(null)} />
     </CenteredShell>
-  );
-}
-
-function AuditDiffDrawer({
-  entry,
-  onClose,
-}: {
-  entry: AuditEntry | null;
-  onClose: () => void;
-}): JSX.Element {
-  const { data, isLoading } = useAuditDiff(entry?.id ?? null);
-  return (
-    <Drawer
-      open={Boolean(entry)}
-      onClose={onClose}
-      title={entry ? `تفاصيل · ${entry.actionLabel}` : 'تفاصيل'}
-      subtitle={entry ? `بواسطة ${entry.userName} · ${fmtDate(entry.timestamp)}` : undefined}
-      size="md"
-    >
-      <Drawer.Body>
-        {entry && (
-          <dl className="mb-4 grid grid-cols-3 gap-2 text-sm">
-            <Field label="الكيان">{entry.entity}</Field>
-            <Field label="معرّف السجل" mono>
-              {entry.entityId}
-            </Field>
-            <Field label="عنوان IP" mono>
-              {entry.ip}
-            </Field>
-          </dl>
-        )}
-        <h3 className="mb-2 text-sm font-medium text-ink-900">قبل / بعد</h3>
-        {isLoading ? (
-          <p className="text-sm text-ink-500">جارٍ التحميل…</p>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            <DiffPanel title="قبل" value={data?.before ?? null} tone="danger" />
-            <DiffPanel title="بعد" value={data?.after ?? null} tone="success" />
-          </div>
-        )}
-      </Drawer.Body>
-    </Drawer>
-  );
-}
-
-function Field({
-  label,
-  children,
-  mono,
-}: {
-  label: string;
-  children: React.ReactNode;
-  mono?: boolean;
-}): JSX.Element {
-  return (
-    <div className="rounded-md border border-border-subtle bg-ink-50 px-3 py-2">
-      <dt className="text-2xs uppercase tracking-wide text-ink-500">{label}</dt>
-      <dd
-        className={'mt-0.5 text-sm text-ink-900 ' + (mono ? 'font-mono' : '')}
-        {...(mono ? { dir: 'ltr' } : {})}
-      >
-        {children}
-      </dd>
-    </div>
-  );
-}
-
-function DiffPanel({
-  title,
-  value,
-  tone,
-}: {
-  title: string;
-  value: Record<string, unknown> | null;
-  tone: 'danger' | 'success';
-}): JSX.Element {
-  const borderClass = tone === 'danger' ? 'border-terra-300 bg-terra-50' : 'border-success bg-success-bg';
-  return (
-    <div className={'rounded-md border p-3 ' + borderClass}>
-      <p className="mb-1 text-xs font-medium text-ink-700">{title}</p>
-      <pre className="overflow-auto rounded-sm bg-surface-card p-2 text-2xs leading-normal text-ink-900" dir="ltr">
-        {value ? JSON.stringify(value, null, 2) : '— غير موجود —'}
-      </pre>
-    </div>
   );
 }
