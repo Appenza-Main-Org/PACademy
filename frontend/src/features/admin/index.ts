@@ -9,6 +9,7 @@ export { RolesPage } from './pages/RolesPage';
 export { NotificationsPage } from './pages/NotificationsPage';
 export { PaymentsPage } from './pages/PaymentsPage';
 export { AuditPage } from './pages/AuditPage';
+export { ActiveCycleIndicator } from './components/cycles/ActiveCycleIndicator';
 
 /* Cross-feature exports (admin services consumed by applicant-portal etc.) */
 export {
