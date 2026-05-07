@@ -75,6 +75,7 @@ export {
 } from './StatusBadge';
 export { ToastViewport, toast } from './Toast';
 export type { ToastKind } from './Toast';
+export { Tooltip, TooltipProvider } from './Tooltip';
 export { Wizard } from './Wizard';
 export type { WizardStep, WizardStepState } from './Wizard';
 
