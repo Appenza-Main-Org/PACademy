@@ -20,6 +20,7 @@ import { RevampComparisonPage } from '@/features/design-revamp';
 import { ProfilePage } from '@/features/profile';
 import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
+import { PrimitivesReviewPage } from '@/features/dev';
 import {
   ApplicantPortalLayout,
   ApplicantPortalPage,
@@ -332,6 +333,14 @@ export const routes: RouteObject[] = [
       { path: 'results', element: <ExamsResultsPage /> },
     ],
   },
+
+  /* ── DEV-ONLY ROUTES ──────────────────────────────────────
+     Spread under a Vite-time gate. `import.meta.env.DEV` is statically
+     replaced with `true` (dev) or `false` (prod), so the production bundle
+     tree-shakes this branch entirely and the route is unreachable. */
+  ...(import.meta.env.DEV
+    ? ([{ path: '/_dev/primitives', element: <PrimitivesReviewPage /> }] satisfies RouteObject[])
+    : []),
 
   /* ── 404 FALLBACK → public landing ───────────────────────── */
   { path: '*', element: <Navigate to="/" replace /> },
