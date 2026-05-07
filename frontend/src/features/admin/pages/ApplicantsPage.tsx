@@ -18,6 +18,11 @@ const GOVERNORATE_OPTIONS: readonly SearchSelectOption[] = MOCK.governorates.map
   label: g,
 }));
 
+const CERT_TYPE_OPTIONS: readonly SearchSelectOption[] = [
+  { value: 'ثانوية عامة', label: 'ثانوية عامة' },
+  { value: 'ثانوية أزهرية', label: 'ثانوية أزهرية' },
+];
+
 const APPLICANT_COLUMNS: DataTableColumn<Applicant>[] = [
   {
     key: 'name',
@@ -114,11 +119,19 @@ export function ApplicantsPage(): JSX.Element {
                 className="h-[38px]"
               />
             </div>
-            <select className="select" value={certType} onChange={(e) => { setCertType(e.target.value); setPage(1); }}>
-              <option value="all">كل الشهادات</option>
-              <option value="ثانوية عامة">ثانوية عامة</option>
-              <option value="ثانوية أزهرية">ثانوية أزهرية</option>
-            </select>
+            <div className="min-w-[180px] flex-[0_1_200px]">
+              <SearchSelect
+                value={certType === 'all' ? null : certType}
+                onChange={(next) => {
+                  setCertType(next ?? 'all');
+                  setPage(1);
+                }}
+                options={CERT_TYPE_OPTIONS}
+                ariaLabel="تصفية حسب نوع الشهادة"
+                placeholder="كل الشهادات"
+                className="h-[38px]"
+              />
+            </div>
           </div>
 
           <DataTable<Applicant>
