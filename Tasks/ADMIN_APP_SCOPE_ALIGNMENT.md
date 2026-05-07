@@ -550,6 +550,36 @@ from `simulateLatency() + MOCK` reads to `apiClient.get/post(...)`.
 
 ---
 
+## §10 — Workstream Closeout (2026-05-07)
+
+Admin gaps workstream is complete and ready for backend integration handoff.
+
+- **Implementation:** 13 atomic commits — `admin-gaps-complete` (`3c2bdaa`).
+- **Verification:** 4 fix commits — `admin-gaps-verified` (`d989536`).
+- **Cleanup:** 4 commits — TODO.md (`d7cef53`), tagging report
+  (`7b43e8d`), INTEGRATION_HANDOFF.md (`039dc57`), this closeout.
+- **Demo tag:** `v0.3.0-admin-verified` at `d989536` — supersedes
+  `v0.2.0-demo` for any tender presentation.
+- **Handoff doc:** [docs/INTEGRATION_HANDOFF.md](../docs/INTEGRATION_HANDOFF.md) —
+  single source of truth for backend integration.
+- **Deferred (per `TODO.md`):** the two pre-existing `: any` flags —
+  to be resolved during integration when form schemas become typed.
+- **Deferred (explicit):** soft-delete `list()` filter spot-check
+  across non-committee entities — to be addressed during backend
+  integration when those entities get re-touched.
+
+**Note:** subsequent commits (Radix adoption work — Accordion,
+AlertDialog, Dialog, DropdownMenu, Popover, SearchSelect, Sheet, Tabs,
+Tooltip + the `RADIX_ADOPTION_REPORT.md` and `/_dev/primitives` review
+route) are a separate workstream driven by `CLAUDE.md §2.5` and **not**
+covered by the admin-gaps tags. Backend integration may proceed
+independently of the Radix work.
+
+**Next workstream:** backend integration. See
+[docs/INTEGRATION_HANDOFF.md](../docs/INTEGRATION_HANDOFF.md).
+
+---
+
 ## 7 · Notes for the human reviewer
 
 - **The prompt above is sequenced**, not parallelized. Audit + soft-delete + login security come first because every later gap emits audit and uses soft delete. Reordering will create churn.
