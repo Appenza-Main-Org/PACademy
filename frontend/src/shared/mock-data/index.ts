@@ -60,6 +60,7 @@ import {
   WORKFLOWS,
   WORKFLOW_TRANSITIONS,
 } from './workflows';
+import { LOOKUP_SEED } from './lookups';
 
 reseed(42);
 
@@ -497,4 +498,6 @@ export const MOCK = {
   workflows: WORKFLOWS,
   applicantWorkflowProgress: APPLICANT_WORKFLOW_PROGRESS,
   workflowTransitions: WORKFLOW_TRANSITIONS,
+  /* Generic lookup matrix (admin-gaps Gap I) */
+  lookups: LOOKUP_SEED,
 };

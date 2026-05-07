@@ -444,6 +444,49 @@ export interface EligibilityResult {
   reasons: EligibilityRejectionReason[];
 }
 
+/* ── Generic lookup matrix — Gap I (admin-gaps) ────────────────────────
+ *
+ * Sprint-1 reference data (governorates, specialties, …) keeps its
+ * per-shape Ref* types because forms render specific fields. Gap I adds a
+ * second, broader catalogue of lookups that all share the same row shape
+ * (`LookupRow`) and are managed via the parameterized <LookupTab>.
+ *
+ * Each lookup tab is identified by a `LookupKey`. Hierarchical lookups
+ * (faculties under universities, specialties under specialty-types)
+ * carry a `parentId` referencing the parent row.
+ */
+
+export type LookupKey =
+  | 'educationTypes'
+  | 'maritalStatuses'
+  | 'universities'
+  | 'faculties'
+  | 'specialties'
+  | 'specialtyTypes'
+  | 'degreeTypes'
+  | 'jobs'
+  | 'examTypes'
+  | 'examGroups'
+  | 'committeeTypes'
+  | 'rejectionReasons'
+  | 'notificationDepartments';
+
+export interface LookupRow extends SoftDeleteFields {
+  id: string;
+  /** Stable machine key; ASCII-only, kebab-or-snake. */
+  key: string;
+  labelAr: string;
+  labelEn?: string;
+  sortOrder: number;
+  isActive: boolean;
+  /** True for seeded rows that ship with the platform (cannot be deleted). */
+  isSystem: boolean;
+  /** Foreign key to a parent lookup row (e.g. university id for faculties). */
+  parentId?: string;
+  /** Optional gender filter for lookups that bifurcate (specialties). */
+  gender?: 'male' | 'female';
+}
+
 /* ── Reference data — Sprint 1 (Tasks/KARASA_GAPS.md §1.2.B) ────────── */
 
 export type ReferenceTab =
