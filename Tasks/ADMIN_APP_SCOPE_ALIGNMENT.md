@@ -512,6 +512,44 @@ from `simulateLatency() + MOCK` reads to `apiClient.get/post(...)`.
 
 ---
 
+## 9 · Verification + Fix Pass
+
+> Frozen 2026-05-07 after the autonomous verification pass that
+> followed `admin-gaps-complete` (`3c2bdaa`). Full report:
+> [docs/VERIFICATION_REPORT.md](../docs/VERIFICATION_REPORT.md).
+
+### Findings + fixes
+
+| # | Severity | Gap | What was wrong | Fix | Commit |
+|---|---|---|---|---|---|
+| 1 | Build-blocking | post-tag CSS edit | `tokens.css` comment closed early on `*/--ease-*/` substring | Reworded comment to drop the embedded `*/` | linter follow-up |
+| 2 | Build-blocking | post-tag Radix work | `AlertDialog` used `onInteractOutside` (not on Radix `AlertDialog.Content`) | Wired dismiss on Overlay; Esc auto-handled by Radix | linter follow-up |
+| 3 | Cleanup | E/F | AppShell deep-imported `@/features/auth/api/auth.queries` and `@/features/admin/components/cycles/ActiveCycleIndicator` | Routed both through feature barrels; added `ActiveCycleIndicator` to admin barrel | `2920e14` |
+| 4 | Functional | C | `buildAuthUser` loaded permissions from static `ROLE_DEFINITIONS`; admin role edits didn't propagate at login | Read from `MOCK.roleDefinitions` first, fall back to legacy table | `b9af227` |
+| 5 | Functional | H | `committee.list()` didn't filter soft-deleted rows even though `Committee` extends `SoftDeleteFields` | Added `filterDeleted` + `includeDeleted` opt-in to `committee.list` | `b085af0` |
+
+### Pre-existing items flagged but out of admin-gap scope
+
+- `src/shared/lib/zod-resolver.ts:25` — explicit
+  `eslint-disable @typescript-eslint/no-explicit-any` to bridge RHF
+  v7's variance-strict resolver.
+- `src/features/admin/components/applicants/ApplicantForm.tsx:831` —
+  `register: any` on a sub-form prop. Both pre-date `admin-gaps-complete`
+  (commit `69f4689`).
+
+### Final state
+
+- 13 / 13 gaps ✅ verified.
+- `npm run typecheck` ✅ clean.
+- `npm run build` ✅ clean (only the unchanged chunk-size advisory).
+- 0 Clean Arch violations (`shared/` → `features/` count = 0; barrel
+  discipline restored).
+- 3 atomic verification commits shipped on top of `admin-gaps-complete`,
+  none reverted any prior gap.
+- `docs/VERIFICATION_REPORT.md` is the canonical write-up for this pass.
+
+---
+
 ## 7 · Notes for the human reviewer
 
 - **The prompt above is sequenced**, not parallelized. Audit + soft-delete + login security come first because every later gap emits audit and uses soft delete. Reordering will create churn.
