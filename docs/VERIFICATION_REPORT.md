@@ -280,6 +280,16 @@ without pulling a dnd library. Documented in §8.
 
 ---
 
+## Tags
+
+- `admin-gaps-complete` (3c2bdaa) — initial implementation closeout, kept as historical marker.
+- `admin-gaps-verified` (d989536) — verification HEAD, current source of truth for admin-gaps scope.
+- `v0.3.0-admin-verified` (d989536) — release cut for tender demo, supersedes v0.2.0-demo.
+
+Both verification tags pushed to `origin`. Subsequent commits (Radix adoption, etc.) are separate workstreams and not covered by these tags.
+
+---
+
 ## 7 · Closeout
 
 All 13 gaps (A–M) defined in
