@@ -429,6 +429,89 @@ If a gap's effort balloons past 1.5x the estimate (S=4h, M=10h, L=20h), stop and
 
 ---
 
+## 8 · Implementation Closeout
+
+> Frozen 2026-05-07 at tag `admin-gaps-complete`. All 13 gaps (A–M)
+> shipped in sequence; Gap N stayed out of scope.
+
+### Gaps completed (13 / 13)
+
+| # | Gap | Status | Notes |
+|---|---|---|---|
+| 1 | E — Audit trail expansion + diff viewer | ✅ | Inline before/after, module/role filters, AuditDiffDrawer |
+| 2 | D — Soft delete + dependency protection | ✅ | `SoftDeletable` mixin, `SoftDeleteDialog`, services for cycles + categories + reference data |
+| 3 | A — Admin OTP + lock policy + login audit | ✅ | Two-step login, lock policy under SettingsPage, 7 audit actions |
+| 4 | B — Officer lookup contract | ✅ | `authService.lookupOfficer` + typed `NotFoundError` |
+| 5 | F — Cycle status workflow | ✅ | `extended` status, `ConflictError('ACTIVE_CYCLE_EXISTS')`, `<ActiveCycleIndicator>` |
+| 6 | I — Reference data lookup matrix | ✅ | 13 new lookups, `<LookupTab>`, parent-child references |
+| 7 | G — Category condition builder + conflict detection | ✅ | `<CategoryConditionBuilder>` + impact preview drawer, super-admin override |
+| 8 | H — Committee capacity + scoping | ✅ | `scheduleSlot` with capacity guard, `<OfficerMultiSelect>` |
+| 9 | J — Exam ordering + copy-from-previous-cycle | ✅ | 13 academy exams seeded, `<ExamPlanEditor>`, copy action on cycle detail |
+| 10 | C — Dynamic roles + permission matrix | ✅ | 11 system roles + Finance Review, `<PermissionMatrix>` table, system-row protection |
+| 11 | L — Notification management | ✅ | `<AudienceSelector>` discriminated UI, `/admin/notifications`, applicant landing surface |
+| 12 | K — Fawry payment admin | ✅ | `paymentsService.syncFawryStatus` placeholder, refund-eligibility view, `payments:review` gate |
+| 13 | M — DB constraints doc | ✅ | `docs/DB_CONSTRAINTS.md` lists 9 invariants with SQL Server expressions |
+
+### Numbers
+
+- **Commits on this branch (after `6d07204`):** 13 atomic feat commits +
+  1 closeout commit (this section).
+- **Files touched:** ~70 across `shared/types`, `shared/lib`,
+  `shared/mock-data`, `shared/components`, `features/admin`,
+  `features/auth`, `features/audit`, `features/committees`,
+  `features/applicant-portal`, `app/layouts`, plus `routes.tsx`,
+  `config/routes.ts`, and the new `docs/DB_CONSTRAINTS.md`.
+- **New typed errors:** `ConflictError` (5 codes),
+  `DependencyBlockedError`, `NotFoundError`.
+- **New shared primitives:** `<SoftDeleteDialog>`, `<DependencyWarning>`,
+  `<AuditDiffDrawer>` (extracted), `setAuditActorProvider` /
+  `withAudit` / `emitAudit` (lib).
+- **New admin pages:** `/admin/users/roles`, `/admin/notifications`,
+  `/admin/payments`.
+- **New service files:** roles, notifications, payments, lookups,
+  examPlans (5 services + their queries).
+
+### Deferred / not in scope
+
+- **Gap N (`[REC]`)** — session timeout indicator, two-person approval
+  on destructive cross-cycle ops, applicant CSV bulk-import dry-run.
+  Per the original prompt, these stay out unless explicitly approved.
+- **Cycle-detail Fawry config inline editor** (Gap K) — typed shape
+  exists on `CycleFees.fawryConfig`; the form fits in the next polish
+  pass. Not blocking integration.
+- **Permission re-load at login** (Gap C) — `useAuthStore` still uses
+  the legacy `ROLE_DEFINITIONS` mapping in mock; the contract for
+  loading permissions from the dynamic role row at login is documented
+  in `roles.service.ts` JSDoc.
+- **UsersPage status pill / status-transition control** (Gap C) —
+  `usersService.setStatus` is wired and audit-emitting; the UI surface
+  lands as a follow-up.
+
+### Final verification
+
+```
+$ npm run typecheck
+> tsc --noEmit
+(clean — 0 errors)
+
+$ npm run build
+> tsc -b && vite build
+✓ built in ~7s
+(only the chunk-size advisory; no errors)
+```
+
+### Next session
+
+Backend integration is the natural next workstream. The
+`INTEGRATION CONTRACT` JSDoc at the top of every `*.service.ts` lists
+the real REST endpoints the admin gap closure assumed; the typed
+`ConflictError` codes documented in `docs/DB_CONSTRAINTS.md` are the
+fixture set the integration tests can compare against. The frontend
+will not need to change — only the bodies of the service methods flip
+from `simulateLatency() + MOCK` reads to `apiClient.get/post(...)`.
+
+---
+
 ## 7 · Notes for the human reviewer
 
 - **The prompt above is sequenced**, not parallelized. Audit + soft-delete + login security come first because every later gap emits audit and uses soft delete. Reordering will create churn.

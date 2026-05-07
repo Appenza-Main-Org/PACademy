@@ -268,6 +268,10 @@ async list(filters) { return apiClient.get('/applicants', { params: filters }).t
 ### Domain types — see [frontend/src/shared/types/domain.ts](frontend/src/shared/types/domain.ts)
 `Applicant`, `ApplicantStatus`, `PaymentStatus`, `InvestigationStatus`, `ResultOutcome`, `AuditEntry`, `AuditAction`, `AuditColor`, `SystemUser`, `MedicalStation`, `Committee`, `Question`, `DayPoint`, `Kpis`, `TimelineEvent`.
 
+### DB constraints (backend integration handshake)
+
+The admin gap closure work (Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md) introduced typed `ConflictError` codes (`ACTIVE_CYCLE_EXISTS`, `EXAM_ORDER_DUPLICATE`, `COMMITTEE_AT_CAPACITY`, `NID_CYCLE_DUPLICATE`, …) that the frontend already throws from its mock services. The full list of invariants — paired with the SQL Server expressions backend must implement — lives in [docs/DB_CONSTRAINTS.md](docs/DB_CONSTRAINTS.md). Read it before opening any service file that mutates state; the frontend mirrors are not negotiable on integration day.
+
 ---
 
 ## 7. Auth flow
