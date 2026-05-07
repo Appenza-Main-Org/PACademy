@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { GraduationCap, ShieldCheck } from 'lucide-react';
-import { Badge, Button, Card, Input, SearchSelect, Select, Textarea, toast } from '@/shared/components';
+import { Badge, Button, Card, Field, Input, SearchSelect, Select, Textarea, toast } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage4Schema, type Stage4Values } from '../schemas';
@@ -86,7 +86,7 @@ export function Stage4EducationPage(): JSX.Element {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 md:grid-cols-2">
-        <SearchSelectField label="نوع الشهادة" required error={errors.certificateType?.message}>
+        <Field label="نوع الشهادة" required error={errors.certificateType?.message}>
           <Controller
             control={control}
             name="certificateType"
@@ -100,7 +100,7 @@ export function Stage4EducationPage(): JSX.Element {
               />
             )}
           />
-        </SearchSelectField>
+        </Field>
         <Input
           label="سنة الحصول"
           type="number"
@@ -136,7 +136,7 @@ export function Stage4EducationPage(): JSX.Element {
           {...register('schoolName')}
           error={errors.schoolName?.message}
         />
-        <SearchSelectField label="محافظة المدرسة" required error={errors.schoolGovernorate?.message}>
+        <Field label="محافظة المدرسة" required error={errors.schoolGovernorate?.message}>
           <Controller
             control={control}
             name="schoolGovernorate"
@@ -150,7 +150,7 @@ export function Stage4EducationPage(): JSX.Element {
               />
             )}
           />
-        </SearchSelectField>
+        </Field>
         {certType === 'ثانوية أزهرية' && (
           <Select
             label="القسم"
@@ -193,29 +193,3 @@ export function Stage4EducationPage(): JSX.Element {
   );
 }
 
-/**
- * Local label/error chrome for SearchSelect — mirrors `<Select>` shape.
- * Inline per CLAUDE.md §2.5 guardrail.
- */
-function SearchSelectField({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: React.ReactNode;
-  required?: boolean;
-  error?: React.ReactNode;
-  children: React.ReactNode;
-}): JSX.Element {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-ink-700">
-        {label}
-        {required && <span className="ms-1 text-terra-500">*</span>}
-      </span>
-      {children}
-      {error && <span className="text-xs text-terra-700">{error}</span>}
-    </div>
-  );
-}

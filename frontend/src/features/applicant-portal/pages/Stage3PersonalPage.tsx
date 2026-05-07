@@ -10,7 +10,7 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
-import { Button, Card, FileUpload, Input, SearchSelect, Select, toast } from '@/shared/components';
+import { Button, Card, Field, FileUpload, Input, SearchSelect, Select, toast } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage3Schema, type Stage3Values } from '../schemas';
@@ -109,7 +109,7 @@ export function Stage3PersonalPage(): JSX.Element {
             />
           </>
         )}
-        <SearchSelectField label="محل الميلاد" required error={errors.placeOfBirth?.message}>
+        <Field label="محل الميلاد" required error={errors.placeOfBirth?.message}>
           <Controller
             control={control}
             name="placeOfBirth"
@@ -123,7 +123,7 @@ export function Stage3PersonalPage(): JSX.Element {
               />
             )}
           />
-        </SearchSelectField>
+        </Field>
         <Select
           label="الديانة"
           required
@@ -218,29 +218,3 @@ function DerivedRow({ label, value }: { label: string; value: string }): JSX.Ele
   );
 }
 
-/**
- * Local label/error chrome for SearchSelect — mirrors `<Select>` shape so the
- * swap is visually identical. Inline per CLAUDE.md §2.5 guardrail.
- */
-function SearchSelectField({
-  label,
-  required,
-  error,
-  children,
-}: {
-  label: React.ReactNode;
-  required?: boolean;
-  error?: React.ReactNode;
-  children: React.ReactNode;
-}): JSX.Element {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-ink-700">
-        {label}
-        {required && <span className="ms-1 text-terra-500">*</span>}
-      </span>
-      {children}
-      {error && <span className="text-xs text-terra-700">{error}</span>}
-    </div>
-  );
-}

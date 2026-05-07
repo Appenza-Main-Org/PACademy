@@ -17,6 +17,7 @@ import {
   Drawer,
   EmptyState,
   ErrorState,
+  Field,
   Input,
   KhayameyaStripe,
   LoadingState,
@@ -559,7 +560,7 @@ export function BoardMembersPage(): JSX.Element {
             }}
           >
             <Input label="الاسم بالكامل" required value={name} onChange={(e) => setName(e.target.value)} />
-            <SearchSelectField label="الرتبة">
+            <Field label="الرتبة">
               <SearchSelect
                 value={rank ? rank : null}
                 onChange={(next) => setRank(next ?? '')}
@@ -567,7 +568,7 @@ export function BoardMembersPage(): JSX.Element {
                 ariaLabel="الرتبة"
                 placeholder="اختر الرتبة"
               />
-            </SearchSelectField>
+            </Field>
             <Select
               label="الدور"
               value={role}
@@ -608,40 +609,6 @@ function DecisionSignature({ title, name }: { title: string; name: string }): JS
       <span aria-hidden className="block h-12 w-full border-b border-dashed border-ink-700/60" />
       <p className="mt-2 font-medium text-ink-900">{title}</p>
       <p className="mt-0.5 text-ink-700">{name}</p>
-    </div>
-  );
-}
-
-/**
- * Local label/error chrome for SearchSelect — mirrors `<Select>` shape with
- * the canonical superset (label/required/error/helper/children) from
- * cert-type pilot REPORT §3.3. Inline per CLAUDE.md §2.5 guardrail; pilot 3
- * Phase 3 audits this against the three other inline wrappers and decides
- * whether to promote to `shared/components/Field.tsx`.
- */
-function SearchSelectField({
-  label,
-  required,
-  error,
-  helper,
-  children,
-}: {
-  label: React.ReactNode;
-  required?: boolean;
-  error?: React.ReactNode;
-  helper?: React.ReactNode;
-  children: React.ReactNode;
-}): JSX.Element {
-  const helperText = error ?? helper;
-  const helperTone = error ? 'text-terra-700' : 'text-ink-500';
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-ink-700">
-        {label}
-        {required && <span className="ms-1 text-terra-500">*</span>}
-      </span>
-      {children}
-      {helperText && <span className={`text-xs ${helperTone}`}>{helperText}</span>}
     </div>
   );
 }

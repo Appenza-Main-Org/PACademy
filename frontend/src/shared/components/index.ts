@@ -43,6 +43,7 @@ export type { DrawerSize } from './Drawer';
 export { EmptyState } from './EmptyState';
 export type { EmptyVariant } from './EmptyState';
 export { ErrorState } from './ErrorState';
+export { Field } from './Field';
 export { FileUpload } from './FileUpload';
 export type { UploadFile, UploadStatus } from './FileUpload';
 export { Icon } from './Icon';
