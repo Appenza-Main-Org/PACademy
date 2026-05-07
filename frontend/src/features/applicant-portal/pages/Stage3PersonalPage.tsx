@@ -9,8 +9,9 @@
 
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { Button, Card, FileUpload, Input, Select, toast } from '@/shared/components';
+import { Controller, useForm } from 'react-hook-form';
+import { Button, Card, FileUpload, Input, SearchSelect, Select, toast } from '@/shared/components';
+import type { SearchSelectOption } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage3Schema, type Stage3Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
@@ -19,6 +20,12 @@ import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
 import { parseNationalId } from '@/shared/lib/national-id';
 
 const APPLICANT_ID = 'APP-2026000';
+
+const GOV_SEARCH_OPTIONS: readonly SearchSelectOption[] = REF_GOVERNORATES.map((g) => ({
+  value: g.nameAr,
+  label: g.nameAr,
+  keywords: g.nameEn,
+}));
 
 const formatDobIso = (d: Date): string => {
   const yyyy = d.getFullYear();
@@ -39,7 +46,7 @@ export function Stage3PersonalPage(): JSX.Element {
   const derivedGender = nidInfo?.gender ?? null;
   const hasDerived = Boolean(derivedDob && derivedGender);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting }, watch, setValue } = useForm<Stage3Values>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, watch, setValue, control } = useForm<Stage3Values>({
     resolver: zodResolver(stage3Schema),
     defaultValues: {
       gender: derivedGender ?? 'male',
@@ -102,13 +109,21 @@ export function Stage3PersonalPage(): JSX.Element {
             />
           </>
         )}
-        <Select
-          label="محل الميلاد"
-          required
-          {...register('placeOfBirth')}
-          options={REF_GOVERNORATES.map((g) => ({ value: g.nameAr, label: g.nameAr }))}
-          error={errors.placeOfBirth?.message}
-        />
+        <SearchSelectField label="محل الميلاد" required error={errors.placeOfBirth?.message}>
+          <Controller
+            control={control}
+            name="placeOfBirth"
+            render={({ field }) => (
+              <SearchSelect
+                value={field.value ? field.value : null}
+                onChange={(next) => field.onChange(next ?? '')}
+                options={GOV_SEARCH_OPTIONS}
+                ariaLabel="محل الميلاد"
+                placeholder="اختر المحافظة"
+              />
+            )}
+          />
+        </SearchSelectField>
         <Select
           label="الديانة"
           required
@@ -199,6 +214,33 @@ function DerivedRow({ label, value }: { label: string; value: string }): JSX.Ele
       <span className="text-2xs uppercase tracking-wide text-ink-500">{label}</span>
       <span className="text-sm font-medium text-ink-900">{value}</span>
       <span className="text-2xs text-ink-500">مأخوذ من الرقم القومي</span>
+    </div>
+  );
+}
+
+/**
+ * Local label/error chrome for SearchSelect — mirrors `<Select>` shape so the
+ * swap is visually identical. Inline per CLAUDE.md §2.5 guardrail.
+ */
+function SearchSelectField({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: React.ReactNode;
+  required?: boolean;
+  error?: React.ReactNode;
+  children: React.ReactNode;
+}): JSX.Element {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-medium text-ink-700">
+        {label}
+        {required && <span className="ms-1 text-terra-500">*</span>}
+      </span>
+      {children}
+      {error && <span className="text-xs text-terra-700">{error}</span>}
     </div>
   );
 }
