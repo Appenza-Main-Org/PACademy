@@ -9,9 +9,11 @@ export {
   useLockedUsers,
   useLoginMutation,
   useLogoutMutation,
+  useOfficerLookup,
   useRequestOtpMutation,
   useUnlockUser,
   useUpdateLockPolicy,
   useVerifyOtpMutation,
 } from './api/auth.queries';
-export type { LockPolicy, LockedUser, OtpPending } from './api/auth.service';
+export { NotFoundError } from './api/auth.service';
+export type { LockPolicy, LockedUser, OfficerLookupResult, OtpPending } from './api/auth.service';

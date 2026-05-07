@@ -43,6 +43,39 @@ const lockPolicy: LockPolicy = { maxFailedAttempts: 5, lockDurationMinutes: 30 }
 const failedAttempts = new Map<string, number>();
 const lockedUsers = new Map<string, LockedUser>();
 
+/* ── Officer lookup contract (Gap B) ──────────────────────────────────── */
+
+/**
+ * Returned shape mirrors the four fields the meeting notes called out:
+ * "esm roba3y, rakam qawmy, code el zabet, esm" — full Arabic name,
+ * national ID, officer code, and a contact mobile.
+ */
+export interface OfficerLookupResult {
+  fullArabicName: string;
+  nationalId: string;
+  officerCode: string;
+  mobileNumber: string;
+}
+
+/** Typed not-found error so callers can branch without parsing strings. */
+export class NotFoundError extends Error {
+  readonly code = 'NOT_FOUND' as const;
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundError';
+  }
+}
+
+/* Deterministic seed — five officers keyed by (nationalId, officerCode).
+ * Real backend looks up the live HR database. */
+const OFFICER_DIRECTORY: ReadonlyArray<OfficerLookupResult> = [
+  { fullArabicName: 'العميد د. أحمد محمود الفقي محمد',  nationalId: '29512011500011', officerCode: 'OFF-1001', mobileNumber: '01001234521' },
+  { fullArabicName: 'العقيد محمد إبراهيم حسن أحمد',     nationalId: '28804120100022', officerCode: 'OFF-1002', mobileNumber: '01112345678' },
+  { fullArabicName: 'العقيد د. أيمن شريف رمضان',       nationalId: '29006150700033', officerCode: 'OFF-1003', mobileNumber: '01234567890' },
+  { fullArabicName: 'الرائد محمود الديب البنا فاروق',   nationalId: '29209221400044', officerCode: 'OFF-1004', mobileNumber: '01098765432' },
+  { fullArabicName: 'النقيب كريم زياد فاروق نصر',       nationalId: '29501081100055', officerCode: 'OFF-1005', mobileNumber: '01556677889' },
+];
+
 /* ── OTP pending state (Gap A) ─────────────────────────────────────────── */
 
 export interface OtpPending {
@@ -286,6 +319,27 @@ export const authService = {
   async getLockedUsers(): Promise<LockedUser[]> {
     await simulateLatency(60, 120);
     return Array.from(lockedUsers.values());
+  },
+
+  /**
+   * Officer lookup contract (Gap B).
+   *
+   * INTEGRATION CONTRACT:
+   *   GET /v1/officers/lookup?nid=:nationalId&code=:officerCode
+   *
+   * Real backend resolves the four fields from the HR database. Mock
+   * matches against the seeded `OFFICER_DIRECTORY`. Throws `NotFoundError`
+   * for unknown pairs so callers can branch on `err.code === 'NOT_FOUND'`.
+   */
+  async lookupOfficer(input: { nationalId: string; officerCode: string }): Promise<OfficerLookupResult> {
+    await simulateLatency(200, 400);
+    const match = OFFICER_DIRECTORY.find(
+      (o) => o.nationalId === input.nationalId && o.officerCode === input.officerCode,
+    );
+    if (!match) {
+      throw new NotFoundError('لم يتم العثور على ضابط بهذا الرقم القومي ورمز الضابط');
+    }
+    return { ...match };
   },
 
   async unlockUser(userId: string, reason?: string): Promise<{ ok: true }> {

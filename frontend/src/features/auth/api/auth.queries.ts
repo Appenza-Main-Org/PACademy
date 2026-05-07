@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { authService, type LockPolicy } from './auth.service';
+import { authService, type LockPolicy, type OfficerLookupResult } from './auth.service';
 import { useAuthStore } from '../store/auth.store';
 import type { LoginCredentials } from '../types';
 
@@ -62,5 +62,14 @@ export function useUnlockUser() {
     mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
       authService.unlockUser(userId, reason),
     onSuccess: () => qc.invalidateQueries({ queryKey: authKeys.lockedUsers() }),
+  });
+}
+
+export function useOfficerLookup(): ReturnType<
+  typeof useMutation<OfficerLookupResult, Error, { nationalId: string; officerCode: string }>
+> {
+  return useMutation({
+    mutationFn: (input: { nationalId: string; officerCode: string }) =>
+      authService.lookupOfficer(input),
   });
 }
