@@ -15,12 +15,20 @@
 
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
+import { emitAudit } from '@/shared/lib/audit';
+import { ConflictError } from '@/shared/lib/errors';
 import type {
   Applicant,
   Committee,
   CommitteeResult,
   CommitteeType,
 } from '@/shared/types/domain';
+
+/* In-memory daily attendance counter — keyed by `${committeeId}:${YYYY-MM-DD}`.
+ * Gap H capacity check decrements remaining slots before scheduling. */
+const DAILY_COUNT = new Map<string, number>();
+const dayKey = (committeeId: string, dateIso: string): string =>
+  `${committeeId}:${dateIso.slice(0, 10)}`;
 
 const COMMITTEES_STATE: Committee[] = [...MOCK.committees];
 const RESULTS_STATE: CommitteeResult[] = [...MOCK.committeeResults];
@@ -140,5 +148,83 @@ export const committeeService = {
       imported += 1;
     });
     return { imported, errors };
+  },
+
+  /**
+   * Update committee config (Gap H). Patches the in-memory snapshot,
+   * emits a typed audit row with before/after, returns the merged row.
+   */
+  async update(id: string, patch: Partial<Committee>): Promise<Committee> {
+    await simulateLatency();
+    const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('اللجنة غير موجودة');
+    const before = { ...COMMITTEES_STATE[idx]! };
+    const next: Committee = { ...before, ...patch, id: before.id };
+    COMMITTEES_STATE[idx] = next;
+    emitAudit({
+      action: 'update',
+      module: 'committees',
+      entityType: 'Committee',
+      entityLabel: 'لجنة قبول',
+      entityId: id,
+      details: `تعديل بيانات "${next.name}"`,
+      before,
+      after: next,
+    });
+    return next;
+  },
+
+  /**
+   * Schedule an applicant slot on a given day for a committee. Gap H
+   * capacity check rejects with `ConflictError('COMMITTEE_AT_CAPACITY')`
+   * when the day's count would exceed `capacityPerDay`.
+   *
+   * INTEGRATION CONTRACT:
+   *   POST /api/committees/:id/schedule { applicantId, dateIso }
+   */
+  async scheduleSlot(
+    committeeId: string,
+    input: { applicantId: string; dateIso: string },
+  ): Promise<{ ok: true; remainingForDay: number }> {
+    await simulateLatency();
+    const c = COMMITTEES_STATE.find((x) => x.id === committeeId);
+    if (!c) throw new Error('اللجنة غير موجودة');
+    const k = dayKey(committeeId, input.dateIso);
+    const current = DAILY_COUNT.get(k) ?? 0;
+    const cap = c.capacityPerDay;
+    if (cap !== undefined && current >= cap) {
+      throw new ConflictError(
+        'COMMITTEE_AT_CAPACITY',
+        { committeeId, dateIso: input.dateIso, capacityPerDay: cap, current },
+        `لا يمكن جدولة هذا الموعد — الطاقة اليومية للجنة "${c.name}" مكتملة (${cap}/${cap}).`,
+      );
+    }
+    DAILY_COUNT.set(k, current + 1);
+    emitAudit({
+      action: 'create',
+      module: 'committees',
+      entityType: 'CommitteeSlot',
+      entityLabel: 'موعد لجنة',
+      entityId: `${committeeId}:${input.dateIso}:${input.applicantId}`,
+      details: `جدولة موعد للجنة "${c.name}" بتاريخ ${input.dateIso.slice(0, 10)}`,
+      after: { committeeId, applicantId: input.applicantId, dateIso: input.dateIso },
+    });
+    return { ok: true, remainingForDay: (cap ?? Infinity) - (current + 1) };
+  },
+
+  /** Reset a day counter (testing / demo helper). */
+  resetDailyCounters(): void {
+    DAILY_COUNT.clear();
+  },
+
+  /**
+   * List system users eligible for committee assignment — `committee_admin`
+   * or `committee_user` role only. Surfaced by the admin officer-multi-select.
+   */
+  async getEligibleOfficers(): Promise<{ id: string; name: string; role: string; unit: string }[]> {
+    await simulateLatency(80, 160);
+    return MOCK.users
+      .filter((u) => u.role === 'committee_admin' || u.role === 'committee_user')
+      .map((u) => ({ id: u.id, name: u.name, role: u.role, unit: u.unit }));
   },
 };

@@ -302,6 +302,18 @@ export interface MedicalStation {
   completed: number;
 }
 
+/**
+ * Score-criteria configuration — Gap H (admin-gaps).
+ * Captures the three score axes the meeting notes called out:
+ * "magmo3" (cumulative score), "ta2deer" (grade tier),
+ * "accumulative score for student".
+ */
+export interface CommitteeScoreCriteria {
+  magmoo3?: { min: number; max: number };
+  ta2deer?: ('ممتاز' | 'جيد جداً' | 'جيد' | 'مقبول')[];
+  accumulativeScore?: { min: number; max: number };
+}
+
 export interface Committee extends SoftDeleteFields {
   id: string;
   name: string;
@@ -309,6 +321,26 @@ export interface Committee extends SoftDeleteFields {
   members: number;
   applicants: number;
   completed: number;
+  /* ── Gap H additions (admin-side configuration) ───────────────── */
+  /** Gender restriction for committee membership. */
+  gender?: 'male' | 'female' | 'any';
+  scoreCriteria?: CommitteeScoreCriteria;
+  /** Daily attendance ceiling — capacity check rejects when met. */
+  capacityPerDay?: number;
+  /** Working dates the committee accepts applicants on (ISO date strings). */
+  availableDates?: string[];
+  linkedCycleId?: string;
+  linkedCategoryIds?: ApplicantCategoryKey[];
+  linkedExamIds?: string[];
+  /** Lookup key for sorting criteria — driven from rejectionReasons or similar. */
+  sortingCriteria?: string;
+  /** System users with `committee_admin` / `committee_user` role assigned to this committee. */
+  officerIds?: string[];
+  /** Specialty/degree/faculty/university scoping ids (driven by Gap I lookups). */
+  scopedSpecialtyIds?: string[];
+  scopedDegreeIds?: string[];
+  scopedFacultyIds?: string[];
+  scopedUniversityIds?: string[];
 }
 
 export interface Question {
