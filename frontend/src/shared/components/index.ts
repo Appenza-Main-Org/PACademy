@@ -61,6 +61,8 @@ export { Popover } from './Popover';
 export type { PatternVariant } from './Pattern';
 export { PrintLayout } from './PrintLayout';
 export { Select } from './Select';
+export { SearchSelect } from './SearchSelect';
+export type { SearchSelectOption } from './SearchSelect';
 export { Sheet } from './Sheet';
 export type { SheetSize } from './Sheet';
 export { Skeleton, SkeletonRow } from './Skeleton';
