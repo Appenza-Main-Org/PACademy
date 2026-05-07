@@ -63,6 +63,7 @@ import {
 import { LOOKUP_SEED } from './lookups';
 import { ACADEMY_EXAMS, CYCLE_CATEGORY_EXAM_PLANS } from './academyExams';
 import { ROLE_DEFINITION_SEED } from './roles';
+import { ADMIN_NOTIFICATIONS_SEED } from './adminNotifications';
 
 reseed(42);
 
@@ -507,4 +508,6 @@ export const MOCK = {
   cycleCategoryExamPlans: CYCLE_CATEGORY_EXAM_PLANS,
   /* Dynamic roles + permission matrix (admin-gaps Gap C) */
   roleDefinitions: ROLE_DEFINITION_SEED,
+  /* Admin-authored notifications (admin-gaps Gap L) */
+  adminNotifications: ADMIN_NOTIFICATIONS_SEED,
 };

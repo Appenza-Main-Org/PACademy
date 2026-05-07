@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import {
   BarChart3,
+  Bell,
   CalendarDays,
   ClipboardList,
   Database,
@@ -42,6 +43,7 @@ const SIDEBAR: SidebarSection[] = [
       { key: 'categories',      label: 'فئات التقديم',      icon: <Layers size={18} />,             to: ROUTES.admin.categories },
       { key: 'cycles',          label: 'الدورات',           icon: <CalendarDays size={18} />,        to: ROUTES.admin.cycles },
       { key: 'workflows',       label: 'سير العمل',          icon: <Workflow size={18} />,            to: ROUTES.admin.workflows },
+      { key: 'notifications',   label: 'الإشعارات',          icon: <Bell size={18} />,                to: ROUTES.admin.notifications },
       { key: 'settings',        label: 'الإعدادات العامة',  icon: <Settings size={18} />,           to: ROUTES.admin.settings },
     ],
   },

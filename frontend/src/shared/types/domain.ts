@@ -1359,6 +1359,42 @@ export interface NotificationItem {
   href?: string;
 }
 
+/* ── Admin-authored notifications — Gap L (admin-gaps) ───────────────── */
+
+export type AdminNotificationType = 'general' | 'student' | 'department' | 'category' | 'committee';
+
+export type AdminNotificationStatus = 'draft' | 'scheduled' | 'published' | 'expired';
+
+/**
+ * Discriminated audience selector. Each shape carries the typed targeting
+ * data the AudienceSelector UI needs:
+ *  - `general` — broadcast to all applicants (no further data).
+ *  - `student` — single applicant by nationalId (or applicantId).
+ *  - `department` / `category` / `committee` — multi-select against lookups.
+ */
+export type AudienceSelector =
+  | { type: 'general' }
+  | { type: 'student'; nationalId: string; applicantId?: string }
+  | { type: 'department'; departmentIds: string[] }
+  | { type: 'category'; categoryKeys: ApplicantCategoryKey[] }
+  | { type: 'committee'; committeeIds: string[] };
+
+export interface AdminNotification extends SoftDeleteFields {
+  id: string;
+  type: AdminNotificationType;
+  titleAr: string;
+  bodyAr: string;
+  audience: AudienceSelector;
+  /** ISO publish time — when reached, status flips draft → published. */
+  publishAt: string;
+  /** ISO expiry time — when reached, status flips published → expired. */
+  expireAt?: string;
+  /** Computed by `notificationsService.computeStatus`; persisted for sort. */
+  status: AdminNotificationStatus;
+  createdBy: string;
+  createdAt: string;
+}
+
 /* ── Department Workflow Builder — Post-polish (RFP §3 / §6) ───────────────
  *
  * A workflow is a per-department ordered pipeline of stages. Each stage

@@ -6,7 +6,17 @@ export { ApplicantNewPage } from './pages/ApplicantNewPage';
 export { ApplicantEditPage } from './pages/ApplicantEditPage';
 export { UsersPage } from './pages/UsersPage';
 export { RolesPage } from './pages/RolesPage';
+export { NotificationsPage } from './pages/NotificationsPage';
 export { AuditPage } from './pages/AuditPage';
+
+/* Cross-feature exports (admin services consumed by applicant-portal etc.) */
+export {
+  useApplicantNotifications,
+  useAdminNotifications,
+  useCreateAdminNotification,
+  usePublishNotification,
+  useUnpublishNotification,
+} from './api/notifications.queries';
 export { SettingsPage } from './pages/SettingsPage';
 export { ReportsPage } from './pages/ReportsPage';
 export { ReferenceDataPage } from './pages/ReferenceDataPage';
