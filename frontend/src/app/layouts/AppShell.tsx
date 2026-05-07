@@ -20,6 +20,7 @@ import {
 } from '@/shared/components';
 import { useAuthStore } from '@/features/auth';
 import { useLogoutMutation } from '@/features/auth/api/auth.queries';
+import { ActiveCycleIndicator } from '@/features/admin/components/cycles/ActiveCycleIndicator';
 import { shortName } from '@/shared/lib/format';
 import type { AppKey } from '@/shared/lib/constants';
 import { Sidebar } from './Sidebar';
@@ -84,6 +85,7 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
               {appLabel}
             </span>
           )}
+          <ActiveCycleIndicator />
         </div>
         <div className="flex items-center gap-2">
           <button

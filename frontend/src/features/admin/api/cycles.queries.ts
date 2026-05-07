@@ -132,6 +132,15 @@ export function useCycleArchive() {
   });
 }
 
+export function useCycleExtend() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, newCloseDate }: { id: string; newCloseDate: string }) =>
+      cyclesService.extend(id, newCloseDate),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
 export function useCycleRemove() {
   const qc = useQueryClient();
   return useMutation({

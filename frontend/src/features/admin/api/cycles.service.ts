@@ -21,6 +21,7 @@
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
+import { ConflictError } from '@/shared/lib/errors';
 import {
   applyRestore,
   applySoftDelete,
@@ -47,6 +48,7 @@ const NORMALIZE_STATUS: Record<CycleStatus, CycleStatus> = {
   draft: 'draft',
   open: 'active',
   active: 'active',
+  extended: 'active',
   closed: 'closed',
   processing: 'closed',
   finalized: 'archived',
@@ -56,7 +58,8 @@ const NORMALIZE_STATUS: Record<CycleStatus, CycleStatus> = {
 /**
  * Returns the brief's 4-state cycle status for a cycle. The legacy
  * 5-state union (`open`/`processing`/`finalized`) is mapped onto the
- * post-polish 4-state union (`active`/`closed`/`archived`).
+ * post-polish 4-state union (`active`/`closed`/`archived`). The Gap F
+ * `'extended'` token folds into `active` for surface-level UI.
  */
 export function normalizeCycleStatus(status: CycleStatus): 'draft' | 'active' | 'closed' | 'archived' {
   return NORMALIZE_STATUS[status] as 'draft' | 'active' | 'closed' | 'archived';
@@ -178,25 +181,38 @@ export const cyclesService = {
   },
 
   /**
-   * Activate a cycle. Enforces the single-active invariant: any other cycle
-   * currently in `'active'` (or legacy `'open'`) is auto-closed.
+   * Activate a cycle. Enforces the single-active invariant — another
+   * `'active'`/`'open'`/`'extended'` cycle is a hard reject (Gap F):
+   * the caller must explicitly close it first.
    */
   async activate(id: string): Promise<AdmissionCycle> {
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
-    /* Close any currently-active cycle. */
-    for (let i = 0; i < STATE.length; i++) {
-      if (i === idx) continue;
-      const s = STATE[i]!.status;
-      if (s === 'active' || s === 'open') {
-        STATE[i] = { ...STATE[i]!, status: 'closed', updatedAt: new Date().toISOString() } as AdmissionCycle;
-        pushAudit('AdmissionCycle', STATE[i]!.id, 'update', `تم إغلاق دورة "${STATE[i]!.nameAr}" تلقائياً عند تفعيل دورة أخرى`);
-      }
+    const conflicting = STATE.find(
+      (c, i) =>
+        i !== idx && (c.status === 'active' || c.status === 'open' || c.status === 'extended'),
+    );
+    if (conflicting) {
+      throw new ConflictError(
+        'ACTIVE_CYCLE_EXISTS',
+        { activeCycleId: conflicting.id, activeCycleName: conflicting.nameAr },
+        `لا يمكن تفعيل هذه الدورة — دورة "${conflicting.nameAr}" نشطة بالفعل. يجب إغلاقها أولاً.`,
+      );
     }
+    const before = { ...STATE[idx]! };
     STATE[idx] = { ...STATE[idx]!, status: 'active', updatedAt: new Date().toISOString() } as AdmissionCycle;
     ACTIVE_ID = id;
-    pushAudit('AdmissionCycle', id, 'update', `تم تفعيل دورة "${STATE[idx]!.nameAr}"`);
+    emitAudit({
+      action: 'cycle_activated',
+      module: 'cycles',
+      entityType: 'AdmissionCycle',
+      entityLabel: 'دورة قبول',
+      entityId: id,
+      details: `تم تفعيل دورة "${STATE[idx]!.nameAr}"`,
+      before,
+      after: STATE[idx]!,
+    });
     return STATE[idx]!;
   },
 
@@ -204,9 +220,55 @@ export const cyclesService = {
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
+    const before = { ...STATE[idx]! };
     STATE[idx] = { ...STATE[idx]!, status: 'closed', updatedAt: new Date().toISOString() } as AdmissionCycle;
     if (ACTIVE_ID === id) ACTIVE_ID = null;
-    pushAudit('AdmissionCycle', id, 'update', `تم إغلاق دورة "${STATE[idx]!.nameAr}"`);
+    emitAudit({
+      action: 'cycle_closed',
+      module: 'cycles',
+      entityType: 'AdmissionCycle',
+      entityLabel: 'دورة قبول',
+      entityId: id,
+      details: `تم إغلاق دورة "${STATE[idx]!.nameAr}"`,
+      before,
+      after: STATE[idx]!,
+    });
+    return STATE[idx]!;
+  },
+
+  /**
+   * Extend the cycle's `closeDate`. The cycle must be `active`; emits
+   * `cycle_extended` audit and flips status to `'extended'`. The
+   * `ageCalcDate` stays put — extension moves the application window only.
+   */
+  async extend(id: string, newCloseDate: string): Promise<AdmissionCycle> {
+    await simulateLatency();
+    const idx = STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('الدورة غير موجودة');
+    const cur = STATE[idx]!;
+    if (cur.status !== 'active' && cur.status !== 'open' && cur.status !== 'extended') {
+      throw new Error('لا يمكن تمديد دورة غير نشطة');
+    }
+    if (new Date(newCloseDate).getTime() <= new Date(cur.closeDate).getTime()) {
+      throw new Error('تاريخ التمديد يجب أن يكون بعد تاريخ الإغلاق الحالي');
+    }
+    const before = { ...cur };
+    STATE[idx] = {
+      ...cur,
+      status: 'extended',
+      closeDate: newCloseDate,
+      updatedAt: new Date().toISOString(),
+    } as AdmissionCycle;
+    emitAudit({
+      action: 'cycle_extended',
+      module: 'cycles',
+      entityType: 'AdmissionCycle',
+      entityLabel: 'دورة قبول',
+      entityId: id,
+      details: `تم تمديد دورة "${cur.nameAr}" حتى ${new Date(newCloseDate).toISOString().slice(0, 10)}`,
+      before,
+      after: STATE[idx]!,
+    });
     return STATE[idx]!;
   },
 
@@ -214,9 +276,19 @@ export const cyclesService = {
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
+    const before = { ...STATE[idx]! };
     STATE[idx] = { ...STATE[idx]!, status: 'archived', updatedAt: new Date().toISOString() } as AdmissionCycle;
     if (ACTIVE_ID === id) ACTIVE_ID = null;
-    pushAudit('AdmissionCycle', id, 'update', `تم أرشفة دورة "${STATE[idx]!.nameAr}"`);
+    emitAudit({
+      action: 'cycle_archived',
+      module: 'cycles',
+      entityType: 'AdmissionCycle',
+      entityLabel: 'دورة قبول',
+      entityId: id,
+      details: `تم أرشفة دورة "${STATE[idx]!.nameAr}"`,
+      before,
+      after: STATE[idx]!,
+    });
     return STATE[idx]!;
   },
 

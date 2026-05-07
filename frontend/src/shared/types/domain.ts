@@ -538,7 +538,31 @@ export type ReferenceRowMap = {
  *   'open' ≡ 'active', 'finalized' ≡ 'archived', 'processing' is internal.
  */
 
-export type CycleStatus = 'draft' | 'open' | 'active' | 'closed' | 'processing' | 'finalized' | 'archived';
+export type CycleStatus =
+  | 'draft'
+  | 'open'
+  | 'active'
+  | 'extended'
+  | 'closed'
+  | 'processing'
+  | 'finalized'
+  | 'archived';
+
+/**
+ * Per-cycle fee schedule — Gap F (admin-gaps).
+ * Application fee is required; deposit / replacement / late fees are optional
+ * because not every cycle exercises them. Typed numeric so tnum tabular
+ * numerals format consistently across UI.
+ */
+export interface CycleFees {
+  applicationFee: number;
+  /** Optional refundable deposit (per RFP §p.42 صلاحية إعادة المقابل المالي). */
+  depositFee?: number;
+  /** Replacement card / ID printout fee. */
+  replacementFee?: number;
+  /** Late application fee — applied during the extension window. */
+  lateFee?: number;
+}
 
 export interface AdmissionCycleCategoryConfig {
   isOpen: boolean;
@@ -554,6 +578,20 @@ export interface AdmissionCycle extends SoftDeleteFields {
   year: number;
   openDate: string; // ISO
   closeDate: string; // ISO
+  /**
+   * Reference date used to evaluate age-based eligibility — Gap F.
+   * Defaults to `closeDate` when missing. Stored separately because
+   * extensions may move closeDate without changing the eligibility cutoff.
+   */
+  ageCalcDate?: string;
+  /** Per-cycle fee schedule (Gap F). */
+  fees?: CycleFees;
+  /** Categories opened in this cycle (Gap F derived view). */
+  linkedCategoryIds?: ApplicantCategoryKey[];
+  /** Committees scheduled to handle applicants from this cycle (Gap F + H). */
+  linkedCommitteeIds?: string[];
+  /** Ordered exam keys to be administered (Gap F + J). */
+  examOrder?: string[];
   expectedCapacity: number;
   applicantCount: number;
   status: CycleStatus;

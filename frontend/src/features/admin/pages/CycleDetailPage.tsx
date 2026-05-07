@@ -5,11 +5,20 @@
 
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Archive, ChevronRight, Copy, ListChecks, PauseCircle, PlayCircle } from 'lucide-react';
+import {
+  Archive,
+  CalendarPlus,
+  ChevronRight,
+  Copy,
+  ListChecks,
+  PauseCircle,
+  PlayCircle,
+} from 'lucide-react';
 import {
   Badge,
   Button,
   Card,
+  DatePicker,
   EmptyState,
   ErrorState,
   IconStamp,
@@ -24,12 +33,14 @@ import {
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, num } from '@/shared/lib/format';
+import { isConflictError } from '@/shared/lib/errors';
 import {
   useCycle,
   useCycleActivate,
   useCycleArchive,
   useCycleClone,
   useCycleClose,
+  useCycleExtend,
   useCycleTransition,
   useToggleCycleCategory,
 } from '../api/cycles.queries';
@@ -43,16 +54,28 @@ import type {
 } from '@/shared/types/domain';
 
 
-const STATUS_OPTIONS: CycleStatus[] = ['draft', 'open', 'active', 'closed', 'processing', 'finalized', 'archived'];
+const STATUS_OPTIONS: CycleStatus[] = ['draft', 'open', 'active', 'extended', 'closed', 'processing', 'finalized', 'archived'];
 
 const STATUS_LABEL: Record<CycleStatus, string> = {
   draft: 'مسودة',
   open: 'مفتوحة',
   active: 'نشطة',
+  extended: 'ممدّدة',
   closed: 'مغلقة',
   processing: 'تحت المعالجة',
   finalized: 'مختومة',
   archived: 'مؤرشفة',
+};
+
+const STATUS_TONE: Record<CycleStatus, 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+  draft: 'neutral',
+  open: 'success',
+  active: 'success',
+  extended: 'info',
+  closed: 'warning',
+  processing: 'info',
+  finalized: 'neutral',
+  archived: 'neutral',
 };
 
 export function CycleDetailPage(): JSX.Element {
@@ -65,8 +88,11 @@ export function CycleDetailPage(): JSX.Element {
   const activateMut = useCycleActivate();
   const closeMut = useCycleClose();
   const archiveMut = useCycleArchive();
+  const extendMut = useCycleExtend();
   const toggleCategoryMut = useToggleCycleCategory();
   const [pendingTransition, setPendingTransition] = useState<'activate' | 'close' | 'archive' | null>(null);
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [extendDate, setExtendDate] = useState<Date | null>(null);
 
   if (isLoading) return <CenteredShell><LoadingState variant="page" /></CenteredShell>;
   if (error) return <CenteredShell><ErrorState error={error} onRetry={() => refetch()} /></CenteredShell>;
@@ -83,7 +109,12 @@ export function CycleDetailPage(): JSX.Element {
   return (
     <CenteredShell>
       <PageHeader
-        title={cycle.nameAr}
+        title={
+          <span className="inline-flex items-center gap-3">
+            {cycle.nameAr}
+            <Badge tone={STATUS_TONE[cycle.status]}>{STATUS_LABEL[cycle.status]}</Badge>
+          </span>
+        }
         subtitle={`دورة عام ${cycle.year} · ${cycle.cohort === 'male' ? 'ذكور' : 'إناث'}`}
         breadcrumbs={[
           { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
@@ -169,6 +200,10 @@ export function CycleDetailPage(): JSX.Element {
       <LifecycleActions
         cycle={cycle}
         onRequest={setPendingTransition}
+        onExtend={() => {
+          setExtendDate(new Date(cycle.closeDate));
+          setExtendOpen(true);
+        }}
       />
 
       <section className="mt-6">
@@ -233,7 +268,16 @@ export function CycleDetailPage(): JSX.Element {
             variant="primary"
             isLoading={activateMut.isPending || closeMut.isPending || archiveMut.isPending}
             onClick={() => {
-              const handlers = { onSuccess: () => toast('تم تحديث الدورة', 'success'), onError: (err: Error) => toast(err.message, 'danger') };
+              const handlers = {
+                onSuccess: () => toast('تم تحديث الدورة', 'success'),
+                onError: (err: Error) => {
+                  if (isConflictError(err) && err.conflictCode === 'ACTIVE_CYCLE_EXISTS') {
+                    toast(err.message, 'danger');
+                  } else {
+                    toast(err.message, 'danger');
+                  }
+                },
+              };
               if (pendingTransition === 'activate') activateMut.mutate(cycle.id, handlers);
               else if (pendingTransition === 'close') closeMut.mutate(cycle.id, handlers);
               else if (pendingTransition === 'archive') archiveMut.mutate(cycle.id, handlers);
@@ -241,6 +285,51 @@ export function CycleDetailPage(): JSX.Element {
             }}
           >
             تأكيد
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={extendOpen}
+        onClose={() => setExtendOpen(false)}
+        title="تمديد دورة القبول"
+        subtitle={cycle.nameAr}
+        size="md"
+      >
+        <Modal.Body>
+          <p className="mb-3 text-sm text-ink-700">
+            تاريخ الإغلاق الحالي: <span dir="ltr" className="font-mono">{fmtDate(cycle.closeDate, 'short')}</span>.
+            اختر تاريخاً جديداً للإغلاق — سيُحوَّل وضع الدورة إلى "ممدّدة".
+          </p>
+          <DatePicker
+            label="تاريخ الإغلاق الجديد"
+            value={extendDate}
+            onChange={setExtendDate}
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="ghost" onClick={() => setExtendOpen(false)}>
+            إلغاء
+          </Button>
+          <Button
+            variant="primary"
+            isLoading={extendMut.isPending}
+            disabled={!extendDate}
+            onClick={() => {
+              if (!extendDate) return;
+              extendMut.mutate(
+                { id: cycle.id, newCloseDate: extendDate.toISOString() },
+                {
+                  onSuccess: () => {
+                    toast('تم تمديد الدورة', 'success');
+                    setExtendOpen(false);
+                  },
+                  onError: (err) => toast(err.message, 'danger'),
+                },
+              );
+            }}
+          >
+            تأكيد التمديد
           </Button>
         </Modal.Footer>
       </Modal>
@@ -375,11 +464,13 @@ function CategoryRow({
 function LifecycleActions({
   cycle,
   onRequest,
+  onExtend,
 }: {
   cycle: AdmissionCycle;
   onRequest: (next: 'activate' | 'close' | 'archive') => void;
+  onExtend: () => void;
 }): JSX.Element {
-  const isActive = cycle.status === 'active' || cycle.status === 'open';
+  const isActive = cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended';
   const isClosed = cycle.status === 'closed' || cycle.status === 'finalized' || cycle.status === 'processing';
   const isArchived = cycle.status === 'archived';
   return (
@@ -400,6 +491,15 @@ function LifecycleActions({
                 onClick={() => onRequest('activate')}
               >
                 تفعيل
+              </Button>
+            )}
+            {isActive && (
+              <Button
+                variant="ghost"
+                leadingIcon={<CalendarPlus size={14} strokeWidth={1.75} />}
+                onClick={onExtend}
+              >
+                تمديد
               </Button>
             )}
             {isActive && (

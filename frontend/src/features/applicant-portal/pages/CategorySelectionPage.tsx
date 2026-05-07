@@ -165,7 +165,7 @@ export function CategorySelectionPage(): JSX.Element {
       {cycles.length === 0 ? (
         <EmptyState
           variant="generic"
-          title="لا توجد دورة قبول نشطة حالياً"
+          title="لا توجد دورة قبول مفتوحة حالياً"
           description="يرجى المتابعة لاحقاً لمتابعة فتح باب القبول."
         />
       ) : (
