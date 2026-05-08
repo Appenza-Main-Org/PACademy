@@ -8,7 +8,8 @@ function getCsrfCookie(): string | undefined {
   const match = document.cookie
     .split('; ')
     .find((row) => row.startsWith(`${CSRF_COOKIE}=`));
-  return match?.split('=')[1];
+  const raw = match?.split('=')[1];
+  return raw ? decodeURIComponent(raw) : undefined;
 }
 
 /** Simple pub/sub bus to fire the SessionExpiredBanner without circular deps. */
