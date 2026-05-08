@@ -167,6 +167,10 @@ export interface Applicant extends ApplicantExtended {
   familySize: number;
   relativesCount: number;
   investigation: InvestigationStatus;
+  /** Server-returned audit metadata (US1) — populated only when fetched
+   *  from the real backend; demo mode leaves these undefined. */
+  lastModifiedAt?: string;
+  lastModifiedBy?: string;
 }
 
 export type AuditAction =

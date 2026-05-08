@@ -1,26 +1,17 @@
 /**
- * Applicants API Contract
+ * INTEGRATION CONTRACT
+ *   GET    /admin/applicants?cycleId=&status=&q=&page=&pageSize=&sortBy=&sortDir=
+ *   GET    /admin/applicants/{id}
+ *   PATCH  /admin/applicants/{id}                    body: ApplicantPatchDto
  *
- * READ ENDPOINTS:
- *   GET    /api/applicants?page=&search=&status=&governorate=&certType=
- *   GET    /api/applicants/:id
- *   GET    /api/applicants/:id/timeline
- *   GET    /api/applicants/stats
+ * Phase 3 (US1) covers list/get/update against real storage. Other methods
+ * (create / transition / timeline / workflow) stay on MOCK until later phases.
  *
- * WRITE / WORKFLOW ENDPOINTS (RFP §3 / §6 admin lifecycle):
- *   POST   /api/v1/applicants                        body: ApplicantInput
- *   PUT    /api/v1/applicants/:id                    body: Partial<Applicant>
- *   GET    /api/v1/applicants/:id/workflow-progress
- *   POST   /api/v1/applicants/:id/transition         body: { toStatus, reason }
- *           Side effects: validates against workflow stage's
- *           `allowedNextStatuses`; rejects with 422 if invalid.
- *   GET    /api/v1/audit?entity=applicant&entityId=:id
- *           (handled by auditService — see audit.service.ts)
- *
- * All mutations emit AuditEntry rows (action: create / update /
- * applicant.transition) with a matching diff in MOCK.auditDiffs.
+ * Demo bootstrap (`VITE_DEMO_MODE=true`) keeps the entire service on MOCK so
+ * the role-picker shortcut still gives full coverage of the rich UI.
  */
 
+import { apiClient } from '@/shared/api/client';
 import { MOCK } from '@/shared/mock-data';
 import { paginate, simulateLatency } from '@/shared/lib/mock-helpers';
 import { normalizeArabic } from '@/shared/lib/arabic';
@@ -43,6 +34,8 @@ import type { Pagination } from '@/shared/types/api';
 import { workflowsService } from '@/features/admin/api/workflows.service';
 import type { ApplicantInput } from '../schemas';
 
+const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
+
 export interface ApplicantFilters {
   page?: number;
   pageSize?: number;
@@ -50,6 +43,100 @@ export interface ApplicantFilters {
   status?: ApplicantStatus | 'all';
   governorate?: string | 'all';
   certType?: string | 'all';
+  cycleId?: string;
+}
+
+/** Backend ApplicantListItemDto shape — narrow subset the API returns. */
+interface BackendListItem {
+  id: string;
+  nationalId: string;
+  fullName: string;
+  cycleId: string;
+  status: string;
+  governorate: string | null;
+  mobile: string | null;
+  createdAt: string;
+  updatedAt: string;
+  demoOrigin: boolean;
+}
+
+/** Backend ApplicantDetailDto shape. */
+interface BackendDetail extends BackendListItem {
+  dateOfBirth: string | null;
+  gender: string | null;
+  email: string | null;
+  createdBy: string;
+  updatedBy: string | null;
+  lastModifiedBy: string | null;
+}
+
+interface BackendPagedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+/** Map backend status (PascalCase) → frontend status (kebab-case). */
+function backendToFrontendStatus(s: string): ApplicantStatus {
+  switch (s) {
+    case 'Pending': return 'pending';
+    case 'UnderReview': return 'under-review';
+    case 'Accepted': return 'approved';
+    case 'Rejected': return 'rejected';
+    case 'Withdrawn': return 'rejected';
+    case 'Deferred': return 'on-hold';
+    default: return 'pending';
+  }
+}
+
+/** Map frontend status → backend enum name. */
+function frontendToBackendStatus(s: ApplicantStatus): string {
+  switch (s) {
+    case 'pending': return 'Pending';
+    case 'under-review': return 'UnderReview';
+    case 'approved': return 'Accepted';
+    case 'rejected': return 'Rejected';
+    case 'on-hold': return 'Deferred';
+    default: return 'Pending';
+  }
+}
+
+/** Adapt backend DTO → frontend Applicant (with safe defaults for fields the
+ *  backend doesn't store yet — see Phase 3 scope note). */
+function backendToApplicant(b: BackendListItem | BackendDetail): Applicant {
+  const detail = 'dateOfBirth' in b ? b : null;
+  const nidInfo = parseNationalId(b.nationalId);
+  return {
+    id: b.id,
+    nationalId: b.nationalId,
+    name: b.fullName,
+    gender: (detail?.gender as 'male' | 'female') ?? nidInfo.gender ?? 'male',
+    birthDate: detail?.dateOfBirth ?? nidInfo.birthDate?.toISOString() ?? '',
+    governorate: b.governorate ?? '—',
+    city: '',
+    certType: '—',
+    certSection: '—',
+    certScore: 0,
+    certPercent: '0.00',
+    certYear: 0,
+    status: backendToFrontendStatus(b.status),
+    stage: 0,
+    stageLabel: '—',
+    committee: '—',
+    registeredAt: b.createdAt,
+    paymentStatus: 'pending',
+    paymentAmount: 0,
+    hasDocuments: false,
+    photo: null,
+    results: { medical: null, fitness: null, interview: null, finalExam: null },
+    familySize: 0,
+    relativesCount: 0,
+    investigation: 'pending',
+    cycleId: b.cycleId,
+    contact: { mobilePhone: b.mobile ?? '' },
+  };
 }
 
 export class ApplicantTransitionError extends Error {
@@ -327,6 +414,27 @@ function pickDepartment(applicant: Applicant): DepartmentKey {
 
 export const applicantService = {
   async list(filters: ApplicantFilters = {}): Promise<Pagination<Applicant>> {
+    if (!isDemoMode) {
+      const params = new URLSearchParams();
+      params.set('page', String(filters.page ?? 1));
+      params.set('pageSize', String(filters.pageSize ?? 20));
+      if (filters.cycleId) params.set('cycleId', filters.cycleId);
+      if (filters.status && filters.status !== 'all') {
+        params.set('status', frontendToBackendStatus(filters.status));
+      }
+      if (filters.search) params.set('q', filters.search);
+      const { data } = await apiClient.get<BackendPagedResult<BackendListItem>>(
+        `/admin/applicants?${params.toString()}`,
+      );
+      return {
+        data: data.items.map(backendToApplicant),
+        total: data.totalCount,
+        page: data.page,
+        pageSize: data.pageSize,
+        totalPages: data.totalPages,
+      };
+    }
+
     await simulateLatency();
     const { page = 1, pageSize = 20, search = '', status = 'all', governorate = 'all', certType = 'all' } = filters;
     const needle = normalizeArabic(search);
@@ -346,6 +454,19 @@ export const applicantService = {
   },
 
   async getById(id: string): Promise<Applicant | null> {
+    if (!isDemoMode) {
+      try {
+        const { data } = await apiClient.get<BackendDetail>(`/admin/applicants/${id}`);
+        const applicant = backendToApplicant(data);
+        applicant.lastModifiedAt = data.updatedAt;
+        applicant.lastModifiedBy = data.lastModifiedBy ?? undefined;
+        return applicant;
+      } catch (err) {
+        const status = (err as { status?: number }).status;
+        if (status === 404) return null;
+        throw err;
+      }
+    }
     await simulateLatency();
     return MOCK.applicants.find((a) => a.id === id) ?? null;
   },
@@ -457,6 +578,33 @@ export const applicantService = {
   },
 
   async update(id: string, patch: Partial<ApplicantInput>): Promise<Applicant> {
+    if (!isDemoMode) {
+      // Phase 3 backend PATCH only covers a subset of editable fields.
+      // Map the rich frontend patch to the narrower ApplicantPatchDto.
+      const fullName =
+        patch.fullName
+          ? [patch.fullName.first, patch.fullName.second, patch.fullName.third, patch.fullName.fourth]
+              .filter(Boolean)
+              .join(' ')
+          : null;
+      // Status is NOT in this payload — Resolved Clarification #15 routes
+      // status transitions through POST /transition (later phase).
+      const backendPatch = {
+        fullName,
+        mobile: patch.contact?.mobilePhone ?? null,
+        email: patch.contact?.email ?? null,
+        governorate: patch.currentAddress?.governorate ?? null,
+      };
+      const { data } = await apiClient.patch<BackendDetail>(
+        `/admin/applicants/${id}`,
+        backendPatch,
+      );
+      const applicant = backendToApplicant(data);
+      applicant.lastModifiedAt = data.updatedAt;
+      applicant.lastModifiedBy = data.lastModifiedBy ?? undefined;
+      return applicant;
+    }
+
     await simulateLatency();
     const idx = MOCK.applicants.findIndex((a) => a.id === id);
     if (idx === -1) throw new ApplicantTransitionError('المتقدم غير موجود', 422);

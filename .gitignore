@@ -19,3 +19,16 @@ tsconfig.tsbuildinfo
 .devin/
 .windsurf/
 skills-lock.json
+
+# .NET build output
+**/bin/
+**/obj/
+*.user
+*.suo
+*.userosscache
+.vs/
+
+# Playwright
+playwright-report/
+e2e/test-results/
+e2e/playwright-report/

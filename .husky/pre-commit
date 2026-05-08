@@ -1,0 +1,22 @@
+#!/bin/sh
+# Pre-commit hook — runs fast checks on changed files only.
+# Frontend: lint + vitest related (failing tests block commit)
+# Backend: dotnet format + fast domain+application tests
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# ── Frontend ────────────────────────────────────────────────────────────────
+FRONTEND_CHANGED=$(echo "$STAGED" | grep "^frontend/")
+if [ -n "$FRONTEND_CHANGED" ]; then
+  echo "▶ Frontend: lint + unit tests for changed files…"
+  (cd frontend && npm run lint) || exit 1
+  (cd frontend && npx vitest related --run $FRONTEND_CHANGED) || exit 1
+fi
+
+# ── Backend ──────────────────────────────────────────────────────────────────
+BACKEND_CHANGED=$(echo "$STAGED" | grep "^backend/")
+if [ -n "$BACKEND_CHANGED" ]; then
+  echo "▶ Backend: format check + domain + application tests…"
+  (cd backend && dotnet format --verify-no-changes) || exit 1
+  (cd backend && dotnet test --filter "FullyQualifiedName~Domain|FullyQualifiedName~Application" --no-build) || exit 1
+fi

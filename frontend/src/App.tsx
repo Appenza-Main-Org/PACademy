@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { BrowserRouter, useLocation, useNavigate, useRoutes } from 'react-router-dom';
 import { QueryProvider } from '@/app/providers/QueryProvider';
 import { ToastViewport } from '@/shared/components';
+import { SessionExpiredBanner } from '@/shared/components/SessionExpiredBanner';
 import { routes } from '@/routes';
 import { useAuthStore } from '@/features/auth';
 import { ROLE_DEFINITIONS } from '@/features/auth/rbac';
@@ -29,7 +30,10 @@ function ensureDemoUser(): void {
   });
 }
 
-ensureDemoUser();
+// Demo bootstrap only active when VITE_DEMO_MODE=true (T031)
+if (import.meta.env.VITE_DEMO_MODE === 'true') {
+  ensureDemoUser();
+}
 
 /**
  * Demo super_admin redirect: when the user *reloads* the page (Cmd+R / F5)
@@ -84,6 +88,7 @@ export function App(): JSX.Element {
         <DemoBootstrapRedirect />
         <AppRoutes />
         <ToastViewport />
+        <SessionExpiredBanner />
       </BrowserRouter>
     </QueryProvider>
   );

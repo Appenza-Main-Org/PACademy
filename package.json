@@ -1,0 +1,12 @@
+{
+  "name": "pacademy",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Police Academy Admissions Platform — monorepo root",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.0"
+  }
+}

@@ -55,7 +55,7 @@ export function LoginForm(): JSX.Element {
     setVerifying(false);
 
     loginMutation.mutate(
-      { username: values.nationalId, password: values.passcode, role: values.role },
+      { nationalId: values.nationalId, password: values.passcode, role: values.role },
       {
         onSuccess: () => {
           toast('تم التحقق عبر منصّة MOIPASS بنجاح', 'success');

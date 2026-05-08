@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PACademy.Api/PACademy.Api.csproj" />
+    <Project Path="src/PACademy.Application/PACademy.Application.csproj" />
+    <Project Path="src/PACademy.Contracts/PACademy.Contracts.csproj" />
+    <Project Path="src/PACademy.Domain/PACademy.Domain.csproj" />
+    <Project Path="src/PACademy.Infrastructure/PACademy.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PACademy.Api.Tests/PACademy.Api.Tests.csproj" />
+    <Project Path="tests/PACademy.Application.Tests/PACademy.Application.Tests.csproj" />
+    <Project Path="tests/PACademy.Domain.Tests/PACademy.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

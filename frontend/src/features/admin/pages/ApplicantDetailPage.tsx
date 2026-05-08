@@ -98,6 +98,17 @@ export function ApplicantDetailPage(): JSX.Element {
                 {' · '}
                 <Badge tone="info">{applicant.stageLabel}</Badge>
               </span>
+              {applicant.lastModifiedAt && (
+                <span
+                  className="mt-0.5 text-2xs font-normal text-ink-500"
+                  data-testid="last-modified-indicator"
+                >
+                  آخر تعديل
+                  {applicant.lastModifiedBy ? ` بواسطة ${applicant.lastModifiedBy}` : ''}
+                  {' · '}
+                  {fmtDate(applicant.lastModifiedAt, 'full')}
+                </span>
+              )}
             </span>
           </span>
         }

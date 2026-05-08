@@ -87,20 +87,20 @@ export function ApplicantsPage(): JSX.Element {
         <div className="card-body">
           <div className="filters">
             <div className="search flex-1">
-              <input className="input" type="search" placeholder="بحث بالاسم / الرقم القومي / كود التقدم" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+              <input className="input" type="search" aria-label="بحث المتقدمين" placeholder="بحث بالاسم / الرقم القومي / كود التقدم" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
               <Search size={18} />
             </div>
-            <select className="select" value={status} onChange={(e) => { setStatus(e.target.value as ApplicantStatus | 'all'); setPage(1); }}>
+            <select className="select" aria-label="تصفية حسب الحالة" value={status} onChange={(e) => { setStatus(e.target.value as ApplicantStatus | 'all'); setPage(1); }}>
               <option value="all">كل الحالات</option>
               {Object.entries(STATUS_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v.label}</option>
               ))}
             </select>
-            <select className="select" value={governorate} onChange={(e) => { setGovernorate(e.target.value); setPage(1); }}>
+            <select className="select" aria-label="تصفية حسب المحافظة" value={governorate} onChange={(e) => { setGovernorate(e.target.value); setPage(1); }}>
               <option value="all">كل المحافظات</option>
               {MOCK.governorates.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
-            <select className="select" value={certType} onChange={(e) => { setCertType(e.target.value); setPage(1); }}>
+            <select className="select" aria-label="تصفية حسب نوع الشهادة" value={certType} onChange={(e) => { setCertType(e.target.value); setPage(1); }}>
               <option value="all">كل الشهادات</option>
               <option value="ثانوية عامة">ثانوية عامة</option>
               <option value="ثانوية أزهرية">ثانوية أزهرية</option>

@@ -21,7 +21,7 @@ The repo is organised as a monorepo with two top-level workspaces. Only `CLAUDE.
 PACademy/
 ├── CLAUDE.md           ← this file (operating context for Claude Code)
 ├── frontend/           ← React 18 + TS + Vite — this CLAUDE.md is primarily about this workspace
-├── backend/            ← empty placeholder; backend team starts here next
+├── backend/            ← C# 13 / .NET 10  + ASP.NET Core Web API, EF Core 10
 ├── Tasks/              ← project-level: DESIGN_SYSTEM.md, KARASA_GAPS.md, sprint plan, scope-alignment
 └── docs/               ← all other project docs:
     ├── README.md       ← public-facing project README + quick-start
