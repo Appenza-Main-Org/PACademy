@@ -23,6 +23,7 @@ import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing
 import { PrimitivesReviewPage } from '@/features/dev';
 import {
   ApplicantPortalLayout,
+  ApplicationSummaryPage,
   ApplicantPortalPage,
   ApplicantPreWizardLayout,
   CategorySelectionPage,
@@ -235,6 +236,7 @@ export const routes: RouteObject[] = [
       { path: 'print-card', element: <Stage9PrintCardPage /> },
       { path: 'follow-up', element: <Stage10FollowUpPage /> },
       { path: 'acquaintance-doc', element: <Stage11AcquaintanceDocPage /> },
+      { path: 'application/summary', element: <ApplicationSummaryPage /> },
     ],
   },
 
