@@ -6,7 +6,14 @@
 import { rng } from './seed';
 import type { ApplicantDraft, ExamSlot, PipelineState } from '@/shared/types/domain';
 
-const LOCATIONS = ['كلية الشرطة - مبنى الاختبارات', 'كلية الشرطة - القاعة الكبرى', 'فرع الإسكندرية', 'فرع الصعيد'];
+/* The three sites the academy schedules at. Order matters — each of the
+ * next 3 displayed days gets one site by index so applicants see all
+ * three options across the visible window. */
+const LOCATIONS = [
+  'أكاديمية الشرطة - المقر الرئيسي', // Main Police Academy
+  'اللجنة الأولى',                     // Committee 1
+  'اللجنة الثانية',                    // Committee 2
+];
 
 /* Daily-only scheduling — applicant picks a day, the academy assigns the
  * specific time internally (canonical 08:00 صباحاً). Capacity is the
@@ -22,7 +29,7 @@ export const EXAM_SLOTS: ExamSlot[] = (() => {
     const date = new Date(start.getTime() + dayOffset * 86_400_000);
     dayOffset += 1;
     if (date.getDay() === 5) continue; // Friday off
-    const location = LOCATIONS[Math.floor(rng() * LOCATIONS.length)] ?? LOCATIONS[0]!;
+    const location = LOCATIONS[slots.length % LOCATIONS.length] ?? LOCATIONS[0]!;
     const capacity = 200;
     const reserved = Math.floor(rng() * capacity * 0.6);
     slots.push({
