@@ -11,7 +11,7 @@
 
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
-import { Ban, BellRing, HelpCircle, LogOut, Pencil } from 'lucide-react';
+import { Ban, BellRing, ClipboardCheck, HelpCircle, LogOut, Pencil } from 'lucide-react';
 import {
   Badge,
   KhayameyaStripe,
@@ -141,6 +141,15 @@ export function ApplicantPortalLayout(): JSX.Element {
               {draft.applicantId}
             </span>
           )}
+          {/* Persistent results-tracker — reachable from any wizard stage so
+              applicants can check progress without backing out of the wizard. */}
+          <Link
+            to={ROUTES.applicantTests}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-ink-800 transition-colors hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+          >
+            <ClipboardCheck size={15} strokeWidth={1.75} />
+            <span className="hidden sm:inline">نتائج الإختبارات</span>
+          </Link>
           <button
             type="button"
             onClick={handleExit}
