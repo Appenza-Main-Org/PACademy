@@ -3,10 +3,11 @@
  * Father/mother/grandparents fixed; siblings + relatives via useFieldArray.
  */
 
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { Info, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
-import { Button, Card, Input, Select, toast } from '@/shared/components';
+import { Button, Card, Input, Modal, Select, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage7Schema, type Stage7Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
@@ -46,6 +47,14 @@ export function Stage7FamilyPage(): JSX.Element {
   const sibArr = useFieldArray({ control, name: 'siblings' });
   const relArr = useFieldArray({ control, name: 'relatives' });
 
+  /* اعتماد gate — the MOI reference shows an explicit approval step
+   * after data entry, before exam-slot pick. We render the saved values
+   * as a read-only summary modal; the applicant must tick the
+   * declaration checkbox and click 'اعتماد' before navigation continues. */
+  const [pendingValues, setPendingValues] = useState<Stage7Values | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+
   const onSubmit = async (values: Stage7Values): Promise<void> => {
     /* NID uniqueness check across all members. */
     const nids = collectNids(values);
@@ -56,7 +65,23 @@ export function Stage7FamilyPage(): JSX.Element {
     }
     await applicantPortalService.submitStage(APPLICANT_ID, 7, { family: values });
     toast('تم حفظ بيانات الأسرة', 'success');
-    navigate('/applicant/exam-schedule');
+    setPendingValues(values);
+    setAcknowledged(false);
+  };
+
+  const onApprove = async (): Promise<void> => {
+    if (!pendingValues || !acknowledged) return;
+    setIsApproving(true);
+    try {
+      await applicantPortalService.submitStage(APPLICANT_ID, 7, {
+        family: pendingValues,
+        familyApprovedAt: Date.now(),
+      });
+      toast('تم اعتماد بيانات الأسرة', 'success');
+      navigate('/applicant/exam-schedule');
+    } finally {
+      setIsApproving(false);
+    }
   };
 
   const watched = useWatch({ control });
@@ -182,10 +207,98 @@ export function Stage7FamilyPage(): JSX.Element {
             التحريات الأمنية على جميع الدرجات. أيّ بيان غير دقيق قد يؤدي إلى إيقاف الترشّح.
           </div>
           <Button type="submit" variant="primary" size="lg" isLoading={isSubmitting}>
-            حفظ والمتابعة
+            حفظ ومراجعة
           </Button>
         </div>
       </form>
+
+      <Modal
+        open={pendingValues !== null}
+        onClose={() => {
+          if (!isApproving) setPendingValues(null);
+        }}
+        title="اعتماد بيانات الأسرة"
+        size="lg"
+      >
+        <Modal.Body>
+          <p className="mb-3 text-sm text-ink-700">
+            راجِع البيانات قبل الاعتماد. لا يمكن المتابعة إلى حجز موعد الاختبار قبل اعتماد بيانات الأسرة بشكل صريح.
+          </p>
+          {pendingValues && <FamilySummary values={pendingValues} />}
+          <label className="mt-4 flex items-start gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 p-3 text-sm text-gold-700">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(e) => setAcknowledged(e.target.checked)}
+              className="mt-1 h-4 w-4 cursor-pointer accent-teal-500"
+            />
+            <span>
+              <span className="font-bold">أُقرّ بصحة بيانات الأسرة</span> الواردة أعلاه، وأعلم أن أيّ بيان غير صحيح يُعدّ
+              إخلالاً بشروط التقدم وقد يؤدي إلى إيقاف الترشّح.
+            </span>
+          </label>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="ghost"
+            onClick={() => setPendingValues(null)}
+            disabled={isApproving}
+          >
+            تعديل البيانات
+          </Button>
+          <Button
+            variant="primary"
+            onClick={onApprove}
+            disabled={!acknowledged}
+            isLoading={isApproving}
+          >
+            اعتماد ومتابعة
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </div>
+  );
+}
+
+function FamilySummary({ values }: { values: Stage7Values }): JSX.Element {
+  const fixed: Array<{ label: string; key: FixedMemberKey }> = [
+    { label: 'الأب', key: 'father' },
+    { label: 'الأم', key: 'mother' },
+    { label: 'الجد لأب', key: 'paternalGrandfather' },
+    { label: 'الجدة لأب', key: 'paternalGrandmother' },
+    { label: 'الجد لأم', key: 'maternalGrandfather' },
+    { label: 'الجدة لأم', key: 'maternalGrandmother' },
+  ];
+  return (
+    <div className="grid gap-3 rounded-md border border-border-default bg-ink-50 p-3 text-sm md:grid-cols-2">
+      {fixed.map(({ label, key }) => {
+        const m = values[key];
+        return (
+          <div key={key} className="rounded-md border border-border-subtle bg-surface-card p-2">
+            <p className="text-2xs uppercase tracking-wide text-ink-500">{label}</p>
+            <p className="mt-0.5 font-medium text-ink-900">{m?.fullName?.trim() || '— لم يُدخَل —'}</p>
+            {m?.nationalId && (
+              <p className="text-2xs text-ink-500" dir="ltr">{m.nationalId}</p>
+            )}
+          </div>
+        );
+      })}
+      {values.siblings.length > 0 && (
+        <div className="md:col-span-2 rounded-md border border-border-subtle bg-surface-card p-2">
+          <p className="text-2xs uppercase tracking-wide text-ink-500">الإخوة والأخوات</p>
+          <p className="mt-0.5 font-numeric tnum font-bold text-ink-900">
+            {values.siblings.length} مُسجَّل
+          </p>
+        </div>
+      )}
+      {values.relatives.length > 0 && (
+        <div className="md:col-span-2 rounded-md border border-border-subtle bg-surface-card p-2">
+          <p className="text-2xs uppercase tracking-wide text-ink-500">الأقارب حتى الدرجة الرابعة</p>
+          <p className="mt-0.5 font-numeric tnum font-bold text-ink-900">
+            {values.relatives.length} مُسجَّل
+          </p>
+        </div>
+      )}
     </div>
   );
 }
