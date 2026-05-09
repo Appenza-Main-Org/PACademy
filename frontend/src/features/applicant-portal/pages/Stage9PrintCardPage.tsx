@@ -86,7 +86,7 @@ export function Stage9PrintCardPage(): JSX.Element {
                 <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_NID}</p>
               </div>
               <div>
-                <p className="text-2xs uppercase tracking-wide text-ink-500">رقم الطلب</p>
+                <p className="text-2xs uppercase tracking-wide text-ink-500">رقم الملف</p>
                 <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_ID}</p>
               </div>
             </div>
