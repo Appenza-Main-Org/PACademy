@@ -198,6 +198,45 @@ export function Stage9PrintCardPage(): JSX.Element {
           <p className="font-mono text-2xs tracking-widest text-ink-500" dir="ltr">{BARCODE}</p>
         </div>
 
+        {/* كشف ومواعيد الإختبارات — exam schedule and results table.
+            One row per scheduled test; results populate as the pipeline
+            advances (the printed reference shows only the first row at
+            issuance, with the النتيجة cell carrying 'لم يحدد' placeholder
+            until grading lands). */}
+        <div className="mb-4">
+          <h3 className="mb-2 text-center font-ar-display text-md font-bold text-ink-900">
+            كشف ومواعيد الإختبارات
+          </h3>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="bg-ink-50 text-ink-700">
+                <th className="border border-border-default px-2 py-1.5 text-center font-medium">م</th>
+                <th className="border border-border-default px-2 py-1.5 text-center font-medium">الإختبار</th>
+                <th className="border border-border-default px-2 py-1.5 text-center font-medium">التاريخ</th>
+                <th className="border border-border-default px-2 py-1.5 text-center font-medium">النتيجة</th>
+                <th className="border border-border-default px-2 py-1.5 text-center font-medium">ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const examDate = new Date(slot.date);
+                const dateStr = toEasternArabicNumerals(
+                  `${examDate.getFullYear()}/${String(examDate.getMonth() + 1).padStart(2, '0')}/${String(examDate.getDate()).padStart(2, '0')}`,
+                );
+                return (
+                  <tr className="text-center">
+                    <td className="border border-border-default px-2 py-1.5 font-numeric tnum">١</td>
+                    <td className="border border-border-default px-2 py-1.5">قدرات</td>
+                    <td className="border border-border-default px-2 py-1.5 font-numeric tnum" dir="ltr">{dateStr}</td>
+                    <td className="border border-border-default px-2 py-1.5 text-ink-500">لم يحدد</td>
+                    <td className="border border-border-default px-2 py-1.5 text-ink-500"></td>
+                  </tr>
+                );
+              })()}
+            </tbody>
+          </table>
+        </div>
+
         {/* Signature block */}
         <div className="mb-4 grid grid-cols-3 gap-4">
           <SignatureLine label="توقيع المتقدم" />
