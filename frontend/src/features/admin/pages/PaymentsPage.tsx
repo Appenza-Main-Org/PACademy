@@ -7,8 +7,8 @@
  *   - Refund-eligibility: read-only filtered list per RFP §p.42
  */
 
-import { useState } from 'react';
-import { Banknote, RefreshCw, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Banknote, ClipboardCheck, RefreshCw, RotateCcw, Search } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -62,6 +62,13 @@ export function PaymentsPage(): JSX.Element {
   const ledgerQuery = useAdminPayments({ status: statusFilter, search });
   const refundQuery = useRefundEligiblePayments();
   const syncMut = useSyncFawryStatus();
+  /* Demo-only client state: which payment refs have been marked as
+   * reviewed by the finance team, and which have a refund request
+   * filed. Production wires these to real audit-emitting service
+   * methods (markReviewed / requestRefund). */
+  const [reviewed, setReviewed] = useState<Set<string>>(new Set());
+  const [refundRequested, setRefundRequested] = useState<Set<string>>(new Set());
+  const reviewedSet = useMemo(() => reviewed, [reviewed]);
 
   if (!allowed) {
     return (
@@ -126,23 +133,72 @@ export function PaymentsPage(): JSX.Element {
       key: '_actions',
       label: <span className="sr-only">إجراءات</span>,
       align: 'end',
-      render: (r) =>
-        tab === 'ledger' ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            leadingIcon={<RefreshCw size={12} strokeWidth={1.75} />}
-            onClick={() =>
-              syncMut.mutate(r.fawryReference, {
-                onSuccess: () => toast('تم المزامنة', 'success'),
-                onError: (err) => toast((err as Error).message, 'danger'),
-              })
-            }
-            isLoading={syncMut.isPending}
-          >
-            مزامنة فوري
-          </Button>
-        ) : null,
+      render: (r) => {
+        if (tab !== 'ledger') return null;
+        const isReviewed = reviewedSet.has(r.fawryReference);
+        const isRefundFiled = refundRequested.has(r.fawryReference);
+        const canRequestRefund = r.status === 'paid' && !isRefundFiled;
+        return (
+          <div className="inline-flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              leadingIcon={<RefreshCw size={12} strokeWidth={1.75} />}
+              onClick={() =>
+                syncMut.mutate(r.fawryReference, {
+                  onSuccess: () => toast('تم المزامنة', 'success'),
+                  onError: (err) => toast((err as Error).message, 'danger'),
+                })
+              }
+              isLoading={syncMut.isPending}
+            >
+              مزامنة
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              leadingIcon={<ClipboardCheck size={12} strokeWidth={1.75} />}
+              onClick={() => {
+                setReviewed((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(r.fawryReference)) next.delete(r.fawryReference);
+                  else next.add(r.fawryReference);
+                  return next;
+                });
+                toast(
+                  isReviewed ? 'تم إلغاء وسم الدفعة' : 'تم وسم الدفعة كمُراجَعة',
+                  'success',
+                );
+              }}
+              title={isReviewed ? 'تراجع عن وسم المراجعة' : 'وسم كمُراجَعة'}
+            >
+              {isReviewed ? 'مُراجَعة ✓' : 'مراجعة'}
+            </Button>
+            {canRequestRefund && (
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<RotateCcw size={12} strokeWidth={1.75} />}
+                onClick={() => {
+                  if (!window.confirm(`هل تريد تسجيل طلب استرداد للدفعة ${r.fawryReference}؟`)) return;
+                  setRefundRequested((prev) => {
+                    const next = new Set(prev);
+                    next.add(r.fawryReference);
+                    return next;
+                  });
+                  toast('تم تسجيل طلب الاسترداد — في انتظار الموافقة', 'info');
+                }}
+                title="طلب استرداد المبلغ"
+              >
+                استرداد
+              </Button>
+            )}
+            {isRefundFiled && (
+              <Badge tone="warning">طلب استرداد قيد المراجعة</Badge>
+            )}
+          </div>
+        );
+      },
     },
   ];
 

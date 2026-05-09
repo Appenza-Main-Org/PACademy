@@ -8,11 +8,16 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
+  Bell,
+  CalendarDays,
   Check,
   CreditCard,
   Hourglass,
+  Layers,
+  ListChecks,
   Plus,
   Users,
+  Users2,
   X,
 } from 'lucide-react';
 import {
@@ -139,6 +144,53 @@ export function DashboardPage(): JSX.Element {
           iconColor="var(--terra-700)"
           trend={{ label: 'وفقاً للوائح القبول', tone: 'neutral' }}
         />
+      </div>
+
+      {/* Quick actions — direct entries to the most-used admin flows. */}
+      <div className="mb-6">
+        <Card>
+          <CardHeader
+            title="إجراءات سريعة"
+            subtitle="بداية مختصرة لأكثر إجراءات الإدارة استخداماً"
+          />
+          <CardBody>
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}
+            >
+              <QuickAction
+                to={ROUTES.admin.cycleNew}
+                icon={<CalendarDays size={18} strokeWidth={1.75} />}
+                label="إنشاء دورة قبول"
+              />
+              <QuickAction
+                to={ROUTES.admin.categories}
+                icon={<Layers size={18} strokeWidth={1.75} />}
+                label="إدارة فئات القبول"
+              />
+              <QuickAction
+                to={ROUTES.committee.list}
+                icon={<Users2 size={18} strokeWidth={1.75} />}
+                label="إدارة اللجان"
+              />
+              <QuickAction
+                to={ROUTES.admin.workflows}
+                icon={<ListChecks size={18} strokeWidth={1.75} />}
+                label="ضبط مسار الاختبارات"
+              />
+              <QuickAction
+                to={ROUTES.admin.payments}
+                icon={<CreditCard size={18} strokeWidth={1.75} />}
+                label="مراجعة المدفوعات"
+              />
+              <QuickAction
+                to={ROUTES.admin.notifications}
+                icon={<Bell size={18} strokeWidth={1.75} />}
+                label="إرسال إشعار"
+              />
+            </div>
+          </CardBody>
+        </Card>
       </div>
 
       {/* Actions required + activity ticker */}
@@ -364,4 +416,29 @@ function computeActionsRequired(): { label: string; detail: string; href: string
       href: ROUTES.admin.applicants,
     },
   ];
+}
+
+function QuickAction({
+  to,
+  icon,
+  label,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  label: string;
+}): JSX.Element {
+  return (
+    <Link
+      to={to}
+      className="group flex items-center gap-3 rounded-lg border border-border-default bg-surface-card p-3 text-sm font-medium text-ink-900 transition-all duration-fast ease-standard hover:-translate-y-px hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+    >
+      <span
+        aria-hidden
+        className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700 transition-colors group-hover:bg-teal-500 group-hover:text-white"
+      >
+        {icon}
+      </span>
+      <span>{label}</span>
+    </Link>
+  );
 }
