@@ -41,6 +41,72 @@ import type {
 const STATE: AdmissionCycle[] = MOCK.cycles.map((c) => ({ ...c }));
 let ACTIVE_ID: string | null = MOCK.activeCycleId;
 
+/**
+ * Pre-flight check for cycle activation. Returns a list of friendly
+ * Arabic issue strings for everything still missing; an empty list
+ * means the cycle is ready to activate.
+ *
+ * Mirrors what the backend should validate at activation time so the
+ * frontend can surface the same messaging without a round-trip.
+ */
+function collectActivationIssues(cycle: AdmissionCycle): string[] {
+  const issues: string[] = [];
+
+  /* 1. Dates */
+  if (!cycle.openDate || !cycle.closeDate) {
+    issues.push('تواريخ الفتح والإغلاق غير مضبوطة');
+  } else if (new Date(cycle.openDate).getTime() >= new Date(cycle.closeDate).getTime()) {
+    issues.push('تاريخ الإغلاق يجب أن يكون بعد تاريخ الفتح');
+  }
+
+  /* 2. Fees */
+  const fee = cycle.fees?.applicationFee;
+  if (!fee || fee <= 0) {
+    issues.push('رسوم التقديم غير مضبوطة');
+  }
+  if (!cycle.fees?.fawryConfig?.merchantCode) {
+    issues.push('إعدادات بوابة فوري غير مكتملة (رمز التاجر مطلوب)');
+  }
+
+  /* 3. At least one open category */
+  const openCategoryCount = Object.values(cycle.openCategories ?? {}).filter(
+    (c) => c?.isOpen,
+  ).length;
+  if (openCategoryCount === 0) {
+    issues.push('لا توجد فئة قبول مفتوحة لهذه الدورة');
+  }
+
+  /* 4. At least one committee linked to the cycle */
+  const linkedCommittees = MOCK.committees.filter((c) => {
+    /* Best-effort match — committee model may carry linkedCycleId or be
+     * shared across cycles. Treat any committee not soft-deleted as
+     * eligible for the demo unless committeesService later narrows. */
+    if ('deletedAt' in c && (c as { deletedAt?: string }).deletedAt) return false;
+    return true;
+  });
+  if (linkedCommittees.length === 0) {
+    issues.push('لا توجد لجان مُعدّة في النظام');
+  }
+
+  /* 5. Exam workflow — at least one open category must have a non-empty
+   * required-tests list. Avoids cross-importing examPlansService here
+   * (the actual exam-order plans live in that service's in-memory PLANS
+   * array; this check uses the per-category required-tests roster which
+   * is part of the cycle/category shape). */
+  const openCategories = Object.entries(cycle.openCategories ?? {})
+    .filter(([, c]) => c?.isOpen)
+    .map(([key]) => MOCK.categories.find((cat) => cat.key === key))
+    .filter((c): c is NonNullable<typeof c> => Boolean(c));
+  const hasAnyExamRoster = openCategories.some(
+    (cat) => (cat.requiredTests?.length ?? 0) > 0,
+  );
+  if (openCategoryCount > 0 && !hasAnyExamRoster) {
+    issues.push('لا توجد خطة اختبارات مُعرّفة لأي فئة قبول مفتوحة');
+  }
+
+  return issues;
+}
+
 let cloneCounter = 1;
 let auditCounter = 1;
 
@@ -183,7 +249,10 @@ export const cyclesService = {
   /**
    * Activate a cycle. Enforces the single-active invariant — another
    * `'active'`/`'open'`/`'extended'` cycle is a hard reject (Gap F):
-   * the caller must explicitly close it first.
+   * the caller must explicitly close it first. Also runs a pre-flight
+   * setup-completeness check so admins get a friendly Arabic message
+   * listing what's still missing rather than activating a half-baked
+   * cycle that applicants then can't apply to.
    */
   async activate(id: string): Promise<AdmissionCycle> {
     await simulateLatency();
@@ -198,6 +267,17 @@ export const cyclesService = {
         'ACTIVE_CYCLE_EXISTS',
         { activeCycleId: conflicting.id, activeCycleName: conflicting.nameAr },
         `لا يمكن تفعيل هذه الدورة — دورة "${conflicting.nameAr}" نشطة بالفعل. يجب إغلاقها أولاً.`,
+      );
+    }
+    /* Pre-flight setup-completeness check. Each missing prerequisite
+     * adds a friendly Arabic line; if any are present we throw a single
+     * ConflictError listing all of them so the admin can fix in one pass. */
+    const missing = collectActivationIssues(STATE[idx]!);
+    if (missing.length > 0) {
+      throw new ConflictError(
+        'CYCLE_ACTIVATION_INCOMPLETE',
+        { issues: missing },
+        `لا يمكن تفعيل هذه الدورة — الإعداد غير مكتمل:\n• ${missing.join('\n• ')}`,
       );
     }
     const before = { ...STATE[idx]! };
