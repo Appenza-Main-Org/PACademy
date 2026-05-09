@@ -84,7 +84,9 @@ export const stage5Schema = z
 export type Stage5Values = z.infer<typeof stage5Schema>;
 
 export const stage6Schema = z.object({
-  method: z.enum(['fawry', 'card']),
+  /* Single-method scheduling — Fawry only. The credit-card path was
+   * removed per ops feedback; if it's reintroduced, extend this enum. */
+  method: z.enum(['fawry']),
 });
 export type Stage6Values = z.infer<typeof stage6Schema>;
 
