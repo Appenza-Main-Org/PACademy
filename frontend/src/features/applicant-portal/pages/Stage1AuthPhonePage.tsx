@@ -3,26 +3,55 @@
  * Captures national ID + Egyptian mobile, requests SMS via service.
  */
 
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { CheckCircle2, Phone } from 'lucide-react';
+import { CheckCircle2, Phone, RefreshCw } from 'lucide-react';
 import { Button, Card, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage1Schema, type Stage1Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 
+interface Captcha {
+  a: number;
+  b: number;
+  answer: number;
+}
+
+function generateCaptcha(): Captcha {
+  const a = Math.floor(Math.random() * 9) + 1; // 1-9
+  const b = Math.floor(Math.random() * 9) + 1; // 1-9
+  return { a, b, answer: a + b };
+}
+
 export function Stage1AuthPhonePage(): JSX.Element {
   const navigate = useNavigate();
   const setNationalId = useApplicantPortalStore((s) => s.setNationalId);
   const storedNid = useApplicantPortalStore((s) => s.nationalId);
   const carriedFromEligibility = Boolean(storedNid);
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Stage1Values>({
+  const [captcha, setCaptcha] = useState<Captcha>(() => generateCaptcha());
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Stage1Values>({
     resolver: zodResolver(stage1Schema),
-    defaultValues: { nationalId: storedNid ?? '', phoneNumber: '' },
+    defaultValues: { nationalId: storedNid ?? '', phoneNumber: '', captcha: '' },
   });
 
+  const refreshCaptcha = (): void => {
+    setCaptcha(generateCaptcha());
+    reset((current) => ({ ...current, captcha: '' }));
+  };
+
+  const captchaPrompt = useMemo(
+    () => `${captcha.a} + ${captcha.b} =`,
+    [captcha],
+  );
+
   const onSubmit = async (values: Stage1Values): Promise<void> => {
+    if (Number.parseInt(values.captcha.trim(), 10) !== captcha.answer) {
+      toast('ناتج العملية غير صحيح — أعد المحاولة', 'danger');
+      refreshCaptcha();
+      return;
+    }
     try {
       await applicantPortalService.initiateAuth(values.nationalId, values.phoneNumber);
       setNationalId(values.nationalId);
@@ -31,6 +60,7 @@ export function Stage1AuthPhonePage(): JSX.Element {
       navigate('/applicant/auth/step-2');
     } catch (err) {
       toast((err as Error).message ?? 'تعذر الإرسال', 'danger');
+      refreshCaptcha();
     }
   };
 
@@ -74,6 +104,37 @@ export function Stage1AuthPhonePage(): JSX.Element {
           {...register('phoneNumber')}
           error={errors.phoneNumber?.message}
         />
+        <div className="md:col-span-2 flex flex-col gap-1.5">
+          <div className="flex items-center gap-3 rounded-md border border-border-default bg-ink-50 p-3">
+            <span
+              aria-hidden
+              className="select-none rounded-md bg-surface-card px-3 py-1.5 font-numeric tnum font-ar-display text-lg font-bold text-ink-900"
+              dir="ltr"
+            >
+              {captchaPrompt}
+            </span>
+            <Input
+              label="ناتج العملية"
+              required
+              placeholder="—"
+              dir="ltr"
+              className="flex-1"
+              {...register('captcha')}
+              error={errors.captcha?.message}
+            />
+            <button
+              type="button"
+              onClick={refreshCaptcha}
+              aria-label="تحديث رمز التحقق"
+              className="inline-flex h-9 w-9 items-center justify-center self-end rounded-md border border-border-default bg-surface-card text-ink-700 transition-colors hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+            >
+              <RefreshCw size={14} strokeWidth={1.75} />
+            </button>
+          </div>
+          <p className="text-2xs text-ink-500">
+            تأكيد بشري — أدخل ناتج جمع الرقمين أعلاه قبل إرسال رمز التحقق إلى هاتفك.
+          </p>
+        </div>
         <div className="md:col-span-2 flex justify-end">
           <Button type="submit" variant="primary" size="lg" isLoading={isSubmitting}>
             إرسال رمز التحقق
