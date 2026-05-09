@@ -6,10 +6,11 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, ExternalLink, FlaskConical, Loader2, Receipt, Smartphone } from 'lucide-react';
-import { Badge, Button, Card, Modal, PrintLayout, toast } from '@/shared/components';
+import { CreditCard, ExternalLink, FlaskConical, Loader2, Receipt, ShieldCheck, Smartphone } from 'lucide-react';
+import { Badge, Button, Card, Input, Modal, PrintLayout, toast } from '@/shared/components';
 import { useInitiatePayment, useVerifyPayment } from '../api/applicantPortal.queries';
 import { useActiveCycle } from '../api/categories.queries';
+import { applicantPortalService } from '../api/applicantPortal.service';
 
 const APPLICANT_ID = 'APP-2026000';
 const FEE = 1500;
@@ -26,6 +27,10 @@ export function Stage6PaymentPage(): JSX.Element {
    * shows a hosted Fawry page ('خدمة كلية الشرطة') before returning. We
    * render that as a temporary loading skin so evaluators see the handoff. */
   const [hostedPageVisible, setHostedPageVisible] = useState(false);
+  /* AF-2 — pre-payment identity re-verification. Stage 6 is gated until
+   * the applicant re-enters their NID and mobile to confirm identity
+   * before money moves. */
+  const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const initiateMut = useInitiatePayment(APPLICANT_ID);
   const verifyMut = useVerifyPayment(APPLICANT_ID);
   const { data: activeCycle } = useActiveCycle();
@@ -111,6 +116,11 @@ export function Stage6PaymentPage(): JSX.Element {
         </div>
       </div>
 
+      {!identityConfirmed && (
+        <IdentityConfirmGate onConfirmed={() => setIdentityConfirmed(true)} />
+      )}
+
+      <fieldset disabled={!identityConfirmed} className="contents">
       <div className="mb-5 grid gap-3 md:grid-cols-2">
         <MethodCard
           active={method === 'fawry'}
@@ -164,6 +174,8 @@ export function Stage6PaymentPage(): JSX.Element {
           </Button>
         </div>
       )}
+
+      </fieldset>
 
       <Modal
         open={hostedPageVisible}
@@ -238,6 +250,66 @@ function ReceiptRow({
       >
         {value}
       </dd>
+    </div>
+  );
+}
+
+function IdentityConfirmGate({ onConfirmed }: { onConfirmed: () => void }): JSX.Element {
+  const [nid, setNid] = useState('');
+  const [phone, setPhone] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (): Promise<void> => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await applicantPortalService.confirmPrePayment('APP-2026000', { nationalId: nid, phoneNumber: phone });
+      toast('تم تأكيد الهوية', 'success');
+      onConfirmed();
+    } catch (err) {
+      toast((err as Error).message ?? 'تعذر تأكيد الهوية', 'danger');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mb-5 rounded-md border border-teal-300 bg-teal-50 p-4">
+      <div className="mb-3 flex items-start gap-3">
+        <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-500 text-white">
+          <ShieldCheck size={18} strokeWidth={1.75} />
+        </span>
+        <div>
+          <p className="font-ar-display text-md font-bold text-teal-900">تأكيد الهوية قبل السداد</p>
+          <p className="mt-0.5 text-2xs text-teal-800/85 leading-relaxed">
+            احتياطاً قبل تحريك أي مبلغ، يُرجى إعادة إدخال رقمك القومي ورقم هاتفك. يجب أن يطابقا
+            البيانات المُسجَّلة في خطوة التحقق من الهاتف.
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Input
+          label="الرقم القومي"
+          required
+          placeholder="14 رقماً"
+          dir="ltr"
+          value={nid}
+          onChange={(e) => setNid(e.target.value)}
+        />
+        <Input
+          label="رقم الهاتف المحمول"
+          required
+          placeholder="01XXXXXXXXX"
+          dir="ltr"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+        />
+      </div>
+      <div className="mt-3 flex justify-end">
+        <Button variant="primary" onClick={submit} isLoading={submitting} disabled={!nid || !phone}>
+          تأكيد الهوية
+        </Button>
+      </div>
     </div>
   );
 }

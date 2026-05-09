@@ -8,6 +8,7 @@
  *   PATCH /applicant/draft/:applicantId            → ApplicantDraft (merge)
  *   POST /applicant/stage/:applicantId/:stage      → { valid, errors? }
  *   POST /applicant/verify-certificate             → { match, mismatchedFields }
+ *   POST /applicant/payment/confirm-identity       → { confirmed }   (AF-2 pre-payment re-verification)
  *   POST /applicant/payment/initiate               → { redirectUrl|fawryCode, refNumber }
  *   GET  /applicant/payment/verify/:refNumber      → { status, receipt }
  *   GET  /applicant/exam-slots                     → ExamSlot[]
@@ -75,6 +76,20 @@ export const applicantPortalService = {
       return { match: false, mismatchedFields: ['totalScore'] };
     }
     return { match: true };
+  },
+
+  /**
+   * Pre-payment identity re-verification (AF-2). Applicant re-enters NID
+   * and mobile to confirm before money moves. Mismatch throws so callers
+   * surface a danger toast.
+   */
+  async confirmPrePayment(_applicantId: string, input: { nationalId: string; phoneNumber: string }): Promise<{ confirmed: true }> {
+    await simulateLatency(250, 500);
+    if (!/^[0-9]{14}$/.test(input.nationalId)) throw new Error('الرقم القومي غير صحيح');
+    if (!/^01[0125][0-9]{8}$/.test(input.phoneNumber)) throw new Error('رقم الهاتف غير صحيح');
+    /* In production, compare against the Stage 1 values stored on the
+     * server-side draft. Demo accepts any well-formed pair. */
+    return { confirmed: true };
   },
 
   async initiatePayment(applicantId: string, method: 'fawry' | 'card', amount: number): Promise<{
