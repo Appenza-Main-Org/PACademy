@@ -7,7 +7,7 @@
  * + required-documents checklist.
  */
 
-import { CalendarCheck, MapPin, Printer, ShieldCheck, User } from 'lucide-react';
+import { MapPin, Printer, ShieldCheck, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   Badge,
@@ -20,7 +20,12 @@ import {
 } from '@/shared/components';
 import { useDraft } from '../api/applicantPortal.queries';
 import { date as fmtDate } from '@/shared/lib/format';
-import { arabicOrdinal, toEasternArabicNumerals } from '@/shared/lib/arabic';
+import {
+  arabicDayOfWeek,
+  arabicOrdinal,
+  arabicTimeOfDay,
+  toEasternArabicNumerals,
+} from '@/shared/lib/arabic';
 
 const APPLICANT_ID = 'APP-2026000';
 const APPLICANT_NAME = 'يوسف أحمد محمد الخطيب';
@@ -123,28 +128,35 @@ export function Stage9PrintCardPage(): JSX.Element {
           </p>
         )}
 
-        {/* Exam appointment */}
-        <div className="mb-6 grid grid-cols-2 gap-4">
-          <div className="flex items-start gap-3 rounded-md border border-border-default bg-surface-card p-4">
-            <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-gold-50 text-gold-700">
-              <CalendarCheck size={18} strokeWidth={1.75} />
-            </span>
-            <div>
-              <p className="text-2xs uppercase tracking-wide text-ink-500">موعد الاختبار</p>
-              <p className="mt-0.5 font-bold text-ink-900">{fmtDate(slot.date, 'full')}</p>
-              <p className="mt-0.5 text-2xs text-ink-500">{formatHijri(new Date(slot.date))} هـ</p>
-              <p className="mt-1 font-numeric tnum text-md font-bold text-teal-700" dir="ltr">{slot.time}</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-md border border-border-default bg-surface-card p-4">
-            <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-              <MapPin size={18} strokeWidth={1.75} />
-            </span>
-            <div>
-              <p className="text-2xs uppercase tracking-wide text-ink-500">مكان الاختبار</p>
-              <p className="mt-0.5 font-medium text-ink-900">{slot.location}</p>
-              <p className="mt-0.5 text-2xs text-ink-500">احرص على الحضور قبل الموعد بـ 30 دقيقة</p>
-            </div>
+        {/* Exam-date sentence — prose form matching the printed reference:
+            'تاريخ إختبار قدرات يوم الأربعاء YYYY/MM/DD الساعة السادسة صباحاً'.
+            Day of week + Gregorian date + Arabic-word time of day. */}
+        {(() => {
+          const examDate = new Date(slot.date);
+          const dayName = arabicDayOfWeek(examDate);
+          const dateStr = toEasternArabicNumerals(
+            `${examDate.getFullYear()}/${String(examDate.getMonth() + 1).padStart(2, '0')}/${String(examDate.getDate()).padStart(2, '0')}`,
+          );
+          const { hourWord, periodWord } = arabicTimeOfDay(slot.time);
+          return (
+            <p className="mb-5 rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-sm text-ink-900">
+              تاريخ إختبار قدرات يوم {dayName}{' '}
+              <span dir="ltr" className="font-numeric tnum">{dateStr}</span>{' '}
+              الساعة {hourWord} {periodWord}
+            </p>
+          );
+        })()}
+
+        {/* Exam location — kept as a small icon-row so applicants can still
+            see where to go without needing to read the prose sentence. */}
+        <div className="mb-6 flex items-start gap-3 rounded-md border border-border-default bg-surface-card p-4">
+          <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+            <MapPin size={18} strokeWidth={1.75} />
+          </span>
+          <div>
+            <p className="text-2xs uppercase tracking-wide text-ink-500">مكان الاختبار</p>
+            <p className="mt-0.5 font-medium text-ink-900">{slot.location}</p>
+            <p className="mt-0.5 text-2xs text-ink-500">احرص على الحضور قبل الموعد بـ 30 دقيقة</p>
           </div>
         </div>
 
@@ -208,17 +220,5 @@ function SignatureLine({ label }: { label: string }): JSX.Element {
       <span className="text-2xs uppercase tracking-wide text-ink-500">{label}</span>
     </div>
   );
-}
-
-function formatHijri(d: Date): string {
-  try {
-    return new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(d).replace('هـ', '').trim();
-  } catch {
-    return '';
-  }
 }
 
