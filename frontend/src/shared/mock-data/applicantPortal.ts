@@ -41,6 +41,15 @@ export const SAMPLE_DRAFT: ApplicantDraft = {
   furthestStage: 0,
   suspended: false,
   lastSavedAt: Date.now() - 90_000,
+  /* Pre-populated payment so the print-card preview renders realistically
+   * even when the wizard is opened directly without going through Stage 6. */
+  payment: {
+    method: 'fawry',
+    refNumber: 'PAY-2026-000-1',
+    fawryCode: '9366150206',
+    amount: 1500,
+    paidAt: Date.now() - 86_400_000,
+  },
   followUp: {
     capacities: PIPE[0]!,
     traits: PIPE[0]!,

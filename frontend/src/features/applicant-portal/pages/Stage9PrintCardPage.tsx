@@ -20,7 +20,7 @@ import {
 } from '@/shared/components';
 import { useDraft } from '../api/applicantPortal.queries';
 import { date as fmtDate } from '@/shared/lib/format';
-import { arabicOrdinal } from '@/shared/lib/arabic';
+import { arabicOrdinal, toEasternArabicNumerals } from '@/shared/lib/arabic';
 
 const APPLICANT_ID = 'APP-2026000';
 const APPLICANT_NAME = 'يوسف أحمد محمد الخطيب';
@@ -39,6 +39,7 @@ export function Stage9PrintCardPage(): JSX.Element {
     time: '08:00',
     location: 'كلية الشرطة - مبنى الاختبارات - القاهرة',
   };
+  const fawryRef = draft?.payment?.fawryCode ?? draft?.payment?.refNumber ?? null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -109,6 +110,18 @@ export function Stage9PrintCardPage(): JSX.Element {
             <p className="mt-1 text-2xs font-bold text-teal-700">مُوثَّق</p>
           </div>
         </div>
+
+        {/* Fawry payment reference line — verbatim phrasing from the printed
+            reference card. Falls back to the internal refNumber if no
+            Fawry-side code was issued (card-method payment). */}
+        {fawryRef && (
+          <p className="mb-5 rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-sm text-ink-700">
+            تم الدفع بواسطة فورى بالمدفوعة رقم:{' '}
+            <span className="font-numeric tnum font-bold text-ink-900">
+              {toEasternArabicNumerals(fawryRef)}
+            </span>
+          </p>
+        )}
 
         {/* Exam appointment */}
         <div className="mb-6 grid grid-cols-2 gap-4">

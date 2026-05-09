@@ -51,3 +51,24 @@ export function arabicOrdinal(n: number): string {
   const i = Math.floor(n) - 1;
   return ORDINALS_FEMININE[i] ?? `رقم ${n}`;
 }
+
+const EASTERN_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+
+/**
+ * Convert ASCII digits in a string to Eastern Arabic-Indic numerals
+ * (٠–٩). Non-digit characters pass through unchanged. Used for printed
+ * surfaces where the visual style of Eastern numerals is required.
+ */
+export function toEasternArabicNumerals(s: string | number): string {
+  const str = String(s);
+  let out = '';
+  for (let i = 0; i < str.length; i += 1) {
+    const c = str.charCodeAt(i);
+    if (c >= 48 && c <= 57) {
+      out += EASTERN_DIGITS[c - 48];
+    } else {
+      out += str[i];
+    }
+  }
+  return out;
+}

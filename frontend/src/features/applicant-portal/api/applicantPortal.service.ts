@@ -92,8 +92,12 @@ export const applicantPortalService = {
       status: 'pending',
       initiatedAt: Date.now(),
     };
+    if (method === 'fawry') {
+      txn.fawryCode = String(Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000);
+      PAYMENTS.push(txn);
+      return { refNumber, fawryCode: txn.fawryCode };
+    }
     PAYMENTS.push(txn);
-    if (method === 'fawry') return { refNumber, fawryCode: String(Math.floor(Math.random() * 90000000) + 10000000) };
     return { refNumber, redirectUrl: 'https://payment.gov.eg/redirect-mock' };
   },
 
@@ -106,7 +110,13 @@ export const applicantPortalService = {
     txn.paidAt = Date.now();
     DRAFT = {
       ...DRAFT,
-      payment: { method: txn.method, refNumber: txn.refNumber, amount: txn.amount, paidAt: txn.paidAt },
+      payment: {
+        method: txn.method,
+        refNumber: txn.refNumber,
+        amount: txn.amount,
+        paidAt: txn.paidAt,
+        ...(txn.fawryCode ? { fawryCode: txn.fawryCode } : {}),
+      },
       /* Stage 6 is complete the moment payment is verified — mark it so the
        * wizard sidebar checkmark + nextStage URL pick up the progress. */
       furthestStage: Math.max(DRAFT.furthestStage, 6),
