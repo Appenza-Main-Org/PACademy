@@ -32,3 +32,22 @@ export function normalizeArabic(s: string): string {
     .toLowerCase()
     .trim();
 }
+
+const ORDINALS_FEMININE = [
+  'الأولى', 'الثانية', 'الثالثة', 'الرابعة', 'الخامسة',
+  'السادسة', 'السابعة', 'الثامنة', 'التاسعة', 'العاشرة',
+  'الحادية عشرة', 'الثانية عشرة', 'الثالثة عشرة', 'الرابعة عشرة',
+  'الخامسة عشرة', 'السادسة عشرة', 'السابعة عشرة', 'الثامنة عشرة',
+  'التاسعة عشرة', 'العشرون',
+];
+
+/**
+ * Arabic feminine ordinal for a 1-indexed integer (used for committees,
+ * lessons, classes — all feminine nouns). Falls back to the numeric form
+ * past the precomputed range so callers don't need to bound-check.
+ */
+export function arabicOrdinal(n: number): string {
+  if (!Number.isFinite(n) || n < 1) return '';
+  const i = Math.floor(n) - 1;
+  return ORDINALS_FEMININE[i] ?? `رقم ${n}`;
+}

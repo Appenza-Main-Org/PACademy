@@ -20,11 +20,16 @@ import {
 } from '@/shared/components';
 import { useDraft } from '../api/applicantPortal.queries';
 import { date as fmtDate } from '@/shared/lib/format';
+import { arabicOrdinal } from '@/shared/lib/arabic';
 
 const APPLICANT_ID = 'APP-2026000';
 const APPLICANT_NAME = 'يوسف أحمد محمد الخطيب';
 const APPLICANT_NID = '30506121601234';
 const BARCODE = '26-CAI-00001234';
+/* Demo: committee number for the rendered card. Production sources this
+ * from the reserved exam slot via committeeService once Gap H links
+ * ExamSlot.committeeId through to the draft. */
+const COMMITTEE_NUMBER = 2;
 
 export function Stage9PrintCardPage(): JSX.Element {
   const navigate = useNavigate();
@@ -77,12 +82,16 @@ export function Stage9PrintCardPage(): JSX.Element {
           {/* Identity */}
           <div className="flex flex-col justify-center gap-2">
             <div>
-              <p className="text-2xs uppercase tracking-wide text-ink-500">الاسم رباعي</p>
+              <p className="text-2xs uppercase tracking-wide text-ink-500">اسم الطالب</p>
               <p className="font-ar-display text-lg font-bold text-ink-900">{APPLICANT_NAME}</p>
+            </div>
+            <div>
+              <p className="text-2xs uppercase tracking-wide text-ink-500">اللجنة</p>
+              <p className="font-ar-display text-md font-bold text-ink-900">{arabicOrdinal(COMMITTEE_NUMBER)}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-2xs uppercase tracking-wide text-ink-500">الرقم القومي</p>
+                <p className="text-2xs uppercase tracking-wide text-ink-500">الرقم القومى</p>
                 <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_NID}</p>
               </div>
               <div>
