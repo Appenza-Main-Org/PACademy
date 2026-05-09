@@ -7,7 +7,7 @@
  * + required-documents checklist.
  */
 
-import { MapPin, Printer, ShieldCheck, User } from 'lucide-react';
+import { FileText, MapPin, Printer, ShieldCheck, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   Badge,
@@ -55,13 +55,21 @@ export function Stage9PrintCardPage(): JSX.Element {
             احتفظ بالكارت معك يوم الاختبار. الكارت يحوي باركود لتسجيل الحضور تلقائياً.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="primary"
             leadingIcon={<Printer size={14} strokeWidth={1.75} />}
             onClick={() => window.print()}
           >
-            طباعة
+            طباعة الكارت
+          </Button>
+          <Button
+            variant="secondary"
+            leadingIcon={<FileText size={14} strokeWidth={1.75} />}
+            onClick={() => navigate('/applicant/acquaintance-doc')}
+            title="تنزيل وثيقة التعارف للمراجعة الأمنية"
+          >
+            تنزيل إقرار التعارف
           </Button>
           <Button variant="ghost" onClick={() => navigate('/applicant/follow-up')}>
             تخطّي
