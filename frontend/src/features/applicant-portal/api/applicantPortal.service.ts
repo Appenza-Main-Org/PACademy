@@ -8,6 +8,7 @@
  *   PATCH /applicant/draft/:applicantId            → ApplicantDraft (merge)
  *   POST /applicant/stage/:applicantId/:stage      → { valid, errors? }
  *   POST /applicant/verify-certificate             → { match, mismatchedFields }
+ *   POST /applicant/payment/confirm-identity       → { confirmed }   (AF-2 pre-payment re-verification)
  *   POST /applicant/payment/initiate               → { redirectUrl|fawryCode, refNumber }
  *   GET  /applicant/payment/verify/:refNumber      → { status, receipt }
  *   GET  /applicant/exam-slots                     → ExamSlot[]
@@ -77,6 +78,20 @@ export const applicantPortalService = {
     return { match: true };
   },
 
+  /**
+   * Pre-payment identity re-verification (AF-2). Applicant re-enters NID
+   * and mobile to confirm before money moves. Mismatch throws so callers
+   * surface a danger toast.
+   */
+  async confirmPrePayment(_applicantId: string, input: { nationalId: string; phoneNumber: string }): Promise<{ confirmed: true }> {
+    await simulateLatency(250, 500);
+    if (!/^[0-9]{14}$/.test(input.nationalId)) throw new Error('الرقم القومي غير صحيح');
+    if (!/^01[0125][0-9]{8}$/.test(input.phoneNumber)) throw new Error('رقم الهاتف غير صحيح');
+    /* In production, compare against the Stage 1 values stored on the
+     * server-side draft. Demo accepts any well-formed pair. */
+    return { confirmed: true };
+  },
+
   async initiatePayment(applicantId: string, method: 'fawry' | 'card', amount: number): Promise<{
     refNumber: string;
     fawryCode?: string;
@@ -92,8 +107,12 @@ export const applicantPortalService = {
       status: 'pending',
       initiatedAt: Date.now(),
     };
+    if (method === 'fawry') {
+      txn.fawryCode = String(Math.floor(Math.random() * 9_000_000_000) + 1_000_000_000);
+      PAYMENTS.push(txn);
+      return { refNumber, fawryCode: txn.fawryCode };
+    }
     PAYMENTS.push(txn);
-    if (method === 'fawry') return { refNumber, fawryCode: String(Math.floor(Math.random() * 90000000) + 10000000) };
     return { refNumber, redirectUrl: 'https://payment.gov.eg/redirect-mock' };
   },
 
@@ -106,7 +125,13 @@ export const applicantPortalService = {
     txn.paidAt = Date.now();
     DRAFT = {
       ...DRAFT,
-      payment: { method: txn.method, refNumber: txn.refNumber, amount: txn.amount, paidAt: txn.paidAt },
+      payment: {
+        method: txn.method,
+        refNumber: txn.refNumber,
+        amount: txn.amount,
+        paidAt: txn.paidAt,
+        ...(txn.fawryCode ? { fawryCode: txn.fawryCode } : {}),
+      },
       /* Stage 6 is complete the moment payment is verified — mark it so the
        * wizard sidebar checkmark + nextStage URL pick up the progress. */
       furthestStage: Math.max(DRAFT.furthestStage, 6),

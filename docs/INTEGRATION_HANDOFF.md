@@ -83,6 +83,7 @@ in declaration order; "Real endpoint" copies from each service's
 | `patchDraft` | `PATCH /applicant/draft/:applicantId` | — | — |
 | `validateStage` | `POST /applicant/stage/:applicantId/:stage` | — | — |
 | `verifyCertificate` | `POST /applicant/verify-certificate` | — | — |
+| `confirmPrePayment` | `POST /applicant/payment/confirm-identity` | applicant-identity-match (Stage 1 NID + phone) | `Error('بيانات الهوية غير مطابقة')` (planned, AF-2) |
 | `initiatePayment` | `POST /applicant/payment/initiate` | fee-belongs-to-cycle | — |
 | `verifyPayment` | `GET /applicant/payment/verify/:refNumber` | — | — |
 | `getExamSlots` | `GET /applicant/exam-slots` | — | — |
@@ -430,6 +431,9 @@ typed `result` payload; `NotFoundError` carries a code-only marker.
 | (auth) `Error('انتهت صلاحية رمز التحقق…')` | OTP expired (5min default) | string error | "انتهت صلاحية رمز التحقق. أعد طلب رمز جديد." |
 | (lookups) `Error('لا يمكن حذف سجل نظام…')` | Soft-deleting `isSystem: true` row | string error | "لا يمكن حذف سجل نظام (يمكن تعطيله بدلاً من ذلك)" |
 | (categories) `Error('لا يمكن حذف فئات السبع…')` | Soft-deleting spec category | string error | "لا يمكن حذف فئات السبع المعتمدة من المواصفات" |
+| (applicant-portal) `Error('الرقم القومي غير صحيح')` | `confirmPrePayment` malformed NID (AF-2) | string error | "الرقم القومي غير صحيح" |
+| (applicant-portal) `Error('رقم الهاتف غير صحيح')` | `confirmPrePayment` malformed phone (AF-2) | string error | "رقم الهاتف غير صحيح" |
+| (applicant-portal) `Error('بيانات الهوية غير مطابقة')` | `confirmPrePayment` mismatch with Stage 1 stored values (production strict — demo accepts any well-formed pair) | string error | "بيانات الهوية لا تتطابق مع البيانات المُسجَّلة في خطوة التحقق من الهاتف" (planned) |
 
 ### P2 UX gaps
 
@@ -759,6 +763,14 @@ Surfaced during the service-walk; product/ops decisions needed
     no SystemUser carries `role: 'finance_review'`. Decide whether
     backend seeds a sample row OR the operations team assigns it
     post-integration.
+11. **Captcha provider for Stage 1 (AF-1)** — applicant Stage 1
+    currently uses a client-side arithmetic challenge as a demo
+    placeholder. Production needs a server-issued challenge that
+    survives client tampering. Decide between hCaptcha, reCAPTCHA,
+    or a homegrown challenge endpoint
+    (`GET /applicant/auth/captcha → { id, prompt }`,
+    `POST /applicant/auth/initiate { captchaId, captchaAnswer, … }`
+    with server-side validation against the issued id).
 
 If you find more during implementation, append them here so future
 sessions can see the full conversation.

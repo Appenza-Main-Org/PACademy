@@ -13,6 +13,8 @@ import { zodResolver } from '@/shared/lib/zod-resolver';
 import { stage4Schema, type Stage4Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
 import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
+import { MOCK } from '@/shared/mock-data';
+import { useApplicantPortalStore } from '../store/applicantPortal.store';
 
 const APPLICANT_ID = 'APP-2026000';
 
@@ -31,6 +33,28 @@ export function Stage4EducationPage(): JSX.Element {
   const navigate = useNavigate();
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'pending' | 'verified' | 'mismatch'>('idle');
   const [overrideReason, setOverrideReason] = useState('');
+  const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  /* AF-4 — derive track-specific gates from the chosen category. The
+   * MOI flow shows different field sets per track; we surface the most
+   * common ones for demo (bar license for law, sport specialty for
+   * sport tracks).
+   *
+   * Future migration: push these field-override decisions into admin
+   * Gap G's CategoryConditions as a typed `fieldOverrides: { stage4?:
+   * { barLicenseRequired?: boolean; sportFieldsRequired?: boolean } }`
+   * block, so per-track form shape becomes admin-configurable rather
+   * than inline here. Tracked in TODO.md. */
+  const selectedCategory = selectedCategoryKey
+    ? MOCK.categories.find((c) => c.key === selectedCategoryKey)
+    : null;
+  const requiresBarLicense =
+    selectedCategory?.conditions.requiredQualification === 'bachelor_law';
+  const requiresSportFields =
+    selectedCategoryKey === 'institute_officers_training' ||
+    selectedCategoryKey === 'institute_traffic' ||
+    selectedCategoryKey === 'institute_guarding' ||
+    selectedCategoryKey === 'special_units';
+
   const { register, handleSubmit, formState: { errors, isSubmitting }, getValues, watch, control } = useForm<Stage4Values>({
     resolver: zodResolver(stage4Schema),
     defaultValues: { certificateYear: new Date().getFullYear() - 1 },
@@ -57,6 +81,15 @@ export function Stage4EducationPage(): JSX.Element {
   const onSubmit = async (values: Stage4Values): Promise<void> => {
     if (verificationStatus === 'mismatch' && !overrideReason.trim()) {
       toast('يرجى توضيح سبب التجاوز', 'danger');
+      return;
+    }
+    /* Track-specific required-field guards (AF-4). */
+    if (requiresBarLicense && !values.barLicenseNumber?.trim()) {
+      toast('رقم القيد بنقابة المحامين مطلوب لمتقدمي مسار الحقوقيين', 'danger');
+      return;
+    }
+    if (requiresSportFields && !values.sportSpecialty?.trim()) {
+      toast('التخصص الرياضي مطلوب لمتقدمي مسار التربية الرياضية', 'danger');
       return;
     }
     await applicantPortalService.submitStage(APPLICANT_ID, 4, {
@@ -160,6 +193,42 @@ export function Stage4EducationPage(): JSX.Element {
               { value: 'أدبي', label: 'أدبي' },
             ]}
           />
+        )}
+
+        {requiresBarLicense && (
+          <div className="md:col-span-2 rounded-md border border-dashed border-teal-300 bg-teal-50 p-3">
+            <p className="mb-2 text-2xs font-bold text-teal-800">
+              مسار الحقوقيين — حقول إضافية مطلوبة
+            </p>
+            <Input
+              label="رقم القيد بنقابة المحامين"
+              required
+              dir="ltr"
+              placeholder="رقم القيد"
+              {...register('barLicenseNumber')}
+            />
+          </div>
+        )}
+
+        {requiresSportFields && (
+          <div className="md:col-span-2 rounded-md border border-dashed border-gold-300 bg-gold-50 p-3">
+            <p className="mb-2 text-2xs font-bold text-gold-800">
+              مسار التربية الرياضية — بيانات الرياضة المُمارَسة
+            </p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Input
+                label="التخصص الرياضي"
+                required
+                placeholder="مثال: ألعاب قوى، سباحة"
+                {...register('sportSpecialty')}
+              />
+              <Input
+                label="سجل المنافسات السابقة"
+                placeholder="(اختياري) — البطولات والإنجازات"
+                {...register('competitionHistory')}
+              />
+            </div>
+          </div>
         )}
 
         {verificationStatus === 'mismatch' && (

@@ -49,6 +49,7 @@ export const ROUTES = {
   applicantStart: '/applicant/start',
   applicantEligibility: '/applicant/eligibility',
   applicantTests: '/applicant/tests',
+  applicantApplicationSummary: '/applicant/application/summary',
 
   /* ── Internal staff apps ── */
   committee: {

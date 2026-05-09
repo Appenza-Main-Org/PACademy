@@ -6,12 +6,16 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, FlaskConical, Receipt, Smartphone } from 'lucide-react';
-import { Badge, Button, Card, Modal, PrintLayout, toast } from '@/shared/components';
+import { CreditCard, ExternalLink, FlaskConical, Loader2, Receipt, ShieldCheck, Smartphone } from 'lucide-react';
+import { Badge, Button, Card, Input, Modal, PrintLayout, toast } from '@/shared/components';
 import { useInitiatePayment, useVerifyPayment } from '../api/applicantPortal.queries';
+import { useActiveCycle } from '../api/categories.queries';
+import { applicantPortalService } from '../api/applicantPortal.service';
+import { withAudit } from '@/shared/lib/audit';
 
 const APPLICANT_ID = 'APP-2026000';
 const FEE = 1500;
+const FAWRY_DEFAULT_RETRY_HOURS = 48;
 
 export function Stage6PaymentPage(): JSX.Element {
   const navigate = useNavigate();
@@ -20,14 +24,33 @@ export function Stage6PaymentPage(): JSX.Element {
   const [fawryCode, setFawryCode] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  /* When the credit-card path resolves with a redirectUrl, the PDF flow
+   * shows a hosted Fawry page ('خدمة كلية الشرطة') before returning. We
+   * render that as a temporary loading skin so evaluators see the handoff. */
+  const [hostedPageVisible, setHostedPageVisible] = useState(false);
+  /* AF-2 — pre-payment identity re-verification. Stage 6 is gated until
+   * the applicant re-enters their NID and mobile to confirm identity
+   * before money moves. */
+  const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const initiateMut = useInitiatePayment(APPLICANT_ID);
   const verifyMut = useVerifyPayment(APPLICANT_ID);
+  const { data: activeCycle } = useActiveCycle();
+  const fawryRetryHours =
+    activeCycle?.fees?.fawryConfig?.retryWindowHours ?? FAWRY_DEFAULT_RETRY_HOURS;
 
   const initiate = async (): Promise<void> => {
+    if (method === 'card') setHostedPageVisible(true);
     const r = await initiateMut.mutateAsync({ method, amount: FEE });
     setRefNumber(r.refNumber);
     setFawryCode(r.fawryCode ?? null);
-    if (method === 'card') toast('تم توجيهك إلى بوابة الدفع (محاكاة)', 'info');
+    if (method === 'card') {
+      /* Hold the hosted-page skin briefly so the redirect handoff registers
+       * visually, then drop back to the verify step. */
+      window.setTimeout(() => {
+        setHostedPageVisible(false);
+        toast('تم توجيهك إلى بوابة الدفع (محاكاة)', 'info');
+      }, 1600);
+    }
   };
 
   const verify = async (): Promise<void> => {
@@ -94,13 +117,18 @@ export function Stage6PaymentPage(): JSX.Element {
         </div>
       </div>
 
+      {!identityConfirmed && (
+        <IdentityConfirmGate onConfirmed={() => setIdentityConfirmed(true)} />
+      )}
+
+      <fieldset disabled={!identityConfirmed} className="contents">
       <div className="mb-5 grid gap-3 md:grid-cols-2">
         <MethodCard
           active={method === 'fawry'}
           onClick={() => setMethod('fawry')}
           icon={<Smartphone size={20} strokeWidth={1.75} />}
           title="فوري"
-          subtitle="رمز سداد ساري لمدة 24 ساعة"
+          subtitle={`رمز سداد ساري لمدة ${fawryRetryHours} ساعة`}
         />
         <MethodCard
           active={method === 'card'}
@@ -147,6 +175,31 @@ export function Stage6PaymentPage(): JSX.Element {
           </Button>
         </div>
       )}
+
+      </fieldset>
+
+      <Modal
+        open={hostedPageVisible}
+        onClose={() => { /* Hosted page can't be closed by the applicant — it auto-closes after redirect. */ }}
+        title="بوابة فوري الإلكترونية"
+        size="md"
+      >
+        <Modal.Body>
+          <div className="flex flex-col items-center gap-4 py-6 text-center">
+            <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-teal-50 text-teal-700">
+              <ExternalLink size={28} strokeWidth={1.75} />
+            </span>
+            <div>
+              <p className="font-ar-display text-lg font-bold text-ink-900">خدمة كلية الشرطة</p>
+              <p className="mt-1 text-sm text-ink-500">
+                جارٍ توجيهك إلى صفحة الدفع المستضافة على بوابة فوري…
+              </p>
+            </div>
+            <Loader2 size={22} strokeWidth={2} className="animate-spin text-teal-700" aria-hidden />
+            <p className="text-2xs text-ink-500">لا تُغلق النافذة حتى تكتمل العملية</p>
+          </div>
+        </Modal.Body>
+      </Modal>
 
       <Modal open={showReceipt} onClose={() => setShowReceipt(false)} title="إيصال الدفع" size="lg">
         <Modal.Body>
@@ -198,6 +251,82 @@ function ReceiptRow({
       >
         {value}
       </dd>
+    </div>
+  );
+}
+
+function IdentityConfirmGate({ onConfirmed }: { onConfirmed: () => void }): JSX.Element {
+  const [nid, setNid] = useState('');
+  const [phone, setPhone] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (): Promise<void> => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      /* AF-2 — emit audit event for the pre-payment identity attestation.
+       * This is the authoritative record that the applicant re-confirmed
+       * NID + mobile before money moved; useful for downstream payment
+       * dispute resolution. */
+      await withAudit(
+        () => applicantPortalService.confirmPrePayment('APP-2026000', { nationalId: nid, phoneNumber: phone }),
+        {
+          action: 'applicant.transition',
+          module: 'applicants',
+          entityType: 'applicant_payment_identity',
+          entityLabel: 'تأكيد الهوية قبل السداد',
+          entityId: 'APP-2026000',
+          details: 'إعادة إدخال الرقم القومي والهاتف للتحقق من الهوية قبل السداد',
+          afterFrom: () => ({ confirmedAt: Date.now() }),
+          actor: { id: 'APP-2026000', name: 'المتقدم', role: 'applicant' },
+        },
+      );
+      toast('تم تأكيد الهوية', 'success');
+      onConfirmed();
+    } catch (err) {
+      toast((err as Error).message ?? 'تعذر تأكيد الهوية', 'danger');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mb-5 rounded-md border border-teal-300 bg-teal-50 p-4">
+      <div className="mb-3 flex items-start gap-3">
+        <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-500 text-white">
+          <ShieldCheck size={18} strokeWidth={1.75} />
+        </span>
+        <div>
+          <p className="font-ar-display text-md font-bold text-teal-900">تأكيد الهوية قبل السداد</p>
+          <p className="mt-0.5 text-2xs text-teal-800/85 leading-relaxed">
+            احتياطاً قبل تحريك أي مبلغ، يُرجى إعادة إدخال رقمك القومي ورقم هاتفك. يجب أن يطابقا
+            البيانات المُسجَّلة في خطوة التحقق من الهاتف.
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Input
+          label="الرقم القومي"
+          required
+          placeholder="14 رقماً"
+          dir="ltr"
+          value={nid}
+          onChange={(e) => setNid(e.target.value)}
+        />
+        <Input
+          label="رقم الهاتف المحمول"
+          required
+          placeholder="01XXXXXXXXX"
+          dir="ltr"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+        />
+      </div>
+      <div className="mt-3 flex justify-end">
+        <Button variant="primary" onClick={submit} isLoading={submitting} disabled={!nid || !phone}>
+          تأكيد الهوية
+        </Button>
+      </div>
     </div>
   );
 }

@@ -14,6 +14,10 @@ const EG_PHONE_REGEX = /^01[0125][0-9]{8}$/;
 export const stage1Schema = z.object({
   nationalId: z.string().regex(NID_REGEX, 'الرقم القومي يجب أن يكون 14 رقماً'),
   phoneNumber: z.string().regex(EG_PHONE_REGEX, 'رقم الهاتف غير صحيح'),
+  /* Captcha — applicant types the answer to a randomly-generated arithmetic
+   * challenge. The expected value is set on each render and matched at
+   * submit time. Validated as a coerced number to keep the schema typed. */
+  captcha: z.string().min(1, 'أدخل ناتج العملية'),
 });
 export type Stage1Values = z.infer<typeof stage1Schema>;
 
@@ -50,6 +54,13 @@ export const stage4Schema = z.object({
   schoolName: z.string().min(1, 'مطلوب'),
   schoolGovernorate: z.string().min(1, 'مطلوب'),
   azharBranch: z.enum(['علمي', 'أدبي']).optional(),
+  /* Track-specific fields surfaced by category (AF-4):
+   *  - barLicenseNumber: required for the حقوقيين track (bachelor_law)
+   *  - sportSpecialty + competitionHistory: required for the female sport
+   *    track (institute_* keys with female cohort) */
+  barLicenseNumber: z.string().optional(),
+  sportSpecialty: z.string().optional(),
+  competitionHistory: z.string().optional(),
 });
 export type Stage4Values = z.infer<typeof stage4Schema>;
 
@@ -87,9 +98,16 @@ const familyMemberSchema = z.object({
   education: z.string().optional(),
 });
 
+/* Stepfather (زوج الوالدة) is optional — fullName is non-required because
+ * the entire block is only filled when the applicant's mother has remarried. */
+const optionalFamilyMemberSchema = familyMemberSchema.extend({
+  fullName: z.string().optional().or(z.literal('')),
+});
+
 export const stage7Schema = z.object({
   father: familyMemberSchema,
   mother: familyMemberSchema,
+  stepfather: optionalFamilyMemberSchema.optional(),
   paternalGrandfather: familyMemberSchema,
   paternalGrandmother: familyMemberSchema,
   maternalGrandfather: familyMemberSchema,

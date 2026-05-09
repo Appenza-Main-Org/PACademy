@@ -1070,6 +1070,9 @@ export interface PaymentTransaction {
   status: 'pending' | 'success' | 'failed';
   initiatedAt: number;
   paidAt?: number;
+  /** Fawry-side payment reference (the number printed on the attendance card).
+   *  Only set when method === 'fawry'. */
+  fawryCode?: string;
 }
 
 /* ── Test schedule — Post-polish (Bucket C) ───────────────────────── */
