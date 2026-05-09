@@ -11,6 +11,7 @@ import { Badge, Button, Card, Input, Modal, PrintLayout, toast } from '@/shared/
 import { useInitiatePayment, useVerifyPayment } from '../api/applicantPortal.queries';
 import { useActiveCycle } from '../api/categories.queries';
 import { applicantPortalService } from '../api/applicantPortal.service';
+import { withAudit } from '@/shared/lib/audit';
 
 const APPLICANT_ID = 'APP-2026000';
 const FEE = 1500;
@@ -263,7 +264,23 @@ function IdentityConfirmGate({ onConfirmed }: { onConfirmed: () => void }): JSX.
     if (submitting) return;
     setSubmitting(true);
     try {
-      await applicantPortalService.confirmPrePayment('APP-2026000', { nationalId: nid, phoneNumber: phone });
+      /* AF-2 — emit audit event for the pre-payment identity attestation.
+       * This is the authoritative record that the applicant re-confirmed
+       * NID + mobile before money moved; useful for downstream payment
+       * dispute resolution. */
+      await withAudit(
+        () => applicantPortalService.confirmPrePayment('APP-2026000', { nationalId: nid, phoneNumber: phone }),
+        {
+          action: 'applicant.transition',
+          module: 'applicants',
+          entityType: 'applicant_payment_identity',
+          entityLabel: 'تأكيد الهوية قبل السداد',
+          entityId: 'APP-2026000',
+          details: 'إعادة إدخال الرقم القومي والهاتف للتحقق من الهوية قبل السداد',
+          afterFrom: () => ({ confirmedAt: Date.now() }),
+          actor: { id: 'APP-2026000', name: 'المتقدم', role: 'applicant' },
+        },
+      );
       toast('تم تأكيد الهوية', 'success');
       onConfirmed();
     } catch (err) {
