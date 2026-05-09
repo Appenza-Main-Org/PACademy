@@ -180,7 +180,10 @@ export function Stage9PrintCardPage(): JSX.Element {
           </ul>
         </div>
 
-        {/* Barcode block — real Code 128 carrying the applicant payload */}
+        {/* Barcode block — real Code 128 carrying the applicant payload.
+            The label printed beneath the bars repeats the committee ordinal
+            (matches the printed reference card); the numeric tracking string
+            sits at the very bottom of the block for staff reference. */}
         <div className="mb-2 flex flex-col items-center gap-2 rounded-lg border-2 border-ink-700 bg-surface-card py-4 px-3">
           <Badge tone="brand">امسح هذا الكود لتسجيل الحضور</Badge>
           <Code128Barcode
@@ -189,7 +192,10 @@ export function Stage9PrintCardPage(): JSX.Element {
             moduleWidth={2}
             showText={false}
           />
-          <p className="font-mono text-md font-bold tracking-widest text-ink-900" dir="ltr">{BARCODE}</p>
+          <p className="font-ar-display text-md font-bold text-ink-900">
+            اللجنة {arabicOrdinal(COMMITTEE_NUMBER)}
+          </p>
+          <p className="font-mono text-2xs tracking-widest text-ink-500" dir="ltr">{BARCODE}</p>
         </div>
 
         {/* Signature block */}
