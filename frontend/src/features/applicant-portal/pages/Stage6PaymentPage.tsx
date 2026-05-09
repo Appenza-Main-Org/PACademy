@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, FlaskConical, Receipt, Smartphone } from 'lucide-react';
+import { CreditCard, ExternalLink, FlaskConical, Loader2, Receipt, Smartphone } from 'lucide-react';
 import { Badge, Button, Card, Modal, PrintLayout, toast } from '@/shared/components';
 import { useInitiatePayment, useVerifyPayment } from '../api/applicantPortal.queries';
 import { useActiveCycle } from '../api/categories.queries';
@@ -22,6 +22,10 @@ export function Stage6PaymentPage(): JSX.Element {
   const [fawryCode, setFawryCode] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  /* When the credit-card path resolves with a redirectUrl, the PDF flow
+   * shows a hosted Fawry page ('خدمة كلية الشرطة') before returning. We
+   * render that as a temporary loading skin so evaluators see the handoff. */
+  const [hostedPageVisible, setHostedPageVisible] = useState(false);
   const initiateMut = useInitiatePayment(APPLICANT_ID);
   const verifyMut = useVerifyPayment(APPLICANT_ID);
   const { data: activeCycle } = useActiveCycle();
@@ -29,10 +33,18 @@ export function Stage6PaymentPage(): JSX.Element {
     activeCycle?.fees?.fawryConfig?.retryWindowHours ?? FAWRY_DEFAULT_RETRY_HOURS;
 
   const initiate = async (): Promise<void> => {
+    if (method === 'card') setHostedPageVisible(true);
     const r = await initiateMut.mutateAsync({ method, amount: FEE });
     setRefNumber(r.refNumber);
     setFawryCode(r.fawryCode ?? null);
-    if (method === 'card') toast('تم توجيهك إلى بوابة الدفع (محاكاة)', 'info');
+    if (method === 'card') {
+      /* Hold the hosted-page skin briefly so the redirect handoff registers
+       * visually, then drop back to the verify step. */
+      window.setTimeout(() => {
+        setHostedPageVisible(false);
+        toast('تم توجيهك إلى بوابة الدفع (محاكاة)', 'info');
+      }, 1600);
+    }
   };
 
   const verify = async (): Promise<void> => {
@@ -152,6 +164,29 @@ export function Stage6PaymentPage(): JSX.Element {
           </Button>
         </div>
       )}
+
+      <Modal
+        open={hostedPageVisible}
+        onClose={() => { /* Hosted page can't be closed by the applicant — it auto-closes after redirect. */ }}
+        title="بوابة فوري الإلكترونية"
+        size="md"
+      >
+        <Modal.Body>
+          <div className="flex flex-col items-center gap-4 py-6 text-center">
+            <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-teal-50 text-teal-700">
+              <ExternalLink size={28} strokeWidth={1.75} />
+            </span>
+            <div>
+              <p className="font-ar-display text-lg font-bold text-ink-900">خدمة كلية الشرطة</p>
+              <p className="mt-1 text-sm text-ink-500">
+                جارٍ توجيهك إلى صفحة الدفع المستضافة على بوابة فوري…
+              </p>
+            </div>
+            <Loader2 size={22} strokeWidth={2} className="animate-spin text-teal-700" aria-hidden />
+            <p className="text-2xs text-ink-500">لا تُغلق النافذة حتى تكتمل العملية</p>
+          </div>
+        </Modal.Body>
+      </Modal>
 
       <Modal open={showReceipt} onClose={() => setShowReceipt(false)} title="إيصال الدفع" size="lg">
         <Modal.Body>
