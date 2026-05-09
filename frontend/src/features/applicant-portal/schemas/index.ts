@@ -54,6 +54,13 @@ export const stage4Schema = z.object({
   schoolName: z.string().min(1, 'مطلوب'),
   schoolGovernorate: z.string().min(1, 'مطلوب'),
   azharBranch: z.enum(['علمي', 'أدبي']).optional(),
+  /* Track-specific fields surfaced by category (AF-4):
+   *  - barLicenseNumber: required for the حقوقيين track (bachelor_law)
+   *  - sportSpecialty + competitionHistory: required for the female sport
+   *    track (institute_* keys with female cohort) */
+  barLicenseNumber: z.string().optional(),
+  sportSpecialty: z.string().optional(),
+  competitionHistory: z.string().optional(),
 });
 export type Stage4Values = z.infer<typeof stage4Schema>;
 
