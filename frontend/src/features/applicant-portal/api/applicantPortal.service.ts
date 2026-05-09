@@ -37,9 +37,10 @@ export const applicantPortalService = {
 
   async verifyAuth(_sessionId: string, smsCode: string): Promise<{ token: string; applicantId: string }> {
     await simulateLatency(300, 600);
-    /* Demo: any 6-digit code accepted, except '000000' (rejected for test). */
+    /* Demo: only the canonical '123456' is accepted. Production will
+     * compare against the SMS-issued code stored server-side. */
     if (!/^[0-9]{6}$/.test(smsCode)) throw new Error('رمز التحقق يجب أن يكون 6 أرقام');
-    if (smsCode === '000000') throw new Error('رمز التحقق غير صحيح');
+    if (smsCode !== '123456') throw new Error('رمز التحقق غير صحيح');
     DRAFT = { ...DRAFT, furthestStage: Math.max(DRAFT.furthestStage, 2), lastSavedAt: Date.now() };
     return { token: `TKN-${Date.now()}`, applicantId: DRAFT.applicantId };
   },
