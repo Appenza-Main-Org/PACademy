@@ -327,3 +327,17 @@ User approved **all 17 gaps** with the *pragmatic defaults* for AF-13 (label-onl
 4. **رقم الملف (AF-13).** Resolved as label-only; if the academy's reconciliation needs a numeric short-form distinct from `applicantId`, a follow-up gap would introduce it.
 5. **Pre-payment identity verification (AF-2).** Demo's `confirmPrePayment` accepts any well-formed NID + phone pair. Production must compare against the Stage 1 stored values on the server-side draft.
 6. **§4 federation revisit.** Standalone resolved this for the demo; if MOI publishes a sandbox before production rollout, this becomes a real workstream that would replace Stage 1+2 with an OIDC redirect harness.
+
+---
+
+## §9 — Verification Pass (2026-05-09)
+
+- **Total findings:** 7 (2 P2 audit-emission gaps, 5 P3 documentation/comment gaps).
+- **Total fixes shipped:** 7 (one atomic commit each, all `fix(applicant-flow/verification): …` or `docs(applicant-flow/verification): …`).
+- **Final typecheck:** clean.
+- **Final build:** clean (1,905.68 kB / 562.77 kB gzipped).
+- **All 17 gaps** verified against §5 acceptance criteria — every AF-N now ✅.
+- **§8 open items:** all 6 now have durable records in `TODO.md` items 3-6, `docs/polish/applicant-card/README.md`, and `INTEGRATION_HANDOFF.md` §2 / §4 / §8 q11.
+- **Bonus:** verification surfaced 11 pre-existing hardcoded `navigate('/applicant/...')` paths in stage pages (predate AF-N work) and a broader audit-emission sweep needed across pre-existing mutations — both filed in `TODO.md` items 6-7 for follow-up.
+- **Full report:** [docs/APPLICANT_FLOW_VERIFICATION_REPORT.md](APPLICANT_FLOW_VERIFICATION_REPORT.md).
+- **Verification commit range:** `5e06d57…0161d6b` (7 commits between `applicant-flow-aligned` and `applicant-flow-verified`).
