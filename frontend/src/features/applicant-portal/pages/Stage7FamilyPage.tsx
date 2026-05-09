@@ -22,6 +22,7 @@ const emptyMember = { fullName: '', alive: true };
 const ROLE_TONES: Record<string, { bg: string; fg: string }> = {
   father:               { bg: 'bg-teal-50',  fg: 'text-teal-700'  },
   mother:               { bg: 'bg-gold-50',  fg: 'text-gold-700'  },
+  stepfather:           { bg: 'bg-ink-50',   fg: 'text-ink-600'   },
   paternalGrandfather:  { bg: 'bg-ink-100',  fg: 'text-ink-700'   },
   paternalGrandmother:  { bg: 'bg-ink-100',  fg: 'text-ink-700'   },
   maternalGrandfather:  { bg: 'bg-ink-100',  fg: 'text-ink-700'   },
@@ -35,6 +36,7 @@ export function Stage7FamilyPage(): JSX.Element {
     defaultValues: {
       father: { ...emptyMember },
       mother: { ...emptyMember },
+      stepfather: { ...emptyMember, fullName: '' },
       paternalGrandfather: { ...emptyMember },
       paternalGrandmother: { ...emptyMember },
       maternalGrandfather: { ...emptyMember },
@@ -122,6 +124,13 @@ export function Stage7FamilyPage(): JSX.Element {
         <SectionHeader title="الأسرة المباشرة" subtitle="الوالدان" />
         <FamilyMemberFields title="الأب" register={register} prefix="father" errors={errors} />
         <FamilyMemberFields title="الأم" register={register} prefix="mother" errors={errors} />
+        <FamilyMemberFields
+          title="زوج الوالدة (اختياري)"
+          register={register}
+          prefix="stepfather"
+          errors={errors}
+          optional
+        />
 
         <SectionHeader title="من ناحية الأب" subtitle="الجدّان من جهة الوالد" />
         <FamilyMemberFields title="الجد لأب" register={register} prefix="paternalGrandfather" errors={errors} />
@@ -261,18 +270,21 @@ export function Stage7FamilyPage(): JSX.Element {
 }
 
 function FamilySummary({ values }: { values: Stage7Values }): JSX.Element {
-  const fixed: Array<{ label: string; key: FixedMemberKey }> = [
-    { label: 'الأب', key: 'father' },
-    { label: 'الأم', key: 'mother' },
-    { label: 'الجد لأب', key: 'paternalGrandfather' },
-    { label: 'الجدة لأب', key: 'paternalGrandmother' },
-    { label: 'الجد لأم', key: 'maternalGrandfather' },
-    { label: 'الجدة لأم', key: 'maternalGrandmother' },
+  const fixed: Array<{ label: string; key: FixedMemberKey; required: boolean }> = [
+    { label: 'الأب', key: 'father', required: true },
+    { label: 'الأم', key: 'mother', required: true },
+    { label: 'زوج الوالدة', key: 'stepfather', required: false },
+    { label: 'الجد لأب', key: 'paternalGrandfather', required: true },
+    { label: 'الجدة لأب', key: 'paternalGrandmother', required: true },
+    { label: 'الجد لأم', key: 'maternalGrandfather', required: true },
+    { label: 'الجدة لأم', key: 'maternalGrandmother', required: true },
   ];
   return (
     <div className="grid gap-3 rounded-md border border-border-default bg-ink-50 p-3 text-sm md:grid-cols-2">
-      {fixed.map(({ label, key }) => {
+      {fixed.map(({ label, key, required }) => {
         const m = values[key];
+        const hasName = Boolean(m?.fullName?.trim());
+        if (!required && !hasName) return null;
         return (
           <div key={key} className="rounded-md border border-border-subtle bg-surface-card p-2">
             <p className="text-2xs uppercase tracking-wide text-ink-500">{label}</p>
@@ -306,6 +318,7 @@ function FamilySummary({ values }: { values: Stage7Values }): JSX.Element {
 type FixedMemberKey =
   | 'father'
   | 'mother'
+  | 'stepfather'
   | 'paternalGrandfather'
   | 'paternalGrandmother'
   | 'maternalGrandfather'
@@ -315,11 +328,13 @@ function FamilyMemberFields({
   title,
   register,
   prefix,
+  optional,
 }: {
   title: string;
   register: ReturnType<typeof useForm<Stage7Values>>['register'];
   prefix: FixedMemberKey;
   errors: Record<string, unknown>;
+  optional?: boolean;
 }): JSX.Element {
   const tone = ROLE_TONES[prefix] ?? { bg: 'bg-ink-100', fg: 'text-ink-700' };
   return (
@@ -331,7 +346,7 @@ function FamilyMemberFields({
         <h3 className="font-ar-display text-md font-bold text-ink-900">{title}</h3>
       </header>
       <div className="grid gap-3 md:grid-cols-3">
-        <Input label="الاسم بالكامل" required {...register(`${prefix}.fullName`)} />
+        <Input label="الاسم بالكامل" required={!optional} {...register(`${prefix}.fullName`)} />
         <Input label="الرقم القومي" dir="ltr" {...register(`${prefix}.nationalId`)} />
         <Input label="المهنة" {...register(`${prefix}.occupation`)} />
         <Input label="المحافظة" {...register(`${prefix}.governorate`)} />
@@ -395,6 +410,7 @@ function collectNids(values: Stage7Values): string[] {
     const nid = values[key]?.nationalId;
     if (nid) out.push(nid);
   }
+  if (values.stepfather?.nationalId) out.push(values.stepfather.nationalId);
   for (const s of values.siblings ?? []) if (s.nationalId) out.push(s.nationalId);
   for (const r of values.relatives ?? []) if (r.nationalId) out.push(r.nationalId);
   return out;

@@ -87,9 +87,16 @@ const familyMemberSchema = z.object({
   education: z.string().optional(),
 });
 
+/* Stepfather (زوج الوالدة) is optional — fullName is non-required because
+ * the entire block is only filled when the applicant's mother has remarried. */
+const optionalFamilyMemberSchema = familyMemberSchema.extend({
+  fullName: z.string().optional().or(z.literal('')),
+});
+
 export const stage7Schema = z.object({
   father: familyMemberSchema,
   mother: familyMemberSchema,
+  stepfather: optionalFamilyMemberSchema.optional(),
   paternalGrandfather: familyMemberSchema,
   paternalGrandmother: familyMemberSchema,
   maternalGrandfather: familyMemberSchema,
