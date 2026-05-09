@@ -37,7 +37,13 @@ export function Stage4EducationPage(): JSX.Element {
   /* AF-4 — derive track-specific gates from the chosen category. The
    * MOI flow shows different field sets per track; we surface the most
    * common ones for demo (bar license for law, sport specialty for
-   * sport tracks). */
+   * sport tracks).
+   *
+   * Future migration: push these field-override decisions into admin
+   * Gap G's CategoryConditions as a typed `fieldOverrides: { stage4?:
+   * { barLicenseRequired?: boolean; sportFieldsRequired?: boolean } }`
+   * block, so per-track form shape becomes admin-configurable rather
+   * than inline here. Tracked in TODO.md. */
   const selectedCategory = selectedCategoryKey
     ? MOCK.categories.find((c) => c.key === selectedCategoryKey)
     : null;
