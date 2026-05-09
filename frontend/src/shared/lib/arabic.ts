@@ -1,5 +1,19 @@
 /**
  * Arabic-specific text utilities.
+ *
+ * Why a separate module from `format.ts`:
+ *   - `format.ts` wraps `Intl.NumberFormat` / `Intl.DateTimeFormat` for
+ *     locale-aware numeric and date rendering. Those APIs don't expose
+ *     Arabic prose forms — feminine ordinals (الأولى، الثانية، …),
+ *     full Arabic day-of-week names, time-of-day prose words
+ *     (الساعة السادسة صباحاً), or the Eastern Arabic-Indic digit
+ *     codepoints (٠–٩).
+ *   - These helpers are the prose layer above `Intl`, used on printed
+ *     surfaces (attendance card, declaration doc) where the academy's
+ *     printed reference uses classical Arabic forms verbatim.
+ *
+ * Keep `Intl`-based numeric/date formatting in `format.ts`; keep
+ * verbatim Arabic prose + digit transliteration here.
  */
 
 const RANK_TOKENS = new Set([
