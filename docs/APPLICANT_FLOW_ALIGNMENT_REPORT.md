@@ -275,3 +275,55 @@ The format mirrors `Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md §3` (Source / Status / W
 ---
 
 **Phase B is gated on user approval.** Do not implement any AF-N gap until the user replies with the explicit list (e.g. "ship AF-11, AF-12, AF-14, AF-15, AF-17").
+
+---
+
+## §8 — Implementation Closeout (2026-05-09)
+
+User approved **all 17 gaps** with the *pragmatic defaults* for AF-13 (label-only relabel of `APP-…` as `رقم الملف`, no schema-level numeric file-number field) and AF-15 (slot-time-driven Arabic time-of-day word, not hardcoded 6am). §4 federation resolved as **Option B (standalone)**, so AF-1 was implemented as a captcha addition at Stage 1 rather than an MOI redirect.
+
+**Gaps shipped (17/17):**
+
+| Gap | Commit | Headline |
+|---|---|---|
+| AF-11 | `968bf90` | Card title `بطاقة التردد` |
+| AF-13 | `fa0a57a` | Card label `رقم الطلب` → `رقم الملف` |
+| AF-12 | `770b892` | Card `اللجنة` row + `arabicOrdinal()` helper |
+| AF-14 | `2841bc1` | Card Fawry payment-ref line; `PaymentTransaction.fawryCode`; `toEasternArabicNumerals()` |
+| AF-15 | `5e28a30` | Card exam-date prose sentence; `arabicDayOfWeek()` + `arabicTimeOfDay()` helpers |
+| AF-16 | `c5406a2` | Card committee-ordinal label beneath barcode |
+| AF-17 | `e64882b` | Card كشف ومواعيد الإختبارات table |
+| AF-7  | `79cce6f` | Fawry retry-window wired from `cycle.fees.fawryConfig` (24→48h) |
+| AF-8  | `4422316` | Hosted-page loading skin for credit-card path |
+| AF-6  | `ef5d6d0` | Stage 7 explicit `اعتماد` gate with summary modal |
+| AF-10 | `69b5ec2` | Persistent `نتائج الإختبارات` top-nav |
+| AF-9  | `a720ca7` | `تنزيل إقرار التعارف` shortcut from Stage 9 |
+| AF-5  | `8c8bc5b` | Optional `زوج الوالدة` (stepfather) family field |
+| AF-1  | `00fbf93` | Captcha challenge at Stage 1 (§4=standalone) |
+| AF-2  | `74b5bb4` | Pre-payment identity re-verification gate at Stage 6 |
+| AF-3  | `42bef3b` | `/applicant/application/summary` edit-surface page |
+| AF-4  | `390bc60` | Track-specific fields on Stage 4 (bar-license / sport-specialty) |
+
+**Gaps deferred:** none.
+
+**Files touched (16 source files, +831/-56 lines since the alignment report committed):**
+
+- `frontend/src/features/applicant-portal/`: `ApplicantPortalLayout.tsx`, `api/applicantPortal.service.ts`, `index.ts`, `pages/ApplicationSummaryPage.tsx` (new), `pages/Stage1AuthPhonePage.tsx`, `pages/Stage4EducationPage.tsx`, `pages/Stage6PaymentPage.tsx`, `pages/Stage7FamilyPage.tsx`, `pages/Stage9PrintCardPage.tsx`, `schemas/index.ts`
+- `frontend/src/shared/`: `lib/arabic.ts` (4 new helpers: `arabicOrdinal`, `arabicDayOfWeek`, `arabicTimeOfDay`, `toEasternArabicNumerals`), `mock-data/admissionCycles.ts`, `mock-data/applicantPortal.ts`, `types/domain.ts`
+- `frontend/src/`: `config/routes.ts`, `routes.tsx`
+
+**Print-card screenshots:** not produced. The Stage 9 print layout was modified for AF-11 / AF-12 / AF-13 / AF-14 / AF-15 / AF-16 / AF-17 (7 of 7 P0 card gaps), but `docs/polish/applicant-card/` was not populated with before/after print screenshots — this should be done by a designer via the running dev server (`npm --prefix frontend run dev`) before the demo cut. Recommend opening `/applicant/print-card`, triggering print preview, and capturing a screenshot for each viewport (A4 portrait).
+
+**INTEGRATION_HANDOFF.md updates:** none required. AF-7 and AF-14 consume admin-shipped shapes (`FawryConfig.retryWindowHours`, `PaymentTransaction.fawryCode`) without breaking contracts. AF-13 was implemented as a label-only change so no new uniqueness invariant was added; if the academy's records show `رقم الملف` is a distinct numeric short-form, a follow-up gap would add `Applicant.fileNumber: number` with a `UNIQUE per cycle` constraint.
+
+**Final typecheck:** clean.
+**Final build:** clean (`dist/assets/index-B3FGZmbe.js   1,904.94 kB │ gzip: 562.52 kB`).
+
+**Open questions still pending (not blocking demo):**
+
+1. **Card committee number source (AF-12).** Currently a `COMMITTEE_NUMBER = 2` constant in `Stage9PrintCardPage`; production should source from `draft.examSlot.committeeId` once Gap H links the committee through the slot reservation contract.
+2. **Track-specific fields (AF-4).** Current implementation hardcodes the trigger conditions inline (`requiredQualification === 'bachelor_law'` for bar license, institute keys for sport specialty). The thorough version pushes a `fieldOverrides` block into admin Gap G's `CategoryConditions`. Acceptable for demo; flag for backend-integration phase.
+3. **Captcha (AF-1).** Demo uses a client-side arithmetic challenge. Production needs a server-issued challenge (image, audio, or hCaptcha-style widget) that survives client tampering.
+4. **رقم الملف (AF-13).** Resolved as label-only; if the academy's reconciliation needs a numeric short-form distinct from `applicantId`, a follow-up gap would introduce it.
+5. **Pre-payment identity verification (AF-2).** Demo's `confirmPrePayment` accepts any well-formed NID + phone pair. Production must compare against the Stage 1 stored values on the server-side draft.
+6. **§4 federation revisit.** Standalone resolved this for the demo; if MOI publishes a sandbox before production rollout, this becomes a real workstream that would replace Stage 1+2 with an OIDC redirect harness.
