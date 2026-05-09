@@ -104,6 +104,16 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
       special_units: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
     },
     conditionOverrides: {},
+    fees: {
+      applicationFee: 1500,
+      fawryConfig: {
+        merchantCode: 'PA-ACADEMY-2026',
+        label: 'فوري',
+        /* MOI reference flow specifies a 48-hour validity window for
+         * Fawry payment codes. Surfaced to applicants in Stage 6. */
+        retryWindowHours: 48,
+      },
+    },
     createdAt: '2025-11-01T00:00:00.000Z',
     updatedAt: '2026-04-01T00:00:00.000Z',
   },

@@ -9,9 +9,11 @@ import { useNavigate } from 'react-router-dom';
 import { CreditCard, FlaskConical, Receipt, Smartphone } from 'lucide-react';
 import { Badge, Button, Card, Modal, PrintLayout, toast } from '@/shared/components';
 import { useInitiatePayment, useVerifyPayment } from '../api/applicantPortal.queries';
+import { useActiveCycle } from '../api/categories.queries';
 
 const APPLICANT_ID = 'APP-2026000';
 const FEE = 1500;
+const FAWRY_DEFAULT_RETRY_HOURS = 48;
 
 export function Stage6PaymentPage(): JSX.Element {
   const navigate = useNavigate();
@@ -22,6 +24,9 @@ export function Stage6PaymentPage(): JSX.Element {
   const [showReceipt, setShowReceipt] = useState(false);
   const initiateMut = useInitiatePayment(APPLICANT_ID);
   const verifyMut = useVerifyPayment(APPLICANT_ID);
+  const { data: activeCycle } = useActiveCycle();
+  const fawryRetryHours =
+    activeCycle?.fees?.fawryConfig?.retryWindowHours ?? FAWRY_DEFAULT_RETRY_HOURS;
 
   const initiate = async (): Promise<void> => {
     const r = await initiateMut.mutateAsync({ method, amount: FEE });
@@ -100,7 +105,7 @@ export function Stage6PaymentPage(): JSX.Element {
           onClick={() => setMethod('fawry')}
           icon={<Smartphone size={20} strokeWidth={1.75} />}
           title="فوري"
-          subtitle="رمز سداد ساري لمدة 24 ساعة"
+          subtitle={`رمز سداد ساري لمدة ${fawryRetryHours} ساعة`}
         />
         <MethodCard
           active={method === 'card'}
