@@ -1,89 +1,52 @@
 /**
- * System Users API Contract — Sprint 1 (KARASA_GAPS §1.2.E).
+ * System Users API Service — wired to real backend (spec 003, T174).
  *
  * INTEGRATION CONTRACT:
- *   GET    /api/users                          → SystemUser[]
- *   POST   /api/users                          → SystemUser (MOIPASS-backed creation)
- *   PATCH  /api/users/:id                      → SystemUser
- *   POST   /api/users/:id/deactivate           → SystemUser
- *   POST   /api/users/:id/reset-2fa            → { ok }
- *   POST   /api/users/bulk-assign              → { updated }
- *   GET    /api/users/:id/activity             → UserActivityEntry[]
+ *   GET    /admin/users                     → PagedResult<SystemUserListItemDto>
+ *   GET    /admin/users/:id                 → SystemUserDetailDto
+ *   POST   /admin/users                     → SystemUserDetailDto (201)
+ *   PATCH  /admin/users/:id                 → SystemUserDetailDto
+ *   POST   /admin/users/:id/deactivate      → 204  (implemented in US3)
  */
 
-import { MOCK } from '@/shared/mock-data';
-import { simulateLatency } from '@/shared/lib/mock-helpers';
-import type { SystemUser, UserActivityEntry } from '@/shared/types/domain';
-
-const STATE: SystemUser[] = [...MOCK.users];
-
-let userCounter = STATE.length + 1;
-
-export interface CreateUserPayload {
-  name: string;
-  role: string;
-  unit: string;
-  active?: boolean;
-}
+import { apiClient } from '@/shared/api/client';
+import type {
+  CreateSystemUserRequest,
+  SystemUserDetailDto,
+  SystemUserListFilters,
+  SystemUserListItemDto,
+  UpdateSystemUserRequest,
+} from '@/shared/types/domain';
+import type { PagedResult } from '@/shared/types/api';
 
 export const usersService = {
-  async list(): Promise<SystemUser[]> {
-    await simulateLatency();
-    return [...STATE];
-  },
-
-  async getById(id: string): Promise<SystemUser | null> {
-    await simulateLatency();
-    return STATE.find((u) => u.id === id) ?? null;
-  },
-
-  async create(payload: CreateUserPayload): Promise<SystemUser> {
-    await simulateLatency();
-    const user: SystemUser = {
-      id: `U-${String(userCounter++).padStart(3, '0')}`,
-      name: payload.name,
-      role: payload.role,
-      unit: payload.unit,
-      active: payload.active ?? true,
-      lastLogin: 0,
-    };
-    STATE.unshift(user);
-    return user;
-  },
-
-  async update(id: string, patch: Partial<SystemUser>): Promise<SystemUser> {
-    await simulateLatency();
-    const idx = STATE.findIndex((u) => u.id === id);
-    if (idx === -1) throw new Error('المستخدم غير موجود');
-    STATE[idx] = { ...STATE[idx], ...patch } as SystemUser;
-    return STATE[idx]!;
-  },
-
-  async deactivate(id: string): Promise<SystemUser> {
-    return usersService.update(id, { active: false });
-  },
-
-  async reset2fa(_id: string): Promise<{ ok: true }> {
-    await simulateLatency();
-    /* In real backend this invalidates TOTP seed and triggers SMS to user. */
-    return { ok: true };
-  },
-
-  async bulkAssign(ids: ReadonlyArray<string>, role: string): Promise<{ updated: number }> {
-    await simulateLatency(400, 800);
-    let updated = 0;
-    ids.forEach((id) => {
-      const idx = STATE.findIndex((u) => u.id === id);
-      if (idx !== -1) {
-        STATE[idx] = { ...STATE[idx], role } as SystemUser;
-        updated += 1;
-      }
+  async list(filters?: SystemUserListFilters): Promise<PagedResult<SystemUserListItemDto>> {
+    const { data } = await apiClient.get<PagedResult<SystemUserListItemDto>>('/admin/users', {
+      params: filters,
     });
-    return { updated };
+    return data;
   },
 
-  async getActivity(id: string): Promise<UserActivityEntry[]> {
-    await simulateLatency();
-    return MOCK.userActivity.filter((e) => e.userId === id).sort((a, b) => b.ts - a.ts);
+  async getById(id: string): Promise<SystemUserDetailDto | null> {
+    try {
+      const { data } = await apiClient.get<SystemUserDetailDto>(`/admin/users/${id}`);
+      return data;
+    } catch {
+      return null;
+    }
+  },
+
+  async create(request: CreateSystemUserRequest): Promise<SystemUserDetailDto> {
+    const { data } = await apiClient.post<SystemUserDetailDto>('/admin/users', request);
+    return data;
+  },
+
+  async update(id: string, request: UpdateSystemUserRequest): Promise<SystemUserDetailDto> {
+    const { data } = await apiClient.patch<SystemUserDetailDto>(`/admin/users/${id}`, request);
+    return data;
+  },
+
+  async deactivate(id: string): Promise<void> {
+    await apiClient.post(`/admin/users/${id}/deactivate`);
   },
 };

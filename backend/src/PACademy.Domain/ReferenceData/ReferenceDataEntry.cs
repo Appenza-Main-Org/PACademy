@@ -23,6 +23,9 @@ public sealed class ReferenceDataEntry : AggregateRoot<Guid>, IAuditableWrite, I
         string category,
         string key,
         string nameAr,
+        string? nameEn = null,
+        string? metadata = null,
+        int sortOrder = 0,
         bool demoOrigin = false)
     {
         return new ReferenceDataEntry
@@ -31,9 +34,33 @@ public sealed class ReferenceDataEntry : AggregateRoot<Guid>, IAuditableWrite, I
             Category = category,
             Key = key,
             NameAr = nameAr,
+            NameEn = nameEn,
+            Metadata = metadata,
+            SortOrder = sortOrder,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             DemoOrigin = demoOrigin,
         };
+    }
+
+    public void Update(
+        string? nameAr,
+        string? nameEn,
+        string? metadata,
+        int? sortOrder,
+        bool? isActive)
+    {
+        if (nameAr is not null) NameAr = nameAr;
+        if (nameEn is not null) NameEn = nameEn;
+        if (metadata is not null) Metadata = metadata;
+        if (sortOrder is not null) SortOrder = sortOrder.Value;
+        if (isActive is not null) IsActive = isActive.Value;
+    }
+
+    public void Archive()
+    {
+        Archived = true;
+        ArchivedAt = DateTime.UtcNow;
+        IsActive = false;
     }
 }

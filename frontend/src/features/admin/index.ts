@@ -5,6 +5,8 @@ export { ApplicantDetailPage } from './pages/ApplicantDetailPage';
 export { ApplicantNewPage } from './pages/ApplicantNewPage';
 export { ApplicantEditPage } from './pages/ApplicantEditPage';
 export { UsersPage } from './pages/UsersPage';
+export { UsersCreatePage } from './pages/UsersCreatePage';
+export { UsersDetailPage } from './pages/UsersDetailPage';
 export { AuditPage } from './pages/AuditPage';
 export { SettingsPage } from './pages/SettingsPage';
 export { ReportsPage } from './pages/ReportsPage';

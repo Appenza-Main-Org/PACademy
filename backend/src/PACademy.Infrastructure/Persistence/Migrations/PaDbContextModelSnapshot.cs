@@ -167,10 +167,16 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ArchivedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid>("ChangedById")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CycleId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("DemoOrigin")
@@ -182,6 +188,9 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<DateTime>("EffectiveAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -192,12 +201,26 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .UseCollation("Arabic_100_CI_AS_SC_UTF8");
 
                     b.Property<string>("RulesJson")
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("{}")
+                        .HasColumnName("Rules");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("Version")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.HasKey("Id");
+
+                    b.HasIndex("CycleId", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("IX_admission_rules_cycle_version")
+                        .HasFilter("[CycleId] IS NOT NULL");
 
                     b.ToTable("admission_rules", (string)null);
                 });
@@ -400,6 +423,13 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ArchivedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ConditionsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("{}")
+                        .HasColumnName("Conditions");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -414,6 +444,11 @@ namespace PACademy.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<bool>("IsSpec")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Key")
                         .IsRequired()
@@ -430,8 +465,27 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("ProceduresJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("Procedures");
+
+                    b.Property<string>("RequiredTestsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("RequiredTests");
+
                     b.Property<int>("SortOrder")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -456,8 +510,20 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ArchivedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime?>("CloseDate")
+                    b.Property<DateTime>("CloseDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Cohort")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<string>("ConditionOverridesJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("{}")
+                        .HasColumnName("ConditionOverrides");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -470,17 +536,23 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                    b.Property<int>("ExpectedCapacity")
+                        .HasColumnType("int");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("NameAr")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)")
                         .UseCollation("Arabic_100_CI_AS_SC_UTF8");
 
-                    b.Property<DateTime?>("OpenDate")
+                    b.Property<string>("OpenCategoriesJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("{}")
+                        .HasColumnName("OpenCategories");
+
+                    b.Property<DateTime>("OpenDate")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Status")
@@ -491,11 +563,19 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Archived")
                         .HasDatabaseName("IX_cycles_active")
                         .HasFilter("[Archived] = 0");
+
+                    b.HasIndex("Year", "Cohort")
+                        .IsUnique()
+                        .HasDatabaseName("IX_cycles_year_cohort_active")
+                        .HasFilter("[Status] = N'Active'");
 
                     b.ToTable("cycles", (string)null);
                 });
@@ -536,8 +616,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Metadata")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("NameAr")
                         .IsRequired()
@@ -550,13 +629,18 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.HasKey("Id");
 
                     b.HasIndex("Category", "Key")
                         .IsUnique()
                         .HasDatabaseName("IX_reference_data_category_key");
+
+                    b.HasIndex("Category", "SortOrder")
+                        .HasDatabaseName("IX_reference_data_category_sort");
 
                     b.ToTable("reference_data_entries", (string)null);
                 });

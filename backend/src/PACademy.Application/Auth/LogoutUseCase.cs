@@ -5,14 +5,18 @@ namespace PACademy.Application.Auth;
 
 public sealed class LogoutUseCase(IPaDbContext db)
 {
-    public async Task ExecuteAsync(Guid sessionId, CancellationToken ct = default)
+    // FR-A08: revoke ALL active sessions for the user, not just the current one.
+    public async Task ExecuteAsync(Guid userId, CancellationToken ct = default)
     {
-        if (sessionId == Guid.Empty) return;
+        if (userId == Guid.Empty) return;
 
-        var session = await db.Sessions.FirstOrDefaultAsync(s => s.Id == sessionId, ct);
-        if (session is null || session.RevokedAt.HasValue) return;
+        var sessions = await db.Sessions
+            .Where(s => s.UserId == userId && s.RevokedAt == null)
+            .ToListAsync(ct);
 
-        session.Revoke("user_logout");
+        foreach (var session in sessions)
+            session.Revoke("user_logout");
+
         await db.SaveChangesAsync(ct);
     }
 }

@@ -212,6 +212,60 @@ export interface SystemUser {
   lastLogin: number;
 }
 
+/** Backend DTO shapes — used when VITE_DEMO_MODE is unset and the real API is wired. */
+
+export interface SystemUserListItemDto {
+  id: string;
+  nationalId: string;
+  fullName: string;
+  role: string;
+  mobile: string;
+  email: string | null;
+  unit: string | null;
+  isActive: boolean;
+  createdAt: string;
+  demoOrigin: boolean;
+}
+
+export interface SystemUserDetailDto extends SystemUserListItemDto {
+  officerCode: string;
+  issueDate: string;
+  cardFactoryNumber: string;
+  archivedAt: string | null;
+}
+
+export interface CreateSystemUserRequest {
+  nationalId: string;
+  officerCode: string;
+  fullName: string;
+  mobile: string;
+  email: string;
+  unit?: string;
+  role: string;
+  issueDate: string;
+  cardFactoryNumber: string;
+  password: string;
+}
+
+export interface UpdateSystemUserRequest {
+  fullName?: string;
+  mobile?: string;
+  email?: string;
+  unit?: string;
+  role?: string;
+  isActive?: boolean;
+}
+
+export interface SystemUserListFilters {
+  role?: string;
+  q?: string;
+  isActive?: boolean;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortDir?: string;
+}
+
 export interface MedicalStation {
   id: string;
   name: string;

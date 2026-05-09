@@ -1,0 +1,13 @@
+using System.Text.Json;
+
+namespace PACademy.Contracts.Admin.Categories;
+
+public sealed record CreateCategoryRequest(
+    string Key,
+    string NameAr,
+    string? NameEn,
+    string? Description,
+    JsonElement? Conditions,
+    JsonElement? RequiredTests,
+    JsonElement? Procedures,
+    int? SortOrder);

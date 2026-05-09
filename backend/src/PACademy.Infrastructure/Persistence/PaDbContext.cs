@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using PACademy.Application.Common;
 using PACademy.Domain.AdmissionRules;
 using PACademy.Domain.Applicants;
@@ -12,6 +13,7 @@ using PACademy.Domain.ReferenceData;
 using PACademy.Domain.Sessions;
 using PACademy.Domain.Workflows;
 using PACademy.Infrastructure.Identity;
+using System.Data;
 
 namespace PACademy.Infrastructure.Persistence;
 
@@ -36,6 +38,9 @@ public sealed class PaDbContext(
         base.OnModelCreating(builder);
         builder.ApplyConfigurationsFromAssembly(typeof(PaDbContext).Assembly);
     }
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken ct = default)
+        => Database.BeginTransactionAsync(isolationLevel, ct);
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

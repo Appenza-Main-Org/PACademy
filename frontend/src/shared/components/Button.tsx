@@ -106,7 +106,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       {...rest}
     >
       {isLoading ? <Spinner /> : leadingIcon}
-      <span className={cn(size === 'icon' && 'sr-only')}>
+      {/* When size="icon" + a leadingIcon is provided, treat children as the
+       *  accessible-only text label (sr-only). When size="icon" but no
+       *  leadingIcon was passed, children IS the icon — keep it visible. */}
+      <span className={cn(size === 'icon' && leadingIcon != null && 'sr-only')}>
         {isLoading ? (loadingLabel ?? children ?? 'جارٍ التنفيذ…') : children}
       </span>
       {!isLoading && trailingIcon}

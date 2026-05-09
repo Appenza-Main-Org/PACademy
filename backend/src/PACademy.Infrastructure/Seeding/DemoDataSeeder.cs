@@ -11,6 +11,8 @@ using PACademy.Domain.ReferenceData;
 using PACademy.Domain.Workflows;
 using PACademy.Infrastructure.Identity;
 using PACademy.Infrastructure.Persistence;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 
 namespace PACademy.Infrastructure.Seeding;
 
@@ -192,21 +194,28 @@ public sealed class DemoDataSeeder(
 
     private async Task<Guid> SeedCyclesAsync(Guid createdBy, CancellationToken ct)
     {
-        var cycles = new[]
+        var cycleSpecs = new[]
         {
-            ("دورة القبول 2024", CycleStatus.Closed),
-            ("دورة القبول 2025", CycleStatus.Closed),
-            ("دورة القبول 2026", CycleStatus.Active),
+            ("دورة القبول الذكور 2024", 2024, "male",  new DateTime(2024, 3, 1),  new DateTime(2024, 8, 31),  CycleStatus.Closed),
+            ("دورة القبول الإناث 2024", 2024, "female", new DateTime(2024, 3, 1),  new DateTime(2024, 8, 31),  CycleStatus.Closed),
+            ("دورة القبول الذكور 2025", 2025, "male",  new DateTime(2025, 3, 1),  new DateTime(2025, 8, 31),  CycleStatus.Closed),
+            ("دورة القبول الذكور 2026", 2026, "male",  new DateTime(2026, 3, 1),  new DateTime(2026, 9, 30),  CycleStatus.Active),
         };
 
         Guid activeCycleId = Guid.Empty;
-        foreach (var (name, status) in cycles)
+        foreach (var (nameAr, year, cohort, openDate, closeDate, status) in cycleSpecs)
         {
-            var cycle = Cycle.Create(name, createdBy, demoOrigin: true);
+            var cycle = Cycle.Create(
+                nameAr, year, cohort,
+                expectedCapacity: 500,
+                openDate: openDate,
+                closeDate: closeDate,
+                createdBy: createdBy,
+                status: status,
+                demoOrigin: true);
+
             if (status == CycleStatus.Active)
-            {
                 activeCycleId = cycle.Id;
-            }
 
             db.Cycles.Add(cycle);
         }
@@ -217,25 +226,173 @@ public sealed class DemoDataSeeder(
 
     private async Task SeedCategoriesAsync(Guid createdBy, CancellationToken ct)
     {
-        string[] categoryData =
-        [
-            "الشرطة|police",
-            "الأسلحة والذخيرة|arms",
-            "إدارة السجون|prisons",
-            "المرور|traffic",
-            "الحماية المدنية|civil-defense",
-            "الأمن الوطني|national-security",
-            "الطب الشرعي|forensics",
-        ];
-
-        foreach (var data in categoryData)
+        // 7 RFP spec categories — keys are immutable (FR-K01).
+        // Conditions/RequiredTests/Procedures mirror frontend mock-data/categories.ts.
+        var seeds = new[]
         {
-            var parts = data.Split('|');
-            db.Categories.Add(Category.Create(parts[1], parts[0], createdBy, demoOrigin: true));
+            new CategorySeed(
+                "officers_general",
+                "قسم الضباط (القسم العام)",
+                "General Officers Department",
+                "الالتحاق بكلية الشرطة عبر القسم العام لخريجي الثانوية العامة",
+                BaseConditions(c => {
+                    c["requiredQualification"] = "thanaweya_amma";
+                    c["gender"] = "male";
+                    c["minHeightCm"] = 170;
+                    c["medicalRequired"] = true;
+                    c["maritalStatus"] = "single";
+                    c["conductCheck"] = true;
+                    c["egyptianNationalityRequired"] = true;
+                    c["freeText"] = new[] { "مجموع مناسب في الثانوية العامة" };
+                }),
+                RequiredTests(("aptitude", ""), ("posture", ""), ("medical", ""), ("physical", ""), ("psychological", ""), ("interview", ""), ("drug", "")),
+                Array.Empty<string>()),
+            new CategorySeed(
+                "officers_specialized",
+                "قسم الضباط المتخصصين",
+                "Specialized Officers Department",
+                "الالتحاق لخريجي الجامعات في تخصصات حقوق وطب وهندسة وإعلام وغيرها",
+                BaseConditions(c => {
+                    c["requiredQualification"] = "bachelor";
+                    c["ageMax"] = 28;
+                    c["medicalRequired"] = true;
+                    c["conductCheck"] = true;
+                    c["freeText"] = new[]
+                    {
+                        "مؤهل عالي (حقوق / طب / هندسة / إعلام…)",
+                        "تقدير مناسب (جيد على الأقل)",
+                        "حسن السمعة",
+                    };
+                }),
+                RequiredTests(("posture", ""), ("medical", ""), ("physical", ""), ("psychological", ""), ("interview", ""), ("drug", "")),
+                Array.Empty<string>()),
+            new CategorySeed(
+                "postgraduate",
+                "الدراسات العليا",
+                "Postgraduate Studies",
+                "برامج الدراسات العليا لخريجي كلية الشرطة والجهات المرتبطة",
+                BaseConditions(c => {
+                    c["requiredQualification"] = "police_academy_grad";
+                    c["employerApprovalRequired"] = true;
+                    c["freeText"] = new[]
+                    {
+                        "خريج كلية الشرطة أو جهة مرتبطة",
+                        "موافقة جهة العمل",
+                        "تقدير مناسب",
+                    };
+                }),
+                Array.Empty<RequiredTestSeed>(),
+                new[] { "تقديم الأوراق", "مقابلة شخصية (أحياناً)", "مراجعة أمنية" }),
+            new CategorySeed(
+                "institute_officers_training",
+                "معهد تدريب الضباط",
+                "Officers Training Institute",
+                "برامج تدريبية متخصصة لضباط الشرطة (بالترشيح)",
+                BaseConditions(c => {
+                    c["requiredQualification"] = "serving_officer";
+                    c["nominationOnly"] = true;
+                    c["freeText"] = new[] { "أن يكون ضابط شرطة" };
+                }),
+                Array.Empty<RequiredTestSeed>(),
+                new[] { "ترشيح", "برامج تدريبية" }),
+            new CategorySeed(
+                "institute_traffic",
+                "معهد المرور",
+                "Traffic Institute",
+                "دورات تخصصية في إدارة المرور (بالترشيح)",
+                BaseConditions(c => {
+                    c["requiredQualification"] = "serving_officer";
+                    c["nominationOnly"] = true;
+                    c["freeText"] = new[] { "ضباط شرطة" };
+                }),
+                Array.Empty<RequiredTestSeed>(),
+                new[] { "ترشيح", "دورات تخصصية" }),
+            new CategorySeed(
+                "institute_guarding",
+                "معهد الحراسات والتأمين",
+                "Guarding & Security Institute",
+                "تأهيل ضباط الشرطة في الحراسات والتأمين (بالترشيح)",
+                BaseConditions(c => {
+                    c["requiredQualification"] = "serving_officer";
+                    c["nominationOnly"] = true;
+                    c["freeText"] = new[] { "ضباط شرطة" };
+                }),
+                RequiredTests(("aptitude", "اختبارات لياقة"), ("security_training", "تدريب على التأمين")),
+                Array.Empty<string>()),
+            new CategorySeed(
+                "special_units",
+                "الوحدات الخاصة",
+                "Special Units",
+                "تأهيل ضباط الوحدات الخاصة بمستوى بدني وذهني عالي (بالترشيح)",
+                BaseConditions(c => {
+                    c["requiredQualification"] = "serving_officer";
+                    c["nominationOnly"] = true;
+                    c["freeText"] = new[] { "ضباط بمستوى بدني عالي" };
+                }),
+                RequiredTests(("physical", "اختبارات بدنية قوية"), ("psychological", "تحمل نفسي"), ("tactical_training", "تدريب تكتيكي")),
+                Array.Empty<string>()),
+        };
+
+        var sortOrder = 1;
+        foreach (var seed in seeds)
+        {
+            db.Categories.Add(Category.Create(
+                seed.Key, seed.NameAr, createdBy,
+                nameEn: seed.NameEn,
+                description: seed.Description,
+                conditionsJson: SerializeJson(seed.Conditions),
+                requiredTestsJson: SerializeJson(seed.RequiredTests),
+                proceduresJson: SerializeJson(seed.Procedures),
+                sortOrder: sortOrder++,
+                isSpec: true,
+                demoOrigin: true));
         }
 
         await db.SaveChangesAsync(ct);
     }
+
+    private sealed record CategorySeed(
+        string Key,
+        string NameAr,
+        string NameEn,
+        string Description,
+        Dictionary<string, object> Conditions,
+        RequiredTestSeed[] RequiredTests,
+        string[] Procedures);
+
+    private sealed record RequiredTestSeed(string kind, int order, string passingCriteria);
+
+    private static Dictionary<string, object> BaseConditions(Action<Dictionary<string, object>> overrides)
+    {
+        var c = new Dictionary<string, object>
+        {
+            ["ageMin"] = (object?)null!,
+            ["ageMax"] = (object?)null!,
+            ["minScorePercent"] = (object?)null!,
+            ["requiredQualification"] = "any",
+            ["gender"] = "any",
+            ["minHeightCm"] = (object?)null!,
+            ["medicalRequired"] = false,
+            ["maritalStatus"] = "any",
+            ["conductCheck"] = false,
+            ["egyptianNationalityRequired"] = false,
+            ["employerApprovalRequired"] = false,
+            ["nominationOnly"] = false,
+            ["freeText"] = Array.Empty<string>(),
+        };
+        overrides(c);
+        return c;
+    }
+
+    private static RequiredTestSeed[] RequiredTests(params (string Kind, string PassingCriteria)[] items)
+        => items.Select((it, i) => new RequiredTestSeed(it.Kind, i + 1, it.PassingCriteria)).ToArray();
+
+    private static readonly JsonSerializerOptions JsonOptsForSeed = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    private static string SerializeJson<T>(T value) => JsonSerializer.Serialize(value, JsonOptsForSeed);
 
     private async Task SeedWorkflowsAsync(Guid createdBy, CancellationToken ct)
     {
@@ -265,15 +422,232 @@ public sealed class DemoDataSeeder(
 
     private async Task SeedReferenceDataAsync(CancellationToken ct)
     {
-        foreach (var gov in Governorates)
+        // Eight reference dictionaries — port of frontend mock-data/referenceData.ts.
+        // Per-row extras (region, code, level, isoCode, …) ride in the Metadata
+        // JSON column so the typed frontend rows round-trip cleanly.
+        var sortOrder = 1;
+        foreach (var (gov, code, region, nameEn) in GovernorateSeeds)
         {
-            var key = GovNidCodes.GetValueOrDefault(gov, "00");
-            db.ReferenceDataEntries.Add(
-                ReferenceDataEntry.Create("governorate", key, gov, demoOrigin: true));
+            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
+                "governorate", code, gov,
+                nameEn: nameEn,
+                metadata: SerializeJson(new { region }),
+                sortOrder: sortOrder++,
+                demoOrigin: true));
+        }
+
+        sortOrder = 1;
+        foreach (var (key, nameAr, code, facultyType) in SpecializationSeeds)
+        {
+            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
+                "specialization", key, nameAr,
+                metadata: SerializeJson(new { code, facultyType }),
+                sortOrder: sortOrder++,
+                demoOrigin: true));
+        }
+
+        sortOrder = 1;
+        foreach (var (key, nameAr, level, applicableTo) in RankSeeds)
+        {
+            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
+                "rank", key, nameAr,
+                metadata: SerializeJson(new { level, applicableTo }),
+                sortOrder: sortOrder++,
+                demoOrigin: true));
+        }
+
+        sortOrder = 1;
+        foreach (var (key, nameAr, governorateId, type) in CollegeSeeds)
+        {
+            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
+                "college", key, nameAr,
+                metadata: SerializeJson(new { governorateId, type }),
+                sortOrder: sortOrder++,
+                demoOrigin: true));
+        }
+
+        sortOrder = 1;
+        foreach (var (key, nameAr, level, facultyRequired) in QualificationSeeds)
+        {
+            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
+                "qualification", key, nameAr,
+                metadata: SerializeJson(new { level, facultyRequired }),
+                sortOrder: sortOrder++,
+                demoOrigin: true));
+        }
+
+        sortOrder = 1;
+        foreach (var (iso, nameAr, nameEn) in NationalitySeeds)
+        {
+            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
+                "nationality", iso.ToLowerInvariant(), nameAr,
+                nameEn: nameEn,
+                metadata: SerializeJson(new { isoCode = iso }),
+                sortOrder: sortOrder++,
+                demoOrigin: true));
+        }
+
+        sortOrder = 1;
+        foreach (var (key, nameAr, degree, side) in RelationshipSeeds)
+        {
+            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
+                "relationship", key, nameAr,
+                metadata: SerializeJson(new { degree, side }),
+                sortOrder: sortOrder++,
+                demoOrigin: true));
+        }
+
+        sortOrder = 1;
+        foreach (var (key, nameAr, severity, blocksApplication) in CaseTypeSeeds)
+        {
+            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
+                "case-type", key, nameAr,
+                metadata: SerializeJson(new { severity, blocksApplication }),
+                sortOrder: sortOrder++,
+                demoOrigin: true));
         }
 
         await db.SaveChangesAsync(ct);
     }
+
+    // ── Reference-data seed lists (mirror frontend mock-data/referenceData.ts) ──
+
+    private static readonly (string Gov, string Code, string Region, string NameEn)[] GovernorateSeeds =
+    [
+        ("القاهرة",          "01", "cairo",    "Cairo"),
+        ("الجيزة",           "21", "cairo",    "Giza"),
+        ("الإسكندرية",       "02", "delta",    "Alexandria"),
+        ("الدقهلية",          "12", "delta",    "Dakahlia"),
+        ("الشرقية",          "13", "delta",    "Sharqia"),
+        ("المنوفية",         "17", "delta",    "Monufia"),
+        ("القليوبية",         "14", "cairo",    "Qaliubiya"),
+        ("بني سويف",         "22", "upper",    "Beni Suef"),
+        ("الفيوم",            "23", "upper",    "Fayoum"),
+        ("المنيا",            "24", "upper",    "Minya"),
+        ("أسيوط",            "25", "upper",    "Asyut"),
+        ("سوهاج",            "26", "upper",    "Sohag"),
+        ("قنا",               "27", "upper",    "Qena"),
+        ("أسوان",             "28", "upper",    "Aswan"),
+        ("البحر الأحمر",     "31", "frontier", "Red Sea"),
+        ("الوادي الجديد",    "32", "frontier", "New Valley"),
+        ("مرسى مطروح",       "33", "frontier", "Matrouh"),
+        ("شمال سيناء",       "34", "frontier", "North Sinai"),
+        ("جنوب سيناء",       "35", "frontier", "South Sinai"),
+        ("بورسعيد",          "03", "canal",    "Port Said"),
+        ("دمياط",             "11", "delta",    "Damietta"),
+        ("كفر الشيخ",         "15", "delta",    "Kafr El Sheikh"),
+        ("الغربية",          "16", "delta",    "Gharbia"),
+        ("الإسماعيلية",      "19", "canal",    "Ismailia"),
+        ("السويس",           "04", "canal",    "Suez"),
+        ("الأقصر",            "29", "upper",    "Luxor"),
+        ("البحيرة",           "18", "delta",    "Beheira"),
+    ];
+
+    private static readonly (string Key, string NameAr, string Code, string FacultyType)[] SpecializationSeeds =
+    [
+        ("pol-sci",   "علوم شرطة",          "POL-SCI",  "military"),
+        ("pub-sec",   "الأمن العام",         "PUB-SEC",  "military"),
+        ("cen-sec",   "الأمن المركزي",      "CEN-SEC",  "military"),
+        ("cyb-sec",   "الأمن الإلكتروني",    "CYB-SEC",  "sciences"),
+        ("narc",      "مكافحة المخدرات",     "NARC",     "military"),
+        ("morals",    "حماية الآداب",        "MORALS",   "military"),
+        ("traffic",   "المرور",             "TRAFFIC",  "military"),
+        ("passport",  "الجوازات والهجرة",    "PASSPORT", "civil"),
+        ("civil",     "الأحوال المدنية",     "CIVIL",    "civil"),
+        ("admin",     "الإدارة العامة",      "ADMIN",    "civil"),
+        ("law",       "القانون",            "LAW",      "sciences"),
+        ("crim-psy",  "علم النفس الجنائي",   "CRIM-PSY", "sciences"),
+    ];
+
+    private static readonly (string Key, string NameAr, int Level, string ApplicableTo)[] RankSeeds =
+    [
+        ("musaaid",      "مساعد",          1, "enlisted"),
+        ("mulazim",      "ملازم",           2, "officer"),
+        ("mulazim-awal", "ملازم أول",       3, "officer"),
+        ("naqib",        "نقيب",           4, "officer"),
+        ("raid",         "رائد",           5, "officer"),
+        ("muqaddam",     "مقدم",            6, "officer"),
+        ("aqid",         "عقيد",           7, "officer"),
+        ("amid",         "عميد",           8, "officer"),
+        ("liwa",         "لواء",           9, "officer"),
+        ("madani",       "مدني",           0, "civilian"),
+    ];
+
+    private static readonly (string Key, string NameAr, string GovernorateId, string Type)[] CollegeSeeds =
+    [
+        ("police-academy",    "كلية الشرطة",                     "21", "public"),
+        ("cairo-univ",        "جامعة القاهرة",                   "01", "public"),
+        ("alexandria-univ",   "جامعة الإسكندرية",                "02", "public"),
+        ("ain-shams-univ",    "جامعة عين شمس",                  "01", "public"),
+        ("azhar-univ",        "جامعة الأزهر",                    "01", "azhar"),
+        ("mansoura-univ",     "جامعة المنصورة",                  "12", "public"),
+        ("zagazig-univ",      "جامعة الزقازيق",                  "13", "public"),
+        ("minya-univ",        "جامعة المنيا",                    "24", "public"),
+        ("assiut-univ",       "جامعة أسيوط",                     "25", "public"),
+        ("auc",               "الجامعة الأمريكية بالقاهرة",      "01", "private"),
+    ];
+
+    private static readonly (string Key, string NameAr, string Level, bool FacultyRequired)[] QualificationSeeds =
+    [
+        ("thanaweya-amma-sci",  "ثانوية عامة (علمي)", "diploma",  false),
+        ("thanaweya-amma-arts", "ثانوية عامة (أدبي)",  "diploma",  false),
+        ("thanaweya-azhar",     "ثانوية أزهرية",       "diploma",  false),
+        ("technical-diploma",   "دبلوم فني",           "diploma",  false),
+        ("bachelor",            "بكالوريوس",           "bachelor", true),
+        ("license",             "ليسانس",             "bachelor", true),
+        ("master",              "ماجستير",            "master",   true),
+        ("phd",                 "دكتوراه",             "phd",      true),
+    ];
+
+    private static readonly (string Iso, string NameAr, string NameEn)[] NationalitySeeds =
+    [
+        ("EG", "مصري",         "Egyptian"),
+        ("SA", "سعودي",        "Saudi"),
+        ("AE", "إماراتي",      "Emirati"),
+        ("KW", "كويتي",        "Kuwaiti"),
+        ("QA", "قطري",          "Qatari"),
+        ("BH", "بحريني",       "Bahraini"),
+        ("OM", "عماني",        "Omani"),
+        ("JO", "أردني",        "Jordanian"),
+        ("PS", "فلسطيني",      "Palestinian"),
+        ("SY", "سوري",          "Syrian"),
+        ("LB", "لبناني",       "Lebanese"),
+        ("IQ", "عراقي",        "Iraqi"),
+        ("LY", "ليبي",          "Libyan"),
+        ("SD", "سوداني",       "Sudanese"),
+    ];
+
+    private static readonly (string Key, string NameAr, int Degree, string Side)[] RelationshipSeeds =
+    [
+        ("father",              "الأب",             1, "paternal"),
+        ("mother",              "الأم",             1, "maternal"),
+        ("brother",             "الأخ الشقيق",      1, "self"),
+        ("sister",              "الأخت الشقيقة",   1, "self"),
+        ("paternal-grandfather","الجد لأب",          2, "paternal"),
+        ("paternal-grandmother","الجدة لأب",         2, "paternal"),
+        ("maternal-grandfather","الجد لأم",          2, "maternal"),
+        ("maternal-grandmother","الجدة لأم",         2, "maternal"),
+        ("uncle-paternal",      "العم",             3, "paternal"),
+        ("aunt-paternal",       "العمة",             3, "paternal"),
+        ("uncle-maternal",      "الخال",             3, "maternal"),
+        ("aunt-maternal",       "الخالة",            3, "maternal"),
+        ("spouse",              "الزوج/الزوجة",     1, "spouse"),
+        ("nephew-niece",        "ابن الأخ/الأخت",  4, "self"),
+    ];
+
+    private static readonly (string Key, string NameAr, string Severity, bool BlocksApplication)[] CaseTypeSeeds =
+    [
+        ("misdemeanor",      "قضية جنحة",          "low",    false),
+        ("civil",            "قضية مدنية",         "low",    false),
+        ("personal-status",  "قضية أحوال شخصية",   "low",    false),
+        ("financial",        "قضية مالية",         "medium", false),
+        ("narcotics",        "قضية مخدرات (متهم)", "high",   true),
+        ("state-security",   "قضية أمن دولة",       "high",   true),
+        ("terrorism",        "قضية إرهاب",         "high",   true),
+        ("admin-corruption", "قضية فساد إداري",    "high",   true),
+        ("traffic",          "مخالفة مرورية",      "low",    false),
+        ("labor",            "قضية عمالية",         "medium", false),
+    ];
 
     private async Task SeedApplicantsAsync(Guid cycleId, Guid systemUserId, CancellationToken ct)
     {

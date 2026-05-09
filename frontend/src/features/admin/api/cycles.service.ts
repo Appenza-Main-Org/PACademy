@@ -1,216 +1,189 @@
 /**
- * Admission Cycles API Contract — Sprint 1 (KARASA_GAPS §1.2.D),
- * extended post-polish (Bucket E) with per-cycle per-category configuration
- * and the activate/close/archive lifecycle transitions.
+ * Admission Cycles — real API integration.
  *
- * INTEGRATION CONTRACT:
- *   GET    /api/cycles                                       → AdmissionCycle[]
- *   GET    /api/cycles/active                                → AdmissionCycle | null
- *   GET    /api/cycles/:id                                   → AdmissionCycle
- *   POST   /api/cycles                                       → AdmissionCycle
- *   PATCH  /api/cycles/:id                                   → AdmissionCycle
- *   POST   /api/cycles/:id/clone                             → AdmissionCycle (new draft)
- *   POST   /api/cycles/:id/transition                        → { status }
- *   POST   /api/cycles/:id/activate                          → AdmissionCycle  (closes others)
- *   POST   /api/cycles/:id/close                             → AdmissionCycle
- *   POST   /api/cycles/:id/archive                           → AdmissionCycle
- *   PATCH  /api/cycles/:id/categories/:key                   → AdmissionCycle
- *   PATCH  /api/cycles/:id/categories/:key/conditions        → AdmissionCycle
+ * INTEGRATION CONTRACT (backend: AdminCyclesController + CyclesController):
+ *   GET    /admin/cycles                    → PagedResult<CycleListItemDto>
+ *   GET    /admin/cycles/:id                → CycleDetailDto
+ *   POST   /admin/cycles                    → CycleDetailDto (201)
+ *   PATCH  /admin/cycles/:id                → CycleDetailDto
+ *   POST   /admin/cycles/:id/status         → CycleDetailDto
+ *   DELETE /admin/cycles/:id                → 204
+ *   GET    /cycles                          → PagedResult<CycleListItemDto> (Active+Closed only)
  */
 
-import { MOCK } from '@/shared/mock-data';
-import { simulateLatency } from '@/shared/lib/mock-helpers';
-import type {
-  AdmissionCycle,
-  AdmissionCycleCategoryConfig,
-  ApplicantCategoryKey,
-  AuditEntry,
-  CategoryCondition,
-  CycleStatus,
-} from '@/shared/types/domain';
+import { apiClient } from '@/shared/api/client';
+import type { PagedResult } from '@/shared/types/api';
+import type { AdmissionCycle, AdmissionCycleCategoryConfig, ApplicantCategoryKey, CategoryCondition, CycleStatus } from '@/shared/types/domain';
 
-const STATE: AdmissionCycle[] = MOCK.cycles.map((c) => ({ ...c }));
-let ACTIVE_ID: string | null = MOCK.activeCycleId;
+// ── Backend DTO shapes ────────────────────────────────────────────────────────
 
-let cloneCounter = 1;
-let auditCounter = 1;
-
-const NORMALIZE_STATUS: Record<CycleStatus, CycleStatus> = {
-  draft: 'draft',
-  open: 'active',
-  active: 'active',
-  closed: 'closed',
-  processing: 'closed',
-  finalized: 'archived',
-  archived: 'archived',
-};
-
-/**
- * Returns the brief's 4-state cycle status for a cycle. The legacy
- * 5-state union (`open`/`processing`/`finalized`) is mapped onto the
- * post-polish 4-state union (`active`/`closed`/`archived`).
- */
-export function normalizeCycleStatus(status: CycleStatus): 'draft' | 'active' | 'closed' | 'archived' {
-  return NORMALIZE_STATUS[status] as 'draft' | 'active' | 'closed' | 'archived';
+interface OpenCategoryEntryDto {
+  isOpen: boolean;
+  capacity: number | null;
+  notes: string | null;
 }
 
-function pushAudit(entity: string, entityId: string, action: 'create' | 'update' | 'delete', details: string): void {
-  const entry: AuditEntry = {
-    id: `AUDIT-CYC-${Date.now()}-${auditCounter++}`,
-    userId: 'U-001',
-    userName: 'العميد د. أحمد محمود الفقي',
-    action,
-    actionLabel: action === 'create' ? 'إدراج' : action === 'update' ? 'تعديل' : 'حذف',
-    actionColor: action === 'create' ? 'success' : action === 'update' ? 'info' : 'danger',
-    entity,
-    entityId,
-    details,
-    timestamp: Date.now(),
-    ip: '10.0.0.1',
+interface CycleListItemDto {
+  id: string;
+  nameAr: string;
+  year: number;
+  cohort: 'male' | 'female';
+  status: 'draft' | 'active' | 'closed' | 'archived';
+  openDate: string;
+  closeDate: string;
+  expectedCapacity: number;
+  applicantCount: number;
+}
+
+interface CycleDetailDto extends CycleListItemDto {
+  openCategories: Record<string, OpenCategoryEntryDto>;
+  conditionOverrides: Record<string, unknown>;
+  createdAt: string;
+  archivedAt: string | null;
+}
+
+// ── Mapper ────────────────────────────────────────────────────────────────────
+
+function toAdmissionCycle(dto: CycleDetailDto): AdmissionCycle {
+  const openCategories: Partial<Record<ApplicantCategoryKey, AdmissionCycleCategoryConfig>> = {};
+  for (const [key, val] of Object.entries(dto.openCategories)) {
+    openCategories[key as ApplicantCategoryKey] = {
+      isOpen: val.isOpen,
+      capacity: val.capacity,
+      notes: val.notes ?? '',
+    };
+  }
+  return {
+    id: dto.id,
+    nameAr: dto.nameAr,
+    year: dto.year,
+    cohort: dto.cohort,
+    status: dto.status as CycleStatus,
+    openDate: dto.openDate,
+    closeDate: dto.closeDate,
+    expectedCapacity: dto.expectedCapacity,
+    applicantCount: dto.applicantCount,
+    openCategories,
+    conditionOverrides: dto.conditionOverrides as Partial<Record<ApplicantCategoryKey, Partial<CategoryCondition>>>,
+    createdAt: dto.createdAt,
   };
-  /* MOCK.audit is exported as a regular array; pushing surfaces the entry
-   * in /admin/audit on the next refetch. */
-  (MOCK.audit as AuditEntry[]).unshift(entry);
+}
+
+function listItemToAdmissionCycle(dto: CycleListItemDto): AdmissionCycle {
+  return {
+    id: dto.id,
+    nameAr: dto.nameAr,
+    year: dto.year,
+    cohort: dto.cohort,
+    status: dto.status as CycleStatus,
+    openDate: dto.openDate,
+    closeDate: dto.closeDate,
+    expectedCapacity: dto.expectedCapacity,
+    applicantCount: dto.applicantCount,
+  };
+}
+
+// ── Service ───────────────────────────────────────────────────────────────────
+
+export function normalizeCycleStatus(status: CycleStatus): 'draft' | 'active' | 'closed' | 'archived' {
+  const map: Record<CycleStatus, 'draft' | 'active' | 'closed' | 'archived'> = {
+    draft: 'draft',
+    open: 'active',
+    active: 'active',
+    closed: 'closed',
+    processing: 'closed',
+    finalized: 'archived',
+    archived: 'archived',
+  };
+  return map[status] ?? 'draft';
 }
 
 export const cyclesService = {
   async list(): Promise<AdmissionCycle[]> {
-    await simulateLatency();
-    return [...STATE].sort((a, b) => b.year - a.year);
+    const { data } = await apiClient.get<PagedResult<CycleListItemDto>>('/admin/cycles', {
+      params: { includeArchived: true, pageSize: 200 },
+    });
+    return data.items.map(listItemToAdmissionCycle);
   },
 
   async getById(id: string): Promise<AdmissionCycle | null> {
-    await simulateLatency();
-    return STATE.find((c) => c.id === id) ?? null;
+    const { data } = await apiClient.get<CycleDetailDto>(`/admin/cycles/${id}`);
+    return toAdmissionCycle(data);
   },
 
   async getActive(): Promise<AdmissionCycle | null> {
-    await simulateLatency(80, 200);
-    if (!ACTIVE_ID) return null;
-    const cycle = STATE.find((c) => c.id === ACTIVE_ID);
-    if (!cycle) return null;
-    /* Honour the [opensAt, closesAt] window — outside it, no cycle is active
-     * for public-flow purposes. */
-    const now = Date.now();
-    const open = new Date(cycle.openDate).getTime();
-    const close = new Date(cycle.closeDate).getTime();
-    if (now < open || now > close) return null;
-    return { ...cycle };
+    const { data } = await apiClient.get<PagedResult<CycleListItemDto>>('/cycles', {
+      params: { status: 'active' },
+    });
+    const item = data.items.find((c) => c.status === 'active');
+    return item ? listItemToAdmissionCycle(item) : null;
   },
 
-  /** Internal helper: returns the active cycle ignoring the time window. */
   getActiveSync(): AdmissionCycle | null {
-    if (!ACTIVE_ID) return null;
-    return STATE.find((c) => c.id === ACTIVE_ID) ?? null;
+    return null;
   },
 
   async create(payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const now = new Date().toISOString();
-    const cycle: AdmissionCycle = {
-      ...payload,
-      id: `CYC-${payload.year}-${payload.cohort.toUpperCase().slice(0, 1)}-${cloneCounter++}`,
-      applicantCount: 0,
-      createdAt: payload.createdAt ?? now,
-      updatedAt: now,
-    };
-    STATE.unshift(cycle);
-    pushAudit('AdmissionCycle', cycle.id, 'create', `تم إنشاء دورة "${cycle.nameAr}"`);
-    return cycle;
+    const { data } = await apiClient.post<CycleDetailDto>('/admin/cycles', {
+      nameAr: payload.nameAr,
+      year: payload.year,
+      cohort: payload.cohort,
+      openDate: payload.openDate,
+      closeDate: payload.closeDate,
+      expectedCapacity: payload.expectedCapacity,
+    });
+    return toAdmissionCycle(data);
   },
 
   async update(id: string, patch: Partial<AdmissionCycle>): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.id === id);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    const updated: AdmissionCycle = {
-      ...STATE[idx]!,
-      ...patch,
-      updatedAt: new Date().toISOString(),
-    } as AdmissionCycle;
-    STATE[idx] = updated;
-    pushAudit('AdmissionCycle', updated.id, 'update', `تم تعديل بيانات دورة "${updated.nameAr}"`);
-    return updated;
+    const openCategories = patch.openCategories
+      ? Object.fromEntries(
+          Object.entries(patch.openCategories).map(([k, v]) => [
+            k,
+            { isOpen: v?.isOpen ?? false, capacity: v?.capacity ?? null, notes: v?.notes ?? null },
+          ]),
+        )
+      : undefined;
+
+    const { data } = await apiClient.patch<CycleDetailDto>(`/admin/cycles/${id}`, {
+      nameAr: patch.nameAr ?? undefined,
+      openDate: patch.openDate ?? undefined,
+      closeDate: patch.closeDate ?? undefined,
+      expectedCapacity: patch.expectedCapacity ?? undefined,
+      openCategories,
+      conditionOverrides: patch.conditionOverrides ?? undefined,
+    });
+    return toAdmissionCycle(data);
   },
 
-  async clone(id: string): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const source = STATE.find((c) => c.id === id);
-    if (!source) throw new Error('الدورة غير موجودة');
-    const now = new Date().toISOString();
-    const draft: AdmissionCycle = {
-      ...source,
-      id: `${source.id}-CLONE-${cloneCounter++}`,
-      nameAr: `${source.nameAr} (نسخة)`,
-      status: 'draft',
-      applicantCount: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-    STATE.unshift(draft);
-    pushAudit('AdmissionCycle', draft.id, 'create', `تم نسخ دورة "${source.nameAr}" كمسودة`);
-    return draft;
+  clone(_id: string): Promise<AdmissionCycle> {
+    return Promise.reject(
+      new Error('Clone is not supported by the current backend. Create a new draft instead.'),
+    );
   },
 
   async transition(id: string, next: CycleStatus): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.id === id);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    STATE[idx] = { ...STATE[idx]!, status: next, updatedAt: new Date().toISOString() } as AdmissionCycle;
-    pushAudit('AdmissionCycle', id, 'update', `تم تغيير حالة دورة "${STATE[idx]!.nameAr}" إلى ${next}`);
-    return STATE[idx]!;
+    const normalised = normalizeCycleStatus(next);
+    const { data } = await apiClient.post<CycleDetailDto>(`/admin/cycles/${id}/status`, {
+      newStatus: normalised,
+    });
+    return toAdmissionCycle(data);
   },
 
-  /**
-   * Activate a cycle. Enforces the single-active invariant: any other cycle
-   * currently in `'active'` (or legacy `'open'`) is auto-closed.
-   */
   async activate(id: string): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.id === id);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    /* Close any currently-active cycle. */
-    for (let i = 0; i < STATE.length; i++) {
-      if (i === idx) continue;
-      const s = STATE[i]!.status;
-      if (s === 'active' || s === 'open') {
-        STATE[i] = { ...STATE[i]!, status: 'closed', updatedAt: new Date().toISOString() } as AdmissionCycle;
-        pushAudit('AdmissionCycle', STATE[i]!.id, 'update', `تم إغلاق دورة "${STATE[i]!.nameAr}" تلقائياً عند تفعيل دورة أخرى`);
-      }
-    }
-    STATE[idx] = { ...STATE[idx]!, status: 'active', updatedAt: new Date().toISOString() } as AdmissionCycle;
-    ACTIVE_ID = id;
-    pushAudit('AdmissionCycle', id, 'update', `تم تفعيل دورة "${STATE[idx]!.nameAr}"`);
-    return STATE[idx]!;
+    return cyclesService.transition(id, 'active');
   },
 
   async close(id: string): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.id === id);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    STATE[idx] = { ...STATE[idx]!, status: 'closed', updatedAt: new Date().toISOString() } as AdmissionCycle;
-    if (ACTIVE_ID === id) ACTIVE_ID = null;
-    pushAudit('AdmissionCycle', id, 'update', `تم إغلاق دورة "${STATE[idx]!.nameAr}"`);
-    return STATE[idx]!;
+    return cyclesService.transition(id, 'closed');
   },
 
   async archive(id: string): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.id === id);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    STATE[idx] = { ...STATE[idx]!, status: 'archived', updatedAt: new Date().toISOString() } as AdmissionCycle;
-    if (ACTIVE_ID === id) ACTIVE_ID = null;
-    pushAudit('AdmissionCycle', id, 'update', `تم أرشفة دورة "${STATE[idx]!.nameAr}"`);
-    return STATE[idx]!;
+    return cyclesService.transition(id, 'archived');
   },
 
   async remove(id: string): Promise<{ ok: true }> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.id === id);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    if (STATE[idx]!.status !== 'draft') throw new Error('لا يمكن حذف دورة غير مسودة');
-    const [removed] = STATE.splice(idx, 1);
-    pushAudit('AdmissionCycle', id, 'delete', `تم حذف مسودة دورة "${removed!.nameAr}"`);
+    await apiClient.delete(`/admin/cycles/${id}`);
     return { ok: true };
   },
 
@@ -219,25 +192,9 @@ export const cyclesService = {
     categoryKey: ApplicantCategoryKey,
     config: AdmissionCycleCategoryConfig,
   ): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.id === cycleId);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    const next: AdmissionCycle = {
-      ...STATE[idx]!,
-      openCategories: {
-        ...STATE[idx]!.openCategories,
-        [categoryKey]: config,
-      },
-      updatedAt: new Date().toISOString(),
-    };
-    STATE[idx] = next;
-    pushAudit(
-      'AdmissionCycle',
-      cycleId,
-      'update',
-      `تم ${config.isOpen ? 'فتح' : 'إغلاق'} فئة ${categoryKey} في دورة "${next.nameAr}"`,
-    );
-    return next;
+    const existing = await cyclesService.getById(cycleId);
+    const merged = { ...(existing?.openCategories ?? {}), [categoryKey]: config };
+    return cyclesService.update(cycleId, { openCategories: merged });
   },
 
   async updateCategoryOverride(
@@ -245,25 +202,11 @@ export const cyclesService = {
     categoryKey: ApplicantCategoryKey,
     overrides: Partial<CategoryCondition>,
   ): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.id === cycleId);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    const existing = STATE[idx]!.conditionOverrides ?? {};
-    const next: AdmissionCycle = {
-      ...STATE[idx]!,
-      conditionOverrides: {
-        ...existing,
-        [categoryKey]: { ...(existing[categoryKey] ?? {}), ...overrides },
-      },
-      updatedAt: new Date().toISOString(),
+    const existing = await cyclesService.getById(cycleId);
+    const merged = {
+      ...(existing?.conditionOverrides ?? {}),
+      [categoryKey]: { ...(existing?.conditionOverrides?.[categoryKey] ?? {}), ...overrides },
     };
-    STATE[idx] = next;
-    pushAudit(
-      'AdmissionCycle',
-      cycleId,
-      'update',
-      `تم تعديل شروط فئة ${categoryKey} في دورة "${next.nameAr}"`,
-    );
-    return next;
+    return cyclesService.update(cycleId, { conditionOverrides: merged });
   },
 };

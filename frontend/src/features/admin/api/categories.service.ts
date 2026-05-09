@@ -1,25 +1,25 @@
 /**
- * Admin Categories API Contract — Bucket D.
+ * Admin Categories — real API integration (spec 004 US3).
  *
- * Admin-side CRUD over MOCK.categories. Spec departments
- * (officers_general / officers_specialized / postgraduate /
- * institute_officers_training / institute_traffic /
- * institute_guarding / special_units) cannot be deleted; their `key`
- * is immutable. Admin can edit other fields.
+ * INTEGRATION CONTRACT (backend: AdminCategoriesController + CategoriesController):
+ *   GET    /admin/categories                       → CategoryListItemDto[]
+ *   GET    /admin/categories/by-key/:key           → CategoryDetailDto
+ *   POST   /admin/categories                       → CategoryDetailDto (custom keys only — spec keys reject)
+ *   PATCH  /admin/categories/by-key/:key           → CategoryDetailDto
+ *   DELETE /admin/categories/by-key/:key           → 204 (non-spec only)
+ *   GET    /categories                             → CategoryListItemDto[] (public)
  *
- * INTEGRATION CONTRACT:
- *   GET    /api/admin/categories                          → ApplicantCategory[]
- *   POST   /api/admin/categories                          → ApplicantCategory  (custom departments only)
- *   PATCH  /api/admin/categories/:key                     → ApplicantCategory
- *   DELETE /api/admin/categories/:key                     → { ok: true }       (non-spec only)
+ * Backend stores Conditions / RequiredTests / Procedures as raw JSON
+ * columns; the frontend `ApplicantCategory` shape is round-tripped through
+ * those columns verbatim.
  */
 
-import { MOCK } from '@/shared/mock-data';
-import { simulateLatency } from '@/shared/lib/mock-helpers';
+import { apiClient } from '@/shared/api/client';
 import type {
   ApplicantCategory,
   ApplicantCategoryKey,
-  AuditEntry,
+  CategoryCondition,
+  RequiredTest,
 } from '@/shared/types/domain';
 
 const SPEC_KEYS: ReadonlySet<ApplicantCategoryKey> = new Set<ApplicantCategoryKey>([
@@ -32,81 +32,175 @@ const SPEC_KEYS: ReadonlySet<ApplicantCategoryKey> = new Set<ApplicantCategoryKe
   'special_units',
 ]);
 
-const STATE: ApplicantCategory[] = MOCK.categories.map((c) => ({ ...c }));
-let auditCounter = 1;
+interface CategoryListItemDto {
+  id: string;
+  key: string;
+  nameAr: string;
+  nameEn: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  isSpec: boolean;
+}
 
-function pushAudit(action: 'create' | 'update' | 'delete', categoryKey: string, details: string): void {
-  const entry: AuditEntry = {
-    id: `AUDIT-CAT-${Date.now()}-${auditCounter++}`,
-    userId: 'U-001',
-    userName: 'العميد د. أحمد محمود الفقي',
-    action,
-    actionLabel: action === 'create' ? 'إدراج' : action === 'update' ? 'تعديل' : 'حذف',
-    actionColor: action === 'create' ? 'success' : action === 'update' ? 'info' : 'danger',
-    entity: 'ApplicantCategory',
-    entityId: categoryKey,
-    details,
-    timestamp: Date.now(),
-    ip: '10.0.0.1',
+interface CategoryDetailDto extends CategoryListItemDto {
+  description: string | null;
+  conditions: unknown;
+  requiredTests: unknown;
+  procedures: unknown;
+  createdAt: string;
+  updatedAt: string;
+  demoOrigin: boolean;
+}
+
+const DEFAULT_CONDITIONS: CategoryCondition = {
+  ageMin: null,
+  ageMax: null,
+  minScorePercent: null,
+  requiredQualification: 'any',
+  gender: 'any',
+  minHeightCm: null,
+  medicalRequired: false,
+  maritalStatus: 'any',
+  conductCheck: false,
+  egyptianNationalityRequired: false,
+  employerApprovalRequired: false,
+  nominationOnly: false,
+  freeText: [],
+};
+
+function asConditions(raw: unknown): CategoryCondition {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_CONDITIONS };
+  const r = raw as Partial<CategoryCondition>;
+  return {
+    ...DEFAULT_CONDITIONS,
+    ...r,
+    freeText: Array.isArray(r.freeText) ? r.freeText.map(String) : [],
   };
-  (MOCK.audit as AuditEntry[]).unshift(entry);
+}
+
+function asRequiredTests(raw: unknown): RequiredTest[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((x): x is RequiredTest => Boolean(x) && typeof x === 'object')
+    .map((t, i) => ({
+      kind: t.kind,
+      order: typeof t.order === 'number' ? t.order : i + 1,
+      passingCriteria: t.passingCriteria ?? '',
+    }));
+}
+
+function asProcedures(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(String);
+}
+
+function listItemToCategory(dto: CategoryListItemDto): ApplicantCategory {
+  return {
+    key: dto.key as ApplicantCategoryKey,
+    labelAr: dto.nameAr,
+    labelEn: dto.nameEn ?? '',
+    description: '',
+    isOpen: dto.isActive,
+    conditions: { ...DEFAULT_CONDITIONS },
+    requiredTests: [],
+    procedures: [],
+  };
+}
+
+function detailToCategory(dto: CategoryDetailDto): ApplicantCategory {
+  return {
+    key: dto.key as ApplicantCategoryKey,
+    labelAr: dto.nameAr,
+    labelEn: dto.nameEn ?? '',
+    description: dto.description ?? '',
+    isOpen: dto.isActive,
+    conditions: asConditions(dto.conditions),
+    requiredTests: asRequiredTests(dto.requiredTests),
+    procedures: asProcedures(dto.procedures),
+  };
 }
 
 export const categoriesAdminService = {
   async list(): Promise<ApplicantCategory[]> {
-    await simulateLatency();
-    return STATE.map((c) => ({ ...c }));
+    const { data } = await apiClient.get<CategoryListItemDto[]>('/admin/categories');
+    /* The list endpoint returns lightweight rows. To populate conditions on the
+     * list page we'd otherwise need N+1 calls; CategoriesListPage only renders
+     * a few fields from `conditions`, so we hydrate lazily by fetching the
+     * detail in parallel. Cheap because there are at most ~10 categories. */
+    const detailed = await Promise.all(
+      data.map(async (item) => {
+        try {
+          const { data: detail } = await apiClient.get<CategoryDetailDto>(
+            `/admin/categories/by-key/${encodeURIComponent(item.key)}`,
+          );
+          return detailToCategory(detail);
+        } catch {
+          return listItemToCategory(item);
+        }
+      }),
+    );
+    return detailed;
   },
 
   async getByKey(key: ApplicantCategoryKey): Promise<ApplicantCategory | null> {
-    await simulateLatency();
-    return STATE.find((c) => c.key === key) ?? null;
+    try {
+      const { data } = await apiClient.get<CategoryDetailDto>(
+        `/admin/categories/by-key/${encodeURIComponent(key)}`,
+      );
+      return detailToCategory(data);
+    } catch (err) {
+      if ((err as { status?: number }).status === 404) return null;
+      throw err;
+    }
   },
 
-  async update(key: ApplicantCategoryKey, patch: Partial<ApplicantCategory>): Promise<ApplicantCategory> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.key === key);
-    if (idx === -1) throw new Error('الفئة غير موجودة');
-    /* The spec key, labelAr, and nominationOnly are immutable for spec departments. */
-    const current = STATE[idx]!;
+  async update(
+    key: ApplicantCategoryKey,
+    patch: Partial<ApplicantCategory>,
+  ): Promise<ApplicantCategory> {
     const isSpec = SPEC_KEYS.has(key);
-    const next: ApplicantCategory = isSpec
-      ? {
-          ...current,
-          ...patch,
-          key: current.key,
-          labelAr: current.labelAr,
-          conditions: {
-            ...current.conditions,
-            ...patch.conditions,
-            nominationOnly: current.conditions.nominationOnly,
-          },
-        }
-      : ({ ...current, ...patch, key: current.key } as ApplicantCategory);
-    STATE[idx] = next;
-    pushAudit('update', key, `تم تعديل بيانات فئة "${next.labelAr}"`);
-    return next;
+    const body: Record<string, unknown> = {};
+    if (patch.labelAr !== undefined && !isSpec) body.nameAr = patch.labelAr;
+    if (patch.labelEn !== undefined) body.nameEn = patch.labelEn;
+    if (patch.description !== undefined) body.description = patch.description;
+    if (patch.conditions !== undefined) {
+      body.conditions = isSpec
+        ? { ...patch.conditions, nominationOnly: undefined }
+        : patch.conditions;
+    }
+    if (patch.requiredTests !== undefined) body.requiredTests = patch.requiredTests;
+    if (patch.procedures !== undefined) body.procedures = patch.procedures;
+    if (patch.isOpen !== undefined && !isSpec) body.isActive = patch.isOpen;
+
+    const { data } = await apiClient.patch<CategoryDetailDto>(
+      `/admin/categories/by-key/${encodeURIComponent(key)}`,
+      body,
+    );
+    return detailToCategory(data);
   },
 
   async create(payload: ApplicantCategory): Promise<ApplicantCategory> {
-    await simulateLatency();
-    if (STATE.some((c) => c.key === payload.key)) {
-      throw new Error('مفتاح الفئة موجود بالفعل');
+    if (SPEC_KEYS.has(payload.key)) {
+      throw new Error('لا يمكن إنشاء فئات بمفاتيح المواصفات السبع');
     }
-    STATE.push({ ...payload });
-    pushAudit('create', payload.key, `تم إنشاء فئة "${payload.labelAr}"`);
-    return { ...payload };
+    const { data } = await apiClient.post<CategoryDetailDto>('/admin/categories', {
+      key: payload.key,
+      nameAr: payload.labelAr,
+      nameEn: payload.labelEn || null,
+      description: payload.description || null,
+      conditions: payload.conditions,
+      requiredTests: payload.requiredTests,
+      procedures: payload.procedures,
+      sortOrder: null,
+    });
+    return detailToCategory(data);
   },
 
   async remove(key: ApplicantCategoryKey): Promise<{ ok: true }> {
-    await simulateLatency();
     if (SPEC_KEYS.has(key)) {
       throw new Error('لا يمكن حذف فئات السبع المعتمدة من المواصفات');
     }
-    const idx = STATE.findIndex((c) => c.key === key);
-    if (idx === -1) throw new Error('الفئة غير موجودة');
-    const [removed] = STATE.splice(idx, 1);
-    pushAudit('delete', key, `تم حذف فئة "${removed!.labelAr}"`);
+    await apiClient.delete(`/admin/categories/by-key/${encodeURIComponent(key)}`);
     return { ok: true };
   },
 

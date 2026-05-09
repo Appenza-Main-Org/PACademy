@@ -57,6 +57,8 @@ import {
   ReportsPage,
   SettingsPage,
   UsersPage,
+  UsersCreatePage,
+  UsersDetailPage,
   WorkflowEditorPage,
   WorkflowsListPage,
 } from '@/features/admin';
@@ -183,6 +185,8 @@ export const routes: RouteObject[] = [
       { path: 'applicants/:id', element: <ApplicantDetailPage /> },
       { path: 'applicants/:id/edit', element: <ApplicantEditPage /> },
       { path: 'users', element: <UsersPage /> },
+      { path: 'users/new', element: <UsersCreatePage /> },
+      { path: 'users/:id', element: <UsersDetailPage /> },
       { path: 'audit', element: <AuditPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'reports', element: <ReportsPage /> },

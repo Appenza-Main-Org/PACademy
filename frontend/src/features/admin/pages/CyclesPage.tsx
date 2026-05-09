@@ -101,6 +101,7 @@ export function CyclesPage(): JSX.Element {
           onClick={() => {
             cloneMut.mutate(c.id, {
               onSuccess: (next) => toast(`تم إنشاء نسخة: ${next.nameAr}`, 'success'),
+              onError: (err) => toast((err as Error).message, 'warning'),
             });
           }}
         >

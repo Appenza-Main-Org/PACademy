@@ -48,6 +48,12 @@ public sealed class TestAuthHandler(
             claims.Add(new Claim("apps", app));
         }
 
+        // X-Test-Role header injects a ClaimTypes.Role claim so integration tests
+        // can exercise Role:xxx policies without going through /auth/login.
+        var roleHeader = Request.Headers["X-Test-Role"].ToString();
+        if (!string.IsNullOrEmpty(roleHeader))
+            claims.Add(new Claim(ClaimTypes.Role, roleHeader));
+
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, SchemeName);

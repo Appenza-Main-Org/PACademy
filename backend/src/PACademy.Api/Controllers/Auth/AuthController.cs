@@ -3,9 +3,12 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using PACademy.Application.Audit;
 using PACademy.Application.Auth;
 using PACademy.Application.Common;
+using PACademy.Application.Identity;
 using PACademy.Contracts.Auth;
+using PACademy.Domain.Audit;
 using PACademy.Infrastructure.Identity;
 using System.Security.Claims;
 
@@ -20,7 +23,9 @@ public sealed class AuthController(
     IValidator<LoginRequest> validator,
     UserManager<SystemUser> userManager,
     SignInManager<SystemUser> signInManager,
-    ICurrentUser currentUser)
+    ICurrentUser currentUser,
+    IAuditWriter audit,
+    IPaDbContext db)
     : ControllerBase
 {
     [HttpPost("login")]
@@ -39,7 +44,22 @@ public sealed class AuthController(
         var ua = Request.Headers.UserAgent.ToString();
 
         var result = await login.ExecuteAsync(request.NationalId, request.Password, ip, ua, ct);
-        if (!result.Succeeded)
+
+        if (result.Outcome == AuthenticationOutcome.ArchivedOrDeactivated)
+        {
+            // FR-A09: audit the blocked attempt — identity known, access denied
+            await audit.RecordAsync(
+                AuditAction.Login, "user", Guid.Empty, request.NationalId,
+                AuditOutcome.PermissionDenied, null, null, ct);
+            await db.SaveChangesAsync(ct);
+            return Unauthorized(new
+            {
+                code = "INVALID_CREDENTIALS",
+                message = "بيانات الدخول غير صحيحة.",
+            });
+        }
+
+        if (result.Outcome != AuthenticationOutcome.Success)
         {
             return Unauthorized(new
             {
@@ -62,6 +82,12 @@ public sealed class AuthController(
 
         await HttpContext.SignInAsync(IdentityConstants.ApplicationScheme, principal);
 
+        // FR-A09: audit successful login
+        await audit.RecordAsync(
+            AuditAction.Login, "user", result.UserId, result.FullName,
+            AuditOutcome.Success, null, null, ct);
+        await db.SaveChangesAsync(ct);
+
         return Ok(new LoginResponse(
             result.UserId, result.NationalId, result.FullName, result.Role, result.Apps));
     }
@@ -70,12 +96,8 @@ public sealed class AuthController(
     [Authorize]
     public async Task<IActionResult> Logout(CancellationToken ct)
     {
-        var sidClaim = User.FindFirstValue("sid");
-        if (Guid.TryParse(sidClaim, out var sessionId))
-        {
-            await logout.ExecuteAsync(sessionId, ct);
-        }
-
+        // FR-A08: revoke all sessions for the user (not just the current one)
+        await logout.ExecuteAsync(currentUser.Id, ct);
         await HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
         return NoContent();
     }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using PACademy.Domain.AdmissionRules;
 using PACademy.Domain.Applicants;
 using PACademy.Domain.Audit;
@@ -7,6 +8,7 @@ using PACademy.Domain.Cycles;
 using PACademy.Domain.ReferenceData;
 using PACademy.Domain.Sessions;
 using PACademy.Domain.Workflows;
+using System.Data;
 
 namespace PACademy.Application.Common;
 
@@ -27,4 +29,5 @@ public interface IPaDbContext
     DbSet<AuditEntry> AuditEntries { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
+    Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken ct = default);
 }

@@ -22,6 +22,8 @@ export const ROUTES = {
     applicantDetail: (id = ':id'): string => `/admin/applicants/${id}`,
     applicantEdit: (id = ':id'): string => `/admin/applicants/${id}/edit`,
     users: '/admin/users',
+    userNew: '/admin/users/new',
+    userDetail: (id = ':id'): string => `/admin/users/${id}`,
     audit: '/admin/audit',
     settings: '/admin/settings',
     reports: '/admin/reports',

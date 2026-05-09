@@ -122,7 +122,7 @@ public sealed class SeedParityTests(SqlServerFixture sqlFixture) : IAsyncLifetim
             .ToListAsync();
 
         activeCycles.Should().HaveCount(1);
-        activeCycles[0].Name.Should().Contain("2026");
+        activeCycles[0].NameAr.Should().Contain("2026");
     }
 
     [Fact]

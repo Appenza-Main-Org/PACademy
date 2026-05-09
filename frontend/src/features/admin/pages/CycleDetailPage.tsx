@@ -98,6 +98,7 @@ export function CycleDetailPage(): JSX.Element {
               onClick={() => {
                 cloneMut.mutate(cycle.id, {
                   onSuccess: (next) => toast(`تم إنشاء نسخة: ${next.nameAr}`, 'success'),
+                  onError: (err) => toast((err as Error).message, 'warning'),
                 });
               }}
             >
