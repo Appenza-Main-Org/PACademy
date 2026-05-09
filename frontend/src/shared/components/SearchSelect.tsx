@@ -158,7 +158,7 @@ export function SearchSelect({
         aria-expanded={open}
         aria-invalid={invalid || undefined}
         className={cn(
-          'group relative inline-flex h-9 w-full items-center rounded-md border',
+          'group relative inline-flex h-9 w-full items-center rounded-md border border-solid',
           'bg-surface-card text-sm text-ink-900',
           'transition-colors duration-fast ease-standard',
           'ps-3 pe-9 text-start font-ar',
