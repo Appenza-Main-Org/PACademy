@@ -9,6 +9,7 @@ import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { Info, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { Button, Card, Input, Modal, Select, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
+import { withAudit } from '@/shared/lib/audit';
 import { stage7Schema, type Stage7Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
 import { REF_RELATIONSHIPS } from '@/shared/mock-data/referenceData';
@@ -75,10 +76,28 @@ export function Stage7FamilyPage(): JSX.Element {
     if (!pendingValues || !acknowledged) return;
     setIsApproving(true);
     try {
-      await applicantPortalService.submitStage(APPLICANT_ID, 7, {
-        family: pendingValues,
-        familyApprovedAt: Date.now(),
-      });
+      /* AF-6 — emit audit event for the explicit اعتماد action. The
+       * applicant is the actor; investigations / committee review the
+       * family data afterward and need a durable record of when the
+       * applicant signed off on it. */
+      const approvedAt = Date.now();
+      await withAudit(
+        () =>
+          applicantPortalService.submitStage(APPLICANT_ID, 7, {
+            family: pendingValues,
+            familyApprovedAt: approvedAt,
+          }),
+        {
+          action: 'applicant.transition',
+          module: 'applicants',
+          entityType: 'applicant_family',
+          entityLabel: 'بيانات الأسرة (المتقدم)',
+          entityId: APPLICANT_ID,
+          details: 'اعتماد المتقدم لبيانات الأسرة قبل حجز موعد الاختبار',
+          afterFrom: () => ({ familyApprovedAt: approvedAt, acknowledged: true }),
+          actor: { id: APPLICANT_ID, name: 'المتقدم', role: 'applicant' },
+        },
+      );
       toast('تم اعتماد بيانات الأسرة', 'success');
       navigate('/applicant/exam-schedule');
     } finally {
