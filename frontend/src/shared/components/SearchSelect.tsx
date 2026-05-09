@@ -65,6 +65,11 @@ interface SearchSelectProps {
   /** Required for screen readers when there's no visible label. */
   ariaLabel?: string;
   disabled?: boolean;
+  /** Render the trigger in error state (matches Input's error chrome:
+   *  terra-500 border + terra focus shadow). Mirrors Input's `error`-driven
+   *  visual state — not bound to validity automatically; consumers pass it
+   *  alongside the same flag they already render on the surrounding `Field`. */
+  invalid?: boolean;
   className?: string;
   /** Search input placeholder (defaults to Arabic "بحث..."). */
   searchPlaceholder?: string;
@@ -79,6 +84,7 @@ export function SearchSelect({
   placeholder = 'اختر…',
   ariaLabel,
   disabled,
+  invalid,
   className,
   searchPlaceholder = 'بحث…',
   emptyText = 'لا توجد نتائج مطابقة',
@@ -136,6 +142,13 @@ export function SearchSelect({
         else setActiveIndex(Math.max(0, filtered.findIndex((o) => o.value === value)));
       }}
     >
+      {/* Trigger chrome mirrors `<Input>` verbatim (height, border, padding,
+          hover, focus, disabled, error) so a SearchSelect inside `<Field>` is
+          visually indistinguishable from an `<Input>` sibling. The single
+          divergence is the absolute end-edge chevron — same pattern Input uses
+          for trailingIcon (`pe-9` reserves the space). When the popover is
+          open, the trigger keeps the focused-style chrome via `data-[state=open]`
+          so it doesn't read as "off" while the menu is showing. */}
       <RadixPopover.Trigger
         type="button"
         disabled={disabled}
@@ -143,21 +156,33 @@ export function SearchSelect({
         aria-haspopup="listbox"
         aria-controls={listboxId}
         aria-expanded={open}
+        aria-invalid={invalid || undefined}
         className={cn(
-          'inline-flex h-9 w-full items-center justify-between gap-2 rounded-md',
-          'border border-border-default bg-surface-card px-4 text-sm text-ink-900',
+          'group relative inline-flex h-9 w-full items-center rounded-md border',
+          'bg-surface-card text-sm text-ink-900',
           'transition-colors duration-fast ease-standard',
-          'hover:border-border-strong',
-          'focus-visible:shadow-[var(--ring)] focus-visible:border-teal-500 focus-visible:outline-none',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-          'font-ar',
+          'ps-3 pe-9 text-start font-ar',
+          invalid
+            ? 'border-terra-500 focus-visible:border-terra-500 focus-visible:shadow-focus-terra data-[state=open]:border-terra-500 data-[state=open]:shadow-focus-terra'
+            : 'border-border-default hover:border-border-strong focus-visible:border-teal-500 focus-visible:shadow-focus-teal data-[state=open]:border-teal-500 data-[state=open]:shadow-focus-teal',
+          'focus-visible:outline-none',
+          'disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400',
           className,
         )}
       >
-        <span className={cn('flex-1 truncate text-start', !selected && 'text-ink-400')}>
+        <span className={cn('block flex-1 truncate', !selected && 'text-ink-400')}>
           {selected ? selected.label : placeholder}
         </span>
-        <ChevronDown size={16} className="text-ink-400 shrink-0" aria-hidden />
+        <ChevronDown
+          size={16}
+          aria-hidden
+          className={cn(
+            'pointer-events-none absolute end-3 inset-y-0 my-auto h-4 w-4 text-ink-400',
+            'transition-transform duration-fast ease-standard',
+            'group-data-[state=open]:rotate-180',
+            'motion-reduce:transition-none',
+          )}
+        />
       </RadixPopover.Trigger>
       <RadixPopover.Portal>
         <RadixPopover.Content
