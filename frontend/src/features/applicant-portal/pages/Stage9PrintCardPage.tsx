@@ -59,7 +59,7 @@ export function Stage9PrintCardPage(): JSX.Element {
       </Card>
 
       <PrintLayout
-        title="كارت تردد المتقدم"
+        title="بطاقة التردد"
         subtitle="دفعة قبول 2026 — أكاديمية الشرطة"
         reportId={APPLICANT_ID}
         generatedAt={fmtDate(Date.now(), 'short')}
