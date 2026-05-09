@@ -109,6 +109,10 @@ export function Stage9PrintCardPage(): JSX.Element {
                 <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_NID}</p>
               </div>
               <div>
+                {/* AF-13 — label-only resolution: 'رقم الملف' relabels the existing
+                 *  APPLICANT_ID. If the academy needs a distinct numeric file
+                 *  number, follow-up gap adds Applicant.fileNumber with a
+                 *  UNIQUE-per-cycle invariant. */}
                 <p className="text-2xs uppercase tracking-wide text-ink-500">رقم الملف</p>
                 <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_ID}</p>
               </div>
