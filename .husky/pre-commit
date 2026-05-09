@@ -6,7 +6,7 @@
 STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
 
 # ── Frontend ────────────────────────────────────────────────────────────────
-FRONTEND_CHANGED=$(echo "$STAGED" | grep "^frontend/")
+FRONTEND_CHANGED=$(echo "$STAGED" | grep "^frontend/" || true)
 if [ -n "$FRONTEND_CHANGED" ]; then
   echo "▶ Frontend: lint + unit tests for changed files…"
   (cd frontend && npm run lint) || exit 1
@@ -14,7 +14,7 @@ if [ -n "$FRONTEND_CHANGED" ]; then
 fi
 
 # ── Backend ──────────────────────────────────────────────────────────────────
-BACKEND_CHANGED=$(echo "$STAGED" | grep "^backend/")
+BACKEND_CHANGED=$(echo "$STAGED" | grep "^backend/" || true)
 if [ -n "$BACKEND_CHANGED" ]; then
   echo "▶ Backend: format check + domain + application tests…"
   (cd backend && dotnet format --verify-no-changes) || exit 1

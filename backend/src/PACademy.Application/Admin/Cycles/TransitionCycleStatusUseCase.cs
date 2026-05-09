@@ -10,9 +10,9 @@ public sealed class TransitionCycleStatusUseCase(IPaDbContext db)
 {
     private static readonly Dictionary<CycleStatus, CycleStatus[]> AllowedTransitions = new()
     {
-        [CycleStatus.Draft]    = [CycleStatus.Active],
-        [CycleStatus.Active]   = [CycleStatus.Closed],
-        [CycleStatus.Closed]   = [CycleStatus.Archived],
+        [CycleStatus.Draft] = [CycleStatus.Active],
+        [CycleStatus.Active] = [CycleStatus.Closed],
+        [CycleStatus.Closed] = [CycleStatus.Archived],
         [CycleStatus.Archived] = [],
     };
 

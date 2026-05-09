@@ -1,5 +1,11 @@
+using PACademy.Api.Hosting;
 using PACademy.Api.Middleware;
 using PACademy.Infrastructure;
+using PACademy.Shared.Audit.Infrastructure;
+using PACademy.Modules.Identity.Infrastructure;
+using PACademy.Modules.ReferenceData.Infrastructure;
+using PACademy.Modules.Workflows.Infrastructure;
+using PACademy.Modules.Admissions.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +15,14 @@ builder.Services.AddControllers()
             new System.Text.Json.Serialization.JsonStringEnumConverter(
                 System.Text.Json.JsonNamingPolicy.CamelCase)));
 builder.Services.AddOpenApi();
+
+// Phase 5 module registrations (no-ops during scaffolding; populated as types are extracted)
+builder.Services
+    .AddAuditModule(builder.Configuration)
+    .AddIdentityModule(builder.Configuration)
+    .AddReferenceDataModule(builder.Configuration)
+    .AddWorkflowsModule(builder.Configuration)
+    .AddAdmissionsModule(builder.Configuration);
 
 builder.Services.AddPaInfrastructure(builder.Configuration);
 
@@ -26,6 +40,11 @@ app.UseMiddleware<SessionMiddleware>();
 app.UseMiddleware<CsrfMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
+
+// Phase 5: Split __EFMigrationsHistory into per-context tables (idempotent, dev/staging only)
+await MigrationHistoryCutover.RunIfNeededAsync(
+    app.Configuration, app.Environment,
+    app.Logger, CancellationToken.None);
 
 // Seed demo data when requested via CLI arg or env var
 if (args.Contains("--seed-demo") ||

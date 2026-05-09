@@ -6,9 +6,43 @@
     <Project Path="src/PACademy.Domain/PACademy.Domain.csproj" />
     <Project Path="src/PACademy.Infrastructure/PACademy.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/PACademy.Shared.Contracts/PACademy.Shared.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/Audit/">
+    <Project Path="src/Shared/Audit/PACademy.Shared.Audit.Domain/PACademy.Shared.Audit.Domain.csproj" />
+    <Project Path="src/Shared/Audit/PACademy.Shared.Audit.Application/PACademy.Shared.Audit.Application.csproj" />
+    <Project Path="src/Shared/Audit/PACademy.Shared.Audit.Infrastructure/PACademy.Shared.Audit.Infrastructure.csproj" />
+    <Project Path="src/Shared/Audit/PACademy.Shared.Audit.Public/PACademy.Shared.Audit.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/PACademy.Modules.Identity.Domain/PACademy.Modules.Identity.Domain.csproj" />
+    <Project Path="src/Modules/Identity/PACademy.Modules.Identity.Application/PACademy.Modules.Identity.Application.csproj" />
+    <Project Path="src/Modules/Identity/PACademy.Modules.Identity.Infrastructure/PACademy.Modules.Identity.Infrastructure.csproj" />
+    <Project Path="src/Modules/Identity/PACademy.Modules.Identity.Public/PACademy.Modules.Identity.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Admissions/">
+    <Project Path="src/Modules/Admissions/PACademy.Modules.Admissions.Domain/PACademy.Modules.Admissions.Domain.csproj" />
+    <Project Path="src/Modules/Admissions/PACademy.Modules.Admissions.Application/PACademy.Modules.Admissions.Application.csproj" />
+    <Project Path="src/Modules/Admissions/PACademy.Modules.Admissions.Infrastructure/PACademy.Modules.Admissions.Infrastructure.csproj" />
+    <Project Path="src/Modules/Admissions/PACademy.Modules.Admissions.Public/PACademy.Modules.Admissions.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/ReferenceData/">
+    <Project Path="src/Modules/ReferenceData/PACademy.Modules.ReferenceData.Domain/PACademy.Modules.ReferenceData.Domain.csproj" />
+    <Project Path="src/Modules/ReferenceData/PACademy.Modules.ReferenceData.Application/PACademy.Modules.ReferenceData.Application.csproj" />
+    <Project Path="src/Modules/ReferenceData/PACademy.Modules.ReferenceData.Infrastructure/PACademy.Modules.ReferenceData.Infrastructure.csproj" />
+    <Project Path="src/Modules/ReferenceData/PACademy.Modules.ReferenceData.Public/PACademy.Modules.ReferenceData.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Workflows/">
+    <Project Path="src/Modules/Workflows/PACademy.Modules.Workflows.Domain/PACademy.Modules.Workflows.Domain.csproj" />
+    <Project Path="src/Modules/Workflows/PACademy.Modules.Workflows.Application/PACademy.Modules.Workflows.Application.csproj" />
+    <Project Path="src/Modules/Workflows/PACademy.Modules.Workflows.Infrastructure/PACademy.Modules.Workflows.Infrastructure.csproj" />
+    <Project Path="src/Modules/Workflows/PACademy.Modules.Workflows.Public/PACademy.Modules.Workflows.Public.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PACademy.Api.Tests/PACademy.Api.Tests.csproj" />
     <Project Path="tests/PACademy.Application.Tests/PACademy.Application.Tests.csproj" />
     <Project Path="tests/PACademy.Domain.Tests/PACademy.Domain.Tests.csproj" />
+    <Project Path="tests/PACademy.Architecture.Tests/PACademy.Architecture.Tests.csproj" />
   </Folder>
 </Solution>

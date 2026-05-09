@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PACademy.Modules.Workflows.Domain\PACademy.Modules.Workflows.Domain.csproj" />
+    <ProjectReference Include="..\PACademy.Modules.Workflows.Public\PACademy.Modules.Workflows.Public.csproj" />
+    <ProjectReference Include="..\..\Identity\PACademy.Modules.Identity.Public\PACademy.Modules.Identity.Public.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Audit\PACademy.Shared.Audit.Public\PACademy.Shared.Audit.Public.csproj" />
+    <ProjectReference Include="..\..\..\Shared\PACademy.Shared.Contracts\PACademy.Shared.Contracts.csproj" />
+  </ItemGroup>
+</Project>

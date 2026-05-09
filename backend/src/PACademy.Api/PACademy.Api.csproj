@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="11.11.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.6" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.*" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
   </ItemGroup>
 
@@ -18,6 +19,12 @@
     <ProjectReference Include="..\PACademy.Application\PACademy.Application.csproj" />
     <ProjectReference Include="..\PACademy.Infrastructure\PACademy.Infrastructure.csproj" />
     <ProjectReference Include="..\PACademy.Contracts\PACademy.Contracts.csproj" />
+    <!-- Phase 5 module infrastructure projects -->
+    <ProjectReference Include="..\Shared\Audit\PACademy.Shared.Audit.Infrastructure\PACademy.Shared.Audit.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Identity\PACademy.Modules.Identity.Infrastructure\PACademy.Modules.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\ReferenceData\PACademy.Modules.ReferenceData.Infrastructure\PACademy.Modules.ReferenceData.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Workflows\PACademy.Modules.Workflows.Infrastructure\PACademy.Modules.Workflows.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Admissions\PACademy.Modules.Admissions.Infrastructure\PACademy.Modules.Admissions.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

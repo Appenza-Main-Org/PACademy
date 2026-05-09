@@ -60,7 +60,7 @@ public sealed class OverridesTests(SqlServerFixture sqlFixture) : IAsyncLifetime
 
         var openCats = new Dictionary<string, OpenCategoryEntryDto>
         {
-            ["police"]   = new OpenCategoryEntryDto(IsOpen: true,  Capacity: 150, Notes: null),
+            ["police"] = new OpenCategoryEntryDto(IsOpen: true, Capacity: 150, Notes: null),
             ["forensics"] = new OpenCategoryEntryDto(IsOpen: false, Capacity: null, Notes: null),
         };
 

@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
+    <PackageReference Include="NetArchTest.Rules" Version="1.*" />
+    <PackageReference Include="xunit" Version="2.*" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.*">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="FluentAssertions" Version="6.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Reference all module assemblies to load them for NetArchTest -->
+    <ProjectReference Include="..\..\src\Shared\PACademy.Shared.Contracts\PACademy.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Audit\PACademy.Shared.Audit.Domain\PACademy.Shared.Audit.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Audit\PACademy.Shared.Audit.Application\PACademy.Shared.Audit.Application.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Audit\PACademy.Shared.Audit.Infrastructure\PACademy.Shared.Audit.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Audit\PACademy.Shared.Audit.Public\PACademy.Shared.Audit.Public.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\PACademy.Modules.Identity.Domain\PACademy.Modules.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\PACademy.Modules.Identity.Application\PACademy.Modules.Identity.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\PACademy.Modules.Identity.Infrastructure\PACademy.Modules.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\PACademy.Modules.Identity.Public\PACademy.Modules.Identity.Public.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Admissions\PACademy.Modules.Admissions.Domain\PACademy.Modules.Admissions.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Admissions\PACademy.Modules.Admissions.Application\PACademy.Modules.Admissions.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Admissions\PACademy.Modules.Admissions.Infrastructure\PACademy.Modules.Admissions.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Admissions\PACademy.Modules.Admissions.Public\PACademy.Modules.Admissions.Public.csproj" />
+    <ProjectReference Include="..\..\src\Modules\ReferenceData\PACademy.Modules.ReferenceData.Domain\PACademy.Modules.ReferenceData.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\ReferenceData\PACademy.Modules.ReferenceData.Application\PACademy.Modules.ReferenceData.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\ReferenceData\PACademy.Modules.ReferenceData.Infrastructure\PACademy.Modules.ReferenceData.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\ReferenceData\PACademy.Modules.ReferenceData.Public\PACademy.Modules.ReferenceData.Public.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Workflows\PACademy.Modules.Workflows.Domain\PACademy.Modules.Workflows.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Workflows\PACademy.Modules.Workflows.Application\PACademy.Modules.Workflows.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Workflows\PACademy.Modules.Workflows.Infrastructure\PACademy.Modules.Workflows.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Workflows\PACademy.Modules.Workflows.Public\PACademy.Modules.Workflows.Public.csproj" />
+  </ItemGroup>
+</Project>

@@ -29,9 +29,9 @@ public sealed class ListReferenceDataUseCase(IPaDbContext db)
         query = (filters.SortBy, sortDir) switch
         {
             ("nameAr", "desc") => query.OrderByDescending(r => r.NameAr),
-            ("nameAr", _)      => query.OrderBy(r => r.NameAr),
-            (_, "desc")        => query.OrderByDescending(r => r.SortOrder).ThenByDescending(r => r.NameAr),
-            _                  => query.OrderBy(r => r.SortOrder).ThenBy(r => r.NameAr),
+            ("nameAr", _) => query.OrderBy(r => r.NameAr),
+            (_, "desc") => query.OrderByDescending(r => r.SortOrder).ThenByDescending(r => r.NameAr),
+            _ => query.OrderBy(r => r.SortOrder).ThenBy(r => r.NameAr),
         };
 
         var total = await query.CountAsync(ct);

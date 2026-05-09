@@ -1,4 +1,4 @@
-# CLAUDE.md — Police Academy Admissions Platform (Frontend)
+# CLAUDE.md — Police Academy Admissions Platform
 
 > Persistent context for Claude Code. Read this first before touching code.
 
@@ -10,18 +10,39 @@
 
 - **Owner:** وزارة الداخلية · أكاديمية الشرطة (Ministry of Interior · Police Academy)
 - **Built by:** Appenza Studio — Engineering Manager: Mortada
-- **Status:** Frontend feature-complete; design polish complete (`polish-complete` tag, 2026-05-03); backend kickoff is the next workstream.
+- **Status:** Frontend feature-complete; design polish complete (`polish-complete` tag, 2026-05-03); **backend spec 005 (modular monolith) complete** (2026-05-10).
 - **Demo deadline:** 2026-05-29 (~4 weeks out). The polish program (docs/POLISH_REPORT.md) was sized against this date.
 
-### Monorepo layout (as of 2026-05-07)
+### Monorepo layout (as of 2026-05-10)
 
 The repo is organised as a monorepo with two top-level workspaces. Only `CLAUDE.md` lives at the root — every other markdown is under `docs/` or `Tasks/`.
 
 ```
 PACademy/
 ├── CLAUDE.md           ← this file (operating context for Claude Code)
-├── frontend/           ← React 18 + TS + Vite — this CLAUDE.md is primarily about this workspace
-├── backend/            ← C# 13 / .NET 10  + ASP.NET Core Web API, EF Core 10
+├── frontend/           ← React 18 + TS + Vite — §§2–14 of this file are primarily about this workspace
+├── backend/            ← C# 13 / .NET 10  + ASP.NET Core Web API, EF Core 10 — see §15
+│   ├── src/
+│   │   ├── PACademy.Api/              ← HTTP host (Program.cs, controllers, middleware)
+│   │   ├── Shared/
+│   │   │   ├── PACademy.Shared.Contracts/          ← PagedResult, ApiError, ErrorCodes, ICurrentActor
+│   │   │   └── Audit/
+│   │   │       ├── PACademy.Shared.Audit.Domain/   ← AuditEntry, AuditAction, AuditOutcome
+│   │   │       ├── PACademy.Shared.Audit.Public/   ← IAuditApi
+│   │   │       ├── PACademy.Shared.Audit.Application/
+│   │   │       └── PACademy.Shared.Audit.Infrastructure/  ← AuditDbContext, AuditModule
+│   │   └── Modules/
+│   │       ├── Identity/          ← SystemUser, Session, auth use cases, IdentityDbContext
+│   │       ├── ReferenceData/     ← ReferenceDataEntry, 8 lookup dictionaries, ReferenceDataDbContext
+│   │       ├── Workflows/         ← Workflow, WorkflowStage, publish flow, WorkflowsDbContext
+│   │       └── Admissions/        ← Cycle, Category, AdmissionRule, Applicant, AdmissionsDbContext
+│   ├── tests/
+│   │   ├── PACademy.Api.Tests/        ← Integration tests (Testcontainers SQL Server)
+│   │   ├── PACademy.Domain.Tests/     ← Unit tests
+│   │   ├── PACademy.Application.Tests/
+│   │   └── PACademy.Architecture.Tests/ ← NetArchTest boundary assertions (T356–T358, T340, etc.)
+│   └── scripts/migrations/
+│       └── 005_split_migration_history.sql  ← Idempotent per-context history split
 ├── Tasks/              ← project-level: DESIGN_SYSTEM.md, KARASA_GAPS.md, sprint plan, scope-alignment
 └── docs/               ← all other project docs:
     ├── README.md       ← public-facing project README + quick-start
@@ -458,3 +479,38 @@ Mini Zustand-backed toast in [frontend/src/shared/components/Toast.tsx](frontend
 | [Tasks/tasks.md](Tasks/tasks.md) | Original sprint task plan | Reference |
 | [Tasks/CLAUDE_CODE_BRIEF.md](Tasks/CLAUDE_CODE_BRIEF.md) | Original Claude-Code project brief | Historical (kickoff context) |
 | [README.md](docs/README.md) | Public-facing README + quick-start | Live |
+| [specs/005-modular-monolith/tasks.md](specs/005-modular-monolith/tasks.md) | Backend spec 005 task list (T300–T371) | Live |
+| [specs/005-modular-monolith/quickstart.md](specs/005-modular-monolith/quickstart.md) | Backend operator's guide (migrations, seeding, dev DB) | Live |
+
+---
+
+## 15. Backend Architecture (Spec 005 — Modular Monolith) ✅ Complete 2026-05-10
+
+**Pattern**: Single deployable `PACademy.Api` host, 5 bounded-context EF Core DbContexts sharing one SQL Server database, no distributed transactions (Docker-safe).
+
+### Module reference rules (FR-M02 — enforced by `PACademy.Architecture.Tests`)
+- Each module exposes a `*.Public` project (1 interface + a few DTOs) as its inter-module contract.
+- Modules may ONLY reference: `Shared.Contracts` + other modules' `*.Public` projects.
+- Modules must NOT reference any sibling's `*.Domain` or `*.Infrastructure` project.
+- `Shared.Contracts` references zero `PACademy.*` projects (root of the dependency graph).
+
+### Per-context migration history (FR-X01)
+| Context | History table | Owns |
+|---|---|---|
+| `AuditDbContext` | `__EFMigrationsHistory_Audit` | `audit_entries` |
+| `IdentityDbContext` | `__EFMigrationsHistory_Identity` | `system_users`, `sessions`, AspNet Identity tables |
+| `ReferenceDataDbContext` | `__EFMigrationsHistory_ReferenceData` | `reference_data_entries` |
+| `WorkflowsDbContext` | `__EFMigrationsHistory_Workflows` | `workflows`, `workflow_stages` |
+| `AdmissionsDbContext` | `__EFMigrationsHistory_Admissions` | `cycles`, `categories`, `admission_rules`, `applicants`, `applicant_stage_submissions` |
+
+Run `backend/scripts/migrations/005_split_migration_history.sql` once on pre-phase-5 databases to split the legacy `__EFMigrationsHistory`. On fresh dev DBs, run each context's migrations directly (`dotnet ef database update --context <Context>` from the relevant Infrastructure project).
+
+### Cross-module transactions
+Use `CrossModuleUnitOfWork` in `PACademy.Api/Hosting/CrossModuleUnitOfWork.cs`. It opens a single `SqlConnection` + `SqlTransaction`, then wraps each context via `Database.UseTransaction(tx)`. `TransactionScope` / DTC are forbidden (Docker SQL Server doesn't support DTC).
+
+### Remaining backend roadmap (post-spec-005)
+- **Spec 006 — Admin Controllers wire-up**: Bind the Admissions/ReferenceData/Workflows module use cases to the existing controllers (currently still calling legacy `PaDbContext` paths).
+- **Spec 007 — Applicant Portal API**: REST endpoints for the 11-stage applicant wizard.
+- **Spec 008 — Reports API**: Aggregate query endpoints for the admin reports command-center.
+- **Spec 009 — Seeder split** (deferred P2 from spec 005): Split `DemoDataSeeder` into 5 per-module seeders (`Identity`, `Audit`, `ReferenceData`, `Workflows`, `Admissions`).
+- **Frontend integration**: Replace `simulateLatency()` + `MOCK` reads in every `*.service.ts` with real `apiClient.get/post(...)` calls (§6 integration pattern).
