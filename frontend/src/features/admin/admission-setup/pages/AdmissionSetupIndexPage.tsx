@@ -75,7 +75,6 @@ export function AdmissionSetupIndexPage(): JSX.Element {
   }
 
   const activeCycle = cycles.find((c) => ACTIVE_STATUSES.has(c.status)) ?? null;
-  const otherCycles = cycles.filter((c) => c.id !== activeCycle?.id);
 
   const openWizard = (cycleId: string, stepKey: string): void => {
     cycleCtx.setCycle(cycleId);
@@ -109,23 +108,6 @@ export function AdmissionSetupIndexPage(): JSX.Element {
             />
           ) : (
             <NoActiveCycleNotice onGoToCycles={() => navigate(ROUTES.admin.cycles)} />
-          )}
-
-          {otherCycles.length > 0 && (
-            <section aria-label="دورات أخرى" className="flex flex-col gap-2">
-              <h2 className="text-2xs font-medium uppercase tracking-wide text-ink-500">
-                دورات أخرى
-              </h2>
-              <div className="grid gap-3">
-                {otherCycles.map((cycle) => (
-                  <SetupRow
-                    key={cycle.id}
-                    cycle={cycle}
-                    onOpen={(stepKey) => openWizard(cycle.id, stepKey)}
-                  />
-                ))}
-              </div>
-            </section>
           )}
         </div>
       )}
@@ -172,8 +154,7 @@ function NoActiveCycleNotice({ onGoToCycles }: { onGoToCycles: () => void }): JS
             لا توجد دورة قبول نشطة حالياً
           </h2>
           <p className="mt-1 text-2xs leading-relaxed text-gold-700">
-            فعّل إحدى الدورات من قسم إدارة الدورات قبل بدء التقديم. تظهر الدورات المعدّة الأخرى
-            في الأسفل للمراجعة فقط.
+            فعّل إحدى الدورات من قسم إدارة الدورات قبل بدء التقديم.
           </p>
         </div>
         <Button
@@ -263,88 +244,6 @@ function ActiveCycleCard({
   );
 }
 
-function SetupRow({
-  cycle,
-  onOpen,
-}: {
-  cycle: AdmissionCycle;
-  onOpen: (stepKey: string) => void;
-}): JSX.Element {
-  const categoriesQuery = useCategoriesAdmin();
-  const committeesQuery = useCommittees();
-  const mergeSplitQuery = useAdmissionMergeSplitRules(cycle.id);
-  const examDatesQuery = useExamDateConfig(cycle.id);
-  const totalScoreQuery = useTotalScoreConfigs(cycle.id);
-  const declarationQuery = useElectronicDeclaration(cycle.id);
-
-  const inputs: StepStatusInputs = {
-    cycle,
-    categories: categoriesQuery.data ?? [],
-    committees: committeesQuery.data ?? [],
-    mergeSplitRules: mergeSplitQuery.data ?? [],
-    examDateConfig: examDatesQuery.data ?? null,
-    totalScoreConfigs: totalScoreQuery.data ?? [],
-    declaration: declarationQuery.data ?? null,
-  };
-
-  const completed = ADMISSION_SETUP_STEPS.filter(
-    (s) => computeStepStatus(s.key, inputs) === 'complete',
-  ).length;
-
-  const draft = readDraft(cycle.id);
-  const resumeStepKey = draft?.lastStepKey ?? FIRST_STEP;
-
-  const isApproved = ACTIVE_STATUSES.has(cycle.status);
-
-  return (
-    <Card variant="elevated">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-ar-display text-md font-bold text-ink-900">{cycle.nameAr}</h3>
-            <Badge tone={isApproved ? 'success' : draftTone(cycle.status)}>
-              {arStatusLabel(cycle.status)}
-            </Badge>
-            {draft && (
-              <Badge tone="info">
-                مسودة — آخر حفظ {fmtDate(draft.savedAt, 'short')}
-              </Badge>
-            )}
-          </div>
-          <p className="mt-1 text-2xs text-ink-500">
-            <span className="font-numeric tnum">
-              {toEasternArabicNumerals(completed)} من {toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS)}
-            </span>{' '}
-            خطوة مكتملة · آخر تحديث {fmtDate(cycle.updatedAt ?? cycle.openDate, 'short')}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {draft && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => onOpen(resumeStepKey)}
-              leadingIcon={<PlayCircle size={14} strokeWidth={1.75} />}
-            >
-              متابعة المسودة
-            </Button>
-          )}
-          <Button
-            variant={draft ? 'ghost' : 'primary'}
-            size="sm"
-            onClick={() => onOpen(FIRST_STEP)}
-            trailingIcon={
-              <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
-            }
-          >
-            {isApproved ? 'مراجعة الإعدادات' : 'إكمال الإعداد'}
-          </Button>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
 function arStatusLabel(status: AdmissionCycle['status']): string {
   switch (status) {
     case 'draft':
@@ -366,8 +265,3 @@ function arStatusLabel(status: AdmissionCycle['status']): string {
   }
 }
 
-function draftTone(status: AdmissionCycle['status']): 'neutral' | 'warning' | 'info' {
-  if (status === 'draft') return 'warning';
-  if (status === 'archived' || status === 'finalized' || status === 'closed') return 'neutral';
-  return 'info';
-}
