@@ -629,8 +629,6 @@ export type ReferenceTab =
   | 'governorates'
   | 'specializations'
   | 'ranks'
-  | 'colleges'
-  | 'qualifications'
   | 'nationalities'
   | 'relationships'
   | 'case-types';
@@ -656,21 +654,6 @@ export interface RefRank extends SoftDeleteFields {
   nameAr: string;
   level: number;
   applicableTo: 'officer' | 'enlisted' | 'civilian';
-}
-
-export interface RefCollege extends SoftDeleteFields {
-  id: string;
-  nameAr: string;
-  governorateId: string;
-  type: 'public' | 'private' | 'azhar';
-  active: boolean;
-}
-
-export interface RefQualification extends SoftDeleteFields {
-  id: string;
-  nameAr: string;
-  level: 'diploma' | 'bachelor' | 'master' | 'phd';
-  facultyRequired: boolean;
 }
 
 export interface RefNationality extends SoftDeleteFields {
@@ -699,8 +682,6 @@ export type ReferenceRowMap = {
   governorates: RefGovernorate;
   specializations: RefSpecialization;
   ranks: RefRank;
-  colleges: RefCollege;
-  qualifications: RefQualification;
   nationalities: RefNationality;
   relationships: RefRelationship;
   'case-types': RefCaseType;

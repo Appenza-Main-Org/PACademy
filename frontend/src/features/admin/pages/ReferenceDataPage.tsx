@@ -44,10 +44,8 @@ import { LookupTab } from '../components/lookups/LookupTab';
 import type {
   LookupKey,
   RefCaseType,
-  RefCollege,
   RefGovernorate,
   RefNationality,
-  RefQualification,
   RefRank,
   RefRelationship,
   RefSpecialization,
@@ -334,23 +332,6 @@ function buildColumns(tab: ReferenceTab): DataTableColumn<unknown>[] {
       { key: 'applicableTo', label: 'الفئة', render: (r) => APPLICABLE_LABELS[r.applicableTo] },
     ] satisfies DataTableColumn<RefRank>[]) as unknown as DataTableColumn<unknown>[];
   }
-  if (tab === 'colleges') {
-    return ([
-      { key: 'id', label: 'الكود', width: 96 },
-      { key: 'nameAr', label: 'الكلية / الجامعة', render: (r) => r.nameAr },
-      { key: 'governorateId', label: 'المحافظة', render: (r) => r.governorateId },
-      { key: 'type', label: 'النوع', render: (r) => COLLEGE_TYPE_LABELS[r.type] },
-      { key: 'active', label: 'نشط', render: (r) => <ActiveBadge active={r.active} /> },
-    ] satisfies DataTableColumn<RefCollege>[]) as unknown as DataTableColumn<unknown>[];
-  }
-  if (tab === 'qualifications') {
-    return ([
-      { key: 'id', label: 'الكود', width: 96 },
-      { key: 'nameAr', label: 'المؤهل', render: (r) => r.nameAr },
-      { key: 'level', label: 'المستوى', render: (r) => QUAL_LEVEL_LABELS[r.level] },
-      { key: 'facultyRequired', label: 'يلزم تخصص', render: (r) => (r.facultyRequired ? 'نعم' : 'لا') },
-    ] satisfies DataTableColumn<RefQualification>[]) as unknown as DataTableColumn<unknown>[];
-  }
   if (tab === 'nationalities') {
     return ([
       { key: 'id', label: 'الكود', width: 96 },
@@ -401,17 +382,6 @@ const APPLICABLE_LABELS: Record<RefRank['applicableTo'], string> = {
   officer: 'ضابط',
   enlisted: 'عسكري',
   civilian: 'مدني',
-};
-const COLLEGE_TYPE_LABELS: Record<RefCollege['type'], string> = {
-  public: 'حكومي',
-  private: 'خاص',
-  azhar: 'أزهر',
-};
-const QUAL_LEVEL_LABELS: Record<RefQualification['level'], string> = {
-  diploma: 'دبلوم',
-  bachelor: 'بكالوريوس',
-  master: 'ماجستير',
-  phd: 'دكتوراه',
 };
 const RELATION_SIDE_LABELS: Record<RefRelationship['side'], string> = {
   paternal: 'الأب',
@@ -513,36 +483,6 @@ function ReferenceFormDrawer({ tab, open, editing, onClose, onSubmit }: DrawerPr
               />
             </>
           )}
-          {tab === 'colleges' && (
-            <>
-              <Input
-                label="رمز المحافظة"
-                value={(draft.governorateId as string) ?? ''}
-                onChange={(e) => set('governorateId', e.target.value)}
-              />
-              <Select
-                label="النوع"
-                value={(draft.type as string) ?? 'public'}
-                onChange={(e) => set('type', e.target.value)}
-                options={Object.entries(COLLEGE_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
-              />
-            </>
-          )}
-          {tab === 'qualifications' && (
-            <>
-              <Select
-                label="المستوى"
-                value={(draft.level as string) ?? 'diploma'}
-                onChange={(e) => set('level', e.target.value)}
-                options={Object.entries(QUAL_LEVEL_LABELS).map(([value, label]) => ({ value, label }))}
-              />
-              <ToggleField
-                label="يلزم تحديد تخصص"
-                checked={Boolean(draft.facultyRequired)}
-                onChange={(v) => set('facultyRequired', v)}
-              />
-            </>
-          )}
           {tab === 'nationalities' && (
             <Input
               label="ISO Code"
@@ -582,8 +522,7 @@ function ReferenceFormDrawer({ tab, open, editing, onClose, onSubmit }: DrawerPr
             </>
           )}
           {(tab === 'governorates' ||
-            tab === 'specializations' ||
-            tab === 'colleges') && (
+            tab === 'specializations') && (
             <ToggleField
               label="نشط"
               checked={Boolean(draft.active ?? true)}
@@ -609,8 +548,6 @@ function defaultPayload(tab: ReferenceTab): Record<string, unknown> {
   if (tab === 'governorates') return { ...base, nameEn: '', region: 'cairo', active: true };
   if (tab === 'specializations') return { ...base, code: '', facultyType: 'civil', active: true };
   if (tab === 'ranks') return { ...base, level: 1, applicableTo: 'officer' };
-  if (tab === 'colleges') return { ...base, governorateId: 'GOV-01', type: 'public', active: true };
-  if (tab === 'qualifications') return { ...base, level: 'diploma', facultyRequired: false };
   if (tab === 'nationalities') return { ...base, nameEn: '', isoCode: '' };
   if (tab === 'relationships') return { ...base, degree: 1, side: 'paternal' };
   return { ...base, severity: 'low', blocksApplication: false };

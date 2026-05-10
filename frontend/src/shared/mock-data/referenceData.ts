@@ -8,10 +8,8 @@
 
 import type {
   RefCaseType,
-  RefCollege,
   RefGovernorate,
   RefNationality,
-  RefQualification,
   RefRank,
   RefRelationship,
   RefSpecialization,
@@ -77,30 +75,6 @@ export const REF_RANKS: readonly RefRank[] = [
   { id: 'RNK-10', nameAr: 'مدني',           level: 0,  applicableTo: 'civilian' },
 ];
 
-export const REF_COLLEGES: readonly RefCollege[] = [
-  { id: 'COL-01', nameAr: 'كلية الشرطة',                    governorateId: 'GOV-02', type: 'public', active: true },
-  { id: 'COL-02', nameAr: 'جامعة القاهرة',                  governorateId: 'GOV-01', type: 'public', active: true },
-  { id: 'COL-03', nameAr: 'جامعة الإسكندرية',               governorateId: 'GOV-03', type: 'public', active: true },
-  { id: 'COL-04', nameAr: 'جامعة عين شمس',                 governorateId: 'GOV-01', type: 'public', active: true },
-  { id: 'COL-05', nameAr: 'جامعة الأزهر',                   governorateId: 'GOV-01', type: 'azhar',  active: true },
-  { id: 'COL-06', nameAr: 'جامعة المنصورة',                 governorateId: 'GOV-04', type: 'public', active: true },
-  { id: 'COL-07', nameAr: 'جامعة الزقازيق',                 governorateId: 'GOV-05', type: 'public', active: true },
-  { id: 'COL-08', nameAr: 'جامعة المنيا',                   governorateId: 'GOV-10', type: 'public', active: true },
-  { id: 'COL-09', nameAr: 'جامعة أسيوط',                    governorateId: 'GOV-11', type: 'public', active: true },
-  { id: 'COL-10', nameAr: 'الجامعة الأمريكية بالقاهرة',     governorateId: 'GOV-01', type: 'private', active: true },
-];
-
-export const REF_QUALIFICATIONS: readonly RefQualification[] = [
-  { id: 'QLF-01', nameAr: 'ثانوية عامة (علمي)',    level: 'diploma',  facultyRequired: false },
-  { id: 'QLF-02', nameAr: 'ثانوية عامة (أدبي)',     level: 'diploma',  facultyRequired: false },
-  { id: 'QLF-03', nameAr: 'ثانوية أزهرية',          level: 'diploma',  facultyRequired: false },
-  { id: 'QLF-04', nameAr: 'دبلوم فني',              level: 'diploma',  facultyRequired: false },
-  { id: 'QLF-05', nameAr: 'بكالوريوس',              level: 'bachelor', facultyRequired: true },
-  { id: 'QLF-06', nameAr: 'ليسانس',                level: 'bachelor', facultyRequired: true },
-  { id: 'QLF-07', nameAr: 'ماجستير',               level: 'master',   facultyRequired: true },
-  { id: 'QLF-08', nameAr: 'دكتوراه',                level: 'phd',      facultyRequired: true },
-];
-
 export const REF_NATIONALITIES: readonly RefNationality[] = [
   { id: 'NAT-EG',  nameAr: 'مصري',         nameEn: 'Egyptian',     isoCode: 'EG' },
   { id: 'NAT-SA',  nameAr: 'سعودي',        nameEn: 'Saudi',        isoCode: 'SA' },
@@ -152,8 +126,6 @@ export const REFERENCE_DATA: { [K in ReferenceTab]: readonly ReferenceRowMap[K][
   governorates: REF_GOVERNORATES,
   specializations: REF_SPECIALIZATIONS,
   ranks: REF_RANKS,
-  colleges: REF_COLLEGES,
-  qualifications: REF_QUALIFICATIONS,
   nationalities: REF_NATIONALITIES,
   relationships: REF_RELATIONSHIPS,
   'case-types': REF_CASE_TYPES,
@@ -163,8 +135,6 @@ export const REFERENCE_TAB_LABELS: Record<ReferenceTab, string> = {
   governorates: 'المحافظات',
   specializations: 'التخصصات',
   ranks: 'الرتب العسكرية',
-  colleges: 'الكليات',
-  qualifications: 'المؤهلات الدراسية',
   nationalities: 'الجنسيات',
   relationships: 'درجات القرابة',
   'case-types': 'أنواع القضايا',

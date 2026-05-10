@@ -34,8 +34,6 @@ const STATE: LooseState = {
   governorates:    [...MOCK.referenceData.governorates],
   specializations: [...MOCK.referenceData.specializations],
   ranks:           [...MOCK.referenceData.ranks],
-  colleges:        [...MOCK.referenceData.colleges],
-  qualifications:  [...MOCK.referenceData.qualifications],
   nationalities:   [...MOCK.referenceData.nationalities],
   relationships:   [...MOCK.referenceData.relationships],
   'case-types':    [...MOCK.referenceData['case-types']],
