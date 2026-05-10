@@ -7,23 +7,22 @@
  *
  * Per-row contract (cycle.openCategories[key]):
  *   - status (مفتوح / مغلق)
- *   - gender types (ذكور / إناث) — multi-select, required when open
+ *   - gender types (ذكور / إناث) — segmented toggle, required when open
  *   - start date / end date — required when open, must sit inside
  *     the cycle's [openDate, closeDate] (academic year) window
- *   - capacity, notes
+ *   - capacity (notes field retained in data model but no longer edited in UI)
  */
 
 import { useState } from 'react';
-import { AlertCircle, CalendarRange } from 'lucide-react';
+import { AlertCircle, CalendarRange, Check } from 'lucide-react';
 import {
   Badge,
   Button,
   Card,
   DatePicker,
   Input,
-  MultiSelect,
-  Textarea,
 } from '@/shared/components';
+import { cn } from '@/shared/lib/cn';
 import type {
   AdmissionCycle,
   AdmissionCycleCategoryConfig,
@@ -41,7 +40,8 @@ interface CategoriesPanelProps {
   ) => void;
 }
 
-const GENDER_OPTIONS: { value: string; label: string }[] = [
+type Gender = 'male' | 'female';
+const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: 'male', label: 'ذكور' },
   { value: 'female', label: 'إناث' },
 ];
@@ -68,7 +68,7 @@ export function CategoriesPanel({
       </div>
       <Card>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1080px] text-sm">
+          <table className="w-full min-w-[960px] text-sm">
             <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">
               <tr>
                 <th className="py-2 pe-3 text-start">الفئة</th>
@@ -78,7 +78,7 @@ export function CategoriesPanel({
                 <th className="py-2 pe-3 text-start">السعة</th>
                 <th className="py-2 pe-3 text-start">تاريخ البداية</th>
                 <th className="py-2 pe-3 text-start">تاريخ النهاية</th>
-                <th className="py-2 pe-3 text-start">ملاحظات</th>
+                <th className="py-2 pe-3 text-end" aria-label="إجراءات" />
               </tr>
             </thead>
             <tbody>
@@ -146,18 +146,12 @@ function CategoryRow({
         </td>
 
         <td className="py-3 pe-3">
-          <div className="min-w-[180px]">
-            <MultiSelect
-              options={GENDER_OPTIONS}
-              value={draft.genderTypes ?? []}
-              onChange={(next) =>
-                setDraft({ ...draft, genderTypes: next as ('male' | 'female')[] })
-              }
-              disabled={readOnly}
-              placeholder="اختر…"
-              ariaLabel={`نوع المتقدم لفئة ${category.labelAr}`}
-            />
-          </div>
+          <GenderToggle
+            value={draft.genderTypes ?? []}
+            onChange={(next) => setDraft({ ...draft, genderTypes: next })}
+            disabled={readOnly}
+            ariaLabel={`نوع المتقدم لفئة ${category.labelAr}`}
+          />
         </td>
 
         <td className="py-3 pe-3">
@@ -176,13 +170,14 @@ function CategoryRow({
         <td className="py-3 pe-3">
           <Input
             type="number"
+            min={0}
             value={draft.capacity ?? ''}
             disabled={readOnly}
             onChange={(e) =>
               setDraft({ ...draft, capacity: e.target.value ? Number(e.target.value) : null })
             }
             containerClassName="!mb-0"
-            className="w-24"
+            className="w-20 text-end tabular-nums"
           />
         </td>
 
@@ -210,27 +205,18 @@ function CategoryRow({
           </div>
         </td>
 
-        <td className="py-3 pe-3">
-          <div className="flex items-start gap-2">
-            <Textarea
-              value={draft.notes}
-              disabled={readOnly}
-              onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-              containerClassName="!mb-0 flex-1 min-w-[140px]"
-              rows={1}
-            />
-            {dirty && !readOnly && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSave}
-                disabled={issues.length > 0}
-                title={issues[0] ?? undefined}
-              >
-                حفظ
-              </Button>
-            )}
-          </div>
+        <td className="py-3 ps-3 text-end">
+          {dirty && !readOnly && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSave}
+              disabled={issues.length > 0}
+              title={issues[0] ?? undefined}
+            >
+              حفظ
+            </Button>
+          )}
         </td>
       </tr>
 
@@ -249,6 +235,77 @@ function CategoryRow({
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * GenderToggle — segmented two-pill control for selecting ذكور / إناث.
+ *
+ * Replaces a generic MultiSelect with chips for what is really a fixed
+ * 2-option multi-toggle. Each pill flips its own selection independently
+ * (both can be active, both can be off — same semantics as before).
+ *
+ * Visual: shared rounded-pill container with subtle border; each pill
+ * fills with `var(--accent-500)` when active so per-app accent flows
+ * through `data-app="..."`. A check glyph on the active side confirms
+ * state at a glance.
+ */
+function GenderToggle({
+  value,
+  onChange,
+  disabled,
+  ariaLabel,
+}: {
+  value: readonly Gender[];
+  onChange: (next: Gender[]) => void;
+  disabled?: boolean;
+  ariaLabel?: string;
+}): JSX.Element {
+  const toggle = (g: Gender): void => {
+    const set = new Set<Gender>(value);
+    if (set.has(g)) set.delete(g);
+    else set.add(g);
+    onChange(Array.from(set));
+  };
+  return (
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-pill border border-border-default bg-white p-0.5 shadow-xs',
+        disabled && 'opacity-60',
+      )}
+    >
+      {GENDER_OPTIONS.map(({ value: g, label }) => {
+        const active = value.includes(g);
+        return (
+          <button
+            key={g}
+            type="button"
+            role="switch"
+            aria-checked={active}
+            disabled={disabled}
+            onClick={() => toggle(g)}
+            className={cn(
+              'inline-flex items-center gap-1 rounded-pill px-3 py-1 text-xs font-medium',
+              'transition-colors duration-[var(--motion-fast)]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+              !disabled && !active && 'text-ink-700 hover:bg-ink-50',
+              !active && 'bg-transparent',
+              !disabled && 'cursor-pointer',
+            )}
+            style={
+              active
+                ? { background: 'var(--accent-500)', color: '#ffffff' }
+                : undefined
+            }
+          >
+            {active && <Check size={11} strokeWidth={3} aria-hidden />}
+            {label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
