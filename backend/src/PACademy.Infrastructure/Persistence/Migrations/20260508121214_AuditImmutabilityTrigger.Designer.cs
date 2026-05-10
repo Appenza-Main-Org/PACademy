@@ -192,7 +192,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)")
-                        .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+                        .UseCollation("Arabic_100_CI_AS_SC");
 
                     b.Property<string>("RulesJson")
                         .HasColumnType("nvarchar(max)");
@@ -244,7 +244,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)")
-                        .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+                        .UseCollation("Arabic_100_CI_AS_SC");
 
                     b.Property<string>("Gender")
                         .HasMaxLength(10)
@@ -368,7 +368,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)")
-                        .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+                        .UseCollation("Arabic_100_CI_AS_SC");
 
                     b.Property<string>("TargetType")
                         .IsRequired()
@@ -427,7 +427,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)")
-                        .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+                        .UseCollation("Arabic_100_CI_AS_SC");
 
                     b.Property<string>("NameEn")
                         .HasMaxLength(200)
@@ -481,7 +481,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)")
-                        .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+                        .UseCollation("Arabic_100_CI_AS_SC");
 
                     b.Property<DateTime?>("OpenDate")
                         .HasColumnType("datetime2");
@@ -546,7 +546,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)")
-                        .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+                        .UseCollation("Arabic_100_CI_AS_SC");
 
                     b.Property<string>("NameEn")
                         .HasMaxLength(200)
@@ -643,7 +643,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)")
-                        .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+                        .UseCollation("Arabic_100_CI_AS_SC");
 
                     b.Property<string>("StepsJson")
                         .HasColumnType("nvarchar(max)");
@@ -701,7 +701,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)")
-                        .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+                        .UseCollation("Arabic_100_CI_AS_SC");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");

@@ -13,7 +13,7 @@ internal sealed class ReferenceDataEntryConfiguration : IEntityTypeConfiguration
         b.Property(r => r.Category).HasMaxLength(100).IsRequired();
         b.Property(r => r.Key).HasMaxLength(100).IsRequired();
         b.Property(r => r.NameAr).HasMaxLength(200).IsRequired()
-            .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+            .UseCollation("Arabic_100_CI_AS_SC");
         b.Property(r => r.NameEn).HasMaxLength(200);
         b.Property(r => r.Metadata).HasColumnType("nvarchar(max)");
         b.Property(r => r.SortOrder).HasDefaultValue(0).IsRequired();

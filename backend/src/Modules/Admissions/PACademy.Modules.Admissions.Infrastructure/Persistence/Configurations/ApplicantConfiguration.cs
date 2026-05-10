@@ -12,7 +12,7 @@ internal sealed class ApplicantConfiguration : IEntityTypeConfiguration<Applican
         b.HasKey(a => a.Id);
         b.Property(a => a.NationalId).HasMaxLength(14).IsRequired();
         b.Property(a => a.FullName).HasMaxLength(300).IsRequired()
-            .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+            .UseCollation("Arabic_100_CI_AS_SC");
         b.Property(a => a.Gender).HasMaxLength(10);
         b.Property(a => a.Mobile).HasMaxLength(20);
         b.Property(a => a.Email).HasMaxLength(200);

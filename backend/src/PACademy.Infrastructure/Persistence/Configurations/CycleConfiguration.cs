@@ -12,7 +12,7 @@ internal sealed class CycleConfiguration : IEntityTypeConfiguration<Cycle>
         b.HasKey(c => c.Id);
 
         b.Property(c => c.NameAr).HasMaxLength(200).IsRequired()
-            .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+            .UseCollation("Arabic_100_CI_AS_SC");
         b.Property(c => c.Year).IsRequired();
         b.Property(c => c.Cohort).HasMaxLength(8).IsRequired();
         b.Property(c => c.ExpectedCapacity).IsRequired();

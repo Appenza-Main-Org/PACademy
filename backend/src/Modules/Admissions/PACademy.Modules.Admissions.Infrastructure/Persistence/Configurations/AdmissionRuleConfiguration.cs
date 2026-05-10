@@ -12,7 +12,7 @@ internal sealed class AdmissionRuleConfiguration : IEntityTypeConfiguration<Admi
         b.HasKey(r => r.Id);
 
         b.Property(r => r.Name).HasMaxLength(200).IsRequired()
-            .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+            .UseCollation("Arabic_100_CI_AS_SC");
         b.Property(r => r.Description).HasMaxLength(1000);
         b.Property(r => r.CycleId);
         b.Property(r => r.Version).HasDefaultValue(1).IsRequired();

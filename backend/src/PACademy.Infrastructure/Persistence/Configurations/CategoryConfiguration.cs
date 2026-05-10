@@ -13,7 +13,7 @@ internal sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
 
         b.Property(c => c.Key).HasMaxLength(100).IsRequired();
         b.Property(c => c.NameAr).HasMaxLength(200).IsRequired()
-            .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+            .UseCollation("Arabic_100_CI_AS_SC");
         b.Property(c => c.NameEn).HasMaxLength(200);
         b.Property(c => c.Description).HasMaxLength(1000);
         b.Property(c => c.ConditionsJson).HasColumnName("Conditions").HasColumnType("nvarchar(max)").HasDefaultValue("{}");

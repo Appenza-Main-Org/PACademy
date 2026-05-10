@@ -16,7 +16,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC_UTF8"),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC"),
                     Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
                     RulesJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
@@ -38,7 +38,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     NationalId = table.Column<string>(type: "nvarchar(14)", maxLength: 14, nullable: false),
-                    FullName = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false, collation: "Arabic_100_CI_AS_SC_UTF8"),
+                    FullName = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false, collation: "Arabic_100_CI_AS_SC"),
                     CycleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Status = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
                     DateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -84,7 +84,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                     Action = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
                     TargetType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     TargetId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    TargetLabel = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false, collation: "Arabic_100_CI_AS_SC_UTF8"),
+                    TargetLabel = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false, collation: "Arabic_100_CI_AS_SC"),
                     Outcome = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
                     BeforeJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     AfterJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -109,7 +109,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Key = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    NameAr = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC_UTF8"),
+                    NameAr = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC"),
                     NameEn = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
                     SortOrder = table.Column<int>(type: "int", nullable: false),
@@ -129,7 +129,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC_UTF8"),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC"),
                     Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
                     Status = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
                     OpenDate = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -153,7 +153,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Category = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     Key = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    NameAr = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC_UTF8"),
+                    NameAr = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC"),
                     NameEn = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     Metadata = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
                     SortOrder = table.Column<int>(type: "int", nullable: false),
@@ -193,7 +193,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     NationalId = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     OfficerCode = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
-                    FullName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC_UTF8"),
+                    FullName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC"),
                     Mobile = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     IssueDate = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -229,7 +229,7 @@ namespace PACademy.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC_UTF8"),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false, collation: "Arabic_100_CI_AS_SC"),
                     Description = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
                     StepsJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),

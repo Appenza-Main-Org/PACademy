@@ -12,7 +12,7 @@ internal sealed class SystemUserConfiguration : IEntityTypeConfiguration<SystemU
 
         b.Property(u => u.OfficerCode).HasMaxLength(32).IsRequired();
         b.Property(u => u.FullName).HasMaxLength(200).IsRequired()
-            .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+            .UseCollation("Arabic_100_CI_AS_SC");
         b.Property(u => u.Mobile).HasMaxLength(20).IsRequired();
         b.Property(u => u.CardFactoryNumber).HasMaxLength(32).IsRequired();
         b.Property(u => u.Role).HasMaxLength(64).IsRequired();

@@ -17,7 +17,7 @@ internal sealed class AuditEntryConfiguration : IEntityTypeConfiguration<AuditEn
         b.Property(a => a.TargetType).HasMaxLength(100).IsRequired();
         b.Property(a => a.TargetId).IsRequired();
         b.Property(a => a.TargetLabel).HasMaxLength(300).IsRequired()
-            .UseCollation("Arabic_100_CI_AS_SC_UTF8");
+            .UseCollation("Arabic_100_CI_AS_SC");
         b.Property(a => a.Outcome).HasConversion<string>().HasMaxLength(32).IsRequired();
         b.Property(a => a.BeforeJson).HasColumnType("nvarchar(max)");
         b.Property(a => a.AfterJson).HasColumnType("nvarchar(max)");
