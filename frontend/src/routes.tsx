@@ -10,7 +10,7 @@
  *                         /architecture, /profile
  */
 
-import { Navigate, type RouteObject } from 'react-router-dom';
+import { Navigate, useParams, type RouteObject } from 'react-router-dom';
 import { AuthGuard } from '@/app/providers/AuthGuard';
 import { LoginPage, useAuthStore } from '@/features/auth';
 import { ROUTES } from '@/config/routes';
@@ -88,7 +88,6 @@ import {
 import {
   CommitteeCreatePage,
   CommitteeDetailPage,
-  CommitteeLayout,
   CommitteeListPage,
   CommitteeOverviewPage,
   CommitteeSchedulePage,
@@ -175,6 +174,15 @@ function AdminIndexRoute(): JSX.Element {
  */
 function HubIndexRoute(): JSX.Element {
   return <HubPage />;
+}
+
+/**
+ * Back-compat redirect for the legacy `/committee/:id` detail URLs.
+ * Forwards the `:id` segment to the new `/admin/committee/:id` route.
+ */
+function LegacyCommitteeDetailRedirect(): JSX.Element {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/admin/committee/${id ?? ''}`} replace />;
 }
 
 export const routes: RouteObject[] = [
@@ -294,9 +302,16 @@ export const routes: RouteObject[] = [
   },
 
   /* ── STAFF INTERNAL APPS ─────────────────────────────────── */
+  /**
+   * Committees now live under /admin/committee/* so they render inside
+   * AdminLayout chrome (matching the "لجان القبول" sidebar section in
+   * AdminLayout.tsx). Kept as a sibling block — not a child of /admin —
+   * so the AuthGuard can stay `app="committee"`: committee_user has
+   * `committee` but not `admin`, and we don't want to lock them out.
+   */
   {
-    path: '/committee',
-    element: <AuthGuard app="committee"><CommitteeLayout /></AuthGuard>,
+    path: '/admin/committee',
+    element: <AuthGuard app="committee"><AdminLayout /></AuthGuard>,
     children: [
       { index: true, element: <CommitteeOverviewPage /> },
       { path: 'list', element: <CommitteeListPage /> },
@@ -305,6 +320,12 @@ export const routes: RouteObject[] = [
       { path: ':id', element: <CommitteeDetailPage /> },
     ],
   },
+  /* Back-compat: old /committee/* URLs land users on the new paths. */
+  { path: '/committee', element: <Navigate to="/admin/committee" replace /> },
+  { path: '/committee/list', element: <Navigate to="/admin/committee/list" replace /> },
+  { path: '/committee/schedule', element: <Navigate to="/admin/committee/schedule" replace /> },
+  { path: '/committee/create', element: <Navigate to="/admin/committee/create" replace /> },
+  { path: '/committee/:id', element: <LegacyCommitteeDetailRedirect /> },
 
   {
     path: '/board',

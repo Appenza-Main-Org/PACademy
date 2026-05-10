@@ -84,11 +84,11 @@ export const ROUTES = {
 
   /* ── Internal staff apps ── */
   committee: {
-    overview: '/committee',
-    list: '/committee/list',
-    schedule: '/committee/schedule',
-    create: '/committee/create',
-    detail: (id = ':id'): string => `/committee/${id}`,
+    overview: '/admin/committee',
+    list: '/admin/committee/list',
+    schedule: '/admin/committee/schedule',
+    create: '/admin/committee/create',
+    detail: (id = ':id'): string => `/admin/committee/${id}`,
   },
   board: {
     overview: '/board',
