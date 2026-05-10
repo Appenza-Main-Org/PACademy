@@ -125,7 +125,16 @@ export function Combobox({
       const inPopover = popoverRef.current?.contains(target) ?? false;
       if (!inTrigger && !inPopover) setOpen(false);
     };
-    const onScroll = (): void => setOpen(false);
+    const onScroll = (event: Event): void => {
+      // Ignore scrolls originating inside the popover (e.g. the option list).
+      // Without this guard the dropdown closes the instant the user scrolls
+      // the list of options.
+      const target = event.target as Node | null;
+      if (popoverRef.current && target && popoverRef.current.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    };
     const onResize = (): void => setOpen(false);
     document.addEventListener('mousedown', onDocClick);
     window.addEventListener('scroll', onScroll, true);
