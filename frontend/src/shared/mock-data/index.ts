@@ -16,7 +16,6 @@ import {
   STATUSES,
   STAGE_LABELS,
   COMMITTEES_NAMES,
-  AUDIT_ACTIONS,
 } from './dictionaries';
 import type {
   Applicant,
@@ -230,43 +229,455 @@ const users: SystemUser[] = USER_SEED.map((s, idx) => {
   };
 });
 
-/* TIER 2 realism — bump from 80 → 240 audit events to match 2,847 applicants
- * with realistic activity rate. Spread across last 7 days with a weighted
- * lean toward today/yesterday for the "live" feel. */
+/* TIER 2 realism — 240 coherent audit entries.
+ * Each entry pairs (action, module, entity, details) so the audit log reads
+ * like genuine activity: the verb matches the entity and the `التفاصيل`
+ * sentence names the section and the affected target. */
+
+const AUDIT_SECTIONS: Record<NonNullable<AuditEntry['module']>, string> = {
+  admin: 'لوحة الإدارة',
+  auth: 'المصادقة وتسجيل الدخول',
+  cycles: 'دورات القبول',
+  categories: 'فئات المتقدمين',
+  committees: 'لجان القبول',
+  lookups: 'البيانات المرجعية',
+  exams: 'الاختبارات الإلكترونية',
+  payments: 'المدفوعات',
+  notifications: 'الإشعارات',
+  roles: 'الأدوار والصلاحيات',
+  users: 'مستخدمو النظام',
+  workflows: 'سير العمل',
+  applicants: 'ملفات المتقدمين',
+};
+
+type AuditScenarioContext = {
+  applicant: Applicant;
+  systemUser: SystemUser;
+  actor: SystemUser;
+  cycleName: string;
+  categoryLabel: string;
+  committeeName: string;
+  examName: string;
+  ip: string;
+};
+
+interface AuditScenario {
+  weight: number;
+  action: AuditEntry['action'];
+  actionLabel: string;
+  actionColor: AuditEntry['actionColor'];
+  module: NonNullable<AuditEntry['module']>;
+  entity: string;
+  entityType: string;
+  build: (ctx: AuditScenarioContext) => { details: string; entityId: string };
+}
+
+const APP_FIELD_GROUPS = [
+  'contact.mobilePhone، contact.email',
+  'currentAddress.detail، currentAddress.city',
+  'education.certYear، education.certPercent',
+  'maritalStatus، religion',
+  'family.fatherName، family.fatherJob',
+];
+
+const STAGE_TRANSITIONS = [
+  'pending → under-review · استكمال الفحص الأولي',
+  'under-review → under_medical_review · إحالة للقومسيون الطبي',
+  'under_medical_review → under_committee_review · إحالة للجنة القبول',
+  'under_committee_review → under_investigation · بدء التحريات',
+  'under_investigation → approved · اعتماد بعد ورود التحريات',
+];
+
+const NOTIFICATION_TITLES = [
+  'فتح باب التقديم لدورة 2026',
+  'تذكير بموعد اختبار القدرات',
+  'إعلان مواعيد القومسيون الطبي',
+  'تحديث الكشف النهائي للمقبولين',
+];
+
+const LOOKUP_TARGETS = [
+  { key: 'المحافظات', value: 'محافظة جديدة (الوادي الجديد)' },
+  { key: 'فئة المدرسة', value: 'الدبلوم الأمريكي' },
+  { key: 'أسباب الرفض', value: 'الطول أقل من المطلوب' },
+  { key: 'الجنسيات', value: 'مغربي' },
+  { key: 'شعبة المتقدمين', value: 'علمي رياضة' },
+];
+
+const WORKFLOW_NAMES = [
+  'سير عمل دورة الضباط 2026',
+  'سير عمل القومسيون الطبي',
+  'سير عمل التحريات',
+];
+
+const SCENARIOS: AuditScenario[] = [
+  /* — applicants — */
+  {
+    weight: 14, action: 'update', actionLabel: 'تعديل بيانات المتقدم', actionColor: 'info',
+    module: 'applicants', entity: 'متقدم', entityType: 'applicant',
+    build: ({ applicant }) => ({
+      details: `تعديل بيانات المتقدم ${applicant.name} (${applicant.id}) — تحديث الحقول: ${pick(APP_FIELD_GROUPS)} · قسم ${AUDIT_SECTIONS.applicants}`,
+      entityId: applicant.id,
+    }),
+  },
+  {
+    weight: 10, action: 'view', actionLabel: 'استعلام عن الملف', actionColor: 'neutral',
+    module: 'applicants', entity: 'متقدم', entityType: 'applicant',
+    build: ({ applicant }) => ({
+      details: `فتح ملف المتقدم ${applicant.name} (${applicant.id}) للمراجعة · قسم ${AUDIT_SECTIONS.applicants}`,
+      entityId: applicant.id,
+    }),
+  },
+  {
+    weight: 12, action: 'applicant.transition', actionLabel: 'تحديث حالة المتقدم', actionColor: 'warning',
+    module: 'applicants', entity: 'متقدم', entityType: 'applicant',
+    build: ({ applicant }) => ({
+      details: `تحديث حالة المتقدم ${applicant.name} (${applicant.id}): ${pick(STAGE_TRANSITIONS)} · قسم ${AUDIT_SECTIONS.applicants}`,
+      entityId: applicant.id,
+    }),
+  },
+  {
+    weight: 6, action: 'create', actionLabel: 'إضافة المتقدم', actionColor: 'success',
+    module: 'applicants', entity: 'متقدم', entityType: 'applicant',
+    build: ({ applicant }) => ({
+      details: `إنشاء ملف متقدم جديد — ${applicant.name} (${applicant.id}) · قسم ${AUDIT_SECTIONS.applicants}`,
+      entityId: applicant.id,
+    }),
+  },
+  {
+    weight: 3, action: 'soft_delete', actionLabel: 'حذف ناعم', actionColor: 'warning',
+    module: 'applicants', entity: 'متقدم', entityType: 'applicant',
+    build: ({ applicant }) => ({
+      details: `حذف ناعم لملف المتقدم ${applicant.name} (${applicant.id}) — السبب: تكرار التسجيل · قسم ${AUDIT_SECTIONS.applicants}`,
+      entityId: applicant.id,
+    }),
+  },
+
+  /* — cycles — */
+  {
+    weight: 2, action: 'cycle_activated', actionLabel: 'تفعيل دورة', actionColor: 'success',
+    module: 'cycles', entity: 'دورة قبول', entityType: 'cycle',
+    build: ({ cycleName }) => ({
+      details: `تفعيل ${cycleName} وفتح باب التقديم · قسم ${AUDIT_SECTIONS.cycles}`,
+      entityId: 'CYC-2026',
+    }),
+  },
+  {
+    weight: 3, action: 'cycle_extended', actionLabel: 'تمديد دورة', actionColor: 'info',
+    module: 'cycles', entity: 'دورة قبول', entityType: 'cycle',
+    build: ({ cycleName }) => ({
+      details: `تمديد ${cycleName} لمدة 7 أيام إضافية بعد طلب اللجنة العليا · قسم ${AUDIT_SECTIONS.cycles}`,
+      entityId: 'CYC-2026',
+    }),
+  },
+  {
+    weight: 2, action: 'cycle_closed', actionLabel: 'إغلاق دورة', actionColor: 'warning',
+    module: 'cycles', entity: 'دورة قبول', entityType: 'cycle',
+    build: ({ cycleName }) => ({
+      details: `إغلاق باب التقديم في ${cycleName} وتثبيت قوائم المتقدمين · قسم ${AUDIT_SECTIONS.cycles}`,
+      entityId: 'CYC-2026',
+    }),
+  },
+
+  /* — categories — */
+  {
+    weight: 4, action: 'category_rules_changed', actionLabel: 'تعديل شروط فئة', actionColor: 'info',
+    module: 'categories', entity: 'فئة متقدمين', entityType: 'category',
+    build: ({ categoryLabel }) => ({
+      details: `تعديل شروط فئة "${categoryLabel}" — تحديث الحد الأدنى للسن والمجموع · قسم ${AUDIT_SECTIONS.categories}`,
+      entityId: 'CAT-001',
+    }),
+  },
+  {
+    weight: 2, action: 'category_rules_changed_with_override', actionLabel: 'تعديل شروط فئة (تجاوز)', actionColor: 'warning',
+    module: 'categories', entity: 'فئة متقدمين', entityType: 'category',
+    build: ({ categoryLabel }) => ({
+      details: `تعديل شروط فئة "${categoryLabel}" مع تجاوز الفحص — بإذن اللجنة العليا · قسم ${AUDIT_SECTIONS.categories}`,
+      entityId: 'CAT-001',
+    }),
+  },
+
+  /* — committees — */
+  {
+    weight: 4, action: 'create', actionLabel: 'إنشاء لجنة', actionColor: 'success',
+    module: 'committees', entity: 'لجنة قبول', entityType: 'committee',
+    build: ({ committeeName }) => ({
+      details: `إنشاء ${committeeName} وتعيين رئيس وأعضاء جدد · قسم ${AUDIT_SECTIONS.committees}`,
+      entityId: 'C-NEW',
+    }),
+  },
+  {
+    weight: 4, action: 'update', actionLabel: 'تعديل تشكيل اللجنة', actionColor: 'info',
+    module: 'committees', entity: 'لجنة قبول', entityType: 'committee',
+    build: ({ committeeName }) => ({
+      details: `تعديل تشكيل ${committeeName} — تحديث قائمة الأعضاء وعدد المتقدمين · قسم ${AUDIT_SECTIONS.committees}`,
+      entityId: 'C-UPD',
+    }),
+  },
+
+  /* — exams — */
+  {
+    weight: 6, action: 'create', actionLabel: 'إنشاء اختبار', actionColor: 'success',
+    module: 'exams', entity: 'اختبار', entityType: 'exam',
+    build: ({ examName }) => ({
+      details: `إنشاء "${examName}" — جدولة موعد وربط بنك الأسئلة · قسم ${AUDIT_SECTIONS.exams}`,
+      entityId: 'EX-NEW',
+    }),
+  },
+  {
+    weight: 4, action: 'update', actionLabel: 'تعديل اختبار', actionColor: 'info',
+    module: 'exams', entity: 'اختبار', entityType: 'exam',
+    build: ({ examName }) => ({
+      details: `تحديث جدول "${examName}" — تعديل المدة من 45 إلى 60 دقيقة · قسم ${AUDIT_SECTIONS.exams}`,
+      entityId: 'EX-UPD',
+    }),
+  },
+  {
+    weight: 4, action: 'export', actionLabel: 'تصدير نتائج', actionColor: 'warning',
+    module: 'exams', entity: 'نتائج اختبار', entityType: 'exam_result',
+    build: ({ examName }) => ({
+      details: `تصدير نتائج "${examName}" بصيغة Excel لعدد 2,847 متقدم · قسم ${AUDIT_SECTIONS.exams}`,
+      entityId: 'EX-RES',
+    }),
+  },
+
+  /* — payments — */
+  {
+    weight: 8, action: 'payment_status_changed', actionLabel: 'تحديث حالة الدفع', actionColor: 'info',
+    module: 'payments', entity: 'سداد رسوم', entityType: 'payment',
+    build: ({ applicant }) => ({
+      details: `تأكيد دفع رسوم التقديم — ${applicant.name} (${applicant.id}) · مبلغ 1,500 ج.م · قسم ${AUDIT_SECTIONS.payments}`,
+      entityId: applicant.id,
+    }),
+  },
+  {
+    weight: 2, action: 'payment_refunded', actionLabel: 'إعادة مقابل مالي', actionColor: 'warning',
+    module: 'payments', entity: 'سداد رسوم', entityType: 'payment',
+    build: ({ applicant }) => ({
+      details: `إعادة مقابل مالي إلى ${applicant.name} (${applicant.id}) — مبلغ 1,500 ج.م · قسم ${AUDIT_SECTIONS.payments}`,
+      entityId: applicant.id,
+    }),
+  },
+
+  /* — notifications — */
+  {
+    weight: 4, action: 'notification_published', actionLabel: 'نشر إشعار', actionColor: 'success',
+    module: 'notifications', entity: 'إشعار', entityType: 'notification',
+    build: () => {
+      const title = pick(NOTIFICATION_TITLES);
+      return {
+        details: `نشر إشعار "${title}" لجميع المتقدمين · قسم ${AUDIT_SECTIONS.notifications}`,
+        entityId: 'NTF-PUB',
+      };
+    },
+  },
+  {
+    weight: 2, action: 'notification_unpublished', actionLabel: 'سحب إشعار', actionColor: 'warning',
+    module: 'notifications', entity: 'إشعار', entityType: 'notification',
+    build: () => {
+      const title = pick(NOTIFICATION_TITLES);
+      return {
+        details: `سحب إشعار "${title}" قبل وصول جميع المستلمين · قسم ${AUDIT_SECTIONS.notifications}`,
+        entityId: 'NTF-UNP',
+      };
+    },
+  },
+
+  /* — users — */
+  {
+    weight: 3, action: 'user_created', actionLabel: 'إنشاء حساب مستخدم', actionColor: 'success',
+    module: 'users', entity: 'مستخدم نظام', entityType: 'user',
+    build: ({ systemUser }) => ({
+      details: `إنشاء حساب نظام جديد — ${systemUser.name} (${systemUser.role}) · قسم ${AUDIT_SECTIONS.users}`,
+      entityId: systemUser.id,
+    }),
+  },
+  {
+    weight: 4, action: 'user_roles_changed', actionLabel: 'تعديل أدوار المستخدم', actionColor: 'info',
+    module: 'users', entity: 'مستخدم نظام', entityType: 'user',
+    build: ({ systemUser }) => ({
+      details: `تعديل أدوار المستخدم ${systemUser.name} — منح صلاحية ${systemUser.role} · قسم ${AUDIT_SECTIONS.users}`,
+      entityId: systemUser.id,
+    }),
+  },
+  {
+    weight: 3, action: 'user_status_changed', actionLabel: 'تغيير حالة المستخدم', actionColor: 'warning',
+    module: 'users', entity: 'مستخدم نظام', entityType: 'user',
+    build: ({ systemUser }) => ({
+      details: `تعليق حساب المستخدم ${systemUser.name} بعد طلب الإدارة · قسم ${AUDIT_SECTIONS.users}`,
+      entityId: systemUser.id,
+    }),
+  },
+
+  /* — roles — */
+  {
+    weight: 3, action: 'update', actionLabel: 'تعديل دور', actionColor: 'info',
+    module: 'roles', entity: 'دور صلاحية', entityType: 'role',
+    build: () => ({
+      details: `تعديل صلاحيات دور "مدير لجنة قبول" — إضافة صلاحية مراجعة الباركود · قسم ${AUDIT_SECTIONS.roles}`,
+      entityId: 'ROLE-CA',
+    }),
+  },
+
+  /* — lookups — */
+  {
+    weight: 3, action: 'create', actionLabel: 'إضافة قيمة مرجعية', actionColor: 'success',
+    module: 'lookups', entity: 'قيمة مرجعية', entityType: 'lookup',
+    build: () => {
+      const t = pick(LOOKUP_TARGETS);
+      return {
+        details: `إضافة قيمة جديدة لقائمة "${t.key}": ${t.value} · قسم ${AUDIT_SECTIONS.lookups}`,
+        entityId: 'LK-NEW',
+      };
+    },
+  },
+  {
+    weight: 2, action: 'soft_delete', actionLabel: 'تعطيل قيمة مرجعية', actionColor: 'warning',
+    module: 'lookups', entity: 'قيمة مرجعية', entityType: 'lookup',
+    build: () => {
+      const t = pick(LOOKUP_TARGETS);
+      return {
+        details: `تعطيل قيمة من قائمة "${t.key}": ${t.value} — لا تظهر في القوائم الجديدة · قسم ${AUDIT_SECTIONS.lookups}`,
+        entityId: 'LK-DEL',
+      };
+    },
+  },
+
+  /* — workflows — */
+  {
+    weight: 2, action: 'workflow.publish', actionLabel: 'نشر سير العمل', actionColor: 'success',
+    module: 'workflows', entity: 'سير عمل', entityType: 'workflow',
+    build: () => {
+      const w = pick(WORKFLOW_NAMES);
+      return {
+        details: `نشر "${w}" واعتمادها كسير العمل المعتمد للدورة الحالية · قسم ${AUDIT_SECTIONS.workflows}`,
+        entityId: 'WF-PUB',
+      };
+    },
+  },
+  {
+    weight: 2, action: 'workflow.reorder', actionLabel: 'إعادة ترتيب المراحل', actionColor: 'info',
+    module: 'workflows', entity: 'سير عمل', entityType: 'workflow',
+    build: () => {
+      const w = pick(WORKFLOW_NAMES);
+      return {
+        details: `إعادة ترتيب مراحل "${w}" — نقل مرحلة القومسيون قبل لجنة القبول · قسم ${AUDIT_SECTIONS.workflows}`,
+        entityId: 'WF-RE',
+      };
+    },
+  },
+
+  /* — auth — */
+  {
+    weight: 12, action: 'login_success', actionLabel: 'دخول ناجح', actionColor: 'success',
+    module: 'auth', entity: 'جلسة دخول', entityType: 'session',
+    build: ({ ip, actor }) => ({
+      details: `تسجيل دخول ناجح للمستخدم ${actor.name} من IP ${ip} · قسم ${AUDIT_SECTIONS.auth}`,
+      entityId: actor.id,
+    }),
+  },
+  {
+    weight: 4, action: 'login_failed', actionLabel: 'محاولة دخول فاشلة', actionColor: 'danger',
+    module: 'auth', entity: 'جلسة دخول', entityType: 'session',
+    build: ({ ip, actor }) => ({
+      details: `محاولة دخول فاشلة باسم المستخدم ${actor.name} من IP ${ip} — كلمة مرور خاطئة · قسم ${AUDIT_SECTIONS.auth}`,
+      entityId: actor.id,
+    }),
+  },
+  {
+    weight: 2, action: 'account_locked', actionLabel: 'إيقاف الحساب', actionColor: 'danger',
+    module: 'auth', entity: 'جلسة دخول', entityType: 'session',
+    build: ({ actor }) => ({
+      details: `إيقاف حساب ${actor.name} مؤقتاً بعد 5 محاولات دخول فاشلة متتالية · قسم ${AUDIT_SECTIONS.auth}`,
+      entityId: actor.id,
+    }),
+  },
+
+  /* — admin — */
+  {
+    weight: 4, action: 'export', actionLabel: 'تصدير تقرير', actionColor: 'warning',
+    module: 'admin', entity: 'تقرير', entityType: 'report',
+    build: () => ({
+      details: `تصدير تقرير لوحة الإدارة (PDF) — مؤشرات الدورة الحالية · قسم ${AUDIT_SECTIONS.admin}`,
+      entityId: 'RPT-EXP',
+    }),
+  },
+  {
+    weight: 2, action: 'view', actionLabel: 'استعلام عن السجل', actionColor: 'neutral',
+    module: 'admin', entity: 'سجل النشاط', entityType: 'audit',
+    build: ({ actor }) => ({
+      details: `استعلام عن سجل النشاط بواسطة ${actor.name} — فلترة على الإجراءات الإدارية · قسم ${AUDIT_SECTIONS.admin}`,
+      entityId: 'AUD-VIEW',
+    }),
+  },
+];
+
+const TOTAL_WEIGHT = SCENARIOS.reduce((s, x) => s + x.weight, 0);
+
+function pickScenario(): AuditScenario {
+  let r = rng() * TOTAL_WEIGHT;
+  for (const s of SCENARIOS) {
+    r -= s.weight;
+    if (r <= 0) return s;
+  }
+  return SCENARIOS[0]!;
+}
+
+const CYCLE_NAMES_FOR_AUDIT = ADMISSION_CYCLES.map((c) => c.nameAr);
+const CATEGORY_LABELS_FOR_AUDIT = APPLICANT_CATEGORIES.map((c) => c.labelAr);
+const EXAM_NAMES_FOR_AUDIT = [
+  'اختبار القدرات 2026',
+  'اختبار اللياقة البدنية 2026',
+  'اختبار السمات الشخصية 2026',
+  'الكشف الطبي الأولي 2026',
+];
+
 const audit: AuditEntry[] = [];
 for (let i = 0; i < 240; i += 1) {
-  const u = pick(users);
-  const a = pick(AUDIT_ACTIONS);
-  const target = pick(applicants);
+  const scenario = pickScenario();
+  const actor = pick(users);
+  const applicant = pick(applicants);
+  const systemUser = pick(users);
+  const cycleName = pick(CYCLE_NAMES_FOR_AUDIT);
+  const categoryLabel = pick(CATEGORY_LABELS_FOR_AUDIT);
+  const committeeName = pick(COMMITTEES_NAMES);
+  const examName = pick(EXAM_NAMES_FOR_AUDIT);
+  const ip = `41.65.${Math.floor(rng() * 255)}.${Math.floor(rng() * 255)}`;
+
   /* Bias toward recent: 50% in last 24h, 30% in last 7 days, 20% in last 30 days */
   const r = rng();
   let ageMs: number;
   if (r < 0.50) ageMs = Math.floor(rng() * 24 * 3600 * 1000);
   else if (r < 0.80) ageMs = Math.floor(rng() * 7 * 86400 * 1000);
   else ageMs = Math.floor(rng() * 30 * 86400 * 1000);
+  const ts = Date.now() - ageMs;
+
+  const { details, entityId } = scenario.build({
+    applicant,
+    systemUser,
+    actor,
+    cycleName,
+    categoryLabel,
+    committeeName,
+    examName,
+    ip,
+  });
 
   audit.push({
     id: `AUD-${String(i + 1).padStart(6, '0')}`,
-    userId: u.id,
-    userName: u.name,
-    action: a.action,
-    actionLabel: a.label,
-    actionColor: a.color,
-    entity: pick(['متقدم', 'مستخدم', 'نتيجة اختبار', 'تقرير', 'إعداد نظام', 'لجنة', 'دورة قبول']),
-    entityId: target.id,
-    details: pick([
-      `تعديل بيانات المتقدم ${target.name}`,
-      `اعتماد نتيجة اختبار قدرات`,
-      `استعلام عن سجل التحريات`,
-      `تسجيل دخول من IP 41.65.92.${Math.floor(rng() * 255)}`,
-      `تصدير تقرير إحصائي PDF`,
-      `عرض الملف الإلكتروني للمتقدم`,
-      `إصدار باركود بدل فاقد`,
-      `حفظ نتيجة قومسيون طبي`,
-      `إقرار قرار جلسة هيئة`,
-    ]),
-    timestamp: Date.now() - ageMs,
-    ip: `41.65.${Math.floor(rng() * 255)}.${Math.floor(rng() * 255)}`,
+    userId: actor.id,
+    userName: actor.name,
+    role: actor.role,
+    action: scenario.action,
+    actionLabel: scenario.actionLabel,
+    actionColor: scenario.actionColor,
+    module: scenario.module,
+    entity: scenario.entity,
+    entityType: scenario.entityType,
+    entityId,
+    details,
+    timestamp: ts,
+    at: new Date(ts).toISOString(),
+    ip,
   });
 }
 audit.sort((a, b) => b.timestamp - a.timestamp);
