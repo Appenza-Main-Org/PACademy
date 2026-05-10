@@ -16,6 +16,11 @@
  *                             `collapsible: true`.
  *   - `expandWhenPathStartsWith`  auto-expand when the current pathname
  *                             starts with this prefix (e.g. step pages).
+ *
+ * Visual hierarchy: every non-first section gets a top hairline + extra
+ * padding so groups read as discrete blocks. Collapsible groups carry a
+ * chevron and (when expanded) render their children behind a subtle
+ * vertical guide so the parent–child relationship reads at a glance.
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
@@ -58,29 +63,52 @@ interface SidebarProps {
 
 export function Sidebar({ sections }: SidebarProps): JSX.Element {
   const user = useAuthStore((s) => s.user);
+  /* Filter once so the "first visible" index is stable for separator
+   * placement — sections hidden by RBAC must not consume the slot. */
+  const visibleSections = sections.filter(
+    (s) => !s.permission || (user !== null && hasPermission(user.permissions, s.permission)),
+  );
   return (
     <aside
       aria-label="القائمة الجانبية"
       className="sticky top-16 hidden h-[calc(100vh-67px)] w-64 flex-shrink-0 overflow-y-auto border-s border-border-subtle bg-surface-card px-3 py-4 md:block"
     >
-      {sections.map((section, i) => {
-        if (section.permission && (!user || !hasPermission(user.permissions, section.permission))) {
-          return null;
-        }
+      {visibleSections.map((section, i) => {
+        const isFirst = i === 0;
         if (section.collapsible) {
-          return <CollapsibleSection key={section.groupKey ?? section.label ?? `g-${i}`} section={section} />;
+          return (
+            <CollapsibleSection
+              key={section.groupKey ?? section.label ?? `g-${i}`}
+              section={section}
+              isFirst={isFirst}
+            />
+          );
         }
-        return <PlainSection key={section.label ?? `s-${i}`} section={section} />;
+        return (
+          <PlainSection
+            key={section.label ?? `s-${i}`}
+            section={section}
+            isFirst={isFirst}
+          />
+        );
       })}
     </aside>
   );
 }
 
-function PlainSection({ section }: { section: SidebarSection }): JSX.Element {
+/** Shared section spacing — non-first sections get a hairline separator. */
+function sectionFrameClass(isFirst: boolean): string {
+  return cn(
+    'pb-4',
+    isFirst ? 'pt-1' : 'mt-4 border-t border-border-subtle pt-4',
+  );
+}
+
+function PlainSection({ section, isFirst }: { section: SidebarSection; isFirst: boolean }): JSX.Element {
   return (
-    <div className="mb-6">
+    <div className={sectionFrameClass(isFirst)}>
       {section.label && (
-        <p className="mb-1 px-3 py-1 text-2xs font-medium uppercase tracking-wide text-ink-500">
+        <p className="mb-2 px-3 py-1 text-2xs font-semibold uppercase tracking-[0.08em] text-ink-500">
           {section.label}
         </p>
       )}
@@ -93,7 +121,13 @@ function PlainSection({ section }: { section: SidebarSection }): JSX.Element {
   );
 }
 
-function CollapsibleSection({ section }: { section: SidebarSection }): JSX.Element {
+function CollapsibleSection({
+  section,
+  isFirst,
+}: {
+  section: SidebarSection;
+  isFirst: boolean;
+}): JSX.Element {
   const { pathname } = useLocation();
   const groupKey = section.groupKey ?? section.label ?? 'group';
   const autoExpand = Boolean(
@@ -121,22 +155,34 @@ function CollapsibleSection({ section }: { section: SidebarSection }): JSX.Eleme
   };
 
   return (
-    <div className="mb-6">
+    <div className={sectionFrameClass(isFirst)}>
       {section.label && (
         <button
           type="button"
           onClick={toggle}
           aria-expanded={expanded}
           aria-controls={`sidebar-group-${groupKey}`}
-          className="mb-1 flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5 text-2xs font-medium uppercase tracking-wide text-ink-500 transition-colors duration-fast ease-standard hover:bg-ink-50 hover:text-ink-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+          className={cn(
+            'mb-2 flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5',
+            'text-2xs font-semibold uppercase tracking-[0.08em]',
+            'transition-colors duration-fast ease-standard',
+            'focus-visible:shadow-focus-teal focus-visible:outline-none',
+            expanded
+              ? 'text-ink-700 hover:bg-ink-50'
+              : 'text-ink-500 hover:bg-ink-50 hover:text-ink-700',
+          )}
         >
           <span className="flex items-center gap-2">
-            {section.icon && <span className="flex h-4 w-4 items-center justify-center text-current">{section.icon}</span>}
+            {section.icon && (
+              <span className="flex h-4 w-4 items-center justify-center text-current">
+                {section.icon}
+              </span>
+            )}
             <span>{section.label}</span>
           </span>
           <ChevronDown
-            size={14}
-            strokeWidth={1.75}
+            size={16}
+            strokeWidth={2}
             aria-hidden
             className={cn(
               'transition-transform duration-fast ease-standard motion-reduce:transition-none',
@@ -146,7 +192,15 @@ function CollapsibleSection({ section }: { section: SidebarSection }): JSX.Eleme
         </button>
       )}
       {expanded && (
-        <nav id={`sidebar-group-${groupKey}`} className="flex flex-col gap-0.5">
+        <nav
+          id={`sidebar-group-${groupKey}`}
+          className="relative flex flex-col gap-0.5"
+        >
+          {/* Vertical guide line — visually anchors children to the group. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute bottom-1 start-3 top-1 w-px bg-border-subtle"
+          />
           {section.items.map((item) => (
             <SidebarLink key={item.key} item={item} indented />
           ))}
@@ -171,7 +225,11 @@ function SidebarLink({ item, indented }: { item: SidebarItem; indented?: boolean
             'font-medium',
             'bg-[var(--accent-50)]',
             'text-[var(--accent-600)]',
-            'before:absolute before:inset-y-1 before:start-0 before:w-1 before:rounded-pill before:bg-[var(--accent-500)]',
+            /* Active-item accent bar. For nested items it sits at start-3 so
+             * it overlays the group guide line; for top-level items it
+             * hugs the sidebar edge at start-0. */
+            'before:absolute before:inset-y-1 before:w-1 before:rounded-pill before:bg-[var(--accent-500)]',
+            indented ? 'before:start-3' : 'before:start-0',
           ],
         )
       }
