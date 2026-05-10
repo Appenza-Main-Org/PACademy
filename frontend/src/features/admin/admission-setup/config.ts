@@ -138,7 +138,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     icon: Wallet,
     permission: 'admission-setup:read',
     reuses: 'features/admin/pages/CycleDetailPage.tsx',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'رسوم التقديم وإعدادات بوابة فوري.',
   },
   {
@@ -149,7 +149,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     icon: ClipboardSignature,
     permission: 'admission-setup:read',
     reuses: 'features/admin/components/exams/ExamPlanEditor.tsx',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'ترتيب الاختبارات وإلزاميتها ورسومها لكل فئة.',
   },
   {
@@ -160,7 +160,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     icon: ShieldCheck,
     permission: 'admission-setup:read',
     reuses: 'features/committees/pages/CommitteeListPage.tsx',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'إنشاء اللجان وتعيين الرؤساء والأعضاء.',
   },
   {
@@ -201,7 +201,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     icon: Link2,
     permission: 'admission-setup:read',
     reuses: 'features/committees/pages/CommitteeDetailPage.tsx',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'تخصيص الأيام والسعة اليومية لكل لجنة.',
   },
   {

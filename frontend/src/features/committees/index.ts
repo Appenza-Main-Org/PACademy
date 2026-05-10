@@ -13,3 +13,4 @@ export {
   useCommittees,
   useCommitteeUpdate,
 } from './api/committee.queries';
+export { useApproveResults, useEnterResult, useRejectResult } from './api/committee.queries';
