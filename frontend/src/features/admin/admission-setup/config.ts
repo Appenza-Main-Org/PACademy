@@ -83,7 +83,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     icon: CalendarDays,
     permission: 'admission-setup:read',
     reuses: 'features/admin/pages/CycleDetailPage.tsx',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'اسم الدورة، السنة، الفئة، تواريخ الفتح والإغلاق.',
   },
   {
@@ -94,7 +94,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     icon: Settings2,
     permission: 'admission-setup:read',
     reuses: 'features/admin/pages/CycleDetailPage.tsx',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'الفئات المفتوحة، السعة، شروط القبول الموسّعة.',
   },
   {
@@ -105,7 +105,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     icon: ClipboardCheck,
     permission: 'admission-setup:read',
     reuses: 'features/admin/pages/CycleDetailPage.tsx',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'تفعيل، تمديد، إغلاق، أرشفة الدورة.',
   },
   {
@@ -116,7 +116,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     icon: UserCog,
     permission: 'admission-setup:read',
     reuses: 'features/admin/components/categories/CategoryConditionBuilder.tsx',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'الحد الأدنى والأقصى للسن لكل فئة، مع تاريخ احتساب السن.',
   },
   {
@@ -127,7 +127,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     icon: Heart,
     permission: 'admission-setup:read',
     reuses: 'features/admin/components/categories/CategoryConditionBuilder.tsx',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'الحالات الاجتماعية المسموح بها لكل فئة.',
   },
   {
