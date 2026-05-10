@@ -222,7 +222,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     icon: ClipboardCheck,
     permission: 'admission-setup:read',
     reuses: 'features/admin/pages/NotificationsPage.tsx',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'إعداد رسائل النظام للمتقدمين.',
   },
   {
