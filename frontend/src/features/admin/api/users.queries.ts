@@ -1,29 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { usersService } from './users.service';
-import type {
-  CreateSystemUserRequest,
-  SystemUserDetailDto,
-  SystemUserListFilters,
-  UpdateSystemUserRequest,
-} from '@/shared/types/domain';
+import { usersService, type CreateUserPayload } from './users.service';
+import type { SystemUser } from '@/shared/types/domain';
 
 export const usersKeys = {
   all: ['users'] as const,
-  list: (filters?: SystemUserListFilters) => [...usersKeys.all, 'list', filters] as const,
+  list: () => [...usersKeys.all, 'list'] as const,
   detail: (id: string) => [...usersKeys.all, 'detail', id] as const,
 };
 
-export function useUsers(filters?: SystemUserListFilters) {
+export function useUsers() {
   return useQuery({
-    queryKey: usersKeys.list(filters),
-    queryFn: () => usersService.list(filters),
+    queryKey: usersKeys.list(),
+    queryFn: () => usersService.list(),
   });
 }
 
 export function useUser(id: string | null) {
   return useQuery({
     queryKey: usersKeys.detail(id ?? ''),
-    queryFn: () => usersService.getById(id!),
+    queryFn: () => usersService.list().then((rows) => rows.find((r) => r.id === id) ?? null),
     enabled: Boolean(id),
   });
 }
@@ -31,19 +26,19 @@ export function useUser(id: string | null) {
 export function useUserCreate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (request: CreateSystemUserRequest) => usersService.create(request),
-    onSuccess: () => qc.invalidateQueries({ queryKey: usersKeys.all }),
+    mutationFn: (payload: CreateUserPayload) => usersService.create(payload),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: usersKeys.all }),
   });
 }
 
 export function useUserUpdate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, request }: { id: string; request: UpdateSystemUserRequest }) =>
-      usersService.update(id, request),
-    onSuccess: (_data: SystemUserDetailDto, { id }) => {
-      qc.invalidateQueries({ queryKey: usersKeys.all });
-      qc.invalidateQueries({ queryKey: usersKeys.detail(id) });
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<SystemUser> }) =>
+      usersService.update(id, patch),
+    onSuccess: (_data, { id }) => {
+      void qc.invalidateQueries({ queryKey: usersKeys.all });
+      void qc.invalidateQueries({ queryKey: usersKeys.detail(id) });
     },
   });
 }
@@ -52,6 +47,6 @@ export function useUserDeactivate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => usersService.deactivate(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: usersKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: usersKeys.all }),
   });
 }

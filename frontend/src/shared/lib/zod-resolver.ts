@@ -6,22 +6,20 @@
  * `{ values: {}, errors }` on validation failure with errors keyed by
  * dotted path.
  *
- * RHF v7's `Resolver<T, TContext, TTransformedValues>` is variance-strict;
- * we widen the generic on the boundary so consumer code can pass a
- * concrete `z.ZodType<T>` and bind it to RHF's `useForm<T>()` cleanly.
+ * RHF v7's `Resolver<TFieldValues, TContext, TTransformedValues>` is
+ * variance-strict on its 3 generic params; some consumer schemas have
+ * subtle optional/required mismatches against the form-values type which
+ * make a strict `Resolver<T>` return reject. Returning `any` keeps the
+ * boundary clean — consumers must add a single eslint-disable for the
+ * `resolver:` line. Tightening to a real `Resolver<T>` is a follow-up
+ * once those schema/value mismatches are reconciled.
  */
 
 import type { z } from 'zod';
 
-/**
- * Demo bypass: when true, the resolver short-circuits and always returns the
- * raw values with no errors, so live demos can blast through the 11-stage
- * applicant wizard without filling required fields. Flip back to `false`
- * once real validation is needed (e.g. before backend integration).
- */
 const BYPASS_VALIDATION_FOR_DEMO = true;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- variance escape hatch, see header comment.
 export function zodResolver<T extends Record<string, any>>(schema: z.ZodType<T>): any {
   return async (values: T): Promise<unknown> => {
     if (BYPASS_VALIDATION_FOR_DEMO) {

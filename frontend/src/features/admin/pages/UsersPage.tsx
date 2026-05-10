@@ -131,13 +131,13 @@ export function UsersPage(): JSX.Element {
     [deactivateMut],
   );
 
-  const items = data?.items ?? [];
+  const items = data ?? [];
 
   return (
     <CenteredShell>
       <PageHeader
         title="مستخدمو المنظومة"
-        subtitle={`${data?.totalCount ?? 0} مستخدماً`}
+        subtitle={`${items.length} مستخدماً`}
         actions={
           <Button
             variant="primary"

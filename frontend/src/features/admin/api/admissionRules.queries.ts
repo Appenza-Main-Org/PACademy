@@ -30,8 +30,8 @@ export function useSaveRule() {
     mutationFn: (payload: Omit<AdmissionRule, 'id' | 'version' | 'effectiveAt'> & { effectiveAt?: string }) =>
       admissionRulesService.save(payload),
     onSuccess: (rule: AdmissionRule) => {
-      qc.invalidateQueries({ queryKey: admissionRulesKeys.list(rule.cycleId) });
-      qc.invalidateQueries({ queryKey: admissionRulesKeys.current(rule.cycleId) });
+      void qc.invalidateQueries({ queryKey: admissionRulesKeys.list(rule.cycleId) });
+      void qc.invalidateQueries({ queryKey: admissionRulesKeys.current(rule.cycleId) });
     },
   });
 }

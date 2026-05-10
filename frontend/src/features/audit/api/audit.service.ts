@@ -22,15 +22,15 @@ import type { AuditAction, AuditDiff, AuditEntry, AuditModule } from '@/shared/t
 
 export interface AuditFilters {
   action?: AuditAction | 'all';
-  userId?: string | 'all';
+  userId?: string;
   /** Arabic entity label (existing). */
-  entity?: string | 'all';
+  entity?: string;
   /** Typed entity name — Gap E. */
-  entityType?: string | 'all';
+  entityType?: string;
   /** Typed module taxonomy — Gap E. */
   module?: AuditModule | 'all';
   /** Actor role — Gap E. */
-  role?: string | 'all';
+  role?: string;
   /** epoch ms lower bound */
   since?: number | null;
   /** epoch ms upper bound */

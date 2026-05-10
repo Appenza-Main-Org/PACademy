@@ -105,8 +105,8 @@ export function useCreateApplicant() {
   return useMutation({
     mutationFn: (input: ApplicantInput) => applicantService.create(input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: applicantKeys.lists() });
-      qc.invalidateQueries({ queryKey: applicantKeys.stats() });
+      void qc.invalidateQueries({ queryKey: applicantKeys.lists() });
+      void qc.invalidateQueries({ queryKey: applicantKeys.stats() });
     },
   });
 }
@@ -117,9 +117,9 @@ export function useUpdateApplicant() {
     mutationFn: ({ id, patch }: { id: string; patch: Partial<ApplicantInput> }) =>
       applicantService.update(id, patch),
     onSuccess: (a) => {
-      qc.invalidateQueries({ queryKey: applicantKeys.detail(a.id) });
-      qc.invalidateQueries({ queryKey: applicantKeys.audit(a.id) });
-      qc.invalidateQueries({ queryKey: applicantKeys.lists() });
+      void qc.invalidateQueries({ queryKey: applicantKeys.detail(a.id) });
+      void qc.invalidateQueries({ queryKey: applicantKeys.audit(a.id) });
+      void qc.invalidateQueries({ queryKey: applicantKeys.lists() });
     },
   });
 }
@@ -137,10 +137,10 @@ export function useTransitionApplicant() {
       reason?: string;
     }) => applicantService.transition(id, { toStatus, reason: reason ?? '' }),
     onSuccess: (a) => {
-      qc.invalidateQueries({ queryKey: applicantKeys.detail(a.id) });
-      qc.invalidateQueries({ queryKey: applicantKeys.audit(a.id) });
-      qc.invalidateQueries({ queryKey: applicantKeys.progress(a.id) });
-      qc.invalidateQueries({ queryKey: applicantKeys.lists() });
+      void qc.invalidateQueries({ queryKey: applicantKeys.detail(a.id) });
+      void qc.invalidateQueries({ queryKey: applicantKeys.audit(a.id) });
+      void qc.invalidateQueries({ queryKey: applicantKeys.progress(a.id) });
+      void qc.invalidateQueries({ queryKey: applicantKeys.lists() });
     },
   });
 }

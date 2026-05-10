@@ -831,7 +831,7 @@ export function ApplicantForm({
   );
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call -- RHF's UseFormRegister has variance issues with the discriminated `prefix` union; widening to any keeps the call-site clean. */
 function FixedFamilyMember({
   title,
   prefix,

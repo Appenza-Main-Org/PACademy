@@ -31,7 +31,7 @@ export function DistributionPage(): JSX.Element {
     mutationFn: () => investigationsService.autoBalance(),
     onSuccess: ({ assignments }) => {
       toast(`تم توزيع ${assignments.length} قضية تلقائياً`, 'success');
-      qc.invalidateQueries({ queryKey: ['investigations'] });
+      void qc.invalidateQueries({ queryKey: ['investigations'] });
     },
   });
 

@@ -27,7 +27,7 @@ const STATE: AdminPaymentRow[] = MOCK.adminPayments.map((r) => ({ ...r }));
 export interface PaymentFilters {
   status?: FawryPaymentStatus | 'all';
   search?: string;
-  cycleId?: string | 'all';
+  cycleId?: string;
 }
 
 export const paymentsService = {

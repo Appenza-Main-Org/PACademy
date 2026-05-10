@@ -57,6 +57,7 @@ export function UsersCreatePage(): JSX.Element {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver returns any; see src/shared/lib/zod-resolver.ts header.
     resolver: zodResolver(schema),
     defaultValues: { role: 'committee_user' },
   });

@@ -47,6 +47,7 @@ export function Stage3PersonalPage(): JSX.Element {
   const hasDerived = Boolean(derivedDob && derivedGender);
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, watch, setValue, control } = useForm<Stage3Values>({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver returns any; see src/shared/lib/zod-resolver.ts header.
     resolver: zodResolver(stage3Schema),
     defaultValues: {
       gender: derivedGender ?? 'male',

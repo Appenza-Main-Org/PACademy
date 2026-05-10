@@ -22,6 +22,7 @@ const STATUS_OPTIONS = [
 export function Stage5MaritalPage(): JSX.Element {
   const navigate = useNavigate();
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<Stage5Values>({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver returns any; see src/shared/lib/zod-resolver.ts header.
     resolver: zodResolver(stage5Schema),
     defaultValues: { maritalStatus: 'أعزب' },
   });

@@ -32,6 +32,7 @@ export function Stage1AuthPhonePage(): JSX.Element {
   const carriedFromEligibility = Boolean(storedNid);
   const [captcha, setCaptcha] = useState<Captcha>(() => generateCaptcha());
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<Stage1Values>({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver returns any; see src/shared/lib/zod-resolver.ts header.
     resolver: zodResolver(stage1Schema),
     defaultValues: { nationalId: storedNid ?? '', phoneNumber: '', captcha: '' },
   });

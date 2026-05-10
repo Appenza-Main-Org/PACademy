@@ -43,7 +43,7 @@ let eId = EX_STATE.length + 1;
 let aId = ATT_STATE.length + 1;
 
 export const examsService = {
-  async listQuestions(filters: { status?: QuestionStatus | 'all'; category?: string | 'all' } = {}): Promise<BankQuestion[]> {
+  async listQuestions(filters: { status?: QuestionStatus | 'all'; category?: string } = {}): Promise<BankQuestion[]> {
     await simulateLatency();
     let out = QS_STATE;
     if (filters.status && filters.status !== 'all') out = out.filter((q) => q.status === filters.status);

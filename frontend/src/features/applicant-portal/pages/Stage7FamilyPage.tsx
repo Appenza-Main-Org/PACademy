@@ -33,6 +33,7 @@ const ROLE_TONES: Record<string, { bg: string; fg: string }> = {
 export function Stage7FamilyPage(): JSX.Element {
   const navigate = useNavigate();
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<Stage7Values>({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver returns any; see src/shared/lib/zod-resolver.ts header.
     resolver: zodResolver(stage7Schema),
     defaultValues: {
       father: { ...emptyMember },

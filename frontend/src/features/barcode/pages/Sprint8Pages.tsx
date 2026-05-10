@@ -114,7 +114,7 @@ export function BarcodeReplacementPage(): JSX.Element {
     mutationFn: () => barcodeService.replace(applicantId, reason),
     onSuccess: (r) => {
       toast(`تم إصدار باركود بديل: ${r.code}`, 'success');
-      qc.invalidateQueries({ queryKey: ['barcode'] });
+      void qc.invalidateQueries({ queryKey: ['barcode'] });
     },
   });
 

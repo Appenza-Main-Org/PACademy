@@ -24,6 +24,7 @@ const APPLICANT_ID = 'APP-2026000';
 export function Stage11AcquaintanceDocPage(): JSX.Element {
   const navigate = useNavigate();
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<Stage11Values>({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver returns any; see src/shared/lib/zod-resolver.ts header.
     resolver: zodResolver(stage11Schema),
     defaultValues: {
       housing: 'family-owned',

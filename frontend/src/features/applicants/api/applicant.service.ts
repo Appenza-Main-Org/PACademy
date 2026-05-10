@@ -41,8 +41,8 @@ export interface ApplicantFilters {
   pageSize?: number;
   search?: string;
   status?: ApplicantStatus | 'all';
-  governorate?: string | 'all';
-  certType?: string | 'all';
+  governorate?: string;
+  certType?: string;
   cycleId?: string;
 }
 

@@ -83,7 +83,7 @@ export function CategorySelectionPage(): JSX.Element {
   const storedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
   const setStoredCycleId = useApplicantPortalStore((s) => s.setSelectedCycleId);
 
-  const cycles = cyclesQuery.data ?? [];
+  const cycles = useMemo(() => cyclesQuery.data ?? [], [cyclesQuery.data]);
   const cycleParam = params.get('cycle');
 
   /* Pick the active cycle. Order of precedence: explicit URL → store → only

@@ -20,7 +20,7 @@ export function useSaveDraft(applicantId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (partial: Partial<ApplicantDraft>) => applicantPortalService.saveDraft(applicantId, partial),
-    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
   });
 }
 
@@ -29,7 +29,7 @@ export function useSubmitStage(applicantId: string) {
   return useMutation({
     mutationFn: ({ stage, data }: { stage: number; data: Record<string, unknown> }) =>
       applicantPortalService.submitStage(applicantId, stage, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
   });
 }
 
@@ -48,7 +48,7 @@ export function useVerifyPayment(applicantId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (refNumber: string) => applicantPortalService.verifyPayment(refNumber),
-    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
   });
 }
 
@@ -57,8 +57,8 @@ export function useReserveSlot(applicantId: string) {
   return useMutation({
     mutationFn: (slotId: string) => applicantPortalService.reserveExamSlot(applicantId, slotId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) });
-      qc.invalidateQueries({ queryKey: apKeys.slots() });
+      void qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) });
+      void qc.invalidateQueries({ queryKey: apKeys.slots() });
     },
   });
 }

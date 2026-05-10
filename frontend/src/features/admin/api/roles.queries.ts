@@ -25,7 +25,7 @@ export function useCreateRole() {
   return useMutation({
     mutationFn: (payload: Omit<RoleDefinitionRow, 'id' | 'isSystem' | 'createdAt' | 'updatedAt'>) =>
       rolesService.create(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: rolesKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: rolesKeys.all }),
   });
 }
 
@@ -35,8 +35,8 @@ export function useUpdateRole() {
     mutationFn: ({ id, patch }: { id: string; patch: Partial<RoleDefinitionRow> }) =>
       rolesService.update(id, patch),
     onSuccess: (row) => {
-      qc.invalidateQueries({ queryKey: rolesKeys.all });
-      qc.invalidateQueries({ queryKey: rolesKeys.detail(row.id) });
+      void qc.invalidateQueries({ queryKey: rolesKeys.all });
+      void qc.invalidateQueries({ queryKey: rolesKeys.detail(row.id) });
     },
   });
 }
@@ -45,7 +45,7 @@ export function useRoleSoftDelete() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => rolesService.softDelete(id, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: rolesKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: rolesKeys.all }),
   });
 }
 
@@ -53,6 +53,6 @@ export function useRoleRestore() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => rolesService.restore(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: rolesKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: rolesKeys.all }),
   });
 }

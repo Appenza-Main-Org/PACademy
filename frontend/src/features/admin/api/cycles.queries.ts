@@ -29,10 +29,10 @@ const CATEGORIES_PREFIX = ['categories'] as const;
 function invalidateCycle(qc: ReturnType<typeof useQueryClient>, id: string): void {
   /* The list key includes opts so the prefix `['cycles', 'list']` matches
    * both the includeDeleted=true and =false variants. */
-  qc.invalidateQueries({ queryKey: [...cyclesKeys.all, 'list'] });
-  qc.invalidateQueries({ queryKey: cyclesKeys.detail(id) });
-  qc.invalidateQueries({ queryKey: cyclesKeys.active() });
-  qc.invalidateQueries({ queryKey: CATEGORIES_PREFIX });
+  void qc.invalidateQueries({ queryKey: [...cyclesKeys.all, 'list'] });
+  void qc.invalidateQueries({ queryKey: cyclesKeys.detail(id) });
+  void qc.invalidateQueries({ queryKey: cyclesKeys.active() });
+  void qc.invalidateQueries({ queryKey: CATEGORIES_PREFIX });
 }
 
 export function useCycles(opts: { includeDeleted?: boolean } = {}) {
@@ -146,8 +146,8 @@ export function useCycleRemove() {
   return useMutation({
     mutationFn: (id: string) => cyclesService.remove(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: cyclesKeys.list() });
-      qc.invalidateQueries({ queryKey: CATEGORIES_PREFIX });
+      void qc.invalidateQueries({ queryKey: cyclesKeys.list() });
+      void qc.invalidateQueries({ queryKey: CATEGORIES_PREFIX });
     },
   });
 }

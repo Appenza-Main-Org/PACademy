@@ -34,7 +34,7 @@ export function useLogoutMutation() {
     mutationFn: () => authService.logout(),
     onSuccess: () => {
       clear();
-      qc.removeQueries({ queryKey: authKeys.all });
+      void qc.removeQueries({ queryKey: authKeys.all });
     },
   });
 }
@@ -68,7 +68,7 @@ export function useUpdateLockPolicy() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (patch: Partial<LockPolicy>) => authService.updateLockPolicy(patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: authKeys.lockPolicy() }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: authKeys.lockPolicy() }),
   });
 }
 
@@ -81,7 +81,7 @@ export function useUnlockUser() {
   return useMutation({
     mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
       authService.unlockUser(userId, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: authKeys.lockedUsers() }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: authKeys.lockedUsers() }),
   });
 }
 

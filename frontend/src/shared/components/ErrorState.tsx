@@ -47,6 +47,7 @@ export function ErrorState({
   useEffect(() => {
     if (error) {
       // Best-effort client-side logging — wired to a real tracker in Sprint 10.
+      // eslint-disable-next-line no-console -- intentional dev-side trace until tracker lands.
       console.error('[ErrorState]', error);
     }
   }, [error]);

@@ -40,7 +40,7 @@ export function useCreateAdminNotification() {
   return useMutation({
     mutationFn: (payload: Omit<AdminNotification, 'id' | 'status' | 'createdAt'>) =>
       notificationsService.create(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
   });
 }
 
@@ -49,7 +49,7 @@ export function useUpdateAdminNotification() {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<AdminNotification> }) =>
       notificationsService.update(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
   });
 }
 
@@ -57,7 +57,7 @@ export function usePublishNotification() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => notificationsService.publish(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
   });
 }
 
@@ -65,7 +65,7 @@ export function useUnpublishNotification() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => notificationsService.unpublish(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
   });
 }
 
@@ -74,7 +74,7 @@ export function useSoftDeleteNotification() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       notificationsService.softDelete(id, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
   });
 }
 
@@ -82,6 +82,6 @@ export function useRestoreNotification() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => notificationsService.restore(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: adminNotificationKeys.all }),
   });
 }

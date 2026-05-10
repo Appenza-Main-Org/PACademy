@@ -184,6 +184,9 @@ export interface Applicant extends ApplicantExtended {
   familySize: number;
   relativesCount: number;
   investigation: InvestigationStatus;
+  /* Optional audit metadata populated by /admin/applicants/:id detail. */
+  lastModifiedAt?: string;
+  lastModifiedBy?: string;
 }
 
 export type AuditAction =
@@ -297,7 +300,43 @@ export interface SystemUser {
   active: boolean;
   status?: SystemUserStatus;
   lastLogin: number;
+  /* Optional MOIPASS / detail fields — populated by /admin/users/:id detail
+   * fetches; absent on the legacy seed list. */
+  fullName?: string;
+  nationalId?: string;
+  mobile?: string;
+  email?: string;
+  officerCode?: string;
+  cardFactoryNumber?: string;
+  issueDate?: string;
+  createdAt?: string;
+  archivedAt?: string;
+  /** Mirror of `active` to match backend payloads (which use isActive). */
+  isActive?: boolean;
 }
+
+/** Backend-shaped list-item DTO (alias of SystemUser today). */
+export type SystemUserListItemDto = SystemUser;
+/** Backend-shaped detail DTO (alias of SystemUser today). */
+export type SystemUserDetailDto = SystemUser;
+export type SystemUserListFilters = {
+  role?: string;
+  q?: string;
+  isActive?: boolean;
+  page?: number;
+  pageSize?: number;
+};
+export type CreateSystemUserRequest = {
+  nationalId: string;
+  fullName: string;
+  role: string;
+  unit?: string;
+  mobile?: string;
+  email?: string;
+};
+export type UpdateSystemUserRequest = Partial<CreateSystemUserRequest> & {
+  isActive?: boolean;
+};
 
 /* ── Dynamic roles + permission matrix — Gap C (admin-gaps) ──────────── */
 

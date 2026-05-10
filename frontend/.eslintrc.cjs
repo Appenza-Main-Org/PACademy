@@ -60,7 +60,20 @@ module.exports = {
 
     // Constitution §I — clean code.
     'no-console': 'error',
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-unused-vars': ['error', {
+      argsIgnorePattern: '^_',
+      varsIgnorePattern: '^_',
+      destructuredArrayIgnorePattern: '^_',
+      caughtErrorsIgnorePattern: '^_',
+    }],
+
+    // Allow Promise-returning JSX event handlers (onClick={() => mut.mutate()},
+    // onSubmit={handleSubmit(fn)}, etc.) — TanStack Query and react-hook-form
+    // both legitimately return promises here. Non-attribute void misuse stays an error.
+    '@typescript-eslint/no-misused-promises': [
+      'error',
+      { checksVoidReturn: { attributes: false } },
+    ],
 
     // React 17+ JSX transform — no need to import React.
     'react/react-in-jsx-scope': 'off',

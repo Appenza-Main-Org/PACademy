@@ -74,7 +74,7 @@ const STATUS_TONE: Record<QuestionStatus, 'neutral' | 'warning' | 'info' | 'succ
 export function QuestionBankCRUDPage(): JSX.Element {
   const qc = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('all');
-  const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const { data: allQuestions } = useQuery({
     queryKey: ['exams', 'questions', 'all'],
     queryFn: () => examsService.listQuestions({}),
@@ -95,11 +95,11 @@ export function QuestionBankCRUDPage(): JSX.Element {
   );
   const publishMut = useMutation({
     mutationFn: (id: string) => examsService.publishQuestion(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['exams', 'questions'] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['exams', 'questions'] }),
   });
   const createMut = useMutation({
     mutationFn: (payload: Parameters<typeof examsService.createQuestion>[0]) => examsService.createQuestion(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['exams', 'questions'] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['exams', 'questions'] }),
   });
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -319,7 +319,7 @@ export function ExamCreatePage(): JSX.Element {
   const [name, setName] = useState('');
   const [scheduledFor, setScheduledFor] = useState(new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
   const [targetCount, setTargetCount] = useState(40);
-  const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('live');
   const [search, setSearch] = useState('');
@@ -534,7 +534,7 @@ export function LiveExamPage(): JSX.Element {
   /* Fetch the exam's questions when entering exam phase. */
   useEffect(() => {
     if (phase !== 'exam' || !exam) return;
-    Promise.all(exam.questionIds.slice(0, 12).map((id) => examsService.getQuestion(id))).then((qs) => {
+    void Promise.all(exam.questionIds.slice(0, 12).map((id) => examsService.getQuestion(id))).then((qs) => {
       setQuestions(qs.filter(Boolean) as BankQuestion[]);
     });
   }, [phase, exam]);
@@ -1254,8 +1254,8 @@ export function ExamDetailPage(): JSX.Element {
   const publishMut = useMutation({
     mutationFn: () => examsService.publishExam(examId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['exams', 'config', examId] });
-      qc.invalidateQueries({ queryKey: ['exams', 'list'] });
+      void qc.invalidateQueries({ queryKey: ['exams', 'config', examId] });
+      void qc.invalidateQueries({ queryKey: ['exams', 'list'] });
       toast('تم نشر الاختبار', 'success');
     },
   });

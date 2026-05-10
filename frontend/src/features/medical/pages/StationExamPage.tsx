@@ -141,7 +141,7 @@ export function StationExamPage(): JSX.Element {
                   notes,
                 });
                 toast('تم حفظ نتيجة أولية. تتطلب اعتماد رئيس القومسيون.', 'success');
-                qc.invalidateQueries({ queryKey: ['medical', 'results', station] });
+                void qc.invalidateQueries({ queryKey: ['medical', 'results', station] });
               }}
             >
               <StationFields station={station} fields={fields} setFields={setFields} />

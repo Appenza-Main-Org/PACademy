@@ -97,8 +97,8 @@ export function QuestionBankPage(): JSX.Element {
       <ErrorState
         error={(catError ?? qError) as Error}
         onRetry={() => {
-          if (catError) refetchCats();
-          if (qError) refetchQs();
+          if (catError) void refetchCats();
+          if (qError) void refetchQs();
         }}
       />
     );

@@ -56,6 +56,7 @@ export function Stage4EducationPage(): JSX.Element {
     selectedCategoryKey === 'special_units';
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, getValues, watch, control } = useForm<Stage4Values>({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver returns any; see src/shared/lib/zod-resolver.ts header.
     resolver: zodResolver(stage4Schema),
     defaultValues: { certificateYear: new Date().getFullYear() - 1 },
   });

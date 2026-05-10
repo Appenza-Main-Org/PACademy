@@ -46,8 +46,8 @@ export function useSaveExamPlan() {
       entries: CycleCategoryExamPlanEntry[];
     }) => examPlansService.savePlan(cycleId, categoryId, entries),
     onSuccess: (plan) => {
-      qc.invalidateQueries({ queryKey: examPlanKeys.byCycle(plan.cycleId) });
-      qc.invalidateQueries({ queryKey: examPlanKeys.plan(plan.cycleId, plan.categoryId) });
+      void qc.invalidateQueries({ queryKey: examPlanKeys.byCycle(plan.cycleId) });
+      void qc.invalidateQueries({ queryKey: examPlanKeys.plan(plan.cycleId, plan.categoryId) });
     },
   });
 }
@@ -58,7 +58,7 @@ export function useCopyExamConfig() {
     mutationFn: ({ fromCycleId, toCycleId }: { fromCycleId: string; toCycleId: string }) =>
       examPlansService.copyConfig({ fromCycleId, toCycleId }),
     onSuccess: (plans) => {
-      if (plans[0]) qc.invalidateQueries({ queryKey: examPlanKeys.byCycle(plans[0].cycleId) });
+      if (plans[0]) void qc.invalidateQueries({ queryKey: examPlanKeys.byCycle(plans[0].cycleId) });
     },
   });
 }

@@ -34,7 +34,7 @@ export function ApplicationSummaryPage(): JSX.Element {
 
   const furthest = draft.furthestStage;
   const personalSummary = (draft.personal)?.firstName
-    ? `${(draft.personal).firstName ?? ''} ${(draft.personal).fourthName ?? ''}`.trim()
+    ? `${String((draft.personal).firstName ?? '')} ${String((draft.personal).fourthName ?? '')}`.trim()
     : '— لم يُكتمل بعد —';
   const educationSummary = (draft.education)?.certificateType
     ? String((draft.education).certificateType)

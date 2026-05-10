@@ -331,17 +331,17 @@ export function CycleDetailPage(): JSX.Element {
         <Modal.Body>
           {pendingTransition === 'activate' && (
             <p className="text-sm text-ink-700">
-              سيتم تفعيل دورة "{cycle.nameAr}" وإغلاق أي دورة نشطة أخرى تلقائياً. هل تريد المتابعة؟
+              سيتم تفعيل دورة &quot;{cycle.nameAr}&quot; وإغلاق أي دورة نشطة أخرى تلقائياً. هل تريد المتابعة؟
             </p>
           )}
           {pendingTransition === 'close' && (
             <p className="text-sm text-ink-700">
-              سيتم إغلاق دورة "{cycle.nameAr}". لن يتمكن المتقدمون الجدد من التقديم. هل تريد المتابعة؟
+              سيتم إغلاق دورة &quot;{cycle.nameAr}&quot;. لن يتمكن المتقدمون الجدد من التقديم. هل تريد المتابعة؟
             </p>
           )}
           {pendingTransition === 'archive' && (
             <p className="text-sm text-ink-700">
-              سيتم أرشفة دورة "{cycle.nameAr}" وإخراجها من قائمة الدورات النشطة. هل تريد المتابعة؟
+              سيتم أرشفة دورة &quot;{cycle.nameAr}&quot; وإخراجها من قائمة الدورات النشطة. هل تريد المتابعة؟
             </p>
           )}
         </Modal.Body>
@@ -382,7 +382,7 @@ export function CycleDetailPage(): JSX.Element {
         <Modal.Body>
           <p className="mb-3 text-sm text-ink-700">
             تاريخ الإغلاق الحالي: <span dir="ltr" className="font-mono">{fmtDate(cycle.closeDate, 'short')}</span>.
-            اختر تاريخاً جديداً للإغلاق — سيُحوَّل وضع الدورة إلى "ممدّدة".
+            اختر تاريخاً جديداً للإغلاق — سيُحوَّل وضع الدورة إلى &quot;ممدّدة&quot;.
           </p>
           <DatePicker
             label="تاريخ الإغلاق الجديد"

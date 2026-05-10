@@ -146,8 +146,8 @@ export function BoardSessionLivePage(): JSX.Element {
     queryFn: () => boardService.getSession(id),
     enabled: Boolean(id),
   });
-  const startMut = useMutation({ mutationFn: () => boardService.startSession(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['board'] }) });
-  const closeMut = useMutation({ mutationFn: () => boardService.closeSession(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['board'] }) });
+  const startMut = useMutation({ mutationFn: () => boardService.startSession(id), onSuccess: () => void qc.invalidateQueries({ queryKey: ['board'] }) });
+  const closeMut = useMutation({ mutationFn: () => boardService.closeSession(id), onSuccess: () => void qc.invalidateQueries({ queryKey: ['board'] }) });
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [votes, setVotes] = useState<Record<string, Record<string, 'pass' | 'reject' | 'defer'>>>({});
@@ -507,11 +507,11 @@ export function BoardMembersPage(): JSX.Element {
   const { data, isLoading } = useQuery({ queryKey: ['board', 'members'], queryFn: () => boardService.listMembers() });
   const addMut = useMutation({
     mutationFn: (payload: Omit<BoardMember, 'id'>) => boardService.addMember(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['board', 'members'] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['board', 'members'] }),
   });
   const removeMut = useMutation({
     mutationFn: (id: string) => boardService.removeMember(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['board', 'members'] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['board', 'members'] }),
   });
 
   const [drawerOpen, setDrawerOpen] = useState(false);

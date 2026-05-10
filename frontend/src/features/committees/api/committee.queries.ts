@@ -39,7 +39,7 @@ export const useCreateCommittee = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CommitteePayload) => committeeService.create(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.list() }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.list() }),
   });
 };
 
@@ -48,7 +48,7 @@ export const useEnterResult = (committeeId: string) => {
   return useMutation({
     mutationFn: (payload: Parameters<typeof committeeService.enterResult>[1]) =>
       committeeService.enterResult(committeeId, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
   });
 };
 
@@ -56,7 +56,7 @@ export const useApproveResults = (committeeId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (resultIds: string[]) => committeeService.approveResults(committeeId, resultIds),
-    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
   });
 };
 
@@ -65,7 +65,7 @@ export const useRejectResult = (committeeId: string) => {
   return useMutation({
     mutationFn: ({ resultId, reason }: { resultId: string; reason: string }) =>
       committeeService.rejectResult(resultId, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
   });
 };
 
@@ -73,7 +73,7 @@ export const useBulkUploadResults = (committeeId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (rows: Record<string, unknown>[]) => committeeService.bulkUploadResults(committeeId, rows),
-    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
   });
 };
 
@@ -83,8 +83,8 @@ export const useCommitteeUpdate = () => {
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Committee> }) =>
       committeeService.update(id, patch),
     onSuccess: (committee) => {
-      qc.invalidateQueries({ queryKey: committeeKeys.list() });
-      qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
+      void qc.invalidateQueries({ queryKey: committeeKeys.list() });
+      void qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
     },
   });
 };
@@ -94,7 +94,7 @@ export const useCommitteeScheduleSlot = (committeeId: string) => {
   return useMutation({
     mutationFn: (input: { applicantId: string; dateIso: string }) =>
       committeeService.scheduleSlot(committeeId, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.queue(committeeId) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.queue(committeeId) }),
   });
 };
 

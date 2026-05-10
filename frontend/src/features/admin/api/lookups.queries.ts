@@ -28,7 +28,7 @@ export function useLookupCreate(key: LookupKey) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: Omit<LookupRow, 'id' | 'isSystem'>) => lookupsService.create(key, payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
   });
 }
 
@@ -37,7 +37,7 @@ export function useLookupUpdate(key: LookupKey) {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Omit<LookupRow, 'id' | 'isSystem'>> }) =>
       lookupsService.update(key, id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
   });
 }
 
@@ -46,7 +46,7 @@ export function useLookupSetActive(key: LookupKey) {
   return useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       lookupsService.setActive(key, id, isActive),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
   });
 }
 
@@ -54,7 +54,7 @@ export function useLookupReorder(key: LookupKey) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (orderedIds: string[]) => lookupsService.reorder(key, orderedIds),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
   });
 }
 
@@ -62,7 +62,7 @@ export function useLookupSoftDelete(key: LookupKey) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => lookupsService.softDelete(key, id, reason),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
   });
 }
 
@@ -70,6 +70,6 @@ export function useLookupRestore(key: LookupKey) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => lookupsService.restore(key, id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: [...lookupsKeys.all, key] }),
   });
 }

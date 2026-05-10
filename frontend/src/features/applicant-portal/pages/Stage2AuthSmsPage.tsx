@@ -20,6 +20,7 @@ export function Stage2AuthSmsPage(): JSX.Element {
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
   const [resendCount, setResendCount] = useState(0);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Stage2Values>({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver returns any; see src/shared/lib/zod-resolver.ts header.
     resolver: zodResolver(stage2Schema),
   });
 

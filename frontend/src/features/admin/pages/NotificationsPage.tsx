@@ -40,7 +40,6 @@ import type {
   AdminNotification,
   AdminNotificationStatus,
   AdminNotificationType,
-  AudienceSelector as AudienceValue,
 } from '@/shared/types/domain';
 import { date as fmtDate } from '@/shared/lib/format';
 

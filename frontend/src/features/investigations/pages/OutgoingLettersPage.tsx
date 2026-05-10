@@ -64,11 +64,11 @@ export function OutgoingLettersPage(): JSX.Element {
   const createMut = useMutation({
     mutationFn: (payload: Parameters<typeof investigationsService.createLetter>[0]) =>
       investigationsService.createLetter(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['investigations', 'letters'] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['investigations', 'letters'] }),
   });
   const sendMut = useMutation({
     mutationFn: (id: string) => investigationsService.sendLetter(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['investigations', 'letters'] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['investigations', 'letters'] }),
   });
 
   const [drawerOpen, setDrawerOpen] = useState(false);

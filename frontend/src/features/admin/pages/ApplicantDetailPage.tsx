@@ -67,7 +67,7 @@ export function ApplicantDetailPage(): JSX.Element {
           <div className="empty">
             <div className="empty-title">لم يُعثر على المتقدم</div>
             <div className="empty-desc mb-4">
-              الكود "{id}" غير موجود في قاعدة البيانات.
+              الكود &quot;{id}&quot; غير موجود في قاعدة البيانات.
             </div>
             <Link to={ROUTES.admin.applicants} className="btn btn-secondary">
               عودة للقائمة
@@ -309,8 +309,8 @@ function WorkflowPanelOrFallback({
         <ErrorState
           error={(wf.error ?? progress.error) as Error}
           onRetry={() => {
-            wf.refetch();
-            progress.refetch();
+            void wf.refetch();
+            void progress.refetch();
           }}
         />
       </Card>

@@ -23,7 +23,7 @@ export function useReferenceCreate<K extends ReferenceTab>(tab: K) {
   return useMutation({
     mutationFn: (payload: Omit<ReferenceRowMap[K], 'id'>) => referenceDataService.create(tab, payload),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: referenceDataKeys.list(tab) });
+      void qc.invalidateQueries({ queryKey: referenceDataKeys.list(tab) });
     },
   });
 }
@@ -34,7 +34,7 @@ export function useReferenceUpdate<K extends ReferenceTab>(tab: K) {
     mutationFn: ({ id, patch }: { id: string; patch: Partial<ReferenceRowMap[K]> }) =>
       referenceDataService.update(tab, id, patch),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: referenceDataKeys.list(tab) });
+      void qc.invalidateQueries({ queryKey: referenceDataKeys.list(tab) });
     },
   });
 }
@@ -44,7 +44,7 @@ export function useReferenceRemove<K extends ReferenceTab>(tab: K) {
   return useMutation({
     mutationFn: (id: string) => referenceDataService.remove(tab, id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [...referenceDataKeys.all, tab] });
+      void qc.invalidateQueries({ queryKey: [...referenceDataKeys.all, tab] });
     },
   });
 }
@@ -55,7 +55,7 @@ export function useReferenceSoftDelete<K extends ReferenceTab>(tab: K) {
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       referenceDataService.softDelete(tab, id, reason),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [...referenceDataKeys.all, tab] });
+      void qc.invalidateQueries({ queryKey: [...referenceDataKeys.all, tab] });
     },
   });
 }
@@ -65,7 +65,7 @@ export function useReferenceRestore<K extends ReferenceTab>(tab: K) {
   return useMutation({
     mutationFn: (id: string) => referenceDataService.restore(tab, id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [...referenceDataKeys.all, tab] });
+      void qc.invalidateQueries({ queryKey: [...referenceDataKeys.all, tab] });
     },
   });
 }

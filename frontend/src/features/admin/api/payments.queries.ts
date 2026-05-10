@@ -24,7 +24,7 @@ export function useSyncFawryStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (reference: string) => paymentsService.syncFawryStatus(reference),
-    onSuccess: () => qc.invalidateQueries({ queryKey: paymentsKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: paymentsKeys.all }),
   });
 }
 
@@ -40,6 +40,6 @@ export function useUpdatePaymentStatus() {
       status: FawryPaymentStatus;
       reason?: string;
     }) => paymentsService.setStatus(reference, status, { reason }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: paymentsKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: paymentsKeys.all }),
   });
 }

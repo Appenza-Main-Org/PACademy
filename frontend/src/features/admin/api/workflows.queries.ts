@@ -46,8 +46,8 @@ export function useSaveWorkflow() {
       return workflowsService.save(id, payload);
     },
     onSuccess: (wf) => {
-      qc.invalidateQueries({ queryKey: workflowKeys.all });
-      qc.invalidateQueries({ queryKey: workflowKeys.detail(wf.id) });
+      void qc.invalidateQueries({ queryKey: workflowKeys.all });
+      void qc.invalidateQueries({ queryKey: workflowKeys.detail(wf.id) });
     },
   });
 }
@@ -58,8 +58,8 @@ export function useReorderStages() {
     mutationFn: ({ id, stageIds }: { id: string; stageIds: string[] }) =>
       workflowsService.reorderStages(id, stageIds),
     onSuccess: (wf) => {
-      qc.invalidateQueries({ queryKey: workflowKeys.all });
-      qc.invalidateQueries({ queryKey: workflowKeys.detail(wf.id) });
+      void qc.invalidateQueries({ queryKey: workflowKeys.all });
+      void qc.invalidateQueries({ queryKey: workflowKeys.detail(wf.id) });
     },
   });
 }
@@ -70,8 +70,8 @@ export function useApplyToScope() {
     mutationFn: ({ id, scope }: { id: string; scope: 'new' | 'all' }) =>
       workflowsService.apply(id, scope),
     onSuccess: (_res, vars) => {
-      qc.invalidateQueries({ queryKey: workflowKeys.all });
-      qc.invalidateQueries({ queryKey: workflowKeys.detail(vars.id) });
+      void qc.invalidateQueries({ queryKey: workflowKeys.all });
+      void qc.invalidateQueries({ queryKey: workflowKeys.detail(vars.id) });
     },
   });
 }
@@ -80,6 +80,6 @@ export function useDeleteWorkflow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => workflowsService.remove(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: workflowKeys.all }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: workflowKeys.all }),
   });
 }
