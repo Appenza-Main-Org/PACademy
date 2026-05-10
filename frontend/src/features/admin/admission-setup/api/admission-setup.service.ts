@@ -23,8 +23,13 @@
  *   GET    /api/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration | null
  *   PUT    /api/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration
  *   POST   /api/admission-setup/declarations/:id/publish              → ElectronicDeclaration
+ *
+ *   GET    /api/admission-setup/cycles/:cycleId/committee-bindings           → CategoryCommittees[]
+ *   PUT    /api/admission-setup/cycles/:cycleId/committee-bindings           → CategoryCommittees[]   (replace cycle set)
+ *   PUT    /api/admission-setup/cycles/:cycleId/categories/:catId/committees → CategoryCommittees[]   (replace per-category set)
  */
 
+import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
 import {
@@ -32,7 +37,11 @@ import {
   filterDeleted,
 } from '@/shared/lib/soft-delete';
 import { committeeService } from '@/features/committees';
-import type { Committee } from '@/shared/types/domain';
+import type {
+  ApplicantCategoryKey,
+  CategoryCommittees,
+  Committee,
+} from '@/shared/types/domain';
 import type {
   ApplicantStream,
   CommitteeMergeSplitRule,
@@ -48,6 +57,7 @@ const MERGE_SPLIT_RULES: CommitteeMergeSplitRule[] = [];
 const EXAM_DATE_CONFIGS: ExamDateConfig[] = [];
 const TOTAL_SCORE_CONFIGS: TotalScoreConfig[] = [];
 const DECLARATIONS: ElectronicDeclaration[] = [];
+const CATEGORY_COMMITTEES: CategoryCommittees[] = MOCK.categoryCommittees.map((c) => ({ ...c }));
 
 let counter = 1;
 function id(prefix: string): string {
@@ -368,5 +378,114 @@ export const admissionSetupService = {
       after: DECLARATIONS[idx],
     });
     return DECLARATIONS[idx]!;
+  },
+
+  /* ── Step 8 — committee ↔ category bindings ──────────────────────────
+   *
+   * Backs the admin-setup wizard committee picker. Persisted bindings tell
+   * the applicant-distribution step which committees can absorb each
+   * category for the cycle's academic year. List/replace pair mirrors the
+   * REST contract; granular add/remove kept off the API surface to keep
+   * the audit trail clean (one diff per save). */
+  async listCategoryCommittees(cycleId: string): Promise<CategoryCommittees[]> {
+    await simulateLatency();
+    return CATEGORY_COMMITTEES.filter((b) => b.cycleId === cycleId);
+  },
+
+  async listCommitteeBindings(input: {
+    cycleId: string;
+    categoryId?: ApplicantCategoryKey;
+  }): Promise<CategoryCommittees[]> {
+    await simulateLatency();
+    return CATEGORY_COMMITTEES.filter(
+      (b) =>
+        b.cycleId === input.cycleId &&
+        (input.categoryId ? b.categoryId === input.categoryId : true),
+    );
+  },
+
+  /**
+   * Replace the full set of committee bindings for a cycle (optionally
+   * scoped to a single category). Validates each requested committee
+   * against the same eligibility rules the applicant-distribution stage
+   * enforces — active, current academic year, not at capacity, matching
+   * specialization when the category declares one.
+   */
+  async setCommitteeBindings(input: {
+    cycleId: string;
+    academicYearId: string;
+    /** Optional scope — when omitted, the call replaces *all* bindings for the cycle. */
+    categoryId?: ApplicantCategoryKey;
+    committeeIds: string[];
+    actorUserId?: string;
+  }): Promise<CategoryCommittees[]> {
+    await simulateLatency();
+    const requestedIds = Array.from(new Set(input.committeeIds));
+    const allCommittees = await committeeService.list();
+    const errors: string[] = [];
+    for (const cid of requestedIds) {
+      const c = allCommittees.find((x) => x.id === cid);
+      if (!c) {
+        errors.push(`اللجنة ${cid} غير موجودة`);
+        continue;
+      }
+      if (c.status === 'inactive') {
+        errors.push(`اللجنة "${c.name}" معطلة`);
+        continue;
+      }
+      if (c.deletedAt) {
+        errors.push(`اللجنة "${c.name}" محذوفة`);
+        continue;
+      }
+      if (c.academicYearId && c.academicYearId !== input.academicYearId) {
+        errors.push(`اللجنة "${c.name}" لا تنتمي للعام الأكاديمي ${input.academicYearId}`);
+        continue;
+      }
+      if (c.capacity !== undefined && c.applicants >= c.capacity) {
+        errors.push(`اللجنة "${c.name}" مكتملة الطاقة الاستيعابية`);
+        continue;
+      }
+    }
+    if (errors.length > 0) {
+      throw new Error(errors.join(' · '));
+    }
+
+    /* Replace strategy: drop the matching scope, then re-insert the new rows. */
+    const before = [...CATEGORY_COMMITTEES];
+    const keep = CATEGORY_COMMITTEES.filter((b) => {
+      if (b.cycleId !== input.cycleId) return true;
+      if (input.categoryId && b.categoryId !== input.categoryId) return true;
+      return false;
+    });
+
+    const baseCategoryId: ApplicantCategoryKey =
+      input.categoryId ?? 'officers_general';
+    const now = new Date().toISOString();
+    const next: CategoryCommittees[] = requestedIds.map((cid, idx) => ({
+      id: `CC-${input.cycleId}-${baseCategoryId}-${cid}`,
+      categoryId: baseCategoryId,
+      committeeId: cid,
+      academicYearId: input.academicYearId,
+      cycleId: input.cycleId,
+      order: idx + 1,
+      createdAt: now,
+      createdBy: input.actorUserId ?? 'system',
+    }));
+
+    CATEGORY_COMMITTEES.length = 0;
+    CATEGORY_COMMITTEES.push(...keep, ...next);
+
+    emitAudit({
+      action: 'update',
+      module: 'committees',
+      entityType: 'CategoryCommittees',
+      entityLabel: 'لجان دورة القبول',
+      entityId: `${input.cycleId}:${baseCategoryId}`,
+      details: `تم تحديث قائمة اللجان المختارة (${next.length} لجنة) للدورة`,
+      before,
+      after: CATEGORY_COMMITTEES,
+    });
+
+    return next;
   },
 };

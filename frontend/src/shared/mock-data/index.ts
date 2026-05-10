@@ -65,6 +65,7 @@ import { ROLE_DEFINITION_SEED } from './roles';
 import { ADMIN_NOTIFICATIONS_SEED } from './adminNotifications';
 import { buildAdminPayments } from './adminPayments';
 import { OFFICER_DIRECTORY, findOfficerByNid, type OfficerDirectoryRow } from './officers';
+import { CATEGORY_COMMITTEES_SEED } from './categoryCommittees';
 
 reseed(42);
 
@@ -999,6 +1000,8 @@ export const MOCK = {
   adminPayments: buildAdminPayments(applicants),
   /* Officer / civilian / contractor directory — admin-create NID flow */
   officers: OFFICER_DIRECTORY,
+  /* Admission-setup wizard — committee ↔ category bindings (academic year scoped) */
+  categoryCommittees: CATEGORY_COMMITTEES_SEED,
 };
 
 export { findOfficerByNid };
