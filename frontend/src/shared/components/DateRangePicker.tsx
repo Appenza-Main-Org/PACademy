@@ -9,9 +9,12 @@
  */
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { CalendarGrid } from './DatePicker';
+
+const POPOVER_GAP = 8;
 
 export interface DateRange {
   start: Date | null;
@@ -89,15 +92,37 @@ export function DateRangePicker({
 }: DateRangePickerProps): JSX.Element {
   const id = useId();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
   const [cursor, setCursor] = useState<Date>(value?.start ?? new Date());
   const [draftStart, setDraftStart] = useState<Date | null>(value?.start ?? null);
   const [draftEnd, setDraftEnd] = useState<Date | null>(value?.end ?? null);
 
+  /* Right-aligned position so the popover's right edge matches the
+   * trigger's right edge — works for any popover width without needing
+   * to measure the popover. Clamped to keep it on screen. */
+  const computePosition = (): void => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPosition({
+      top: rect.bottom + POPOVER_GAP,
+      right: Math.max(8, window.innerWidth - rect.right),
+    });
+  };
+
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      setPosition(null);
+      return undefined;
+    }
+    computePosition();
     const onDocClick = (event: MouseEvent): void => {
-      if (!wrapperRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const inTrigger = wrapperRef.current?.contains(target) ?? false;
+      const inPopover = popoverRef.current?.contains(target) ?? false;
+      if (!inTrigger && !inPopover) {
         commitIfReady();
         setOpen(false);
       }
@@ -105,11 +130,19 @@ export function DateRangePicker({
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') setOpen(false);
     };
+    /* Capture-phase scroll listener catches scroll from any clipping
+     * ancestor (table wrapper, sticky shells, etc.). */
+    const onScroll = (): void => setOpen(false);
+    const onResize = (): void => setOpen(false);
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, draftStart, draftEnd]);
@@ -146,6 +179,7 @@ export function DateRangePicker({
       )}
       <button
         id={id}
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         disabled={disabled}
@@ -164,12 +198,18 @@ export function DateRangePicker({
         <Calendar size={16} strokeWidth={1.75} className="text-ink-500" aria-hidden />
       </button>
 
-      {open && (
+      {open && position && createPortal(
         <div
+          ref={popoverRef}
           role="dialog"
           aria-label="اختر فترة"
-          className="absolute top-full mt-2 flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg md:flex-row"
-          style={{ zIndex: 'var(--z-dropdown)' as unknown as number, insetInlineEnd: 0 }}
+          className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg md:flex-row"
+          style={{
+            position: 'fixed',
+            top: position.top,
+            right: position.right,
+            zIndex: 'var(--z-dropdown)' as unknown as number,
+          }}
         >
           <ul className="flex flex-row flex-wrap gap-1 md:flex-col md:border-e md:border-border-subtle md:pe-3">
             {QUICK_RANGES.map((qr) => (
@@ -208,7 +248,8 @@ export function DateRangePicker({
               onSelect={handleCellSelect}
             />
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
       {error ? (
         <p className="text-xs text-terra-700">{error}</p>
