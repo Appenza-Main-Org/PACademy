@@ -74,18 +74,18 @@ export function ExportMenu<TRow>({
 
   const trigger = (
     <Button
-      variant="ghost"
-      size="sm"
+      variant="secondary"
+      size="md"
       disabled={disabled || busy !== null}
       title={disabled ? 'لا توجد بيانات للتصدير' : 'تصدير الجدول'}
       leadingIcon={
         busy ? (
-          <Loader2 size={14} strokeWidth={1.75} className="animate-spin" />
+          <Loader2 size={16} strokeWidth={1.75} className="animate-spin" />
         ) : (
-          <Download size={14} strokeWidth={1.75} />
+          <Download size={16} strokeWidth={1.75} />
         )
       }
-      trailingIcon={<ChevronDown size={12} strokeWidth={1.75} className="opacity-60" />}
+      trailingIcon={<ChevronDown size={14} strokeWidth={1.75} className="opacity-60" />}
     >
       {ACTION_LABELS.export}
     </Button>

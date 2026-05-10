@@ -60,9 +60,9 @@ export function ListActions<TRow>({ rows, config, onImported }: ListActionsProps
       {canImport && importConfig && (
         <>
           <Button
-            variant="ghost"
-            size="sm"
-            leadingIcon={<Upload size={14} strokeWidth={1.75} />}
+            variant="secondary"
+            size="md"
+            leadingIcon={<Upload size={16} strokeWidth={1.75} />}
             onClick={() => setImportOpen(true)}
           >
             {ACTION_LABELS.import}

@@ -4,7 +4,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Download, Eye } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -15,15 +15,12 @@ import {
   Input,
   PageHeader,
   Select,
-  toast,
 } from '@/shared/components';
 import type { DataTableColumn, DateRange, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
-import { downloadBlob } from '@/shared/lib/download';
 import {
   AuditDiffDrawer,
-  auditService,
   useAuditEntityTypes,
   useAuditLog,
   useAuditModules,
@@ -151,19 +148,6 @@ export function AuditPage(): JSX.Element {
       <PageHeader
         title="سجل النشاط"
         subtitle="كل العمليات الإدارية مسجّلة مع before/after لكل تعديل"
-        actions={
-          <Button
-            variant="secondary"
-            leadingIcon={<Download size={14} strokeWidth={1.75} />}
-            onClick={async () => {
-              const blob = await auditService.exportCsv(filters);
-              downloadBlob(blob, `audit-${new Date().toISOString().slice(0, 10)}.csv`);
-              toast('تم تصدير ملف CSV', 'success');
-            }}
-          >
-            تصدير CSV
-          </Button>
-        }
       />
 
       <Card>

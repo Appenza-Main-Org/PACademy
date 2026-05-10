@@ -196,7 +196,7 @@ export function DataTable<TRow>({
   return (
     <div className={cn('flex flex-col gap-3', className)}>
       {listActions && (
-        <div className="flex flex-wrap items-center justify-start gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <ListActions rows={data} config={listActions} onImported={onImported} />
         </div>
       )}
