@@ -1,7 +1,6 @@
 /**
  * Step 6 — الرسوم المالية.
- * Application fee + optional fee inputs + the extracted FawryConfigCard.
- * Same `useCycleUpdate` mutation as CycleDetailPage; no fork.
+ * Application fee input. Same `useCycleUpdate` mutation as CycleDetailPage; no fork.
  */
 
 import { useEffect, useState } from 'react';
@@ -16,7 +15,6 @@ import {
   toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
-import { FawryConfigCard } from '@/features/admin/components/cycles/FawryConfigCard';
 import { useCycleUpdate } from '@/features/admin/api/cycles.queries';
 import type { AdmissionCycle, CycleFees } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
@@ -105,8 +103,6 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
           </Button>
         </div>
       </Card>
-
-      <FawryConfigCard cycle={cycle} readOnly={readOnly} />
     </div>
   );
 }
