@@ -22,6 +22,7 @@ import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit, withAudit } from '@/shared/lib/audit';
 import { StatusChangeBlockedError } from '@/shared/lib/errors';
+import { validateRoleSet } from '../lib/role-rules';
 import type {
   AccountStatus,
   SystemUser,
@@ -116,8 +117,9 @@ export const usersService = {
    * Audit: `user_created` with the new row as `after`.
    */
   async create(payload: CreateUserPayload): Promise<SystemUser> {
-    if (payload.roles.length === 0) {
-      throw new Error('يجب اختيار دور واحد على الأقل');
+    const validation = validateRoleSet(payload.roles);
+    if (!validation.ok) {
+      throw new Error(validation.message ?? 'مجموعة الأدوار غير صالحة');
     }
     return withAudit(
       async () => {
@@ -172,8 +174,11 @@ export const usersService = {
     const beforeShape = snapshot(before);
 
     const nextRoles = patch.roles ? [...patch.roles] : [...before.roles];
-    if (patch.roles && nextRoles.length === 0) {
-      throw new Error('يجب اختيار دور واحد على الأقل');
+    if (patch.roles) {
+      const validation = validateRoleSet(nextRoles);
+      if (!validation.ok) {
+        throw new Error(validation.message ?? 'مجموعة الأدوار غير صالحة');
+      }
     }
     const nextAccountStatus = patch.accountStatus ?? before.accountStatus;
     const legacy = mapAccountStatusToLegacy(nextAccountStatus);

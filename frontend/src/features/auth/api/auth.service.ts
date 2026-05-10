@@ -173,6 +173,18 @@ export const authService = {
     if (!username || !password) throw new Error('بيانات الدخول مطلوبة');
 
     const matchUser = MOCK.users.find((u) => u.role === role) ?? MOCK.users[0]!;
+    /* Reject inactive accounts before issuing an OTP. */
+    if (matchUser.accountStatus === 'inactive') {
+      emitAudit({
+        action: 'login_failed',
+        module: 'auth',
+        entityType: 'auth.session',
+        entityLabel: 'جلسة دخول',
+        entityId: matchUser.id,
+        details: `محاولة دخول لحساب غير نشط — ${matchUser.fullArabicName}`,
+      });
+      throw new AccountInactiveError(matchUser.id);
+    }
     const lock = lockedUsers.get(matchUser.id);
     if (lock && (!lock.unlocksAt || new Date(lock.unlocksAt).getTime() > Date.now())) {
       emitAudit({

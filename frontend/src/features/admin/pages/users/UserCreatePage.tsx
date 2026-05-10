@@ -21,6 +21,7 @@ import {
 } from '../../components/users';
 import { useUserCreate } from '../../api/users.queries';
 import type { OfficerCandidate } from '../../api/nid-lookup.service';
+import { validateRoleSet } from '../../lib/role-rules';
 import type { AccountStatus } from '@/shared/types/domain';
 
 interface FormState {
@@ -80,8 +81,9 @@ export function UserCreatePage(): JSX.Element {
     setSubmitError(null);
     setRolesError(null);
     if (!merged) return;
-    if (form.roles.length === 0) {
-      setRolesError('يجب اختيار دور واحد على الأقل');
+    const validation = validateRoleSet(form.roles);
+    if (!validation.ok) {
+      setRolesError(validation.message ?? 'مجموعة الأدوار غير صالحة');
       return;
     }
     try {

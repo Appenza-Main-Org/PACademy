@@ -26,6 +26,7 @@ import {
   RoleMultiSelect,
 } from '../../components/users';
 import { useUser, useUserUpdate } from '../../api/users.queries';
+import { validateRoleSet } from '../../lib/role-rules';
 import type { AccountStatus, SystemUser } from '@/shared/types/domain';
 
 interface DraftState {
@@ -90,7 +91,8 @@ export function UserEditPage(): JSX.Element {
   }
 
   const dirty = isDirty(draft, initial);
-  const formValid = draft.roles.length > 0;
+  const roleValidation = validateRoleSet(draft.roles);
+  const formValid = roleValidation.ok;
   const isSelf = currentUser?.id === user.id;
 
   /* If editing yourself, lock the status toggle to active to prevent
@@ -101,8 +103,9 @@ export function UserEditPage(): JSX.Element {
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setRolesError(null);
-    if (!dirty || !formValid) {
-      if (!formValid) setRolesError('يجب اختيار دور واحد على الأقل');
+    if (!dirty) return;
+    if (!roleValidation.ok) {
+      setRolesError(roleValidation.message ?? 'مجموعة الأدوار غير صالحة');
       return;
     }
     try {
