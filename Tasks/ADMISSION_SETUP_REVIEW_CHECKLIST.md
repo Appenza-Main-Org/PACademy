@@ -229,18 +229,18 @@ Every one of the 15 step pages must have:
 
 ---
 
-## J · Scalability (the 16th step test)
+## J · Scalability (the 15th step test)
 
-- [ ] **J1.** Adding a 16th step requires only:
+- [ ] **J1.** Adding a 15th step requires only:
   - Append one entry to `ADMISSION_SETUP_STEPS` config.
   - Add one route segment to `ROUTES.admin.admissionSetup`.
   - Write one new page file.
 - [ ] **J2.** No changes to `Sidebar.tsx`, `routes.tsx`, or shell components needed for a new step.
-- [ ] **J3.** Sidebar automatically picks up the 16th step.
-- [ ] **J4.** Breadcrumb automatically shows "الخطوة ١٦ من ١٦".
-- [ ] **J5.** Index page automatically renders the 16th card.
+- [ ] **J3.** Sidebar automatically picks up the 15th step.
+- [ ] **J4.** Breadcrumb automatically shows "الخطوة ١٥ من ١٥".
+- [ ] **J5.** Wizard stepper automatically renders the 15th entry.
 
-> **How to test:** add a fake 16th step config entry locally, verify it appears everywhere, then revert.
+> **How to test:** add a fake 15th step config entry locally, verify it appears everywhere, then revert.
 
 ---
 
