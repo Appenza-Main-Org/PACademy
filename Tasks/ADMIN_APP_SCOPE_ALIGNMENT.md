@@ -586,3 +586,21 @@ independently of the Radix work.
 - **Recommended additions (Gap N)** are deliberately excluded from the Claude Code prompt. Approve them separately if desired.
 - **Budget signaling** — the prompt asks Claude Code to stop and report at 1.5× over estimate. This is a safety valve against silent scope creep.
 - **All Arabic copy** in the prompt above is verbatim from the meeting notes or RFP; no translations were invented.
+
+---
+
+## 8 · Admin Create NID Flow (post-closeout enhancement)
+
+Composes over Gap B (officer lookup) and Gap C (dynamic roles) without forking either. Adds NID-driven admin user creation, multi-role assignment, and a binary Active/Inactive `accountStatus` toggle distinct from the existing 3-state `SystemUserStatus` (the latter remains the source of truth for the lockout flow from Gap A).
+
+Phase commits (this branch):
+
+- `0cb927a` feat(types): extend SystemUser with status, multi-role, NID metadata
+- `f687caf` feat(admin/users): NID lookup service + query hooks for create/update/status
+- `c6b2b85` feat(admin/users): NID lookup, role multi-select, status toggle primitives
+- `bbee5e3` feat(admin/users): NID-driven create flow + edit + detail + list integration
+- `96c9721` feat(admin/users): edge cases, role-conflict rules, audit emissions, a11y
+
+Touched surfaces: `src/shared/types/domain.ts` (SystemUser extension), `src/shared/mock-data/officers.ts` (new candidate directory, distinct from `MOCK.users`), `src/features/admin/api/{nid-lookup,users}.service.ts`, `src/features/admin/hooks/useNidLookup.ts`, `src/features/admin/components/users/*`, `src/features/admin/pages/users/{UserCreate,UserDetail,UserEdit}Page.tsx`, `src/features/admin/pages/UsersPage.tsx` (rewritten), `src/features/admin/lib/role-rules.ts`, `src/features/auth/api/auth.service.ts` (AccountInactiveError gates login + requestOtp), `src/shared/lib/{audit,errors}.ts`, `src/shared/types/domain.ts` (4 new audit codes).
+
+Audit codes emitted: `user_created`, `user_updated`, `user_status_changed`, `user_roles_changed`. Typed errors: `NidLookupNotFoundError`, `InvalidNidError`, `AccountInactiveError`, `StatusChangeBlockedError` (`self_deactivation` | `last_super_admin`).
