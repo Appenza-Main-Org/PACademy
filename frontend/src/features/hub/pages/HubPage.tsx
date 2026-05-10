@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import type { CSSProperties, ElementType, ReactNode } from 'react';
 import { AppShell } from '@/app/layouts/AppShell';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
+import { ROUTES } from '@/config/routes';
 import {
   Badge,
   KhayameyaStripe,
@@ -252,7 +253,7 @@ export function HubPage(): JSX.Element {
                 </span>
               </div>
               <Link
-                to="/admin/audit"
+                to={ROUTES.admin.audit}
                 className="group/link inline-flex items-center gap-1 text-xs text-ink-500 transition-colors duration-fast ease-standard hover:text-[var(--teal-700)]"
               >
                 <span>عرض السجل الكامل</span>
