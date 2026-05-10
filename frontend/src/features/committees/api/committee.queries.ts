@@ -12,6 +12,7 @@ export const committeeKeys = {
   dependencies: (id: string) => [...committeeKeys.all, 'dependencies', id] as const,
   eligibleOfficers: () => [...committeeKeys.all, 'eligible-officers'] as const,
   specializations: () => [...committeeKeys.all, 'specializations'] as const,
+  educationTypes: () => [...committeeKeys.all, 'education-types'] as const,
   assigned: (id: string) => [...committeeKeys.all, 'assigned', id] as const,
 };
 
@@ -136,6 +137,12 @@ export const useCommitteeSpecializations = () =>
   useQuery({
     queryKey: committeeKeys.specializations(),
     queryFn: () => committeeService.listSpecializations(),
+  });
+
+export const useCommitteeEducationTypes = () =>
+  useQuery({
+    queryKey: committeeKeys.educationTypes(),
+    queryFn: () => committeeService.listEducationTypes(),
   });
 
 export const useCommitteeAssignedApplicants = (id: string | null) =>

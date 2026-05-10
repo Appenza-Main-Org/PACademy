@@ -27,6 +27,7 @@ import {
 } from '@/shared/components';
 import type { Committee, CommitteeRules, CommitteeStatus } from '@/shared/types/domain';
 import {
+  useCommitteeEducationTypes,
   useCommitteeSpecializations,
   useEligibleOfficers,
 } from '../api/committee.queries';
@@ -40,17 +41,6 @@ const ACADEMIC_YEARS = [
   { value: '2026-2027', label: 'العام الدراسي 2026 / 2027' },
   { value: '2025-2026', label: 'العام الدراسي 2025 / 2026' },
   { value: '2024-2025', label: 'العام الدراسي 2024 / 2025' },
-];
-
-const APPLICANT_TYPES: { value: string; label: string }[] = [
-  { value: 'any', label: 'الكل' },
-  { value: 'officers_general', label: 'ضباط عاميون' },
-  { value: 'officers_specialized', label: 'ضباط متخصصون' },
-  { value: 'postgraduate', label: 'دراسات عليا' },
-  { value: 'institute_officers_training', label: 'معهد ضباط (تدريب)' },
-  { value: 'institute_traffic', label: 'معهد المرور' },
-  { value: 'institute_guarding', label: 'معهد الحراسات' },
-  { value: 'special_units', label: 'الوحدات الخاصة' },
 ];
 
 const ARABIC_ALPHABET = [
@@ -125,6 +115,15 @@ export function CommitteeForm({
 }: CommitteeFormProps): JSX.Element {
   const { data: officers = [] } = useEligibleOfficers();
   const { data: specializations = [] } = useCommitteeSpecializations();
+  const { data: educationTypes = [] } = useCommitteeEducationTypes();
+
+  const applicantTypeOptions = useMemo(
+    () => [
+      { value: 'any', label: 'الكل' },
+      ...educationTypes.map((e) => ({ value: e.key, label: e.labelAr })),
+    ],
+    [educationTypes],
+  );
 
   const [name, setName] = useState(initial?.name ?? '');
   const [academicYearId, setAcademicYearId] = useState<string>(
@@ -373,9 +372,10 @@ export function CommitteeForm({
             />
             <Select
               label="نوع المتقدم"
-              value={(rules.applicantType ?? 'any') as string}
-              onChange={(e) => setRule('applicantType', e.target.value as CommitteeRules['applicantType'])}
-              options={APPLICANT_TYPES}
+              value={rules.applicantType ?? 'any'}
+              onChange={(e) => setRule('applicantType', e.target.value)}
+              options={applicantTypeOptions}
+              helper="مصدر القائمة: فئات المدارس (البيانات المرجعية)"
             />
           </div>
         </CardBody>

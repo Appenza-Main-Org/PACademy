@@ -16,6 +16,7 @@ export {
   useCommitteeUpdate,
   useCommitteeSetStatus,
   useCommitteeSpecializations,
+  useCommitteeEducationTypes,
   useCommitteeAssignedApplicants,
 } from './api/committee.queries';
 export { useApproveResults, useEnterResult, useRejectResult } from './api/committee.queries';

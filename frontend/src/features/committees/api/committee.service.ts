@@ -365,6 +365,23 @@ export const committeeService = {
   },
 
   /**
+   * List active education types — backs the "نوع المتقدم" select on the
+   * committee create / edit form. Sourced from the platform-wide lookup
+   * matrix (`/admin/reference-data/educationTypes`) so admins can manage
+   * the list in one place.
+   *
+   * INTEGRATION CONTRACT:
+   *   GET /api/lookups/educationTypes?active=true
+   */
+  async listEducationTypes(): Promise<{ id: string; key: string; labelAr: string; isActive: boolean }[]> {
+    await simulateLatency(60, 140);
+    return MOCK.lookups.educationTypes
+      .filter((l) => !l.deletedAt && l.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((l) => ({ id: l.id, key: l.key, labelAr: l.labelAr, isActive: l.isActive }));
+  },
+
+  /**
    * List applicants assigned to a given committee. Falls back to the
    * legacy `applicant.committee === c.name` join when the committee
    * has no explicit assignment table (the mock data ships with this

@@ -407,8 +407,13 @@ export interface CommitteeRules {
   alphabetTo?: string | null;
   /** Optional gender constraint for applicants this committee processes. */
   gender?: 'male' | 'female' | 'any';
-  /** Optional applicant-type constraint — keys from ApplicantCategoryKey. */
-  applicantType?: ApplicantCategoryKey | 'any';
+  /**
+   * Optional applicant-type constraint. Stable lookup key from the
+   * `educationTypes` lookup (managed at /admin/reference-data/educationTypes),
+   * or the literal `'any'` for no constraint. Stored as a free-form string
+   * so admins can add new education types without a code change.
+   */
+  applicantType?: string;
 }
 
 export type CommitteeStatus = 'active' | 'inactive';
