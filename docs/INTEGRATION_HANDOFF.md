@@ -375,6 +375,43 @@ contracts" below.
 | `listLiveSessions` | `GET /api/exams/:id/sessions/live` |
 | `categoryCounts` | `GET /api/exams/categories` |
 
+### admissionSetupService — `src/features/admin/admission-setup/api/admission-setup.service.ts`
+
+Net-new entities for the 15-step Admission Setup section. Composed
+steps (1–8, 12, 14) reuse `cyclesService`, `categoriesService`,
+`committeeService`, `examPlansService`, and `notificationsService`
+directly; only the four shapes below have no admin-gaps home today.
+
+| Method | Endpoint |
+|---|---|
+| `listMergeSplitRules(cycleId)` | `GET /api/admission-setup/cycles/:cycleId/merge-split-rules` |
+| `createMergeOrSplit(input)` | `POST /api/admission-setup/cycles/:cycleId/merge-split-rules` |
+| `softDeleteMergeSplit(id, reason)` | `DELETE /api/admission-setup/merge-split-rules/:id` (soft delete) |
+| `listScoreThresholds(cycleId)` | `GET /api/admission-setup/cycles/:cycleId/score-thresholds` |
+| `setCommitteeScoreThresholds(input)` | `PUT /api/admission-setup/cycles/:cycleId/committees/:cid/score` |
+| `getExamDateConfig(cycleId)` | `GET /api/admission-setup/cycles/:cycleId/exam-dates` |
+| `setExamDateConfig(input)` | `PUT /api/admission-setup/cycles/:cycleId/exam-dates` |
+| `listTotalScoreConfigs(cycleId)` | `GET /api/admission-setup/cycles/:cycleId/total-score` |
+| `setTotalScoreConfig(input)` | `PUT /api/admission-setup/cycles/:cycleId/total-score/:stream` |
+| `getDeclaration(cycleId)` | `GET /api/admission-setup/cycles/:cycleId/declaration` |
+| `setDeclaration(input)` | `PUT /api/admission-setup/cycles/:cycleId/declaration` |
+| `publishDeclaration(id)` | `POST /api/admission-setup/declarations/:id/publish` |
+
+Invariants enforced frontend-side (mirror in backend):
+- merge requires ≥2 source committees and exactly 1 target;
+- split requires exactly 1 source and ≥2 targets;
+- committee score thresholds: `0 ≤ min < max`;
+- exam dates: `firstAvailableDate ≥ cycle.openDate`, every
+  `bookableDays[i] ≥ firstAvailableDate`, `blackoutDates ⊆ bookableDays`;
+- total-score components: weights 0..100 summing to exactly 100 per stream,
+  `totalScoreOutOf > 0`;
+- declaration: non-empty body, version auto-increments per save,
+  `publishedAt` only set via the publish endpoint.
+
+`setCommitteeScoreThresholds` writes through to `Committee.scoreCriteria.magmoo3`
+on the existing `committeesService` so the threshold flows through every
+Gap-H committee surface unchanged.
+
 ### Missing contracts
 
 These services have public methods but no `INTEGRATION CONTRACT`
@@ -771,6 +808,15 @@ Surfaced during the service-walk; product/ops decisions needed
     (`GET /applicant/auth/captcha → { id, prompt }`,
     `POST /applicant/auth/initiate { captchaId, captchaAnswer, … }`
     with server-side validation against the issued id).
+12. **Admission-setup entity persistence model** — should the four
+    net-new admission-setup entities (`ElectronicDeclaration`,
+    `TotalScoreConfig`, `ExamDateConfig`, `CommitteeMergeSplitRule`)
+    be backed by the cycle-as-aggregate-root model in SQL Server, or
+    as separate tables with FK to cycle? Affects audit retention
+    strategy: aggregate-rooted rows live or die with the cycle, while
+    FK-only rows can outlive a soft-deleted cycle for forensic recall.
+    Frontend doesn't care today — the services key everything by
+    cycleId — but backend should pick once and not migrate.
 
 If you find more during implementation, append them here so future
 sessions can see the full conversation.
