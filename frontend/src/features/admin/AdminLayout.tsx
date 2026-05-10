@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bell,
   CalendarDays,
+  ClipboardCheck,
   ClipboardList,
   Database,
   Grid3x3,
@@ -18,6 +19,7 @@ import {
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
+import { ADMISSION_SETUP_STEPS } from './admission-setup';
 
 const SIDEBAR: SidebarSection[] = [
   {
@@ -34,6 +36,41 @@ const SIDEBAR: SidebarSection[] = [
       { key: 'users',      label: 'مستخدمو المنظومة',  icon: <Users size={18} />,           to: ROUTES.admin.users },
       { key: 'roles',      label: 'الأدوار والصلاحيات', icon: <Shield size={18} />,          to: ROUTES.admin.roles },
       { key: 'audit',      label: 'سجل النشاط',         icon: <Shield size={18} />,          to: ROUTES.admin.audit },
+    ],
+  },
+  /**
+   * التقديم — collapsible section driven by `ADMISSION_SETUP_STEPS`.
+   * Hidden entirely if the user lacks `admission-setup:read`. Auto-expands
+   * when on any `/admin/admission-setup/*` route. The 15 child links are
+   * sourced from the config so adding a 16th step is config-only here too.
+   */
+  {
+    label: 'التقديم',
+    icon: <ClipboardCheck size={14} strokeWidth={1.75} />,
+    collapsible: true,
+    permission: 'admission-setup:read',
+    groupKey: 'admission-setup',
+    defaultExpanded: false,
+    expandWhenPathStartsWith: '/admin/admission-setup',
+    items: [
+      {
+        key: 'admission-setup-index',
+        label: 'لوحة الإعدادات',
+        icon: <ClipboardCheck size={18} />,
+        to: ROUTES.admin.admissionSetup.index,
+        end: true,
+      },
+      ...[...ADMISSION_SETUP_STEPS]
+        .sort((a, b) => a.order - b.order)
+        .map((step) => {
+          const Icon = step.icon;
+          return {
+            key: `admission-setup-${step.key}`,
+            label: step.labelAr,
+            icon: <Icon size={18} />,
+            to: `/admin/admission-setup/${step.routeSegment}`,
+          };
+        }),
     ],
   },
   {
