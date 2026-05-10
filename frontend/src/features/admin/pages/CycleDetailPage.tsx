@@ -5,16 +5,7 @@
 
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  Archive,
-  CalendarPlus,
-  ChevronRight,
-  Copy,
-  ListChecks,
-  PauseCircle,
-  PlayCircle,
-  Smartphone,
-} from 'lucide-react';
+import { ChevronRight, Copy, ListChecks } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -22,13 +13,10 @@ import {
   DatePicker,
   EmptyState,
   ErrorState,
-  IconStamp,
-  Input,
   LoadingState,
   Modal,
   PageHeader,
   Select,
-  Textarea,
   toast,
 } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
@@ -43,7 +31,6 @@ import {
   useCycleClose,
   useCycleExtend,
   useCycleTransition,
-  useCycleUpdate,
   useCycles,
   useToggleCycleCategory,
 } from '../api/cycles.queries';
@@ -51,12 +38,10 @@ import { useCategoriesAdmin } from '../api/categories.queries';
 import { useRulesForCycle } from '../api/admissionRules.queries';
 import { useCopyExamConfig } from '../api/examPlans.queries';
 import { ExamPlanEditor } from '../components/exams/ExamPlanEditor';
-import type {
-  AdmissionCycle,
-  AdmissionCycleCategoryConfig,
-  ApplicantCategory,
-  CycleStatus,
-} from '@/shared/types/domain';
+import { CategoriesPanel } from '../components/cycles/CategoriesPanel';
+import { FawryConfigCard } from '../components/cycles/FawryConfigCard';
+import { LifecycleActions } from '../components/cycles/LifecycleActions';
+import type { ApplicantCategory, CycleStatus } from '@/shared/types/domain';
 
 
 const STATUS_OPTIONS: CycleStatus[] = ['draft', 'open', 'active', 'extended', 'closed', 'processing', 'finalized', 'archived'];
@@ -138,7 +123,6 @@ export function CycleDetailPage(): JSX.Element {
               onClick={() => {
                 cloneMut.mutate(cycle.id, {
                   onSuccess: (next) => toast(`تم إنشاء نسخة: ${next.nameAr}`, 'success'),
-                  onError: (err) => toast((err).message, 'warning'),
                 });
               }}
             >
@@ -417,312 +401,5 @@ export function CycleDetailPage(): JSX.Element {
         </Modal.Footer>
       </Modal>
     </CenteredShell>
-  );
-}
-
-/**
- * FawryConfigCard — admin form for the cycle's Fawry merchant config.
- * Closes CP9 of the PA Academy admin scope checkpoints. Reads from
- * cycle.fees.fawryConfig and persists via cyclesService.update(); the
- * applicant-side Stage 6 surface consumes the same shape (AF-7).
- */
-function FawryConfigCard({
-  cycle,
-  readOnly,
-}: {
-  cycle: AdmissionCycle;
-  readOnly: boolean;
-}): JSX.Element {
-  const updateMut = useCycleUpdate();
-  const fawry = cycle.fees?.fawryConfig;
-  const [merchantCode, setMerchantCode] = useState(fawry?.merchantCode ?? '');
-  const [label, setLabel] = useState(fawry?.label ?? 'فوري');
-  const [retryWindowHours, setRetryWindowHours] = useState<number>(
-    fawry?.retryWindowHours ?? 48,
-  );
-
-  const dirty =
-    merchantCode !== (fawry?.merchantCode ?? '') ||
-    label !== (fawry?.label ?? 'فوري') ||
-    retryWindowHours !== (fawry?.retryWindowHours ?? 48);
-
-  const save = (): void => {
-    if (readOnly || !dirty) return;
-    updateMut.mutate(
-      {
-        id: cycle.id,
-        patch: {
-          fees: {
-            applicationFee: cycle.fees?.applicationFee ?? 0,
-            ...cycle.fees,
-            fawryConfig: {
-              merchantCode: merchantCode.trim(),
-              label: label.trim() || 'فوري',
-              retryWindowHours: Math.max(1, Math.floor(retryWindowHours)),
-            },
-          },
-        },
-      },
-      {
-        onSuccess: () => toast('تم حفظ إعدادات بوابة فوري', 'success'),
-        onError: (err) => toast((err).message ?? 'تعذر حفظ الإعدادات', 'danger'),
-      },
-    );
-  };
-
-  return (
-    <Card>
-      <header className="mb-4 flex items-start gap-3">
-        <span aria-hidden className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-          <Smartphone size={18} strokeWidth={1.75} />
-        </span>
-        <div className="flex-1">
-          <h2 className="font-ar-display text-md font-bold text-ink-900">إعدادات بوابة فوري</h2>
-          <p className="mt-0.5 text-2xs text-ink-500 leading-relaxed">
-            رمز التاجر، تسمية البوابة المعروضة للمتقدم، ومدة صلاحية رمز السداد بالساعات.
-            تُستهلَك هذه القيم من الواجهة الأمامية على مرحلة سداد الرسوم.
-          </p>
-        </div>
-      </header>
-
-      <div className="grid gap-3 md:grid-cols-3">
-        <Input
-          label="رمز التاجر"
-          dir="ltr"
-          placeholder="PA-ACADEMY-…"
-          value={merchantCode}
-          onChange={(e) => setMerchantCode(e.target.value)}
-          disabled={readOnly}
-        />
-        <Input
-          label="تسمية البوابة"
-          placeholder="فوري"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          disabled={readOnly}
-        />
-        <Input
-          label="مدة صلاحية رمز السداد (بالساعات)"
-          type="number"
-          dir="ltr"
-          value={String(retryWindowHours)}
-          onChange={(e) => setRetryWindowHours(Number.parseInt(e.target.value, 10) || 0)}
-          disabled={readOnly}
-          helper="القيمة المرجعية في وثائق وزارة الداخلية: 48 ساعة"
-        />
-      </div>
-
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <p className="text-2xs text-ink-500">
-          {fawry
-            ? `آخر تحديث: ${fmtDate(cycle.updatedAt, 'short')}`
-            : 'لم يتم ضبط إعدادات فوري لهذه الدورة بعد'}
-        </p>
-        <Button
-          variant="primary"
-          onClick={save}
-          disabled={readOnly || !dirty || !merchantCode.trim()}
-          isLoading={updateMut.isPending}
-        >
-          حفظ الإعدادات
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
-function CategoriesPanel({
-  cycle,
-  categories,
-  readOnly,
-  onToggle,
-}: {
-  cycle: AdmissionCycle;
-  categories: ApplicantCategory[];
-  readOnly: boolean;
-  onToggle: (key: ApplicantCategory['key'], config: AdmissionCycleCategoryConfig) => void;
-}): JSX.Element {
-  return (
-    <section className="mt-6">
-      <h2 className="mb-3 font-ar-display text-xl font-bold text-ink-900">حالة الفئات في هذه الدورة</h2>
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">
-              <tr>
-                <th className="py-2 text-start">الفئة</th>
-                <th className="py-2 text-start">النوع</th>
-                <th className="py-2 text-start">الحالة</th>
-                <th className="py-2 text-start">السعة</th>
-                <th className="py-2 text-start">ملاحظات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((cat) => {
-                const cfg = cycle.openCategories?.[cat.key] ?? {
-                  isOpen: false,
-                  capacity: null,
-                  notes: '',
-                };
-                return (
-                  <CategoryRow
-                    key={cat.key}
-                    cycle={cycle}
-                    category={cat}
-                    config={cfg}
-                    readOnly={readOnly}
-                    onToggle={(c) => onToggle(cat.key, c)}
-                  />
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </section>
-  );
-}
-
-function CategoryRow({
-  cycle,
-  category,
-  config,
-  readOnly,
-  onToggle,
-}: {
-  cycle: AdmissionCycle;
-  category: ApplicantCategory;
-  config: AdmissionCycleCategoryConfig;
-  readOnly: boolean;
-  onToggle: (config: AdmissionCycleCategoryConfig) => void;
-}): JSX.Element {
-  const [draft, setDraft] = useState(config);
-  const dirty =
-    draft.isOpen !== config.isOpen ||
-    draft.capacity !== config.capacity ||
-    draft.notes !== config.notes;
-
-  return (
-    <tr className="border-b border-border-subtle last:border-b-0">
-      <td className="py-3 font-medium text-ink-900">{category.labelAr}</td>
-      <td className="py-3">
-        {category.conditions.nominationOnly ? (
-          <Badge tone="warning">بالترشيح</Badge>
-        ) : (
-          <Badge tone="neutral">تقديم عام</Badge>
-        )}
-      </td>
-      <td className="py-3">
-        <label className="flex items-center gap-2 text-sm text-ink-700">
-          <input
-            type="checkbox"
-            checked={draft.isOpen}
-            disabled={readOnly}
-            onChange={(e) => setDraft({ ...draft, isOpen: e.target.checked })}
-            className="h-4 w-4 cursor-pointer accent-teal-500"
-          />
-          {draft.isOpen ? 'مفتوح' : 'مغلق'}
-        </label>
-      </td>
-      <td className="py-3">
-        <Input
-          type="number"
-          value={draft.capacity ?? ''}
-          disabled={readOnly}
-          onChange={(e) => setDraft({ ...draft, capacity: e.target.value ? Number(e.target.value) : null })}
-          containerClassName="!mb-0"
-          className="w-24"
-        />
-      </td>
-      <td className="py-3">
-        <div className="flex items-center gap-2">
-          <Textarea
-            value={draft.notes}
-            disabled={readOnly}
-            onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-            containerClassName="!mb-0 flex-1"
-            rows={1}
-          />
-          {dirty && !readOnly && (
-            <Button variant="primary" size="sm" onClick={() => onToggle(draft)}>
-              حفظ
-            </Button>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
-  void cycle;
-}
-
-function LifecycleActions({
-  cycle,
-  onRequest,
-  onExtend,
-}: {
-  cycle: AdmissionCycle;
-  onRequest: (next: 'activate' | 'close' | 'archive') => void;
-  onExtend: () => void;
-}): JSX.Element {
-  const isActive = cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended';
-  const isClosed = cycle.status === 'closed' || cycle.status === 'finalized' || cycle.status === 'processing';
-  const isArchived = cycle.status === 'archived';
-  return (
-    <section className="mt-6">
-      <Card variant="elevated">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="font-ar-display text-md font-bold text-ink-900">إجراءات الدورة</h3>
-            <p className="mt-0.5 text-2xs text-ink-500">
-              تفعيل / إغلاق / أرشفة هذه الدورة
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {!isActive && !isArchived && (
-              <Button
-                variant="primary"
-                leadingIcon={<PlayCircle size={14} strokeWidth={1.75} />}
-                onClick={() => onRequest('activate')}
-              >
-                تفعيل
-              </Button>
-            )}
-            {isActive && (
-              <Button
-                variant="ghost"
-                leadingIcon={<CalendarPlus size={14} strokeWidth={1.75} />}
-                onClick={onExtend}
-              >
-                تمديد
-              </Button>
-            )}
-            {isActive && (
-              <Button
-                variant="secondary"
-                leadingIcon={<PauseCircle size={14} strokeWidth={1.75} />}
-                onClick={() => onRequest('close')}
-              >
-                إغلاق
-              </Button>
-            )}
-            {isClosed && (
-              <Button
-                variant="ghost"
-                leadingIcon={<Archive size={14} strokeWidth={1.75} />}
-                onClick={() => onRequest('archive')}
-              >
-                أرشفة
-              </Button>
-            )}
-            {isActive && (
-              <Badge tone="success">
-                <IconStamp width={12} height={12} className="me-1 inline-block" />
-                نشطة
-              </Badge>
-            )}
-          </div>
-        </div>
-      </Card>
-    </section>
   );
 }

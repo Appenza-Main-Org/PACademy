@@ -5,6 +5,9 @@ export { ApplicantDetailPage } from './pages/ApplicantDetailPage';
 export { ApplicantNewPage } from './pages/ApplicantNewPage';
 export { ApplicantEditPage } from './pages/ApplicantEditPage';
 export { UsersPage } from './pages/UsersPage';
+export { UserCreatePage } from './pages/users/UserCreatePage';
+export { UserDetailPage } from './pages/users/UserDetailPage';
+export { UserEditPage } from './pages/users/UserEditPage';
 export { RolesPage } from './pages/RolesPage';
 export { NotificationsPage } from './pages/NotificationsPage';
 export { PaymentsPage } from './pages/PaymentsPage';
@@ -34,3 +37,27 @@ export { CycleNewPage } from './pages/CycleNewPage';
 /* Post-polish admin pages — Department Workflow Builder (RFP §3 / §6) */
 export { WorkflowsListPage } from './pages/WorkflowsListPage';
 export { WorkflowEditorPage } from './pages/WorkflowEditorPage';
+
+/* Admission Setup section — 15-step config-driven setup. */
+export {
+  ADMISSION_SETUP_STEPS,
+  ADMISSION_SETUP_TOTAL_STEPS,
+  AdmissionSetupIndexPage,
+  AdmissionSetupWizardPage,
+  CycleMetadataPage,
+  ApplicationSettingsPage,
+  ApplicationStatusPage,
+  AgeRulesPage,
+  MaritalStatusRulesPage,
+  AdmissionFeesPage,
+  ExamsManagementPage,
+  CommitteesManagementPage,
+  CommitteeMergeSplitPage,
+  ScoreThresholdsPage,
+  ExamDatesPage,
+  DateCommitteeBindingPage,
+  TotalScorePage,
+  NotificationsStepPage,
+  ElectronicDeclarationPage,
+} from './admission-setup';
+export type { AdmissionSetupStep, AdmissionSetupStepKey } from './admission-setup';

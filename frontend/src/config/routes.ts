@@ -24,6 +24,7 @@ export const ROUTES = {
     users: '/admin/users',
     userNew: '/admin/users/new',
     userDetail: (id = ':id'): string => `/admin/users/${id}`,
+    userEdit: (id = ':id'): string => `/admin/users/${id}/edit`,
     roles: '/admin/users/roles',
     audit: '/admin/audit',
     settings: '/admin/settings',
@@ -41,6 +42,32 @@ export const ROUTES = {
     workflowNew: '/admin/workflows/new',
     notifications: '/admin/notifications',
     payments: '/admin/payments',
+    /* Admission Setup section — 15 ordered configuration steps. The keys
+     * mirror `AdmissionSetupStepKey` (camelCased) so feature code can
+     * derive the URL from a step key without a second lookup. */
+    admissionSetup: {
+      index: '/admin/admission-setup',
+      /** Wizard entry — top-stepper flow. `stepKey` is either an
+       *  `AdmissionSetupStepKey` or the literal `'review'`. */
+      wizard: (stepKey = ':stepKey'): string =>
+        `/admin/admission-setup/wizard/${stepKey}`,
+      wizardReview: '/admin/admission-setup/wizard/review',
+      cycleMetadata: '/admin/admission-setup/cycle-metadata',
+      applicationSettings: '/admin/admission-setup/application-settings',
+      applicationStatus: '/admin/admission-setup/application-status',
+      ageRules: '/admin/admission-setup/age-rules',
+      maritalStatusRules: '/admin/admission-setup/marital-status-rules',
+      fees: '/admin/admission-setup/fees',
+      exams: '/admin/admission-setup/exams',
+      committees: '/admin/admission-setup/committees',
+      committeeMergeSplit: '/admin/admission-setup/committee-merge-split',
+      scoreThresholds: '/admin/admission-setup/score-thresholds',
+      examDates: '/admin/admission-setup/exam-dates',
+      dateCommitteeBinding: '/admin/admission-setup/date-committee-binding',
+      totalScore: '/admin/admission-setup/total-score',
+      notifications: '/admin/admission-setup/notifications',
+      electronicDeclaration: '/admin/admission-setup/electronic-declaration',
+    },
   },
 
   /* ── Applicant surface (own auth via Stage 1+2) ──
@@ -58,6 +85,8 @@ export const ROUTES = {
     overview: '/committee',
     list: '/committee/list',
     schedule: '/committee/schedule',
+    create: '/committee/create',
+    detail: (id = ':id'): string => `/committee/${id}`,
   },
   board: {
     overview: '/board',

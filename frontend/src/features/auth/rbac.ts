@@ -21,6 +21,18 @@ export const ROLES = [
 
 export type Role = (typeof ROLES)[number];
 
+/**
+ * Typed permission union — narrow enough that the type system catches typos
+ * in feature configs (e.g. admission-setup), wide enough that legacy
+ * `readonly string[]` permission arrays in `ROLE_DEFINITIONS` keep working
+ * (string literals are assignable to `string`). Add an entry here whenever
+ * a new permission is referenced from typed code.
+ */
+export type Permission =
+  | '*'
+  | 'admission-setup:read'
+  | 'admission-setup:write';
+
 export interface RoleDefinition {
   labelAr: string;
   apps: readonly AppKey[];
@@ -45,6 +57,10 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
       'biometric:verify',
       'workflows:read',
       'workflows:write',
+      /* Admission-setup section visibility for cycle-management roles. Write
+       * is reserved to super_admin per the brief — reading the steps lets
+       * committee admins audit the active cycle's setup. */
+      'admission-setup:read',
     ],
   },
   committee_user: {

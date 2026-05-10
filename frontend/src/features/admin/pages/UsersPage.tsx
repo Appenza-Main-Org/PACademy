@@ -1,11 +1,13 @@
 /**
- * UsersPage — system operators list with filters and actions.
- * Backed by real API (spec 003, T175). Super-admin only (Role:super_admin).
+ * /admin/users — system users directory.
+ *
+ * NID-aware search, status + role filters, multi-role display per row.
+ * Row click → user detail. "إنشاء حساب جديد" → UserCreatePage.
  */
 
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Shield } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import {
   Avatar,
   Badge,
@@ -14,183 +16,208 @@ import {
   DataTable,
   EmptyState,
   Input,
-  LoadingState,
   PageHeader,
   Select,
-  toast,
+  StatusBadge,
 } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROLE_DEFINITIONS, ROLES, type Role } from '@/features/auth';
-import { date as fmtDate } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
-import { useUsers, useUserDeactivate } from '../api/users.queries';
-import type { SystemUserListItemDto } from '@/shared/types/domain';
+import { date as fmtDate } from '@/shared/lib/format';
+import { useUsers } from '../api/users.queries';
+import type { AccountStatus, SystemUser } from '@/shared/types/domain';
 
 const ROLE_OPTIONS = [
-  { value: '', label: 'جميع الأدوار' },
-  ...ROLES.map((r) => ({ value: r, label: ROLE_DEFINITIONS[r].labelAr })),
+  { value: 'all', label: 'كل الأدوار' },
+  ...ROLES.filter((r) => r !== 'applicant').map((r) => ({
+    value: r,
+    label: ROLE_DEFINITIONS[r].labelAr,
+  })),
+];
+
+const STATUS_OPTIONS: ReadonlyArray<{ value: AccountStatus | 'all'; label: string }> = [
+  { value: 'all', label: 'الكل' },
+  { value: 'active', label: 'نشط' },
+  { value: 'inactive', label: 'غير نشط' },
 ];
 
 export function UsersPage(): JSX.Element {
+  const { data, isLoading } = useUsers();
   const navigate = useNavigate();
 
-  const [roleFilter, setRoleFilter] = useState('');
-  const [qFilter, setQFilter] = useState('');
-  const [isActiveFilter, setIsActiveFilter] = useState<string>('');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>('all');
+  const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all');
 
-  const filters = useMemo(() => ({
-    role: roleFilter || undefined,
-    q: qFilter || undefined,
-    isActive: isActiveFilter === '' ? undefined : isActiveFilter === 'true',
-    page: 1,
-    pageSize: 25,
-  }), [roleFilter, qFilter, isActiveFilter]);
+  const filtered = useMemo(() => {
+    const q = search.trim();
+    const rows = data ?? [];
+    return rows.filter((u) => {
+      if (statusFilter !== 'all' && u.accountStatus !== statusFilter) return false;
+      if (roleFilter !== 'all' && !u.roles.includes(roleFilter) && u.role !== roleFilter) {
+        return false;
+      }
+      if (!q) return true;
+      const haystack = [u.fullArabicName, u.name, u.nationalId, u.officerCode, u.id]
+        .filter(Boolean)
+        .join(' ');
+      return haystack.includes(q);
+    });
+  }, [data, search, statusFilter, roleFilter]);
 
-  const { data, isLoading } = useUsers(filters);
-  const deactivateMut = useUserDeactivate();
-
-  const columns: DataTableColumn<SystemUserListItemDto>[] = useMemo(
+  const columns: DataTableColumn<SystemUser>[] = useMemo(
     () => [
       {
         key: 'user',
         label: 'المستخدم',
         render: (u) => (
           <div className="flex items-center gap-3">
-            <Avatar name={u.fullName} size="sm" />
+            <Avatar name={u.fullArabicName} size="sm" />
             <div className="flex flex-col">
-              <span className="font-medium text-ink-900">{u.fullName}</span>
-              <span className="text-2xs text-ink-500 font-mono" dir="ltr">{u.nationalId}</span>
+              <span className="font-medium text-ink-900">{u.fullArabicName}</span>
+              <span className="text-2xs text-ink-500 font-mono" dir="ltr">
+                {u.id}
+              </span>
             </div>
           </div>
         ),
       },
       {
-        key: 'role',
-        label: 'الدور',
-        render: (u) => {
-          const def = ROLE_DEFINITIONS[u.role as Role];
-          return <Badge tone="brand">{def?.labelAr ?? u.role}</Badge>;
-        },
+        key: 'nationalId',
+        label: 'الرقم القومى',
+        hideOn: 'sm',
+        render: (u) => (
+          <span className="text-2xs text-ink-700 font-mono tnum" dir="ltr">
+            {u.nationalId || '—'}
+          </span>
+        ),
       },
-      { key: 'unit', label: 'الوحدة', render: (u) => u.unit ?? '—', hideOn: 'sm' },
       {
-        key: 'apps',
-        label: 'التطبيقات',
+        key: 'officerCode',
+        label: 'الكود',
         hideOn: 'md',
+        render: (u) => (
+          <span className="text-2xs text-ink-700 font-mono" dir="ltr">
+            {u.officerCode || '—'}
+          </span>
+        ),
+      },
+      {
+        key: 'roles',
+        label: 'الأدوار',
         render: (u) => {
-          const def = ROLE_DEFINITIONS[u.role as Role];
+          const roles = u.roles.length > 0 ? u.roles : [u.role];
+          const visible = roles.slice(0, 2);
+          const extra = roles.length - visible.length;
           return (
-            <span className="text-2xs text-ink-500 font-mono" dir="ltr">
-              {def?.apps.slice(0, 4).join(' · ') ?? '—'}
-              {(def?.apps.length ?? 0) > 4 && '…'}
-            </span>
+            <div className="flex flex-wrap items-center gap-1">
+              {visible.map((r) => (
+                <Badge key={r} tone="brand">
+                  {ROLE_DEFINITIONS[r as Role]?.labelAr ?? r}
+                </Badge>
+              ))}
+              {extra > 0 && (
+                <Badge tone="neutral">
+                  <span className="font-numeric tnum">+{extra}</span>
+                </Badge>
+              )}
+            </div>
           );
         },
       },
+      { key: 'unit', label: 'الوحدة', hideOn: 'md', render: (u) => u.unit || '—' },
       {
-        key: 'active',
+        key: 'accountStatus',
         label: 'الحالة',
         render: (u) =>
-          u.isActive ? <Badge tone="success">نشط</Badge> : <Badge tone="neutral">معطّل</Badge>,
+          u.accountStatus === 'active' ? (
+            <StatusBadge status="approved" />
+          ) : (
+            <Badge tone="neutral">غير نشط</Badge>
+          ),
       },
       {
-        key: 'createdAt',
-        label: 'تاريخ الإنشاء',
+        key: 'lastLogin',
+        label: 'آخر دخول',
+        hideOn: 'md',
         render: (u) => (
-          <span className="text-2xs text-ink-500">{fmtDate(new Date(u.createdAt).getTime(), 'short')}</span>
-        ),
-        hideOn: 'sm',
-      },
-      {
-        key: '_actions',
-        label: <span className="sr-only">إجراءات</span>,
-        align: 'end',
-        render: (u) => (
-          <div className="inline-flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="تعطيل الحساب"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!u.isActive) return;
-                deactivateMut.mutate(u.id, {
-                  onSuccess: () => toast('تم تعطيل الحساب', 'warning'),
-                  onError: () => toast('فشل تعطيل الحساب', 'danger'),
-                });
-              }}
-              disabled={!u.isActive}
-            >
-              <Shield size={14} strokeWidth={1.75} />
-            </Button>
-          </div>
+          <span className="text-2xs text-ink-500">
+            {u.lastLogin ? fmtDate(u.lastLogin, 'rel') : '—'}
+          </span>
         ),
       },
     ],
-    [deactivateMut],
+    [],
   );
-
-  const items = data ?? [];
 
   return (
     <CenteredShell>
       <PageHeader
         title="مستخدمو المنظومة"
-        subtitle={`${items.length} مستخدماً`}
+        subtitle={`${data?.length ?? 0} حساب نشط عبر ${ROLES.length} أدوار`}
         actions={
-          <Button
-            variant="primary"
-            leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-            onClick={() => navigate(ROUTES.admin.userNew)}
-          >
-            مستخدم جديد
-          </Button>
+          <Link to={ROUTES.admin.userNew} className="btn btn-primary">
+            <Plus size={14} strokeWidth={1.75} /> إنشاء حساب جديد
+          </Link>
         }
       />
 
-      {/* Filters */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Input
-          aria-label="بحث"
-          placeholder="بحث باسم أو رقم قومي…"
-          value={qFilter}
-          onChange={(e) => setQFilter(e.target.value)}
-          className="w-56"
-        />
-        <Select
-          aria-label="الدور"
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          options={ROLE_OPTIONS}
-        />
-        <Select
-          aria-label="الحالة"
-          value={isActiveFilter}
-          onChange={(e) => setIsActiveFilter(e.target.value)}
-          options={[
-            { value: '', label: 'جميع الحالات' },
-            { value: 'true', label: 'نشط' },
-            { value: 'false', label: 'معطّل' },
-          ]}
-        />
-      </div>
+      <Card className="mb-3">
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+          <Input
+            label="بحث"
+            placeholder="بحث بالاسم، الرقم القومى، الكود…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Select
+            label="الحالة"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as AccountStatus | 'all')}
+            options={[...STATUS_OPTIONS]}
+          />
+          <Select
+            label="الدور"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value as Role | 'all')}
+            options={ROLE_OPTIONS}
+          />
+        </div>
+      </Card>
 
       <Card>
-        {isLoading ? (
-          <LoadingState variant="list" rows={8} />
-        ) : (
-          <DataTable
-            data={items}
-            columns={columns}
-            rowKey={(u) => u.id}
-            empty={<EmptyState variant="generic" title="لا يوجد مستخدمون" />}
-            onRowClick={(u) => navigate(ROUTES.admin.userDetail(u.id))}
-            zebraStripes
-            stickyHeader
-          />
-        )}
+        <DataTable
+          data={filtered}
+          columns={columns}
+          rowKey={(u) => u.id}
+          loading={isLoading}
+          empty={
+            <EmptyState
+              variant="generic"
+              title="لا يوجد مستخدمون يطابقون التصفية"
+              description="جرّب تغيير معايير البحث أو إنشاء حساب جديد"
+            />
+          }
+          onRowClick={(u) => navigate(ROUTES.admin.userDetail(u.id))}
+          zebraStripes
+          stickyHeader
+        />
       </Card>
+
+      {data && filtered.length === 0 && data.length > 0 && (
+        <Button
+          variant="ghost"
+          className="mt-3"
+          onClick={() => {
+            setSearch('');
+            setStatusFilter('all');
+            setRoleFilter('all');
+          }}
+        >
+          مسح التصفية
+        </Button>
+      )}
     </CenteredShell>
   );
 }

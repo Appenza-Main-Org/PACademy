@@ -15,6 +15,9 @@
  *   POST   /api/cycles/:id/close                             → AdmissionCycle
  *   POST   /api/cycles/:id/archive                           → AdmissionCycle
  *   PATCH  /api/cycles/:id/categories/:key                   → AdmissionCycle
+ *     body: { isOpen, capacity, notes, genderTypes[], startDate, endDate }
+ *     422  if isOpen && (!genderTypes.length || !startDate || !endDate),
+ *           or dates outside cycle [openDate, closeDate], or end < start.
  *   PATCH  /api/cycles/:id/categories/:key/conditions        → AdmissionCycle
  */
 
@@ -102,6 +105,51 @@ function collectActivationIssues(cycle: AdmissionCycle): string[] {
   );
   if (openCategoryCount > 0 && !hasAnyExamRoster) {
     issues.push('لا توجد خطة اختبارات مُعرّفة لأي فئة قبول مفتوحة');
+  }
+
+  return issues;
+}
+
+/**
+ * Validates a per-category cycle configuration against the cycle's
+ * [openDate, closeDate] window (the academic year for this cohort) and the
+ * "open requires gender + dates" business rule. Returns an array of Arabic
+ * issue strings; an empty array means the config is valid.
+ *
+ * Exported so the إعدادات التقديم UI can render the same messages inline
+ * without duplicating the rule set.
+ */
+export function validateCategoryConfig(
+  cycle: AdmissionCycle,
+  config: AdmissionCycleCategoryConfig,
+): string[] {
+  const issues: string[] = [];
+  const cycleStart = cycle.openDate ? new Date(cycle.openDate).getTime() : null;
+  const cycleEnd = cycle.closeDate ? new Date(cycle.closeDate).getTime() : null;
+  const start = config.startDate ? new Date(config.startDate).getTime() : null;
+  const end = config.endDate ? new Date(config.endDate).getTime() : null;
+
+  if (config.isOpen) {
+    if (!config.genderTypes || config.genderTypes.length === 0) {
+      issues.push('يجب اختيار نوع واحد على الأقل');
+    }
+    if (!config.startDate || !config.endDate) {
+      issues.push('لا يمكن فتح الفئة بدون تحديد فترة التقديم');
+    }
+  }
+
+  if (start !== null && cycleStart !== null && cycleEnd !== null) {
+    if (start < cycleStart || start > cycleEnd) {
+      issues.push('تاريخ البداية يجب أن يكون داخل نطاق العام الدراسي');
+    }
+  }
+  if (end !== null && cycleStart !== null && cycleEnd !== null) {
+    if (end < cycleStart || end > cycleEnd) {
+      issues.push('تاريخ النهاية يجب أن يكون داخل نطاق العام الدراسي');
+    }
+  }
+  if (start !== null && end !== null && end < start) {
+    issues.push('تاريخ النهاية يجب أن يكون بعد تاريخ البداية');
   }
 
   return issues;
@@ -390,10 +438,19 @@ export const cyclesService = {
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === cycleId);
     if (idx === -1) throw new Error('الدورة غير موجودة');
+    const cycle = STATE[idx];
+
+    /* Per-category validation — mirrors the inline UI checks so the backend
+     * (and any non-UI caller) can't bypass the rules. */
+    const issues = validateCategoryConfig(cycle, config);
+    if (issues.length > 0) {
+      throw new Error(issues[0]);
+    }
+
     const next: AdmissionCycle = {
-      ...STATE[idx],
+      ...cycle,
       openCategories: {
-        ...STATE[idx].openCategories,
+        ...cycle.openCategories,
         [categoryKey]: config,
       },
       updatedAt: new Date().toISOString(),

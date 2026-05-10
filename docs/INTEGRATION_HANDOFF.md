@@ -250,19 +250,30 @@ in declaration order; "Real endpoint" copies from each service's
 | `restore` | `POST /api/roles/:id/restore` | — | — |
 | `getDependencies` | `GET /api/roles/:id/dependencies` | — | — |
 
-`users.service.ts`:
+`users.service.ts` (extended by admin-create NID flow):
 
-| Method | Real endpoint |
-|---|---|
-| `list` | `GET /api/users` |
-| `getById` | `GET /api/users/:id` |
-| `create` | `POST /api/users` (MOIPASS-backed) |
-| `update` | `PATCH /api/users/:id` |
-| `deactivate` | `POST /api/users/:id/deactivate` |
-| `reset2fa` | `POST /api/users/:id/reset-2fa` |
-| `bulkAssign` | `POST /api/users/bulk-assign` |
-| `getActivity` | `GET /api/users/:id/activity` |
-| `setStatus` | `POST /api/users/:id/status` |
+| Method | Real endpoint | Invariant deps | Typed errors |
+|---|---|---|---|
+| `list` | `GET /api/users` | — | — |
+| `getById` | `GET /api/users/:id` | — | — |
+| `create` | `POST /api/users` (NID-driven) | NID resolves in personnel directory; role conflict rules | `Error` (NID required, role conflict) |
+| `update` | `PATCH /api/users/:id` | role conflict rules | `Error` (role conflict) |
+| `setAccountStatus` | `POST /api/users/:id/status` | self-deactivation guard, last-active-super_admin guard | `StatusChangeBlockedError` |
+| `deactivate` | `POST /api/users/:id/deactivate` (alias) | same as setAccountStatus | `StatusChangeBlockedError` |
+| `reset2fa` | `POST /api/users/:id/reset-2fa` | — | — |
+| `bulkAssign` | `POST /api/users/bulk-assign` | — | — |
+| `getActivity` | `GET /api/users/:id/activity` | — | — |
+| `setStatus` | `POST /api/users/:id/status` (legacy 3-state) | — | — |
+
+`nid-lookup.service.ts` (admin-create NID flow):
+
+| Method | Real endpoint | Response shapes | Typed errors |
+|---|---|---|---|
+| `lookup` | `GET /v1/officers/lookup?nationalId={nid}` | `{ status: 'found', data: OfficerCandidate }` · 404 → `{ status: 'not_found' }` · 400 → `{ status: 'invalid', reason: 'format' \| 'checksum' }` | `NidLookupNotFoundError`, `InvalidNidError` |
+
+`authService.login` / `authService.requestOtp` reject inactive accounts
+with `AccountInactiveError` (`code: 'ACCOUNT_INACTIVE'`) before any
+credential check or OTP dispatch.
 
 `notifications.service.ts` (Gap L):
 
@@ -374,6 +385,43 @@ contracts" below.
 | `listAttempts` | `GET /api/exams/:id/attempts` |
 | `listLiveSessions` | `GET /api/exams/:id/sessions/live` |
 | `categoryCounts` | `GET /api/exams/categories` |
+
+### admissionSetupService — `src/features/admin/admission-setup/api/admission-setup.service.ts`
+
+Net-new entities for the 15-step Admission Setup section. Composed
+steps (1–8, 12, 14) reuse `cyclesService`, `categoriesService`,
+`committeeService`, `examPlansService`, and `notificationsService`
+directly; only the four shapes below have no admin-gaps home today.
+
+| Method | Endpoint |
+|---|---|
+| `listMergeSplitRules(cycleId)` | `GET /api/admission-setup/cycles/:cycleId/merge-split-rules` |
+| `createMergeOrSplit(input)` | `POST /api/admission-setup/cycles/:cycleId/merge-split-rules` |
+| `softDeleteMergeSplit(id, reason)` | `DELETE /api/admission-setup/merge-split-rules/:id` (soft delete) |
+| `listScoreThresholds(cycleId)` | `GET /api/admission-setup/cycles/:cycleId/score-thresholds` |
+| `setCommitteeScoreThresholds(input)` | `PUT /api/admission-setup/cycles/:cycleId/committees/:cid/score` |
+| `getExamDateConfig(cycleId)` | `GET /api/admission-setup/cycles/:cycleId/exam-dates` |
+| `setExamDateConfig(input)` | `PUT /api/admission-setup/cycles/:cycleId/exam-dates` |
+| `listTotalScoreConfigs(cycleId)` | `GET /api/admission-setup/cycles/:cycleId/total-score` |
+| `setTotalScoreConfig(input)` | `PUT /api/admission-setup/cycles/:cycleId/total-score/:stream` |
+| `getDeclaration(cycleId)` | `GET /api/admission-setup/cycles/:cycleId/declaration` |
+| `setDeclaration(input)` | `PUT /api/admission-setup/cycles/:cycleId/declaration` |
+| `publishDeclaration(id)` | `POST /api/admission-setup/declarations/:id/publish` |
+
+Invariants enforced frontend-side (mirror in backend):
+- merge requires ≥2 source committees and exactly 1 target;
+- split requires exactly 1 source and ≥2 targets;
+- committee score thresholds: `0 ≤ min < max`;
+- exam dates: `firstAvailableDate ≥ cycle.openDate`, every
+  `bookableDays[i] ≥ firstAvailableDate`, `blackoutDates ⊆ bookableDays`;
+- total-score components: weights 0..100 summing to exactly 100 per stream,
+  `totalScoreOutOf > 0`;
+- declaration: non-empty body, version auto-increments per save,
+  `publishedAt` only set via the publish endpoint.
+
+`setCommitteeScoreThresholds` writes through to `Committee.scoreCriteria.magmoo3`
+on the existing `committeesService` so the threshold flows through every
+Gap-H committee surface unchanged.
 
 ### Missing contracts
 
@@ -771,6 +819,15 @@ Surfaced during the service-walk; product/ops decisions needed
     (`GET /applicant/auth/captcha → { id, prompt }`,
     `POST /applicant/auth/initiate { captchaId, captchaAnswer, … }`
     with server-side validation against the issued id).
+12. **Admission-setup entity persistence model** — should the four
+    net-new admission-setup entities (`ElectronicDeclaration`,
+    `TotalScoreConfig`, `ExamDateConfig`, `CommitteeMergeSplitRule`)
+    be backed by the cycle-as-aggregate-root model in SQL Server, or
+    as separate tables with FK to cycle? Affects audit retention
+    strategy: aggregate-rooted rows live or die with the cycle, while
+    FK-only rows can outlive a soft-deleted cycle for forensic recall.
+    Frontend doesn't care today — the services key everything by
+    cycleId — but backend should pick once and not migrate.
 
 If you find more during implementation, append them here so future
 sessions can see the full conversation.

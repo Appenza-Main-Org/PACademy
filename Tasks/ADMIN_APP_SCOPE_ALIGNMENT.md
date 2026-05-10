@@ -586,3 +586,101 @@ independently of the Radix work.
 - **Recommended additions (Gap N)** are deliberately excluded from the Claude Code prompt. Approve them separately if desired.
 - **Budget signaling** — the prompt asks Claude Code to stop and report at 1.5× over estimate. This is a safety valve against silent scope creep.
 - **All Arabic copy** in the prompt above is verbatim from the meeting notes or RFP; no translations were invented.
+
+---
+
+## 8 · Admin Create NID Flow (post-closeout enhancement)
+
+Composes over Gap B (officer lookup) and Gap C (dynamic roles) without forking either. Adds NID-driven admin user creation, multi-role assignment, and a binary Active/Inactive `accountStatus` toggle distinct from the existing 3-state `SystemUserStatus` (the latter remains the source of truth for the lockout flow from Gap A).
+
+Phase commits (this branch):
+
+- `0cb927a` feat(types): extend SystemUser with status, multi-role, NID metadata
+- `f687caf` feat(admin/users): NID lookup service + query hooks for create/update/status
+- `c6b2b85` feat(admin/users): NID lookup, role multi-select, status toggle primitives
+- `bbee5e3` feat(admin/users): NID-driven create flow + edit + detail + list integration
+- `96c9721` feat(admin/users): edge cases, role-conflict rules, audit emissions, a11y
+
+Touched surfaces: `src/shared/types/domain.ts` (SystemUser extension), `src/shared/mock-data/officers.ts` (new candidate directory, distinct from `MOCK.users`), `src/features/admin/api/{nid-lookup,users}.service.ts`, `src/features/admin/hooks/useNidLookup.ts`, `src/features/admin/components/users/*`, `src/features/admin/pages/users/{UserCreate,UserDetail,UserEdit}Page.tsx`, `src/features/admin/pages/UsersPage.tsx` (rewritten), `src/features/admin/lib/role-rules.ts`, `src/features/auth/api/auth.service.ts` (AccountInactiveError gates login + requestOtp), `src/shared/lib/{audit,errors}.ts`, `src/shared/types/domain.ts` (4 new audit codes).
+
+Audit codes emitted: `user_created`, `user_updated`, `user_status_changed`, `user_roles_changed`. Typed errors: `NidLookupNotFoundError`, `InvalidNidError`, `AccountInactiveError`, `StatusChangeBlockedError` (`self_deactivation` | `last_super_admin`).
+
+---
+
+## 9 · Admission Setup Section (post-closeout enhancement)
+
+> Driven by `Tasks/ADMISSION_SETUP_PROMPT.md`. Composes over the
+> admin-gaps work above (Gaps F/G/H/I/J/K/L) and ships net-new pages
+> for steps that have no Gap home. Frontend-only; no backend coupling.
+> Tag: `admission-setup-shipped`.
+
+### Scope summary
+
+A new collapsible **التقديم** section in the admin sidebar with **15
+ordered submenu items**, each routing to its own page under
+`/admin/admission-setup/*`. Sidebar visibility, route registration, and
+breadcrumb pacing are driven by a **single config array**
+(`ADMISSION_SETUP_STEPS`) so adding a 16th step is a config-entry
+append plus a route segment plus a page file — no Sidebar / routes.tsx
+/ shell changes required.
+
+### Composition strategy
+
+| Strategy | Steps | Rationale |
+|---|---|---|
+| **Compose** (10 steps) | 1, 2, 3, 4, 5, 6, 7, 8, 12, 14 | Existing admin-gaps surfaces already implement the form/mutation/audit. Admission Setup re-renders the same components inside `<AdmissionSetupShell>` and reuses the same hooks — no service forks. Refactor commit `a63210a` extracted `FawryConfigCard`, `CategoriesPanel`, and `LifecycleActions` from `CycleDetailPage` so both surfaces share. |
+| **NEW** (5 steps)      | 9, 10, 11, 13, 15            | No admin-gaps home — built from scratch with form, service, queries, and audit. `admissionSetupService` owns the mock state for the four genuinely net-new entities; step 10 (score thresholds) writes through to the existing `Committee.scoreCriteria.magmoo3` so it shows up in every committee surface. |
+
+### Net-new vs composed step list
+
+| # | Key | Type | Backed by |
+|---|---|---|---|
+| 1 | `cycle_metadata` | Compose | `useCycleUpdate` |
+| 2 | `application_settings` | Compose | `CategoriesPanel` + `useToggleCycleCategory` |
+| 3 | `application_status` | Compose | `LifecycleActions` + activate/close/archive/extend mutations |
+| 4 | `age_rules` | Compose | `useUpdateExpandedConditions` per open category |
+| 5 | `marital_status_rules` | Compose | `useUpdateExpandedConditions` per open category |
+| 6 | `fees` | Compose | `useCycleUpdate` + `FawryConfigCard` |
+| 7 | `exams` | Compose | `ExamPlanEditor` (Gap J) |
+| 8 | `committees` | Compose | `useCommittees`, click-through to `/committee/:id` |
+| 9 | `committee_merge_split` | **NEW** | `admissionSetupService.createMergeOrSplit` + soft-delete |
+| 10 | `score_thresholds` | **NEW** | `admissionSetupService.setCommitteeScoreThresholds` (writes through to `Committee.scoreCriteria.magmoo3`) |
+| 11 | `exam_dates` | **NEW** | `admissionSetupService.setExamDateConfig` |
+| 12 | `date_committee_binding` | Compose | `useCommitteeUpdate` (`availableDates` + `capacityPerDay`) |
+| 13 | `total_score` | **NEW** | `admissionSetupService.setTotalScoreConfig` per applicant stream |
+| 14 | `notifications` | Compose | embeds `NotificationsPage` (Gap L) |
+| 15 | `electronic_declaration` | **NEW** | `admissionSetupService.setDeclaration` + `publishDeclaration` |
+
+### Commits (chronological)
+
+- `2464286` feat(admin/admission-setup): config-driven step registry + types + routes + RBAC
+- `0eb110a` feat(admin/admission-setup): collapsible sidebar section
+- `a63210a` refactor(admin/cycles): extract FawryConfig + Categories + Lifecycle cards
+- `0f3ab3f` feat(admin/admission-setup): compose cycle + status + age + marital steps over Gap F/G
+- `4832e0c` feat(admin/admission-setup): compose fees + exams + committees + binding steps over Gap H/J/K
+- `7667068` feat(admin/admission-setup): compose notifications step over Gap L
+- `9f23432` feat(admin/admission-setup/step-9): دمج وفصل اللجان
+- `f00de1c` feat(admin/admission-setup/step-10): درجات القبول
+- `dfe90ed` feat(admin/admission-setup/step-11): مواعيد الاختبارات
+- `1275bc7` feat(admin/admission-setup/step-13): المجموع الكلي
+- `a1873c3` feat(admin/admission-setup/step-15): الإقرار الإلكتروني
+- `b5e0112` feat(admin/admission-setup): mark net-new steps implemented + ROUTES.committee.create/detail
+
+### RBAC
+
+Two new typed permissions in the `Permission` union
+(`features/auth/rbac.ts`):
+- `admission-setup:read` — gates the sidebar section + the index page
+- `admission-setup:write` — required for every form save
+
+Granted to `super_admin` (via `*`) and `committee_admin` (read-only).
+Existing roles untouched.
+
+### Validation
+
+`npm run typecheck` and `npm run build` clean from `frontend/`. All four
+spec validation greps return zero (no `: any` in new code, no `export
+default`, `shared/` doesn't import `features/`, no hardcoded
+`/admin/admission-*` paths). `docs/INTEGRATION_HANDOFF.md` §2 has the
+new `admissionSetupService` contract row, §8 has the
+persistence-model open question.

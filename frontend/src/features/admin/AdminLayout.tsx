@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bell,
   CalendarDays,
+  ClipboardCheck,
   ClipboardList,
   Database,
   Grid3x3,
@@ -34,6 +35,25 @@ const SIDEBAR: SidebarSection[] = [
       { key: 'users',      label: 'مستخدمو المنظومة',  icon: <Users size={18} />,           to: ROUTES.admin.users },
       { key: 'roles',      label: 'الأدوار والصلاحيات', icon: <Shield size={18} />,          to: ROUTES.admin.roles },
       { key: 'audit',      label: 'سجل النشاط',         icon: <Shield size={18} />,          to: ROUTES.admin.audit },
+    ],
+  },
+  /**
+   * التقديم — single sidebar entry that opens the launcher. The 15-step
+   * configuration flow now lives entirely inside the wizard at
+   * `/admin/admission-setup/wizard/:stepKey`, so the sidebar deliberately
+   * exposes only one item to keep the navigation surface compact.
+   * Hidden entirely if the user lacks `admission-setup:read`.
+   */
+  {
+    label: 'التقديم',
+    permission: 'admission-setup:read',
+    items: [
+      {
+        key: 'admission-setup',
+        label: 'التقديم',
+        icon: <ClipboardCheck size={18} />,
+        to: ROUTES.admin.admissionSetup.index,
+      },
     ],
   },
   {

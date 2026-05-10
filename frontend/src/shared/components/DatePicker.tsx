@@ -38,6 +38,23 @@ export const ARABIC_WEEKDAYS_SAT_FIRST = [
   'الجمعة',
 ] as const;
 
+/**
+ * Single-character weekday abbreviations, Saturday-first.
+ * Every Arabic weekday name begins with "ال", so the previous header
+ * truncation (`name.slice(0, 2)`) collapsed all seven labels to "ال".
+ * Use this distinguishing letter map instead — same order as
+ * `ARABIC_WEEKDAYS_SAT_FIRST`.
+ */
+export const ARABIC_WEEKDAYS_SHORT_SAT_FIRST = [
+  'س', // السبت
+  'ح', // الأحد
+  'ن', // الإثنين
+  'ث', // الثلاثاء
+  'ر', // الأربعاء
+  'خ', // الخميس
+  'ج', // الجمعة
+] as const;
+
 interface DatePickerProps {
   value?: Date | null;
   onChange?: (next: Date | null) => void;
@@ -124,7 +141,7 @@ export function DatePicker({
           <div
             role="dialog"
             aria-label="اختر تاريخاً"
-            className="absolute mt-2 w-72 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg"
+            className="absolute mt-2 w-80 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg"
             style={{ zIndex: 'var(--z-dropdown)' as unknown as number }}
           >
             <CalendarGrid
@@ -209,16 +226,21 @@ export function CalendarGrid({
       </div>
 
       <div className="mt-2 grid grid-cols-7 gap-1 text-center text-2xs text-ink-500">
-        {ARABIC_WEEKDAYS_SAT_FIRST.map((d) => (
-          <span key={d} className="px-1 py-1">
-            {d.slice(0, 2)}
+        {ARABIC_WEEKDAYS_SAT_FIRST.map((full, i) => (
+          <span
+            key={full}
+            className="flex h-6 items-center justify-center"
+            title={full}
+            aria-label={full}
+          >
+            {ARABIC_WEEKDAYS_SHORT_SAT_FIRST[i]}
           </span>
         ))}
       </div>
 
       <div className="mt-1 grid grid-cols-7 gap-1">
         {cells.map((cell, i) => {
-          if (!cell) return <span key={i} className="block h-8 w-8" />;
+          if (!cell) return <span key={i} className="block h-9 w-9" />;
           const sel =
             selected && stripTime(selected).getTime() === stripTime(cell).getTime();
           const start =
@@ -236,7 +258,7 @@ export function CalendarGrid({
               disabled={Boolean(disabled)}
               aria-pressed={Boolean(sel || start || end)}
               className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-md font-numeric tnum text-sm transition-colors duration-fast ease-standard',
+                'flex h-9 w-9 items-center justify-center rounded-md font-numeric tnum text-sm transition-colors duration-fast ease-standard',
                 'hover:bg-teal-50',
                 disabled && 'cursor-not-allowed text-ink-300 hover:bg-transparent',
                 inRange && !sel && !start && !end && 'bg-teal-50 text-teal-700',

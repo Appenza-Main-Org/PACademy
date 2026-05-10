@@ -4,7 +4,7 @@
  */
 
 import { Outlet } from 'react-router-dom';
-import { Inbox, LayoutDashboard, ListChecks, Lock, Mailbox, Send } from 'lucide-react';
+import { Grid3x3, Inbox, LayoutDashboard, ListChecks, Lock, Mailbox, Send } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
@@ -12,13 +12,24 @@ import { ROUTES } from '@/config/routes';
 
 const SIDEBAR: SidebarSection[] = [
   {
-    label: 'إدارة التحريات',
+    label: 'التنقل',
     items: [
-      { key: 'cases',        label: 'كل القضايا',     icon: <LayoutDashboard size={18} />, to: ROUTES.investigations.overview, end: true },
-      { key: 'incoming',     label: 'الوارد',          icon: <Inbox size={18} />,           to: ROUTES.investigations.incoming },
-      { key: 'outgoing',     label: 'الصادر',          icon: <Send size={18} />,            to: ROUTES.investigations.outgoing },
-      { key: 'distribution', label: 'كشوف التوزيع',     icon: <ListChecks size={18} />,      to: ROUTES.investigations.distribution },
-      { key: 'create',       label: 'فتح قضية جديدة',   icon: <Mailbox size={18} />,         to: ROUTES.investigations.create },
+      { key: 'hub', label: 'كل التطبيقات', icon: <Grid3x3 size={18} />, to: ROUTES.hub },
+    ],
+  },
+  {
+    label: 'إدارة القضايا',
+    items: [
+      { key: 'cases',  label: 'كل القضايا',     icon: <LayoutDashboard size={18} />, to: ROUTES.investigations.overview, end: true },
+      { key: 'create', label: 'فتح قضية جديدة', icon: <Mailbox size={18} />,         to: ROUTES.investigations.create },
+    ],
+  },
+  {
+    label: 'صندوق البريد',
+    items: [
+      { key: 'incoming',     label: 'الوارد',        icon: <Inbox size={18} />,        to: ROUTES.investigations.incoming },
+      { key: 'outgoing',     label: 'الصادر',        icon: <Send size={18} />,         to: ROUTES.investigations.outgoing },
+      { key: 'distribution', label: 'كشوف التوزيع', icon: <ListChecks size={18} />,  to: ROUTES.investigations.distribution },
     ],
   },
 ];

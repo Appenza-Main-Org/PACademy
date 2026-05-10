@@ -227,7 +227,12 @@ export type AuditAction =
   | 'notification_unpublished'
   /* Payment events (Gap K) */
   | 'payment_status_changed'
-  | 'payment_refunded';
+  | 'payment_refunded'
+  /* Admin-create NID flow */
+  | 'user_created'
+  | 'user_updated'
+  | 'user_status_changed'
+  | 'user_roles_changed';
 export type AuditColor = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 /** Typed module taxonomy — used by Gap E filters and the withAudit() helper. */
@@ -292,24 +297,56 @@ export interface AuditEntry {
  * compat; `status` is the typed primary going forward. */
 export type SystemUserStatus = 'active' | 'suspended' | 'locked';
 
+/** Binary admin-controlled account status — surfaced as the
+ * Active / Inactive toggle in the user-creation flow. `inactive`
+ * maps to `SystemUserStatus = 'suspended'` on persistence; `locked`
+ * remains reserved for the failed-login lockout state from Gap A. */
+export type AccountStatus = 'active' | 'inactive';
+
+/** User-type taxonomy for the admin directory — surfaces in detail
+ * views and may gate downstream provisioning logic. */
+export type UserType = 'officer' | 'civilian' | 'contractor';
+
 export interface SystemUser {
   id: string;
+  /** Legacy display name — kept in sync with `fullArabicName` for the
+   *  many existing consumers that read `u.name`. */
   name: string;
+  /** Legacy single-role field — kept in sync with `roles[0]` for
+   *  bulk-assign and other single-role consumers. */
   role: string;
   unit: string;
   active: boolean;
   status?: SystemUserStatus;
   lastLogin: number;
-  /* Optional MOIPASS / detail fields — populated by /admin/users/:id detail
-   * fetches; absent on the legacy seed list. */
+  /* ── Admin-create NID flow extensions ─────────────────────────────── */
+  /** 14-digit Egyptian National ID. Source of identity. */
+  nationalId: string;
+  /** 4-part Arabic name from the officer directory. */
+  fullArabicName: string;
+  /** Officer / admin code (e.g. "OFF-1001"). */
+  officerCode: string;
+  /** Contact mobile in local format. */
+  mobileNumber: string;
+  /** Officer / civilian / contractor categorisation. */
+  userType: UserType;
+  /** Multi-role assignment — role keys; narrowed to `Role` in feature code.
+   *  Typed as `string[]` here to keep `shared/types` free of feature
+   *  imports (Clean Arch). The legacy `role` field mirrors `roles[0]`. */
+  roles: string[];
+  /** Binary admin-controlled status — Active / Inactive. */
+  accountStatus: AccountStatus;
+  /** ISO timestamps — admin audit and ordering. */
+  createdAt: string;
+  updatedAt: string;
+  /* ── Backend-integration optional fields (spec 007 + 21-lookup split) ── */
+  /** Alias of fullArabicName for backend payloads that use fullName. */
   fullName?: string;
-  nationalId?: string;
+  /** Alias of mobileNumber. */
   mobile?: string;
   email?: string;
-  officerCode?: string;
   cardFactoryNumber?: string;
   issueDate?: string;
-  createdAt?: string;
   archivedAt?: string;
   /** Mirror of `active` to match backend payloads (which use isActive). */
   isActive?: boolean;
@@ -781,6 +818,22 @@ export interface AdmissionCycleCategoryConfig {
   isOpen: boolean;
   capacity: number | null;
   notes: string;
+  /**
+   * Genders allowed to apply to this category within this cycle. Multi-select
+   * over `'male' | 'female'`. Optional for backwards compatibility with
+   * cycles seeded before the field existed; required (non-empty) when
+   * `isOpen === true` — validated server-side in `cyclesService.toggleCategory`
+   * and inline in the إعدادات التقديم step.
+   */
+  genderTypes?: ('male' | 'female')[];
+  /** ISO date (YYYY-MM-DD) — first day this category accepts applications.
+   *  Required when `isOpen === true`; must fall inside the cycle's
+   *  [openDate, closeDate] window (the academic year for this cohort). */
+  startDate?: string | null;
+  /** ISO date (YYYY-MM-DD) — last day this category accepts applications.
+   *  Required when `isOpen === true`; must be `>= startDate` and inside the
+   *  cycle's [openDate, closeDate] window. */
+  endDate?: string | null;
 }
 
 export interface AdmissionCycle extends SoftDeleteFields {
@@ -797,6 +850,12 @@ export interface AdmissionCycle extends SoftDeleteFields {
    * extensions may move closeDate without changing the eligibility cutoff.
    */
   ageCalcDate?: string;
+  /**
+   * Reference age (in full years) the cycle is calibrated against, paired
+   * with `ageCalcDate`. Optional UI affordance on the cycle metadata step;
+   * Step 4 (شروط السن) still owns the per-category min/max range.
+   */
+  referenceAge?: number;
   /** Per-cycle fee schedule (Gap F). */
   fees?: CycleFees;
   /** Categories opened in this cycle (Gap F derived view). */
