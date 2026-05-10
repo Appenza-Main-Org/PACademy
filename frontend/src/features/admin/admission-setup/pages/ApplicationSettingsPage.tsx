@@ -41,7 +41,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     <div className="flex flex-col gap-4">
       <PageHeader
         title="إعدادات التقديم"
-        subtitle="افتح/أغلق فئات هذه الدورة وحدّد السعة لكل فئة."
+        subtitle="افتح/أغلق فئات هذه الدورة وحدّد السعة، النوع، وفترة التقديم لكل فئة."
         actions={
           <Link to={ROUTES.admin.categories} className="inline-flex">
             <Button
