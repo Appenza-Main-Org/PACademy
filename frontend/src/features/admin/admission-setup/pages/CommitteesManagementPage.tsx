@@ -53,7 +53,7 @@ function Body({ cycle }: { cycle: AdmissionCycle }): JSX.Element {
                 إدارة اللجان الكاملة
               </Button>
             </Link>
-            <Link to="/committee/create" className="inline-flex">
+            <Link to={ROUTES.committee.create} className="inline-flex">
               <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
                 إضافة لجنة
               </Button>
@@ -73,7 +73,7 @@ function Body({ cycle }: { cycle: AdmissionCycle }): JSX.Element {
         {cycleCommittees.map((c) => (
           <Link
             key={c.id}
-            to={`/committee/${c.id}`}
+            to={ROUTES.committee.detail(c.id)}
             className="block rounded-md focus-visible:shadow-focus-teal focus-visible:outline-none"
           >
             <Card variant="elevated" className="h-full transition-shadow duration-fast ease-standard hover:shadow-md">

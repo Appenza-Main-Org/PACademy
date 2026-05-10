@@ -170,7 +170,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     routeSegment: 'committee-merge-split',
     icon: Split,
     permission: 'admission-setup:read',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'قواعد دمج عدة لجان أو فصل لجنة إلى عدة لجان.',
   },
   {
@@ -180,7 +180,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     routeSegment: 'score-thresholds',
     icon: Gauge,
     permission: 'admission-setup:read',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'الحد الأدنى والأقصى لقبول كل لجنة.',
   },
   {
@@ -190,7 +190,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     routeSegment: 'exam-dates',
     icon: CalendarRange,
     permission: 'admission-setup:read',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'أول ميعاد متاح، أيام التقديم، أيام الإجازة.',
   },
   {
@@ -211,7 +211,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     routeSegment: 'total-score',
     icon: Sigma,
     permission: 'admission-setup:read',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'وزن كل اختبار في المجموع النهائي لكل فئة.',
   },
   {
@@ -232,7 +232,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     routeSegment: 'electronic-declaration',
     icon: FileSignature,
     permission: 'admission-setup:read',
-    isImplemented: false,
+    isImplemented: true,
     subtitleAr: 'نص الإقرار المعروض على المتقدم في مرحلة الطباعة.',
   },
 ];

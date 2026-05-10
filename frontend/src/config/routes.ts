@@ -77,6 +77,8 @@ export const ROUTES = {
     overview: '/committee',
     list: '/committee/list',
     schedule: '/committee/schedule',
+    create: '/committee/create',
+    detail: (id = ':id'): string => `/committee/${id}`,
   },
   board: {
     overview: '/board',
