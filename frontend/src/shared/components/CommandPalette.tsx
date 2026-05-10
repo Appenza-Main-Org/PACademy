@@ -33,7 +33,6 @@ const NAVIGATION: CommandItem[] = [
   { id: 'nav-reference',   label: 'البيانات المرجعية',              href: ROUTES.admin.referenceDataRoot, group: 'navigation', icon: <Database size={14} strokeWidth={1.75} /> },
   { id: 'nav-cycles',      label: 'دورات القبول',                  href: ROUTES.admin.cycles,          group: 'navigation' },
   { id: 'nav-settings',    label: 'الإعدادات العامة',              href: ROUTES.admin.settings,        group: 'navigation', icon: <Settings size={14} strokeWidth={1.75} /> },
-  { id: 'nav-architecture', label: 'معمارية النظام',                href: ROUTES.architecture,          group: 'navigation' },
 ];
 
 interface CommandPaletteProps {
