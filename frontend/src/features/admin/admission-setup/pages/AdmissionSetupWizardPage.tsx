@@ -221,7 +221,13 @@ export function AdmissionSetupWizardPage(): JSX.Element {
 
   return (
     <WizardModeProvider>
-      <div className="flex flex-col gap-3">
+      {/* `scrollPaddingBlockEnd` ensures keyboard / browser scroll-into-view
+       * lands the focused field comfortably above the sticky toolbar
+       * instead of underneath it. */}
+      <div
+        className="flex flex-col gap-3"
+        style={{ scrollPaddingBlockEnd: '6rem' }}
+      >
         {/* Slim breadcrumb-style context bar — replaces the duplicate
          * outer PageHeader. Step page below renders the H1. */}
         <div className="flex flex-wrap items-center justify-between gap-2 text-2xs text-ink-500">
@@ -262,7 +268,10 @@ export function AdmissionSetupWizardPage(): JSX.Element {
           />
         </div>
 
-        {/* Step content — renders into the natural document scroll. */}
+        {/* Step content — renders into the natural document scroll. The
+         * trailing spacer below guarantees the last form field has air
+         * above the sticky toolbar when the page is fully scrolled, so
+         * the field is always readable, never visually trapped under it. */}
         <div className="min-w-0">
           {isReview ? (
             <WizardReviewPage statusInputs={statusInputs} />
@@ -270,6 +279,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
             STEP_RENDERERS[activeKey as AdmissionSetupStepKey]()
           )}
         </div>
+        <div aria-hidden className="h-16 shrink-0" />
 
         {/* Sticky footer (not fixed) so it lives in flow with the main
          * column — sidebar isn't overlapped, and scrolling reveals all
