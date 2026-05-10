@@ -65,6 +65,7 @@ import { ACADEMY_EXAMS, CYCLE_CATEGORY_EXAM_PLANS } from './academyExams';
 import { ROLE_DEFINITION_SEED } from './roles';
 import { ADMIN_NOTIFICATIONS_SEED } from './adminNotifications';
 import { buildAdminPayments } from './adminPayments';
+import { OFFICER_DIRECTORY, findOfficerByNid, type OfficerDirectoryRow } from './officers';
 
 reseed(42);
 
@@ -175,18 +176,59 @@ export function pickSchoolFor(_governorate: string): string {
   return EGYPTIAN_SCHOOLS[Math.floor(rng() * EGYPTIAN_SCHOOLS.length)]!;
 }
 
-const users: SystemUser[] = [
-  { id: 'U-001', name: 'العميد د. أحمد محمود الفقي', role: 'super_admin', unit: 'كلية الشرطة', active: true, lastLogin: Date.now() - 3600000 },
-  { id: 'U-002', name: 'العقيد محمد إبراهيم حسن', role: 'committee_admin', unit: 'لجان القبول', active: true, lastLogin: Date.now() - 7200000 },
-  { id: 'U-003', name: 'الرائد طارق علي الخطيب', role: 'medical_admin', unit: 'القومسيون الطبي', active: true, lastLogin: Date.now() - 1800000 },
-  { id: 'U-004', name: 'النقيب يوسف أحمد المصري', role: 'investigator', unit: 'إدارة التحريات', active: true, lastLogin: Date.now() - 86400000 },
-  { id: 'U-005', name: 'النقيب وليد سامح الديب', role: 'committee_user', unit: 'لجنة طلبة 1', active: true, lastLogin: Date.now() - 600000 },
-  { id: 'U-006', name: 'الملازم أول عمر حازم البنا', role: 'biometric_user', unit: 'بوابة الأمن', active: true, lastLogin: Date.now() - 300000 },
-  { id: 'U-007', name: 'العقيد أيمن شريف رمضان', role: 'board_admin', unit: 'الهيئة', active: true, lastLogin: Date.now() - 14400000 },
-  { id: 'U-008', name: 'الرائد ياسر هشام منصور', role: 'exams_admin', unit: 'الاختبارات الإلكترونية', active: true, lastLogin: Date.now() - 4500000 },
-  { id: 'U-009', name: 'النقيب كريم زياد فاروق', role: 'records_clerk', unit: 'إدراج النتائج', active: false, lastLogin: Date.now() - 7 * 86400000 },
-  { id: 'U-010', name: 'الرائد د. حسن محمد عبدالباقي', role: 'medical_doctor', unit: 'عيادة الباطنة', active: true, lastLogin: Date.now() - 9000000 },
+/* Seed map: each legacy user is paired with an officer-directory row so the
+ * extended SystemUser fields (nationalId, officerCode, mobile, userType)
+ * are deterministic and match the NID lookup pool. */
+const USER_SEED: Array<{
+  id: string;
+  legacyName: string;
+  role: string;
+  unit: string;
+  active: boolean;
+  lastLoginOffsetMs: number;
+  nidIndex: number; /* index into OFFICER_DIRECTORY */
+}> = [
+  { id: 'U-001', legacyName: 'العميد د. أحمد محمود الفقي',  role: 'super_admin',     unit: 'كلية الشرطة',           active: true,  lastLoginOffsetMs: 3600000,         nidIndex: 0 },
+  { id: 'U-002', legacyName: 'العقيد محمد إبراهيم حسن',     role: 'committee_admin', unit: 'لجان القبول',           active: true,  lastLoginOffsetMs: 7200000,         nidIndex: 1 },
+  { id: 'U-003', legacyName: 'الرائد طارق علي الخطيب',      role: 'medical_admin',   unit: 'القومسيون الطبي',       active: true,  lastLoginOffsetMs: 1800000,         nidIndex: 5 },
+  { id: 'U-004', legacyName: 'النقيب يوسف أحمد المصري',     role: 'investigator',    unit: 'إدارة التحريات',        active: true,  lastLoginOffsetMs: 86400000,        nidIndex: 6 },
+  { id: 'U-005', legacyName: 'النقيب وليد سامح الديب',      role: 'committee_user',  unit: 'لجنة طلبة 1',           active: true,  lastLoginOffsetMs: 600000,          nidIndex: 3 },
+  { id: 'U-006', legacyName: 'الملازم أول عمر حازم البنا',  role: 'biometric_user',  unit: 'بوابة الأمن',           active: true,  lastLoginOffsetMs: 300000,          nidIndex: 8 },
+  { id: 'U-007', legacyName: 'العقيد أيمن شريف رمضان',      role: 'board_admin',     unit: 'الهيئة',                active: true,  lastLoginOffsetMs: 14400000,        nidIndex: 2 },
+  { id: 'U-008', legacyName: 'الرائد ياسر هشام منصور',      role: 'exams_admin',     unit: 'الاختبارات الإلكترونية', active: true,  lastLoginOffsetMs: 4500000,         nidIndex: 7 },
+  { id: 'U-009', legacyName: 'النقيب كريم زياد فاروق',      role: 'records_clerk',   unit: 'إدراج النتائج',         active: false, lastLoginOffsetMs: 7 * 86400000,    nidIndex: 4 },
+  { id: 'U-010', legacyName: 'الرائد د. حسن محمد عبدالباقي', role: 'medical_doctor',  unit: 'عيادة الباطنة',         active: true,  lastLoginOffsetMs: 9000000,         nidIndex: 9 },
 ];
+
+const SEED_NOW = Date.now();
+/* Stable createdAt timestamps spread across the last 90 days so list
+ * ordering is deterministic and demos don't all show "today". */
+function seedCreatedAt(idx: number): string {
+  return new Date(SEED_NOW - (90 - idx * 7) * 86_400_000).toISOString();
+}
+
+const users: SystemUser[] = USER_SEED.map((s, idx) => {
+  const candidate = OFFICER_DIRECTORY[s.nidIndex] ?? OFFICER_DIRECTORY[0]!;
+  const createdAt = seedCreatedAt(idx);
+  return {
+    id: s.id,
+    name: candidate.fullArabicName,
+    role: s.role,
+    unit: s.unit,
+    active: s.active,
+    status: s.active ? 'active' : 'suspended',
+    lastLogin: SEED_NOW - s.lastLoginOffsetMs,
+    nationalId: candidate.nationalId,
+    fullArabicName: candidate.fullArabicName,
+    officerCode: candidate.officerCode,
+    mobileNumber: candidate.mobileNumber,
+    userType: candidate.userType,
+    roles: [s.role],
+    accountStatus: s.active ? 'active' : 'inactive',
+    createdAt,
+    updatedAt: createdAt,
+  };
+});
 
 /* TIER 2 realism — bump from 80 → 240 audit events to match 2,847 applicants
  * with realistic activity rate. Spread across last 7 days with a weighted
@@ -513,4 +555,9 @@ export const MOCK = {
   adminNotifications: ADMIN_NOTIFICATIONS_SEED,
   /* Admin Fawry payment ledger (admin-gaps Gap K) */
   adminPayments: buildAdminPayments(applicants),
+  /* Officer / civilian / contractor directory — admin-create NID flow */
+  officers: OFFICER_DIRECTORY,
 };
+
+export { findOfficerByNid };
+export type { OfficerDirectoryRow };

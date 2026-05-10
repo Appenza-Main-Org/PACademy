@@ -45,13 +45,25 @@ export const usersService = {
 
   async create(payload: CreateUserPayload): Promise<SystemUser> {
     await simulateLatency();
+    const now = new Date().toISOString();
+    const active = payload.active ?? true;
     const user: SystemUser = {
       id: `U-${String(userCounter++).padStart(3, '0')}`,
       name: payload.name,
       role: payload.role,
       unit: payload.unit,
-      active: payload.active ?? true,
+      active,
+      status: active ? 'active' : 'suspended',
       lastLogin: 0,
+      nationalId: '',
+      fullArabicName: payload.name,
+      officerCode: '',
+      mobileNumber: '',
+      userType: 'civilian',
+      roles: [payload.role],
+      accountStatus: active ? 'active' : 'inactive',
+      createdAt: now,
+      updatedAt: now,
     };
     STATE.unshift(user);
     return user;
