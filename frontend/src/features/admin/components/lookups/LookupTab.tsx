@@ -365,7 +365,14 @@ function LookupFormDrawer({
           className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            onSubmit(draft);
+            /* Key is no longer admin-edited — auto-generate a stable
+             * `custom_<timestamp>` for new rows; existing rows keep
+             * whatever key they already had. */
+            const payload = {
+              ...draft,
+              key: draft.key?.trim() || `custom_${Date.now()}`,
+            };
+            onSubmit(payload);
           }}
         >
           <Input
@@ -373,15 +380,6 @@ function LookupFormDrawer({
             required
             value={draft.labelAr ?? ''}
             onChange={(e) => set('labelAr', e.target.value)}
-          />
-          <Input
-            label="المفتاح"
-            dir="ltr"
-            required
-            value={draft.key ?? ''}
-            onChange={(e) => set('key', e.target.value)}
-            disabled={Boolean(editing?.isSystem)}
-            helper={editing?.isSystem ? 'لا يمكن تعديل مفتاح سجلات النظام' : 'معرّف لاتيني فريد'}
           />
           <Input
             label="ترتيب الفرز"

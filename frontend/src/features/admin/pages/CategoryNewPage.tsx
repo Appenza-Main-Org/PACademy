@@ -33,7 +33,6 @@ import {
   useCreateCategoryMutation,
 } from '../api/categories.queries';
 
-const KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
 
 export function CategoryNewPage(): JSX.Element {
   const navigate = useNavigate();
@@ -45,34 +44,33 @@ export function CategoryNewPage(): JSX.Element {
     [listQuery.data],
   );
 
-  const [key, setKey] = useState('');
   const [labelAr, setLabelAr] = useState('');
   const [description, setDescription] = useState('');
   const [nominationOnly, setNominationOnly] = useState(false);
-  const [errors, setErrors] = useState<{ key?: string; labelAr?: string }>({});
+  const [errors, setErrors] = useState<{ labelAr?: string }>({});
+
+  /* Auto-generate a unique custom key — admins no longer pick this.
+   * Loop on collision so a fast double-click can't reuse the timestamp. */
+  const generateKey = (): ApplicantCategoryKey => {
+    let candidate = `custom_${Date.now()}`;
+    while (existingKeys.has(candidate)) {
+      candidate = `custom_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    }
+    return candidate as ApplicantCategoryKey;
+  };
 
   const onSubmit = (): void => {
-    const next: { key?: string; labelAr?: string } = {};
-    const trimmedKey = key.trim();
+    const next: { labelAr?: string } = {};
     const trimmedLabelAr = labelAr.trim();
-    if (!trimmedKey) {
-      next.key = 'المفتاح مطلوب';
-    } else if (trimmedKey === 'new') {
-      next.key = 'هذا المفتاح محجوز للنظام — اختر اسماً مختلفاً';
-    } else if (!KEY_PATTERN.test(trimmedKey)) {
-      next.key = 'يبدأ بحرف صغير ويتكوّن من أحرف لاتينية صغيرة وأرقام و _';
-    } else if (existingKeys.has(trimmedKey)) {
-      next.key = 'هذا المفتاح موجود بالفعل';
-    }
     if (!trimmedLabelAr) next.labelAr = 'الاسم بالعربية مطلوب';
-    if (next.key || next.labelAr) {
+    if (next.labelAr) {
       setErrors(next);
       return;
     }
     setErrors({});
 
     const payload: ApplicantCategory = {
-      key: trimmedKey as ApplicantCategoryKey,
+      key: generateKey(),
       labelAr: trimmedLabelAr,
       labelEn: '',
       description: description.trim(),
@@ -140,21 +138,12 @@ export function CategoryNewPage(): JSX.Element {
         <h3 className="mb-3 font-ar-display text-md font-bold text-ink-900">بيانات الفئة</h3>
         <div className="grid gap-3 md:grid-cols-2">
           <Input
-            label="المفتاح"
-            dir="ltr"
-            required
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="custom_department"
-            helper="معرّف لاتيني فريد — لا يمكن تغييره لاحقاً"
-            error={errors.key}
-          />
-          <Input
             label="الاسم بالعربية"
             required
             value={labelAr}
             onChange={(e) => setLabelAr(e.target.value)}
             error={errors.labelAr}
+            containerClassName="md:col-span-2"
           />
           <Textarea
             label="الوصف"
@@ -173,12 +162,6 @@ export function CategoryNewPage(): JSX.Element {
           />
           بالترشيح فقط (لا يظهر في التقديم العام)
         </label>
-
-        <p className="mt-4 rounded-md border border-dashed border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700">
-          بعد الإنشاء، ستُنقل إلى صفحة الفئة على المسار{' '}
-          <span dir="ltr" className="font-mono">/admin/categories/{key.trim() || 'custom_department'}</span>{' '}
-          لاستكمال الشروط والاختبارات.
-        </p>
       </Card>
     </div>
   );

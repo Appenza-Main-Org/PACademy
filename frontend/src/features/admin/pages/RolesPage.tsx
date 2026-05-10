@@ -159,7 +159,10 @@ export function RolesPage(): JSX.Element {
         },
       );
     } else {
-      createMut.mutate(draft, {
+      /* Key is no longer admin-edited — auto-generate a stable
+       * `custom_<timestamp>` so the row gets a unique identifier. */
+      const payload = { ...draft, key: draft.key.trim() || `custom_${Date.now()}` };
+      createMut.mutate(payload, {
         onSuccess: () => {
           toast('تم إنشاء الدور', 'success');
           setDrawerOpen(false);
@@ -232,15 +235,7 @@ export function RolesPage(): JSX.Element {
               value={draft.labelAr}
               disabled={isEditingSystem}
               onChange={(e) => setDraft({ ...draft, labelAr: e.target.value })}
-            />
-            <Input
-              label="المفتاح"
-              dir="ltr"
-              required
-              value={draft.key}
-              disabled={isEditingSystem}
-              onChange={(e) => setDraft({ ...draft, key: e.target.value })}
-              helper={isEditingSystem ? 'لا يمكن تعديل مفتاح دور النظام' : 'معرّف لاتيني فريد (snake_case)'}
+              containerClassName="md:col-span-2"
             />
           </div>
           <div className="mt-4">
