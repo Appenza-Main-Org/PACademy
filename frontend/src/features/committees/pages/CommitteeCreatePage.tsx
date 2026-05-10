@@ -69,7 +69,7 @@ export function CommitteeCreatePage(): JSX.Element {
             value={cycleId}
             onChange={(e) => setCycleId(e.target.value)}
             options={[
-              { value: 'CYC-2026-M', label: 'دورة 2026 - الذكور' },
+              { value: 'CYC-2026-M', label: 'دورة التقديم 2026' },
               { value: 'CYC-2025-M', label: 'دورة 2025 - الذكور' },
               { value: 'CYC-2025-F', label: 'دورة 2025 - الإناث' },
             ]}
