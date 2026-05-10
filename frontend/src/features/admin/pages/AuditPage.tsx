@@ -3,7 +3,7 @@
  * Source: Tasks/KARASA_GAPS.md §1.2.G.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Download, Eye } from 'lucide-react';
 import {
   Badge,
@@ -17,7 +17,7 @@ import {
   Select,
   toast,
 } from '@/shared/components';
-import type { DataTableColumn, DateRange } from '@/shared/components';
+import type { DataTableColumn, DateRange, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
 import { downloadBlob } from '@/shared/lib/download';
@@ -61,6 +61,36 @@ export function AuditPage(): JSX.Element {
 
   const visible = (data ?? []).filter((e) =>
     !search ? true : e.details.includes(search) || e.userName.includes(search) || e.entityId.includes(search),
+  );
+
+  const listActions: ListActionsConfig<AuditEntry> = useMemo(
+    () => ({
+      entityKey: 'admin.audit',
+      entityLabelAr: 'سجل النشاط',
+      auditModule: 'admin',
+      export: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        filenamePrefix: 'سجل-النشاط-',
+        columns: [
+          { key: 'id', labelAr: 'المعرف' },
+          {
+            key: 'timestamp',
+            labelAr: 'الوقت',
+            format: (v) => fmtDate(Number(v) || 0, 'full'),
+          },
+          { key: 'userName', labelAr: 'المستخدم' },
+          { key: 'role', labelAr: 'الدور' },
+          { key: 'actionLabel', labelAr: 'الإجراء' },
+          { key: 'module', labelAr: 'الوحدة' },
+          { key: 'entity', labelAr: 'الكيان' },
+          { key: 'entityId', labelAr: 'كود الكيان' },
+          { key: 'details', labelAr: 'التفاصيل' },
+          { key: 'ip', labelAr: 'IP' },
+        ],
+      },
+    }),
+    [],
   );
 
   const columns: DataTableColumn<AuditEntry>[] = [
@@ -202,6 +232,7 @@ export function AuditPage(): JSX.Element {
             zebraStripes
             stickyHeader
             density="compact"
+            listActions={listActions}
           />
         </div>
       </Card>

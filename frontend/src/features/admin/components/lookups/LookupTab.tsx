@@ -15,8 +15,10 @@
  * parent picker.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 import {
   Badge,
   Button,
@@ -28,7 +30,7 @@ import {
   SoftDeleteDialog,
   toast,
 } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
+import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import type { LookupKey, LookupRow } from '@/shared/types/domain';
 import { useAuthStore } from '@/features/auth';
 import {
@@ -41,6 +43,7 @@ import {
   useLookupSoftDelete,
   useLookupUpdate,
 } from '../../api/lookups.queries';
+import { lookupsService } from '../../api/lookups.service';
 
 export interface LookupTabProps {
   lookupKey: LookupKey;
@@ -58,9 +61,36 @@ const LOOKUP_DEP_LABELS: Record<string, string> = {
   applicants: 'متقدم',
 };
 
+const lookupImportSchema = z.object({
+  key: z.string().regex(/^[a-z][a-z0-9_-]*$/i, 'المفتاح ASCII فقط (a-z, 0-9, _, -)'),
+  labelAr: z.string().min(1, 'الاسم العربي مطلوب'),
+  labelEn: z.string().optional().default(''),
+  sortOrder: z.coerce.number().int().min(0),
+  isActive: z.coerce.boolean(),
+  parentId: z.string().optional().default(''),
+  gender: z.enum(['male', 'female']).optional(),
+});
+
+type LookupImportRow = z.infer<typeof lookupImportSchema>;
+
+function mapLookupImportRow(raw: Record<string, string>): Record<string, unknown> {
+  return {
+    key: (raw['المفتاح'] ?? raw['key'] ?? '').trim(),
+    labelAr: (raw['الاسم بالعربية'] ?? raw['labelAr'] ?? '').trim(),
+    labelEn: (raw['الاسم بالإنجليزية'] ?? raw['labelEn'] ?? '').trim(),
+    sortOrder: (raw['الترتيب'] ?? raw['sortOrder'] ?? '0').trim(),
+    isActive:
+      (raw['نشط'] ?? raw['isActive'] ?? 'true').trim().toLowerCase() === 'true' ||
+      (raw['نشط'] ?? '').trim() === 'نعم',
+    parentId: (raw['المعرّف الأب'] ?? raw['parentId'] ?? '').trim(),
+    gender: ((raw['النوع'] ?? raw['gender'] ?? '').trim() || undefined) as 'male' | 'female' | undefined,
+  };
+}
+
 export function LookupTab({ lookupKey, title, parentLookup, hasGender }: LookupTabProps): JSX.Element {
   const isSuperAdmin = useAuthStore((s) => s.user?.role === 'super_admin');
   const [includeDeleted, setIncludeDeleted] = useState(false);
+  const qc = useQueryClient();
 
   const listQuery = useLookupList(lookupKey, {
     includeDeleted: isSuperAdmin && includeDeleted,
@@ -82,6 +112,63 @@ export function LookupTab({ lookupKey, title, parentLookup, hasGender }: LookupT
   const dependencies = useLookupDependencies(lookupKey, pendingDelete?.id ?? null);
 
   const rows = listQuery.data ?? [];
+
+  const listActions: ListActionsConfig<LookupRow> = useMemo(
+    () => ({
+      entityKey: 'admin.referenceData',
+      entityLabelAr: title,
+      auditModule: 'lookups',
+      export: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        filenamePrefix: `${lookupKey}-`,
+        columns: [
+          { key: 'id', labelAr: 'المعرف' },
+          { key: 'key', labelAr: 'المفتاح' },
+          { key: 'labelAr', labelAr: 'الاسم بالعربية' },
+          { key: 'labelEn', labelAr: 'الاسم بالإنجليزية' },
+          { key: 'sortOrder', labelAr: 'الترتيب' },
+          { key: 'isActive', labelAr: 'نشط', format: (v) => (v ? 'نعم' : 'لا') },
+          { key: 'parentId', labelAr: 'المعرّف الأب' },
+          ...(hasGender ? [{ key: 'gender' as const, labelAr: 'النوع' }] : []),
+        ],
+      },
+      import: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        schema: lookupImportSchema,
+        mapRow: mapLookupImportRow,
+        onCommit: async (importedRows) => {
+          const typed = importedRows as LookupImportRow[];
+          return lookupsService.bulkImport(
+            lookupKey,
+            typed.map((r) => ({
+              key: r.key,
+              labelAr: r.labelAr,
+              labelEn: r.labelEn || undefined,
+              sortOrder: r.sortOrder,
+              isActive: r.isActive,
+              parentId: r.parentId || undefined,
+              gender: r.gender,
+            })),
+          );
+        },
+        onConflict: 'skip',
+        templateColumns: [
+          { key: 'key', labelAr: 'المفتاح', sample: 'sample-key' },
+          { key: 'labelAr', labelAr: 'الاسم بالعربية', sample: 'الاسم بالعربية' },
+          { key: 'labelEn', labelAr: 'الاسم بالإنجليزية', sample: 'English Name' },
+          { key: 'sortOrder', labelAr: 'الترتيب', sample: '10' },
+          { key: 'isActive', labelAr: 'نشط', sample: 'نعم' },
+          ...(parentLookup
+            ? [{ key: 'parentId', labelAr: 'المعرّف الأب', sample: 'PARENT-001' }]
+            : []),
+          ...(hasGender ? [{ key: 'gender', labelAr: 'النوع', sample: 'male' }] : []),
+        ],
+      },
+    }),
+    [lookupKey, title, parentLookup, hasGender],
+  );
 
   const move = (idx: number, delta: -1 | 1): void => {
     const target = rows[idx + delta];
@@ -271,6 +358,8 @@ export function LookupTab({ lookupKey, title, parentLookup, hasGender }: LookupT
         zebraStripes
         stickyHeader
         density="compact"
+        listActions={listActions}
+        onImported={() => qc.invalidateQueries({ queryKey: ['lookups', lookupKey] })}
       />
 
       <LookupFormDrawer

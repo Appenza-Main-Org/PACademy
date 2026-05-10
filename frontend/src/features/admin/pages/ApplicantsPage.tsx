@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Download, UserPlus } from 'lucide-react';
-import { PageHeader, Card, Avatar, Button, EmptyState, Badge, DataTable, SearchSelect } from '@/shared/components';
-import type { DataTableColumn, SearchSelectOption } from '@/shared/components';
+import { Search, UserPlus } from 'lucide-react';
+import { PageHeader, Card, Avatar, EmptyState, Badge, DataTable, SearchSelect } from '@/shared/components';
+import type { DataTableColumn, ListActionsConfig, SearchSelectOption } from '@/shared/components';
 import { StatusBadge, PaymentBadge } from '@/shared/components/StatusBadge';
 import { useApplicants } from '@/features/applicants/api/applicant.queries';
 import { ROUTES } from '@/config/routes';
@@ -72,24 +72,62 @@ export function ApplicantsPage(): JSX.Element {
     certType,
   });
 
+  const listActions: ListActionsConfig<Applicant> = useMemo(
+    () => ({
+      entityKey: 'admin.applicants',
+      entityLabelAr: 'قائمة المتقدمين',
+      auditModule: 'applicants',
+      export: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        filenamePrefix: 'متقدمين-',
+        columns: [
+          { key: 'id', labelAr: 'كود التقدم' },
+          { key: 'nationalId', labelAr: 'الرقم القومي' },
+          { key: 'name', labelAr: 'الاسم' },
+          {
+            key: 'gender',
+            labelAr: 'النوع',
+            format: (v) => (v === 'male' ? 'ذكر' : 'أنثى'),
+          },
+          { key: 'governorate', labelAr: 'المحافظة' },
+          { key: 'certType', labelAr: 'نوع الشهادة' },
+          { key: 'certPercent', labelAr: 'النسبة المئوية' },
+          {
+            key: 'paymentStatus',
+            labelAr: 'حالة الدفع',
+            format: (v) => (v === 'paid' ? 'مدفوع' : 'معلّق'),
+          },
+          { key: 'stageLabel', labelAr: 'المرحلة الحالية' },
+          {
+            key: 'status',
+            labelAr: 'الحالة',
+            format: (v) => STATUS_LABELS[v as ApplicantStatus]?.label ?? String(v ?? ''),
+          },
+          {
+            key: 'registeredAt',
+            labelAr: 'تاريخ التسجيل',
+            format: (v) => fmtDate(String(v), 'short'),
+          },
+        ],
+      },
+    }),
+    [],
+  );
+
   return (
     <>
       <PageHeader
         title="إدارة المتقدمين"
         subtitle="بحث وتصفية وإدارة طلبات التقدم"
         actions={
-          <>
-            <Link
-              to={ROUTES.admin.applicantNew}
-              className="btn btn-primary"
-            >
-              <UserPlus size={14} strokeWidth={1.75} className="me-1.5" />
-              متقدم جديد
-            </Link>
-            <Button variant="secondary" leadingIcon={<Download size={16} />}>
-              تصدير CSV
-            </Button>
-          </>
+          <Link
+            to={ROUTES.admin.applicantNew}
+            className="btn btn-primary"
+          >
+            <UserPlus size={14} strokeWidth={1.75} className="me-1.5" />
+            متقدم جديد
+          </Link>
         }
       />
 
@@ -144,6 +182,7 @@ export function ApplicantsPage(): JSX.Element {
             stickyHeader
             density="compact"
             pagination={data ? { page: data.page, pageSize: PAGE_SIZE, total: data.total, onPageChange: setPage } : undefined}
+            listActions={listActions}
           />
         </div>
       </Card>

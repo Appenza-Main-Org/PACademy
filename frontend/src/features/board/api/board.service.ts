@@ -51,6 +51,37 @@ export const boardService = {
     return { ok: true };
   },
 
+  /**
+   * INTEGRATION CONTRACT
+   * Real endpoint: POST /api/board/members/bulk-import
+   * Body: BulkImportMemberRow[] — backend re-validates rank against the
+   * ranks lookup. Per-row outcomes returned. Audit is `create` per row.
+   */
+  async bulkImportMembers(
+    rows: ReadonlyArray<Omit<BoardMember, 'id'>>,
+  ): Promise<{
+    attemptedCount: number;
+    successCount: number;
+    failedRows: ReadonlyArray<{ rowIndex: number; errors: ReadonlyArray<string> }>;
+  }> {
+    await simulateLatency(400, 700);
+    let successCount = 0;
+    const failedRows: { rowIndex: number; errors: string[] }[] = [];
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i]!;
+      try {
+        await boardService.addMember(row);
+        successCount += 1;
+      } catch (err) {
+        failedRows.push({
+          rowIndex: i,
+          errors: [err instanceof Error ? err.message : 'تعذّر إضافة العضو'],
+        });
+      }
+    }
+    return { attemptedCount: rows.length, successCount, failedRows };
+  },
+
   async listSessions(): Promise<BoardSession[]> {
     await simulateLatency();
     return [...SESSIONS_STATE].sort((a, b) => +new Date(b.date) - +new Date(a.date));

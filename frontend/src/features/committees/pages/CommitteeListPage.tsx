@@ -43,7 +43,7 @@ import {
   StatCard,
   toast,
 } from '@/shared/components';
-import type { DataTableColumn, DataTableSort } from '@/shared/components';
+import type { DataTableColumn, DataTableSort, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, num } from '@/shared/lib/format';
@@ -88,6 +88,35 @@ export function CommitteeListPage(): JSX.Element {
   const softDeleteMut = useCommitteeSoftDelete();
   const restoreMut = useCommitteeRestore();
   const setStatusMut = useCommitteeSetStatus();
+
+  const listActions: ListActionsConfig<Committee> = useMemo(
+    () => ({
+      entityKey: 'committee.list',
+      entityLabelAr: 'لجان القبول',
+      auditModule: 'committees',
+      export: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        filenamePrefix: 'لجان-',
+        columns: [
+          { key: 'id', labelAr: 'الكود' },
+          { key: 'name', labelAr: 'اسم اللجنة' },
+          { key: 'head', labelAr: 'رئيس اللجنة' },
+          { key: 'members', labelAr: 'عدد الأعضاء' },
+          { key: 'applicants', labelAr: 'المتقدمون' },
+          { key: 'completed', labelAr: 'منتهية' },
+          {
+            key: 'gender',
+            labelAr: 'النوع',
+            format: (v) => (v === 'male' ? 'ذكور' : v === 'female' ? 'إناث' : 'الكل'),
+          },
+          { key: 'capacityPerDay', labelAr: 'السعة اليومية' },
+          { key: 'linkedCycleId', labelAr: 'الدورة المرتبطة' },
+        ],
+      },
+    }),
+    [],
+  );
 
   const [pendingDelete, setPendingDelete] = useState<Committee | null>(null);
   const dependenciesQuery = useCommitteeDependencies(pendingDelete?.id ?? null);
@@ -531,6 +560,7 @@ export function CommitteeListPage(): JSX.Element {
             />
           }
           zebraStripes
+          listActions={listActions}
         />
       </Card>
 

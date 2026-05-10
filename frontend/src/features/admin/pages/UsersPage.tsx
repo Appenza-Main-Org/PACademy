@@ -7,26 +7,31 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Copy, Plus } from 'lucide-react';
+import { z } from 'zod';
 import {
   Avatar,
   Badge,
   Button,
   Card,
   DataTable,
+  DropdownMenu,
+  DuplicateAction,
   EmptyState,
   Input,
   PageHeader,
   Select,
   StatusBadge,
 } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
+import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROLE_DEFINITIONS, ROLES, type Role } from '@/features/auth';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate } from '@/shared/lib/format';
-import { useUsers } from '../api/users.queries';
-import type { AccountStatus, SystemUser } from '@/shared/types/domain';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUsers, usersKeys } from '../api/users.queries';
+import { usersService } from '../api/users.service';
+import type { AccountStatus, SystemUser, UserType } from '@/shared/types/domain';
 
 const ROLE_OPTIONS = [
   { value: 'all', label: 'كل الأدوار' },
@@ -42,9 +47,41 @@ const STATUS_OPTIONS: ReadonlyArray<{ value: AccountStatus | 'all'; label: strin
   { value: 'inactive', label: 'غير نشط' },
 ];
 
+const userImportSchema = z.object({
+  nationalId: z.string().regex(/^\d{14}$/, 'الرقم القومي يجب أن يكون 14 رقماً'),
+  fullArabicName: z.string().min(3, 'الاسم الرباعي مطلوب'),
+  officerCode: z.string().min(1, 'كود الضابط مطلوب'),
+  mobileNumber: z.string().regex(/^\d{11}$/, 'رقم الموبايل يجب أن يكون 11 رقماً'),
+  userType: z.enum(['officer', 'civilian', 'contractor']),
+  roles: z.array(z.string().min(1)).min(1, 'يجب تحديد دور واحد على الأقل'),
+  unit: z.string().optional(),
+  accountStatus: z.enum(['active', 'inactive']),
+});
+
+type UserImportRow = z.infer<typeof userImportSchema>;
+
+function mapImportRow(raw: Record<string, string>): Record<string, unknown> {
+  return {
+    nationalId: raw['الرقم القومي'] ?? raw['nationalId'] ?? '',
+    fullArabicName: raw['الاسم الرباعي'] ?? raw['fullArabicName'] ?? '',
+    officerCode: raw['كود الضابط'] ?? raw['officerCode'] ?? '',
+    mobileNumber: raw['رقم الموبايل'] ?? raw['mobileNumber'] ?? '',
+    userType: (raw['النوع'] ?? raw['userType'] ?? 'officer').toString().trim() as UserType,
+    roles: (raw['الأدوار'] ?? raw['roles'] ?? '')
+      .split(/[،,]/)
+      .map((r) => r.trim())
+      .filter(Boolean),
+    unit: raw['الوحدة'] ?? raw['unit'] ?? '',
+    accountStatus: ((raw['الحالة'] ?? raw['accountStatus'] ?? 'inactive') === 'نشط'
+      ? 'active'
+      : (raw['الحالة'] ?? raw['accountStatus'] ?? 'inactive')) as AccountStatus,
+  };
+}
+
 export function UsersPage(): JSX.Element {
   const { data, isLoading } = useUsers();
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>('all');
@@ -147,7 +184,121 @@ export function UsersPage(): JSX.Element {
           </span>
         ),
       },
+      {
+        key: '_actions',
+        label: <span className="sr-only">إجراءات</span>,
+        align: 'end',
+        width: 96,
+        render: (u) => (
+          <DuplicateAction
+            row={u}
+            entityKey="admin.users"
+            entityLabelAr="مستخدم"
+            auditModule="users"
+            config={{
+              enabled: true,
+              transform: (row) => ({
+                fullArabicName: `${row.fullArabicName} (نسخة)`,
+                roles: [...row.roles],
+                unit: row.unit,
+                userType: row.userType,
+                accountStatus: 'inactive' as AccountStatus,
+                /* NID + mobile must be re-entered before save (uniqueness). */
+                nationalId: '',
+                mobileNumber: '',
+                officerCode: '',
+              }),
+              onCommit: async (_draft, source) => {
+                /* The duplicate lands inactive with placeholder NID; the
+                 * admin completes the fields on the edit page. */
+                return usersService.createFromTemplate(source.id, {
+                  nationalId: `00000000000000-${source.id}`,
+                  fullArabicName: `${source.fullArabicName} (نسخة)`,
+                  officerCode: '',
+                  mobileNumber: '',
+                });
+              },
+              redirectTo: (row) => ROUTES.admin.userEdit(row.id),
+            }}
+            onSuccess={() => qc.invalidateQueries({ queryKey: usersKeys.all })}
+          >
+            {({ onClick }) => (
+              <DropdownMenu>
+                <DropdownMenu.Trigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => e.stopPropagation()}
+                    leadingIcon={<Copy size={12} strokeWidth={1.75} />}
+                  >
+                    نسخ
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                  <DropdownMenu.Item
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      onClick();
+                    }}
+                  >
+                    إنشاء نسخة كمسودة
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu>
+            )}
+          </DuplicateAction>
+        ),
+      },
     ],
+    [qc],
+  );
+
+  const listActions: ListActionsConfig<SystemUser> = useMemo(
+    () => ({
+      entityKey: 'admin.users',
+      entityLabelAr: 'مستخدمي المنظومة',
+      auditModule: 'users',
+      export: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        filenamePrefix: 'مستخدمين-',
+        columns: [
+          { key: 'fullArabicName', labelAr: 'الاسم الرباعي' },
+          { key: 'nationalId', labelAr: 'الرقم القومي' },
+          { key: 'officerCode', labelAr: 'كود الضابط' },
+          { key: 'mobileNumber', labelAr: 'رقم الموبايل' },
+          { key: 'userType', labelAr: 'النوع' },
+          { key: 'roles', labelAr: 'الأدوار', format: (v) => (Array.isArray(v) ? v.join('، ') : String(v ?? '')) },
+          { key: 'unit', labelAr: 'الوحدة' },
+          {
+            key: 'accountStatus',
+            labelAr: 'الحالة',
+            format: (v) => (v === 'active' ? 'نشط' : 'غير نشط'),
+          },
+        ],
+      },
+      import: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        schema: userImportSchema,
+        mapRow: mapImportRow,
+        onCommit: async (rows) => {
+          const typed = rows as UserImportRow[];
+          return usersService.bulkImport(typed);
+        },
+        onConflict: 'restore-or-create',
+        templateColumns: [
+          { key: 'nationalId', labelAr: 'الرقم القومي', sample: '12345678901234' },
+          { key: 'fullArabicName', labelAr: 'الاسم الرباعي', sample: 'أحمد محمد علي الفقي' },
+          { key: 'officerCode', labelAr: 'كود الضابط', sample: 'OFF-1001' },
+          { key: 'mobileNumber', labelAr: 'رقم الموبايل', sample: '01000000000' },
+          { key: 'userType', labelAr: 'النوع', sample: 'officer' },
+          { key: 'roles', labelAr: 'الأدوار', sample: 'committee_admin، investigator' },
+          { key: 'unit', labelAr: 'الوحدة', sample: 'إدارة الشؤون الإدارية' },
+          { key: 'accountStatus', labelAr: 'الحالة', sample: 'نشط' },
+        ],
+      },
+    }),
     [],
   );
 
@@ -202,6 +353,8 @@ export function UsersPage(): JSX.Element {
           onRowClick={(u) => navigate(ROUTES.admin.userDetail(u.id))}
           zebraStripes
           stickyHeader
+          listActions={listActions}
+          onImported={() => qc.invalidateQueries({ queryKey: usersKeys.all })}
         />
       </Card>
 

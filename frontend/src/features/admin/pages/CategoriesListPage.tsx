@@ -9,13 +9,15 @@
  * Spec departments cannot be deleted; their delete button is hidden.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Layers, Pencil, PlusCircle, RotateCcw, Trash2 } from 'lucide-react';
+import { Copy, Layers, Pencil, PlusCircle, RotateCcw, Trash2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Badge,
   Button,
   DataTable,
+  DuplicateAction,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -23,8 +25,8 @@ import {
   SoftDeleteDialog,
   toast,
 } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
-import type { ApplicantCategory } from '@/shared/types/domain';
+import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
+import type { ApplicantCategory, ApplicantCategoryKey } from '@/shared/types/domain';
 import { ROUTES } from '@/config/routes';
 import {
   useCategoriesAdmin,
@@ -51,6 +53,42 @@ export function CategoriesListPage(): JSX.Element {
   const restoreMut = useCategoryRestore();
   const [pendingDelete, setPendingDelete] = useState<ApplicantCategory | null>(null);
   const dependenciesQuery = useCategoryDependencies(pendingDelete?.key ?? null);
+  const qc = useQueryClient();
+
+  const listActions: ListActionsConfig<ApplicantCategory> = useMemo(
+    () => ({
+      entityKey: 'admin.categories',
+      entityLabelAr: 'فئات التقديم',
+      auditModule: 'categories',
+      export: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        filenamePrefix: 'فئات-التقديم-',
+        columns: [
+          { key: 'key', labelAr: 'المفتاح' },
+          { key: 'labelAr', labelAr: 'الاسم بالعربية' },
+          { key: 'labelEn', labelAr: 'الاسم بالإنجليزية' },
+          { key: 'description', labelAr: 'الوصف' },
+          {
+            key: 'conditions',
+            labelAr: 'بالترشيح فقط',
+            format: (v) => ((v as ApplicantCategory['conditions'])?.nominationOnly ? 'نعم' : 'لا'),
+          },
+          {
+            key: 'requiredTests',
+            labelAr: 'عدد الاختبارات',
+            format: (v) => String((v as unknown[])?.length ?? 0),
+          },
+          {
+            key: 'isOpen',
+            labelAr: 'مفتوحة في الدورة الحالية',
+            format: (v) => (v ? 'نعم' : 'لا'),
+          },
+        ],
+      },
+    }),
+    [],
+  );
 
   if (listQuery.isLoading) return <LoadingState variant="page" />;
   if (listQuery.error) {
@@ -152,6 +190,58 @@ export function CategoriesListPage(): JSX.Element {
             >
               تعديل
             </Button>
+            {!deleted && (
+              <DuplicateAction
+                row={cat}
+                entityKey="admin.categories"
+                entityLabelAr="فئة التقديم"
+                auditModule="categories"
+                config={{
+                  enabled: true,
+                  transform: (row) => ({
+                    /* `key` must be unique — caller appends a numeric suffix
+                     * until it lands on an unused key. */
+                    labelAr: `${row.labelAr} (نسخة)`,
+                  }),
+                  onCommit: async (_draft, source) => {
+                    const baseKey = source.key as string;
+                    let candidate = `${baseKey}_copy`;
+                    let i = 1;
+                    /* Spin until unique against the live STATE. */
+                    while (
+                      categoriesAdminService.isSpecCategory(candidate as ApplicantCategoryKey) ||
+                      (await categoriesAdminService
+                        .list({ includeDeleted: true })
+                        .then((rows) => rows.some((r) => r.key === candidate)))
+                    ) {
+                      i += 1;
+                      candidate = `${baseKey}_copy_${i}`;
+                    }
+                    const next: ApplicantCategory = {
+                      ...source,
+                      key: candidate as ApplicantCategoryKey,
+                      labelAr: `${source.labelAr} (نسخة)`,
+                      isOpen: false,
+                    };
+                    return categoriesAdminService.create(next);
+                  },
+                  redirectTo: (row) => ROUTES.admin.categoryEdit(row.key),
+                  guard: (row) => (row.deletedAt ? 'لا يمكن نسخ فئة محذوفة' : null),
+                }}
+                onSuccess={() => qc.invalidateQueries({ queryKey: ['categories'] })}
+              >
+                {({ onClick }) => (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    leadingIcon={<Copy size={12} strokeWidth={1.75} />}
+                    onClick={onClick}
+                  >
+                    نسخ
+                  </Button>
+                )}
+              </DuplicateAction>
+            )}
             {!isSpec && !deleted && (
               <Button
                 variant="ghost"
@@ -223,6 +313,7 @@ export function CategoriesListPage(): JSX.Element {
           />
         }
         zebraStripes
+        listActions={listActions}
       />
 
       <SoftDeleteDialog

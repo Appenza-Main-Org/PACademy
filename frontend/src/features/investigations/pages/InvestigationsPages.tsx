@@ -173,6 +173,28 @@ export function InvestigationsCasesPage(): JSX.Element {
           zebraStripes
           stickyHeader
           density="compact"
+          listActions={{
+            entityKey: 'investigations.cases',
+            entityLabelAr: 'قضايا التحريات',
+            auditModule: 'admin',
+            export: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              filenamePrefix: 'قضايا-التحريات-',
+              columns: [
+                { key: 'id', labelAr: 'كود القضية' },
+                { key: 'applicantId', labelAr: 'كود المتقدم' },
+                { key: 'applicantName', labelAr: 'اسم المتقدم' },
+                { key: 'caseType', labelAr: 'نوع القضية' },
+                { key: 'assignedTo', labelAr: 'محال إلى' },
+                { key: 'priority', labelAr: 'الأولوية' },
+                { key: 'dueDate', labelAr: 'تاريخ الاستحقاق' },
+                { key: 'openedAt', labelAr: 'تاريخ الفتح' },
+                { key: 'status', labelAr: 'الحالة' },
+                { key: 'conclusion', labelAr: 'الخلاصة' },
+              ],
+            },
+          }}
         />
       </Card>
     </CenteredShell>
@@ -395,6 +417,26 @@ export function IncomingPage(): JSX.Element {
           zebraStripes
           stickyHeader
           density="compact"
+          listActions={{
+            entityKey: 'investigations.incoming',
+            entityLabelAr: 'القضايا الواردة',
+            auditModule: 'admin',
+            export: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              filenamePrefix: 'قضايا-وارد-',
+              columns: [
+                { key: 'id', labelAr: 'كود القضية' },
+                { key: 'applicantId', labelAr: 'كود المتقدم' },
+                { key: 'applicantName', labelAr: 'اسم المتقدم' },
+                { key: 'caseType', labelAr: 'نوع القضية' },
+                { key: 'priority', labelAr: 'الأولوية' },
+                { key: 'dueDate', labelAr: 'تاريخ الاستحقاق' },
+                { key: 'openedAt', labelAr: 'تاريخ الفتح' },
+                { key: 'status', labelAr: 'الحالة' },
+              ],
+            },
+          }}
         />
       </Card>
     </CenteredShell>

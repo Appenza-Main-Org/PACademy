@@ -82,6 +82,25 @@ export function DistributionPage(): JSX.Element {
             error={isError ? <ErrorState error={error} onRetry={() => refetch()} /> : undefined}
             empty={<EmptyState variant="no-cases" />}
             density="compact"
+            listActions={{
+              entityKey: 'investigations.distribution',
+              entityLabelAr: 'توزيع القضايا',
+              auditModule: 'admin',
+              export: {
+                enabled: true,
+                formats: ['csv', 'xlsx'],
+                filenamePrefix: 'توزيع-التحريات-',
+                columns: [
+                  { key: 'id', labelAr: 'كود القضية' },
+                  { key: 'applicantName', labelAr: 'اسم المتقدم' },
+                  { key: 'caseType', labelAr: 'نوع القضية' },
+                  { key: 'assignedTo', labelAr: 'محال إلى' },
+                  { key: 'priority', labelAr: 'الأولوية' },
+                  { key: 'dueDate', labelAr: 'تاريخ الاستحقاق' },
+                  { key: 'status', labelAr: 'الحالة' },
+                ],
+              },
+            }}
           />
         </Card>
       </PrintLayout>

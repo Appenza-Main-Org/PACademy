@@ -7,7 +7,7 @@
  * expire windows.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Bell, BellOff, Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   Badge,
@@ -24,7 +24,7 @@ import {
   Textarea,
   toast,
 } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
+import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { useAuthStore } from '@/features/auth';
 import {
@@ -110,6 +110,44 @@ export function NotificationsPage(): JSX.Element {
   }, [editing, userId]);
 
   const rows = listQuery.data ?? [];
+
+  const listActions: ListActionsConfig<AdminNotification> = useMemo(
+    () => ({
+      entityKey: 'admin.notifications',
+      entityLabelAr: 'الإشعارات',
+      auditModule: 'notifications',
+      export: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        filenamePrefix: 'إشعارات-',
+        columns: [
+          { key: 'id', labelAr: 'المعرف' },
+          { key: 'titleAr', labelAr: 'العنوان' },
+          { key: 'bodyAr', labelAr: 'النص' },
+          {
+            key: 'type',
+            labelAr: 'النوع',
+            format: (v) => TYPE_LABEL[v as AdminNotificationType] ?? String(v ?? ''),
+          },
+          {
+            key: 'audience',
+            labelAr: 'الجمهور',
+            format: (v) => (v as AudienceValue)?.type ?? '',
+          },
+          { key: 'publishAt', labelAr: 'موعد النشر', format: (v) => (v ? fmtDate(String(v), 'short') : '—') },
+          { key: 'expireAt', labelAr: 'موعد الانتهاء', format: (v) => (v ? fmtDate(String(v), 'short') : '—') },
+          {
+            key: 'status',
+            labelAr: 'الحالة',
+            format: (v) => STATUS_LABEL[v as AdminNotificationStatus] ?? String(v ?? ''),
+          },
+          { key: 'createdBy', labelAr: 'أنشأها' },
+          { key: 'createdAt', labelAr: 'تاريخ الإنشاء', format: (v) => fmtDate(String(v), 'short') },
+        ],
+      },
+    }),
+    [],
+  );
 
   const columns: DataTableColumn<AdminNotification>[] = [
     {
@@ -267,6 +305,7 @@ export function NotificationsPage(): JSX.Element {
           empty={<EmptyState variant="generic" title="لا توجد إشعارات" icon={<Eye size={32} />} />}
           zebraStripes
           stickyHeader
+          listActions={listActions}
         />
       </Card>
 

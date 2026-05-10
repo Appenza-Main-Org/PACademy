@@ -214,6 +214,33 @@ export function RolesPage(): JSX.Element {
           zebraStripes
           stickyHeader
           density="compact"
+          listActions={{
+            entityKey: 'admin.roles',
+            entityLabelAr: 'الأدوار',
+            auditModule: 'roles',
+            export: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              filenamePrefix: 'أدوار-',
+              columns: [
+                { key: 'id', labelAr: 'المعرف' },
+                { key: 'key', labelAr: 'مفتاح الدور' },
+                { key: 'labelAr', labelAr: 'الاسم بالعربية' },
+                { key: 'labelEn', labelAr: 'الاسم بالإنجليزية' },
+                { key: 'isSystem', labelAr: 'نظامي', format: (v) => (v ? 'نعم' : 'لا') },
+                {
+                  key: 'permissions',
+                  labelAr: 'الصلاحيات',
+                  format: (v) => (Array.isArray(v) ? (v as string[]).join('، ') : ''),
+                },
+                {
+                  key: 'apps',
+                  labelAr: 'التطبيقات',
+                  format: (v) => (Array.isArray(v) ? (v as string[]).join('، ') : ''),
+                },
+              ],
+            },
+          }}
         />
       </Card>
 

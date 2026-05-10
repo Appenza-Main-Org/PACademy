@@ -207,6 +207,45 @@ export const lookupsService = {
     return next;
   },
 
+  /**
+   * INTEGRATION CONTRACT
+   * Real endpoint: POST /api/lookups/:key/bulk-import
+   * Body: BulkImportLookupRow[] — backend re-validates each `key` (snake/
+   * kebab ASCII), and rejects duplicates within the lookup. Per-row outcome
+   * is returned so partial commits are observable.
+   * Audit: one `create` per imported row, identical to manual creation,
+   * keeps the audit chain unbroken.
+   */
+  async bulkImport(
+    lookupKey: LookupKey,
+    rows: ReadonlyArray<Omit<LookupRow, 'id' | 'isSystem'>>,
+  ): Promise<{
+    attemptedCount: number;
+    successCount: number;
+    failedRows: ReadonlyArray<{ rowIndex: number; errors: ReadonlyArray<string> }>;
+  }> {
+    await simulateLatency(400, 800);
+    let successCount = 0;
+    const failedRows: { rowIndex: number; errors: string[] }[] = [];
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i]!;
+      try {
+        if (STATE[lookupKey].some((r) => r.key === row.key && !r.deletedAt)) {
+          failedRows.push({ rowIndex: i, errors: [`المفتاح "${row.key}" مستخدم بالفعل`] });
+          continue;
+        }
+        await lookupsService.create(lookupKey, row);
+        successCount += 1;
+      } catch (err) {
+        failedRows.push({
+          rowIndex: i,
+          errors: [err instanceof Error ? err.message : 'تعذّر إنشاء السجل'],
+        });
+      }
+    }
+    return { attemptedCount: rows.length, successCount, failedRows };
+  },
+
   async restore(key: LookupKey, id: string): Promise<LookupRow> {
     await simulateLatency();
     const idx = STATE[key].findIndex((r) => r.id === id);

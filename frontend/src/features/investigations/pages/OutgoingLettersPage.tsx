@@ -122,6 +122,25 @@ export function OutgoingLettersPage(): JSX.Element {
           error={isError ? <ErrorState error={error} onRetry={() => refetch()} /> : undefined}
           empty={<EmptyState variant="generic" title="لا توجد كتب صادرة" />}
           zebraStripes
+          listActions={{
+            entityKey: 'investigations.outgoing',
+            entityLabelAr: 'الكتب الصادرة',
+            auditModule: 'admin',
+            export: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              filenamePrefix: 'صادر-التحريات-',
+              columns: [
+                { key: 'id', labelAr: 'كود الكتاب' },
+                { key: 'caseId', labelAr: 'كود القضية' },
+                { key: 'to', labelAr: 'الجهة' },
+                { key: 'subject', labelAr: 'الموضوع' },
+                { key: 'template', labelAr: 'القالب' },
+                { key: 'status', labelAr: 'الحالة' },
+                { key: 'sentAt', labelAr: 'تاريخ الإرسال' },
+              ],
+            },
+          }}
         />
       </Card>
 

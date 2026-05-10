@@ -3,24 +3,28 @@
  * Source: Tasks/KARASA_GAPS.md §1.2.D.
  */
 
+import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarRange, Copy, Plus } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Badge,
   Button,
   Card,
   DataTable,
+  DuplicateAction,
   EmptyState,
   IconStamp,
   PageHeader,
   toast,
 } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
+import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import type { AdmissionCycle, CycleStatus } from '@/shared/types/domain';
-import { useActiveCycle, useCycleClone, useCycles } from '../api/cycles.queries';
+import { cyclesService } from '../api/cycles.service';
+import { cyclesKeys, useActiveCycle, useCycles } from '../api/cycles.queries';
 
 const STATUS_LABEL: Record<CycleStatus, string> = {
   draft: 'مسودة',
@@ -48,7 +52,48 @@ export function CyclesPage(): JSX.Element {
   const navigate = useNavigate();
   const { data, isLoading } = useCycles();
   const { data: activeCycle } = useActiveCycle();
-  const cloneMut = useCycleClone();
+  const qc = useQueryClient();
+
+  const listActions: ListActionsConfig<AdmissionCycle> = useMemo(
+    () => ({
+      entityKey: 'admin.cycles',
+      entityLabelAr: 'دورات القبول',
+      auditModule: 'cycles',
+      export: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        filenamePrefix: 'دورات-القبول-',
+        columns: [
+          { key: 'id', labelAr: 'الكود' },
+          { key: 'nameAr', labelAr: 'اسم الدورة' },
+          {
+            key: 'cohort',
+            labelAr: 'الفئة',
+            format: (v) => (v === 'male' ? 'ذكور' : 'إناث'),
+          },
+          { key: 'year', labelAr: 'العام' },
+          {
+            key: 'openDate',
+            labelAr: 'تاريخ الفتح',
+            format: (v) => fmtDate(String(v), 'short'),
+          },
+          {
+            key: 'closeDate',
+            labelAr: 'تاريخ الإغلاق',
+            format: (v) => fmtDate(String(v), 'short'),
+          },
+          { key: 'expectedCapacity', labelAr: 'السعة المتوقعة' },
+          { key: 'applicantCount', labelAr: 'عدد المتقدمين' },
+          {
+            key: 'status',
+            labelAr: 'الحالة',
+            format: (v) => STATUS_LABEL[v as CycleStatus] ?? String(v ?? ''),
+          },
+        ],
+      },
+    }),
+    [],
+  );
 
   const columns: DataTableColumn<AdmissionCycle>[] = [
     {
@@ -96,18 +141,47 @@ export function CyclesPage(): JSX.Element {
       label: <span className="sr-only">إجراءات</span>,
       align: 'end',
       render: (c) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          leadingIcon={<Copy size={12} strokeWidth={1.75} />}
-          onClick={() => {
-            cloneMut.mutate(c.id, {
-              onSuccess: (next) => toast(`تم إنشاء نسخة: ${next.nameAr}`, 'success'),
-            });
+        <DuplicateAction
+          row={c}
+          entityKey="admin.cycles"
+          entityLabelAr="دورة القبول"
+          auditModule="cycles"
+          config={{
+            enabled: true,
+            transform: (row) => ({
+              nameAr: `${row.nameAr} (نسخة)`,
+              status: 'draft' as CycleStatus,
+              applicantCount: 0,
+            }),
+            onCommit: async (_draft, source) => cyclesService.clone(source.id),
+            redirectTo: (next) => ROUTES.admin.cycleDetail(next.id),
+            guard: (row) => {
+              /* Cycles that are already in an active/open/extended state can be
+               * cloned (the clone always lands draft), but the user should be
+               * aware that activating it will require closing the source. */
+              if (row.deletedAt) return 'لا يمكن نسخ دورة محذوفة';
+              return null;
+            },
+          }}
+          onSuccess={(next) => {
+            toast(`تم إنشاء نسخة: ${next.nameAr}`, 'success');
+            qc.invalidateQueries({ queryKey: [...cyclesKeys.all, 'list'] });
           }}
         >
-          نسخ كمسودة
-        </Button>
+          {({ onClick }) => (
+            <Button
+              variant="ghost"
+              size="sm"
+              leadingIcon={<Copy size={12} strokeWidth={1.75} />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+              }}
+            >
+              نسخ كمسودة
+            </Button>
+          )}
+        </DuplicateAction>
       ),
     },
   ];
@@ -167,6 +241,7 @@ export function CyclesPage(): JSX.Element {
           loading={isLoading}
           empty={<EmptyState variant="generic" title="لا توجد دورات حالياً" />}
           zebraStripes
+          listActions={listActions}
         />
       </Card>
     </CenteredShell>

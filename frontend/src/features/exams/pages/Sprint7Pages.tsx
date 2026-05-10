@@ -50,6 +50,39 @@ import {
   toast,
 } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
+import { DuplicateAction } from '@/shared/components';
+import { z } from 'zod';
+
+const questionImportSchema = z.object({
+  category: z.string().min(1, 'الفئة مطلوبة'),
+  difficulty: z.coerce.number().int().min(1).max(5),
+  type: z.enum(['mcq', 'true-false', 'ordering', 'fill-in']).default('mcq'),
+  text: z.string().min(5, 'نص السؤال مطلوب'),
+  options: z.array(z.string().min(1)).min(2, 'يلزم خياران على الأقل'),
+  correctIndex: z.coerce.number().int().min(0),
+  timeLimitSeconds: z.coerce.number().int().min(15).max(600).default(60),
+  notes: z.string().optional(),
+});
+
+type QuestionImportRow = z.infer<typeof questionImportSchema>;
+
+function mapQuestionImportRow(raw: Record<string, string>): Record<string, unknown> {
+  const options: string[] = [];
+  for (let i = 1; i <= 4; i += 1) {
+    const v = raw[`الخيار ${i}`] ?? raw[`option${i}`] ?? raw[`option_${i}`];
+    if (v && v.trim() !== '') options.push(v.trim());
+  }
+  return {
+    category: (raw['الفئة'] ?? raw['category'] ?? '').trim(),
+    difficulty: (raw['الصعوبة'] ?? raw['difficulty'] ?? '3').trim(),
+    type: (raw['النوع'] ?? raw['type'] ?? 'mcq').trim(),
+    text: (raw['نص السؤال'] ?? raw['text'] ?? '').trim(),
+    options,
+    correctIndex: (raw['الإجابة الصحيحة'] ?? raw['correctIndex'] ?? '0').trim(),
+    timeLimitSeconds: (raw['زمن الإجابة'] ?? raw['timeLimitSeconds'] ?? '60').trim(),
+    notes: (raw['ملاحظات'] ?? raw['notes'] ?? '').trim() || undefined,
+  };
+}
 import { IconStamp } from '@/shared/components/icons';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
@@ -119,6 +152,34 @@ export function QuestionBankCRUDPage(): JSX.Element {
       render: (q) => (
         <div className="inline-flex items-center gap-1">
           <Button variant="ghost" size="icon" aria-label="عرض"><Eye size={14} strokeWidth={1.75} /></Button>
+          <DuplicateAction
+            row={q}
+            entityKey="exams.questions"
+            entityLabelAr="سؤال"
+            auditModule="exams"
+            config={{
+              enabled: true,
+              transform: (row) => ({ text: `${row.text} (نسخة)` }),
+              onCommit: async (_d, source) =>
+                examsService.createQuestion({
+                  category: source.category,
+                  difficulty: source.difficulty,
+                  type: source.type,
+                  text: `${source.text} (نسخة)`,
+                  options: [...source.options],
+                  correctIndex: source.correctIndex,
+                  timeLimitSeconds: source.timeLimitSeconds,
+                  notes: source.notes,
+                }),
+            }}
+            onSuccess={() => qc.invalidateQueries({ queryKey: ['exams', 'questions'] })}
+          >
+            {({ onClick }) => (
+              <Button variant="ghost" size="icon" aria-label="نسخ السؤال" onClick={onClick}>
+                <FileText size={14} strokeWidth={1.75} />
+              </Button>
+            )}
+          </DuplicateAction>
           {q.status !== 'live' && (
             <Button variant="ghost" size="sm" leadingIcon={<Send size={12} strokeWidth={1.75} />} onClick={() => publishMut.mutate(q.id, { onSuccess: () => toast('تم نشر السؤال', 'success') })}>
               نشر
@@ -226,7 +287,84 @@ export function QuestionBankCRUDPage(): JSX.Element {
         </Card>
 
         <Card>
-          <DataTable data={filtered} columns={columns} rowKey={(q) => q.id} loading={isLoading} empty={<EmptyState variant="no-questions" />} zebraStripes density="compact" />
+          <DataTable
+            data={filtered}
+            columns={columns}
+            rowKey={(q) => q.id}
+            loading={isLoading}
+            empty={<EmptyState variant="no-questions" />}
+            zebraStripes
+            density="compact"
+            listActions={{
+              entityKey: 'exams.questions',
+              entityLabelAr: 'بنك الأسئلة',
+              auditModule: 'exams',
+              export: {
+                enabled: true,
+                formats: ['csv', 'xlsx'],
+                filenamePrefix: 'أسئلة-',
+                columns: [
+                  { key: 'id', labelAr: 'كود السؤال' },
+                  { key: 'category', labelAr: 'الفئة' },
+                  { key: 'difficulty', labelAr: 'الصعوبة' },
+                  { key: 'type', labelAr: 'النوع' },
+                  { key: 'text', labelAr: 'نص السؤال' },
+                  {
+                    key: 'options',
+                    labelAr: 'الخيارات',
+                    format: (v) => (Array.isArray(v) ? (v as string[]).join(' | ') : ''),
+                  },
+                  { key: 'correctIndex', labelAr: 'الإجابة الصحيحة' },
+                  { key: 'timeLimitSeconds', labelAr: 'زمن الإجابة (ث)' },
+                  {
+                    key: 'status',
+                    labelAr: 'الحالة',
+                    format: (v) => STATUS_LABEL[v as QuestionStatus] ?? String(v ?? ''),
+                  },
+                  { key: 'version', labelAr: 'الإصدار' },
+                ],
+              },
+              import: {
+                enabled: true,
+                formats: ['csv', 'xlsx'],
+                schema: questionImportSchema,
+                mapRow: mapQuestionImportRow,
+                onCommit: async (rows) => {
+                  const typed = rows as QuestionImportRow[];
+                  const drafts = typed.map((r) => ({
+                    category: r.category,
+                    difficulty: r.difficulty as 1 | 2 | 3 | 4 | 5,
+                    type: r.type,
+                    text: r.text,
+                    options: r.options,
+                    correctIndex: r.correctIndex,
+                    timeLimitSeconds: r.timeLimitSeconds,
+                    notes: r.notes,
+                  }));
+                  const batch = await examsService.createQuestionBatch(drafts);
+                  return {
+                    attemptedCount: typed.length,
+                    successCount: batch.created,
+                    failedRows: [],
+                  };
+                },
+                templateColumns: [
+                  { key: 'category', labelAr: 'الفئة', sample: 'قدرات لفظية' },
+                  { key: 'difficulty', labelAr: 'الصعوبة', sample: '3' },
+                  { key: 'type', labelAr: 'النوع', sample: 'mcq' },
+                  { key: 'text', labelAr: 'نص السؤال', sample: 'مثال سؤال' },
+                  { key: 'option1', labelAr: 'الخيار 1', sample: 'خيار أ' },
+                  { key: 'option2', labelAr: 'الخيار 2', sample: 'خيار ب' },
+                  { key: 'option3', labelAr: 'الخيار 3', sample: 'خيار ج' },
+                  { key: 'option4', labelAr: 'الخيار 4', sample: 'خيار د' },
+                  { key: 'correctIndex', labelAr: 'الإجابة الصحيحة', sample: '0' },
+                  { key: 'timeLimitSeconds', labelAr: 'زمن الإجابة', sample: '60' },
+                  { key: 'notes', labelAr: 'ملاحظات', sample: '' },
+                ],
+              },
+            }}
+            onImported={() => qc.invalidateQueries({ queryKey: ['exams', 'questions'] })}
+          />
         </Card>
       </div>
 
@@ -1032,6 +1170,33 @@ export function ExamsListPageNew(): JSX.Element {
           }
           zebraStripes
           density="compact"
+          listActions={{
+            entityKey: 'exams.exams',
+            entityLabelAr: 'الاختبارات',
+            auditModule: 'exams',
+            export: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              filenamePrefix: 'اختبارات-',
+              columns: [
+                { key: 'id', labelAr: 'كود الاختبار' },
+                { key: 'nameAr', labelAr: 'الاسم' },
+                { key: 'cycleId', labelAr: 'الدورة' },
+                { key: 'scheduledFor', labelAr: 'الموعد' },
+                {
+                  key: 'rules',
+                  labelAr: 'عدد القواعد',
+                  format: (v) => String((v as unknown[])?.length ?? 0),
+                },
+                {
+                  key: 'questionIds',
+                  labelAr: 'عدد الأسئلة',
+                  format: (v) => String((v as unknown[])?.length ?? 0),
+                },
+                { key: 'status', labelAr: 'الحالة' },
+              ],
+            },
+          }}
         />
       </Card>
     </CenteredShell>

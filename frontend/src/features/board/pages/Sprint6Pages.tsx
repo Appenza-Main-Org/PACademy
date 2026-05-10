@@ -30,6 +30,13 @@ import {
   toast,
 } from '@/shared/components';
 import type { DataTableColumn, SearchSelectOption } from '@/shared/components';
+import { z } from 'zod';
+
+const boardMemberImportSchema = z.object({
+  name: z.string().min(3, 'الاسم مطلوب'),
+  rank: z.string().min(1, 'الرتبة مطلوبة'),
+  role: z.enum(['chair', 'secretary', 'member']),
+});
 import { REF_RANKS } from '@/shared/mock-data/referenceData';
 import { IconStamp } from '@/shared/components/icons';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
@@ -89,6 +96,33 @@ export function BoardSessionsListPage(): JSX.Element {
           loading={isLoading}
           empty={<EmptyState variant="generic" title="لا توجد جلسات" />}
           zebraStripes
+          listActions={{
+            entityKey: 'board.sessions',
+            entityLabelAr: 'جلسات الهيئة',
+            auditModule: 'admin',
+            export: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              filenamePrefix: 'جلسات-',
+              columns: [
+                { key: 'id', labelAr: 'كود الجلسة' },
+                { key: 'date', labelAr: 'التاريخ' },
+                { key: 'time', labelAr: 'الوقت' },
+                { key: 'location', labelAr: 'المكان' },
+                {
+                  key: 'attendees',
+                  labelAr: 'عدد الحضور',
+                  format: (v) => String((v as unknown[])?.length ?? 0),
+                },
+                {
+                  key: 'applicantIds',
+                  labelAr: 'عدد المتقدمين',
+                  format: (v) => String((v as unknown[])?.length ?? 0),
+                },
+                { key: 'status', labelAr: 'الحالة' },
+              ],
+            },
+          }}
         />
       </Card>
     </CenteredShell>
@@ -363,7 +397,43 @@ export function BoardDecisionsListPage(): JSX.Element {
     <CenteredShell>
       <PageHeader title="القرارات" subtitle="القرارات الرسمية الصادرة عن الهيئة" />
       <Card>
-        <DataTable data={data ?? []} columns={columns} rowKey={(d) => d.id} loading={isLoading} empty={<EmptyState variant="generic" title="لا توجد قرارات بعد" />} zebraStripes />
+        <DataTable
+          data={data ?? []}
+          columns={columns}
+          rowKey={(d) => d.id}
+          loading={isLoading}
+          empty={<EmptyState variant="generic" title="لا توجد قرارات بعد" />}
+          zebraStripes
+          listActions={{
+            entityKey: 'board.decisions',
+            entityLabelAr: 'قرارات الهيئة',
+            auditModule: 'admin',
+            export: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              filenamePrefix: 'قرارات-',
+              columns: [
+                { key: 'number', labelAr: 'رقم القرار' },
+                { key: 'date', labelAr: 'التاريخ' },
+                { key: 'hijriDate', labelAr: 'التاريخ الهجري' },
+                { key: 'sessionId', labelAr: 'كود الجلسة' },
+                { key: 'applicantId', labelAr: 'كود المتقدم' },
+                {
+                  key: 'outcome',
+                  labelAr: 'القرار',
+                  format: (v) =>
+                    v === 'accepted' ? 'مقبول' : v === 'rejected' ? 'مرفوض' : 'مؤجل',
+                },
+                { key: 'body', labelAr: 'نص القرار' },
+                {
+                  key: 'signatures',
+                  labelAr: 'التوقيعات',
+                  format: (v) => (Array.isArray(v) ? (v as string[]).join('، ') : ''),
+                },
+              ],
+            },
+          }}
+        />
       </Card>
 
       <Drawer open={Boolean(open)} onClose={() => setOpen(null)} title={open ? `القرار ${open.number}` : ''} size="lg">
@@ -547,7 +617,53 @@ export function BoardMembersPage(): JSX.Element {
         }
       />
       <Card>
-        <DataTable data={data ?? []} columns={columns} rowKey={(m) => m.id} loading={isLoading} empty={<EmptyState variant="generic" title="لا توجد أعضاء" />} zebraStripes />
+        <DataTable
+          data={data ?? []}
+          columns={columns}
+          rowKey={(m) => m.id}
+          loading={isLoading}
+          empty={<EmptyState variant="generic" title="لا توجد أعضاء" />}
+          zebraStripes
+          listActions={{
+            entityKey: 'board.members',
+            entityLabelAr: 'أعضاء الهيئة',
+            auditModule: 'admin',
+            export: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              filenamePrefix: 'أعضاء-الهيئة-',
+              columns: [
+                { key: 'id', labelAr: 'الكود' },
+                { key: 'name', labelAr: 'الاسم' },
+                { key: 'rank', labelAr: 'الرتبة' },
+                {
+                  key: 'role',
+                  labelAr: 'الدور',
+                  format: (v) =>
+                    v === 'chair' ? 'رئيس' : v === 'secretary' ? 'أمين سر' : 'عضو',
+                },
+              ],
+            },
+            import: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              schema: boardMemberImportSchema,
+              mapRow: (raw) => ({
+                name: raw['الاسم'] ?? raw['name'] ?? '',
+                rank: raw['الرتبة'] ?? raw['rank'] ?? '',
+                role: raw['الدور'] ?? raw['role'] ?? 'member',
+              }),
+              onCommit: (rows) =>
+                boardService.bulkImportMembers(rows as Array<Omit<BoardMember, 'id'>>),
+              templateColumns: [
+                { key: 'name', labelAr: 'الاسم', sample: 'العميد د. أحمد محمود' },
+                { key: 'rank', labelAr: 'الرتبة', sample: 'عقيد' },
+                { key: 'role', labelAr: 'الدور', sample: 'member' },
+              ],
+            },
+          }}
+          onImported={() => qc.invalidateQueries({ queryKey: ['board', 'members'] })}
+        />
       </Card>
 
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="إضافة عضو هيئة" size="sm">
