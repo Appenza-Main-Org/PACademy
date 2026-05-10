@@ -1,8 +1,9 @@
 /**
  * HorizontalStepper — top-of-page progress indicator for the admission-setup
- * wizard. Renders an Arabic-friendly RTL chip for each step plus a thin
- * connecting rule. Click on a non-blocked step to navigate; the active step
- * uses the per-app accent.
+ * wizard. Compact pill-strip pattern: every step renders as a numbered dot
+ * with the step name surfaced via `title` (hover tooltip + screen-reader
+ * `aria-label`); the **current** step expands to dot + inline label so the
+ * admin always knows where they are without parsing 16 mini-labels.
  *
  * Kept feature-local because it's only used by AdmissionSetupWizardPage and
  * carries the wizard's specific status semantics (not_started / in_progress
@@ -36,40 +37,39 @@ export function HorizontalStepper({
 }: HorizontalStepperProps): JSX.Element {
   return (
     <nav aria-label="مراحل إعداد التقديم" className="w-full">
-      <ol className="flex w-full items-center gap-1 overflow-x-auto pb-2">
+      <ol className="flex w-full items-center gap-1.5 overflow-x-auto pb-1">
         {steps.map((step, i) => {
           const isLast = i === steps.length - 1;
           const isActive = step.key === activeKey;
           return (
-            <li key={step.key} className="flex min-w-0 items-center gap-1">
+            <li key={step.key} className="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => onSelect(step.key)}
+                title={`${step.label} — الخطوة ${toEasternArabicNumerals(step.order)}`}
+                aria-label={`${step.label} — الخطوة ${toEasternArabicNumerals(step.order)}`}
                 aria-current={isActive ? 'step' : undefined}
                 className={cn(
-                  'flex shrink-0 items-center gap-2 rounded-md px-2 py-1.5 text-2xs',
-                  'transition-colors duration-fast ease-standard hover:bg-ink-50',
+                  'group inline-flex shrink-0 items-center gap-2 rounded-full',
+                  'transition-colors duration-fast ease-standard',
                   'focus-visible:shadow-focus-teal focus-visible:outline-none',
-                  isActive && 'bg-accent-50 font-bold text-ink-900',
+                  isActive
+                    ? 'bg-accent-50 ps-1 pe-3 py-1'
+                    : 'p-0.5 hover:bg-ink-50',
                 )}
               >
                 <StepDot state={step.state} order={step.order} />
-                <span
-                  className={cn(
-                    'whitespace-nowrap leading-tight',
-                    step.state === 'complete' && !isActive && 'text-ink-700',
-                    step.state === 'in_progress' && !isActive && 'text-gold-700',
-                    step.state === 'upcoming' && !isActive && 'text-ink-400',
-                  )}
-                >
-                  {step.label}
-                </span>
+                {isActive && (
+                  <span className="whitespace-nowrap text-2xs font-bold text-ink-900 leading-tight">
+                    {step.label}
+                  </span>
+                )}
               </button>
               {!isLast && (
                 <span
                   aria-hidden
                   className={cn(
-                    'h-px w-6 shrink-0',
+                    'h-px w-4 shrink-0',
                     step.state === 'complete' ? 'bg-teal-500' : 'bg-ink-200',
                   )}
                 />
@@ -90,7 +90,7 @@ function StepDot({
   order: number;
 }): JSX.Element {
   const base =
-    'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-2xs font-numeric tnum';
+    'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-2xs font-numeric tnum';
   if (state === 'complete') {
     return (
       <span className={cn(base, 'border-teal-500 bg-teal-500 text-white')} aria-hidden>
@@ -101,8 +101,8 @@ function StepDot({
   if (state === 'current') {
     return (
       <span
-        className={cn(base, 'border-accent-500 bg-accent-500 text-white')}
-        style={{ background: 'var(--accent-500)', borderColor: 'var(--accent-500)' }}
+        className={cn(base, 'border-transparent text-white')}
+        style={{ background: 'var(--accent-500)' }}
         aria-hidden
       >
         {toEasternArabicNumerals(order)}
@@ -120,7 +120,7 @@ function StepDot({
     );
   }
   return (
-    <span className={cn(base, 'border-ink-300 bg-surface-card text-ink-400')} aria-hidden>
+    <span className={cn(base, 'border-ink-300 bg-surface-card text-ink-500')} aria-hidden>
       {toEasternArabicNumerals(order)}
     </span>
   );

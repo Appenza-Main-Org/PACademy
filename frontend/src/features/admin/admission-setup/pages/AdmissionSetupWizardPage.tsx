@@ -33,10 +33,8 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Save } from 'lucide-react';
 import {
   Badge,
   Button,
-  Card,
   Combobox,
   EmptyState,
-  PageHeader,
   toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
@@ -47,7 +45,6 @@ import { useCommittees } from '@/features/committees';
 import {
   ADMISSION_SETUP_STEPS,
   ADMISSION_SETUP_TOTAL_STEPS,
-  type AdmissionSetupStep,
 } from '../config';
 import {
   HorizontalStepper,
@@ -218,54 +215,54 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     toast('تم حفظ المسودة — يمكنك الاستئناف لاحقاً', 'success');
   };
 
-  const activeStep = isReview
-    ? null
-    : orderedSteps.find((s) => s.key === activeKey) ?? orderedSteps[0]!;
+  const activeStep = isReview ? null : orderedSteps.find((s) => s.key === activeKey);
+
+  const activeLabel = isReview ? 'المراجعة والاعتماد' : activeStep?.labelAr ?? '';
 
   return (
     <WizardModeProvider>
-      <div className="flex flex-col gap-4 pb-32">
-        <PageHeader
-          title="إعداد التقديم"
-          subtitle={
-            cycleCtx.cycle
-              ? `دورة "${cycleCtx.cycle.nameAr}" — الخطوة ${toEasternArabicNumerals(activeIndex + 1)} من ${toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS + 1)}`
-              : 'لم يتم اختيار دورة بعد — اختر دورة من لوحة الإعدادات'
-          }
-          actions={
-            <Link to={ROUTES.admin.admissionSetup.index} className="inline-flex">
-              <Button
-                variant="ghost"
-                size="sm"
-                trailingIcon={
-                  <ArrowRight size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
-                }
-              >
-                لوحة التقديم
-              </Button>
+      <div className="flex flex-col gap-3">
+        {/* Slim breadcrumb-style context bar — replaces the duplicate
+         * outer PageHeader. Step page below renders the H1. */}
+        <div className="flex flex-wrap items-center justify-between gap-2 text-2xs text-ink-500">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to={ROUTES.admin.admissionSetup.index}
+              className="inline-flex items-center gap-1 text-ink-500 hover:text-ink-900"
+            >
+              <ArrowRight size={12} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
+              لوحة التقديم
             </Link>
-          }
-        />
-
-        <Card variant="elevated">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CycleSwitcher cycleCtx={cycleCtx} />
-              <CurrentStepBadge
-                step={activeStep}
-                isReview={isReview}
-                stepNumber={activeIndex + 1}
-                total={ADMISSION_SETUP_TOTAL_STEPS + 1}
-              />
-            </div>
-            <HorizontalStepper
-              steps={stepperItems}
-              activeKey={activeKey}
-              onSelect={(k) => goTo(k as WizardStepKey)}
-            />
+            <span aria-hidden className="text-ink-300">·</span>
+            <span>
+              {cycleCtx.cycle ? (
+                <>
+                  دورة <span className="font-medium text-ink-700">{cycleCtx.cycle.nameAr}</span>
+                </>
+              ) : (
+                'لم يتم اختيار دورة'
+              )}
+            </span>
+            <span aria-hidden className="text-ink-300">·</span>
+            <span className="font-numeric tnum">
+              الخطوة {toEasternArabicNumerals(activeIndex + 1)} من{' '}
+              {toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS + 1)} —{' '}
+              <span className="text-ink-700">{activeLabel}</span>
+            </span>
           </div>
-        </Card>
+          <CycleSwitcher cycleCtx={cycleCtx} />
+        </div>
 
+        {/* Stepper strip — number-only chips, current step shows label. */}
+        <div className="rounded-md border border-border-subtle bg-surface-card px-3 py-2">
+          <HorizontalStepper
+            steps={stepperItems}
+            activeKey={activeKey}
+            onSelect={(k) => goTo(k as WizardStepKey)}
+          />
+        </div>
+
+        {/* Step content — renders into the natural document scroll. */}
         <div className="min-w-0">
           {isReview ? (
             <WizardReviewPage statusInputs={statusInputs} />
@@ -274,11 +271,14 @@ export function AdmissionSetupWizardPage(): JSX.Element {
           )}
         </div>
 
+        {/* Sticky footer (not fixed) so it lives in flow with the main
+         * column — sidebar isn't overlapped, and scrolling reveals all
+         * form content without the toolbar covering the last fields. */}
         <footer
-          className="fixed inset-x-0 bottom-0 border-t border-border-subtle bg-surface-card px-6 py-3 shadow-md"
+          className="sticky bottom-0 -mx-6 mt-2 border-t border-border-subtle bg-surface-card/95 px-6 py-3 shadow-sm backdrop-blur"
           style={{ zIndex: 'var(--z-sticky)' as unknown as number }}
         >
-          <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3">
             <Button
               variant="ghost"
               onClick={handlePrev}
@@ -338,66 +338,28 @@ function CycleSwitcher({
   cycleCtx,
 }: {
   cycleCtx: ReturnType<typeof useAdmissionSetupCycle>;
-}): JSX.Element {
+}): JSX.Element | null {
   const { cycle, availableCycles, setCycle } = cycleCtx;
   if (availableCycles.length === 0) {
     return (
-      <p className="text-2xs text-gold-700">
-        لا توجد دورات بعد. أنشئ دورة من{' '}
-        <Link to={ROUTES.admin.cycleNew} className="font-medium underline">
-          إدارة الدورات
-        </Link>
-        .
-      </p>
+      <Link to={ROUTES.admin.cycleNew} className="text-2xs text-gold-700 underline">
+        أنشئ دورة من إدارة الدورات
+      </Link>
     );
   }
   if (availableCycles.length === 1 || !cycle) {
-    return (
-      <p className="text-2xs text-ink-500">
-        دورة الإعداد:{' '}
-        <span className="font-medium text-ink-700">
-          {cycle?.nameAr ?? 'لم تختر دورة'}
-        </span>
-      </p>
-    );
+    return null;
   }
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-2xs text-ink-500">دورة الإعداد</span>
-      <div className="min-w-[240px]">
-        <Combobox
-          value={cycle.id}
-          onChange={(next) => {
-            if (next) setCycle(next);
-          }}
-          options={availableCycles.map((c) => ({ value: c.id, label: c.nameAr }))}
-          placeholder="اختر دورة"
-        />
-      </div>
-    </div>
-  );
-}
-
-function CurrentStepBadge({
-  step,
-  isReview,
-  stepNumber,
-  total,
-}: {
-  step: AdmissionSetupStep | null;
-  isReview: boolean;
-  stepNumber: number;
-  total: number;
-}): JSX.Element {
-  const label = isReview ? 'المراجعة والاعتماد' : step?.labelAr ?? '';
-  return (
-    <div className="flex items-center gap-2">
-      <Badge tone="info">
-        <span className="font-numeric tnum">
-          الخطوة {toEasternArabicNumerals(stepNumber)} من {toEasternArabicNumerals(total)}
-        </span>
-      </Badge>
-      <span className="font-ar-display text-md font-bold text-ink-900">{label}</span>
+    <div className="min-w-[200px]">
+      <Combobox
+        value={cycle.id}
+        onChange={(next) => {
+          if (next) setCycle(next);
+        }}
+        options={availableCycles.map((c) => ({ value: c.id, label: c.nameAr }))}
+        placeholder="اختر دورة"
+      />
     </div>
   );
 }
