@@ -56,6 +56,7 @@ import {
   ApplicationStatusPage,
   AuditPage,
   CategoriesListPage,
+  CategoryNewPage,
   CategoryEditPage,
   CommitteeMergeSplitPage,
   CommitteesManagementPage,
@@ -220,6 +221,9 @@ export const routes: RouteObject[] = [
       { path: 'reference-data/:tab', element: <ReferenceDataPage /> },
       { path: 'admission-rules', element: <AdmissionRulesPage /> },
       { path: 'categories', element: <CategoriesListPage /> },
+      /* `/new` must be registered BEFORE `/:key` so the literal create
+       * route wins matching against the dynamic edit route. */
+      { path: 'categories/new', element: <CategoryNewPage /> },
       { path: 'categories/:key', element: <CategoryEditPage /> },
       { path: 'cycles', element: <CyclesPage /> },
       { path: 'cycles/new', element: <CycleNewPage /> },
