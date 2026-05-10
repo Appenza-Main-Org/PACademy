@@ -4,8 +4,8 @@
  */
 
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ChevronRight, Copy, ListChecks } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { Copy } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -128,15 +128,6 @@ export function CycleDetailPage(): JSX.Element {
             >
               نسخ كمسودة
             </Button>
-            <Link to={ROUTES.admin.admissionRules} className="inline-flex">
-              <Button
-                variant="primary"
-                leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
-                trailingIcon={<ChevronRight size={14} strokeWidth={1.75} />}
-              >
-                شروط القبول
-              </Button>
-            </Link>
           </div>
         }
       />

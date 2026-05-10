@@ -43,7 +43,6 @@ import {
 } from '@/features/applicant-portal';
 import {
   AdminLayout,
-  AdmissionRulesPage,
   AdmissionSetupIndexPage,
   AdmissionSetupWizardPage,
   ApplicantDetailPage,
@@ -86,8 +85,10 @@ import {
   WorkflowsListPage,
 } from '@/features/admin';
 import {
+  CommitteeApplicantsPage,
   CommitteeCreatePage,
   CommitteeDetailPage,
+  CommitteeEditPage,
   CommitteeListPage,
   CommitteeOverviewPage,
   CommitteeSchedulePage,
@@ -227,7 +228,6 @@ export const routes: RouteObject[] = [
       { path: 'reports', element: <ReportsPage /> },
       { path: 'reference-data', element: <ReferenceDataPage /> },
       { path: 'reference-data/:tab', element: <ReferenceDataPage /> },
-      { path: 'admission-rules', element: <AdmissionRulesPage /> },
       { path: 'categories', element: <CategoriesListPage /> },
       /* `/new` must be registered BEFORE `/:key` so the literal create
        * route wins matching against the dynamic edit route. */
@@ -318,6 +318,8 @@ export const routes: RouteObject[] = [
       { path: 'schedule', element: <CommitteeSchedulePage /> },
       { path: 'create', element: <CommitteeCreatePage /> },
       { path: ':id', element: <CommitteeDetailPage /> },
+      { path: ':id/edit', element: <CommitteeEditPage /> },
+      { path: ':id/applicants', element: <CommitteeApplicantsPage /> },
     ],
   },
   /* Back-compat: old /committee/* URLs land users on the new paths. */

@@ -31,7 +31,6 @@ export const ROUTES = {
     reports: '/admin/reports',
     referenceData: (tab = ':tab'): string => `/admin/reference-data/${tab}`,
     referenceDataRoot: '/admin/reference-data',
-    admissionRules: '/admin/admission-rules',
     cycles: '/admin/cycles',
     cycleDetail: (id = ':id'): string => `/admin/cycles/${id}`,
     cycleNew: '/admin/cycles/new',
@@ -89,6 +88,8 @@ export const ROUTES = {
     schedule: '/admin/committee/schedule',
     create: '/admin/committee/create',
     detail: (id = ':id'): string => `/admin/committee/${id}`,
+    edit: (id = ':id'): string => `/admin/committee/${id}/edit`,
+    applicants: (id = ':id'): string => `/admin/committee/${id}/applicants`,
   },
   board: {
     overview: '/board',

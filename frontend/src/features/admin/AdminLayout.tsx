@@ -13,7 +13,6 @@ import {
   LayoutDashboard,
   Settings,
   Shield,
-  SlidersHorizontal,
   Users,
   Workflow,
 } from 'lucide-react';
@@ -73,7 +72,6 @@ const SIDEBAR: SidebarSection[] = [
     label: 'البيانات المرجعية والإعدادات',
     items: [
       { key: 'reference-data', label: 'البيانات المرجعية', icon: <Database size={18} />,           to: ROUTES.admin.referenceDataRoot },
-      { key: 'admission-rules', label: 'شروط القبول',      icon: <SlidersHorizontal size={18} />,  to: ROUTES.admin.admissionRules },
       { key: 'workflows',       label: 'سير العمل',          icon: <Workflow size={18} />,            to: ROUTES.admin.workflows },
       { key: 'notifications',   label: 'الإشعارات',          icon: <Bell size={18} />,                to: ROUTES.admin.notifications },
       { key: 'payments',        label: 'المدفوعات',           icon: <Banknote size={18} />,            to: ROUTES.admin.payments },
