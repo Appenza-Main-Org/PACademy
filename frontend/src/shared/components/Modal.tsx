@@ -15,7 +15,7 @@
  *   </Modal>
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
@@ -66,12 +66,23 @@ export function Modal({
   const triggerRef = useRef<HTMLElement | null>(null);
   const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2)}`).current;
 
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (!open) return;
-      if (event.key === 'Escape' && closeOnEsc) {
+  /* Latest callbacks/flags via refs so the lifecycle effect stays bound to
+     `open` only. Otherwise every parent state update (typing in a child
+     Input) tears down the focus trap and refocuses the trigger, scrolling
+     the page back to it. */
+  const onCloseRef = useRef(onClose);
+  const closeOnEscRef = useRef(closeOnEsc);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    closeOnEscRef.current = closeOnEsc;
+  });
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && closeOnEscRef.current) {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key === 'Tab' && dialogRef.current) {
@@ -91,12 +102,7 @@ export function Modal({
           first.focus();
         }
       }
-    },
-    [open, closeOnEsc, onClose],
-  );
-
-  useEffect(() => {
-    if (!open) return undefined;
+    };
     triggerRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -115,7 +121,7 @@ export function Modal({
       document.removeEventListener('keydown', handleKeyDown, true);
       triggerRef.current?.focus?.();
     };
-  }, [open, handleKeyDown]);
+  }, [open]);
 
   if (!open) return null;
   if (typeof document === 'undefined') return null;

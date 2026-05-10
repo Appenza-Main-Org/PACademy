@@ -15,7 +15,7 @@
  *   </Drawer>
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
@@ -60,12 +60,24 @@ export function Drawer({
   const triggerRef = useRef<HTMLElement | null>(null);
   const titleId = useRef(`drawer-title-${Math.random().toString(36).slice(2)}`).current;
 
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (!open) return;
-      if (event.key === 'Escape' && closeOnEsc) {
+  /* Latest callbacks/flags stored in refs so the lifecycle effect can stay
+     bound to `open` only. If we depended on a memoised handleKeyDown, every
+     parent-state update (e.g. typing in a child Input) would tear down the
+     focus trap and refocus the trigger — which scrolls the page to that
+     trigger and feels like the drawer is closing on each keystroke. */
+  const onCloseRef = useRef(onClose);
+  const closeOnEscRef = useRef(closeOnEsc);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    closeOnEscRef.current = closeOnEsc;
+  });
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && closeOnEscRef.current) {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key === 'Tab' && dialogRef.current) {
@@ -85,12 +97,7 @@ export function Drawer({
           first.focus();
         }
       }
-    },
-    [open, closeOnEsc, onClose],
-  );
-
-  useEffect(() => {
-    if (!open) return undefined;
+    };
     triggerRef.current = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -106,7 +113,7 @@ export function Drawer({
       document.removeEventListener('keydown', handleKeyDown, true);
       triggerRef.current?.focus?.();
     };
-  }, [open, handleKeyDown]);
+  }, [open]);
 
   if (!open) return null;
   if (typeof document === 'undefined') return null;
