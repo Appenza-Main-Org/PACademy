@@ -191,6 +191,7 @@ in declaration order; "Real endpoint" copies from each service's
 | `getDependencies` | `GET /api/lookups/:key/:id/dependencies` | — | — |
 | `softDelete` | `POST /api/lookups/:key/:id/soft-delete` | dependency-protection | `DependencyBlockedError`, system-row protection |
 | `restore` | `POST /api/lookups/:key/:id/restore` | — | — |
+| `bulkImport` | `POST /api/lookups/:key/bulk-import` | row-key uniqueness within lookup | `Error` (per-row outcomes) |
 | (hard delete) | `DELETE /api/lookups/:key/:id` | only when deps = 0 | — |
 
 `examPlans.service.ts` (Gap J):
@@ -262,6 +263,8 @@ in declaration order; "Real endpoint" copies from each service's
 | `deactivate` | `POST /api/users/:id/deactivate` (alias) | same as setAccountStatus | `StatusChangeBlockedError` |
 | `reset2fa` | `POST /api/users/:id/reset-2fa` | — | — |
 | `bulkAssign` | `POST /api/users/bulk-assign` | — | — |
+| `bulkImport` | `POST /api/users/bulk-import` | NID uniqueness, officer-directory lookup | `Error` (per-row outcomes) |
+| `createFromTemplate` | `POST /api/users/from-template` | NID uniqueness | `Error` (NID required) |
 | `getActivity` | `GET /api/users/:id/activity` | — | — |
 | `setStatus` | `POST /api/users/:id/status` (legacy 3-state) | — | — |
 
@@ -331,6 +334,7 @@ contracts" below.
 |---|---|
 | `listMembers` | `GET /api/board/members` |
 | `addMember` / `updateMember` / `removeMember` | `POST/PATCH/DELETE /api/board/members[/:id]` |
+| `bulkImportMembers` | `POST /api/board/members/bulk-import` |
 | `listSessions` | `GET /api/board/sessions?status=` |
 | `getSession` | `GET /api/board/sessions/:id` |
 | `createSession` | `POST /api/board/sessions` |
@@ -828,6 +832,20 @@ Surfaced during the service-walk; product/ops decisions needed
     FK-only rows can outlive a soft-deleted cycle for forensic recall.
     Frontend doesn't care today — the services key everything by
     cycleId — but backend should pick once and not migrate.
+
+13. **Bulk-import error retry strategy** (universal list-actions stack,
+    `Tasks/LIST_ACTIONS_PROMPT.md §12`) — should the backend support
+    partial commits with a retry token (so the user can re-upload only
+    the failed rows after fixing them), or are bulk imports atomic
+    (everything-or-nothing)? Today the frontend mirror commits valid
+    rows individually and returns per-row failures via `ImportResult`.
+    The "استيراد الصالح فقط" affordance on `ImportPreviewTable` only
+    makes sense if backend semantics also allow partial commits.
+    Decide before integration day; affects:
+    - `usersService.bulkImport`, `lookupsService.bulkImport`,
+      `boardService.bulkImportMembers`, `examsService.createQuestionBatch`
+    - The Arabic error-report CSV download must include enough context
+      to make the retry workflow ergonomic.
 
 If you find more during implementation, append them here so future
 sessions can see the full conversation.
