@@ -78,7 +78,6 @@ export function RolesPage(): JSX.Element {
 
   const columns: DataTableColumn<RoleDefinitionRow>[] = [
     { key: 'labelAr', label: 'الاسم', render: (r) => <span className="font-medium text-ink-900">{r.labelAr}</span> },
-    { key: 'key', label: 'المفتاح', render: (r) => <span dir="ltr" className="font-mono text-2xs text-ink-500">{r.key}</span> },
     { key: 'isSystem', label: 'النوع', render: (r) => (r.isSystem ? <Badge tone="info">نظام</Badge> : <Badge tone="neutral">مخصص</Badge>) },
     {
       key: 'permissions',

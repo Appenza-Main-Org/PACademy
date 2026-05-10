@@ -125,7 +125,6 @@ export function LookupTab({ lookupKey, title, parentLookup, hasGender }: LookupT
       ),
     },
     { key: 'labelAr', label: 'الاسم بالعربية', render: (r) => r.labelAr },
-    { key: 'key', label: 'المفتاح', render: (r) => <span dir="ltr" className="font-mono text-2xs">{r.key}</span> },
     ...(parentLookup
       ? [
           {

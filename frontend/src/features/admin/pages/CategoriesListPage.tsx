@@ -89,13 +89,6 @@ export function CategoriesListPage(): JSX.Element {
       ),
     },
     {
-      key: 'key',
-      label: 'المفتاح',
-      render: (cat) => (
-        <span dir="ltr" className="font-mono text-2xs text-ink-500">{cat.key}</span>
-      ),
-    },
-    {
       key: 'type',
       label: 'النوع',
       render: (cat) =>
