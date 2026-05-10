@@ -16,6 +16,13 @@ import { cn } from '@/shared/lib/cn';
 
 const POPOVER_WIDTH = 320;
 const POPOVER_GAP = 8;
+/* Approximate rendered height of the popover (calendar grid + month
+ * header + container padding). Used to decide whether to flip upward
+ * when the viewport doesn't have enough room below the trigger.
+ * Measuring the live node would be ideal, but the popover renders
+ * after this function runs — a static estimate is sufficient for the
+ * 6-row calendar (the only layout we render). */
+const POPOVER_HEIGHT_ESTIMATE = 340;
 
 export const ARABIC_MONTHS = [
   'يناير',
@@ -99,7 +106,9 @@ export function DatePicker({
    * rect. Right-aligned by default (RTL-friendly: popover's end edge =
    * trigger's end edge in LTR; in RTL we still align to the trigger's
    * right edge so the popover extends leftward). Clamps to viewport so
-   * it never spills off screen. */
+   * it never spills off screen. Flips upward when there isn't enough room
+   * below the trigger but there is room above — the common case inside a
+   * modal whose body sits in the upper half of the viewport. */
   const computePosition = (): void => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
@@ -107,7 +116,15 @@ export function DatePicker({
       8,
       Math.min(rect.right - POPOVER_WIDTH, window.innerWidth - POPOVER_WIDTH - 8),
     );
-    setPosition({ top: rect.bottom + POPOVER_GAP, left });
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const needsFlip =
+      spaceBelow < POPOVER_HEIGHT_ESTIMATE + POPOVER_GAP &&
+      spaceAbove > spaceBelow;
+    const top = needsFlip
+      ? Math.max(8, rect.top - POPOVER_GAP - POPOVER_HEIGHT_ESTIMATE)
+      : rect.bottom + POPOVER_GAP;
+    setPosition({ top, left });
   };
 
   useEffect(() => {
@@ -192,7 +209,9 @@ export function DatePicker({
                 top: position.top,
                 left: position.left,
                 width: POPOVER_WIDTH,
-                zIndex: 'var(--z-dropdown)' as unknown as number,
+                /* --z-popover (1050) sits above --z-modal (1000) so the
+                 * calendar renders on top when opened from inside a modal. */
+                zIndex: 'var(--z-popover)' as unknown as number,
               }}
             >
               <CalendarGrid

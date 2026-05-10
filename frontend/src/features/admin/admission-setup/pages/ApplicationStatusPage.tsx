@@ -166,11 +166,21 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
         subtitle={cycle.nameAr}
         size="md"
       >
-        <Modal.Body>
-          <p className="mb-3 text-sm text-ink-700">
-            تاريخ الإغلاق الحالي: <span dir="ltr" className="font-mono">{fmtDate(cycle.closeDate, 'short')}</span>.
+        <Modal.Body className="min-h-[440px]">
+          <DatePicker
+            label="تاريخ الإغلاق الجديد"
+            value={extendDate}
+            onChange={setExtendDate}
+            min={new Date(cycle.closeDate).toISOString().slice(0, 10)}
+          />
+          <p className="mt-3 text-2xs leading-relaxed text-ink-500">
+            تاريخ الإغلاق الحالي:{' '}
+            <span dir="ltr" className="font-mono text-ink-700">
+              {fmtDate(cycle.closeDate, 'short')}
+            </span>
+            . التواريخ السابقة لتاريخ الإغلاق الحالي غير متاحة — التمديد يحرّك نهاية فترة
+            التقديم للأمام فقط.
           </p>
-          <DatePicker label="تاريخ الإغلاق الجديد" value={extendDate} onChange={setExtendDate} />
         </Modal.Body>
         <Modal.Footer>
           <Button variant="ghost" onClick={() => setExtendOpen(false)}>إلغاء</Button>
