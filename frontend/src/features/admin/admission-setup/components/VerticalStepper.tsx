@@ -62,15 +62,22 @@ export function VerticalStepper({
   }, [activeKey]);
 
   return (
-    <nav aria-label="مراحل إعداد التقديم" className="w-full">
-      <ol className="flex w-full flex-col">
+    <nav aria-label="مراحل إعداد التقديم" className="flex h-full w-full flex-col">
+      {/* `flex-1 + min-h-0` lets the list fill the rail's available
+       * height; per-row `flex-1` then distributes that height evenly
+       * across every step so all entries fit without inner scroll
+       * and each row becomes a comfortable tap target. */}
+      <ol className="flex min-h-0 w-full flex-1 flex-col">
         {steps.map((step, i) => {
           const isLast = i === steps.length - 1;
           const isActive = step.key === activeKey;
           const connectorColor =
             step.state === 'complete' ? 'bg-teal-500' : 'bg-ink-200';
           return (
-            <li key={step.key} className="flex w-full items-stretch gap-3">
+            <li
+              key={step.key}
+              className="flex w-full flex-1 items-stretch gap-3 min-h-0"
+            >
               {/* Spine column — dot + connector */}
               <div className="relative flex w-7 shrink-0 flex-col items-center">
                 <StepDot state={step.state} order={step.order} />
@@ -90,10 +97,7 @@ export function VerticalStepper({
                 aria-current={isActive ? 'step' : undefined}
                 aria-label={`${step.label} — الخطوة ${toEasternArabicNumerals(step.order)}`}
                 className={cn(
-                  'group flex flex-1 items-start gap-2 rounded-md text-start',
-                  /* Vertical breathing room so each row is a comfortable
-                   * tap target without the rail feeling cramped. */
-                  isLast ? 'px-2 py-1.5' : 'mb-1 px-2 py-1.5',
+                  'group flex flex-1 items-center gap-2 self-stretch rounded-md px-2 text-start',
                   'transition-colors duration-fast ease-standard',
                   'focus-visible:shadow-focus-teal focus-visible:outline-none',
                   isActive

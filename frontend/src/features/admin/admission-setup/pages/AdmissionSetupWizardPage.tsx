@@ -268,8 +268,10 @@ export function AdmissionSetupWizardPage(): JSX.Element {
               'w-full shrink-0 rounded-md border border-border-subtle bg-surface-card p-3',
               /* Sticky on md+ so the rail stays visible while the form
                * scrolls. Top offset clears the staff chrome header
-               * (~64px) plus a hair of breathing room. */
-              'md:sticky md:top-20 md:max-h-[calc(100vh-7rem)] md:w-[260px] md:overflow-y-auto',
+               * (~64px) plus a hair of breathing room. The rail is sized
+               * to the available viewport so all 16 steps distribute
+               * evenly and fit without a scroll spine. */
+              'md:sticky md:top-20 md:h-[calc(100vh-7rem)] md:w-[260px] md:overflow-hidden',
             )}
           >
             <VerticalStepper
