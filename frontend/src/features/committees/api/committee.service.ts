@@ -17,13 +17,24 @@ import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
 import { ConflictError } from '@/shared/lib/errors';
-import { filterDeleted } from '@/shared/lib/soft-delete';
+import {
+  applyRestore,
+  applySoftDelete,
+  DependencyBlockedError,
+  filterDeleted,
+  type DependencyResult,
+} from '@/shared/lib/soft-delete';
 import type {
   Applicant,
   Committee,
   CommitteeResult,
   CommitteeType,
 } from '@/shared/types/domain';
+
+const COMMITTEE_DEP_LABELS: Record<string, string> = {
+  applicants: 'متقدم',
+  results: 'نتيجة لجنة',
+};
 
 /* In-memory daily attendance counter — keyed by `${committeeId}:${YYYY-MM-DD}`.
  * Gap H capacity check decrements remaining slots before scheduling. */
@@ -216,6 +227,78 @@ export const committeeService = {
   /** Reset a day counter (testing / demo helper). */
   resetDailyCounters(): void {
     DAILY_COUNT.clear();
+  },
+
+  /**
+   * Soft-delete a committee. Mirrors the admin-side `categories.softDelete`
+   * pattern (Gap D). Blocks if any applicants are still scheduled to this
+   * committee or any in-progress results reference it; super-admins can
+   * re-list deleted rows via `list({ includeDeleted: true })` and restore.
+   *
+   * INTEGRATION CONTRACT:
+   *   DELETE /api/committees/:id        body: { reason }
+   *   POST   /api/committees/:id/restore
+   */
+  async softDelete(id: string, reason: string): Promise<Committee> {
+    await simulateLatency();
+    const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('اللجنة غير موجودة');
+    const before = { ...COMMITTEES_STATE[idx]! };
+    const dep = await committeeService.getDependencies(id);
+    if (dep.blocking) throw new DependencyBlockedError(dep, 'هذه اللجنة', COMMITTEE_DEP_LABELS);
+    const next = applySoftDelete(COMMITTEES_STATE[idx]!, { reason });
+    COMMITTEES_STATE[idx] = next;
+    emitAudit({
+      action: 'soft_delete',
+      module: 'committees',
+      entityType: 'Committee',
+      entityLabel: 'لجنة قبول',
+      entityId: id,
+      details: `تم حذف "${next.name}" — السبب: ${reason}`,
+      before,
+      after: next,
+    });
+    return next;
+  },
+
+  async restore(id: string): Promise<Committee> {
+    await simulateLatency();
+    const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('اللجنة غير موجودة');
+    const before = { ...COMMITTEES_STATE[idx]! };
+    const next = applyRestore(COMMITTEES_STATE[idx]!);
+    COMMITTEES_STATE[idx] = next;
+    emitAudit({
+      action: 'restore',
+      module: 'committees',
+      entityType: 'Committee',
+      entityLabel: 'لجنة قبول',
+      entityId: id,
+      details: `تم استعادة "${next.name}"`,
+      before,
+      after: next,
+    });
+    return next;
+  },
+
+  /**
+   * Returns the dependency snapshot used by SoftDeleteDialog. Counts
+   * applicants assigned to the committee (blocking) and results entered
+   * for it (also blocking — deleting would orphan grade records).
+   */
+  async getDependencies(id: string): Promise<DependencyResult> {
+    await simulateLatency(80, 200);
+    const c = COMMITTEES_STATE.find((x) => x.id === id);
+    if (!c) throw new Error('اللجنة غير موجودة');
+    const applicants = MOCK.applicants.filter((a) => a.committee === c.name).length;
+    const results = RESULTS_STATE.filter((r) => r.committeeId === id).length;
+    const counts: Record<string, number> = {};
+    if (applicants > 0) counts.applicants = applicants;
+    if (results > 0) counts.results = results;
+    return {
+      counts,
+      blocking: applicants > 0 || results > 0,
+    };
   },
 
   /**

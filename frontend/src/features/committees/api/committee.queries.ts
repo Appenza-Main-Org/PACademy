@@ -4,15 +4,41 @@ import type { Committee } from '@/shared/types/domain';
 
 export const committeeKeys = {
   all: ['committees'] as const,
-  list: () => [...committeeKeys.all, 'list'] as const,
+  list: (opts?: { includeDeleted?: boolean }) =>
+    [...committeeKeys.all, 'list', opts ?? null] as const,
   detail: (id: string) => [...committeeKeys.all, 'detail', id] as const,
   queue: (id: string) => [...committeeKeys.all, 'queue', id] as const,
   results: (id: string) => [...committeeKeys.all, 'results', id] as const,
+  dependencies: (id: string) => [...committeeKeys.all, 'dependencies', id] as const,
   eligibleOfficers: () => [...committeeKeys.all, 'eligible-officers'] as const,
 };
 
-export const useCommittees = () =>
-  useQuery({ queryKey: committeeKeys.list(), queryFn: () => committeeService.list() });
+export const useCommittees = (opts: { includeDeleted?: boolean } = {}) =>
+  useQuery({ queryKey: committeeKeys.list(opts), queryFn: () => committeeService.list(opts) });
+
+export const useCommitteeDependencies = (id: string | null) =>
+  useQuery({
+    queryKey: committeeKeys.dependencies(id ?? ''),
+    queryFn: () => committeeService.getDependencies(id!),
+    enabled: Boolean(id),
+  });
+
+export const useCommitteeSoftDelete = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      committeeService.softDelete(id, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.all }),
+  });
+};
+
+export const useCommitteeRestore = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => committeeService.restore(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.all }),
+  });
+};
 
 export const useCommittee = (id: string | null) =>
   useQuery({
