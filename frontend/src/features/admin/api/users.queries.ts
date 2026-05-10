@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { usersService, type CreateUserPayload } from './users.service';
-import type { SystemUser } from '@/shared/types/domain';
+import {
+  usersService,
+  type CreateUserPayload,
+  type SetAccountStatusInput,
+  type UpdateUserPayload,
+} from './users.service';
 
 export const usersKeys = {
   all: ['users'] as const,
@@ -11,6 +15,14 @@ export const usersKeys = {
 
 export function useUsers() {
   return useQuery({ queryKey: usersKeys.list(), queryFn: () => usersService.list() });
+}
+
+export function useUser(id: string | null | undefined) {
+  return useQuery({
+    queryKey: usersKeys.detail(id ?? ''),
+    queryFn: () => usersService.getById(id!),
+    enabled: Boolean(id),
+  });
 }
 
 export function useUserActivity(id: string | null) {
@@ -25,16 +37,33 @@ export function useUserCreate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateUserPayload) => usersService.create(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: usersKeys.list() }),
+    onSuccess: (user) => {
+      qc.invalidateQueries({ queryKey: usersKeys.list() });
+      qc.setQueryData(usersKeys.detail(user.id), user);
+    },
   });
 }
 
 export function useUserUpdate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Partial<SystemUser> }) =>
+    mutationFn: ({ id, patch }: { id: string; patch: UpdateUserPayload }) =>
       usersService.update(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: usersKeys.list() }),
+    onSuccess: (user) => {
+      qc.invalidateQueries({ queryKey: usersKeys.list() });
+      qc.setQueryData(usersKeys.detail(user.id), user);
+    },
+  });
+}
+
+export function useSetUserAccountStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SetAccountStatusInput) => usersService.setAccountStatus(input),
+    onSuccess: (user) => {
+      qc.invalidateQueries({ queryKey: usersKeys.list() });
+      qc.setQueryData(usersKeys.detail(user.id), user);
+    },
   });
 }
 

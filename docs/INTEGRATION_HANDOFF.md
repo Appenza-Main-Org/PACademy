@@ -250,19 +250,30 @@ in declaration order; "Real endpoint" copies from each service's
 | `restore` | `POST /api/roles/:id/restore` | — | — |
 | `getDependencies` | `GET /api/roles/:id/dependencies` | — | — |
 
-`users.service.ts`:
+`users.service.ts` (extended by admin-create NID flow):
 
-| Method | Real endpoint |
-|---|---|
-| `list` | `GET /api/users` |
-| `getById` | `GET /api/users/:id` |
-| `create` | `POST /api/users` (MOIPASS-backed) |
-| `update` | `PATCH /api/users/:id` |
-| `deactivate` | `POST /api/users/:id/deactivate` |
-| `reset2fa` | `POST /api/users/:id/reset-2fa` |
-| `bulkAssign` | `POST /api/users/bulk-assign` |
-| `getActivity` | `GET /api/users/:id/activity` |
-| `setStatus` | `POST /api/users/:id/status` |
+| Method | Real endpoint | Invariant deps | Typed errors |
+|---|---|---|---|
+| `list` | `GET /api/users` | — | — |
+| `getById` | `GET /api/users/:id` | — | — |
+| `create` | `POST /api/users` (NID-driven) | NID resolves in personnel directory; role conflict rules | `Error` (NID required, role conflict) |
+| `update` | `PATCH /api/users/:id` | role conflict rules | `Error` (role conflict) |
+| `setAccountStatus` | `POST /api/users/:id/status` | self-deactivation guard, last-active-super_admin guard | `StatusChangeBlockedError` |
+| `deactivate` | `POST /api/users/:id/deactivate` (alias) | same as setAccountStatus | `StatusChangeBlockedError` |
+| `reset2fa` | `POST /api/users/:id/reset-2fa` | — | — |
+| `bulkAssign` | `POST /api/users/bulk-assign` | — | — |
+| `getActivity` | `GET /api/users/:id/activity` | — | — |
+| `setStatus` | `POST /api/users/:id/status` (legacy 3-state) | — | — |
+
+`nid-lookup.service.ts` (admin-create NID flow):
+
+| Method | Real endpoint | Response shapes | Typed errors |
+|---|---|---|---|
+| `lookup` | `GET /v1/officers/lookup?nationalId={nid}` | `{ status: 'found', data: OfficerCandidate }` · 404 → `{ status: 'not_found' }` · 400 → `{ status: 'invalid', reason: 'format' \| 'checksum' }` | `NidLookupNotFoundError`, `InvalidNidError` |
+
+`authService.login` / `authService.requestOtp` reject inactive accounts
+with `AccountInactiveError` (`code: 'ACCOUNT_INACTIVE'`) before any
+credential check or OTP dispatch.
 
 `notifications.service.ts` (Gap L):
 

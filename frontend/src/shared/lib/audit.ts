@@ -89,6 +89,10 @@ const ACTION_FALLBACK: Record<AuditAction, { label: string; color: AuditColor }>
   notification_unpublished: { label: 'سحب إشعار', color: 'warning' },
   payment_status_changed: { label: 'تحديث حالة الدفع', color: 'info' },
   payment_refunded: { label: 'إعادة مقابل مالي', color: 'warning' },
+  user_created: { label: 'إنشاء حساب مستخدم', color: 'success' },
+  user_updated: { label: 'تعديل حساب مستخدم', color: 'info' },
+  user_status_changed: { label: 'تغيير حالة الحساب', color: 'warning' },
+  user_roles_changed: { label: 'تعديل أدوار المستخدم', color: 'info' },
 };
 
 function resolveActionLabel(action: AuditAction): { label: string; color: AuditColor } {

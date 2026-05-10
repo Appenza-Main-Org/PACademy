@@ -224,7 +224,12 @@ export type AuditAction =
   | 'notification_unpublished'
   /* Payment events (Gap K) */
   | 'payment_status_changed'
-  | 'payment_refunded';
+  | 'payment_refunded'
+  /* Admin-create NID flow */
+  | 'user_created'
+  | 'user_updated'
+  | 'user_status_changed'
+  | 'user_roles_changed';
 export type AuditColor = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 /** Typed module taxonomy — used by Gap E filters and the withAudit() helper. */
@@ -289,14 +294,48 @@ export interface AuditEntry {
  * compat; `status` is the typed primary going forward. */
 export type SystemUserStatus = 'active' | 'suspended' | 'locked';
 
+/** Binary admin-controlled account status — surfaced as the
+ * Active / Inactive toggle in the user-creation flow. `inactive`
+ * maps to `SystemUserStatus = 'suspended'` on persistence; `locked`
+ * remains reserved for the failed-login lockout state from Gap A. */
+export type AccountStatus = 'active' | 'inactive';
+
+/** User-type taxonomy for the admin directory — surfaces in detail
+ * views and may gate downstream provisioning logic. */
+export type UserType = 'officer' | 'civilian' | 'contractor';
+
 export interface SystemUser {
   id: string;
+  /** Legacy display name — kept in sync with `fullArabicName` for the
+   *  many existing consumers that read `u.name`. */
   name: string;
+  /** Legacy single-role field — kept in sync with `roles[0]` for
+   *  bulk-assign and other single-role consumers. */
   role: string;
   unit: string;
   active: boolean;
   status?: SystemUserStatus;
   lastLogin: number;
+  /* ── Admin-create NID flow extensions ─────────────────────────────── */
+  /** 14-digit Egyptian National ID. Source of identity. */
+  nationalId: string;
+  /** 4-part Arabic name from the officer directory. */
+  fullArabicName: string;
+  /** Officer / admin code (e.g. "OFF-1001"). */
+  officerCode: string;
+  /** Contact mobile in local format. */
+  mobileNumber: string;
+  /** Officer / civilian / contractor categorisation. */
+  userType: UserType;
+  /** Multi-role assignment — role keys; narrowed to `Role` in feature code.
+   *  Typed as `string[]` here to keep `shared/types` free of feature
+   *  imports (Clean Arch). The legacy `role` field mirrors `roles[0]`. */
+  roles: string[];
+  /** Binary admin-controlled status — Active / Inactive. */
+  accountStatus: AccountStatus;
+  /** ISO timestamps — admin audit and ordering. */
+  createdAt: string;
+  updatedAt: string;
 }
 
 /* ── Dynamic roles + permission matrix — Gap C (admin-gaps) ──────────── */
