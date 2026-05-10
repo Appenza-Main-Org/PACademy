@@ -28,6 +28,8 @@ import type {
   Applicant,
   Committee,
   CommitteeResult,
+  CommitteeRules,
+  CommitteeStatus,
   CommitteeType,
 } from '@/shared/types/domain';
 
@@ -55,6 +57,14 @@ export interface CommitteePayload {
   members: number;
   capacityPerSession: number;
   cycleId: string;
+  /* ── Admin module enhancements ──────────────────────────────── */
+  headUserId?: string;
+  capacity?: number;
+  academicYearId?: string;
+  status?: CommitteeStatus;
+  specializationIds?: string[];
+  officerIds?: string[];
+  rules?: CommitteeRules;
 }
 
 export const committeeService = {
@@ -77,9 +87,43 @@ export const committeeService = {
       members: payload.members,
       applicants: 0,
       completed: 0,
+      headUserId: payload.headUserId,
+      capacity: payload.capacity,
+      capacityPerDay: payload.capacityPerSession,
+      academicYearId: payload.academicYearId,
+      status: payload.status ?? 'active',
+      createdAt: new Date().toISOString(),
+      specializationIds: payload.specializationIds,
+      officerIds: payload.officerIds,
+      rules: payload.rules,
+      linkedCycleId: payload.cycleId,
     };
     COMMITTEES_STATE.unshift(next);
+    emitAudit({
+      action: 'create',
+      module: 'committees',
+      entityType: 'Committee',
+      entityLabel: 'لجنة قبول',
+      entityId: next.id,
+      details: `إنشاء لجنة "${next.name}"`,
+      after: next,
+    });
     return next;
+  },
+
+  /**
+   * List committees eligible to receive a given applicant id based on
+   * each committee's CommitteeRules. The check evaluates the applicant's
+   * score percent, name first-letter, gender, and applicant type against
+   * the rule bag. Committees with `applicants >= capacity` or
+   * `status === 'inactive'` are filtered out.
+   */
+  async listAssignableFor(applicantId: string): Promise<Committee[]> {
+    await simulateLatency();
+    const a = MOCK.applicants.find((x) => x.id === applicantId);
+    if (!a) return [];
+    return COMMITTEES_STATE.filter((c) => filterDeleted([c], false).length > 0)
+      .filter((c) => committeeAcceptsApplicant(c, a));
   },
 
   async getApplicants(committeeName: string): Promise<Applicant[]> {
@@ -311,4 +355,73 @@ export const committeeService = {
       .filter((u) => u.role === 'committee_admin' || u.role === 'committee_user')
       .map((u) => ({ id: u.id, name: u.name, role: u.role, unit: u.unit }));
   },
+
+  /** List active specializations — backs the specialization MultiSelect. */
+  async listSpecializations(): Promise<{ id: string; nameAr: string; code: string; active: boolean }[]> {
+    await simulateLatency(60, 140);
+    return MOCK.referenceData.specializations
+      .filter((s) => !s.deletedAt)
+      .map((s) => ({ id: s.id, nameAr: s.nameAr, code: s.code, active: s.active }));
+  },
+
+  /**
+   * List applicants assigned to a given committee. Falls back to the
+   * legacy `applicant.committee === c.name` join when the committee
+   * has no explicit assignment table (the mock data ships with this
+   * structure).
+   *
+   * INTEGRATION CONTRACT:
+   *   GET /api/committees/:id/applicants
+   */
+  async getAssignedApplicants(committeeId: string): Promise<Applicant[]> {
+    await simulateLatency();
+    const c = COMMITTEES_STATE.find((x) => x.id === committeeId);
+    if (!c) return [];
+    return MOCK.applicants.filter((a) => a.committee === c.name);
+  },
+
+  /**
+   * Toggle committee status (active ↔ inactive). Surfaces a typed audit
+   * entry that the activity log can pick up.
+   */
+  async setStatus(id: string, status: CommitteeStatus): Promise<Committee> {
+    await simulateLatency();
+    const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('اللجنة غير موجودة');
+    const before = { ...COMMITTEES_STATE[idx]! };
+    const next: Committee = { ...before, status };
+    COMMITTEES_STATE[idx] = next;
+    emitAudit({
+      action: 'update',
+      module: 'committees',
+      entityType: 'Committee',
+      entityLabel: 'لجنة قبول',
+      entityId: id,
+      details: `${status === 'active' ? 'تفعيل' : 'تعطيل'} "${next.name}"`,
+      before,
+      after: next,
+    });
+    return next;
+  },
 };
+
+/**
+ * Determines whether a committee accepts a given applicant per its
+ * CommitteeRules and current capacity. Pure helper exposed for the
+ * assignment preview UI on the detail page.
+ */
+export function committeeAcceptsApplicant(c: Committee, a: Applicant): boolean {
+  if (c.status === 'inactive') return false;
+  if (c.deletedAt) return false;
+  if (c.capacity !== undefined && c.applicants >= c.capacity) return false;
+  const rules = c.rules;
+  if (!rules) return true;
+  const scorePct = Number(a.certPercent);
+  if (rules.gradeFrom != null && scorePct < rules.gradeFrom) return false;
+  if (rules.gradeTo != null && scorePct > rules.gradeTo) return false;
+  if (rules.gender && rules.gender !== 'any' && rules.gender !== a.gender) return false;
+  const firstLetter = a.name.trim().charAt(0);
+  if (rules.alphabetFrom && firstLetter < rules.alphabetFrom) return false;
+  if (rules.alphabetTo && firstLetter > rules.alphabetTo) return false;
+  return true;
+}

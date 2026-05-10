@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { committeeService, type CommitteePayload } from './committee.service';
-import type { Committee } from '@/shared/types/domain';
+import type { Committee, CommitteeStatus } from '@/shared/types/domain';
 
 export const committeeKeys = {
   all: ['committees'] as const,
@@ -11,6 +11,8 @@ export const committeeKeys = {
   results: (id: string) => [...committeeKeys.all, 'results', id] as const,
   dependencies: (id: string) => [...committeeKeys.all, 'dependencies', id] as const,
   eligibleOfficers: () => [...committeeKeys.all, 'eligible-officers'] as const,
+  specializations: () => [...committeeKeys.all, 'specializations'] as const,
+  assigned: (id: string) => [...committeeKeys.all, 'assigned', id] as const,
 };
 
 export const useCommittees = (opts: { includeDeleted?: boolean } = {}) =>
@@ -129,3 +131,28 @@ export const useEligibleOfficers = () =>
     queryKey: committeeKeys.eligibleOfficers(),
     queryFn: () => committeeService.getEligibleOfficers(),
   });
+
+export const useCommitteeSpecializations = () =>
+  useQuery({
+    queryKey: committeeKeys.specializations(),
+    queryFn: () => committeeService.listSpecializations(),
+  });
+
+export const useCommitteeAssignedApplicants = (id: string | null) =>
+  useQuery({
+    queryKey: committeeKeys.assigned(id ?? ''),
+    queryFn: () => committeeService.getAssignedApplicants(id!),
+    enabled: Boolean(id),
+  });
+
+export const useCommitteeSetStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: CommitteeStatus }) =>
+      committeeService.setStatus(id, status),
+    onSuccess: (committee) => {
+      qc.invalidateQueries({ queryKey: committeeKeys.list() });
+      qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
+    },
+  });
+};

@@ -229,7 +229,11 @@ export type AuditAction =
   | 'user_created'
   | 'user_updated'
   | 'user_status_changed'
-  | 'user_roles_changed';
+  | 'user_roles_changed'
+  /* Universal list-actions (Tasks/LIST_ACTIONS_PROMPT.md) */
+  | 'entity_exported'
+  | 'entity_imported'
+  | 'entity_duplicated';
 export type AuditColor = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 /** Typed module taxonomy — used by Gap E filters and the withAudit() helper. */
@@ -385,6 +389,30 @@ export interface CommitteeScoreCriteria {
   accumulativeScore?: { min: number; max: number };
 }
 
+/**
+ * Committee dynamic rule — applicant routing constraint.
+ *
+ * Each rule narrows the set of applicants that can be auto-assigned to
+ * the committee. All present fields are AND-combined: applicants must
+ * satisfy every constraint (grade range, alphabetical range, gender,
+ * applicant type) to qualify. Empty / undefined fields are "no
+ * constraint" on that axis.
+ */
+export interface CommitteeRules {
+  /** Inclusive numeric grade range (0–100). */
+  gradeFrom?: number | null;
+  gradeTo?: number | null;
+  /** Arabic first-letter range, e.g. ('أ', 'د') — inclusive on both ends. */
+  alphabetFrom?: string | null;
+  alphabetTo?: string | null;
+  /** Optional gender constraint for applicants this committee processes. */
+  gender?: 'male' | 'female' | 'any';
+  /** Optional applicant-type constraint — keys from ApplicantCategoryKey. */
+  applicantType?: ApplicantCategoryKey | 'any';
+}
+
+export type CommitteeStatus = 'active' | 'inactive';
+
 export interface Committee extends SoftDeleteFields {
   id: string;
   name: string;
@@ -392,6 +420,22 @@ export interface Committee extends SoftDeleteFields {
   members: number;
   applicants: number;
   completed: number;
+  /* ── Admin module enhancements ────────────────────────────────── */
+  /** Committee head — user id (when assigned from the eligible-officers list). */
+  headUserId?: string;
+  /** Total seats this committee can absorb. */
+  capacity?: number;
+  /** Academic year identifier (e.g. "2026-2027"). */
+  academicYearId?: string;
+  /** Active / inactive (admin toggle). */
+  status?: CommitteeStatus;
+  /** ISO timestamp — created date. */
+  createdAt?: string;
+  /** Specialization ids (RefSpecialization.id) bound to this committee. */
+  specializationIds?: string[];
+  /** Dynamic rule bag — see CommitteeRules. */
+  rules?: CommitteeRules;
+
   /* ── Gap H additions (admin-side configuration) ───────────────── */
   /** Gender restriction for committee membership. */
   gender?: 'male' | 'female' | 'any';
@@ -412,6 +456,31 @@ export interface Committee extends SoftDeleteFields {
   scopedDegreeIds?: string[];
   scopedFacultyIds?: string[];
   scopedUniversityIds?: string[];
+}
+
+/**
+ * CategoryCommittees — relationship entity binding an admission committee
+ * to an applicant category for a given academic year. Drives the
+ * admission-setup wizard committee picker and constrains the applicant
+ * distribution stage to committees explicitly enrolled in the cycle.
+ *
+ * INTEGRATION CONTRACT mirrors the proposed SQL Server table:
+ *   PK (id)
+ *   UNIQUE (CategoryId, CommitteeId, AcademicYearId)
+ *   FK CategoryId   → ApplicantCategory.key
+ *   FK CommitteeId  → Committee.id
+ */
+export interface CategoryCommittees {
+  id: string;
+  categoryId: ApplicantCategoryKey;
+  committeeId: string;
+  academicYearId: string;
+  /** Cycle the binding was created inside — lets the wizard scope by cycle. */
+  cycleId: string;
+  /** Display rank inside the cycle's committee list (lower → earlier). */
+  order?: number;
+  createdAt: string;
+  createdBy: string;
 }
 
 export interface Question {

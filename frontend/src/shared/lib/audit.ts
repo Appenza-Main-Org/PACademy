@@ -93,6 +93,9 @@ const ACTION_FALLBACK: Record<AuditAction, { label: string; color: AuditColor }>
   user_updated: { label: 'تعديل حساب مستخدم', color: 'info' },
   user_status_changed: { label: 'تغيير حالة الحساب', color: 'warning' },
   user_roles_changed: { label: 'تعديل أدوار المستخدم', color: 'info' },
+  entity_exported: { label: 'تصدير قائمة', color: 'warning' },
+  entity_imported: { label: 'استيراد قائمة', color: 'success' },
+  entity_duplicated: { label: 'نسخ سجل', color: 'info' },
 };
 
 function resolveActionLabel(action: AuditAction): { label: string; color: AuditColor } {
