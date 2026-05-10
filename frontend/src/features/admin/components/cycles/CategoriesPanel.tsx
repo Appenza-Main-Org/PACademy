@@ -176,8 +176,8 @@ function CategoryRow({
             onChange={(e) =>
               setDraft({ ...draft, capacity: e.target.value ? Number(e.target.value) : null })
             }
-            containerClassName="!mb-0"
-            className="w-20 text-end tabular-nums"
+            containerClassName="!mb-0 w-24"
+            className="text-end tabular-nums"
           />
         </td>
 
