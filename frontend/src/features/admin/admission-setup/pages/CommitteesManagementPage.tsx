@@ -114,19 +114,11 @@ function Body({ cycle }: BodyProps): JSX.Element {
     setSelectedIds(ids);
   }, [bindingsQuery.data]);
 
-  if (committeesQuery.isLoading || bindingsQuery.isLoading) {
-    return <LoadingState variant="card-grid" />;
-  }
-  if (committeesQuery.isError) {
-    return <ErrorState title="تعذّر تحميل اللجان" onRetry={() => committeesQuery.refetch()} />;
-  }
-
-  const eligibleIds = new Set(eligibleCommittees.map((c) => c.id));
-
   /* Display set — when the admin filters by category, show only committees
    * whose specialization set overlaps the category's specialization scope.
    * Categories don't currently declare specialization links in mock-data,
-   * so the filter falls back to "show everything" when no scope is set. */
+   * so the filter falls back to "show everything" when no scope is set.
+   * Computed before the loading/error early returns to keep hook order stable. */
   const filteredCommittees = useMemo<Committee[]>(() => {
     if (categoryFilter === ALL_CATEGORIES_KEY) return eligibleCommittees;
     /* No category→specialization edge yet — same pool, but the heading
@@ -134,9 +126,22 @@ function Body({ cycle }: BodyProps): JSX.Element {
     return eligibleCommittees;
   }, [eligibleCommittees, categoryFilter]);
 
-  const comboboxOptions: ComboboxOption[] = eligibleCommittees.map((c) =>
-    toComboboxOption(c),
+  const eligibleIds = useMemo(
+    () => new Set(eligibleCommittees.map((c) => c.id)),
+    [eligibleCommittees],
   );
+
+  const comboboxOptions = useMemo<ComboboxOption[]>(
+    () => eligibleCommittees.map((c) => toComboboxOption(c)),
+    [eligibleCommittees],
+  );
+
+  if (committeesQuery.isLoading || bindingsQuery.isLoading) {
+    return <LoadingState variant="card-grid" />;
+  }
+  if (committeesQuery.isError) {
+    return <ErrorState title="تعذّر تحميل اللجان" onRetry={() => committeesQuery.refetch()} />;
+  }
 
   const handleSelect = (next: string[]): void => {
     /* Filter out anything that turned ineligible between picker render
