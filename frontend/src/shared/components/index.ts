@@ -87,3 +87,24 @@ export type { WizardStep, WizardStepState } from './Wizard';
 
 export * from './charts';
 export * from './icons';
+
+/* Universal list-actions stack — Tasks/LIST_ACTIONS_PROMPT.md */
+export {
+  ListActions,
+  ExportMenu,
+  ImportDialog,
+  ImportPreviewTable,
+  DuplicateAction,
+  runExport,
+} from './data-table';
+export type {
+  ListActionsConfig,
+  ExportConfig,
+  ExportColumn,
+  ExportFormat,
+  ImportConfig,
+  ImportConflictMode,
+  ImportPreviewRow,
+  ImportResult,
+  DuplicateConfig,
+} from './data-table';

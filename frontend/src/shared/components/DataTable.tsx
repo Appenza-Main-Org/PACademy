@@ -44,6 +44,8 @@ import type { ReactNode } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { LoadingState } from './LoadingState';
+import { ListActions } from './data-table/ListActions';
+import type { ImportResult, ListActionsConfig } from './data-table/list-actions.types';
 
 export type DataTableDensity = 'compact' | 'default' | 'comfortable';
 export type DataTableSelectionMode = 'none' | 'single' | 'multi';
@@ -105,6 +107,18 @@ interface DataTableProps<TRow> {
   className?: string;
   /** Optional ribbon rendered above the table (filters, bulk actions). */
   toolbar?: ReactNode;
+  /**
+   * Universal list-actions config — Export / Import / Duplicate.
+   * Renders as a logical-start button group above the table. Permission
+   * gating is automatic via `getListActionPermissions()` (registered by
+   * the auth feature at app bootstrap).
+   *
+   * Pass `onImported` to refresh the host page's query after an import.
+   * Per-row Duplicate uses the `DuplicateAction` primitive directly inside
+   * the row's actions cell — it is *not* rendered by `DataTable`.
+   */
+  listActions?: ListActionsConfig<TRow>;
+  onImported?: (result: ImportResult) => void;
 }
 
 export function DataTable<TRow>({
@@ -127,6 +141,8 @@ export function DataTable<TRow>({
   caption,
   className,
   toolbar,
+  listActions,
+  onImported,
 }: DataTableProps<TRow>): JSX.Element {
   const [internalSort, setInternalSort] = useState<DataTableSort<TRow> | null>(sort ?? null);
   const activeSort = sort ?? internalSort;
@@ -179,6 +195,11 @@ export function DataTable<TRow>({
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
+      {listActions && (
+        <div className="flex flex-wrap items-center justify-start gap-2">
+          <ListActions rows={data} config={listActions} onImported={onImported} />
+        </div>
+      )}
       {toolbar}
 
       <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
