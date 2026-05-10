@@ -2,7 +2,7 @@
  * AdmissionSetupShell — layout wrapper for every admission-setup step.
  *
  * Wraps the page content with breadcrumbs + <StepHeader> (cycle context,
- * "الخطوة N من ١٥" badge, optional actions slot). The shell resolves the
+ * "الخطوة N من ١٤" badge, optional actions slot). The shell resolves the
  * current step from `useLocation()` so individual pages don't have to
  * pass it down. Pages render normal content as children.
  *
