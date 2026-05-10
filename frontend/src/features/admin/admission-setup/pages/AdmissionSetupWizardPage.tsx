@@ -38,6 +38,7 @@ import {
   toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
+import { cn } from '@/shared/lib/cn';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { hasPermission, useAuthStore } from '@/features/auth';
 import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
@@ -47,10 +48,10 @@ import {
   ADMISSION_SETUP_TOTAL_STEPS,
 } from '../config';
 import {
-  HorizontalStepper,
-  type HorizontalStepDescriptor,
-  type HorizontalStepState,
-} from '../components/HorizontalStepper';
+  VerticalStepper,
+  type VerticalStepDescriptor,
+  type VerticalStepState,
+} from '../components/VerticalStepper';
 import { WizardModeProvider } from '../components/WizardModeContext';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import {
@@ -65,7 +66,6 @@ import {
   useTotalScoreConfigs,
 } from '../api/admission-setup.queries';
 import type { AdmissionSetupStepKey } from '../types';
-import { CycleMetadataPage } from './CycleMetadataPage';
 import { ApplicationSettingsPage } from './ApplicationSettingsPage';
 import { ApplicationStatusPage } from './ApplicationStatusPage';
 import { AgeRulesPage } from './AgeRulesPage';
@@ -85,10 +85,9 @@ import { WizardReviewPage } from './WizardReviewPage';
 const REVIEW_KEY = 'review' as const;
 type WizardStepKey = AdmissionSetupStepKey | typeof REVIEW_KEY;
 
-/* The renderer map mirrors ADMISSION_SETUP_STEPS — adding a 16th step is
+/* The renderer map mirrors ADMISSION_SETUP_STEPS — adding a 15th step is
  * one entry here plus the config append. */
 const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
-  cycle_metadata: () => <CycleMetadataPage />,
   application_settings: () => <ApplicationSettingsPage />,
   application_status: () => <ApplicationStatusPage />,
   age_rules: () => <AgeRulesPage />,
@@ -164,7 +163,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     declaration: declarationQuery.data ?? null,
   };
 
-  const stepperItems: HorizontalStepDescriptor[] = orderedSteps.map((s) => ({
+  const stepperItems: VerticalStepDescriptor[] = orderedSteps.map((s) => ({
     key: s.key,
     label: s.labelAr,
     order: s.order,
@@ -259,27 +258,40 @@ export function AdmissionSetupWizardPage(): JSX.Element {
           <CycleSwitcher cycleCtx={cycleCtx} />
         </div>
 
-        {/* Stepper strip — number-only chips, current step shows label. */}
-        <div className="rounded-md border border-border-subtle bg-surface-card px-3 py-2">
-          <HorizontalStepper
-            steps={stepperItems}
-            activeKey={activeKey}
-            onSelect={(k) => goTo(k as WizardStepKey)}
-          />
-        </div>
+        {/* Two-column body: vertical stepper rail (sticky) + step content.
+         * Rail collapses below md so narrow viewports (and print) get a
+         * stacked layout instead of a cramped side-by-side. */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+          <aside
+            aria-label="مراحل المعالج"
+            className={cn(
+              'w-full shrink-0 rounded-md border border-border-subtle bg-surface-card p-3',
+              /* Sticky on md+ so the rail stays visible while the form
+               * scrolls. Top offset clears the staff chrome header
+               * (~64px) plus a hair of breathing room. */
+              'md:sticky md:top-20 md:max-h-[calc(100vh-7rem)] md:w-[260px] md:overflow-y-auto',
+            )}
+          >
+            <VerticalStepper
+              steps={stepperItems}
+              activeKey={activeKey}
+              onSelect={(k) => goTo(k as WizardStepKey)}
+            />
+          </aside>
 
-        {/* Step content — renders into the natural document scroll. The
-         * trailing spacer below guarantees the last form field has air
-         * above the sticky toolbar when the page is fully scrolled, so
-         * the field is always readable, never visually trapped under it. */}
-        <div className="min-w-0">
-          {isReview ? (
-            <WizardReviewPage statusInputs={statusInputs} />
-          ) : (
-            STEP_RENDERERS[activeKey as AdmissionSetupStepKey]()
-          )}
+          {/* Step content — renders into the natural document scroll. The
+           * trailing spacer below guarantees the last form field has air
+           * above the sticky toolbar when the page is fully scrolled, so
+           * the field is always readable, never visually trapped under it. */}
+          <div className="min-w-0 flex-1">
+            {isReview ? (
+              <WizardReviewPage statusInputs={statusInputs} />
+            ) : (
+              STEP_RENDERERS[activeKey as AdmissionSetupStepKey]()
+            )}
+            <div aria-hidden className="h-16 shrink-0" />
+          </div>
         </div>
-        <div aria-hidden className="h-16 shrink-0" />
 
         {/* Sticky footer (not fixed) so it lives in flow with the main
          * column — sidebar isn't overlapped, and scrolling reveals all
@@ -336,7 +348,7 @@ function deriveStepperState(
   key: AdmissionSetupStepKey,
   activeKey: WizardStepKey,
   inputs: StepStatusInputs,
-): HorizontalStepState {
+): VerticalStepState {
   if (activeKey === key) return 'current';
   const status = computeStepStatus(key, inputs);
   if (status === 'complete') return 'complete';

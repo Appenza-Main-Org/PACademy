@@ -1,7 +1,9 @@
 # التقديم Section — Review Checklist
 
-> Manual review checklist for the التقديم sidebar section + 15-step admission setup feature.
+> Manual review checklist for the التقديم sidebar section + 14-step admission setup feature.
 > Use this when reviewing the implementation before sign-off — read each item, click through the app, mark ✅ / ❌ / ⚠️.
+>
+> **2026-05-10:** Cycle metadata (الخطوة 1 سابقاً) was removed from the wizard. Admins now enter the wizard by selecting an already-configured cycle from `/admin/admission-setup`; cycle creation / metadata editing lives in `/admin/cycles`. Old steps 2–15 are now steps 1–14.
 
 ---
 
@@ -23,25 +25,24 @@
 
 ## B · Submenu Items (order, labels, icons)
 
-All 15 items must appear in this exact order with these exact Arabic labels:
+All 14 items must appear in this exact order with these exact Arabic labels:
 
-- [ ] **B1.** `1. بيانات سنة التقديم`
-- [ ] **B2.** `2. إعدادات التقديم`
-- [ ] **B3.** `3. حالة التقديم`
-- [ ] **B4.** `4. شروط السن`
-- [ ] **B5.** `5. الحالة الاجتماعية`
-- [ ] **B6.** `6. الرسوم المالية`
-- [ ] **B7.** `7. إدارة الاختبارات`
-- [ ] **B8.** `8. إدارة اللجان`
-- [ ] **B9.** `9. دمج وفصل اللجان`
-- [ ] **B10.** `10. درجات القبول`
-- [ ] **B11.** `11. مواعيد الاختبارات`
-- [ ] **B12.** `12. ربط المواعيد باللجان`
-- [ ] **B13.** `13. المجموع الكلي`
-- [ ] **B14.** `14. التنبيهات`
-- [ ] **B15.** `15. الإقرار الإلكتروني`
-- [ ] **B16.** Each item has its own icon (not all using the same generic icon).
-- [ ] **B17.** Step numbers are displayed in Arabic numerals (١، ٢، ٣) or order is otherwise visually clear.
+- [ ] **B1.** `1. إعدادات التقديم`
+- [ ] **B2.** `2. حالة التقديم`
+- [ ] **B3.** `3. شروط السن`
+- [ ] **B4.** `4. الحالة الاجتماعية`
+- [ ] **B5.** `5. الرسوم المالية`
+- [ ] **B6.** `6. إدارة الاختبارات`
+- [ ] **B7.** `7. إدارة اللجان`
+- [ ] **B8.** `8. دمج وفصل اللجان`
+- [ ] **B9.** `9. درجات القبول`
+- [ ] **B10.** `10. مواعيد الاختبارات`
+- [ ] **B11.** `11. ربط المواعيد باللجان`
+- [ ] **B12.** `12. المجموع الكلي`
+- [ ] **B13.** `13. التنبيهات`
+- [ ] **B14.** `14. الإقرار الإلكتروني`
+- [ ] **B15.** Each item has its own icon (not all using the same generic icon).
+- [ ] **B16.** Step numbers are displayed in Arabic numerals (١، ٢، ٣) or order is otherwise visually clear.
 
 ---
 
@@ -63,12 +64,12 @@ All 15 items must appear in this exact order with these exact Arabic labels:
 Every one of the 15 step pages must have:
 
 - [ ] **D1.** Breadcrumb at the top showing `التقديم → {step name}`.
-- [ ] **D2.** Step indicator showing `الخطوة N من ١٥` (or equivalent).
+- [ ] **D2.** Step indicator showing `الخطوة N من ١٤` (or equivalent).
 - [ ] **D3.** Page title matches the submenu label exactly.
 - [ ] **D4.** Active cycle context is visible (e.g. "دورة 2026" badge or selector).
 - [ ] **D5.** Super-admin can swap to a different cycle from any step page.
 - [ ] **D6.** Cycle selection persists across steps within the same session.
-- [ ] **D7.** When no active cycle exists, page shows empty state: "يجب إنشاء دورة قبول أولاً" with link.
+- [ ] **D7.** When no active cycle exists, launcher shows notice directing admin to `/admin/cycles` to activate one.
 - [ ] **D8.** Loading skeleton appears during data fetch.
 - [ ] **D9.** Error state appears on fetch/save failure with retry affordance.
 - [ ] **D10.** All copy is in Arabic — no English UI strings.
@@ -78,107 +79,105 @@ Every one of the 15 step pages must have:
 
 ## E · Step Content (per-step acceptance)
 
-### Step 1 — بيانات سنة التقديم
-- [ ] **E1.1.** Application title input field visible and editable.
-- [ ] **E1.2.** Academic year selector (dropdown or date picker) visible.
-- [ ] **E1.3.** Save button persists changes; Toast confirms.
-- [ ] **E1.4.** Reuses existing CycleDetailPage logic (no duplicated form code).
+> Cycle metadata (name / year / dates) is configured in `/admin/cycles` —
+> not part of this wizard. Admins enter the wizard with an already-active
+> cycle pinned as context.
 
-### Step 2 — إعدادات التقديم
-- [ ] **E2.1.** Application start date picker.
-- [ ] **E2.2.** Application end date picker.
-- [ ] **E2.3.** End date validates as ≥ start date.
-- [ ] **E2.4.** Allowed applicant categories multi-select.
-- [ ] **E2.5.** Applicant type field.
-- [ ] **E2.6.** Gender field.
-- [ ] **E2.7.** Graduation year field.
+### Step 1 — إعدادات التقديم
+- [ ] **E1.1.** Application start date picker.
+- [ ] **E1.2.** Application end date picker.
+- [ ] **E1.3.** End date validates as ≥ start date.
+- [ ] **E1.4.** Allowed applicant categories multi-select.
+- [ ] **E1.5.** Applicant type field.
+- [ ] **E1.6.** Gender field.
+- [ ] **E1.7.** Graduation year field.
 
-### Step 3 — حالة التقديم
-- [ ] **E3.1.** Status selector with three options: Draft / Approved / Cancel Approval.
-- [ ] **E3.2.** Toggle to control application visibility for applicants.
-- [ ] **E3.3.** Status change emits audit entry.
-- [ ] **E3.4.** Reflects existing cycle status workflow (Gap F).
+### Step 2 — حالة التقديم
+- [ ] **E2.1.** Status selector with three options: Draft / Approved / Cancel Approval.
+- [ ] **E2.2.** Toggle to control application visibility for applicants.
+- [ ] **E2.3.** Status change emits audit entry.
+- [ ] **E2.4.** Reflects existing cycle status workflow (Gap F).
 
-### Step 4 — شروط السن
-- [ ] **E4.1.** Minimum age input (numeric).
-- [ ] **E4.2.** Maximum age input (numeric).
-- [ ] **E4.3.** Min < max validation.
-- [ ] **E4.4.** Per-category age rules editable.
-- [ ] **E4.5.** Applicant type field.
-- [ ] **E4.6.** Gender field.
-- [ ] **E4.7.** Graduation year field.
-- [ ] **E4.8.** Age calculation date picker.
+### Step 3 — شروط السن
+- [ ] **E3.1.** Minimum age input (numeric).
+- [ ] **E3.2.** Maximum age input (numeric).
+- [ ] **E3.3.** Min < max validation.
+- [ ] **E3.4.** Per-category age rules editable.
+- [ ] **E3.5.** Applicant type field.
+- [ ] **E3.6.** Gender field.
+- [ ] **E3.7.** Graduation year field.
+- [ ] **E3.8.** Age calculation date picker.
 
-### Step 5 — الحالة الاجتماعية
-- [ ] **E5.1.** Required marital status configurable per category.
-- [ ] **E5.2.** Options sourced from existing marital status lookup (Gap I).
+### Step 4 — الحالة الاجتماعية
+- [ ] **E4.1.** Required marital status configurable per category.
+- [ ] **E4.2.** Options sourced from existing marital status lookup (Gap I).
 
-### Step 6 — الرسوم المالية
-- [ ] **E6.1.** Electronic application fees configurable per year.
-- [ ] **E6.2.** Fee amount input with currency indicator (EGP / ج.م).
-- [ ] **E6.3.** Reflects existing Fawry config (Gap K).
+### Step 5 — الرسوم المالية
+- [ ] **E5.1.** Electronic application fees configurable per year.
+- [ ] **E5.2.** Fee amount input with currency indicator (EGP / ج.م).
+- [ ] **E5.3.** Reflects existing Fawry config (Gap K).
 
-### Step 7 — إدارة الاختبارات
-- [ ] **E7.1.** Configure approved tests (selectable list).
-- [ ] **E7.2.** Define test order (drag-to-reorder or numeric input).
-- [ ] **E7.3.** Reflects existing exam plan editor (Gap J).
-- [ ] **E7.4.** "Copy from previous cycle" action available.
+### Step 6 — إدارة الاختبارات
+- [ ] **E6.1.** Configure approved tests (selectable list).
+- [ ] **E6.2.** Define test order (drag-to-reorder or numeric input).
+- [ ] **E6.3.** Reflects existing exam plan editor (Gap J).
+- [ ] **E6.4.** "Copy from previous cycle" action available.
 
-### Step 8 — إدارة اللجان
-- [ ] **E8.1.** Configure committees (list + create).
-- [ ] **E8.2.** Applicant type assignable per committee.
-- [ ] **E8.3.** Gender assignable per committee.
-- [ ] **E8.4.** Required specializations configurable.
-- [ ] **E8.5.** Reflects existing CommitteeDetailPage (Gap H).
+### Step 7 — إدارة اللجان
+- [ ] **E7.1.** Configure committees (list + create).
+- [ ] **E7.2.** Applicant type assignable per committee.
+- [ ] **E7.3.** Gender assignable per committee.
+- [ ] **E7.4.** Required specializations configurable.
+- [ ] **E7.5.** Reflects existing CommitteeDetailPage (Gap H).
 
-### Step 9 — دمج وفصل اللجان (NEW)
-- [ ] **E9.1.** UI to select source committee(s).
-- [ ] **E9.2.** UI to select target committee(s).
-- [ ] **E9.3.** Choice between merge / split type.
-- [ ] **E9.4.** Optional reason field.
-- [ ] **E9.5.** Effective date picker.
-- [ ] **E9.6.** Validation: merge requires ≥2 source / 1 target; split requires 1 source / ≥2 target.
-- [ ] **E9.7.** List of existing merge/split rules visible.
-- [ ] **E9.8.** Soft-delete supported with dependency check.
+### Step 8 — دمج وفصل اللجان (NEW)
+- [ ] **E8.1.** UI to select source committee(s).
+- [ ] **E8.2.** UI to select target committee(s).
+- [ ] **E8.3.** Choice between merge / split type.
+- [ ] **E8.4.** Optional reason field.
+- [ ] **E8.5.** Effective date picker.
+- [ ] **E8.6.** Validation: merge requires ≥2 source / 1 target; split requires 1 source / ≥2 target.
+- [ ] **E8.7.** List of existing merge/split rules visible.
+- [ ] **E8.8.** Soft-delete supported with dependency check.
 
-### Step 10 — درجات القبول
-- [ ] **E10.1.** Min score input per committee.
-- [ ] **E10.2.** Max score input per committee.
-- [ ] **E10.3.** Min < max validation.
-- [ ] **E10.4.** Auto-loads committees for the active cycle.
+### Step 9 — درجات القبول
+- [ ] **E9.1.** Min score input per committee.
+- [ ] **E9.2.** Max score input per committee.
+- [ ] **E9.3.** Min < max validation.
+- [ ] **E9.4.** Auto-loads committees for the active cycle.
 
-### Step 11 — مواعيد الاختبارات (NEW)
-- [ ] **E11.1.** First available exam date picker.
-- [ ] **E11.2.** Bookable days selector (multi-date or calendar).
-- [ ] **E11.3.** Optional blackout dates.
-- [ ] **E11.4.** First date validates as ≥ cycle start date.
-- [ ] **E11.5.** All bookable days validate as ≥ first available date.
+### Step 10 — مواعيد الاختبارات (NEW)
+- [ ] **E10.1.** First available exam date picker.
+- [ ] **E10.2.** Bookable days selector (multi-date or calendar).
+- [ ] **E10.3.** Optional blackout dates.
+- [ ] **E10.4.** First date validates as ≥ cycle start date.
+- [ ] **E10.5.** All bookable days validate as ≥ first available date.
 
-### Step 12 — ربط المواعيد باللجان
-- [ ] **E12.1.** Assign schedules (dates) to committees.
-- [ ] **E12.2.** Define capacity per slot per committee.
-- [ ] **E12.3.** Capacity overflow blocked at the service level.
-- [ ] **E12.4.** Reflects existing committee `availableDates` + `capacityPerDay` (Gap H).
+### Step 11 — ربط المواعيد باللجان
+- [ ] **E11.1.** Assign schedules (dates) to committees.
+- [ ] **E11.2.** Define capacity per slot per committee.
+- [ ] **E11.3.** Capacity overflow blocked at the service level.
+- [ ] **E11.4.** Reflects existing committee `availableDates` + `capacityPerDay` (Gap H).
 
-### Step 13 — المجموع الكلي (NEW)
-- [ ] **E13.1.** Per applicant-stream selector (general / special / law / sports_female).
-- [ ] **E13.2.** Per-exam weight input (0..100).
-- [ ] **E13.3.** Sum-to-100 validation per stream.
-- [ ] **E13.4.** Optional minimum passing score per component.
-- [ ] **E13.5.** Total score out-of input.
+### Step 12 — المجموع الكلي (NEW)
+- [ ] **E12.1.** Per applicant-stream selector (general / special / law / sports_female).
+- [ ] **E12.2.** Per-exam weight input (0..100).
+- [ ] **E12.3.** Sum-to-100 validation per stream.
+- [ ] **E12.4.** Optional minimum passing score per component.
+- [ ] **E12.5.** Total score out-of input.
 
-### Step 14 — التنبيهات
-- [ ] **E14.1.** Composes existing notifications page (Gap L).
-- [ ] **E14.2.** Audience targeting works (general / category / committee / department / specific applicant).
-- [ ] **E14.3.** Publish/expire scheduling intact.
+### Step 13 — التنبيهات
+- [ ] **E13.1.** Composes existing notifications page (Gap L).
+- [ ] **E13.2.** Audience targeting works (general / category / committee / department / specific applicant).
+- [ ] **E13.3.** Publish/expire scheduling intact.
 
-### Step 15 — الإقرار الإلكتروني (NEW)
-- [ ] **E15.1.** Long-text editor for declaration body in Arabic.
-- [ ] **E15.2.** Version number auto-increments on save.
-- [ ] **E15.3.** Effective-from date picker.
-- [ ] **E15.4.** Save and Publish are distinct actions.
-- [ ] **E15.5.** Preview pane shows applicant view.
-- [ ] **E15.6.** Publish action emits audit entry.
+### Step 14 — الإقرار الإلكتروني (NEW)
+- [ ] **E14.1.** Long-text editor for declaration body in Arabic.
+- [ ] **E14.2.** Version number auto-increments on save.
+- [ ] **E14.3.** Effective-from date picker.
+- [ ] **E14.4.** Save and Publish are distinct actions.
+- [ ] **E14.5.** Preview pane shows applicant view.
+- [ ] **E14.6.** Publish action emits audit entry.
 
 ---
 
@@ -197,8 +196,8 @@ Every one of the 15 step pages must have:
 
 ## G · Index / Landing Page (`/admin/admission-setup`)
 
-- [ ] **G1.** Lists all 15 steps as cards in a grid layout.
-- [ ] **G2.** Each card shows: step number, Arabic label, brief subtitle, status pill.
+- [ ] **G1.** Highlights the currently-active cycle with a primary "بدء التقديم" CTA; if no active cycle, shows a notice pointing to `/admin/cycles`.
+- [ ] **G2.** Other (non-active) configured cycles render below for review/access.
 - [ ] **G3.** Status pill values: `مكتمل` / `قيد التطوير` / `لم يبدأ`.
 - [ ] **G4.** Status pill colors: green (مكتمل), gold (قيد التطوير), muted (لم يبدأ).
 - [ ] **G5.** Clicking a card navigates to its step.
@@ -212,11 +211,11 @@ Every one of the 15 step pages must have:
 - [ ] **H1.** Every save action on every step emits an audit entry.
 - [ ] **H2.** Audit entries appear in `/admin/audit` with correct module/entity tagging.
 - [ ] **H3.** Before/after diff captured for every mutation.
-- [ ] **H4.** Step 9 emits `committees_merged` / `committees_split` events.
-- [ ] **H5.** Step 10 emits `committee_score_thresholds_changed`.
-- [ ] **H6.** Step 11 emits exam-date config events.
-- [ ] **H7.** Step 13 emits total-score config events.
-- [ ] **H8.** Step 15 emits declaration save + publish events distinctly.
+- [ ] **H4.** Step 8 emits `committees_merged` / `committees_split` events.
+- [ ] **H5.** Step 9 emits `committee_score_thresholds_changed`.
+- [ ] **H6.** Step 10 emits exam-date config events.
+- [ ] **H7.** Step 12 emits total-score config events.
+- [ ] **H8.** Step 14 emits declaration save + publish events distinctly.
 
 ---
 

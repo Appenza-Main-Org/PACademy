@@ -1,7 +1,8 @@
 /**
  * CycleNewPage — Bucket E3.
- * Minimal "create cycle" form. Created cycles always start in `draft` —
- * department-level open/closed flags are configured on CycleDetailPage.
+ * Minimal "create cycle" form. Department-level open/closed flags are
+ * configured on CycleDetailPage; on creation the admin chooses whether
+ * the cycle is نشطة (status `active`) or غير نشطة (status `draft`).
  */
 
 import { useState } from 'react';
@@ -31,6 +32,8 @@ export function CycleNewPage(): JSX.Element {
   const [cohort, setCohort] = useState<'male' | 'female'>('male');
   const [openDate, setOpenDate] = useState('');
   const [closeDate, setCloseDate] = useState('');
+  const [ageCalcDate, setAgeCalcDate] = useState('');
+  const [isActive, setIsActive] = useState(false);
   const [expectedCapacity, setExpectedCapacity] = useState(1500);
 
   const onSubmit = (): void => {
@@ -46,8 +49,9 @@ export function CycleNewPage(): JSX.Element {
       year,
       openDate: new Date(openDate).toISOString(),
       closeDate: new Date(closeDate).toISOString(),
+      ageCalcDate: ageCalcDate ? new Date(ageCalcDate).toISOString() : undefined,
       expectedCapacity,
-      status: 'draft',
+      status: isActive ? 'active' : 'draft',
       openCategories: {},
       conditionOverrides: {},
       createdAt: new Date().toISOString(),
@@ -55,19 +59,22 @@ export function CycleNewPage(): JSX.Element {
     };
     createMut.mutate(payload, {
       onSuccess: (cycle) => {
-        toast(`تم إنشاء "${cycle.nameAr}" كمسودة`, 'success');
+        toast(
+          `تم إنشاء "${cycle.nameAr}" ${isActive ? 'كدورة نشطة' : 'كمسودة'}`,
+          'success',
+        );
         if (fromAdmissionSetup) {
-          /* User came from "بدء التقديم" inside the admission-setup section.
-           * Pin the freshly-created cycle as the wizard's active context so
-           * the cycle_metadata step opens already pointing at it, then drop
-           * them on the first wizard step. */
+          /* Legacy path — kept in case any external link still pins
+           * `?from=admission-setup`. Pin the new cycle as the wizard's
+           * active context and drop the user on the wizard's first step
+           * (cycle metadata is no longer part of the wizard). */
           try {
             sessionStorage.setItem(ADMISSION_SETUP_CYCLE_STORAGE_KEY, cycle.id);
           } catch {
             /* sessionStorage unavailable — wizard will fall back to its
              * own active-cycle resolution. */
           }
-          navigate(ROUTES.admin.admissionSetup.wizard('cycle_metadata'));
+          navigate(ROUTES.admin.admissionSetup.wizard('application_settings'));
           return;
         }
         navigate(ROUTES.admin.cycleDetail(cycle.id));
@@ -141,6 +148,23 @@ export function CycleNewPage(): JSX.Element {
             required
             value={closeDate}
             onChange={(e) => setCloseDate(e.target.value)}
+          />
+          <Input
+            label="تاريخ احتساب السن"
+            helper="اليوم المرجعي لحساب أعمار المتقدمين — يُستخدم في تقييم شروط السن. يُفترض تاريخ الإغلاق إن تُرك فارغاً."
+            type="date"
+            value={ageCalcDate}
+            onChange={(e) => setAgeCalcDate(e.target.value)}
+          />
+          <Select
+            label="حالة الدورة"
+            value={isActive ? 'active' : 'draft'}
+            onChange={(e) => setIsActive(e.target.value === 'active')}
+            helper="الدورة النشطة تظهر للموظفين فور الإنشاء؛ المسودة تظل مخفية حتى تُفعَّل."
+            options={[
+              { value: 'draft', label: 'غير نشطة (مسودة)' },
+              { value: 'active', label: 'نشطة' },
+            ]}
           />
           <Input
             label="السعة المتوقعة"

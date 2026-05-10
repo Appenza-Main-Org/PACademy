@@ -38,13 +38,12 @@ export { CycleNewPage } from './pages/CycleNewPage';
 export { WorkflowsListPage } from './pages/WorkflowsListPage';
 export { WorkflowEditorPage } from './pages/WorkflowEditorPage';
 
-/* Admission Setup section — 15-step config-driven setup. */
+/* Admission Setup section — 14-step config-driven setup. */
 export {
   ADMISSION_SETUP_STEPS,
   ADMISSION_SETUP_TOTAL_STEPS,
   AdmissionSetupIndexPage,
   AdmissionSetupWizardPage,
-  CycleMetadataPage,
   ApplicationSettingsPage,
   ApplicationStatusPage,
   AgeRulesPage,

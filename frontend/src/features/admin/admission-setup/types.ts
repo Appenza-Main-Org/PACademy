@@ -1,9 +1,13 @@
 /**
  * Admission-Setup feature — local type contract.
  *
- * Hosts the 15-step discriminated union plus the four genuinely net-new
- * entities (steps 9, 11, 13, 15). Composed steps (1–8, 12, 14) reuse the
+ * Hosts the 14-step discriminated union plus the four genuinely net-new
+ * entities (steps 8, 10, 12, 14). Composed steps (1–7, 11, 13) reuse the
  * shipped types from `@/shared/types/domain` and admin-gaps services.
+ *
+ * Cycle metadata (name / year / dates) lives in the Cycles section, not
+ * inside this wizard — admins enter the wizard with an already-configured
+ * cycle selected.
  *
  * Scoped here rather than in domain.ts because nothing outside the
  * admission-setup feature owns or mutates these shapes today; promote on
@@ -12,9 +16,8 @@
 
 import type { SoftDeleteFields } from '@/shared/types/domain';
 
-/** Discriminated union of the 15 admission-setup step keys, in canonical order. */
+/** Discriminated union of the 14 admission-setup step keys, in canonical order. */
 export type AdmissionSetupStepKey =
-  | 'cycle_metadata'
   | 'application_settings'
   | 'application_status'
   | 'age_rules'

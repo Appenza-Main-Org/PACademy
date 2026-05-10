@@ -60,7 +60,6 @@ import {
   CommitteeMergeSplitPage,
   CommitteesManagementPage,
   CycleDetailPage,
-  CycleMetadataPage,
   CycleNewPage,
   CyclesPage,
   DashboardPage,
@@ -236,12 +235,11 @@ export const routes: RouteObject[] = [
        * pages so an admin without the permission lands on a calm empty
        * state instead of a redirect. */
       { path: 'admission-setup', element: <AdmissionSetupIndexPage /> },
-      /* Wizard route — single page that orchestrates all 15 setup steps as
+      /* Wizard route — single page that orchestrates all 14 setup steps as
        * a top-stepper flow. `:stepKey` is one of `AdmissionSetupStepKey`
        * or the literal `'review'` (handled inside the page). */
-      { path: 'admission-setup/wizard', element: <Navigate to={ROUTES.admin.admissionSetup.wizard('cycle_metadata')} replace /> },
+      { path: 'admission-setup/wizard', element: <Navigate to={ROUTES.admin.admissionSetup.wizard('application_settings')} replace /> },
       { path: 'admission-setup/wizard/:stepKey', element: <AdmissionSetupWizardPage /> },
-      { path: 'admission-setup/cycle-metadata', element: <CycleMetadataPage /> },
       { path: 'admission-setup/application-settings', element: <ApplicationSettingsPage /> },
       { path: 'admission-setup/application-status', element: <ApplicationStatusPage /> },
       { path: 'admission-setup/age-rules', element: <AgeRulesPage /> },

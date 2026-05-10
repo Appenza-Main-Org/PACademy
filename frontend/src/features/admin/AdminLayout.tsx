@@ -38,22 +38,20 @@ const SIDEBAR: SidebarSection[] = [
     ],
   },
   /**
-   * التقديم — single sidebar entry that opens the launcher. The 15-step
-   * configuration flow now lives entirely inside the wizard at
-   * `/admin/admission-setup/wizard/:stepKey`, so the sidebar deliberately
-   * exposes only one item to keep the navigation surface compact.
+   * التقديم — groups the cycle-bootstrapping surfaces together: categories
+   * and cycles seed the data model, then the wizard at
+   * `/admin/admission-setup/wizard/:stepKey` runs the 15-step
+   * configuration flow over the picked cycle. Order matches the natural
+   * authoring sequence (define categories → open a cycle → configure it).
    * Hidden entirely if the user lacks `admission-setup:read`.
    */
   {
     label: 'التقديم',
     permission: 'admission-setup:read',
     items: [
-      {
-        key: 'admission-setup',
-        label: 'التقديم',
-        icon: <ClipboardCheck size={18} />,
-        to: ROUTES.admin.admissionSetup.index,
-      },
+      { key: 'categories',      label: 'فئات التقديم', icon: <Layers size={18} />,         to: ROUTES.admin.categories },
+      { key: 'cycles',          label: 'الدورات',      icon: <CalendarDays size={18} />,    to: ROUTES.admin.cycles },
+      { key: 'admission-setup', label: 'إعداد التقديم', icon: <ClipboardCheck size={18} />, to: ROUTES.admin.admissionSetup.index },
     ],
   },
   {
@@ -61,8 +59,6 @@ const SIDEBAR: SidebarSection[] = [
     items: [
       { key: 'reference-data', label: 'البيانات المرجعية', icon: <Database size={18} />,           to: ROUTES.admin.referenceDataRoot },
       { key: 'admission-rules', label: 'شروط القبول',      icon: <SlidersHorizontal size={18} />,  to: ROUTES.admin.admissionRules },
-      { key: 'categories',      label: 'فئات التقديم',      icon: <Layers size={18} />,             to: ROUTES.admin.categories },
-      { key: 'cycles',          label: 'الدورات',           icon: <CalendarDays size={18} />,        to: ROUTES.admin.cycles },
       { key: 'workflows',       label: 'سير العمل',          icon: <Workflow size={18} />,            to: ROUTES.admin.workflows },
       { key: 'notifications',   label: 'الإشعارات',          icon: <Bell size={18} />,                to: ROUTES.admin.notifications },
       { key: 'payments',        label: 'المدفوعات',           icon: <Banknote size={18} />,            to: ROUTES.admin.payments },

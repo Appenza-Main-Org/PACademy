@@ -42,9 +42,11 @@ export const ROUTES = {
     workflowNew: '/admin/workflows/new',
     notifications: '/admin/notifications',
     payments: '/admin/payments',
-    /* Admission Setup section — 15 ordered configuration steps. The keys
+    /* Admission Setup section — 14 ordered configuration steps. The keys
      * mirror `AdmissionSetupStepKey` (camelCased) so feature code can
-     * derive the URL from a step key without a second lookup. */
+     * derive the URL from a step key without a second lookup. Cycle
+     * metadata is NOT a step — admins enter the wizard by selecting an
+     * already-configured cycle from `/admin/cycles`. */
     admissionSetup: {
       index: '/admin/admission-setup',
       /** Wizard entry — top-stepper flow. `stepKey` is either an
@@ -52,7 +54,6 @@ export const ROUTES = {
       wizard: (stepKey = ':stepKey'): string =>
         `/admin/admission-setup/wizard/${stepKey}`,
       wizardReview: '/admin/admission-setup/wizard/review',
-      cycleMetadata: '/admin/admission-setup/cycle-metadata',
       applicationSettings: '/admin/admission-setup/application-settings',
       applicationStatus: '/admin/admission-setup/application-status',
       ageRules: '/admin/admission-setup/age-rules',
