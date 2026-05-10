@@ -27,14 +27,12 @@ export function CycleNewPage(): JSX.Element {
   const fromAdmissionSetup = searchParams.get('from') === 'admission-setup';
   const createMut = useCycleCreate();
   const [labelAr, setLabelAr] = useState('');
-  const [labelEn, setLabelEn] = useState('');
   const [year, setYear] = useState(new Date().getFullYear() + 1);
   const [cohort, setCohort] = useState<'male' | 'female'>('male');
   const [openDate, setOpenDate] = useState('');
   const [closeDate, setCloseDate] = useState('');
   const [ageCalcDate, setAgeCalcDate] = useState('');
   const [isActive, setIsActive] = useState(false);
-  const [expectedCapacity, setExpectedCapacity] = useState(1500);
 
   const onSubmit = (): void => {
     if (!labelAr.trim()) return toast('الاسم بالعربية مطلوب', 'warning');
@@ -44,13 +42,12 @@ export function CycleNewPage(): JSX.Element {
     }
     const payload: Omit<AdmissionCycle, 'id' | 'applicantCount'> = {
       nameAr: labelAr,
-      labelEn: labelEn || undefined,
       cohort,
       year,
       openDate: new Date(openDate).toISOString(),
       closeDate: new Date(closeDate).toISOString(),
       ageCalcDate: ageCalcDate ? new Date(ageCalcDate).toISOString() : undefined,
-      expectedCapacity,
+      expectedCapacity: 0,
       status: isActive ? 'active' : 'draft',
       openCategories: {},
       conditionOverrides: {},
@@ -114,13 +111,6 @@ export function CycleNewPage(): JSX.Element {
             onChange={(e) => setLabelAr(e.target.value)}
           />
           <Input
-            label="Label (English)"
-            dir="ltr"
-            placeholder="e.g. Cycle 2027 (Male)"
-            value={labelEn}
-            onChange={(e) => setLabelEn(e.target.value)}
-          />
-          <Input
             label="السنة"
             type="number"
             value={year}
@@ -165,12 +155,6 @@ export function CycleNewPage(): JSX.Element {
               { value: 'draft', label: 'غير نشطة (مسودة)' },
               { value: 'active', label: 'نشطة' },
             ]}
-          />
-          <Input
-            label="السعة المتوقعة"
-            type="number"
-            value={expectedCapacity}
-            onChange={(e) => setExpectedCapacity(Number(e.target.value))}
             containerClassName="md:col-span-2"
           />
         </div>

@@ -235,13 +235,6 @@ export function RolesPage(): JSX.Element {
               onChange={(e) => setDraft({ ...draft, labelAr: e.target.value })}
             />
             <Input
-              label="Label (English)"
-              dir="ltr"
-              value={draft.labelEn ?? ''}
-              disabled={isEditingSystem}
-              onChange={(e) => setDraft({ ...draft, labelEn: e.target.value })}
-            />
-            <Input
               label="المفتاح"
               dir="ltr"
               required

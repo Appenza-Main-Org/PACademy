@@ -191,12 +191,7 @@ export function CategoryEditPage(): JSX.Element {
             value={draft.labelAr}
             disabled={isSpec}
             onChange={(e) => setDraft({ ...draft, labelAr: e.target.value })}
-          />
-          <Input
-            label="Label (English)"
-            dir="ltr"
-            value={draft.labelEn}
-            onChange={(e) => setDraft({ ...draft, labelEn: e.target.value })}
+            containerClassName="md:col-span-2"
           />
           <Textarea
             label="الوصف"

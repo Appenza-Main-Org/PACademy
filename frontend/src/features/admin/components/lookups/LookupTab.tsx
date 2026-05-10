@@ -125,7 +125,6 @@ export function LookupTab({ lookupKey, title, parentLookup, hasGender }: LookupT
       ),
     },
     { key: 'labelAr', label: 'الاسم بالعربية', render: (r) => r.labelAr },
-    { key: 'labelEn', label: 'بالإنجليزية', render: (r) => <span dir="ltr">{r.labelEn ?? '—'}</span> },
     { key: 'key', label: 'المفتاح', render: (r) => <span dir="ltr" className="font-mono text-2xs">{r.key}</span> },
     ...(parentLookup
       ? [
@@ -375,12 +374,6 @@ function LookupFormDrawer({
             required
             value={draft.labelAr ?? ''}
             onChange={(e) => set('labelAr', e.target.value)}
-          />
-          <Input
-            label="بالإنجليزية"
-            dir="ltr"
-            value={draft.labelEn ?? ''}
-            onChange={(e) => set('labelEn', e.target.value)}
           />
           <Input
             label="المفتاح"
