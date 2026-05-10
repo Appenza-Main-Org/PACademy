@@ -14,7 +14,6 @@ import {
   EmptyState,
   Input,
   PageHeader,
-  Select,
   toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
@@ -40,9 +39,11 @@ function Form({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
 
   const [nameAr, setNameAr] = useState(cycle.nameAr);
   const [year, setYear] = useState<number>(cycle.year);
-  const [cohort, setCohort] = useState<AdmissionCycle['cohort']>(cycle.cohort);
   const [openDate, setOpenDate] = useState<Date | null>(new Date(cycle.openDate));
   const [closeDate, setCloseDate] = useState<Date | null>(new Date(cycle.closeDate));
+  const [referenceAge, setReferenceAge] = useState<string>(
+    cycle.referenceAge != null ? String(cycle.referenceAge) : '',
+  );
   const [ageCalcDate, setAgeCalcDate] = useState<Date | null>(
     cycle.ageCalcDate ? new Date(cycle.ageCalcDate) : null,
   );
@@ -51,18 +52,23 @@ function Form({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   useEffect(() => {
     setNameAr(cycle.nameAr);
     setYear(cycle.year);
-    setCohort(cycle.cohort);
     setOpenDate(new Date(cycle.openDate));
     setCloseDate(new Date(cycle.closeDate));
+    setReferenceAge(cycle.referenceAge != null ? String(cycle.referenceAge) : '');
     setAgeCalcDate(cycle.ageCalcDate ? new Date(cycle.ageCalcDate) : null);
   }, [cycle]);
+
+  const parsedReferenceAge = referenceAge.trim() === '' ? undefined : Number(referenceAge);
+  const referenceAgeInvalid =
+    parsedReferenceAge !== undefined &&
+    (Number.isNaN(parsedReferenceAge) || parsedReferenceAge < 0 || parsedReferenceAge > 99);
 
   const dirty =
     nameAr !== cycle.nameAr ||
     year !== cycle.year ||
-    cohort !== cycle.cohort ||
     (openDate?.toISOString() ?? '') !== cycle.openDate ||
     (closeDate?.toISOString() ?? '') !== cycle.closeDate ||
+    parsedReferenceAge !== cycle.referenceAge ||
     (ageCalcDate?.toISOString() ?? '') !== (cycle.ageCalcDate ?? '');
 
   const save = (): void => {
@@ -71,15 +77,19 @@ function Form({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
       toast('تاريخ الإغلاق يجب أن يكون بعد تاريخ الفتح', 'danger');
       return;
     }
+    if (referenceAgeInvalid) {
+      toast('السن يجب أن يكون رقماً بين 0 و 99', 'danger');
+      return;
+    }
     updateMut.mutate(
       {
         id: cycle.id,
         patch: {
           nameAr: nameAr.trim(),
           year,
-          cohort,
           openDate: openDate.toISOString(),
           closeDate: closeDate.toISOString(),
+          referenceAge: parsedReferenceAge,
           ageCalcDate: ageCalcDate ? ageCalcDate.toISOString() : undefined,
         },
       },
@@ -134,19 +144,20 @@ function Form({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
             onChange={(e) => setYear(Number.parseInt(e.target.value, 10) || cycle.year)}
             disabled={readOnly}
           />
-          <Select
-            label="الفئة"
-            value={cohort}
-            onChange={(e) => setCohort(e.target.value as AdmissionCycle['cohort'])}
-            options={[
-              { value: 'male', label: 'ذكور' },
-              { value: 'female', label: 'إناث' },
-            ]}
-            disabled={readOnly}
-          />
-          <div />
           <DatePicker label="تاريخ الفتح" value={openDate} onChange={setOpenDate} disabled={readOnly} />
           <DatePicker label="تاريخ الإغلاق" value={closeDate} onChange={setCloseDate} disabled={readOnly} />
+          <Input
+            label="السن"
+            type="number"
+            dir="ltr"
+            min={0}
+            max={99}
+            value={referenceAge}
+            onChange={(e) => setReferenceAge(e.target.value)}
+            error={referenceAgeInvalid ? 'السن يجب أن يكون رقماً بين 0 و 99' : undefined}
+            disabled={readOnly}
+            placeholder="مثال: 18"
+          />
           <DatePicker
             label="تاريخ احتساب السن"
             value={ageCalcDate}

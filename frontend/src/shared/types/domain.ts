@@ -781,6 +781,22 @@ export interface AdmissionCycleCategoryConfig {
   isOpen: boolean;
   capacity: number | null;
   notes: string;
+  /**
+   * Genders allowed to apply to this category within this cycle. Multi-select
+   * over `'male' | 'female'`. Optional for backwards compatibility with
+   * cycles seeded before the field existed; required (non-empty) when
+   * `isOpen === true` — validated server-side in `cyclesService.toggleCategory`
+   * and inline in the إعدادات التقديم step.
+   */
+  genderTypes?: ('male' | 'female')[];
+  /** ISO date (YYYY-MM-DD) — first day this category accepts applications.
+   *  Required when `isOpen === true`; must fall inside the cycle's
+   *  [openDate, closeDate] window (the academic year for this cohort). */
+  startDate?: string | null;
+  /** ISO date (YYYY-MM-DD) — last day this category accepts applications.
+   *  Required when `isOpen === true`; must be `>= startDate` and inside the
+   *  cycle's [openDate, closeDate] window. */
+  endDate?: string | null;
 }
 
 export interface AdmissionCycle extends SoftDeleteFields {
@@ -797,6 +813,12 @@ export interface AdmissionCycle extends SoftDeleteFields {
    * extensions may move closeDate without changing the eligibility cutoff.
    */
   ageCalcDate?: string;
+  /**
+   * Reference age (in full years) the cycle is calibrated against, paired
+   * with `ageCalcDate`. Optional UI affordance on the cycle metadata step;
+   * Step 4 (شروط السن) still owns the per-category min/max range.
+   */
+  referenceAge?: number;
   /** Per-cycle fee schedule (Gap F). */
   fees?: CycleFees;
   /** Categories opened in this cycle (Gap F derived view). */
