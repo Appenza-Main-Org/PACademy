@@ -12,6 +12,7 @@ export type { AdmissionSetupStepKey, AdmissionSetupStepStatus } from './types';
 
 /* Pages */
 export { AdmissionSetupIndexPage } from './pages/AdmissionSetupIndexPage';
+export { AdmissionSetupWizardPage } from './pages/AdmissionSetupWizardPage';
 export { CycleMetadataPage } from './pages/CycleMetadataPage';
 export { ApplicationSettingsPage } from './pages/ApplicationSettingsPage';
 export { ApplicationStatusPage } from './pages/ApplicationStatusPage';

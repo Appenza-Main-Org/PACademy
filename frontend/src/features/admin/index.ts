@@ -43,6 +43,7 @@ export {
   ADMISSION_SETUP_STEPS,
   ADMISSION_SETUP_TOTAL_STEPS,
   AdmissionSetupIndexPage,
+  AdmissionSetupWizardPage,
   CycleMetadataPage,
   ApplicationSettingsPage,
   ApplicationStatusPage,

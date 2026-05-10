@@ -47,6 +47,11 @@ export const ROUTES = {
      * derive the URL from a step key without a second lookup. */
     admissionSetup: {
       index: '/admin/admission-setup',
+      /** Wizard entry — top-stepper flow. `stepKey` is either an
+       *  `AdmissionSetupStepKey` or the literal `'review'`. */
+      wizard: (stepKey = ':stepKey'): string =>
+        `/admin/admission-setup/wizard/${stepKey}`,
+      wizardReview: '/admin/admission-setup/wizard/review',
       cycleMetadata: '/admin/admission-setup/cycle-metadata',
       applicationSettings: '/admin/admission-setup/application-settings',
       applicationStatus: '/admin/admission-setup/application-status',

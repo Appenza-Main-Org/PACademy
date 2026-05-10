@@ -19,7 +19,6 @@ import {
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
-import { ADMISSION_SETUP_STEPS } from './admission-setup';
 
 const SIDEBAR: SidebarSection[] = [
   {
@@ -39,38 +38,22 @@ const SIDEBAR: SidebarSection[] = [
     ],
   },
   /**
-   * التقديم — collapsible section driven by `ADMISSION_SETUP_STEPS`.
-   * Hidden entirely if the user lacks `admission-setup:read`. Auto-expands
-   * when on any `/admin/admission-setup/*` route. The 15 child links are
-   * sourced from the config so adding a 16th step is config-only here too.
+   * التقديم — single sidebar entry that opens the launcher. The 15-step
+   * configuration flow now lives entirely inside the wizard at
+   * `/admin/admission-setup/wizard/:stepKey`, so the sidebar deliberately
+   * exposes only one item to keep the navigation surface compact.
+   * Hidden entirely if the user lacks `admission-setup:read`.
    */
   {
     label: 'التقديم',
-    icon: <ClipboardCheck size={14} strokeWidth={1.75} />,
-    collapsible: true,
     permission: 'admission-setup:read',
-    groupKey: 'admission-setup',
-    defaultExpanded: false,
-    expandWhenPathStartsWith: '/admin/admission-setup',
     items: [
       {
-        key: 'admission-setup-index',
-        label: 'لوحة الإعدادات',
+        key: 'admission-setup',
+        label: 'التقديم',
         icon: <ClipboardCheck size={18} />,
         to: ROUTES.admin.admissionSetup.index,
-        end: true,
       },
-      ...[...ADMISSION_SETUP_STEPS]
-        .sort((a, b) => a.order - b.order)
-        .map((step) => {
-          const Icon = step.icon;
-          return {
-            key: `admission-setup-${step.key}`,
-            label: step.labelAr,
-            icon: <Icon size={18} />,
-            to: `/admin/admission-setup/${step.routeSegment}`,
-          };
-        }),
     ],
   },
   {

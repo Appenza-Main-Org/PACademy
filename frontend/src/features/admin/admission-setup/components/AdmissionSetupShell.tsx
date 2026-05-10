@@ -17,6 +17,7 @@ import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import { AdmissionSetupBreadcrumbs } from './AdmissionSetupBreadcrumbs';
 import { StepHeader } from './StepHeader';
 import { getStepByPath } from '../config';
+import { useIsInWizardMode } from './WizardModeContext';
 
 interface AdmissionSetupShellProps {
   children: ReactNode;
@@ -36,6 +37,14 @@ export function AdmissionSetupShell({
   const cycleCtx = useAdmissionSetupCycle();
   const user = useAuthStore((s) => s.user);
   const canSwitchCycle = user?.role === 'super_admin';
+  const inWizard = useIsInWizardMode();
+
+  /* Inside the wizard, the wrapping AdmissionSetupWizardPage already owns
+   * the top-stepper, cycle context and per-step header — render content
+   * only so we don't duplicate chrome. */
+  if (inWizard) {
+    return <div className="flex flex-col gap-4">{children}</div>;
+  }
 
   return (
     <div className="flex flex-col gap-4">
