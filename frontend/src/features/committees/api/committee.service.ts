@@ -356,12 +356,28 @@ export const committeeService = {
       .map((u) => ({ id: u.id, name: u.name, role: u.role, unit: u.unit }));
   },
 
-  /** List active specializations — backs the specialization MultiSelect. */
+  /**
+   * List active "specializations" backing the committee form select.
+   *
+   * Source: the applicant-category catalogue managed at /admin/categories
+   * (not the reference-data specializations dictionary). The committee's
+   * `specializationIds` field stores the category `key` (string), so admins
+   * can extend the catalogue from the categories admin page without a
+   * code change.
+   *
+   * The returned `id` is the category `key` so existing consumers
+   * (`specializationIds.includes(id)`) keep working.
+   */
   async listSpecializations(): Promise<{ id: string; nameAr: string; code: string; active: boolean }[]> {
     await simulateLatency(60, 140);
-    return MOCK.referenceData.specializations
-      .filter((s) => !s.deletedAt)
-      .map((s) => ({ id: s.id, nameAr: s.nameAr, code: s.code, active: s.active }));
+    return MOCK.categories
+      .filter((c) => !c.deletedAt)
+      .map((c) => ({
+        id: c.key,
+        nameAr: c.labelAr,
+        code: c.labelEn || c.key,
+        active: c.isOpen,
+      }));
   },
 
   /**

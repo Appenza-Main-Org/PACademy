@@ -293,7 +293,7 @@ export function CommitteeForm({
       <Card>
         <CardHeader
           title="التخصصات / الإدارات"
-          subtitle="حدد التخصصات التي ستستقبلها اللجنة"
+          subtitle="مصدر القائمة: فئات المتقدمين (/admin/categories)"
         />
         <CardBody>
           <MultiSelect
@@ -303,6 +303,7 @@ export function CommitteeForm({
             onChange={setSpecializationIds}
             options={specializationOptions}
             placeholder="اختر تخصصاً واحداً أو أكثر"
+            helper="حدّد فئات المتقدمين التي ستستقبلها اللجنة"
             error={errors.specializationIds}
           />
         </CardBody>
