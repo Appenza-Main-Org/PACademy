@@ -16,7 +16,6 @@
 import { useState } from 'react';
 import { AlertCircle, CalendarRange, Check } from 'lucide-react';
 import {
-  Badge,
   Button,
   Card,
   DatePicker,
@@ -72,7 +71,6 @@ export function CategoriesPanel({
             <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">
               <tr>
                 <th className="py-2 pe-3 text-start">الفئة</th>
-                <th className="py-2 pe-3 text-start">نوع التقديم</th>
                 <th className="py-2 pe-3 text-start">النوع</th>
                 <th className="py-2 pe-3 text-start">الحالة</th>
                 <th className="py-2 pe-3 text-start">السعة</th>
@@ -134,14 +132,6 @@ function CategoryRow({
           <div>{category.labelAr}</div>
           {category.description && (
             <div className="mt-0.5 line-clamp-2 text-2xs text-ink-500">{category.description}</div>
-          )}
-        </td>
-
-        <td className="py-3 pe-3">
-          {category.conditions.nominationOnly ? (
-            <Badge tone="warning">بالترشيح</Badge>
-          ) : (
-            <Badge tone="neutral">تقديم عام</Badge>
           )}
         </td>
 
@@ -222,7 +212,7 @@ function CategoryRow({
 
       {dirty && issues.length > 0 && (
         <tr className="border-b border-border-subtle bg-terra-50/40 last:border-b-0">
-          <td colSpan={8} className="px-3 pb-2 pt-0">
+          <td colSpan={7} className="px-3 pb-2 pt-0">
             <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-terra-700">
               {issues.map((msg) => (
                 <li key={msg} className="inline-flex items-center gap-1.5">
