@@ -50,7 +50,7 @@ export function LineChart({
     .join(' ');
   const areaPath =
     withArea && points.length > 0
-      ? `${linePath} L ${points[points.length - 1]!.x} ${padding.top + plotH} L ${points[0]!.x} ${padding.top + plotH} Z`
+      ? `${linePath} L ${points[points.length - 1].x} ${padding.top + plotH} L ${points[0].x} ${padding.top + plotH} Z`
       : '';
 
   return (

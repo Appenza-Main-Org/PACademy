@@ -167,7 +167,7 @@ export function DataTable<TRow>({
     const key = col.accessor ?? (col.key as keyof TRow & string);
     let next: DataTableSort<TRow> | null = null;
     if (!activeSort || activeSort.key !== key) {
-      next = { key: key as keyof TRow & string, direction: 'asc' };
+      next = { key: key, direction: 'asc' };
     } else if (activeSort.direction === 'asc') {
       next = { key: activeSort.key, direction: 'desc' };
     } else {

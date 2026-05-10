@@ -20,8 +20,10 @@ import { RevampComparisonPage } from '@/features/design-revamp';
 import { ProfilePage } from '@/features/profile';
 import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
+import { PrimitivesReviewPage } from '@/features/dev';
 import {
   ApplicantPortalLayout,
+  ApplicationSummaryPage,
   ApplicantPortalPage,
   ApplicantPreWizardLayout,
   CategorySelectionPage,
@@ -53,12 +55,13 @@ import {
   CycleNewPage,
   CyclesPage,
   DashboardPage,
+  NotificationsPage,
+  PaymentsPage,
   ReferenceDataPage,
   ReportsPage,
+  RolesPage,
   SettingsPage,
   UsersPage,
-  UsersCreatePage,
-  UsersDetailPage,
   WorkflowEditorPage,
   WorkflowsListPage,
 } from '@/features/admin';
@@ -185,8 +188,9 @@ export const routes: RouteObject[] = [
       { path: 'applicants/:id', element: <ApplicantDetailPage /> },
       { path: 'applicants/:id/edit', element: <ApplicantEditPage /> },
       { path: 'users', element: <UsersPage /> },
-      { path: 'users/new', element: <UsersCreatePage /> },
-      { path: 'users/:id', element: <UsersDetailPage /> },
+      { path: 'users/roles', element: <RolesPage /> },
+      { path: 'notifications', element: <NotificationsPage /> },
+      { path: 'payments', element: <PaymentsPage /> },
       { path: 'audit', element: <AuditPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'reports', element: <ReportsPage /> },
@@ -232,6 +236,7 @@ export const routes: RouteObject[] = [
       { path: 'print-card', element: <Stage9PrintCardPage /> },
       { path: 'follow-up', element: <Stage10FollowUpPage /> },
       { path: 'acquaintance-doc', element: <Stage11AcquaintanceDocPage /> },
+      { path: 'application/summary', element: <ApplicationSummaryPage /> },
     ],
   },
 
@@ -330,6 +335,14 @@ export const routes: RouteObject[] = [
       { path: 'results', element: <ExamsResultsPage /> },
     ],
   },
+
+  /* ── DEV-ONLY ROUTES ──────────────────────────────────────
+     Spread under a Vite-time gate. `import.meta.env.DEV` is statically
+     replaced with `true` (dev) or `false` (prod), so the production bundle
+     tree-shakes this branch entirely and the route is unreachable. */
+  ...(import.meta.env.DEV
+    ? ([{ path: '/_dev/primitives', element: <PrimitivesReviewPage /> }] satisfies RouteObject[])
+    : []),
 
   /* ── 404 FALLBACK → public landing ───────────────────────── */
   { path: '*', element: <Navigate to="/" replace /> },

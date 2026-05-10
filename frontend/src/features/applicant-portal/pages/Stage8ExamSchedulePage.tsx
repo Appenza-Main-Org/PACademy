@@ -1,11 +1,16 @@
 /**
  * Stage 8 — exam schedule (RFP Scope Document §2.2 stage 8).
- * Picker grid of available slots; reserve and confirm.
+ *
+ * Daily-only scheduling: the applicant picks one of the next 3 available
+ * days; the academy assigns the time internally. Per-hour slot picking
+ * was removed — the underlying ExamSlot still carries a canonical time
+ * (08:00 صباحاً) so the printed card has something to render, but the
+ * applicant doesn't pick it.
  */
 
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarCheck, Check, Clock, MapPin, Users } from 'lucide-react';
+import { CalendarCheck, Check, MapPin, Users } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -16,14 +21,16 @@ import {
   toast,
 } from '@/shared/components';
 import { date as fmtDate } from '@/shared/lib/format';
+import { arabicDayOfWeek } from '@/shared/lib/arabic';
 import { useExamSlots, useReserveSlot } from '../api/applicantPortal.queries';
 import { useCategories } from '../api/categories.queries';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { TEST_KIND_ICON, TEST_KIND_LABEL_AR } from '../lib/category-test-labels';
-import type { ApplicantCategoryKey, RequiredTestKind } from '@/shared/types/domain';
+import type { ApplicantCategoryKey, ExamSlot, RequiredTestKind } from '@/shared/types/domain';
 import { cn } from '@/shared/lib/cn';
 
 const APPLICANT_ID = 'APP-2026000';
+const VISIBLE_DAYS = 3;
 
 export function Stage8ExamSchedulePage(): JSX.Element {
   const navigate = useNavigate();
@@ -41,11 +48,11 @@ export function Stage8ExamSchedulePage(): JSX.Element {
   );
   const ExamIcon = TEST_KIND_ICON[exam.kind];
 
-  if (isLoading) return <LoadingState variant="card-grid" count={9} />;
-  if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
-  if (!data || data.length === 0) return <EmptyState variant="generic" title="لا توجد مواعيد متاحة" />;
+  const days = useMemo(() => nextDays(data ?? [], VISIBLE_DAYS), [data]);
 
-  const grouped = groupByDate(data);
+  if (isLoading) return <LoadingState variant="card-grid" count={3} />;
+  if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
+  if (days.length === 0) return <EmptyState variant="generic" title="لا توجد مواعيد متاحة" />;
 
   return (
     <div className="flex flex-col gap-5">
@@ -59,10 +66,10 @@ export function Stage8ExamSchedulePage(): JSX.Element {
               الاختبار المحدد
             </p>
             <h2 className="mt-0.5 font-ar-display text-xl font-bold text-ink-900">
-              حجز موعد {exam.name}
+              حجز يوم {exam.name}
             </h2>
             <p className="mt-1 text-sm text-ink-500">
-              اختر موعداً واحداً من الأماكن المتاحة. لا يمكن تغيير الموعد بعد التأكيد.
+              اختر يوماً واحداً من الأيام المتاحة. تُحدِّد الأكاديمية ميعاد بدء الاختبار داخل اليوم وتُطبَع على بطاقة التردد.
             </p>
           </div>
         </div>
@@ -93,38 +100,23 @@ export function Stage8ExamSchedulePage(): JSX.Element {
         </div>
       </Card>
 
-      {grouped.map(({ date, slots }) => (
-        <Card key={date}>
-          <div className="mb-4 flex items-center justify-between gap-3 border-b border-border-subtle pb-3">
-            <h3 className="font-ar-display text-md font-bold text-ink-900">
-              {fmtDate(date, 'full')}
-            </h3>
-            <Badge tone="neutral">
-              {slots.filter((s) => s.capacity - s.reserved > 0).length} موعد متاح
-            </Badge>
-          </div>
-          <div
-            className="grid gap-3"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}
-          >
-            {slots.map((s) => (
-              <SlotCard
-                key={s.id}
-                time={s.time}
-                location={s.location}
-                capacity={s.capacity}
-                reserved={s.reserved}
-                selected={chosen === s.id}
-                onPick={() => setChosen(s.id)}
-              />
-            ))}
-          </div>
-        </Card>
-      ))}
+      <div
+        className="grid gap-3"
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}
+      >
+        {days.map((slot) => (
+          <DayCard
+            key={slot.id}
+            slot={slot}
+            selected={chosen === slot.id}
+            onPick={() => setChosen(slot.id)}
+          />
+        ))}
+      </div>
 
       <div className="sticky bottom-20 flex items-center justify-between gap-3 rounded-lg border border-border-default bg-surface-card px-4 py-3 shadow-md">
         <span className="text-sm text-ink-700">
-          {chosen ? 'سيتم حجز الموعد المحدد ولا يمكن تغييره لاحقاً.' : 'لم يتم اختيار موعد بعد.'}
+          {chosen ? 'سيتم حجز اليوم المحدد ولا يمكن تغييره لاحقاً.' : 'لم يتم اختيار يوم بعد.'}
         </span>
         <Button
           variant="primary"
@@ -135,7 +127,7 @@ export function Stage8ExamSchedulePage(): JSX.Element {
             if (!chosen) return;
             reserveMut.mutate(chosen, {
               onSuccess: () => {
-                toast('تم حجز الموعد بنجاح', 'success');
+                toast('تم حجز اليوم بنجاح', 'success');
                 navigate('/applicant/print-card');
               },
               onError: (err) => toast(err.message ?? 'تعذر الحجز', 'danger'),
@@ -149,27 +141,17 @@ export function Stage8ExamSchedulePage(): JSX.Element {
   );
 }
 
-interface SlotCardProps {
-  time: string;
-  location: string;
-  capacity: number;
-  reserved: number;
+interface DayCardProps {
+  slot: ExamSlot;
   selected: boolean;
   onPick: () => void;
 }
 
-function SlotCard({
-  time,
-  location,
-  capacity,
-  reserved,
-  selected,
-  onPick,
-}: SlotCardProps): JSX.Element {
-  const remaining = capacity - reserved;
+function DayCard({ slot, selected, onPick }: DayCardProps): JSX.Element {
+  const remaining = slot.capacity - slot.reserved;
   const full = remaining <= 0;
-  const fillPercent = Math.min(100, Math.round((reserved / capacity) * 100));
-  const lowStock = !full && remaining < 10;
+  const fillPercent = Math.min(100, Math.round((slot.reserved / slot.capacity) * 100));
+  const lowStock = !full && remaining < 30;
 
   let availabilityTone: 'success' | 'warning' | 'danger' = 'success';
   let availabilityLabel = `${remaining} مقعد متاح`;
@@ -186,6 +168,8 @@ function SlotCard({
     : lowStock
       ? 'bg-gold-500'
       : 'bg-teal-500';
+
+  const dayName = arabicDayOfWeek(slot.date);
 
   return (
     <button
@@ -222,16 +206,15 @@ function SlotCard({
                   : 'bg-teal-50 text-teal-700 group-hover:bg-teal-500 group-hover:text-white',
             )}
           >
-            <Clock size={18} strokeWidth={1.75} />
+            <CalendarCheck size={18} strokeWidth={1.75} />
           </span>
           <div>
-            <p
-              className="font-numeric tnum font-ar-display text-2xl font-bold leading-none text-ink-900"
-              dir="ltr"
-            >
-              {time}
+            <p className="font-ar-display text-md font-bold leading-tight text-ink-900">
+              {dayName}
             </p>
-            <p className="mt-1 text-2xs text-ink-500">موعد بدء الاختبار</p>
+            <p className="mt-0.5 font-numeric tnum text-2xs text-ink-500" dir="ltr">
+              {fmtDate(slot.date, 'short')}
+            </p>
           </div>
         </div>
         {selected && (
@@ -246,7 +229,7 @@ function SlotCard({
 
       <div className="flex items-start gap-2 text-sm text-ink-700">
         <MapPin size={14} strokeWidth={1.75} className="mt-0.5 shrink-0 text-ink-500" />
-        <span className="line-clamp-2 font-medium">{location}</span>
+        <span className="line-clamp-2 font-medium">{slot.location}</span>
       </div>
 
       <div className="space-y-1.5">
@@ -254,7 +237,7 @@ function SlotCard({
           <span className="flex items-center gap-1.5 text-2xs text-ink-500">
             <Users size={12} strokeWidth={1.75} />
             <span className="font-numeric tnum" dir="ltr">
-              {reserved}/{capacity}
+              {slot.reserved}/{slot.capacity}
             </span>
             <span>مقعد محجوز</span>
           </span>
@@ -299,7 +282,7 @@ function resolveExam(
   const cat = categories.find((c) => c.key === selectedKey);
   if (!cat || cat.requiredTests.length === 0) return FALLBACK_EXAM;
   const sorted = [...cat.requiredTests].sort((a, b) => a.order - b.order);
-  const first = sorted[0]!;
+  const first = sorted[0];
   return {
     kind: first.kind,
     name: TEST_KIND_LABEL_AR[first.kind],
@@ -309,16 +292,18 @@ function resolveExam(
   };
 }
 
-function groupByDate<T extends { date: string }>(slots: T[]): { date: string; slots: T[] }[] {
-  const map = new Map<string, T[]>();
-  for (const s of slots) {
-    const key = s.date.slice(0, 10);
-    const arr = map.get(key) ?? [];
-    arr.push(s);
-    map.set(key, arr);
-  }
-  return Array.from(map.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(0, 5)
-    .map(([date, slots]) => ({ date, slots }));
+/** Take up to N future-day slots in chronological order. Each input slot
+ *  represents a full day (the seed emits one per day; if the data ever
+ *  carries multiple per day, we de-duplicate by date and keep the first). */
+function nextDays(slots: readonly ExamSlot[], n: number): ExamSlot[] {
+  const seen = new Set<string>();
+  const ordered = [...slots]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .filter((s) => {
+      const key = s.date.slice(0, 10);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  return ordered.slice(0, n);
 }

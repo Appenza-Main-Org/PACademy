@@ -11,7 +11,7 @@
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Layers, Pencil, PlusCircle, Trash2 } from 'lucide-react';
+import { Layers, Pencil, PlusCircle, RotateCcw, Trash2 } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -23,6 +23,7 @@ import {
   LoadingState,
   Modal,
   PageHeader,
+  SoftDeleteDialog,
   toast,
 } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
@@ -33,36 +34,52 @@ import type {
 import { ROUTES } from '@/config/routes';
 import {
   useCategoriesAdmin,
+  useCategoryDependencies,
+  useCategoryRestore,
+  useCategorySoftDelete,
   useCreateCategoryMutation,
-  useRemoveCategoryMutation,
 } from '../api/categories.queries';
 import { useActiveCycle } from '../api/cycles.queries';
 import { categoriesAdminService } from '../api/categories.service';
+import { useAuthStore } from '@/features/auth';
+
+const CATEGORY_DEP_LABELS: Record<string, string> = {
+  applicants: 'متقدم',
+};
 
 export function CategoriesListPage(): JSX.Element {
   const navigate = useNavigate();
-  const listQuery = useCategoriesAdmin();
+  const userRole = useAuthStore((s) => s.user?.role);
+  const isSuperAdmin = userRole === 'super_admin';
+  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const listQuery = useCategoriesAdmin({ includeDeleted: isSuperAdmin && includeDeleted });
   const cycleQuery = useActiveCycle();
-  const removeMut = useRemoveCategoryMutation();
+  const softDeleteMut = useCategorySoftDelete();
+  const restoreMut = useCategoryRestore();
   const [isAddOpen, setAddOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ApplicantCategory | null>(null);
+  const dependenciesQuery = useCategoryDependencies(pendingDelete?.key ?? null);
 
   if (listQuery.isLoading) return <LoadingState variant="page" />;
   if (listQuery.error) {
-    return <ErrorState error={listQuery.error as Error} onRetry={() => listQuery.refetch()} />;
+    return <ErrorState error={listQuery.error} onRetry={() => listQuery.refetch()} />;
   }
 
   const categories = listQuery.data ?? [];
   const activeCycle = cycleQuery.data ?? null;
 
-  const onDelete = (cat: ApplicantCategory): void => {
+  const onDeleteClick = (cat: ApplicantCategory): void => {
     if (categoriesAdminService.isSpecCategory(cat.key)) {
       toast('لا يمكن حذف الفئات المعتمدة من المواصفات', 'warning');
       return;
     }
-    if (!window.confirm(`هل تريد حذف فئة "${cat.labelAr}"؟`)) return;
-    removeMut.mutate(cat.key, {
-      onSuccess: () => toast(`تم حذف "${cat.labelAr}"`, 'success'),
-      onError: (err) => toast((err as Error).message, 'danger'),
+    setPendingDelete(cat);
+  };
+
+  const onRestore = (cat: ApplicantCategory): void => {
+    restoreMut.mutate(cat.key, {
+      onSuccess: () => toast(`تم استعادة "${cat.labelAr}"`, 'success'),
+      onError: (err) => toast((err).message, 'danger'),
     });
   };
 
@@ -138,8 +155,10 @@ export function CategoriesListPage(): JSX.Element {
       align: 'end',
       render: (cat) => {
         const isSpec = categoriesAdminService.isSpecCategory(cat.key);
+        const deleted = Boolean(cat.deletedAt);
         return (
           <div className="flex items-center gap-1">
+            {deleted && <Badge tone="warning">محذوف</Badge>}
             <Button
               variant="ghost"
               size="sm"
@@ -148,14 +167,25 @@ export function CategoriesListPage(): JSX.Element {
             >
               تعديل
             </Button>
-            {!isSpec && (
+            {!isSpec && !deleted && (
               <Button
                 variant="ghost"
                 size="sm"
                 leadingIcon={<Trash2 size={12} strokeWidth={1.75} />}
-                onClick={() => onDelete(cat)}
+                onClick={() => onDeleteClick(cat)}
               >
                 حذف
+              </Button>
+            )}
+            {isSuperAdmin && deleted && (
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<RotateCcw size={12} strokeWidth={1.75} />}
+                onClick={() => onRestore(cat)}
+                isLoading={restoreMut.isPending}
+              >
+                استعادة
               </Button>
             )}
           </div>
@@ -171,6 +201,17 @@ export function CategoriesListPage(): JSX.Element {
         subtitle="عدّل الفئات السبع المعتمدة وأضف فئات مخصصة"
         actions={
           <div className="flex items-center gap-2">
+            {isSuperAdmin && (
+              <label className="flex items-center gap-2 text-2xs text-ink-500">
+                <input
+                  type="checkbox"
+                  checked={includeDeleted}
+                  onChange={(e) => setIncludeDeleted(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer accent-teal-500"
+                />
+                إظهار المحذوف
+              </label>
+            )}
             <Link to={ROUTES.admin.cycles}>
               <Button variant="secondary" leadingIcon={<IconStamp width={12} height={12} />}>
                 إدارة الدورات والفترات
@@ -211,6 +252,25 @@ export function CategoriesListPage(): JSX.Element {
           setAddOpen(false);
           toast(`تم إنشاء "${cat.labelAr}"`, 'success');
           navigate(ROUTES.admin.categoryEdit(cat.key));
+        }}
+      />
+
+      <SoftDeleteDialog
+        open={pendingDelete !== null}
+        entityNoun="هذه الفئة"
+        entityLabel={pendingDelete?.labelAr ?? ''}
+        dependencies={dependenciesQuery.data ?? null}
+        dependencyLabels={CATEGORY_DEP_LABELS}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={async (reason) => {
+          if (!pendingDelete) return;
+          try {
+            await softDeleteMut.mutateAsync({ key: pendingDelete.key, reason });
+            toast(`تم حذف "${pendingDelete.labelAr}"`, 'success');
+          } catch (err) {
+            toast((err as Error).message, 'danger');
+            throw err;
+          }
         }}
       />
     </div>
@@ -298,7 +358,7 @@ function NewCategoryDialog({
         reset();
         onCreated(cat);
       },
-      onError: (err) => toast((err as Error).message, 'danger'),
+      onError: (err) => toast((err).message, 'danger'),
     });
   };
 

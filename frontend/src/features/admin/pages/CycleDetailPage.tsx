@@ -5,11 +5,21 @@
 
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Archive, ChevronRight, Copy, ListChecks, PauseCircle, PlayCircle } from 'lucide-react';
+import {
+  Archive,
+  CalendarPlus,
+  ChevronRight,
+  Copy,
+  ListChecks,
+  PauseCircle,
+  PlayCircle,
+  Smartphone,
+} from 'lucide-react';
 import {
   Badge,
   Button,
   Card,
+  DatePicker,
   EmptyState,
   ErrorState,
   IconStamp,
@@ -24,17 +34,23 @@ import {
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, num } from '@/shared/lib/format';
+import { isConflictError } from '@/shared/lib/errors';
 import {
   useCycle,
   useCycleActivate,
   useCycleArchive,
   useCycleClone,
   useCycleClose,
+  useCycleExtend,
   useCycleTransition,
+  useCycleUpdate,
+  useCycles,
   useToggleCycleCategory,
 } from '../api/cycles.queries';
 import { useCategoriesAdmin } from '../api/categories.queries';
 import { useRulesForCycle } from '../api/admissionRules.queries';
+import { useCopyExamConfig } from '../api/examPlans.queries';
+import { ExamPlanEditor } from '../components/exams/ExamPlanEditor';
 import type {
   AdmissionCycle,
   AdmissionCycleCategoryConfig,
@@ -43,16 +59,28 @@ import type {
 } from '@/shared/types/domain';
 
 
-const STATUS_OPTIONS: CycleStatus[] = ['draft', 'open', 'active', 'closed', 'processing', 'finalized', 'archived'];
+const STATUS_OPTIONS: CycleStatus[] = ['draft', 'open', 'active', 'extended', 'closed', 'processing', 'finalized', 'archived'];
 
 const STATUS_LABEL: Record<CycleStatus, string> = {
   draft: 'مسودة',
   open: 'مفتوحة',
   active: 'نشطة',
+  extended: 'ممدّدة',
   closed: 'مغلقة',
   processing: 'تحت المعالجة',
   finalized: 'مختومة',
   archived: 'مؤرشفة',
+};
+
+const STATUS_TONE: Record<CycleStatus, 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+  draft: 'neutral',
+  open: 'success',
+  active: 'success',
+  extended: 'info',
+  closed: 'warning',
+  processing: 'info',
+  finalized: 'neutral',
+  archived: 'neutral',
 };
 
 export function CycleDetailPage(): JSX.Element {
@@ -65,8 +93,15 @@ export function CycleDetailPage(): JSX.Element {
   const activateMut = useCycleActivate();
   const closeMut = useCycleClose();
   const archiveMut = useCycleArchive();
+  const extendMut = useCycleExtend();
+  const copyExamMut = useCopyExamConfig();
+  const allCyclesQuery = useCycles();
   const toggleCategoryMut = useToggleCycleCategory();
+  const [examPlanCategory, setExamPlanCategory] = useState<ApplicantCategory['key'] | null>(null);
+  const [copyFromCycleId, setCopyFromCycleId] = useState<string>('');
   const [pendingTransition, setPendingTransition] = useState<'activate' | 'close' | 'archive' | null>(null);
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [extendDate, setExtendDate] = useState<Date | null>(null);
 
   if (isLoading) return <CenteredShell><LoadingState variant="page" /></CenteredShell>;
   if (error) return <CenteredShell><ErrorState error={error} onRetry={() => refetch()} /></CenteredShell>;
@@ -83,7 +118,12 @@ export function CycleDetailPage(): JSX.Element {
   return (
     <CenteredShell>
       <PageHeader
-        title={cycle.nameAr}
+        title={
+          <span className="inline-flex items-center gap-3">
+            {cycle.nameAr}
+            <Badge tone={STATUS_TONE[cycle.status]}>{STATUS_LABEL[cycle.status]}</Badge>
+          </span>
+        }
         subtitle={`دورة عام ${cycle.year} · ${cycle.cohort === 'male' ? 'ذكور' : 'إناث'}`}
         breadcrumbs={[
           { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
@@ -98,7 +138,7 @@ export function CycleDetailPage(): JSX.Element {
               onClick={() => {
                 cloneMut.mutate(cycle.id, {
                   onSuccess: (next) => toast(`تم إنشاء نسخة: ${next.nameAr}`, 'success'),
-                  onError: (err) => toast((err as Error).message, 'warning'),
+                  onError: (err) => toast((err).message, 'warning'),
                 });
               }}
             >
@@ -167,9 +207,86 @@ export function CycleDetailPage(): JSX.Element {
         }}
       />
 
+      <FawryConfigCard
+        cycle={cycle}
+        readOnly={cycle.status === 'archived' || cycle.status === 'finalized'}
+      />
+
+      <section className="mt-6">
+        <header className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-ar-display text-xl font-bold text-ink-900">خطط الاختبارات</h2>
+            <p className="text-2xs text-ink-500">
+              لكل فئة قبول مفتوحة، حدّد ترتيب الاختبارات وإلزاميتها ورسومها.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={copyFromCycleId}
+              onChange={(e) => setCopyFromCycleId(e.target.value)}
+              options={[
+                { value: '', label: 'نسخ من دورة سابقة…' },
+                ...((allCyclesQuery.data ?? [])
+                  .filter((c) => c.id !== cycle.id)
+                  .map((c) => ({ value: c.id, label: c.nameAr }))),
+              ]}
+            />
+            <Button
+              variant="secondary"
+              leadingIcon={<Copy size={14} strokeWidth={1.75} />}
+              disabled={!copyFromCycleId}
+              isLoading={copyExamMut.isPending}
+              onClick={() => {
+                if (!copyFromCycleId) return;
+                copyExamMut.mutate(
+                  { fromCycleId: copyFromCycleId, toCycleId: cycle.id },
+                  {
+                    onSuccess: (plans) => {
+                      toast(`تم نسخ ${plans.length} خطة اختبارات`, 'success');
+                      setCopyFromCycleId('');
+                    },
+                    onError: (err) => toast((err).message, 'danger'),
+                  },
+                );
+              }}
+            >
+              نسخ خطط الاختبارات
+            </Button>
+          </div>
+        </header>
+        <Card>
+          <div className="grid gap-2 md:grid-cols-3">
+            {categories.map((cat) => (
+              <button
+                key={cat.key}
+                type="button"
+                onClick={() => setExamPlanCategory(cat.key)}
+                className={
+                  'rounded-md border px-3 py-2 text-start text-sm transition-colors duration-fast ease-standard ' +
+                  (examPlanCategory === cat.key
+                    ? 'border-teal-500 bg-teal-50 text-teal-700'
+                    : 'border-border-default bg-surface-card text-ink-700 hover:bg-ink-50')
+                }
+              >
+                {cat.labelAr}
+              </button>
+            ))}
+          </div>
+          {examPlanCategory && (
+            <div className="mt-4">
+              <ExamPlanEditor cycleId={cycle.id} categoryId={examPlanCategory} />
+            </div>
+          )}
+        </Card>
+      </section>
+
       <LifecycleActions
         cycle={cycle}
         onRequest={setPendingTransition}
+        onExtend={() => {
+          setExtendDate(new Date(cycle.closeDate));
+          setExtendOpen(true);
+        }}
       />
 
       <section className="mt-6">
@@ -234,7 +351,16 @@ export function CycleDetailPage(): JSX.Element {
             variant="primary"
             isLoading={activateMut.isPending || closeMut.isPending || archiveMut.isPending}
             onClick={() => {
-              const handlers = { onSuccess: () => toast('تم تحديث الدورة', 'success'), onError: (err: Error) => toast(err.message, 'danger') };
+              const handlers = {
+                onSuccess: () => toast('تم تحديث الدورة', 'success'),
+                onError: (err: Error) => {
+                  if (isConflictError(err) && err.conflictCode === 'ACTIVE_CYCLE_EXISTS') {
+                    toast(err.message, 'danger');
+                  } else {
+                    toast(err.message, 'danger');
+                  }
+                },
+              };
               if (pendingTransition === 'activate') activateMut.mutate(cycle.id, handlers);
               else if (pendingTransition === 'close') closeMut.mutate(cycle.id, handlers);
               else if (pendingTransition === 'archive') archiveMut.mutate(cycle.id, handlers);
@@ -245,7 +371,163 @@ export function CycleDetailPage(): JSX.Element {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <Modal
+        open={extendOpen}
+        onClose={() => setExtendOpen(false)}
+        title="تمديد دورة القبول"
+        subtitle={cycle.nameAr}
+        size="md"
+      >
+        <Modal.Body>
+          <p className="mb-3 text-sm text-ink-700">
+            تاريخ الإغلاق الحالي: <span dir="ltr" className="font-mono">{fmtDate(cycle.closeDate, 'short')}</span>.
+            اختر تاريخاً جديداً للإغلاق — سيُحوَّل وضع الدورة إلى "ممدّدة".
+          </p>
+          <DatePicker
+            label="تاريخ الإغلاق الجديد"
+            value={extendDate}
+            onChange={setExtendDate}
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="ghost" onClick={() => setExtendOpen(false)}>
+            إلغاء
+          </Button>
+          <Button
+            variant="primary"
+            isLoading={extendMut.isPending}
+            disabled={!extendDate}
+            onClick={() => {
+              if (!extendDate) return;
+              extendMut.mutate(
+                { id: cycle.id, newCloseDate: extendDate.toISOString() },
+                {
+                  onSuccess: () => {
+                    toast('تم تمديد الدورة', 'success');
+                    setExtendOpen(false);
+                  },
+                  onError: (err) => toast(err.message, 'danger'),
+                },
+              );
+            }}
+          >
+            تأكيد التمديد
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </CenteredShell>
+  );
+}
+
+/**
+ * FawryConfigCard — admin form for the cycle's Fawry merchant config.
+ * Closes CP9 of the PA Academy admin scope checkpoints. Reads from
+ * cycle.fees.fawryConfig and persists via cyclesService.update(); the
+ * applicant-side Stage 6 surface consumes the same shape (AF-7).
+ */
+function FawryConfigCard({
+  cycle,
+  readOnly,
+}: {
+  cycle: AdmissionCycle;
+  readOnly: boolean;
+}): JSX.Element {
+  const updateMut = useCycleUpdate();
+  const fawry = cycle.fees?.fawryConfig;
+  const [merchantCode, setMerchantCode] = useState(fawry?.merchantCode ?? '');
+  const [label, setLabel] = useState(fawry?.label ?? 'فوري');
+  const [retryWindowHours, setRetryWindowHours] = useState<number>(
+    fawry?.retryWindowHours ?? 48,
+  );
+
+  const dirty =
+    merchantCode !== (fawry?.merchantCode ?? '') ||
+    label !== (fawry?.label ?? 'فوري') ||
+    retryWindowHours !== (fawry?.retryWindowHours ?? 48);
+
+  const save = (): void => {
+    if (readOnly || !dirty) return;
+    updateMut.mutate(
+      {
+        id: cycle.id,
+        patch: {
+          fees: {
+            applicationFee: cycle.fees?.applicationFee ?? 0,
+            ...cycle.fees,
+            fawryConfig: {
+              merchantCode: merchantCode.trim(),
+              label: label.trim() || 'فوري',
+              retryWindowHours: Math.max(1, Math.floor(retryWindowHours)),
+            },
+          },
+        },
+      },
+      {
+        onSuccess: () => toast('تم حفظ إعدادات بوابة فوري', 'success'),
+        onError: (err) => toast((err).message ?? 'تعذر حفظ الإعدادات', 'danger'),
+      },
+    );
+  };
+
+  return (
+    <Card>
+      <header className="mb-4 flex items-start gap-3">
+        <span aria-hidden className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+          <Smartphone size={18} strokeWidth={1.75} />
+        </span>
+        <div className="flex-1">
+          <h2 className="font-ar-display text-md font-bold text-ink-900">إعدادات بوابة فوري</h2>
+          <p className="mt-0.5 text-2xs text-ink-500 leading-relaxed">
+            رمز التاجر، تسمية البوابة المعروضة للمتقدم، ومدة صلاحية رمز السداد بالساعات.
+            تُستهلَك هذه القيم من الواجهة الأمامية على مرحلة سداد الرسوم.
+          </p>
+        </div>
+      </header>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <Input
+          label="رمز التاجر"
+          dir="ltr"
+          placeholder="PA-ACADEMY-…"
+          value={merchantCode}
+          onChange={(e) => setMerchantCode(e.target.value)}
+          disabled={readOnly}
+        />
+        <Input
+          label="تسمية البوابة"
+          placeholder="فوري"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          disabled={readOnly}
+        />
+        <Input
+          label="مدة صلاحية رمز السداد (بالساعات)"
+          type="number"
+          dir="ltr"
+          value={String(retryWindowHours)}
+          onChange={(e) => setRetryWindowHours(Number.parseInt(e.target.value, 10) || 0)}
+          disabled={readOnly}
+          helper="القيمة المرجعية في وثائق وزارة الداخلية: 48 ساعة"
+        />
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <p className="text-2xs text-ink-500">
+          {fawry
+            ? `آخر تحديث: ${fmtDate(cycle.updatedAt, 'short')}`
+            : 'لم يتم ضبط إعدادات فوري لهذه الدورة بعد'}
+        </p>
+        <Button
+          variant="primary"
+          onClick={save}
+          disabled={readOnly || !dirty || !merchantCode.trim()}
+          isLoading={updateMut.isPending}
+        >
+          حفظ الإعدادات
+        </Button>
+      </div>
+    </Card>
   );
 }
 
@@ -376,11 +658,13 @@ function CategoryRow({
 function LifecycleActions({
   cycle,
   onRequest,
+  onExtend,
 }: {
   cycle: AdmissionCycle;
   onRequest: (next: 'activate' | 'close' | 'archive') => void;
+  onExtend: () => void;
 }): JSX.Element {
-  const isActive = cycle.status === 'active' || cycle.status === 'open';
+  const isActive = cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended';
   const isClosed = cycle.status === 'closed' || cycle.status === 'finalized' || cycle.status === 'processing';
   const isArchived = cycle.status === 'archived';
   return (
@@ -401,6 +685,15 @@ function LifecycleActions({
                 onClick={() => onRequest('activate')}
               >
                 تفعيل
+              </Button>
+            )}
+            {isActive && (
+              <Button
+                variant="ghost"
+                leadingIcon={<CalendarPlus size={14} strokeWidth={1.75} />}
+                onClick={onExtend}
+              >
+                تمديد
               </Button>
             )}
             {isActive && (

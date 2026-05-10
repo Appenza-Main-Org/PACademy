@@ -101,7 +101,7 @@ export function ApplicantEditPage(): JSX.Element {
   );
 
   if (isLoading) return <LoadingState variant="detail" />;
-  if (error) return <ErrorState error={error as Error} />;
+  if (error) return <ErrorState error={error} />;
   if (!applicant) {
     return (
       <ErrorState

@@ -29,9 +29,9 @@ export const testScheduleService = {
     const upcoming = all
       .filter((t) => t.status === 'scheduled' && new Date(t.scheduledAt).getTime() >= now)
       .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-    if (upcoming.length > 0) return upcoming[0]!;
+    if (upcoming.length > 0) return upcoming[0];
     const evaluating = all.filter((t) => t.status === 'attended' || t.status === 'pending_result');
-    if (evaluating.length > 0) return evaluating[evaluating.length - 1]!;
+    if (evaluating.length > 0) return evaluating[evaluating.length - 1];
     return null;
   },
 };

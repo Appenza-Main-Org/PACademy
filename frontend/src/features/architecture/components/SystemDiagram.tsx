@@ -860,7 +860,7 @@ function NodeBox({
         <ScalePill
           x={node.x + node.w - 6}
           y={node.y + node.h - 6}
-          text={SCALE_BADGE[node.id] as string}
+          text={SCALE_BADGE[node.id]}
           tone={node.kind === 'public-app' ? 'public' : 'private'}
         />
       )}

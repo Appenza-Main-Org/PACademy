@@ -9,11 +9,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { History, Save, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
   Badge,
   Button,
   Card,
   CardHeader,
+  EmptyState,
   ErrorState,
   Input,
   LoadingState,
@@ -75,6 +77,33 @@ export function AdmissionRulesPage(): JSX.Element {
   );
 
   if (cyclesLoading) return <CenteredShell><LoadingState variant="page" /></CenteredShell>;
+
+  /* No cycles seeded yet — surface a clear empty state with a CTA to
+   * create one rather than rendering an empty cycle picker. */
+  if ((cycles?.length ?? 0) === 0) {
+    return (
+      <CenteredShell>
+        <PageHeader
+          title="شروط القبول"
+          subtitle="تحديد ومراجعة شروط التقدم لكل دورة"
+          breadcrumbs={[
+            { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
+            { label: 'شروط القبول' },
+          ]}
+        />
+        <EmptyState
+          variant="generic"
+          title="لا توجد دورات قبول بعد"
+          description="أنشئ دورة قبول أولاً ثم اضبط شروطها هنا."
+          action={
+            <Link to={ROUTES.admin.cycleNew}>
+              <Button variant="primary">إنشاء دورة قبول</Button>
+            </Link>
+          }
+        />
+      </CenteredShell>
+    );
+  }
 
   return (
     <CenteredShell>

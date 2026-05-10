@@ -185,8 +185,8 @@ function pushAudit(
     timestamp: Date.now(),
     ip: '10.0.0.1',
   };
-  (MOCK.audit as AuditEntry[]).unshift(entry);
-  if (diff) (MOCK.auditDiffs as Record<string, AuditDiff>)[entry.id] = diff;
+  (MOCK.audit).unshift(entry);
+  if (diff) (MOCK.auditDiffs)[entry.id] = diff;
   return entry;
 }
 
@@ -608,7 +608,7 @@ export const applicantService = {
     await simulateLatency();
     const idx = MOCK.applicants.findIndex((a) => a.id === id);
     if (idx === -1) throw new ApplicantTransitionError('المتقدم غير موجود', 422);
-    const prev = MOCK.applicants[idx]!;
+    const prev = MOCK.applicants[idx];
 
     if (patch.nationalId && patch.nationalId !== prev.nationalId) {
       throw new ApplicantTransitionError('لا يمكن تعديل الرقم القومي بعد التسجيل.', 422);
@@ -649,7 +649,7 @@ export const applicantService = {
     await simulateLatency();
     const idx = MOCK.applicants.findIndex((a) => a.id === id);
     if (idx === -1) throw new ApplicantTransitionError('المتقدم غير موجود', 422);
-    const prev = MOCK.applicants[idx]!;
+    const prev = MOCK.applicants[idx];
     if (!payload.reason || payload.reason.trim().length < 3) {
       throw new ApplicantTransitionError('سبب التحديث مطلوب.', 422);
     }
@@ -731,7 +731,7 @@ export const applicantService = {
 
   async getAuditTrail(id: string): Promise<AuditEntry[]> {
     await simulateLatency(60, 140);
-    return (MOCK.audit as AuditEntry[]).filter(
+    return (MOCK.audit).filter(
       (e) => e.entity === 'applicant' && e.entityId === id,
     );
   },

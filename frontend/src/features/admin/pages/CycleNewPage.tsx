@@ -55,7 +55,7 @@ export function CycleNewPage(): JSX.Element {
         toast(`تم إنشاء "${cycle.nameAr}" كمسودة`, 'success');
         navigate(ROUTES.admin.cycleDetail(cycle.id));
       },
-      onError: (err) => toast((err as Error).message, 'danger'),
+      onError: (err) => toast((err).message, 'danger'),
     });
   };
 

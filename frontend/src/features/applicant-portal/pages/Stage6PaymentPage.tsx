@@ -1,33 +1,43 @@
 /**
  * Stage 6 — payment (RFP Scope Document §2.2 stage 6).
- * Two methods: Fawry (24h code) or card (gateway redirect). Auto-verify
- * after demo wait, show printable receipt.
+ * Single method: Fawry. The credit-card path was removed per ops feedback —
+ * applicants pay only via Fawry codes. Auto-verify after demo wait, show
+ * printable receipt.
  */
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, FlaskConical, Receipt, Smartphone } from 'lucide-react';
-import { Badge, Button, Card, Modal, PrintLayout, toast } from '@/shared/components';
+import { FlaskConical, Receipt, ShieldCheck, Smartphone } from 'lucide-react';
+import { Badge, Button, Card, Input, Modal, PrintLayout, toast } from '@/shared/components';
 import { useInitiatePayment, useVerifyPayment } from '../api/applicantPortal.queries';
+import { useActiveCycle } from '../api/categories.queries';
+import { applicantPortalService } from '../api/applicantPortal.service';
+import { withAudit } from '@/shared/lib/audit';
 
 const APPLICANT_ID = 'APP-2026000';
 const FEE = 1500;
+const FAWRY_DEFAULT_RETRY_HOURS = 48;
 
 export function Stage6PaymentPage(): JSX.Element {
   const navigate = useNavigate();
-  const [method, setMethod] = useState<'fawry' | 'card'>('fawry');
   const [refNumber, setRefNumber] = useState<string | null>(null);
   const [fawryCode, setFawryCode] = useState<string | null>(null);
   const [paid, setPaid] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  /* AF-2 — pre-payment identity re-verification. Stage 6 is gated until
+   * the applicant re-enters their NID and mobile to confirm identity
+   * before money moves. */
+  const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const initiateMut = useInitiatePayment(APPLICANT_ID);
   const verifyMut = useVerifyPayment(APPLICANT_ID);
+  const { data: activeCycle } = useActiveCycle();
+  const fawryRetryHours =
+    activeCycle?.fees?.fawryConfig?.retryWindowHours ?? FAWRY_DEFAULT_RETRY_HOURS;
 
   const initiate = async (): Promise<void> => {
-    const r = await initiateMut.mutateAsync({ method, amount: FEE });
+    const r = await initiateMut.mutateAsync({ method: 'fawry', amount: FEE });
     setRefNumber(r.refNumber);
     setFawryCode(r.fawryCode ?? null);
-    if (method === 'card') toast('تم توجيهك إلى بوابة الدفع (محاكاة)', 'info');
   };
 
   const verify = async (): Promise<void> => {
@@ -94,21 +104,25 @@ export function Stage6PaymentPage(): JSX.Element {
         </div>
       </div>
 
-      <div className="mb-5 grid gap-3 md:grid-cols-2">
-        <MethodCard
-          active={method === 'fawry'}
-          onClick={() => setMethod('fawry')}
-          icon={<Smartphone size={20} strokeWidth={1.75} />}
-          title="فوري"
-          subtitle="رمز سداد ساري لمدة 24 ساعة"
-        />
-        <MethodCard
-          active={method === 'card'}
-          onClick={() => setMethod('card')}
-          icon={<CreditCard size={20} strokeWidth={1.75} />}
-          title="بطاقة ائتمانية"
-          subtitle="توجيه فوري إلى بوابة الدفع"
-        />
+      {!identityConfirmed && (
+        <IdentityConfirmGate onConfirmed={() => setIdentityConfirmed(true)} />
+      )}
+
+      <fieldset disabled={!identityConfirmed} className="contents">
+      <div className="mb-5 flex items-start gap-3 rounded-lg border border-teal-500 bg-teal-50 p-4">
+        <span
+          aria-hidden
+          className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-teal-500 text-white"
+        >
+          <Smartphone size={20} strokeWidth={1.75} />
+        </span>
+        <div>
+          <p className="font-ar-display text-md font-bold text-teal-900">السداد عبر فوري</p>
+          <p className="mt-0.5 text-2xs text-teal-800/85 leading-relaxed">
+            بعد إصدار رمز السداد، توجّه إلى أقرب نقطة فوري وادفع المبلغ خلال {fawryRetryHours} ساعة.
+            رمز السداد صالح لمرة واحدة فقط.
+          </p>
+        </div>
       </div>
 
       {!refNumber && !paid && (
@@ -148,6 +162,8 @@ export function Stage6PaymentPage(): JSX.Element {
         </div>
       )}
 
+      </fieldset>
+
       <Modal open={showReceipt} onClose={() => setShowReceipt(false)} title="إيصال الدفع" size="lg">
         <Modal.Body>
           <PrintLayout
@@ -157,7 +173,7 @@ export function Stage6PaymentPage(): JSX.Element {
           >
             <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
               <ReceiptRow label="رقم المتقدم" value={APPLICANT_ID} mono />
-              <ReceiptRow label="طريقة الدفع" value={method === 'fawry' ? 'فوري' : 'بطاقة ائتمانية'} />
+              <ReceiptRow label="طريقة الدفع" value="فوري" />
               <ReceiptRow label="رقم المرجع" value={refNumber ?? '—'} mono fullWidth />
               <ReceiptRow label="المبلغ" value={`${FEE.toLocaleString('en-US')} جنيه`} numeric fullWidth />
             </dl>
@@ -202,43 +218,79 @@ function ReceiptRow({
   );
 }
 
-function MethodCard({
-  active,
-  onClick,
-  icon,
-  title,
-  subtitle,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-}): JSX.Element {
+function IdentityConfirmGate({ onConfirmed }: { onConfirmed: () => void }): JSX.Element {
+  const [nid, setNid] = useState('');
+  const [phone, setPhone] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (): Promise<void> => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      /* AF-2 — emit audit event for the pre-payment identity attestation.
+       * This is the authoritative record that the applicant re-confirmed
+       * NID + mobile before money moved; useful for downstream payment
+       * dispute resolution. */
+      await withAudit(
+        () => applicantPortalService.confirmPrePayment('APP-2026000', { nationalId: nid, phoneNumber: phone }),
+        {
+          action: 'applicant.transition',
+          module: 'applicants',
+          entityType: 'applicant_payment_identity',
+          entityLabel: 'تأكيد الهوية قبل السداد',
+          entityId: 'APP-2026000',
+          details: 'إعادة إدخال الرقم القومي والهاتف للتحقق من الهوية قبل السداد',
+          afterFrom: () => ({ confirmedAt: Date.now() }),
+          actor: { id: 'APP-2026000', name: 'المتقدم', role: 'applicant' },
+        },
+      );
+      toast('تم تأكيد الهوية', 'success');
+      onConfirmed();
+    } catch (err) {
+      toast((err as Error).message ?? 'تعذر تأكيد الهوية', 'danger');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={
-        'flex items-start gap-3 rounded-lg border p-4 text-start transition-colors duration-fast ease-standard ' +
-        (active
-          ? 'border-teal-500 bg-teal-50 shadow-focus-teal'
-          : 'border-border-default hover:bg-ink-50')
-      }
-    >
-      <span
-        className={
-          'inline-flex h-10 w-10 items-center justify-center rounded-md ' +
-          (active ? 'bg-teal-500 text-white' : 'bg-ink-100 text-ink-700')
-        }
-      >
-        {icon}
-      </span>
-      <div>
-        <p className="text-sm font-medium text-ink-900">{title}</p>
-        <p className="mt-0.5 text-2xs text-ink-500">{subtitle}</p>
+    <div className="mb-5 rounded-md border border-teal-300 bg-teal-50 p-4">
+      <div className="mb-3 flex items-start gap-3">
+        <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-500 text-white">
+          <ShieldCheck size={18} strokeWidth={1.75} />
+        </span>
+        <div>
+          <p className="font-ar-display text-md font-bold text-teal-900">تأكيد الهوية قبل السداد</p>
+          <p className="mt-0.5 text-2xs text-teal-800/85 leading-relaxed">
+            احتياطاً قبل تحريك أي مبلغ، يُرجى إعادة إدخال رقمك القومي ورقم هاتفك. يجب أن يطابقا
+            البيانات المُسجَّلة في خطوة التحقق من الهاتف.
+          </p>
+        </div>
       </div>
-    </button>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Input
+          label="الرقم القومي"
+          required
+          placeholder="14 رقماً"
+          dir="ltr"
+          value={nid}
+          onChange={(e) => setNid(e.target.value)}
+        />
+        <Input
+          label="رقم الهاتف المحمول"
+          required
+          placeholder="01XXXXXXXXX"
+          dir="ltr"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+        />
+      </div>
+      <div className="mt-3 flex justify-end">
+        <Button variant="primary" onClick={submit} isLoading={submitting} disabled={!nid || !phone}>
+          تأكيد الهوية
+        </Button>
+      </div>
+    </div>
   );
 }
+

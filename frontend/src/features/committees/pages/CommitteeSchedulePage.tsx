@@ -24,7 +24,7 @@ export function CommitteeSchedulePage(): JSX.Element {
                   <tr key={slot}>
                     <td className="mono font-bold">{slot}</td>
                     {DAYS.map((d, di) => {
-                      const c = MOCK.committees[(si + di) % MOCK.committees.length]!;
+                      const c = MOCK.committees[(si + di) % MOCK.committees.length];
                       return (
                         <td key={d}>
                           <Badge tone="brand">{c.name}</Badge>

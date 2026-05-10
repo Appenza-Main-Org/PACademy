@@ -22,8 +22,7 @@ export const ROUTES = {
     applicantDetail: (id = ':id'): string => `/admin/applicants/${id}`,
     applicantEdit: (id = ':id'): string => `/admin/applicants/${id}/edit`,
     users: '/admin/users',
-    userNew: '/admin/users/new',
-    userDetail: (id = ':id'): string => `/admin/users/${id}`,
+    roles: '/admin/users/roles',
     audit: '/admin/audit',
     settings: '/admin/settings',
     reports: '/admin/reports',
@@ -38,6 +37,8 @@ export const ROUTES = {
     workflows: '/admin/workflows',
     workflowEdit: (id = ':id'): string => `/admin/workflows/${id}`,
     workflowNew: '/admin/workflows/new',
+    notifications: '/admin/notifications',
+    payments: '/admin/payments',
   },
 
   /* ── Applicant surface (own auth via Stage 1+2) ──
@@ -48,6 +49,7 @@ export const ROUTES = {
   applicantStart: '/applicant/start',
   applicantEligibility: '/applicant/eligibility',
   applicantTests: '/applicant/tests',
+  applicantApplicationSummary: '/applicant/application/summary',
 
   /* ── Internal staff apps ── */
   committee: {

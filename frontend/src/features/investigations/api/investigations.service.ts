@@ -59,7 +59,7 @@ export const investigationsService = {
     const i = CASES_STATE.findIndex((c) => c.id === id);
     if (i === -1) return null;
     CASES_STATE[i] = { ...CASES_STATE[i], ...patch } as InvestigationCase;
-    return CASES_STATE[i]!;
+    return CASES_STATE[i];
   },
 
   async stats(): Promise<{ total: number; open: number; inReview: number; pass: number; fail: number; defer: number }> {
@@ -107,7 +107,7 @@ export const investigationsService = {
     await simulateLatency(400, 800);
     const investigators = ['U-004', 'U-009'];
     const open = CASES_STATE.filter((c) => c.status === 'open');
-    const assignments = open.map((c, i) => ({ caseId: c.id, investigatorId: investigators[i % investigators.length]! }));
+    const assignments = open.map((c, i) => ({ caseId: c.id, investigatorId: investigators[i % investigators.length] }));
     return { assignments };
   },
 

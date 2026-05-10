@@ -1,23 +1,36 @@
 /**
- * Audit API Contract — Sprint 1 (KARASA_GAPS §1.2.G).
+ * Audit API Contract — Sprint 1 (KARASA_GAPS §1.2.G), extended Gap E
+ * (admin-gaps) with role/module/entityType filters and inline diff support.
+ *
+ * Append-only — real backend rejects update/delete on audit rows; the
+ * service intentionally exposes no mutation/removal methods.
  *
  * INTEGRATION CONTRACT (replace these methods to wire to real backend):
- *   GET /api/audit?action=&entity=&user=&since=&until=&limit=
+ *   GET /api/audit?action=&entity=&entityType=&user=&role=&module=&since=&until=&limit=
  *   GET /api/audit/:id              → AuditEntry + diff
  *   GET /api/audit/:id/diff         → AuditDiff (before/after JSON)
  *   GET /api/audit/export?format=csv → file
  *   GET /api/audit/entity-types      → string[] of distinct entity types
+ *   GET /api/audit/modules           → string[] of distinct modules
+ *   GET /api/audit/roles             → string[] of distinct roles
  *   GET /api/audit/users             → distinct user IDs
  */
 
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
-import type { AuditAction, AuditDiff, AuditEntry } from '@/shared/types/domain';
+import type { AuditAction, AuditDiff, AuditEntry, AuditModule } from '@/shared/types/domain';
 
 export interface AuditFilters {
   action?: AuditAction | 'all';
   userId?: string | 'all';
+  /** Arabic entity label (existing). */
   entity?: string | 'all';
+  /** Typed entity name — Gap E. */
+  entityType?: string | 'all';
+  /** Typed module taxonomy — Gap E. */
+  module?: AuditModule | 'all';
+  /** Actor role — Gap E. */
+  role?: string | 'all';
   /** epoch ms lower bound */
   since?: number | null;
   /** epoch ms upper bound */
@@ -32,6 +45,9 @@ export const auditService = {
       action = 'all',
       userId = 'all',
       entity = 'all',
+      entityType = 'all',
+      module = 'all',
+      role = 'all',
       since = null,
       until = null,
       limit = 200,
@@ -40,6 +56,9 @@ export const auditService = {
     if (action !== 'all') items = items.filter((e) => e.action === action);
     if (userId !== 'all') items = items.filter((e) => e.userId === userId);
     if (entity !== 'all') items = items.filter((e) => e.entity === entity);
+    if (entityType !== 'all') items = items.filter((e) => e.entityType === entityType);
+    if (module !== 'all') items = items.filter((e) => e.module === module);
+    if (role !== 'all') items = items.filter((e) => e.role === role);
     if (since !== null) items = items.filter((e) => e.timestamp >= since);
     if (until !== null) items = items.filter((e) => e.timestamp <= until);
     return items.slice(0, limit);
@@ -50,14 +69,42 @@ export const auditService = {
     return MOCK.audit.find((e) => e.id === id) ?? null;
   },
 
+  /**
+   * Returns the diff for an audit entry. New (Gap E) entries carry inline
+   * `before` / `after` snapshots; legacy seeded entries fall back to the
+   * MOCK.auditDiffs side-table.
+   */
   async getDiff(id: string): Promise<AuditDiff> {
     await simulateLatency();
+    const entry = MOCK.audit.find((e) => e.id === id);
+    if (entry && (entry.before !== undefined || entry.after !== undefined)) {
+      return {
+        before: (entry.before ?? null) as AuditDiff['before'],
+        after: (entry.after ?? null) as AuditDiff['after'],
+      };
+    }
     return MOCK.auditDiffs[id] ?? { before: null, after: null };
   },
 
   async getEntityTypes(): Promise<string[]> {
     await simulateLatency(80, 160);
     return Array.from(new Set(MOCK.audit.map((e) => e.entity)));
+  },
+
+  /** Distinct typed `module` values present in MOCK.audit (Gap E). */
+  async getModules(): Promise<AuditModule[]> {
+    await simulateLatency(80, 160);
+    const set = new Set<AuditModule>();
+    for (const e of MOCK.audit) if (e.module) set.add(e.module);
+    return Array.from(set);
+  },
+
+  /** Distinct actor roles present in MOCK.audit (Gap E). */
+  async getRoles(): Promise<string[]> {
+    await simulateLatency(80, 160);
+    const set = new Set<string>();
+    for (const e of MOCK.audit) if (e.role) set.add(e.role);
+    return Array.from(set);
   },
 
   async getUsers(): Promise<{ id: string; name: string }[]> {

@@ -202,7 +202,7 @@ const SPECIAL_PIPELINE: StageSeed[] = [
 ];
 
 const POSTGRADUATE_PIPELINE: StageSeed[] = [
-  COMMON_PIPELINE[0]!,
+  COMMON_PIPELINE[0],
   {
     name: 'مراجعة الأبحاث الأكاديمية',
     statusOnEnter: 'under-review',
@@ -217,10 +217,10 @@ const POSTGRADUATE_PIPELINE: StageSeed[] = [
       },
     ],
   },
-  COMMON_PIPELINE[3]!,
-  COMMON_PIPELINE[4]!,
-  COMMON_PIPELINE[5]!,
-  COMMON_PIPELINE[6]!,
+  COMMON_PIPELINE[3],
+  COMMON_PIPELINE[4],
+  COMMON_PIPELINE[5],
+  COMMON_PIPELINE[6],
 ];
 
 const NOW = new Date('2026-04-15T09:00:00.000Z').toISOString();

@@ -20,3 +20,6 @@ export { useApplicantPortalStore } from './store/applicantPortal.store';
 
 /* Post-polish test schedule — Bucket C */
 export { TestScheduleAndResultsPage } from './pages/TestScheduleAndResultsPage';
+
+/* AF-3 — applicant-facing تعديل الطلب edit surface */
+export { ApplicationSummaryPage } from './pages/ApplicationSummaryPage';

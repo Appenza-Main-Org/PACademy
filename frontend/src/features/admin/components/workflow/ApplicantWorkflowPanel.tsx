@@ -68,7 +68,7 @@ export function ApplicantWorkflowPanel({ applicantId, canTransition }: Props): J
 
   if (wfQuery.isLoading || progressQuery.isLoading) return <LoadingState variant="detail" />;
   if (wfQuery.error) {
-    return <ErrorState error={wfQuery.error as Error} onRetry={() => wfQuery.refetch()} />;
+    return <ErrorState error={wfQuery.error} onRetry={() => wfQuery.refetch()} />;
   }
   const workflow = wfQuery.data ?? null;
   const progress = progressQuery.data ?? null;
@@ -251,7 +251,7 @@ function TransitionDialog({
           onClose();
         },
         onError: (err) => {
-          setServerError((err as Error).message ?? 'تعذر تنفيذ الانتقال');
+          setServerError((err).message ?? 'تعذر تنفيذ الانتقال');
         },
       },
     );

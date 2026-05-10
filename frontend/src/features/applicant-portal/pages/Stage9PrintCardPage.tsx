@@ -7,7 +7,7 @@
  * + required-documents checklist.
  */
 
-import { CalendarCheck, MapPin, Printer, ShieldCheck, User } from 'lucide-react';
+import { FileText, MapPin, Printer, ShieldCheck, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   Badge,
@@ -20,11 +20,21 @@ import {
 } from '@/shared/components';
 import { useDraft } from '../api/applicantPortal.queries';
 import { date as fmtDate } from '@/shared/lib/format';
+import {
+  arabicDayOfWeek,
+  arabicOrdinal,
+  arabicTimeOfDay,
+  toEasternArabicNumerals,
+} from '@/shared/lib/arabic';
 
 const APPLICANT_ID = 'APP-2026000';
 const APPLICANT_NAME = 'يوسف أحمد محمد الخطيب';
 const APPLICANT_NID = '30506121601234';
 const BARCODE = '26-CAI-00001234';
+/* Demo: committee number for the rendered card. Production sources this
+ * from the reserved exam slot via committeeService once Gap H links
+ * ExamSlot.committeeId through to the draft. */
+const COMMITTEE_NUMBER = 2;
 
 export function Stage9PrintCardPage(): JSX.Element {
   const navigate = useNavigate();
@@ -34,6 +44,7 @@ export function Stage9PrintCardPage(): JSX.Element {
     time: '08:00',
     location: 'كلية الشرطة - مبنى الاختبارات - القاهرة',
   };
+  const fawryRef = draft?.payment?.fawryCode ?? draft?.payment?.refNumber ?? null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -44,13 +55,21 @@ export function Stage9PrintCardPage(): JSX.Element {
             احتفظ بالكارت معك يوم الاختبار. الكارت يحوي باركود لتسجيل الحضور تلقائياً.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="primary"
             leadingIcon={<Printer size={14} strokeWidth={1.75} />}
             onClick={() => window.print()}
           >
-            طباعة
+            طباعة الكارت
+          </Button>
+          <Button
+            variant="secondary"
+            leadingIcon={<FileText size={14} strokeWidth={1.75} />}
+            onClick={() => navigate('/applicant/acquaintance-doc')}
+            title="تنزيل وثيقة التعارف للمراجعة الأمنية"
+          >
+            تنزيل إقرار التعارف
           </Button>
           <Button variant="ghost" onClick={() => navigate('/applicant/follow-up')}>
             تخطّي
@@ -59,7 +78,7 @@ export function Stage9PrintCardPage(): JSX.Element {
       </Card>
 
       <PrintLayout
-        title="كارت تردد المتقدم"
+        title="بطاقة التردد"
         subtitle="دفعة قبول 2026 — أكاديمية الشرطة"
         reportId={APPLICANT_ID}
         generatedAt={fmtDate(Date.now(), 'short')}
@@ -77,16 +96,24 @@ export function Stage9PrintCardPage(): JSX.Element {
           {/* Identity */}
           <div className="flex flex-col justify-center gap-2">
             <div>
-              <p className="text-2xs uppercase tracking-wide text-ink-500">الاسم رباعي</p>
+              <p className="text-2xs uppercase tracking-wide text-ink-500">اسم الطالب</p>
               <p className="font-ar-display text-lg font-bold text-ink-900">{APPLICANT_NAME}</p>
+            </div>
+            <div>
+              <p className="text-2xs uppercase tracking-wide text-ink-500">اللجنة</p>
+              <p className="font-ar-display text-md font-bold text-ink-900">{arabicOrdinal(COMMITTEE_NUMBER)}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-2xs uppercase tracking-wide text-ink-500">الرقم القومي</p>
+                <p className="text-2xs uppercase tracking-wide text-ink-500">الرقم القومى</p>
                 <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_NID}</p>
               </div>
               <div>
-                <p className="text-2xs uppercase tracking-wide text-ink-500">رقم الطلب</p>
+                {/* AF-13 — label-only resolution: 'رقم الملف' relabels the existing
+                 *  APPLICANT_ID. If the academy needs a distinct numeric file
+                 *  number, follow-up gap adds Applicant.fileNumber with a
+                 *  UNIQUE-per-cycle invariant. */}
+                <p className="text-2xs uppercase tracking-wide text-ink-500">رقم الملف</p>
                 <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_ID}</p>
               </div>
             </div>
@@ -101,28 +128,47 @@ export function Stage9PrintCardPage(): JSX.Element {
           </div>
         </div>
 
-        {/* Exam appointment */}
-        <div className="mb-6 grid grid-cols-2 gap-4">
-          <div className="flex items-start gap-3 rounded-md border border-border-default bg-surface-card p-4">
-            <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-gold-50 text-gold-700">
-              <CalendarCheck size={18} strokeWidth={1.75} />
+        {/* Fawry payment reference line — verbatim phrasing from the printed
+            reference card. Falls back to the internal refNumber if no
+            Fawry-side code was issued (card-method payment). */}
+        {fawryRef && (
+          <p className="mb-5 rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-sm text-ink-700">
+            تم الدفع بواسطة فورى بالمدفوعة رقم:{' '}
+            <span className="font-numeric tnum font-bold text-ink-900">
+              {toEasternArabicNumerals(fawryRef)}
             </span>
-            <div>
-              <p className="text-2xs uppercase tracking-wide text-ink-500">موعد الاختبار</p>
-              <p className="mt-0.5 font-bold text-ink-900">{fmtDate(slot.date, 'full')}</p>
-              <p className="mt-0.5 text-2xs text-ink-500">{formatHijri(new Date(slot.date))} هـ</p>
-              <p className="mt-1 font-numeric tnum text-md font-bold text-teal-700" dir="ltr">{slot.time}</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-md border border-border-default bg-surface-card p-4">
-            <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-              <MapPin size={18} strokeWidth={1.75} />
-            </span>
-            <div>
-              <p className="text-2xs uppercase tracking-wide text-ink-500">مكان الاختبار</p>
-              <p className="mt-0.5 font-medium text-ink-900">{slot.location}</p>
-              <p className="mt-0.5 text-2xs text-ink-500">احرص على الحضور قبل الموعد بـ 30 دقيقة</p>
-            </div>
+          </p>
+        )}
+
+        {/* Exam-date sentence — prose form matching the printed reference:
+            'تاريخ إختبار قدرات يوم الأربعاء YYYY/MM/DD الساعة السادسة صباحاً'.
+            Day of week + Gregorian date + Arabic-word time of day. */}
+        {(() => {
+          const examDate = new Date(slot.date);
+          const dayName = arabicDayOfWeek(examDate);
+          const dateStr = toEasternArabicNumerals(
+            `${examDate.getFullYear()}/${String(examDate.getMonth() + 1).padStart(2, '0')}/${String(examDate.getDate()).padStart(2, '0')}`,
+          );
+          const { hourWord, periodWord } = arabicTimeOfDay(slot.time);
+          return (
+            <p className="mb-5 rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-sm text-ink-900">
+              تاريخ إختبار قدرات يوم {dayName}{' '}
+              <span dir="ltr" className="font-numeric tnum">{dateStr}</span>{' '}
+              الساعة {hourWord} {periodWord}
+            </p>
+          );
+        })()}
+
+        {/* Exam location — kept as a small icon-row so applicants can still
+            see where to go without needing to read the prose sentence. */}
+        <div className="mb-6 flex items-start gap-3 rounded-md border border-border-default bg-surface-card p-4">
+          <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+            <MapPin size={18} strokeWidth={1.75} />
+          </span>
+          <div>
+            <p className="text-2xs uppercase tracking-wide text-ink-500">مكان الاختبار</p>
+            <p className="mt-0.5 font-medium text-ink-900">{slot.location}</p>
+            <p className="mt-0.5 text-2xs text-ink-500">احرص على الحضور قبل الموعد بـ 30 دقيقة</p>
           </div>
         </div>
 
@@ -146,7 +192,10 @@ export function Stage9PrintCardPage(): JSX.Element {
           </ul>
         </div>
 
-        {/* Barcode block — real Code 128 carrying the applicant payload */}
+        {/* Barcode block — real Code 128 carrying the applicant payload.
+            The label printed beneath the bars repeats the committee ordinal
+            (matches the printed reference card); the numeric tracking string
+            sits at the very bottom of the block for staff reference. */}
         <div className="mb-2 flex flex-col items-center gap-2 rounded-lg border-2 border-ink-700 bg-surface-card py-4 px-3">
           <Badge tone="brand">امسح هذا الكود لتسجيل الحضور</Badge>
           <Code128Barcode
@@ -155,7 +204,49 @@ export function Stage9PrintCardPage(): JSX.Element {
             moduleWidth={2}
             showText={false}
           />
-          <p className="font-mono text-md font-bold tracking-widest text-ink-900" dir="ltr">{BARCODE}</p>
+          <p className="font-ar-display text-md font-bold text-ink-900">
+            اللجنة {arabicOrdinal(COMMITTEE_NUMBER)}
+          </p>
+          <p className="font-mono text-2xs tracking-widest text-ink-500" dir="ltr">{BARCODE}</p>
+        </div>
+
+        {/* كشف ومواعيد الإختبارات — exam schedule and results table.
+            One row per scheduled test; results populate as the pipeline
+            advances (the printed reference shows only the first row at
+            issuance, with the النتيجة cell carrying 'لم يحدد' placeholder
+            until grading lands). */}
+        <div className="mb-4">
+          <h3 className="mb-2 text-center font-ar-display text-md font-bold text-ink-900">
+            كشف ومواعيد الإختبارات
+          </h3>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="bg-ink-50 text-ink-700">
+                <th className="border border-border-default px-2 py-1.5 text-center font-medium">م</th>
+                <th className="border border-border-default px-2 py-1.5 text-center font-medium">الإختبار</th>
+                <th className="border border-border-default px-2 py-1.5 text-center font-medium">التاريخ</th>
+                <th className="border border-border-default px-2 py-1.5 text-center font-medium">النتيجة</th>
+                <th className="border border-border-default px-2 py-1.5 text-center font-medium">ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const examDate = new Date(slot.date);
+                const dateStr = toEasternArabicNumerals(
+                  `${examDate.getFullYear()}/${String(examDate.getMonth() + 1).padStart(2, '0')}/${String(examDate.getDate()).padStart(2, '0')}`,
+                );
+                return (
+                  <tr className="text-center">
+                    <td className="border border-border-default px-2 py-1.5 font-numeric tnum">١</td>
+                    <td className="border border-border-default px-2 py-1.5">قدرات</td>
+                    <td className="border border-border-default px-2 py-1.5 font-numeric tnum" dir="ltr">{dateStr}</td>
+                    <td className="border border-border-default px-2 py-1.5 text-ink-500">لم يحدد</td>
+                    <td className="border border-border-default px-2 py-1.5 text-ink-500"></td>
+                  </tr>
+                );
+              })()}
+            </tbody>
+          </table>
         </div>
 
         {/* Signature block */}
@@ -186,17 +277,5 @@ function SignatureLine({ label }: { label: string }): JSX.Element {
       <span className="text-2xs uppercase tracking-wide text-ink-500">{label}</span>
     </div>
   );
-}
-
-function formatHijri(d: Date): string {
-  try {
-    return new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(d).replace('هـ', '').trim();
-  } catch {
-    return '';
-  }
 }
 

@@ -17,23 +17,32 @@ import {
   Drawer,
   EmptyState,
   ErrorState,
+  Field,
   Input,
   KhayameyaStripe,
   LoadingState,
   LogoMark,
   PageHeader,
   PrintLayout,
+  SearchSelect,
   Select,
   Textarea,
   toast,
 } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
+import type { DataTableColumn, SearchSelectOption } from '@/shared/components';
+import { REF_RANKS } from '@/shared/mock-data/referenceData';
 import { IconStamp } from '@/shared/components/icons';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
 import { boardService } from '../api/board.service';
 import type { BoardDecision, BoardMember, BoardSession } from '@/shared/types/domain';
+
+/* Active rank options sourced from REF_RANKS — soft-deleted rows are
+   filtered (none today, but the dictionary extends SoftDeleteFields). */
+const RANK_OPTIONS: readonly SearchSelectOption[] = REF_RANKS
+  .filter((r) => !r.deletedAt)
+  .map((r) => ({ value: r.nameAr, label: r.nameAr }));
 
 /* ─────────────── Sessions list refresh + create ─────────────── */
 
@@ -551,7 +560,15 @@ export function BoardMembersPage(): JSX.Element {
             }}
           >
             <Input label="الاسم بالكامل" required value={name} onChange={(e) => setName(e.target.value)} />
-            <Input label="الرتبة" value={rank} onChange={(e) => setRank(e.target.value)} />
+            <Field label="الرتبة">
+              <SearchSelect
+                value={rank ? rank : null}
+                onChange={(next) => setRank(next ?? '')}
+                options={RANK_OPTIONS}
+                ariaLabel="الرتبة"
+                placeholder="اختر الرتبة"
+              />
+            </Field>
             <Select
               label="الدور"
               value={role}

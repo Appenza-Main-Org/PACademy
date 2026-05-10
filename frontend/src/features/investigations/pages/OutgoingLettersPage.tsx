@@ -72,9 +72,9 @@ export function OutgoingLettersPage(): JSX.Element {
   });
 
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [to, setTo] = useState(RECIPIENTS[0]!);
+  const [to, setTo] = useState(RECIPIENTS[0]);
   const [subject, setSubject] = useState('استعلام عن سجل المتقدم');
-  const [template, setTemplate] = useState(TEMPLATES[0]!.value);
+  const [template, setTemplate] = useState(TEMPLATES[0].value);
 
   const columns: DataTableColumn<OutgoingLetter>[] = [
     { key: 'id', label: 'الرقم', width: 96, render: (l) => <span className="font-mono" dir="ltr">{l.id}</span> },

@@ -253,4 +253,23 @@
   --shadow-brand: var(--shadow-md);
   --app-accent:    var(--accent-500);
   --app-accent-bg: var(--accent-50);
+
+  /* Bridge aliases for CLAUDE.md §2.5 vocabulary used by shared/components/.
+     Map the friendly names referenced in component JSDoc and the §2.5
+     contract back to the canonical duration / ease / focus-shadow tokens. */
+  --motion-instant: var(--duration-instant);
+  --motion-fast:    var(--duration-fast);
+  --motion-base:    var(--duration-base);
+  --motion-slow:    var(--duration-slow);
+  --motion-slower:  var(--duration-slower);
+  --motion-ease:    var(--ease-standard);
+  /* `--ring` is the per-app-flavoured focus ring (teal default; flips with data-app). */
+  --ring: var(--shadow-focus-teal);
 }
+
+/* Per-app focus-ring flavour (mirrors the accent overrides in apps.css). */
+[data-app='committee']      { --ring: var(--shadow-focus-gold); }
+[data-app='board']          { --ring: var(--shadow-focus-gold); }
+[data-app='exams']          { --ring: var(--shadow-focus-gold); }
+[data-app='investigations'] { --ring: var(--shadow-focus-terra); }
+[data-app='biometric']      { --ring: var(--shadow-focus-terra); }

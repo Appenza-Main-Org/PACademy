@@ -60,6 +60,11 @@ import {
   WORKFLOWS,
   WORKFLOW_TRANSITIONS,
 } from './workflows';
+import { LOOKUP_SEED } from './lookups';
+import { ACADEMY_EXAMS, CYCLE_CATEGORY_EXAM_PLANS } from './academyExams';
+import { ROLE_DEFINITION_SEED } from './roles';
+import { ADMIN_NOTIFICATIONS_SEED } from './adminNotifications';
+import { buildAdminPayments } from './adminPayments';
 
 reseed(42);
 
@@ -89,7 +94,7 @@ function pickWeightedGovernorate(): string {
     r -= GOVERNORATE_WEIGHTS[g] ?? 1;
     if (r <= 0) return g;
   }
-  return GOVERNORATES[0]!;
+  return GOVERNORATES[0];
 }
 
 function genNationalIdFor(governorate: string, birth: Date): string {
@@ -146,7 +151,7 @@ for (let i = 0; i < TOTAL_APPLICANTS; i += 1) {
     certYear: 2025,
     status,
     stage,
-    stageLabel: STAGE_LABELS[stage] ?? STAGE_LABELS[0]!,
+    stageLabel: STAGE_LABELS[stage] ?? STAGE_LABELS[0],
     committee: pick(COMMITTEES_NAMES),
     registeredAt: new Date(Date.now() - Math.floor(rng() * 75 * 24 * 3600 * 1000)).toISOString(),
     paymentStatus: rng() < 0.78 ? 'paid' : 'pending',
@@ -167,7 +172,7 @@ for (let i = 0; i < TOTAL_APPLICANTS; i += 1) {
 
 /** Helper for components that need to show a rich "school" reference. */
 export function pickSchoolFor(_governorate: string): string {
-  return EGYPTIAN_SCHOOLS[Math.floor(rng() * EGYPTIAN_SCHOOLS.length)]!;
+  return EGYPTIAN_SCHOOLS[Math.floor(rng() * EGYPTIAN_SCHOOLS.length)];
 }
 
 const users: SystemUser[] = [
@@ -250,9 +255,9 @@ for (const a of APPLICANTS_WITH_AUDIT) {
   const dayMs = 86_400_000;
   const count = 5 + Math.floor(rng() * 6);
   for (let i = 0; i < count; i += 1) {
-    const tpl = APPLICANT_AUDIT_TEMPLATES[i % APPLICANT_AUDIT_TEMPLATES.length]!;
+    const tpl = APPLICANT_AUDIT_TEMPLATES[i % APPLICANT_AUDIT_TEMPLATES.length];
     const userIdx = Math.floor(rng() * users.length);
-    const u = users[userIdx]!;
+    const u = users[userIdx];
     const id = `AUD-AP-${String(applicantAuditSerial).padStart(6, '0')}`;
     applicantAuditSerial += 1;
     audit.push({
@@ -402,7 +407,7 @@ function pickSessionStatus(): SessionStatus {
 const liveExamSessions: ExamSession[] = [];
 const nowSeed = Date.now();
 for (let i = 0; i < PROCTOR_SESSION_COUNT; i += 1) {
-  const applicant = applicants[i] ?? applicants[i % applicants.length]!;
+  const applicant = applicants[i] ?? applicants[i % applicants.length];
   const status = pickSessionStatus();
   const startedOffsetMs = Math.floor(60_000 + rng() * 40 * 60_000); // 1–41 min ago
   const startedAt = status === 'not-started' ? null : nowSeed - startedOffsetMs;
@@ -497,4 +502,15 @@ export const MOCK = {
   workflows: WORKFLOWS,
   applicantWorkflowProgress: APPLICANT_WORKFLOW_PROGRESS,
   workflowTransitions: WORKFLOW_TRANSITIONS,
+  /* Generic lookup matrix (admin-gaps Gap I) */
+  lookups: LOOKUP_SEED,
+  /* Academy exam catalogue (admin-gaps Gap J) */
+  academyExams: ACADEMY_EXAMS,
+  cycleCategoryExamPlans: CYCLE_CATEGORY_EXAM_PLANS,
+  /* Dynamic roles + permission matrix (admin-gaps Gap C) */
+  roleDefinitions: ROLE_DEFINITION_SEED,
+  /* Admin-authored notifications (admin-gaps Gap L) */
+  adminNotifications: ADMIN_NOTIFICATIONS_SEED,
+  /* Admin Fawry payment ledger (admin-gaps Gap K) */
+  adminPayments: buildAdminPayments(applicants),
 };

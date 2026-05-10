@@ -42,7 +42,7 @@ describe('ApplicantDetailPage', () => {
   });
 
   it('renders the applicant name from the server payload', async () => {
-    const target = MOCK.applicants[0]!;
+    const target = MOCK.applicants[0];
     renderWithProviders(
       <Routes>
         <Route path="/admin/applicants/:id" element={<ApplicantDetailPage />} />
@@ -56,7 +56,7 @@ describe('ApplicantDetailPage', () => {
   });
 
   it('does not render the lastModified indicator when field is absent', async () => {
-    const target = MOCK.applicants[0]!;
+    const target = MOCK.applicants[0];
     renderWithProviders(
       <Routes>
         <Route path="/admin/applicants/:id" element={<ApplicantDetailPage />} />
@@ -71,7 +71,7 @@ describe('ApplicantDetailPage', () => {
   });
 
   it('renders the lastModified indicator when server payload carries it', async () => {
-    const target = MOCK.applicants[1]!;
+    const target = MOCK.applicants[1];
     target.lastModifiedAt = '2026-05-08T10:30:00.000Z';
     target.lastModifiedBy = 'مدير الاختبار';
 

@@ -12,10 +12,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, Plus, Save, Trash2 } from 'lucide-react';
 import {
+  Badge,
   Button,
   Card,
+  Drawer,
   ErrorState,
   Input,
   LoadingState,
@@ -25,20 +27,26 @@ import {
   toast,
 } from '@/shared/components';
 import type {
+  Applicant,
   ApplicantCategory,
   ApplicantCategoryKey,
   CategoryCondition,
+  CategoryConditions,
   RequiredTest,
   RequiredTestKind,
   RequiredQualification,
 } from '@/shared/types/domain';
 import { ROUTES } from '@/config/routes';
 import { TEST_KIND_LABEL_AR } from '@/features/applicant-portal/lib/category-test-labels';
+import { useAuthStore } from '@/features/auth';
 import {
+  usePreviewCategoryRuleChange,
   useCategoryAdmin,
   useUpdateCategoryMutation,
+  useUpdateExpandedConditions,
 } from '../api/categories.queries';
 import { categoriesAdminService } from '../api/categories.service';
+import { CategoryConditionBuilder } from '../components/categories/CategoryConditionBuilder';
 
 const TEST_KIND_OPTIONS: RequiredTestKind[] = [
   'aptitude',
@@ -71,19 +79,31 @@ export function CategoryEditPage(): JSX.Element {
   const { key = '' } = useParams<{ key: string }>();
   const categoryKey = key as ApplicantCategoryKey;
   const navigate = useNavigate();
+  const isSuperAdmin = useAuthStore((s) => s.user?.role === 'super_admin');
   const detailQuery = useCategoryAdmin(categoryKey);
   const updateMut = useUpdateCategoryMutation();
+  const previewMut = usePreviewCategoryRuleChange();
+  const expandedMut = useUpdateExpandedConditions();
   const [draft, setDraft] = useState<ApplicantCategory | null>(null);
+  const [expandedDraft, setExpandedDraft] = useState<CategoryConditions | null>(null);
+  const [impact, setImpact] = useState<{
+    impactedApplicants: Applicant[];
+    conflicts: { applicantId: string; failingRule: string }[];
+  } | null>(null);
+  const [impactOpen, setImpactOpen] = useState(false);
 
   useEffect(() => {
-    if (detailQuery.data) setDraft(detailQuery.data);
+    if (detailQuery.data) {
+      setDraft(detailQuery.data);
+      setExpandedDraft(detailQuery.data.expandedConditions ?? CategoryConditionBuilder.empty);
+    }
   }, [detailQuery.data]);
 
   const isSpec = useMemo(() => categoriesAdminService.isSpecCategory(categoryKey), [categoryKey]);
 
   if (detailQuery.isLoading) return <LoadingState variant="page" />;
   if (detailQuery.error) {
-    return <ErrorState error={detailQuery.error as Error} onRetry={() => detailQuery.refetch()} />;
+    return <ErrorState error={detailQuery.error} onRetry={() => detailQuery.refetch()} />;
   }
   if (!detailQuery.data || !draft) {
     return <ErrorState error={new Error('الفئة غير موجودة')} />;
@@ -97,13 +117,49 @@ export function CategoryEditPage(): JSX.Element {
           toast(`تم حفظ "${draft.labelAr}"`, 'success');
           navigate(ROUTES.admin.categories);
         },
-        onError: (err) => toast((err as Error).message, 'danger'),
+        onError: (err) => toast((err).message, 'danger'),
       },
     );
   };
 
   const updateConditions = (patch: Partial<CategoryCondition>): void => {
     setDraft({ ...draft, conditions: { ...draft.conditions, ...patch } });
+  };
+
+  /**
+   * Save flow for the expanded condition matrix (Gap G).
+   * 1. Run previewRuleChangeImpact to count affected applicants.
+   * 2. If zero impact → save with action `category_rules_changed`.
+   * 3. If non-zero → open the impact drawer; super_admin can override
+   *    to save with `category_rules_changed_with_override`.
+   */
+  const onSaveExpanded = async (): Promise<void> => {
+    if (!expandedDraft) return;
+    const result = await previewMut.mutateAsync({ key: categoryKey, conditions: expandedDraft });
+    if (result.impactedApplicants.length === 0) {
+      await expandedMut.mutateAsync({ key: categoryKey, conditions: expandedDraft });
+      toast('تم حفظ شروط الفئة', 'success');
+      return;
+    }
+    setImpact(result);
+    setImpactOpen(true);
+  };
+
+  const onConfirmOverride = async (): Promise<void> => {
+    if (!expandedDraft || !impact) return;
+    if (!isSuperAdmin) {
+      toast('التجاوز مسموح للمدير الرئيسي فقط', 'danger');
+      return;
+    }
+    await expandedMut.mutateAsync({
+      key: categoryKey,
+      conditions: expandedDraft,
+      override: true,
+      impactedApplicantIds: impact.impactedApplicants.map((a) => a.id),
+    });
+    toast('تم حفظ الشروط مع تجاوز التأثير', 'success');
+    setImpactOpen(false);
+    setImpact(null);
   };
 
   return (
@@ -247,6 +303,32 @@ export function CategoryEditPage(): JSX.Element {
         </div>
       </Card>
 
+      {expandedDraft && (
+        <section className="flex flex-col gap-3">
+          <header className="flex items-center justify-between">
+            <div>
+              <h3 className="font-ar-display text-lg font-bold text-ink-900">شروط القبول الموسّعة</h3>
+              <p className="text-2xs text-ink-500">
+                مجموعة شروط متقدمة مدعومة بالبيانات المرجعية — يحلل النظام أثر تغييرها قبل الحفظ.
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              leadingIcon={<Save size={14} strokeWidth={1.75} />}
+              onClick={onSaveExpanded}
+              isLoading={previewMut.isPending || expandedMut.isPending}
+            >
+              تحليل الأثر وحفظ
+            </Button>
+          </header>
+          <CategoryConditionBuilder
+            value={expandedDraft}
+            onChange={setExpandedDraft}
+            readOnly={isSpec && !isSuperAdmin}
+          />
+        </section>
+      )}
+
       <Card>
         <h3 className="mb-3 font-ar-display text-md font-bold text-ink-900">الاختبارات والإجراءات</h3>
         <RequiredTestsEditor
@@ -258,6 +340,58 @@ export function CategoryEditPage(): JSX.Element {
           onChange={(procedures) => setDraft({ ...draft, procedures })}
         />
       </Card>
+
+      <Drawer
+        open={impactOpen}
+        onClose={() => setImpactOpen(false)}
+        title="تأثير تعديل الشروط"
+        subtitle={impact ? `${impact.impactedApplicants.length} متقدم متأثر · ${impact.conflicts.length} مخالفة` : undefined}
+        size="md"
+      >
+        <Drawer.Body>
+          {impact && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 rounded-md border border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700">
+                <AlertTriangle size={14} strokeWidth={1.75} className="mt-0.5" />
+                <p>
+                  {isSuperAdmin
+                    ? 'بصفتك مديراً رئيسياً، يمكنك التجاوز والحفظ. سيتم تسجيل الإجراء في سجل النشاط مع قائمة المتأثرين.'
+                    : 'لا تملك صلاحية تجاوز هذا الأثر. الحفظ متاح للمدير الرئيسي فقط.'}
+                </p>
+              </div>
+              <ul className="divide-y divide-border-subtle rounded-md border border-border-subtle">
+                {impact.impactedApplicants.slice(0, 50).map((ap) => (
+                  <li key={ap.id} className="flex items-center justify-between gap-3 px-3 py-2 text-2xs">
+                    <span className="text-ink-900">{ap.name}</span>
+                    <Badge tone="warning">
+                      {(impact.conflicts.find((c) => c.applicantId === ap.id)?.failingRule ?? '').replace(/_/g, ' ')}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+              {impact.impactedApplicants.length > 50 && (
+                <p className="text-2xs text-ink-500">
+                  وعدد إجمالي{' '}
+                  <span className="font-numeric tnum">{impact.impactedApplicants.length}</span> متقدم — يُعرض أوّل 50.
+                </p>
+              )}
+            </div>
+          )}
+        </Drawer.Body>
+        <Drawer.Footer>
+          <Button variant="ghost" onClick={() => setImpactOpen(false)}>
+            إلغاء
+          </Button>
+          <Button
+            variant="danger"
+            isLoading={expandedMut.isPending}
+            disabled={!isSuperAdmin}
+            onClick={onConfirmOverride}
+          >
+            تجاوز وحفظ
+          </Button>
+        </Drawer.Footer>
+      </Drawer>
     </div>
   );
 }
@@ -340,7 +474,7 @@ function RequiredTestsEditor({
 }): JSX.Element {
   const update = (i: number, patch: Partial<RequiredTest>): void => {
     const next = [...tests];
-    next[i] = { ...next[i]!, ...patch };
+    next[i] = { ...next[i], ...patch };
     onChange(reorder(next));
   };
   const remove = (i: number): void => onChange(reorder(tests.filter((_, idx) => idx !== i)));
@@ -348,7 +482,7 @@ function RequiredTestsEditor({
     const j = i + dir;
     if (j < 0 || j >= tests.length) return;
     const next = [...tests];
-    [next[i], next[j]] = [next[j]!, next[i]!];
+    [next[i], next[j]] = [next[j], next[i]];
     onChange(reorder(next));
   };
   const add = (): void => {

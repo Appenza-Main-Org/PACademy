@@ -15,9 +15,9 @@ const GOV   = ['القاهرة', 'الجيزة', 'الإسكندرية', 'الش
 export interface AppRef { id: string; name: string; governorate: string }
 
 export const MOCK_APPLICANTS_FOR_REFS: readonly AppRef[] = Array.from({ length: 240 }, (_, i) => {
-  const f = FIRST[i % FIRST.length] ?? FIRST[0]!;
-  const l = LAST[(i * 3) % LAST.length] ?? LAST[0]!;
-  const g = GOV[i % GOV.length] ?? GOV[0]!;
+  const f = FIRST[i % FIRST.length] ?? FIRST[0];
+  const l = LAST[(i * 3) % LAST.length] ?? LAST[0];
+  const g = GOV[i % GOV.length] ?? GOV[0];
   return {
     id: `APP-${String(2026000 + i).padStart(7, '0')}`,
     name: `${f} ${l}`,

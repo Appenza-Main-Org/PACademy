@@ -338,7 +338,7 @@ function Section3(): JSX.Element {
       <Card>
         <DataTable<AppRow>
           columns={columns}
-          data={APPLICATIONS as readonly AppRow[]}
+          data={APPLICATIONS}
           density="default"
         />
       </Card>
@@ -685,7 +685,7 @@ function Section9(): JSX.Element {
       <Card>
         <DataTable<NfrRow>
           columns={columns}
-          data={NFRS as readonly NfrRow[]}
+          data={NFRS}
           density="default"
         />
       </Card>

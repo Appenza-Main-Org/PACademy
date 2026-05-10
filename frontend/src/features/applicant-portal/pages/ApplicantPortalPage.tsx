@@ -4,17 +4,19 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Calendar, ClipboardList, FileText, GraduationCap, HelpCircle, Mail, Phone, ShieldCheck } from 'lucide-react';
+import { Bell, Calendar, ClipboardList, FileText, GraduationCap, HelpCircle, Mail, Phone, ShieldCheck } from 'lucide-react';
 import { Badge, Button, Card } from '@/shared/components';
 import { useDraft } from '../api/applicantPortal.queries';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { date as fmtDate } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
+import { useApplicantNotifications } from '@/features/admin';
 
 const APPLICANT_ID = 'APP-2026000';
 
 export function ApplicantPortalPage(): JSX.Element {
   const { data: draft } = useDraft(APPLICANT_ID);
+  const { data: notifications = [] } = useApplicantNotifications(APPLICANT_ID);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const next = nextStagePath(draft?.furthestStage ?? 0);
   const hasStartedApplication = Boolean(selectedCategoryKey);
@@ -72,6 +74,42 @@ export function ApplicantPortalPage(): JSX.Element {
         </div>
       </Card>
 
+      {notifications.length > 0 && (
+        <section>
+          <h2 className="mb-3 inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
+            <Bell size={18} strokeWidth={1.75} />
+            إشعارات النظام
+          </h2>
+          <div className="flex flex-col gap-3">
+            {notifications.map((n) => (
+              <Card key={n.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink-900">{n.titleAr}</p>
+                    <p className="mt-1 text-sm leading-normal text-ink-700">{n.bodyAr}</p>
+                    <p className="mt-2 text-2xs text-ink-500">
+                      منشور في {fmtDate(n.publishAt, 'short')}
+                      {n.expireAt && ` · ينتهي ${fmtDate(n.expireAt, 'short')}`}
+                    </p>
+                  </div>
+                  <Badge tone={n.type === 'general' ? 'neutral' : 'info'}>
+                    {n.type === 'general'
+                      ? 'عام'
+                      : n.type === 'student'
+                      ? 'موجه لك'
+                      : n.type === 'category'
+                      ? 'فئة'
+                      : n.type === 'committee'
+                      ? 'لجنة'
+                      : 'قسم'}
+                  </Badge>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="mb-3 inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
           <HelpCircle size={18} strokeWidth={1.75} />
@@ -105,7 +143,7 @@ function nextStagePath(furthestStage: number): { path: string; label: string } {
     { path: 'acquaintance-doc', label: 'وثيقة التعارف' },
   ];
   const idx = Math.min(stages.length - 1, Math.max(0, furthestStage));
-  return stages[idx]!;
+  return stages[idx];
 }
 
 function SupportCard({

@@ -115,7 +115,7 @@ export function EligibilityCheckPage(): JSX.Element {
 
   if (categoriesQuery.isLoading || cyclesQuery.isLoading) return <LoadingState variant="page" />;
   if (categoriesQuery.error) {
-    return <ErrorState error={categoriesQuery.error as Error} onRetry={() => categoriesQuery.refetch()} />;
+    return <ErrorState error={categoriesQuery.error} onRetry={() => categoriesQuery.refetch()} />;
   }
 
   /* Category not found in public list — likely nomination-only. The service

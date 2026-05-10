@@ -120,7 +120,7 @@ export const OUTGOING_LETTERS: OutgoingLetter[] = (() => {
   const recipients = ['الإدارة العامة للأحوال المدنية', 'الإدارة العامة لمكافحة المخدرات', 'مديرية الأمن — القاهرة', 'وزارة الخارجية'];
   return Array.from({ length: 18 }, (_, i) => ({
     id: `LET-${String(i + 1).padStart(5, '0')}`,
-    to: recipients[i % recipients.length] ?? recipients[0]!,
+    to: recipients[i % recipients.length] ?? recipients[0],
     subject: 'استعلام عن سجل المتقدم',
     template: 'standard-inquiry',
     status: pick([

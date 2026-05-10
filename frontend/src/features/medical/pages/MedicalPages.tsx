@@ -59,7 +59,7 @@ export function MedicalOverviewPage(): JSX.Element {
 
 export function MedicalQueuePage(): JSX.Element {
   const [params, setParams] = useSearchParams();
-  const stationId = params.get('station') ?? MOCK.medicalStations[0]!.id;
+  const stationId = params.get('station') ?? MOCK.medicalStations[0].id;
   const { data: queue, isLoading } = useQuery({
     queryKey: ['medical', 'queue', stationId],
     queryFn: () => medicalService.getQueue(stationId),
@@ -138,9 +138,9 @@ export function MedicalResultsPage(): JSX.Element {
                 {MOCK.applicants.slice(0, 12).map((a, i) => (
                   <tr key={a.id}>
                     <td>{shortName(a.name, 3)}</td>
-                    <td>{MOCK.medicalStations[i % MOCK.medicalStations.length]!.name}</td>
+                    <td>{MOCK.medicalStations[i % MOCK.medicalStations.length].name}</td>
                     <td><ResultBadge outcome={a.results.medical} /></td>
-                    <td className="text-xs text-tertiary">{MOCK.medicalStations[i % MOCK.medicalStations.length]!.doctor}</td>
+                    <td className="text-xs text-tertiary">{MOCK.medicalStations[i % MOCK.medicalStations.length].doctor}</td>
                   </tr>
                 ))}
               </tbody>

@@ -62,7 +62,7 @@ function pushAudit(
     timestamp: Date.now(),
     ip: '10.0.0.1',
   };
-  (MOCK.audit as AuditEntry[]).unshift(entry);
+  (MOCK.audit).unshift(entry);
 }
 
 let stageCounter = 1000;
@@ -130,7 +130,7 @@ export const workflowsService = {
     const idx = STATE.findIndex((wf) => wf.id === id);
     if (idx === -1) throw new Error('سير العمل غير موجود');
     const next: DepartmentWorkflow = {
-      ...STATE[idx]!,
+      ...STATE[idx],
       ...payload,
       stages: payload.stages
         ? rekeyStages(
@@ -140,8 +140,8 @@ export const workflowsService = {
               tests: s.tests.map((t) => ({ ...t, id: t.id || genTestId() })),
             })),
           )
-        : STATE[idx]!.stages,
-      version: STATE[idx]!.version + 1,
+        : STATE[idx].stages,
+      version: STATE[idx].version + 1,
       updatedAt: new Date().toISOString(),
       updatedBy: 'العميد د. أحمد محمود الفقي',
     };
@@ -154,7 +154,7 @@ export const workflowsService = {
     await simulateLatency();
     const idx = STATE.findIndex((wf) => wf.id === id);
     if (idx === -1) throw new Error('سير العمل غير موجود');
-    const original = STATE[idx]!;
+    const original = STATE[idx];
     const byId = new Map(original.stages.map((s) => [s.id, s] as const));
     const reordered = stageIds
       .map((sid) => byId.get(sid))
@@ -205,7 +205,7 @@ export const workflowsService = {
     const idx = STATE.findIndex((wf) => wf.id === id);
     if (idx === -1) throw new Error('سير العمل غير موجود');
     const [removed] = STATE.splice(idx, 1);
-    pushAudit('DepartmentWorkflow', id, 'workflow.delete', `تم حذف "${removed!.name}"`);
+    pushAudit('DepartmentWorkflow', id, 'workflow.delete', `تم حذف "${removed.name}"`);
     return { ok: true };
   },
 
@@ -213,18 +213,18 @@ export const workflowsService = {
    * Consumed by features/applicants/api/applicant.service.ts. Shared via
    * MOCK so both services stay in sync without circular imports. */
   getProgressState(): ApplicantWorkflowProgress[] {
-    return MOCK.applicantWorkflowProgress as ApplicantWorkflowProgress[];
+    return MOCK.applicantWorkflowProgress;
   },
   setProgressState(applicantId: string, next: ApplicantWorkflowProgress): void {
-    const arr = MOCK.applicantWorkflowProgress as ApplicantWorkflowProgress[];
+    const arr = MOCK.applicantWorkflowProgress;
     const i = arr.findIndex((p) => p.applicantId === applicantId);
     if (i === -1) arr.push(next);
     else arr[i] = next;
   },
   getTransitionState(): WorkflowTransitionEvent[] {
-    return MOCK.workflowTransitions as WorkflowTransitionEvent[];
+    return MOCK.workflowTransitions;
   },
   appendTransition(event: WorkflowTransitionEvent): void {
-    (MOCK.workflowTransitions as WorkflowTransitionEvent[]).unshift(event);
+    (MOCK.workflowTransitions).unshift(event);
   },
 };

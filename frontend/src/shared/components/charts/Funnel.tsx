@@ -47,7 +47,7 @@ export function Funnel({
     <div role="img" aria-label={ariaLabel} className="flex w-full flex-col gap-2">
       {stages.map((stage, i) => {
         const ratio = stage.value / max;
-        const previousValue = i > 0 ? stages[i - 1]!.value : null;
+        const previousValue = i > 0 ? stages[i - 1].value : null;
         const dropPct =
           previousValue && previousValue > 0
             ? Math.round(((previousValue - stage.value) / previousValue) * 100)

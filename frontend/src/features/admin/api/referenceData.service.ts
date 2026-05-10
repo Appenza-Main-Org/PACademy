@@ -1,307 +1,68 @@
 /**
- * Reference data — real API integration (spec 004 US1).
+ * Reference data API Contract — Sprint 1 (KARASA_GAPS §1.2.B).
  *
- * INTEGRATION CONTRACT (backend: AdminReferenceDataController + ReferenceDataController):
- *   GET    /admin/reference-data?category=…             → PagedResult<ReferenceDataListItemDto>
- *   GET    /admin/reference-data/:id                    → ReferenceDataDetailDto
- *   POST   /admin/reference-data                        → ReferenceDataDetailDto (201)
- *   PATCH  /admin/reference-data/:id                    → ReferenceDataDetailDto
- *   POST   /admin/reference-data/:id/archive            → 204
- *   GET    /reference-data?category=…                   → PagedResult<ReferenceDataListItemDto> (active only)
+ * INTEGRATION CONTRACT:
+ *   GET    /api/reference-data/:tab                  → row[]
+ *   POST   /api/reference-data/:tab                  → row
+ *   PATCH  /api/reference-data/:tab/:id              → row
+ *   DELETE /api/reference-data/:tab/:id              → { ok }
+ *   POST   /api/reference-data/:tab/bulk-import      → { imported, errors }
  *
- * The backend stores all 8 lookup categories in a single table with
- * `(category, key, nameAr, nameEn?, metadata, sortOrder, isActive, archived)`.
- * Per-tab extras (region, code, level, isoCode, …) round-trip through the
- * `metadata` JSON column so the typed frontend rows stay intact.
+ * Mock CRUD writes to an in-memory snapshot of the deterministic seed so
+ * demo flows can mutate without persisting beyond the page session.
  */
 
-import { apiClient } from '@/shared/api/client';
-import type { PagedResult } from '@/shared/types/api';
-import type {
-  RefCaseType,
-  RefCollege,
-  RefGovernorate,
-  RefNationality,
-  RefQualification,
-  RefRank,
-  RefRelationship,
-  RefSpecialization,
-  ReferenceRowMap,
-  ReferenceTab,
-} from '@/shared/types/domain';
+import { MOCK } from '@/shared/mock-data';
+import { simulateLatency } from '@/shared/lib/mock-helpers';
+import { emitAudit } from '@/shared/lib/audit';
+import {
+  applyRestore,
+  applySoftDelete,
+  filterDeleted,
+  type DependencyResult,
+} from '@/shared/lib/soft-delete';
+import type { ReferenceRowMap, ReferenceTab, SoftDeleteFields } from '@/shared/types/domain';
 
-// ── Backend DTO shapes ────────────────────────────────────────────────────────
+/**
+ * Internally we erase the generic to a record of `unknown[]` to avoid the
+ * TypeScript variance pitfalls when assigning back to a polymorphic key.
+ * External methods cast on the boundary so consumers still get full typing.
+ */
+type LooseState = Record<ReferenceTab, unknown[]>;
 
-interface ReferenceDataDetailDto {
-  id: string;
-  category: string;
-  key: string;
-  nameAr: string;
-  nameEn: string | null;
-  metadata: string | null;
-  sortOrder: number;
-  isActive: boolean;
-  archived: boolean;
-  createdAt: string;
-  archivedAt: string | null;
-  demoOrigin: boolean;
-}
-
-interface ReferenceDataListItemDto {
-  id: string;
-  category: string;
-  key: string;
-  nameAr: string;
-  nameEn: string | null;
-  sortOrder: number;
-  isActive: boolean;
-  archived: boolean;
-}
-
-// ── Tab ↔ category mapping ───────────────────────────────────────────────────
-
-const TAB_TO_CATEGORY: Record<ReferenceTab, string> = {
-  governorates: 'governorate',
-  specializations: 'specialization',
-  ranks: 'rank',
-  colleges: 'college',
-  qualifications: 'qualification',
-  nationalities: 'nationality',
-  relationships: 'relationship',
-  'case-types': 'case-type',
+const STATE: LooseState = {
+  governorates:    [...MOCK.referenceData.governorates],
+  specializations: [...MOCK.referenceData.specializations],
+  ranks:           [...MOCK.referenceData.ranks],
+  colleges:        [...MOCK.referenceData.colleges],
+  qualifications:  [...MOCK.referenceData.qualifications],
+  nationalities:   [...MOCK.referenceData.nationalities],
+  relationships:   [...MOCK.referenceData.relationships],
+  'case-types':    [...MOCK.referenceData['case-types']],
 };
 
-// ── Mapping helpers ───────────────────────────────────────────────────────────
-
-function parseMetadata(raw: string | null): Record<string, unknown> {
-  if (!raw) return {};
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function backendToRow<K extends ReferenceTab>(
-  tab: K,
-  dto: ReferenceDataListItemDto | ReferenceDataDetailDto,
-): ReferenceRowMap[K] {
-  const meta = 'metadata' in dto ? parseMetadata(dto.metadata) : {};
-
-  switch (tab) {
-    case 'governorates': {
-      const row: RefGovernorate = {
-        id: dto.id,
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn ?? '',
-        region: (meta.region as RefGovernorate['region']) ?? 'cairo',
-        active: dto.isActive,
-      };
-      return row as ReferenceRowMap[K];
-    }
-    case 'specializations': {
-      const row: RefSpecialization = {
-        id: dto.id,
-        nameAr: dto.nameAr,
-        code: (meta.code as string) ?? dto.key,
-        facultyType: (meta.facultyType as RefSpecialization['facultyType']) ?? 'civil',
-        active: dto.isActive,
-      };
-      return row as ReferenceRowMap[K];
-    }
-    case 'ranks': {
-      const row: RefRank = {
-        id: dto.id,
-        nameAr: dto.nameAr,
-        level: typeof meta.level === 'number' ? meta.level : Number(meta.level ?? 1),
-        applicableTo: (meta.applicableTo as RefRank['applicableTo']) ?? 'officer',
-      };
-      return row as ReferenceRowMap[K];
-    }
-    case 'colleges': {
-      const row: RefCollege = {
-        id: dto.id,
-        nameAr: dto.nameAr,
-        governorateId: (meta.governorateId as string) ?? '',
-        type: (meta.type as RefCollege['type']) ?? 'public',
-        active: dto.isActive,
-      };
-      return row as ReferenceRowMap[K];
-    }
-    case 'qualifications': {
-      const row: RefQualification = {
-        id: dto.id,
-        nameAr: dto.nameAr,
-        level: (meta.level as RefQualification['level']) ?? 'diploma',
-        facultyRequired: Boolean(meta.facultyRequired),
-      };
-      return row as ReferenceRowMap[K];
-    }
-    case 'nationalities': {
-      const row: RefNationality = {
-        id: dto.id,
-        nameAr: dto.nameAr,
-        nameEn: dto.nameEn ?? '',
-        isoCode: (meta.isoCode as string) ?? dto.key.toUpperCase(),
-      };
-      return row as ReferenceRowMap[K];
-    }
-    case 'relationships': {
-      const row: RefRelationship = {
-        id: dto.id,
-        nameAr: dto.nameAr,
-        degree: (Number(meta.degree ?? 1) as RefRelationship['degree']),
-        side: (meta.side as RefRelationship['side']) ?? 'paternal',
-      };
-      return row as ReferenceRowMap[K];
-    }
-    case 'case-types':
-    default: {
-      const row: RefCaseType = {
-        id: dto.id,
-        nameAr: dto.nameAr,
-        severity: (meta.severity as RefCaseType['severity']) ?? 'low',
-        blocksApplication: Boolean(meta.blocksApplication),
-      };
-      return row as ReferenceRowMap[K];
-    }
-  }
-}
-
-interface RowExtract {
-  nameAr: string;
-  nameEn: string | undefined;
-  isActive: boolean;
-  metadata: Record<string, unknown>;
-}
-
-function rowToBackend<K extends ReferenceTab>(
-  tab: K,
-  row: Record<string, unknown>,
-): RowExtract {
-  const nameAr = (row.nameAr as string) ?? '';
-  const isActive = 'active' in row ? Boolean(row.active) : true;
-
-  switch (tab) {
-    case 'governorates': {
-      const r = row as Partial<RefGovernorate>;
-      return {
-        nameAr,
-        nameEn: r.nameEn,
-        isActive,
-        metadata: { region: r.region ?? 'cairo' },
-      };
-    }
-    case 'specializations': {
-      const r = row as Partial<RefSpecialization>;
-      return {
-        nameAr,
-        nameEn: undefined,
-        isActive,
-        metadata: { code: r.code ?? '', facultyType: r.facultyType ?? 'civil' },
-      };
-    }
-    case 'ranks': {
-      const r = row as Partial<RefRank>;
-      return {
-        nameAr,
-        nameEn: undefined,
-        isActive: true,
-        metadata: { level: Number(r.level ?? 1), applicableTo: r.applicableTo ?? 'officer' },
-      };
-    }
-    case 'colleges': {
-      const r = row as Partial<RefCollege>;
-      return {
-        nameAr,
-        nameEn: undefined,
-        isActive,
-        metadata: { governorateId: r.governorateId ?? '', type: r.type ?? 'public' },
-      };
-    }
-    case 'qualifications': {
-      const r = row as Partial<RefQualification>;
-      return {
-        nameAr,
-        nameEn: undefined,
-        isActive: true,
-        metadata: { level: r.level ?? 'diploma', facultyRequired: Boolean(r.facultyRequired) },
-      };
-    }
-    case 'nationalities': {
-      const r = row as Partial<RefNationality>;
-      return {
-        nameAr,
-        nameEn: r.nameEn,
-        isActive: true,
-        metadata: { isoCode: r.isoCode ?? '' },
-      };
-    }
-    case 'relationships': {
-      const r = row as Partial<RefRelationship>;
-      return {
-        nameAr,
-        nameEn: undefined,
-        isActive: true,
-        metadata: { degree: Number(r.degree ?? 1), side: r.side ?? 'paternal' },
-      };
-    }
-    case 'case-types':
-    default: {
-      const r = row as Partial<RefCaseType>;
-      return {
-        nameAr,
-        nameEn: undefined,
-        isActive: true,
-        metadata: {
-          severity: r.severity ?? 'low',
-          blocksApplication: Boolean(r.blocksApplication),
-        },
-      };
-    }
-  }
-}
-
-/** Stable per-row create key. The backend enforces `[a-z0-9_-]+`; we slug
- *  off the Arabic name and append a short timestamp suffix so duplicate
- *  rows don't collide. */
-function generateBackendKey(nameAr: string): string {
-  const base = nameAr
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40);
-  const suffix = Date.now().toString(36).slice(-6);
-  return base ? `${base}-${suffix}` : `row-${suffix}`;
-}
-
-// ── Service ───────────────────────────────────────────────────────────────────
+let nextId = 1;
+const newId = (tab: ReferenceTab): string =>
+  `${tab.slice(0, 3).toUpperCase()}-NEW-${String(nextId++).padStart(3, '0')}`;
 
 export const referenceDataService = {
-  async list<K extends ReferenceTab>(tab: K): Promise<ReferenceRowMap[K][]> {
-    const category = TAB_TO_CATEGORY[tab];
-    const { data } = await apiClient.get<PagedResult<ReferenceDataListItemDto>>(
-      '/admin/reference-data',
-      { params: { category, pageSize: 200, includeArchived: false, sortBy: 'sortOrder' } },
-    );
-    return data.items.map((item) => backendToRow(tab, item));
+  async list<K extends ReferenceTab>(
+    tab: K,
+    opts: { includeDeleted?: boolean } = {},
+  ): Promise<ReferenceRowMap[K][]> {
+    await simulateLatency();
+    const all = STATE[tab] as ReferenceRowMap[K][];
+    return [...filterDeleted(all as (ReferenceRowMap[K] & SoftDeleteFields)[], opts.includeDeleted)];
   },
 
   async create<K extends ReferenceTab>(
     tab: K,
     payload: Omit<ReferenceRowMap[K], 'id'>,
   ): Promise<ReferenceRowMap[K]> {
-    const extract = rowToBackend(tab, payload as Record<string, unknown>);
-    const { data } = await apiClient.post<ReferenceDataDetailDto>('/admin/reference-data', {
-      category: TAB_TO_CATEGORY[tab],
-      key: generateBackendKey(extract.nameAr),
-      nameAr: extract.nameAr,
-      nameEn: extract.nameEn ?? null,
-      metadata: JSON.stringify(extract.metadata),
-      sortOrder: null,
-    });
-    return backendToRow(tab, data);
+    await simulateLatency();
+    const row = { ...payload, id: newId(tab) } as ReferenceRowMap[K];
+    STATE[tab] = [row, ...(STATE[tab] as ReferenceRowMap[K][])];
+    return row;
   },
 
   async update<K extends ReferenceTab>(
@@ -309,46 +70,100 @@ export const referenceDataService = {
     id: string,
     patch: Partial<ReferenceRowMap[K]>,
   ): Promise<ReferenceRowMap[K]> {
-    const extract = rowToBackend(tab, patch as Record<string, unknown>);
-    const { data } = await apiClient.patch<ReferenceDataDetailDto>(
-      `/admin/reference-data/${id}`,
-      {
-        nameAr: extract.nameAr || null,
-        nameEn: extract.nameEn ?? null,
-        metadata: JSON.stringify(extract.metadata),
-        sortOrder: null,
-        isActive: extract.isActive,
-      },
-    );
-    return backendToRow(tab, data);
+    await simulateLatency();
+    const list = STATE[tab] as ReferenceRowMap[K][];
+    const idx = list.findIndex((r) => (r as { id: string }).id === id);
+    if (idx === -1) throw new Error('السجل غير موجود');
+    const merged = { ...list[idx], ...patch } as ReferenceRowMap[K];
+    list[idx] = merged;
+    return merged;
   },
 
-  async remove<K extends ReferenceTab>(_tab: K, id: string): Promise<{ ok: true }> {
-    await apiClient.post(`/admin/reference-data/${id}/archive`);
+  async remove<K extends ReferenceTab>(tab: K, id: string): Promise<{ ok: true }> {
+    await simulateLatency();
+    STATE[tab] = (STATE[tab] as ReferenceRowMap[K][]).filter(
+      (r) => (r as { id: string }).id !== id,
+    );
     return { ok: true };
+  },
+
+  /**
+   * Reference rows are leaf data — no child entities can reference them
+   * yet (the typed dependency graph is only modelled for cycles/categories
+   * in this gap). Returns an always-non-blocking result so the dialog
+   * still surfaces the audit reason input. Gap I will tighten this when
+   * the lookup matrix lands.
+   */
+  async getDependencies(): Promise<DependencyResult> {
+    await simulateLatency(60, 120);
+    return { counts: {}, blocking: false };
+  },
+
+  async softDelete<K extends ReferenceTab>(
+    tab: K,
+    id: string,
+    reason: string,
+  ): Promise<ReferenceRowMap[K]> {
+    await simulateLatency();
+    const list = STATE[tab] as (ReferenceRowMap[K] & SoftDeleteFields)[];
+    const idx = list.findIndex((r) => (r as { id: string }).id === id);
+    if (idx === -1) throw new Error('السجل غير موجود');
+    const before = { ...list[idx] };
+    const next = applySoftDelete(list[idx], { reason });
+    list[idx] = next;
+    emitAudit({
+      action: 'soft_delete',
+      module: 'lookups',
+      entityType: tab,
+      entityLabel: 'بيانات مرجعية',
+      entityId: id,
+      details: `تم حذف سجل من ${tab} — السبب: ${reason}`,
+      before,
+      after: next,
+    });
+    return next;
+  },
+
+  async restore<K extends ReferenceTab>(tab: K, id: string): Promise<ReferenceRowMap[K]> {
+    await simulateLatency();
+    const list = STATE[tab] as (ReferenceRowMap[K] & SoftDeleteFields)[];
+    const idx = list.findIndex((r) => (r as { id: string }).id === id);
+    if (idx === -1) throw new Error('السجل غير موجود');
+    const before = { ...list[idx] };
+    const next = applyRestore(list[idx]);
+    list[idx] = next;
+    emitAudit({
+      action: 'restore',
+      module: 'lookups',
+      entityType: tab,
+      entityLabel: 'بيانات مرجعية',
+      entityId: id,
+      details: `تم استعادة سجل من ${tab}`,
+      before,
+      after: next,
+    });
+    return next;
   },
 
   async bulkImport<K extends ReferenceTab>(
     tab: K,
     rows: ReadonlyArray<Omit<ReferenceRowMap[K], 'id'>>,
   ): Promise<{ imported: number; errors: { row: number; message: string }[] }> {
+    await simulateLatency(400, 800);
     const errors: { row: number; message: string }[] = [];
     let imported = 0;
-    for (let i = 0; i < rows.length; i += 1) {
-      const r = rows[i] as { nameAr?: string };
+    rows.forEach((row, i) => {
+      const r = row as { nameAr?: string };
       if (!r.nameAr || r.nameAr.trim().length === 0) {
         errors.push({ row: i + 1, message: 'اسم عربي مطلوب' });
-        continue;
+        return;
       }
-      const row = rows[i];
-      if (!row) continue;
-      try {
-        await referenceDataService.create(tab, row);
-        imported += 1;
-      } catch (err) {
-        errors.push({ row: i + 1, message: (err as Error).message ?? 'فشل الإدراج' });
-      }
-    }
+      STATE[tab] = [
+        { ...(row as ReferenceRowMap[K]), id: newId(tab) } as ReferenceRowMap[K],
+        ...(STATE[tab] as ReferenceRowMap[K][]),
+      ];
+      imported += 1;
+    });
     return { imported, errors };
   },
 };

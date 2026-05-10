@@ -16,5 +16,5 @@ export function rng(): number {
 
 export function pick<T>(arr: readonly T[]): T {
   if (arr.length === 0) throw new Error('pick: empty array');
-  return arr[Math.floor(rng() * arr.length)] as T;
+  return arr[Math.floor(rng() * arr.length)];
 }

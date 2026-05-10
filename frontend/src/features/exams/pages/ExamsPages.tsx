@@ -379,7 +379,7 @@ export function ExamsResultsPage(): JSX.Element {
       name: a.name,
       /* Deterministic mid-90s descending so the table sorts cleanly. */
       score: Math.max(50, 96 - i * 0.18 - ((i * 13) % 7)),
-      category: cats[i % cats.length]!,
+      category: cats[i % cats.length],
     }));
   }, []);
 
@@ -401,7 +401,7 @@ export function ExamsResultsPage(): JSX.Element {
     ];
     for (const r of rows) {
       const i = Math.min(4, Math.max(0, Math.floor((r.score - 50) / 10)));
-      buckets[i]!.value += 1;
+      buckets[i].value += 1;
     }
     return buckets;
   }, [rows]);

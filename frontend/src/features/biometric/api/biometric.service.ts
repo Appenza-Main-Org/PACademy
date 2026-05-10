@@ -89,9 +89,9 @@ export const biometricService = {
     const last24h = Array.from({ length: 24 }, (_, h) => ({ ts: Date.now() - h * 3600_000, count: buckets.get(h) ?? 0 }));
     const perStation: Record<string, { total: number; match: number; failed: number }> = { gate: { total: 0, match: 0, failed: 0 }, 'exam-room': { total: 0, match: 0, failed: 0 }, committee: { total: 0, match: 0, failed: 0 } };
     for (const v of recent) {
-      perStation[v.station]!.total += 1;
-      if (v.match) perStation[v.station]!.match += 1;
-      else perStation[v.station]!.failed += 1;
+      perStation[v.station].total += 1;
+      if (v.match) perStation[v.station].match += 1;
+      else perStation[v.station].failed += 1;
     }
     const recentFailures = recent.filter((v) => !v.match).slice(0, 10);
     return { last24h, perStation, recentFailures };

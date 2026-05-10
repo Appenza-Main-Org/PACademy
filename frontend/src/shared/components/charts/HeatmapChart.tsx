@@ -56,14 +56,14 @@ function colorFor(value: number, scale: HeatmapColorScale, max: number): string 
   if (scale === 'pass-rate') {
     const v = Math.min(100, Math.max(0, value));
     for (let i = PASS_RATE_STOPS.length - 1; i >= 0; i -= 1) {
-      if (v >= PASS_RATE_STOPS[i]!.stop) return PASS_RATE_STOPS[i]!.color;
+      if (v >= PASS_RATE_STOPS[i].stop) return PASS_RATE_STOPS[i].color;
     }
-    return PASS_RATE_STOPS[0]!.color;
+    return PASS_RATE_STOPS[0].color;
   }
-  if (max === 0) return VOLUME_STOPS[0]!;
+  if (max === 0) return VOLUME_STOPS[0];
   const ratio = Math.min(1, Math.max(0, value / max));
   const idx = Math.min(VOLUME_STOPS.length - 1, Math.floor(ratio * VOLUME_STOPS.length));
-  return VOLUME_STOPS[idx]!;
+  return VOLUME_STOPS[idx];
 }
 
 function textColorFor(value: number, scale: HeatmapColorScale, max: number): string {

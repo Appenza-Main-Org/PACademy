@@ -429,6 +429,157 @@ If a gap's effort balloons past 1.5x the estimate (S=4h, M=10h, L=20h), stop and
 
 ---
 
+## 8 · Implementation Closeout
+
+> Frozen 2026-05-07 at tag `admin-gaps-complete`. All 13 gaps (A–M)
+> shipped in sequence; Gap N stayed out of scope.
+
+### Gaps completed (13 / 13)
+
+| # | Gap | Status | Notes |
+|---|---|---|---|
+| 1 | E — Audit trail expansion + diff viewer | ✅ | Inline before/after, module/role filters, AuditDiffDrawer |
+| 2 | D — Soft delete + dependency protection | ✅ | `SoftDeletable` mixin, `SoftDeleteDialog`, services for cycles + categories + reference data |
+| 3 | A — Admin OTP + lock policy + login audit | ✅ | Two-step login, lock policy under SettingsPage, 7 audit actions |
+| 4 | B — Officer lookup contract | ✅ | `authService.lookupOfficer` + typed `NotFoundError` |
+| 5 | F — Cycle status workflow | ✅ | `extended` status, `ConflictError('ACTIVE_CYCLE_EXISTS')`, `<ActiveCycleIndicator>` |
+| 6 | I — Reference data lookup matrix | ✅ | 13 new lookups, `<LookupTab>`, parent-child references |
+| 7 | G — Category condition builder + conflict detection | ✅ | `<CategoryConditionBuilder>` + impact preview drawer, super-admin override |
+| 8 | H — Committee capacity + scoping | ✅ | `scheduleSlot` with capacity guard, `<OfficerMultiSelect>` |
+| 9 | J — Exam ordering + copy-from-previous-cycle | ✅ | 13 academy exams seeded, `<ExamPlanEditor>`, copy action on cycle detail |
+| 10 | C — Dynamic roles + permission matrix | ✅ | 11 system roles + Finance Review, `<PermissionMatrix>` table, system-row protection |
+| 11 | L — Notification management | ✅ | `<AudienceSelector>` discriminated UI, `/admin/notifications`, applicant landing surface |
+| 12 | K — Fawry payment admin | ✅ | `paymentsService.syncFawryStatus` placeholder, refund-eligibility view, `payments:review` gate |
+| 13 | M — DB constraints doc | ✅ | `docs/DB_CONSTRAINTS.md` lists 9 invariants with SQL Server expressions |
+
+### Numbers
+
+- **Commits on this branch (after `6d07204`):** 13 atomic feat commits +
+  1 closeout commit (this section).
+- **Files touched:** ~70 across `shared/types`, `shared/lib`,
+  `shared/mock-data`, `shared/components`, `features/admin`,
+  `features/auth`, `features/audit`, `features/committees`,
+  `features/applicant-portal`, `app/layouts`, plus `routes.tsx`,
+  `config/routes.ts`, and the new `docs/DB_CONSTRAINTS.md`.
+- **New typed errors:** `ConflictError` (5 codes),
+  `DependencyBlockedError`, `NotFoundError`.
+- **New shared primitives:** `<SoftDeleteDialog>`, `<DependencyWarning>`,
+  `<AuditDiffDrawer>` (extracted), `setAuditActorProvider` /
+  `withAudit` / `emitAudit` (lib).
+- **New admin pages:** `/admin/users/roles`, `/admin/notifications`,
+  `/admin/payments`.
+- **New service files:** roles, notifications, payments, lookups,
+  examPlans (5 services + their queries).
+
+### Deferred / not in scope
+
+- **Gap N (`[REC]`)** — session timeout indicator, two-person approval
+  on destructive cross-cycle ops, applicant CSV bulk-import dry-run.
+  Per the original prompt, these stay out unless explicitly approved.
+- **Cycle-detail Fawry config inline editor** (Gap K) — typed shape
+  exists on `CycleFees.fawryConfig`; the form fits in the next polish
+  pass. Not blocking integration.
+- **Permission re-load at login** (Gap C) — `useAuthStore` still uses
+  the legacy `ROLE_DEFINITIONS` mapping in mock; the contract for
+  loading permissions from the dynamic role row at login is documented
+  in `roles.service.ts` JSDoc.
+- **UsersPage status pill / status-transition control** (Gap C) —
+  `usersService.setStatus` is wired and audit-emitting; the UI surface
+  lands as a follow-up.
+
+### Final verification
+
+```
+$ npm run typecheck
+> tsc --noEmit
+(clean — 0 errors)
+
+$ npm run build
+> tsc -b && vite build
+✓ built in ~7s
+(only the chunk-size advisory; no errors)
+```
+
+### Next session
+
+Backend integration is the natural next workstream. The
+`INTEGRATION CONTRACT` JSDoc at the top of every `*.service.ts` lists
+the real REST endpoints the admin gap closure assumed; the typed
+`ConflictError` codes documented in `docs/DB_CONSTRAINTS.md` are the
+fixture set the integration tests can compare against. The frontend
+will not need to change — only the bodies of the service methods flip
+from `simulateLatency() + MOCK` reads to `apiClient.get/post(...)`.
+
+---
+
+## 9 · Verification + Fix Pass
+
+> Frozen 2026-05-07 after the autonomous verification pass that
+> followed `admin-gaps-complete` (`3c2bdaa`). Full report:
+> [docs/VERIFICATION_REPORT.md](../docs/VERIFICATION_REPORT.md).
+
+### Findings + fixes
+
+| # | Severity | Gap | What was wrong | Fix | Commit |
+|---|---|---|---|---|---|
+| 1 | Build-blocking | post-tag CSS edit | `tokens.css` comment closed early on `*/--ease-*/` substring | Reworded comment to drop the embedded `*/` | linter follow-up |
+| 2 | Build-blocking | post-tag Radix work | `AlertDialog` used `onInteractOutside` (not on Radix `AlertDialog.Content`) | Wired dismiss on Overlay; Esc auto-handled by Radix | linter follow-up |
+| 3 | Cleanup | E/F | AppShell deep-imported `@/features/auth/api/auth.queries` and `@/features/admin/components/cycles/ActiveCycleIndicator` | Routed both through feature barrels; added `ActiveCycleIndicator` to admin barrel | `2920e14` |
+| 4 | Functional | C | `buildAuthUser` loaded permissions from static `ROLE_DEFINITIONS`; admin role edits didn't propagate at login | Read from `MOCK.roleDefinitions` first, fall back to legacy table | `b9af227` |
+| 5 | Functional | H | `committee.list()` didn't filter soft-deleted rows even though `Committee` extends `SoftDeleteFields` | Added `filterDeleted` + `includeDeleted` opt-in to `committee.list` | `b085af0` |
+
+### Pre-existing items flagged but out of admin-gap scope
+
+- `src/shared/lib/zod-resolver.ts:25` — explicit
+  `eslint-disable @typescript-eslint/no-explicit-any` to bridge RHF
+  v7's variance-strict resolver.
+- `src/features/admin/components/applicants/ApplicantForm.tsx:831` —
+  `register: any` on a sub-form prop. Both pre-date `admin-gaps-complete`
+  (commit `69f4689`).
+
+### Final state
+
+- 13 / 13 gaps ✅ verified.
+- `npm run typecheck` ✅ clean.
+- `npm run build` ✅ clean (only the unchanged chunk-size advisory).
+- 0 Clean Arch violations (`shared/` → `features/` count = 0; barrel
+  discipline restored).
+- 3 atomic verification commits shipped on top of `admin-gaps-complete`,
+  none reverted any prior gap.
+- `docs/VERIFICATION_REPORT.md` is the canonical write-up for this pass.
+
+---
+
+## §10 — Workstream Closeout (2026-05-07)
+
+Admin gaps workstream is complete and ready for backend integration handoff.
+
+- **Implementation:** 13 atomic commits — `admin-gaps-complete` (`3c2bdaa`).
+- **Verification:** 4 fix commits — `admin-gaps-verified` (`d989536`).
+- **Cleanup:** 4 commits — TODO.md (`d7cef53`), tagging report
+  (`7b43e8d`), INTEGRATION_HANDOFF.md (`039dc57`), this closeout.
+- **Demo tag:** `v0.3.0-admin-verified` at `d989536` — supersedes
+  `v0.2.0-demo` for any tender presentation.
+- **Handoff doc:** [docs/INTEGRATION_HANDOFF.md](../docs/INTEGRATION_HANDOFF.md) —
+  single source of truth for backend integration.
+- **Deferred (per `TODO.md`):** the two pre-existing `: any` flags —
+  to be resolved during integration when form schemas become typed.
+- **Deferred (explicit):** soft-delete `list()` filter spot-check
+  across non-committee entities — to be addressed during backend
+  integration when those entities get re-touched.
+
+**Note:** subsequent commits (Radix adoption work — Accordion,
+AlertDialog, Dialog, DropdownMenu, Popover, SearchSelect, Sheet, Tabs,
+Tooltip + the `RADIX_ADOPTION_REPORT.md` and `/_dev/primitives` review
+route) are a separate workstream driven by `CLAUDE.md §2.5` and **not**
+covered by the admin-gaps tags. Backend integration may proceed
+independently of the Radix work.
+
+**Next workstream:** backend integration. See
+[docs/INTEGRATION_HANDOFF.md](../docs/INTEGRATION_HANDOFF.md).
+
+---
+
 ## 7 · Notes for the human reviewer
 
 - **The prompt above is sequenced**, not parallelized. Audit + soft-delete + login security come first because every later gap emits audit and uses soft delete. Reordering will create churn.

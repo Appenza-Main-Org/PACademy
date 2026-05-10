@@ -4,6 +4,23 @@
 
 import type { AppKey } from '@/shared/lib/constants';
 
+/**
+ * Soft-delete mixin — Gap D (admin-gaps).
+ *
+ * Adds optional tombstone fields to entities that support soft delete.
+ * `null` is the live state; an ISO `deletedAt` flips a row to soft-deleted.
+ * `list()` services filter out soft-deleted rows by default; a super-admin
+ * `includeDeleted` toggle restores them to view, never to use.
+ *
+ * Applicants and audit entries are explicitly excluded — applicants stay
+ * around for cycle-history queries; audit entries are append-only.
+ */
+export interface SoftDeleteFields {
+  deletedAt?: string;
+  deletedBy?: string;
+  deleteReason?: string;
+}
+
 export type ApplicantStatus =
   | 'pending'
   | 'under-review'
@@ -167,10 +184,6 @@ export interface Applicant extends ApplicantExtended {
   familySize: number;
   relativesCount: number;
   investigation: InvestigationStatus;
-  /** Server-returned audit metadata (US1) — populated only when fetched
-   *  from the real backend; demo mode leaves these undefined. */
-  lastModifiedAt?: string;
-  lastModifiedBy?: string;
 }
 
 export type AuditAction =
@@ -186,22 +199,95 @@ export type AuditAction =
   | 'workflow.publish'
   | 'workflow.reorder'
   | 'workflow.delete'
-  | 'applicant.transition';
+  | 'applicant.transition'
+  /* Soft delete + restore (Gap D) */
+  | 'soft_delete'
+  | 'restore'
+  /* Login security events (Gap A) */
+  | 'login_success'
+  | 'login_failed'
+  | 'account_locked'
+  | 'account_unlocked'
+  | 'otp_sent'
+  | 'otp_verified'
+  | 'otp_failed'
+  /* Cycle lifecycle (Gap F) */
+  | 'cycle_activated'
+  | 'cycle_closed'
+  | 'cycle_extended'
+  | 'cycle_archived'
+  /* Category rule changes with override (Gap G) */
+  | 'category_rules_changed'
+  | 'category_rules_changed_with_override'
+  /* Notification authoring (Gap L) */
+  | 'notification_published'
+  | 'notification_unpublished'
+  /* Payment events (Gap K) */
+  | 'payment_status_changed'
+  | 'payment_refunded';
 export type AuditColor = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
+/** Typed module taxonomy — used by Gap E filters and the withAudit() helper. */
+export type AuditModule =
+  | 'admin'
+  | 'auth'
+  | 'cycles'
+  | 'categories'
+  | 'committees'
+  | 'lookups'
+  | 'exams'
+  | 'payments'
+  | 'notifications'
+  | 'roles'
+  | 'users'
+  | 'workflows'
+  | 'applicants';
+
+/**
+ * Audit entry — Sprint 1 baseline plus Gap E (admin-gaps) extensions.
+ *
+ * Existing fields (`userId`, `userName`, `entity`, `timestamp`, …) are kept
+ * for backwards compatibility with the 240 seeded mock entries and existing
+ * UI consumers. New optional fields land alongside:
+ *   - `role`: actor role at time of action
+ *   - `module`: typed module taxonomy
+ *   - `entityType`: typed entity name (Arabic-label-free)
+ *   - `before` / `after`: per-row diff (replaces the side-table MOCK.auditDiffs
+ *     for rows that ship them inline)
+ *   - `deviceMeta`: optional UA/device hint
+ *   - `at`: ISO mirror of `timestamp` (real backend will return ISO; mock
+ *     populates both so consumers can pick either)
+ */
 export interface AuditEntry {
   id: string;
   userId: string;
   userName: string;
+  /** Actor role at time of action (Gap E). */
+  role?: string;
   action: AuditAction;
   actionLabel: string;
   actionColor: AuditColor;
+  /** Module taxonomy (Gap E filters). */
+  module?: AuditModule;
+  /** Arabic entity label (existing). */
   entity: string;
+  /** Typed entity name (Gap E — `cycle`, `category`, `committee`, …). */
+  entityType?: string;
   entityId: string;
   details: string;
+  /** Inline before/after diff (Gap E). */
+  before?: unknown;
+  after?: unknown;
   timestamp: number;
+  /** ISO timestamp mirror (Gap E). */
+  at?: string;
   ip: string;
+  deviceMeta?: string;
 }
+
+/** SystemUser status — Gap C (admin-gaps). `active` kept for backwards
+ * compat; `status` is the typed primary going forward. */
+export type SystemUserStatus = 'active' | 'suspended' | 'locked';
 
 export interface SystemUser {
   id: string;
@@ -209,61 +295,35 @@ export interface SystemUser {
   role: string;
   unit: string;
   active: boolean;
+  status?: SystemUserStatus;
   lastLogin: number;
 }
 
-/** Backend DTO shapes — used when VITE_DEMO_MODE is unset and the real API is wired. */
+/* ── Dynamic roles + permission matrix — Gap C (admin-gaps) ──────────── */
 
-export interface SystemUserListItemDto {
+/** Permission identifiers — `module:action` (e.g. `applicants:view`).
+ *  System rows ship with the platform; admin can clone or extend. */
+export type Permission = string;
+
+export interface RoleDefinitionRow extends SoftDeleteFields {
   id: string;
-  nationalId: string;
-  fullName: string;
-  role: string;
-  mobile: string;
-  email: string | null;
-  unit: string | null;
-  isActive: boolean;
-  createdAt: string;
-  demoOrigin: boolean;
-}
-
-export interface SystemUserDetailDto extends SystemUserListItemDto {
-  officerCode: string;
-  issueDate: string;
-  cardFactoryNumber: string;
-  archivedAt: string | null;
-}
-
-export interface CreateSystemUserRequest {
-  nationalId: string;
-  officerCode: string;
-  fullName: string;
-  mobile: string;
-  email: string;
-  unit?: string;
-  role: string;
-  issueDate: string;
-  cardFactoryNumber: string;
-  password: string;
-}
-
-export interface UpdateSystemUserRequest {
-  fullName?: string;
-  mobile?: string;
-  email?: string;
-  unit?: string;
-  role?: string;
-  isActive?: boolean;
-}
-
-export interface SystemUserListFilters {
-  role?: string;
-  q?: string;
-  isActive?: boolean;
-  page?: number;
-  pageSize?: number;
-  sortBy?: string;
-  sortDir?: string;
+  /** Stable key — used by `AuthUser.role` and the legacy 11-role union. */
+  key: string;
+  labelAr: string;
+  labelEn?: string;
+  /** True for the 11 seed roles + Finance Review; permissions/labels are
+   *  read-only for system rows but `scope` can still be edited. */
+  isSystem: boolean;
+  permissions: Permission[];
+  /** App access — same AppKey union as the legacy ROLE_DEFINITIONS. */
+  apps: readonly AppKey[];
+  /** Optional per-actor scoping (committee/department gating). */
+  scope?: {
+    committeeIds?: string[];
+    departmentIds?: string[];
+  };
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MedicalStation {
@@ -274,13 +334,45 @@ export interface MedicalStation {
   completed: number;
 }
 
-export interface Committee {
+/**
+ * Score-criteria configuration — Gap H (admin-gaps).
+ * Captures the three score axes the meeting notes called out:
+ * "magmo3" (cumulative score), "ta2deer" (grade tier),
+ * "accumulative score for student".
+ */
+export interface CommitteeScoreCriteria {
+  magmoo3?: { min: number; max: number };
+  ta2deer?: ('ممتاز' | 'جيد جداً' | 'جيد' | 'مقبول')[];
+  accumulativeScore?: { min: number; max: number };
+}
+
+export interface Committee extends SoftDeleteFields {
   id: string;
   name: string;
   head: string;
   members: number;
   applicants: number;
   completed: number;
+  /* ── Gap H additions (admin-side configuration) ───────────────── */
+  /** Gender restriction for committee membership. */
+  gender?: 'male' | 'female' | 'any';
+  scoreCriteria?: CommitteeScoreCriteria;
+  /** Daily attendance ceiling — capacity check rejects when met. */
+  capacityPerDay?: number;
+  /** Working dates the committee accepts applicants on (ISO date strings). */
+  availableDates?: string[];
+  linkedCycleId?: string;
+  linkedCategoryIds?: ApplicantCategoryKey[];
+  linkedExamIds?: string[];
+  /** Lookup key for sorting criteria — driven from rejectionReasons or similar. */
+  sortingCriteria?: string;
+  /** System users with `committee_admin` / `committee_user` role assigned to this committee. */
+  officerIds?: string[];
+  /** Specialty/degree/faculty/university scoping ids (driven by Gap I lookups). */
+  scopedSpecialtyIds?: string[];
+  scopedDegreeIds?: string[];
+  scopedFacultyIds?: string[];
+  scopedUniversityIds?: string[];
 }
 
 export interface Question {
@@ -384,7 +476,38 @@ export interface RequiredTest {
   passingCriteria: string;
 }
 
-export interface ApplicantCategory {
+/**
+ * Expanded admin-side condition bag — Gap G (admin-gaps).
+ *
+ * Sits alongside the existing `CategoryCondition` (singular) which serves
+ * the applicant-portal eligibility check. The plural `CategoryConditions`
+ * captures the richer matrix the meeting notes called out (multi-select
+ * education-types and marital-statuses, required-document checklist,
+ * required-exam IDs, examOrder). Optional on `ApplicantCategory` so existing
+ * seeded rows keep typechecking.
+ */
+export interface CategoryConditions {
+  gender: 'male' | 'female' | 'any';
+  minAge: number | null;
+  maxAge: number | null;
+  /** ISO date used to evaluate age. Falls back to cycle.ageCalcDate. */
+  ageCalcDate?: string;
+  /** Lookup keys (`thanaweya_amma`, `azhar`, …) — driven by educationTypes lookup. */
+  educationTypes: string[];
+  /** Optional graduation-year filter; null = any. */
+  graduationYear?: number | null;
+  /** Lookup keys (`single`, `married`, …) — driven by maritalStatuses lookup. */
+  maritalStatuses: string[];
+  minScore?: number | null;
+  /** Free-text required-document checklist. */
+  requiredDocuments: string[];
+  /** Required exam ids — driven by examTypes lookup or examConfigs. */
+  requiredExamIds: string[];
+  /** Ordered exam ids — drives the per-cycle exam plan in Gap J. */
+  examOrder: string[];
+}
+
+export interface ApplicantCategory extends SoftDeleteFields {
   key: ApplicantCategoryKey;
   labelAr: string;
   labelEn: string;
@@ -392,6 +515,8 @@ export interface ApplicantCategory {
   /** Computed snapshot from `MOCK.activeCycleId → cycle.openCategories[key]`. */
   isOpen: boolean;
   conditions: CategoryCondition;
+  /** Gap G expanded condition matrix (admin-side rule builder). */
+  expandedConditions?: CategoryConditions;
   requiredTests: RequiredTest[];
   procedures: string[];
 }
@@ -416,6 +541,49 @@ export interface EligibilityResult {
   reasons: EligibilityRejectionReason[];
 }
 
+/* ── Generic lookup matrix — Gap I (admin-gaps) ────────────────────────
+ *
+ * Sprint-1 reference data (governorates, specialties, …) keeps its
+ * per-shape Ref* types because forms render specific fields. Gap I adds a
+ * second, broader catalogue of lookups that all share the same row shape
+ * (`LookupRow`) and are managed via the parameterized <LookupTab>.
+ *
+ * Each lookup tab is identified by a `LookupKey`. Hierarchical lookups
+ * (faculties under universities, specialties under specialty-types)
+ * carry a `parentId` referencing the parent row.
+ */
+
+export type LookupKey =
+  | 'educationTypes'
+  | 'maritalStatuses'
+  | 'universities'
+  | 'faculties'
+  | 'specialties'
+  | 'specialtyTypes'
+  | 'degreeTypes'
+  | 'jobs'
+  | 'examTypes'
+  | 'examGroups'
+  | 'committeeTypes'
+  | 'rejectionReasons'
+  | 'notificationDepartments';
+
+export interface LookupRow extends SoftDeleteFields {
+  id: string;
+  /** Stable machine key; ASCII-only, kebab-or-snake. */
+  key: string;
+  labelAr: string;
+  labelEn?: string;
+  sortOrder: number;
+  isActive: boolean;
+  /** True for seeded rows that ship with the platform (cannot be deleted). */
+  isSystem: boolean;
+  /** Foreign key to a parent lookup row (e.g. university id for faculties). */
+  parentId?: string;
+  /** Optional gender filter for lookups that bifurcate (specialties). */
+  gender?: 'male' | 'female';
+}
+
 /* ── Reference data — Sprint 1 (Tasks/KARASA_GAPS.md §1.2.B) ────────── */
 
 export type ReferenceTab =
@@ -428,7 +596,7 @@ export type ReferenceTab =
   | 'relationships'
   | 'case-types';
 
-export interface RefGovernorate {
+export interface RefGovernorate extends SoftDeleteFields {
   id: string;
   nameAr: string;
   nameEn: string;
@@ -436,7 +604,7 @@ export interface RefGovernorate {
   active: boolean;
 }
 
-export interface RefSpecialization {
+export interface RefSpecialization extends SoftDeleteFields {
   id: string;
   nameAr: string;
   code: string;
@@ -444,14 +612,14 @@ export interface RefSpecialization {
   active: boolean;
 }
 
-export interface RefRank {
+export interface RefRank extends SoftDeleteFields {
   id: string;
   nameAr: string;
   level: number;
   applicableTo: 'officer' | 'enlisted' | 'civilian';
 }
 
-export interface RefCollege {
+export interface RefCollege extends SoftDeleteFields {
   id: string;
   nameAr: string;
   governorateId: string;
@@ -459,28 +627,28 @@ export interface RefCollege {
   active: boolean;
 }
 
-export interface RefQualification {
+export interface RefQualification extends SoftDeleteFields {
   id: string;
   nameAr: string;
   level: 'diploma' | 'bachelor' | 'master' | 'phd';
   facultyRequired: boolean;
 }
 
-export interface RefNationality {
+export interface RefNationality extends SoftDeleteFields {
   id: string;
   nameAr: string;
   nameEn: string;
   isoCode: string;
 }
 
-export interface RefRelationship {
+export interface RefRelationship extends SoftDeleteFields {
   id: string;
   nameAr: string;
   degree: 1 | 2 | 3 | 4;
   side: 'paternal' | 'maternal' | 'spouse' | 'self';
 }
 
-export interface RefCaseType {
+export interface RefCaseType extends SoftDeleteFields {
   id: string;
   nameAr: string;
   severity: 'low' | 'medium' | 'high';
@@ -510,7 +678,65 @@ export type ReferenceRowMap = {
  *   'open' ≡ 'active', 'finalized' ≡ 'archived', 'processing' is internal.
  */
 
-export type CycleStatus = 'draft' | 'open' | 'active' | 'closed' | 'processing' | 'finalized' | 'archived';
+export type CycleStatus =
+  | 'draft'
+  | 'open'
+  | 'active'
+  | 'extended'
+  | 'closed'
+  | 'processing'
+  | 'finalized'
+  | 'archived';
+
+/**
+ * Fawry payment config — Gap K (admin-gaps).
+ * Cycle-level integration parameters; editable from the cycle detail.
+ */
+export interface FawryConfig {
+  /** Issuer-side merchant code provided to the academy. */
+  merchantCode: string;
+  /** UI label rendered next to the Fawry payment option. */
+  label: string;
+  /** Window during which a payment can be retried before voiding. */
+  retryWindowHours: number;
+}
+
+/**
+ * Per-cycle fee schedule — Gap F (admin-gaps).
+ * Application fee is required; deposit / replacement / late fees are optional
+ * because not every cycle exercises them. Typed numeric so tnum tabular
+ * numerals format consistently across UI.
+ */
+export interface CycleFees {
+  applicationFee: number;
+  /** Optional refundable deposit (per RFP §p.42 صلاحية إعادة المقابل المالي). */
+  depositFee?: number;
+  /** Replacement card / ID printout fee. */
+  replacementFee?: number;
+  /** Late application fee — applied during the extension window. */
+  lateFee?: number;
+  /** Fawry-specific integration config — Gap K. */
+  fawryConfig?: FawryConfig;
+}
+
+/* ── Admin-side Fawry payment record — Gap K (admin-gaps) ─────────────── */
+
+export type FawryPaymentStatus = 'pending' | 'paid' | 'failed' | 'expired' | 'refunded';
+
+export interface AdminPaymentRow {
+  id: string;
+  applicantId: string;
+  applicantName: string;
+  nationalId: string;
+  cycleId: string;
+  fawryReference: string;
+  amount: number;
+  status: FawryPaymentStatus;
+  /** ISO timestamp of last Fawry sync. */
+  lastSyncAt: string;
+  /** ISO timestamp of payment success (if paid). */
+  paidAt?: string;
+}
 
 export interface AdmissionCycleCategoryConfig {
   isOpen: boolean;
@@ -518,7 +744,7 @@ export interface AdmissionCycleCategoryConfig {
   notes: string;
 }
 
-export interface AdmissionCycle {
+export interface AdmissionCycle extends SoftDeleteFields {
   id: string;
   nameAr: string;
   /** Year + cohort marker, e.g. 2026-male / 2026-female. */
@@ -526,6 +752,20 @@ export interface AdmissionCycle {
   year: number;
   openDate: string; // ISO
   closeDate: string; // ISO
+  /**
+   * Reference date used to evaluate age-based eligibility — Gap F.
+   * Defaults to `closeDate` when missing. Stored separately because
+   * extensions may move closeDate without changing the eligibility cutoff.
+   */
+  ageCalcDate?: string;
+  /** Per-cycle fee schedule (Gap F). */
+  fees?: CycleFees;
+  /** Categories opened in this cycle (Gap F derived view). */
+  linkedCategoryIds?: ApplicantCategoryKey[];
+  /** Committees scheduled to handle applicants from this cycle (Gap F + H). */
+  linkedCommitteeIds?: string[];
+  /** Ordered exam keys to be administered (Gap F + J). */
+  examOrder?: string[];
   expectedCapacity: number;
   applicantCount: number;
   status: CycleStatus;
@@ -830,6 +1070,9 @@ export interface PaymentTransaction {
   status: 'pending' | 'success' | 'failed';
   initiatedAt: number;
   paidAt?: number;
+  /** Fawry-side payment reference (the number printed on the attendance card).
+   *  Only set when method === 'fawry'. */
+  fawryCode?: string;
 }
 
 /* ── Test schedule — Post-polish (Bucket C) ───────────────────────── */
@@ -964,6 +1207,48 @@ export interface BoardDecision {
   body: string;
   signatures: string[];
 }
+
+/* ── Cycle category exam plan — Gap J (admin-gaps) ───────────────────
+ *
+ * Per-cycle, per-category ordered list of exams. Drives:
+ *   - the order applicants take exams
+ *   - per-exam fees (when cycle.fees has multiple line items)
+ *   - whether the exam is required (vs supplementary)
+ *
+ * Copy-from-previous-cycle uses `examsService.copyConfig` to clone an
+ * entire cycle's plans into a new draft cycle.
+ */
+
+export type ExamScoreType = 'numeric' | 'pass_fail' | 'qualitative';
+
+export interface AcademyExam extends SoftDeleteFields {
+  id: string;
+  /** Lookup-style stable key — joined to the examTypes lookup. */
+  key: string;
+  group: string;
+  nameAr: string;
+  scoreType: ExamScoreType;
+  /** When false, the exam is supplementary (failure does not block). */
+  isQualifying: boolean;
+}
+
+export interface CycleCategoryExamPlanEntry {
+  examId: string;
+  order: number;
+  fee?: number;
+  isRequired: boolean;
+}
+
+export interface CycleCategoryExamPlan {
+  id: string;
+  cycleId: string;
+  categoryId: ApplicantCategoryKey;
+  exams: CycleCategoryExamPlanEntry[];
+  updatedAt?: string;
+}
+
+/** Result-approval state machine — Gap J. */
+export type ExamResultStatus = 'draft' | 'review' | 'approved' | 'published';
 
 /* ── Question Bank & e-Exams — Sprint 7 (RFP Scope Document §9) ────────────────── */
 
@@ -1109,6 +1394,42 @@ export interface NotificationItem {
   body: string;
   read: boolean;
   href?: string;
+}
+
+/* ── Admin-authored notifications — Gap L (admin-gaps) ───────────────── */
+
+export type AdminNotificationType = 'general' | 'student' | 'department' | 'category' | 'committee';
+
+export type AdminNotificationStatus = 'draft' | 'scheduled' | 'published' | 'expired';
+
+/**
+ * Discriminated audience selector. Each shape carries the typed targeting
+ * data the AudienceSelector UI needs:
+ *  - `general` — broadcast to all applicants (no further data).
+ *  - `student` — single applicant by nationalId (or applicantId).
+ *  - `department` / `category` / `committee` — multi-select against lookups.
+ */
+export type AudienceSelector =
+  | { type: 'general' }
+  | { type: 'student'; nationalId: string; applicantId?: string }
+  | { type: 'department'; departmentIds: string[] }
+  | { type: 'category'; categoryKeys: ApplicantCategoryKey[] }
+  | { type: 'committee'; committeeIds: string[] };
+
+export interface AdminNotification extends SoftDeleteFields {
+  id: string;
+  type: AdminNotificationType;
+  titleAr: string;
+  bodyAr: string;
+  audience: AudienceSelector;
+  /** ISO publish time — when reached, status flips draft → published. */
+  publishAt: string;
+  /** ISO expiry time — when reached, status flips published → expired. */
+  expireAt?: string;
+  /** Computed by `notificationsService.computeStatus`; persisted for sort. */
+  status: AdminNotificationStatus;
+  createdBy: string;
+  createdAt: string;
 }
 
 /* ── Department Workflow Builder — Post-polish (RFP §3 / §6) ───────────────

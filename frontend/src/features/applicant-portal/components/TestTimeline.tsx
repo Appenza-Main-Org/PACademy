@@ -83,7 +83,7 @@ export function TestTimeline({ tests }: TestTimelineProps): JSX.Element | null {
         <div>
           <h3 className="font-ar-display text-md font-bold text-ink-900">جدول رحلتك في الاختبارات</h3>
           <p className="mt-0.5 text-2xs text-ink-500">
-            {ordered.length} اختبار · يبدأ بـ{TEST_KIND_LABEL_AR[ordered[0]!.kind]}
+            {ordered.length} اختبار · يبدأ بـ{TEST_KIND_LABEL_AR[ordered[0].kind]}
           </p>
         </div>
         <Legend />

@@ -30,12 +30,19 @@ import {
   REFERENCE_TAB_LABELS,
 } from '@/shared/mock-data/referenceData';
 import {
+  LOOKUP_HAS_GENDER,
+  LOOKUP_LABELS,
+  LOOKUP_PARENT,
+} from '@/shared/mock-data/lookups';
+import {
   useReferenceCreate,
   useReferenceData,
   useReferenceRemove,
   useReferenceUpdate,
 } from '../api/referenceData.queries';
+import { LookupTab } from '../components/lookups/LookupTab';
 import type {
+  LookupKey,
   RefCaseType,
   RefCollege,
   RefGovernorate,
@@ -47,26 +54,45 @@ import type {
   ReferenceTab,
 } from '@/shared/types/domain';
 
-const TABS = Object.keys(REFERENCE_TAB_LABELS) as ReferenceTab[];
+/* The unified tab key — either a Sprint-1 ReferenceTab (typed Ref* shapes)
+ * or a Gap-I LookupKey (unified LookupRow). Section labels keep the two
+ * groups visually separate in the tab strip. */
+type TabKey = ReferenceTab | LookupKey;
+
+const REFERENCE_TABS = Object.keys(REFERENCE_TAB_LABELS) as ReferenceTab[];
+const LOOKUP_TABS = Object.keys(LOOKUP_LABELS) as LookupKey[];
+const TABS: TabKey[] = [...REFERENCE_TABS, ...LOOKUP_TABS];
+
+function isLookupKey(t: TabKey): t is LookupKey {
+  return (LOOKUP_TABS as string[]).includes(t);
+}
 
 export function ReferenceDataPage(): JSX.Element {
   const params = useParams<{ tab: string }>();
   const navigate = useNavigate();
-  const tab = (TABS.find((t) => t === params.tab) ?? 'governorates') as ReferenceTab;
+  const tab = (TABS.find((t) => t === params.tab) ?? 'governorates');
+
+  const labelOf = (t: TabKey): string =>
+    isLookupKey(t) ? LOOKUP_LABELS[t] : REFERENCE_TAB_LABELS[t as ReferenceTab];
 
   return (
     <CenteredShell>
       <PageHeader
         title="البيانات المرجعية"
-        subtitle="إدارة الأكواد المرجعية المستخدمة عبر المنظومة (محافظات · رتب · شهادات · جنسيات…)"
+        subtitle="إدارة الأكواد المرجعية والقوائم المنسدلة المستخدمة عبر المنظومة"
         breadcrumbs={[
           { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
           { label: 'البيانات المرجعية' },
         ]}
       />
 
-      <nav role="tablist" aria-label="تصنيفات البيانات المرجعية" className="mb-5 flex flex-wrap gap-1 border-b border-border-subtle">
-        {TABS.map((t) => {
+      <nav
+        role="tablist"
+        aria-label="تصنيفات البيانات المرجعية"
+        className="mb-5 flex flex-wrap gap-1 border-b border-border-subtle"
+      >
+        {/* Sprint-1 typed reference tabs */}
+        {REFERENCE_TABS.map((t) => {
           const active = t === tab;
           return (
             <Link
@@ -86,9 +112,41 @@ export function ReferenceDataPage(): JSX.Element {
             </Link>
           );
         })}
+        <span className="mx-2 hidden self-center text-ink-300 md:inline-block">|</span>
+        {/* Gap-I unified lookup tabs */}
+        {LOOKUP_TABS.map((t) => {
+          const active = t === tab;
+          return (
+            <Link
+              key={t}
+              role="tab"
+              aria-selected={active}
+              to={ROUTES.admin.referenceData(t)}
+              className={cn(
+                '-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm transition-colors duration-fast ease-standard',
+                'focus-visible:shadow-focus-teal focus-visible:outline-none rounded-t-md',
+                active
+                  ? 'border-accent-500 text-accent-600 font-medium'
+                  : 'border-transparent text-ink-500 hover:bg-ink-50 hover:text-ink-900',
+              )}
+            >
+              {LOOKUP_LABELS[t]}
+            </Link>
+          );
+        })}
       </nav>
 
-      <ReferenceTabPanel key={tab} tab={tab} onChangeTab={(t) => navigate(ROUTES.admin.referenceData(t))} />
+      {isLookupKey(tab) ? (
+        <LookupTab
+          key={tab}
+          lookupKey={tab}
+          title={labelOf(tab)}
+          parentLookup={LOOKUP_PARENT[tab] ?? undefined}
+          hasGender={LOOKUP_HAS_GENDER.has(tab)}
+        />
+      ) : (
+        <ReferenceTabPanel key={tab} tab={tab} onChangeTab={(t) => navigate(ROUTES.admin.referenceData(t))} />
+      )}
     </CenteredShell>
   );
 }

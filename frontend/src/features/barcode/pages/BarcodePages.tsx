@@ -24,7 +24,7 @@ function buildPayload(applicant: Applicant, cardCode: string): string {
 }
 
 export function BarcodeGeneratePage(): JSX.Element {
-  const [applicantId, setApplicantId] = useState(MOCK.applicants[0]!.id);
+  const [applicantId, setApplicantId] = useState(MOCK.applicants[0].id);
   const [record, setRecord] = useState<BarcodeRecord | null>(null);
   const [busy, setBusy] = useState(false);
 

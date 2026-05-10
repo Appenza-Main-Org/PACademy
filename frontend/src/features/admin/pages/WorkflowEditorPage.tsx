@@ -161,7 +161,7 @@ export function WorkflowEditorPage(): JSX.Element {
     return <LoadingState variant="page" />;
   }
   if (!isNew && error) {
-    return <ErrorState error={error as Error} onRetry={() => refetch()} />;
+    return <ErrorState error={error} onRetry={() => refetch()} />;
   }
   if (!draft) {
     return (
@@ -184,7 +184,7 @@ export function WorkflowEditorPage(): JSX.Element {
       reorderMut.mutate(
         { id: draft.id, stageIds: reordered.map((s) => s.id) },
         {
-          onError: (err) => toast((err as Error).message ?? 'تعذر إعادة الترتيب', 'danger'),
+          onError: (err) => toast((err).message ?? 'تعذر إعادة الترتيب', 'danger'),
         },
       );
     }
@@ -252,7 +252,7 @@ export function WorkflowEditorPage(): JSX.Element {
           toast(`تم حفظ "${wf.name}" — الإصدار v${wf.version}`, 'success');
           if (isNew) navigate(ROUTES.admin.workflowEdit(wf.id));
         },
-        onError: (err) => toast((err as Error).message ?? 'تعذر الحفظ', 'danger'),
+        onError: (err) => toast((err).message ?? 'تعذر الحفظ', 'danger'),
       },
     );
   };
@@ -289,7 +289,7 @@ export function WorkflowEditorPage(): JSX.Element {
               },
             );
           },
-          onError: (err) => toast((err as Error).message ?? 'تعذر النشر', 'danger'),
+          onError: (err) => toast((err).message ?? 'تعذر النشر', 'danger'),
         },
       );
       return;
@@ -316,7 +316,7 @@ export function WorkflowEditorPage(): JSX.Element {
             },
           );
         },
-        onError: (err) => toast((err as Error).message ?? 'تعذر النشر', 'danger'),
+        onError: (err) => toast((err).message ?? 'تعذر النشر', 'danger'),
       },
     );
   };
@@ -331,7 +331,7 @@ export function WorkflowEditorPage(): JSX.Element {
         toast(`تم حذف "${draft.name}"`, 'success');
         navigate(ROUTES.admin.workflows);
       },
-      onError: (err) => toast((err as Error).message ?? 'تعذر الحذف', 'danger'),
+      onError: (err) => toast((err).message ?? 'تعذر الحذف', 'danger'),
       onSettled: () => setPendingDeleteWorkflow(false),
     });
   };

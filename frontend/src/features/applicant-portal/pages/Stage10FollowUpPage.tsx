@@ -54,7 +54,7 @@ export function Stage10FollowUpPage(): JSX.Element {
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {(Object.keys(STAGE_LABELS) as (keyof typeof STAGE_LABELS)[]).map((key) => {
+        {(Object.keys(STAGE_LABELS)).map((key) => {
           const state = followUp[key];
           const cfg = TONE_MAP[state];
           return (

@@ -3,6 +3,9 @@
  * Named exports only; consumers never deep-import.
  */
 
+export { Accordion } from './Accordion';
+export { AlertDialog } from './AlertDialog';
+export type { AlertDialogTone } from './AlertDialog';
 export { Avatar } from './Avatar';
 export { Badge } from './Badge';
 export type { BadgeTone } from './Badge';
@@ -25,14 +28,22 @@ export type {
   DataTableSelectionMode,
   DataTableSort,
 } from './DataTable';
+export { DependencyWarning } from './DependencyWarning';
+export { Dialog } from './Dialog';
+export type { DialogSize } from './Dialog';
+export type { DependencyWarningProps } from './DependencyWarning';
+export { SoftDeleteDialog } from './SoftDeleteDialog';
+export type { SoftDeleteDialogProps } from './SoftDeleteDialog';
 export { DatePicker, ARABIC_MONTHS, ARABIC_WEEKDAYS_SAT_FIRST, CalendarGrid } from './DatePicker';
 export { DateRangePicker } from './DateRangePicker';
 export type { DateRange } from './DateRangePicker';
 export { Drawer } from './Drawer';
+export { DropdownMenu } from './DropdownMenu';
 export type { DrawerSize } from './Drawer';
 export { EmptyState } from './EmptyState';
 export type { EmptyVariant } from './EmptyState';
 export { ErrorState } from './ErrorState';
+export { Field } from './Field';
 export { FileUpload } from './FileUpload';
 export type { UploadFile, UploadStatus } from './FileUpload';
 export { Icon } from './Icon';
@@ -48,9 +59,14 @@ export type { ModalSize } from './Modal';
 export { MultiSelect } from './MultiSelect';
 export { PageHeader } from './PageHeader';
 export { Pattern } from './Pattern';
+export { Popover } from './Popover';
 export type { PatternVariant } from './Pattern';
 export { PrintLayout } from './PrintLayout';
 export { Select } from './Select';
+export { SearchSelect } from './SearchSelect';
+export type { SearchSelectOption } from './SearchSelect';
+export { Sheet } from './Sheet';
+export type { SheetSize } from './Sheet';
 export { Skeleton, SkeletonRow } from './Skeleton';
 export { StageStepper } from './StageStepper';
 export type { StageDescriptor, StageState } from './StageStepper';
@@ -62,8 +78,10 @@ export {
   StatusBadge,
   SuspendedBadge,
 } from './StatusBadge';
+export { Tabs } from './Tabs';
 export { ToastViewport, toast } from './Toast';
 export type { ToastKind } from './Toast';
+export { Tooltip, TooltipProvider } from './Tooltip';
 export { Wizard } from './Wizard';
 export type { WizardStep, WizardStepState } from './Wizard';
 

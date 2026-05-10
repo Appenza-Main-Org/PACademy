@@ -68,7 +68,7 @@ export function AuditTimeline({ applicantId }: Props): JSX.Element {
 
   if (isLoading) return <LoadingState variant="list" />;
   if (error) {
-    return <ErrorState error={error as Error} onRetry={() => refetch()} />;
+    return <ErrorState error={error} onRetry={() => refetch()} />;
   }
   if (entries.length === 0) {
     return (
@@ -104,7 +104,7 @@ export function AuditTimeline({ applicantId }: Props): JSX.Element {
 
 function TimelineItem({ entry }: { entry: AuditEntry }): JSX.Element {
   const Icon = ACTION_ICON[entry.action] ?? ClipboardList;
-  const dotColor = ACTION_COLOR_DOT[entry.actionColor] ?? ACTION_COLOR_DOT.info!;
+  const dotColor = ACTION_COLOR_DOT[entry.actionColor] ?? ACTION_COLOR_DOT.info;
 
   return (
     <li className="relative">

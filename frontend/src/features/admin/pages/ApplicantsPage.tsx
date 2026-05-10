@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Download, UserPlus } from 'lucide-react';
-import { PageHeader, Card, Avatar, Button, EmptyState, Badge, DataTable } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
+import { PageHeader, Card, Avatar, Button, EmptyState, Badge, DataTable, SearchSelect } from '@/shared/components';
+import type { DataTableColumn, SearchSelectOption } from '@/shared/components';
 import { StatusBadge, PaymentBadge } from '@/shared/components/StatusBadge';
 import { useApplicants } from '@/features/applicants/api/applicant.queries';
 import { ROUTES } from '@/config/routes';
@@ -12,6 +12,16 @@ import { STATUS_LABELS } from '@/shared/mock-data/dictionaries';
 import type { Applicant, ApplicantStatus } from '@/shared/types/domain';
 
 const PAGE_SIZE = 15;
+
+const GOVERNORATE_OPTIONS: readonly SearchSelectOption[] = MOCK.governorates.map((g) => ({
+  value: g,
+  label: g,
+}));
+
+const CERT_TYPE_OPTIONS: readonly SearchSelectOption[] = [
+  { value: 'ثانوية عامة', label: 'ثانوية عامة' },
+  { value: 'ثانوية أزهرية', label: 'ثانوية أزهرية' },
+];
 
 const APPLICANT_COLUMNS: DataTableColumn<Applicant>[] = [
   {
@@ -87,24 +97,41 @@ export function ApplicantsPage(): JSX.Element {
         <div className="card-body">
           <div className="filters">
             <div className="search flex-1">
-              <input className="input" type="search" aria-label="بحث المتقدمين" placeholder="بحث بالاسم / الرقم القومي / كود التقدم" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+              <input className="input" type="search" placeholder="بحث بالاسم / الرقم القومي / كود التقدم" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
               <Search size={18} />
             </div>
-            <select className="select" aria-label="تصفية حسب الحالة" value={status} onChange={(e) => { setStatus(e.target.value as ApplicantStatus | 'all'); setPage(1); }}>
+            <select className="select" value={status} onChange={(e) => { setStatus(e.target.value as ApplicantStatus | 'all'); setPage(1); }}>
               <option value="all">كل الحالات</option>
               {Object.entries(STATUS_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v.label}</option>
               ))}
             </select>
-            <select className="select" aria-label="تصفية حسب المحافظة" value={governorate} onChange={(e) => { setGovernorate(e.target.value); setPage(1); }}>
-              <option value="all">كل المحافظات</option>
-              {MOCK.governorates.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <select className="select" aria-label="تصفية حسب نوع الشهادة" value={certType} onChange={(e) => { setCertType(e.target.value); setPage(1); }}>
-              <option value="all">كل الشهادات</option>
-              <option value="ثانوية عامة">ثانوية عامة</option>
-              <option value="ثانوية أزهرية">ثانوية أزهرية</option>
-            </select>
+            <div className="min-w-[180px] flex-[0_1_200px]">
+              <SearchSelect
+                value={governorate === 'all' ? null : governorate}
+                onChange={(next) => {
+                  setGovernorate(next ?? 'all');
+                  setPage(1);
+                }}
+                options={GOVERNORATE_OPTIONS}
+                ariaLabel="تصفية حسب المحافظة"
+                placeholder="كل المحافظات"
+                className="h-[38px]"
+              />
+            </div>
+            <div className="min-w-[180px] flex-[0_1_200px]">
+              <SearchSelect
+                value={certType === 'all' ? null : certType}
+                onChange={(next) => {
+                  setCertType(next ?? 'all');
+                  setPage(1);
+                }}
+                options={CERT_TYPE_OPTIONS}
+                ariaLabel="تصفية حسب نوع الشهادة"
+                placeholder="كل الشهادات"
+                className="h-[38px]"
+              />
+            </div>
           </div>
 
           <DataTable<Applicant>

@@ -59,7 +59,7 @@ export function ApplicantDetailPage(): JSX.Element {
   const user = useAuthStore((s) => s.user);
 
   if (isLoading) return <LoadingState variant="detail" />;
-  if (error) return <ErrorState error={error as Error} onRetry={() => refetch()} />;
+  if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   if (!applicant) {
     return (
       <Card>
@@ -326,7 +326,7 @@ function LegacyTimelineCard({ applicantId }: { applicantId: string }): JSX.Eleme
     return (
       <Card>
         <CardHeader title="السجل الزمني للملف" />
-        <ErrorState error={error as Error} />
+        <ErrorState error={error} />
       </Card>
     );
   }

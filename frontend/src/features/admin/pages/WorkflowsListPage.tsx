@@ -66,7 +66,7 @@ export function WorkflowsListPage(): JSX.Element {
     return (
       <div>
         <PageHeader title="إعدادات سير العمل" />
-        <ErrorState error={error as Error} onRetry={() => refetch()} />
+        <ErrorState error={error} onRetry={() => refetch()} />
       </div>
     );
   }

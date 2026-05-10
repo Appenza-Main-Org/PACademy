@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { committeeService, type CommitteePayload } from './committee.service';
+import type { Committee } from '@/shared/types/domain';
 
 export const committeeKeys = {
   all: ['committees'] as const,
@@ -7,6 +8,7 @@ export const committeeKeys = {
   detail: (id: string) => [...committeeKeys.all, 'detail', id] as const,
   queue: (id: string) => [...committeeKeys.all, 'queue', id] as const,
   results: (id: string) => [...committeeKeys.all, 'results', id] as const,
+  eligibleOfficers: () => [...committeeKeys.all, 'eligible-officers'] as const,
 };
 
 export const useCommittees = () =>
@@ -74,3 +76,30 @@ export const useBulkUploadResults = (committeeId: string) => {
     onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
   });
 };
+
+export const useCommitteeUpdate = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<Committee> }) =>
+      committeeService.update(id, patch),
+    onSuccess: (committee) => {
+      qc.invalidateQueries({ queryKey: committeeKeys.list() });
+      qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
+    },
+  });
+};
+
+export const useCommitteeScheduleSlot = (committeeId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { applicantId: string; dateIso: string }) =>
+      committeeService.scheduleSlot(committeeId, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.queue(committeeId) }),
+  });
+};
+
+export const useEligibleOfficers = () =>
+  useQuery({
+    queryKey: committeeKeys.eligibleOfficers(),
+    queryFn: () => committeeService.getEligibleOfficers(),
+  });

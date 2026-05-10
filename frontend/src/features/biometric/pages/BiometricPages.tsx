@@ -9,7 +9,7 @@ export function BiometricVerifyPage(): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<'face' | 'fingerprint'>('face');
   const [result, setResult] = useState<VerifyResult | null>(null);
-  const [nid, setNid] = useState(MOCK.applicants[0]!.nationalId);
+  const [nid, setNid] = useState(MOCK.applicants[0].nationalId);
 
   const handleVerify = async (): Promise<void> => {
     setBusy(true);
@@ -110,7 +110,7 @@ export function BiometricEnrollPage(): JSX.Element {
     { label: 'الاعتماد والحفظ', desc: 'مراجعة العيّنات وحفظها بقاعدة البيانات' },
   ];
 
-  const applicant = MOCK.applicants.find((a) => a.nationalId === nid) ?? MOCK.applicants[0]!;
+  const applicant = MOCK.applicants.find((a) => a.nationalId === nid) ?? MOCK.applicants[0];
 
   const simulateScan = (kind: 'face' | 'fp'): void => {
     setScanning(true);

@@ -1,7 +1,13 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { authService } from './auth.service';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { authService, type LockPolicy, type OfficerLookupResult } from './auth.service';
 import { useAuthStore } from '../store/auth.store';
 import type { LoginCredentials } from '../types';
+
+export const authKeys = {
+  all: ['auth'] as const,
+  lockPolicy: () => [...authKeys.all, 'lock-policy'] as const,
+  lockedUsers: () => [...authKeys.all, 'locked-users'] as const,
+};
 
 export function useLoginMutation(): ReturnType<typeof useMutation<Awaited<ReturnType<typeof authService.login>>, Error, LoginCredentials>> {
   const setUser = useAuthStore((s) => s.setUser);
@@ -19,22 +25,51 @@ export function useLogoutMutation(): ReturnType<typeof useMutation<Awaited<Retur
   });
 }
 
-/** Validates the session server-side and syncs the Zustand store. */
-export function useMe() {
+export function useRequestOtpMutation() {
+  return useMutation({
+    mutationFn: (creds: LoginCredentials) => authService.requestOtp(creds),
+  });
+}
+
+export function useVerifyOtpMutation() {
   const setUser = useAuthStore((s) => s.setUser);
-  const clear = useAuthStore((s) => s.clear);
-  return useQuery({
-    queryKey: ['auth', 'me'],
-    queryFn: async () => {
-      const user = await authService.me();
-      if (user) {
-        setUser(user);
-      } else {
-        clear();
-      }
-      return user;
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: false,
+  return useMutation({
+    mutationFn: ({ pendingId, code }: { pendingId: string; code: string }) =>
+      authService.verifyOtp({ pendingId, code }),
+    onSuccess: (user) => setUser(user),
+  });
+}
+
+export function useLockPolicy() {
+  return useQuery({ queryKey: authKeys.lockPolicy(), queryFn: () => authService.getLockPolicy() });
+}
+
+export function useUpdateLockPolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Partial<LockPolicy>) => authService.updateLockPolicy(patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: authKeys.lockPolicy() }),
+  });
+}
+
+export function useLockedUsers() {
+  return useQuery({ queryKey: authKeys.lockedUsers(), queryFn: () => authService.getLockedUsers() });
+}
+
+export function useUnlockUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
+      authService.unlockUser(userId, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: authKeys.lockedUsers() }),
+  });
+}
+
+export function useOfficerLookup(): ReturnType<
+  typeof useMutation<OfficerLookupResult, Error, { nationalId: string; officerCode: string }>
+> {
+  return useMutation({
+    mutationFn: (input: { nationalId: string; officerCode: string }) =>
+      authService.lookupOfficer(input),
   });
 }

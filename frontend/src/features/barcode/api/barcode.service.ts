@@ -38,7 +38,7 @@ export const barcodeService = {
     await simulateLatency();
     const record = BARCODES_STATE.find((b) => b.code === code) ?? BARCODES_STATE[0] ?? null;
     if (!record) return { record: null, applicant: null };
-    const applicant = MOCK.applicants.find((a) => a.id === record.applicantId) ?? MOCK.applicants[0]!;
+    const applicant = MOCK.applicants.find((a) => a.id === record.applicantId) ?? MOCK.applicants[0];
     return { record, applicant };
   },
 

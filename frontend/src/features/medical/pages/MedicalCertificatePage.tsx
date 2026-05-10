@@ -121,7 +121,7 @@ export function MedicalCertificatePage(): JSX.Element {
             <CardHeader title="نتائج العيادات الثمانية" subtitle="بحسب الترتيب المعتمد للفحص الطبّي" />
             <ol className="flex flex-col">
               {ALL_STATION_KEYS.map((s, i) => {
-                const ps = certQ.data!.perStation[s];
+                const ps = certQ.data.perStation[s];
                 return (
                   <li key={s} className="flex items-center justify-between gap-3 border-b border-border-subtle py-3 last:border-b-0">
                     <div className="flex items-center gap-3">

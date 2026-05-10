@@ -73,10 +73,10 @@ export function StageStepper({
               aria-hidden
               className={cn(
                 orientation === 'horizontal' ? 'h-0.5 min-w-[24px] flex-1' : 'h-6 w-0.5',
-                items[i]!.state === 'complete' ? 'bg-teal-500' : 'bg-ink-200',
+                items[i].state === 'complete' ? 'bg-teal-500' : 'bg-ink-200',
               )}
               style={
-                items[i]!.state === 'complete'
+                items[i].state === 'complete'
                   ? {
                       animation:
                         'stageStepperProgress var(--duration-slow) var(--ease-standard) forwards',

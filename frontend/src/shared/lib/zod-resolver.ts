@@ -42,9 +42,9 @@ function assignError(target: Record<string, unknown>, path: string, message: str
   const segments = path.split('.');
   let cursor = target;
   for (let i = 0; i < segments.length - 1; i += 1) {
-    const seg = segments[i]!;
+    const seg = segments[i];
     if (typeof cursor[seg] !== 'object' || cursor[seg] === null) cursor[seg] = {};
     cursor = cursor[seg] as Record<string, unknown>;
   }
-  cursor[segments[segments.length - 1]!] = { type: 'zod', message };
+  cursor[segments[segments.length - 1]] = { type: 'zod', message };
 }

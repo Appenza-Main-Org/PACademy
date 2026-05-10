@@ -26,6 +26,7 @@ const STATUS_LABEL: Record<CycleStatus, string> = {
   draft: 'مسودة',
   open: 'مفتوحة',
   active: 'نشطة',
+  extended: 'ممدّدة',
   closed: 'مغلقة',
   processing: 'تحت المعالجة',
   finalized: 'مختومة',
@@ -36,6 +37,7 @@ const STATUS_TONE: Record<CycleStatus, 'neutral' | 'success' | 'warning' | 'info
   draft: 'neutral',
   open: 'success',
   active: 'success',
+  extended: 'info',
   closed: 'warning',
   processing: 'info',
   finalized: 'brand',
@@ -101,7 +103,7 @@ export function CyclesPage(): JSX.Element {
           onClick={() => {
             cloneMut.mutate(c.id, {
               onSuccess: (next) => toast(`تم إنشاء نسخة: ${next.nameAr}`, 'success'),
-              onError: (err) => toast((err as Error).message, 'warning'),
+              onError: (err) => toast((err).message, 'warning'),
             });
           }}
         >

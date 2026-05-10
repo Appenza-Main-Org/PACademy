@@ -80,7 +80,7 @@ export function TestScheduleAndResultsPage(): JSX.Element {
 
   if (listQuery.isLoading || currentQuery.isLoading) return <LoadingState variant="page" />;
   if (listQuery.error) {
-    return <ErrorState error={listQuery.error as Error} onRetry={() => listQuery.refetch()} />;
+    return <ErrorState error={listQuery.error} onRetry={() => listQuery.refetch()} />;
   }
 
   const tests = listQuery.data ?? [];

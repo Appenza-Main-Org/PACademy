@@ -94,6 +94,60 @@ npm run lint        # eslint (config not yet committed; planned)
 
 ---
 
+## 2.5 Component authoring rules (read every session)
+
+Every component — existing or new — follows these rules. They override the convenience of any library suggestion.
+
+### The three layers (in order)
+
+1. **Tokens** (`src/styles/tokens.css`) — the *only* source of truth for color, spacing, radius, shadow, typography, motion. Never hardcode a hex, a px value where a token exists, or a duration outside `--motion-*`.
+2. **Behavior primitives** (`@radix-ui/react-*`) — the *only* sanctioned source of headless accessibility, focus management, popper positioning, and portal rendering. Wrap them in `src/shared/components/`; never import them directly from a feature.
+3. **Composition** in `src/shared/components/` — token-styled wrappers around layer 2, exposing the smallest API a feature page needs. Features import from `shared/`, never from `@radix-ui/*` directly.
+
+### Forbidden in component code
+
+- ❌ Adopting any styled component library (MUI, Chakra, HeroUI, Ant, Mantine, Bootstrap, NextUI). The visual identity is sacred; PRODUCT.md anti-references rule them out.
+- ❌ Installing `shadcn-ui` as a dependency. Shadcn is a pattern (copy + own), not a package. Read its source for ideas, write our own.
+- ❌ `framer-motion` and other animation libraries. Use CSS transitions on `--motion-fast` / `--motion-slow` tokens. Charts already hand-roll their own SVG animation.
+- ❌ Hardcoded hex / rgb / hsl outside `tokens.css`. Per-app accents come through `var(--accent-*)` resolved by `data-app="<key>"`.
+- ❌ `pl-*` / `pr-*` / `left-*` / `right-*` / `ml-*` / `mr-*` Tailwind utilities. Use logical equivalents (`ps-*` / `pe-*` / `start-*` / `end-*` / `ms-*` / `me-*`). RTL is not a flip — it's authored.
+- ❌ Inline `style={{}}` for static values. Inline style is allowed only for **dynamic** values (chart bar widths, runtime-computed colors via tokens, SVG transforms).
+- ❌ Default exports.
+- ❌ A new shared component without a name in PRODUCT.md, POLISH_PLAN.md, or HANDOFF.md, and without explicit user approval. The bar is high — see *Guardrail* below.
+
+### Required for every component
+
+- ✅ Named export from `src/shared/components/<Name>.tsx`.
+- ✅ JSDoc header with prop contract + one usage example.
+- ✅ All five interactive states wired where applicable: `default / hover / active / focus-visible / disabled`. Focus rings use `var(--ring)`.
+- ✅ Loading / empty / error states are designed, not placeholder. Use `Skeleton`, `EmptyState`, `ErrorState` from shared.
+- ✅ Built on the relevant Radix primitive when the component has any of: focus management, popper positioning, dismissable layers, ARIA roles beyond a single button/input. The list of primitives we use is in `RADIX_ADOPTION_REPORT.md`.
+- ✅ `prefers-reduced-motion` respected on every transition.
+- ✅ Keyboard-navigable end-to-end (Tab / Shift-Tab / Enter / Space / Esc / arrow keys per WAI-ARIA APG for the relevant pattern).
+- ✅ Arabic copy verbatim from `_legacy/` or the karasa PDF — never paraphrased.
+- ✅ Per-app accent applied via `var(--accent-*)`, never the brand color directly, when the component lives inside a `data-app="<key>"` scope.
+
+### Guardrail — when *not* to add a component
+
+A new shared component costs more than it saves whenever any of these are true:
+- The pattern appears fewer than 3 times across the codebase.
+- The "component" is really a layout (use a CSS class on `tokens.css` + `Card variant`).
+- It's a one-screen flourish (write it inline in the feature, not in shared).
+- It overlaps with an existing primitive plus 5 lines of styling. Style the existing one.
+
+Per HANDOFF.md, the §4 two-phase signature pattern is **not** a shared component — it's a canonical visual language applied in-place at each consumer site. New patterns follow that precedent unless the user explicitly asks for a shared abstraction.
+
+### When the user says "use component library X"
+
+Stop. Re-read this section. Reply with:
+1. What headless primitive in our existing Radix set already covers the behavior.
+2. What token / class on the existing system already covers the visual.
+3. What specific gap, if any, remains. If the gap is real, propose a Radix-based composition; if not, decline and explain.
+
+Never install a styled component library. Never re-theme an existing screen onto one. The visual identity is the product.
+
+---
+
 ## 3. Architecture — Clean / feature-based
 
 ```
@@ -288,6 +342,10 @@ async list(filters) { return apiClient.get('/applicants', { params: filters }).t
 
 ### Domain types — see [frontend/src/shared/types/domain.ts](frontend/src/shared/types/domain.ts)
 `Applicant`, `ApplicantStatus`, `PaymentStatus`, `InvestigationStatus`, `ResultOutcome`, `AuditEntry`, `AuditAction`, `AuditColor`, `SystemUser`, `MedicalStation`, `Committee`, `Question`, `DayPoint`, `Kpis`, `TimelineEvent`.
+
+### DB constraints (backend integration handshake)
+
+The admin gap closure work (Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md) introduced typed `ConflictError` codes (`ACTIVE_CYCLE_EXISTS`, `EXAM_ORDER_DUPLICATE`, `COMMITTEE_AT_CAPACITY`, `NID_CYCLE_DUPLICATE`, …) that the frontend already throws from its mock services. The full list of invariants — paired with the SQL Server expressions backend must implement — lives in [docs/DB_CONSTRAINTS.md](docs/DB_CONSTRAINTS.md). Read it before opening any service file that mutates state; the frontend mirrors are not negotiable on integration day.
 
 ---
 

@@ -72,8 +72,8 @@ export const examsService = {
     await simulateLatency();
     const i = QS_STATE.findIndex((q) => q.id === id);
     if (i === -1) return null;
-    QS_STATE[i] = { ...QS_STATE[i], ...patch, version: (QS_STATE[i]!.version ?? 1) + 1 } as BankQuestion;
-    return QS_STATE[i]!;
+    QS_STATE[i] = { ...QS_STATE[i], ...patch, version: (QS_STATE[i].version ?? 1) + 1 } as BankQuestion;
+    return QS_STATE[i];
   },
 
   async publishQuestion(id: string): Promise<BankQuestion | null> {

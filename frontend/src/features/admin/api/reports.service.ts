@@ -150,7 +150,7 @@ function activeCycleCapacity(): number | null {
 /** Map an applicant deterministically into one of the 7 departments. */
 function applicantDepartment(applicantId: string): ApplicantCategoryKey {
   const idx = hashInt(`${applicantId}:dept`, FALLBACK_CATEGORIES.length);
-  return FALLBACK_CATEGORIES[idx]!.key;
+  return FALLBACK_CATEGORIES[idx].key;
 }
 
 /** Deterministic eligibility outcome per applicant. */
@@ -180,7 +180,7 @@ function applicantRejectionReason(applicantId: string): EligibilityRejectionReas
   if (r < 0.80) return 'qualification_mismatch';
   if (r < 0.90) return 'height_below_min';
   if (r < 0.96) return 'marital_status_mismatch';
-  return reasons[6]!;
+  return reasons[6];
 }
 
 /** Deterministic pass/fail/pending per applicant × test kind. Reuses
@@ -484,7 +484,7 @@ export const reportsService = {
       ? sessionPool.map((s, idx) => ({
           id: s.id,
           label: idx === 0 ? 'الجلسة الصباحية · مراجعة طلبات' : idx === 1 ? 'جلسة استئنافات' : `جلسة ${idx + 1}`,
-          scheduledTime: ['09:00', '11:30', '14:00', '16:30'][idx % 4]!,
+          scheduledTime: ['09:00', '11:30', '14:00', '16:30'][idx % 4],
           state: idx === 0 ? 'live' : idx === 3 ? 'decided' : 'scheduled',
           memberCount: s.attendees?.length ?? 7,
         }))
@@ -525,7 +525,7 @@ export const reportsService = {
     }));
     for (const e of MOCK.audit) {
       const hour = hashInt(`${e.id}:hr`, 24);
-      const bucket = hourly[hour]!;
+      const bucket = hourly[hour];
       bucket.total += 1;
       if (HIGH_SENSITIVITY_PATTERNS.some((p) => e.details.includes(p))) {
         bucket.highSensitivity += 1;

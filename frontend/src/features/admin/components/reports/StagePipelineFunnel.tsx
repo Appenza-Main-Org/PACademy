@@ -75,7 +75,7 @@ export function StagePipelineFunnel({ funnel }: StagePipelineFunnelProps): JSX.E
             </thead>
             <tbody>
               {funnel.slice(1).map((p, idx) => {
-                const prev = funnel[idx]!;
+                const prev = funnel[idx];
                 const worst = Math.max(...funnel.slice(1).map((q) => q.dropOffFromPrevPercent));
                 const isWorst = p.dropOffFromPrevPercent === worst && worst > 0;
                 return (

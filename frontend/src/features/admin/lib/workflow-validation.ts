@@ -57,7 +57,7 @@ export function validateStages(stages: WorkflowStage[]): ValidationFinding[] {
   const reachableSet = new Set<ApplicantStatus>(TERMINAL_STATUSES);
   /* Forward pass — every later stage's statusOnEnter is reachable. */
   for (let i = 0; i < stages.length; i += 1) {
-    const stage = stages[i]!;
+    const stage = stages[i];
     const laterStatuses = new Set<ApplicantStatus>([
       ...TERMINAL_STATUSES,
       ...stages.slice(i + 1).map((s) => s.statusOnEnter),

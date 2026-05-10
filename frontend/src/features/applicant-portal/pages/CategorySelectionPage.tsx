@@ -95,7 +95,7 @@ export function CategorySelectionPage(): JSX.Element {
     return (
       tryFind(cycleParam) ??
       tryFind(storedCycleId) ??
-      (cycles.length === 1 ? cycles[0]! : null)
+      (cycles.length === 1 ? cycles[0] : null)
     );
   }, [cycles, cycleParam, storedCycleId]);
 
@@ -119,7 +119,7 @@ export function CategorySelectionPage(): JSX.Element {
   if (cyclesQuery.error) {
     return (
       <ErrorState
-        error={cyclesQuery.error as Error}
+        error={cyclesQuery.error}
         onRetry={() => cyclesQuery.refetch()}
       />
     );
@@ -165,7 +165,7 @@ export function CategorySelectionPage(): JSX.Element {
       {cycles.length === 0 ? (
         <EmptyState
           variant="generic"
-          title="لا توجد دورة قبول نشطة حالياً"
+          title="لا توجد دورة قبول مفتوحة حالياً"
           description="يرجى المتابعة لاحقاً لمتابعة فتح باب القبول."
         />
       ) : (
@@ -324,7 +324,7 @@ function CategoriesSection({
   if (categoriesQuery.error) {
     return (
       <ErrorState
-        error={categoriesQuery.error as Error}
+        error={categoriesQuery.error}
         onRetry={() => categoriesQuery.refetch()}
       />
     );
