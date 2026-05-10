@@ -1,35 +1,100 @@
 /**
- * System Users API Contract — Sprint 1 (KARASA_GAPS §1.2.E).
+ * System Users API Contract — Sprint 1 (KARASA_GAPS §1.2.E) +
+ * admin-create NID flow extensions (multi-role, accountStatus, NID metadata).
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/users                          → SystemUser[]
- *   POST   /api/users                          → SystemUser (MOIPASS-backed creation)
- *   PATCH  /api/users/:id                      → SystemUser
- *   POST   /api/users/:id/deactivate           → SystemUser
+ *   GET    /api/users/:id                      → SystemUser
+ *   POST   /api/users                          → SystemUser   (NID-driven creation)
+ *   PATCH  /api/users/:id                      → SystemUser   (multi-role, status)
+ *   POST   /api/users/:id/status               → SystemUser   (active/inactive toggle)
+ *   POST   /api/users/:id/deactivate           → SystemUser   (legacy alias)
  *   POST   /api/users/:id/reset-2fa            → { ok }
  *   POST   /api/users/bulk-assign              → { updated }
  *   GET    /api/users/:id/activity             → UserActivityEntry[]
+ *
+ * Audit: every mutation emits via `withAudit` / `emitAudit` so `/admin/audit`
+ * surfaces it on next refetch. Audit codes:
+ *   user_created, user_updated, user_status_changed, user_roles_changed.
  */
 
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
-import { emitAudit } from '@/shared/lib/audit';
-import type { SystemUser, SystemUserStatus, UserActivityEntry } from '@/shared/types/domain';
+import { emitAudit, withAudit } from '@/shared/lib/audit';
+import { StatusChangeBlockedError } from '@/shared/lib/errors';
+import type {
+  AccountStatus,
+  SystemUser,
+  SystemUserStatus,
+  UserActivityEntry,
+  UserType,
+} from '@/shared/types/domain';
 
-/* Backfill `status` from the legacy `active` flag so existing seed rows
- * carry the Gap C field without a migration. */
-const STATE: SystemUser[] = MOCK.users.map((u) => ({
-  ...u,
-  status: u.status ?? (u.active ? 'active' : 'suspended'),
-}));
+/* Backfill from the mock seed. The seed already produces fully-shaped
+ * rows (Phase 1) so the map is now identity — kept here as a single
+ * conversion site for the "live state" view. */
+const STATE: SystemUser[] = MOCK.users.map((u) => ({ ...u }));
 
 let userCounter = STATE.length + 1;
 
+/** Convenience for the shape changes we report back in audit diffs.
+ *  Keep narrow — the rest of SystemUser is verbose. */
+type UserAuditShape = Pick<
+  SystemUser,
+  'id' | 'fullArabicName' | 'roles' | 'role' | 'accountStatus' | 'status' | 'active'
+>;
+
+function snapshot(u: SystemUser): UserAuditShape {
+  return {
+    id: u.id,
+    fullArabicName: u.fullArabicName,
+    roles: [...u.roles],
+    role: u.role,
+    accountStatus: u.accountStatus,
+    status: u.status,
+    active: u.active,
+  };
+}
+
+function mapAccountStatusToLegacy(next: AccountStatus): { active: boolean; status: SystemUserStatus } {
+  return next === 'active'
+    ? { active: true, status: 'active' }
+    : { active: false, status: 'suspended' };
+}
+
 export interface CreateUserPayload {
-  name: string;
-  role: string;
-  unit: string;
-  active?: boolean;
+  /** Required — NID-driven creation. The form gates submission on a
+   *  successful lookup, so the four metadata fields below are populated
+   *  from the directory result. */
+  nationalId: string;
+  fullArabicName: string;
+  officerCode: string;
+  mobileNumber: string;
+  userType: UserType;
+  /** Multi-role assignment — at least one. */
+  roles: string[];
+  unit?: string;
+  accountStatus: AccountStatus;
+  /** Optional override for the actor (defaults to the auth-store user). */
+  actorId?: string;
+}
+
+export interface UpdateUserPayload {
+  fullArabicName?: string;
+  officerCode?: string;
+  mobileNumber?: string;
+  userType?: UserType;
+  unit?: string;
+  roles?: string[];
+  accountStatus?: AccountStatus;
+}
+
+export interface SetAccountStatusInput {
+  id: string;
+  next: AccountStatus;
+  reason?: string;
+  /** Actor id — used to block self-deactivation. Defaults to auth-store. */
+  actorId?: string;
 }
 
 export const usersService = {
@@ -43,42 +108,206 @@ export const usersService = {
     return STATE.find((u) => u.id === id) ?? null;
   },
 
+  /**
+   * INTEGRATION CONTRACT
+   * Real endpoint: POST /api/users
+   * Body: CreateUserPayload — backend validates NID against personnel
+   * directory; returns the issued SystemUser.
+   * Audit: `user_created` with the new row as `after`.
+   */
   async create(payload: CreateUserPayload): Promise<SystemUser> {
-    await simulateLatency();
-    const now = new Date().toISOString();
-    const active = payload.active ?? true;
-    const user: SystemUser = {
-      id: `U-${String(userCounter++).padStart(3, '0')}`,
-      name: payload.name,
-      role: payload.role,
-      unit: payload.unit,
-      active,
-      status: active ? 'active' : 'suspended',
-      lastLogin: 0,
-      nationalId: '',
-      fullArabicName: payload.name,
-      officerCode: '',
-      mobileNumber: '',
-      userType: 'civilian',
-      roles: [payload.role],
-      accountStatus: active ? 'active' : 'inactive',
-      createdAt: now,
-      updatedAt: now,
-    };
-    STATE.unshift(user);
-    return user;
+    if (payload.roles.length === 0) {
+      throw new Error('يجب اختيار دور واحد على الأقل');
+    }
+    return withAudit(
+      async () => {
+        await simulateLatency();
+        const now = new Date().toISOString();
+        const legacy = mapAccountStatusToLegacy(payload.accountStatus);
+        const user: SystemUser = {
+          id: `U-${String(userCounter++).padStart(3, '0')}`,
+          name: payload.fullArabicName,
+          role: payload.roles[0]!, /* legacy single-role mirror */
+          unit: payload.unit ?? '',
+          active: legacy.active,
+          status: legacy.status,
+          lastLogin: 0,
+          nationalId: payload.nationalId,
+          fullArabicName: payload.fullArabicName,
+          officerCode: payload.officerCode,
+          mobileNumber: payload.mobileNumber,
+          userType: payload.userType,
+          roles: [...payload.roles],
+          accountStatus: payload.accountStatus,
+          createdAt: now,
+          updatedAt: now,
+        };
+        STATE.unshift(user);
+        return user;
+      },
+      {
+        action: 'user_created',
+        module: 'users',
+        entityType: 'SystemUser',
+        entityLabel: 'مستخدم',
+        entityId: `pending-${userCounter}`,
+        details: `إنشاء حساب: ${payload.fullArabicName} (${payload.nationalId})`,
+        afterFrom: (u) => snapshot(u),
+      },
+    );
   },
 
-  async update(id: string, patch: Partial<SystemUser>): Promise<SystemUser> {
+  /**
+   * INTEGRATION CONTRACT
+   * Real endpoint: PATCH /api/users/:id
+   * Audit: `user_updated` with before/after diff. If `roles` changed,
+   * also emits `user_roles_changed`. If `accountStatus` changed, also
+   * emits `user_status_changed`.
+   */
+  async update(id: string, patch: UpdateUserPayload): Promise<SystemUser> {
     await simulateLatency();
     const idx = STATE.findIndex((u) => u.id === id);
     if (idx === -1) throw new Error('المستخدم غير موجود');
-    STATE[idx] = { ...STATE[idx], ...patch } as SystemUser;
-    return STATE[idx]!;
+    const before = STATE[idx]!;
+    const beforeShape = snapshot(before);
+
+    const nextRoles = patch.roles ? [...patch.roles] : [...before.roles];
+    if (patch.roles && nextRoles.length === 0) {
+      throw new Error('يجب اختيار دور واحد على الأقل');
+    }
+    const nextAccountStatus = patch.accountStatus ?? before.accountStatus;
+    const legacy = mapAccountStatusToLegacy(nextAccountStatus);
+    const updated: SystemUser = {
+      ...before,
+      fullArabicName: patch.fullArabicName ?? before.fullArabicName,
+      name: patch.fullArabicName ?? before.name,
+      officerCode: patch.officerCode ?? before.officerCode,
+      mobileNumber: patch.mobileNumber ?? before.mobileNumber,
+      userType: patch.userType ?? before.userType,
+      unit: patch.unit ?? before.unit,
+      roles: nextRoles,
+      role: nextRoles[0] ?? before.role,
+      accountStatus: nextAccountStatus,
+      active: legacy.active,
+      status: legacy.status,
+      updatedAt: new Date().toISOString(),
+    };
+    STATE[idx] = updated;
+    const afterShape = snapshot(updated);
+
+    emitAudit({
+      action: 'user_updated',
+      module: 'users',
+      entityType: 'SystemUser',
+      entityLabel: 'مستخدم',
+      entityId: id,
+      details: `تعديل ${before.fullArabicName}`,
+      before: beforeShape,
+      after: afterShape,
+    });
+
+    const rolesChanged =
+      beforeShape.roles.length !== afterShape.roles.length ||
+      beforeShape.roles.some((r, i) => r !== afterShape.roles[i]);
+    if (rolesChanged) {
+      emitAudit({
+        action: 'user_roles_changed',
+        module: 'users',
+        entityType: 'SystemUser',
+        entityLabel: 'مستخدم',
+        entityId: id,
+        details: `تعديل الأدوار: [${beforeShape.roles.join(', ')}] → [${afterShape.roles.join(', ')}]`,
+        before: { roles: beforeShape.roles },
+        after: { roles: afterShape.roles },
+      });
+    }
+    if (beforeShape.accountStatus !== afterShape.accountStatus) {
+      emitAudit({
+        action: 'user_status_changed',
+        module: 'users',
+        entityType: 'SystemUser',
+        entityLabel: 'مستخدم',
+        entityId: id,
+        details: `تغيير الحالة: ${beforeShape.accountStatus} → ${afterShape.accountStatus}`,
+        before: { accountStatus: beforeShape.accountStatus },
+        after: { accountStatus: afterShape.accountStatus },
+      });
+    }
+    return updated;
   },
 
+  /**
+   * INTEGRATION CONTRACT
+   * Real endpoint: POST /api/users/:id/status
+   * Body: { status: 'active' | 'inactive', reason?: string }
+   * Errors: StatusChangeBlockedError (self-deactivation, last super_admin).
+   * Audit: `user_status_changed` with before/after.
+   */
+  async setAccountStatus(input: SetAccountStatusInput): Promise<SystemUser> {
+    await simulateLatency();
+    const idx = STATE.findIndex((u) => u.id === input.id);
+    if (idx === -1) throw new Error('المستخدم غير موجود');
+    const before = STATE[idx]!;
+
+    if (input.next === 'inactive') {
+      /* Self-deactivation guard. */
+      if (input.actorId && input.actorId === before.id) {
+        throw new StatusChangeBlockedError(
+          'self_deactivation',
+          'لا يمكن تعطيل حسابك الخاص',
+        );
+      }
+      /* Last-super-admin guard. */
+      const isSuperAdmin = before.roles.includes('super_admin') || before.role === 'super_admin';
+      if (isSuperAdmin) {
+        const otherActiveSupers = STATE.filter(
+          (u) =>
+            u.id !== before.id &&
+            u.accountStatus === 'active' &&
+            (u.roles.includes('super_admin') || u.role === 'super_admin'),
+        );
+        if (otherActiveSupers.length === 0) {
+          throw new StatusChangeBlockedError(
+            'last_super_admin',
+            'يجب وجود مدير نظام نشط واحد على الأقل',
+          );
+        }
+      }
+    }
+
+    if (before.accountStatus === input.next) {
+      /* No-op; do not emit audit for no-change. */
+      return before;
+    }
+
+    const legacy = mapAccountStatusToLegacy(input.next);
+    const updated: SystemUser = {
+      ...before,
+      accountStatus: input.next,
+      active: legacy.active,
+      status: legacy.status,
+      updatedAt: new Date().toISOString(),
+    };
+    STATE[idx] = updated;
+
+    emitAudit({
+      action: 'user_status_changed',
+      module: 'users',
+      entityType: 'SystemUser',
+      entityLabel: 'مستخدم',
+      entityId: input.id,
+      details: input.reason
+        ? `تغيير الحالة: ${before.accountStatus} → ${input.next} — ${input.reason}`
+        : `تغيير الحالة: ${before.accountStatus} → ${input.next}`,
+      before: { accountStatus: before.accountStatus },
+      after: { accountStatus: input.next },
+    });
+    return updated;
+  },
+
+  /** Legacy alias retained for callsites that pre-date `setAccountStatus`. */
   async deactivate(id: string): Promise<SystemUser> {
-    return usersService.update(id, { active: false });
+    return usersService.setAccountStatus({ id, next: 'inactive' });
   },
 
   async reset2fa(_id: string): Promise<{ ok: true }> {
@@ -93,7 +322,25 @@ export const usersService = {
     ids.forEach((id) => {
       const idx = STATE.findIndex((u) => u.id === id);
       if (idx !== -1) {
-        STATE[idx] = { ...STATE[idx], role } as SystemUser;
+        const before = STATE[idx]!;
+        const nextRoles = before.roles.includes(role) ? before.roles : [role, ...before.roles.filter((r) => r !== role)];
+        const updatedUser: SystemUser = {
+          ...before,
+          role,
+          roles: nextRoles,
+          updatedAt: new Date().toISOString(),
+        };
+        STATE[idx] = updatedUser;
+        emitAudit({
+          action: 'user_roles_changed',
+          module: 'users',
+          entityType: 'SystemUser',
+          entityLabel: 'مستخدم',
+          entityId: id,
+          details: `تعيين الدور (إجراء جماعي): ${role}`,
+          before: { roles: before.roles },
+          after: { roles: nextRoles },
+        });
         updated += 1;
       }
     });
@@ -106,28 +353,32 @@ export const usersService = {
   },
 
   /**
-   * Set the typed status — `active` / `suspended` / `locked`. Emits audit
-   * with before/after; back-fills `active` for existing consumers.
+   * Legacy typed-status setter — `active` / `suspended` / `locked`. Kept
+   * for the lockout flow (Gap A) which uses the three-state union. The
+   * Active/Inactive admin toggle uses `setAccountStatus`.
    */
   async setStatus(id: string, status: SystemUserStatus, reason?: string): Promise<SystemUser> {
     await simulateLatency();
     const idx = STATE.findIndex((u) => u.id === id);
     if (idx === -1) throw new Error('المستخدم غير موجود');
     const before = { ...STATE[idx]! };
+    const accountStatus: AccountStatus = status === 'active' ? 'active' : 'inactive';
     STATE[idx] = {
       ...before,
       status,
       active: status === 'active',
+      accountStatus,
+      updatedAt: new Date().toISOString(),
     };
     emitAudit({
-      action: 'update',
+      action: 'user_status_changed',
       module: 'users',
       entityType: 'SystemUser',
       entityLabel: 'مستخدم',
       entityId: id,
       details: reason ? `تغيير الحالة → ${status} (${reason})` : `تغيير الحالة → ${status}`,
-      before: { status: before.status, active: before.active },
-      after: { status, active: status === 'active' },
+      before: { status: before.status, active: before.active, accountStatus: before.accountStatus },
+      after: { status, active: status === 'active', accountStatus },
     });
     return STATE[idx]!;
   },

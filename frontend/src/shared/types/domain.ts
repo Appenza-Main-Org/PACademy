@@ -224,7 +224,12 @@ export type AuditAction =
   | 'notification_unpublished'
   /* Payment events (Gap K) */
   | 'payment_status_changed'
-  | 'payment_refunded';
+  | 'payment_refunded'
+  /* Admin-create NID flow */
+  | 'user_created'
+  | 'user_updated'
+  | 'user_status_changed'
+  | 'user_roles_changed';
 export type AuditColor = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 /** Typed module taxonomy — used by Gap E filters and the withAudit() helper. */

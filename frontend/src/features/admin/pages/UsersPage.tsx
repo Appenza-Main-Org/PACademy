@@ -229,16 +229,36 @@ export function UsersPage(): JSX.Element {
         editing={editing}
         onClose={() => setDrawerOpen(false)}
         onCreate={(payload) =>
-          createMut.mutate(payload, {
-            onSuccess: () => {
-              toast('تم إنشاء المستخدم', 'success');
-              setDrawerOpen(false);
+          createMut.mutate(
+            {
+              nationalId: '',
+              fullArabicName: payload.name,
+              officerCode: '',
+              mobileNumber: '',
+              userType: 'civilian',
+              roles: [payload.role],
+              unit: payload.unit,
+              accountStatus: payload.active ? 'active' : 'inactive',
             },
-          })
+            {
+              onSuccess: () => {
+                toast('تم إنشاء المستخدم', 'success');
+                setDrawerOpen(false);
+              },
+            },
+          )
         }
         onUpdate={(id, patch) =>
           updateMut.mutate(
-            { id, patch },
+            {
+              id,
+              patch: {
+                fullArabicName: patch.name,
+                roles: patch.role ? [patch.role] : undefined,
+                unit: patch.unit,
+                accountStatus: patch.active === undefined ? undefined : patch.active ? 'active' : 'inactive',
+              },
+            },
             {
               onSuccess: () => {
                 toast('تم حفظ التعديلات', 'success');

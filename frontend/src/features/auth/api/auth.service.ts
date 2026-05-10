@@ -15,6 +15,7 @@
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { MOCK } from '@/shared/mock-data';
 import { emitAudit } from '@/shared/lib/audit';
+import { AccountInactiveError } from '@/shared/lib/errors';
 import { ROLE_DEFINITIONS, type Role } from '../rbac';
 import { useAuthStore } from '../store/auth.store';
 import type { AuthUser, LoginCredentials } from '../types';
@@ -131,6 +132,23 @@ export const authService = {
     await simulateLatency(450, 750);
     const { username, password, role } = credentials;
     if (!username || !password) throw new Error('بيانات الدخول مطلوبة');
+    /* Reject inactive accounts (admin-create NID flow). The mock match
+     * surface is name-based, so the same role can have multiple seeded
+     * users; only an *active* match yields a session. If every match for
+     * the role is inactive, we throw `AccountInactiveError`. */
+    const matches = MOCK.users.filter((u) => u.role === role);
+    if (matches.length > 0 && matches.every((u) => u.accountStatus === 'inactive')) {
+      const blocked = matches[0]!;
+      emitAudit({
+        action: 'login_failed',
+        module: 'auth',
+        entityType: 'auth.session',
+        entityLabel: 'جلسة دخول',
+        entityId: blocked.id,
+        details: `محاولة دخول لحساب غير نشط — ${blocked.fullArabicName}`,
+      });
+      throw new AccountInactiveError(blocked.id);
+    }
     const user = buildAuthUser(role);
     emitAudit({
       action: 'login_success',
