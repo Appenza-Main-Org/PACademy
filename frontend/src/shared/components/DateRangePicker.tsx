@@ -15,6 +15,15 @@ import { cn } from '@/shared/lib/cn';
 import { CalendarGrid } from './DatePicker';
 
 const POPOVER_GAP = 8;
+/* Estimated popover width on md+ (two month grids side-by-side + quick-range
+ * chips column + padding/gaps). Used to clamp the left position so the
+ * popover never spills off the viewport's start edge — the trigger is often
+ * in the last column of an RTL filter row, where simple right-edge anchoring
+ * overflows leftward. Mobile collapses to a single column via `md:flex-row`
+ * so the narrower estimate is used below md. */
+const POPOVER_WIDTH_DESKTOP = 720;
+const POPOVER_WIDTH_MOBILE = 320;
+const POPOVER_HEIGHT_ESTIMATE = 360;
 
 export interface DateRange {
   start: Date | null;
@@ -95,21 +104,34 @@ export function DateRangePicker({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const [cursor, setCursor] = useState<Date>(value?.start ?? new Date());
   const [draftStart, setDraftStart] = useState<Date | null>(value?.start ?? null);
   const [draftEnd, setDraftEnd] = useState<Date | null>(value?.end ?? null);
 
-  /* Right-aligned position so the popover's right edge matches the
-   * trigger's right edge — works for any popover width without needing
-   * to measure the popover. Clamped to keep it on screen. */
+  /* Anchor the popover's right edge to the trigger's right edge (the start
+   * edge in RTL) and clamp its left edge to the viewport so it never spills
+   * off the screen. Use a static width estimate per breakpoint; the popover
+   * also carries a `maxWidth: calc(100vw - 16px)` belt so any underestimate
+   * just compresses gracefully instead of overflowing. Flip upward when
+   * there isn't room below — same logic as DatePicker. */
   const computePosition = (): void => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setPosition({
-      top: rect.bottom + POPOVER_GAP,
-      right: Math.max(8, window.innerWidth - rect.right),
-    });
+    const isMobile = window.innerWidth < 768;
+    const estimatedWidth = isMobile
+      ? Math.min(POPOVER_WIDTH_MOBILE, window.innerWidth - 16)
+      : POPOVER_WIDTH_DESKTOP;
+    const desiredLeft = rect.right - estimatedWidth;
+    const left = Math.max(8, Math.min(desiredLeft, window.innerWidth - estimatedWidth - 8));
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const needsFlip =
+      spaceBelow < POPOVER_HEIGHT_ESTIMATE + POPOVER_GAP && spaceAbove > spaceBelow;
+    const top = needsFlip
+      ? Math.max(8, rect.top - POPOVER_GAP - POPOVER_HEIGHT_ESTIMATE)
+      : rect.bottom + POPOVER_GAP;
+    setPosition({ top, left });
   };
 
   useEffect(() => {
@@ -207,7 +229,8 @@ export function DateRangePicker({
           style={{
             position: 'fixed',
             top: position.top,
-            right: position.right,
+            left: position.left,
+            maxWidth: 'calc(100vw - 16px)',
             zIndex: 'var(--z-dropdown)' as unknown as number,
           }}
         >
