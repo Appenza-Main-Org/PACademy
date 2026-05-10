@@ -12,6 +12,10 @@ namespace PACademy.Modules.Identity.Application;
 public interface IIdentityDbContext
 {
     DbSet<Session> Sessions { get; }
+    DbSet<PendingOtp> PendingOtps { get; }
+    DbSet<LockoutState> LockoutStates { get; }
+    DbSet<LockPolicy> LockPolicies { get; }
+    DbSet<SystemUser> SystemUsers { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
     Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken ct = default);

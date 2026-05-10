@@ -13,7 +13,7 @@ namespace PACademy.Api.Controllers.Admin;
 /// </summary>
 [ApiController]
 [Route("admin/cycles")]
-[Authorize(Policy = "Role:super_admin")]
+[Authorize(Policy = "*")]
 public sealed class AdminCyclesController(
     ListCyclesUseCase list,
     GetCycleUseCase get,

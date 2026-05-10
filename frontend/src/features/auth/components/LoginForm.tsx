@@ -1,10 +1,11 @@
 /**
- * LoginForm — staff login via MOIPASS-styled flow.
- * Source: ARCH-03 (MOIPASS framing) + AUD-004 (RHF retrofit).
+ * LoginForm — staff login wired to the real backend (spec 007).
  *
- * Demo: still uses the role picker so evaluators can simulate any role,
- * but the framing is "MOIPASS authenticated officer" rather than a generic
- * username/password. A 1.5s simulated MOIPASS verification step runs on submit.
+ * Flow: NID + password → POST /auth/login/request-otp → OtpStep →
+ * POST /auth/login/verify-otp → session cookie + AuthUser in store.
+ *
+ * Role is determined by the user record on the server, not picked in the
+ * form. The post-login destination is derived from the verified user.
  */
 
 import { useState } from 'react';
@@ -16,9 +17,7 @@ import { Button, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { useRequestOtpMutation } from '../api/auth.queries';
 import { OtpStep } from './OtpStep';
-import { RoleSelector } from './RoleSelector';
-import { ROLES, type Role } from '../rbac';
-import type { LoginCredentials } from '../types';
+import type { AuthUser, LoginCredentials } from '../types';
 import { ROUTES } from '@/config/routes';
 
 const loginSchema = z.object({
@@ -27,54 +26,42 @@ const loginSchema = z.object({
     .min(14, 'الرقم القومي يجب أن يكون 14 رقماً')
     .max(14, 'الرقم القومي يجب أن يكون 14 رقماً')
     .regex(/^[0-9]{14}$/, 'الرقم القومي يجب أن يحتوي على أرقام فقط'),
-  passcode: z
-    .string()
-    .min(1, 'كلمة المرور مطلوبة'),
-  role: z.enum(ROLES),
+  password: z.string().min(1, 'كلمة المرور مطلوبة'),
 });
 type LoginValues = z.infer<typeof loginSchema>;
 
 export function LoginForm(): JSX.Element {
   const navigate = useNavigate();
   const requestOtpMut = useRequestOtpMutation();
-  const [verifying, setVerifying] = useState(false);
   const [otpState, setOtpState] = useState<{
     pendingId: string;
     otpDevice: string;
     credentials: LoginCredentials;
   } | null>(null);
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LoginValues>({
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginValues>({
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver bridges zod's variance-strict generic; project-wide pattern.
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      nationalId: '29512011500011',
-      passcode: 'demo-password',
-      role: 'super_admin',
+      nationalId: '',
+      password: '',
     },
   });
 
-  const role = watch('role');
-
-  const goToLanding = (chosenRole: Role): void => {
+  const goToLanding = (user: AuthUser): void => {
     const landing =
-      chosenRole === 'applicant'
+      user.role === 'applicant'
         ? ROUTES.applicant
-        : chosenRole === 'super_admin'
+        : user.role === 'super_admin'
           ? ROUTES.admin.reports
           : ROUTES.hub;
     navigate(landing, { replace: true });
   };
 
-  const onSubmit = async (values: LoginValues): Promise<void> => {
-    /* Simulated MOIPASS verification delay (per ARCH-03 — 1.5s). */
-    setVerifying(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setVerifying(false);
-
+  const onSubmit = (values: LoginValues): void => {
     const credentials: LoginCredentials = {
-      username: values.nationalId,
-      password: values.passcode,
-      role: values.role,
+      nationalId: values.nationalId,
+      password: values.password,
     };
 
     requestOtpMut.mutate(credentials, {
@@ -86,17 +73,15 @@ export function LoginForm(): JSX.Element {
     });
   };
 
-  const isPending = requestOtpMut.isPending || verifying;
-
   if (otpState) {
     return (
       <OtpStep
         pendingId={otpState.pendingId}
         otpDevice={otpState.otpDevice}
         credentials={otpState.credentials}
-        onSuccess={(chosenRole) => {
+        onSuccess={(user) => {
           setOtpState(null);
-          goToLanding(chosenRole);
+          goToLanding(user);
         }}
         onBack={() => setOtpState(null)}
         onResent={(next) =>
@@ -109,7 +94,7 @@ export function LoginForm(): JSX.Element {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex w-full max-w-md flex-col gap-4 lg:gap-5">
+    <form onSubmit={(e) => { void handleSubmit(onSubmit)(e); }} className="flex w-full max-w-md flex-col gap-4 lg:gap-5">
       <header>
         <div className="mb-3 inline-flex items-center gap-2 rounded-pill bg-teal-50 px-3 py-1 text-2xs font-medium text-teal-700">
           <ShieldCheck size={12} strokeWidth={1.75} />
@@ -139,25 +124,17 @@ export function LoginForm(): JSX.Element {
         type="password"
         required
         placeholder="••••••••"
-        helper="بيانات تجريبية مدخلة مسبقاً للعرض"
-        {...register('passcode')}
-        error={errors.passcode?.message}
+        {...register('password')}
+        error={errors.password?.message}
       />
-
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium text-ink-700">
-          العرض التجريبي · اختر دور الموظف لمحاكاة الدخول
-        </span>
-        <RoleSelector value={role} onChange={(r: Role) => setValue('role', r, { shouldValidate: true })} />
-      </div>
 
       <Button
         type="submit"
         variant="primary"
         size="lg"
         fullWidth
-        isLoading={isPending}
-        loadingLabel={verifying ? 'جارٍ التحقق عبر MOIPASS…' : 'جارٍ الدخول…'}
+        isLoading={requestOtpMut.isPending}
+        loadingLabel="جارٍ بدء الدخول…"
         trailingIcon={<ArrowLeft size={18} strokeWidth={1.75} />}
       >
         تسجيل الدخول

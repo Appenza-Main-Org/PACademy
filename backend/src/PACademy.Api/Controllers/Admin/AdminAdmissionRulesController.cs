@@ -11,7 +11,7 @@ namespace PACademy.Api.Controllers.Admin;
 /// </summary>
 [ApiController]
 [Route("admin/admission-rules")]
-[Authorize(Policy = "Role:super_admin")]
+[Authorize(Policy = "*")]
 public sealed class AdminAdmissionRulesController(
     ListAdmissionRulesUseCase list,
     GetAdmissionRuleUseCase get,

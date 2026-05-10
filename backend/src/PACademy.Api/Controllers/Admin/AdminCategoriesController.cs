@@ -12,7 +12,7 @@ namespace PACademy.Api.Controllers.Admin;
 /// </summary>
 [ApiController]
 [Route("admin/categories")]
-[Authorize(Policy = "Role:super_admin")]
+[Authorize(Policy = "*")]
 public sealed class AdminCategoriesController(
     ListCategoriesUseCase list,
     GetCategoryUseCase get,

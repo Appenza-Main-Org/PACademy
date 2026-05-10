@@ -228,4 +228,92 @@ public sealed class ModuleBoundariesTests
             $"Workflows must not depend on Admissions. Failing types: " +
             $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
     }
+
+    // ── T403 — Identity module boundary assertions (spec 007) ─────────────────
+    [Fact]
+    public void Identity_Infrastructure_does_not_depend_on_Admissions_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(IdentityModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Admissions.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Identity.Infrastructure must not depend on Admissions.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Identity_Infrastructure_does_not_depend_on_ReferenceData_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(IdentityModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.ReferenceData.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Identity.Infrastructure must not depend on ReferenceData.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Identity_Infrastructure_does_not_depend_on_Workflows_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(IdentityModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Workflows.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Identity.Infrastructure must not depend on Workflows.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Identity_Application_does_not_depend_on_ReferenceData()
+    {
+        var identityAppAssembly = typeof(PACademy.Modules.Identity.Application.ICurrentUser).Assembly;
+
+        var result = Types.InAssembly(identityAppAssembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.ReferenceData")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Identity.Application must not depend on ReferenceData. Failing types: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    // ── T462 — Registration overlap guard ────────────────────────────────────
+    // Ensures legacy PACademy.Infrastructure does not import Identity module internals,
+    // keeping the dependency direction correct during the cutover window.
+    [Fact]
+    public void Legacy_Infrastructure_does_not_depend_on_Identity_Module_Infrastructure()
+    {
+        var legacyAssembly = typeof(PACademy.Infrastructure.DependencyInjection).Assembly;
+
+        var result = Types.InAssembly(legacyAssembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Identity.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Legacy Infrastructure must not depend on Identity module's Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Legacy_Infrastructure_does_not_depend_on_Identity_Module_Application()
+    {
+        var legacyAssembly = typeof(PACademy.Infrastructure.DependencyInjection).Assembly;
+
+        var result = Types.InAssembly(legacyAssembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Identity.Application")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Legacy Infrastructure must not depend on Identity module's Application layer. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
 }

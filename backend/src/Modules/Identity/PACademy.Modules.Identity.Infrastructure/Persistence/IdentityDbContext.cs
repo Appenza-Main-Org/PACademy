@@ -14,6 +14,10 @@ public sealed class IdentityDbContext(
       IIdentityDbContext
 {
     public DbSet<Session> Sessions => Set<Session>();
+    public DbSet<PendingOtp> PendingOtps => Set<PendingOtp>();
+    public DbSet<LockoutState> LockoutStates => Set<LockoutState>();
+    public DbSet<LockPolicy> LockPolicies => Set<LockPolicy>();
+    public DbSet<SystemUser> SystemUsers => Set<SystemUser>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

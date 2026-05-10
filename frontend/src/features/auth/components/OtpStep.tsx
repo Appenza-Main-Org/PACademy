@@ -1,24 +1,24 @@
 /**
- * OtpStep — Gap A (admin-gaps).
+ * OtpStep — second stage of the staff login flow (spec 007 US1).
  *
- * Stage-2 of the staff login flow. Renders a 6-digit code input plus a
- * "send again" affordance. Demo-only: the dev-bypass code `000000` always
- * passes; the actual generated code is surfaced as a secondary helper line
- * so evaluators can sail through the OTP step without fishing for SMS.
+ * Wired to POST /auth/login/verify-otp. The backend hashes the code
+ * (PBKDF2) and never echoes it back; in development the
+ * InMemoryOtpTransport logs the generated code to the API console at
+ * Information level so a developer can complete the flow.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Button, Input, toast } from '@/shared/components';
-import { authService } from '../api/auth.service';
 import { useRequestOtpMutation, useVerifyOtpMutation } from '../api/auth.queries';
-import type { LoginCredentials } from '../types';
+import type { AuthUser, LoginCredentials } from '../types';
 
 export interface OtpStepProps {
   pendingId: string;
   otpDevice: string;
   credentials: LoginCredentials;
-  onSuccess: (role: LoginCredentials['role']) => void;
+  /** Fires once the verify mutation succeeds; the verified AuthUser is in the store. */
+  onSuccess: (user: AuthUser) => void;
   onBack: () => void;
   /** Update parent's pendingId after a resend. */
   onResent: (next: { pendingId: string; otpDevice: string }) => void;
@@ -40,7 +40,6 @@ export function OtpStep({
   const requestMut = useRequestOtpMutation();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  /* The first OTP-step render auto-focuses the input. */
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -55,9 +54,9 @@ export function OtpStep({
     verifyMut.mutate(
       { pendingId, code },
       {
-        onSuccess: () => {
+        onSuccess: (user) => {
           toast('تم التحقق بنجاح', 'success');
-          onSuccess(credentials.role);
+          onSuccess(user);
         },
         onError: (err) => {
           setError(err.message);
@@ -75,11 +74,6 @@ export function OtpStep({
       onError: (err) => toast(err.message, 'danger'),
     });
   };
-
-  /* Demo-only hint: surface the generated code as a quiet helper line so
-   * evaluators can complete the flow without a real SMS. The real
-   * integration removes this. */
-  const hintCode = authService.peekOtpCode(pendingId);
 
   return (
     <form onSubmit={onSubmit} className="flex w-full max-w-md flex-col gap-4 lg:gap-5">
@@ -107,11 +101,7 @@ export function OtpStep({
         value={code}
         onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH))}
         error={error ?? undefined}
-        helper={
-          hintCode
-            ? `العرض التجريبي · الرمز: ${hintCode} (أو 000000 للتجاوز)`
-            : 'تجاوز سريع للعرض: 000000'
-        }
+        helper="بيئة التطوير · افحص سجل الخادم لمشاهدة رمز التحقق"
         required
       />
 

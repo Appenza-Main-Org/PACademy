@@ -17,6 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Reference all module assemblies to load them for NetArchTest -->
+    <ProjectReference Include="..\..\src\PACademy.Infrastructure\PACademy.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Shared\PACademy.Shared.Contracts\PACademy.Shared.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Shared\Audit\PACademy.Shared.Audit.Domain\PACademy.Shared.Audit.Domain.csproj" />
     <ProjectReference Include="..\..\src\Shared\Audit\PACademy.Shared.Audit.Application\PACademy.Shared.Audit.Application.csproj" />

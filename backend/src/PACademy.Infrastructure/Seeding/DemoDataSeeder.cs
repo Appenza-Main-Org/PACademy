@@ -7,7 +7,7 @@ using PACademy.Domain.Applicants;
 using PACademy.Domain.Audit;
 using PACademy.Domain.Categories;
 using PACademy.Domain.Cycles;
-using PACademy.Domain.ReferenceData;
+using PACademy.Domain.Lookups;
 using PACademy.Domain.Workflows;
 using PACademy.Infrastructure.Identity;
 using PACademy.Infrastructure.Persistence;
@@ -137,9 +137,13 @@ public sealed class DemoDataSeeder(
 
     public async Task SeedAsync(CancellationToken ct = default)
     {
+        // Idempotent top-up for the Gap I lookup catalogue runs every time so
+        // existing dev databases pick up newly-defined categories without a wipe.
+        await TopUpLookupsAsync(ct);
+
         if (await db.Applicants.AnyAsync(a => a.DemoOrigin, ct))
         {
-            logger.LogInformation("Demo data already seeded — skipping.");
+            logger.LogInformation("Demo data already seeded — skipping main seed.");
             return;
         }
 
@@ -442,93 +446,87 @@ public sealed class DemoDataSeeder(
 
     private async Task SeedReferenceDataAsync(CancellationToken ct)
     {
-        // Eight reference dictionaries — port of frontend mock-data/referenceData.ts.
-        // Per-row extras (region, code, level, isoCode, …) ride in the Metadata
-        // JSON column so the typed frontend rows round-trip cleanly.
-        var sortOrder = 1;
-        foreach (var (gov, code, region, nameEn) in GovernorateSeeds)
+        // Sprint 1 — 8 dedicated typed lookup tables. Idempotent per-table:
+        // skip if any row already exists.
+
+        if (!await db.Governorates.AnyAsync(ct))
         {
-            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
-                "governorate", code, gov,
-                nameEn: nameEn,
-                metadata: SerializeJson(new { region }),
-                sortOrder: sortOrder++,
-                demoOrigin: true));
+            var sortOrder = 1;
+            var govIdByCode = new Dictionary<string, Guid>();
+            foreach (var (gov, code, region, nameEn) in GovernorateSeeds)
+            {
+                var entity = Governorate.Create(code, gov, nameEn, ParseEnum<GovernorateRegion>(region),
+                    sortOrder: sortOrder++, demoOrigin: true);
+                db.Governorates.Add(entity);
+                govIdByCode[code] = entity.Id;
+            }
+            await db.SaveChangesAsync(ct);
+
+            // Colleges depend on governorates; insert after parent IDs are stable.
+            sortOrder = 1;
+            foreach (var (key, nameAr, governorateCode, type) in CollegeSeeds)
+            {
+                if (!govIdByCode.TryGetValue(governorateCode, out var govId)) continue;
+                db.Colleges.Add(College.Create(key, nameAr, govId, ParseEnum<CollegeType>(type),
+                    sortOrder: sortOrder++, demoOrigin: true));
+            }
         }
 
-        sortOrder = 1;
-        foreach (var (key, nameAr, code, facultyType) in SpecializationSeeds)
+        if (!await db.Specializations.AnyAsync(ct))
         {
-            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
-                "specialization", key, nameAr,
-                metadata: SerializeJson(new { code, facultyType }),
-                sortOrder: sortOrder++,
-                demoOrigin: true));
+            var sortOrder = 1;
+            foreach (var (key, nameAr, code, facultyType) in SpecializationSeeds)
+                db.Specializations.Add(Specialization.Create(key, nameAr, code,
+                    ParseEnum<FacultyType>(facultyType), sortOrder: sortOrder++, demoOrigin: true));
         }
 
-        sortOrder = 1;
-        foreach (var (key, nameAr, level, applicableTo) in RankSeeds)
+        if (!await db.Ranks.AnyAsync(ct))
         {
-            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
-                "rank", key, nameAr,
-                metadata: SerializeJson(new { level, applicableTo }),
-                sortOrder: sortOrder++,
-                demoOrigin: true));
+            var sortOrder = 1;
+            foreach (var (key, nameAr, level, applicableTo) in RankSeeds)
+                db.Ranks.Add(Rank.Create(key, nameAr, level, ParseEnum<ApplicableTo>(applicableTo),
+                    sortOrder: sortOrder++, demoOrigin: true));
         }
 
-        sortOrder = 1;
-        foreach (var (key, nameAr, governorateId, type) in CollegeSeeds)
+        if (!await db.Qualifications.AnyAsync(ct))
         {
-            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
-                "college", key, nameAr,
-                metadata: SerializeJson(new { governorateId, type }),
-                sortOrder: sortOrder++,
-                demoOrigin: true));
+            var sortOrder = 1;
+            foreach (var (key, nameAr, level, facultyRequired) in QualificationSeeds)
+                db.Qualifications.Add(Qualification.Create(key, nameAr,
+                    ParseEnum<QualificationLevel>(level), facultyRequired,
+                    sortOrder: sortOrder++, demoOrigin: true));
         }
 
-        sortOrder = 1;
-        foreach (var (key, nameAr, level, facultyRequired) in QualificationSeeds)
+        if (!await db.Nationalities.AnyAsync(ct))
         {
-            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
-                "qualification", key, nameAr,
-                metadata: SerializeJson(new { level, facultyRequired }),
-                sortOrder: sortOrder++,
-                demoOrigin: true));
+            var sortOrder = 1;
+            foreach (var (iso, nameAr, nameEn) in NationalitySeeds)
+                db.Nationalities.Add(Nationality.Create(iso.ToLowerInvariant(), nameAr, nameEn, iso,
+                    sortOrder: sortOrder++, demoOrigin: true));
         }
 
-        sortOrder = 1;
-        foreach (var (iso, nameAr, nameEn) in NationalitySeeds)
+        if (!await db.Relationships.AnyAsync(ct))
         {
-            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
-                "nationality", iso.ToLowerInvariant(), nameAr,
-                nameEn: nameEn,
-                metadata: SerializeJson(new { isoCode = iso }),
-                sortOrder: sortOrder++,
-                demoOrigin: true));
+            var sortOrder = 1;
+            foreach (var (key, nameAr, degree, side) in RelationshipSeeds)
+                db.Relationships.Add(Relationship.Create(key, nameAr, degree,
+                    ParseEnum<RelationshipSide>(side), sortOrder: sortOrder++, demoOrigin: true));
         }
 
-        sortOrder = 1;
-        foreach (var (key, nameAr, degree, side) in RelationshipSeeds)
+        if (!await db.CaseTypes.AnyAsync(ct))
         {
-            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
-                "relationship", key, nameAr,
-                metadata: SerializeJson(new { degree, side }),
-                sortOrder: sortOrder++,
-                demoOrigin: true));
-        }
-
-        sortOrder = 1;
-        foreach (var (key, nameAr, severity, blocksApplication) in CaseTypeSeeds)
-        {
-            db.ReferenceDataEntries.Add(ReferenceDataEntry.Create(
-                "case-type", key, nameAr,
-                metadata: SerializeJson(new { severity, blocksApplication }),
-                sortOrder: sortOrder++,
-                demoOrigin: true));
+            var sortOrder = 1;
+            foreach (var (key, nameAr, severity, blocksApplication) in CaseTypeSeeds)
+                db.CaseTypes.Add(CaseType.Create(key, nameAr, ParseEnum<CaseSeverity>(severity),
+                    blocksApplication, sortOrder: sortOrder++, demoOrigin: true));
         }
 
         await db.SaveChangesAsync(ct);
     }
+
+    private static T ParseEnum<T>(string value) where T : struct, Enum
+        => Enum.TryParse<T>(value, ignoreCase: true, out var result) ? result
+            : throw new InvalidOperationException($"Cannot parse '{value}' as {typeof(T).Name}.");
 
     // ── Reference-data seed lists (mirror frontend mock-data/referenceData.ts) ──
 
@@ -720,4 +718,295 @@ public sealed class DemoDataSeeder(
 
         await db.SaveChangesAsync(ct);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Gap I — platform-wide lookup catalogue (13 categories)
+    //
+    // Idempotent per-category top-up: every time the API starts, any lookup
+    // category that's missing from the DB gets seeded. Adding a new category
+    // here picks it up automatically without a wipe.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private async Task TopUpLookupsAsync(CancellationToken ct)
+    {
+        var anyAdded = false;
+
+        if (!await db.EducationTypes.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, isActive) in LookupSeeds["educationTypes"])
+            {
+                var e = EducationType.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true);
+                if (!isActive) e.Update(null, null, null, false);
+                db.EducationTypes.Add(e);
+            }
+            anyAdded = true;
+        }
+
+        if (!await db.MaritalStatuses.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, isActive) in LookupSeeds["maritalStatuses"])
+            {
+                var e = MaritalStatus.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true);
+                if (!isActive) e.Update(null, null, null, false);
+                db.MaritalStatuses.Add(e);
+            }
+            anyAdded = true;
+        }
+
+        // Universities must be saved before faculties so the FK lookup resolves.
+        var uniIdByKey = new Dictionary<string, Guid>();
+        if (!await db.Universities.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, _) in LookupSeeds["universities"])
+            {
+                var e = University.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true);
+                db.Universities.Add(e);
+                uniIdByKey[key] = e.Id;
+            }
+            await db.SaveChangesAsync(ct);
+            anyAdded = true;
+        }
+
+        if (!await db.Faculties.AnyAsync(ct))
+        {
+            // If universities pre-existed (uniIdByKey empty), fetch them.
+            if (uniIdByKey.Count == 0)
+                uniIdByKey = (await db.Universities.AsNoTracking().ToListAsync(ct))
+                    .ToDictionary(u => u.Key, u => u.Id);
+
+            foreach (var (key, labelAr, sortOrder, parentKey, _, _) in LookupSeeds["faculties"])
+            {
+                if (parentKey is null || !uniIdByKey.TryGetValue(parentKey, out var uniId)) continue;
+                db.Faculties.Add(Faculty.Create(key, labelAr, uniId, null, sortOrder, isSystem: true, demoOrigin: true));
+            }
+            anyAdded = true;
+        }
+
+        // SpecialtyTypes before Specialties.
+        var stIdByKey = new Dictionary<string, Guid>();
+        if (!await db.SpecialtyTypes.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, _) in LookupSeeds["specialtyTypes"])
+            {
+                var e = SpecialtyType.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true);
+                db.SpecialtyTypes.Add(e);
+                stIdByKey[key] = e.Id;
+            }
+            await db.SaveChangesAsync(ct);
+            anyAdded = true;
+        }
+
+        if (!await db.Specialties.AnyAsync(ct))
+        {
+            if (stIdByKey.Count == 0)
+                stIdByKey = (await db.SpecialtyTypes.AsNoTracking().ToListAsync(ct))
+                    .ToDictionary(s => s.Key, s => s.Id);
+
+            foreach (var (key, labelAr, sortOrder, parentKey, gender, _) in LookupSeeds["specialties"])
+            {
+                if (parentKey is null || !stIdByKey.TryGetValue(parentKey, out var stId)) continue;
+                SpecialtyGender? g = gender is null ? null
+                    : Enum.TryParse<SpecialtyGender>(gender, ignoreCase: true, out var pg) ? pg : null;
+                db.Specialties.Add(Specialty.Create(key, labelAr, stId, g, null, sortOrder, isSystem: true, demoOrigin: true));
+            }
+            anyAdded = true;
+        }
+
+        if (!await db.DegreeTypes.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, _) in LookupSeeds["degreeTypes"])
+                db.DegreeTypes.Add(DegreeType.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true));
+            anyAdded = true;
+        }
+
+        if (!await db.Jobs.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, _) in LookupSeeds["jobs"])
+                db.Jobs.Add(Job.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true));
+            anyAdded = true;
+        }
+
+        if (!await db.ExamTypes.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, _) in LookupSeeds["examTypes"])
+                db.ExamTypes.Add(ExamType.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true));
+            anyAdded = true;
+        }
+
+        if (!await db.ExamGroups.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, _) in LookupSeeds["examGroups"])
+                db.ExamGroups.Add(ExamGroup.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true));
+            anyAdded = true;
+        }
+
+        if (!await db.CommitteeTypes.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, _) in LookupSeeds["committeeTypes"])
+                db.CommitteeTypes.Add(CommitteeType.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true));
+            anyAdded = true;
+        }
+
+        if (!await db.RejectionReasons.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, _) in LookupSeeds["rejectionReasons"])
+                db.RejectionReasons.Add(RejectionReason.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true));
+            anyAdded = true;
+        }
+
+        if (!await db.NotificationDepartments.AnyAsync(ct))
+        {
+            foreach (var (key, labelAr, sortOrder, _, _, _) in LookupSeeds["notificationDepartments"])
+                db.NotificationDepartments.Add(NotificationDepartment.Create(key, labelAr, null, sortOrder, isSystem: true, demoOrigin: true));
+            anyAdded = true;
+        }
+
+        if (anyAdded)
+        {
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("Lookup top-up: missing categories seeded into dedicated tables.");
+        }
+    }
+
+    // (key, labelAr, sortOrder, parentKey, gender, isActive)
+    private static readonly System.Collections.Generic.Dictionary<
+        string,
+        (string Key, string LabelAr, int SortOrder, string? ParentKey, string? Gender, bool IsActive)[]> LookupSeeds = new()
+    {
+        ["educationTypes"] = new[]
+        {
+            ("thanaweya_amma", "ثانوية عامة", 10, (string?)null, (string?)null, true),
+            ("azhar", "أزهر", 20, null, null, true),
+            ("sports_education", "تربية رياضية", 30, null, null, true),
+            ("law", "حقوق", 40, null, null, true),
+            ("bachelor", "بكالوريوس", 50, null, null, true),
+            ("master", "ماجستير", 60, null, null, true),
+            ("phd", "دكتوراه", 70, null, null, true),
+            ("foreign_certificates", "شهادات أجنبية", 80, null, null, true),
+            ("ig", "IG", 81, null, null, true),
+            ("american_diploma", "الدبلوم الأمريكي", 82, null, null, true),
+        },
+        ["maritalStatuses"] = new[]
+        {
+            ("single", "أعزب", 10, (string?)null, (string?)null, true),
+            ("married", "متزوج", 20, null, null, true),
+            ("divorced", "مطلق", 30, null, null, false),
+            ("widowed", "أرمل", 40, null, null, false),
+        },
+        ["universities"] = new[]
+        {
+            ("cairo", "جامعة القاهرة", 10, (string?)null, (string?)null, true),
+            ("ain_shams", "جامعة عين شمس", 20, null, null, true),
+            ("alexandria", "جامعة الإسكندرية", 30, null, null, true),
+            ("mansoura", "جامعة المنصورة", 40, null, null, true),
+            ("assiut", "جامعة أسيوط", 50, null, null, true),
+            ("helwan", "جامعة حلوان", 60, null, null, true),
+            ("zagazig", "جامعة الزقازيق", 70, null, null, true),
+            ("police_academy", "أكاديمية الشرطة", 80, null, null, true),
+        },
+        ["faculties"] = new[]
+        {
+            ("engineering_cu", "كلية الهندسة", 10, (string?)"cairo", (string?)null, true),
+            ("law_cu", "كلية الحقوق", 20, "cairo", null, true),
+            ("commerce_cu", "كلية التجارة", 30, "cairo", null, true),
+            ("medicine_as", "كلية الطب", 10, "ain_shams", null, true),
+            ("engineering_as", "كلية الهندسة", 20, "ain_shams", null, true),
+            ("police_pa", "كلية الشرطة", 10, "police_academy", null, true),
+        },
+        ["specialtyTypes"] = new[]
+        {
+            ("engineering", "هندسة", 10, (string?)null, (string?)null, true),
+            ("accounting", "محاسبة", 20, null, null, true),
+            ("law", "قانون", 30, null, null, true),
+            ("medicine", "طب", 40, null, null, true),
+            ("computer_science", "علوم الحاسب", 50, null, null, true),
+            ("business", "إدارة الأعمال", 60, null, null, true),
+        },
+        ["specialties"] = new[]
+        {
+            ("civil_engineering", "هندسة مدنية", 10, (string?)"engineering", (string?)null, true),
+            ("electrical_engineering", "هندسة كهربائية", 20, "engineering", null, true),
+            ("mechanical_engineering", "هندسة ميكانيكية", 30, "engineering", null, true),
+            ("financial_accounting", "محاسبة مالية", 10, "accounting", null, true),
+            ("cost_accounting", "محاسبة تكاليف", 20, "accounting", null, true),
+        },
+        ["degreeTypes"] = new[]
+        {
+            ("bachelor", "بكالوريوس", 10, (string?)null, (string?)null, true),
+            ("master", "ماجستير", 20, null, null, true),
+            ("phd", "دكتوراه", 30, null, null, true),
+            ("higher_diploma", "دبلوم عالٍ", 40, null, null, true),
+        },
+        ["jobs"] = new[]
+        {
+            ("teacher", "مدرّس", 10, (string?)null, (string?)null, true),
+            ("engineer", "مهندس", 20, null, null, true),
+            ("doctor", "طبيب", 30, null, null, true),
+            ("lawyer", "محامٍ", 40, null, null, true),
+            ("accountant", "محاسب", 50, null, null, true),
+            ("officer", "ضابط شرطة", 60, null, null, true),
+            ("officer_armed_forces", "ضابط قوات مسلحة", 70, null, null, true),
+            ("public_employee", "موظف حكومي", 80, null, null, true),
+            ("private_employee", "موظف قطاع خاص", 90, null, null, true),
+            ("businessman", "رجل أعمال", 100, null, null, true),
+            ("housewife", "ربة منزل", 110, null, null, true),
+            ("retired", "متقاعد", 120, null, null, true),
+        },
+        ["examTypes"] = new[]
+        {
+            ("aptitude", "القدرات", 10, (string?)null, (string?)null, true),
+            ("height", "الطول", 20, null, null, true),
+            ("appearance_external", "السمات الخارجي", 30, null, null, true),
+            ("appearance_internal", "السمات الداخلي", 40, null, null, true),
+            ("physical", "الرياضي", 50, null, null, true),
+            ("physical_retake", "إعادة الرياضي", 60, null, null, true),
+            ("posture", "الهيئة", 70, null, null, true),
+            ("build", "القوام", 80, null, null, true),
+            ("build_retake", "إعادة القوام", 90, null, null, true),
+            ("medical", "الطبي", 100, null, null, true),
+            ("medical_retake", "إعادة الطبي", 110, null, null, true),
+            ("psychology", "الاتزان النفسي", 120, null, null, true),
+            ("medical_advanced", "الطبي المتقدم", 130, null, null, true),
+        },
+        ["examGroups"] = new[]
+        {
+            ("preliminary", "الاختبارات الأولية", 10, (string?)null, (string?)null, true),
+            ("committees_capacity_traits", "لجان القدرات والسمات", 20, null, null, true),
+            ("physical_group", "الاختبارات الرياضية", 30, null, null, true),
+            ("medical_group", "الاختبارات الطبية", 40, null, null, true),
+            ("psychology_group", "الاختبارات النفسية", 50, null, null, true),
+            ("faculty_exams", "اختبارات الكلية", 60, null, null, true),
+        },
+        ["committeeTypes"] = new[]
+        {
+            ("capacities", "لجنة القدرات", 10, (string?)null, (string?)null, true),
+            ("traits", "لجنة السمات", 20, null, null, true),
+            ("sports", "لجنة الرياضة", 30, null, null, true),
+            ("interview", "لجنة المقابلة", 40, null, null, true),
+        },
+        ["rejectionReasons"] = new[]
+        {
+            ("age_out_of_range", "السن خارج المسموح به", 10, (string?)null, (string?)null, true),
+            ("gender_mismatch", "لا يطابق متطلبات النوع", 20, null, null, true),
+            ("score_below_min", "المجموع أقل من المطلوب", 30, null, null, true),
+            ("qualification_mismatch", "المؤهل لا يطابق", 40, null, null, true),
+            ("height_below_min", "الطول أقل من المطلوب", 50, null, null, true),
+            ("marital_status_mismatch", "الحالة الاجتماعية غير مطابقة", 60, null, null, true),
+            ("failed_medical", "لم يجتز الكشف الطبي", 70, null, null, true),
+            ("failed_physical", "لم يجتز الكشف الرياضي", 80, null, null, true),
+            ("failed_committee", "لم يجتز لجنة القبول", 90, null, null, true),
+            ("failed_investigation", "تحريات غير مرضية", 100, null, null, true),
+            ("withdrawal", "انسحاب من المتقدم", 110, null, null, true),
+            ("absent_from_test", "تخلّف عن اختبار", 120, null, null, true),
+        },
+        ["notificationDepartments"] = new[]
+        {
+            ("admissions", "إدارة القبول", 10, (string?)null, (string?)null, true),
+            ("investigations", "إدارة التحريات", 20, null, null, true),
+            ("medical", "القومسيون الطبي", 30, null, null, true),
+            ("exams", "إدارة الاختبارات", 40, null, null, true),
+            ("finance", "الإدارة المالية", 50, null, null, true),
+            ("it", "إدارة التكنولوجيا", 60, null, null, true),
+        },
+    };
 }

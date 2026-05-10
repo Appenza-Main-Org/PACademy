@@ -9,7 +9,7 @@ using PACademy.Domain.Audit;
 using PACademy.Domain.Categories;
 using PACademy.Domain.Common;
 using PACademy.Domain.Cycles;
-using PACademy.Domain.ReferenceData;
+using PACademy.Domain.Lookups;
 using PACademy.Domain.Sessions;
 using PACademy.Domain.Workflows;
 using PACademy.Infrastructure.Identity;
@@ -29,9 +29,31 @@ public sealed class PaDbContext(
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Workflow> Workflows => Set<Workflow>();
     public DbSet<AdmissionRule> AdmissionRules => Set<AdmissionRule>();
-    public DbSet<ReferenceDataEntry> ReferenceDataEntries => Set<ReferenceDataEntry>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+
+    // ─── 21 split lookup tables (Sprint 1 + Gap I) ────────────────────────
+    public DbSet<Governorate> Governorates => Set<Governorate>();
+    public DbSet<Specialization> Specializations => Set<Specialization>();
+    public DbSet<Rank> Ranks => Set<Rank>();
+    public DbSet<College> Colleges => Set<College>();
+    public DbSet<Qualification> Qualifications => Set<Qualification>();
+    public DbSet<Nationality> Nationalities => Set<Nationality>();
+    public DbSet<Relationship> Relationships => Set<Relationship>();
+    public DbSet<CaseType> CaseTypes => Set<CaseType>();
+    public DbSet<EducationType> EducationTypes => Set<EducationType>();
+    public DbSet<MaritalStatus> MaritalStatuses => Set<MaritalStatus>();
+    public DbSet<University> Universities => Set<University>();
+    public DbSet<Faculty> Faculties => Set<Faculty>();
+    public DbSet<Specialty> Specialties => Set<Specialty>();
+    public DbSet<SpecialtyType> SpecialtyTypes => Set<SpecialtyType>();
+    public DbSet<DegreeType> DegreeTypes => Set<DegreeType>();
+    public DbSet<Job> Jobs => Set<Job>();
+    public DbSet<ExamType> ExamTypes => Set<ExamType>();
+    public DbSet<ExamGroup> ExamGroups => Set<ExamGroup>();
+    public DbSet<CommitteeType> CommitteeTypes => Set<CommitteeType>();
+    public DbSet<RejectionReason> RejectionReasons => Set<RejectionReason>();
+    public DbSet<NotificationDepartment> NotificationDepartments => Set<NotificationDepartment>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

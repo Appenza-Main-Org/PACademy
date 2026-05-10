@@ -214,7 +214,7 @@ description: "Tasks for spec 005 — Modular-monolith refactor (Shared.Contracts
 
 - [ ] **T325** [US2] Implement `IdentityModule.AddIdentityModule(IServiceCollection, IConfiguration)` in `Identity.Infrastructure`. Registers: `IdentityDbContext` (with `MigrationsHistoryTable("__EFMigrationsHistory_Identity")`), AspNet Core Identity, `IIdentityProvider`, `IIdentityApi`, FluentValidation for `LoginRequest` and `CreateSystemUserRequest`, `ClaimsPrincipalFactory`.
 
-- [ ] **T326** [US2] Update `PACademy.Api/Program.cs` to call `AddIdentityModule(...)` after `AddAuditModule(...)`. Remove equivalent registrations from legacy `PACademy.Infrastructure/DependencyInjection.cs`.
+- [x] **T326** [US2] Update `PACademy.Api/Program.cs` to call `AddIdentityModule(...)` after `AddAuditModule(...)`. Remove equivalent registrations from legacy `PACademy.Infrastructure/DependencyInjection.cs`. ✅ Closed by spec 007 T466.
 
 - [ ] **T327** [US2] Update `AuthController` and `AdminUsersController` (in `PACademy.Api/Controllers/`) to use new namespaces. Login flow needs to write an audit row via `IAuditApi.RecordAsync(...)` inside a `CrossModuleUnitOfWork` (because Login writes a session row to Identity AND an audit row to Shared.Audit).
 

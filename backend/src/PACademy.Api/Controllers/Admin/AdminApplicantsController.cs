@@ -9,7 +9,7 @@ namespace PACademy.Api.Controllers.Admin;
 
 [ApiController]
 [Route("admin/applicants")]
-[Authorize(Policy = "AppAccess:admin")]
+[Authorize]
 public sealed class AdminApplicantsController(
     ListApplicantsUseCase list,
     GetApplicantUseCase get,
@@ -22,6 +22,7 @@ public sealed class AdminApplicantsController(
     /// Returns X-Total-Count + X-Page-Count headers (plan Constitution Check IV).
     /// </summary>
     [HttpGet]
+    [Authorize(Policy = "applicants:view")]
     public async Task<ActionResult<PagedResult<ApplicantListItemDto>>> List(
         [FromQuery] Guid? cycleId,
         [FromQuery] string? status,
@@ -43,6 +44,7 @@ public sealed class AdminApplicantsController(
 
     /// <summary>GET /admin/applicants/{id} — applicant detail.</summary>
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = "applicants:view")]
     public async Task<ActionResult<ApplicantDetailDto>> Get(Guid id, CancellationToken ct)
     {
         var dto = await get.ExecuteAsync(id, ct);
@@ -54,6 +56,7 @@ public sealed class AdminApplicantsController(
     /// silent last-write-wins per FR-014.
     /// </summary>
     [HttpPatch("{id:guid}")]
+    [Authorize(Policy = "applicants:edit")]
     public async Task<ActionResult<ApplicantDetailDto>> Patch(
         Guid id,
         [FromBody] ApplicantPatchDto patch,

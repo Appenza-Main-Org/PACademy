@@ -14,9 +14,7 @@ export interface AuthUser {
 }
 
 export interface LoginCredentials {
-  /** Egyptian 14-digit national ID (replaces legacy `username` field). */
+  /** Egyptian 14-digit national ID. */
   nationalId: string;
   password: string;
-  /** Only used in VITE_DEMO_MODE to pick the right seeded role. */
-  role: Role;
 }

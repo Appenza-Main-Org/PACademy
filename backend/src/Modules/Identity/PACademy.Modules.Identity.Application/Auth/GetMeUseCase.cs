@@ -5,7 +5,8 @@ public sealed record MeResult(
     string NationalId,
     string FullName,
     string Role,
-    IReadOnlyList<string> Apps);
+    IReadOnlyList<string> Apps,
+    IReadOnlyList<string> Permissions);
 
 public sealed class GetMeUseCase(IIdentityProvider identity)
 {
@@ -21,6 +22,7 @@ public sealed class GetMeUseCase(IIdentityProvider identity)
             user.NationalId,
             user.FullName,
             user.Role,
-            RoleApps.ForRole(user.Role));
+            RoleApps.ForRole(user.Role),
+            RolePermissions.ForRole(user.Role));
     }
 }

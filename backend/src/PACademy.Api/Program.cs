@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
+using PACademy.Api.Authorization;
 using PACademy.Api.Hosting;
 using PACademy.Api.Middleware;
 using PACademy.Infrastructure;
@@ -25,6 +27,16 @@ builder.Services
     .AddAdmissionsModule(builder.Configuration);
 
 builder.Services.AddPaInfrastructure(builder.Configuration);
+
+// Spec 007 — US4: Permission-based authorization
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionRequirementHandler>();
+builder.Services.AddAuthorizationBuilder()
+    .AddDefaultPolicy("default", p => p.RequireAuthenticatedUser());
+
+// Spec 007 — Sweepers
+builder.Services.AddHostedService<OtpExpirySweeper>();
+builder.Services.AddHostedService<LockoutAutoUnlockSweeper>();
 
 var app = builder.Build();
 

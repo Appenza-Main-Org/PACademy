@@ -25,8 +25,9 @@ export const sessionExpiredBus = (() => {
 })();
 
 /** Singleton axios instance used across the whole frontend. */
+const apiBaseUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? '/api',
+  baseURL: apiBaseUrl,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -44,11 +45,14 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 // Map non-2xx responses to typed ApiError; emit session-expired event on 401.
+// /auth/me is exempt — a 401 on the "am I authenticated?" probe is the
+// expected unauthenticated state, not a session-expired event.
 apiClient.interceptors.response.use(
   (response) => response,
   (err: unknown) => {
     const apiErr = normaliseError(err);
-    if (apiErr.status === 401) {
+    const url = (err as { config?: { url?: string } })?.config?.url ?? '';
+    if (apiErr.status === 401 && !url.includes('/auth/me')) {
       sessionExpiredBus.emit();
     }
     return Promise.reject(apiErr);

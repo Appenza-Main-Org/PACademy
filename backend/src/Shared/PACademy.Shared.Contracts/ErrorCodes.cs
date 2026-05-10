@@ -38,4 +38,17 @@ public static class ErrorCodes
     // ── Cross-module (phase 5 — new) ─────────────────────────────────────────
     public const string ModuleBoundaryViolation = "MODULE_BOUNDARY_VIOLATION";
     public const string CrossModuleTransactionFailed = "CROSS_MODULE_TRANSACTION_FAILED";
+
+    // ── Auth + RBAC (spec 007) ────────────────────────────────────────────────
+    public const string AccountLocked = "ACCOUNT_LOCKED";
+    public const string OtpMismatch = "OTP_MISMATCH";
+    public const string OtpExpired = "OTP_EXPIRED";
+    public const string OtpReused = "OTP_REUSED";
+    public const string Unauthenticated = "UNAUTHENTICATED";
+    public const string PermissionDenied = "PERMISSION_DENIED";
+    public const string ValidationFailed = "VALIDATION_FAILED";
+    public const string NotFound = "NOT_FOUND";
+    public const string OfficerNotFound = "OFFICER_NOT_FOUND";
+    public const string OfficerLookupUnavailable = "OFFICER_LOOKUP_UNAVAILABLE";
+    public const string Deprecated = "DEPRECATED";
 }

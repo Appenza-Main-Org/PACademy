@@ -13,7 +13,7 @@ namespace PACademy.Api.Controllers.Admin;
 /// </summary>
 [ApiController]
 [Route("admin/users")]
-[Authorize(Policy = "Role:super_admin")]
+[Authorize(Policy = "*")]
 public sealed class AdminUsersController(
     ListSystemUsersUseCase list,
     GetSystemUserUseCase get,

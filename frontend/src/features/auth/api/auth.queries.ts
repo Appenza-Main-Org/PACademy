@@ -5,23 +5,37 @@ import type { LoginCredentials } from '../types';
 
 export const authKeys = {
   all: ['auth'] as const,
+  me: () => [...authKeys.all, 'me'] as const,
   lockPolicy: () => [...authKeys.all, 'lock-policy'] as const,
   lockedUsers: () => [...authKeys.all, 'locked-users'] as const,
 };
 
-export function useLoginMutation(): ReturnType<typeof useMutation<Awaited<ReturnType<typeof authService.login>>, Error, LoginCredentials>> {
+export function useMe() {
   const setUser = useAuthStore((s) => s.setUser);
-  return useMutation({
-    mutationFn: (creds: LoginCredentials) => authService.login(creds),
-    onSuccess: (user) => setUser(user),
+  const clear = useAuthStore((s) => s.clear);
+  return useQuery({
+    queryKey: authKeys.me(),
+    queryFn: async () => {
+      const prev = useAuthStore.getState().user;
+      const user = await authService.me(prev);
+      if (user) setUser(user);
+      else clear();
+      return user;
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
   });
 }
 
-export function useLogoutMutation(): ReturnType<typeof useMutation<Awaited<ReturnType<typeof authService.logout>>, Error, void>> {
+export function useLogoutMutation() {
   const clear = useAuthStore((s) => s.clear);
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: () => authService.logout(),
-    onSuccess: () => clear(),
+    onSuccess: () => {
+      clear();
+      qc.removeQueries({ queryKey: authKeys.all });
+    },
   });
 }
 
@@ -33,10 +47,16 @@ export function useRequestOtpMutation() {
 
 export function useVerifyOtpMutation() {
   const setUser = useAuthStore((s) => s.setUser);
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ pendingId, code }: { pendingId: string; code: string }) =>
       authService.verifyOtp({ pendingId, code }),
-    onSuccess: (user) => setUser(user),
+    onSuccess: (user) => {
+      setUser(user);
+      // Invalidate /auth/me so any AuthGuard-pending query revalidates
+      // against the freshly-issued cookie.
+      void qc.invalidateQueries({ queryKey: authKeys.me() });
+    },
   });
 }
 

@@ -42,6 +42,8 @@ public sealed class TestAuthHandler(
         {
             new(ClaimTypes.NameIdentifier, userId.ToString()),
             new(ClaimTypes.Name, userName),
+            // Grant super-admin wildcard by default so tests bypass permission checks.
+            new("permissions", "*"),
         };
         foreach (var app in apps)
         {
@@ -53,6 +55,15 @@ public sealed class TestAuthHandler(
         var roleHeader = Request.Headers["X-Test-Role"].ToString();
         if (!string.IsNullOrEmpty(roleHeader))
             claims.Add(new Claim(ClaimTypes.Role, roleHeader));
+
+        // X-Test-Permissions overrides the default wildcard with specific permissions.
+        var permsHeader = Request.Headers["X-Test-Permissions"].ToString();
+        if (!string.IsNullOrEmpty(permsHeader))
+        {
+            claims.RemoveAll(c => c.Type == "permissions");
+            foreach (var perm in permsHeader.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                claims.Add(new Claim("permissions", perm));
+        }
 
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);

@@ -24,6 +24,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\PACademy.Application\PACademy.Application.csproj" />
     <ProjectReference Include="..\..\src\PACademy.Domain\PACademy.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\PACademy.Modules.Identity.Application\PACademy.Modules.Identity.Application.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Audit\PACademy.Shared.Audit.Domain\PACademy.Shared.Audit.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Audit\PACademy.Shared.Audit.Public\PACademy.Shared.Audit.Public.csproj" />
   </ItemGroup>
 
 </Project>

@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PACademy.Domain\PACademy.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\PACademy.Modules.Identity.Domain\PACademy.Modules.Identity.Domain.csproj" />
   </ItemGroup>
 
 </Project>

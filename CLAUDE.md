@@ -539,6 +539,7 @@ Mini Zustand-backed toast in [frontend/src/shared/components/Toast.tsx](frontend
 | [README.md](docs/README.md) | Public-facing README + quick-start | Live |
 | [specs/005-modular-monolith/tasks.md](specs/005-modular-monolith/tasks.md) | Backend spec 005 task list (T300–T371) | Live |
 | [specs/005-modular-monolith/quickstart.md](specs/005-modular-monolith/quickstart.md) | Backend operator's guide (migrations, seeding, dev DB) | Live |
+| [specs/007-auth-rbac-integration/tasks.md](specs/007-auth-rbac-integration/tasks.md) | Backend spec 007 task list (T400–T471) — Auth+RBAC ✅ Complete | Live |
 
 ---
 
@@ -566,9 +567,29 @@ Run `backend/scripts/migrations/005_split_migration_history.sql` once on pre-pha
 ### Cross-module transactions
 Use `CrossModuleUnitOfWork` in `PACademy.Api/Hosting/CrossModuleUnitOfWork.cs`. It opens a single `SqlConnection` + `SqlTransaction`, then wraps each context via `Database.UseTransaction(tx)`. `TransactionScope` / DTC are forbidden (Docker SQL Server doesn't support DTC).
 
-### Remaining backend roadmap (post-spec-005)
+### Spec 007 — Auth + RBAC Integration ✅ Complete 2026-05-10
+
+Two-step OTP login (US1), lock policy management (US2), officer lookup via MOIPASS/Stub (US3), and permission-based access control (US4). Tasks T400–T471.
+
+**Key endpoints added:**
+- `POST /auth/login/request-otp` — validate password → send OTP via configured transport
+- `POST /auth/login/verify-otp` — verify PBKDF2-hashed OTP → issue `pa-session` cookie with permissions claims
+- `POST /auth/login` → 410 Gone (T467 cutover)
+- `GET /auth/lock-policy`, `PATCH /auth/lock-policy` — manage lockout thresholds
+- `GET /auth/lock-policy/locked-users`, `POST /auth/lock-policy/unlock` — manage locked users
+- `POST /v1/officers/lookup` — officer lookup with Polly-protected MOIPASS or stub
+
+**Key infrastructure:**
+- `IdentityDbContext` migration `007_AuthRbacIntegration` — creates `pending_otps`, `lockout_states`, `lock_policy` tables
+- `OtpExpirySweeper` + `LockoutAutoUnlockSweeper` background services
+- `PermissionPolicyProvider` + `PermissionRequirementHandler` — custom `[Authorize(Policy = "resource:verb")]` evaluation
+- `IPermissionEvaluator` — pure function: `*` wildcard, exact match, `resource:*` wildcard
+- `RolePermissions.ForRole()` — static mapping of 12 roles to permission arrays
+- All admin controllers migrated from `Role:super_admin` / `AppAccess:admin` to `[Authorize(Policy = "*")]` or per-action `[Authorize(Policy = "resource:verb")]`
+
+### Remaining backend roadmap (post-spec-007)
 - **Spec 006 — Admin Controllers wire-up**: Bind the Admissions/ReferenceData/Workflows module use cases to the existing controllers (currently still calling legacy `PaDbContext` paths).
-- **Spec 007 — Applicant Portal API**: REST endpoints for the 11-stage applicant wizard.
-- **Spec 008 — Reports API**: Aggregate query endpoints for the admin reports command-center.
-- **Spec 009 — Seeder split** (deferred P2 from spec 005): Split `DemoDataSeeder` into 5 per-module seeders (`Identity`, `Audit`, `ReferenceData`, `Workflows`, `Admissions`).
+- **Spec 008 — Applicant Portal API**: REST endpoints for the 11-stage applicant wizard.
+- **Spec 009 — Reports API**: Aggregate query endpoints for the admin reports command-center.
+- **Spec 010 — Seeder split** (deferred P2 from spec 005): Split `DemoDataSeeder` into 5 per-module seeders (`Identity`, `Audit`, `ReferenceData`, `Workflows`, `Admissions`).
 - **Frontend integration**: Replace `simulateLatency()` + `MOCK` reads in every `*.service.ts` with real `apiClient.get/post(...)` calls (§6 integration pattern).

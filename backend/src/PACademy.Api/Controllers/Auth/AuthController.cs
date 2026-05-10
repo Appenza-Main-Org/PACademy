@@ -1,15 +1,11 @@
-using FluentValidation;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using PACademy.Application.Audit;
-using PACademy.Application.Auth;
-using PACademy.Application.Common;
-using PACademy.Application.Identity;
-using PACademy.Contracts.Auth;
-using PACademy.Domain.Audit;
 using PACademy.Infrastructure.Identity;
+using PACademy.Modules.Identity.Application;
+using PACademy.Modules.Identity.Application.Auth;
+using PACademy.Shared.Contracts;
 using System.Security.Claims;
 
 namespace PACademy.Api.Controllers.Auth;
@@ -17,96 +13,168 @@ namespace PACademy.Api.Controllers.Auth;
 [ApiController]
 [Route("auth")]
 public sealed class AuthController(
-    LoginUseCase login,
     LogoutUseCase logout,
     GetMeUseCase getMe,
-    IValidator<LoginRequest> validator,
+    RequestOtpUseCase requestOtp,
+    VerifyOtpUseCase verifyOtp,
     UserManager<SystemUser> userManager,
     SignInManager<SystemUser> signInManager,
-    ICurrentUser currentUser,
-    IAuditWriter audit,
-    IPaDbContext db)
+    ICurrentUser currentUser)
     : ControllerBase
 {
+    // ─── Legacy single-step login — 410 GONE post-cutover (T467) ─────────────
     [HttpPost("login")]
     [AllowAnonymous]
-    public async Task<ActionResult<LoginResponse>> Login(
-        [FromBody] LoginRequest request,
+    public IActionResult Login() =>
+        StatusCode(StatusCodes.Status410Gone, new
+        {
+            code = ErrorCodes.Deprecated,
+            message = "Use /auth/login/request-otp + /auth/login/verify-otp",
+        });
+
+    // ─── US1: Step 1 — Request OTP ──────────────────────────────────────────
+    [HttpPost("login/request-otp")]
+    [AllowAnonymous]
+    public async Task<IActionResult> RequestOtp(
+        [FromBody] RequestOtpRequest request,
         CancellationToken ct)
     {
-        var validation = await validator.ValidateAsync(request, ct);
-        if (!validation.IsValid)
+        var (ok, errorCode, locked) = await requestOtp.ExecuteAsync(
+            request.NationalId, request.Password, ct);
+
+        if (errorCode == ErrorCodes.AccountLocked && locked is not null)
         {
-            throw new ValidationException(validation.Errors);
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                code = ErrorCodes.AccountLocked,
+                message = "الحساب موقوف. تواصل مع إدارة المنظومة لإعادة التفعيل.",
+                payload = new { unlocksAt = locked.UnlocksAt, reason = locked.Reason },
+            });
         }
 
+        if (errorCode == ErrorCodes.InvalidCredentials)
+        {
+            return Unauthorized(new
+            {
+                code = ErrorCodes.InvalidCredentials,
+                message = "بيانات الدخول غير صحيحة",
+            });
+        }
+
+        if (ok is null) return BadRequest();
+
+        return Ok(new
+        {
+            pendingId = ok.PendingId,
+            otpDevice = ok.OtpDevice,
+            otpExpiresAt = ok.OtpExpiresAt,
+        });
+    }
+
+    // ─── US1: Step 2 — Verify OTP ───────────────────────────────────────────
+    [HttpPost("login/verify-otp")]
+    [AllowAnonymous]
+    public async Task<IActionResult> VerifyOtp(
+        [FromBody] VerifyOtpRequest request,
+        CancellationToken ct)
+    {
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? string.Empty;
         var ua = Request.Headers.UserAgent.ToString();
 
-        var result = await login.ExecuteAsync(request.NationalId, request.Password, ip, ua, ct);
+        var (ok, errorCode, remaining, locked) = await verifyOtp.ExecuteAsync(
+            request.PendingId, request.Code, ip, ua, ct);
 
-        if (result.Outcome == AuthenticationOutcome.ArchivedOrDeactivated)
-        {
-            // FR-A09: audit the blocked attempt — identity known, access denied
-            await audit.RecordAsync(
-                AuditAction.Login, "user", Guid.Empty, request.NationalId,
-                AuditOutcome.PermissionDenied, null, null, ct);
-            await db.SaveChangesAsync(ct);
-            return Unauthorized(new
+        if (errorCode == ErrorCodes.OtpReused)
+            return BadRequest(new { code = ErrorCodes.OtpReused, message = "رمز التحقق مستخدم مسبقاً. أعد طلب رمز جديد." });
+
+        if (errorCode == ErrorCodes.OtpExpired)
+            return BadRequest(new { code = ErrorCodes.OtpExpired, message = "انتهت صلاحية رمز التحقق. أعد طلب رمز جديد." });
+
+        if (errorCode == ErrorCodes.OtpMismatch)
+            return BadRequest(new
             {
-                code = "INVALID_CREDENTIALS",
-                message = "بيانات الدخول غير صحيحة.",
+                code = ErrorCodes.OtpMismatch,
+                message = "رمز التحقق غير صحيح",
+                payload = new { remainingAttempts = remaining },
+            });
+
+        if (errorCode == ErrorCodes.AccountLocked && locked is not null)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                code = ErrorCodes.AccountLocked,
+                message = "الحساب موقوف. تواصل مع إدارة المنظومة لإعادة التفعيل.",
+                payload = new { unlocksAt = locked.UnlocksAt, reason = locked.Reason },
             });
         }
 
-        if (result.Outcome != AuthenticationOutcome.Success)
-        {
-            return Unauthorized(new
-            {
-                code = "INVALID_CREDENTIALS",
-                message = "بيانات الدخول غير صحيحة.",
-            });
-        }
+        if (ok is null) return BadRequest();
 
-        var user = await userManager.FindByIdAsync(result.UserId.ToString())
-            ?? throw new InvalidOperationException("Authenticated user vanished between AuthenticateAsync and SignInAsync.");
+        // Issue the session cookie
+        var user = await userManager.FindByIdAsync(ok.UserId.ToString());
+        if (user is null) return Unauthorized();
 
         var principal = await signInManager.CreateUserPrincipalAsync(user);
         var identity = (ClaimsIdentity)principal.Identity!;
-        identity.AddClaim(new Claim("sid", result.SessionId.ToString()));
-        identity.AddClaim(new Claim(ClaimTypes.Role, result.Role));
-        foreach (var app in result.Apps)
-        {
+        identity.AddClaim(new Claim("sid", ok.SessionId.ToString()));
+        identity.AddClaim(new Claim(ClaimTypes.Role, ok.Role));
+        foreach (var app in ok.Apps)
             identity.AddClaim(new Claim("apps", app));
-        }
+        foreach (var perm in ok.Permissions)
+            identity.AddClaim(new Claim("permissions", perm));
 
         await HttpContext.SignInAsync(IdentityConstants.ApplicationScheme, principal);
 
-        // FR-A09: audit successful login
-        await audit.RecordAsync(
-            AuditAction.Login, "user", result.UserId, result.FullName,
-            AuditOutcome.Success, null, null, ct);
-        await db.SaveChangesAsync(ct);
-
-        return Ok(new LoginResponse(
-            result.UserId, result.NationalId, result.FullName, result.Role, result.Apps));
+        return Ok(new
+        {
+            userId = ok.UserId,
+            nationalId = ok.NationalId,
+            fullName = ok.FullName,
+            role = ok.Role,
+            roleLabel = ok.RoleLabel,
+            unit = ok.Unit,
+            apps = ok.Apps,
+            permissions = ok.Permissions,
+            token = string.Empty,
+        });
     }
 
+    // ─── Logout ──────────────────────────────────────────────────────────────
     [HttpPost("logout")]
     [Authorize]
     public async Task<IActionResult> Logout(CancellationToken ct)
     {
-        // FR-A08: revoke all sessions for the user (not just the current one)
         await logout.ExecuteAsync(currentUser.Id, ct);
         await HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
         return NoContent();
     }
 
+    // ─── Me ──────────────────────────────────────────────────────────────────
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<MeResponse>> Me(CancellationToken ct)
+    public async Task<IActionResult> Me(CancellationToken ct)
     {
         var me = await getMe.ExecuteAsync(currentUser.Id, ct);
-        return me is null ? Unauthorized() : Ok(me);
+        if (me is null)
+        {
+            return Unauthorized(new
+            {
+                code = ErrorCodes.Unauthenticated,
+                message = "Authentication required",
+            });
+        }
+
+        return Ok(new
+        {
+            userId = me.UserId,
+            nationalId = me.NationalId,
+            fullName = me.FullName,
+            role = me.Role,
+            apps = me.Apps,
+            permissions = me.Permissions,
+        });
     }
 }
+
+public sealed record RequestOtpRequest(string NationalId, string Password);
+public sealed record VerifyOtpRequest(Guid PendingId, string Code);
