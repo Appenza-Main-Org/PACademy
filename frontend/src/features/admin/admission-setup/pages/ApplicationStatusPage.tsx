@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -22,10 +22,12 @@ import { date as fmtDate } from '@/shared/lib/format';
 import { isConflictError } from '@/shared/lib/errors';
 import { LifecycleActions } from '@/features/admin/components/cycles/LifecycleActions';
 import {
+  useActiveCycle,
   useCycleActivate,
   useCycleArchive,
   useCycleClose,
   useCycleExtend,
+  useCycleSwapActive,
 } from '@/features/admin/api/cycles.queries';
 import type { AdmissionCycle, CycleStatus } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
@@ -65,25 +67,67 @@ export function ApplicationStatusPage(): JSX.Element {
 
 function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean }): JSX.Element {
   const activateMut = useCycleActivate();
+  const swapMut = useCycleSwapActive();
   const closeMut = useCycleClose();
   const archiveMut = useCycleArchive();
   const extendMut = useCycleExtend();
+  const { data: activeCycle } = useActiveCycle();
   const [pendingTransition, setPendingTransition] = useState<'activate' | 'close' | 'archive' | null>(null);
+  const [swapPending, setSwapPending] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
   const [extendDate, setExtendDate] = useState<Date | null>(new Date(cycle.closeDate));
+
+  /* The cycle currently active in the system (may be different from the
+   * one the admin is viewing). Used to detect the "another cycle is
+   * already active" case so the activate button leads with a swap
+   * confirmation instead of a generic activate one. */
+  const conflictingActive =
+    activeCycle && activeCycle.id !== cycle.id ? activeCycle : null;
+
+  const handleActivateRequest = (): void => {
+    if (!canWrite) return;
+    if (conflictingActive) setSwapPending(true);
+    else setPendingTransition('activate');
+  };
 
   const onConfirm = (): void => {
     const handlers = {
       onSuccess: () => toast('تم تحديث الدورة', 'success'),
       onError: (err: Error) => {
-        if (isConflictError(err)) toast(err.message, 'danger');
-        else toast(err.message, 'danger');
+        /* Server-side ACTIVE_CYCLE_EXISTS is a backstop in case the
+         * `useActiveCycle` snapshot was stale at click time — surface
+         * the swap dialog from the conflict payload. */
+        if (
+          isConflictError(err) &&
+          err.conflictCode === 'ACTIVE_CYCLE_EXISTS' &&
+          pendingTransition === 'activate'
+        ) {
+          setPendingTransition(null);
+          setSwapPending(true);
+          return;
+        }
+        toast(err.message, 'danger');
       },
     };
     if (pendingTransition === 'activate') activateMut.mutate(cycle.id, handlers);
     else if (pendingTransition === 'close') closeMut.mutate(cycle.id, handlers);
     else if (pendingTransition === 'archive') archiveMut.mutate(cycle.id, handlers);
     setPendingTransition(null);
+  };
+
+  const onConfirmSwap = (): void => {
+    swapMut.mutate(cycle.id, {
+      onSuccess: () => {
+        toast(
+          conflictingActive
+            ? `تم إغلاق "${conflictingActive.nameAr}" وتفعيل "${cycle.nameAr}"`
+            : 'تم تفعيل الدورة',
+          'success',
+        );
+        setSwapPending(false);
+      },
+      onError: (err) => toast((err as Error).message, 'danger'),
+    });
   };
 
   return (
@@ -115,11 +159,35 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
         </Card>
       )}
 
+      {conflictingActive && cycle.status !== 'active' && cycle.status !== 'open' && cycle.status !== 'extended' && (
+        <Card variant="elevated" className="border border-gold-300 bg-gold-50">
+          <div className="flex items-start gap-3">
+            <AlertTriangle
+              size={18}
+              strokeWidth={1.75}
+              className="mt-0.5 flex-none text-gold-700"
+              aria-hidden
+            />
+            <div className="flex-1 text-sm text-gold-800">
+              <p className="font-medium">
+                هناك دورة نشطة بالفعل في النظام:{' '}
+                <span className="font-bold">"{conflictingActive.nameAr}"</span>.
+              </p>
+              <p className="mt-1 text-2xs leading-relaxed text-gold-700">
+                يُسمح بدورة قبول نشطة واحدة فقط. لتفعيل هذه الدورة يجب إغلاق الدورة الحالية أولاً —
+                يمكنك تنفيذ ذلك بنقرة واحدة من زر "تفعيل" أدناه.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <LifecycleActions
         cycle={cycle}
         onRequest={(next) => {
           if (!canWrite) return;
-          setPendingTransition(next);
+          if (next === 'activate') handleActivateRequest();
+          else setPendingTransition(next);
         }}
         onExtend={() => {
           if (!canWrite) return;
@@ -155,6 +223,82 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
             onClick={onConfirm}
           >
             تأكيد
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        open={swapPending}
+        onClose={() => setSwapPending(false)}
+        title="إيقاف الدورة الحالية وتفعيل دورة جديدة"
+        subtitle="يُسمح بدورة قبول نشطة واحدة فقط في النظام"
+        size="md"
+      >
+        <Modal.Body>
+          {conflictingActive ? (
+            <div className="flex flex-col gap-3 text-sm">
+              <div className="rounded-lg border border-border-subtle bg-ink-50 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-2xs uppercase tracking-wide text-ink-500">
+                      الدورة النشطة حالياً
+                    </p>
+                    <p className="mt-0.5 truncate font-bold text-ink-900">
+                      {conflictingActive.nameAr}
+                    </p>
+                    <p className="text-2xs text-ink-500">
+                      {fmtDate(conflictingActive.openDate, 'short')} →{' '}
+                      {fmtDate(conflictingActive.closeDate, 'short')}
+                    </p>
+                  </div>
+                  <Badge tone="success">
+                    {STATUS_LABEL[conflictingActive.status]}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center text-ink-400">
+                <ArrowLeft size={18} strokeWidth={1.75} className="rtl:scale-x-[-1]" aria-hidden />
+              </div>
+
+              <div className="rounded-lg border-2 border-teal-500 bg-teal-50/40 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-2xs uppercase tracking-wide text-teal-700">
+                      الدورة المراد تفعيلها
+                    </p>
+                    <p className="mt-0.5 truncate font-bold text-ink-900">{cycle.nameAr}</p>
+                    <p className="text-2xs text-ink-500">
+                      {fmtDate(cycle.openDate, 'short')} → {fmtDate(cycle.closeDate, 'short')}
+                    </p>
+                  </div>
+                  <Badge tone="neutral">{STATUS_LABEL[cycle.status]}</Badge>
+                </div>
+              </div>
+
+              <p className="text-2xs leading-relaxed text-ink-600">
+                التأكيد سيُغلق دورة{' '}
+                <span className="font-medium text-ink-800">
+                  "{conflictingActive.nameAr}"
+                </span>{' '}
+                ويُفعّل دورة{' '}
+                <span className="font-medium text-ink-800">"{cycle.nameAr}"</span> في نفس
+                الخطوة. لن يستطيع المتقدمون الجدد التقديم على الدورة المُغلقة.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-ink-700">لا توجد دورة نشطة حالياً.</p>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="ghost" onClick={() => setSwapPending(false)}>إلغاء</Button>
+          <Button
+            variant="primary"
+            isLoading={swapMut.isPending}
+            disabled={!conflictingActive}
+            onClick={onConfirmSwap}
+          >
+            إيقاف القديمة وتفعيل الجديدة
           </Button>
         </Modal.Footer>
       </Modal>

@@ -12,6 +12,7 @@
  *   POST   /api/cycles/:id/clone                             → AdmissionCycle (new draft)
  *   POST   /api/cycles/:id/transition                        → { status }
  *   POST   /api/cycles/:id/activate                          → AdmissionCycle  (closes others)
+ *   POST   /api/cycles/:id/activate?swap=1                   → AdmissionCycle  (atomic close-old + activate-new)
  *   POST   /api/cycles/:id/close                             → AdmissionCycle
  *   POST   /api/cycles/:id/archive                           → AdmissionCycle
  *   PATCH  /api/cycles/:id/categories/:key                   → AdmissionCycle
@@ -342,6 +343,78 @@ export const cyclesService = {
       after: STATE[idx]!,
     });
     return STATE[idx]!;
+  },
+
+  /**
+   * Atomic swap — closes whatever active cycle currently exists and
+   * activates the target in one call. Lets the UI offer a single
+   * confirmation when an admin tries to activate a new cycle while
+   * another one is still active, instead of forcing them to navigate
+   * to the old cycle, close it, then come back.
+   *
+   * Pre-flight checks for the target run BEFORE the close, so a
+   * half-baked target doesn't tear the existing active cycle down.
+   * Audit emits both `cycle_closed` (for the swapped-out cycle) and
+   * `cycle_activated` (for the target) so the trail is complete.
+   *
+   * Real backend should expose this as POST /api/cycles/:id/activate
+   * with a `swapWith` query param OR a transactional endpoint —
+   * mirror the same shape so the frontend doesn't change.
+   */
+  async swapActive(targetId: string): Promise<AdmissionCycle> {
+    await simulateLatency();
+    const targetIdx = STATE.findIndex((c) => c.id === targetId);
+    if (targetIdx === -1) throw new Error('الدورة غير موجودة');
+
+    const missing = collectActivationIssues(STATE[targetIdx]!);
+    if (missing.length > 0) {
+      throw new ConflictError(
+        'CYCLE_ACTIVATION_INCOMPLETE',
+        { issues: missing },
+        `لا يمكن تفعيل هذه الدورة — الإعداد غير مكتمل:\n• ${missing.join('\n• ')}`,
+      );
+    }
+
+    /* Close every other cycle that's currently in an active-ish state. */
+    const now = new Date().toISOString();
+    for (let i = 0; i < STATE.length; i += 1) {
+      if (i === targetIdx) continue;
+      const c = STATE[i]!;
+      if (c.status === 'active' || c.status === 'open' || c.status === 'extended') {
+        const beforeClose = { ...c };
+        STATE[i] = { ...c, status: 'closed', updatedAt: now } as AdmissionCycle;
+        if (ACTIVE_ID === c.id) ACTIVE_ID = null;
+        emitAudit({
+          action: 'cycle_closed',
+          module: 'cycles',
+          entityType: 'AdmissionCycle',
+          entityLabel: 'دورة قبول',
+          entityId: c.id,
+          details: `تم إغلاق دورة "${c.nameAr}" تلقائياً عند تفعيل دورة أخرى`,
+          before: beforeClose,
+          after: STATE[i]!,
+        });
+      }
+    }
+
+    const beforeActivate = { ...STATE[targetIdx]! };
+    STATE[targetIdx] = {
+      ...STATE[targetIdx]!,
+      status: 'active',
+      updatedAt: now,
+    } as AdmissionCycle;
+    ACTIVE_ID = targetId;
+    emitAudit({
+      action: 'cycle_activated',
+      module: 'cycles',
+      entityType: 'AdmissionCycle',
+      entityLabel: 'دورة قبول',
+      entityId: targetId,
+      details: `تم تفعيل دورة "${STATE[targetIdx]!.nameAr}"`,
+      before: beforeActivate,
+      after: STATE[targetIdx]!,
+    });
+    return STATE[targetIdx]!;
   },
 
   async close(id: string): Promise<AdmissionCycle> {

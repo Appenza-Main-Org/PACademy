@@ -116,6 +116,14 @@ export function useCycleActivate() {
   });
 }
 
+export function useCycleSwapActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (targetId: string) => cyclesService.swapActive(targetId),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
 export function useCycleClose() {
   const qc = useQueryClient();
   return useMutation({
