@@ -1,10 +1,16 @@
 import { Outlet } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar } from 'lucide-react';
+import { Calendar, Grid3x3, LayoutDashboard, Users } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
 
 const SIDEBAR: SidebarSection[] = [
+  {
+    label: 'التنقل',
+    items: [
+      { key: 'hub', label: 'كل التطبيقات', icon: <Grid3x3 size={18} />, to: ROUTES.hub },
+    ],
+  },
   {
     label: 'لجان القبول',
     items: [
