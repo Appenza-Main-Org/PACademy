@@ -46,7 +46,6 @@ import {
 
 export function AdmissionSetupIndexPage(): JSX.Element {
   const navigate = useNavigate();
-  const cycleCtx = useAdmissionSetupCycle();
   const cyclesQuery = useCycles();
   const cycles = cyclesQuery.data ?? [];
   const user = useAuthStore((s) => s.user);
@@ -61,14 +60,12 @@ export function AdmissionSetupIndexPage(): JSX.Element {
   }
 
   const startNewSetup = (): void => {
-    /* If a cycle is already selected, jump straight into its wizard;
-     * otherwise route to the cycle creation page so the admin builds the
-     * baseline before opening the wizard. */
-    if (cycleCtx.cycle) {
-      navigate(ROUTES.admin.admissionSetup.wizard('cycle_metadata'));
-      return;
-    }
-    navigate(ROUTES.admin.cycleNew);
+    /* "بدء التقديم" always means *start a fresh submission* — route to the
+     * blank cycle creation form regardless of whether a cycle is currently
+     * selected, so the admin sees empty fields ready for new data. The
+     * `from=admission-setup` query tells `CycleNewPage` to land the user
+     * back inside the wizard once the cycle is saved. */
+    navigate(`${ROUTES.admin.cycleNew}?from=admission-setup`);
   };
 
   return (

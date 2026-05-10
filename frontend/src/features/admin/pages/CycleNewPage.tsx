@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Save } from 'lucide-react';
 import {
   Button,
@@ -17,10 +17,13 @@ import {
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useCycleCreate } from '../api/cycles.queries';
+import { ADMISSION_SETUP_CYCLE_STORAGE_KEY } from '../admission-setup';
 import type { AdmissionCycle } from '@/shared/types/domain';
 
 export function CycleNewPage(): JSX.Element {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromAdmissionSetup = searchParams.get('from') === 'admission-setup';
   const createMut = useCycleCreate();
   const [labelAr, setLabelAr] = useState('');
   const [labelEn, setLabelEn] = useState('');
@@ -53,6 +56,20 @@ export function CycleNewPage(): JSX.Element {
     createMut.mutate(payload, {
       onSuccess: (cycle) => {
         toast(`تم إنشاء "${cycle.nameAr}" كمسودة`, 'success');
+        if (fromAdmissionSetup) {
+          /* User came from "بدء التقديم" inside the admission-setup section.
+           * Pin the freshly-created cycle as the wizard's active context so
+           * the cycle_metadata step opens already pointing at it, then drop
+           * them on the first wizard step. */
+          try {
+            sessionStorage.setItem(ADMISSION_SETUP_CYCLE_STORAGE_KEY, cycle.id);
+          } catch {
+            /* sessionStorage unavailable — wizard will fall back to its
+             * own active-cycle resolution. */
+          }
+          navigate(ROUTES.admin.admissionSetup.wizard('cycle_metadata'));
+          return;
+        }
         navigate(ROUTES.admin.cycleDetail(cycle.id));
       },
       onError: (err) => toast((err as Error).message, 'danger'),
