@@ -605,7 +605,9 @@ export type LookupKey =
   | 'examGroups'
   | 'committeeTypes'
   | 'rejectionReasons'
-  | 'notificationDepartments';
+  | 'notificationDepartments'
+  | 'applicantSections'
+  | 'nationalIdMissingReasons';
 
 export interface LookupRow extends SoftDeleteFields {
   id: string;
@@ -628,7 +630,6 @@ export interface LookupRow extends SoftDeleteFields {
 export type ReferenceTab =
   | 'governorates'
   | 'specializations'
-  | 'ranks'
   | 'nationalities'
   | 'relationships'
   | 'case-types';
@@ -681,7 +682,6 @@ export interface RefCaseType extends SoftDeleteFields {
 export type ReferenceRowMap = {
   governorates: RefGovernorate;
   specializations: RefSpecialization;
-  ranks: RefRank;
   nationalities: RefNationality;
   relationships: RefRelationship;
   'case-types': RefCaseType;

@@ -64,23 +64,23 @@ const faculties: LookupRow[] = [
   sys('police', 'كلية الشرطة', 10, { parentId: 'LK-police_academy' }),
 ];
 
-/* Specialty types (handasa, 7asabat, …). */
+/* Specialty types (handasa, 7asabat, …) — `parentId` references a faculty id. */
 const specialtyTypes: LookupRow[] = [
-  sys('engineering', 'هندسة', 10),
-  sys('accounting', 'محاسبة', 20),
-  sys('law', 'قانون', 30),
-  sys('medicine', 'طب', 40),
-  sys('computer_science', 'علوم الحاسب', 50),
-  sys('business', 'إدارة الأعمال', 60),
+  sys('engineering', 'هندسة', 10, { parentId: 'LK-engineering' }),
+  sys('accounting', 'محاسبة', 20, { parentId: 'LK-commerce' }),
+  sys('law', 'قانون', 30, { parentId: 'LK-law_cu' }),
+  sys('medicine', 'طب', 40, { parentId: 'LK-medicine_as' }),
+  sys('computer_science', 'علوم الحاسب', 50, { parentId: 'LK-engineering' }),
+  sys('business', 'إدارة الأعمال', 60, { parentId: 'LK-commerce' }),
 ];
 
-/* Specialties — `parentId` references a specialty-type id. */
+/* Specialties — `parentId` references a faculty id. */
 const specialties: LookupRow[] = [
   sys('civil_engineering', 'هندسة مدنية', 10, { parentId: 'LK-engineering' }),
   sys('electrical_engineering', 'هندسة كهربائية', 20, { parentId: 'LK-engineering' }),
   sys('mechanical_engineering', 'هندسة ميكانيكية', 30, { parentId: 'LK-engineering' }),
-  sys('financial_accounting', 'محاسبة مالية', 10, { parentId: 'LK-accounting' }),
-  sys('cost_accounting', 'محاسبة تكاليف', 20, { parentId: 'LK-accounting' }),
+  sys('financial_accounting', 'محاسبة مالية', 10, { parentId: 'LK-commerce' }),
+  sys('cost_accounting', 'محاسبة تكاليف', 20, { parentId: 'LK-commerce' }),
 ];
 
 const degreeTypes: LookupRow[] = [
@@ -161,6 +161,24 @@ const notificationDepartments: LookupRow[] = [
   sys('it', 'إدارة التكنولوجيا', 60),
 ];
 
+const applicantSections: LookupRow[] = [
+  sys('scientific', 'علمي', 10),
+  sys('scientific_math', 'علمي رياضة', 20),
+  sys('scientific_science', 'علمي علوم', 30),
+  sys('literary', 'أدبي', 40),
+  sys('azhar_scientific', 'أزهر علمي', 50),
+  sys('azhar_literary', 'أزهر أدبي', 60),
+];
+
+const nationalIdMissingReasons: LookupRow[] = [
+  sys('under_age', 'لم يبلغ سن استخراج البطاقة', 10),
+  sys('issuance_in_progress', 'البطاقة قيد الإصدار', 20),
+  sys('lost', 'البطاقة مفقودة', 30),
+  sys('damaged', 'البطاقة تالفة', 40),
+  sys('foreign_national', 'غير مصري الجنسية', 50),
+  sys('other', 'أخرى', 90),
+];
+
 export const LOOKUP_SEED: Record<LookupKey, LookupRow[]> = {
   educationTypes,
   maritalStatuses,
@@ -175,11 +193,13 @@ export const LOOKUP_SEED: Record<LookupKey, LookupRow[]> = {
   committeeTypes,
   rejectionReasons,
   notificationDepartments,
+  applicantSections,
+  nationalIdMissingReasons,
 };
 
 /** Arabic tab label for each lookup. */
 export const LOOKUP_LABELS: Record<LookupKey, string> = {
-  educationTypes: 'أنواع المؤهلات',
+  educationTypes: 'فئة المدرسة',
   maritalStatuses: 'الحالة الاجتماعية',
   universities: 'الجامعات',
   faculties: 'الكليات',
@@ -192,6 +212,8 @@ export const LOOKUP_LABELS: Record<LookupKey, string> = {
   committeeTypes: 'أنواع اللجان',
   rejectionReasons: 'أسباب الرفض',
   notificationDepartments: 'أقسام الإشعارات',
+  applicantSections: 'شعبة المتقدمين',
+  nationalIdMissingReasons: 'أسباب تعذر وجود رقم قومي',
 };
 
 /** Parent lookup key for hierarchical lookups; null when standalone. */
@@ -200,8 +222,8 @@ export const LOOKUP_PARENT: Record<LookupKey, LookupKey | null> = {
   maritalStatuses: null,
   universities: null,
   faculties: 'universities',
-  specialties: 'specialtyTypes',
-  specialtyTypes: null,
+  specialties: 'faculties',
+  specialtyTypes: 'faculties',
   degreeTypes: null,
   jobs: null,
   examTypes: null,
@@ -209,6 +231,8 @@ export const LOOKUP_PARENT: Record<LookupKey, LookupKey | null> = {
   committeeTypes: null,
   rejectionReasons: null,
   notificationDepartments: null,
+  applicantSections: null,
+  nationalIdMissingReasons: null,
 };
 
 /** Lookups that exercise the optional `gender` filter on rows. */

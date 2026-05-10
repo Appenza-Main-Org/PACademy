@@ -125,7 +125,6 @@ export const REF_CASE_TYPES: readonly RefCaseType[] = [
 export const REFERENCE_DATA: { [K in ReferenceTab]: readonly ReferenceRowMap[K][] } = {
   governorates: REF_GOVERNORATES,
   specializations: REF_SPECIALIZATIONS,
-  ranks: REF_RANKS,
   nationalities: REF_NATIONALITIES,
   relationships: REF_RELATIONSHIPS,
   'case-types': REF_CASE_TYPES,
@@ -134,7 +133,6 @@ export const REFERENCE_DATA: { [K in ReferenceTab]: readonly ReferenceRowMap[K][
 export const REFERENCE_TAB_LABELS: Record<ReferenceTab, string> = {
   governorates: 'المحافظات',
   specializations: 'التخصصات',
-  ranks: 'الرتب العسكرية',
   nationalities: 'الجنسيات',
   relationships: 'درجات القرابة',
   'case-types': 'أنواع القضايا',

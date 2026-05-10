@@ -33,7 +33,6 @@ type LooseState = Record<ReferenceTab, unknown[]>;
 const STATE: LooseState = {
   governorates:    [...MOCK.referenceData.governorates],
   specializations: [...MOCK.referenceData.specializations],
-  ranks:           [...MOCK.referenceData.ranks],
   nationalities:   [...MOCK.referenceData.nationalities],
   relationships:   [...MOCK.referenceData.relationships],
   'case-types':    [...MOCK.referenceData['case-types']],

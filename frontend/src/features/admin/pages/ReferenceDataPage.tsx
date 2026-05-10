@@ -46,7 +46,6 @@ import type {
   RefCaseType,
   RefGovernorate,
   RefNationality,
-  RefRank,
   RefRelationship,
   RefSpecialization,
   ReferenceTab,
@@ -324,14 +323,6 @@ function buildColumns(tab: ReferenceTab): DataTableColumn<unknown>[] {
       { key: 'active', label: 'نشط', render: (r) => <ActiveBadge active={r.active} /> },
     ] satisfies DataTableColumn<RefSpecialization>[]) as unknown as DataTableColumn<unknown>[];
   }
-  if (tab === 'ranks') {
-    return ([
-      { key: 'id', label: 'الكود', width: 96 },
-      { key: 'nameAr', label: 'الرتبة', render: (r) => r.nameAr },
-      { key: 'level', label: 'المستوى', numeric: true, render: (r) => r.level },
-      { key: 'applicableTo', label: 'الفئة', render: (r) => APPLICABLE_LABELS[r.applicableTo] },
-    ] satisfies DataTableColumn<RefRank>[]) as unknown as DataTableColumn<unknown>[];
-  }
   if (tab === 'nationalities') {
     return ([
       { key: 'id', label: 'الكود', width: 96 },
@@ -377,11 +368,6 @@ const FACULTY_LABELS: Record<RefSpecialization['facultyType'], string> = {
   civil: 'مدنية',
   military: 'عسكرية',
   sciences: 'علوم',
-};
-const APPLICABLE_LABELS: Record<RefRank['applicableTo'], string> = {
-  officer: 'ضابط',
-  enlisted: 'عسكري',
-  civilian: 'مدني',
 };
 const RELATION_SIDE_LABELS: Record<RefRelationship['side'], string> = {
   paternal: 'الأب',
@@ -467,22 +453,6 @@ function ReferenceFormDrawer({ tab, open, editing, onClose, onSubmit }: DrawerPr
               />
             </>
           )}
-          {tab === 'ranks' && (
-            <>
-              <Input
-                label="المستوى"
-                type="number"
-                value={(draft.level as number) ?? 1}
-                onChange={(e) => set('level', Number(e.target.value))}
-              />
-              <Select
-                label="الفئة"
-                value={(draft.applicableTo as string) ?? 'officer'}
-                onChange={(e) => set('applicableTo', e.target.value)}
-                options={Object.entries(APPLICABLE_LABELS).map(([value, label]) => ({ value, label }))}
-              />
-            </>
-          )}
           {tab === 'nationalities' && (
             <Input
               label="ISO Code"
@@ -547,7 +517,6 @@ function defaultPayload(tab: ReferenceTab): Record<string, unknown> {
   const base = { id: '', nameAr: '' };
   if (tab === 'governorates') return { ...base, nameEn: '', region: 'cairo', active: true };
   if (tab === 'specializations') return { ...base, code: '', facultyType: 'civil', active: true };
-  if (tab === 'ranks') return { ...base, level: 1, applicableTo: 'officer' };
   if (tab === 'nationalities') return { ...base, nameEn: '', isoCode: '' };
   if (tab === 'relationships') return { ...base, degree: 1, side: 'paternal' };
   return { ...base, severity: 'low', blocksApplication: false };

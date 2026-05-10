@@ -47,6 +47,8 @@ const STATE: Record<LookupKey, LookupRow[]> = {
   committeeTypes: [...MOCK.lookups.committeeTypes],
   rejectionReasons: [...MOCK.lookups.rejectionReasons],
   notificationDepartments: [...MOCK.lookups.notificationDepartments],
+  applicantSections: [...MOCK.lookups.applicantSections],
+  nationalIdMissingReasons: [...MOCK.lookups.nationalIdMissingReasons],
 };
 
 let nextId = 1;
