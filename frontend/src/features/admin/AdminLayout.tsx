@@ -3,7 +3,7 @@ import {
   Banknote,
   BarChart3,
   Bell,
-  Briefcase,
+  Calendar,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
@@ -52,11 +52,21 @@ const SIDEBAR: SidebarSection[] = [
     items: [
       { key: 'categories',      label: 'فئات التقديم', icon: <Layers size={18} />,         to: ROUTES.admin.categories },
       { key: 'cycles',          label: 'الدورات',      icon: <CalendarDays size={18} />,    to: ROUTES.admin.cycles },
-      /* Committee management — admin-side entry point into the committees
-       * surface (super_admin and committee_admin both have the `committee`
-       * app in RBAC, so AuthGuard lets them through to /committee/list). */
-      { key: 'committees',      label: 'اللجان',         icon: <Briefcase size={18} />,       to: ROUTES.committee.list },
       { key: 'admission-setup', label: 'إعداد التقديم', icon: <ClipboardCheck size={18} />, to: ROUTES.admin.admissionSetup.index },
+    ],
+  },
+  /**
+   * لجان القبول — admin-side entry into the committees surface. Mirrors the
+   * committee app's own sidebar so super_admin / committee_admin can jump
+   * to any of the three committee views without leaving /admin chrome.
+   * AuthGuard lets both roles through (they hold the `committee` app key).
+   */
+  {
+    label: 'لجان القبول',
+    items: [
+      { key: 'committee-overview', label: 'نظرة عامة',    icon: <LayoutDashboard size={18} />, to: ROUTES.committee.overview, end: true },
+      { key: 'committee-list',     label: 'قائمة اللجان', icon: <Users size={18} />,           to: ROUTES.committee.list },
+      { key: 'committee-schedule', label: 'الجدول الزمني', icon: <Calendar size={18} />,        to: ROUTES.committee.schedule },
     ],
   },
   {
