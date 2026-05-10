@@ -6,7 +6,13 @@
  * import them through this barrel only.
  */
 
-export { ADMISSION_SETUP_STEPS, ADMISSION_SETUP_TOTAL_STEPS, getStepByKey, getStepByPath } from './config';
+export {
+  ADMISSION_SETUP_STEPS,
+  ADMISSION_SETUP_TOTAL_STEPS,
+  ADMISSION_SETUP_CYCLE_STORAGE_KEY,
+  getStepByKey,
+  getStepByPath,
+} from './config';
 export type { AdmissionSetupStep } from './config';
 export type { AdmissionSetupStepKey, AdmissionSetupStepStatus } from './types';
 
