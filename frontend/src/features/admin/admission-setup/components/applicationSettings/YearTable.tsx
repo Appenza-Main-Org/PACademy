@@ -2,19 +2,22 @@
  * YearTable — editable rows for one category-specialization junction.
  *
  * Columns (visual order RTL = first column rightmost):
- *   1. سنة التخرج          (Input — numeric, [2020, currentYear+5])
- *   2. النوع                (Select bound to GenderType)
- *   3. السعة                (Input — numeric, > 0)
- *   4. بداية التقديم        (DatePicker)
- *   5. نهاية التقديم        (DatePicker)
- *   6. بداية السنة الدراسية (DatePicker)
- *   7. الحالة                (Switch)
- *   8. إجراءات              (delete tombstone toggle)
+ *   1. سنة التخرج (Max) — Select bound to [currentYear-5 … currentYear]
+ *   2. النوع — multi-pill toggle (ذكور / إناث) — at least one required
+ *   3. الحالة الاجتماعية — MultiSelect over MARITAL_STATUSES (empty = any)
+ *   4. السن الأقصى — numeric Input (nullable; blank = no maximum)
+ *   5. الحد الأدنى للدرجة — numeric Input (0–100; nullable)
+ *   6. الحد الأقصى للدرجة — numeric Input (0–100; nullable; >= min)
+ *   7. بداية التقديم — DatePicker
+ *   8. نهاية التقديم — DatePicker
+ *   9. تاريخ احتساب السن — DatePicker (was: بداية السنة الدراسية)
+ *  10. الحالة — نشط/موقوف pill (replaces opaque Switch in dense table)
+ *  11. إجراءات — حذف / استرجاع
  *
- * Inline validation runs on each `patchRow` call via `validateYearRow`
- * against the sibling rows in the same slice. Errors render as a tiny
- * terra-500 chip below the field that's at fault and `aria-invalid` is
- * set on the field. Dirty rows get a 2px gold-400 start-edge rail.
+ * Inline validation runs after each `patchRow` via the draft store; the
+ * relevant conflict code is surfaced as a terra-500 chip under the
+ * field(s) responsible and `aria-invalid="true"` is set on the
+ * offending field. Dirty rows get a 2 px gold-400 inline-start rail.
  * No per-row save — bulk save lives in `<StickyBulkSaveBar />`.
  */
 
@@ -24,8 +27,8 @@ import {
   Button,
   DatePicker,
   Input,
+  MultiSelect,
   Select,
-  Switch,
 } from '@/shared/components';
 import { cn } from '@/shared/lib/cn';
 import { useYears } from '../../api/applicationSettings.queries';
@@ -35,6 +38,7 @@ import {
   type DraftRow,
 } from '../../store/appSettingsDraft';
 import { validateYearRow } from '../../lib/appSettingsValidation';
+import { MARITAL_STATUSES } from '../../lib/maritalStatuses';
 import type {
   ApplicantSpecializationYear,
   AppSettingsConflict,
@@ -46,22 +50,31 @@ interface YearTableProps {
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
-const MIN_YEAR = 2020;
-const MAX_YEAR = CURRENT_YEAR + 5;
+const GRAD_YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => {
+  const year = CURRENT_YEAR - 5 + i;
+  return { value: String(year), label: String(year) };
+});
 
 const FIELD_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   DUPLICATE_YEAR: 'مكررة',
   INVALID_DATE_RANGE: 'ترتيب التواريخ غير صحيح',
   OVERLAPPING_PERIOD: 'تتداخل مع سنة أخرى',
-  CAPACITY_NOT_POSITIVE: 'السعة > 0',
+  AGE_NOT_POSITIVE: 'السن > 0',
+  GRADE_RANGE_INVALID: 'الحد الأدنى يفوق الأقصى',
+  GENDER_REQUIRED: 'اختر النوع',
   SPECIALIZATION_NOT_MAPPED: 'غير مرتبط',
   CATEGORY_HAS_ACTIVE_YEARS: 'فئة بها سنوات نشطة',
 };
 
-const GENDER_OPTIONS: { value: GenderType; label: string }[] = [
+const GENDER_PILLS: { value: GenderType; label: string }[] = [
   { value: 'male', label: 'ذكور' },
   { value: 'female', label: 'إناث' },
 ];
+
+const MARITAL_OPTIONS = MARITAL_STATUSES.map((m) => ({
+  value: m.code,
+  label: m.name,
+}));
 
 export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Element {
   const yearsQuery = useYears(categorySpecializationId);
@@ -72,15 +85,12 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   const deleteRow = useAppSettingsDraftStore((s) => s.deleteRow);
   const restoreRow = useAppSettingsDraftStore((s) => s.restoreRow);
 
-  /* Seed the slice on first arrival; subsequent server refetches don't
-   * overwrite local edits (the store guards on `kind !== 'original'`). */
   useEffect(() => {
     if (yearsQuery.data) {
       hydrateSlice(categorySpecializationId, yearsQuery.data);
     }
   }, [categorySpecializationId, yearsQuery.data, hydrateSlice]);
 
-  /* Per-row validation across the active (non-deleted) hypothetical state. */
   const validationByRow = useMemo(() => {
     const live = drafts.filter((d) => d.kind !== 'deleted').map((d) => d.row);
     const map = new Map<string, AppSettingsConflict | null>();
@@ -97,9 +107,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   }, [drafts]);
 
   if (yearsQuery.isLoading) {
-    return (
-      <p className="font-ar text-sm text-ink-500">جارٍ تحميل سنوات التخرج…</p>
-    );
+    return <p className="font-ar text-sm text-ink-500">جارٍ تحميل السنوات…</p>;
   }
 
   if (drafts.length === 0) {
@@ -114,7 +122,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
           leadingIcon={<Plus size={14} strokeWidth={1.75} />}
           onClick={() => addRow(categorySpecializationId, {})}
         >
-          إضافة سنة دراسية
+          إضافة سنة
         </Button>
       </div>
     );
@@ -123,15 +131,18 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   return (
     <div className="flex flex-col gap-2">
       <div className="overflow-x-auto rounded-md border border-border-subtle bg-surface-card">
-        <table className="w-full min-w-[840px] text-sm">
+        <table className="w-full min-w-[1280px] text-sm">
           <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">
             <tr>
-              <th className="px-3 py-2 text-start font-medium">سنة التخرج</th>
+              <th className="px-3 py-2 text-start font-medium">سنة التخرج (الأقصى)</th>
               <th className="px-3 py-2 text-start font-medium">النوع</th>
-              <th className="px-3 py-2 text-start font-medium">السعة</th>
+              <th className="px-3 py-2 text-start font-medium">الحالة الاجتماعية</th>
+              <th className="px-3 py-2 text-start font-medium">السن الأقصى</th>
+              <th className="px-3 py-2 text-start font-medium">أدنى درجة</th>
+              <th className="px-3 py-2 text-start font-medium">أقصى درجة</th>
               <th className="px-3 py-2 text-start font-medium">بداية التقديم</th>
               <th className="px-3 py-2 text-start font-medium">نهاية التقديم</th>
-              <th className="px-3 py-2 text-start font-medium">بداية السنة الدراسية</th>
+              <th className="px-3 py-2 text-start font-medium">تاريخ احتساب السن</th>
               <th className="px-3 py-2 text-start font-medium">الحالة</th>
               <th className="px-3 py-2 text-end font-medium" aria-label="إجراءات" />
             </tr>
@@ -157,7 +168,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
           leadingIcon={<Plus size={14} strokeWidth={1.75} />}
           onClick={() => addRow(categorySpecializationId, {})}
         >
-          إضافة سنة دراسية
+          إضافة سنة
         </Button>
       </div>
     </div>
@@ -177,15 +188,16 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
   const isDirty = draft.kind === 'dirty' || draft.kind === 'new';
   const row = draft.row;
 
-  const showFieldError = (fields: AppSettingsConflict[]): string | null => {
+  const matchField = (fields: AppSettingsConflict[]): string | null => {
     if (!conflict) return null;
     return fields.includes(conflict) ? FIELD_MESSAGES_AR[conflict] : null;
   };
 
-  const yearError = showFieldError(['DUPLICATE_YEAR']);
-  const genderError = showFieldError(['DUPLICATE_YEAR', 'OVERLAPPING_PERIOD']);
-  const capacityError = showFieldError(['CAPACITY_NOT_POSITIVE']);
-  const dateError = showFieldError(['INVALID_DATE_RANGE', 'OVERLAPPING_PERIOD']);
+  const yearError = matchField(['DUPLICATE_YEAR']);
+  const genderError = matchField(['GENDER_REQUIRED', 'DUPLICATE_YEAR', 'OVERLAPPING_PERIOD']);
+  const ageError = matchField(['AGE_NOT_POSITIVE']);
+  const gradeError = matchField(['GRADE_RANGE_INVALID']);
+  const dateError = matchField(['INVALID_DATE_RANGE', 'OVERLAPPING_PERIOD']);
 
   return (
     <tr
@@ -203,51 +215,94 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
           : undefined
       }
     >
-      <td className="px-3 py-2">
-        <Input
-          type="number"
-          min={MIN_YEAR}
-          max={MAX_YEAR}
+      <td className="px-3 py-2 align-top">
+        <Select
+          value={String(row.graduationYear)}
           disabled={isDeleted}
-          value={row.graduationYear}
-          onChange={(e) => onPatch({ graduationYear: Number(e.target.value) || row.graduationYear })}
-          containerClassName="!mb-0 w-24"
-          className="text-end tabular-nums"
+          onChange={(e) => onPatch({ graduationYear: Number(e.target.value) })}
+          containerClassName="!mb-0 w-28"
           aria-invalid={Boolean(yearError) || undefined}
           aria-label="سنة التخرج"
+          options={GRAD_YEAR_OPTIONS}
         />
         {yearError && <FieldError text={yearError} />}
       </td>
 
-      <td className="px-3 py-2">
-        <Select
-          value={row.genderType}
+      <td className="px-3 py-2 align-top">
+        <GenderToggle
+          value={row.genderTypes}
           disabled={isDeleted}
-          onChange={(e) => onPatch({ genderType: e.target.value as GenderType })}
-          containerClassName="!mb-0 w-24"
-          aria-invalid={Boolean(genderError) || undefined}
-          aria-label="النوع"
-          options={GENDER_OPTIONS}
+          onChange={(next) => onPatch({ genderTypes: next })}
+          ariaLabel="النوع"
+          invalid={Boolean(genderError)}
         />
         {genderError && <FieldError text={genderError} />}
       </td>
 
-      <td className="px-3 py-2">
+      <td className="px-3 py-2 align-top min-w-[180px]">
+        <MultiSelect
+          value={row.maritalStatusCodes}
+          onChange={(next) => onPatch({ maritalStatusCodes: next })}
+          options={MARITAL_OPTIONS}
+          disabled={isDeleted}
+          ariaLabel="الحالة الاجتماعية"
+          placeholder="الكل"
+        />
+      </td>
+
+      <td className="px-3 py-2 align-top">
         <Input
           type="number"
           min={1}
           disabled={isDeleted}
-          value={row.capacity}
-          onChange={(e) => onPatch({ capacity: Number(e.target.value) || 0 })}
-          containerClassName="!mb-0 w-24"
+          value={row.maxAge ?? ''}
+          onChange={(e) =>
+            onPatch({ maxAge: e.target.value === '' ? null : Number(e.target.value) })
+          }
+          containerClassName="!mb-0 w-20"
           className="text-end tabular-nums"
-          aria-invalid={Boolean(capacityError) || undefined}
-          aria-label="السعة"
+          aria-invalid={Boolean(ageError) || undefined}
+          aria-label="السن الأقصى"
         />
-        {capacityError && <FieldError text={capacityError} />}
+        {ageError && <FieldError text={ageError} />}
       </td>
 
-      <td className="px-3 py-2 min-w-[150px]">
+      <td className="px-3 py-2 align-top">
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          disabled={isDeleted}
+          value={row.minGrade ?? ''}
+          onChange={(e) =>
+            onPatch({ minGrade: e.target.value === '' ? null : Number(e.target.value) })
+          }
+          containerClassName="!mb-0 w-20"
+          className="text-end tabular-nums"
+          aria-invalid={Boolean(gradeError) || undefined}
+          aria-label="أدنى درجة"
+        />
+        {gradeError && <FieldError text={gradeError} />}
+      </td>
+
+      <td className="px-3 py-2 align-top">
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          disabled={isDeleted}
+          value={row.maxGrade ?? ''}
+          onChange={(e) =>
+            onPatch({ maxGrade: e.target.value === '' ? null : Number(e.target.value) })
+          }
+          containerClassName="!mb-0 w-20"
+          className="text-end tabular-nums"
+          aria-invalid={Boolean(gradeError) || undefined}
+          aria-label="أقصى درجة"
+        />
+      </td>
+
+      <td className="px-3 py-2 align-top min-w-[150px]">
         <DatePicker
           value={isoToDate(row.applicationStartDate)}
           disabled={isDeleted}
@@ -255,7 +310,7 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
         />
       </td>
 
-      <td className="px-3 py-2 min-w-[150px]">
+      <td className="px-3 py-2 align-top min-w-[150px]">
         <DatePicker
           value={isoToDate(row.applicationEndDate)}
           disabled={isDeleted}
@@ -265,25 +320,23 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
         {dateError && <FieldError text={dateError} />}
       </td>
 
-      <td className="px-3 py-2 min-w-[150px]">
+      <td className="px-3 py-2 align-top min-w-[150px]">
         <DatePicker
-          value={isoToDate(row.academicYearStartDate)}
+          value={isoToDate(row.ageCalcDate)}
           disabled={isDeleted}
-          onChange={(d) => onPatch({ academicYearStartDate: dateToIso(d) ?? row.academicYearStartDate })}
-          min={row.applicationEndDate.slice(0, 10)}
+          onChange={(d) => onPatch({ ageCalcDate: dateToIso(d) ?? row.ageCalcDate })}
         />
       </td>
 
-      <td className="px-3 py-2">
-        <Switch
-          checked={row.isActive}
+      <td className="px-3 py-2 align-top">
+        <StatusPill
+          active={row.isActive}
           disabled={isDeleted}
-          onCheckedChange={(checked) => onPatch({ isActive: checked })}
-          aria-label="حالة السنة"
+          onChange={(next) => onPatch({ isActive: next })}
         />
       </td>
 
-      <td className="px-3 py-2 text-end">
+      <td className="px-3 py-2 align-top text-end">
         {isDeleted ? (
           <Button
             variant="ghost"
@@ -306,6 +359,102 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
         )}
       </td>
     </tr>
+  );
+}
+
+interface GenderToggleProps {
+  value: readonly GenderType[];
+  onChange: (next: GenderType[]) => void;
+  disabled?: boolean;
+  ariaLabel?: string;
+  invalid?: boolean;
+}
+
+function GenderToggle({ value, onChange, disabled, ariaLabel, invalid }: GenderToggleProps): JSX.Element {
+  const toggle = (g: GenderType): void => {
+    const set = new Set<GenderType>(value);
+    if (set.has(g)) set.delete(g);
+    else set.add(g);
+    onChange(Array.from(set));
+  };
+  return (
+    <div
+      role="group"
+      aria-label={ariaLabel}
+      aria-invalid={invalid || undefined}
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-pill border bg-white p-0.5 shadow-xs',
+        invalid ? 'border-terra-500' : 'border-border-default',
+        disabled && 'opacity-60',
+      )}
+    >
+      {GENDER_PILLS.map(({ value: g, label }) => {
+        const active = value.includes(g);
+        return (
+          <button
+            key={g}
+            type="button"
+            role="switch"
+            aria-checked={active}
+            disabled={disabled}
+            onClick={() => toggle(g)}
+            className={cn(
+              'inline-flex items-center rounded-pill px-3 py-1 text-xs font-medium',
+              'transition-colors duration-[var(--motion-fast)]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+              !disabled && !active && 'text-ink-700 hover:bg-ink-50',
+              !active && 'bg-transparent',
+              !disabled && 'cursor-pointer',
+            )}
+            style={
+              active
+                ? { background: 'var(--accent-500)', color: '#ffffff' }
+                : undefined
+            }
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+interface StatusPillProps {
+  active: boolean;
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
+}
+
+function StatusPill({ active, disabled, onChange }: StatusPillProps): JSX.Element {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      disabled={disabled}
+      onClick={() => onChange(!active)}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-pill border px-3 py-1 text-xs font-medium',
+        'transition-colors duration-[var(--motion-fast)]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+        active
+          ? 'border-transparent text-white'
+          : 'border-border-default bg-white text-ink-600 hover:bg-ink-50',
+        disabled && 'cursor-not-allowed opacity-60',
+        !disabled && 'cursor-pointer',
+      )}
+      style={active ? { background: 'var(--success, var(--accent-600))' } : undefined}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'inline-block h-1.5 w-1.5 rounded-full',
+          active ? 'bg-white' : 'bg-ink-400',
+        )}
+      />
+      {active ? 'نشط' : 'موقوف'}
+    </button>
   );
 }
 
@@ -334,4 +483,3 @@ function dateToIso(value: Date | null): string | null {
   const dd = String(value.getUTCDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
-

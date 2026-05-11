@@ -66,17 +66,27 @@ interface DraftActions {
 
 type Store = DraftSliceState & DraftActions;
 
+function sameStringArray(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort();
+  const sb = [...b].sort();
+  return sa.every((v, i) => v === sb[i]);
+}
+
 function isSameRow(
   a: ApplicantSpecializationYear,
   b: ApplicantSpecializationYear,
 ): boolean {
   return (
     a.graduationYear === b.graduationYear &&
-    a.genderType === b.genderType &&
-    a.capacity === b.capacity &&
+    sameStringArray(a.genderTypes, b.genderTypes) &&
+    sameStringArray(a.maritalStatusCodes, b.maritalStatusCodes) &&
+    a.maxAge === b.maxAge &&
+    a.minGrade === b.minGrade &&
+    a.maxGrade === b.maxGrade &&
     a.applicationStartDate === b.applicationStartDate &&
     a.applicationEndDate === b.applicationEndDate &&
-    a.academicYearStartDate === b.academicYearStartDate &&
+    a.ageCalcDate === b.ageCalcDate &&
     a.isActive === b.isActive
   );
 }
@@ -133,11 +143,14 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
       id: tempId,
       categorySpecializationId: csId,
       graduationYear: new Date().getFullYear(),
-      genderType: 'male',
-      capacity: 50,
+      genderTypes: ['male'],
+      maritalStatusCodes: [],
+      maxAge: null,
+      minGrade: null,
+      maxGrade: null,
       applicationStartDate: today,
       applicationEndDate: today,
-      academicYearStartDate: today,
+      ageCalcDate: today,
       isActive: true,
       ...seed,
     };

@@ -160,15 +160,23 @@ export interface ApplicantCategorySpecialization {
 export interface ApplicantSpecializationYear {
   id: string;
   categorySpecializationId: string;
+  /** Maximum acceptable graduation year (drop-down: last 5 + current). */
   graduationYear: number;
-  genderType: GenderType;
-  capacity: number;
+  /** Multi-select. At least one gender must be picked. */
+  genderTypes: GenderType[];
+  /** Multi-select. FK → `MARITAL_STATUSES[code]`. Empty array = any. */
+  maritalStatusCodes: string[];
+  /** Optional upper age bound — null = no maximum. */
+  maxAge: number | null;
+  /** Optional grade band, inclusive. `null` on either end = no bound. */
+  minGrade: number | null;
+  maxGrade: number | null;
   /** ISO date — start of the application window. */
   applicationStartDate: string;
   /** ISO date — end of the application window. */
   applicationEndDate: string;
-  /** ISO date — first day of the academic year for this cohort. */
-  academicYearStartDate: string;
+  /** ISO date — anchor used by eligibility to compute applicant age. */
+  ageCalcDate: string;
   isActive: boolean;
 }
 
@@ -181,7 +189,9 @@ export type AppSettingsConflict =
   | 'DUPLICATE_YEAR'
   | 'INVALID_DATE_RANGE'
   | 'OVERLAPPING_PERIOD'
-  | 'CAPACITY_NOT_POSITIVE'
+  | 'AGE_NOT_POSITIVE'
+  | 'GRADE_RANGE_INVALID'
+  | 'GENDER_REQUIRED'
   | 'SPECIALIZATION_NOT_MAPPED'
   | 'CATEGORY_HAS_ACTIVE_YEARS';
 

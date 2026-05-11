@@ -1,55 +1,81 @@
 /**
  * Application Settings — validation helpers.
  *
- * Single source of truth for the 4 year-row invariants. Each function
- * returns the conflict code on failure, or `null` on success. Service
- * calls `validateYearRow` before mutating; the form calls each function
- * inline for real-time feedback as the admin types.
+ * Each function returns the conflict code on failure, or `null` on success.
+ * The service calls `validateYearRow` before persisting; the form calls
+ * each granular function inline for real-time per-field feedback.
  *
  * Rules:
- *   - dates must be ISO `YYYY-MM-DD`
- *   - capacity must be > 0
- *   - graduation year + gender must be unique within sibling rows
- *   - application windows for the same gender under the same
- *     specialization must not overlap
+ *   - at least one gender must be selected
+ *   - `maxAge`, when present, must be a positive integer
+ *   - `minGrade <= maxGrade` when both are present
+ *   - `applicationEndDate >= applicationStartDate`
+ *   - `ageCalcDate` must be a parseable ISO date
+ *   - no two rows under the same specialization share a graduation year
+ *     while having any overlapping gender (gender sets intersect)
+ *   - no two rows for the same specialization with overlapping gender
+ *     sets may have overlapping `[applicationStartDate, applicationEndDate]`
+ *     windows
  */
 
 import type {
   AppSettingsConflict,
   ApplicantSpecializationYear,
+  GenderType,
 } from '../types';
 
 function dayOnly(iso: string): string {
-  // Accept full ISO timestamps as well as date-only strings.
   return iso.slice(0, 10);
+}
+
+function intersects(a: readonly GenderType[], b: readonly GenderType[]): boolean {
+  for (const g of a) if (b.includes(g)) return true;
+  return false;
+}
+
+export function validateGender(
+  genders: readonly GenderType[],
+): AppSettingsConflict | null {
+  return genders.length === 0 ? 'GENDER_REQUIRED' : null;
+}
+
+export function validateAge(
+  maxAge: number | null,
+): AppSettingsConflict | null {
+  if (maxAge === null) return null;
+  if (!Number.isFinite(maxAge)) return 'AGE_NOT_POSITIVE';
+  if (maxAge <= 0) return 'AGE_NOT_POSITIVE';
+  if (!Number.isInteger(maxAge)) return 'AGE_NOT_POSITIVE';
+  return null;
+}
+
+export function validateGradeRange(
+  minGrade: number | null,
+  maxGrade: number | null,
+): AppSettingsConflict | null {
+  if (minGrade === null || maxGrade === null) return null;
+  if (!Number.isFinite(minGrade) || !Number.isFinite(maxGrade)) {
+    return 'GRADE_RANGE_INVALID';
+  }
+  if (minGrade > maxGrade) return 'GRADE_RANGE_INVALID';
+  return null;
 }
 
 export function validateDateRange(
   start: string,
   end: string,
-  academic: string,
+  ageCalc: string,
 ): AppSettingsConflict | null {
-  if (!start || !end || !academic) return 'INVALID_DATE_RANGE';
+  if (!start || !end || !ageCalc) return 'INVALID_DATE_RANGE';
   const s = dayOnly(start);
   const e = dayOnly(end);
-  const a = dayOnly(academic);
   if (e < s) return 'INVALID_DATE_RANGE';
-  if (a < e) return 'INVALID_DATE_RANGE';
-  return null;
-}
-
-export function validateCapacity(
-  capacity: number,
-): AppSettingsConflict | null {
-  if (!Number.isFinite(capacity)) return 'CAPACITY_NOT_POSITIVE';
-  if (capacity <= 0) return 'CAPACITY_NOT_POSITIVE';
-  if (!Number.isInteger(capacity)) return 'CAPACITY_NOT_POSITIVE';
   return null;
 }
 
 export function validateNoDuplicateYear(
   year: number,
-  gender: ApplicantSpecializationYear['genderType'],
+  genders: readonly GenderType[],
   existingYears: readonly ApplicantSpecializationYear[],
   excludeId?: string,
 ): AppSettingsConflict | null {
@@ -57,7 +83,7 @@ export function validateNoDuplicateYear(
     (y) =>
       y.id !== excludeId &&
       y.graduationYear === year &&
-      y.genderType === gender,
+      intersects(y.genderTypes, genders),
   );
   return collision ? 'DUPLICATE_YEAR' : null;
 }
@@ -65,7 +91,7 @@ export function validateNoDuplicateYear(
 interface DateWindow {
   applicationStartDate: string;
   applicationEndDate: string;
-  genderType: ApplicantSpecializationYear['genderType'];
+  genderTypes: readonly GenderType[];
 }
 
 export function validateNoOverlap(
@@ -75,18 +101,14 @@ export function validateNoOverlap(
 ): AppSettingsConflict | null {
   const cStart = dayOnly(candidate.applicationStartDate);
   const cEnd = dayOnly(candidate.applicationEndDate);
-  if (!cStart || !cEnd) return null; // date-range validator will surface
+  if (!cStart || !cEnd) return null;
   for (const y of existingYears) {
     if (y.id === excludeId) continue;
-    if (y.genderType !== candidate.genderType) continue;
+    if (!intersects(y.genderTypes, candidate.genderTypes)) continue;
     const yStart = dayOnly(y.applicationStartDate);
     const yEnd = dayOnly(y.applicationEndDate);
     if (!yStart || !yEnd) continue;
-    /* Half-open overlap: ranges [a, b] and [c, d] overlap iff a <= d
-     * AND c <= b. */
-    if (cStart <= yEnd && yStart <= cEnd) {
-      return 'OVERLAPPING_PERIOD';
-    }
+    if (cStart <= yEnd && yStart <= cEnd) return 'OVERLAPPING_PERIOD';
   }
   return null;
 }
@@ -96,17 +118,21 @@ export function validateYearRow(
   siblingYears: readonly ApplicantSpecializationYear[],
   excludeId?: string,
 ): AppSettingsConflict | null {
-  const cap = validateCapacity(row.capacity);
-  if (cap) return cap;
+  const gender = validateGender(row.genderTypes);
+  if (gender) return gender;
+  const age = validateAge(row.maxAge);
+  if (age) return age;
+  const grade = validateGradeRange(row.minGrade, row.maxGrade);
+  if (grade) return grade;
   const dr = validateDateRange(
     row.applicationStartDate,
     row.applicationEndDate,
-    row.academicYearStartDate,
+    row.ageCalcDate,
   );
   if (dr) return dr;
   const dup = validateNoDuplicateYear(
     row.graduationYear,
-    row.genderType,
+    row.genderTypes,
     siblingYears,
     excludeId,
   );
@@ -115,7 +141,7 @@ export function validateYearRow(
     {
       applicationStartDate: row.applicationStartDate,
       applicationEndDate: row.applicationEndDate,
-      genderType: row.genderType,
+      genderTypes: row.genderTypes,
     },
     siblingYears,
     excludeId,

@@ -366,7 +366,12 @@ tables back the three-tier editor:
 - `dbo.applicant_category_specializations` — junction between a config
   row and a `specializations` lookup item.
 - `dbo.applicant_specialization_years` — leaf row carrying graduation
-  year × gender × capacity × window dates.
+  year × gender(s) × marital status(es) × age/grade band × window dates.
+  Gender and marital status are many-to-many; the canonical
+  representation is two side-tables
+  (`applicant_specialization_year_genders`,
+  `applicant_specialization_year_marital_statuses`) keyed by
+  `(year_id, code)`.
 
 Conflict codes thrown by the frontend mock service (and mirrored
 verbatim in `errors.ts → ConflictCode`):
@@ -374,21 +379,32 @@ verbatim in `errors.ts → ConflictCode`):
 ### 11.1 · `DUPLICATE_YEAR`
 
 **Rule.** No two rows under the same `category_specialization_id` may
-share the same `(graduation_year, gender_type)` pair.
+share the same `graduation_year` while having *any* overlapping gender
+in their gender sets. Two rows with disjoint gender sets and the same
+graduation year are permitted.
 
-**SQL Server.**
+**SQL Server.** INSTEAD-OF trigger on INSERT/UPDATE that joins the
+gender side-table and rejects intersection on `(year, gender)`:
 
 ```sql
-CREATE UNIQUE INDEX UX_AppSpecYear_Unique
-  ON dbo.applicant_specialization_years
-     (category_specialization_id, graduation_year, gender_type)
-  WHERE is_deleted = 0;
+IF EXISTS (
+  SELECT 1
+  FROM dbo.applicant_specialization_years y
+  JOIN dbo.applicant_specialization_year_genders yg ON yg.year_id = y.id
+  JOIN inserted i ON i.category_specialization_id = y.category_specialization_id
+                 AND i.graduation_year             = y.graduation_year
+                 AND i.id                         <> y.id
+  JOIN dbo.applicant_specialization_year_genders ig ON ig.year_id = i.id
+                                                  AND ig.gender_type = yg.gender_type
+  WHERE y.is_deleted = 0
+)
+THROW 51120, 'DUPLICATE_YEAR', 1;
 ```
 
 ### 11.2 · `OVERLAPPING_PERIOD`
 
-**Rule.** No two rows under the same `(category_specialization_id,
-gender_type)` may have overlapping `[application_start_date,
+**Rule.** No two rows for the same specialization with overlapping
+gender sets may have overlapping `[application_start_date,
 application_end_date]` windows.
 
 **SQL Server.** INSTEAD-OF trigger on INSERT/UPDATE:
@@ -397,42 +413,74 @@ application_end_date]` windows.
 IF EXISTS (
   SELECT 1
   FROM dbo.applicant_specialization_years y
-  JOIN inserted i
-    ON i.category_specialization_id = y.category_specialization_id
-   AND i.gender_type                = y.gender_type
-   AND i.id                        <> y.id
-   AND y.is_deleted = 0
-  WHERE i.application_start_date <= y.application_end_date
+  JOIN dbo.applicant_specialization_year_genders yg ON yg.year_id = y.id
+  JOIN inserted i ON i.category_specialization_id = y.category_specialization_id
+                 AND i.id                         <> y.id
+  JOIN dbo.applicant_specialization_year_genders ig ON ig.year_id = i.id
+                                                  AND ig.gender_type = yg.gender_type
+  WHERE y.is_deleted = 0
+    AND i.application_start_date <= y.application_end_date
     AND i.application_end_date   >= y.application_start_date
 )
 THROW 51100, 'OVERLAPPING_PERIOD', 1;
 ```
 
-### 11.3 · `CAPACITY_NOT_POSITIVE`
+### 11.3 · `AGE_NOT_POSITIVE`
 
-**Rule.** Capacity must be a strictly positive integer.
+**Rule.** When supplied, `max_age` must be a positive integer.
 
 **SQL Server.**
 
 ```sql
 ALTER TABLE dbo.applicant_specialization_years
-  ADD CONSTRAINT CK_AppSpecYear_Capacity CHECK (capacity > 0);
+  ADD CONSTRAINT CK_AppSpecYear_MaxAge
+  CHECK (max_age IS NULL OR max_age > 0);
 ```
 
 ### 11.4 · `INVALID_DATE_RANGE`
 
-**Rule.** `application_end_date >= application_start_date` AND
-`academic_year_start_date >= application_end_date` — academic year must
-start after the application window closes.
+**Rule.** `application_end_date >= application_start_date`. The
+`age_calc_date` column is required and must be a parseable date — no
+ordering constraint relative to the application window (admin chooses
+the eligibility-evaluation anchor independently).
 
 **SQL Server.**
 
 ```sql
 ALTER TABLE dbo.applicant_specialization_years
-  ADD CONSTRAINT CK_AppSpecYear_DateOrder CHECK (
-    application_end_date     >= application_start_date AND
-    academic_year_start_date >= application_end_date
-  );
+  ADD CONSTRAINT CK_AppSpecYear_DateOrder
+  CHECK (application_end_date >= application_start_date);
+```
+
+### 11.4b · `GRADE_RANGE_INVALID`
+
+**Rule.** When both `min_grade` and `max_grade` are supplied,
+`min_grade <= max_grade`.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.applicant_specialization_years
+  ADD CONSTRAINT CK_AppSpecYear_GradeRange
+  CHECK (min_grade IS NULL OR max_grade IS NULL OR min_grade <= max_grade);
+```
+
+### 11.4c · `GENDER_REQUIRED`
+
+**Rule.** Every year row must carry at least one gender — the side
+table must have at least one row keyed to it.
+
+**SQL Server.** Enforced by trigger on row-create (and on delete from
+the side table when it would drop count to 0):
+
+```sql
+IF EXISTS (
+  SELECT y.id FROM dbo.applicant_specialization_years y
+  LEFT JOIN dbo.applicant_specialization_year_genders g ON g.year_id = y.id
+  WHERE y.id IN (SELECT id FROM inserted)
+  GROUP BY y.id HAVING COUNT(g.gender_type) = 0
+)
+THROW 51125, 'GENDER_REQUIRED', 1;
 ```
 
 ### 11.5 · `SPECIALIZATION_NOT_MAPPED`

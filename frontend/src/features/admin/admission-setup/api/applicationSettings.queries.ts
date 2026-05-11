@@ -43,10 +43,12 @@ export const appSettingsKeys = {
 /* ─── Conflict messages ──────────────────────────────────────────────── */
 
 const CONFLICT_MESSAGES_AR: Record<AppSettingsConflict, string> = {
-  DUPLICATE_YEAR: 'سنة التخرج موجودة بالفعل لهذا التخصص',
+  DUPLICATE_YEAR: 'سنة التخرج موجودة بالفعل لنفس النوع في هذا التخصص',
   INVALID_DATE_RANGE: 'تاريخ النهاية يجب أن يكون بعد تاريخ البداية',
-  OVERLAPPING_PERIOD: 'فترة التقديم تتداخل مع سنة أخرى',
-  CAPACITY_NOT_POSITIVE: 'السعة يجب أن تكون أكبر من صفر',
+  OVERLAPPING_PERIOD: 'فترة التقديم تتداخل مع سنة أخرى لنفس النوع',
+  AGE_NOT_POSITIVE: 'السن الأقصى يجب أن يكون رقماً موجباً',
+  GRADE_RANGE_INVALID: 'الحد الأدنى للدرجة يجب ألا يتجاوز الحد الأقصى',
+  GENDER_REQUIRED: 'اختر النوع (ذكور أو إناث على الأقل)',
   SPECIALIZATION_NOT_MAPPED:
     'هذا التخصص غير مرتبط بهذه الفئة في البيانات المرجعية',
   CATEGORY_HAS_ACTIVE_YEARS:
