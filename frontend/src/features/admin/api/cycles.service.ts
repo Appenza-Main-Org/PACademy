@@ -21,6 +21,7 @@
  *   PATCH  /api/cycles/:id/categories/:key/conditions        → AdmissionCycle
  */
 
+import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
@@ -29,7 +30,6 @@ import {
   applyRestore,
   applySoftDelete,
   DependencyBlockedError,
-  filterDeleted,
   type DependencyResult,
 } from '@/shared/lib/soft-delete';
 import type {
@@ -43,6 +43,66 @@ import type {
 
 const STATE: AdmissionCycle[] = MOCK.cycles.map((c) => ({ ...c }));
 let ACTIVE_ID: string | null = MOCK.activeCycleId;
+
+/* ── Backend ↔ frontend cycle mapper ─────────────────────────────────────
+ * Backend `CycleListItemDto` / `CycleDetailDto` carry the canonical fields;
+ * everything else on `AdmissionCycle` (fees, linkedCommitteeIds, etc.) is
+ * fronted by the admission-setup wizard's still-mocked services and gets
+ * defaulted/preserved here so reload doesn't wipe them. */
+
+interface ApiCycleListItem {
+  id: string;
+  nameAr: string;
+  year: number;
+  cohort: string;
+  status: string;
+  openDate: string;
+  closeDate: string;
+  expectedCapacity: number;
+  applicantCount: number;
+}
+
+interface ApiCycleDetail extends ApiCycleListItem {
+  openCategories: Record<string, unknown>;
+  conditionOverrides: Record<string, unknown>;
+  createdAt: string;
+  archivedAt: string | null;
+}
+
+interface ApiPaged<T> { items: T[]; page: number; pageSize: number; totalCount: number; totalPages: number; }
+
+function apiToCycle(api: ApiCycleListItem | ApiCycleDetail, prev?: AdmissionCycle): AdmissionCycle {
+  const detail = (api as ApiCycleDetail);
+  return {
+    /* Identity + canonical fields from backend (lowercase status). */
+    id: api.id,
+    nameAr: api.nameAr,
+    year: api.year,
+    cohort: api.cohort as AdmissionCycle['cohort'],
+    status: api.status.toLowerCase() as CycleStatus,
+    openDate: api.openDate,
+    closeDate: api.closeDate,
+    expectedCapacity: api.expectedCapacity,
+    applicantCount: api.applicantCount,
+    /* Detail-only fields (default to prior/empty when absent). */
+    openCategories: (detail.openCategories as AdmissionCycle['openCategories']) ?? prev?.openCategories ?? {},
+    conditionOverrides: (detail.conditionOverrides as AdmissionCycle['conditionOverrides']) ?? prev?.conditionOverrides ?? {},
+    createdAt: detail.createdAt ?? prev?.createdAt ?? new Date().toISOString(),
+    updatedAt: prev?.updatedAt ?? detail.createdAt ?? new Date().toISOString(),
+    /* Admission-setup-wizard fields: preserve whatever the local mock has;
+     * the backend doesn't track these yet. */
+    ageCalcDate: prev?.ageCalcDate,
+    referenceAge: prev?.referenceAge,
+    fees: prev?.fees,
+    linkedCategoryIds: prev?.linkedCategoryIds,
+    linkedCommitteeIds: prev?.linkedCommitteeIds,
+  };
+}
+
+function upsertState(cycle: AdmissionCycle): void {
+  const idx = STATE.findIndex((c) => c.id === cycle.id);
+  if (idx === -1) STATE.unshift(cycle); else STATE[idx] = cycle;
+}
 
 /**
  * Pre-flight check for cycle activation. Returns a list of friendly
@@ -207,14 +267,28 @@ const CYCLE_DEP_LABELS: Record<string, string> = {
 
 export const cyclesService = {
   async list(opts: { includeDeleted?: boolean } = {}): Promise<AdmissionCycle[]> {
-    await simulateLatency();
-    const visible = filterDeleted(STATE, opts.includeDeleted);
-    return [...visible].sort((a, b) => b.year - a.year);
+    const { data } = await apiClient.get<ApiPaged<ApiCycleListItem>>('/admin/cycles', {
+      params: { includeArchived: opts.includeDeleted ?? false, pageSize: 200 },
+    });
+    const cycles = data.items.map((api) => apiToCycle(api, STATE.find((c) => c.id === api.id)));
+    // Sync local STATE so the still-mocked methods (clone/toggleCategory/…) see fresh data.
+    STATE.length = 0;
+    STATE.push(...cycles);
+    return [...cycles].sort((a, b) => b.year - a.year);
   },
 
   async getById(id: string): Promise<AdmissionCycle | null> {
-    await simulateLatency();
-    return STATE.find((c) => c.id === id) ?? null;
+    try {
+      const { data } = await apiClient.get<ApiCycleDetail>(`/admin/cycles/${id}`);
+      const cycle = apiToCycle(data, STATE.find((c) => c.id === id));
+      upsertState(cycle);
+      return cycle;
+    } catch (err) {
+      if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
+        return null;
+      }
+      throw err;
+    }
   },
 
   async getActive(): Promise<AdmissionCycle | null> {
@@ -238,32 +312,43 @@ export const cyclesService = {
   },
 
   async create(payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const now = new Date().toISOString();
-    const cycle: AdmissionCycle = {
-      ...payload,
-      id: `CYC-${payload.year}-${payload.cohort.toUpperCase().slice(0, 1)}-${cloneCounter++}`,
-      applicantCount: 0,
-      createdAt: payload.createdAt ?? now,
-      updatedAt: now,
+    const body = {
+      nameAr: payload.nameAr,
+      year: payload.year,
+      cohort: payload.cohort,
+      openDate: payload.openDate,
+      closeDate: payload.closeDate,
+      expectedCapacity: payload.expectedCapacity,
     };
-    STATE.unshift(cycle);
+    const { data } = await apiClient.post<ApiCycleDetail>('/admin/cycles', body);
+    const cycle = apiToCycle(data);
+    // Carry over wizard-only fields the backend didn't echo back.
+    cycle.fees = payload.fees;
+    cycle.referenceAge = payload.referenceAge;
+    cycle.linkedCommitteeIds = payload.linkedCommitteeIds;
+    cycle.linkedCategoryIds = payload.linkedCategoryIds;
+    upsertState(cycle);
     pushAudit('AdmissionCycle', cycle.id, 'create', `تم إنشاء دورة "${cycle.nameAr}"`);
     return cycle;
   },
 
   async update(id: string, patch: Partial<AdmissionCycle>): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.id === id);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    const updated: AdmissionCycle = {
-      ...STATE[idx],
-      ...patch,
-      updatedAt: new Date().toISOString(),
-    } as AdmissionCycle;
-    STATE[idx] = updated;
-    pushAudit('AdmissionCycle', updated.id, 'update', `تم تعديل بيانات دورة "${updated.nameAr}"`);
-    return updated;
+    const body: Record<string, unknown> = {};
+    if (patch.nameAr !== undefined) body.nameAr = patch.nameAr;
+    if (patch.openDate !== undefined) body.openDate = patch.openDate;
+    if (patch.closeDate !== undefined) body.closeDate = patch.closeDate;
+    if (patch.expectedCapacity !== undefined) body.expectedCapacity = patch.expectedCapacity;
+    const { data } = await apiClient.patch<ApiCycleDetail>(`/admin/cycles/${id}`, body);
+    const prev = STATE.find((c) => c.id === id);
+    // Preserve wizard-only fields from the prior local state + apply any patch passthroughs.
+    const cycle = apiToCycle(data, prev);
+    if (patch.fees !== undefined) cycle.fees = patch.fees;
+    if (patch.referenceAge !== undefined) cycle.referenceAge = patch.referenceAge;
+    if (patch.linkedCommitteeIds !== undefined) cycle.linkedCommitteeIds = patch.linkedCommitteeIds;
+    if (patch.linkedCategoryIds !== undefined) cycle.linkedCategoryIds = patch.linkedCategoryIds;
+    upsertState(cycle);
+    pushAudit('AdmissionCycle', cycle.id, 'update', `تم تعديل بيانات دورة "${cycle.nameAr}"`);
+    return cycle;
   },
 
   async clone(id: string): Promise<AdmissionCycle> {
@@ -286,12 +371,14 @@ export const cyclesService = {
   },
 
   async transition(id: string, next: CycleStatus): Promise<AdmissionCycle> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.id === id);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    STATE[idx] = { ...STATE[idx], status: next, updatedAt: new Date().toISOString() } as AdmissionCycle;
-    pushAudit('AdmissionCycle', id, 'update', `تم تغيير حالة دورة "${STATE[idx].nameAr}" إلى ${next}`);
-    return STATE[idx];
+    // Backend canonicalises the next-status value capitalised; lowercase round-trip via apiToCycle.
+    const newStatus = next.charAt(0).toUpperCase() + next.slice(1);
+    const { data } = await apiClient.post<ApiCycleDetail>(`/admin/cycles/${id}/status`, { newStatus });
+    const prev = STATE.find((c) => c.id === id);
+    const cycle = apiToCycle(data, prev);
+    upsertState(cycle);
+    pushAudit('AdmissionCycle', id, 'update', `تم تغيير حالة دورة "${cycle.nameAr}" إلى ${next}`);
+    return cycle;
   },
 
   /**
@@ -421,12 +508,11 @@ export const cyclesService = {
   },
 
   async remove(id: string): Promise<{ ok: true }> {
-    await simulateLatency();
+    const prev = STATE.find((c) => c.id === id);
+    await apiClient.delete(`/admin/cycles/${id}`);
     const idx = STATE.findIndex((c) => c.id === id);
-    if (idx === -1) throw new Error('الدورة غير موجودة');
-    if (STATE[idx].status !== 'draft') throw new Error('لا يمكن حذف دورة غير مسودة');
-    const [removed] = STATE.splice(idx, 1);
-    pushAudit('AdmissionCycle', id, 'delete', `تم حذف مسودة دورة "${removed.nameAr}"`);
+    if (idx !== -1) STATE.splice(idx, 1);
+    pushAudit('AdmissionCycle', id, 'delete', `تم حذف مسودة دورة "${prev?.nameAr ?? id}"`);
     return { ok: true };
   },
 
