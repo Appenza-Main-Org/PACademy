@@ -48,13 +48,19 @@ export function LookupsHubPage(): JSX.Element {
       <div className="grid grid-cols-12 gap-4">
         {/* Tab rail */}
         <aside className="col-span-12 lg:col-span-3 xl:col-span-3">
-          <nav className="lg:sticky lg:top-4 flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-3">
-            {LOOKUP_SECTIONS.map((section) => (
-              <div key={section.key}>
-                <div className="mb-1 px-1.5 text-2xs font-medium uppercase tracking-wide text-ink-500">
-                  {section.label}
+          <nav className="lg:sticky lg:top-4 flex flex-col gap-5 rounded-lg border border-border-subtle bg-surface p-4">
+            {LOOKUP_SECTIONS.map((section, idx) => (
+              <div key={section.key} className={cn(idx > 0 && 'border-t border-border-subtle pt-4')}>
+                <div className="mb-2 flex items-center gap-2 px-1.5">
+                  <span
+                    aria-hidden
+                    className="h-3.5 w-1 shrink-0 rounded-full bg-accent-500"
+                  />
+                  <span className="font-ar-display text-sm font-bold tracking-tight text-accent-700">
+                    {section.label}
+                  </span>
                 </div>
-                <ul className="flex flex-col gap-0.5">
+                <ul className="flex flex-col gap-1">
                   {section.keys.map((key) => {
                     const isActive = key === active;
                     const meta = LOOKUP_META[key];
@@ -64,19 +70,20 @@ export function LookupsHubPage(): JSX.Element {
                           type="button"
                           onClick={() => navigate(ROUTES.admin.adminLookupsType(key))}
                           className={cn(
-                            'flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-start text-sm',
+                            'flex w-full items-center justify-between gap-3 rounded-md px-3 py-2.5 text-start text-base font-ar',
                             'transition-colors duration-fast ease-standard',
+                            'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
                             isActive
-                              ? 'bg-accent-50 text-accent-700 font-medium'
-                              : 'text-ink-700 hover:bg-ink-50 hover:text-ink-900',
+                              ? 'bg-accent-50 text-accent-700 font-bold border border-accent-200'
+                              : 'border border-transparent text-ink-800 hover:bg-ink-50 hover:text-ink-900',
                           )}
                         >
-                          <span className="min-w-0 flex-1 truncate font-ar">{meta.label}</span>
+                          <span className="min-w-0 flex-1 truncate">{meta.label}</span>
                           <ChevronLeft
-                            size={14}
+                            size={16}
                             className={cn(
-                              'shrink-0 rtl:-scale-x-100',
-                              isActive ? 'text-accent-600' : 'text-ink-300',
+                              'shrink-0',
+                              isActive ? 'text-accent-600' : 'text-ink-400',
                             )}
                           />
                         </button>
