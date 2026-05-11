@@ -4,7 +4,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Eye } from 'lucide-react';
+import { ArrowRight, Eye } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -28,7 +28,128 @@ import {
   useAuditUsers,
 } from '@/features/audit';
 import { AUDIT_ACTIONS } from '@/shared/mock-data/dictionaries';
-import type { AuditAction, AuditEntry, AuditModule } from '@/shared/types/domain';
+import type { ApplicantStatus, AuditAction, AuditEntry, AuditModule } from '@/shared/types/domain';
+
+const STATUS_LABEL: Record<ApplicantStatus, string> = {
+  pending: 'في الانتظار',
+  'under-review': 'قيد المراجعة',
+  approved: 'مقبول',
+  rejected: 'مرفوض',
+  'on-hold': 'موقوف',
+  'documents-required': 'مستندات ناقصة',
+  under_medical_review: 'قيد الكشف الطبي',
+  passed_physical: 'اجتاز اللياقة',
+  failed_interview: 'لم يجتز المقابلة',
+  awaiting_board_decision: 'بانتظار قرار الهيئة',
+};
+
+const FIELD_LABEL_AR: Record<string, string> = {
+  'contact.email': 'البريد الإلكتروني',
+  'contact.mobilePhone': 'رقم الهاتف',
+  'contact.phone': 'الهاتف الأرضي',
+  'currentAddress.detail': 'تفاصيل العنوان',
+  'currentAddress.city': 'المدينة',
+  'currentAddress.governorate': 'المحافظة',
+  'education.certYear': 'سنة الشهادة',
+  'education.certPercent': 'النسبة',
+  maritalStatus: 'الحالة الاجتماعية',
+  religion: 'الديانة',
+  'family.fatherName': 'اسم الأب',
+  'family.fatherJob': 'مهنة الأب',
+};
+
+/* Bullet/dot separator used by mock generators between status pair and reason. */
+const REASON_SEPARATOR = /\s*[·•]\s*/;
+const FIELDS_PREFIX_RE = /^\s*(تعديل\s+الحقول|الحقول\s+المعدّلة|الحقول)\s*[:：]\s*/;
+const TRANSITION_PREFIX_RE = /^[\s\S]*?(?=[A-Za-z_][\w-]*\s*→\s*[A-Za-z_][\w-]*)/;
+
+function parseTransition(details: string): { from: string; to: string; reason: string } | null {
+  const stripped = details.replace(TRANSITION_PREFIX_RE, '');
+  const arrowIdx = stripped.indexOf('→');
+  if (arrowIdx === -1) return null;
+  const fromRaw = stripped.slice(0, arrowIdx).trim();
+  const tail = stripped.slice(arrowIdx + 1).trim();
+  const sepMatch = tail.match(REASON_SEPARATOR);
+  const to = sepMatch ? tail.slice(0, sepMatch.index).trim() : tail.trim();
+  const reason = sepMatch ? tail.slice((sepMatch.index ?? 0) + sepMatch[0].length).trim() : '';
+  /* Reason may itself end with another separator + section tag — keep the first segment only. */
+  const cleanReason = reason.split(REASON_SEPARATOR)[0]?.trim() ?? '';
+  return { from: fromRaw, to, reason: cleanReason };
+}
+
+function parseFieldList(details: string): string[] | null {
+  const m = details.match(FIELDS_PREFIX_RE);
+  if (!m) return null;
+  const tail = details.slice(m[0].length).split(REASON_SEPARATOR)[0] ?? '';
+  return tail
+    .split(/[,،]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function StatusPill({ code }: { code: string }): JSX.Element {
+  const label = STATUS_LABEL[code as ApplicantStatus];
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border-subtle bg-surface-card px-2 py-0.5 text-xs text-ink-800">
+      <span className="text-sm">{label ?? code}</span>
+      {label && (
+        <span className="font-mono text-[10px] text-ink-400" dir="ltr">
+          {code}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function FieldChip({ path }: { path: string }): JSX.Element {
+  const label = FIELD_LABEL_AR[path];
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md border border-border-subtle bg-ink-50 px-1.5 py-0.5 text-xs text-ink-800"
+      title={path}
+    >
+      {label && <span>{label}</span>}
+      <span className="font-mono text-[10px] text-ink-500" dir="ltr">
+        {path}
+      </span>
+    </span>
+  );
+}
+
+function DetailsCell({ entry }: { entry: AuditEntry }): JSX.Element {
+  const transition = parseTransition(entry.details);
+  if (transition) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-700">
+        <StatusPill code={transition.from} />
+        <ArrowRight size={12} strokeWidth={2} aria-hidden className="text-ink-400 rtl:rotate-180" />
+        <StatusPill code={transition.to} />
+        {transition.reason && (
+          <span className="text-xs text-ink-600" dir="auto">
+            · {transition.reason}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  const fields = parseFieldList(entry.details);
+  if (fields && fields.length > 0) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        {fields.map((path) => (
+          <FieldChip key={path} path={path} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <span className="block whitespace-normal text-sm leading-relaxed text-ink-700" dir="auto">
+      {entry.details}
+    </span>
+  );
+}
 
 export function AuditPage(): JSX.Element {
   const [action, setAction] = useState<AuditAction | 'all'>('all');
@@ -105,7 +226,7 @@ export function AuditPage(): JSX.Element {
     {
       key: 'details',
       label: 'التفاصيل',
-      render: (e) => <span className="text-sm text-ink-700">{e.details}</span>,
+      render: (e) => <DetailsCell entry={e} />,
       hideOn: 'sm',
     },
     {
