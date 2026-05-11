@@ -100,7 +100,7 @@ export function ApplicantsPage(): JSX.Element {
               <input className="input" type="search" placeholder="بحث بالاسم / الرقم القومي / كود التقدم" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
               <Search size={18} />
             </div>
-            <select className="select" value={status} onChange={(e) => { setStatus(e.target.value as ApplicantStatus | 'all'); setPage(1); }}>
+            <select aria-label="تصفية بالحالة" className="select" value={status} onChange={(e) => { setStatus(e.target.value as ApplicantStatus | 'all'); setPage(1); }}>
               <option value="all">كل الحالات</option>
               {Object.entries(STATUS_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v.label}</option>
