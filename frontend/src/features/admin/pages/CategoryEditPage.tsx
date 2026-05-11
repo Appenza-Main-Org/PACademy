@@ -1,120 +1,102 @@
 /**
- * CategoryEditPage — Bucket D2.
- *
- * Edits a single category (spec or custom). Three sections:
- *  1. Identity (label, description, freeText)
- *  2. Conditions (age, score, qualification, gender, height, marital, etc.)
- *  3. Required tests + procedures (orderable lists)
- *
- * Spec departments (the 7 from the brief) keep their labelAr and
- * nominationOnly read-only. Custom departments allow full edit.
+ * CategoryEditPage — mirrors CategoryNewPage; only name + description
+ * are editable. Spec departments keep their labelAr immutable; admins
+ * can still edit the description.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, ArrowDown, ArrowUp, Plus, Save, Trash2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { Save } from 'lucide-react';
 import {
-  Badge,
   Button,
   Card,
-  Drawer,
   ErrorState,
   Input,
   LoadingState,
   PageHeader,
-  Select,
   Textarea,
   toast,
 } from '@/shared/components';
-import type {
-  Applicant,
-  ApplicantCategory,
-  ApplicantCategoryKey,
-  CategoryCondition,
-  CategoryConditions,
-  RequiredTest,
-  RequiredTestKind,
-  RequiredQualification,
-} from '@/shared/types/domain';
+import type { ApplicantCategoryKey } from '@/shared/types/domain';
 import { ROUTES } from '@/config/routes';
-import { TEST_KIND_LABEL_AR } from '@/features/applicant-portal/lib/category-test-labels';
-import { useAuthStore } from '@/features/auth';
+import { zodResolver } from '@/shared/lib/zod-resolver';
 import {
-  usePreviewCategoryRuleChange,
   useCategoryAdmin,
   useUpdateCategoryMutation,
-  useUpdateExpandedConditions,
 } from '../api/categories.queries';
 import { categoriesAdminService } from '../api/categories.service';
-import { CategoryConditionBuilder } from '../components/categories/CategoryConditionBuilder';
 
-const TEST_KIND_OPTIONS: RequiredTestKind[] = [
-  'aptitude',
-  'posture',
-  'medical',
-  'physical',
-  'psychological',
-  'interview',
-  'drug',
-  'security_review',
-  'tactical_training',
-  'security_training',
-  'specialized_courses',
-];
-
-const QUALIFICATION_OPTIONS: { value: RequiredQualification; label: string }[] = [
-  { value: 'any', label: 'بدون اشتراط' },
-  { value: 'thanaweya_amma', label: 'الثانوية العامة' },
-  { value: 'azhar', label: 'الثانوية الأزهرية' },
-  { value: 'bachelor', label: 'مؤهل عالي' },
-  { value: 'bachelor_law', label: 'بكالوريوس حقوق' },
-  { value: 'bachelor_medicine', label: 'بكالوريوس طب' },
-  { value: 'bachelor_engineering', label: 'بكالوريوس هندسة' },
-  { value: 'bachelor_media', label: 'بكالوريوس إعلام' },
-  { value: 'police_academy_grad', label: 'خريج كلية الشرطة' },
-  { value: 'serving_officer', label: 'ضابط شرطة' },
-];
+const categorySchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'اسم الفئة يجب ألا يقل عن حرفين')
+    .max(80, 'اسم الفئة يجب ألا يزيد عن 80 حرفًا'),
+  description: z
+    .string()
+    .trim()
+    .max(500, 'الوصف يجب ألا يزيد عن 500 حرف')
+    .optional()
+    .or(z.literal('')),
+});
+type CategoryValues = z.infer<typeof categorySchema>;
 
 export function CategoryEditPage(): JSX.Element {
   const { key = '' } = useParams<{ key: string }>();
   const categoryKey = key as ApplicantCategoryKey;
   const navigate = useNavigate();
-  const isSuperAdmin = useAuthStore((s) => s.user?.role === 'super_admin');
   const detailQuery = useCategoryAdmin(categoryKey);
   const updateMut = useUpdateCategoryMutation();
-  const previewMut = usePreviewCategoryRuleChange();
-  const expandedMut = useUpdateExpandedConditions();
-  const [draft, setDraft] = useState<ApplicantCategory | null>(null);
-  const [expandedDraft, setExpandedDraft] = useState<CategoryConditions | null>(null);
-  const [impact, setImpact] = useState<{
-    impactedApplicants: Applicant[];
-    conflicts: { applicantId: string; failingRule: string }[];
-  } | null>(null);
-  const [impactOpen, setImpactOpen] = useState(false);
+  const isSpec = categoriesAdminService.isSpecCategory(categoryKey);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<CategoryValues>({
+    resolver: zodResolver(categorySchema),
+    defaultValues: { name: '', description: '' },
+  });
 
   useEffect(() => {
     if (detailQuery.data) {
-      setDraft(detailQuery.data);
-      setExpandedDraft(detailQuery.data.expandedConditions ?? CategoryConditionBuilder.empty);
+      reset({
+        name: detailQuery.data.labelAr,
+        description: detailQuery.data.description ?? '',
+      });
     }
-  }, [detailQuery.data]);
-
-  const isSpec = useMemo(() => categoriesAdminService.isSpecCategory(categoryKey), [categoryKey]);
+  }, [detailQuery.data, reset]);
 
   if (detailQuery.isLoading) return <LoadingState variant="page" />;
   if (detailQuery.error) {
-    return <ErrorState error={detailQuery.error as Error} onRetry={() => detailQuery.refetch()} />;
+    return (
+      <ErrorState
+        error={detailQuery.error as Error}
+        onRetry={() => detailQuery.refetch()}
+      />
+    );
   }
-  if (!detailQuery.data || !draft) {
+  if (!detailQuery.data) {
     return <ErrorState error={new Error('الفئة غير موجودة')} />;
   }
 
-  const onSave = (): void => {
+  const onSubmit = (values: CategoryValues): void => {
+    /* Spec categories keep their labelAr immutable — only description
+     * flows through the patch in that case. */
+    const patch = isSpec
+      ? { description: (values.description ?? '').trim() }
+      : {
+          labelAr: values.name.trim(),
+          description: (values.description ?? '').trim(),
+        };
     updateMut.mutate(
-      { key: categoryKey, patch: draft },
+      { key: categoryKey, patch },
       {
         onSuccess: () => {
-          toast(`تم حفظ "${draft.labelAr}"`, 'success');
+          toast('تم حفظ الفئة', 'success');
           navigate(ROUTES.admin.categories);
         },
         onError: (err) => toast((err as Error).message, 'danger'),
@@ -122,449 +104,56 @@ export function CategoryEditPage(): JSX.Element {
     );
   };
 
-  const updateConditions = (patch: Partial<CategoryCondition>): void => {
-    setDraft({ ...draft, conditions: { ...draft.conditions, ...patch } });
-  };
-
-  /**
-   * Save flow for the expanded condition matrix (Gap G).
-   * 1. Run previewRuleChangeImpact to count affected applicants.
-   * 2. If zero impact → save with action `category_rules_changed`.
-   * 3. If non-zero → open the impact drawer; super_admin can override
-   *    to save with `category_rules_changed_with_override`.
-   */
-  const onSaveExpanded = async (): Promise<void> => {
-    if (!expandedDraft) return;
-    const result = await previewMut.mutateAsync({ key: categoryKey, conditions: expandedDraft });
-    if (result.impactedApplicants.length === 0) {
-      await expandedMut.mutateAsync({ key: categoryKey, conditions: expandedDraft });
-      toast('تم حفظ شروط الفئة', 'success');
-      return;
-    }
-    setImpact(result);
-    setImpactOpen(true);
-  };
-
-  const onConfirmOverride = async (): Promise<void> => {
-    if (!expandedDraft || !impact) return;
-    if (!isSuperAdmin) {
-      toast('التجاوز مسموح للمدير الرئيسي فقط', 'danger');
-      return;
-    }
-    await expandedMut.mutateAsync({
-      key: categoryKey,
-      conditions: expandedDraft,
-      override: true,
-      impactedApplicantIds: impact.impactedApplicants.map((a) => a.id),
-    });
-    toast('تم حفظ الشروط مع تجاوز التأثير', 'success');
-    setImpactOpen(false);
-    setImpact(null);
-  };
-
   return (
-    <div className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
       <PageHeader
-        title={`تعديل فئة: ${draft.labelAr}`}
-        subtitle={isSpec ? 'فئة معتمدة من المواصفات — التسمية وحالة الترشيح ثابتة' : 'فئة مخصصة'}
+        title="تعديل فئة"
         breadcrumbs={[
-          { label: 'إدارة الفئات', href: ROUTES.admin.categories },
-          { label: 'تعديل' },
+          { label: 'الإدارة' },
+          { label: 'الفئات', href: ROUTES.admin.categories },
+          { label: 'تعديل فئة' },
         ]}
-        actions={
-          <Button
-            variant="primary"
-            leadingIcon={<Save size={14} strokeWidth={1.75} />}
-            onClick={onSave}
-            isLoading={updateMut.isPending}
-          >
-            حفظ التغييرات
-          </Button>
-        }
       />
 
       <Card>
-        <h3 className="mb-3 font-ar-display text-md font-bold text-ink-900">بيانات الفئة</h3>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="flex flex-col gap-4">
           <Input
-            label="الاسم بالعربية"
-            value={draft.labelAr}
+            label="اسم الفئة"
+            required
             disabled={isSpec}
-            onChange={(e) => setDraft({ ...draft, labelAr: e.target.value })}
-            containerClassName="md:col-span-2"
+            {...register('name')}
+            error={errors.name?.message}
+            helper={
+              isSpec ? 'فئة معتمدة من المواصفات — الاسم ثابت' : undefined
+            }
           />
           <Textarea
             label="الوصف"
-            value={draft.description}
-            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            containerClassName="md:col-span-2"
+            rows={4}
+            helper="حد أقصى 500 حرف"
+            {...register('description')}
+            error={errors.description?.message}
           />
-        </div>
 
-        <FreeTextEditor
-          values={draft.conditions.freeText}
-          onChange={(freeText) => updateConditions({ freeText })}
-        />
-
-        <label className="mt-4 flex items-center gap-2 text-sm text-ink-700">
-          <input
-            type="checkbox"
-            checked={draft.conditions.nominationOnly}
-            disabled={isSpec}
-            onChange={(e) => updateConditions({ nominationOnly: e.target.checked })}
-            className="h-4 w-4 cursor-pointer accent-teal-500"
-          />
-          بالترشيح فقط (لا يظهر في التقديم العام)
-        </label>
-      </Card>
-
-      <Card>
-        <h3 className="mb-3 font-ar-display text-md font-bold text-ink-900">شروط الأهلية</h3>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Input
-            label="السن الأدنى (سنة)"
-            type="number"
-            value={draft.conditions.ageMin ?? ''}
-            onChange={(e) => updateConditions({ ageMin: e.target.value ? Number(e.target.value) : null })}
-          />
-          <Input
-            label="السن الأقصى (سنة)"
-            type="number"
-            value={draft.conditions.ageMax ?? ''}
-            onChange={(e) => updateConditions({ ageMax: e.target.value ? Number(e.target.value) : null })}
-          />
-          <Input
-            label="الحد الأدنى للمجموع (%)"
-            type="number"
-            value={draft.conditions.minScorePercent ?? ''}
-            onChange={(e) =>
-              updateConditions({ minScorePercent: e.target.value ? Number(e.target.value) : null })
-            }
-          />
-          <Input
-            label="الطول الأدنى (سم)"
-            type="number"
-            value={draft.conditions.minHeightCm ?? ''}
-            onChange={(e) => updateConditions({ minHeightCm: e.target.value ? Number(e.target.value) : null })}
-          />
-          <Select
-            label="المؤهل المطلوب"
-            value={draft.conditions.requiredQualification}
-            onChange={(e) => updateConditions({ requiredQualification: e.target.value as RequiredQualification })}
-            options={QUALIFICATION_OPTIONS}
-          />
-          <Select
-            label="النوع"
-            value={draft.conditions.gender}
-            onChange={(e) => updateConditions({ gender: e.target.value as 'male' | 'female' | 'any' })}
-            options={[
-              { value: 'any', label: 'أي' },
-              { value: 'male', label: 'ذكر' },
-              { value: 'female', label: 'أنثى' },
-            ]}
-          />
-          <Select
-            label="الحالة الاجتماعية"
-            value={draft.conditions.maritalStatus}
-            onChange={(e) => updateConditions({ maritalStatus: e.target.value as 'single' | 'any' })}
-            options={[
-              { value: 'any', label: 'أي' },
-              { value: 'single', label: 'غير متزوج' },
-            ]}
-          />
-        </div>
-
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <ToggleRow
-            label="مصري الجنسية"
-            checked={draft.conditions.egyptianNationalityRequired}
-            onChange={(v) => updateConditions({ egyptianNationalityRequired: v })}
-          />
-          <ToggleRow
-            label="حسن السير والسلوك"
-            checked={draft.conditions.conductCheck}
-            onChange={(v) => updateConditions({ conductCheck: v })}
-          />
-          <ToggleRow
-            label="لائق طبياً"
-            checked={draft.conditions.medicalRequired}
-            onChange={(v) => updateConditions({ medicalRequired: v })}
-          />
-          <ToggleRow
-            label="موافقة جهة العمل"
-            checked={draft.conditions.employerApprovalRequired}
-            onChange={(v) => updateConditions({ employerApprovalRequired: v })}
-          />
-        </div>
-      </Card>
-
-      {expandedDraft && (
-        <section className="flex flex-col gap-3">
-          <header className="flex items-center justify-between">
-            <div>
-              <h3 className="font-ar-display text-lg font-bold text-ink-900">شروط القبول الموسّعة</h3>
-              <p className="text-2xs text-ink-500">
-                مجموعة شروط متقدمة مدعومة بالبيانات المرجعية — يحلل النظام أثر تغييرها قبل الحفظ.
-              </p>
-            </div>
+          <div className="mt-2 flex items-center justify-end gap-2">
             <Button
+              type="button"
+              variant="ghost"
+              onClick={() => navigate(ROUTES.admin.categories)}
+            >
+              إلغاء
+            </Button>
+            <Button
+              type="submit"
               variant="primary"
               leadingIcon={<Save size={14} strokeWidth={1.75} />}
-              onClick={onSaveExpanded}
-              isLoading={previewMut.isPending || expandedMut.isPending}
+              isLoading={updateMut.isPending}
             >
-              تحليل الأثر وحفظ
+              حفظ
             </Button>
-          </header>
-          <CategoryConditionBuilder
-            value={expandedDraft}
-            onChange={setExpandedDraft}
-            readOnly={isSpec && !isSuperAdmin}
-          />
-        </section>
-      )}
-
-      <Card>
-        <h3 className="mb-3 font-ar-display text-md font-bold text-ink-900">الاختبارات والإجراءات</h3>
-        <RequiredTestsEditor
-          tests={draft.requiredTests}
-          onChange={(requiredTests) => setDraft({ ...draft, requiredTests })}
-        />
-        <ProceduresEditor
-          procedures={draft.procedures}
-          onChange={(procedures) => setDraft({ ...draft, procedures })}
-        />
+          </div>
+        </div>
       </Card>
-
-      <Drawer
-        open={impactOpen}
-        onClose={() => setImpactOpen(false)}
-        title="تأثير تعديل الشروط"
-        subtitle={impact ? `${impact.impactedApplicants.length} متقدم متأثر · ${impact.conflicts.length} مخالفة` : undefined}
-        size="md"
-      >
-        <Drawer.Body>
-          {impact && (
-            <div className="space-y-3">
-              <div className="flex items-start gap-2 rounded-md border border-gold-300 bg-gold-50 p-3 text-2xs text-gold-700">
-                <AlertTriangle size={14} strokeWidth={1.75} className="mt-0.5" />
-                <p>
-                  {isSuperAdmin
-                    ? 'بصفتك مديراً رئيسياً، يمكنك التجاوز والحفظ. سيتم تسجيل الإجراء في سجل النشاط مع قائمة المتأثرين.'
-                    : 'لا تملك صلاحية تجاوز هذا الأثر. الحفظ متاح للمدير الرئيسي فقط.'}
-                </p>
-              </div>
-              <ul className="divide-y divide-border-subtle rounded-md border border-border-subtle">
-                {impact.impactedApplicants.slice(0, 50).map((ap) => (
-                  <li key={ap.id} className="flex items-center justify-between gap-3 px-3 py-2 text-2xs">
-                    <span className="text-ink-900">{ap.name}</span>
-                    <Badge tone="warning">
-                      {(impact.conflicts.find((c) => c.applicantId === ap.id)?.failingRule ?? '').replace(/_/g, ' ')}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-              {impact.impactedApplicants.length > 50 && (
-                <p className="text-2xs text-ink-500">
-                  وعدد إجمالي{' '}
-                  <span className="font-numeric tnum">{impact.impactedApplicants.length}</span> متقدم — يُعرض أوّل 50.
-                </p>
-              )}
-            </div>
-          )}
-        </Drawer.Body>
-        <Drawer.Footer>
-          <Button variant="ghost" onClick={() => setImpactOpen(false)}>
-            إلغاء
-          </Button>
-          <Button
-            variant="danger"
-            isLoading={expandedMut.isPending}
-            disabled={!isSuperAdmin}
-            onClick={onConfirmOverride}
-          >
-            تجاوز وحفظ
-          </Button>
-        </Drawer.Footer>
-      </Drawer>
-    </div>
-  );
-}
-
-function ToggleRow({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}): JSX.Element {
-  return (
-    <label className="flex items-center gap-2 text-sm text-ink-700">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 cursor-pointer accent-teal-500"
-      />
-      {label}
-    </label>
-  );
-}
-
-function FreeTextEditor({
-  values,
-  onChange,
-}: {
-  values: readonly string[];
-  onChange: (next: string[]) => void;
-}): JSX.Element {
-  const update = (i: number, val: string): void => {
-    const next = [...values];
-    next[i] = val;
-    onChange(next);
-  };
-  const remove = (i: number): void => onChange(values.filter((_, idx) => idx !== i));
-  const add = (): void => onChange([...values, '']);
-  return (
-    <section className="mt-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-2xs font-bold uppercase tracking-wide text-ink-500">ملاحظات إضافية</h4>
-        <Button variant="ghost" size="sm" leadingIcon={<Plus size={12} strokeWidth={1.75} />} onClick={add}>
-          إضافة سطر
-        </Button>
-      </div>
-      <div className="flex flex-col gap-2">
-        {values.length === 0 && <p className="text-2xs text-ink-500">لا توجد ملاحظات</p>}
-        {values.map((v, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <Input
-              value={v}
-              onChange={(e) => update(i, e.target.value)}
-              containerClassName="flex-1"
-              aria-label={`ملاحظة ${i + 1}`}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="حذف"
-              onClick={() => remove(i)}
-            >
-              <Trash2 size={14} strokeWidth={1.75} />
-            </Button>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function RequiredTestsEditor({
-  tests,
-  onChange,
-}: {
-  tests: RequiredTest[];
-  onChange: (next: RequiredTest[]) => void;
-}): JSX.Element {
-  const update = (i: number, patch: Partial<RequiredTest>): void => {
-    const next = [...tests];
-    next[i] = { ...next[i]!, ...patch };
-    onChange(reorder(next));
-  };
-  const remove = (i: number): void => onChange(reorder(tests.filter((_, idx) => idx !== i)));
-  const move = (i: number, dir: -1 | 1): void => {
-    const j = i + dir;
-    if (j < 0 || j >= tests.length) return;
-    const next = [...tests];
-    [next[i], next[j]] = [next[j]!, next[i]!];
-    onChange(reorder(next));
-  };
-  const add = (): void => {
-    onChange(reorder([...tests, { kind: 'aptitude', order: tests.length + 1, passingCriteria: '' }]));
-  };
-  function reorder(arr: RequiredTest[]): RequiredTest[] {
-    return arr.map((t, idx) => ({ ...t, order: idx + 1 }));
-  }
-  return (
-    <section className="mt-2">
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-2xs font-bold uppercase tracking-wide text-ink-500">الاختبارات المطلوبة</h4>
-        <Button variant="ghost" size="sm" leadingIcon={<Plus size={12} strokeWidth={1.75} />} onClick={add}>
-          إضافة اختبار
-        </Button>
-      </div>
-      <div className="flex flex-col gap-2">
-        {tests.length === 0 && <p className="text-2xs text-ink-500">لا توجد اختبارات</p>}
-        {tests.map((test, i) => (
-          <div key={`${test.kind}-${i}`} className="grid gap-2 md:grid-cols-[40px_220px_1fr_auto]">
-            <span className="self-center text-2xs font-bold text-ink-500">{test.order}.</span>
-            <Select
-              value={test.kind}
-              onChange={(e) => update(i, { kind: e.target.value as RequiredTestKind })}
-              options={TEST_KIND_OPTIONS.map((k) => ({ value: k, label: TEST_KIND_LABEL_AR[k] }))}
-            />
-            <Input
-              value={test.passingCriteria}
-              placeholder="معايير النجاح (اختياري)"
-              onChange={(e) => update(i, { passingCriteria: e.target.value })}
-            />
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" aria-label="رفع" onClick={() => move(i, -1)} disabled={i === 0}>
-                <ArrowUp size={14} strokeWidth={1.75} />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="إنزال" onClick={() => move(i, 1)} disabled={i === tests.length - 1}>
-                <ArrowDown size={14} strokeWidth={1.75} />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label="حذف" onClick={() => remove(i)}>
-                <Trash2 size={14} strokeWidth={1.75} />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ProceduresEditor({
-  procedures,
-  onChange,
-}: {
-  procedures: string[];
-  onChange: (next: string[]) => void;
-}): JSX.Element {
-  const update = (i: number, val: string): void => {
-    const next = [...procedures];
-    next[i] = val;
-    onChange(next);
-  };
-  const remove = (i: number): void => onChange(procedures.filter((_, idx) => idx !== i));
-  const add = (): void => onChange([...procedures, '']);
-  return (
-    <section className="mt-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-2xs font-bold uppercase tracking-wide text-ink-500">الإجراءات</h4>
-        <Button variant="ghost" size="sm" leadingIcon={<Plus size={12} strokeWidth={1.75} />} onClick={add}>
-          إضافة إجراء
-        </Button>
-      </div>
-      <div className="flex flex-col gap-2">
-        {procedures.length === 0 && <p className="text-2xs text-ink-500">لا توجد إجراءات</p>}
-        {procedures.map((p, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <Input
-              value={p}
-              onChange={(e) => update(i, e.target.value)}
-              containerClassName="flex-1"
-              aria-label={`إجراء ${i + 1}`}
-            />
-            <Button variant="ghost" size="icon" aria-label="حذف" onClick={() => remove(i)}>
-              <Trash2 size={14} strokeWidth={1.75} />
-            </Button>
-          </div>
-        ))}
-      </div>
-    </section>
+    </form>
   );
 }
