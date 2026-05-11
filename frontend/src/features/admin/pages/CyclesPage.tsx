@@ -1,6 +1,9 @@
 /**
- * CyclesPage — list of admission cycles with status, capacity, and clone CTA.
- * Source: Tasks/KARASA_GAPS.md §1.2.D.
+ * CyclesPage — list of admission cycles.
+ *
+ * Columns mirror the trimmed cycle schema: name, year, opening date,
+ * closing date, status. Clone is preserved as a row action because it
+ * only copies the surviving fields (status falls to draft).
  */
 
 import { useMemo } from 'react';
@@ -21,7 +24,7 @@ import {
 import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
-import { date as fmtDate, num } from '@/shared/lib/format';
+import { date as fmtDate } from '@/shared/lib/format';
 import type { AdmissionCycle, CycleStatus } from '@/shared/types/domain';
 import { cyclesService } from '../api/cycles.service';
 import { cyclesKeys, useActiveCycle, useCycles } from '../api/cycles.queries';
@@ -37,14 +40,14 @@ const STATUS_LABEL: Record<CycleStatus, string> = {
   archived: 'مؤرشفة',
 };
 
-const STATUS_TONE: Record<CycleStatus, 'neutral' | 'success' | 'warning' | 'info' | 'brand'> = {
+const STATUS_TONE: Record<CycleStatus, 'neutral' | 'success' | 'danger' | 'info'> = {
   draft: 'neutral',
   open: 'success',
   active: 'success',
   extended: 'info',
-  closed: 'warning',
+  closed: 'danger',
   processing: 'info',
-  finalized: 'brand',
+  finalized: 'neutral',
   archived: 'neutral',
 };
 
@@ -64,14 +67,8 @@ export function CyclesPage(): JSX.Element {
         formats: ['csv', 'xlsx'],
         filenamePrefix: 'دورات-القبول-',
         columns: [
-          { key: 'id', labelAr: 'الكود' },
           { key: 'nameAr', labelAr: 'اسم الدورة' },
-          {
-            key: 'cohort',
-            labelAr: 'الفئة',
-            format: (v) => (v === 'male' ? 'ذكور' : 'إناث'),
-          },
-          { key: 'year', labelAr: 'العام' },
+          { key: 'year', labelAr: 'السنة' },
           {
             key: 'openDate',
             labelAr: 'تاريخ الفتح',
@@ -82,8 +79,6 @@ export function CyclesPage(): JSX.Element {
             labelAr: 'تاريخ الإغلاق',
             format: (v) => fmtDate(String(v), 'short'),
           },
-          { key: 'expectedCapacity', labelAr: 'السعة المتوقعة' },
-          { key: 'applicantCount', labelAr: 'عدد المتقدمين' },
           {
             key: 'status',
             labelAr: 'الحالة',
@@ -98,38 +93,35 @@ export function CyclesPage(): JSX.Element {
   const columns: DataTableColumn<AdmissionCycle>[] = [
     {
       key: 'nameAr',
-      label: 'الدورة',
+      label: 'اسم الدورة',
       render: (c) => (
-        <Link to={ROUTES.admin.cycleDetail(c.id)} className="font-medium text-teal-700 hover:underline">
+        <Link
+          to={ROUTES.admin.cycleDetail(c.id)}
+          className="font-medium text-teal-700 hover:underline"
+        >
           {c.nameAr}
         </Link>
       ),
     },
     {
-      key: 'cohort',
-      label: 'الفئة',
-      render: (c) => (c.cohort === 'male' ? 'ذكور' : 'إناث'),
-    },
-    { key: 'openDate', label: 'تاريخ الفتح', render: (c) => fmtDate(c.openDate, 'short') },
-    { key: 'closeDate', label: 'تاريخ الإغلاق', render: (c) => fmtDate(c.closeDate, 'short') },
-    {
-      key: 'capacity',
-      label: 'السعة',
-      numeric: true,
-      render: (c) => num(c.expectedCapacity),
-    },
-    {
-      key: 'applicantCount',
-      label: 'المتقدمون',
+      key: 'year',
+      label: 'السنة',
       numeric: true,
       render: (c) => (
-        <span>
-          <span dir="ltr">{num(c.applicantCount)}</span>{' '}
-          <span className="text-2xs text-ink-500">
-            ({Math.round((c.applicantCount / Math.max(1, c.expectedCapacity)) * 100)}%)
-          </span>
+        <span className="font-numeric tnum" dir="ltr">
+          {c.year}
         </span>
       ),
+    },
+    {
+      key: 'openDate',
+      label: 'تاريخ الفتح',
+      render: (c) => fmtDate(c.openDate, 'short'),
+    },
+    {
+      key: 'closeDate',
+      label: 'تاريخ الإغلاق',
+      render: (c) => fmtDate(c.closeDate, 'short'),
     },
     {
       key: 'status',
@@ -151,17 +143,10 @@ export function CyclesPage(): JSX.Element {
             transform: (row) => ({
               nameAr: `${row.nameAr} (نسخة)`,
               status: 'draft' as CycleStatus,
-              applicantCount: 0,
             }),
             onCommit: async (_draft, source) => cyclesService.clone(source.id),
             redirectTo: (next) => ROUTES.admin.cycleDetail(next.id),
-            guard: (row) => {
-              /* Cycles that are already in an active/open/extended state can be
-               * cloned (the clone always lands draft), but the user should be
-               * aware that activating it will require closing the source. */
-              if (row.deletedAt) return 'لا يمكن نسخ دورة محذوفة';
-              return null;
-            },
+            guard: (row) => (row.deletedAt ? 'لا يمكن نسخ دورة محذوفة' : null),
           }}
           onSuccess={(next) => {
             toast(`تم إنشاء نسخة: ${next.nameAr}`, 'success');
@@ -190,7 +175,7 @@ export function CyclesPage(): JSX.Element {
     <CenteredShell>
       <PageHeader
         title="دورات القبول"
-        subtitle="إدارة دورات القبول السنوية: السعة، تواريخ الفتح والإغلاق، حالة الدورة."
+        subtitle="إدارة دورات القبول السنوية: تواريخ الفتح والإغلاق، حالة الدورة."
         breadcrumbs={[
           { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
           { label: 'الدورات' },
@@ -217,9 +202,8 @@ export function CyclesPage(): JSX.Element {
                 الدورة النشطة: {activeCycle.nameAr}
               </p>
               <p className="mt-0.5 text-2xs text-ink-500">
-                {fmtDate(activeCycle.openDate, 'short')} إلى {fmtDate(activeCycle.closeDate, 'short')}
-                {' · '}
-                {Object.values(activeCycle.openCategories ?? {}).filter((c) => c?.isOpen).length} فئات مفتوحة
+                {fmtDate(activeCycle.openDate, 'short')} إلى{' '}
+                {fmtDate(activeCycle.closeDate, 'short')}
               </p>
             </div>
             <Badge tone="success">
@@ -227,7 +211,9 @@ export function CyclesPage(): JSX.Element {
               نشطة
             </Badge>
             <Link to={ROUTES.admin.cycleDetail(activeCycle.id)}>
-              <Button variant="primary" size="sm">إدارة الدورة</Button>
+              <Button variant="primary" size="sm">
+                إدارة الدورة
+              </Button>
             </Link>
           </div>
         </Card>
