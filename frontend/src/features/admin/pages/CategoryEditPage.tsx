@@ -26,7 +26,6 @@ import {
   useCategoryAdmin,
   useUpdateCategoryMutation,
 } from '../api/categories.queries';
-import { categoriesAdminService } from '../api/categories.service';
 
 const categorySchema = z.object({
   name: z
@@ -49,7 +48,6 @@ export function CategoryEditPage(): JSX.Element {
   const navigate = useNavigate();
   const detailQuery = useCategoryAdmin(categoryKey);
   const updateMut = useUpdateCategoryMutation();
-  const isSpec = categoriesAdminService.isSpecCategory(categoryKey);
 
   const {
     register,
@@ -84,16 +82,14 @@ export function CategoryEditPage(): JSX.Element {
   }
 
   const onSubmit = (values: CategoryValues): void => {
-    /* Spec categories keep their labelAr immutable — only description
-     * flows through the patch in that case. */
-    const patch = isSpec
-      ? { description: (values.description ?? '').trim() }
-      : {
+    updateMut.mutate(
+      {
+        key: categoryKey,
+        patch: {
           labelAr: values.name.trim(),
           description: (values.description ?? '').trim(),
-        };
-    updateMut.mutate(
-      { key: categoryKey, patch },
+        },
+      },
       {
         onSuccess: () => {
           toast('تم حفظ الفئة', 'success');
@@ -120,12 +116,8 @@ export function CategoryEditPage(): JSX.Element {
           <Input
             label="اسم الفئة"
             required
-            disabled={isSpec}
             {...register('name')}
             error={errors.name?.message}
-            helper={
-              isSpec ? 'فئة معتمدة من المواصفات — الاسم ثابت' : undefined
-            }
           />
           <Textarea
             label="الوصف"

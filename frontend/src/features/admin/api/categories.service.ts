@@ -81,22 +81,10 @@ export const categoriesAdminService = {
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.key === key);
     if (idx === -1) throw new Error('الفئة غير موجودة');
-    /* The spec key, labelAr, and nominationOnly are immutable for spec departments. */
+    /* Only the storage `key` is immutable; every other field — including
+     * spec-category labels — is editable from the admin form. */
     const current = STATE[idx]!;
-    const isSpec = SPEC_KEYS.has(key);
-    const next: ApplicantCategory = isSpec
-      ? {
-          ...current,
-          ...patch,
-          key: current.key,
-          labelAr: current.labelAr,
-          conditions: {
-            ...current.conditions,
-            ...patch.conditions,
-            nominationOnly: current.conditions.nominationOnly,
-          },
-        }
-      : ({ ...current, ...patch, key: current.key } as ApplicantCategory);
+    const next: ApplicantCategory = { ...current, ...patch, key: current.key };
     STATE[idx] = next;
     pushAudit('update', key, `تم تعديل بيانات فئة "${next.labelAr}"`);
     return next;
