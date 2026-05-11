@@ -5,9 +5,6 @@
  * lookup data through the typed query hooks and the strongly-typed
  * `LookupTypeCode`. Components and pages stay internal — feature pages
  * compose them via the in-feature paths, not the barrel.
- *
- * NOTE — query hooks and the service are added in the next commit; this
- * barrel currently only exposes types.
  */
 
 export {
@@ -23,3 +20,23 @@ export {
   type LookupFilters,
   type LookupConflictCode,
 } from './types';
+
+export {
+  lookupsService,
+  type LookupItemInput,
+  type LookupItemPatch,
+} from './api/lookups.service';
+
+export {
+  lookupKeys,
+  useLookupTypes,
+  useLookupList,
+  useLookupTree,
+  useLookupMappings,
+  useCreateLookup,
+  useUpdateLookup,
+  useDeleteLookup,
+  useReorderLookups,
+  useAddMapping,
+  useRemoveMapping,
+} from './api/lookups.queries';
