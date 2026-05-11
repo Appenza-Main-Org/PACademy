@@ -103,7 +103,13 @@ export function useCycleUpdate() {
 export function useCycleCreate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>) => cyclesService.create(payload),
+    mutationFn: ({
+      payload,
+      demoteCurrentActive,
+    }: {
+      payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>;
+      demoteCurrentActive?: boolean;
+    }) => cyclesService.create(payload, { demoteCurrentActive }),
     onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
   });
 }
