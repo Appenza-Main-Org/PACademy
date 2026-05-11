@@ -21,6 +21,8 @@ import { ProfilePage } from '@/features/profile';
 import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
 import { PrimitivesReviewPage } from '@/features/dev';
+import { LookupsHubPage } from '@/features/lookups/pages/LookupsHubPage';
+import { MappingsPage } from '@/features/lookups/pages/MappingsPage';
 import {
   ApplicantPortalLayout,
   ApplicationSummaryPage,
@@ -71,7 +73,6 @@ import {
   NotificationsPage,
   NotificationsStepPage,
   PaymentsPage,
-  ReferenceDataPage,
   ReportsPage,
   RolesPage,
   ScoreThresholdsPage,
@@ -226,8 +227,12 @@ export const routes: RouteObject[] = [
       { path: 'audit', element: <AuditPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'reports', element: <ReportsPage /> },
-      { path: 'reference-data', element: <ReferenceDataPage /> },
-      { path: 'reference-data/:tab', element: <ReferenceDataPage /> },
+      /* Lookup Management Module — /admin/reference-data redirects here. */
+      { path: 'lookups', element: <LookupsHubPage /> },
+      { path: 'lookups/:typeCode', element: <LookupsHubPage /> },
+      { path: 'lookups/mappings/:kind', element: <MappingsPage /> },
+      { path: 'reference-data', element: <Navigate to="/admin/lookups" replace /> },
+      { path: 'reference-data/:tab', element: <Navigate to="/admin/lookups" replace /> },
       { path: 'categories', element: <CategoriesListPage /> },
       /* `/new` must be registered BEFORE `/:key` so the literal create
        * route wins matching against the dynamic edit route. */

@@ -34,7 +34,10 @@ import {
   type LookupTypeCode,
 } from '../types';
 
-const CODE_PATTERN = /^[A-Z][A-Z0-9_]*-\d{3,}$/;
+/* Code accepts the brief's `UNI-001` shape OR a legacy snake_case key
+ * like `thanaweya_amma` so back-compat with seeded category condition
+ * data (which stores keys, not IDs) is preserved. */
+const CODE_PATTERN = /^[A-Za-z][A-Za-z0-9_]*(-\d{3,})?$/;
 
 const schema = z
   .object({

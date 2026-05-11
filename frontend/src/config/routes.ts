@@ -29,8 +29,14 @@ export const ROUTES = {
     audit: '/admin/audit',
     settings: '/admin/settings',
     reports: '/admin/reports',
+    /** @deprecated — superseded by `adminLookups`. The route now redirects. */
     referenceData: (tab = ':tab'): string => `/admin/reference-data/${tab}`,
+    /** @deprecated — superseded by `adminLookups`. The route now redirects. */
     referenceDataRoot: '/admin/reference-data',
+    /* Lookup Management Module — `/admin/lookups`, replaces reference-data. */
+    adminLookups: '/admin/lookups',
+    adminLookupsType: (typeCode = ':typeCode'): string => `/admin/lookups/${typeCode}`,
+    adminLookupsMappings: (kind = ':kind'): string => `/admin/lookups/mappings/${kind}`,
     cycles: '/admin/cycles',
     cycleDetail: (id = ':id'): string => `/admin/cycles/${id}`,
     cycleNew: '/admin/cycles/new',

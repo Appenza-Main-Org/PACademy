@@ -24,7 +24,8 @@ export {
 } from './api/notifications.queries';
 export { SettingsPage } from './pages/SettingsPage';
 export { ReportsPage } from './pages/ReportsPage';
-export { ReferenceDataPage } from './pages/ReferenceDataPage';
+/* ReferenceDataPage removed — superseded by `/admin/lookups`
+ * (features/lookups/pages/LookupsHubPage). */
 export { CyclesPage } from './pages/CyclesPage';
 export { CycleDetailPage } from './pages/CycleDetailPage';
 

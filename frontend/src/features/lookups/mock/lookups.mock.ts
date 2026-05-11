@@ -368,24 +368,27 @@ const educationLevelsItems: LookupItem[] = [
 
 /* ─── Extension seeds (preserve existing LookupKey consumers) ──────── */
 
+/* Codes for these types preserve the legacy snake_case keys so seeded
+ * category conditions / admission rules ('single', 'thanaweya_amma',
+ * 'aptitude', …) keep resolving after the migration. */
 const educationTypesItems: LookupItem[] = [
-  item('EDUCATION_TYPES', 'ET-001', 'ثانوية عامة',       { sortOrder: 10 }),
-  item('EDUCATION_TYPES', 'ET-002', 'أزهر',              { sortOrder: 20 }),
-  item('EDUCATION_TYPES', 'ET-003', 'تربية رياضية',      { sortOrder: 30 }),
-  item('EDUCATION_TYPES', 'ET-004', 'حقوق',              { sortOrder: 40 }),
-  item('EDUCATION_TYPES', 'ET-005', 'بكالوريوس',         { sortOrder: 50 }),
-  item('EDUCATION_TYPES', 'ET-006', 'ماجستير',           { sortOrder: 60 }),
-  item('EDUCATION_TYPES', 'ET-007', 'دكتوراه',            { sortOrder: 70 }),
-  item('EDUCATION_TYPES', 'ET-008', 'شهادات أجنبية',     { sortOrder: 80 }),
-  item('EDUCATION_TYPES', 'ET-009', 'IG',                { sortOrder: 90 }),
-  item('EDUCATION_TYPES', 'ET-010', 'الدبلوم الأمريكي',  { sortOrder: 100 }),
+  item('EDUCATION_TYPES', 'thanaweya_amma',     'ثانوية عامة',       { sortOrder: 10 }),
+  item('EDUCATION_TYPES', 'azhar',              'أزهر',              { sortOrder: 20 }),
+  item('EDUCATION_TYPES', 'sports_education',   'تربية رياضية',      { sortOrder: 30 }),
+  item('EDUCATION_TYPES', 'law',                'حقوق',              { sortOrder: 40 }),
+  item('EDUCATION_TYPES', 'bachelor',           'بكالوريوس',         { sortOrder: 50 }),
+  item('EDUCATION_TYPES', 'master',             'ماجستير',           { sortOrder: 60 }),
+  item('EDUCATION_TYPES', 'phd',                'دكتوراه',           { sortOrder: 70 }),
+  item('EDUCATION_TYPES', 'foreign_certificates','شهادات أجنبية',    { sortOrder: 80 }),
+  item('EDUCATION_TYPES', 'ig',                 'IG',                { sortOrder: 90 }),
+  item('EDUCATION_TYPES', 'american_diploma',   'الدبلوم الأمريكي',  { sortOrder: 100 }),
 ];
 
 const maritalStatusesItems: LookupItem[] = [
-  item('MARITAL_STATUSES', 'MS-001', 'أعزب',  { sortOrder: 10 }),
-  item('MARITAL_STATUSES', 'MS-002', 'متزوج', { sortOrder: 20 }),
-  item('MARITAL_STATUSES', 'MS-003', 'مطلق',  { sortOrder: 30, isActive: false }),
-  item('MARITAL_STATUSES', 'MS-004', 'أرمل',  { sortOrder: 40, isActive: false }),
+  item('MARITAL_STATUSES', 'single',   'أعزب',  { sortOrder: 10 }),
+  item('MARITAL_STATUSES', 'married',  'متزوج', { sortOrder: 20 }),
+  item('MARITAL_STATUSES', 'divorced', 'مطلق',  { sortOrder: 30, isActive: false }),
+  item('MARITAL_STATUSES', 'widowed',  'أرمل',  { sortOrder: 40, isActive: false }),
 ];
 
 const specialtiesItems: LookupItem[] = [
@@ -413,19 +416,19 @@ const degreeTypesItems: LookupItem[] = [
 ];
 
 const examTypesItems: LookupItem[] = [
-  item('EXAM_TYPES', 'EXT-001', 'القدرات',             { sortOrder: 10 }),
-  item('EXAM_TYPES', 'EXT-002', 'الطول',                { sortOrder: 20 }),
-  item('EXAM_TYPES', 'EXT-003', 'السمات الخارجي',      { sortOrder: 30 }),
-  item('EXAM_TYPES', 'EXT-004', 'السمات الداخلي',       { sortOrder: 40 }),
-  item('EXAM_TYPES', 'EXT-005', 'الرياضي',              { sortOrder: 50 }),
-  item('EXAM_TYPES', 'EXT-006', 'إعادة الرياضي',         { sortOrder: 60 }),
-  item('EXAM_TYPES', 'EXT-007', 'الهيئة',                { sortOrder: 70 }),
-  item('EXAM_TYPES', 'EXT-008', 'القوام',                { sortOrder: 80 }),
-  item('EXAM_TYPES', 'EXT-009', 'إعادة القوام',          { sortOrder: 90 }),
-  item('EXAM_TYPES', 'EXT-010', 'الطبي',                 { sortOrder: 100 }),
-  item('EXAM_TYPES', 'EXT-011', 'إعادة الطبي',           { sortOrder: 110 }),
-  item('EXAM_TYPES', 'EXT-012', 'الاتزان النفسي',        { sortOrder: 120 }),
-  item('EXAM_TYPES', 'EXT-013', 'الطبي المتقدم',         { sortOrder: 130 }),
+  item('EXAM_TYPES', 'aptitude',            'القدرات',           { sortOrder: 10 }),
+  item('EXAM_TYPES', 'height',              'الطول',              { sortOrder: 20 }),
+  item('EXAM_TYPES', 'appearance_external', 'السمات الخارجي',    { sortOrder: 30 }),
+  item('EXAM_TYPES', 'appearance_internal', 'السمات الداخلي',     { sortOrder: 40 }),
+  item('EXAM_TYPES', 'physical',            'الرياضي',            { sortOrder: 50 }),
+  item('EXAM_TYPES', 'physical_retake',     'إعادة الرياضي',       { sortOrder: 60 }),
+  item('EXAM_TYPES', 'posture',             'الهيئة',              { sortOrder: 70 }),
+  item('EXAM_TYPES', 'build',               'القوام',              { sortOrder: 80 }),
+  item('EXAM_TYPES', 'build_retake',        'إعادة القوام',        { sortOrder: 90 }),
+  item('EXAM_TYPES', 'medical',             'الطبي',               { sortOrder: 100 }),
+  item('EXAM_TYPES', 'medical_retake',      'إعادة الطبي',         { sortOrder: 110 }),
+  item('EXAM_TYPES', 'psychology',          'الاتزان النفسي',      { sortOrder: 120 }),
+  item('EXAM_TYPES', 'medical_advanced',    'الطبي المتقدم',       { sortOrder: 130 }),
 ];
 
 const examGroupsItems: LookupItem[] = [
@@ -438,10 +441,10 @@ const examGroupsItems: LookupItem[] = [
 ];
 
 const committeeTypesItems: LookupItem[] = [
-  item('COMMITTEE_TYPES', 'CT-001', 'لجنة القدرات', { sortOrder: 10 }),
-  item('COMMITTEE_TYPES', 'CT-002', 'لجنة السمات',  { sortOrder: 20 }),
-  item('COMMITTEE_TYPES', 'CT-003', 'لجنة الرياضة', { sortOrder: 30 }),
-  item('COMMITTEE_TYPES', 'CT-004', 'لجنة المقابلة', { sortOrder: 40 }),
+  item('COMMITTEE_TYPES', 'capacities', 'لجنة القدرات',  { sortOrder: 10 }),
+  item('COMMITTEE_TYPES', 'traits',     'لجنة السمات',   { sortOrder: 20 }),
+  item('COMMITTEE_TYPES', 'sports',     'لجنة الرياضة',  { sortOrder: 30 }),
+  item('COMMITTEE_TYPES', 'interview',  'لجنة المقابلة', { sortOrder: 40 }),
 ];
 
 const rejectionReasonsItems: LookupItem[] = [
@@ -460,21 +463,21 @@ const rejectionReasonsItems: LookupItem[] = [
 ];
 
 const notificationDepartmentsItems: LookupItem[] = [
-  item('NOTIFICATION_DEPARTMENTS', 'ND-001', 'إدارة القبول',     { sortOrder: 10 }),
-  item('NOTIFICATION_DEPARTMENTS', 'ND-002', 'إدارة التحريات',   { sortOrder: 20 }),
-  item('NOTIFICATION_DEPARTMENTS', 'ND-003', 'القومسيون الطبي',  { sortOrder: 30 }),
-  item('NOTIFICATION_DEPARTMENTS', 'ND-004', 'إدارة الاختبارات', { sortOrder: 40 }),
-  item('NOTIFICATION_DEPARTMENTS', 'ND-005', 'الإدارة المالية',  { sortOrder: 50 }),
-  item('NOTIFICATION_DEPARTMENTS', 'ND-006', 'إدارة التكنولوجيا', { sortOrder: 60 }),
+  item('NOTIFICATION_DEPARTMENTS', 'admissions',     'إدارة القبول',     { sortOrder: 10 }),
+  item('NOTIFICATION_DEPARTMENTS', 'investigations', 'إدارة التحريات',   { sortOrder: 20 }),
+  item('NOTIFICATION_DEPARTMENTS', 'medical',        'القومسيون الطبي',  { sortOrder: 30 }),
+  item('NOTIFICATION_DEPARTMENTS', 'exams',          'إدارة الاختبارات', { sortOrder: 40 }),
+  item('NOTIFICATION_DEPARTMENTS', 'finance',        'الإدارة المالية',  { sortOrder: 50 }),
+  item('NOTIFICATION_DEPARTMENTS', 'it',             'إدارة التكنولوجيا', { sortOrder: 60 }),
 ];
 
 const applicantSectionsItems: LookupItem[] = [
-  item('APPLICANT_SECTIONS', 'AS-001', 'علمي',         { sortOrder: 10 }),
-  item('APPLICANT_SECTIONS', 'AS-002', 'علمي رياضة',   { sortOrder: 20 }),
-  item('APPLICANT_SECTIONS', 'AS-003', 'علمي علوم',     { sortOrder: 30 }),
-  item('APPLICANT_SECTIONS', 'AS-004', 'أدبي',          { sortOrder: 40 }),
-  item('APPLICANT_SECTIONS', 'AS-005', 'أزهر علمي',     { sortOrder: 50 }),
-  item('APPLICANT_SECTIONS', 'AS-006', 'أزهر أدبي',     { sortOrder: 60 }),
+  item('APPLICANT_SECTIONS', 'scientific',         'علمي',          { sortOrder: 10 }),
+  item('APPLICANT_SECTIONS', 'scientific_math',    'علمي رياضة',    { sortOrder: 20 }),
+  item('APPLICANT_SECTIONS', 'scientific_science', 'علمي علوم',     { sortOrder: 30 }),
+  item('APPLICANT_SECTIONS', 'literary',           'أدبي',           { sortOrder: 40 }),
+  item('APPLICANT_SECTIONS', 'azhar_scientific',   'أزهر علمي',     { sortOrder: 50 }),
+  item('APPLICANT_SECTIONS', 'azhar_literary',     'أزهر أدبي',     { sortOrder: 60 }),
 ];
 
 const nationalIdMissingReasonsItems: LookupItem[] = [
