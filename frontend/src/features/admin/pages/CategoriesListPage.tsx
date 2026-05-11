@@ -1,10 +1,10 @@
 /**
- * CategoriesListPage — Bucket D2.
+ * CategoriesListPage — list of applicant categories.
  *
- * Lists the 7 spec departments + any custom departments. Per row:
- *   - label, key, type pill (public / nomination-only),
- *   - active-cycle status (open in current cycle / closed / no cycle),
- *   - actions (edit, delete-only-for-non-spec).
+ * Visible columns reflect the trimmed category schema:
+ *   - اسم الفئة (labelAr)
+ *   - الوصف   (description, truncated)
+ *   - الإجراءات (edit / duplicate / delete or restore)
  *
  * Spec departments cannot be deleted; their delete button is hidden.
  */
@@ -34,7 +34,6 @@ import {
   useCategoryRestore,
   useCategorySoftDelete,
 } from '../api/categories.queries';
-import { useActiveCycle } from '../api/cycles.queries';
 import { categoriesAdminService } from '../api/categories.service';
 import { useAuthStore } from '@/features/auth';
 
@@ -42,13 +41,18 @@ const CATEGORY_DEP_LABELS: Record<string, string> = {
   applicants: 'متقدم',
 };
 
+const DESCRIPTION_MAX_CHARS = 60;
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
 export function CategoriesListPage(): JSX.Element {
   const navigate = useNavigate();
   const userRole = useAuthStore((s) => s.user?.role);
   const isSuperAdmin = userRole === 'super_admin';
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const listQuery = useCategoriesAdmin({ includeDeleted: isSuperAdmin && includeDeleted });
-  const cycleQuery = useActiveCycle();
   const softDeleteMut = useCategorySoftDelete();
   const restoreMut = useCategoryRestore();
   const [pendingDelete, setPendingDelete] = useState<ApplicantCategory | null>(null);
@@ -65,25 +69,8 @@ export function CategoriesListPage(): JSX.Element {
         formats: ['csv', 'xlsx'],
         filenamePrefix: 'فئات-التقديم-',
         columns: [
-          { key: 'key', labelAr: 'المفتاح' },
-          { key: 'labelAr', labelAr: 'الاسم بالعربية' },
-          { key: 'labelEn', labelAr: 'الاسم بالإنجليزية' },
+          { key: 'labelAr', labelAr: 'اسم الفئة' },
           { key: 'description', labelAr: 'الوصف' },
-          {
-            key: 'conditions',
-            labelAr: 'بالترشيح فقط',
-            format: (v) => ((v as ApplicantCategory['conditions'])?.nominationOnly ? 'نعم' : 'لا'),
-          },
-          {
-            key: 'requiredTests',
-            labelAr: 'عدد الاختبارات',
-            format: (v) => String((v as unknown[])?.length ?? 0),
-          },
-          {
-            key: 'isOpen',
-            labelAr: 'مفتوحة في الدورة الحالية',
-            format: (v) => (v ? 'نعم' : 'لا'),
-          },
         ],
       },
     }),
@@ -96,7 +83,6 @@ export function CategoriesListPage(): JSX.Element {
   }
 
   const categories = listQuery.data ?? [];
-  const activeCycle = cycleQuery.data ?? null;
 
   const onDeleteClick = (cat: ApplicantCategory): void => {
     if (categoriesAdminService.isSpecCategory(cat.key)) {
@@ -116,7 +102,7 @@ export function CategoriesListPage(): JSX.Element {
   const columns: DataTableColumn<ApplicantCategory>[] = [
     {
       key: 'labelAr',
-      label: 'الفئة',
+      label: 'اسم الفئة',
       render: (cat) => (
         <Link
           to={ROUTES.admin.categoryEdit(cat.key)}
@@ -127,54 +113,21 @@ export function CategoriesListPage(): JSX.Element {
       ),
     },
     {
-      key: 'type',
-      label: 'النوع',
-      render: (cat) =>
-        cat.conditions.nominationOnly ? (
-          <Badge tone="warning">بالترشيح</Badge>
-        ) : (
-          <Badge tone="neutral">تقديم عام</Badge>
-        ),
-    },
-    {
-      key: 'conditions',
-      label: 'الشروط',
+      key: 'description',
+      label: 'الوصف',
       render: (cat) => {
-        const parts: string[] = [];
-        if (cat.conditions.ageMax !== null) parts.push(`السن ≤ ${cat.conditions.ageMax}`);
-        if (cat.conditions.minHeightCm !== null) parts.push(`طول ≥ ${cat.conditions.minHeightCm}سم`);
-        if (cat.conditions.minScorePercent !== null) parts.push(`مجموع ≥ ${cat.conditions.minScorePercent}%`);
-        return <span className="text-2xs text-ink-500">{parts.join(' · ') || '—'}</span>;
-      },
-    },
-    {
-      key: 'tests',
-      label: 'الاختبارات',
-      numeric: true,
-      render: (cat) => <span className="font-numeric tnum text-2xs text-ink-500">{cat.requiredTests.length}</span>,
-    },
-    {
-      key: 'cycleStatus',
-      label: 'الدورة الحالية',
-      render: (cat) => {
-        if (!activeCycle) return <span className="text-2xs text-ink-500">لا توجد دورة نشطة</span>;
-        const cfg = activeCycle.openCategories?.[cat.key];
-        return cfg?.isOpen ? (
-          <span className="inline-flex items-center gap-1 text-2xs text-teal-700">
-            <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-teal-500" />
-            مفتوح في الدورة الحالية
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 text-2xs text-ink-500">
-            <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-ink-300" />
-            مغلق في الدورة الحالية
+        const text = (cat.description ?? '').trim();
+        if (!text) return <span className="text-2xs text-ink-400">—</span>;
+        return (
+          <span title={text} className="text-2xs text-ink-700">
+            {truncate(text, DESCRIPTION_MAX_CHARS)}
           </span>
         );
       },
     },
     {
       key: '_actions',
-      label: <span className="sr-only">إجراءات</span>,
+      label: <span className="sr-only">الإجراءات</span>,
       align: 'end',
       render: (cat) => {
         const isSpec = categoriesAdminService.isSpecCategory(cat.key);
