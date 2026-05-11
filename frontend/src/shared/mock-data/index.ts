@@ -69,6 +69,11 @@ import { ADMIN_NOTIFICATIONS_SEED } from './adminNotifications';
 import { buildAdminPayments } from './adminPayments';
 import { OFFICER_DIRECTORY, findOfficerByNid, type OfficerDirectoryRow } from './officers';
 import { CATEGORY_COMMITTEES_SEED } from './categoryCommittees';
+import {
+  APPLICANT_CATEGORY_CONFIGS,
+  APPLICANT_CATEGORY_SPECIALIZATIONS,
+  APPLICANT_SPECIALIZATION_YEARS,
+} from '@/features/admin/admission-setup/mock/appSettings.mock';
 
 reseed(42);
 
@@ -1004,6 +1009,10 @@ export const MOCK = {
   officers: OFFICER_DIRECTORY,
   /* Admission-setup wizard — committee ↔ category bindings (academic year scoped) */
   categoryCommittees: CATEGORY_COMMITTEES_SEED,
+  /* Admission-setup Step 1 — Application Settings (global master data). */
+  applicantCategoryConfigs: APPLICANT_CATEGORY_CONFIGS,
+  applicantCategorySpecializations: APPLICANT_CATEGORY_SPECIALIZATIONS,
+  applicantSpecializationYears: APPLICANT_SPECIALIZATION_YEARS,
 };
 
 export { findOfficerByNid };
