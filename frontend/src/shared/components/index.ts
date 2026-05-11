@@ -78,6 +78,8 @@ export {
   StatusBadge,
   SuspendedBadge,
 } from './StatusBadge';
+export { Switch } from './Switch';
+export type { SwitchProps } from './Switch';
 export { Tabs } from './Tabs';
 export { ToastViewport, toast } from './Toast';
 export type { ToastKind } from './Toast';
