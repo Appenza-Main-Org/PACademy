@@ -150,7 +150,7 @@ export function CycleNewPage(): JSX.Element {
             toast(SUCCESS_TOAST[cycle.status as CycleFormStatus] ?? 'تم حفظ الدورة', 'success');
           }
           setConflictDialog(null);
-          navigate(ROUTES.admin.cycleDetail(cycle.id));
+          navigate(ROUTES.admin.cycles);
         },
         onError: (err) => {
           if (isConflictError(err) && err.conflictCode === 'ACTIVE_CYCLE_EXISTS') {
