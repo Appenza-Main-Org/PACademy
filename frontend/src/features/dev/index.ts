@@ -7,3 +7,4 @@
 
 export { PrimitivesReviewPage } from './PrimitivesReviewPage';
 export { LookupsReviewPage } from './LookupsReviewPage';
+export { AppSettingsReviewPage } from './AppSettingsReviewPage';

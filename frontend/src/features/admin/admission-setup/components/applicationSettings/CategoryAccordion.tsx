@@ -18,7 +18,6 @@
 import { useState } from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
 import { ChevronDown, ListChecks } from 'lucide-react';
-import { isConflictError } from '@/shared/lib/errors';
 import {
   AlertDialog,
   Badge,
@@ -38,7 +37,7 @@ export function CategoryAccordion(): JSX.Element {
   const [openIds, setOpenIds] = useState<string[]>([]);
 
   if (configsQuery.isLoading) {
-    return <LoadingState variant="default" />;
+    return <LoadingState variant="list" />;
   }
   if (configsQuery.isError || !configsQuery.data) {
     return (
@@ -89,17 +88,6 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
     toggleMut.mutate(config.id);
   };
 
-  const handleConfirm = (): void => {
-    toggleMut.mutate(config.id, {
-      onError: (err) => {
-        if (isConflictError(err) && err.conflictCode === 'CATEGORY_HAS_ACTIVE_YEARS') {
-          setConfirmOpen(false);
-        }
-      },
-      onSuccess: () => setConfirmOpen(false),
-    });
-  };
-
   return (
     <Accordion.Item value={config.id} className="group">
       <Accordion.Header className="flex">
@@ -137,21 +125,13 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
 
       <AlertDialog
         open={confirmOpen}
-        onOpenChange={(next) => {
-          setConfirmOpen(next);
-          if (!next) setPendingActive(null);
-        }}
+        onOpenChange={setConfirmOpen}
         title="إيقاف الفئة"
-        description={`هذه الفئة تحتوي على ${config.yearCount} سنة دراسية نشطة. هل تريد إيقاف الفئة على أي حال؟ سيتم إيقاف السنوات تلقائياً.`}
-        actionLabel="إيقاف الفئة"
-        onAction={handleConfirm}
-        tone="danger"
-        isActionLoading={toggleMut.isPending}
+        description={`هذه الفئة تحتوي على ${config.yearCount} سنة دراسية نشطة. سيرفض النظام الإيقاف حتى توقف السنوات النشطة أولاً.`}
+        actionLabel="فهمت"
+        onAction={() => setConfirmOpen(false)}
+        tone="primary"
       />
-      {/* Marker for unused variable lint guard — pendingActive is currently
-       * only inspected via openness; reserved for future "preview impact"
-       * UX where the modal explains the diff between current and next. */}
-      <span hidden>{String(pendingActive)}</span>
     </Accordion.Item>
   );
 }

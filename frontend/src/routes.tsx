@@ -20,7 +20,7 @@ import { RevampComparisonPage } from '@/features/design-revamp';
 import { ProfilePage } from '@/features/profile';
 import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
-import { LookupsReviewPage, PrimitivesReviewPage } from '@/features/dev';
+import { AppSettingsReviewPage, LookupsReviewPage, PrimitivesReviewPage } from '@/features/dev';
 import { LookupsHubPage } from '@/features/lookups/pages/LookupsHubPage';
 import {
   ApplicantPortalLayout,
@@ -421,6 +421,7 @@ export const routes: RouteObject[] = [
     ? ([
         { path: '/_dev/primitives', element: <PrimitivesReviewPage /> },
         { path: '/_dev/lookups', element: <LookupsReviewPage /> },
+        { path: '/_dev/app-settings', element: <AppSettingsReviewPage /> },
       ] satisfies RouteObject[])
     : []),
 
