@@ -248,7 +248,7 @@ const AUDIT_SECTIONS: Record<NonNullable<AuditEntry['module']>, string> = {
   cycles: 'دورات القبول',
   categories: 'فئات المتقدمين',
   committees: 'لجان القبول',
-  lookups: 'البيانات المرجعية',
+  lookups: 'الأكواد المرجعية',
   exams: 'الاختبارات الإلكترونية',
   payments: 'المدفوعات',
   notifications: 'الإشعارات',

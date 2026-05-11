@@ -68,11 +68,11 @@ export function LookupsHubPage(): JSX.Element {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="البيانات المرجعية"
-        subtitle="إدارة الأنواع والقيم والأشجار الهرمية لجميع البيانات المرجعية في المنظومة."
+        title="الأكواد المرجعية"
+        subtitle="إدارة الأكواد المرجعية للمنظومة — صلات القرابة، الاختبارات، اللجان، الجغرافيا، التنبيهات."
         breadcrumbs={[
           { label: 'الإدارة', href: ROUTES.admin.dashboard },
-          { label: 'البيانات المرجعية' },
+          { label: 'الأكواد المرجعية' },
         ]}
         actions={
           <Button

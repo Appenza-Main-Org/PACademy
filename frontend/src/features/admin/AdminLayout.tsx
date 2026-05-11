@@ -71,7 +71,7 @@ const SIDEBAR: SidebarSection[] = [
   {
     label: 'البيانات المرجعية والإعدادات',
     items: [
-      { key: 'reference-data', label: 'البيانات المرجعية', icon: <Database size={18} />,           to: ROUTES.admin.adminLookups },
+      { key: 'lookups', label: 'الأكواد المرجعية', icon: <Database size={18} />,           to: ROUTES.admin.adminLookups },
       { key: 'workflows',       label: 'سير العمل',          icon: <Workflow size={18} />,            to: ROUTES.admin.workflows },
       { key: 'notifications',   label: 'الإشعارات',          icon: <Bell size={18} />,                to: ROUTES.admin.notifications },
       { key: 'payments',        label: 'المدفوعات',           icon: <Banknote size={18} />,            to: ROUTES.admin.payments },
