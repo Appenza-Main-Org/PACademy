@@ -460,13 +460,11 @@ function isCommitteeSelectable(c: Committee, eligibleIds: Set<string>): boolean 
 }
 
 function resolveSpecializations(ids: string[]): { id: string; nameAr: string }[] {
-  const dict = MOCK.lookupItems.filter(
-    (i) => i.lookupTypeCode === 'SPECIALIZATIONS' && !i.deletedAt,
-  );
+  const dict = MOCK.lookups.specializations.filter((s) => s.isActive);
   const out: { id: string; nameAr: string }[] = [];
   for (const id of ids) {
-    const match = dict.find((s) => s.id === id || s.code === id);
-    if (match) out.push({ id: match.id, nameAr: match.nameAr });
+    const match = dict.find((s) => s.code === id);
+    if (match) out.push({ id: match.code, nameAr: match.name });
   }
   return out;
 }

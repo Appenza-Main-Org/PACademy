@@ -41,7 +41,6 @@ import {
   ClipboardSignature,
   FileSignature,
   Gauge,
-  Heart,
   Link2,
   Settings2,
   ShieldCheck,
@@ -111,17 +110,9 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     isImplemented: true,
     subtitleAr: 'الحد الأدنى والأقصى للسن لكل فئة، مع تاريخ احتساب السن.',
   },
-  {
-    key: 'marital_status_rules',
-    order: 4,
-    labelAr: 'الحالة الاجتماعية',
-    routeSegment: 'marital-status-rules',
-    icon: Heart,
-    permission: 'admission-setup:read',
-    reuses: 'features/admin/components/categories/CategoryConditionBuilder.tsx',
-    isImplemented: true,
-    subtitleAr: 'الحالات الاجتماعية المسموح بها لكل فئة.',
-  },
+  /* Step "الحالة الاجتماعية" was removed when MARITAL_STATUSES dropped
+   * out of the lookup catalogue. Marital constraint editing now lives
+   * inline on the category form. */
   {
     key: 'fees',
     order: 5,

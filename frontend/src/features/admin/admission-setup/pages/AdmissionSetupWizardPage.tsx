@@ -69,7 +69,6 @@ import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from './ApplicationSettingsPage';
 import { ApplicationStatusPage } from './ApplicationStatusPage';
 import { AgeRulesPage } from './AgeRulesPage';
-import { MaritalStatusRulesPage } from './MaritalStatusRulesPage';
 import { FeesPage } from './FeesPage';
 import { ExamsManagementPage } from './ExamsManagementPage';
 import { CommitteesManagementPage } from './CommitteesManagementPage';
@@ -91,7 +90,6 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   application_settings: () => <ApplicationSettingsPage />,
   application_status: () => <ApplicationStatusPage />,
   age_rules: () => <AgeRulesPage />,
-  marital_status_rules: () => <MaritalStatusRulesPage />,
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,

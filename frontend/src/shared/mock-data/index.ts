@@ -62,11 +62,7 @@ import {
   WORKFLOWS,
   WORKFLOW_TRANSITIONS,
 } from './workflows';
-import {
-  LOOKUP_ITEMS,
-  LOOKUP_MAPPINGS,
-  LOOKUP_TYPES,
-} from '@/features/lookups/mock/lookups.mock';
+import { LOOKUPS_SEED } from '@/features/lookups/mock/lookups.mock';
 import { ACADEMY_EXAMS, CYCLE_CATEGORY_EXAM_PLANS } from './academyExams';
 import { ROLE_DEFINITION_SEED } from './roles';
 import { ADMIN_NOTIFICATIONS_SEED } from './adminNotifications';
@@ -993,10 +989,8 @@ export const MOCK = {
   workflows: WORKFLOWS,
   applicantWorkflowProgress: APPLICANT_WORKFLOW_PROGRESS,
   workflowTransitions: WORKFLOW_TRANSITIONS,
-  /* Lookup Management Module — canonical 31-type catalogue. */
-  lookupTypes: LOOKUP_TYPES,
-  lookupItems: LOOKUP_ITEMS,
-  lookupMappings: LOOKUP_MAPPINGS,
+  /* Lookup Management Module — 18 typed lookups keyed by LookupKey. */
+  lookups: LOOKUPS_SEED,
   /* Academy exam catalogue (admin-gaps Gap J) */
   academyExams: ACADEMY_EXAMS,
   cycleCategoryExamPlans: CYCLE_CATEGORY_EXAM_PLANS,

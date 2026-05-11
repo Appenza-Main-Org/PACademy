@@ -21,7 +21,6 @@ export type AdmissionSetupStepKey =
   | 'application_settings'
   | 'application_status'
   | 'age_rules'
-  | 'marital_status_rules'
   | 'fees'
   | 'exams'
   | 'committees'

@@ -22,7 +22,6 @@ import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
 import { LookupsReviewPage, PrimitivesReviewPage } from '@/features/dev';
 import { LookupsHubPage } from '@/features/lookups/pages/LookupsHubPage';
-import { MappingsPage } from '@/features/lookups/pages/MappingsPage';
 import {
   ApplicantPortalLayout,
   ApplicationSummaryPage,
@@ -69,7 +68,6 @@ import {
   ElectronicDeclarationPage,
   ExamDatesPage,
   ExamsManagementPage,
-  MaritalStatusRulesPage,
   NotificationsPage,
   NotificationsStepPage,
   PaymentsPage,
@@ -229,10 +227,9 @@ export const routes: RouteObject[] = [
       { path: 'reports', element: <ReportsPage /> },
       /* Lookup Management Module — /admin/reference-data redirects here. */
       { path: 'lookups', element: <LookupsHubPage /> },
-      { path: 'lookups/:typeCode', element: <LookupsHubPage /> },
-      { path: 'lookups/mappings/:kind', element: <MappingsPage /> },
+      { path: 'lookups/:tab', element: <LookupsHubPage /> },
       { path: 'reference-data', element: <Navigate to="/admin/lookups" replace /> },
-      { path: 'reference-data/:tab', element: <Navigate to="/admin/lookups" replace /> },
+      { path: 'reference-data/:tab', element: <Navigate to="/admin/lookups/:tab" replace /> },
       { path: 'categories', element: <CategoriesListPage /> },
       /* `/new` must be registered BEFORE `/:key` so the literal create
        * route wins matching against the dynamic edit route. */
@@ -260,7 +257,6 @@ export const routes: RouteObject[] = [
       { path: 'admission-setup/application-settings', element: <ApplicationSettingsPage /> },
       { path: 'admission-setup/application-status', element: <ApplicationStatusPage /> },
       { path: 'admission-setup/age-rules', element: <AgeRulesPage /> },
-      { path: 'admission-setup/marital-status-rules', element: <MaritalStatusRulesPage /> },
       { path: 'admission-setup/fees', element: <AdmissionFeesPage /> },
       { path: 'admission-setup/exams', element: <ExamsManagementPage /> },
       { path: 'admission-setup/committees', element: <CommitteesManagementPage /> },

@@ -12,7 +12,18 @@ import type {
   AudienceSelector as AudienceSelectorValue,
   ApplicantCategoryKey,
 } from '@/shared/types/domain';
-import { useLookupList } from '@/features/lookups';
+import { useLookup } from '@/features/lookups';
+
+/* Notification departments are organizational, not admin-managed lookups —
+ * hard-coded inline so the admin UI doesn't depend on a removed lookup. */
+const DEPARTMENT_OPTIONS = [
+  { value: 'admissions',     label: 'إدارة القبول'      },
+  { value: 'investigations', label: 'إدارة التحريات'   },
+  { value: 'medical',        label: 'القومسيون الطبي'  },
+  { value: 'exams',          label: 'إدارة الاختبارات' },
+  { value: 'finance',        label: 'الإدارة المالية'  },
+  { value: 'it',             label: 'إدارة التكنولوجيا' },
+] as const;
 
 const AUDIENCE_TYPES: AudienceSelectorValue['type'][] = [
   'general',
@@ -36,8 +47,7 @@ export interface AudienceSelectorProps {
 }
 
 export function AudienceSelector({ value, onChange }: AudienceSelectorProps): JSX.Element {
-  const departmentsQuery = useLookupList({ typeCode: 'NOTIFICATION_DEPARTMENTS', pageSize: 100 });
-  const committeeTypesQuery = useLookupList({ typeCode: 'COMMITTEE_TYPES', pageSize: 100 });
+  const committeesQuery = useLookup('committees');
 
   const setType = (type: AudienceSelectorValue['type']): void => {
     if (type === 'general') onChange({ type: 'general' });
@@ -91,7 +101,7 @@ export function AudienceSelector({ value, onChange }: AudienceSelectorProps): JS
       {value.type === 'department' && (
         <ChipsList
           label="الأقسام"
-          options={(departmentsQuery.data?.data ?? []).filter((r) => r.isActive).map((r) => ({ value: r.code, label: r.nameAr }))}
+          options={DEPARTMENT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
           selected={value.departmentIds}
           onToggle={(v) => {
             const cur = value.departmentIds;
@@ -103,7 +113,7 @@ export function AudienceSelector({ value, onChange }: AudienceSelectorProps): JS
       {value.type === 'committee' && (
         <ChipsList
           label="اللجان"
-          options={(committeeTypesQuery.data?.data ?? []).filter((r) => r.isActive).map((r) => ({ value: r.code, label: r.nameAr }))}
+          options={(committeesQuery.data ?? []).filter((r) => r.isActive).map((r) => ({ value: r.code, label: r.name }))}
           selected={value.committeeIds}
           onToggle={(v) => {
             const cur = value.committeeIds;

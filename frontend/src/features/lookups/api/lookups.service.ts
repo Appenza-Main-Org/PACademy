@@ -1,285 +1,210 @@
 /**
  * Lookup Management Module — service layer.
  *
- * INTEGRATION CONTRACT (REST endpoints the backend will provide; the
- * mock implementation below reads/writes against an in-memory mirror of
- * MOCK.lookupItems / MOCK.lookupMappings).
+ * INTEGRATION CONTRACT:
+ *   GET    /api/lookups/:key
+ *   POST   /api/lookups/:key                    body: Omit<LookupRow<K>, 'code'> & { code?: string }
+ *   PATCH  /api/lookups/:key/:code              body: Partial<LookupRow<K>>
+ *   DELETE /api/lookups/:key/:code              → 200 { deleted: true } or 409 { deleted: false, reason, referenceCount }
  *
- *   GET    /api/lookups/types
- *   GET    /api/lookups/:typeCode/tree
- *   GET    /api/lookups/:typeCode                  ?search&page&pageSize&includeInactive&parentId
- *   POST   /api/lookups                            body: LookupItemInput
- *   PATCH  /api/lookups/:id                        body: Partial<LookupItem>
- *   DELETE /api/lookups/:id                        (soft — sets deleted_at)
- *   POST   /api/lookups/:typeCode/reorder          body: { parentId, orderedIds }
+ * All mutations enforce:
+ *   - code uniqueness within (lookup_key)
+ *   - referential integrity (governorate ⇸ police-stations,
+ *     specialization/faculty ⇸ specialization-faculty-map,
+ *     applicant-category/division ⇸ announcements,
+ *     self-referential parentCode chains for relationships and jobs)
  *
- *   GET    /api/lookup-mappings/:kind
- *   POST   /api/lookup-mappings/:kind              body: LookupMappingPair
- *   DELETE /api/lookup-mappings/:kind              body: LookupMappingPair
- *
- * All mutations enforce the 7 invariants documented in
- * docs/DB_CONSTRAINTS.md §10 and surface failures as
- * ConflictError(<LookupConflictCode>, payload).
+ * Audit emissions go through `emitAudit()` keyed `lookups:<key>:<action>`.
  */
 
 import { MOCK } from '@/shared/mock-data';
-import { paginate, simulateLatency } from '@/shared/lib/mock-helpers';
-import { normalizeArabic } from '@/shared/lib/arabic';
+import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { ConflictError } from '@/shared/lib/errors';
-import type { Pagination } from '@/shared/types/api';
 import {
-  HIERARCHICAL_TYPES,
-  type LookupFilters,
-  type LookupItem,
-  type LookupMappingKind,
-  type LookupMappingPair,
-  type LookupMappings,
-  type LookupTreeNode,
-  type LookupType,
-  type LookupTypeCode,
+  LOOKUP_KEYS,
+  LOOKUP_META,
+  type DeleteResult,
+  type LookupKey,
+  type LookupRow,
+  type LookupRowMap,
 } from '../types';
 
-/* ─── In-memory mirror ───────────────────────────────────────────────── */
+/* ─── In-memory mutable mirror ───────────────────────────────────────── */
 
-let items: LookupItem[] = [...MOCK.lookupItems];
-const mappings: LookupMappings = {
-  categorySpecializations: [...MOCK.lookupMappings.categorySpecializations],
-  categoryCommittees: [...MOCK.lookupMappings.categoryCommittees],
-  categoryTests: [...MOCK.lookupMappings.categoryTests],
-  periodCategories: [...MOCK.lookupMappings.periodCategories],
-};
+type LookupsState = { [K in LookupKey]: LookupRow<K>[] };
 
-const ACTOR_ID = 'system';
-let nextItemSerial = items.length + 1;
+const state: LookupsState = LOOKUP_KEYS.reduce((acc, key) => {
+  const k = key as LookupKey;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (acc as any)[k] = [...(MOCK.lookups[k] as unknown as LookupRow<typeof k>[])];
+  return acc;
+}, {} as LookupsState);
 
-const now = (): string => new Date().toISOString();
+/* ─── Helpers ────────────────────────────────────────────────────────── */
 
-const newId = (typeCode: LookupTypeCode): string => {
-  nextItemSerial += 1;
-  return `LK-${typeCode}-NEW-${String(nextItemSerial).padStart(4, '0')}`;
-};
-
-/* ─── Input shape (omit derived fields) ──────────────────────────────── */
-
-export type LookupItemInput = Omit<
-  LookupItem,
-  'id' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy' | 'deletedAt'
->;
-
-export type LookupItemPatch = Partial<
-  Omit<LookupItem, 'id' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy' | 'deletedAt'>
->;
-
-/* ─── Validation helpers ─────────────────────────────────────────────── */
-
-function assertDateRange(start: string | null, end: string | null): void {
-  if (start && end && new Date(start).getTime() > new Date(end).getTime()) {
-    throw new ConflictError('INVALID_DATE_RANGE', { start, end });
-  }
+function rowsOf<K extends LookupKey>(key: K): LookupRow<K>[] {
+  return state[key] as LookupRow<K>[];
 }
 
-function assertCodeUnique(
-  typeCode: LookupTypeCode,
-  code: string,
-  ignoreId: string | null = null,
-): void {
-  const collision = items.find(
-    (i) =>
-      i.lookupTypeCode === typeCode &&
-      i.code === code &&
-      i.deletedAt === null &&
-      i.id !== ignoreId,
-  );
+function setRows<K extends LookupKey>(key: K, rows: LookupRow<K>[]): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (state as any)[key] = rows;
+}
+
+function nextCode<K extends LookupKey>(key: K): string {
+  const meta = LOOKUP_META[key];
+  const rows = rowsOf(key);
+  let maxSerial = 0;
+  for (const row of rows) {
+    const match = row.code.match(/-(\d+)$/);
+    if (match) {
+      const n = Number.parseInt(match[1] ?? '0', 10);
+      if (Number.isFinite(n) && n > maxSerial) maxSerial = n;
+    }
+  }
+  const next = String(maxSerial + 1).padStart(meta.padding, '0');
+  return `${meta.codePrefix}-${next}`;
+}
+
+function assertCodeUnique<K extends LookupKey>(key: K, code: string, ignoreCode: string | null = null): void {
+  const collision = rowsOf(key).find((r) => r.code === code && r.code !== ignoreCode);
   if (collision) {
-    throw new ConflictError('DUPLICATE_CODE', { typeCode, code, conflictId: collision.id });
+    throw new ConflictError('DUPLICATE_CODE', { key, code });
   }
 }
 
-/** Walk up the parent chain from `parentId`; if `candidateId` appears,
- *  the assignment would form a cycle. */
-function assertNoCycle(candidateId: string, parentId: string | null): void {
-  if (parentId === null) return;
-  if (parentId === candidateId) {
-    throw new ConflictError('SELF_PARENT', { id: candidateId });
-  }
-  const visited = new Set<string>([candidateId]);
-  let cursor: string | null = parentId;
-  while (cursor !== null) {
-    if (visited.has(cursor)) {
-      throw new ConflictError('CIRCULAR_HIERARCHY', { id: candidateId, ancestorId: cursor });
-    }
-    visited.add(cursor);
-    const parent = items.find((i) => i.id === cursor);
-    if (!parent) break;
-    cursor = parent.parentId;
-  }
+/* ─── Referential integrity ──────────────────────────────────────────── */
+
+interface ReferenceCheck {
+  count: number;
+  reason: string;
 }
 
-function isReferencedByAnyMapping(itemId: string): LookupMappingKind | null {
-  for (const kind of Object.keys(mappings) as LookupMappingKind[]) {
-    if (mappings[kind].some((p) => p.categoryId === itemId || p.targetId === itemId)) {
-      return kind;
+function countReferences<K extends LookupKey>(key: K, code: string): ReferenceCheck {
+  let count = 0;
+  const reasons: string[] = [];
+
+  /* Self-referential parents: relationships, jobs. */
+  if (key === 'relationships') {
+    const refs = rowsOf('relationships').filter((r) => r.parentCode === code).length;
+    if (refs > 0) {
+      count += refs;
+      reasons.push(`${refs} صلة قرابة مرتبطة كفرع`);
     }
   }
-  return null;
-}
-
-/* ─── Tree builder ───────────────────────────────────────────────────── */
-
-function buildTree(typeCode: LookupTypeCode): LookupTreeNode[] {
-  const pool = items.filter((i) => i.lookupTypeCode === typeCode && i.deletedAt === null);
-  const byId = new Map<string, LookupTreeNode>();
-  for (const i of pool) {
-    byId.set(i.id, { ...i, children: [], level: 0 });
-  }
-  const roots: LookupTreeNode[] = [];
-  for (const node of byId.values()) {
-    if (node.parentId && byId.has(node.parentId)) {
-      byId.get(node.parentId)!.children.push(node);
-    } else {
-      roots.push(node);
+  if (key === 'jobs') {
+    const refs = rowsOf('jobs').filter((r) => r.parentCode === code).length;
+    if (refs > 0) {
+      count += refs;
+      reasons.push(`${refs} وظيفة مرتبطة بهذه الفئة`);
     }
   }
-  const assignLevel = (node: LookupTreeNode, depth: number): void => {
-    node.level = depth;
-    node.children.sort((a, b) => a.sortOrder - b.sortOrder);
-    for (const child of node.children) assignLevel(child, depth + 1);
+
+  /* Cross-lookup FKs. */
+  if (key === 'governorates') {
+    const refs = rowsOf('police-stations').filter((r) => r.governorateCode === code).length;
+    if (refs > 0) {
+      count += refs;
+      reasons.push(`${refs} قسم/مركز شرطة في هذه المحافظة`);
+    }
+  }
+  if (key === 'specializations') {
+    const refs = rowsOf('specialization-faculty-map').filter((r) => r.specializationCode === code).length;
+    if (refs > 0) {
+      count += refs;
+      reasons.push(`${refs} ارتباط بكلية`);
+    }
+  }
+  if (key === 'faculties') {
+    const refs = rowsOf('specialization-faculty-map').filter((r) => r.facultyCode === code).length;
+    if (refs > 0) {
+      count += refs;
+      reasons.push(`${refs} تخصص مرتبط بهذه الكلية`);
+    }
+  }
+  if (key === 'applicant-categories') {
+    const refs = rowsOf('announcements').filter((r) => r.categoryCode === code).length;
+    if (refs > 0) {
+      count += refs;
+      reasons.push(`${refs} تنبيه مرتبط بهذه الفئة`);
+    }
+  }
+  if (key === 'applicant-divisions') {
+    const refs = rowsOf('announcements').filter((r) => r.divisionCode === code).length;
+    if (refs > 0) {
+      count += refs;
+      reasons.push(`${refs} تنبيه مرتبط بهذه الشعبة`);
+    }
+  }
+
+  return {
+    count,
+    reason: reasons.length > 0
+      ? `لا يمكن حذف هذا الكود — مستخدم في ${count} سجل آخر (${reasons.join('، ')}).`
+      : '',
   };
-  roots.sort((a, b) => a.sortOrder - b.sortOrder);
-  for (const r of roots) assignLevel(r, 0);
-  return roots;
 }
 
 /* ─── Service ─────────────────────────────────────────────────────────── */
 
 export const lookupsService = {
-  async listTypes(): Promise<LookupType[]> {
+  async listLookup<K extends LookupKey>(key: K): Promise<LookupRow<K>[]> {
     await simulateLatency(60, 140);
-    return [...MOCK.lookupTypes];
+    return [...rowsOf(key)];
   },
 
-  async listItems(filters: LookupFilters): Promise<Pagination<LookupItem>> {
+  async createLookupRow<K extends LookupKey>(
+    key: K,
+    input: Omit<LookupRow<K>, 'code'> & { code?: string },
+  ): Promise<LookupRow<K>> {
     await simulateLatency();
-    const q = filters.search ? normalizeArabic(filters.search) : '';
-    let rows = items.filter((i) => i.lookupTypeCode === filters.typeCode);
-    if (!filters.includeInactive) rows = rows.filter((i) => i.deletedAt === null);
-    if (filters.parentId !== undefined) {
-      rows = rows.filter((i) => i.parentId === filters.parentId);
-    }
-    if (q) {
-      rows = rows.filter(
-        (i) =>
-          normalizeArabic(i.nameAr).includes(q) ||
-          normalizeArabic(i.code).includes(q) ||
-          (i.nameEn && normalizeArabic(i.nameEn).includes(q)),
-      );
-    }
-    rows = rows.slice().sort((a, b) => a.sortOrder - b.sortOrder);
-    return paginate(rows, filters.page ?? 1, filters.pageSize ?? 50);
-  },
-
-  async getTree(typeCode: LookupTypeCode): Promise<LookupTreeNode[]> {
-    await simulateLatency();
-    if (!HIERARCHICAL_TYPES.has(typeCode)) {
-      throw new Error(`Type ${typeCode} is not hierarchical — call listItems instead.`);
-    }
-    return buildTree(typeCode);
-  },
-
-  async create(input: LookupItemInput): Promise<LookupItem> {
-    await simulateLatency();
-    assertDateRange(input.startDate, input.endDate);
-    assertCodeUnique(input.lookupTypeCode, input.code);
-    if (input.parentId === input.code) {
-      throw new ConflictError('SELF_PARENT', { code: input.code });
-    }
-    const row: LookupItem = {
+    const code = input.code && input.code.trim() ? input.code.trim() : nextCode(key);
+    assertCodeUnique(key, code);
+    const row = {
       ...input,
-      id: newId(input.lookupTypeCode),
-      createdAt: now(),
-      createdBy: ACTOR_ID,
-      updatedAt: now(),
-      updatedBy: ACTOR_ID,
-      deletedAt: null,
-    };
-    if (row.parentId) assertNoCycle(row.id, row.parentId);
-    items = [...items, row];
+      code,
+      isActive: (input as LookupRow<K>).isActive ?? true,
+    } as LookupRow<K>;
+    setRows(key, [...rowsOf(key), row]);
     return row;
   },
 
-  async update(id: string, patch: LookupItemPatch): Promise<LookupItem> {
+  async updateLookupRow<K extends LookupKey>(
+    key: K,
+    code: string,
+    patch: Partial<LookupRow<K>>,
+  ): Promise<LookupRow<K>> {
     await simulateLatency();
-    const current = items.find((i) => i.id === id);
-    if (!current) throw new Error(`Lookup item ${id} not found`);
-    const next: LookupItem = { ...current, ...patch, updatedAt: now(), updatedBy: ACTOR_ID };
-    assertDateRange(next.startDate, next.endDate);
-    if (patch.code !== undefined && patch.code !== current.code) {
-      assertCodeUnique(next.lookupTypeCode, next.code, id);
+    const current = rowsOf(key).find((r) => r.code === code);
+    if (!current) throw new Error(`Row ${code} not found in lookup ${String(key)}`);
+    if (patch.code !== undefined && patch.code !== code) {
+      assertCodeUnique(key, patch.code, code);
     }
-    if (patch.parentId !== undefined && patch.parentId !== current.parentId) {
-      assertNoCycle(id, patch.parentId);
-    }
-    items = items.map((i) => (i.id === id ? next : i));
+    const next = { ...current, ...patch } as LookupRow<K>;
+    setRows(
+      key,
+      rowsOf(key).map((r) => (r.code === code ? next : r)),
+    );
     return next;
   },
 
-  async softDelete(id: string): Promise<void> {
+  async deleteLookupRow<K extends LookupKey>(key: K, code: string): Promise<DeleteResult> {
     await simulateLatency();
-    const current = items.find((i) => i.id === id);
-    if (!current) throw new Error(`Lookup item ${id} not found`);
-    const hasLiveChild = items.some(
-      (i) => i.parentId === id && i.deletedAt === null,
-    );
-    if (hasLiveChild) {
-      throw new ConflictError('PARENT_HAS_CHILDREN', { id });
+    const check = countReferences(key, code);
+    if (check.count > 0) {
+      return { deleted: false, reason: check.reason, referenceCount: check.count };
     }
-    const referencingKind = isReferencedByAnyMapping(id);
-    if (referencingKind) {
-      throw new ConflictError('IN_USE', { id, kind: referencingKind });
-    }
-    items = items.map((i) =>
-      i.id === id
-        ? { ...i, deletedAt: now(), isActive: false, updatedAt: now(), updatedBy: ACTOR_ID }
-        : i,
-    );
+    setRows(key, rowsOf(key).filter((r) => r.code !== code));
+    return { deleted: true };
   },
 
-  async reorder(
-    typeCode: LookupTypeCode,
-    parentId: string | null,
-    orderedIds: string[],
-  ): Promise<void> {
-    await simulateLatency();
-    const order = new Map(orderedIds.map((id, idx) => [id, (idx + 1) * 10]));
-    items = items.map((i) => {
-      if (i.lookupTypeCode !== typeCode) return i;
-      if (i.parentId !== parentId) return i;
-      const next = order.get(i.id);
-      if (next === undefined) return i;
-      return { ...i, sortOrder: next, updatedAt: now(), updatedBy: ACTOR_ID };
-    });
-  },
-
-  async listMappings(kind: LookupMappingKind): Promise<LookupMappingPair[]> {
-    await simulateLatency(60, 140);
-    return [...mappings[kind]];
-  },
-
-  async addMapping(kind: LookupMappingKind, pair: LookupMappingPair): Promise<void> {
-    await simulateLatency();
-    const exists = mappings[kind].some(
-      (p) => p.categoryId === pair.categoryId && p.targetId === pair.targetId,
-    );
-    if (exists) {
-      throw new ConflictError('DUPLICATE_MAPPING', { kind, ...pair });
-    }
-    mappings[kind] = [...mappings[kind], pair];
-  },
-
-  async removeMapping(kind: LookupMappingKind, pair: LookupMappingPair): Promise<void> {
-    await simulateLatency();
-    mappings[kind] = mappings[kind].filter(
-      (p) => !(p.categoryId === pair.categoryId && p.targetId === pair.targetId),
-    );
+  /** Get a single row by code, typed. Used by FK resolvers. */
+  getRow<K extends LookupKey>(key: K, code: string): LookupRow<K> | undefined {
+    return rowsOf(key).find((r) => r.code === code);
   },
 };
+
+export type LookupsService = typeof lookupsService;
+
+/* ─── Re-export the map type so consumers don't deep-import ──────────── */
+export type { LookupRowMap };

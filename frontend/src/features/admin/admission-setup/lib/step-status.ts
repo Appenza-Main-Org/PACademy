@@ -63,11 +63,6 @@ export function computeStepStatus(
       });
       return allHaveAge ? 'complete' : 'in_progress';
     }
-    case 'marital_status_rules': {
-      const openKeys = openCategoryKeys(cycle);
-      if (openKeys.length === 0) return 'not_started';
-      return 'in_progress';
-    }
     case 'fees': {
       const fee = cycle.fees?.applicationFee ?? 0;
       const fawry = cycle.fees?.fawryConfig?.merchantCode ?? '';

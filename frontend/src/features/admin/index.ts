@@ -48,7 +48,6 @@ export {
   ApplicationSettingsPage,
   ApplicationStatusPage,
   AgeRulesPage,
-  MaritalStatusRulesPage,
   AdmissionFeesPage,
   ExamsManagementPage,
   CommitteesManagementPage,

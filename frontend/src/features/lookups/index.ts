@@ -1,42 +1,60 @@
 /**
  * Public surface for the Lookup Management Module.
  *
- * External consumers (admin pages, committees, applicant portal) read
- * lookup data through the typed query hooks and the strongly-typed
- * `LookupTypeCode`. Components and pages stay internal — feature pages
- * compose them via the in-feature paths, not the barrel.
+ * Consumers read lookup data via typed hooks. The mapped type
+ * `LookupRow<K>` ensures every consumer gets the right per-key row
+ * shape without downcasting.
  */
 
 export {
-  LOOKUP_TYPE_CODES,
-  HIERARCHICAL_TYPES,
-  type LookupTypeCode,
-  type LookupType,
-  type LookupItem,
-  type LookupTreeNode,
-  type LookupMappingPair,
-  type LookupMappings,
-  type LookupMappingKind,
-  type LookupFilters,
-  type LookupConflictCode,
+  LOOKUP_KEYS,
+  LOOKUP_SECTIONS,
+  LOOKUP_META,
+  isLookupKey,
+  type LookupKey,
+  type LookupRow,
+  type LookupRowBase,
+  type LookupRowMap,
+  type RelationshipRow,
+  type RelationshipBranch,
+  type RelationshipGender,
+  type RelationshipDegreeTierRow,
+  type TestRow,
+  type TestKind,
+  type TestResultRow,
+  type TestResultOutcome,
+  type TestResultTone,
+  type CommitteeRow,
+  type CommitteeKind,
+  type SpecializationRow,
+  type FacultyRow,
+  type SpecializationFacultyMapRow,
+  type ApplicantCategoryRow,
+  type ApplicantCategoryGenderScope,
+  type ApplicantCategoryApplicationMode,
+  type NationalityCountryRow,
+  type GovernorateRow,
+  type GovernorateRegion,
+  type PoliceStationRow,
+  type PoliceStationKind,
+  type JobRow,
+  type QualificationRow,
+  type QualificationLevel,
+  type QualificationTrack,
+  type AnnouncementRow,
+  type AnnouncementGender,
+  type ApplicantDivisionRow,
+  type SchoolCategoryRow,
+  type NidMissingReasonRow,
+  type DeleteResult,
 } from './types';
 
-export {
-  lookupsService,
-  type LookupItemInput,
-  type LookupItemPatch,
-} from './api/lookups.service';
+export { lookupsService } from './api/lookups.service';
 
 export {
   lookupKeys,
-  useLookupTypes,
-  useLookupList,
-  useLookupTree,
-  useLookupMappings,
-  useCreateLookup,
-  useUpdateLookup,
-  useDeleteLookup,
-  useReorderLookups,
-  useAddMapping,
-  useRemoveMapping,
+  useLookup,
+  useCreateLookupRow,
+  useUpdateLookupRow,
+  useDeleteLookupRow,
 } from './api/lookups.queries';
