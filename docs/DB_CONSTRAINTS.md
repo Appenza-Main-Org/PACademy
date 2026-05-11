@@ -356,6 +356,122 @@ ALTER TABLE dbo.period_categories
 
 ---
 
+## 11 · Admission Setup — Application Settings invariants
+
+Application Settings is global master data (not cycle-scoped). Three new
+tables back the three-tier editor:
+
+- `dbo.applicant_category_configs` — one row per `applicant-categories`
+  lookup item the admin chooses to surface.
+- `dbo.applicant_category_specializations` — junction between a config
+  row and a `specializations` lookup item.
+- `dbo.applicant_specialization_years` — leaf row carrying graduation
+  year × gender × capacity × window dates.
+
+Conflict codes thrown by the frontend mock service (and mirrored
+verbatim in `errors.ts → ConflictCode`):
+
+### 11.1 · `DUPLICATE_YEAR`
+
+**Rule.** No two rows under the same `category_specialization_id` may
+share the same `(graduation_year, gender_type)` pair.
+
+**SQL Server.**
+
+```sql
+CREATE UNIQUE INDEX UX_AppSpecYear_Unique
+  ON dbo.applicant_specialization_years
+     (category_specialization_id, graduation_year, gender_type)
+  WHERE is_deleted = 0;
+```
+
+### 11.2 · `OVERLAPPING_PERIOD`
+
+**Rule.** No two rows under the same `(category_specialization_id,
+gender_type)` may have overlapping `[application_start_date,
+application_end_date]` windows.
+
+**SQL Server.** INSTEAD-OF trigger on INSERT/UPDATE:
+
+```sql
+IF EXISTS (
+  SELECT 1
+  FROM dbo.applicant_specialization_years y
+  JOIN inserted i
+    ON i.category_specialization_id = y.category_specialization_id
+   AND i.gender_type                = y.gender_type
+   AND i.id                        <> y.id
+   AND y.is_deleted = 0
+  WHERE i.application_start_date <= y.application_end_date
+    AND i.application_end_date   >= y.application_start_date
+)
+THROW 51100, 'OVERLAPPING_PERIOD', 1;
+```
+
+### 11.3 · `CAPACITY_NOT_POSITIVE`
+
+**Rule.** Capacity must be a strictly positive integer.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.applicant_specialization_years
+  ADD CONSTRAINT CK_AppSpecYear_Capacity CHECK (capacity > 0);
+```
+
+### 11.4 · `INVALID_DATE_RANGE`
+
+**Rule.** `application_end_date >= application_start_date` AND
+`academic_year_start_date >= application_end_date` — academic year must
+start after the application window closes.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.applicant_specialization_years
+  ADD CONSTRAINT CK_AppSpecYear_DateOrder CHECK (
+    application_end_date     >= application_start_date AND
+    academic_year_start_date >= application_end_date
+  );
+```
+
+### 11.5 · `SPECIALIZATION_NOT_MAPPED`
+
+**Rule.** Reserved for the day the backend ships a
+`category_specializations` junction in the lookup catalogue (see §10.7
+which already PKs `category_specializations (category_id, target_id)`).
+At that point, inserts into `applicant_category_specializations` must
+verify the `(category_id, specialization_id)` pair exists in the lookup
+mapping. The frontend already throws this code conditionally so the
+service contract is forward-compatible; V1 mock data does not enforce
+the filter because no `category_specializations` mapping exists in
+`MOCK.lookups` today.
+
+### 11.6 · `CATEGORY_HAS_ACTIVE_YEARS`
+
+**Rule.** A config row cannot be deactivated while any descendant
+`applicant_specialization_years.is_active = 1`. Caller must deactivate
+the years first.
+
+**SQL Server.** Trigger on UPDATE of `applicant_category_configs`:
+
+```sql
+IF UPDATE(is_active) AND EXISTS (
+  SELECT 1
+  FROM inserted i
+  JOIN dbo.applicant_category_specializations s
+    ON s.config_id = i.id
+  JOIN dbo.applicant_specialization_years y
+    ON y.category_specialization_id = s.id
+  WHERE i.is_active = 0
+    AND y.is_active = 1
+    AND y.is_deleted = 0
+)
+THROW 51110, 'CATEGORY_HAS_ACTIVE_YEARS', 1;
+```
+
+---
+
 ## Cross-reference
 
 These constraints are referenced from `CLAUDE.md §6` (mock service

@@ -20,7 +20,14 @@ export type ConflictCode =
   | 'DUPLICATE_CODE'
   | 'DUPLICATE_MAPPING'
   | 'INVALID_DATE_RANGE'
-  | 'IN_USE';
+  | 'IN_USE'
+  // Admission Setup — Application Settings (global master data).
+  // See docs/DB_CONSTRAINTS.md §11.
+  | 'DUPLICATE_YEAR'
+  | 'OVERLAPPING_PERIOD'
+  | 'CAPACITY_NOT_POSITIVE'
+  | 'SPECIALIZATION_NOT_MAPPED'
+  | 'CATEGORY_HAS_ACTIVE_YEARS';
 
 /** Generic conflict — a precondition rejected the mutation. */
 export class ConflictError<TPayload = unknown> extends Error {

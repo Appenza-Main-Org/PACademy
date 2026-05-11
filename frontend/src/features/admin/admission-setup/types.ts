@@ -14,7 +14,18 @@
  * the day they cross-cut other features.
  */
 
-import type { SoftDeleteFields } from '@/shared/types/domain';
+import type { Applicant, SoftDeleteFields } from '@/shared/types/domain';
+
+/**
+ * Binary gender union, derived from the existing canonical inline shape on
+ * `Applicant.gender` (`shared/types/domain.ts`). No new declaration — this
+ * is a type alias of an already-shipped union, keeping the codebase's
+ * gender contract single-sourced. The lookup-module gender unions
+ * (`ApplicantCategoryGenderScope`, `RelationshipGender`, `AnnouncementGender`)
+ * include `'any'`; that is wrong for per-year capacity rows where each row
+ * is unambiguously male or female.
+ */
+export type GenderType = Applicant['gender'];
 
 /** Discriminated union of the 14 admission-setup step keys, in canonical order. */
 export type AdmissionSetupStepKey =
@@ -105,6 +116,72 @@ export interface TotalScoreConfig {
   updatedAt: string;
   updatedBy: string;
 }
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Step 1 — Application Settings (global master data, not cycle-scoped).
+ *
+ * Three-tier hierarchy:
+ *   ApplicantCategoryConfig    (per category — points at lookup
+ *                               `applicant-categories[CAT-NN]`)
+ *     └─ ApplicantCategorySpecialization
+ *                              (per attached specialization — points at
+ *                               lookup `specializations[SPC-NN]`)
+ *         └─ ApplicantSpecializationYear
+ *                              (per graduation year × gender; the leaf row
+ *                               that carries capacity + window dates)
+ *
+ * Strict category↔specialization mapping was specified by the prompt
+ * but the lookup module has no such mapping table today (only
+ * `specialization-faculty-map` exists). For V1 the service therefore
+ * does not enforce a mapping filter — `SPECIALIZATION_NOT_MAPPED` is
+ * reserved for the day the backend ships the junction.
+ * ─────────────────────────────────────────────────────────────────────── */
+
+export interface ApplicantCategoryConfig {
+  id: string;
+  /** FK → lookup `applicant-categories[CAT-NN].code`. */
+  categoryId: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApplicantCategorySpecialization {
+  id: string;
+  configId: string;
+  /** FK → lookup `specializations[SPC-NN].code`. */
+  specializationId: string;
+  isActive: boolean;
+}
+
+export interface ApplicantSpecializationYear {
+  id: string;
+  categorySpecializationId: string;
+  graduationYear: number;
+  genderType: GenderType;
+  capacity: number;
+  /** ISO date — start of the application window. */
+  applicationStartDate: string;
+  /** ISO date — end of the application window. */
+  applicationEndDate: string;
+  /** ISO date — first day of the academic year for this cohort. */
+  academicYearStartDate: string;
+  isActive: boolean;
+}
+
+/**
+ * Conflict codes thrown by `applicationSettingsService` and surfaced as
+ * toasts via `applicationSettings.queries.ts`. Mirrored in
+ * `docs/DB_CONSTRAINTS.md §11`.
+ */
+export type AppSettingsConflict =
+  | 'DUPLICATE_YEAR'
+  | 'INVALID_DATE_RANGE'
+  | 'OVERLAPPING_PERIOD'
+  | 'CAPACITY_NOT_POSITIVE'
+  | 'SPECIALIZATION_NOT_MAPPED'
+  | 'CATEGORY_HAS_ACTIVE_YEARS';
 
 /** Step 15 — electronic declaration shown to the applicant on Stage 9. */
 export interface ElectronicDeclaration extends SoftDeleteFields {
