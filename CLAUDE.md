@@ -593,3 +593,8 @@ Two-step OTP login (US1), lock policy management (US2), officer lookup via MOIPA
 - **Spec 009 — Reports API**: Aggregate query endpoints for the admin reports command-center.
 - **Spec 010 — Seeder split** (deferred P2 from spec 005): Split `DemoDataSeeder` into 5 per-module seeders (`Identity`, `Audit`, `ReferenceData`, `Workflows`, `Admissions`).
 - **Frontend integration**: Replace `simulateLatency()` + `MOCK` reads in every `*.service.ts` with real `apiClient.get/post(...)` calls (§6 integration pattern).
+
+<!-- SPECKIT START -->
+**Active spec**: [`specs/008-lookup-excel-import`](specs/008-lookup-excel-import/spec.md) — Lookup Excel + CSV Import.
+Plan: [`specs/008-lookup-excel-import/plan.md`](specs/008-lookup-excel-import/plan.md).
+<!-- SPECKIT END -->

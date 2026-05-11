@@ -15,7 +15,7 @@
  * parent picker.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import {
   Badge,
@@ -41,6 +41,9 @@ import {
   useLookupSoftDelete,
   useLookupUpdate,
 } from '../../api/lookups.queries';
+import type { ExistingRow } from '../../api/lookup-import';
+import { ImportLookupButton } from './ImportLookupButton';
+import { LOOKUP_IMPORT_LABELS } from './import-lookup-labels';
 
 export interface LookupTabProps {
   lookupKey: LookupKey;
@@ -67,7 +70,10 @@ export function LookupTab({ lookupKey, title, parentLookup, hasGender }: LookupT
   });
   const parentQuery = useLookupList(parentLookup ?? ('educationTypes' as LookupKey), {});
   /* parentQuery is fetched only when this lookup is hierarchical. */
-  const parentRows: LookupRow[] = parentLookup ? parentQuery.data ?? [] : [];
+  const parentRows = useMemo<LookupRow[]>(
+    () => (parentLookup ? parentQuery.data ?? [] : []),
+    [parentLookup, parentQuery.data],
+  );
 
   const createMut = useLookupCreate(lookupKey);
   const updateMut = useLookupUpdate(lookupKey);
@@ -81,7 +87,34 @@ export function LookupTab({ lookupKey, title, parentLookup, hasGender }: LookupT
   const [pendingDelete, setPendingDelete] = useState<LookupRow | null>(null);
   const dependencies = useLookupDependencies(lookupKey, pendingDelete?.id ?? null);
 
-  const rows = listQuery.data ?? [];
+  const rows = useMemo<LookupRow[]>(() => listQuery.data ?? [], [listQuery.data]);
+
+  const existingRows = useMemo<ExistingRow[]>(
+    () =>
+      rows.map((r) => ({
+        collisionKey: r.key,
+        id: r.id,
+        isArchived: !!r.deletedAt,
+        snapshot: r as unknown as Record<string, unknown>,
+      })),
+    [rows],
+  );
+
+  const parentExistingRows = useMemo<ExistingRow[]>(
+    () =>
+      parentRows.map((r) => ({
+        collisionKey: r.key,
+        id: r.id,
+        isArchived: !!r.deletedAt,
+        snapshot: r as unknown as Record<string, unknown>,
+      })),
+    [parentRows],
+  );
+
+  const existingSortMax = useMemo(
+    () => (rows.length > 0 ? Math.max(...rows.map((r) => r.sortOrder)) : 0),
+    [rows],
+  );
 
   const move = (idx: number, delta: -1 | 1): void => {
     const target = rows[idx + delta];
@@ -251,6 +284,13 @@ export function LookupTab({ lookupKey, title, parentLookup, hasGender }: LookupT
               إظهار المحذوف
             </label>
           )}
+          <ImportLookupButton
+            lookupKey={lookupKey}
+            lookupTitle={LOOKUP_IMPORT_LABELS[lookupKey] ?? title}
+            existingRows={existingRows}
+            existingSortMax={existingSortMax}
+            parentRows={parentLookup ? parentExistingRows : undefined}
+          />
           <Button
             variant="primary"
             leadingIcon={<Plus size={14} strokeWidth={1.75} />}

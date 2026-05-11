@@ -9,7 +9,7 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -41,6 +41,9 @@ import {
   useReferenceUpdate,
 } from '../api/referenceData.queries';
 import { LookupTab } from '../components/lookups/LookupTab';
+import { ImportLookupButton } from '../components/lookups/ImportLookupButton';
+import type { ExistingRow, ImportLookupKey } from '../api/lookup-import';
+import { LOOKUP_IMPORT_LABELS } from '../components/lookups/import-lookup-labels';
 import type {
   LookupKey,
   RefCaseType,
@@ -58,6 +61,18 @@ import type {
  * or a Gap-I LookupKey (unified LookupRow). Section labels keep the two
  * groups visually separate in the tab strip. */
 type TabKey = ReferenceTab | LookupKey;
+
+/* Map Sprint-1 ReferenceTab (possibly kebab-case) to ImportLookupKey (camelCase). */
+const REF_TAB_TO_IMPORT_KEY: Record<ReferenceTab, ImportLookupKey> = {
+  governorates: 'governorates',
+  specializations: 'specializations',
+  ranks: 'ranks',
+  colleges: 'colleges',
+  qualifications: 'qualifications',
+  nationalities: 'nationalities',
+  relationships: 'relationships',
+  'case-types': 'caseTypes',
+};
 
 const REFERENCE_TABS = Object.keys(REFERENCE_TAB_LABELS) as ReferenceTab[];
 const LOOKUP_TABS = Object.keys(LOOKUP_LABELS) as LookupKey[];
@@ -162,6 +177,23 @@ function ReferenceTabPanel({ tab }: { tab: ReferenceTab; onChangeTab?: (t: Refer
   const updateMut = useReferenceUpdate(tab);
   const removeMut = useReferenceRemove(tab);
 
+  /* Build ExistingRow[] for the import collision pass. */
+  const existingRows = useMemo<ExistingRow[]>(
+    () =>
+      (data ?? []).map((r) => {
+        const row = r as { id: string; nameAr?: string; deletedAt?: string };
+        return {
+          collisionKey: row.nameAr ?? row.id,
+          id: row.id,
+          isArchived: Boolean(row.deletedAt),
+          snapshot: r as unknown as Record<string, unknown>,
+        };
+      }),
+    [data],
+  );
+
+  const existingSortMax = 0; // Sprint-1 typed rows don't expose sortOrder
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<RowBase | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<RowBase | null>(null);
@@ -176,13 +208,12 @@ function ReferenceTabPanel({ tab }: { tab: ReferenceTab; onChangeTab?: (t: Refer
           <span className="font-numeric tnum">{(data?.length ?? 0).toLocaleString('en-US')}</span>
         </p>
         <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            leadingIcon={<Upload size={14} strokeWidth={1.75} />}
-            onClick={() => toast('استيراد ملف Excel — قيد التنفيذ في Sprint 10', 'info')}
-          >
-            استيراد من Excel
-          </Button>
+          <ImportLookupButton
+            lookupKey={REF_TAB_TO_IMPORT_KEY[tab]}
+            lookupTitle={LOOKUP_IMPORT_LABELS[REF_TAB_TO_IMPORT_KEY[tab]]}
+            existingRows={existingRows}
+            existingSortMax={existingSortMax}
+          />
           <Button
             variant="primary"
             leadingIcon={<Plus size={14} strokeWidth={1.75} />}
