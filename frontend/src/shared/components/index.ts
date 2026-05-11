@@ -12,6 +12,8 @@ export type { BadgeTone } from './Badge';
 export { Button } from './Button';
 export { Card, CardBody, CardFooter, CardHeader } from './Card';
 export type { CardVariant } from './Card';
+export { Checkbox } from './Checkbox';
+export type { CheckboxProps } from './Checkbox';
 export { Code128Barcode } from './Code128Barcode';
 export type { Code128BarcodeProps } from './Code128Barcode';
 export { Combobox } from './Combobox';
