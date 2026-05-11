@@ -20,7 +20,7 @@ import { RevampComparisonPage } from '@/features/design-revamp';
 import { ProfilePage } from '@/features/profile';
 import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
-import { PrimitivesReviewPage } from '@/features/dev';
+import { LookupsReviewPage, PrimitivesReviewPage } from '@/features/dev';
 import { LookupsHubPage } from '@/features/lookups/pages/LookupsHubPage';
 import { MappingsPage } from '@/features/lookups/pages/MappingsPage';
 import {
@@ -422,7 +422,10 @@ export const routes: RouteObject[] = [
      replaced with `true` (dev) or `false` (prod), so the production bundle
      tree-shakes this branch entirely and the route is unreachable. */
   ...(import.meta.env.DEV
-    ? ([{ path: '/_dev/primitives', element: <PrimitivesReviewPage /> }] satisfies RouteObject[])
+    ? ([
+        { path: '/_dev/primitives', element: <PrimitivesReviewPage /> },
+        { path: '/_dev/lookups', element: <LookupsReviewPage /> },
+      ] satisfies RouteObject[])
     : []),
 
   /* ── 404 FALLBACK → public landing ───────────────────────── */
