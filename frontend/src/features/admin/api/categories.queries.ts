@@ -52,7 +52,8 @@ export function useUpdateCategoryMutation() {
 export function useCreateCategoryMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: ApplicantCategory) => categoriesAdminService.create(payload),
+    mutationFn: (input: { labelAr: string; description?: string }) =>
+      categoriesAdminService.create(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
   });
 }

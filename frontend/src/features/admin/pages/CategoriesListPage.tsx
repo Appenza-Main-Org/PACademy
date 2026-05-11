@@ -26,7 +26,7 @@ import {
   toast,
 } from '@/shared/components';
 import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
-import type { ApplicantCategory, ApplicantCategoryKey } from '@/shared/types/domain';
+import type { ApplicantCategory } from '@/shared/types/domain';
 import { ROUTES } from '@/config/routes';
 import {
   useCategoriesAdmin,
@@ -199,32 +199,9 @@ export function CategoriesListPage(): JSX.Element {
                 config={{
                   enabled: true,
                   transform: (row) => ({
-                    /* `key` must be unique — caller appends a numeric suffix
-                     * until it lands on an unused key. */
                     labelAr: `${row.labelAr} (نسخة)`,
                   }),
-                  onCommit: async (_draft, source) => {
-                    const baseKey = source.key as string;
-                    let candidate = `${baseKey}_copy`;
-                    let i = 1;
-                    /* Spin until unique against the live STATE. */
-                    while (
-                      categoriesAdminService.isSpecCategory(candidate as ApplicantCategoryKey) ||
-                      (await categoriesAdminService
-                        .list({ includeDeleted: true })
-                        .then((rows) => rows.some((r) => r.key === candidate)))
-                    ) {
-                      i += 1;
-                      candidate = `${baseKey}_copy_${i}`;
-                    }
-                    const next: ApplicantCategory = {
-                      ...source,
-                      key: candidate as ApplicantCategoryKey,
-                      labelAr: `${source.labelAr} (نسخة)`,
-                      isOpen: false,
-                    };
-                    return categoriesAdminService.create(next);
-                  },
+                  onCommit: async (_draft, source) => categoriesAdminService.duplicate(source),
                   redirectTo: (row) => ROUTES.admin.categoryEdit(row.key),
                   guard: (row) => (row.deletedAt ? 'لا يمكن نسخ فئة محذوفة' : null),
                 }}

@@ -102,14 +102,72 @@ export const categoriesAdminService = {
     return next;
   },
 
-  async create(payload: ApplicantCategory): Promise<ApplicantCategory> {
+  async create(input: { labelAr: string; description?: string }): Promise<ApplicantCategory> {
     await simulateLatency();
-    if (STATE.some((c) => c.key === payload.key)) {
-      throw new Error('مفتاح الفئة موجود بالفعل');
+    const labelAr = input.labelAr.trim();
+    if (!labelAr) throw new Error('اسم الفئة مطلوب');
+    let candidate = `custom_${Date.now()}`;
+    while (
+      SPEC_KEYS.has(candidate as ApplicantCategoryKey) ||
+      STATE.some((c) => c.key === candidate)
+    ) {
+      candidate = `custom_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     }
+    const payload: ApplicantCategory = {
+      key: candidate as ApplicantCategoryKey,
+      labelAr,
+      labelEn: '',
+      description: (input.description ?? '').trim(),
+      isOpen: false,
+      conditions: {
+        ageMin: null,
+        ageMax: null,
+        minScorePercent: null,
+        requiredQualification: 'any',
+        gender: 'any',
+        minHeightCm: null,
+        medicalRequired: false,
+        maritalStatus: 'any',
+        conductCheck: false,
+        egyptianNationalityRequired: false,
+        employerApprovalRequired: false,
+        nominationOnly: false,
+        freeText: [],
+      },
+      requiredTests: [],
+      procedures: [],
+    };
     STATE.push({ ...payload });
     pushAudit('create', payload.key, `تم إنشاء فئة "${payload.labelAr}"`);
     return { ...payload };
+  },
+
+  /**
+   * Clone an existing category. Used by the categories list "نسخ" action;
+   * spec keys can be cloned but the resulting copy is always a custom
+   * (non-spec) category. Picks the first free `${sourceKey}_copy[_N]` slot.
+   */
+  async duplicate(source: ApplicantCategory): Promise<ApplicantCategory> {
+    await simulateLatency();
+    const baseKey = source.key as string;
+    let candidate = `${baseKey}_copy`;
+    let i = 1;
+    while (
+      SPEC_KEYS.has(candidate as ApplicantCategoryKey) ||
+      STATE.some((c) => c.key === candidate)
+    ) {
+      i += 1;
+      candidate = `${baseKey}_copy_${i}`;
+    }
+    const next: ApplicantCategory = {
+      ...source,
+      key: candidate as ApplicantCategoryKey,
+      labelAr: `${source.labelAr} (نسخة)`,
+      isOpen: false,
+    };
+    STATE.push({ ...next });
+    pushAudit('create', next.key, `تم نسخ فئة "${source.labelAr}"`);
+    return { ...next };
   },
 
   async remove(key: ApplicantCategoryKey): Promise<{ ok: true }> {
