@@ -19,7 +19,7 @@ import {
   useCategoriesAdmin,
   useUpdateExpandedConditions,
 } from '@/features/admin/api/categories.queries';
-import { useLookupList } from '@/features/admin/api/lookups.queries';
+import { useLookupList } from '@/features/lookups';
 import type {
   AdmissionCycle,
   ApplicantCategory,
@@ -40,7 +40,8 @@ export function MaritalStatusRulesPage(): JSX.Element {
 
 function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean }): JSX.Element {
   const { data: categories = [] } = useCategoriesAdmin();
-  const { data: lookups = [] } = useLookupList('maritalStatuses');
+  const lookupsQuery = useLookupList({ typeCode: 'MARITAL_STATUSES', includeInactive: false, pageSize: 50 });
+  const lookups = lookupsQuery.data?.data ?? [];
   const openKeys = useMemo(
     () =>
       Object.entries(cycle.openCategories ?? {})
@@ -72,7 +73,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
           <CategoryMaritalCard
             key={cat.key}
             category={cat}
-            options={activeMarital.map((l) => ({ key: l.key, label: l.labelAr }))}
+            options={activeMarital.map((l) => ({ key: l.code, label: l.nameAr }))}
             canWrite={canWrite}
           />
         ))

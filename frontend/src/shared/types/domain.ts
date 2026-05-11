@@ -654,59 +654,16 @@ export interface EligibilityResult {
   reasons: EligibilityRejectionReason[];
 }
 
-/* ── Generic lookup matrix — Gap I (admin-gaps) ────────────────────────
+/* ── Reference data row shapes — Sprint 1 (Tasks/KARASA_GAPS.md §1.2.B)
+ * ───
  *
- * Sprint-1 reference data (governorates, specialties, …) keeps its
- * per-shape Ref* types because forms render specific fields. Gap I adds a
- * second, broader catalogue of lookups that all share the same row shape
- * (`LookupRow`) and are managed via the parameterized <LookupTab>.
- *
- * Each lookup tab is identified by a `LookupKey`. Hierarchical lookups
- * (faculties under universities, specialties under specialty-types)
- * carry a `parentId` referencing the parent row.
+ * The `LookupKey` / `LookupRow` / `ReferenceTab` / `ReferenceRowMap`
+ * types previously sat here. They were retired by the Lookup Management
+ * Module migration (see features/lookups/types.ts and
+ * docs/migration/lookups/REPORT.md). The Ref* interfaces below survive
+ * because non-admin pickers (applicant portal, board, ApplicantForm)
+ * still consume the raw REF_* const arrays for static option sources.
  */
-
-export type LookupKey =
-  | 'educationTypes'
-  | 'maritalStatuses'
-  | 'universities'
-  | 'faculties'
-  | 'specialties'
-  | 'specialtyTypes'
-  | 'degreeTypes'
-  | 'jobs'
-  | 'examTypes'
-  | 'examGroups'
-  | 'committeeTypes'
-  | 'rejectionReasons'
-  | 'notificationDepartments'
-  | 'applicantSections'
-  | 'nationalIdMissingReasons';
-
-export interface LookupRow extends SoftDeleteFields {
-  id: string;
-  /** Stable machine key; ASCII-only, kebab-or-snake. */
-  key: string;
-  labelAr: string;
-  labelEn?: string;
-  sortOrder: number;
-  isActive: boolean;
-  /** True for seeded rows that ship with the platform (cannot be deleted). */
-  isSystem: boolean;
-  /** Foreign key to a parent lookup row (e.g. university id for faculties). */
-  parentId?: string;
-  /** Optional gender filter for lookups that bifurcate (specialties). */
-  gender?: 'male' | 'female';
-}
-
-/* ── Reference data — Sprint 1 (Tasks/KARASA_GAPS.md §1.2.B) ────────── */
-
-export type ReferenceTab =
-  | 'governorates'
-  | 'specializations'
-  | 'nationalities'
-  | 'relationships'
-  | 'case-types';
 
 export interface RefGovernorate extends SoftDeleteFields {
   id: string;
@@ -751,15 +708,6 @@ export interface RefCaseType extends SoftDeleteFields {
   severity: 'low' | 'medium' | 'high';
   blocksApplication: boolean;
 }
-
-/** Discriminated union mapping each reference tab to its row shape. */
-export type ReferenceRowMap = {
-  governorates: RefGovernorate;
-  specializations: RefSpecialization;
-  nationalities: RefNationality;
-  relationships: RefRelationship;
-  'case-types': RefCaseType;
-};
 
 /* ── Admission cycles — Sprint 1 (§1.2.D), extended post-polish ─────────
  *

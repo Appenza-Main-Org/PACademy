@@ -32,7 +32,10 @@ import type {
   UserActivityEntry,
 } from '@/shared/types/domain';
 import { QUESTION_POOL } from './questionPool';
-import { REFERENCE_DATA } from './referenceData';
+/* REFERENCE_DATA dropped — superseded by MOCK.lookupItems filtered by
+ * lookupTypeCode. The raw REF_* arrays in shared/mock-data/referenceData.ts
+ * stay exported because non-admin pickers (applicant portal, board) read
+ * them directly. */
 import { ADMISSION_CYCLES, ADMISSION_RULES } from './admissionCycles';
 import { APPLICANT_CATEGORIES, ACTIVE_CYCLE_ID } from './categories';
 import { TEST_SCHEDULES } from './testSchedules';
@@ -59,7 +62,6 @@ import {
   WORKFLOWS,
   WORKFLOW_TRANSITIONS,
 } from './workflows';
-import { LOOKUP_SEED } from './lookups';
 import {
   LOOKUP_ITEMS,
   LOOKUP_MAPPINGS,
@@ -958,7 +960,6 @@ export const MOCK = {
   governorates: GOVERNORATES,
   stageLabels: STAGE_LABELS,
   /* Sprint 1 additions */
-  referenceData: REFERENCE_DATA,
   admissionCycles: ADMISSION_CYCLES,
   admissionRules: ADMISSION_RULES,
   heatmapHourDay,
@@ -992,10 +993,6 @@ export const MOCK = {
   workflows: WORKFLOWS,
   applicantWorkflowProgress: APPLICANT_WORKFLOW_PROGRESS,
   workflowTransitions: WORKFLOW_TRANSITIONS,
-  /* Generic lookup matrix (admin-gaps Gap I) — superseded by lookupItems
-   * below; kept alive until consumers migrate (commit 8 of the lookups
-   * migration). @deprecated */
-  lookups: LOOKUP_SEED,
   /* Lookup Management Module — canonical 31-type catalogue. */
   lookupTypes: LOOKUP_TYPES,
   lookupItems: LOOKUP_ITEMS,

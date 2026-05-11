@@ -13,8 +13,6 @@ import type {
   RefRank,
   RefRelationship,
   RefSpecialization,
-  ReferenceRowMap,
-  ReferenceTab,
 } from '@/shared/types/domain';
 
 export const REF_GOVERNORATES: readonly RefGovernorate[] = [
@@ -122,18 +120,10 @@ export const REF_CASE_TYPES: readonly RefCaseType[] = [
   { id: 'CSE-10', nameAr: 'قضية عمالية',                 severity: 'medium', blocksApplication: false },
 ];
 
-export const REFERENCE_DATA: { [K in ReferenceTab]: readonly ReferenceRowMap[K][] } = {
-  governorates: REF_GOVERNORATES,
-  specializations: REF_SPECIALIZATIONS,
-  nationalities: REF_NATIONALITIES,
-  relationships: REF_RELATIONSHIPS,
-  'case-types': REF_CASE_TYPES,
-};
-
-export const REFERENCE_TAB_LABELS: Record<ReferenceTab, string> = {
-  governorates: 'المحافظات',
-  specializations: 'التخصصات',
-  nationalities: 'الجنسيات',
-  relationships: 'درجات القرابة',
-  'case-types': 'أنواع القضايا',
-};
+/* REFERENCE_DATA / REFERENCE_TAB_LABELS removed — superseded by
+ * features/lookups/. The raw REF_* arrays above remain exported because
+ * applicant-portal pickers (Stage3/Stage4/Stage7), the board Sprint6
+ * page, and ApplicantForm still consume them directly as static option
+ * sources. They are not admin-managed in this codebase — the lookup
+ * module owns the admin-managed equivalents (GOVERNORATES,
+ * SPECIALIZATIONS, NATIONALITIES, …) seeded from the same names. */

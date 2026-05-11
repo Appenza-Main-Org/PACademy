@@ -14,7 +14,7 @@
 
 import { Card } from '@/shared/components';
 import type { CategoryConditions } from '@/shared/types/domain';
-import { useLookupList } from '../../api/lookups.queries';
+import { useLookupList } from '@/features/lookups';
 
 export interface CategoryConditionBuilderProps {
   value: CategoryConditions;
@@ -41,9 +41,9 @@ export function CategoryConditionBuilder({
   onChange,
   readOnly,
 }: CategoryConditionBuilderProps): JSX.Element {
-  const educationTypesQuery = useLookupList('educationTypes');
-  const maritalStatusesQuery = useLookupList('maritalStatuses');
-  const examTypesQuery = useLookupList('examTypes');
+  const educationTypesQuery = useLookupList({ typeCode: 'EDUCATION_TYPES', pageSize: 100 });
+  const maritalStatusesQuery = useLookupList({ typeCode: 'MARITAL_STATUSES', pageSize: 100 });
+  const examTypesQuery = useLookupList({ typeCode: 'EXAM_TYPES', pageSize: 100 });
 
   const set = <K extends keyof CategoryConditions>(k: K, v: CategoryConditions[K]): void => {
     onChange({ ...value, [k]: v });
@@ -100,9 +100,9 @@ export function CategoryConditionBuilder({
           </Field>
           <Field label="الحالة الاجتماعية" full>
             <CheckboxList
-              options={(maritalStatusesQuery.data ?? []).filter((r) => r.isActive).map((r) => ({
-                value: r.key,
-                label: r.labelAr,
+              options={(maritalStatusesQuery.data?.data ?? []).filter((r) => r.isActive).map((r) => ({
+                value: r.code,
+                label: r.nameAr,
               }))}
               selected={value.maritalStatuses}
               onToggle={(v) => toggle('maritalStatuses', v)}
@@ -118,9 +118,9 @@ export function CategoryConditionBuilder({
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="أنواع المؤهلات المقبولة" full>
             <CheckboxList
-              options={(educationTypesQuery.data ?? []).filter((r) => r.isActive).map((r) => ({
-                value: r.key,
-                label: r.labelAr,
+              options={(educationTypesQuery.data?.data ?? []).filter((r) => r.isActive).map((r) => ({
+                value: r.code,
+                label: r.nameAr,
               }))}
               selected={value.educationTypes}
               onToggle={(v) => toggle('educationTypes', v)}
@@ -168,9 +168,9 @@ export function CategoryConditionBuilder({
       <Card>
         <SectionHeader title="الاختبارات المطلوبة" subtitle="تحدد قائمة الاختبارات الإلزامية لهذه الفئة" />
         <CheckboxList
-          options={(examTypesQuery.data ?? []).filter((r) => r.isActive).map((r) => ({
-            value: r.key,
-            label: r.labelAr,
+          options={(examTypesQuery.data?.data ?? []).filter((r) => r.isActive).map((r) => ({
+            value: r.code,
+            label: r.nameAr,
           }))}
           selected={value.requiredExamIds}
           onToggle={(v) => toggle('requiredExamIds', v)}

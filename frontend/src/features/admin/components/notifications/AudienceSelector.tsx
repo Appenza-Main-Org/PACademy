@@ -12,7 +12,7 @@ import type {
   AudienceSelector as AudienceSelectorValue,
   ApplicantCategoryKey,
 } from '@/shared/types/domain';
-import { useLookupList } from '../../api/lookups.queries';
+import { useLookupList } from '@/features/lookups';
 
 const AUDIENCE_TYPES: AudienceSelectorValue['type'][] = [
   'general',
@@ -36,8 +36,8 @@ export interface AudienceSelectorProps {
 }
 
 export function AudienceSelector({ value, onChange }: AudienceSelectorProps): JSX.Element {
-  const departmentsQuery = useLookupList('notificationDepartments');
-  const committeeTypesQuery = useLookupList('committeeTypes');
+  const departmentsQuery = useLookupList({ typeCode: 'NOTIFICATION_DEPARTMENTS', pageSize: 100 });
+  const committeeTypesQuery = useLookupList({ typeCode: 'COMMITTEE_TYPES', pageSize: 100 });
 
   const setType = (type: AudienceSelectorValue['type']): void => {
     if (type === 'general') onChange({ type: 'general' });
@@ -91,7 +91,7 @@ export function AudienceSelector({ value, onChange }: AudienceSelectorProps): JS
       {value.type === 'department' && (
         <ChipsList
           label="الأقسام"
-          options={(departmentsQuery.data ?? []).filter((r) => r.isActive).map((r) => ({ value: r.key, label: r.labelAr }))}
+          options={(departmentsQuery.data?.data ?? []).filter((r) => r.isActive).map((r) => ({ value: r.code, label: r.nameAr }))}
           selected={value.departmentIds}
           onToggle={(v) => {
             const cur = value.departmentIds;
@@ -103,7 +103,7 @@ export function AudienceSelector({ value, onChange }: AudienceSelectorProps): JS
       {value.type === 'committee' && (
         <ChipsList
           label="اللجان"
-          options={(committeeTypesQuery.data ?? []).filter((r) => r.isActive).map((r) => ({ value: r.key, label: r.labelAr }))}
+          options={(committeeTypesQuery.data?.data ?? []).filter((r) => r.isActive).map((r) => ({ value: r.code, label: r.nameAr }))}
           selected={value.committeeIds}
           onToggle={(v) => {
             const cur = value.committeeIds;

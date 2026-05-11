@@ -391,10 +391,10 @@ export const committeeService = {
    */
   async listEducationTypes(): Promise<{ id: string; key: string; labelAr: string; isActive: boolean }[]> {
     await simulateLatency(60, 140);
-    return MOCK.lookups.educationTypes
-      .filter((l) => !l.deletedAt && l.isActive)
+    return MOCK.lookupItems
+      .filter((l) => l.lookupTypeCode === 'EDUCATION_TYPES' && !l.deletedAt && l.isActive)
       .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((l) => ({ id: l.id, key: l.key, labelAr: l.labelAr, isActive: l.isActive }));
+      .map((l) => ({ id: l.id, key: l.code, labelAr: l.nameAr, isActive: l.isActive }));
   },
 
   /**
