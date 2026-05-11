@@ -240,6 +240,122 @@ END;
 
 ---
 
+## 10 · Lookups — invariants
+
+The Lookup Management Module (`features/lookups/`) consolidates ~31
+admin-managed reference lists into a single shape (`lookup_items` keyed
+by `lookup_type_code`). The seven invariants below are enforced by
+`lookupsService` (typed `ConflictError(<code>, payload)`) and must be
+mirrored by the backend.
+
+### 10.1 · `DUPLICATE_CODE`
+
+**Rule.** Within a single `lookup_type_code`, `code` is unique across
+non-soft-deleted rows.
+
+**SQL Server.** Filtered unique index:
+
+```sql
+CREATE UNIQUE INDEX UX_LookupItem_TypeCode_Code
+  ON dbo.lookup_items (lookup_type_code, code)
+  WHERE deleted_at IS NULL;
+```
+
+### 10.2 · `SELF_PARENT`
+
+**Rule.** `parent_id` cannot equal `id`.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.lookup_items
+  ADD CONSTRAINT CK_LookupItem_NotSelfParent
+  CHECK (parent_id IS NULL OR parent_id <> id);
+```
+
+### 10.3 · `CIRCULAR_HIERARCHY`
+
+**Rule.** No row may appear in its own ancestor chain. The frontend
+walks `parent_id` up to the root and rejects if the candidate id is hit.
+
+**SQL Server.** Trigger or recursive CTE-based check on UPDATE:
+
+```sql
+CREATE TRIGGER tr_LookupItem_NoCycles
+  ON dbo.lookup_items
+  AFTER UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    WITH ancestors AS (
+      SELECT id, parent_id FROM dbo.lookup_items WHERE id IN (SELECT id FROM inserted)
+      UNION ALL
+      SELECT li.id, p.parent_id
+        FROM ancestors a
+        JOIN dbo.lookup_items li ON li.id = a.parent_id
+        JOIN dbo.lookup_items p  ON p.id  = li.parent_id
+    )
+    SELECT 1 FROM ancestors a JOIN inserted i ON i.id = a.parent_id
+  ) RAISERROR (N'CIRCULAR_HIERARCHY', 16, 1);
+END;
+```
+
+### 10.4 · `PARENT_HAS_CHILDREN`
+
+**Rule.** A parent row cannot be soft-deleted while any non-deleted
+child references it via `parent_id`.
+
+**SQL Server.** Mirror of §7 (cannot delete parent with children) —
+either an INSTEAD-OF trigger on UPDATE or an application-level check
+before the soft-delete UPDATE runs.
+
+### 10.5 · `IN_USE`
+
+**Rule.** A row cannot be soft-deleted while it appears in any of the
+four mapping tables (`category_specializations`, `category_committees`,
+`category_tests`, `period_categories`).
+
+**SQL Server.** Trigger-based check on UPDATE that compares
+`(id IN SELECT target_id FROM …)` across the four junction tables and
+raises `IN_USE`. Foreign-key cascades are intentionally *not* used —
+mappings must be removed first so the operator sees the dependency.
+
+### 10.6 · `INVALID_DATE_RANGE`
+
+**Rule.** When both `start_date` and `end_date` are present, `start_date
+<= end_date`.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.lookup_items
+  ADD CONSTRAINT CK_LookupItem_DateRange
+  CHECK (start_date IS NULL OR end_date IS NULL OR start_date <= end_date);
+```
+
+### 10.7 · `DUPLICATE_MAPPING`
+
+**Rule.** Each of the four mapping tables has a composite PK on
+`(category_id, target_id)`; insert of an existing pair is rejected.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.category_specializations
+  ADD CONSTRAINT PK_CategorySpecializations PRIMARY KEY (category_id, target_id);
+
+ALTER TABLE dbo.category_committees
+  ADD CONSTRAINT PK_CategoryCommittees PRIMARY KEY (category_id, target_id);
+
+ALTER TABLE dbo.category_tests
+  ADD CONSTRAINT PK_CategoryTests PRIMARY KEY (category_id, target_id);
+
+ALTER TABLE dbo.period_categories
+  ADD CONSTRAINT PK_PeriodCategories PRIMARY KEY (category_id, target_id);
+```
+
+---
+
 ## Cross-reference
 
 These constraints are referenced from `CLAUDE.md §6` (mock service

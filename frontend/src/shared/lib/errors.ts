@@ -12,7 +12,15 @@ export type ConflictCode =
   | 'EXAM_ORDER_DUPLICATE'
   | 'COMMITTEE_AT_CAPACITY'
   | 'NID_CYCLE_DUPLICATE'
-  | 'PUBLISH_NOT_ALLOWED';
+  | 'PUBLISH_NOT_ALLOWED'
+  // Lookup Management Module — see docs/DB_CONSTRAINTS.md §10.
+  | 'CIRCULAR_HIERARCHY'
+  | 'PARENT_HAS_CHILDREN'
+  | 'SELF_PARENT'
+  | 'DUPLICATE_CODE'
+  | 'DUPLICATE_MAPPING'
+  | 'INVALID_DATE_RANGE'
+  | 'IN_USE';
 
 /** Generic conflict — a precondition rejected the mutation. */
 export class ConflictError<TPayload = unknown> extends Error {
