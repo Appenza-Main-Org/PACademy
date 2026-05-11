@@ -91,6 +91,22 @@ export function useCycleTransition() {
   });
 }
 
+export function useCycleUpdateStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      next,
+      demoteCurrentActive,
+    }: {
+      id: string;
+      next: CycleStatus;
+      demoteCurrentActive?: boolean;
+    }) => cyclesService.updateStatus(id, next, { demoteCurrentActive }),
+    onSuccess: (cycle: AdmissionCycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
 export function useCycleUpdate() {
   const qc = useQueryClient();
   return useMutation({

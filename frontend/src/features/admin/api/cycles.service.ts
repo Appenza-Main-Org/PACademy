@@ -290,6 +290,72 @@ export const cyclesService = {
     return cycle;
   },
 
+  /**
+   * Change the status of an existing cycle from the simplified edit flow.
+   * Mirrors the single-active invariant enforced in `create()`: switching
+   * a cycle to `'active'` while another active cycle exists rejects with
+   * `ConflictError('ACTIVE_CYCLE_EXISTS')` unless the caller opts into
+   * `demoteCurrentActive: true`. Side-effect: keeps `ACTIVE_ID` in sync.
+   */
+  async updateStatus(
+    id: string,
+    next: CycleStatus,
+    options: { demoteCurrentActive?: boolean } = {},
+  ): Promise<AdmissionCycle> {
+    await simulateLatency();
+    const idx = STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('الدورة غير موجودة');
+    const before = { ...STATE[idx]! };
+
+    if (next === 'active') {
+      const conflictIdx = STATE.findIndex(
+        (c, i) =>
+          i !== idx &&
+          (c.status === 'active' || c.status === 'open' || c.status === 'extended'),
+      );
+      if (conflictIdx !== -1) {
+        const conflicting = STATE[conflictIdx]!;
+        if (!options.demoteCurrentActive) {
+          throw new ConflictError(
+            'ACTIVE_CYCLE_EXISTS',
+            { activeCycleId: conflicting.id, activeCycleName: conflicting.nameAr },
+            `يوجد دورة نشطة حالياً "${conflicting.nameAr}". أغلقها أو حوّلها إلى مسودة قبل تفعيل دورة جديدة.`,
+          );
+        }
+        const beforeDemote = { ...conflicting };
+        const demoted: AdmissionCycle = {
+          ...conflicting,
+          status: 'draft',
+          updatedAt: new Date().toISOString(),
+        };
+        STATE[conflictIdx] = demoted;
+        if (ACTIVE_ID === beforeDemote.id) ACTIVE_ID = null;
+        pushAudit(
+          'AdmissionCycle',
+          beforeDemote.id,
+          'update',
+          `تم تحويل دورة "${beforeDemote.nameAr}" إلى مسودة عند تفعيل دورة أخرى`,
+        );
+      }
+    }
+
+    const updated: AdmissionCycle = {
+      ...before,
+      status: next,
+      updatedAt: new Date().toISOString(),
+    };
+    STATE[idx] = updated;
+    if (next === 'active') ACTIVE_ID = updated.id;
+    else if (ACTIVE_ID === updated.id) ACTIVE_ID = null;
+    pushAudit(
+      'AdmissionCycle',
+      updated.id,
+      'update',
+      `تم تغيير حالة دورة "${updated.nameAr}" إلى ${next}`,
+    );
+    return updated;
+  },
+
   async update(id: string, patch: Partial<AdmissionCycle>): Promise<AdmissionCycle> {
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
