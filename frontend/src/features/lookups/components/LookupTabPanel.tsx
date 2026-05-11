@@ -42,7 +42,7 @@ import {
   type QualificationRow,
   type RelationshipDegreeTierRow,
   type RelationshipRow,
-  type SpecializationFacultyMapRow,
+  type SpecializationRow,
   type TestResultRow,
   type TestRow,
   type ApplicantCategoryRow,
@@ -235,7 +235,7 @@ function filterDescriptor(key: LookupKey): FilterDescriptor | null {
         field: 'categoryCode',
         options: (MOCK.lookups['applicant-categories'] as ApplicantCategoryRow[]).map((c) => ({ value: c.code, label: c.name })),
       };
-    case 'specialization-faculty-map':
+    case 'specializations':
       return {
         label: 'تصفية بالكلية',
         field: 'facultyCode',
@@ -299,7 +299,7 @@ function applyKeyFilter<K extends LookupKey>(key: K, rows: LookupRow<K>[], value
     case 'police-stations':       return r.filter((row) => row.governorateCode === value) as LookupRow<K>[];
     case 'jobs':                  return r.filter((row) => value === 'roots' ? row.parentCode === null : row.parentCode === value) as LookupRow<K>[];
     case 'announcements':         return r.filter((row) => row.categoryCode === value) as LookupRow<K>[];
-    case 'specialization-faculty-map': return r.filter((row) => row.facultyCode === value) as LookupRow<K>[];
+    case 'specializations':       return r.filter((row) => row.facultyCode === value) as LookupRow<K>[];
     case 'tests':                 return r.filter((row) => row.kind === value) as LookupRow<K>[];
     case 'qualifications':        return r.filter((row) => row.level === value) as LookupRow<K>[];
     case 'governorates':          return r.filter((row) => row.region === value) as LookupRow<K>[];
@@ -401,10 +401,9 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
         { key: 'kind',       label: 'النوع', width: 110, render: (r: CommitteeRow) => <Badge tone="neutral">{COMMITTEE_KIND_LABEL[r.kind]}</Badge> },
         { key: 'chairTitle', label: 'الرئيس', render: (r: CommitteeRow) => r.chairTitle },
       ];
-    case 'specialization-faculty-map':
+    case 'specializations':
       return [
-        { key: 'specializationCode', label: 'التخصص', render: (r: SpecializationFacultyMapRow) => labelByCode('specializations', r.specializationCode) },
-        { key: 'facultyCode',        label: 'الكلية', render: (r: SpecializationFacultyMapRow) => labelByCode('faculties', r.facultyCode) },
+        { key: 'facultyCode', label: 'الكلية', render: (r: SpecializationRow) => labelByCode('faculties', r.facultyCode) },
       ];
     case 'applicant-categories':
       return [

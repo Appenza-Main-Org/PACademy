@@ -18,12 +18,11 @@
 export const LOOKUP_KEYS = [
   'relationships',
   'relationship-degree-tiers',
+  'faculties',
+  'specializations',
   'tests',
   'test-results',
   'committees',
-  'specializations',
-  'faculties',
-  'specialization-faculty-map',
   'applicant-categories',
   'nationalities-countries',
   'governorates',
@@ -40,11 +39,24 @@ export type LookupKey = (typeof LOOKUP_KEYS)[number];
 
 /* ─── Section grouping for the tab rail ──────────────────────────────── */
 
+/* Five sections: kinship, الكليات, التخصصات (separate per the spec —
+ * the user wants each as its own "main lookup section"), the residual
+ * process bucket, and geography/admin references. */
 export const LOOKUP_SECTIONS = [
   {
     key: 'kinship',
     label: 'علاقات وشجرة العائلة',
     keys: ['relationships', 'relationship-degree-tiers'] as const,
+  },
+  {
+    key: 'faculties',
+    label: 'الكليات',
+    keys: ['faculties'] as const,
+  },
+  {
+    key: 'specializations',
+    label: 'التخصصات',
+    keys: ['specializations'] as const,
   },
   {
     key: 'process',
@@ -53,9 +65,6 @@ export const LOOKUP_SECTIONS = [
       'tests',
       'test-results',
       'committees',
-      'specializations',
-      'faculties',
-      'specialization-faculty-map',
       'applicant-categories',
       'announcements',
       'applicant-divisions',
@@ -86,7 +95,6 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'committees':                   { label: 'اللجان',                       codePrefix: 'CMT', padding: 2 },
   'specializations':              { label: 'التخصصات',                     codePrefix: 'SPC', padding: 2 },
   'faculties':                    { label: 'الكليات',                      codePrefix: 'FAC', padding: 2 },
-  'specialization-faculty-map':   { label: 'ربط التخصصات بالكليات',        codePrefix: 'SFM', padding: 3 },
   'applicant-categories':         { label: 'فئات المتقدمين',               codePrefix: 'CAT', padding: 2 },
   'nationalities-countries':      { label: 'الجنسيات والدول',              codePrefix: 'CNT', padding: 3 },
   'governorates':                 { label: 'المحافظات',                    codePrefix: 'GOV', padding: 2 },
@@ -151,12 +159,13 @@ export interface CommitteeRow extends LookupRowBase {
   chairTitle: string;
 }
 
-export interface SpecializationRow extends LookupRowBase {}
-
 export interface FacultyRow extends LookupRowBase {}
 
-export interface SpecializationFacultyMapRow extends LookupRowBase {
-  specializationCode: string;
+/** Specialization belongs to exactly one faculty (FK → `faculties`).
+ *  Previously this was a many-to-many junction; collapsed into a direct
+ *  FK because the codebase only ever needed a single faculty per
+ *  specialization. */
+export interface SpecializationRow extends LookupRowBase {
   facultyCode: string;
 }
 
@@ -240,7 +249,6 @@ export interface LookupRowMap {
   'committees': CommitteeRow;
   'specializations': SpecializationRow;
   'faculties': FacultyRow;
-  'specialization-faculty-map': SpecializationFacultyMapRow;
   'applicant-categories': ApplicantCategoryRow;
   'nationalities-countries': NationalityCountryRow;
   'governorates': GovernorateRow;

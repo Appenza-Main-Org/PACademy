@@ -28,7 +28,6 @@ export {
   type CommitteeKind,
   type SpecializationRow,
   type FacultyRow,
-  type SpecializationFacultyMapRow,
   type ApplicantCategoryRow,
   type ApplicantCategoryGenderScope,
   type ApplicantCategoryApplicationMode,

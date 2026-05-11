@@ -33,7 +33,6 @@ import type {
   RelationshipDegreeTierRow,
   RelationshipRow,
   SchoolCategoryRow,
-  SpecializationFacultyMapRow,
   SpecializationRow,
   TestResultRow,
   TestRow,
@@ -143,19 +142,24 @@ const committees: CommitteeRow[] = [
 
 /* ─── 6. specializations — police specializations ────────────────────── */
 
+/* Each specialization now carries `facultyCode` directly — the old
+ * junction table is gone. Mappings preserved from the prior
+ * specialization-faculty-map seed; specializations that were mapped to
+ * more than one faculty (e.g. الإدارة العامة under both عليا and
+ * معاونين) collapse to one primary faculty per the prompt. */
 const specializations: SpecializationRow[] = [
-  { code: 'SPC-01', name: 'علوم شرطة',          ...active },
-  { code: 'SPC-02', name: 'الأمن العام',         ...active },
-  { code: 'SPC-03', name: 'الأمن المركزي',      ...active },
-  { code: 'SPC-04', name: 'الأمن الإلكتروني',    ...active },
-  { code: 'SPC-05', name: 'مكافحة المخدرات',     ...active },
-  { code: 'SPC-06', name: 'حماية الآداب',        ...active },
-  { code: 'SPC-07', name: 'المرور',             ...active },
-  { code: 'SPC-08', name: 'الجوازات والهجرة',    ...active },
-  { code: 'SPC-09', name: 'الأحوال المدنية',     ...active },
-  { code: 'SPC-10', name: 'الإدارة العامة',      ...active },
-  { code: 'SPC-11', name: 'الأمن الاجتماعي',     ...active },
-  { code: 'SPC-12', name: 'مكافحة الإرهاب',     ...active },
+  { code: 'SPC-01', name: 'علوم شرطة',          isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-02', name: 'الأمن العام',         isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-03', name: 'الأمن المركزي',      isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-04', name: 'الأمن الإلكتروني',    isActive: true, facultyCode: 'FAC-02' },
+  { code: 'SPC-05', name: 'مكافحة المخدرات',     isActive: true, facultyCode: 'FAC-02' },
+  { code: 'SPC-06', name: 'حماية الآداب',        isActive: true, facultyCode: 'FAC-02' },
+  { code: 'SPC-07', name: 'المرور',             isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-08', name: 'الجوازات والهجرة',    isActive: true, facultyCode: 'FAC-02' },
+  { code: 'SPC-09', name: 'الأحوال المدنية',     isActive: true, facultyCode: 'FAC-04' },
+  { code: 'SPC-10', name: 'الإدارة العامة',      isActive: true, facultyCode: 'FAC-03' },
+  { code: 'SPC-11', name: 'الأمن الاجتماعي',     isActive: true, facultyCode: 'FAC-03' },
+  { code: 'SPC-12', name: 'مكافحة الإرهاب',     isActive: true, facultyCode: 'FAC-02' },
 ];
 
 /* ─── 7. faculties — Police Academy faculties ────────────────────────── */
@@ -167,27 +171,8 @@ const faculties: FacultyRow[] = [
   { code: 'FAC-04', name: 'كلية المعاونين',        ...active },
 ];
 
-/* ─── 8. specialization ↔ faculty (junction) ─────────────────────────── */
-
-const specializationFacultyMap: SpecializationFacultyMapRow[] = [
-  // كلية الضباط (FAC-01) — broad set
-  { code: 'SFM-001', name: 'علوم شرطة × ضباط',          isActive: true, specializationCode: 'SPC-01', facultyCode: 'FAC-01' },
-  { code: 'SFM-002', name: 'الأمن العام × ضباط',         isActive: true, specializationCode: 'SPC-02', facultyCode: 'FAC-01' },
-  { code: 'SFM-003', name: 'الأمن المركزي × ضباط',      isActive: true, specializationCode: 'SPC-03', facultyCode: 'FAC-01' },
-  { code: 'SFM-004', name: 'المرور × ضباط',              isActive: true, specializationCode: 'SPC-07', facultyCode: 'FAC-01' },
-  // كلية الضباط المتخصصين (FAC-02) — niche specializations
-  { code: 'SFM-005', name: 'الأمن الإلكتروني × المتخصصين', isActive: true, specializationCode: 'SPC-04', facultyCode: 'FAC-02' },
-  { code: 'SFM-006', name: 'مكافحة المخدرات × المتخصصين',  isActive: true, specializationCode: 'SPC-05', facultyCode: 'FAC-02' },
-  { code: 'SFM-007', name: 'حماية الآداب × المتخصصين',     isActive: true, specializationCode: 'SPC-06', facultyCode: 'FAC-02' },
-  { code: 'SFM-008', name: 'مكافحة الإرهاب × المتخصصين',  isActive: true, specializationCode: 'SPC-12', facultyCode: 'FAC-02' },
-  { code: 'SFM-009', name: 'الجوازات والهجرة × المتخصصين', isActive: true, specializationCode: 'SPC-08', facultyCode: 'FAC-02' },
-  // كلية الدراسات العليا (FAC-03)
-  { code: 'SFM-010', name: 'الأمن الاجتماعي × عليا',     isActive: true, specializationCode: 'SPC-11', facultyCode: 'FAC-03' },
-  { code: 'SFM-011', name: 'الإدارة العامة × عليا',       isActive: true, specializationCode: 'SPC-10', facultyCode: 'FAC-03' },
-  // كلية المعاونين (FAC-04)
-  { code: 'SFM-012', name: 'الأحوال المدنية × معاونين',  isActive: true, specializationCode: 'SPC-09', facultyCode: 'FAC-04' },
-  { code: 'SFM-013', name: 'الإدارة العامة × معاونين',    isActive: true, specializationCode: 'SPC-10', facultyCode: 'FAC-04' },
-];
+/* The old specialization-faculty-map junction table was removed in
+ * favour of a direct `facultyCode` FK on each SpecializationRow above. */
 
 /* ─── 9. applicant-categories ────────────────────────────────────────── */
 
@@ -536,7 +521,6 @@ export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
   'committees': committees,
   'specializations': specializations,
   'faculties': faculties,
-  'specialization-faculty-map': specializationFacultyMap,
   'applicant-categories': applicantCategories,
   'nationalities-countries': nationalitiesCountries,
   'governorates': governorates,

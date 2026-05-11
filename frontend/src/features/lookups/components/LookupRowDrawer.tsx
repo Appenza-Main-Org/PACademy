@@ -276,24 +276,21 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
           <Input label="مسمى الرئيس" containerClassName="col-span-2" {...register('chairTitle')} />
         </>
       );
-    case 'specialization-faculty-map':
+    case 'specializations':
       return (
-        <>
-          <Controller
-            control={control}
-            name="specializationCode"
-            render={({ field }) => (
-              <ForeignKeySelect lookupKey="specializations" label="التخصص" value={field.value as string} onChange={field.onChange} />
-            )}
-          />
-          <Controller
-            control={control}
-            name="facultyCode"
-            render={({ field }) => (
-              <ForeignKeySelect lookupKey="faculties" label="الكلية" value={field.value as string} onChange={field.onChange} />
-            )}
-          />
-        </>
+        <Controller
+          control={control}
+          name="facultyCode"
+          rules={{ required: true }}
+          render={({ field }) => (
+            <ForeignKeySelect
+              lookupKey="faculties"
+              label="الكلية"
+              value={field.value as string}
+              onChange={field.onChange}
+            />
+          )}
+        />
       );
     case 'applicant-categories':
       return (
@@ -554,8 +551,8 @@ function blankRow(key: LookupKey): Record<string, unknown> {
       return { ...base, outcome: 'pass', tone: 'success' };
     case 'committees':
       return { ...base, kind: 'primary', chairTitle: '' };
-    case 'specialization-faculty-map':
-      return { ...base, specializationCode: '', facultyCode: '' };
+    case 'specializations':
+      return { ...base, facultyCode: '' };
     case 'applicant-categories':
       return { ...base, genderScope: 'any', applicationMode: 'general' };
     case 'nationalities-countries':

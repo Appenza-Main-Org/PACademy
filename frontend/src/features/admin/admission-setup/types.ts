@@ -131,10 +131,12 @@ export interface TotalScoreConfig {
  *                               that carries capacity + window dates)
  *
  * Strict category↔specialization mapping was specified by the prompt
- * but the lookup module has no such mapping table today (only
- * `specialization-faculty-map` exists). For V1 the service therefore
- * does not enforce a mapping filter — `SPECIALIZATION_NOT_MAPPED` is
- * reserved for the day the backend ships the junction.
+ * but the lookup module has no such mapping table today (the only
+ * cross-lookup wiring left is the `facultyCode` FK on each
+ * specialization row, which is faculty↔specialization not
+ * category↔specialization). For V1 the service therefore does not
+ * enforce a mapping filter — `SPECIALIZATION_NOT_MAPPED` is reserved
+ * for the day the backend ships the junction.
  * ─────────────────────────────────────────────────────────────────────── */
 
 export interface ApplicantCategoryConfig {

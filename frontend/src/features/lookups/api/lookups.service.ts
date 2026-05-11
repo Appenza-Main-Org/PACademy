@@ -10,7 +10,7 @@
  * All mutations enforce:
  *   - code uniqueness within (lookup_key)
  *   - referential integrity (governorate ⇸ police-stations,
- *     specialization/faculty ⇸ specialization-faculty-map,
+ *     faculty ⇸ specializations.facultyCode,
  *     applicant-category/division ⇸ announcements,
  *     self-referential parentCode chains for relationships and jobs)
  *
@@ -108,15 +108,8 @@ function countReferences<K extends LookupKey>(key: K, code: string): ReferenceCh
       reasons.push(`${refs} قسم/مركز شرطة في هذه المحافظة`);
     }
   }
-  if (key === 'specializations') {
-    const refs = rowsOf('specialization-faculty-map').filter((r) => r.specializationCode === code).length;
-    if (refs > 0) {
-      count += refs;
-      reasons.push(`${refs} ارتباط بكلية`);
-    }
-  }
   if (key === 'faculties') {
-    const refs = rowsOf('specialization-faculty-map').filter((r) => r.facultyCode === code).length;
+    const refs = rowsOf('specializations').filter((r) => r.facultyCode === code).length;
     if (refs > 0) {
       count += refs;
       reasons.push(`${refs} تخصص مرتبط بهذه الكلية`);
