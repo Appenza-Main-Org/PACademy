@@ -6,7 +6,7 @@
  * Inside each card, fields are grouped into three semantic sections:
  *
  *   • البيانات الأساسية — graduation year, gender, marital status
- *   • الشروط الأكاديمية — grade/percentage, division, maximum age
+ *   • الشروط الأكاديمية — grade/percentage, maximum age, division
  *   • الفترة الزمنية   — application start/end, age reference date
  *
  * Card header strip carries the year chips (a teaser of what's selected),
@@ -309,7 +309,7 @@ function YearCard({
 
   const yearError = matchField(['DUPLICATE_YEAR', 'GRAD_YEAR_REQUIRED']);
   const genderError = matchField(['GENDER_REQUIRED', 'DUPLICATE_YEAR', 'OVERLAPPING_PERIOD']);
-  const ageError = matchField(['AGE_NOT_POSITIVE', 'AGE_RANGE_INVALID']);
+  const ageError = matchField(['AGE_NOT_POSITIVE']);
   const gradeError = matchField(['PERCENTAGE_OUT_OF_RANGE', 'GRADE_MODE_MISMATCH']);
   const dateError = matchField(['INVALID_DATE_RANGE', 'OVERLAPPING_PERIOD']);
   const refError = matchField(['AGE_REFERENCE_AFTER_START']);
@@ -469,35 +469,23 @@ function YearCard({
             />
           </Field>
 
-          <Field label="نطاق السن" width="medium" error={ageError}>
+          <Field label="الحد الأقصى للسن" width="narrow" error={ageError}>
             <div className="inline-flex items-center gap-1.5">
-              <Input
-                type="number"
-                min={1}
-                disabled={isDeleted}
-                value={row.ageMin ?? ''}
-                onChange={(e) =>
-                  onPatch({ ageMin: e.target.value === '' ? null : Number(e.target.value) })
-                }
-                containerClassName="!mb-0 w-20"
-                className="text-end tabular-nums"
-                aria-invalid={Boolean(ageError) || undefined}
-                aria-label="السن الأدنى"
-                placeholder="بدون"
-              />
-              <span aria-hidden className="font-ar text-2xs text-ink-500">إلى</span>
               <Input
                 type="number"
                 min={1}
                 disabled={isDeleted}
                 value={row.maxAge ?? ''}
                 onChange={(e) =>
-                  onPatch({ maxAge: e.target.value === '' ? null : Number(e.target.value) })
+                  onPatch({
+                    maxAge: e.target.value === '' ? null : Number(e.target.value),
+                    ageMin: null,
+                  })
                 }
-                containerClassName="!mb-0 w-20"
+                containerClassName="!mb-0 w-24"
                 className="text-end tabular-nums"
                 aria-invalid={Boolean(ageError) || undefined}
-                aria-label="السن الأقصى"
+                aria-label="الحد الأقصى للسن"
                 placeholder="بدون"
               />
               <span aria-hidden className="font-ar text-xs text-ink-500">سنة</span>
@@ -531,68 +519,52 @@ function YearCard({
           )}
         </FieldGroup>
 
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <h4 className="font-ar text-xs font-semibold text-ink-800">الفترة الزمنية</h4>
-            <span aria-hidden className="h-px flex-1 bg-border-subtle" />
-          </div>
+        <FieldGroup title="الفترة الزمنية">
+          <Field label="بداية التقديم" width="medium">
+            <DatePicker
+              value={isoToDate(row.applicationStartDate)}
+              disabled={isDeleted}
+              onChange={(d) =>
+                onPatch({
+                  applicationStartDate: dateToIso(d) ?? row.applicationStartDate,
+                })
+              }
+            />
+          </Field>
 
-          <div className="flex flex-wrap gap-x-6 gap-y-4">
-            <div className="flex min-w-[280px] max-w-[420px] flex-1 flex-col gap-1.5">
-              <label className="font-ar text-xs font-medium text-ink-700">فترة التقديم</label>
-              <div className="flex items-start gap-2">
-                <div className="flex flex-1 flex-col gap-0.5">
-                  <span className="font-ar text-2xs text-ink-500">من</span>
-                  <DatePicker
-                    value={isoToDate(row.applicationStartDate)}
-                    disabled={isDeleted}
-                    onChange={(d) =>
-                      onPatch({
-                        applicationStartDate: dateToIso(d) ?? row.applicationStartDate,
-                      })
-                    }
-                  />
-                </div>
-                <span
-                  aria-hidden
-                  className="pt-6 font-ar text-2xs text-ink-400"
-                >
-                  ←
-                </span>
-                <div className="flex flex-1 flex-col gap-0.5">
-                  <span className="font-ar text-2xs text-ink-500">إلى</span>
-                  <DatePicker
-                    value={isoToDate(row.applicationEndDate)}
-                    disabled={isDeleted}
-                    onChange={(d) =>
-                      onPatch({
-                        applicationEndDate: dateToIso(d) ?? row.applicationEndDate,
-                      })
-                    }
-                    min={row.applicationStartDate.slice(0, 10)}
-                  />
-                  {dateError && <FieldError text={dateError} />}
-                </div>
-              </div>
-            </div>
+          <Field
+            label="نهاية التقديم"
+            width="medium"
+            error={dateError}
+          >
+            <DatePicker
+              value={isoToDate(row.applicationEndDate)}
+              disabled={isDeleted}
+              onChange={(d) =>
+                onPatch({
+                  applicationEndDate: dateToIso(d) ?? row.applicationEndDate,
+                })
+              }
+              min={row.applicationStartDate.slice(0, 10)}
+            />
+          </Field>
 
-            <Field
-              label="تاريخ احتساب السن"
-              width="medium"
-              helper="يسبق بداية التقديم"
-              error={refError}
-            >
-              <DatePicker
-                value={isoToDate(row.ageReferenceDate)}
-                disabled={isDeleted}
-                onChange={(d) =>
-                  onPatch({ ageReferenceDate: dateToIso(d) ?? row.ageReferenceDate })
-                }
-                max={row.applicationStartDate.slice(0, 10)}
-              />
-            </Field>
-          </div>
-        </section>
+          <Field
+            label="تاريخ احتساب السن"
+            width="medium"
+            helper="يسبق بداية التقديم"
+            error={refError}
+          >
+            <DatePicker
+              value={isoToDate(row.ageReferenceDate)}
+              disabled={isDeleted}
+              onChange={(d) =>
+                onPatch({ ageReferenceDate: dateToIso(d) ?? row.ageReferenceDate })
+              }
+              max={row.applicationStartDate.slice(0, 10)}
+            />
+          </Field>
+        </FieldGroup>
       </div>
     </article>
   );
