@@ -122,6 +122,18 @@ function countReferences<K extends LookupKey>(key: K, code: string): ReferenceCh
       reasons.push(`${refs} تنبيه مرتبط بهذه الفئة`);
     }
   }
+  if (key === 'submission-types') {
+    /* applicant-categories carry the FK in `metadata.submissionTypeCode`
+     * (the codebase has no uuid `id` column — code is the identity). */
+    const refs = rowsOf('applicant-categories').filter((r) => {
+      const m = (r.metadata ?? {}) as { submissionTypeCode?: unknown };
+      return m.submissionTypeCode === code;
+    }).length;
+    if (refs > 0) {
+      count += refs;
+      reasons.push(`${refs} فئة متقدمين مرتبطة بنوع التقديم هذا`);
+    }
+  }
   if (key === 'applicant-divisions') {
     const refs = rowsOf('announcements').filter((r) => r.divisionCode === code).length;
     if (refs > 0) {

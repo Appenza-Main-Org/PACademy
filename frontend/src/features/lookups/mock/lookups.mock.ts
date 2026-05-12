@@ -454,6 +454,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
     code: 'special_units',
     name: 'الوحدات الخاصة',
     isActive: true,
+    metadata: { submissionTypeCode: submissionTypeCodeFor('special_units') },
     nameEn: 'Special Units',
     description: 'تأهيل ضباط الوحدات الخاصة بمستوى بدني وذهني عالي (بالترشيح)',
     isOpen: true,

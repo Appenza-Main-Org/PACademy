@@ -470,7 +470,15 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
     case 'applicant-categories':
       return [
         { key: 'genderScope', label: 'نطاق النوع', width: 110, render: (r: ApplicantCategoryRow) => <Badge tone={r.genderScope === 'male' ? 'info' : r.genderScope === 'female' ? 'accent' : 'neutral'}>{r.genderScope === 'male' ? 'ذكور' : r.genderScope === 'female' ? 'إناث' : 'الكل'}</Badge> },
-        { key: 'applicationMode', label: 'نوع التقديم', width: 120, render: (r: ApplicantCategoryRow) => <Badge tone="neutral">{r.applicationMode === 'general' ? 'عام' : 'بالترشيح'}</Badge> },
+        /* "نوع التقديم" reflects the new submission-types FK
+         * (`metadata.submissionTypeCode`). Replaces the legacy
+         * applicationMode binary badge — the typed column is still on the
+         * row but is no longer the rendering source. */
+        { key: 'submissionTypeCode', label: 'نوع التقديم', width: 180, render: (r: ApplicantCategoryRow) => {
+          const meta = (r.metadata ?? {}) as { submissionTypeCode?: string };
+          if (!meta.submissionTypeCode) return <Badge tone="warning">—</Badge>;
+          return <Badge tone="neutral">{labelByCode('submission-types', meta.submissionTypeCode)}</Badge>;
+        } },
       ];
     case 'nationalities-countries':
       return [
