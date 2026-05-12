@@ -18,6 +18,7 @@ public sealed class Cycle
     public bool DemoOrigin { get; private set; }
     public string OpenCategoriesJson { get; private set; } = "{}";
     public string ConditionOverridesJson { get; private set; } = "{}";
+    public byte[] RowVersion { get; private set; } = [];
 
     private Cycle() { }
 

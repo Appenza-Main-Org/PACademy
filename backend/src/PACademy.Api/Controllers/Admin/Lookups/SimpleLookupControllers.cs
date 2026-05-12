@@ -28,17 +28,23 @@ public sealed class AdminEducationTypesController(
     ArchiveEducationTypeUseCase archive, RestoreEducationTypeUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<EducationTypeDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<EducationTypeDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<EducationTypeDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<EducationTypeDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<EducationTypeDto>> Create([FromBody] CreateEducationTypeRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<EducationTypeDto>> Create([FromBody] CreateEducationTypeRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<EducationTypeDto>> Update(Guid id, [FromBody] UpdateEducationTypeRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<EducationTypeDto>> Update(Guid id, [FromBody] UpdateEducationTypeRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -49,17 +55,23 @@ public sealed class AdminMaritalStatusesController(
     ArchiveMaritalStatusUseCase archive, RestoreMaritalStatusUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<MaritalStatusDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<MaritalStatusDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<MaritalStatusDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<MaritalStatusDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<MaritalStatusDto>> Create([FromBody] CreateMaritalStatusRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<MaritalStatusDto>> Create([FromBody] CreateMaritalStatusRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<MaritalStatusDto>> Update(Guid id, [FromBody] UpdateMaritalStatusRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<MaritalStatusDto>> Update(Guid id, [FromBody] UpdateMaritalStatusRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -70,17 +82,23 @@ public sealed class AdminUniversitiesController(
     ArchiveUniversityUseCase archive, RestoreUniversityUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<UniversityDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<UniversityDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<UniversityDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<UniversityDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<UniversityDto>> Create([FromBody] CreateUniversityRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<UniversityDto>> Create([FromBody] CreateUniversityRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<UniversityDto>> Update(Guid id, [FromBody] UpdateUniversityRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<UniversityDto>> Update(Guid id, [FromBody] UpdateUniversityRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -91,17 +109,23 @@ public sealed class AdminFacultiesController(
     ArchiveFacultyUseCase archive, RestoreFacultyUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<FacultyDto>>> List([FromQuery] FacultyListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<FacultyDto>>> List([FromQuery] FacultyListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<FacultyDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<FacultyDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<FacultyDto>> Create([FromBody] CreateFacultyRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<FacultyDto>> Create([FromBody] CreateFacultyRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<FacultyDto>> Update(Guid id, [FromBody] UpdateFacultyRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<FacultyDto>> Update(Guid id, [FromBody] UpdateFacultyRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -112,17 +136,23 @@ public sealed class AdminSpecialtyTypesController(
     ArchiveSpecialtyTypeUseCase archive, RestoreSpecialtyTypeUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<SpecialtyTypeDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<SpecialtyTypeDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<SpecialtyTypeDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<SpecialtyTypeDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<SpecialtyTypeDto>> Create([FromBody] CreateSpecialtyTypeRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<SpecialtyTypeDto>> Create([FromBody] CreateSpecialtyTypeRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<SpecialtyTypeDto>> Update(Guid id, [FromBody] UpdateSpecialtyTypeRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<SpecialtyTypeDto>> Update(Guid id, [FromBody] UpdateSpecialtyTypeRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -133,17 +163,23 @@ public sealed class AdminSpecialtiesController(
     ArchiveSpecialtyUseCase archive, RestoreSpecialtyUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<SpecialtyDto>>> List([FromQuery] SpecialtyListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<SpecialtyDto>>> List([FromQuery] SpecialtyListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<SpecialtyDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<SpecialtyDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<SpecialtyDto>> Create([FromBody] CreateSpecialtyRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<SpecialtyDto>> Create([FromBody] CreateSpecialtyRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<SpecialtyDto>> Update(Guid id, [FromBody] UpdateSpecialtyRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<SpecialtyDto>> Update(Guid id, [FromBody] UpdateSpecialtyRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -154,17 +190,23 @@ public sealed class AdminDegreeTypesController(
     ArchiveDegreeTypeUseCase archive, RestoreDegreeTypeUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<DegreeTypeDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<DegreeTypeDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<DegreeTypeDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<DegreeTypeDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<DegreeTypeDto>> Create([FromBody] CreateDegreeTypeRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<DegreeTypeDto>> Create([FromBody] CreateDegreeTypeRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<DegreeTypeDto>> Update(Guid id, [FromBody] UpdateDegreeTypeRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<DegreeTypeDto>> Update(Guid id, [FromBody] UpdateDegreeTypeRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -175,17 +217,23 @@ public sealed class AdminJobsController(
     ArchiveJobUseCase archive, RestoreJobUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<JobDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<JobDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<JobDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<JobDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<JobDto>> Create([FromBody] CreateJobRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<JobDto>> Create([FromBody] CreateJobRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<JobDto>> Update(Guid id, [FromBody] UpdateJobRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<JobDto>> Update(Guid id, [FromBody] UpdateJobRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -196,17 +244,23 @@ public sealed class AdminExamTypesController(
     ArchiveExamTypeUseCase archive, RestoreExamTypeUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<ExamTypeDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<ExamTypeDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<ExamTypeDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ExamTypeDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<ExamTypeDto>> Create([FromBody] CreateExamTypeRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<ExamTypeDto>> Create([FromBody] CreateExamTypeRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<ExamTypeDto>> Update(Guid id, [FromBody] UpdateExamTypeRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<ExamTypeDto>> Update(Guid id, [FromBody] UpdateExamTypeRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -217,17 +271,23 @@ public sealed class AdminExamGroupsController(
     ArchiveExamGroupUseCase archive, RestoreExamGroupUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<ExamGroupDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<ExamGroupDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<ExamGroupDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ExamGroupDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<ExamGroupDto>> Create([FromBody] CreateExamGroupRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<ExamGroupDto>> Create([FromBody] CreateExamGroupRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<ExamGroupDto>> Update(Guid id, [FromBody] UpdateExamGroupRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<ExamGroupDto>> Update(Guid id, [FromBody] UpdateExamGroupRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -238,17 +298,23 @@ public sealed class AdminCommitteeTypesController(
     ArchiveCommitteeTypeUseCase archive, RestoreCommitteeTypeUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<CommitteeTypeDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<CommitteeTypeDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<CommitteeTypeDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<CommitteeTypeDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<CommitteeTypeDto>> Create([FromBody] CreateCommitteeTypeRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<CommitteeTypeDto>> Create([FromBody] CreateCommitteeTypeRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<CommitteeTypeDto>> Update(Guid id, [FromBody] UpdateCommitteeTypeRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<CommitteeTypeDto>> Update(Guid id, [FromBody] UpdateCommitteeTypeRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -259,17 +325,23 @@ public sealed class AdminRejectionReasonsController(
     ArchiveRejectionReasonUseCase archive, RestoreRejectionReasonUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<RejectionReasonDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<RejectionReasonDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<RejectionReasonDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<RejectionReasonDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<RejectionReasonDto>> Create([FromBody] CreateRejectionReasonRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<RejectionReasonDto>> Create([FromBody] CreateRejectionReasonRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<RejectionReasonDto>> Update(Guid id, [FromBody] UpdateRejectionReasonRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<RejectionReasonDto>> Update(Guid id, [FromBody] UpdateRejectionReasonRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }
 
@@ -280,16 +352,22 @@ public sealed class AdminNotificationDepartmentsController(
     ArchiveNotificationDepartmentUseCase archive, RestoreNotificationDepartmentUseCase restore)
     : ControllerBase
 {
-    [HttpGet] public async Task<ActionResult<PagedResult<NotificationDepartmentDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
+    [HttpGet]
+    public async Task<ActionResult<PagedResult<NotificationDepartmentDto>>> List([FromQuery] LookupListFilters f, CancellationToken ct)
     { var r = await list.ExecuteAsync(f, ct); Response.Headers["X-Total-Count"] = r.TotalCount.ToString(); Response.Headers["X-Page-Count"] = r.TotalPages.ToString(); return Ok(r); }
-    [HttpGet("{id:guid}")] public async Task<ActionResult<NotificationDepartmentDto>> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<NotificationDepartmentDto>> Get(Guid id, CancellationToken ct)
         => await get.ExecuteAsync(id, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost] public async Task<ActionResult<NotificationDepartmentDto>> Create([FromBody] CreateNotificationDepartmentRequest req, CancellationToken ct)
+    [HttpPost]
+    public async Task<ActionResult<NotificationDepartmentDto>> Create([FromBody] CreateNotificationDepartmentRequest req, CancellationToken ct)
     { var d = await create.ExecuteAsync(req, ct); return CreatedAtAction(nameof(Get), new { id = d.Id }, d); }
-    [HttpPatch("{id:guid}")] public async Task<ActionResult<NotificationDepartmentDto>> Update(Guid id, [FromBody] UpdateNotificationDepartmentRequest req, CancellationToken ct)
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<NotificationDepartmentDto>> Update(Guid id, [FromBody] UpdateNotificationDepartmentRequest req, CancellationToken ct)
         => await update.ExecuteAsync(id, req, ct) is { } d ? Ok(d) : NotFound();
-    [HttpPost("{id:guid}/archive")] public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/archive")]
+    public async Task<IActionResult> Archive(Guid id, CancellationToken ct)
         => await archive.ExecuteAsync(id, ct) ? NoContent() : NotFound();
-    [HttpPost("{id:guid}/restore")] public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
         => await restore.ExecuteAsync(id, ct) ? NoContent() : NotFound();
 }

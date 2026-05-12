@@ -234,7 +234,13 @@ export type AuditAction =
   | 'user_status_changed'
   | 'user_roles_changed'
   /* Bulk import — spec 008 */
-  | 'import_completed';
+  | 'import_completed'
+  /* Admission-setup wizard (spec 009) */
+  | 'merge_rule_applied'
+  | 'merge_rule_cancelled'
+  | 'wizard_step_completed'
+  | 'wizard_step_reopened'
+  | 'cycle_cloned';
 export type AuditColor = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 /** Typed module taxonomy — used by Gap E filters and the withAudit() helper. */

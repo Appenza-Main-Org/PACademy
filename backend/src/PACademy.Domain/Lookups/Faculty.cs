@@ -13,10 +13,15 @@ public sealed class Faculty : SimpleLookupBase
         return new Faculty
         {
             Id = Guid.NewGuid(),
-            Key = key, LabelAr = labelAr, LabelEn = labelEn,
+            Key = key,
+            LabelAr = labelAr,
+            LabelEn = labelEn,
             UniversityId = universityId,
-            SortOrder = sortOrder, IsActive = true, IsSystem = isSystem,
-            CreatedAt = DateTime.UtcNow, DemoOrigin = demoOrigin,
+            SortOrder = sortOrder,
+            IsActive = true,
+            IsSystem = isSystem,
+            CreatedAt = DateTime.UtcNow,
+            DemoOrigin = demoOrigin,
         };
     }
 

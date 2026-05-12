@@ -872,8 +872,8 @@ public sealed class DemoDataSeeder(
     private static readonly System.Collections.Generic.Dictionary<
         string,
         (string Key, string LabelAr, int SortOrder, string? ParentKey, string? Gender, bool IsActive)[]> LookupSeeds = new()
-    {
-        ["educationTypes"] = new[]
+        {
+            ["educationTypes"] = new[]
         {
             ("thanaweya_amma", "ثانوية عامة", 10, (string?)null, (string?)null, true),
             ("azhar", "أزهر", 20, null, null, true),
@@ -886,14 +886,14 @@ public sealed class DemoDataSeeder(
             ("ig", "IG", 81, null, null, true),
             ("american_diploma", "الدبلوم الأمريكي", 82, null, null, true),
         },
-        ["maritalStatuses"] = new[]
+            ["maritalStatuses"] = new[]
         {
             ("single", "أعزب", 10, (string?)null, (string?)null, true),
             ("married", "متزوج", 20, null, null, true),
             ("divorced", "مطلق", 30, null, null, false),
             ("widowed", "أرمل", 40, null, null, false),
         },
-        ["universities"] = new[]
+            ["universities"] = new[]
         {
             ("cairo", "جامعة القاهرة", 10, (string?)null, (string?)null, true),
             ("ain_shams", "جامعة عين شمس", 20, null, null, true),
@@ -904,7 +904,7 @@ public sealed class DemoDataSeeder(
             ("zagazig", "جامعة الزقازيق", 70, null, null, true),
             ("police_academy", "أكاديمية الشرطة", 80, null, null, true),
         },
-        ["faculties"] = new[]
+            ["faculties"] = new[]
         {
             ("engineering_cu", "كلية الهندسة", 10, (string?)"cairo", (string?)null, true),
             ("law_cu", "كلية الحقوق", 20, "cairo", null, true),
@@ -913,7 +913,7 @@ public sealed class DemoDataSeeder(
             ("engineering_as", "كلية الهندسة", 20, "ain_shams", null, true),
             ("police_pa", "كلية الشرطة", 10, "police_academy", null, true),
         },
-        ["specialtyTypes"] = new[]
+            ["specialtyTypes"] = new[]
         {
             ("engineering", "هندسة", 10, (string?)null, (string?)null, true),
             ("accounting", "محاسبة", 20, null, null, true),
@@ -922,7 +922,7 @@ public sealed class DemoDataSeeder(
             ("computer_science", "علوم الحاسب", 50, null, null, true),
             ("business", "إدارة الأعمال", 60, null, null, true),
         },
-        ["specialties"] = new[]
+            ["specialties"] = new[]
         {
             ("civil_engineering", "هندسة مدنية", 10, (string?)"engineering", (string?)null, true),
             ("electrical_engineering", "هندسة كهربائية", 20, "engineering", null, true),
@@ -930,14 +930,14 @@ public sealed class DemoDataSeeder(
             ("financial_accounting", "محاسبة مالية", 10, "accounting", null, true),
             ("cost_accounting", "محاسبة تكاليف", 20, "accounting", null, true),
         },
-        ["degreeTypes"] = new[]
+            ["degreeTypes"] = new[]
         {
             ("bachelor", "بكالوريوس", 10, (string?)null, (string?)null, true),
             ("master", "ماجستير", 20, null, null, true),
             ("phd", "دكتوراه", 30, null, null, true),
             ("higher_diploma", "دبلوم عالٍ", 40, null, null, true),
         },
-        ["jobs"] = new[]
+            ["jobs"] = new[]
         {
             ("teacher", "مدرّس", 10, (string?)null, (string?)null, true),
             ("engineer", "مهندس", 20, null, null, true),
@@ -952,7 +952,7 @@ public sealed class DemoDataSeeder(
             ("housewife", "ربة منزل", 110, null, null, true),
             ("retired", "متقاعد", 120, null, null, true),
         },
-        ["examTypes"] = new[]
+            ["examTypes"] = new[]
         {
             ("aptitude", "القدرات", 10, (string?)null, (string?)null, true),
             ("height", "الطول", 20, null, null, true),
@@ -968,7 +968,7 @@ public sealed class DemoDataSeeder(
             ("psychology", "الاتزان النفسي", 120, null, null, true),
             ("medical_advanced", "الطبي المتقدم", 130, null, null, true),
         },
-        ["examGroups"] = new[]
+            ["examGroups"] = new[]
         {
             ("preliminary", "الاختبارات الأولية", 10, (string?)null, (string?)null, true),
             ("committees_capacity_traits", "لجان القدرات والسمات", 20, null, null, true),
@@ -977,14 +977,14 @@ public sealed class DemoDataSeeder(
             ("psychology_group", "الاختبارات النفسية", 50, null, null, true),
             ("faculty_exams", "اختبارات الكلية", 60, null, null, true),
         },
-        ["committeeTypes"] = new[]
+            ["committeeTypes"] = new[]
         {
             ("capacities", "لجنة القدرات", 10, (string?)null, (string?)null, true),
             ("traits", "لجنة السمات", 20, null, null, true),
             ("sports", "لجنة الرياضة", 30, null, null, true),
             ("interview", "لجنة المقابلة", 40, null, null, true),
         },
-        ["rejectionReasons"] = new[]
+            ["rejectionReasons"] = new[]
         {
             ("age_out_of_range", "السن خارج المسموح به", 10, (string?)null, (string?)null, true),
             ("gender_mismatch", "لا يطابق متطلبات النوع", 20, null, null, true),
@@ -999,7 +999,7 @@ public sealed class DemoDataSeeder(
             ("withdrawal", "انسحاب من المتقدم", 110, null, null, true),
             ("absent_from_test", "تخلّف عن اختبار", 120, null, null, true),
         },
-        ["notificationDepartments"] = new[]
+            ["notificationDepartments"] = new[]
         {
             ("admissions", "إدارة القبول", 10, (string?)null, (string?)null, true),
             ("investigations", "إدارة التحريات", 20, null, null, true),
@@ -1008,5 +1008,5 @@ public sealed class DemoDataSeeder(
             ("finance", "الإدارة المالية", 50, null, null, true),
             ("it", "إدارة التكنولوجيا", 60, null, null, true),
         },
-    };
+        };
 }

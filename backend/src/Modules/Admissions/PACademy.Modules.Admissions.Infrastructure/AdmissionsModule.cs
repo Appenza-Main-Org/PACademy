@@ -6,6 +6,13 @@ using PACademy.Modules.Admissions.Application.Admin.AdmissionRules;
 using PACademy.Modules.Admissions.Application.Admin.Applicants;
 using PACademy.Modules.Admissions.Application.Admin.Categories;
 using PACademy.Modules.Admissions.Application.Admin.Cycles;
+using PACademy.Modules.Admissions.Application.Admin.WizardStatus;
+using PACademy.Modules.Admissions.Application.Admin.MergeSplit;
+using PACademy.Modules.Admissions.Application.Admin.ScoreThresholds;
+using PACademy.Modules.Admissions.Application.Admin.ExamDateConfigs;
+using PACademy.Modules.Admissions.Application.Admin.TotalScore;
+using PACademy.Modules.Admissions.Application.Admin.ElectronicDeclaration;
+using PACademy.Modules.Admissions.Application.Admin.CycleExams;
 using PACademy.Modules.Admissions.Infrastructure.Persistence;
 using PACademy.Modules.Admissions.Public;
 
@@ -20,10 +27,13 @@ public static class AdmissionsModule
         var connectionString = configuration.GetConnectionString("Default")
             ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
 
-        services.AddDbContext<AdmissionsDbContext>(opt =>
+        services.AddSingleton<WizardStatusInterceptor>();
+
+        services.AddDbContext<AdmissionsDbContext>((sp, opt) =>
             opt.UseSqlServer(connectionString,
                 o => o.MigrationsHistoryTable("__EFMigrationsHistory_Admissions")
-                       .MigrationsAssembly(typeof(AdmissionsDbContext).Assembly.FullName)));
+                       .MigrationsAssembly(typeof(AdmissionsDbContext).Assembly.FullName))
+               .AddInterceptors(sp.GetRequiredService<WizardStatusInterceptor>()));
 
         services.AddScoped<IAdmissionsDbContext>(sp => sp.GetRequiredService<AdmissionsDbContext>());
         services.AddScoped<IAdmissionsApi, AdmissionsApiService>();
@@ -52,6 +62,51 @@ public static class AdmissionsModule
         services.AddScoped<ListApplicantsUseCase>();
         services.AddScoped<GetApplicantUseCase>();
         services.AddScoped<UpdateApplicantUseCase>();
+
+        // WizardStatus use cases
+        services.AddScoped<GetWizardStepStatusesUseCase>();
+        services.AddScoped<CompleteWizardStepUseCase>();
+        services.AddScoped<ReopenWizardStepUseCase>();
+
+        // MergeSplit use cases
+        services.AddScoped<ListMergeSplitRulesUseCase>();
+        services.AddScoped<GetMergeSplitRuleUseCase>();
+        services.AddScoped<CreateMergeSplitRuleUseCase>();
+        services.AddScoped<UpdateMergeSplitRuleUseCase>();
+        services.AddScoped<CancelMergeSplitRuleUseCase>();
+        services.AddScoped<ArchiveMergeSplitRuleUseCase>();
+        services.AddScoped<PreviewMergeSplitRuleUseCase>();
+        services.AddScoped<ApplyMergeSplitRuleUseCase>();
+
+        // ScoreThresholds use cases
+        services.AddScoped<ListScoreThresholdsUseCase>();
+        services.AddScoped<GetScoreThresholdUseCase>();
+        services.AddScoped<UpsertScoreThresholdUseCase>();
+
+        // ExamDateConfig use cases
+        services.AddScoped<GetExamDateConfigUseCase>();
+        services.AddScoped<UpsertExamDateConfigUseCase>();
+
+        // TotalScore use cases
+        services.AddScoped<ListTotalScoreConfigsUseCase>();
+        services.AddScoped<GetTotalScoreConfigUseCase>();
+        services.AddScoped<UpsertTotalScoreConfigUseCase>();
+
+        // ElectronicDeclaration use cases
+        services.AddScoped<ListDeclarationVersionsUseCase>();
+        services.AddScoped<GetPublishedDeclarationUseCase>();
+        services.AddScoped<CreateDeclarationDraftUseCase>();
+        services.AddScoped<UpdateDeclarationUseCase>();
+        services.AddScoped<PublishDeclarationUseCase>();
+        services.AddScoped<ArchiveDeclarationUseCase>();
+
+        // CycleExam use cases
+        services.AddScoped<ListCycleExamsUseCase>();
+        services.AddScoped<CreateCycleExamUseCase>();
+        services.AddScoped<UpdateCycleExamUseCase>();
+        services.AddScoped<ReorderCycleExamsUseCase>();
+        services.AddScoped<ArchiveCycleExamUseCase>();
+        services.AddScoped<RestoreCycleExamUseCase>();
 
         return services;
     }

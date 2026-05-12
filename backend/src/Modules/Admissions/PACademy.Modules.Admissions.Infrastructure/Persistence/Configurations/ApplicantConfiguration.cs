@@ -22,6 +22,7 @@ internal sealed class ApplicantConfiguration : IEntityTypeConfiguration<Applican
         b.Property(a => a.UpdatedAt).IsRequired();
         b.Property(a => a.Archived).HasDefaultValue(false).IsRequired();
         b.Property(a => a.DemoOrigin).HasDefaultValue(false).IsRequired();
+        b.Property(a => a.CommitteeId).IsRequired(false);
 
         // FR-016: unique (CycleId, NationalId)
         b.HasIndex(a => new { a.CycleId, a.NationalId })

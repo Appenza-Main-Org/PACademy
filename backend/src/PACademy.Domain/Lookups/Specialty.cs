@@ -17,10 +17,16 @@ public sealed class Specialty : SimpleLookupBase
         return new Specialty
         {
             Id = Guid.NewGuid(),
-            Key = key, LabelAr = labelAr, LabelEn = labelEn,
-            SpecialtyTypeId = specialtyTypeId, Gender = gender,
-            SortOrder = sortOrder, IsActive = true, IsSystem = isSystem,
-            CreatedAt = DateTime.UtcNow, DemoOrigin = demoOrigin,
+            Key = key,
+            LabelAr = labelAr,
+            LabelEn = labelEn,
+            SpecialtyTypeId = specialtyTypeId,
+            Gender = gender,
+            SortOrder = sortOrder,
+            IsActive = true,
+            IsSystem = isSystem,
+            CreatedAt = DateTime.UtcNow,
+            DemoOrigin = demoOrigin,
         };
     }
 

@@ -8,7 +8,14 @@
 
 export { ADMISSION_SETUP_STEPS, ADMISSION_SETUP_TOTAL_STEPS, getStepByKey, getStepByPath } from './config';
 export type { AdmissionSetupStep } from './config';
-export type { AdmissionSetupStepKey, AdmissionSetupStepStatus } from './types';
+export type { AdmissionSetupStepKey, AdmissionSetupStepStatus, WizardStepStatusRow, MergeSplitPreviewDto, ApplyResultDto, MergeSplitRuleStatus } from './types';
+
+/* Hooks */
+export { useWizardWritePermission } from './hooks/useWizardWritePermission';
+export type { WizardWritePermission } from './hooks/useWizardWritePermission';
+
+/* Draft utilities */
+export { readDraft, writeDraft, clearDraft, listDrafts, writeConflict, readConflict, clearConflict } from './lib/wizard-draft';
 
 /* Pages */
 export { AdmissionSetupIndexPage } from './pages/AdmissionSetupIndexPage';

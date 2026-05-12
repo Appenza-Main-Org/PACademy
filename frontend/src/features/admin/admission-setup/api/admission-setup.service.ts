@@ -95,12 +95,14 @@ export const admissionSetupService = {
       id: id('CMS'),
       cycleId: input.cycleId,
       type: input.type,
+      status: 'planned',
       sourceCommitteeIds: [...input.sourceCommitteeIds],
       targetCommitteeIds: [...input.targetCommitteeIds],
       reason: input.reason,
       effectiveAt: input.effectiveAt,
       createdAt: new Date().toISOString(),
       createdBy: actorId(),
+      rowVersion: 'AAAAAAAAAAA=',
     };
     MERGE_SPLIT_RULES.unshift(rule);
     emitAudit({
@@ -152,6 +154,7 @@ export const admissionSetupService = {
           max: m?.max ?? 0,
           updatedAt: new Date().toISOString(),
           updatedBy: actorId(),
+          rowVersion: 'AAAAAAAAAAA=',
         } satisfies CommitteeScoreThreshold;
       });
   },
@@ -196,6 +199,7 @@ export const admissionSetupService = {
       max: input.max,
       updatedAt: new Date().toISOString(),
       updatedBy: actorId(),
+      rowVersion: 'AAAAAAAAAAA=',
     };
   },
 
@@ -236,6 +240,7 @@ export const admissionSetupService = {
       blackoutDates: [...input.blackoutDates].sort(),
       updatedAt: new Date().toISOString(),
       updatedBy: actorId(),
+      rowVersion: 'AAAAAAAAAAA=',
     };
     const before = idx === -1 ? null : EXAM_DATE_CONFIGS[idx];
     if (idx === -1) EXAM_DATE_CONFIGS.unshift(next);
@@ -289,6 +294,7 @@ export const admissionSetupService = {
       totalScoreOutOf: input.totalScoreOutOf,
       updatedAt: new Date().toISOString(),
       updatedBy: actorId(),
+      rowVersion: 'AAAAAAAAAAA=',
     };
     const before = idx === -1 ? null : TOTAL_SCORE_CONFIGS[idx];
     if (idx === -1) TOTAL_SCORE_CONFIGS.unshift(next);
@@ -333,6 +339,7 @@ export const admissionSetupService = {
       effectiveFrom: input.effectiveFrom,
       createdAt: new Date().toISOString(),
       createdBy: actorId(),
+      rowVersion: 'AAAAAAAAAAA=',
     };
     DECLARATIONS.unshift(next);
     emitAudit({

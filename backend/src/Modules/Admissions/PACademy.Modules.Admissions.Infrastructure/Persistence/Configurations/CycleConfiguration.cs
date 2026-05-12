@@ -32,6 +32,8 @@ internal sealed class CycleConfiguration : IEntityTypeConfiguration<Cycle>
             .HasColumnType("nvarchar(max)")
             .HasDefaultValue("{}");
 
+        b.Property(c => c.RowVersion).IsRowVersion();
+
         b.HasIndex(c => c.Archived)
             .HasFilter("[Archived] = 0")
             .HasDatabaseName("IX_cycles_active");

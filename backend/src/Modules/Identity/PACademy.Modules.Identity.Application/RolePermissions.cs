@@ -9,6 +9,7 @@ public static class RolePermissions
             "applicants:view", "applicants:edit", "applicants:transition",
             "committees:manage", "barcode:print", "biometric:verify",
             "workflows:read", "workflows:write", "users:create",
+            "admission-setup:read", "admission-setup:write",
         ],
         ["committee_user"] = ["applicants:view", "barcode:print", "biometric:verify"],
         ["medical_admin"] = ["medical:manage", "results:enter", "biometric:verify"],

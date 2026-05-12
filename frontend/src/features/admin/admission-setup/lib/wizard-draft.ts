@@ -55,6 +55,52 @@ export function clearDraft(cycleId: string): void {
   }
 }
 
+/**
+ * Called when a mutation returns a 409 ROW_VERSION_CONFLICT — ensures the
+ * in-flight edits are NOT silently discarded. The draft store keeps a
+ * `conflictPending` flag that surfaces the RowVersionConflictDialog.
+ * Server-state wins only after the user explicitly confirms "Refresh and re-apply".
+ */
+export interface ConflictState {
+  entityType: string;
+  entityId: string;
+  currentRowVersion: string;
+  messageAr: string;
+  messageEn: string;
+  inFlightValues?: Record<string, unknown>;
+}
+
+const CONFLICT_KEY_PREFIX = 'pa-admission-setup-conflict:';
+
+export function writeConflict(cycleId: string, state: ConflictState): void {
+  try {
+    localStorage.setItem(
+      `${CONFLICT_KEY_PREFIX}${cycleId}`,
+      JSON.stringify(state),
+    );
+  } catch {
+    /* swallow */
+  }
+}
+
+export function readConflict(cycleId: string): ConflictState | null {
+  try {
+    const raw = localStorage.getItem(`${CONFLICT_KEY_PREFIX}${cycleId}`);
+    if (!raw) return null;
+    return JSON.parse(raw) as ConflictState;
+  } catch {
+    return null;
+  }
+}
+
+export function clearConflict(cycleId: string): void {
+  try {
+    localStorage.removeItem(`${CONFLICT_KEY_PREFIX}${cycleId}`);
+  } catch {
+    /* swallow */
+  }
+}
+
 /** Enumerate all persisted drafts — used by the launcher to list "resume" rows. */
 export function listDrafts(): AdmissionSetupDraft[] {
   const out: AdmissionSetupDraft[] = [];

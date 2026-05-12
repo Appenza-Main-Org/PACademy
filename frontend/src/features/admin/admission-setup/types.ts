@@ -33,6 +33,42 @@ export type AdmissionSetupStepKey =
 /** Per-step status pill state shown on the index landing. */
 export type AdmissionSetupStepStatus = 'complete' | 'in_progress' | 'not_started';
 
+/** Spec 009 — server-persisted step status row. */
+export interface WizardStepStatusRow {
+  cycleId: string;
+  stepKey: AdmissionSetupStepKey;
+  status: AdmissionSetupStepStatus;
+  completedAt?: string;
+  completedBy?: string;
+  rowVersion: string;
+}
+
+/** Spec 009 — merge/split apply preview DTO. */
+export interface MergeSplitPreviewDto {
+  applicantsMoved: Array<{
+    id: string;
+    fromCommitteeId: string;
+    toCommitteeId: string;
+  }>;
+  capacityChanges: Array<{
+    committeeId: string;
+    before: number;
+    after: number;
+  }>;
+  brokenReferences: unknown[];
+  previewHash: string;
+}
+
+/** Spec 009 — merge/split apply result. */
+export interface ApplyResultDto {
+  applied: true;
+  applicantsMoved: number;
+  durationMs: number;
+}
+
+/** Spec 009 — merge/split rule status. */
+export type MergeSplitRuleStatus = 'planned' | 'applied' | 'cancelled';
+
 /* ───────────────────────────────────────────────────────────────────────
  * Net-new entities — backed by `admissionSetupService` (mock for now).
  * Shapes mirror the proposed SQL Server tables in INTEGRATION_HANDOFF §8.
@@ -43,6 +79,7 @@ export interface CommitteeMergeSplitRule extends SoftDeleteFields {
   id: string;
   cycleId: string;
   type: 'merge' | 'split';
+  status: MergeSplitRuleStatus;
   /** Source committee ids — merge requires ≥2; split requires exactly 1. */
   sourceCommitteeIds: string[];
   /** Target committee ids — merge requires exactly 1; split requires ≥2. */
@@ -50,8 +87,11 @@ export interface CommitteeMergeSplitRule extends SoftDeleteFields {
   reason?: string;
   /** ISO date — when the rule takes effect. */
   effectiveAt: string;
+  appliedAt?: string;
+  appliedBy?: string;
   createdAt: string;
   createdBy: string;
+  rowVersion: string;
 }
 
 /** Step 10 — committee score threshold (acceptance min/max). */
@@ -64,6 +104,7 @@ export interface CommitteeScoreThreshold {
   max: number;
   updatedAt: string;
   updatedBy: string;
+  rowVersion: string;
 }
 
 /** Step 11 — admission exam date config for the cycle. */
@@ -78,6 +119,7 @@ export interface ExamDateConfig {
   blackoutDates: string[];
   updatedAt: string;
   updatedBy: string;
+  rowVersion: string;
 }
 
 /** Step 13 — applicant stream the total-score config applies to. */
@@ -102,6 +144,7 @@ export interface TotalScoreConfig {
   totalScoreOutOf: number;
   updatedAt: string;
   updatedBy: string;
+  rowVersion: string;
 }
 
 /** Step 15 — electronic declaration shown to the applicant on Stage 9. */
@@ -117,4 +160,5 @@ export interface ElectronicDeclaration extends SoftDeleteFields {
   publishedAt?: string;
   createdAt: string;
   createdBy: string;
+  rowVersion: string;
 }

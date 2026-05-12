@@ -11,9 +11,14 @@ public sealed class EducationType : SimpleLookupBase
         return new EducationType
         {
             Id = Guid.NewGuid(),
-            Key = key, LabelAr = labelAr, LabelEn = labelEn,
-            SortOrder = sortOrder, IsActive = true, IsSystem = isSystem,
-            CreatedAt = DateTime.UtcNow, DemoOrigin = demoOrigin,
+            Key = key,
+            LabelAr = labelAr,
+            LabelEn = labelEn,
+            SortOrder = sortOrder,
+            IsActive = true,
+            IsSystem = isSystem,
+            CreatedAt = DateTime.UtcNow,
+            DemoOrigin = demoOrigin,
         };
     }
 

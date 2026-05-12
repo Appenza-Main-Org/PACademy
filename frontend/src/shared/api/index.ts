@@ -1,2 +1,2 @@
 export { apiClient } from './client';
-export { ApiError, normaliseError } from './errors';
+export { ApiError, RowVersionConflictError, normaliseError } from './errors';

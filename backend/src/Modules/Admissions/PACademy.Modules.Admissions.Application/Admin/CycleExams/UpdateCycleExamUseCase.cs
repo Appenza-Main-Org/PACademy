@@ -1,0 +1,17 @@
+using Microsoft.EntityFrameworkCore;
+using PACademy.Modules.Admissions.Application.Dtos.AdmissionSetup;
+
+namespace PACademy.Modules.Admissions.Application.Admin.CycleExams;
+
+public sealed class UpdateCycleExamUseCase(IAdmissionsDbContext db)
+{
+    public async Task<CycleExamDto?> ExecuteAsync(
+        Guid id, UpdateCycleExamRequest request, CancellationToken ct = default)
+    {
+        var exam = await db.CycleExams.FirstOrDefaultAsync(e => e.Id == id, ct);
+        if (exam is null) return null;
+        exam.Update(request.Order, request.IsRequired, request.FeeEgp);
+        await db.SaveChangesAsync(ct);
+        return CycleExamMapper.ToDto(exam);
+    }
+}

@@ -87,3 +87,6 @@ export type { WizardStep, WizardStepState } from './Wizard';
 
 export * from './charts';
 export * from './icons';
+
+export { RowVersionConflictDialog } from './RowVersionConflictDialog';
+export type { RowVersionConflictDialogProps } from './RowVersionConflictDialog';

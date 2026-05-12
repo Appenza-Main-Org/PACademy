@@ -52,7 +52,8 @@ apiClient.interceptors.response.use(
   (err: unknown) => {
     const apiErr = normaliseError(err);
     const url = (err as { config?: { url?: string } })?.config?.url ?? '';
-    if (apiErr.status === 401 && !url.includes('/auth/me')) {
+    const status = 'status' in apiErr ? apiErr.status : 0;
+    if (status === 401 && !url.includes('/auth/me')) {
       sessionExpiredBus.emit();
     }
     return Promise.reject(apiErr);

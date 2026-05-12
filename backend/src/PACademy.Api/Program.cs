@@ -8,6 +8,8 @@ using PACademy.Modules.Identity.Infrastructure;
 using PACademy.Modules.ReferenceData.Infrastructure;
 using PACademy.Modules.Workflows.Infrastructure;
 using PACademy.Modules.Admissions.Infrastructure;
+using PACademy.Modules.Committees.Infrastructure;
+using PACademy.Modules.Notifications.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +26,9 @@ builder.Services
     .AddIdentityModule(builder.Configuration)
     .AddReferenceDataModule(builder.Configuration)
     .AddWorkflowsModule(builder.Configuration)
-    .AddAdmissionsModule(builder.Configuration);
+    .AddAdmissionsModule(builder.Configuration)
+    .AddCommitteesModule(builder.Configuration)
+    .AddNotificationsModule(builder.Configuration);
 
 builder.Services.AddPaInfrastructure(builder.Configuration);
 
@@ -46,6 +50,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseMiddleware<DbUpdateConcurrencyExceptionMiddleware>();
 app.UseCors();
 app.UseAuthentication();
 app.UseMiddleware<SessionMiddleware>();

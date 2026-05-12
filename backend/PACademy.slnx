@@ -39,6 +39,18 @@
     <Project Path="src/Modules/Workflows/PACademy.Modules.Workflows.Infrastructure/PACademy.Modules.Workflows.Infrastructure.csproj" />
     <Project Path="src/Modules/Workflows/PACademy.Modules.Workflows.Public/PACademy.Modules.Workflows.Public.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Committees/">
+    <Project Path="src/Modules/Committees/PACademy.Modules.Committees.Domain/PACademy.Modules.Committees.Domain.csproj" />
+    <Project Path="src/Modules/Committees/PACademy.Modules.Committees.Application/PACademy.Modules.Committees.Application.csproj" />
+    <Project Path="src/Modules/Committees/PACademy.Modules.Committees.Infrastructure/PACademy.Modules.Committees.Infrastructure.csproj" />
+    <Project Path="src/Modules/Committees/PACademy.Modules.Committees.Public/PACademy.Modules.Committees.Public.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/PACademy.Modules.Notifications.Domain/PACademy.Modules.Notifications.Domain.csproj" />
+    <Project Path="src/Modules/Notifications/PACademy.Modules.Notifications.Application/PACademy.Modules.Notifications.Application.csproj" />
+    <Project Path="src/Modules/Notifications/PACademy.Modules.Notifications.Infrastructure/PACademy.Modules.Notifications.Infrastructure.csproj" />
+    <Project Path="src/Modules/Notifications/PACademy.Modules.Notifications.Public/PACademy.Modules.Notifications.Public.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PACademy.Api.Tests/PACademy.Api.Tests.csproj" />
     <Project Path="tests/PACademy.Application.Tests/PACademy.Application.Tests.csproj" />

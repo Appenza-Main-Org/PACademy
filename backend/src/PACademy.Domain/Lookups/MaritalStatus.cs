@@ -11,9 +11,14 @@ public sealed class MaritalStatus : SimpleLookupBase
         return new MaritalStatus
         {
             Id = Guid.NewGuid(),
-            Key = key, LabelAr = labelAr, LabelEn = labelEn,
-            SortOrder = sortOrder, IsActive = true, IsSystem = isSystem,
-            CreatedAt = DateTime.UtcNow, DemoOrigin = demoOrigin,
+            Key = key,
+            LabelAr = labelAr,
+            LabelEn = labelEn,
+            SortOrder = sortOrder,
+            IsActive = true,
+            IsSystem = isSystem,
+            CreatedAt = DateTime.UtcNow,
+            DemoOrigin = demoOrigin,
         };
     }
 

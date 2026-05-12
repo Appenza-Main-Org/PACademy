@@ -18,6 +18,7 @@ public sealed class Category
     public bool Archived { get; private set; }
     public DateTime? ArchivedAt { get; private set; }
     public bool DemoOrigin { get; private set; }
+    public byte[] RowVersion { get; private set; } = [];
 
     private Category() { }
 

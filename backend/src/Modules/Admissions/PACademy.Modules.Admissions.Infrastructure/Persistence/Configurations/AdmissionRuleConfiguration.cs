@@ -24,6 +24,7 @@ internal sealed class AdmissionRuleConfiguration : IEntityTypeConfiguration<Admi
         b.Property(r => r.UpdatedAt).IsRequired();
         b.Property(r => r.Archived).HasDefaultValue(false).IsRequired();
         b.Property(r => r.DemoOrigin).HasDefaultValue(false).IsRequired();
+        b.Property(r => r.RowVersion).IsRowVersion();
 
         b.HasIndex(r => new { r.CycleId, r.Version })
             .IsUnique()

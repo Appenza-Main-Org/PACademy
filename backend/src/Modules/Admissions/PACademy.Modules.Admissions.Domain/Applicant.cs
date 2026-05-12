@@ -20,6 +20,8 @@ public sealed class Applicant
     public DateTime? ArchivedAt { get; private set; }
     public bool DemoOrigin { get; private set; }
 
+    public Guid? CommitteeId { get; private set; }
+
     public IReadOnlyCollection<ApplicantStageSubmission> Submissions { get; private set; } = [];
 
     /// <summary>
@@ -80,6 +82,12 @@ public sealed class Applicant
     {
         Governorate = governorate;
         Touch(updatedBy);
+    }
+
+    public void AssignCommittee(Guid committeeId)
+    {
+        CommitteeId = committeeId;
+        UpdatedAt = DateTime.UtcNow;
     }
 
     private void Touch(Guid updatedBy)

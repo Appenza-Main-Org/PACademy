@@ -26,6 +26,7 @@ internal sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         b.Property(c => c.UpdatedAt).IsRequired();
         b.Property(c => c.Archived).HasDefaultValue(false).IsRequired();
         b.Property(c => c.DemoOrigin).HasDefaultValue(false).IsRequired();
+        b.Property(c => c.RowVersion).IsRowVersion();
 
         b.HasIndex(c => c.Key).IsUnique().HasDatabaseName("IX_categories_key");
     }
