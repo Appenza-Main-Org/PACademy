@@ -67,6 +67,7 @@ public static class AdmissionsModule
         services.AddScoped<GetWizardStepStatusesUseCase>();
         services.AddScoped<CompleteWizardStepUseCase>();
         services.AddScoped<ReopenWizardStepUseCase>();
+        services.AddScoped<AutoPromoteWizardStepUseCase>();
 
         // MergeSplit use cases
         services.AddScoped<ListMergeSplitRulesUseCase>();

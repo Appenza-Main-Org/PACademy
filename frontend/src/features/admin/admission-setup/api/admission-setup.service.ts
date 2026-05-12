@@ -59,6 +59,7 @@ import type {
   ExamDateConfig,
   TotalScoreComponent,
   TotalScoreConfig,
+  WizardStepStatusRow,
 } from '../types';
 
 /* ── Mock-only state for the category-committee binding methods ──────── */
@@ -214,6 +215,42 @@ export const admissionSetupService = {
   async publishDeclaration(declarationId: string): Promise<ElectronicDeclaration> {
     const r = await apiClient.post<ElectronicDeclaration>(
       `/admin/admission-setup/declaration/${declarationId}/publish`,
+    );
+    return r.data;
+  },
+
+  /* ── Wizard step status (T047/T058) ──────────────────────────────── */
+
+  async listStepStatuses(cycleId: string): Promise<WizardStepStatusRow[]> {
+    const r = await apiClient.get<WizardStepStatusRow[]>(
+      `/admin/admission-setup/cycles/${cycleId}/step-statuses`,
+    );
+    return r.data;
+  },
+
+  async completeStep(cycleId: string, stepKey: string): Promise<WizardStepStatusRow> {
+    const r = await apiClient.post<WizardStepStatusRow>(
+      `/admin/admission-setup/cycles/${cycleId}/steps/${stepKey}/complete`,
+    );
+    return r.data;
+  },
+
+  async reopenStep(cycleId: string, stepKey: string): Promise<WizardStepStatusRow> {
+    const r = await apiClient.post<WizardStepStatusRow>(
+      `/admin/admission-setup/cycles/${cycleId}/steps/${stepKey}/reopen`,
+    );
+    return r.data;
+  },
+
+  /**
+   * Spec 009 T047a — auto-promote (not_started → in_progress). Idempotent.
+   * Called by spec 011 (Application Settings) on first save per cycle for the
+   * `application_settings` step, since spec 011's tables live in a different
+   * DbContext than the WizardStatusInterceptor watches.
+   */
+  async autoPromoteStep(cycleId: string, stepKey: string): Promise<WizardStepStatusRow> {
+    const r = await apiClient.post<WizardStepStatusRow>(
+      `/admin/admission-setup/cycles/${cycleId}/steps/${stepKey}/auto-promote`,
     );
     return r.data;
   },

@@ -27,6 +27,8 @@ export const admissionSetupKeys = {
     [...admissionSetupKeys.all, 'declaration', cycleId] as const,
   committeeBindings: (cycleId: string | null, categoryId?: ApplicantCategoryKey | null) =>
     [...admissionSetupKeys.all, 'committee-bindings', cycleId, categoryId ?? null] as const,
+  stepStatuses: (cycleId: string | null) =>
+    [...admissionSetupKeys.all, 'step-statuses', cycleId] as const,
 };
 
 function invalidateCycle(qc: QueryClient, cycleId: string | null): void {
@@ -35,6 +37,7 @@ function invalidateCycle(qc: QueryClient, cycleId: string | null): void {
   qc.invalidateQueries({ queryKey: admissionSetupKeys.examDates(cycleId) });
   qc.invalidateQueries({ queryKey: admissionSetupKeys.totalScore(cycleId) });
   qc.invalidateQueries({ queryKey: admissionSetupKeys.declaration(cycleId) });
+  qc.invalidateQueries({ queryKey: admissionSetupKeys.stepStatuses(cycleId) });
   qc.invalidateQueries({
     queryKey: [...admissionSetupKeys.all, 'committee-bindings', cycleId],
   });
@@ -186,6 +189,38 @@ export function useSetCommitteeBindings() {
     }) => admissionSetupService.setCommitteeBindings(input),
     onSuccess: (_rows, vars) => {
       invalidateCycle(qc, vars.cycleId);
+    },
+  });
+}
+
+/* ── Wizard step status (T047/T058) ───────────────────────────────────── */
+
+export function useWizardStepStatuses(cycleId: string | null) {
+  return useQuery({
+    queryKey: admissionSetupKeys.stepStatuses(cycleId),
+    queryFn: () => admissionSetupService.listStepStatuses(cycleId!),
+    enabled: Boolean(cycleId),
+  });
+}
+
+export function useCompleteWizardStep(cycleId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (stepKey: string) =>
+      admissionSetupService.completeStep(cycleId!, stepKey),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: admissionSetupKeys.stepStatuses(cycleId) });
+    },
+  });
+}
+
+export function useReopenWizardStep(cycleId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (stepKey: string) =>
+      admissionSetupService.reopenStep(cycleId!, stepKey),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: admissionSetupKeys.stepStatuses(cycleId) });
     },
   });
 }

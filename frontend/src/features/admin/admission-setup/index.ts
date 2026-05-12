@@ -20,6 +20,13 @@ export type { AdmissionSetupStepKey, AdmissionSetupStepStatus, WizardStepStatusR
 export { useWizardWritePermission } from './hooks/useWizardWritePermission';
 export type { WizardWritePermission } from './hooks/useWizardWritePermission';
 
+/* Wizard step status hooks (T047 / T058) */
+export {
+  useWizardStepStatuses,
+  useCompleteWizardStep,
+  useReopenWizardStep,
+} from './api/admission-setup.queries';
+
 /* Draft utilities */
 export { readDraft, writeDraft, clearDraft, listDrafts, writeConflict, readConflict, clearConflict } from './lib/wizard-draft';
 
