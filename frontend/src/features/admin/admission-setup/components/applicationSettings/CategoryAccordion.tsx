@@ -22,8 +22,8 @@ import {
   AlertDialog,
   ErrorState,
   LoadingState,
-  Switch,
 } from '@/shared/components';
+import { cn } from '@/shared/lib/cn';
 import {
   useCategoryConfigs,
   useToggleCategoryActive,
@@ -98,7 +98,7 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
               <ChevronDown
                 size={16}
                 strokeWidth={1.75}
-                className="text-ink-500 transition-transform duration-fast group-data-[state=open]:rotate-180"
+                className="text-ink-500 transition-transform duration-fast group-data-[state=closed]:rotate-180"
                 aria-hidden
               />
               {config.categoryNameAr}
@@ -108,12 +108,26 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
               {config.specializationCount} تخصص · {config.yearCount} سنة دراسية
             </span>
           </Accordion.Trigger>
-          <Switch
-            checked={config.isActive}
-            onCheckedChange={handleCheckedChange}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={config.isActive}
             aria-label={`تفعيل فئة ${config.categoryNameAr}`}
             disabled={toggleMut.isPending}
-          />
+            onClick={() => handleCheckedChange(!config.isActive)}
+            className={cn(
+              'inline-flex shrink-0 items-center justify-center rounded-pill px-4 py-1.5 text-xs font-medium',
+              'transition-colors duration-[var(--motion-fast)]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+              config.isActive
+                ? 'border border-transparent text-white'
+                : 'border border-border-default bg-white text-ink-600 hover:bg-ink-50',
+              toggleMut.isPending && 'cursor-not-allowed opacity-60',
+            )}
+            style={config.isActive ? { background: 'var(--accent-600)' } : undefined}
+          >
+            {config.isActive ? 'مفعّل' : 'موقوف'}
+          </button>
         </div>
       </Accordion.Header>
 
