@@ -1,16 +1,19 @@
 # Feature Specification: Admission-Setup Wizard Persistence
 
+> **⚠ Amendment 001 active (2026-05-12)** — wizard step count reduced from 15 to 13 after merging `origin/main`. Step 1 (`application_settings`) is now owned by **spec 011**. See [`AMENDMENT-001-wizard-step-count.md`](AMENDMENT-001-wizard-step-count.md) for the full delta.
+
 **Feature Branch**: `009-admission-setup-persistence`
 **Created**: 2026-05-11
+**Last amended**: 2026-05-12
 **Status**: Draft
-**Input**: User description: "Wire all 15 admission-setup wizard pages to the database"
+**Input**: User description: "Wire all 13 admission-setup wizard pages to the database (step 1 — `application_settings` — is owned by spec 011 and is excluded from spec 009's scope; see AMENDMENT-001-wizard-step-count.md)"
 
 ## Clarifications
 
 ### Session 2026-05-11
 
 - Q: When two admins edit the same wizard step concurrently, what should the system do? → A: **Optimistic locking via rowVersion/ETag.** Every persisted row carries a server-issued version stamp. A save that supplies a stale version is rejected with a 409-style conflict response and an Arabic "تم التعديل من قبل مستخدم آخر — يرجى تحديث الصفحة" message; the admin must reload to see the latest state before re-saving. No data is ever silently overwritten.
-- Q: Is cross-cycle wizard import (copy last year's setup into a new cycle) in scope for spec 009? → A: **Yes — included as User Story 4 (P4).** An admin can clone the wizard configuration of any prior cycle into a new draft cycle as a starting point, then edit. The clone covers all 15 steps' data; identity-bound fields (cycle name, year, application dates) are reset, and references to other entities (committee ids, exam ids, lookup keys) are remapped where the target cycle's catalogue allows or flagged as broken where it doesn't.
+- Q: Is cross-cycle wizard import (copy last year's setup into a new cycle) in scope for spec 009? → A: **Yes — included as User Story 4 (P4).** An admin can clone the wizard configuration of any prior cycle into a new draft cycle as a starting point, then edit. The clone covers all 13 steps' data; step 1 (`application_settings`) is cloned via the spec 011 path. Identity-bound fields (cycle name, year, application dates) are reset, and references to other entities (committee ids, exam ids, lookup keys) are remapped where the target cycle's catalogue allows or flagged as broken where it doesn't.
 - Q: How do committee merge/split rules execute on their effective date? → A: **Manual "Apply" action by an admin.** The merge/split rule is a *planned* configuration with an informational `effectiveAt` date. No background job auto-executes it. On or after `effectiveAt`, an admin reviews an impact preview (which applicants move where, capacity changes, downstream side-effects) and clicks "Apply" to commit. The rule's lifecycle is `planned → applied → cancelled` (admins can cancel a planned rule before apply; an applied rule is immutable for audit).
 - Q: How is each wizard step's status pill (complete / in_progress / not_started) determined? → A: **Admin explicitly marks each step complete.** The pill defaults to `not_started` for an empty step and flips to `in_progress` automatically the first time any data is saved for the step, but only the admin clicking a "إكمال الخطوة" (Mark step complete) button promotes it to `complete`. This is auditable (action: `wizard_step_completed`) and reversible (admin can re-open a step by editing any field, dropping it back to `in_progress`).
 
@@ -21,14 +24,16 @@ cycle end-to-end: cycle dates, applicant categories, age and marital rules,
 fees, exam plan, committees, merge/split rules, score thresholds, exam dates,
 date-committee bindings, total-score weights, notifications, and the electronic
 declaration shown to the applicant before printing. Today, the wizard is
-visually complete but its 15 steps are backed by three different storage
-strategies — partial backend persistence (steps 1–6), in-memory mocks for the
-existing service layers (steps 7, 8, 12, 14), and brand-new in-memory shapes
-that don't exist on the backend at all (steps 9, 10, 11, 13, 15). The
-practical effect is that an operator can configure the wizard front-to-back,
-close the tab, and lose ~60% of the work; the other 40% may or may not survive
-depending on which step. This feature closes that gap so every wizard step
-reads from and writes to the database.
+visually complete but its 13 steps are backed by two storage strategies on
+this branch — in-memory mocks for the existing service layers (steps 2, 3,
+4, 5, 6, 10, 12) and brand-new in-memory shapes that don't exist on the
+backend at all (steps 7, 8, 9, 11, 13). Step 1 (`application_settings`)
+is owned by spec 011 (Application Settings Persistence) and is out of scope
+for spec 009. The practical effect today is that an operator can configure
+the wizard front-to-back, close the tab, and lose ~60% of the work; the
+other 40% may or may not survive depending on which step. This feature
+closes that gap so every wizard step in spec 009's scope reads from and
+writes to the database.
 
 ### User Story 1 — The 5 wizard steps with no backend today get full persistence (Priority: P1)
 
@@ -192,7 +197,8 @@ those edits, and the source cycle's data is untouched.
 
 1. **Given** an admin has a draft cycle with no wizard data and selects
    a prior cycle as the copy source, **When** they confirm the copy,
-   **Then** all 15 steps populate with the prior cycle's data, the
+   **Then** all 13 steps populate with the prior cycle's data (step 1
+   `application_settings` is hydrated via the spec 011 clone path), the
    cycle name / year / application-dates fields are blank (the admin
    fills them in), and an audit entry records the copy operation with
    source and target cycle ids.

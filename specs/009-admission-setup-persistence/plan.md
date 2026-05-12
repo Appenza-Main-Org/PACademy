@@ -1,17 +1,25 @@
 # Implementation Plan: Admission-Setup Wizard Persistence
 
-**Branch**: `009-admission-setup-persistence` | **Date**: 2026-05-11 | **Spec**: [spec.md](./spec.md)
+> **⚠ Amendment 001 active (2026-05-12)** — see [`AMENDMENT-001-wizard-step-count.md`](AMENDMENT-001-wizard-step-count.md).
+
+**Branch**: `009-admission-setup-persistence` | **Date**: 2026-05-11 (amended 2026-05-12) | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/009-admission-setup-persistence/spec.md`
 
 ## Summary
 
-The admission-setup wizard's 15 steps must read from and write to the database.
-Today they straddle three storage strategies — partial backend persistence
-(steps 1–6), in-memory mocks for existing service layers (steps 7, 8, 12, 14),
-and brand-new in-memory shapes that don't exist on the backend at all
-(steps 9, 10, 11, 13, 15). This plan closes all three gaps in one sequenced
-delivery on a single branch, layered to match the spec's four prioritised
-user stories (P1 → P4).
+The admission-setup wizard's 13 steps must read from and write to the database.
+Today they straddle two storage strategies on this branch — in-memory mocks
+for existing service layers (steps 2, 3, 4, 5, 6, 10, 12) and brand-new
+in-memory shapes that don't exist on the backend at all (steps 7, 8, 9, 11,
+13). Step 1 (`application_settings`) is owned by **spec 011** (Application
+Settings Persistence) and is out of scope here.
+
+See [`AMENDMENT-001-wizard-step-count.md`](AMENDMENT-001-wizard-step-count.md)
+for the full transition from the original 15-step plan to the canonical
+13-step set after the `origin/main` merge of 2026-05-12.
+
+This plan closes the in-scope gaps in one sequenced delivery on a single
+branch, layered to match the spec's four prioritised user stories (P1 → P4).
 
 **Technical approach** (validated against the four clarifications resolved in
 spec session 2026-05-11):

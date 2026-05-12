@@ -107,7 +107,9 @@ npm --prefix frontend run dev
 ```
 
 Sign in as a super-admin via `/staff-login` (the demo seed includes
-one). Navigate to `/admin/admission-setup/wizard/cycle_metadata`.
+one). Navigate to `/admin/admission-setup/wizard/application-settings`.
+(Cycle name / year / dates are now edited at `/admin/cycles/:id`, not
+inside the wizard — see `AMENDMENT-001-wizard-step-count.md`.)
 
 ---
 

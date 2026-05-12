@@ -1,6 +1,8 @@
 # Internal REST Contract: Admission-Setup Wizard API
 
-**Branch**: `009-admission-setup-persistence` | **Date**: 2026-05-11
+> **⚠ Amendment 001 active (2026-05-12)** — §6 `GET /step-statuses` now returns 13 rows. Step keys `cycle_metadata` and `marital_status_rules` are removed. See [`../AMENDMENT-001-wizard-step-count.md`](../AMENDMENT-001-wizard-step-count.md).
+
+**Branch**: `009-admission-setup-persistence` | **Date**: 2026-05-11 (amended 2026-05-12)
 
 This document specifies the REST surface added by spec 009. Every endpoint
 is super-admin gated unless noted otherwise; every mutation runs through

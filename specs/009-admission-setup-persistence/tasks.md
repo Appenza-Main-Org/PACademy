@@ -1,5 +1,7 @@
 # Tasks: Admission-Setup Wizard Persistence
 
+> **⚠ Amendment 001 active (2026-05-12)** — wizard step count is 13 (was 15). T047 returns 13 rows; T053 controller rejects legacy step keys. See [`AMENDMENT-001-wizard-step-count.md`](AMENDMENT-001-wizard-step-count.md).
+
 **Input**: Design documents from `/specs/009-admission-setup-persistence/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/admission-setup-api.md, quickstart.md
 
@@ -119,7 +121,7 @@
 - [ ] T044 [P] [US1] CRUD use cases for `ExamDateConfig` in `.../ExamDateConfigs/` — `Get`, `Upsert` (one row per cycle, no archive).
 - [ ] T045 [P] [US1] CRUD use cases for `TotalScoreConfig` in `.../TotalScore/` — `List` (returns per-stream list), `Get`, `Upsert` per stream.
 - [ ] T046 [P] [US1] CRUD use cases for `ElectronicDeclaration` in `.../ElectronicDeclaration/` — `List` (versions), `Get` (currently published), `Create` (new draft version), `Update` (only on un-published drafts), `Publish` (atomic flip with audit), `Archive` (blocked on currently-published).
-- [ ] T047 [P] [US1] Wizard-status use cases in `.../WizardStatus/` — `GetStatuses(cycleId)` (returns 15-row map), `Complete(cycleId, stepKey)`, `Reopen(cycleId, stepKey)`. Audit `wizard_step_completed` / `wizard_step_reopened`.
+- [ ] T047 [P] [US1] Wizard-status use cases in `.../WizardStatus/` — `GetStatuses(cycleId)` (returns 13-row map per `AMENDMENT-001-wizard-step-count.md`), `Complete(cycleId, stepKey)`, `Reopen(cycleId, stepKey)`. Reject unknown step keys (incl. legacy `cycle_metadata` / `marital_status_rules`) with 422. Audit `wizard_step_completed` / `wizard_step_reopened`.
 - [ ] T048 [P] [US1] Controller `AdminMergeSplitRulesController` in `backend/src/PACademy.Api/Controllers/Admin/AdmissionSetup/AdminMergeSplitRulesController.cs` — wires all 9 merge/split endpoints from contracts §1.
 - [ ] T049 [P] [US1] Controller `AdminCommitteeScoreThresholdsController` in `.../AdminCommitteeScoreThresholdsController.cs` — contracts §2.
 - [ ] T050 [P] [US1] Controller `AdminExamDateConfigController` in `.../AdminExamDateConfigController.cs` — contracts §3.
@@ -242,7 +244,7 @@
 
 **Goal**: An admin creates a new draft cycle and clones the wizard configuration of any prior cycle as a starting point. Identity-bound fields reset; references remap by key/name; broken references flagged.
 
-**Independent Test**: Per spec.md Story 4 Acceptance — create a draft cycle, copy from a prior fully-configured cycle, all 15 steps populate, identity fields blank, broken refs flagged.
+**Independent Test**: Per spec.md Story 4 Acceptance — create a draft cycle, copy from a prior fully-configured cycle, all 13 steps populate (step 1 `application_settings` is hydrated via the spec 011 clone path), identity fields blank, broken refs flagged.
 
 ### Tests for User Story 4 (REQUIRED — Constitution Principle II) ⚠️
 

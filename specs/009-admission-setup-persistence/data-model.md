@@ -1,6 +1,8 @@
 # Phase 1 — Data Model: Admission-Setup Wizard Persistence
 
-**Branch**: `009-admission-setup-persistence` | **Date**: 2026-05-11
+> **⚠ Amendment 001 active (2026-05-12)** — `wizard_step_statuses.step_key` now accepts 13 values, not 15. See [`AMENDMENT-001-wizard-step-count.md`](AMENDMENT-001-wizard-step-count.md).
+
+**Branch**: `009-admission-setup-persistence` | **Date**: 2026-05-11 (amended 2026-05-12)
 
 This document specifies the persisted shape of every entity touched by
 spec 009 — five new wizard-owned entities, two existing entities
@@ -168,7 +170,7 @@ Per-(cycle, step) completion status pill state (FR-014).
 | Column          | Type             | Notes                                                |
 |-----------------|------------------|------------------------------------------------------|
 | `cycle_id`      | uniqueidentifier | PK part 1                                            |
-| `step_key`      | nvarchar(48)     | PK part 2; one of 15 AdmissionSetupStepKey values    |
+| `step_key`      | nvarchar(48)     | PK part 2; one of 13 AdmissionSetupStepKey values (see `frontend/src/features/admin/admission-setup/types.ts`) |
 | `status`        | nvarchar(16)     | `not_started` / `in_progress` / `complete`           |
 | `completed_at`  | datetimeoffset   | nullable                                             |
 | `completed_by`  | uniqueidentifier | nullable                                             |
