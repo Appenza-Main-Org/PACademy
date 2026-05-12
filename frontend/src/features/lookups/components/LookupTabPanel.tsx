@@ -147,7 +147,7 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
       <div className="flex flex-wrap items-center gap-2">
         <Input
           aria-label="ابحث في السجلات"
-          placeholder="ابحث بالكود أو الاسم…"
+          placeholder="ابحث بالاسم…"
           leadingIcon={<Search size={16} />}
           value={search}
           onChange={(e) => setSearch(e.currentTarget.value)}
@@ -239,7 +239,7 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
         open={pendingDelete !== null && deleteBlocked === null}
         onOpenChange={(next) => { if (!next) setPendingDelete(null); }}
         title="تأكيد الحذف"
-        description={pendingDelete ? `سيتم حذف "${pendingDelete.name}" (${pendingDelete.code}). لا يمكن التراجع.` : ''}
+        description={pendingDelete ? `سيتم حذف "${pendingDelete.name}". لا يمكن التراجع.` : ''}
         actionLabel="حذف"
         cancelLabel="إلغاء"
         tone="danger"
@@ -370,12 +370,6 @@ function buildColumns<K extends LookupKey>(
   onEdit: (row: LookupRow<K>) => void,
   onDelete: (row: LookupRow<K>) => void,
 ): DataTableColumn<LookupRow<K>>[] {
-  const codeCol: DataTableColumn<LookupRow<K>> = {
-    key: 'code',
-    label: 'الكود',
-    width: 130,
-    render: (row) => <span className="font-mono text-xs">{row.code}</span>,
-  };
   const nameCol: DataTableColumn<LookupRow<K>> = {
     key: 'name',
     label: 'الاسم',
@@ -415,7 +409,7 @@ function buildColumns<K extends LookupKey>(
   };
 
   const extras = extrasFor(key);
-  return [codeCol, nameCol, ...extras, activeCol, actionsCol] as DataTableColumn<LookupRow<K>>[];
+  return [nameCol, ...extras, activeCol, actionsCol] as DataTableColumn<LookupRow<K>>[];
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -432,7 +426,7 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
         { key: 'parent', label: 'الأصل',  hideOn: 'sm', render: (r: RelationshipRow) => {
           if (!r.parentCode) return <span className="text-ink-400">—</span>;
           const p = (MOCK.lookups.relationships as RelationshipRow[]).find((x) => x.code === r.parentCode);
-          return <span className="text-xs text-ink-600">{p ? `${p.name} (${p.code})` : r.parentCode}</span>;
+          return <span className="text-xs text-ink-600">{p ? p.name : <span className="text-ink-400">—</span>}</span>;
         } },
       ];
     }
@@ -482,7 +476,6 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
       ];
     case 'nationalities-countries':
       return [
-        { key: 'iso2',   label: 'ISO',     width: 80,  render: (r: NationalityCountryRow) => <span className="font-mono text-xs">{r.iso2}</span> },
         { key: 'isArab', label: 'عربية',   width: 90,  render: (r: NationalityCountryRow) => r.isArab ? <Badge tone="success">عربية</Badge> : <Badge tone="neutral">—</Badge> },
       ];
     case 'governorates':
@@ -535,7 +528,7 @@ const COMMITTEE_KIND_LABEL: Record<CommitteeRow['kind'], string> = {
 function labelByCode(key: LookupKey, code: string): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = (MOCK.lookups[key] as any[]).find((r) => r.code === code);
-  return row ? `${row.name} (${row.code})` : code;
+  return row ? row.name : '—';
 }
 
 function formatIso(iso: string): string {

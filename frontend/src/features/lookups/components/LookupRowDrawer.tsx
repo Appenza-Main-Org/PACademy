@@ -19,7 +19,6 @@ import {
   type FieldValues,
 } from 'react-hook-form';
 import { z } from 'zod';
-import { Wand2 } from 'lucide-react';
 import {
   Button,
   Drawer,
@@ -75,18 +74,17 @@ export function LookupRowDrawer<K extends LookupKey>({
     register,
     handleSubmit,
     reset,
-    setValue,
     formState: { errors },
   } = methods;
 
   useEffect(() => { reset(defaults); }, [defaults, reset]);
 
-  const suggestCode = (): void => {
-    setValue('code', nextCodeFor(lookupKey), { shouldDirty: true });
-  };
-
   const submit = handleSubmit((values) => {
-    onSubmit(values as LookupRow<K>);
+    const next = { ...values } as Record<string, unknown>;
+    if (!isEdit && (!next.code || String(next.code).trim() === '')) {
+      next.code = nextCodeFor(lookupKey);
+    }
+    onSubmit(next as unknown as LookupRow<K>);
   });
 
   return (
@@ -95,32 +93,11 @@ export function LookupRowDrawer<K extends LookupKey>({
       onClose={onClose}
       size="md"
       title={isEdit ? `تعديل · ${meta.label}` : `إضافة · ${meta.label}`}
-      subtitle={`الكود يبدأ بالبادئة ${meta.codePrefix}`}
     >
       <FormProvider {...methods}>
         <form onSubmit={submit} className="flex h-full flex-col">
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 grid grid-cols-2 gap-3">
-                <Input
-                  label="الكود"
-                  required
-                  error={(errors.code as { message?: string } | undefined)?.message}
-                  {...register('code')}
-                />
-                <div className="flex items-end pb-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    leadingIcon={<Wand2 size={14} />}
-                    onClick={suggestCode}
-                    disabled={isEdit}
-                  >
-                    توليد كود تلقائي
-                  </Button>
-                </div>
-              </div>
               <Input
                 label="الاسم بالعربية"
                 required
@@ -515,7 +492,7 @@ function ParentCodeSelect({ lookupKey, value, onChange, ignoreCode, onlyParents 
       onChange={(e) => onChange(e.currentTarget.value === '' ? null : e.currentTarget.value)}
       options={[
         { value: '', label: '— (جذر)' },
-        ...filtered.map((r) => ({ value: r.code, label: `${r.name} (${r.code})` })),
+        ...filtered.map((r) => ({ value: r.code, label: r.name })),
       ]}
     />
   );
@@ -544,7 +521,7 @@ function ForeignKeySelect({ lookupKey, label, value, onChange, allowEmpty }: For
       onChange={(e) => onChange(e.currentTarget.value)}
       options={[
         ...(allowEmpty ? [{ value: '', label: allowEmpty }] : []),
-        ...items.filter((i) => i.isActive).map((r) => ({ value: r.code, label: `${r.name} (${r.code})` })),
+        ...items.filter((i) => i.isActive).map((r) => ({ value: r.code, label: r.name })),
       ]}
     />
   );

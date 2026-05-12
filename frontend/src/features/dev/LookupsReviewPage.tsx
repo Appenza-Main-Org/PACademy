@@ -32,13 +32,12 @@ function ReviewCard({ k }: { k: (typeof LOOKUP_KEYS)[number] }): JSX.Element {
     <Card className="p-3">
       <div className="mb-2 flex items-baseline justify-between">
         <span className="font-medium text-ink-900">{meta.label}</span>
-        <span className="font-mono text-2xs text-ink-500">{meta.codePrefix} · {rows.length}</span>
+        <span className="font-mono text-2xs text-ink-500">{rows.length}</span>
       </div>
       <ul className="flex flex-col gap-0.5 text-xs text-ink-700">
         {rows.slice(0, 5).map((row) => (
           <li key={row.code} className="flex items-center justify-between gap-2 truncate">
             <span className="truncate">{row.name}</span>
-            <span className="font-mono text-2xs text-ink-400">{row.code}</span>
           </li>
         ))}
         {rows.length > 5 && (

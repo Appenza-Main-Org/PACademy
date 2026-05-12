@@ -109,11 +109,6 @@ export function LookupsHubPage(): JSX.Element {
                 <h2 className="font-ar-display text-lg font-bold text-ink-900">
                   {activeMeta.label}
                 </h2>
-                <p className="flex items-center gap-2 font-mono text-2xs text-ink-500">
-                  <span className="rounded bg-ink-50 px-1.5 py-0.5 text-ink-700">{activeMeta.codePrefix}</span>
-                  <span className="text-ink-300">·</span>
-                  <span>{active}</span>
-                </p>
               </div>
             </header>
             <LookupTabPanel key={active} lookupKey={active} />
