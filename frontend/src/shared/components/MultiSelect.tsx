@@ -55,6 +55,7 @@ export function MultiSelect({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<
     { top: number; left: number; width: number } | null
@@ -107,24 +108,34 @@ export function MultiSelect({
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onResize);
 
-    /* When the popover is portaled into `document.body` while a Radix Dialog
-     * is open, the dialog's `react-remove-scroll` wrapper intercepts wheel /
-     * touchmove at the document level and calls `preventDefault` for any
-     * element outside its tree — which blocks the option list from scrolling.
-     * Stopping propagation in the capture phase, on the popover root, lets
-     * the browser do its native scroll on the `<ul>` and keeps the dialog's
-     * lock from ever seeing the event. */
-    const popover = popoverRef.current;
-    const stopWheel = (event: Event): void => event.stopPropagation();
-    popover?.addEventListener('wheel', stopWheel, { passive: true, capture: true });
-    popover?.addEventListener('touchmove', stopWheel, { passive: true, capture: true });
+    /* When the popover is portaled into `document.body` while a Radix
+     * Dialog is open, the dialog's `react-remove-scroll` wrapper intercepts
+     * wheel/touchmove at the document level and calls `preventDefault` for
+     * any element outside its tree — which blocks the option list from
+     * scrolling. We can't beat its document-bubble listener with a sibling
+     * listener reliably (capture-phase stopPropagation isn't enough once
+     * the layer is locked), so we drive the scroll ourselves: a non-passive
+     * capture-phase wheel listener on the option list manually updates
+     * `scrollTop` and calls `preventDefault`. Browser's native scroll never
+     * runs, and the dialog's lock has nothing to cancel. */
+    const list = listRef.current;
+    const onWheel = (event: WheelEvent): void => {
+      if (!list) return;
+      const canScrollDown = list.scrollTop + list.clientHeight < list.scrollHeight - 1;
+      const canScrollUp = list.scrollTop > 0;
+      if ((event.deltaY > 0 && canScrollDown) || (event.deltaY < 0 && canScrollUp)) {
+        list.scrollTop += event.deltaY;
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    list?.addEventListener('wheel', onWheel, { passive: false, capture: true });
 
     return () => {
       document.removeEventListener('mousedown', onDocClick);
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
-      popover?.removeEventListener('wheel', stopWheel, true);
-      popover?.removeEventListener('touchmove', stopWheel, true);
+      list?.removeEventListener('wheel', onWheel, true);
     };
   }, [open, position]);
 
@@ -224,6 +235,7 @@ export function MultiSelect({
               </div>
             </div>
             <ul
+              ref={listRef}
               role="listbox"
               aria-multiselectable="true"
               aria-label={label ?? ariaLabel ?? 'options'}
