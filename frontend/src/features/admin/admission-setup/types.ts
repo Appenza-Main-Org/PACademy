@@ -249,6 +249,81 @@ export type ExamScheduleConflict =
   | 'INVALID_DATE_RANGE'
   | 'CATEGORY_NOT_ACTIVE';
 
+/* ───────────────────────────────────────────────────────────────────────
+ * Committee × Day Bindings — per-(cycle × category × committee × day) row
+ * carrying capacity + mode-branched eligibility.
+ *
+ * Sub-tab `bindings` inside the committees wizard step. The roster sub-tab
+ * (existing `CategoryCommittees` set) is a prerequisite — a binding can
+ * only be created when its committee is already in the roster for
+ * (cycleId, applicantCategoryId). Day source is `examScheduleService`
+ * filtered to `kind === 'WORKING'`.
+ *
+ * Mirrored in `docs/DB_CONSTRAINTS.md §13`.
+ * ─────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Mode-branched eligibility carried on a binding row. Branch tag mirrors
+ * the parent category's `gradingMode` resolved via
+ * `resolveCategoryGradingMode(categoryCode)`. The two branches are
+ * mutually exclusive and the form picks the right one based on the
+ * active category.
+ */
+export type BindingEligibility =
+  | {
+      gradeKind: 'GRADES';
+      /** Inclusive percentage floor (0..100). */
+      minPercentage: number;
+      /** Inclusive percentage ceiling (0..100). `min ≤ max`. */
+      maxPercentage: number;
+    }
+  | {
+      gradeKind: 'TAGDIR';
+      /** FK → lookup `academic-grades[code]`. Floor of the band. */
+      minAcademicGradeId: string;
+      /** FK → lookup `academic-grades[code]`. Ceiling of the band. Compared
+       *  against `min` via `readPercentageRange(row).min`. */
+      maxAcademicGradeId: string;
+    };
+
+export interface CommitteeDayBinding {
+  id: string;
+  cycleId: string;
+  /** FK → `applicant-categories[CAT-NN].code`. */
+  applicantCategoryId: string;
+  /** FK → `Committee.id`. Must already appear in the cycle's
+   *  `CategoryCommittees` rows for `applicantCategoryId`. */
+  committeeId: string;
+  /** FK → `ExamScheduleDay.id`. Must be `kind === 'WORKING'`. */
+  examScheduleDayId: string;
+  /** Per-cell seat capacity. Strictly positive integer. */
+  capacity: number;
+  /** Mode-branched eligibility — branch must match category gradingMode. */
+  eligibility: BindingEligibility;
+  isActive: boolean;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Conflict codes thrown by `committeeBindingService`. Surfaced as Arabic
+ * toasts via the query layer. Mirrored in `docs/DB_CONSTRAINTS.md §13`.
+ *
+ * `PERCENTAGE_OUT_OF_RANGE` is re-used from the Application Settings
+ * conflict set (same invariant, different copy); see
+ * `shared/lib/errors.ts:ConflictCode`.
+ */
+export type BindingConflict =
+  | 'DUPLICATE_BINDING'
+  | 'CAPACITY_NOT_POSITIVE'
+  | 'GRADE_RANGE_INVERTED'
+  | 'PERCENTAGE_OUT_OF_RANGE'
+  | 'TAGDIR_GRADE_NOT_FOUND'
+  | 'MODE_MISMATCH'
+  | 'DAY_NOT_WORKING'
+  | 'COMMITTEE_WRONG_CATEGORY';
+
 /** Uploaded PDF metadata for the electronic declaration. */
 export interface DeclarationDocument {
   fileName: string;

@@ -669,6 +669,189 @@ END;
 
 ---
 
+## 13 · Committee Bindings — invariants
+
+Sub-tab `bindings` inside the committees wizard step persists one
+`committee_day_bindings` row per (cycle × category × committee × day)
+cell. Each row carries a positive integer `capacity` plus mode-branched
+eligibility — either a `[minPercentage, maxPercentage]` band or a
+`[minAcademicGradeId, maxAcademicGradeId]` تقدير band, discriminated by
+`grade_kind` which must match the parent category's `gradingMode`.
+
+The relevant frontend conflict set lives at
+`features/admin/admission-setup/types.ts:BindingConflict`. All eight
+codes below fire from `committeeBindingService` on create/update; the
+existing `PERCENTAGE_OUT_OF_RANGE` code is shared with §11 (same
+invariant).
+
+### 13.1 · `DUPLICATE_BINDING`
+
+**Rule.** Each (`cycle_id`, `committee_id`, `exam_schedule_day_id`)
+triple must be unique. The matrix is single-tenant per cell — admins
+either edit the existing row or delete it before recreating.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.committee_day_bindings
+ADD CONSTRAINT uq_committee_day_bindings
+UNIQUE (cycle_id, committee_id, exam_schedule_day_id);
+```
+
+### 13.2 · `CAPACITY_NOT_POSITIVE`
+
+**Rule.** `capacity > 0`. Zero or negative seat counts make the cell a
+no-op and confuse downstream distribution.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.committee_day_bindings
+ADD CONSTRAINT ck_committee_day_bindings_capacity_positive
+CHECK (capacity > 0);
+```
+
+### 13.3 · `GRADE_RANGE_INVERTED`
+
+**Rule.** For GRADES rows, `min_percentage <= max_percentage`. For
+TAGDIR rows, the picked min and max `academic_grades` rows must satisfy
+`min.min_percentage <= max.min_percentage` (band-floor comparator;
+`AcademicGradeRow` carries no explicit sort order).
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.committee_day_bindings
+ADD CONSTRAINT ck_committee_day_bindings_grades_range
+CHECK (
+  grade_kind <> 'GRADES'
+  OR min_percentage <= max_percentage
+);
+
+CREATE OR ALTER TRIGGER trg_committee_day_bindings_tagdir_range
+ON dbo.committee_day_bindings
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    JOIN dbo.academic_grades amin ON amin.id = i.min_academic_grade_id
+    JOIN dbo.academic_grades amax ON amax.id = i.max_academic_grade_id
+    WHERE i.grade_kind = 'TAGDIR'
+      AND amin.min_percentage > amax.min_percentage
+  )
+    THROW 51131, 'GRADE_RANGE_INVERTED', 1;
+END;
+```
+
+### 13.4 · `PERCENTAGE_OUT_OF_RANGE` *(shared with §11.4b)*
+
+**Rule.** For GRADES rows, `0 <= min_percentage <= 100` and
+`0 <= max_percentage <= 100`. Same invariant as §11.4b — the
+`ConflictCode` union shares the code.
+
+### 13.5 · `TAGDIR_GRADE_NOT_FOUND`
+
+**Rule.** For TAGDIR rows, both `min_academic_grade_id` and
+`max_academic_grade_id` must resolve to active rows in the
+`academic_grades` lookup.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.committee_day_bindings
+ADD CONSTRAINT fk_committee_day_bindings_grade_min
+FOREIGN KEY (min_academic_grade_id) REFERENCES dbo.academic_grades(id);
+
+ALTER TABLE dbo.committee_day_bindings
+ADD CONSTRAINT fk_committee_day_bindings_grade_max
+FOREIGN KEY (max_academic_grade_id) REFERENCES dbo.academic_grades(id);
+```
+
+### 13.6 · `MODE_MISMATCH`
+
+**Rule.** A binding's `grade_kind` must equal the parent category's
+`gradingMode` (resolved via
+`applicant_categories.metadata.submissionTypeCode` →
+`submission_types.metadata.gradingMode`). If an admin re-points a
+category at a different submission-type after bindings already exist,
+this fires on the first write — see §11.4e for the symmetric
+application-settings rule.
+
+**SQL Server.**
+
+```sql
+CREATE OR ALTER TRIGGER trg_committee_day_bindings_mode_match
+ON dbo.committee_day_bindings
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    JOIN dbo.applicant_categories c ON c.code = i.applicant_category_id
+    JOIN dbo.submission_types s ON s.code = JSON_VALUE(c.metadata, '$.submissionTypeCode')
+    WHERE i.grade_kind <> JSON_VALUE(s.metadata, '$.gradingMode')
+  )
+    THROW 51132, 'MODE_MISMATCH', 1;
+END;
+```
+
+### 13.7 · `DAY_NOT_WORKING`
+
+**Rule.** `exam_schedule_day_id` must resolve to an `exam_schedule_days`
+row with `kind = 'WORKING'`. Bindings to OFF days are nonsense — the
+committee isn't sitting that day.
+
+**SQL Server.**
+
+```sql
+CREATE OR ALTER TRIGGER trg_committee_day_bindings_day_working
+ON dbo.committee_day_bindings
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    LEFT JOIN dbo.exam_schedule_days d ON d.id = i.exam_schedule_day_id
+    WHERE d.id IS NULL OR d.kind <> 'WORKING'
+  )
+    THROW 51133, 'DAY_NOT_WORKING', 1;
+END;
+```
+
+### 13.8 · `COMMITTEE_WRONG_CATEGORY`
+
+**Rule.** The (`cycle_id`, `applicant_category_id`, `committee_id`)
+must already exist in `category_committees` — i.e. the roster sub-tab
+has explicitly bound the committee to this category for this cycle.
+The matrix only binds days for committees the roster already accepted.
+
+**SQL Server.**
+
+```sql
+CREATE OR ALTER TRIGGER trg_committee_day_bindings_in_roster
+ON dbo.committee_day_bindings
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    LEFT JOIN dbo.category_committees cc
+      ON cc.cycle_id = i.cycle_id
+     AND cc.category_id = i.applicant_category_id
+     AND cc.committee_id = i.committee_id
+    WHERE cc.id IS NULL
+  )
+    THROW 51134, 'COMMITTEE_WRONG_CATEGORY', 1;
+END;
+```
+
+---
+
 ## Cross-reference
 
 These constraints are referenced from `CLAUDE.md §6` (mock service
