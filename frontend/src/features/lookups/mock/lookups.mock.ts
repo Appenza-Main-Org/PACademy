@@ -152,69 +152,139 @@ const committees: CommitteeRow[] = [
  * universities, so this lookup mirrors that broader set. */
 
 const faculties: FacultyRow[] = [
-  { code: 'FAC-01', name: 'كلية الطب',                     ...active },
-  { code: 'FAC-02', name: 'كلية الهندسة',                  ...active },
-  { code: 'FAC-03', name: 'كلية الحقوق',                   ...active },
-  { code: 'FAC-04', name: 'كلية التجارة',                  ...active },
-  { code: 'FAC-05', name: 'كلية الآداب',                   ...active },
-  { code: 'FAC-06', name: 'كلية العلوم',                   ...active },
-  { code: 'FAC-07', name: 'كلية الصيدلة',                  ...active },
-  { code: 'FAC-08', name: 'كلية طب الأسنان',                ...active },
-  { code: 'FAC-09', name: 'كلية الزراعة',                  ...active },
-  { code: 'FAC-10', name: 'كلية التربية',                  ...active },
-  { code: 'FAC-11', name: 'كلية الإعلام',                  ...active },
-  { code: 'FAC-12', name: 'كلية الحاسبات والمعلومات',       ...active },
-  { code: 'FAC-13', name: 'كلية الاقتصاد والعلوم السياسية', ...active },
-  { code: 'FAC-14', name: 'كلية الألسن',                   ...active },
-  { code: 'FAC-15', name: 'كلية دار العلوم',               ...active },
-  { code: 'FAC-16', name: 'كلية الفنون الجميلة',            ...active },
-  { code: 'FAC-17', name: 'كلية الفنون التطبيقية',          ...active },
-  { code: 'FAC-18', name: 'كلية التمريض',                  ...active },
-  { code: 'FAC-19', name: 'كلية العلاج الطبيعي',            ...active },
-  { code: 'FAC-20', name: 'كلية الطب البيطري',              ...active },
-  { code: 'FAC-21', name: 'كلية الخدمة الاجتماعية',         ...active },
-  { code: 'FAC-22', name: 'كلية السياحة والفنادق',          ...active },
-  { code: 'FAC-23', name: 'كلية التربية الرياضية',          ...active },
-  { code: 'FAC-24', name: 'كلية التربية الموسيقية',         ...active },
-  { code: 'FAC-25', name: 'كلية الآثار',                   ...active },
-  { code: 'FAC-26', name: 'كلية التخطيط الإقليمي والعمراني', ...active },
+  { code: 'FAC-01', name: 'الطب البشري',              ...active },
+  { code: 'FAC-02', name: 'الصيدلة الإكلينيكية',       ...active },
+  { code: 'FAC-03', name: 'الطب البيطري',             ...active },
+  { code: 'FAC-04', name: 'التمريض',                 ...active },
+  { code: 'FAC-05', name: 'الهندسة',                 ...active },
+  { code: 'FAC-06', name: 'الحاسبات والمعلومات',       ...active },
+  { code: 'FAC-07', name: 'التجارة',                 ...active },
+  { code: 'FAC-08', name: 'الزراعة',                 ...active },
+  { code: 'FAC-09', name: 'التربية الموسيقية',         ...active },
+  { code: 'FAC-10', name: 'الفنون التطبيقية',          ...active },
+  { code: 'FAC-11', name: 'الفنون الجميلة',            ...active },
+  { code: 'FAC-12', name: 'العلوم',                  ...active },
+  { code: 'FAC-13', name: 'الاقتصاد والعلوم السياسية', ...active },
+  { code: 'FAC-14', name: 'الآداب',                  ...active },
+  { code: 'FAC-15', name: 'التربية',                 ...active },
+  { code: 'FAC-16', name: 'اللغات',                  ...active },
+  { code: 'FAC-17', name: 'الحقوق',                  ...active },
+  { code: 'FAC-18', name: 'التربية الرياضية',          ...active },
 ];
 
 /* ─── 7. specializations — Egyptian university specializations ─────────
  *
  * Each specialization carries `facultyCode` directly (FK → faculties).
- * Representative set across the 26 faculties above; the demo doesn't
- * need every program enumerated. */
+ * Per-faculty programs surfaced for the admission categories that draw
+ * graduates from each discipline. */
 
 const specializations: SpecializationRow[] = [
-  { code: 'SPC-01', name: 'الطب البشري',           isActive: true, facultyCode: 'FAC-01' },
-  { code: 'SPC-02', name: 'الهندسة المدنية',        isActive: true, facultyCode: 'FAC-02' },
-  { code: 'SPC-03', name: 'هندسة الحاسبات',         isActive: true, facultyCode: 'FAC-02' },
-  { code: 'SPC-04', name: 'القانون العام',          isActive: true, facultyCode: 'FAC-03' },
-  { code: 'SPC-05', name: 'المحاسبة',              isActive: true, facultyCode: 'FAC-04' },
-  { code: 'SPC-06', name: 'إدارة الأعمال',          isActive: true, facultyCode: 'FAC-04' },
-  { code: 'SPC-07', name: 'اللغة العربية',          isActive: true, facultyCode: 'FAC-05' },
-  { code: 'SPC-08', name: 'اللغة الإنجليزية',       isActive: true, facultyCode: 'FAC-05' },
-  { code: 'SPC-09', name: 'الفيزياء',              isActive: true, facultyCode: 'FAC-06' },
-  { code: 'SPC-10', name: 'الكيمياء',              isActive: true, facultyCode: 'FAC-06' },
-  { code: 'SPC-11', name: 'الصيدلة الإكلينيكية',    isActive: true, facultyCode: 'FAC-07' },
-  { code: 'SPC-12', name: 'طب الأسنان',             isActive: true, facultyCode: 'FAC-08' },
-  { code: 'SPC-13', name: 'علوم الحاسب',            isActive: true, facultyCode: 'FAC-12' },
-  { code: 'SPC-14', name: 'نظم المعلومات',          isActive: true, facultyCode: 'FAC-12' },
-  { code: 'SPC-15', name: 'الإعلام',               isActive: true, facultyCode: 'FAC-11' },
-  { code: 'SPC-16', name: 'الصحافة',               isActive: true, facultyCode: 'FAC-11' },
-  { code: 'SPC-17', name: 'الإذاعة والتليفزيون',     isActive: true, facultyCode: 'FAC-11' },
-  { code: 'SPC-18', name: 'الاقتصاد',              isActive: true, facultyCode: 'FAC-13' },
-  { code: 'SPC-19', name: 'العلوم السياسية',        isActive: true, facultyCode: 'FAC-13' },
-  { code: 'SPC-20', name: 'التمريض',               isActive: true, facultyCode: 'FAC-18' },
-  { code: 'SPC-21', name: 'العلاج الطبيعي',         isActive: true, facultyCode: 'FAC-19' },
-  { code: 'SPC-22', name: 'الطب البيطري',           isActive: true, facultyCode: 'FAC-20' },
-  { code: 'SPC-23', name: 'الخدمة الاجتماعية',      isActive: true, facultyCode: 'FAC-21' },
-  { code: 'SPC-24', name: 'الإرشاد السياحي',        isActive: true, facultyCode: 'FAC-22' },
-  { code: 'SPC-25', name: 'التربية البدنية',        isActive: true, facultyCode: 'FAC-23' },
-  { code: 'SPC-26', name: 'الموسيقى',              isActive: true, facultyCode: 'FAC-24' },
-  { code: 'SPC-27', name: 'الآثار المصرية',         isActive: true, facultyCode: 'FAC-25' },
-  { code: 'SPC-28', name: 'التخطيط العمراني',       isActive: true, facultyCode: 'FAC-26' },
+  /* FAC-01 — الطب البشري */
+  { code: 'SPC-01', name: 'جراحة عامة',              isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-02', name: 'جراحة مخ وأعصاب',         isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-03', name: 'قلب وصدر',               isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-04', name: 'مسالك بولية',             isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-05', name: 'قلب وأوعية دموية',         isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-06', name: 'عظام',                  isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-07', name: 'أورام',                  isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-08', name: 'تجميل',                  isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-09', name: 'وجه وفكين',              isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-10', name: 'باطنة',                  isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-11', name: 'جهاز هضمي ومناظير',        isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-12', name: 'صدرية',                  isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-13', name: 'رعايات مركزة',            isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-14', name: 'أمراض نساء',              isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-15', name: 'أنف وأذن',               isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-16', name: 'أمراض كلى',               isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-17', name: 'تخدير',                  isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-18', name: 'رمد',                    isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-19', name: 'طوارئ',                  isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-20', name: 'تحاليل طبية',             isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-21', name: 'أشعة',                   isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-22', name: 'أمراض دم',               isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-23', name: 'سمعيات',                 isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-24', name: 'تخاطب',                  isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-25', name: 'باثولوجي',                isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-26', name: 'غدد صماء وروماتيزم',       isActive: true, facultyCode: 'FAC-01' },
+
+  /* FAC-02 — الصيدلة الإكلينيكية */
+  { code: 'SPC-27', name: 'صيدلة إكلينيكية',          isActive: true, facultyCode: 'FAC-02' },
+
+  /* FAC-03 — الطب البيطري */
+  { code: 'SPC-28', name: 'طب بيطري',                isActive: true, facultyCode: 'FAC-03' },
+
+  /* FAC-04 — التمريض */
+  { code: 'SPC-29', name: 'تمريض',                  isActive: true, facultyCode: 'FAC-04' },
+
+  /* FAC-05 — الهندسة */
+  { code: 'SPC-30', name: 'حاسبات',                  isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-31', name: 'اتصالات وإلكترونيات',       isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-32', name: 'ميكانيكا سيارات',          isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-33', name: 'ميكانيكا قوى',             isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-34', name: 'ميكانيكا إنتاج',           isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-35', name: 'ميكاترونيكس',             isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-36', name: 'كهرباء قوى',              isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-37', name: 'مدني',                   isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-38', name: 'هندسة طبية',              isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-39', name: 'هندسة طرق',              isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-40', name: 'بحرية',                  isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-41', name: 'عمارة',                  isActive: true, facultyCode: 'FAC-05' },
+
+  /* FAC-06 — الحاسبات والمعلومات */
+  { code: 'SPC-42', name: 'حاسبات',                  isActive: true, facultyCode: 'FAC-06' },
+
+  /* FAC-07 — التجارة */
+  { code: 'SPC-43', name: 'محاسبة',                  isActive: true, facultyCode: 'FAC-07' },
+
+  /* FAC-08 — الزراعة */
+  { code: 'SPC-44', name: 'هندسة زراعية',             isActive: true, facultyCode: 'FAC-08' },
+  { code: 'SPC-45', name: 'نباتات زينة',              isActive: true, facultyCode: 'FAC-08' },
+
+  /* FAC-09 — التربية الموسيقية */
+  { code: 'SPC-46', name: 'تربية موسيقية',            isActive: true, facultyCode: 'FAC-09' },
+
+  /* FAC-10 — الفنون التطبيقية */
+  { code: 'SPC-47', name: 'جرافيك',                  isActive: true, facultyCode: 'FAC-10' },
+  { code: 'SPC-48', name: 'أثاث وتصميم داخلي',         isActive: true, facultyCode: 'FAC-10' },
+
+  /* FAC-11 — الفنون الجميلة */
+  { code: 'SPC-49', name: 'جرافيك',                  isActive: true, facultyCode: 'FAC-11' },
+  { code: 'SPC-50', name: 'أثاث وتصميم داخلي',         isActive: true, facultyCode: 'FAC-11' },
+
+  /* FAC-12 — العلوم */
+  { code: 'SPC-51', name: 'كيمياء',                  isActive: true, facultyCode: 'FAC-12' },
+  { code: 'SPC-52', name: 'ميكروبيولوجي',             isActive: true, facultyCode: 'FAC-12' },
+  { code: 'SPC-53', name: 'فيزياء',                  isActive: true, facultyCode: 'FAC-12' },
+  { code: 'SPC-54', name: 'تحاليل طبية',             isActive: true, facultyCode: 'FAC-12' },
+  { code: 'SPC-55', name: 'علوم طبية',               isActive: true, facultyCode: 'FAC-12' },
+
+  /* FAC-13 — الاقتصاد والعلوم السياسية */
+  { code: 'SPC-56', name: 'إحصاء',                   isActive: true, facultyCode: 'FAC-13' },
+  { code: 'SPC-57', name: 'علوم سياسية',             isActive: true, facultyCode: 'FAC-13' },
+
+  /* FAC-14 — الآداب */
+  { code: 'SPC-58', name: 'مكتبات',                  isActive: true, facultyCode: 'FAC-14' },
+  { code: 'SPC-59', name: 'علم نفس',                 isActive: true, facultyCode: 'FAC-14' },
+
+  /* FAC-15 — التربية */
+  { code: 'SPC-60', name: 'علم نفس',                 isActive: true, facultyCode: 'FAC-15' },
+
+  /* FAC-16 — اللغات */
+  { code: 'SPC-61', name: 'إنجليزي',                 isActive: true, facultyCode: 'FAC-16' },
+  { code: 'SPC-62', name: 'فرنسي',                   isActive: true, facultyCode: 'FAC-16' },
+  { code: 'SPC-63', name: 'إسباني',                  isActive: true, facultyCode: 'FAC-16' },
+  { code: 'SPC-64', name: 'ألماني',                  isActive: true, facultyCode: 'FAC-16' },
+  { code: 'SPC-65', name: 'روسي',                    isActive: true, facultyCode: 'FAC-16' },
+  { code: 'SPC-66', name: 'إيطالي',                  isActive: true, facultyCode: 'FAC-16' },
+  { code: 'SPC-67', name: 'تركي',                    isActive: true, facultyCode: 'FAC-16' },
+  { code: 'SPC-68', name: 'عبري',                    isActive: true, facultyCode: 'FAC-16' },
+  { code: 'SPC-69', name: 'صيني',                    isActive: true, facultyCode: 'FAC-16' },
+
+  /* FAC-17 — الحقوق */
+  { code: 'SPC-70', name: 'حقوق',                    isActive: true, facultyCode: 'FAC-17' },
+
+  /* FAC-18 — التربية الرياضية */
+  { code: 'SPC-71', name: 'تربية رياضية',             isActive: true, facultyCode: 'FAC-18' },
 ];
 
 /* ─── 8.5 submission-types ───────────────────────────────────────────── */
@@ -262,39 +332,43 @@ const submissionTypes: SubmissionTypeRow[] = [
     nameEn: 'Physical Education — Females',
     isActive: true,
     sortOrder: 40,
-    metadata: { gradingMode: 'GRADES', createdBy: 'system', createdAt: SUBMISSION_TYPE_CREATED_AT },
+    /* RFP §2.1 — physical-education-bachelor uses تقدير (TAGDIR), not a
+     * numeric percentage. Flipped 2026-05-12 alongside the
+     * applicant-categories lockdown to the 4 RFP-defined categories. */
+    metadata: { gradingMode: 'TAGDIR', createdBy: 'system', createdAt: SUBMISSION_TYPE_CREATED_AT },
   },
 ];
 
-/* ─── 9. applicant-categories — seeded from former MOCK.categories ─────
+/* ─── 9. applicant-categories — RFP §2.1 (4 categories, closed set) ────
  *
- * Source: APPLICANT_CATEGORIES in shared/mock-data/categories.ts (the
- * spec-derived 7-category set from كلية_الشرطة_الاقسام_والشروط). Codes
- * are the legacy `key` strings (snake_case) so consumers rename
- * `.key`→`.code` and `.labelAr`→`.name` mechanically without re-keying
- * stored data. Brief's `CAT-##` prefix is dropped in favour of the
- * back-compat keys; the form regex already accepts snake_case codes.
+ * Authoritative source: the RFP Scope Document. The four categories are
+ * the only ones the platform offers; no admin-defined custom categories
+ * are permitted. Codes stay snake_case to match the rest of the codebase
+ * (kebab in the brief table is presentational only).
  *
- * `metadata.submissionTypeCode` (added 2026-05-12) is the FK into the
- * `submission-types` lookup. Resolution map below uses codes — the prompt's
- * example resolves by `id` but this codebase uses `code` as the durable
- * identity (no uuid layer). Two rows have explicit Arabic-name matches
- * with the patch's category table (`officers_specialized`↔CAT-04 المتخصصون,
- * `postgraduate`↔CAT-08 الدراسات العليا); the remaining five fall back to
- * the row's own `applicationMode` (nomination → SUB-002, general → SUB-001).
- * The prompt-listed categories that have NO match in the seed (CAT-01..03,
- * CAT-05..07) are reported in docs/migration/submission-types/STEP2.md. */
+ *   officers_general              — قسم الضباط (قسم عام)
+ *   law_bachelor                  — ليسانس حقوق
+ *   physical_education_bachelor   — بكالوريوس تربية رياضية
+ *   specialized_officers          — الضباط المتخصصون (renamed from
+ *                                   `officers_specialized`)
+ *
+ * `metadata.submissionTypeCode` FKs into `submission-types` and decides
+ * the downstream gradingMode branch:
+ *   officers_general            → SUB-001 (GRADES — numeric %)
+ *   law_bachelor                → SUB-003 (TAGDIR — تقدير)
+ *   physical_education_bachelor → SUB-004 (TAGDIR — تقدير)
+ *   specialized_officers        → SUB-002 (TAGDIR — تقدير)
+ *
+ * The five legacy categories that were retired (postgraduate,
+ * institute_officers_training, institute_traffic, institute_guarding,
+ * special_units) are documented in
+ * docs/migration/admission-categories-rfp/AUDIT.md. */
 
 const CATEGORY_SUBMISSION_MAP: Record<string, string> = {
-  /* Explicit Arabic-name matches with the patch's table. */
-  officers_specialized: 'SUB-002', // CAT-04 الضباط المتخصصون
-  postgraduate:         'SUB-002', // CAT-08 الدراسات العليا
-  /* Fallbacks — respect the row's own applicationMode. */
-  officers_general:            'SUB-001', // applicationMode='general'
-  institute_officers_training: 'SUB-002', // nomination + serving_officer
-  institute_traffic:           'SUB-002', // nomination + serving_officer
-  institute_guarding:          'SUB-002', // nomination + serving_officer
-  special_units:               'SUB-002', // nomination + serving_officer
+  officers_general:            'SUB-001',
+  specialized_officers:        'SUB-002',
+  law_bachelor:                'SUB-003',
+  physical_education_bachelor: 'SUB-004',
 };
 
 function submissionTypeCodeFor(categoryCode: string): string {
@@ -306,7 +380,7 @@ function submissionTypeCodeFor(categoryCode: string): string {
 const applicantCategories: ApplicantCategoryRow[] = [
   {
     code: 'officers_general',
-    name: 'قسم الضباط (القسم العام)',
+    name: 'قسم الضباط (قسم عام)',
     isActive: true,
     metadata: { submissionTypeCode: submissionTypeCodeFor('officers_general') },
     nameEn: 'General Officers Department',
@@ -334,26 +408,22 @@ const applicantCategories: ApplicantCategoryRow[] = [
     procedures: [],
   },
   {
-    code: 'officers_specialized',
-    name: 'قسم الضباط المتخصصين',
+    code: 'law_bachelor',
+    name: 'ليسانس حقوق',
     isActive: true,
-    metadata: { submissionTypeCode: submissionTypeCodeFor('officers_specialized') },
-    nameEn: 'Specialized Officers Department',
-    description: 'الالتحاق لخريجي الجامعات في تخصصات حقوق وطب وهندسة وإعلام وغيرها',
+    metadata: { submissionTypeCode: submissionTypeCodeFor('law_bachelor') },
+    nameEn: 'Bachelor of Law',
+    description: 'الالتحاق لخريجي كليات الحقوق',
     isOpen: true,
     genderScope: 'any',
     applicationMode: 'general',
     conditions: {
-      ageMin: null, ageMax: 28, minScorePercent: null,
-      requiredQualification: 'bachelor', gender: 'any',
+      ageMin: null, ageMax: null, minScorePercent: null,
+      requiredQualification: 'bachelor_law', gender: 'any',
       minHeightCm: null, medicalRequired: true, maritalStatus: 'any',
-      conductCheck: true, egyptianNationalityRequired: false,
+      conductCheck: true, egyptianNationalityRequired: true,
       employerApprovalRequired: false, nominationOnly: false,
-      freeText: [
-        'مؤهل عالي (حقوق / طب / هندسة / إعلام…)',
-        'تقدير مناسب (جيد على الأقل)',
-        'حسن السمعة',
-      ],
+      freeText: ['ليسانس حقوق', 'تقدير مناسب', 'حسن السمعة'],
     },
     requiredTests: [
       { kind: 'posture',       order: 1, passingCriteria: '' },
@@ -366,114 +436,62 @@ const applicantCategories: ApplicantCategoryRow[] = [
     procedures: [],
   },
   {
-    code: 'postgraduate',
-    name: 'الدراسات العليا',
+    code: 'physical_education_bachelor',
+    name: 'بكالوريوس تربية رياضية',
     isActive: true,
-    metadata: { submissionTypeCode: submissionTypeCodeFor('postgraduate') },
-    nameEn: 'Postgraduate Studies',
-    description: 'برامج الدراسات العليا لخريجي كلية الشرطة والجهات المرتبطة',
+    metadata: { submissionTypeCode: submissionTypeCodeFor('physical_education_bachelor') },
+    nameEn: 'Bachelor of Physical Education',
+    description: 'الالتحاق لخريجات كليات التربية الرياضية',
     isOpen: true,
-    genderScope: 'any',
-    applicationMode: 'nomination',
+    genderScope: 'female',
+    applicationMode: 'general',
     conditions: {
       ageMin: null, ageMax: null, minScorePercent: null,
-      requiredQualification: 'police_academy_grad', gender: 'any',
-      minHeightCm: null, medicalRequired: false, maritalStatus: 'any',
-      conductCheck: false, egyptianNationalityRequired: false,
-      employerApprovalRequired: true, nominationOnly: false,
-      freeText: ['خريج كلية الشرطة أو جهة مرتبطة', 'موافقة جهة العمل', 'تقدير مناسب'],
-    },
-    requiredTests: [],
-    procedures: ['تقديم الأوراق', 'مقابلة شخصية (أحياناً)', 'مراجعة أمنية'],
-  },
-  {
-    code: 'institute_officers_training',
-    name: 'معهد تدريب الضباط',
-    isActive: true,
-    metadata: { submissionTypeCode: submissionTypeCodeFor('institute_officers_training') },
-    nameEn: 'Officers Training Institute',
-    description: 'برامج تدريبية متخصصة لضباط الشرطة (بالترشيح)',
-    isOpen: true,
-    genderScope: 'any',
-    applicationMode: 'nomination',
-    conditions: {
-      ageMin: null, ageMax: null, minScorePercent: null,
-      requiredQualification: 'serving_officer', gender: 'any',
-      minHeightCm: null, medicalRequired: false, maritalStatus: 'any',
-      conductCheck: false, egyptianNationalityRequired: false,
-      employerApprovalRequired: false, nominationOnly: true,
-      freeText: ['أن يكون ضابط شرطة'],
-    },
-    requiredTests: [],
-    procedures: ['ترشيح', 'برامج تدريبية'],
-  },
-  {
-    code: 'institute_traffic',
-    name: 'معهد المرور',
-    isActive: true,
-    metadata: { submissionTypeCode: submissionTypeCodeFor('institute_traffic') },
-    nameEn: 'Traffic Institute',
-    description: 'دورات تخصصية في إدارة المرور (بالترشيح)',
-    isOpen: true,
-    genderScope: 'any',
-    applicationMode: 'nomination',
-    conditions: {
-      ageMin: null, ageMax: null, minScorePercent: null,
-      requiredQualification: 'serving_officer', gender: 'any',
-      minHeightCm: null, medicalRequired: false, maritalStatus: 'any',
-      conductCheck: false, egyptianNationalityRequired: false,
-      employerApprovalRequired: false, nominationOnly: true,
-      freeText: ['ضباط شرطة'],
-    },
-    requiredTests: [],
-    procedures: ['ترشيح', 'دورات تخصصية'],
-  },
-  {
-    code: 'institute_guarding',
-    name: 'معهد الحراسات والتأمين',
-    isActive: true,
-    metadata: { submissionTypeCode: submissionTypeCodeFor('institute_guarding') },
-    nameEn: 'Guarding & Security Institute',
-    description: 'تأهيل ضباط الشرطة في الحراسات والتأمين (بالترشيح)',
-    isOpen: true,
-    genderScope: 'any',
-    applicationMode: 'nomination',
-    conditions: {
-      ageMin: null, ageMax: null, minScorePercent: null,
-      requiredQualification: 'serving_officer', gender: 'any',
-      minHeightCm: null, medicalRequired: false, maritalStatus: 'any',
-      conductCheck: false, egyptianNationalityRequired: false,
-      employerApprovalRequired: false, nominationOnly: true,
-      freeText: ['ضباط شرطة'],
+      requiredQualification: 'bachelor', gender: 'female',
+      minHeightCm: null, medicalRequired: true, maritalStatus: 'any',
+      conductCheck: true, egyptianNationalityRequired: true,
+      employerApprovalRequired: false, nominationOnly: false,
+      freeText: ['بكالوريوس تربية رياضية', 'تقدير مناسب', 'حسن السمعة'],
     },
     requiredTests: [
-      { kind: 'aptitude',          order: 1, passingCriteria: 'اختبارات لياقة' },
-      { kind: 'security_training', order: 2, passingCriteria: 'تدريب على التأمين' },
+      { kind: 'posture',       order: 1, passingCriteria: '' },
+      { kind: 'medical',       order: 2, passingCriteria: '' },
+      { kind: 'physical',      order: 3, passingCriteria: '' },
+      { kind: 'psychological', order: 4, passingCriteria: '' },
+      { kind: 'interview',     order: 5, passingCriteria: '' },
+      { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
   },
   {
-    code: 'special_units',
-    name: 'الوحدات الخاصة',
+    code: 'specialized_officers',
+    name: 'الضباط المتخصصون',
     isActive: true,
-    metadata: { submissionTypeCode: submissionTypeCodeFor('special_units') },
-    nameEn: 'Special Units',
-    description: 'تأهيل ضباط الوحدات الخاصة بمستوى بدني وذهني عالي (بالترشيح)',
+    metadata: { submissionTypeCode: submissionTypeCodeFor('specialized_officers') },
+    nameEn: 'Specialized Officers',
+    description: 'الالتحاق لخريجي الجامعات في تخصصات الطب والهندسة والإعلام وغيرها',
     isOpen: true,
     genderScope: 'any',
-    applicationMode: 'nomination',
+    applicationMode: 'general',
     conditions: {
-      ageMin: null, ageMax: null, minScorePercent: null,
-      requiredQualification: 'serving_officer', gender: 'any',
-      minHeightCm: null, medicalRequired: false, maritalStatus: 'any',
-      conductCheck: false, egyptianNationalityRequired: false,
-      employerApprovalRequired: false, nominationOnly: true,
-      freeText: ['ضباط بمستوى بدني عالي'],
+      ageMin: null, ageMax: 28, minScorePercent: null,
+      requiredQualification: 'bachelor', gender: 'any',
+      minHeightCm: null, medicalRequired: true, maritalStatus: 'any',
+      conductCheck: true, egyptianNationalityRequired: false,
+      employerApprovalRequired: false, nominationOnly: false,
+      freeText: [
+        'مؤهل عالي (طب / هندسة / إعلام / …)',
+        'تقدير مناسب (جيد على الأقل)',
+        'حسن السمعة',
+      ],
     },
     requiredTests: [
-      { kind: 'physical',          order: 1, passingCriteria: 'اختبارات بدنية قوية' },
-      { kind: 'psychological',     order: 2, passingCriteria: 'تحمل نفسي' },
-      { kind: 'tactical_training', order: 3, passingCriteria: 'تدريب تكتيكي' },
+      { kind: 'posture',       order: 1, passingCriteria: '' },
+      { kind: 'medical',       order: 2, passingCriteria: '' },
+      { kind: 'physical',      order: 3, passingCriteria: '' },
+      { kind: 'psychological', order: 4, passingCriteria: '' },
+      { kind: 'interview',     order: 5, passingCriteria: '' },
+      { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
   },
@@ -784,12 +802,13 @@ const applicantDivisions: ApplicantDivisionRow[] = [
 /* ─── 17. school-categories ──────────────────────────────────────────── */
 
 const schoolCategories: SchoolCategoryRow[] = [
-  { code: 'SCH-01', name: 'حكومي',     ...active },
-  { code: 'SCH-02', name: 'خاص',       ...active },
-  { code: 'SCH-03', name: 'تجريبي',    ...active },
-  { code: 'SCH-04', name: 'لغات',      ...active },
-  { code: 'SCH-05', name: 'أزهري',     ...active },
-  { code: 'SCH-06', name: 'دولي',      ...active },
+  { code: 'SCH-01', name: 'الثانوية العامة',                                ...active },
+  { code: 'SCH-02', name: 'الثانوية العامة - الدور الثاني',                 ...active },
+  { code: 'SCH-03', name: 'الثانوية الأزهرية',                              ...active },
+  { code: 'SCH-04', name: 'الثانوية الأزهرية - الدور الثاني',               ...active },
+  { code: 'SCH-05', name: 'الشهادات المعادلة من الخارج',                    ...active },
+  { code: 'SCH-06', name: 'الدبلومات الأجنبية',                             ...active },
+  { code: 'SCH-07', name: 'مدارس المتفوقين في العلوم والتكنولوجيا STEM',   ...active },
 ];
 
 /* ─── 18. nid-missing-reasons ────────────────────────────────────────── */
