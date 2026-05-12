@@ -642,6 +642,19 @@ export const cyclesService = {
   },
 
   async remove(id: string): Promise<{ ok: true }> {
+    /* Real backend DELETE /admin/cycles/{id}. Backend enforces "only Draft
+     * cycles can be deleted" + the soft-delete strategy (sets Archived=1
+     * for non-draft, hard-delete for draft) per AdminCyclesController.
+     * Errors:
+     *   - 404 if id not found
+     *   - 409 if cycle has applicants / is not Draft
+     * Both bubble up via the apiClient interceptor as typed ApiError. */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      await apiClient.delete(`/admin/cycles/${id}`);
+      return { ok: true };
+    }
+
+    /* Legacy mock fallback for any CYC-* ids that survive in non-flipped paths. */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
