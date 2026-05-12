@@ -218,8 +218,21 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
               <tbody>
                 {entries.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-2xs text-ink-500">
-                      لا توجد اختبارات في هذه الخطة. أضِف اختباراً من القائمة أعلاه.
+                    <td colSpan={5} className="py-6 text-center">
+                      <div className="flex flex-col items-center gap-3 text-2xs text-ink-500">
+                        <span>لا توجد امتحانات لهذه الفئة بعد</span>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => {
+                            const next = unselectedExams[0];
+                            if (next) addExam(next.id);
+                          }}
+                          disabled={unselectedExams.length === 0}
+                        >
+                          إضافة امتحان
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 )}
