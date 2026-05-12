@@ -29,9 +29,12 @@
  * Conflicts (mirrored in `docs/DB_CONSTRAINTS.md §11`):
  *   - 409 DUPLICATE_YEAR
  *   - 409 OVERLAPPING_PERIOD
- *   - 409 CAPACITY_NOT_POSITIVE
+ *   - 409 AGE_NOT_POSITIVE
+ *   - 409 AGE_REFERENCE_AFTER_START
+ *   - 409 PERCENTAGE_OUT_OF_RANGE          (GRADES branch only)
+ *   - 409 GRADE_MODE_MISMATCH              (parent submission-type drift)
  *   - 409 INVALID_DATE_RANGE
- *   - 409 SPECIALIZATION_NOT_MAPPED  (reserved — V1 does not enforce)
+ *   - 409 SPECIALIZATION_NOT_MAPPED        (reserved — V1 does not enforce)
  *   - 409 CATEGORY_HAS_ACTIVE_YEARS
  *
  * The frontend mock service is the only place that writes to
@@ -46,8 +49,14 @@ import { LOOKUPS_SEED } from '@/features/lookups/mock/lookups.mock';
 import type {
   ApplicantCategoryRow,
   SpecializationRow,
+  SubmissionTypeRow,
 } from '@/features/lookups/types';
-import { validateYearRow, type YearRowDraft } from '../lib/appSettingsValidation';
+import {
+  validateGradeKindMatchesCategory,
+  validateYearRow,
+  type YearRowDraft,
+} from '../lib/appSettingsValidation';
+import { resolveGradingModeForSpec } from '../lib/resolveGradingMode';
 import type {
   ApplicantCategoryConfig,
   ApplicantCategorySpecialization,
@@ -62,6 +71,24 @@ let years: ApplicantSpecializationYear[] = [...MOCK.applicantSpecializationYears
 
 const CATEGORY_LOOKUP: readonly ApplicantCategoryRow[] = LOOKUPS_SEED['applicant-categories'];
 const SPECIALIZATION_LOOKUP: readonly SpecializationRow[] = LOOKUPS_SEED['specializations'];
+const SUBMISSION_TYPE_LOOKUP: readonly SubmissionTypeRow[] = LOOKUPS_SEED['submission-types'];
+
+/**
+ * Resolve the parent gradingMode for a year-row write. Service boundary
+ * — re-reads the live in-memory `configs` / `specs` arrays so admin edits
+ * to a category's submission-type are picked up without a process
+ * restart.
+ */
+function resolveGradingModeFor(
+  categorySpecializationId: string,
+): ReturnType<typeof resolveGradingModeForSpec> {
+  return resolveGradingModeForSpec(categorySpecializationId, {
+    specs,
+    configs,
+    categoryLookup: CATEGORY_LOOKUP,
+    submissionTypeLookup: SUBMISSION_TYPE_LOOKUP,
+  });
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -228,6 +255,11 @@ export const applicationSettingsService = {
     input: YearRowDraft,
   ): Promise<ApplicantSpecializationYear> {
     await simulateLatency();
+    const parentMode = resolveGradingModeFor(input.categorySpecializationId);
+    if (parentMode) {
+      const mismatch = validateGradeKindMatchesCategory(input, parentMode);
+      if (mismatch) throw new ConflictError(mismatch, input);
+    }
     const siblings = years.filter(
       (y) => y.categorySpecializationId === input.categorySpecializationId,
     );
@@ -249,6 +281,11 @@ export const applicationSettingsService = {
     const current = years.find((y) => y.id === id);
     if (!current) throw new Error(`Year ${id} not found`);
     const next = { ...current, ...patch } as ApplicantSpecializationYear;
+    const parentMode = resolveGradingModeFor(next.categorySpecializationId);
+    if (parentMode) {
+      const mismatch = validateGradeKindMatchesCategory(next, parentMode);
+      if (mismatch) throw new ConflictError(mismatch, next);
+    }
     const siblings = years.filter(
       (y) => y.categorySpecializationId === next.categorySpecializationId,
     );
@@ -345,11 +382,19 @@ export const applicationSettingsService = {
           applied.push({ change, hypotheticalId: tempId });
         }
       }
-      // Validate every non-delete row against its post-state siblings.
+      /* Validate every non-delete row against its post-state siblings,
+       * including the GRADE_MODE_MISMATCH check against the resolved
+       * parent gradingMode. Atomicity guarantee: if any row fails, no
+       * row in the payload gets persisted. */
+      const parentMode = resolveGradingModeFor(csId);
       for (const { change, hypotheticalId } of applied) {
         if (change.kind === 'delete') continue;
         const row = hypothetical.find((y) => y.id === hypotheticalId);
         if (!row) continue;
+        if (parentMode) {
+          const mismatch = validateGradeKindMatchesCategory(row, parentMode);
+          if (mismatch) throw new ConflictError(mismatch, row);
+        }
         const siblings = hypothetical.filter((y) => y.id !== hypotheticalId);
         const conflict = validateYearRow(row, siblings, undefined);
         if (conflict) throw new ConflictError(conflict, row);
