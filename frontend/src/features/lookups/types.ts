@@ -33,6 +33,7 @@ export const LOOKUP_KEYS = [
   'applicant-divisions',
   'school-categories',
   'nid-missing-reasons',
+  'universities',
 ] as const;
 
 export type LookupKey = (typeof LOOKUP_KEYS)[number];
@@ -81,6 +82,7 @@ export const LOOKUP_SECTIONS = [
       'jobs',
       'qualifications',
       'nid-missing-reasons',
+      'universities',
     ] as const,
   },
 ] as const;
@@ -105,6 +107,7 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'applicant-divisions':          { label: 'شعبة المتقدمين',               codePrefix: 'DIV', padding: 2 },
   'school-categories':            { label: 'فئة المدرسة',                  codePrefix: 'SCH', padding: 2 },
   'nid-missing-reasons':          { label: 'أسباب تعذر وجود رقم قومي',    codePrefix: 'NMR', padding: 2 },
+  'universities':                 { label: 'الجامعات',                      codePrefix: 'UNI', padding: 2 },
 };
 
 /* ─── Per-row base ───────────────────────────────────────────────────── */
@@ -172,9 +175,31 @@ export interface SpecializationRow extends LookupRowBase {
 export type ApplicantCategoryGenderScope = 'male' | 'female' | 'any';
 export type ApplicantCategoryApplicationMode = 'general' | 'nomination';
 
+/* The applicant-category lookup absorbs the full ApplicantCategory shape
+ * — description, isOpen flag, conditions, expanded conditions, required
+ * tests, procedures. This lookup is the single source of truth for
+ * categories; the former /admin/categories page and MOCK.categories are
+ * being retired in favour of it. Rich fields imported from
+ * @/shared/types/domain (CategoryCondition etc.) so the existing
+ * applicant-portal eligibility flow keeps working unchanged. */
+import type {
+  CategoryCondition,
+  CategoryConditions,
+  RequiredTest,
+} from '@/shared/types/domain';
+
 export interface ApplicantCategoryRow extends LookupRowBase {
   genderScope: ApplicantCategoryGenderScope;
   applicationMode: ApplicantCategoryApplicationMode;
+  /** English label — used by some applicant-portal English copies. */
+  nameEn: string;
+  description: string;
+  /** Open in the cycle. Snapshot of the cycle's `openCategories[code]`. */
+  isOpen: boolean;
+  conditions: CategoryCondition;
+  expandedConditions?: CategoryConditions;
+  requiredTests: RequiredTest[];
+  procedures: string[];
 }
 
 export interface NationalityCountryRow extends LookupRowBase {
@@ -239,6 +264,9 @@ export interface NidMissingReasonRow extends LookupRowBase {
   requiresUpload: boolean;
 }
 
+/** Egyptian universities — standalone lookup, no FK to other lookups. */
+export interface UniversityRow extends LookupRowBase {}
+
 /* ─── Mapped type: discriminated union over LookupKey ─────────────── */
 
 export interface LookupRowMap {
@@ -259,6 +287,7 @@ export interface LookupRowMap {
   'applicant-divisions': ApplicantDivisionRow;
   'school-categories': SchoolCategoryRow;
   'nid-missing-reasons': NidMissingReasonRow;
+  'universities': UniversityRow;
 }
 
 export type LookupRow<K extends LookupKey = LookupKey> = LookupRowMap[K];

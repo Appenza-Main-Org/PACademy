@@ -14,6 +14,7 @@ import {
   Button,
   DataTable,
   DropdownMenu,
+  EmptyState,
   Input,
   Select,
   StatusBadge,
@@ -133,32 +134,52 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
 
   const filter = filterDescriptor(lookupKey);
 
+  const totalCount = (listQuery.data ?? []).length;
+  const filteredCount = rows.length;
+  const isFiltered = filteredCount !== totalCount;
+  const hasActiveQuery = search.trim().length > 0 || filterValue !== 'all';
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Input
-          label="بحث"
+          aria-label="ابحث في السجلات"
           placeholder="ابحث بالكود أو الاسم…"
           leadingIcon={<Search size={16} />}
           value={search}
           onChange={(e) => setSearch(e.currentTarget.value)}
-          containerClassName="min-w-72"
+          containerClassName="min-w-72 flex-1 max-w-sm"
         />
         {filter && (
           <Select
-            label={filter.label}
+            aria-label={filter.label}
             value={filterValue}
             onChange={(e) => setFilterValue(e.currentTarget.value)}
-            options={[{ value: 'all', label: 'الكل' }, ...filter.options]}
-            containerClassName="min-w-56"
+            options={[{ value: 'all', label: filter.label }, ...filter.options]}
+            containerClassName="min-w-52"
           />
         )}
-        <div className="ms-auto flex items-end gap-2 pb-1">
-          <Badge tone="neutral">{`${rows.length} سجل`}</Badge>
-          <Button variant="primary" leadingIcon={<Plus size={16} />} onClick={handleAdd}>
-            إضافة {meta.label.replace(/^\S+\s*/, '')}
-          </Button>
-        </div>
+        <span
+          aria-live="polite"
+          className="ms-auto inline-flex h-9 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-page px-2.5 text-2xs text-ink-600"
+        >
+          <span className="font-mono font-medium text-ink-900">{filteredCount}</span>
+          <span>سجل</span>
+          {isFiltered && (
+            <>
+              <span className="text-ink-300">·</span>
+              <span className="text-ink-500">من {totalCount}</span>
+            </>
+          )}
+        </span>
+        <Button
+          variant="primary"
+          leadingIcon={<Plus size={16} />}
+          onClick={handleAdd}
+          aria-label={`إضافة سجل جديد إلى ${meta.label}`}
+        >
+          إضافة
+        </Button>
       </div>
 
       <DataTable<LookupRow<K>>
@@ -168,7 +189,38 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
         loading={listQuery.isLoading}
         density="default"
         stickyHeader
-        empty={<p className="py-12 text-center text-sm text-ink-500">لا توجد سجلات مطابقة.</p>}
+        empty={
+          hasActiveQuery ? (
+            <EmptyState
+              variant="no-results-search"
+              title="لا توجد نتائج مطابقة"
+              description="جرّب تعديل البحث أو إزالة عوامل التصفية."
+              action={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearch('');
+                    setFilterValue('all');
+                  }}
+                >
+                  إعادة تعيين
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              variant="generic"
+              title="لا توجد سجلات بعد"
+              description={`ابدأ بإضافة أول سجل في «${meta.label}».`}
+              action={
+                <Button variant="primary" size="sm" leadingIcon={<Plus size={14} />} onClick={handleAdd}>
+                  إضافة
+                </Button>
+              }
+            />
+          )
+        }
       />
 
       <LookupRowDrawer
@@ -344,10 +396,10 @@ function buildColumns<K extends LookupKey>(
         <DropdownMenu.Trigger asChild>
           <button
             type="button"
-            aria-label="إجراءات"
-            className="flex h-7 w-7 items-center justify-center rounded text-ink-400 hover:bg-ink-50 hover:text-ink-700"
+            aria-label={`إجراءات على «${row.name}»`}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-500 transition-colors duration-fast ease-standard hover:bg-ink-50 hover:text-ink-900 focus-visible:outline-none focus-visible:shadow-[var(--ring)] data-[state=open]:bg-ink-100 data-[state=open]:text-ink-900"
           >
-            <MoreVertical size={16} />
+            <MoreVertical size={16} strokeWidth={1.75} />
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>

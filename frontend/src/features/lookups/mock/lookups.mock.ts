@@ -36,6 +36,7 @@ import type {
   SpecializationRow,
   TestResultRow,
   TestRow,
+  UniversityRow,
 } from '../types';
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
@@ -213,17 +214,182 @@ const specializations: SpecializationRow[] = [
   { code: 'SPC-28', name: 'التخطيط العمراني',       isActive: true, facultyCode: 'FAC-26' },
 ];
 
-/* ─── 9. applicant-categories ────────────────────────────────────────── */
+/* ─── 9. applicant-categories — seeded from former MOCK.categories ─────
+ *
+ * Source: APPLICANT_CATEGORIES in shared/mock-data/categories.ts (the
+ * spec-derived 7-category set from كلية_الشرطة_الاقسام_والشروط). Codes
+ * are the legacy `key` strings (snake_case) so consumers rename
+ * `.key`→`.code` and `.labelAr`→`.name` mechanically without re-keying
+ * stored data. Brief's `CAT-##` prefix is dropped in favour of the
+ * back-compat keys; the form regex already accepts snake_case codes. */
 
 const applicantCategories: ApplicantCategoryRow[] = [
-  { code: 'CAT-01', name: 'ثانوية عامة — ذكور',          isActive: true, genderScope: 'male',   applicationMode: 'general' },
-  { code: 'CAT-02', name: 'ثانوية عامة — إناث',          isActive: true, genderScope: 'female', applicationMode: 'general' },
-  { code: 'CAT-03', name: 'الأزهر الشريف',                isActive: true, genderScope: 'any',    applicationMode: 'general' },
-  { code: 'CAT-04', name: 'الضباط المتخصصون',             isActive: true, genderScope: 'any',    applicationMode: 'nomination' },
-  { code: 'CAT-05', name: 'تربية رياضية',                 isActive: true, genderScope: 'any',    applicationMode: 'general' },
-  { code: 'CAT-06', name: 'حقوق',                         isActive: true, genderScope: 'any',    applicationMode: 'general' },
-  { code: 'CAT-07', name: 'حاملو شهادات أجنبية',           isActive: true, genderScope: 'any',    applicationMode: 'general' },
-  { code: 'CAT-08', name: 'الدراسات العليا',              isActive: true, genderScope: 'any',    applicationMode: 'nomination' },
+  {
+    code: 'officers_general',
+    name: 'قسم الضباط (القسم العام)',
+    isActive: true,
+    nameEn: 'General Officers Department',
+    description: 'الالتحاق بكلية الشرطة عبر القسم العام لخريجي الثانوية العامة',
+    isOpen: true,
+    genderScope: 'male',
+    applicationMode: 'general',
+    conditions: {
+      ageMin: null, ageMax: null, minScorePercent: null,
+      requiredQualification: 'thanaweya_amma', gender: 'male',
+      minHeightCm: 170, medicalRequired: true, maritalStatus: 'single',
+      conductCheck: true, egyptianNationalityRequired: true,
+      employerApprovalRequired: false, nominationOnly: false,
+      freeText: ['مجموع مناسب في الثانوية العامة'],
+    },
+    requiredTests: [
+      { kind: 'aptitude',      order: 1, passingCriteria: '' },
+      { kind: 'posture',       order: 2, passingCriteria: '' },
+      { kind: 'medical',       order: 3, passingCriteria: '' },
+      { kind: 'physical',      order: 4, passingCriteria: '' },
+      { kind: 'psychological', order: 5, passingCriteria: '' },
+      { kind: 'interview',     order: 6, passingCriteria: '' },
+      { kind: 'drug',          order: 7, passingCriteria: '' },
+    ],
+    procedures: [],
+  },
+  {
+    code: 'officers_specialized',
+    name: 'قسم الضباط المتخصصين',
+    isActive: true,
+    nameEn: 'Specialized Officers Department',
+    description: 'الالتحاق لخريجي الجامعات في تخصصات حقوق وطب وهندسة وإعلام وغيرها',
+    isOpen: true,
+    genderScope: 'any',
+    applicationMode: 'general',
+    conditions: {
+      ageMin: null, ageMax: 28, minScorePercent: null,
+      requiredQualification: 'bachelor', gender: 'any',
+      minHeightCm: null, medicalRequired: true, maritalStatus: 'any',
+      conductCheck: true, egyptianNationalityRequired: false,
+      employerApprovalRequired: false, nominationOnly: false,
+      freeText: [
+        'مؤهل عالي (حقوق / طب / هندسة / إعلام…)',
+        'تقدير مناسب (جيد على الأقل)',
+        'حسن السمعة',
+      ],
+    },
+    requiredTests: [
+      { kind: 'posture',       order: 1, passingCriteria: '' },
+      { kind: 'medical',       order: 2, passingCriteria: '' },
+      { kind: 'physical',      order: 3, passingCriteria: '' },
+      { kind: 'psychological', order: 4, passingCriteria: '' },
+      { kind: 'interview',     order: 5, passingCriteria: '' },
+      { kind: 'drug',          order: 6, passingCriteria: '' },
+    ],
+    procedures: [],
+  },
+  {
+    code: 'postgraduate',
+    name: 'الدراسات العليا',
+    isActive: true,
+    nameEn: 'Postgraduate Studies',
+    description: 'برامج الدراسات العليا لخريجي كلية الشرطة والجهات المرتبطة',
+    isOpen: true,
+    genderScope: 'any',
+    applicationMode: 'nomination',
+    conditions: {
+      ageMin: null, ageMax: null, minScorePercent: null,
+      requiredQualification: 'police_academy_grad', gender: 'any',
+      minHeightCm: null, medicalRequired: false, maritalStatus: 'any',
+      conductCheck: false, egyptianNationalityRequired: false,
+      employerApprovalRequired: true, nominationOnly: false,
+      freeText: ['خريج كلية الشرطة أو جهة مرتبطة', 'موافقة جهة العمل', 'تقدير مناسب'],
+    },
+    requiredTests: [],
+    procedures: ['تقديم الأوراق', 'مقابلة شخصية (أحياناً)', 'مراجعة أمنية'],
+  },
+  {
+    code: 'institute_officers_training',
+    name: 'معهد تدريب الضباط',
+    isActive: true,
+    nameEn: 'Officers Training Institute',
+    description: 'برامج تدريبية متخصصة لضباط الشرطة (بالترشيح)',
+    isOpen: true,
+    genderScope: 'any',
+    applicationMode: 'nomination',
+    conditions: {
+      ageMin: null, ageMax: null, minScorePercent: null,
+      requiredQualification: 'serving_officer', gender: 'any',
+      minHeightCm: null, medicalRequired: false, maritalStatus: 'any',
+      conductCheck: false, egyptianNationalityRequired: false,
+      employerApprovalRequired: false, nominationOnly: true,
+      freeText: ['أن يكون ضابط شرطة'],
+    },
+    requiredTests: [],
+    procedures: ['ترشيح', 'برامج تدريبية'],
+  },
+  {
+    code: 'institute_traffic',
+    name: 'معهد المرور',
+    isActive: true,
+    nameEn: 'Traffic Institute',
+    description: 'دورات تخصصية في إدارة المرور (بالترشيح)',
+    isOpen: true,
+    genderScope: 'any',
+    applicationMode: 'nomination',
+    conditions: {
+      ageMin: null, ageMax: null, minScorePercent: null,
+      requiredQualification: 'serving_officer', gender: 'any',
+      minHeightCm: null, medicalRequired: false, maritalStatus: 'any',
+      conductCheck: false, egyptianNationalityRequired: false,
+      employerApprovalRequired: false, nominationOnly: true,
+      freeText: ['ضباط شرطة'],
+    },
+    requiredTests: [],
+    procedures: ['ترشيح', 'دورات تخصصية'],
+  },
+  {
+    code: 'institute_guarding',
+    name: 'معهد الحراسات والتأمين',
+    isActive: true,
+    nameEn: 'Guarding & Security Institute',
+    description: 'تأهيل ضباط الشرطة في الحراسات والتأمين (بالترشيح)',
+    isOpen: true,
+    genderScope: 'any',
+    applicationMode: 'nomination',
+    conditions: {
+      ageMin: null, ageMax: null, minScorePercent: null,
+      requiredQualification: 'serving_officer', gender: 'any',
+      minHeightCm: null, medicalRequired: false, maritalStatus: 'any',
+      conductCheck: false, egyptianNationalityRequired: false,
+      employerApprovalRequired: false, nominationOnly: true,
+      freeText: ['ضباط شرطة'],
+    },
+    requiredTests: [
+      { kind: 'aptitude',          order: 1, passingCriteria: 'اختبارات لياقة' },
+      { kind: 'security_training', order: 2, passingCriteria: 'تدريب على التأمين' },
+    ],
+    procedures: [],
+  },
+  {
+    code: 'special_units',
+    name: 'الوحدات الخاصة',
+    isActive: true,
+    nameEn: 'Special Units',
+    description: 'تأهيل ضباط الوحدات الخاصة بمستوى بدني وذهني عالي (بالترشيح)',
+    isOpen: true,
+    genderScope: 'any',
+    applicationMode: 'nomination',
+    conditions: {
+      ageMin: null, ageMax: null, minScorePercent: null,
+      requiredQualification: 'serving_officer', gender: 'any',
+      minHeightCm: null, medicalRequired: false, maritalStatus: 'any',
+      conductCheck: false, egyptianNationalityRequired: false,
+      employerApprovalRequired: false, nominationOnly: true,
+      freeText: ['ضباط بمستوى بدني عالي'],
+    },
+    requiredTests: [
+      { kind: 'physical',          order: 1, passingCriteria: 'اختبارات بدنية قوية' },
+      { kind: 'psychological',     order: 2, passingCriteria: 'تحمل نفسي' },
+      { kind: 'tactical_training', order: 3, passingCriteria: 'تدريب تكتيكي' },
+    ],
+    procedures: [],
+  },
 ];
 
 /* ─── 10. nationalities-countries — Arab League + 30 common others ──── */
@@ -550,6 +716,41 @@ const nidMissingReasons: NidMissingReasonRow[] = [
   { code: 'NMR-06', name: 'أخرى',                        isActive: true, requiresUpload: true  },
 ];
 
+/* ─── 18. universities — standalone, no FK to other lookups ─────────── */
+
+const universities: UniversityRow[] = [
+  { code: 'UNI-01', name: 'جامعة القاهرة',                   ...active },
+  { code: 'UNI-02', name: 'جامعة عين شمس',                   ...active },
+  { code: 'UNI-03', name: 'جامعة الإسكندرية',                ...active },
+  { code: 'UNI-04', name: 'جامعة المنصورة',                  ...active },
+  { code: 'UNI-05', name: 'جامعة أسيوط',                     ...active },
+  { code: 'UNI-06', name: 'جامعة الزقازيق',                  ...active },
+  { code: 'UNI-07', name: 'جامعة طنطا',                      ...active },
+  { code: 'UNI-08', name: 'جامعة المنوفية',                  ...active },
+  { code: 'UNI-09', name: 'جامعة بنها',                      ...active },
+  { code: 'UNI-10', name: 'جامعة بني سويف',                  ...active },
+  { code: 'UNI-11', name: 'جامعة الفيوم',                    ...active },
+  { code: 'UNI-12', name: 'جامعة سوهاج',                     ...active },
+  { code: 'UNI-13', name: 'جامعة جنوب الوادي (قنا)',          ...active },
+  { code: 'UNI-14', name: 'جامعة أسوان',                     ...active },
+  { code: 'UNI-15', name: 'جامعة كفر الشيخ',                  ...active },
+  { code: 'UNI-16', name: 'جامعة دمياط',                     ...active },
+  { code: 'UNI-17', name: 'جامعة بورسعيد',                   ...active },
+  { code: 'UNI-18', name: 'جامعة السويس',                    ...active },
+  { code: 'UNI-19', name: 'جامعة العريش',                    ...active },
+  { code: 'UNI-20', name: 'جامعة مطروح',                     ...active },
+  { code: 'UNI-21', name: 'جامعة الأزهر',                    ...active },
+  { code: 'UNI-22', name: 'جامعة حلوان',                     ...active },
+  { code: 'UNI-23', name: 'الجامعة الأمريكية بالقاهرة',       ...active },
+  { code: 'UNI-24', name: 'الجامعة الألمانية بالقاهرة',        ...active },
+  { code: 'UNI-25', name: 'الجامعة البريطانية في مصر',         ...active },
+  { code: 'UNI-26', name: 'الجامعة الفرنسية',                 ...active },
+  { code: 'UNI-27', name: 'جامعة 6 أكتوبر',                   ...active },
+  { code: 'UNI-28', name: 'جامعة مصر للعلوم والتكنولوجيا',     ...active },
+  { code: 'UNI-29', name: 'جامعة النيل',                      ...active },
+  { code: 'UNI-30', name: 'جامعة المستقبل',                   ...active },
+];
+
 /* ─── Aggregate — `MOCK.lookups[key]` ────────────────────────────────── */
 
 export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
@@ -570,4 +771,5 @@ export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
   'applicant-divisions': applicantDivisions,
   'school-categories': schoolCategories,
   'nid-missing-reasons': nidMissingReasons,
+  'universities': universities,
 };

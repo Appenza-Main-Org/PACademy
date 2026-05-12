@@ -45,6 +45,7 @@ export {
   type ApplicantDivisionRow,
   type SchoolCategoryRow,
   type NidMissingReasonRow,
+  type UniversityRow,
   type DeleteResult,
 } from './types';
 
