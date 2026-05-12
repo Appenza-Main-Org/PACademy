@@ -122,6 +122,7 @@
 - [ ] T045 [P] [US1] CRUD use cases for `TotalScoreConfig` in `.../TotalScore/` — `List` (returns per-stream list), `Get`, `Upsert` per stream.
 - [ ] T046 [P] [US1] CRUD use cases for `ElectronicDeclaration` in `.../ElectronicDeclaration/` — `List` (versions), `Get` (currently published), `Create` (new draft version), `Update` (only on un-published drafts), `Publish` (atomic flip with audit), `Archive` (blocked on currently-published).
 - [ ] T047 [P] [US1] Wizard-status use cases in `.../WizardStatus/` — `GetStatuses(cycleId)` (returns 13-row map per `AMENDMENT-001-wizard-step-count.md`), `Complete(cycleId, stepKey)`, `Reopen(cycleId, stepKey)`. Reject unknown step keys (incl. legacy `cycle_metadata` / `marital_status_rules`) with 422. Audit `wizard_step_completed` / `wizard_step_reopened`.
+- [ ] T047a [P] [US1] **Cross-spec hook for spec 011.** Add `POST /admin/admission-setup/cycles/{cycleId}/steps/{stepKey}/auto-promote` endpoint to `AdminWizardStatusController` (T053). Idempotent — promotes pill from `not_started` to `in_progress` for the given `(cycleId, stepKey)`; no-op if already `in_progress` or `complete`. Called by spec 011's `applicationSettings.service.ts` on first save per cycle, since the spec 005 `WizardStatusInterceptor` does NOT watch spec 011's tables (they live in a different DbContext). No audit emission (the underlying spec 011 mutation already audits).
 - [ ] T048 [P] [US1] Controller `AdminMergeSplitRulesController` in `backend/src/PACademy.Api/Controllers/Admin/AdmissionSetup/AdminMergeSplitRulesController.cs` — wires all 9 merge/split endpoints from contracts §1.
 - [ ] T049 [P] [US1] Controller `AdminCommitteeScoreThresholdsController` in `.../AdminCommitteeScoreThresholdsController.cs` — contracts §2.
 - [ ] T050 [P] [US1] Controller `AdminExamDateConfigController` in `.../AdminExamDateConfigController.cs` — contracts §3.
@@ -244,7 +245,7 @@
 
 **Goal**: An admin creates a new draft cycle and clones the wizard configuration of any prior cycle as a starting point. Identity-bound fields reset; references remap by key/name; broken references flagged.
 
-**Independent Test**: Per spec.md Story 4 Acceptance — create a draft cycle, copy from a prior fully-configured cycle, all 13 steps populate (step 1 `application_settings` is hydrated via the spec 011 clone path), identity fields blank, broken refs flagged.
+**Independent Test**: Per spec.md Story 4 Acceptance — create a draft cycle, copy from a prior fully-configured cycle, all 13 steps populate (step 1 `application_settings` is global per spec 011 — not cloned; the orchestrator only marks step 1's pill as `in_progress`), identity fields blank, broken refs flagged.
 
 ### Tests for User Story 4 (REQUIRED — Constitution Principle II) ⚠️
 

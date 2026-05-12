@@ -198,7 +198,8 @@ those edits, and the source cycle's data is untouched.
 1. **Given** an admin has a draft cycle with no wizard data and selects
    a prior cycle as the copy source, **When** they confirm the copy,
    **Then** all 13 steps populate with the prior cycle's data (step 1
-   `application_settings` is hydrated via the spec 011 clone path), the
+   `application_settings` is global per spec 011 — not cloned; only the
+   target cycle's pill is marked `in_progress`), the
    cycle name / year / application-dates fields are blank (the admin
    fills them in), and an audit entry records the copy operation with
    source and target cycle ids.

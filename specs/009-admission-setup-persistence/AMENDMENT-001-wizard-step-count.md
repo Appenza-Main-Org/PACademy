@@ -54,7 +54,7 @@ Source of truth: [`frontend/src/features/admin/admission-setup/config.ts`](../..
 | 6 (Input field) | "Wire all 15 admission-setup wizard pages to the database" | "Wire all 13 admission-setup wizard pages to the database (step 1 — `application_settings` — is owned by spec 011 and is **excluded** from spec 009's scope)" |
 | 13 (Clarification §) | "The clone covers all 15 steps' data" | "The clone covers all 13 steps' data" |
 | 24-25 | "its 15 steps are backed by three different storage strategies — partial backend persistence (steps 1–6), in-memory mocks for the existing service layers (steps 7, 8, 12, 14), and brand-new in-memory shapes that don't exist on the backend at all (steps 9, 10, 11, 13, 15)" | "its 13 steps are backed by two storage strategies on this branch — in-memory mocks for the existing service layers (steps 2, 3, 4, 5, 6, 10, 12) and brand-new in-memory shapes that don't exist on the backend at all (steps 7, 8, 9, 11, 13). Step 1 (`application_settings`) is owned by spec 011." |
-| 195 (US4 Story) | "all 15 steps populate with the prior cycle's data" | "all 13 steps populate with the prior cycle's data (step 1 is hydrated via the spec 011 clone path)" |
+| 195 (US4 Story) | "all 15 steps populate with the prior cycle's data" | "all 13 steps populate with the prior cycle's data (step 1 `application_settings` is **global master data per spec 011**; the cross-cycle copy does NOT clone it — it only marks the target cycle's step-1 pill as `in_progress` so the admin reviews the global config in the context of the new cycle)" |
 
 ### `plan.md`
 
