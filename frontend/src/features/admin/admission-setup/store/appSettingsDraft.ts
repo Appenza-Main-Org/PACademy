@@ -17,6 +17,32 @@
  * computed by comparing the draft `row` against `original`. The bulk
  * save bar flattens every category-specialization slice into a single
  * payload at save time.
+ *
+ * ### Discriminated-union handling
+ *
+ * `ApplicantSpecializationYear` is a discriminated union on `gradeKind`
+ * (`'GRADES'` vs `'TAGDIR'`). The store enforces two invariants on top
+ * of the type system:
+ *
+ *  1. **`gradeKind` is immutable post-creation.** `patchRow` silently
+ *     drops any patch carrying `gradeKind`. Switching a row's branch
+ *     after creation would lose the user's value on the other branch
+ *     and is not user-recoverable; if the parent category's
+ *     submission-type drifts, the conflict banner asks the admin to
+ *     delete and re-create the affected rows.
+ *  2. **Opposite-branch fields are stripped on patch.** A GRADES row
+ *     can't accidentally pick up an `academicGradeId`, and a TAGDIR
+ *     row can't pick up a `minPercentage`. The patch source is the
+ *     YearTable's GradeBranchCell, which already renders only the
+ *     branch matching the row's discriminator, but defense-in-depth
+ *     keeps the union shape clean.
+ *
+ * New rows default to the GRADES branch (`minPercentage: 70`). Callers
+ * that already know the parent gradingMode (e.g. YearTable, which
+ * reads `useResolvedGradingModeForSpec`) pass `gradeKind: 'TAGDIR'`
+ * via `seed` to flip the default. TAGDIR-seeded rows start with an
+ * empty `academicGradeId` so the user must pick one before save — the
+ * required-field validation fires on bulk save.
  */
 
 import { create } from 'zustand';
