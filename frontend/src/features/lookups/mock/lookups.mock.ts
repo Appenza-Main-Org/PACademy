@@ -219,14 +219,49 @@ const specializations: SpecializationRow[] = [
 
 /* Discriminator for how the applicant-side reports academic results.
  * Each row's `metadata.gradingMode` flips the downstream branch — read via
- * `readGradingMode(row)` from `../lib/submissionType.ts`. Two rows is the
- * minimum that makes the branch meaningful (the prompt asked for one but
- * cut off mid-seed; flagged in
- * docs/migration/submission-types/INVENTORY.md §6). */
+ * `readGradingMode(row)` from `../lib/submissionType.ts`.
+ *
+ * Codes are SUB-001..SUB-NNN (3-digit, per the patched Step 1.4 spec).
+ * `createdAt` / `createdBy` are stashed inside `metadata` because no other
+ * row in the lookup module carries audit fields and adding them just here
+ * would be inconsistent — surface them through `metadata` until the
+ * audit columns land system-wide. */
+
+const SUBMISSION_TYPE_CREATED_AT = '2026-05-12T00:00:00.000Z';
 
 const submissionTypes: SubmissionTypeRow[] = [
-  { code: 'SUB-01', name: 'تقديم عام',  isActive: true, metadata: { gradingMode: 'GRADES' } },
-  { code: 'SUB-02', name: 'بالترشيح',  isActive: true, metadata: { gradingMode: 'TAGDIR' } },
+  {
+    code: 'SUB-001',
+    name: 'تقديم عام',
+    nameEn: 'General Submission',
+    isActive: true,
+    sortOrder: 10,
+    metadata: { gradingMode: 'GRADES', createdBy: 'system', createdAt: SUBMISSION_TYPE_CREATED_AT },
+  },
+  {
+    code: 'SUB-002',
+    name: 'تقديم المتخصصين',
+    nameEn: 'Specialists Submission',
+    isActive: true,
+    sortOrder: 20,
+    metadata: { gradingMode: 'TAGDIR', createdBy: 'system', createdAt: SUBMISSION_TYPE_CREATED_AT },
+  },
+  {
+    code: 'SUB-003',
+    name: 'تقديم الحقوقيين',
+    nameEn: 'Law Graduates Submission',
+    isActive: true,
+    sortOrder: 30,
+    metadata: { gradingMode: 'TAGDIR', createdBy: 'system', createdAt: SUBMISSION_TYPE_CREATED_AT },
+  },
+  {
+    code: 'SUB-004',
+    name: 'تربية رياضية إناث',
+    nameEn: 'Physical Education — Females',
+    isActive: true,
+    sortOrder: 40,
+    metadata: { gradingMode: 'GRADES', createdBy: 'system', createdAt: SUBMISSION_TYPE_CREATED_AT },
+  },
 ];
 
 /* ─── 9. applicant-categories — seeded from former MOCK.categories ─────
@@ -236,13 +271,42 @@ const submissionTypes: SubmissionTypeRow[] = [
  * are the legacy `key` strings (snake_case) so consumers rename
  * `.key`→`.code` and `.labelAr`→`.name` mechanically without re-keying
  * stored data. Brief's `CAT-##` prefix is dropped in favour of the
- * back-compat keys; the form regex already accepts snake_case codes. */
+ * back-compat keys; the form regex already accepts snake_case codes.
+ *
+ * `metadata.submissionTypeCode` (added 2026-05-12) is the FK into the
+ * `submission-types` lookup. Resolution map below uses codes — the prompt's
+ * example resolves by `id` but this codebase uses `code` as the durable
+ * identity (no uuid layer). Two rows have explicit Arabic-name matches
+ * with the patch's category table (`officers_specialized`↔CAT-04 المتخصصون,
+ * `postgraduate`↔CAT-08 الدراسات العليا); the remaining five fall back to
+ * the row's own `applicationMode` (nomination → SUB-002, general → SUB-001).
+ * The prompt-listed categories that have NO match in the seed (CAT-01..03,
+ * CAT-05..07) are reported in docs/migration/submission-types/STEP2.md. */
+
+const CATEGORY_SUBMISSION_MAP: Record<string, string> = {
+  /* Explicit Arabic-name matches with the patch's table. */
+  officers_specialized: 'SUB-002', // CAT-04 الضباط المتخصصون
+  postgraduate:         'SUB-002', // CAT-08 الدراسات العليا
+  /* Fallbacks — respect the row's own applicationMode. */
+  officers_general:            'SUB-001', // applicationMode='general'
+  institute_officers_training: 'SUB-002', // nomination + serving_officer
+  institute_traffic:           'SUB-002', // nomination + serving_officer
+  institute_guarding:          'SUB-002', // nomination + serving_officer
+  special_units:               'SUB-002', // nomination + serving_officer
+};
+
+function submissionTypeCodeFor(categoryCode: string): string {
+  const code = CATEGORY_SUBMISSION_MAP[categoryCode];
+  if (!code) throw new Error(`No submission-type mapping for category ${categoryCode}`);
+  return code;
+}
 
 const applicantCategories: ApplicantCategoryRow[] = [
   {
     code: 'officers_general',
     name: 'قسم الضباط (القسم العام)',
     isActive: true,
+    metadata: { submissionTypeCode: submissionTypeCodeFor('officers_general') },
     nameEn: 'General Officers Department',
     description: 'الالتحاق بكلية الشرطة عبر القسم العام لخريجي الثانوية العامة',
     isOpen: true,
@@ -271,6 +335,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
     code: 'officers_specialized',
     name: 'قسم الضباط المتخصصين',
     isActive: true,
+    metadata: { submissionTypeCode: submissionTypeCodeFor('officers_specialized') },
     nameEn: 'Specialized Officers Department',
     description: 'الالتحاق لخريجي الجامعات في تخصصات حقوق وطب وهندسة وإعلام وغيرها',
     isOpen: true,
@@ -302,6 +367,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
     code: 'postgraduate',
     name: 'الدراسات العليا',
     isActive: true,
+    metadata: { submissionTypeCode: submissionTypeCodeFor('postgraduate') },
     nameEn: 'Postgraduate Studies',
     description: 'برامج الدراسات العليا لخريجي كلية الشرطة والجهات المرتبطة',
     isOpen: true,
@@ -322,6 +388,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
     code: 'institute_officers_training',
     name: 'معهد تدريب الضباط',
     isActive: true,
+    metadata: { submissionTypeCode: submissionTypeCodeFor('institute_officers_training') },
     nameEn: 'Officers Training Institute',
     description: 'برامج تدريبية متخصصة لضباط الشرطة (بالترشيح)',
     isOpen: true,
@@ -342,6 +409,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
     code: 'institute_traffic',
     name: 'معهد المرور',
     isActive: true,
+    metadata: { submissionTypeCode: submissionTypeCodeFor('institute_traffic') },
     nameEn: 'Traffic Institute',
     description: 'دورات تخصصية في إدارة المرور (بالترشيح)',
     isOpen: true,
@@ -362,6 +430,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
     code: 'institute_guarding',
     name: 'معهد الحراسات والتأمين',
     isActive: true,
+    metadata: { submissionTypeCode: submissionTypeCodeFor('institute_guarding') },
     nameEn: 'Guarding & Security Institute',
     description: 'تأهيل ضباط الشرطة في الحراسات والتأمين (بالترشيح)',
     isOpen: true,

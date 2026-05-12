@@ -183,8 +183,15 @@ export interface SpecializationRow extends LookupRowBase {
  *  downstream branch (numeric درجات vs qualitative تقدير) on every
  *  applicant-category FK'd to it. Accessor lives at
  *  `features/lookups/lib/submissionType.ts` — read via `readGradingMode(row)`
- *  rather than reaching into `metadata` directly. */
-export interface SubmissionTypeRow extends LookupRowBase {}
+ *  rather than reaching into `metadata` directly.
+ *
+ *  `nameEn` mirrors the bilingual approach used by `ApplicantCategoryRow`;
+ *  `sortOrder` drives display order in the reference-data grid (10/20/30/40
+ *  in the seed so admin can insert between later without re-keying). */
+export interface SubmissionTypeRow extends LookupRowBase {
+  nameEn: string;
+  sortOrder: number;
+}
 
 export type ApplicantCategoryGenderScope = 'male' | 'female' | 'any';
 export type ApplicantCategoryApplicationMode = 'general' | 'nomination';
