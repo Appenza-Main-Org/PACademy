@@ -13,7 +13,6 @@
 
 import { useEffect, useState } from 'react';
 import { Download, Upload } from 'lucide-react';
-import type { ZodSchema } from 'zod';
 import { Button, FileUpload, Modal, toast } from '@/shared/components';
 import type { UploadFile } from '@/shared/components';
 import { downloadBlob } from '@/shared/lib/download';
