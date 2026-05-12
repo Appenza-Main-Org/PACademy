@@ -9,10 +9,7 @@ import {
   ClipboardList,
   Database,
   Grid3x3,
-  Layers,
-  LayoutDashboard,
   Settings,
-  Settings2,
   Shield,
   Users,
   Workflow,
@@ -32,15 +29,12 @@ import { ROUTES } from '@/config/routes';
  *   4. الأمان والمستخدمون              governance (users · roles · audit)
  *
  * Why committees live under "التقديم والدورات": each committee is a per-cycle
- * artifact — categories define WHO can apply, the cycle opens the window,
- * admission-setup configures it, then committees staff the review. Both
- * admin-shell roles (super_admin, committee_admin) carry `admission-setup:read`
- * (see rbac.ts), so gating the whole section by that permission is safe.
- *
- * `إعدادات التقديم` is a deep link into the wizard's first step. The wizard
- * auto-resolves a cycle (active → most-recent → null) so the deep link is safe
- * even when no cycle is selected. `إعداد التقديم` carries `end: true` so the
- * dashboard-style umbrella row doesn't co-highlight with the deep link.
+ * artifact — the cycle opens the window, admission-setup configures it, then
+ * committees staff the review. Committee identity/membership is authored in
+ * the `committees` lookup (الأكواد المرجعية → اللجان); the sidebar entry kept
+ * here is the per-cycle scheduling surface. Both admin-shell roles
+ * (super_admin, committee_admin) carry `admission-setup:read` (see rbac.ts),
+ * so gating the whole section by that permission is safe.
  */
 const SIDEBAR: SidebarSection[] = [
   {
@@ -54,29 +48,23 @@ const SIDEBAR: SidebarSection[] = [
   {
     label: 'العمليات',
     items: [
-      { key: 'dashboard',  label: 'لوحة التحكم', icon: <LayoutDashboard size={18} />, to: ROUTES.admin.dashboard, end: true },
-      { key: 'applicants', label: 'المتقدمون',    icon: <ClipboardList size={18} />,   to: ROUTES.admin.applicants },
-      { key: 'reports',    label: 'التقارير',     icon: <BarChart3 size={18} />,       to: ROUTES.admin.reports },
+      { key: 'applicants', label: 'المتقدمون', icon: <ClipboardList size={18} />, to: ROUTES.admin.applicants },
+      { key: 'reports',    label: 'التقارير',   icon: <BarChart3 size={18} />,     to: ROUTES.admin.reports },
     ],
   },
   /* ── 2. Per-cycle configuration ──────────────────────────────────────────
-   * Order matches the authoring chain: categories define who can apply →
-   * cycles open the window → admission-setup configures it → the
-   * most-edited step (application_settings) gets a dedicated deep link →
-   * committees staff the review. Gate is preserved from the previous
-   * "التقديم" section; committee items piggyback on it (both eligible
-   * roles carry `admission-setup:read`). */
+   * Order matches the authoring chain: cycles open the window →
+   * admission-setup configures it → committees staff the review (only the
+   * per-cycle scheduling surface lives here; committee identity/membership
+   * is authored in the `committees` lookup). Gate is preserved from the
+   * previous "التقديم" section. */
   {
     label: 'التقديم والدورات',
     permission: 'admission-setup:read',
     items: [
-      { key: 'categories',          label: 'فئات التقديم',         icon: <Layers size={18} />,          to: ROUTES.admin.categories },
-      { key: 'cycles',              label: 'الدورات',               icon: <CalendarDays size={18} />,    to: ROUTES.admin.cycles },
-      { key: 'admission-setup',     label: 'إعداد التقديم',         icon: <ClipboardCheck size={18} />,  to: ROUTES.admin.admissionSetup.index, end: true },
-      { key: 'application-settings', label: 'إعدادات التقديم',      icon: <Settings2 size={18} />,       to: ROUTES.admin.admissionSetup.wizard('application_settings') },
-      { key: 'committee-overview',  label: 'نظرة عامة على اللجان',  icon: <LayoutDashboard size={18} />, to: ROUTES.committee.overview, end: true },
-      { key: 'committee-list',      label: 'قائمة اللجان',          icon: <Users size={18} />,           to: ROUTES.committee.list },
-      { key: 'committee-schedule',  label: 'الجدول الزمني',         icon: <Calendar size={18} />,        to: ROUTES.committee.schedule },
+      { key: 'cycles',             label: 'الدورات',         icon: <CalendarDays size={18} />,   to: ROUTES.admin.cycles },
+      { key: 'admission-setup',    label: 'إعداد التقديم',   icon: <ClipboardCheck size={18} />, to: ROUTES.admin.admissionSetup.index, end: true },
+      { key: 'committee-schedule', label: 'الجدول الزمني',   icon: <Calendar size={18} />,       to: ROUTES.committee.schedule },
     ],
   },
   /* ── 3. Cross-cycle reference data ─────────────────────────────────── */
