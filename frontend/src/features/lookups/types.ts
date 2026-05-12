@@ -35,6 +35,8 @@ export const LOOKUP_KEYS = [
   'school-categories',
   'nid-missing-reasons',
   'universities',
+  'marital-statuses',
+  'academic-grades',
 ] as const;
 
 export type LookupKey = (typeof LOOKUP_KEYS)[number];
@@ -72,6 +74,8 @@ export const LOOKUP_SECTIONS = [
       'announcements',
       'applicant-divisions',
       'school-categories',
+      'marital-statuses',
+      'academic-grades',
     ] as const,
   },
   {
@@ -111,6 +115,8 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'school-categories':            { label: 'فئة المدرسة',                  codePrefix: 'SCH', padding: 2 },
   'nid-missing-reasons':          { label: 'أسباب تعذر وجود رقم قومي',    codePrefix: 'NMR', padding: 2 },
   'universities':                 { label: 'الجامعات',                      codePrefix: 'UNI', padding: 2 },
+  'marital-statuses':             { label: 'الحالة الاجتماعية',            codePrefix: 'MAR', padding: 2 },
+  'academic-grades':              { label: 'التقدير الأكاديمي',             codePrefix: 'AGR', padding: 2 },
 };
 
 /* ─── Per-row base ───────────────────────────────────────────────────── */
@@ -288,6 +294,23 @@ export interface NidMissingReasonRow extends LookupRowBase {
 /** Egyptian universities — standalone lookup, no FK to other lookups. */
 export interface UniversityRow extends LookupRowBase {}
 
+/** Marital-status lookup row. Replaces the in-feature placeholder at
+ *  `admission-setup/lib/maritalStatuses.ts` — the placeholder re-exports
+ *  these rows so its existing call sites keep working. */
+export interface MaritalStatusRow extends LookupRowBase {
+  nameEn: string;
+}
+
+/** Academic-grade lookup row (التقدير). Used by the application-settings
+ *  year row when the parent category's submission-type has
+ *  `gradingMode = 'TAGDIR'`. The inclusive percentage range carried on
+ *  `metadata.minPercentage` / `metadata.maxPercentage` lets the UI show a
+ *  hint under the picked تقدير ("85–100%"). Accessor lives at
+ *  `features/lookups/lib/academicGrade.ts` — `readPercentageRange(row)`. */
+export interface AcademicGradeRow extends LookupRowBase {
+  nameEn: string;
+}
+
 /* ─── Mapped type: discriminated union over LookupKey ─────────────── */
 
 export interface LookupRowMap {
@@ -310,6 +333,8 @@ export interface LookupRowMap {
   'school-categories': SchoolCategoryRow;
   'nid-missing-reasons': NidMissingReasonRow;
   'universities': UniversityRow;
+  'marital-statuses': MaritalStatusRow;
+  'academic-grades': AcademicGradeRow;
 }
 
 export type LookupRow<K extends LookupKey = LookupKey> = LookupRowMap[K];

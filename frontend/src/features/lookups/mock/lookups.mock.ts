@@ -17,6 +17,7 @@
  */
 
 import type {
+  AcademicGradeRow,
   AnnouncementRow,
   ApplicantCategoryRow,
   ApplicantDivisionRow,
@@ -26,6 +27,7 @@ import type {
   JobRow,
   LookupKey,
   LookupRow,
+  MaritalStatusRow,
   NationalityCountryRow,
   NidMissingReasonRow,
   PoliceStationRow,
@@ -836,6 +838,60 @@ const universities: UniversityRow[] = [
   { code: 'UNI-30', name: 'جامعة المستقبل',                   ...active },
 ];
 
+/* ─── 19. marital-statuses ─────────────────────────────────────────────
+ *
+ * Replaces the in-feature placeholder at
+ * `admission-setup/lib/maritalStatuses.ts`. Codes follow the per-lookup
+ * 2-digit padding documented in LOOKUP_META — the patch's proposed
+ * 3-digit codes (`MAR-001`) were normalised to match local convention
+ * (SUB-NNN is the outlier, not the rule). */
+
+const maritalStatuses: MaritalStatusRow[] = [
+  { code: 'MAR-01', name: 'أعزب',  nameEn: 'Single',   ...active },
+  { code: 'MAR-02', name: 'متزوج', nameEn: 'Married',  ...active },
+  { code: 'MAR-03', name: 'مطلق',  nameEn: 'Divorced', ...active },
+  { code: 'MAR-04', name: 'أرمل',  nameEn: 'Widowed',  ...active },
+];
+
+/* ─── 20. academic-grades — التقدير ────────────────────────────────────
+ *
+ * Standard Egyptian university grade ladder. `metadata.minPercentage` /
+ * `metadata.maxPercentage` are inclusive bounds — read via
+ * `readPercentageRange(row)` from `../lib/academicGrade.ts`. Surfaced as
+ * a hint under the picked تقدير in the application-settings year row
+ * when the parent category's submission-type has `gradingMode = 'TAGDIR'`. */
+
+const academicGrades: AcademicGradeRow[] = [
+  {
+    code: 'AGR-01',
+    name: 'امتياز',
+    nameEn: 'Excellent',
+    isActive: true,
+    metadata: { minPercentage: 85, maxPercentage: 100 },
+  },
+  {
+    code: 'AGR-02',
+    name: 'جيد جداً',
+    nameEn: 'Very Good',
+    isActive: true,
+    metadata: { minPercentage: 75, maxPercentage: 84 },
+  },
+  {
+    code: 'AGR-03',
+    name: 'جيد',
+    nameEn: 'Good',
+    isActive: true,
+    metadata: { minPercentage: 65, maxPercentage: 74 },
+  },
+  {
+    code: 'AGR-04',
+    name: 'مقبول',
+    nameEn: 'Pass',
+    isActive: true,
+    metadata: { minPercentage: 50, maxPercentage: 64 },
+  },
+];
+
 /* ─── Aggregate — `MOCK.lookups[key]` ────────────────────────────────── */
 
 export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
@@ -858,4 +914,6 @@ export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
   'school-categories': schoolCategories,
   'nid-missing-reasons': nidMissingReasons,
   'universities': universities,
+  'marital-statuses': maritalStatuses,
+  'academic-grades': academicGrades,
 };

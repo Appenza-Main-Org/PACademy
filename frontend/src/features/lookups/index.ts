@@ -47,6 +47,8 @@ export {
   type NidMissingReasonRow,
   type UniversityRow,
   type SubmissionTypeRow,
+  type MaritalStatusRow,
+  type AcademicGradeRow,
   type DeleteResult,
 } from './types';
 
@@ -68,3 +70,8 @@ export {
 } from './lib/gradingModes';
 
 export { readGradingMode } from './lib/submissionType';
+
+export {
+  readPercentageRange,
+  type AcademicGradeRange,
+} from './lib/academicGrade';

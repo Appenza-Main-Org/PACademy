@@ -1,19 +1,19 @@
 /**
- * Marital status options for the Application Settings year row.
+ * Marital status options — thin adapter over the `marital-statuses`
+ * lookup catalogue entry.
  *
- * The lookup catalogue used to ship a `marital-statuses` lookup (see the
- * removed `MaritalStatusRulesPage` reference in
- * `admission-setup/config.ts` and `admission-setup/index.ts`), but it was
- * dropped when the lookup module was rebuilt. This module re-exports the
- * canonical 4 values from `MaritalStatus` in
- * `shared/types/domain.ts` in a row shape that mirrors a future lookup
- * record, so the only thing that needs to change when the lookup ships
- * again is the import — call sites already use `{ code, name, isActive }`.
+ * Previously this file hardcoded four entries because the lookup
+ * catalogue didn't host them. The lookup row landed in 2026-05-12; this
+ * module now re-projects those rows in the `{ code, name, isActive }`
+ * shape every existing call site already consumes, so no caller has to
+ * change at this step.
  *
- * Codes intentionally mirror the legacy English keys (`single`, `married`,
- * `divorced`, `widowed`) so they round-trip cleanly with any rule shape
- * already wired into `CategoryConditionBuilder` and `AgeRulesPage`.
+ * Codes flipped from the legacy English keys (`single`/`married`/…) to
+ * the lookup's `MAR-NN` codes. Call sites that compared against the old
+ * keys must be migrated alongside this file.
  */
+
+import { LOOKUPS_SEED } from '@/features/lookups/mock/lookups.mock';
 
 export interface MaritalStatusOption {
   code: string;
@@ -21,12 +21,12 @@ export interface MaritalStatusOption {
   isActive: boolean;
 }
 
-export const MARITAL_STATUSES: readonly MaritalStatusOption[] = [
-  { code: 'single', name: 'أعزب', isActive: true },
-  { code: 'married', name: 'متزوج', isActive: true },
-  { code: 'divorced', name: 'مطلق', isActive: true },
-  { code: 'widowed', name: 'أرمل', isActive: true },
-] as const;
+export const MARITAL_STATUSES: readonly MaritalStatusOption[] =
+  LOOKUPS_SEED['marital-statuses'].map((row) => ({
+    code: row.code,
+    name: row.name,
+    isActive: row.isActive,
+  }));
 
 const NAME_BY_CODE = new Map<string, string>(
   MARITAL_STATUSES.map((m) => [m.code, m.name]),
