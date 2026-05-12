@@ -46,7 +46,6 @@ export {
   AdmissionSetupWizardPage,
   ApplicationSettingsPage,
   ApplicationStatusPage,
-  AgeRulesPage,
   AdmissionFeesPage,
   ExamsManagementPage,
   CommitteesManagementPage,

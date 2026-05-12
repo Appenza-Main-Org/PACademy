@@ -21,9 +21,8 @@ export { AdmissionSetupIndexPage } from './pages/AdmissionSetupIndexPage';
 export { AdmissionSetupWizardPage } from './pages/AdmissionSetupWizardPage';
 export { ApplicationSettingsPage } from './pages/ApplicationSettingsPage';
 export { ApplicationStatusPage } from './pages/ApplicationStatusPage';
-export { AgeRulesPage } from './pages/AgeRulesPage';
-/* MaritalStatusRulesPage removed when MARITAL_STATUSES dropped out of
- * the lookup catalogue. */
+/* AgeRulesPage removed 2026-05; MaritalStatusRulesPage removed when
+ * MARITAL_STATUSES dropped out of the lookup catalogue. */
 export { FeesPage as AdmissionFeesPage } from './pages/FeesPage';
 export { ExamsManagementPage } from './pages/ExamsManagementPage';
 export { CommitteesManagementPage } from './pages/CommitteesManagementPage';

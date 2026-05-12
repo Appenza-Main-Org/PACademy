@@ -45,15 +45,6 @@ export function computeStepStatus(
         : cycle.status === 'draft'
           ? 'not_started'
           : 'in_progress';
-    case 'age_rules': {
-      const openKeys = openCategoryKeys(cycle);
-      if (openKeys.length === 0) return 'not_started';
-      const allHaveAge = openKeys.every((k) => {
-        const cat = categories.find((c) => c.key === k);
-        return Boolean(cat?.conditions.ageMax);
-      });
-      return allHaveAge ? 'complete' : 'in_progress';
-    }
     case 'fees': {
       const fee = cycle.fees?.applicationFee ?? 0;
       const fawry = cycle.fees?.fawryConfig?.merchantCode ?? '';

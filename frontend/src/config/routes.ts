@@ -61,7 +61,6 @@ export const ROUTES = {
       wizardReview: '/admin/admission-setup/wizard/review',
       applicationSettings: '/admin/admission-setup/application-settings',
       applicationStatus: '/admin/admission-setup/application-status',
-      ageRules: '/admin/admission-setup/age-rules',
       maritalStatusRules: '/admin/admission-setup/marital-status-rules',
       fees: '/admin/admission-setup/fees',
       exams: '/admin/admission-setup/exams',

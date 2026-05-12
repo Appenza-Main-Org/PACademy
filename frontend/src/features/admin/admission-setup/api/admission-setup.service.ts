@@ -1,8 +1,8 @@
 /**
  * Admission Setup API Contract — net-new entities for the wizard.
  *
- * Composed steps (application_settings, application_status, age_rules,
- * fees, exams, committees, notifications) reuse `cyclesService`,
+ * Composed steps (application_settings, application_status, fees,
+ * exams, committees, notifications) reuse `cyclesService`,
  * `categoriesService`, `committeeService`, `examPlansService`, and
  * `notificationsService` directly; this service only owns the shapes
  * defined in `../types.ts` that have no admin-gaps home today.

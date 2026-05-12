@@ -32,7 +32,6 @@ export type GenderType = Applicant['gender'];
 export type AdmissionSetupStepKey =
   | 'application_settings'
   | 'application_status'
-  | 'age_rules'
   | 'fees'
   | 'exams'
   | 'committees'

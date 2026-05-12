@@ -24,7 +24,6 @@ import {
   FileSignature,
   Settings2,
   ShieldCheck,
-  UserCog,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
@@ -78,19 +77,8 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     subtitleAr: 'تفعيل، تمديد، إغلاق، أرشفة الدورة.',
   },
   {
-    key: 'age_rules',
-    order: 3,
-    labelAr: 'الحد الأقصى للسن',
-    routeSegment: 'age-rules',
-    icon: UserCog,
-    permission: 'admission-setup:read',
-    reuses: 'features/admin/components/categories/CategoryConditionBuilder.tsx',
-    isImplemented: true,
-    subtitleAr: 'الحد الأقصى للسن لكل فئة قبول مفتوحة في هذه الدورة.',
-  },
-  {
     key: 'fees',
-    order: 4,
+    order: 3,
     labelAr: 'الرسوم المالية',
     routeSegment: 'fees',
     icon: Wallet,
@@ -101,7 +89,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'exams',
-    order: 5,
+    order: 4,
     labelAr: 'إدارة الاختبارات',
     routeSegment: 'exams',
     icon: ClipboardSignature,
@@ -112,7 +100,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'committees',
-    order: 6,
+    order: 5,
     labelAr: 'إدارة اللجان',
     routeSegment: 'committees',
     icon: ShieldCheck,
@@ -123,7 +111,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'exam_dates',
-    order: 7,
+    order: 6,
     labelAr: 'مواعيد الاختبارات',
     routeSegment: 'exam-dates',
     icon: CalendarRange,
@@ -133,7 +121,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'notifications',
-    order: 8,
+    order: 7,
     labelAr: 'التنبيهات',
     routeSegment: 'notifications',
     icon: ClipboardCheck,
@@ -144,7 +132,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'electronic_declaration',
-    order: 9,
+    order: 8,
     labelAr: 'الإقرار الإلكتروني',
     routeSegment: 'electronic-declaration',
     icon: FileSignature,
