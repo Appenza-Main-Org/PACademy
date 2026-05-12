@@ -106,12 +106,27 @@ export function MultiSelect({
     document.addEventListener('mousedown', onDocClick);
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onResize);
+
+    /* When the popover is portaled into `document.body` while a Radix Dialog
+     * is open, the dialog's `react-remove-scroll` wrapper intercepts wheel /
+     * touchmove at the document level and calls `preventDefault` for any
+     * element outside its tree — which blocks the option list from scrolling.
+     * Stopping propagation in the capture phase, on the popover root, lets
+     * the browser do its native scroll on the `<ul>` and keeps the dialog's
+     * lock from ever seeing the event. */
+    const popover = popoverRef.current;
+    const stopWheel = (event: Event): void => event.stopPropagation();
+    popover?.addEventListener('wheel', stopWheel, { passive: true, capture: true });
+    popover?.addEventListener('touchmove', stopWheel, { passive: true, capture: true });
+
     return () => {
       document.removeEventListener('mousedown', onDocClick);
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
+      popover?.removeEventListener('wheel', stopWheel, true);
+      popover?.removeEventListener('touchmove', stopWheel, true);
     };
-  }, [open]);
+  }, [open, position]);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
