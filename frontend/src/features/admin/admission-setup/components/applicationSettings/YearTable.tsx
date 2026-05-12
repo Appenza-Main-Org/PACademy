@@ -499,7 +499,7 @@ function YearCard({
                     ageMin: null,
                   })
                 }
-                containerClassName="!mb-0 w-20"
+                containerClassName="!mb-0 w-14"
                 className="text-end tabular-nums"
                 aria-invalid={Boolean(ageError) || undefined}
                 aria-label="الحد الأقصى للسن"

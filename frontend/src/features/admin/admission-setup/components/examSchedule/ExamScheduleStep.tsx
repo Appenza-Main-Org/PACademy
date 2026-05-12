@@ -12,7 +12,6 @@
 
 import { useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import * as Tabs from '@radix-ui/react-tabs';
 import { AlertTriangle, CalendarPlus, Copy, MoreVertical, Plus } from 'lucide-react';
 import {
   Badge,
@@ -23,9 +22,9 @@ import {
   ErrorState,
   PageHeader,
   Skeleton,
+  Tabs,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
-import { cn } from '@/shared/lib/cn';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../../hooks/useAdmissionSetupCycle';
@@ -114,41 +113,28 @@ function Body({
 
       <IncompleteCategoriesBanner cycleId={cycle.id} activeIds={activeIds} />
 
-      <Tabs.Root
-        value={initialId}
-        onValueChange={handleTabChange}
-        orientation="horizontal"
-        activationMode="automatic"
-      >
-        <Tabs.List
-          className="flex flex-wrap gap-2"
-          aria-label="فئات التقديم المفعّلة"
-        >
-          {active.map((c) => (
-            <CategoryTabTrigger
-              key={c.id}
-              category={c}
-              cycleId={cycle.id}
-              isActive={c.id === initialId}
-            />
-          ))}
-        </Tabs.List>
+      <Card>
+        <Tabs value={initialId} onValueChange={handleTabChange}>
+          <Tabs.List aria-label="فئات التقديم المفعّلة">
+            {active.map((c) => (
+              <CategoryTab key={c.id} category={c} cycleId={cycle.id} />
+            ))}
+          </Tabs.List>
 
-        {active.map((c) => (
-          <Tabs.Content
-            key={c.id}
-            value={c.id}
-            className="pt-4 focus-visible:outline-none"
-          >
-            <CategoryPanel
-              cycle={cycle}
-              category={c}
-              candidateSources={active.filter((other) => other.id !== c.id)}
-              canWrite={canWrite}
-            />
-          </Tabs.Content>
-        ))}
-      </Tabs.Root>
+          {active.map((c) => (
+            <Tabs.Panel key={c.id} value={c.id}>
+              <div className="pt-2">
+                <CategoryPanel
+                  cycle={cycle}
+                  category={c}
+                  candidateSources={active.filter((other) => other.id !== c.id)}
+                  canWrite={canWrite}
+                />
+              </div>
+            </Tabs.Panel>
+          ))}
+        </Tabs>
+      </Card>
     </div>
   );
 }
@@ -182,44 +168,21 @@ function IncompleteCategoriesBanner({
   );
 }
 
-function CategoryTabTrigger({
+function CategoryTab({
   category,
   cycleId,
-  isActive,
 }: {
   category: ActiveCategoryView;
   cycleId: string;
-  isActive: boolean;
 }): JSX.Element {
   const daysQuery = useExamScheduleDays(cycleId, category.id);
   const days = daysQuery.data ?? [];
   const working = days.filter((d) => d.kind === 'WORKING').length;
-  const off = days.filter((d) => d.kind === 'OFF').length;
   const incomplete = working === 0;
 
   return (
-    <Tabs.Trigger
-      value={category.id}
-      className={cn(
-        'group relative flex shrink-0 flex-col items-start gap-1.5 overflow-hidden rounded-lg border px-4 py-2.5 text-start outline-none transition-all',
-        'focus-visible:shadow-[var(--ring)]',
-        isActive
-          ? 'border-[color:var(--accent-500)] bg-[color:var(--accent-50)] shadow-sm'
-          : 'border-border-subtle bg-surface-card hover:border-border-strong hover:bg-bg-muted/40',
-      )}
-    >
-      {isActive ? (
-        <span
-          aria-hidden
-          className="absolute inset-x-0 top-0 h-0.5 bg-[color:var(--accent-500)]"
-        />
-      ) : null}
-      <span
-        className={cn(
-          'inline-flex items-center gap-1.5 text-sm font-semibold',
-          isActive ? 'text-[color:var(--accent-700)]' : 'text-ink-800',
-        )}
-      >
+    <Tabs.Tab value={category.id}>
+      <span className="inline-flex items-center gap-1.5">
         {category.nameAr}
         {incomplete ? (
           <AlertTriangle
@@ -230,28 +193,7 @@ function CategoryTabTrigger({
           />
         ) : null}
       </span>
-      <span className="inline-flex items-center gap-1.5 text-2xs">
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium',
-            working === 0
-              ? 'bg-gold-50 text-gold-700'
-              : 'bg-teal-50 text-teal-700',
-          )}
-        >
-          <span
-            className={cn(
-              'inline-block size-1.5 rounded-full',
-              working === 0 ? 'bg-gold-500' : 'bg-teal-500',
-            )}
-          />
-          {working} يوم عمل
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-ink-50 px-1.5 py-0.5 font-medium text-ink-600">
-          {off} عطلة
-        </span>
-      </span>
-    </Tabs.Trigger>
+    </Tabs.Tab>
   );
 }
 
