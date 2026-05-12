@@ -13,6 +13,7 @@
  *   POST   /api/committees/:id/results/bulk-upload      → { imported, errors }
  */
 
+import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
@@ -67,13 +68,78 @@ export interface CommitteePayload {
   rules?: CommitteeRules;
 }
 
+/**
+ * Backend CommitteeDto shape (spec 009 Committees module) → frontend Committee
+ * mapper. The frontend Committee type carries display fields (name, head) and
+ * UI-only counters (applicants, completed) that the backend doesn't track.
+ * The mapper provides safe defaults; consumer pages that need richer data
+ * (CommitteesManagementPage etc.) keep using the mock for now.
+ */
+interface BackendCommitteeDto {
+  id: string;
+  cycleId: string;
+  key: string;
+  nameAr: string;
+  nameEn: string | null;
+  chairUserId: string | null;
+  dailyCapacity: number;
+  status: string;
+  members: { userId: string; role: string; addedAt: string }[];
+  specializations: string[];
+  rowVersion: string;
+}
+
+function backendToFrontendCommittee(dto: BackendCommitteeDto): Committee {
+  return {
+    id: dto.id,
+    name: dto.nameAr,
+    head: dto.chairUserId ? `Chair: ${dto.chairUserId.slice(0, 8)}` : 'لا يوجد رئيس',
+    members: dto.members.length,
+    applicants: 0,
+    completed: 0,
+    headUserId: dto.chairUserId ?? undefined,
+    capacity: dto.dailyCapacity,
+    capacityPerDay: dto.dailyCapacity,
+    status: (dto.status === 'active' ? 'active' : 'inactive') as CommitteeStatus,
+    specializationIds: dto.specializations,
+    linkedCycleId: dto.cycleId,
+  } as Committee;
+}
+
 export const committeeService = {
-  async list(opts: { includeDeleted?: boolean } = {}): Promise<Committee[]> {
+  /**
+   * Lists committees from the real backend (spec 009 Committees module,
+   * /admin/committees endpoint). Requires a cycleId query param.
+   *
+   * Falls back to the mock state when no cycleId context is available
+   * (e.g., the legacy committees overview page that lists across cycles).
+   * Wizard pages always supply a cycle and hit the backend.
+   */
+  async list(opts: { includeDeleted?: boolean; cycleId?: string } = {}): Promise<Committee[]> {
+    if (opts.cycleId) {
+      const r = await apiClient.get<BackendCommitteeDto[]>('/admin/committees', {
+        params: { cycleId: opts.cycleId, includeArchived: opts.includeDeleted },
+      });
+      return r.data.map(backendToFrontendCommittee);
+    }
+    /* Legacy mock path — no cycle scope. Used by the committees overview page. */
     await simulateLatency();
     return [...filterDeleted(COMMITTEES_STATE, opts.includeDeleted)];
   },
 
   async getById(id: string): Promise<Committee | null> {
+    /* If the id looks like a backend GUID, try the real endpoint; otherwise
+     * fall back to mock (committee management page still uses mock IDs). */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      try {
+        const r = await apiClient.get<BackendCommitteeDto>(`/admin/committees/${id}`);
+        return backendToFrontendCommittee(r.data);
+      } catch (err) {
+        const status = (err as { status?: number })?.status;
+        if (status === 404) return null;
+        throw err;
+      }
+    }
     await simulateLatency();
     return COMMITTEES_STATE.find((c) => c.id === id) ?? null;
   },

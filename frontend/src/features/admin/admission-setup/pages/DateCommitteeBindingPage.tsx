@@ -36,11 +36,9 @@ export function DateCommitteeBindingPage(): JSX.Element {
 }
 
 function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean }): JSX.Element {
-  const { data: committees = [] } = useCommittees();
+  const { data: committees = [] } = useCommittees({ cycleId: cycle.id });
   const { data: examDateConfig } = useExamDateConfig(cycle.id);
-  const cycleCommittees = committees.filter(
-    (c) => !c.linkedCycleId || c.linkedCycleId === cycle.id,
-  );
+  const cycleCommittees = committees;
 
   const allowedDates = (examDateConfig?.bookableDays ?? []).filter(
     (d) => !(examDateConfig?.blackoutDates ?? []).includes(d),

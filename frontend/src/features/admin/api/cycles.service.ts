@@ -22,6 +22,7 @@
  *   PATCH  /api/cycles/:id/categories/:key/conditions        → AdmissionCycle
  */
 
+import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
@@ -30,7 +31,6 @@ import {
   applyRestore,
   applySoftDelete,
   DependencyBlockedError,
-  filterDeleted,
   type DependencyResult,
 } from '@/shared/lib/soft-delete';
 import type {
@@ -206,16 +206,69 @@ const CYCLE_DEP_LABELS: Record<string, string> = {
   committees: 'لجنة قبول',
 };
 
+/* Backend `GET /admin/cycles` returns CycleListItemDto[] inside a PagedResult.
+ * CycleListItemDto carries id, nameAr, year, cohort, status, openDate, closeDate,
+ * expectedCapacity, applicantCount — a strict subset of frontend AdmissionCycle.
+ * Optional rich fields (openCategories, fees, conditionOverrides, …) default to
+ * empty here; the wizard's per-step services own those shapes anyway. */
+interface BackendCycleListItem {
+  id: string;
+  nameAr: string;
+  year: number;
+  cohort: 'male' | 'female';
+  status: AdmissionCycle['status'];
+  openDate: string;
+  closeDate: string;
+  expectedCapacity: number;
+  applicantCount: number;
+}
+interface BackendPagedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
 export const cyclesService = {
-  async list(opts: { includeDeleted?: boolean } = {}): Promise<AdmissionCycle[]> {
-    await simulateLatency();
-    const visible = filterDeleted(STATE, opts.includeDeleted);
-    return [...visible].sort((a, b) => b.year - a.year);
+  /**
+   * Lists cycles from the real backend (spec 005 modular monolith,
+   * /admin/cycles endpoint). The response items are flat — wizard pages
+   * that consume `openCategories` / `fees` / `conditionOverrides` get
+   * `undefined` and fall back to the per-step services.
+   */
+  async list(_opts: { includeDeleted?: boolean } = {}): Promise<AdmissionCycle[]> {
+    const r = await apiClient.get<BackendPagedResult<BackendCycleListItem>>(
+      '/admin/cycles',
+      { params: { pageSize: 100 } },
+    );
+    return r.data.items
+      .map<AdmissionCycle>((c) => ({
+        id: c.id,
+        nameAr: c.nameAr,
+        year: c.year,
+        cohort: c.cohort,
+        status: c.status,
+        openDate: c.openDate,
+        closeDate: c.closeDate,
+        expectedCapacity: c.expectedCapacity,
+        applicantCount: c.applicantCount,
+      }))
+      .sort((a, b) => b.year - a.year);
   },
 
   async getById(id: string): Promise<AdmissionCycle | null> {
-    await simulateLatency();
-    return STATE.find((c) => c.id === id) ?? null;
+    /* Real backend GET /admin/cycles/{id} — returns CycleDetailDto. Fields
+     * not on the DTO (fees, linkedCommitteeIds, etc.) come back undefined.
+     * Returns null on 404 instead of throwing — preserves the mock contract. */
+    try {
+      const r = await apiClient.get<AdmissionCycle>(`/admin/cycles/${id}`);
+      return r.data;
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      if (status === 404) return null;
+      throw err;
+    }
   },
 
   async getActive(): Promise<AdmissionCycle | null> {

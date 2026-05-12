@@ -44,10 +44,8 @@ export function CommitteeMergeSplitPage(): JSX.Element {
 }
 
 function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean }): JSX.Element {
-  const { data: committees = [] } = useCommittees();
-  const cycleCommittees = committees.filter(
-    (c) => !c.linkedCycleId || c.linkedCycleId === cycle.id,
-  );
+  const { data: committees = [] } = useCommittees({ cycleId: cycle.id });
+  const cycleCommittees = committees;
   const { data: rules = [] } = useAdmissionMergeSplitRules(cycle.id);
   const createMut = useCreateMergeSplitRule();
   const deleteMut = useDeleteMergeSplitRule(cycle.id);

@@ -4,7 +4,7 @@ import type { Committee, CommitteeStatus } from '@/shared/types/domain';
 
 export const committeeKeys = {
   all: ['committees'] as const,
-  list: (opts?: { includeDeleted?: boolean }) =>
+  list: (opts?: { includeDeleted?: boolean; cycleId?: string }) =>
     [...committeeKeys.all, 'list', opts ?? null] as const,
   detail: (id: string) => [...committeeKeys.all, 'detail', id] as const,
   queue: (id: string) => [...committeeKeys.all, 'queue', id] as const,
@@ -16,7 +16,14 @@ export const committeeKeys = {
   assigned: (id: string) => [...committeeKeys.all, 'assigned', id] as const,
 };
 
-export const useCommittees = (opts: { includeDeleted?: boolean } = {}) =>
+/**
+ * Lists committees. When `cycleId` is provided, hits the real backend
+ * (`GET /admin/committees?cycleId=...`). Without cycleId, falls back to
+ * the legacy mock state — used by the committees overview page.
+ */
+export const useCommittees = (
+  opts: { includeDeleted?: boolean; cycleId?: string } = {},
+) =>
   useQuery({ queryKey: committeeKeys.list(opts), queryFn: () => committeeService.list(opts) });
 
 export const useCommitteeDependencies = (id: string | null) =>

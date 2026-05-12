@@ -35,10 +35,8 @@ export function ScoreThresholdsPage(): JSX.Element {
 }
 
 function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean }): JSX.Element {
-  const { data: committees = [] } = useCommittees();
-  const cycleCommittees = committees.filter(
-    (c) => !c.linkedCycleId || c.linkedCycleId === cycle.id,
-  );
+  const { data: committees = [] } = useCommittees({ cycleId: cycle.id });
+  const cycleCommittees = committees;
 
   return (
     <div className="flex flex-col gap-4">
