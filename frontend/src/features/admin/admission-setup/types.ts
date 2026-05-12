@@ -187,14 +187,23 @@ export interface ApplicantSpecializationYearBase {
   /** Multi-select set of acceptable graduation years (last 4 + current).
    *  At least one year must be picked. */
   graduationYears: number[];
-  /** Multi-select. At least one gender must be picked. */
+  /** Multi-select. At least one gender must be picked. When the parent
+   *  category's `genderScope` is not `'any'`, the UI locks this set to
+   *  the single allowed gender. */
   genderTypes: GenderType[];
   /** Multi-select. FK → `marital-statuses[code]`. Empty array = any. */
   maritalStatusCodes: string[];
+  /** Optional lower age bound — null = no minimum. Must be a positive
+   *  integer and `<= maxAge` when both are set. */
+  ageMin: number | null;
   /** Optional upper age bound — null = no maximum. */
   maxAge: number | null;
   /** Multi-select. FK → `applicant-divisions[code]` (الشعبة). Empty = any. */
   divisionCodes: string[];
+  /** Multi-select. FK → `school-categories[code]` (فئة المدرسة). Surfaced
+   *  by the application-settings UI only for the `officers_general`
+   *  category per RFP §2.1; an empty array means "any school category". */
+  schoolCategoryCodes: string[];
   /** ISO date — start of the application window. */
   applicationStartDate: string;
   /** ISO date — end of the application window. */
@@ -238,6 +247,7 @@ export type AppSettingsConflict =
   | 'INVALID_DATE_RANGE'
   | 'OVERLAPPING_PERIOD'
   | 'AGE_NOT_POSITIVE'
+  | 'AGE_RANGE_INVALID'
   | 'AGE_REFERENCE_AFTER_START'
   | 'PERCENTAGE_OUT_OF_RANGE'
   | 'GRADE_MODE_MISMATCH'

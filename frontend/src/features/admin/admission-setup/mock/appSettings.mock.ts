@@ -39,13 +39,11 @@ const CATEGORY_ROWS = LOOKUPS_SEED['applicant-categories'];
 const SPECIALIZATION_ROWS = LOOKUPS_SEED['specializations'];
 const SUBMISSION_TYPE_ROWS = LOOKUPS_SEED['submission-types'];
 
-const ACTIVE_CONFIG_LIMIT = 3;
-
 export const APPLICANT_CATEGORY_CONFIGS: ApplicantCategoryConfig[] = CATEGORY_ROWS.map(
   (cat, index) => ({
     id: `acc-${index + 1}`,
     categoryId: cat.code,
-    isActive: index < ACTIVE_CONFIG_LIMIT,
+    isActive: true,
     sortOrder: (index + 1) * 10,
     createdAt: FIXED_TS,
     updatedAt: FIXED_TS,
@@ -53,17 +51,30 @@ export const APPLICANT_CATEGORY_CONFIGS: ApplicantCategoryConfig[] = CATEGORY_RO
 );
 
 /**
+ * Sentinel specialization code used as the FK on the implicit-default
+ * junction for the 3 single-axis categories (`officers_general`,
+ * `law_bachelor`, `physical_education_bachelor`). The
+ * application-settings page consumes
+ * `applicationSettingsService.isImplicitDefaultSpec()` to decide
+ * whether to render `<YearTable />` inline (single-axis) or the
+ * `<SpecializationList />` (multi-axis — `specialized_officers`).
+ *
+ * The sentinel is intentionally outside the `SPC-NN` namespace so the
+ * lookup integrity check (`SPECIALIZATION_LOOKUP.some(...)`) skips it
+ * without needing a special "default" row in the lookup catalogue.
+ */
+export const IMPLICIT_DEFAULT_SPEC_CODE = '__default__';
+
+/**
  * Per-category attachment plan, keyed by the lookup's actual `code`
- * (snake_case). Only `specialized_officers` carries a real specialization
- * axis in the RFP §2.1 model — the other three categories don't have a
- * "specialization" concept per the brief, so the UI either renders an
- * implicit "default" junction (commit 2) or leaves the list empty here
- * and the application_settings wizard step branches on the category code.
+ * (snake_case). Single-axis categories get exactly one implicit-default
+ * junction; `specialized_officers` carries the real per-specialization
+ * axis defined by the RFP.
  */
 const ATTACHMENT_PLAN: Record<string, string[]> = {
-  officers_general:            [],
-  law_bachelor:                [],
-  physical_education_bachelor: [],
+  officers_general:            [IMPLICIT_DEFAULT_SPEC_CODE],
+  law_bachelor:                [IMPLICIT_DEFAULT_SPEC_CODE],
+  physical_education_bachelor: [IMPLICIT_DEFAULT_SPEC_CODE],
   specialized_officers:        ['SPC-01', 'SPC-04', 'SPC-12'],
 };
 
@@ -73,7 +84,12 @@ export const APPLICANT_CATEGORY_SPECIALIZATIONS: ApplicantCategorySpecialization
   for (const config of APPLICANT_CATEGORY_CONFIGS) {
     const planned = ATTACHMENT_PLAN[config.categoryId] ?? [];
     for (const specCode of planned) {
-      if (!SPECIALIZATION_ROWS.some((s) => s.code === specCode)) continue;
+      if (
+        specCode !== IMPLICIT_DEFAULT_SPEC_CODE &&
+        !SPECIALIZATION_ROWS.some((s) => s.code === specCode)
+      ) {
+        continue;
+      }
       rows.push({
         id: `acs-${serial}`,
         configId: config.id,
@@ -106,8 +122,10 @@ interface YearBlueprintBase {
   graduationYears: number[];
   genderTypes: GenderType[];
   maritalStatusCodes: string[];
+  ageMin: number | null;
   maxAge: number | null;
   divisionCodes: string[];
+  schoolCategoryCodes: string[];
   applicationStartDate: string;
   applicationEndDate: string;
   ageReferenceDate: string;
@@ -131,13 +149,15 @@ interface YearBlueprintBase {
  * apply cleanly — flagged in the migration report.
  */
 const YEAR_BLUEPRINTS_PER_CATEGORY: Record<string, YearBlueprintBase[]> = (() => {
-  function basicGrades(year: number, gender: GenderType, divisions: string[]): YearBlueprintBase {
+  function basicGrades(year: number, gender: GenderType): YearBlueprintBase {
     return {
       graduationYears: [year],
       genderTypes: [gender],
       maritalStatusCodes: ['MAR-01'],
+      ageMin: 17,
       maxAge: 22,
-      divisionCodes: divisions,
+      divisionCodes: [],
+      schoolCategoryCodes: [],
       applicationStartDate: `${year}-06-01`,
       applicationEndDate: `${year}-07-31`,
       ageReferenceDate: `${year}-04-01`,
@@ -147,28 +167,66 @@ const YEAR_BLUEPRINTS_PER_CATEGORY: Record<string, YearBlueprintBase[]> = (() =>
     };
   }
 
+  /* officers_general (RFP §2.1) — ذكور فقط, ثانوية, فئة المدرسة multi-select
+   * is the per-category extra picker, min % grade gate. */
   const officersGeneral: YearBlueprintBase[] = [
-    { ...basicGrades(CURRENT_YEAR - 2, 'male', ['DIV-01']),          minPercentage: 70 },
-    { ...basicGrades(CURRENT_YEAR - 1, 'male', ['DIV-01', 'DIV-02']), minPercentage: 75 },
-    { ...basicGrades(CURRENT_YEAR,     'male', ['DIV-01']),          minPercentage: 80 },
+    {
+      ...basicGrades(CURRENT_YEAR - 1, 'male'),
+      ageMin: 17, maxAge: 22, minPercentage: 75,
+      schoolCategoryCodes: ['SCH-01', 'SCH-02', 'SCH-03', 'SCH-04'],
+    },
+    {
+      ...basicGrades(CURRENT_YEAR, 'male'),
+      ageMin: 17, maxAge: 22, minPercentage: 80,
+      schoolCategoryCodes: ['SCH-01', 'SCH-02', 'SCH-03', 'SCH-04', 'SCH-05'],
+    },
   ];
 
+  /* law_bachelor (RFP §2.1) — mixed gender (selectable), university grad,
+   * تقدير gate (no school-category extra). */
   const lawBachelor: YearBlueprintBase[] = [
-    { ...basicGrades(CURRENT_YEAR - 3, 'male',   []), maxAge: 28, academicGradeId: 'AGR-02' },
-    { ...basicGrades(CURRENT_YEAR - 1, 'female', []), maxAge: 28, academicGradeId: 'AGR-03',
-      maritalStatusCodes: ['MAR-01', 'MAR-02'] },
+    {
+      ...basicGrades(CURRENT_YEAR - 2, 'male'),
+      ageMin: 21, maxAge: 28, academicGradeId: 'AGR-02',
+      maritalStatusCodes: ['MAR-01', 'MAR-02'],
+    },
+    {
+      ...basicGrades(CURRENT_YEAR - 1, 'female'),
+      ageMin: 21, maxAge: 28, academicGradeId: 'AGR-03',
+      maritalStatusCodes: ['MAR-01', 'MAR-02'],
+    },
   ];
 
+  /* physical_education_bachelor (RFP §2.1) — إناث فقط, university grad,
+   * تقدير gate. */
   const physicalEducationBachelor: YearBlueprintBase[] = [
-    { ...basicGrades(CURRENT_YEAR - 2, 'female', []), maxAge: 26, academicGradeId: 'AGR-03' },
-    { ...basicGrades(CURRENT_YEAR,     'female', []), maxAge: 26, academicGradeId: 'AGR-02' },
+    {
+      ...basicGrades(CURRENT_YEAR - 2, 'female'),
+      ageMin: 21, maxAge: 26, academicGradeId: 'AGR-03',
+    },
+    {
+      ...basicGrades(CURRENT_YEAR, 'female'),
+      ageMin: 21, maxAge: 26, academicGradeId: 'AGR-02',
+    },
   ];
 
+  /* specialized_officers (RFP §2.1) — mixed, the colleges+specializations
+   * axis is the per-category extra picker (lives one tier up as the
+   * SpecializationList), so blueprints here are per-junction. */
   const specializedOfficers: YearBlueprintBase[] = [
-    { ...basicGrades(CURRENT_YEAR - 4, 'male',   []), maxAge: 28, academicGradeId: 'AGR-02' },
-    { ...basicGrades(CURRENT_YEAR - 2, 'male',   []), maxAge: 28, academicGradeId: 'AGR-03' },
-    { ...basicGrades(CURRENT_YEAR - 1, 'female', []), maxAge: 28, academicGradeId: 'AGR-03',
-      maritalStatusCodes: ['MAR-01', 'MAR-02'] },
+    {
+      ...basicGrades(CURRENT_YEAR - 3, 'male'),
+      ageMin: 21, maxAge: 28, academicGradeId: 'AGR-02',
+    },
+    {
+      ...basicGrades(CURRENT_YEAR - 1, 'male'),
+      ageMin: 21, maxAge: 28, academicGradeId: 'AGR-03',
+    },
+    {
+      ...basicGrades(CURRENT_YEAR, 'female'),
+      ageMin: 21, maxAge: 28, academicGradeId: 'AGR-03',
+      maritalStatusCodes: ['MAR-01', 'MAR-02'],
+    },
   ];
 
   return {
@@ -203,8 +261,10 @@ export const APPLICANT_SPECIALIZATION_YEARS: ApplicantSpecializationYear[] = (()
         graduationYears: bp.graduationYears,
         genderTypes: bp.genderTypes,
         maritalStatusCodes: bp.maritalStatusCodes,
+        ageMin: bp.ageMin,
         maxAge: bp.maxAge,
         divisionCodes: bp.divisionCodes,
+        schoolCategoryCodes: bp.schoolCategoryCodes,
         applicationStartDate: bp.applicationStartDate,
         applicationEndDate: bp.applicationEndDate,
         ageReferenceDate: bp.ageReferenceDate,

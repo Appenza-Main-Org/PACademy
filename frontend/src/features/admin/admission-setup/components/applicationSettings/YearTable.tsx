@@ -43,9 +43,11 @@ import {
   type GradingMode,
 } from '@/features/lookups';
 import {
+  useParentCategoryForSpec,
   useResolvedGradingModeForSpec,
   useYears,
 } from '../../api/applicationSettings.queries';
+import type { ParentCategorySnapshot } from '../../api/applicationSettings.service';
 import {
   useAppSettingsDraftStore,
   useDraftRows,
@@ -75,6 +77,7 @@ const FIELD_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   INVALID_DATE_RANGE: 'ترتيب التواريخ غير صحيح',
   OVERLAPPING_PERIOD: 'تتداخل مع سنة أخرى',
   AGE_NOT_POSITIVE: 'السن > 0',
+  AGE_RANGE_INVALID: 'السن الأدنى ≤ الأقصى',
   AGE_REFERENCE_AFTER_START: 'تاريخ احتساب السن يجب أن يسبق بداية التقديم',
   PERCENTAGE_OUT_OF_RANGE: 'النسبة 0–100',
   GRADE_MODE_MISMATCH: 'نمط تقدير غير مطابق',
@@ -91,9 +94,11 @@ const GENDER_PILLS: { value: GenderType; label: string }[] = [
 export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Element {
   const yearsQuery = useYears(categorySpecializationId);
   const gradingModeQuery = useResolvedGradingModeForSpec(categorySpecializationId);
+  const parentCategoryQuery = useParentCategoryForSpec(categorySpecializationId);
   const maritalQuery = useLookup('marital-statuses');
   const divisionsQuery = useLookup('applicant-divisions');
   const academicGradesQuery = useLookup('academic-grades');
+  const schoolCategoriesQuery = useLookup('school-categories');
 
   const drafts = useDraftRows(categorySpecializationId);
   const hydrateSlice = useAppSettingsDraftStore((s) => s.hydrateSlice);
@@ -116,6 +121,11 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
     () => (divisionsQuery.data ?? []).map((d) => ({ value: d.code, label: d.name })),
     [divisionsQuery.data],
   );
+  const schoolCategoryOptions = useMemo(
+    () => (schoolCategoriesQuery.data ?? []).map((s) => ({ value: s.code, label: s.name })),
+    [schoolCategoriesQuery.data],
+  );
+  const parentCategory = parentCategoryQuery.data ?? null;
   const academicGradeOptions = useMemo(
     () => (academicGradesQuery.data ?? []).map((g) => ({ value: g.code, label: g.name })),
     [academicGradesQuery.data],
@@ -142,6 +152,20 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
     setSliceMismatch(categorySpecializationId, hasMismatch);
     return () => setSliceMismatch(categorySpecializationId, false);
   }, [categorySpecializationId, hasMismatch, setSliceMismatch]);
+
+  /* Honor the parent category's gender lock — pin any drafted row's
+   * genderTypes to the locked value as soon as we know it. The patch is
+   * a no-op once everything is aligned. */
+  useEffect(() => {
+    if (!parentCategory || parentCategory.genderScope === 'any') return;
+    const locked = parentCategory.genderScope;
+    for (const draft of drafts) {
+      if (draft.kind === 'deleted') continue;
+      const current = draft.row.genderTypes;
+      if (current.length === 1 && current[0] === locked) continue;
+      patchRow(categorySpecializationId, draft.id, { genderTypes: [locked] });
+    }
+  }, [parentCategory, drafts, categorySpecializationId, patchRow]);
 
   const validationByRow = useMemo(() => {
     const live = drafts.filter((d) => d.kind !== 'deleted').map((d) => d.row);
@@ -207,8 +231,10 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
               draft={draft}
               conflict={validationByRow.get(draft.id) ?? null}
               gradingMode={gradingMode}
+              parentCategory={parentCategory}
               maritalOptions={maritalOptions}
               divisionOptions={divisionOptions}
+              schoolCategoryOptions={schoolCategoryOptions}
               academicGradeOptions={academicGradeOptions}
               academicGradeRangeByCode={academicGradeRangeByCode}
               onPatch={(patch) => patchRow(categorySpecializationId, draft.id, patch)}
@@ -224,12 +250,17 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
           variant="secondary"
           size="sm"
           leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-          onClick={() =>
-            addRow(
-              categorySpecializationId,
-              gradingMode === 'TAGDIR' ? { gradeKind: 'TAGDIR' } : { gradeKind: 'GRADES' },
-            )
-          }
+          onClick={() => {
+            const seed: Partial<ApplicantSpecializationYear> = {};
+            if (gradingMode === 'TAGDIR') seed.gradeKind = 'TAGDIR';
+            else seed.gradeKind = 'GRADES';
+            /* Seed gender from the parent category's lock so new rows in
+             * male-only / female-only categories start in a valid state. */
+            if (parentCategory && parentCategory.genderScope !== 'any') {
+              seed.genderTypes = [parentCategory.genderScope];
+            }
+            addRow(categorySpecializationId, seed);
+          }}
         >
           إضافة سنة
         </Button>
@@ -242,8 +273,10 @@ interface YearCardProps {
   draft: DraftRow;
   conflict: AppSettingsConflict | null;
   gradingMode: GradingMode | null;
+  parentCategory: ParentCategorySnapshot | null;
   maritalOptions: readonly { value: string; label: string }[];
   divisionOptions: readonly { value: string; label: string }[];
+  schoolCategoryOptions: readonly { value: string; label: string }[];
   academicGradeOptions: readonly { value: string; label: string }[];
   academicGradeRangeByCode: ReadonlyMap<string, { min: number; max: number } | null>;
   onPatch: (patch: Partial<ApplicantSpecializationYear>) => void;
@@ -255,8 +288,10 @@ function YearCard({
   draft,
   conflict,
   gradingMode,
+  parentCategory,
   maritalOptions,
   divisionOptions,
+  schoolCategoryOptions,
   academicGradeOptions,
   academicGradeRangeByCode,
   onPatch,
@@ -274,12 +309,22 @@ function YearCard({
 
   const yearError = matchField(['DUPLICATE_YEAR', 'GRAD_YEAR_REQUIRED']);
   const genderError = matchField(['GENDER_REQUIRED', 'DUPLICATE_YEAR', 'OVERLAPPING_PERIOD']);
-  const ageError = matchField(['AGE_NOT_POSITIVE']);
+  const ageError = matchField(['AGE_NOT_POSITIVE', 'AGE_RANGE_INVALID']);
   const gradeError = matchField(['PERCENTAGE_OUT_OF_RANGE', 'GRADE_MODE_MISMATCH']);
   const dateError = matchField(['INVALID_DATE_RANGE', 'OVERLAPPING_PERIOD']);
   const refError = matchField(['AGE_REFERENCE_AFTER_START']);
 
   const isSuspended = !row.isActive && !isDeleted;
+  /* Per RFP §2.1: when the parent category locks gender (male-only for
+   * officers_general, female-only for physical_education_bachelor), the
+   * gender toggle is read-only and the row's genderTypes is pinned to
+   * the locked value. */
+  const lockedGender =
+    parentCategory && parentCategory.genderScope !== 'any'
+      ? parentCategory.genderScope
+      : null;
+  const showSchoolCategory = parentCategory?.code === 'officers_general';
+  const showDivision = parentCategory?.code === 'officers_general';
 
   return (
     <article
@@ -376,14 +421,23 @@ function YearCard({
             />
           </Field>
 
-          <Field label="النوع" width="narrow" error={genderError}>
-            <GenderToggle
-              value={row.genderTypes}
-              disabled={isDeleted}
-              onChange={(next) => onPatch({ genderTypes: next })}
-              ariaLabel="النوع"
-              invalid={Boolean(genderError)}
-            />
+          <Field
+            label="النوع"
+            width="narrow"
+            error={genderError}
+            helper={lockedGender ? 'مقفول حسب الفئة' : undefined}
+          >
+            {lockedGender ? (
+              <LockedGenderBadge gender={lockedGender} />
+            ) : (
+              <GenderToggle
+                value={row.genderTypes}
+                disabled={isDeleted}
+                onChange={(next) => onPatch({ genderTypes: next })}
+                ariaLabel="النوع"
+                invalid={Boolean(genderError)}
+              />
+            )}
           </Field>
 
           <Field label="الحالة الاجتماعية" width="wide" helper="اتركها فارغة للسماح بأي حالة">
@@ -415,8 +469,23 @@ function YearCard({
             />
           </Field>
 
-          <Field label="السن الأقصى" width="narrow" error={ageError}>
+          <Field label="نطاق السن" width="medium" error={ageError}>
             <div className="inline-flex items-center gap-1.5">
+              <Input
+                type="number"
+                min={1}
+                disabled={isDeleted}
+                value={row.ageMin ?? ''}
+                onChange={(e) =>
+                  onPatch({ ageMin: e.target.value === '' ? null : Number(e.target.value) })
+                }
+                containerClassName="!mb-0 w-20"
+                className="text-end tabular-nums"
+                aria-invalid={Boolean(ageError) || undefined}
+                aria-label="السن الأدنى"
+                placeholder="بدون"
+              />
+              <span aria-hidden className="font-ar text-2xs text-ink-500">إلى</span>
               <Input
                 type="number"
                 min={1}
@@ -425,7 +494,7 @@ function YearCard({
                 onChange={(e) =>
                   onPatch({ maxAge: e.target.value === '' ? null : Number(e.target.value) })
                 }
-                containerClassName="!mb-0 w-24"
+                containerClassName="!mb-0 w-20"
                 className="text-end tabular-nums"
                 aria-invalid={Boolean(ageError) || undefined}
                 aria-label="السن الأقصى"
@@ -435,16 +504,31 @@ function YearCard({
             </div>
           </Field>
 
-          <Field label="الشعبة" width="wide" helper="اتركها فارغة للسماح بأي شعبة">
-            <MultiSelect
-              value={row.divisionCodes}
-              onChange={(next) => onPatch({ divisionCodes: next })}
-              options={divisionOptions}
-              disabled={isDeleted}
-              ariaLabel="الشعبة"
-              placeholder="الكل"
-            />
-          </Field>
+          {showSchoolCategory && (
+            <Field label="فئة المدرسة" width="wide" helper="اتركها فارغة للسماح بأي فئة">
+              <MultiSelect
+                value={row.schoolCategoryCodes}
+                onChange={(next) => onPatch({ schoolCategoryCodes: next })}
+                options={schoolCategoryOptions}
+                disabled={isDeleted}
+                ariaLabel="فئة المدرسة"
+                placeholder="الكل"
+              />
+            </Field>
+          )}
+
+          {showDivision && (
+            <Field label="الشعبة" width="wide" helper="اتركها فارغة للسماح بأي شعبة">
+              <MultiSelect
+                value={row.divisionCodes}
+                onChange={(next) => onPatch({ divisionCodes: next })}
+                options={divisionOptions}
+                disabled={isDeleted}
+                ariaLabel="الشعبة"
+                placeholder="الكل"
+              />
+            </Field>
+          )}
         </FieldGroup>
 
         <section className="flex flex-col gap-3">
@@ -636,6 +720,22 @@ function GradeBranchCell({
         <span className="font-ar text-2xs text-terra-700">الفئة تستخدم التقدير</span>
       )}
     </div>
+  );
+}
+
+interface LockedGenderBadgeProps {
+  gender: 'male' | 'female';
+}
+
+function LockedGenderBadge({ gender }: LockedGenderBadgeProps): JSX.Element {
+  return (
+    <span
+      role="img"
+      aria-label={gender === 'male' ? 'ذكور فقط — مقفول حسب الفئة' : 'إناث فقط — مقفول حسب الفئة'}
+      className="inline-flex w-fit items-center gap-1.5 rounded-pill border border-border-default bg-ink-50 px-3 py-1 font-ar text-xs font-medium text-ink-700"
+    >
+      <span aria-hidden>{gender === 'male' ? 'ذكور فقط' : 'إناث فقط'}</span>
+    </span>
   );
 }
 

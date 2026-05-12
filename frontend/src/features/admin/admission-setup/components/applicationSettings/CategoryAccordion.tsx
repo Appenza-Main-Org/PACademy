@@ -30,6 +30,7 @@ import {
 } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
 import { SpecializationList } from './SpecializationList';
+import { YearTable } from './YearTable';
 
 export function CategoryAccordion(): JSX.Element {
   const configsQuery = useCategoryConfigs();
@@ -105,7 +106,9 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
             </span>
             <span className="inline-flex items-center gap-1.5 text-2xs text-ink-500">
               <ListChecks size={12} strokeWidth={1.75} aria-hidden />
-              {config.specializationCount} تخصص · {config.yearCount} سنة دراسية
+              {config.singleAxis
+                ? `${config.yearCount} سنة دراسية`
+                : `${config.specializationCount} تخصص · ${config.yearCount} سنة دراسية`}
             </span>
           </Accordion.Trigger>
           <button
@@ -131,8 +134,12 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
         </div>
       </Accordion.Header>
 
-      <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 px-4">
-        <SpecializationList configId={config.id} />
+      <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 px-4 py-3">
+        {config.singleAxis && config.implicitSpecId ? (
+          <YearTable categorySpecializationId={config.implicitSpecId} />
+        ) : (
+          <SpecializationList configId={config.id} />
+        )}
       </Accordion.Content>
 
       <AlertDialog

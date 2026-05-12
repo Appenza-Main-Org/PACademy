@@ -47,6 +47,7 @@ import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { ConflictError } from '@/shared/lib/errors';
 import { LOOKUPS_SEED } from '@/features/lookups/mock/lookups.mock';
 import type {
+  ApplicantCategoryGenderScope,
   ApplicantCategoryRow,
   SpecializationRow,
   SubmissionTypeRow,
@@ -57,6 +58,7 @@ import {
   type YearRowDraft,
 } from '../lib/appSettingsValidation';
 import { resolveGradingModeForSpec } from '../lib/resolveGradingMode';
+import { IMPLICIT_DEFAULT_SPEC_CODE } from '../mock/appSettings.mock';
 import type {
   ApplicantCategoryConfig,
   ApplicantCategorySpecialization,
@@ -110,7 +112,26 @@ function nextId(prefix: string, existing: { id: string }[]): string {
  * mirroring what the real backend will return from a SQL JOIN. ───────── */
 
 export interface CategoryConfigJoined extends ApplicantCategoryConfig {
+  /** FK back to the underlying `applicant-categories` lookup row — the
+   *  UI uses this to branch render logic (e.g. school-category multi-select
+   *  is only shown for `officers_general`). Same value as
+   *  `ApplicantCategoryConfig.categoryId`; re-exposed here so consumers
+   *  can read it via a single named field at the top of the join shape. */
+  categoryCode: string;
   categoryNameAr: string;
+  /** Gender lock derived from the lookup row. When ≠ `'any'`, the
+   *  application-settings UI renders the gender toggle as a read-only
+   *  badge per RFP §2.1. */
+  genderScope: ApplicantCategoryGenderScope;
+  /** `true` when the category has no real specialization axis (RFP §2.1
+   *  defines a per-spec axis only for `specialized_officers`). Single-axis
+   *  configs render `<YearTable />` inline against the implicit-default
+   *  junction; multi-axis configs render the `<SpecializationList />`. */
+  singleAxis: boolean;
+  /** When `singleAxis` is `true`, the id of the implicit-default
+   *  `ApplicantCategorySpecialization` row that backs the year rows.
+   *  `null` for multi-axis configs. */
+  implicitSpecId: string | null;
   /** Total specialization rows attached to this config (regardless of active). */
   specializationCount: number;
   /** Total year rows under this config, active or otherwise. */
@@ -122,6 +143,11 @@ export interface CategorySpecializationJoined extends ApplicantCategorySpecializ
   yearCount: number;
 }
 
+export interface ParentCategorySnapshot {
+  code: string;
+  genderScope: ApplicantCategoryGenderScope;
+}
+
 function joinConfig(c: ApplicantCategoryConfig): CategoryConfigJoined {
   const cat = CATEGORY_LOOKUP.find((r) => r.code === c.categoryId);
   const childSpecs = specs.filter((s) => s.configId === c.id);
@@ -129,10 +155,22 @@ function joinConfig(c: ApplicantCategoryConfig): CategoryConfigJoined {
   const yearsForConfig = years.filter((y) =>
     childSpecIds.has(y.categorySpecializationId),
   );
+  const implicitSpec = childSpecs.find(
+    (s) => s.specializationId === IMPLICIT_DEFAULT_SPEC_CODE,
+  );
+  const realSpecs = childSpecs.filter(
+    (s) => s.specializationId !== IMPLICIT_DEFAULT_SPEC_CODE,
+  );
+  const singleAxis = Boolean(implicitSpec) && realSpecs.length === 0;
   return {
     ...c,
+    categoryCode: c.categoryId,
     categoryNameAr: cat?.name ?? c.categoryId,
-    specializationCount: childSpecs.length,
+    genderScope: cat?.genderScope ?? 'any',
+    singleAxis,
+    implicitSpecId: singleAxis ? (implicitSpec?.id ?? null) : null,
+    /* Hide the implicit-default junction from the counter. */
+    specializationCount: realSpecs.length,
     yearCount: yearsForConfig.length,
   };
 }
@@ -177,7 +215,17 @@ export const applicationSettingsService = {
     configId: string,
   ): Promise<CategorySpecializationJoined[]> {
     await simulateLatency(60, 120);
-    return specs.filter((s) => s.configId === configId).map(joinSpec);
+    /* Hide the implicit-default junction — it has no user-facing
+     * specialization to render in the SpecializationList. The
+     * CategoryAccordion already branches on `config.singleAxis` and
+     * renders YearTable inline for these categories. */
+    return specs
+      .filter(
+        (s) =>
+          s.configId === configId &&
+          s.specializationId !== IMPLICIT_DEFAULT_SPEC_CODE,
+      )
+      .map(joinSpec);
   },
 
   /**
@@ -225,6 +273,30 @@ export const applicationSettingsService = {
   ): Promise<ReturnType<typeof resolveGradingModeForSpec>> {
     await simulateLatency(40, 80);
     return resolveGradingModeFor(categorySpecializationId);
+  },
+
+  /**
+   * Resolve the parent category metadata for one specialization junction.
+   * Returns `null` when the chain breaks. The YearTable consumes this
+   * to honor the `genderScope` lock (per RFP §2.1, `officers_general`
+   * is male-only and `physical_education_bachelor` is female-only) and
+   * to decide whether to render the `schoolCategoryCodes` multi-select
+   * (only for `officers_general`).
+   */
+  async getParentCategoryForSpec(
+    categorySpecializationId: string,
+  ): Promise<ParentCategorySnapshot | null> {
+    await simulateLatency(40, 80);
+    const spec = specs.find((s) => s.id === categorySpecializationId);
+    if (!spec) return null;
+    const config = configs.find((c) => c.id === spec.configId);
+    if (!config) return null;
+    const cat = CATEGORY_LOOKUP.find((r) => r.code === config.categoryId);
+    if (!cat) return null;
+    return {
+      code: cat.code,
+      genderScope: cat.genderScope,
+    };
   },
 
   /* ── Mutations ───────────────────────────────────────────────────── */

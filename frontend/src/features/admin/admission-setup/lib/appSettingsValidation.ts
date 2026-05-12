@@ -70,6 +70,16 @@ export function validateAge(
 /** Alias for `validateAge` matching the patch's naming. */
 export const validateMaxAge = validateAge;
 
+export function validateAgeRange(
+  ageMin: number | null,
+  ageMax: number | null,
+): AppSettingsConflict | null {
+  if (ageMin === null) return null;
+  if (!Number.isInteger(ageMin) || ageMin <= 0) return 'AGE_NOT_POSITIVE';
+  if (ageMax !== null && ageMin > ageMax) return 'AGE_RANGE_INVALID';
+  return null;
+}
+
 export function validateAgeReferenceVsApplication(
   ageReferenceDate: string,
   applicationStartDate: string,
@@ -174,6 +184,8 @@ export function validateYearRow(
   if (gender) return gender;
   const age = validateAge(row.maxAge);
   if (age) return age;
+  const ageRange = validateAgeRange(row.ageMin, row.maxAge);
+  if (ageRange) return ageRange;
   if (row.gradeKind === 'GRADES') {
     const pct = validateMinPercentage(row.minPercentage);
     if (pct) return pct;

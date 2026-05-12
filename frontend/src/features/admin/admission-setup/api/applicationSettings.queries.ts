@@ -20,6 +20,7 @@ import type {
   BulkYearChange,
   CategoryConfigJoined,
   CategorySpecializationJoined,
+  ParentCategorySnapshot,
 } from './applicationSettings.service';
 import type { YearRowDraft } from '../lib/appSettingsValidation';
 import type {
@@ -42,6 +43,8 @@ export const appSettingsKeys = {
     [...appSettingsKeys.all, 'years', categorySpecializationId] as const,
   gradingMode: (categorySpecializationId: string) =>
     [...appSettingsKeys.all, 'grading-mode', categorySpecializationId] as const,
+  parentCategory: (categorySpecializationId: string) =>
+    [...appSettingsKeys.all, 'parent-category', categorySpecializationId] as const,
 };
 
 /* ─── Conflict messages ──────────────────────────────────────────────── */
@@ -50,7 +53,8 @@ const CONFLICT_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   DUPLICATE_YEAR: 'سنة التخرج موجودة بالفعل لنفس النوع في هذا التخصص',
   INVALID_DATE_RANGE: 'تاريخ النهاية يجب أن يكون بعد تاريخ البداية',
   OVERLAPPING_PERIOD: 'فترة التقديم تتداخل مع سنة أخرى لنفس النوع',
-  AGE_NOT_POSITIVE: 'السن الأقصى يجب أن يكون رقماً موجباً',
+  AGE_NOT_POSITIVE: 'السن يجب أن يكون رقماً موجباً',
+  AGE_RANGE_INVALID: 'السن الأدنى يجب أن يكون أقل من أو يساوي السن الأقصى',
   AGE_REFERENCE_AFTER_START: 'تاريخ احتساب السن يجب أن يسبق بداية التقديم',
   PERCENTAGE_OUT_OF_RANGE: 'الدرجة المئوية يجب أن تكون بين 0 و 100',
   GRADE_MODE_MISMATCH: 'نمط التقدير لا يطابق نوع تقديم الفئة',
@@ -139,6 +143,26 @@ export function useResolvedGradingModeForSpec(
     queryFn: () => {
       if (!categorySpecializationId) return Promise.resolve(null);
       return applicationSettingsService.getGradingModeForSpec(categorySpecializationId);
+    },
+    enabled: enabled && Boolean(categorySpecializationId),
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Snapshot of the parent applicant-category for a junction id. Drives
+ * the gender-scope lock and the per-category extra picker (school
+ * categories on `officers_general`).
+ */
+export function useParentCategoryForSpec(
+  categorySpecializationId: string | null,
+  enabled = true,
+) {
+  return useQuery<ParentCategorySnapshot | null>({
+    queryKey: appSettingsKeys.parentCategory(categorySpecializationId ?? '__none'),
+    queryFn: () => {
+      if (!categorySpecializationId) return Promise.resolve(null);
+      return applicationSettingsService.getParentCategoryForSpec(categorySpecializationId);
     },
     enabled: enabled && Boolean(categorySpecializationId),
     staleTime: 60_000,
