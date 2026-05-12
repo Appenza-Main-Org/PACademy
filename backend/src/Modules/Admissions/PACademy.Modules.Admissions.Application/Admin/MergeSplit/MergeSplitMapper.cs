@@ -1,3 +1,4 @@
+using PACademy.Modules.Admissions.Application.Admin.Common;
 using PACademy.Modules.Admissions.Application.Dtos.AdmissionSetup;
 using PACademy.Modules.Admissions.Domain;
 
@@ -14,9 +15,9 @@ internal static class MergeSplitMapper
 
         return new MergeSplitRuleDto(
             r.Id, r.CycleId,
-            r.Type.ToString(), srcIds, tgtIds,
+            EnumWireFormat.ToSnakeCase(r.Type), srcIds, tgtIds,
             r.Reason, r.EffectiveAt,
-            r.Status.ToString(),
+            EnumWireFormat.ToSnakeCase(r.Status),
             r.AppliedAt, r.AppliedBy,
             r.CancelledAt, r.CancelledBy, r.CancelReason,
             r.CreatedAt, r.CreatedBy,

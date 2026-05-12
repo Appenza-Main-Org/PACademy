@@ -1,3 +1,4 @@
+using PACademy.Modules.Admissions.Application.Admin.Common;
 using PACademy.Modules.Admissions.Application.Dtos.AdmissionSetup;
 using PACademy.Modules.Admissions.Domain;
 using System.Text.Json;
@@ -13,7 +14,7 @@ internal static class TotalScoreMapper
             .Select(comp => new TotalScoreComponentDto(comp.ExamKey, comp.Weight, comp.MinimumPassingScore))
             .ToList();
         return new TotalScoreConfigDto(
-            c.Id, c.CycleId, c.ApplicantStream.ToString(),
+            c.Id, c.CycleId, EnumWireFormat.ToSnakeCase(c.ApplicantStream),
             componentDtos, c.TotalScoreOutOf,
             c.UpdatedAt, c.UpdatedBy, Convert.ToBase64String(c.RowVersion));
     }
