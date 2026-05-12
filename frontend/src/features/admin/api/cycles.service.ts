@@ -435,6 +435,16 @@ export const cyclesService = {
   },
 
   async transition(id: string, next: CycleStatus): Promise<AdmissionCycle> {
+    /* Real backend POST /admin/cycles/{id}/status. Backend enforces
+     * single-active + state-machine transitions; ACTIVE_CYCLE_EXISTS / 422
+     * surface via apiClient interceptor. */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      const r = await apiClient.post<AdmissionCycle>(
+        `/admin/cycles/${id}/status`, { newStatus: next },
+      );
+      return r.data;
+    }
+    /* Legacy mock fallback */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -452,6 +462,16 @@ export const cyclesService = {
    * cycle that applicants then can't apply to.
    */
   async activate(id: string): Promise<AdmissionCycle> {
+    /* Real backend handles single-active invariant + state machine validation.
+     * Throws ConflictError('ACTIVE_CYCLE_EXISTS') / typed 422 on failure. */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      const r = await apiClient.post<AdmissionCycle>(
+        `/admin/cycles/${id}/status`, { newStatus: 'active' },
+      );
+      return r.data;
+    }
+    /* Legacy mock fallback — keeps the friendly pre-flight messages for
+     * non-GUID cycle ids that still flow through the mock state. */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -466,9 +486,6 @@ export const cyclesService = {
         `لا يمكن تفعيل هذه الدورة — دورة "${conflicting.nameAr}" نشطة بالفعل. يجب إغلاقها أولاً.`,
       );
     }
-    /* Pre-flight setup-completeness check. Each missing prerequisite
-     * adds a friendly Arabic line; if any are present we throw a single
-     * ConflictError listing all of them so the admin can fix in one pass. */
     const missing = collectActivationIssues(STATE[idx]);
     if (missing.length > 0) {
       throw new ConflictError(
@@ -566,6 +583,13 @@ export const cyclesService = {
   },
 
   async close(id: string): Promise<AdmissionCycle> {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      const r = await apiClient.post<AdmissionCycle>(
+        `/admin/cycles/${id}/status`, { newStatus: 'closed' },
+      );
+      return r.data;
+    }
+    /* Legacy mock fallback */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -622,6 +646,13 @@ export const cyclesService = {
   },
 
   async archive(id: string): Promise<AdmissionCycle> {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      const r = await apiClient.post<AdmissionCycle>(
+        `/admin/cycles/${id}/status`, { newStatus: 'archived' },
+      );
+      return r.data;
+    }
+    /* Legacy mock fallback */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
