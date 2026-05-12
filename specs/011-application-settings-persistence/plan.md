@@ -10,19 +10,13 @@ Application settings is **global master data, not cycle-scoped** (FR-020). The w
 
 ## Approach
 
-### 1. New module: `Lookups` (host for spec 011 tables)
+### 1. Module: `Lookups` (shared with spec 010)
 
-Spec 011's three tables are tightly bound to the lookup catalogue (categories + specializations as FKs). Two viable homes:
+Spec 011's three tables are tightly bound to the lookup catalogue (categories + specializations as FKs). The `Lookups` module hosts both specs' tables in `LookupsDbContext` with history table `__EFMigrationsHistory_Lookups`.
 
-- **(A)** New `Lookups` module under `backend/src/Modules/Lookups/` — co-locates with the future spec 010 (Lookup Management Module) backend.
-- **(B)** Extend the existing `ReferenceData` module under `backend/src/Modules/ReferenceData/`.
+> **Update (2026-05-12)** — Spec 010 (Lookup Management Module) is now authored and creates the `Lookups` module skeleton + the `lookup_items` table that spec 011's FKs target. Migration order: `010_LookupCatalogue` MUST apply before `011_ApplicationSettings`. Spec 011 *extends* the existing module rather than creating it.
 
-**Decision: (A) — new `Lookups` module.** Reasons:
-1. Spec 010 (lookup-management backend) will land in `Lookups`. Co-locating spec 011's tables there avoids a future "split spec 011 between two modules" refactor.
-2. `ReferenceData` is the legacy module name; the frontend has already renamed the user-facing domain to "lookups" (per `origin/main`'s migration report). Mirroring that on the backend keeps naming consistent.
-3. Spec 005's modular monolith pattern (FR-M02) makes adding a module cheap (4 csproj files + DI registration).
-
-The 3 spec-011 tables (`applicant_category_configs`, `applicant_category_specializations`, `applicant_specialization_years`) plus the 2 side tables live in `LookupsDbContext` with history table `__EFMigrationsHistory_Lookups`. Spec 010's 18 typed lookup tables + 4 mapping tables will join the same context when it ships.
+The 3 spec-011 tables (`applicant_category_configs`, `applicant_category_specializations`, `applicant_specialization_years`) plus the 2 side tables join spec 010's `lookup_item_types`, `lookup_items`, and 4 mapping tables in the same `LookupsDbContext`.
 
 ### 2. Module boundary contract
 

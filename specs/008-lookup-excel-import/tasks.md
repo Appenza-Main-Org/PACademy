@@ -1,5 +1,7 @@
 # Tasks: Lookup Excel + CSV Import
 
+> **⚠ SUPERSEDED (2026-05-12)** — Spec 008's import wizard targeted the 21-table lookup model that `origin/main` retired. Replaced by **spec 010 (Lookup Management Module) §5 Bulk Import/Export** in `specs/010-lookup-management-module/contracts/lookups-api.md`. The frontend wizard code was removed in commit `cda047a` (spec-009 merge-followup). All tasks below are kept for historical reference only; **do not implement**.
+
 **Input**: Design documents from `/specs/008-lookup-excel-import/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/import-orchestrator.md, quickstart.md
 
