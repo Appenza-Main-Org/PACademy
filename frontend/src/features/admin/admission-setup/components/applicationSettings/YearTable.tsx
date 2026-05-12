@@ -34,7 +34,7 @@
  */
 
 import { useEffect, useMemo } from 'react';
-import { Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { AlertTriangle, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import {
   Button,
   Combobox,
@@ -134,6 +134,19 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   }, [academicGradesQuery.data]);
 
   const gradingMode: GradingMode | null = gradingModeQuery.data ?? null;
+  const setSliceMismatch = useAppSettingsDraftStore((s) => s.setSliceMismatch);
+
+  const hasMismatch = useMemo(() => {
+    if (!gradingMode) return false;
+    return drafts.some(
+      (d) => d.kind !== 'deleted' && d.row.gradeKind !== gradingMode,
+    );
+  }, [drafts, gradingMode]);
+
+  useEffect(() => {
+    setSliceMismatch(categorySpecializationId, hasMismatch);
+    return () => setSliceMismatch(categorySpecializationId, false);
+  }, [categorySpecializationId, hasMismatch, setSliceMismatch]);
 
   const validationByRow = useMemo(() => {
     const live = drafts.filter((d) => d.kind !== 'deleted').map((d) => d.row);
@@ -179,6 +192,18 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
 
   return (
     <div className="flex flex-col gap-2">
+      {hasMismatch && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-md border border-terra-500 bg-terra-50 px-3 py-2"
+        >
+          <AlertTriangle size={16} strokeWidth={1.75} className="mt-0.5 text-terra-700" aria-hidden />
+          <p className="font-ar text-sm text-terra-700">
+            تعارض في نمط التقدير — يجب حذف السنوات وإعادة إنشائها لتتطابق مع
+            نوع تقديم الفئة الحالية ({gradingMode === 'TAGDIR' ? 'تقدير' : 'درجة مئوية'}).
+          </p>
+        </div>
+      )}
       <div className="overflow-x-auto rounded-md border border-border-subtle bg-surface-card">
         <table className="w-full min-w-[1320px] text-sm">
           <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">

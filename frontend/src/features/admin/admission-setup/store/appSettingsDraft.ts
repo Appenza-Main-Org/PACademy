@@ -64,6 +64,11 @@ interface DraftSliceState {
   byCs: Record<string, DraftRow[]>;
   /** Monotonic counter for temp ids — survives across slices. */
   tempIdSeed: number;
+  /** Per-slice flag set by `YearTable` when any of its rows has a
+   *  `gradeKind` that disagrees with the resolved parent gradingMode.
+   *  When non-empty, the StickyBulkSaveBar disables saving and the
+   *  per-slice banner instructs the admin to delete + re-create. */
+  mismatchedSliceIds: Record<string, boolean>;
 }
 
 interface DraftActions {
@@ -88,6 +93,11 @@ interface DraftActions {
   resetAll: () => void;
   /** Reset a single slice — used after a successful per-slice save. */
   resetSlice: (categorySpecializationId: string) => void;
+  /** Register/clear the gradeKind-mismatch flag for one slice. */
+  setSliceMismatch: (
+    categorySpecializationId: string,
+    hasMismatch: boolean,
+  ) => void;
 }
 
 type Store = DraftSliceState & DraftActions;
@@ -134,6 +144,7 @@ function isSameRow(
 export const useAppSettingsDraftStore = create<Store>((set, get) => ({
   byCs: {},
   tempIdSeed: 1,
+  mismatchedSliceIds: {},
 
   hydrateSlice: (csId, serverRows) => {
     const existing = get().byCs[csId];
@@ -279,7 +290,7 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
     });
   },
 
-  resetAll: () => set({ byCs: {}, tempIdSeed: 1 }),
+  resetAll: () => set({ byCs: {}, tempIdSeed: 1, mismatchedSliceIds: {} }),
 
   resetSlice: (csId) =>
     set((state) => {
@@ -293,7 +304,22 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
           row: d.original ?? d.row,
           kind: 'original' as DraftKind,
         }));
-      return { byCs: { ...state.byCs, [csId]: next } };
+      const nextMismatch = { ...state.mismatchedSliceIds };
+      delete nextMismatch[csId];
+      return {
+        byCs: { ...state.byCs, [csId]: next },
+        mismatchedSliceIds: nextMismatch,
+      };
+    }),
+
+  setSliceMismatch: (csId, hasMismatch) =>
+    set((state) => {
+      const current = Boolean(state.mismatchedSliceIds[csId]);
+      if (current === hasMismatch) return state;
+      const next = { ...state.mismatchedSliceIds };
+      if (hasMismatch) next[csId] = true;
+      else delete next[csId];
+      return { mismatchedSliceIds: next };
     }),
 }));
 
@@ -308,6 +334,12 @@ export function useDraftIsDirty(): boolean {
     Object.values(s.byCs).some((slice) =>
       slice.some((r) => r.kind !== 'original'),
     ),
+  );
+}
+
+export function useHasAnyMismatch(): boolean {
+  return useAppSettingsDraftStore(
+    (s) => Object.keys(s.mismatchedSliceIds).length > 0,
   );
 }
 
