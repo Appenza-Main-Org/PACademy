@@ -104,7 +104,7 @@ const GRADING_MODE_BY_CATEGORY: Record<string, 'GRADES' | 'TAGDIR'> = (() => {
 })();
 
 interface YearBlueprintBase {
-  graduationYear: number;
+  graduationYears: number[];
   genderTypes: GenderType[];
   maritalStatusCodes: string[];
   maxAge: number | null;
@@ -134,7 +134,7 @@ interface YearBlueprintBase {
 const YEAR_BLUEPRINTS_PER_CATEGORY: Record<string, YearBlueprintBase[]> = (() => {
   function basicGrades(year: number, gender: GenderType, divisions: string[]): YearBlueprintBase {
     return {
-      graduationYear: year,
+      graduationYears: [year],
       genderTypes: [gender],
       maritalStatusCodes: ['MAR-01'],
       maxAge: 22,
@@ -202,7 +202,7 @@ export const APPLICANT_SPECIALIZATION_YEARS: ApplicantSpecializationYear[] = (()
       const shared = {
         id: `asy-${serial}`,
         categorySpecializationId: cs.id,
-        graduationYear: bp.graduationYear,
+        graduationYears: bp.graduationYears,
         genderTypes: bp.genderTypes,
         maritalStatusCodes: bp.maritalStatusCodes,
         maxAge: bp.maxAge,

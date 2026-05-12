@@ -55,6 +55,7 @@ const CONFLICT_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   PERCENTAGE_OUT_OF_RANGE: 'الدرجة المئوية يجب أن تكون بين 0 و 100',
   GRADE_MODE_MISMATCH: 'نمط التقدير لا يطابق نوع تقديم الفئة',
   GENDER_REQUIRED: 'اختر النوع (ذكور أو إناث على الأقل)',
+  GRAD_YEAR_REQUIRED: 'اختر سنة تخرج واحدة على الأقل',
   SPECIALIZATION_NOT_MAPPED:
     'هذا التخصص غير مرتبط بهذه الفئة في البيانات المرجعية',
   CATEGORY_HAS_ACTIVE_YEARS:

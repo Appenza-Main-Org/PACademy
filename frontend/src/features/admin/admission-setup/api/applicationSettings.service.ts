@@ -205,9 +205,12 @@ export const applicationSettingsService = {
     categorySpecializationId: string,
   ): Promise<ApplicantSpecializationYear[]> {
     await simulateLatency(60, 120);
+    function maxYear(y: ApplicantSpecializationYear): number {
+      return y.graduationYears.length > 0 ? Math.max(...y.graduationYears) : 0;
+    }
     return years
       .filter((y) => y.categorySpecializationId === categorySpecializationId)
-      .sort((a, b) => b.graduationYear - a.graduationYear);
+      .sort((a, b) => maxYear(b) - maxYear(a));
   },
 
   /**

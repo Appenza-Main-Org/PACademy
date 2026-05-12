@@ -184,8 +184,9 @@ export interface ApplicantCategorySpecialization {
 export interface ApplicantSpecializationYearBase {
   id: string;
   categorySpecializationId: string;
-  /** Maximum acceptable graduation year (drop-down: last 5 + current). */
-  graduationYear: number;
+  /** Multi-select set of acceptable graduation years (last 4 + current).
+   *  At least one year must be picked. */
+  graduationYears: number[];
   /** Multi-select. At least one gender must be picked. */
   genderTypes: GenderType[];
   /** Multi-select. FK → `marital-statuses[code]`. Empty array = any. */
@@ -233,6 +234,7 @@ export type YearGradeKind = GradingMode;
  */
 export type AppSettingsConflict =
   | 'DUPLICATE_YEAR'
+  | 'GRAD_YEAR_REQUIRED'
   | 'INVALID_DATE_RANGE'
   | 'OVERLAPPING_PERIOD'
   | 'AGE_NOT_POSITIVE'

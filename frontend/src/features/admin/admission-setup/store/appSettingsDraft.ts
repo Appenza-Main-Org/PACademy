@@ -109,6 +109,13 @@ function sameStringArray(a: readonly string[], b: readonly string[]): boolean {
   return sa.every((v, i) => v === sb[i]);
 }
 
+function sameNumberArray(a: readonly number[], b: readonly number[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort((x, y) => x - y);
+  const sb = [...b].sort((x, y) => x - y);
+  return sa.every((v, i) => v === sb[i]);
+}
+
 function gradeFieldsEqual(
   a: ApplicantSpecializationYear,
   b: ApplicantSpecializationYear,
@@ -128,7 +135,7 @@ function isSameRow(
   b: ApplicantSpecializationYear,
 ): boolean {
   return (
-    a.graduationYear === b.graduationYear &&
+    sameNumberArray(a.graduationYears, b.graduationYears) &&
     sameStringArray(a.genderTypes, b.genderTypes) &&
     sameStringArray(a.maritalStatusCodes, b.maritalStatusCodes) &&
     sameStringArray(a.divisionCodes, b.divisionCodes) &&
@@ -220,7 +227,7 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
     const base = {
       id: tempId,
       categorySpecializationId: csId,
-      graduationYear: new Date().getFullYear(),
+      graduationYears: [new Date().getFullYear()] as number[],
       genderTypes: ['male'] as GenderType[],
       maritalStatusCodes: [] as string[],
       maxAge: null,

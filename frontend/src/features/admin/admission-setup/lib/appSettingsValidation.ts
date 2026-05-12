@@ -46,6 +46,11 @@ function intersects(a: readonly GenderType[], b: readonly GenderType[]): boolean
   return false;
 }
 
+function intersectsNumbers(a: readonly number[], b: readonly number[]): boolean {
+  for (const n of a) if (b.includes(n)) return true;
+  return false;
+}
+
 export function validateGender(
   genders: readonly GenderType[],
 ): AppSettingsConflict | null {
@@ -110,8 +115,14 @@ export function validateDateRange(
   return null;
 }
 
+export function validateGraduationYears(
+  years: readonly number[],
+): AppSettingsConflict | null {
+  return years.length === 0 ? 'GRAD_YEAR_REQUIRED' : null;
+}
+
 export function validateNoDuplicateYear(
-  year: number,
+  years: readonly number[],
   genders: readonly GenderType[],
   existingYears: readonly ApplicantSpecializationYear[],
   excludeId?: string,
@@ -119,7 +130,7 @@ export function validateNoDuplicateYear(
   const collision = existingYears.find(
     (y) =>
       y.id !== excludeId &&
-      y.graduationYear === year &&
+      intersectsNumbers(y.graduationYears, years) &&
       intersects(y.genderTypes, genders),
   );
   return collision ? 'DUPLICATE_YEAR' : null;
@@ -155,6 +166,10 @@ export function validateYearRow(
   siblingYears: readonly ApplicantSpecializationYear[],
   excludeId?: string,
 ): AppSettingsConflict | null {
+  const gradYears = validateGraduationYears(row.graduationYears);
+  if (gradYears) return gradYears;
+  const years = validateGraduationYears(row.graduationYears);
+  if (years) return years;
   const gender = validateGender(row.genderTypes);
   if (gender) return gender;
   const age = validateAge(row.maxAge);
@@ -175,7 +190,7 @@ export function validateYearRow(
   );
   if (refOrder) return refOrder;
   const dup = validateNoDuplicateYear(
-    row.graduationYear,
+    row.graduationYears,
     row.genderTypes,
     siblingYears,
     excludeId,

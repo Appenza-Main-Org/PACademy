@@ -2,7 +2,7 @@
  * YearTable — editable rows for one category-specialization junction.
  *
  * Columns (visual order RTL = first column rightmost):
- *   1. سنة التخرج (Max)          — Select bound to [currentYear-5 … currentYear]
+ *   1. سنة التخرج                — MultiSelect over [currentYear-4 … currentYear]; at least one required
  *   2. النوع                     — multi-pill (ذكور / إناث); at least one required
  *   3. الحالة الاجتماعية         — MultiSelect over `marital-statuses` lookup
  *   4. السن الأقصى                — numeric Input (nullable; blank = no maximum)
@@ -41,7 +41,6 @@ import {
   DatePicker,
   Input,
   MultiSelect,
-  Select,
 } from '@/shared/components';
 import { cn } from '@/shared/lib/cn';
 import {
@@ -70,13 +69,15 @@ interface YearTableProps {
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
-const GRAD_YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => {
-  const year = CURRENT_YEAR - 5 + i;
+/** Last 5 graduation years including the current year, newest first. */
+const GRAD_YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => {
+  const year = CURRENT_YEAR - i;
   return { value: String(year), label: String(year) };
 });
 
 const FIELD_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   DUPLICATE_YEAR: 'مكررة',
+  GRAD_YEAR_REQUIRED: 'اختر سنة تخرج واحدة على الأقل',
   INVALID_DATE_RANGE: 'ترتيب التواريخ غير صحيح',
   OVERLAPPING_PERIOD: 'تتداخل مع سنة أخرى',
   AGE_NOT_POSITIVE: 'السن > 0',
@@ -208,7 +209,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
         <table className="w-full min-w-[1320px] text-sm">
           <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">
             <tr>
-              <th className="px-3 py-2 text-start font-medium">سنة التخرج (الأقصى)</th>
+              <th className="px-3 py-2 text-start font-medium">سنة التخرج</th>
               <th className="px-3 py-2 text-start font-medium">النوع</th>
               <th className="px-3 py-2 text-start font-medium">الحالة الاجتماعية</th>
               <th className="px-3 py-2 text-start font-medium">السن الأقصى</th>
@@ -295,7 +296,7 @@ function YearRow({
     return fields.includes(conflict) ? FIELD_MESSAGES_AR[conflict] : null;
   };
 
-  const yearError = matchField(['DUPLICATE_YEAR']);
+  const yearError = matchField(['DUPLICATE_YEAR', 'GRAD_YEAR_REQUIRED']);
   const genderError = matchField(['GENDER_REQUIRED', 'DUPLICATE_YEAR', 'OVERLAPPING_PERIOD']);
   const ageError = matchField(['AGE_NOT_POSITIVE']);
   const gradeError = matchField(['PERCENTAGE_OUT_OF_RANGE', 'GRADE_MODE_MISMATCH']);
@@ -318,15 +319,21 @@ function YearRow({
           : undefined
       }
     >
-      <td className="px-3 py-2 align-top">
-        <Select
-          value={String(row.graduationYear)}
-          disabled={isDeleted}
-          onChange={(e) => onPatch({ graduationYear: Number(e.target.value) })}
-          containerClassName="!mb-0 w-28"
-          aria-invalid={Boolean(yearError) || undefined}
-          aria-label="سنة التخرج"
+      <td className="px-3 py-2 align-top min-w-[180px]">
+        <MultiSelect
+          value={row.graduationYears.map(String)}
+          onChange={(next) =>
+            onPatch({
+              graduationYears: next
+                .map((v) => Number(v))
+                .filter((n) => Number.isFinite(n))
+                .sort((x, y) => y - x),
+            })
+          }
           options={GRAD_YEAR_OPTIONS}
+          disabled={isDeleted}
+          ariaLabel="سنة التخرج"
+          placeholder="اختر سنة"
         />
         {yearError && <FieldError text={yearError} />}
       </td>
