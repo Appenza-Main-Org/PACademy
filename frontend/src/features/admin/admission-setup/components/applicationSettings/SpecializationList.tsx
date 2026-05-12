@@ -1,17 +1,15 @@
 /**
  * SpecializationList — body of one CategoryAccordion item.
  *
- * Renders one SpecializationRow per attached specialization plus an
- * "إضافة تخصص" button that opens `<AttachSpecializationDialog />`.
- * Lazy-mounted by the outer accordion (only renders when its parent is
- * open) so the per-config query fires only on demand.
+ * The "إضافة تخصص" picker sits at the *top* of the section so it stays
+ * in the viewport regardless of how many specializations are already
+ * attached; the attached rows scroll below it. Lazy-mounted by the outer
+ * accordion so the per-config query fires only on demand.
  */
 
-import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Button } from '@/shared/components';
 import { useSpecializationsForConfig } from '../../api/applicationSettings.queries';
-import { AttachSpecializationDialog } from './AttachSpecializationDialog';
+import { AttachSpecializationCombobox } from './AttachSpecializationCombobox';
 import { SpecializationRow } from './SpecializationRow';
 
 interface SpecializationListProps {
@@ -19,17 +17,27 @@ interface SpecializationListProps {
 }
 
 export function SpecializationList({ configId }: SpecializationListProps): JSX.Element {
-  const [attachOpen, setAttachOpen] = useState(false);
   const specsQuery = useSpecializationsForConfig(configId);
   const specs = specsQuery.data ?? [];
 
   return (
-    <div className="flex flex-col gap-3 py-3">
+    <div className="flex flex-col gap-4 py-3">
+      <div
+        className="rounded-md border border-border-default bg-surface-card p-3 shadow-sm"
+        style={{ borderInlineStartWidth: 3, borderInlineStartColor: 'var(--accent-500)' }}
+      >
+        <div className="mb-2 flex items-center gap-2 text-sm font-medium text-ink-700">
+          <Plus size={14} strokeWidth={2} className="text-[color:var(--accent-600)]" />
+          <span>إضافة تخصص جديد</span>
+        </div>
+        <AttachSpecializationCombobox configId={configId} />
+      </div>
+
       {specsQuery.isLoading ? (
         <p className="font-ar text-sm text-ink-500">جارٍ تحميل التخصصات…</p>
       ) : specs.length === 0 ? (
         <div className="rounded-md border border-dashed border-border-subtle bg-ink-50/40 px-4 py-3 text-2xs text-ink-500">
-          لا توجد تخصصات مربوطة بهذه الفئة بعد. اضغط "إضافة تخصص" لربط أول
+          لا توجد تخصصات مربوطة بهذه الفئة بعد. استخدم القائمة أعلاه لربط أول
           تخصص.
         </div>
       ) : (
@@ -41,23 +49,6 @@ export function SpecializationList({ configId }: SpecializationListProps): JSX.E
           ))}
         </ul>
       )}
-
-      <div>
-        <Button
-          variant="secondary"
-          size="sm"
-          leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-          onClick={() => setAttachOpen(true)}
-        >
-          إضافة تخصص
-        </Button>
-      </div>
-
-      <AttachSpecializationDialog
-        configId={configId}
-        open={attachOpen}
-        onOpenChange={setAttachOpen}
-      />
     </div>
   );
 }

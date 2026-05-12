@@ -19,7 +19,7 @@ export type { Code128BarcodeProps } from './Code128Barcode';
 export { Combobox } from './Combobox';
 export { CommandPalette, useCommandPaletteShortcut } from './CommandPalette';
 export { NotificationCenter } from './NotificationCenter';
-export type { ComboboxOption } from './Combobox';
+export type { ComboboxOption, ComboboxGroup } from './Combobox';
 export { CornerFlourish } from './CornerFlourish';
 export type { Corner } from './CornerFlourish';
 export { DataTable } from './DataTable';
