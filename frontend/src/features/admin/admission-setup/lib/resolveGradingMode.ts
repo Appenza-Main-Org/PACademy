@@ -55,3 +55,42 @@ export function resolveGradingModeForSpec(
     return null;
   }
 }
+
+/**
+ * Resolve a category's `gradingMode` by category code (e.g.
+ * `'officers_general'`) — the matrix path that does not go through a
+ * `categorySpecializationId`.
+ *
+ * Same walk as `resolveGradingModeForSpec` minus the spec→config hop:
+ *   categoryCode
+ *     → lookup applicant-categories[code].metadata.submissionTypeCode
+ *     → lookup submission-types[code].metadata.gradingMode
+ *
+ * Returns `null` on any broken link (orphan code, missing FK, malformed
+ * metadata). Callers — the binding service at write time and the binding
+ * form at render time — decide whether `null` means "block" or
+ * "ambiguous" based on context.
+ */
+export type CategoryGradingResolutionDeps = Pick<
+  GradingModeResolutionDeps,
+  'categoryLookup' | 'submissionTypeLookup'
+>;
+
+export function resolveCategoryGradingMode(
+  categoryCode: string,
+  deps: CategoryGradingResolutionDeps,
+): GradingMode | null {
+  const category = deps.categoryLookup.find((c) => c.code === categoryCode);
+  if (!category) return null;
+  const md = (category.metadata ?? {}) as { submissionTypeCode?: unknown };
+  if (typeof md.submissionTypeCode !== 'string') return null;
+  const submissionType = deps.submissionTypeLookup.find(
+    (s) => s.code === md.submissionTypeCode,
+  );
+  if (!submissionType) return null;
+  try {
+    return readGradingMode(submissionType);
+  } catch {
+    return null;
+  }
+}
