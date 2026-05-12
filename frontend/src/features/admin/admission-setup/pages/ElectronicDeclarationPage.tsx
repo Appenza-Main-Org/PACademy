@@ -23,6 +23,7 @@ import { date as fmtDate } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
+import { MarkStepCompleteButton } from '../components/MarkStepCompleteButton';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import {
   useElectronicDeclaration,
@@ -92,6 +93,11 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
         }
         actions={
           <div className="flex items-center gap-2">
+            <MarkStepCompleteButton
+              cycleId={cycle.id}
+              stepKey="electronic_declaration"
+              canWrite={canWrite}
+            />
             <Button
               variant="primary"
               leadingIcon={<Save size={14} strokeWidth={1.75} />}

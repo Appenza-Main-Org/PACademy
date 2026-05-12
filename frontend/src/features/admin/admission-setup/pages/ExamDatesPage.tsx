@@ -22,6 +22,7 @@ import { ROUTES } from '@/config/routes';
 import { date as fmtDate } from '@/shared/lib/format';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
+import { MarkStepCompleteButton } from '../components/MarkStepCompleteButton';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import {
   useExamDateConfig,
@@ -109,15 +110,22 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
         title="مواعيد الاختبارات"
         subtitle="أول ميعاد متاح، أيام التقديم، وأيام الإجازة لهذه الدورة."
         actions={
-          <Button
-            variant="primary"
-            leadingIcon={<Save size={14} strokeWidth={1.75} />}
-            onClick={save}
-            disabled={!canWrite || !dirty || !firstAvailable || bookableDays.length === 0}
-            isLoading={setMut.isPending}
-          >
-            حفظ المواعيد
-          </Button>
+          <div className="flex items-center gap-2">
+            <MarkStepCompleteButton
+              cycleId={cycle.id}
+              stepKey="exam_dates"
+              canWrite={canWrite}
+            />
+            <Button
+              variant="primary"
+              leadingIcon={<Save size={14} strokeWidth={1.75} />}
+              onClick={save}
+              disabled={!canWrite || !dirty || !firstAvailable || bookableDays.length === 0}
+              isLoading={setMut.isPending}
+            >
+              حفظ المواعيد
+            </Button>
+          </div>
         }
       />
       <Card>

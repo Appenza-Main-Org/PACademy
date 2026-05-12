@@ -22,6 +22,7 @@ import { ROUTES } from '@/config/routes';
 import { useAcademyExams } from '@/features/admin/api/examPlans.queries';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
+import { MarkStepCompleteButton } from '../components/MarkStepCompleteButton';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import {
   useSetTotalScoreConfig,
@@ -58,6 +59,13 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
       <PageHeader
         title="المجموع الكلي"
         subtitle="حدد وزن كل اختبار في المجموع النهائي لكل فئة من المتقدمين."
+        actions={
+          <MarkStepCompleteButton
+            cycleId={cycle.id}
+            stepKey="total_score"
+            canWrite={canWrite}
+          />
+        }
       />
       <Card>
         <div className="flex flex-wrap items-center gap-2">

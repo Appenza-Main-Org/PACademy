@@ -19,10 +19,15 @@ import {
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useCommittees } from '@/features/committees';
+import { MarkStepCompleteButton } from '../components/MarkStepCompleteButton';
 import type { AdmissionCycle, Committee } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
-import { useSetCommitteeScoreThresholds } from '../api/admission-setup.queries';
+import {
+  useScoreThresholds,
+  useSetCommitteeScoreThresholds,
+} from '../api/admission-setup.queries';
+import type { CommitteeScoreThreshold } from '../types';
 
 export function ScoreThresholdsPage(): JSX.Element {
   const { cycle } = useAdmissionSetupCycle();
@@ -36,13 +41,26 @@ export function ScoreThresholdsPage(): JSX.Element {
 
 function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean }): JSX.Element {
   const { data: committees = [] } = useCommittees({ cycleId: cycle.id });
+  const { data: thresholds = [] } = useScoreThresholds(cycle.id);
   const cycleCommittees = committees;
+
+  /* Index saved thresholds by committeeId so each ThresholdCard reads its own. */
+  const thresholdByCommittee = new Map<string, CommitteeScoreThreshold>(
+    thresholds.map((t) => [t.committeeId, t]),
+  );
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
         title="درجات القبول"
         subtitle="حدد الحد الأدنى والأقصى المقبول من المجموع لكل لجنة."
+        actions={
+          <MarkStepCompleteButton
+            cycleId={cycle.id}
+            stepKey="score_thresholds"
+            canWrite={canWrite}
+          />
+        }
       />
       {cycleCommittees.length === 0 ? (
         <EmptyState
@@ -56,7 +74,13 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
         />
       ) : (
         cycleCommittees.map((c) => (
-          <ThresholdCard key={c.id} committee={c} cycleId={cycle.id} canWrite={canWrite} />
+          <ThresholdCard
+            key={c.id}
+            committee={c}
+            cycleId={cycle.id}
+            canWrite={canWrite}
+            saved={thresholdByCommittee.get(c.id) ?? null}
+          />
         ))
       )}
     </div>
@@ -67,12 +91,20 @@ function ThresholdCard({
   committee,
   cycleId,
   canWrite,
+  saved,
 }: {
   committee: Committee;
   cycleId: string;
   canWrite: boolean;
+  saved: CommitteeScoreThreshold | null;
 }): JSX.Element {
-  const initial = committee.scoreCriteria?.magmoo3;
+  /* Prefill from spec-009 committee_score_thresholds row when present; fall
+   * back to the legacy Committee.scoreCriteria.magmoo3 path so this page
+   * still renders during the transition window when some committees are
+   * mock-backed (no scoreCriteria) and some have a saved threshold. */
+  const initial = saved
+    ? { min: saved.min, max: saved.max }
+    : committee.scoreCriteria?.magmoo3 ?? null;
   const [min, setMin] = useState<number>(initial?.min ?? 0);
   const [max, setMax] = useState<number>(initial?.max ?? 0);
   const setMut = useSetCommitteeScoreThresholds();
@@ -80,14 +112,14 @@ function ThresholdCard({
   useEffect(() => {
     setMin(initial?.min ?? 0);
     setMax(initial?.max ?? 0);
-  }, [initial]);
+  }, [initial?.min, initial?.max]);
 
   const dirty = min !== (initial?.min ?? 0) || max !== (initial?.max ?? 0);
 
   const save = (): void => {
     if (!canWrite) return;
     setMut.mutate(
-      { cycleId, committeeId: committee.id, min, max },
+      { cycleId, committeeId: committee.id, min, max, rowVersion: saved?.rowVersion },
       {
         onSuccess: () => toast(`تم حفظ درجات القبول للجنة "${committee.name}"`, 'success'),
         onError: (err) => toast((err).message, 'danger'),

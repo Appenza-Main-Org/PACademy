@@ -22,6 +22,7 @@ import {
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useCommittees } from '@/features/committees';
+import { MarkStepCompleteButton } from '../components/MarkStepCompleteButton';
 import { date as fmtDate } from '@/shared/lib/format';
 import type { AdmissionCycle, Committee } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
@@ -88,6 +89,13 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
       <PageHeader
         title="دمج وفصل اللجان"
         subtitle="قواعد دمج عدة لجان في لجنة واحدة، أو فصل لجنة إلى عدة لجان."
+        actions={
+          <MarkStepCompleteButton
+            cycleId={cycle.id}
+            stepKey="committee_merge_split"
+            canWrite={canWrite}
+          />
+        }
       />
       <Card>
         <h3 className="mb-3 font-ar-display text-md font-bold text-ink-900">قاعدة جديدة</h3>
