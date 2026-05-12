@@ -1,17 +1,18 @@
 /**
  * YearTable — editable year cards for one category-specialization junction.
  *
- * Each year renders as a card (not a table row) so the eleven editable
- * fields can lay out on a normal viewport without horizontal scroll.
- * Inside each card, fields are grouped into three semantic sections:
+ * Each year renders as a card with a responsive 3-column grid per group
+ * (1 col mobile → 2 cols sm → 3 cols lg) so fields land in consistent
+ * columns across cards. Three semantic groups:
  *
  *   • البيانات الأساسية — graduation year, gender, marital status
- *   • الشروط الأكاديمية — grade/percentage, maximum age, division
+ *   • الشروط الأكاديمية — grade/percentage, max age, school/division
  *   • الفترة الزمنية   — application start/end, age reference date
  *
- * Card header strip carries the year chips (a teaser of what's selected),
- * the active/suspended switch, and delete/restore. Dirty rows get a 2 px
- * gold-400 inline-start rail on the card edge.
+ * Group headers use the table-header convention (text-2xs, tracking-wide,
+ * ink-500) to tag the group without competing with field labels. Card
+ * header strip carries the year chips, the active/suspended switch, and
+ * delete/restore. Dirty rows get a 2px gold-400 inline-start rail.
  *
  * Inline validation runs after each `patchRow` via the draft store; the
  * relevant conflict code is surfaced as a terra-500 chip under the
@@ -326,6 +327,21 @@ function YearCard({
   const showSchoolCategory = parentCategory?.code === 'officers_general';
   const showDivision = parentCategory?.code === 'officers_general';
 
+  /* TAGDIR mode: render the selected grade's percentage range in the
+   * Field helper slot so all section-2 cells line up vertically. */
+  const gradeHelper =
+    row.gradeKind === 'TAGDIR'
+      ? (() => {
+          const range = academicGradeRangeByCode.get(row.academicGradeId);
+          if (!range) return undefined;
+          return (
+            <span className="font-en text-2xs tabular-nums text-ink-500">
+              {range.min}–{range.max}%
+            </span>
+          );
+        })()
+      : undefined;
+
   return (
     <article
       className={cn(
@@ -398,12 +414,12 @@ function YearCard({
 
       <div
         className={cn(
-          'flex flex-col gap-6 px-4 py-5',
+          'flex flex-col gap-5 px-4 py-5',
           isSuspended && 'bg-ink-50/30',
         )}
       >
         <FieldGroup title="البيانات الأساسية">
-          <Field label="سنة التخرج" width="wide" error={yearError}>
+          <Field label="سنة التخرج" error={yearError}>
             <MultiSelect
               value={row.graduationYears.map(String)}
               onChange={(next) =>
@@ -423,7 +439,6 @@ function YearCard({
 
           <Field
             label="النوع"
-            width="narrow"
             error={genderError}
             helper={lockedGender ? 'مقفول حسب الفئة' : undefined}
           >
@@ -440,14 +455,14 @@ function YearCard({
             )}
           </Field>
 
-          <Field label="الحالة الاجتماعية" width="wide" helper="اتركها فارغة للسماح بأي حالة">
+          <Field label="الحالة الاجتماعية">
             <MultiSelect
               value={row.maritalStatusCodes}
               onChange={(next) => onPatch({ maritalStatusCodes: next })}
               options={maritalOptions}
               disabled={isDeleted}
               ariaLabel="الحالة الاجتماعية"
-              placeholder="الكل"
+              placeholder="أي حالة"
             />
           </Field>
         </FieldGroup>
@@ -455,8 +470,8 @@ function YearCard({
         <FieldGroup title="الشروط الأكاديمية">
           <Field
             label={gradingMode === 'TAGDIR' ? 'التقدير' : 'الحد الأدنى للدرجة'}
-            width="narrow"
             error={gradeError}
+            helper={gradeHelper}
           >
             <GradeBranchCell
               row={row}
@@ -464,12 +479,11 @@ function YearCard({
               disabled={isDeleted}
               invalid={Boolean(gradeError)}
               academicGradeOptions={academicGradeOptions}
-              academicGradeRangeByCode={academicGradeRangeByCode}
               onPatch={onPatch}
             />
           </Field>
 
-          <Field label="الحد الأقصى للسن" width="narrow" error={ageError}>
+          <Field label="الحد الأقصى للسن" error={ageError}>
             <div className="inline-flex items-center gap-1.5">
               <Input
                 type="number"
@@ -493,34 +507,34 @@ function YearCard({
           </Field>
 
           {showSchoolCategory && (
-            <Field label="فئة المدرسة" width="wide" helper="اتركها فارغة للسماح بأي فئة">
+            <Field label="فئة المدرسة">
               <MultiSelect
                 value={row.schoolCategoryCodes}
                 onChange={(next) => onPatch({ schoolCategoryCodes: next })}
                 options={schoolCategoryOptions}
                 disabled={isDeleted}
                 ariaLabel="فئة المدرسة"
-                placeholder="الكل"
+                placeholder="أي فئة"
               />
             </Field>
           )}
 
           {showDivision && (
-            <Field label="الشعبة" width="wide" helper="اتركها فارغة للسماح بأي شعبة">
+            <Field label="الشعبة">
               <MultiSelect
                 value={row.divisionCodes}
                 onChange={(next) => onPatch({ divisionCodes: next })}
                 options={divisionOptions}
                 disabled={isDeleted}
                 ariaLabel="الشعبة"
-                placeholder="الكل"
+                placeholder="أي شعبة"
               />
             </Field>
           )}
         </FieldGroup>
 
         <FieldGroup title="الفترة الزمنية">
-          <Field label="بداية التقديم" width="medium">
+          <Field label="بداية التقديم">
             <DatePicker
               value={isoToDate(row.applicationStartDate)}
               disabled={isDeleted}
@@ -532,11 +546,7 @@ function YearCard({
             />
           </Field>
 
-          <Field
-            label="نهاية التقديم"
-            width="medium"
-            error={dateError}
-          >
+          <Field label="نهاية التقديم" error={dateError}>
             <DatePicker
               value={isoToDate(row.applicationEndDate)}
               disabled={isDeleted}
@@ -551,7 +561,6 @@ function YearCard({
 
           <Field
             label="تاريخ احتساب السن"
-            width="medium"
             helper="يسبق بداية التقديم"
             error={refError}
           >
@@ -575,52 +584,42 @@ interface FieldGroupProps {
   children: React.ReactNode;
 }
 
+/* Group header echoes the table-header convention from DESIGN_SYSTEM §4.4
+ * (text-2xs, semibold, tracking-wide, ink-500) so it tags the group
+ * without competing with the field labels below it. */
 function FieldGroup({ title, children }: FieldGroupProps): JSX.Element {
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h4 className="font-ar text-xs font-semibold text-ink-800">{title}</h4>
-        <span aria-hidden className="h-px flex-1 bg-border-subtle" />
+      <h4 className="font-ar text-2xs font-semibold tracking-wide text-ink-500">
+        {title}
+      </h4>
+      <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+        {children}
       </div>
-      <div className="flex flex-wrap gap-x-6 gap-y-4">{children}</div>
     </section>
   );
 }
 
-type FieldWidth = 'narrow' | 'medium' | 'wide';
-
-const FIELD_WIDTH: Record<FieldWidth, string> = {
-  /* Fits gender toggle, number-with-suffix inputs. */
-  narrow: 'min-w-[160px]',
-  /* Fits date pickers, single combobox triggers. */
-  medium: 'min-w-[200px] flex-1 max-w-[260px]',
-  /* Fits multi-select chips comfortably. */
-  wide: 'min-w-[240px] flex-1 max-w-[360px]',
-};
-
 interface FieldProps {
   label: string;
-  helper?: string;
+  helper?: React.ReactNode;
   error?: string | null;
-  width?: FieldWidth;
   children: React.ReactNode;
 }
 
-function Field({
-  label,
-  helper,
-  error,
-  width = 'wide',
-  children,
-}: FieldProps): JSX.Element {
+function Field({ label, helper, error, children }: FieldProps): JSX.Element {
   return (
-    <div className={cn('flex flex-col gap-1.5', FIELD_WIDTH[width])}>
+    <div className="flex min-w-0 flex-col gap-1.5">
       <label className="font-ar text-xs font-medium text-ink-700">{label}</label>
       {children}
       {error ? (
         <FieldError text={error} />
       ) : helper ? (
-        <span className="font-ar text-2xs text-ink-400">{helper}</span>
+        typeof helper === 'string' ? (
+          <span className="font-ar text-2xs text-ink-400">{helper}</span>
+        ) : (
+          helper
+        )
       ) : null}
     </div>
   );
@@ -632,7 +631,6 @@ interface GradeBranchCellProps {
   disabled: boolean;
   invalid: boolean;
   academicGradeOptions: readonly { value: string; label: string }[];
-  academicGradeRangeByCode: ReadonlyMap<string, { min: number; max: number } | null>;
   onPatch: (patch: Partial<ApplicantSpecializationYear>) => void;
 }
 
@@ -642,7 +640,6 @@ function GradeBranchCell({
   disabled,
   invalid,
   academicGradeOptions,
-  academicGradeRangeByCode,
   onPatch,
 }: GradeBranchCellProps): JSX.Element {
   /* Discriminator on the row is the source of truth. A row whose
@@ -650,24 +647,16 @@ function GradeBranchCell({
    * in its own branch so the value is editable; the conflict banner
    * above the cards is what surfaces the drift. */
   if (row.gradeKind === 'TAGDIR') {
-    const range = academicGradeRangeByCode.get(row.academicGradeId) ?? null;
     return (
-      <div className="flex flex-col items-start gap-0.5">
-        <Combobox
-          value={row.academicGradeId || null}
-          options={academicGradeOptions}
-          disabled={disabled}
-          onChange={(next) => onPatch({ academicGradeId: next ?? '' })}
-          placeholder="اختر التقدير"
-          ariaLabel="التقدير"
-          error={invalid ? ' ' : undefined}
-        />
-        {range && (
-          <span className="font-en text-2xs tabular-nums text-ink-500">
-            {range.min}–{range.max}%
-          </span>
-        )}
-      </div>
+      <Combobox
+        value={row.academicGradeId || null}
+        options={academicGradeOptions}
+        disabled={disabled}
+        onChange={(next) => onPatch({ academicGradeId: next ?? '' })}
+        placeholder="اختر التقدير"
+        ariaLabel="التقدير"
+        error={invalid ? ' ' : undefined}
+      />
     );
   }
 
