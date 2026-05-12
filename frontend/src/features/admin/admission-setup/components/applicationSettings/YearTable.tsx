@@ -467,7 +467,10 @@ function YearCard({
           </Field>
         </FieldGroup>
 
-        <FieldGroup title="الشروط الأكاديمية">
+        <FieldGroup
+          title="الشروط الأكاديمية"
+          className="border-t border-border-default pt-5"
+        >
           <Field
             label={gradingMode === 'TAGDIR' ? 'التقدير' : 'الحد الأدنى للدرجة'}
             error={gradeError}
@@ -496,7 +499,7 @@ function YearCard({
                     ageMin: null,
                   })
                 }
-                containerClassName="!mb-0 w-24"
+                containerClassName="!mb-0 w-20"
                 className="text-end tabular-nums"
                 aria-invalid={Boolean(ageError) || undefined}
                 aria-label="الحد الأقصى للسن"
@@ -533,7 +536,10 @@ function YearCard({
           )}
         </FieldGroup>
 
-        <FieldGroup title="الفترة الزمنية">
+        <FieldGroup
+          title="الفترة الزمنية"
+          className="border-t border-border-default pt-5"
+        >
           <Field label="بداية التقديم">
             <DatePicker
               value={isoToDate(row.applicationStartDate)}
@@ -582,14 +588,16 @@ function YearCard({
 interface FieldGroupProps {
   title: string;
   children: React.ReactNode;
+  className?: string;
 }
 
 /* Group header echoes the table-header convention from DESIGN_SYSTEM §4.4
  * (text-2xs, semibold, tracking-wide, ink-500) so it tags the group
- * without competing with the field labels below it. */
-function FieldGroup({ title, children }: FieldGroupProps): JSX.Element {
+ * without competing with the field labels below it. The optional
+ * className lets the parent add a top-divider on subsequent groups. */
+function FieldGroup({ title, children, className }: FieldGroupProps): JSX.Element {
   return (
-    <section className="flex flex-col gap-3">
+    <section className={cn('flex flex-col gap-3', className)}>
       <h4 className="font-ar text-2xs font-semibold tracking-wide text-ink-500">
         {title}
       </h4>
@@ -671,7 +679,7 @@ function GradeBranchCell({
         onChange={(e) =>
           onPatch({ minPercentage: e.target.value === '' ? 0 : Number(e.target.value) })
         }
-        containerClassName="!mb-0 w-24"
+        containerClassName="!mb-0 w-20"
         className="text-end tabular-nums"
         aria-invalid={invalid || undefined}
         aria-label="الدرجة المئوية"

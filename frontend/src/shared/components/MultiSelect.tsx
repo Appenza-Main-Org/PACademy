@@ -170,7 +170,7 @@ export function MultiSelect({
           onClick={() => !disabled && setOpen((prev) => !prev)}
           className={cn(
             'flex min-h-[36px] w-full items-center gap-2 rounded-md border bg-surface-card ps-3 pe-3 py-1.5 text-start text-sm transition-colors duration-fast ease-standard',
-            error ? 'border-terra-500' : 'border-border-strong hover:border-ink-400',
+            error ? 'border-terra-500' : 'border-ink-200 hover:border-ink-300',
             'focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none',
             disabled && 'cursor-not-allowed opacity-60',
           )}

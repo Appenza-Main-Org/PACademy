@@ -46,7 +46,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               'block h-9 w-full appearance-none rounded-md border bg-surface-card pe-9 ps-3 text-sm text-ink-900 transition-colors duration-fast ease-standard',
               error
                 ? 'border-terra-500 focus-visible:border-terra-500 focus-visible:shadow-focus-terra'
-                : 'border-border-strong hover:border-ink-400 focus-visible:border-teal-500 focus-visible:shadow-focus-teal',
+                : 'border-ink-200 hover:border-ink-300 focus-visible:border-teal-500 focus-visible:shadow-focus-teal',
               'focus-visible:outline-none',
               'disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400',
               className,
