@@ -292,6 +292,20 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
           )}
         />
       );
+    case 'submission-types':
+      /* The only configurable knob is `metadata.gradingMode` — drives the
+       * downstream درجات/تقدير branch wherever applicant-categories points
+       * here. RHF dot-paths read straight into the metadata bag. */
+      return (
+        <Select
+          label="طريقة احتساب النتيجة"
+          options={[
+            { value: 'GRADES', label: 'درجات' },
+            { value: 'TAGDIR', label: 'تقدير' },
+          ]}
+          {...register('metadata.gradingMode')}
+        />
+      );
     case 'applicant-categories':
       return (
         <>
@@ -553,6 +567,8 @@ function blankRow(key: LookupKey): Record<string, unknown> {
       return { ...base, kind: 'primary', chairTitle: '' };
     case 'specializations':
       return { ...base, facultyCode: '' };
+    case 'submission-types':
+      return { ...base, metadata: { gradingMode: 'GRADES' } };
     case 'applicant-categories':
       return { ...base, genderScope: 'any', applicationMode: 'general' };
     case 'nationalities-countries':

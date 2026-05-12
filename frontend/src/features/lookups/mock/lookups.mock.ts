@@ -34,6 +34,7 @@ import type {
   RelationshipRow,
   SchoolCategoryRow,
   SpecializationRow,
+  SubmissionTypeRow,
   TestResultRow,
   TestRow,
   UniversityRow,
@@ -212,6 +213,20 @@ const specializations: SpecializationRow[] = [
   { code: 'SPC-26', name: 'الموسيقى',              isActive: true, facultyCode: 'FAC-24' },
   { code: 'SPC-27', name: 'الآثار المصرية',         isActive: true, facultyCode: 'FAC-25' },
   { code: 'SPC-28', name: 'التخطيط العمراني',       isActive: true, facultyCode: 'FAC-26' },
+];
+
+/* ─── 8.5 submission-types ───────────────────────────────────────────── */
+
+/* Discriminator for how the applicant-side reports academic results.
+ * Each row's `metadata.gradingMode` flips the downstream branch — read via
+ * `readGradingMode(row)` from `../lib/submissionType.ts`. Two rows is the
+ * minimum that makes the branch meaningful (the prompt asked for one but
+ * cut off mid-seed; flagged in
+ * docs/migration/submission-types/INVENTORY.md §6). */
+
+const submissionTypes: SubmissionTypeRow[] = [
+  { code: 'SUB-01', name: 'تقديم عام',  isActive: true, metadata: { gradingMode: 'GRADES' } },
+  { code: 'SUB-02', name: 'بالترشيح',  isActive: true, metadata: { gradingMode: 'TAGDIR' } },
 ];
 
 /* ─── 9. applicant-categories — seeded from former MOCK.categories ─────
@@ -761,6 +776,7 @@ export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
   'committees': committees,
   'specializations': specializations,
   'faculties': faculties,
+  'submission-types': submissionTypes,
   'applicant-categories': applicantCategories,
   'nationalities-countries': nationalitiesCountries,
   'governorates': governorates,

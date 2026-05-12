@@ -23,6 +23,7 @@ export const LOOKUP_KEYS = [
   'tests',
   'test-results',
   'committees',
+  'submission-types',
   'applicant-categories',
   'nationalities-countries',
   'governorates',
@@ -66,6 +67,7 @@ export const LOOKUP_SECTIONS = [
       'tests',
       'test-results',
       'committees',
+      'submission-types',
       'applicant-categories',
       'announcements',
       'applicant-divisions',
@@ -97,6 +99,7 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'committees':                   { label: 'اللجان',                       codePrefix: 'CMT', padding: 2 },
   'specializations':              { label: 'التخصصات',                     codePrefix: 'SPC', padding: 2 },
   'faculties':                    { label: 'الكليات',                      codePrefix: 'FAC', padding: 2 },
+  'submission-types':             { label: 'نوع التقديم',                  codePrefix: 'SUB', padding: 2 },
   'applicant-categories':         { label: 'فئات المتقدمين',               codePrefix: 'CAT', padding: 2 },
   'nationalities-countries':      { label: 'الجنسيات والدول',              codePrefix: 'CNT', padding: 3 },
   'governorates':                 { label: 'المحافظات',                    codePrefix: 'GOV', padding: 2 },
@@ -117,6 +120,10 @@ export interface LookupRowBase {
   /** Arabic display name. */
   name: string;
   isActive: boolean;
+  /** Generic carrier for lookups that need configuration not worth a
+   *  typed column (e.g. `submission-types` stores `gradingMode` here).
+   *  Per-key accessors live under `features/lookups/lib/*`. */
+  metadata?: Record<string, unknown>;
 }
 
 /* ─── Per-key row shapes ─────────────────────────────────────────────── */
@@ -171,6 +178,13 @@ export interface FacultyRow extends LookupRowBase {}
 export interface SpecializationRow extends LookupRowBase {
   facultyCode: string;
 }
+
+/** Submission-mode lookup. Each row's `metadata.gradingMode` flips a
+ *  downstream branch (numeric درجات vs qualitative تقدير) on every
+ *  applicant-category FK'd to it. Accessor lives at
+ *  `features/lookups/lib/submissionType.ts` — read via `readGradingMode(row)`
+ *  rather than reaching into `metadata` directly. */
+export interface SubmissionTypeRow extends LookupRowBase {}
 
 export type ApplicantCategoryGenderScope = 'male' | 'female' | 'any';
 export type ApplicantCategoryApplicationMode = 'general' | 'nomination';
@@ -277,6 +291,7 @@ export interface LookupRowMap {
   'committees': CommitteeRow;
   'specializations': SpecializationRow;
   'faculties': FacultyRow;
+  'submission-types': SubmissionTypeRow;
   'applicant-categories': ApplicantCategoryRow;
   'nationalities-countries': NationalityCountryRow;
   'governorates': GovernorateRow;

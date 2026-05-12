@@ -46,6 +46,7 @@ export {
   type SchoolCategoryRow,
   type NidMissingReasonRow,
   type UniversityRow,
+  type SubmissionTypeRow,
   type DeleteResult,
 } from './types';
 
@@ -58,3 +59,12 @@ export {
   useUpdateLookupRow,
   useDeleteLookupRow,
 } from './api/lookups.queries';
+
+export {
+  GRADING_MODES,
+  GRADING_MODE_LABELS_AR,
+  assertGradingMode,
+  type GradingMode,
+} from './lib/gradingModes';
+
+export { readGradingMode } from './lib/submissionType';

@@ -37,7 +37,11 @@ import { QUESTION_POOL } from './questionPool';
  * stay exported because non-admin pickers (applicant portal, board) read
  * them directly. */
 import { ADMISSION_CYCLES, ADMISSION_RULES } from './admissionCycles';
-import { APPLICANT_CATEGORIES, ACTIVE_CYCLE_ID } from './categories';
+/* APPLICANT_CATEGORIES retired — `MOCK.categories` is now a derived
+ * view of `MOCK.lookups['applicant-categories']` (the lookup module is
+ * the single source of truth). ACTIVE_CYCLE_ID kept inline below since
+ * its former host file is gone. */
+const ACTIVE_CYCLE_ID = 'CYC-2026-M';
 import { TEST_SCHEDULES } from './testSchedules';
 import { EXAM_SLOTS, SAMPLE_DRAFT } from './applicantPortal';
 import {
@@ -632,7 +636,7 @@ function pickScenario(): AuditScenario {
 }
 
 const CYCLE_NAMES_FOR_AUDIT = ADMISSION_CYCLES.map((c) => c.nameAr);
-const CATEGORY_LABELS_FOR_AUDIT = APPLICANT_CATEGORIES.map((c) => c.labelAr);
+const CATEGORY_LABELS_FOR_AUDIT = LOOKUPS_SEED['applicant-categories'].map((c) => c.name);
 const EXAM_NAMES_FOR_AUDIT = [
   'اختبار القدرات 2026',
   'اختبار اللياقة البدنية 2026',
@@ -983,8 +987,22 @@ export const MOCK = {
   barcodes: BARCODES,
   barcodeScans: BARCODE_SCANS,
   notifications: NOTIFICATIONS,
-  /* Post-polish additions (Buckets B/C/E) */
-  categories: APPLICANT_CATEGORIES,
+  /* Post-polish additions (Buckets B/C/E) — `categories` is now derived
+   * from MOCK.lookups['applicant-categories'] (the canonical source). */
+  categories: LOOKUPS_SEED['applicant-categories'].map((row) => ({
+    key: row.code,
+    labelAr: row.name,
+    labelEn: row.nameEn,
+    description: row.description,
+    isOpen: row.isOpen,
+    conditions: row.conditions,
+    expandedConditions: row.expandedConditions,
+    requiredTests: row.requiredTests,
+    procedures: row.procedures,
+    deletedAt: null,
+    deletedBy: null,
+    deleteReason: null,
+  })) as unknown as import('@/shared/types/domain').ApplicantCategory[],
   cycles: ADMISSION_CYCLES,
   activeCycleId: ACTIVE_CYCLE_ID,
   testSchedules: TEST_SCHEDULES,

@@ -8,7 +8,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CircleHelp, LogOut, Search, UserCircle } from 'lucide-react';
+import { LogOut, UserCircle } from 'lucide-react';
 import {
   Avatar,
   CommandPalette,
@@ -19,7 +19,6 @@ import {
   useCommandPaletteShortcut,
 } from '@/shared/components';
 import { useAuthStore, useLogoutMutation } from '@/features/auth';
-import { ActiveCycleIndicator } from '@/features/admin';
 import { shortName } from '@/shared/lib/format';
 import type { AppKey } from '@/shared/lib/constants';
 import { Sidebar } from './Sidebar';
@@ -88,34 +87,10 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
               </span>
             </>
           )}
-          <ActiveCycleIndicator />
         </div>
 
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setPaletteOpen(true)}
-            aria-label="بحث في المنظومة (⌘K)"
-            className="hidden h-9 items-center gap-2 rounded-md border border-border-subtle bg-surface-page ps-2.5 pe-1.5 text-xs text-ink-500 transition-colors duration-fast ease-standard hover:border-border-default hover:bg-ink-50 hover:text-ink-700 focus-visible:shadow-focus-teal focus-visible:outline-none md:inline-flex"
-          >
-            <Search size={14} strokeWidth={1.75} />
-            <span>بحث…</span>
-            <kbd
-              dir="ltr"
-              className="ms-1 inline-flex h-5 items-center rounded border border-border-subtle bg-surface-card px-1.5 font-mono text-2xs font-medium text-ink-500"
-            >
-              ⌘K
-            </kbd>
-          </button>
           <NotificationCenter />
-          <Link
-            to="/help"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
-            title="الدعم"
-            aria-label="الدعم"
-          >
-            <CircleHelp size={18} strokeWidth={1.75} />
-          </Link>
           <span aria-hidden className="mx-1 hidden h-6 w-px bg-border-subtle md:inline-block" />
           <Link
             to="/profile"

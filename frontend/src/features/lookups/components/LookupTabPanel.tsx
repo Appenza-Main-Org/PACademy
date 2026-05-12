@@ -44,10 +44,13 @@ import {
   type RelationshipDegreeTierRow,
   type RelationshipRow,
   type SpecializationRow,
+  type SubmissionTypeRow,
   type TestResultRow,
   type TestRow,
   type ApplicantCategoryRow,
 } from '../types';
+import { readGradingMode } from '../lib/submissionType';
+import { GRADING_MODE_LABELS_AR } from '../lib/gradingModes';
 import { LookupRowDrawer } from './LookupRowDrawer';
 
 export interface LookupTabPanelProps<K extends LookupKey> {
@@ -456,6 +459,13 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
     case 'specializations':
       return [
         { key: 'facultyCode', label: 'الكلية', render: (r: SpecializationRow) => labelByCode('faculties', r.facultyCode) },
+      ];
+    case 'submission-types':
+      return [
+        { key: 'gradingMode', label: 'طريقة الاحتساب', width: 130, render: (r: SubmissionTypeRow) => {
+          const mode = readGradingMode(r);
+          return <Badge tone={mode === 'GRADES' ? 'info' : 'accent'}>{GRADING_MODE_LABELS_AR[mode]}</Badge>;
+        } },
       ];
     case 'applicant-categories':
       return [
