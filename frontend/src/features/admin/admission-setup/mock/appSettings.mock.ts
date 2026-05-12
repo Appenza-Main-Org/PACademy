@@ -44,7 +44,7 @@ export const APPLICANT_CATEGORY_CONFIGS: ApplicantCategoryConfig[] = CATEGORY_RO
     id: `acc-${index + 1}`,
     categoryId: cat.code,
     isActive: true,
-    sortOrder: (index + 1) * 10,
+    sortOrder: index + 1,
     createdAt: FIXED_TS,
     updatedAt: FIXED_TS,
   }),

@@ -72,7 +72,7 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
   );
 
   const reorderTo = (next: CycleCategoryExamPlanEntry[]): void => {
-    setEntries(next.map((e, i) => ({ ...e, order: (i + 1) * 10 })));
+    setEntries(next.map((e, i) => ({ ...e, order: i + 1 })));
   };
 
   const move = (idx: number, delta: -1 | 1): void => {
@@ -100,12 +100,12 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
     if (entries.some((e) => e.examId === examId)) return;
     setEntries([
       ...entries,
-      { examId, order: (entries.length + 1) * 10, isRequired: true },
+      { examId, order: entries.length + 1, isRequired: true },
     ]);
   };
 
   const removeExam = (idx: number): void => {
-    setEntries(entries.filter((_, i) => i !== idx).map((e, i) => ({ ...e, order: (i + 1) * 10 })));
+    setEntries(entries.filter((_, i) => i !== idx).map((e, i) => ({ ...e, order: i + 1 })));
   };
 
   const onSave = (): void => {

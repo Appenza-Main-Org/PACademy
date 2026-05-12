@@ -192,8 +192,8 @@ export interface SpecializationRow extends LookupRowBase {
  *  rather than reaching into `metadata` directly.
  *
  *  `nameEn` mirrors the bilingual approach used by `ApplicantCategoryRow`;
- *  `sortOrder` drives display order in the reference-data grid (10/20/30/40
- *  in the seed so admin can insert between later without re-keying). */
+ *  `sortOrder` drives display order in the reference-data grid (1, 2, 3, …
+ *  in the seed; admin re-keys neighbours when inserting between rows). */
 export interface SubmissionTypeRow extends LookupRowBase {
   nameEn: string;
   sortOrder: number;

@@ -574,7 +574,7 @@ function blankRow(key: LookupKey): Record<string, unknown> {
     case 'relationship-degree-tiers':
       return { ...base, degreeRange: '', maxDegree: 1 };
     case 'tests':
-      return { ...base, kind: 'written', order: 10, required: true };
+      return { ...base, kind: 'written', order: 1, required: true };
     case 'test-results':
       return { ...base, outcome: 'pass', tone: 'success' };
     case 'committees':

@@ -105,21 +105,21 @@ const relationshipDegreeTiers: RelationshipDegreeTierRow[] = [
 /* ─── 3. tests — admission pipeline tests ────────────────────────────── */
 
 const tests: TestRow[] = [
-  { code: 'TST-01', name: 'القدرات',               isActive: true, kind: 'written',   order: 10,  required: true },
-  { code: 'TST-02', name: 'المعلومات العامة',       isActive: true, kind: 'written',   order: 20,  required: true },
-  { code: 'TST-03', name: 'الطول',                 isActive: true, kind: 'medical',   order: 30,  required: true },
-  { code: 'TST-04', name: 'السمات الخارجية',        isActive: true, kind: 'interview', order: 40,  required: true },
-  { code: 'TST-05', name: 'السمات الداخلية',        isActive: true, kind: 'interview', order: 50,  required: true },
-  { code: 'TST-06', name: 'اللياقة الرياضية',       isActive: true, kind: 'physical',  order: 60,  required: true },
-  { code: 'TST-07', name: 'إعادة الرياضي',          isActive: true, kind: 'physical',  order: 70,  required: false },
-  { code: 'TST-08', name: 'الهيئة',                isActive: true, kind: 'interview', order: 80,  required: true },
-  { code: 'TST-09', name: 'القوام',                isActive: true, kind: 'medical',   order: 90,  required: true },
-  { code: 'TST-10', name: 'إعادة القوام',           isActive: true, kind: 'medical',   order: 100, required: false },
-  { code: 'TST-11', name: 'الكشف الطبي',           isActive: true, kind: 'medical',   order: 110, required: true },
-  { code: 'TST-12', name: 'إعادة الطبي',           isActive: true, kind: 'medical',   order: 120, required: false },
-  { code: 'TST-13', name: 'الاتزان النفسي',         isActive: true, kind: 'psych',     order: 130, required: true },
-  { code: 'TST-14', name: 'الكشف الطبي المتقدم',    isActive: true, kind: 'medical',   order: 140, required: true },
-  { code: 'TST-15', name: 'المقابلة الشخصية',       isActive: true, kind: 'interview', order: 150, required: true },
+  { code: 'TST-01', name: 'القدرات',               isActive: true, kind: 'written',   order: 1,  required: true },
+  { code: 'TST-02', name: 'المعلومات العامة',       isActive: true, kind: 'written',   order: 2,  required: true },
+  { code: 'TST-03', name: 'الطول',                 isActive: true, kind: 'medical',   order: 3,  required: true },
+  { code: 'TST-04', name: 'السمات الخارجية',        isActive: true, kind: 'interview', order: 4,  required: true },
+  { code: 'TST-05', name: 'السمات الداخلية',        isActive: true, kind: 'interview', order: 5,  required: true },
+  { code: 'TST-06', name: 'اللياقة الرياضية',       isActive: true, kind: 'physical',  order: 6,  required: true },
+  { code: 'TST-07', name: 'إعادة الرياضي',          isActive: true, kind: 'physical',  order: 7,  required: false },
+  { code: 'TST-08', name: 'الهيئة',                isActive: true, kind: 'interview', order: 8,  required: true },
+  { code: 'TST-09', name: 'القوام',                isActive: true, kind: 'medical',   order: 9,  required: true },
+  { code: 'TST-10', name: 'إعادة القوام',           isActive: true, kind: 'medical',   order: 10, required: false },
+  { code: 'TST-11', name: 'الكشف الطبي',           isActive: true, kind: 'medical',   order: 11, required: true },
+  { code: 'TST-12', name: 'إعادة الطبي',           isActive: true, kind: 'medical',   order: 12, required: false },
+  { code: 'TST-13', name: 'الاتزان النفسي',         isActive: true, kind: 'psych',     order: 13, required: true },
+  { code: 'TST-14', name: 'الكشف الطبي المتقدم',    isActive: true, kind: 'medical',   order: 14, required: true },
+  { code: 'TST-15', name: 'المقابلة الشخصية',       isActive: true, kind: 'interview', order: 15, required: true },
 ];
 
 /* ─── 4. test-results ────────────────────────────────────────────────── */
@@ -307,7 +307,7 @@ const submissionTypes: SubmissionTypeRow[] = [
     name: 'تقديم عام',
     nameEn: 'General Submission',
     isActive: true,
-    sortOrder: 10,
+    sortOrder: 1,
     metadata: { gradingMode: 'GRADES', createdBy: 'system', createdAt: SUBMISSION_TYPE_CREATED_AT },
   },
   {
@@ -315,7 +315,7 @@ const submissionTypes: SubmissionTypeRow[] = [
     name: 'تقديم المتخصصين',
     nameEn: 'Specialists Submission',
     isActive: true,
-    sortOrder: 20,
+    sortOrder: 2,
     metadata: { gradingMode: 'TAGDIR', createdBy: 'system', createdAt: SUBMISSION_TYPE_CREATED_AT },
   },
   {
@@ -323,7 +323,7 @@ const submissionTypes: SubmissionTypeRow[] = [
     name: 'تقديم الحقوقيين',
     nameEn: 'Law Graduates Submission',
     isActive: true,
-    sortOrder: 30,
+    sortOrder: 3,
     metadata: { gradingMode: 'TAGDIR', createdBy: 'system', createdAt: SUBMISSION_TYPE_CREATED_AT },
   },
   {
@@ -331,7 +331,7 @@ const submissionTypes: SubmissionTypeRow[] = [
     name: 'تربية رياضية إناث',
     nameEn: 'Physical Education — Females',
     isActive: true,
-    sortOrder: 40,
+    sortOrder: 4,
     /* RFP §2.1 — physical-education-bachelor uses تقدير (TAGDIR), not a
      * numeric percentage. Flipped 2026-05-12 alongside the
      * applicant-categories lockdown to the 4 RFP-defined categories. */
