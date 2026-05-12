@@ -18,10 +18,10 @@ export function ActiveCycleIndicator(): JSX.Element | null {
   if (!cycle) {
     return (
       <span
-        className="hidden items-center gap-1 rounded-pill border border-terra-300 bg-terra-50 px-3 py-1 text-2xs font-medium text-terra-700 md:inline-flex"
+        className="hidden h-7 items-center gap-1.5 rounded-pill border border-terra-200 bg-terra-50 px-2.5 text-2xs font-medium text-terra-700 md:inline-flex"
         title="لا توجد دورة قبول نشطة"
       >
-        <CalendarOff size={12} strokeWidth={1.75} />
+        <CalendarOff size={12} strokeWidth={1.75} className="text-terra-500" />
         لا توجد دورة نشطة
       </span>
     );
@@ -30,12 +30,16 @@ export function ActiveCycleIndicator(): JSX.Element | null {
   const isExtended = cycle.status === 'extended';
   return (
     <span
-      className="hidden items-center gap-1 rounded-pill border border-teal-200 bg-teal-50 px-3 py-1 text-2xs font-medium text-teal-700 md:inline-flex"
+      className="hidden h-7 items-center gap-1.5 rounded-pill border border-border-subtle bg-surface-page px-2.5 text-2xs font-medium text-ink-700 md:inline-flex"
       title={`الدورة النشطة · ${cycle.nameAr}`}
     >
-      <CalendarClock size={12} strokeWidth={1.75} />
-      {cycle.nameAr}
-      {isExtended && <span className="ms-1 text-2xs text-gold-700">(ممدّدة)</span>}
+      <CalendarClock size={12} strokeWidth={1.75} className="text-teal-600" />
+      <span className="text-ink-900">{cycle.nameAr}</span>
+      {isExtended && (
+        <span className="ms-0.5 inline-flex h-4 items-center rounded-sm bg-gold-50 px-1 text-2xs font-medium text-gold-700">
+          ممدّدة
+        </span>
+      )}
     </span>
   );
 }
