@@ -26,12 +26,13 @@ import type { SidebarSection } from './Sidebar';
 
 interface AppShellProps {
   app?: AppKey;
+  /** @deprecated No longer rendered. Kept for caller compatibility. */
   appLabel?: string;
   sidebar?: readonly SidebarSection[];
   children: ReactNode;
 }
 
-export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): JSX.Element {
+export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element {
   const user = useAuthStore((s) => s.user);
   const logoutMutation = useLogoutMutation();
   const navigate = useNavigate();
@@ -76,17 +77,6 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
               <span className="text-2xs text-ink-500">أكاديمية الشرطة</span>
             </span>
           </Link>
-          {appLabel && (
-            <>
-              <span aria-hidden className="hidden h-5 w-px bg-border-subtle md:inline-block" />
-              <span
-                className="inline-flex h-7 items-center rounded-pill px-3 text-xs font-medium"
-                style={{ background: 'var(--accent-50)', color: 'var(--accent-600)' }}
-              >
-                {appLabel}
-              </span>
-            </>
-          )}
         </div>
 
         <div className="flex items-center gap-1">

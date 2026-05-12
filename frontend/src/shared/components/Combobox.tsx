@@ -213,7 +213,7 @@ export function Combobox({
               top: position.top,
               left: position.left,
               width: position.width,
-              zIndex: 'var(--z-dropdown)' as unknown as number,
+              zIndex: 'var(--z-popover)' as unknown as number,
             }}
           >
             <div className="border-b border-border-subtle px-3 py-2">
