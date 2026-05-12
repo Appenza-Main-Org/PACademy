@@ -24,6 +24,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\PACademy.Domain\PACademy.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Identity\PACademy.Modules.Identity.Domain\PACademy.Modules.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Admissions\PACademy.Modules.Admissions.Domain\PACademy.Modules.Admissions.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Committees\PACademy.Modules.Committees.Domain\PACademy.Modules.Committees.Domain.csproj" />
   </ItemGroup>
 
 </Project>
