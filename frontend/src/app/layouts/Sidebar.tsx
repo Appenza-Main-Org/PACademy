@@ -71,7 +71,7 @@ export function Sidebar({ sections }: SidebarProps): JSX.Element {
   return (
     <aside
       aria-label="القائمة الجانبية"
-      className="sticky top-16 hidden h-[calc(100vh-67px)] w-64 flex-shrink-0 overflow-y-auto border-s border-border-subtle bg-surface-card px-3 py-4 md:block"
+      className="sticky top-16 hidden h-[calc(100dvh-64px)] w-64 flex-shrink-0 overflow-y-auto border-s border-border-subtle bg-surface-card px-3 py-4 md:block"
     >
       {visibleSections.map((section, i) => {
         const isFirst = i === 0;
