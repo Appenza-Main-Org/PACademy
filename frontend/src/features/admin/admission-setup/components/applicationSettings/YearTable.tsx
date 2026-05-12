@@ -358,7 +358,7 @@ function YearCard({
         )}
       >
         <FieldGroup title="البيانات الأساسية">
-          <Field label="سنة التخرج" error={yearError}>
+          <Field label="سنة التخرج" width="wide" error={yearError}>
             <MultiSelect
               value={row.graduationYears.map(String)}
               onChange={(next) =>
@@ -376,7 +376,7 @@ function YearCard({
             />
           </Field>
 
-          <Field label="النوع" error={genderError}>
+          <Field label="النوع" width="narrow" error={genderError}>
             <GenderToggle
               value={row.genderTypes}
               disabled={isDeleted}
@@ -386,7 +386,7 @@ function YearCard({
             />
           </Field>
 
-          <Field label="الحالة الاجتماعية">
+          <Field label="الحالة الاجتماعية" width="wide" helper="اتركها فارغة للسماح بأي حالة">
             <MultiSelect
               value={row.maritalStatusCodes}
               onChange={(next) => onPatch({ maritalStatusCodes: next })}
@@ -400,7 +400,8 @@ function YearCard({
 
         <FieldGroup title="الشروط الأكاديمية">
           <Field
-            label={gradingMode === 'TAGDIR' ? 'التقدير' : 'الدرجة المئوية'}
+            label={gradingMode === 'TAGDIR' ? 'التقدير' : 'الحد الأدنى للدرجة'}
+            width="narrow"
             error={gradeError}
           >
             <GradeBranchCell
@@ -414,18 +415,7 @@ function YearCard({
             />
           </Field>
 
-          <Field label="الشعبة">
-            <MultiSelect
-              value={row.divisionCodes}
-              onChange={(next) => onPatch({ divisionCodes: next })}
-              options={divisionOptions}
-              disabled={isDeleted}
-              ariaLabel="الشعبة"
-              placeholder="الكل"
-            />
-          </Field>
-
-          <Field label="السن الأقصى" error={ageError}>
+          <Field label="السن الأقصى" width="narrow" error={ageError}>
             <div className="inline-flex items-center gap-1.5">
               <Input
                 type="number"
@@ -441,8 +431,19 @@ function YearCard({
                 aria-label="السن الأقصى"
                 placeholder="بدون"
               />
-              <span aria-hidden className="font-ar text-2xs text-ink-500">سنة</span>
+              <span aria-hidden className="font-ar text-xs text-ink-500">سنة</span>
             </div>
+          </Field>
+
+          <Field label="الشعبة" width="wide" helper="اتركها فارغة للسماح بأي شعبة">
+            <MultiSelect
+              value={row.divisionCodes}
+              onChange={(next) => onPatch({ divisionCodes: next })}
+              options={divisionOptions}
+              disabled={isDeleted}
+              ariaLabel="الشعبة"
+              placeholder="الكل"
+            />
           </Field>
         </FieldGroup>
 
@@ -452,47 +453,48 @@ function YearCard({
             <span aria-hidden className="h-px flex-1 bg-border-subtle" />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <span className="font-ar text-2xs font-medium text-ink-700">فترة التقديم</span>
-            <div className="grid grid-cols-1 items-start gap-x-3 gap-y-2 md:grid-cols-[1fr_auto_1fr]">
-              <div className="flex flex-col gap-1">
-                <span className="font-ar text-2xs text-ink-500">من</span>
-                <DatePicker
-                  value={isoToDate(row.applicationStartDate)}
-                  disabled={isDeleted}
-                  onChange={(d) =>
-                    onPatch({
-                      applicationStartDate: dateToIso(d) ?? row.applicationStartDate,
-                    })
-                  }
-                />
-              </div>
-              <span
-                aria-hidden
-                className="hidden self-center pt-5 font-ar text-2xs text-ink-400 md:inline"
-              >
-                ←
-              </span>
-              <div className="flex flex-col gap-1">
-                <span className="font-ar text-2xs text-ink-500">إلى</span>
-                <DatePicker
-                  value={isoToDate(row.applicationEndDate)}
-                  disabled={isDeleted}
-                  onChange={(d) =>
-                    onPatch({
-                      applicationEndDate: dateToIso(d) ?? row.applicationEndDate,
-                    })
-                  }
-                  min={row.applicationStartDate.slice(0, 10)}
-                />
-                {dateError && <FieldError text={dateError} />}
+          <div className="flex flex-wrap gap-x-6 gap-y-4">
+            <div className="flex min-w-[280px] max-w-[420px] flex-1 flex-col gap-1.5">
+              <label className="font-ar text-xs font-medium text-ink-700">فترة التقديم</label>
+              <div className="flex items-start gap-2">
+                <div className="flex flex-1 flex-col gap-0.5">
+                  <span className="font-ar text-2xs text-ink-500">من</span>
+                  <DatePicker
+                    value={isoToDate(row.applicationStartDate)}
+                    disabled={isDeleted}
+                    onChange={(d) =>
+                      onPatch({
+                        applicationStartDate: dateToIso(d) ?? row.applicationStartDate,
+                      })
+                    }
+                  />
+                </div>
+                <span
+                  aria-hidden
+                  className="pt-6 font-ar text-2xs text-ink-400"
+                >
+                  ←
+                </span>
+                <div className="flex flex-1 flex-col gap-0.5">
+                  <span className="font-ar text-2xs text-ink-500">إلى</span>
+                  <DatePicker
+                    value={isoToDate(row.applicationEndDate)}
+                    disabled={isDeleted}
+                    onChange={(d) =>
+                      onPatch({
+                        applicationEndDate: dateToIso(d) ?? row.applicationEndDate,
+                      })
+                    }
+                    min={row.applicationStartDate.slice(0, 10)}
+                  />
+                  {dateError && <FieldError text={dateError} />}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
             <Field
               label="تاريخ احتساب السن"
+              width="medium"
               helper="يسبق بداية التقديم"
               error={refError}
             >
@@ -524,24 +526,40 @@ function FieldGroup({ title, children }: FieldGroupProps): JSX.Element {
         <h4 className="font-ar text-xs font-semibold text-ink-800">{title}</h4>
         <span aria-hidden className="h-px flex-1 bg-border-subtle" />
       </div>
-      <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
-        {children}
-      </div>
+      <div className="flex flex-wrap gap-x-6 gap-y-4">{children}</div>
     </section>
   );
 }
+
+type FieldWidth = 'narrow' | 'medium' | 'wide';
+
+const FIELD_WIDTH: Record<FieldWidth, string> = {
+  /* Fits gender toggle, number-with-suffix inputs. */
+  narrow: 'min-w-[160px]',
+  /* Fits date pickers, single combobox triggers. */
+  medium: 'min-w-[200px] flex-1 max-w-[260px]',
+  /* Fits multi-select chips comfortably. */
+  wide: 'min-w-[240px] flex-1 max-w-[360px]',
+};
 
 interface FieldProps {
   label: string;
   helper?: string;
   error?: string | null;
+  width?: FieldWidth;
   children: React.ReactNode;
 }
 
-function Field({ label, helper, error, children }: FieldProps): JSX.Element {
+function Field({
+  label,
+  helper,
+  error,
+  width = 'wide',
+  children,
+}: FieldProps): JSX.Element {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="font-ar text-2xs font-medium text-ink-700">{label}</label>
+    <div className={cn('flex flex-col gap-1.5', FIELD_WIDTH[width])}>
+      <label className="font-ar text-xs font-medium text-ink-700">{label}</label>
       {children}
       {error ? (
         <FieldError text={error} />
