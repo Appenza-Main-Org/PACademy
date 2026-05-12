@@ -16,7 +16,6 @@
 import { PageHeader } from '@/shared/components';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
 import { CategoryAccordion } from '../components/applicationSettings/CategoryAccordion';
-import { ScopeBanner } from '../components/applicationSettings/ScopeBanner';
 import { StickyBulkSaveBar } from '../components/applicationSettings/StickyBulkSaveBar';
 import { UnsavedChangesPrompt } from '../components/applicationSettings/UnsavedChangesPrompt';
 
@@ -28,7 +27,6 @@ export function ApplicationSettingsPage(): JSX.Element {
           title="إعدادات التقديم"
           subtitle="بيانات مرجعية عامة: الفئات، التخصصات المرتبطة بكل فئة، والسنوات الدراسية."
         />
-        <ScopeBanner />
         <CategoryAccordion />
         <StickyBulkSaveBar />
         <UnsavedChangesPrompt />

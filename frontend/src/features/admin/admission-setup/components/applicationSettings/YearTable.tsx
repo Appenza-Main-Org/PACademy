@@ -1,36 +1,30 @@
 /**
- * YearTable — editable rows for one category-specialization junction.
+ * YearTable — editable year cards for one category-specialization junction.
  *
- * Columns (visual order RTL = first column rightmost):
- *   1. سنة التخرج                — MultiSelect over [currentYear-4 … currentYear]; at least one required
- *   2. النوع                     — multi-pill (ذكور / إناث); at least one required
- *   3. الحالة الاجتماعية         — MultiSelect over `marital-statuses` lookup
- *   4. السن الأقصى                — numeric Input (nullable; blank = no maximum)
- *   5. الدرجة المئوية / التقدير  — branched on parent gradingMode:
- *        - GRADES → numeric Input header "الدرجة المئوية" (0–100, % suffix)
- *        - TAGDIR → Combobox header "التقدير" over `academic-grades`; the
- *                   chosen تقدير shows its metadata percentage range
- *                   ("85–100%") as a 2xs hint under the chip
- *   6. الشعبة                    — MultiSelect over `applicant-divisions` lookup
- *   7. بداية التقديم              — DatePicker
- *   8. نهاية التقديم              — DatePicker
- *   9. تاريخ احتساب السن          — DatePicker (must be ≤ بداية التقديم)
- *  10. الحالة                    — نشط/موقوف pill
- *  11. إجراءات                   — حذف / استرجاع
+ * Each year renders as a card (not a table row) so the eleven editable
+ * fields can lay out on a normal viewport without horizontal scroll.
+ * Inside each card, fields are grouped into three semantic sections:
+ *
+ *   • البيانات الأساسية — graduation year, gender, marital status
+ *   • الشروط الأكاديمية — grade/percentage, division, maximum age
+ *   • الفترة الزمنية   — application start/end, age reference date
+ *
+ * Card header strip carries the year chips (a teaser of what's selected),
+ * the active/suspended switch, and delete/restore. Dirty rows get a 2 px
+ * gold-400 inline-start rail on the card edge.
  *
  * Inline validation runs after each `patchRow` via the draft store; the
  * relevant conflict code is surfaced as a terra-500 chip under the
- * field(s) responsible and `aria-invalid="true"` is set on the
- * offending field. Dirty rows get a 2 px gold-400 inline-start rail.
- * No per-row save — bulk save lives in `<StickyBulkSaveBar />`.
+ * field(s) responsible and `aria-invalid="true"` is set on the offending
+ * field. No per-row save — bulk save lives in `<StickyBulkSaveBar />`.
  *
- * Branched column 5 is determined ONCE per table-instance via
- * `useResolvedGradingModeForSpec` so column structure doesn't oscillate
- * row-by-row. The discriminator on the row itself is the source of
- * truth for which input renders — a row whose `gradeKind` has drifted
- * from the resolved mode still renders in its own branch (so the value
- * is editable), and the conflict banner above the table surfaces the
- * drift.
+ * Branched grade input (column 5 in the old table) is determined ONCE
+ * per table-instance via `useResolvedGradingModeForSpec` so the form
+ * doesn't oscillate row-by-row. The discriminator on the row itself is
+ * the source of truth for which input renders — a row whose `gradeKind`
+ * has drifted from the resolved mode still renders in its own branch (so
+ * the value is editable), and the conflict banner above the cards
+ * surfaces the drift.
  */
 
 import { useEffect, useMemo } from 'react';
@@ -192,7 +186,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {hasMismatch && (
         <div
           role="alert"
@@ -205,47 +199,29 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
           </p>
         </div>
       )}
-      <div className="overflow-x-auto rounded-md border border-border-subtle bg-surface-card">
-        <table className="w-full min-w-[1320px] text-sm">
-          <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">
-            <tr>
-              <th className="px-3 py-2 text-start font-medium">سنة التخرج</th>
-              <th className="px-3 py-2 text-start font-medium">النوع</th>
-              <th className="px-3 py-2 text-start font-medium">الحالة الاجتماعية</th>
-              <th className="px-3 py-2 text-start font-medium">السن الأقصى</th>
-              <th className="px-3 py-2 text-start font-medium">
-                {gradingMode === 'TAGDIR' ? 'التقدير' : 'الدرجة المئوية'}
-              </th>
-              <th className="px-3 py-2 text-start font-medium">الشعبة</th>
-              <th className="px-3 py-2 text-start font-medium">بداية التقديم</th>
-              <th className="px-3 py-2 text-start font-medium">نهاية التقديم</th>
-              <th className="px-3 py-2 text-start font-medium">تاريخ احتساب السن</th>
-              <th className="px-3 py-2 text-start font-medium">الحالة</th>
-              <th className="px-3 py-2 text-end font-medium" aria-label="إجراءات" />
-            </tr>
-          </thead>
-          <tbody>
-            {drafts.map((draft) => (
-              <YearRow
-                key={draft.id}
-                draft={draft}
-                conflict={validationByRow.get(draft.id) ?? null}
-                gradingMode={gradingMode}
-                maritalOptions={maritalOptions}
-                divisionOptions={divisionOptions}
-                academicGradeOptions={academicGradeOptions}
-                academicGradeRangeByCode={academicGradeRangeByCode}
-                onPatch={(patch) => patchRow(categorySpecializationId, draft.id, patch)}
-                onDelete={() => deleteRow(categorySpecializationId, draft.id)}
-                onRestore={() => restoreRow(categorySpecializationId, draft.id)}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+      <ol className="flex flex-col gap-2.5">
+        {drafts.map((draft) => (
+          <li key={draft.id}>
+            <YearCard
+              draft={draft}
+              conflict={validationByRow.get(draft.id) ?? null}
+              gradingMode={gradingMode}
+              maritalOptions={maritalOptions}
+              divisionOptions={divisionOptions}
+              academicGradeOptions={academicGradeOptions}
+              academicGradeRangeByCode={academicGradeRangeByCode}
+              onPatch={(patch) => patchRow(categorySpecializationId, draft.id, patch)}
+              onDelete={() => deleteRow(categorySpecializationId, draft.id)}
+              onRestore={() => restoreRow(categorySpecializationId, draft.id)}
+            />
+          </li>
+        ))}
+      </ol>
+
       <div className="flex justify-start">
         <Button
-          variant="ghost"
+          variant="secondary"
           size="sm"
           leadingIcon={<Plus size={14} strokeWidth={1.75} />}
           onClick={() =>
@@ -262,7 +238,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   );
 }
 
-interface YearRowProps {
+interface YearCardProps {
   draft: DraftRow;
   conflict: AppSettingsConflict | null;
   gradingMode: GradingMode | null;
@@ -275,7 +251,7 @@ interface YearRowProps {
   onRestore: () => void;
 }
 
-function YearRow({
+function YearCard({
   draft,
   conflict,
   gradingMode,
@@ -286,7 +262,7 @@ function YearRow({
   onPatch,
   onDelete,
   onRestore,
-}: YearRowProps): JSX.Element {
+}: YearCardProps): JSX.Element {
   const isDeleted = draft.kind === 'deleted';
   const isDirty = draft.kind === 'dirty' || draft.kind === 'new';
   const row = draft.row;
@@ -303,11 +279,13 @@ function YearRow({
   const dateError = matchField(['INVALID_DATE_RANGE', 'OVERLAPPING_PERIOD']);
   const refError = matchField(['AGE_REFERENCE_AFTER_START']);
 
+  const isSuspended = !row.isActive && !isDeleted;
+
   return (
-    <tr
+    <article
       className={cn(
-        'border-b border-border-subtle align-top last:border-b-0',
-        isDeleted && 'bg-ink-50/70 opacity-60',
+        'rounded-md border border-border-subtle bg-surface-card transition-colors duration-[var(--motion-fast)]',
+        isDeleted && 'opacity-60',
       )}
       style={
         isDirty
@@ -319,150 +297,258 @@ function YearRow({
           : undefined
       }
     >
-      <td className="px-3 py-2 align-top min-w-[180px]">
-        <MultiSelect
-          value={row.graduationYears.map(String)}
-          onChange={(next) =>
-            onPatch({
-              graduationYears: next
-                .map((v) => Number(v))
-                .filter((n) => Number.isFinite(n))
-                .sort((x, y) => y - x),
-            })
-          }
-          options={GRAD_YEAR_OPTIONS}
-          disabled={isDeleted}
-          ariaLabel="سنة التخرج"
-          placeholder="اختر سنة"
-        />
-        {yearError && <FieldError text={yearError} />}
-      </td>
-
-      <td className="px-3 py-2 align-top">
-        <GenderToggle
-          value={row.genderTypes}
-          disabled={isDeleted}
-          onChange={(next) => onPatch({ genderTypes: next })}
-          ariaLabel="النوع"
-          invalid={Boolean(genderError)}
-        />
-        {genderError && <FieldError text={genderError} />}
-      </td>
-
-      <td className="px-3 py-2 align-top min-w-[180px]">
-        <MultiSelect
-          value={row.maritalStatusCodes}
-          onChange={(next) => onPatch({ maritalStatusCodes: next })}
-          options={maritalOptions}
-          disabled={isDeleted}
-          ariaLabel="الحالة الاجتماعية"
-          placeholder="الكل"
-        />
-      </td>
-
-      <td className="px-3 py-2 align-top">
-        <div className="inline-flex items-center gap-1">
-          <Input
-            type="number"
-            min={1}
-            disabled={isDeleted}
-            value={row.maxAge ?? ''}
-            onChange={(e) =>
-              onPatch({ maxAge: e.target.value === '' ? null : Number(e.target.value) })
-            }
-            containerClassName="!mb-0 w-20"
-            className="text-end tabular-nums"
-            aria-invalid={Boolean(ageError) || undefined}
-            aria-label="السن الأقصى"
-          />
-          <span aria-hidden className="font-ar text-2xs text-ink-500">سنة</span>
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle px-4 py-3">
+        <div className="flex items-baseline gap-2.5">
+          {row.graduationYears.length === 0 ? (
+            <span className="font-ar text-sm text-ink-400">— لم تُختر سنة تخرج —</span>
+          ) : (
+            <span className="font-en text-lg font-semibold tabular-nums text-ink-900">
+              {row.graduationYears.length === 1
+                ? row.graduationYears[0]
+                : row.graduationYears.join('، ')}
+            </span>
+          )}
+          <span className="font-ar text-2xs text-ink-500">
+            {row.graduationYears.length > 1 ? 'سنوات تخرج' : 'سنة تخرج'}
+          </span>
+          {isDirty && (
+            <span className="inline-flex items-center rounded-pill border border-gold-300 bg-gold-50 px-1.5 py-0.5 font-ar text-2xs text-gold-700">
+              غير محفوظ
+            </span>
+          )}
         </div>
-        {ageError && <FieldError text={ageError} />}
-      </td>
 
-      <td className="px-3 py-2 align-top min-w-[170px]">
-        <GradeBranchCell
-          row={row}
-          gradingMode={gradingMode}
-          disabled={isDeleted}
-          invalid={Boolean(gradeError)}
-          academicGradeOptions={academicGradeOptions}
-          academicGradeRangeByCode={academicGradeRangeByCode}
-          onPatch={onPatch}
-        />
-        {gradeError && <FieldError text={gradeError} />}
-      </td>
+        <div className="flex items-center gap-1">
+          <StatusToggle
+            active={row.isActive}
+            disabled={isDeleted}
+            onChange={(next) => onPatch({ isActive: next })}
+          />
+          {isDeleted ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRestore}
+              leadingIcon={<RotateCcw size={14} strokeWidth={1.75} />}
+            >
+              استرجاع
+            </Button>
+          ) : (
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label="حذف"
+              className={cn(
+                'inline-flex items-center gap-1 rounded-md px-2 py-1 font-ar text-xs font-medium text-terra-700',
+                'transition-colors duration-[var(--motion-fast)]',
+                'hover:bg-terra-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+              )}
+            >
+              <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+              حذف
+            </button>
+          )}
+        </div>
+      </header>
 
-      <td className="px-3 py-2 align-top min-w-[200px]">
-        <MultiSelect
-          value={row.divisionCodes}
-          onChange={(next) => onPatch({ divisionCodes: next })}
-          options={divisionOptions}
-          disabled={isDeleted}
-          ariaLabel="الشعبة"
-          placeholder="الكل"
-        />
-      </td>
-
-      <td className="px-3 py-2 align-top min-w-[150px]">
-        <DatePicker
-          value={isoToDate(row.applicationStartDate)}
-          disabled={isDeleted}
-          onChange={(d) => onPatch({ applicationStartDate: dateToIso(d) ?? row.applicationStartDate })}
-        />
-      </td>
-
-      <td className="px-3 py-2 align-top min-w-[150px]">
-        <DatePicker
-          value={isoToDate(row.applicationEndDate)}
-          disabled={isDeleted}
-          onChange={(d) => onPatch({ applicationEndDate: dateToIso(d) ?? row.applicationEndDate })}
-          min={row.applicationStartDate.slice(0, 10)}
-        />
-        {dateError && <FieldError text={dateError} />}
-      </td>
-
-      <td className="px-3 py-2 align-top min-w-[150px]">
-        <DatePicker
-          value={isoToDate(row.ageReferenceDate)}
-          disabled={isDeleted}
-          onChange={(d) => onPatch({ ageReferenceDate: dateToIso(d) ?? row.ageReferenceDate })}
-          max={row.applicationStartDate.slice(0, 10)}
-        />
-        {refError && <FieldError text={refError} />}
-      </td>
-
-      <td className="px-3 py-2 align-top">
-        <StatusPill
-          active={row.isActive}
-          disabled={isDeleted}
-          onChange={(next) => onPatch({ isActive: next })}
-        />
-      </td>
-
-      <td className="px-3 py-2 align-top text-end">
-        {isDeleted ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRestore}
-            leadingIcon={<RotateCcw size={14} strokeWidth={1.75} />}
-          >
-            استرجاع
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            leadingIcon={<Trash2 size={14} strokeWidth={1.75} className="text-terra-600" />}
-            aria-label="حذف"
-          >
-            حذف
-          </Button>
+      <div
+        className={cn(
+          'flex flex-col gap-6 px-4 py-5',
+          isSuspended && 'bg-ink-50/30',
         )}
-      </td>
-    </tr>
+      >
+        <FieldGroup title="البيانات الأساسية">
+          <Field label="سنة التخرج" error={yearError}>
+            <MultiSelect
+              value={row.graduationYears.map(String)}
+              onChange={(next) =>
+                onPatch({
+                  graduationYears: next
+                    .map((v) => Number(v))
+                    .filter((n) => Number.isFinite(n))
+                    .sort((x, y) => y - x),
+                })
+              }
+              options={GRAD_YEAR_OPTIONS}
+              disabled={isDeleted}
+              ariaLabel="سنة التخرج"
+              placeholder="اختر سنة"
+            />
+          </Field>
+
+          <Field label="النوع" error={genderError}>
+            <GenderToggle
+              value={row.genderTypes}
+              disabled={isDeleted}
+              onChange={(next) => onPatch({ genderTypes: next })}
+              ariaLabel="النوع"
+              invalid={Boolean(genderError)}
+            />
+          </Field>
+
+          <Field label="الحالة الاجتماعية">
+            <MultiSelect
+              value={row.maritalStatusCodes}
+              onChange={(next) => onPatch({ maritalStatusCodes: next })}
+              options={maritalOptions}
+              disabled={isDeleted}
+              ariaLabel="الحالة الاجتماعية"
+              placeholder="الكل"
+            />
+          </Field>
+        </FieldGroup>
+
+        <FieldGroup title="الشروط الأكاديمية">
+          <Field
+            label={gradingMode === 'TAGDIR' ? 'التقدير' : 'الدرجة المئوية'}
+            error={gradeError}
+          >
+            <GradeBranchCell
+              row={row}
+              gradingMode={gradingMode}
+              disabled={isDeleted}
+              invalid={Boolean(gradeError)}
+              academicGradeOptions={academicGradeOptions}
+              academicGradeRangeByCode={academicGradeRangeByCode}
+              onPatch={onPatch}
+            />
+          </Field>
+
+          <Field label="الشعبة">
+            <MultiSelect
+              value={row.divisionCodes}
+              onChange={(next) => onPatch({ divisionCodes: next })}
+              options={divisionOptions}
+              disabled={isDeleted}
+              ariaLabel="الشعبة"
+              placeholder="الكل"
+            />
+          </Field>
+
+          <Field label="السن الأقصى" error={ageError}>
+            <div className="inline-flex items-center gap-1.5">
+              <Input
+                type="number"
+                min={1}
+                disabled={isDeleted}
+                value={row.maxAge ?? ''}
+                onChange={(e) =>
+                  onPatch({ maxAge: e.target.value === '' ? null : Number(e.target.value) })
+                }
+                containerClassName="!mb-0 w-24"
+                className="text-end tabular-nums"
+                aria-invalid={Boolean(ageError) || undefined}
+                aria-label="السن الأقصى"
+                placeholder="بدون"
+              />
+              <span aria-hidden className="font-ar text-2xs text-ink-500">سنة</span>
+            </div>
+          </Field>
+        </FieldGroup>
+
+        <section className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <h4 className="font-ar text-xs font-semibold text-ink-800">الفترة الزمنية</h4>
+            <span aria-hidden className="h-px flex-1 bg-border-subtle" />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="font-ar text-2xs font-medium text-ink-700">فترة التقديم</span>
+            <div className="grid grid-cols-1 items-start gap-x-3 gap-y-2 md:grid-cols-[1fr_auto_1fr]">
+              <div className="flex flex-col gap-1">
+                <span className="font-ar text-2xs text-ink-500">من</span>
+                <DatePicker
+                  value={isoToDate(row.applicationStartDate)}
+                  disabled={isDeleted}
+                  onChange={(d) =>
+                    onPatch({
+                      applicationStartDate: dateToIso(d) ?? row.applicationStartDate,
+                    })
+                  }
+                />
+              </div>
+              <span
+                aria-hidden
+                className="hidden self-center pt-5 font-ar text-2xs text-ink-400 md:inline"
+              >
+                ←
+              </span>
+              <div className="flex flex-col gap-1">
+                <span className="font-ar text-2xs text-ink-500">إلى</span>
+                <DatePicker
+                  value={isoToDate(row.applicationEndDate)}
+                  disabled={isDeleted}
+                  onChange={(d) =>
+                    onPatch({
+                      applicationEndDate: dateToIso(d) ?? row.applicationEndDate,
+                    })
+                  }
+                  min={row.applicationStartDate.slice(0, 10)}
+                />
+                {dateError && <FieldError text={dateError} />}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
+            <Field
+              label="تاريخ احتساب السن"
+              helper="يسبق بداية التقديم"
+              error={refError}
+            >
+              <DatePicker
+                value={isoToDate(row.ageReferenceDate)}
+                disabled={isDeleted}
+                onChange={(d) =>
+                  onPatch({ ageReferenceDate: dateToIso(d) ?? row.ageReferenceDate })
+                }
+                max={row.applicationStartDate.slice(0, 10)}
+              />
+            </Field>
+          </div>
+        </section>
+      </div>
+    </article>
+  );
+}
+
+interface FieldGroupProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function FieldGroup({ title, children }: FieldGroupProps): JSX.Element {
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <h4 className="font-ar text-xs font-semibold text-ink-800">{title}</h4>
+        <span aria-hidden className="h-px flex-1 bg-border-subtle" />
+      </div>
+      <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2 lg:grid-cols-3">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+interface FieldProps {
+  label: string;
+  helper?: string;
+  error?: string | null;
+  children: React.ReactNode;
+}
+
+function Field({ label, helper, error, children }: FieldProps): JSX.Element {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="font-ar text-2xs font-medium text-ink-700">{label}</label>
+      {children}
+      {error ? (
+        <FieldError text={error} />
+      ) : helper ? (
+        <span className="font-ar text-2xs text-ink-400">{helper}</span>
+      ) : null}
+    </div>
   );
 }
 
@@ -488,7 +574,7 @@ function GradeBranchCell({
   /* Discriminator on the row is the source of truth. A row whose
    * gradeKind has drifted from the resolved gradingMode still renders
    * in its own branch so the value is editable; the conflict banner
-   * above the table is what surfaces the drift. */
+   * above the cards is what surfaces the drift. */
   if (row.gradeKind === 'TAGDIR') {
     const range = academicGradeRangeByCode.get(row.academicGradeId) ?? null;
     return (
@@ -512,7 +598,7 @@ function GradeBranchCell({
   }
 
   return (
-    <div className="inline-flex items-center gap-1">
+    <div className="inline-flex items-center gap-1.5">
       <Input
         type="number"
         min={0}
@@ -522,7 +608,7 @@ function GradeBranchCell({
         onChange={(e) =>
           onPatch({ minPercentage: e.target.value === '' ? 0 : Number(e.target.value) })
         }
-        containerClassName="!mb-0 w-20"
+        containerClassName="!mb-0 w-24"
         className="text-end tabular-nums"
         aria-invalid={invalid || undefined}
         aria-label="الدرجة المئوية"
@@ -593,38 +679,36 @@ function GenderToggle({ value, onChange, disabled, ariaLabel, invalid }: GenderT
   );
 }
 
-interface StatusPillProps {
+interface StatusToggleProps {
   active: boolean;
   disabled?: boolean;
   onChange: (next: boolean) => void;
 }
 
-function StatusPill({ active, disabled, onChange }: StatusPillProps): JSX.Element {
+function StatusToggle({ active, disabled, onChange }: StatusToggleProps): JSX.Element {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={active}
+      aria-label="حالة السنة"
       disabled={disabled}
       onClick={() => onChange(!active)}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-pill border px-3 py-1 text-xs font-medium',
+        'inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-1 font-ar text-xs font-medium',
         'transition-colors duration-[var(--motion-fast)]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
         active
-          ? 'border-transparent text-white'
-          : 'border-border-default bg-white text-ink-600 hover:bg-ink-50',
+          ? 'border-border-default bg-white text-ink-800 hover:bg-ink-50'
+          : 'border-transparent bg-ink-100 text-ink-500 hover:bg-ink-200',
         disabled && 'cursor-not-allowed opacity-60',
         !disabled && 'cursor-pointer',
       )}
-      style={active ? { background: 'var(--success, var(--accent-600))' } : undefined}
     >
       <span
         aria-hidden
-        className={cn(
-          'inline-block h-1.5 w-1.5 rounded-full',
-          active ? 'bg-white' : 'bg-ink-400',
-        )}
+        className={cn('inline-block h-1.5 w-1.5 rounded-full')}
+        style={active ? { background: 'var(--accent-600)' } : { background: 'var(--ink-400)' }}
       />
       {active ? 'نشط' : 'موقوف'}
     </button>
@@ -635,7 +719,7 @@ function FieldError({ text }: { text: string }): JSX.Element {
   return (
     <span
       role="alert"
-      className="mt-1 inline-flex items-center rounded-pill bg-terra-50 px-1.5 py-0.5 text-2xs text-terra-700"
+      className="mt-1 inline-flex w-fit items-center rounded-pill bg-terra-50 px-1.5 py-0.5 text-2xs text-terra-700"
     >
       {text}
     </span>
