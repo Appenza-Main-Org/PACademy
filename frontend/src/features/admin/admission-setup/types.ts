@@ -15,6 +15,7 @@
  */
 
 import type { Applicant, SoftDeleteFields } from '@/shared/types/domain';
+import type { GradingMode } from '@/features/lookups';
 
 /**
  * Binary gender union, derived from the existing canonical inline shape on
@@ -157,28 +158,73 @@ export interface ApplicantCategorySpecialization {
   isActive: boolean;
 }
 
-export interface ApplicantSpecializationYear {
+/**
+ * The leaf row that carries the eligibility window + grade gate for one
+ * (category-specialization × graduation year × gender set) cell.
+ *
+ * Discriminated union on `gradeKind`:
+ *  - `'GRADES'`  — numeric percentage floor (`minPercentage` 0–100).
+ *  - `'TAGDIR'`  — categorical تقدير picked from the `academic-grades`
+ *                  lookup (`academicGradeId` is the FK code).
+ *
+ * `gradeKind` is **not** user-editable. It's derived at row-creation
+ * time by walking
+ *   categorySpecializationId → configId → categoryId
+ *     → lookup `applicant-categories[code].metadata.submissionTypeCode`
+ *     → lookup `submission-types[code].metadata.gradingMode`
+ * and is immutable for the life of the row. The conflict banner at the
+ * top of the application-settings page surfaces any drift when an admin
+ * re-points a category at a different submission-type after rows
+ * already exist (see `GRADE_MODE_MISMATCH`).
+ *
+ * `genderTypes` and `maritalStatusCodes` stay multi-select (V1
+ * inventory blocker A — option 2). `maxAge` stays nullable. Each `null`
+ * bound means "no bound", not "must be null at write time".
+ */
+export interface ApplicantSpecializationYearBase {
   id: string;
   categorySpecializationId: string;
   /** Maximum acceptable graduation year (drop-down: last 5 + current). */
   graduationYear: number;
   /** Multi-select. At least one gender must be picked. */
   genderTypes: GenderType[];
-  /** Multi-select. FK → `MARITAL_STATUSES[code]`. Empty array = any. */
+  /** Multi-select. FK → `marital-statuses[code]`. Empty array = any. */
   maritalStatusCodes: string[];
   /** Optional upper age bound — null = no maximum. */
   maxAge: number | null;
-  /** Optional grade band, inclusive. `null` on either end = no bound. */
-  minGrade: number | null;
-  maxGrade: number | null;
+  /** Multi-select. FK → `applicant-divisions[code]` (الشعبة). Empty = any. */
+  divisionCodes: string[];
   /** ISO date — start of the application window. */
   applicationStartDate: string;
   /** ISO date — end of the application window. */
   applicationEndDate: string;
-  /** ISO date — anchor used by eligibility to compute applicant age. */
-  ageCalcDate: string;
+  /** ISO date — anchor used by eligibility to compute applicant age.
+   *  Must be <= `applicationStartDate`. */
+  ageReferenceDate: string;
   isActive: boolean;
 }
+
+export interface ApplicantSpecializationYearGrades
+  extends ApplicantSpecializationYearBase {
+  gradeKind: 'GRADES';
+  /** Inclusive percentage floor (0..100). */
+  minPercentage: number;
+}
+
+export interface ApplicantSpecializationYearTagdir
+  extends ApplicantSpecializationYearBase {
+  gradeKind: 'TAGDIR';
+  /** FK → lookup `academic-grades[code]`. */
+  academicGradeId: string;
+}
+
+export type ApplicantSpecializationYear =
+  | ApplicantSpecializationYearGrades
+  | ApplicantSpecializationYearTagdir;
+
+/** Re-export so call sites that need to refer to the discriminator by
+ *  type stay decoupled from `@/features/lookups`. */
+export type YearGradeKind = GradingMode;
 
 /**
  * Conflict codes thrown by `applicationSettingsService` and surfaced as
@@ -190,7 +236,9 @@ export type AppSettingsConflict =
   | 'INVALID_DATE_RANGE'
   | 'OVERLAPPING_PERIOD'
   | 'AGE_NOT_POSITIVE'
-  | 'GRADE_RANGE_INVALID'
+  | 'AGE_REFERENCE_AFTER_START'
+  | 'PERCENTAGE_OUT_OF_RANGE'
+  | 'GRADE_MODE_MISMATCH'
   | 'GENDER_REQUIRED'
   | 'SPECIALIZATION_NOT_MAPPED'
   | 'CATEGORY_HAS_ACTIVE_YEARS';

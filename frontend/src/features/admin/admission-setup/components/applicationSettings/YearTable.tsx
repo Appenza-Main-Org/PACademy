@@ -60,7 +60,9 @@ const FIELD_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   INVALID_DATE_RANGE: 'ترتيب التواريخ غير صحيح',
   OVERLAPPING_PERIOD: 'تتداخل مع سنة أخرى',
   AGE_NOT_POSITIVE: 'السن > 0',
-  GRADE_RANGE_INVALID: 'الحد الأدنى يفوق الأقصى',
+  AGE_REFERENCE_AFTER_START: 'تاريخ احتساب السن يجب أن يسبق بداية التقديم',
+  PERCENTAGE_OUT_OF_RANGE: 'النسبة 0–100',
+  GRADE_MODE_MISMATCH: 'نمط تقدير غير مطابق',
   GENDER_REQUIRED: 'اختر النوع',
   SPECIALIZATION_NOT_MAPPED: 'غير مرتبط',
   CATEGORY_HAS_ACTIVE_YEARS: 'فئة بها سنوات نشطة',
@@ -138,8 +140,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
               <th className="px-3 py-2 text-start font-medium">النوع</th>
               <th className="px-3 py-2 text-start font-medium">الحالة الاجتماعية</th>
               <th className="px-3 py-2 text-start font-medium">السن الأقصى</th>
-              <th className="px-3 py-2 text-start font-medium">أدنى درجة</th>
-              <th className="px-3 py-2 text-start font-medium">أقصى درجة</th>
+              <th className="px-3 py-2 text-start font-medium">الدرجة / التقدير</th>
               <th className="px-3 py-2 text-start font-medium">بداية التقديم</th>
               <th className="px-3 py-2 text-start font-medium">نهاية التقديم</th>
               <th className="px-3 py-2 text-start font-medium">تاريخ احتساب السن</th>
@@ -196,8 +197,8 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
   const yearError = matchField(['DUPLICATE_YEAR']);
   const genderError = matchField(['GENDER_REQUIRED', 'DUPLICATE_YEAR', 'OVERLAPPING_PERIOD']);
   const ageError = matchField(['AGE_NOT_POSITIVE']);
-  const gradeError = matchField(['GRADE_RANGE_INVALID']);
-  const dateError = matchField(['INVALID_DATE_RANGE', 'OVERLAPPING_PERIOD']);
+  const gradeError = matchField(['PERCENTAGE_OUT_OF_RANGE', 'GRADE_MODE_MISMATCH']);
+  const dateError = matchField(['INVALID_DATE_RANGE', 'OVERLAPPING_PERIOD', 'AGE_REFERENCE_AFTER_START']);
 
   return (
     <tr
@@ -268,38 +269,27 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
       </td>
 
       <td className="px-3 py-2 align-top">
-        <Input
-          type="number"
-          min={0}
-          max={100}
-          disabled={isDeleted}
-          value={row.minGrade ?? ''}
-          onChange={(e) =>
-            onPatch({ minGrade: e.target.value === '' ? null : Number(e.target.value) })
-          }
-          containerClassName="!mb-0 w-20"
-          className="text-end tabular-nums"
-          aria-invalid={Boolean(gradeError) || undefined}
-          aria-label="أدنى درجة"
-        />
+        {row.gradeKind === 'GRADES' ? (
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            disabled={isDeleted}
+            value={row.minPercentage}
+            onChange={(e) =>
+              onPatch({ minPercentage: e.target.value === '' ? 0 : Number(e.target.value) })
+            }
+            containerClassName="!mb-0 w-20"
+            className="text-end tabular-nums"
+            aria-invalid={Boolean(gradeError) || undefined}
+            aria-label="الدرجة المئوية"
+          />
+        ) : (
+          <span className="font-ar text-2xs text-ink-500">
+            {row.academicGradeId || '—'}
+          </span>
+        )}
         {gradeError && <FieldError text={gradeError} />}
-      </td>
-
-      <td className="px-3 py-2 align-top">
-        <Input
-          type="number"
-          min={0}
-          max={100}
-          disabled={isDeleted}
-          value={row.maxGrade ?? ''}
-          onChange={(e) =>
-            onPatch({ maxGrade: e.target.value === '' ? null : Number(e.target.value) })
-          }
-          containerClassName="!mb-0 w-20"
-          className="text-end tabular-nums"
-          aria-invalid={Boolean(gradeError) || undefined}
-          aria-label="أقصى درجة"
-        />
       </td>
 
       <td className="px-3 py-2 align-top min-w-[150px]">
@@ -322,9 +312,9 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
 
       <td className="px-3 py-2 align-top min-w-[150px]">
         <DatePicker
-          value={isoToDate(row.ageCalcDate)}
+          value={isoToDate(row.ageReferenceDate)}
           disabled={isDeleted}
-          onChange={(d) => onPatch({ ageCalcDate: dateToIso(d) ?? row.ageCalcDate })}
+          onChange={(d) => onPatch({ ageReferenceDate: dateToIso(d) ?? row.ageReferenceDate })}
         />
       </td>
 

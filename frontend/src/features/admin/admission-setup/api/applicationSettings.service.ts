@@ -47,7 +47,7 @@ import type {
   ApplicantCategoryRow,
   SpecializationRow,
 } from '@/features/lookups/types';
-import { validateYearRow } from '../lib/appSettingsValidation';
+import { validateYearRow, type YearRowDraft } from '../lib/appSettingsValidation';
 import type {
   ApplicantCategoryConfig,
   ApplicantCategorySpecialization,
@@ -127,7 +127,7 @@ export interface BulkYearChange {
   /** Discriminator — describes what the change is. */
   kind: 'create' | 'update' | 'delete';
   categorySpecializationId: string;
-  row?: Omit<ApplicantSpecializationYear, 'id'>;
+  row?: YearRowDraft;
 }
 
 export interface BulkSaveResult {
@@ -225,7 +225,7 @@ export const applicationSettingsService = {
   },
 
   async createYear(
-    input: Omit<ApplicantSpecializationYear, 'id'>,
+    input: YearRowDraft,
   ): Promise<ApplicantSpecializationYear> {
     await simulateLatency();
     const siblings = years.filter(
@@ -233,10 +233,10 @@ export const applicationSettingsService = {
     );
     const conflict = validateYearRow(input, siblings);
     if (conflict) throw new ConflictError(conflict, input);
-    const row: ApplicantSpecializationYear = {
+    const row = {
       ...input,
       id: nextId('asy', years),
-    };
+    } as ApplicantSpecializationYear;
     years = [...years, row];
     return row;
   },
@@ -248,7 +248,7 @@ export const applicationSettingsService = {
     await simulateLatency();
     const current = years.find((y) => y.id === id);
     if (!current) throw new Error(`Year ${id} not found`);
-    const next: ApplicantSpecializationYear = { ...current, ...patch };
+    const next = { ...current, ...patch } as ApplicantSpecializationYear;
     const siblings = years.filter(
       (y) => y.categorySpecializationId === next.categorySpecializationId,
     );
@@ -267,10 +267,10 @@ export const applicationSettingsService = {
     await simulateLatency();
     const current = years.find((y) => y.id === id);
     if (!current) throw new Error(`Year ${id} not found`);
-    const next: ApplicantSpecializationYear = {
+    const next = {
       ...current,
       isActive: !current.isActive,
-    };
+    } as ApplicantSpecializationYear;
     years = years.map((y) => (y.id === id ? next : y));
     return next;
   },
@@ -332,7 +332,7 @@ export const applicationSettingsService = {
           if (!change.id) throw new Error('update change missing id');
           if (!change.row) throw new Error('update change missing row');
           hypothetical = hypothetical.map((y) =>
-            y.id === change.id ? { ...y, ...change.row } : y,
+            y.id === change.id ? ({ ...y, ...change.row } as ApplicantSpecializationYear) : y,
           );
           applied.push({ change, hypotheticalId: change.id });
         } else {
@@ -370,15 +370,15 @@ export const applicationSettingsService = {
       } else if (change.kind === 'update') {
         if (!change.id || !change.row) continue;
         working = working.map((y) =>
-          y.id === change.id ? { ...y, ...change.row } : y,
+          y.id === change.id ? ({ ...y, ...change.row } as ApplicantSpecializationYear) : y,
         );
         updated += 1;
       } else {
         if (!change.row) continue;
-        const row: ApplicantSpecializationYear = {
+        const row = {
           ...change.row,
           id: nextId('asy', working),
-        };
+        } as ApplicantSpecializationYear;
         working = [...working, row];
         created += 1;
       }

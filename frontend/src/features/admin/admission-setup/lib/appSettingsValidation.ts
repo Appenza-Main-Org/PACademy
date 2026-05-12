@@ -8,14 +8,18 @@
  * Rules:
  *   - at least one gender must be selected
  *   - `maxAge`, when present, must be a positive integer
- *   - `minGrade <= maxGrade` when both are present
+ *   - GRADES rows: `minPercentage` must be in [0, 100]
  *   - `applicationEndDate >= applicationStartDate`
- *   - `ageCalcDate` must be a parseable ISO date
+ *   - `ageReferenceDate <= applicationStartDate`
  *   - no two rows under the same specialization share a graduation year
  *     while having any overlapping gender (gender sets intersect)
  *   - no two rows for the same specialization with overlapping gender
  *     sets may have overlapping `[applicationStartDate, applicationEndDate]`
  *     windows
+ *
+ * GRADE_MODE_MISMATCH is enforced at the service boundary, not here —
+ * the validator runs over a row in isolation and doesn't know what the
+ * parent category's gradingMode is.
  */
 
 import type {
@@ -23,6 +27,14 @@ import type {
   ApplicantSpecializationYear,
   GenderType,
 } from '../types';
+
+/** Distributive `Omit` — preserves the discriminated-union narrowing on
+ *  `gradeKind` that the non-distributive built-in `Omit<A | B, K>` loses. */
+export type YearRowDraft = ApplicantSpecializationYear extends infer T
+  ? T extends ApplicantSpecializationYear
+    ? Omit<T, 'id'>
+    : never
+  : never;
 
 function dayOnly(iso: string): string {
   return iso.slice(0, 10);
@@ -49,24 +61,20 @@ export function validateAge(
   return null;
 }
 
-export function validateGradeRange(
-  minGrade: number | null,
-  maxGrade: number | null,
+export function validateMinPercentage(
+  p: number,
 ): AppSettingsConflict | null {
-  if (minGrade === null || maxGrade === null) return null;
-  if (!Number.isFinite(minGrade) || !Number.isFinite(maxGrade)) {
-    return 'GRADE_RANGE_INVALID';
-  }
-  if (minGrade > maxGrade) return 'GRADE_RANGE_INVALID';
+  if (!Number.isFinite(p)) return 'PERCENTAGE_OUT_OF_RANGE';
+  if (p < 0 || p > 100) return 'PERCENTAGE_OUT_OF_RANGE';
   return null;
 }
 
 export function validateDateRange(
   start: string,
   end: string,
-  ageCalc: string,
+  ageReference: string,
 ): AppSettingsConflict | null {
-  if (!start || !end || !ageCalc) return 'INVALID_DATE_RANGE';
+  if (!start || !end || !ageReference) return 'INVALID_DATE_RANGE';
   const s = dayOnly(start);
   const e = dayOnly(end);
   if (e < s) return 'INVALID_DATE_RANGE';
@@ -114,7 +122,7 @@ export function validateNoOverlap(
 }
 
 export function validateYearRow(
-  row: Omit<ApplicantSpecializationYear, 'id'>,
+  row: YearRowDraft,
   siblingYears: readonly ApplicantSpecializationYear[],
   excludeId?: string,
 ): AppSettingsConflict | null {
@@ -122,12 +130,14 @@ export function validateYearRow(
   if (gender) return gender;
   const age = validateAge(row.maxAge);
   if (age) return age;
-  const grade = validateGradeRange(row.minGrade, row.maxGrade);
-  if (grade) return grade;
+  if (row.gradeKind === 'GRADES') {
+    const pct = validateMinPercentage(row.minPercentage);
+    if (pct) return pct;
+  }
   const dr = validateDateRange(
     row.applicationStartDate,
     row.applicationEndDate,
-    row.ageCalcDate,
+    row.ageReferenceDate,
   );
   if (dr) return dr;
   const dup = validateNoDuplicateYear(

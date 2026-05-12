@@ -82,49 +82,55 @@ interface YearBlueprint {
   genderTypes: GenderType[];
   maritalStatusCodes: string[];
   maxAge: number | null;
-  minGrade: number | null;
-  maxGrade: number | null;
+  minPercentage: number;
+  divisionCodes: string[];
   applicationStartDate: string;
   applicationEndDate: string;
-  ageCalcDate: string;
+  ageReferenceDate: string;
 }
 
 const YEAR_BLUEPRINT: YearBlueprint[] = [
   {
     graduationYear: CURRENT_YEAR - 2,
     genderTypes: ['male'],
-    maritalStatusCodes: ['single'],
+    maritalStatusCodes: ['MAR-01'],
     maxAge: 22,
-    minGrade: 70,
-    maxGrade: 100,
+    minPercentage: 70,
+    divisionCodes: ['DIV-01'],
     applicationStartDate: `${CURRENT_YEAR - 2}-06-01`,
     applicationEndDate: `${CURRENT_YEAR - 2}-07-31`,
-    ageCalcDate: `${CURRENT_YEAR - 2}-10-01`,
+    ageReferenceDate: `${CURRENT_YEAR - 2}-04-01`,
   },
   {
     graduationYear: CURRENT_YEAR - 1,
     genderTypes: ['male'],
-    maritalStatusCodes: ['single', 'married'],
+    maritalStatusCodes: ['MAR-01', 'MAR-02'],
     maxAge: 23,
-    minGrade: 75,
-    maxGrade: 100,
+    minPercentage: 75,
+    divisionCodes: ['DIV-01', 'DIV-02'],
     applicationStartDate: `${CURRENT_YEAR - 1}-06-01`,
     applicationEndDate: `${CURRENT_YEAR - 1}-07-31`,
-    ageCalcDate: `${CURRENT_YEAR - 1}-10-01`,
+    ageReferenceDate: `${CURRENT_YEAR - 1}-04-01`,
   },
   {
     graduationYear: CURRENT_YEAR,
     genderTypes: ['female'],
-    maritalStatusCodes: ['single'],
+    maritalStatusCodes: ['MAR-01'],
     maxAge: 22,
-    minGrade: 80,
-    maxGrade: 100,
+    minPercentage: 80,
+    divisionCodes: ['DIV-01'],
     applicationStartDate: `${CURRENT_YEAR}-06-01`,
     applicationEndDate: `${CURRENT_YEAR}-07-31`,
-    ageCalcDate: `${CURRENT_YEAR}-10-01`,
+    ageReferenceDate: `${CURRENT_YEAR}-04-01`,
   },
 ];
 
+/**
+ * Seed defaults every row to the GRADES branch — `gradeKind: 'GRADES'`
+ * with the blueprint's `minPercentage`. The seed regeneration step
+ * (commit 5) flips per-category-specialization rows to TAGDIR where the
+ * parent category's submission-type resolves to TAGDIR.
+ */
 export const APPLICANT_SPECIALIZATION_YEARS: ApplicantSpecializationYear[] = (() => {
   const rows: ApplicantSpecializationYear[] = [];
   let serial = 1;
@@ -136,6 +142,7 @@ export const APPLICANT_SPECIALIZATION_YEARS: ApplicantSpecializationYear[] = (()
       rows.push({
         id: `asy-${serial}`,
         categorySpecializationId: cs.id,
+        gradeKind: 'GRADES',
         ...blueprint,
         isActive: blueIdx < 2,
       });

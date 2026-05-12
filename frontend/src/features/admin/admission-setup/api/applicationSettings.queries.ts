@@ -20,6 +20,7 @@ import type {
   CategoryConfigJoined,
   CategorySpecializationJoined,
 } from './applicationSettings.service';
+import type { YearRowDraft } from '../lib/appSettingsValidation';
 import type {
   ApplicantCategoryConfig,
   ApplicantCategorySpecialization,
@@ -47,7 +48,9 @@ const CONFLICT_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   INVALID_DATE_RANGE: 'تاريخ النهاية يجب أن يكون بعد تاريخ البداية',
   OVERLAPPING_PERIOD: 'فترة التقديم تتداخل مع سنة أخرى لنفس النوع',
   AGE_NOT_POSITIVE: 'السن الأقصى يجب أن يكون رقماً موجباً',
-  GRADE_RANGE_INVALID: 'الحد الأدنى للدرجة يجب ألا يتجاوز الحد الأقصى',
+  AGE_REFERENCE_AFTER_START: 'تاريخ احتساب السن يجب أن يسبق بداية التقديم',
+  PERCENTAGE_OUT_OF_RANGE: 'الدرجة المئوية يجب أن تكون بين 0 و 100',
+  GRADE_MODE_MISMATCH: 'نمط التقدير لا يطابق نوع تقديم الفئة',
   GENDER_REQUIRED: 'اختر النوع (ذكور أو إناث على الأقل)',
   SPECIALIZATION_NOT_MAPPED:
     'هذا التخصص غير مرتبط بهذه الفئة في البيانات المرجعية',
@@ -160,7 +163,7 @@ export function useCreateYear() {
   return useMutation<
     ApplicantSpecializationYear,
     ConflictError | Error,
-    Omit<ApplicantSpecializationYear, 'id'>
+    YearRowDraft
   >({
     mutationFn: (input) => applicationSettingsService.createYear(input),
     onSuccess: (row) => {

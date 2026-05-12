@@ -20,7 +20,7 @@
  */
 
 import { create } from 'zustand';
-import type { ApplicantSpecializationYear } from '../types';
+import type { ApplicantSpecializationYear, GenderType } from '../types';
 
 export type DraftKind = 'original' | 'new' | 'dirty' | 'deleted';
 
@@ -73,6 +73,20 @@ function sameStringArray(a: readonly string[], b: readonly string[]): boolean {
   return sa.every((v, i) => v === sb[i]);
 }
 
+function gradeFieldsEqual(
+  a: ApplicantSpecializationYear,
+  b: ApplicantSpecializationYear,
+): boolean {
+  if (a.gradeKind !== b.gradeKind) return false;
+  if (a.gradeKind === 'GRADES' && b.gradeKind === 'GRADES') {
+    return a.minPercentage === b.minPercentage;
+  }
+  if (a.gradeKind === 'TAGDIR' && b.gradeKind === 'TAGDIR') {
+    return a.academicGradeId === b.academicGradeId;
+  }
+  return false;
+}
+
 function isSameRow(
   a: ApplicantSpecializationYear,
   b: ApplicantSpecializationYear,
@@ -81,12 +95,12 @@ function isSameRow(
     a.graduationYear === b.graduationYear &&
     sameStringArray(a.genderTypes, b.genderTypes) &&
     sameStringArray(a.maritalStatusCodes, b.maritalStatusCodes) &&
+    sameStringArray(a.divisionCodes, b.divisionCodes) &&
     a.maxAge === b.maxAge &&
-    a.minGrade === b.minGrade &&
-    a.maxGrade === b.maxGrade &&
+    gradeFieldsEqual(a, b) &&
     a.applicationStartDate === b.applicationStartDate &&
     a.applicationEndDate === b.applicationEndDate &&
-    a.ageCalcDate === b.ageCalcDate &&
+    a.ageReferenceDate === b.ageReferenceDate &&
     a.isActive === b.isActive
   );
 }
@@ -119,9 +133,21 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
       if (!slice) return state;
       const updated = slice.map((draft) => {
         if (draft.id !== id) return draft;
-        const merged: ApplicantSpecializationYear = { ...draft.row, ...patch };
-        let kind: DraftKind = draft.kind;
         if (draft.kind === 'deleted') return draft; // ignore edits on tombstones
+        /* `gradeKind` is immutable post-creation — drop any patch that
+         * tries to flip it. Branch fields that don't apply to the
+         * current kind are dropped silently too, so the discriminated
+         * union stays consistent. */
+        const sanitized: Partial<ApplicantSpecializationYear> = { ...patch };
+        if ('gradeKind' in sanitized) delete sanitized.gradeKind;
+        if (draft.row.gradeKind === 'GRADES' && 'academicGradeId' in sanitized) {
+          delete (sanitized as { academicGradeId?: string }).academicGradeId;
+        }
+        if (draft.row.gradeKind === 'TAGDIR' && 'minPercentage' in sanitized) {
+          delete (sanitized as { minPercentage?: number }).minPercentage;
+        }
+        const merged = { ...draft.row, ...sanitized } as ApplicantSpecializationYear;
+        let kind: DraftKind = draft.kind;
         if (draft.kind === 'new') {
           kind = 'new';
         } else if (draft.original && isSameRow(merged, draft.original)) {
@@ -135,25 +161,58 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
     });
   },
 
+  /**
+   * Default new rows to the GRADES branch with a `minPercentage` of 70.
+   * Callers that already know the parent gradingMode should pass
+   * `gradeKind: 'TAGDIR'` + `academicGradeId: ''` via `seed`; the
+   * proper resolver wiring lands in a later commit.
+   */
   addRow: (csId, seed) => {
     const seedNumber = get().tempIdSeed;
     const tempId = `temp-${csId}-${seedNumber}`;
     const today = new Date().toISOString().slice(0, 10);
-    const row: ApplicantSpecializationYear = {
+    const seedBag = seed as Record<string, unknown>;
+    const seedKind: 'GRADES' | 'TAGDIR' =
+      seedBag.gradeKind === 'TAGDIR' ? 'TAGDIR' : 'GRADES';
+    /* Strip the discriminator + the opposite-branch field from `seed`
+     * before merging so the produced row stays in one branch. */
+    const seedRest: Record<string, unknown> = { ...seedBag };
+    delete seedRest.gradeKind;
+    delete seedRest.minPercentage;
+    delete seedRest.academicGradeId;
+    const base = {
       id: tempId,
       categorySpecializationId: csId,
       graduationYear: new Date().getFullYear(),
-      genderTypes: ['male'],
-      maritalStatusCodes: [],
+      genderTypes: ['male'] as GenderType[],
+      maritalStatusCodes: [] as string[],
       maxAge: null,
-      minGrade: null,
-      maxGrade: null,
+      divisionCodes: [] as string[],
       applicationStartDate: today,
       applicationEndDate: today,
-      ageCalcDate: today,
+      ageReferenceDate: today,
       isActive: true,
-      ...seed,
     };
+    const row: ApplicantSpecializationYear =
+      seedKind === 'TAGDIR'
+        ? {
+            ...base,
+            ...seedRest,
+            gradeKind: 'TAGDIR',
+            academicGradeId:
+              typeof seedBag.academicGradeId === 'string'
+                ? (seedBag.academicGradeId as string)
+                : '',
+          }
+        : {
+            ...base,
+            ...seedRest,
+            gradeKind: 'GRADES',
+            minPercentage:
+              typeof seedBag.minPercentage === 'number'
+                ? (seedBag.minPercentage as number)
+                : 70,
+          };
     set((state) => {
       const slice = state.byCs[csId] ?? [];
       return {
