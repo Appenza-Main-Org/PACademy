@@ -1,10 +1,9 @@
 /**
- * Step 4 — شروط السن.
- * Per-open-category age min/max editor that hits the same
- * `useUpdateExpandedConditions` mutation `CategoryConditionBuilder` uses.
- * No fork; impact preview is skipped here because age changes the most
- * narrowly-scoped slice of the condition set, and admins can still edit
- * the full matrix at /admin/categories/:key.
+ * الحد الأقصى للسن — per-open-category editor for the cycle.
+ * Persists into `category.expandedConditions.maxAge` via the same
+ * `useUpdateExpandedConditions` mutation the full condition builder uses.
+ * The minimum-age input was dropped in 2026-05; the wizard now only
+ * captures `maxAge` and leaves `minAge` set to null on save.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -31,6 +30,9 @@ import type {
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 
+const MIN_AGE_LIMIT = 18;
+const MAX_AGE_LIMIT = 99;
+
 export function AgeRulesPage(): JSX.Element {
   const { cycle } = useAdmissionSetupCycle();
   const canWrite = useAdmissionSetupCanWrite();
@@ -56,8 +58,8 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="شروط السن"
-        subtitle="حدد الحد الأدنى والأقصى للسن لكل فئة قبول مفتوحة في هذه الدورة."
+        title="الحد الأقصى للسن"
+        subtitle="حدد الحد الأقصى للسن المسموح به لكل فئة قبول مفتوحة في هذه الدورة."
       />
 
       {openCategories.length === 0 ? (
@@ -88,23 +90,31 @@ function CategoryAgeCard({
   canWrite: boolean;
 }): JSX.Element {
   const expanded = category.expandedConditions ?? defaultConditions();
-  const [draft, setDraft] = useState<CategoryConditions>(expanded);
+  const [maxAge, setMaxAge] = useState<number | null>(expanded.maxAge);
   const updateMut = useUpdateExpandedConditions();
 
-  useEffect(() => setDraft(category.expandedConditions ?? defaultConditions()), [category]);
+  useEffect(() => {
+    setMaxAge((category.expandedConditions ?? defaultConditions()).maxAge);
+  }, [category]);
 
-  const dirty = draft.minAge !== expanded.minAge || draft.maxAge !== expanded.maxAge;
+  const dirty = maxAge !== expanded.maxAge;
+  const error = validateMaxAge(maxAge);
 
   const save = (): void => {
     if (!canWrite) return;
-    if (draft.minAge !== null && draft.maxAge !== null && draft.minAge > draft.maxAge) {
-      toast('السن الأدنى يجب أن يكون أقل من أو يساوي السن الأقصى', 'danger');
+    if (maxAge === null || error) {
+      toast(error ?? 'يجب إدخال الحد الأقصى للسن', 'danger');
       return;
     }
+    const next: CategoryConditions = {
+      ...expanded,
+      minAge: null,
+      maxAge,
+    };
     updateMut.mutate(
-      { key: category.key, conditions: draft },
+      { key: category.key, conditions: next },
       {
-        onSuccess: () => toast(`تم حفظ شروط السن للفئة "${category.labelAr}"`, 'success'),
+        onSuccess: () => toast(`تم حفظ الحد الأقصى للسن للفئة "${category.labelAr}"`, 'success'),
         onError: (err) => toast((err as Error).message ?? 'تعذر الحفظ', 'danger'),
       },
     );
@@ -129,41 +139,50 @@ function CategoryAgeCard({
           </Button>
         </Link>
       </header>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
         <Input
-          label="السن الأدنى (سنة)"
+          label="الحد الأقصى للسن (سنة)"
           type="number"
           dir="ltr"
-          value={draft.minAge ?? ''}
-          onChange={(e) =>
-            setDraft({ ...draft, minAge: e.target.value ? Number(e.target.value) : null })
-          }
+          inputMode="numeric"
+          min={MIN_AGE_LIMIT}
+          max={MAX_AGE_LIMIT}
+          step={1}
+          value={maxAge ?? ''}
+          onChange={(e) => setMaxAge(parseAge(e.target.value))}
           disabled={!canWrite}
+          required
+          error={error ?? undefined}
+          helper={error ? undefined : `يجب أن يكون عدداً صحيحاً بين ${MIN_AGE_LIMIT} و${MAX_AGE_LIMIT} سنة.`}
         />
-        <Input
-          label="السن الأقصى (سنة)"
-          type="number"
-          dir="ltr"
-          value={draft.maxAge ?? ''}
-          onChange={(e) =>
-            setDraft({ ...draft, maxAge: e.target.value ? Number(e.target.value) : null })
-          }
-          disabled={!canWrite}
-        />
-        <div className="self-end">
-          <Button
-            variant="primary"
-            leadingIcon={<Save size={14} strokeWidth={1.75} />}
-            onClick={save}
-            disabled={!canWrite || !dirty}
-            isLoading={updateMut.isPending}
-          >
-            حفظ
-          </Button>
-        </div>
+        <Button
+          variant="primary"
+          leadingIcon={<Save size={14} strokeWidth={1.75} />}
+          onClick={save}
+          disabled={!canWrite || !dirty || Boolean(error) || maxAge === null}
+          isLoading={updateMut.isPending}
+        >
+          حفظ
+        </Button>
       </div>
     </Card>
   );
+}
+
+function parseAge(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n)) return null;
+  return Math.trunc(n);
+}
+
+function validateMaxAge(value: number | null): string | null {
+  if (value === null) return 'يجب إدخال الحد الأقصى للسن';
+  if (!Number.isInteger(value)) return 'يجب أن يكون السن عدداً صحيحاً';
+  if (value < MIN_AGE_LIMIT) return `الحد الأدنى المسموح به هو ${MIN_AGE_LIMIT} سنة`;
+  if (value > MAX_AGE_LIMIT) return `الحد الأقصى المسموح به هو ${MAX_AGE_LIMIT} سنة`;
+  return null;
 }
 
 function defaultConditions(): CategoryConditions {
