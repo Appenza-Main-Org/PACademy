@@ -30,7 +30,6 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, GripVertical, Save } from 'lucide-react';
 import { Button, Card, Input, Select, toast } from '@/shared/components';
-import { cn } from '@/shared/lib/cn';
 import { isConflictError } from '@/shared/lib/errors';
 import type {
   ApplicantCategoryKey,
@@ -48,8 +47,8 @@ export interface ExamPlanEditorProps {
 }
 
 /** Inline validation message surfaced when the order cell is empty,
- *  out of the 1–9 range, or duplicated within the current category. */
-const ORDER_ERROR_MESSAGE = 'الترتيب يجب أن يكون رقمًا من 1 إلى 9 وغير مكرر';
+ *  not a positive integer, or duplicated within the current category. */
+const ORDER_ERROR_MESSAGE = 'الترتيب يجب أن يكون رقمًا موجبًا وغير مكرر';
 
 export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JSX.Element {
   const examsQuery = useAcademyExams();
@@ -77,8 +76,11 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
   );
 
   /* Per-row validation map keyed by examId. A row is invalid when its
-   * order isn't a 1–9 integer OR collides with another row's order in
-   * the same plan. Save is blocked while any row reports an error. */
+   * order isn't a positive integer OR collides with another row's
+   * order in the same plan. Save is blocked while any row reports an
+   * error. No upper bound — admins can use any positive integer
+   * (1, 2, 3… or 10, 20, 30…) depending on whether they want compact
+   * or sparse numbering. */
   const orderErrors = useMemo<Record<string, boolean>>(() => {
     const counts = new Map<number, number>();
     for (const entry of entries) {
@@ -89,7 +91,6 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
       const bad =
         !Number.isInteger(entry.order) ||
         entry.order < 1 ||
-        entry.order > 9 ||
         (counts.get(entry.order) ?? 0) > 1;
       if (bad) out[entry.examId] = true;
     }
@@ -123,12 +124,13 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
     setEntries(entries.map((e, i) => (i === idx ? { ...e, ...patch } : e)));
   };
 
-  /* Strip non-1..9 input. Empty value keeps the row in an invalid (0)
-   * state so the error message and disabled-save guard are obvious to
-   * the admin without us silently inventing a value. */
+  /* Strip non-digit characters and parse to integer. Empty / 0 keeps
+   * the row in an invalid state so the error message + disabled-save
+   * guard are obvious to the admin without silently inventing a
+   * value. No upper bound — values grow freely as plans expand. */
   const setOrderFromInput = (idx: number, raw: string): void => {
-    const digit = raw.replace(/[^1-9]/g, '').slice(-1);
-    setEntry(idx, { order: digit ? Number(digit) : 0 });
+    const digits = raw.replace(/\D/g, '');
+    setEntry(idx, { order: digits ? Number(digits) : 0 });
   };
 
   const addExam = (examId: string): void => {
@@ -320,15 +322,14 @@ function SortableExamRow({
           density="compact"
           type="text"
           inputMode="numeric"
-          pattern="[1-9]"
-          maxLength={1}
+          pattern="[0-9]*"
+          maxLength={4}
           aria-label={`الترتيب — ${label}`}
           value={entry.order > 0 ? String(entry.order) : ''}
           onChange={(e) => onOrderInput(e.target.value)}
           error={hasOrderError ? ORDER_ERROR_MESSAGE : undefined}
-          containerClassName={cn('items-start', !hasOrderError && 'gap-0')}
           className="text-center font-numeric tnum"
-          style={{ inlineSize: '3rem' }}
+          style={{ inlineSize: '4rem' }}
         />
       </td>
       <td className="py-2.5 font-medium text-ink-900">{label}</td>

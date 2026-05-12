@@ -121,7 +121,7 @@ function Body({
         activationMode="automatic"
       >
         <Tabs.List
-          className="flex flex-wrap items-end gap-1 border-b border-border-subtle"
+          className="flex flex-wrap gap-2"
           aria-label="فئات التقديم المفعّلة"
         >
           {active.map((c) => (
@@ -201,16 +201,23 @@ function CategoryTabTrigger({
     <Tabs.Trigger
       value={category.id}
       className={cn(
-        'group relative flex shrink-0 flex-col items-start gap-0.5 rounded-t-md border-b-2 border-transparent px-4 py-2 text-start outline-none transition-colors',
-        'hover:bg-ink-50',
-        isActive && 'border-b-[color:var(--accent-500)] bg-bg-muted/40',
+        'group relative flex shrink-0 flex-col items-start gap-1.5 overflow-hidden rounded-lg border px-4 py-2.5 text-start outline-none transition-all',
         'focus-visible:shadow-[var(--ring)]',
+        isActive
+          ? 'border-[color:var(--accent-500)] bg-[color:var(--accent-50)] shadow-sm'
+          : 'border-border-subtle bg-surface-card hover:border-border-strong hover:bg-bg-muted/40',
       )}
     >
+      {isActive ? (
+        <span
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-0.5 bg-[color:var(--accent-500)]"
+        />
+      ) : null}
       <span
         className={cn(
-          'inline-flex items-center gap-2 text-sm font-medium',
-          isActive ? 'text-ink-900' : 'text-ink-700',
+          'inline-flex items-center gap-1.5 text-sm font-semibold',
+          isActive ? 'text-[color:var(--accent-700)]' : 'text-ink-800',
         )}
       >
         {category.nameAr}
@@ -223,8 +230,26 @@ function CategoryTabTrigger({
           />
         ) : null}
       </span>
-      <span className="text-2xs text-ink-500">
-        {working} يوم عمل · {off} عطلة
+      <span className="inline-flex items-center gap-1.5 text-2xs">
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium',
+            working === 0
+              ? 'bg-gold-50 text-gold-700'
+              : 'bg-teal-50 text-teal-700',
+          )}
+        >
+          <span
+            className={cn(
+              'inline-block size-1.5 rounded-full',
+              working === 0 ? 'bg-gold-500' : 'bg-teal-500',
+            )}
+          />
+          {working} يوم عمل
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-ink-50 px-1.5 py-0.5 font-medium text-ink-600">
+          {off} عطلة
+        </span>
       </span>
     </Tabs.Trigger>
   );

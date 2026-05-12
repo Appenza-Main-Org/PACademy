@@ -4,7 +4,6 @@
  * Renders the active category's days with:
  *   - date + Arabic day-of-week
  *   - WORKING / OFF status badge
- *   - note (truncated with tooltip)
  *   - actions menu: toggle off/on, edit, delete
  *
  * Week separators are inserted before every Saturday row (Egyptian
@@ -24,8 +23,6 @@ import {
   ErrorState,
   Modal,
   Skeleton,
-  Tooltip,
-  TooltipProvider,
   toast,
 } from '@/shared/components';
 import { ARABIC_WEEKDAYS_SAT_FIRST } from '@/shared/components';
@@ -99,14 +96,13 @@ export function DaysTable({
   }
 
   return (
-    <TooltipProvider>
+    <>
       <div className="overflow-hidden rounded-md border border-border-subtle">
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10 bg-bg-muted text-2xs uppercase tracking-wide text-ink-600">
             <tr>
               <th className="px-4 py-2 text-start font-medium">التاريخ</th>
               <th className="px-4 py-2 text-start font-medium">الحالة</th>
-              <th className="px-4 py-2 text-start font-medium">ملاحظة</th>
               <th className="px-4 py-2 text-end font-medium">إجراءات</th>
             </tr>
           </thead>
@@ -184,7 +180,7 @@ export function DaysTable({
           </div>
         </div>
       </Modal>
-    </TooltipProvider>
+    </>
   );
 }
 
@@ -209,7 +205,7 @@ function RowWithSeparator({
     <>
       {showWeekSeparator ? (
         <tr aria-hidden className="bg-bg-muted/60">
-          <td colSpan={4} className="px-4 py-1 text-2xs text-ink-500">
+          <td colSpan={3} className="px-4 py-1 text-2xs text-ink-500">
             <span className="inline-flex items-center gap-1">
               <Calendar size={12} strokeWidth={1.75} />
               الأسبوع الذي يبدأ في {formatIsoDateAr(day.date)}
@@ -241,15 +237,6 @@ function RowWithSeparator({
             <Badge tone="warning">عطلة</Badge>
           ) : (
             <Badge tone="success">يوم عمل</Badge>
-          )}
-        </td>
-        <td className="px-4 py-2 align-middle text-2xs text-ink-700">
-          {day.note ? (
-            <Tooltip content={day.note}>
-              <span className="line-clamp-1 max-w-xs">{day.note}</span>
-            </Tooltip>
-          ) : (
-            <span className="text-ink-400">—</span>
           )}
         </td>
         <td className="px-4 py-2 text-end align-middle">
