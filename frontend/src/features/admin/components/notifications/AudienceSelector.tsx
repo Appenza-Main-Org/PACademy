@@ -48,6 +48,11 @@ export interface AudienceSelectorProps {
 
 export function AudienceSelector({ value, onChange }: AudienceSelectorProps): JSX.Element {
   const committeesQuery = useLookup('committees');
+  const categoriesQuery = useLookup('applicant-categories');
+  const categoryOptions = (categoriesQuery.data ?? []).map((c) => ({
+    value: c.code,
+    label: c.name,
+  }));
 
   const setType = (type: AudienceSelectorValue['type']): void => {
     if (type === 'general') onChange({ type: 'general' });
@@ -79,15 +84,7 @@ export function AudienceSelector({ value, onChange }: AudienceSelectorProps): JS
       {value.type === 'category' && (
         <ChipsList
           label="الفئات"
-          options={[
-            { value: 'officers_general', label: 'الضباط العام' },
-            { value: 'officers_specialized', label: 'الضباط المتخصصون' },
-            { value: 'postgraduate', label: 'الدراسات العليا' },
-            { value: 'institute_officers_training', label: 'تأهيل ضباط' },
-            { value: 'institute_traffic', label: 'معهد المرور' },
-            { value: 'institute_guarding', label: 'معهد الحراسات' },
-            { value: 'special_units', label: 'الوحدات الخاصة' },
-          ]}
+          options={categoryOptions}
           selected={value.categoryKeys}
           onToggle={(v) => {
             const cur = value.categoryKeys;

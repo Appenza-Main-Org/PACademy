@@ -657,13 +657,10 @@ function SummaryItem({ label, value }: { label: string; value: React.ReactNode }
 
 function applicantTypeLabel(key: string): string {
   switch (key) {
-    case 'officers_general': return 'ضباط عاميون';
-    case 'officers_specialized': return 'ضباط متخصصون';
-    case 'postgraduate': return 'دراسات عليا';
-    case 'institute_officers_training': return 'معهد ضباط (تدريب)';
-    case 'institute_traffic': return 'معهد المرور';
-    case 'institute_guarding': return 'معهد الحراسات';
-    case 'special_units': return 'الوحدات الخاصة';
+    case 'officers_general': return 'قسم الضباط (قسم عام)';
+    case 'law_bachelor': return 'ليسانس حقوق';
+    case 'physical_education_bachelor': return 'بكالوريوس تربية رياضية';
+    case 'specialized_officers': return 'الضباط المتخصصون';
     default: return 'الكل';
   }
 }

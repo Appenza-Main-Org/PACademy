@@ -79,13 +79,10 @@ const REJECTION_LABEL: Record<EligibilityRejectionReason, string> = {
 };
 
 const FALLBACK_CATEGORIES: { key: ApplicantCategoryKey; labelAr: string }[] = [
-  { key: 'officers_general', labelAr: 'قسم الضباط (القسم العام)' },
-  { key: 'officers_specialized', labelAr: 'قسم الضباط المتخصصين' },
-  { key: 'postgraduate', labelAr: 'الدراسات العليا' },
-  { key: 'institute_officers_training', labelAr: 'معهد تدريب الضباط' },
-  { key: 'institute_traffic', labelAr: 'معهد المرور' },
-  { key: 'institute_guarding', labelAr: 'معهد الحراسات والتأمين' },
-  { key: 'special_units', labelAr: 'الوحدات الخاصة' },
+  { key: 'officers_general', labelAr: 'قسم الضباط (قسم عام)' },
+  { key: 'law_bachelor', labelAr: 'ليسانس حقوق' },
+  { key: 'physical_education_bachelor', labelAr: 'بكالوريوس تربية رياضية' },
+  { key: 'specialized_officers', labelAr: 'الضباط المتخصصون' },
 ];
 
 const HIGH_SENSITIVITY_PATTERNS: readonly string[] = [

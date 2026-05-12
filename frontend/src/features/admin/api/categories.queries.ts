@@ -49,23 +49,6 @@ export function useUpdateCategoryMutation() {
   });
 }
 
-export function useCreateCategoryMutation() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: { labelAr: string; description?: string }) =>
-      categoriesAdminService.create(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
-  });
-}
-
-export function useRemoveCategoryMutation() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (key: ApplicantCategoryKey) => categoriesAdminService.remove(key),
-    onSuccess: () => qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
-  });
-}
-
 export function useCategorySoftDelete() {
   const qc = useQueryClient();
   return useMutation({

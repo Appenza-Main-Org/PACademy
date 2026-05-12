@@ -526,21 +526,33 @@ export interface TimelineEvent {
   color: AuditColor;
 }
 
-/* ── Applicant categories — Post-polish (RFP Scope Document §2.1) ─────
+/* ── Applicant categories — RFP §2.1 (4 categories, closed set) ───────
  *
- * Source spec: كلية_الشرطة_الاقسام_والشروط — 7 faculty departments with
- * their conditions and required-test sequences. Departments 4–7 are
- * `nominationOnly: true` (ترشيح) and never appear in the public picker.
+ * The RFP Scope Document defines exactly 4 categories. No admin-defined
+ * custom categories are permitted. The derived union is the source of
+ * truth for every consumer that needs to type a category key. Keep this
+ * tuple in sync with the lookup seed at
+ * `features/lookups/mock/lookups.mock.ts` §9.
+ *
+ *   officers_general              — قسم الضباط (قسم عام)         — ذكور فقط
+ *   law_bachelor                  — ليسانس حقوق                  — مختلط
+ *   physical_education_bachelor   — بكالوريوس تربية رياضية       — إناث فقط
+ *   specialized_officers          — الضباط المتخصصون             — مختلط
+ *
+ * Migration history: replaces the legacy 7-key set (added the two
+ * bachelor tracks; retired postgraduate + the 3 institutes + special_units;
+ * renamed `officers_specialized` → `specialized_officers`). See
+ * docs/migration/admission-categories-rfp/AUDIT.md.
  */
 
-export type ApplicantCategoryKey =
-  | 'officers_general'
-  | 'officers_specialized'
-  | 'postgraduate'
-  | 'institute_officers_training'
-  | 'institute_traffic'
-  | 'institute_guarding'
-  | 'special_units';
+export const APPLICANT_CATEGORY_KEYS = [
+  'officers_general',
+  'law_bachelor',
+  'physical_education_bachelor',
+  'specialized_officers',
+] as const;
+
+export type ApplicantCategoryKey = (typeof APPLICANT_CATEGORY_KEYS)[number];
 
 export type RequiredQualification =
   | 'thanaweya_amma'

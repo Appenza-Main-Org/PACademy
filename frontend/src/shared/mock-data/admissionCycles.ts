@@ -49,7 +49,7 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     status: 'processing',
     openCategories: {
       officers_general: { isOpen: false, capacity: 1800, notes: 'تحت المعالجة' },
-      officers_specialized: { isOpen: false, capacity: 200, notes: '' },
+      specialized_officers: { isOpen: false, capacity: 200, notes: '' },
     },
     conditionOverrides: {},
     createdAt: '2024-11-01T00:00:00.000Z',
@@ -71,12 +71,9 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     status: 'closed',
     openCategories: {
       officers_general: { isOpen: true, capacity: 200, notes: 'الفئة الرئيسية للدورة' },
-      officers_specialized: { isOpen: true, capacity: 40, notes: 'تقديم لخريجي الجامعات' },
-      postgraduate: { isOpen: true, capacity: 20, notes: 'برامج الدراسات العليا' },
-      institute_officers_training: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
-      institute_traffic: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
-      institute_guarding: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
-      special_units: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
+      specialized_officers: { isOpen: true, capacity: 40, notes: 'تقديم لخريجي الجامعات' },
+      law_bachelor: { isOpen: true, capacity: 30, notes: 'خريجو الحقوق' },
+      physical_education_bachelor: { isOpen: false, capacity: null, notes: 'يفتح في الدورة النسائية' },
     },
     conditionOverrides: {},
     createdAt: '2024-12-15T00:00:00.000Z',
@@ -104,7 +101,7 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
         startDate: '2026-01-15',
         endDate: '2026-03-31',
       },
-      officers_specialized: {
+      specialized_officers: {
         isOpen: true,
         capacity: 240,
         notes: 'تقديم لخريجي الجامعات',
@@ -112,16 +109,20 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
         startDate: '2026-02-01',
         endDate: '2026-04-15',
       },
-      postgraduate: {
+      law_bachelor: {
+        isOpen: true,
+        capacity: 120,
+        notes: 'تقديم لخريجي كليات الحقوق',
+        genderTypes: ['male', 'female'],
+        startDate: '2026-02-01',
+        endDate: '2026-04-15',
+      },
+      physical_education_bachelor: {
         isOpen: false,
         capacity: null,
-        notes: 'يفتح لاحقاً',
+        notes: 'يفتح في الدورة النسائية',
         genderTypes: ['female'],
       },
-      institute_officers_training: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
-      institute_traffic: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
-      institute_guarding: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
-      special_units: { isOpen: false, capacity: null, notes: 'بالترشيح فقط' },
     },
     conditionOverrides: {},
     fees: {

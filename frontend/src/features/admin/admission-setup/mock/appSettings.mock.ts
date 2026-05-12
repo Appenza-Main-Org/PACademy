@@ -54,18 +54,17 @@ export const APPLICANT_CATEGORY_CONFIGS: ApplicantCategoryConfig[] = CATEGORY_RO
 
 /**
  * Per-category attachment plan, keyed by the lookup's actual `code`
- * (snake_case, not the brief's CAT-NN prefix). Empty arrays for
- * categories the seed doesn't surface specializations for —
- * the UI shows them collapsed but creatable.
+ * (snake_case). Only `specialized_officers` carries a real specialization
+ * axis in the RFP §2.1 model — the other three categories don't have a
+ * "specialization" concept per the brief, so the UI either renders an
+ * implicit "default" junction (commit 2) or leaves the list empty here
+ * and the application_settings wizard step branches on the category code.
  */
 const ATTACHMENT_PLAN: Record<string, string[]> = {
-  officers_general:            ['SPC-01', 'SPC-02', 'SPC-03', 'SPC-07'],
-  officers_specialized:        ['SPC-04', 'SPC-05', 'SPC-12'],
-  postgraduate:                ['SPC-11', 'SPC-10'],
-  institute_officers_training: ['SPC-09'],
-  institute_traffic:           [],
-  institute_guarding:          [],
-  special_units:               [],
+  officers_general:            [],
+  law_bachelor:                [],
+  physical_education_bachelor: [],
+  specialized_officers:        ['SPC-01', 'SPC-04', 'SPC-12'],
 };
 
 export const APPLICANT_CATEGORY_SPECIALIZATIONS: ApplicantCategorySpecialization[] = (() => {
@@ -149,35 +148,34 @@ const YEAR_BLUEPRINTS_PER_CATEGORY: Record<string, YearBlueprintBase[]> = (() =>
   }
 
   const officersGeneral: YearBlueprintBase[] = [
-    { ...basicGrades(CURRENT_YEAR - 2, 'male',   ['DIV-01']),             minPercentage: 70 },
-    { ...basicGrades(CURRENT_YEAR - 1, 'male',   ['DIV-01', 'DIV-02']),    minPercentage: 75 },
-    { ...basicGrades(CURRENT_YEAR,     'female', ['DIV-01']),             minPercentage: 80,
-      maritalStatusCodes: ['MAR-01'] },
+    { ...basicGrades(CURRENT_YEAR - 2, 'male', ['DIV-01']),          minPercentage: 70 },
+    { ...basicGrades(CURRENT_YEAR - 1, 'male', ['DIV-01', 'DIV-02']), minPercentage: 75 },
+    { ...basicGrades(CURRENT_YEAR,     'male', ['DIV-01']),          minPercentage: 80 },
   ];
 
-  const officersSpecialized: YearBlueprintBase[] = [
-    { ...basicGrades(CURRENT_YEAR - 4, 'male', []), maxAge: 28, academicGradeId: 'AGR-02' },
-    { ...basicGrades(CURRENT_YEAR - 2, 'male', []), maxAge: 28, academicGradeId: 'AGR-03' },
+  const lawBachelor: YearBlueprintBase[] = [
+    { ...basicGrades(CURRENT_YEAR - 3, 'male',   []), maxAge: 28, academicGradeId: 'AGR-02' },
     { ...basicGrades(CURRENT_YEAR - 1, 'female', []), maxAge: 28, academicGradeId: 'AGR-03',
       maritalStatusCodes: ['MAR-01', 'MAR-02'] },
   ];
 
-  const postgraduate: YearBlueprintBase[] = [
-    { ...basicGrades(CURRENT_YEAR - 5, 'male', []), maxAge: 35,
-      maritalStatusCodes: ['MAR-01', 'MAR-02'], academicGradeId: 'AGR-02' },
-    { ...basicGrades(CURRENT_YEAR - 3, 'male', []), maxAge: 35,
-      maritalStatusCodes: ['MAR-01', 'MAR-02'], academicGradeId: 'AGR-02' },
+  const physicalEducationBachelor: YearBlueprintBase[] = [
+    { ...basicGrades(CURRENT_YEAR - 2, 'female', []), maxAge: 26, academicGradeId: 'AGR-03' },
+    { ...basicGrades(CURRENT_YEAR,     'female', []), maxAge: 26, academicGradeId: 'AGR-02' },
   ];
 
-  const instituteOfficersTraining: YearBlueprintBase[] = [
-    { ...basicGrades(CURRENT_YEAR - 1, 'male', []), maxAge: 30, academicGradeId: 'AGR-03' },
+  const specializedOfficers: YearBlueprintBase[] = [
+    { ...basicGrades(CURRENT_YEAR - 4, 'male',   []), maxAge: 28, academicGradeId: 'AGR-02' },
+    { ...basicGrades(CURRENT_YEAR - 2, 'male',   []), maxAge: 28, academicGradeId: 'AGR-03' },
+    { ...basicGrades(CURRENT_YEAR - 1, 'female', []), maxAge: 28, academicGradeId: 'AGR-03',
+      maritalStatusCodes: ['MAR-01', 'MAR-02'] },
   ];
 
   return {
     officers_general:            officersGeneral,
-    officers_specialized:        officersSpecialized,
-    postgraduate:                postgraduate,
-    institute_officers_training: instituteOfficersTraining,
+    law_bachelor:                lawBachelor,
+    physical_education_bachelor: physicalEducationBachelor,
+    specialized_officers:        specializedOfficers,
   };
 })();
 

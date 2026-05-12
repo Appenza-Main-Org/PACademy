@@ -56,7 +56,6 @@ import {
   ApplicationStatusPage,
   AuditPage,
   CategoriesListPage,
-  CategoryNewPage,
   CategoryEditPage,
   CommitteeMergeSplitPage,
   CommitteesManagementPage,
@@ -231,9 +230,9 @@ export const routes: RouteObject[] = [
       { path: 'reference-data', element: <Navigate to="/admin/lookups" replace /> },
       { path: 'reference-data/:tab', element: <Navigate to="/admin/lookups/:tab" replace /> },
       { path: 'categories', element: <CategoriesListPage /> },
-      /* `/new` must be registered BEFORE `/:key` so the literal create
-       * route wins matching against the dynamic edit route. */
-      { path: 'categories/new', element: <CategoryNewPage /> },
+      /* `/new` retired — the RFP category set is locked to 4 entries.
+       * Anyone hitting the legacy URL bounces back to the list. */
+      { path: 'categories/new', element: <Navigate to="/admin/categories" replace /> },
       { path: 'categories/:key', element: <CategoryEditPage /> },
       { path: 'cycles', element: <CyclesPage /> },
       { path: 'cycles/new', element: <CycleNewPage /> },

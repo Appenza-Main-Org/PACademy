@@ -31,7 +31,6 @@ export { CycleDetailPage } from './pages/CycleDetailPage';
 
 /* Post-polish admin pages — Buckets D and E */
 export { CategoriesListPage } from './pages/CategoriesListPage';
-export { CategoryNewPage } from './pages/CategoryNewPage';
 export { CategoryEditPage } from './pages/CategoryEditPage';
 export { CycleNewPage } from './pages/CycleNewPage';
 
