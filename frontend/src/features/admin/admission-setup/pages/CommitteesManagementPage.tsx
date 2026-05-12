@@ -1,17 +1,19 @@
 /**
- * Step 8 — إدارة اللجان.
+ * إدارة اللجان — wizard step.
  *
- * Treats committees as dynamic lookup entities bound to the cycle's
- * academic year. The admin picks which committees enter the distribution
- * pool for this cycle (optionally per-category), reviews capacity /
- * specialization fit on each card, and persists the binding via
- * `useSetCommitteeBindings`. Selected committees are highlighted with
- * the accent-flavoured selected state; full / inactive committees are
- * disabled and excluded from the assignment pool.
+ * Per-active-category Radix Tabs view onto the cycle's committee
+ * distribution pool. Each tab scopes:
+ *   • the MultiSelect picker
+ *   • the eligible-committees card grid
+ *   • the save mutation (categoryId scope)
+ * Persistence still flows through `useSetCommitteeBindings({cycleId,
+ * categoryId, committeeIds})` — the tab strip replaces the previous
+ * "category filter" combobox so admins can never accidentally save the
+ * same pool across categories.
  *
- * The "إضافة لجنة" / "إدارة اللجان الكاملة" actions still bridge to the
- * canonical committee app pages — this step *enrols* committees into the
- * cycle, the committee app *creates* them.
+ * Active-category source is `useCategoryConfigs()` filtered by
+ * `isActive === true`, surfaced via the shared `useActiveCategoriesForCycle`
+ * helper.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -21,41 +23,42 @@ import {
   Badge,
   Button,
   Card,
-  Combobox,
   EmptyState,
   ErrorState,
   LoadingState,
   MultiSelect,
   PageHeader,
+  Tabs,
   toast,
 } from '@/shared/components';
 import type { ComboboxOption } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useCommittees } from '@/features/committees';
 import { useAuthStore } from '@/features/auth';
-import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
 import { cn } from '@/shared/lib/cn';
 import { num } from '@/shared/lib/format';
 import { MOCK } from '@/shared/mock-data';
-import type {
-  AdmissionCycle,
-  ApplicantCategory,
-  ApplicantCategoryKey,
-  Committee,
+import {
+  APPLICANT_CATEGORY_KEYS,
+  type AdmissionCycle,
+  type ApplicantCategoryKey,
+  type Committee,
 } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
+import { useActiveCategoriesForCycle } from '../lib/activeCategories';
 import {
   useCommitteeBindings,
   useSetCommitteeBindings,
 } from '../api/admission-setup.queries';
 
-const ALL_CATEGORIES_KEY = '__all__' as const;
-type CategoryFilterValue = ApplicantCategoryKey | typeof ALL_CATEGORIES_KEY;
-
 /** Cycles only declare `year`; the academic year string is `${year}-${year+1}`. */
 function academicYearForCycle(cycle: AdmissionCycle): string {
   return `${cycle.year}-${cycle.year + 1}`;
+}
+
+function isApplicantCategoryKey(code: string): code is ApplicantCategoryKey {
+  return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(code);
 }
 
 export function CommitteesManagementPage(): JSX.Element {
@@ -72,31 +75,113 @@ interface BodyProps {
 }
 
 function Body({ cycle }: BodyProps): JSX.Element {
+  const activeQuery = useActiveCategoriesForCycle(cycle.id);
+  const active = useMemo(
+    () =>
+      (activeQuery.data ?? [])
+        .filter((c) => isApplicantCategoryKey(c.code))
+        .map((c) => ({
+          key: c.code as ApplicantCategoryKey,
+          labelAr: c.nameAr,
+        })),
+    [activeQuery.data],
+  );
+
+  const [activeKey, setActiveKey] = useState<ApplicantCategoryKey | null>(null);
+  const resolvedActive: ApplicantCategoryKey | null =
+    activeKey && active.some((c) => c.key === activeKey)
+      ? activeKey
+      : (active[0]?.key ?? null);
+
+  if (activeQuery.isLoading) {
+    return <LoadingState variant="card-grid" />;
+  }
+
+  if (active.length === 0) {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="إدارة اللجان"
+          subtitle="اختر اللجان التي ستستقبل المتقدمين في هذه الدورة."
+        />
+        <EmptyState
+          variant="generic"
+          title="يرجى تفعيل فئة واحدة على الأقل من إعدادات التقديم"
+          action={
+            <Link to={ROUTES.admin.admissionSetup.applicationSettings} className="inline-flex">
+              <Button variant="primary">إعدادات التقديم</Button>
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="إدارة اللجان"
+        subtitle={`العام الأكاديمي ${academicYearForCycle(cycle)} · اللجان مفلترة لكل فئة على حدة.`}
+        actions={
+          <Link to={ROUTES.committee.list} className="inline-flex">
+            <Button
+              variant="ghost"
+              size="sm"
+              trailingIcon={
+                <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
+              }
+            >
+              إدارة اللجان الكاملة
+            </Button>
+          </Link>
+        }
+      />
+      <Card>
+        <Tabs
+          value={resolvedActive ?? active[0]!.key}
+          onValueChange={(next) => setActiveKey(next as ApplicantCategoryKey)}
+        >
+          <Tabs.List aria-label="فئات التقديم النشطة">
+            {active.map((cat) => (
+              <Tabs.Tab key={cat.key} value={cat.key}>
+                {cat.labelAr}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+          {active.map((cat) => (
+            <Tabs.Panel key={cat.key} value={cat.key}>
+              <div className="pt-3">
+                <CategoryBindings cycle={cycle} categoryKey={cat.key} categoryLabel={cat.labelAr} />
+              </div>
+            </Tabs.Panel>
+          ))}
+        </Tabs>
+      </Card>
+    </div>
+  );
+}
+
+interface CategoryBindingsProps {
+  cycle: AdmissionCycle;
+  categoryKey: ApplicantCategoryKey;
+  categoryLabel: string;
+}
+
+function CategoryBindings({
+  cycle,
+  categoryKey,
+  categoryLabel,
+}: CategoryBindingsProps): JSX.Element {
   const academicYearId = academicYearForCycle(cycle);
   const canWrite = useAdmissionSetupCanWrite();
   const actorUserId = useAuthStore((s) => s.user?.id);
 
   const committeesQuery = useCommittees();
-  const bindingsQuery = useCommitteeBindings(cycle.id, null);
-  const categoriesQuery = useCategoriesAdmin();
+  const bindingsQuery = useCommitteeBindings(cycle.id, categoryKey);
   const setBindings = useSetCommitteeBindings();
 
   const allCommittees = committeesQuery.data ?? [];
-  const allCategories = categoriesQuery.data ?? [];
 
-  /* Active categories only — the picker filter must mirror what applicants
-   * can actually enrol into for this cycle. */
-  const activeCategories = useMemo<ApplicantCategory[]>(
-    () => allCategories.filter((c) => !c.deletedAt && c.isOpen),
-    [allCategories],
-  );
-
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilterValue>(
-    ALL_CATEGORIES_KEY,
-  );
-
-  /* Pool of committees the admin is *allowed* to select from. Mirrors the
-   * server-side validation in `admissionSetupService.setCommitteeBindings`. */
   const eligibleCommittees = useMemo<Committee[]>(() => {
     return allCommittees.filter((c) => {
       if (c.deletedAt) return false;
@@ -106,30 +191,17 @@ function Body({ cycle }: BodyProps): JSX.Element {
     });
   }, [allCommittees, academicYearId]);
 
-  /* Seed selection from persisted bindings on cycle change. */
+  const eligibleIds = useMemo(
+    () => new Set(eligibleCommittees.map((c) => c.id)),
+    [eligibleCommittees],
+  );
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   useEffect(() => {
     if (!bindingsQuery.data) return;
     const ids = Array.from(new Set(bindingsQuery.data.map((b) => b.committeeId)));
     setSelectedIds(ids);
   }, [bindingsQuery.data]);
-
-  /* Display set — when the admin filters by category, show only committees
-   * whose specialization set overlaps the category's specialization scope.
-   * Categories don't currently declare specialization links in mock-data,
-   * so the filter falls back to "show everything" when no scope is set.
-   * Computed before the loading/error early returns to keep hook order stable. */
-  const filteredCommittees = useMemo<Committee[]>(() => {
-    if (categoryFilter === ALL_CATEGORIES_KEY) return eligibleCommittees;
-    /* No category→specialization edge yet — same pool, but the heading
-     * makes the active filter obvious to the admin. */
-    return eligibleCommittees;
-  }, [eligibleCommittees, categoryFilter]);
-
-  const eligibleIds = useMemo(
-    () => new Set(eligibleCommittees.map((c) => c.id)),
-    [eligibleCommittees],
-  );
 
   const comboboxOptions = useMemo<ComboboxOption[]>(
     () => eligibleCommittees.map((c) => toComboboxOption(c)),
@@ -143,9 +215,9 @@ function Body({ cycle }: BodyProps): JSX.Element {
     return <ErrorState title="تعذّر تحميل اللجان" onRetry={() => committeesQuery.refetch()} />;
   }
 
+  const hasSelections = selectedIds.length > 0;
+
   const handleSelect = (next: string[]): void => {
-    /* Filter out anything that turned ineligible between picker render
-     * and submit (capacity hit, status flip, …). */
     const sanitized = next.filter((id) => eligibleIds.has(id));
     const deduped = Array.from(new Set(sanitized));
     if (deduped.length !== next.length) {
@@ -170,129 +242,110 @@ function Body({ cycle }: BodyProps): JSX.Element {
       await setBindings.mutateAsync({
         cycleId: cycle.id,
         academicYearId,
-        ...(categoryFilter !== ALL_CATEGORIES_KEY ? { categoryId: categoryFilter } : {}),
+        categoryId: categoryKey,
         committeeIds: selectedIds,
         ...(actorUserId ? { actorUserId } : {}),
       });
-      toast('تم حفظ اللجان المختارة للتوزيع', 'success');
+      toast(`تم حفظ اللجان المختارة لفئة "${categoryLabel}"`, 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'تعذّر حفظ الاختيار';
       toast(message, 'danger');
     }
   };
 
-  const hasNoCommittees = allCommittees.length === 0;
+  if (allCommittees.length === 0) {
+    return (
+      <EmptyState
+        variant="generic"
+        title="لا توجد لجان لهذه الفئة بعد"
+        action={
+          <Link to={ROUTES.committee.create} className="inline-flex">
+            <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
+              إضافة لجنة
+            </Button>
+          </Link>
+        }
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
-        title="إدارة اللجان"
-        subtitle={`${num(eligibleCommittees.length)} لجنة متاحة · ${num(selectedIds.length)} مختارة للتوزيع · العام الأكاديمي ${academicYearId}`}
-        actions={
-          <div className="flex items-center gap-2">
-            <Link to={ROUTES.committee.list} className="inline-flex">
-              <Button
-                variant="ghost"
-                size="sm"
-                trailingIcon={
-                  <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
-                }
-              >
-                إدارة اللجان الكاملة
-              </Button>
-            </Link>
+      <SelectionPanel
+        options={comboboxOptions}
+        value={selectedIds}
+        onChange={handleSelect}
+        disabled={!canWrite}
+        onSave={handleSave}
+        isSaving={setBindings.isPending}
+        eligibleCount={eligibleCommittees.length}
+      />
+
+      {!hasSelections && eligibleCommittees.length === 0 ? (
+        <EmptyState
+          variant="generic"
+          title="لا توجد لجان لهذه الفئة بعد"
+          action={
             <Link to={ROUTES.committee.create} className="inline-flex">
               <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
                 إضافة لجنة
               </Button>
             </Link>
-          </div>
-        }
-      />
-
-      {hasNoCommittees ? (
-        <EmptyState
-          variant="generic"
-          title="لا توجد لجان مسجلة بعد"
-          description="ابدأ بإنشاء أول لجنة قبول لتظهر هنا، ثم ارجع لاختيارها للتوزيع."
-          action={
-            <Link to={ROUTES.committee.create} className="inline-flex">
-              <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
-                إنشاء لجنة جديدة
-              </Button>
-            </Link>
           }
         />
       ) : (
-        <>
-          <SelectionPanel
-            options={comboboxOptions}
-            value={selectedIds}
-            onChange={handleSelect}
-            categoryFilter={categoryFilter}
-            onCategoryChange={setCategoryFilter}
-            activeCategories={activeCategories}
-            disabled={!canWrite}
-            onSave={handleSave}
-            isSaving={setBindings.isPending}
-          />
-
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {filteredCommittees.map((c) => (
-              <CommitteeCard
-                key={c.id}
-                committee={c}
-                selected={selectedIds.includes(c.id)}
-                disabled={!canWrite || !isCommitteeSelectable(c, eligibleIds)}
-                onToggle={() => toggleCard(c)}
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {eligibleCommittees.map((c) => (
+            <CommitteeCard
+              key={c.id}
+              committee={c}
+              selected={selectedIds.includes(c.id)}
+              disabled={!canWrite || !isCommitteeSelectable(c, eligibleIds)}
+              onToggle={() => toggleCard(c)}
+            />
+          ))}
+          {eligibleCommittees.length === 0 && (
+            <div className="md:col-span-2 lg:col-span-3">
+              <EmptyState
+                variant="generic"
+                title="لا توجد لجان لهذه الفئة بعد"
+                action={
+                  <Link to={ROUTES.committee.create} className="inline-flex">
+                    <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
+                      إضافة لجنة
+                    </Button>
+                  </Link>
+                }
               />
-            ))}
-            {filteredCommittees.length === 0 && (
-              <div className="md:col-span-2 lg:col-span-3">
-                <EmptyState
-                  variant="generic"
-                  title="لا توجد لجان مطابقة"
-                  description="جرّب إزالة عامل تصفية الفئة لرؤية كامل اللجان المتاحة."
-                />
-              </div>
-            )}
-          </div>
-        </>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-/* ── Selection panel (MultiSelect + category filter + save action) ───── */
+/* ── Selection panel (MultiSelect + save action) ───────────────────── */
 
 interface SelectionPanelProps {
   options: ComboboxOption[];
   value: string[];
   onChange: (next: string[]) => void;
-  categoryFilter: CategoryFilterValue;
-  onCategoryChange: (next: CategoryFilterValue) => void;
-  activeCategories: ApplicantCategory[];
   disabled: boolean;
   onSave: () => void;
   isSaving: boolean;
+  eligibleCount: number;
 }
 
 function SelectionPanel({
   options,
   value,
   onChange,
-  categoryFilter,
-  onCategoryChange,
-  activeCategories,
   disabled,
   onSave,
   isSaving,
+  eligibleCount,
 }: SelectionPanelProps): JSX.Element {
-  const categoryOptions: ComboboxOption[] = [
-    { value: ALL_CATEGORIES_KEY, label: 'كل الفئات' },
-    ...activeCategories.map((c) => ({ value: c.key, label: c.labelAr })),
-  ];
-
   return (
     <Card variant="elevated" className="space-y-3">
       <div className="flex flex-col gap-1">
@@ -300,31 +353,20 @@ function SelectionPanel({
           اللجان المتاحة للتوزيع
         </h3>
         <p className="text-2xs text-ink-500">
-          اختر اللجان التي ستستقبل المتقدمين في هذه الدورة. اللجان المعطلة أو
-          المكتملة لا تظهر هنا.
+          اختر اللجان التي ستستقبل المتقدمين في هذه الفئة. اللجان المعطلة أو المكتملة لا تظهر هنا.
+          <span className="ms-1 font-numeric tnum">{num(eligibleCount)} لجنة متاحة</span>.
         </p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_240px]">
-        <MultiSelect
-          label="اللجان المختارة"
-          placeholder="ابحث وأضف لجنة…"
-          options={options}
-          value={value}
-          onChange={onChange}
-          disabled={disabled}
-          ariaLabel="اللجان المتاحة للتوزيع"
-        />
-        <Combobox
-          label="تصفية حسب الفئة"
-          options={categoryOptions}
-          value={categoryFilter}
-          onChange={(next) =>
-            onCategoryChange((next as CategoryFilterValue | null) ?? ALL_CATEGORIES_KEY)
-          }
-          ariaLabel="تصفية اللجان حسب فئة المتقدمين"
-        />
-      </div>
+      <MultiSelect
+        label="اللجان المختارة"
+        placeholder="ابحث وأضف لجنة…"
+        options={options}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        ariaLabel="اللجان المتاحة للتوزيع"
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <p className="text-2xs text-ink-500">
