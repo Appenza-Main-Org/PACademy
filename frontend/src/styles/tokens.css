@@ -184,6 +184,10 @@
   --z-dropdown:        200;
   --z-modal-backdrop:  900;
   --z-modal:           1000;
+  /* Portal'd popovers (DatePicker, Combobox, MultiSelect) need to render
+   * above modals when they're opened from inside one. Sits below toasts
+   * and tooltips so transient overlays still win. */
+  --z-popover:         1050;
   --z-toast:           1100;
   --z-tooltip:         1200;
 

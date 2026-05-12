@@ -8,7 +8,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CircleHelp, Layers, LogOut, Search, UserCircle } from 'lucide-react';
+import { CircleHelp, LogOut, Search, UserCircle } from 'lucide-react';
 import {
   Avatar,
   CommandPalette,
@@ -105,15 +105,6 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
             aria-label="الدعم"
           >
             <CircleHelp size={18} strokeWidth={1.75} />
-          </Link>
-          <Link
-            to="/architecture"
-            className="hidden items-center gap-2 rounded-md px-3 py-1.5 text-sm text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none md:inline-flex"
-            title="System Architecture"
-            dir="ltr"
-          >
-            <Layers size={16} strokeWidth={1.75} />
-            <span>System Architecture</span>
           </Link>
           <Link
             to="/profile"

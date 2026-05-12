@@ -684,3 +684,109 @@ default`, `shared/` doesn't import `features/`, no hardcoded
 `/admin/admission-*` paths). `docs/INTEGRATION_HANDOFF.md` §2 has the
 new `admissionSetupService` contract row, §8 has the
 persistence-model open question.
+
+---
+
+## Universal Import / Export / Duplicate (post-closeout enhancement)
+
+Date: 2026-05-11 · Driven by `Tasks/LIST_ACTIONS_PROMPT.md`.
+
+### Inventory
+
+`docs/LIST_ACTIONS_INVENTORY.md` — every admin/staff list page mapped
+to its export / import / duplicate support with rationale. 27 pages
+covered, 6 composite pages explicitly skipped (wizards / dashboards /
+schedule timelines aren't lists).
+
+### Primitives shipped
+
+`frontend/src/shared/components/data-table/`:
+- `ListActions.tsx` — toolbar primitive (export + import buttons,
+  permission-gated, render-nothing when no actions allowed).
+- `ExportMenu.tsx` — Radix DropdownMenu with CSV/XLSX picker,
+  filtered-vs-all scope toggle, 500-row progress strip.
+- `ImportDialog.tsx` — 3-step (pick → preview → commit) modal built on
+  `Modal` + `FileUpload`. Per-row validation, downloadable error report,
+  "استيراد الصالح فقط" affordance for partial imports.
+- `ImportPreviewTable.tsx` — `DataTable<ImportPreviewRow>` (inception)
+  with success/error row tokens.
+- `DuplicateAction.tsx` — render-prop trigger + AlertDialog confirm with
+  audit emission + redirect-to-edit support.
+- `export-runner.ts` — `runExport({rows, config, format, scope, …})`
+  pure helper used by `ExportMenu`. Yields to event loop every 100 rows
+  past 500 to keep the UI responsive.
+- `list-actions.types.ts` — `ListActionsConfig<TRow>` discriminated
+  union, exported through the components barrel.
+
+`frontend/src/shared/lib/`:
+- `csv.ts` — UTF-8 BOM CSV serialize/parse (~50 LOC, no deps).
+- `xlsx.ts` — thin wrapper around `xlsx@0.18` (already a project dep).
+- `list-action-permissions.ts` — `canPerformListAction()` derives default
+  permission mapping (`*:export` ← `*:view/read/manage/*`,
+  `*:import|duplicate` ← `*:write/manage/*`) without mutating `rbac.ts`.
+- `list-action-actor.ts` — `setListActionPermissionsProvider()` mirrors
+  the audit-actor provider pattern; `App.tsx` wires it to the auth store.
+
+### Audit additions
+
+`AuditAction` union (`shared/types/domain.ts`) gains three literals:
+`entity_exported`, `entity_imported`, `entity_duplicated`. Default
+labels/colors in `shared/lib/audit.ts:ACTION_FALLBACK`. Every action
+emitted via `emitAudit()` per the existing append-only contract.
+
+### Wired list pages (Phase 2)
+
+| Page | Export | Import | Duplicate |
+|---|---|---|---|
+| `/admin/applicants` | ✅ | — | — |
+| `/admin/users` | ✅ | ✅ (NID-driven bulk via `usersService.bulkImport`) | ✅ (row → `createFromTemplate` → edit page) |
+| `/admin/audit` | ✅ | — | — |
+| `/admin/reference-data/:tab` | ✅ | ✅ (`lookupsService.bulkImport`) | — |
+| `/admin/cycles` | ✅ | — | ✅ (reuses `cyclesService.clone`, never violates `ACTIVE_CYCLE_EXISTS`) |
+| `/admin/categories` | ✅ | — | ✅ (auto-unique `key` suffix, redirects to edit) |
+| `/admin/payments` | ✅ | — | — |
+| `/admin/notifications` | ✅ | — | — |
+| `/admin/users/roles` | ✅ | — | — |
+| `/admin/committee/list` | ✅ | — | — |
+| `/board/sessions` | ✅ | — | — |
+| `/board/decisions` | ✅ | — | — |
+| `/board/members` | ✅ | ✅ (`boardService.bulkImportMembers`) | — |
+| `/investigations/cases` | ✅ | — | — |
+| `/investigations/incoming` | ✅ | — | — |
+| `/investigations/outgoing` | ✅ | — | — |
+| `/investigations/distribution` | ✅ | — | — |
+| `/barcode/scans` | ✅ | — | — |
+| `/question-bank/manage` | ✅ | ✅ (`examsService.createQuestionBatch`) | ✅ (row → fresh `Q-…` id) |
+| `/question-bank/exams` | ✅ | — | — |
+
+### Service-method additions
+
+- `usersService.bulkImport(rows: BulkImportUserRow[])` →
+  `{ attemptedCount, successCount, failedRows }` — `INTEGRATION CONTRACT`
+  pointing at `POST /api/users/bulk-import`.
+- `usersService.createFromTemplate(sourceId, overrides)` — clones role-set
+  + scope from an existing user; account lands inactive.
+- `lookupsService.bulkImport(lookupKey, rows)` — per-lookup bulk load.
+- `boardService.bulkImportMembers(rows)` — roster bulk import.
+- `examsService.createQuestionBatch` (pre-existing, now driven by both the
+  legacy ImportWizard and the new `ImportDialog`).
+- `cyclesService.clone` (pre-existing, reused as the duplicate handler).
+
+### Permissions
+
+Implemented as a runtime helper (`canPerformListAction`) rather than
+seed-role changes; the prompt's default mapping satisfies the existing
+`ROLE_DEFINITIONS` without further role engineering. Super_admin (`*`)
+always passes; `committee_admin` / `medical_admin` / etc. pick up
+export/import/duplicate via their existing `:view` / `:manage` /
+`:write` permissions.
+
+### Validation
+
+`npm run typecheck` and `npm run build` clean from `frontend/`. All four
+spec validation greps return zero (no `: any` in new code, no
+`export default` in the new subfolder, `shared/` doesn't import
+`features/`, no hardcoded hex/px in the new primitives).
+`docs/INTEGRATION_HANDOFF.md` §2 updated with the new
+`bulkImport` / `createFromTemplate` / `bulkImportMembers` rows; §8
+appended with the bulk-import retry-strategy open question.

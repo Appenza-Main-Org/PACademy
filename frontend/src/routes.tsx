@@ -10,7 +10,7 @@
  *                         /architecture, /profile
  */
 
-import { Navigate, type RouteObject } from 'react-router-dom';
+import { Navigate, useParams, type RouteObject } from 'react-router-dom';
 import { AuthGuard } from '@/app/providers/AuthGuard';
 import { LoginPage, useAuthStore } from '@/features/auth';
 import { ROUTES } from '@/config/routes';
@@ -20,7 +20,8 @@ import { RevampComparisonPage } from '@/features/design-revamp';
 import { ProfilePage } from '@/features/profile';
 import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
-import { PrimitivesReviewPage } from '@/features/dev';
+import { AppSettingsReviewPage, LookupsReviewPage, PrimitivesReviewPage } from '@/features/dev';
+import { LookupsHubPage } from '@/features/lookups/pages/LookupsHubPage';
 import {
   ApplicantPortalLayout,
   ApplicationSummaryPage,
@@ -43,7 +44,6 @@ import {
 } from '@/features/applicant-portal';
 import {
   AdminLayout,
-  AdmissionRulesPage,
   AdmissionSetupIndexPage,
   AdmissionSetupWizardPage,
   ApplicantDetailPage,
@@ -56,11 +56,11 @@ import {
   ApplicationStatusPage,
   AuditPage,
   CategoriesListPage,
+  CategoryNewPage,
   CategoryEditPage,
   CommitteeMergeSplitPage,
   CommitteesManagementPage,
   CycleDetailPage,
-  CycleMetadataPage,
   CycleNewPage,
   CyclesPage,
   DashboardPage,
@@ -68,11 +68,9 @@ import {
   ElectronicDeclarationPage,
   ExamDatesPage,
   ExamsManagementPage,
-  MaritalStatusRulesPage,
   NotificationsPage,
   NotificationsStepPage,
   PaymentsPage,
-  ReferenceDataPage,
   ReportsPage,
   RolesPage,
   ScoreThresholdsPage,
@@ -86,9 +84,10 @@ import {
   WorkflowsListPage,
 } from '@/features/admin';
 import {
+  CommitteeApplicantsPage,
   CommitteeCreatePage,
   CommitteeDetailPage,
-  CommitteeLayout,
+  CommitteeEditPage,
   CommitteeListPage,
   CommitteeOverviewPage,
   CommitteeSchedulePage,
@@ -177,6 +176,15 @@ function HubIndexRoute(): JSX.Element {
   return <HubPage />;
 }
 
+/**
+ * Back-compat redirect for the legacy `/committee/:id` detail URLs.
+ * Forwards the `:id` segment to the new `/admin/committee/:id` route.
+ */
+function LegacyCommitteeDetailRedirect(): JSX.Element {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/admin/committee/${id ?? ''}`} replace />;
+}
+
 export const routes: RouteObject[] = [
   /* ── PUBLIC SURFACE — no auth required ───────────────────── */
   { path: '/', element: <PublicLandingPage /> },
@@ -217,10 +225,15 @@ export const routes: RouteObject[] = [
       { path: 'audit', element: <AuditPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'reports', element: <ReportsPage /> },
-      { path: 'reference-data', element: <ReferenceDataPage /> },
-      { path: 'reference-data/:tab', element: <ReferenceDataPage /> },
-      { path: 'admission-rules', element: <AdmissionRulesPage /> },
+      /* Lookup Management Module — /admin/reference-data redirects here. */
+      { path: 'lookups', element: <LookupsHubPage /> },
+      { path: 'lookups/:tab', element: <LookupsHubPage /> },
+      { path: 'reference-data', element: <Navigate to="/admin/lookups" replace /> },
+      { path: 'reference-data/:tab', element: <Navigate to="/admin/lookups/:tab" replace /> },
       { path: 'categories', element: <CategoriesListPage /> },
+      /* `/new` must be registered BEFORE `/:key` so the literal create
+       * route wins matching against the dynamic edit route. */
+      { path: 'categories/new', element: <CategoryNewPage /> },
       { path: 'categories/:key', element: <CategoryEditPage /> },
       { path: 'cycles', element: <CyclesPage /> },
       { path: 'cycles/new', element: <CycleNewPage /> },
@@ -236,16 +249,14 @@ export const routes: RouteObject[] = [
        * pages so an admin without the permission lands on a calm empty
        * state instead of a redirect. */
       { path: 'admission-setup', element: <AdmissionSetupIndexPage /> },
-      /* Wizard route — single page that orchestrates all 15 setup steps as
+      /* Wizard route — single page that orchestrates all 14 setup steps as
        * a top-stepper flow. `:stepKey` is one of `AdmissionSetupStepKey`
        * or the literal `'review'` (handled inside the page). */
-      { path: 'admission-setup/wizard', element: <Navigate to={ROUTES.admin.admissionSetup.wizard('cycle_metadata')} replace /> },
+      { path: 'admission-setup/wizard', element: <Navigate to={ROUTES.admin.admissionSetup.wizard('application_settings')} replace /> },
       { path: 'admission-setup/wizard/:stepKey', element: <AdmissionSetupWizardPage /> },
-      { path: 'admission-setup/cycle-metadata', element: <CycleMetadataPage /> },
       { path: 'admission-setup/application-settings', element: <ApplicationSettingsPage /> },
       { path: 'admission-setup/application-status', element: <ApplicationStatusPage /> },
       { path: 'admission-setup/age-rules', element: <AgeRulesPage /> },
-      { path: 'admission-setup/marital-status-rules', element: <MaritalStatusRulesPage /> },
       { path: 'admission-setup/fees', element: <AdmissionFeesPage /> },
       { path: 'admission-setup/exams', element: <ExamsManagementPage /> },
       { path: 'admission-setup/committees', element: <CommitteesManagementPage /> },
@@ -292,17 +303,32 @@ export const routes: RouteObject[] = [
   },
 
   /* ── STAFF INTERNAL APPS ─────────────────────────────────── */
+  /**
+   * Committees now live under /admin/committee/* so they render inside
+   * AdminLayout chrome (matching the "لجان القبول" sidebar section in
+   * AdminLayout.tsx). Kept as a sibling block — not a child of /admin —
+   * so the AuthGuard can stay `app="committee"`: committee_user has
+   * `committee` but not `admin`, and we don't want to lock them out.
+   */
   {
-    path: '/committee',
-    element: <AuthGuard app="committee"><CommitteeLayout /></AuthGuard>,
+    path: '/admin/committee',
+    element: <AuthGuard app="committee"><AdminLayout /></AuthGuard>,
     children: [
       { index: true, element: <CommitteeOverviewPage /> },
       { path: 'list', element: <CommitteeListPage /> },
       { path: 'schedule', element: <CommitteeSchedulePage /> },
       { path: 'create', element: <CommitteeCreatePage /> },
       { path: ':id', element: <CommitteeDetailPage /> },
+      { path: ':id/edit', element: <CommitteeEditPage /> },
+      { path: ':id/applicants', element: <CommitteeApplicantsPage /> },
     ],
   },
+  /* Back-compat: old /committee/* URLs land users on the new paths. */
+  { path: '/committee', element: <Navigate to="/admin/committee" replace /> },
+  { path: '/committee/list', element: <Navigate to="/admin/committee/list" replace /> },
+  { path: '/committee/schedule', element: <Navigate to="/admin/committee/schedule" replace /> },
+  { path: '/committee/create', element: <Navigate to="/admin/committee/create" replace /> },
+  { path: '/committee/:id', element: <LegacyCommitteeDetailRedirect /> },
 
   {
     path: '/board',
@@ -392,7 +418,11 @@ export const routes: RouteObject[] = [
      replaced with `true` (dev) or `false` (prod), so the production bundle
      tree-shakes this branch entirely and the route is unreachable. */
   ...(import.meta.env.DEV
-    ? ([{ path: '/_dev/primitives', element: <PrimitivesReviewPage /> }] satisfies RouteObject[])
+    ? ([
+        { path: '/_dev/primitives', element: <PrimitivesReviewPage /> },
+        { path: '/_dev/lookups', element: <LookupsReviewPage /> },
+        { path: '/_dev/app-settings', element: <AppSettingsReviewPage /> },
+      ] satisfies RouteObject[])
     : []),
 
   /* ── 404 FALLBACK → public landing ───────────────────────── */

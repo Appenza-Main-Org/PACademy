@@ -29,22 +29,30 @@ export const ROUTES = {
     audit: '/admin/audit',
     settings: '/admin/settings',
     reports: '/admin/reports',
+    /** @deprecated — superseded by `adminLookups`. The route now redirects. */
     referenceData: (tab = ':tab'): string => `/admin/reference-data/${tab}`,
+    /** @deprecated — superseded by `adminLookups`. The route now redirects. */
     referenceDataRoot: '/admin/reference-data',
-    admissionRules: '/admin/admission-rules',
+    /* Lookup Management Module — `/admin/lookups`, replaces reference-data. */
+    adminLookups: '/admin/lookups',
+    adminLookupsType: (typeCode = ':typeCode'): string => `/admin/lookups/${typeCode}`,
+    adminLookupsMappings: (kind = ':kind'): string => `/admin/lookups/mappings/${kind}`,
     cycles: '/admin/cycles',
     cycleDetail: (id = ':id'): string => `/admin/cycles/${id}`,
     cycleNew: '/admin/cycles/new',
     categories: '/admin/categories',
+    categoryNew: '/admin/categories/new',
     categoryEdit: (key = ':key'): string => `/admin/categories/${key}`,
     workflows: '/admin/workflows',
     workflowEdit: (id = ':id'): string => `/admin/workflows/${id}`,
     workflowNew: '/admin/workflows/new',
     notifications: '/admin/notifications',
     payments: '/admin/payments',
-    /* Admission Setup section — 15 ordered configuration steps. The keys
+    /* Admission Setup section — 14 ordered configuration steps. The keys
      * mirror `AdmissionSetupStepKey` (camelCased) so feature code can
-     * derive the URL from a step key without a second lookup. */
+     * derive the URL from a step key without a second lookup. Cycle
+     * metadata is NOT a step — admins enter the wizard by selecting an
+     * already-configured cycle from `/admin/cycles`. */
     admissionSetup: {
       index: '/admin/admission-setup',
       /** Wizard entry — top-stepper flow. `stepKey` is either an
@@ -52,7 +60,6 @@ export const ROUTES = {
       wizard: (stepKey = ':stepKey'): string =>
         `/admin/admission-setup/wizard/${stepKey}`,
       wizardReview: '/admin/admission-setup/wizard/review',
-      cycleMetadata: '/admin/admission-setup/cycle-metadata',
       applicationSettings: '/admin/admission-setup/application-settings',
       applicationStatus: '/admin/admission-setup/application-status',
       ageRules: '/admin/admission-setup/age-rules',
@@ -82,11 +89,13 @@ export const ROUTES = {
 
   /* ── Internal staff apps ── */
   committee: {
-    overview: '/committee',
-    list: '/committee/list',
-    schedule: '/committee/schedule',
-    create: '/committee/create',
-    detail: (id = ':id'): string => `/committee/${id}`,
+    overview: '/admin/committee',
+    list: '/admin/committee/list',
+    schedule: '/admin/committee/schedule',
+    create: '/admin/committee/create',
+    detail: (id = ':id'): string => `/admin/committee/${id}`,
+    edit: (id = ':id'): string => `/admin/committee/${id}/edit`,
+    applicants: (id = ':id'): string => `/admin/committee/${id}/applicants`,
   },
   board: {
     overview: '/board',

@@ -1,18 +1,47 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { committeeService, type CommitteePayload } from './committee.service';
-import type { Committee } from '@/shared/types/domain';
+import type { Committee, CommitteeStatus } from '@/shared/types/domain';
 
 export const committeeKeys = {
   all: ['committees'] as const,
-  list: () => [...committeeKeys.all, 'list'] as const,
+  list: (opts?: { includeDeleted?: boolean }) =>
+    [...committeeKeys.all, 'list', opts ?? null] as const,
   detail: (id: string) => [...committeeKeys.all, 'detail', id] as const,
   queue: (id: string) => [...committeeKeys.all, 'queue', id] as const,
   results: (id: string) => [...committeeKeys.all, 'results', id] as const,
+  dependencies: (id: string) => [...committeeKeys.all, 'dependencies', id] as const,
   eligibleOfficers: () => [...committeeKeys.all, 'eligible-officers'] as const,
+  specializations: () => [...committeeKeys.all, 'specializations'] as const,
+  educationTypes: () => [...committeeKeys.all, 'education-types'] as const,
+  assigned: (id: string) => [...committeeKeys.all, 'assigned', id] as const,
 };
 
-export const useCommittees = () =>
-  useQuery({ queryKey: committeeKeys.list(), queryFn: () => committeeService.list() });
+export const useCommittees = (opts: { includeDeleted?: boolean } = {}) =>
+  useQuery({ queryKey: committeeKeys.list(opts), queryFn: () => committeeService.list(opts) });
+
+export const useCommitteeDependencies = (id: string | null) =>
+  useQuery({
+    queryKey: committeeKeys.dependencies(id ?? ''),
+    queryFn: () => committeeService.getDependencies(id!),
+    enabled: Boolean(id),
+  });
+
+export const useCommitteeSoftDelete = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      committeeService.softDelete(id, reason),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.all }),
+  });
+};
+
+export const useCommitteeRestore = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => committeeService.restore(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.all }),
+  });
+};
 
 export const useCommittee = (id: string | null) =>
   useQuery({
@@ -103,3 +132,34 @@ export const useEligibleOfficers = () =>
     queryKey: committeeKeys.eligibleOfficers(),
     queryFn: () => committeeService.getEligibleOfficers(),
   });
+
+export const useCommitteeSpecializations = () =>
+  useQuery({
+    queryKey: committeeKeys.specializations(),
+    queryFn: () => committeeService.listSpecializations(),
+  });
+
+export const useCommitteeEducationTypes = () =>
+  useQuery({
+    queryKey: committeeKeys.educationTypes(),
+    queryFn: () => committeeService.listEducationTypes(),
+  });
+
+export const useCommitteeAssignedApplicants = (id: string | null) =>
+  useQuery({
+    queryKey: committeeKeys.assigned(id ?? ''),
+    queryFn: () => committeeService.getAssignedApplicants(id!),
+    enabled: Boolean(id),
+  });
+
+export const useCommitteeSetStatus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: CommitteeStatus }) =>
+      committeeService.setStatus(id, status),
+    onSuccess: (committee) => {
+      qc.invalidateQueries({ queryKey: committeeKeys.list() });
+      qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
+    },
+  });
+};

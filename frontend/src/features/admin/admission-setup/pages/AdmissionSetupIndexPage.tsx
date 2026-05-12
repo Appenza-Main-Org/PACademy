@@ -1,18 +1,19 @@
 /**
  * AdmissionSetupIndexPage — launcher for the admission-setup wizard.
  *
- * Lists every admission cycle (the "application setups" in user-facing
- * terms) with status, completeness summary, and a "بدء التقديم / إكمال
- * الإعداد" CTA that opens the wizard at either the first step or the last
- * step the admin saved as a draft.
+ * Lists every already-configured admission cycle (the "application setups"
+ * in user-facing terms) with status, completeness summary, and a
+ * "بدء التقديم / إكمال الإعداد" CTA that opens the wizard at either the
+ * first step or the last step the admin saved as a draft.
  *
- * The previous version listed all 15 steps inline as a card grid. The user
- * brief now wants a single sidebar entry + wizard flow, so the steps
- * surface only inside the wizard's top stepper — not here.
+ * The active cycle is hoisted to a dedicated highlight card at the top
+ * with a primary "بدء التقديم" CTA — admins enter the wizard by selecting
+ * an existing cycle, never by creating one here. Cycle creation /
+ * metadata editing live in the Cycles section (/admin/cycles).
  */
 
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FilePlus2, PlayCircle, Plus } from 'lucide-react';
+import { ArrowLeft, PlayCircle, Settings } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -31,18 +32,31 @@ import { hasPermission, useAuthStore } from '@/features/auth';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
-import { ADMISSION_SETUP_STEPS, ADMISSION_SETUP_TOTAL_STEPS } from '../config';
+import {
+  ADMISSION_SETUP_STEPS,
+  ADMISSION_SETUP_TOTAL_STEPS,
+} from '../config';
 import {
   computeStepStatus,
   type StepStatusInputs,
 } from '../lib/step-status';
 import { readDraft } from '../lib/wizard-draft';
+import type { AdmissionSetupStepKey } from '../types';
 import {
   useAdmissionMergeSplitRules,
   useElectronicDeclaration,
   useExamDateConfig,
   useTotalScoreConfigs,
 } from '../api/admission-setup.queries';
+
+/** First wizard step after cycle_metadata was removed — admins land here. */
+const FIRST_STEP: AdmissionSetupStepKey = 'application_settings';
+
+const ACTIVE_STATUSES: ReadonlySet<AdmissionCycle['status']> = new Set([
+  'active',
+  'open',
+  'extended',
+]);
 
 export function AdmissionSetupIndexPage(): JSX.Element {
   const navigate = useNavigate();
@@ -60,15 +74,11 @@ export function AdmissionSetupIndexPage(): JSX.Element {
     );
   }
 
-  const startNewSetup = (): void => {
-    /* If a cycle is already selected, jump straight into its wizard;
-     * otherwise route to the cycle creation page so the admin builds the
-     * baseline before opening the wizard. */
-    if (cycleCtx.cycle) {
-      navigate(ROUTES.admin.admissionSetup.wizard('cycle_metadata'));
-      return;
-    }
-    navigate(ROUTES.admin.cycleNew);
+  const activeCycle = cycles.find((c) => ACTIVE_STATUSES.has(c.status)) ?? null;
+
+  const openWizard = (cycleId: string, stepKey: string): void => {
+    cycleCtx.setCycle(cycleId);
+    navigate(ROUTES.admin.admissionSetup.wizard(stepKey));
   };
 
   return (
@@ -78,73 +88,93 @@ export function AdmissionSetupIndexPage(): JSX.Element {
         subtitle={`إدارة إعدادات سنوات التقديم — ${toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS)} خطوة في معالج موحّد`}
         actions={
           <Button
-            variant="primary"
-            onClick={startNewSetup}
-            leadingIcon={<FilePlus2 size={14} strokeWidth={1.75} />}
+            variant="ghost"
+            onClick={() => navigate(ROUTES.admin.cycles)}
+            leadingIcon={<Settings size={14} strokeWidth={1.75} />}
           >
-            بدء التقديم
+            إدارة الدورات
           </Button>
         }
       />
 
       {cycles.length === 0 ? (
-        <Card>
-          <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
-            <span
-              aria-hidden
-              className="inline-flex h-12 w-12 items-center justify-center rounded-full"
-              style={{ background: 'var(--accent-50)', color: 'var(--accent-600)' }}
-            >
-              <Plus size={20} strokeWidth={1.75} />
-            </span>
-            <h2 className="font-ar-display text-lg font-bold text-ink-900">
-              لا توجد إعدادات تقديم بعد
-            </h2>
-            <p className="max-w-md text-sm text-ink-700 leading-relaxed">
-              ابدأ بإنشاء سنة تقديم جديدة ثم اتبع المعالج لتعبئة الخطوات الـ
-              {' '}{toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS)} بترتيب.
-            </p>
-            <Button
-              variant="primary"
-              onClick={startNewSetup}
-              leadingIcon={<FilePlus2 size={14} strokeWidth={1.75} />}
-            >
-              بدء التقديم
-            </Button>
-          </div>
-        </Card>
+        <NoCyclesEmptyState onGoToCycles={() => navigate(ROUTES.admin.cycles)} />
       ) : (
-        <SetupList cycles={cycles} />
+        <div className="flex flex-col gap-4">
+          {activeCycle ? (
+            <ActiveCycleCard
+              cycle={activeCycle}
+              onStart={(stepKey) => openWizard(activeCycle.id, stepKey)}
+            />
+          ) : (
+            <NoActiveCycleNotice onGoToCycles={() => navigate(ROUTES.admin.cycles)} />
+          )}
+        </div>
       )}
     </AdmissionSetupShell>
   );
 }
 
-function SetupList({ cycles }: { cycles: AdmissionCycle[] }): JSX.Element {
-  const navigate = useNavigate();
-  const cycleCtx = useAdmissionSetupCycle();
+function NoCyclesEmptyState({ onGoToCycles }: { onGoToCycles: () => void }): JSX.Element {
   return (
-    <section aria-label="إعدادات التقديم" className="grid gap-3">
-      {cycles.map((cycle) => (
-        <SetupRow
-          key={cycle.id}
-          cycle={cycle}
-          onOpen={(stepKey) => {
-            cycleCtx.setCycle(cycle.id);
-            navigate(ROUTES.admin.admissionSetup.wizard(stepKey));
-          }}
-        />
-      ))}
-    </section>
+    <Card>
+      <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+        <span
+          aria-hidden
+          className="inline-flex h-12 w-12 items-center justify-center rounded-full"
+          style={{ background: 'var(--accent-50)', color: 'var(--accent-600)' }}
+        >
+          <Settings size={20} strokeWidth={1.75} />
+        </span>
+        <h2 className="font-ar-display text-lg font-bold text-ink-900">
+          لا توجد دورات قبول مُعدّة
+        </h2>
+        <p className="max-w-md text-sm text-ink-700 leading-relaxed">
+          أنشئ دورة قبول وفعّلها من قسم إدارة الدورات، ثم عُد هنا لإكمال إعدادات التقديم
+          الـ {toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS)} لها.
+        </p>
+        <Button
+          variant="primary"
+          onClick={onGoToCycles}
+          leadingIcon={<Settings size={14} strokeWidth={1.75} />}
+        >
+          الذهاب لإدارة الدورات
+        </Button>
+      </div>
+    </Card>
   );
 }
 
-function SetupRow({
+function NoActiveCycleNotice({ onGoToCycles }: { onGoToCycles: () => void }): JSX.Element {
+  return (
+    <Card variant="elevated" className="border border-gold-300 bg-gold-50">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
+        <div className="min-w-0">
+          <h2 className="font-ar-display text-md font-bold text-gold-800">
+            لا توجد دورة قبول نشطة حالياً
+          </h2>
+          <p className="mt-1 text-2xs leading-relaxed text-gold-700">
+            فعّل إحدى الدورات من قسم إدارة الدورات قبل بدء التقديم.
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={onGoToCycles}
+          leadingIcon={<Settings size={14} strokeWidth={1.75} />}
+        >
+          إدارة الدورات
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function ActiveCycleCard({
   cycle,
-  onOpen,
+  onStart,
 }: {
   cycle: AdmissionCycle;
-  onOpen: (stepKey: string) => void;
+  onStart: (stepKey: string) => void;
 }): JSX.Element {
   const categoriesQuery = useCategoriesAdmin();
   const committeesQuery = useCommittees();
@@ -162,26 +192,20 @@ function SetupRow({
     totalScoreConfigs: totalScoreQuery.data ?? [],
     declaration: declarationQuery.data ?? null,
   };
-
   const completed = ADMISSION_SETUP_STEPS.filter(
     (s) => computeStepStatus(s.key, inputs) === 'complete',
   ).length;
-
   const draft = readDraft(cycle.id);
-  const resumeStepKey = draft?.lastStepKey ?? 'cycle_metadata';
-
-  const isApproved =
-    cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended';
+  const resumeStepKey = draft?.lastStepKey ?? FIRST_STEP;
 
   return (
-    <Card variant="elevated">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <Card variant="elevated" className="border-t-4" style={{ borderTopColor: 'var(--accent-500)' }}>
+      <div className="flex flex-wrap items-center justify-between gap-4 p-1">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-ar-display text-md font-bold text-ink-900">{cycle.nameAr}</h3>
-            <Badge tone={isApproved ? 'success' : draftTone(cycle.status)}>
-              {arStatusLabel(cycle.status)}
-            </Badge>
+            <Badge tone="success">الدورة النشطة</Badge>
+            <h2 className="font-ar-display text-lg font-bold text-ink-900">{cycle.nameAr}</h2>
+            <Badge tone="success">{arStatusLabel(cycle.status)}</Badge>
             {draft && (
               <Badge tone="info">
                 مسودة — آخر حفظ {fmtDate(draft.savedAt, 'short')}
@@ -192,29 +216,27 @@ function SetupRow({
             <span className="font-numeric tnum">
               {toEasternArabicNumerals(completed)} من {toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS)}
             </span>{' '}
-            خطوة مكتملة · آخر تحديث {fmtDate(cycle.updatedAt ?? cycle.openDate, 'short')}
+            خطوة مكتملة · {fmtDate(cycle.openDate, 'short')} → {fmtDate(cycle.closeDate, 'short')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {draft && (
             <Button
               variant="secondary"
-              size="sm"
-              onClick={() => onOpen(resumeStepKey)}
+              onClick={() => onStart(resumeStepKey)}
               leadingIcon={<PlayCircle size={14} strokeWidth={1.75} />}
             >
               متابعة المسودة
             </Button>
           )}
           <Button
-            variant={draft ? 'ghost' : 'primary'}
-            size="sm"
-            onClick={() => onOpen('cycle_metadata')}
+            variant="primary"
+            onClick={() => onStart(FIRST_STEP)}
             trailingIcon={
               <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
             }
           >
-            {isApproved ? 'مراجعة الإعدادات' : 'إكمال الإعداد'}
+            بدء التقديم
           </Button>
         </div>
       </div>
@@ -243,8 +265,3 @@ function arStatusLabel(status: AdmissionCycle['status']): string {
   }
 }
 
-function draftTone(status: AdmissionCycle['status']): 'neutral' | 'warning' | 'info' {
-  if (status === 'draft') return 'warning';
-  if (status === 'archived' || status === 'finalized' || status === 'closed') return 'neutral';
-  return 'info';
-}

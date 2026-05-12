@@ -101,7 +101,7 @@ export const MODULE_LABELS_AR: Record<PermissionModule, string> = {
   settings: 'الإعدادات',
   users: 'المستخدمون',
   roles: 'الأدوار',
-  lookups: 'البيانات المرجعية',
+  lookups: 'الأكواد المرجعية',
   notifications: 'الإشعارات',
   payments: 'المدفوعات',
 };

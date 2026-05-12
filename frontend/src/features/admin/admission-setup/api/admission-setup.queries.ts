@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { committeeKeys } from '@/features/committees';
 import { admissionSetupService } from './admission-setup.service';
 import type { ApplicantStream, TotalScoreComponent } from '../types';
+import type { ApplicantCategoryKey } from '@/shared/types/domain';
 
 export const admissionSetupKeys = {
   all: ['admission-setup'] as const,
@@ -24,14 +25,19 @@ export const admissionSetupKeys = {
     [...admissionSetupKeys.all, 'total-score', cycleId] as const,
   declaration: (cycleId: string | null) =>
     [...admissionSetupKeys.all, 'declaration', cycleId] as const,
+  committeeBindings: (cycleId: string | null, categoryId?: ApplicantCategoryKey | null) =>
+    [...admissionSetupKeys.all, 'committee-bindings', cycleId, categoryId ?? null] as const,
 };
 
 function invalidateCycle(qc: QueryClient, cycleId: string | null): void {
-  void qc.invalidateQueries({ queryKey: admissionSetupKeys.mergeSplit(cycleId) });
-  void qc.invalidateQueries({ queryKey: admissionSetupKeys.scoreThresholds(cycleId) });
-  void qc.invalidateQueries({ queryKey: admissionSetupKeys.examDates(cycleId) });
-  void qc.invalidateQueries({ queryKey: admissionSetupKeys.totalScore(cycleId) });
-  void qc.invalidateQueries({ queryKey: admissionSetupKeys.declaration(cycleId) });
+  qc.invalidateQueries({ queryKey: admissionSetupKeys.mergeSplit(cycleId) });
+  qc.invalidateQueries({ queryKey: admissionSetupKeys.scoreThresholds(cycleId) });
+  qc.invalidateQueries({ queryKey: admissionSetupKeys.examDates(cycleId) });
+  qc.invalidateQueries({ queryKey: admissionSetupKeys.totalScore(cycleId) });
+  qc.invalidateQueries({ queryKey: admissionSetupKeys.declaration(cycleId) });
+  qc.invalidateQueries({
+    queryKey: [...admissionSetupKeys.all, 'committee-bindings', cycleId],
+  });
 }
 
 /* ── Step 9 ─────────────────────────────────────────────────────────── */
@@ -47,8 +53,7 @@ export function useAdmissionMergeSplitRules(cycleId: string | null) {
 export function useCreateMergeSplitRule() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: Parameters<typeof admissionSetupService.createMergeOrSplit>[0]) =>
-      admissionSetupService.createMergeOrSplit(input),
+    mutationFn: admissionSetupService.createMergeOrSplit,
     onSuccess: (rule) => invalidateCycle(qc, rule.cycleId),
   });
 }
@@ -75,13 +80,12 @@ export function useScoreThresholds(cycleId: string | null) {
 export function useSetCommitteeScoreThresholds() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: Parameters<typeof admissionSetupService.setCommitteeScoreThresholds>[0]) =>
-      admissionSetupService.setCommitteeScoreThresholds(input),
+    mutationFn: admissionSetupService.setCommitteeScoreThresholds,
     onSuccess: (row) => {
       invalidateCycle(qc, row.cycleId);
       /* Committees are the source of truth for `scoreCriteria.magmoo3`; bust their cache too. */
-      void qc.invalidateQueries({ queryKey: committeeKeys.detail(row.committeeId) });
-      void qc.invalidateQueries({ queryKey: [...committeeKeys.all, 'list'] });
+      qc.invalidateQueries({ queryKey: committeeKeys.detail(row.committeeId) });
+      qc.invalidateQueries({ queryKey: [...committeeKeys.all, 'list'] });
     },
   });
 }
@@ -99,8 +103,7 @@ export function useExamDateConfig(cycleId: string | null) {
 export function useSetExamDateConfig() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: Parameters<typeof admissionSetupService.setExamDateConfig>[0]) =>
-      admissionSetupService.setExamDateConfig(input),
+    mutationFn: admissionSetupService.setExamDateConfig,
     onSuccess: (cfg) => invalidateCycle(qc, cfg.cycleId),
   });
 }
@@ -141,8 +144,7 @@ export function useElectronicDeclaration(cycleId: string | null) {
 export function useSetDeclaration() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: Parameters<typeof admissionSetupService.setDeclaration>[0]) =>
-      admissionSetupService.setDeclaration(input),
+    mutationFn: admissionSetupService.setDeclaration,
     onSuccess: (dec) => invalidateCycle(qc, dec.cycleId),
   });
 }
@@ -152,5 +154,38 @@ export function usePublishDeclaration() {
   return useMutation({
     mutationFn: (declarationId: string) => admissionSetupService.publishDeclaration(declarationId),
     onSuccess: (dec) => invalidateCycle(qc, dec.cycleId),
+  });
+}
+
+/* ── Step 8 — committee ↔ category bindings ──────────────────────────── */
+
+export function useCommitteeBindings(
+  cycleId: string | null,
+  categoryId?: ApplicantCategoryKey | null,
+) {
+  return useQuery({
+    queryKey: admissionSetupKeys.committeeBindings(cycleId, categoryId),
+    queryFn: () =>
+      admissionSetupService.listCommitteeBindings({
+        cycleId: cycleId!,
+        ...(categoryId ? { categoryId } : {}),
+      }),
+    enabled: Boolean(cycleId),
+  });
+}
+
+export function useSetCommitteeBindings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      cycleId: string;
+      academicYearId: string;
+      categoryId?: ApplicantCategoryKey;
+      committeeIds: string[];
+      actorUserId?: string;
+    }) => admissionSetupService.setCommitteeBindings(input),
+    onSuccess: (_rows, vars) => {
+      invalidateCycle(qc, vars.cycleId);
+    },
   });
 }

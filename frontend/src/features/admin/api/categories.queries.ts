@@ -43,8 +43,8 @@ export function useUpdateCategoryMutation() {
     mutationFn: ({ key, patch }: { key: ApplicantCategoryKey; patch: Partial<ApplicantCategory> }) =>
       categoriesAdminService.update(key, patch),
     onSuccess: (cat) => {
-      void qc.invalidateQueries({ queryKey: adminCategoriesKeys.all });
-      void qc.invalidateQueries({ queryKey: adminCategoriesKeys.detail(cat.key) });
+      qc.invalidateQueries({ queryKey: adminCategoriesKeys.all });
+      qc.invalidateQueries({ queryKey: adminCategoriesKeys.detail(cat.key) });
     },
   });
 }
@@ -52,8 +52,9 @@ export function useUpdateCategoryMutation() {
 export function useCreateCategoryMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: ApplicantCategory) => categoriesAdminService.create(payload),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
+    mutationFn: (input: { labelAr: string; description?: string }) =>
+      categoriesAdminService.create(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
   });
 }
 
@@ -61,7 +62,7 @@ export function useRemoveCategoryMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (key: ApplicantCategoryKey) => categoriesAdminService.remove(key),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
   });
 }
 
@@ -70,7 +71,7 @@ export function useCategorySoftDelete() {
   return useMutation({
     mutationFn: ({ key, reason }: { key: ApplicantCategoryKey; reason: string }) =>
       categoriesAdminService.softDelete(key, reason),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
   });
 }
 
@@ -78,7 +79,7 @@ export function useCategoryRestore() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (key: ApplicantCategoryKey) => categoriesAdminService.restore(key),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminCategoriesKeys.all }),
   });
 }
 
@@ -108,9 +109,8 @@ export function useUpdateExpandedConditions() {
         impactedApplicantIds,
       }),
     onSuccess: (cat) => {
-      void qc.invalidateQueries({ queryKey: adminCategoriesKeys.all });
-      void qc.invalidateQueries({ queryKey: adminCategoriesKeys.detail(cat.key) });
+      qc.invalidateQueries({ queryKey: adminCategoriesKeys.all });
+      qc.invalidateQueries({ queryKey: adminCategoriesKeys.detail(cat.key) });
     },
   });
 }
-

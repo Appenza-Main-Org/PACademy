@@ -14,7 +14,6 @@
  *   DELETE /api/admin/categories/:key                     → { ok: true }       (non-spec only)
  */
 
-import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
@@ -22,6 +21,7 @@ import {
   applyRestore,
   applySoftDelete,
   DependencyBlockedError,
+  filterDeleted,
   type DependencyResult,
 } from '@/shared/lib/soft-delete';
 import type {
@@ -30,8 +30,6 @@ import type {
   ApplicantCategoryKey,
   AuditEntry,
   CategoryConditions,
-  CategoryCondition,
-  RequiredTest,
 } from '@/shared/types/domain';
 
 const CATEGORY_DEP_LABELS: Record<string, string> = {
@@ -50,46 +48,6 @@ const SPEC_KEYS: ReadonlySet<ApplicantCategoryKey> = new Set<ApplicantCategoryKe
 
 const STATE: ApplicantCategory[] = MOCK.categories.map((c) => ({ ...c }));
 let auditCounter = 1;
-
-/* ── Backend ↔ frontend mapper ────────────────────────────────────────── */
-
-interface ApiCategory {
-  id: string;
-  key: string;
-  nameAr: string;
-  nameEn: string | null;
-  description: string | null;
-  conditions: unknown;
-  requiredTests: unknown;
-  procedures: unknown;
-  sortOrder: number;
-  isActive: boolean;
-  isSpec: boolean;
-  createdAt: string;
-  updatedAt: string;
-  demoOrigin: boolean;
-}
-
-interface ApiPagedCategories { items: ApiCategory[]; totalCount: number; totalPages: number; }
-
-function apiToCategory(api: ApiCategory, prev?: ApplicantCategory): ApplicantCategory {
-  return {
-    key: api.key as ApplicantCategoryKey,
-    labelAr: api.nameAr,
-    labelEn: api.nameEn ?? prev?.labelEn ?? '',
-    description: api.description ?? prev?.description ?? '',
-    isOpen: api.isActive,
-    conditions: (api.conditions as CategoryCondition) ?? prev?.conditions ?? ({} as CategoryCondition),
-    expandedConditions: prev?.expandedConditions, // wizard-only, not persisted on backend
-    requiredTests: (api.requiredTests as RequiredTest[]) ?? prev?.requiredTests ?? [],
-    procedures: (api.procedures as string[]) ?? prev?.procedures ?? [],
-  };
-}
-
-function upsertCategoryState(cat: ApplicantCategory): void {
-  const idx = STATE.findIndex((c) => c.key === cat.key);
-  if (idx === -1) STATE.push(cat); else STATE[idx] = cat;
-}
 
 function pushAudit(action: 'create' | 'update' | 'delete', categoryKey: string, details: string): void {
   const entry: AuditEntry = {
@@ -110,83 +68,105 @@ function pushAudit(action: 'create' | 'update' | 'delete', categoryKey: string, 
 
 export const categoriesAdminService = {
   async list(opts: { includeDeleted?: boolean } = {}): Promise<ApplicantCategory[]> {
-    const { data } = await apiClient.get<ApiPagedCategories>('/admin/categories', {
-      params: { includeArchived: opts.includeDeleted ?? false, pageSize: 200 },
-    });
-    const cats = data.items.map((api) => apiToCategory(api, STATE.find((c) => c.key === api.key)));
-    STATE.length = 0;
-    STATE.push(...cats);
-    return [...cats];
+    await simulateLatency();
+    return filterDeleted(STATE, opts.includeDeleted).map((c) => ({ ...c }));
   },
 
   async getByKey(key: ApplicantCategoryKey): Promise<ApplicantCategory | null> {
-    try {
-      const { data } = await apiClient.get<ApiCategory>(`/admin/categories/by-key/${key}`);
-      const cat = apiToCategory(data, STATE.find((c) => c.key === key));
-      upsertCategoryState(cat);
-      return cat;
-    } catch (err) {
-      if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
-        return null;
-      }
-      throw err;
-    }
+    await simulateLatency();
+    return STATE.find((c) => c.key === key) ?? null;
   },
 
   async update(key: ApplicantCategoryKey, patch: Partial<ApplicantCategory>): Promise<ApplicantCategory> {
-    const isSpec = SPEC_KEYS.has(key);
-    const prev = STATE.find((c) => c.key === key);
-    // Spec categories: keep labelAr + nominationOnly locked before hitting backend.
-    const body: Record<string, unknown> = {};
-    if (patch.labelAr !== undefined && !isSpec) body.nameAr = patch.labelAr;
-    if (patch.labelEn !== undefined) body.nameEn = patch.labelEn;
-    if (patch.description !== undefined) body.description = patch.description;
-    if (patch.isOpen !== undefined) body.isActive = patch.isOpen;
-    if (patch.conditions !== undefined) {
-      body.conditions = isSpec && prev
-        ? { ...patch.conditions, nominationOnly: prev.conditions.nominationOnly }
-        : patch.conditions;
-    }
-    if (patch.requiredTests !== undefined) body.requiredTests = patch.requiredTests;
-    if (patch.procedures !== undefined) body.procedures = patch.procedures;
-    const { data } = await apiClient.patch<ApiCategory>(`/admin/categories/by-key/${key}`, body);
-    const next = apiToCategory(data, prev);
-    // expandedConditions stays a wizard-only local concern.
-    if (patch.expandedConditions !== undefined) next.expandedConditions = patch.expandedConditions;
-    else if (prev?.expandedConditions) next.expandedConditions = prev.expandedConditions;
-    upsertCategoryState(next);
+    await simulateLatency();
+    const idx = STATE.findIndex((c) => c.key === key);
+    if (idx === -1) throw new Error('الفئة غير موجودة');
+    /* Only the storage `key` is immutable; every other field — including
+     * spec-category labels — is editable from the admin form. */
+    const current = STATE[idx];
+    const next: ApplicantCategory = { ...current, ...patch, key: current.key };
+    STATE[idx] = next;
     pushAudit('update', key, `تم تعديل بيانات فئة "${next.labelAr}"`);
     return next;
   },
 
-  async create(payload: ApplicantCategory): Promise<ApplicantCategory> {
-    const body = {
-      key: payload.key,
-      nameAr: payload.labelAr,
-      nameEn: payload.labelEn,
-      description: payload.description,
-      conditions: payload.conditions,
-      requiredTests: payload.requiredTests,
-      procedures: payload.procedures,
-      isActive: payload.isOpen,
+  async create(input: { labelAr: string; description?: string }): Promise<ApplicantCategory> {
+    await simulateLatency();
+    const labelAr = input.labelAr.trim();
+    if (!labelAr) throw new Error('اسم الفئة مطلوب');
+    let candidate = `custom_${Date.now()}`;
+    while (
+      SPEC_KEYS.has(candidate as ApplicantCategoryKey) ||
+      STATE.some((c) => c.key === candidate)
+    ) {
+      candidate = `custom_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    }
+    const payload: ApplicantCategory = {
+      key: candidate as ApplicantCategoryKey,
+      labelAr,
+      labelEn: '',
+      description: (input.description ?? '').trim(),
+      isOpen: false,
+      conditions: {
+        ageMin: null,
+        ageMax: null,
+        minScorePercent: null,
+        requiredQualification: 'any',
+        gender: 'any',
+        minHeightCm: null,
+        medicalRequired: false,
+        maritalStatus: 'any',
+        conductCheck: false,
+        egyptianNationalityRequired: false,
+        employerApprovalRequired: false,
+        nominationOnly: false,
+        freeText: [],
+      },
+      requiredTests: [],
+      procedures: [],
     };
-    const { data } = await apiClient.post<ApiCategory>('/admin/categories', body);
-    const cat = apiToCategory(data);
-    if (payload.expandedConditions) cat.expandedConditions = payload.expandedConditions;
-    upsertCategoryState(cat);
-    pushAudit('create', cat.key, `تم إنشاء فئة "${cat.labelAr}"`);
-    return cat;
+    STATE.push({ ...payload });
+    pushAudit('create', payload.key, `تم إنشاء فئة "${payload.labelAr}"`);
+    return { ...payload };
+  },
+
+  /**
+   * Clone an existing category. Used by the categories list "نسخ" action;
+   * spec keys can be cloned but the resulting copy is always a custom
+   * (non-spec) category. Picks the first free `${sourceKey}_copy[_N]` slot.
+   */
+  async duplicate(source: ApplicantCategory): Promise<ApplicantCategory> {
+    await simulateLatency();
+    const baseKey = source.key as string;
+    let candidate = `${baseKey}_copy`;
+    let i = 1;
+    while (
+      SPEC_KEYS.has(candidate as ApplicantCategoryKey) ||
+      STATE.some((c) => c.key === candidate)
+    ) {
+      i += 1;
+      candidate = `${baseKey}_copy_${i}`;
+    }
+    const next: ApplicantCategory = {
+      ...source,
+      key: candidate as ApplicantCategoryKey,
+      labelAr: `${source.labelAr} (نسخة)`,
+      isOpen: false,
+    };
+    STATE.push({ ...next });
+    pushAudit('create', next.key, `تم نسخ فئة "${source.labelAr}"`);
+    return { ...next };
   },
 
   async remove(key: ApplicantCategoryKey): Promise<{ ok: true }> {
+    await simulateLatency();
     if (SPEC_KEYS.has(key)) {
       throw new Error('لا يمكن حذف فئات السبع المعتمدة من المواصفات');
     }
-    const prev = STATE.find((c) => c.key === key);
-    await apiClient.delete(`/admin/categories/by-key/${key}`);
     const idx = STATE.findIndex((c) => c.key === key);
-    if (idx !== -1) STATE.splice(idx, 1);
-    pushAudit('delete', key, `تم حذف فئة "${prev?.labelAr ?? key}"`);
+    if (idx === -1) throw new Error('الفئة غير موجودة');
+    const [removed] = STATE.splice(idx, 1);
+    pushAudit('delete', key, `تم حذف فئة "${removed.labelAr}"`);
     return { ok: true };
   },
 

@@ -166,7 +166,7 @@ frontend/src/
 │   ├── help/             PUBLIC HelpPage (`/help`)
 │   ├── hub/              Authenticated landing (`/hub`) — 9 app cards
 │   ├── profile/          /profile (any authenticated user)
-│   ├── architecture/     /architecture (super_admin reference page)
+│   ├── architecture/     /architecture (route still registered; UI entry points hidden — direct URL only)
 │   ├── design-revamp/    /design-revamp (internal before/after viewer)
 │   ├── admin/            17+ sub-routes — DashboardPage, ReportsPage (command-center),
 │   │                     Applicants/Users/Audit/Settings, Cycles, Categories,
@@ -175,7 +175,7 @@ frontend/src/
 │   │                     + 11-stage Wizard (`/applicant/auth/step-1` … `/acquaintance-doc`)
 │   ├── applicants/       Shared applicant service+queries (consumed by admin)
 │   ├── audit/            service + queries
-│   ├── committees/       overview, list, schedule, create, :id detail
+│   ├── committees/       overview, list, schedule, create, :id detail — all served under `/admin/committee/*` and rendered inside AdminLayout
 │   ├── board/            overview, sessions list/create/live, decisions, members
 │   ├── investigations/   cases, incoming, outgoing, distribution, create, detail
 │   ├── medical/          overview, queue, results, station/:key, certificate
@@ -247,7 +247,7 @@ The app is organised across **3 surfaces**:
 |---|---|---|
 | `/hub` | HubPage | (any authenticated) |
 | `/profile` | ProfilePage | (any authenticated) |
-| `/architecture` | ArchitecturePage | `architecture` |
+| `/architecture` | ArchitecturePage — **route registered but UI entry points removed** (no app-shell button, no command-palette entry). Direct URL still works. | `architecture` |
 | `/design-revamp` | RevampComparisonPage | `architecture` |
 | `/admin` | AdminIndexRoute (super_admin → ReportsPage; others → DashboardPage) | `admin` |
 | `/admin/applicants` `/new` `/:id` `/:id/edit` | Applicants* | `admin` |
@@ -257,7 +257,7 @@ The app is organised across **3 surfaces**:
 | `/admin/cycles` `/new` `/:id` | Cycles* | `admin` |
 | `/admin/categories` `/:key` | Categories* | `admin` |
 | `/admin/workflows` `/new` `/:id` | Workflow editor | `admin` |
-| `/committee` `/list` `/schedule` `/create` `/:id` | Committee* | `committee` |
+| `/admin/committee` `/list` `/schedule` `/create` `/:id` | Committee* (renders inside `AdminLayout` chrome; `/committee/*` legacy URLs redirect here) | `committee` |
 | `/board` `/sessions` `/sessions/create` `/sessions/:id/live` `/decisions` `/members` (+ `*-legacy`) | Board* | `board` |
 | `/investigations` `/incoming` `/outgoing` `/distribution` `/create` `/cases/:id` | Investigations* | `investigations` |
 | `/medical` `/queue` `/results` `/station/:key` `/certificate` | Medical* | `medical` |
@@ -470,6 +470,14 @@ Mini Zustand-backed toast in [frontend/src/shared/components/Toast.tsx](frontend
 - **Routing fixes**: super_admin can now reach other apps from `/admin/reports` (was a dead-end); `/apply` CTA goes through pre-wizard gate (not Stage 1); barcode redirect was eating direct nav; investigations `/incoming` replaced stub redirect with real inbox.
 - **Real Arabic content** — 50-question MCQ pool replaces lorem; landing copy and role labels matched to hub app titles.
 
+✅ **Done (admin chrome consolidation, 2026-05-10 → 2026-05-11)**
+- **Committees moved under admin chrome.** All 5 committee URLs migrated from `/committee/*` → `/admin/committee/*` and rendered inside `AdminLayout` (not the old standalone `CommitteeLayout`, which is now unused but still exported). The `/admin/committee` route is a sibling of `/admin` (not a child) so its `AuthGuard` stays `app="committee"` — committee_user holds `committee` but not `admin`, and we don't want to lock them out. Legacy `/committee/*` URLs redirect (including a `LegacyCommitteeDetailRedirect` for `:id`). The admin sidebar gained a dedicated **لجان القبول** section mirroring the committee app's three views (نظرة عامة / قائمة اللجان / الجدول الزمني).
+- **Admission-setup index polish.** Dropped the "دورات أخرى" list and its `SetupRow` component — only the active cycle card remains. Removed the unused `draftTone` helper. Updated the "no active cycle" notice copy.
+- **Admission-setup fees step.** Dropped the optional fee inputs (deposit / replacement / late) and the `FawryConfigCard` — only the application-fee input remains.
+- **Admin categories table.** Dropped the "نوع التقديم" (نوع تقديم عام / بالترشيح) badge column from `CategoriesPanel` — the distinction is already exposed in category detail.
+- **`/architecture` hidden from chrome.** Removed the "System Architecture" link from `AppShell` header and the "معمارية النظام" entry from `CommandPalette`. The route itself stays registered, so direct URL access still works.
+- **Popover scroll fix** in `Combobox` and `MultiSelect`: the global capture-phase scroll listener used to close the popover on **any** scroll, including scrolling the popover's own option list. Both now ignore scroll events whose target is inside `popoverRef.current`. Outer-page scrolls still close the popover (it's `position: fixed`, so it'd otherwise detach from its trigger). Hit by `/admin/users/new` role picker.
+
 🚧 **Next sprints**
 - **Sprint 10 — Hardening**: Vitest + Testing Library, Playwright smoke E2E, `eslint-plugin-boundaries`, Husky pre-commit, accessibility audit, print polish.
 - **Backend integration** (post-demo): replace `simulateLatency()` + `MOCK` reads in every `*.service.ts` with real `apiClient.get/post(...)` calls. See §6 for the integration pattern. Component/query/type contracts stay unchanged.
@@ -517,6 +525,7 @@ Mini Zustand-backed toast in [frontend/src/shared/components/Toast.tsx](frontend
 | URL constants | `import { ROUTES } from '@/config/routes'` |
 | Add an admin Reports section | new file under `frontend/src/features/admin/components/reports/` + import in `ReportsPage.tsx`; data via `reports.queries.ts` |
 | Notify the user from anywhere | Zustand notif store consumed by `<NotificationCenter />` (mounted in `AppShell`) |
+| Portal-based popover (Combobox/MultiSelect) | Outer-page scroll closes the popover; scrolls whose target is inside `popoverRef.current` are ignored so the option list can scroll. Replicate this guard in any new portal-anchored popover that has its own scrollable region. |
 
 ---
 

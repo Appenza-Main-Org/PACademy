@@ -6,13 +6,13 @@
  * Cycle status mapping:
  *   2024-M     finalized → reads as archived in new flows
  *   2025-M     processing → reads as closed
- *   2025-F     open       → ACTIVE (female cohort)
- *   2026-M     open       → ACTIVE (male cohort) — both run concurrently
+ *   2025-F     closed     → inactive (kept as historical test data)
+ *   2026     open       → ACTIVE — the single active admission cycle ("دورة التقديم 2026")
  *   2027-M     draft (post-polish addition for the cycles UI)
  *
- * The 2025-F and 2026-M cycles both have windows bracketing the 2026-05 demo,
- * so the public `/applicant/start` gate renders both as selectable. Existing
- * AdmissionRule rows reference these IDs; do not rename.
+ * Only `CYC-2026-M` is active for the demo so admins land on a single cycle
+ * in /admin/admission-setup. Existing AdmissionRule rows reference these IDs;
+ * do not rename.
  */
 
 import type { AdmissionCycle, AdmissionRule } from '@/shared/types/domain';
@@ -62,11 +62,13 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     cohort: 'female',
     year: 2025,
     openDate: '2025-02-15T00:00:00.000Z',
-    /* Bumped from 2025-04-15 so the demo (May 2026) reads as open. */
-    closeDate: '2026-12-31T23:59:59.000Z',
+    /* Closed for the demo so /admin/admission-setup highlights a single
+     * active cycle (CYC-2026-M, "دورة التقديم 2026"). Kept as historical
+     * test data. */
+    closeDate: '2025-04-15T23:59:59.000Z',
     expectedCapacity: 240,
     applicantCount: 238,
-    status: 'open',
+    status: 'closed',
     openCategories: {
       officers_general: { isOpen: true, capacity: 200, notes: 'الفئة الرئيسية للدورة' },
       officers_specialized: { isOpen: true, capacity: 40, notes: 'تقديم لخريجي الجامعات' },
@@ -82,14 +84,13 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
   },
   {
     id: 'CYC-2026-M',
-    nameAr: 'دورة 2026 - الذكور',
-    labelEn: 'Cycle 2026 (Male)',
+    nameAr: 'دورة التقديم 2026',
+    labelEn: 'Cycle 2026',
     cohort: 'male',
     year: 2026,
     openDate: '2026-01-15T00:00:00.000Z',
-    /* Bumped from 2026-03-31 so the demo (May 2026) reads as open alongside
-     * the 2025-F cycle — exercises the multi-active-cycle picker on
-     * /applicant/start. */
+    /* The single active admission cycle for the demo — closeDate kept beyond
+     * the demo date so /admin/admission-setup shows it as the active cycle. */
     closeDate: '2026-12-31T23:59:59.000Z',
     expectedCapacity: 2000,
     applicantCount: 0,

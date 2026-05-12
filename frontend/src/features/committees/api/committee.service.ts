@@ -17,13 +17,26 @@ import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
 import { ConflictError } from '@/shared/lib/errors';
-import { filterDeleted } from '@/shared/lib/soft-delete';
+import {
+  applyRestore,
+  applySoftDelete,
+  DependencyBlockedError,
+  filterDeleted,
+  type DependencyResult,
+} from '@/shared/lib/soft-delete';
 import type {
   Applicant,
   Committee,
   CommitteeResult,
+  CommitteeRules,
+  CommitteeStatus,
   CommitteeType,
 } from '@/shared/types/domain';
+
+const COMMITTEE_DEP_LABELS: Record<string, string> = {
+  applicants: 'متقدم',
+  results: 'نتيجة لجنة',
+};
 
 /* In-memory daily attendance counter — keyed by `${committeeId}:${YYYY-MM-DD}`.
  * Gap H capacity check decrements remaining slots before scheduling. */
@@ -44,6 +57,14 @@ export interface CommitteePayload {
   members: number;
   capacityPerSession: number;
   cycleId: string;
+  /* ── Admin module enhancements ──────────────────────────────── */
+  headUserId?: string;
+  capacity?: number;
+  academicYearId?: string;
+  status?: CommitteeStatus;
+  specializationIds?: string[];
+  officerIds?: string[];
+  rules?: CommitteeRules;
 }
 
 export const committeeService = {
@@ -66,9 +87,43 @@ export const committeeService = {
       members: payload.members,
       applicants: 0,
       completed: 0,
+      headUserId: payload.headUserId,
+      capacity: payload.capacity,
+      capacityPerDay: payload.capacityPerSession,
+      academicYearId: payload.academicYearId,
+      status: payload.status ?? 'active',
+      createdAt: new Date().toISOString(),
+      specializationIds: payload.specializationIds,
+      officerIds: payload.officerIds,
+      rules: payload.rules,
+      linkedCycleId: payload.cycleId,
     };
     COMMITTEES_STATE.unshift(next);
+    emitAudit({
+      action: 'create',
+      module: 'committees',
+      entityType: 'Committee',
+      entityLabel: 'لجنة قبول',
+      entityId: next.id,
+      details: `إنشاء لجنة "${next.name}"`,
+      after: next,
+    });
     return next;
+  },
+
+  /**
+   * List committees eligible to receive a given applicant id based on
+   * each committee's CommitteeRules. The check evaluates the applicant's
+   * score percent, name first-letter, gender, and applicant type against
+   * the rule bag. Committees with `applicants >= capacity` or
+   * `status === 'inactive'` are filtered out.
+   */
+  async listAssignableFor(applicantId: string): Promise<Committee[]> {
+    await simulateLatency();
+    const a = MOCK.applicants.find((x) => x.id === applicantId);
+    if (!a) return [];
+    return COMMITTEES_STATE.filter((c) => filterDeleted([c], false).length > 0)
+      .filter((c) => committeeAcceptsApplicant(c, a));
   },
 
   async getApplicants(committeeName: string): Promise<Applicant[]> {
@@ -219,6 +274,78 @@ export const committeeService = {
   },
 
   /**
+   * Soft-delete a committee. Mirrors the admin-side `categories.softDelete`
+   * pattern (Gap D). Blocks if any applicants are still scheduled to this
+   * committee or any in-progress results reference it; super-admins can
+   * re-list deleted rows via `list({ includeDeleted: true })` and restore.
+   *
+   * INTEGRATION CONTRACT:
+   *   DELETE /api/committees/:id        body: { reason }
+   *   POST   /api/committees/:id/restore
+   */
+  async softDelete(id: string, reason: string): Promise<Committee> {
+    await simulateLatency();
+    const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('اللجنة غير موجودة');
+    const before = { ...COMMITTEES_STATE[idx] };
+    const dep = await committeeService.getDependencies(id);
+    if (dep.blocking) throw new DependencyBlockedError(dep, 'هذه اللجنة', COMMITTEE_DEP_LABELS);
+    const next = applySoftDelete(COMMITTEES_STATE[idx], { reason });
+    COMMITTEES_STATE[idx] = next;
+    emitAudit({
+      action: 'soft_delete',
+      module: 'committees',
+      entityType: 'Committee',
+      entityLabel: 'لجنة قبول',
+      entityId: id,
+      details: `تم حذف "${next.name}" — السبب: ${reason}`,
+      before,
+      after: next,
+    });
+    return next;
+  },
+
+  async restore(id: string): Promise<Committee> {
+    await simulateLatency();
+    const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('اللجنة غير موجودة');
+    const before = { ...COMMITTEES_STATE[idx] };
+    const next = applyRestore(COMMITTEES_STATE[idx]);
+    COMMITTEES_STATE[idx] = next;
+    emitAudit({
+      action: 'restore',
+      module: 'committees',
+      entityType: 'Committee',
+      entityLabel: 'لجنة قبول',
+      entityId: id,
+      details: `تم استعادة "${next.name}"`,
+      before,
+      after: next,
+    });
+    return next;
+  },
+
+  /**
+   * Returns the dependency snapshot used by SoftDeleteDialog. Counts
+   * applicants assigned to the committee (blocking) and results entered
+   * for it (also blocking — deleting would orphan grade records).
+   */
+  async getDependencies(id: string): Promise<DependencyResult> {
+    await simulateLatency(80, 200);
+    const c = COMMITTEES_STATE.find((x) => x.id === id);
+    if (!c) throw new Error('اللجنة غير موجودة');
+    const applicants = MOCK.applicants.filter((a) => a.committee === c.name).length;
+    const results = RESULTS_STATE.filter((r) => r.committeeId === id).length;
+    const counts: Record<string, number> = {};
+    if (applicants > 0) counts.applicants = applicants;
+    if (results > 0) counts.results = results;
+    return {
+      counts,
+      blocking: applicants > 0 || results > 0,
+    };
+  },
+
+  /**
    * List system users eligible for committee assignment — `committee_admin`
    * or `committee_user` role only. Surfaced by the admin officer-multi-select.
    */
@@ -228,4 +355,105 @@ export const committeeService = {
       .filter((u) => u.role === 'committee_admin' || u.role === 'committee_user')
       .map((u) => ({ id: u.id, name: u.name, role: u.role, unit: u.unit }));
   },
+
+  /**
+   * List active "specializations" backing the committee form select.
+   *
+   * Source: the applicant-category catalogue managed at /admin/categories
+   * (not the reference-data specializations dictionary). The committee's
+   * `specializationIds` field stores the category `key` (string), so admins
+   * can extend the catalogue from the categories admin page without a
+   * code change.
+   *
+   * The returned `id` is the category `key` so existing consumers
+   * (`specializationIds.includes(id)`) keep working.
+   */
+  async listSpecializations(): Promise<{ id: string; nameAr: string; code: string; active: boolean }[]> {
+    await simulateLatency(60, 140);
+    return MOCK.categories
+      .filter((c) => !c.deletedAt)
+      .map((c) => ({
+        id: c.key,
+        nameAr: c.labelAr,
+        code: c.labelEn || c.key,
+        active: c.isOpen,
+      }));
+  },
+
+  /**
+   * List active education types — backs the "نوع المتقدم" select on the
+   * committee create / edit form. Sourced from the platform-wide lookup
+   * matrix (`/admin/reference-data/educationTypes`) so admins can manage
+   * the list in one place.
+   *
+   * INTEGRATION CONTRACT:
+   *   GET /api/lookups/educationTypes?active=true
+   */
+  async listEducationTypes(): Promise<{ id: string; key: string; labelAr: string; isActive: boolean }[]> {
+    await simulateLatency(60, 140);
+    return MOCK.lookups['school-categories']
+      .filter((l) => l.isActive)
+      .map((l) => ({ id: l.code, key: l.code, labelAr: l.name, isActive: l.isActive }));
+  },
+
+  /**
+   * List applicants assigned to a given committee. Falls back to the
+   * legacy `applicant.committee === c.name` join when the committee
+   * has no explicit assignment table (the mock data ships with this
+   * structure).
+   *
+   * INTEGRATION CONTRACT:
+   *   GET /api/committees/:id/applicants
+   */
+  async getAssignedApplicants(committeeId: string): Promise<Applicant[]> {
+    await simulateLatency();
+    const c = COMMITTEES_STATE.find((x) => x.id === committeeId);
+    if (!c) return [];
+    return MOCK.applicants.filter((a) => a.committee === c.name);
+  },
+
+  /**
+   * Toggle committee status (active ↔ inactive). Surfaces a typed audit
+   * entry that the activity log can pick up.
+   */
+  async setStatus(id: string, status: CommitteeStatus): Promise<Committee> {
+    await simulateLatency();
+    const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('اللجنة غير موجودة');
+    const before = { ...COMMITTEES_STATE[idx] };
+    const next: Committee = { ...before, status };
+    COMMITTEES_STATE[idx] = next;
+    emitAudit({
+      action: 'update',
+      module: 'committees',
+      entityType: 'Committee',
+      entityLabel: 'لجنة قبول',
+      entityId: id,
+      details: `${status === 'active' ? 'تفعيل' : 'تعطيل'} "${next.name}"`,
+      before,
+      after: next,
+    });
+    return next;
+  },
 };
+
+/**
+ * Determines whether a committee accepts a given applicant per its
+ * CommitteeRules and current capacity. Pure helper exposed for the
+ * assignment preview UI on the detail page.
+ */
+export function committeeAcceptsApplicant(c: Committee, a: Applicant): boolean {
+  if (c.status === 'inactive') return false;
+  if (c.deletedAt) return false;
+  if (c.capacity !== undefined && c.applicants >= c.capacity) return false;
+  const rules = c.rules;
+  if (!rules) return true;
+  const scorePct = Number(a.certPercent);
+  if (rules.gradeFrom != null && scorePct < rules.gradeFrom) return false;
+  if (rules.gradeTo != null && scorePct > rules.gradeTo) return false;
+  if (rules.gender && rules.gender !== 'any' && rules.gender !== a.gender) return false;
+  const firstLetter = a.name.trim().charAt(0);
+  if (rules.alphabetFrom && firstLetter < rules.alphabetFrom) return false;
+  if (rules.alphabetTo && firstLetter > rules.alphabetTo) return false;
+  return true;
+}

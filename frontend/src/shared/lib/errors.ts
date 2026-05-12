@@ -12,7 +12,24 @@ export type ConflictCode =
   | 'EXAM_ORDER_DUPLICATE'
   | 'COMMITTEE_AT_CAPACITY'
   | 'NID_CYCLE_DUPLICATE'
-  | 'PUBLISH_NOT_ALLOWED';
+  | 'PUBLISH_NOT_ALLOWED'
+  // Lookup Management Module — see docs/DB_CONSTRAINTS.md §10.
+  | 'CIRCULAR_HIERARCHY'
+  | 'PARENT_HAS_CHILDREN'
+  | 'SELF_PARENT'
+  | 'DUPLICATE_CODE'
+  | 'DUPLICATE_MAPPING'
+  | 'INVALID_DATE_RANGE'
+  | 'IN_USE'
+  // Admission Setup — Application Settings (global master data).
+  // See docs/DB_CONSTRAINTS.md §11.
+  | 'DUPLICATE_YEAR'
+  | 'OVERLAPPING_PERIOD'
+  | 'AGE_NOT_POSITIVE'
+  | 'GRADE_RANGE_INVALID'
+  | 'GENDER_REQUIRED'
+  | 'SPECIALIZATION_NOT_MAPPED'
+  | 'CATEGORY_HAS_ACTIVE_YEARS';
 
 /** Generic conflict — a precondition rejected the mutation. */
 export class ConflictError<TPayload = unknown> extends Error {

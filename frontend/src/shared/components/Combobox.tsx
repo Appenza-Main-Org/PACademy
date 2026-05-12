@@ -18,8 +18,11 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
+
+const POPOVER_GAP = 8;
 
 export interface ComboboxOption {
   value: string;
@@ -69,12 +72,26 @@ export function Combobox({
 }: ComboboxProps): JSX.Element {
   const id = useId();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<
+    { top: number; left: number; width: number } | null
+  >(null);
   const [term, setTerm] = useState('');
   const [scrollTop, setScrollTop] = useState(0);
   const [activeIndex, setActiveIndex] = useState(-1);
+
+  /* Match the trigger's left edge + width so the dropdown looks
+   * "anchored" to the input even after we portal it out of the
+   * (potentially overflow:hidden) ancestor. */
+  const computePosition = (): void => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPosition({ top: rect.bottom + POPOVER_GAP, left: rect.left, width: rect.width });
+  };
 
   const filtered = useMemo(() => {
     if (!term.trim()) return options;
@@ -97,12 +114,36 @@ export function Combobox({
   const selected = options.find((o) => o.value === value) ?? null;
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      setPosition(null);
+      return undefined;
+    }
+    computePosition();
     const onDocClick = (event: MouseEvent): void => {
-      if (!wrapperRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      const inTrigger = wrapperRef.current?.contains(target) ?? false;
+      const inPopover = popoverRef.current?.contains(target) ?? false;
+      if (!inTrigger && !inPopover) setOpen(false);
     };
+    const onScroll = (event: Event): void => {
+      // Ignore scrolls originating inside the popover (e.g. the option list).
+      // Without this guard the dropdown closes the instant the user scrolls
+      // the list of options.
+      const target = event.target as Node | null;
+      if (popoverRef.current && target && popoverRef.current.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    };
+    const onResize = (): void => setOpen(false);
     document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -143,6 +184,7 @@ export function Combobox({
       <div className="relative">
         <button
           id={id}
+          ref={triggerRef}
           type="button"
           aria-haspopup="listbox"
           aria-expanded={open}
@@ -162,10 +204,17 @@ export function Combobox({
           <ChevronDown size={16} strokeWidth={1.75} className="text-ink-500" aria-hidden />
         </button>
 
-        {open && (
+        {open && position && createPortal(
           <div
-            className="absolute mt-2 w-full rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
-            style={{ zIndex: 'var(--z-dropdown)' as unknown as number }}
+            ref={popoverRef}
+            className="rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
+            style={{
+              position: 'fixed',
+              top: position.top,
+              left: position.left,
+              width: position.width,
+              zIndex: 'var(--z-dropdown)' as unknown as number,
+            }}
           >
             <div className="border-b border-border-subtle px-3 py-2">
               <div className="relative">
@@ -246,7 +295,8 @@ export function Combobox({
                 <li aria-hidden style={{ height: totalHeight - endIndex * ROW_HEIGHT }} />
               )}
             </ul>
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
       {error ? (

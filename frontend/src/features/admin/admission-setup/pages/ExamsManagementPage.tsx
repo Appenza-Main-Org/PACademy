@@ -66,7 +66,7 @@ function Body({ cycle }: { cycle: AdmissionCycle }): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="إدارة الاختبارات" subtitle="حدّد ترتيب الاختبارات وإلزاميتها ورسومها لكل فئة." />
+      <PageHeader title="إدارة الاختبارات" subtitle="حدّد ترتيب الاختبارات وإلزاميتها لكل فئة." />
       <Card>
         <div className="grid gap-2 md:grid-cols-3">
           {openCategories.map((cat) => (

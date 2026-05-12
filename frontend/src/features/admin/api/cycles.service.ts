@@ -12,6 +12,7 @@
  *   POST   /api/cycles/:id/clone                             → AdmissionCycle (new draft)
  *   POST   /api/cycles/:id/transition                        → { status }
  *   POST   /api/cycles/:id/activate                          → AdmissionCycle  (closes others)
+ *   POST   /api/cycles/:id/activate?swap=1                   → AdmissionCycle  (atomic close-old + activate-new)
  *   POST   /api/cycles/:id/close                             → AdmissionCycle
  *   POST   /api/cycles/:id/archive                           → AdmissionCycle
  *   PATCH  /api/cycles/:id/categories/:key                   → AdmissionCycle
@@ -21,7 +22,6 @@
  *   PATCH  /api/cycles/:id/categories/:key/conditions        → AdmissionCycle
  */
 
-import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
@@ -30,6 +30,7 @@ import {
   applyRestore,
   applySoftDelete,
   DependencyBlockedError,
+  filterDeleted,
   type DependencyResult,
 } from '@/shared/lib/soft-delete';
 import type {
@@ -43,66 +44,6 @@ import type {
 
 const STATE: AdmissionCycle[] = MOCK.cycles.map((c) => ({ ...c }));
 let ACTIVE_ID: string | null = MOCK.activeCycleId;
-
-/* ── Backend ↔ frontend cycle mapper ─────────────────────────────────────
- * Backend `CycleListItemDto` / `CycleDetailDto` carry the canonical fields;
- * everything else on `AdmissionCycle` (fees, linkedCommitteeIds, etc.) is
- * fronted by the admission-setup wizard's still-mocked services and gets
- * defaulted/preserved here so reload doesn't wipe them. */
-
-interface ApiCycleListItem {
-  id: string;
-  nameAr: string;
-  year: number;
-  cohort: string;
-  status: string;
-  openDate: string;
-  closeDate: string;
-  expectedCapacity: number;
-  applicantCount: number;
-}
-
-interface ApiCycleDetail extends ApiCycleListItem {
-  openCategories: Record<string, unknown>;
-  conditionOverrides: Record<string, unknown>;
-  createdAt: string;
-  archivedAt: string | null;
-}
-
-interface ApiPaged<T> { items: T[]; page: number; pageSize: number; totalCount: number; totalPages: number; }
-
-function apiToCycle(api: ApiCycleListItem | ApiCycleDetail, prev?: AdmissionCycle): AdmissionCycle {
-  const detail = (api as ApiCycleDetail);
-  return {
-    /* Identity + canonical fields from backend (lowercase status). */
-    id: api.id,
-    nameAr: api.nameAr,
-    year: api.year,
-    cohort: api.cohort as AdmissionCycle['cohort'],
-    status: api.status.toLowerCase() as CycleStatus,
-    openDate: api.openDate,
-    closeDate: api.closeDate,
-    expectedCapacity: api.expectedCapacity,
-    applicantCount: api.applicantCount,
-    /* Detail-only fields (default to prior/empty when absent). */
-    openCategories: (detail.openCategories as AdmissionCycle['openCategories']) ?? prev?.openCategories ?? {},
-    conditionOverrides: (detail.conditionOverrides as AdmissionCycle['conditionOverrides']) ?? prev?.conditionOverrides ?? {},
-    createdAt: detail.createdAt ?? prev?.createdAt ?? new Date().toISOString(),
-    updatedAt: prev?.updatedAt ?? detail.createdAt ?? new Date().toISOString(),
-    /* Admission-setup-wizard fields: preserve whatever the local mock has;
-     * the backend doesn't track these yet. */
-    ageCalcDate: prev?.ageCalcDate,
-    referenceAge: prev?.referenceAge,
-    fees: prev?.fees,
-    linkedCategoryIds: prev?.linkedCategoryIds,
-    linkedCommitteeIds: prev?.linkedCommitteeIds,
-  };
-}
-
-function upsertState(cycle: AdmissionCycle): void {
-  const idx = STATE.findIndex((c) => c.id === cycle.id);
-  if (idx === -1) STATE.unshift(cycle); else STATE[idx] = cycle;
-}
 
 /**
  * Pre-flight check for cycle activation. Returns a list of friendly
@@ -267,28 +208,14 @@ const CYCLE_DEP_LABELS: Record<string, string> = {
 
 export const cyclesService = {
   async list(opts: { includeDeleted?: boolean } = {}): Promise<AdmissionCycle[]> {
-    const { data } = await apiClient.get<ApiPaged<ApiCycleListItem>>('/admin/cycles', {
-      params: { includeArchived: opts.includeDeleted ?? false, pageSize: 200 },
-    });
-    const cycles = data.items.map((api) => apiToCycle(api, STATE.find((c) => c.id === api.id)));
-    // Sync local STATE so the still-mocked methods (clone/toggleCategory/…) see fresh data.
-    STATE.length = 0;
-    STATE.push(...cycles);
-    return [...cycles].sort((a, b) => b.year - a.year);
+    await simulateLatency();
+    const visible = filterDeleted(STATE, opts.includeDeleted);
+    return [...visible].sort((a, b) => b.year - a.year);
   },
 
   async getById(id: string): Promise<AdmissionCycle | null> {
-    try {
-      const { data } = await apiClient.get<ApiCycleDetail>(`/admin/cycles/${id}`);
-      const cycle = apiToCycle(data, STATE.find((c) => c.id === id));
-      upsertState(cycle);
-      return cycle;
-    } catch (err) {
-      if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 404) {
-        return null;
-      }
-      throw err;
-    }
+    await simulateLatency();
+    return STATE.find((c) => c.id === id) ?? null;
   },
 
   async getActive(): Promise<AdmissionCycle | null> {
@@ -311,44 +238,136 @@ export const cyclesService = {
     return STATE.find((c) => c.id === ACTIVE_ID) ?? null;
   },
 
-  async create(payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>): Promise<AdmissionCycle> {
-    const body = {
-      nameAr: payload.nameAr,
-      year: payload.year,
-      cohort: payload.cohort,
-      openDate: payload.openDate,
-      closeDate: payload.closeDate,
-      expectedCapacity: payload.expectedCapacity,
+  async create(
+    payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>,
+    options: { demoteCurrentActive?: boolean } = {},
+  ): Promise<AdmissionCycle> {
+    await simulateLatency();
+    /* Single-active-cycle invariant — mirror the same rule the activate
+     * lifecycle enforces, so a direct create with `status: 'active'`
+     * can't bypass it. Callers explicitly opt-in to atomic demotion
+     * by passing `demoteCurrentActive: true`. */
+    if (payload.status === 'active') {
+      const existingActiveIdx = STATE.findIndex(
+        (c) => c.status === 'active' || c.status === 'open' || c.status === 'extended',
+      );
+      if (existingActiveIdx !== -1) {
+        const conflicting = STATE[existingActiveIdx];
+        if (!options.demoteCurrentActive) {
+          throw new ConflictError(
+            'ACTIVE_CYCLE_EXISTS',
+            { activeCycleId: conflicting.id, activeCycleName: conflicting.nameAr },
+            `يوجد دورة نشطة حالياً "${conflicting.nameAr}". أغلقها أو حوّلها إلى مسودة قبل تفعيل دورة جديدة.`,
+          );
+        }
+        const before = { ...conflicting };
+        const demoted: AdmissionCycle = {
+          ...conflicting,
+          status: 'draft',
+          updatedAt: new Date().toISOString(),
+        };
+        STATE[existingActiveIdx] = demoted;
+        if (ACTIVE_ID === before.id) ACTIVE_ID = null;
+        pushAudit(
+          'AdmissionCycle',
+          before.id,
+          'update',
+          `تم تحويل دورة "${before.nameAr}" إلى مسودة عند تفعيل دورة جديدة`,
+        );
+      }
+    }
+    const now = new Date().toISOString();
+    const cycle: AdmissionCycle = {
+      ...payload,
+      id: `CYC-${payload.year}-${payload.cohort.toUpperCase().slice(0, 1)}-${cloneCounter++}`,
+      applicantCount: 0,
+      createdAt: payload.createdAt ?? now,
+      updatedAt: now,
     };
-    const { data } = await apiClient.post<ApiCycleDetail>('/admin/cycles', body);
-    const cycle = apiToCycle(data);
-    // Carry over wizard-only fields the backend didn't echo back.
-    cycle.fees = payload.fees;
-    cycle.referenceAge = payload.referenceAge;
-    cycle.linkedCommitteeIds = payload.linkedCommitteeIds;
-    cycle.linkedCategoryIds = payload.linkedCategoryIds;
-    upsertState(cycle);
+    STATE.unshift(cycle);
+    if (cycle.status === 'active') ACTIVE_ID = cycle.id;
     pushAudit('AdmissionCycle', cycle.id, 'create', `تم إنشاء دورة "${cycle.nameAr}"`);
     return cycle;
   },
 
+  /**
+   * Change the status of an existing cycle from the simplified edit flow.
+   * Mirrors the single-active invariant enforced in `create()`: switching
+   * a cycle to `'active'` while another active cycle exists rejects with
+   * `ConflictError('ACTIVE_CYCLE_EXISTS')` unless the caller opts into
+   * `demoteCurrentActive: true`. Side-effect: keeps `ACTIVE_ID` in sync.
+   */
+  async updateStatus(
+    id: string,
+    next: CycleStatus,
+    options: { demoteCurrentActive?: boolean } = {},
+  ): Promise<AdmissionCycle> {
+    await simulateLatency();
+    const idx = STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('الدورة غير موجودة');
+    const before = { ...STATE[idx] };
+
+    if (next === 'active') {
+      const conflictIdx = STATE.findIndex(
+        (c, i) =>
+          i !== idx &&
+          (c.status === 'active' || c.status === 'open' || c.status === 'extended'),
+      );
+      if (conflictIdx !== -1) {
+        const conflicting = STATE[conflictIdx];
+        if (!options.demoteCurrentActive) {
+          throw new ConflictError(
+            'ACTIVE_CYCLE_EXISTS',
+            { activeCycleId: conflicting.id, activeCycleName: conflicting.nameAr },
+            `يوجد دورة نشطة حالياً "${conflicting.nameAr}". أغلقها أو حوّلها إلى مسودة قبل تفعيل دورة جديدة.`,
+          );
+        }
+        const beforeDemote = { ...conflicting };
+        const demoted: AdmissionCycle = {
+          ...conflicting,
+          status: 'draft',
+          updatedAt: new Date().toISOString(),
+        };
+        STATE[conflictIdx] = demoted;
+        if (ACTIVE_ID === beforeDemote.id) ACTIVE_ID = null;
+        pushAudit(
+          'AdmissionCycle',
+          beforeDemote.id,
+          'update',
+          `تم تحويل دورة "${beforeDemote.nameAr}" إلى مسودة عند تفعيل دورة أخرى`,
+        );
+      }
+    }
+
+    const updated: AdmissionCycle = {
+      ...before,
+      status: next,
+      updatedAt: new Date().toISOString(),
+    };
+    STATE[idx] = updated;
+    if (next === 'active') ACTIVE_ID = updated.id;
+    else if (ACTIVE_ID === updated.id) ACTIVE_ID = null;
+    pushAudit(
+      'AdmissionCycle',
+      updated.id,
+      'update',
+      `تم تغيير حالة دورة "${updated.nameAr}" إلى ${next}`,
+    );
+    return updated;
+  },
+
   async update(id: string, patch: Partial<AdmissionCycle>): Promise<AdmissionCycle> {
-    const body: Record<string, unknown> = {};
-    if (patch.nameAr !== undefined) body.nameAr = patch.nameAr;
-    if (patch.openDate !== undefined) body.openDate = patch.openDate;
-    if (patch.closeDate !== undefined) body.closeDate = patch.closeDate;
-    if (patch.expectedCapacity !== undefined) body.expectedCapacity = patch.expectedCapacity;
-    const { data } = await apiClient.patch<ApiCycleDetail>(`/admin/cycles/${id}`, body);
-    const prev = STATE.find((c) => c.id === id);
-    // Preserve wizard-only fields from the prior local state + apply any patch passthroughs.
-    const cycle = apiToCycle(data, prev);
-    if (patch.fees !== undefined) cycle.fees = patch.fees;
-    if (patch.referenceAge !== undefined) cycle.referenceAge = patch.referenceAge;
-    if (patch.linkedCommitteeIds !== undefined) cycle.linkedCommitteeIds = patch.linkedCommitteeIds;
-    if (patch.linkedCategoryIds !== undefined) cycle.linkedCategoryIds = patch.linkedCategoryIds;
-    upsertState(cycle);
-    pushAudit('AdmissionCycle', cycle.id, 'update', `تم تعديل بيانات دورة "${cycle.nameAr}"`);
-    return cycle;
+    await simulateLatency();
+    const idx = STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('الدورة غير موجودة');
+    const updated: AdmissionCycle = {
+      ...STATE[idx],
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    } as AdmissionCycle;
+    STATE[idx] = updated;
+    pushAudit('AdmissionCycle', updated.id, 'update', `تم تعديل بيانات دورة "${updated.nameAr}"`);
+    return updated;
   },
 
   async clone(id: string): Promise<AdmissionCycle> {
@@ -371,14 +390,12 @@ export const cyclesService = {
   },
 
   async transition(id: string, next: CycleStatus): Promise<AdmissionCycle> {
-    // Backend canonicalises the next-status value capitalised; lowercase round-trip via apiToCycle.
-    const newStatus = next.charAt(0).toUpperCase() + next.slice(1);
-    const { data } = await apiClient.post<ApiCycleDetail>(`/admin/cycles/${id}/status`, { newStatus });
-    const prev = STATE.find((c) => c.id === id);
-    const cycle = apiToCycle(data, prev);
-    upsertState(cycle);
-    pushAudit('AdmissionCycle', id, 'update', `تم تغيير حالة دورة "${cycle.nameAr}" إلى ${next}`);
-    return cycle;
+    await simulateLatency();
+    const idx = STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('الدورة غير موجودة');
+    STATE[idx] = { ...STATE[idx], status: next, updatedAt: new Date().toISOString() } as AdmissionCycle;
+    pushAudit('AdmissionCycle', id, 'update', `تم تغيير حالة دورة "${STATE[idx].nameAr}" إلى ${next}`);
+    return STATE[idx];
   },
 
   /**
@@ -429,6 +446,78 @@ export const cyclesService = {
       after: STATE[idx],
     });
     return STATE[idx];
+  },
+
+  /**
+   * Atomic swap — closes whatever active cycle currently exists and
+   * activates the target in one call. Lets the UI offer a single
+   * confirmation when an admin tries to activate a new cycle while
+   * another one is still active, instead of forcing them to navigate
+   * to the old cycle, close it, then come back.
+   *
+   * Pre-flight checks for the target run BEFORE the close, so a
+   * half-baked target doesn't tear the existing active cycle down.
+   * Audit emits both `cycle_closed` (for the swapped-out cycle) and
+   * `cycle_activated` (for the target) so the trail is complete.
+   *
+   * Real backend should expose this as POST /api/cycles/:id/activate
+   * with a `swapWith` query param OR a transactional endpoint —
+   * mirror the same shape so the frontend doesn't change.
+   */
+  async swapActive(targetId: string): Promise<AdmissionCycle> {
+    await simulateLatency();
+    const targetIdx = STATE.findIndex((c) => c.id === targetId);
+    if (targetIdx === -1) throw new Error('الدورة غير موجودة');
+
+    const missing = collectActivationIssues(STATE[targetIdx]);
+    if (missing.length > 0) {
+      throw new ConflictError(
+        'CYCLE_ACTIVATION_INCOMPLETE',
+        { issues: missing },
+        `لا يمكن تفعيل هذه الدورة — الإعداد غير مكتمل:\n• ${missing.join('\n• ')}`,
+      );
+    }
+
+    /* Close every other cycle that's currently in an active-ish state. */
+    const now = new Date().toISOString();
+    for (let i = 0; i < STATE.length; i += 1) {
+      if (i === targetIdx) continue;
+      const c = STATE[i];
+      if (c.status === 'active' || c.status === 'open' || c.status === 'extended') {
+        const beforeClose = { ...c };
+        STATE[i] = { ...c, status: 'closed', updatedAt: now } as AdmissionCycle;
+        if (ACTIVE_ID === c.id) ACTIVE_ID = null;
+        emitAudit({
+          action: 'cycle_closed',
+          module: 'cycles',
+          entityType: 'AdmissionCycle',
+          entityLabel: 'دورة قبول',
+          entityId: c.id,
+          details: `تم إغلاق دورة "${c.nameAr}" تلقائياً عند تفعيل دورة أخرى`,
+          before: beforeClose,
+          after: STATE[i],
+        });
+      }
+    }
+
+    const beforeActivate = { ...STATE[targetIdx] };
+    STATE[targetIdx] = {
+      ...STATE[targetIdx],
+      status: 'active',
+      updatedAt: now,
+    } as AdmissionCycle;
+    ACTIVE_ID = targetId;
+    emitAudit({
+      action: 'cycle_activated',
+      module: 'cycles',
+      entityType: 'AdmissionCycle',
+      entityLabel: 'دورة قبول',
+      entityId: targetId,
+      details: `تم تفعيل دورة "${STATE[targetIdx].nameAr}"`,
+      before: beforeActivate,
+      after: STATE[targetIdx],
+    });
+    return STATE[targetIdx];
   },
 
   async close(id: string): Promise<AdmissionCycle> {
@@ -508,11 +597,12 @@ export const cyclesService = {
   },
 
   async remove(id: string): Promise<{ ok: true }> {
-    const prev = STATE.find((c) => c.id === id);
-    await apiClient.delete(`/admin/cycles/${id}`);
+    await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
-    if (idx !== -1) STATE.splice(idx, 1);
-    pushAudit('AdmissionCycle', id, 'delete', `تم حذف مسودة دورة "${prev?.nameAr ?? id}"`);
+    if (idx === -1) throw new Error('الدورة غير موجودة');
+    if (STATE[idx].status !== 'draft') throw new Error('لا يمكن حذف دورة غير مسودة');
+    const [removed] = STATE.splice(idx, 1);
+    pushAudit('AdmissionCycle', id, 'delete', `تم حذف مسودة دورة "${removed.nameAr}"`);
     return { ok: true };
   },
 

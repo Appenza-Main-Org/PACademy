@@ -3,6 +3,7 @@ import {
   Banknote,
   BarChart3,
   Bell,
+  Calendar,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
@@ -12,7 +13,6 @@ import {
   LayoutDashboard,
   Settings,
   Shield,
-  SlidersHorizontal,
   Users,
   Workflow,
 } from 'lucide-react';
@@ -38,31 +38,40 @@ const SIDEBAR: SidebarSection[] = [
     ],
   },
   /**
-   * التقديم — single sidebar entry that opens the launcher. The 15-step
-   * configuration flow now lives entirely inside the wizard at
-   * `/admin/admission-setup/wizard/:stepKey`, so the sidebar deliberately
-   * exposes only one item to keep the navigation surface compact.
+   * التقديم — groups the cycle-bootstrapping surfaces together: categories
+   * and cycles seed the data model, then the wizard at
+   * `/admin/admission-setup/wizard/:stepKey` runs the 15-step
+   * configuration flow over the picked cycle. Order matches the natural
+   * authoring sequence (define categories → open a cycle → configure it).
    * Hidden entirely if the user lacks `admission-setup:read`.
    */
   {
     label: 'التقديم',
     permission: 'admission-setup:read',
     items: [
-      {
-        key: 'admission-setup',
-        label: 'التقديم',
-        icon: <ClipboardCheck size={18} />,
-        to: ROUTES.admin.admissionSetup.index,
-      },
+      { key: 'categories',      label: 'فئات التقديم', icon: <Layers size={18} />,         to: ROUTES.admin.categories },
+      { key: 'cycles',          label: 'الدورات',      icon: <CalendarDays size={18} />,    to: ROUTES.admin.cycles },
+      { key: 'admission-setup', label: 'إعداد التقديم', icon: <ClipboardCheck size={18} />, to: ROUTES.admin.admissionSetup.index },
+    ],
+  },
+  /**
+   * لجان القبول — admin-side entry into the committees surface. Mirrors the
+   * committee app's own sidebar so super_admin / committee_admin can jump
+   * to any of the three committee views without leaving /admin chrome.
+   * AuthGuard lets both roles through (they hold the `committee` app key).
+   */
+  {
+    label: 'لجان القبول',
+    items: [
+      { key: 'committee-overview', label: 'نظرة عامة',    icon: <LayoutDashboard size={18} />, to: ROUTES.committee.overview, end: true },
+      { key: 'committee-list',     label: 'قائمة اللجان', icon: <Users size={18} />,           to: ROUTES.committee.list },
+      { key: 'committee-schedule', label: 'الجدول الزمني', icon: <Calendar size={18} />,        to: ROUTES.committee.schedule },
     ],
   },
   {
     label: 'البيانات المرجعية والإعدادات',
     items: [
-      { key: 'reference-data', label: 'البيانات المرجعية', icon: <Database size={18} />,           to: ROUTES.admin.referenceDataRoot },
-      { key: 'admission-rules', label: 'شروط القبول',      icon: <SlidersHorizontal size={18} />,  to: ROUTES.admin.admissionRules },
-      { key: 'categories',      label: 'فئات التقديم',      icon: <Layers size={18} />,             to: ROUTES.admin.categories },
-      { key: 'cycles',          label: 'الدورات',           icon: <CalendarDays size={18} />,        to: ROUTES.admin.cycles },
+      { key: 'lookups', label: 'الأكواد المرجعية', icon: <Database size={18} />,           to: ROUTES.admin.adminLookups },
       { key: 'workflows',       label: 'سير العمل',          icon: <Workflow size={18} />,            to: ROUTES.admin.workflows },
       { key: 'notifications',   label: 'الإشعارات',          icon: <Bell size={18} />,                to: ROUTES.admin.notifications },
       { key: 'payments',        label: 'المدفوعات',           icon: <Banknote size={18} />,            to: ROUTES.admin.payments },

@@ -30,10 +30,9 @@ const NAVIGATION: CommandItem[] = [
   { id: 'nav-users',       label: 'مستخدمو المنظومة',            href: ROUTES.admin.users,           group: 'navigation', icon: <Users size={14} strokeWidth={1.75} /> },
   { id: 'nav-audit',       label: 'سجل العمليات',                  href: ROUTES.admin.audit,           group: 'navigation', icon: <Shield size={14} strokeWidth={1.75} /> },
   { id: 'nav-reports',     label: 'التقارير',                       href: ROUTES.admin.reports,         group: 'navigation', icon: <FileText size={14} strokeWidth={1.75} /> },
-  { id: 'nav-reference',   label: 'البيانات المرجعية',              href: ROUTES.admin.referenceDataRoot, group: 'navigation', icon: <Database size={14} strokeWidth={1.75} /> },
+  { id: 'nav-lookups',     label: 'الأكواد المرجعية',                href: ROUTES.admin.adminLookups,    group: 'navigation', icon: <Database size={14} strokeWidth={1.75} /> },
   { id: 'nav-cycles',      label: 'دورات القبول',                  href: ROUTES.admin.cycles,          group: 'navigation' },
   { id: 'nav-settings',    label: 'الإعدادات العامة',              href: ROUTES.admin.settings,        group: 'navigation', icon: <Settings size={14} strokeWidth={1.75} /> },
-  { id: 'nav-architecture', label: 'معمارية النظام',                href: ROUTES.architecture,          group: 'navigation' },
 ];
 
 interface CommandPaletteProps {

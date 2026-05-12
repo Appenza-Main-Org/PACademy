@@ -78,7 +78,6 @@ export function RolesPage(): JSX.Element {
 
   const columns: DataTableColumn<RoleDefinitionRow>[] = [
     { key: 'labelAr', label: 'الاسم', render: (r) => <span className="font-medium text-ink-900">{r.labelAr}</span> },
-    { key: 'key', label: 'المفتاح', render: (r) => <span dir="ltr" className="font-mono text-2xs text-ink-500">{r.key}</span> },
     { key: 'isSystem', label: 'النوع', render: (r) => (r.isSystem ? <Badge tone="info">نظام</Badge> : <Badge tone="neutral">مخصص</Badge>) },
     {
       key: 'permissions',
@@ -160,7 +159,10 @@ export function RolesPage(): JSX.Element {
         },
       );
     } else {
-      createMut.mutate(draft, {
+      /* Key is no longer admin-edited — auto-generate a stable
+       * `custom_<timestamp>` so the row gets a unique identifier. */
+      const payload = { ...draft, key: draft.key.trim() || `custom_${Date.now()}` };
+      createMut.mutate(payload, {
         onSuccess: () => {
           toast('تم إنشاء الدور', 'success');
           setDrawerOpen(false);
@@ -212,6 +214,33 @@ export function RolesPage(): JSX.Element {
           zebraStripes
           stickyHeader
           density="compact"
+          listActions={{
+            entityKey: 'admin.roles',
+            entityLabelAr: 'الأدوار',
+            auditModule: 'roles',
+            export: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              filenamePrefix: 'أدوار-',
+              columns: [
+                { key: 'id', labelAr: 'المعرف' },
+                { key: 'key', labelAr: 'مفتاح الدور' },
+                { key: 'labelAr', labelAr: 'الاسم بالعربية' },
+                { key: 'labelEn', labelAr: 'الاسم بالإنجليزية' },
+                { key: 'isSystem', labelAr: 'نظامي', format: (v) => (v ? 'نعم' : 'لا') },
+                {
+                  key: 'permissions',
+                  labelAr: 'الصلاحيات',
+                  format: (v) => (Array.isArray(v) ? (v as string[]).join('، ') : ''),
+                },
+                {
+                  key: 'apps',
+                  labelAr: 'التطبيقات',
+                  format: (v) => (Array.isArray(v) ? (v as string[]).join('، ') : ''),
+                },
+              ],
+            },
+          }}
         />
       </Card>
 
@@ -233,22 +262,7 @@ export function RolesPage(): JSX.Element {
               value={draft.labelAr}
               disabled={isEditingSystem}
               onChange={(e) => setDraft({ ...draft, labelAr: e.target.value })}
-            />
-            <Input
-              label="Label (English)"
-              dir="ltr"
-              value={draft.labelEn ?? ''}
-              disabled={isEditingSystem}
-              onChange={(e) => setDraft({ ...draft, labelEn: e.target.value })}
-            />
-            <Input
-              label="المفتاح"
-              dir="ltr"
-              required
-              value={draft.key}
-              disabled={isEditingSystem}
-              onChange={(e) => setDraft({ ...draft, key: e.target.value })}
-              helper={isEditingSystem ? 'لا يمكن تعديل مفتاح دور النظام' : 'معرّف لاتيني فريد (snake_case)'}
+              containerClassName="md:col-span-2"
             />
           </div>
           <div className="mt-4">

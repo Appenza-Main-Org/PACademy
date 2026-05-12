@@ -8,6 +8,7 @@ import { useAuthStore } from '@/features/auth';
 import { ROLE_DEFINITIONS } from '@/features/auth/rbac';
 import { ROUTES } from '@/config/routes';
 import { setAuditActorProvider } from '@/shared/lib/audit';
+import { setListActionPermissionsProvider } from '@/shared/lib/list-action-actor';
 
 /* Register the auth-store as the audit actor source. shared/lib/audit
  * cannot import from features/, so the wiring lives at the app root. */
@@ -15,6 +16,10 @@ setAuditActorProvider(() => {
   const u = useAuthStore.getState().user;
   return u ? { id: u.id, name: u.name, role: u.role } : null;
 });
+
+/* Register the auth-store as the permission-snapshot source for the
+ * universal list-actions stack. Same Clean Arch reason as above. */
+setListActionPermissionsProvider(() => useAuthStore.getState().user?.permissions);
 
 /**
  * Demo bootstrap — auto-seeds a super_admin user on startup so every URL

@@ -4,8 +4,20 @@
  */
 
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Ban, CheckCircle2, Check, ClipboardCheck, FileSpreadsheet, Hourglass, ListChecks, Pencil, ShieldCheck, Upload, Users } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import {
+  Ban,
+  CheckCircle2,
+  Check,
+  ClipboardCheck,
+  FileSpreadsheet,
+  Hourglass,
+  ListChecks,
+  Pencil,
+  ShieldCheck,
+  Upload,
+  Users,
+} from 'lucide-react';
 import {
   Avatar,
   Badge,
@@ -30,23 +42,30 @@ import type { DataTableColumn } from '@/shared/components';
 import { IconStamp } from '@/shared/components/icons';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
-import { date as fmtDate, shortName } from '@/shared/lib/format';
+import { date as fmtDate, num, shortName } from '@/shared/lib/format';
 import {
   useApproveResults,
   useBulkUploadResults,
   useCommittee,
+  useCommitteeAssignedApplicants,
   useCommitteeQueue,
   useCommitteeResults,
+  useCommitteeSpecializations,
+  useEligibleOfficers,
   useEnterResult,
   useRejectResult,
 } from '../api/committee.queries';
-import type { Applicant, CommitteeResult } from '@/shared/types/domain';
+import type { Applicant, Committee, CommitteeResult } from '@/shared/types/domain';
 
 export function CommitteeDetailPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data: committee, isLoading, error, refetch } = useCommittee(id);
   const { data: queue } = useCommitteeQueue(id);
   const { data: results } = useCommitteeResults(id);
+  const { data: specializations = [] } = useCommitteeSpecializations();
+  const { data: officers = [] } = useEligibleOfficers();
+  const { data: assignedApplicants = [] } = useCommitteeAssignedApplicants(id);
   const enterMut = useEnterResult(id);
   const approveMut = useApproveResults(id);
   const rejectMut = useRejectResult(id);
@@ -148,6 +167,20 @@ export function CommitteeDetailPage(): JSX.Element {
         actions={
           <div className="flex items-center gap-2">
             <Button
+              variant="ghost"
+              leadingIcon={<Users size={14} strokeWidth={1.75} />}
+              onClick={() => navigate(ROUTES.committee.applicants(id))}
+            >
+              عرض المتقدمين
+            </Button>
+            <Button
+              variant="secondary"
+              leadingIcon={<Pencil size={14} strokeWidth={1.75} />}
+              onClick={() => navigate(ROUTES.committee.edit(id))}
+            >
+              تعديل
+            </Button>
+            <Button
               variant="secondary"
               leadingIcon={<Upload size={14} strokeWidth={1.75} />}
               onClick={() => setBulkOpen(true)}
@@ -171,6 +204,14 @@ export function CommitteeDetailPage(): JSX.Element {
             </Button>
           </div>
         }
+      />
+
+      {/* ── Committee summary — officers, specs, capacity, rules ─────── */}
+      <CommitteeSummary
+        committee={committee}
+        specializations={specializations}
+        officers={officers}
+        assignedCount={assignedApplicants.length}
       />
 
       {/* Two-phase workflow explainer */}
@@ -433,6 +474,198 @@ function RejectReasonForm({ onConfirm }: { onConfirm: (reason: string) => void }
       </div>
     </form>
   );
+}
+
+interface SummaryEligibleOfficer {
+  id: string;
+  name: string;
+  role: string;
+  unit: string;
+}
+
+interface SummarySpecialization {
+  id: string;
+  nameAr: string;
+  code: string;
+  active: boolean;
+}
+
+function CommitteeSummary({
+  committee,
+  specializations,
+  officers,
+  assignedCount,
+}: {
+  committee: Committee;
+  specializations: SummarySpecialization[];
+  officers: SummaryEligibleOfficer[];
+  assignedCount: number;
+}): JSX.Element {
+  const capacity = committee.capacity ?? 0;
+  const used = assignedCount || committee.applicants;
+  const remaining = Math.max(0, capacity - used);
+  const isFull = capacity > 0 && used >= capacity;
+
+  const specs = (committee.specializationIds ?? [])
+    .map((sid) => specializations.find((s) => s.id === sid))
+    .filter((s): s is SummarySpecialization => Boolean(s));
+
+  const officerObjs = (committee.officerIds ?? [])
+    .map((oid) => officers.find((o) => o.id === oid))
+    .filter((o): o is SummaryEligibleOfficer => Boolean(o));
+
+  const rules = committee.rules;
+
+  return (
+    <div className="mb-6 grid gap-4 lg:grid-cols-3">
+      <Card>
+        <CardHeader title="معلومات اللجنة" />
+        <div className="grid grid-cols-2 gap-4 p-4">
+          <SummaryItem label="رئيس اللجنة" value={committee.head} />
+          <SummaryItem label="عدد الضباط" value={String(officerObjs.length || committee.members)} />
+          <SummaryItem label="العام الدراسي" value={committee.academicYearId ?? '—'} />
+          <SummaryItem
+            label="الحالة"
+            value={
+              committee.status === 'inactive' ? (
+                <Badge tone="neutral">موقوفة</Badge>
+              ) : isFull ? (
+                <Badge tone="danger">مكتمل</Badge>
+              ) : (
+                <Badge tone="success">مفعّلة</Badge>
+              )
+            }
+          />
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="السعة" subtitle="السعة الكلية / المسنّد / المتبقي" />
+        <div className="p-4">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-2xs text-ink-500">المسنّد</p>
+              <p className="font-mono text-xl font-bold tnum text-ink-900" dir="ltr">
+                {num(used)} / {num(capacity || used)}
+              </p>
+            </div>
+            <Badge tone={isFull ? 'danger' : 'success'}>
+              {capacity > 0 ? `${num(remaining)} متبقي` : 'بدون سقف'}
+            </Badge>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink-100">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: capacity > 0 ? `${Math.min(100, Math.round((used / capacity) * 100))}%` : '0%',
+                background: isFull ? 'var(--terra-500)' : 'var(--accent-500)',
+              }}
+            />
+          </div>
+          {isFull && (
+            <p className="mt-3 text-2xs text-terra-700">
+              ⚠ اللجنة بلغت السعة القصوى — تم إيقاف التوزيع التلقائي.
+            </p>
+          )}
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader title="التخصصات المرتبطة" />
+        <div className="p-4">
+          {specs.length === 0 ? (
+            <p className="text-2xs text-ink-500">لا توجد تخصصات معيّنة لهذه اللجنة.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {specs.map((s) => (
+                <Badge key={s.id} tone="brand">
+                  {s.nameAr}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <Card className="lg:col-span-3">
+        <CardHeader title="شروط التوزيع" subtitle="نطاق الدرجات، الحروف، النوع، نوع المتقدم" />
+        <div className="grid grid-cols-2 gap-4 p-4 md:grid-cols-4">
+          <SummaryItem
+            label="نطاق الدرجات"
+            value={
+              rules?.gradeFrom != null || rules?.gradeTo != null ? (
+                <span className="font-mono tnum" dir="ltr">
+                  {rules?.gradeFrom ?? '—'} – {rules?.gradeTo ?? '—'}
+                </span>
+              ) : (
+                '—'
+              )
+            }
+          />
+          <SummaryItem
+            label="النطاق الأبجدي"
+            value={
+              rules?.alphabetFrom || rules?.alphabetTo
+                ? `${rules?.alphabetFrom ?? '—'} – ${rules?.alphabetTo ?? '—'}`
+                : '—'
+            }
+          />
+          <SummaryItem
+            label="النوع"
+            value={
+              rules?.gender === 'male'
+                ? 'ذكور'
+                : rules?.gender === 'female'
+                  ? 'إناث'
+                  : 'كلاهما'
+            }
+          />
+          <SummaryItem label="نوع المتقدم" value={applicantTypeLabel(rules?.applicantType ?? 'any')} />
+        </div>
+      </Card>
+
+      {officerObjs.length > 0 && (
+        <Card className="lg:col-span-3">
+          <CardHeader title="الضباط المعيّنون" />
+          <div className="flex flex-wrap gap-2 p-4">
+            {officerObjs.map((o) => (
+              <span
+                key={o.id}
+                className="inline-flex items-center gap-2 rounded-md border border-border-subtle bg-surface-card px-3 py-1.5 text-xs"
+              >
+                <Avatar name={o.name} size="sm" />
+                <span className="font-medium text-ink-900">{o.name}</span>
+                <span className="text-2xs text-ink-500">· {o.unit}</span>
+                {o.id === committee.headUserId && <Badge tone="warning">رئيس</Badge>}
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function SummaryItem({ label, value }: { label: string; value: React.ReactNode }): JSX.Element {
+  return (
+    <div>
+      <p className="text-2xs text-ink-500">{label}</p>
+      <p className="mt-1 text-sm font-medium text-ink-900">{value}</p>
+    </div>
+  );
+}
+
+function applicantTypeLabel(key: string): string {
+  switch (key) {
+    case 'officers_general': return 'ضباط عاميون';
+    case 'officers_specialized': return 'ضباط متخصصون';
+    case 'postgraduate': return 'دراسات عليا';
+    case 'institute_officers_training': return 'معهد ضباط (تدريب)';
+    case 'institute_traffic': return 'معهد المرور';
+    case 'institute_guarding': return 'معهد الحراسات';
+    case 'special_units': return 'الوحدات الخاصة';
+    default: return 'الكل';
+  }
 }
 
 function BulkUploadModal({

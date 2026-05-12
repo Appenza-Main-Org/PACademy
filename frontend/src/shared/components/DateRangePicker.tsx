@@ -9,9 +9,21 @@
  */
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { CalendarGrid } from './DatePicker';
+
+const POPOVER_GAP = 8;
+/* Estimated popover width on md+ (two month grids side-by-side + quick-range
+ * chips column + padding/gaps). Used to clamp the left position so the
+ * popover never spills off the viewport's start edge — the trigger is often
+ * in the last column of an RTL filter row, where simple right-edge anchoring
+ * overflows leftward. Mobile collapses to a single column via `md:flex-row`
+ * so the narrower estimate is used below md. */
+const POPOVER_WIDTH_DESKTOP = 720;
+const POPOVER_WIDTH_MOBILE = 320;
+const POPOVER_HEIGHT_ESTIMATE = 360;
 
 export interface DateRange {
   start: Date | null;
@@ -89,15 +101,50 @@ export function DateRangePicker({
 }: DateRangePickerProps): JSX.Element {
   const id = useId();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const [cursor, setCursor] = useState<Date>(value?.start ?? new Date());
   const [draftStart, setDraftStart] = useState<Date | null>(value?.start ?? null);
   const [draftEnd, setDraftEnd] = useState<Date | null>(value?.end ?? null);
 
+  /* Anchor the popover's right edge to the trigger's right edge (the start
+   * edge in RTL) and clamp its left edge to the viewport so it never spills
+   * off the screen. Use a static width estimate per breakpoint; the popover
+   * also carries a `maxWidth: calc(100vw - 16px)` belt so any underestimate
+   * just compresses gracefully instead of overflowing. Flip upward when
+   * there isn't room below — same logic as DatePicker. */
+  const computePosition = (): void => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const isMobile = window.innerWidth < 768;
+    const estimatedWidth = isMobile
+      ? Math.min(POPOVER_WIDTH_MOBILE, window.innerWidth - 16)
+      : POPOVER_WIDTH_DESKTOP;
+    const desiredLeft = rect.right - estimatedWidth;
+    const left = Math.max(8, Math.min(desiredLeft, window.innerWidth - estimatedWidth - 8));
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const needsFlip =
+      spaceBelow < POPOVER_HEIGHT_ESTIMATE + POPOVER_GAP && spaceAbove > spaceBelow;
+    const top = needsFlip
+      ? Math.max(8, rect.top - POPOVER_GAP - POPOVER_HEIGHT_ESTIMATE)
+      : rect.bottom + POPOVER_GAP;
+    setPosition({ top, left });
+  };
+
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      setPosition(null);
+      return undefined;
+    }
+    computePosition();
     const onDocClick = (event: MouseEvent): void => {
-      if (!wrapperRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const inTrigger = wrapperRef.current?.contains(target) ?? false;
+      const inPopover = popoverRef.current?.contains(target) ?? false;
+      if (!inTrigger && !inPopover) {
         commitIfReady();
         setOpen(false);
       }
@@ -105,11 +152,19 @@ export function DateRangePicker({
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') setOpen(false);
     };
+    /* Capture-phase scroll listener catches scroll from any clipping
+     * ancestor (table wrapper, sticky shells, etc.). */
+    const onScroll = (): void => setOpen(false);
+    const onResize = (): void => setOpen(false);
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, draftStart, draftEnd]);
@@ -146,6 +201,7 @@ export function DateRangePicker({
       )}
       <button
         id={id}
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         disabled={disabled}
@@ -164,12 +220,19 @@ export function DateRangePicker({
         <Calendar size={16} strokeWidth={1.75} className="text-ink-500" aria-hidden />
       </button>
 
-      {open && (
+      {open && position && createPortal(
         <div
+          ref={popoverRef}
           role="dialog"
           aria-label="اختر فترة"
-          className="absolute top-full mt-2 flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg md:flex-row"
-          style={{ zIndex: 'var(--z-dropdown)' as unknown as number, insetInlineEnd: 0 }}
+          className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg md:flex-row"
+          style={{
+            position: 'fixed',
+            top: position.top,
+            left: position.left,
+            maxWidth: 'calc(100vw - 16px)',
+            zIndex: 'var(--z-dropdown)' as unknown as number,
+          }}
         >
           <ul className="flex flex-row flex-wrap gap-1 md:flex-col md:border-e md:border-border-subtle md:pe-3">
             {QUICK_RANGES.map((qr) => (
@@ -208,7 +271,8 @@ export function DateRangePicker({
               onSelect={handleCellSelect}
             />
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
       {error ? (
         <p className="text-xs text-terra-700">{error}</p>

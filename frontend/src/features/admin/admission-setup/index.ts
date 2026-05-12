@@ -6,7 +6,13 @@
  * import them through this barrel only.
  */
 
-export { ADMISSION_SETUP_STEPS, ADMISSION_SETUP_TOTAL_STEPS, getStepByKey, getStepByPath } from './config';
+export {
+  ADMISSION_SETUP_STEPS,
+  ADMISSION_SETUP_TOTAL_STEPS,
+  ADMISSION_SETUP_CYCLE_STORAGE_KEY,
+  getStepByKey,
+  getStepByPath,
+} from './config';
 export type { AdmissionSetupStep } from './config';
 export type { AdmissionSetupStepKey, AdmissionSetupStepStatus, WizardStepStatusRow, MergeSplitPreviewDto, ApplyResultDto, MergeSplitRuleStatus } from './types';
 
@@ -20,11 +26,11 @@ export { readDraft, writeDraft, clearDraft, listDrafts, writeConflict, readConfl
 /* Pages */
 export { AdmissionSetupIndexPage } from './pages/AdmissionSetupIndexPage';
 export { AdmissionSetupWizardPage } from './pages/AdmissionSetupWizardPage';
-export { CycleMetadataPage } from './pages/CycleMetadataPage';
 export { ApplicationSettingsPage } from './pages/ApplicationSettingsPage';
 export { ApplicationStatusPage } from './pages/ApplicationStatusPage';
 export { AgeRulesPage } from './pages/AgeRulesPage';
-export { MaritalStatusRulesPage } from './pages/MaritalStatusRulesPage';
+/* MaritalStatusRulesPage removed when MARITAL_STATUSES dropped out of
+ * the lookup catalogue. */
 export { FeesPage as AdmissionFeesPage } from './pages/FeesPage';
 export { ExamsManagementPage } from './pages/ExamsManagementPage';
 export { CommitteesManagementPage } from './pages/CommitteesManagementPage';

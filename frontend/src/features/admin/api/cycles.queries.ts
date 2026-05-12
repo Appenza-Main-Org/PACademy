@@ -91,6 +91,22 @@ export function useCycleTransition() {
   });
 }
 
+export function useCycleUpdateStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      next,
+      demoteCurrentActive,
+    }: {
+      id: string;
+      next: CycleStatus;
+      demoteCurrentActive?: boolean;
+    }) => cyclesService.updateStatus(id, next, { demoteCurrentActive }),
+    onSuccess: (cycle: AdmissionCycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
 export function useCycleUpdate() {
   const qc = useQueryClient();
   return useMutation({
@@ -103,7 +119,13 @@ export function useCycleUpdate() {
 export function useCycleCreate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>) => cyclesService.create(payload),
+    mutationFn: ({
+      payload,
+      demoteCurrentActive,
+    }: {
+      payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>;
+      demoteCurrentActive?: boolean;
+    }) => cyclesService.create(payload, { demoteCurrentActive }),
     onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
   });
 }
@@ -112,6 +134,14 @@ export function useCycleActivate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => cyclesService.activate(id),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
+export function useCycleSwapActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (targetId: string) => cyclesService.swapActive(targetId),
     onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
   });
 }

@@ -93,13 +93,16 @@ const ACTION_FALLBACK: Record<AuditAction, { label: string; color: AuditColor }>
   user_updated: { label: 'تعديل حساب مستخدم', color: 'info' },
   user_status_changed: { label: 'تغيير حالة الحساب', color: 'warning' },
   user_roles_changed: { label: 'تعديل أدوار المستخدم', color: 'info' },
-  import_completed: { label: 'استيراد جماعي', color: 'info' },
   /* Admission-setup wizard (spec 009) */
   merge_rule_applied: { label: 'تطبيق دمج/فصل لجان', color: 'success' },
   merge_rule_cancelled: { label: 'إلغاء قاعدة دمج/فصل', color: 'warning' },
   wizard_step_completed: { label: 'إكمال خطوة الإعداد', color: 'success' },
   wizard_step_reopened: { label: 'إعادة فتح خطوة الإعداد', color: 'info' },
   cycle_cloned: { label: 'نسخ إعدادات دورة', color: 'info' },
+  /* List-actions stack — Tasks/LIST_ACTIONS_PROMPT.md */
+  entity_exported: { label: 'تصدير قائمة', color: 'warning' },
+  entity_imported: { label: 'استيراد قائمة', color: 'success' },
+  entity_duplicated: { label: 'نسخ سجل', color: 'info' },
 };
 
 function resolveActionLabel(action: AuditAction): { label: string; color: AuditColor } {

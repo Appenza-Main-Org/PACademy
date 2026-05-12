@@ -1,7 +1,6 @@
 /**
  * Step 6 — الرسوم المالية.
- * Application fee + optional fee inputs + the extracted FawryConfigCard.
- * Same `useCycleUpdate` mutation as CycleDetailPage; no fork.
+ * Application fee input. Same `useCycleUpdate` mutation as CycleDetailPage; no fork.
  */
 
 import { useEffect, useState } from 'react';
@@ -16,7 +15,6 @@ import {
   toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
-import { FawryConfigCard } from '@/features/admin/components/cycles/FawryConfigCard';
 import { useCycleUpdate } from '@/features/admin/api/cycles.queries';
 import type { AdmissionCycle, CycleFees } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
@@ -38,22 +36,12 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   const fees = cycle.fees;
 
   const [applicationFee, setApplicationFee] = useState<number>(fees?.applicationFee ?? 0);
-  const [depositFee, setDepositFee] = useState<string>(fees?.depositFee?.toString() ?? '');
-  const [replacementFee, setReplacementFee] = useState<string>(fees?.replacementFee?.toString() ?? '');
-  const [lateFee, setLateFee] = useState<string>(fees?.lateFee?.toString() ?? '');
 
   useEffect(() => {
     setApplicationFee(fees?.applicationFee ?? 0);
-    setDepositFee(fees?.depositFee?.toString() ?? '');
-    setReplacementFee(fees?.replacementFee?.toString() ?? '');
-    setLateFee(fees?.lateFee?.toString() ?? '');
   }, [fees]);
 
-  const dirty =
-    applicationFee !== (fees?.applicationFee ?? 0) ||
-    depositFee !== (fees?.depositFee?.toString() ?? '') ||
-    replacementFee !== (fees?.replacementFee?.toString() ?? '') ||
-    lateFee !== (fees?.lateFee?.toString() ?? '');
+  const dirty = applicationFee !== (fees?.applicationFee ?? 0);
 
   const save = (): void => {
     if (readOnly || applicationFee <= 0) {
@@ -62,9 +50,6 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     }
     const next: CycleFees = {
       applicationFee,
-      depositFee: depositFee ? Number(depositFee) : undefined,
-      replacementFee: replacementFee ? Number(replacementFee) : undefined,
-      lateFee: lateFee ? Number(lateFee) : undefined,
       fawryConfig: fees?.fawryConfig,
     };
     updateMut.mutate(
@@ -105,30 +90,6 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
             onChange={(e) => setApplicationFee(Number.parseFloat(e.target.value) || 0)}
             disabled={readOnly}
           />
-          <Input
-            label="مبلغ التأمين (اختياري)"
-            type="number"
-            dir="ltr"
-            value={depositFee}
-            onChange={(e) => setDepositFee(e.target.value)}
-            disabled={readOnly}
-          />
-          <Input
-            label="رسوم استبدال البطاقة (اختياري)"
-            type="number"
-            dir="ltr"
-            value={replacementFee}
-            onChange={(e) => setReplacementFee(e.target.value)}
-            disabled={readOnly}
-          />
-          <Input
-            label="رسوم التقديم المتأخر (اختياري)"
-            type="number"
-            dir="ltr"
-            value={lateFee}
-            onChange={(e) => setLateFee(e.target.value)}
-            disabled={readOnly}
-          />
         </div>
         <div className="mt-4 flex justify-end">
           <Button
@@ -142,8 +103,6 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
           </Button>
         </div>
       </Card>
-
-      <FawryConfigCard cycle={cycle} readOnly={readOnly} />
     </div>
   );
 }

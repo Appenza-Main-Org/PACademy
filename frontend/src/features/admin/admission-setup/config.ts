@@ -1,44 +1,46 @@
 /**
- * 15-step Admission Setup config — the single source of truth.
+ * 14-step Admission Setup config — the single source of truth.
  *
  * Consumed by:
  *   • <AdmissionSetupSidebar>  — renders submenu entries in `order` ascending
  *   • routes.tsx               — registers one route per entry
- *   • <AdmissionSetupBreadcrumbs> + <StepHeader> — "الخطوة N من ١٥" badge
- *   • <AdmissionSetupIndexPage> — 15 cards on the landing
+ *   • <AdmissionSetupBreadcrumbs> + <StepHeader> — "الخطوة N من ١٤" badge
+ *   • <AdmissionSetupIndexPage> — launcher that picks an existing cycle
  *
- * Adding a 16th step is a single append here plus a route segment in
+ * Cycle metadata (name / year / dates) is NOT a wizard step — admins
+ * configure cycles in the Cycles section, then enter this wizard by
+ * selecting one of those already-configured cycles. The wizard only
+ * covers per-cycle admission settings.
+ *
+ * Adding a 15th step is a single append here plus a route segment in
  * `ROUTES.admin.admissionSetup` and a page file. No Sidebar / routes.tsx /
  * shell changes.
  *
  * ─── Audit notes (composition map) ────────────────────────────────────
  * Step  Compose target                                       Strategy
- *  1    CycleDetailPage (Gap F)                              Compose
- *  2    CategoryConditionBuilder (Gap G)                     Compose
- *  3    CycleDetailPage status workflow (Gap F)              Compose
- *  4    CategoryConditionBuilder age section (Gap G)         Compose
- *  5    CategoryConditionBuilder marital section (Gap G)     Compose
- *  6    Cycle.fees + FawryConfigCard inside CycleDetail (K)  Compose
- *  7    ExamPlanEditor (Gap J)                               Compose
- *  8    CommitteeListPage / CommitteeDetailPage (Gap H)      Compose
- *  9    —                                                    NEW
- * 10    Committee.scoreCriteria type exists, no UI shipped   NEW
- * 11    —                                                    NEW
- * 12    Committee.availableDates / capacityPerDay (Gap H)    Compose
- * 13    —                                                    NEW
- * 14    NotificationsPage (Gap L)                            Compose
- * 15    —                                                    NEW
+ *  1    CategoryConditionBuilder (Gap G)                     Compose
+ *  2    CycleDetailPage status workflow (Gap F)              Compose
+ *  3    CategoryConditionBuilder age section (Gap G)         Compose
+ *  4    CategoryConditionBuilder marital section (Gap G)     Compose
+ *  5    Cycle.fees + FawryConfigCard inside CycleDetail (K)  Compose
+ *  6    ExamPlanEditor (Gap J)                               Compose
+ *  7    CommitteeListPage / CommitteeDetailPage (Gap H)      Compose
+ *  8    —                                                    NEW
+ *  9    Committee.scoreCriteria type exists, no UI shipped   NEW
+ * 10    —                                                    NEW
+ * 11    Committee.availableDates / capacityPerDay (Gap H)    Compose
+ * 12    —                                                    NEW
+ * 13    NotificationsPage (Gap L)                            Compose
+ * 14    —                                                    NEW
  * ──────────────────────────────────────────────────────────────────────
  */
 
 import {
-  CalendarDays,
   CalendarRange,
   ClipboardCheck,
   ClipboardSignature,
   FileSignature,
   Gauge,
-  Heart,
   Link2,
   Settings2,
   ShieldCheck,
@@ -54,7 +56,7 @@ import type { AdmissionSetupStepKey } from './types';
 
 export interface AdmissionSetupStep {
   key: AdmissionSetupStepKey;
-  /** 1..15 — drives sidebar/breadcrumb sort. */
+  /** 1..14 — drives sidebar/breadcrumb sort. */
   order: number;
   labelAr: string;
   /** URL segment after `/admin/admission-setup/`. */
@@ -76,19 +78,8 @@ export interface AdmissionSetupStep {
 
 export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   {
-    key: 'cycle_metadata',
-    order: 1,
-    labelAr: 'بيانات سنة التقديم',
-    routeSegment: 'cycle-metadata',
-    icon: CalendarDays,
-    permission: 'admission-setup:read',
-    reuses: 'features/admin/pages/CycleDetailPage.tsx',
-    isImplemented: true,
-    subtitleAr: 'اسم الدورة، السنة، الفئة، تواريخ الفتح والإغلاق.',
-  },
-  {
     key: 'application_settings',
-    order: 2,
+    order: 1,
     labelAr: 'إعدادات التقديم',
     routeSegment: 'application-settings',
     icon: Settings2,
@@ -99,7 +90,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'application_status',
-    order: 3,
+    order: 2,
     labelAr: 'حالة التقديم',
     routeSegment: 'application-status',
     icon: ClipboardCheck,
@@ -110,7 +101,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'age_rules',
-    order: 4,
+    order: 3,
     labelAr: 'شروط السن',
     routeSegment: 'age-rules',
     icon: UserCog,
@@ -119,20 +110,12 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     isImplemented: true,
     subtitleAr: 'الحد الأدنى والأقصى للسن لكل فئة، مع تاريخ احتساب السن.',
   },
-  {
-    key: 'marital_status_rules',
-    order: 5,
-    labelAr: 'الحالة الاجتماعية',
-    routeSegment: 'marital-status-rules',
-    icon: Heart,
-    permission: 'admission-setup:read',
-    reuses: 'features/admin/components/categories/CategoryConditionBuilder.tsx',
-    isImplemented: true,
-    subtitleAr: 'الحالات الاجتماعية المسموح بها لكل فئة.',
-  },
+  /* Step "الحالة الاجتماعية" was removed when MARITAL_STATUSES dropped
+   * out of the lookup catalogue. Marital constraint editing now lives
+   * inline on the category form. */
   {
     key: 'fees',
-    order: 6,
+    order: 5,
     labelAr: 'الرسوم المالية',
     routeSegment: 'fees',
     icon: Wallet,
@@ -143,7 +126,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'exams',
-    order: 7,
+    order: 6,
     labelAr: 'إدارة الاختبارات',
     routeSegment: 'exams',
     icon: ClipboardSignature,
@@ -154,7 +137,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'committees',
-    order: 8,
+    order: 7,
     labelAr: 'إدارة اللجان',
     routeSegment: 'committees',
     icon: ShieldCheck,
@@ -165,7 +148,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'committee_merge_split',
-    order: 9,
+    order: 8,
     labelAr: 'دمج وفصل اللجان',
     routeSegment: 'committee-merge-split',
     icon: Split,
@@ -175,7 +158,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'score_thresholds',
-    order: 10,
+    order: 9,
     labelAr: 'درجات القبول',
     routeSegment: 'score-thresholds',
     icon: Gauge,
@@ -185,7 +168,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'exam_dates',
-    order: 11,
+    order: 10,
     labelAr: 'مواعيد الاختبارات',
     routeSegment: 'exam-dates',
     icon: CalendarRange,
@@ -195,7 +178,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'date_committee_binding',
-    order: 12,
+    order: 11,
     labelAr: 'ربط المواعيد باللجان',
     routeSegment: 'date-committee-binding',
     icon: Link2,
@@ -206,7 +189,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'total_score',
-    order: 13,
+    order: 12,
     labelAr: 'المجموع الكلي',
     routeSegment: 'total-score',
     icon: Sigma,
@@ -216,7 +199,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'notifications',
-    order: 14,
+    order: 13,
     labelAr: 'التنبيهات',
     routeSegment: 'notifications',
     icon: ClipboardCheck,
@@ -227,7 +210,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'electronic_declaration',
-    order: 15,
+    order: 14,
     labelAr: 'الإقرار الإلكتروني',
     routeSegment: 'electronic-declaration',
     icon: FileSignature,

@@ -120,7 +120,7 @@ export function RevampComparisonPage(): JSX.Element {
 
       <Section
         index="03"
-        route="/committee/C-01"
+        route="/admin/committee/C-01"
         title="لجنة القبول — اعتماد مزدوج"
         beforeNote={[
           'زر «اعتماد الملف» تيركواز — نفس لون كل شيء. لا يميَّز كحدث حرج.',

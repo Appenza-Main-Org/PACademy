@@ -157,7 +157,34 @@ export function BarcodeScansHistoryPage(): JSX.Element {
         actions={<Badge tone="info"><History size={11} strokeWidth={1.75} className="me-1 inline-block" /> {data?.length ?? 0} عملية</Badge>}
       />
       <Card>
-        <DataTable data={data ?? []} columns={columns} rowKey={(s) => s.id} loading={isLoading} error={isError ? <ErrorState error={error} onRetry={() => refetch()} /> : undefined} empty={<EmptyState variant="generic" title="لا توجد عمليات مسح" />} zebraStripes density="compact" />
+        <DataTable
+          data={data ?? []}
+          columns={columns}
+          rowKey={(s) => s.id}
+          loading={isLoading}
+          error={isError ? <ErrorState error={error} onRetry={() => refetch()} /> : undefined}
+          empty={<EmptyState variant="generic" title="لا توجد عمليات مسح" />}
+          zebraStripes
+          density="compact"
+          listActions={{
+            entityKey: 'barcode.scans',
+            entityLabelAr: 'سجل المسح الضوئي',
+            auditModule: 'admin',
+            export: {
+              enabled: true,
+              formats: ['csv', 'xlsx'],
+              filenamePrefix: 'مسح-باركود-',
+              columns: [
+                { key: 'id', labelAr: 'كود العملية' },
+                { key: 'ts', labelAr: 'الوقت' },
+                { key: 'scannedBy', labelAr: 'مَن أجرى المسح' },
+                { key: 'applicantId', labelAr: 'كود المتقدم' },
+                { key: 'station', labelAr: 'المحطة' },
+                { key: 'action', labelAr: 'الإجراء' },
+              ],
+            },
+          }}
+        />
       </Card>
     </CenteredShell>
   );

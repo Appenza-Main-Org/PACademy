@@ -43,10 +43,6 @@ export function computeStepStatus(
   if (!cycle) return 'not_started';
 
   switch (key) {
-    case 'cycle_metadata': {
-      const hasBase = Boolean(cycle.nameAr && cycle.openDate && cycle.closeDate);
-      return hasBase ? 'complete' : 'in_progress';
-    }
     case 'application_settings': {
       const openCount = Object.values(cycle.openCategories ?? {}).filter((c) => c?.isOpen).length;
       if (openCount === 0) return 'not_started';
@@ -66,11 +62,6 @@ export function computeStepStatus(
         return Boolean(cat?.conditions.ageMin && cat?.conditions.ageMax);
       });
       return allHaveAge ? 'complete' : 'in_progress';
-    }
-    case 'marital_status_rules': {
-      const openKeys = openCategoryKeys(cycle);
-      if (openKeys.length === 0) return 'not_started';
-      return 'in_progress';
     }
     case 'fees': {
       const fee = cycle.fees?.applicationFee ?? 0;

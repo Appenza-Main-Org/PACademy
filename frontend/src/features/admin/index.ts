@@ -24,13 +24,14 @@ export {
 } from './api/notifications.queries';
 export { SettingsPage } from './pages/SettingsPage';
 export { ReportsPage } from './pages/ReportsPage';
-export { ReferenceDataPage } from './pages/ReferenceDataPage';
+/* ReferenceDataPage removed — superseded by `/admin/lookups`
+ * (features/lookups/pages/LookupsHubPage). */
 export { CyclesPage } from './pages/CyclesPage';
 export { CycleDetailPage } from './pages/CycleDetailPage';
-export { AdmissionRulesPage } from './pages/AdmissionRulesPage';
 
 /* Post-polish admin pages — Buckets D and E */
 export { CategoriesListPage } from './pages/CategoriesListPage';
+export { CategoryNewPage } from './pages/CategoryNewPage';
 export { CategoryEditPage } from './pages/CategoryEditPage';
 export { CycleNewPage } from './pages/CycleNewPage';
 
@@ -38,17 +39,15 @@ export { CycleNewPage } from './pages/CycleNewPage';
 export { WorkflowsListPage } from './pages/WorkflowsListPage';
 export { WorkflowEditorPage } from './pages/WorkflowEditorPage';
 
-/* Admission Setup section — 15-step config-driven setup. */
+/* Admission Setup section — 14-step config-driven setup. */
 export {
   ADMISSION_SETUP_STEPS,
   ADMISSION_SETUP_TOTAL_STEPS,
   AdmissionSetupIndexPage,
   AdmissionSetupWizardPage,
-  CycleMetadataPage,
   ApplicationSettingsPage,
   ApplicationStatusPage,
   AgeRulesPage,
-  MaritalStatusRulesPage,
   AdmissionFeesPage,
   ExamsManagementPage,
   CommitteesManagementPage,

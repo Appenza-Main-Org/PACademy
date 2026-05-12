@@ -20,7 +20,7 @@ import {
   Select,
   toast,
 } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
+import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { useAuthStore } from '@/features/auth';
 import { hasPermission } from '@/features/auth';
@@ -84,6 +84,36 @@ export function PaymentsPage(): JSX.Element {
 
   const rows = (tab === 'ledger' ? ledgerQuery.data : refundQuery.data) ?? [];
   const isLoading = tab === 'ledger' ? ledgerQuery.isLoading : refundQuery.isLoading;
+
+  const listActions: ListActionsConfig<AdminPaymentRow> = useMemo(
+    () => ({
+      entityKey: 'admin.payments',
+      entityLabelAr: 'دفعات الفوري',
+      auditModule: 'payments',
+      export: {
+        enabled: true,
+        formats: ['csv', 'xlsx'],
+        filenamePrefix: 'دفعات-',
+        columns: [
+          { key: 'id', labelAr: 'المعرف' },
+          { key: 'applicantId', labelAr: 'كود المتقدم' },
+          { key: 'applicantName', labelAr: 'اسم المتقدم' },
+          { key: 'nationalId', labelAr: 'الرقم القومي' },
+          { key: 'cycleId', labelAr: 'الدورة' },
+          { key: 'fawryReference', labelAr: 'مرجع فوري' },
+          { key: 'amount', labelAr: 'المبلغ' },
+          {
+            key: 'status',
+            labelAr: 'الحالة',
+            format: (v) => STATUS_LABEL[v as FawryPaymentStatus] ?? String(v ?? ''),
+          },
+          { key: 'lastSyncAt', labelAr: 'آخر مزامنة', format: (v) => fmtDate(String(v), 'short') },
+          { key: 'paidAt', labelAr: 'تاريخ السداد', format: (v) => (v ? fmtDate(String(v), 'short') : '—') },
+        ],
+      },
+    }),
+    [],
+  );
 
   const columns: DataTableColumn<AdminPaymentRow>[] = [
     {
@@ -250,6 +280,7 @@ export function PaymentsPage(): JSX.Element {
             zebraStripes
             stickyHeader
             density="compact"
+            listActions={listActions}
           />
         </Card>
       ) : (

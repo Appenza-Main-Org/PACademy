@@ -387,4 +387,95 @@ export const usersService = {
     });
     return STATE[idx];
   },
+
+  /**
+   * INTEGRATION CONTRACT
+   * Real endpoint: POST /api/users/bulk-import
+   * Body: BulkImportUserRow[] — backend re-validates each NID via the
+   * officer-directory and returns per-row outcomes. The frontend mirror
+   * commits valid rows individually so the audit chain is preserved
+   * (one `user_created` per row, identical to manual creation).
+   * NID-cycle uniqueness and self-deactivation guards do not apply
+   * here — admin-created accounts are always new.
+   */
+  async bulkImport(rows: ReadonlyArray<BulkImportUserRow>): Promise<{
+    attemptedCount: number;
+    successCount: number;
+    failedRows: ReadonlyArray<{ rowIndex: number; errors: ReadonlyArray<string> }>;
+  }> {
+    await simulateLatency(400, 800);
+    let successCount = 0;
+    const failedRows: { rowIndex: number; errors: string[] }[] = [];
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      try {
+        const duplicate = STATE.find((u) => u.nationalId === row.nationalId);
+        if (duplicate) {
+          failedRows.push({ rowIndex: i, errors: [`الرقم القومي مستخدم بالفعل (${duplicate.id})`] });
+          continue;
+        }
+        const validation = validateRoleSet(row.roles);
+        if (!validation.ok) {
+          failedRows.push({ rowIndex: i, errors: [validation.message ?? 'مجموعة الأدوار غير صالحة'] });
+          continue;
+        }
+        await usersService.create({
+          nationalId: row.nationalId,
+          fullArabicName: row.fullArabicName,
+          officerCode: row.officerCode,
+          mobileNumber: row.mobileNumber,
+          userType: row.userType,
+          roles: row.roles,
+          unit: row.unit,
+          accountStatus: row.accountStatus,
+        });
+        successCount += 1;
+      } catch (err) {
+        failedRows.push({
+          rowIndex: i,
+          errors: [err instanceof Error ? err.message : 'تعذّر إنشاء المستخدم'],
+        });
+      }
+    }
+    return { attemptedCount: rows.length, successCount, failedRows };
+  },
+
+  /**
+   * INTEGRATION CONTRACT
+   * Real endpoint: POST /api/users/from-template
+   * Body: { sourceId, overrides } — clones role-set + scope from the
+   * source user; the new NID + mobile must be supplied by the caller
+   * since NID is the source of identity (Gap B). Account lands inactive
+   * so the admin explicitly activates it after review.
+   * Audit: `user_created` plus a `user_roles_changed` mirror entry.
+   */
+  async createFromTemplate(
+    sourceId: string,
+    overrides: { nationalId: string; fullArabicName: string; officerCode: string; mobileNumber: string },
+  ): Promise<SystemUser> {
+    await simulateLatency();
+    const source = STATE.find((u) => u.id === sourceId);
+    if (!source) throw new Error('المستخدم المصدر غير موجود');
+    return usersService.create({
+      nationalId: overrides.nationalId,
+      fullArabicName: overrides.fullArabicName,
+      officerCode: overrides.officerCode,
+      mobileNumber: overrides.mobileNumber,
+      userType: source.userType,
+      roles: [...source.roles],
+      unit: source.unit,
+      accountStatus: 'inactive',
+    });
+  },
 };
+
+export interface BulkImportUserRow {
+  nationalId: string;
+  fullArabicName: string;
+  officerCode: string;
+  mobileNumber: string;
+  userType: UserType;
+  roles: string[];
+  unit?: string;
+  accountStatus: AccountStatus;
+}

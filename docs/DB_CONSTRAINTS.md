@@ -240,6 +240,286 @@ END;
 
 ---
 
+## 10 · Lookups — invariants
+
+The Lookup Management Module (`features/lookups/`) consolidates ~31
+admin-managed reference lists into a single shape (`lookup_items` keyed
+by `lookup_type_code`). The seven invariants below are enforced by
+`lookupsService` (typed `ConflictError(<code>, payload)`) and must be
+mirrored by the backend.
+
+### 10.1 · `DUPLICATE_CODE`
+
+**Rule.** Within a single `lookup_type_code`, `code` is unique across
+non-soft-deleted rows.
+
+**SQL Server.** Filtered unique index:
+
+```sql
+CREATE UNIQUE INDEX UX_LookupItem_TypeCode_Code
+  ON dbo.lookup_items (lookup_type_code, code)
+  WHERE deleted_at IS NULL;
+```
+
+### 10.2 · `SELF_PARENT`
+
+**Rule.** `parent_id` cannot equal `id`.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.lookup_items
+  ADD CONSTRAINT CK_LookupItem_NotSelfParent
+  CHECK (parent_id IS NULL OR parent_id <> id);
+```
+
+### 10.3 · `CIRCULAR_HIERARCHY`
+
+**Rule.** No row may appear in its own ancestor chain. The frontend
+walks `parent_id` up to the root and rejects if the candidate id is hit.
+
+**SQL Server.** Trigger or recursive CTE-based check on UPDATE:
+
+```sql
+CREATE TRIGGER tr_LookupItem_NoCycles
+  ON dbo.lookup_items
+  AFTER UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    WITH ancestors AS (
+      SELECT id, parent_id FROM dbo.lookup_items WHERE id IN (SELECT id FROM inserted)
+      UNION ALL
+      SELECT li.id, p.parent_id
+        FROM ancestors a
+        JOIN dbo.lookup_items li ON li.id = a.parent_id
+        JOIN dbo.lookup_items p  ON p.id  = li.parent_id
+    )
+    SELECT 1 FROM ancestors a JOIN inserted i ON i.id = a.parent_id
+  ) RAISERROR (N'CIRCULAR_HIERARCHY', 16, 1);
+END;
+```
+
+### 10.4 · `PARENT_HAS_CHILDREN`
+
+**Rule.** A parent row cannot be soft-deleted while any non-deleted
+child references it via `parent_id`.
+
+**SQL Server.** Mirror of §7 (cannot delete parent with children) —
+either an INSTEAD-OF trigger on UPDATE or an application-level check
+before the soft-delete UPDATE runs.
+
+### 10.5 · `IN_USE`
+
+**Rule.** A row cannot be soft-deleted while it appears in any of the
+four mapping tables (`category_specializations`, `category_committees`,
+`category_tests`, `period_categories`).
+
+**SQL Server.** Trigger-based check on UPDATE that compares
+`(id IN SELECT target_id FROM …)` across the four junction tables and
+raises `IN_USE`. Foreign-key cascades are intentionally *not* used —
+mappings must be removed first so the operator sees the dependency.
+
+### 10.6 · `INVALID_DATE_RANGE`
+
+**Rule.** When both `start_date` and `end_date` are present, `start_date
+<= end_date`.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.lookup_items
+  ADD CONSTRAINT CK_LookupItem_DateRange
+  CHECK (start_date IS NULL OR end_date IS NULL OR start_date <= end_date);
+```
+
+### 10.7 · `DUPLICATE_MAPPING`
+
+**Rule.** Each of the four mapping tables has a composite PK on
+`(category_id, target_id)`; insert of an existing pair is rejected.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.category_specializations
+  ADD CONSTRAINT PK_CategorySpecializations PRIMARY KEY (category_id, target_id);
+
+ALTER TABLE dbo.category_committees
+  ADD CONSTRAINT PK_CategoryCommittees PRIMARY KEY (category_id, target_id);
+
+ALTER TABLE dbo.category_tests
+  ADD CONSTRAINT PK_CategoryTests PRIMARY KEY (category_id, target_id);
+
+ALTER TABLE dbo.period_categories
+  ADD CONSTRAINT PK_PeriodCategories PRIMARY KEY (category_id, target_id);
+```
+
+---
+
+## 11 · Admission Setup — Application Settings invariants
+
+Application Settings is global master data (not cycle-scoped). Three new
+tables back the three-tier editor:
+
+- `dbo.applicant_category_configs` — one row per `applicant-categories`
+  lookup item the admin chooses to surface.
+- `dbo.applicant_category_specializations` — junction between a config
+  row and a `specializations` lookup item.
+- `dbo.applicant_specialization_years` — leaf row carrying graduation
+  year × gender(s) × marital status(es) × age/grade band × window dates.
+  Gender and marital status are many-to-many; the canonical
+  representation is two side-tables
+  (`applicant_specialization_year_genders`,
+  `applicant_specialization_year_marital_statuses`) keyed by
+  `(year_id, code)`.
+
+Conflict codes thrown by the frontend mock service (and mirrored
+verbatim in `errors.ts → ConflictCode`):
+
+### 11.1 · `DUPLICATE_YEAR`
+
+**Rule.** No two rows under the same `category_specialization_id` may
+share the same `graduation_year` while having *any* overlapping gender
+in their gender sets. Two rows with disjoint gender sets and the same
+graduation year are permitted.
+
+**SQL Server.** INSTEAD-OF trigger on INSERT/UPDATE that joins the
+gender side-table and rejects intersection on `(year, gender)`:
+
+```sql
+IF EXISTS (
+  SELECT 1
+  FROM dbo.applicant_specialization_years y
+  JOIN dbo.applicant_specialization_year_genders yg ON yg.year_id = y.id
+  JOIN inserted i ON i.category_specialization_id = y.category_specialization_id
+                 AND i.graduation_year             = y.graduation_year
+                 AND i.id                         <> y.id
+  JOIN dbo.applicant_specialization_year_genders ig ON ig.year_id = i.id
+                                                  AND ig.gender_type = yg.gender_type
+  WHERE y.is_deleted = 0
+)
+THROW 51120, 'DUPLICATE_YEAR', 1;
+```
+
+### 11.2 · `OVERLAPPING_PERIOD`
+
+**Rule.** No two rows for the same specialization with overlapping
+gender sets may have overlapping `[application_start_date,
+application_end_date]` windows.
+
+**SQL Server.** INSTEAD-OF trigger on INSERT/UPDATE:
+
+```sql
+IF EXISTS (
+  SELECT 1
+  FROM dbo.applicant_specialization_years y
+  JOIN dbo.applicant_specialization_year_genders yg ON yg.year_id = y.id
+  JOIN inserted i ON i.category_specialization_id = y.category_specialization_id
+                 AND i.id                         <> y.id
+  JOIN dbo.applicant_specialization_year_genders ig ON ig.year_id = i.id
+                                                  AND ig.gender_type = yg.gender_type
+  WHERE y.is_deleted = 0
+    AND i.application_start_date <= y.application_end_date
+    AND i.application_end_date   >= y.application_start_date
+)
+THROW 51100, 'OVERLAPPING_PERIOD', 1;
+```
+
+### 11.3 · `AGE_NOT_POSITIVE`
+
+**Rule.** When supplied, `max_age` must be a positive integer.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.applicant_specialization_years
+  ADD CONSTRAINT CK_AppSpecYear_MaxAge
+  CHECK (max_age IS NULL OR max_age > 0);
+```
+
+### 11.4 · `INVALID_DATE_RANGE`
+
+**Rule.** `application_end_date >= application_start_date`. The
+`age_calc_date` column is required and must be a parseable date — no
+ordering constraint relative to the application window (admin chooses
+the eligibility-evaluation anchor independently).
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.applicant_specialization_years
+  ADD CONSTRAINT CK_AppSpecYear_DateOrder
+  CHECK (application_end_date >= application_start_date);
+```
+
+### 11.4b · `GRADE_RANGE_INVALID`
+
+**Rule.** When both `min_grade` and `max_grade` are supplied,
+`min_grade <= max_grade`.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.applicant_specialization_years
+  ADD CONSTRAINT CK_AppSpecYear_GradeRange
+  CHECK (min_grade IS NULL OR max_grade IS NULL OR min_grade <= max_grade);
+```
+
+### 11.4c · `GENDER_REQUIRED`
+
+**Rule.** Every year row must carry at least one gender — the side
+table must have at least one row keyed to it.
+
+**SQL Server.** Enforced by trigger on row-create (and on delete from
+the side table when it would drop count to 0):
+
+```sql
+IF EXISTS (
+  SELECT y.id FROM dbo.applicant_specialization_years y
+  LEFT JOIN dbo.applicant_specialization_year_genders g ON g.year_id = y.id
+  WHERE y.id IN (SELECT id FROM inserted)
+  GROUP BY y.id HAVING COUNT(g.gender_type) = 0
+)
+THROW 51125, 'GENDER_REQUIRED', 1;
+```
+
+### 11.5 · `SPECIALIZATION_NOT_MAPPED`
+
+**Rule.** Reserved for the day the backend ships a
+`category_specializations` junction in the lookup catalogue (see §10.7
+which already PKs `category_specializations (category_id, target_id)`).
+At that point, inserts into `applicant_category_specializations` must
+verify the `(category_id, specialization_id)` pair exists in the lookup
+mapping. The frontend already throws this code conditionally so the
+service contract is forward-compatible; V1 mock data does not enforce
+the filter because no `category_specializations` mapping exists in
+`MOCK.lookups` today.
+
+### 11.6 · `CATEGORY_HAS_ACTIVE_YEARS`
+
+**Rule.** A config row cannot be deactivated while any descendant
+`applicant_specialization_years.is_active = 1`. Caller must deactivate
+the years first.
+
+**SQL Server.** Trigger on UPDATE of `applicant_category_configs`:
+
+```sql
+IF UPDATE(is_active) AND EXISTS (
+  SELECT 1
+  FROM inserted i
+  JOIN dbo.applicant_category_specializations s
+    ON s.config_id = i.id
+  JOIN dbo.applicant_specialization_years y
+    ON y.category_specialization_id = s.id
+  WHERE i.is_active = 0
+    AND y.is_active = 1
+    AND y.is_deleted = 0
+)
+THROW 51110, 'CATEGORY_HAS_ACTIVE_YEARS', 1;
+```
+
+---
+
 ## Cross-reference
 
 These constraints are referenced from `CLAUDE.md §6` (mock service

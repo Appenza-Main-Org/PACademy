@@ -12,6 +12,8 @@ export type { BadgeTone } from './Badge';
 export { Button } from './Button';
 export { Card, CardBody, CardFooter, CardHeader } from './Card';
 export type { CardVariant } from './Card';
+export { Checkbox } from './Checkbox';
+export type { CheckboxProps } from './Checkbox';
 export { Code128Barcode } from './Code128Barcode';
 export type { Code128BarcodeProps } from './Code128Barcode';
 export { Combobox } from './Combobox';
@@ -78,6 +80,8 @@ export {
   StatusBadge,
   SuspendedBadge,
 } from './StatusBadge';
+export { Switch } from './Switch';
+export type { SwitchProps } from './Switch';
 export { Tabs } from './Tabs';
 export { ToastViewport, toast } from './Toast';
 export type { ToastKind } from './Toast';
@@ -90,3 +94,24 @@ export * from './icons';
 
 export { RowVersionConflictDialog } from './RowVersionConflictDialog';
 export type { RowVersionConflictDialogProps } from './RowVersionConflictDialog';
+
+/* Universal list-actions stack — Tasks/LIST_ACTIONS_PROMPT.md */
+export {
+  ListActions,
+  ExportMenu,
+  ImportDialog,
+  ImportPreviewTable,
+  DuplicateAction,
+  runExport,
+} from './data-table';
+export type {
+  ListActionsConfig,
+  ExportConfig,
+  ExportColumn,
+  ExportFormat,
+  ImportConfig,
+  ImportConflictMode,
+  ImportPreviewRow,
+  ImportResult,
+  DuplicateConfig,
+} from './data-table';

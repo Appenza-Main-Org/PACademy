@@ -1,5 +1,5 @@
 /**
- * StepHeader — title + "الخطوة N من ١٥" badge + cycle indicator.
+ * StepHeader — title + "الخطوة N من ١٤" badge + cycle indicator.
  * Sits below the breadcrumb and above the step content area inside
  * <AdmissionSetupShell>. Reads its step from the route, never from props,
  * so adding a new step is config-only.
