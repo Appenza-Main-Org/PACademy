@@ -1,16 +1,20 @@
 /**
  * Per-step status checkers — surface the index-page status pill.
  *
- * Status semantics:
+ * Status semantics (client-computed, V1):
  *   • complete    — every required setting for this step is filled in for
  *                   the picked cycle.
  *   • in_progress — the step has been touched (some settings present) but
  *                   not all required pieces are filled.
  *   • not_started — nothing exists yet for the picked cycle.
  *
- * Until the net-new services ship in Phase 5, any step whose entity has no
- * mock-side existence reports `not_started`. Composed steps inspect the
- * cycle / category / committee they extend.
+ * TODO(spec-009 T059): Replace this client-computed status with the
+ * server-tracked status from `GET /admin/admission-setup/cycles/{cycleId}/step-statuses`.
+ * The backend's `wizard_step_statuses` table tracks admin-marked statuses
+ * (`in_progress` set automatically on first save via WizardStatusInterceptor;
+ * `complete` set explicitly via the "Mark step complete" button). Different
+ * semantic from the data-completeness check below — switching requires
+ * deliberate UX consideration of what "complete" means to the admin.
  */
 
 import type { AdmissionCycle, ApplicantCategory, Committee } from '@/shared/types/domain';
