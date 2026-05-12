@@ -410,6 +410,28 @@ export const cyclesService = {
   },
 
   async update(id: string, patch: Partial<AdmissionCycle>): Promise<AdmissionCycle> {
+    /* Real backend PATCH /admin/cycles/{id} — accepts a subset of fields:
+     * nameAr, openDate, closeDate, expectedCapacity, openCategories,
+     * conditionOverrides. Other fields on the frontend AdmissionCycle (status,
+     * cohort, year, …) are immutable post-create or have dedicated endpoints
+     * (e.g. POST /admin/cycles/{id}/status for status transitions).
+     *
+     * If the id is a real GUID, hit the backend. Otherwise fall back to mock
+     * so legacy cycle ids (e.g., CYC-2026-M from older sessionStorage state)
+     * still patch the in-memory STATE without throwing. */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      const body: Record<string, unknown> = {};
+      if (patch.nameAr !== undefined) body.nameAr = patch.nameAr;
+      if (patch.openDate !== undefined) body.openDate = patch.openDate;
+      if (patch.closeDate !== undefined) body.closeDate = patch.closeDate;
+      if (patch.expectedCapacity !== undefined) body.expectedCapacity = patch.expectedCapacity;
+      if (patch.openCategories !== undefined) body.openCategories = patch.openCategories;
+      if (patch.conditionOverrides !== undefined) body.conditionOverrides = patch.conditionOverrides;
+      const r = await apiClient.patch<AdmissionCycle>(`/admin/cycles/${id}`, body);
+      return r.data;
+    }
+
+    /* Legacy mock fallback */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
