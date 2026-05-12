@@ -25,7 +25,7 @@
 
 import { rng } from '@/shared/mock-data/seed';
 import { LOOKUPS_SEED } from '@/features/lookups/mock/lookups.mock';
-import { readGradingMode } from '@/features/lookups';
+import { readGradingMode } from '@/features/lookups/lib/submissionType';
 import type {
   ApplicantCategoryConfig,
   ApplicantCategorySpecialization,
