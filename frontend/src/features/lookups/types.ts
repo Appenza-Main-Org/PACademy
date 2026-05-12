@@ -202,6 +202,15 @@ export interface SubmissionTypeRow extends LookupRowBase {
 export type ApplicantCategoryGenderScope = 'male' | 'female' | 'any';
 export type ApplicantCategoryApplicationMode = 'general' | 'nomination';
 
+/* Educational stage at which the applicant enters. Pre-University is the
+ * Thanaweya track (officers_general); University covers the three bachelor
+ * tracks (law / physical-education / specialized). */
+export type ApplicantCategoryType = 'pre_university' | 'university';
+
+/* For University-type categories only: whether the applicant picks a single
+ * faculty or selects across multiple. Pre-University rows carry `null`. */
+export type FacultySelectionType = 'single' | 'multiple';
+
 /* The applicant-category lookup absorbs the full ApplicantCategory shape
  * — description, isOpen flag, conditions, expanded conditions, required
  * tests, procedures. This lookup is the single source of truth for
@@ -218,6 +227,10 @@ import type {
 export interface ApplicantCategoryRow extends LookupRowBase {
   genderScope: ApplicantCategoryGenderScope;
   applicationMode: ApplicantCategoryApplicationMode;
+  /** Entry stage — Pre-University (Thanaweya) vs University (bachelor). */
+  type: ApplicantCategoryType;
+  /** Faculty-picker shape. `null` when `type === 'pre_university'`. */
+  facultySelectionType: FacultySelectionType | null;
   /** English label — used by some applicant-portal English copies. */
   nameEn: string;
   description: string;

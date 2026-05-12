@@ -464,6 +464,19 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
     case 'applicant-categories':
       return [
         { key: 'genderScope', label: 'نطاق النوع', width: 110, render: (r: ApplicantCategoryRow) => <Badge tone={r.genderScope === 'male' ? 'info' : r.genderScope === 'female' ? 'accent' : 'neutral'}>{r.genderScope === 'male' ? 'ذكور' : r.genderScope === 'female' ? 'إناث' : 'الكل'}</Badge> },
+        { key: 'type', label: 'مرحلة الالتحاق', width: 130, render: (r: ApplicantCategoryRow) => (
+          <Badge tone={r.type === 'university' ? 'info' : 'neutral'}>
+            {r.type === 'university' ? 'جامعي' : 'قبل جامعي'}
+          </Badge>
+        ) },
+        { key: 'facultySelectionType', label: 'اختيار الكلية', width: 130, render: (r: ApplicantCategoryRow) => {
+          if (r.facultySelectionType === null) return <span className="text-ink-400">—</span>;
+          return (
+            <Badge tone="accent">
+              {r.facultySelectionType === 'single' ? 'كلية واحدة' : 'كليات متعددة'}
+            </Badge>
+          );
+        } },
         /* "نوع التقديم" reflects the new submission-types FK
          * (`metadata.submissionTypeCode`). Replaces the legacy
          * applicationMode binary badge — the typed column is still on the

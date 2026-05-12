@@ -140,7 +140,7 @@ export function LookupRowDrawer<K extends LookupKey>({
 /* ─── Per-key form fields (read via context) ─────────────────────────── */
 
 function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
-  const { register, control, watch } = useFormContext();
+  const { register, control, watch, setValue } = useFormContext();
   const codeOfSelf = watch('code') as string | undefined;
 
   switch (lookupKey) {
@@ -283,7 +283,8 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
           {...register('metadata.gradingMode')}
         />
       );
-    case 'applicant-categories':
+    case 'applicant-categories': {
+      const categoryType = watch('type') as 'pre_university' | 'university' | undefined;
       return (
         <>
           <Select
@@ -303,8 +304,44 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
             ]}
             {...register('applicationMode')}
           />
+          <Controller
+            control={control}
+            name="type"
+            render={({ field }) => (
+              <Select
+                label="مرحلة الالتحاق"
+                options={[
+                  { value: 'pre_university', label: 'قبل جامعي' },
+                  { value: 'university',     label: 'جامعي' },
+                ]}
+                value={(field.value as string) ?? 'pre_university'}
+                onChange={(e) => {
+                  const next = e.target.value as 'pre_university' | 'university';
+                  field.onChange(next);
+                  /* Pre-University doesn't carry a faculty-selection shape;
+                   * University defaults to single. */
+                  if (next === 'pre_university') {
+                    setValue('facultySelectionType', null);
+                  } else if (!watch('facultySelectionType')) {
+                    setValue('facultySelectionType', 'single');
+                  }
+                }}
+              />
+            )}
+          />
+          {categoryType === 'university' && (
+            <Select
+              label="اختيار الكلية"
+              options={[
+                { value: 'single',   label: 'كلية واحدة' },
+                { value: 'multiple', label: 'كليات متعددة' },
+              ]}
+              {...register('facultySelectionType')}
+            />
+          )}
         </>
       );
+    }
     case 'nationalities-countries':
       return (
         <>
@@ -547,7 +584,13 @@ function blankRow(key: LookupKey): Record<string, unknown> {
     case 'submission-types':
       return { ...base, metadata: { gradingMode: 'GRADES' } };
     case 'applicant-categories':
-      return { ...base, genderScope: 'any', applicationMode: 'general' };
+      return {
+        ...base,
+        genderScope: 'any',
+        applicationMode: 'general',
+        type: 'pre_university',
+        facultySelectionType: null,
+      };
     case 'nationalities-countries':
       return { ...base, iso2: '', isArab: false };
     case 'governorates':

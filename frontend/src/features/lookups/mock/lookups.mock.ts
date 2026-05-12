@@ -388,6 +388,8 @@ const applicantCategories: ApplicantCategoryRow[] = [
     isOpen: true,
     genderScope: 'male',
     applicationMode: 'general',
+    type: 'pre_university',
+    facultySelectionType: null,
     conditions: {
       ageMin: null, ageMax: null, minScorePercent: null,
       requiredQualification: 'thanaweya_amma', gender: 'male',
@@ -417,6 +419,8 @@ const applicantCategories: ApplicantCategoryRow[] = [
     isOpen: true,
     genderScope: 'any',
     applicationMode: 'general',
+    type: 'university',
+    facultySelectionType: 'single',
     conditions: {
       ageMin: null, ageMax: null, minScorePercent: null,
       requiredQualification: 'bachelor_law', gender: 'any',
@@ -445,6 +449,8 @@ const applicantCategories: ApplicantCategoryRow[] = [
     isOpen: true,
     genderScope: 'female',
     applicationMode: 'general',
+    type: 'university',
+    facultySelectionType: 'single',
     conditions: {
       ageMin: null, ageMax: null, minScorePercent: null,
       requiredQualification: 'bachelor', gender: 'female',
@@ -473,6 +479,8 @@ const applicantCategories: ApplicantCategoryRow[] = [
     isOpen: true,
     genderScope: 'any',
     applicationMode: 'general',
+    type: 'university',
+    facultySelectionType: 'multiple',
     conditions: {
       ageMin: null, ageMax: 28, minScorePercent: null,
       requiredQualification: 'bachelor', gender: 'any',
