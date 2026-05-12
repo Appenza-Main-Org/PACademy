@@ -272,17 +272,24 @@ export const cyclesService = {
   },
 
   async getActive(): Promise<AdmissionCycle | null> {
-    await simulateLatency(80, 200);
-    if (!ACTIVE_ID) return null;
-    const cycle = STATE.find((c) => c.id === ACTIVE_ID);
-    if (!cycle) return null;
-    /* Honour the [opensAt, closesAt] window — outside it, no cycle is active
-     * for public-flow purposes. */
+    /* No dedicated /admin/cycles/active endpoint — derive from the list().
+     * Backend's single-active invariant guarantees at most one row with
+     * status='active' (or 'open'/'extended' which alias to active for
+     * applicant-facing flows). */
+    const all = await this.list();
+    const active = all.find(
+      (c) => c.status === 'active' || c.status === 'open' || c.status === 'extended',
+    );
+    if (!active) return null;
+
+    /* Honour the [openDate, closeDate] window — outside it, no cycle is
+     * active for public-flow purposes (admin flow ignores this — they use
+     * the picker directly). */
     const now = Date.now();
-    const open = new Date(cycle.openDate).getTime();
-    const close = new Date(cycle.closeDate).getTime();
+    const open = new Date(active.openDate).getTime();
+    const close = new Date(active.closeDate).getTime();
     if (now < open || now > close) return null;
-    return { ...cycle };
+    return active;
   },
 
   /** Internal helper: returns the active cycle ignoring the time window. */

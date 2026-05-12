@@ -14,6 +14,7 @@
  *   DELETE /api/admin/categories/:key                     → { ok: true }       (non-spec only)
  */
 
+import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
@@ -21,7 +22,6 @@ import {
   applyRestore,
   applySoftDelete,
   DependencyBlockedError,
-  filterDeleted,
   type DependencyResult,
 } from '@/shared/lib/soft-delete';
 import type {
@@ -47,6 +47,65 @@ const SPEC_KEYS: ReadonlySet<ApplicantCategoryKey> = new Set<ApplicantCategoryKe
 ]);
 
 const STATE: ApplicantCategory[] = MOCK.categories.map((c) => ({ ...c }));
+
+/* Backend DTOs (per /admin/categories OpenAPI schema). The list DTO is a
+ * lean subset; the detail DTO carries the full editable shape. Mapper
+ * functions normalize both to the frontend ApplicantCategory interface. */
+interface BackendCategoryListItem {
+  id: string;
+  key: string;
+  nameAr: string;
+  nameEn: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  isSpec: boolean;
+}
+
+interface BackendCategoryDetail extends BackendCategoryListItem {
+  description: string | null;
+  conditions: unknown;
+  requiredTests: unknown;
+  procedures: unknown;
+  createdAt: string;
+  updatedAt: string;
+  demoOrigin: boolean;
+}
+
+function backendListItemToFrontend(c: BackendCategoryListItem): ApplicantCategory {
+  return {
+    key: c.key as ApplicantCategoryKey,
+    labelAr: c.nameAr,
+    labelEn: c.nameEn ?? '',
+    description: '',
+    isOpen: false,
+    conditions: {} as ApplicantCategory['conditions'],
+    requiredTests: [],
+    procedures: [],
+  };
+}
+
+function backendDetailToFrontend(c: BackendCategoryDetail): ApplicantCategory {
+  return {
+    key: c.key as ApplicantCategoryKey,
+    labelAr: c.nameAr,
+    labelEn: c.nameEn ?? '',
+    description: c.description ?? '',
+    isOpen: c.isActive,
+    /* `conditions` and `requiredTests` are stored as JSON strings server-side;
+     * EF returns them as the deserialized object. Defensive parse if string. */
+    conditions: parseJsonField<ApplicantCategory['conditions']>(c.conditions, {} as ApplicantCategory['conditions']),
+    requiredTests: parseJsonField<ApplicantCategory['requiredTests']>(c.requiredTests, []),
+    procedures: parseJsonField<ApplicantCategory['procedures']>(c.procedures, []),
+  };
+}
+
+function parseJsonField<T>(value: unknown, fallback: T): T {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'string') {
+    try { return JSON.parse(value) as T; } catch { return fallback; }
+  }
+  return value as T;
+}
 let auditCounter = 1;
 
 function pushAudit(action: 'create' | 'update' | 'delete', categoryKey: string, details: string): void {
@@ -67,14 +126,24 @@ function pushAudit(action: 'create' | 'update' | 'delete', categoryKey: string, 
 }
 
 export const categoriesAdminService = {
-  async list(opts: { includeDeleted?: boolean } = {}): Promise<ApplicantCategory[]> {
-    await simulateLatency();
-    return filterDeleted(STATE, opts.includeDeleted).map((c) => ({ ...c }));
+  async list(_opts: { includeDeleted?: boolean } = {}): Promise<ApplicantCategory[]> {
+    /* Real backend GET /admin/categories returns CategoryListItemDto[].
+     * Frontend ApplicantCategory shape carries richer fields (description,
+     * conditions, requiredTests, procedures, isOpen) — those default to
+     * empty here; pages that need them fetch the detail via getByKey. */
+    const r = await apiClient.get<BackendCategoryListItem[]>('/admin/categories');
+    return r.data.map(backendListItemToFrontend);
   },
 
   async getByKey(key: ApplicantCategoryKey): Promise<ApplicantCategory | null> {
-    await simulateLatency();
-    return STATE.find((c) => c.key === key) ?? null;
+    try {
+      const r = await apiClient.get<BackendCategoryDetail>(`/admin/categories/by-key/${key}`);
+      return backendDetailToFrontend(r.data);
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      if (status === 404) return null;
+      throw err;
+    }
   },
 
   async update(key: ApplicantCategoryKey, patch: Partial<ApplicantCategory>): Promise<ApplicantCategory> {
