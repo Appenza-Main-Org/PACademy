@@ -59,17 +59,16 @@ import {
   type StepStatusInputs,
 } from '../lib/step-status';
 import { writeDraft } from '../lib/wizard-draft';
-import {
-  useElectronicDeclaration,
-  useExamDateConfig,
-} from '../api/admission-setup.queries';
+import { useElectronicDeclaration } from '../api/admission-setup.queries';
+import { useExamScheduleAggregate } from '../api/examSchedule.queries';
+import { buildExamScheduleSnapshot } from '../lib/step-status';
 import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from './ApplicationSettingsPage';
 import { ApplicationStatusPage } from './ApplicationStatusPage';
 import { FeesPage } from './FeesPage';
 import { ExamsManagementPage } from './ExamsManagementPage';
 import { CommitteesManagementPage } from './CommitteesManagementPage';
-import { ExamDatesPage } from './ExamDatesPage';
+import { ExamScheduleStep } from '../components/examSchedule/ExamScheduleStep';
 import { NotificationsStepPage } from './NotificationsStepPage';
 import { ElectronicDeclarationPage } from './ElectronicDeclarationPage';
 import { WizardReviewPage } from './WizardReviewPage';
@@ -85,7 +84,7 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,
-  exam_dates: () => <ExamDatesPage />,
+  exam_dates: () => <ExamScheduleStep />,
   notifications: () => <NotificationsStepPage />,
   electronic_declaration: () => <ElectronicDeclarationPage />,
 };
@@ -115,8 +114,14 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const cycleId = cycleCtx.cycle?.id ?? null;
   const categoriesQuery = useCategoriesAdmin();
   const committeesQuery = useCommittees();
-  const examDatesQuery = useExamDateConfig(cycleId);
+  const examScheduleAggregateQuery = useExamScheduleAggregate(cycleId);
   const declarationQuery = useElectronicDeclaration(cycleId);
+  const examScheduleSnapshot = examScheduleAggregateQuery.data
+    ? buildExamScheduleSnapshot(
+        examScheduleAggregateQuery.data.days,
+        examScheduleAggregateQuery.data.activeCategoryIds,
+      )
+    : null;
 
   /* Persist the wizard pointer on every step change so refresh / re-entry
    * lands on the same step. Skip when no cycle is selected. */
@@ -141,7 +146,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     cycle: cycleCtx.cycle,
     categories: categoriesQuery.data ?? [],
     committees: committeesQuery.data ?? [],
-    examDateConfig: examDatesQuery.data ?? null,
+    examSchedule: examScheduleSnapshot,
     declaration: declarationQuery.data ?? null,
   };
 

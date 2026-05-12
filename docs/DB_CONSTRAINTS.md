@@ -583,6 +583,92 @@ THROW 51110, 'CATEGORY_HAS_ACTIVE_YEARS', 1;
 
 ---
 
+## 12 · Exam Schedule — invariants
+
+Per-category calendar of WORKING / OFF days. Each row is scoped to a
+single `(cycle_id, applicant_category_id, date)` tuple. There is no
+capacity field — the schedule is a pure calendar.
+
+### 12.1 · `DUPLICATE_DATE`
+
+**Rule.** Unique `(cycle_id, applicant_category_id, date)`. The same
+calendar date CAN exist across different categories — each category's
+schedule is independent.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.exam_schedule_days
+ADD CONSTRAINT UQ_exam_schedule_days_cycle_cat_date
+  UNIQUE (cycle_id, applicant_category_id, date);
+```
+
+### 12.2 · `DATE_OUT_OF_CYCLE_WINDOW`
+
+**Rule.** Each `date` must satisfy
+`date BETWEEN cycle.open_date AND cycle.close_date`.
+
+**SQL Server.** CHECK constraint via scalar function or trigger
+(CHECK cannot dereference another table directly):
+
+```sql
+CREATE OR ALTER TRIGGER trg_exam_schedule_days_cycle_window
+ON dbo.exam_schedule_days
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    JOIN dbo.admission_cycles c ON c.id = i.cycle_id
+    WHERE i.date < CAST(c.open_date AS DATE)
+       OR i.date > CAST(c.close_date AS DATE)
+  )
+    THROW 51120, 'DATE_OUT_OF_CYCLE_WINDOW', 1;
+END;
+```
+
+### 12.3 · `INVALID_DATE_RANGE`
+
+**Rule.** Bulk-generate input must satisfy `end_date >= start_date`.
+
+**SQL Server.** Validated at the stored-procedure entry point for the
+bulk-generate endpoint (no table constraint — this is a request-shape
+invariant):
+
+```sql
+IF @end_date < @start_date
+  THROW 51121, 'INVALID_DATE_RANGE', 1;
+```
+
+### 12.4 · `CATEGORY_NOT_ACTIVE`
+
+**Rule.** `applicant_category_id` must resolve to a row in
+`applicant_category_configs` with `is_active = 1`. Categories
+deactivated in Step 1 of the wizard cannot have new schedule rows
+written.
+
+**SQL Server.**
+
+```sql
+CREATE OR ALTER TRIGGER trg_exam_schedule_days_active_category
+ON dbo.exam_schedule_days
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    LEFT JOIN dbo.applicant_category_configs c
+      ON c.category_id = i.applicant_category_id
+    WHERE c.id IS NULL OR c.is_active = 0
+  )
+    THROW 51122, 'CATEGORY_NOT_ACTIVE', 1;
+END;
+```
+
+---
+
 ## Cross-reference
 
 These constraints are referenced from `CLAUDE.md §6` (mock service

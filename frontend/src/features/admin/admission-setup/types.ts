@@ -198,6 +198,57 @@ export type AppSettingsConflict =
   | 'SPECIALIZATION_NOT_MAPPED'
   | 'CATEGORY_HAS_ACTIVE_YEARS';
 
+/* ───────────────────────────────────────────────────────────────────────
+ * Exam Schedule — per-category calendar of WORKING/OFF days.
+ *
+ * Each row is scoped to a single (cycleId × applicantCategoryId × date).
+ * The schedule is a pure calendar — no capacity, no slot count, no
+ * assignment. Capacity belongs to a separate downstream layer (per-day
+ * per-test slot or per-committee binding); see migration report Open
+ * Questions for where it lands.
+ *
+ * Wizard step key is `exam_dates` (legacy name retained for routing /
+ * step-status switch continuity); the new semantic name in code and
+ * docs is "Exam Schedule".
+ * ─────────────────────────────────────────────────────────────────────── */
+
+export const DAY_KIND = ['WORKING', 'OFF'] as const;
+export type DayKind = (typeof DAY_KIND)[number];
+
+export interface ExamScheduleDay {
+  id: string;
+  cycleId: string;
+  /** FK → `applicant-categories[CAT-NN].code`. Scopes the day to one
+   *  category — same date CAN exist across different categories. */
+  applicantCategoryId: string;
+  /** ISO yyyy-mm-dd (date only — no time component). */
+  date: string;
+  kind: DayKind;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * JS `Date.prototype.getDay()` indices for the Egyptian weekend
+ * (Friday + Saturday). Hardcoded for V1 — configurable holidays land
+ * later via a `HOLIDAYS` lookup (see report Open Questions).
+ *
+ *   Sun=0 · Mon=1 · Tue=2 · Wed=3 · Thu=4 · Fri=5 · Sat=6
+ */
+export const WEEKEND_DAY_INDICES: readonly number[] = [5, 6];
+
+/**
+ * Conflict codes thrown by `examScheduleService`. Surfaced as Arabic
+ * toasts via the query layer. Mirrored in `docs/DB_CONSTRAINTS.md
+ * §12`.
+ */
+export type ExamScheduleConflict =
+  | 'DUPLICATE_DATE'
+  | 'DATE_OUT_OF_CYCLE_WINDOW'
+  | 'INVALID_DATE_RANGE'
+  | 'CATEGORY_NOT_ACTIVE';
+
 /** Uploaded PDF metadata for the electronic declaration. */
 export interface DeclarationDocument {
   fileName: string;

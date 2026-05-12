@@ -33,7 +33,12 @@ export type ConflictCode =
   | 'GENDER_REQUIRED'
   | 'GRAD_YEAR_REQUIRED'
   | 'SPECIALIZATION_NOT_MAPPED'
-  | 'CATEGORY_HAS_ACTIVE_YEARS';
+  | 'CATEGORY_HAS_ACTIVE_YEARS'
+  // Admission Setup — Exam Schedule (per-category calendar).
+  // See docs/DB_CONSTRAINTS.md §12.
+  | 'DUPLICATE_DATE'
+  | 'DATE_OUT_OF_CYCLE_WINDOW'
+  | 'CATEGORY_NOT_ACTIVE';
 
 /** Generic conflict — a precondition rejected the mutation. */
 export class ConflictError<TPayload = unknown> extends Error {

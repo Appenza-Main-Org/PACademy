@@ -37,15 +37,14 @@ import {
   ADMISSION_SETUP_TOTAL_STEPS,
 } from '../config';
 import {
+  buildExamScheduleSnapshot,
   computeStepStatus,
   type StepStatusInputs,
 } from '../lib/step-status';
 import { readDraft } from '../lib/wizard-draft';
 import type { AdmissionSetupStepKey } from '../types';
-import {
-  useElectronicDeclaration,
-  useExamDateConfig,
-} from '../api/admission-setup.queries';
+import { useElectronicDeclaration } from '../api/admission-setup.queries';
+import { useExamScheduleAggregate } from '../api/examSchedule.queries';
 
 /** First wizard step after cycle_metadata was removed — admins land here. */
 const FIRST_STEP: AdmissionSetupStepKey = 'application_settings';
@@ -176,14 +175,20 @@ function ActiveCycleCard({
 }): JSX.Element {
   const categoriesQuery = useCategoriesAdmin();
   const committeesQuery = useCommittees();
-  const examDatesQuery = useExamDateConfig(cycle.id);
+  const examScheduleAggregateQuery = useExamScheduleAggregate(cycle.id);
   const declarationQuery = useElectronicDeclaration(cycle.id);
+  const examScheduleSnapshot = examScheduleAggregateQuery.data
+    ? buildExamScheduleSnapshot(
+        examScheduleAggregateQuery.data.days,
+        examScheduleAggregateQuery.data.activeCategoryIds,
+      )
+    : null;
 
   const inputs: StepStatusInputs = {
     cycle,
     categories: categoriesQuery.data ?? [],
     committees: committeesQuery.data ?? [],
-    examDateConfig: examDatesQuery.data ?? null,
+    examSchedule: examScheduleSnapshot,
     declaration: declarationQuery.data ?? null,
   };
   const completed = ADMISSION_SETUP_STEPS.filter(

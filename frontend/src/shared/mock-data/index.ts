@@ -78,6 +78,7 @@ import {
   APPLICANT_CATEGORY_SPECIALIZATIONS,
   APPLICANT_SPECIALIZATION_YEARS,
 } from '@/features/admin/admission-setup/mock/appSettings.mock';
+import { EXAM_SCHEDULE_DAYS } from '@/features/admin/admission-setup/mock/examSchedule.mock';
 
 reseed(42);
 
@@ -1031,6 +1032,8 @@ export const MOCK = {
   applicantCategoryConfigs: APPLICANT_CATEGORY_CONFIGS,
   applicantCategorySpecializations: APPLICANT_CATEGORY_SPECIALIZATIONS,
   applicantSpecializationYears: APPLICANT_SPECIALIZATION_YEARS,
+  /* Admission-setup Step 6 — Exam Schedule (per-category calendar). */
+  examScheduleDays: EXAM_SCHEDULE_DAYS,
 };
 
 export { findOfficerByNid };
