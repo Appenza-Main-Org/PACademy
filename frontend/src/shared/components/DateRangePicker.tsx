@@ -225,6 +225,7 @@ export function DateRangePicker({
           ref={popoverRef}
           role="dialog"
           aria-label="اختر فترة"
+          data-portal-popover="daterangepicker"
           className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg md:flex-row"
           style={{
             position: 'fixed',

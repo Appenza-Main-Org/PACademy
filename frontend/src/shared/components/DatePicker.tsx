@@ -203,6 +203,7 @@ export function DatePicker({
               ref={popoverRef}
               role="dialog"
               aria-label="اختر تاريخاً"
+              data-portal-popover="datepicker"
               className="rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg"
               style={{
                 position: 'fixed',

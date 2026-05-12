@@ -206,6 +206,7 @@ export function MultiSelect({
         {open && position && createPortal(
           <div
             ref={popoverRef}
+            data-portal-popover="multiselect"
             className="rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
             style={{
               position: 'fixed',

@@ -86,6 +86,15 @@ export function Sheet({
           dir="rtl"
           data-side="end"
           onInteractOutside={(event) => {
+            /* Portaled popovers (Combobox, MultiSelect, DatePicker)
+             * render into document.body and Radix treats clicks on them
+             * as "outside." Each portaled popover marks itself with
+             * data-portal-popover so we can recognise it here. */
+            const target = event.target as Element | null;
+            if (target?.closest('[data-portal-popover]')) {
+              event.preventDefault();
+              return;
+            }
             if (!closeOnOutsideClick) event.preventDefault();
           }}
           className={cn(

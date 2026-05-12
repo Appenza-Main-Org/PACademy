@@ -232,6 +232,7 @@ export function Combobox({
         {open && position && createPortal(
           <div
             ref={popoverRef}
+            data-portal-popover="combobox"
             className="rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
             style={{
               position: 'fixed',
