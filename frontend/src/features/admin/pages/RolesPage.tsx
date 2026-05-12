@@ -74,7 +74,10 @@ export function RolesPage(): JSX.Element {
     rolesService.getDependencies(pendingDelete.id).then(setDeleteDeps).catch(() => setDeleteDeps(null));
   }, [pendingDelete]);
 
-  const rows = listQuery.data ?? [];
+  /* The applicant role is auto-assigned at portal sign-up and isn't
+   * admin-editable from the cloud roles screen. It stays in the seed so
+   * auth can resolve it; it just doesn't surface here. */
+  const rows = (listQuery.data ?? []).filter((r) => r.key !== 'applicant');
 
   const columns: DataTableColumn<RoleDefinitionRow>[] = [
     { key: 'labelAr', label: 'الاسم', render: (r) => <span className="font-medium text-ink-900">{r.labelAr}</span> },
