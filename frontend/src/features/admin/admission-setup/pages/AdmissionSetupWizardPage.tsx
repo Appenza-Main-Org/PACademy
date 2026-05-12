@@ -233,7 +233,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
               to={ROUTES.admin.admissionSetup.index}
               className="inline-flex items-center gap-1 text-ink-500 hover:text-ink-900"
             >
-              <ArrowRight size={12} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
+              <ArrowRight size={12} strokeWidth={1.75} />
               لوحة التقديم
             </Link>
             <span aria-hidden className="text-ink-300">·</span>
@@ -305,9 +305,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
               variant="ghost"
               onClick={handlePrev}
               disabled={isFirst && !isReview}
-              leadingIcon={
-                <ArrowRight size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
-              }
+              leadingIcon={<ArrowRight size={14} strokeWidth={1.75} />}
             >
               السابق
             </Button>
@@ -323,9 +321,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
                 <Button
                   variant="primary"
                   onClick={handleNext}
-                  trailingIcon={
-                    <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
-                  }
+                  trailingIcon={<ArrowLeft size={14} strokeWidth={1.75} />}
                 >
                   {isFinalConfigStep ? 'إرسال للاعتماد' : 'التالي'}
                 </Button>

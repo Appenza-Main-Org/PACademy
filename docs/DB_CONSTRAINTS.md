@@ -366,12 +366,16 @@ tables back the three-tier editor:
 - `dbo.applicant_category_specializations` — junction between a config
   row and a `specializations` lookup item.
 - `dbo.applicant_specialization_years` — leaf row carrying graduation
-  year × gender(s) × marital status(es) × age/grade band × window dates.
-  Gender and marital status are many-to-many; the canonical
-  representation is two side-tables
+  year × gender(s) × marital status(es) × division(s) × age cap × grade
+  gate × window dates. Gender, marital status, and division are
+  many-to-many; the canonical representation is three side-tables
   (`applicant_specialization_year_genders`,
-  `applicant_specialization_year_marital_statuses`) keyed by
-  `(year_id, code)`.
+  `applicant_specialization_year_marital_statuses`,
+  `applicant_specialization_year_divisions`) keyed by `(year_id, code)`.
+  The grade gate is a discriminated branch on `grade_kind`
+  (`'GRADES'` → `min_percentage` column; `'TAGDIR'` → `academic_grade_id`
+  column FK → `academic-grades` lookup). The parent category's submission
+  type determines which branch applies — see §11.4e.
 
 Conflict codes thrown by the frontend mock service (and mirrored
 verbatim in `errors.ts → ConflictCode`):
@@ -439,10 +443,10 @@ ALTER TABLE dbo.applicant_specialization_years
 
 ### 11.4 · `INVALID_DATE_RANGE`
 
-**Rule.** `application_end_date >= application_start_date`. The
-`age_calc_date` column is required and must be a parseable date — no
-ordering constraint relative to the application window (admin chooses
-the eligibility-evaluation anchor independently).
+**Rule.** `application_end_date >= application_start_date`.
+`age_reference_date` is required and must be a parseable date; the
+column-ordering constraint relative to the application window is
+enforced separately (§11.4d).
 
 **SQL Server.**
 
@@ -452,17 +456,76 @@ ALTER TABLE dbo.applicant_specialization_years
   CHECK (application_end_date >= application_start_date);
 ```
 
-### 11.4b · `GRADE_RANGE_INVALID`
+### 11.4b · `PERCENTAGE_OUT_OF_RANGE`
 
-**Rule.** When both `min_grade` and `max_grade` are supplied,
-`min_grade <= max_grade`.
+**Rule.** GRADES-branch rows (`grade_kind = 'GRADES'`) must carry a
+`min_percentage` in `[0, 100]`. TAGDIR-branch rows leave the column
+NULL.
 
 **SQL Server.**
 
 ```sql
 ALTER TABLE dbo.applicant_specialization_years
-  ADD CONSTRAINT CK_AppSpecYear_GradeRange
-  CHECK (min_grade IS NULL OR max_grade IS NULL OR min_grade <= max_grade);
+  ADD CONSTRAINT CK_AppSpecYear_Percentage
+  CHECK (
+    (grade_kind = 'GRADES' AND min_percentage BETWEEN 0 AND 100)
+    OR (grade_kind = 'TAGDIR' AND min_percentage IS NULL)
+  );
+```
+
+### 11.4d · `AGE_REFERENCE_AFTER_START`
+
+**Rule.** The age-reference anchor (`age_reference_date`, used by
+eligibility to compute applicant age) must be on or before
+`application_start_date`. Anchoring on a date past the open of the
+application window would let an applicant who was under-age at submit
+time become eligible mid-window — operationally non-sensical.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.applicant_specialization_years
+  ADD CONSTRAINT CK_AppSpecYear_AgeRef
+  CHECK (age_reference_date <= application_start_date);
+```
+
+### 11.4e · `GRADE_MODE_MISMATCH`
+
+**Rule.** The row's `grade_kind` must equal the parent category's
+submission-type `grading_mode`. Resolution chain:
+
+```
+applicant_specialization_year.category_specialization_id
+  → applicant_category_specialization.config_id
+  → applicant_category_config.category_id
+  → applicant_categories[code].submission_type_code
+  → submission_types[code].grading_mode
+```
+
+If an admin re-points a category at a different submission-type after
+year rows already exist, the existing rows whose `grade_kind` no longer
+matches must be deleted and recreated. The frontend surfaces the drift
+via a banner at the top of the application-settings page and disables
+bulk save until resolved.
+
+**SQL Server.** Enforced by a trigger on INSERT/UPDATE of
+`applicant_specialization_years`:
+
+```sql
+IF EXISTS (
+  SELECT 1
+  FROM inserted i
+  JOIN dbo.applicant_category_specializations s
+    ON s.id = i.category_specialization_id
+  JOIN dbo.applicant_category_configs c
+    ON c.id = s.config_id
+  JOIN dbo.applicant_categories cat
+    ON cat.code = c.category_id
+  JOIN dbo.submission_types st
+    ON st.code = cat.submission_type_code
+  WHERE st.grading_mode <> i.grade_kind
+)
+THROW 51130, 'GRADE_MODE_MISMATCH', 1;
 ```
 
 ### 11.4c · `GENDER_REQUIRED`

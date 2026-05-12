@@ -22,6 +22,7 @@
  * parent category's gradingMode is.
  */
 
+import type { GradingMode } from '@/features/lookups';
 import type {
   AppSettingsConflict,
   ApplicantSpecializationYear,
@@ -59,6 +60,34 @@ export function validateAge(
   if (maxAge <= 0) return 'AGE_NOT_POSITIVE';
   if (!Number.isInteger(maxAge)) return 'AGE_NOT_POSITIVE';
   return null;
+}
+
+/** Alias for `validateAge` matching the patch's naming. */
+export const validateMaxAge = validateAge;
+
+export function validateAgeReferenceVsApplication(
+  ageReferenceDate: string,
+  applicationStartDate: string,
+): AppSettingsConflict | null {
+  if (!ageReferenceDate || !applicationStartDate) return null;
+  const ref = dayOnly(ageReferenceDate);
+  const start = dayOnly(applicationStartDate);
+  if (ref > start) return 'AGE_REFERENCE_AFTER_START';
+  return null;
+}
+
+/**
+ * Verifies the row's `gradeKind` matches the parent category's
+ * `gradingMode` (resolved upstream). The service layer enforces this
+ * at the write boundary; the UI banner surfaces the conflict at the
+ * read boundary for pre-existing rows that drifted (admin re-pointed a
+ * category at a different submission-type).
+ */
+export function validateGradeKindMatchesCategory(
+  row: Pick<ApplicantSpecializationYear, 'gradeKind'>,
+  parentGradingMode: GradingMode,
+): AppSettingsConflict | null {
+  return row.gradeKind === parentGradingMode ? null : 'GRADE_MODE_MISMATCH';
 }
 
 export function validateMinPercentage(
@@ -140,6 +169,11 @@ export function validateYearRow(
     row.ageReferenceDate,
   );
   if (dr) return dr;
+  const refOrder = validateAgeReferenceVsApplication(
+    row.ageReferenceDate,
+    row.applicationStartDate,
+  );
+  if (refOrder) return refOrder;
   const dup = validateNoDuplicateYear(
     row.graduationYear,
     row.genderTypes,

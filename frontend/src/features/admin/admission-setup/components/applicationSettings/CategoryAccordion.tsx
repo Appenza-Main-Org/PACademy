@@ -20,7 +20,6 @@ import * as Accordion from '@radix-ui/react-accordion';
 import { ChevronDown, ListChecks } from 'lucide-react';
 import {
   AlertDialog,
-  Badge,
   ErrorState,
   LoadingState,
   Switch,
@@ -103,7 +102,6 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
                 aria-hidden
               />
               {config.categoryNameAr}
-              <Badge tone="neutral">{config.categoryId}</Badge>
             </span>
             <span className="inline-flex items-center gap-1.5 text-2xs text-ink-500">
               <ListChecks size={12} strokeWidth={1.75} aria-hidden />
