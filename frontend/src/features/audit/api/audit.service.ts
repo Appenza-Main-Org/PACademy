@@ -16,6 +16,7 @@
  *   GET /api/audit/users             → distinct user IDs
  */
 
+import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import type { AuditAction, AuditDiff, AuditEntry, AuditModule } from '@/shared/types/domain';
@@ -38,65 +39,99 @@ export interface AuditFilters {
   limit?: number;
 }
 
+/** Backend AuditEntryDto → frontend AuditEntry. Backend serializes Before/After
+ *  as JSON strings; we parse them defensively. */
+interface BackendAuditEntryDto {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  actionLabel: string;
+  actionColor: string;
+  entity: string;
+  entityType: string;
+  entityId: string;
+  details: string;
+  before: string | null;
+  after: string | null;
+  timestamp: number;
+  at: string;
+  ip: string;
+}
+
+function backendToFrontendAuditEntry(dto: BackendAuditEntryDto): AuditEntry {
+  let before: unknown = null;
+  let after: unknown = null;
+  try { if (dto.before) before = JSON.parse(dto.before); } catch { before = dto.before; }
+  try { if (dto.after) after = JSON.parse(dto.after); } catch { after = dto.after; }
+  return {
+    id: dto.id,
+    userId: dto.userId,
+    userName: dto.userName,
+    action: dto.action as AuditAction,
+    actionLabel: dto.actionLabel,
+    actionColor: dto.actionColor as AuditEntry['actionColor'],
+    entity: dto.entity,
+    entityType: dto.entityType,
+    entityId: dto.entityId,
+    details: dto.details,
+    before: before ?? undefined,
+    after: after ?? undefined,
+    timestamp: dto.timestamp,
+    at: dto.at,
+    ip: dto.ip,
+  };
+}
+
 export const auditService = {
   async list(filters: AuditFilters = {}): Promise<AuditEntry[]> {
-    await simulateLatency();
-    const {
-      action = 'all',
-      userId = 'all',
-      entity = 'all',
-      entityType = 'all',
-      module = 'all',
-      role = 'all',
-      since = null,
-      until = null,
-      limit = 200,
-    } = filters;
-    let items = MOCK.audit;
-    if (action !== 'all') items = items.filter((e) => e.action === action);
-    if (userId !== 'all') items = items.filter((e) => e.userId === userId);
-    if (entity !== 'all') items = items.filter((e) => e.entity === entity);
-    if (entityType !== 'all') items = items.filter((e) => e.entityType === entityType);
-    if (module !== 'all') items = items.filter((e) => e.module === module);
-    if (role !== 'all') items = items.filter((e) => e.role === role);
-    if (since !== null) items = items.filter((e) => e.timestamp >= since);
-    if (until !== null) items = items.filter((e) => e.timestamp <= until);
-    return items.slice(0, limit);
+    const params: Record<string, string | number> = {};
+    if (filters.action && filters.action !== 'all') params.action = filters.action;
+    if (filters.entityType && filters.entityType !== 'all') params.entityType = filters.entityType;
+    if (filters.userId && filters.userId !== 'all') params.userId = filters.userId;
+    if (filters.since !== null && filters.since !== undefined) params.since = filters.since;
+    if (filters.until !== null && filters.until !== undefined) params.until = filters.until;
+    if (filters.limit) params.limit = filters.limit;
+    const r = await apiClient.get<BackendAuditEntryDto[]>('/admin/audit', { params });
+    return r.data.map(backendToFrontendAuditEntry);
   },
 
   async getById(id: string): Promise<AuditEntry | null> {
-    await simulateLatency();
-    return MOCK.audit.find((e) => e.id === id) ?? null;
+    try {
+      const r = await apiClient.get<BackendAuditEntryDto>(`/admin/audit/${id}`);
+      return backendToFrontendAuditEntry(r.data);
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      if (status === 404) return null;
+      throw err;
+    }
   },
 
   /**
-   * Returns the diff for an audit entry. New (Gap E) entries carry inline
-   * `before` / `after` snapshots; legacy seeded entries fall back to the
-   * MOCK.auditDiffs side-table.
+   * Returns the diff for an audit entry. Backend embeds before/after as JSON
+   * strings on the entry itself (no separate /diff endpoint needed); this
+   * method now just re-uses getById and returns the parsed snapshots.
    */
   async getDiff(id: string): Promise<AuditDiff> {
-    await simulateLatency();
-    const entry = MOCK.audit.find((e) => e.id === id);
-    if (entry && (entry.before !== undefined || entry.after !== undefined)) {
+    const entry = await this.getById(id);
+    if (entry) {
       return {
         before: (entry.before ?? null) as AuditDiff['before'],
         after: (entry.after ?? null) as AuditDiff['after'],
       };
     }
-    return MOCK.auditDiffs[id] ?? { before: null, after: null };
+    return { before: null, after: null };
   },
 
   async getEntityTypes(): Promise<string[]> {
-    await simulateLatency(80, 160);
-    return Array.from(new Set(MOCK.audit.map((e) => e.entity)));
+    const r = await apiClient.get<string[]>('/admin/audit/entity-types');
+    return r.data;
   },
 
-  /** Distinct typed `module` values present in MOCK.audit (Gap E). */
+  /** Distinct typed `module` values — backend returns the static module taxonomy. */
   async getModules(): Promise<AuditModule[]> {
-    await simulateLatency(80, 160);
-    const set = new Set<AuditModule>();
-    for (const e of MOCK.audit) if (e.module) set.add(e.module);
-    return Array.from(set);
+    const r = await apiClient.get<string[]>('/admin/audit/modules');
+    return r.data as AuditModule[];
   },
 
   /** Distinct actor roles present in MOCK.audit (Gap E). */
