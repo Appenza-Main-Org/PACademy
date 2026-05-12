@@ -293,54 +293,24 @@ export const cyclesService = {
 
   async create(
     payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>,
-    options: { demoteCurrentActive?: boolean } = {},
+    _options: { demoteCurrentActive?: boolean } = {},
   ): Promise<AdmissionCycle> {
-    await simulateLatency();
-    /* Single-active-cycle invariant — mirror the same rule the activate
-     * lifecycle enforces, so a direct create with `status: 'active'`
-     * can't bypass it. Callers explicitly opt-in to atomic demotion
-     * by passing `demoteCurrentActive: true`. */
-    if (payload.status === 'active') {
-      const existingActiveIdx = STATE.findIndex(
-        (c) => c.status === 'active' || c.status === 'open' || c.status === 'extended',
-      );
-      if (existingActiveIdx !== -1) {
-        const conflicting = STATE[existingActiveIdx];
-        if (!options.demoteCurrentActive) {
-          throw new ConflictError(
-            'ACTIVE_CYCLE_EXISTS',
-            { activeCycleId: conflicting.id, activeCycleName: conflicting.nameAr },
-            `يوجد دورة نشطة حالياً "${conflicting.nameAr}". أغلقها أو حوّلها إلى مسودة قبل تفعيل دورة جديدة.`,
-          );
-        }
-        const before = { ...conflicting };
-        const demoted: AdmissionCycle = {
-          ...conflicting,
-          status: 'draft',
-          updatedAt: new Date().toISOString(),
-        };
-        STATE[existingActiveIdx] = demoted;
-        if (ACTIVE_ID === before.id) ACTIVE_ID = null;
-        pushAudit(
-          'AdmissionCycle',
-          before.id,
-          'update',
-          `تم تحويل دورة "${before.nameAr}" إلى مسودة عند تفعيل دورة جديدة`,
-        );
-      }
-    }
-    const now = new Date().toISOString();
-    const cycle: AdmissionCycle = {
-      ...payload,
-      id: `CYC-${payload.year}-${payload.cohort.toUpperCase().slice(0, 1)}-${cloneCounter++}`,
-      applicantCount: 0,
-      createdAt: payload.createdAt ?? now,
-      updatedAt: now,
-    };
-    STATE.unshift(cycle);
-    if (cycle.status === 'active') ACTIVE_ID = cycle.id;
-    pushAudit('AdmissionCycle', cycle.id, 'create', `تم إنشاء دورة "${cycle.nameAr}"`);
-    return cycle;
+    /* Real backend POST /admin/cycles. Body matches CreateCycleRequest:
+     * { nameAr, year, cohort, openDate, closeDate, expectedCapacity }.
+     * Backend always creates in Draft status; activation is a separate
+     * call via POST /admin/cycles/{id}/status. The single-active invariant
+     * is enforced on the backend during that transition, so the
+     * demoteCurrentActive option is now meaningless on create — kept on
+     * the signature for backwards compatibility with existing callers. */
+    const r = await apiClient.post<AdmissionCycle>('/admin/cycles', {
+      nameAr: payload.nameAr,
+      year: payload.year,
+      cohort: payload.cohort,
+      openDate: payload.openDate,
+      closeDate: payload.closeDate,
+      expectedCapacity: payload.expectedCapacity,
+    });
+    return r.data;
   },
 
   /**
