@@ -18,7 +18,7 @@ internal sealed class CommitteeConfiguration : IEntityTypeConfiguration<Committe
         b.Property(x => x.RowVersion).IsRowVersion();
 
         b.HasIndex(x => new { x.CycleId, x.Key }).IsUnique()
-            .HasFilter("[deleted_at] IS NULL");
+            .HasFilter("[DeletedAt] IS NULL");
         b.HasIndex(x => x.Status).HasDatabaseName("IX_committees_status");
 
         b.HasMany(x => x.Members).WithOne().HasForeignKey(m => m.CommitteeId)
