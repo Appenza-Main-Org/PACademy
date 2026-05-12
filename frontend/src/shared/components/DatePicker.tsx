@@ -185,7 +185,7 @@ export function DatePicker({
           className={cn(
             'flex w-full items-center justify-between rounded-md border bg-surface-card px-3 text-start text-sm transition-colors duration-fast ease-standard',
             'h-9',
-            error ? 'border-terra-500' : 'border-border-default hover:border-border-strong',
+            error ? 'border-terra-500' : 'border-border-strong hover:border-ink-400',
             'focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none',
             disabled && 'cursor-not-allowed opacity-60',
           )}
