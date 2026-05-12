@@ -199,11 +199,20 @@ export type AppSettingsConflict =
   | 'SPECIALIZATION_NOT_MAPPED'
   | 'CATEGORY_HAS_ACTIVE_YEARS';
 
-/** Electronic declaration shown to the applicant on Stage 9. */
+/** Uploaded PDF metadata for the electronic declaration. */
+export interface DeclarationDocument {
+  fileName: string;
+  /** Object/blob URL or remote path the applicant-side opens for preview. */
+  fileUrl: string;
+  /** Bytes. Enforced ≤ 10 MB on save. */
+  size: number;
+}
+
+/** Electronic declaration shown to the applicant on Stage 9 (PDF document). */
 export interface ElectronicDeclaration {
   id: string;
   cycleId: string;
-  bodyAr: string;
+  document: DeclarationDocument;
   /** Auto-incremented per save. */
   version: number;
   /** ISO date — declaration becomes binding from this date. */

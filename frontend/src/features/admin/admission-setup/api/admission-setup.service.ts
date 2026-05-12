@@ -12,7 +12,7 @@
  *   PUT    /api/admission-setup/cycles/:cycleId/exam-dates            → ExamDateConfig
  *
  *   GET    /api/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration | null
- *   PUT    /api/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration
+ *   PUT    /api/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration   (multipart/form-data PDF upload)
  *   POST   /api/admission-setup/declarations/:id/publish              → ElectronicDeclaration
  *
  *   GET    /api/admission-setup/cycles/:cycleId/committee-bindings           → CategoryCommittees[]
@@ -29,6 +29,7 @@ import type {
   CategoryCommittees,
 } from '@/shared/types/domain';
 import type {
+  DeclarationDocument,
   ElectronicDeclaration,
   ExamDateConfig,
 } from '../types';
@@ -49,6 +50,26 @@ function actorId(): string {
    * here for createdBy/updatedBy fields the audit system doesn't fill. */
   return 'system';
 }
+
+const MAX_DECLARATION_SIZE = 10 * 1024 * 1024;
+
+/* Seed a single sample declaration document so the wizard's PDF preview
+ * card renders something on first load. Uses the deterministic mock cycle
+ * surface (`MOCK.cycles`) so the seed stays stable across renders. */
+const SEED_CYCLE_ID = MOCK.cycles[0]?.id ?? 'CYCLE-2026-MALE';
+DECLARATIONS.push({
+  id: 'DEC-SEED-0001',
+  cycleId: SEED_CYCLE_ID,
+  document: {
+    fileName: 'الإقرار-الإلكتروني-2026.pdf',
+    fileUrl: '/mock/declarations/sample.pdf',
+    size: 482_318,
+  },
+  version: 1,
+  effectiveFrom: new Date(MOCK.cycles[0]?.openDate ?? new Date()).toISOString(),
+  createdAt: new Date().toISOString(),
+  createdBy: 'system',
+});
 
 export const admissionSetupService = {
   /* ── Exam date config ─────────────────────────────────────────────── */
@@ -115,19 +136,28 @@ export const admissionSetupService = {
 
   async setDeclaration(input: {
     cycleId: string;
-    bodyAr: string;
+    document: DeclarationDocument;
     effectiveFrom: string;
   }): Promise<ElectronicDeclaration> {
     await simulateLatency();
-    if (!input.bodyAr.trim()) {
-      throw new Error('نص الإقرار لا يمكن أن يكون فارغاً');
+    if (!input.document.fileName.trim() || !input.document.fileUrl.trim()) {
+      throw new Error('يجب رفع مستند الإقرار قبل الحفظ');
+    }
+    if (!input.document.fileName.toLowerCase().endsWith('.pdf')) {
+      throw new Error('يجب أن يكون المستند بصيغة PDF');
+    }
+    if (input.document.size <= 0) {
+      throw new Error('ملف الإقرار فارغ');
+    }
+    if (input.document.size > MAX_DECLARATION_SIZE) {
+      throw new Error('حجم الملف يتجاوز الحد المسموح به (10 ميجابايت)');
     }
     const previous = await admissionSetupService.getDeclaration(input.cycleId);
     const version = previous ? previous.version + 1 : 1;
     const next: ElectronicDeclaration = {
       id: id('DEC'),
       cycleId: input.cycleId,
-      bodyAr: input.bodyAr,
+      document: { ...input.document },
       version,
       effectiveFrom: input.effectiveFrom,
       createdAt: new Date().toISOString(),
@@ -140,7 +170,7 @@ export const admissionSetupService = {
       entityType: 'ElectronicDeclaration',
       entityLabel: 'الإقرار الإلكتروني',
       entityId: next.id,
-      details: `تم حفظ النسخة رقم ${version} من الإقرار الإلكتروني`,
+      details: `تم حفظ النسخة رقم ${version} من الإقرار الإلكتروني (${input.document.fileName})`,
       before: previous,
       after: next,
     });
