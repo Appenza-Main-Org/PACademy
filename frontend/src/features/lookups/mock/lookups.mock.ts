@@ -140,39 +140,78 @@ const committees: CommitteeRow[] = [
   { code: 'CMT-08', name: 'لجنة التحريات',          isActive: true, kind: 'primary',     chairTitle: 'رئيس لجنة التحريات' },
 ];
 
-/* ─── 6. specializations — police specializations ────────────────────── */
-
-/* Each specialization now carries `facultyCode` directly — the old
- * junction table is gone. Mappings preserved from the prior
- * specialization-faculty-map seed; specializations that were mapped to
- * more than one faculty (e.g. الإدارة العامة under both عليا and
- * معاونين) collapse to one primary faculty per the prompt. */
-const specializations: SpecializationRow[] = [
-  { code: 'SPC-01', name: 'علوم شرطة',          isActive: true, facultyCode: 'FAC-01' },
-  { code: 'SPC-02', name: 'الأمن العام',         isActive: true, facultyCode: 'FAC-01' },
-  { code: 'SPC-03', name: 'الأمن المركزي',      isActive: true, facultyCode: 'FAC-01' },
-  { code: 'SPC-04', name: 'الأمن الإلكتروني',    isActive: true, facultyCode: 'FAC-02' },
-  { code: 'SPC-05', name: 'مكافحة المخدرات',     isActive: true, facultyCode: 'FAC-02' },
-  { code: 'SPC-06', name: 'حماية الآداب',        isActive: true, facultyCode: 'FAC-02' },
-  { code: 'SPC-07', name: 'المرور',             isActive: true, facultyCode: 'FAC-01' },
-  { code: 'SPC-08', name: 'الجوازات والهجرة',    isActive: true, facultyCode: 'FAC-02' },
-  { code: 'SPC-09', name: 'الأحوال المدنية',     isActive: true, facultyCode: 'FAC-04' },
-  { code: 'SPC-10', name: 'الإدارة العامة',      isActive: true, facultyCode: 'FAC-03' },
-  { code: 'SPC-11', name: 'الأمن الاجتماعي',     isActive: true, facultyCode: 'FAC-03' },
-  { code: 'SPC-12', name: 'مكافحة الإرهاب',     isActive: true, facultyCode: 'FAC-02' },
-];
-
-/* ─── 7. faculties — Police Academy faculties ────────────────────────── */
+/* ─── 6. faculties — Egyptian university faculties ─────────────────────
+ *
+ * Source: standard Egyptian university faculty roster (academy.moi.gov.eg
+ * + Supreme Council of Universities + Wikipedia Arabic). Police Academy
+ * faculties are out of scope here — applicants come from across Egyptian
+ * universities, so this lookup mirrors that broader set. */
 
 const faculties: FacultyRow[] = [
-  { code: 'FAC-01', name: 'كلية الضباط',          ...active },
-  { code: 'FAC-02', name: 'كلية الضباط المتخصصين', ...active },
-  { code: 'FAC-03', name: 'كلية الدراسات العليا',  ...active },
-  { code: 'FAC-04', name: 'كلية المعاونين',        ...active },
+  { code: 'FAC-01', name: 'كلية الطب',                     ...active },
+  { code: 'FAC-02', name: 'كلية الهندسة',                  ...active },
+  { code: 'FAC-03', name: 'كلية الحقوق',                   ...active },
+  { code: 'FAC-04', name: 'كلية التجارة',                  ...active },
+  { code: 'FAC-05', name: 'كلية الآداب',                   ...active },
+  { code: 'FAC-06', name: 'كلية العلوم',                   ...active },
+  { code: 'FAC-07', name: 'كلية الصيدلة',                  ...active },
+  { code: 'FAC-08', name: 'كلية طب الأسنان',                ...active },
+  { code: 'FAC-09', name: 'كلية الزراعة',                  ...active },
+  { code: 'FAC-10', name: 'كلية التربية',                  ...active },
+  { code: 'FAC-11', name: 'كلية الإعلام',                  ...active },
+  { code: 'FAC-12', name: 'كلية الحاسبات والمعلومات',       ...active },
+  { code: 'FAC-13', name: 'كلية الاقتصاد والعلوم السياسية', ...active },
+  { code: 'FAC-14', name: 'كلية الألسن',                   ...active },
+  { code: 'FAC-15', name: 'كلية دار العلوم',               ...active },
+  { code: 'FAC-16', name: 'كلية الفنون الجميلة',            ...active },
+  { code: 'FAC-17', name: 'كلية الفنون التطبيقية',          ...active },
+  { code: 'FAC-18', name: 'كلية التمريض',                  ...active },
+  { code: 'FAC-19', name: 'كلية العلاج الطبيعي',            ...active },
+  { code: 'FAC-20', name: 'كلية الطب البيطري',              ...active },
+  { code: 'FAC-21', name: 'كلية الخدمة الاجتماعية',         ...active },
+  { code: 'FAC-22', name: 'كلية السياحة والفنادق',          ...active },
+  { code: 'FAC-23', name: 'كلية التربية الرياضية',          ...active },
+  { code: 'FAC-24', name: 'كلية التربية الموسيقية',         ...active },
+  { code: 'FAC-25', name: 'كلية الآثار',                   ...active },
+  { code: 'FAC-26', name: 'كلية التخطيط الإقليمي والعمراني', ...active },
 ];
 
-/* The old specialization-faculty-map junction table was removed in
- * favour of a direct `facultyCode` FK on each SpecializationRow above. */
+/* ─── 7. specializations — Egyptian university specializations ─────────
+ *
+ * Each specialization carries `facultyCode` directly (FK → faculties).
+ * Representative set across the 26 faculties above; the demo doesn't
+ * need every program enumerated. */
+
+const specializations: SpecializationRow[] = [
+  { code: 'SPC-01', name: 'الطب البشري',           isActive: true, facultyCode: 'FAC-01' },
+  { code: 'SPC-02', name: 'الهندسة المدنية',        isActive: true, facultyCode: 'FAC-02' },
+  { code: 'SPC-03', name: 'هندسة الحاسبات',         isActive: true, facultyCode: 'FAC-02' },
+  { code: 'SPC-04', name: 'القانون العام',          isActive: true, facultyCode: 'FAC-03' },
+  { code: 'SPC-05', name: 'المحاسبة',              isActive: true, facultyCode: 'FAC-04' },
+  { code: 'SPC-06', name: 'إدارة الأعمال',          isActive: true, facultyCode: 'FAC-04' },
+  { code: 'SPC-07', name: 'اللغة العربية',          isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-08', name: 'اللغة الإنجليزية',       isActive: true, facultyCode: 'FAC-05' },
+  { code: 'SPC-09', name: 'الفيزياء',              isActive: true, facultyCode: 'FAC-06' },
+  { code: 'SPC-10', name: 'الكيمياء',              isActive: true, facultyCode: 'FAC-06' },
+  { code: 'SPC-11', name: 'الصيدلة الإكلينيكية',    isActive: true, facultyCode: 'FAC-07' },
+  { code: 'SPC-12', name: 'طب الأسنان',             isActive: true, facultyCode: 'FAC-08' },
+  { code: 'SPC-13', name: 'علوم الحاسب',            isActive: true, facultyCode: 'FAC-12' },
+  { code: 'SPC-14', name: 'نظم المعلومات',          isActive: true, facultyCode: 'FAC-12' },
+  { code: 'SPC-15', name: 'الإعلام',               isActive: true, facultyCode: 'FAC-11' },
+  { code: 'SPC-16', name: 'الصحافة',               isActive: true, facultyCode: 'FAC-11' },
+  { code: 'SPC-17', name: 'الإذاعة والتليفزيون',     isActive: true, facultyCode: 'FAC-11' },
+  { code: 'SPC-18', name: 'الاقتصاد',              isActive: true, facultyCode: 'FAC-13' },
+  { code: 'SPC-19', name: 'العلوم السياسية',        isActive: true, facultyCode: 'FAC-13' },
+  { code: 'SPC-20', name: 'التمريض',               isActive: true, facultyCode: 'FAC-18' },
+  { code: 'SPC-21', name: 'العلاج الطبيعي',         isActive: true, facultyCode: 'FAC-19' },
+  { code: 'SPC-22', name: 'الطب البيطري',           isActive: true, facultyCode: 'FAC-20' },
+  { code: 'SPC-23', name: 'الخدمة الاجتماعية',      isActive: true, facultyCode: 'FAC-21' },
+  { code: 'SPC-24', name: 'الإرشاد السياحي',        isActive: true, facultyCode: 'FAC-22' },
+  { code: 'SPC-25', name: 'التربية البدنية',        isActive: true, facultyCode: 'FAC-23' },
+  { code: 'SPC-26', name: 'الموسيقى',              isActive: true, facultyCode: 'FAC-24' },
+  { code: 'SPC-27', name: 'الآثار المصرية',         isActive: true, facultyCode: 'FAC-25' },
+  { code: 'SPC-28', name: 'التخطيط العمراني',       isActive: true, facultyCode: 'FAC-26' },
+];
 
 /* ─── 9. applicant-categories ────────────────────────────────────────── */
 
