@@ -53,10 +53,12 @@ import type {
 } from '@/shared/types/domain';
 import type {
   ApplicantStream,
+  ApplyResultDto,
   CommitteeMergeSplitRule,
   CommitteeScoreThreshold,
   ElectronicDeclaration,
   ExamDateConfig,
+  MergeSplitPreviewDto,
   TotalScoreComponent,
   TotalScoreConfig,
   WizardStepStatusRow,
@@ -103,6 +105,43 @@ export const admissionSetupService = {
       { reason },
     );
     return { ok: true };
+  },
+
+  /**
+   * Preview the impact of applying a planned merge/split rule.
+   * Server returns the applicants that would move, capacity changes per
+   * committee, and a deterministic `previewHash` over the change set. The
+   * frontend echoes the hash back on the subsequent apply call so the
+   * backend can reject a stale preview (409 PREVIEW_HASH_STALE).
+   */
+  async previewMergeSplitRule(ruleId: string): Promise<MergeSplitPreviewDto> {
+    const r = await apiClient.post<MergeSplitPreviewDto>(
+      `/admin/admission-setup/merge-split-rules/${ruleId}/preview`,
+    );
+    return r.data;
+  },
+
+  /**
+   * Apply a planned merge/split rule. Atomic: opens a CrossModuleUnitOfWork
+   * on the server, moves applicants, recomputes capacities, flips the rule
+   * to `applied`, emits a `merge_rule_applied` audit. Performance budget
+   * ≤10s for 5,000 applicants.
+   *
+   * Rejects with 409 if confirmPreviewHash or rowVersion is stale.
+   */
+  async applyMergeSplitRule(input: {
+    ruleId: string;
+    confirmPreviewHash: string;
+    rowVersion: string;
+  }): Promise<ApplyResultDto> {
+    const r = await apiClient.post<ApplyResultDto>(
+      `/admin/admission-setup/merge-split-rules/${input.ruleId}/apply`,
+      {
+        confirmPreviewHash: input.confirmPreviewHash,
+        rowVersion: input.rowVersion,
+      },
+    );
+    return r.data;
   },
 
   /* ── Step 10 — committee score thresholds ─────────────────────────── */

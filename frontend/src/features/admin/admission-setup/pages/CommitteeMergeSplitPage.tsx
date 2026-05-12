@@ -23,6 +23,8 @@ import {
 import { ROUTES } from '@/config/routes';
 import { useCommittees } from '@/features/committees';
 import { MarkStepCompleteButton } from '../components/MarkStepCompleteButton';
+import { MergeSplitApplyDrawer } from '../components/MergeSplitApplyDrawer';
+import { Play } from 'lucide-react';
 import { date as fmtDate } from '@/shared/lib/format';
 import type { AdmissionCycle, Committee } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
@@ -50,6 +52,12 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   const { data: rules = [] } = useAdmissionMergeSplitRules(cycle.id);
   const createMut = useCreateMergeSplitRule();
   const deleteMut = useDeleteMergeSplitRule(cycle.id);
+
+  /* Apply-drawer state — a single rule at a time. Cleared on drawer close. */
+  const [applyTarget, setApplyTarget] = useState<CommitteeMergeSplitRule | null>(null);
+  const committeeNames: Record<string, string> = Object.fromEntries(
+    cycleCommittees.map((c) => [c.id, c.name]),
+  );
 
   const [type, setType] = useState<'merge' | 'split'>('merge');
   const [sourceIds, setSourceIds] = useState<string[]>([]);
@@ -171,6 +179,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
               rule={rule}
               committees={cycleCommittees}
               canWrite={canWrite}
+              onApply={() => setApplyTarget(rule)}
               onDelete={(reasonText) =>
                 deleteMut.mutate(
                   { ruleId: rule.id, reason: reasonText },
@@ -181,6 +190,14 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
           ))
         )}
       </section>
+
+      <MergeSplitApplyDrawer
+        open={applyTarget !== null}
+        onClose={() => setApplyTarget(null)}
+        rule={applyTarget}
+        cycleId={cycle.id}
+        committeeNames={committeeNames}
+      />
     </div>
   );
 }
@@ -233,16 +250,20 @@ function RuleRow({
   rule,
   committees,
   canWrite,
+  onApply,
   onDelete,
 }: {
   rule: CommitteeMergeSplitRule;
   committees: Committee[];
   canWrite: boolean;
+  onApply: () => void;
   onDelete: (reason: string) => void;
 }): JSX.Element {
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState('');
   const nameOf = (id: string): string => committees.find((c) => c.id === id)?.name ?? id;
+  const isPlanned = rule.status === 'planned' && !rule.deletedAt;
+  const isApplied = rule.status === 'applied';
 
   return (
     <Card className="mb-3">
@@ -252,18 +273,36 @@ function RuleRow({
           <Badge tone={rule.type === 'merge' ? 'info' : 'warning'}>
             {rule.type === 'merge' ? 'دمج' : 'فصل'}
           </Badge>
+          {isApplied && (
+            <Badge tone="success" className="text-2xs">مُطبَّقة</Badge>
+          )}
+          {rule.status === 'cancelled' && (
+            <Badge tone="neutral" className="text-2xs">ملغاة</Badge>
+          )}
           <span className="text-2xs text-ink-500">سريان: {fmtDate(rule.effectiveAt, 'short')}</span>
         </div>
-        {canWrite && !rule.deletedAt && !confirming && (
-          <Button
-            variant="ghost"
-            size="sm"
-            leadingIcon={<Trash2 size={12} strokeWidth={1.75} />}
-            onClick={() => setConfirming(true)}
-          >
-            حذف
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canWrite && isPlanned && !confirming && (
+            <Button
+              variant="primary"
+              size="sm"
+              leadingIcon={<Play size={12} strokeWidth={1.75} />}
+              onClick={onApply}
+            >
+              تطبيق
+            </Button>
+          )}
+          {canWrite && !rule.deletedAt && !isApplied && !confirming && (
+            <Button
+              variant="ghost"
+              size="sm"
+              leadingIcon={<Trash2 size={12} strokeWidth={1.75} />}
+              onClick={() => setConfirming(true)}
+            >
+              حذف
+            </Button>
+          )}
+        </div>
       </header>
 
       <div className="grid gap-2 text-sm md:grid-cols-2">

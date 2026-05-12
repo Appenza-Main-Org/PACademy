@@ -70,6 +70,31 @@ export function useDeleteMergeSplitRule(cycleId: string | null) {
   });
 }
 
+/** Lazy preview — the drawer triggers this on open via `refetch()`. */
+export function useMergeSplitPreview(ruleId: string | null) {
+  return useQuery({
+    queryKey: [...admissionSetupKeys.all, 'merge-split-preview', ruleId] as const,
+    queryFn: () => admissionSetupService.previewMergeSplitRule(ruleId!),
+    enabled: false, // lazy — drawer calls refetch() on open
+    staleTime: 0, // always fresh; the apply hash check makes stale previews fail anyway
+    gcTime: 30_000,
+  });
+}
+
+export function useApplyMergeSplitRule(cycleId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: admissionSetupService.applyMergeSplitRule,
+    onSuccess: () => {
+      /* Apply moves applicants between committees → invalidate the rule
+       * list (status now 'applied') AND the committees list (capacity
+       * counts changed). Step pill also updates via step-statuses. */
+      invalidateCycle(qc, cycleId);
+      qc.invalidateQueries({ queryKey: ['committees'] });
+    },
+  });
+}
+
 /* ── Step 10 ────────────────────────────────────────────────────────── */
 
 export function useScoreThresholds(cycleId: string | null) {

@@ -59,7 +59,7 @@ export interface WizardStepStatusRow {
 /** Spec 009 — merge/split apply preview DTO. */
 export interface MergeSplitPreviewDto {
   applicantsMoved: Array<{
-    id: string;
+    applicantId: string;
     fromCommitteeId: string;
     toCommitteeId: string;
   }>;
