@@ -1,5 +1,5 @@
 /**
- * AdmissionSetupWizardPage — single shell that orchestrates all 15 steps
+ * AdmissionSetupWizardPage — single shell that orchestrates every step
  * (plus a virtual `review` step) as a top-stepper wizard.
  *
  * Driven by `:stepKey` in the URL — adding a new entry to
@@ -60,10 +60,8 @@ import {
 } from '../lib/step-status';
 import { writeDraft } from '../lib/wizard-draft';
 import {
-  useAdmissionMergeSplitRules,
   useElectronicDeclaration,
   useExamDateConfig,
-  useTotalScoreConfigs,
 } from '../api/admission-setup.queries';
 import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from './ApplicationSettingsPage';
@@ -72,11 +70,7 @@ import { AgeRulesPage } from './AgeRulesPage';
 import { FeesPage } from './FeesPage';
 import { ExamsManagementPage } from './ExamsManagementPage';
 import { CommitteesManagementPage } from './CommitteesManagementPage';
-import { CommitteeMergeSplitPage } from './CommitteeMergeSplitPage';
-import { ScoreThresholdsPage } from './ScoreThresholdsPage';
 import { ExamDatesPage } from './ExamDatesPage';
-import { DateCommitteeBindingPage } from './DateCommitteeBindingPage';
-import { TotalScorePage } from './TotalScorePage';
 import { NotificationsStepPage } from './NotificationsStepPage';
 import { ElectronicDeclarationPage } from './ElectronicDeclarationPage';
 import { WizardReviewPage } from './WizardReviewPage';
@@ -84,8 +78,8 @@ import { WizardReviewPage } from './WizardReviewPage';
 const REVIEW_KEY = 'review' as const;
 type WizardStepKey = AdmissionSetupStepKey | typeof REVIEW_KEY;
 
-/* The renderer map mirrors ADMISSION_SETUP_STEPS — adding a 15th step is
- * one entry here plus the config append. */
+/* The renderer map mirrors ADMISSION_SETUP_STEPS — adding a step is one
+ * entry here plus the config append. */
 const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   application_settings: () => <ApplicationSettingsPage />,
   application_status: () => <ApplicationStatusPage />,
@@ -93,11 +87,7 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,
-  committee_merge_split: () => <CommitteeMergeSplitPage />,
-  score_thresholds: () => <ScoreThresholdsPage />,
   exam_dates: () => <ExamDatesPage />,
-  date_committee_binding: () => <DateCommitteeBindingPage />,
-  total_score: () => <TotalScorePage />,
   notifications: () => <NotificationsStepPage />,
   electronic_declaration: () => <ElectronicDeclarationPage />,
 };
@@ -127,9 +117,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const cycleId = cycleCtx.cycle?.id ?? null;
   const categoriesQuery = useCategoriesAdmin();
   const committeesQuery = useCommittees();
-  const mergeSplitQuery = useAdmissionMergeSplitRules(cycleId);
   const examDatesQuery = useExamDateConfig(cycleId);
-  const totalScoreQuery = useTotalScoreConfigs(cycleId);
   const declarationQuery = useElectronicDeclaration(cycleId);
 
   /* Persist the wizard pointer on every step change so refresh / re-entry
@@ -155,9 +143,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     cycle: cycleCtx.cycle,
     categories: categoriesQuery.data ?? [],
     committees: committeesQuery.data ?? [],
-    mergeSplitRules: mergeSplitQuery.data ?? [],
     examDateConfig: examDatesQuery.data ?? null,
-    totalScoreConfigs: totalScoreQuery.data ?? [],
     declaration: declarationQuery.data ?? null,
   };
 

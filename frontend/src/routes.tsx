@@ -57,13 +57,11 @@ import {
   AuditPage,
   CategoriesListPage,
   CategoryEditPage,
-  CommitteeMergeSplitPage,
   CommitteesManagementPage,
   CycleDetailPage,
   CycleNewPage,
   CyclesPage,
   DashboardPage,
-  DateCommitteeBindingPage,
   ElectronicDeclarationPage,
   ExamDatesPage,
   ExamsManagementPage,
@@ -72,9 +70,7 @@ import {
   PaymentsPage,
   ReportsPage,
   RolesPage,
-  ScoreThresholdsPage,
   SettingsPage,
-  TotalScorePage,
   UsersPage,
   UserCreatePage,
   UserDetailPage,
@@ -240,7 +236,7 @@ export const routes: RouteObject[] = [
       { path: 'workflows', element: <WorkflowsListPage /> },
       { path: 'workflows/new', element: <WorkflowEditorPage /> },
       { path: 'workflows/:id', element: <WorkflowEditorPage /> },
-      /* Admission Setup — 15 ordered config-driven steps. The route segments
+      /* Admission Setup — config-driven ordered steps. The route segments
        * mirror `routeSegment` from `ADMISSION_SETUP_STEPS`; adding a new
        * step is a config-entry append plus a route line here. AuthGuard +
        * `app="admin"` from the parent route already gate access; the
@@ -248,7 +244,7 @@ export const routes: RouteObject[] = [
        * pages so an admin without the permission lands on a calm empty
        * state instead of a redirect. */
       { path: 'admission-setup', element: <AdmissionSetupIndexPage /> },
-      /* Wizard route — single page that orchestrates all 14 setup steps as
+      /* Wizard route — single page that orchestrates all setup steps as
        * a top-stepper flow. `:stepKey` is one of `AdmissionSetupStepKey`
        * or the literal `'review'` (handled inside the page). */
       { path: 'admission-setup/wizard', element: <Navigate to={ROUTES.admin.admissionSetup.wizard('application_settings')} replace /> },
@@ -259,11 +255,7 @@ export const routes: RouteObject[] = [
       { path: 'admission-setup/fees', element: <AdmissionFeesPage /> },
       { path: 'admission-setup/exams', element: <ExamsManagementPage /> },
       { path: 'admission-setup/committees', element: <CommitteesManagementPage /> },
-      { path: 'admission-setup/committee-merge-split', element: <CommitteeMergeSplitPage /> },
-      { path: 'admission-setup/score-thresholds', element: <ScoreThresholdsPage /> },
       { path: 'admission-setup/exam-dates', element: <ExamDatesPage /> },
-      { path: 'admission-setup/date-committee-binding', element: <DateCommitteeBindingPage /> },
-      { path: 'admission-setup/total-score', element: <TotalScorePage /> },
       { path: 'admission-setup/notifications', element: <NotificationsStepPage /> },
       { path: 'admission-setup/electronic-declaration', element: <ElectronicDeclarationPage /> },
     ],

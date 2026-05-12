@@ -7,30 +7,21 @@
  *   • in_progress — the step has been touched (some settings present) but
  *                   not all required pieces are filled.
  *   • not_started — nothing exists yet for the picked cycle.
- *
- * Until the net-new services ship in Phase 5, any step whose entity has no
- * mock-side existence reports `not_started`. Composed steps inspect the
- * cycle / category / committee they extend.
  */
 
 import type { AdmissionCycle, ApplicantCategory, Committee } from '@/shared/types/domain';
 import type {
   AdmissionSetupStepKey,
   AdmissionSetupStepStatus,
-  CommitteeMergeSplitRule,
   ElectronicDeclaration,
   ExamDateConfig,
-  TotalScoreConfig,
 } from '../types';
 
 export interface StepStatusInputs {
   cycle: AdmissionCycle | null;
   categories: ApplicantCategory[];
   committees: Committee[];
-  /** Net-new entities — empty arrays until Phase 5 wires the services. */
-  mergeSplitRules: CommitteeMergeSplitRule[];
   examDateConfig: ExamDateConfig | null;
-  totalScoreConfigs: TotalScoreConfig[];
   declaration: ElectronicDeclaration | null;
 }
 
@@ -38,7 +29,7 @@ export function computeStepStatus(
   key: AdmissionSetupStepKey,
   inputs: StepStatusInputs,
 ): AdmissionSetupStepStatus {
-  const { cycle, categories, committees, mergeSplitRules, examDateConfig, totalScoreConfigs, declaration } = inputs;
+  const { cycle, categories, committees, examDateConfig, declaration } = inputs;
 
   if (!cycle) return 'not_started';
 
@@ -59,7 +50,7 @@ export function computeStepStatus(
       if (openKeys.length === 0) return 'not_started';
       const allHaveAge = openKeys.every((k) => {
         const cat = categories.find((c) => c.key === k);
-        return Boolean(cat?.conditions.ageMin && cat?.conditions.ageMax);
+        return Boolean(cat?.conditions.ageMax);
       });
       return allHaveAge ? 'complete' : 'in_progress';
     }
@@ -83,35 +74,9 @@ export function computeStepStatus(
       const cycleCommittees = committees.filter((c) => !c.linkedCycleId || c.linkedCycleId === cycle.id);
       return cycleCommittees.length > 0 ? 'complete' : 'not_started';
     }
-    case 'committee_merge_split':
-      return mergeSplitRules.filter((r) => r.cycleId === cycle.id && !r.deletedAt).length > 0
-        ? 'complete'
-        : 'not_started';
-    case 'score_thresholds': {
-      const cycleCommittees = committees.filter((c) => !c.linkedCycleId || c.linkedCycleId === cycle.id);
-      if (cycleCommittees.length === 0) return 'not_started';
-      const withCriteria = cycleCommittees.filter((c) => c.scoreCriteria?.magmoo3 || c.scoreCriteria?.accumulativeScore);
-      if (withCriteria.length === cycleCommittees.length) return 'complete';
-      if (withCriteria.length > 0) return 'in_progress';
-      return 'not_started';
-    }
     case 'exam_dates':
       if (!examDateConfig) return 'not_started';
       return examDateConfig.bookableDays.length > 0 ? 'complete' : 'in_progress';
-    case 'date_committee_binding': {
-      const cycleCommittees = committees.filter((c) => !c.linkedCycleId || c.linkedCycleId === cycle.id);
-      if (cycleCommittees.length === 0) return 'not_started';
-      const bound = cycleCommittees.filter(
-        (c) => (c.availableDates?.length ?? 0) > 0 && (c.capacityPerDay ?? 0) > 0,
-      );
-      if (bound.length === cycleCommittees.length) return 'complete';
-      if (bound.length > 0) return 'in_progress';
-      return 'not_started';
-    }
-    case 'total_score': {
-      const cycleScored = totalScoreConfigs.filter((t) => t.cycleId === cycle.id);
-      return cycleScored.length > 0 ? 'complete' : 'not_started';
-    }
     case 'notifications':
       /* Notifications are global — surface as in_progress; the actual page
        * shows the count and lets the admin add cycle-scoped messages. */

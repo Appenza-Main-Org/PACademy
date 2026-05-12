@@ -47,7 +47,7 @@ export const ROUTES = {
     workflowNew: '/admin/workflows/new',
     notifications: '/admin/notifications',
     payments: '/admin/payments',
-    /* Admission Setup section — 14 ordered configuration steps. The keys
+    /* Admission Setup section — ordered configuration steps. The keys
      * mirror `AdmissionSetupStepKey` (camelCased) so feature code can
      * derive the URL from a step key without a second lookup. Cycle
      * metadata is NOT a step — admins enter the wizard by selecting an
@@ -66,11 +66,7 @@ export const ROUTES = {
       fees: '/admin/admission-setup/fees',
       exams: '/admin/admission-setup/exams',
       committees: '/admin/admission-setup/committees',
-      committeeMergeSplit: '/admin/admission-setup/committee-merge-split',
-      scoreThresholds: '/admin/admission-setup/score-thresholds',
       examDates: '/admin/admission-setup/exam-dates',
-      dateCommitteeBinding: '/admin/admission-setup/date-committee-binding',
-      totalScore: '/admin/admission-setup/total-score',
       notifications: '/admin/admission-setup/notifications',
       electronicDeclaration: '/admin/admission-setup/electronic-declaration',
     },

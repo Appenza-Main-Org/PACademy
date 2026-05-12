@@ -43,10 +43,8 @@ import {
 import { readDraft } from '../lib/wizard-draft';
 import type { AdmissionSetupStepKey } from '../types';
 import {
-  useAdmissionMergeSplitRules,
   useElectronicDeclaration,
   useExamDateConfig,
-  useTotalScoreConfigs,
 } from '../api/admission-setup.queries';
 
 /** First wizard step after cycle_metadata was removed — admins land here. */
@@ -178,18 +176,14 @@ function ActiveCycleCard({
 }): JSX.Element {
   const categoriesQuery = useCategoriesAdmin();
   const committeesQuery = useCommittees();
-  const mergeSplitQuery = useAdmissionMergeSplitRules(cycle.id);
   const examDatesQuery = useExamDateConfig(cycle.id);
-  const totalScoreQuery = useTotalScoreConfigs(cycle.id);
   const declarationQuery = useElectronicDeclaration(cycle.id);
 
   const inputs: StepStatusInputs = {
     cycle,
     categories: categoriesQuery.data ?? [],
     committees: committeesQuery.data ?? [],
-    mergeSplitRules: mergeSplitQuery.data ?? [],
     examDateConfig: examDatesQuery.data ?? null,
-    totalScoreConfigs: totalScoreQuery.data ?? [],
     declaration: declarationQuery.data ?? null,
   };
   const completed = ADMISSION_SETUP_STEPS.filter(

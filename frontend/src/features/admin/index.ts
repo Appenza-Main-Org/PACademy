@@ -38,7 +38,7 @@ export { CycleNewPage } from './pages/CycleNewPage';
 export { WorkflowsListPage } from './pages/WorkflowsListPage';
 export { WorkflowEditorPage } from './pages/WorkflowEditorPage';
 
-/* Admission Setup section — 14-step config-driven setup. */
+/* Admission Setup section — config-driven setup wizard. */
 export {
   ADMISSION_SETUP_STEPS,
   ADMISSION_SETUP_TOTAL_STEPS,
@@ -50,11 +50,7 @@ export {
   AdmissionFeesPage,
   ExamsManagementPage,
   CommitteesManagementPage,
-  CommitteeMergeSplitPage,
-  ScoreThresholdsPage,
   ExamDatesPage,
-  DateCommitteeBindingPage,
-  TotalScorePage,
   NotificationsStepPage,
   ElectronicDeclarationPage,
 } from './admission-setup';
