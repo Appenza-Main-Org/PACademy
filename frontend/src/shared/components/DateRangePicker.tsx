@@ -231,7 +231,7 @@ export function DateRangePicker({
             top: position.top,
             left: position.left,
             maxWidth: 'calc(100vw - 16px)',
-            zIndex: 'var(--z-dropdown)' as unknown as number,
+            zIndex: 'var(--z-popover)' as unknown as number,
           }}
         >
           <ul className="flex flex-row flex-wrap gap-1 md:flex-col md:border-e md:border-border-subtle md:pe-3">
