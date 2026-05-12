@@ -210,6 +210,20 @@ export const applicationSettingsService = {
       .sort((a, b) => b.graduationYear - a.graduationYear);
   },
 
+  /**
+   * Resolve the parent category's gradingMode for one specialization
+   * junction. Returns `null` when any step of the chain breaks (orphan
+   * ids, missing FK metadata). The YearTable consumes this through
+   * `useResolvedGradingModeForSpec` to steer column 5 between the
+   * GRADES (`minPercentage`) and TAGDIR (`academicGradeId`) branches.
+   */
+  async getGradingModeForSpec(
+    categorySpecializationId: string,
+  ): Promise<ReturnType<typeof resolveGradingModeForSpec>> {
+    await simulateLatency(40, 80);
+    return resolveGradingModeFor(categorySpecializationId);
+  },
+
   /* ── Mutations ───────────────────────────────────────────────────── */
 
   async attachSpecialization(

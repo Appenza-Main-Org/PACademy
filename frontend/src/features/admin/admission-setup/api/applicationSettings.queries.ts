@@ -12,6 +12,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/shared/components';
 import { ConflictError, isConflictError } from '@/shared/lib/errors';
+import type { GradingMode } from '@/features/lookups';
 import type { SpecializationRow } from '@/features/lookups/types';
 import { applicationSettingsService } from './applicationSettings.service';
 import type {
@@ -39,6 +40,8 @@ export const appSettingsKeys = {
     [...appSettingsKeys.all, 'eligible', configId] as const,
   years: (categorySpecializationId: string) =>
     [...appSettingsKeys.all, 'years', categorySpecializationId] as const,
+  gradingMode: (categorySpecializationId: string) =>
+    [...appSettingsKeys.all, 'grading-mode', categorySpecializationId] as const,
 };
 
 /* ─── Conflict messages ──────────────────────────────────────────────── */
@@ -117,6 +120,27 @@ export function useYears(
       return applicationSettingsService.listYears(categorySpecializationId);
     },
     enabled: enabled && Boolean(categorySpecializationId),
+  });
+}
+
+/**
+ * Walks the chain `spec → config → category → submissionType` and
+ * returns the resolved `gradingMode`. Returns `null` when any step
+ * breaks. Used by `YearTable` to pick the right branch for the
+ * grade-gate column.
+ */
+export function useResolvedGradingModeForSpec(
+  categorySpecializationId: string | null,
+  enabled = true,
+) {
+  return useQuery<GradingMode | null>({
+    queryKey: appSettingsKeys.gradingMode(categorySpecializationId ?? '__none'),
+    queryFn: () => {
+      if (!categorySpecializationId) return Promise.resolve(null);
+      return applicationSettingsService.getGradingModeForSpec(categorySpecializationId);
+    },
+    enabled: enabled && Boolean(categorySpecializationId),
+    staleTime: 60_000,
   });
 }
 

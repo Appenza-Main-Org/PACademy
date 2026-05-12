@@ -2,43 +2,63 @@
  * YearTable — editable rows for one category-specialization junction.
  *
  * Columns (visual order RTL = first column rightmost):
- *   1. سنة التخرج (Max) — Select bound to [currentYear-5 … currentYear]
- *   2. النوع — multi-pill toggle (ذكور / إناث) — at least one required
- *   3. الحالة الاجتماعية — MultiSelect over MARITAL_STATUSES (empty = any)
- *   4. السن الأقصى — numeric Input (nullable; blank = no maximum)
- *   5. الحد الأدنى للدرجة — numeric Input (0–100; nullable)
- *   6. الحد الأقصى للدرجة — numeric Input (0–100; nullable; >= min)
- *   7. بداية التقديم — DatePicker
- *   8. نهاية التقديم — DatePicker
- *   9. تاريخ احتساب السن — DatePicker (was: بداية السنة الدراسية)
- *  10. الحالة — نشط/موقوف pill (replaces opaque Switch in dense table)
- *  11. إجراءات — حذف / استرجاع
+ *   1. سنة التخرج (Max)          — Select bound to [currentYear-5 … currentYear]
+ *   2. النوع                     — multi-pill (ذكور / إناث); at least one required
+ *   3. الحالة الاجتماعية         — MultiSelect over `marital-statuses` lookup
+ *   4. السن الأقصى                — numeric Input (nullable; blank = no maximum)
+ *   5. الدرجة المئوية / التقدير  — branched on parent gradingMode:
+ *        - GRADES → numeric Input header "الدرجة المئوية" (0–100, % suffix)
+ *        - TAGDIR → Combobox header "التقدير" over `academic-grades`; the
+ *                   chosen تقدير shows its metadata percentage range
+ *                   ("85–100%") as a 2xs hint under the chip
+ *   6. الشعبة                    — MultiSelect over `applicant-divisions` lookup
+ *   7. بداية التقديم              — DatePicker
+ *   8. نهاية التقديم              — DatePicker
+ *   9. تاريخ احتساب السن          — DatePicker (must be ≤ بداية التقديم)
+ *  10. الحالة                    — نشط/موقوف pill
+ *  11. إجراءات                   — حذف / استرجاع
  *
  * Inline validation runs after each `patchRow` via the draft store; the
  * relevant conflict code is surfaced as a terra-500 chip under the
  * field(s) responsible and `aria-invalid="true"` is set on the
  * offending field. Dirty rows get a 2 px gold-400 inline-start rail.
  * No per-row save — bulk save lives in `<StickyBulkSaveBar />`.
+ *
+ * Branched column 5 is determined ONCE per table-instance via
+ * `useResolvedGradingModeForSpec` so column structure doesn't oscillate
+ * row-by-row. The discriminator on the row itself is the source of
+ * truth for which input renders — a row whose `gradeKind` has drifted
+ * from the resolved mode still renders in its own branch (so the value
+ * is editable), and the conflict banner above the table surfaces the
+ * drift.
  */
 
 import { useEffect, useMemo } from 'react';
 import { Plus, RotateCcw, Trash2 } from 'lucide-react';
 import {
   Button,
+  Combobox,
   DatePicker,
   Input,
   MultiSelect,
   Select,
 } from '@/shared/components';
 import { cn } from '@/shared/lib/cn';
-import { useYears } from '../../api/applicationSettings.queries';
+import {
+  readPercentageRange,
+  useLookup,
+  type GradingMode,
+} from '@/features/lookups';
+import {
+  useResolvedGradingModeForSpec,
+  useYears,
+} from '../../api/applicationSettings.queries';
 import {
   useAppSettingsDraftStore,
   useDraftRows,
   type DraftRow,
 } from '../../store/appSettingsDraft';
 import { validateYearRow } from '../../lib/appSettingsValidation';
-import { MARITAL_STATUSES } from '../../lib/maritalStatuses';
 import type {
   ApplicantSpecializationYear,
   AppSettingsConflict,
@@ -73,13 +93,13 @@ const GENDER_PILLS: { value: GenderType; label: string }[] = [
   { value: 'female', label: 'إناث' },
 ];
 
-const MARITAL_OPTIONS = MARITAL_STATUSES.map((m) => ({
-  value: m.code,
-  label: m.name,
-}));
-
 export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Element {
   const yearsQuery = useYears(categorySpecializationId);
+  const gradingModeQuery = useResolvedGradingModeForSpec(categorySpecializationId);
+  const maritalQuery = useLookup('marital-statuses');
+  const divisionsQuery = useLookup('applicant-divisions');
+  const academicGradesQuery = useLookup('academic-grades');
+
   const drafts = useDraftRows(categorySpecializationId);
   const hydrateSlice = useAppSettingsDraftStore((s) => s.hydrateSlice);
   const patchRow = useAppSettingsDraftStore((s) => s.patchRow);
@@ -92,6 +112,28 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
       hydrateSlice(categorySpecializationId, yearsQuery.data);
     }
   }, [categorySpecializationId, yearsQuery.data, hydrateSlice]);
+
+  const maritalOptions = useMemo(
+    () => (maritalQuery.data ?? []).map((m) => ({ value: m.code, label: m.name })),
+    [maritalQuery.data],
+  );
+  const divisionOptions = useMemo(
+    () => (divisionsQuery.data ?? []).map((d) => ({ value: d.code, label: d.name })),
+    [divisionsQuery.data],
+  );
+  const academicGradeOptions = useMemo(
+    () => (academicGradesQuery.data ?? []).map((g) => ({ value: g.code, label: g.name })),
+    [academicGradesQuery.data],
+  );
+  const academicGradeRangeByCode = useMemo(() => {
+    const map = new Map<string, { min: number; max: number } | null>();
+    for (const row of academicGradesQuery.data ?? []) {
+      map.set(row.code, readPercentageRange(row));
+    }
+    return map;
+  }, [academicGradesQuery.data]);
+
+  const gradingMode: GradingMode | null = gradingModeQuery.data ?? null;
 
   const validationByRow = useMemo(() => {
     const live = drafts.filter((d) => d.kind !== 'deleted').map((d) => d.row);
@@ -122,7 +164,12 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
           variant="secondary"
           size="sm"
           leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-          onClick={() => addRow(categorySpecializationId, {})}
+          onClick={() =>
+            addRow(
+              categorySpecializationId,
+              gradingMode === 'TAGDIR' ? { gradeKind: 'TAGDIR' } : { gradeKind: 'GRADES' },
+            )
+          }
         >
           إضافة سنة
         </Button>
@@ -133,14 +180,17 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   return (
     <div className="flex flex-col gap-2">
       <div className="overflow-x-auto rounded-md border border-border-subtle bg-surface-card">
-        <table className="w-full min-w-[1280px] text-sm">
+        <table className="w-full min-w-[1320px] text-sm">
           <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">
             <tr>
               <th className="px-3 py-2 text-start font-medium">سنة التخرج (الأقصى)</th>
               <th className="px-3 py-2 text-start font-medium">النوع</th>
               <th className="px-3 py-2 text-start font-medium">الحالة الاجتماعية</th>
               <th className="px-3 py-2 text-start font-medium">السن الأقصى</th>
-              <th className="px-3 py-2 text-start font-medium">الدرجة / التقدير</th>
+              <th className="px-3 py-2 text-start font-medium">
+                {gradingMode === 'TAGDIR' ? 'التقدير' : 'الدرجة المئوية'}
+              </th>
+              <th className="px-3 py-2 text-start font-medium">الشعبة</th>
               <th className="px-3 py-2 text-start font-medium">بداية التقديم</th>
               <th className="px-3 py-2 text-start font-medium">نهاية التقديم</th>
               <th className="px-3 py-2 text-start font-medium">تاريخ احتساب السن</th>
@@ -154,6 +204,11 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
                 key={draft.id}
                 draft={draft}
                 conflict={validationByRow.get(draft.id) ?? null}
+                gradingMode={gradingMode}
+                maritalOptions={maritalOptions}
+                divisionOptions={divisionOptions}
+                academicGradeOptions={academicGradeOptions}
+                academicGradeRangeByCode={academicGradeRangeByCode}
                 onPatch={(patch) => patchRow(categorySpecializationId, draft.id, patch)}
                 onDelete={() => deleteRow(categorySpecializationId, draft.id)}
                 onRestore={() => restoreRow(categorySpecializationId, draft.id)}
@@ -167,7 +222,12 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
           variant="ghost"
           size="sm"
           leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-          onClick={() => addRow(categorySpecializationId, {})}
+          onClick={() =>
+            addRow(
+              categorySpecializationId,
+              gradingMode === 'TAGDIR' ? { gradeKind: 'TAGDIR' } : { gradeKind: 'GRADES' },
+            )
+          }
         >
           إضافة سنة
         </Button>
@@ -179,12 +239,28 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
 interface YearRowProps {
   draft: DraftRow;
   conflict: AppSettingsConflict | null;
+  gradingMode: GradingMode | null;
+  maritalOptions: readonly { value: string; label: string }[];
+  divisionOptions: readonly { value: string; label: string }[];
+  academicGradeOptions: readonly { value: string; label: string }[];
+  academicGradeRangeByCode: ReadonlyMap<string, { min: number; max: number } | null>;
   onPatch: (patch: Partial<ApplicantSpecializationYear>) => void;
   onDelete: () => void;
   onRestore: () => void;
 }
 
-function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps): JSX.Element {
+function YearRow({
+  draft,
+  conflict,
+  gradingMode,
+  maritalOptions,
+  divisionOptions,
+  academicGradeOptions,
+  academicGradeRangeByCode,
+  onPatch,
+  onDelete,
+  onRestore,
+}: YearRowProps): JSX.Element {
   const isDeleted = draft.kind === 'deleted';
   const isDirty = draft.kind === 'dirty' || draft.kind === 'new';
   const row = draft.row;
@@ -198,7 +274,8 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
   const genderError = matchField(['GENDER_REQUIRED', 'DUPLICATE_YEAR', 'OVERLAPPING_PERIOD']);
   const ageError = matchField(['AGE_NOT_POSITIVE']);
   const gradeError = matchField(['PERCENTAGE_OUT_OF_RANGE', 'GRADE_MODE_MISMATCH']);
-  const dateError = matchField(['INVALID_DATE_RANGE', 'OVERLAPPING_PERIOD', 'AGE_REFERENCE_AFTER_START']);
+  const dateError = matchField(['INVALID_DATE_RANGE', 'OVERLAPPING_PERIOD']);
+  const refError = matchField(['AGE_REFERENCE_AFTER_START']);
 
   return (
     <tr
@@ -244,7 +321,7 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
         <MultiSelect
           value={row.maritalStatusCodes}
           onChange={(next) => onPatch({ maritalStatusCodes: next })}
-          options={MARITAL_OPTIONS}
+          options={maritalOptions}
           disabled={isDeleted}
           ariaLabel="الحالة الاجتماعية"
           placeholder="الكل"
@@ -252,44 +329,47 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
       </td>
 
       <td className="px-3 py-2 align-top">
-        <Input
-          type="number"
-          min={1}
-          disabled={isDeleted}
-          value={row.maxAge ?? ''}
-          onChange={(e) =>
-            onPatch({ maxAge: e.target.value === '' ? null : Number(e.target.value) })
-          }
-          containerClassName="!mb-0 w-20"
-          className="text-end tabular-nums"
-          aria-invalid={Boolean(ageError) || undefined}
-          aria-label="السن الأقصى"
-        />
-        {ageError && <FieldError text={ageError} />}
-      </td>
-
-      <td className="px-3 py-2 align-top">
-        {row.gradeKind === 'GRADES' ? (
+        <div className="inline-flex items-center gap-1">
           <Input
             type="number"
-            min={0}
-            max={100}
+            min={1}
             disabled={isDeleted}
-            value={row.minPercentage}
+            value={row.maxAge ?? ''}
             onChange={(e) =>
-              onPatch({ minPercentage: e.target.value === '' ? 0 : Number(e.target.value) })
+              onPatch({ maxAge: e.target.value === '' ? null : Number(e.target.value) })
             }
             containerClassName="!mb-0 w-20"
             className="text-end tabular-nums"
-            aria-invalid={Boolean(gradeError) || undefined}
-            aria-label="الدرجة المئوية"
+            aria-invalid={Boolean(ageError) || undefined}
+            aria-label="السن الأقصى"
           />
-        ) : (
-          <span className="font-ar text-2xs text-ink-500">
-            {row.academicGradeId || '—'}
-          </span>
-        )}
+          <span aria-hidden className="font-ar text-2xs text-ink-500">سنة</span>
+        </div>
+        {ageError && <FieldError text={ageError} />}
+      </td>
+
+      <td className="px-3 py-2 align-top min-w-[170px]">
+        <GradeBranchCell
+          row={row}
+          gradingMode={gradingMode}
+          disabled={isDeleted}
+          invalid={Boolean(gradeError)}
+          academicGradeOptions={academicGradeOptions}
+          academicGradeRangeByCode={academicGradeRangeByCode}
+          onPatch={onPatch}
+        />
         {gradeError && <FieldError text={gradeError} />}
+      </td>
+
+      <td className="px-3 py-2 align-top min-w-[200px]">
+        <MultiSelect
+          value={row.divisionCodes}
+          onChange={(next) => onPatch({ divisionCodes: next })}
+          options={divisionOptions}
+          disabled={isDeleted}
+          ariaLabel="الشعبة"
+          placeholder="الكل"
+        />
       </td>
 
       <td className="px-3 py-2 align-top min-w-[150px]">
@@ -315,7 +395,9 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
           value={isoToDate(row.ageReferenceDate)}
           disabled={isDeleted}
           onChange={(d) => onPatch({ ageReferenceDate: dateToIso(d) ?? row.ageReferenceDate })}
+          max={row.applicationStartDate.slice(0, 10)}
         />
+        {refError && <FieldError text={refError} />}
       </td>
 
       <td className="px-3 py-2 align-top">
@@ -349,6 +431,75 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
         )}
       </td>
     </tr>
+  );
+}
+
+interface GradeBranchCellProps {
+  row: ApplicantSpecializationYear;
+  gradingMode: GradingMode | null;
+  disabled: boolean;
+  invalid: boolean;
+  academicGradeOptions: readonly { value: string; label: string }[];
+  academicGradeRangeByCode: ReadonlyMap<string, { min: number; max: number } | null>;
+  onPatch: (patch: Partial<ApplicantSpecializationYear>) => void;
+}
+
+function GradeBranchCell({
+  row,
+  gradingMode,
+  disabled,
+  invalid,
+  academicGradeOptions,
+  academicGradeRangeByCode,
+  onPatch,
+}: GradeBranchCellProps): JSX.Element {
+  /* Discriminator on the row is the source of truth. A row whose
+   * gradeKind has drifted from the resolved gradingMode still renders
+   * in its own branch so the value is editable; the conflict banner
+   * above the table is what surfaces the drift. */
+  if (row.gradeKind === 'TAGDIR') {
+    const range = academicGradeRangeByCode.get(row.academicGradeId) ?? null;
+    return (
+      <div className="flex flex-col items-start gap-0.5">
+        <Combobox
+          value={row.academicGradeId || null}
+          options={academicGradeOptions}
+          disabled={disabled}
+          onChange={(next) => onPatch({ academicGradeId: next ?? '' })}
+          placeholder="اختر التقدير"
+          ariaLabel="التقدير"
+          error={invalid ? ' ' : undefined}
+        />
+        {range && (
+          <span className="font-en text-2xs tabular-nums text-ink-500">
+            {range.min}–{range.max}%
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="inline-flex items-center gap-1">
+      <Input
+        type="number"
+        min={0}
+        max={100}
+        disabled={disabled}
+        value={row.minPercentage}
+        onChange={(e) =>
+          onPatch({ minPercentage: e.target.value === '' ? 0 : Number(e.target.value) })
+        }
+        containerClassName="!mb-0 w-20"
+        className="text-end tabular-nums"
+        aria-invalid={invalid || undefined}
+        aria-label="الدرجة المئوية"
+      />
+      <span aria-hidden className="font-ar text-2xs text-ink-500">%</span>
+      {gradingMode === 'TAGDIR' && (
+        <span className="font-ar text-2xs text-terra-700">الفئة تستخدم التقدير</span>
+      )}
+    </div>
   );
 }
 
