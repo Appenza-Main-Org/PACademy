@@ -37,7 +37,7 @@ import {
   ADMISSION_SETUP_TOTAL_STEPS,
 } from '../config';
 import {
-  computeStepStatus,
+  resolveStepStatus,
   type StepStatusInputs,
 } from '../lib/step-status';
 import { readDraft } from '../lib/wizard-draft';
@@ -47,6 +47,7 @@ import {
   useElectronicDeclaration,
   useExamDateConfig,
   useTotalScoreConfigs,
+  useWizardStepStatuses,
 } from '../api/admission-setup.queries';
 
 /** First wizard step after cycle_metadata was removed — admins land here. */
@@ -177,11 +178,12 @@ function ActiveCycleCard({
   onStart: (stepKey: string) => void;
 }): JSX.Element {
   const categoriesQuery = useCategoriesAdmin();
-  const committeesQuery = useCommittees();
+  const committeesQuery = useCommittees({ cycleId: cycle.id });
   const mergeSplitQuery = useAdmissionMergeSplitRules(cycle.id);
   const examDatesQuery = useExamDateConfig(cycle.id);
   const totalScoreQuery = useTotalScoreConfigs(cycle.id);
   const declarationQuery = useElectronicDeclaration(cycle.id);
+  const stepStatusesQuery = useWizardStepStatuses(cycle.id);
 
   const inputs: StepStatusInputs = {
     cycle,
@@ -193,7 +195,7 @@ function ActiveCycleCard({
     declaration: declarationQuery.data ?? null,
   };
   const completed = ADMISSION_SETUP_STEPS.filter(
-    (s) => computeStepStatus(s.key, inputs) === 'complete',
+    (s) => resolveStepStatus(s.key, stepStatusesQuery.data ?? [], inputs) === 'complete',
   ).length;
   const draft = readDraft(cycle.id);
   const resumeStepKey = draft?.lastStepKey ?? FIRST_STEP;

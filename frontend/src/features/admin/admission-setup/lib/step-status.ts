@@ -25,6 +25,7 @@ import type {
   ElectronicDeclaration,
   ExamDateConfig,
   TotalScoreConfig,
+  WizardStepStatusRow,
 } from '../types';
 
 export interface StepStatusInputs {
@@ -130,6 +131,26 @@ function openCategoryKeys(cycle: AdmissionCycle): string[] {
   return Object.entries(cycle.openCategories ?? {})
     .filter(([, v]) => v?.isOpen)
     .map(([k]) => k);
+}
+
+/**
+ * Server-backed status resolver (spec 009 T059).
+ *
+ * Prefers the row from `wizard_step_statuses` when present — that's the
+ * admin-marked source of truth (set via "إكمال الخطوة" button + the
+ * WizardStatusInterceptor's auto-promotion on first save). Falls back to
+ * the client-computed `computeStepStatus` when the backend has no row yet
+ * (e.g., a brand-new cycle the admin hasn't opened) so the index page still
+ * surfaces something meaningful.
+ */
+export function resolveStepStatus(
+  key: AdmissionSetupStepKey,
+  serverStatuses: readonly WizardStepStatusRow[],
+  computedInputs: StepStatusInputs,
+): AdmissionSetupStepStatus {
+  const server = serverStatuses.find((s) => s.stepKey === key);
+  if (server && server.status !== 'not_started') return server.status;
+  return computeStepStatus(key, computedInputs);
 }
 
 export const STEP_STATUS_LABEL: Record<AdmissionSetupStepStatus, string> = {

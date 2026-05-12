@@ -25,18 +25,23 @@ import {
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import { ADMISSION_SETUP_STEPS } from '../config';
 import {
-  computeStepStatus,
+  resolveStepStatus,
   STEP_STATUS_LABEL,
   STEP_STATUS_TONE,
   type StepStatusInputs,
 } from '../lib/step-status';
+import type { WizardStepStatusRow } from '../types';
 import { clearDraft } from '../lib/wizard-draft';
 
 interface WizardReviewPageProps {
   statusInputs: StepStatusInputs;
+  serverStatuses?: readonly WizardStepStatusRow[];
 }
 
-export function WizardReviewPage({ statusInputs }: WizardReviewPageProps): JSX.Element {
+export function WizardReviewPage({
+  statusInputs,
+  serverStatuses = [],
+}: WizardReviewPageProps): JSX.Element {
   const cycleCtx = useAdmissionSetupCycle();
   const { cycle } = cycleCtx;
   const user = useAuthStore((s) => s.user);
@@ -62,7 +67,7 @@ export function WizardReviewPage({ statusInputs }: WizardReviewPageProps): JSX.E
   }
 
   const incompleteSteps = ADMISSION_SETUP_STEPS.filter(
-    (s) => computeStepStatus(s.key, statusInputs) !== 'complete',
+    (s) => resolveStepStatus(s.key, serverStatuses, statusInputs) !== 'complete',
   );
 
   const isApproved =
@@ -125,7 +130,7 @@ export function WizardReviewPage({ statusInputs }: WizardReviewPageProps): JSX.E
           </div>
           <ul className="grid gap-2 md:grid-cols-2">
             {ADMISSION_SETUP_STEPS.map((step) => {
-              const status = computeStepStatus(step.key, statusInputs);
+              const status = resolveStepStatus(step.key, serverStatuses, statusInputs);
               const StepIcon = step.icon;
               return (
                 <li

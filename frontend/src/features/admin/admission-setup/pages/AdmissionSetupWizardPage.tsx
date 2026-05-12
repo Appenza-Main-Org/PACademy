@@ -55,7 +55,7 @@ import {
 import { WizardModeProvider } from '../components/WizardModeContext';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import {
-  computeStepStatus,
+  resolveStepStatus,
   type StepStatusInputs,
 } from '../lib/step-status';
 import { writeDraft } from '../lib/wizard-draft';
@@ -63,6 +63,7 @@ import {
   useAdmissionMergeSplitRules,
   useElectronicDeclaration,
   useExamDateConfig,
+  useWizardStepStatuses,
   useTotalScoreConfigs,
 } from '../api/admission-setup.queries';
 import type { AdmissionSetupStepKey } from '../types';
@@ -126,11 +127,12 @@ export function AdmissionSetupWizardPage(): JSX.Element {
 
   const cycleId = cycleCtx.cycle?.id ?? null;
   const categoriesQuery = useCategoriesAdmin();
-  const committeesQuery = useCommittees();
+  const committeesQuery = useCommittees(cycleId ? { cycleId } : {});
   const mergeSplitQuery = useAdmissionMergeSplitRules(cycleId);
   const examDatesQuery = useExamDateConfig(cycleId);
   const totalScoreQuery = useTotalScoreConfigs(cycleId);
   const declarationQuery = useElectronicDeclaration(cycleId);
+  const stepStatusesQuery = useWizardStepStatuses(cycleId);
 
   /* Persist the wizard pointer on every step change so refresh / re-entry
    * lands on the same step. Skip when no cycle is selected. */
@@ -165,7 +167,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     key: s.key,
     label: s.labelAr,
     order: s.order,
-    state: deriveStepperState(s.key, activeKey, statusInputs),
+    state: deriveStepperState(s.key, activeKey, statusInputs, stepStatusesQuery.data ?? []),
   }));
   /* Append the review step as the (N+1)th item. */
   stepperItems.push({
@@ -285,7 +287,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
            * the field is always readable, never visually trapped under it. */}
           <div className="min-w-0 flex-1">
             {isReview ? (
-              <WizardReviewPage statusInputs={statusInputs} />
+              <WizardReviewPage statusInputs={statusInputs} serverStatuses={stepStatusesQuery.data ?? []} />
             ) : (
               STEP_RENDERERS[activeKey as AdmissionSetupStepKey]()
             )}
@@ -348,9 +350,10 @@ function deriveStepperState(
   key: AdmissionSetupStepKey,
   activeKey: WizardStepKey,
   inputs: StepStatusInputs,
+  serverStatuses: readonly import('../types').WizardStepStatusRow[],
 ): VerticalStepState {
   if (activeKey === key) return 'current';
-  const status = computeStepStatus(key, inputs);
+  const status = resolveStepStatus(key, serverStatuses, inputs);
   if (status === 'complete') return 'complete';
   if (status === 'in_progress') return 'in_progress';
   return 'upcoming';
