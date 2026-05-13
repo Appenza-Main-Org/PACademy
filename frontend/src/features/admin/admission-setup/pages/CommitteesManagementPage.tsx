@@ -111,7 +111,7 @@ function Body({ cycle }: BodyProps): JSX.Element {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader
-          title="إدارة اللجان"
+          title="إدارة مواعيد الاختبارات واللجان"
           subtitle="اختر اللجان التي ستستقبل المتقدمين في هذه الدورة."
         />
         <EmptyState
@@ -165,7 +165,7 @@ function Body({ cycle }: BodyProps): JSX.Element {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="إدارة اللجان"
+        title="إدارة مواعيد الاختبارات واللجان"
         subtitle={`العام الأكاديمي ${academicYearForCycle(cycle)} · اللجان مفلترة لكل فئة على حدة.`}
         actions={
           <Link to={ROUTES.committee.list} className="inline-flex">

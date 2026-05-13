@@ -65,17 +65,13 @@ import {
 } from '../api/admission-setup.queries';
 import { useExamScheduleAggregate } from '../api/examSchedule.queries';
 import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
-import {
-  buildCommitteeBindingsSnapshot,
-  buildExamScheduleSnapshot,
-} from '../lib/step-status';
+import { buildCommitteeBindingsSnapshot } from '../lib/step-status';
 import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from './ApplicationSettingsPage';
 import { ApplicationStatusPage } from './ApplicationStatusPage';
 import { FeesPage } from './FeesPage';
 import { ExamsManagementPage } from './ExamsManagementPage';
 import { CommitteesManagementPage } from './CommitteesManagementPage';
-import { ExamScheduleStep } from '../components/examSchedule/ExamScheduleStep';
 import { NotificationsStepPage } from './NotificationsStepPage';
 import { ElectronicDeclarationPage } from './ElectronicDeclarationPage';
 import { WizardReviewPage } from './WizardReviewPage';
@@ -91,7 +87,6 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,
-  exam_dates: () => <ExamScheduleStep />,
   notifications: () => <NotificationsStepPage />,
   electronic_declaration: () => <ElectronicDeclarationPage />,
 };
@@ -125,12 +120,6 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const declarationQuery = useElectronicDeclaration(cycleId);
   const rosterQuery = useCommitteeBindings(cycleId, null);
   const cycleBindingsQuery = useCycleCommitteeBindings(cycleId);
-  const examScheduleSnapshot = examScheduleAggregateQuery.data
-    ? buildExamScheduleSnapshot(
-        examScheduleAggregateQuery.data.days,
-        examScheduleAggregateQuery.data.activeCategoryIds,
-      )
-    : null;
   const committeeBindingsSnapshot =
     cycleId &&
     examScheduleAggregateQuery.data &&
@@ -167,7 +156,6 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     cycle: cycleCtx.cycle,
     categories: categoriesQuery.data ?? [],
     committees: committeesQuery.data ?? [],
-    examSchedule: examScheduleSnapshot,
     declaration: declarationQuery.data ?? null,
     committeeBindings: committeeBindingsSnapshot,
   };

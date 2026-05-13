@@ -18,7 +18,6 @@
  */
 
 import {
-  CalendarRange,
   ClipboardCheck,
   ClipboardSignature,
   FileSignature,
@@ -99,29 +98,19 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     subtitleAr: 'ترتيب الاختبارات وإلزاميتها ورسومها لكل فئة.',
   },
   {
-    key: 'exam_dates',
-    order: 5,
-    labelAr: 'مواعيد الاختبارات',
-    routeSegment: 'exam-dates',
-    icon: CalendarRange,
-    permission: 'admission-setup:read',
-    isImplemented: true,
-    subtitleAr: 'أول ميعاد متاح، أيام التقديم، أيام الإجازة.',
-  },
-  {
     key: 'committees',
-    order: 6,
-    labelAr: 'إدارة اللجان',
+    order: 5,
+    labelAr: 'إدارة مواعيد الاختبارات واللجان',
     routeSegment: 'committees',
     icon: ShieldCheck,
     permission: 'admission-setup:read',
     reuses: 'features/committees/pages/CommitteeListPage.tsx',
     isImplemented: true,
-    subtitleAr: 'إنشاء اللجان وتعيين الرؤساء والأعضاء.',
+    subtitleAr: 'إنشاء اللجان وتعيين الرؤساء والأعضاء وربطها بمواعيد الاختبارات.',
   },
   {
     key: 'notifications',
-    order: 7,
+    order: 6,
     labelAr: 'التنبيهات',
     routeSegment: 'notifications',
     icon: ClipboardCheck,
@@ -132,7 +121,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'electronic_declaration',
-    order: 8,
+    order: 7,
     labelAr: 'الإقرار الإلكتروني',
     routeSegment: 'electronic-declaration',
     icon: FileSignature,

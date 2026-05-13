@@ -38,7 +38,6 @@ import {
 } from '../config';
 import {
   buildCommitteeBindingsSnapshot,
-  buildExamScheduleSnapshot,
   computeStepStatus,
   type StepStatusInputs,
 } from '../lib/step-status';
@@ -184,12 +183,6 @@ function ActiveCycleCard({
   const declarationQuery = useElectronicDeclaration(cycle.id);
   const rosterQuery = useCommitteeBindings(cycle.id, null);
   const cycleBindingsQuery = useCycleCommitteeBindings(cycle.id);
-  const examScheduleSnapshot = examScheduleAggregateQuery.data
-    ? buildExamScheduleSnapshot(
-        examScheduleAggregateQuery.data.days,
-        examScheduleAggregateQuery.data.activeCategoryIds,
-      )
-    : null;
   const committeeBindingsSnapshot =
     examScheduleAggregateQuery.data && rosterQuery.data && cycleBindingsQuery.data
       ? buildCommitteeBindingsSnapshot(
@@ -204,7 +197,6 @@ function ActiveCycleCard({
     cycle,
     categories: categoriesQuery.data ?? [],
     committees: committeesQuery.data ?? [],
-    examSchedule: examScheduleSnapshot,
     declaration: declarationQuery.data ?? null,
     committeeBindings: committeeBindingsSnapshot,
   };

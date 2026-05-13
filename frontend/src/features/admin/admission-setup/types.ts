@@ -35,7 +35,6 @@ export type AdmissionSetupStepKey =
   | 'fees'
   | 'exams'
   | 'committees'
-  | 'exam_dates'
   | 'notifications'
   | 'electronic_declaration';
 

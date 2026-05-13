@@ -65,7 +65,6 @@ export const ROUTES = {
       fees: '/admin/admission-setup/fees',
       exams: '/admin/admission-setup/exams',
       committees: '/admin/admission-setup/committees',
-      examDates: '/admin/admission-setup/exam-dates',
       notifications: '/admin/admission-setup/notifications',
       electronicDeclaration: '/admin/admission-setup/electronic-declaration',
     },

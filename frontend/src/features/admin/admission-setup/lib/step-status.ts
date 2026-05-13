@@ -15,24 +15,7 @@ import type {
   AdmissionSetupStepStatus,
   CommitteeDayBinding,
   ElectronicDeclaration,
-  ExamScheduleDay,
 } from '../types';
-
-/**
- * Aggregated exam-schedule snapshot consumed by the step-status check.
- * Built from the union of all active-category day lists for the cycle.
- */
-export interface ExamScheduleSnapshot {
-  /** Each active category's WORKING-day count. Step is complete when
-   *  every entry is > 0. */
-  workingDaysByCategory: Record<string, number>;
-  /** Ids of active categories — defines the universe of required
-   *  WORKING-day buckets. */
-  activeCategoryIds: string[];
-  /** Total day rows across all categories — `> 0` means the step
-   *  has been touched. */
-  totalDays: number;
-}
 
 /**
  * Aggregated committee-binding snapshot consumed by the step-status check.
@@ -55,7 +38,6 @@ export interface StepStatusInputs {
   cycle: AdmissionCycle | null;
   categories: ApplicantCategory[];
   committees: Committee[];
-  examSchedule: ExamScheduleSnapshot | null;
   declaration: ElectronicDeclaration | null;
   committeeBindings?: CommitteeBindingsSnapshot | null;
 }
@@ -87,34 +69,11 @@ export function buildCommitteeBindingsSnapshot(
   return { rosterByCategory, activeBindingsByCategory, activeCategoryIds };
 }
 
-/**
- * Build an `ExamScheduleSnapshot` from a flat list of days + the active
- * category ids resolved at call-site. Pure helper — no react state.
- */
-export function buildExamScheduleSnapshot(
-  days: ExamScheduleDay[],
-  activeCategoryIds: string[],
-): ExamScheduleSnapshot {
-  const workingDaysByCategory: Record<string, number> = {};
-  for (const id of activeCategoryIds) workingDaysByCategory[id] = 0;
-  for (const day of days) {
-    if (day.kind !== 'WORKING') continue;
-    if (workingDaysByCategory[day.applicantCategoryId] === undefined) continue;
-    workingDaysByCategory[day.applicantCategoryId] =
-      (workingDaysByCategory[day.applicantCategoryId] ?? 0) + 1;
-  }
-  return {
-    workingDaysByCategory,
-    activeCategoryIds,
-    totalDays: days.length,
-  };
-}
-
 export function computeStepStatus(
   key: AdmissionSetupStepKey,
   inputs: StepStatusInputs,
 ): AdmissionSetupStepStatus {
-  const { cycle, categories, committees, examSchedule, declaration } = inputs;
+  const { cycle, categories, committees, declaration } = inputs;
 
   if (!cycle) return 'not_started';
 
@@ -171,19 +130,6 @@ export function computeStepStatus(
         (id) => (snap.activeBindingsByCategory[id] ?? 0) > 0,
       );
       return rosterComplete && bindingsComplete ? 'complete' : 'in_progress';
-    }
-    case 'exam_dates': {
-      if (!examSchedule) return 'not_started';
-      if (examSchedule.activeCategoryIds.length === 0) {
-        /* No active categories means step 1 is incomplete — surface this
-         * step as not_started so the user is sent back upstream. */
-        return 'not_started';
-      }
-      if (examSchedule.totalDays === 0) return 'not_started';
-      const allComplete = examSchedule.activeCategoryIds.every(
-        (id) => (examSchedule.workingDaysByCategory[id] ?? 0) > 0,
-      );
-      return allComplete ? 'complete' : 'in_progress';
     }
     case 'notifications':
       /* Notifications are global — surface as in_progress; the actual page
