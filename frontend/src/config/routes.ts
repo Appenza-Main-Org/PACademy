@@ -45,6 +45,8 @@ export const ROUTES = {
     workflows: '/admin/workflows',
     workflowEdit: (id = ':id'): string => `/admin/workflows/${id}`,
     workflowNew: '/admin/workflows/new',
+    /** Applicant Grades — import + adjustments console (per-cycle data). */
+    applicantGrades: '/admin/applicant-grades',
     notifications: '/admin/notifications',
     payments: '/admin/payments',
     /* Admission Setup section — ordered configuration steps. The keys
