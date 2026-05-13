@@ -13,6 +13,7 @@ import type { AdmissionCycle, ApplicantCategory, Committee } from '@/shared/type
 import type {
   AdmissionSetupStepKey,
   AdmissionSetupStepStatus,
+  CommitteeDayBinding,
   ElectronicDeclaration,
   ExamScheduleDay,
 } from '../types';
@@ -33,12 +34,57 @@ export interface ExamScheduleSnapshot {
   totalDays: number;
 }
 
+/**
+ * Aggregated committee-binding snapshot consumed by the step-status check.
+ *
+ * The committees step is complete when both:
+ *   1. roster — every active category has ≥1 row in `CategoryCommittees`
+ *   2. bindings — every active category has ≥1 active `CommitteeDayBinding`
+ * Either dimension empty for any active category → `in_progress`.
+ */
+export interface CommitteeBindingsSnapshot {
+  /** Per-active-category roster count (from `CategoryCommittees`). */
+  rosterByCategory: Record<string, number>;
+  /** Per-active-category active-binding count. */
+  activeBindingsByCategory: Record<string, number>;
+  /** Universe of required category buckets (= active categories). */
+  activeCategoryIds: string[];
+}
+
 export interface StepStatusInputs {
   cycle: AdmissionCycle | null;
   categories: ApplicantCategory[];
   committees: Committee[];
   examSchedule: ExamScheduleSnapshot | null;
   declaration: ElectronicDeclaration | null;
+  committeeBindings?: CommitteeBindingsSnapshot | null;
+}
+
+export function buildCommitteeBindingsSnapshot(
+  rosterRows: Array<{ cycleId: string; categoryId: string }>,
+  bindings: CommitteeDayBinding[],
+  cycleId: string,
+  activeCategoryIds: string[],
+): CommitteeBindingsSnapshot {
+  const rosterByCategory: Record<string, number> = {};
+  const activeBindingsByCategory: Record<string, number> = {};
+  for (const id of activeCategoryIds) {
+    rosterByCategory[id] = 0;
+    activeBindingsByCategory[id] = 0;
+  }
+  for (const row of rosterRows) {
+    if (row.cycleId !== cycleId) continue;
+    if (rosterByCategory[row.categoryId] === undefined) continue;
+    rosterByCategory[row.categoryId] = (rosterByCategory[row.categoryId] ?? 0) + 1;
+  }
+  for (const b of bindings) {
+    if (b.cycleId !== cycleId) continue;
+    if (!b.isActive) continue;
+    if (activeBindingsByCategory[b.applicantCategoryId] === undefined) continue;
+    activeBindingsByCategory[b.applicantCategoryId] =
+      (activeBindingsByCategory[b.applicantCategoryId] ?? 0) + 1;
+  }
+  return { rosterByCategory, activeBindingsByCategory, activeCategoryIds };
 }
 
 /**
@@ -101,8 +147,30 @@ export function computeStepStatus(
       return anyHasExams ? 'complete' : 'in_progress';
     }
     case 'committees': {
-      const cycleCommittees = committees.filter((c) => !c.linkedCycleId || c.linkedCycleId === cycle.id);
-      return cycleCommittees.length > 0 ? 'complete' : 'not_started';
+      const snap = inputs.committeeBindings;
+      if (!snap) {
+        /* Back-compat path — callers that haven't wired the binding
+         * snapshot fall back to the legacy "any committee exists" rule. */
+        const cycleCommittees = committees.filter(
+          (c) => !c.linkedCycleId || c.linkedCycleId === cycle.id,
+        );
+        return cycleCommittees.length > 0 ? 'complete' : 'not_started';
+      }
+      if (snap.activeCategoryIds.length === 0) return 'not_started';
+      const rosterTouched = snap.activeCategoryIds.some(
+        (id) => (snap.rosterByCategory[id] ?? 0) > 0,
+      );
+      const bindingsTouched = snap.activeCategoryIds.some(
+        (id) => (snap.activeBindingsByCategory[id] ?? 0) > 0,
+      );
+      if (!rosterTouched && !bindingsTouched) return 'not_started';
+      const rosterComplete = snap.activeCategoryIds.every(
+        (id) => (snap.rosterByCategory[id] ?? 0) > 0,
+      );
+      const bindingsComplete = snap.activeCategoryIds.every(
+        (id) => (snap.activeBindingsByCategory[id] ?? 0) > 0,
+      );
+      return rosterComplete && bindingsComplete ? 'complete' : 'in_progress';
     }
     case 'exam_dates': {
       if (!examSchedule) return 'not_started';

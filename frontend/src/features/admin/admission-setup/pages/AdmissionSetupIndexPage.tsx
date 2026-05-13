@@ -37,14 +37,19 @@ import {
   ADMISSION_SETUP_TOTAL_STEPS,
 } from '../config';
 import {
+  buildCommitteeBindingsSnapshot,
   buildExamScheduleSnapshot,
   computeStepStatus,
   type StepStatusInputs,
 } from '../lib/step-status';
 import { readDraft } from '../lib/wizard-draft';
 import type { AdmissionSetupStepKey } from '../types';
-import { useElectronicDeclaration } from '../api/admission-setup.queries';
+import {
+  useCommitteeBindings,
+  useElectronicDeclaration,
+} from '../api/admission-setup.queries';
 import { useExamScheduleAggregate } from '../api/examSchedule.queries';
+import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
 
 /** First wizard step after cycle_metadata was removed — admins land here. */
 const FIRST_STEP: AdmissionSetupStepKey = 'application_settings';
@@ -177,12 +182,23 @@ function ActiveCycleCard({
   const committeesQuery = useCommittees();
   const examScheduleAggregateQuery = useExamScheduleAggregate(cycle.id);
   const declarationQuery = useElectronicDeclaration(cycle.id);
+  const rosterQuery = useCommitteeBindings(cycle.id, null);
+  const cycleBindingsQuery = useCycleCommitteeBindings(cycle.id);
   const examScheduleSnapshot = examScheduleAggregateQuery.data
     ? buildExamScheduleSnapshot(
         examScheduleAggregateQuery.data.days,
         examScheduleAggregateQuery.data.activeCategoryIds,
       )
     : null;
+  const committeeBindingsSnapshot =
+    examScheduleAggregateQuery.data && rosterQuery.data && cycleBindingsQuery.data
+      ? buildCommitteeBindingsSnapshot(
+          rosterQuery.data,
+          cycleBindingsQuery.data,
+          cycle.id,
+          examScheduleAggregateQuery.data.activeCategoryIds,
+        )
+      : null;
 
   const inputs: StepStatusInputs = {
     cycle,
@@ -190,6 +206,7 @@ function ActiveCycleCard({
     committees: committeesQuery.data ?? [],
     examSchedule: examScheduleSnapshot,
     declaration: declarationQuery.data ?? null,
+    committeeBindings: committeeBindingsSnapshot,
   };
   const completed = ADMISSION_SETUP_STEPS.filter(
     (s) => computeStepStatus(s.key, inputs) === 'complete',

@@ -59,9 +59,16 @@ import {
   type StepStatusInputs,
 } from '../lib/step-status';
 import { writeDraft } from '../lib/wizard-draft';
-import { useElectronicDeclaration } from '../api/admission-setup.queries';
+import {
+  useCommitteeBindings,
+  useElectronicDeclaration,
+} from '../api/admission-setup.queries';
 import { useExamScheduleAggregate } from '../api/examSchedule.queries';
-import { buildExamScheduleSnapshot } from '../lib/step-status';
+import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
+import {
+  buildCommitteeBindingsSnapshot,
+  buildExamScheduleSnapshot,
+} from '../lib/step-status';
 import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from './ApplicationSettingsPage';
 import { ApplicationStatusPage } from './ApplicationStatusPage';
@@ -116,12 +123,26 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const committeesQuery = useCommittees();
   const examScheduleAggregateQuery = useExamScheduleAggregate(cycleId);
   const declarationQuery = useElectronicDeclaration(cycleId);
+  const rosterQuery = useCommitteeBindings(cycleId, null);
+  const cycleBindingsQuery = useCycleCommitteeBindings(cycleId);
   const examScheduleSnapshot = examScheduleAggregateQuery.data
     ? buildExamScheduleSnapshot(
         examScheduleAggregateQuery.data.days,
         examScheduleAggregateQuery.data.activeCategoryIds,
       )
     : null;
+  const committeeBindingsSnapshot =
+    cycleId &&
+    examScheduleAggregateQuery.data &&
+    rosterQuery.data &&
+    cycleBindingsQuery.data
+      ? buildCommitteeBindingsSnapshot(
+          rosterQuery.data,
+          cycleBindingsQuery.data,
+          cycleId,
+          examScheduleAggregateQuery.data.activeCategoryIds,
+        )
+      : null;
 
   /* Persist the wizard pointer on every step change so refresh / re-entry
    * lands on the same step. Skip when no cycle is selected. */
@@ -148,6 +169,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     committees: committeesQuery.data ?? [],
     examSchedule: examScheduleSnapshot,
     declaration: declarationQuery.data ?? null,
+    committeeBindings: committeeBindingsSnapshot,
   };
 
   const stepperItems: VerticalStepDescriptor[] = orderedSteps.map((s) => ({
