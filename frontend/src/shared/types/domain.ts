@@ -428,6 +428,22 @@ export interface CommitteeRules {
 export type CommitteeStatus = 'active' | 'inactive';
 
 /**
+ * ExamScheduleEntry — one (committee × date) row backing the
+ * /admin/committee/schedule page. Added in batches from the page's
+ * form: one entry per committee in the active category gets a row
+ * with the chosen date + capacity. The list page reads these by
+ * `categoryKey` (derived through the committee FK).
+ */
+export interface ExamScheduleEntry {
+  id: string;
+  committeeId: string;
+  /** ISO yyyy-mm-dd date the committee sits on. */
+  date: string;
+  /** Per-day capacity for this committee on this date (1..999). */
+  capacity: number;
+}
+
+/**
  * Acceptance-grade ladder used by `gradeType === 'tier'` committees.
  *
  * The values are display labels (Arabic) — the integer index in this
