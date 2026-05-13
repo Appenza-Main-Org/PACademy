@@ -1,19 +1,23 @@
 /**
- * CommitteeListPage — admin committee directory.
+ * CommitteeListPage — admin committee directory grouped by category.
  *
- * Columns: name, فئات المتقدمين, capacity, assigned applicants,
- * remaining capacity, numeric grade range, تقدير range, academic year,
- * status, created date, row actions.
+ * Top strip is a Radix Tabs list — one tab per active applicant
+ * category (the dominant admin pattern in the codebase, see
+ * CommitteesManagementPage / ExamScheduleStep / LookupTabPanel). The
+ * picked category scopes the table beneath. An empty category renders
+ * the prescribed `<EmptyState>` with the CTA "إضافة لجنة" deep-linking
+ * `/admin/committee/create?category=<key>`.
  *
- * Filters: search by name, academic year, status, فئات المتقدمين.
- * Sortable: name, capacity, status, created date.
+ * Columns: name, capacity, assigned applicants, remaining capacity,
+ * معيار القبول (formatCommitteeGrade), academic year, status, created
+ * date, row actions (inline icon-only edit + the existing dropdown).
  *
- * Row actions: view, edit, manage rules (edit + scroll), view
- * applicants, activate / deactivate, delete.
+ * Filters: search by name, academic year, status. (Category lives in
+ * the tab strip — no need for a separate multi-select.)
  */
 
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ListChecks,
   MoreHorizontal,
@@ -35,11 +39,11 @@ import {
   DropdownMenu,
   EmptyState,
   Input,
-  MultiSelect,
   PageHeader,
   Select,
   SoftDeleteDialog,
   StatCard,
+  Tabs,
   toast,
 } from '@/shared/components';
 import type { DataTableColumn, DataTableSort, ListActionsConfig } from '@/shared/components';
@@ -54,9 +58,18 @@ import {
   useCommitteeRestore,
   useCommitteeSetStatus,
   useCommitteeSoftDelete,
-  useCommitteeSpecializations,
 } from '../api/committee.queries';
-import type { Committee } from '@/shared/types/domain';
+import {
+  APPLICANT_CATEGORY_KEYS,
+  type ApplicantCategoryKey,
+  type Committee,
+} from '@/shared/types/domain';
+import { formatCommitteeGrade } from '../lib/formatCommitteeGrade';
+import { CommitteeEditDialog } from '../components/CommitteeEditDialog';
+
+function isApplicantCategoryKey(v: string): v is ApplicantCategoryKey {
+  return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(v);
+}
 
 const DEP_LABELS: Record<string, string> = {
   applicants: 'متقدم',
@@ -70,7 +83,6 @@ const STATUS_FILTERS = [
   { value: 'full', label: 'مكتملة السعة' },
 ];
 
-const SPEC_PILL_LIMIT = 2;
 
 export function CommitteeListPage(): JSX.Element {
   const navigate = useNavigate();
@@ -81,11 +93,43 @@ export function CommitteeListPage(): JSX.Element {
   const { data, isLoading } = useCommittees({
     includeDeleted: isSuperAdmin && includeDeleted,
   });
-  const { data: specializations = [] } = useCommitteeSpecializations();
 
   const softDeleteMut = useCommitteeSoftDelete();
   const restoreMut = useCommitteeRestore();
   const setStatusMut = useCommitteeSetStatus();
+
+  /* Category tabs — sourced from MOCK.categories (active + ordered by
+   * the lookup-defined display order). The picked category scopes the
+   * table beneath and the empty state's CTA deep-link. */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedCategory = searchParams.get('category');
+  const categoryTabs = useMemo(
+    () =>
+      MOCK.categories
+        .filter((c) => !c.deletedAt)
+        .map((c) => ({ key: c.key, labelAr: c.labelAr })),
+    [],
+  );
+  const activeCategoryKey: ApplicantCategoryKey =
+    requestedCategory && isApplicantCategoryKey(requestedCategory)
+      ? requestedCategory
+      : (categoryTabs[0]?.key as ApplicantCategoryKey | undefined) ?? 'officers_general';
+
+  const handleCategoryChange = (next: string): void => {
+    if (!isApplicantCategoryKey(next)) return;
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set('category', next);
+        return sp;
+      },
+      { replace: true },
+    );
+  };
+
+  /* Inline edit dialog state — the row icon button opens the shared
+   * CommitteeEditDialog for in-place editing without leaving the list. */
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const listActions: ListActionsConfig<Committee> = useMemo(
     () => ({
@@ -118,7 +162,6 @@ export function CommitteeListPage(): JSX.Element {
   const [search, setSearch] = useState('');
   const [year, setYear] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [specsFilter, setSpecsFilter] = useState<string[]>([]);
 
   /* Sort + pagination */
   const [sort, setSort] = useState<DataTableSort<Committee> | null>({
@@ -141,6 +184,7 @@ export function CommitteeListPage(): JSX.Element {
   const filtered = useMemo(() => {
     const needle = search.trim();
     return allCommittees.filter((c) => {
+      if (c.categoryKey !== activeCategoryKey) return false;
       if (needle && !c.name.includes(needle)) return false;
       if (year !== 'all' && c.academicYearId !== year) return false;
       if (statusFilter === 'active' && c.status !== 'active') return false;
@@ -148,13 +192,9 @@ export function CommitteeListPage(): JSX.Element {
       if (statusFilter === 'full') {
         if (c.capacity === undefined || c.applicants < c.capacity) return false;
       }
-      if (specsFilter.length > 0) {
-        const specs = c.specializationIds ?? [];
-        if (!specsFilter.some((s) => specs.includes(s))) return false;
-      }
       return true;
     });
-  }, [allCommittees, search, year, statusFilter, specsFilter]);
+  }, [allCommittees, search, year, statusFilter, activeCategoryKey]);
 
   const sorted = useMemo(() => {
     if (!sort) return filtered;
@@ -193,21 +233,15 @@ export function CommitteeListPage(): JSX.Element {
     );
   };
 
-  const specLabel = (specId: string): string =>
-    specializations.find((s) => s.id === specId)?.nameAr ?? specId;
-
-  const academicGradeLabel = (code: string | null | undefined): string | null => {
-    if (!code) return null;
-    return MOCK.lookups['academic-grades'].find((g) => g.code === code)?.name ?? code;
-  };
-
-  /* ── Stat row ─────────────────────────────────────────── */
-  const totalCapacity = allCommittees.reduce((s, c) => s + (c.capacity ?? 0), 0);
-  const totalAssigned = allCommittees.reduce((s, c) => s + c.applicants, 0);
-  const activeCount = allCommittees.filter((c) => c.status === 'active').length;
-  const fullCount = allCommittees.filter(
-    (c) => c.capacity !== undefined && c.applicants >= c.capacity,
-  ).length;
+  /* ── Stat row (scoped to active category) ───────────────────────── */
+  const categoryScoped = useMemo(
+    () => allCommittees.filter((c) => c.categoryKey === activeCategoryKey),
+    [allCommittees, activeCategoryKey],
+  );
+  const totalCapacity = categoryScoped.reduce((s, c) => s + c.capacity, 0);
+  const totalAssigned = categoryScoped.reduce((s, c) => s + c.applicants, 0);
+  const activeCount = categoryScoped.filter((c) => c.status === 'active').length;
+  const fullCount = categoryScoped.filter((c) => c.applicants >= c.capacity).length;
 
   const columns: DataTableColumn<Committee>[] = [
     {
@@ -224,32 +258,11 @@ export function CommitteeListPage(): JSX.Element {
       ),
     },
     {
-      key: 'specializations',
-      label: 'فئات المتقدمين',
-      render: (c) => {
-        const ids = c.specializationIds ?? [];
-        if (ids.length === 0) return <span className="text-2xs text-ink-500">—</span>;
-        const visible = ids.slice(0, SPEC_PILL_LIMIT);
-        const extra = ids.length - visible.length;
-        return (
-          <div className="flex flex-wrap items-center gap-1">
-            {visible.map((id) => (
-              <Badge key={id} tone="brand">
-                {specLabel(id)}
-              </Badge>
-            ))}
-            {extra > 0 && <Badge tone="neutral">+{extra}</Badge>}
-          </div>
-        );
-      },
-      hideOn: 'sm',
-    },
-    {
       key: 'capacity',
       label: 'السعة',
       sortable: true,
       numeric: true,
-      render: (c) => num(c.capacity ?? '—'),
+      render: (c) => num(c.capacity),
     },
     {
       key: 'applicants',
@@ -262,41 +275,22 @@ export function CommitteeListPage(): JSX.Element {
       label: 'المتبقي',
       numeric: true,
       render: (c) => {
-        const cap = c.capacity ?? 0;
-        const remaining = Math.max(0, cap - c.applicants);
-        const isFull = cap > 0 && c.applicants >= cap;
+        const remaining = Math.max(0, c.capacity - c.applicants);
+        const isFull = c.applicants >= c.capacity;
         return (
           <span className={isFull ? 'font-bold text-terra-600' : 'text-ink-900'}>
-            {cap > 0 ? num(remaining) : '—'}
+            {num(remaining)}
           </span>
         );
       },
     },
     {
-      key: 'gradeRange',
-      label: 'نطاق الدرجات',
+      key: 'grade',
+      label: 'معيار القبول',
       hideOn: 'md',
-      render: (c) => {
-        const f = c.rules?.gradeFrom ?? null;
-        const t = c.rules?.gradeTo ?? null;
-        if (f == null && t == null) return <span className="text-2xs text-ink-500">—</span>;
-        return (
-          <span className="font-mono text-xs" dir="ltr">
-            {f ?? '—'}–{t ?? '—'}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'academicGradeRange',
-      label: 'نطاق التقدير',
-      hideOn: 'md',
-      render: (c) => {
-        const f = academicGradeLabel(c.rules?.academicGradeFromId);
-        const t = academicGradeLabel(c.rules?.academicGradeToId);
-        if (!f && !t) return <span className="text-2xs text-ink-500">—</span>;
-        return <span className="text-xs">{f ?? '—'} – {t ?? '—'}</span>;
-      },
+      render: (c) => (
+        <span className="text-2xs text-ink-700">{formatCommitteeGrade(c)}</span>
+      ),
     },
     {
       key: 'academicYearId',
@@ -310,8 +304,7 @@ export function CommitteeListPage(): JSX.Element {
       sortable: true,
       render: (c) => {
         if (c.deletedAt) return <Badge tone="warning">محذوف</Badge>;
-        const isFull =
-          c.capacity !== undefined && c.applicants >= c.capacity;
+        const isFull = c.applicants >= c.capacity;
         if (isFull) return <Badge tone="danger">مكتمل</Badge>;
         if (c.status === 'inactive') return <Badge tone="neutral">موقوفة</Badge>;
         return <Badge tone="success">مفعّلة</Badge>;
@@ -347,6 +340,16 @@ export function CommitteeListPage(): JSX.Element {
               >
                 استعادة
               </Button>
+            )}
+            {!deleted && (
+              <button
+                type="button"
+                aria-label="تعديل اللجنة"
+                onClick={() => setEditingId(c.id)}
+                className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 focus-visible:shadow-focus-teal focus-visible:outline-none"
+              >
+                <Pencil size={14} strokeWidth={1.75} aria-hidden />
+              </button>
             )}
             {!deleted && (
               <DropdownMenu>
@@ -467,14 +470,25 @@ export function CommitteeListPage(): JSX.Element {
       </div>
 
       <Card className="mt-5">
+        <Tabs value={activeCategoryKey} onValueChange={handleCategoryChange}>
+          <Tabs.List aria-label="فئات المتقدمين">
+            {categoryTabs.map((cat) => (
+              <Tabs.Tab key={cat.key} value={cat.key}>
+                {cat.labelAr}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+        </Tabs>
+      </Card>
+
+      <Card className="mt-3">
         <CardHeader title="الفلاتر والبحث" />
-        <div className="grid gap-3 p-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 p-4 md:grid-cols-2 lg:grid-cols-3">
           <Input
             label="بحث باسم اللجنة"
             placeholder="اكتب جزءاً من الاسم"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            containerClassName="lg:col-span-2"
           />
           <Select
             label="العام الدراسي"
@@ -490,16 +504,6 @@ export function CommitteeListPage(): JSX.Element {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             options={STATUS_FILTERS}
-          />
-          <MultiSelect
-            label="فئات المتقدمين"
-            value={specsFilter}
-            onChange={setSpecsFilter}
-            options={specializations
-              .filter((s) => s.active)
-              .map((s) => ({ value: s.id, label: s.nameAr }))}
-            placeholder="كل الفئات"
-            className="lg:col-span-4"
           />
         </div>
       </Card>
@@ -526,15 +530,19 @@ export function CommitteeListPage(): JSX.Element {
           empty={
             <EmptyState
               variant="generic"
-              title="لا توجد لجان"
-              description="ابدأ بإنشاء أول لجنة قبول لربط فئات المتقدمين بالسعة وشروط التوزيع."
+              title="لا توجد لجان مرتبطة بهذه الفئة"
+              description="ابدأ بإضافة لجنة لهذه الفئة لربط السعة وشروط التوزيع."
               action={
                 <Button
                   variant="primary"
                   leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-                  onClick={() => navigate(ROUTES.committee.create)}
+                  onClick={() =>
+                    navigate(
+                      `${ROUTES.committee.create}?category=${encodeURIComponent(activeCategoryKey)}`,
+                    )
+                  }
                 >
-                  إنشاء لجنة
+                  إضافة لجنة
                 </Button>
               }
             />
@@ -561,6 +569,15 @@ export function CommitteeListPage(): JSX.Element {
             throw err;
           }
         }}
+      />
+
+      <CommitteeEditDialog
+        committee={
+          editingId
+            ? allCommittees.find((c) => c.id === editingId) ?? null
+            : null
+        }
+        onClose={() => setEditingId(null)}
       />
     </CenteredShell>
   );
