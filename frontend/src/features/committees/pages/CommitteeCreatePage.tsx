@@ -12,12 +12,29 @@ import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { useCreateCommittee } from '../api/committee.queries';
 import { CommitteeForm, type CommitteeFormValues } from '../components/CommitteeForm';
 import { ROUTES } from '@/config/routes';
+import {
+  APPLICANT_CATEGORY_KEYS,
+  type ApplicantCategoryKey,
+} from '@/shared/types/domain';
+
+function isApplicantCategoryKey(v: string): v is ApplicantCategoryKey {
+  return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(v);
+}
 
 export function CommitteeCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const createMut = useCreateCommittee();
 
   const handleSubmit = (values: CommitteeFormValues): void => {
+    /* Map the multi-select "فئات المتقدمين" to a single categoryKey for
+     * the new shape — first valid entry wins. Falls back to
+     * `officers_general` when nothing valid is picked so the type
+     * contract is honoured. */
+    const firstCategory = values.specializationIds.find(isApplicantCategoryKey);
+    const categoryKey: ApplicantCategoryKey = firstCategory ?? 'officers_general';
+    const gradeMin = values.rules.gradeFrom ?? 0;
+    const gradeMax = values.rules.gradeTo ?? 100;
+
     createMut.mutate(
       {
         name: values.name,
@@ -26,7 +43,11 @@ export function CommitteeCreatePage(): JSX.Element {
         members: 0,
         capacityPerSession: Math.min(values.capacity, 100),
         cycleId: values.cycleId,
+        categoryKey,
         capacity: values.capacity,
+        gradeType: 'score',
+        gradeMin,
+        gradeMax,
         academicYearId: values.academicYearId,
         status: values.status,
         specializationIds: values.specializationIds,

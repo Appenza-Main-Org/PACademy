@@ -26,7 +26,9 @@ import {
 } from '@/shared/lib/soft-delete';
 import type {
   Applicant,
+  ApplicantCategoryKey,
   Committee,
+  CommitteeGradeType,
   CommitteeResult,
   CommitteeRules,
   CommitteeStatus,
@@ -57,9 +59,18 @@ export interface CommitteePayload {
   members: number;
   capacityPerSession: number;
   cycleId: string;
+  /** Required — every new committee declares its category. */
+  categoryKey: ApplicantCategoryKey;
+  /** Required — total seats (1..999). */
+  capacity: number;
+  /** Required — discriminates `gradeMin`/`gradeMax` interpretation. */
+  gradeType: CommitteeGradeType;
+  /** Inclusive lower bound. score: %, tier: GRADE_TIERS index. */
+  gradeMin: number;
+  /** Inclusive upper bound. Same units as `gradeMin`. */
+  gradeMax: number;
   /* ── Admin module enhancements ──────────────────────────────── */
   headUserId?: string;
-  capacity?: number;
   academicYearId?: string;
   status?: CommitteeStatus;
   specializationIds?: string[];
@@ -87,8 +98,12 @@ export const committeeService = {
       members: payload.members,
       applicants: 0,
       completed: 0,
-      headUserId: payload.headUserId,
+      categoryKey: payload.categoryKey,
       capacity: payload.capacity,
+      gradeType: payload.gradeType,
+      gradeMin: payload.gradeMin,
+      gradeMax: payload.gradeMax,
+      headUserId: payload.headUserId,
       capacityPerDay: payload.capacityPerSession,
       academicYearId: payload.academicYearId,
       status: payload.status ?? 'active',

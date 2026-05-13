@@ -772,43 +772,148 @@ const medicalStations: MedicalStation[] = [
   { id: 'MS-08', name: 'القياسات (BMI)',          doctor: 'الرائد د. كريم البنا',          queue: 35, completed: 318 },
 ];
 
-/* TIER 2 — committee counts scale with realistic load (~570 per committee). */
+/* TIER 2 — committee seed organised by category + gradeType per
+ * docs/committee-grade-types/REPORT.md. 12 hand-written rows:
+ *
+ *   officers_general                 — 4 score (95–100, 90–95, 85–90, 80–85)
+ *   physical_education_bachelor      — 2 score (80–100, 70–80)
+ *   law_bachelor                     — 4 tier  (4..4, 3..4, 2..3, 1..2)
+ *   specialized_officers             — 2 tier  (3..3, 2..3)
+ *
+ * `applicants` / `completed` numbers are picked under each row's
+ * `capacity` so the list page's "remaining capacity" column reads
+ * realistically. All deterministic — no rng calls. */
 const COMMITTEE_CREATED_BASE = SEED_NOW - 60 * 86_400_000;
+const day = (offset: number): string =>
+  new Date(COMMITTEE_CREATED_BASE + offset * 86_400_000).toISOString();
+
 const committees: Committee[] = [
+  /* ── ثانوية عامة → officers_general (score) ─────────────────────── */
   {
-    id: 'C-01', name: 'لجنة طلبة 1', head: 'العقيد محمد إبراهيم حسن', members: 5, applicants: 572, completed: 408,
-    headUserId: 'U-002', capacity: 700, academicYearId: '2026-2027', status: 'active',
-    createdAt: new Date(COMMITTEE_CREATED_BASE).toISOString(),
-    specializationIds: ['officers_general', 'specialized_officers'], officerIds: ['U-002', 'U-005'],
-    rules: { gradeFrom: 75, gradeTo: 100, alphabetFrom: 'أ', alphabetTo: 'د', gender: 'male', applicantType: 'thanaweya_amma' },
+    id: 'C-01', name: 'لجنة الثانوية العامة — الفئة الأولى',
+    head: 'العقيد محمد إبراهيم حسن', members: 5, applicants: 54, completed: 32,
+    categoryKey: 'officers_general', capacity: 60,
+    gradeType: 'score', gradeMin: 95, gradeMax: 100,
+    headUserId: 'U-002', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(0),
+    specializationIds: ['officers_general'], officerIds: ['U-002', 'U-005'],
+    rules: { gradeFrom: 95, gradeTo: 100 },
   },
   {
-    id: 'C-02', name: 'لجنة طلبة 2', head: 'العقيد أحمد فاروق سعد', members: 5, applicants: 568, completed: 392,
-    headUserId: 'U-002', capacity: 650, academicYearId: '2026-2027', status: 'active',
-    createdAt: new Date(COMMITTEE_CREATED_BASE + 5 * 86_400_000).toISOString(),
-    specializationIds: ['officers_general', 'law_bachelor'], officerIds: ['U-002', 'U-005'],
-    rules: { gradeFrom: 70, gradeTo: 100, alphabetFrom: 'ذ', alphabetTo: 'س', gender: 'male', applicantType: 'thanaweya_amma' },
+    id: 'C-02', name: 'لجنة الثانوية العامة — الفئة الثانية',
+    head: 'العقيد أحمد فاروق سعد', members: 5, applicants: 48, completed: 30,
+    categoryKey: 'officers_general', capacity: 55,
+    gradeType: 'score', gradeMin: 90, gradeMax: 95,
+    headUserId: 'U-002', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(2),
+    specializationIds: ['officers_general'], officerIds: ['U-002'],
+    rules: { gradeFrom: 90, gradeTo: 95 },
   },
   {
-    id: 'C-03', name: 'لجنة طلبة 3', head: 'الرائد طارق سامح الديب', members: 4, applicants: 569, completed: 425,
-    headUserId: 'U-005', capacity: 700, academicYearId: '2026-2027', status: 'active',
-    createdAt: new Date(COMMITTEE_CREATED_BASE + 10 * 86_400_000).toISOString(),
-    specializationIds: ['specialized_officers'], officerIds: ['U-005'],
-    rules: { gradeFrom: 80, gradeTo: 100, alphabetFrom: 'ش', alphabetTo: 'ع', gender: 'male', applicantType: 'azhar' },
+    id: 'C-03', name: 'لجنة الثانوية العامة — الفئة الثالثة',
+    head: 'الرائد طارق سامح الديب', members: 4, applicants: 42, completed: 24,
+    categoryKey: 'officers_general', capacity: 50,
+    gradeType: 'score', gradeMin: 85, gradeMax: 90,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(4),
+    specializationIds: ['officers_general'], officerIds: ['U-005'],
+    rules: { gradeFrom: 85, gradeTo: 90 },
   },
   {
-    id: 'C-04', name: 'لجنة طلبة 4', head: 'الرائد محمود الديب البنا', members: 5, applicants: 571, completed: 387,
-    headUserId: 'U-005', capacity: 650, academicYearId: '2026-2027', status: 'active',
-    createdAt: new Date(COMMITTEE_CREATED_BASE + 18 * 86_400_000).toISOString(),
-    specializationIds: ['law_bachelor'], officerIds: ['U-002', 'U-005'],
-    rules: { gradeFrom: 70, gradeTo: 100, alphabetFrom: 'غ', alphabetTo: 'م', gender: 'male', applicantType: 'thanaweya_amma' },
+    id: 'C-04', name: 'لجنة الثانوية العامة — الفئة الرابعة',
+    head: 'الرائد محمود الديب البنا', members: 5, applicants: 38, completed: 22,
+    categoryKey: 'officers_general', capacity: 45,
+    gradeType: 'score', gradeMin: 80, gradeMax: 85,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(6),
+    specializationIds: ['officers_general'], officerIds: ['U-002', 'U-005'],
+    rules: { gradeFrom: 80, gradeTo: 85 },
   },
+
+  /* ── دبلوم فني → physical_education_bachelor (score) ─────────────── */
   {
-    id: 'C-05', name: 'لجنة طلبة 5', head: 'الرائد عمر شعبان فاروق', members: 4, applicants: 567, completed: 401,
-    headUserId: 'U-005', capacity: 600, academicYearId: '2025-2026', status: 'inactive',
-    createdAt: new Date(COMMITTEE_CREATED_BASE + 25 * 86_400_000).toISOString(),
+    id: 'C-05', name: 'لجنة الدبلوم الفني — الفئة الأولى',
+    head: 'العقيد مصطفى أمين عبد العال', members: 4, applicants: 24, completed: 14,
+    categoryKey: 'physical_education_bachelor', capacity: 30,
+    gradeType: 'score', gradeMin: 80, gradeMax: 100,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(8),
     specializationIds: ['physical_education_bachelor'], officerIds: ['U-005'],
-    rules: { gradeFrom: 65, gradeTo: 100, alphabetFrom: 'ن', alphabetTo: 'ي', gender: 'female', applicantType: 'foreign_certificates' },
+    rules: { gradeFrom: 80, gradeTo: 100 },
+  },
+  {
+    id: 'C-06', name: 'لجنة الدبلوم الفني — الفئة الثانية',
+    head: 'الرائد عمر شعبان فاروق', members: 4, applicants: 20, completed: 12,
+    categoryKey: 'physical_education_bachelor', capacity: 25,
+    gradeType: 'score', gradeMin: 70, gradeMax: 80,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(10),
+    specializationIds: ['physical_education_bachelor'], officerIds: ['U-005'],
+    rules: { gradeFrom: 70, gradeTo: 80 },
+  },
+
+  /* ── بكالوريوس جامعي → law_bachelor (tier) ───────────────────────── */
+  {
+    id: 'C-07', name: 'لجنة بكالوريوس الحقوق — امتياز مع مرتبة الشرف',
+    head: 'العقيد كريم وحيد جلال', members: 5, applicants: 36, completed: 20,
+    categoryKey: 'law_bachelor', capacity: 40,
+    gradeType: 'tier', gradeMin: 4, gradeMax: 4,
+    headUserId: 'U-002', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(12),
+    specializationIds: ['law_bachelor'], officerIds: ['U-002', 'U-005'],
+    rules: {},
+  },
+  {
+    id: 'C-08', name: 'لجنة بكالوريوس الحقوق — امتياز فما فوق',
+    head: 'الرائد إبراهيم سعد علي', members: 5, applicants: 30, completed: 16,
+    categoryKey: 'law_bachelor', capacity: 35,
+    gradeType: 'tier', gradeMin: 3, gradeMax: 4,
+    headUserId: 'U-002', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(14),
+    specializationIds: ['law_bachelor'], officerIds: ['U-002'],
+    rules: {},
+  },
+  {
+    id: 'C-09', name: 'لجنة بكالوريوس الحقوق — جيد جدًا حتى امتياز',
+    head: 'الرائد هاني محمد البلتاجي', members: 4, applicants: 26, completed: 14,
+    categoryKey: 'law_bachelor', capacity: 30,
+    gradeType: 'tier', gradeMin: 2, gradeMax: 3,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(16),
+    specializationIds: ['law_bachelor'], officerIds: ['U-005'],
+    rules: {},
+  },
+  {
+    id: 'C-10', name: 'لجنة بكالوريوس الحقوق — جيد حتى جيد جدًا',
+    head: 'الرائد أحمد صالح الفقي', members: 4, applicants: 22, completed: 11,
+    categoryKey: 'law_bachelor', capacity: 25,
+    gradeType: 'tier', gradeMin: 1, gradeMax: 2,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(18),
+    specializationIds: ['law_bachelor'], officerIds: ['U-005'],
+    rules: {},
+  },
+
+  /* ── ضباط مكلفين → specialized_officers (tier) ───────────────────── */
+  {
+    id: 'C-11', name: 'لجنة الضباط المكلفين — امتياز',
+    head: 'العقيد سامي رضا الحسيني', members: 4, applicants: 17, completed: 9,
+    categoryKey: 'specialized_officers', capacity: 20,
+    gradeType: 'tier', gradeMin: 3, gradeMax: 3,
+    headUserId: 'U-002', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(20),
+    specializationIds: ['specialized_officers'], officerIds: ['U-002'],
+    rules: {},
+  },
+  {
+    id: 'C-12', name: 'لجنة الضباط المكلفين — جيد جدًا حتى امتياز',
+    head: 'الرائد خالد عبد الفتاح زكي', members: 4, applicants: 12, completed: 7,
+    categoryKey: 'specialized_officers', capacity: 15,
+    gradeType: 'tier', gradeMin: 2, gradeMax: 3,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(22),
+    specializationIds: ['specialized_officers'], officerIds: ['U-005'],
+    rules: {},
   },
 ];
 
