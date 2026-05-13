@@ -427,6 +427,32 @@ export interface CommitteeRules {
 
 export type CommitteeStatus = 'active' | 'inactive';
 
+/**
+ * Acceptance-grade ladder used by `gradeType === 'tier'` committees.
+ *
+ * The values are display labels (Arabic) — the integer index in this
+ * tuple is the canonical sortable value stored on `Committee.gradeMin`
+ * / `Committee.gradeMax`.
+ *
+ *   0 = مقبول · 1 = جيد · 2 = جيد جدًا · 3 = امتياز · 4 = امتياز مع مرتبة الشرف
+ */
+export const GRADE_TIERS = [
+  'مقبول',
+  'جيد',
+  'جيد جدًا',
+  'امتياز',
+  'امتياز مع مرتبة الشرف',
+] as const;
+export type GradeTier = (typeof GRADE_TIERS)[number];
+
+/**
+ * Discriminates how a committee's acceptance band is encoded:
+ *   `score` — numeric percentage (0..100). gradeMin/gradeMax are %.
+ *   `tier`  — categorical تقدير. gradeMin/gradeMax are indices into
+ *             `GRADE_TIERS` (0..GRADE_TIERS.length - 1).
+ */
+export type CommitteeGradeType = 'score' | 'tier';
+
 export interface Committee extends SoftDeleteFields {
   id: string;
   name: string;
@@ -434,11 +460,21 @@ export interface Committee extends SoftDeleteFields {
   members: number;
   applicants: number;
   completed: number;
+  /** FK → `applicant-categories[CAT-NN].code`. Required — the list page
+   *  groups committees under their category header. */
+  categoryKey: ApplicantCategoryKey;
+  /** Total seats this committee can absorb. Required (1..999). */
+  capacity: number;
+  /** Discriminator for `gradeMin` / `gradeMax`. */
+  gradeType: CommitteeGradeType;
+  /** Inclusive lower bound. `score`: 0..100 percentage; `tier`: index
+   *  into `GRADE_TIERS` (0..4). */
+  gradeMin: number;
+  /** Inclusive upper bound. Same units as `gradeMin`. */
+  gradeMax: number;
   /* ── Admin module enhancements ────────────────────────────────── */
   /** Committee head — user id (when assigned from the eligible-officers list). */
   headUserId?: string;
-  /** Total seats this committee can absorb. */
-  capacity?: number;
   /** Academic year identifier (e.g. "2026-2027"). */
   academicYearId?: string;
   /** Active / inactive (admin toggle). */
