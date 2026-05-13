@@ -23,6 +23,7 @@ import type {
   AuditEntry,
   Committee,
   DayPoint,
+  ExamScheduleEntry,
   ExamSession,
   Kpis,
   MedicalStation,
@@ -1139,6 +1140,10 @@ export const MOCK = {
   applicantSpecializationYears: APPLICANT_SPECIALIZATION_YEARS,
   /* Admission-setup Step 6 — Exam Schedule (per-category calendar). */
   examScheduleDays: EXAM_SCHEDULE_DAYS,
+  /* /admin/committee/schedule — per-(committee × date) exam-date entries
+   * with capacity. Seeded empty so the screen lands on the EmptyState
+   * until the admin adds their first batch from the form. */
+  examSchedule: [] as ExamScheduleEntry[],
 };
 
 export { findOfficerByNid };
