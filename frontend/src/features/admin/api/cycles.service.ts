@@ -423,6 +423,46 @@ export const cyclesService = {
   },
 
   async clone(id: string): Promise<AdmissionCycle> {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      /* Backend has no dedicated clone endpoint. Replay the source
+       * cycle's primitive fields via POST /admin/cycles; the new
+       * cycle starts in Draft. Categories/conditions/fees are NOT
+       * carried over — those flow through the per-step services
+       * (admission-setup.service) keyed on the new cycle id, and
+       * operators tend to re-author them per cycle anyway. */
+      const sourceResp = await apiClient.get<AdmissionCycle>(`/admin/cycles/${id}`);
+      const source = sourceResp.data;
+      const nextYear = source.year + 1;
+      /* Shift open/close dates by a year to keep the new draft within
+       * a plausible window — backend rejects activation outside the
+       * configured window so leaving the original dates would force
+       * operators to immediately edit them. */
+      const shiftYear = (iso: string): string => {
+        const d = new Date(iso);
+        d.setUTCFullYear(d.getUTCFullYear() + 1);
+        return d.toISOString();
+      };
+      const r = await apiClient.post<AdmissionCycle>('/admin/cycles', {
+        nameAr: `${source.nameAr} (نسخة)`,
+        year: nextYear,
+        cohort: source.cohort,
+        openDate: source.openDate ? shiftYear(source.openDate) : new Date().toISOString(),
+        closeDate: source.closeDate ? shiftYear(source.closeDate) : new Date().toISOString(),
+        expectedCapacity: source.expectedCapacity,
+      });
+      emitAudit({
+        action: 'create',
+        module: 'cycles',
+        entityType: 'AdmissionCycle',
+        entityLabel: 'دورة قبول',
+        entityId: r.data.id,
+        details: `تم نسخ دورة "${source.nameAr}" كمسودة جديدة`,
+        after: r.data,
+      });
+      return r.data;
+    }
+
+    /* Legacy mock fallback */
     await simulateLatency();
     const source = STATE.find((c) => c.id === id);
     if (!source) throw new Error('الدورة غير موجودة');
@@ -534,6 +574,51 @@ export const cyclesService = {
    * mirror the same shape so the frontend doesn't change.
    */
   async swapActive(targetId: string): Promise<AdmissionCycle> {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(targetId)) {
+      /* Backend has no atomic swap endpoint and only 4 states
+       * (Draft → Active → Closed → Archived). Implement as a
+       * close-then-activate pair: list cycles, close any currently
+       * Active (other than target), then activate the target.
+       * Single-active invariant is still enforced by the backend
+       * inside the activation use case under Serializable isolation,
+       * so the worst-case race is a transient 422 on the activate
+       * call which the caller can retry. */
+      const listResp = await apiClient.get<BackendPagedResult<BackendCycleListItem>>(
+        '/admin/cycles?pageSize=100',
+      );
+      const conflicting = listResp.data.items.find(
+        (c) => c.id !== targetId && c.status?.toLowerCase() === 'active',
+      );
+      if (conflicting) {
+        await apiClient.post<AdmissionCycle>(
+          `/admin/cycles/${conflicting.id}/status`, { newStatus: 'closed' },
+        );
+        emitAudit({
+          action: 'cycle_closed',
+          module: 'cycles',
+          entityType: 'AdmissionCycle',
+          entityLabel: 'دورة قبول',
+          entityId: conflicting.id,
+          details: `تم إغلاق دورة "${conflicting.nameAr}" تلقائياً عند تفعيل دورة أخرى`,
+          before: conflicting,
+        });
+      }
+      const r = await apiClient.post<AdmissionCycle>(
+        `/admin/cycles/${targetId}/status`, { newStatus: 'active' },
+      );
+      emitAudit({
+        action: 'cycle_activated',
+        module: 'cycles',
+        entityType: 'AdmissionCycle',
+        entityLabel: 'دورة قبول',
+        entityId: targetId,
+        details: 'تم تفعيل الدورة (مع إغلاق الدورة النشطة السابقة)',
+        after: r.data,
+      });
+      return r.data;
+    }
+
+    /* Legacy mock fallback */
     await simulateLatency();
     const targetIdx = STATE.findIndex((c) => c.id === targetId);
     if (targetIdx === -1) throw new Error('الدورة غير موجودة');
@@ -617,11 +702,31 @@ export const cyclesService = {
   },
 
   /**
-   * Extend the cycle's `closeDate`. The cycle must be `active`; emits
-   * `cycle_extended` audit and flips status to `'extended'`. The
-   * `ageCalcDate` stays put — extension moves the application window only.
+   * Extend the cycle's `closeDate`. The cycle must be `active`/`open`/`extended`.
+   * Real backend has a 4-state machine (Draft → Active → Closed → Archived) and
+   * no `Extended` status; extension is modelled as a closeDate-only PATCH while
+   * the backend status stays `Active`. The frontend audit trail still records
+   * `cycle_extended` so operators can distinguish a routine edit from a window
+   * extension.
    */
   async extend(id: string, newCloseDate: string): Promise<AdmissionCycle> {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      const r = await apiClient.patch<AdmissionCycle>(`/admin/cycles/${id}`, {
+        closeDate: newCloseDate,
+      });
+      emitAudit({
+        action: 'cycle_extended',
+        module: 'cycles',
+        entityType: 'AdmissionCycle',
+        entityLabel: 'دورة قبول',
+        entityId: id,
+        details: `تم تمديد الدورة حتى ${new Date(newCloseDate).toISOString().slice(0, 10)}`,
+        after: { closeDate: newCloseDate },
+      });
+      return r.data;
+    }
+
+    /* Legacy mock fallback */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
