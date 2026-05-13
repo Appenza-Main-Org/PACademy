@@ -1,23 +1,24 @@
 /**
  * إدارة اللجان — wizard step.
  *
- * Per-active-category Radix Tabs view onto the cycle's committee
- * distribution pool. Each tab scopes:
- *   • the MultiSelect picker
- *   • the eligible-committees card grid
- *   • the save mutation (categoryId scope)
- * Persistence still flows through `useSetCommitteeBindings({cycleId,
- * categoryId, committeeIds})` — the tab strip replaces the previous
- * "category filter" combobox so admins can never accidentally save the
- * same pool across categories.
+ * Sub-tabbed step. Two panels under a shared per-category strip:
+ *   • `roster`   — تكوين اللجان (which committees the category uses)
+ *   • `bindings` — ربط اللجان بالمواعيد (per-(committee × day) capacity
+ *                  + grade range matrix)
+ * Active sub-tab is mirrored in `?subtab=roster|bindings` so deep links
+ * are stable. A warning dot on each tab trigger surfaces incompleteness
+ * — see `lib/step-status.ts` for the rules.
  *
  * Active-category source is `useCategoryConfigs()` filtered by
  * `isActive === true`, surfaced via the shared `useActiveCategoriesForCycle`
- * helper.
+ * helper. Persistence in the roster panel flows through
+ * `useSetCommitteeBindings(...)` exactly as before; the bindings panel
+ * owns its own per-cell `CommitteeDayBinding` rows via
+ * `committeeBindingService`.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Plus, Save, Users } from 'lucide-react';
 import {
   Badge,
@@ -51,6 +52,8 @@ import {
   useCommitteeBindings,
   useSetCommitteeBindings,
 } from '../api/admission-setup.queries';
+import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
+import { CommitteeBindingsPanel } from '../components/committeeBinding/CommitteeBindingsPanel';
 
 /** Cycles only declare `year`; the academic year string is `${year}-${year+1}`. */
 function academicYearForCycle(cycle: AdmissionCycle): string {
@@ -74,6 +77,13 @@ interface BodyProps {
   cycle: AdmissionCycle;
 }
 
+const SUBTAB_VALUES = ['roster', 'bindings'] as const;
+type SubTab = (typeof SUBTAB_VALUES)[number];
+
+function isSubTab(v: string | null): v is SubTab {
+  return v === 'roster' || v === 'bindings';
+}
+
 function Body({ cycle }: BodyProps): JSX.Element {
   const activeQuery = useActiveCategoriesForCycle(cycle.id);
   const active = useMemo(
@@ -87,11 +97,11 @@ function Body({ cycle }: BodyProps): JSX.Element {
     [activeQuery.data],
   );
 
-  const [activeKey, setActiveKey] = useState<ApplicantCategoryKey | null>(null);
-  const resolvedActive: ApplicantCategoryKey | null =
-    activeKey && active.some((c) => c.key === activeKey)
-      ? activeKey
-      : (active[0]?.key ?? null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedSubtab = searchParams.get('subtab');
+  const subtab: SubTab = isSubTab(requestedSubtab) ? requestedSubtab : 'roster';
+
+  const cycleBindingsQuery = useCycleCommitteeBindings(cycle.id);
 
   if (activeQuery.isLoading) {
     return <LoadingState variant="card-grid" />;
@@ -117,6 +127,41 @@ function Body({ cycle }: BodyProps): JSX.Element {
     );
   }
 
+  /* ── Sub-tab warning dots ─────────────────────────────────────────── */
+  const activeKeys = active.map((a) => a.key as string);
+  const rosterByCategory: Record<string, number> = {};
+  for (const k of activeKeys) {
+    const count = MOCK.categoryCommittees.filter(
+      (r) => r.cycleId === cycle.id && r.categoryId === k,
+    ).length;
+    rosterByCategory[k] = count;
+  }
+  const rosterIncomplete = activeKeys.some((k) => (rosterByCategory[k] ?? 0) === 0);
+
+  const bindingsByCategory: Record<string, number> = {};
+  for (const k of activeKeys) bindingsByCategory[k] = 0;
+  for (const b of cycleBindingsQuery.data ?? []) {
+    if (!b.isActive) continue;
+    if (bindingsByCategory[b.applicantCategoryId] === undefined) continue;
+    bindingsByCategory[b.applicantCategoryId] =
+      (bindingsByCategory[b.applicantCategoryId] ?? 0) + 1;
+  }
+  const bindingsIncomplete = activeKeys.some(
+    (k) => (bindingsByCategory[k] ?? 0) === 0,
+  );
+
+  const handleSubTabChange = (next: string): void => {
+    if (!isSubTab(next)) return;
+    setSearchParams(
+      (prev) => {
+        const sp = new URLSearchParams(prev);
+        sp.set('subtab', next);
+        return sp;
+      },
+      { replace: true },
+    );
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -137,27 +182,86 @@ function Body({ cycle }: BodyProps): JSX.Element {
         }
       />
       <Card>
-        <Tabs
-          value={resolvedActive ?? active[0]!.key}
-          onValueChange={(next) => setActiveKey(next as ApplicantCategoryKey)}
-        >
-          <Tabs.List aria-label="فئات التقديم النشطة">
-            {active.map((cat) => (
-              <Tabs.Tab key={cat.key} value={cat.key}>
-                {cat.labelAr}
-              </Tabs.Tab>
-            ))}
+        <Tabs value={subtab} onValueChange={handleSubTabChange}>
+          <Tabs.List aria-label="أقسام إدارة اللجان">
+            <Tabs.Tab value="roster">
+              <span className="inline-flex items-center gap-1.5">
+                <span>تكوين اللجان</span>
+                {rosterIncomplete && <WarningDot label="هناك فئة بدون لجان معيّنة" />}
+              </span>
+            </Tabs.Tab>
+            <Tabs.Tab value="bindings">
+              <span className="inline-flex items-center gap-1.5">
+                <span>ربط اللجان بالمواعيد</span>
+                {bindingsIncomplete && (
+                  <WarningDot label="هناك فئة بدون روابط مفعّلة" />
+                )}
+              </span>
+            </Tabs.Tab>
           </Tabs.List>
-          {active.map((cat) => (
-            <Tabs.Panel key={cat.key} value={cat.key}>
-              <div className="pt-3">
-                <CategoryBindings cycle={cycle} categoryKey={cat.key} categoryLabel={cat.labelAr} />
-              </div>
-            </Tabs.Panel>
-          ))}
+          <Tabs.Panel value="roster">
+            <div className="pt-3">
+              <RosterSubTab cycle={cycle} active={active} />
+            </div>
+          </Tabs.Panel>
+          <Tabs.Panel value="bindings">
+            <div className="pt-3">
+              <CommitteeBindingsPanel cycle={cycle} active={active} />
+            </div>
+          </Tabs.Panel>
         </Tabs>
       </Card>
     </div>
+  );
+}
+
+interface ActiveCategory {
+  key: ApplicantCategoryKey;
+  labelAr: string;
+}
+
+interface RosterSubTabProps {
+  cycle: AdmissionCycle;
+  active: ActiveCategory[];
+}
+
+function RosterSubTab({ cycle, active }: RosterSubTabProps): JSX.Element {
+  const [activeKey, setActiveKey] = useState<ApplicantCategoryKey | null>(null);
+  const resolvedActive: ApplicantCategoryKey | null =
+    activeKey && active.some((c) => c.key === activeKey)
+      ? activeKey
+      : (active[0]?.key ?? null);
+  return (
+    <Tabs
+      value={resolvedActive ?? active[0]!.key}
+      onValueChange={(next) => setActiveKey(next as ApplicantCategoryKey)}
+    >
+      <Tabs.List aria-label="فئات التقديم النشطة">
+        {active.map((cat) => (
+          <Tabs.Tab key={cat.key} value={cat.key}>
+            {cat.labelAr}
+          </Tabs.Tab>
+        ))}
+      </Tabs.List>
+      {active.map((cat) => (
+        <Tabs.Panel key={cat.key} value={cat.key}>
+          <div className="pt-3">
+            <CategoryBindings cycle={cycle} categoryKey={cat.key} categoryLabel={cat.labelAr} />
+          </div>
+        </Tabs.Panel>
+      ))}
+    </Tabs>
+  );
+}
+
+function WarningDot({ label }: { label: string }): JSX.Element {
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      className="inline-block h-1.5 w-1.5 rounded-full"
+      style={{ background: 'var(--terra-500)' }}
+    />
   );
 }
 
