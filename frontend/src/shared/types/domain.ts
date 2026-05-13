@@ -402,10 +402,19 @@ export interface CommitteeRules {
   /** Inclusive numeric grade range (0–100). */
   gradeFrom?: number | null;
   gradeTo?: number | null;
-  /** Arabic first-letter range, e.g. ('أ', 'د') — inclusive on both ends. */
+  /** Inclusive academic-grade (تقدير) range. FKs into the `academic-grades`
+   *  lookup. Compared at distribution time against the applicant's resolved
+   *  تقدير when the parent category's gradingMode is TAGDIR. */
+  academicGradeFromId?: string | null;
+  academicGradeToId?: string | null;
+  /** Arabic first-letter range, e.g. ('أ', 'د') — inclusive on both ends.
+   *  Legacy. Retained on the type so seeded committees still filter; new
+   *  committees no longer expose this in the create/edit form. */
   alphabetFrom?: string | null;
   alphabetTo?: string | null;
-  /** Optional gender constraint for applicants this committee processes. */
+  /** Optional gender constraint for applicants this committee processes.
+   *  Legacy — retained for seeded committees; no longer exposed in the
+   *  create/edit form. */
   gender?: 'male' | 'female' | 'any';
   /**
    * Optional applicant-type constraint. Stable lookup key from the

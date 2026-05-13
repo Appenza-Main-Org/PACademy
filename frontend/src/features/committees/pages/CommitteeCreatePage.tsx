@@ -1,38 +1,35 @@
 /**
- * CommitteeCreatePage — full-form committee creation flow.
+ * CommitteeCreatePage — committee creation flow.
  *
- * Composes CommitteeForm with the basic / head / officers /
- * specializations / capacity / rules sections per the admin module spec.
+ * Composes CommitteeForm with the basic / فئات المتقدمين / capacity /
+ * rules sections. Committee head and assigned officers are no longer
+ * captured at create time (they're set elsewhere in the admin workflow).
  */
 
 import { useNavigate } from 'react-router-dom';
 import { PageHeader, toast } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
-import { useCreateCommittee, useEligibleOfficers } from '../api/committee.queries';
+import { useCreateCommittee } from '../api/committee.queries';
 import { CommitteeForm, type CommitteeFormValues } from '../components/CommitteeForm';
 import { ROUTES } from '@/config/routes';
 
 export function CommitteeCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const createMut = useCreateCommittee();
-  const { data: officers = [] } = useEligibleOfficers();
 
   const handleSubmit = (values: CommitteeFormValues): void => {
-    const headLabel = officers.find((o) => o.id === values.headUserId)?.name ?? values.headUserId;
     createMut.mutate(
       {
         name: values.name,
-        head: headLabel,
+        head: '',
         type: 'capacities',
-        members: values.officerIds.length,
+        members: 0,
         capacityPerSession: Math.min(values.capacity, 100),
         cycleId: values.cycleId,
-        headUserId: values.headUserId,
         capacity: values.capacity,
         academicYearId: values.academicYearId,
         status: values.status,
         specializationIds: values.specializationIds,
-        officerIds: values.officerIds,
         rules: values.rules,
       },
       {
@@ -49,7 +46,7 @@ export function CommitteeCreatePage(): JSX.Element {
     <CenteredShell>
       <PageHeader
         title="إنشاء لجنة جديدة"
-        subtitle="أدخِل بيانات اللجنة، رئيسها، الأعضاء، التخصصات، السعة وشروط التوزيع."
+        subtitle="أدخِل بيانات اللجنة، فئات المتقدمين، السعة وشروط التوزيع."
         breadcrumbs={[
           { label: 'لجان القبول', href: ROUTES.committee.list },
           { label: 'إنشاء لجنة' },

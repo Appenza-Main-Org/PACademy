@@ -1,18 +1,22 @@
 /**
  * CommitteeForm — shared create / edit form.
  *
- * Composed of five sections per the admin module spec:
- *   1. Basic information (name, academic year, status)
- *   2. Committee head (single-select, sourced from eligible officers)
- *   3. Assigned officers (multi-select; head must be one of them)
- *   4. Specializations / departments (multi-select)
- *   5. Capacity + dynamic rules (grade range, alphabet range, gender, applicant type)
+ * Composed of three sections per the admin module spec:
+ *   1. Basic information (name, academic year, status, cycle)
+ *   2. فئات المتقدمين (multi-select)
+ *   3. Capacity + dynamic rules (numeric grade range, تقدير range)
+ *
+ * Committee head (رئيس اللجنة) and assigned officers (الضباط المعيّنون)
+ * are no longer captured in the form — they're set elsewhere in the
+ * admin workflow. When editing an existing committee, those fields
+ * round-trip from `initial.headUserId` / `initial.officerIds` so the
+ * record's data isn't lost on save.
  *
  * Validates with zod and surfaces field-level errors. Submitting calls
  * the supplied `onSubmit` with the typed payload.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Save } from 'lucide-react';
 import { z } from 'zod';
 import {
@@ -26,10 +30,11 @@ import {
   Select,
 } from '@/shared/components';
 import type { Committee, CommitteeRules, CommitteeStatus } from '@/shared/types/domain';
+import { MOCK } from '@/shared/mock-data';
+import { readPercentageRange } from '@/features/lookups';
+import { num } from '@/shared/lib/format';
 import {
-  useCommitteeEducationTypes,
   useCommitteeSpecializations,
-  useEligibleOfficers,
 } from '../api/committee.queries';
 
 const STATUS_OPTIONS: { value: CommitteeStatus; label: string }[] = [
@@ -43,12 +48,6 @@ const ACADEMIC_YEARS = [
   { value: '2024-2025', label: 'العام الدراسي 2024 / 2025' },
 ];
 
-const ARABIC_ALPHABET = [
-  'أ', 'ب', 'ت', 'ث', 'ج', 'ح', 'خ', 'د', 'ذ', 'ر',
-  'ز', 'س', 'ش', 'ص', 'ض', 'ط', 'ظ', 'ع', 'غ', 'ف',
-  'ق', 'ك', 'ل', 'م', 'ن', 'ه', 'و', 'ي',
-];
-
 const CYCLE_OPTIONS = [
   { value: 'CYC-2026-M', label: 'دورة التقديم 2026' },
   { value: 'CYC-2025-M', label: 'دورة 2025 - الذكور' },
@@ -60,9 +59,7 @@ const schema = z
     name: z.string().trim().min(2, 'أدخِل اسم اللجنة'),
     academicYearId: z.string().min(1, 'اختر العام الدراسي'),
     status: z.enum(['active', 'inactive']),
-    headUserId: z.string().min(1, 'اختر رئيس اللجنة'),
-    officerIds: z.array(z.string()).min(1, 'أضِف عضواً واحداً على الأقل'),
-    specializationIds: z.array(z.string()).min(1, 'اختر تخصصاً واحداً على الأقل'),
+    specializationIds: z.array(z.string()).min(1, 'اختر فئة واحدة على الأقل'),
     capacity: z
       .number({ invalid_type_error: 'أدخِل سعة صحيحة' })
       .int('السعة عدد صحيح')
@@ -71,15 +68,9 @@ const schema = z
     rules: z.object({
       gradeFrom: z.number().nullable(),
       gradeTo: z.number().nullable(),
-      alphabetFrom: z.string().nullable(),
-      alphabetTo: z.string().nullable(),
-      gender: z.enum(['male', 'female', 'any']),
-      applicantType: z.string(),
+      academicGradeFromId: z.string().nullable(),
+      academicGradeToId: z.string().nullable(),
     }),
-  })
-  .refine((d) => d.officerIds.includes(d.headUserId), {
-    message: 'يجب أن يكون رئيس اللجنة ضمن الضباط المعيّنين',
-    path: ['headUserId'],
   })
   .refine((d) => d.rules.gradeFrom == null || d.rules.gradeTo == null || d.rules.gradeFrom <= d.rules.gradeTo, {
     message: 'الحد الأدنى للدرجة أكبر من الحد الأقصى',
@@ -90,7 +81,9 @@ export interface CommitteeFormValues {
   name: string;
   academicYearId: string;
   status: CommitteeStatus;
-  headUserId: string;
+  /** Pass-through from `initial.headUserId` on edit; `undefined` on create. */
+  headUserId?: string;
+  /** Pass-through from `initial.officerIds` on edit; `[]` on create. */
   officerIds: string[];
   specializationIds: string[];
   capacity: number;
@@ -113,16 +106,33 @@ export function CommitteeForm({
   onSubmit,
   onCancel,
 }: CommitteeFormProps): JSX.Element {
-  const { data: officers = [] } = useEligibleOfficers();
   const { data: specializations = [] } = useCommitteeSpecializations();
-  const { data: educationTypes = [] } = useCommitteeEducationTypes();
 
-  const applicantTypeOptions = useMemo(
-    () => [
-      { value: 'any', label: 'الكل' },
-      ...educationTypes.map((e) => ({ value: e.key, label: e.labelAr })),
-    ],
-    [educationTypes],
+  /* Academic-grade picker options, sourced from
+   * `MOCK.lookups['academic-grades']` (admin lookup at
+   * /admin/lookups/academic-grades). Ordered by band floor descending
+   * (امتياز → مقبول) so the picker reads top-down like a report card.
+   * Each option's band hint is rendered as a Combobox badge so admins
+   * can verify e.g. "جيد" maps to "65–74%" at pick time. */
+  const academicGradeOptions = useMemo(
+    () =>
+      MOCK.lookups['academic-grades']
+        .filter((g) => g.isActive)
+        .slice()
+        .sort((a, b) => {
+          const ra = readPercentageRange(a)?.min ?? 0;
+          const rb = readPercentageRange(b)?.min ?? 0;
+          return rb - ra;
+        })
+        .map((g) => {
+          const r = readPercentageRange(g);
+          return {
+            value: g.code,
+            label: g.name,
+            badge: r ? `${num(r.min)}–${num(r.max)}%` : undefined,
+          };
+        }),
+    [],
   );
 
   const [name, setName] = useState(initial?.name ?? '');
@@ -130,8 +140,6 @@ export function CommitteeForm({
     initial?.academicYearId ?? ACADEMIC_YEARS[0]!.value,
   );
   const [status, setStatus] = useState<CommitteeStatus>(initial?.status ?? 'active');
-  const [headUserId, setHeadUserId] = useState<string>(initial?.headUserId ?? '');
-  const [officerIds, setOfficerIds] = useState<string[]>(initial?.officerIds ?? []);
   const [specializationIds, setSpecializationIds] = useState<string[]>(
     initial?.specializationIds ?? [],
   );
@@ -141,31 +149,13 @@ export function CommitteeForm({
     initial?.rules ?? {
       gradeFrom: 70,
       gradeTo: 100,
-      alphabetFrom: 'أ',
-      alphabetTo: 'ي',
-      gender: 'any',
-      applicantType: 'any',
+      academicGradeFromId: null,
+      academicGradeToId: null,
     },
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  /* Auto-add a freshly-picked head into the officers multi-select so the
-   * cross-field invariant passes without a second click. */
-  useEffect(() => {
-    if (headUserId && !officerIds.includes(headUserId)) {
-      setOfficerIds((prev) => [...prev, headUserId]);
-    }
-  }, [headUserId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const officerOptions = useMemo(
-    () => officers.map((o) => ({ value: o.id, label: `${o.name} · ${o.unit}` })),
-    [officers],
-  );
-  const headOptions = useMemo(
-    () => officers.map((o) => ({ value: o.id, label: o.name })),
-    [officers],
-  );
   const specializationOptions = useMemo(
     () =>
       specializations
@@ -176,14 +166,14 @@ export function CommitteeForm({
 
   const handleSubmit = (event: React.FormEvent): void => {
     event.preventDefault();
-    const headUser = officers.find((o) => o.id === headUserId);
-    const headName = headUser ? headUser.name : '';
     const payload: CommitteeFormValues = {
       name: name.trim(),
       academicYearId,
       status,
-      headUserId,
-      officerIds,
+      /* Head + officers are no longer surfaced in the form. Round-trip
+       * whatever the existing committee had so edits don't wipe them. */
+      ...(initial?.headUserId !== undefined ? { headUserId: initial.headUserId } : {}),
+      officerIds: initial?.officerIds ?? [],
       specializationIds,
       capacity,
       cycleId,
@@ -200,9 +190,6 @@ export function CommitteeForm({
     }
     setErrors({});
     onSubmit({ ...payload, name: parsed.data.name });
-    /* `headName` is intentionally read so we keep the variable for the
-     * eventual integration mapper that needs both id and label. */
-    void headName;
   };
 
   const setRule = <K extends keyof CommitteeRules>(key: K, value: CommitteeRules[K]): void => {
@@ -251,69 +238,31 @@ export function CommitteeForm({
         </CardBody>
       </Card>
 
-      {/* ── Section 2 — Committee head ─────────────────────────── */}
+      {/* ── Section 2 — فئات المتقدمين ──────────────────────────── */}
       <Card>
         <CardHeader
-          title="رئيس اللجنة"
-          subtitle="يُختار من قائمة الضباط ذوي صلاحية اللجنة"
-        />
-        <CardBody>
-          <Combobox
-            label="رئيس اللجنة"
-            required
-            value={headUserId}
-            onChange={(v) => setHeadUserId(v ?? '')}
-            options={headOptions}
-            placeholder="اختر رئيس اللجنة"
-            error={errors.headUserId}
-          />
-        </CardBody>
-      </Card>
-
-      {/* ── Section 3 — Assigned officers ──────────────────────── */}
-      <Card>
-        <CardHeader
-          title="الضباط المعيّنون"
-          subtitle="عضو واحد على الأقل. يجب أن يكون الرئيس ضمن القائمة."
-        />
-        <CardBody>
-          <MultiSelect
-            label="الضباط المعيّنون"
-            required
-            value={officerIds}
-            onChange={setOfficerIds}
-            options={officerOptions}
-            placeholder="اختر الضباط من قائمة الموظفين بصلاحية اللجنة"
-            error={errors.officerIds}
-          />
-        </CardBody>
-      </Card>
-
-      {/* ── Section 4 — Specializations ────────────────────────── */}
-      <Card>
-        <CardHeader
-          title="التخصصات / الإدارات"
+          title="فئات المتقدمين"
           subtitle="مصدر القائمة: فئات المتقدمين (/admin/categories)"
         />
         <CardBody>
           <MultiSelect
-            label="التخصصات"
+            label="فئات المتقدمين"
             required
             value={specializationIds}
             onChange={setSpecializationIds}
             options={specializationOptions}
-            placeholder="اختر تخصصاً واحداً أو أكثر"
+            placeholder="اختر فئة واحدة أو أكثر"
             helper="حدّد فئات المتقدمين التي ستستقبلها اللجنة"
             error={errors.specializationIds}
           />
         </CardBody>
       </Card>
 
-      {/* ── Section 5 — Capacity + Rules ───────────────────────── */}
+      {/* ── Section 3 — Capacity + Rules ───────────────────────── */}
       <Card>
         <CardHeader
           title="السعة وشروط التوزيع"
-          subtitle="نطاق الدرجات، الحروف الأبجدية، النوع، نوع المتقدم"
+          subtitle="نطاق الدرجات الرقمية، نطاق التقدير"
         />
         <CardBody>
           <div className="grid gap-4 md:grid-cols-2">
@@ -348,35 +297,20 @@ export function CommitteeForm({
               helper="٪"
             />
 
-            <Select
-              label="من حرف"
-              value={rules.alphabetFrom ?? ''}
-              onChange={(e) => setRule('alphabetFrom', e.target.value || null)}
-              options={[{ value: '', label: '— لا يوجد —' }, ...ARABIC_ALPHABET.map((l) => ({ value: l, label: l }))]}
+            <Combobox
+              label="الحد الأدنى للتقدير"
+              value={rules.academicGradeFromId ?? ''}
+              onChange={(v) => setRule('academicGradeFromId', v || null)}
+              options={academicGradeOptions}
+              placeholder="اختر تقديراً…"
+              helper="مصدر القائمة: التقدير الأكاديمي (/admin/lookups/academic-grades)"
             />
-            <Select
-              label="إلى حرف"
-              value={rules.alphabetTo ?? ''}
-              onChange={(e) => setRule('alphabetTo', e.target.value || null)}
-              options={[{ value: '', label: '— لا يوجد —' }, ...ARABIC_ALPHABET.map((l) => ({ value: l, label: l }))]}
-            />
-
-            <Select
-              label="النوع"
-              value={rules.gender ?? 'any'}
-              onChange={(e) => setRule('gender', e.target.value as CommitteeRules['gender'])}
-              options={[
-                { value: 'any', label: 'كلاهما' },
-                { value: 'male', label: 'ذكور' },
-                { value: 'female', label: 'إناث' },
-              ]}
-            />
-            <Select
-              label="نوع المتقدم"
-              value={rules.applicantType ?? 'any'}
-              onChange={(e) => setRule('applicantType', e.target.value)}
-              options={applicantTypeOptions}
-              helper="مصدر القائمة: فئات المدارس (البيانات المرجعية)"
+            <Combobox
+              label="الحد الأقصى للتقدير"
+              value={rules.academicGradeToId ?? ''}
+              onChange={(v) => setRule('academicGradeToId', v || null)}
+              options={academicGradeOptions}
+              placeholder="اختر تقديراً…"
             />
           </div>
         </CardBody>
