@@ -1,14 +1,13 @@
 /**
  * إدارة مواعيد الاختبارات واللجان — wizard step.
  *
- * Single panel: `CommitteeBindingsPanel` rendered per active category.
- * The roster sub-tab (تكوين اللجان) was removed — the bindings panel is
- * the only surface this step needs.
+ * Renders `CommitteeBindingsPanel` once with the cycle's active
+ * categories surfaced as a multi-select inside the panel's form (no
+ * per-category tabs at the page level any more).
  *
  * Active-category source is `useCategoryConfigs()` filtered by
  * `isActive === true`, surfaced via the shared `useActiveCategoriesForCycle`
- * helper. The bindings panel owns its own per-cell `CommitteeDayBinding`
- * rows via `committeeBindingService`.
+ * helper.
  */
 
 import { useMemo } from 'react';
@@ -95,7 +94,7 @@ function Body({ cycle }: BodyProps): JSX.Element {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="إدارة مواعيد الاختبارات واللجان"
-        subtitle={`العام الأكاديمي ${academicYearForCycle(cycle)} · اللجان مفلترة لكل فئة على حدة.`}
+        subtitle={`العام الأكاديمي ${academicYearForCycle(cycle)} · أضف موعد اختبار لفئة واحدة أو أكثر معًا.`}
         actions={
           <Link to={ROUTES.committee.list} className="inline-flex">
             <Button
