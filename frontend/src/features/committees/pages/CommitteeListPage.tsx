@@ -1,11 +1,11 @@
 /**
  * CommitteeListPage — admin committee directory.
  *
- * Columns: name, head, officers count, specializations, capacity,
- * assigned applicants, remaining capacity, grade range, alphabetical
- * range, academic year, status, created date, row actions.
+ * Columns: name, فئات المتقدمين, capacity, assigned applicants,
+ * remaining capacity, numeric grade range, تقدير range, academic year,
+ * status, created date, row actions.
  *
- * Filters: search by name, academic year, status, head, specialization.
+ * Filters: search by name, academic year, status, فئات المتقدمين.
  * Sortable: name, capacity, status, created date.
  *
  * Row actions: view, edit, manage rules (edit + scroll), view
@@ -31,7 +31,6 @@ import {
   Button,
   Card,
   CardHeader,
-  Combobox,
   DataTable,
   DropdownMenu,
   EmptyState,
@@ -48,6 +47,7 @@ import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { useAuthStore } from '@/features/auth';
+import { MOCK } from '@/shared/mock-data';
 import {
   useCommittees,
   useCommitteeDependencies,
@@ -55,7 +55,6 @@ import {
   useCommitteeSetStatus,
   useCommitteeSoftDelete,
   useCommitteeSpecializations,
-  useEligibleOfficers,
 } from '../api/committee.queries';
 import type { Committee } from '@/shared/types/domain';
 
@@ -83,7 +82,6 @@ export function CommitteeListPage(): JSX.Element {
     includeDeleted: isSuperAdmin && includeDeleted,
   });
   const { data: specializations = [] } = useCommitteeSpecializations();
-  const { data: officers = [] } = useEligibleOfficers();
 
   const softDeleteMut = useCommitteeSoftDelete();
   const restoreMut = useCommitteeRestore();
@@ -101,16 +99,11 @@ export function CommitteeListPage(): JSX.Element {
         columns: [
           { key: 'id', labelAr: 'الكود' },
           { key: 'name', labelAr: 'اسم اللجنة' },
-          { key: 'head', labelAr: 'رئيس اللجنة' },
-          { key: 'members', labelAr: 'عدد الأعضاء' },
           { key: 'applicants', labelAr: 'المتقدمون' },
           { key: 'completed', labelAr: 'منتهية' },
-          {
-            key: 'gender',
-            labelAr: 'النوع',
-            format: (v) => (v === 'male' ? 'ذكور' : v === 'female' ? 'إناث' : 'الكل'),
-          },
+          { key: 'capacity', labelAr: 'السعة الإجمالية' },
           { key: 'capacityPerDay', labelAr: 'السعة اليومية' },
+          { key: 'academicYearId', labelAr: 'العام الدراسي' },
           { key: 'linkedCycleId', labelAr: 'الدورة المرتبطة' },
         ],
       },
@@ -125,7 +118,6 @@ export function CommitteeListPage(): JSX.Element {
   const [search, setSearch] = useState('');
   const [year, setYear] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [headFilter, setHeadFilter] = useState<string | null>(null);
   const [specsFilter, setSpecsFilter] = useState<string[]>([]);
 
   /* Sort + pagination */
@@ -156,14 +148,13 @@ export function CommitteeListPage(): JSX.Element {
       if (statusFilter === 'full') {
         if (c.capacity === undefined || c.applicants < c.capacity) return false;
       }
-      if (headFilter && c.headUserId !== headFilter) return false;
       if (specsFilter.length > 0) {
         const specs = c.specializationIds ?? [];
         if (!specsFilter.some((s) => specs.includes(s))) return false;
       }
       return true;
     });
-  }, [allCommittees, search, year, statusFilter, headFilter, specsFilter]);
+  }, [allCommittees, search, year, statusFilter, specsFilter]);
 
   const sorted = useMemo(() => {
     if (!sort) return filtered;
@@ -205,6 +196,11 @@ export function CommitteeListPage(): JSX.Element {
   const specLabel = (specId: string): string =>
     specializations.find((s) => s.id === specId)?.nameAr ?? specId;
 
+  const academicGradeLabel = (code: string | null | undefined): string | null => {
+    if (!code) return null;
+    return MOCK.lookups['academic-grades'].find((g) => g.code === code)?.name ?? code;
+  };
+
   /* ── Stat row ─────────────────────────────────────────── */
   const totalCapacity = allCommittees.reduce((s, c) => s + (c.capacity ?? 0), 0);
   const totalAssigned = allCommittees.reduce((s, c) => s + c.applicants, 0);
@@ -227,16 +223,9 @@ export function CommitteeListPage(): JSX.Element {
         </Link>
       ),
     },
-    { key: 'head', label: 'رئيس اللجنة', render: (c) => c.head, hideOn: 'sm' },
-    {
-      key: 'officers',
-      label: 'عدد الضباط',
-      numeric: true,
-      render: (c) => num(c.officerIds?.length ?? c.members),
-    },
     {
       key: 'specializations',
-      label: 'التخصصات',
+      label: 'فئات المتقدمين',
       render: (c) => {
         const ids = c.specializationIds ?? [];
         if (ids.length === 0) return <span className="text-2xs text-ink-500">—</span>;
@@ -299,12 +288,12 @@ export function CommitteeListPage(): JSX.Element {
       },
     },
     {
-      key: 'alphabetRange',
-      label: 'النطاق الأبجدي',
+      key: 'academicGradeRange',
+      label: 'نطاق التقدير',
       hideOn: 'md',
       render: (c) => {
-        const f = c.rules?.alphabetFrom;
-        const t = c.rules?.alphabetTo;
+        const f = academicGradeLabel(c.rules?.academicGradeFromId);
+        const t = academicGradeLabel(c.rules?.academicGradeToId);
         if (!f && !t) return <span className="text-2xs text-ink-500">—</span>;
         return <span className="text-xs">{f ?? '—'} – {t ?? '—'}</span>;
       },
@@ -430,7 +419,7 @@ export function CommitteeListPage(): JSX.Element {
     <CenteredShell>
       <PageHeader
         title="قائمة اللجان"
-        subtitle="إدارة لجان القبول، رؤسائها، الضباط، والتخصصات."
+        subtitle="إدارة لجان القبول، فئاتها، السعة وشروط التوزيع."
         actions={
           <div className="flex items-center gap-2">
             {isSuperAdmin && (
@@ -502,24 +491,15 @@ export function CommitteeListPage(): JSX.Element {
             onChange={(e) => setStatusFilter(e.target.value)}
             options={STATUS_FILTERS}
           />
-          <Combobox
-            label="رئيس اللجنة"
-            value={headFilter}
-            onChange={(v) => setHeadFilter(v)}
-            options={[
-              ...officers.map((o) => ({ value: o.id, label: o.name })),
-            ]}
-            placeholder="كل الرؤساء"
-          />
           <MultiSelect
-            label="التخصصات"
+            label="فئات المتقدمين"
             value={specsFilter}
             onChange={setSpecsFilter}
             options={specializations
               .filter((s) => s.active)
               .map((s) => ({ value: s.id, label: s.nameAr }))}
-            placeholder="كل التخصصات"
-            className="lg:col-span-3"
+            placeholder="كل الفئات"
+            className="lg:col-span-4"
           />
         </div>
       </Card>
@@ -547,7 +527,7 @@ export function CommitteeListPage(): JSX.Element {
             <EmptyState
               variant="generic"
               title="لا توجد لجان"
-              description="ابدأ بإنشاء أول لجنة قبول لربط الضباط والتخصصات والمتقدمين."
+              description="ابدأ بإنشاء أول لجنة قبول لربط فئات المتقدمين بالسعة وشروط التوزيع."
               action={
                 <Button
                   variant="primary"
