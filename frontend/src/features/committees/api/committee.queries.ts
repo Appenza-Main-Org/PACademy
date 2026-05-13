@@ -111,9 +111,43 @@ export const useCommitteeUpdate = () => {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Committee> }) =>
       committeeService.update(id, patch),
-    onSuccess: (committee) => {
+    onMutate: async ({ id, patch }) => {
+      /* Optimistic — apply the patch to every cached committee shape
+       * before the mutation resolves so the row in the list and the
+       * detail card reflect the new values instantly. Rollback on
+       * error from the captured snapshot. */
+      await qc.cancelQueries({ queryKey: committeeKeys.all });
+      const listSnapshots = qc.getQueriesData<Committee[]>({
+        queryKey: committeeKeys.all,
+      });
+      const detailSnapshot = qc.getQueryData<Committee>(committeeKeys.detail(id));
+      qc.setQueriesData<Committee[] | undefined>(
+        { queryKey: committeeKeys.all },
+        (rows) => (Array.isArray(rows) ? rows.map((r) => (r.id === id ? { ...r, ...patch } : r)) : rows),
+      );
+      if (detailSnapshot) {
+        qc.setQueryData<Committee>(committeeKeys.detail(id), {
+          ...detailSnapshot,
+          ...patch,
+        });
+      }
+      return { listSnapshots, detailSnapshot };
+    },
+    onError: (_err, { id }, context) => {
+      const ctx = context as
+        | { listSnapshots: ReturnType<typeof qc.getQueriesData<Committee[]>>; detailSnapshot: Committee | undefined }
+        | undefined;
+      if (!ctx) return;
+      for (const [key, snapshot] of ctx.listSnapshots) {
+        qc.setQueryData(key, snapshot);
+      }
+      if (ctx.detailSnapshot) {
+        qc.setQueryData(committeeKeys.detail(id), ctx.detailSnapshot);
+      }
+    },
+    onSettled: (committee) => {
       qc.invalidateQueries({ queryKey: committeeKeys.list() });
-      qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
+      if (committee) qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
     },
   });
 };

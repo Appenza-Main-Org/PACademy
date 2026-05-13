@@ -222,8 +222,19 @@ export const committeeService = {
   },
 
   /**
-   * Update committee config (Gap H). Patches the in-memory snapshot,
-   * emits a typed audit row with before/after, returns the merged row.
+   * Update committee config.
+   *
+   * INTEGRATION CONTRACT:
+   *   PATCH /api/committees/:id  → Committee
+   *     body: Partial<Committee>  // capacity, gradeType, gradeMin,
+   *                               // gradeMax, status, …
+   *
+   * Validates capacity (1..999) and the gradeMin ≤ gradeMax invariant
+   * against the post-patch shape. Throws
+   * `ConflictError('COMMITTEE_AT_CAPACITY')` when the requested
+   * capacity is below the count of already-assigned applicants — i.e.
+   * `patch.capacity < assignedApplicants.length`. Successful patches
+   * emit a typed audit row with before/after.
    */
   async update(id: string, patch: Partial<Committee>): Promise<Committee> {
     await simulateLatency();
@@ -231,6 +242,35 @@ export const committeeService = {
     if (idx === -1) throw new Error('اللجنة غير موجودة');
     const before = { ...COMMITTEES_STATE[idx]! };
     const next: Committee = { ...before, ...patch, id: before.id };
+
+    /* Range invariant — gradeMin ≤ gradeMax post-patch. */
+    if (next.gradeMin > next.gradeMax) {
+      throw new ConflictError(
+        'GRADE_RANGE_INVERTED',
+        { gradeMin: next.gradeMin, gradeMax: next.gradeMax },
+        'الحد الأدنى يجب أن يكون أقل من أو يساوي الحد الأقصى',
+      );
+    }
+
+    /* Capacity envelope — must not drop below the assigned roster. */
+    if (patch.capacity !== undefined) {
+      if (!Number.isInteger(patch.capacity) || patch.capacity < 1 || patch.capacity > 999) {
+        throw new ConflictError(
+          'CAPACITY_NOT_POSITIVE',
+          { capacity: patch.capacity },
+          'السعة يجب أن تكون عدداً صحيحاً بين 1 و 999',
+        );
+      }
+      const assigned = MOCK.applicants.filter((a) => a.committee === before.name).length;
+      if (patch.capacity < assigned) {
+        throw new ConflictError(
+          'COMMITTEE_AT_CAPACITY',
+          { capacity: patch.capacity, assigned },
+          `لا يمكن خفض السعة دون عدد المتقدمين المسنّدين (${assigned}).`,
+        );
+      }
+    }
+
     COMMITTEES_STATE[idx] = next;
     emitAudit({
       action: 'update',
