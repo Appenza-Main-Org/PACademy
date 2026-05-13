@@ -499,6 +499,8 @@ export const committeeService = {
    *   POST   /committees/schedule/batch              → ExamScheduleEntry[]
    *            body: { categoryKey, date, capacity }
    *            One row created per Committee whose categoryKey matches.
+   *   PATCH  /committees/schedule/:id                → ExamScheduleEntry
+   *            body: Partial<{ capacity, date }>
    *   DELETE /committees/schedule/:id                → 204
    */
 
@@ -549,6 +551,42 @@ export const committeeService = {
       after: created,
     });
     return created;
+  },
+
+  async updateScheduleEntry(
+    id: string,
+    patch: Partial<Pick<ExamScheduleEntry, 'capacity' | 'date'>>,
+  ): Promise<ExamScheduleEntry> {
+    await simulateLatency();
+    const idx = MOCK.examSchedule.findIndex((e) => e.id === id);
+    if (idx === -1) throw new Error('الموعد غير موجود');
+    const before = { ...MOCK.examSchedule[idx]! };
+    if (patch.capacity !== undefined) {
+      if (
+        !Number.isInteger(patch.capacity) ||
+        patch.capacity < 1 ||
+        patch.capacity > 999
+      ) {
+        throw new ConflictError(
+          'CAPACITY_NOT_POSITIVE',
+          { capacity: patch.capacity },
+          'السعة يجب أن تكون عدداً صحيحاً بين 1 و 999',
+        );
+      }
+    }
+    const next: ExamScheduleEntry = { ...before, ...patch };
+    MOCK.examSchedule[idx] = next;
+    emitAudit({
+      action: 'update',
+      module: 'committees',
+      entityType: 'ExamScheduleEntry',
+      entityLabel: 'موعد اختبار',
+      entityId: next.id,
+      details: `تحديث موعد ${next.date} للجنة ${next.committeeId}`,
+      before,
+      after: next,
+    });
+    return next;
   },
 
   async removeScheduleEntry(id: string): Promise<void> {

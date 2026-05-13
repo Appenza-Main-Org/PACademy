@@ -236,3 +236,17 @@ export const useRemoveScheduleEntryMutation = () => {
     },
   });
 };
+
+export const useUpdateScheduleEntryMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      id: string;
+      categoryKey: ApplicantCategoryKey;
+      patch: Parameters<typeof committeeService.updateScheduleEntry>[1];
+    }) => committeeService.updateScheduleEntry(input.id, input.patch),
+    onSuccess: (_res, vars) => {
+      qc.invalidateQueries({ queryKey: scheduleKeys.byCategory(vars.categoryKey) });
+    },
+  });
+};
