@@ -10,6 +10,7 @@ using PACademy.Modules.Workflows.Infrastructure;
 using PACademy.Modules.Admissions.Infrastructure;
 using PACademy.Modules.Committees.Infrastructure;
 using PACademy.Modules.Notifications.Infrastructure;
+using PACademy.Modules.Lookups.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,7 +29,8 @@ builder.Services
     .AddWorkflowsModule(builder.Configuration)
     .AddAdmissionsModule(builder.Configuration)
     .AddCommitteesModule(builder.Configuration)
-    .AddNotificationsModule(builder.Configuration);
+    .AddNotificationsModule(builder.Configuration)
+    .AddLookupsModule(builder.Configuration);
 
 builder.Services.AddPaInfrastructure(builder.Configuration);
 
@@ -50,6 +52,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseMiddleware<SqlConflictCodeMiddleware>();
 app.UseMiddleware<DbUpdateConcurrencyExceptionMiddleware>();
 app.UseCors();
 app.UseAuthentication();
