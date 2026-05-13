@@ -33,6 +33,7 @@ import type {
   CommitteeRules,
   CommitteeStatus,
   CommitteeType,
+  ExamScheduleEntry,
 } from '@/shared/types/domain';
 
 const COMMITTEE_DEP_LABELS: Record<string, string> = {
@@ -489,6 +490,82 @@ export const committeeService = {
       after: next,
     });
     return next;
+  },
+
+  /* ── Exam-date schedule (per-(committee × date) seat capacity) ─────
+   *
+   * INTEGRATION CONTRACT:
+   *   GET    /committees/schedule?category=<key>     → ExamScheduleEntry[]
+   *   POST   /committees/schedule/batch              → ExamScheduleEntry[]
+   *            body: { categoryKey, date, capacity }
+   *            One row created per Committee whose categoryKey matches.
+   *   DELETE /committees/schedule/:id                → 204
+   */
+
+  async listSchedule(categoryKey: ApplicantCategoryKey): Promise<ExamScheduleEntry[]> {
+    await simulateLatency(80, 160);
+    /* Resolve via committee membership so the page can filter by tab
+     * without storing categoryKey twice. */
+    const committeeIds = new Set(
+      COMMITTEES_STATE.filter((c) => c.categoryKey === categoryKey).map((c) => c.id),
+    );
+    return MOCK.examSchedule
+      .filter((e) => committeeIds.has(e.committeeId))
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date));
+  },
+
+  async addScheduleBatch(input: {
+    categoryKey: ApplicantCategoryKey;
+    date: string;
+    capacity: number;
+  }): Promise<ExamScheduleEntry[]> {
+    await simulateLatency();
+    if (!Number.isInteger(input.capacity) || input.capacity < 1 || input.capacity > 999) {
+      throw new ConflictError(
+        'CAPACITY_NOT_POSITIVE',
+        { capacity: input.capacity },
+        'السعة يجب أن تكون عدداً صحيحاً بين 1 و 999',
+      );
+    }
+    const matchingCommittees = COMMITTEES_STATE.filter(
+      (c) => c.categoryKey === input.categoryKey && !c.deletedAt,
+    );
+    const now = Date.now();
+    const created: ExamScheduleEntry[] = matchingCommittees.map((c, idx) => ({
+      id: `ESE-${now}-${idx}`,
+      committeeId: c.id,
+      date: input.date,
+      capacity: input.capacity,
+    }));
+    MOCK.examSchedule.push(...created);
+    emitAudit({
+      action: 'create',
+      module: 'committees',
+      entityType: 'ExamScheduleEntry',
+      entityLabel: 'مواعيد اختبار',
+      entityId: `${input.categoryKey}:${input.date}`,
+      details: `إضافة موعد ${input.date} لـ ${created.length} لجنة (${input.categoryKey})`,
+      after: created,
+    });
+    return created;
+  },
+
+  async removeScheduleEntry(id: string): Promise<void> {
+    await simulateLatency();
+    const idx = MOCK.examSchedule.findIndex((e) => e.id === id);
+    if (idx === -1) return;
+    const [removed] = MOCK.examSchedule.splice(idx, 1);
+    if (!removed) return;
+    emitAudit({
+      action: 'delete',
+      module: 'committees',
+      entityType: 'ExamScheduleEntry',
+      entityLabel: 'موعد اختبار',
+      entityId: removed.id,
+      details: `حذف موعد ${removed.date} للجنة ${removed.committeeId}`,
+      before: removed,
+    });
   },
 };
 

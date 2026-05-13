@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { committeeService, type CommitteePayload } from './committee.service';
-import type { Committee, CommitteeStatus } from '@/shared/types/domain';
+import type {
+  ApplicantCategoryKey,
+  Committee,
+  CommitteeStatus,
+} from '@/shared/types/domain';
+
+export const scheduleKeys = {
+  all: ['committee-schedule'] as const,
+  byCategory: (key: ApplicantCategoryKey) =>
+    [...scheduleKeys.all, 'by-category', key] as const,
+};
 
 export const committeeKeys = {
   all: ['committees'] as const,
@@ -194,6 +204,35 @@ export const useCommitteeSetStatus = () => {
     onSuccess: (committee) => {
       qc.invalidateQueries({ queryKey: committeeKeys.list() });
       qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
+    },
+  });
+};
+
+/* ── Exam-date schedule (per-(committee × date) seat capacity) ─────── */
+
+export const useScheduleByCategory = (key: ApplicantCategoryKey) =>
+  useQuery({
+    queryKey: scheduleKeys.byCategory(key),
+    queryFn: () => committeeService.listSchedule(key),
+  });
+
+export const useAddScheduleBatchMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: committeeService.addScheduleBatch,
+    onSuccess: (_rows, vars) => {
+      qc.invalidateQueries({ queryKey: scheduleKeys.byCategory(vars.categoryKey) });
+    },
+  });
+};
+
+export const useRemoveScheduleEntryMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; categoryKey: ApplicantCategoryKey }) =>
+      committeeService.removeScheduleEntry(input.id),
+    onSuccess: (_res, vars) => {
+      qc.invalidateQueries({ queryKey: scheduleKeys.byCategory(vars.categoryKey) });
     },
   });
 };
