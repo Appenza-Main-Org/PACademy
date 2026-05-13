@@ -12,7 +12,7 @@
  * by any other column reverts to a flat table.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import {
@@ -74,16 +74,11 @@ function toIsoDate(d: Date): string {
 export function CommitteeBindingsPanel({
   active,
 }: CommitteeBindingsPanelProps): JSX.Element {
-  /* The `?categoryId=` search-param used to scope the previous Tabs is
-   * obsolete — wipe it once on mount so deep links don't carry stale
-   * scoping into the new flat view. */
-  const [searchParams, setSearchParams] = useSearchParams();
-  useEffect(() => {
-    if (!searchParams.has('categoryId')) return;
-    const sp = new URLSearchParams(searchParams);
-    sp.delete('categoryId');
-    setSearchParams(sp, { replace: true });
-  }, [searchParams, setSearchParams]);
+  /* The legacy `?categoryId=` search-param used to scope the previous
+   * Tabs is now meaningless — we simply ignore it. Deep links with that
+   * param still resolve to this page; no cleanup is needed and any
+   * effect that touches `useSearchParams` here would re-fire each
+   * render and trip the React update-depth guard. */
 
   const committeesQuery = useCommittees();
   const allCommittees = committeesQuery.data ?? [];
