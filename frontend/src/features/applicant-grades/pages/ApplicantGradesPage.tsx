@@ -245,10 +245,12 @@ export function ApplicantGradesPage(): JSX.Element {
     },
     {
       key: 'eff',
-      label: 'الفعلي',
+      label: 'المجموع الإجمالي بعد التعديل',
       numeric: true,
       sortable: true,
-      className: 'min-w-[8ch]',
+      /* New label is ~5× longer than "الفعلي"; bump the column floor so
+       * it fits on one line in the header at standard desktop widths. */
+      className: 'min-w-[20ch] whitespace-nowrap',
       render: (r) => (
         /* Two-line stack + optional diff badge. Use a full-width flex
          * so the stack's end edge lands at the cell's end (= the same
