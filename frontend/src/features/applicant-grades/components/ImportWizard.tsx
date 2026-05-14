@@ -246,6 +246,50 @@ const ACCEPTED_EXTENSIONS: Record<'general' | 'azhar', readonly string[]> = {
   azhar: ['.accdb', '.xlsx', '.xls', '.csv'],
 };
 
+/**
+ * Maximum file size per extension, in megabytes. The Access exports are
+ * an order of magnitude larger than the spreadsheet hand-prepared sheets
+ * because they ship the full per-cycle tablespace; we cap them at sizes
+ * that fit comfortably in our upload pipeline while still rejecting the
+ * "uploaded the wrong DB" mistake.
+ */
+const SIZE_LIMITS_MB: Record<string, number> = {
+  '.mdb': 500,
+  '.accdb': 100,
+  '.xlsx': 10,
+  '.xls': 10,
+  '.csv': 10,
+};
+
+const MB = 1024 * 1024;
+
+/** Returns the canonical extension (`.mdb`, `.csv`, …) of `fileName` if
+ *  any of `allowed` matches, or `null` if the extension isn't allowed. */
+function matchExtension(fileName: string, allowed: readonly string[]): string | null {
+  const lower = fileName.toLowerCase();
+  return allowed.find((ext) => lower.endsWith(ext)) ?? null;
+}
+
+/** Validate a freshly-picked file against the kind's accepted extensions
+ *  and size limits. Returns `null` when the file passes, otherwise an
+ *  Arabic error string suitable for the inline error chip. */
+function validateFile(
+  file: { name: string; size: number },
+  kind: 'general' | 'azhar',
+): string | null {
+  const ext = matchExtension(file.name, ACCEPTED_EXTENSIONS[kind]);
+  if (!ext) {
+    const list = ACCEPTED_EXTENSIONS[kind].join('، ');
+    return `صيغة الملف غير مدعومة. الصيغ المقبولة: ${list}`;
+  }
+  const limitMb = SIZE_LIMITS_MB[ext];
+  if (limitMb && file.size > limitMb * MB) {
+    const actualMb = (file.size / MB).toFixed(file.size / MB >= 100 ? 0 : 1);
+    return `حجم الملف (${actualMb} م.ب) يتجاوز الحد الأقصى ${limitMb} م.ب لصيغة ${ext}`;
+  }
+  return null;
+}
+
 interface SetupProps {
   setup: {
     kind: 'general' | 'azhar';
@@ -260,6 +304,7 @@ interface SetupProps {
 
 function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProps): JSX.Element {
   const inp = useRef<HTMLInputElement | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const cols =
     setup.kind === 'general'
       ? [
@@ -277,17 +322,43 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
   const acceptedExts = ACCEPTED_EXTENSIONS[setup.kind];
   const acceptAttr = acceptedExts.join(',');
 
-  const canSubmit = setup.file && setup.maxDegree > 0;
+  /** Per-extension limits shown under the dropzone, grouped by size so
+   *  multiple extensions sharing the same limit collapse into one line. */
+  const sizeHintGroups = useMemo(() => {
+    const groups = new Map<number, string[]>();
+    for (const ext of acceptedExts) {
+      const limit = SIZE_LIMITS_MB[ext];
+      if (limit == null) continue;
+      const bucket = groups.get(limit) ?? [];
+      bucket.push(ext);
+      groups.set(limit, bucket);
+    }
+    return [...groups.entries()].sort(([a], [b]) => b - a);
+  }, [acceptedExts]);
 
+  const canSubmit = setup.file && setup.maxDegree > 0 && fileError === null;
+
+  function acceptFile(f: File): void {
+    const err = validateFile({ name: f.name, size: f.size }, setup.kind);
+    if (err) {
+      setFileError(err);
+      onChange({ ...setup, file: null });
+      return;
+    }
+    setFileError(null);
+    onChange({ ...setup, file: { name: f.name, size: f.size, rows: 3124 } });
+  }
   function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
-    if (!f) return;
-    onChange({ ...setup, file: { name: f.name, size: f.size, rows: 3124 } });
+    if (f) acceptFile(f);
+    /* Reset the input so picking the same filename twice re-fires onChange
+     * (useful when the user retries after fixing the file). */
+    e.target.value = '';
   }
   function drop(e: React.DragEvent) {
     e.preventDefault();
     const f = e.dataTransfer.files?.[0];
-    if (f) onChange({ ...setup, file: { name: f.name, size: f.size, rows: 3124 } });
+    if (f) acceptFile(f);
   }
 
   return (
@@ -313,12 +384,15 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                     onClick={() => {
                       /* Clear the file when the kind changes — the accepted
                        * extensions differ (.mdb vs .accdb), so a file picked
-                       * under the previous kind may no longer be valid. */
+                       * under the previous kind may no longer pass the new
+                       * extension/size validation. */
                       const fileStillValid =
                         setup.file != null
-                        && ACCEPTED_EXTENSIONS[v].some((ext) =>
-                          setup.file!.name.toLowerCase().endsWith(ext),
-                        );
+                        && validateFile(
+                          { name: setup.file.name, size: setup.file.size },
+                          v,
+                        ) === null;
+                      setFileError(null);
                       onChange({
                         ...setup,
                         kind: v,
@@ -377,7 +451,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
             </div>
           </Field>
 
-          <Field label="ملف البيانات" required>
+          <Field label="ملف البيانات" required error={fileError ?? undefined}>
             <input
               ref={inp}
               type="file"
@@ -398,20 +472,43 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                 }}
                 onDrop={drop}
                 onDragOver={(e) => e.preventDefault()}
-                className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed bg-white px-4 py-5 text-ink-500"
-                style={{ borderColor: 'var(--border-strong)' }}
+                className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed bg-white px-4 py-5 text-ink-500 ${
+                  fileError ? 'border-terra-300' : 'border-border-strong'
+                }`}
               >
                 <Upload size={14} className="text-ink-500" aria-hidden />
                 <div className="text-sm font-medium text-ink-700">
                   اسحب الملف هنا أو انقر للاختيار
                 </div>
-                <div className="text-2xs text-ink-500">
-                  {acceptedExts.map((ext, i) => (
-                    <span key={ext}>
-                      {i > 0 && ' · '}
-                      <span className="font-en">{ext}</span>
-                    </span>
-                  ))}
+                <div className="flex flex-col items-center gap-0.5 text-2xs text-ink-500">
+                  <div>
+                    {acceptedExts.map((ext, i) => (
+                      <span key={ext}>
+                        {i > 0 && ' · '}
+                        <span className="font-en">{ext}</span>
+                      </span>
+                    ))}
+                  </div>
+                  <div>
+                    {sizeHintGroups.map(([limit, exts], i) => (
+                      <span key={limit}>
+                        {i > 0 && ' · '}
+                        حتى <span className="font-en">{limit}</span> م.ب
+                        {sizeHintGroups.length > 1 && (
+                          <>
+                            {' '}(
+                            {exts.map((ext, j) => (
+                              <span key={ext} className="font-en">
+                                {j > 0 && '/'}
+                                {ext}
+                              </span>
+                            ))}
+                            )
+                          </>
+                        )}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
