@@ -508,7 +508,7 @@ function SpecializationPanel({
       <Card variant="compact">
         <header className="mb-3 flex items-center justify-between gap-3">
           <h4 className="font-ar text-sm font-semibold text-ink-900">
-            القواعد العامة
+            شروط التخصص
           </h4>
         </header>
 
