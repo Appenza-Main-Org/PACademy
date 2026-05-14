@@ -382,7 +382,7 @@ export function ApplicantGradesPage(): JSX.Element {
           <Card>
             <CardBody className="card-body">
               <div className="filters">
-                <div className="search flex-1" style={{ minWidth: 340 }}>
+                <div className="search flex-1" style={{ minInlineSize: 420 }}>
                   <input
                     className="input"
                     type="search"
