@@ -17,6 +17,7 @@
  */
 
 import type {
+  AcademicDegreeRow,
   AcademicGradeRow,
   AnnouncementRow,
   ApplicantCategoryRow,
@@ -919,6 +920,21 @@ const academicGrades: AcademicGradeRow[] = [
   },
 ];
 
+/* ─── 21. academic-degrees — الدرجة العلمية ────────────────────────────
+ *
+ * Standard tertiary degree ladder. Scopes which academic degree a
+ * committee accepts on /admin/committee/create. */
+
+const academicDegrees: AcademicDegreeRow[] = [
+  { code: 'DEG-01', name: 'بكالوريوس', ...active },
+  { code: 'DEG-02', name: 'ماجستير',   ...active },
+  { code: 'DEG-03', name: 'دكتوراه',   ...active },
+];
+
+/** Public, typed seed of the academic-degree lookup — consumers can import
+ *  this directly instead of going through `useLookup('academic-degrees')`. */
+export const ACADEMIC_DEGREES: ReadonlyArray<AcademicDegreeRow> = academicDegrees;
+
 /* ─── Aggregate — `MOCK.lookups[key]` ────────────────────────────────── */
 
 export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
@@ -943,4 +959,5 @@ export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
   'universities': universities,
   'marital-statuses': maritalStatuses,
   'academic-grades': academicGrades,
+  'academic-degrees': academicDegrees,
 };

@@ -98,11 +98,21 @@ export function Combobox({
 
   /* Match the trigger's left edge + width so the dropdown looks
    * "anchored" to the input even after we portal it out of the
-   * (potentially overflow:hidden) ancestor. */
+   * (potentially overflow:hidden) ancestor. If there isn't enough room
+   * below the trigger, flip above so the option list stays visible and
+   * scrollable inside the viewport. Approx popover height = listbox
+   * max-h (16rem ≈ 256px) + search-row chrome (~52px). */
   const computePosition = (): void => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setPosition({ top: rect.bottom + POPOVER_GAP, left: rect.left, width: rect.width });
+    const popoverMaxH = 320;
+    const spaceBelow = window.innerHeight - rect.bottom - POPOVER_GAP;
+    const spaceAbove = rect.top - POPOVER_GAP;
+    const placeAbove = spaceBelow < popoverMaxH && spaceAbove > spaceBelow;
+    const top = placeAbove
+      ? Math.max(8, rect.top - POPOVER_GAP - Math.min(popoverMaxH, spaceAbove))
+      : rect.bottom + POPOVER_GAP;
+    setPosition({ top, left: rect.left, width: rect.width });
   };
 
   const grouped = groups != null && groups.length > 0;
@@ -315,8 +325,7 @@ export function Combobox({
               role="listbox"
               aria-label={label ?? ariaLabel ?? 'options'}
               onScroll={virtualised ? (e) => setScrollTop((e.currentTarget as HTMLUListElement).scrollTop) : undefined}
-              className="relative overflow-auto"
-              style={{ maxHeight: `${VISIBLE_ROWS * ROW_HEIGHT}px` }}
+              className="relative max-h-[16rem] overflow-y-auto"
             >
               {virtualised && <li aria-hidden style={{ height: startIndex * ROW_HEIGHT }} />}
               {filtered.length === 0 && (

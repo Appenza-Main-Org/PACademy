@@ -37,6 +37,7 @@ export const LOOKUP_KEYS = [
   'universities',
   'marital-statuses',
   'academic-grades',
+  'academic-degrees',
 ] as const;
 
 export type LookupKey = (typeof LOOKUP_KEYS)[number];
@@ -76,6 +77,7 @@ export const LOOKUP_SECTIONS = [
       'school-categories',
       'marital-statuses',
       'academic-grades',
+      'academic-degrees',
     ] as const,
   },
   {
@@ -117,6 +119,7 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'universities':                 { label: 'الجامعات',                      codePrefix: 'UNI', padding: 2 },
   'marital-statuses':             { label: 'الحالة الاجتماعية',            codePrefix: 'MAR', padding: 2 },
   'academic-grades':              { label: 'التقدير الأكاديمي',             codePrefix: 'AGR', padding: 2 },
+  'academic-degrees':             { label: 'الدرجة العلمية',                codePrefix: 'DEG', padding: 2 },
 };
 
 /* ─── Per-row base ───────────────────────────────────────────────────── */
@@ -324,6 +327,11 @@ export interface AcademicGradeRow extends LookupRowBase {
   nameEn: string;
 }
 
+/** Academic-degree lookup row (الدرجة العلمية). Standard tertiary degree
+ *  ladder — بكالوريوس → ماجستير → دكتوراه. Used by the committee create
+ *  form to scope which academic degree the committee evaluates. */
+export interface AcademicDegreeRow extends LookupRowBase {}
+
 /* ─── Mapped type: discriminated union over LookupKey ─────────────── */
 
 export interface LookupRowMap {
@@ -348,6 +356,7 @@ export interface LookupRowMap {
   'universities': UniversityRow;
   'marital-statuses': MaritalStatusRow;
   'academic-grades': AcademicGradeRow;
+  'academic-degrees': AcademicDegreeRow;
 }
 
 export type LookupRow<K extends LookupKey = LookupKey> = LookupRowMap[K];

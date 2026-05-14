@@ -49,8 +49,11 @@ export {
   type SubmissionTypeRow,
   type MaritalStatusRow,
   type AcademicGradeRow,
+  type AcademicDegreeRow,
   type DeleteResult,
 } from './types';
+
+export { ACADEMIC_DEGREES } from './mock/lookups.mock';
 
 export { lookupsService } from './api/lookups.service';
 

@@ -1,10 +1,11 @@
 /**
  * CommitteeCreatePage — local create form (does not share with edit).
  *
- * The committee is scoped to a single applicant category. Distribution
- * filters (gender, نوع المؤهل) are derived from that category's
- * `conditions` (reused from /admin/categories — no duplicated data).
- * The form drops the legacy capacity input in favour of a single
+ * The committee is scoped to a single applicant category. The gender
+ * filter is derived from that category's `conditions` (reused from
+ * /admin/categories — no duplicated data); the academic-degree filter
+ * is sourced from the `academic-degrees` reference lookup. The form
+ * drops the legacy capacity input in favour of a single
  * "الحد الأقصى (نسبة %)" cap that doubles as the committee grade ceiling.
  */
 
@@ -32,11 +33,11 @@ import { ROUTES } from '@/config/routes';
 import {
   APPLICANT_CATEGORY_KEYS,
   type ApplicantCategoryKey,
-  type CategoryCondition,
   type CommitteeRules,
   type CommitteeStatus,
 } from '@/shared/types/domain';
 import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
+import { ACADEMIC_DEGREES } from '@/features/lookups';
 
 const ACADEMIC_YEARS = [
   { value: '2026-2027', label: 'العام الدراسي 2026 / 2027' },
@@ -63,19 +64,6 @@ const GENDER_LABEL: Record<GenderOption, string> = {
   female: 'إناث',
 };
 
-const QUALIFICATION_LABEL: Record<CategoryCondition['requiredQualification'], string> = {
-  thanaweya_amma: 'الثانوية العامة',
-  azhar: 'الثانوية الأزهرية',
-  bachelor: 'مؤهل عالي',
-  bachelor_law: 'بكالوريوس حقوق',
-  bachelor_medicine: 'بكالوريوس طب',
-  bachelor_engineering: 'بكالوريوس هندسة',
-  bachelor_media: 'بكالوريوس إعلام',
-  police_academy_grad: 'خريج كلية الشرطة',
-  serving_officer: 'ضابط شرطة',
-  any: 'كل المؤهلات',
-};
-
 const isApplicantCategoryKey = (v: string): v is ApplicantCategoryKey =>
   (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(v);
 
@@ -94,7 +82,7 @@ const schema = z.object({
     .min(1, 'الحد الأقصى لا يقل عن 1٪')
     .max(100, 'الحد الأقصى لا يتجاوز 100٪'),
   filterGender: z.enum(['any', 'male', 'female']),
-  filterApplicantType: z.string(),
+  academicDegree: z.string(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -132,13 +120,13 @@ export function CommitteeCreatePage(): JSX.Element {
       cycleId: CYCLE_OPTIONS[0].value,
       maxPercentage: 100,
       filterGender: 'any',
-      filterApplicantType: 'any',
+      academicDegree: 'any',
     },
   });
 
   const categoryKey = watch('categoryKey');
   const filterGender = watch('filterGender');
-  const filterApplicantType = watch('filterApplicantType');
+  const academicDegree = watch('academicDegree');
 
   const categoryOptions = useMemo(
     () =>
@@ -155,10 +143,10 @@ export function CommitteeCreatePage(): JSX.Element {
     [categoriesQuery.data, categoryKey],
   );
 
-  /* Filter option sets are derived from the selected category's
-   * `conditions` so the form never offers a value the category has
-   * locked out. When the category fixes a value (e.g. gender = 'male'),
-   * the filter is rendered with that single option only. */
+  /* Gender filter options are derived from the selected category's
+   * `conditions.gender` so the form never offers a value the category
+   * has locked out. When the category fixes a value (e.g. 'male'), the
+   * filter is rendered with that single option only. */
   const genderOptions = useMemo<GenderOption[]>(() => {
     if (!selectedCategory) return [];
     const g = selectedCategory.conditions.gender;
@@ -166,40 +154,45 @@ export function CommitteeCreatePage(): JSX.Element {
     return [g];
   }, [selectedCategory]);
 
-  const qualificationOptions = useMemo<CategoryCondition['requiredQualification'][]>(() => {
-    if (!selectedCategory) return [];
-    const q = selectedCategory.conditions.requiredQualification;
-    if (q === 'any') {
-      return Object.keys(QUALIFICATION_LABEL) as CategoryCondition['requiredQualification'][];
-    }
-    return ['any', q];
-  }, [selectedCategory]);
+  /* Academic-degree options sourced from the `academic-degrees` reference
+   * lookup. Prepended with an "any" sentinel so the filter can opt out. */
+  const academicDegreeOptions = useMemo(
+    () => [
+      { value: 'any', label: 'كل الدرجات' },
+      ...ACADEMIC_DEGREES.filter((d) => d.isActive).map((d) => ({
+        value: d.code,
+        label: d.name,
+      })),
+    ],
+    [],
+  );
 
   /* Reset filter values to a known-safe default whenever the category
    * changes — the new category may not permit the previously-picked
-   * gender / qualification. */
+   * gender. */
   const handleCategoryChange = (next: string | null): void => {
     const key: ApplicantCategoryKey | '' =
       next && isApplicantCategoryKey(next) ? next : '';
     setValue('categoryKey', key, { shouldValidate: true });
     setValue('filterGender', 'any', { shouldValidate: false });
-    setValue('filterApplicantType', 'any', { shouldValidate: false });
+    setValue('academicDegree', 'any', { shouldValidate: false });
   };
 
   const onSubmit = (values: FormValues): void => {
     if (!isApplicantCategoryKey(values.categoryKey)) return;
 
-    /* Map filter values back through the existing rule bag — gender and
-     * applicantType already live on `CommitteeRules`. maxPercentage is
-     * the closest match for the service's `gradeMax` field. */
+    /* Map filter values back through the existing rule bag — gender lives
+     * on `CommitteeRules` directly; the picked academic-degree lookup
+     * code rides on `applicantType` (free-form lookup-key field).
+     * maxPercentage maps to the service's `gradeMax`. */
     const rules: CommitteeRules = {
       gradeFrom: 0,
       gradeTo: values.maxPercentage,
       academicGradeFromId: null,
       academicGradeToId: null,
       ...(values.filterGender !== 'any' ? { gender: values.filterGender } : {}),
-      ...(values.filterApplicantType !== 'any'
-        ? { applicantType: values.filterApplicantType }
+      ...(values.academicDegree !== 'any'
+        ? { applicantType: values.academicDegree }
         : {}),
     };
 
@@ -249,26 +242,41 @@ export function CommitteeCreatePage(): JSX.Element {
           <CardHeader title="المعلومات الأساسية" subtitle="الفئة، اسم اللجنة، العام الدراسي، الحالة" />
           <CardBody>
             <div className="grid gap-4 md:grid-cols-2">
-              <Field
-                label="الفئة"
-                required
-                error={errors.categoryKey?.message}
-                helper={
-                  isCategoryLocked
-                    ? 'محدّدة من القائمة'
-                    : 'الفئة التي ستستقبلها اللجنة (مصدر القائمة: /admin/categories)'
-                }
-                className="md:col-span-2"
-              >
-                <Combobox
-                  value={categoryKey || null}
-                  onChange={handleCategoryChange}
-                  options={categoryOptions}
-                  placeholder="اختر الفئة…"
-                  ariaLabel="الفئة"
-                  disabled={isCategoryLocked}
-                />
-              </Field>
+              {isCategoryLocked ? (
+                <div className="flex flex-col gap-1 md:col-span-2">
+                  <span className="text-sm font-medium text-ink-700">الفئة</span>
+                  <div
+                    className="flex items-center rounded-md border px-4 py-3"
+                    style={{
+                      background: 'var(--accent-50)',
+                      borderColor: 'var(--accent-200)',
+                    }}
+                  >
+                    <span
+                      className="font-ar-display text-2xl font-bold"
+                      style={{ color: 'var(--accent-700)' }}
+                    >
+                      {selectedCategory?.labelAr ?? presetCategoryKey}
+                    </span>
+                  </div>
+                  <span className="text-xs text-ink-500">محدّدة من القائمة</span>
+                </div>
+              ) : (
+                <Field
+                  label="الفئة"
+                  required
+                  error={errors.categoryKey?.message}
+                  className="md:col-span-2"
+                >
+                  <Combobox
+                    value={categoryKey || null}
+                    onChange={handleCategoryChange}
+                    options={categoryOptions}
+                    placeholder="اختر الفئة…"
+                    ariaLabel="الفئة"
+                  />
+                </Field>
+              )}
 
               <Input
                 label="اسم اللجنة"
@@ -320,6 +328,8 @@ export function CommitteeCreatePage(): JSX.Element {
                 trailingIcon={<span className="text-sm text-ink-500">٪</span>}
                 error={errors.maxPercentage?.message}
                 helper="نسبة قبول من 1 إلى 100"
+                className="ps-4 pe-12"
+                containerClassName="max-w-xs"
               />
             </div>
           </CardBody>
@@ -327,10 +337,7 @@ export function CommitteeCreatePage(): JSX.Element {
 
         {/* ── Section 3 — Category-driven filters ─────────────────── */}
         <Card>
-          <CardHeader
-            title="فلاتر التوزيع"
-            subtitle="الخيارات مستمدّة من شروط الفئة المختارة (/admin/categories)"
-          />
+          <CardHeader title="فلاتر التوزيع" />
           <CardBody>
             {!filtersAvailable ? (
               <p
@@ -361,20 +368,17 @@ export function CommitteeCreatePage(): JSX.Element {
                     ariaLabel="النوع"
                   />
                 </Field>
-                <Field label="نوع المؤهل">
+                <Field label="الدرجة العلمية">
                   <Combobox
-                    value={filterApplicantType}
+                    value={academicDegree}
                     onChange={(v) =>
-                      setValue('filterApplicantType', v ?? 'any', {
+                      setValue('academicDegree', v ?? 'any', {
                         shouldValidate: false,
                       })
                     }
-                    options={qualificationOptions.map((q) => ({
-                      value: q,
-                      label: QUALIFICATION_LABEL[q],
-                    }))}
-                    placeholder="اختر المؤهل…"
-                    ariaLabel="نوع المؤهل"
+                    options={academicDegreeOptions}
+                    placeholder="اختر الدرجة…"
+                    ariaLabel="الدرجة العلمية"
                   />
                 </Field>
               </div>
