@@ -1,17 +1,24 @@
 /**
- * Parse a Ministry-issued Access database (.mdb / .accdb) into the
+ * Parse a Ministry-issued grades file — Access database (`.mdb` /
+ * `.accdb`) OR spreadsheet (`.xlsx` / `.xls` / `.csv`) — into the
  * `ImportedGradeRow` shape the wizard's staging step expects.
  *
- * Columns by secondary type (verified against the legacy import
- * scripts under `frontend/_legacy/` and the karasa schema spec):
+ * The file picker accepts five formats; this module dispatches to
+ * the right parser based on the file's extension:
  *
- *   general  (.mdb)  → table contains: seating_no · national_no ·
- *                      arabic_name · sex_name · school_name ·
- *                      moderia_name · branch_desc_new · total_degree ·
- *                      student_case_desc · …
- *   azhar    (.accdb) → table contains: StSeatNo · StudenName ·
- *                       DevisionName · National_Code · ZonName ·
- *                       InstituteName · Total2 · Sub · …
+ *   .mdb / .accdb         → `mdb-reader` (pure-JS Access reader)
+ *   .xlsx / .xls / .csv   → SheetJS (`xlsx` package)
+ *
+ * Both branches share the same column contract per `kind`:
+ *
+ *   general  → seating_no · national_no · arabic_name · school_name ·
+ *              moderia_name · branch_desc_new · total_degree ·
+ *              student_case_desc
+ *   azhar    → StSeatNo · StudenName · DevisionName · National_Code ·
+ *              ZonName · InstituteName · Total2
+ *
+ * For spreadsheets, the first row is treated as the header; columns
+ * are case-sensitive and must match the names above.
  *
  * Errors surface as typed exceptions so the wizard can route to the
  * right step:
@@ -19,21 +26,11 @@
  *   - `ParseError`          → generic parse failure (error tile)
  */
 
-import type MDBReaderType from 'mdb-reader';
+import { Buffer } from 'buffer';
+import MDBReader from 'mdb-reader';
 import type { Value } from 'mdb-reader';
+import * as XLSX from 'xlsx';
 import type { GradeKind } from '../types';
-
-/* `mdb-reader` (and its transitive `buffer` polyfill) are heavy and
- * reach for Node globals at module-evaluation time. Loading them
- * eagerly broke the main bundle in production with
- *   Uncaught ReferenceError: process is not defined
- *   Uncaught TypeError: Cannot read properties of undefined (reading 'slice')
- * because top-level code in the package family touches `process` /
- * `Buffer`. They're only needed when the admin actually uploads an
- * .mdb / .accdb file, so the value-imports are deferred to runtime via
- * dynamic `import()` inside `parseAccessFile`. The type-only imports
- * above are erased at build time and don't pull anything into the main
- * chunk. */
 
 /**
  * Row shape the parser emits — identical to `GradeRow` minus the
@@ -70,12 +67,14 @@ export class ParseError extends Error {
 
 /* ── Column contracts ─────────────────────────────────────────────── */
 
+type RawCell = Value | string | number | null | undefined;
+
 interface ColumnMap {
   /** Per-row table column names the parser will read. */
   required: readonly string[];
   /** Maps a raw row (keyed by source-column name) to the canonical
    *  `ImportedGradeRow` shape. */
-  toRow: (raw: Record<string, Value>) => ImportedGradeRow;
+  toRow: (raw: Record<string, RawCell>) => ImportedGradeRow;
 }
 
 const GENERAL_MAP: ColumnMap = {
@@ -121,7 +120,7 @@ const AZHAR_MAP: ColumnMap = {
     school: stringish(raw['InstituteName']),
     region: stringish(raw['ZonName']),
     total: numericish(raw['Total2']),
-    /* Azhar exports don't carry the student-case dimension; default to
+    /* Azhar exports don't carry a student-case dimension; default to
      * the dash placeholder so the UI's status column reads as N/A. */
     status: '—',
   }),
@@ -131,15 +130,17 @@ const MAPS: Record<GradeKind, ColumnMap> = { general: GENERAL_MAP, azhar: AZHAR_
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
-function stringish(v: Value): string {
+function stringish(v: RawCell): string {
   if (v == null) return '';
   if (typeof v === 'string') return v.trim();
-  if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint') return String(v).trim();
+  if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint') {
+    return String(v).trim();
+  }
   if (v instanceof Date) return v.toISOString();
   return '';
 }
 
-function numericish(v: Value): number {
+function numericish(v: RawCell): number {
   if (typeof v === 'number') return v;
   if (typeof v === 'bigint') return Number(v);
   if (typeof v === 'string') {
@@ -149,16 +150,18 @@ function numericish(v: Value): number {
   return 0;
 }
 
+/* ── Access (.mdb / .accdb) branch ────────────────────────────────── */
+
 /** Pick the first table whose column set is a superset of `required`.
  *  Ministry exports usually carry a single data table plus internal
  *  index tables; this scan tolerates either ordering. */
 function findDataTable(
-  reader: MDBReaderType,
+  reader: MDBReader,
   required: readonly string[],
-): { table: ReturnType<MDBReaderType['getTable']>; missing: string[] } {
+): { table: ReturnType<MDBReader['getTable']>; missing: string[] } {
   const names = reader.getTableNames();
   let bestMissing: string[] = [...required];
-  let bestTable: ReturnType<MDBReaderType['getTable']> | null = null;
+  let bestTable: ReturnType<MDBReader['getTable']> | null = null;
   for (const tableName of names) {
     const table = reader.getTable(tableName);
     const cols = new Set(table.getColumnNames());
@@ -173,28 +176,8 @@ function findDataTable(
   return { table: bestTable, missing: bestMissing };
 }
 
-/* ── Public entry ─────────────────────────────────────────────────── */
-
-/** Parse `buffer` (the result of `FileReader.readAsArrayBuffer`)
- *  into typed grade rows for the given kind.
- *
- *  Throws `MissingColumnError` when the source table is found but is
- *  missing one or more required columns, or `ParseError` for any
- *  lower-level failure (corrupt file, no usable table, etc.). */
-export async function parseAccessFile(
-  buffer: ArrayBuffer,
-  kind: GradeKind,
-): Promise<ImportedGradeRow[]> {
-  const map = MAPS[kind];
-
-  /* Load the Node-flavoured packages on demand. Split into separate
-   * chunks at build time so the main bundle stays clean. */
-  const [{ default: MDBReader }, { Buffer }] = await Promise.all([
-    import('mdb-reader'),
-    import('buffer'),
-  ]);
-
-  let reader: MDBReaderType;
+function parseAccess(buffer: ArrayBuffer, map: ColumnMap): ImportedGradeRow[] {
+  let reader: MDBReader;
   try {
     /* `mdb-reader` constructor signature requires a Node `Buffer`; in
      * the browser we polyfill via the `buffer` package so the same
@@ -218,7 +201,91 @@ export async function parseAccessFile(
       err instanceof Error ? `تعذّر استخراج البيانات: ${err.message}` : 'تعذّر استخراج البيانات.',
     );
   }
+  return raws.map(map.toRow);
+}
+
+/* ── Spreadsheet (.xlsx / .xls / .csv) branch ─────────────────────── */
+
+function parseSpreadsheet(buffer: ArrayBuffer, map: ColumnMap): ImportedGradeRow[] {
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.read(buffer, { type: 'array' });
+  } catch (err) {
+    throw new ParseError(
+      err instanceof Error ? `تعذّر قراءة الملف: ${err.message}` : 'تعذّر قراءة الملف.',
+    );
+  }
+
+  /* Walk the sheets to find one whose header row carries every
+   * required column. Same tolerance as the Access branch — Ministry
+   * exports occasionally tuck the data sheet behind a cover/index
+   * sheet. */
+  let bestMissing: string[] = [...map.required];
+  let bestRaws: Array<Record<string, RawCell>> | null = null;
+
+  for (const name of workbook.SheetNames) {
+    const sheet = workbook.Sheets[name];
+    if (!sheet) continue;
+    let raws: Array<Record<string, RawCell>>;
+    try {
+      raws = XLSX.utils.sheet_to_json<Record<string, RawCell>>(sheet, {
+        defval: null,
+        raw: true,
+      });
+    } catch {
+      continue;
+    }
+    if (raws.length === 0) continue;
+    const cols = new Set(Object.keys(raws[0]!));
+    const missing = map.required.filter((c) => !cols.has(c));
+    if (missing.length === 0) return raws.map(map.toRow);
+    if (missing.length < bestMissing.length) {
+      bestMissing = missing;
+      bestRaws = raws;
+    }
+  }
+
+  if (bestRaws == null) {
+    throw new ParseError('لا توجد ورقة بيانات قابلة للقراءة في الملف.');
+  }
+  throw new MissingColumnError(bestMissing);
+}
+
+/* ── Public entry ─────────────────────────────────────────────────── */
+
+const ACCESS_EXTENSIONS = ['.mdb', '.accdb'] as const;
+const SPREADSHEET_EXTENSIONS = ['.xlsx', '.xls', '.csv'] as const;
+
+/** Parse `buffer` (the result of `FileReader.readAsArrayBuffer`)
+ *  into typed grade rows for the given kind. Dispatches to the
+ *  right parser based on `fileName`'s extension.
+ *
+ *  Throws `MissingColumnError` when the source file is readable
+ *  but is missing one or more required columns for `kind`, or
+ *  `ParseError` for any lower-level failure (corrupt file, no usable
+ *  sheet/table, unknown extension, etc.). */
+export function parseAccessFile(
+  buffer: ArrayBuffer,
+  kind: GradeKind,
+  fileName?: string,
+): ImportedGradeRow[] {
+  const map = MAPS[kind];
+  const lower = (fileName ?? '').toLowerCase();
+  const isAccess = ACCESS_EXTENSIONS.some((ext) => lower.endsWith(ext));
+  const isSpreadsheet = SPREADSHEET_EXTENSIONS.some((ext) => lower.endsWith(ext));
+  /* `fileName` is optional for back-compat with the original parser
+   * signature; when omitted, default to the Access branch since that
+   * was the original contract. */
+  let rows: ImportedGradeRow[];
+  if (isSpreadsheet) {
+    rows = parseSpreadsheet(buffer, map);
+  } else if (isAccess || !fileName) {
+    rows = parseAccess(buffer, map);
+  } else {
+    throw new ParseError(`صيغة الملف غير مدعومة: ${fileName}`);
+  }
   /* Skip rows whose primary identifier is missing — the Ministry
-   * dumps sometimes carry trailing nulls left by the export script. */
-  return raws.map(map.toRow).filter((r) => r.nid.length > 0 && r.seat > 0);
+   * dumps and hand-prepared sheets sometimes carry trailing nulls
+   * left by the export script or blank trailing rows. */
+  return rows.filter((r) => r.nid.length > 0 && r.seat > 0);
 }

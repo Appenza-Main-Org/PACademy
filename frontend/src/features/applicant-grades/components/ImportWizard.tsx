@@ -279,14 +279,21 @@ function StepIndicator({ step }: { step: 'setup' | 'review' | 'result' }): JSX.E
  * errors that crept in when the wizard accepted re-entered sheets.
  */
 const ACCEPTED_EXTENSIONS: Record<'general' | 'azhar', readonly string[]> = {
-  general: ['.mdb'],
-  azhar: ['.accdb'],
+  /* Both kinds accept the full set of input formats — column-shape
+   * validation against the chosen kind happens after parse, so the
+   * picker doesn't have to gate at the extension level. An admin
+   * who picks an azhar `.accdb` under the general kind will see the
+   * MISSING_REQUIRED_COLUMN error step with the actual diff and can
+   * flip the kind toggle. */
+  general: ['.mdb', '.accdb', '.xlsx', '.xls', '.csv'],
+  azhar: ['.mdb', '.accdb', '.xlsx', '.xls', '.csv'],
 };
 
 /**
  * Maximum file size per extension, in megabytes. `.mdb` exports run
  * larger than `.accdb` because the older format doesn't compact
- * tablespace pages between writes — we cap each at the highest size
+ * tablespace pages between writes; the spreadsheet variants are
+ * hand-prepared and stay small. We cap each at the highest size
  * we've seen in practice (with a small margin) so an admin who
  * uploads the wrong DB still hits a useful error rather than a
  * silent timeout.
@@ -294,6 +301,9 @@ const ACCEPTED_EXTENSIONS: Record<'general' | 'azhar', readonly string[]> = {
 const SIZE_LIMITS_MB: Record<string, number> = {
   '.mdb': 500,
   '.accdb': 100,
+  '.xlsx': 10,
+  '.xls': 10,
+  '.csv': 10,
 };
 
 const MB = 1024 * 1024;
@@ -456,11 +466,12 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
         return;
       }
       try {
-        /* `parseAccessFile` lazy-loads `mdb-reader` + `buffer` on first
-         * call — the chunks aren't in the main bundle so the app can
-         * boot even when those Node-flavoured packages would otherwise
-         * crash the bundle at module-load time. */
-        const rows = await parseAccessFile(buffer, setup.kind);
+        /* `parseAccessFile` dispatches on extension: `.mdb`/`.accdb`
+         * routes through `mdb-reader`, `.xlsx`/`.xls`/`.csv` route
+         * through SheetJS. The filename is passed so the dispatcher
+         * can pick the right parser; both parsers fall back to the
+         * same column contract per kind. */
+        const rows = parseAccessFile(buffer, setup.kind, file.name);
         onChange({
           ...setup,
           file: { name: file.name, size: file.size, rows: rows.length },
