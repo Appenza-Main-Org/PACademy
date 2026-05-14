@@ -7,14 +7,16 @@
  *
  * Column order (RTL, right-to-left in the rendered table):
  *   بداية التقديم | نهاية التقديم | تاريخ احتساب السن | سنة التخرج (top) |
- *   النوع | الحالة الاجتماعية | الحد الأدنى للتقدير | الدرجة العلمية | اللجنة | سنة التخرج (per-rule)
+ *   النوع | الحالة الاجتماعية | الحد الأدنى للتقدير | الدرجة العلمية |
+ *   الكلية | التخصص | اللجنة | سنة التخرج (per-rule)
  */
 
 import { useMemo } from 'react';
 import { Card, EmptyState } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
 import { useCommittees } from '@/features/committees/api/committee.queries';
-import { date as fmtDate, num } from '@/shared/lib/format';
+import { date as fmtDate } from '@/shared/lib/format';
+import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import {
   useAdmissionSetupWizardStore,
   type ApprovedGeneralRuleRow,
@@ -85,6 +87,8 @@ export function ApprovedRulesView(): JSX.Element {
               <Th>الحالة الاجتماعية</Th>
               <Th>الحد الأدنى للتقدير</Th>
               <Th>الدرجة العلمية</Th>
+              <Th>الكلية</Th>
+              <Th>التخصص</Th>
               <Th>اللجنة</Th>
               <Th>سنة التخرج</Th>
             </tr>
@@ -131,7 +135,7 @@ function Row({
       <Td>
         {header.graduationYears.length === 0
           ? '—'
-          : header.graduationYears.map((y) => num(y)).join('، ')}
+          : header.graduationYears.map((y) => toEasternArabicNumerals(y)).join('، ')}
       </Td>
       <Td>
         {row.type.length === 0
@@ -151,13 +155,15 @@ function Row({
           .map((d) => degreeLabel.get(d) ?? d)
           .join('، ')}
       </Td>
+      <Td>{row.facultyNameAr || row.facultyCode || '—'}</Td>
+      <Td>{row.specializationNameAr || row.specializationCode || '—'}</Td>
       <Td>
         {row.committees.map((id) => committeeLabel.get(id) ?? id).join('، ')}
       </Td>
       <Td>
         {row.graduationYears.length === 0
           ? '—'
-          : row.graduationYears.map((y) => num(y)).join('، ')}
+          : row.graduationYears.map((y) => toEasternArabicNumerals(y)).join('، ')}
       </Td>
     </tr>
   );

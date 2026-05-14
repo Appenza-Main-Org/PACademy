@@ -34,6 +34,7 @@ import { useLookup } from '@/features/lookups';
 import { useCommittees } from '@/features/committees/api/committee.queries';
 import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 import { num } from '@/shared/lib/format';
+import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import {
   useAdmissionSetupWizardStore,
   type GeneralRuleRowInput,
@@ -796,7 +797,7 @@ function LocalRulesGrid({
               <Td>
                 {r.committees.map((id) => labelForCommittee(id)).join('، ')}
               </Td>
-              <Td>{r.graduationYears.map((y) => num(y)).join('، ')}</Td>
+              <Td>{r.graduationYears.map((y) => toEasternArabicNumerals(y)).join('، ')}</Td>
               <td className="px-3 py-2 align-middle text-end">
                 <button
                   type="button"
