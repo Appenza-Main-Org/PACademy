@@ -28,7 +28,7 @@
  */
 
 import { useEffect, useMemo } from 'react';
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import {
   Badge,
@@ -91,7 +91,6 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
 export function AdmissionSetupWizardPage(): JSX.Element {
   const { stepKey } = useParams<{ stepKey: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const cycleCtx = useAdmissionSetupCycle();
   const user = useAuthStore((s) => s.user);
   const canRead = Boolean(user && hasPermission(user.permissions, 'admission-setup:read'));
@@ -204,22 +203,6 @@ export function AdmissionSetupWizardPage(): JSX.Element {
 
   const activeLabel = isReview ? 'المراجعة والاعتماد' : activeStep?.labelAr ?? '';
 
-  /* The committees step has two sub-pages — «إضافة» and «عرض» — driven by
-   * `?sub=`. They're surfaced as sub-steps 4.1 (add) and 4.2 (view) so the
-   * wizard's "الخطوة N من M" badge stays meaningful while the admin is
-   * inside that step. Other steps fall back to the plain step number. */
-  const stepNumberDisplay = (() => {
-    if (isReview) {
-      return toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS + 1);
-    }
-    const baseNumber = activeIndex + 1;
-    if (activeKey === 'committees') {
-      const subIndex = searchParams.get('sub') === 'add' ? 1 : 2;
-      return `${toEasternArabicNumerals(baseNumber)}٫${toEasternArabicNumerals(subIndex)}`;
-    }
-    return toEasternArabicNumerals(baseNumber);
-  })();
-
   return (
     <WizardModeProvider>
       {/* `scrollPaddingBlockEnd` ensures keyboard / browser scroll-into-view
@@ -252,7 +235,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
             </span>
             <span aria-hidden className="text-ink-300">·</span>
             <span className="font-numeric tnum">
-              الخطوة {stepNumberDisplay} من{' '}
+              الخطوة {toEasternArabicNumerals(activeIndex + 1)} من{' '}
               {toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS + 1)} —{' '}
               <span className="text-ink-700">{activeLabel}</span>
             </span>

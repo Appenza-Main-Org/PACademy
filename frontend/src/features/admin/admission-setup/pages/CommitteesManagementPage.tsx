@@ -1,17 +1,15 @@
 /**
  * إدارة مواعيد الاختبارات واللجان — wizard step.
  *
- * Renders the step's two affordances — «إضافة» and «عرض» — as distinct
- * sub-pages under the step header instead of tabs. The `?sub=` search
- * param drives which sub-page renders so the browser Back button and
- * bookmarks behave like a real navigation. Default (no param) is the
- * «عرض» landing — the master view — with a primary action that
- * navigates to the «إضافة» sub-page.
+ * Renders the step's two affordances — «إضافة» and «عرض» — as horizontal
+ * tabs so both are visible at once and a single click flips between them.
+ * The `?sub=` search param mirrors the active tab so deep-links and the
+ * browser Back button still behave (default = «عرض»).
  */
 
 import { useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Plus } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -19,6 +17,7 @@ import {
   EmptyState,
   LoadingState,
   PageHeader,
+  Tabs,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import {
@@ -33,19 +32,8 @@ import { CommitteeBindingsPanel } from '../components/committeeBinding/Committee
 import { ApprovedRulesView } from '../components/committeeBinding/ApprovedRulesView';
 import { useAdmissionSetupWizardStore } from '../store/wizardSharedState';
 import { num } from '@/shared/lib/format';
-import { toEasternArabicNumerals } from '@/shared/lib/arabic';
-import { getStepByKey } from '../config';
 
 type SubPage = 'view' | 'add';
-
-/* «إضافة» = sub-step 4.1, «عرض» = sub-step 4.2 — the parent step number
- * is derived from config so a future reorder of `ADMISSION_SETUP_STEPS`
- * stays consistent without hand-editing this file. */
-const COMMITTEES_STEP_ORDER = getStepByKey('committees').order;
-function subStepLabel(sub: SubPage): string {
-  const subIndex = sub === 'add' ? 1 : 2;
-  return `الخطوة ${toEasternArabicNumerals(COMMITTEES_STEP_ORDER)}٫${toEasternArabicNumerals(subIndex)}`;
-}
 
 /** Cycles only declare `year`; the academic year string is `${year}-${year+1}`. */
 function academicYearForCycle(cycle: AdmissionCycle): string {
@@ -110,23 +98,23 @@ function Body({ cycle }: BodyProps): JSX.Element {
     );
   }
 
-  return <SubPageRouter cycle={cycle} active={active} />;
+  return <CommitteesTabs cycle={cycle} active={active} />;
 }
 
-interface SubPageRouterProps {
+interface CommitteesTabsProps {
   cycle: AdmissionCycle;
   active: Array<{ key: ApplicantCategoryKey; labelAr: string }>;
 }
 
-function SubPageRouter({ cycle, active }: SubPageRouterProps): JSX.Element {
+function CommitteesTabs({ cycle, active }: CommitteesTabsProps): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const sub = readSubPage(searchParams.get('sub'));
   const approvedCount = useAdmissionSetupWizardStore((s) => s.approved.length);
 
   /* Mutate only the `sub` param so we don't clobber other state on the
    * URL (the wizard's :stepKey lives in the path, not the search). */
-  const goToSub = useCallback(
-    (next: SubPage) => {
+  const onTabChange = useCallback(
+    (next: string) => {
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
@@ -137,7 +125,7 @@ function SubPageRouter({ cycle, active }: SubPageRouterProps): JSX.Element {
           }
           return params;
         },
-        { replace: false },
+        { replace: true },
       );
     },
     [setSearchParams],
@@ -145,52 +133,10 @@ function SubPageRouter({ cycle, active }: SubPageRouterProps): JSX.Element {
 
   const academicYear = academicYearForCycle(cycle);
 
-  if (sub === 'add') {
-    return (
-      <div className="flex flex-col gap-4">
-        <PageHeader
-          title={
-            <span className="flex flex-wrap items-center gap-2">
-              <span>إضافة موعد اختبار</span>
-              <Badge tone="info">
-                <span className="font-numeric tnum">{subStepLabel('add')}</span>
-              </Badge>
-            </span>
-          }
-          subtitle={`العام الأكاديمي ${academicYear} · أضف موعدًا لفئة واحدة أو أكثر معًا.`}
-          actions={
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => goToSub('view')}
-              leadingIcon={
-                <ArrowRight size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
-              }
-            >
-              الرجوع إلى العرض
-            </Button>
-          }
-        />
-        <Card>
-          <div className="p-3">
-            <CommitteeBindingsPanel cycle={cycle} active={active} />
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            <span>إدارة مواعيد الاختبارات واللجان</span>
-            <Badge tone="info">
-              <span className="font-numeric tnum">{subStepLabel('view')}</span>
-            </Badge>
-          </span>
-        }
+        title="إدارة مواعيد الاختبارات واللجان"
         subtitle={`العام الأكاديمي ${academicYear} · ${
           approvedCount > 0
             ? `${num(approvedCount)} قاعدة معتمدة`
@@ -201,14 +147,6 @@ function SubPageRouter({ cycle, active }: SubPageRouterProps): JSX.Element {
             {approvedCount > 0 && (
               <Badge tone="info">{num(approvedCount)} قاعدة</Badge>
             )}
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => goToSub('add')}
-              leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-            >
-              إضافة موعد جديد
-            </Button>
             <Link to={ROUTES.committee.list} className="inline-flex">
               <Button
                 variant="ghost"
@@ -223,7 +161,27 @@ function SubPageRouter({ cycle, active }: SubPageRouterProps): JSX.Element {
           </div>
         }
       />
-      <ApprovedRulesView />
+
+      <Tabs value={sub} onValueChange={onTabChange}>
+        <Tabs.List aria-label="إضافة موعد أو عرض القواعد المعتمدة">
+          <Tabs.Tab value="add">إضافة</Tabs.Tab>
+          <Tabs.Tab value="view" badge={approvedCount > 0 ? num(approvedCount) : undefined}>
+            عرض
+          </Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="add">
+          <Card>
+            <div className="p-3">
+              <CommitteeBindingsPanel cycle={cycle} active={active} />
+            </div>
+          </Card>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="view">
+          <ApprovedRulesView />
+        </Tabs.Panel>
+      </Tabs>
     </div>
   );
 }
