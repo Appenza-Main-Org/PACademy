@@ -247,17 +247,17 @@ export function ApplicantGradesPage(): JSX.Element {
     {
       key: 'eff',
       label: 'المجموع الإجمالي بعد التعديل',
-      numeric: true,
+      align: 'center',
       sortable: true,
       /* New label is ~5× longer than "الفعلي"; bump the column floor so
-       * it fits on one line in the header at standard desktop widths. */
-      className: 'min-w-[20ch] whitespace-nowrap',
+       * it fits on one line in the header at standard desktop widths.
+       * `align: 'center'` lines the values up under the header label. */
+      className: 'min-w-[20ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
-        /* Two-line stack + optional diff badge. Use a full-width flex
-         * so the stack's end edge lands at the cell's end (= the same
-         * column edge the header label sits on). The badge sits to the
-         * inline-start of the stack and never pushes the numbers. */
-        <span className="flex items-center justify-end gap-2">
+        /* Two-line stack + optional diff badge, centered under the header.
+         * The badge sits to the inline-start of the stack and never pushes
+         * the numbers off-center. */
+        <span className="flex items-center justify-center gap-2">
           {r.adj !== 0 && (
             <Badge
               tone={r.adj > 0 ? 'warning' : 'danger'}
@@ -273,7 +273,7 @@ export function ApplicantGradesPage(): JSX.Element {
               <span className="font-numeric tabular-nums">{Math.abs(r.adj)}</span>
             </Badge>
           )}
-          <span className="flex flex-col items-end gap-px leading-tight">
+          <span className="flex flex-col items-center gap-px leading-tight">
             <span
               className={`font-bold ${
                 r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-900'
@@ -549,10 +549,9 @@ function RowActions({
             variant="ghost"
             size="icon"
             aria-label="إجراءات"
-            className="!h-8 !w-8 !text-ink-500 hover:!bg-ink-100/60 hover:!text-ink-900 focus-visible:!bg-ink-100/60"
-          >
-            <MoreVertical size={16} strokeWidth={1.75} aria-hidden />
-          </Button>
+            leadingIcon={<MoreVertical size={18} strokeWidth={2} aria-hidden />}
+            className="!h-8 !w-8 !text-ink-700 hover:!bg-ink-100 hover:!text-ink-900 focus-visible:!bg-ink-100"
+          />
         </DropdownMenu.Trigger>
         <DropdownMenu.Content sideOffset={6}>
           <DropdownMenu.Item
