@@ -50,13 +50,6 @@ const GENDER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'female', label: 'أنثى' },
 ];
 
-const ACADEMIC_DEGREES: ReadonlyArray<ComboboxOption> = [
-  { value: 'bachelor', label: 'بكالوريوس' },
-  { value: 'higher_diploma', label: 'دبلوم عالٍ' },
-  { value: 'master', label: 'ماجستير' },
-  { value: 'doctorate', label: 'دكتوراه' },
-];
-
 const CURRENT_YEAR = new Date().getFullYear();
 const GRADUATION_YEAR_OPTIONS: ReadonlyArray<ComboboxOption> = Array.from(
   { length: 5 },
@@ -76,6 +69,7 @@ export function GeneralRulesSection(): JSX.Element {
   const specializationsQuery = useLookup('specializations');
   const maritalQuery = useLookup('marital-statuses');
   const gradesQuery = useLookup('academic-grades');
+  const degreesQuery = useLookup('academic-degrees');
   const committeesQuery = useCommittees();
 
   const approveLocal = useAdmissionSetupWizardStore((s) => s.approveLocal);
@@ -86,6 +80,7 @@ export function GeneralRulesSection(): JSX.Element {
     specializationsQuery.isLoading ||
     maritalQuery.isLoading ||
     gradesQuery.isLoading ||
+    degreesQuery.isLoading ||
     committeesQuery.isLoading;
 
   const isError =
@@ -93,6 +88,7 @@ export function GeneralRulesSection(): JSX.Element {
     specializationsQuery.isError ||
     maritalQuery.isError ||
     gradesQuery.isError ||
+    degreesQuery.isError ||
     committeesQuery.isError;
 
   const activeFaculties = useMemo(
@@ -127,6 +123,14 @@ export function GeneralRulesSection(): JSX.Element {
     [gradesQuery.data],
   );
 
+  const degreeOptions = useMemo<Array<{ value: string; label: string }>>(
+    () =>
+      (degreesQuery.data ?? [])
+        .filter((d) => d.isActive)
+        .map((d) => ({ value: d.code, label: d.name })),
+    [degreesQuery.data],
+  );
+
   /* Committees are scoped to the «الضباط المتخصصون» category. النوع is
    * gender now and no longer gates this list. */
   const committeeOptions = useMemo(
@@ -157,6 +161,7 @@ export function GeneralRulesSection(): JSX.Element {
           specializationsQuery.refetch();
           maritalQuery.refetch();
           gradesQuery.refetch();
+          degreesQuery.refetch();
           committeesQuery.refetch();
         }}
       />
@@ -204,6 +209,7 @@ export function GeneralRulesSection(): JSX.Element {
                   specializations={specs}
                   maritalOptions={maritalOptions}
                   gradeOptions={gradeOptions}
+                  degreeOptions={degreeOptions}
                   committeeOptions={committeeOptions}
                 />
               );
@@ -325,6 +331,7 @@ interface FacultyItemProps {
   specializations: Array<{ code: string; name: string }>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<{ value: string; label: string }>;
+  degreeOptions: ReadonlyArray<{ value: string; label: string }>;
   committeeOptions: ReadonlyArray<{ id: string; name: string }>;
 }
 
@@ -334,6 +341,7 @@ function FacultyItem({
   specializations,
   maritalOptions,
   gradeOptions,
+  degreeOptions,
   committeeOptions,
 }: FacultyItemProps): JSX.Element {
   return (
@@ -373,6 +381,7 @@ function FacultyItem({
                 specializationNameAr={spec.name}
                 maritalOptions={maritalOptions}
                 gradeOptions={gradeOptions}
+                degreeOptions={degreeOptions}
                 committeeOptions={committeeOptions}
               />
             ))}
@@ -392,6 +401,7 @@ interface SpecializationItemProps {
   specializationNameAr: string;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<{ value: string; label: string }>;
+  degreeOptions: ReadonlyArray<{ value: string; label: string }>;
   committeeOptions: ReadonlyArray<{ id: string; name: string }>;
 }
 
@@ -402,6 +412,7 @@ function SpecializationItem({
   specializationNameAr,
   maritalOptions,
   gradeOptions,
+  degreeOptions,
   committeeOptions,
 }: SpecializationItemProps): JSX.Element {
   const value = `${facultyCode}::${specializationCode}`;
@@ -431,6 +442,7 @@ function SpecializationItem({
           specializationNameAr={specializationNameAr}
           maritalOptions={maritalOptions}
           gradeOptions={gradeOptions}
+          degreeOptions={degreeOptions}
           committeeOptions={committeeOptions}
         />
       </Accordion.Content>
@@ -458,6 +470,7 @@ function SpecializationPanel({
   specializationNameAr,
   maritalOptions,
   gradeOptions,
+  degreeOptions,
   committeeOptions,
 }: SpecializationPanelProps): JSX.Element {
   const [draft, setDraft] = useState<GeneralRuleRowInput>(EMPTY_INPUT);
@@ -536,13 +549,19 @@ function SpecializationPanel({
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
           <FieldLabel label="الدرجة العلمية">
-            <CheckboxGroup
-              options={ACADEMIC_DEGREES}
-              value={draft.academicDegrees}
-              onChange={(next) =>
-                setDraft((d) => ({ ...d, academicDegrees: next }))
-              }
-            />
+            {degreeOptions.length === 0 ? (
+              <p className="font-ar text-2xs text-ink-500">
+                لا توجد درجات علمية مفعّلة في المراجع.
+              </p>
+            ) : (
+              <CheckboxGroup
+                options={degreeOptions}
+                value={draft.academicDegrees}
+                onChange={(next) =>
+                  setDraft((d) => ({ ...d, academicDegrees: next }))
+                }
+              />
+            )}
           </FieldLabel>
 
           <FieldLabel label="اللجنة">
@@ -600,6 +619,7 @@ function SpecializationPanel({
         rows={rows}
         maritalOptions={maritalOptions}
         gradeOptions={gradeOptions}
+        degreeOptions={degreeOptions}
         committeeOptions={committeeOptions}
         onDelete={(id) => removeLocalRow(id)}
       />
@@ -656,6 +676,7 @@ interface LocalRulesGridProps {
   rows: LocalGeneralRuleRow[];
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<{ value: string; label: string }>;
+  degreeOptions: ReadonlyArray<{ value: string; label: string }>;
   committeeOptions: ReadonlyArray<{ id: string; name: string }>;
   onDelete: (id: string) => void;
 }
@@ -664,6 +685,7 @@ function LocalRulesGrid({
   rows,
   maritalOptions,
   gradeOptions,
+  degreeOptions,
   committeeOptions,
   onDelete,
 }: LocalRulesGridProps): JSX.Element {
@@ -674,7 +696,7 @@ function LocalRulesGrid({
   const labelForGrade = (v: string): string =>
     gradeOptions.find((o) => o.value === v)?.label ?? v;
   const labelForDegree = (v: string): string =>
-    ACADEMIC_DEGREES.find((o) => o.value === v)?.label ?? v;
+    degreeOptions.find((o) => o.value === v)?.label ?? v;
   const labelForCommittee = (id: string): string =>
     committeeOptions.find((c) => c.id === id)?.name ?? id;
 

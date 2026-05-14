@@ -25,18 +25,12 @@ const TYPE_LABELS: Record<string, string> = {
   female: 'أنثى',
 };
 
-const ACADEMIC_DEGREE_LABELS: Record<string, string> = {
-  bachelor: 'بكالوريوس',
-  higher_diploma: 'دبلوم عالٍ',
-  master: 'ماجستير',
-  doctorate: 'دكتوراه',
-};
-
 export function ApprovedRulesView(): JSX.Element {
   const approved = useAdmissionSetupWizardStore((s) => s.approved);
 
   const maritalQuery = useLookup('marital-statuses');
   const gradesQuery = useLookup('academic-grades');
+  const degreesQuery = useLookup('academic-degrees');
   const committeesQuery = useCommittees();
 
   const maritalLabel = useMemo(() => {
@@ -50,6 +44,12 @@ export function ApprovedRulesView(): JSX.Element {
     for (const g of gradesQuery.data ?? []) map.set(g.code, g.name);
     return map;
   }, [gradesQuery.data]);
+
+  const degreeLabel = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const d of degreesQuery.data ?? []) map.set(d.code, d.name);
+    return map;
+  }, [degreesQuery.data]);
 
   const committeeLabel = useMemo(() => {
     const map = new Map<string, string>();
@@ -96,6 +96,7 @@ export function ApprovedRulesView(): JSX.Element {
                 row={row}
                 maritalLabel={maritalLabel}
                 gradeLabel={gradeLabel}
+                degreeLabel={degreeLabel}
                 committeeLabel={committeeLabel}
               />
             ))}
@@ -110,6 +111,7 @@ interface RowProps {
   row: ApprovedGeneralRuleRow;
   maritalLabel: Map<string, string>;
   gradeLabel: Map<string, string>;
+  degreeLabel: Map<string, string>;
   committeeLabel: Map<string, string>;
 }
 
@@ -117,6 +119,7 @@ function Row({
   row,
   maritalLabel,
   gradeLabel,
+  degreeLabel,
   committeeLabel,
 }: RowProps): JSX.Element {
   const { header } = row;
@@ -135,7 +138,7 @@ function Row({
       <Td>{gradeLabel.get(row.grade) ?? row.grade}</Td>
       <Td>
         {row.academicDegrees
-          .map((d) => ACADEMIC_DEGREE_LABELS[d] ?? d)
+          .map((d) => degreeLabel.get(d) ?? d)
           .join('، ')}
       </Td>
       <Td>
