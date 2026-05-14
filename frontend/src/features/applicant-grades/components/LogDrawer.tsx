@@ -110,13 +110,11 @@ export function LogDrawer({
                   <button
                     key={v}
                     onClick={() => setFilter(v)}
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-xs"
-                    style={{
-                      background: active ? '#fff' : 'transparent',
-                      border: `1px solid ${active ? 'var(--border-default)' : 'transparent'}`,
-                      color: active ? 'var(--ink-900)' : 'var(--ink-500)',
-                      fontWeight: active ? 600 : 500,
-                    }}
+                    className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+                      active
+                        ? 'border-border-default bg-white font-semibold text-ink-900'
+                        : 'border-transparent bg-transparent font-medium text-ink-500'
+                    }`}
                   >
                     {label}
                     <span className="font-en text-2xs text-ink-500">{n}</span>
@@ -141,11 +139,7 @@ export function LogDrawer({
               {filtered.length > 1 && (
                 <span
                   aria-hidden
-                  className="absolute bottom-4 top-4 w-0.5 rounded-full"
-                  style={{
-                    insetInlineStart: 11,
-                    background: 'linear-gradient(180deg, var(--gold-200), var(--ink-200))',
-                  }}
+                  className="absolute bottom-4 top-4 w-0.5 rounded-full start-[11px] bg-gradient-to-b from-gold-200 to-ink-200"
                 />
               )}
               {filtered.map((entry) => (
@@ -192,18 +186,12 @@ function MiniStat({
   tone?: 'gold' | 'strong';
   overrideHint?: boolean;
 }): JSX.Element {
-  const fg =
-    tone === 'gold' ? 'var(--gold-700)' : tone === 'strong' ? 'var(--ink-900)' : 'var(--ink-800)';
+  const bg = tone === 'gold' ? 'bg-gold-50' : tone === 'strong' ? 'bg-teal-50' : 'bg-white';
+  const fg = tone === 'gold' ? 'text-gold-700' : tone === 'strong' ? 'text-ink-900' : 'text-ink-800';
   return (
-    <div
-      className="flex flex-1 flex-col gap-0.5 border-s border-border-subtle px-3 py-2.5 first:border-s-0"
-      style={{
-        background:
-          tone === 'gold' ? 'var(--gold-50)' : tone === 'strong' ? 'var(--teal-50)' : '#fff',
-      }}
-    >
+    <div className={`flex flex-1 flex-col gap-0.5 border-s border-border-subtle px-3 py-2.5 first:border-s-0 ${bg}`}>
       <span className="text-2xs text-ink-500">{label}</span>
-      <span className="font-ar-display font-en text-md font-bold leading-tight" style={{ color: fg }}>
+      <span className={`font-ar-display font-en text-md font-bold leading-tight ${fg}`}>
         {value}
       </span>
       {(sub || overrideHint) && (
@@ -229,23 +217,28 @@ interface EntryProps {
 function LogEntry({ entry, onToggle, onDelete }: EntryProps): JSX.Element {
   const { reasonLabel, reason, note, amount, by, when, isActive, fresh } = entry;
   const positive = amount > 0;
+  const dotBorder = isActive
+    ? positive
+      ? 'border-gold-500'
+      : 'border-terra-500'
+    : 'border-ink-300';
+  const amountClasses = !isActive
+    ? 'bg-ink-50 text-ink-500 border-border-default line-through'
+    : positive
+      ? 'bg-gold-50 text-gold-700 border-gold-200'
+      : 'bg-terra-50 text-terra-700 border-terra-100';
   return (
-    <li className="relative" style={{ paddingInlineStart: 32 }}>
+    <li className="relative ps-8">
       <span
         aria-hidden
-        className="absolute h-3 w-3 rounded-full bg-white"
-        style={{
-          top: 14,
-          insetInlineStart: 6,
-          border: `2px solid ${
-            isActive ? (positive ? 'var(--gold-500)' : 'var(--terra-500)') : 'var(--ink-300)'
-          }`,
-          boxShadow: fresh ? '0 0 0 4px rgba(184,134,44,0.18)' : 'none',
-        }}
+        className={`absolute top-3.5 start-1.5 h-3 w-3 rounded-full border-2 bg-white ${dotBorder} ${
+          fresh ? 'shadow-[0_0_0_4px_rgba(184,134,44,0.18)]' : ''
+        }`}
       />
       <article
-        className="rounded-md border border-border-subtle bg-white p-3.5 transition-opacity"
-        style={{ opacity: isActive ? 1 : 0.78 }}
+        className={`rounded-md border border-border-subtle bg-white p-3.5 transition-opacity ${
+          isActive ? 'opacity-100' : 'opacity-75'
+        }`}
       >
         <header className="flex items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -254,27 +247,7 @@ function LogEntry({ entry, onToggle, onDelete }: EntryProps): JSX.Element {
             {!isActive && <Badge tone="neutral">موقوف</Badge>}
             {fresh && <Badge tone="success" dot>جديد</Badge>}
           </div>
-          <span
-            className="rounded-full border px-3 py-1 font-en text-sm font-bold"
-            style={{
-              background: !isActive
-                ? 'var(--ink-50)'
-                : positive
-                  ? 'var(--gold-50)'
-                  : 'var(--terra-50)',
-              color: !isActive
-                ? 'var(--ink-500)'
-                : positive
-                  ? 'var(--gold-700)'
-                  : 'var(--terra-700)',
-              borderColor: !isActive
-                ? 'var(--border-default)'
-                : positive
-                  ? 'var(--gold-200)'
-                  : 'var(--terra-100)',
-              textDecoration: !isActive ? 'line-through' : 'none',
-            }}
-          >
+          <span className={`rounded-full border px-3 py-1 font-en text-sm font-bold ${amountClasses}`}>
             {positive ? '+' : '−'}
             {Math.abs(amount)}
           </span>
@@ -292,15 +265,19 @@ function LogEntry({ entry, onToggle, onDelete }: EntryProps): JSX.Element {
             <button
               type="button"
               onClick={onToggle}
+              role="switch"
+              aria-checked={isActive}
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border-default bg-white px-2.5 py-1 text-2xs text-ink-700"
             >
               <span
-                className="relative h-3 w-[22px] rounded-full transition-colors"
-                style={{ background: isActive ? 'var(--teal-500)' : 'var(--ink-300)' }}
+                className={`relative h-3 w-[22px] rounded-full transition-colors ${
+                  isActive ? 'bg-teal-500' : 'bg-ink-300'
+                }`}
               >
                 <span
-                  className="absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-[inset-inline-start]"
-                  style={{ insetInlineStart: isActive ? 11 : 1 }}
+                  className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-[inset-inline-start] ${
+                    isActive ? 'start-[11px]' : 'start-0.5'
+                  }`}
                 />
               </span>
               {isActive ? 'نشط' : 'موقوف'}

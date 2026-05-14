@@ -637,24 +637,20 @@ function SummaryCell({
   tone: 'success' | 'warn' | 'info' | 'ink';
   big?: boolean;
 }): JSX.Element {
-  const map: Record<typeof tone, { fg: string; bg: string }> = {
-    success: { fg: 'var(--success)', bg: 'var(--success-bg)' },
-    warn: { fg: 'var(--gold-700)', bg: 'var(--gold-50)' },
-    info: { fg: 'var(--teal-700)', bg: 'var(--teal-50)' },
-    ink: { fg: 'var(--ink-700)', bg: '#fff' },
-  };
+  const map = {
+    success: { cls: 'bg-success-bg text-success', accent: 'bg-success' },
+    warn: { cls: 'bg-gold-50 text-gold-700', accent: 'bg-gold-700' },
+    info: { cls: 'bg-teal-50 text-teal-700', accent: 'bg-teal-700' },
+    ink: { cls: 'bg-white text-ink-700', accent: 'bg-ink-700' },
+  } as const;
   const t = map[tone];
   return (
     <div
-      className="relative flex flex-col gap-0.5 border-s border-border-subtle px-4 py-3 first:border-s-0"
-      style={{ background: t.bg, color: t.fg }}
+      className={`relative flex flex-col gap-0.5 border-s border-border-subtle px-4 py-3 first:border-s-0 ${t.cls}`}
     >
-      {big && (
-        <span aria-hidden className="absolute inset-x-0 top-0 h-0.5" style={{ background: t.fg }} />
-      )}
+      {big && <span aria-hidden className={`absolute inset-x-0 top-0 h-0.5 ${t.accent}`} />}
       <span
-        className="font-ar-display font-en font-bold leading-tight"
-        style={{ fontSize: big ? 26 : 22 }}
+        className={`font-ar-display font-en font-bold leading-tight ${big ? 'text-2xl' : 'text-xl'}`}
       >
         {value}
       </span>
@@ -677,34 +673,24 @@ function FilterPill({
   tone?: 'gold' | 'success' | 'terra' | 'ink';
 }): JSX.Element {
   const map = {
-    gold: { fg: 'var(--gold-700)', bg: 'var(--gold-50)' },
-    success: { fg: 'var(--success)', bg: 'var(--success-bg)' },
-    terra: { fg: 'var(--terra-700)', bg: 'var(--terra-50)' },
-    ink: { fg: 'var(--ink-700)', bg: 'var(--ink-100)' },
-  };
-  const t = tone ? map[tone] : undefined;
+    gold: 'bg-gold-50 text-gold-700',
+    success: 'bg-success-bg text-success',
+    terra: 'bg-terra-50 text-terra-700',
+    ink: 'bg-ink-100 text-ink-700',
+  } as const;
+  const counterCls = tone ? map[tone] : 'bg-ink-100 text-ink-500';
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-2xs"
-      style={{
-        background: active ? '#fff' : 'transparent',
-        border: `1px solid ${active ? 'var(--border-default)' : 'transparent'}`,
-        color: active ? 'var(--ink-900)' : 'var(--ink-500)',
-        fontWeight: active ? 600 : 500,
-      }}
+      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs ${
+        active
+          ? 'border-border-default bg-white font-semibold text-ink-900'
+          : 'border-transparent bg-transparent font-medium text-ink-500'
+      }`}
     >
       {label}
-      <span
-        className="rounded-full px-1.5 font-en text-2xs font-semibold"
-        style={{
-          background: t ? t.bg : 'var(--ink-100)',
-          color: t ? t.fg : 'var(--ink-500)',
-        }}
-      >
-        {n}
-      </span>
+      <span className={`rounded-full px-1.5 font-en text-2xs font-semibold ${counterCls}`}>{n}</span>
     </button>
   );
 }
@@ -725,21 +711,13 @@ function DuplicateCard({
     dup.adjustmentCount > 0 && isAccept && (newEff > dup.maxDegree || newEff < 0);
   const wasteful = !dup.hasChanges && isAccept;
 
+  const borderClasses = isAccept
+    ? 'border-success border-s-success'
+    : isReject
+      ? 'border-border-default border-s-ink-300'
+      : 'border-border-subtle border-s-gold-400';
   return (
-    <article
-      className="overflow-hidden rounded-md bg-white"
-      style={{
-        border: `1px solid ${
-          isAccept ? 'var(--success)' : isReject ? 'var(--border-default)' : 'var(--border-subtle)'
-        }`,
-        borderInlineStartWidth: 3,
-        borderInlineStartColor: isAccept
-          ? 'var(--success)'
-          : isReject
-            ? 'var(--ink-300)'
-            : 'var(--gold-400)',
-      }}
-    >
+    <article className={`overflow-hidden rounded-md border bg-white border-s-[3px] ${borderClasses}`}>
       <header className="flex items-center justify-between gap-3 border-b border-border-subtle px-3.5 py-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -805,10 +783,7 @@ function DuplicateCard({
         <div className="flex flex-col gap-2.5 px-3.5 py-3">
           <DiffTable dup={dup} resolution={resolution} />
           {willDeactivate && (
-            <div
-              className="flex items-start gap-2 rounded-md border border-terra-300 bg-terra-50 px-3 py-2.5 text-xs text-terra-700"
-              style={{ borderInlineStartWidth: 3 }}
-            >
+            <div className="flex items-start gap-2 rounded-md border border-terra-300 border-s-[3px] border-s-terra-500 bg-terra-50 px-3 py-2.5 text-xs text-terra-700">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden />
               <div>
                 <div className="mb-0.5 font-semibold">
@@ -863,21 +838,15 @@ function ResolveBtn({
   tone: 'success' | 'ink';
   onClick: () => void;
 }): JSX.Element {
-  const map = {
-    success: { fg: 'var(--success)', bg: 'var(--success-bg)' },
-    ink: { fg: 'var(--ink-900)', bg: '#fff' },
-  };
-  const t = map[tone];
+  const activeCls =
+    tone === 'success' ? 'bg-success-bg text-success font-semibold' : 'bg-white text-ink-900 font-semibold';
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm border-0 px-3 py-1 text-2xs transition-colors"
-      style={{
-        background: active ? t.bg : 'transparent',
-        color: active ? t.fg : 'var(--ink-700)',
-        fontWeight: active ? 600 : 500,
-      }}
+      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-sm border-0 px-3 py-1 text-2xs transition-colors ${
+        active ? activeCls : 'bg-transparent font-medium text-ink-700 hover:bg-ink-50'
+      }`}
     >
       {active && <Check size={12} aria-hidden />}
       {label}
@@ -908,11 +877,12 @@ function DiffTable({
     { key: 'status', numeric: false },
   ];
   const isReject = resolution === 'REJECT';
+  const gridCols = { gridTemplateColumns: '140px 1fr 1fr' };
   return (
     <div className="overflow-hidden rounded-sm border border-border-subtle">
       <div
-        className="grid bg-ink-50 px-3 py-1.5 text-2xs font-semibold uppercase tracking-wider text-ink-500"
-        style={{ gridTemplateColumns: '140px 1fr 1fr', borderBottom: '1px solid var(--border-subtle)' }}
+        className="grid border-b border-border-subtle bg-ink-50 px-3 py-1.5 text-2xs font-semibold uppercase tracking-wider text-ink-500"
+        style={gridCols}
       >
         <span>الحقل</span>
         <span>الحالي</span>
@@ -926,45 +896,32 @@ function DiffTable({
         return (
           <div
             key={key}
-            className="grid px-3 py-1.5 text-xs"
-            style={{
-              gridTemplateColumns: '140px 1fr 1fr',
-              borderBottom: '1px solid var(--border-subtle)',
-              background: changed ? 'var(--gold-50)' : '#fff',
-              opacity: changed ? 1 : 0.6,
-            }}
+            className={`grid border-b border-border-subtle px-3 py-1.5 text-xs ${
+              changed ? 'bg-gold-50 opacity-100' : 'bg-white opacity-60'
+            }`}
+            style={gridCols}
           >
             <span className="font-medium text-ink-600">{FIELD_LABELS[key]}</span>
             <span
-              className={numeric ? 'font-en' : ''}
-              style={{
-                color: changed ? 'var(--ink-700)' : 'var(--ink-500)',
-                textDecoration: changed && !isReject ? 'line-through' : 'none',
-                fontWeight: changed ? 500 : 400,
-              }}
+              className={`${numeric ? 'font-en' : ''} ${
+                changed ? 'font-medium text-ink-700' : 'text-ink-500'
+              } ${changed && !isReject ? 'line-through' : ''}`}
             >
               {exVal}
             </span>
             <span
-              className={`inline-flex items-center gap-1.5 ${numeric ? 'font-en' : ''}`}
-              style={{
-                color: changed
-                  ? isReject
-                    ? 'var(--ink-400)'
-                    : 'var(--gold-700)'
-                  : 'var(--ink-500)',
-                fontWeight: changed ? 700 : 400,
-                textDecoration: changed && isReject ? 'line-through' : 'none',
-              }}
+              className={`inline-flex items-center gap-1.5 ${numeric ? 'font-en' : ''} ${
+                changed ? (isReject ? 'text-ink-400' : 'font-bold text-gold-700') : 'text-ink-500'
+              } ${changed && isReject ? 'line-through' : ''}`}
             >
               {inVal}
               {numeric && changed && numericDelta !== 0 && (
                 <span
-                  className="inline-flex items-center gap-0.5 rounded-full px-1.5 font-en text-2xs font-semibold"
-                  style={{
-                    background: numericDelta > 0 ? 'var(--gold-100)' : 'var(--terra-100)',
-                    color: numericDelta > 0 ? 'var(--gold-700)' : 'var(--terra-700)',
-                  }}
+                  className={`inline-flex items-center gap-0.5 rounded-full px-1.5 font-en text-2xs font-semibold ${
+                    numericDelta > 0
+                      ? 'bg-gold-100 text-gold-700'
+                      : 'bg-terra-100 text-terra-700'
+                  }`}
                 >
                   {Math.abs(numericDelta)}
                 </span>
@@ -974,28 +931,15 @@ function DiffTable({
         );
       })}
       {dup.seatIncoming !== dup.seatExisting && (
-        <div
-          className="grid bg-gold-50 px-3 py-1.5 text-xs"
-          style={{ gridTemplateColumns: '140px 1fr 1fr' }}
-        >
+        <div className="grid bg-gold-50 px-3 py-1.5 text-xs" style={gridCols}>
           <span className="font-medium text-ink-600">رقم الجلوس</span>
           <span
-            className="font-en"
-            style={{
-              color: isReject ? 'var(--ink-500)' : 'var(--ink-700)',
-              textDecoration: !isReject ? 'line-through' : 'none',
-              fontWeight: 500,
-            }}
+            className={`font-en font-medium ${isReject ? 'text-ink-500' : 'text-ink-700 line-through'}`}
           >
             {dup.seatExisting.toLocaleString('en')}
           </span>
           <span
-            className="font-en"
-            style={{
-              color: isReject ? 'var(--ink-400)' : 'var(--gold-700)',
-              fontWeight: 700,
-              textDecoration: isReject ? 'line-through' : 'none',
-            }}
+            className={`font-en font-bold ${isReject ? 'text-ink-400 line-through' : 'text-gold-700'}`}
           >
             {dup.seatIncoming.toLocaleString('en')}
           </span>
@@ -1153,20 +1097,18 @@ function ResultBlock({
   tone: 'success' | 'gold' | 'ink';
   big?: boolean;
 }): JSX.Element {
-  const map = {
-    success: { fg: 'var(--success)', bg: 'var(--success-bg)' },
-    gold: { fg: 'var(--gold-700)', bg: 'var(--gold-50)' },
-    ink: { fg: 'var(--ink-700)', bg: '#fff' },
-  };
-  const t = map[tone];
+  const cls = {
+    success: 'bg-success-bg text-success',
+    gold: 'bg-gold-50 text-gold-700',
+    ink: 'bg-white text-ink-700',
+  }[tone];
   return (
     <div
-      className="flex flex-col gap-0.5 border-s border-border-subtle px-4 py-3.5 first:border-s-0"
-      style={{ background: t.bg, color: t.fg, flex: big ? 1.5 : 1 }}
+      className={`flex flex-col gap-0.5 border-s border-border-subtle px-4 py-3.5 first:border-s-0 ${cls}`}
+      style={{ flex: big ? 1.5 : 1 }}
     >
       <span
-        className="font-ar-display font-en font-bold leading-tight"
-        style={{ fontSize: big ? 30 : 24 }}
+        className={`font-ar-display font-en font-bold leading-tight ${big ? 'text-3xl' : 'text-2xl'}`}
       >
         {value}
       </span>
@@ -1193,16 +1135,12 @@ function ResultAccordion({
   open: boolean;
   onToggle: () => void;
 }): JSX.Element {
-  const tones = {
-    terra: { bg: 'var(--terra-50)', fg: 'var(--terra-700)', bd: 'var(--terra-300)' },
-    warning: { bg: 'var(--gold-50)', fg: 'var(--gold-700)', bd: 'var(--gold-300)' },
-  };
-  const t = tones[tone];
+  const cls =
+    tone === 'terra'
+      ? { wrap: 'border-terra-300 bg-terra-50', text: 'text-terra-700', listBorder: 'border-terra-300' }
+      : { wrap: 'border-gold-300 bg-gold-50', text: 'text-gold-700', listBorder: 'border-gold-300' };
   return (
-    <div
-      className="overflow-hidden rounded-md border"
-      style={{ borderColor: t.bd, background: t.bg }}
-    >
+    <div className={`overflow-hidden rounded-md border ${cls.wrap}`}>
       <button
         type="button"
         onClick={onToggle}
@@ -1210,28 +1148,23 @@ function ResultAccordion({
       >
         <div className="flex items-center gap-2.5">
           <span
-            className="transition-transform"
-            style={{ transform: open ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+            className={`transition-transform ${open ? 'rotate-0' : '-rotate-90'}`}
           >
-            <ChevronDown size={10} aria-hidden style={{ color: t.fg }} />
+            <ChevronDown size={10} aria-hidden className={cls.text} />
           </span>
-          <AlertTriangle size={14} aria-hidden style={{ color: t.fg }} />
-          <span className="text-xs font-semibold" style={{ color: t.fg }}>
-            {reason}
-          </span>
+          <AlertTriangle size={14} aria-hidden className={cls.text} />
+          <span className={`text-xs font-semibold ${cls.text}`}>{reason}</span>
           <code className="font-mono text-2xs text-ink-500">{code}</code>
         </div>
         <span
-          className="rounded-full bg-white px-2.5 py-0.5 font-en text-2xs font-semibold"
-          style={{ color: t.fg }}
+          className={`rounded-full bg-white px-2.5 py-0.5 font-en text-2xs font-semibold ${cls.text}`}
         >
           {count} صف
         </span>
       </button>
       {open && rows.length > 0 && (
         <ul
-          className="m-0 flex flex-col gap-1 border-t bg-white px-9 py-2 text-2xs text-ink-700"
-          style={{ borderColor: t.bd }}
+          className={`m-0 flex flex-col gap-1 border-t bg-white px-9 py-2 text-2xs text-ink-700 ${cls.listBorder}`}
         >
           {rows.map((r) => (
             <li key={r.row}>
@@ -1271,13 +1204,7 @@ function ErrorStep({
     <>
       <Modal.Body>
         <div className="flex flex-col gap-4">
-          <div
-            className="rounded-md border bg-terra-50 p-3.5"
-            style={{
-              borderColor: 'var(--terra-500)',
-              borderInlineStartWidth: 3,
-            }}
-          >
+          <div className="rounded-md border border-terra-500 border-s-[3px] border-s-terra-500 bg-terra-50 p-3.5">
             <div className="mb-1.5 flex items-center gap-2">
               <AlertTriangle size={14} className="text-terra-700" aria-hidden />
               <span className="text-sm font-bold text-terra-700">
@@ -1315,11 +1242,9 @@ function ErrorStep({
                 <span
                   key={col}
                   dir="ltr"
-                  className="flex items-center gap-1.5 border-e border-b border-border-subtle px-2.5 py-1.5"
-                  style={{
-                    background: state === 'missing' ? 'var(--terra-50)' : '#fff',
-                    color: state === 'missing' ? 'var(--terra-700)' : 'var(--ink-700)',
-                  }}
+                  className={`flex items-center gap-1.5 border-e border-b border-border-subtle px-2.5 py-1.5 ${
+                    state === 'missing' ? 'bg-terra-50 text-terra-700' : 'bg-white text-ink-700'
+                  }`}
                 >
                   {state === 'missing' ? (
                     <X size={14} className="shrink-0 text-terra-500" aria-hidden />

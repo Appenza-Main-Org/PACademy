@@ -167,16 +167,12 @@ function PinStat({
   overrideHint?: boolean;
   tone?: 'gold' | 'gold-strong';
 }): JSX.Element {
-  const fg =
-    tone === 'gold' || tone === 'gold-strong' ? 'var(--gold-700)' : 'var(--ink-900)';
-  const bg = tone === 'gold-strong' ? 'var(--gold-50)' : '#fff';
+  const fg = tone === 'gold' || tone === 'gold-strong' ? 'text-gold-700' : 'text-ink-900';
+  const bg = tone === 'gold-strong' ? 'bg-gold-50' : 'bg-white';
   return (
-    <div
-      className="flex flex-col gap-0.5 rounded-md border border-border-subtle px-3 py-2.5"
-      style={{ background: bg }}
-    >
+    <div className={`flex flex-col gap-0.5 rounded-md border border-border-subtle px-3 py-2.5 ${bg}`}>
       <span className="text-2xs text-ink-500">{label}</span>
-      <span className="font-ar-display font-en text-md font-bold leading-tight" style={{ color: fg }}>
+      <span className={`font-ar-display font-en text-md font-bold leading-tight ${fg}`}>
         {value}
       </span>
       {(sub || overrideHint) && (
@@ -311,19 +307,14 @@ function GradesTab({ row, onEditMax }: { row: DerivedRow; onEditMax: () => void 
         <div className="mb-2 text-2xs text-ink-500">الفعلي مقابل الحد الأقصى</div>
         <div className="relative h-3.5 overflow-hidden rounded-full bg-ink-100">
           <div
-            className="absolute inset-y-0"
-            style={{
-              insetInlineStart: 0,
-              width: `${(row.total / row.max) * 100}%`,
-              background: 'var(--teal-500)',
-            }}
+            className="absolute inset-y-0 start-0 bg-teal-500"
+            style={{ width: `${(row.total / row.max) * 100}%` }}
           />
           <div
-            className="absolute inset-y-0"
+            className={`absolute inset-y-0 ${adj >= 0 ? 'bg-gold-500' : 'bg-terra-500'}`}
             style={{
               insetInlineStart: `${(row.total / row.max) * 100}%`,
               width: `${(Math.abs(adj) / row.max) * 100}%`,
-              background: adj >= 0 ? 'var(--gold-500)' : 'var(--terra-500)',
             }}
           />
         </div>
@@ -351,19 +342,14 @@ function BigStat({
   badge?: string;
   onEdit?: () => void;
 }): JSX.Element {
-  const fg =
-    tone === 'gold' ? 'var(--gold-700)' : tone === 'success' ? 'var(--success)' : 'var(--ink-900)';
-  const bg =
-    tone === 'gold' ? 'var(--gold-50)' : tone === 'success' ? 'var(--success-bg)' : '#fff';
+  const tones = {
+    gold: 'border-gold-200 bg-gold-50 text-gold-700',
+    success: 'border-border-subtle bg-success-bg text-success',
+    default: 'border-border-subtle bg-white text-ink-900',
+  } as const;
+  const t = tones[tone ?? 'default'];
   return (
-    <div
-      className="relative rounded-md border p-4"
-      style={{
-        background: bg,
-        color: fg,
-        borderColor: tone === 'gold' ? 'var(--gold-200)' : 'var(--border-subtle)',
-      }}
-    >
+    <div className={`relative rounded-md border p-4 ${t}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="inline-flex flex-wrap items-center gap-1.5">
           <span className="text-2xs text-ink-500">{label}</span>
@@ -379,7 +365,7 @@ function BigStat({
             onClick={onEdit}
             aria-label="تعديل الدرجة العظمى"
             title="تعديل الدرجة العظمى"
-            className="inline-grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-sm border border-border-default bg-white p-0 text-ink-600"
+            className="inline-grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-sm border border-border-default bg-white p-0 text-ink-600 hover:bg-ink-50"
           >
             <Pencil size={12} />
           </button>
@@ -405,58 +391,39 @@ function LogTab({ row }: { row: DerivedRow }): JSX.Element {
     <ol className="relative m-0 flex list-none flex-col gap-2.5 p-0">
       <span
         aria-hidden
-        className="absolute bottom-4 top-4 w-0.5 rounded-full"
-        style={{
-          insetInlineStart: 11,
-          background: 'linear-gradient(180deg, var(--gold-200), var(--ink-200))',
-        }}
+        className="absolute bottom-4 top-4 w-0.5 rounded-full start-[11px] bg-gradient-to-b from-gold-200 to-ink-200"
       />
       {row.log.map((e) => {
         const pos = e.amount > 0;
+        const dotBorder = e.isActive
+          ? pos
+            ? 'border-gold-500'
+            : 'border-terra-500'
+          : 'border-ink-300';
+        const amountClasses = !e.isActive
+          ? 'bg-ink-50 text-ink-500 border-border-default line-through'
+          : pos
+            ? 'bg-gold-50 text-gold-700 border-gold-200'
+            : 'bg-terra-50 text-terra-700 border-terra-100';
         return (
-          <li key={e.id} className="relative" style={{ paddingInlineStart: 32 }}>
+          <li key={e.id} className="relative ps-8">
             <span
               aria-hidden
-              className="absolute h-3 w-3 rounded-full bg-white"
-              style={{
-                top: 12,
-                insetInlineStart: 6,
-                border: `2px solid ${
-                  e.isActive ? (pos ? 'var(--gold-500)' : 'var(--terra-500)') : 'var(--ink-300)'
-                }`,
-                boxShadow: e.fresh ? '0 0 0 4px rgba(184,134,44,0.18)' : 'none',
-              }}
+              className={`absolute top-3 start-1.5 h-3 w-3 rounded-full border-2 bg-white ${dotBorder} ${
+                e.fresh ? 'shadow-[0_0_0_4px_rgba(184,134,44,0.18)]' : ''
+              }`}
             />
             <article
-              className="rounded-md border border-border-subtle bg-white p-3"
-              style={{ opacity: e.isActive ? 1 : 0.7 }}
+              className={`rounded-md border border-border-subtle bg-white p-3 ${
+                e.isActive ? 'opacity-100' : 'opacity-70'
+              }`}
             >
               <div className="mb-1.5 flex items-center justify-between gap-1.5">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Badge tone={pos ? 'warning' : 'danger'}>{e.reasonLabel}</Badge>
                   {!e.isActive && <Badge tone="neutral">موقوف</Badge>}
                 </div>
-                <span
-                  className="rounded-full border px-2.5 py-0.5 font-en text-sm font-bold"
-                  style={{
-                    background: !e.isActive
-                      ? 'var(--ink-50)'
-                      : pos
-                        ? 'var(--gold-50)'
-                        : 'var(--terra-50)',
-                    color: !e.isActive
-                      ? 'var(--ink-500)'
-                      : pos
-                        ? 'var(--gold-700)'
-                        : 'var(--terra-700)',
-                    borderColor: !e.isActive
-                      ? 'var(--border-default)'
-                      : pos
-                        ? 'var(--gold-200)'
-                        : 'var(--terra-100)',
-                    textDecoration: !e.isActive ? 'line-through' : 'none',
-                  }}
-                >
+                <span className={`rounded-full border px-2.5 py-0.5 font-en text-sm font-bold ${amountClasses}`}>
                   {pos ? '+' : '−'}
                   {Math.abs(e.amount)}
                 </span>
@@ -485,23 +452,18 @@ interface KVProps {
 }
 
 function KV({ label, sourceKey, value, mono, empty, highlight }: KVProps): JSX.Element {
+  const valueClasses = highlight
+    ? 'rounded-full bg-success-bg px-2 py-0.5 text-success font-medium'
+    : empty
+      ? 'text-ink-300'
+      : 'text-ink-900 font-medium';
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex items-baseline gap-1.5">
         <span className="text-2xs font-medium text-ink-600">{label}</span>
         <code className="font-mono text-2xs text-ink-400">{sourceKey}</code>
       </div>
-      <span
-        className="self-start text-sm"
-        style={{
-          fontFamily: mono ? 'var(--font-en)' : 'var(--font-ar)',
-          fontWeight: empty ? 400 : 500,
-          color: highlight ? 'var(--success)' : empty ? 'var(--ink-300)' : 'var(--ink-900)',
-          background: highlight ? 'var(--success-bg)' : 'transparent',
-          padding: highlight ? '2px 8px' : 0,
-          borderRadius: highlight ? 999 : 0,
-        }}
-      >
+      <span className={`self-start text-sm ${mono ? 'font-en' : 'font-ar'} ${valueClasses}`}>
         {value}
       </span>
     </div>

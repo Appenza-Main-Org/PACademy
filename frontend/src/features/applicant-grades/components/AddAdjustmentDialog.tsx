@@ -175,21 +175,18 @@ export function AddAdjustmentDialog({
 
           {/* Section A — student max override */}
           <section
-            className="flex flex-col gap-2.5 rounded-md border p-4 border-s-[3px]"
-            style={{
-              background: maxChanged ? 'var(--gold-50)' : 'var(--ink-50)',
-              borderColor: maxChanged ? 'var(--gold-200)' : 'var(--border-subtle)',
-              borderInlineStartColor: maxChanged ? 'var(--gold-500)' : 'var(--ink-300)',
-            }}
+            className={`flex flex-col gap-2.5 rounded-md border border-s-[3px] p-4 ${
+              maxChanged
+                ? 'border-gold-200 border-s-gold-500 bg-gold-50'
+                : 'border-border-subtle border-s-ink-300 bg-ink-50'
+            }`}
           >
             <header className="flex flex-wrap items-center justify-between gap-2">
               <div className="inline-flex items-center gap-2">
                 <span
-                  className="inline-grid h-6 w-6 place-items-center rounded-sm border bg-white"
-                  style={{
-                    color: maxChanged ? 'var(--gold-700)' : 'var(--ink-700)',
-                    borderColor: maxChanged ? 'var(--gold-300)' : 'var(--border-default)',
-                  }}
+                  className={`inline-grid h-6 w-6 place-items-center rounded-sm border bg-white ${
+                    maxChanged ? 'border-gold-300 text-gold-700' : 'border-border-default text-ink-700'
+                  }`}
                 >
                   <Pencil size={12} />
                 </span>
@@ -251,13 +248,11 @@ export function AddAdjustmentDialog({
                     key={v}
                     type="button"
                     onClick={() => setReason(v)}
-                    className="cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors"
-                    style={{
-                      background: active ? 'var(--teal-50)' : '#fff',
-                      color: active ? 'var(--teal-700)' : 'var(--ink-700)',
-                      border: `1px solid ${active ? 'var(--teal-500)' : 'var(--border-default)'}`,
-                      boxShadow: active ? 'var(--ring)' : 'none',
-                    }}
+                    className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                      active
+                        ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-focus-teal'
+                        : 'border-border-default bg-white text-ink-700 hover:bg-ink-50'
+                    }`}
                   >
                     {label}
                   </button>
@@ -286,11 +281,11 @@ export function AddAdjustmentDialog({
               placeholder={
                 noteRequired ? 'اكتب السبب التفصيلي…' : 'اختياري — مطلوب عند اختيار «أخرى»'
               }
-              className="min-h-[84px] w-full resize-y rounded-md bg-white p-3 text-sm leading-relaxed text-ink-900 outline-none"
-              style={{
-                border: `1px solid ${noteEmpty ? 'var(--terra-500)' : 'var(--border-default)'}`,
-                boxShadow: noteEmpty ? '0 0 0 3px rgba(200,70,44,0.18)' : 'none',
-              }}
+              className={`min-h-[84px] w-full resize-y rounded-md border bg-white p-3 text-sm leading-relaxed text-ink-900 outline-none focus-visible:border-teal-500 focus-visible:shadow-focus-teal ${
+                noteEmpty
+                  ? 'border-terra-500 shadow-focus-terra'
+                  : 'border-border-default'
+              }`}
             />
           </Field>
 
@@ -307,12 +302,7 @@ export function AddAdjustmentDialog({
                 <button
                   type="button"
                   onClick={() => setAmount((a) => a - 1)}
-                  className="h-9 w-9 cursor-pointer border bg-white text-md font-semibold text-ink-700"
-                  style={{
-                    borderColor: 'var(--border-default)',
-                    borderInlineEnd: 'none',
-                    borderRadius: 'var(--radius-md) 0 0 var(--radius-md)',
-                  }}
+                  className="h-9 w-9 cursor-pointer rounded-s-md border border-e-0 border-border-default bg-white font-en text-md font-semibold text-ink-700 hover:bg-ink-50"
                 >
                   −
                 </button>
@@ -320,21 +310,14 @@ export function AddAdjustmentDialog({
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value === '' ? 0 : Number(e.target.value))}
-                  className="h-9 w-20 border bg-white text-center font-en text-md font-semibold outline-none"
-                  style={{
-                    borderColor: 'var(--border-default)',
-                    color: amount > 0 ? 'var(--success)' : amount < 0 ? 'var(--terra-700)' : 'var(--ink-900)',
-                  }}
+                  className={`h-9 w-20 border border-border-default bg-white text-center font-en text-md font-semibold outline-none ${
+                    amount > 0 ? 'text-success' : amount < 0 ? 'text-terra-700' : 'text-ink-900'
+                  }`}
                 />
                 <button
                   type="button"
                   onClick={() => setAmount((a) => a + 1)}
-                  className="h-9 w-9 cursor-pointer border bg-white text-md font-semibold text-ink-700"
-                  style={{
-                    borderColor: 'var(--border-default)',
-                    borderInlineStart: 'none',
-                    borderRadius: '0 var(--radius-md) var(--radius-md) 0',
-                  }}
+                  className="h-9 w-9 cursor-pointer rounded-e-md border border-s-0 border-border-default bg-white font-en text-md font-semibold text-ink-700 hover:bg-ink-50"
                 >
                   +
                 </button>
@@ -343,12 +326,11 @@ export function AddAdjustmentDialog({
               <span className="ms-auto inline-flex items-center gap-1.5 text-2xs text-ink-500">
                 الفعلي الجديد سيصبح
                 <span
-                  className="rounded-full border px-2.5 py-0.5 font-en text-sm font-bold"
-                  style={{
-                    background: overMax || belowZero ? 'var(--terra-50)' : 'var(--gold-50)',
-                    color: overMax || belowZero ? 'var(--terra-700)' : 'var(--gold-700)',
-                    borderColor: overMax || belowZero ? 'var(--terra-300)' : 'var(--gold-200)',
-                  }}
+                  className={`rounded-full border px-2.5 py-0.5 font-en text-sm font-bold ${
+                    overMax || belowZero
+                      ? 'border-terra-300 bg-terra-50 text-terra-700'
+                      : 'border-gold-200 bg-gold-50 text-gold-700'
+                  }`}
                 >
                   {newEff} · {newEffPct.toFixed(2)}٪
                 </span>
@@ -368,15 +350,19 @@ export function AddAdjustmentDialog({
               type="button"
               onClick={() => setIsActive((v) => !v)}
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border-default bg-white px-2.5 py-1 text-xs text-ink-800"
+              role="switch"
+              aria-checked={isActive}
             >
               {isActive ? 'نشط' : 'موقوف'}
               <span
-                className="relative h-[18px] w-8 rounded-full transition-colors"
-                style={{ background: isActive ? 'var(--teal-500)' : 'var(--ink-300)' }}
+                className={`relative h-[18px] w-8 rounded-full transition-colors ${
+                  isActive ? 'bg-teal-500' : 'bg-ink-300'
+                }`}
               >
                 <span
-                  className="absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white transition-[inset-inline-start]"
-                  style={{ insetInlineStart: isActive ? 16 : 2 }}
+                  className={`absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white transition-[inset-inline-start] ${
+                    isActive ? 'start-4' : 'start-0.5'
+                  }`}
                 />
               </span>
             </button>
@@ -422,17 +408,17 @@ function StatCell({
   sub?: React.ReactNode;
   tone?: 'gold' | 'ink-strong';
 }): JSX.Element {
-  const fg =
-    tone === 'gold' ? 'var(--gold-700)' : tone === 'ink-strong' ? 'var(--ink-900)' : 'var(--ink-900)';
   return (
     <div
-      className="flex flex-col gap-0.5 border-s border-border-subtle px-3.5 py-3 first:border-s-0"
-      style={{ background: tone === 'gold' ? 'var(--gold-50)' : '#fff' }}
+      className={`flex flex-col gap-0.5 border-s border-border-subtle px-3.5 py-3 first:border-s-0 ${
+        tone === 'gold' ? 'bg-gold-50' : 'bg-white'
+      }`}
     >
       <span className="text-2xs text-ink-500">{label}</span>
       <span
-        className="font-ar-display font-en text-xl font-bold leading-tight"
-        style={{ color: fg }}
+        className={`font-ar-display font-en text-xl font-bold leading-tight ${
+          tone === 'gold' ? 'text-gold-700' : 'text-ink-900'
+        }`}
       >
         {value}
       </span>
@@ -458,13 +444,10 @@ function NumberField({
 }): JSX.Element {
   return (
     <label
-      className="inline-flex h-9 cursor-text items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-ink-900"
-      style={{
-        width,
-        border: `1px solid ${invalid ? 'var(--terra-500)' : 'var(--border-default)'}`,
-        boxShadow: invalid ? '0 0 0 3px rgba(200,70,44,0.18)' : 'none',
-        fontFamily: 'var(--font-ar)',
-      }}
+      className={`inline-flex h-9 cursor-text items-center gap-2 rounded-md border bg-white px-3 font-ar text-sm font-medium text-ink-900 focus-within:border-teal-500 focus-within:shadow-focus-teal ${
+        invalid ? 'border-terra-500 shadow-focus-terra' : 'border-border-default'
+      }`}
+      style={width ? { width } : undefined}
     >
       <input
         type="number"
@@ -480,7 +463,7 @@ function NumberField({
 
 function ErrorBanner({ children }: { children: React.ReactNode }): JSX.Element {
   return (
-    <div className="flex items-start gap-2 rounded-md border border-terra-300 border-s-[3px] bg-terra-50 px-3 py-2.5 text-xs leading-relaxed text-terra-700">
+    <div className="flex items-start gap-2 rounded-md border border-terra-300 border-s-[3px] border-s-terra-500 bg-terra-50 px-3 py-2.5 text-xs leading-relaxed text-terra-700">
       <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" />
       <span>{children}</span>
     </div>

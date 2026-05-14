@@ -114,17 +114,11 @@ export function EditMaxDegreeDialog({
           >
             <div className="flex flex-wrap items-center gap-2.5">
               <label
-                className="inline-flex h-9 cursor-text items-center gap-2 rounded-md bg-white px-3 text-sm font-medium text-ink-900"
-                style={{
-                  width: 130,
-                  border: `1px solid ${
-                    isNotPositive || totalExceeds ? 'var(--terra-500)' : 'var(--border-default)'
-                  }`,
-                  boxShadow:
-                    isNotPositive || totalExceeds
-                      ? '0 0 0 3px rgba(200,70,44,0.18)'
-                      : 'none',
-                }}
+                className={`inline-flex h-9 w-[130px] cursor-text items-center gap-2 rounded-md border bg-white px-3 text-sm font-medium text-ink-900 focus-within:border-teal-500 focus-within:shadow-focus-teal ${
+                  isNotPositive || totalExceeds
+                    ? 'border-terra-500 shadow-focus-terra'
+                    : 'border-border-default'
+                }`}
               >
                 <input
                   type="number"
@@ -192,10 +186,7 @@ export function EditMaxDegreeDialog({
 
           {/* Adjustment conflict */}
           {hasConflict && (
-            <div
-              className="flex items-start gap-2.5 rounded-md border border-terra-300 bg-terra-50 p-3.5"
-              style={{ borderInlineStartWidth: 3 }}
-            >
+            <div className="flex items-start gap-2.5 rounded-md border border-terra-300 border-s-[3px] border-s-terra-500 bg-terra-50 p-3.5">
               <AlertTriangle size={14} className="mt-0.5 shrink-0 text-terra-700" aria-hidden />
               <div className="flex-1 text-xs leading-relaxed text-terra-700">
                 <div className="mb-1 font-bold">
@@ -219,10 +210,9 @@ export function EditMaxDegreeDialog({
                     >
                       <Badge tone={a.amount > 0 ? 'warning' : 'danger'}>{a.reasonLabel}</Badge>
                       <span
-                        className="font-en font-semibold"
-                        style={{
-                          color: a.amount > 0 ? 'var(--gold-700)' : 'var(--terra-700)',
-                        }}
+                        className={`font-en font-semibold ${
+                          a.amount > 0 ? 'text-gold-700' : 'text-terra-700'
+                        }`}
                       >
                         {a.amount > 0 ? '+' : '−'}
                         {Math.abs(a.amount)}
@@ -276,28 +266,23 @@ function PreviewRow({
 }): JSX.Element {
   return (
     <div
-      className="grid items-center gap-3 px-3.5 py-2 text-xs"
-      style={{
-        gridTemplateColumns: '1fr auto auto',
-        borderBottom: last ? 'none' : '1px solid var(--border-subtle)',
-      }}
+      className={`grid items-center gap-3 px-3.5 py-2 text-xs ${
+        last ? '' : 'border-b border-border-subtle'
+      }`}
+      style={{ gridTemplateColumns: '1fr auto auto' }}
     >
       <span className="font-medium text-ink-600">{label}</span>
       <span
-        className="min-w-[64px] text-end font-en text-ink-500"
-        style={{ textDecoration: changed ? 'line-through' : 'none' }}
+        className={`min-w-[64px] text-end font-en text-ink-500 ${changed ? 'line-through' : ''}`}
       >
         {oldValue}
       </span>
       <span
-        className="min-w-[64px] rounded-full text-end font-en font-medium"
-        style={{
-          color: changed ? 'var(--gold-700)' : 'var(--ink-500)',
-          fontWeight: changed ? 700 : 500,
-          background: changed ? 'var(--gold-50)' : 'transparent',
-          padding: changed ? '1px 8px' : 0,
-          border: changed ? '1px solid var(--gold-200)' : '1px solid transparent',
-        }}
+        className={`min-w-[64px] rounded-full text-end font-en ${
+          changed
+            ? 'border border-gold-200 bg-gold-50 px-2 py-px font-bold text-gold-700'
+            : 'border border-transparent font-medium text-ink-500'
+        }`}
       >
         {newValue}
       </span>
