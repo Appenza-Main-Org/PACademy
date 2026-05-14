@@ -35,7 +35,11 @@ export interface GeneralRulesHeader {
 
 /** A single editable row inside one specialization's «General Rules» form. */
 export interface GeneralRuleRowInput {
-  type: string;
+  /** Genders accepted by this rule. Empty array means "any". The form
+   *  renders this as a multi-select; downstream committee filtering
+   *  matches a committee when its gender is in this list (or list is
+   *  empty). */
+  type: string[];
   maritalStatus: string;
   grade: string;
   academicDegrees: string[];

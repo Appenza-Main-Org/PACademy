@@ -25,6 +25,7 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  MultiSelect,
   Select,
   toast,
 } from '@/shared/components';
@@ -451,7 +452,7 @@ function SpecializationItem({
 interface SpecializationPanelProps extends SpecializationItemProps {}
 
 const EMPTY_INPUT: GeneralRuleRowInput = {
-  type: '',
+  type: [],
   maritalStatus: '',
   grade: '',
   academicDegrees: [],
@@ -483,10 +484,13 @@ function SpecializationPanel({
 
   /**
    * Committees visible in the اللجنة CheckboxGroup honour the selected
-   * النوع. We read the committee's `gender` field when present (set by
-   * the seed and the create form via `deriveCommitteeGender`); when
-   * absent — possible for legacy rows — we fall back to the same helper
-   * so the "طالبات" check has exactly one implementation across the app.
+   * النوع. النوع is a multi-select (`string[]`) — a committee passes
+   * the filter when its derived gender is included in the picked set,
+   * or when nothing is picked (empty array = "any"). We read the
+   * committee's `gender` field when present (set by the seed and the
+   * create form via `deriveCommitteeGender`) and fall back to the same
+   * helper when missing so the "طالبات" check has exactly one
+   * implementation across the app.
    *
    * Memoised against `(committeeOptions, draft.type)`. Stale picks that
    * no longer match the filter are deselected in the النوع onChange
@@ -494,31 +498,34 @@ function SpecializationPanel({
    * options without a useEffect.
    */
   const filteredCommitteeOptions = useMemo(() => {
-    if (draft.type !== 'male' && draft.type !== 'female') return committeeOptions;
-    return committeeOptions.filter((c) => {
-      const g = c.gender ?? deriveCommitteeGender(c.name);
-      return g === draft.type;
-    });
+    if (draft.type.length === 0) return committeeOptions;
+    const allowed = new Set(draft.type);
+    return committeeOptions.filter((c) =>
+      allowed.has(c.gender ?? deriveCommitteeGender(c.name)),
+    );
   }, [committeeOptions, draft.type]);
 
-  const isGenderFilterActive = draft.type === 'male' || draft.type === 'female';
+  const isGenderFilterActive = draft.type.length > 0;
   const isFilteredCommitteeListEmpty =
     isGenderFilterActive && filteredCommitteeOptions.length === 0;
 
   /**
-   * Event-driven reconciliation of stale committee picks when النوع flips.
-   * Computes the next filter inline (the `filteredCommitteeOptions` memo
-   * still uses the previous `draft.type` until the state batch lands) and
-   * trims `draft.committees` to ids present in the new list. No
-   * confirmation modal — the dropdown visibly updates.
+   * Event-driven reconciliation of stale committee picks when النوع
+   * changes. Computes the next filter inline (the
+   * `filteredCommitteeOptions` memo still uses the previous `draft.type`
+   * until the state batch lands) and trims `draft.committees` to ids
+   * present in the new list. No confirmation modal — the dropdown
+   * visibly updates.
    */
-  const handleGenderChange = (nextType: string): void => {
+  const handleGenderChange = (nextType: string[]): void => {
     setDraft((d) => {
       const nextAllowed =
-        nextType === 'male' || nextType === 'female'
+        nextType.length > 0
           ? new Set(
               committeeOptions
-                .filter((c) => (c.gender ?? deriveCommitteeGender(c.name)) === nextType)
+                .filter((c) =>
+                  nextType.includes(c.gender ?? deriveCommitteeGender(c.name)),
+                )
                 .map((c) => c.id),
             )
           : null;
@@ -558,11 +565,12 @@ function SpecializationPanel({
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <FieldLabel label="النوع">
-            <Select
-              aria-label="النوع"
+            <MultiSelect
+              ariaLabel="النوع"
               value={draft.type}
-              onChange={(e) => handleGenderChange(e.target.value)}
-              options={[{ value: '', label: 'اختر…' }, ...GENDER_OPTIONS]}
+              onChange={handleGenderChange}
+              options={GENDER_OPTIONS}
+              placeholder="اختر النوع…"
             />
           </FieldLabel>
 
@@ -740,6 +748,8 @@ function LocalRulesGrid({
 }: LocalRulesGridProps): JSX.Element {
   const labelForType = (v: string): string =>
     GENDER_OPTIONS.find((o) => o.value === v)?.label ?? v;
+  const labelForTypes = (values: readonly string[]): string =>
+    values.length === 0 ? '—' : values.map(labelForType).join('، ');
   const labelForMarital = (v: string): string =>
     maritalOptions.find((o) => o.value === v)?.label ?? v;
   const labelForGrade = (v: string): string =>
@@ -776,7 +786,7 @@ function LocalRulesGrid({
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-t border-border-subtle">
-              <Td>{labelForType(r.type)}</Td>
+              <Td>{labelForTypes(r.type)}</Td>
               <Td>{labelForMarital(r.maritalStatus)}</Td>
               <Td>{labelForGrade(r.grade)}</Td>
               <Td>{r.academicDegrees.map(labelForDegree).join('، ')}</Td>

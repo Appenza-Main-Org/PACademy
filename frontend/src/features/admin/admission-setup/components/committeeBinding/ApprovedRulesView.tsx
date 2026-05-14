@@ -133,7 +133,11 @@ function Row({
           ? '—'
           : header.graduationYears.map((y) => num(y)).join('، ')}
       </Td>
-      <Td>{TYPE_LABELS[row.type] ?? row.type}</Td>
+      <Td>
+        {row.type.length === 0
+          ? '—'
+          : row.type.map((t) => TYPE_LABELS[t] ?? t).join('، ')}
+      </Td>
       <Td>{maritalLabel.get(row.maritalStatus) ?? row.maritalStatus}</Td>
       <Td>{gradeLabel.get(row.grade) ?? row.grade}</Td>
       <Td>
