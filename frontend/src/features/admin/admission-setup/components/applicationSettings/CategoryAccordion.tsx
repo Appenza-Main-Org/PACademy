@@ -144,7 +144,7 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
         <div className="flex flex-col gap-4">
           {config.singleAxis && config.implicitSpecId ? (
             <YearTable categorySpecializationId={config.implicitSpecId} />
-          ) : (
+          ) : config.categoryCode === SPECIALIZED_OFFICERS_CODE ? null : (
             <SpecializationList configId={config.id} />
           )}
           {config.categoryCode === SPECIALIZED_OFFICERS_CODE && (
