@@ -165,6 +165,7 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'nid',
       label: 'الرقم القومي',
       sortable: true,
+      className: 'min-w-[14ch]',
       render: (r) => (
         <span className="font-mono text-2xs text-ink-600" dir="ltr">
           {r.nid}
@@ -175,6 +176,7 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'name',
       label: 'الاسم',
       sortable: true,
+      className: 'min-w-[18ch] whitespace-normal',
       render: (r) => <span className="font-medium text-ink-900">{r.name}</span>,
     },
     {
@@ -182,6 +184,7 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'النوع',
       align: 'center',
       sortable: true,
+      className: 'min-w-[6ch]',
       render: (r) => (
         <Badge tone={r.kind === 'general' ? 'info' : 'warning'}>
           {r.kind === 'general' ? 'عامة' : 'أزهرية'}
@@ -193,6 +196,7 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'الشعبة',
       hideOn: 'md',
       sortable: true,
+      className: 'min-w-[10ch]',
       render: (r) => <span className="text-xs">{r.branch}</span>,
     },
     {
@@ -200,21 +204,28 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'المجموع',
       numeric: true,
       sortable: true,
+      className: 'min-w-[8ch]',
       render: (r) => (
-        <span className="inline-flex items-baseline justify-end gap-1">
-          <span className="font-numeric font-semibold tabular-nums">{r.total}</span>
+        /* RTL flex: first JSX child = visual-right (start). Order is
+         * `367 → [معدّل] → / → 410` so the badge sits inline-start of
+         * the "/ 410" suffix as specced, without pushing the number. */
+        <span className="inline-flex items-baseline justify-end gap-1 font-numeric tabular-nums">
+          <span className="font-semibold text-ink-900">{r.total}</span>
+          {r.isOverridden && (
+            <span
+              className="rounded-full bg-gold-100 px-1.5 py-px text-2xs font-semibold text-gold-700"
+              title={`الأصلي: ${r.importMax} · المعدّل: ${r.max}`}
+            >
+              معدّل
+            </span>
+          )}
           <span className="text-2xs text-ink-300">/</span>
           <span
-            className={`font-numeric tabular-nums text-2xs ${r.isOverridden ? 'font-semibold text-gold-700' : 'text-ink-400'}`}
+            className={`text-2xs ${r.isOverridden ? 'font-semibold text-gold-700' : 'text-ink-400'}`}
             title={r.isOverridden ? `الأصلي: ${r.importMax} · المعدّل: ${r.max}` : undefined}
           >
             {r.max}
           </span>
-          {r.isOverridden && (
-            <Badge tone="warning" className="ms-1 !px-1.5 !py-0 !text-2xs">
-              معدّل
-            </Badge>
-          )}
         </span>
       ),
     },
@@ -223,13 +234,12 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'النسبة',
       numeric: true,
       sortable: true,
+      className: 'min-w-[8ch]',
       render: (r) => (
-        <>
-          <span className="font-numeric font-semibold tabular-nums text-ink-900">
-            {r.pct.toFixed(2)}
-          </span>
+        <span className="inline-flex items-baseline justify-end gap-0.5 font-numeric tabular-nums">
+          <span className="font-semibold text-ink-900">{r.pct.toFixed(2)}</span>
           <span className="text-2xs text-ink-400">٪</span>
-        </>
+        </span>
       ),
     },
     {
@@ -237,46 +247,51 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'الفعلي',
       numeric: true,
       sortable: true,
+      className: 'min-w-[8ch]',
       render: (r) => (
-        <div className="inline-flex flex-col items-end leading-tight">
-          <span className="inline-flex items-center gap-1">
-            {r.adj !== 0 && (
-              <Badge
-                tone={r.adj > 0 ? 'warning' : 'danger'}
-                icon={
-                  r.adj > 0 ? (
-                    <ArrowUpRight size={9} strokeWidth={2.5} aria-hidden />
-                  ) : (
-                    <ArrowDownRight size={9} strokeWidth={2.5} aria-hidden />
-                  )
-                }
-                className="!px-1.5 !py-0 !text-2xs"
-              >
-                <span className="font-numeric tabular-nums">{Math.abs(r.adj)}</span>
-              </Badge>
-            )}
+        /* The diff badge sits at the inline-start of the stack (visual
+         * right in RTL) so it never pushes the numbers — both lines of
+         * the stack end-align to the cell's end edge. */
+        <span className="inline-flex items-center justify-end gap-2">
+          {r.adj !== 0 && (
+            <Badge
+              tone={r.adj > 0 ? 'warning' : 'danger'}
+              icon={
+                r.adj > 0 ? (
+                  <ArrowUpRight size={9} strokeWidth={2.5} aria-hidden />
+                ) : (
+                  <ArrowDownRight size={9} strokeWidth={2.5} aria-hidden />
+                )
+              }
+              className="!px-1.5 !py-0 !text-2xs"
+            >
+              <span className="font-numeric tabular-nums">{Math.abs(r.adj)}</span>
+            </Badge>
+          )}
+          <span className="inline-flex flex-col items-end gap-px font-numeric tabular-nums leading-tight">
             <span
-              className={`font-numeric font-bold tabular-nums ${
+              className={`font-bold ${
                 r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-900'
               }`}
             >
               {r.eff}
             </span>
+            <span
+              className={`text-2xs ${
+                r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-500'
+              }`}
+            >
+              {r.effPct.toFixed(2)}٪
+            </span>
           </span>
-          <span
-            className={`font-numeric tabular-nums text-2xs ${
-              r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-500'
-            }`}
-          >
-            {r.effPct.toFixed(2)}٪
-          </span>
-        </div>
+        </span>
       ),
     },
     {
       key: 'actions',
       label: <span className="sr-only">إجراءات</span>,
       align: 'center',
+      className: 'min-w-[5ch]',
       render: (r) => <RowActions row={r} onSelect={setOverlay} />,
     },
   ];
