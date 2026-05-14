@@ -349,7 +349,6 @@ export function RolesPage(): JSX.Element {
             <PermissionMatrix
               permissions={draft.permissions}
               onChange={(next) => setDraft({ ...draft, permissions: next })}
-              readOnly={isEditingSystem}
             />
           </div>
         </Drawer.Body>
