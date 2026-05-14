@@ -1,25 +1,24 @@
 /**
  * إدارة مواعيد الاختبارات واللجان — wizard step.
  *
- * Renders `CommitteeBindingsPanel` once with the cycle's active
- * categories surfaced as a multi-select inside the panel's form (no
- * per-category tabs at the page level any more).
- *
- * Active-category source is `useCategoryConfigs()` filtered by
- * `isActive === true`, surfaced via the shared `useActiveCategoriesForCycle`
- * helper.
+ * Renders the step's two affordances — «إضافة» and «عرض» — as distinct
+ * sub-pages under the step header instead of tabs. The `?sub=` search
+ * param drives which sub-page renders so the browser Back button and
+ * bookmarks behave like a real navigation. Default (no param) is the
+ * «عرض» landing — the master view — with a primary action that
+ * navigates to the «إضافة» sub-page.
  */
 
-import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { useCallback, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, Plus } from 'lucide-react';
 import {
+  Badge,
   Button,
   Card,
   EmptyState,
   LoadingState,
   PageHeader,
-  Tabs,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import {
@@ -42,6 +41,12 @@ function academicYearForCycle(cycle: AdmissionCycle): string {
 
 function isApplicantCategoryKey(code: string): code is ApplicantCategoryKey {
   return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(code);
+}
+
+type SubPage = 'view' | 'add';
+
+function readSubPage(raw: string | null): SubPage {
+  return raw === 'add' ? 'add' : 'view';
 }
 
 export function CommitteesManagementPage(): JSX.Element {
@@ -94,56 +99,107 @@ function Body({ cycle }: BodyProps): JSX.Element {
     );
   }
 
-  return (
-    <div className="flex flex-col gap-4">
-      <PageHeader
-        title="إدارة مواعيد الاختبارات واللجان"
-        subtitle={`العام الأكاديمي ${academicYearForCycle(cycle)} · أضف موعد اختبار لفئة واحدة أو أكثر معًا.`}
-        actions={
-          <Link to={ROUTES.committee.list} className="inline-flex">
-            <Button
-              variant="ghost"
-              size="sm"
-              trailingIcon={
-                <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
-              }
-            >
-              إدارة اللجان الكاملة
-            </Button>
-          </Link>
-        }
-      />
-      <CommitteesTabs cycle={cycle} active={active} />
-    </div>
-  );
+  return <SubPageRouter cycle={cycle} active={active} />;
 }
 
-interface CommitteesTabsProps {
+interface SubPageRouterProps {
   cycle: AdmissionCycle;
   active: Array<{ key: ApplicantCategoryKey; labelAr: string }>;
 }
 
-function CommitteesTabs({ cycle, active }: CommitteesTabsProps): JSX.Element {
+function SubPageRouter({ cycle, active }: SubPageRouterProps): JSX.Element {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sub = readSubPage(searchParams.get('sub'));
   const approvedCount = useAdmissionSetupWizardStore((s) => s.approved.length);
-  return (
-    <Tabs defaultValue="add">
-      <Tabs.List>
-        <Tabs.Tab value="add">إضافة</Tabs.Tab>
-        <Tabs.Tab value="view" badge={approvedCount > 0 ? num(approvedCount) : undefined}>
-          عرض
-        </Tabs.Tab>
-      </Tabs.List>
-      <Tabs.Panel value="add">
+
+  /* Mutate only the `sub` param so we don't clobber other state on the
+   * URL (the wizard's :stepKey lives in the path, not the search). */
+  const goToSub = useCallback(
+    (next: SubPage) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (next === 'view') {
+            params.delete('sub');
+          } else {
+            params.set('sub', next);
+          }
+          return params;
+        },
+        { replace: false },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const academicYear = academicYearForCycle(cycle);
+
+  if (sub === 'add') {
+    return (
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          title="إضافة موعد اختبار"
+          subtitle={`العام الأكاديمي ${academicYear} · أضف موعدًا لفئة واحدة أو أكثر معًا.`}
+          actions={
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => goToSub('view')}
+              leadingIcon={
+                <ArrowRight size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
+              }
+            >
+              الرجوع إلى العرض
+            </Button>
+          }
+        />
         <Card>
           <div className="p-3">
             <CommitteeBindingsPanel cycle={cycle} active={active} />
           </div>
         </Card>
-      </Tabs.Panel>
-      <Tabs.Panel value="view">
-        <ApprovedRulesView />
-      </Tabs.Panel>
-    </Tabs>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title="إدارة مواعيد الاختبارات واللجان"
+        subtitle={`العام الأكاديمي ${academicYear} · ${
+          approvedCount > 0
+            ? `${num(approvedCount)} قاعدة معتمدة`
+            : 'لا توجد قواعد معتمدة بعد.'
+        }`}
+        actions={
+          <div className="flex items-center gap-2">
+            {approvedCount > 0 && (
+              <Badge tone="info">{num(approvedCount)} قاعدة</Badge>
+            )}
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => goToSub('add')}
+              leadingIcon={<Plus size={14} strokeWidth={1.75} />}
+            >
+              إضافة موعد جديد
+            </Button>
+            <Link to={ROUTES.committee.list} className="inline-flex">
+              <Button
+                variant="ghost"
+                size="sm"
+                trailingIcon={
+                  <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
+                }
+              >
+                إدارة اللجان الكاملة
+              </Button>
+            </Link>
+          </div>
+        }
+      />
+      <ApprovedRulesView />
+    </div>
   );
 }
 
