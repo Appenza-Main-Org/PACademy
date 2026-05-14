@@ -39,7 +39,7 @@ import {
   PageHeader,
   StatCard,
 } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
+import type { DataTableColumn, DataTableSort } from '@/shared/components';
 import { useGrades } from '../api/grades.queries';
 import { AddAdjustmentDialog } from '../components/AddAdjustmentDialog';
 import { ImportWizard } from '../components/ImportWizard';
@@ -59,6 +59,14 @@ export function ApplicantGradesPage(): JSX.Element {
   const [search, setSearch] = useState('');
   const [kindFilter, setKindFilter] = useState<'all' | 'general' | 'azhar'>('all');
   const [overlay, setOverlay] = useState<OverlayState>(null);
+  /**
+   * Sort state. `null` means "use the default", which sorts by effective
+   * percentage descending (the most useful default for admins triaging
+   * who's at risk on the cutoff). Clicking a sortable header cycles
+   * asc → desc → null (back to default) — DataTable already emits the
+   * null transition on the third click.
+   */
+  const [sort, setSort] = useState<DataTableSort<DerivedRow> | null>(null);
 
   const derived = useMemo<DerivedRow[]>(() => (data ?? []).map(deriveRow), [data]);
 
@@ -112,10 +120,49 @@ export function ApplicantGradesPage(): JSX.Element {
   const activeRow =
     overlay && 'seat' in overlay ? derived.find((r) => r.seat === overlay.seat) ?? null : null;
 
+  /**
+   * Apply the active sort. When no explicit sort is set, fall back to
+   * effective-percentage descending so the table always lands on a
+   * meaningful order. Arabic name sort uses `localeCompare` with the
+   * `ar` locale + `sensitivity: 'base'` so the canonical Arabic
+   * collation rules apply (matching the SQL Server `Arabic_CI_AI`
+   * collation we'll plug into on integration day).
+   */
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    const active = sort ?? ({ key: 'effPct', direction: 'desc' } as const);
+    const dir = active.direction === 'asc' ? 1 : -1;
+    const cmp = (a: DerivedRow, b: DerivedRow): number => {
+      switch (active.key) {
+        case 'name':
+          return a.name.localeCompare(b.name, 'ar', { sensitivity: 'base' }) * dir;
+        case 'branch':
+          return a.branch.localeCompare(b.branch, 'ar', { sensitivity: 'base' }) * dir;
+        case 'kind':
+          return a.kind.localeCompare(b.kind) * dir;
+        case 'nid':
+          return a.nid.localeCompare(b.nid) * dir;
+        case 'total':
+          return (a.total - b.total) * dir;
+        case 'pct':
+          return (a.pct - b.pct) * dir;
+        case 'eff':
+          return (a.eff - b.eff) * dir;
+        case 'effPct':
+          return (a.effPct - b.effPct) * dir;
+        default:
+          return 0;
+      }
+    };
+    arr.sort(cmp);
+    return arr;
+  }, [filtered, sort]);
+
   const columns: DataTableColumn<DerivedRow>[] = [
     {
       key: 'nid',
       label: 'الرقم القومي',
+      sortable: true,
       render: (r) => (
         <span className="font-mono text-2xs text-ink-600" dir="ltr">
           {r.nid}
@@ -125,12 +172,14 @@ export function ApplicantGradesPage(): JSX.Element {
     {
       key: 'name',
       label: 'الاسم',
+      sortable: true,
       render: (r) => <span className="font-medium text-ink-900">{r.name}</span>,
     },
     {
       key: 'kind',
       label: 'النوع',
       align: 'center',
+      sortable: true,
       render: (r) => (
         <Badge tone={r.kind === 'general' ? 'info' : 'warning'}>
           {r.kind === 'general' ? 'عامة' : 'أزهرية'}
@@ -141,12 +190,14 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'branch',
       label: 'الشعبة',
       hideOn: 'md',
+      sortable: true,
       render: (r) => <span className="text-xs">{r.branch}</span>,
     },
     {
       key: 'total',
       label: 'المجموع',
       numeric: true,
+      sortable: true,
       render: (r) => (
         <span className="inline-flex items-baseline justify-end gap-1">
           <span className="font-numeric font-semibold tabular-nums">{r.total}</span>
@@ -169,6 +220,7 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'pct',
       label: 'النسبة',
       numeric: true,
+      sortable: true,
       render: (r) => (
         <>
           <span className="font-numeric font-semibold tabular-nums text-ink-900">
@@ -182,6 +234,7 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'eff',
       label: 'الفعلي',
       numeric: true,
+      sortable: true,
       render: (r) => (
         <div className="inline-flex flex-col items-end leading-tight">
           <span className="inline-flex items-center gap-1">
@@ -405,9 +458,11 @@ export function ApplicantGradesPage(): JSX.Element {
               )}
 
               <DataTable<DerivedRow>
-                data={filtered}
+                data={sorted}
                 columns={columns}
                 rowKey={(r) => r.seat}
+                sort={sort}
+                onSortChange={setSort}
                 onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
                 empty={
                   <EmptyState
