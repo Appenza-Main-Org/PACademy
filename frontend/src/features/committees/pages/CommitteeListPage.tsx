@@ -440,7 +440,11 @@ export function CommitteeListPage(): JSX.Element {
               variant="primary"
               size="md"
               leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-              onClick={() => navigate(ROUTES.committee.create)}
+              onClick={() =>
+                navigate(
+                  `${ROUTES.committee.create}?category=${encodeURIComponent(activeCategoryKey)}`,
+                )
+              }
             >
               إنشاء لجنة
             </Button>

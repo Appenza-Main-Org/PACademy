@@ -10,7 +10,7 @@
 
 import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Save } from 'lucide-react';
 import { z } from 'zod';
 import {
@@ -104,6 +104,18 @@ export function CommitteeCreatePage(): JSX.Element {
   const createMut = useCreateCommittee();
   const categoriesQuery = useCategoriesAdmin({ includeDeleted: false });
 
+  /* When the admin clicks "إنشاء لجنة" from /admin/committee/list, the
+   * active tab's key is passed via `?category=<key>` so the create form
+   * lands pre-scoped to that category. Invalid / missing values fall
+   * through to the editable selector. */
+  const [searchParams] = useSearchParams();
+  const requestedCategory = searchParams.get('category');
+  const presetCategoryKey: ApplicantCategoryKey | null =
+    requestedCategory && isApplicantCategoryKey(requestedCategory)
+      ? requestedCategory
+      : null;
+  const isCategoryLocked = presetCategoryKey !== null;
+
   const {
     register,
     handleSubmit,
@@ -113,7 +125,7 @@ export function CommitteeCreatePage(): JSX.Element {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      categoryKey: '',
+      categoryKey: presetCategoryKey ?? '',
       name: '',
       academicYearId: ACADEMIC_YEARS[0].value,
       status: 'active',
@@ -241,7 +253,11 @@ export function CommitteeCreatePage(): JSX.Element {
                 label="الفئة"
                 required
                 error={errors.categoryKey?.message}
-                helper="الفئة التي ستستقبلها اللجنة (مصدر القائمة: /admin/categories)"
+                helper={
+                  isCategoryLocked
+                    ? 'محدّدة من القائمة'
+                    : 'الفئة التي ستستقبلها اللجنة (مصدر القائمة: /admin/categories)'
+                }
                 className="md:col-span-2"
               >
                 <Combobox
@@ -250,6 +266,7 @@ export function CommitteeCreatePage(): JSX.Element {
                   options={categoryOptions}
                   placeholder="اختر الفئة…"
                   ariaLabel="الفئة"
+                  disabled={isCategoryLocked}
                 />
               </Field>
 
