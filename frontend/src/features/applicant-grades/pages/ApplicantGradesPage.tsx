@@ -67,10 +67,17 @@ export function ApplicantGradesPage(): JSX.Element {
     let out = derived;
     if (kindFilter !== 'all') out = out.filter((r) => r.kind === kindFilter);
     if (searchN) {
+      const s = search.trim();
       out = out.filter((r) => {
         if (arNormalize(r.name).includes(searchN)) return true;
-        if (r.nid.includes(search.trim())) return true;
-        if (String(r.seat).includes(search.trim())) return true;
+        if (r.nid.includes(s)) return true;
+        if (String(r.seat).includes(s)) return true;
+        /* Seat / school / region / status are no longer visible columns
+         * (per the polish pass), but stay searchable from the toolbar
+         * so admins can still locate a student by any of them. */
+        if (arNormalize(r.school).includes(searchN)) return true;
+        if (arNormalize(r.region).includes(searchN)) return true;
+        if (arNormalize(r.status).includes(searchN)) return true;
         return false;
       });
     }
@@ -78,13 +85,19 @@ export function ApplicantGradesPage(): JSX.Element {
   }, [derived, kindFilter, searchN, search]);
 
   const matchCounts = useMemo(() => {
-    if (!search.trim()) return { name: 0, nid: 0, seat: 0 };
+    if (!search.trim()) return { name: 0, nid: 0, seat: 0, other: 0 };
     const s = search.trim();
     const n = arNormalize(s);
     return {
       name: derived.filter((r) => arNormalize(r.name).includes(n)).length,
       nid: derived.filter((r) => r.nid.includes(s)).length,
       seat: derived.filter((r) => String(r.seat).includes(s)).length,
+      /* Aggregate match count for the three hidden but searchable fields. */
+      other: derived.filter((r) =>
+        arNormalize(r.school).includes(n)
+        || arNormalize(r.region).includes(n)
+        || arNormalize(r.status).includes(n),
+      ).length,
     };
   }, [derived, search]);
 
@@ -101,15 +114,8 @@ export function ApplicantGradesPage(): JSX.Element {
 
   const columns: DataTableColumn<DerivedRow>[] = [
     {
-      key: 'seat',
-      label: 'رقم الجلوس',
-      numeric: true,
-      render: (r) => <span className="font-numeric tabular-nums">{r.seat.toLocaleString('en')}</span>,
-    },
-    {
       key: 'nid',
       label: 'الرقم القومي',
-      hideOn: 'md',
       render: (r) => (
         <span className="font-mono text-2xs text-ink-600" dir="ltr">
           {r.nid}
@@ -124,6 +130,7 @@ export function ApplicantGradesPage(): JSX.Element {
     {
       key: 'kind',
       label: 'النوع',
+      align: 'center',
       render: (r) => (
         <Badge tone={r.kind === 'general' ? 'info' : 'warning'}>
           {r.kind === 'general' ? 'عامة' : 'أزهرية'}
@@ -135,17 +142,6 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'الشعبة',
       hideOn: 'md',
       render: (r) => <span className="text-xs">{r.branch}</span>,
-    },
-    {
-      key: 'school',
-      label: 'المدرسة / المنطقة',
-      hideOn: 'sm',
-      render: (r) => (
-        <div className="flex min-w-0 flex-col">
-          <span className="truncate text-xs text-ink-900">{r.school}</span>
-          <span className="text-2xs text-ink-500">{r.region}</span>
-        </div>
-      ),
     },
     {
       key: 'total',
@@ -221,19 +217,6 @@ export function ApplicantGradesPage(): JSX.Element {
           </span>
         </div>
       ),
-    },
-    {
-      key: 'status',
-      label: 'الحالة',
-      hideOn: 'md',
-      render: (r) =>
-        r.status === '—' ? (
-          <span className="text-ink-300">—</span>
-        ) : (
-          <Badge tone={r.status === 'مستجد' ? 'success' : 'warning'} dot>
-            {r.status}
-          </Badge>
-        ),
     },
     {
       key: 'actions',
@@ -410,6 +393,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   <MatchChip label="الاسم" count={matchCounts.name} />
                   <MatchChip label="الرقم القومي" count={matchCounts.nid} />
                   <MatchChip label="رقم الجلوس" count={matchCounts.seat} />
+                  <MatchChip label="المدرسة / المنطقة / الحالة" count={matchCounts.other} />
                   <button
                     type="button"
                     onClick={() => setSearch('')}
