@@ -70,28 +70,32 @@ export function StudentDetailsDrawer({
           </div>
         }
         subtitle={
-          <nav className="mt-3 flex gap-4 border-b border-border-subtle">
+          /* Tabs nav — `gap-6` between triggers (≈ `gap-lg` on our 4px-step
+           * scale), `gap-1` between label and count (≈ `gap-xs`). The count
+           * uses the shared `Badge tone="neutral"` so it picks up the
+           * project's muted-ink palette (`bg-ink-100 text-ink-700`) and
+           * standard pill chrome — `min-w-5` keeps the 1-vs-15 widths even
+           * so the active-tab underline doesn't shift. The underline binds
+           * to `border-accent-500` so it picks up the per-app accent
+           * token from `data-app="admin"`. */
+          <nav className="mt-3 flex gap-6 border-b border-border-subtle">
             {tabs.map((t) => {
               const active = tab === t.v;
               return (
                 <button
                   key={t.v}
                   onClick={() => setTab(t.v)}
-                  className={`-mb-px inline-flex cursor-pointer items-center gap-2 border-0 border-b-2 bg-transparent px-3 py-2 text-sm transition-colors ${
+                  className={`-mb-px inline-flex cursor-pointer items-center gap-1 border-0 border-b-2 bg-transparent px-3 py-2 text-sm transition-colors ${
                     active
-                      ? 'border-teal-500 font-semibold text-ink-900'
+                      ? 'border-accent-500 font-semibold text-ink-900'
                       : 'border-transparent font-medium text-ink-500 hover:text-ink-700'
                   }`}
                 >
                   {t.label}
                   {t.count != null && (
-                    <span
-                      className={`inline-grid min-w-5 place-items-center rounded-full px-1.5 py-0.5 font-en text-2xs font-semibold tabular-nums ${
-                        active ? 'bg-teal-50 text-teal-700' : 'bg-ink-100 text-ink-500'
-                      }`}
-                    >
+                    <Badge tone="neutral" className="min-w-5 justify-center !px-2 font-en tabular-nums">
                       {t.count}
-                    </span>
+                    </Badge>
                   )}
                 </button>
               );
