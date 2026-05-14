@@ -19,10 +19,21 @@
  *   - `ParseError`          → generic parse failure (error tile)
  */
 
-import { Buffer } from 'buffer';
-import MDBReader from 'mdb-reader';
+import type MDBReaderType from 'mdb-reader';
 import type { Value } from 'mdb-reader';
 import type { GradeKind } from '../types';
+
+/* `mdb-reader` (and its transitive `buffer` polyfill) are heavy and
+ * reach for Node globals at module-evaluation time. Loading them
+ * eagerly broke the main bundle in production with
+ *   Uncaught ReferenceError: process is not defined
+ *   Uncaught TypeError: Cannot read properties of undefined (reading 'slice')
+ * because top-level code in the package family touches `process` /
+ * `Buffer`. They're only needed when the admin actually uploads an
+ * .mdb / .accdb file, so the value-imports are deferred to runtime via
+ * dynamic `import()` inside `parseAccessFile`. The type-only imports
+ * above are erased at build time and don't pull anything into the main
+ * chunk. */
 
 /**
  * Row shape the parser emits — identical to `GradeRow` minus the
@@ -142,12 +153,12 @@ function numericish(v: Value): number {
  *  Ministry exports usually carry a single data table plus internal
  *  index tables; this scan tolerates either ordering. */
 function findDataTable(
-  reader: MDBReader,
+  reader: MDBReaderType,
   required: readonly string[],
-): { table: ReturnType<MDBReader['getTable']>; missing: string[] } {
+): { table: ReturnType<MDBReaderType['getTable']>; missing: string[] } {
   const names = reader.getTableNames();
   let bestMissing: string[] = [...required];
-  let bestTable: ReturnType<MDBReader['getTable']> | null = null;
+  let bestTable: ReturnType<MDBReaderType['getTable']> | null = null;
   for (const tableName of names) {
     const table = reader.getTable(tableName);
     const cols = new Set(table.getColumnNames());
@@ -170,13 +181,20 @@ function findDataTable(
  *  Throws `MissingColumnError` when the source table is found but is
  *  missing one or more required columns, or `ParseError` for any
  *  lower-level failure (corrupt file, no usable table, etc.). */
-export function parseAccessFile(
+export async function parseAccessFile(
   buffer: ArrayBuffer,
   kind: GradeKind,
-): ImportedGradeRow[] {
+): Promise<ImportedGradeRow[]> {
   const map = MAPS[kind];
 
-  let reader: MDBReader;
+  /* Load the Node-flavoured packages on demand. Split into separate
+   * chunks at build time so the main bundle stays clean. */
+  const [{ default: MDBReader }, { Buffer }] = await Promise.all([
+    import('mdb-reader'),
+    import('buffer'),
+  ]);
+
+  let reader: MDBReaderType;
   try {
     /* `mdb-reader` constructor signature requires a Node `Buffer`; in
      * the browser we polyfill via the `buffer` package so the same

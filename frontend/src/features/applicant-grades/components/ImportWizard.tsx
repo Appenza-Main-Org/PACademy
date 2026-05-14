@@ -444,7 +444,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
         prev.status === 'uploading' ? { ...prev, progress: pct } : prev,
       );
     };
-    reader.onload = () => {
+    reader.onload = async () => {
       readerRef.current = null;
       const buffer = reader.result;
       if (!(buffer instanceof ArrayBuffer)) {
@@ -456,7 +456,11 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
         return;
       }
       try {
-        const rows = parseAccessFile(buffer, setup.kind);
+        /* `parseAccessFile` lazy-loads `mdb-reader` + `buffer` on first
+         * call — the chunks aren't in the main bundle so the app can
+         * boot even when those Node-flavoured packages would otherwise
+         * crash the bundle at module-load time. */
+        const rows = await parseAccessFile(buffer, setup.kind);
         onChange({
           ...setup,
           file: { name: file.name, size: file.size, rows: rows.length },
