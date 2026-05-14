@@ -4,7 +4,7 @@
  * INTEGRATION CONTRACT:
  *   GET    /api/grades                          → GradeRow[]
  *   POST   /api/grades/import/stage             → StagedImport
- *     body:  { kind, maxDegree, fileId }
+ *     body:  { kind, maxDegree, rows: ImportedGradeRow[] }
  *     409   { code: 'MISSING_REQUIRED_COLUMN', missing: string[] }
  *   POST   /api/grades/import/commit            → CommittedImport
  *     body:  { stageId, resolutions: Record<nid, 'ACCEPT' | 'REJECT'> }
@@ -18,17 +18,18 @@
  */
 
 import { simulateLatency } from '@/shared/lib/mock-helpers';
-import { SAMPLE_DUPLICATES, SEED_ROWS } from '../mock';
+import { SEED_ROWS } from '../mock';
+import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
   AdjustmentReason,
   CommittedImport,
   GradeRow,
+  ImportDuplicateRow,
   ImportResolution,
+  ImportSkipBucket,
   StagedImport,
 } from '../types';
 
-/* In-memory store — replicates how the polished mock layer keeps state
- * across query refetches within a single browser session. */
 let STATE: GradeRow[] = SEED_ROWS.map((r) => ({ ...r, log: r.log.map((e) => ({ ...e })) }));
 
 const REASON_LABEL: Record<AdjustmentReason, string> = {
@@ -129,73 +130,180 @@ export const gradesService = {
 
   /* ── Import wizard ────────────────────────────────────────────── */
 
-  /**
-   * Stage an import file. Returns the staged duplicates + parse skip
-   * buckets for review. Filenames containing "ناقص" / "missing" / "error"
-   * route to the MISSING_REQUIRED_COLUMN error path (handled by callers).
-   */
   async stageImport(input: {
     kind: 'general' | 'azhar';
     maxDegree: number;
-    file: { name: string };
+    rows: ImportedGradeRow[];
   }): Promise<{ ok: true; staged: StagedImport } | { ok: false; missing: string[] }> {
-    await simulateLatency(280, 480);
-    const nm = input.file.name.toLowerCase();
-    if (nm.includes('ناقص') || nm.includes('missing') || nm.includes('error')) {
-      return { ok: false, missing: ['arabic_name', 'branch_desc_new', 'student_case_desc'] };
+    await simulateLatency(120, 240);
+    const { kind, maxDegree, rows } = input;
+    const existingByNid = new Map(STATE.map((r) => [r.nid, r]));
+
+    const newRows: ImportedGradeRow[] = [];
+    const dupRows: ImportDuplicateRow[] = [];
+    const overflow: Array<{ row: number; detail: string }> = [];
+
+    rows.forEach((row, i) => {
+      if (row.total > maxDegree) {
+        overflow.push({
+          row: i + 2,
+          detail: `رقم جلوس ${row.seat.toLocaleString('en')} · المجموع = ${row.total}`,
+        });
+        return;
+      }
+      const existing = existingByNid.get(row.nid);
+      if (!existing) {
+        newRows.push(row);
+        return;
+      }
+      const changedFields: Array<'total' | 'branch' | 'school' | 'region' | 'status' | 'seat'> = [];
+      if (existing.total !== row.total) changedFields.push('total');
+      if (existing.branch !== row.branch) changedFields.push('branch');
+      if (existing.school !== row.school) changedFields.push('school');
+      if (existing.region !== row.region) changedFields.push('region');
+      if (existing.status !== row.status) changedFields.push('status');
+      if (existing.seat !== row.seat) changedFields.push('seat');
+      const adjustmentSum = existing.log
+        .filter((x) => x.isActive)
+        .reduce((s, x) => s + x.amount, 0);
+      dupRows.push({
+        nationalId: row.nid,
+        name: row.name,
+        kind,
+        seatExisting: existing.seat,
+        seatIncoming: row.seat,
+        maxDegree,
+        hasChanges: changedFields.length > 0,
+        changedFields,
+        existing: {
+          total: existing.total,
+          branch: existing.branch,
+          school: existing.school,
+          region: existing.region,
+          status: existing.status,
+        },
+        incoming: {
+          total: row.total,
+          branch: row.branch,
+          school: row.school,
+          region: row.region,
+          status: row.status,
+        },
+        adjustmentSum,
+        adjustmentCount: existing.log.filter((x) => x.isActive).length,
+      });
+    });
+
+    const skipped: ImportSkipBucket[] = [];
+    if (overflow.length > 0) {
+      skipped.push({
+        reason: 'TOTAL_EXCEEDS_MAX',
+        label: 'تجاوز الدرجة العظمى',
+        count: overflow.length,
+        tone: 'terra',
+        rows: overflow.slice(0, 50),
+      });
     }
+
+    pendingImport = { kind, maxDegree, newRows, duplicates: dupRows };
+
     return {
       ok: true,
-      staged: {
-        newRows: 3082 - SAMPLE_DUPLICATES.length,
-        duplicates: SAMPLE_DUPLICATES.map((d) => ({
-          ...d,
-          changedFields: [...d.changedFields],
-        })),
-        skipped: [
-          {
-            reason: 'TOTAL_EXCEEDS_MAX',
-            label: 'تجاوز الدرجة العظمى',
-            count: 28,
-            tone: 'terra',
-            rows: [
-              { row: 47, detail: 'رقم جلوس 142,118 · المجموع = 415' },
-              { row: 213, detail: 'رقم جلوس 143,002 · المجموع = 412' },
-            ],
-          },
-          {
-            reason: 'PARSE_ERROR',
-            label: 'تعذر قراءة الصف',
-            count: 3,
-            tone: 'warning',
-            rows: [{ row: 1248, detail: 'قيمة غير رقمية في total_degree' }],
-          },
-        ],
-      },
+      staged: { newRows: newRows.length, duplicates: dupRows, skipped },
     };
   },
 
-  /** Commit a staged import with per-duplicate resolutions. */
   async commitImport(
     staged: StagedImport,
     resolutions: Record<string, ImportResolution>,
   ): Promise<CommittedImport> {
-    await simulateLatency(280, 520);
-    const accepted = Object.values(resolutions).filter((r) => r === 'ACCEPT').length;
-    const rejected = Object.values(resolutions).filter((r) => r === 'REJECT').length;
-    const deactivated = staged.duplicates
-      .filter((d) => {
-        if (resolutions[d.nationalId] !== 'ACCEPT' || d.adjustmentCount === 0) return false;
-        const projected = d.incoming.total + d.adjustmentSum;
-        return projected > d.maxDegree || projected < 0;
-      })
-      .map((d) => ({ nationalId: d.nationalId, name: d.name, adjustmentSum: d.adjustmentSum }));
+    await simulateLatency(180, 320);
+    const pending = pendingImport;
+    if (!pending) {
+      throw new Error('No staged import to commit. Call stageImport first.');
+    }
+
+    const acceptedNids = new Set(
+      Object.entries(resolutions)
+        .filter(([, r]) => r === 'ACCEPT')
+        .map(([nid]) => nid),
+    );
+    const rejectedCount = Object.values(resolutions).filter((r) => r === 'REJECT').length;
+
+    const existingByNid = new Map(STATE.map((r) => [r.nid, r]));
+    const deactivated: CommittedImport['deactivated'] = [];
+
+    for (const dup of pending.duplicates) {
+      if (!acceptedNids.has(dup.nationalId)) continue;
+      const existing = existingByNid.get(dup.nationalId);
+      if (!existing) continue;
+
+      const incomingTotal = dup.incoming.total;
+      const adjSum = existing.log.filter((x) => x.isActive).reduce((s, x) => s + x.amount, 0);
+      const projected = incomingTotal + adjSum;
+      const overMax = projected > pending.maxDegree;
+      const belowZero = projected < 0;
+
+      const shouldDeactivate = (overMax || belowZero) && existing.log.some((x) => x.isActive);
+      const nextLog = shouldDeactivate
+        ? existing.log.map((x) => ({ ...x, isActive: false }))
+        : existing.log;
+
+      if (shouldDeactivate) {
+        deactivated.push({
+          nationalId: dup.nationalId,
+          name: dup.name,
+          adjustmentSum: adjSum,
+        });
+      }
+
+      existingByNid.set(dup.nationalId, {
+        ...existing,
+        seat: dup.seatIncoming,
+        name: dup.name,
+        kind: pending.kind,
+        branch: dup.incoming.branch,
+        school: dup.incoming.school,
+        region: dup.incoming.region,
+        status: dup.incoming.status,
+        total: incomingTotal,
+        importMax: pending.maxDegree,
+        log: nextLog,
+      });
+    }
+
+    const newGradeRows: GradeRow[] = pending.newRows.map((r) => ({
+      seat: r.seat,
+      nid: r.nid,
+      name: r.name,
+      kind: r.kind,
+      branch: r.branch,
+      school: r.school,
+      region: r.region,
+      total: r.total,
+      importMax: pending.maxDegree,
+      overrideMax: null,
+      lastEditedAt: null,
+      lastEditedBy: null,
+      status: r.status,
+      log: [],
+    }));
+    STATE = [...existingByNid.values(), ...newGradeRows];
+    pendingImport = null;
+
     return {
-      inserted: staged.newRows + accepted,
-      replaced: accepted,
-      kept: rejected,
+      inserted: pending.newRows.length + acceptedNids.size,
+      replaced: acceptedNids.size,
+      kept: rejectedCount,
       deactivated,
       skipped: staged.skipped,
     };
   },
 };
+
+let pendingImport: {
+  kind: 'general' | 'azhar';
+  maxDegree: number;
+  newRows: ImportedGradeRow[];
+  duplicates: ImportDuplicateRow[];
+} | null = null;

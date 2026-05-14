@@ -6,6 +6,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { gradesService } from './grades.service';
+import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
   AdjustmentReason,
   CommittedImport,
@@ -76,8 +77,11 @@ export function useUpdateOverrideMax() {
 
 export function useStageImport() {
   return useMutation({
-    mutationFn: (input: { kind: 'general' | 'azhar'; maxDegree: number; file: { name: string } }) =>
-      gradesService.stageImport(input),
+    mutationFn: (input: {
+      kind: 'general' | 'azhar';
+      maxDegree: number;
+      rows: ImportedGradeRow[];
+    }) => gradesService.stageImport(input),
   });
 }
 

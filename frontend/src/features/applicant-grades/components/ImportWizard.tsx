@@ -29,6 +29,12 @@ import {
 } from 'lucide-react';
 import { Badge, Button, Field, Modal } from '@/shared/components';
 import { useCommitImport, useStageImport } from '../api/grades.queries';
+import {
+  MissingColumnError,
+  ParseError,
+  parseAccessFile,
+  type ImportedGradeRow,
+} from '../lib/parseAccessFile';
 import type {
   CommittedImport,
   ImportDuplicateRow,
@@ -51,20 +57,36 @@ export function ImportWizard({ open, onClose, onComplete }: Props): JSX.Element 
     kind: 'general' | 'azhar';
     maxDegree: number;
     file: { name: string; size: number; rows: number } | null;
-  }>({ kind: 'general', maxDegree: 410, file: null });
+    parsedRows: ImportedGradeRow[] | null;
+    missingColumns: string[] | null;
+  }>({
+    kind: 'general',
+    maxDegree: 410,
+    file: null,
+    parsedRows: null,
+    missingColumns: null,
+  });
   const [staged, setStaged] = useState<StagedImport | null>(null);
   const [resolutions, setResolutions] = useState<Record<string, ImportResolution>>({});
   const [committed, setCommitted] = useState<CommittedImport | null>(null);
+  const [missingForErrorStep, setMissingForErrorStep] = useState<string[]>([]);
 
   const stageMutation = useStageImport();
   const commitMutation = useCommitImport();
 
   function reset() {
     setStep('setup');
-    setSetup({ kind: 'general', maxDegree: 410, file: null });
+    setSetup({
+      kind: 'general',
+      maxDegree: 410,
+      file: null,
+      parsedRows: null,
+      missingColumns: null,
+    });
     setStaged(null);
     setResolutions({});
     setCommitted(null);
+    setMissingForErrorStep([]);
   }
 
   function handleClose() {
@@ -75,13 +97,19 @@ export function ImportWizard({ open, onClose, onComplete }: Props): JSX.Element 
   }
 
   async function handleStage() {
-    if (!setup.file) return;
+    if (setup.missingColumns && setup.missingColumns.length > 0) {
+      setMissingForErrorStep(setup.missingColumns);
+      setStep('error');
+      return;
+    }
+    if (!setup.parsedRows) return;
     const res = await stageMutation.mutateAsync({
       kind: setup.kind,
       maxDegree: setup.maxDegree,
-      file: { name: setup.file.name },
+      rows: setup.parsedRows,
     });
     if (!res.ok) {
+      setMissingForErrorStep(res.missing);
       setStep('error');
       return;
     }
@@ -149,7 +177,12 @@ export function ImportWizard({ open, onClose, onComplete }: Props): JSX.Element 
         />
       )}
       {step === 'error' && (
-        <ErrorStep onBack={() => setStep('setup')} onCancel={handleClose} />
+        <ErrorStep
+          missing={missingForErrorStep}
+          kind={setup.kind}
+          onBack={() => setStep('setup')}
+          onCancel={handleClose}
+        />
       )}
       {step === 'review' && staged && (
         <ReviewStep
@@ -297,6 +330,8 @@ interface SetupProps {
     kind: 'general' | 'azhar';
     maxDegree: number;
     file: { name: string; size: number; rows: number } | null;
+    parsedRows: ImportedGradeRow[] | null;
+    missingColumns: string[] | null;
   };
   onChange: (next: SetupProps['setup']) => void;
   onContinue: () => void;
@@ -411,8 +446,41 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
     };
     reader.onload = () => {
       readerRef.current = null;
-      onChange({ ...setup, file: { name: file.name, size: file.size, rows: 3124 } });
-      setUpload((prev) => ({ ...prev, status: 'success', progress: 100 }));
+      const buffer = reader.result;
+      if (!(buffer instanceof ArrayBuffer)) {
+        setUpload((prev) => ({
+          ...prev,
+          status: 'error',
+          errorMessage: 'تعذّر قراءة محتويات الملف.',
+        }));
+        return;
+      }
+      try {
+        const rows = parseAccessFile(buffer, setup.kind);
+        onChange({
+          ...setup,
+          file: { name: file.name, size: file.size, rows: rows.length },
+          parsedRows: rows,
+          missingColumns: null,
+        });
+        setUpload((prev) => ({ ...prev, status: 'success', progress: 100 }));
+      } catch (err) {
+        if (err instanceof MissingColumnError) {
+          onChange({
+            ...setup,
+            file: { name: file.name, size: file.size, rows: 0 },
+            parsedRows: null,
+            missingColumns: [...err.missing],
+          });
+          setUpload((prev) => ({ ...prev, status: 'success', progress: 100 }));
+          return;
+        }
+        const message =
+          err instanceof ParseError
+            ? err.message
+            : 'تعذّر قراءة الملف. تأكد من سلامته ثم حاول مرة أخرى.';
+        setUpload((prev) => ({ ...prev, status: 'error', errorMessage: message }));
+      }
     };
     reader.onerror = () => {
       readerRef.current = null;
@@ -457,7 +525,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
       readerRef.current = null;
     }
     setUpload(IDLE_UPLOAD);
-    onChange({ ...setup, file: null });
+    onChange({ ...setup, file: null, parsedRows: null, missingColumns: null });
   }
 
   function retryUpload(): void {
@@ -472,7 +540,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
     lastFileRef.current = null;
     setUpload(IDLE_UPLOAD);
     setFileError(null);
-    onChange({ ...setup, file: null });
+    onChange({ ...setup, file: null, parsedRows: null, missingColumns: null });
   }
 
   function acceptFile(f: File): void {
@@ -480,7 +548,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
     if (err) {
       setFileError(err);
       setUpload(IDLE_UPLOAD);
-      onChange({ ...setup, file: null });
+      onChange({ ...setup, file: null, parsedRows: null, missingColumns: null });
       return;
     }
     setFileError(null);
@@ -537,6 +605,8 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                         kind: v,
                         maxDegree: v === 'general' ? 410 : 510,
                         file: fileStillValid ? setup.file : null,
+                        parsedRows: null,
+                        missingColumns: null,
                       });
                     }}
                     className="cursor-pointer rounded-sm border-0 px-4 py-1.5 text-sm font-medium transition-colors"
@@ -1547,24 +1617,47 @@ function ResultAccordion({
 
 /* ─── Error step (missing required columns) ───────────────────────────── */
 
+const REQUIRED_COLUMNS: Record<'general' | 'azhar', readonly string[]> = {
+  general: [
+    'seating_no',
+    'national_no',
+    'arabic_name',
+    'school_name',
+    'moderia_name',
+    'branch_desc_new',
+    'total_degree',
+    'student_case_desc',
+  ],
+  azhar: [
+    'StSeatNo',
+    'StudenName',
+    'DevisionName',
+    'National_Code',
+    'ZonName',
+    'InstituteName',
+    'Total2',
+  ],
+};
+
 function ErrorStep({
+  missing,
+  kind,
   onBack,
   onCancel,
 }: {
+  missing: readonly string[];
+  kind: 'general' | 'azhar';
   onBack: () => void;
   onCancel: () => void;
 }): JSX.Element {
-  const missing = ['arabic_name', 'branch_desc_new', 'student_case_desc'];
-  const allCols: Array<[string, 'ok' | 'missing']> = [
-    ['seating_no', 'ok'],
-    ['national_no', 'ok'],
-    ['arabic_name', 'missing'],
-    ['sex_name', 'ok'],
-    ['school_name', 'ok'],
-    ['branch_desc_new', 'missing'],
-    ['total_degree', 'ok'],
-    ['student_case_desc', 'missing'],
-  ];
+  const required = REQUIRED_COLUMNS[kind];
+  const missingSet = new Set(missing);
+  const allCols: Array<[string, 'ok' | 'missing']> = required.map((col) => [
+    col,
+    missingSet.has(col) ? 'missing' : 'ok',
+  ]);
+  const presentCount = allCols.filter(([, s]) => s === 'ok').length;
+  const kindLabel = kind === 'general' ? 'ثانوية عامة' : 'ثانوية أزهرية';
   return (
     <>
       <Modal.Body>
@@ -1597,9 +1690,9 @@ function ErrorStep({
 
           <section className="overflow-hidden rounded-md border border-border-subtle">
             <header className="flex items-center justify-between border-b border-border-subtle bg-ink-50 px-3 py-2 text-2xs font-semibold text-ink-700">
-              <span>مقارنة الأعمدة — ثانوية عامة</span>
+              <span>مقارنة الأعمدة — {kindLabel}</span>
               <span className="rounded-full border border-terra-300 bg-white px-2 font-en text-2xs font-semibold text-terra-700">
-                {allCols.length - missing.length} / {allCols.length}
+                {presentCount} / {allCols.length}
               </span>
             </header>
             <div className="grid grid-cols-4 font-mono text-2xs">
