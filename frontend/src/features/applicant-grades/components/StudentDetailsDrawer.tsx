@@ -226,7 +226,10 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
       </h3>
       <div className="grid grid-cols-2 gap-x-6 gap-y-3.5">
         {fields.map((f) => (
-          <KV key={f.sourceKey} {...f} />
+          /* Key on `label` — `sourceKey` is no longer rendered and is
+           * conceptually code-side documentation only; the Arabic
+           * label is what the iteration is keyed by visually. */
+          <KV key={f.label} {...f} />
         ))}
       </div>
 
@@ -441,12 +444,14 @@ function LogTab({ row }: { row: DerivedRow }): JSX.Element {
 interface KVProps {
   label: string;
   /**
-   * Source-column key from the import file. Retained on the data so we
-   * still know which raw column each Arabic label maps to (handy for
-   * support / on-call debugging), but it is no longer rendered — admins
-   * only need the human-readable Arabic label.
+   * Source-column key from the import file. Retained on the per-field
+   * data as code-side documentation (so support/on-call still know
+   * which raw column each Arabic label maps to), but no longer
+   * rendered to admins — they only need the human-readable label.
+   * Optional on the props because the renderer doesn't consume it; the
+   * field data shape still requires it via TS.
    */
-  sourceKey: string;
+  sourceKey?: string;
   value: string;
   mono?: boolean;
   empty?: boolean;
