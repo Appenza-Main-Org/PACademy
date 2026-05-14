@@ -332,11 +332,22 @@ export interface DeclarationDocument {
   size: number;
 }
 
-/** Electronic declaration shown to the applicant on Stage 9 (PDF document). */
+/** Which surface the applicant sees on Stage 9 — rich-text body or PDF. */
+export type DeclarationMode = 'text' | 'pdf';
+
+/** Electronic declaration shown to the applicant on Stage 9.
+ *
+ * Both modes (rich text + PDF) coexist on every saved record so admins can
+ * switch between tabs without losing the other tab's prior content.
+ * `mode` selects which surface is published to applicants. */
 export interface ElectronicDeclaration {
   id: string;
   cycleId: string;
-  document: DeclarationDocument;
+  mode: DeclarationMode;
+  /** Arabic body for `mode = 'text'`. Empty string when never authored. */
+  bodyAr?: string;
+  /** Uploaded PDF for `mode = 'pdf'`. Null when never uploaded. */
+  document?: DeclarationDocument | null;
   /** Auto-incremented per save. */
   version: number;
   /** ISO date — declaration becomes binding from this date. */

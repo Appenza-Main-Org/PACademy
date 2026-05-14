@@ -60,6 +60,8 @@ const SEED_CYCLE_ID = MOCK.cycles[0]?.id ?? 'CYCLE-2026-MALE';
 DECLARATIONS.push({
   id: 'DEC-SEED-0001',
   cycleId: SEED_CYCLE_ID,
+  mode: 'pdf',
+  bodyAr: '',
   document: {
     fileName: 'الإقرار-الإلكتروني-2026.pdf',
     fileUrl: '/mock/declarations/sample.pdf',
@@ -136,28 +138,53 @@ export const admissionSetupService = {
 
   async setDeclaration(input: {
     cycleId: string;
-    document: DeclarationDocument;
+    mode: 'text' | 'pdf';
+    bodyAr?: string;
+    document?: DeclarationDocument | null;
     effectiveFrom: string;
   }): Promise<ElectronicDeclaration> {
     await simulateLatency();
-    if (!input.document.fileName.trim() || !input.document.fileUrl.trim()) {
-      throw new Error('يجب رفع مستند الإقرار قبل الحفظ');
-    }
-    if (!input.document.fileName.toLowerCase().endsWith('.pdf')) {
-      throw new Error('يجب أن يكون المستند بصيغة PDF');
-    }
-    if (input.document.size <= 0) {
-      throw new Error('ملف الإقرار فارغ');
-    }
-    if (input.document.size > MAX_DECLARATION_SIZE) {
-      throw new Error('حجم الملف يتجاوز الحد المسموح به (10 ميجابايت)');
-    }
     const previous = await admissionSetupService.getDeclaration(input.cycleId);
+
+    /* Per-mode validation. The OTHER mode's content is carried forward
+     * from the previous version so admins can switch tabs without losing
+     * what they wrote elsewhere. */
+    let nextBodyAr = previous?.bodyAr ?? '';
+    let nextDoc: DeclarationDocument | null = previous?.document ?? null;
+    let detailLabel = '';
+
+    if (input.mode === 'text') {
+      const body = (input.bodyAr ?? '').trim();
+      if (!body) {
+        throw new Error('يجب إدخال نص الإقرار قبل الحفظ');
+      }
+      nextBodyAr = body;
+      detailLabel = 'النص';
+    } else {
+      const doc = input.document;
+      if (!doc || !doc.fileName.trim() || !doc.fileUrl.trim()) {
+        throw new Error('يجب رفع مستند الإقرار قبل الحفظ');
+      }
+      if (!doc.fileName.toLowerCase().endsWith('.pdf')) {
+        throw new Error('يجب أن يكون المستند بصيغة PDF');
+      }
+      if (doc.size <= 0) {
+        throw new Error('ملف الإقرار فارغ');
+      }
+      if (doc.size > MAX_DECLARATION_SIZE) {
+        throw new Error('حجم الملف يتجاوز الحد المسموح به (10 ميجابايت)');
+      }
+      nextDoc = { ...doc };
+      detailLabel = doc.fileName;
+    }
+
     const version = previous ? previous.version + 1 : 1;
     const next: ElectronicDeclaration = {
       id: id('DEC'),
       cycleId: input.cycleId,
-      document: { ...input.document },
+      mode: input.mode,
+      bodyAr: nextBodyAr,
+      document: nextDoc,
       version,
       effectiveFrom: input.effectiveFrom,
       createdAt: new Date().toISOString(),
@@ -170,7 +197,7 @@ export const admissionSetupService = {
       entityType: 'ElectronicDeclaration',
       entityLabel: 'الإقرار الإلكتروني',
       entityId: next.id,
-      details: `تم حفظ النسخة رقم ${version} من الإقرار الإلكتروني (${input.document.fileName})`,
+      details: `تم حفظ النسخة رقم ${version} من الإقرار الإلكتروني (${detailLabel})`,
       before: previous,
       after: next,
     });
