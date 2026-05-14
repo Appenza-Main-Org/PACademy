@@ -226,6 +226,19 @@ export const useAddScheduleBatchMutation = () => {
   });
 };
 
+export const useAddScheduleEntriesMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: committeeService.addScheduleEntries,
+    onSuccess: (_rows, vars) => {
+      const cats = new Set(vars.map((v) => v.categoryKey));
+      for (const cat of cats) {
+        qc.invalidateQueries({ queryKey: scheduleKeys.byCategory(cat) });
+      }
+    },
+  });
+};
+
 export const useRemoveScheduleEntryMutation = () => {
   const qc = useQueryClient();
   return useMutation({

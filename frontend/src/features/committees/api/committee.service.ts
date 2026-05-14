@@ -517,6 +517,57 @@ export const committeeService = {
       .sort((a, b) => a.date.localeCompare(b.date));
   },
 
+  /**
+   * Insert one schedule entry per element of `entries`. Unlike
+   * `addScheduleBatch` (which fans out to every committee in a category),
+   * this method lets the caller pick exact `(committeeId, date)` rows —
+   * used by the admission-setup wizard to merge-on-add: rows that already
+   * exist accumulate capacity via `updateScheduleEntry`, only the missing
+   * ones come through here.
+   *
+   * INTEGRATION CONTRACT:
+   *   POST /committees/schedule  → ExamScheduleEntry[]
+   *     body: Array<{ committeeId, date, capacity }>
+   */
+  async addScheduleEntries(
+    entries: ReadonlyArray<{
+      categoryKey: ApplicantCategoryKey;
+      committeeId: string;
+      date: string;
+      capacity: number;
+    }>,
+  ): Promise<ExamScheduleEntry[]> {
+    await simulateLatency();
+    const now = Date.now();
+    const created: ExamScheduleEntry[] = entries.map((e, idx) => {
+      if (!Number.isInteger(e.capacity) || e.capacity < 1) {
+        throw new ConflictError(
+          'CAPACITY_NOT_POSITIVE',
+          { capacity: e.capacity },
+          'السعة يجب أن تكون عدداً صحيحاً 1 أو أكثر',
+        );
+      }
+      return {
+        id: `ESE-${now}-${idx}`,
+        committeeId: e.committeeId,
+        date: e.date,
+        capacity: e.capacity,
+      };
+    });
+    MOCK.examSchedule.push(...created);
+    const distinctCats = Array.from(new Set(entries.map((e) => e.categoryKey)));
+    emitAudit({
+      action: 'create',
+      module: 'committees',
+      entityType: 'ExamScheduleEntry',
+      entityLabel: 'مواعيد اختبار',
+      entityId: `multi:${distinctCats.join(',')}`,
+      details: `إضافة ${created.length} موعد عبر ${distinctCats.length} فئة`,
+      after: created,
+    });
+    return created;
+  },
+
   async addScheduleBatch(input: {
     categoryKey: ApplicantCategoryKey;
     date: string;

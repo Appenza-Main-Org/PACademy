@@ -1,17 +1,25 @@
 /**
  * إدارة مواعيد الاختبارات واللجان — bindings panel (wizard step).
  *
- * A single flat surface (no per-category Tabs): the operator picks one
- * or more applicant categories in the "إضافة موعد اختبار" form, sets a
- * date and capacity, and the panel fans out one row per (category ×
- * committee) into `examSchedule`.
+ * Form: a 3-row grid (labels / inputs+button / helpers) so the "إضافة"
+ * button sits flush with the bottom edge of the input boxes regardless
+ * of helper-text presence.
  *
- * The grid below renders every active category's entries together with
- * a category column. When sorted by `الفئة` the rows collapse into an
- * Accordion, one section per category (default: all expanded). Sorting
- * by any other column reverts to a flat table.
+ * Grid: rows are always grouped by exam date inside a Radix Accordion.
+ * Each section's body is a flat DataTable with the four canonical
+ * columns (`الفئة`, `اليوم`, `اللجنة`, `سعة اللجنة`) and is sortable —
+ * the `اليوم` column is kept inside each section even though it's
+ * redundant with the section header, so column order stays canonical
+ * across views.
+ *
+ * Add semantics: idempotent merge. When the user submits, the panel
+ * splits the (category × committee × date) targets into two buckets —
+ * rows that already exist accumulate their capacity via update; rows
+ * that don't are inserted via `addScheduleEntries`. A summary toast
+ * reports both counts.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
@@ -36,7 +44,7 @@ import { date as fmtDate, num } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
 import {
   scheduleKeys,
-  useAddScheduleBatchMutation,
+  useAddScheduleEntriesMutation,
   useCommittees,
   useRemoveScheduleEntryMutation,
   useUpdateScheduleEntryMutation,
@@ -45,6 +53,7 @@ import { committeeService } from '@/features/committees/api/committee.service';
 import type {
   AdmissionCycle,
   ApplicantCategoryKey,
+  ExamScheduleEntry,
 } from '@/shared/types/domain';
 
 export interface CommitteeBindingsPanelProps {
@@ -62,7 +71,21 @@ interface BindingRow {
   categoryLabel: string;
 }
 
-const CATEGORY_SORT_KEY = 'categoryLabel' as const;
+/* ── Numeric-input guards ────────────────────────────────────────────
+ * `type="number"` lets users paste/keystroke `-`, `+`, `e`, `.` and end
+ * up with a value the JS layer reads as `NaN` (or worse: a negative).
+ * We swap to `type="text"` with `inputMode="numeric"`, sanitize the
+ * value on change, and block the offending keystrokes outright. */
+
+const BLOCKED_NUMERIC_KEYS = new Set(['-', '+', 'e', 'E', '.', ',']);
+
+function sanitizeDigits(s: string): string {
+  return s.replace(/\D+/g, '');
+}
+
+function isBlockedNumericKey(event: KeyboardEvent<HTMLInputElement>): boolean {
+  return BLOCKED_NUMERIC_KEYS.has(event.key);
+}
 
 function toIsoDate(d: Date): string {
   const year = d.getFullYear();
@@ -74,12 +97,6 @@ function toIsoDate(d: Date): string {
 export function CommitteeBindingsPanel({
   active,
 }: CommitteeBindingsPanelProps): JSX.Element {
-  /* The legacy `?categoryId=` search-param used to scope the previous
-   * Tabs is now meaningless — we simply ignore it. Deep links with that
-   * param still resolve to this page; no cleanup is needed and any
-   * effect that touches `useSearchParams` here would re-fire each
-   * render and trip the React update-depth guard. */
-
   const committeesQuery = useCommittees();
   const allCommittees = committeesQuery.data ?? [];
   const committeeNameById = useMemo(() => {
@@ -88,7 +105,7 @@ export function CommitteeBindingsPanel({
     return map;
   }, [allCommittees]);
 
-  const addBatchMut = useAddScheduleBatchMutation();
+  const addEntriesMut = useAddScheduleEntriesMutation();
   const removeMut = useRemoveScheduleEntryMutation();
   const updateMut = useUpdateScheduleEntryMutation();
 
@@ -104,32 +121,117 @@ export function CommitteeBindingsPanel({
     capacityRaw >= 1;
   const dateValid = pickedDate !== null;
   const categoriesValid = selectedCategories.length >= 1;
+
+  /* ── grid data: one query per active category ─────────────────── */
+  const scheduleQueries = useQueries({
+    queries: active.map((a) => ({
+      queryKey: scheduleKeys.byCategory(a.key),
+      queryFn: () => committeeService.listSchedule(a.key),
+    })),
+  });
+  const scheduleLoading = scheduleQueries.some((q) => q.isLoading);
+  const submitting = addEntriesMut.isPending || updateMut.isPending;
+
   const canSubmit =
-    dateValid && capacityValid && categoriesValid && !addBatchMut.isPending;
+    dateValid &&
+    capacityValid &&
+    categoriesValid &&
+    !submitting &&
+    !scheduleLoading;
 
   const categoryOptions = useMemo<ComboboxOption[]>(
     () => active.map((a) => ({ value: a.key, label: a.labelAr })),
     [active],
   );
 
+  const formCommitteeCount = useMemo(() => {
+    return selectedCategories.reduce((sum, key) => {
+      return (
+        sum +
+        allCommittees.filter(
+          (c) => c.categoryKey === (key as ApplicantCategoryKey) && !c.deletedAt,
+        ).length
+      );
+    }, 0);
+  }, [allCommittees, selectedCategories]);
+
   const handleAdd = async (): Promise<void> => {
     if (!canSubmit || !pickedDate) return;
     const iso = toIsoDate(pickedDate);
+
+    /* Build (category × committee × date) targets for the selected
+     * categories. */
+    const targets: Array<{
+      categoryKey: ApplicantCategoryKey;
+      committeeId: string;
+      date: string;
+      capacity: number;
+    }> = [];
+    for (const key of selectedCategories) {
+      const catKey = key as ApplicantCategoryKey;
+      const cats = allCommittees.filter(
+        (c) => c.categoryKey === catKey && !c.deletedAt,
+      );
+      for (const committee of cats) {
+        targets.push({
+          categoryKey: catKey,
+          committeeId: committee.id,
+          date: iso,
+          capacity: capacityRaw,
+        });
+      }
+    }
+
+    /* Partition: rows already present accumulate; rows missing are
+     * inserted. Existing rows live in the per-category schedule query
+     * caches we already streamed via `useQueries`. */
+    const existingByKey = new Map<string, ExamScheduleEntry>();
+    scheduleQueries.forEach((q) => {
+      const rows = q.data ?? [];
+      for (const e of rows) existingByKey.set(`${e.committeeId}|${e.date}`, e);
+    });
+
+    const updates: Array<{
+      id: string;
+      categoryKey: ApplicantCategoryKey;
+      nextCapacity: number;
+    }> = [];
+    const inserts: typeof targets = [];
+    for (const t of targets) {
+      const existing = existingByKey.get(`${t.committeeId}|${t.date}`);
+      if (existing) {
+        updates.push({
+          id: existing.id,
+          categoryKey: t.categoryKey,
+          nextCapacity: existing.capacity + t.capacity,
+        });
+      } else {
+        inserts.push(t);
+      }
+    }
+
     try {
-      const results = await Promise.all(
-        selectedCategories.map((key) =>
-          addBatchMut.mutateAsync({
-            categoryKey: key as ApplicantCategoryKey,
-            date: iso,
-            capacity: capacityRaw,
+      await Promise.all([
+        ...updates.map((u) =>
+          updateMut.mutateAsync({
+            id: u.id,
+            categoryKey: u.categoryKey,
+            patch: { capacity: u.nextCapacity },
           }),
         ),
-      );
-      const totalRows = results.reduce((sum, rows) => sum + rows.length, 0);
-      toast(
-        `تمت إضافة ${num(totalRows)} موعد بتاريخ ${fmtDate(iso, 'full')} عبر ${num(selectedCategories.length)} فئة`,
-        'success',
-      );
+        inserts.length > 0
+          ? addEntriesMut.mutateAsync(inserts)
+          : Promise.resolve(null),
+      ]);
+      const added = inserts.length;
+      const merged = updates.length;
+      const message =
+        added > 0 && merged > 0
+          ? `تمت إضافة ${num(added)} موعد جديد ودمج ${num(merged)} موعد قائم`
+          : added > 0
+            ? `تمت إضافة ${num(added)} موعد`
+            : `تم دمج ${num(merged)} موعد قائم`;
+      toast(message, 'success');
       setSelectedCategories([]);
       setPickedDate(null);
       setCapacityStr('');
@@ -153,15 +255,6 @@ export function CommitteeBindingsPanel({
     );
   };
 
-  /* ── grid data: one query per active category ─────────────────── */
-  const scheduleQueries = useQueries({
-    queries: active.map((a) => ({
-      queryKey: scheduleKeys.byCategory(a.key),
-      queryFn: () => committeeService.listSchedule(a.key),
-    })),
-  });
-  const scheduleLoading = scheduleQueries.some((q) => q.isLoading);
-
   const rows = useMemo<BindingRow[]>(() => {
     const out: BindingRow[] = [];
     scheduleQueries.forEach((q, idx) => {
@@ -184,25 +277,22 @@ export function CommitteeBindingsPanel({
   }, [
     active,
     committeeNameById,
-    // tanstack `useQueries` returns a fresh array reference per render — depend
-    // on a fingerprint of the row payload instead so the memo only recomputes
-    // when data actually changes.
     scheduleQueries.map((q) => q.dataUpdatedAt).join('|'),
     scheduleQueries.map((q) => q.data?.length ?? 0).join('|'),
   ]);
 
-  /* ── sort state ───────────────────────────────────────────────── */
+  /* ── shared in-table sort (Arabic-collation aware) ────────────── */
   const [sort, setSort] = useState<DataTableSort<BindingRow> | null>({
-    key: CATEGORY_SORT_KEY,
+    key: 'categoryLabel',
     direction: 'asc',
   });
 
-  const sortedRows = useMemo<BindingRow[]>(() => {
-    if (!sort) return rows;
+  const sortRows = (input: readonly BindingRow[]): BindingRow[] => {
+    if (!sort) return [...input];
     const dir = sort.direction === 'asc' ? 1 : -1;
     const arabicCmp = (a: string, b: string): number =>
       a.localeCompare(b, 'ar', { numeric: true });
-    return [...rows].sort((a, b) => {
+    return [...input].sort((a, b) => {
       switch (sort.key) {
         case 'categoryLabel':
           return arabicCmp(a.categoryLabel, b.categoryLabel) * dir;
@@ -216,38 +306,26 @@ export function CommitteeBindingsPanel({
           return 0;
       }
     });
+  };
+
+  /* ── grouping by exam date ─────────────────────────────────────── */
+  const dateGroups = useMemo<
+    { date: string; rows: BindingRow[] }[]
+  >(() => {
+    const bucket = new Map<string, BindingRow[]>();
+    for (const r of rows) {
+      const list = bucket.get(r.date);
+      if (list) list.push(r);
+      else bucket.set(r.date, [r]);
+    }
+    return Array.from(bucket.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, rs]) => ({ date, rows: sortRows(rs) }));
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [rows, sort]);
 
-  const groupedByCategory = useMemo<{
-    key: ApplicantCategoryKey;
-    label: string;
-    rows: BindingRow[];
-  }[]>(() => {
-    const buckets = new Map<ApplicantCategoryKey, BindingRow[]>();
-    for (const a of active) buckets.set(a.key, []);
-    for (const r of sortedRows) {
-      const bucket = buckets.get(r.categoryKey);
-      if (bucket) bucket.push(r);
-    }
-    /* Preserve the active-categories order (which already follows
-     * `sortOrder`) but flip when desc so the grouping reflects the
-     * Arabic-collation header sort. */
-    const ordered = [...active];
-    ordered.sort((a, b) => {
-      const cmp = a.labelAr.localeCompare(b.labelAr, 'ar', { numeric: true });
-      return sort?.direction === 'desc' ? -cmp : cmp;
-    });
-    return ordered.map((a) => ({
-      key: a.key,
-      label: a.labelAr,
-      rows: buckets.get(a.key) ?? [],
-    }));
-  }, [active, sortedRows, sort?.direction]);
-
-  const isGrouped = sort?.key === CATEGORY_SORT_KEY;
-
   /* ── columns ──────────────────────────────────────────────────── */
-  const baseColumns: DataTableColumn<BindingRow>[] = [
+  const columns: DataTableColumn<BindingRow>[] = [
     {
       key: 'categoryLabel',
       label: 'الفئة',
@@ -274,7 +352,7 @@ export function CommitteeBindingsPanel({
       key: 'capacity',
       label: 'سعة اللجنة',
       sortable: true,
-      numeric: true,
+      align: 'start',
       render: (r) => (
         <CapacityCell
           row={r}
@@ -291,32 +369,21 @@ export function CommitteeBindingsPanel({
         />
       ),
     },
-  ];
-
-  const actionsColumn: DataTableColumn<BindingRow> = {
-    key: '_actions',
-    label: <span className="sr-only">إجراءات</span>,
-    align: 'end',
-    render: (r) => (
-      <button
-        type="button"
-        aria-label="حذف الموعد"
-        onClick={() => handleRemove(r)}
-        className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-      >
-        <Trash2 size={14} strokeWidth={1.75} aria-hidden />
-      </button>
-    ),
-  };
-
-  const flatColumns: DataTableColumn<BindingRow>[] = [...baseColumns, actionsColumn];
-
-  /* In grouped mode the section header already states the category,
-   * so we drop that column from the per-section table to avoid the
-   * redundant repeated value. */
-  const groupedColumns: DataTableColumn<BindingRow>[] = [
-    ...baseColumns.filter((c) => c.key !== 'categoryLabel'),
-    actionsColumn,
+    {
+      key: '_actions',
+      label: <span className="sr-only">إجراءات</span>,
+      align: 'end',
+      render: (r) => (
+        <button
+          type="button"
+          aria-label="حذف الموعد"
+          onClick={() => handleRemove(r)}
+          className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+        >
+          <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+        </button>
+      ),
+    },
   ];
 
   if (active.length === 0) {
@@ -334,15 +401,6 @@ export function CommitteeBindingsPanel({
     );
   }
 
-  const formCommitteeCount = selectedCategories.reduce((sum, key) => {
-    return (
-      sum +
-      allCommittees.filter(
-        (c) => c.categoryKey === (key as ApplicantCategoryKey) && !c.deletedAt,
-      ).length
-    );
-  }, 0);
-
   return (
     <div className="flex flex-col gap-4">
       <Card variant="elevated">
@@ -354,112 +412,140 @@ export function CommitteeBindingsPanel({
               : `سيتم إنشاء موعد لكل لجنة في الفئات المحددة (${num(formCommitteeCount)} موعد).`
           }
         />
-        <div className="grid gap-3 p-4 md:grid-cols-[1fr_1fr_220px_auto]">
+        {/*
+         * 3-row grid keeps the "إضافة" button anchored to the input
+         * baseline regardless of helper-text presence:
+         *  row 1 = labels   ·  row 2 = inputs + button  ·  row 3 = helpers
+         * The `auto auto auto` row track plus `items-end` on row 2
+         * gives the button (matching block-size `h-9`) a bottom flush
+         * with the inputs.
+         */}
+        <div className="grid grid-rows-[auto_auto_auto] items-end gap-x-3 gap-y-1 p-4 md:grid-cols-[1fr_1fr_220px_auto]">
+          {/* ── row 1: labels ───────────────────────────────────── */}
+          <FieldLabel htmlFor="bindings-cats">الفئات</FieldLabel>
+          <FieldLabel>تاريخ الاختبار</FieldLabel>
+          <FieldLabel htmlFor="bindings-capacity">سعة اللجنة</FieldLabel>
+          <span aria-hidden />
+
+          {/* ── row 2: inputs + button ──────────────────────────── */}
           <MultiSelect
-            label="الفئات"
-            required
+            ariaLabel="الفئات"
             options={categoryOptions}
             value={selectedCategories}
             onChange={setSelectedCategories}
             placeholder="اختر فئة أو أكثر…"
-            helper="فئة واحدة على الأقل"
           />
           <DatePicker
-            label="تاريخ الاختبار"
-            required
             value={pickedDate}
             onChange={setPickedDate}
             placeholder="اختر تاريخ الاختبار…"
           />
           <Input
-            type="number"
+            id="bindings-capacity"
+            type="text"
             inputMode="numeric"
-            label="سعة اللجنة"
-            required
-            min={1}
-            step={1}
+            pattern="[0-9]*"
+            aria-label="سعة اللجنة"
             value={capacityStr}
-            onChange={(e) => setCapacityStr(e.target.value)}
-            helper="1 أو أكثر"
+            onChange={(e) => setCapacityStr(sanitizeDigits(e.target.value))}
+            onKeyDown={(e) => {
+              if (isBlockedNumericKey(e)) e.preventDefault();
+            }}
+            onPaste={(e) => {
+              const data = e.clipboardData.getData('text');
+              const cleaned = sanitizeDigits(data);
+              if (cleaned !== data) {
+                e.preventDefault();
+                setCapacityStr((prev) => prev + cleaned);
+              }
+            }}
           />
-          <div className="flex items-end">
-            <Button
-              variant="primary"
-              size="md"
-              onClick={handleAdd}
-              disabled={!canSubmit}
-              isLoading={addBatchMut.isPending}
-            >
-              إضافة
-            </Button>
-          </div>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleAdd}
+            disabled={!canSubmit}
+            isLoading={submitting}
+            className="self-end"
+          >
+            إضافة
+          </Button>
+
+          {/* ── row 3: helpers ──────────────────────────────────── */}
+          <FieldHelper>فئة واحدة على الأقل</FieldHelper>
+          <span aria-hidden />
+          <FieldHelper>1 أو أكثر</FieldHelper>
+          <span aria-hidden />
         </div>
       </Card>
 
-      {isGrouped ? (
-        <GroupedView
-          groups={groupedByCategory}
-          columns={groupedColumns}
-          loading={scheduleLoading}
-          sort={sort}
-          onSortChange={setSort}
-        />
-      ) : (
-        <Card>
-          <DataTable
-            data={sortedRows}
-            columns={flatColumns}
-            rowKey={(r) => r.id}
-            loading={scheduleLoading}
-            sort={sort}
-            onSortChange={setSort}
-            empty={
-              <EmptyState
-                variant="generic"
-                title="لم تُضف مواعيد اختبارات بعد"
-                description="استخدم النموذج أعلاه لإضافة أول موعد."
-              />
-            }
-            zebraStripes
-          />
-        </Card>
-      )}
+      <DateGroupedView
+        groups={dateGroups}
+        columns={columns}
+        loading={scheduleLoading}
+        sort={sort}
+        onSortChange={setSort}
+      />
     </div>
   );
 }
 
-/* ── Grouped view (sort=الفئة) ────────────────────────────────────── */
+/* ── Sub-components ──────────────────────────────────────────────── */
 
-interface GroupedViewProps {
-  groups: { key: ApplicantCategoryKey; label: string; rows: BindingRow[] }[];
+interface FieldLabelProps {
+  htmlFor?: string;
+  children: string;
+}
+
+function FieldLabel({ htmlFor, children }: FieldLabelProps): JSX.Element {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="text-sm font-medium text-ink-700"
+    >
+      {children}
+      <span className="ms-1 text-terra-500" aria-hidden>
+        *
+      </span>
+    </label>
+  );
+}
+
+function FieldHelper({ children }: { children: string }): JSX.Element {
+  return <p className="text-xs text-ink-500">{children}</p>;
+}
+
+/* ── Grouped accordion (by date) ─────────────────────────────────── */
+
+interface DateGroupedViewProps {
+  groups: { date: string; rows: BindingRow[] }[];
   columns: DataTableColumn<BindingRow>[];
   loading: boolean;
   sort: DataTableSort<BindingRow> | null;
   onSortChange: (next: DataTableSort<BindingRow> | null) => void;
 }
 
-function GroupedView({
+function DateGroupedView({
   groups,
   columns,
   loading,
   sort,
   onSortChange,
-}: GroupedViewProps): JSX.Element {
-  const allKeys = useMemo(() => groups.map((g) => g.key), [groups]);
-  const [open, setOpen] = useState<string[]>(allKeys);
+}: DateGroupedViewProps): JSX.Element {
+  const allDates = useMemo(() => groups.map((g) => g.date), [groups]);
+  const [open, setOpen] = useState<string[]>(allDates);
 
-  /* Keep newly-active categories expanded by default — track the set
-   * of keys we've seen and add any new ones to the open list. */
-  const seenRef = useRef<Set<string>>(new Set(allKeys));
+  /* Auto-expand new dates as they appear (e.g. after the user adds a
+   * new موعد) — track which dates we've already seen. */
+  const seenRef = useRef<Set<string>>(new Set(allDates));
   useEffect(() => {
-    const fresh = allKeys.filter((k) => !seenRef.current.has(k));
+    const fresh = allDates.filter((d) => !seenRef.current.has(d));
     if (fresh.length === 0) return;
-    seenRef.current = new Set(allKeys);
-    setOpen((prev) => [...prev, ...fresh]);
-  }, [allKeys]);
+    seenRef.current = new Set(allDates);
+    setOpen((prev) => Array.from(new Set([...prev, ...fresh])));
+  }, [allDates]);
 
-  const total = groups.reduce((sum, g) => sum + g.rows.length, 0);
-  if (!loading && total === 0) {
+  if (!loading && groups.length === 0) {
     return (
       <Card>
         <div className="p-6">
@@ -481,10 +567,10 @@ function GroupedView({
         onValueChange={(next) => setOpen(next as string[])}
       >
         {groups.map((g) => (
-          <Accordion.Item key={g.key} value={g.key}>
+          <Accordion.Item key={g.date} value={g.date}>
             <Accordion.Trigger>
               <span className="flex items-center gap-2">
-                <span>{g.label}</span>
+                <span>{fmtDate(g.date, 'full')}</span>
                 <span className="rounded-pill bg-ink-100 px-2 py-0.5 font-numeric tnum text-2xs text-ink-700">
                   {num(g.rows.length)}
                 </span>
@@ -501,7 +587,7 @@ function GroupedView({
                 empty={
                   <EmptyState
                     variant="generic"
-                    title="لا توجد مواعيد لهذه الفئة بعد"
+                    title="لا توجد مواعيد لهذا اليوم بعد"
                     description="استخدم النموذج أعلاه لإضافة موعد."
                   />
                 }
@@ -564,15 +650,15 @@ function CapacityCell({ row, isSaving, onCommit }: CapacityCellProps): JSX.Eleme
         type="button"
         onClick={() => setEditing(true)}
         aria-label="تعديل السعة"
-        className="group inline-flex items-center justify-end gap-1.5 rounded-md px-2 py-1 text-ink-900 transition-colors hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+        className="group inline-flex items-center justify-start gap-1.5 rounded-md px-1 py-0.5 text-ink-900 transition-colors hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
       >
+        <span className="font-numeric tnum">{num(row.capacity)}</span>
         <Pencil
           size={11}
           strokeWidth={1.75}
           className="text-ink-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
           aria-hidden
         />
-        <span className="font-numeric tnum">{num(row.capacity)}</span>
       </button>
     );
   }
@@ -581,12 +667,11 @@ function CapacityCell({ row, isSaving, onCommit }: CapacityCellProps): JSX.Eleme
     <div className="inline-flex items-center gap-1">
       <input
         ref={inputRef}
-        type="number"
+        type="text"
         inputMode="numeric"
-        min={1}
-        step={1}
+        pattern="[0-9]*"
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => setDraft(sanitizeDigits(e.target.value))}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
@@ -594,11 +679,22 @@ function CapacityCell({ row, isSaving, onCommit }: CapacityCellProps): JSX.Eleme
           } else if (e.key === 'Escape') {
             e.preventDefault();
             cancel();
+          } else if (isBlockedNumericKey(e)) {
+            e.preventDefault();
+          }
+        }}
+        onPaste={(e) => {
+          const data = e.clipboardData.getData('text');
+          const cleaned = sanitizeDigits(data);
+          if (cleaned !== data) {
+            e.preventDefault();
+            setDraft((prev) => prev + cleaned);
           }
         }}
         disabled={isSaving}
         aria-label="السعة"
-        className="w-20 rounded-md border border-border-default bg-surface-elevated px-2 py-1 text-end font-numeric tnum text-2xs text-ink-900 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+        style={{ inlineSize: 'fit-content', minInlineSize: '4ch' }}
+        className="rounded-md border border-border-default bg-surface-elevated px-2 py-0.5 text-start font-numeric tnum text-2xs text-ink-900 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
       />
       <button
         type="button"
@@ -621,4 +717,3 @@ function CapacityCell({ row, isSaving, onCommit }: CapacityCellProps): JSX.Eleme
     </div>
   );
 }
-
