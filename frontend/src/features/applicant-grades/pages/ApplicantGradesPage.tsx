@@ -93,9 +93,7 @@ export function ApplicantGradesPage(): JSX.Element {
     const general = derived.filter((r) => r.kind === 'general').length;
     const azhar = derived.filter((r) => r.kind === 'azhar').length;
     const withAdj = derived.filter((r) => r.adj !== 0).length;
-    const ups = derived.filter((r) => r.adj > 0).length;
-    const downs = derived.filter((r) => r.adj < 0).length;
-    return { total, general, azhar, withAdj, ups, downs };
+    return { total, general, azhar, withAdj };
   }, [derived]);
 
   const activeRow =
@@ -368,10 +366,6 @@ export function ApplicantGradesPage(): JSX.Element {
               icon={<History size={16} strokeWidth={1.75} />}
               iconBg="var(--gold-50)"
               iconColor="var(--gold-700)"
-              trend={{
-                label: `${stats.ups}+ · ${stats.downs}−`,
-                tone: 'neutral',
-              }}
             />
           </div>
 
