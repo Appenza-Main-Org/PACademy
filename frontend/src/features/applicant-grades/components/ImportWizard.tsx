@@ -236,30 +236,31 @@ function StepIndicator({ step }: { step: 'setup' | 'review' | 'result' }): JSX.E
 /* ─── Step A — Setup ──────────────────────────────────────────────────── */
 
 /**
- * Accepted file extensions per secondary-type. Azhar ships the legacy
- * Microsoft Access `.accdb` exports from the Ministry of Awqaf; the
- * general track ships the older `.mdb` exports plus modern spreadsheet
- * formats. Both also accept `.xlsx`/`.xls`/`.csv` for hand-prepared
- * sheets.
+ * Accepted file extensions per secondary-type. The Ministry of
+ * Education ships the legacy Microsoft Access `.mdb` exports for
+ * general secondary, and the Ministry of Awqaf ships the modern
+ * `.accdb` exports for azhar. Hand-prepared spreadsheet variants
+ * (`.xlsx`/`.xls`/`.csv`) are no longer accepted — admins must
+ * upload the original Access export untouched, both to preserve the
+ * source-of-truth audit trail and to avoid silent transcription
+ * errors that crept in when the wizard accepted re-entered sheets.
  */
 const ACCEPTED_EXTENSIONS: Record<'general' | 'azhar', readonly string[]> = {
-  general: ['.mdb', '.xlsx', '.xls', '.csv'],
-  azhar: ['.accdb', '.xlsx', '.xls', '.csv'],
+  general: ['.mdb'],
+  azhar: ['.accdb'],
 };
 
 /**
- * Maximum file size per extension, in megabytes. The Access exports are
- * an order of magnitude larger than the spreadsheet hand-prepared sheets
- * because they ship the full per-cycle tablespace; we cap them at sizes
- * that fit comfortably in our upload pipeline while still rejecting the
- * "uploaded the wrong DB" mistake.
+ * Maximum file size per extension, in megabytes. `.mdb` exports run
+ * larger than `.accdb` because the older format doesn't compact
+ * tablespace pages between writes — we cap each at the highest size
+ * we've seen in practice (with a small margin) so an admin who
+ * uploads the wrong DB still hits a useful error rather than a
+ * silent timeout.
  */
 const SIZE_LIMITS_MB: Record<string, number> = {
   '.mdb': 500,
   '.accdb': 100,
-  '.xlsx': 10,
-  '.xls': 10,
-  '.csv': 10,
 };
 
 const MB = 1024 * 1024;
@@ -359,19 +360,10 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
   const acceptedExts = ACCEPTED_EXTENSIONS[setup.kind];
   const acceptAttr = acceptedExts.join(',');
 
-  /** Per-extension limits shown under the dropzone, grouped by size so
-   *  multiple extensions sharing the same limit collapse into one line. */
-  const sizeHintGroups = useMemo(() => {
-    const groups = new Map<number, string[]>();
-    for (const ext of acceptedExts) {
-      const limit = SIZE_LIMITS_MB[ext];
-      if (limit == null) continue;
-      const bucket = groups.get(limit) ?? [];
-      bucket.push(ext);
-      groups.set(limit, bucket);
-    }
-    return [...groups.entries()].sort(([a], [b]) => b - a);
-  }, [acceptedExts]);
+  /** Single-extension hint: each kind now accepts exactly one Access
+   *  format (`.mdb` for general, `.accdb` for azhar) with its own
+   *  size cap. Read straight off `SIZE_LIMITS_MB`. */
+  const sizeLimitMb = SIZE_LIMITS_MB[acceptedExts[0]!] ?? 100;
 
   const canSubmit =
     setup.file && setup.maxDegree > 0 && fileError === null && upload.status === 'success';
@@ -577,32 +569,10 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                 </div>
                 <div className="flex flex-col items-center gap-0.5 text-2xs text-ink-500">
                   <div>
-                    {acceptedExts.map((ext, i) => (
-                      <span key={ext}>
-                        {i > 0 && ' · '}
-                        <span className="font-en">{ext}</span>
-                      </span>
-                    ))}
+                    <span className="font-en">{acceptedExts[0]}</span>
                   </div>
                   <div>
-                    {sizeHintGroups.map(([limit, exts], i) => (
-                      <span key={limit}>
-                        {i > 0 && ' · '}
-                        حتى <span className="font-en">{limit}</span> م.ب
-                        {sizeHintGroups.length > 1 && (
-                          <>
-                            {' '}(
-                            {exts.map((ext, j) => (
-                              <span key={ext} className="font-en">
-                                {j > 0 && '/'}
-                                {ext}
-                              </span>
-                            ))}
-                            )
-                          </>
-                        )}
-                      </span>
-                    ))}
+                    حتى <span className="font-en">{sizeLimitMb}</span> م.ب
                   </div>
                 </div>
               </div>
