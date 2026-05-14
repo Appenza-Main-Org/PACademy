@@ -18,10 +18,13 @@ import {
   Input,
   Select,
   StatusBadge,
+  Switch,
   toast,
   type DataTableColumn,
+  type DataTableSort,
 } from '@/shared/components';
 import { normalizeArabic } from '@/shared/lib/arabic';
+import { cn } from '@/shared/lib/cn';
 import { MOCK } from '@/shared/mock-data';
 import {
   useCreateLookupRow,
@@ -70,6 +73,10 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
   const [editing, setEditing] = useState<LookupRow<K> | null>(null);
   const [pendingDelete, setPendingDelete] = useState<LookupRow<K> | null>(null);
   const [deleteBlocked, setDeleteBlocked] = useState<string | null>(null);
+  const [sort, setSort] = useState<DataTableSort<LookupRow<K>> | null>({
+    key: 'name' as keyof LookupRow<K> & string,
+    direction: 'asc',
+  });
 
   const rows = useMemo(() => {
     const all = (listQuery.data ?? []) as LookupRow<K>[];
@@ -81,8 +88,18 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
       );
     }
     filtered = applyKeyFilter(lookupKey, filtered, filterValue);
+    if (sort) {
+      const { key, direction } = sort;
+      filtered = [...filtered].sort((a, b) =>
+        compareLookupValues(
+          (a as unknown as Record<string, unknown>)[key],
+          (b as unknown as Record<string, unknown>)[key],
+          direction,
+        ),
+      );
+    }
     return filtered;
-  }, [listQuery.data, search, filterValue, lookupKey]);
+  }, [listQuery.data, search, filterValue, lookupKey, sort]);
 
   const handleAdd = (): void => {
     setEditing(null);
@@ -96,6 +113,24 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
 
   const handleDelete = (row: LookupRow<K>): void => {
     setPendingDelete(row);
+  };
+
+  const handleToggleActive = (row: LookupRow<K>): void => {
+    const nextActive = !row.isActive;
+    updateMut.mutate(
+      {
+        code: row.code,
+        patch: { isActive: nextActive } as Partial<LookupRow<K>>,
+      },
+      {
+        onSuccess: () => {
+          toast(
+            nextActive ? `تم تفعيل «${row.name}»` : `تم إلغاء تفعيل «${row.name}»`,
+            'success',
+          );
+        },
+      },
+    );
   };
 
   const confirmDelete = (): void => {
@@ -133,7 +168,14 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
     }
   };
 
-  const columns = useMemo<DataTableColumn<LookupRow<K>>[]>(() => buildColumns(lookupKey, handleEdit, handleDelete), [lookupKey]);
+  // Columns close over the row-level handlers above. Handlers reference
+  // state setters and TanStack mutate (both stable across renders), so a
+  // single rebuild per lookup key is safe.
+  const columns = useMemo<DataTableColumn<LookupRow<K>>[]>(
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => buildColumns(lookupKey, handleEdit, handleDelete, handleToggleActive),
+    [lookupKey],
+  );
 
   const filter = filterDescriptor(lookupKey);
 
@@ -192,6 +234,8 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
         loading={listQuery.isLoading}
         density="default"
         stickyHeader
+        sort={sort}
+        onSortChange={setSort}
         empty={
           hasActiveQuery ? (
             <EmptyState
@@ -369,19 +413,43 @@ function buildColumns<K extends LookupKey>(
   key: K,
   onEdit: (row: LookupRow<K>) => void,
   onDelete: (row: LookupRow<K>) => void,
+  onToggleActive: (row: LookupRow<K>) => void,
 ): DataTableColumn<LookupRow<K>>[] {
   const nameCol: DataTableColumn<LookupRow<K>> = {
     key: 'name',
     label: 'الاسم',
+    sortable: true,
     render: (row) => <span className="font-medium text-ink-900">{row.name}</span>,
   };
   const activeCol: DataTableColumn<LookupRow<K>> = {
     key: 'isActive',
     label: 'الحالة',
-    width: 110,
-    render: (row) => row.isActive
-      ? <Badge tone="success">نشط</Badge>
-      : <Badge tone="warning">غير نشط</Badge>,
+    sortable: true,
+    width: 130,
+    render: (row) => (
+      <span
+        className="inline-flex items-center gap-2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Switch
+          checked={row.isActive}
+          onCheckedChange={() => onToggleActive(row)}
+          aria-label={
+            row.isActive
+              ? `إلغاء تفعيل «${row.name}»`
+              : `تفعيل «${row.name}»`
+          }
+        />
+        <span
+          className={cn(
+            'text-2xs font-medium',
+            row.isActive ? 'text-accent-700' : 'text-ink-500',
+          )}
+        >
+          {row.isActive ? 'نشط' : 'غير نشط'}
+        </span>
+      </span>
+    ),
   };
   const actionsCol: DataTableColumn<LookupRow<K>> = {
     key: 'actions',
@@ -420,10 +488,10 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
         paternal: 'من جهة الأب', maternal: 'من جهة الأم', self: 'مباشر', spouse: 'الزوج/الزوجة', none: '—',
       };
       return [
-        { key: 'branch', label: 'الفرع',  width: 130, render: (r: RelationshipRow) => <Badge tone="neutral">{govNamesForBranch[r.branch] ?? r.branch}</Badge> },
-        { key: 'gender', label: 'النوع',  width: 80,  render: (r: RelationshipRow) => <Badge tone={r.gender === 'male' ? 'info' : r.gender === 'female' ? 'accent' : 'neutral'}>{r.gender === 'male' ? 'ذكر' : r.gender === 'female' ? 'أنثى' : '—'}</Badge> },
-        { key: 'degree', label: 'الدرجة', width: 80, numeric: true, render: (r: RelationshipRow) => <span className="font-mono text-xs">{r.degree}</span> },
-        { key: 'parent', label: 'الأصل',  hideOn: 'sm', render: (r: RelationshipRow) => {
+        { key: 'branch', label: 'الفرع',  sortable: true, width: 130, render: (r: RelationshipRow) => <Badge tone="neutral">{govNamesForBranch[r.branch] ?? r.branch}</Badge> },
+        { key: 'gender', label: 'النوع',  sortable: true, width: 80,  render: (r: RelationshipRow) => <Badge tone={r.gender === 'male' ? 'info' : r.gender === 'female' ? 'accent' : 'neutral'}>{r.gender === 'male' ? 'ذكر' : r.gender === 'female' ? 'أنثى' : '—'}</Badge> },
+        { key: 'degree', label: 'الدرجة', sortable: true, width: 80, numeric: true, render: (r: RelationshipRow) => <span className="font-mono text-xs">{r.degree}</span> },
+        { key: 'parent', label: 'الأصل',  sortable: true, accessor: 'parentCode', hideOn: 'sm', render: (r: RelationshipRow) => {
           if (!r.parentCode) return <span className="text-ink-400">—</span>;
           const p = (MOCK.lookups.relationships as RelationshipRow[]).find((x) => x.code === r.parentCode);
           return <span className="text-xs text-ink-600">{p ? p.name : <span className="text-ink-400">—</span>}</span>;
@@ -432,27 +500,27 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
     }
     case 'relationship-degree-tiers':
       return [
-        { key: 'degreeRange', label: 'الوصف', render: (r: RelationshipDegreeTierRow) => r.degreeRange },
-        { key: 'maxDegree', label: 'أقصى درجة', width: 110, numeric: true, render: (r: RelationshipDegreeTierRow) => r.maxDegree },
+        { key: 'degreeRange', label: 'الوصف', sortable: true, render: (r: RelationshipDegreeTierRow) => r.degreeRange },
+        { key: 'maxDegree', label: 'أقصى درجة', sortable: true, width: 110, numeric: true, render: (r: RelationshipDegreeTierRow) => r.maxDegree },
       ];
     case 'tests':
       return [
-        { key: 'kind',     label: 'النوع',  width: 110, render: (r: TestRow) => <Badge tone="info">{TEST_KIND_LABEL[r.kind]}</Badge> },
-        { key: 'order',    label: 'الترتيب', width: 80,  numeric: true, render: (r: TestRow) => r.order },
-        { key: 'required', label: 'إلزامي',  width: 90,  render: (r: TestRow) => r.required ? <Badge tone="success">إلزامي</Badge> : <Badge tone="neutral">اختياري</Badge> },
+        { key: 'kind',     label: 'النوع',   sortable: true, width: 110, render: (r: TestRow) => <Badge tone="info">{TEST_KIND_LABEL[r.kind]}</Badge> },
+        { key: 'order',    label: 'الترتيب', sortable: true, width: 80,  numeric: true, render: (r: TestRow) => r.order },
+        { key: 'required', label: 'إلزامي',  sortable: true, width: 90,  render: (r: TestRow) => r.required ? <Badge tone="success">إلزامي</Badge> : <Badge tone="neutral">اختياري</Badge> },
       ];
     case 'test-results':
       return [
-        { key: 'outcome', label: 'النتيجة', width: 120, render: (r: TestResultRow) => <Badge tone={r.tone}>{r.name}</Badge> },
+        { key: 'outcome', label: 'النتيجة', sortable: true, width: 120, render: (r: TestResultRow) => <Badge tone={r.tone}>{r.name}</Badge> },
       ];
     case 'committees':
       return [
-        { key: 'kind',       label: 'النوع', width: 110, render: (r: CommitteeRow) => <Badge tone="neutral">{COMMITTEE_KIND_LABEL[r.kind]}</Badge> },
-        { key: 'chairTitle', label: 'الرئيس', render: (r: CommitteeRow) => r.chairTitle },
+        { key: 'kind',       label: 'النوع',  sortable: true, width: 110, render: (r: CommitteeRow) => <Badge tone="neutral">{COMMITTEE_KIND_LABEL[r.kind]}</Badge> },
+        { key: 'chairTitle', label: 'الرئيس', sortable: true, render: (r: CommitteeRow) => r.chairTitle },
       ];
     case 'specializations':
       return [
-        { key: 'facultyCode', label: 'الكلية', render: (r: SpecializationRow) => labelByCode('faculties', r.facultyCode) },
+        { key: 'facultyCode', label: 'الكلية', sortable: true, render: (r: SpecializationRow) => labelByCode('faculties', r.facultyCode) },
       ];
     case 'submission-types':
       return [
@@ -463,13 +531,13 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
       ];
     case 'applicant-categories':
       return [
-        { key: 'genderScope', label: 'نطاق النوع', width: 110, render: (r: ApplicantCategoryRow) => <Badge tone={r.genderScope === 'male' ? 'info' : r.genderScope === 'female' ? 'accent' : 'neutral'}>{r.genderScope === 'male' ? 'ذكور' : r.genderScope === 'female' ? 'إناث' : 'الكل'}</Badge> },
-        { key: 'type', label: 'مرحلة الالتحاق', width: 130, render: (r: ApplicantCategoryRow) => (
+        { key: 'genderScope', label: 'نطاق النوع', sortable: true, width: 110, render: (r: ApplicantCategoryRow) => <Badge tone={r.genderScope === 'male' ? 'info' : r.genderScope === 'female' ? 'accent' : 'neutral'}>{r.genderScope === 'male' ? 'ذكور' : r.genderScope === 'female' ? 'إناث' : 'الكل'}</Badge> },
+        { key: 'type', label: 'مرحلة الالتحاق', sortable: true, width: 130, render: (r: ApplicantCategoryRow) => (
           <Badge tone={r.type === 'university' ? 'info' : 'neutral'}>
             {r.type === 'university' ? 'جامعي' : 'قبل جامعي'}
           </Badge>
         ) },
-        { key: 'facultySelectionType', label: 'اختيار الكلية', width: 130, render: (r: ApplicantCategoryRow) => {
+        { key: 'facultySelectionType', label: 'اختيار الكلية', sortable: true, width: 130, render: (r: ApplicantCategoryRow) => {
           if (r.facultySelectionType === null) return <span className="text-ink-400">—</span>;
           return (
             <Badge tone="accent">
@@ -489,20 +557,20 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
       ];
     case 'nationalities-countries':
       return [
-        { key: 'isArab', label: 'عربية',   width: 90,  render: (r: NationalityCountryRow) => r.isArab ? <Badge tone="success">عربية</Badge> : <Badge tone="neutral">—</Badge> },
+        { key: 'isArab', label: 'عربية',   sortable: true, width: 90,  render: (r: NationalityCountryRow) => r.isArab ? <Badge tone="success">عربية</Badge> : <Badge tone="neutral">—</Badge> },
       ];
     case 'governorates':
       return [
-        { key: 'region', label: 'الإقليم', width: 160, render: (r: GovernorateRow) => <Badge tone="neutral">{r.region}</Badge> },
+        { key: 'region', label: 'الإقليم', sortable: true, width: 160, render: (r: GovernorateRow) => <Badge tone="neutral">{r.region}</Badge> },
       ];
     case 'police-stations':
       return [
-        { key: 'kind',            label: 'النوع',     width: 90, render: (r: PoliceStationRow) => <Badge tone="neutral">{r.kind}</Badge> },
-        { key: 'governorateCode', label: 'المحافظة', render: (r: PoliceStationRow) => labelByCode('governorates', r.governorateCode) },
+        { key: 'kind',            label: 'النوع',     sortable: true, width: 90, render: (r: PoliceStationRow) => <Badge tone="neutral">{r.kind}</Badge> },
+        { key: 'governorateCode', label: 'المحافظة', sortable: true, render: (r: PoliceStationRow) => labelByCode('governorates', r.governorateCode) },
       ];
     case 'jobs':
       return [
-        { key: 'parentCode', label: 'الفئة', render: (r: JobRow) =>
+        { key: 'parentCode', label: 'الفئة', sortable: true, render: (r: JobRow) =>
           r.parentCode === null
             ? <Badge tone="brand">فئة</Badge>
             : <span className="text-xs text-ink-600">{labelByCode('jobs', r.parentCode)}</span>
@@ -510,20 +578,20 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
       ];
     case 'qualifications':
       return [
-        { key: 'level', label: 'المستوى', width: 130, render: (r: QualificationRow) => <Badge tone="info">{r.level}</Badge> },
-        { key: 'track', label: 'المسار',  width: 110, render: (r: QualificationRow) => <Badge tone="neutral">{r.track}</Badge> },
+        { key: 'level', label: 'المستوى', sortable: true, width: 130, render: (r: QualificationRow) => <Badge tone="info">{r.level}</Badge> },
+        { key: 'track', label: 'المسار',  sortable: true, width: 110, render: (r: QualificationRow) => <Badge tone="neutral">{r.track}</Badge> },
       ];
     case 'announcements':
       return [
-        { key: 'gender',       label: 'الجنس',   width: 90,  render: (r: AnnouncementRow) => <Badge tone={r.gender === 'male' ? 'info' : r.gender === 'female' ? 'accent' : 'neutral'}>{r.gender === 'male' ? 'ذكور' : r.gender === 'female' ? 'إناث' : 'الكل'}</Badge> },
-        { key: 'categoryCode', label: 'الفئة',   hideOn: 'sm', render: (r: AnnouncementRow) => r.categoryCode ? labelByCode('applicant-categories', r.categoryCode) : <span className="text-ink-400">الكل</span> },
-        { key: 'divisionCode', label: 'الشعبة',  hideOn: 'sm', render: (r: AnnouncementRow) => r.divisionCode ? labelByCode('applicant-divisions', r.divisionCode) : <span className="text-ink-400">الكل</span> },
-        { key: 'publishAt',    label: 'بداية النشر', hideOn: 'md', render: (r: AnnouncementRow) => <span className="text-xs text-ink-600">{formatIso(r.publishAt)}</span> },
-        { key: 'expireAt',     label: 'النهاية',     hideOn: 'md', render: (r: AnnouncementRow) => <span className="text-xs text-ink-600">{r.expireAt ? formatIso(r.expireAt) : <span className="text-ink-400">مفتوح</span>}</span> },
+        { key: 'gender',       label: 'الجنس',       sortable: true, width: 90,  render: (r: AnnouncementRow) => <Badge tone={r.gender === 'male' ? 'info' : r.gender === 'female' ? 'accent' : 'neutral'}>{r.gender === 'male' ? 'ذكور' : r.gender === 'female' ? 'إناث' : 'الكل'}</Badge> },
+        { key: 'categoryCode', label: 'الفئة',       sortable: true, hideOn: 'sm', render: (r: AnnouncementRow) => r.categoryCode ? labelByCode('applicant-categories', r.categoryCode) : <span className="text-ink-400">الكل</span> },
+        { key: 'divisionCode', label: 'الشعبة',      sortable: true, hideOn: 'sm', render: (r: AnnouncementRow) => r.divisionCode ? labelByCode('applicant-divisions', r.divisionCode) : <span className="text-ink-400">الكل</span> },
+        { key: 'publishAt',    label: 'بداية النشر', sortable: true, hideOn: 'md', render: (r: AnnouncementRow) => <span className="text-xs text-ink-600">{formatIso(r.publishAt)}</span> },
+        { key: 'expireAt',     label: 'النهاية',     sortable: true, hideOn: 'md', render: (r: AnnouncementRow) => <span className="text-xs text-ink-600">{r.expireAt ? formatIso(r.expireAt) : <span className="text-ink-400">مفتوح</span>}</span> },
       ];
     case 'nid-missing-reasons':
       return [
-        { key: 'requiresUpload', label: 'مستندات', width: 110, render: (r: NidMissingReasonRow) => r.requiresUpload ? <Badge tone="warning">مطلوبة</Badge> : <Badge tone="neutral">—</Badge> },
+        { key: 'requiresUpload', label: 'مستندات', sortable: true, width: 110, render: (r: NidMissingReasonRow) => r.requiresUpload ? <Badge tone="warning">مطلوبة</Badge> : <Badge tone="neutral">—</Badge> },
       ];
     default:
       return [];
@@ -542,6 +610,34 @@ function labelByCode(key: LookupKey, code: string): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = (MOCK.lookups[key] as any[]).find((r) => r.code === code);
   return row ? row.name : '—';
+}
+
+/** Generic Arabic-aware comparator used by the column-header sort.
+ *  Numbers compare numerically, booleans place `true` first on `asc`,
+ *  everything else falls back to a stable `localeCompare('ar')`.
+ *  Null / undefined are pushed to the end regardless of direction. */
+function compareLookupValues(
+  a: unknown,
+  b: unknown,
+  direction: 'asc' | 'desc',
+): number {
+  const aMissing = a === null || a === undefined;
+  const bMissing = b === null || b === undefined;
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1;
+  if (bMissing) return -1;
+
+  let cmp = 0;
+  if (typeof a === 'number' && typeof b === 'number') {
+    cmp = a - b;
+  } else if (typeof a === 'boolean' && typeof b === 'boolean') {
+    cmp = (a ? 1 : 0) - (b ? 1 : 0);
+    // Surface "نشط" (true) at the top on `asc` — feels more natural in the UI.
+    cmp = -cmp;
+  } else {
+    cmp = String(a).localeCompare(String(b), 'ar');
+  }
+  return direction === 'asc' ? cmp : -cmp;
 }
 
 function formatIso(iso: string): string {
