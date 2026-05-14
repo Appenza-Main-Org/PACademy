@@ -1,6 +1,6 @@
 /**
  * StudentDetailsDrawer — tabbed drawer with pinned grades summary.
- *   • بيانات أساسية — raw imported fields (15 general / 8 azhar) with source-column codes
+ *   • بيانات أساسية — essential imported fields (5 general / 4 azhar)
  *   • الدرجات       — 5 stat cards including the "الحد الأقصى ✎" editable card
  *   • سجل التعديلات — read-only timeline
  *
@@ -33,7 +33,7 @@ export function StudentDetailsDrawer({
   const [editMaxOpen, setEditMaxOpen] = useState(false);
 
   const tabs: Array<{ v: Tab; label: string; count: number | null }> = [
-    { v: 'basic', label: 'بيانات أساسية', count: row.kind === 'general' ? 15 : 8 },
+    { v: 'basic', label: 'بيانات أساسية', count: row.kind === 'general' ? 5 : 4 },
     { v: 'grades', label: 'الدرجات', count: null },
     { v: 'log', label: 'سجل التعديلات', count: row.log.length },
   ];
@@ -190,32 +190,26 @@ function PinStat({
 }
 
 function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
+  /* Minimal field set per kind. Earlier revisions surfaced every
+   * imported column (15 for general, 8 for azhar) — most of those
+   * are import-side plumbing (sex_code, branch_code_new,
+   * student_case_id, dept_name = always "—", etc.). Admins only
+   * need the human-readable identifiers + the grade fields.
+   *
+   * `النوع` shows the textual value (e.g. "ذكر") rather than the
+   * numeric code; the code column was paired noise. */
   const general: Array<KVProps> = [
-    { label: 'رقم الجلوس', sourceKey: 'seating_no', value: String(row.seat), mono: true },
-    { label: 'الرقم القومي', sourceKey: 'national_no', value: row.nid, mono: true },
     { label: 'الاسم باللغة العربية', sourceKey: 'arabic_name', value: row.name },
-    { label: 'رمز النوع', sourceKey: 'sex_code', value: '1', mono: true },
+    { label: 'الرقم القومي', sourceKey: 'national_no', value: row.nid, mono: true },
     { label: 'النوع', sourceKey: 'sex_name', value: 'ذكر' },
-    { label: 'اسم المدرسة', sourceKey: 'school_name', value: row.school },
-    { label: 'القسم', sourceKey: 'dept_name', value: '—', empty: true },
-    { label: 'المديرية', sourceKey: 'moderia_name', value: row.region },
-    { label: 'رمز الشعبة الجديد', sourceKey: 'branch_code_new', value: '11', mono: true },
     { label: 'الشعبة', sourceKey: 'branch_desc_new', value: row.branch },
     { label: 'المجموع الكلي', sourceKey: 'total_degree', value: String(row.total), mono: true },
-    { label: 'رمز نوع الطالب', sourceKey: 'std_type_code', value: '2', mono: true },
-    { label: 'نوع الطالب', sourceKey: 'std_type_desc', value: 'انتظام' },
-    { label: 'رمز حالة الطالب', sourceKey: 'student_case_id', value: '1', mono: true },
-    { label: 'حالة الطالب', sourceKey: 'student_case_desc', value: row.status, highlight: row.status !== '—' },
   ];
   const azhar: Array<KVProps> = [
-    { label: 'رقم الجلوس', sourceKey: 'StSeatNo', value: String(row.seat), mono: true },
     { label: 'الاسم', sourceKey: 'StudenName', value: row.name },
-    { label: 'الشعبة', sourceKey: 'DevisionName', value: row.branch },
     { label: 'الرقم القومي', sourceKey: 'National_Code', value: row.nid, mono: true },
-    { label: 'المنطقة', sourceKey: 'ZonName', value: row.region },
-    { label: 'المعهد', sourceKey: 'InstituteName', value: row.school },
-    { label: 'المجموع', sourceKey: 'Total2', value: String(row.total), mono: true },
-    { label: 'القسم الفرعي', sourceKey: 'Sub', value: '—', empty: true },
+    { label: 'الشعبة', sourceKey: 'DevisionName', value: row.branch },
+    { label: 'المجموع الكلي', sourceKey: 'Total2', value: String(row.total), mono: true },
   ];
   const fields = row.kind === 'general' ? general : azhar;
 
