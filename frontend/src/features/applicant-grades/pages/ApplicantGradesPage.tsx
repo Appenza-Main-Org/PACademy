@@ -398,15 +398,15 @@ export function ApplicantGradesPage(): JSX.Element {
                   value={kindFilter}
                   onChange={(e) => setKindFilter(e.target.value as typeof kindFilter)}
                   aria-label="تصفية حسب نوع الثانوية"
-                  /* Default `.select` is 180-200px; the longest option
-                   * "ثانوية أزهرية · NNN" wraps at that width on every
-                   * viewport — widen to 220px so the chevron and the
-                   * label have breathing room. */
-                  style={{ minWidth: 220, flexBasis: 220 }}
+                  /* Default `.select` is 180-200px; with the per-option
+                   * count suffix dropped, the longest option is now
+                   * "ثانوية أزهرية" which fits at 220px with breathing
+                   * room for the chevron. */
+                  style={{ minInlineSize: 220, flexBasis: 220 }}
                 >
-                  <option value="all">كل الأنواع · {stats.total}</option>
-                  <option value="general">ثانوية عامة · {stats.general}</option>
-                  <option value="azhar">ثانوية أزهرية · {stats.azhar}</option>
+                  <option value="all">كل الأنواع</option>
+                  <option value="general">ثانوية عامة</option>
+                  <option value="azhar">ثانوية أزهرية</option>
                 </select>
                 <span className="ms-auto self-center text-2xs text-ink-500">
                   <span className="font-numeric font-medium tabular-nums text-ink-700">
