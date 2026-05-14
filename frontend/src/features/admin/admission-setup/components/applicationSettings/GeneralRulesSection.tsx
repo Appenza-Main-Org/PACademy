@@ -4,7 +4,7 @@
  * Composed of:
  *   1. Header — bounded dates + top-level graduation years (shared state).
  *   2. Faculty / Specialization accordion (Radix, type="multiple").
- *      Each specialization panel hosts its own «General Rules» form and
+ *      Each specialization panel hosts its own «القواعد العامة» form and
  *      a local grid of rows the admin has added but not yet approved.
  *   3. «اعتماد» button — promotes every local row across all specializations
  *      into the committees view (shared Zustand slice) and clears local.
@@ -21,6 +21,7 @@ import {
   Button,
   Card,
   Checkbox,
+  DatePicker,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -39,15 +40,14 @@ import {
 } from '../../store/wizardSharedState';
 
 /* ── Static option sets ──────────────────────────────────────────────
- * Each select intentionally lists its values inline. They mirror the
- * RFP — committee-side type ("مدنيين" / "مكلفين"), marital status feeds
- * the marital-statuses lookup, and grade reuses the academic-grades
- * lookup. Static sets here avoid coupling the wizard step to mock-data
- * mutations. */
+ * النوع is per-row gender (ذكر/أنثى). Academic degrees are a fixed
+ * multi-checkbox set. Graduation years cover the last 5 years inclusive
+ * of the current calendar year. Marital status + التقدير come from the
+ * lookup catalogue. */
 
-const TYPE_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: 'civilian', label: 'مدنيين' },
-  { value: 'enlisted', label: 'مكلفين' },
+const GENDER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: 'male', label: 'ذكر' },
+  { value: 'female', label: 'أنثى' },
 ];
 
 const ACADEMIC_DEGREES: ReadonlyArray<ComboboxOption> = [
@@ -59,12 +59,17 @@ const ACADEMIC_DEGREES: ReadonlyArray<ComboboxOption> = [
 
 const CURRENT_YEAR = new Date().getFullYear();
 const GRADUATION_YEAR_OPTIONS: ReadonlyArray<ComboboxOption> = Array.from(
-  { length: 15 },
+  { length: 5 },
   (_, i) => {
     const y = CURRENT_YEAR - i;
     return { value: String(y), label: String(y) };
   },
 );
+
+/** Code of the «الضباط المتخصصون» applicant-category. The «اللجنة»
+ *  multi-checkbox is scoped to committees with this `categoryKey` so
+ *  the picker stays focused on the active section. */
+const SPECIALIZED_OFFICERS_KEY = 'specialized_officers';
 
 export function GeneralRulesSection(): JSX.Element {
   const facultiesQuery = useLookup('faculties');
@@ -122,17 +127,15 @@ export function GeneralRulesSection(): JSX.Element {
     [gradesQuery.data],
   );
 
-  const committeeOptionsByType = useMemo(() => {
-    const all = (committeesQuery.data ?? []).filter((c) => !c.deletedAt);
-    /* RFP committee→type map: civilian-track applicants pick from
-     * `primary`/`interview` rooms; enlisted-track pick from
-     * `capacities`/`traits`/`sports`. The fallback ('all' for any
-     * other shape) is shown if the type filter yields zero rows. */
-    return {
-      civilian: all,
-      enlisted: all,
-    };
-  }, [committeesQuery.data]);
+  /* Committees are scoped to the «الضباط المتخصصون» category. النوع is
+   * gender now and no longer gates this list. */
+  const committeeOptions = useMemo(
+    () =>
+      (committeesQuery.data ?? []).filter(
+        (c) => !c.deletedAt && c.categoryKey === SPECIALIZED_OFFICERS_KEY,
+      ),
+    [committeesQuery.data],
+  );
 
   const handleApprove = (): void => {
     const moved = approveLocal();
@@ -201,7 +204,7 @@ export function GeneralRulesSection(): JSX.Element {
                   specializations={specs}
                   maritalOptions={maritalOptions}
                   gradeOptions={gradeOptions}
-                  committeeOptionsByType={committeeOptionsByType}
+                  committeeOptions={committeeOptions}
                 />
               );
             })}
@@ -241,31 +244,25 @@ function TopFields(): JSX.Element {
 
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-      <FieldLabel htmlFor="gr-app-start" label="بداية التقديم">
-        <input
-          id="gr-app-start"
-          type="date"
-          value={header.applicationStart}
-          onChange={(e) => setHeaderField('applicationStart', e.target.value)}
-          className="block h-9 w-full rounded-md border border-ink-200 bg-surface-card px-3 text-sm text-ink-900 transition-colors duration-fast ease-standard hover:border-ink-300 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+      <FieldLabel label="بداية التقديم">
+        <DatePicker
+          value={isoToDate(header.applicationStart)}
+          onChange={(d) => setHeaderField('applicationStart', dateToIso(d))}
+          placeholder="اختر اليوم…"
         />
       </FieldLabel>
-      <FieldLabel htmlFor="gr-app-end" label="نهاية التقديم">
-        <input
-          id="gr-app-end"
-          type="date"
-          value={header.applicationEnd}
-          onChange={(e) => setHeaderField('applicationEnd', e.target.value)}
-          className="block h-9 w-full rounded-md border border-ink-200 bg-surface-card px-3 text-sm text-ink-900 transition-colors duration-fast ease-standard hover:border-ink-300 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+      <FieldLabel label="نهاية التقديم">
+        <DatePicker
+          value={isoToDate(header.applicationEnd)}
+          onChange={(d) => setHeaderField('applicationEnd', dateToIso(d))}
+          placeholder="اختر اليوم…"
         />
       </FieldLabel>
-      <FieldLabel htmlFor="gr-age-ref" label="تاريخ احتساب السن">
-        <input
-          id="gr-age-ref"
-          type="date"
-          value={header.ageReferenceDate}
-          onChange={(e) => setHeaderField('ageReferenceDate', e.target.value)}
-          className="block h-9 w-full rounded-md border border-ink-200 bg-surface-card px-3 text-sm text-ink-900 transition-colors duration-fast ease-standard hover:border-ink-300 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+      <FieldLabel label="تاريخ احتساب السن">
+        <DatePicker
+          value={isoToDate(header.ageReferenceDate)}
+          onChange={(d) => setHeaderField('ageReferenceDate', dateToIso(d))}
+          placeholder="اختر اليوم…"
         />
       </FieldLabel>
       <FieldLabel label="سنة التخرج">
@@ -284,6 +281,20 @@ function TopFields(): JSX.Element {
       </FieldLabel>
     </div>
   );
+}
+
+function isoToDate(iso: string): Date | null {
+  if (!iso) return null;
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function dateToIso(d: Date | null): string {
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 interface FieldLabelProps {
@@ -314,10 +325,7 @@ interface FacultyItemProps {
   specializations: Array<{ code: string; name: string }>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<{ value: string; label: string }>;
-  committeeOptionsByType: {
-    civilian: ReadonlyArray<{ id: string; name: string }>;
-    enlisted: ReadonlyArray<{ id: string; name: string }>;
-  };
+  committeeOptions: ReadonlyArray<{ id: string; name: string }>;
 }
 
 function FacultyItem({
@@ -326,7 +334,7 @@ function FacultyItem({
   specializations,
   maritalOptions,
   gradeOptions,
-  committeeOptionsByType,
+  committeeOptions,
 }: FacultyItemProps): JSX.Element {
   return (
     <Accordion.Item
@@ -365,7 +373,7 @@ function FacultyItem({
                 specializationNameAr={spec.name}
                 maritalOptions={maritalOptions}
                 gradeOptions={gradeOptions}
-                committeeOptionsByType={committeeOptionsByType}
+                committeeOptions={committeeOptions}
               />
             ))}
           </Accordion.Root>
@@ -384,10 +392,7 @@ interface SpecializationItemProps {
   specializationNameAr: string;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<{ value: string; label: string }>;
-  committeeOptionsByType: {
-    civilian: ReadonlyArray<{ id: string; name: string }>;
-    enlisted: ReadonlyArray<{ id: string; name: string }>;
-  };
+  committeeOptions: ReadonlyArray<{ id: string; name: string }>;
 }
 
 function SpecializationItem({
@@ -397,7 +402,7 @@ function SpecializationItem({
   specializationNameAr,
   maritalOptions,
   gradeOptions,
-  committeeOptionsByType,
+  committeeOptions,
 }: SpecializationItemProps): JSX.Element {
   const value = `${facultyCode}::${specializationCode}`;
   return (
@@ -426,14 +431,14 @@ function SpecializationItem({
           specializationNameAr={specializationNameAr}
           maritalOptions={maritalOptions}
           gradeOptions={gradeOptions}
-          committeeOptionsByType={committeeOptionsByType}
+          committeeOptions={committeeOptions}
         />
       </Accordion.Content>
     </Accordion.Item>
   );
 }
 
-/* ── General Rules form + per-spec grid ──────────────────────────── */
+/* ── القواعد العامة form + per-spec grid ─────────────────────────── */
 
 interface SpecializationPanelProps extends SpecializationItemProps {}
 
@@ -453,7 +458,7 @@ function SpecializationPanel({
   specializationNameAr,
   maritalOptions,
   gradeOptions,
-  committeeOptionsByType,
+  committeeOptions,
 }: SpecializationPanelProps): JSX.Element {
   const [draft, setDraft] = useState<GeneralRuleRowInput>(EMPTY_INPUT);
 
@@ -466,12 +471,6 @@ function SpecializationPanel({
         r.specializationCode === specializationCode,
     ),
   );
-
-  const committeeOptionsForType = useMemo(() => {
-    if (draft.type === 'civilian') return committeeOptionsByType.civilian;
-    if (draft.type === 'enlisted') return committeeOptionsByType.enlisted;
-    return [];
-  }, [committeeOptionsByType, draft.type]);
 
   const canAdd =
     draft.type.length > 0 &&
@@ -496,7 +495,7 @@ function SpecializationPanel({
       <Card variant="compact">
         <header className="mb-3 flex items-center justify-between gap-3">
           <h4 className="font-ar text-sm font-semibold text-ink-900">
-            General Rules
+            القواعد العامة
           </h4>
         </header>
 
@@ -506,14 +505,9 @@ function SpecializationPanel({
               aria-label="النوع"
               value={draft.type}
               onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  type: e.target.value,
-                  /* Reset committees when type changes — option set differs. */
-                  committees: [],
-                }))
+                setDraft((d) => ({ ...d, type: e.target.value }))
               }
-              options={[{ value: '', label: 'اختر…' }, ...TYPE_OPTIONS]}
+              options={[{ value: '', label: 'اختر…' }, ...GENDER_OPTIONS]}
             />
           </FieldLabel>
 
@@ -552,17 +546,13 @@ function SpecializationPanel({
           </FieldLabel>
 
           <FieldLabel label="اللجنة">
-            {draft.type.length === 0 ? (
+            {committeeOptions.length === 0 ? (
               <p className="font-ar text-2xs text-ink-500">
-                اختر «النوع» أولاً لعرض اللجان المتاحة.
-              </p>
-            ) : committeeOptionsForType.length === 0 ? (
-              <p className="font-ar text-2xs text-ink-500">
-                لا توجد لجان متاحة لهذا النوع.
+                لا توجد لجان مرتبطة بفئة «الضباط المتخصصون».
               </p>
             ) : (
               <CheckboxGroup
-                options={committeeOptionsForType.map((c) => ({
+                options={committeeOptions.map((c) => ({
                   value: c.id,
                   label: c.name,
                 }))}
@@ -610,7 +600,7 @@ function SpecializationPanel({
         rows={rows}
         maritalOptions={maritalOptions}
         gradeOptions={gradeOptions}
-        committeeOptionsByType={committeeOptionsByType}
+        committeeOptions={committeeOptions}
         onDelete={(id) => removeLocalRow(id)}
       />
     </div>
@@ -666,10 +656,7 @@ interface LocalRulesGridProps {
   rows: LocalGeneralRuleRow[];
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<{ value: string; label: string }>;
-  committeeOptionsByType: {
-    civilian: ReadonlyArray<{ id: string; name: string }>;
-    enlisted: ReadonlyArray<{ id: string; name: string }>;
-  };
+  committeeOptions: ReadonlyArray<{ id: string; name: string }>;
   onDelete: (id: string) => void;
 }
 
@@ -677,24 +664,19 @@ function LocalRulesGrid({
   rows,
   maritalOptions,
   gradeOptions,
-  committeeOptionsByType,
+  committeeOptions,
   onDelete,
 }: LocalRulesGridProps): JSX.Element {
   const labelForType = (v: string): string =>
-    TYPE_OPTIONS.find((o) => o.value === v)?.label ?? v;
+    GENDER_OPTIONS.find((o) => o.value === v)?.label ?? v;
   const labelForMarital = (v: string): string =>
     maritalOptions.find((o) => o.value === v)?.label ?? v;
   const labelForGrade = (v: string): string =>
     gradeOptions.find((o) => o.value === v)?.label ?? v;
   const labelForDegree = (v: string): string =>
     ACADEMIC_DEGREES.find((o) => o.value === v)?.label ?? v;
-  const labelForCommittee = (id: string, type: string): string => {
-    const pool =
-      type === 'civilian'
-        ? committeeOptionsByType.civilian
-        : committeeOptionsByType.enlisted;
-    return pool.find((c) => c.id === id)?.name ?? id;
-  };
+  const labelForCommittee = (id: string): string =>
+    committeeOptions.find((c) => c.id === id)?.name ?? id;
 
   if (rows.length === 0) {
     return (
@@ -728,7 +710,7 @@ function LocalRulesGrid({
               <Td>{labelForGrade(r.grade)}</Td>
               <Td>{r.academicDegrees.map(labelForDegree).join('، ')}</Td>
               <Td>
-                {r.committees.map((id) => labelForCommittee(id, r.type)).join('، ')}
+                {r.committees.map((id) => labelForCommittee(id)).join('، ')}
               </Td>
               <Td>{r.graduationYears.map((y) => num(y)).join('، ')}</Td>
               <td className="px-3 py-2 align-middle text-end">

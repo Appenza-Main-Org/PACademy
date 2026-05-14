@@ -21,8 +21,8 @@ import {
 } from '../../store/wizardSharedState';
 
 const TYPE_LABELS: Record<string, string> = {
-  civilian: 'مدنيين',
-  enlisted: 'مكلفين',
+  male: 'ذكر',
+  female: 'أنثى',
 };
 
 const ACADEMIC_DEGREE_LABELS: Record<string, string> = {
