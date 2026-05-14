@@ -567,7 +567,6 @@ function YearCard({
 
           <Field
             label="تاريخ احتساب السن"
-            helper="يسبق بداية التقديم"
             error={refError}
           >
             <DatePicker
