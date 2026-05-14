@@ -10,7 +10,7 @@
  * see the diff before committing.
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Check,
@@ -22,6 +22,7 @@ import {
   History,
   Info,
   Pencil,
+  RotateCcw,
   Sheet,
   Upload,
   X,
@@ -302,9 +303,45 @@ interface SetupProps {
   loading: boolean;
 }
 
+type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
+
+interface UploadState {
+  status: UploadStatus;
+  /** File metadata captured at pick time; survives across status changes. */
+  meta: { name: string; size: number } | null;
+  progress: number;
+  errorMessage: string | null;
+}
+
+const IDLE_UPLOAD: UploadState = {
+  status: 'idle',
+  meta: null,
+  progress: 0,
+  errorMessage: null,
+};
+
 function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProps): JSX.Element {
   const inp = useRef<HTMLInputElement | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [upload, setUpload] = useState<UploadState>(IDLE_UPLOAD);
+  const uploadTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  /* Reflect setup.file changes — when the parent clears the file (e.g. on
+   * kind switch), reset the upload tile too. */
+  useEffect(() => {
+    if (setup.file == null && upload.status === 'success') {
+      setUpload(IDLE_UPLOAD);
+    }
+    /* Cleanup the timer when the step unmounts (modal close mid-upload). */
+    return () => {
+      if (uploadTimer.current) {
+        clearInterval(uploadTimer.current);
+        uploadTimer.current = null;
+      }
+    };
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [setup.file]);
+
   const cols =
     setup.kind === 'general'
       ? [
@@ -336,17 +373,74 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
     return [...groups.entries()].sort(([a], [b]) => b - a);
   }, [acceptedExts]);
 
-  const canSubmit = setup.file && setup.maxDegree > 0 && fileError === null;
+  const canSubmit =
+    setup.file && setup.maxDegree > 0 && fileError === null && upload.status === 'success';
+
+  /** Start the simulated upload for `meta`. Replaces any in-flight timer.
+   *  Files whose name contains "خطأ" or "upload-fail" fail mid-progress so
+   *  the failure / retry path is exercisable without a real backend. */
+  function startUpload(meta: { name: string; size: number }): void {
+    if (uploadTimer.current) clearInterval(uploadTimer.current);
+    setUpload({ status: 'uploading', meta, progress: 0, errorMessage: null });
+    const shouldFail = /(?:خطأ|upload-fail)/i.test(meta.name);
+    uploadTimer.current = setInterval(() => {
+      setUpload((prev) => {
+        if (prev.status !== 'uploading') return prev;
+        const next = prev.progress + 8;
+        if (shouldFail && next >= 50) {
+          if (uploadTimer.current) clearInterval(uploadTimer.current);
+          uploadTimer.current = null;
+          return {
+            ...prev,
+            status: 'error',
+            progress: 50,
+            errorMessage: 'تعذّر رفع الملف — انقطع الاتصال بالخادم. حاول مرة أخرى.',
+          };
+        }
+        if (next >= 100) {
+          if (uploadTimer.current) clearInterval(uploadTimer.current);
+          uploadTimer.current = null;
+          onChange({ ...setup, file: { ...meta, rows: 3124 } });
+          return { ...prev, status: 'success', progress: 100 };
+        }
+        return { ...prev, progress: next };
+      });
+    }, 120);
+  }
+
+  function cancelUpload(): void {
+    if (uploadTimer.current) {
+      clearInterval(uploadTimer.current);
+      uploadTimer.current = null;
+    }
+    setUpload(IDLE_UPLOAD);
+    onChange({ ...setup, file: null });
+  }
+
+  function retryUpload(): void {
+    if (upload.meta) startUpload(upload.meta);
+  }
+
+  function removeFile(): void {
+    if (uploadTimer.current) {
+      clearInterval(uploadTimer.current);
+      uploadTimer.current = null;
+    }
+    setUpload(IDLE_UPLOAD);
+    setFileError(null);
+    onChange({ ...setup, file: null });
+  }
 
   function acceptFile(f: File): void {
     const err = validateFile({ name: f.name, size: f.size }, setup.kind);
     if (err) {
       setFileError(err);
+      setUpload(IDLE_UPLOAD);
       onChange({ ...setup, file: null });
       return;
     }
     setFileError(null);
-    onChange({ ...setup, file: { name: f.name, size: f.size, rows: 3124 } });
+    startUpload({ name: f.name, size: f.size });
   }
   function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -357,6 +451,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
   }
   function drop(e: React.DragEvent) {
     e.preventDefault();
+    if (upload.status === 'uploading') return;
     const f = e.dataTransfer.files?.[0];
     if (f) acceptFile(f);
   }
@@ -459,7 +554,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
               onChange={pick}
               className="pointer-events-none absolute h-px w-px opacity-0"
             />
-            {!setup.file ? (
+            {upload.status === 'idle' && (
               <div
                 role="button"
                 tabIndex={0}
@@ -511,19 +606,29 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                   </div>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {upload.status === 'uploading' && upload.meta && (
+              <UploadingCard
+                meta={upload.meta}
+                progress={upload.progress}
+                onCancel={cancelUpload}
+              />
+            )}
+
+            {upload.status === 'error' && upload.meta && (
+              <UploadErrorCard
+                meta={upload.meta}
+                message={upload.errorMessage ?? 'تعذّر رفع الملف.'}
+                onRetry={retryUpload}
+                onRemove={removeFile}
+              />
+            )}
+
+            {upload.status === 'success' && setup.file && (
               <>
-                <div
-                  className="flex items-center gap-3 rounded-md p-3.5"
-                  style={{
-                    border: '1px solid var(--success)',
-                    background: 'var(--success-bg)',
-                  }}
-                >
-                  <div
-                    className="grid h-10 w-10 place-items-center rounded-md bg-white text-success"
-                    style={{ border: '1px solid var(--success)' }}
-                  >
+                <div className="flex items-center gap-3 rounded-md border border-success bg-success-bg p-3.5">
+                  <div className="grid h-10 w-10 place-items-center rounded-md border border-success bg-white text-success">
                     <Sheet size={14} aria-hidden />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -531,9 +636,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                       {setup.file.name}
                     </div>
                     <div className="flex gap-2 text-2xs text-ink-500">
-                      <span className="font-en">
-                        {(setup.file.size / (1024 * 1024)).toFixed(1)} م.ب
-                      </span>
+                      <span className="font-en">{formatSize(setup.file.size)}</span>
                       <span>·</span>
                       <span className="font-en text-success">
                         {setup.file.rows.toLocaleString('en')} صف
@@ -542,9 +645,9 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                   </div>
                   <button
                     type="button"
-                    onClick={() => onChange({ ...setup, file: null })}
+                    onClick={removeFile}
                     aria-label="إزالة"
-                    className="grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink-500"
+                    className="grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink-500 hover:bg-white"
                   >
                     <X size={14} />
                   </button>
@@ -555,9 +658,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                   <span dir="ltr" className="overflow-hidden text-ellipsis">
                     {cols.join(' · ')}
                   </span>
-                  <span
-                    className="ms-auto shrink-0 rounded-full bg-success-bg px-1.5 font-en text-2xs font-semibold text-success"
-                  >
+                  <span className="ms-auto shrink-0 rounded-full bg-success-bg px-1.5 font-en text-2xs font-semibold text-success">
                     {cols.length}/{cols.length}
                   </span>
                 </div>
@@ -594,6 +695,122 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
         </div>
       </Modal.Footer>
     </>
+  );
+}
+
+/* Format a byte count for the upload tile (e.g. "12.4 م.ب", "850 ك.ب"). */
+function formatSize(bytes: number): string {
+  if (bytes >= MB) {
+    const v = bytes / MB;
+    return `${v.toFixed(v >= 100 ? 0 : 1)} م.ب`;
+  }
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} ك.ب`;
+  return `${bytes} ب`;
+}
+
+function UploadingCard({
+  meta,
+  progress,
+  onCancel,
+}: {
+  meta: { name: string; size: number };
+  progress: number;
+  onCancel: () => void;
+}): JSX.Element {
+  const clamped = Math.max(0, Math.min(100, progress));
+  return (
+    <div
+      className="flex items-center gap-3 rounded-md border border-teal-200 bg-teal-50 p-3.5"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="grid h-10 w-10 place-items-center rounded-md border border-teal-300 bg-white text-teal-700">
+        <Sheet size={14} aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold text-ink-900">
+            {meta.name}
+          </div>
+          <span className="shrink-0 font-en text-2xs font-semibold text-teal-700">
+            {clamped}٪
+          </span>
+        </div>
+        <div className="mt-0.5 flex gap-2 text-2xs text-ink-500">
+          <span className="font-en">{formatSize(meta.size)}</span>
+          <span>·</span>
+          <span className="text-teal-700">جارٍ الرفع…</span>
+        </div>
+        <div
+          className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-ink-100"
+          role="progressbar"
+          aria-valuenow={clamped}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="تقدّم رفع الملف"
+        >
+          <div
+            className="h-full rounded-full bg-teal-500 transition-all"
+            style={{ width: `${clamped}%` }}
+          />
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onCancel}
+        aria-label="إلغاء الرفع"
+        title="إلغاء الرفع"
+        className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink-500 hover:bg-white focus-visible:shadow-focus-teal focus-visible:outline-none"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
+
+function UploadErrorCard({
+  meta,
+  message,
+  onRetry,
+  onRemove,
+}: {
+  meta: { name: string; size: number };
+  message: string;
+  onRetry: () => void;
+  onRemove: () => void;
+}): JSX.Element {
+  return (
+    <div
+      className="flex items-start gap-3 rounded-md border border-terra-300 border-s-[3px] border-s-terra-500 bg-terra-50 p-3.5"
+      role="alert"
+    >
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-terra-300 bg-white text-terra-700">
+        <AlertTriangle size={14} aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold text-ink-900">
+          {meta.name}
+        </div>
+        <div className="mt-0.5 flex gap-2 text-2xs text-ink-500">
+          <span className="font-en">{formatSize(meta.size)}</span>
+          <span>·</span>
+          <span className="text-terra-700">{message}</span>
+        </div>
+        <div className="mt-2 flex gap-1.5">
+          <Button
+            size="sm"
+            variant="secondary"
+            leadingIcon={<RotateCcw size={12} strokeWidth={1.75} />}
+            onClick={onRetry}
+          >
+            إعادة المحاولة
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onRemove}>
+            إزالة
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
