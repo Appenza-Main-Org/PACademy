@@ -31,6 +31,7 @@ import {
 import type { ComboboxOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
 import { useCommittees } from '@/features/committees/api/committee.queries';
+import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 import { num } from '@/shared/lib/format';
 import {
   useAdmissionSetupWizardStore,
@@ -48,6 +49,21 @@ const GENDER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'male', label: 'ذكر' },
   { value: 'female', label: 'أنثى' },
 ];
+
+/**
+ * Shape of a committee option flowing down the accordion. Carries
+ * `gender` so the per-spec form can filter the اللجنة list against the
+ * selected النوع. The runtime source is `Committee[]` from the
+ * committees feature; this is the projection the inner components see.
+ */
+interface CommitteeOption {
+  id: string;
+  name: string;
+  /** Derived from the committee's name via `deriveCommitteeGender` —
+   *  optional because some upstream committees may predate the helper;
+   *  the per-spec filter falls back to the helper at the call site. */
+  gender?: 'male' | 'female' | 'any';
+}
 
 const CURRENT_YEAR = new Date().getFullYear();
 const GRADUATION_YEAR_OPTIONS: ReadonlyArray<ComboboxOption> = Array.from(
@@ -312,7 +328,7 @@ interface FacultyItemProps {
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<{ value: string; label: string }>;
   degreeOptions: ReadonlyArray<{ value: string; label: string }>;
-  committeeOptions: ReadonlyArray<{ id: string; name: string }>;
+  committeeOptions: ReadonlyArray<CommitteeOption>;
 }
 
 function FacultyItem({
@@ -382,7 +398,7 @@ interface SpecializationItemProps {
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<{ value: string; label: string }>;
   degreeOptions: ReadonlyArray<{ value: string; label: string }>;
-  committeeOptions: ReadonlyArray<{ id: string; name: string }>;
+  committeeOptions: ReadonlyArray<CommitteeOption>;
 }
 
 function SpecializationItem({
@@ -465,6 +481,54 @@ function SpecializationPanel({
     ),
   );
 
+  /**
+   * Committees visible in the اللجنة CheckboxGroup honour the selected
+   * النوع. We read the committee's `gender` field when present (set by
+   * the seed and the create form via `deriveCommitteeGender`); when
+   * absent — possible for legacy rows — we fall back to the same helper
+   * so the "طالبات" check has exactly one implementation across the app.
+   *
+   * Memoised against `(committeeOptions, draft.type)`. Stale picks that
+   * no longer match the filter are deselected in the النوع onChange
+   * handler below so `draft.committees` stays in sync with the visible
+   * options without a useEffect.
+   */
+  const filteredCommitteeOptions = useMemo(() => {
+    if (draft.type !== 'male' && draft.type !== 'female') return committeeOptions;
+    return committeeOptions.filter((c) => {
+      const g = c.gender ?? deriveCommitteeGender(c.name);
+      return g === draft.type;
+    });
+  }, [committeeOptions, draft.type]);
+
+  const isGenderFilterActive = draft.type === 'male' || draft.type === 'female';
+  const isFilteredCommitteeListEmpty =
+    isGenderFilterActive && filteredCommitteeOptions.length === 0;
+
+  /**
+   * Event-driven reconciliation of stale committee picks when النوع flips.
+   * Computes the next filter inline (the `filteredCommitteeOptions` memo
+   * still uses the previous `draft.type` until the state batch lands) and
+   * trims `draft.committees` to ids present in the new list. No
+   * confirmation modal — the dropdown visibly updates.
+   */
+  const handleGenderChange = (nextType: string): void => {
+    setDraft((d) => {
+      const nextAllowed =
+        nextType === 'male' || nextType === 'female'
+          ? new Set(
+              committeeOptions
+                .filter((c) => (c.gender ?? deriveCommitteeGender(c.name)) === nextType)
+                .map((c) => c.id),
+            )
+          : null;
+      const nextCommittees = nextAllowed
+        ? d.committees.filter((id) => nextAllowed.has(id))
+        : d.committees;
+      return { ...d, type: nextType, committees: nextCommittees };
+    });
+  };
+
   const canAdd =
     draft.type.length > 0 &&
     draft.maritalStatus.length > 0 &&
@@ -497,9 +561,7 @@ function SpecializationPanel({
             <Select
               aria-label="النوع"
               value={draft.type}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, type: e.target.value }))
-              }
+              onChange={(e) => handleGenderChange(e.target.value)}
               options={[{ value: '', label: 'اختر…' }, ...GENDER_OPTIONS]}
             />
           </FieldLabel>
@@ -549,9 +611,16 @@ function SpecializationPanel({
               <p className="font-ar text-2xs text-ink-500">
                 لا توجد لجان مرتبطة بفئة «الضباط المتخصصون».
               </p>
+            ) : isFilteredCommitteeListEmpty ? (
+              <p
+                className="rounded-md border border-dashed border-border-subtle bg-ink-50/40 px-3 py-2 font-ar text-2xs text-ink-500"
+                aria-live="polite"
+              >
+                لا توجد لجان متاحة لهذا النوع
+              </p>
             ) : (
               <CheckboxGroup
-                options={committeeOptions.map((c) => ({
+                options={filteredCommitteeOptions.map((c) => ({
                   value: c.id,
                   label: c.name,
                 }))}
@@ -657,7 +726,7 @@ interface LocalRulesGridProps {
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<{ value: string; label: string }>;
   degreeOptions: ReadonlyArray<{ value: string; label: string }>;
-  committeeOptions: ReadonlyArray<{ id: string; name: string }>;
+  committeeOptions: ReadonlyArray<CommitteeOption>;
   onDelete: (id: string) => void;
 }
 
