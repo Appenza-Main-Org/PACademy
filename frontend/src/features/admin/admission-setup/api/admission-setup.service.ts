@@ -1,7 +1,7 @@
 /**
  * Admission Setup API Contract — net-new entities for the wizard.
  *
- * Composed steps (application_settings, application_status, fees,
+ * Composed steps (application_settings, fees,
  * exams, committees, notifications) reuse `cyclesService`,
  * `categoriesService`, `committeeService`, `examPlansService`, and
  * `notificationsService` directly; this service only owns the shapes

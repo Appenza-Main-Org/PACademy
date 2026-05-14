@@ -65,19 +65,8 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     subtitleAr: 'الفئات المفتوحة، السعة، شروط القبول الموسّعة.',
   },
   {
-    key: 'application_status',
-    order: 2,
-    labelAr: 'حالة التقديم',
-    routeSegment: 'application-status',
-    icon: ClipboardCheck,
-    permission: 'admission-setup:read',
-    reuses: 'features/admin/pages/CycleDetailPage.tsx',
-    isImplemented: true,
-    subtitleAr: 'تفعيل، تمديد، إغلاق، أرشفة الدورة.',
-  },
-  {
     key: 'fees',
-    order: 3,
+    order: 2,
     labelAr: 'الرسوم المالية',
     routeSegment: 'fees',
     icon: Wallet,
@@ -88,7 +77,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'exams',
-    order: 4,
+    order: 3,
     labelAr: 'إدارة الاختبارات',
     routeSegment: 'exams',
     icon: ClipboardSignature,
@@ -99,7 +88,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'committees',
-    order: 5,
+    order: 4,
     labelAr: 'إدارة مواعيد الاختبارات واللجان',
     routeSegment: 'committees',
     icon: ShieldCheck,
@@ -110,7 +99,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'notifications',
-    order: 6,
+    order: 5,
     labelAr: 'التنبيهات',
     routeSegment: 'notifications',
     icon: ClipboardCheck,
@@ -121,7 +110,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'electronic_declaration',
-    order: 7,
+    order: 6,
     labelAr: 'الإقرار الإلكتروني',
     routeSegment: 'electronic-declaration',
     icon: FileSignature,

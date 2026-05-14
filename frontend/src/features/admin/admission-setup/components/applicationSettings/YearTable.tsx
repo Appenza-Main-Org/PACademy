@@ -6,7 +6,7 @@
  * columns across cards. Three semantic groups:
  *
  *   • البيانات الأساسية — graduation year, gender, marital status
- *   • الشروط الأكاديمية — grade/percentage, max age, school/division
+ *   • الشروط الأكاديمية — grade/percentage, max age, school category
  *   • الفترة الزمنية   — application start/end, age reference date
  *
  * Group headers use the table-header convention (text-2xs, tracking-wide,
@@ -97,7 +97,6 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   const gradingModeQuery = useResolvedGradingModeForSpec(categorySpecializationId);
   const parentCategoryQuery = useParentCategoryForSpec(categorySpecializationId);
   const maritalQuery = useLookup('marital-statuses');
-  const divisionsQuery = useLookup('applicant-divisions');
   const academicGradesQuery = useLookup('academic-grades');
   const schoolCategoriesQuery = useLookup('school-categories');
 
@@ -117,10 +116,6 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   const maritalOptions = useMemo(
     () => (maritalQuery.data ?? []).map((m) => ({ value: m.code, label: m.name })),
     [maritalQuery.data],
-  );
-  const divisionOptions = useMemo(
-    () => (divisionsQuery.data ?? []).map((d) => ({ value: d.code, label: d.name })),
-    [divisionsQuery.data],
   );
   const schoolCategoryOptions = useMemo(
     () => (schoolCategoriesQuery.data ?? []).map((s) => ({ value: s.code, label: s.name })),
@@ -234,7 +229,6 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
               gradingMode={gradingMode}
               parentCategory={parentCategory}
               maritalOptions={maritalOptions}
-              divisionOptions={divisionOptions}
               schoolCategoryOptions={schoolCategoryOptions}
               academicGradeOptions={academicGradeOptions}
               academicGradeRangeByCode={academicGradeRangeByCode}
@@ -276,7 +270,6 @@ interface YearCardProps {
   gradingMode: GradingMode | null;
   parentCategory: ParentCategorySnapshot | null;
   maritalOptions: readonly { value: string; label: string }[];
-  divisionOptions: readonly { value: string; label: string }[];
   schoolCategoryOptions: readonly { value: string; label: string }[];
   academicGradeOptions: readonly { value: string; label: string }[];
   academicGradeRangeByCode: ReadonlyMap<string, { min: number; max: number } | null>;
@@ -291,7 +284,6 @@ function YearCard({
   gradingMode,
   parentCategory,
   maritalOptions,
-  divisionOptions,
   schoolCategoryOptions,
   academicGradeOptions,
   academicGradeRangeByCode,
@@ -325,7 +317,6 @@ function YearCard({
       ? parentCategory.genderScope
       : null;
   const showSchoolCategory = parentCategory?.code === 'officers_general';
-  const showDivision = parentCategory?.code === 'officers_general';
 
   /* TAGDIR mode: render the selected grade's percentage range in the
    * Field helper slot so all section-2 cells line up vertically. */
@@ -522,18 +513,6 @@ function YearCard({
             </Field>
           )}
 
-          {showDivision && (
-            <Field label="الشعبة">
-              <MultiSelect
-                value={row.divisionCodes}
-                onChange={(next) => onPatch({ divisionCodes: next })}
-                options={divisionOptions}
-                disabled={isDeleted}
-                ariaLabel="الشعبة"
-                placeholder="أي شعبة"
-              />
-            </Field>
-          )}
         </FieldGroup>
 
         <FieldGroup

@@ -83,12 +83,6 @@ export function computeStepStatus(
       if (openCount === 0) return 'not_started';
       return openCount > 0 ? 'complete' : 'in_progress';
     }
-    case 'application_status':
-      return cycle.status === 'active' || cycle.status === 'extended' || cycle.status === 'open'
-        ? 'complete'
-        : cycle.status === 'draft'
-          ? 'not_started'
-          : 'in_progress';
     case 'fees': {
       const fee = cycle.fees?.applicationFee ?? 0;
       const fawry = cycle.fees?.fawryConfig?.merchantCode ?? '';

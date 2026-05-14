@@ -308,7 +308,7 @@ export function ApplicantGradesPage(): JSX.Element {
     return (
       <div>
         <PageHeader
-          title="درجات المتقدمين"
+          title="إدارة المجموع والدرجات"
           subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         />
         <LoadingState variant="page" />
@@ -321,7 +321,7 @@ export function ApplicantGradesPage(): JSX.Element {
   return (
     <div>
       <PageHeader
-        title="درجات المتقدمين"
+        title="إدارة المجموع والدرجات"
         subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         actions={
           <>
