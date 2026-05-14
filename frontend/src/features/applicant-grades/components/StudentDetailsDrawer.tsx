@@ -70,29 +70,25 @@ export function StudentDetailsDrawer({
           </div>
         }
         subtitle={
-          <nav className="mt-3 flex gap-1">
+          <nav className="mt-3 flex gap-4 border-b border-border-subtle">
             {tabs.map((t) => {
               const active = tab === t.v;
               return (
                 <button
                   key={t.v}
                   onClick={() => setTab(t.v)}
-                  className="inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent px-3.5 py-2 text-sm transition-colors"
-                  style={{
-                    fontWeight: active ? 600 : 500,
-                    color: active ? 'var(--ink-900)' : 'var(--ink-500)',
-                    borderBottom: `2px solid ${active ? 'var(--teal-500)' : 'transparent'}`,
-                    marginBottom: -1,
-                  }}
+                  className={`-mb-px inline-flex cursor-pointer items-center gap-2 border-0 border-b-2 bg-transparent px-3 py-2 text-sm transition-colors ${
+                    active
+                      ? 'border-teal-500 font-semibold text-ink-900'
+                      : 'border-transparent font-medium text-ink-500 hover:text-ink-700'
+                  }`}
                 >
                   {t.label}
                   {t.count != null && (
                     <span
-                      className="rounded-full px-1.5 py-0.5 font-en text-2xs font-semibold"
-                      style={{
-                        background: active ? 'var(--teal-50)' : 'var(--ink-100)',
-                        color: active ? 'var(--teal-700)' : 'var(--ink-500)',
-                      }}
+                      className={`inline-grid min-w-5 place-items-center rounded-full px-1.5 py-0.5 font-en text-2xs font-semibold tabular-nums ${
+                        active ? 'bg-teal-50 text-teal-700' : 'bg-ink-100 text-ink-500'
+                      }`}
                     >
                       {t.count}
                     </span>
