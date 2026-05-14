@@ -19,6 +19,7 @@ import {
   EmptyState,
   LoadingState,
   PageHeader,
+  Tabs,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import {
@@ -30,6 +31,9 @@ import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import { useActiveCategoriesForCycle } from '../lib/activeCategories';
 import { CommitteeBindingsPanel } from '../components/committeeBinding/CommitteeBindingsPanel';
+import { ApprovedRulesView } from '../components/committeeBinding/ApprovedRulesView';
+import { useAdmissionSetupWizardStore } from '../store/wizardSharedState';
+import { num } from '@/shared/lib/format';
 
 /** Cycles only declare `year`; the academic year string is `${year}-${year+1}`. */
 function academicYearForCycle(cycle: AdmissionCycle): string {
@@ -109,12 +113,37 @@ function Body({ cycle }: BodyProps): JSX.Element {
           </Link>
         }
       />
-      <Card>
-        <div className="p-3">
-          <CommitteeBindingsPanel cycle={cycle} active={active} />
-        </div>
-      </Card>
+      <CommitteesTabs cycle={cycle} active={active} />
     </div>
+  );
+}
+
+interface CommitteesTabsProps {
+  cycle: AdmissionCycle;
+  active: Array<{ key: ApplicantCategoryKey; labelAr: string }>;
+}
+
+function CommitteesTabs({ cycle, active }: CommitteesTabsProps): JSX.Element {
+  const approvedCount = useAdmissionSetupWizardStore((s) => s.approved.length);
+  return (
+    <Tabs defaultValue="add">
+      <Tabs.List>
+        <Tabs.Tab value="add">إضافة</Tabs.Tab>
+        <Tabs.Tab value="view" badge={approvedCount > 0 ? num(approvedCount) : undefined}>
+          عرض
+        </Tabs.Tab>
+      </Tabs.List>
+      <Tabs.Panel value="add">
+        <Card>
+          <div className="p-3">
+            <CommitteeBindingsPanel cycle={cycle} active={active} />
+          </div>
+        </Card>
+      </Tabs.Panel>
+      <Tabs.Panel value="view">
+        <ApprovedRulesView />
+      </Tabs.Panel>
+    </Tabs>
   );
 }
 

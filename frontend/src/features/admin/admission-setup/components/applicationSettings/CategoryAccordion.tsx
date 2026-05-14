@@ -29,8 +29,14 @@ import {
   useToggleCategoryActive,
 } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
+import { GeneralRulesSection } from './GeneralRulesSection';
 import { SpecializationList } from './SpecializationList';
 import { YearTable } from './YearTable';
+
+/** Code of the «الضباط المتخصصون» category in the applicant-categories lookup.
+ *  Used to gate the «قواعد عامة» sub-section so it only appears under this
+ *  one category, per RFP. */
+const SPECIALIZED_OFFICERS_CODE = 'specialized_officers';
 
 export function CategoryAccordion(): JSX.Element {
   const configsQuery = useCategoryConfigs();
@@ -135,11 +141,16 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
       </Accordion.Header>
 
       <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 px-4 py-3">
-        {config.singleAxis && config.implicitSpecId ? (
-          <YearTable categorySpecializationId={config.implicitSpecId} />
-        ) : (
-          <SpecializationList configId={config.id} />
-        )}
+        <div className="flex flex-col gap-4">
+          {config.singleAxis && config.implicitSpecId ? (
+            <YearTable categorySpecializationId={config.implicitSpecId} />
+          ) : (
+            <SpecializationList configId={config.id} />
+          )}
+          {config.categoryCode === SPECIALIZED_OFFICERS_CODE && (
+            <GeneralRulesSection />
+          )}
+        </div>
       </Accordion.Content>
 
       <AlertDialog
