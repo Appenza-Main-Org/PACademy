@@ -294,9 +294,12 @@ export function ApplicantGradesPage(): JSX.Element {
     },
     {
       key: 'actions',
-      label: <span className="sr-only">إجراءات</span>,
+      label: 'إجراءات',
       align: 'center',
-      className: 'min-w-[5ch]',
+      /* Bump the floor from 5ch (just the kebab) to 8ch so the header
+       * label "إجراءات" sits comfortably above the trigger and the
+       * column doesn't collapse on narrower viewports. */
+      className: 'min-w-[8ch] whitespace-nowrap',
       render: (r) => <RowActions row={r} onSelect={setOverlay} />,
     },
   ];
