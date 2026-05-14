@@ -233,10 +233,13 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
         ))}
       </div>
 
-      {/* Import-source card — the file icon + filename + import metadata
-       * are self-explanatory; we drop both the "مصدر البيانات" eyebrow
-       * header and the "تنزيل المصدر" action button. The card sits
-       * directly under the field grid with mt-5 spacing. */}
+      {/* Import-source card.
+       *
+       * No "تنزيل المصدر" action button — the mock layer never wired
+       * a download endpoint, and the real backend won't expose one
+       * for raw source files (the import-staged copy is the source
+       * of truth, not the original spreadsheet). Admins who need the
+       * file go through the cycle's audit log, not this card. */}
       <div className="mt-5 flex items-center gap-3 rounded-md border border-border-subtle bg-white p-3">
         <div className="grid h-8 w-8 place-items-center rounded-md bg-teal-50 text-teal-700">
           <Sheet size={14} aria-hidden />
