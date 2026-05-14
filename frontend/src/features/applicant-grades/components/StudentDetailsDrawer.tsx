@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { Download, History, Pencil, Plus, Sheet } from 'lucide-react';
+import { History, Pencil, Plus, Sheet } from 'lucide-react';
 import { Badge, Button, Drawer } from '@/shared/components';
 import { initials } from '@/shared/lib/format';
 import { EditMaxDegreeDialog } from './EditMaxDegreeDialog';
@@ -226,30 +226,26 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
         ))}
       </div>
 
-      <section className="mt-5">
-        <h3 className="m-0 mb-2.5 text-2xs font-bold uppercase tracking-wider text-ink-500">
-          مصدر البيانات
-        </h3>
-        <div className="flex items-center gap-3 rounded-md border border-border-subtle bg-white p-3">
-          <div className="grid h-8 w-8 place-items-center rounded-md bg-teal-50 text-teal-700">
-            <Sheet size={14} aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-semibold text-ink-900">
-              {row.kind === 'general'
-                ? 'درجات_الثانوية_العامة_2026.xlsx'
-                : 'درجات_الثانوية_الأزهرية_2026.xlsx'}
-            </div>
-            <div className="text-2xs text-ink-500">
-              استورده <strong className="text-ink-700">مرتضى محمود</strong> ·{' '}
-              <span className="font-en">١٤ مايو ٢٠٢٦ · ٠٩:١٢ ص</span>
-            </div>
-          </div>
-          <Button size="sm" variant="ghost" leadingIcon={<Download size={14} />}>
-            تنزيل المصدر
-          </Button>
+      {/* Import-source card — the file icon + filename + import metadata
+       * are self-explanatory; we drop both the "مصدر البيانات" eyebrow
+       * header and the "تنزيل المصدر" action button. The card sits
+       * directly under the field grid with mt-5 spacing. */}
+      <div className="mt-5 flex items-center gap-3 rounded-md border border-border-subtle bg-white p-3">
+        <div className="grid h-8 w-8 place-items-center rounded-md bg-teal-50 text-teal-700">
+          <Sheet size={14} aria-hidden />
         </div>
-      </section>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold text-ink-900">
+            {row.kind === 'general'
+              ? 'درجات_الثانوية_العامة_2026.xlsx'
+              : 'درجات_الثانوية_الأزهرية_2026.xlsx'}
+          </div>
+          <div className="text-2xs text-ink-500">
+            استورده <strong className="text-ink-700">مرتضى محمود</strong> ·{' '}
+            <span className="font-en">١٤ مايو ٢٠٢٦ · ٠٩:١٢ ص</span>
+          </div>
+        </div>
+      </div>
 
       {row.lastEditedAt && (
         <div className="mt-3.5 flex items-center gap-1.5 text-2xs text-ink-500">
