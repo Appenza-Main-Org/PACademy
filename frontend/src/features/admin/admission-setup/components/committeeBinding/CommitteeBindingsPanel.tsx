@@ -339,14 +339,14 @@ export function CommitteeBindingsPanel({
           }
         />
         {/*
-         * 3-row grid keeps the "إضافة" button anchored to the input
-         * baseline regardless of helper-text presence:
-         *  row 1 = labels   ·  row 2 = inputs + button  ·  row 3 = helpers
-         * The `auto auto auto` row track plus `items-end` on row 2
+         * 2-row grid keeps the "إضافة" button anchored to the input
+         * baseline:
+         *  row 1 = labels   ·  row 2 = inputs + button
+         * The `auto auto` row track plus `items-end` on row 2
          * gives the button (matching block-size `h-9`) a bottom flush
          * with the inputs.
          */}
-        <div className="grid grid-rows-[auto_auto_auto] items-end gap-x-3 gap-y-1 p-4 md:grid-cols-[1fr_1fr_220px_auto]">
+        <div className="grid grid-rows-[auto_auto] items-end gap-x-3 gap-y-1 p-4 md:grid-cols-[1fr_1fr_220px_auto]">
           {/* ── row 1: labels ───────────────────────────────────── */}
           <FieldLabel htmlFor="bindings-cats">الفئات</FieldLabel>
           <FieldLabel>اليوم</FieldLabel>
@@ -396,12 +396,6 @@ export function CommitteeBindingsPanel({
           >
             إضافة
           </Button>
-
-          {/* ── row 3: helpers ──────────────────────────────────── */}
-          <FieldHelper>فئة واحدة على الأقل</FieldHelper>
-          <span aria-hidden />
-          <FieldHelper>1 أو أكثر</FieldHelper>
-          <span aria-hidden />
         </div>
       </Card>
 
@@ -435,10 +429,6 @@ function FieldLabel({ htmlFor, children }: FieldLabelProps): JSX.Element {
       </span>
     </label>
   );
-}
-
-function FieldHelper({ children }: { children: string }): JSX.Element {
-  return <p className="text-xs text-ink-500">{children}</p>;
 }
 
 /* ── Grouped accordion (by date) ─────────────────────────────────── */
@@ -495,12 +485,7 @@ function DateGroupedView({
         {groups.map((g) => (
           <Accordion.Item key={g.date} value={g.date}>
             <Accordion.Trigger>
-              <span className="flex items-center gap-2">
-                <span>{fmtDate(g.date, 'full')}</span>
-                <span className="rounded-pill bg-ink-100 px-2 py-0.5 font-numeric tnum text-2xs text-ink-700">
-                  {num(g.rows.length)}
-                </span>
-              </span>
+              <span>{fmtDate(g.date, 'full')}</span>
             </Accordion.Trigger>
             <Accordion.Content>
               <MergedCategoryTable
