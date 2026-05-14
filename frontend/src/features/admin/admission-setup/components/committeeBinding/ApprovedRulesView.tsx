@@ -7,7 +7,7 @@
  *
  * Column order (RTL, right-to-left in the rendered table):
  *   بداية التقديم | نهاية التقديم | تاريخ احتساب السن | سنة التخرج (top) |
- *   النوع | الحالة الاجتماعية | التقدير | الدرجة العلمية | اللجنة | سنة التخرج (per-rule)
+ *   النوع | الحالة الاجتماعية | الحد الأدنى للتقدير | الدرجة العلمية | اللجنة | سنة التخرج (per-rule)
  */
 
 import { useMemo } from 'react';
@@ -83,7 +83,7 @@ export function ApprovedRulesView(): JSX.Element {
               <Th>سنة التخرج</Th>
               <Th>النوع</Th>
               <Th>الحالة الاجتماعية</Th>
-              <Th>التقدير</Th>
+              <Th>الحد الأدنى للتقدير</Th>
               <Th>الدرجة العلمية</Th>
               <Th>اللجنة</Th>
               <Th>سنة التخرج</Th>
@@ -138,7 +138,13 @@ function Row({
           ? '—'
           : row.type.map((t) => TYPE_LABELS[t] ?? t).join('، ')}
       </Td>
-      <Td>{maritalLabel.get(row.maritalStatus) ?? row.maritalStatus}</Td>
+      <Td>
+        {row.maritalStatus.length === 0
+          ? '—'
+          : row.maritalStatus
+              .map((c) => maritalLabel.get(c) ?? c)
+              .join('، ')}
+      </Td>
       <Td>{gradeLabel.get(row.grade) ?? row.grade}</Td>
       <Td>
         {row.academicDegrees

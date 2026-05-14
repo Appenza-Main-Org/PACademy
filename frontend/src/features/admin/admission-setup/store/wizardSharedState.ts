@@ -40,7 +40,11 @@ export interface GeneralRuleRowInput {
    *  matches a committee when its gender is in this list (or list is
    *  empty). */
   type: string[];
-  maritalStatus: string;
+  /** Marital-status codes accepted by this rule. Multi-select — empty
+   *  array means none picked yet (the «إضافة» button stays disabled
+   *  until at least one is chosen). */
+  maritalStatus: string[];
+  /** Minimum acceptable academic grade — single code (الحد الأدنى). */
   grade: string;
   academicDegrees: string[];
   committees: string[];

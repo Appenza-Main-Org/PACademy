@@ -453,7 +453,7 @@ interface SpecializationPanelProps extends SpecializationItemProps {}
 
 const EMPTY_INPUT: GeneralRuleRowInput = {
   type: [],
-  maritalStatus: '',
+  maritalStatus: [],
   grade: '',
   academicDegrees: [],
   committees: [],
@@ -575,19 +575,20 @@ function SpecializationPanel({
           </FieldLabel>
 
           <FieldLabel label="الحالة الاجتماعية">
-            <Select
-              aria-label="الحالة الاجتماعية"
+            <MultiSelect
+              ariaLabel="الحالة الاجتماعية"
               value={draft.maritalStatus}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, maritalStatus: e.target.value }))
+              onChange={(next) =>
+                setDraft((d) => ({ ...d, maritalStatus: next }))
               }
-              options={[{ value: '', label: 'اختر…' }, ...maritalOptions]}
+              options={maritalOptions}
+              placeholder="اختر الحالة الاجتماعية…"
             />
           </FieldLabel>
 
-          <FieldLabel label="التقدير">
+          <FieldLabel label="الحد الأدنى للتقدير">
             <Select
-              aria-label="التقدير"
+              aria-label="الحد الأدنى للتقدير"
               value={draft.grade}
               onChange={(e) =>
                 setDraft((d) => ({ ...d, grade: e.target.value }))
@@ -752,6 +753,8 @@ function LocalRulesGrid({
     values.length === 0 ? '—' : values.map(labelForType).join('، ');
   const labelForMarital = (v: string): string =>
     maritalOptions.find((o) => o.value === v)?.label ?? v;
+  const labelForMaritals = (values: readonly string[]): string =>
+    values.length === 0 ? '—' : values.map(labelForMarital).join('، ');
   const labelForGrade = (v: string): string =>
     gradeOptions.find((o) => o.value === v)?.label ?? v;
   const labelForDegree = (v: string): string =>
@@ -774,7 +777,7 @@ function LocalRulesGrid({
           <tr>
             <Th>النوع</Th>
             <Th>الحالة الاجتماعية</Th>
-            <Th>التقدير</Th>
+            <Th>الحد الأدنى للتقدير</Th>
             <Th>الدرجة العلمية</Th>
             <Th>اللجنة</Th>
             <Th>سنة التخرج</Th>
@@ -787,7 +790,7 @@ function LocalRulesGrid({
           {rows.map((r) => (
             <tr key={r.id} className="border-t border-border-subtle">
               <Td>{labelForTypes(r.type)}</Td>
-              <Td>{labelForMarital(r.maritalStatus)}</Td>
+              <Td>{labelForMaritals(r.maritalStatus)}</Td>
               <Td>{labelForGrade(r.grade)}</Td>
               <Td>{r.academicDegrees.map(labelForDegree).join('، ')}</Td>
               <Td>
