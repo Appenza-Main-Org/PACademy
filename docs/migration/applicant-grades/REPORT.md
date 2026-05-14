@@ -59,4 +59,39 @@ to match the polish-pass prompt:
 | `ea498dc` | `feat(applicant-grades): enable sort on every remaining column + virtual branch key` |
 | `93f7899` | `fix(applicant-grades): visible MoreVertical action button + adjustments-present dot` |
 | `a7189b2` | `fix(applicant-grades): cell/header alignment + tabular-nums + min-widths` |
-| _this commit_ | `docs(applicant-grades): update screenshots after polish` |
+| `ea20fc6` | `docs(applicant-grades): update screenshots after polish` |
+
+### Drawer cleanup pass — 2026-05-14 (same day, follow-up)
+
+A four-fix follow-up addressed remaining `StudentDetailsDrawer` rough
+edges spotted in the post-polish-pass screenshots:
+
+| # | Issue | Fix |
+|---|-------|-----|
+| 1 | Tab triggers "بيانات أساسية 15" / "الدرجات" / "سجل التعديلات 1" — count badges touched their labels; tab triggers touched each other | Trigger-to-trigger gap `gap-4`, label-to-count gap `gap-2`, count badge `min-w-5` so 1-vs-15 widths match. Continuous bottom border on the `<nav>` itself; per-trigger underline overdraws via `-mb-px` so the divider line reads as continuous. All inline `style` collapsed to Tailwind state classes. |
+| 2 | Every "بيانات أساسية" field row rendered the raw SQL column name (`school_name`, `branch_desc_new`, …) in mono under the Arabic label | `<code>` element removed from `KV` renderer; `sourceKey` retained on `KVProps` as code-side source of truth, just no longer rendered to admins |
+| 3 | Import-source card had a "تنزيل المصدر" download button on the inline-start that was never wired up | Button + the `Download` icon import removed; card now collapses to file icon + filename + import metadata |
+| 4 | Eyebrow header "مصدر البيانات" above the card was redundant once the action button was gone | Header dropped; card sits directly under the field grid with `mt-5` spacing |
+
+#### Drawer screenshots (manual capture queued)
+
+- `29-drawer-tabs-spaced.png` — tabs with breathing room, count badges balanced
+- `30-drawer-fields-clean.png` — field rows showing Arabic labels only
+- `31-drawer-source-card-minimal.png` — import-source card without download button, no section header
+
+#### Drawer verification
+
+- [ ] Tab labels and counts separated by a visible gap; triggers don't touch
+- [ ] Active-tab underline stays put when switching between counts of different widths
+- [ ] No English DB key names visible anywhere in the drawer
+- [ ] "تنزيل المصدر" button absent; `Download` icon import removed
+- [ ] "مصدر البيانات" header text removed; card sits directly under the field grid
+
+#### Drawer commits
+
+| SHA | Message |
+|---|---|
+| `e46c9f2` | `fix(applicant-grades): tab header spacing + count badge styling in details drawer` |
+| `daf3381` | `refactor(applicant-grades): drop raw DB column names from field rows` |
+| `e300c7b` | `chore(applicant-grades): remove تنزيل المصدر button + مصدر البيانات header` |
+| _this commit_ | `docs(applicant-grades): updated drawer screenshots` |
