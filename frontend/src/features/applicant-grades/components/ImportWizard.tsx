@@ -111,7 +111,7 @@ export function ImportWizard({ open, onClose, onComplete }: Props): JSX.Element 
 
   const subtitle =
     step === 'setup'
-      ? 'ارفع ملف Excel — سيُحلَّل أولاً وتراجَع التكرارات قبل الكتابة على قاعدة البيانات.'
+      ? 'ارفع ملف البيانات — سيُحلَّل أولاً وتراجَع التكرارات قبل الكتابة على قاعدة البيانات.'
       : step === 'review'
         ? 'اختر لكل صف مكرر — قبول البيانات الجديدة أو الإبقاء على القائمة. التعديلات تبقى مرتبطة بالطالب.'
         : step === 'error'
@@ -234,6 +234,18 @@ function StepIndicator({ step }: { step: 'setup' | 'review' | 'result' }): JSX.E
 
 /* ─── Step A — Setup ──────────────────────────────────────────────────── */
 
+/**
+ * Accepted file extensions per secondary-type. Azhar ships the legacy
+ * Microsoft Access `.accdb` exports from the Ministry of Awqaf; the
+ * general track ships the older `.mdb` exports plus modern spreadsheet
+ * formats. Both also accept `.xlsx`/`.xls`/`.csv` for hand-prepared
+ * sheets.
+ */
+const ACCEPTED_EXTENSIONS: Record<'general' | 'azhar', readonly string[]> = {
+  general: ['.mdb', '.xlsx', '.xls', '.csv'],
+  azhar: ['.accdb', '.xlsx', '.xls', '.csv'],
+};
+
 interface SetupProps {
   setup: {
     kind: 'general' | 'azhar';
@@ -261,6 +273,9 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
           'student_case_desc',
         ]
       : ['StSeatNo', 'StudenName', 'DevisionName', 'National_Code', 'ZonName', 'InstituteName', 'Total2'];
+
+  const acceptedExts = ACCEPTED_EXTENSIONS[setup.kind];
+  const acceptAttr = acceptedExts.join(',');
 
   const canSubmit = setup.file && setup.maxDegree > 0;
 
@@ -295,9 +310,22 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                   <button
                     key={v}
                     type="button"
-                    onClick={() =>
-                      onChange({ ...setup, kind: v, maxDegree: v === 'general' ? 410 : 510 })
-                    }
+                    onClick={() => {
+                      /* Clear the file when the kind changes — the accepted
+                       * extensions differ (.mdb vs .accdb), so a file picked
+                       * under the previous kind may no longer be valid. */
+                      const fileStillValid =
+                        setup.file != null
+                        && ACCEPTED_EXTENSIONS[v].some((ext) =>
+                          setup.file!.name.toLowerCase().endsWith(ext),
+                        );
+                      onChange({
+                        ...setup,
+                        kind: v,
+                        maxDegree: v === 'general' ? 410 : 510,
+                        file: fileStillValid ? setup.file : null,
+                      });
+                    }}
                     className="cursor-pointer rounded-sm border-0 px-4 py-1.5 text-sm font-medium transition-colors"
                     style={{
                       background: a ? 'var(--teal-500)' : 'transparent',
@@ -349,11 +377,11 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
             </div>
           </Field>
 
-          <Field label="ملف Excel" required>
+          <Field label="ملف البيانات" required>
             <input
               ref={inp}
               type="file"
-              accept=".xlsx,.xls"
+              accept={acceptAttr}
               onChange={pick}
               className="pointer-events-none absolute h-px w-px opacity-0"
             />
@@ -378,8 +406,12 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                   اسحب الملف هنا أو انقر للاختيار
                 </div>
                 <div className="text-2xs text-ink-500">
-                  <span className="font-en">.xlsx</span> · <span className="font-en">.xls</span> ·
-                  حتى <span className="font-en">10</span> ميجا
+                  {acceptedExts.map((ext, i) => (
+                    <span key={ext}>
+                      {i > 0 && ' · '}
+                      <span className="font-en">{ext}</span>
+                    </span>
+                  ))}
                 </div>
               </div>
             ) : (
