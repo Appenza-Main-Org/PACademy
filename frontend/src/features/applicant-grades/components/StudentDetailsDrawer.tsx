@@ -440,6 +440,12 @@ function LogTab({ row }: { row: DerivedRow }): JSX.Element {
 
 interface KVProps {
   label: string;
+  /**
+   * Source-column key from the import file. Retained on the data so we
+   * still know which raw column each Arabic label maps to (handy for
+   * support / on-call debugging), but it is no longer rendered — admins
+   * only need the human-readable Arabic label.
+   */
   sourceKey: string;
   value: string;
   mono?: boolean;
@@ -447,7 +453,7 @@ interface KVProps {
   highlight?: boolean;
 }
 
-function KV({ label, sourceKey, value, mono, empty, highlight }: KVProps): JSX.Element {
+function KV({ label, value, mono, empty, highlight }: KVProps): JSX.Element {
   const valueClasses = highlight
     ? 'rounded-full bg-success-bg px-2 py-0.5 text-success font-medium'
     : empty
@@ -455,10 +461,7 @@ function KV({ label, sourceKey, value, mono, empty, highlight }: KVProps): JSX.E
       : 'text-ink-900 font-medium';
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-2xs font-medium text-ink-600">{label}</span>
-        <code className="font-mono text-2xs text-ink-400">{sourceKey}</code>
-      </div>
+      <span className="text-2xs font-medium text-ink-600">{label}</span>
       <span className={`self-start text-sm ${mono ? 'font-en' : 'font-ar'} ${valueClasses}`}>
         {value}
       </span>
