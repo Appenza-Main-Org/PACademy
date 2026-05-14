@@ -25,7 +25,6 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
-  MultiSelect,
   Select,
   toast,
 } from '@/shared/components';
@@ -171,12 +170,12 @@ export function GeneralRulesSection(): JSX.Element {
   return (
     <section
       className="rounded-md border border-border-default bg-surface-card p-4"
-      aria-label="قواعد عامة"
+      aria-label="الشروط العامة"
     >
       <header className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-ar text-base font-semibold text-ink-900">
-            قواعد عامة
+            الشروط العامة
           </h3>
           <p className="mt-0.5 font-ar text-xs text-ink-500">
             عيّن نطاق التقديم وقواعد القبول لكل تخصص نشط.
@@ -243,13 +242,8 @@ function TopFields(): JSX.Element {
   const header = useAdmissionSetupWizardStore((s) => s.header);
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
 
-  const selectedYearValues = useMemo(
-    () => header.graduationYears.map(String),
-    [header.graduationYears],
-  );
-
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
       <FieldLabel label="بداية التقديم">
         <DatePicker
           value={isoToDate(header.applicationStart)}
@@ -269,20 +263,6 @@ function TopFields(): JSX.Element {
           value={isoToDate(header.ageReferenceDate)}
           onChange={(d) => setHeaderField('ageReferenceDate', dateToIso(d))}
           placeholder="اختر اليوم…"
-        />
-      </FieldLabel>
-      <FieldLabel label="سنة التخرج">
-        <MultiSelect
-          ariaLabel="سنة التخرج"
-          options={GRADUATION_YEAR_OPTIONS}
-          value={selectedYearValues}
-          onChange={(next) =>
-            setHeaderField(
-              'graduationYears',
-              next.map((v) => Number(v)).filter((n) => Number.isFinite(n)),
-            )
-          }
-          placeholder="اختر سنوات…"
         />
       </FieldLabel>
     </div>
