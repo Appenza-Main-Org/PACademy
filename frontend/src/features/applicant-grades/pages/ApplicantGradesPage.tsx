@@ -23,6 +23,7 @@ import {
   History,
   Info,
   Layers,
+  MoreVertical,
   Plus,
   Search,
   Upload,
@@ -34,6 +35,7 @@ import {
   Card,
   CardBody,
   DataTable,
+  DropdownMenu,
   EmptyState,
   LoadingState,
   PageHeader,
@@ -275,53 +277,7 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'actions',
       label: <span className="sr-only">إجراءات</span>,
       align: 'center',
-      render: (r) => (
-        <div
-          className="inline-flex justify-center gap-0.5"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="إضافة تعديل"
-            title="إضافة تعديل"
-            className="!h-7 !w-7 !text-teal-700 hover:!bg-teal-50"
-            onClick={() => setOverlay({ kind: 'add-adj', seat: r.seat })}
-          >
-            <Plus size={14} strokeWidth={1.75} />
-          </Button>
-          <span className="relative inline-flex">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="عرض السجل"
-              title="عرض السجل"
-              className="!h-7 !w-7 !text-gold-700 hover:!bg-gold-50"
-              onClick={() => setOverlay({ kind: 'log', seat: r.seat })}
-            >
-              <History size={14} strokeWidth={1.75} />
-            </Button>
-            {r.log.length > 0 && (
-              <span
-                aria-hidden
-                className="absolute -end-0.5 -top-0.5 grid h-3 min-w-[12px] place-items-center rounded-full border border-white bg-gold-500 px-1 font-numeric text-[9px] font-bold tabular-nums text-white"
-              >
-                {r.log.length}
-              </span>
-            )}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="تفاصيل الطالب"
-            title="تفاصيل الطالب"
-            className="!h-7 !w-7"
-            onClick={() => setOverlay({ kind: 'student', seat: r.seat })}
-          >
-            <Eye size={14} strokeWidth={1.75} />
-          </Button>
-        </div>
-      ),
+      render: (r) => <RowActions row={r} onSelect={setOverlay} />,
     },
   ];
 
@@ -528,6 +484,84 @@ function pctTrend(part: number, total: number): { label: string; tone: 'neutral'
   if (!total) return undefined;
   const v = Math.round((part / total) * 100);
   return { label: `${v}٪ من الإجمالي`, tone: 'neutral' };
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+
+/**
+ * RowActions — three-dots-vertical kebab opening a DropdownMenu with
+ * the three per-row affordances (add-adjustment / log / details).
+ *
+ * The kebab itself is always visible so the affordance can be discovered
+ * at rest (unlike the earlier amber dot, which was too subtle on
+ * non-overridden rows). Rows that already carry adjustments show a 6×6
+ * gold dot on the top-end corner with a `يوجد تعديلات` tooltip — same
+ * pattern as the notification-bell unread indicator in AppShell.
+ *
+ * The wrapping `<span>` stops click-bubble so opening the menu doesn't
+ * also fire the row's `onRowClick` (which opens the details drawer).
+ */
+function RowActions({
+  row,
+  onSelect,
+}: {
+  row: DerivedRow;
+  onSelect: (next: OverlayState) => void;
+}): JSX.Element {
+  const hasAdjustments = row.log.length > 0;
+  return (
+    <span
+      className="relative inline-flex"
+      onClick={(e) => e.stopPropagation()}
+      title={hasAdjustments ? 'يوجد تعديلات' : undefined}
+    >
+      <DropdownMenu>
+        <DropdownMenu.Trigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="إجراءات"
+            className="!h-8 !w-8 !text-ink-500 hover:!bg-ink-100/60 hover:!text-ink-900 focus-visible:!bg-ink-100/60"
+          >
+            <MoreVertical size={16} strokeWidth={1.75} aria-hidden />
+          </Button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content sideOffset={6}>
+          <DropdownMenu.Item
+            leadingIcon={<Plus size={14} strokeWidth={1.75} className="text-teal-700" aria-hidden />}
+            onSelect={() => onSelect({ kind: 'add-adj', seat: row.seat })}
+          >
+            إضافة تعديل
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            leadingIcon={<History size={14} strokeWidth={1.75} className="text-gold-700" aria-hidden />}
+            shortcut={
+              hasAdjustments ? (
+                <span className="font-en font-semibold text-gold-700 tabular-nums">
+                  {row.log.length}
+                </span>
+              ) : undefined
+            }
+            onSelect={() => onSelect({ kind: 'log', seat: row.seat })}
+          >
+            عرض السجل
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            leadingIcon={<Eye size={14} strokeWidth={1.75} className="text-ink-600" aria-hidden />}
+            onSelect={() => onSelect({ kind: 'student', seat: row.seat })}
+          >
+            تفاصيل الطالب
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu>
+      {hasAdjustments && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -end-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-gold-500 ring-2 ring-white"
+        />
+      )}
+    </span>
+  );
 }
 
 /* ────────────────────────────────────────────────────────────────────── */
