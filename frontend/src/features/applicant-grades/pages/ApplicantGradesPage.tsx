@@ -201,14 +201,15 @@ export function ApplicantGradesPage(): JSX.Element {
     },
     {
       key: 'total',
-      label: 'المجموع',
+      label: 'المجموع الإجمالي',
       align: 'center',
       sortable: true,
       /* `align: 'center'` overrides the `numeric: true` auto-rule that
        * would have given us `text-end font-numeric tnum`, so re-apply
        * `font-numeric tabular-nums` via className to keep the digit
-       * alignment we still need across rows. */
-      className: 'min-w-[8ch] font-numeric tabular-nums',
+       * alignment we still need across rows. `whitespace-nowrap` keeps
+       * the wider label "المجموع الإجمالي" on one line in the header. */
+      className: 'min-w-[14ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
         <>
           <span className="font-semibold text-ink-900">{r.total}</span>
