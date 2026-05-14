@@ -6,11 +6,11 @@
  * of helper-text presence.
  *
  * Grid: rows are always grouped by exam date inside a Radix Accordion.
- * Each section's body is a flat DataTable with the four canonical
- * columns (`الفئة`, `اليوم`, `اللجنة`, `سعة اللجنة`) and is sortable —
- * the `اليوم` column is kept inside each section even though it's
- * redundant with the section header, so column order stays canonical
- * across views.
+ * The `اليوم` value lives in the section header, so each section's
+ * body keeps only three data columns — `الفئة`, `اللجنة`, `سعة اللجنة`
+ * — plus the per-row delete action. Rows are always primary-sorted by
+ * `الفئة` so a custom `MergedCategoryTable` can `rowSpan` consecutive
+ * matches into a single vertically-centred cell.
  *
  * Add semantics: idempotent merge. When the user submits, the panel
  * splits the (category × committee × date) targets into two buckets —
@@ -28,18 +28,13 @@ import {
   Button,
   Card,
   CardHeader,
-  DataTable,
   DatePicker,
   EmptyState,
   Input,
   MultiSelect,
   toast,
 } from '@/shared/components';
-import type {
-  ComboboxOption,
-  DataTableColumn,
-  DataTableSort,
-} from '@/shared/components';
+import type { ComboboxOption } from '@/shared/components';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
 import {
@@ -281,37 +276,15 @@ export function CommitteeBindingsPanel({
     scheduleQueries.map((q) => q.data?.length ?? 0).join('|'),
   ]);
 
-  /* ── shared in-table sort (Arabic-collation aware) ────────────── */
-  const [sort, setSort] = useState<DataTableSort<BindingRow> | null>({
-    key: 'categoryLabel',
-    direction: 'asc',
-  });
-
-  const sortRows = (input: readonly BindingRow[]): BindingRow[] => {
-    if (!sort) return [...input];
-    const dir = sort.direction === 'asc' ? 1 : -1;
-    const arabicCmp = (a: string, b: string): number =>
-      a.localeCompare(b, 'ar', { numeric: true });
-    return [...input].sort((a, b) => {
-      switch (sort.key) {
-        case 'categoryLabel':
-          return arabicCmp(a.categoryLabel, b.categoryLabel) * dir;
-        case 'committeeName':
-          return arabicCmp(a.committeeName, b.committeeName) * dir;
-        case 'date':
-          return a.date.localeCompare(b.date) * dir;
-        case 'capacity':
-          return (a.capacity - b.capacity) * dir;
-        default:
-          return 0;
-      }
-    });
-  };
-
-  /* ── grouping by exam date ─────────────────────────────────────── */
+  /* ── grouping by exam date ─────────────────────────────────────── *
+   * Within each date section rows are primary-sorted by الفئة (then by
+   * committee name as a stable secondary key) so the rowspan-merge in
+   * `MergedCategoryTable` lands on truly-consecutive matches. */
   const dateGroups = useMemo<
     { date: string; rows: BindingRow[] }[]
   >(() => {
+    const arabicCmp = (a: string, b: string): number =>
+      a.localeCompare(b, 'ar', { numeric: true });
     const bucket = new Map<string, BindingRow[]>();
     for (const r of rows) {
       const list = bucket.get(r.date);
@@ -320,71 +293,24 @@ export function CommitteeBindingsPanel({
     }
     return Array.from(bucket.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, rs]) => ({ date, rows: sortRows(rs) }));
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [rows, sort]);
+      .map(([date, rs]) => ({
+        date,
+        rows: [...rs].sort((a, b) => {
+          const c = arabicCmp(a.categoryLabel, b.categoryLabel);
+          return c !== 0 ? c : arabicCmp(a.committeeName, b.committeeName);
+        }),
+      }));
+  }, [rows]);
 
-  /* ── columns ──────────────────────────────────────────────────── */
-  const columns: DataTableColumn<BindingRow>[] = [
-    {
-      key: 'categoryLabel',
-      label: 'الفئة',
-      sortable: true,
-      render: (r) => <span className="text-2xs text-ink-900">{r.categoryLabel}</span>,
-    },
-    {
-      key: 'date',
-      label: 'اليوم',
-      sortable: true,
-      render: (r) => (
-        <span className="font-numeric tnum text-2xs text-ink-700">
-          {fmtDate(r.date, 'full')}
-        </span>
-      ),
-    },
-    {
-      key: 'committeeName',
-      label: 'اللجنة',
-      sortable: true,
-      render: (r) => <span className="text-2xs text-ink-900">{r.committeeName}</span>,
-    },
-    {
-      key: 'capacity',
-      label: 'سعة اللجنة',
-      sortable: true,
-      align: 'start',
-      render: (r) => (
-        <CapacityCell
-          row={r}
-          isSaving={updateMut.isPending}
-          onCommit={(next) =>
-            updateMut.mutate(
-              { id: r.id, categoryKey: r.categoryKey, patch: { capacity: next } },
-              {
-                onSuccess: () => toast('تم تحديث السعة', 'success'),
-                onError: (err) => toast((err as Error).message, 'danger'),
-              },
-            )
-          }
-        />
-      ),
-    },
-    {
-      key: '_actions',
-      label: <span className="sr-only">إجراءات</span>,
-      align: 'end',
-      render: (r) => (
-        <button
-          type="button"
-          aria-label="حذف الموعد"
-          onClick={() => handleRemove(r)}
-          className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-        >
-          <Trash2 size={14} strokeWidth={1.75} aria-hidden />
-        </button>
-      ),
-    },
-  ];
+  const handleCapacityCommit = (row: BindingRow, next: number): void => {
+    updateMut.mutate(
+      { id: row.id, categoryKey: row.categoryKey, patch: { capacity: next } },
+      {
+        onSuccess: () => toast('تم تحديث السعة', 'success'),
+        onError: (err) => toast((err as Error).message, 'danger'),
+      },
+    );
+  };
 
   if (active.length === 0) {
     return (
@@ -423,7 +349,7 @@ export function CommitteeBindingsPanel({
         <div className="grid grid-rows-[auto_auto_auto] items-end gap-x-3 gap-y-1 p-4 md:grid-cols-[1fr_1fr_220px_auto]">
           {/* ── row 1: labels ───────────────────────────────────── */}
           <FieldLabel htmlFor="bindings-cats">الفئات</FieldLabel>
-          <FieldLabel>تاريخ الاختبار</FieldLabel>
+          <FieldLabel>اليوم</FieldLabel>
           <FieldLabel htmlFor="bindings-capacity">سعة اللجنة</FieldLabel>
           <span aria-hidden />
 
@@ -438,7 +364,7 @@ export function CommitteeBindingsPanel({
           <DatePicker
             value={pickedDate}
             onChange={setPickedDate}
-            placeholder="اختر تاريخ الاختبار…"
+            placeholder="اختر اليوم…"
           />
           <Input
             id="bindings-capacity"
@@ -481,10 +407,10 @@ export function CommitteeBindingsPanel({
 
       <DateGroupedView
         groups={dateGroups}
-        columns={columns}
         loading={scheduleLoading}
-        sort={sort}
-        onSortChange={setSort}
+        isCapacitySaving={updateMut.isPending}
+        onCapacityCommit={handleCapacityCommit}
+        onDelete={handleRemove}
       />
     </div>
   );
@@ -519,18 +445,18 @@ function FieldHelper({ children }: { children: string }): JSX.Element {
 
 interface DateGroupedViewProps {
   groups: { date: string; rows: BindingRow[] }[];
-  columns: DataTableColumn<BindingRow>[];
   loading: boolean;
-  sort: DataTableSort<BindingRow> | null;
-  onSortChange: (next: DataTableSort<BindingRow> | null) => void;
+  isCapacitySaving: boolean;
+  onCapacityCommit: (row: BindingRow, next: number) => void;
+  onDelete: (row: BindingRow) => void;
 }
 
 function DateGroupedView({
   groups,
-  columns,
   loading,
-  sort,
-  onSortChange,
+  isCapacitySaving,
+  onCapacityCommit,
+  onDelete,
 }: DateGroupedViewProps): JSX.Element {
   const allDates = useMemo(() => groups.map((g) => g.date), [groups]);
   const [open, setOpen] = useState<string[]>(allDates);
@@ -577,27 +503,120 @@ function DateGroupedView({
               </span>
             </Accordion.Trigger>
             <Accordion.Content>
-              <DataTable
-                data={g.rows}
-                columns={columns}
-                rowKey={(r) => r.id}
-                loading={loading}
-                sort={sort}
-                onSortChange={onSortChange}
-                empty={
-                  <EmptyState
-                    variant="generic"
-                    title="لا توجد مواعيد لهذا اليوم بعد"
-                    description="استخدم النموذج أعلاه لإضافة موعد."
-                  />
-                }
-                zebraStripes
+              <MergedCategoryTable
+                rows={g.rows}
+                isCapacitySaving={isCapacitySaving}
+                onCapacityCommit={onCapacityCommit}
+                onDelete={onDelete}
               />
             </Accordion.Content>
           </Accordion.Item>
         ))}
       </Accordion>
     </Card>
+  );
+}
+
+/* ── Per-section table with vertically-merged category cells ──────── *
+ * Rows arrive already primary-sorted by `categoryLabel`, so we can
+ * fold consecutive matches into a single `rowSpan`-ed `<td>`. The
+ * merged cell uses `vertical-align: middle` for block-axis centering
+ * and a subtle background tint + inline-end border to mark the group
+ * boundary against the next column. Other cells stay per-row, so the
+ * delete action on any row only affects that single row. */
+
+interface MergedCategoryTableProps {
+  rows: BindingRow[];
+  isCapacitySaving: boolean;
+  onCapacityCommit: (row: BindingRow, next: number) => void;
+  onDelete: (row: BindingRow) => void;
+}
+
+function MergedCategoryTable({
+  rows,
+  isCapacitySaving,
+  onCapacityCommit,
+  onDelete,
+}: MergedCategoryTableProps): JSX.Element {
+  const groups = useMemo(() => {
+    const out: { label: string; rows: BindingRow[] }[] = [];
+    for (const r of rows) {
+      const last = out[out.length - 1];
+      if (last && last.label === r.categoryLabel) last.rows.push(r);
+      else out.push({ label: r.categoryLabel, rows: [r] });
+    }
+    return out;
+  }, [rows]);
+
+  if (rows.length === 0) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          variant="generic"
+          title="لا توجد مواعيد لهذا اليوم بعد"
+          description="استخدم النموذج أعلاه لإضافة موعد."
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead className="bg-ink-50/80">
+          <tr>
+            <th className="px-3 py-2 text-start text-2xs font-medium text-ink-600">
+              الفئة
+            </th>
+            <th className="px-3 py-2 text-start text-2xs font-medium text-ink-600">
+              اللجنة
+            </th>
+            <th className="px-3 py-2 text-start text-2xs font-medium text-ink-600">
+              سعة اللجنة
+            </th>
+            <th className="px-3 py-2">
+              <span className="sr-only">إجراءات</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.flatMap((group) =>
+            group.rows.map((row, idx) => (
+              <tr key={row.id} className="border-t border-border-subtle">
+                {idx === 0 && (
+                  <td
+                    rowSpan={group.rows.length}
+                    className="border-e border-ink-100 bg-ink-50/50 px-3 py-2 align-middle text-2xs text-ink-900"
+                  >
+                    {group.label}
+                  </td>
+                )}
+                <td className="px-3 py-2 align-middle text-2xs text-ink-900">
+                  {row.committeeName}
+                </td>
+                <td className="px-3 py-2 align-middle">
+                  <CapacityCell
+                    row={row}
+                    isSaving={isCapacitySaving}
+                    onCommit={(next) => onCapacityCommit(row, next)}
+                  />
+                </td>
+                <td className="px-3 py-2 align-middle text-end">
+                  <button
+                    type="button"
+                    aria-label="حذف الموعد"
+                    onClick={() => onDelete(row)}
+                    className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                  >
+                    <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+                  </button>
+                </td>
+              </tr>
+            )),
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
