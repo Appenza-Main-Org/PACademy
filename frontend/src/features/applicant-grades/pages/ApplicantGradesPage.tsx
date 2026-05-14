@@ -202,15 +202,14 @@ export function ApplicantGradesPage(): JSX.Element {
     {
       key: 'total',
       label: 'المجموع',
-      numeric: true,
+      align: 'center',
       sortable: true,
-      className: 'min-w-[8ch]',
+      /* `align: 'center'` overrides the `numeric: true` auto-rule that
+       * would have given us `text-end font-numeric tnum`, so re-apply
+       * `font-numeric tabular-nums` via className to keep the digit
+       * alignment we still need across rows. */
+      className: 'min-w-[8ch] font-numeric tabular-nums',
       render: (r) => (
-        /* Plain inline content. The cell already applies `text-end` +
-         * `font-numeric tnum` via `numeric: true`, so the line naturally
-         * end-aligns to the column edge — same edge the header label
-         * sits on. No inline-flex wrapper here (it was anchoring to a
-         * shrink-to-fit width that drifted off the header position). */
         <>
           <span className="font-semibold text-ink-900">{r.total}</span>
           {r.isOverridden && (
@@ -234,9 +233,9 @@ export function ApplicantGradesPage(): JSX.Element {
     {
       key: 'pct',
       label: 'النسبة',
-      numeric: true,
+      align: 'center',
       sortable: true,
-      className: 'min-w-[8ch]',
+      className: 'min-w-[8ch] font-numeric tabular-nums',
       render: (r) => (
         <>
           <span className="font-semibold text-ink-900">{r.pct.toFixed(2)}</span>
