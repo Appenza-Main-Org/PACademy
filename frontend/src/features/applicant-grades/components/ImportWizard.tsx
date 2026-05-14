@@ -698,9 +698,6 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
         </div>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="ghost" leadingIcon={<Download size={14} />}>
-          تنزيل القالب
-        </Button>
         <div className="ms-auto flex gap-2">
           <Button variant="secondary" onClick={onCancel}>
             إلغاء
