@@ -206,27 +206,29 @@ export function ApplicantGradesPage(): JSX.Element {
       sortable: true,
       className: 'min-w-[8ch]',
       render: (r) => (
-        /* RTL flex: first JSX child = visual-right (start). Order is
-         * `367 → [معدّل] → / → 410` so the badge sits inline-start of
-         * the "/ 410" suffix as specced, without pushing the number. */
-        <span className="inline-flex items-baseline justify-end gap-1 font-numeric tabular-nums">
+        /* Plain inline content. The cell already applies `text-end` +
+         * `font-numeric tnum` via `numeric: true`, so the line naturally
+         * end-aligns to the column edge — same edge the header label
+         * sits on. No inline-flex wrapper here (it was anchoring to a
+         * shrink-to-fit width that drifted off the header position). */
+        <>
           <span className="font-semibold text-ink-900">{r.total}</span>
           {r.isOverridden && (
             <span
-              className="rounded-full bg-gold-100 px-1.5 py-px text-2xs font-semibold text-gold-700"
+              className="mx-1 rounded-full bg-gold-100 px-1.5 py-px text-2xs font-semibold text-gold-700"
               title={`الأصلي: ${r.importMax} · المعدّل: ${r.max}`}
             >
               معدّل
             </span>
           )}
-          <span className="text-2xs text-ink-300">/</span>
+          <span className="text-2xs text-ink-300"> / </span>
           <span
             className={`text-2xs ${r.isOverridden ? 'font-semibold text-gold-700' : 'text-ink-400'}`}
             title={r.isOverridden ? `الأصلي: ${r.importMax} · المعدّل: ${r.max}` : undefined}
           >
             {r.max}
           </span>
-        </span>
+        </>
       ),
     },
     {
@@ -236,10 +238,10 @@ export function ApplicantGradesPage(): JSX.Element {
       sortable: true,
       className: 'min-w-[8ch]',
       render: (r) => (
-        <span className="inline-flex items-baseline justify-end gap-0.5 font-numeric tabular-nums">
+        <>
           <span className="font-semibold text-ink-900">{r.pct.toFixed(2)}</span>
           <span className="text-2xs text-ink-400">٪</span>
-        </span>
+        </>
       ),
     },
     {
@@ -249,10 +251,11 @@ export function ApplicantGradesPage(): JSX.Element {
       sortable: true,
       className: 'min-w-[8ch]',
       render: (r) => (
-        /* The diff badge sits at the inline-start of the stack (visual
-         * right in RTL) so it never pushes the numbers — both lines of
-         * the stack end-align to the cell's end edge. */
-        <span className="inline-flex items-center justify-end gap-2">
+        /* Two-line stack + optional diff badge. Use a full-width flex
+         * so the stack's end edge lands at the cell's end (= the same
+         * column edge the header label sits on). The badge sits to the
+         * inline-start of the stack and never pushes the numbers. */
+        <span className="flex items-center justify-end gap-2">
           {r.adj !== 0 && (
             <Badge
               tone={r.adj > 0 ? 'warning' : 'danger'}
@@ -268,7 +271,7 @@ export function ApplicantGradesPage(): JSX.Element {
               <span className="font-numeric tabular-nums">{Math.abs(r.adj)}</span>
             </Badge>
           )}
-          <span className="inline-flex flex-col items-end gap-px font-numeric tabular-nums leading-tight">
+          <span className="flex flex-col items-end gap-px leading-tight">
             <span
               className={`font-bold ${
                 r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-900'
@@ -347,7 +350,7 @@ export function ApplicantGradesPage(): JSX.Element {
             style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}
           >
             <StatCard
-              label="إجمالي الصفوف"
+              label="إجمالي الطلاب"
               value={stats.total}
               icon={<Layers size={16} strokeWidth={1.75} />}
             />
@@ -379,7 +382,7 @@ export function ApplicantGradesPage(): JSX.Element {
           <Card>
             <CardBody className="card-body">
               <div className="filters">
-                <div className="search flex-1">
+                <div className="search flex-1" style={{ minWidth: 340 }}>
                   <input
                     className="input"
                     type="search"
@@ -395,6 +398,11 @@ export function ApplicantGradesPage(): JSX.Element {
                   value={kindFilter}
                   onChange={(e) => setKindFilter(e.target.value as typeof kindFilter)}
                   aria-label="تصفية حسب نوع الثانوية"
+                  /* Default `.select` is 180-200px; the longest option
+                   * "ثانوية أزهرية · NNN" wraps at that width on every
+                   * viewport — widen to 220px so the chevron and the
+                   * label have breathing room. */
+                  style={{ minWidth: 220, flexBasis: 220 }}
                 >
                   <option value="all">كل الأنواع · {stats.total}</option>
                   <option value="general">ثانوية عامة · {stats.general}</option>
