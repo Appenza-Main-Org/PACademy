@@ -29,13 +29,12 @@
 
 import { useEffect, useMemo } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CheckCircle2, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import {
   Badge,
   Button,
   Combobox,
   EmptyState,
-  toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/shared/lib/cn';
@@ -202,15 +201,6 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     goTo(orderedSteps[activeIndex + 1]!.key);
   };
 
-  const handleSaveDraft = (): void => {
-    if (!cycleId) {
-      toast('اختر دورة قبل حفظ المسودة', 'warning');
-      return;
-    }
-    writeDraft(cycleId, activeKey);
-    toast('تم حفظ المسودة — يمكنك الاستئناف لاحقاً', 'success');
-  };
-
   const activeStep = isReview ? null : orderedSteps.find((s) => s.key === activeKey);
 
   const activeLabel = isReview ? 'المراجعة والاعتماد' : activeStep?.labelAr ?? '';
@@ -309,13 +299,6 @@ export function AdmissionSetupWizardPage(): JSX.Element {
               السابق
             </Button>
             <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                onClick={handleSaveDraft}
-                leadingIcon={<Save size={14} strokeWidth={1.75} />}
-              >
-                حفظ كمسودة
-              </Button>
               {!isReview && (
                 <Button
                   variant="primary"

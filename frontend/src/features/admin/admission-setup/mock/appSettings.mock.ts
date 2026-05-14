@@ -173,12 +173,12 @@ const YEAR_BLUEPRINTS_PER_CATEGORY: Record<string, YearBlueprintBase[]> = (() =>
     {
       ...basicGrades(CURRENT_YEAR - 1, 'male'),
       ageMin: 17, maxAge: 22, minPercentage: 75,
-      schoolCategoryCodes: ['SCH-01', 'SCH-02', 'SCH-03', 'SCH-04'],
+      schoolCategoryCodes: ['SCH-01', 'SCH-03'],
     },
     {
       ...basicGrades(CURRENT_YEAR, 'male'),
       ageMin: 17, maxAge: 22, minPercentage: 80,
-      schoolCategoryCodes: ['SCH-01', 'SCH-02', 'SCH-03', 'SCH-04', 'SCH-05'],
+      schoolCategoryCodes: ['SCH-01', 'SCH-03', 'SCH-05'],
     },
   ];
 

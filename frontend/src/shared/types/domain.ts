@@ -1558,7 +1558,10 @@ export interface AdminNotification extends SoftDeleteFields {
   type: AdminNotificationType;
   titleAr: string;
   bodyAr: string;
-  audience: AudienceSelector;
+  /** Array — the notification matches an applicant if ANY entry matches.
+   *  Persists multi-audience routing (e.g. "category X" + "committee Y").
+   *  Empty array is treated as `[{ type: 'general' }]`. */
+  audience: AudienceSelector[];
   /** ISO publish time — when reached, status flips draft → published. */
   publishAt: string;
   /** ISO expiry time — when reached, status flips published → expired. */

@@ -70,7 +70,7 @@ const EMPTY_DRAFT: Omit<AdminNotification, 'id' | 'status' | 'createdAt'> = {
   type: 'general',
   titleAr: '',
   bodyAr: '',
-  audience: { type: 'general' },
+  audience: [{ type: 'general' }],
   publishAt: new Date().toISOString(),
   createdBy: 'U-001',
 };
@@ -132,7 +132,8 @@ export function NotificationsPage(): JSX.Element {
           {
             key: 'audience',
             labelAr: 'الجمهور',
-            format: (v) => (v as AudienceValue)?.type ?? '',
+            format: (v) =>
+              Array.isArray(v) ? (v as AudienceValue[]).map((a) => a.type).join('، ') : '',
           },
           { key: 'publishAt', labelAr: 'موعد النشر', format: (v) => (v ? fmtDate(String(v), 'short') : '—') },
           { key: 'expireAt', labelAr: 'موعد الانتهاء', format: (v) => (v ? fmtDate(String(v), 'short') : '—') },
@@ -238,8 +239,11 @@ export function NotificationsPage(): JSX.Element {
   ];
 
   const onSave = (): void => {
-    /* Type is derived from the audience selector, kept in lockstep. */
-    const payload = { ...draft, type: draft.audience.type };
+    /* The legacy `type` field stays for the list filter / icon mapping.
+     * Derived from the first selected audience kind (or 'general' when
+     * the audience array is empty). */
+    const derivedType: AdminNotificationType = draft.audience[0]?.type ?? 'general';
+    const payload = { ...draft, type: derivedType };
     if (editing) {
       updateMut.mutate(
         { id: editing.id, patch: payload },
@@ -347,8 +351,12 @@ export function NotificationsPage(): JSX.Element {
             />
             <div className="md:col-span-2">
               <AudienceSelector
-                value={draft.audience as AudienceValue}
-                onChange={(audience) => setDraft({ ...draft, audience, type: audience.type })}
+                value={draft.audience}
+                onChange={(audience) => {
+                  const derivedType: AdminNotificationType =
+                    audience[0]?.type ?? 'general';
+                  setDraft({ ...draft, audience, type: derivedType });
+                }}
               />
             </div>
           </div>
