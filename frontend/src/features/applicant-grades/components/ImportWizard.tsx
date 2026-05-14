@@ -325,7 +325,14 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
   const inp = useRef<HTMLInputElement | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [upload, setUpload] = useState<UploadState>(IDLE_UPLOAD);
-  const uploadTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  /** Live FileReader pumping the picked file into memory. We keep a ref
+   *  so cancel/remove/retry can abort the in-flight read deterministically
+   *  (`reader.abort()` synchronously fires `onabort`). */
+  const readerRef = useRef<FileReader | null>(null);
+  /** Original `File` object kept so `retryUpload` can restart the read on
+   *  the same file without re-prompting the picker. */
+  const lastFileRef = useRef<File | null>(null);
 
   /* Reflect setup.file changes — when the parent clears the file (e.g. on
    * kind switch), reset the upload tile too. */
@@ -333,11 +340,13 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
     if (setup.file == null && upload.status === 'success') {
       setUpload(IDLE_UPLOAD);
     }
-    /* Cleanup the timer when the step unmounts (modal close mid-upload). */
+    /* Cleanup the in-flight read when the step unmounts (modal close
+     * mid-upload). `abort` is a no-op on a settled reader, so this is
+     * safe in every state. */
     return () => {
-      if (uploadTimer.current) {
-        clearInterval(uploadTimer.current);
-        uploadTimer.current = null;
+      if (readerRef.current) {
+        readerRef.current.abort();
+        readerRef.current = null;
       }
     };
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
@@ -368,56 +377,99 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
   const canSubmit =
     setup.file && setup.maxDegree > 0 && fileError === null && upload.status === 'success';
 
-  /** Start the simulated upload for `meta`. Replaces any in-flight timer.
-   *  Files whose name contains "خطأ" or "upload-fail" fail mid-progress so
-   *  the failure / retry path is exercisable without a real backend. */
-  function startUpload(meta: { name: string; size: number }): void {
-    if (uploadTimer.current) clearInterval(uploadTimer.current);
-    setUpload({ status: 'uploading', meta, progress: 0, errorMessage: null });
-    const shouldFail = /(?:خطأ|upload-fail)/i.test(meta.name);
-    uploadTimer.current = setInterval(() => {
-      setUpload((prev) => {
-        if (prev.status !== 'uploading') return prev;
-        const next = prev.progress + 8;
-        if (shouldFail && next >= 50) {
-          if (uploadTimer.current) clearInterval(uploadTimer.current);
-          uploadTimer.current = null;
-          return {
-            ...prev,
-            status: 'error',
-            progress: 50,
-            errorMessage: 'تعذّر رفع الملف — انقطع الاتصال بالخادم. حاول مرة أخرى.',
-          };
+  /** Start a real `FileReader`-driven read of `file`. The reader emits
+   *  `progress` events whose `loaded/total` ratio is what the UI
+   *  surfaces — there's no fake `setInterval` walk any more. On `load`
+   *  the file is handed off to `setup.file` so the wizard can continue
+   *  to the stage step; on `error` / `abort` the UI lands in the error
+   *  state with the retry affordance. */
+  function startUpload(file: File): void {
+    /* Abort any reader still pumping a previous file. */
+    if (readerRef.current) readerRef.current.abort();
+    lastFileRef.current = file;
+    setUpload({
+      status: 'uploading',
+      meta: { name: file.name, size: file.size },
+      progress: 0,
+      errorMessage: null,
+    });
+
+    const reader = new FileReader();
+    readerRef.current = reader;
+    /* Track who initiated the abort. `reader.abort()` is the same call
+     * for "user pressed cancel" (idle outcome) and "read aborted by the
+     * mid-progress test trigger" (error outcome); the flag lets
+     * `onabort` distinguish the two. */
+    let abortReason: 'cancel' | 'fail' | null = null;
+
+    reader.onprogress = (ev) => {
+      if (!ev.lengthComputable) return;
+      const pct = Math.min(99, Math.round((ev.loaded / ev.total) * 100));
+      setUpload((prev) =>
+        prev.status === 'uploading' ? { ...prev, progress: pct } : prev,
+      );
+    };
+    reader.onload = () => {
+      readerRef.current = null;
+      onChange({ ...setup, file: { name: file.name, size: file.size, rows: 3124 } });
+      setUpload((prev) => ({ ...prev, status: 'success', progress: 100 }));
+    };
+    reader.onerror = () => {
+      readerRef.current = null;
+      setUpload((prev) => ({
+        ...prev,
+        status: 'error',
+        errorMessage: 'تعذّر قراءة الملف. تأكد من سلامته ثم حاول مرة أخرى.',
+      }));
+    };
+    reader.onabort = () => {
+      readerRef.current = null;
+      if (abortReason === 'fail') {
+        setUpload((prev) => ({
+          ...prev,
+          status: 'error',
+          errorMessage: 'تعذّر رفع الملف — انقطع الاتصال بالخادم. حاول مرة أخرى.',
+        }));
+      }
+      /* On `cancel`, `cancelUpload` has already reset `upload` to idle. */
+    };
+
+    /* Files whose name contains "خطأ"/"upload-fail" abort midway through
+     * the real read so the failure / retry path stays exercisable.
+     * The abort path is keyed off `abortReason` rather than file size,
+     * so it lands at whatever progress% the read is at when the timer
+     * fires. */
+    if (/(?:خطأ|upload-fail)/i.test(file.name)) {
+      window.setTimeout(() => {
+        if (readerRef.current === reader && reader.readyState === FileReader.LOADING) {
+          abortReason = 'fail';
+          reader.abort();
         }
-        if (next >= 100) {
-          if (uploadTimer.current) clearInterval(uploadTimer.current);
-          uploadTimer.current = null;
-          onChange({ ...setup, file: { ...meta, rows: 3124 } });
-          return { ...prev, status: 'success', progress: 100 };
-        }
-        return { ...prev, progress: next };
-      });
-    }, 120);
+      }, 400);
+    }
+
+    reader.readAsArrayBuffer(file);
   }
 
   function cancelUpload(): void {
-    if (uploadTimer.current) {
-      clearInterval(uploadTimer.current);
-      uploadTimer.current = null;
+    if (readerRef.current) {
+      readerRef.current.abort();
+      readerRef.current = null;
     }
     setUpload(IDLE_UPLOAD);
     onChange({ ...setup, file: null });
   }
 
   function retryUpload(): void {
-    if (upload.meta) startUpload(upload.meta);
+    if (lastFileRef.current) startUpload(lastFileRef.current);
   }
 
   function removeFile(): void {
-    if (uploadTimer.current) {
-      clearInterval(uploadTimer.current);
-      uploadTimer.current = null;
+    if (readerRef.current) {
+      readerRef.current.abort();
+      readerRef.current = null;
     }
+    lastFileRef.current = null;
     setUpload(IDLE_UPLOAD);
     setFileError(null);
     onChange({ ...setup, file: null });
@@ -432,7 +484,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
       return;
     }
     setFileError(null);
-    startUpload({ name: f.name, size: f.size });
+    startUpload(f);
   }
   function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
