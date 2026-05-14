@@ -33,6 +33,19 @@ import { CommitteeBindingsPanel } from '../components/committeeBinding/Committee
 import { ApprovedRulesView } from '../components/committeeBinding/ApprovedRulesView';
 import { useAdmissionSetupWizardStore } from '../store/wizardSharedState';
 import { num } from '@/shared/lib/format';
+import { toEasternArabicNumerals } from '@/shared/lib/arabic';
+import { getStepByKey } from '../config';
+
+type SubPage = 'view' | 'add';
+
+/* «إضافة» = sub-step 4.1, «عرض» = sub-step 4.2 — the parent step number
+ * is derived from config so a future reorder of `ADMISSION_SETUP_STEPS`
+ * stays consistent without hand-editing this file. */
+const COMMITTEES_STEP_ORDER = getStepByKey('committees').order;
+function subStepLabel(sub: SubPage): string {
+  const subIndex = sub === 'add' ? 1 : 2;
+  return `الخطوة ${toEasternArabicNumerals(COMMITTEES_STEP_ORDER)}٫${toEasternArabicNumerals(subIndex)}`;
+}
 
 /** Cycles only declare `year`; the academic year string is `${year}-${year+1}`. */
 function academicYearForCycle(cycle: AdmissionCycle): string {
@@ -42,8 +55,6 @@ function academicYearForCycle(cycle: AdmissionCycle): string {
 function isApplicantCategoryKey(code: string): code is ApplicantCategoryKey {
   return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(code);
 }
-
-type SubPage = 'view' | 'add';
 
 function readSubPage(raw: string | null): SubPage {
   return raw === 'add' ? 'add' : 'view';
@@ -138,7 +149,14 @@ function SubPageRouter({ cycle, active }: SubPageRouterProps): JSX.Element {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader
-          title="إضافة موعد اختبار"
+          title={
+            <span className="flex flex-wrap items-center gap-2">
+              <span>إضافة موعد اختبار</span>
+              <Badge tone="info">
+                <span className="font-numeric tnum">{subStepLabel('add')}</span>
+              </Badge>
+            </span>
+          }
           subtitle={`العام الأكاديمي ${academicYear} · أضف موعدًا لفئة واحدة أو أكثر معًا.`}
           actions={
             <Button
@@ -165,7 +183,14 @@ function SubPageRouter({ cycle, active }: SubPageRouterProps): JSX.Element {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
-        title="إدارة مواعيد الاختبارات واللجان"
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            <span>إدارة مواعيد الاختبارات واللجان</span>
+            <Badge tone="info">
+              <span className="font-numeric tnum">{subStepLabel('view')}</span>
+            </Badge>
+          </span>
+        }
         subtitle={`العام الأكاديمي ${academicYear} · ${
           approvedCount > 0
             ? `${num(approvedCount)} قاعدة معتمدة`
