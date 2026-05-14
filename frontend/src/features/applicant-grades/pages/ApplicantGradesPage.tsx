@@ -254,25 +254,16 @@ export function ApplicantGradesPage(): JSX.Element {
        * `align: 'center'` lines the values up under the header label. */
       className: 'min-w-[20ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
-        /* Two-line stack + optional diff badge, centered under the header.
-         * The badge sits to the inline-start of the stack and never pushes
-         * the numbers off-center. */
-        <span className="flex items-center justify-center gap-2">
-          {r.adj !== 0 && (
-            <Badge
-              tone={r.adj > 0 ? 'warning' : 'danger'}
-              icon={
-                r.adj > 0 ? (
-                  <ArrowUpRight size={9} strokeWidth={2.5} aria-hidden />
-                ) : (
-                  <ArrowDownRight size={9} strokeWidth={2.5} aria-hidden />
-                )
-              }
-              className="!px-1.5 !py-0 !text-2xs"
-            >
-              <span className="font-numeric tabular-nums">{Math.abs(r.adj)}</span>
-            </Badge>
-          )}
+        /* 3-column grid keeps every row's number stack centered, regardless
+         * of whether a diff badge is present. The badge slots into the
+         * inline-end spacer column so rows with/without adjustments share
+         * the same column-2 anchor; an empty inline-start column mirrors
+         * the badge's reserved width via `minmax(0, 1fr)`. */
+        <span
+          className="grid items-center gap-2"
+          style={{ gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)' }}
+        >
+          <span aria-hidden />
           <span className="flex flex-col items-center gap-px leading-tight">
             <span
               className={`font-bold ${
@@ -288,6 +279,23 @@ export function ApplicantGradesPage(): JSX.Element {
             >
               {r.effPct.toFixed(2)}٪
             </span>
+          </span>
+          <span className="justify-self-start">
+            {r.adj !== 0 && (
+              <Badge
+                tone={r.adj > 0 ? 'warning' : 'danger'}
+                icon={
+                  r.adj > 0 ? (
+                    <ArrowUpRight size={9} strokeWidth={2.5} aria-hidden />
+                  ) : (
+                    <ArrowDownRight size={9} strokeWidth={2.5} aria-hidden />
+                  )
+                }
+                className="!px-1.5 !py-0 !text-2xs"
+              >
+                <span className="font-numeric tabular-nums">{Math.abs(r.adj)}</span>
+              </Badge>
+            )}
           </span>
         </span>
       ),
