@@ -246,14 +246,14 @@ export function CommitteeCreatePage(): JSX.Element {
                 <div className="flex flex-col gap-1 md:col-span-2">
                   <span className="text-sm font-medium text-ink-700">الفئة</span>
                   <div
-                    className="flex items-center rounded-md border px-4 py-3"
+                    className="flex h-9 items-center rounded-md border px-3"
                     style={{
                       background: 'var(--accent-50)',
                       borderColor: 'var(--accent-200)',
                     }}
                   >
                     <span
-                      className="font-ar-display text-2xl font-bold"
+                      className="text-md font-bold"
                       style={{ color: 'var(--accent-700)' }}
                     >
                       {selectedCategory?.labelAr ?? presetCategoryKey}
