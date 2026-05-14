@@ -8,9 +8,9 @@
  * the prescribed `<EmptyState>` with the CTA "إضافة لجنة" deep-linking
  * `/admin/committee/create?category=<key>`.
  *
- * Columns: name, capacity, assigned applicants, remaining capacity,
- * معيار القبول (formatCommitteeGrade), academic year, status, created
- * date, row actions (inline icon-only edit + the existing dropdown).
+ * Columns: name, الحد الأقصى (%), الدرجة العلمية, academic year, status,
+ * created date, row actions (inline icon-only edit + the existing
+ * dropdown). Mirrors the fields captured by the create form.
  *
  * Filters: search by name, academic year, status. (Category lives in
  * the tab strip — no need for a separate multi-select.)
@@ -52,6 +52,7 @@ import { ROUTES } from '@/config/routes';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { useAuthStore } from '@/features/auth';
 import { MOCK } from '@/shared/mock-data';
+import { ACADEMIC_DEGREES } from '@/features/lookups';
 import {
   useCommittees,
   useCommitteeDependencies,
@@ -64,8 +65,9 @@ import {
   type ApplicantCategoryKey,
   type Committee,
 } from '@/shared/types/domain';
-import { formatCommitteeGrade } from '../lib/formatCommitteeGrade';
 import { CommitteeEditDialog } from '../components/CommitteeEditDialog';
+
+const ACADEMIC_DEGREE_LABEL = new Map(ACADEMIC_DEGREES.map((d) => [d.code, d.name]));
 
 function isApplicantCategoryKey(v: string): v is ApplicantCategoryKey {
   return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(v);
@@ -80,7 +82,6 @@ const STATUS_FILTERS = [
   { value: 'all', label: 'كل الحالات' },
   { value: 'active', label: 'مفعّلة' },
   { value: 'inactive', label: 'موقوفة' },
-  { value: 'full', label: 'مكتملة السعة' },
 ];
 
 
@@ -143,10 +144,7 @@ export function CommitteeListPage(): JSX.Element {
         columns: [
           { key: 'id', labelAr: 'الكود' },
           { key: 'name', labelAr: 'اسم اللجنة' },
-          { key: 'applicants', labelAr: 'المتقدمون' },
-          { key: 'completed', labelAr: 'منتهية' },
-          { key: 'capacity', labelAr: 'السعة الإجمالية' },
-          { key: 'capacityPerDay', labelAr: 'السعة اليومية' },
+          { key: 'gradeMax', labelAr: 'الحد الأقصى' },
           { key: 'academicYearId', labelAr: 'العام الدراسي' },
           { key: 'linkedCycleId', labelAr: 'الدورة المرتبطة' },
         ],
@@ -189,9 +187,6 @@ export function CommitteeListPage(): JSX.Element {
       if (year !== 'all' && c.academicYearId !== year) return false;
       if (statusFilter === 'active' && c.status !== 'active') return false;
       if (statusFilter === 'inactive' && c.status !== 'inactive') return false;
-      if (statusFilter === 'full') {
-        if (c.capacity === undefined || c.applicants < c.capacity) return false;
-      }
       return true;
     });
   }, [allCommittees, search, year, statusFilter, activeCategoryKey]);
@@ -238,10 +233,8 @@ export function CommitteeListPage(): JSX.Element {
     () => allCommittees.filter((c) => c.categoryKey === activeCategoryKey),
     [allCommittees, activeCategoryKey],
   );
-  const totalCapacity = categoryScoped.reduce((s, c) => s + c.capacity, 0);
-  const totalAssigned = categoryScoped.reduce((s, c) => s + c.applicants, 0);
   const activeCount = categoryScoped.filter((c) => c.status === 'active').length;
-  const fullCount = categoryScoped.filter((c) => c.applicants >= c.capacity).length;
+  const inactiveCount = categoryScoped.filter((c) => c.status === 'inactive').length;
 
   const columns: DataTableColumn<Committee>[] = [
     {
@@ -258,39 +251,26 @@ export function CommitteeListPage(): JSX.Element {
       ),
     },
     {
-      key: 'capacity',
-      label: 'السعة',
+      key: 'maxPercentage',
+      label: 'الحد الأقصى',
       sortable: true,
       numeric: true,
-      render: (c) => num(c.capacity),
+      render: (c) =>
+        c.gradeType === 'score'
+          ? <span className="text-ink-900">{num(c.gradeMax)}٪</span>
+          : <span className="text-2xs text-ink-500">—</span>,
     },
     {
-      key: 'applicants',
-      label: 'المسنّد',
-      numeric: true,
-      render: (c) => num(c.applicants),
-    },
-    {
-      key: 'remaining',
-      label: 'المتبقي',
-      numeric: true,
-      render: (c) => {
-        const remaining = Math.max(0, c.capacity - c.applicants);
-        const isFull = c.applicants >= c.capacity;
-        return (
-          <span className={isFull ? 'font-bold text-terra-600' : 'text-ink-900'}>
-            {num(remaining)}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'grade',
-      label: 'معيار القبول',
+      key: 'academicDegree',
+      label: 'الدرجة العلمية',
       hideOn: 'md',
-      render: (c) => (
-        <span className="text-2xs text-ink-700">{formatCommitteeGrade(c)}</span>
-      ),
+      render: (c) => {
+        const code = c.rules?.applicantType;
+        const label = code ? ACADEMIC_DEGREE_LABEL.get(code) : null;
+        return label
+          ? <span className="text-2xs text-ink-700">{label}</span>
+          : <span className="text-2xs text-ink-500">كل الدرجات</span>;
+      },
     },
     {
       key: 'academicYearId',
@@ -304,8 +284,6 @@ export function CommitteeListPage(): JSX.Element {
       sortable: true,
       render: (c) => {
         if (c.deletedAt) return <Badge tone="warning">محذوف</Badge>;
-        const isFull = c.applicants >= c.capacity;
-        if (isFull) return <Badge tone="danger">مكتمل</Badge>;
         if (c.status === 'inactive') return <Badge tone="neutral">موقوفة</Badge>;
         return <Badge tone="success">مفعّلة</Badge>;
       },
@@ -422,7 +400,7 @@ export function CommitteeListPage(): JSX.Element {
     <CenteredShell>
       <PageHeader
         title="قائمة اللجان"
-        subtitle="إدارة لجان القبول، فئاتها، السعة وشروط التوزيع."
+        subtitle="إدارة لجان القبول، فئاتها، الحد الأقصى والدرجة العلمية."
         actions={
           <div className="flex items-center gap-2">
             {isSuperAdmin && (
@@ -458,19 +436,7 @@ export function CommitteeListPage(): JSX.Element {
       >
         <StatCard label="عدد اللجان" value={allCommittees.length} />
         <StatCard label="المفعّلة" value={activeCount} />
-        <StatCard
-          label="السعة الإجمالية"
-          value={totalCapacity}
-          trend={{
-            label: `${num(totalAssigned)} مسنّد`,
-            tone: 'neutral',
-          }}
-        />
-        <StatCard
-          label="مكتملة السعة"
-          value={fullCount}
-          trend={{ label: 'لا توزيع تلقائي عليها', tone: fullCount > 0 ? 'danger' : 'neutral' }}
-        />
+        <StatCard label="الموقوفة" value={inactiveCount} />
       </div>
 
       <Card className="mt-5">
