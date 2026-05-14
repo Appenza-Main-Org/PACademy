@@ -33,6 +33,7 @@ import type {
   UserActivityEntry,
 } from '@/shared/types/domain';
 import { QUESTION_POOL } from './questionPool';
+import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 /* REFERENCE_DATA dropped — superseded by MOCK.lookupItems filtered by
  * lookupTypeCode. The raw REF_* arrays in shared/mock-data/referenceData.ts
  * stay exported because non-admin pickers (applicant portal, board) read
@@ -774,16 +775,21 @@ const medicalStations: MedicalStation[] = [
 ];
 
 /* TIER 2 — committee seed organised by category + gradeType per
- * docs/committee-grade-types/REPORT.md. 12 hand-written rows:
+ * docs/committee-grade-types/REPORT.md. 18 hand-written rows:
  *
  *   officers_general                 — 4 score (95–100, 90–95, 85–90, 80–85)
  *   physical_education_bachelor      — 2 score (80–100, 70–80)
  *   law_bachelor                     — 4 tier  (4..4, 3..4, 2..3, 1..2)
- *   specialized_officers             — 2 tier  (3..3, 2..3)
+ *   specialized_officers             — 8 tier  (4 طالبات / 4 طلاب)
  *
  * `applicants` / `completed` numbers are picked under each row's
  * `capacity` so the list page's "remaining capacity" column reads
- * realistically. All deterministic — no rng calls. */
+ * realistically. All deterministic — no rng calls.
+ *
+ * For the specialized_officers track the `gender` field is derived by
+ * `deriveCommitteeGender(name)` — names that include the marker "طالبات"
+ * resolve to `female`, everything else to `male`. The rule is the single
+ * source of truth, also enforced in the create form's submit handler. */
 const COMMITTEE_CREATED_BASE = SEED_NOW - 60 * 86_400_000;
 const day = (offset: number): string =>
   new Date(COMMITTEE_CREATED_BASE + offset * 86_400_000).toISOString();
@@ -895,27 +901,52 @@ const committees: Committee[] = [
     rules: {},
   },
 
-  /* ── ضباط مكلفين → specialized_officers (tier) ───────────────────── */
-  {
-    id: 'C-11', name: 'لجنة الضباط المكلفين — امتياز',
-    head: 'العقيد سامي رضا الحسيني', members: 4, applicants: 17, completed: 9,
-    categoryKey: 'specialized_officers', capacity: 20,
-    gradeType: 'tier', gradeMin: 3, gradeMax: 3,
-    headUserId: 'U-002', academicYearId: '2026-2027', status: 'active',
-    createdAt: day(20),
-    specializationIds: ['specialized_officers'], officerIds: ['U-002'],
-    rules: {},
-  },
-  {
-    id: 'C-12', name: 'لجنة الضباط المكلفين — جيد جدًا حتى امتياز',
-    head: 'الرائد خالد عبد الفتاح زكي', members: 4, applicants: 12, completed: 7,
-    categoryKey: 'specialized_officers', capacity: 15,
-    gradeType: 'tier', gradeMin: 2, gradeMax: 3,
-    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
-    createdAt: day(22),
-    specializationIds: ['specialized_officers'], officerIds: ['U-005'],
-    rules: {},
-  },
+  /* ── ضباط مكلفين → specialized_officers (tier) ─────────────────────
+   * 8 committees: 4 طالبات (female) + 4 طلاب (male). The `gender`
+   * field is derived from each name via `deriveCommitteeGender` so the
+   * rule is auditable in one place. */
+  ...((): Committee[] => {
+    const specializedOfficers: Array<Pick<Committee, 'id' | 'name'> & {
+      head: string;
+      headUserId: string;
+      applicants: number;
+      completed: number;
+      capacity: number;
+      gradeMin: number;
+      gradeMax: number;
+      createdOffset: number;
+    }> = [
+      { id: 'C-11', name: 'اللجنة الأولى ق . خ (طالبات)',  head: 'العميد د. فاطمة كمال',     headUserId: 'U-002', applicants: 18, completed: 11, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 20 },
+      { id: 'C-12', name: 'اللجنة الثانية ق . خ (طالبات)', head: 'العميد د. نهلة عبد الرحمن', headUserId: 'U-002', applicants: 16, completed: 10, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 21 },
+      { id: 'C-13', name: 'اللجنة الثالثة ق . خ (طالبات)', head: 'العميد د. سحر إبراهيم',     headUserId: 'U-005', applicants: 14, completed:  8, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 22 },
+      { id: 'C-14', name: 'اللجنة الرابعة ق . خ (طالبات)', head: 'العميد د. منى السيد',       headUserId: 'U-005', applicants: 12, completed:  7, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 23 },
+      { id: 'C-15', name: 'اللجنة الخامسة ق . خ',         head: 'العقيد د. خالد سامي',       headUserId: 'U-002', applicants: 19, completed: 12, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 24 },
+      { id: 'C-16', name: 'اللجنة السادسة ق . خ',         head: 'العقيد د. أيمن طارق',       headUserId: 'U-002', applicants: 17, completed: 10, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 25 },
+      { id: 'C-17', name: 'اللجنة السابعة ق . خ',         head: 'العقيد د. حسام البنا',       headUserId: 'U-005', applicants: 15, completed:  9, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 26 },
+      { id: 'C-18', name: 'اللجنة الثامنة ق . خ',         head: 'العقيد د. وليد رضا',         headUserId: 'U-005', applicants: 13, completed:  8, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 27 },
+    ];
+    return specializedOfficers.map((row) => ({
+      id: row.id,
+      name: row.name,
+      head: row.head,
+      members: 4,
+      applicants: row.applicants,
+      completed: row.completed,
+      categoryKey: 'specialized_officers',
+      capacity: row.capacity,
+      gradeType: 'tier',
+      gradeMin: row.gradeMin,
+      gradeMax: row.gradeMax,
+      headUserId: row.headUserId,
+      academicYearId: '2026-2027',
+      status: 'active',
+      createdAt: day(row.createdOffset),
+      specializationIds: ['specialized_officers'],
+      officerIds: [row.headUserId],
+      rules: {},
+      gender: deriveCommitteeGender(row.name),
+    }));
+  })(),
 ];
 
 /* TIER 2 — registrations per day scaled to a realistic admission window

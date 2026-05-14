@@ -17,6 +17,7 @@ import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
 import { ConflictError } from '@/shared/lib/errors';
+import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 import {
   applyRestore,
   applySoftDelete,
@@ -92,6 +93,14 @@ export const committeeService = {
 
   async create(payload: CommitteePayload): Promise<Committee> {
     await simulateLatency();
+    /* For the specialized_officers track, gender is always derived from
+     * the committee name (see deriveCommitteeGender). The service ignores
+     * any client-supplied value so a tampered payload can't fork the
+     * convention applied to the seed. Other categories are untouched. */
+    const derivedGender =
+      payload.categoryKey === 'specialized_officers'
+        ? deriveCommitteeGender(payload.name)
+        : undefined;
     const next: Committee = {
       id: `C-${String(cId++).padStart(2, '0')}`,
       name: payload.name,
@@ -113,6 +122,7 @@ export const committeeService = {
       officerIds: payload.officerIds,
       rules: payload.rules,
       linkedCycleId: payload.cycleId,
+      ...(derivedGender ? { gender: derivedGender } : {}),
     };
     COMMITTEES_STATE.unshift(next);
     emitAudit({

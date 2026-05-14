@@ -38,6 +38,7 @@ import {
 } from '@/shared/types/domain';
 import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
 import { ACADEMIC_DEGREES } from '@/features/lookups';
+import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 
 const ACADEMIC_YEARS = [
   { value: '2026-2027', label: 'العام الدراسي 2026 / 2027' },
@@ -127,6 +128,17 @@ export function CommitteeCreatePage(): JSX.Element {
   const categoryKey = watch('categoryKey');
   const filterGender = watch('filterGender');
   const academicDegree = watch('academicDegree');
+  const committeeName = watch('name');
+
+  /* For the specialized_officers track, gender is a function of the
+   * committee name (deriveCommitteeGender). The form surfaces the derived
+   * value live as the admin types; the picker is replaced by a read-only
+   * row, and the submit handler bypasses `filterGender` and persists the
+   * derived value instead. The service double-checks this on its end. */
+  const isSpecializedOfficers = categoryKey === 'specialized_officers';
+  const derivedGender = isSpecializedOfficers
+    ? deriveCommitteeGender(committeeName ?? '')
+    : null;
 
   const categoryOptions = useMemo(
     () =>
@@ -184,13 +196,23 @@ export function CommitteeCreatePage(): JSX.Element {
     /* Map filter values back through the existing rule bag — gender lives
      * on `CommitteeRules` directly; the picked academic-degree lookup
      * code rides on `applicantType` (free-form lookup-key field).
-     * maxPercentage maps to the service's `gradeMax`. */
+     * maxPercentage maps to the service's `gradeMax`.
+     *
+     * For specialized_officers the rule-bag gender is always the
+     * name-derived value, never the form's pick. (The committee service
+     * also re-derives it on persist as a defence-in-depth measure.) */
+    const persistedGender =
+      values.categoryKey === 'specialized_officers'
+        ? deriveCommitteeGender(values.name)
+        : values.filterGender !== 'any'
+          ? values.filterGender
+          : null;
     const rules: CommitteeRules = {
       gradeFrom: 0,
       gradeTo: values.maxPercentage,
       academicGradeFromId: null,
       academicGradeToId: null,
-      ...(values.filterGender !== 'any' ? { gender: values.filterGender } : {}),
+      ...(persistedGender ? { gender: persistedGender } : {}),
       ...(values.academicDegree !== 'any'
         ? { applicantType: values.academicDegree }
         : {}),
@@ -352,22 +374,46 @@ export function CommitteeCreatePage(): JSX.Element {
               </p>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="النوع">
-                  <Combobox
-                    value={filterGender}
-                    onChange={(v) =>
-                      setValue('filterGender', (v ?? 'any') as GenderOption, {
-                        shouldValidate: false,
-                      })
-                    }
-                    options={genderOptions.map((g) => ({
-                      value: g,
-                      label: GENDER_LABEL[g],
-                    }))}
-                    placeholder="اختر النوع…"
-                    ariaLabel="النوع"
-                  />
-                </Field>
+                {isSpecializedOfficers && derivedGender ? (
+                  <Field label="النوع">
+                    <div
+                      className="flex h-9 items-center rounded-md border px-3"
+                      style={{
+                        background: 'var(--accent-50)',
+                        borderColor: 'var(--accent-200)',
+                      }}
+                      aria-readonly="true"
+                      aria-live="polite"
+                    >
+                      <span
+                        className="text-sm font-semibold"
+                        style={{ color: 'var(--accent-700)' }}
+                      >
+                        {GENDER_LABEL[derivedGender]}
+                      </span>
+                    </div>
+                    <span className="mt-1 text-xs text-ink-500">
+                      يُحدَّد تلقائيًا من اسم اللجنة — يحتوي "طالبات" ⇒ إناث، وإلا ذكور.
+                    </span>
+                  </Field>
+                ) : (
+                  <Field label="النوع">
+                    <Combobox
+                      value={filterGender}
+                      onChange={(v) =>
+                        setValue('filterGender', (v ?? 'any') as GenderOption, {
+                          shouldValidate: false,
+                        })
+                      }
+                      options={genderOptions.map((g) => ({
+                        value: g,
+                        label: GENDER_LABEL[g],
+                      }))}
+                      placeholder="اختر النوع…"
+                      ariaLabel="النوع"
+                    />
+                  </Field>
+                )}
                 <Field label="الدرجة العلمية">
                   <Combobox
                     value={academicDegree}
