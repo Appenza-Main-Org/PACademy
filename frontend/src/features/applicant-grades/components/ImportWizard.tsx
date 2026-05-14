@@ -468,10 +468,12 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
       try {
         /* `parseAccessFile` dispatches on extension: `.mdb`/`.accdb`
          * routes through `mdb-reader`, `.xlsx`/`.xls`/`.csv` route
-         * through SheetJS. The filename is passed so the dispatcher
-         * can pick the right parser; both parsers fall back to the
-         * same column contract per kind. */
-        const rows = parseAccessFile(buffer, setup.kind, file.name);
+         * through SheetJS. Both parsers are lazy-loaded — they reach
+         * for Node globals at module eval time and would crash the
+         * production bundle if imported eagerly, so the call is async
+         * and the heavy chunks ship only when an admin actually
+         * uploads a file. */
+        const rows = await parseAccessFile(buffer, setup.kind, file.name);
         onChange({
           ...setup,
           file: { name: file.name, size: file.size, rows: rows.length },

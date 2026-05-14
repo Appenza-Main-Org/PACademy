@@ -26,11 +26,22 @@
  *   - `ParseError`          → generic parse failure (error tile)
  */
 
-import { Buffer } from 'buffer';
-import MDBReader from 'mdb-reader';
+import type MDBReaderType from 'mdb-reader';
 import type { Value } from 'mdb-reader';
-import * as XLSX from 'xlsx';
+import type * as XLSXType from 'xlsx';
 import type { GradeKind } from '../types';
+
+/* `mdb-reader` (with its `buffer` polyfill family) and `xlsx` are
+ * heavy and reach for Node globals at module-evaluation time. Loading
+ * them eagerly broke the main bundle in production with
+ *   Uncaught ReferenceError: process is not defined
+ *   Uncaught TypeError: Cannot read properties of undefined (reading 'slice')
+ * because top-level code in `mdb-reader` → `readable-stream` touches
+ * Node-only APIs. They're only needed once an admin actually uploads
+ * a file, so the value imports are deferred to runtime via dynamic
+ * `import()` inside the per-format branches. The type-only imports
+ * above are erased at compile time and don't pull anything into the
+ * main chunk. */
 
 /**
  * Row shape the parser emits — identical to `GradeRow` minus the
@@ -156,12 +167,12 @@ function numericish(v: RawCell): number {
  *  Ministry exports usually carry a single data table plus internal
  *  index tables; this scan tolerates either ordering. */
 function findDataTable(
-  reader: MDBReader,
+  reader: MDBReaderType,
   required: readonly string[],
-): { table: ReturnType<MDBReader['getTable']>; missing: string[] } {
+): { table: ReturnType<MDBReaderType['getTable']>; missing: string[] } {
   const names = reader.getTableNames();
   let bestMissing: string[] = [...required];
-  let bestTable: ReturnType<MDBReader['getTable']> | null = null;
+  let bestTable: ReturnType<MDBReaderType['getTable']> | null = null;
   for (const tableName of names) {
     const table = reader.getTable(tableName);
     const cols = new Set(table.getColumnNames());
@@ -176,8 +187,15 @@ function findDataTable(
   return { table: bestTable, missing: bestMissing };
 }
 
-function parseAccess(buffer: ArrayBuffer, map: ColumnMap): ImportedGradeRow[] {
-  let reader: MDBReader;
+async function parseAccess(buffer: ArrayBuffer, map: ColumnMap): Promise<ImportedGradeRow[]> {
+  /* Resolve `mdb-reader` + `buffer` on first call only. Both reach
+   * for Node globals at module-evaluation time, so a static import
+   * would crash the bundle before React mounts. */
+  const [{ default: MDBReader }, { Buffer }] = await Promise.all([
+    import('mdb-reader'),
+    import('buffer'),
+  ]);
+  let reader: MDBReaderType;
   try {
     /* `mdb-reader` constructor signature requires a Node `Buffer`; in
      * the browser we polyfill via the `buffer` package so the same
@@ -206,8 +224,15 @@ function parseAccess(buffer: ArrayBuffer, map: ColumnMap): ImportedGradeRow[] {
 
 /* ── Spreadsheet (.xlsx / .xls / .csv) branch ─────────────────────── */
 
-function parseSpreadsheet(buffer: ArrayBuffer, map: ColumnMap): ImportedGradeRow[] {
-  let workbook: XLSX.WorkBook;
+async function parseSpreadsheet(
+  buffer: ArrayBuffer,
+  map: ColumnMap,
+): Promise<ImportedGradeRow[]> {
+  /* SheetJS is large; defer the import so the main bundle stays
+   * lean and the heavy chunk only loads when the admin uploads a
+   * spreadsheet. */
+  const XLSX = (await import('xlsx')) as typeof XLSXType;
+  let workbook: XLSXType.WorkBook;
   try {
     workbook = XLSX.read(buffer, { type: 'array' });
   } catch (err) {
@@ -264,11 +289,11 @@ const SPREADSHEET_EXTENSIONS = ['.xlsx', '.xls', '.csv'] as const;
  *  but is missing one or more required columns for `kind`, or
  *  `ParseError` for any lower-level failure (corrupt file, no usable
  *  sheet/table, unknown extension, etc.). */
-export function parseAccessFile(
+export async function parseAccessFile(
   buffer: ArrayBuffer,
   kind: GradeKind,
   fileName?: string,
-): ImportedGradeRow[] {
+): Promise<ImportedGradeRow[]> {
   const map = MAPS[kind];
   const lower = (fileName ?? '').toLowerCase();
   const isAccess = ACCESS_EXTENSIONS.some((ext) => lower.endsWith(ext));
@@ -278,9 +303,9 @@ export function parseAccessFile(
    * was the original contract. */
   let rows: ImportedGradeRow[];
   if (isSpreadsheet) {
-    rows = parseSpreadsheet(buffer, map);
+    rows = await parseSpreadsheet(buffer, map);
   } else if (isAccess || !fileName) {
-    rows = parseAccess(buffer, map);
+    rows = await parseAccess(buffer, map);
   } else {
     throw new ParseError(`صيغة الملف غير مدعومة: ${fileName}`);
   }
