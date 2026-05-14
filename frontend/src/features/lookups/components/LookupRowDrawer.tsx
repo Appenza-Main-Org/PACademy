@@ -116,7 +116,7 @@ export function LookupRowDrawer<K extends LookupKey>({
                     <Switch
                       checked={Boolean(field.value)}
                       onCheckedChange={field.onChange}
-                      label="مفعّل"
+                      label="نشط"
                     />
                   )}
                 />

@@ -380,8 +380,8 @@ function buildColumns<K extends LookupKey>(
     label: 'الحالة',
     width: 110,
     render: (row) => row.isActive
-      ? <Badge tone="success">مفعّل</Badge>
-      : <Badge tone="warning">غير مفعّل</Badge>,
+      ? <Badge tone="success">نشط</Badge>
+      : <Badge tone="warning">غير نشط</Badge>,
   };
   const actionsCol: DataTableColumn<LookupRow<K>> = {
     key: 'actions',
