@@ -77,7 +77,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               'placeholder:text-ink-400',
               error
                 ? 'border-terra-500 focus-visible:border-terra-500 focus-visible:shadow-focus-terra'
-                : 'border-border-default hover:border-border-strong focus-visible:border-teal-500 focus-visible:shadow-focus-teal',
+                : 'border-ink-200 hover:border-ink-300 focus-visible:border-teal-500 focus-visible:shadow-focus-teal',
               'focus-visible:outline-none',
               'disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400',
               className,
@@ -133,7 +133,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             'placeholder:text-ink-400',
             error
               ? 'border-terra-500 focus-visible:border-terra-500 focus-visible:shadow-focus-terra'
-              : 'border-border-default hover:border-border-strong focus-visible:border-teal-500 focus-visible:shadow-focus-teal',
+              : 'border-ink-200 hover:border-ink-300 focus-visible:border-teal-500 focus-visible:shadow-focus-teal',
             'focus-visible:outline-none',
             'disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400',
             className,

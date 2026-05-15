@@ -185,7 +185,7 @@ export function DatePicker({
           className={cn(
             'flex w-full items-center justify-between rounded-md border bg-surface-card px-3 text-start text-sm transition-colors duration-fast ease-standard',
             'h-9',
-            error ? 'border-terra-500' : 'border-border-default hover:border-border-strong',
+            error ? 'border-terra-500' : 'border-ink-200 hover:border-ink-300',
             'focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none',
             disabled && 'cursor-not-allowed opacity-60',
           )}
@@ -203,6 +203,7 @@ export function DatePicker({
               ref={popoverRef}
               role="dialog"
               aria-label="اختر تاريخاً"
+              data-portal-popover="datepicker"
               className="rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg"
               style={{
                 position: 'fixed',

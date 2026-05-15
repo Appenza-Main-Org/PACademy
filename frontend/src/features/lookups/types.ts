@@ -23,6 +23,7 @@ export const LOOKUP_KEYS = [
   'tests',
   'test-results',
   'committees',
+  'submission-types',
   'applicant-categories',
   'nationalities-countries',
   'governorates',
@@ -33,6 +34,10 @@ export const LOOKUP_KEYS = [
   'applicant-divisions',
   'school-categories',
   'nid-missing-reasons',
+  'universities',
+  'marital-statuses',
+  'academic-grades',
+  'academic-degrees',
 ] as const;
 
 export type LookupKey = (typeof LOOKUP_KEYS)[number];
@@ -65,10 +70,14 @@ export const LOOKUP_SECTIONS = [
       'tests',
       'test-results',
       'committees',
+      'submission-types',
       'applicant-categories',
       'announcements',
       'applicant-divisions',
       'school-categories',
+      'marital-statuses',
+      'academic-grades',
+      'academic-degrees',
     ] as const,
   },
   {
@@ -81,6 +90,7 @@ export const LOOKUP_SECTIONS = [
       'jobs',
       'qualifications',
       'nid-missing-reasons',
+      'universities',
     ] as const,
   },
 ] as const;
@@ -95,6 +105,7 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'committees':                   { label: 'اللجان',                       codePrefix: 'CMT', padding: 2 },
   'specializations':              { label: 'التخصصات',                     codePrefix: 'SPC', padding: 2 },
   'faculties':                    { label: 'الكليات',                      codePrefix: 'FAC', padding: 2 },
+  'submission-types':             { label: 'نوع التقديم',                  codePrefix: 'SUB', padding: 2 },
   'applicant-categories':         { label: 'فئات المتقدمين',               codePrefix: 'CAT', padding: 2 },
   'nationalities-countries':      { label: 'الجنسيات والدول',              codePrefix: 'CNT', padding: 3 },
   'governorates':                 { label: 'المحافظات',                    codePrefix: 'GOV', padding: 2 },
@@ -105,6 +116,10 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'applicant-divisions':          { label: 'شعبة المتقدمين',               codePrefix: 'DIV', padding: 2 },
   'school-categories':            { label: 'فئة المدرسة',                  codePrefix: 'SCH', padding: 2 },
   'nid-missing-reasons':          { label: 'أسباب تعذر وجود رقم قومي',    codePrefix: 'NMR', padding: 2 },
+  'universities':                 { label: 'الجامعات',                      codePrefix: 'UNI', padding: 2 },
+  'marital-statuses':             { label: 'الحالة الاجتماعية',            codePrefix: 'MAR', padding: 2 },
+  'academic-grades':              { label: 'التقدير الأكاديمي',             codePrefix: 'AGR', padding: 2 },
+  'academic-degrees':             { label: 'الدرجة العلمية',                codePrefix: 'DEG', padding: 2 },
 };
 
 /* ─── Per-row base ───────────────────────────────────────────────────── */
@@ -114,6 +129,10 @@ export interface LookupRowBase {
   /** Arabic display name. */
   name: string;
   isActive: boolean;
+  /** Generic carrier for lookups that need configuration not worth a
+   *  typed column (e.g. `submission-types` stores `gradingMode` here).
+   *  Per-key accessors live under `features/lookups/lib/*`. */
+  metadata?: Record<string, unknown>;
 }
 
 /* ─── Per-key row shapes ─────────────────────────────────────────────── */
@@ -169,12 +188,61 @@ export interface SpecializationRow extends LookupRowBase {
   facultyCode: string;
 }
 
+/** Submission-mode lookup. Each row's `metadata.gradingMode` flips a
+ *  downstream branch (numeric درجات vs qualitative تقدير) on every
+ *  applicant-category FK'd to it. Accessor lives at
+ *  `features/lookups/lib/submissionType.ts` — read via `readGradingMode(row)`
+ *  rather than reaching into `metadata` directly.
+ *
+ *  `nameEn` mirrors the bilingual approach used by `ApplicantCategoryRow`;
+ *  `sortOrder` drives display order in the reference-data grid (1, 2, 3, …
+ *  in the seed; admin re-keys neighbours when inserting between rows). */
+export interface SubmissionTypeRow extends LookupRowBase {
+  nameEn: string;
+  sortOrder: number;
+}
+
 export type ApplicantCategoryGenderScope = 'male' | 'female' | 'any';
 export type ApplicantCategoryApplicationMode = 'general' | 'nomination';
+
+/* Educational stage at which the applicant enters. Pre-University is the
+ * Thanaweya track (officers_general); University covers the three bachelor
+ * tracks (law / physical-education / specialized). */
+export type ApplicantCategoryType = 'pre_university' | 'university';
+
+/* For University-type categories only: whether the applicant picks a single
+ * faculty or selects across multiple. Pre-University rows carry `null`. */
+export type FacultySelectionType = 'single' | 'multiple';
+
+/* The applicant-category lookup absorbs the full ApplicantCategory shape
+ * — description, isOpen flag, conditions, expanded conditions, required
+ * tests, procedures. This lookup is the single source of truth for
+ * categories; the former /admin/categories page and MOCK.categories are
+ * being retired in favour of it. Rich fields imported from
+ * @/shared/types/domain (CategoryCondition etc.) so the existing
+ * applicant-portal eligibility flow keeps working unchanged. */
+import type {
+  CategoryCondition,
+  CategoryConditions,
+  RequiredTest,
+} from '@/shared/types/domain';
 
 export interface ApplicantCategoryRow extends LookupRowBase {
   genderScope: ApplicantCategoryGenderScope;
   applicationMode: ApplicantCategoryApplicationMode;
+  /** Entry stage — Pre-University (Thanaweya) vs University (bachelor). */
+  type: ApplicantCategoryType;
+  /** Faculty-picker shape. `null` when `type === 'pre_university'`. */
+  facultySelectionType: FacultySelectionType | null;
+  /** English label — used by some applicant-portal English copies. */
+  nameEn: string;
+  description: string;
+  /** Open in the cycle. Snapshot of the cycle's `openCategories[code]`. */
+  isOpen: boolean;
+  conditions: CategoryCondition;
+  expandedConditions?: CategoryConditions;
+  requiredTests: RequiredTest[];
+  procedures: string[];
 }
 
 export interface NationalityCountryRow extends LookupRowBase {
@@ -239,6 +307,31 @@ export interface NidMissingReasonRow extends LookupRowBase {
   requiresUpload: boolean;
 }
 
+/** Egyptian universities — standalone lookup, no FK to other lookups. */
+export interface UniversityRow extends LookupRowBase {}
+
+/** Marital-status lookup row. Replaces the in-feature placeholder at
+ *  `admission-setup/lib/maritalStatuses.ts` — the placeholder re-exports
+ *  these rows so its existing call sites keep working. */
+export interface MaritalStatusRow extends LookupRowBase {
+  nameEn: string;
+}
+
+/** Academic-grade lookup row (التقدير). Used by the application-settings
+ *  year row when the parent category's submission-type has
+ *  `gradingMode = 'TAGDIR'`. The inclusive percentage range carried on
+ *  `metadata.minPercentage` / `metadata.maxPercentage` lets the UI show a
+ *  hint under the picked تقدير ("85–100%"). Accessor lives at
+ *  `features/lookups/lib/academicGrade.ts` — `readPercentageRange(row)`. */
+export interface AcademicGradeRow extends LookupRowBase {
+  nameEn: string;
+}
+
+/** Academic-degree lookup row (الدرجة العلمية). Standard tertiary degree
+ *  ladder — بكالوريوس → ماجستير → دكتوراه. Used by the committee create
+ *  form to scope which academic degree the committee evaluates. */
+export interface AcademicDegreeRow extends LookupRowBase {}
+
 /* ─── Mapped type: discriminated union over LookupKey ─────────────── */
 
 export interface LookupRowMap {
@@ -249,6 +342,7 @@ export interface LookupRowMap {
   'committees': CommitteeRow;
   'specializations': SpecializationRow;
   'faculties': FacultyRow;
+  'submission-types': SubmissionTypeRow;
   'applicant-categories': ApplicantCategoryRow;
   'nationalities-countries': NationalityCountryRow;
   'governorates': GovernorateRow;
@@ -259,6 +353,10 @@ export interface LookupRowMap {
   'applicant-divisions': ApplicantDivisionRow;
   'school-categories': SchoolCategoryRow;
   'nid-missing-reasons': NidMissingReasonRow;
+  'universities': UniversityRow;
+  'marital-statuses': MaritalStatusRow;
+  'academic-grades': AcademicGradeRow;
+  'academic-degrees': AcademicDegreeRow;
 }
 
 export type LookupRow<K extends LookupKey = LookupKey> = LookupRowMap[K];

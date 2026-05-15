@@ -366,12 +366,16 @@ tables back the three-tier editor:
 - `dbo.applicant_category_specializations` — junction between a config
   row and a `specializations` lookup item.
 - `dbo.applicant_specialization_years` — leaf row carrying graduation
-  year × gender(s) × marital status(es) × age/grade band × window dates.
-  Gender and marital status are many-to-many; the canonical
-  representation is two side-tables
+  year × gender(s) × marital status(es) × division(s) × age cap × grade
+  gate × window dates. Gender, marital status, and division are
+  many-to-many; the canonical representation is three side-tables
   (`applicant_specialization_year_genders`,
-  `applicant_specialization_year_marital_statuses`) keyed by
-  `(year_id, code)`.
+  `applicant_specialization_year_marital_statuses`,
+  `applicant_specialization_year_divisions`) keyed by `(year_id, code)`.
+  The grade gate is a discriminated branch on `grade_kind`
+  (`'GRADES'` → `min_percentage` column; `'TAGDIR'` → `academic_grade_id`
+  column FK → `academic-grades` lookup). The parent category's submission
+  type determines which branch applies — see §11.4e.
 
 Conflict codes thrown by the frontend mock service (and mirrored
 verbatim in `errors.ts → ConflictCode`):
@@ -439,10 +443,10 @@ ALTER TABLE dbo.applicant_specialization_years
 
 ### 11.4 · `INVALID_DATE_RANGE`
 
-**Rule.** `application_end_date >= application_start_date`. The
-`age_calc_date` column is required and must be a parseable date — no
-ordering constraint relative to the application window (admin chooses
-the eligibility-evaluation anchor independently).
+**Rule.** `application_end_date >= application_start_date`.
+`age_reference_date` is required and must be a parseable date; the
+column-ordering constraint relative to the application window is
+enforced separately (§11.4d).
 
 **SQL Server.**
 
@@ -452,17 +456,76 @@ ALTER TABLE dbo.applicant_specialization_years
   CHECK (application_end_date >= application_start_date);
 ```
 
-### 11.4b · `GRADE_RANGE_INVALID`
+### 11.4b · `PERCENTAGE_OUT_OF_RANGE`
 
-**Rule.** When both `min_grade` and `max_grade` are supplied,
-`min_grade <= max_grade`.
+**Rule.** GRADES-branch rows (`grade_kind = 'GRADES'`) must carry a
+`min_percentage` in `[0, 100]`. TAGDIR-branch rows leave the column
+NULL.
 
 **SQL Server.**
 
 ```sql
 ALTER TABLE dbo.applicant_specialization_years
-  ADD CONSTRAINT CK_AppSpecYear_GradeRange
-  CHECK (min_grade IS NULL OR max_grade IS NULL OR min_grade <= max_grade);
+  ADD CONSTRAINT CK_AppSpecYear_Percentage
+  CHECK (
+    (grade_kind = 'GRADES' AND min_percentage BETWEEN 0 AND 100)
+    OR (grade_kind = 'TAGDIR' AND min_percentage IS NULL)
+  );
+```
+
+### 11.4d · `AGE_REFERENCE_AFTER_START`
+
+**Rule.** The age-reference anchor (`age_reference_date`, used by
+eligibility to compute applicant age) must be on or before
+`application_start_date`. Anchoring on a date past the open of the
+application window would let an applicant who was under-age at submit
+time become eligible mid-window — operationally non-sensical.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.applicant_specialization_years
+  ADD CONSTRAINT CK_AppSpecYear_AgeRef
+  CHECK (age_reference_date <= application_start_date);
+```
+
+### 11.4e · `GRADE_MODE_MISMATCH`
+
+**Rule.** The row's `grade_kind` must equal the parent category's
+submission-type `grading_mode`. Resolution chain:
+
+```
+applicant_specialization_year.category_specialization_id
+  → applicant_category_specialization.config_id
+  → applicant_category_config.category_id
+  → applicant_categories[code].submission_type_code
+  → submission_types[code].grading_mode
+```
+
+If an admin re-points a category at a different submission-type after
+year rows already exist, the existing rows whose `grade_kind` no longer
+matches must be deleted and recreated. The frontend surfaces the drift
+via a banner at the top of the application-settings page and disables
+bulk save until resolved.
+
+**SQL Server.** Enforced by a trigger on INSERT/UPDATE of
+`applicant_specialization_years`:
+
+```sql
+IF EXISTS (
+  SELECT 1
+  FROM inserted i
+  JOIN dbo.applicant_category_specializations s
+    ON s.id = i.category_specialization_id
+  JOIN dbo.applicant_category_configs c
+    ON c.id = s.config_id
+  JOIN dbo.applicant_categories cat
+    ON cat.code = c.category_id
+  JOIN dbo.submission_types st
+    ON st.code = cat.submission_type_code
+  WHERE st.grading_mode <> i.grade_kind
+)
+THROW 51130, 'GRADE_MODE_MISMATCH', 1;
 ```
 
 ### 11.4c · `GENDER_REQUIRED`
@@ -516,6 +579,275 @@ IF UPDATE(is_active) AND EXISTS (
     AND y.is_deleted = 0
 )
 THROW 51110, 'CATEGORY_HAS_ACTIVE_YEARS', 1;
+```
+
+---
+
+## 12 · Exam Schedule — invariants
+
+Per-category calendar of WORKING / OFF days. Each row is scoped to a
+single `(cycle_id, applicant_category_id, date)` tuple. There is no
+capacity field — the schedule is a pure calendar.
+
+### 12.1 · `DUPLICATE_DATE`
+
+**Rule.** Unique `(cycle_id, applicant_category_id, date)`. The same
+calendar date CAN exist across different categories — each category's
+schedule is independent.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.exam_schedule_days
+ADD CONSTRAINT UQ_exam_schedule_days_cycle_cat_date
+  UNIQUE (cycle_id, applicant_category_id, date);
+```
+
+### 12.2 · `DATE_OUT_OF_CYCLE_WINDOW`
+
+**Rule.** Each `date` must satisfy
+`date BETWEEN cycle.open_date AND cycle.close_date`.
+
+**SQL Server.** CHECK constraint via scalar function or trigger
+(CHECK cannot dereference another table directly):
+
+```sql
+CREATE OR ALTER TRIGGER trg_exam_schedule_days_cycle_window
+ON dbo.exam_schedule_days
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    JOIN dbo.admission_cycles c ON c.id = i.cycle_id
+    WHERE i.date < CAST(c.open_date AS DATE)
+       OR i.date > CAST(c.close_date AS DATE)
+  )
+    THROW 51120, 'DATE_OUT_OF_CYCLE_WINDOW', 1;
+END;
+```
+
+### 12.3 · `INVALID_DATE_RANGE`
+
+**Rule.** Bulk-generate input must satisfy `end_date >= start_date`.
+
+**SQL Server.** Validated at the stored-procedure entry point for the
+bulk-generate endpoint (no table constraint — this is a request-shape
+invariant):
+
+```sql
+IF @end_date < @start_date
+  THROW 51121, 'INVALID_DATE_RANGE', 1;
+```
+
+### 12.4 · `CATEGORY_NOT_ACTIVE`
+
+**Rule.** `applicant_category_id` must resolve to a row in
+`applicant_category_configs` with `is_active = 1`. Categories
+deactivated in Step 1 of the wizard cannot have new schedule rows
+written.
+
+**SQL Server.**
+
+```sql
+CREATE OR ALTER TRIGGER trg_exam_schedule_days_active_category
+ON dbo.exam_schedule_days
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    LEFT JOIN dbo.applicant_category_configs c
+      ON c.category_id = i.applicant_category_id
+    WHERE c.id IS NULL OR c.is_active = 0
+  )
+    THROW 51122, 'CATEGORY_NOT_ACTIVE', 1;
+END;
+```
+
+---
+
+## 13 · Committee Bindings — invariants
+
+Sub-tab `bindings` inside the committees wizard step persists one
+`committee_day_bindings` row per (cycle × category × committee × day)
+cell. Each row carries a positive integer `capacity` plus mode-branched
+eligibility — either a `[minPercentage, maxPercentage]` band or a
+`[minAcademicGradeId, maxAcademicGradeId]` تقدير band, discriminated by
+`grade_kind` which must match the parent category's `gradingMode`.
+
+The relevant frontend conflict set lives at
+`features/admin/admission-setup/types.ts:BindingConflict`. All eight
+codes below fire from `committeeBindingService` on create/update; the
+existing `PERCENTAGE_OUT_OF_RANGE` code is shared with §11 (same
+invariant).
+
+### 13.1 · `DUPLICATE_BINDING`
+
+**Rule.** Each (`cycle_id`, `committee_id`, `exam_schedule_day_id`)
+triple must be unique. The matrix is single-tenant per cell — admins
+either edit the existing row or delete it before recreating.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.committee_day_bindings
+ADD CONSTRAINT uq_committee_day_bindings
+UNIQUE (cycle_id, committee_id, exam_schedule_day_id);
+```
+
+### 13.2 · `CAPACITY_NOT_POSITIVE`
+
+**Rule.** `capacity > 0`. Zero or negative seat counts make the cell a
+no-op and confuse downstream distribution.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.committee_day_bindings
+ADD CONSTRAINT ck_committee_day_bindings_capacity_positive
+CHECK (capacity > 0);
+```
+
+### 13.3 · `GRADE_RANGE_INVERTED`
+
+**Rule.** For GRADES rows, `min_percentage <= max_percentage`. For
+TAGDIR rows, the picked min and max `academic_grades` rows must satisfy
+`min.min_percentage <= max.min_percentage` (band-floor comparator;
+`AcademicGradeRow` carries no explicit sort order).
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.committee_day_bindings
+ADD CONSTRAINT ck_committee_day_bindings_grades_range
+CHECK (
+  grade_kind <> 'GRADES'
+  OR min_percentage <= max_percentage
+);
+
+CREATE OR ALTER TRIGGER trg_committee_day_bindings_tagdir_range
+ON dbo.committee_day_bindings
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    JOIN dbo.academic_grades amin ON amin.id = i.min_academic_grade_id
+    JOIN dbo.academic_grades amax ON amax.id = i.max_academic_grade_id
+    WHERE i.grade_kind = 'TAGDIR'
+      AND amin.min_percentage > amax.min_percentage
+  )
+    THROW 51131, 'GRADE_RANGE_INVERTED', 1;
+END;
+```
+
+### 13.4 · `PERCENTAGE_OUT_OF_RANGE` *(shared with §11.4b)*
+
+**Rule.** For GRADES rows, `0 <= min_percentage <= 100` and
+`0 <= max_percentage <= 100`. Same invariant as §11.4b — the
+`ConflictCode` union shares the code.
+
+### 13.5 · `TAGDIR_GRADE_NOT_FOUND`
+
+**Rule.** For TAGDIR rows, both `min_academic_grade_id` and
+`max_academic_grade_id` must resolve to active rows in the
+`academic_grades` lookup.
+
+**SQL Server.**
+
+```sql
+ALTER TABLE dbo.committee_day_bindings
+ADD CONSTRAINT fk_committee_day_bindings_grade_min
+FOREIGN KEY (min_academic_grade_id) REFERENCES dbo.academic_grades(id);
+
+ALTER TABLE dbo.committee_day_bindings
+ADD CONSTRAINT fk_committee_day_bindings_grade_max
+FOREIGN KEY (max_academic_grade_id) REFERENCES dbo.academic_grades(id);
+```
+
+### 13.6 · `MODE_MISMATCH`
+
+**Rule.** A binding's `grade_kind` must equal the parent category's
+`gradingMode` (resolved via
+`applicant_categories.metadata.submissionTypeCode` →
+`submission_types.metadata.gradingMode`). If an admin re-points a
+category at a different submission-type after bindings already exist,
+this fires on the first write — see §11.4e for the symmetric
+application-settings rule.
+
+**SQL Server.**
+
+```sql
+CREATE OR ALTER TRIGGER trg_committee_day_bindings_mode_match
+ON dbo.committee_day_bindings
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    JOIN dbo.applicant_categories c ON c.code = i.applicant_category_id
+    JOIN dbo.submission_types s ON s.code = JSON_VALUE(c.metadata, '$.submissionTypeCode')
+    WHERE i.grade_kind <> JSON_VALUE(s.metadata, '$.gradingMode')
+  )
+    THROW 51132, 'MODE_MISMATCH', 1;
+END;
+```
+
+### 13.7 · `DAY_NOT_WORKING`
+
+**Rule.** `exam_schedule_day_id` must resolve to an `exam_schedule_days`
+row with `kind = 'WORKING'`. Bindings to OFF days are nonsense — the
+committee isn't sitting that day.
+
+**SQL Server.**
+
+```sql
+CREATE OR ALTER TRIGGER trg_committee_day_bindings_day_working
+ON dbo.committee_day_bindings
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    LEFT JOIN dbo.exam_schedule_days d ON d.id = i.exam_schedule_day_id
+    WHERE d.id IS NULL OR d.kind <> 'WORKING'
+  )
+    THROW 51133, 'DAY_NOT_WORKING', 1;
+END;
+```
+
+### 13.8 · `COMMITTEE_WRONG_CATEGORY`
+
+**Rule.** The (`cycle_id`, `applicant_category_id`, `committee_id`)
+must already exist in `category_committees` — i.e. the roster sub-tab
+has explicitly bound the committee to this category for this cycle.
+The matrix only binds days for committees the roster already accepted.
+
+**SQL Server.**
+
+```sql
+CREATE OR ALTER TRIGGER trg_committee_day_bindings_in_roster
+ON dbo.committee_day_bindings
+AFTER INSERT, UPDATE
+AS
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM inserted i
+    LEFT JOIN dbo.category_committees cc
+      ON cc.cycle_id = i.cycle_id
+     AND cc.category_id = i.applicant_category_id
+     AND cc.committee_id = i.committee_id
+    WHERE cc.id IS NULL
+  )
+    THROW 51134, 'COMMITTEE_WRONG_CATEGORY', 1;
+END;
 ```
 
 ---

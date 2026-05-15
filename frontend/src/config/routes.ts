@@ -41,14 +41,15 @@ export const ROUTES = {
     cycleDetail: (id = ':id'): string => `/admin/cycles/${id}`,
     cycleNew: '/admin/cycles/new',
     categories: '/admin/categories',
-    categoryNew: '/admin/categories/new',
     categoryEdit: (key = ':key'): string => `/admin/categories/${key}`,
     workflows: '/admin/workflows',
     workflowEdit: (id = ':id'): string => `/admin/workflows/${id}`,
     workflowNew: '/admin/workflows/new',
+    /** Applicant Grades — import + adjustments console (per-cycle data). */
+    applicantGrades: '/admin/applicant-grades',
     notifications: '/admin/notifications',
     payments: '/admin/payments',
-    /* Admission Setup section — 14 ordered configuration steps. The keys
+    /* Admission Setup section — ordered configuration steps. The keys
      * mirror `AdmissionSetupStepKey` (camelCased) so feature code can
      * derive the URL from a step key without a second lookup. Cycle
      * metadata is NOT a step — admins enter the wizard by selecting an
@@ -62,16 +63,10 @@ export const ROUTES = {
       wizardReview: '/admin/admission-setup/wizard/review',
       applicationSettings: '/admin/admission-setup/application-settings',
       applicationStatus: '/admin/admission-setup/application-status',
-      ageRules: '/admin/admission-setup/age-rules',
       maritalStatusRules: '/admin/admission-setup/marital-status-rules',
       fees: '/admin/admission-setup/fees',
       exams: '/admin/admission-setup/exams',
       committees: '/admin/admission-setup/committees',
-      committeeMergeSplit: '/admin/admission-setup/committee-merge-split',
-      scoreThresholds: '/admin/admission-setup/score-thresholds',
-      examDates: '/admin/admission-setup/exam-dates',
-      dateCommitteeBinding: '/admin/admission-setup/date-committee-binding',
-      totalScore: '/admin/admission-setup/total-score',
       notifications: '/admin/admission-setup/notifications',
       electronicDeclaration: '/admin/admission-setup/electronic-declaration',
     },

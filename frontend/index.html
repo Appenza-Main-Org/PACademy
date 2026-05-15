@@ -14,6 +14,20 @@
 </head>
 <body>
 <div id="root"></div>
+<script>
+  /* Node-global shim for npm packages that reach for `process` / `global`
+   * at module load (e.g. mdb-reader, buffer, used by the .mdb importer
+   * in applicant-grades). Must run before the module bundle so the
+   * shim exists when those modules evaluate; Vite's dev server polyfills
+   * these automatically, but the production build does not. */
+  window.process = window.process || {
+    env: {},
+    platform: 'browser',
+    nextTick: function (cb) { Promise.resolve().then(cb); },
+    versions: {},
+  };
+  window.global = window.global || window;
+</script>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

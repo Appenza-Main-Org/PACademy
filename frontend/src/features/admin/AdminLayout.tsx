@@ -8,9 +8,8 @@ import {
   ClipboardCheck,
   ClipboardList,
   Database,
+  FileSpreadsheet,
   Grid3x3,
-  Layers,
-  LayoutDashboard,
   Settings,
   Shield,
   Users,
@@ -20,68 +19,75 @@ import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
 
+/**
+ * Admin sidebar — four explicit sections (plus a header-less hub link at the
+ * top). Order reflects access frequency, not authoring chain:
+ *
+ *   ── (hub)                          back-nav to all apps
+ *   1. العمليات                       daily landing surfaces
+ *   2. التقديم والدورات                per-cycle configuration + committees
+ *   3. البيانات المرجعية والإعدادات    cross-cycle reference data
+ *   4. الأمان والمستخدمون              governance (users · roles · audit)
+ *
+ * Why committees live under "التقديم والدورات": each committee is a per-cycle
+ * artifact — the cycle opens the window, admission-setup configures it, then
+ * committees staff the review. Committee identity/membership is authored in
+ * the `committees` lookup (الأكواد المرجعية → اللجان); the sidebar entry kept
+ * here is the per-cycle scheduling surface. Both admin-shell roles
+ * (super_admin, committee_admin) carry `admission-setup:read` (see rbac.ts),
+ * so gating the whole section by that permission is safe.
+ */
 const SIDEBAR: SidebarSection[] = [
   {
-    label: 'التنقل',
+    /* Header-less top entry — visually separated by Sidebar's first-section
+     * spacing. Hub is a back-nav, not part of any thematic group. */
     items: [
       { key: 'hub', label: 'كل التطبيقات', icon: <Grid3x3 size={18} />, to: ROUTES.hub },
     ],
   },
+  /* ── 1. Daily operations ─────────────────────────────────────────────── */
   {
-    label: 'الإدارة',
+    label: 'العمليات',
     items: [
-      { key: 'dashboard',  label: 'لوحة التحكم',     icon: <LayoutDashboard size={18} />, to: ROUTES.admin.dashboard,  end: true },
-      { key: 'applicants', label: 'المتقدمون',         icon: <ClipboardList size={18} />,   to: ROUTES.admin.applicants },
-      { key: 'users',      label: 'مستخدمو المنظومة',  icon: <Users size={18} />,           to: ROUTES.admin.users },
-      { key: 'roles',      label: 'الأدوار والصلاحيات', icon: <Shield size={18} />,          to: ROUTES.admin.roles },
-      { key: 'audit',      label: 'سجل النشاط',         icon: <Shield size={18} />,          to: ROUTES.admin.audit },
+      { key: 'applicants', label: 'المتقدمون', icon: <ClipboardList size={18} />, to: ROUTES.admin.applicants },
+      { key: 'reports',    label: 'التقارير',   icon: <BarChart3 size={18} />,     to: ROUTES.admin.reports },
     ],
   },
-  /**
-   * التقديم — groups the cycle-bootstrapping surfaces together: categories
-   * and cycles seed the data model, then the wizard at
-   * `/admin/admission-setup/wizard/:stepKey` runs the 15-step
-   * configuration flow over the picked cycle. Order matches the natural
-   * authoring sequence (define categories → open a cycle → configure it).
-   * Hidden entirely if the user lacks `admission-setup:read`.
-   */
+  /* ── 2. Per-cycle configuration ──────────────────────────────────────────
+   * Order matches the authoring chain: cycles open the window →
+   * admission-setup configures it → committees staff the review (only the
+   * per-cycle scheduling surface lives here; committee identity/membership
+   * is authored in the `committees` lookup). Gate is preserved from the
+   * previous "التقديم" section. */
   {
-    label: 'التقديم',
+    label: 'التقديم والدورات',
     permission: 'admission-setup:read',
     items: [
-      { key: 'categories',      label: 'فئات التقديم', icon: <Layers size={18} />,         to: ROUTES.admin.categories },
-      { key: 'cycles',          label: 'الدورات',      icon: <CalendarDays size={18} />,    to: ROUTES.admin.cycles },
-      { key: 'admission-setup', label: 'إعداد التقديم', icon: <ClipboardCheck size={18} />, to: ROUTES.admin.admissionSetup.index },
+      { key: 'cycles',             label: 'الدورات',         icon: <CalendarDays size={18} />,   to: ROUTES.admin.cycles },
+      { key: 'admission-setup',    label: 'إعداد التقديم',   icon: <ClipboardCheck size={18} />, to: ROUTES.admin.admissionSetup.index, end: true },
+      { key: 'applicant-grades',   label: 'إدارة المجموع والدرجات', icon: <FileSpreadsheet size={18} />, to: ROUTES.admin.applicantGrades },
+      { key: 'committee-list',     label: 'اللجان',          icon: <Users size={18} />,          to: ROUTES.committee.list },
+      { key: 'committee-schedule', label: 'الجدول الزمني',   icon: <Calendar size={18} />,       to: ROUTES.committee.schedule },
     ],
   },
-  /**
-   * لجان القبول — admin-side entry into the committees surface. Mirrors the
-   * committee app's own sidebar so super_admin / committee_admin can jump
-   * to any of the three committee views without leaving /admin chrome.
-   * AuthGuard lets both roles through (they hold the `committee` app key).
-   */
-  {
-    label: 'لجان القبول',
-    items: [
-      { key: 'committee-overview', label: 'نظرة عامة',    icon: <LayoutDashboard size={18} />, to: ROUTES.committee.overview, end: true },
-      { key: 'committee-list',     label: 'قائمة اللجان', icon: <Users size={18} />,           to: ROUTES.committee.list },
-      { key: 'committee-schedule', label: 'الجدول الزمني', icon: <Calendar size={18} />,        to: ROUTES.committee.schedule },
-    ],
-  },
+  /* ── 3. Cross-cycle reference data ─────────────────────────────────── */
   {
     label: 'البيانات المرجعية والإعدادات',
     items: [
-      { key: 'lookups', label: 'الأكواد المرجعية', icon: <Database size={18} />,           to: ROUTES.admin.adminLookups },
-      { key: 'workflows',       label: 'سير العمل',          icon: <Workflow size={18} />,            to: ROUTES.admin.workflows },
-      { key: 'notifications',   label: 'الإشعارات',          icon: <Bell size={18} />,                to: ROUTES.admin.notifications },
-      { key: 'payments',        label: 'المدفوعات',           icon: <Banknote size={18} />,            to: ROUTES.admin.payments },
-      { key: 'settings',        label: 'الإعدادات العامة',  icon: <Settings size={18} />,           to: ROUTES.admin.settings },
+      { key: 'lookups',       label: 'الأكواد المرجعية', icon: <Database size={18} />,  to: ROUTES.admin.adminLookups },
+      { key: 'workflows',     label: 'سير العمل',         icon: <Workflow size={18} />,  to: ROUTES.admin.workflows },
+      { key: 'notifications', label: 'الإشعارات',         icon: <Bell size={18} />,      to: ROUTES.admin.notifications },
+      { key: 'payments',      label: 'المدفوعات',          icon: <Banknote size={18} />,  to: ROUTES.admin.payments },
+      { key: 'settings',      label: 'الإعدادات العامة',   icon: <Settings size={18} />,  to: ROUTES.admin.settings },
     ],
   },
+  /* ── 4. Governance ───────────────────────────────────────────────────── */
   {
-    label: 'التقارير',
+    label: 'الأمان والمستخدمون',
     items: [
-      { key: 'reports', label: 'التقارير', icon: <BarChart3 size={18} />, to: ROUTES.admin.reports },
+      { key: 'users', label: 'مستخدمو المنظومة',  icon: <Users size={18} />,  to: ROUTES.admin.users },
+      { key: 'roles', label: 'الأدوار والصلاحيات', icon: <Shield size={18} />, to: ROUTES.admin.roles },
+      { key: 'audit', label: 'سجل النشاط',         icon: <Shield size={18} />, to: ROUTES.admin.audit },
     ],
   },
 ];

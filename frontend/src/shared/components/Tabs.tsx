@@ -77,6 +77,10 @@ const TabsList = forwardRef<
   <RadixTabs.List
     ref={ref}
     className={cn(
+      /* Underline + light track. The tablist is the visual baseline;
+       * the active tab anchors against it with a stronger fill so the
+       * picked panel reads at a glance instead of disappearing into
+       * a flat row of plain text. */
       'flex flex-wrap items-end gap-1 border-b border-border-subtle',
       'overflow-x-auto',
       className,
@@ -97,11 +101,20 @@ const TabsTab = forwardRef<ElementRef<typeof RadixTabs.Trigger>, TabsTabProps>(
     <RadixTabs.Trigger
       ref={ref}
       className={cn(
-        'inline-flex items-center gap-2 px-4 pb-3 pt-2 text-sm font-medium',
-        'border-b-2 border-transparent -mb-px',
+        /* Base shape */
+        'inline-flex items-center gap-2 px-4 pb-3 pt-2.5 text-sm',
+        '-mb-px rounded-t-md border-b-2 border-transparent',
         'transition-colors duration-fast ease-standard',
-        'text-ink-500 hover:text-ink-700 hover:bg-ink-50/60',
-        'data-[state=active]:text-ink-900 data-[state=active]:border-[var(--brand-primary)]',
+        /* Inactive — quieter, still legible */
+        'font-medium text-ink-500 hover:text-ink-900 hover:bg-ink-50',
+        /* Active — bold text, tinted background, accent underline. The
+         * tinted fill is what makes the active tab obvious on a
+         * cream surface; the accent underline picks up the per-app
+         * tone via --accent-500 when the parent shell sets data-app. */
+        'data-[state=active]:font-semibold data-[state=active]:text-ink-900',
+        'data-[state=active]:bg-[color:var(--accent-50,theme(colors.ink.50))]',
+        'data-[state=active]:border-[color:var(--accent-500,var(--brand-primary))]',
+        /* Focus + disabled */
         'focus-visible:shadow-[var(--ring)] focus-visible:outline-none focus-visible:rounded-sm',
         'disabled:cursor-not-allowed disabled:opacity-50',
         'whitespace-nowrap font-ar',

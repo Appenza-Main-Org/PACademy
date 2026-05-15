@@ -19,15 +19,17 @@ import type { BulkYearChange } from '../../api/applicationSettings.service';
 import {
   useAppSettingsDraftStore,
   useDraftSummary,
+  useHasAnyMismatch,
 } from '../../store/appSettingsDraft';
 
 export function StickyBulkSaveBar(): JSX.Element | null {
   const summary = useDraftSummary();
   const byCs = useAppSettingsDraftStore((s) => s.byCs);
   const resetAll = useAppSettingsDraftStore((s) => s.resetAll);
+  const hasMismatch = useHasAnyMismatch();
   const bulkSave = useBulkSave();
 
-  if (summary.total === 0) return null;
+  if (summary.total === 0 && !hasMismatch) return null;
 
   const handleSave = (): void => {
     const payload: BulkYearChange[] = [];
@@ -71,15 +73,24 @@ export function StickyBulkSaveBar(): JSX.Element | null {
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="font-ar text-sm text-ink-700">
-          {summary.total} تعديل غير محفوظ
-          {summary.newCount > 0 && (
-            <span className="text-2xs text-ink-500"> · إضافة {summary.newCount}</span>
+          {summary.total > 0 ? (
+            <>
+              {summary.total} تعديل غير محفوظ
+              {summary.newCount > 0 && (
+                <span className="text-2xs text-ink-500"> · إضافة {summary.newCount}</span>
+              )}
+              {summary.dirtyCount > 0 && (
+                <span className="text-2xs text-ink-500"> · تعديل {summary.dirtyCount}</span>
+              )}
+              {summary.deletedCount > 0 && (
+                <span className="text-2xs text-ink-500"> · حذف {summary.deletedCount}</span>
+              )}
+            </>
+          ) : (
+            <span className="text-terra-700">تعارض في نمط التقدير — الحفظ معطّل</span>
           )}
-          {summary.dirtyCount > 0 && (
-            <span className="text-2xs text-ink-500"> · تعديل {summary.dirtyCount}</span>
-          )}
-          {summary.deletedCount > 0 && (
-            <span className="text-2xs text-ink-500"> · حذف {summary.deletedCount}</span>
+          {hasMismatch && summary.total > 0 && (
+            <span className="text-2xs text-terra-700"> · تعارض في نمط التقدير</span>
           )}
         </span>
         <div className="flex items-center gap-2">
@@ -96,6 +107,7 @@ export function StickyBulkSaveBar(): JSX.Element | null {
             onClick={handleSave}
             leadingIcon={<Save size={14} strokeWidth={1.75} />}
             isLoading={bulkSave.isPending}
+            disabled={hasMismatch || summary.total === 0}
           >
             حفظ التغييرات
           </Button>

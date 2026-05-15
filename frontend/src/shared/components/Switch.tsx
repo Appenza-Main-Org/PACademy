@@ -56,7 +56,7 @@ export const Switch = forwardRef<ElementRef<typeof RadixSwitch.Root>, SwitchProp
         >
           <RadixSwitch.Thumb
             className={cn(
-              'block h-5 w-5 rounded-full bg-surface shadow-sm',
+              'block h-5 w-5 rounded-full bg-white shadow-sm ring-1 ring-black/5',
               'transition-transform duration-fast ease-standard',
               'translate-x-0.5 data-[state=checked]:translate-x-[1.375rem]',
               'rtl:-translate-x-0.5 rtl:data-[state=checked]:-translate-x-[1.375rem]',

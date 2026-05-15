@@ -55,7 +55,10 @@ import {
   useEnterResult,
   useRejectResult,
 } from '../api/committee.queries';
+import { MOCK } from '@/shared/mock-data';
 import type { Applicant, Committee, CommitteeResult } from '@/shared/types/domain';
+import { formatCommitteeGrade } from '../lib/formatCommitteeGrade';
+import { CommitteeEditDialog } from '../components/CommitteeEditDialog';
 
 export function CommitteeDetailPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
@@ -76,6 +79,7 @@ export function CommitteeDetailPage(): JSX.Element {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [rejectFor, setRejectFor] = useState<CommitteeResult | null>(null);
   const [selected, setSelected] = useState<(string | number)[]>([]);
+  const [editOpen, setEditOpen] = useState(false);
 
   if (isLoading) return <CenteredShell><LoadingState variant="page" /></CenteredShell>;
   if (error) return <CenteredShell><ErrorState error={error} onRetry={() => refetch()} /></CenteredShell>;
@@ -176,7 +180,8 @@ export function CommitteeDetailPage(): JSX.Element {
             <Button
               variant="secondary"
               leadingIcon={<Pencil size={14} strokeWidth={1.75} />}
-              onClick={() => navigate(ROUTES.committee.edit(id))}
+              onClick={() => setEditOpen(true)}
+              aria-label="تعديل اللجنة"
             >
               تعديل
             </Button>
@@ -346,6 +351,11 @@ export function CommitteeDetailPage(): JSX.Element {
           })
         }
       />
+
+      <CommitteeEditDialog
+        committee={editOpen ? committee : null}
+        onClose={() => setEditOpen(false)}
+      />
     </CenteredShell>
   );
 }
@@ -514,8 +524,6 @@ function CommitteeSummary({
     .map((oid) => officers.find((o) => o.id === oid))
     .filter((o): o is SummaryEligibleOfficer => Boolean(o));
 
-  const rules = committee.rules;
-
   return (
     <div className="mb-6 grid gap-4 lg:grid-cols-3">
       <Card>
@@ -588,39 +596,21 @@ function CommitteeSummary({
       </Card>
 
       <Card className="lg:col-span-3">
-        <CardHeader title="شروط التوزيع" subtitle="نطاق الدرجات، الحروف، النوع، نوع المتقدم" />
+        <CardHeader title="شروط التوزيع" subtitle="الفئة، السعة، معيار القبول" />
         <div className="grid grid-cols-2 gap-4 p-4 md:grid-cols-4">
           <SummaryItem
-            label="نطاق الدرجات"
+            label="الفئة"
             value={
-              rules?.gradeFrom != null || rules?.gradeTo != null ? (
-                <span className="font-mono tnum" dir="ltr">
-                  {rules?.gradeFrom ?? '—'} – {rules?.gradeTo ?? '—'}
-                </span>
-              ) : (
-                '—'
-              )
+              MOCK.categories.find((cat) => cat.key === committee.categoryKey)?.labelAr ??
+              committee.categoryKey
             }
           />
+          <SummaryItem label="السعة" value={num(committee.capacity)} />
           <SummaryItem
-            label="النطاق الأبجدي"
-            value={
-              rules?.alphabetFrom || rules?.alphabetTo
-                ? `${rules?.alphabetFrom ?? '—'} – ${rules?.alphabetTo ?? '—'}`
-                : '—'
-            }
+            label="المسنّد"
+            value={num(committee.applicants)}
           />
-          <SummaryItem
-            label="النوع"
-            value={
-              rules?.gender === 'male'
-                ? 'ذكور'
-                : rules?.gender === 'female'
-                  ? 'إناث'
-                  : 'كلاهما'
-            }
-          />
-          <SummaryItem label="نوع المتقدم" value={applicantTypeLabel(rules?.applicantType ?? 'any')} />
+          <SummaryItem label="معيار القبول" value={formatCommitteeGrade(committee)} />
         </div>
       </Card>
 
@@ -653,19 +643,6 @@ function SummaryItem({ label, value }: { label: string; value: React.ReactNode }
       <p className="mt-1 text-sm font-medium text-ink-900">{value}</p>
     </div>
   );
-}
-
-function applicantTypeLabel(key: string): string {
-  switch (key) {
-    case 'officers_general': return 'ضباط عاميون';
-    case 'officers_specialized': return 'ضباط متخصصون';
-    case 'postgraduate': return 'دراسات عليا';
-    case 'institute_officers_training': return 'معهد ضباط (تدريب)';
-    case 'institute_traffic': return 'معهد المرور';
-    case 'institute_guarding': return 'معهد الحراسات';
-    case 'special_units': return 'الوحدات الخاصة';
-    default: return 'الكل';
-  }
 }
 
 function BulkUploadModal({

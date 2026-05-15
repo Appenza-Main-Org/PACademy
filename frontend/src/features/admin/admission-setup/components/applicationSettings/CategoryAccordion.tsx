@@ -20,17 +20,23 @@ import * as Accordion from '@radix-ui/react-accordion';
 import { ChevronDown, ListChecks } from 'lucide-react';
 import {
   AlertDialog,
-  Badge,
   ErrorState,
   LoadingState,
-  Switch,
 } from '@/shared/components';
+import { cn } from '@/shared/lib/cn';
 import {
   useCategoryConfigs,
   useToggleCategoryActive,
 } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
+import { GeneralRulesSection } from './GeneralRulesSection';
 import { SpecializationList } from './SpecializationList';
+import { YearTable } from './YearTable';
+
+/** Code of the «الضباط المتخصصون» category in the applicant-categories lookup.
+ *  Used to gate the «قواعد عامة» sub-section so it only appears under this
+ *  one category, per RFP. */
+const SPECIALIZED_OFFICERS_CODE = 'specialized_officers';
 
 export function CategoryAccordion(): JSX.Element {
   const configsQuery = useCategoryConfigs();
@@ -99,28 +105,52 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
               <ChevronDown
                 size={16}
                 strokeWidth={1.75}
-                className="text-ink-500 transition-transform duration-fast group-data-[state=open]:rotate-180"
+                className="text-ink-500 transition-transform duration-fast group-data-[state=closed]:rotate-180"
                 aria-hidden
               />
               {config.categoryNameAr}
-              <Badge tone="neutral">{config.categoryId}</Badge>
             </span>
             <span className="inline-flex items-center gap-1.5 text-2xs text-ink-500">
               <ListChecks size={12} strokeWidth={1.75} aria-hidden />
-              {config.specializationCount} تخصص · {config.yearCount} سنة دراسية
+              {config.singleAxis
+                ? `${config.yearCount} سنة دراسية`
+                : `${config.specializationCount} تخصص · ${config.yearCount} سنة دراسية`}
             </span>
           </Accordion.Trigger>
-          <Switch
-            checked={config.isActive}
-            onCheckedChange={handleCheckedChange}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={config.isActive}
             aria-label={`تفعيل فئة ${config.categoryNameAr}`}
             disabled={toggleMut.isPending}
-          />
+            onClick={() => handleCheckedChange(!config.isActive)}
+            className={cn(
+              'inline-flex shrink-0 items-center justify-center rounded-pill px-4 py-1.5 text-xs font-medium',
+              'transition-colors duration-[var(--motion-fast)]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+              config.isActive
+                ? 'border border-transparent text-white'
+                : 'border border-border-default bg-white text-ink-600 hover:bg-ink-50',
+              toggleMut.isPending && 'cursor-not-allowed opacity-60',
+            )}
+            style={config.isActive ? { background: 'var(--accent-600)' } : undefined}
+          >
+            {config.isActive ? 'مفعّل' : 'موقوف'}
+          </button>
         </div>
       </Accordion.Header>
 
-      <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 px-4">
-        <SpecializationList configId={config.id} />
+      <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 px-4 py-3">
+        <div className="flex flex-col gap-4">
+          {config.singleAxis && config.implicitSpecId ? (
+            <YearTable categorySpecializationId={config.implicitSpecId} />
+          ) : config.categoryCode === SPECIALIZED_OFFICERS_CODE ? null : (
+            <SpecializationList configId={config.id} />
+          )}
+          {config.categoryCode === SPECIALIZED_OFFICERS_CODE && (
+            <GeneralRulesSection />
+          )}
+        </div>
       </Accordion.Content>
 
       <AlertDialog

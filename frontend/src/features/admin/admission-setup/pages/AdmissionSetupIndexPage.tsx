@@ -2,18 +2,17 @@
  * AdmissionSetupIndexPage — launcher for the admission-setup wizard.
  *
  * Lists every already-configured admission cycle (the "application setups"
- * in user-facing terms) with status, completeness summary, and a
- * "بدء التقديم / إكمال الإعداد" CTA that opens the wizard at either the
- * first step or the last step the admin saved as a draft.
+ * in user-facing terms) with status, completeness summary, and a single
+ * "إعداد التقديم" CTA that opens the wizard at the first step.
  *
  * The active cycle is hoisted to a dedicated highlight card at the top
- * with a primary "بدء التقديم" CTA — admins enter the wizard by selecting
- * an existing cycle, never by creating one here. Cycle creation /
- * metadata editing live in the Cycles section (/admin/cycles).
+ * with a primary "إعداد التقديم" CTA — admins enter the wizard by
+ * selecting an existing cycle, never by creating one here. Cycle creation
+ * / metadata editing live in the Cycles section (/admin/cycles).
  */
 
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, PlayCircle, Settings } from 'lucide-react';
+import { ArrowLeft, Settings } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -37,18 +36,18 @@ import {
   ADMISSION_SETUP_TOTAL_STEPS,
 } from '../config';
 import {
-  resolveStepStatus,
+  buildCommitteeBindingsSnapshot,
+  computeStepStatus,
   type StepStatusInputs,
 } from '../lib/step-status';
 import { readDraft } from '../lib/wizard-draft';
 import type { AdmissionSetupStepKey } from '../types';
 import {
-  useAdmissionMergeSplitRules,
+  useCommitteeBindings,
   useElectronicDeclaration,
-  useExamDateConfig,
-  useTotalScoreConfigs,
-  useWizardStepStatuses,
 } from '../api/admission-setup.queries';
+import { useExamScheduleAggregate } from '../api/examSchedule.queries';
+import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
 
 /** First wizard step after cycle_metadata was removed — admins land here. */
 const FIRST_STEP: AdmissionSetupStepKey = 'application_settings';
@@ -178,27 +177,32 @@ function ActiveCycleCard({
   onStart: (stepKey: string) => void;
 }): JSX.Element {
   const categoriesQuery = useCategoriesAdmin();
-  const committeesQuery = useCommittees({ cycleId: cycle.id });
-  const mergeSplitQuery = useAdmissionMergeSplitRules(cycle.id);
-  const examDatesQuery = useExamDateConfig(cycle.id);
-  const totalScoreQuery = useTotalScoreConfigs(cycle.id);
+  const committeesQuery = useCommittees();
+  const examScheduleAggregateQuery = useExamScheduleAggregate(cycle.id);
   const declarationQuery = useElectronicDeclaration(cycle.id);
-  const stepStatusesQuery = useWizardStepStatuses(cycle.id);
+  const rosterQuery = useCommitteeBindings(cycle.id, null);
+  const cycleBindingsQuery = useCycleCommitteeBindings(cycle.id);
+  const committeeBindingsSnapshot =
+    examScheduleAggregateQuery.data && rosterQuery.data && cycleBindingsQuery.data
+      ? buildCommitteeBindingsSnapshot(
+          rosterQuery.data,
+          cycleBindingsQuery.data,
+          cycle.id,
+          examScheduleAggregateQuery.data.activeCategoryIds,
+        )
+      : null;
 
   const inputs: StepStatusInputs = {
     cycle,
     categories: categoriesQuery.data ?? [],
     committees: committeesQuery.data ?? [],
-    mergeSplitRules: mergeSplitQuery.data ?? [],
-    examDateConfig: examDatesQuery.data ?? null,
-    totalScoreConfigs: totalScoreQuery.data ?? [],
     declaration: declarationQuery.data ?? null,
+    committeeBindings: committeeBindingsSnapshot,
   };
   const completed = ADMISSION_SETUP_STEPS.filter(
-    (s) => resolveStepStatus(s.key, stepStatusesQuery.data ?? [], inputs) === 'complete',
+    (s) => computeStepStatus(s.key, inputs) === 'complete',
   ).length;
   const draft = readDraft(cycle.id);
-  const resumeStepKey = draft?.lastStepKey ?? FIRST_STEP;
 
   return (
     <Card variant="elevated" className="border-t-4" style={{ borderTopColor: 'var(--accent-500)' }}>
@@ -222,15 +226,6 @@ function ActiveCycleCard({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {draft && (
-            <Button
-              variant="secondary"
-              onClick={() => onStart(resumeStepKey)}
-              leadingIcon={<PlayCircle size={14} strokeWidth={1.75} />}
-            >
-              متابعة المسودة
-            </Button>
-          )}
           <Button
             variant="primary"
             onClick={() => onStart(FIRST_STEP)}
@@ -238,7 +233,7 @@ function ActiveCycleCard({
               <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
             }
           >
-            بدء التقديم
+            إعداد التقديم
           </Button>
         </div>
       </div>

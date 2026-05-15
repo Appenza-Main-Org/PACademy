@@ -31,7 +31,6 @@ export { CycleDetailPage } from './pages/CycleDetailPage';
 
 /* Post-polish admin pages — Buckets D and E */
 export { CategoriesListPage } from './pages/CategoriesListPage';
-export { CategoryNewPage } from './pages/CategoryNewPage';
 export { CategoryEditPage } from './pages/CategoryEditPage';
 export { CycleNewPage } from './pages/CycleNewPage';
 
@@ -39,7 +38,7 @@ export { CycleNewPage } from './pages/CycleNewPage';
 export { WorkflowsListPage } from './pages/WorkflowsListPage';
 export { WorkflowEditorPage } from './pages/WorkflowEditorPage';
 
-/* Admission Setup section — 14-step config-driven setup. */
+/* Admission Setup section — config-driven setup wizard. */
 export {
   ADMISSION_SETUP_STEPS,
   ADMISSION_SETUP_TOTAL_STEPS,
@@ -47,15 +46,9 @@ export {
   AdmissionSetupWizardPage,
   ApplicationSettingsPage,
   ApplicationStatusPage,
-  AgeRulesPage,
   AdmissionFeesPage,
   ExamsManagementPage,
   CommitteesManagementPage,
-  CommitteeMergeSplitPage,
-  ScoreThresholdsPage,
-  ExamDatesPage,
-  DateCommitteeBindingPage,
-  TotalScorePage,
   NotificationsStepPage,
   ElectronicDeclarationPage,
 } from './admission-setup';

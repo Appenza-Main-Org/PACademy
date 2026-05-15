@@ -6,8 +6,8 @@
  * route level (see routes.tsx).
  */
 
-import { useEffect, useState } from 'react';
-import { Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Pencil, Plus, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -17,6 +17,7 @@ import {
   EmptyState,
   Input,
   PageHeader,
+  Select,
   SoftDeleteDialog,
   toast,
 } from '@/shared/components';
@@ -32,7 +33,32 @@ import {
 } from '../api/roles.queries';
 import { rolesService } from '../api/roles.service';
 import { PermissionMatrix } from '../components/roles/PermissionMatrix';
+import {
+  CLOUD_ACTIONS,
+  CLOUD_MODULES,
+  isCellInteractive,
+} from '@/features/admin/users/lib/cloudPermissions';
 import type { RoleDefinitionRow } from '@/shared/types/domain';
+
+/** Role-template keys offered on the create-flow drawer. The picker is
+ *  hidden on the edit flow; the system super_admin row is already
+ *  wildcard-locked and isn't re-templated. */
+type RoleTemplateKey = 'custom' | 'super_admin';
+
+/** Materialises every interactive `<module>:<action>` cell exactly once.
+ *  Memoised at module level — the matrix taxonomy is a build-time
+ *  constant, so we recompute zero times per drawer open. */
+const ALL_INTERACTIVE_PERMISSIONS: readonly string[] = (() => {
+  const out: string[] = [];
+  for (const mod of CLOUD_MODULES) {
+    for (const act of CLOUD_ACTIONS) {
+      if (isCellInteractive(mod.key, act.key)) {
+        out.push(`${mod.key}:${act.key}`);
+      }
+    }
+  }
+  return out;
+})();
 
 const ROLE_DEP_LABELS: Record<string, string> = {
   users: 'مستخدم',
@@ -58,13 +84,42 @@ export function RolesPage(): JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<RoleDefinitionRow | null>(null);
   const [draft, setDraft] = useState<Omit<RoleDefinitionRow, 'id' | 'isSystem' | 'createdAt' | 'updatedAt'>>(EMPTY_DRAFT);
+  /* Drives the create-flow "نوع الدور" picker. When the template is
+   * `'super_admin'`, the permission matrix opens with every interactive
+   * cell pre-checked. The admin can uncheck any cell — the template only
+   * seeds the initial state, never locks it. */
+  const [roleTemplate, setRoleTemplate] = useState<RoleTemplateKey>('custom');
   const [pendingDelete, setPendingDelete] = useState<RoleDefinitionRow | null>(null);
   const [deleteDeps, setDeleteDeps] = useState<Awaited<ReturnType<typeof rolesService.getDependencies>> | null>(null);
 
+  /** Per-template initial permissions list. Computed off `roleTemplate`
+   *  rather than wired through setDraft directly so the source-of-truth
+   *  taxonomy (`CLOUD_MODULES` × `CLOUD_ACTIONS`) is never mutated. */
+  const templatePermissions = useMemo<readonly string[]>(() => {
+    if (roleTemplate === 'super_admin') return ALL_INTERACTIVE_PERMISSIONS;
+    return [];
+  }, [roleTemplate]);
+
   useEffect(() => {
-    if (editing) setDraft({ ...editing });
-    else setDraft(EMPTY_DRAFT);
+    if (editing) {
+      setDraft({ ...editing });
+      setRoleTemplate('custom');
+    } else {
+      setDraft({ ...EMPTY_DRAFT, permissions: [...templatePermissions] });
+    }
+    /* `templatePermissions` re-seeds on drawer reopen via the create
+     * branch above; intentionally excluded so editing a row doesn't
+     * silently rewrite its permissions when the picker is hidden. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
+
+  /* Re-seed the create-flow draft whenever the admin toggles the
+   * template picker. Edit-mode is read-only on the picker so this
+   * branch never fires while editing. */
+  useEffect(() => {
+    if (editing) return;
+    setDraft((prev) => ({ ...prev, permissions: [...templatePermissions] }));
+  }, [editing, templatePermissions]);
 
   useEffect(() => {
     if (!pendingDelete) {
@@ -74,7 +129,10 @@ export function RolesPage(): JSX.Element {
     rolesService.getDependencies(pendingDelete.id).then(setDeleteDeps).catch(() => setDeleteDeps(null));
   }, [pendingDelete]);
 
-  const rows = listQuery.data ?? [];
+  /* The applicant role is auto-assigned at portal sign-up and isn't
+   * admin-editable from the cloud roles screen. It stays in the seed so
+   * auth can resolve it; it just doesn't surface here. */
+  const rows = (listQuery.data ?? []).filter((r) => r.key !== 'applicant');
 
   const columns: DataTableColumn<RoleDefinitionRow>[] = [
     { key: 'labelAr', label: 'الاسم', render: (r) => <span className="font-medium text-ink-900">{r.labelAr}</span> },
@@ -154,6 +212,7 @@ export function RolesPage(): JSX.Element {
             toast('تم حفظ الدور', 'success');
             setDrawerOpen(false);
             setEditing(null);
+            setRoleTemplate('custom');
           },
           onError: (err) => toast((err).message, 'danger'),
         },
@@ -166,6 +225,7 @@ export function RolesPage(): JSX.Element {
         onSuccess: () => {
           toast('تم إنشاء الدور', 'success');
           setDrawerOpen(false);
+          setRoleTemplate('custom');
         },
         onError: (err) => toast((err).message, 'danger'),
       });
@@ -249,6 +309,7 @@ export function RolesPage(): JSX.Element {
         onClose={() => {
           setDrawerOpen(false);
           setEditing(null);
+          setRoleTemplate('custom');
         }}
         title={editing ? `تعديل دور · ${editing.labelAr}` : 'إضافة دور'}
         subtitle={isEditingSystem ? 'دور نظام — التعديل مقصور على النطاق (scope)' : 'دور مخصص'}
@@ -264,13 +325,30 @@ export function RolesPage(): JSX.Element {
               onChange={(e) => setDraft({ ...draft, labelAr: e.target.value })}
               containerClassName="md:col-span-2"
             />
+            {!editing && (
+              <Select
+                label="نوع الدور"
+                value={roleTemplate}
+                onChange={(e) => setRoleTemplate(e.target.value as RoleTemplateKey)}
+                options={[
+                  { value: 'custom', label: 'دور مخصص' },
+                  { value: 'super_admin', label: 'مدير النظام — جميع الصلاحيات' },
+                ]}
+                containerClassName="md:col-span-2"
+              />
+            )}
           </div>
+          {(roleTemplate === 'super_admin' && !editing) || editing?.key === 'super_admin' ? (
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-2xs text-teal-700">
+              <ShieldCheck size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
+              <span>مدير النظام يملك جميع الصلاحيات افتراضيًا</span>
+            </div>
+          ) : null}
           <div className="mt-4">
             <h3 className="mb-2 text-sm font-medium text-ink-900">مصفوفة الصلاحيات</h3>
             <PermissionMatrix
               permissions={draft.permissions}
               onChange={(next) => setDraft({ ...draft, permissions: next })}
-              readOnly={isEditingSystem}
             />
           </div>
         </Drawer.Body>
@@ -280,6 +358,7 @@ export function RolesPage(): JSX.Element {
             onClick={() => {
               setDrawerOpen(false);
               setEditing(null);
+              setRoleTemplate('custom');
             }}
           >
             إلغاء

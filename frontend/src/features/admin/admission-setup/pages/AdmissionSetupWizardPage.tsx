@@ -1,5 +1,5 @@
 /**
- * AdmissionSetupWizardPage — single shell that orchestrates all 15 steps
+ * AdmissionSetupWizardPage — single shell that orchestrates every step
  * (plus a virtual `review` step) as a top-stepper wizard.
  *
  * Driven by `:stepKey` in the URL — adding a new entry to
@@ -29,13 +29,12 @@
 
 import { useEffect, useMemo } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CheckCircle2, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import {
   Badge,
   Button,
   Combobox,
   EmptyState,
-  toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/shared/lib/cn';
@@ -55,50 +54,36 @@ import {
 import { WizardModeProvider } from '../components/WizardModeContext';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import {
-  resolveStepStatus,
+  computeStepStatus,
   type StepStatusInputs,
 } from '../lib/step-status';
 import { writeDraft } from '../lib/wizard-draft';
 import {
-  useAdmissionMergeSplitRules,
+  useCommitteeBindings,
   useElectronicDeclaration,
-  useExamDateConfig,
-  useWizardStepStatuses,
-  useTotalScoreConfigs,
 } from '../api/admission-setup.queries';
+import { useExamScheduleAggregate } from '../api/examSchedule.queries';
+import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
+import { buildCommitteeBindingsSnapshot } from '../lib/step-status';
 import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from './ApplicationSettingsPage';
-import { ApplicationStatusPage } from './ApplicationStatusPage';
-import { AgeRulesPage } from './AgeRulesPage';
 import { FeesPage } from './FeesPage';
 import { ExamsManagementPage } from './ExamsManagementPage';
 import { CommitteesManagementPage } from './CommitteesManagementPage';
-import { CommitteeMergeSplitPage } from './CommitteeMergeSplitPage';
-import { ScoreThresholdsPage } from './ScoreThresholdsPage';
-import { ExamDatesPage } from './ExamDatesPage';
-import { DateCommitteeBindingPage } from './DateCommitteeBindingPage';
-import { TotalScorePage } from './TotalScorePage';
 import { NotificationsStepPage } from './NotificationsStepPage';
 import { ElectronicDeclarationPage } from './ElectronicDeclarationPage';
 import { WizardReviewPage } from './WizardReviewPage';
 
-const REVIEW_KEY = 'review';
+const REVIEW_KEY = 'review' as const;
 type WizardStepKey = AdmissionSetupStepKey | typeof REVIEW_KEY;
 
-/* The renderer map mirrors ADMISSION_SETUP_STEPS — adding a 15th step is
- * one entry here plus the config append. */
+/* The renderer map mirrors ADMISSION_SETUP_STEPS — adding a step is one
+ * entry here plus the config append. */
 const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   application_settings: () => <ApplicationSettingsPage />,
-  application_status: () => <ApplicationStatusPage />,
-  age_rules: () => <AgeRulesPage />,
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,
-  committee_merge_split: () => <CommitteeMergeSplitPage />,
-  score_thresholds: () => <ScoreThresholdsPage />,
-  exam_dates: () => <ExamDatesPage />,
-  date_committee_binding: () => <DateCommitteeBindingPage />,
-  total_score: () => <TotalScorePage />,
   notifications: () => <NotificationsStepPage />,
   electronic_declaration: () => <ElectronicDeclarationPage />,
 };
@@ -122,17 +107,28 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     [orderedSteps],
   );
 
-  const activeKey = (stepKey as WizardStepKey | undefined) ?? orderedSteps[0].key;
+  const activeKey = (stepKey as WizardStepKey | undefined) ?? orderedSteps[0]!.key;
   const isReview = activeKey === REVIEW_KEY;
 
   const cycleId = cycleCtx.cycle?.id ?? null;
   const categoriesQuery = useCategoriesAdmin();
-  const committeesQuery = useCommittees(cycleId ? { cycleId } : {});
-  const mergeSplitQuery = useAdmissionMergeSplitRules(cycleId);
-  const examDatesQuery = useExamDateConfig(cycleId);
-  const totalScoreQuery = useTotalScoreConfigs(cycleId);
+  const committeesQuery = useCommittees();
+  const examScheduleAggregateQuery = useExamScheduleAggregate(cycleId);
   const declarationQuery = useElectronicDeclaration(cycleId);
-  const stepStatusesQuery = useWizardStepStatuses(cycleId);
+  const rosterQuery = useCommitteeBindings(cycleId, null);
+  const cycleBindingsQuery = useCycleCommitteeBindings(cycleId);
+  const committeeBindingsSnapshot =
+    cycleId &&
+    examScheduleAggregateQuery.data &&
+    rosterQuery.data &&
+    cycleBindingsQuery.data
+      ? buildCommitteeBindingsSnapshot(
+          rosterQuery.data,
+          cycleBindingsQuery.data,
+          cycleId,
+          examScheduleAggregateQuery.data.activeCategoryIds,
+        )
+      : null;
 
   /* Persist the wizard pointer on every step change so refresh / re-entry
    * lands on the same step. Skip when no cycle is selected. */
@@ -150,24 +146,22 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   }
 
   if (!validKeys.includes(activeKey)) {
-    return <Navigate to={ROUTES.admin.admissionSetup.wizard(orderedSteps[0].key)} replace />;
+    return <Navigate to={ROUTES.admin.admissionSetup.wizard(orderedSteps[0]!.key)} replace />;
   }
 
   const statusInputs: StepStatusInputs = {
     cycle: cycleCtx.cycle,
     categories: categoriesQuery.data ?? [],
     committees: committeesQuery.data ?? [],
-    mergeSplitRules: mergeSplitQuery.data ?? [],
-    examDateConfig: examDatesQuery.data ?? null,
-    totalScoreConfigs: totalScoreQuery.data ?? [],
     declaration: declarationQuery.data ?? null,
+    committeeBindings: committeeBindingsSnapshot,
   };
 
   const stepperItems: VerticalStepDescriptor[] = orderedSteps.map((s) => ({
     key: s.key,
     label: s.labelAr,
     order: s.order,
-    state: deriveStepperState(s.key, activeKey, statusInputs, stepStatusesQuery.data ?? []),
+    state: deriveStepperState(s.key, activeKey, statusInputs),
   }));
   /* Append the review step as the (N+1)th item. */
   stepperItems.push({
@@ -189,11 +183,11 @@ export function AdmissionSetupWizardPage(): JSX.Element {
 
   const handlePrev = (): void => {
     if (isReview) {
-      goTo(orderedSteps[ADMISSION_SETUP_TOTAL_STEPS - 1].key);
+      goTo(orderedSteps[ADMISSION_SETUP_TOTAL_STEPS - 1]!.key);
       return;
     }
     if (isFirst) return;
-    goTo(orderedSteps[activeIndex - 1].key);
+    goTo(orderedSteps[activeIndex - 1]!.key);
   };
 
   const handleNext = (): void => {
@@ -202,16 +196,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
       goTo(REVIEW_KEY);
       return;
     }
-    goTo(orderedSteps[activeIndex + 1].key);
-  };
-
-  const handleSaveDraft = (): void => {
-    if (!cycleId) {
-      toast('اختر دورة قبل حفظ المسودة', 'warning');
-      return;
-    }
-    writeDraft(cycleId, activeKey);
-    toast('تم حفظ المسودة — يمكنك الاستئناف لاحقاً', 'success');
+    goTo(orderedSteps[activeIndex + 1]!.key);
   };
 
   const activeStep = isReview ? null : orderedSteps.find((s) => s.key === activeKey);
@@ -235,7 +220,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
               to={ROUTES.admin.admissionSetup.index}
               className="inline-flex items-center gap-1 text-ink-500 hover:text-ink-900"
             >
-              <ArrowRight size={12} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
+              <ArrowRight size={12} strokeWidth={1.75} />
               لوحة التقديم
             </Link>
             <span aria-hidden className="text-ink-300">·</span>
@@ -287,7 +272,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
            * the field is always readable, never visually trapped under it. */}
           <div className="min-w-0 flex-1">
             {isReview ? (
-              <WizardReviewPage statusInputs={statusInputs} serverStatuses={stepStatusesQuery.data ?? []} />
+              <WizardReviewPage statusInputs={statusInputs} />
             ) : (
               STEP_RENDERERS[activeKey as AdmissionSetupStepKey]()
             )}
@@ -307,27 +292,16 @@ export function AdmissionSetupWizardPage(): JSX.Element {
               variant="ghost"
               onClick={handlePrev}
               disabled={isFirst && !isReview}
-              leadingIcon={
-                <ArrowRight size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
-              }
+              leadingIcon={<ArrowRight size={14} strokeWidth={1.75} />}
             >
               السابق
             </Button>
             <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                onClick={handleSaveDraft}
-                leadingIcon={<Save size={14} strokeWidth={1.75} />}
-              >
-                حفظ كمسودة
-              </Button>
               {!isReview && (
                 <Button
                   variant="primary"
                   onClick={handleNext}
-                  trailingIcon={
-                    <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
-                  }
+                  trailingIcon={<ArrowLeft size={14} strokeWidth={1.75} />}
                 >
                   {isFinalConfigStep ? 'إرسال للاعتماد' : 'التالي'}
                 </Button>
@@ -350,10 +324,9 @@ function deriveStepperState(
   key: AdmissionSetupStepKey,
   activeKey: WizardStepKey,
   inputs: StepStatusInputs,
-  serverStatuses: readonly import('../types').WizardStepStatusRow[],
 ): VerticalStepState {
   if (activeKey === key) return 'current';
-  const status = resolveStepStatus(key, serverStatuses, inputs);
+  const status = computeStepStatus(key, inputs);
   if (status === 'complete') return 'complete';
   if (status === 'in_progress') return 'in_progress';
   return 'upcoming';

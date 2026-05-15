@@ -1,10 +1,11 @@
 /**
  * CycleNewPage — minimal create form for an admission cycle.
  *
- * Surfaces: name, year, openingDate, closingDate, status.
+ * Surfaces: name, year, status.
+ * openDate/closeDate default to Jan 1 / Dec 31 of the selected year and
+ * are configured later from CycleDetailPage / the admission-setup wizard.
  * Every other AdmissionCycle field (cohort, fees, capacity, openCategories, …)
- * is filled in by the service with sensible defaults. Configure them
- * afterwards from CycleDetailPage / the admission-setup wizard.
+ * is filled in by the service with sensible defaults.
  *
  * Submit behaviour is status-driven:
  *  • status = draft  → "حفظ كمسودة"   — straight create.
@@ -24,7 +25,6 @@ import {
   AlertDialog,
   Button,
   Card,
-  DatePicker,
   Input,
   PageHeader,
   Select,
@@ -38,28 +38,15 @@ import type { AdmissionCycle } from '@/shared/types/domain';
 
 type CycleFormStatus = 'draft' | 'active' | 'closed';
 
-const cycleSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(3, 'اسم الدورة يجب ألا يقل عن 3 أحرف')
-      .max(80, 'اسم الدورة يجب ألا يزيد عن 80 حرفًا'),
-    year: z.number().int(),
-    openingDate: z.date({
-      required_error: 'تاريخ الفتح مطلوب',
-      invalid_type_error: 'تاريخ الفتح مطلوب',
-    }),
-    closingDate: z.date({
-      required_error: 'تاريخ الإغلاق مطلوب',
-      invalid_type_error: 'تاريخ الإغلاق مطلوب',
-    }),
-    status: z.enum(['draft', 'active', 'closed']),
-  })
-  .refine((v) => v.closingDate.getTime() >= v.openingDate.getTime(), {
-    message: 'تاريخ الإغلاق يجب أن يكون بعد تاريخ الفتح',
-    path: ['closingDate'],
-  });
+const cycleSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(3, 'اسم الدورة يجب ألا يقل عن 3 أحرف')
+    .max(80, 'اسم الدورة يجب ألا يزيد عن 80 حرفًا'),
+  year: z.number().int(),
+  status: z.enum(['draft', 'active', 'closed']),
+});
 
 type CycleValues = z.infer<typeof cycleSchema>;
 
@@ -83,12 +70,16 @@ const SUCCESS_TOAST: Record<CycleFormStatus, string> = {
 
 function buildPayload(values: CycleValues): Omit<AdmissionCycle, 'id' | 'applicantCount'> {
   const nowIso = new Date().toISOString();
+  /* Dates are intentionally left as year-bookends here — admins configure
+   * the real application window from CycleDetailPage / admission-setup. */
+  const openIso = new Date(Date.UTC(values.year, 0, 1)).toISOString();
+  const closeIso = new Date(Date.UTC(values.year, 11, 31)).toISOString();
   return {
     nameAr: values.name.trim(),
     cohort: 'male',
     year: values.year,
-    openDate: values.openingDate.toISOString(),
-    closeDate: values.closingDate.toISOString(),
+    openDate: openIso,
+    closeDate: closeIso,
     expectedCapacity: 0,
     status: values.status,
     openCategories: {},
@@ -123,8 +114,6 @@ export function CycleNewPage(): JSX.Element {
     defaultValues: {
       name: '',
       year: currentYear,
-      openingDate: undefined,
-      closingDate: undefined,
       status: 'draft',
     },
   });
@@ -232,40 +221,6 @@ export function CycleNewPage(): JSX.Element {
                   error={errors.status?.message}
                 />
               )}
-            />
-
-            <Controller
-              control={control}
-              name="openingDate"
-              render={({ field }) => (
-                <DatePicker
-                  label="تاريخ الفتح"
-                  required
-                  value={field.value ?? null}
-                  onChange={(d) => field.onChange(d ?? undefined)}
-                  error={errors.openingDate?.message}
-                />
-              )}
-            />
-            <Controller
-              control={control}
-              name="closingDate"
-              render={({ field }) => {
-                const opening = watch('openingDate');
-                const minIso = opening
-                  ? opening.toISOString().slice(0, 10)
-                  : undefined;
-                return (
-                  <DatePicker
-                    label="تاريخ الإغلاق"
-                    required
-                    value={field.value ?? null}
-                    onChange={(d) => field.onChange(d ?? undefined)}
-                    min={minIso}
-                    error={errors.closingDate?.message}
-                  />
-                );
-              }}
             />
           </div>
 

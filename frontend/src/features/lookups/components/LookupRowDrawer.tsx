@@ -19,7 +19,6 @@ import {
   type FieldValues,
 } from 'react-hook-form';
 import { z } from 'zod';
-import { Wand2 } from 'lucide-react';
 import {
   Button,
   Drawer,
@@ -75,18 +74,17 @@ export function LookupRowDrawer<K extends LookupKey>({
     register,
     handleSubmit,
     reset,
-    setValue,
     formState: { errors },
   } = methods;
 
   useEffect(() => { reset(defaults); }, [defaults, reset]);
 
-  const suggestCode = (): void => {
-    setValue('code', nextCodeFor(lookupKey), { shouldDirty: true });
-  };
-
   const submit = handleSubmit((values) => {
-    onSubmit(values as LookupRow<K>);
+    const next = { ...values } as Record<string, unknown>;
+    if (!isEdit && (!next.code || String(next.code).trim() === '')) {
+      next.code = nextCodeFor(lookupKey);
+    }
+    onSubmit(next as unknown as LookupRow<K>);
   });
 
   return (
@@ -95,32 +93,11 @@ export function LookupRowDrawer<K extends LookupKey>({
       onClose={onClose}
       size="md"
       title={isEdit ? `تعديل · ${meta.label}` : `إضافة · ${meta.label}`}
-      subtitle={`الكود يبدأ بالبادئة ${meta.codePrefix}`}
     >
       <FormProvider {...methods}>
         <form onSubmit={submit} className="flex h-full flex-col">
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 grid grid-cols-2 gap-3">
-                <Input
-                  label="الكود"
-                  required
-                  error={(errors.code as { message?: string } | undefined)?.message}
-                  {...register('code')}
-                />
-                <div className="flex items-end pb-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    leadingIcon={<Wand2 size={14} />}
-                    onClick={suggestCode}
-                    disabled={isEdit}
-                  >
-                    توليد كود تلقائي
-                  </Button>
-                </div>
-              </div>
               <Input
                 label="الاسم بالعربية"
                 required
@@ -139,7 +116,7 @@ export function LookupRowDrawer<K extends LookupKey>({
                     <Switch
                       checked={Boolean(field.value)}
                       onCheckedChange={field.onChange}
-                      label="مفعّل"
+                      label="نشط"
                     />
                   )}
                 />
@@ -163,7 +140,7 @@ export function LookupRowDrawer<K extends LookupKey>({
 /* ─── Per-key form fields (read via context) ─────────────────────────── */
 
 function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
-  const { register, control, watch } = useFormContext();
+  const { register, control, watch, setValue } = useFormContext();
   const codeOfSelf = watch('code') as string | undefined;
 
   switch (lookupKey) {
@@ -292,7 +269,22 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
           )}
         />
       );
-    case 'applicant-categories':
+    case 'submission-types':
+      /* The only configurable knob is `metadata.gradingMode` — drives the
+       * downstream درجات/تقدير branch wherever applicant-categories points
+       * here. RHF dot-paths read straight into the metadata bag. */
+      return (
+        <Select
+          label="طريقة احتساب النتيجة"
+          options={[
+            { value: 'GRADES', label: 'درجات' },
+            { value: 'TAGDIR', label: 'تقدير' },
+          ]}
+          {...register('metadata.gradingMode')}
+        />
+      );
+    case 'applicant-categories': {
+      const categoryType = watch('type') as 'pre_university' | 'university' | undefined;
       return (
         <>
           <Select
@@ -312,8 +304,44 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
             ]}
             {...register('applicationMode')}
           />
+          <Controller
+            control={control}
+            name="type"
+            render={({ field }) => (
+              <Select
+                label="مرحلة الالتحاق"
+                options={[
+                  { value: 'pre_university', label: 'قبل جامعي' },
+                  { value: 'university',     label: 'جامعي' },
+                ]}
+                value={(field.value as string) ?? 'pre_university'}
+                onChange={(e) => {
+                  const next = e.target.value as 'pre_university' | 'university';
+                  field.onChange(next);
+                  /* Pre-University doesn't carry a faculty-selection shape;
+                   * University defaults to single. */
+                  if (next === 'pre_university') {
+                    setValue('facultySelectionType', null);
+                  } else if (!watch('facultySelectionType')) {
+                    setValue('facultySelectionType', 'single');
+                  }
+                }}
+              />
+            )}
+          />
+          {categoryType === 'university' && (
+            <Select
+              label="اختيار الكلية"
+              options={[
+                { value: 'single',   label: 'كلية واحدة' },
+                { value: 'multiple', label: 'كليات متعددة' },
+              ]}
+              {...register('facultySelectionType')}
+            />
+          )}
         </>
       );
+    }
     case 'nationalities-countries':
       return (
         <>
@@ -501,7 +529,7 @@ function ParentCodeSelect({ lookupKey, value, onChange, ignoreCode, onlyParents 
       onChange={(e) => onChange(e.currentTarget.value === '' ? null : e.currentTarget.value)}
       options={[
         { value: '', label: '— (جذر)' },
-        ...filtered.map((r) => ({ value: r.code, label: `${r.name} (${r.code})` })),
+        ...filtered.map((r) => ({ value: r.code, label: r.name })),
       ]}
     />
   );
@@ -530,7 +558,7 @@ function ForeignKeySelect({ lookupKey, label, value, onChange, allowEmpty }: For
       onChange={(e) => onChange(e.currentTarget.value)}
       options={[
         ...(allowEmpty ? [{ value: '', label: allowEmpty }] : []),
-        ...items.filter((i) => i.isActive).map((r) => ({ value: r.code, label: `${r.name} (${r.code})` })),
+        ...items.filter((i) => i.isActive).map((r) => ({ value: r.code, label: r.name })),
       ]}
     />
   );
@@ -546,15 +574,23 @@ function blankRow(key: LookupKey): Record<string, unknown> {
     case 'relationship-degree-tiers':
       return { ...base, degreeRange: '', maxDegree: 1 };
     case 'tests':
-      return { ...base, kind: 'written', order: 10, required: true };
+      return { ...base, kind: 'written', order: 1, required: true };
     case 'test-results':
       return { ...base, outcome: 'pass', tone: 'success' };
     case 'committees':
       return { ...base, kind: 'primary', chairTitle: '' };
     case 'specializations':
       return { ...base, facultyCode: '' };
+    case 'submission-types':
+      return { ...base, metadata: { gradingMode: 'GRADES' } };
     case 'applicant-categories':
-      return { ...base, genderScope: 'any', applicationMode: 'general' };
+      return {
+        ...base,
+        genderScope: 'any',
+        applicationMode: 'general',
+        type: 'pre_university',
+        facultySelectionType: null,
+      };
     case 'nationalities-countries':
       return { ...base, iso2: '', isArab: false };
     case 'governorates':

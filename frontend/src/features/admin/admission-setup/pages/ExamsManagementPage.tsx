@@ -1,23 +1,32 @@
 /**
- * Step 7 — إدارة الاختبارات.
- * Per-open-category exam plan editor — embeds ExamPlanEditor (Gap J)
- * with a category tab strip filtered to the cycle's open categories.
+ * إدارة الاختبارات — wizard step.
+ *
+ * Source of truth for active categories: the application_settings step's
+ * `ApplicantCategoryConfig` rows (joined via `useCategoryConfigs`). A
+ * category is "active" when `isActive === true` and the row is not
+ * soft-deleted. Switching tabs scopes the underlying `ExamPlanEditor`
+ * to a single `(cycleId, categoryId)` plan — persistence is unchanged.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Button,
   Card,
   EmptyState,
   PageHeader,
+  Tabs,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { ExamPlanEditor } from '@/features/admin/components/exams/ExamPlanEditor';
-import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
-import type { AdmissionCycle, ApplicantCategoryKey } from '@/shared/types/domain';
+import { APPLICANT_CATEGORY_KEYS, type AdmissionCycle, type ApplicantCategoryKey } from '@/shared/types/domain';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
+import { useCategoryConfigs } from '../api/applicationSettings.queries';
+
+function isApplicantCategoryKey(code: string): code is ApplicantCategoryKey {
+  return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(code);
+}
 
 export function ExamsManagementPage(): JSX.Element {
   const { cycle } = useAdmissionSetupCycle();
@@ -29,31 +38,35 @@ export function ExamsManagementPage(): JSX.Element {
 }
 
 function Body({ cycle }: { cycle: AdmissionCycle }): JSX.Element {
-  const { data: categories = [] } = useCategoriesAdmin();
-  const openKeys = useMemo(
+  const configsQuery = useCategoryConfigs();
+
+  const activeCategories = useMemo(
     () =>
-      Object.entries(cycle.openCategories ?? {})
-        .filter(([, c]) => c?.isOpen)
-        .map(([k]) => k as ApplicantCategoryKey),
-    [cycle.openCategories],
+      (configsQuery.data ?? [])
+        .filter((c) => c.isActive && isApplicantCategoryKey(c.categoryCode))
+        .map((c) => ({
+          key: c.categoryCode as ApplicantCategoryKey,
+          labelAr: c.categoryNameAr,
+        })),
+    [configsQuery.data],
   );
-  const openCategories = categories.filter((c) => openKeys.includes(c.key));
-  const [active, setActive] = useState<ApplicantCategoryKey | null>(openKeys[0] ?? null);
 
-  /* Re-anchor when the cycle changes its open set. */
-  useEffect(() => {
-    if (active && openKeys.includes(active)) return;
-    setActive(openKeys[0] ?? null);
-  }, [openKeys, active]);
+  const [active, setActive] = useState<ApplicantCategoryKey | null>(null);
+  const resolvedActive: ApplicantCategoryKey | null =
+    active && activeCategories.some((c) => c.key === active)
+      ? active
+      : (activeCategories[0]?.key ?? null);
 
-  if (openCategories.length === 0) {
+  if (activeCategories.length === 0) {
     return (
       <div className="flex flex-col gap-4">
-        <PageHeader title="إدارة الاختبارات" subtitle="ترتيب الاختبارات وإلزاميتها لكل فئة." />
+        <PageHeader
+          title="إدارة الاختبارات"
+          subtitle="حدّد ترتيب الاختبارات وإلزاميتها لكل فئة."
+        />
         <EmptyState
           variant="generic"
-          title="لا توجد فئات مفتوحة في هذه الدورة"
-          description="افتح فئات من خطوة إعدادات التقديم أولاً."
+          title="يرجى تفعيل فئة واحدة على الأقل من إعدادات التقديم"
           action={
             <Link to={ROUTES.admin.admissionSetup.applicationSettings} className="inline-flex">
               <Button variant="primary">إعدادات التقديم</Button>
@@ -66,30 +79,30 @@ function Body({ cycle }: { cycle: AdmissionCycle }): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="إدارة الاختبارات" subtitle="حدّد ترتيب الاختبارات وإلزاميتها لكل فئة." />
+      <PageHeader
+        title="إدارة الاختبارات"
+        subtitle="حدّد ترتيب الاختبارات وإلزاميتها لكل فئة."
+      />
       <Card>
-        <div className="grid gap-2 md:grid-cols-3">
-          {openCategories.map((cat) => (
-            <button
-              key={cat.key}
-              type="button"
-              onClick={() => setActive(cat.key)}
-              className={
-                'rounded-md border px-3 py-2 text-start text-sm transition-colors duration-fast ease-standard ' +
-                (active === cat.key
-                  ? 'border-teal-500 bg-teal-50 text-teal-700'
-                  : 'border-border-default bg-surface-card text-ink-700 hover:bg-ink-50')
-              }
-            >
-              {cat.labelAr}
-            </button>
+        <Tabs
+          value={resolvedActive ?? activeCategories[0]!.key}
+          onValueChange={(next) => setActive(next as ApplicantCategoryKey)}
+        >
+          <Tabs.List aria-label="فئات التقديم النشطة">
+            {activeCategories.map((cat) => (
+              <Tabs.Tab key={cat.key} value={cat.key}>
+                {cat.labelAr}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+          {activeCategories.map((cat) => (
+            <Tabs.Panel key={cat.key} value={cat.key}>
+              <div className="pt-2">
+                <ExamPlanEditor cycleId={cycle.id} categoryId={cat.key} />
+              </div>
+            </Tabs.Panel>
           ))}
-        </div>
-        {active && (
-          <div className="mt-4">
-            <ExamPlanEditor cycleId={cycle.id} categoryId={active} />
-          </div>
-        )}
+        </Tabs>
       </Card>
     </div>
   );

@@ -1,38 +1,65 @@
 /**
- * Role definitions seed — Gap C (admin-gaps).
+ * Cloud RBAC seed — admin app + applicant portal only. Operational
+ * on-prem roles (medical_admin, medical_doctor, investigator, board_admin,
+ * exams_admin, biometric_user, records_clerk) are intentionally absent;
+ * they belong to a separate on-prem RBAC surface.
  *
- * Mirrors the 11-role legacy `ROLE_DEFINITIONS` as `isSystem: true` rows,
- * plus the new `finance_review` role called out by the meeting notes.
- * System rows lock label/permissions; only `scope` is editable.
+ * The static `ROLE_DEFINITIONS` table in features/auth/rbac.ts retains
+ * the full 11-role union so demo login can still pose as on-prem roles
+ * (they auth into the on-prem chrome). That's the legacy fallback
+ * `buildAuthUser` reaches when no seed row matches the requested key.
  */
 
 import type { RoleDefinitionRow } from '@/shared/types/domain';
 
-/* shared/ cannot import from features/, so the 11 system rows are
- * inlined here. Keep in sync with features/auth/rbac.ts ROLE_DEFINITIONS. */
-
 const now = new Date().toISOString();
 
-const SYSTEM_ROLE_BLUEPRINT: ReadonlyArray<{
+interface CloudRoleBlueprint {
   key: string;
   labelAr: string;
+  labelEn?: string;
   apps: RoleDefinitionRow['apps'];
   permissions: string[];
-}> = [
-  { key: 'super_admin',     labelAr: 'مدير النظام الرئيسي', apps: ['admin', 'applicant', 'committee', 'board', 'investigations', 'medical', 'barcode', 'biometric', 'exams', 'architecture'], permissions: ['*'] },
-  { key: 'committee_admin', labelAr: 'مدير لجنة قبول',      apps: ['admin', 'committee', 'barcode', 'biometric'], permissions: ['applicants:view', 'applicants:edit', 'applicants:transition', 'committees:manage', 'barcode:print', 'biometric:verify', 'workflows:read', 'workflows:write'] },
-  { key: 'committee_user',  labelAr: 'موظف لجنة قبول',      apps: ['committee', 'barcode', 'biometric'], permissions: ['applicants:view', 'barcode:print', 'biometric:verify'] },
-  { key: 'medical_admin',   labelAr: 'مدير القومسيون الطبي', apps: ['medical', 'barcode', 'biometric'], permissions: ['medical:manage', 'results:enter', 'biometric:verify'] },
-  { key: 'medical_doctor',  labelAr: 'طبيب عيادة',           apps: ['medical'], permissions: ['medical:examine', 'results:enter'] },
-  { key: 'investigator',    labelAr: 'محقق',                  apps: ['investigations'], permissions: ['investigations:view', 'investigations:edit'] },
-  { key: 'board_admin',     labelAr: 'أمين سر الهيئة',        apps: ['board'], permissions: ['board:manage'] },
-  { key: 'exams_admin',     labelAr: 'مدير الاختبارات',        apps: ['exams'], permissions: ['exams:manage', 'questions:manage', 'results:view'] },
-  { key: 'biometric_user',  labelAr: 'مستخدم بوابة الأمن',     apps: ['biometric'], permissions: ['biometric:verify'] },
-  { key: 'records_clerk',   labelAr: 'مدخل نتائج',            apps: ['medical', 'exams'], permissions: ['results:enter'] },
-  { key: 'applicant',       labelAr: 'متقدم',                 apps: ['applicant'], permissions: ['applicant:view', 'applicant:apply'] },
+}
+
+/* Kept-and-migrated roles. Cloud-only or cloud-mixed; on-prem-only roles
+ * (medical/investigator/board/exams/biometric/records_clerk and their
+ * sub-variants) are excluded — see ROLES_REMOVED_FROM_CLOUD_SEED below. */
+const CLOUD_ROLE_BLUEPRINT: ReadonlyArray<CloudRoleBlueprint> = [
+  {
+    key: 'super_admin',
+    labelAr: 'مدير النظام الرئيسي',
+    apps: ['admin', 'applicant', 'architecture'],
+    permissions: ['*'],
+  },
+  {
+    key: 'committee_admin',
+    labelAr: 'مدير لجنة قبول',
+    apps: ['admin'],
+    /* Migrated from legacy. On-prem perms (committees:manage, barcode:print,
+     * biometric:verify, workflows:read/write) stripped — they govern on-prem
+     * modules and are managed by the on-prem RBAC. */
+    permissions: ['applicants:view', 'applicants:edit', 'applicants:transition'],
+  },
+  {
+    key: 'committee_user',
+    labelAr: 'موظف لجنة قبول',
+    apps: ['admin'],
+    /* Migrated from legacy. barcode:print and biometric:verify stripped. */
+    permissions: ['applicants:view'],
+  },
+  {
+    key: 'applicant',
+    labelAr: 'متقدم',
+    apps: ['applicant'],
+    /* The applicant role is auto-assigned at portal sign-up; admins don't
+     * edit it from the roles screen (filtered out by RolesPage). Permissions
+     * here drive the applicant portal itself, not the cloud matrix. */
+    permissions: ['applicant:view', 'applicant:apply'],
+  },
 ];
 
-const systemRows: RoleDefinitionRow[] = SYSTEM_ROLE_BLUEPRINT.map((b) => ({
+const systemRows: RoleDefinitionRow[] = CLOUD_ROLE_BLUEPRINT.map((b) => ({
   id: `ROLE-${b.key.toUpperCase()}`,
   key: b.key,
   labelAr: b.labelAr,
@@ -49,7 +76,9 @@ const financeReview: RoleDefinitionRow = {
   labelAr: 'مراجع مالي',
   labelEn: 'Finance Review',
   isSystem: true,
-  permissions: ['payments:review', 'payments:refund_eligibility', 'reports:view'],
+  /* Migrated from ['payments:review', 'payments:refund_eligibility',
+   * 'reports:view']. Refund-eligibility de-duped into approve. */
+  permissions: ['applicant_payments:approve', 'dashboard:view'],
   apps: ['admin'],
   createdAt: now,
   updatedAt: now,
@@ -57,61 +86,24 @@ const financeReview: RoleDefinitionRow = {
 
 export const ROLE_DEFINITION_SEED: RoleDefinitionRow[] = [...systemRows, financeReview];
 
-/* ── Permission matrix taxonomy — drives the <PermissionMatrix> UI ───── */
-
-export const PERMISSION_MODULES = [
-  'applicants',
-  'committees',
-  'medical',
-  'investigations',
-  'board',
-  'exams',
-  'questions',
-  'biometric',
-  'barcode',
-  'workflows',
-  'reports',
-  'audit',
-  'settings',
-  'users',
-  'roles',
-  'lookups',
-  'notifications',
-  'payments',
+/**
+ * On-prem-only roles dropped from the cloud seed. Surfaced once on boot
+ * in dev so it's obvious where they went — they're managed by the
+ * separate on-prem RBAC, not this cloud plane.
+ */
+export const ROLES_REMOVED_FROM_CLOUD_SEED = [
+  'medical_admin',
+  'medical_doctor',
+  'investigator',
+  'board_admin',
+  'exams_admin',
+  'biometric_user',
+  'records_clerk',
 ] as const;
 
-export type PermissionModule = (typeof PERMISSION_MODULES)[number];
-
-export const PERMISSION_ACTIONS = ['view', 'edit', 'create', 'delete', 'manage', 'transition', 'review'] as const;
-export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
-
-export const MODULE_LABELS_AR: Record<PermissionModule, string> = {
-  applicants: 'المتقدمون',
-  committees: 'اللجان',
-  medical: 'القومسيون الطبي',
-  investigations: 'التحريات',
-  board: 'الهيئة',
-  exams: 'الاختبارات',
-  questions: 'بنك الأسئلة',
-  biometric: 'البوابة الأمنية',
-  barcode: 'الباركود',
-  workflows: 'سير العمل',
-  reports: 'التقارير',
-  audit: 'سجل النشاط',
-  settings: 'الإعدادات',
-  users: 'المستخدمون',
-  roles: 'الأدوار',
-  lookups: 'الأكواد المرجعية',
-  notifications: 'الإشعارات',
-  payments: 'المدفوعات',
-};
-
-export const ACTION_LABELS_AR: Record<PermissionAction, string> = {
-  view: 'عرض',
-  edit: 'تعديل',
-  create: 'إنشاء',
-  delete: 'حذف',
-  manage: 'إدارة',
-  transition: 'تغيير الحالة',
-  review: 'اعتماد',
-};
+if (import.meta.env.DEV) {
+  for (const name of ROLES_REMOVED_FROM_CLOUD_SEED) {
+    // eslint-disable-next-line no-console
+    console.info(`[cloud-rbac] Role ${name} removed — belongs to on-prem RBAC.`);
+  }
+}

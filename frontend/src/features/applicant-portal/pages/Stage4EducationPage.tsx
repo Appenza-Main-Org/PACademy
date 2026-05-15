@@ -50,10 +50,7 @@ export function Stage4EducationPage(): JSX.Element {
   const requiresBarLicense =
     selectedCategory?.conditions.requiredQualification === 'bachelor_law';
   const requiresSportFields =
-    selectedCategoryKey === 'institute_officers_training' ||
-    selectedCategoryKey === 'institute_traffic' ||
-    selectedCategoryKey === 'institute_guarding' ||
-    selectedCategoryKey === 'special_units';
+    selectedCategoryKey === 'physical_education_bachelor';
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, getValues, watch, control } = useForm<Stage4Values>({
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver returns any; see src/shared/lib/zod-resolver.ts header.

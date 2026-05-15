@@ -1,10 +1,10 @@
 /**
- * 14-step Admission Setup config — the single source of truth.
+ * Admission Setup config — the single source of truth for the wizard.
  *
  * Consumed by:
  *   • <AdmissionSetupSidebar>  — renders submenu entries in `order` ascending
  *   • routes.tsx               — registers one route per entry
- *   • <AdmissionSetupBreadcrumbs> + <StepHeader> — "الخطوة N من ١٤" badge
+ *   • <AdmissionSetupBreadcrumbs> + <StepHeader> — "الخطوة N من M" badge
  *   • <AdmissionSetupIndexPage> — launcher that picks an existing cycle
  *
  * Cycle metadata (name / year / dates) is NOT a wizard step — admins
@@ -12,41 +12,17 @@
  * selecting one of those already-configured cycles. The wizard only
  * covers per-cycle admission settings.
  *
- * Adding a 15th step is a single append here plus a route segment in
+ * Adding a new step is a single append here plus a route segment in
  * `ROUTES.admin.admissionSetup` and a page file. No Sidebar / routes.tsx /
  * shell changes.
- *
- * ─── Audit notes (composition map) ────────────────────────────────────
- * Step  Compose target                                       Strategy
- *  1    CategoryConditionBuilder (Gap G)                     Compose
- *  2    CycleDetailPage status workflow (Gap F)              Compose
- *  3    CategoryConditionBuilder age section (Gap G)         Compose
- *  4    CategoryConditionBuilder marital section (Gap G)     Compose
- *  5    Cycle.fees + FawryConfigCard inside CycleDetail (K)  Compose
- *  6    ExamPlanEditor (Gap J)                               Compose
- *  7    CommitteeListPage / CommitteeDetailPage (Gap H)      Compose
- *  8    —                                                    NEW
- *  9    Committee.scoreCriteria type exists, no UI shipped   NEW
- * 10    —                                                    NEW
- * 11    Committee.availableDates / capacityPerDay (Gap H)    Compose
- * 12    —                                                    NEW
- * 13    NotificationsPage (Gap L)                            Compose
- * 14    —                                                    NEW
- * ──────────────────────────────────────────────────────────────────────
  */
 
 import {
-  CalendarRange,
   ClipboardCheck,
   ClipboardSignature,
   FileSignature,
-  Gauge,
-  Link2,
   Settings2,
   ShieldCheck,
-  Sigma,
-  Split,
-  UserCog,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
@@ -56,7 +32,7 @@ import type { AdmissionSetupStepKey } from './types';
 
 export interface AdmissionSetupStep {
   key: AdmissionSetupStepKey;
-  /** 1..14 — drives sidebar/breadcrumb sort. */
+  /** 1..N — drives sidebar/breadcrumb sort. */
   order: number;
   labelAr: string;
   /** URL segment after `/admin/admission-setup/`. */
@@ -89,33 +65,8 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     subtitleAr: 'الفئات المفتوحة، السعة، شروط القبول الموسّعة.',
   },
   {
-    key: 'application_status',
-    order: 2,
-    labelAr: 'حالة التقديم',
-    routeSegment: 'application-status',
-    icon: ClipboardCheck,
-    permission: 'admission-setup:read',
-    reuses: 'features/admin/pages/CycleDetailPage.tsx',
-    isImplemented: true,
-    subtitleAr: 'تفعيل، تمديد، إغلاق، أرشفة الدورة.',
-  },
-  {
-    key: 'age_rules',
-    order: 3,
-    labelAr: 'شروط السن',
-    routeSegment: 'age-rules',
-    icon: UserCog,
-    permission: 'admission-setup:read',
-    reuses: 'features/admin/components/categories/CategoryConditionBuilder.tsx',
-    isImplemented: true,
-    subtitleAr: 'الحد الأدنى والأقصى للسن لكل فئة، مع تاريخ احتساب السن.',
-  },
-  /* Step "الحالة الاجتماعية" was removed when MARITAL_STATUSES dropped
-   * out of the lookup catalogue. Marital constraint editing now lives
-   * inline on the category form. */
-  {
     key: 'fees',
-    order: 5,
+    order: 2,
     labelAr: 'الرسوم المالية',
     routeSegment: 'fees',
     icon: Wallet,
@@ -126,7 +77,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'exams',
-    order: 6,
+    order: 3,
     labelAr: 'إدارة الاختبارات',
     routeSegment: 'exams',
     icon: ClipboardSignature,
@@ -137,69 +88,18 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'committees',
-    order: 7,
-    labelAr: 'إدارة اللجان',
+    order: 4,
+    labelAr: 'إدارة مواعيد الاختبارات واللجان',
     routeSegment: 'committees',
     icon: ShieldCheck,
     permission: 'admission-setup:read',
     reuses: 'features/committees/pages/CommitteeListPage.tsx',
     isImplemented: true,
-    subtitleAr: 'إنشاء اللجان وتعيين الرؤساء والأعضاء.',
-  },
-  {
-    key: 'committee_merge_split',
-    order: 8,
-    labelAr: 'دمج وفصل اللجان',
-    routeSegment: 'committee-merge-split',
-    icon: Split,
-    permission: 'admission-setup:read',
-    isImplemented: true,
-    subtitleAr: 'قواعد دمج عدة لجان أو فصل لجنة إلى عدة لجان.',
-  },
-  {
-    key: 'score_thresholds',
-    order: 9,
-    labelAr: 'درجات القبول',
-    routeSegment: 'score-thresholds',
-    icon: Gauge,
-    permission: 'admission-setup:read',
-    isImplemented: true,
-    subtitleAr: 'الحد الأدنى والأقصى لقبول كل لجنة.',
-  },
-  {
-    key: 'exam_dates',
-    order: 10,
-    labelAr: 'مواعيد الاختبارات',
-    routeSegment: 'exam-dates',
-    icon: CalendarRange,
-    permission: 'admission-setup:read',
-    isImplemented: true,
-    subtitleAr: 'أول ميعاد متاح، أيام التقديم، أيام الإجازة.',
-  },
-  {
-    key: 'date_committee_binding',
-    order: 11,
-    labelAr: 'ربط المواعيد باللجان',
-    routeSegment: 'date-committee-binding',
-    icon: Link2,
-    permission: 'admission-setup:read',
-    reuses: 'features/committees/pages/CommitteeDetailPage.tsx',
-    isImplemented: true,
-    subtitleAr: 'تخصيص الأيام والسعة اليومية لكل لجنة.',
-  },
-  {
-    key: 'total_score',
-    order: 12,
-    labelAr: 'المجموع الكلي',
-    routeSegment: 'total-score',
-    icon: Sigma,
-    permission: 'admission-setup:read',
-    isImplemented: true,
-    subtitleAr: 'وزن كل اختبار في المجموع النهائي لكل فئة.',
+    subtitleAr: 'إنشاء اللجان وتعيين الرؤساء والأعضاء وربطها بمواعيد الاختبارات.',
   },
   {
     key: 'notifications',
-    order: 13,
+    order: 5,
     labelAr: 'التنبيهات',
     routeSegment: 'notifications',
     icon: ClipboardCheck,
@@ -210,17 +110,17 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'electronic_declaration',
-    order: 14,
+    order: 6,
     labelAr: 'الإقرار الإلكتروني',
     routeSegment: 'electronic-declaration',
     icon: FileSignature,
     permission: 'admission-setup:read',
     isImplemented: true,
-    subtitleAr: 'نص الإقرار المعروض على المتقدم في مرحلة الطباعة.',
+    subtitleAr: 'مستند الإقرار (PDF) المعروض على المتقدم في مرحلة الطباعة.',
   },
 ];
 
-/** Cheap O(15) lookup by key. */
+/** Cheap O(N) lookup by key. */
 export function getStepByKey(key: AdmissionSetupStepKey): AdmissionSetupStep {
   const step = ADMISSION_SETUP_STEPS.find((s) => s.key === key);
   if (!step) throw new Error(`Unknown admission-setup step: ${key as string}`);

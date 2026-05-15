@@ -24,10 +24,14 @@ export const ACADEMY_EXAMS: AcademyExam[] = [
 ];
 
 /* Default exam plan — applied to every (cycle, category) pair on first
- * read. Real backend stores these per (cycleId, categoryId). */
+ * read. Real backend stores these per (cycleId, categoryId).
+ *
+ * Order uses a natural 1, 2, 3… sequence. The editor accepts any
+ * positive integer (no upper bound) so admins can freely renumber or
+ * leave gaps; this seed is just a sensible default. */
 export const DEFAULT_EXAM_PLAN_ENTRIES = ACADEMY_EXAMS.filter((e) => e.isQualifying).map((e, idx) => ({
   examId: e.id,
-  order: (idx + 1) * 10,
+  order: idx + 1,
   isRequired: true,
 }));
 

@@ -1,10 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { committeeService, type CommitteePayload } from './committee.service';
-import type { Committee, CommitteeStatus } from '@/shared/types/domain';
+import type {
+  ApplicantCategoryKey,
+  Committee,
+  CommitteeStatus,
+} from '@/shared/types/domain';
+
+export const scheduleKeys = {
+  all: ['committee-schedule'] as const,
+  byCategory: (key: ApplicantCategoryKey) =>
+    [...scheduleKeys.all, 'by-category', key] as const,
+};
 
 export const committeeKeys = {
   all: ['committees'] as const,
-  list: (opts?: { includeDeleted?: boolean; cycleId?: string }) =>
+  list: (opts?: { includeDeleted?: boolean }) =>
     [...committeeKeys.all, 'list', opts ?? null] as const,
   detail: (id: string) => [...committeeKeys.all, 'detail', id] as const,
   queue: (id: string) => [...committeeKeys.all, 'queue', id] as const,
@@ -16,14 +26,7 @@ export const committeeKeys = {
   assigned: (id: string) => [...committeeKeys.all, 'assigned', id] as const,
 };
 
-/**
- * Lists committees. When `cycleId` is provided, hits the real backend
- * (`GET /admin/committees?cycleId=...`). Without cycleId, falls back to
- * the legacy mock state — used by the committees overview page.
- */
-export const useCommittees = (
-  opts: { includeDeleted?: boolean; cycleId?: string } = {},
-) =>
+export const useCommittees = (opts: { includeDeleted?: boolean } = {}) =>
   useQuery({ queryKey: committeeKeys.list(opts), queryFn: () => committeeService.list(opts) });
 
 export const useCommitteeDependencies = (id: string | null) =>
@@ -75,7 +78,7 @@ export const useCreateCommittee = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CommitteePayload) => committeeService.create(payload),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.list() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.list() }),
   });
 };
 
@@ -84,7 +87,7 @@ export const useEnterResult = (committeeId: string) => {
   return useMutation({
     mutationFn: (payload: Parameters<typeof committeeService.enterResult>[1]) =>
       committeeService.enterResult(committeeId, payload),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
   });
 };
 
@@ -92,7 +95,7 @@ export const useApproveResults = (committeeId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (resultIds: string[]) => committeeService.approveResults(committeeId, resultIds),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
   });
 };
 
@@ -101,7 +104,7 @@ export const useRejectResult = (committeeId: string) => {
   return useMutation({
     mutationFn: ({ resultId, reason }: { resultId: string; reason: string }) =>
       committeeService.rejectResult(resultId, reason),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
   });
 };
 
@@ -109,7 +112,7 @@ export const useBulkUploadResults = (committeeId: string) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (rows: Record<string, unknown>[]) => committeeService.bulkUploadResults(committeeId, rows),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.results(committeeId) }),
   });
 };
 
@@ -118,9 +121,43 @@ export const useCommitteeUpdate = () => {
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Committee> }) =>
       committeeService.update(id, patch),
-    onSuccess: (committee) => {
-      void qc.invalidateQueries({ queryKey: committeeKeys.list() });
-      void qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
+    onMutate: async ({ id, patch }) => {
+      /* Optimistic — apply the patch to every cached committee shape
+       * before the mutation resolves so the row in the list and the
+       * detail card reflect the new values instantly. Rollback on
+       * error from the captured snapshot. */
+      await qc.cancelQueries({ queryKey: committeeKeys.all });
+      const listSnapshots = qc.getQueriesData<Committee[]>({
+        queryKey: committeeKeys.all,
+      });
+      const detailSnapshot = qc.getQueryData<Committee>(committeeKeys.detail(id));
+      qc.setQueriesData<Committee[] | undefined>(
+        { queryKey: committeeKeys.all },
+        (rows) => (Array.isArray(rows) ? rows.map((r) => (r.id === id ? { ...r, ...patch } : r)) : rows),
+      );
+      if (detailSnapshot) {
+        qc.setQueryData<Committee>(committeeKeys.detail(id), {
+          ...detailSnapshot,
+          ...patch,
+        });
+      }
+      return { listSnapshots, detailSnapshot };
+    },
+    onError: (_err, { id }, context) => {
+      const ctx = context as
+        | { listSnapshots: ReturnType<typeof qc.getQueriesData<Committee[]>>; detailSnapshot: Committee | undefined }
+        | undefined;
+      if (!ctx) return;
+      for (const [key, snapshot] of ctx.listSnapshots) {
+        qc.setQueryData(key, snapshot);
+      }
+      if (ctx.detailSnapshot) {
+        qc.setQueryData(committeeKeys.detail(id), ctx.detailSnapshot);
+      }
+    },
+    onSettled: (committee) => {
+      qc.invalidateQueries({ queryKey: committeeKeys.list() });
+      if (committee) qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
     },
   });
 };
@@ -130,7 +167,7 @@ export const useCommitteeScheduleSlot = (committeeId: string) => {
   return useMutation({
     mutationFn: (input: { applicantId: string; dateIso: string }) =>
       committeeService.scheduleSlot(committeeId, input),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: committeeKeys.queue(committeeId) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: committeeKeys.queue(committeeId) }),
   });
 };
 
@@ -167,6 +204,62 @@ export const useCommitteeSetStatus = () => {
     onSuccess: (committee) => {
       qc.invalidateQueries({ queryKey: committeeKeys.list() });
       qc.invalidateQueries({ queryKey: committeeKeys.detail(committee.id) });
+    },
+  });
+};
+
+/* ── Exam-date schedule (per-(committee × date) seat capacity) ─────── */
+
+export const useScheduleByCategory = (key: ApplicantCategoryKey) =>
+  useQuery({
+    queryKey: scheduleKeys.byCategory(key),
+    queryFn: () => committeeService.listSchedule(key),
+  });
+
+export const useAddScheduleBatchMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: committeeService.addScheduleBatch,
+    onSuccess: (_rows, vars) => {
+      qc.invalidateQueries({ queryKey: scheduleKeys.byCategory(vars.categoryKey) });
+    },
+  });
+};
+
+export const useAddScheduleEntriesMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: committeeService.addScheduleEntries,
+    onSuccess: (_rows, vars) => {
+      const cats = new Set(vars.map((v) => v.categoryKey));
+      for (const cat of cats) {
+        qc.invalidateQueries({ queryKey: scheduleKeys.byCategory(cat) });
+      }
+    },
+  });
+};
+
+export const useRemoveScheduleEntryMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; categoryKey: ApplicantCategoryKey }) =>
+      committeeService.removeScheduleEntry(input.id),
+    onSuccess: (_res, vars) => {
+      qc.invalidateQueries({ queryKey: scheduleKeys.byCategory(vars.categoryKey) });
+    },
+  });
+};
+
+export const useUpdateScheduleEntryMutation = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      id: string;
+      categoryKey: ApplicantCategoryKey;
+      patch: Parameters<typeof committeeService.updateScheduleEntry>[1];
+    }) => committeeService.updateScheduleEntry(input.id, input.patch),
+    onSuccess: (_res, vars) => {
+      qc.invalidateQueries({ queryKey: scheduleKeys.byCategory(vars.categoryKey) });
     },
   });
 };

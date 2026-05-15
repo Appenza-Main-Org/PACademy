@@ -13,7 +13,7 @@
 import { useState } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { ChevronDown, Trash2 } from 'lucide-react';
-import { AlertDialog, Badge, Button } from '@/shared/components';
+import { AlertDialog, Button } from '@/shared/components';
 import { cn } from '@/shared/lib/cn';
 import {
   useDetachSpecialization,
@@ -57,7 +57,6 @@ export function SpecializationRow({
               aria-hidden
             />
             {row.specializationNameAr}
-            <Badge tone="neutral">{row.specializationId}</Badge>
           </span>
           <span className="inline-flex items-center gap-2 text-2xs text-ink-500">
             <span>{row.yearCount} سنة دراسية</span>

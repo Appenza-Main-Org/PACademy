@@ -88,6 +88,17 @@ export function Dialog({
         <RadixDialog.Content
           dir="rtl"
           onInteractOutside={(event) => {
+            /* Portaled popovers (Combobox, MultiSelect, DatePicker)
+             * render into document.body and Radix treats clicks on them
+             * as "outside." Without this guard, clicking an option in
+             * one of our dropdowns dismisses the dialog before the
+             * selection commits. Each portaled popover marks itself with
+             * data-portal-popover so we can recognise it here. */
+            const target = event.target as Element | null;
+            if (target?.closest('[data-portal-popover]')) {
+              event.preventDefault();
+              return;
+            }
             if (!closeOnOutsideClick) event.preventDefault();
           }}
           className={cn(

@@ -445,10 +445,19 @@ export interface CommitteeRules {
   /** Inclusive numeric grade range (0–100). */
   gradeFrom?: number | null;
   gradeTo?: number | null;
-  /** Arabic first-letter range, e.g. ('أ', 'د') — inclusive on both ends. */
+  /** Inclusive academic-grade (تقدير) range. FKs into the `academic-grades`
+   *  lookup. Compared at distribution time against the applicant's resolved
+   *  تقدير when the parent category's gradingMode is TAGDIR. */
+  academicGradeFromId?: string | null;
+  academicGradeToId?: string | null;
+  /** Arabic first-letter range, e.g. ('أ', 'د') — inclusive on both ends.
+   *  Legacy. Retained on the type so seeded committees still filter; new
+   *  committees no longer expose this in the create/edit form. */
   alphabetFrom?: string | null;
   alphabetTo?: string | null;
-  /** Optional gender constraint for applicants this committee processes. */
+  /** Optional gender constraint for applicants this committee processes.
+   *  Legacy — retained for seeded committees; no longer exposed in the
+   *  create/edit form. */
   gender?: 'male' | 'female' | 'any';
   /**
    * Optional applicant-type constraint. Stable lookup key from the
@@ -461,6 +470,48 @@ export interface CommitteeRules {
 
 export type CommitteeStatus = 'active' | 'inactive';
 
+/**
+ * ExamScheduleEntry — one (committee × date) row backing the
+ * /admin/committee/schedule page. Added in batches from the page's
+ * form: one entry per committee in the active category gets a row
+ * with the chosen date + capacity. The list page reads these by
+ * `categoryKey` (derived through the committee FK).
+ */
+export interface ExamScheduleEntry {
+  id: string;
+  committeeId: string;
+  /** ISO yyyy-mm-dd date the committee sits on. */
+  date: string;
+  /** Per-day capacity for this committee on this date (1..999). */
+  capacity: number;
+}
+
+/**
+ * Acceptance-grade ladder used by `gradeType === 'tier'` committees.
+ *
+ * The values are display labels (Arabic) — the integer index in this
+ * tuple is the canonical sortable value stored on `Committee.gradeMin`
+ * / `Committee.gradeMax`.
+ *
+ *   0 = مقبول · 1 = جيد · 2 = جيد جدًا · 3 = امتياز · 4 = امتياز مع مرتبة الشرف
+ */
+export const GRADE_TIERS = [
+  'مقبول',
+  'جيد',
+  'جيد جدًا',
+  'امتياز',
+  'امتياز مع مرتبة الشرف',
+] as const;
+export type GradeTier = (typeof GRADE_TIERS)[number];
+
+/**
+ * Discriminates how a committee's acceptance band is encoded:
+ *   `score` — numeric percentage (0..100). gradeMin/gradeMax are %.
+ *   `tier`  — categorical تقدير. gradeMin/gradeMax are indices into
+ *             `GRADE_TIERS` (0..GRADE_TIERS.length - 1).
+ */
+export type CommitteeGradeType = 'score' | 'tier';
+
 export interface Committee extends SoftDeleteFields {
   id: string;
   name: string;
@@ -468,11 +519,21 @@ export interface Committee extends SoftDeleteFields {
   members: number;
   applicants: number;
   completed: number;
+  /** FK → `applicant-categories[CAT-NN].code`. Required — the list page
+   *  groups committees under their category header. */
+  categoryKey: ApplicantCategoryKey;
+  /** Total seats this committee can absorb. Required (1..999). */
+  capacity: number;
+  /** Discriminator for `gradeMin` / `gradeMax`. */
+  gradeType: CommitteeGradeType;
+  /** Inclusive lower bound. `score`: 0..100 percentage; `tier`: index
+   *  into `GRADE_TIERS` (0..4). */
+  gradeMin: number;
+  /** Inclusive upper bound. Same units as `gradeMin`. */
+  gradeMax: number;
   /* ── Admin module enhancements ────────────────────────────────── */
   /** Committee head — user id (when assigned from the eligible-officers list). */
   headUserId?: string;
-  /** Total seats this committee can absorb. */
-  capacity?: number;
   /** Academic year identifier (e.g. "2026-2027"). */
   academicYearId?: string;
   /** Active / inactive (admin toggle). */
@@ -569,21 +630,33 @@ export interface TimelineEvent {
   color: AuditColor;
 }
 
-/* ── Applicant categories — Post-polish (RFP Scope Document §2.1) ─────
+/* ── Applicant categories — RFP §2.1 (4 categories, closed set) ───────
  *
- * Source spec: كلية_الشرطة_الاقسام_والشروط — 7 faculty departments with
- * their conditions and required-test sequences. Departments 4–7 are
- * `nominationOnly: true` (ترشيح) and never appear in the public picker.
+ * The RFP Scope Document defines exactly 4 categories. No admin-defined
+ * custom categories are permitted. The derived union is the source of
+ * truth for every consumer that needs to type a category key. Keep this
+ * tuple in sync with the lookup seed at
+ * `features/lookups/mock/lookups.mock.ts` §9.
+ *
+ *   officers_general              — قسم الضباط (قسم عام)         — ذكور فقط
+ *   law_bachelor                  — ليسانس حقوق                  — مختلط
+ *   physical_education_bachelor   — بكالوريوس تربية رياضية       — إناث فقط
+ *   specialized_officers          — الضباط المتخصصون             — مختلط
+ *
+ * Migration history: replaces the legacy 7-key set (added the two
+ * bachelor tracks; retired postgraduate + the 3 institutes + special_units;
+ * renamed `officers_specialized` → `specialized_officers`). See
+ * docs/migration/admission-categories-rfp/AUDIT.md.
  */
 
-export type ApplicantCategoryKey =
-  | 'officers_general'
-  | 'officers_specialized'
-  | 'postgraduate'
-  | 'institute_officers_training'
-  | 'institute_traffic'
-  | 'institute_guarding'
-  | 'special_units';
+export const APPLICANT_CATEGORY_KEYS = [
+  'officers_general',
+  'law_bachelor',
+  'physical_education_bachelor',
+  'specialized_officers',
+] as const;
+
+export type ApplicantCategoryKey = (typeof APPLICANT_CATEGORY_KEYS)[number];
 
 export type RequiredQualification =
   | 'thanaweya_amma'
@@ -1528,7 +1601,10 @@ export interface AdminNotification extends SoftDeleteFields {
   type: AdminNotificationType;
   titleAr: string;
   bodyAr: string;
-  audience: AudienceSelector;
+  /** Array — the notification matches an applicant if ANY entry matches.
+   *  Persists multi-audience routing (e.g. "category X" + "committee Y").
+   *  Empty array is treated as `[{ type: 'general' }]`. */
+  audience: AudienceSelector[];
   /** ISO publish time — when reached, status flips draft → published. */
   publishAt: string;
   /** ISO expiry time — when reached, status flips published → expired. */

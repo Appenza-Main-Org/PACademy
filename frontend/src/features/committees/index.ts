@@ -20,3 +20,4 @@ export {
   useCommitteeAssignedApplicants,
 } from './api/committee.queries';
 export { useApproveResults, useEnterResult, useRejectResult } from './api/committee.queries';
+export { deriveCommitteeGender } from '@/shared/lib/committee-gender';

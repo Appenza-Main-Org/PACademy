@@ -45,8 +45,15 @@ export {
   type ApplicantDivisionRow,
   type SchoolCategoryRow,
   type NidMissingReasonRow,
+  type UniversityRow,
+  type SubmissionTypeRow,
+  type MaritalStatusRow,
+  type AcademicGradeRow,
+  type AcademicDegreeRow,
   type DeleteResult,
 } from './types';
+
+export { ACADEMIC_DEGREES } from './mock/lookups.mock';
 
 export { lookupsService } from './api/lookups.service';
 
@@ -57,3 +64,17 @@ export {
   useUpdateLookupRow,
   useDeleteLookupRow,
 } from './api/lookups.queries';
+
+export {
+  GRADING_MODES,
+  GRADING_MODE_LABELS_AR,
+  assertGradingMode,
+  type GradingMode,
+} from './lib/gradingModes';
+
+export { readGradingMode } from './lib/submissionType';
+
+export {
+  readPercentageRange,
+  type AcademicGradeRange,
+} from './lib/academicGrade';

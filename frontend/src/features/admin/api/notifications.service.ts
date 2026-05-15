@@ -54,7 +54,11 @@ function withComputedStatus(n: AdminNotification): AdminNotification {
   return { ...n, status: computeStatus(Date.now(), n.publishAt, n.expireAt) };
 }
 
-function audienceTargets(audience: AudienceSelector, applicantId: string, applicantNid: string): boolean {
+function singleAudienceTargets(
+  audience: AudienceSelector,
+  applicantId: string,
+  applicantNid: string,
+): boolean {
   switch (audience.type) {
     case 'general':
       return true;
@@ -73,6 +77,18 @@ function audienceTargets(audience: AudienceSelector, applicantId: string, applic
       return Boolean(ap?.department && audience.departmentIds.includes(ap.department));
     }
   }
+}
+
+function audienceTargets(
+  audience: readonly AudienceSelector[],
+  applicantId: string,
+  applicantNid: string,
+): boolean {
+  /* Empty array is treated as "general" so legacy/un-migrated rows still
+   * deliver. Otherwise the notification matches an applicant if ANY
+   * entry in the audience array matches (OR semantics). */
+  if (audience.length === 0) return true;
+  return audience.some((a) => singleAudienceTargets(a, applicantId, applicantNid));
 }
 
 export interface NotificationFilters {
@@ -234,7 +250,9 @@ export const notificationsService = {
       .map(withComputedStatus)
       .filter((n) => n.status === 'published')
       .filter((n) => {
-        if (!ap) return n.audience.type === 'general';
+        if (!ap) {
+          return n.audience.length === 0 || n.audience.some((a) => a.type === 'general');
+        }
         return audienceTargets(n.audience, ap.id, ap.nationalId);
       })
       .filter((n) => !n.expireAt || new Date(n.expireAt).getTime() > now)

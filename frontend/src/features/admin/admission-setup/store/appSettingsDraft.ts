@@ -17,10 +17,36 @@
  * computed by comparing the draft `row` against `original`. The bulk
  * save bar flattens every category-specialization slice into a single
  * payload at save time.
+ *
+ * ### Discriminated-union handling
+ *
+ * `ApplicantSpecializationYear` is a discriminated union on `gradeKind`
+ * (`'GRADES'` vs `'TAGDIR'`). The store enforces two invariants on top
+ * of the type system:
+ *
+ *  1. **`gradeKind` is immutable post-creation.** `patchRow` silently
+ *     drops any patch carrying `gradeKind`. Switching a row's branch
+ *     after creation would lose the user's value on the other branch
+ *     and is not user-recoverable; if the parent category's
+ *     submission-type drifts, the conflict banner asks the admin to
+ *     delete and re-create the affected rows.
+ *  2. **Opposite-branch fields are stripped on patch.** A GRADES row
+ *     can't accidentally pick up an `academicGradeId`, and a TAGDIR
+ *     row can't pick up a `minPercentage`. The patch source is the
+ *     YearTable's GradeBranchCell, which already renders only the
+ *     branch matching the row's discriminator, but defense-in-depth
+ *     keeps the union shape clean.
+ *
+ * New rows default to the GRADES branch (`minPercentage: 70`). Callers
+ * that already know the parent gradingMode (e.g. YearTable, which
+ * reads `useResolvedGradingModeForSpec`) pass `gradeKind: 'TAGDIR'`
+ * via `seed` to flip the default. TAGDIR-seeded rows start with an
+ * empty `academicGradeId` so the user must pick one before save — the
+ * required-field validation fires on bulk save.
  */
 
 import { create } from 'zustand';
-import type { ApplicantSpecializationYear } from '../types';
+import type { ApplicantSpecializationYear, GenderType } from '../types';
 
 export type DraftKind = 'original' | 'new' | 'dirty' | 'deleted';
 
@@ -38,6 +64,11 @@ interface DraftSliceState {
   byCs: Record<string, DraftRow[]>;
   /** Monotonic counter for temp ids — survives across slices. */
   tempIdSeed: number;
+  /** Per-slice flag set by `YearTable` when any of its rows has a
+   *  `gradeKind` that disagrees with the resolved parent gradingMode.
+   *  When non-empty, the StickyBulkSaveBar disables saving and the
+   *  per-slice banner instructs the admin to delete + re-create. */
+  mismatchedSliceIds: Record<string, boolean>;
 }
 
 interface DraftActions {
@@ -62,6 +93,11 @@ interface DraftActions {
   resetAll: () => void;
   /** Reset a single slice — used after a successful per-slice save. */
   resetSlice: (categorySpecializationId: string) => void;
+  /** Register/clear the gradeKind-mismatch flag for one slice. */
+  setSliceMismatch: (
+    categorySpecializationId: string,
+    hasMismatch: boolean,
+  ) => void;
 }
 
 type Store = DraftSliceState & DraftActions;
@@ -73,20 +109,41 @@ function sameStringArray(a: readonly string[], b: readonly string[]): boolean {
   return sa.every((v, i) => v === sb[i]);
 }
 
+function sameNumberArray(a: readonly number[], b: readonly number[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort((x, y) => x - y);
+  const sb = [...b].sort((x, y) => x - y);
+  return sa.every((v, i) => v === sb[i]);
+}
+
+function gradeFieldsEqual(
+  a: ApplicantSpecializationYear,
+  b: ApplicantSpecializationYear,
+): boolean {
+  if (a.gradeKind !== b.gradeKind) return false;
+  if (a.gradeKind === 'GRADES' && b.gradeKind === 'GRADES') {
+    return a.minPercentage === b.minPercentage;
+  }
+  if (a.gradeKind === 'TAGDIR' && b.gradeKind === 'TAGDIR') {
+    return a.academicGradeId === b.academicGradeId;
+  }
+  return false;
+}
+
 function isSameRow(
   a: ApplicantSpecializationYear,
   b: ApplicantSpecializationYear,
 ): boolean {
   return (
-    a.graduationYear === b.graduationYear &&
+    sameNumberArray(a.graduationYears, b.graduationYears) &&
     sameStringArray(a.genderTypes, b.genderTypes) &&
     sameStringArray(a.maritalStatusCodes, b.maritalStatusCodes) &&
+    sameStringArray(a.divisionCodes, b.divisionCodes) &&
     a.maxAge === b.maxAge &&
-    a.minGrade === b.minGrade &&
-    a.maxGrade === b.maxGrade &&
+    gradeFieldsEqual(a, b) &&
     a.applicationStartDate === b.applicationStartDate &&
     a.applicationEndDate === b.applicationEndDate &&
-    a.ageCalcDate === b.ageCalcDate &&
+    a.ageReferenceDate === b.ageReferenceDate &&
     a.isActive === b.isActive
   );
 }
@@ -94,6 +151,7 @@ function isSameRow(
 export const useAppSettingsDraftStore = create<Store>((set, get) => ({
   byCs: {},
   tempIdSeed: 1,
+  mismatchedSliceIds: {},
 
   hydrateSlice: (csId, serverRows) => {
     const existing = get().byCs[csId];
@@ -119,9 +177,21 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
       if (!slice) return state;
       const updated = slice.map((draft) => {
         if (draft.id !== id) return draft;
-        const merged: ApplicantSpecializationYear = { ...draft.row, ...patch };
-        let kind: DraftKind = draft.kind;
         if (draft.kind === 'deleted') return draft; // ignore edits on tombstones
+        /* `gradeKind` is immutable post-creation — drop any patch that
+         * tries to flip it. Branch fields that don't apply to the
+         * current kind are dropped silently too, so the discriminated
+         * union stays consistent. */
+        const sanitized: Partial<ApplicantSpecializationYear> = { ...patch };
+        if ('gradeKind' in sanitized) delete sanitized.gradeKind;
+        if (draft.row.gradeKind === 'GRADES' && 'academicGradeId' in sanitized) {
+          delete (sanitized as { academicGradeId?: string }).academicGradeId;
+        }
+        if (draft.row.gradeKind === 'TAGDIR' && 'minPercentage' in sanitized) {
+          delete (sanitized as { minPercentage?: number }).minPercentage;
+        }
+        const merged = { ...draft.row, ...sanitized } as ApplicantSpecializationYear;
+        let kind: DraftKind = draft.kind;
         if (draft.kind === 'new') {
           kind = 'new';
         } else if (draft.original && isSameRow(merged, draft.original)) {
@@ -135,25 +205,60 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
     });
   },
 
+  /**
+   * Default new rows to the GRADES branch with a `minPercentage` of 70.
+   * Callers that already know the parent gradingMode should pass
+   * `gradeKind: 'TAGDIR'` + `academicGradeId: ''` via `seed`; the
+   * proper resolver wiring lands in a later commit.
+   */
   addRow: (csId, seed) => {
     const seedNumber = get().tempIdSeed;
     const tempId = `temp-${csId}-${seedNumber}`;
     const today = new Date().toISOString().slice(0, 10);
-    const row: ApplicantSpecializationYear = {
+    const seedBag = seed as Record<string, unknown>;
+    const seedKind: 'GRADES' | 'TAGDIR' =
+      seedBag.gradeKind === 'TAGDIR' ? 'TAGDIR' : 'GRADES';
+    /* Strip the discriminator + the opposite-branch field from `seed`
+     * before merging so the produced row stays in one branch. */
+    const seedRest: Record<string, unknown> = { ...seedBag };
+    delete seedRest.gradeKind;
+    delete seedRest.minPercentage;
+    delete seedRest.academicGradeId;
+    const base = {
       id: tempId,
       categorySpecializationId: csId,
-      graduationYear: new Date().getFullYear(),
-      genderTypes: ['male'],
-      maritalStatusCodes: [],
+      graduationYears: [new Date().getFullYear()] as number[],
+      genderTypes: ['male'] as GenderType[],
+      maritalStatusCodes: [] as string[],
+      ageMin: null as number | null,
       maxAge: null,
-      minGrade: null,
-      maxGrade: null,
+      divisionCodes: [] as string[],
+      schoolCategoryCodes: [] as string[],
       applicationStartDate: today,
       applicationEndDate: today,
-      ageCalcDate: today,
+      ageReferenceDate: today,
       isActive: true,
-      ...seed,
     };
+    const row: ApplicantSpecializationYear =
+      seedKind === 'TAGDIR'
+        ? {
+            ...base,
+            ...seedRest,
+            gradeKind: 'TAGDIR',
+            academicGradeId:
+              typeof seedBag.academicGradeId === 'string'
+                ? (seedBag.academicGradeId as string)
+                : '',
+          }
+        : {
+            ...base,
+            ...seedRest,
+            gradeKind: 'GRADES',
+            minPercentage:
+              typeof seedBag.minPercentage === 'number'
+                ? (seedBag.minPercentage as number)
+                : 70,
+          };
     set((state) => {
       const slice = state.byCs[csId] ?? [];
       return {
@@ -194,7 +299,7 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
     });
   },
 
-  resetAll: () => set({ byCs: {}, tempIdSeed: 1 }),
+  resetAll: () => set({ byCs: {}, tempIdSeed: 1, mismatchedSliceIds: {} }),
 
   resetSlice: (csId) =>
     set((state) => {
@@ -208,7 +313,22 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
           row: d.original ?? d.row,
           kind: 'original' as DraftKind,
         }));
-      return { byCs: { ...state.byCs, [csId]: next } };
+      const nextMismatch = { ...state.mismatchedSliceIds };
+      delete nextMismatch[csId];
+      return {
+        byCs: { ...state.byCs, [csId]: next },
+        mismatchedSliceIds: nextMismatch,
+      };
+    }),
+
+  setSliceMismatch: (csId, hasMismatch) =>
+    set((state) => {
+      const current = Boolean(state.mismatchedSliceIds[csId]);
+      if (current === hasMismatch) return state;
+      const next = { ...state.mismatchedSliceIds };
+      if (hasMismatch) next[csId] = true;
+      else delete next[csId];
+      return { mismatchedSliceIds: next };
     }),
 }));
 
@@ -223,6 +343,12 @@ export function useDraftIsDirty(): boolean {
     Object.values(s.byCs).some((slice) =>
       slice.some((r) => r.kind !== 'original'),
     ),
+  );
+}
+
+export function useHasAnyMismatch(): boolean {
+  return useAppSettingsDraftStore(
+    (s) => Object.keys(s.mismatchedSliceIds).length > 0,
   );
 }
 

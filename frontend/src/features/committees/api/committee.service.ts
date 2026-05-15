@@ -18,6 +18,7 @@ import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
 import { ConflictError } from '@/shared/lib/errors';
+import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 import {
   applyRestore,
   applySoftDelete,
@@ -27,11 +28,14 @@ import {
 } from '@/shared/lib/soft-delete';
 import type {
   Applicant,
+  ApplicantCategoryKey,
   Committee,
+  CommitteeGradeType,
   CommitteeResult,
   CommitteeRules,
   CommitteeStatus,
   CommitteeType,
+  ExamScheduleEntry,
 } from '@/shared/types/domain';
 
 const COMMITTEE_DEP_LABELS: Record<string, string> = {
@@ -58,9 +62,18 @@ export interface CommitteePayload {
   members: number;
   capacityPerSession: number;
   cycleId: string;
+  /** Required — every new committee declares its category. */
+  categoryKey: ApplicantCategoryKey;
+  /** Required — total seats (1..999). */
+  capacity: number;
+  /** Required — discriminates `gradeMin`/`gradeMax` interpretation. */
+  gradeType: CommitteeGradeType;
+  /** Inclusive lower bound. score: %, tier: GRADE_TIERS index. */
+  gradeMin: number;
+  /** Inclusive upper bound. Same units as `gradeMin`. */
+  gradeMax: number;
   /* ── Admin module enhancements ──────────────────────────────── */
   headUserId?: string;
-  capacity?: number;
   academicYearId?: string;
   status?: CommitteeStatus;
   specializationIds?: string[];
@@ -146,6 +159,14 @@ export const committeeService = {
 
   async create(payload: CommitteePayload): Promise<Committee> {
     await simulateLatency();
+    /* For the specialized_officers track, gender is always derived from
+     * the committee name (see deriveCommitteeGender). The service ignores
+     * any client-supplied value so a tampered payload can't fork the
+     * convention applied to the seed. Other categories are untouched. */
+    const derivedGender =
+      payload.categoryKey === 'specialized_officers'
+        ? deriveCommitteeGender(payload.name)
+        : undefined;
     const next: Committee = {
       id: `C-${String(cId++).padStart(2, '0')}`,
       name: payload.name,
@@ -153,8 +174,12 @@ export const committeeService = {
       members: payload.members,
       applicants: 0,
       completed: 0,
-      headUserId: payload.headUserId,
+      categoryKey: payload.categoryKey,
       capacity: payload.capacity,
+      gradeType: payload.gradeType,
+      gradeMin: payload.gradeMin,
+      gradeMax: payload.gradeMax,
+      headUserId: payload.headUserId,
       capacityPerDay: payload.capacityPerSession,
       academicYearId: payload.academicYearId,
       status: payload.status ?? 'active',
@@ -163,6 +188,7 @@ export const committeeService = {
       officerIds: payload.officerIds,
       rules: payload.rules,
       linkedCycleId: payload.cycleId,
+      ...(derivedGender ? { gender: derivedGender } : {}),
     };
     COMMITTEES_STATE.unshift(next);
     emitAudit({
@@ -273,8 +299,19 @@ export const committeeService = {
   },
 
   /**
-   * Update committee config (Gap H). Patches the in-memory snapshot,
-   * emits a typed audit row with before/after, returns the merged row.
+   * Update committee config.
+   *
+   * INTEGRATION CONTRACT:
+   *   PATCH /api/committees/:id  → Committee
+   *     body: Partial<Committee>  // capacity, gradeType, gradeMin,
+   *                               // gradeMax, status, …
+   *
+   * Validates capacity (1..999) and the gradeMin ≤ gradeMax invariant
+   * against the post-patch shape. Throws
+   * `ConflictError('COMMITTEE_AT_CAPACITY')` when the requested
+   * capacity is below the count of already-assigned applicants — i.e.
+   * `patch.capacity < assignedApplicants.length`. Successful patches
+   * emit a typed audit row with before/after.
    */
   async update(id: string, patch: Partial<Committee>): Promise<Committee> {
     await simulateLatency();
@@ -282,6 +319,35 @@ export const committeeService = {
     if (idx === -1) throw new Error('اللجنة غير موجودة');
     const before = { ...COMMITTEES_STATE[idx] };
     const next: Committee = { ...before, ...patch, id: before.id };
+
+    /* Range invariant — gradeMin ≤ gradeMax post-patch. */
+    if (next.gradeMin > next.gradeMax) {
+      throw new ConflictError(
+        'GRADE_RANGE_INVERTED',
+        { gradeMin: next.gradeMin, gradeMax: next.gradeMax },
+        'الحد الأدنى يجب أن يكون أقل من أو يساوي الحد الأقصى',
+      );
+    }
+
+    /* Capacity envelope — must not drop below the assigned roster. */
+    if (patch.capacity !== undefined) {
+      if (!Number.isInteger(patch.capacity) || patch.capacity < 1 || patch.capacity > 999) {
+        throw new ConflictError(
+          'CAPACITY_NOT_POSITIVE',
+          { capacity: patch.capacity },
+          'السعة يجب أن تكون عدداً صحيحاً بين 1 و 999',
+        );
+      }
+      const assigned = MOCK.applicants.filter((a) => a.committee === before.name).length;
+      if (patch.capacity < assigned) {
+        throw new ConflictError(
+          'COMMITTEE_AT_CAPACITY',
+          { capacity: patch.capacity, assigned },
+          `لا يمكن خفض السعة دون عدد المتقدمين المسنّدين (${assigned}).`,
+        );
+      }
+    }
+
     COMMITTEES_STATE[idx] = next;
     emitAudit({
       action: 'update',
@@ -500,6 +566,171 @@ export const committeeService = {
       after: next,
     });
     return next;
+  },
+
+  /* ── Exam-date schedule (per-(committee × date) seat capacity) ─────
+   *
+   * INTEGRATION CONTRACT:
+   *   GET    /committees/schedule?category=<key>     → ExamScheduleEntry[]
+   *   POST   /committees/schedule/batch              → ExamScheduleEntry[]
+   *            body: { categoryKey, date, capacity }
+   *            One row created per Committee whose categoryKey matches.
+   *   PATCH  /committees/schedule/:id                → ExamScheduleEntry
+   *            body: Partial<{ capacity, date }>
+   *   DELETE /committees/schedule/:id                → 204
+   */
+
+  async listSchedule(categoryKey: ApplicantCategoryKey): Promise<ExamScheduleEntry[]> {
+    await simulateLatency(80, 160);
+    /* Resolve via committee membership so the page can filter by tab
+     * without storing categoryKey twice. */
+    const committeeIds = new Set(
+      COMMITTEES_STATE.filter((c) => c.categoryKey === categoryKey).map((c) => c.id),
+    );
+    return MOCK.examSchedule
+      .filter((e) => committeeIds.has(e.committeeId))
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date));
+  },
+
+  /**
+   * Insert one schedule entry per element of `entries`. Unlike
+   * `addScheduleBatch` (which fans out to every committee in a category),
+   * this method lets the caller pick exact `(committeeId, date)` rows —
+   * used by the admission-setup wizard to merge-on-add: rows that already
+   * exist accumulate capacity via `updateScheduleEntry`, only the missing
+   * ones come through here.
+   *
+   * INTEGRATION CONTRACT:
+   *   POST /committees/schedule  → ExamScheduleEntry[]
+   *     body: Array<{ committeeId, date, capacity }>
+   */
+  async addScheduleEntries(
+    entries: ReadonlyArray<{
+      categoryKey: ApplicantCategoryKey;
+      committeeId: string;
+      date: string;
+      capacity: number;
+    }>,
+  ): Promise<ExamScheduleEntry[]> {
+    await simulateLatency();
+    const now = Date.now();
+    const created: ExamScheduleEntry[] = entries.map((e, idx) => {
+      if (!Number.isInteger(e.capacity) || e.capacity < 1) {
+        throw new ConflictError(
+          'CAPACITY_NOT_POSITIVE',
+          { capacity: e.capacity },
+          'السعة يجب أن تكون عدداً صحيحاً 1 أو أكثر',
+        );
+      }
+      return {
+        id: `ESE-${now}-${idx}`,
+        committeeId: e.committeeId,
+        date: e.date,
+        capacity: e.capacity,
+      };
+    });
+    MOCK.examSchedule.push(...created);
+    const distinctCats = Array.from(new Set(entries.map((e) => e.categoryKey)));
+    emitAudit({
+      action: 'create',
+      module: 'committees',
+      entityType: 'ExamScheduleEntry',
+      entityLabel: 'مواعيد اختبار',
+      entityId: `multi:${distinctCats.join(',')}`,
+      details: `إضافة ${created.length} موعد عبر ${distinctCats.length} فئة`,
+      after: created,
+    });
+    return created;
+  },
+
+  async addScheduleBatch(input: {
+    categoryKey: ApplicantCategoryKey;
+    date: string;
+    capacity: number;
+  }): Promise<ExamScheduleEntry[]> {
+    await simulateLatency();
+    if (!Number.isInteger(input.capacity) || input.capacity < 1 || input.capacity > 999) {
+      throw new ConflictError(
+        'CAPACITY_NOT_POSITIVE',
+        { capacity: input.capacity },
+        'السعة يجب أن تكون عدداً صحيحاً بين 1 و 999',
+      );
+    }
+    const matchingCommittees = COMMITTEES_STATE.filter(
+      (c) => c.categoryKey === input.categoryKey && !c.deletedAt,
+    );
+    const now = Date.now();
+    const created: ExamScheduleEntry[] = matchingCommittees.map((c, idx) => ({
+      id: `ESE-${now}-${idx}`,
+      committeeId: c.id,
+      date: input.date,
+      capacity: input.capacity,
+    }));
+    MOCK.examSchedule.push(...created);
+    emitAudit({
+      action: 'create',
+      module: 'committees',
+      entityType: 'ExamScheduleEntry',
+      entityLabel: 'مواعيد اختبار',
+      entityId: `${input.categoryKey}:${input.date}`,
+      details: `إضافة موعد ${input.date} لـ ${created.length} لجنة (${input.categoryKey})`,
+      after: created,
+    });
+    return created;
+  },
+
+  async updateScheduleEntry(
+    id: string,
+    patch: Partial<Pick<ExamScheduleEntry, 'capacity' | 'date'>>,
+  ): Promise<ExamScheduleEntry> {
+    await simulateLatency();
+    const idx = MOCK.examSchedule.findIndex((e) => e.id === id);
+    if (idx === -1) throw new Error('الموعد غير موجود');
+    const before = { ...MOCK.examSchedule[idx]! };
+    if (patch.capacity !== undefined) {
+      if (
+        !Number.isInteger(patch.capacity) ||
+        patch.capacity < 1 ||
+        patch.capacity > 999
+      ) {
+        throw new ConflictError(
+          'CAPACITY_NOT_POSITIVE',
+          { capacity: patch.capacity },
+          'السعة يجب أن تكون عدداً صحيحاً بين 1 و 999',
+        );
+      }
+    }
+    const next: ExamScheduleEntry = { ...before, ...patch };
+    MOCK.examSchedule[idx] = next;
+    emitAudit({
+      action: 'update',
+      module: 'committees',
+      entityType: 'ExamScheduleEntry',
+      entityLabel: 'موعد اختبار',
+      entityId: next.id,
+      details: `تحديث موعد ${next.date} للجنة ${next.committeeId}`,
+      before,
+      after: next,
+    });
+    return next;
+  },
+
+  async removeScheduleEntry(id: string): Promise<void> {
+    await simulateLatency();
+    const idx = MOCK.examSchedule.findIndex((e) => e.id === id);
+    if (idx === -1) return;
+    const [removed] = MOCK.examSchedule.splice(idx, 1);
+    if (!removed) return;
+    emitAudit({
+      action: 'delete',
+      module: 'committees',
+      entityType: 'ExamScheduleEntry',
+      entityLabel: 'موعد اختبار',
+      entityId: removed.id,
+      details: `حذف موعد ${removed.date} للجنة ${removed.committeeId}`,
+      before: removed,
+    });
   },
 };
 

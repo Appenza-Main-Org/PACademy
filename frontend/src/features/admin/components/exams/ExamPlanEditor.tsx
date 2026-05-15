@@ -10,7 +10,7 @@
  * rejects duplicates with ConflictError('EXAM_ORDER_DUPLICATE').
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -29,7 +29,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, GripVertical, Save } from 'lucide-react';
-import { Button, Card, Select, toast } from '@/shared/components';
+import { Button, Card, Input, Select, toast } from '@/shared/components';
 import { isConflictError } from '@/shared/lib/errors';
 import type {
   ApplicantCategoryKey,
@@ -45,6 +45,10 @@ export interface ExamPlanEditorProps {
   cycleId: string;
   categoryId: ApplicantCategoryKey;
 }
+
+/** Inline validation message surfaced when the order cell is empty,
+ *  not a positive integer, or duplicated within the current category. */
+const ORDER_ERROR_MESSAGE = 'الترتيب يجب أن يكون رقمًا موجبًا وغير مكرر';
 
 export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JSX.Element {
   const examsQuery = useAcademyExams();
@@ -71,8 +75,32 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  /* Per-row validation map keyed by examId. A row is invalid when its
+   * order isn't a positive integer OR collides with another row's
+   * order in the same plan. Save is blocked while any row reports an
+   * error. No upper bound — admins can use any positive integer
+   * (1, 2, 3… or 10, 20, 30…) depending on whether they want compact
+   * or sparse numbering. */
+  const orderErrors = useMemo<Record<string, boolean>>(() => {
+    const counts = new Map<number, number>();
+    for (const entry of entries) {
+      counts.set(entry.order, (counts.get(entry.order) ?? 0) + 1);
+    }
+    const out: Record<string, boolean> = {};
+    for (const entry of entries) {
+      const bad =
+        !Number.isInteger(entry.order) ||
+        entry.order < 1 ||
+        (counts.get(entry.order) ?? 0) > 1;
+      if (bad) out[entry.examId] = true;
+    }
+    return out;
+  }, [entries]);
+
+  const hasOrderError = Object.keys(orderErrors).length > 0;
+
   const reorderTo = (next: CycleCategoryExamPlanEntry[]): void => {
-    setEntries(next.map((e, i) => ({ ...e, order: (i + 1) * 10 })));
+    setEntries(next.map((e, i) => ({ ...e, order: i + 1 })));
   };
 
   const move = (idx: number, delta: -1 | 1): void => {
@@ -96,19 +124,32 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
     setEntries(entries.map((e, i) => (i === idx ? { ...e, ...patch } : e)));
   };
 
+  /* Strip non-digit characters and parse to integer. Empty / 0 keeps
+   * the row in an invalid state so the error message + disabled-save
+   * guard are obvious to the admin without silently inventing a
+   * value. No upper bound — values grow freely as plans expand. */
+  const setOrderFromInput = (idx: number, raw: string): void => {
+    const digits = raw.replace(/\D/g, '');
+    setEntry(idx, { order: digits ? Number(digits) : 0 });
+  };
+
   const addExam = (examId: string): void => {
     if (entries.some((e) => e.examId === examId)) return;
     setEntries([
       ...entries,
-      { examId, order: (entries.length + 1) * 10, isRequired: true },
+      { examId, order: entries.length + 1, isRequired: true },
     ]);
   };
 
   const removeExam = (idx: number): void => {
-    setEntries(entries.filter((_, i) => i !== idx).map((e, i) => ({ ...e, order: (i + 1) * 10 })));
+    setEntries(entries.filter((_, i) => i !== idx).map((e, i) => ({ ...e, order: i + 1 })));
   };
 
   const onSave = (): void => {
+    if (hasOrderError) {
+      toast(ORDER_ERROR_MESSAGE, 'danger');
+      return;
+    }
     saveMut.mutate(
       { cycleId, categoryId, entries },
       {
@@ -153,6 +194,7 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
             leadingIcon={<Save size={14} strokeWidth={1.75} />}
             onClick={onSave}
             isLoading={saveMut.isPending}
+            disabled={hasOrderError}
           >
             حفظ
           </Button>
@@ -178,8 +220,21 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
               <tbody>
                 {entries.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-2xs text-ink-500">
-                      لا توجد اختبارات في هذه الخطة. أضِف اختباراً من القائمة أعلاه.
+                    <td colSpan={5} className="py-6 text-center">
+                      <div className="flex flex-col items-center gap-3 text-2xs text-ink-500">
+                        <span>لا توجد امتحانات لهذه الفئة بعد</span>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => {
+                            const next = unselectedExams[0];
+                            if (next) addExam(next.id);
+                          }}
+                          disabled={unselectedExams.length === 0}
+                        >
+                          إضافة امتحان
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -190,8 +245,10 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
                     index={i}
                     total={entries.length}
                     label={examLabel(entry.examId)}
+                    hasOrderError={Boolean(orderErrors[entry.examId])}
                     onMoveUp={() => move(i, -1)}
                     onMoveDown={() => move(i, 1)}
+                    onOrderInput={(raw) => setOrderFromInput(i, raw)}
                     onToggleRequired={(checked) => setEntry(i, { isRequired: checked })}
                     onRemove={() => removeExam(i)}
                   />
@@ -210,8 +267,10 @@ interface SortableExamRowProps {
   index: number;
   total: number;
   label: string;
+  hasOrderError: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onOrderInput: (raw: string) => void;
   onToggleRequired: (checked: boolean) => void;
   onRemove: () => void;
 }
@@ -221,8 +280,10 @@ function SortableExamRow({
   index,
   total,
   label,
+  hasOrderError,
   onMoveUp,
   onMoveDown,
+  onOrderInput,
   onToggleRequired,
   onRemove,
 }: SortableExamRowProps): JSX.Element {
@@ -255,10 +316,21 @@ function SortableExamRow({
           <GripVertical size={16} strokeWidth={1.75} />
         </button>
       </td>
-      <td className="py-2.5">
-        <span className="font-numeric tnum text-2xs text-ink-700" dir="ltr">
-          {entry.order}
-        </span>
+      <td className="py-2.5 align-top">
+        <Input
+          dir="ltr"
+          density="compact"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={4}
+          aria-label={`الترتيب — ${label}`}
+          value={entry.order > 0 ? String(entry.order) : ''}
+          onChange={(e) => onOrderInput(e.target.value)}
+          error={hasOrderError ? ORDER_ERROR_MESSAGE : undefined}
+          className="text-center font-numeric tnum"
+          style={{ inlineSize: '4rem' }}
+        />
       </td>
       <td className="py-2.5 font-medium text-ink-900">{label}</td>
       <td className="py-2.5">

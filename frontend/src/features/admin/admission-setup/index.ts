@@ -14,37 +14,17 @@ export {
   getStepByPath,
 } from './config';
 export type { AdmissionSetupStep } from './config';
-export type { AdmissionSetupStepKey, AdmissionSetupStepStatus, WizardStepStatusRow, MergeSplitPreviewDto, ApplyResultDto, MergeSplitRuleStatus } from './types';
-
-/* Hooks */
-export { useWizardWritePermission } from './hooks/useWizardWritePermission';
-export type { WizardWritePermission } from './hooks/useWizardWritePermission';
-
-/* Wizard step status hooks (T047 / T058) */
-export {
-  useWizardStepStatuses,
-  useCompleteWizardStep,
-  useReopenWizardStep,
-} from './api/admission-setup.queries';
-
-/* Draft utilities */
-export { readDraft, writeDraft, clearDraft, listDrafts, writeConflict, readConflict, clearConflict } from './lib/wizard-draft';
+export type { AdmissionSetupStepKey, AdmissionSetupStepStatus } from './types';
 
 /* Pages */
 export { AdmissionSetupIndexPage } from './pages/AdmissionSetupIndexPage';
 export { AdmissionSetupWizardPage } from './pages/AdmissionSetupWizardPage';
 export { ApplicationSettingsPage } from './pages/ApplicationSettingsPage';
 export { ApplicationStatusPage } from './pages/ApplicationStatusPage';
-export { AgeRulesPage } from './pages/AgeRulesPage';
-/* MaritalStatusRulesPage removed when MARITAL_STATUSES dropped out of
- * the lookup catalogue. */
+/* AgeRulesPage removed 2026-05; MaritalStatusRulesPage removed when
+ * MARITAL_STATUSES dropped out of the lookup catalogue. */
 export { FeesPage as AdmissionFeesPage } from './pages/FeesPage';
 export { ExamsManagementPage } from './pages/ExamsManagementPage';
 export { CommitteesManagementPage } from './pages/CommitteesManagementPage';
-export { CommitteeMergeSplitPage } from './pages/CommitteeMergeSplitPage';
-export { ScoreThresholdsPage } from './pages/ScoreThresholdsPage';
-export { ExamDatesPage } from './pages/ExamDatesPage';
-export { DateCommitteeBindingPage } from './pages/DateCommitteeBindingPage';
-export { TotalScorePage } from './pages/TotalScorePage';
 export { NotificationsStepPage } from './pages/NotificationsStepPage';
 export { ElectronicDeclarationPage } from './pages/ElectronicDeclarationPage';

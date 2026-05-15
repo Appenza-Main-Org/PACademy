@@ -1,48 +1,25 @@
 /**
- * Admission Setup API — wired to the real backend (spec 009 — Admission-Setup
- * Wizard Persistence). Replaces the previous in-memory mock implementation
- * for the 5 net-new entities (merge/split rules, score thresholds, exam
- * dates, total score, electronic declaration) plus wizard-step status.
+ * Admission Setup API Contract — net-new entities for the wizard.
  *
- * INTEGRATION CONTRACT (matches backend controllers under
- * backend/src/PACademy.Api/Controllers/Admin/AdmissionSetup/):
+ * Composed steps (application_settings, fees,
+ * exams, committees, notifications) reuse `cyclesService`,
+ * `categoriesService`, `committeeService`, `examPlansService`, and
+ * `notificationsService` directly; this service only owns the shapes
+ * defined in `../types.ts` that have no admin-gaps home today.
  *
- *   # Step 9 — Committee merge/split rules
- *   GET    /admin/admission-setup/cycles/:cycleId/merge-split-rules     → CommitteeMergeSplitRule[]
- *   POST   /admin/admission-setup/cycles/:cycleId/merge-split-rules     → CommitteeMergeSplitRule
- *   POST   /admin/admission-setup/merge-split-rules/:id/archive         → 204
+ * INTEGRATION CONTRACT:
+ *   GET    /api/admission-setup/cycles/:cycleId/exam-dates            → ExamDateConfig | null
+ *   PUT    /api/admission-setup/cycles/:cycleId/exam-dates            → ExamDateConfig
  *
- *   # Step 10 — Committee score thresholds
- *   GET    /admin/admission-setup/cycles/:cycleId/score-thresholds      → CommitteeScoreThreshold[]
- *   PUT    /admin/admission-setup/cycles/:cycleId/committees/:committeeId/score-threshold
- *                                                                       → CommitteeScoreThreshold
+ *   GET    /api/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration | null
+ *   PUT    /api/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration   (multipart/form-data PDF upload)
+ *   POST   /api/admission-setup/declarations/:id/publish              → ElectronicDeclaration
  *
- *   # Step 11 — Exam date config
- *   GET    /admin/admission-setup/cycles/:cycleId/exam-dates            → ExamDateConfig | null
- *   PUT    /admin/admission-setup/cycles/:cycleId/exam-dates            → ExamDateConfig
- *
- *   # Step 13 — Total score config
- *   GET    /admin/admission-setup/cycles/:cycleId/total-score           → TotalScoreConfig[]
- *   PUT    /admin/admission-setup/cycles/:cycleId/total-score/:stream   → TotalScoreConfig
- *
- *   # Step 15 — Electronic declaration
- *   GET    /admin/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration | null
- *   POST   /admin/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration  (new draft)
- *   POST   /admin/admission-setup/declaration/:id/publish               → ElectronicDeclaration
- *
- * Errors:
- *   - 409 ROW_VERSION_CONFLICT     → thrown as RowVersionConflictError
- *                                     (apiClient interceptor in shared/api/errors.ts)
- *   - 4xx other                    → thrown as ApiError
- *   - Audit emission happens on the backend; the frontend no longer calls emitAudit()
- *
- * The 3 category-committee binding methods (listCategoryCommittees,
- * listCommitteeBindings, setCommitteeBindings) still use the mock — they
- * belong to spec 010 (Lookup Management Module) §3 mapping endpoints,
- * which are not yet implemented.
+ *   GET    /api/admission-setup/cycles/:cycleId/committee-bindings           → CategoryCommittees[]
+ *   PUT    /api/admission-setup/cycles/:cycleId/committee-bindings           → CategoryCommittees[]   (replace cycle set)
+ *   PUT    /api/admission-setup/cycles/:cycleId/categories/:catId/committees → CategoryCommittees[]   (replace per-category set)
  */
 
-import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
@@ -52,132 +29,55 @@ import type {
   CategoryCommittees,
 } from '@/shared/types/domain';
 import type {
-  ApplicantStream,
-  ApplyResultDto,
-  CommitteeMergeSplitRule,
-  CommitteeScoreThreshold,
+  DeclarationDocument,
   ElectronicDeclaration,
   ExamDateConfig,
-  MergeSplitPreviewDto,
-  TotalScoreComponent,
-  TotalScoreConfig,
-  WizardStepStatusRow,
 } from '../types';
 
-/* ── Mock-only state for the category-committee binding methods ──────── */
+/* ── In-memory state — replaced by REST persistence at integration time. ── */
+const EXAM_DATE_CONFIGS: ExamDateConfig[] = [];
+const DECLARATIONS: ElectronicDeclaration[] = [];
 const CATEGORY_COMMITTEES: CategoryCommittees[] = MOCK.categoryCommittees.map((c) => ({ ...c }));
 
+let counter = 1;
+function id(prefix: string): string {
+  return `${prefix}-${Date.now()}-${counter++}`;
+}
+
+
+function actorId(): string {
+  /* The auth bridge in `audit.ts` already knows the actor; keep a sentinel
+   * here for createdBy/updatedBy fields the audit system doesn't fill. */
+  return 'system';
+}
+
+const MAX_DECLARATION_SIZE = 10 * 1024 * 1024;
+
+/* Seed a single sample declaration document so the wizard's PDF preview
+ * card renders something on first load. Uses the deterministic mock cycle
+ * surface (`MOCK.cycles`) so the seed stays stable across renders. */
+const SEED_CYCLE_ID = MOCK.cycles[0]?.id ?? 'CYCLE-2026-MALE';
+DECLARATIONS.push({
+  id: 'DEC-SEED-0001',
+  cycleId: SEED_CYCLE_ID,
+  mode: 'pdf',
+  bodyAr: '',
+  document: {
+    fileName: 'الإقرار-الإلكتروني-2026.pdf',
+    fileUrl: '/mock/declarations/sample.pdf',
+    size: 482_318,
+  },
+  version: 1,
+  effectiveFrom: new Date(MOCK.cycles[0]?.openDate ?? new Date()).toISOString(),
+  createdAt: new Date().toISOString(),
+  createdBy: 'system',
+});
+
 export const admissionSetupService = {
-  /* ── Step 9 — committee merge / split rules ───────────────────────── */
-
-  async listMergeSplitRules(cycleId: string): Promise<CommitteeMergeSplitRule[]> {
-    const r = await apiClient.get<CommitteeMergeSplitRule[]>(
-      `/admin/admission-setup/cycles/${cycleId}/merge-split-rules`,
-    );
-    return r.data;
-  },
-
-  async createMergeOrSplit(input: {
-    cycleId: string;
-    type: 'merge' | 'split';
-    sourceCommitteeIds: string[];
-    targetCommitteeIds: string[];
-    reason?: string;
-    effectiveAt: string;
-  }): Promise<CommitteeMergeSplitRule> {
-    const r = await apiClient.post<CommitteeMergeSplitRule>(
-      `/admin/admission-setup/cycles/${input.cycleId}/merge-split-rules`,
-      {
-        type: input.type,
-        sourceCommitteeIds: input.sourceCommitteeIds,
-        targetCommitteeIds: input.targetCommitteeIds,
-        reason: input.reason,
-        effectiveAt: input.effectiveAt,
-      },
-    );
-    return r.data;
-  },
-
-  /** Soft-deletes (archives) a planned or cancelled merge/split rule. */
-  async softDeleteMergeSplit(ruleId: string, reason: string): Promise<{ ok: true }> {
-    await apiClient.post(
-      `/admin/admission-setup/merge-split-rules/${ruleId}/archive`,
-      { reason },
-    );
-    return { ok: true };
-  },
-
-  /**
-   * Preview the impact of applying a planned merge/split rule.
-   * Server returns the applicants that would move, capacity changes per
-   * committee, and a deterministic `previewHash` over the change set. The
-   * frontend echoes the hash back on the subsequent apply call so the
-   * backend can reject a stale preview (409 PREVIEW_HASH_STALE).
-   */
-  async previewMergeSplitRule(ruleId: string): Promise<MergeSplitPreviewDto> {
-    const r = await apiClient.post<MergeSplitPreviewDto>(
-      `/admin/admission-setup/merge-split-rules/${ruleId}/preview`,
-    );
-    return r.data;
-  },
-
-  /**
-   * Apply a planned merge/split rule. Atomic: opens a CrossModuleUnitOfWork
-   * on the server, moves applicants, recomputes capacities, flips the rule
-   * to `applied`, emits a `merge_rule_applied` audit. Performance budget
-   * ≤10s for 5,000 applicants.
-   *
-   * Rejects with 409 if confirmPreviewHash or rowVersion is stale.
-   */
-  async applyMergeSplitRule(input: {
-    ruleId: string;
-    confirmPreviewHash: string;
-    rowVersion: string;
-  }): Promise<ApplyResultDto> {
-    const r = await apiClient.post<ApplyResultDto>(
-      `/admin/admission-setup/merge-split-rules/${input.ruleId}/apply`,
-      {
-        confirmPreviewHash: input.confirmPreviewHash,
-        rowVersion: input.rowVersion,
-      },
-    );
-    return r.data;
-  },
-
-  /* ── Step 10 — committee score thresholds ─────────────────────────── */
-
-  async listScoreThresholds(cycleId: string): Promise<CommitteeScoreThreshold[]> {
-    const r = await apiClient.get<CommitteeScoreThreshold[]>(
-      `/admin/admission-setup/cycles/${cycleId}/score-thresholds`,
-    );
-    return r.data;
-  },
-
-  async setCommitteeScoreThresholds(input: {
-    cycleId: string;
-    committeeId: string;
-    min: number;
-    max: number;
-    rowVersion?: string;
-  }): Promise<CommitteeScoreThreshold> {
-    const r = await apiClient.put<CommitteeScoreThreshold>(
-      `/admin/admission-setup/cycles/${input.cycleId}/committees/${input.committeeId}/score-threshold`,
-      {
-        min: input.min,
-        max: input.max,
-        rowVersion: input.rowVersion,
-      },
-    );
-    return r.data;
-  },
-
-  /* ── Step 11 — exam date config ───────────────────────────────────── */
-
+  /* ── Exam date config ─────────────────────────────────────────────── */
   async getExamDateConfig(cycleId: string): Promise<ExamDateConfig | null> {
-    const r = await apiClient.get<ExamDateConfig | null>(
-      `/admin/admission-setup/cycles/${cycleId}/exam-dates`,
-    );
-    return r.data ?? null;
+    await simulateLatency();
+    return EXAM_DATE_CONFIGS.find((c) => c.cycleId === cycleId) ?? null;
   },
 
   async setExamDateConfig(input: {
@@ -185,120 +85,148 @@ export const admissionSetupService = {
     firstAvailableDate: string;
     bookableDays: string[];
     blackoutDates: string[];
-    rowVersion?: string;
   }): Promise<ExamDateConfig> {
-    const r = await apiClient.put<ExamDateConfig>(
-      `/admin/admission-setup/cycles/${input.cycleId}/exam-dates`,
-      {
-        firstAvailableDate: input.firstAvailableDate,
-        bookableDays: input.bookableDays,
-        blackoutDates: input.blackoutDates,
-        rowVersion: input.rowVersion,
-      },
-    );
-    return r.data;
+    await simulateLatency();
+    if (input.bookableDays.length === 0) {
+      throw new Error('يجب إضافة يوم واحد على الأقل من أيام التقديم');
+    }
+    const firstTs = new Date(input.firstAvailableDate).getTime();
+    if (Number.isNaN(firstTs)) {
+      throw new Error('تاريخ أول ميعاد متاح غير صالح');
+    }
+    const earlyDay = input.bookableDays.find((d) => new Date(d).getTime() < firstTs);
+    if (earlyDay) {
+      throw new Error('جميع أيام التقديم يجب أن تكون في تاريخ أول ميعاد متاح أو بعده');
+    }
+    const stray = input.blackoutDates.find((d) => !input.bookableDays.includes(d));
+    if (stray) {
+      throw new Error('أيام الإجازة يجب أن تكون ضمن أيام التقديم المختارة');
+    }
+    const idx = EXAM_DATE_CONFIGS.findIndex((c) => c.cycleId === input.cycleId);
+    const next: ExamDateConfig = {
+      id: idx === -1 ? id('EDC') : EXAM_DATE_CONFIGS[idx]!.id,
+      cycleId: input.cycleId,
+      firstAvailableDate: input.firstAvailableDate,
+      bookableDays: [...input.bookableDays].sort(),
+      blackoutDates: [...input.blackoutDates].sort(),
+      updatedAt: new Date().toISOString(),
+      updatedBy: actorId(),
+    };
+    const before = idx === -1 ? null : EXAM_DATE_CONFIGS[idx]!;
+    if (idx === -1) EXAM_DATE_CONFIGS.unshift(next);
+    else EXAM_DATE_CONFIGS[idx] = next;
+    emitAudit({
+      action: idx === -1 ? 'create' : 'update',
+      module: 'cycles',
+      entityType: 'ExamDateConfig',
+      entityLabel: 'مواعيد الاختبارات',
+      entityId: next.id,
+      details: `تم ضبط ${input.bookableDays.length} يوم تقديم${input.blackoutDates.length > 0 ? ` و${input.blackoutDates.length} يوم إجازة` : ''}`,
+      before,
+      after: next,
+    });
+    return next;
   },
 
-  /* ── Step 13 — total-score config (per applicant stream) ───────────── */
-
-  async listTotalScoreConfigs(cycleId: string): Promise<TotalScoreConfig[]> {
-    const r = await apiClient.get<TotalScoreConfig[]>(
-      `/admin/admission-setup/cycles/${cycleId}/total-score`,
-    );
-    return r.data;
-  },
-
-  async setTotalScoreConfig(input: {
-    cycleId: string;
-    applicantStream: ApplicantStream;
-    components: TotalScoreComponent[];
-    totalScoreOutOf: number;
-    rowVersion?: string;
-  }): Promise<TotalScoreConfig> {
-    const r = await apiClient.put<TotalScoreConfig>(
-      `/admin/admission-setup/cycles/${input.cycleId}/total-score/${input.applicantStream}`,
-      {
-        components: input.components,
-        totalScoreOutOf: input.totalScoreOutOf,
-        rowVersion: input.rowVersion,
-      },
-    );
-    return r.data;
-  },
-
-  /* ── Step 15 — electronic declaration ────────────────────────────── */
-
+  /* ── Electronic declaration ───────────────────────────────────────── */
   async getDeclaration(cycleId: string): Promise<ElectronicDeclaration | null> {
-    const r = await apiClient.get<ElectronicDeclaration | null>(
-      `/admin/admission-setup/cycles/${cycleId}/declaration`,
-    );
-    return r.data ?? null;
+    await simulateLatency();
+    const cur = DECLARATIONS.filter((d) => d.cycleId === cycleId && !d.deletedAt)
+      .sort((a, b) => b.version - a.version)[0];
+    return cur ?? null;
   },
 
-  /** Creates a new draft version of the declaration for a cycle. */
   async setDeclaration(input: {
     cycleId: string;
-    bodyAr: string;
+    mode: 'text' | 'pdf';
+    bodyAr?: string;
+    document?: DeclarationDocument | null;
     effectiveFrom: string;
   }): Promise<ElectronicDeclaration> {
-    const r = await apiClient.post<ElectronicDeclaration>(
-      `/admin/admission-setup/cycles/${input.cycleId}/declaration`,
-      {
-        bodyAr: input.bodyAr,
-        effectiveFrom: input.effectiveFrom,
-      },
-    );
-    return r.data;
+    await simulateLatency();
+    const previous = await admissionSetupService.getDeclaration(input.cycleId);
+
+    /* Per-mode validation. The OTHER mode's content is carried forward
+     * from the previous version so admins can switch tabs without losing
+     * what they wrote elsewhere. */
+    let nextBodyAr = previous?.bodyAr ?? '';
+    let nextDoc: DeclarationDocument | null = previous?.document ?? null;
+    let detailLabel = '';
+
+    if (input.mode === 'text') {
+      const body = (input.bodyAr ?? '').trim();
+      if (!body) {
+        throw new Error('يجب إدخال نص الإقرار قبل الحفظ');
+      }
+      nextBodyAr = body;
+      detailLabel = 'النص';
+    } else {
+      const doc = input.document;
+      if (!doc || !doc.fileName.trim() || !doc.fileUrl.trim()) {
+        throw new Error('يجب رفع مستند الإقرار قبل الحفظ');
+      }
+      if (!doc.fileName.toLowerCase().endsWith('.pdf')) {
+        throw new Error('يجب أن يكون المستند بصيغة PDF');
+      }
+      if (doc.size <= 0) {
+        throw new Error('ملف الإقرار فارغ');
+      }
+      if (doc.size > MAX_DECLARATION_SIZE) {
+        throw new Error('حجم الملف يتجاوز الحد المسموح به (10 ميجابايت)');
+      }
+      nextDoc = { ...doc };
+      detailLabel = doc.fileName;
+    }
+
+    const version = previous ? previous.version + 1 : 1;
+    const next: ElectronicDeclaration = {
+      id: id('DEC'),
+      cycleId: input.cycleId,
+      mode: input.mode,
+      bodyAr: nextBodyAr,
+      document: nextDoc,
+      version,
+      effectiveFrom: input.effectiveFrom,
+      createdAt: new Date().toISOString(),
+      createdBy: actorId(),
+    };
+    DECLARATIONS.unshift(next);
+    emitAudit({
+      action: 'update',
+      module: 'cycles',
+      entityType: 'ElectronicDeclaration',
+      entityLabel: 'الإقرار الإلكتروني',
+      entityId: next.id,
+      details: `تم حفظ النسخة رقم ${version} من الإقرار الإلكتروني (${detailLabel})`,
+      before: previous,
+      after: next,
+    });
+    return next;
   },
 
   async publishDeclaration(declarationId: string): Promise<ElectronicDeclaration> {
-    const r = await apiClient.post<ElectronicDeclaration>(
-      `/admin/admission-setup/declaration/${declarationId}/publish`,
-    );
-    return r.data;
+    await simulateLatency();
+    const idx = DECLARATIONS.findIndex((d) => d.id === declarationId);
+    if (idx === -1) throw new Error('الإقرار غير موجود');
+    const before = { ...DECLARATIONS[idx]! };
+    DECLARATIONS[idx] = {
+      ...DECLARATIONS[idx]!,
+      publishedAt: new Date().toISOString(),
+    };
+    emitAudit({
+      action: 'notification_published',
+      module: 'cycles',
+      entityType: 'ElectronicDeclaration',
+      entityLabel: 'الإقرار الإلكتروني',
+      entityId: declarationId,
+      details: `تم نشر النسخة رقم ${before.version} من الإقرار الإلكتروني`,
+      before,
+      after: DECLARATIONS[idx],
+    });
+    return DECLARATIONS[idx]!;
   },
 
-  /* ── Wizard step status (T047/T058) ──────────────────────────────── */
-
-  async listStepStatuses(cycleId: string): Promise<WizardStepStatusRow[]> {
-    const r = await apiClient.get<WizardStepStatusRow[]>(
-      `/admin/admission-setup/cycles/${cycleId}/step-statuses`,
-    );
-    return r.data;
-  },
-
-  async completeStep(cycleId: string, stepKey: string): Promise<WizardStepStatusRow> {
-    const r = await apiClient.post<WizardStepStatusRow>(
-      `/admin/admission-setup/cycles/${cycleId}/steps/${stepKey}/complete`,
-    );
-    return r.data;
-  },
-
-  async reopenStep(cycleId: string, stepKey: string): Promise<WizardStepStatusRow> {
-    const r = await apiClient.post<WizardStepStatusRow>(
-      `/admin/admission-setup/cycles/${cycleId}/steps/${stepKey}/reopen`,
-    );
-    return r.data;
-  },
-
-  /**
-   * Spec 009 T047a — auto-promote (not_started → in_progress). Idempotent.
-   * Called by spec 011 (Application Settings) on first save per cycle for the
-   * `application_settings` step, since spec 011's tables live in a different
-   * DbContext than the WizardStatusInterceptor watches.
-   */
-  async autoPromoteStep(cycleId: string, stepKey: string): Promise<WizardStepStatusRow> {
-    const r = await apiClient.post<WizardStepStatusRow>(
-      `/admin/admission-setup/cycles/${cycleId}/steps/${stepKey}/auto-promote`,
-    );
-    return r.data;
-  },
-
-  /* ── Step 8 — category↔committee bindings ────────────────────────────
-   *
-   * TODO(spec-010): These three methods consume the `category_committees`
-   * mapping table that spec 010 (Lookup Management Module) owns. Until
-   * spec 010's backend ships, they remain mock-backed.
+  /* ── Committee ↔ category bindings ───────────────────────────────────
    *
    * Backs the admin-setup wizard committee picker. Persisted bindings tell
    * the applicant-distribution step which committees can absorb each
@@ -332,6 +260,7 @@ export const admissionSetupService = {
   async setCommitteeBindings(input: {
     cycleId: string;
     academicYearId: string;
+    /** Optional scope — when omitted, the call replaces *all* bindings for the cycle. */
     categoryId?: ApplicantCategoryKey;
     committeeIds: string[];
     actorUserId?: string;

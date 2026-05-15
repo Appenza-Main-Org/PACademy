@@ -16,7 +16,7 @@
  *             label="المحافظة" placeholder="اختر..." />
  */
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search } from 'lucide-react';
@@ -34,6 +34,14 @@ export interface ComboboxOption {
   disabled?: boolean;
   /** Searchable extra text not rendered in the row. */
   keywords?: string;
+  /** ID of the group this option belongs to. Pair with `groups` prop on
+   *  the Combobox to render section headers. */
+  groupId?: string;
+}
+
+export interface ComboboxGroup {
+  id: string;
+  label: string;
 }
 
 interface ComboboxProps {
@@ -50,6 +58,9 @@ interface ComboboxProps {
   onSearchChange?: (term: string) => void;
   className?: string;
   ariaLabel?: string;
+  /** When provided, options are reordered to match this group sequence and
+   *  rendered under sticky section headers. Virtualisation is disabled. */
+  groups?: readonly ComboboxGroup[];
 }
 
 const ROW_HEIGHT = 36;
@@ -69,6 +80,7 @@ export function Combobox({
   onSearchChange,
   className,
   ariaLabel,
+  groups,
 }: ComboboxProps): JSX.Element {
   const id = useId();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -86,22 +98,44 @@ export function Combobox({
 
   /* Match the trigger's left edge + width so the dropdown looks
    * "anchored" to the input even after we portal it out of the
-   * (potentially overflow:hidden) ancestor. */
+   * (potentially overflow:hidden) ancestor. If there isn't enough room
+   * below the trigger, flip above so the option list stays visible and
+   * scrollable inside the viewport. Approx popover height = listbox
+   * max-h (16rem ≈ 256px) + search-row chrome (~52px). */
   const computePosition = (): void => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setPosition({ top: rect.bottom + POPOVER_GAP, left: rect.left, width: rect.width });
+    const popoverMaxH = 320;
+    const spaceBelow = window.innerHeight - rect.bottom - POPOVER_GAP;
+    const spaceAbove = rect.top - POPOVER_GAP;
+    const placeAbove = spaceBelow < popoverMaxH && spaceAbove > spaceBelow;
+    const top = placeAbove
+      ? Math.max(8, rect.top - POPOVER_GAP - Math.min(popoverMaxH, spaceAbove))
+      : rect.bottom + POPOVER_GAP;
+    setPosition({ top, left: rect.left, width: rect.width });
   };
 
-  const filtered = useMemo(() => {
-    if (!term.trim()) return options;
-    const needle = normalize(term);
-    return options.filter((o) =>
-      [o.label, o.value, o.keywords ?? ''].some((s) => normalize(s).includes(needle)),
-    );
-  }, [options, term]);
+  const grouped = groups != null && groups.length > 0;
 
-  const virtualised = filtered.length > 100;
+  const filtered = useMemo(() => {
+    const base = !term.trim()
+      ? options
+      : (() => {
+          const needle = normalize(term);
+          return options.filter((o) =>
+            [o.label, o.value, o.keywords ?? ''].some((s) => normalize(s).includes(needle)),
+          );
+        })();
+    if (!grouped) return base;
+    const order = new Map(groups!.map((g, i) => [g.id, i]));
+    /* Stable sort by group order; options with no/unknown groupId sink to end. */
+    return base
+      .map((opt, i) => ({ opt, i, gi: opt.groupId ? order.get(opt.groupId) ?? Infinity : Infinity }))
+      .sort((a, b) => (a.gi - b.gi) || (a.i - b.i))
+      .map(({ opt }) => opt);
+  }, [options, term, grouped, groups]);
+
+  const virtualised = !grouped && filtered.length > 100;
   const totalHeight = filtered.length * ROW_HEIGHT;
   const startIndex = virtualised
     ? Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER)
@@ -110,6 +144,10 @@ export function Combobox({
     ? Math.min(filtered.length, startIndex + VISIBLE_ROWS + BUFFER * 2)
     : filtered.length;
   const slice = filtered.slice(startIndex, endIndex);
+  const groupById = useMemo(
+    () => (grouped ? new Map(groups!.map((g) => [g.id, g])) : null),
+    [grouped, groups],
+  );
 
   const selected = options.find((o) => o.value === value) ?? null;
 
@@ -139,11 +177,42 @@ export function Combobox({
     document.addEventListener('mousedown', onDocClick);
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onResize);
+
+    /* When the popover is portaled into `document.body` while a Radix
+     * Dialog is open, the dialog's `react-remove-scroll` wrapper intercepts
+     * wheel/touchmove at the document level and calls `preventDefault` for
+     * any element outside its tree — which blocks the option list from
+     * scrolling. We can't beat its document-bubble listener with a sibling
+     * listener reliably (capture-phase stopPropagation isn't enough once
+     * the layer is locked), so we drive the scroll ourselves: a non-passive
+     * capture-phase wheel listener on the option list manually updates
+     * `scrollTop` and calls `preventDefault`. Browser's native scroll never
+     * runs, and the dialog's lock has nothing to cancel. */
+    const list = listRef.current;
+    const onWheel = (event: WheelEvent): void => {
+      if (!list) return;
+      const canScrollDown = list.scrollTop + list.clientHeight < list.scrollHeight - 1;
+      const canScrollUp = list.scrollTop > 0;
+      if ((event.deltaY > 0 && canScrollDown) || (event.deltaY < 0 && canScrollUp)) {
+        list.scrollTop += event.deltaY;
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    list?.addEventListener('wheel', onWheel, { passive: false, capture: true });
+
     return () => {
       document.removeEventListener('mousedown', onDocClick);
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onResize);
+      list?.removeEventListener('wheel', onWheel, true);
     };
+    /* `position` is intentionally not in the deps: it's *written* by this
+     * effect (computePosition → setPosition). Adding it would make the
+     * effect refire after every write, producing a fresh object ref each
+     * time and an infinite render loop. The original deps caused the loop
+     * to be latent behind a Dialog wrapper; it surfaces when the Combobox
+     * mounts inline. */
   }, [open]);
 
   useEffect(() => {
@@ -154,6 +223,11 @@ export function Combobox({
     if (opt.disabled) return;
     onChange?.(opt.value);
     setTerm('');
+    /* Return focus to the trigger before unmounting the popover. Otherwise
+     * the search input (which had focus) is removed mid-cycle and the
+     * browser dumps focus on <body>, which a Radix Dialog ancestor
+     * interprets as focusoutside and dismisses itself. */
+    triggerRef.current?.focus();
     setOpen(false);
   };
 
@@ -193,7 +267,7 @@ export function Combobox({
           onClick={() => !disabled && setOpen((prev) => !prev)}
           className={cn(
             'flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-surface-card px-3 text-start text-sm transition-colors duration-fast ease-standard',
-            error ? 'border-terra-500' : 'border-border-default hover:border-border-strong',
+            error ? 'border-terra-500' : 'border-border-strong hover:border-ink-400',
             'focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none',
             disabled && 'cursor-not-allowed opacity-60',
           )}
@@ -207,13 +281,14 @@ export function Combobox({
         {open && position && createPortal(
           <div
             ref={popoverRef}
+            data-portal-popover="combobox"
             className="rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
             style={{
               position: 'fixed',
               top: position.top,
               left: position.left,
               width: position.width,
-              zIndex: 'var(--z-dropdown)' as unknown as number,
+              zIndex: 'var(--z-popover)' as unknown as number,
             }}
           >
             <div className="border-b border-border-subtle px-3 py-2">
@@ -250,8 +325,7 @@ export function Combobox({
               role="listbox"
               aria-label={label ?? ariaLabel ?? 'options'}
               onScroll={virtualised ? (e) => setScrollTop((e.currentTarget as HTMLUListElement).scrollTop) : undefined}
-              className="relative overflow-auto"
-              style={{ maxHeight: `${VISIBLE_ROWS * ROW_HEIGHT}px` }}
+              className="relative max-h-[16rem] overflow-y-auto"
             >
               {virtualised && <li aria-hidden style={{ height: startIndex * ROW_HEIGHT }} />}
               {filtered.length === 0 && (
@@ -263,32 +337,46 @@ export function Combobox({
                 const idx = startIndex + sliceIdx;
                 const isSelected = opt.value === value;
                 const isActive = idx === activeIndex;
+                const prev = idx > 0 ? filtered[idx - 1] : null;
+                const showHeader =
+                  grouped && opt.groupId != null && opt.groupId !== prev?.groupId;
+                const headerGroup =
+                  showHeader && groupById ? groupById.get(opt.groupId!) : null;
                 return (
-                  <li
-                    key={opt.value}
-                    role="option"
-                    aria-selected={isSelected}
-                    onMouseEnter={() => setActiveIndex(idx)}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      commit(opt);
-                    }}
-                    className={cn(
-                      'flex h-9 cursor-pointer items-center gap-2 px-3 text-sm',
-                      isActive && 'bg-teal-50',
-                      isSelected && 'font-medium text-teal-700',
-                      opt.disabled && 'cursor-not-allowed text-ink-300',
+                  <Fragment key={opt.value}>
+                    {headerGroup && (
+                      <li
+                        role="presentation"
+                        className="sticky top-0 z-10 bg-ink-50/95 px-3 py-1 text-2xs font-medium text-ink-500 backdrop-blur"
+                      >
+                        {headerGroup.label}
+                      </li>
                     )}
-                  >
-                    {opt.icon && <span className="flex-shrink-0">{opt.icon}</span>}
-                    <span className="min-w-0 flex-1 truncate">{opt.label}</span>
-                    {opt.badge && (
-                      <span className="rounded-pill bg-ink-100 px-2.5 py-1 text-2xs text-ink-700">
-                        {opt.badge}
-                      </span>
-                    )}
-                    {isSelected && <Check size={14} strokeWidth={2} className="text-teal-500" aria-hidden />}
-                  </li>
+                    <li
+                      role="option"
+                      aria-selected={isSelected}
+                      onMouseEnter={() => setActiveIndex(idx)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        commit(opt);
+                      }}
+                      className={cn(
+                        'flex h-9 cursor-pointer items-center gap-2 px-3 text-sm',
+                        isActive && 'bg-teal-50',
+                        isSelected && 'font-medium text-teal-700',
+                        opt.disabled && 'cursor-not-allowed text-ink-300',
+                      )}
+                    >
+                      {opt.icon && <span className="flex-shrink-0">{opt.icon}</span>}
+                      <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+                      {opt.badge && (
+                        <span className="rounded-pill bg-ink-100 px-2.5 py-1 text-2xs text-ink-700">
+                          {opt.badge}
+                        </span>
+                      )}
+                      {isSelected && <Check size={14} strokeWidth={2} className="text-teal-500" aria-hidden />}
+                    </li>
+                  </Fragment>
                 );
               })}
               {virtualised && (

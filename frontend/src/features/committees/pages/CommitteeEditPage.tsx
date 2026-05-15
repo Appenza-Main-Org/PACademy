@@ -15,7 +15,6 @@ import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
   useCommittee,
   useCommitteeUpdate,
-  useEligibleOfficers,
 } from '../api/committee.queries';
 import { CommitteeForm, type CommitteeFormValues } from '../components/CommitteeForm';
 import { ROUTES } from '@/config/routes';
@@ -24,7 +23,6 @@ export function CommitteeEditPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: committee, isLoading, error, refetch } = useCommittee(id);
-  const { data: officers = [] } = useEligibleOfficers();
   const updateMut = useCommitteeUpdate();
 
   if (isLoading) return <CenteredShell><LoadingState variant="page" /></CenteredShell>;
@@ -34,14 +32,15 @@ export function CommitteeEditPage(): JSX.Element {
   }
 
   const handleSubmit = (values: CommitteeFormValues): void => {
-    const headLabel = officers.find((o) => o.id === values.headUserId)?.name ?? committee.head;
+    /* Head + officers are preserved from the existing committee — the
+     * form passes them through `values` from `initial`. */
     updateMut.mutate(
       {
         id: committee.id,
         patch: {
           name: values.name,
-          head: headLabel,
-          headUserId: values.headUserId,
+          head: committee.head,
+          ...(values.headUserId !== undefined ? { headUserId: values.headUserId } : {}),
           members: values.officerIds.length,
           capacity: values.capacity,
           capacityPerDay: Math.min(values.capacity, 100),
@@ -67,7 +66,7 @@ export function CommitteeEditPage(): JSX.Element {
     <CenteredShell>
       <PageHeader
         title={`تعديل: ${committee.name}`}
-        subtitle="حدّث بيانات اللجنة، الضباط، التخصصات، السعة وشروط التوزيع."
+        subtitle="حدّث بيانات اللجنة، فئات المتقدمين، السعة وشروط التوزيع."
         breadcrumbs={[
           { label: 'لجان القبول', href: ROUTES.committee.list },
           { label: committee.name, href: ROUTES.committee.detail(committee.id) },

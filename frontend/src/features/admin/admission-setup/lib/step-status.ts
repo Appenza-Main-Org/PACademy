@@ -1,49 +1,79 @@
 /**
  * Per-step status checkers — surface the index-page status pill.
  *
- * Status semantics (client-computed, V1):
+ * Status semantics:
  *   • complete    — every required setting for this step is filled in for
  *                   the picked cycle.
  *   • in_progress — the step has been touched (some settings present) but
  *                   not all required pieces are filled.
  *   • not_started — nothing exists yet for the picked cycle.
- *
- * TODO(spec-009 T059): Replace this client-computed status with the
- * server-tracked status from `GET /admin/admission-setup/cycles/{cycleId}/step-statuses`.
- * The backend's `wizard_step_statuses` table tracks admin-marked statuses
- * (`in_progress` set automatically on first save via WizardStatusInterceptor;
- * `complete` set explicitly via the "Mark step complete" button). Different
- * semantic from the data-completeness check below — switching requires
- * deliberate UX consideration of what "complete" means to the admin.
  */
 
 import type { AdmissionCycle, ApplicantCategory, Committee } from '@/shared/types/domain';
 import type {
   AdmissionSetupStepKey,
   AdmissionSetupStepStatus,
-  CommitteeMergeSplitRule,
+  CommitteeDayBinding,
   ElectronicDeclaration,
-  ExamDateConfig,
-  TotalScoreConfig,
-  WizardStepStatusRow,
 } from '../types';
+
+/**
+ * Aggregated committee-binding snapshot consumed by the step-status check.
+ *
+ * The committees step is complete when both:
+ *   1. roster — every active category has ≥1 row in `CategoryCommittees`
+ *   2. bindings — every active category has ≥1 active `CommitteeDayBinding`
+ * Either dimension empty for any active category → `in_progress`.
+ */
+export interface CommitteeBindingsSnapshot {
+  /** Per-active-category roster count (from `CategoryCommittees`). */
+  rosterByCategory: Record<string, number>;
+  /** Per-active-category active-binding count. */
+  activeBindingsByCategory: Record<string, number>;
+  /** Universe of required category buckets (= active categories). */
+  activeCategoryIds: string[];
+}
 
 export interface StepStatusInputs {
   cycle: AdmissionCycle | null;
   categories: ApplicantCategory[];
   committees: Committee[];
-  /** Net-new entities — empty arrays until Phase 5 wires the services. */
-  mergeSplitRules: CommitteeMergeSplitRule[];
-  examDateConfig: ExamDateConfig | null;
-  totalScoreConfigs: TotalScoreConfig[];
   declaration: ElectronicDeclaration | null;
+  committeeBindings?: CommitteeBindingsSnapshot | null;
+}
+
+export function buildCommitteeBindingsSnapshot(
+  rosterRows: Array<{ cycleId: string; categoryId: string }>,
+  bindings: CommitteeDayBinding[],
+  cycleId: string,
+  activeCategoryIds: string[],
+): CommitteeBindingsSnapshot {
+  const rosterByCategory: Record<string, number> = {};
+  const activeBindingsByCategory: Record<string, number> = {};
+  for (const id of activeCategoryIds) {
+    rosterByCategory[id] = 0;
+    activeBindingsByCategory[id] = 0;
+  }
+  for (const row of rosterRows) {
+    if (row.cycleId !== cycleId) continue;
+    if (rosterByCategory[row.categoryId] === undefined) continue;
+    rosterByCategory[row.categoryId] = (rosterByCategory[row.categoryId] ?? 0) + 1;
+  }
+  for (const b of bindings) {
+    if (b.cycleId !== cycleId) continue;
+    if (!b.isActive) continue;
+    if (activeBindingsByCategory[b.applicantCategoryId] === undefined) continue;
+    activeBindingsByCategory[b.applicantCategoryId] =
+      (activeBindingsByCategory[b.applicantCategoryId] ?? 0) + 1;
+  }
+  return { rosterByCategory, activeBindingsByCategory, activeCategoryIds };
 }
 
 export function computeStepStatus(
   key: AdmissionSetupStepKey,
   inputs: StepStatusInputs,
 ): AdmissionSetupStepStatus {
-  const { cycle, categories, committees, mergeSplitRules, examDateConfig, totalScoreConfigs, declaration } = inputs;
+  const { cycle, categories, committees, declaration } = inputs;
 
   if (!cycle) return 'not_started';
 
@@ -52,21 +82,6 @@ export function computeStepStatus(
       const openCount = Object.values(cycle.openCategories ?? {}).filter((c) => c?.isOpen).length;
       if (openCount === 0) return 'not_started';
       return openCount > 0 ? 'complete' : 'in_progress';
-    }
-    case 'application_status':
-      return cycle.status === 'active' || cycle.status === 'extended' || cycle.status === 'open'
-        ? 'complete'
-        : cycle.status === 'draft'
-          ? 'not_started'
-          : 'in_progress';
-    case 'age_rules': {
-      const openKeys = openCategoryKeys(cycle);
-      if (openKeys.length === 0) return 'not_started';
-      const allHaveAge = openKeys.every((k) => {
-        const cat = categories.find((c) => c.key === k);
-        return Boolean(cat?.conditions.ageMin && cat?.conditions.ageMax);
-      });
-      return allHaveAge ? 'complete' : 'in_progress';
     }
     case 'fees': {
       const fee = cycle.fees?.applicationFee ?? 0;
@@ -85,37 +100,30 @@ export function computeStepStatus(
       return anyHasExams ? 'complete' : 'in_progress';
     }
     case 'committees': {
-      const cycleCommittees = committees.filter((c) => !c.linkedCycleId || c.linkedCycleId === cycle.id);
-      return cycleCommittees.length > 0 ? 'complete' : 'not_started';
-    }
-    case 'committee_merge_split':
-      return mergeSplitRules.filter((r) => r.cycleId === cycle.id && !r.deletedAt).length > 0
-        ? 'complete'
-        : 'not_started';
-    case 'score_thresholds': {
-      const cycleCommittees = committees.filter((c) => !c.linkedCycleId || c.linkedCycleId === cycle.id);
-      if (cycleCommittees.length === 0) return 'not_started';
-      const withCriteria = cycleCommittees.filter((c) => c.scoreCriteria?.magmoo3 || c.scoreCriteria?.accumulativeScore);
-      if (withCriteria.length === cycleCommittees.length) return 'complete';
-      if (withCriteria.length > 0) return 'in_progress';
-      return 'not_started';
-    }
-    case 'exam_dates':
-      if (!examDateConfig) return 'not_started';
-      return examDateConfig.bookableDays.length > 0 ? 'complete' : 'in_progress';
-    case 'date_committee_binding': {
-      const cycleCommittees = committees.filter((c) => !c.linkedCycleId || c.linkedCycleId === cycle.id);
-      if (cycleCommittees.length === 0) return 'not_started';
-      const bound = cycleCommittees.filter(
-        (c) => (c.availableDates?.length ?? 0) > 0 && (c.capacityPerDay ?? 0) > 0,
+      const snap = inputs.committeeBindings;
+      if (!snap) {
+        /* Back-compat path — callers that haven't wired the binding
+         * snapshot fall back to the legacy "any committee exists" rule. */
+        const cycleCommittees = committees.filter(
+          (c) => !c.linkedCycleId || c.linkedCycleId === cycle.id,
+        );
+        return cycleCommittees.length > 0 ? 'complete' : 'not_started';
+      }
+      if (snap.activeCategoryIds.length === 0) return 'not_started';
+      const rosterTouched = snap.activeCategoryIds.some(
+        (id) => (snap.rosterByCategory[id] ?? 0) > 0,
       );
-      if (bound.length === cycleCommittees.length) return 'complete';
-      if (bound.length > 0) return 'in_progress';
-      return 'not_started';
-    }
-    case 'total_score': {
-      const cycleScored = totalScoreConfigs.filter((t) => t.cycleId === cycle.id);
-      return cycleScored.length > 0 ? 'complete' : 'not_started';
+      const bindingsTouched = snap.activeCategoryIds.some(
+        (id) => (snap.activeBindingsByCategory[id] ?? 0) > 0,
+      );
+      if (!rosterTouched && !bindingsTouched) return 'not_started';
+      const rosterComplete = snap.activeCategoryIds.every(
+        (id) => (snap.rosterByCategory[id] ?? 0) > 0,
+      );
+      const bindingsComplete = snap.activeCategoryIds.every(
+        (id) => (snap.activeBindingsByCategory[id] ?? 0) > 0,
+      );
+      return rosterComplete && bindingsComplete ? 'complete' : 'in_progress';
     }
     case 'notifications':
       /* Notifications are global — surface as in_progress; the actual page
@@ -131,26 +139,6 @@ function openCategoryKeys(cycle: AdmissionCycle): string[] {
   return Object.entries(cycle.openCategories ?? {})
     .filter(([, v]) => v?.isOpen)
     .map(([k]) => k);
-}
-
-/**
- * Server-backed status resolver (spec 009 T059).
- *
- * Prefers the row from `wizard_step_statuses` when present — that's the
- * admin-marked source of truth (set via "إكمال الخطوة" button + the
- * WizardStatusInterceptor's auto-promotion on first save). Falls back to
- * the client-computed `computeStepStatus` when the backend has no row yet
- * (e.g., a brand-new cycle the admin hasn't opened) so the index page still
- * surfaces something meaningful.
- */
-export function resolveStepStatus(
-  key: AdmissionSetupStepKey,
-  serverStatuses: readonly WizardStepStatusRow[],
-  computedInputs: StepStatusInputs,
-): AdmissionSetupStepStatus {
-  const server = serverStatuses.find((s) => s.stepKey === key);
-  if (server && server.status !== 'not_started') return server.status;
-  return computeStepStatus(key, computedInputs);
 }
 
 export const STEP_STATUS_LABEL: Record<AdmissionSetupStepStatus, string> = {

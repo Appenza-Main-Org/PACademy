@@ -26,10 +26,29 @@ export type ConflictCode =
   | 'DUPLICATE_YEAR'
   | 'OVERLAPPING_PERIOD'
   | 'AGE_NOT_POSITIVE'
-  | 'GRADE_RANGE_INVALID'
+  | 'AGE_RANGE_INVALID'
+  | 'AGE_REFERENCE_AFTER_START'
+  | 'PERCENTAGE_OUT_OF_RANGE'
+  | 'GRADE_MODE_MISMATCH'
   | 'GENDER_REQUIRED'
+  | 'GRAD_YEAR_REQUIRED'
   | 'SPECIALIZATION_NOT_MAPPED'
-  | 'CATEGORY_HAS_ACTIVE_YEARS';
+  | 'CATEGORY_HAS_ACTIVE_YEARS'
+  // Admission Setup — Exam Schedule (per-category calendar).
+  // See docs/DB_CONSTRAINTS.md §12.
+  | 'DUPLICATE_DATE'
+  | 'DATE_OUT_OF_CYCLE_WINDOW'
+  | 'CATEGORY_NOT_ACTIVE'
+  // Admission Setup — Committee × Day Bindings.
+  // See docs/DB_CONSTRAINTS.md §13. Note: PERCENTAGE_OUT_OF_RANGE is
+  // re-used (already in this union under §11).
+  | 'DUPLICATE_BINDING'
+  | 'CAPACITY_NOT_POSITIVE'
+  | 'GRADE_RANGE_INVERTED'
+  | 'TAGDIR_GRADE_NOT_FOUND'
+  | 'MODE_MISMATCH'
+  | 'DAY_NOT_WORKING'
+  | 'COMMITTEE_WRONG_CATEGORY';
 
 /** Generic conflict — a precondition rejected the mutation. */
 export class ConflictError<TPayload = unknown> extends Error {

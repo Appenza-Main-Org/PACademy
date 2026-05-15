@@ -35,7 +35,7 @@ export const CATEGORY_COMMITTEES_SEED: CategoryCommittees[] = [
   },
   {
     id: 'CC-03',
-    categoryId: 'officers_specialized',
+    categoryId: 'specialized_officers',
     committeeId: 'C-03',
     academicYearId: '2026-2027',
     cycleId: 'CYC-2026-M',

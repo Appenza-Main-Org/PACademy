@@ -1,8 +1,8 @@
 /**
  * Admission-Setup feature — local type contract.
  *
- * Hosts the 14-step discriminated union plus the four genuinely net-new
- * entities (steps 8, 10, 12, 14). Composed steps (1–7, 11, 13) reuse the
+ * Hosts the step-key union plus the net-new entities the wizard owns
+ * (exam-date config + electronic declaration). Composed steps reuse the
  * shipped types from `@/shared/types/domain` and admin-gaps services.
  *
  * Cycle metadata (name / year / dates) lives in the Cycles section, not
@@ -14,7 +14,8 @@
  * the day they cross-cut other features.
  */
 
-import type { Applicant, SoftDeleteFields } from '@/shared/types/domain';
+import type { Applicant } from '@/shared/types/domain';
+import type { GradingMode } from '@/features/lookups';
 
 /**
  * Binary gender union, derived from the existing canonical inline shape on
@@ -27,100 +28,24 @@ import type { Applicant, SoftDeleteFields } from '@/shared/types/domain';
  */
 export type GenderType = Applicant['gender'];
 
-/** Discriminated union of the 14 admission-setup step keys, in canonical order. */
+/** Discriminated union of the admission-setup step keys, in canonical order. */
 export type AdmissionSetupStepKey =
   | 'application_settings'
-  | 'application_status'
-  | 'age_rules'
   | 'fees'
   | 'exams'
   | 'committees'
-  | 'committee_merge_split'
-  | 'score_thresholds'
-  | 'exam_dates'
-  | 'date_committee_binding'
-  | 'total_score'
   | 'notifications'
   | 'electronic_declaration';
 
 /** Per-step status pill state shown on the index landing. */
 export type AdmissionSetupStepStatus = 'complete' | 'in_progress' | 'not_started';
 
-/** Spec 009 — server-persisted step status row. */
-export interface WizardStepStatusRow {
-  cycleId: string;
-  stepKey: AdmissionSetupStepKey;
-  status: AdmissionSetupStepStatus;
-  completedAt?: string;
-  completedBy?: string;
-  rowVersion: string;
-}
-
-/** Spec 009 — merge/split apply preview DTO. */
-export interface MergeSplitPreviewDto {
-  applicantsMoved: Array<{
-    applicantId: string;
-    fromCommitteeId: string;
-    toCommitteeId: string;
-  }>;
-  capacityChanges: Array<{
-    committeeId: string;
-    before: number;
-    after: number;
-  }>;
-  brokenReferences: unknown[];
-  previewHash: string;
-}
-
-/** Spec 009 — merge/split apply result. */
-export interface ApplyResultDto {
-  applied: true;
-  applicantsMoved: number;
-  durationMs: number;
-}
-
-/** Spec 009 — merge/split rule status. */
-export type MergeSplitRuleStatus = 'planned' | 'applied' | 'cancelled';
-
 /* ───────────────────────────────────────────────────────────────────────
  * Net-new entities — backed by `admissionSetupService` (mock for now).
  * Shapes mirror the proposed SQL Server tables in INTEGRATION_HANDOFF §8.
  * ─────────────────────────────────────────────────────────────────────── */
 
-/** Step 9 — committee merge/split rule. */
-export interface CommitteeMergeSplitRule extends SoftDeleteFields {
-  id: string;
-  cycleId: string;
-  type: 'merge' | 'split';
-  status: MergeSplitRuleStatus;
-  /** Source committee ids — merge requires ≥2; split requires exactly 1. */
-  sourceCommitteeIds: string[];
-  /** Target committee ids — merge requires exactly 1; split requires ≥2. */
-  targetCommitteeIds: string[];
-  reason?: string;
-  /** ISO date — when the rule takes effect. */
-  effectiveAt: string;
-  appliedAt?: string;
-  appliedBy?: string;
-  createdAt: string;
-  createdBy: string;
-  rowVersion: string;
-}
-
-/** Step 10 — committee score threshold (acceptance min/max). */
-export interface CommitteeScoreThreshold {
-  cycleId: string;
-  committeeId: string;
-  /** Inclusive minimum accepted total score. */
-  min: number;
-  /** Inclusive maximum accepted total score. */
-  max: number;
-  updatedAt: string;
-  updatedBy: string;
-  rowVersion: string;
-}
-
-/** Step 11 — admission exam date config for the cycle. */
+/** Admission exam date config for the cycle. */
 export interface ExamDateConfig {
   id: string;
   cycleId: string;
@@ -130,31 +55,6 @@ export interface ExamDateConfig {
   bookableDays: string[];
   /** ISO date strings — subset of `bookableDays` blocked off. */
   blackoutDates: string[];
-  updatedAt: string;
-  updatedBy: string;
-  rowVersion: string;
-}
-
-/** Step 13 — applicant stream the total-score config applies to. */
-export type ApplicantStream = 'general' | 'special' | 'law' | 'sports_female';
-
-export interface TotalScoreComponent {
-  /** Lookup key into the cycle's exam plan (matches `Exam.id`). */
-  examKey: string;
-  /** Weight 0..100 — components must sum to 100 per stream. */
-  weight: number;
-  /** Optional component-level minimum passing score. */
-  minimumPassingScore?: number;
-}
-
-/** Step 13 — total-score weighting per applicant stream. */
-export interface TotalScoreConfig {
-  id: string;
-  cycleId: string;
-  applicantStream: ApplicantStream;
-  components: TotalScoreComponent[];
-  /** Denominator for the final total (e.g. 100 or 1000). */
-  totalScoreOutOf: number;
   updatedAt: string;
   updatedBy: string;
   rowVersion: string;
@@ -200,28 +100,83 @@ export interface ApplicantCategorySpecialization {
   isActive: boolean;
 }
 
-export interface ApplicantSpecializationYear {
+/**
+ * The leaf row that carries the eligibility window + grade gate for one
+ * (category-specialization × graduation year × gender set) cell.
+ *
+ * Discriminated union on `gradeKind`:
+ *  - `'GRADES'`  — numeric percentage floor (`minPercentage` 0–100).
+ *  - `'TAGDIR'`  — categorical تقدير picked from the `academic-grades`
+ *                  lookup (`academicGradeId` is the FK code).
+ *
+ * `gradeKind` is **not** user-editable. It's derived at row-creation
+ * time by walking
+ *   categorySpecializationId → configId → categoryId
+ *     → lookup `applicant-categories[code].metadata.submissionTypeCode`
+ *     → lookup `submission-types[code].metadata.gradingMode`
+ * and is immutable for the life of the row. The conflict banner at the
+ * top of the application-settings page surfaces any drift when an admin
+ * re-points a category at a different submission-type after rows
+ * already exist (see `GRADE_MODE_MISMATCH`).
+ *
+ * `genderTypes` and `maritalStatusCodes` stay multi-select (V1
+ * inventory blocker A — option 2). `maxAge` stays nullable. Each `null`
+ * bound means "no bound", not "must be null at write time".
+ */
+export interface ApplicantSpecializationYearBase {
   id: string;
   categorySpecializationId: string;
-  /** Maximum acceptable graduation year (drop-down: last 5 + current). */
-  graduationYear: number;
-  /** Multi-select. At least one gender must be picked. */
+  /** Multi-select set of acceptable graduation years (last 4 + current).
+   *  At least one year must be picked. */
+  graduationYears: number[];
+  /** Multi-select. At least one gender must be picked. When the parent
+   *  category's `genderScope` is not `'any'`, the UI locks this set to
+   *  the single allowed gender. */
   genderTypes: GenderType[];
-  /** Multi-select. FK → `MARITAL_STATUSES[code]`. Empty array = any. */
+  /** Multi-select. FK → `marital-statuses[code]`. Empty array = any. */
   maritalStatusCodes: string[];
+  /** Optional lower age bound — null = no minimum. Must be a positive
+   *  integer and `<= maxAge` when both are set. */
+  ageMin: number | null;
   /** Optional upper age bound — null = no maximum. */
   maxAge: number | null;
-  /** Optional grade band, inclusive. `null` on either end = no bound. */
-  minGrade: number | null;
-  maxGrade: number | null;
+  /** Multi-select. FK → `applicant-divisions[code]` (الشعبة). Empty = any. */
+  divisionCodes: string[];
+  /** Multi-select. FK → `school-categories[code]` (فئة المدرسة). Surfaced
+   *  by the application-settings UI only for the `officers_general`
+   *  category per RFP §2.1; an empty array means "any school category". */
+  schoolCategoryCodes: string[];
   /** ISO date — start of the application window. */
   applicationStartDate: string;
   /** ISO date — end of the application window. */
   applicationEndDate: string;
-  /** ISO date — anchor used by eligibility to compute applicant age. */
-  ageCalcDate: string;
+  /** ISO date — anchor used by eligibility to compute applicant age.
+   *  Must be <= `applicationStartDate`. */
+  ageReferenceDate: string;
   isActive: boolean;
 }
+
+export interface ApplicantSpecializationYearGrades
+  extends ApplicantSpecializationYearBase {
+  gradeKind: 'GRADES';
+  /** Inclusive percentage floor (0..100). */
+  minPercentage: number;
+}
+
+export interface ApplicantSpecializationYearTagdir
+  extends ApplicantSpecializationYearBase {
+  gradeKind: 'TAGDIR';
+  /** FK → lookup `academic-grades[code]`. */
+  academicGradeId: string;
+}
+
+export type ApplicantSpecializationYear =
+  | ApplicantSpecializationYearGrades
+  | ApplicantSpecializationYearTagdir;
+
+/** Re-export so call sites that need to refer to the discriminator by
+ *  type stay decoupled from `@/features/lookups`. */
+export type YearGradeKind = GradingMode;
 
 /**
  * Conflict codes thrown by `applicationSettingsService` and surfaced as
@@ -230,19 +185,169 @@ export interface ApplicantSpecializationYear {
  */
 export type AppSettingsConflict =
   | 'DUPLICATE_YEAR'
+  | 'GRAD_YEAR_REQUIRED'
   | 'INVALID_DATE_RANGE'
   | 'OVERLAPPING_PERIOD'
   | 'AGE_NOT_POSITIVE'
-  | 'GRADE_RANGE_INVALID'
+  | 'AGE_RANGE_INVALID'
+  | 'AGE_REFERENCE_AFTER_START'
+  | 'PERCENTAGE_OUT_OF_RANGE'
+  | 'GRADE_MODE_MISMATCH'
   | 'GENDER_REQUIRED'
   | 'SPECIALIZATION_NOT_MAPPED'
   | 'CATEGORY_HAS_ACTIVE_YEARS';
 
-/** Step 15 — electronic declaration shown to the applicant on Stage 9. */
-export interface ElectronicDeclaration extends SoftDeleteFields {
+/* ───────────────────────────────────────────────────────────────────────
+ * Exam Schedule — per-category calendar of WORKING/OFF days.
+ *
+ * Each row is scoped to a single (cycleId × applicantCategoryId × date).
+ * The schedule is a pure calendar — no capacity, no slot count, no
+ * assignment. Capacity belongs to a separate downstream layer (per-day
+ * per-test slot or per-committee binding); see migration report Open
+ * Questions for where it lands.
+ *
+ * Wizard step key is `exam_dates` (legacy name retained for routing /
+ * step-status switch continuity); the new semantic name in code and
+ * docs is "Exam Schedule".
+ * ─────────────────────────────────────────────────────────────────────── */
+
+export const DAY_KIND = ['WORKING', 'OFF'] as const;
+export type DayKind = (typeof DAY_KIND)[number];
+
+export interface ExamScheduleDay {
   id: string;
   cycleId: string;
-  bodyAr: string;
+  /** FK → `applicant-categories[CAT-NN].code`. Scopes the day to one
+   *  category — same date CAN exist across different categories. */
+  applicantCategoryId: string;
+  /** ISO yyyy-mm-dd (date only — no time component). */
+  date: string;
+  kind: DayKind;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * JS `Date.prototype.getDay()` indices for the Egyptian weekend
+ * (Friday + Saturday). Hardcoded for V1 — configurable holidays land
+ * later via a `HOLIDAYS` lookup (see report Open Questions).
+ *
+ *   Sun=0 · Mon=1 · Tue=2 · Wed=3 · Thu=4 · Fri=5 · Sat=6
+ */
+export const WEEKEND_DAY_INDICES: readonly number[] = [5, 6];
+
+/**
+ * Conflict codes thrown by `examScheduleService`. Surfaced as Arabic
+ * toasts via the query layer. Mirrored in `docs/DB_CONSTRAINTS.md
+ * §12`.
+ */
+export type ExamScheduleConflict =
+  | 'DUPLICATE_DATE'
+  | 'DATE_OUT_OF_CYCLE_WINDOW'
+  | 'INVALID_DATE_RANGE'
+  | 'CATEGORY_NOT_ACTIVE';
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Committee × Day Bindings — per-(cycle × category × committee × day) row
+ * carrying capacity + mode-branched eligibility.
+ *
+ * Sub-tab `bindings` inside the committees wizard step. The roster sub-tab
+ * (existing `CategoryCommittees` set) is a prerequisite — a binding can
+ * only be created when its committee is already in the roster for
+ * (cycleId, applicantCategoryId). Day source is `examScheduleService`
+ * filtered to `kind === 'WORKING'`.
+ *
+ * Mirrored in `docs/DB_CONSTRAINTS.md §13`.
+ * ─────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Mode-branched eligibility carried on a binding row. Branch tag mirrors
+ * the parent category's `gradingMode` resolved via
+ * `resolveCategoryGradingMode(categoryCode)`. The two branches are
+ * mutually exclusive and the form picks the right one based on the
+ * active category.
+ */
+export type BindingEligibility =
+  | {
+      gradeKind: 'GRADES';
+      /** Inclusive percentage floor (0..100). */
+      minPercentage: number;
+      /** Inclusive percentage ceiling (0..100). `min ≤ max`. */
+      maxPercentage: number;
+    }
+  | {
+      gradeKind: 'TAGDIR';
+      /** FK → lookup `academic-grades[code]`. Floor of the band. */
+      minAcademicGradeId: string;
+      /** FK → lookup `academic-grades[code]`. Ceiling of the band. Compared
+       *  against `min` via `readPercentageRange(row).min`. */
+      maxAcademicGradeId: string;
+    };
+
+export interface CommitteeDayBinding {
+  id: string;
+  cycleId: string;
+  /** FK → `applicant-categories[CAT-NN].code`. */
+  applicantCategoryId: string;
+  /** FK → `Committee.id`. Must already appear in the cycle's
+   *  `CategoryCommittees` rows for `applicantCategoryId`. */
+  committeeId: string;
+  /** FK → `ExamScheduleDay.id`. Must be `kind === 'WORKING'`. */
+  examScheduleDayId: string;
+  /** Per-cell seat capacity. Strictly positive integer. */
+  capacity: number;
+  /** Mode-branched eligibility — branch must match category gradingMode. */
+  eligibility: BindingEligibility;
+  isActive: boolean;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Conflict codes thrown by `committeeBindingService`. Surfaced as Arabic
+ * toasts via the query layer. Mirrored in `docs/DB_CONSTRAINTS.md §13`.
+ *
+ * `PERCENTAGE_OUT_OF_RANGE` is re-used from the Application Settings
+ * conflict set (same invariant, different copy); see
+ * `shared/lib/errors.ts:ConflictCode`.
+ */
+export type BindingConflict =
+  | 'DUPLICATE_BINDING'
+  | 'CAPACITY_NOT_POSITIVE'
+  | 'GRADE_RANGE_INVERTED'
+  | 'PERCENTAGE_OUT_OF_RANGE'
+  | 'TAGDIR_GRADE_NOT_FOUND'
+  | 'MODE_MISMATCH'
+  | 'DAY_NOT_WORKING'
+  | 'COMMITTEE_WRONG_CATEGORY';
+
+/** Uploaded PDF metadata for the electronic declaration. */
+export interface DeclarationDocument {
+  fileName: string;
+  /** Object/blob URL or remote path the applicant-side opens for preview. */
+  fileUrl: string;
+  /** Bytes. Enforced ≤ 10 MB on save. */
+  size: number;
+}
+
+/** Which surface the applicant sees on Stage 9 — rich-text body or PDF. */
+export type DeclarationMode = 'text' | 'pdf';
+
+/** Electronic declaration shown to the applicant on Stage 9.
+ *
+ * Both modes (rich text + PDF) coexist on every saved record so admins can
+ * switch between tabs without losing the other tab's prior content.
+ * `mode` selects which surface is published to applicants. */
+export interface ElectronicDeclaration {
+  id: string;
+  cycleId: string;
+  mode: DeclarationMode;
+  /** Arabic body for `mode = 'text'`. Empty string when never authored. */
+  bodyAr?: string;
+  /** Uploaded PDF for `mode = 'pdf'`. Null when never uploaded. */
+  document?: DeclarationDocument | null;
   /** Auto-incremented per save. */
   version: number;
   /** ISO date — declaration becomes binding from this date. */
@@ -251,5 +356,6 @@ export interface ElectronicDeclaration extends SoftDeleteFields {
   publishedAt?: string;
   createdAt: string;
   createdBy: string;
-  rowVersion: string;
+  /** Soft delete marker — kept for backend mirroring. */
+  deletedAt?: string | null;
 }

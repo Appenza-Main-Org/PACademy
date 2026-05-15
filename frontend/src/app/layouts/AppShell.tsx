@@ -8,7 +8,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CircleHelp, LogOut, Search, UserCircle } from 'lucide-react';
+import { LogOut, UserCircle } from 'lucide-react';
 import {
   Avatar,
   CommandPalette,
@@ -19,7 +19,6 @@ import {
   useCommandPaletteShortcut,
 } from '@/shared/components';
 import { useAuthStore, useLogoutMutation } from '@/features/auth';
-import { ActiveCycleIndicator } from '@/features/admin';
 import { shortName } from '@/shared/lib/format';
 import type { AppKey } from '@/shared/lib/constants';
 import { Sidebar } from './Sidebar';
@@ -27,12 +26,13 @@ import type { SidebarSection } from './Sidebar';
 
 interface AppShellProps {
   app?: AppKey;
+  /** @deprecated No longer rendered. Kept for caller compatibility. */
   appLabel?: string;
   sidebar?: readonly SidebarSection[];
   children: ReactNode;
 }
 
-export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): JSX.Element {
+export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element {
   const user = useAuthStore((s) => s.user);
   const logoutMutation = useLogoutMutation();
   const navigate = useNavigate();
@@ -62,13 +62,14 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
       <KhayameyaStripe height="sm" />
 
       <header
-        className="sticky top-0 flex h-16 items-center justify-between gap-4 border-b border-border-subtle bg-surface-card px-6"
+        className="sticky top-0 flex h-16 items-center justify-between gap-3 border-b border-border-subtle bg-surface-card px-4 md:px-6"
         style={{ zIndex: 'var(--z-sticky)' as unknown as number }}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/hub"
             className="flex items-center gap-3 rounded-md px-1 py-1 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+            title="العودة إلى البوابة"
           >
             <LogoMark size={36} ariaLabel="شعار أكاديمية الشرطة" className="rounded-full shadow-xs" />
             <span className="hidden flex-col leading-tight md:flex">
@@ -76,56 +77,33 @@ export function AppShell({ app, appLabel, sidebar, children }: AppShellProps): J
               <span className="text-2xs text-ink-500">أكاديمية الشرطة</span>
             </span>
           </Link>
-          {appLabel && (
-            <span
-              className="inline-flex items-center gap-1 rounded-pill px-3 py-1 text-xs font-medium"
-              style={{ background: 'var(--accent-50)', color: 'var(--accent-600)' }}
-            >
-              {appLabel}
-            </span>
-          )}
-          <ActiveCycleIndicator />
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setPaletteOpen(true)}
-            aria-label="بحث (⌘K)"
-            className="hidden items-center gap-2 rounded-pill border border-border-default bg-surface-card px-3 py-1.5 text-2xs text-ink-500 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none md:inline-flex"
-          >
-            <Search size={14} strokeWidth={1.75} />
-            <span>بحث…</span>
-            <kbd className="font-mono" dir="ltr">⌘K</kbd>
-          </button>
+
+        <div className="flex items-center gap-1">
           <NotificationCenter />
-          <Link
-            to="/help"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
-            title="الدعم"
-            aria-label="الدعم"
-          >
-            <CircleHelp size={18} strokeWidth={1.75} />
-          </Link>
+          <span aria-hidden className="mx-1 hidden h-6 w-px bg-border-subtle md:inline-block" />
           <Link
             to="/profile"
-            className="flex items-center gap-3 rounded-pill bg-ink-50 ps-1 pe-3 py-1 hover:bg-ink-100 focus-visible:shadow-focus-teal focus-visible:outline-none"
+            className="inline-flex h-9 items-center gap-2 rounded-md ps-1 pe-2 text-ink-900 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
             title="الملف الشخصي"
+            aria-label={`الملف الشخصي · ${user.name}`}
           >
             <Avatar name={user.name} size="sm" />
-            <div className="hidden flex-col leading-tight md:flex">
+            <span className="hidden flex-col items-start leading-tight md:flex">
               <span className="text-xs font-medium text-ink-900">{shortName(user.name, 3)}</span>
               <span className="text-2xs text-ink-500">{user.roleLabel}</span>
-            </div>
+            </span>
             <UserCircle size={14} strokeWidth={1.75} className="text-ink-500 md:hidden" />
           </Link>
           <button
             type="button"
             onClick={handleLogout}
+            disabled={logoutMutation.isPending}
             title="تسجيل الخروج"
             aria-label="تسجيل الخروج"
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-terra-500 bg-terra-50 px-4 text-sm font-semibold text-terra-700 transition-colors duration-fast ease-standard hover:bg-terra-500 hover:text-white focus-visible:shadow-focus-terra focus-visible:outline-none"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-transparent px-3 text-sm font-medium text-terra-700 transition-colors duration-fast ease-standard hover:border-terra-300 hover:bg-terra-50 focus-visible:shadow-focus-terra focus-visible:outline-none active:bg-terra-500 active:text-white disabled:opacity-60"
           >
-            <LogOut size={16} strokeWidth={2} />
+            <LogOut size={16} strokeWidth={1.75} />
             <span className="hidden md:inline">تسجيل الخروج</span>
           </button>
         </div>

@@ -1,27 +1,24 @@
 /**
- * Admin Categories API Contract — Bucket D.
+ * Admin Categories API Contract.
  *
- * Admin-side CRUD over MOCK.categories. Spec departments
- * (officers_general / officers_specialized / postgraduate /
- * institute_officers_training / institute_traffic /
- * institute_guarding / special_units) cannot be deleted; their `key`
- * is immutable. Admin can edit other fields.
+ * Admin-side read + edit over MOCK.categories. Per RFP §2.1 the platform
+ * supports a closed set of 4 applicant categories (officers_general,
+ * law_bachelor, physical_education_bachelor, specialized_officers); admins
+ * cannot create, duplicate, or delete categories. Only `labelAr` /
+ * `description` / `expandedConditions` are editable.
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/admin/categories                          → ApplicantCategory[]
- *   POST   /api/admin/categories                          → ApplicantCategory  (custom departments only)
  *   PATCH  /api/admin/categories/:key                     → ApplicantCategory
- *   DELETE /api/admin/categories/:key                     → { ok: true }       (non-spec only)
+ *
+ * (POST / DELETE are intentionally absent — the category set is locked.)
  */
 
-import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
 import {
-  applyRestore,
-  applySoftDelete,
-  DependencyBlockedError,
+  filterDeleted,
   type DependencyResult,
 } from '@/shared/lib/soft-delete';
 import type {
@@ -31,119 +28,43 @@ import type {
   AuditEntry,
   CategoryConditions,
 } from '@/shared/types/domain';
+import { APPLICANT_CATEGORY_KEYS } from '@/shared/types/domain';
 
-const CATEGORY_DEP_LABELS: Record<string, string> = {
-  applicants: 'متقدم',
-};
-
-const SPEC_KEYS: ReadonlySet<ApplicantCategoryKey> = new Set<ApplicantCategoryKey>([
-  'officers_general',
-  'officers_specialized',
-  'postgraduate',
-  'institute_officers_training',
-  'institute_traffic',
-  'institute_guarding',
-  'special_units',
-]);
+const SPEC_KEYS: ReadonlySet<ApplicantCategoryKey> = new Set<ApplicantCategoryKey>(
+  APPLICANT_CATEGORY_KEYS,
+);
 
 const STATE: ApplicantCategory[] = MOCK.categories.map((c) => ({ ...c }));
-
-/* Backend DTOs (per /admin/categories OpenAPI schema). The list DTO is a
- * lean subset; the detail DTO carries the full editable shape. Mapper
- * functions normalize both to the frontend ApplicantCategory interface. */
-interface BackendCategoryListItem {
-  id: string;
-  key: string;
-  nameAr: string;
-  nameEn: string | null;
-  sortOrder: number;
-  isActive: boolean;
-  isSpec: boolean;
-}
-
-interface BackendCategoryDetail extends BackendCategoryListItem {
-  description: string | null;
-  conditions: unknown;
-  requiredTests: unknown;
-  procedures: unknown;
-  createdAt: string;
-  updatedAt: string;
-  demoOrigin: boolean;
-}
-
-function backendListItemToFrontend(c: BackendCategoryListItem): ApplicantCategory {
-  return {
-    key: c.key as ApplicantCategoryKey,
-    labelAr: c.nameAr,
-    labelEn: c.nameEn ?? '',
-    description: '',
-    isOpen: false,
-    conditions: {} as ApplicantCategory['conditions'],
-    requiredTests: [],
-    procedures: [],
-  };
-}
-
-function backendDetailToFrontend(c: BackendCategoryDetail): ApplicantCategory {
-  return {
-    key: c.key as ApplicantCategoryKey,
-    labelAr: c.nameAr,
-    labelEn: c.nameEn ?? '',
-    description: c.description ?? '',
-    isOpen: c.isActive,
-    /* `conditions` and `requiredTests` are stored as JSON strings server-side;
-     * EF returns them as the deserialized object. Defensive parse if string. */
-    conditions: parseJsonField<ApplicantCategory['conditions']>(c.conditions, {} as ApplicantCategory['conditions']),
-    requiredTests: parseJsonField<ApplicantCategory['requiredTests']>(c.requiredTests, []),
-    procedures: parseJsonField<ApplicantCategory['procedures']>(c.procedures, []),
-  };
-}
-
-function parseJsonField<T>(value: unknown, fallback: T): T {
-  if (value === null || value === undefined) return fallback;
-  if (typeof value === 'string') {
-    try { return JSON.parse(value) as T; } catch { return fallback; }
-  }
-  return value as T;
-}
 let auditCounter = 1;
 
-function pushAudit(action: 'create' | 'update' | 'delete', categoryKey: string, details: string): void {
+function pushAudit(categoryKey: string, details: string): void {
   const entry: AuditEntry = {
     id: `AUDIT-CAT-${Date.now()}-${auditCounter++}`,
     userId: 'U-001',
     userName: 'العميد د. أحمد محمود الفقي',
-    action,
-    actionLabel: action === 'create' ? 'إدراج' : action === 'update' ? 'تعديل' : 'حذف',
-    actionColor: action === 'create' ? 'success' : action === 'update' ? 'info' : 'danger',
+    action: 'update',
+    actionLabel: 'تعديل',
+    actionColor: 'info',
     entity: 'ApplicantCategory',
     entityId: categoryKey,
     details,
     timestamp: Date.now(),
     ip: '10.0.0.1',
   };
-  (MOCK.audit).unshift(entry);
+  (MOCK.audit as AuditEntry[]).unshift(entry);
 }
 
+const CLOSED_SET_MESSAGE = 'فئات المتقدمين مغلقة حسب كراسة الشروط ولا يمكن إنشاء أو حذف فئات';
+
 export const categoriesAdminService = {
-  async list(_opts: { includeDeleted?: boolean } = {}): Promise<ApplicantCategory[]> {
-    /* Real backend GET /admin/categories returns CategoryListItemDto[].
-     * Frontend ApplicantCategory shape carries richer fields (description,
-     * conditions, requiredTests, procedures, isOpen) — those default to
-     * empty here; pages that need them fetch the detail via getByKey. */
-    const r = await apiClient.get<BackendCategoryListItem[]>('/admin/categories');
-    return r.data.map(backendListItemToFrontend);
+  async list(opts: { includeDeleted?: boolean } = {}): Promise<ApplicantCategory[]> {
+    await simulateLatency();
+    return filterDeleted(STATE, opts.includeDeleted).map((c) => ({ ...c }));
   },
 
   async getByKey(key: ApplicantCategoryKey): Promise<ApplicantCategory | null> {
-    try {
-      const r = await apiClient.get<BackendCategoryDetail>(`/admin/categories/by-key/${key}`);
-      return backendDetailToFrontend(r.data);
-    } catch (err) {
-      const status = (err as { status?: number })?.status;
-      if (status === 404) return null;
-      throw err;
-    }
+    await simulateLatency();
+    return STATE.find((c) => c.key === key) ?? null;
   },
 
   async update(key: ApplicantCategoryKey, patch: Partial<ApplicantCategory>): Promise<ApplicantCategory> {
@@ -152,93 +73,19 @@ export const categoriesAdminService = {
     if (idx === -1) throw new Error('الفئة غير موجودة');
     /* Only the storage `key` is immutable; every other field — including
      * spec-category labels — is editable from the admin form. */
-    const current = STATE[idx];
+    const current = STATE[idx]!;
     const next: ApplicantCategory = { ...current, ...patch, key: current.key };
     STATE[idx] = next;
-    pushAudit('update', key, `تم تعديل بيانات فئة "${next.labelAr}"`);
+    pushAudit(key, `تم تعديل بيانات فئة "${next.labelAr}"`);
     return next;
   },
 
-  async create(input: { labelAr: string; description?: string }): Promise<ApplicantCategory> {
-    await simulateLatency();
-    const labelAr = input.labelAr.trim();
-    if (!labelAr) throw new Error('اسم الفئة مطلوب');
-    let candidate = `custom_${Date.now()}`;
-    while (
-      SPEC_KEYS.has(candidate as ApplicantCategoryKey) ||
-      STATE.some((c) => c.key === candidate)
-    ) {
-      candidate = `custom_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    }
-    const payload: ApplicantCategory = {
-      key: candidate as ApplicantCategoryKey,
-      labelAr,
-      labelEn: '',
-      description: (input.description ?? '').trim(),
-      isOpen: false,
-      conditions: {
-        ageMin: null,
-        ageMax: null,
-        minScorePercent: null,
-        requiredQualification: 'any',
-        gender: 'any',
-        minHeightCm: null,
-        medicalRequired: false,
-        maritalStatus: 'any',
-        conductCheck: false,
-        egyptianNationalityRequired: false,
-        employerApprovalRequired: false,
-        nominationOnly: false,
-        freeText: [],
-      },
-      requiredTests: [],
-      procedures: [],
-    };
-    STATE.push({ ...payload });
-    pushAudit('create', payload.key, `تم إنشاء فئة "${payload.labelAr}"`);
-    return { ...payload };
-  },
-
   /**
-   * Clone an existing category. Used by the categories list "نسخ" action;
-   * spec keys can be cloned but the resulting copy is always a custom
-   * (non-spec) category. Picks the first free `${sourceKey}_copy[_N]` slot.
+   * Per RFP §2.1 every category in the system is one of the 4
+   * authoritative RFP categories. Kept so existing call sites that use
+   * the check to gate delete/clone affordances continue to read `true`
+   * and hide those buttons.
    */
-  async duplicate(source: ApplicantCategory): Promise<ApplicantCategory> {
-    await simulateLatency();
-    const baseKey = source.key as string;
-    let candidate = `${baseKey}_copy`;
-    let i = 1;
-    while (
-      SPEC_KEYS.has(candidate as ApplicantCategoryKey) ||
-      STATE.some((c) => c.key === candidate)
-    ) {
-      i += 1;
-      candidate = `${baseKey}_copy_${i}`;
-    }
-    const next: ApplicantCategory = {
-      ...source,
-      key: candidate as ApplicantCategoryKey,
-      labelAr: `${source.labelAr} (نسخة)`,
-      isOpen: false,
-    };
-    STATE.push({ ...next });
-    pushAudit('create', next.key, `تم نسخ فئة "${source.labelAr}"`);
-    return { ...next };
-  },
-
-  async remove(key: ApplicantCategoryKey): Promise<{ ok: true }> {
-    await simulateLatency();
-    if (SPEC_KEYS.has(key)) {
-      throw new Error('لا يمكن حذف فئات السبع المعتمدة من المواصفات');
-    }
-    const idx = STATE.findIndex((c) => c.key === key);
-    if (idx === -1) throw new Error('الفئة غير موجودة');
-    const [removed] = STATE.splice(idx, 1);
-    pushAudit('delete', key, `تم حذف فئة "${removed.labelAr}"`);
-    return { ok: true };
-  },
-
   isSpecCategory(key: ApplicantCategoryKey): boolean {
     return SPEC_KEYS.has(key);
   },
@@ -263,33 +110,13 @@ export const categoriesAdminService = {
   },
 
   /**
-   * Soft-delete a category. Spec keys are protected even from soft delete
-   * (matches the existing `remove()` policy). Applicants referencing the
-   * category block the operation.
+   * Per RFP §2.1 the 4-category set is locked — soft-delete always rejects.
+   * Kept so existing query hooks (`useCategorySoftDelete`) and the
+   * shared list-action plumbing stay wired without conditional logic.
    */
-  async softDelete(key: ApplicantCategoryKey, reason: string): Promise<ApplicantCategory> {
+  async softDelete(_key: ApplicantCategoryKey, _reason: string): Promise<ApplicantCategory> {
     await simulateLatency();
-    if (SPEC_KEYS.has(key)) {
-      throw new Error('لا يمكن حذف فئات السبع المعتمدة من المواصفات');
-    }
-    const idx = STATE.findIndex((c) => c.key === key);
-    if (idx === -1) throw new Error('الفئة غير موجودة');
-    const before = { ...STATE[idx] };
-    const dep = await categoriesAdminService.getDependencies(key);
-    if (dep.blocking) throw new DependencyBlockedError(dep, 'هذه الفئة', CATEGORY_DEP_LABELS);
-    const next = applySoftDelete(STATE[idx], { reason });
-    STATE[idx] = next;
-    emitAudit({
-      action: 'soft_delete',
-      module: 'categories',
-      entityType: 'ApplicantCategory',
-      entityLabel: 'فئة قبول',
-      entityId: key,
-      details: `تم حذف فئة "${next.labelAr}" — السبب: ${reason}`,
-      before,
-      after: next,
-    });
-    return next;
+    throw new Error(CLOSED_SET_MESSAGE);
   },
 
   /**
@@ -370,7 +197,7 @@ export const categoriesAdminService = {
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.key === key);
     if (idx === -1) throw new Error('الفئة غير موجودة');
-    const before = { ...STATE[idx] };
+    const before = { ...STATE[idx]! };
     const next: ApplicantCategory = {
       ...before,
       expandedConditions: { ...newConditions },
@@ -391,24 +218,12 @@ export const categoriesAdminService = {
     return next;
   },
 
-  /** Restore a previously soft-deleted category. */
-  async restore(key: ApplicantCategoryKey): Promise<ApplicantCategory> {
+  /**
+   * Per RFP §2.1 the 4-category set is locked — restore always rejects
+   * (nothing is ever soft-deleted). Kept so existing query hooks stay wired.
+   */
+  async restore(_key: ApplicantCategoryKey): Promise<ApplicantCategory> {
     await simulateLatency();
-    const idx = STATE.findIndex((c) => c.key === key);
-    if (idx === -1) throw new Error('الفئة غير موجودة');
-    const before = { ...STATE[idx] };
-    const next = applyRestore(STATE[idx]);
-    STATE[idx] = next;
-    emitAudit({
-      action: 'restore',
-      module: 'categories',
-      entityType: 'ApplicantCategory',
-      entityLabel: 'فئة قبول',
-      entityId: key,
-      details: `تم استعادة فئة "${next.labelAr}"`,
-      before,
-      after: next,
-    });
-    return next;
+    throw new Error(CLOSED_SET_MESSAGE);
   },
 };

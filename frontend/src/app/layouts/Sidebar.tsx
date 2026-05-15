@@ -71,7 +71,7 @@ export function Sidebar({ sections }: SidebarProps): JSX.Element {
   return (
     <aside
       aria-label="القائمة الجانبية"
-      className="sticky top-16 hidden h-[calc(100vh-67px)] w-64 flex-shrink-0 overflow-y-auto border-s border-border-subtle bg-surface-card px-3 py-4 md:block"
+      className="sticky top-16 hidden h-[calc(100dvh-64px)] w-64 flex-shrink-0 overflow-y-auto border-s border-border-subtle bg-surface-card px-3 py-4 md:block"
     >
       {visibleSections.map((section, i) => {
         const isFirst = i === 0;
@@ -100,7 +100,7 @@ export function Sidebar({ sections }: SidebarProps): JSX.Element {
 function sectionFrameClass(isFirst: boolean): string {
   return cn(
     'pb-4',
-    isFirst ? 'pt-1' : 'mt-4 border-t border-border-subtle pt-4',
+    isFirst ? 'pt-2' : 'mt-4 border-t border-border-subtle pt-4',
   );
 }
 
@@ -108,7 +108,7 @@ function PlainSection({ section, isFirst }: { section: SidebarSection; isFirst: 
   return (
     <div className={sectionFrameClass(isFirst)}>
       {section.label && (
-        <p className="mb-2 px-3 py-1 text-2xs font-semibold uppercase tracking-[0.08em] text-ink-500">
+        <p className="mb-2 px-3 py-1.5 text-2xs font-bold uppercase tracking-wide text-ink-500">
           {section.label}
         </p>
       )}
@@ -164,9 +164,9 @@ function CollapsibleSection({
           aria-controls={`sidebar-group-${groupKey}`}
           className={cn(
             'mb-2 flex w-full items-center justify-between gap-2 rounded-md px-3 py-1.5',
-            'text-2xs font-semibold uppercase tracking-[0.08em]',
+            'text-2xs font-bold uppercase tracking-wide',
             'transition-colors duration-fast ease-standard',
-            'focus-visible:shadow-focus-teal focus-visible:outline-none',
+            'focus-visible:shadow-[var(--ring)] focus-visible:outline-none',
             expanded
               ? 'text-ink-700 hover:bg-ink-50'
               : 'text-ink-500 hover:bg-ink-50 hover:text-ink-700',
@@ -199,7 +199,7 @@ function CollapsibleSection({
           {/* Vertical guide line — visually anchors children to the group. */}
           <span
             aria-hidden
-            className="pointer-events-none absolute bottom-1 start-3 top-1 w-px bg-border-subtle"
+            className="pointer-events-none absolute bottom-1.5 start-3 top-1.5 w-px bg-border-default"
           />
           {section.items.map((item) => (
             <SidebarLink key={item.key} item={item} indented />
@@ -219,7 +219,7 @@ function SidebarLink({ item, indented }: { item: SidebarItem; indented?: boolean
         cn(
           'relative flex h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors duration-fast ease-standard',
           'text-ink-700 hover:bg-ink-50',
-          'focus-visible:shadow-focus-teal focus-visible:outline-none',
+          'focus-visible:shadow-[var(--ring)] focus-visible:outline-none',
           indented && 'ps-7',
           isActive && [
             'font-medium',
@@ -227,8 +227,10 @@ function SidebarLink({ item, indented }: { item: SidebarItem; indented?: boolean
             'text-[var(--accent-600)]',
             /* Active-item accent bar. For nested items it sits at start-3 so
              * it overlays the group guide line; for top-level items it
-             * hugs the sidebar edge at start-0. */
-            'before:absolute before:inset-y-1 before:w-1 before:rounded-pill before:bg-[var(--accent-500)]',
+             * hugs the sidebar edge at start-0. 3px wide per DESIGN §4.14;
+             * rounded only on the inner edge so it reads as a bracket, not
+             * a pill. */
+            'before:absolute before:inset-y-1.5 before:w-[3px] before:rounded-e-[2px] before:bg-[var(--accent-500)]',
             indented ? 'before:start-3' : 'before:start-0',
           ],
         )

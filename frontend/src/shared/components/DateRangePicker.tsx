@@ -209,7 +209,7 @@ export function DateRangePicker({
         aria-expanded={open}
         className={cn(
           'flex h-9 w-full items-center justify-between rounded-md border bg-surface-card px-3 text-start text-sm transition-colors duration-fast ease-standard',
-          error ? 'border-terra-500' : 'border-border-default hover:border-border-strong',
+          error ? 'border-terra-500' : 'border-ink-200 hover:border-ink-300',
           'focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none',
           disabled && 'cursor-not-allowed opacity-60',
         )}
@@ -225,13 +225,14 @@ export function DateRangePicker({
           ref={popoverRef}
           role="dialog"
           aria-label="اختر فترة"
+          data-portal-popover="daterangepicker"
           className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg md:flex-row"
           style={{
             position: 'fixed',
             top: position.top,
             left: position.left,
             maxWidth: 'calc(100vw - 16px)',
-            zIndex: 'var(--z-dropdown)' as unknown as number,
+            zIndex: 'var(--z-popover)' as unknown as number,
           }}
         >
           <ul className="flex flex-row flex-wrap gap-1 md:flex-col md:border-e md:border-border-subtle md:pe-3">

@@ -1,44 +1,60 @@
 /**
- * YearTable — editable rows for one category-specialization junction.
+ * YearTable — editable year cards for one category-specialization junction.
  *
- * Columns (visual order RTL = first column rightmost):
- *   1. سنة التخرج (Max) — Select bound to [currentYear-5 … currentYear]
- *   2. النوع — multi-pill toggle (ذكور / إناث) — at least one required
- *   3. الحالة الاجتماعية — MultiSelect over MARITAL_STATUSES (empty = any)
- *   4. السن الأقصى — numeric Input (nullable; blank = no maximum)
- *   5. الحد الأدنى للدرجة — numeric Input (0–100; nullable)
- *   6. الحد الأقصى للدرجة — numeric Input (0–100; nullable; >= min)
- *   7. بداية التقديم — DatePicker
- *   8. نهاية التقديم — DatePicker
- *   9. تاريخ احتساب السن — DatePicker (was: بداية السنة الدراسية)
- *  10. الحالة — نشط/موقوف pill (replaces opaque Switch in dense table)
- *  11. إجراءات — حذف / استرجاع
+ * Each year renders as a card with a responsive 3-column grid per group
+ * (1 col mobile → 2 cols sm → 3 cols lg) so fields land in consistent
+ * columns across cards. Three semantic groups:
+ *
+ *   • البيانات الأساسية — graduation year, gender, marital status
+ *   • الشروط الأكاديمية — grade/percentage, max age, school category
+ *   • الفترة الزمنية   — application start/end, age reference date
+ *
+ * Group headers use the table-header convention (text-2xs, tracking-wide,
+ * ink-500) to tag the group without competing with field labels. Card
+ * header strip carries the year chips, the active/suspended switch, and
+ * delete/restore. Dirty rows get a 2px gold-400 inline-start rail.
  *
  * Inline validation runs after each `patchRow` via the draft store; the
  * relevant conflict code is surfaced as a terra-500 chip under the
- * field(s) responsible and `aria-invalid="true"` is set on the
- * offending field. Dirty rows get a 2 px gold-400 inline-start rail.
- * No per-row save — bulk save lives in `<StickyBulkSaveBar />`.
+ * field(s) responsible and `aria-invalid="true"` is set on the offending
+ * field. No per-row save — bulk save lives in `<StickyBulkSaveBar />`.
+ *
+ * Branched grade input (column 5 in the old table) is determined ONCE
+ * per table-instance via `useResolvedGradingModeForSpec` so the form
+ * doesn't oscillate row-by-row. The discriminator on the row itself is
+ * the source of truth for which input renders — a row whose `gradeKind`
+ * has drifted from the resolved mode still renders in its own branch (so
+ * the value is editable), and the conflict banner above the cards
+ * surfaces the drift.
  */
 
 import { useEffect, useMemo } from 'react';
-import { Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { AlertTriangle, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import {
   Button,
+  Combobox,
   DatePicker,
   Input,
   MultiSelect,
-  Select,
 } from '@/shared/components';
 import { cn } from '@/shared/lib/cn';
-import { useYears } from '../../api/applicationSettings.queries';
+import {
+  readPercentageRange,
+  useLookup,
+  type GradingMode,
+} from '@/features/lookups';
+import {
+  useParentCategoryForSpec,
+  useResolvedGradingModeForSpec,
+  useYears,
+} from '../../api/applicationSettings.queries';
+import type { ParentCategorySnapshot } from '../../api/applicationSettings.service';
 import {
   useAppSettingsDraftStore,
   useDraftRows,
   type DraftRow,
 } from '../../store/appSettingsDraft';
 import { validateYearRow } from '../../lib/appSettingsValidation';
-import { MARITAL_STATUSES } from '../../lib/maritalStatuses';
 import type {
   ApplicantSpecializationYear,
   AppSettingsConflict,
@@ -50,17 +66,22 @@ interface YearTableProps {
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
-const GRAD_YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => {
-  const year = CURRENT_YEAR - 5 + i;
+/** Last 5 graduation years including the current year, newest first. */
+const GRAD_YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => {
+  const year = CURRENT_YEAR - i;
   return { value: String(year), label: String(year) };
 });
 
 const FIELD_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   DUPLICATE_YEAR: 'مكررة',
+  GRAD_YEAR_REQUIRED: 'اختر سنة تخرج واحدة على الأقل',
   INVALID_DATE_RANGE: 'ترتيب التواريخ غير صحيح',
   OVERLAPPING_PERIOD: 'تتداخل مع سنة أخرى',
   AGE_NOT_POSITIVE: 'السن > 0',
-  GRADE_RANGE_INVALID: 'الحد الأدنى يفوق الأقصى',
+  AGE_RANGE_INVALID: 'السن الأدنى ≤ الأقصى',
+  AGE_REFERENCE_AFTER_START: 'تاريخ احتساب السن يجب أن يسبق بداية التقديم',
+  PERCENTAGE_OUT_OF_RANGE: 'النسبة 0–100',
+  GRADE_MODE_MISMATCH: 'نمط تقدير غير مطابق',
   GENDER_REQUIRED: 'اختر النوع',
   SPECIALIZATION_NOT_MAPPED: 'غير مرتبط',
   CATEGORY_HAS_ACTIVE_YEARS: 'فئة بها سنوات نشطة',
@@ -71,13 +92,14 @@ const GENDER_PILLS: { value: GenderType; label: string }[] = [
   { value: 'female', label: 'إناث' },
 ];
 
-const MARITAL_OPTIONS = MARITAL_STATUSES.map((m) => ({
-  value: m.code,
-  label: m.name,
-}));
-
 export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Element {
   const yearsQuery = useYears(categorySpecializationId);
+  const gradingModeQuery = useResolvedGradingModeForSpec(categorySpecializationId);
+  const parentCategoryQuery = useParentCategoryForSpec(categorySpecializationId);
+  const maritalQuery = useLookup('marital-statuses');
+  const academicGradesQuery = useLookup('academic-grades');
+  const schoolCategoriesQuery = useLookup('school-categories');
+
   const drafts = useDraftRows(categorySpecializationId);
   const hydrateSlice = useAppSettingsDraftStore((s) => s.hydrateSlice);
   const patchRow = useAppSettingsDraftStore((s) => s.patchRow);
@@ -90,6 +112,56 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
       hydrateSlice(categorySpecializationId, yearsQuery.data);
     }
   }, [categorySpecializationId, yearsQuery.data, hydrateSlice]);
+
+  const maritalOptions = useMemo(
+    () => (maritalQuery.data ?? []).map((m) => ({ value: m.code, label: m.name })),
+    [maritalQuery.data],
+  );
+  const schoolCategoryOptions = useMemo(
+    () => (schoolCategoriesQuery.data ?? []).map((s) => ({ value: s.code, label: s.name })),
+    [schoolCategoriesQuery.data],
+  );
+  const parentCategory = parentCategoryQuery.data ?? null;
+  const academicGradeOptions = useMemo(
+    () => (academicGradesQuery.data ?? []).map((g) => ({ value: g.code, label: g.name })),
+    [academicGradesQuery.data],
+  );
+  const academicGradeRangeByCode = useMemo(() => {
+    const map = new Map<string, { min: number; max: number } | null>();
+    for (const row of academicGradesQuery.data ?? []) {
+      map.set(row.code, readPercentageRange(row));
+    }
+    return map;
+  }, [academicGradesQuery.data]);
+
+  const gradingMode: GradingMode | null = gradingModeQuery.data ?? null;
+  const setSliceMismatch = useAppSettingsDraftStore((s) => s.setSliceMismatch);
+
+  const hasMismatch = useMemo(() => {
+    if (!gradingMode) return false;
+    return drafts.some(
+      (d) => d.kind !== 'deleted' && d.row.gradeKind !== gradingMode,
+    );
+  }, [drafts, gradingMode]);
+
+  useEffect(() => {
+    setSliceMismatch(categorySpecializationId, hasMismatch);
+    return () => setSliceMismatch(categorySpecializationId, false);
+  }, [categorySpecializationId, hasMismatch, setSliceMismatch]);
+
+  /* Honor the parent category's gender lock — pin any drafted row's
+   * genderTypes to the locked value as soon as we know it. The patch is
+   * a no-op once everything is aligned. */
+  useEffect(() => {
+    if (!parentCategory || parentCategory.genderScope === 'any') return;
+    const locked = parentCategory.genderScope;
+    for (const draft of drafts) {
+      if (draft.kind === 'deleted') continue;
+      const current = draft.row.genderTypes;
+      if (current.length === 1 && current[0] === locked) continue;
+      patchRow(categorySpecializationId, draft.id, { genderTypes: [locked] });
+    }
+  }, [parentCategory, drafts, categorySpecializationId, patchRow]);
 
   const validationByRow = useMemo(() => {
     const live = drafts.filter((d) => d.kind !== 'deleted').map((d) => d.row);
@@ -120,7 +192,12 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
           variant="secondary"
           size="sm"
           leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-          onClick={() => addRow(categorySpecializationId, {})}
+          onClick={() =>
+            addRow(
+              categorySpecializationId,
+              gradingMode === 'TAGDIR' ? { gradeKind: 'TAGDIR' } : { gradeKind: 'GRADES' },
+            )
+          }
         >
           إضافة سنة
         </Button>
@@ -129,44 +206,56 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="overflow-x-auto rounded-md border border-border-subtle bg-surface-card">
-        <table className="w-full min-w-[1280px] text-sm">
-          <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">
-            <tr>
-              <th className="px-3 py-2 text-start font-medium">سنة التخرج (الأقصى)</th>
-              <th className="px-3 py-2 text-start font-medium">النوع</th>
-              <th className="px-3 py-2 text-start font-medium">الحالة الاجتماعية</th>
-              <th className="px-3 py-2 text-start font-medium">السن الأقصى</th>
-              <th className="px-3 py-2 text-start font-medium">أدنى درجة</th>
-              <th className="px-3 py-2 text-start font-medium">أقصى درجة</th>
-              <th className="px-3 py-2 text-start font-medium">بداية التقديم</th>
-              <th className="px-3 py-2 text-start font-medium">نهاية التقديم</th>
-              <th className="px-3 py-2 text-start font-medium">تاريخ احتساب السن</th>
-              <th className="px-3 py-2 text-start font-medium">الحالة</th>
-              <th className="px-3 py-2 text-end font-medium" aria-label="إجراءات" />
-            </tr>
-          </thead>
-          <tbody>
-            {drafts.map((draft) => (
-              <YearRow
-                key={draft.id}
-                draft={draft}
-                conflict={validationByRow.get(draft.id) ?? null}
-                onPatch={(patch) => patchRow(categorySpecializationId, draft.id, patch)}
-                onDelete={() => deleteRow(categorySpecializationId, draft.id)}
-                onRestore={() => restoreRow(categorySpecializationId, draft.id)}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="flex flex-col gap-3">
+      {hasMismatch && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-md border border-terra-500 bg-terra-50 px-3 py-2"
+        >
+          <AlertTriangle size={16} strokeWidth={1.75} className="mt-0.5 text-terra-700" aria-hidden />
+          <p className="font-ar text-sm text-terra-700">
+            تعارض في نمط التقدير — يجب حذف السنوات وإعادة إنشائها لتتطابق مع
+            نوع تقديم الفئة الحالية ({gradingMode === 'TAGDIR' ? 'تقدير' : 'درجة مئوية'}).
+          </p>
+        </div>
+      )}
+
+      <ol className="flex flex-col gap-2.5">
+        {drafts.map((draft) => (
+          <li key={draft.id}>
+            <YearCard
+              draft={draft}
+              conflict={validationByRow.get(draft.id) ?? null}
+              gradingMode={gradingMode}
+              parentCategory={parentCategory}
+              maritalOptions={maritalOptions}
+              schoolCategoryOptions={schoolCategoryOptions}
+              academicGradeOptions={academicGradeOptions}
+              academicGradeRangeByCode={academicGradeRangeByCode}
+              onPatch={(patch) => patchRow(categorySpecializationId, draft.id, patch)}
+              onDelete={() => deleteRow(categorySpecializationId, draft.id)}
+              onRestore={() => restoreRow(categorySpecializationId, draft.id)}
+            />
+          </li>
+        ))}
+      </ol>
+
       <div className="flex justify-start">
         <Button
-          variant="ghost"
+          variant="secondary"
           size="sm"
           leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-          onClick={() => addRow(categorySpecializationId, {})}
+          onClick={() => {
+            const seed: Partial<ApplicantSpecializationYear> = {};
+            if (gradingMode === 'TAGDIR') seed.gradeKind = 'TAGDIR';
+            else seed.gradeKind = 'GRADES';
+            /* Seed gender from the parent category's lock so new rows in
+             * male-only / female-only categories start in a valid state. */
+            if (parentCategory && parentCategory.genderScope !== 'any') {
+              seed.genderTypes = [parentCategory.genderScope];
+            }
+            addRow(categorySpecializationId, seed);
+          }}
         >
           إضافة سنة
         </Button>
@@ -175,15 +264,33 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   );
 }
 
-interface YearRowProps {
+interface YearCardProps {
   draft: DraftRow;
   conflict: AppSettingsConflict | null;
+  gradingMode: GradingMode | null;
+  parentCategory: ParentCategorySnapshot | null;
+  maritalOptions: readonly { value: string; label: string }[];
+  schoolCategoryOptions: readonly { value: string; label: string }[];
+  academicGradeOptions: readonly { value: string; label: string }[];
+  academicGradeRangeByCode: ReadonlyMap<string, { min: number; max: number } | null>;
   onPatch: (patch: Partial<ApplicantSpecializationYear>) => void;
   onDelete: () => void;
   onRestore: () => void;
 }
 
-function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps): JSX.Element {
+function YearCard({
+  draft,
+  conflict,
+  gradingMode,
+  parentCategory,
+  maritalOptions,
+  schoolCategoryOptions,
+  academicGradeOptions,
+  academicGradeRangeByCode,
+  onPatch,
+  onDelete,
+  onRestore,
+}: YearCardProps): JSX.Element {
   const isDeleted = draft.kind === 'deleted';
   const isDirty = draft.kind === 'dirty' || draft.kind === 'new';
   const row = draft.row;
@@ -193,17 +300,44 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
     return fields.includes(conflict) ? FIELD_MESSAGES_AR[conflict] : null;
   };
 
-  const yearError = matchField(['DUPLICATE_YEAR']);
+  const yearError = matchField(['DUPLICATE_YEAR', 'GRAD_YEAR_REQUIRED']);
   const genderError = matchField(['GENDER_REQUIRED', 'DUPLICATE_YEAR', 'OVERLAPPING_PERIOD']);
   const ageError = matchField(['AGE_NOT_POSITIVE']);
-  const gradeError = matchField(['GRADE_RANGE_INVALID']);
+  const gradeError = matchField(['PERCENTAGE_OUT_OF_RANGE', 'GRADE_MODE_MISMATCH']);
   const dateError = matchField(['INVALID_DATE_RANGE', 'OVERLAPPING_PERIOD']);
+  const refError = matchField(['AGE_REFERENCE_AFTER_START']);
+
+  const isSuspended = !row.isActive && !isDeleted;
+  /* Per RFP §2.1: when the parent category locks gender (male-only for
+   * officers_general, female-only for physical_education_bachelor), the
+   * gender toggle is read-only and the row's genderTypes is pinned to
+   * the locked value. */
+  const lockedGender =
+    parentCategory && parentCategory.genderScope !== 'any'
+      ? parentCategory.genderScope
+      : null;
+  const showSchoolCategory = parentCategory?.code === 'officers_general';
+
+  /* TAGDIR mode: render the selected grade's percentage range in the
+   * Field helper slot so all section-2 cells line up vertically. */
+  const gradeHelper =
+    row.gradeKind === 'TAGDIR'
+      ? (() => {
+          const range = academicGradeRangeByCode.get(row.academicGradeId);
+          if (!range) return undefined;
+          return (
+            <span className="font-en text-2xs tabular-nums text-ink-500">
+              {range.min}–{range.max}%
+            </span>
+          );
+        })()
+      : undefined;
 
   return (
-    <tr
+    <article
       className={cn(
-        'border-b border-border-subtle align-top last:border-b-0',
-        isDeleted && 'bg-ink-50/70 opacity-60',
+        'rounded-md border border-border-subtle bg-surface-card transition-colors duration-[var(--motion-fast)]',
+        isDeleted && 'opacity-60',
       )}
       style={
         isDirty
@@ -215,150 +349,340 @@ function YearRow({ draft, conflict, onPatch, onDelete, onRestore }: YearRowProps
           : undefined
       }
     >
-      <td className="px-3 py-2 align-top">
-        <Select
-          value={String(row.graduationYear)}
-          disabled={isDeleted}
-          onChange={(e) => onPatch({ graduationYear: Number(e.target.value) })}
-          containerClassName="!mb-0 w-28"
-          aria-invalid={Boolean(yearError) || undefined}
-          aria-label="سنة التخرج"
-          options={GRAD_YEAR_OPTIONS}
-        />
-        {yearError && <FieldError text={yearError} />}
-      </td>
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle px-4 py-3">
+        <div className="flex items-baseline gap-2.5">
+          {row.graduationYears.length === 0 ? (
+            <span className="font-ar text-sm text-ink-400">— لم تُختر سنة تخرج —</span>
+          ) : (
+            <span className="font-en text-lg font-semibold tabular-nums text-ink-900">
+              {row.graduationYears.length === 1
+                ? row.graduationYears[0]
+                : row.graduationYears.join('، ')}
+            </span>
+          )}
+          <span className="font-ar text-2xs text-ink-500">
+            {row.graduationYears.length > 1 ? 'سنوات تخرج' : 'سنة تخرج'}
+          </span>
+          {isDirty && (
+            <span className="inline-flex items-center rounded-pill border border-gold-300 bg-gold-50 px-1.5 py-0.5 font-ar text-2xs text-gold-700">
+              غير محفوظ
+            </span>
+          )}
+        </div>
 
-      <td className="px-3 py-2 align-top">
-        <GenderToggle
-          value={row.genderTypes}
-          disabled={isDeleted}
-          onChange={(next) => onPatch({ genderTypes: next })}
-          ariaLabel="النوع"
-          invalid={Boolean(genderError)}
-        />
-        {genderError && <FieldError text={genderError} />}
-      </td>
+        <div className="flex items-center gap-1">
+          <StatusToggle
+            active={row.isActive}
+            disabled={isDeleted}
+            onChange={(next) => onPatch({ isActive: next })}
+          />
+          {isDeleted ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRestore}
+              leadingIcon={<RotateCcw size={14} strokeWidth={1.75} />}
+            >
+              استرجاع
+            </Button>
+          ) : (
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label="حذف"
+              className={cn(
+                'inline-flex items-center gap-1 rounded-md px-2 py-1 font-ar text-xs font-medium text-terra-700',
+                'transition-colors duration-[var(--motion-fast)]',
+                'hover:bg-terra-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
+              )}
+            >
+              <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+              حذف
+            </button>
+          )}
+        </div>
+      </header>
 
-      <td className="px-3 py-2 align-top min-w-[180px]">
-        <MultiSelect
-          value={row.maritalStatusCodes}
-          onChange={(next) => onPatch({ maritalStatusCodes: next })}
-          options={MARITAL_OPTIONS}
-          disabled={isDeleted}
-          ariaLabel="الحالة الاجتماعية"
-          placeholder="الكل"
-        />
-      </td>
-
-      <td className="px-3 py-2 align-top">
-        <Input
-          type="number"
-          min={1}
-          disabled={isDeleted}
-          value={row.maxAge ?? ''}
-          onChange={(e) =>
-            onPatch({ maxAge: e.target.value === '' ? null : Number(e.target.value) })
-          }
-          containerClassName="!mb-0 w-20"
-          className="text-end tabular-nums"
-          aria-invalid={Boolean(ageError) || undefined}
-          aria-label="السن الأقصى"
-        />
-        {ageError && <FieldError text={ageError} />}
-      </td>
-
-      <td className="px-3 py-2 align-top">
-        <Input
-          type="number"
-          min={0}
-          max={100}
-          disabled={isDeleted}
-          value={row.minGrade ?? ''}
-          onChange={(e) =>
-            onPatch({ minGrade: e.target.value === '' ? null : Number(e.target.value) })
-          }
-          containerClassName="!mb-0 w-20"
-          className="text-end tabular-nums"
-          aria-invalid={Boolean(gradeError) || undefined}
-          aria-label="أدنى درجة"
-        />
-        {gradeError && <FieldError text={gradeError} />}
-      </td>
-
-      <td className="px-3 py-2 align-top">
-        <Input
-          type="number"
-          min={0}
-          max={100}
-          disabled={isDeleted}
-          value={row.maxGrade ?? ''}
-          onChange={(e) =>
-            onPatch({ maxGrade: e.target.value === '' ? null : Number(e.target.value) })
-          }
-          containerClassName="!mb-0 w-20"
-          className="text-end tabular-nums"
-          aria-invalid={Boolean(gradeError) || undefined}
-          aria-label="أقصى درجة"
-        />
-      </td>
-
-      <td className="px-3 py-2 align-top min-w-[150px]">
-        <DatePicker
-          value={isoToDate(row.applicationStartDate)}
-          disabled={isDeleted}
-          onChange={(d) => onPatch({ applicationStartDate: dateToIso(d) ?? row.applicationStartDate })}
-        />
-      </td>
-
-      <td className="px-3 py-2 align-top min-w-[150px]">
-        <DatePicker
-          value={isoToDate(row.applicationEndDate)}
-          disabled={isDeleted}
-          onChange={(d) => onPatch({ applicationEndDate: dateToIso(d) ?? row.applicationEndDate })}
-          min={row.applicationStartDate.slice(0, 10)}
-        />
-        {dateError && <FieldError text={dateError} />}
-      </td>
-
-      <td className="px-3 py-2 align-top min-w-[150px]">
-        <DatePicker
-          value={isoToDate(row.ageCalcDate)}
-          disabled={isDeleted}
-          onChange={(d) => onPatch({ ageCalcDate: dateToIso(d) ?? row.ageCalcDate })}
-        />
-      </td>
-
-      <td className="px-3 py-2 align-top">
-        <StatusPill
-          active={row.isActive}
-          disabled={isDeleted}
-          onChange={(next) => onPatch({ isActive: next })}
-        />
-      </td>
-
-      <td className="px-3 py-2 align-top text-end">
-        {isDeleted ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRestore}
-            leadingIcon={<RotateCcw size={14} strokeWidth={1.75} />}
-          >
-            استرجاع
-          </Button>
-        ) : (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            leadingIcon={<Trash2 size={14} strokeWidth={1.75} className="text-terra-600" />}
-            aria-label="حذف"
-          >
-            حذف
-          </Button>
+      <div
+        className={cn(
+          'flex flex-col gap-5 px-4 py-5',
+          isSuspended && 'bg-ink-50/30',
         )}
-      </td>
-    </tr>
+      >
+        <FieldGroup title="البيانات الأساسية">
+          <Field label="سنة التخرج" error={yearError}>
+            <MultiSelect
+              value={row.graduationYears.map(String)}
+              onChange={(next) =>
+                onPatch({
+                  graduationYears: next
+                    .map((v) => Number(v))
+                    .filter((n) => Number.isFinite(n))
+                    .sort((x, y) => y - x),
+                })
+              }
+              options={GRAD_YEAR_OPTIONS}
+              disabled={isDeleted}
+              ariaLabel="سنة التخرج"
+              placeholder="اختر سنة"
+            />
+          </Field>
+
+          <Field
+            label="النوع"
+            error={genderError}
+            helper={lockedGender ? 'مقفول حسب الفئة' : undefined}
+          >
+            {lockedGender ? (
+              <LockedGenderBadge gender={lockedGender} />
+            ) : (
+              <GenderToggle
+                value={row.genderTypes}
+                disabled={isDeleted}
+                onChange={(next) => onPatch({ genderTypes: next })}
+                ariaLabel="النوع"
+                invalid={Boolean(genderError)}
+              />
+            )}
+          </Field>
+
+          <Field label="الحالة الاجتماعية">
+            <MultiSelect
+              value={row.maritalStatusCodes}
+              onChange={(next) => onPatch({ maritalStatusCodes: next })}
+              options={maritalOptions}
+              disabled={isDeleted}
+              ariaLabel="الحالة الاجتماعية"
+              placeholder="أي حالة"
+            />
+          </Field>
+        </FieldGroup>
+
+        <FieldGroup
+          title="الشروط الأكاديمية"
+          className="border-t border-border-default pt-5"
+        >
+          <Field
+            label={gradingMode === 'TAGDIR' ? 'التقدير' : 'الحد الأدنى للدرجة'}
+            error={gradeError}
+            helper={gradeHelper}
+          >
+            <GradeBranchCell
+              row={row}
+              gradingMode={gradingMode}
+              disabled={isDeleted}
+              invalid={Boolean(gradeError)}
+              academicGradeOptions={academicGradeOptions}
+              onPatch={onPatch}
+            />
+          </Field>
+
+          <Field label="الحد الأقصى للسن" error={ageError}>
+            <div className="inline-flex items-center gap-1.5">
+              <Input
+                type="number"
+                min={1}
+                disabled={isDeleted}
+                value={row.maxAge ?? ''}
+                onChange={(e) =>
+                  onPatch({
+                    maxAge: e.target.value === '' ? null : Number(e.target.value),
+                    ageMin: null,
+                  })
+                }
+                containerClassName="!mb-0 w-14"
+                className="text-end tabular-nums"
+                aria-invalid={Boolean(ageError) || undefined}
+                aria-label="الحد الأقصى للسن"
+                placeholder="بدون"
+              />
+              <span aria-hidden className="font-ar text-xs text-ink-500">سنة</span>
+            </div>
+          </Field>
+
+          {showSchoolCategory && (
+            <Field label="فئة المدرسة">
+              <MultiSelect
+                value={row.schoolCategoryCodes}
+                onChange={(next) => onPatch({ schoolCategoryCodes: next })}
+                options={schoolCategoryOptions}
+                disabled={isDeleted}
+                ariaLabel="فئة المدرسة"
+                placeholder="أي فئة"
+              />
+            </Field>
+          )}
+
+        </FieldGroup>
+
+        <FieldGroup
+          title="الفترة الزمنية"
+          className="border-t border-border-default pt-5"
+        >
+          <Field label="بداية التقديم">
+            <DatePicker
+              value={isoToDate(row.applicationStartDate)}
+              disabled={isDeleted}
+              onChange={(d) =>
+                onPatch({
+                  applicationStartDate: dateToIso(d) ?? row.applicationStartDate,
+                })
+              }
+            />
+          </Field>
+
+          <Field label="نهاية التقديم" error={dateError}>
+            <DatePicker
+              value={isoToDate(row.applicationEndDate)}
+              disabled={isDeleted}
+              onChange={(d) =>
+                onPatch({
+                  applicationEndDate: dateToIso(d) ?? row.applicationEndDate,
+                })
+              }
+              min={row.applicationStartDate.slice(0, 10)}
+            />
+          </Field>
+
+          <Field
+            label="تاريخ احتساب السن"
+            error={refError}
+          >
+            <DatePicker
+              value={isoToDate(row.ageReferenceDate)}
+              disabled={isDeleted}
+              onChange={(d) =>
+                onPatch({ ageReferenceDate: dateToIso(d) ?? row.ageReferenceDate })
+              }
+              max={row.applicationStartDate.slice(0, 10)}
+            />
+          </Field>
+        </FieldGroup>
+      </div>
+    </article>
+  );
+}
+
+interface FieldGroupProps {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+/* Group header echoes the table-header convention from DESIGN_SYSTEM §4.4
+ * (text-2xs, semibold, tracking-wide, ink-500) so it tags the group
+ * without competing with the field labels below it. The optional
+ * className lets the parent add a top-divider on subsequent groups. */
+function FieldGroup({ title, children, className }: FieldGroupProps): JSX.Element {
+  return (
+    <section className={cn('flex flex-col gap-3', className)}>
+      <h4 className="font-ar text-2xs font-semibold tracking-wide text-ink-500">
+        {title}
+      </h4>
+      <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+interface FieldProps {
+  label: string;
+  helper?: React.ReactNode;
+  error?: string | null;
+  children: React.ReactNode;
+}
+
+function Field({ label, helper, error, children }: FieldProps): JSX.Element {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <label className="font-ar text-xs font-medium text-ink-700">{label}</label>
+      {children}
+      {error ? (
+        <FieldError text={error} />
+      ) : helper ? (
+        typeof helper === 'string' ? (
+          <span className="font-ar text-2xs text-ink-400">{helper}</span>
+        ) : (
+          helper
+        )
+      ) : null}
+    </div>
+  );
+}
+
+interface GradeBranchCellProps {
+  row: ApplicantSpecializationYear;
+  gradingMode: GradingMode | null;
+  disabled: boolean;
+  invalid: boolean;
+  academicGradeOptions: readonly { value: string; label: string }[];
+  onPatch: (patch: Partial<ApplicantSpecializationYear>) => void;
+}
+
+function GradeBranchCell({
+  row,
+  gradingMode,
+  disabled,
+  invalid,
+  academicGradeOptions,
+  onPatch,
+}: GradeBranchCellProps): JSX.Element {
+  /* Discriminator on the row is the source of truth. A row whose
+   * gradeKind has drifted from the resolved gradingMode still renders
+   * in its own branch so the value is editable; the conflict banner
+   * above the cards is what surfaces the drift. */
+  if (row.gradeKind === 'TAGDIR') {
+    return (
+      <Combobox
+        value={row.academicGradeId || null}
+        options={academicGradeOptions}
+        disabled={disabled}
+        onChange={(next) => onPatch({ academicGradeId: next ?? '' })}
+        placeholder="اختر التقدير"
+        ariaLabel="التقدير"
+        error={invalid ? ' ' : undefined}
+      />
+    );
+  }
+
+  return (
+    <div className="inline-flex items-center gap-1.5">
+      <Input
+        type="number"
+        min={0}
+        max={100}
+        disabled={disabled}
+        value={row.minPercentage}
+        onChange={(e) =>
+          onPatch({ minPercentage: e.target.value === '' ? 0 : Number(e.target.value) })
+        }
+        containerClassName="!mb-0 w-20"
+        className="text-end tabular-nums"
+        aria-invalid={invalid || undefined}
+        aria-label="الدرجة المئوية"
+      />
+      <span aria-hidden className="font-ar text-2xs text-ink-500">%</span>
+      {gradingMode === 'TAGDIR' && (
+        <span className="font-ar text-2xs text-terra-700">الفئة تستخدم التقدير</span>
+      )}
+    </div>
+  );
+}
+
+interface LockedGenderBadgeProps {
+  gender: 'male' | 'female';
+}
+
+function LockedGenderBadge({ gender }: LockedGenderBadgeProps): JSX.Element {
+  return (
+    <span
+      role="img"
+      aria-label={gender === 'male' ? 'ذكور فقط — مقفول حسب الفئة' : 'إناث فقط — مقفول حسب الفئة'}
+      className="inline-flex w-fit items-center gap-1.5 rounded-pill border border-border-default bg-ink-50 px-3 py-1 font-ar text-xs font-medium text-ink-700"
+    >
+      <span aria-hidden>{gender === 'male' ? 'ذكور فقط' : 'إناث فقط'}</span>
+    </span>
   );
 }
 
@@ -420,38 +744,36 @@ function GenderToggle({ value, onChange, disabled, ariaLabel, invalid }: GenderT
   );
 }
 
-interface StatusPillProps {
+interface StatusToggleProps {
   active: boolean;
   disabled?: boolean;
   onChange: (next: boolean) => void;
 }
 
-function StatusPill({ active, disabled, onChange }: StatusPillProps): JSX.Element {
+function StatusToggle({ active, disabled, onChange }: StatusToggleProps): JSX.Element {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={active}
+      aria-label="حالة السنة"
       disabled={disabled}
       onClick={() => onChange(!active)}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-pill border px-3 py-1 text-xs font-medium',
+        'inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-1 font-ar text-xs font-medium',
         'transition-colors duration-[var(--motion-fast)]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
         active
-          ? 'border-transparent text-white'
-          : 'border-border-default bg-white text-ink-600 hover:bg-ink-50',
+          ? 'border-border-default bg-white text-ink-800 hover:bg-ink-50'
+          : 'border-transparent bg-ink-100 text-ink-500 hover:bg-ink-200',
         disabled && 'cursor-not-allowed opacity-60',
         !disabled && 'cursor-pointer',
       )}
-      style={active ? { background: 'var(--success, var(--accent-600))' } : undefined}
     >
       <span
         aria-hidden
-        className={cn(
-          'inline-block h-1.5 w-1.5 rounded-full',
-          active ? 'bg-white' : 'bg-ink-400',
-        )}
+        className={cn('inline-block h-1.5 w-1.5 rounded-full')}
+        style={active ? { background: 'var(--accent-600)' } : { background: 'var(--ink-400)' }}
       />
       {active ? 'نشط' : 'موقوف'}
     </button>
@@ -462,7 +784,7 @@ function FieldError({ text }: { text: string }): JSX.Element {
   return (
     <span
       role="alert"
-      className="mt-1 inline-flex items-center rounded-pill bg-terra-50 px-1.5 py-0.5 text-2xs text-terra-700"
+      className="mt-1 inline-flex w-fit items-center rounded-pill bg-terra-50 px-1.5 py-0.5 text-2xs text-terra-700"
     >
       {text}
     </span>

@@ -23,6 +23,7 @@ import type {
   AuditEntry,
   Committee,
   DayPoint,
+  ExamScheduleEntry,
   ExamSession,
   Kpis,
   MedicalStation,
@@ -32,12 +33,17 @@ import type {
   UserActivityEntry,
 } from '@/shared/types/domain';
 import { QUESTION_POOL } from './questionPool';
+import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 /* REFERENCE_DATA dropped — superseded by MOCK.lookupItems filtered by
  * lookupTypeCode. The raw REF_* arrays in shared/mock-data/referenceData.ts
  * stay exported because non-admin pickers (applicant portal, board) read
  * them directly. */
 import { ADMISSION_CYCLES, ADMISSION_RULES } from './admissionCycles';
-import { APPLICANT_CATEGORIES, ACTIVE_CYCLE_ID } from './categories';
+/* APPLICANT_CATEGORIES retired — `MOCK.categories` is now a derived
+ * view of `MOCK.lookups['applicant-categories']` (the lookup module is
+ * the single source of truth). ACTIVE_CYCLE_ID kept inline below since
+ * its former host file is gone. */
+const ACTIVE_CYCLE_ID = 'CYC-2026-M';
 import { TEST_SCHEDULES } from './testSchedules';
 import { EXAM_SLOTS, SAMPLE_DRAFT } from './applicantPortal';
 import {
@@ -74,6 +80,7 @@ import {
   APPLICANT_CATEGORY_SPECIALIZATIONS,
   APPLICANT_SPECIALIZATION_YEARS,
 } from '@/features/admin/admission-setup/mock/appSettings.mock';
+import { EXAM_SCHEDULE_DAYS } from '@/features/admin/admission-setup/mock/examSchedule.mock';
 
 reseed(42);
 
@@ -632,7 +639,7 @@ function pickScenario(): AuditScenario {
 }
 
 const CYCLE_NAMES_FOR_AUDIT = ADMISSION_CYCLES.map((c) => c.nameAr);
-const CATEGORY_LABELS_FOR_AUDIT = APPLICANT_CATEGORIES.map((c) => c.labelAr);
+const CATEGORY_LABELS_FOR_AUDIT = LOOKUPS_SEED['applicant-categories'].map((c) => c.name);
 const EXAM_NAMES_FOR_AUDIT = [
   'اختبار القدرات 2026',
   'اختبار اللياقة البدنية 2026',
@@ -767,44 +774,179 @@ const medicalStations: MedicalStation[] = [
   { id: 'MS-08', name: 'القياسات (BMI)',          doctor: 'الرائد د. كريم البنا',          queue: 35, completed: 318 },
 ];
 
-/* TIER 2 — committee counts scale with realistic load (~570 per committee). */
+/* TIER 2 — committee seed organised by category + gradeType per
+ * docs/committee-grade-types/REPORT.md. 18 hand-written rows:
+ *
+ *   officers_general                 — 4 score (95–100, 90–95, 85–90, 80–85)
+ *   physical_education_bachelor      — 2 score (80–100, 70–80)
+ *   law_bachelor                     — 4 tier  (4..4, 3..4, 2..3, 1..2)
+ *   specialized_officers             — 8 tier  (4 طالبات / 4 طلاب)
+ *
+ * `applicants` / `completed` numbers are picked under each row's
+ * `capacity` so the list page's "remaining capacity" column reads
+ * realistically. All deterministic — no rng calls.
+ *
+ * For the specialized_officers track the `gender` field is derived by
+ * `deriveCommitteeGender(name)` — names that include the marker "طالبات"
+ * resolve to `female`, everything else to `male`. The rule is the single
+ * source of truth, also enforced in the create form's submit handler. */
 const COMMITTEE_CREATED_BASE = SEED_NOW - 60 * 86_400_000;
+const day = (offset: number): string =>
+  new Date(COMMITTEE_CREATED_BASE + offset * 86_400_000).toISOString();
+
 const committees: Committee[] = [
+  /* ── ثانوية عامة → officers_general (score) ─────────────────────── */
   {
-    id: 'C-01', name: 'لجنة طلبة 1', head: 'العقيد محمد إبراهيم حسن', members: 5, applicants: 572, completed: 408,
-    headUserId: 'U-002', capacity: 700, academicYearId: '2026-2027', status: 'active',
-    createdAt: new Date(COMMITTEE_CREATED_BASE).toISOString(),
-    specializationIds: ['officers_general', 'officers_specialized'], officerIds: ['U-002', 'U-005'],
-    rules: { gradeFrom: 75, gradeTo: 100, alphabetFrom: 'أ', alphabetTo: 'د', gender: 'male', applicantType: 'thanaweya_amma' },
+    id: 'C-01', name: 'لجنة الثانوية العامة — الفئة الأولى',
+    head: 'العقيد محمد إبراهيم حسن', members: 5, applicants: 54, completed: 32,
+    categoryKey: 'officers_general', capacity: 60,
+    gradeType: 'score', gradeMin: 95, gradeMax: 100,
+    headUserId: 'U-002', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(0),
+    specializationIds: ['officers_general'], officerIds: ['U-002', 'U-005'],
+    rules: { gradeFrom: 95, gradeTo: 100 },
   },
   {
-    id: 'C-02', name: 'لجنة طلبة 2', head: 'العقيد أحمد فاروق سعد', members: 5, applicants: 568, completed: 392,
-    headUserId: 'U-002', capacity: 650, academicYearId: '2026-2027', status: 'active',
-    createdAt: new Date(COMMITTEE_CREATED_BASE + 5 * 86_400_000).toISOString(),
-    specializationIds: ['officers_general', 'postgraduate'], officerIds: ['U-002', 'U-005'],
-    rules: { gradeFrom: 70, gradeTo: 100, alphabetFrom: 'ذ', alphabetTo: 'س', gender: 'male', applicantType: 'thanaweya_amma' },
+    id: 'C-02', name: 'لجنة الثانوية العامة — الفئة الثانية',
+    head: 'العقيد أحمد فاروق سعد', members: 5, applicants: 48, completed: 30,
+    categoryKey: 'officers_general', capacity: 55,
+    gradeType: 'score', gradeMin: 90, gradeMax: 95,
+    headUserId: 'U-002', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(2),
+    specializationIds: ['officers_general'], officerIds: ['U-002'],
+    rules: { gradeFrom: 90, gradeTo: 95 },
   },
   {
-    id: 'C-03', name: 'لجنة طلبة 3', head: 'الرائد طارق سامح الديب', members: 4, applicants: 569, completed: 425,
-    headUserId: 'U-005', capacity: 700, academicYearId: '2026-2027', status: 'active',
-    createdAt: new Date(COMMITTEE_CREATED_BASE + 10 * 86_400_000).toISOString(),
-    specializationIds: ['officers_specialized', 'special_units'], officerIds: ['U-005'],
-    rules: { gradeFrom: 80, gradeTo: 100, alphabetFrom: 'ش', alphabetTo: 'ع', gender: 'male', applicantType: 'azhar' },
+    id: 'C-03', name: 'لجنة الثانوية العامة — الفئة الثالثة',
+    head: 'الرائد طارق سامح الديب', members: 4, applicants: 42, completed: 24,
+    categoryKey: 'officers_general', capacity: 50,
+    gradeType: 'score', gradeMin: 85, gradeMax: 90,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(4),
+    specializationIds: ['officers_general'], officerIds: ['U-005'],
+    rules: { gradeFrom: 85, gradeTo: 90 },
   },
   {
-    id: 'C-04', name: 'لجنة طلبة 4', head: 'الرائد محمود الديب البنا', members: 5, applicants: 571, completed: 387,
-    headUserId: 'U-005', capacity: 650, academicYearId: '2026-2027', status: 'active',
-    createdAt: new Date(COMMITTEE_CREATED_BASE + 18 * 86_400_000).toISOString(),
-    specializationIds: ['institute_officers_training', 'institute_traffic'], officerIds: ['U-002', 'U-005'],
-    rules: { gradeFrom: 70, gradeTo: 100, alphabetFrom: 'غ', alphabetTo: 'م', gender: 'male', applicantType: 'thanaweya_amma' },
+    id: 'C-04', name: 'لجنة الثانوية العامة — الفئة الرابعة',
+    head: 'الرائد محمود الديب البنا', members: 5, applicants: 38, completed: 22,
+    categoryKey: 'officers_general', capacity: 45,
+    gradeType: 'score', gradeMin: 80, gradeMax: 85,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(6),
+    specializationIds: ['officers_general'], officerIds: ['U-002', 'U-005'],
+    rules: { gradeFrom: 80, gradeTo: 85 },
+  },
+
+  /* ── دبلوم فني → physical_education_bachelor (score) ─────────────── */
+  {
+    id: 'C-05', name: 'لجنة الدبلوم الفني — الفئة الأولى',
+    head: 'العقيد مصطفى أمين عبد العال', members: 4, applicants: 24, completed: 14,
+    categoryKey: 'physical_education_bachelor', capacity: 30,
+    gradeType: 'score', gradeMin: 80, gradeMax: 100,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(8),
+    specializationIds: ['physical_education_bachelor'], officerIds: ['U-005'],
+    rules: { gradeFrom: 80, gradeTo: 100 },
   },
   {
-    id: 'C-05', name: 'لجنة طلبة 5', head: 'الرائد عمر شعبان فاروق', members: 4, applicants: 567, completed: 401,
-    headUserId: 'U-005', capacity: 600, academicYearId: '2025-2026', status: 'inactive',
-    createdAt: new Date(COMMITTEE_CREATED_BASE + 25 * 86_400_000).toISOString(),
-    specializationIds: ['institute_guarding', 'institute_traffic', 'special_units'], officerIds: ['U-005'],
-    rules: { gradeFrom: 65, gradeTo: 100, alphabetFrom: 'ن', alphabetTo: 'ي', gender: 'female', applicantType: 'foreign_certificates' },
+    id: 'C-06', name: 'لجنة الدبلوم الفني — الفئة الثانية',
+    head: 'الرائد عمر شعبان فاروق', members: 4, applicants: 20, completed: 12,
+    categoryKey: 'physical_education_bachelor', capacity: 25,
+    gradeType: 'score', gradeMin: 70, gradeMax: 80,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(10),
+    specializationIds: ['physical_education_bachelor'], officerIds: ['U-005'],
+    rules: { gradeFrom: 70, gradeTo: 80 },
   },
+
+  /* ── بكالوريوس جامعي → law_bachelor (tier) ───────────────────────── */
+  {
+    id: 'C-07', name: 'لجنة بكالوريوس الحقوق — امتياز مع مرتبة الشرف',
+    head: 'العقيد كريم وحيد جلال', members: 5, applicants: 36, completed: 20,
+    categoryKey: 'law_bachelor', capacity: 40,
+    gradeType: 'tier', gradeMin: 4, gradeMax: 4,
+    headUserId: 'U-002', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(12),
+    specializationIds: ['law_bachelor'], officerIds: ['U-002', 'U-005'],
+    rules: {},
+  },
+  {
+    id: 'C-08', name: 'لجنة بكالوريوس الحقوق — امتياز فما فوق',
+    head: 'الرائد إبراهيم سعد علي', members: 5, applicants: 30, completed: 16,
+    categoryKey: 'law_bachelor', capacity: 35,
+    gradeType: 'tier', gradeMin: 3, gradeMax: 4,
+    headUserId: 'U-002', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(14),
+    specializationIds: ['law_bachelor'], officerIds: ['U-002'],
+    rules: {},
+  },
+  {
+    id: 'C-09', name: 'لجنة بكالوريوس الحقوق — جيد جدًا حتى امتياز',
+    head: 'الرائد هاني محمد البلتاجي', members: 4, applicants: 26, completed: 14,
+    categoryKey: 'law_bachelor', capacity: 30,
+    gradeType: 'tier', gradeMin: 2, gradeMax: 3,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(16),
+    specializationIds: ['law_bachelor'], officerIds: ['U-005'],
+    rules: {},
+  },
+  {
+    id: 'C-10', name: 'لجنة بكالوريوس الحقوق — جيد حتى جيد جدًا',
+    head: 'الرائد أحمد صالح الفقي', members: 4, applicants: 22, completed: 11,
+    categoryKey: 'law_bachelor', capacity: 25,
+    gradeType: 'tier', gradeMin: 1, gradeMax: 2,
+    headUserId: 'U-005', academicYearId: '2026-2027', status: 'active',
+    createdAt: day(18),
+    specializationIds: ['law_bachelor'], officerIds: ['U-005'],
+    rules: {},
+  },
+
+  /* ── ضباط مكلفين → specialized_officers (tier) ─────────────────────
+   * 8 committees: 4 طالبات (female) + 4 طلاب (male). The `gender`
+   * field is derived from each name via `deriveCommitteeGender` so the
+   * rule is auditable in one place. */
+  ...((): Committee[] => {
+    const specializedOfficers: Array<Pick<Committee, 'id' | 'name'> & {
+      head: string;
+      headUserId: string;
+      applicants: number;
+      completed: number;
+      capacity: number;
+      gradeMin: number;
+      gradeMax: number;
+      createdOffset: number;
+    }> = [
+      { id: 'C-11', name: 'اللجنة الأولى ق . خ (طالبات)',  head: 'العميد د. فاطمة كمال',     headUserId: 'U-002', applicants: 18, completed: 11, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 20 },
+      { id: 'C-12', name: 'اللجنة الثانية ق . خ (طالبات)', head: 'العميد د. نهلة عبد الرحمن', headUserId: 'U-002', applicants: 16, completed: 10, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 21 },
+      { id: 'C-13', name: 'اللجنة الثالثة ق . خ (طالبات)', head: 'العميد د. سحر إبراهيم',     headUserId: 'U-005', applicants: 14, completed:  8, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 22 },
+      { id: 'C-14', name: 'اللجنة الرابعة ق . خ (طالبات)', head: 'العميد د. منى السيد',       headUserId: 'U-005', applicants: 12, completed:  7, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 23 },
+      { id: 'C-15', name: 'اللجنة الخامسة ق . خ',         head: 'العقيد د. خالد سامي',       headUserId: 'U-002', applicants: 19, completed: 12, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 24 },
+      { id: 'C-16', name: 'اللجنة السادسة ق . خ',         head: 'العقيد د. أيمن طارق',       headUserId: 'U-002', applicants: 17, completed: 10, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 25 },
+      { id: 'C-17', name: 'اللجنة السابعة ق . خ',         head: 'العقيد د. حسام البنا',       headUserId: 'U-005', applicants: 15, completed:  9, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 26 },
+      { id: 'C-18', name: 'اللجنة الثامنة ق . خ',         head: 'العقيد د. وليد رضا',         headUserId: 'U-005', applicants: 13, completed:  8, capacity: 25, gradeMin: 1, gradeMax: 4, createdOffset: 27 },
+    ];
+    return specializedOfficers.map((row) => ({
+      id: row.id,
+      name: row.name,
+      head: row.head,
+      members: 4,
+      applicants: row.applicants,
+      completed: row.completed,
+      categoryKey: 'specialized_officers',
+      capacity: row.capacity,
+      gradeType: 'tier',
+      gradeMin: row.gradeMin,
+      gradeMax: row.gradeMax,
+      headUserId: row.headUserId,
+      academicYearId: '2026-2027',
+      status: 'active',
+      createdAt: day(row.createdOffset),
+      specializationIds: ['specialized_officers'],
+      officerIds: [row.headUserId],
+      rules: {},
+      gender: deriveCommitteeGender(row.name),
+    }));
+  })(),
 ];
 
 /* TIER 2 — registrations per day scaled to a realistic admission window
@@ -983,8 +1125,22 @@ export const MOCK = {
   barcodes: BARCODES,
   barcodeScans: BARCODE_SCANS,
   notifications: NOTIFICATIONS,
-  /* Post-polish additions (Buckets B/C/E) */
-  categories: APPLICANT_CATEGORIES,
+  /* Post-polish additions (Buckets B/C/E) — `categories` is now derived
+   * from MOCK.lookups['applicant-categories'] (the canonical source). */
+  categories: LOOKUPS_SEED['applicant-categories'].map((row) => ({
+    key: row.code,
+    labelAr: row.name,
+    labelEn: row.nameEn,
+    description: row.description,
+    isOpen: row.isOpen,
+    conditions: row.conditions,
+    expandedConditions: row.expandedConditions,
+    requiredTests: row.requiredTests,
+    procedures: row.procedures,
+    deletedAt: null,
+    deletedBy: null,
+    deleteReason: null,
+  })) as unknown as import('@/shared/types/domain').ApplicantCategory[],
   cycles: ADMISSION_CYCLES,
   activeCycleId: ACTIVE_CYCLE_ID,
   testSchedules: TEST_SCHEDULES,
@@ -1013,6 +1169,12 @@ export const MOCK = {
   applicantCategoryConfigs: APPLICANT_CATEGORY_CONFIGS,
   applicantCategorySpecializations: APPLICANT_CATEGORY_SPECIALIZATIONS,
   applicantSpecializationYears: APPLICANT_SPECIALIZATION_YEARS,
+  /* Admission-setup Step 6 — Exam Schedule (per-category calendar). */
+  examScheduleDays: EXAM_SCHEDULE_DAYS,
+  /* /admin/committee/schedule — per-(committee × date) exam-date entries
+   * with capacity. Seeded empty so the screen lands on the EmptyState
+   * until the admin adds their first batch from the form. */
+  examSchedule: [] as ExamScheduleEntry[],
 };
 
 export { findOfficerByNid };
