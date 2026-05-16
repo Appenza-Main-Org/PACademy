@@ -40,6 +40,7 @@ import { useExamScheduleAggregate } from '../api/examSchedule.queries';
 import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
 import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from '../pages/ApplicationSettingsPage';
+import { ApplicationSettingsReviewPage } from '../pages/ApplicationSettingsReviewPage';
 import { FeesPage } from '../pages/FeesPage';
 import { ExamsManagementPage } from '../pages/ExamsManagementPage';
 import { CommitteesManagementPage } from '../pages/CommitteesManagementPage';
@@ -51,6 +52,7 @@ import { ElectronicDeclarationPage } from '../pages/ElectronicDeclarationPage';
  * AdmissionSetupStepKey is closed. */
 const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   application_settings: () => <ApplicationSettingsPage />,
+  application_settings_review: () => <ApplicationSettingsReviewPage />,
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,

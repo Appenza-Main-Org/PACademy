@@ -18,6 +18,7 @@
  */
 
 import {
+  ClipboardCheck,
   ClipboardSignature,
   FileSignature,
   Settings2,
@@ -64,8 +65,24 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     subtitleAr: 'الفئات المفتوحة، السعة، شروط القبول الموسّعة.',
   },
   {
-    key: 'fees',
+    key: 'application_settings_review',
     order: 2,
+    labelAr: 'مراجعة إعدادات التقديم لكل فئة',
+    routeSegment: 'application-settings-review',
+    icon: ClipboardCheck,
+    permission: 'admission-setup:read',
+    reuses:
+      'features/admin/admission-setup/components/ApprovedCategoryCompositionsSummary.tsx',
+    isImplemented: true,
+    subtitleAr: 'مراجعة سريعة للقواعد المعتمدة قبل المتابعة لباقي الخطوات.',
+  },
+  {
+    key: 'fees',
+    order: 3,
+    /* Order numbers below were bumped by +1 when
+     * `application_settings_review` was inserted at order 2. The new
+     * canonical order is: 1 settings → 2 review → 3 fees → 4 exams →
+     * 5 committees → 6 declaration. */
     labelAr: 'الرسوم المالية',
     routeSegment: 'fees',
     icon: Wallet,
@@ -76,7 +93,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'exams',
-    order: 3,
+    order: 4,
     labelAr: 'إدارة الاختبارات',
     routeSegment: 'exams',
     icon: ClipboardSignature,
@@ -87,7 +104,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'committees',
-    order: 4,
+    order: 5,
     labelAr: 'إدارة مواعيد الاختبارات واللجان',
     routeSegment: 'committees',
     icon: ShieldCheck,
@@ -98,7 +115,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'electronic_declaration',
-    order: 5,
+    order: 6,
     labelAr: 'الإقرار الإلكتروني',
     routeSegment: 'electronic-declaration',
     icon: FileSignature,

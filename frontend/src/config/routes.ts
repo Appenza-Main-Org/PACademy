@@ -67,6 +67,10 @@ export const ROUTES = {
         `/admin/cycles/admission-setup/wizard/${stepKey}`,
       wizardReview: '/admin/cycles/admission-setup/wizard/review',
       applicationSettings: '/admin/cycles/admission-setup/application-settings',
+      /** Read-only pre-review checkpoint — sits between application_settings
+       *  and the final review step. Renders the same shared summary the
+       *  review step renders. */
+      applicationSettingsReview: '/admin/cycles/admission-setup/application-settings-review',
       applicationStatus: '/admin/cycles/admission-setup/application-status',
       maritalStatusRules: '/admin/cycles/admission-setup/marital-status-rules',
       fees: '/admin/cycles/admission-setup/fees',

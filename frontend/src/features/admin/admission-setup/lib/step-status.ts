@@ -83,6 +83,13 @@ export function computeStepStatus(
       if (openCount === 0) return 'not_started';
       return openCount > 0 ? 'complete' : 'in_progress';
     }
+    case 'application_settings_review': {
+      /* Read-only checkpoint — derives its status from the upstream
+       * authoring step so the stepper doesn't show «لم يبدأ» on a step
+       * that has nothing to start. */
+      const openCount = Object.values(cycle.openCategories ?? {}).filter((c) => c?.isOpen).length;
+      return openCount > 0 ? 'complete' : 'not_started';
+    }
     case 'fees': {
       const fee = cycle.fees?.applicationFee ?? 0;
       const fawry = cycle.fees?.fawryConfig?.merchantCode ?? '';

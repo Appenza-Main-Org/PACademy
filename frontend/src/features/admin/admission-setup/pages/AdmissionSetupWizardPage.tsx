@@ -67,6 +67,7 @@ import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
 import { buildCommitteeBindingsSnapshot } from '../lib/step-status';
 import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from './ApplicationSettingsPage';
+import { ApplicationSettingsReviewPage } from './ApplicationSettingsReviewPage';
 import { FeesPage } from './FeesPage';
 import { ExamsManagementPage } from './ExamsManagementPage';
 import { CommitteesManagementPage } from './CommitteesManagementPage';
@@ -80,6 +81,7 @@ type WizardStepKey = AdmissionSetupStepKey | typeof REVIEW_KEY;
  * entry here plus the config append. */
 const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   application_settings: () => <ApplicationSettingsPage />,
+  application_settings_review: () => <ApplicationSettingsReviewPage />,
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,

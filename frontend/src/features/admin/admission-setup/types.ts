@@ -28,9 +28,16 @@ import type { GradingMode } from '@/features/lookups';
  */
 export type GenderType = Applicant['gender'];
 
-/** Discriminated union of the admission-setup step keys, in canonical order. */
+/** Discriminated union of the admission-setup step keys, in canonical order.
+ *
+ *  `application_settings_review` is a read-only pre-review checkpoint
+ *  that sits between authoring (`application_settings`) and the final
+ *  approval gate (`review`). It mirrors the same summary the review
+ *  step renders, surfaced earlier so admins can verify category
+ *  combinations before continuing through the rest of the wizard. */
 export type AdmissionSetupStepKey =
   | 'application_settings'
+  | 'application_settings_review'
   | 'fees'
   | 'exams'
   | 'committees'

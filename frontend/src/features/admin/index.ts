@@ -45,6 +45,7 @@ export {
   AdmissionSetupIndexPage,
   AdmissionSetupWizardPage,
   ApplicationSettingsPage,
+  ApplicationSettingsReviewPage,
   ApplicationStatusPage,
   AdmissionFeesPage,
   ExamsManagementPage,
