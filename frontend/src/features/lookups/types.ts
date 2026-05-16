@@ -39,6 +39,7 @@ export const LOOKUP_KEYS = [
   'academic-grades',
   'academic-degrees',
   'exam-rounds',
+  'graduation-years',
 ] as const;
 
 export type LookupKey = (typeof LOOKUP_KEYS)[number];
@@ -90,6 +91,7 @@ export const LOOKUP_SECTIONS = [
       'academic-grades',
       'academic-degrees',
       'exam-rounds',
+      'graduation-years',
     ] as const,
   },
   {
@@ -133,6 +135,7 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'academic-grades':              { label: 'التقدير الأكاديمي',             codePrefix: 'AGR', padding: 2 },
   'academic-degrees':             { label: 'الدرجة العلمية',                codePrefix: 'DEG', padding: 2 },
   'exam-rounds':                  { label: 'دور الامتحان',                  codePrefix: 'ROUND', padding: 2 },
+  'graduation-years':             { label: 'سنوات التخرج',                  codePrefix: 'GYR', padding: 4 },
 };
 
 /* ─── Per-row base ───────────────────────────────────────────────────── */
@@ -381,6 +384,15 @@ export interface AcademicDegreeRow extends LookupRowBase {}
  *  applicant submits their school transcript. */
 export interface ExamRoundRow extends LookupRowBase {}
 
+/** Graduation-year lookup row (سنوات التخرج). Admin-managed list of
+ *  graduation years used by the application-settings year rows
+ *  (`graduationYears: number[]`). The row `name` is the year as a string
+ *  (e.g. "2026"); the typed `year` field carries the numeric value so
+ *  consumers don't have to parse the display name. */
+export interface GraduationYearRow extends LookupRowBase {
+  year: number;
+}
+
 /* ─── Mapped type: discriminated union over LookupKey ─────────────── */
 
 export interface LookupRowMap {
@@ -407,6 +419,7 @@ export interface LookupRowMap {
   'academic-grades': AcademicGradeRow;
   'academic-degrees': AcademicDegreeRow;
   'exam-rounds': ExamRoundRow;
+  'graduation-years': GraduationYearRow;
 }
 
 export type LookupRow<K extends LookupKey = LookupKey> = LookupRowMap[K];

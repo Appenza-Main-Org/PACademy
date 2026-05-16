@@ -26,6 +26,7 @@ import type {
   ExamRoundRow,
   FacultyRow,
   GovernorateRow,
+  GraduationYearRow,
   JobRow,
   LookupKey,
   LookupRow,
@@ -964,6 +965,26 @@ const examRounds: ExamRoundRow[] = [
   { code: 'ROUND-02', name: 'الدور الثاني', ...active },
 ];
 
+/* ─── 23. graduation-years — سنوات التخرج ──────────────────────────────
+ *
+ * Admin-managed list of graduation years referenced by the
+ * application-settings year rows (`graduationYears: number[]`). Codes
+ * embed the year so the auto-increment next-code helper proposes the
+ * following year naturally (e.g. `GYR-2027` → `GYR-2028`). */
+
+const graduationYears: GraduationYearRow[] = [
+  { code: 'GYR-2018', name: '2018', year: 2018, ...active },
+  { code: 'GYR-2019', name: '2019', year: 2019, ...active },
+  { code: 'GYR-2020', name: '2020', year: 2020, ...active },
+  { code: 'GYR-2021', name: '2021', year: 2021, ...active },
+  { code: 'GYR-2022', name: '2022', year: 2022, ...active },
+  { code: 'GYR-2023', name: '2023', year: 2023, ...active },
+  { code: 'GYR-2024', name: '2024', year: 2024, ...active },
+  { code: 'GYR-2025', name: '2025', year: 2025, ...active },
+  { code: 'GYR-2026', name: '2026', year: 2026, ...active },
+  { code: 'GYR-2027', name: '2027', year: 2027, ...active },
+];
+
 /* ─── Aggregate — `MOCK.lookups[key]` ────────────────────────────────── */
 
 export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
@@ -990,4 +1011,5 @@ export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
   'academic-grades': academicGrades,
   'academic-degrees': academicDegrees,
   'exam-rounds': examRounds,
+  'graduation-years': graduationYears,
 };
