@@ -56,6 +56,11 @@ export const LOOKUP_SECTIONS = [
     keys: ['applicant-categories'] as const,
   },
   {
+    key: 'committees',
+    label: 'اللجان',
+    keys: ['committees'] as const,
+  },
+  {
     key: 'kinship',
     label: 'علاقات وشجرة العائلة',
     keys: ['relationships', 'relationship-degree-tiers'] as const,
@@ -76,7 +81,6 @@ export const LOOKUP_SECTIONS = [
     keys: [
       'tests',
       'test-results',
-      'committees',
       'submission-types',
       'announcements',
       'applicant-divisions',
