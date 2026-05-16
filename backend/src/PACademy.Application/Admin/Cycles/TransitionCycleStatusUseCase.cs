@@ -14,7 +14,11 @@ public sealed class TransitionCycleStatusUseCase(IPaDbContext db)
         // Active → Draft only when no applicants exist yet (guarded below);
         // used by the wizard's "إلغاء الاعتماد" path to iterate before launch.
         [CycleStatus.Active] = [CycleStatus.Closed, CycleStatus.Draft],
-        [CycleStatus.Closed] = [CycleStatus.Archived],
+        // Closed → Draft only when no applicants exist (guarded below); lets
+        // admins recover from an accidental close (e.g. swapActive that closed
+        // the previously-active cycle to promote a different one). Same
+        // applicants-existing guard as Active → Draft for symmetry.
+        [CycleStatus.Closed] = [CycleStatus.Archived, CycleStatus.Draft],
         [CycleStatus.Archived] = [],
     };
 
@@ -39,14 +43,15 @@ public sealed class TransitionCycleStatusUseCase(IPaDbContext db)
                 $"Transition {cycle.Status} → {newStatus} is not permitted.",
                 "INVALID_CYCLE_TRANSITION");
 
-        if (cycle.Status == CycleStatus.Active && newStatus == CycleStatus.Draft)
+        if (newStatus == CycleStatus.Draft &&
+            (cycle.Status == CycleStatus.Active || cycle.Status == CycleStatus.Closed))
         {
             var hasApplicants = await db.Applicants.AsNoTracking()
                 .AnyAsync(a => a.CycleId == id, ct);
             if (hasApplicants)
                 throw new DomainConflictException(
-                    "لا يمكن إلغاء اعتماد الدورة بعد بدء استقبال المتقدمين.",
-                    "ACTIVE_HAS_APPLICANTS");
+                    "لا يمكن إعادة الدورة إلى مسودة بعد بدء استقبال المتقدمين.",
+                    "CYCLE_HAS_APPLICANTS");
         }
 
         if (newStatus == CycleStatus.Active)

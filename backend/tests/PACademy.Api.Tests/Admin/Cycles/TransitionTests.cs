@@ -159,6 +159,25 @@ public sealed class TransitionTests(SqlServerFixture sqlFixture) : IAsyncLifetim
         dto!.Status.Should().Be("closed");
     }
 
+    // Closed → Draft succeeds when no applicants exist — lets admins recover
+    // from an accidental close (e.g. swapActive demoting the previously-active
+    // cycle). Mirrors the Active → Draft guard.
+    [Fact]
+    public async Task Transition_ClosedToDraft_NoApplicants_Succeeds()
+    {
+        var cycle = await CreateCycleAsync("استرجاع المسودة", 2048, "male",
+            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(60));
+
+        await TransitionAsync(cycle.Id, "active");
+        await TransitionAsync(cycle.Id, "closed");
+
+        var resp = await TransitionAsync(cycle.Id, "draft");
+        resp.IsSuccessStatusCode.Should().BeTrue();
+
+        var dto = await resp.Content.ReadFromJsonAsync<CycleDetailDto>();
+        dto!.Status.Should().Be("draft");
+    }
+
     // Closed → Archived succeeds
     [Fact]
     public async Task Transition_ClosedToArchived_Succeeds()
