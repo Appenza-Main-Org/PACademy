@@ -161,3 +161,55 @@ No Zustand wizard-store slice, selector, validator, or submit payload referenced
 
 - `npm run typecheck` → 0 errors.
 - `npm run build` → succeeds.
+
+---
+
+# Review step combinations table
+
+> Wizard step: `/admin/cycles/admission-setup/wizard/review`
+
+Added a per-applicant-category combinations summary to the review step so admins can audit every approved row in one place before tapping «اعتماد ونشر». The summary sits between the «ملخص الخطوات» card and the approve / cancel-approval card.
+
+## Data sources (no refetch)
+
+The new `ReviewCombinationsTables` reads exclusively from the same sources `application_settings` writes to:
+
+- `useAdmissionSetupWizardStore((s) => s.approved)` — the flat approved bucket already populated by the section-level «اعتماد» button.
+- `useLookup('applicant-categories')` — category title + `type` (`university` vs `pre_university`) drive both the table title and the column set, mirroring `CategoryAccordion`'s branching.
+- `useLookup('faculties' | 'specializations' | 'committees' | 'academic-degrees' | 'exam-rounds' | 'school-categories')` — label resolution for the code-valued fields on each row.
+
+TanStack Query caches dedupe with the application_settings step, so the review page incurs no extra network round-trips even when the lookups were already hydrated for the section editors.
+
+## Tables
+
+- **`university` (جامعي)** — flat rows (no rowspan), one combination per row. Columns in RTL order:
+  1. الكلية
+  2. الدرجة العلمية (multi-select → chip pills)
+  3. التخصص
+  4. النوع (multi-select → chip pills; resolves `male`/`female` to `ذكر`/`أنثى` via the same map `GeneralRulesSection` uses)
+  5. اللجنة
+
+  Rows sort by faculty (insertion order — the first row to mention a faculty wins ordering), then by primary academic-degree, then by specialization name. Group boundaries between faculties get a thicker token-based divider (`border-t-2 border-border-default`); rows inside a group separate with `border-t border-border-subtle`. The faculty cell is repeated on every row for export friendliness — no rowspan collapsing.
+
+- **`pre_university` (ثانوي)** — its own column set, never folded into the جامعي table. Columns: الدور / اللجنة / سنة التخرج / فئة المدرسة. Multi-select فئة المدرسة renders as chip pills. Rows sort by exam round → graduation year → committee. سنة التخرج renders in Eastern Arabic numerals via `toEasternArabicNumerals` to match the rest of the wizard.
+
+## Empty handling
+
+Every active applicant-category gets a card, even when no rows have been approved for it yet — the table renders its header row plus a single «لا توجد بيانات» row spanning all columns. This keeps the review section exhaustive and discourages misreading "category absent" as "category complete".
+
+## Chip rendering + truncation
+
+`ChipList` (private to this component) renders multi-select values as inline pill chips (`rounded-pill border border-border-subtle bg-ink-50 ... text-ink-700`). The whole group lives inside a single-line `overflow-hidden whitespace-nowrap` container so it truncates with ellipsis when it overflows the cell. A Radix `Tooltip` (hoisted out of the existing `Tooltip` / `TooltipProvider` shared exports) exposes the full comma-separated list on hover / keyboard focus — matching the truncation contract the existing grids in `GeneralRulesSection` and `ThanawiRulesSection` rely on, just re-skinned as chips per the brief.
+
+## Files touched
+
+- [frontend/src/features/admin/admission-setup/components/review/ReviewCombinationsTables.tsx](../../../frontend/src/features/admin/admission-setup/components/review/ReviewCombinationsTables.tsx) — new. Token-styled tables built on plain `<table>` + a local `Th` / `Td` / `ChipList` triplet (no new shared component introduced, matching the existing `LocalUniversityGrid` / `ThanawiGrid` table convention in the application-settings sections).
+- [frontend/src/features/admin/admission-setup/pages/WizardReviewPage.tsx](../../../frontend/src/features/admin/admission-setup/pages/WizardReviewPage.tsx) — embeds `<ReviewCombinationsTables />` between the steps-summary card and the approve / cancel-approval card. No other behavioural changes.
+
+## Constraint check vs CLAUDE.md §2.5 / PRODUCT.md
+
+No new libs, no `useEffect` for data fetching (the wizard store + the existing `useLookup` TanStack Query bindings are the only data sources), no `any`, no default exports, no hardcoded hex/px/duration outside the design-token system, no `pl-*` / `pr-*` Tailwind utilities (logical `ps-*` / `pe-*` only), Radix `Tooltip` reused not re-built.
+
+## Verification
+
+- `npm run typecheck` → 0 errors.
