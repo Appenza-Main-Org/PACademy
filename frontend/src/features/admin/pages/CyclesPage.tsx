@@ -1,11 +1,18 @@
 /**
  * CyclesPage — list of admission cycles.
  *
- * Columns mirror the trimmed cycle schema: name, year, opening date,
- * closing date, status. Per-row edit opens a modal that lets the
- * admin flip the cycle's status between draft / active / closed;
- * activating while another active cycle exists triggers the same
- * confirm-and-demote dialog used by /admin/cycles/new.
+ * Columns mirror the Add form (CycleNewPage) field set 1:1:
+ *   اسم الدورة · السنة · حالة الدورة.
+ *
+ * Status is a two-state binary on this surface — see cycleListStatus.ts:
+ *   إدراج ومراجعة → draft (editable)
+ *   اعتماد ونشر  → published (locked — Edit action is aria-disabled with a
+ *                  tooltip explaining why).
+ *
+ * Per-row Edit opens a modal that flips the cycle between the two states.
+ * Promoting a draft to "اعتماد ونشر" while another cycle is already
+ * published triggers the same confirm-and-demote dialog used by
+ * /admin/cycles/new.
  */
 
 import { useMemo, useState } from 'react';
@@ -23,67 +30,33 @@ import {
   PageHeader,
   Select,
   toast,
+  Tooltip,
+  TooltipProvider,
 } from '@/shared/components';
 import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate } from '@/shared/lib/format';
 import { isConflictError } from '@/shared/lib/errors';
-import type { AdmissionCycle, CycleStatus } from '@/shared/types/domain';
+import type { AdmissionCycle } from '@/shared/types/domain';
 import { useActiveCycle, useCycleUpdateStatus, useCycles } from '../api/cycles.queries';
+import {
+  fromListStatus,
+  LIST_STATUS_LABEL,
+  LIST_STATUS_OPTIONS,
+  LIST_STATUS_TONE,
+  toListStatus,
+  type CycleListStatus,
+} from '../components/cycles/cycleListStatus';
 
-type EditableStatus = 'draft' | 'active' | 'closed';
+const LOCKED_EDIT_HINT = 'لا يمكن التعديل بعد الاعتماد والنشر';
 
-const STATUS_LABEL: Record<CycleStatus, string> = {
-  draft: 'مسودة',
-  /* `open` is the legacy "running cycle" token kept for seeded data —
-   * surface it under the same Arabic label as `active`. */
-  open: 'نشطة',
-  active: 'نشطة',
-  extended: 'ممدّدة',
-  closed: 'مغلقة',
-  processing: 'تحت المعالجة',
-  finalized: 'مختومة',
-  archived: 'مؤرشفة',
+/* Drafts (إدراج ومراجعة) bubble to the top — they're the only rows the
+ * admin can act on. Published rows follow, ordered by year desc. */
+const LIST_STATUS_PRIORITY: Record<CycleListStatus, number> = {
+  review: 0,
+  published: 1,
 };
-
-const STATUS_TONE: Record<CycleStatus, 'neutral' | 'success' | 'danger' | 'info'> = {
-  draft: 'neutral',
-  open: 'success',
-  active: 'success',
-  extended: 'info',
-  closed: 'danger',
-  processing: 'info',
-  finalized: 'neutral',
-  archived: 'neutral',
-};
-
-/* Sort priority — more-relevant statuses bubble to the top of the list;
- * cycles within a bucket are then ordered by openDate descending. */
-const STATUS_PRIORITY: Record<CycleStatus, number> = {
-  active: 0,
-  open: 0,
-  extended: 0,
-  draft: 1,
-  closed: 2,
-  processing: 3,
-  finalized: 4,
-  archived: 5,
-};
-
-const EDITABLE_STATUS_OPTIONS: ReadonlyArray<{ value: EditableStatus; label: string }> = [
-  { value: 'draft', label: 'مسودة' },
-  { value: 'active', label: 'نشطة' },
-  { value: 'closed', label: 'مغلقة' },
-];
-
-/** Normalize legacy `open` / `extended` statuses onto the edit form's
- *  three-state union so the Select reflects the right initial value. */
-function toEditableStatus(s: CycleStatus): EditableStatus {
-  if (s === 'open' || s === 'active' || s === 'extended') return 'active';
-  if (s === 'draft') return 'draft';
-  return 'closed';
-}
 
 export function CyclesPage(): JSX.Element {
   const navigate = useNavigate();
@@ -92,18 +65,20 @@ export function CyclesPage(): JSX.Element {
   const updateStatusMut = useCycleUpdateStatus();
 
   const [editing, setEditing] = useState<AdmissionCycle | null>(null);
-  const [draftStatus, setDraftStatus] = useState<EditableStatus>('draft');
+  const [draftStatus, setDraftStatus] = useState<CycleListStatus>('review');
   const [conflict, setConflict] = useState<{
     activeCycleName: string;
     targetId: string;
-    nextStatus: EditableStatus;
   } | null>(null);
 
   const sortedCycles = useMemo(() => {
     const rows = [...(data ?? [])];
     rows.sort((a, b) => {
-      const byStatus = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
+      const byStatus =
+        LIST_STATUS_PRIORITY[toListStatus(a.status)] -
+        LIST_STATUS_PRIORITY[toListStatus(b.status)];
       if (byStatus !== 0) return byStatus;
+      if (a.year !== b.year) return b.year - a.year;
       return new Date(b.openDate).getTime() - new Date(a.openDate).getTime();
     });
     return rows;
@@ -122,19 +97,10 @@ export function CyclesPage(): JSX.Element {
           { key: 'nameAr', labelAr: 'اسم الدورة' },
           { key: 'year', labelAr: 'السنة' },
           {
-            key: 'openDate',
-            labelAr: 'تاريخ الفتح',
-            format: (v) => fmtDate(String(v), 'short'),
-          },
-          {
-            key: 'closeDate',
-            labelAr: 'تاريخ الإغلاق',
-            format: (v) => fmtDate(String(v), 'short'),
-          },
-          {
             key: 'status',
-            labelAr: 'الحالة',
-            format: (v) => STATUS_LABEL[v as CycleStatus] ?? String(v ?? ''),
+            labelAr: 'حالة الدورة',
+            format: (v) =>
+              LIST_STATUS_LABEL[toListStatus(v as AdmissionCycle['status'])],
           },
         ],
       },
@@ -144,7 +110,7 @@ export function CyclesPage(): JSX.Element {
 
   const openEdit = (cycle: AdmissionCycle): void => {
     setEditing(cycle);
-    setDraftStatus(toEditableStatus(cycle.status));
+    setDraftStatus(toListStatus(cycle.status));
   };
 
   const closeEdit = (): void => {
@@ -156,17 +122,15 @@ export function CyclesPage(): JSX.Element {
     updateStatusMut.mutate(
       {
         id: editing.id,
-        next: draftStatus,
+        next: fromListStatus(draftStatus),
         demoteCurrentActive: options.demoteCurrentActive,
       },
       {
         onSuccess: () => {
           if (options.demoteCurrentActive) {
-            toast('تم تفعيل الدورة الجديدة وتحويل الدورة السابقة إلى مسودة', 'success');
-          } else if (draftStatus === 'active') {
-            toast('تم تفعيل الدورة', 'success');
-          } else if (draftStatus === 'closed') {
-            toast('تم إغلاق الدورة', 'success');
+            toast('تم اعتماد الدورة الجديدة وتحويل الدورة السابقة إلى مسودة', 'success');
+          } else if (draftStatus === 'published') {
+            toast('تم اعتماد ونشر الدورة', 'success');
           } else {
             toast('تم حفظ المسودة', 'success');
           }
@@ -179,7 +143,6 @@ export function CyclesPage(): JSX.Element {
             setConflict({
               activeCycleName: payload?.activeCycleName ?? '',
               targetId: editing.id,
-              nextStatus: draftStatus,
             });
             return;
           }
@@ -213,161 +176,180 @@ export function CyclesPage(): JSX.Element {
       ),
     },
     {
-      key: 'openDate',
-      label: 'تاريخ الفتح',
-      render: (c) => fmtDate(c.openDate, 'short'),
-    },
-    {
-      key: 'closeDate',
-      label: 'تاريخ الإغلاق',
-      render: (c) => fmtDate(c.closeDate, 'short'),
-    },
-    {
       key: 'status',
-      label: 'الحالة',
-      render: (c) => <Badge tone={STATUS_TONE[c.status]}>{STATUS_LABEL[c.status]}</Badge>,
+      label: 'حالة الدورة',
+      render: (c) => {
+        const ls = toListStatus(c.status);
+        return <Badge tone={LIST_STATUS_TONE[ls]}>{LIST_STATUS_LABEL[ls]}</Badge>;
+      },
     },
     {
       key: '_actions',
       label: <span className="sr-only">إجراءات</span>,
       align: 'end',
-      render: (c) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          leadingIcon={<Pencil size={12} strokeWidth={1.75} />}
-          onClick={() => openEdit(c)}
-        >
-          تعديل
-        </Button>
-      ),
+      render: (c) => {
+        const isLocked = toListStatus(c.status) === 'published';
+        /* When locked we deliberately omit the native `disabled` so the
+         * button stays focusable + hoverable for the tooltip, and guard
+         * the click handler instead. aria-disabled exposes the state to AT. */
+        const editButton = (
+          <Button
+            variant="ghost"
+            size="sm"
+            leadingIcon={<Pencil size={12} strokeWidth={1.75} />}
+            aria-disabled={isLocked || undefined}
+            className={
+              isLocked
+                ? 'cursor-not-allowed text-ink-400 hover:bg-transparent hover:text-ink-400'
+                : undefined
+            }
+            onClick={() => {
+              if (isLocked) return;
+              openEdit(c);
+            }}
+          >
+            تعديل
+          </Button>
+        );
+        return isLocked ? (
+          <Tooltip content={LOCKED_EDIT_HINT}>
+            <span tabIndex={0} aria-label={LOCKED_EDIT_HINT} className="inline-flex">
+              {editButton}
+            </span>
+          </Tooltip>
+        ) : (
+          editButton
+        );
+      },
     },
   ];
 
   return (
-    <CenteredShell>
-      <PageHeader
-        title="دورات القبول"
-        subtitle="إدارة دورات القبول السنوية: تواريخ الفتح والإغلاق، حالة الدورة."
-        breadcrumbs={[
-          { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
-          { label: 'الدورات' },
-        ]}
-        actions={
-          <Button
-            variant="primary"
-            leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-            onClick={() => navigate(ROUTES.admin.cycleNew)}
-          >
-            إنشاء دورة جديدة
-          </Button>
-        }
-      />
-
-      {activeCycle && (
-        <Card variant="elevated" className="mb-4 border-l-2 border-l-teal-500">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-              <CalendarRange size={20} strokeWidth={1.75} />
-            </span>
-            <div className="flex-1">
-              <p className="font-ar-display text-md font-bold text-ink-900">
-                الدورة النشطة: {activeCycle.nameAr}
-              </p>
-              <p className="mt-0.5 text-2xs text-ink-500">
-                {fmtDate(activeCycle.openDate, 'short')} إلى{' '}
-                {fmtDate(activeCycle.closeDate, 'short')}
-              </p>
-            </div>
-            <Badge tone="success">
-              <IconStamp width={12} height={12} className="me-1 inline-block" />
-              نشطة
-            </Badge>
-          </div>
-        </Card>
-      )}
-
-      <Card>
-        <DataTable
-          data={sortedCycles}
-          columns={columns}
-          rowKey={(c) => c.id}
-          loading={isLoading}
-          empty={<EmptyState variant="generic" title="لا توجد دورات حالياً" />}
-          zebraStripes
-          listActions={listActions}
-        />
-      </Card>
-
-      <Modal
-        open={editing !== null}
-        onClose={() => {
-          if (!updateStatusMut.isPending) closeEdit();
-        }}
-        title="تعديل حالة الدورة"
-        subtitle={editing?.nameAr}
-        size="sm"
-      >
-        <div className="flex flex-col gap-4">
-          <Select
-            label="حالة الدورة"
-            required
-            options={EDITABLE_STATUS_OPTIONS as ReadonlyArray<{ value: string; label: string }>}
-            value={draftStatus}
-            onChange={(e) => setDraftStatus(e.target.value as EditableStatus)}
-          />
-          <div className="mt-2 flex items-center justify-end gap-2">
+    <TooltipProvider>
+      <CenteredShell>
+        <PageHeader
+          title="دورات القبول"
+          subtitle="إدارة دورات القبول السنوية: الاسم والسنة وحالة الاعتماد والنشر."
+          breadcrumbs={[
+            { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
+            { label: 'الدورات' },
+          ]}
+          actions={
             <Button
-              type="button"
-              variant="ghost"
-              onClick={closeEdit}
-              disabled={updateStatusMut.isPending}
-            >
-              إلغاء
-            </Button>
-            <Button
-              type="button"
               variant="primary"
-              leadingIcon={<Save size={14} strokeWidth={1.75} />}
-              onClick={() => submitEdit()}
-              isLoading={updateStatusMut.isPending}
-              disabled={
-                !!editing && draftStatus === toEditableStatus(editing.status)
-              }
+              leadingIcon={<Plus size={14} strokeWidth={1.75} />}
+              onClick={() => navigate(ROUTES.admin.cycleNew)}
             >
-              حفظ
+              إنشاء دورة جديدة
             </Button>
-          </div>
-        </div>
-      </Modal>
+          }
+        />
 
-      <AlertDialog
-        open={conflict !== null}
-        onOpenChange={(next) => {
-          if (!next) setConflict(null);
-        }}
-        title="تأكيد تفعيل دورة جديدة"
-        description={
-          conflict ? (
-            <>
-              يوجد دورة نشطة حالياً باسم{' '}
-              <strong className="font-semibold text-ink-900">
-                &quot;{conflict.activeCycleName}&quot;
-              </strong>
-              . عند تفعيل هذه الدورة، سيتم تحويل الدورة الحالية إلى مسودة تلقائياً.
-              هل تريد المتابعة؟
-            </>
-          ) : null
-        }
-        actionLabel="تأكيد التفعيل"
-        cancelLabel="إلغاء"
-        tone="danger"
-        isActionLoading={updateStatusMut.isPending}
-        onAction={() => {
-          if (!conflict) return;
-          submitEdit({ demoteCurrentActive: true });
-        }}
-      />
-    </CenteredShell>
+        {activeCycle && (
+          <Card variant="elevated" className="mb-4 border-l-2 border-l-teal-500">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+                <CalendarRange size={20} strokeWidth={1.75} />
+              </span>
+              <div className="flex-1">
+                <p className="font-ar-display text-md font-bold text-ink-900">
+                  الدورة المعتمدة والمنشورة: {activeCycle.nameAr}
+                </p>
+                <p className="mt-0.5 text-2xs text-ink-500">
+                  {fmtDate(activeCycle.openDate, 'short')} إلى{' '}
+                  {fmtDate(activeCycle.closeDate, 'short')}
+                </p>
+              </div>
+              <Badge tone={LIST_STATUS_TONE.published}>
+                <IconStamp width={12} height={12} className="me-1 inline-block" />
+                {LIST_STATUS_LABEL.published}
+              </Badge>
+            </div>
+          </Card>
+        )}
+
+        <Card>
+          <DataTable
+            data={sortedCycles}
+            columns={columns}
+            rowKey={(c) => c.id}
+            loading={isLoading}
+            empty={<EmptyState variant="generic" title="لا توجد دورات حالياً" />}
+            zebraStripes
+            listActions={listActions}
+          />
+        </Card>
+
+        <Modal
+          open={editing !== null}
+          onClose={() => {
+            if (!updateStatusMut.isPending) closeEdit();
+          }}
+          title="تعديل حالة الدورة"
+          subtitle={editing?.nameAr}
+          size="sm"
+        >
+          <div className="flex flex-col gap-4">
+            <Select
+              label="حالة الدورة"
+              required
+              options={LIST_STATUS_OPTIONS as ReadonlyArray<{ value: string; label: string }>}
+              value={draftStatus}
+              onChange={(e) => setDraftStatus(e.target.value as CycleListStatus)}
+            />
+            <div className="mt-2 flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={closeEdit}
+                disabled={updateStatusMut.isPending}
+              >
+                إلغاء
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                leadingIcon={<Save size={14} strokeWidth={1.75} />}
+                onClick={() => submitEdit()}
+                isLoading={updateStatusMut.isPending}
+                disabled={
+                  !!editing && draftStatus === toListStatus(editing.status)
+                }
+              >
+                حفظ
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        <AlertDialog
+          open={conflict !== null}
+          onOpenChange={(next) => {
+            if (!next) setConflict(null);
+          }}
+          title="تأكيد اعتماد ونشر دورة جديدة"
+          description={
+            conflict ? (
+              <>
+                يوجد دورة معتمدة ومنشورة حالياً باسم{' '}
+                <strong className="font-semibold text-ink-900">
+                  &quot;{conflict.activeCycleName}&quot;
+                </strong>
+                . عند اعتماد هذه الدورة، سيتم تحويل الدورة الحالية إلى مسودة تلقائياً.
+                هل تريد المتابعة؟
+              </>
+            ) : null
+          }
+          actionLabel="تأكيد الاعتماد"
+          cancelLabel="إلغاء"
+          tone="danger"
+          isActionLoading={updateStatusMut.isPending}
+          onAction={() => {
+            if (!conflict) return;
+            submitEdit({ demoteCurrentActive: true });
+          }}
+        />
+      </CenteredShell>
+    </TooltipProvider>
   );
 }

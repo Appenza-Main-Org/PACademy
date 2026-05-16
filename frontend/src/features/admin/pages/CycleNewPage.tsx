@@ -7,13 +7,11 @@
  * Every other AdmissionCycle field (cohort, fees, capacity, openCategories, …)
  * is filled in by the service with sensible defaults.
  *
- * Submit behaviour is status-driven:
- *  • status = draft  → "حفظ كمسودة"   — straight create.
- *  • status = closed → "إغلاق الدورة" — straight create.
- *  • status = active → "إنشاء الدورة" — runs the single-active-cycle check.
- *    If an active cycle already exists, the admin sees a confirm dialog;
- *    on confirm the service atomically demotes the existing active to
- *    draft and creates the new one as active.
+ * Status is a two-state enum on this surface:
+ *   إدراج ومراجعة → draft (straight create)
+ *   اعتماد ونشر  → active (runs the single-active-cycle check; if another
+ *                  active cycle exists, the conflict dialog offers to
+ *                  atomically demote it to draft on confirm).
  */
 
 import { useMemo, useState } from 'react';
@@ -35,8 +33,11 @@ import { ROUTES } from '@/config/routes';
 import { isConflictError } from '@/shared/lib/errors';
 import { useCycleCreate, useCycles } from '../api/cycles.queries';
 import type { AdmissionCycle } from '@/shared/types/domain';
-
-type CycleFormStatus = 'draft' | 'active' | 'closed';
+import {
+  fromListStatus,
+  LIST_STATUS_OPTIONS,
+  type CycleListStatus,
+} from '../components/cycles/cycleListStatus';
 
 const cycleSchema = z.object({
   name: z
@@ -45,27 +46,19 @@ const cycleSchema = z.object({
     .min(3, 'اسم الدورة يجب ألا يقل عن 3 أحرف')
     .max(80, 'اسم الدورة يجب ألا يزيد عن 80 حرفًا'),
   year: z.number().int(),
-  status: z.enum(['draft', 'active', 'closed']),
+  status: z.enum(['review', 'published']),
 });
 
 type CycleValues = z.infer<typeof cycleSchema>;
 
-const STATUS_OPTIONS: ReadonlyArray<{ value: CycleFormStatus; label: string }> = [
-  { value: 'draft', label: 'مسودة' },
-  { value: 'active', label: 'نشطة' },
-  { value: 'closed', label: 'مغلقة' },
-];
-
-const SUBMIT_LABEL: Record<CycleFormStatus, string> = {
-  draft: 'حفظ كمسودة',
-  active: 'إنشاء الدورة',
-  closed: 'إغلاق الدورة',
+const SUBMIT_LABEL: Record<CycleListStatus, string> = {
+  review: 'حفظ كمسودة',
+  published: 'إنشاء الدورة',
 };
 
-const SUCCESS_TOAST: Record<CycleFormStatus, string> = {
-  draft: 'تم حفظ المسودة',
-  active: 'تم تفعيل الدورة',
-  closed: 'تم إغلاق الدورة',
+const SUCCESS_TOAST: Record<CycleListStatus, string> = {
+  review: 'تم حفظ المسودة',
+  published: 'تم اعتماد ونشر الدورة',
 };
 
 function buildPayload(values: CycleValues): Omit<AdmissionCycle, 'id' | 'applicantCount'> {
@@ -81,7 +74,7 @@ function buildPayload(values: CycleValues): Omit<AdmissionCycle, 'id' | 'applica
     openDate: openIso,
     closeDate: closeIso,
     expectedCapacity: 0,
-    status: values.status,
+    status: fromListStatus(values.status),
     openCategories: {},
     conditionOverrides: {},
     createdAt: nowIso,
@@ -114,11 +107,11 @@ export function CycleNewPage(): JSX.Element {
     defaultValues: {
       name: '',
       year: currentYear,
-      status: 'draft',
+      status: 'review',
     },
   });
 
-  const status = watch('status') as CycleFormStatus;
+  const status = watch('status') as CycleListStatus;
 
   const [conflictDialog, setConflictDialog] = useState<{
     activeCycleName: string;
@@ -132,11 +125,11 @@ export function CycleNewPage(): JSX.Element {
     createMut.mutate(
       { payload: buildPayload(values), demoteCurrentActive: options.demoteCurrentActive },
       {
-        onSuccess: (cycle) => {
+        onSuccess: () => {
           if (options.demoteCurrentActive) {
-            toast('تم تفعيل الدورة الجديدة وتحويل الدورة السابقة إلى مسودة', 'success');
+            toast('تم اعتماد ونشر الدورة الجديدة وتحويل الدورة السابقة إلى مسودة', 'success');
           } else {
-            toast(SUCCESS_TOAST[cycle.status as CycleFormStatus] ?? 'تم حفظ الدورة', 'success');
+            toast(SUCCESS_TOAST[values.status], 'success');
           }
           setConflictDialog(null);
           navigate(ROUTES.admin.cycles);
@@ -160,7 +153,7 @@ export function CycleNewPage(): JSX.Element {
   };
 
   const onSubmit = (values: CycleValues): void => {
-    if (values.status === 'active') {
+    if (values.status === 'published') {
       const existingActive = (cyclesQuery.data ?? []).find(
         (c) => c.status === 'active' || c.status === 'open' || c.status === 'extended',
       );
@@ -215,9 +208,9 @@ export function CycleNewPage(): JSX.Element {
                 <Select
                   label="حالة الدورة"
                   required
-                  options={STATUS_OPTIONS as ReadonlyArray<{ value: string; label: string }>}
+                  options={LIST_STATUS_OPTIONS as ReadonlyArray<{ value: string; label: string }>}
                   value={field.value}
-                  onChange={(e) => field.onChange(e.target.value as CycleFormStatus)}
+                  onChange={(e) => field.onChange(e.target.value as CycleListStatus)}
                   error={errors.status?.message}
                 />
               )}
@@ -249,19 +242,19 @@ export function CycleNewPage(): JSX.Element {
         onOpenChange={(next) => {
           if (!next) setConflictDialog(null);
         }}
-        title="تأكيد تفعيل دورة جديدة"
+        title="تأكيد اعتماد ونشر دورة جديدة"
         description={
           conflictDialog ? (
             <>
-              يوجد دورة نشطة حالياً باسم{' '}
+              يوجد دورة معتمدة ومنشورة حالياً باسم{' '}
               <strong className="font-semibold text-ink-900">
                 &quot;{conflictDialog.activeCycleName}&quot;
               </strong>
-              . عند تفعيل الدورة الجديدة، سيتم تحويل الدورة الحالية إلى مسودة تلقائياً. هل تريد المتابعة؟
+              . عند اعتماد الدورة الجديدة، سيتم تحويل الدورة الحالية إلى مسودة تلقائياً. هل تريد المتابعة؟
             </>
           ) : null
         }
-        actionLabel="تأكيد التفعيل"
+        actionLabel="تأكيد الاعتماد"
         cancelLabel="إلغاء"
         tone="danger"
         isActionLoading={createMut.isPending}
