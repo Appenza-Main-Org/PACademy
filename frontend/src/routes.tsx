@@ -22,6 +22,7 @@ import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
 import { AppSettingsReviewPage, LookupsReviewPage, PrimitivesReviewPage } from '@/features/dev';
 import { LookupsHubPage } from '@/features/lookups/pages/LookupsHubPage';
+import { ApplicantCategoryDetailPage } from '@/features/lookups/pages/ApplicantCategoryDetailPage';
 import {
   ApplicantPortalLayout,
   ApplicationSummaryPage,
@@ -220,6 +221,13 @@ export const routes: RouteObject[] = [
       { path: 'reports', element: <ReportsPage /> },
       /* Lookup Management Module — /admin/reference-data redirects here. */
       { path: 'lookups', element: <LookupsHubPage /> },
+      /* Detail view registered before the catch-all `lookups/:tab` so
+       * `/admin/lookups/applicant-categories/officers_general` resolves to
+       * the read-only detail page rather than the tab panel. */
+      {
+        path: 'lookups/applicant-categories/:id',
+        element: <ApplicantCategoryDetailPage />,
+      },
       { path: 'lookups/:tab', element: <LookupsHubPage /> },
       { path: 'reference-data', element: <Navigate to="/admin/lookups" replace /> },
       { path: 'reference-data/:tab', element: <Navigate to="/admin/lookups/:tab" replace /> },

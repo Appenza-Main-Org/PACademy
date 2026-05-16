@@ -37,6 +37,9 @@ export const ROUTES = {
     adminLookups: '/admin/lookups',
     adminLookupsType: (typeCode = ':typeCode'): string => `/admin/lookups/${typeCode}`,
     adminLookupsMappings: (kind = ':kind'): string => `/admin/lookups/mappings/${kind}`,
+    /** Read-only detail view for an applicant-categories lookup row. */
+    adminLookupsApplicantCategoryDetail: (id = ':id'): string =>
+      `/admin/lookups/applicant-categories/${id}`,
     cycles: '/admin/cycles',
     cycleDetail: (id = ':id'): string => `/admin/cycles/${id}`,
     cycleNew: '/admin/cycles/new',

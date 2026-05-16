@@ -7,7 +7,9 @@
  */
 
 import { useMemo, useState } from 'react';
-import { MoreVertical, Plus, Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Eye, MoreVertical, Plus, Search } from 'lucide-react';
+import { ROUTES } from '@/config/routes';
 import {
   AlertDialog,
   Badge,
@@ -192,7 +194,20 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
   // single rebuild per lookup key is safe.
   const columns = useMemo<DataTableColumn<LookupRow<K>>[]>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    () => buildColumns(lookupKey, handleEdit, handleDelete, handleToggleActive),
+    () =>
+      buildColumns(
+        lookupKey,
+        handleEdit,
+        handleDelete,
+        handleToggleActive,
+        /* `viewRouteFor` is scoped to applicant-categories — only that
+         * lookup currently has a dedicated read-only detail view. Other
+         * lookups stay edit-via-drawer only. */
+        lookupKey === 'applicant-categories'
+          ? (row) =>
+              ROUTES.admin.adminLookupsApplicantCategoryDetail(row.code)
+          : undefined,
+      ),
     [lookupKey],
   );
 
@@ -440,12 +455,26 @@ function buildColumns<K extends LookupKey>(
   onEdit: (row: LookupRow<K>) => void,
   onDelete: (row: LookupRow<K>) => void,
   onToggleActive: (row: LookupRow<K>) => void,
+  viewRouteFor?: (row: LookupRow<K>) => string,
 ): DataTableColumn<LookupRow<K>>[] {
   const nameCol: DataTableColumn<LookupRow<K>> = {
     key: 'name',
     label: 'الاسم',
     sortable: true,
-    render: (row) => <span className="font-medium text-ink-900">{row.name}</span>,
+    render: (row) => {
+      const href = viewRouteFor?.(row);
+      if (href) {
+        return (
+          <Link
+            to={href}
+            className="font-medium text-teal-700 transition-colors duration-fast ease-standard hover:text-teal-800 hover:underline focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
+          >
+            {row.name}
+          </Link>
+        );
+      }
+      return <span className="font-medium text-ink-900">{row.name}</span>;
+    },
   };
   const activeCol: DataTableColumn<LookupRow<K>> = {
     key: 'isActive',
@@ -480,25 +509,41 @@ function buildColumns<K extends LookupKey>(
   const actionsCol: DataTableColumn<LookupRow<K>> = {
     key: 'actions',
     label: <span className="sr-only">إجراءات</span>,
-    width: 56,
+    /* Widen when the eye-icon view button is present so the dropdown
+     * trigger doesn't get squeezed against the row edge. */
+    width: viewRouteFor ? 96 : 56,
     align: 'end',
     render: (row) => (
-      <DropdownMenu>
-        <DropdownMenu.Trigger asChild>
-          <button
-            type="button"
-            aria-label={`إجراءات على «${row.name}»`}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-500 transition-colors duration-fast ease-standard hover:bg-ink-50 hover:text-ink-900 focus-visible:outline-none focus-visible:shadow-[var(--ring)] data-[state=open]:bg-ink-100 data-[state=open]:text-ink-900"
+      <span
+        className="inline-flex items-center justify-end gap-1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {viewRouteFor && (
+          <Link
+            to={viewRouteFor(row)}
+            aria-label={`عرض تفاصيل «${row.name}»`}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-500 transition-colors duration-fast ease-standard hover:bg-ink-50 hover:text-ink-900 focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
           >
-            <MoreVertical size={16} strokeWidth={1.75} />
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content>
-          <DropdownMenu.Item onSelect={() => onEdit(row)}>تعديل</DropdownMenu.Item>
-          <DropdownMenu.Separator />
-          <DropdownMenu.Item destructive onSelect={() => onDelete(row)}>حذف</DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu>
+            <Eye size={16} strokeWidth={1.75} aria-hidden />
+          </Link>
+        )}
+        <DropdownMenu>
+          <DropdownMenu.Trigger asChild>
+            <button
+              type="button"
+              aria-label={`إجراءات على «${row.name}»`}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-500 transition-colors duration-fast ease-standard hover:bg-ink-50 hover:text-ink-900 focus-visible:outline-none focus-visible:shadow-[var(--ring)] data-[state=open]:bg-ink-100 data-[state=open]:text-ink-900"
+            >
+              <MoreVertical size={16} strokeWidth={1.75} />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content>
+            <DropdownMenu.Item onSelect={() => onEdit(row)}>تعديل</DropdownMenu.Item>
+            <DropdownMenu.Separator />
+            <DropdownMenu.Item destructive onSelect={() => onDelete(row)}>حذف</DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu>
+      </span>
     ),
   };
 

@@ -64,6 +64,8 @@ export {
   useDeleteLookupRow,
 } from './api/lookups.queries';
 
+export { ApplicantCategoryDetailPage } from './pages/ApplicantCategoryDetailPage';
+
 export {
   GRADING_MODES,
   GRADING_MODE_LABELS_AR,
