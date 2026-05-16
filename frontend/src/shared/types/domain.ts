@@ -216,6 +216,7 @@ export type AuditAction =
   | 'otp_failed'
   /* Cycle lifecycle (Gap F) */
   | 'cycle_activated'
+  | 'cycle_deactivated'
   | 'cycle_closed'
   | 'cycle_extended'
   | 'cycle_archived'
@@ -948,6 +949,18 @@ export interface AdmissionCycle extends SoftDeleteFields {
   examOrder?: string[];
   applicantCount: number;
   status: CycleStatus;
+  /**
+   * Active flag — orthogonal to `status`. At most ONE cycle in the system
+   * may have `isActive === true`; the cycles service enforces the invariant
+   * atomically (see `cyclesService.setActive`). A draft cycle (status:
+   * 'review' in cycles-UI terms) can still be marked active; conversely a
+   * published cycle can be inactive (e.g. historical). The cycles list
+   * surfaces this as a dedicated "نشطة / غير نشطة" column.
+   *
+   * Optional for backwards compatibility with seeded data; treat missing
+   * as `false`.
+   */
+  isActive?: boolean;
   /** English label, optional — defaults to a computed transliteration in UI. */
   labelEn?: string;
   /** Per-category open/closed/capacity/notes within this cycle.

@@ -117,7 +117,7 @@ export function CommitteeApplicantsPage(): JSX.Element {
         title={`متقدمو لجنة ${committee.name}`}
         subtitle={`${num(committee.applicants)} متقدم مسنّد · سعة ${num(capacity)}`}
         breadcrumbs={[
-          { label: 'لجان القبول', href: ROUTES.committee.list },
+          { label: 'اللجان', href: ROUTES.admin.adminLookupsType('committees') },
           { label: committee.name, href: ROUTES.committee.detail(committee.id) },
           { label: 'المتقدمون' },
         ]}

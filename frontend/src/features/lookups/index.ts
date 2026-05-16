@@ -25,12 +25,11 @@ export {
   type TestResultOutcome,
   type TestResultTone,
   type CommitteeRow,
-  type CommitteeKind,
   type SpecializationRow,
   type FacultyRow,
   type ApplicantCategoryRow,
   type ApplicantCategoryGenderScope,
-  type ApplicantCategoryApplicationMode,
+  type ApplicantCategoryType,
   type NationalityCountryRow,
   type GovernorateRow,
   type GovernorateRegion,
@@ -64,6 +63,8 @@ export {
   useUpdateLookupRow,
   useDeleteLookupRow,
 } from './api/lookups.queries';
+
+export { ApplicantCategoryDetailPage } from './pages/ApplicantCategoryDetailPage';
 
 export {
   GRADING_MODES,

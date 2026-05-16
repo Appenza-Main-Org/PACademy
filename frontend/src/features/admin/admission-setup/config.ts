@@ -93,7 +93,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     routeSegment: 'committees',
     icon: ShieldCheck,
     permission: 'admission-setup:read',
-    reuses: 'features/committees/pages/CommitteeListPage.tsx',
+    reuses: 'features/admin/admission-setup/pages/CommitteesManagementPage.tsx',
     isImplemented: true,
     subtitleAr: 'إنشاء اللجان وتعيين الرؤساء والأعضاء وربطها بمواعيد الاختبارات.',
   },
@@ -130,7 +130,7 @@ export function getStepByKey(key: AdmissionSetupStepKey): AdmissionSetupStep {
 /** Resolve the step matching a route pathname, or null if not under the section. */
 export function getStepByPath(pathname: string): AdmissionSetupStep | null {
   for (const step of ADMISSION_SETUP_STEPS) {
-    const fullPath = `/admin/admission-setup/${step.routeSegment}`;
+    const fullPath = `${ROUTES.admin.admissionSetup.index}/${step.routeSegment}`;
     if (pathname === fullPath || pathname.startsWith(`${fullPath}/`)) return step;
   }
   return null;

@@ -68,7 +68,7 @@ export function CommitteeEditPage(): JSX.Element {
         title={`تعديل: ${committee.name}`}
         subtitle="حدّث بيانات اللجنة، فئات المتقدمين، السعة وشروط التوزيع."
         breadcrumbs={[
-          { label: 'لجان القبول', href: ROUTES.committee.list },
+          { label: 'اللجان', href: ROUTES.admin.adminLookupsType('committees') },
           { label: committee.name, href: ROUTES.committee.detail(committee.id) },
           { label: 'تعديل' },
         ]}

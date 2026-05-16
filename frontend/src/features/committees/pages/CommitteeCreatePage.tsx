@@ -93,10 +93,11 @@ export function CommitteeCreatePage(): JSX.Element {
   const createMut = useCreateCommittee();
   const categoriesQuery = useCategoriesAdmin({ includeDeleted: false });
 
-  /* When the admin clicks "إنشاء لجنة" from /admin/committee/list, the
-   * active tab's key is passed via `?category=<key>` so the create form
-   * lands pre-scoped to that category. Invalid / missing values fall
-   * through to the editable selector. */
+  /* When the admin clicks "إنشاء لجنة" from the committees lookup
+   * (/admin/lookups/committees), the active tab's key is passed via
+   * `?category=<key>` so the create form lands pre-scoped to that
+   * category. Invalid / missing values fall through to the editable
+   * selector. */
   const [searchParams] = useSearchParams();
   const requestedCategory = searchParams.get('category');
   const presetCategoryKey: ApplicantCategoryKey | null =
@@ -239,7 +240,7 @@ export function CommitteeCreatePage(): JSX.Element {
       {
         onSuccess: (committee) => {
           toast(`تم إنشاء لجنة ${committee.name}`, 'success');
-          navigate(ROUTES.committee.list);
+          navigate(ROUTES.admin.adminLookupsType('committees'));
         },
         onError: (err) => toast((err).message, 'danger'),
       },
@@ -254,7 +255,7 @@ export function CommitteeCreatePage(): JSX.Element {
         title="إنشاء لجنة جديدة"
         subtitle="اختر الفئة، عرّف بيانات اللجنة، حدّد الفلاتر والحد الأقصى للقبول."
         breadcrumbs={[
-          { label: 'لجان القبول', href: ROUTES.committee.list },
+          { label: 'اللجان', href: ROUTES.admin.adminLookupsType('committees') },
           { label: 'إنشاء لجنة' },
         ]}
       />
@@ -436,7 +437,7 @@ export function CommitteeCreatePage(): JSX.Element {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => navigate(ROUTES.committee.list)}
+            onClick={() => navigate(ROUTES.admin.adminLookupsType('committees'))}
           >
             إلغاء
           </Button>

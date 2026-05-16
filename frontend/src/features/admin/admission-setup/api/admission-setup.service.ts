@@ -103,14 +103,16 @@ export const admissionSetupService = {
       throw new Error('أيام الإجازة يجب أن تكون ضمن أيام التقديم المختارة');
     }
     const idx = EXAM_DATE_CONFIGS.findIndex((c) => c.cycleId === input.cycleId);
+    const nowIso = new Date().toISOString();
     const next: ExamDateConfig = {
       id: idx === -1 ? id('EDC') : EXAM_DATE_CONFIGS[idx]!.id,
       cycleId: input.cycleId,
       firstAvailableDate: input.firstAvailableDate,
       bookableDays: [...input.bookableDays].sort(),
       blackoutDates: [...input.blackoutDates].sort(),
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
       updatedBy: actorId(),
+      rowVersion: nowIso,
     };
     const before = idx === -1 ? null : EXAM_DATE_CONFIGS[idx]!;
     if (idx === -1) EXAM_DATE_CONFIGS.unshift(next);

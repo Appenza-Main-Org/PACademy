@@ -153,8 +153,8 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
    * genderTypes to the locked value as soon as we know it. The patch is
    * a no-op once everything is aligned. */
   useEffect(() => {
-    if (!parentCategory || parentCategory.genderScope === 'any') return;
-    const locked = parentCategory.genderScope;
+    const locked = parentCategory?.lockedGender ?? null;
+    if (locked === null) return;
     for (const draft of drafts) {
       if (draft.kind === 'deleted') continue;
       const current = draft.row.genderTypes;
@@ -251,8 +251,8 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
             else seed.gradeKind = 'GRADES';
             /* Seed gender from the parent category's lock so new rows in
              * male-only / female-only categories start in a valid state. */
-            if (parentCategory && parentCategory.genderScope !== 'any') {
-              seed.genderTypes = [parentCategory.genderScope];
+            if (parentCategory?.lockedGender) {
+              seed.genderTypes = [parentCategory.lockedGender];
             }
             addRow(categorySpecializationId, seed);
           }}
@@ -312,10 +312,7 @@ function YearCard({
    * officers_general, female-only for physical_education_bachelor), the
    * gender toggle is read-only and the row's genderTypes is pinned to
    * the locked value. */
-  const lockedGender =
-    parentCategory && parentCategory.genderScope !== 'any'
-      ? parentCategory.genderScope
-      : null;
+  const lockedGender = parentCategory?.lockedGender ?? null;
   const showSchoolCategory = parentCategory?.code === 'officers_general';
 
   /* TAGDIR mode: render the selected grade's percentage range in the

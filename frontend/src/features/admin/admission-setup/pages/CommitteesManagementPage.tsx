@@ -147,7 +147,7 @@ function CommitteesTabs({ cycle, active }: CommitteesTabsProps): JSX.Element {
             {approvedCount > 0 && (
               <Badge tone="info">{num(approvedCount)} قاعدة</Badge>
             )}
-            <Link to={ROUTES.committee.list} className="inline-flex">
+            <Link to={ROUTES.admin.adminLookupsType('committees')} className="inline-flex">
               <Button
                 variant="ghost"
                 size="sm"

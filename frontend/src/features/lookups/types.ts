@@ -44,10 +44,22 @@ export type LookupKey = (typeof LOOKUP_KEYS)[number];
 
 /* ─── Section grouping for the tab rail ──────────────────────────────── */
 
-/* Five sections: kinship, الكليات, التخصصات (separate per the spec —
- * the user wants each as its own "main lookup section"), the residual
- * process bucket, and geography/admin references. */
+/* Six sections. `applicant-categories` rides at the top in its own
+ * section — same pattern as الكليات / التخصصات — because the screen has
+ * its own bespoke editor (multi-select faculties + specializations) and
+ * the team treats it as a top-level lookup rather than a member of the
+ * generic process bucket. */
 export const LOOKUP_SECTIONS = [
+  {
+    key: 'applicant-categories',
+    label: 'الفئات',
+    keys: ['applicant-categories'] as const,
+  },
+  {
+    key: 'committees',
+    label: 'اللجان',
+    keys: ['committees'] as const,
+  },
   {
     key: 'kinship',
     label: 'علاقات وشجرة العائلة',
@@ -69,9 +81,7 @@ export const LOOKUP_SECTIONS = [
     keys: [
       'tests',
       'test-results',
-      'committees',
       'submission-types',
-      'applicant-categories',
       'announcements',
       'applicant-divisions',
       'school-categories',
@@ -156,11 +166,36 @@ export interface RelationshipDegreeTierRow extends LookupRowBase {
 
 export type TestKind = 'physical' | 'medical' | 'interview' | 'written' | 'psych';
 
+/** Per-test applicant-facing instructions. Either an Arabic rich-text body
+ *  shown inline, or a single uploaded PDF (≤10 MB) the applicant opens for
+ *  review. Both surfaces coexist on the row so admins can switch modes
+ *  without losing the other tab's prior content. */
+export type TestInstructionsMode = 'text' | 'pdf';
+
+export interface TestInstructionsDocument {
+  fileName: string;
+  /** Object/blob URL or remote path opened for preview. */
+  fileUrl: string;
+  /** Bytes. Enforced ≤ 10 MB on save. */
+  size: number;
+}
+
+export interface TestInstructions {
+  mode: TestInstructionsMode;
+  /** Arabic body when `mode = 'text'`. */
+  bodyAr?: string;
+  /** Uploaded PDF when `mode = 'pdf'`. */
+  document?: TestInstructionsDocument | null;
+}
+
 export interface TestRow extends LookupRowBase {
   kind: TestKind;
   /** Sequence order within the admission pipeline. */
   order: number;
   required: boolean;
+  /** Optional applicant-facing instructions. Absent when neither a body
+   *  nor a document have been authored. */
+  instructions?: TestInstructions;
 }
 
 export type TestResultOutcome = 'pass' | 'fail' | 'defer' | 'withdrawn';
@@ -171,11 +206,12 @@ export interface TestResultRow extends LookupRowBase {
   tone: TestResultTone;
 }
 
-export type CommitteeKind = 'primary' | 'medical' | 'final' | 'capacities' | 'traits' | 'sports' | 'interview';
-
 export interface CommitteeRow extends LookupRowBase {
-  kind: CommitteeKind;
-  chairTitle: string;
+  /** FK → `applicant-categories` (row `code`). Required, single-select. */
+  applicantCategoryId: string;
+  /** Optional admin-authored description, ≤500 chars. Trimmed on save;
+   *  cleared field persists as `undefined` (not empty string). */
+  description?: string;
 }
 
 export interface FacultyRow extends LookupRowBase {}
@@ -202,17 +238,12 @@ export interface SubmissionTypeRow extends LookupRowBase {
   sortOrder: number;
 }
 
-export type ApplicantCategoryGenderScope = 'male' | 'female' | 'any';
-export type ApplicantCategoryApplicationMode = 'general' | 'nomination';
+export type ApplicantCategoryGenderScope = 'male' | 'female';
 
 /* Educational stage at which the applicant enters. Pre-University is the
  * Thanaweya track (officers_general); University covers the three bachelor
  * tracks (law / physical-education / specialized). */
 export type ApplicantCategoryType = 'pre_university' | 'university';
-
-/* For University-type categories only: whether the applicant picks a single
- * faculty or selects across multiple. Pre-University rows carry `null`. */
-export type FacultySelectionType = 'single' | 'multiple';
 
 /* The applicant-category lookup absorbs the full ApplicantCategory shape
  * — description, isOpen flag, conditions, expanded conditions, required
@@ -228,12 +259,22 @@ import type {
 } from '@/shared/types/domain';
 
 export interface ApplicantCategoryRow extends LookupRowBase {
-  genderScope: ApplicantCategoryGenderScope;
-  applicationMode: ApplicantCategoryApplicationMode;
+  /** Gender scope — multi-select. `['male','female']` is the old `'any'`
+   *  semantics; a single-entry array locks the category to that gender.
+   *  Required, min 1. */
+  genderScope: ApplicantCategoryGenderScope[];
   /** Entry stage — Pre-University (Thanaweya) vs University (bachelor). */
   type: ApplicantCategoryType;
-  /** Faculty-picker shape. `null` when `type === 'pre_university'`. */
-  facultySelectionType: FacultySelectionType | null;
+  /** Eligible faculties (FK → `faculties`). Always `[]` for Pre-University
+   *  categories; non-empty for University ones. Replaces the previous
+   *  `facultySelectionType` shape — the form derives "single vs multiple"
+   *  by `length`. */
+  facultyCodes: string[];
+  /** Eligible specializations (FK → `specializations`). Always `[]` for
+   *  Pre-University; for University categories, narrows the selection to
+   *  a subset of the picked faculties' specializations. Empty array =
+   *  "all specializations of the picked faculties". */
+  specializationCodes: string[];
   /** English label — used by some applicant-portal English copies. */
   nameEn: string;
   description: string;

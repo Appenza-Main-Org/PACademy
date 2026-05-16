@@ -22,6 +22,7 @@ import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
 import { AppSettingsReviewPage, LookupsReviewPage, PrimitivesReviewPage } from '@/features/dev';
 import { LookupsHubPage } from '@/features/lookups/pages/LookupsHubPage';
+import { ApplicantCategoryDetailPage } from '@/features/lookups/pages/ApplicantCategoryDetailPage';
 import {
   ApplicantPortalLayout,
   ApplicationSummaryPage,
@@ -81,7 +82,6 @@ import {
   CommitteeCreatePage,
   CommitteeDetailPage,
   CommitteeEditPage,
-  CommitteeListPage,
   CommitteeOverviewPage,
   CommitteeSchedulePage,
 } from '@/features/committees';
@@ -221,6 +221,13 @@ export const routes: RouteObject[] = [
       { path: 'reports', element: <ReportsPage /> },
       /* Lookup Management Module — /admin/reference-data redirects here. */
       { path: 'lookups', element: <LookupsHubPage /> },
+      /* Detail view registered before the catch-all `lookups/:tab` so
+       * `/admin/lookups/applicant-categories/officers_general` resolves to
+       * the read-only detail page rather than the tab panel. */
+      {
+        path: 'lookups/applicant-categories/:id',
+        element: <ApplicantCategoryDetailPage />,
+      },
       { path: 'lookups/:tab', element: <LookupsHubPage /> },
       { path: 'reference-data', element: <Navigate to="/admin/lookups" replace /> },
       { path: 'reference-data/:tab', element: <Navigate to="/admin/lookups/:tab" replace /> },
@@ -243,19 +250,22 @@ export const routes: RouteObject[] = [
        * permission check (`admission-setup:read`) is enforced inside the
        * pages so an admin without the permission lands on a calm empty
        * state instead of a redirect. */
-      { path: 'admission-setup', element: <AdmissionSetupIndexPage /> },
+      { path: 'cycles/admission-setup', element: <AdmissionSetupIndexPage /> },
       /* Wizard route — single page that orchestrates all setup steps as
        * a top-stepper flow. `:stepKey` is one of `AdmissionSetupStepKey`
        * or the literal `'review'` (handled inside the page). */
-      { path: 'admission-setup/wizard', element: <Navigate to={ROUTES.admin.admissionSetup.wizard('application_settings')} replace /> },
-      { path: 'admission-setup/wizard/:stepKey', element: <AdmissionSetupWizardPage /> },
-      { path: 'admission-setup/application-settings', element: <ApplicationSettingsPage /> },
-      { path: 'admission-setup/application-status', element: <ApplicationStatusPage /> },
-      { path: 'admission-setup/fees', element: <AdmissionFeesPage /> },
-      { path: 'admission-setup/exams', element: <ExamsManagementPage /> },
-      { path: 'admission-setup/committees', element: <CommitteesManagementPage /> },
-      { path: 'admission-setup/notifications', element: <NotificationsStepPage /> },
-      { path: 'admission-setup/electronic-declaration', element: <ElectronicDeclarationPage /> },
+      { path: 'cycles/admission-setup/wizard', element: <Navigate to={ROUTES.admin.admissionSetup.wizard('application_settings')} replace /> },
+      { path: 'cycles/admission-setup/wizard/:stepKey', element: <AdmissionSetupWizardPage /> },
+      { path: 'cycles/admission-setup/application-settings', element: <ApplicationSettingsPage /> },
+      { path: 'cycles/admission-setup/application-status', element: <ApplicationStatusPage /> },
+      { path: 'cycles/admission-setup/fees', element: <AdmissionFeesPage /> },
+      { path: 'cycles/admission-setup/exams', element: <ExamsManagementPage /> },
+      { path: 'cycles/admission-setup/committees', element: <CommitteesManagementPage /> },
+      { path: 'cycles/admission-setup/notifications', element: <NotificationsStepPage /> },
+      { path: 'cycles/admission-setup/electronic-declaration', element: <ElectronicDeclarationPage /> },
+      /* Legacy redirects — old paths used to live at /admin/admission-setup/*. */
+      { path: 'admission-setup', element: <Navigate to={ROUTES.admin.admissionSetup.index} replace /> },
+      { path: 'admission-setup/*', element: <Navigate to={ROUTES.admin.admissionSetup.index} replace /> },
     ],
   },
 
@@ -304,7 +314,6 @@ export const routes: RouteObject[] = [
     element: <AuthGuard app="committee"><AdminLayout /></AuthGuard>,
     children: [
       { index: true, element: <CommitteeOverviewPage /> },
-      { path: 'list', element: <CommitteeListPage /> },
       { path: 'schedule', element: <CommitteeSchedulePage /> },
       { path: 'create', element: <CommitteeCreatePage /> },
       { path: ':id', element: <CommitteeDetailPage /> },
@@ -314,7 +323,6 @@ export const routes: RouteObject[] = [
   },
   /* Back-compat: old /committee/* URLs land users on the new paths. */
   { path: '/committee', element: <Navigate to="/admin/committee" replace /> },
-  { path: '/committee/list', element: <Navigate to="/admin/committee/list" replace /> },
   { path: '/committee/schedule', element: <Navigate to="/admin/committee/schedule" replace /> },
   { path: '/committee/create', element: <Navigate to="/admin/committee/create" replace /> },
   { path: '/committee/:id', element: <LegacyCommitteeDetailRedirect /> },

@@ -138,6 +138,19 @@ export function useCycleActivate() {
   });
 }
 
+/**
+ * Toggle the orthogonal `isActive` flag on a cycle. Atomically clears
+ * the flag on every other cycle in the same call (single-active invariant)
+ * — see cyclesService.setActive.
+ */
+export function useCycleSetActive() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cyclesService.setActive(id),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
 export function useCycleSwapActive() {
   const qc = useQueryClient();
   return useMutation({

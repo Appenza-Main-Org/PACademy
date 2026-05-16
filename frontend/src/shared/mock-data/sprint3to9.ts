@@ -314,7 +314,7 @@ export const BARCODE_SCANS: BarcodeScan[] = (() => {
 
 /* ── Sprint 9 — notifications ────────────────────────────────────── */
 export const NOTIFICATIONS: NotificationItem[] = [
-  { id: 'NTF-001', ts: now - 30 * 60_000,    recipientRole: 'committee_admin', type: 'approval',  title: 'نتائج بانتظار الاعتماد', body: '12 نتيجة لجنة جاهزة للاعتماد النهائي', read: false, href: '/admin/committee/list' },
+  { id: 'NTF-001', ts: now - 30 * 60_000,    recipientRole: 'committee_admin', type: 'approval',  title: 'نتائج بانتظار الاعتماد', body: '12 نتيجة لجنة جاهزة للاعتماد النهائي', read: false, href: '/admin/lookups/committees' },
   { id: 'NTF-002', ts: now - 90 * 60_000,    recipientRole: 'medical_admin',   type: 'capacity',   title: 'تحذير سعة', body: 'عيادة الباطنة تجاوزت 90% من السعة اليومية', read: false, href: '/medical/queue' },
   { id: 'NTF-003', ts: now - 4  * 3600_000,  recipientRole: 'investigator',    type: 'assignment', title: 'قضية جديدة', body: 'تم إسناد قضية CASE-00041 إليك', read: true, href: '/investigations' },
   { id: 'NTF-004', ts: now - 8  * 3600_000,  recipientRole: 'applicant',       type: 'stage',      title: 'تم اعتماد طلبك', body: 'تم اعتماد بياناتك التعليمية. يمكنك الآن سداد الرسوم', read: false, href: '/applicant' },
@@ -323,7 +323,7 @@ export const NOTIFICATIONS: NotificationItem[] = [
   { id: 'NTF-007', ts: now - 2  * 3600_000,  recipientRole: 'board_admin',     type: 'approval',  title: 'جلسة هيئة وشيكة', body: 'الجلسة الأسبوعية تبدأ خلال ساعتين — 12 ملفاً على جدول الأعمال', read: false, href: '/board/sessions' },
   { id: 'NTF-008', ts: now - 6  * 3600_000,  recipientRole: 'exams_admin',     type: 'system',     title: 'انتهاء اختبار قدرات', body: 'انتهى اختبار القدرات بنجاح — 240 جلسة مكتملة من أصل 240', read: false, href: '/question-bank/results' },
   { id: 'NTF-009', ts: now - 12 * 3600_000,  recipientRole: 'medical_admin',   type: 'capacity',   title: 'تحديث جدول الفحص', body: 'تم تحريك 35 موعداً من غدٍ إلى الأحد بسبب إجازة رسمية', read: true, href: '/medical/queue' },
-  { id: 'NTF-010', ts: now - 18 * 3600_000,  recipientRole: 'committee_admin', type: 'assignment', title: 'مهمة مراجعة', body: 'تم تعيينك لمراجعة 8 ملفات معاد فتحها بناءً على قرار الهيئة', read: false, href: '/admin/committee/list' },
+  { id: 'NTF-010', ts: now - 18 * 3600_000,  recipientRole: 'committee_admin', type: 'assignment', title: 'مهمة مراجعة', body: 'تم تعيينك لمراجعة 8 ملفات معاد فتحها بناءً على قرار الهيئة', read: false, href: '/admin/lookups/committees' },
   { id: 'NTF-011', ts: now - 36 * 3600_000,  recipientRole: 'super_admin',     type: 'system',     title: 'تحديث متاح', body: 'إصدار جديد من المنظومة v1.2 جاهز للنشر — راجع ملاحظات الإصدار', read: true },
   { id: 'NTF-012', ts: now - 48 * 3600_000,  recipientRole: 'investigator',    type: 'assignment', title: 'تقرير تحريات', body: 'وردت ٣ تقارير تحريات جديدة من إدارة التأمين الجنائي', read: true, href: '/investigations/incoming' },
 ];

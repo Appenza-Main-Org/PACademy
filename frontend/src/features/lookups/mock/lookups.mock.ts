@@ -135,14 +135,25 @@ const testResults: TestResultRow[] = [
 /* ─── 5. committees — admission committees ───────────────────────────── */
 
 const committees: CommitteeRow[] = [
-  { code: 'CMT-01', name: 'لجنة تسجيل البيانات',    isActive: true, kind: 'primary',     chairTitle: 'رئيس لجنة التسجيل' },
-  { code: 'CMT-02', name: 'لجنة المقابلة الشخصية',  isActive: true, kind: 'interview',   chairTitle: 'رئيس لجنة المقابلة' },
-  { code: 'CMT-03', name: 'لجنة القدرات',           isActive: true, kind: 'capacities',  chairTitle: 'رئيس لجنة القدرات' },
-  { code: 'CMT-04', name: 'لجنة السمات',            isActive: true, kind: 'traits',      chairTitle: 'رئيس لجنة السمات' },
-  { code: 'CMT-05', name: 'لجنة الكشف الطبي',       isActive: true, kind: 'medical',     chairTitle: 'رئيس القومسيون الطبي' },
-  { code: 'CMT-06', name: 'لجنة الكشف الرياضي',     isActive: true, kind: 'sports',      chairTitle: 'رئيس لجنة الرياضة' },
-  { code: 'CMT-07', name: 'لجنة المراجعة النهائية', isActive: true, kind: 'final',       chairTitle: 'رئيس لجنة المراجعة' },
-  { code: 'CMT-08', name: 'لجنة التحريات',          isActive: true, kind: 'primary',     chairTitle: 'رئيس لجنة التحريات' },
+  { code: 'CMT-01', name: 'اللجنة الأولى قسم خاص (طالبات)',  isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-02', name: 'اللجنة الثانية قسم خاص (طالبات)', isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-03', name: 'اللجنة الثالثة قسم خاص (طالبات)', isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-04', name: 'اللجنة الرابعة قسم خاص (طالبات)', isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-05', name: 'اللجنة الخامسة قسم خاص',          isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-06', name: 'اللجنة السادسة قسم خاص',          isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-07', name: 'اللجنة السابعة قسم خاص',          isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-08', name: 'اللجنة الثامنة قسم خاص',          isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-09', name: 'اللجنة الأولى بكالوريوس تربية رياضية (طالبات)', isActive: true, applicantCategoryId: 'physical_education_bachelor' },
+  { code: 'CMT-10', name: 'اللجنة الأولى ليسانس حقوق (طالبات)', isActive: true, applicantCategoryId: 'law_bachelor' },
+  { code: 'CMT-11', name: 'اللجنة الثانية ليسانس حقوق',        isActive: true, applicantCategoryId: 'law_bachelor' },
+  { code: 'CMT-12', name: 'اللجنة الأولى قسم عام',   isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-13', name: 'اللجنة الثانية قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-14', name: 'اللجنة الثالثة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-15', name: 'اللجنة الرابعة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-16', name: 'اللجنة الخامسة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-17', name: 'اللجنة السادسة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-18', name: 'اللجنة السابعة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-19', name: 'اللجنة الثامنة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
 ];
 
 /* ─── 6. faculties — Egyptian university faculties ─────────────────────
@@ -387,10 +398,10 @@ const applicantCategories: ApplicantCategoryRow[] = [
     nameEn: 'General Officers Department',
     description: 'الالتحاق بكلية الشرطة عبر القسم العام لخريجي الثانوية العامة',
     isOpen: true,
-    genderScope: 'male',
-    applicationMode: 'general',
+    genderScope: ['male'],
     type: 'pre_university',
-    facultySelectionType: null,
+    facultyCodes: [],
+    specializationCodes: [],
     conditions: {
       ageMin: null, ageMax: null, minScorePercent: null,
       requiredQualification: 'thanaweya_amma', gender: 'male',
@@ -418,10 +429,10 @@ const applicantCategories: ApplicantCategoryRow[] = [
     nameEn: 'Bachelor of Law',
     description: 'الالتحاق لخريجي كليات الحقوق',
     isOpen: true,
-    genderScope: 'any',
-    applicationMode: 'general',
+    genderScope: ['male', 'female'],
     type: 'university',
-    facultySelectionType: 'single',
+    facultyCodes: ['FAC-17'],
+    specializationCodes: [],
     conditions: {
       ageMin: null, ageMax: null, minScorePercent: null,
       requiredQualification: 'bachelor_law', gender: 'any',
@@ -448,10 +459,10 @@ const applicantCategories: ApplicantCategoryRow[] = [
     nameEn: 'Bachelor of Physical Education',
     description: 'الالتحاق لخريجات كليات التربية الرياضية',
     isOpen: true,
-    genderScope: 'female',
-    applicationMode: 'general',
+    genderScope: ['female'],
     type: 'university',
-    facultySelectionType: 'single',
+    facultyCodes: ['FAC-18'],
+    specializationCodes: [],
     conditions: {
       ageMin: null, ageMax: null, minScorePercent: null,
       requiredQualification: 'bachelor', gender: 'female',
@@ -478,10 +489,18 @@ const applicantCategories: ApplicantCategoryRow[] = [
     nameEn: 'Specialized Officers',
     description: 'الالتحاق لخريجي الجامعات في تخصصات الطب والهندسة والإعلام وغيرها',
     isOpen: true,
-    genderScope: 'any',
-    applicationMode: 'general',
+    genderScope: ['male', 'female'],
     type: 'university',
-    facultySelectionType: 'multiple',
+    /* All faculties listed under /admin/lookups/faculties except the
+     * single-discipline ones already claimed by other categories
+     * (FAC-17 الحقوق, FAC-18 التربية الرياضية). */
+    facultyCodes: [
+      'FAC-01', 'FAC-02', 'FAC-03', 'FAC-04', 'FAC-05',
+      'FAC-06', 'FAC-07', 'FAC-08', 'FAC-09', 'FAC-10',
+      'FAC-11', 'FAC-12', 'FAC-13', 'FAC-14', 'FAC-15',
+      'FAC-16',
+    ],
+    specializationCodes: [],
     conditions: {
       ageMin: null, ageMax: 28, minScorePercent: null,
       requiredQualification: 'bachelor', gender: 'any',

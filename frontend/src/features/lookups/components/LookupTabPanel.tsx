@@ -7,7 +7,9 @@
  */
 
 import { useMemo, useState } from 'react';
-import { MoreVertical, Plus, Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Eye, MoreVertical, Plus, Search } from 'lucide-react';
+import { ROUTES } from '@/config/routes';
 import {
   AlertDialog,
   Badge,
@@ -20,6 +22,8 @@ import {
   StatusBadge,
   Switch,
   toast,
+  Tooltip,
+  TooltipProvider,
   type DataTableColumn,
   type DataTableSort,
 } from '@/shared/components';
@@ -90,13 +94,30 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
     filtered = applyKeyFilter(lookupKey, filtered, filterValue);
     if (sort) {
       const { key, direction } = sort;
-      filtered = [...filtered].sort((a, b) =>
-        compareLookupValues(
-          (a as unknown as Record<string, unknown>)[key],
-          (b as unknown as Record<string, unknown>)[key],
-          direction,
-        ),
-      );
+      /* committees: sort by the resolved category label (Arabic name)
+       * rather than the raw code, then tie-break by the committee name
+       * so rows within the same category remain alphabetically ordered. */
+      if (lookupKey === 'committees' && key === 'applicantCategoryId') {
+        filtered = [...filtered].sort((a, b) => {
+          const ar = a as unknown as CommitteeRow;
+          const br = b as unknown as CommitteeRow;
+          const primary = compareLookupValues(
+            labelByCode('applicant-categories', ar.applicantCategoryId),
+            labelByCode('applicant-categories', br.applicantCategoryId),
+            direction,
+          );
+          if (primary !== 0) return primary;
+          return compareLookupValues(ar.name, br.name, 'asc');
+        });
+      } else {
+        filtered = [...filtered].sort((a, b) =>
+          compareLookupValues(
+            (a as unknown as Record<string, unknown>)[key],
+            (b as unknown as Record<string, unknown>)[key],
+            direction,
+          ),
+        );
+      }
     }
     return filtered;
   }, [listQuery.data, search, filterValue, lookupKey, sort]);
@@ -173,7 +194,20 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
   // single rebuild per lookup key is safe.
   const columns = useMemo<DataTableColumn<LookupRow<K>>[]>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    () => buildColumns(lookupKey, handleEdit, handleDelete, handleToggleActive),
+    () =>
+      buildColumns(
+        lookupKey,
+        handleEdit,
+        handleDelete,
+        handleToggleActive,
+        /* `viewRouteFor` is scoped to applicant-categories — only that
+         * lookup currently has a dedicated read-only detail view. Other
+         * lookups stay edit-via-drawer only. */
+        lookupKey === 'applicant-categories'
+          ? (row) =>
+              ROUTES.admin.adminLookupsApplicantCategoryDetail(row.code)
+          : undefined,
+      ),
     [lookupKey],
   );
 
@@ -183,6 +217,10 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
   const filteredCount = rows.length;
   const isFiltered = filteredCount !== totalCount;
   const hasActiveQuery = search.trim().length > 0 || filterValue !== 'all';
+  /* The applicant-categories list is short and hand-curated — the team
+   * dropped the count chip there because it adds visual noise without
+   * earning its keep. Every other lookup keeps the counter. */
+  const showRecordCount = lookupKey !== 'applicant-categories';
 
   return (
     <div className="flex flex-col gap-3">
@@ -204,24 +242,27 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
             containerClassName="min-w-52"
           />
         )}
-        <span
-          aria-live="polite"
-          className="ms-auto inline-flex h-9 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-page px-2.5 text-2xs text-ink-600"
-        >
-          <span className="font-mono font-medium text-ink-900">{filteredCount}</span>
-          <span>سجل</span>
-          {isFiltered && (
-            <>
-              <span className="text-ink-300">·</span>
-              <span className="text-ink-500">من {totalCount}</span>
-            </>
-          )}
-        </span>
+        {showRecordCount && (
+          <span
+            aria-live="polite"
+            className="ms-auto inline-flex h-9 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-page px-2.5 text-2xs text-ink-600"
+          >
+            <span className="font-mono font-medium text-ink-900">{filteredCount}</span>
+            <span>سجل</span>
+            {isFiltered && (
+              <>
+                <span className="text-ink-300">·</span>
+                <span className="text-ink-500">من {totalCount}</span>
+              </>
+            )}
+          </span>
+        )}
         <Button
           variant="primary"
           leadingIcon={<Plus size={16} />}
           onClick={handleAdd}
           aria-label={`إضافة سجل جديد إلى ${meta.label}`}
+          className={cn(!showRecordCount && 'ms-auto')}
         >
           إضافة
         </Button>
@@ -414,12 +455,26 @@ function buildColumns<K extends LookupKey>(
   onEdit: (row: LookupRow<K>) => void,
   onDelete: (row: LookupRow<K>) => void,
   onToggleActive: (row: LookupRow<K>) => void,
+  viewRouteFor?: (row: LookupRow<K>) => string,
 ): DataTableColumn<LookupRow<K>>[] {
   const nameCol: DataTableColumn<LookupRow<K>> = {
     key: 'name',
     label: 'الاسم',
     sortable: true,
-    render: (row) => <span className="font-medium text-ink-900">{row.name}</span>,
+    render: (row) => {
+      const href = viewRouteFor?.(row);
+      if (href) {
+        return (
+          <Link
+            to={href}
+            className="font-medium text-teal-700 transition-colors duration-fast ease-standard hover:text-teal-800 hover:underline focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
+          >
+            {row.name}
+          </Link>
+        );
+      }
+      return <span className="font-medium text-ink-900">{row.name}</span>;
+    },
   };
   const activeCol: DataTableColumn<LookupRow<K>> = {
     key: 'isActive',
@@ -454,25 +509,41 @@ function buildColumns<K extends LookupKey>(
   const actionsCol: DataTableColumn<LookupRow<K>> = {
     key: 'actions',
     label: <span className="sr-only">إجراءات</span>,
-    width: 56,
+    /* Widen when the eye-icon view button is present so the dropdown
+     * trigger doesn't get squeezed against the row edge. */
+    width: viewRouteFor ? 96 : 56,
     align: 'end',
     render: (row) => (
-      <DropdownMenu>
-        <DropdownMenu.Trigger asChild>
-          <button
-            type="button"
-            aria-label={`إجراءات على «${row.name}»`}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-500 transition-colors duration-fast ease-standard hover:bg-ink-50 hover:text-ink-900 focus-visible:outline-none focus-visible:shadow-[var(--ring)] data-[state=open]:bg-ink-100 data-[state=open]:text-ink-900"
+      <span
+        className="inline-flex items-center justify-end gap-1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {viewRouteFor && (
+          <Link
+            to={viewRouteFor(row)}
+            aria-label={`عرض تفاصيل «${row.name}»`}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-500 transition-colors duration-fast ease-standard hover:bg-ink-50 hover:text-ink-900 focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
           >
-            <MoreVertical size={16} strokeWidth={1.75} />
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content>
-          <DropdownMenu.Item onSelect={() => onEdit(row)}>تعديل</DropdownMenu.Item>
-          <DropdownMenu.Separator />
-          <DropdownMenu.Item destructive onSelect={() => onDelete(row)}>حذف</DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu>
+            <Eye size={16} strokeWidth={1.75} aria-hidden />
+          </Link>
+        )}
+        <DropdownMenu>
+          <DropdownMenu.Trigger asChild>
+            <button
+              type="button"
+              aria-label={`إجراءات على «${row.name}»`}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-500 transition-colors duration-fast ease-standard hover:bg-ink-50 hover:text-ink-900 focus-visible:outline-none focus-visible:shadow-[var(--ring)] data-[state=open]:bg-ink-100 data-[state=open]:text-ink-900"
+            >
+              <MoreVertical size={16} strokeWidth={1.75} />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content>
+            <DropdownMenu.Item onSelect={() => onEdit(row)}>تعديل</DropdownMenu.Item>
+            <DropdownMenu.Separator />
+            <DropdownMenu.Item destructive onSelect={() => onDelete(row)}>حذف</DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu>
+      </span>
     ),
   };
 
@@ -508,6 +579,14 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
         { key: 'kind',     label: 'النوع',   sortable: true, width: 110, render: (r: TestRow) => <Badge tone="info">{TEST_KIND_LABEL[r.kind]}</Badge> },
         { key: 'order',    label: 'الترتيب', sortable: true, width: 80,  numeric: true, render: (r: TestRow) => r.order },
         { key: 'required', label: 'إلزامي',  sortable: true, width: 90,  render: (r: TestRow) => r.required ? <Badge tone="success">إلزامي</Badge> : <Badge tone="neutral">اختياري</Badge> },
+        { key: 'instructions', label: 'التعليمات', width: 110, render: (r: TestRow) => {
+          const ins = r.instructions;
+          const hasText = ins?.mode === 'text' && !!ins.bodyAr && ins.bodyAr.trim().length > 0;
+          const hasPdf  = ins?.mode === 'pdf'  && !!ins.document;
+          if (hasText) return <Badge tone="neutral">نص</Badge>;
+          if (hasPdf)  return <Badge tone="accent">PDF</Badge>;
+          return <span className="text-ink-400">—</span>;
+        } },
       ];
     case 'test-results':
       return [
@@ -515,8 +594,7 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
       ];
     case 'committees':
       return [
-        { key: 'kind',       label: 'النوع',  sortable: true, width: 110, render: (r: CommitteeRow) => <Badge tone="neutral">{COMMITTEE_KIND_LABEL[r.kind]}</Badge> },
-        { key: 'chairTitle', label: 'الرئيس', sortable: true, render: (r: CommitteeRow) => r.chairTitle },
+        { key: 'applicantCategoryId', label: 'فئات المتقدمين', sortable: true, render: (r: CommitteeRow) => labelByCode('applicant-categories', r.applicantCategoryId) },
       ];
     case 'specializations':
       return [
@@ -531,29 +609,40 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
       ];
     case 'applicant-categories':
       return [
-        { key: 'genderScope', label: 'نطاق النوع', sortable: true, width: 110, render: (r: ApplicantCategoryRow) => <Badge tone={r.genderScope === 'male' ? 'info' : r.genderScope === 'female' ? 'accent' : 'neutral'}>{r.genderScope === 'male' ? 'ذكور' : r.genderScope === 'female' ? 'إناث' : 'الكل'}</Badge> },
-        { key: 'type', label: 'مرحلة الالتحاق', sortable: true, width: 130, render: (r: ApplicantCategoryRow) => (
+        { key: 'genderScope', label: 'نطاق النوع', width: 150, render: (r: ApplicantCategoryRow) => (
+          <span className="inline-flex flex-wrap items-center gap-1">
+            {r.genderScope.length === 0
+              ? <span className="text-ink-400">—</span>
+              : r.genderScope.map((g) => (
+                  <Badge key={g} tone={g === 'male' ? 'info' : 'accent'}>
+                    {g === 'male' ? 'ذكور' : 'إناث'}
+                  </Badge>
+                ))}
+          </span>
+        ) },
+        { key: 'type', label: 'مرحلة الالتحاق', sortable: true, width: 110, render: (r: ApplicantCategoryRow) => (
           <Badge tone={r.type === 'university' ? 'info' : 'neutral'}>
-            {r.type === 'university' ? 'جامعي' : 'قبل جامعي'}
+            {r.type === 'university' ? 'جامعي' : 'ثانوي'}
           </Badge>
         ) },
-        { key: 'facultySelectionType', label: 'اختيار الكلية', sortable: true, width: 130, render: (r: ApplicantCategoryRow) => {
-          if (r.facultySelectionType === null) return <span className="text-ink-400">—</span>;
-          return (
-            <Badge tone="accent">
-              {r.facultySelectionType === 'single' ? 'كلية واحدة' : 'كليات متعددة'}
-            </Badge>
-          );
-        } },
-        /* "نوع التقديم" reflects the new submission-types FK
-         * (`metadata.submissionTypeCode`). Replaces the legacy
-         * applicationMode binary badge — the typed column is still on the
-         * row but is no longer the rendering source. */
-        { key: 'submissionTypeCode', label: 'نوع التقديم', width: 180, render: (r: ApplicantCategoryRow) => {
-          const meta = (r.metadata ?? {}) as { submissionTypeCode?: string };
-          if (!meta.submissionTypeCode) return <Badge tone="warning">—</Badge>;
-          return <Badge tone="neutral">{labelByCode('submission-types', meta.submissionTypeCode)}</Badge>;
-        } },
+        { key: 'facultyCodes', label: 'الكليات', width: 220, render: (r: ApplicantCategoryRow) => (
+          <ChipStack
+            codes={r.facultyCodes}
+            lookupKey="faculties"
+            emptyLabel="—"
+            tone="neutral"
+            ariaLabel="الكليات"
+          />
+        ) },
+        { key: 'specializationCodes', label: 'التخصصات', width: 240, render: (r: ApplicantCategoryRow) => (
+          <ChipStack
+            codes={r.specializationCodes}
+            lookupKey="specializations"
+            emptyLabel="الكل"
+            tone="accent"
+            ariaLabel="التخصصات"
+          />
+        ) },
       ];
     case 'nationalities-countries':
       return [
@@ -602,14 +691,64 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
 const TEST_KIND_LABEL: Record<TestRow['kind'], string> = {
   physical: 'رياضي', medical: 'طبي', interview: 'مقابلة', written: 'كتابي', psych: 'نفسي',
 };
-const COMMITTEE_KIND_LABEL: Record<CommitteeRow['kind'], string> = {
-  primary: 'رئيسية', capacities: 'قدرات', traits: 'سمات', sports: 'رياضية', medical: 'طبية', interview: 'مقابلة', final: 'نهائية',
-};
-
 function labelByCode(key: LookupKey, code: string): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = (MOCK.lookups[key] as any[]).find((r) => r.code === code);
   return row ? row.name : '—';
+}
+
+/**
+ * ChipStack — truncated chip cluster with `+N` overflow + hover-reveal
+ * Tooltip showing the full list. Used in list cells where the cell can
+ * hold many tags but only ~2 inline.
+ *
+ * `tone` flows through to `Badge`. `emptyLabel` controls the rendered
+ * affordance when `codes` is empty (e.g. "—" vs "الكل" for a "no spec
+ * filter = all specs" semantic).
+ */
+interface ChipStackProps {
+  codes: readonly string[];
+  lookupKey: LookupKey;
+  emptyLabel: string;
+  tone: 'neutral' | 'accent' | 'info';
+  ariaLabel: string;
+}
+
+const MAX_INLINE_CHIPS = 2;
+
+function ChipStack({ codes, lookupKey, emptyLabel, tone, ariaLabel }: ChipStackProps): JSX.Element {
+  if (codes.length === 0) {
+    return <span className="text-ink-400">{emptyLabel}</span>;
+  }
+  const inline = codes.slice(0, MAX_INLINE_CHIPS);
+  const overflow = codes.slice(MAX_INLINE_CHIPS);
+  const overflowList = overflow.map((c) => labelByCode(lookupKey, c)).join('، ');
+
+  return (
+    <TooltipProvider>
+      <span
+        className="inline-flex max-w-full flex-wrap items-center gap-1"
+        aria-label={ariaLabel}
+      >
+        {inline.map((c) => (
+          <Badge key={c} tone={tone} className="max-w-[140px] truncate">
+            {labelByCode(lookupKey, c)}
+          </Badge>
+        ))}
+        {overflow.length > 0 && (
+          <Tooltip content={overflowList} side="top">
+            <button
+              type="button"
+              className="inline-flex items-center rounded-pill border border-border-default bg-surface-page px-2 py-0.5 text-2xs font-medium text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
+              aria-label={`عرض ${overflow.length} عنصرًا إضافيًا`}
+            >
+              +{overflow.length}
+            </button>
+          </Tooltip>
+        )}
+      </span>
+    </TooltipProvider>
+  );
 }
 
 /** Generic Arabic-aware comparator used by the column-header sort.

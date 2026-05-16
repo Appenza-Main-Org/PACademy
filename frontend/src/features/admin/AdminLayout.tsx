@@ -5,7 +5,6 @@ import {
   Bell,
   Calendar,
   CalendarDays,
-  ClipboardCheck,
   ClipboardList,
   Database,
   FileSpreadsheet,
@@ -64,9 +63,7 @@ const SIDEBAR: SidebarSection[] = [
     permission: 'admission-setup:read',
     items: [
       { key: 'cycles',             label: 'الدورات',         icon: <CalendarDays size={18} />,   to: ROUTES.admin.cycles },
-      { key: 'admission-setup',    label: 'إعداد التقديم',   icon: <ClipboardCheck size={18} />, to: ROUTES.admin.admissionSetup.index, end: true },
       { key: 'applicant-grades',   label: 'إدارة المجموع والدرجات', icon: <FileSpreadsheet size={18} />, to: ROUTES.admin.applicantGrades },
-      { key: 'committee-list',     label: 'اللجان',          icon: <Users size={18} />,          to: ROUTES.committee.list },
       { key: 'committee-schedule', label: 'الجدول الزمني',   icon: <Calendar size={18} />,       to: ROUTES.committee.schedule },
     ],
   },

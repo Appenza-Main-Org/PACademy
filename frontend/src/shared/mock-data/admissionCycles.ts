@@ -88,6 +88,8 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     closeDate: '2026-12-31T23:59:59.000Z',
     applicantCount: 0,
     status: 'open',
+    /* Single-active invariant — only this cycle carries isActive=true at seed. */
+    isActive: true,
     openCategories: {
       officers_general: {
         isOpen: true,

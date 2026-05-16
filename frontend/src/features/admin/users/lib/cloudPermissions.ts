@@ -61,7 +61,7 @@ export interface CloudModule {
 
 export const CLOUD_MODULES: readonly CloudModule[] = [
   { key: 'cycles',            nameAr: 'دورات القبول',             section: 'admin', route: '/admin/cycles',          state: 'active'   },
-  { key: 'application_setup', nameAr: 'إعداد التقديم',             section: 'admin', route: '/admin/admission-setup', state: 'active'   },
+  { key: 'application_setup', nameAr: 'إعداد التقديم',             section: 'admin', route: '/admin/cycles/admission-setup', state: 'active'   },
   { key: 'lookups',           nameAr: 'الأكواد المرجعية',          section: 'admin', route: '/admin/lookups',         state: 'active'   },
   { key: 'dashboard',         nameAr: 'لوحة قيادة منظومة القبول',  section: 'admin', route: '/admin/reports',         state: 'active'   },
   { key: 'users_roles',       nameAr: 'المستخدمون والصلاحيات',     section: 'admin', route: '/admin/users',           state: 'active'   },
