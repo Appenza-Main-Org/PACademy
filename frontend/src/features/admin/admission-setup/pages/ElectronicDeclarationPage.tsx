@@ -38,6 +38,7 @@ import {
   usePublishDeclaration,
   useSetDeclaration,
 } from '../api/admission-setup.queries';
+import { admissionSetupService } from '../api/admission-setup.service';
 import type { DeclarationDocument, DeclarationMode } from '../types';
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
@@ -60,7 +61,9 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   const [activeMode, setActiveMode] = useState<DeclarationMode>(current?.mode ?? 'text');
   const [bodyAr, setBodyAr] = useState<string>(current?.bodyAr ?? '');
   const [pendingDoc, setPendingDoc] = useState<DeclarationDocument | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [effectiveFrom, setEffectiveFrom] = useState<Date | null>(
     current?.effectiveFrom ? new Date(current.effectiveFrom) : new Date(),
   );
@@ -69,6 +72,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     setActiveMode(current?.mode ?? 'text');
     setBodyAr(current?.bodyAr ?? '');
     setPendingDoc(null);
+    setPendingFile(null);
     setUploadFiles([]);
     setEffectiveFrom(current?.effectiveFrom ? new Date(current.effectiveFrom) : new Date());
   }, [current?.id, current?.effectiveFrom, current?.mode, current?.bodyAr]);
@@ -96,19 +100,23 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     const picked = next[0];
     if (!picked || picked.status === 'error') {
       setPendingDoc(null);
+      setPendingFile(null);
       return;
     }
     const file = picked.file;
     if (file.type && file.type !== 'application/pdf') {
       toast('يجب أن يكون الملف بصيغة PDF', 'danger');
       setPendingDoc(null);
+      setPendingFile(null);
       return;
     }
     if (file.size > MAX_PDF_BYTES) {
       toast('حجم الملف يتجاوز 10 ميجابايت', 'danger');
       setPendingDoc(null);
+      setPendingFile(null);
       return;
     }
+    setPendingFile(file);
     setPendingDoc({
       fileName: file.name,
       fileUrl: URL.createObjectURL(file),
@@ -121,34 +129,66 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
       URL.revokeObjectURL(pendingDoc.fileUrl);
     }
     setPendingDoc(null);
+    setPendingFile(null);
     setUploadFiles([]);
   };
 
-  const handleSave = (): void => {
+  const handleSave = async (): Promise<void> => {
     if (!canWrite || !effectiveFrom) return;
     if (activeMode === 'text' && !bodyAr.trim()) {
       toast('يجب إدخال نص الإقرار قبل الحفظ', 'warning');
       return;
     }
-    if (activeMode === 'pdf' && !pendingDoc && !current?.document) {
+    if (activeMode === 'pdf' && !pendingFile && !current?.document) {
       toast('يجب رفع مستند الإقرار قبل الحفظ', 'warning');
       return;
     }
+
+    /* If we're in PDF mode with a newly-picked file, upload it first so
+     * the backend has the actual bytes on disk. The setDeclaration call
+     * then carries the server-issued URL (not the local blob URL). */
+    let documentForSave: DeclarationDocument | null | undefined;
+    if (activeMode === 'pdf') {
+      if (pendingFile) {
+        try {
+          setIsUploading(true);
+          const uploaded = await admissionSetupService.uploadDeclarationDocument(
+            cycle.id,
+            pendingFile,
+          );
+          documentForSave = {
+            fileName: uploaded.fileName,
+            fileUrl: uploaded.fileUrl,
+            size: uploaded.size,
+          };
+        } catch (err) {
+          toast((err as Error).message || 'تعذّر رفع المستند', 'danger');
+          setIsUploading(false);
+          return;
+        } finally {
+          setIsUploading(false);
+        }
+      } else {
+        documentForSave = current?.document ?? null;
+      }
+    }
+
     setMut.mutate(
       {
         cycleId: cycle.id,
         mode: activeMode,
         bodyAr: activeMode === 'text' ? bodyAr.trim() : undefined,
-        document:
-          activeMode === 'pdf'
-            ? pendingDoc ?? current?.document ?? null
-            : undefined,
+        document: activeMode === 'pdf' ? documentForSave : undefined,
         effectiveFrom: effectiveFrom.toISOString(),
       },
       {
         onSuccess: (next) => {
           toast(`تم حفظ النسخة رقم ${toEasternArabicNumerals(next.version)}`, 'success');
+          if (pendingDoc?.fileUrl?.startsWith('blob:')) {
+            URL.revokeObjectURL(pendingDoc.fileUrl);
+          }
           setPendingDoc(null);
+          setPendingFile(null);
           setUploadFiles([]);
         },
         onError: (err) => toast((err as Error).message, 'danger'),
@@ -158,7 +198,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
 
   const handlePublish = (): void => {
     if (!canWrite || !current) return;
-    publishMut.mutate(current.id, {
+    publishMut.mutate({ id: current.id, rowVersion: current.rowVersion ?? '' }, {
       onSuccess: () => toast('تم نشر الإقرار للمتقدمين', 'success'),
       onError: (err) => toast((err as Error).message, 'danger'),
     });
@@ -180,11 +220,11 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
             <Button
               variant="primary"
               leadingIcon={<Save size={14} strokeWidth={1.75} />}
-              onClick={handleSave}
-              disabled={!canWrite || !dirty}
-              isLoading={setMut.isPending}
+              onClick={() => void handleSave()}
+              disabled={!canWrite || !dirty || isUploading}
+              isLoading={setMut.isPending || isUploading}
             >
-              حفظ كنسخة جديدة
+              {isUploading ? 'جارٍ رفع المستند…' : 'حفظ كنسخة جديدة'}
             </Button>
             <Button
               variant="secondary"

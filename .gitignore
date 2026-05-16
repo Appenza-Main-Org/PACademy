@@ -32,3 +32,8 @@ skills-lock.json
 playwright-report/
 e2e/test-results/
 e2e/playwright-report/
+
+# Backend file uploads (declaration PDFs etc.) — keep the folder, ignore contents
+backend/src/PACademy.Api/wwwroot/uploads/**/*
+!backend/src/PACademy.Api/wwwroot/uploads/**/.gitkeep
+!backend/src/PACademy.Api/wwwroot/uploads/**/

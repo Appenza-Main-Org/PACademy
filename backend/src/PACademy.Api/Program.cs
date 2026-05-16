@@ -57,6 +57,10 @@ app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseMiddleware<SqlConflictCodeMiddleware>();
 app.UseMiddleware<DbUpdateConcurrencyExceptionMiddleware>();
 app.UseCors();
+// Serve wwwroot/uploads/* (declaration PDFs etc.) as public static files.
+// Auth gate is intentionally absent: file URLs are unguessable GUIDs and
+// applicants without a session must still be able to open the published PDF.
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseMiddleware<SessionMiddleware>();
 app.UseMiddleware<CsrfMiddleware>();

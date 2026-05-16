@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PACademy.Modules.Admissions.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using PACademy.Modules.Admissions.Infrastructure.Persistence;
 namespace PACademy.Modules.Admissions.Infrastructure.Migrations
 {
     [DbContext(typeof(AdmissionsDbContext))]
-    partial class AdmissionsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260516160723_011_DeclarationDocumentFields")]
+    partial class _011_DeclarationDocumentFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

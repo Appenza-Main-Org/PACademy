@@ -13,10 +13,17 @@ internal sealed class ElectronicDeclarationConfiguration
         b.HasKey(d => d.Id);
 
         b.Property(d => d.CycleId).IsRequired();
+        b.Property(d => d.Mode)
+            .HasConversion<string>()
+            .HasMaxLength(16)
+            .IsRequired()
+            .HasDefaultValue(DeclarationMode.Text);
         b.Property(d => d.BodyAr)
             .HasColumnType("nvarchar(max)")
-            .IsRequired()
             .UseCollation("Arabic_100_CI_AS_SC");
+        b.Property(d => d.DocumentFileName).HasMaxLength(260);
+        b.Property(d => d.DocumentRelativeUrl).HasMaxLength(400);
+        b.Property(d => d.DocumentSize);
         b.Property(d => d.Version).IsRequired().HasDefaultValue(1);
         b.Property(d => d.EffectiveFrom).IsRequired();
         b.Property(d => d.PublishedAt);

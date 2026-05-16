@@ -20,8 +20,15 @@ public sealed class CreateDeclarationDraftUseCase(IAdmissionsDbContext db, IIden
             .MaxAsync(d => (int?)d.Version, ct) ?? 0;
 
         var decl = ElectronicDeclarationEntity.CreateDraft(
-            cycleId, request.BodyAr, request.EffectiveFrom,
-            actor.Id, latestVersion + 1);
+            cycleId,
+            DeclarationMapper.ParseMode(request.Mode),
+            request.BodyAr,
+            request.Document?.FileName,
+            request.Document?.FileUrl,
+            request.Document?.Size,
+            request.EffectiveFrom,
+            actor.Id,
+            latestVersion + 1);
         db.ElectronicDeclarations.Add(decl);
         await db.SaveChangesAsync(ct);
         return DeclarationMapper.ToDto(decl);

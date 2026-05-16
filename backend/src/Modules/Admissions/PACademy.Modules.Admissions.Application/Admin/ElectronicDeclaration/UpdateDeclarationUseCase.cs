@@ -11,7 +11,18 @@ public sealed class UpdateDeclarationUseCase(IAdmissionsDbContext db)
         var decl = await db.ElectronicDeclarations
             .FirstOrDefaultAsync(d => d.Id == id, ct);
         if (decl is null) return null;
-        decl.Update(request.BodyAr, request.EffectiveFrom);
+
+        var mode = request.Mode is null ? (Domain.DeclarationMode?)null
+            : DeclarationMapper.ParseMode(request.Mode);
+
+        decl.Update(
+            mode,
+            request.BodyAr,
+            request.Document?.FileName,
+            request.Document?.FileUrl,
+            request.Document?.Size,
+            request.ClearDocument,
+            request.EffectiveFrom);
         await db.SaveChangesAsync(ct);
         return DeclarationMapper.ToDto(decl);
     }

@@ -1,5 +1,5 @@
 /**
- * Admission Setup API Contract — net-new entities for the wizard.
+ * Admission Setup API Service — net-new entities for the wizard.
  *
  * Composed steps (application_settings, fees,
  * exams, committees) reuse `cyclesService`, `categoriesService`,
@@ -8,76 +8,48 @@
  * home today.
  *
  * INTEGRATION CONTRACT:
- *   GET    /api/admission-setup/cycles/:cycleId/exam-dates            → ExamDateConfig | null
- *   PUT    /api/admission-setup/cycles/:cycleId/exam-dates            → ExamDateConfig
- *
- *   GET    /api/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration | null
- *   PUT    /api/admission-setup/cycles/:cycleId/declaration           → ElectronicDeclaration   (multipart/form-data PDF upload)
- *   POST   /api/admission-setup/declarations/:id/publish              → ElectronicDeclaration
- *
- *   GET    /api/admission-setup/cycles/:cycleId/committee-bindings           → CategoryCommittees[]
- *   PUT    /api/admission-setup/cycles/:cycleId/committee-bindings           → CategoryCommittees[]   (replace cycle set)
- *   PUT    /api/admission-setup/cycles/:cycleId/categories/:catId/committees → CategoryCommittees[]   (replace per-category set)
+ *   §1  CommitteeMergeSplitRules   /admin/admission-setup/cycles/{cycleId}/merge-split-rules
+ *   §2  CommitteeScoreThresholds   /admin/admission-setup/cycles/{cycleId}/score-thresholds
+ *   §3  ExamDateConfig             /admin/admission-setup/cycles/{cycleId}/exam-dates
+ *   §4  TotalScoreConfig           /admin/admission-setup/cycles/{cycleId}/total-score
+ *   §5  ElectronicDeclaration      /admin/admission-setup/cycles/{cycleId}/declaration
+ *   §6  WizardStepStatus           /admin/admission-setup/cycles/{cycleId}/step-statuses
+ *   §10 CommitteeBindings          /admin/admission-setup/cycles/{cycleId}/committee-bindings
  */
 
-import { MOCK } from '@/shared/mock-data';
-import { simulateLatency } from '@/shared/lib/mock-helpers';
-import { emitAudit } from '@/shared/lib/audit';
-import { committeeService } from '@/features/committees';
+import { apiClient } from '@/shared/api/client';
+import { RowVersionConflictError } from '@/shared/api/errors';
+import type { ApplicantCategoryKey, CategoryCommittees } from '@/shared/types/domain';
 import type {
-  ApplicantCategoryKey,
-  CategoryCommittees,
-} from '@/shared/types/domain';
-import type {
+  ApplyMergeSplitRuleResult,
+  CommitteeMergeSplitRule,
+  CommitteeScoreThresholdRow,
+  CycleCloneSummaryDto,
   DeclarationDocument,
   ElectronicDeclaration,
   ExamDateConfig,
+  MergeSplitPreviewDto,
+  TotalScoreComponent,
+  TotalScoreConfig,
+  WizardStepStatusRow,
 } from '../types';
 
-/* ── In-memory state — replaced by REST persistence at integration time. ── */
-const EXAM_DATE_CONFIGS: ExamDateConfig[] = [];
-const DECLARATIONS: ElectronicDeclaration[] = [];
-const CATEGORY_COMMITTEES: CategoryCommittees[] = MOCK.categoryCommittees.map((c) => ({ ...c }));
-
-let counter = 1;
-function id(prefix: string): string {
-  return `${prefix}-${Date.now()}-${counter++}`;
+function isConflict(err: unknown): err is RowVersionConflictError {
+  return err instanceof RowVersionConflictError;
 }
 
-
-function actorId(): string {
-  /* The auth bridge in `audit.ts` already knows the actor; keep a sentinel
-   * here for createdBy/updatedBy fields the audit system doesn't fill. */
-  return 'system';
+function rethrowConflict(err: unknown): never {
+  if (isConflict(err)) throw err;
+  throw err;
 }
-
-const MAX_DECLARATION_SIZE = 10 * 1024 * 1024;
-
-/* Seed a single sample declaration document so the wizard's PDF preview
- * card renders something on first load. Uses the deterministic mock cycle
- * surface (`MOCK.cycles`) so the seed stays stable across renders. */
-const SEED_CYCLE_ID = MOCK.cycles[0]?.id ?? 'CYCLE-2026-MALE';
-DECLARATIONS.push({
-  id: 'DEC-SEED-0001',
-  cycleId: SEED_CYCLE_ID,
-  mode: 'pdf',
-  bodyAr: '',
-  document: {
-    fileName: 'الإقرار-الإلكتروني-2026.pdf',
-    fileUrl: '/mock/declarations/sample.pdf',
-    size: 482_318,
-  },
-  version: 1,
-  effectiveFrom: new Date(MOCK.cycles[0]?.openDate ?? new Date()).toISOString(),
-  createdAt: new Date().toISOString(),
-  createdBy: 'system',
-});
 
 export const admissionSetupService = {
-  /* ── Exam date config ─────────────────────────────────────────────── */
+  /* ── §3 Exam date config ──────────────────────────────────────────── */
   async getExamDateConfig(cycleId: string): Promise<ExamDateConfig | null> {
-    await simulateLatency();
-    return EXAM_DATE_CONFIGS.find((c) => c.cycleId === cycleId) ?? null;
+    const { data } = await apiClient.get<ExamDateConfig | null>(
+      `/admin/admission-setup/cycles/${cycleId}/exam-dates`,
+    );
+    return data;
   },
 
   async setExamDateConfig(input: {
@@ -85,57 +57,53 @@ export const admissionSetupService = {
     firstAvailableDate: string;
     bookableDays: string[];
     blackoutDates: string[];
+    rowVersion?: string;
   }): Promise<ExamDateConfig> {
-    await simulateLatency();
-    if (input.bookableDays.length === 0) {
-      throw new Error('يجب إضافة يوم واحد على الأقل من أيام التقديم');
+    const { cycleId, ...body } = input;
+    try {
+      const { data } = await apiClient.put<ExamDateConfig>(
+        `/admin/admission-setup/cycles/${cycleId}/exam-dates`,
+        body,
+      );
+      return data;
+    } catch (err) {
+      return rethrowConflict(err);
     }
-    const firstTs = new Date(input.firstAvailableDate).getTime();
-    if (Number.isNaN(firstTs)) {
-      throw new Error('تاريخ أول ميعاد متاح غير صالح');
-    }
-    const earlyDay = input.bookableDays.find((d) => new Date(d).getTime() < firstTs);
-    if (earlyDay) {
-      throw new Error('جميع أيام التقديم يجب أن تكون في تاريخ أول ميعاد متاح أو بعده');
-    }
-    const stray = input.blackoutDates.find((d) => !input.bookableDays.includes(d));
-    if (stray) {
-      throw new Error('أيام الإجازة يجب أن تكون ضمن أيام التقديم المختارة');
-    }
-    const idx = EXAM_DATE_CONFIGS.findIndex((c) => c.cycleId === input.cycleId);
-    const nowIso = new Date().toISOString();
-    const next: ExamDateConfig = {
-      id: idx === -1 ? id('EDC') : EXAM_DATE_CONFIGS[idx]!.id,
-      cycleId: input.cycleId,
-      firstAvailableDate: input.firstAvailableDate,
-      bookableDays: [...input.bookableDays].sort(),
-      blackoutDates: [...input.blackoutDates].sort(),
-      updatedAt: nowIso,
-      updatedBy: actorId(),
-      rowVersion: nowIso,
-    };
-    const before = idx === -1 ? null : EXAM_DATE_CONFIGS[idx]!;
-    if (idx === -1) EXAM_DATE_CONFIGS.unshift(next);
-    else EXAM_DATE_CONFIGS[idx] = next;
-    emitAudit({
-      action: idx === -1 ? 'create' : 'update',
-      module: 'cycles',
-      entityType: 'ExamDateConfig',
-      entityLabel: 'مواعيد الاختبارات',
-      entityId: next.id,
-      details: `تم ضبط ${input.bookableDays.length} يوم تقديم${input.blackoutDates.length > 0 ? ` و${input.blackoutDates.length} يوم إجازة` : ''}`,
-      before,
-      after: next,
-    });
-    return next;
   },
 
-  /* ── Electronic declaration ───────────────────────────────────────── */
+  /* ── §5 Electronic declaration ────────────────────────────────────── */
   async getDeclaration(cycleId: string): Promise<ElectronicDeclaration | null> {
-    await simulateLatency();
-    const cur = DECLARATIONS.filter((d) => d.cycleId === cycleId && !d.deletedAt)
-      .sort((a, b) => b.version - a.version)[0];
-    return cur ?? null;
+    const { data } = await apiClient.get<ElectronicDeclaration | null>(
+      `/admin/admission-setup/cycles/${cycleId}/declaration`,
+    );
+    return data;
+  },
+
+  /**
+   * Uploads a PDF for the declaration. The backend writes the file under
+   * wwwroot/uploads/declarations/{cycleId}/{guid}.pdf and returns the
+   * relative URL the caller stores on the declaration record via
+   * setDeclaration / updateDeclaration.
+   */
+  async uploadDeclarationDocument(
+    cycleId: string,
+    file: File,
+  ): Promise<{ fileName: string; fileUrl: string; size: number }> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    const { data } = await apiClient.post<{ fileName: string; fileUrl: string; size: number }>(
+      `/admin/admission-setup/cycles/${cycleId}/declaration/upload`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return data;
+  },
+
+  async listDeclarationVersions(cycleId: string): Promise<ElectronicDeclaration[]> {
+    const { data } = await apiClient.get<ElectronicDeclaration[]>(
+      `/admin/admission-setup/cycles/${cycleId}/declaration/versions`,
+    );
+    return data;
   },
 
   async setDeclaration(input: {
@@ -145,195 +113,304 @@ export const admissionSetupService = {
     document?: DeclarationDocument | null;
     effectiveFrom: string;
   }): Promise<ElectronicDeclaration> {
-    await simulateLatency();
-    const previous = await admissionSetupService.getDeclaration(input.cycleId);
-
-    /* Per-mode validation. The OTHER mode's content is carried forward
-     * from the previous version so admins can switch tabs without losing
-     * what they wrote elsewhere. */
-    let nextBodyAr = previous?.bodyAr ?? '';
-    let nextDoc: DeclarationDocument | null = previous?.document ?? null;
-    let detailLabel = '';
-
-    if (input.mode === 'text') {
-      const body = (input.bodyAr ?? '').trim();
-      if (!body) {
-        throw new Error('يجب إدخال نص الإقرار قبل الحفظ');
-      }
-      nextBodyAr = body;
-      detailLabel = 'النص';
-    } else {
-      const doc = input.document;
-      if (!doc || !doc.fileName.trim() || !doc.fileUrl.trim()) {
-        throw new Error('يجب رفع مستند الإقرار قبل الحفظ');
-      }
-      if (!doc.fileName.toLowerCase().endsWith('.pdf')) {
-        throw new Error('يجب أن يكون المستند بصيغة PDF');
-      }
-      if (doc.size <= 0) {
-        throw new Error('ملف الإقرار فارغ');
-      }
-      if (doc.size > MAX_DECLARATION_SIZE) {
-        throw new Error('حجم الملف يتجاوز الحد المسموح به (10 ميجابايت)');
-      }
-      nextDoc = { ...doc };
-      detailLabel = doc.fileName;
+    const { cycleId, ...body } = input;
+    try {
+      const { data } = await apiClient.post<ElectronicDeclaration>(
+        `/admin/admission-setup/cycles/${cycleId}/declaration`,
+        body,
+      );
+      return data;
+    } catch (err) {
+      return rethrowConflict(err);
     }
-
-    const version = previous ? previous.version + 1 : 1;
-    const next: ElectronicDeclaration = {
-      id: id('DEC'),
-      cycleId: input.cycleId,
-      mode: input.mode,
-      bodyAr: nextBodyAr,
-      document: nextDoc,
-      version,
-      effectiveFrom: input.effectiveFrom,
-      createdAt: new Date().toISOString(),
-      createdBy: actorId(),
-    };
-    DECLARATIONS.unshift(next);
-    emitAudit({
-      action: 'update',
-      module: 'cycles',
-      entityType: 'ElectronicDeclaration',
-      entityLabel: 'الإقرار الإلكتروني',
-      entityId: next.id,
-      details: `تم حفظ النسخة رقم ${version} من الإقرار الإلكتروني (${detailLabel})`,
-      before: previous,
-      after: next,
-    });
-    return next;
   },
 
-  async publishDeclaration(declarationId: string): Promise<ElectronicDeclaration> {
-    await simulateLatency();
-    const idx = DECLARATIONS.findIndex((d) => d.id === declarationId);
-    if (idx === -1) throw new Error('الإقرار غير موجود');
-    const before = { ...DECLARATIONS[idx]! };
-    DECLARATIONS[idx] = {
-      ...DECLARATIONS[idx]!,
-      publishedAt: new Date().toISOString(),
-    };
-    emitAudit({
-      action: 'notification_published',
-      module: 'cycles',
-      entityType: 'ElectronicDeclaration',
-      entityLabel: 'الإقرار الإلكتروني',
-      entityId: declarationId,
-      details: `تم نشر النسخة رقم ${before.version} من الإقرار الإلكتروني`,
-      before,
-      after: DECLARATIONS[idx],
-    });
-    return DECLARATIONS[idx]!;
+  async updateDeclaration(input: {
+    id: string;
+    rowVersion: string;
+    bodyAr?: string;
+    effectiveFrom?: string;
+  }): Promise<ElectronicDeclaration> {
+    const { id, ...body } = input;
+    try {
+      const { data } = await apiClient.patch<ElectronicDeclaration>(
+        `/admin/admission-setup/declaration/${id}`,
+        body,
+      );
+      return data;
+    } catch (err) {
+      return rethrowConflict(err);
+    }
   },
 
-  /* ── Committee ↔ category bindings ───────────────────────────────────
-   *
-   * Backs the admin-setup wizard committee picker. Persisted bindings tell
-   * the applicant-distribution step which committees can absorb each
-   * category for the cycle's academic year. List/replace pair mirrors the
-   * REST contract; granular add/remove kept off the API surface to keep
-   * the audit trail clean (one diff per save). */
+  async publishDeclaration(declarationId: string, rowVersion: string): Promise<ElectronicDeclaration> {
+    try {
+      const { data } = await apiClient.post<ElectronicDeclaration>(
+        `/admin/admission-setup/declaration/${declarationId}/publish`,
+        { rowVersion },
+      );
+      return data;
+    } catch (err) {
+      return rethrowConflict(err);
+    }
+  },
+
+  async archiveDeclaration(declarationId: string, reason: string): Promise<void> {
+    await apiClient.post(
+      `/admin/admission-setup/declaration/${declarationId}/archive`,
+      { reason },
+    );
+  },
+
+  /* ── §1 Committee merge/split rules ───────────────────────────────── */
+  async listMergeSplitRules(
+    cycleId: string,
+    options?: { status?: string; includeArchived?: boolean },
+  ): Promise<CommitteeMergeSplitRule[]> {
+    const { data } = await apiClient.get<CommitteeMergeSplitRule[]>(
+      `/admin/admission-setup/cycles/${cycleId}/merge-split-rules`,
+      { params: options },
+    );
+    return data;
+  },
+
+  async getMergeSplitRule(id: string): Promise<CommitteeMergeSplitRule> {
+    const { data } = await apiClient.get<CommitteeMergeSplitRule>(
+      `/admin/admission-setup/merge-split-rules/${id}`,
+    );
+    return data;
+  },
+
+  async createMergeSplitRule(input: {
+    cycleId: string;
+    type: 'merge' | 'split';
+    sourceCommitteeIds: string[];
+    targetCommitteeIds: string[];
+    reason?: string;
+    effectiveAt: string;
+  }): Promise<CommitteeMergeSplitRule> {
+    const { cycleId, ...body } = input;
+    const { data } = await apiClient.post<CommitteeMergeSplitRule>(
+      `/admin/admission-setup/cycles/${cycleId}/merge-split-rules`,
+      body,
+    );
+    return data;
+  },
+
+  async updateMergeSplitRule(input: {
+    id: string;
+    rowVersion: string;
+    type?: 'merge' | 'split';
+    sourceCommitteeIds?: string[];
+    targetCommitteeIds?: string[];
+    reason?: string;
+    effectiveAt?: string;
+  }): Promise<CommitteeMergeSplitRule> {
+    const { id, ...body } = input;
+    try {
+      const { data } = await apiClient.patch<CommitteeMergeSplitRule>(
+        `/admin/admission-setup/merge-split-rules/${id}`,
+        body,
+      );
+      return data;
+    } catch (err) {
+      return rethrowConflict(err);
+    }
+  },
+
+  async cancelMergeSplitRule(input: {
+    id: string;
+    rowVersion: string;
+    reason?: string;
+  }): Promise<CommitteeMergeSplitRule> {
+    const { id, ...body } = input;
+    try {
+      const { data } = await apiClient.post<CommitteeMergeSplitRule>(
+        `/admin/admission-setup/merge-split-rules/${id}/cancel`,
+        body,
+      );
+      return data;
+    } catch (err) {
+      return rethrowConflict(err);
+    }
+  },
+
+  async previewMergeSplitRule(id: string): Promise<MergeSplitPreviewDto> {
+    const { data } = await apiClient.post<MergeSplitPreviewDto>(
+      `/admin/admission-setup/merge-split-rules/${id}/preview`,
+    );
+    return data;
+  },
+
+  async applyMergeSplitRule(input: {
+    id: string;
+    confirmPreviewHash: string;
+    rowVersion: string;
+  }): Promise<ApplyMergeSplitRuleResult> {
+    const { id, ...body } = input;
+    try {
+      const { data } = await apiClient.post<ApplyMergeSplitRuleResult>(
+        `/admin/admission-setup/merge-split-rules/${id}/apply`,
+        body,
+      );
+      return data;
+    } catch (err) {
+      return rethrowConflict(err);
+    }
+  },
+
+  async archiveMergeSplitRule(input: { id: string; reason: string }): Promise<void> {
+    await apiClient.post(
+      `/admin/admission-setup/merge-split-rules/${input.id}/archive`,
+      { reason: input.reason },
+    );
+  },
+
+  /* ── §2 Committee score thresholds ────────────────────────────────── */
+  async listScoreThresholds(cycleId: string): Promise<CommitteeScoreThresholdRow[]> {
+    const { data } = await apiClient.get<CommitteeScoreThresholdRow[]>(
+      `/admin/admission-setup/cycles/${cycleId}/score-thresholds`,
+    );
+    return data;
+  },
+
+  async getScoreThreshold(
+    cycleId: string,
+    committeeId: string,
+  ): Promise<CommitteeScoreThresholdRow> {
+    const { data } = await apiClient.get<CommitteeScoreThresholdRow>(
+      `/admin/admission-setup/cycles/${cycleId}/committees/${committeeId}/score-threshold`,
+    );
+    return data;
+  },
+
+  async upsertScoreThreshold(input: {
+    cycleId: string;
+    committeeId: string;
+    min: number;
+    max: number;
+    rowVersion?: string;
+  }): Promise<CommitteeScoreThresholdRow> {
+    const { cycleId, committeeId, ...body } = input;
+    try {
+      const { data } = await apiClient.put<CommitteeScoreThresholdRow>(
+        `/admin/admission-setup/cycles/${cycleId}/committees/${committeeId}/score-threshold`,
+        body,
+      );
+      return data;
+    } catch (err) {
+      return rethrowConflict(err);
+    }
+  },
+
+  /* ── §4 Total score config ────────────────────────────────────────── */
+  async listTotalScoreConfigs(cycleId: string): Promise<TotalScoreConfig[]> {
+    const { data } = await apiClient.get<TotalScoreConfig[]>(
+      `/admin/admission-setup/cycles/${cycleId}/total-score`,
+    );
+    return data;
+  },
+
+  async getTotalScoreConfig(cycleId: string, stream: string): Promise<TotalScoreConfig> {
+    const { data } = await apiClient.get<TotalScoreConfig>(
+      `/admin/admission-setup/cycles/${cycleId}/total-score/${stream}`,
+    );
+    return data;
+  },
+
+  async upsertTotalScoreConfig(input: {
+    cycleId: string;
+    stream: string;
+    components: TotalScoreComponent[];
+    totalScoreOutOf: number;
+    rowVersion?: string;
+  }): Promise<TotalScoreConfig> {
+    const { cycleId, stream, ...body } = input;
+    try {
+      const { data } = await apiClient.put<TotalScoreConfig>(
+        `/admin/admission-setup/cycles/${cycleId}/total-score/${stream}`,
+        body,
+      );
+      return data;
+    } catch (err) {
+      return rethrowConflict(err);
+    }
+  },
+
+  /* ── §6 Wizard step status ────────────────────────────────────────── */
+  async getWizardStepStatuses(cycleId: string): Promise<WizardStepStatusRow[]> {
+    const { data } = await apiClient.get<WizardStepStatusRow[]>(
+      `/admin/admission-setup/cycles/${cycleId}/step-statuses`,
+    );
+    return data;
+  },
+
+  async completeWizardStep(cycleId: string, stepKey: string, rowVersion?: string): Promise<WizardStepStatusRow> {
+    const { data } = await apiClient.post<WizardStepStatusRow>(
+      `/admin/admission-setup/cycles/${cycleId}/steps/${stepKey}/complete`,
+      rowVersion ? { rowVersion } : {},
+    );
+    return data;
+  },
+
+  async reopenWizardStep(cycleId: string, stepKey: string, rowVersion: string): Promise<WizardStepStatusRow> {
+    try {
+      const { data } = await apiClient.post<WizardStepStatusRow>(
+        `/admin/admission-setup/cycles/${cycleId}/steps/${stepKey}/reopen`,
+        { rowVersion },
+      );
+      return data;
+    } catch (err) {
+      return rethrowConflict(err);
+    }
+  },
+
+  /* ── §10 Committee ↔ category bindings ────────────────────────────── */
   async listCategoryCommittees(cycleId: string): Promise<CategoryCommittees[]> {
-    await simulateLatency();
-    return CATEGORY_COMMITTEES.filter((b) => b.cycleId === cycleId);
+    const { data } = await apiClient.get<CategoryCommittees[]>(
+      `/admin/admission-setup/cycles/${cycleId}/committee-bindings`,
+    );
+    return data;
   },
 
   async listCommitteeBindings(input: {
     cycleId: string;
     categoryId?: ApplicantCategoryKey;
   }): Promise<CategoryCommittees[]> {
-    await simulateLatency();
-    return CATEGORY_COMMITTEES.filter(
-      (b) =>
-        b.cycleId === input.cycleId &&
-        (input.categoryId ? b.categoryId === input.categoryId : true),
+    const { data } = await apiClient.get<CategoryCommittees[]>(
+      `/admin/admission-setup/cycles/${input.cycleId}/committee-bindings`,
+      { params: input.categoryId ? { categoryId: input.categoryId } : undefined },
     );
+    return data;
   },
 
-  /**
-   * Replace the full set of committee bindings for a cycle (optionally
-   * scoped to a single category). Validates each requested committee
-   * against the same eligibility rules the applicant-distribution stage
-   * enforces — active, current academic year, not at capacity, matching
-   * specialization when the category declares one.
-   */
   async setCommitteeBindings(input: {
     cycleId: string;
     academicYearId: string;
-    /** Optional scope — when omitted, the call replaces *all* bindings for the cycle. */
     categoryId?: ApplicantCategoryKey;
     committeeIds: string[];
     actorUserId?: string;
   }): Promise<CategoryCommittees[]> {
-    await simulateLatency();
-    const requestedIds = Array.from(new Set(input.committeeIds));
-    const allCommittees = await committeeService.list();
-    const errors: string[] = [];
-    for (const cid of requestedIds) {
-      const c = allCommittees.find((x) => x.id === cid);
-      if (!c) {
-        errors.push(`اللجنة ${cid} غير موجودة`);
-        continue;
-      }
-      if (c.status === 'inactive') {
-        errors.push(`اللجنة "${c.name}" معطلة`);
-        continue;
-      }
-      if (c.deletedAt) {
-        errors.push(`اللجنة "${c.name}" محذوفة`);
-        continue;
-      }
-      if (c.academicYearId && c.academicYearId !== input.academicYearId) {
-        errors.push(`اللجنة "${c.name}" لا تنتمي للعام الأكاديمي ${input.academicYearId}`);
-        continue;
-      }
-      if (c.capacity !== undefined && c.applicants >= c.capacity) {
-        errors.push(`اللجنة "${c.name}" مكتملة الطاقة الاستيعابية`);
-        continue;
-      }
-    }
-    if (errors.length > 0) {
-      throw new Error(errors.join(' · '));
-    }
-
-    /* Replace strategy: drop the matching scope, then re-insert the new rows. */
-    const before = [...CATEGORY_COMMITTEES];
-    const keep = CATEGORY_COMMITTEES.filter((b) => {
-      if (b.cycleId !== input.cycleId) return true;
-      if (input.categoryId && b.categoryId !== input.categoryId) return true;
-      return false;
-    });
-
-    const baseCategoryId: ApplicantCategoryKey =
-      input.categoryId ?? 'officers_general';
-    const now = new Date().toISOString();
-    const next: CategoryCommittees[] = requestedIds.map((cid, idx) => ({
-      id: `CC-${input.cycleId}-${baseCategoryId}-${cid}`,
-      categoryId: baseCategoryId,
-      committeeId: cid,
+    const url = input.categoryId
+      ? `/admin/admission-setup/cycles/${input.cycleId}/categories/${input.categoryId}/committees`
+      : `/admin/admission-setup/cycles/${input.cycleId}/committee-bindings`;
+    const { data } = await apiClient.put<CategoryCommittees[]>(url, {
+      committeeIds: input.committeeIds,
       academicYearId: input.academicYearId,
-      cycleId: input.cycleId,
-      order: idx + 1,
-      createdAt: now,
-      createdBy: input.actorUserId ?? 'system',
-    }));
-
-    CATEGORY_COMMITTEES.length = 0;
-    CATEGORY_COMMITTEES.push(...keep, ...next);
-
-    emitAudit({
-      action: 'update',
-      module: 'committees',
-      entityType: 'CategoryCommittees',
-      entityLabel: 'لجان دورة القبول',
-      entityId: `${input.cycleId}:${baseCategoryId}`,
-      details: `تم تحديث قائمة اللجان المختارة (${next.length} لجنة) للدورة`,
-      before,
-      after: CATEGORY_COMMITTEES,
     });
+    return data;
+  },
 
-    return next;
+  /* ── §7 Cross-cycle clone (P4) ────────────────────────────────────── */
+  async cloneCycleWizard(input: {
+    targetCycleId: string;
+    sourceCycleId: string;
+    confirmReplace?: boolean;
+  }): Promise<CycleCloneSummaryDto> {
+    const { data } = await apiClient.post<CycleCloneSummaryDto>(
+      `/admin/cycles/${input.targetCycleId}/copy-from/${input.sourceCycleId}`,
+      { confirmReplace: input.confirmReplace },
+    );
+    return data;
   },
 };
