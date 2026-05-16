@@ -87,3 +87,33 @@ Surfaced only — not extracted in this task, per the brief.
 - `npm run typecheck` → 0 errors.
 - `npm run build` → succeeds.
 - Dev server smoke-test → `GET /admin/admission-setup/wizard/application_settings` returns 200.
+
+---
+
+# Round 2 updates
+
+Follow-up wired on top of the same wizard step.
+
+## Files touched
+
+- [frontend/src/features/admin/admission-setup/store/wizardSharedState.ts](../../../frontend/src/features/admin/admission-setup/store/wizardSharedState.ts) — `GeneralRuleRowInput.academicDegree: string` → `academicDegrees: string[]`; `ThanawiRuleRowInput.schoolCategory: string` → `schoolCategories: string[]`. `LocalThanawiRow.schoolCategory` mirrored as `schoolCategories: string[]`. Build functions spread the multi-select arrays into the row. Thanawi composite key updated to sort `schoolCategories` before joining (sorted-set comparison).
+- [frontend/src/features/admin/admission-setup/components/applicationSettings/GeneralRulesSection.tsx](../../../frontend/src/features/admin/admission-setup/components/applicationSettings/GeneralRulesSection.tsx) — `الدرجة العلمية` SearchSelect replaced with `MultiSelect` (Radix multi pattern). Percentage inputs (`الحد الأدنى/الأقصى للدرجة`) gain `max={100}`, `%` `trailingIcon` on the logical inline-end, `٠ – ١٠٠` placeholder, bound checks (`scoreMinOutOfBounds` / `scoreMaxOutOfBounds`), inline error copy. Grid cells for النوع / الدرجة العلمية / اللجنة / سنة التخرج now render through a new `MultiValueCell` helper that always wraps the comma-separated text in a Radix `Tooltip` (full list available on hover/focus) and applies `truncate` for overflow. Score cells render the value with the `٪` suffix.
+- [frontend/src/features/admin/admission-setup/components/applicationSettings/ThanawiRulesSection.tsx](../../../frontend/src/features/admin/admission-setup/components/applicationSettings/ThanawiRulesSection.tsx) — `فئة المدرسة` SearchSelect replaced with `MultiSelect`. Grid `فئة المدرسة` cell uses `MultiValueCell`. `Td` widened to `max-w-[12rem]` so the truncate works consistently with the university grid.
+
+## Validation rules added / changed
+
+- **Score in bounds** — `scoreMin` and `scoreMax` must each satisfy `0 ≤ value ≤ 100`. Block-on-violation: «إضافة» stays disabled, inline error «القيمة خارج النطاق ٠–١٠٠٪» surfaces on the offending input.
+- **Score ordering** — unchanged in semantics (`scoreMax ≥ scoreMin`), now mutually exclusive with the bounds error so the most-specific message wins.
+- **الدرجة العلمية** — required: `academicDegrees.length > 0`.
+- **فئة المدرسة** (ثانوي) — required: `schoolCategories.length > 0`.
+- **Duplicate-row blocking** — university composite key already sorted `type`, `academicDegrees`, `committees`, `graduationYears` arrays; thanawi key now sorts `schoolCategories` before joining. Net effect: any two rows whose multi-select picks are the same as sets (regardless of pick order) collide and the form rejects the second add with a danger toast.
+
+## Cross-step impact
+
+- `committees` step `ApprovedRulesView` keeps rendering university rows from `row.academicDegrees[]` (no change — previously a 1-element array, now an N-element array, identical render path through the comma-join). Thanawi rows surface a fresh `schoolCategories[]` field that the viewer ignores. No edits required there.
+
+## Browser verification
+
+- ليسانس حقوق (1F/1S flat): percentage inputs render `٠ – ١٠٠ %` placeholder + `%` suffix on the logical end-edge; الدرجة العلمية opens a multi-select listbox (`multiselectable=true`).
+- ثانوي section: `فئة المدرسة` opens a multi-select listbox; previously-added rows continue to render in the grid via the new chip path.
+- `npm run typecheck` → 0 errors. `npm run build` → succeeds. `GET /wizard/application_settings` → 200.

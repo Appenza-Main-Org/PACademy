@@ -40,6 +40,7 @@ import {
   MultiSelect,
   SearchSelect,
   toast,
+  Tooltip,
 } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
@@ -73,10 +74,15 @@ const EMPTY_INPUT: GeneralRuleRowInput = {
   gradeMax: '',
   scoreMin: null,
   scoreMax: null,
-  academicDegree: '',
+  academicDegrees: [],
   committee: '',
   graduationYear: null,
 };
+
+/** Inclusive percentage bounds for the score range — bounded by the
+ *  admission test grading convention (0–100). */
+const SCORE_MIN_BOUND = 0;
+const SCORE_MAX_BOUND = 100;
 
 /* ── Props + entry ────────────────────────────────────────────────── */
 
@@ -619,9 +625,13 @@ function PerSpecForm({
     (gradeRank.get(draft.gradeMax) ?? Infinity) <
       (gradeRank.get(draft.grade) ?? -Infinity);
 
-  const scoreNegative =
-    (draft.scoreMin !== null && draft.scoreMin < 0) ||
-    (draft.scoreMax !== null && draft.scoreMax < 0);
+  const scoreMinOutOfBounds =
+    draft.scoreMin !== null &&
+    (draft.scoreMin < SCORE_MIN_BOUND || draft.scoreMin > SCORE_MAX_BOUND);
+
+  const scoreMaxOutOfBounds =
+    draft.scoreMax !== null &&
+    (draft.scoreMax < SCORE_MIN_BOUND || draft.scoreMax > SCORE_MAX_BOUND);
 
   const scoreOrderInvalid =
     draft.scoreMin !== null &&
@@ -635,9 +645,10 @@ function PerSpecForm({
     !gradeOrderInvalid &&
     draft.scoreMin !== null &&
     draft.scoreMax !== null &&
-    !scoreNegative &&
+    !scoreMinOutOfBounds &&
+    !scoreMaxOutOfBounds &&
     !scoreOrderInvalid &&
-    draft.academicDegree.length > 0 &&
+    draft.academicDegrees.length > 0 &&
     draft.committee.length > 0 &&
     draft.graduationYear !== null;
 
@@ -714,11 +725,13 @@ function PerSpecForm({
           <FieldLabel label="الحد الأدنى للدرجة">
             <Input
               type="number"
-              min={0}
+              min={SCORE_MIN_BOUND}
+              max={SCORE_MAX_BOUND}
               step="0.01"
               inputMode="decimal"
-              placeholder="مثال: ٦٠"
+              placeholder="٠ – ١٠٠"
               value={draft.scoreMin ?? ''}
+              trailingIcon={<span className="text-xs text-ink-500">%</span>}
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
@@ -726,8 +739,8 @@ function PerSpecForm({
                 }))
               }
               error={
-                draft.scoreMin !== null && draft.scoreMin < 0
-                  ? 'الدرجة غير قابلة للسالب'
+                scoreMinOutOfBounds
+                  ? 'القيمة خارج النطاق ٠–١٠٠٪'
                   : undefined
               }
             />
@@ -736,11 +749,13 @@ function PerSpecForm({
           <FieldLabel label="الحد الأقصى للدرجة">
             <Input
               type="number"
-              min={0}
+              min={SCORE_MIN_BOUND}
+              max={SCORE_MAX_BOUND}
               step="0.01"
               inputMode="decimal"
-              placeholder="مثال: ١٠٠"
+              placeholder="٠ – ١٠٠"
               value={draft.scoreMax ?? ''}
+              trailingIcon={<span className="text-xs text-ink-500">%</span>}
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
@@ -748,8 +763,8 @@ function PerSpecForm({
                 }))
               }
               error={
-                draft.scoreMax !== null && draft.scoreMax < 0
-                  ? 'الدرجة غير قابلة للسالب'
+                scoreMaxOutOfBounds
+                  ? 'القيمة خارج النطاق ٠–١٠٠٪'
                   : scoreOrderInvalid
                     ? 'يجب ألا تقل عن الحد الأدنى'
                     : undefined
@@ -763,13 +778,16 @@ function PerSpecForm({
                 لا توجد درجات علمية مفعّلة في المراجع.
               </p>
             ) : (
-              <SearchSelect
+              <MultiSelect
                 ariaLabel="الدرجة العلمية"
-                value={draft.academicDegree || null}
-                onChange={(v) =>
-                  setDraft((d) => ({ ...d, academicDegree: v ?? '' }))
+                value={draft.academicDegrees}
+                onChange={(next) =>
+                  setDraft((d) => ({ ...d, academicDegrees: next }))
                 }
-                options={degreeOptions}
+                options={degreeOptions.map((o) => ({
+                  value: o.value,
+                  label: o.label,
+                }))}
                 placeholder="اختر الدرجة العلمية…"
               />
             )}
@@ -892,31 +910,37 @@ function LocalUniversityGrid({
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-t border-border-subtle">
-              <Td>{r.type.length === 0 ? '—' : r.type.map(labelForType).join('، ')}</Td>
+              <Td>
+                <MultiValueCell values={r.type.map(labelForType)} />
+              </Td>
               <Td>{labelForGrade(r.grade)}</Td>
               <Td>{labelForGrade(r.gradeMax)}</Td>
               <Td>
-                {r.scoreMin !== null ? toEasternArabicNumerals(r.scoreMin) : '—'}
+                {r.scoreMin !== null
+                  ? `${toEasternArabicNumerals(r.scoreMin)}٪`
+                  : '—'}
               </Td>
               <Td>
-                {r.scoreMax !== null ? toEasternArabicNumerals(r.scoreMax) : '—'}
+                {r.scoreMax !== null
+                  ? `${toEasternArabicNumerals(r.scoreMax)}٪`
+                  : '—'}
               </Td>
               <Td>
-                {r.academicDegrees.length === 0
-                  ? '—'
-                  : r.academicDegrees.map(labelForDegree).join('، ')}
+                <MultiValueCell
+                  values={r.academicDegrees.map(labelForDegree)}
+                />
               </Td>
               <Td>
-                {r.committees.length === 0
-                  ? '—'
-                  : r.committees.map(labelForCommittee).join('، ')}
+                <MultiValueCell
+                  values={r.committees.map(labelForCommittee)}
+                />
               </Td>
               <Td>
-                {r.graduationYears.length === 0
-                  ? '—'
-                  : r.graduationYears
-                      .map((y) => toEasternArabicNumerals(y))
-                      .join('، ')}
+                <MultiValueCell
+                  values={r.graduationYears.map((y) =>
+                    toEasternArabicNumerals(y),
+                  )}
+                />
               </Td>
               <td className="px-3 py-2 align-middle text-end">
                 <button
@@ -946,8 +970,27 @@ function Th({ children }: { children: React.ReactNode }): JSX.Element {
 
 function Td({ children }: { children: React.ReactNode }): JSX.Element {
   return (
-    <td className="px-3 py-2 align-middle font-ar text-2xs text-ink-900">
+    <td className="max-w-[12rem] px-3 py-2 align-middle font-ar text-2xs text-ink-900">
       {children}
     </td>
+  );
+}
+
+/** Renders a list of resolved labels as a comma-separated string that
+ *  truncates with ellipsis when it overflows the parent cell. The full
+ *  list always sits behind a Radix Tooltip so callers can recover the
+ *  truncated portion via hover or keyboard focus. */
+function MultiValueCell({ values }: { values: readonly string[] }): JSX.Element {
+  if (values.length === 0) return <>—</>;
+  const text = values.join('، ');
+  return (
+    <Tooltip content={text} delayDuration={120}>
+      <span
+        tabIndex={0}
+        className="block max-w-full truncate focus-visible:outline-none focus-visible:shadow-focus-teal"
+      >
+        {text}
+      </span>
+    </Tooltip>
   );
 }

@@ -26,6 +26,7 @@ import {
   MultiSelect,
   SearchSelect,
   toast,
+  Tooltip,
 } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
@@ -50,7 +51,7 @@ const EMPTY_INPUT: ThanawiRuleRowInput = {
   examRound: '',
   committee: '',
   graduationYear: null,
-  schoolCategory: '',
+  schoolCategories: [],
 };
 
 interface ThanawiRulesSectionProps {
@@ -312,7 +313,7 @@ function ThanawiForm({
     draft.examRound.length > 0 &&
     draft.committee.length > 0 &&
     draft.graduationYear !== null &&
-    draft.schoolCategory.length > 0;
+    draft.schoolCategories.length > 0;
 
   const handleAdd = (): void => {
     if (!canAdd) return;
@@ -374,13 +375,16 @@ function ThanawiForm({
             />
           </FieldLabel>
           <FieldLabel label="فئة المدرسة">
-            <SearchSelect
+            <MultiSelect
               ariaLabel="فئة المدرسة"
-              value={draft.schoolCategory || null}
-              onChange={(v) =>
-                setDraft((d) => ({ ...d, schoolCategory: v ?? '' }))
+              value={draft.schoolCategories}
+              onChange={(next) =>
+                setDraft((d) => ({ ...d, schoolCategories: next }))
               }
-              options={schoolCategoryOptions}
+              options={schoolCategoryOptions.map((o) => ({
+                value: o.value,
+                label: o.label,
+              }))}
               placeholder="اختر فئة المدرسة…"
             />
           </FieldLabel>
@@ -464,7 +468,11 @@ function ThanawiGrid({
                   ? toEasternArabicNumerals(r.graduationYear)
                   : '—'}
               </Td>
-              <Td>{labelForSchool(r.schoolCategory)}</Td>
+              <Td>
+                <MultiValueCell
+                  values={r.schoolCategories.map(labelForSchool)}
+                />
+              </Td>
               <td className="px-3 py-2 align-middle text-end">
                 <button
                   type="button"
@@ -493,8 +501,27 @@ function Th({ children }: { children: React.ReactNode }): JSX.Element {
 
 function Td({ children }: { children: React.ReactNode }): JSX.Element {
   return (
-    <td className="px-3 py-2 align-middle font-ar text-2xs text-ink-900">
+    <td className="max-w-[12rem] px-3 py-2 align-middle font-ar text-2xs text-ink-900">
       {children}
     </td>
+  );
+}
+
+/** Renders a list of resolved labels as a comma-separated string that
+ *  truncates with ellipsis when it overflows the parent cell. The full
+ *  list always sits behind a Radix Tooltip so callers can recover the
+ *  truncated portion via hover or keyboard focus. */
+function MultiValueCell({ values }: { values: readonly string[] }): JSX.Element {
+  if (values.length === 0) return <>—</>;
+  const text = values.join('، ');
+  return (
+    <Tooltip content={text} delayDuration={120}>
+      <span
+        tabIndex={0}
+        className="block max-w-full truncate focus-visible:outline-none focus-visible:shadow-focus-teal"
+      >
+        {text}
+      </span>
+    </Tooltip>
   );
 }

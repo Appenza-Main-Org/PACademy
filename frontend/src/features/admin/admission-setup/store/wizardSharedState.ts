@@ -56,12 +56,12 @@ export interface GeneralRuleRowInput {
   grade: string;
   /** Maximum acceptable academic grade — single code (الحد الأقصى). */
   gradeMax: string;
-  /** Inclusive minimum numeric score (الحد الأدنى للدرجة). */
+  /** Inclusive minimum percentage score (الحد الأدنى للدرجة). 0–100. */
   scoreMin: number | null;
-  /** Inclusive maximum numeric score (الحد الأقصى للدرجة). */
+  /** Inclusive maximum percentage score (الحد الأقصى للدرجة). 0–100. */
   scoreMax: number | null;
-  /** Academic degree — single code (الدرجة العلمية). */
-  academicDegree: string;
+  /** Academic degrees — multi-select (الدرجة العلمية). */
+  academicDegrees: string[];
   /** Committee — single id (اللجنة). */
   committee: string;
   /** Graduation year — single year (سنة التخرج). */
@@ -76,8 +76,8 @@ export interface ThanawiRuleRowInput {
   committee: string;
   /** Graduation year — single year. */
   graduationYear: number | null;
-  /** School-category lookup code (فئة المدرسة). */
-  schoolCategory: string;
+  /** School-category lookup codes (فئة المدرسة) — multi-select. */
+  schoolCategories: string[];
 }
 
 /** Faculty + specialization context attached at the call site of
@@ -128,7 +128,8 @@ export interface LocalThanawiRow extends LocalRowBase {
   examRound: string;
   committee: string;
   graduationYear: number | null;
-  schoolCategory: string;
+  /** Multi-select fan-out per row (فئة المدرسة). */
+  schoolCategories: string[];
   /* Legacy shape so ApprovedRulesView renders thanawi rows alongside
    * university rows in the same table without crashes. Empty arrays
    * render as «—» in the viewer. */
@@ -220,7 +221,7 @@ function thanawiCompositeKey(r: LocalThanawiRow): string {
     r.examRound,
     r.committee,
     String(r.graduationYear),
-    r.schoolCategory,
+    [...r.schoolCategories].sort().join('|'),
   ].join('::');
 }
 
@@ -245,7 +246,7 @@ function buildUniversityRow(
     gradeMax: input.gradeMax,
     scoreMin: input.scoreMin,
     scoreMax: input.scoreMax,
-    academicDegrees: input.academicDegree ? [input.academicDegree] : [],
+    academicDegrees: [...input.academicDegrees],
     committees: input.committee ? [input.committee] : [],
     graduationYears: input.graduationYear !== null ? [input.graduationYear] : [],
   };
@@ -264,7 +265,7 @@ function buildThanawiRow(
     examRound: input.examRound,
     committee: input.committee,
     graduationYear: input.graduationYear,
-    schoolCategory: input.schoolCategory,
+    schoolCategories: [...input.schoolCategories],
     type: [],
     maritalStatus: header.maritalStatus,
     grade: '',
