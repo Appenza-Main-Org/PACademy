@@ -17,6 +17,9 @@ public sealed class ElectronicDeclarationIntegrationTests(AdmissionSetupFixture 
 {
     private static readonly DateTime Effective = new(2030, 9, 1, 0, 0, 0, DateTimeKind.Utc);
 
+    private static CreateDeclarationRequest CreateRich(string bodyAr) =>
+        new(Mode: "rich-text", BodyAr: bodyAr, Document: null, EffectiveFrom: Effective);
+
     [Fact]
     public async Task GetPublished_BeforeAnyDeclaration_ReturnsNull()
     {
@@ -34,9 +37,7 @@ public sealed class ElectronicDeclarationIntegrationTests(AdmissionSetupFixture 
     public async Task Post_FirstDraft_CreatesVersion1()
     {
         var cycleId = await SeedDraftCycleAsync();
-        var req = new CreateDeclarationRequest(
-            BodyAr: "نص الإقرار الأول",
-            EffectiveFrom: Effective);
+        var req = CreateRich("نص الإقرار الأول");
 
         var resp = await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration", req);
@@ -58,11 +59,11 @@ public sealed class ElectronicDeclarationIntegrationTests(AdmissionSetupFixture 
         var cycleId = await SeedDraftCycleAsync();
         await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("الإصدار الأول", Effective));
+            CreateRich("الإصدار الأول"));
 
         var resp = await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("الإصدار الثاني", Effective));
+            CreateRich("الإصدار الثاني"));
 
         resp.StatusCode.Should().Be(HttpStatusCode.Created);
         var dto = await resp.Content.ReadFromJsonAsync<ElectronicDeclarationDto>();
@@ -76,10 +77,10 @@ public sealed class ElectronicDeclarationIntegrationTests(AdmissionSetupFixture 
         var cycleId = await SeedDraftCycleAsync();
         await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("v1", Effective));
+            CreateRich("v1"));
         await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("v2", Effective));
+            CreateRich("v2"));
 
         var resp = await Client.GetAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration/versions");
@@ -95,11 +96,12 @@ public sealed class ElectronicDeclarationIntegrationTests(AdmissionSetupFixture 
         var cycleId = await SeedDraftCycleAsync();
         var draft = await (await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("نص للنشر", Effective)))
+            CreateRich("نص للنشر")))
             .Content.ReadFromJsonAsync<ElectronicDeclarationDto>();
 
-        var resp = await Client.PostAsync(
-            $"admin/admission-setup/declaration/{draft!.Id}/publish", null);
+        var resp = await Client.PostAsJsonAsync(
+            $"admin/admission-setup/declaration/{draft!.Id}/publish",
+            new PublishDeclarationRequest(draft.RowVersion));
 
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var dto = await resp.Content.ReadFromJsonAsync<ElectronicDeclarationDto>();
@@ -112,9 +114,11 @@ public sealed class ElectronicDeclarationIntegrationTests(AdmissionSetupFixture 
         var cycleId = await SeedDraftCycleAsync();
         var draft = await (await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("المنشور", Effective)))
+            CreateRich("المنشور")))
             .Content.ReadFromJsonAsync<ElectronicDeclarationDto>();
-        await Client.PostAsync($"admin/admission-setup/declaration/{draft!.Id}/publish", null);
+        await Client.PostAsJsonAsync(
+            $"admin/admission-setup/declaration/{draft!.Id}/publish",
+            new PublishDeclarationRequest(draft.RowVersion));
 
         var resp = await Client.GetAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration");
@@ -131,15 +135,19 @@ public sealed class ElectronicDeclarationIntegrationTests(AdmissionSetupFixture 
         var cycleId = await SeedDraftCycleAsync();
         var draft1 = await (await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("v1", Effective)))
+            CreateRich("v1")))
             .Content.ReadFromJsonAsync<ElectronicDeclarationDto>();
-        await Client.PostAsync($"admin/admission-setup/declaration/{draft1!.Id}/publish", null);
+        await Client.PostAsJsonAsync(
+            $"admin/admission-setup/declaration/{draft1!.Id}/publish",
+            new PublishDeclarationRequest(draft1.RowVersion));
 
         var draft2 = await (await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("v2", Effective)))
+            CreateRich("v2")))
             .Content.ReadFromJsonAsync<ElectronicDeclarationDto>();
-        await Client.PostAsync($"admin/admission-setup/declaration/{draft2!.Id}/publish", null);
+        await Client.PostAsJsonAsync(
+            $"admin/admission-setup/declaration/{draft2!.Id}/publish",
+            new PublishDeclarationRequest(draft2.RowVersion));
 
         // v2 should now be the published one
         var currentResp = await Client.GetAsync(
@@ -161,9 +169,11 @@ public sealed class ElectronicDeclarationIntegrationTests(AdmissionSetupFixture 
         var cycleId = await SeedDraftCycleAsync();
         var draft = await (await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("منشور", Effective)))
+            CreateRich("منشور")))
             .Content.ReadFromJsonAsync<ElectronicDeclarationDto>();
-        await Client.PostAsync($"admin/admission-setup/declaration/{draft!.Id}/publish", null);
+        await Client.PostAsJsonAsync(
+            $"admin/admission-setup/declaration/{draft!.Id}/publish",
+            new PublishDeclarationRequest(draft.RowVersion));
 
         var resp = await Client.PostAsync(
             $"admin/admission-setup/declaration/{draft.Id}/archive", null);
@@ -177,7 +187,7 @@ public sealed class ElectronicDeclarationIntegrationTests(AdmissionSetupFixture 
         var cycleId = await SeedDraftCycleAsync();
         var draft = await (await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("مسودة", Effective)))
+            CreateRich("مسودة")))
             .Content.ReadFromJsonAsync<ElectronicDeclarationDto>();
 
         var resp = await Client.PostAsync(
@@ -192,11 +202,14 @@ public sealed class ElectronicDeclarationIntegrationTests(AdmissionSetupFixture 
         var cycleId = await SeedDraftCycleAsync();
         var draft = await (await Client.PostAsJsonAsync(
             $"admin/admission-setup/cycles/{cycleId}/declaration",
-            new CreateDeclarationRequest("نص أولي", Effective)))
+            CreateRich("نص أولي")))
             .Content.ReadFromJsonAsync<ElectronicDeclarationDto>();
 
         var updateReq = new UpdateDeclarationRequest(
+            Mode: null,
             BodyAr: "نص محدث",
+            Document: null,
+            ClearDocument: false,
             EffectiveFrom: null,
             RowVersion: draft!.RowVersion);
         var resp = await Client.PatchAsJsonAsync(

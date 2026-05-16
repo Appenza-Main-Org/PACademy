@@ -306,3 +306,114 @@ transaction.
     the archival pipeline (job scheduling, cold-store choice, restore API)
     is a future spec. Spec 009's contribution is FR-015's contract so the
     archival design has a hard target to hit.
+
+---
+
+## P3 gap inventory (T103)
+
+Audit run 2026-05-16, against branch `009-admission-setup-persistence` at
+commit `16537ab`. Inputs:
+
+- `CycleEndpointsCoverageTests` (T099) — `backend/tests/PACademy.Api.Tests/Audit/CycleEndpointsCoverageTests.cs`
+- `CategoryEndpointsCoverageTests` (T100) — `backend/tests/PACademy.Api.Tests/Audit/CategoryEndpointsCoverageTests.cs`
+- Manual sweep of `frontend/src/features/admin/api/*.service.ts` for `simulateLatency` / `MOCK.` references.
+
+Both coverage tests **PASS** — every property exposed on `CycleDetailDto`,
+`CycleListItemDto`, `CategoryDetailDto`, `CategoryListItemDto` either has a
+matching property name in `CreateCycleRequest` / `UpdateCycleRequest` /
+`TransitionCycleStatusRequest` / `CreateCategoryRequest` / `UpdateCategoryRequest`
+or is on the read-only allow-list (`Id`, `CreatedAt`, `UpdatedAt`,
+`ArchivedAt`, `ApplicantCount`, `IsSpec`, `DemoOrigin`).
+
+The audit did surface five real gaps that the DTO-coverage test cannot see
+because they sit on the *entity side* or in the *frontend service layer*:
+
+### Gap P3-1 — `RowVersion` missing from Cycle + Category read DTOs (CRITICAL)
+
+- **What**: `Cycle` and `Category` entities carry a `RowVersion` concurrency
+  token (added in migration `009_AdmissionSetupEntities` per Phase-2 T008),
+  but neither `CycleDetailDto` / `CycleListItemDto` nor `CategoryDetailDto` /
+  `CategoryListItemDto` expose it on the wire.
+- **Impact**: The frontend cannot send `If-Match` / `rowVersion` on PATCH,
+  so the optimistic-locking middleware that returns 409 `RowVersionConflictResult`
+  (T004) has nothing to compare against. Two admins editing the same cycle
+  or category will silently last-write-wins.
+- **Fix shape**: Extend the four DTOs with `string RowVersion` (hex-encoded
+  like `ElectronicDeclarationDto.RowVersion`). Extend `UpdateCycleRequest`
+  and `UpdateCategoryRequest` to accept `RowVersion`. Wire the controller
+  through to `Database.UseTransaction` / `OriginalValues.SetValues` so the
+  EF concurrency token check fires.
+- **Frontend follow-up**: Add `rowVersion` to `AdmissionCycle` and
+  `ApplicantCategory` types in `frontend/src/shared/types/domain.ts`. Each
+  PATCH mutation in `cycles.service.ts` / `categories.service.ts` sends
+  the stored `rowVersion` back.
+
+### Gap P3-2 — 10 admin services still on `simulateLatency` / `MOCK.*` (BREADTH)
+
+Grep across `frontend/src/features/admin/api/` shows **158 occurrences** of
+`simulateLatency` or `MOCK.` reads/writes across 10 files:
+
+| Service | Occurrences | Notes |
+|---|---|---|
+| `cycles.service.ts` | 25 | `updateStatus` partly wired (GUID branch added in `16537ab`); list/get/create/patch still mock-driven for the legacy seeded ids |
+| `notifications.service.ts` | 15 | Step 14 — full mock |
+| `examPlans.service.ts` | 13 | Step 7 — full mock |
+| `categories.service.ts` | 14 | Steps 1–6 share this |
+| `workflows.service.ts` | 18 | Outside the wizard but still admin-managed |
+| `roles.service.ts` | 10 | Cloud RBAC matrix consumer |
+| `users.service.ts` | 14 | Admin users page |
+| `payments.service.ts` | 8 | Reports cross-link |
+| `nid-lookup.service.ts` | 2 | Officer lookup proxy |
+| `reports.service.ts` | 39 | Largest mock surface — Reports command-center |
+
+P3 scope is steps 1–6, so the in-scope migration set is **cycles + categories**.
+Notifications + exam-plans are P2 work (T071–T074). The remaining services
+(workflows, roles, users, payments, nid-lookup, reports) are outside spec
+009 — they migrate under their own specs once backend endpoints land.
+
+### Gap P3-3 — `FawryConfigCard` still imports but the fees step dropped it
+
+- **What**: CLAUDE.md §11 records "Dropped the optional fee inputs and the
+  `FawryConfigCard` — only the application-fee input remains" but the
+  component still lives at `frontend/src/features/admin/components/cycles/FawryConfigCard.tsx`.
+  Per spec-009 T106 we need to verify whether any surviving consumer of the
+  card actually persists its values, or if the file is dead.
+- **Fix shape**: Grep for all imports of `FawryConfigCard`. If none exist
+  outside its own file, delete it. If any do exist, confirm the field paths
+  it edits round-trip through `cycles.service.ts.updateCycle`.
+
+### Gap P3-4 — `CategoryConditionBuilder` writes go through `ConditionsJson` (OK in principle)
+
+- **What**: T107 calls out `CategoryConditionBuilder` rule-type writes
+  (age / marital / score / education). The component lives at
+  `frontend/src/features/admin/components/categories/CategoryConditionBuilder.tsx`
+  and is a pure controlled form — the parent (CategoryEditPage) owns the
+  draft and decides when to save.
+- **Status**: The conditions are persisted on `Category.ConditionsJson`
+  via `UpdateCategoryRequest.Conditions` (typed as `JsonElement?`). That
+  path *is* wired through the backend audit and is in `UpdateCategoryRequest`,
+  so the field passes the T100 coverage test.
+- **Outstanding verification**: The frontend's `categories.service.ts` is
+  still on mocks (Gap P3-2), so the live round-trip can't be exercised yet.
+  Once P3-2 lands for `categories.service.ts.updateCategory`, exercise an
+  edit of each rule type and confirm the JSON shape persists unchanged.
+
+### Gap P3-5 — `IsActive` on `Category` is set by Update only, not Create
+
+- **What**: `CreateCategoryRequest` has no `IsActive` field, so newly-created
+  categories take whatever default the domain factory picks (currently
+  `true` in `Category.Create`).
+- **Impact**: Minor — admin can immediately PATCH to deactivate. But if the
+  UX surfaces an "add as inactive" toggle on the create form, it can't be
+  honored at create time.
+- **Recommendation**: Defer. Not worth a contract change unless the
+  create-as-inactive UX is actually wanted. Track on TODO.md if it surfaces.
+
+### Recommended execution order for the remaining P3 work
+
+1. **P3-1 (RowVersion exposure)** — small, well-scoped, unlocks optimistic
+   locking on the two highest-traffic edit surfaces. ~1 file per layer.
+2. **P3-3 (FawryConfigCard cleanup)** — 10 min: grep + delete or wire.
+3. **P3-2 (cycles + categories mock-to-real)** — bigger; finishes the
+   service-layer migration for steps 1–6.
+4. **P3-4 verification** — only after P3-2 lands.
