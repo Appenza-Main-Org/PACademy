@@ -58,6 +58,8 @@ const TYPE_CODE: Record<LookupKey, string> = {
   'marital-statuses':             'MARITAL_STATUSES',
   'academic-grades':              'ACADEMIC_GRADES',
   'academic-degrees':             'ACADEMIC_DEGREES',
+  'exam-rounds':                  'EXAM_ROUNDS',
+  'graduation-years':             'GRADUATION_YEARS',
 };
 
 /** Hierarchical keys — `parentCode` ↔ `parentId` resolved via cache. */
