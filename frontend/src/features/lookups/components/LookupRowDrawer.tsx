@@ -23,16 +23,25 @@ import {
   Button,
   Drawer,
   Input,
+  MultiSelect,
   Select,
   Switch,
   Textarea,
+  type ComboboxGroup,
+  type ComboboxOption,
 } from '@/shared/components';
+import { Check } from 'lucide-react';
+import { cn } from '@/shared/lib/cn';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { MOCK } from '@/shared/mock-data';
 import {
   LOOKUP_META,
+  type ApplicantCategoryGenderScope,
+  type ApplicantCategoryType,
+  type FacultyRow,
   type LookupKey,
   type LookupRow,
+  type SpecializationRow,
 } from '../types';
 
 interface LookupRowDrawerProps<K extends LookupKey> {
@@ -140,7 +149,7 @@ export function LookupRowDrawer<K extends LookupKey>({
 /* ─── Per-key form fields (read via context) ─────────────────────────── */
 
 function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
-  const { register, control, watch, setValue } = useFormContext();
+  const { register, control, watch } = useFormContext();
   const codeOfSelf = watch('code') as string | undefined;
 
   switch (lookupKey) {
@@ -283,65 +292,8 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
           {...register('metadata.gradingMode')}
         />
       );
-    case 'applicant-categories': {
-      const categoryType = watch('type') as 'pre_university' | 'university' | undefined;
-      return (
-        <>
-          <Select
-            label="نطاق النوع"
-            options={[
-              { value: 'male',   label: 'ذكور فقط' },
-              { value: 'female', label: 'إناث فقط' },
-              { value: 'any',    label: 'الكل' },
-            ]}
-            {...register('genderScope')}
-          />
-          <Select
-            label="نوع التقديم"
-            options={[
-              { value: 'general',    label: 'تقديم عام' },
-              { value: 'nomination', label: 'بالترشيح' },
-            ]}
-            {...register('applicationMode')}
-          />
-          <Controller
-            control={control}
-            name="type"
-            render={({ field }) => (
-              <Select
-                label="مرحلة الالتحاق"
-                options={[
-                  { value: 'pre_university', label: 'قبل جامعي' },
-                  { value: 'university',     label: 'جامعي' },
-                ]}
-                value={(field.value as string) ?? 'pre_university'}
-                onChange={(e) => {
-                  const next = e.target.value as 'pre_university' | 'university';
-                  field.onChange(next);
-                  /* Pre-University doesn't carry a faculty-selection shape;
-                   * University defaults to single. */
-                  if (next === 'pre_university') {
-                    setValue('facultySelectionType', null);
-                  } else if (!watch('facultySelectionType')) {
-                    setValue('facultySelectionType', 'single');
-                  }
-                }}
-              />
-            )}
-          />
-          {categoryType === 'university' && (
-            <Select
-              label="اختيار الكلية"
-              options={[
-                { value: 'single',   label: 'كلية واحدة' },
-                { value: 'multiple', label: 'كليات متعددة' },
-              ]}
-              {...register('facultySelectionType')}
-            />
-          )}
-        </>
-      );
-    }
+    case 'applicant-categories':
+      return <ApplicantCategoryFields />;
     case 'nationalities-countries':
       return (
         <>
@@ -500,6 +452,229 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
   }
 }
 
+/* ─── applicant-categories: bespoke form section ─────────────────────── */
+
+const GENDER_SCOPE_OPTIONS: { value: ApplicantCategoryGenderScope; label: string }[] = [
+  { value: 'male',   label: 'ذكور' },
+  { value: 'female', label: 'إناث' },
+];
+
+const STAGE_OPTIONS: { value: ApplicantCategoryType; label: string }[] = [
+  { value: 'pre_university', label: 'ثانوي' },
+  { value: 'university',     label: 'جامعي' },
+];
+
+function ApplicantCategoryFields(): JSX.Element {
+  const { control } = useFormContext();
+  return (
+    <>
+      <Controller
+        control={control}
+        name="genderScope"
+        rules={{ validate: (v: unknown) => Array.isArray(v) && v.length > 0 }}
+        render={({ field, fieldState }) => (
+          <MultiSelect
+            label="نطاق النوع"
+            required
+            value={(field.value as string[] | undefined) ?? []}
+            onChange={field.onChange}
+            options={GENDER_SCOPE_OPTIONS}
+            placeholder="اختر النوع"
+            ariaLabel="نطاق النوع"
+            error={fieldState.error ? 'اختر نوعًا واحدًا على الأقل' : undefined}
+          />
+        )}
+      />
+
+      <Controller
+        control={control}
+        name="type"
+        render={({ field }) => (
+          <StageToggle
+            value={(field.value as ApplicantCategoryType | undefined) ?? 'pre_university'}
+            onChange={field.onChange}
+          />
+        )}
+      />
+
+      <FacultyAndSpecializationFields />
+    </>
+  );
+}
+
+function StageToggle({
+  value,
+  onChange,
+}: {
+  value: ApplicantCategoryType;
+  onChange: (next: ApplicantCategoryType) => void;
+}): JSX.Element {
+  const { setValue } = useFormContext();
+  return (
+    <div className="col-span-2 flex flex-col gap-1">
+      <span className="text-sm font-medium text-ink-700">
+        مرحلة الالتحاق
+        <span className="ms-1 text-terra-500">*</span>
+      </span>
+      <div
+        role="radiogroup"
+        aria-label="مرحلة الالتحاق"
+        className="inline-flex w-fit overflow-hidden rounded-md border border-border-default bg-surface-card"
+      >
+        {STAGE_OPTIONS.map((opt) => {
+          const selected = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => {
+                if (selected) return;
+                onChange(opt.value);
+                /* Pre-University categories don't carry faculties or
+                 * specializations — clear them so a re-shown row stays
+                 * consistent with the type. */
+                if (opt.value === 'pre_university') {
+                  setValue('facultyCodes', []);
+                  setValue('specializationCodes', []);
+                }
+              }}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium',
+                'transition-colors duration-fast ease-standard',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1',
+                selected ? 'bg-teal-500 text-white' : 'text-ink-700 hover:bg-ink-50',
+              )}
+            >
+              {selected && <Check size={12} strokeWidth={2.4} aria-hidden />}
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FacultyAndSpecializationFields(): JSX.Element | null {
+  const { control, watch, setValue } = useFormContext();
+  const stage = watch('type') as ApplicantCategoryType | undefined;
+  const selectedFaculties = (watch('facultyCodes') as string[] | undefined) ?? [];
+  const selectedSpecs = (watch('specializationCodes') as string[] | undefined) ?? [];
+
+  /* Active rows from the live lookups — no useEffect for fetching, just
+   * straight reads off MOCK like the rest of this drawer. */
+  const facultyOptions = useMemo<ComboboxOption[]>(
+    () =>
+      (MOCK.lookups.faculties as FacultyRow[])
+        .filter((f) => f.isActive)
+        .map((f) => ({ value: f.code, label: f.name })),
+    [],
+  );
+
+  const facultyById = useMemo(() => {
+    const map = new Map<string, FacultyRow>();
+    for (const f of MOCK.lookups.faculties as FacultyRow[]) map.set(f.code, f);
+    return map;
+  }, []);
+
+  /* Spec options + groups derived from the currently picked faculties. */
+  const specOptions = useMemo<ComboboxOption[]>(() => {
+    if (selectedFaculties.length === 0) return [];
+    const allowed = new Set(selectedFaculties);
+    return (MOCK.lookups.specializations as SpecializationRow[])
+      .filter((s) => s.isActive && allowed.has(s.facultyCode))
+      .map((s) => ({
+        value: s.code,
+        label: s.name,
+        groupId: s.facultyCode,
+      }));
+  }, [selectedFaculties]);
+
+  const specGroups = useMemo<ComboboxGroup[]>(
+    () =>
+      selectedFaculties.map((code) => ({
+        id: code,
+        label: facultyById.get(code)?.name ?? code,
+      })),
+    [selectedFaculties, facultyById],
+  );
+
+  /* When the picked faculties shrink, drop any selected spec that no
+   * longer belongs to a chosen faculty. Derived at render time — no
+   * effect, since RHF's setValue is safe inside render via a guarded
+   * compare. */
+  const reconciledSpecs = useMemo(() => {
+    if (selectedSpecs.length === 0) return selectedSpecs;
+    if (selectedFaculties.length === 0) return [];
+    const allowed = new Set(selectedFaculties);
+    const next = selectedSpecs.filter((code) => {
+      const row = (MOCK.lookups.specializations as SpecializationRow[]).find(
+        (s) => s.code === code,
+      );
+      return row != null && allowed.has(row.facultyCode);
+    });
+    return next.length === selectedSpecs.length ? selectedSpecs : next;
+  }, [selectedSpecs, selectedFaculties]);
+
+  if (reconciledSpecs !== selectedSpecs) {
+    /* RHF tolerates setValue during render as long as the value changed.
+     * The guarded compare above keeps this idempotent. */
+    setValue('specializationCodes', reconciledSpecs, { shouldDirty: true });
+  }
+
+  if (stage !== 'university') return null;
+
+  return (
+    <>
+      <Controller
+        control={control}
+        name="facultyCodes"
+        rules={{ validate: (v: unknown) => Array.isArray(v) && v.length > 0 }}
+        render={({ field, fieldState }) => (
+          <MultiSelect
+            label="الكليات"
+            required
+            value={(field.value as string[] | undefined) ?? []}
+            onChange={field.onChange}
+            options={facultyOptions}
+            placeholder="اختر الكليات"
+            ariaLabel="الكليات"
+            enableSelectAll
+            className="col-span-2"
+            error={fieldState.error ? 'اختر كلية واحدة على الأقل' : undefined}
+          />
+        )}
+      />
+
+      {selectedFaculties.length > 0 && (
+        <Controller
+          control={control}
+          name="specializationCodes"
+          render={({ field }) => (
+            <MultiSelect
+              label="التخصصات"
+              helper="اتركه فارغًا لقبول كل تخصصات الكليات المختارة"
+              value={(field.value as string[] | undefined) ?? []}
+              onChange={field.onChange}
+              options={specOptions}
+              groups={specGroups}
+              placeholder="اختر التخصصات"
+              ariaLabel="التخصصات"
+              enableSelectAll
+              className="col-span-2"
+              selectionSummary={(selected) =>
+                `${selected.length.toLocaleString('ar-EG')} تخصصات مختارة`
+              }
+            />
+          )}
+        />
+      )}
+    </>
+  );
+}
+
 /* ─── FK selects ─────────────────────────────────────────────────────── */
 
 interface ParentCodeSelectProps {
@@ -586,10 +761,10 @@ function blankRow(key: LookupKey): Record<string, unknown> {
     case 'applicant-categories':
       return {
         ...base,
-        genderScope: 'any',
-        applicationMode: 'general',
+        genderScope: ['male', 'female'],
         type: 'pre_university',
-        facultySelectionType: null,
+        facultyCodes: [],
+        specializationCodes: [],
       };
     case 'nationalities-countries':
       return { ...base, iso2: '', isArab: false };

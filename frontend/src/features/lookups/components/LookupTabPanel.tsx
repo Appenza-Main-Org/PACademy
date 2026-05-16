@@ -20,6 +20,8 @@ import {
   StatusBadge,
   Switch,
   toast,
+  Tooltip,
+  TooltipProvider,
   type DataTableColumn,
   type DataTableSort,
 } from '@/shared/components';
@@ -531,29 +533,40 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
       ];
     case 'applicant-categories':
       return [
-        { key: 'genderScope', label: 'نطاق النوع', sortable: true, width: 110, render: (r: ApplicantCategoryRow) => <Badge tone={r.genderScope === 'male' ? 'info' : r.genderScope === 'female' ? 'accent' : 'neutral'}>{r.genderScope === 'male' ? 'ذكور' : r.genderScope === 'female' ? 'إناث' : 'الكل'}</Badge> },
-        { key: 'type', label: 'مرحلة الالتحاق', sortable: true, width: 130, render: (r: ApplicantCategoryRow) => (
+        { key: 'genderScope', label: 'نطاق النوع', width: 150, render: (r: ApplicantCategoryRow) => (
+          <span className="inline-flex flex-wrap items-center gap-1">
+            {r.genderScope.length === 0
+              ? <span className="text-ink-400">—</span>
+              : r.genderScope.map((g) => (
+                  <Badge key={g} tone={g === 'male' ? 'info' : 'accent'}>
+                    {g === 'male' ? 'ذكور' : 'إناث'}
+                  </Badge>
+                ))}
+          </span>
+        ) },
+        { key: 'type', label: 'مرحلة الالتحاق', sortable: true, width: 110, render: (r: ApplicantCategoryRow) => (
           <Badge tone={r.type === 'university' ? 'info' : 'neutral'}>
-            {r.type === 'university' ? 'جامعي' : 'قبل جامعي'}
+            {r.type === 'university' ? 'جامعي' : 'ثانوي'}
           </Badge>
         ) },
-        { key: 'facultySelectionType', label: 'اختيار الكلية', sortable: true, width: 130, render: (r: ApplicantCategoryRow) => {
-          if (r.facultySelectionType === null) return <span className="text-ink-400">—</span>;
-          return (
-            <Badge tone="accent">
-              {r.facultySelectionType === 'single' ? 'كلية واحدة' : 'كليات متعددة'}
-            </Badge>
-          );
-        } },
-        /* "نوع التقديم" reflects the new submission-types FK
-         * (`metadata.submissionTypeCode`). Replaces the legacy
-         * applicationMode binary badge — the typed column is still on the
-         * row but is no longer the rendering source. */
-        { key: 'submissionTypeCode', label: 'نوع التقديم', width: 180, render: (r: ApplicantCategoryRow) => {
-          const meta = (r.metadata ?? {}) as { submissionTypeCode?: string };
-          if (!meta.submissionTypeCode) return <Badge tone="warning">—</Badge>;
-          return <Badge tone="neutral">{labelByCode('submission-types', meta.submissionTypeCode)}</Badge>;
-        } },
+        { key: 'facultyCodes', label: 'الكليات', width: 220, render: (r: ApplicantCategoryRow) => (
+          <ChipStack
+            codes={r.facultyCodes}
+            lookupKey="faculties"
+            emptyLabel="—"
+            tone="neutral"
+            ariaLabel="الكليات"
+          />
+        ) },
+        { key: 'specializationCodes', label: 'التخصصات', width: 240, render: (r: ApplicantCategoryRow) => (
+          <ChipStack
+            codes={r.specializationCodes}
+            lookupKey="specializations"
+            emptyLabel="الكل"
+            tone="accent"
+            ariaLabel="التخصصات"
+          />
+        ) },
       ];
     case 'nationalities-countries':
       return [
@@ -610,6 +623,60 @@ function labelByCode(key: LookupKey, code: string): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = (MOCK.lookups[key] as any[]).find((r) => r.code === code);
   return row ? row.name : '—';
+}
+
+/**
+ * ChipStack — truncated chip cluster with `+N` overflow + hover-reveal
+ * Tooltip showing the full list. Used in list cells where the cell can
+ * hold many tags but only ~2 inline.
+ *
+ * `tone` flows through to `Badge`. `emptyLabel` controls the rendered
+ * affordance when `codes` is empty (e.g. "—" vs "الكل" for a "no spec
+ * filter = all specs" semantic).
+ */
+interface ChipStackProps {
+  codes: readonly string[];
+  lookupKey: LookupKey;
+  emptyLabel: string;
+  tone: 'neutral' | 'accent' | 'info';
+  ariaLabel: string;
+}
+
+const MAX_INLINE_CHIPS = 2;
+
+function ChipStack({ codes, lookupKey, emptyLabel, tone, ariaLabel }: ChipStackProps): JSX.Element {
+  if (codes.length === 0) {
+    return <span className="text-ink-400">{emptyLabel}</span>;
+  }
+  const inline = codes.slice(0, MAX_INLINE_CHIPS);
+  const overflow = codes.slice(MAX_INLINE_CHIPS);
+  const overflowList = overflow.map((c) => labelByCode(lookupKey, c)).join('، ');
+
+  return (
+    <TooltipProvider>
+      <span
+        className="inline-flex max-w-full flex-wrap items-center gap-1"
+        aria-label={ariaLabel}
+      >
+        {inline.map((c) => (
+          <Badge key={c} tone={tone} className="max-w-[140px] truncate">
+            {labelByCode(lookupKey, c)}
+          </Badge>
+        ))}
+        {overflow.length > 0 && (
+          <Tooltip content={overflowList} side="top">
+            <button
+              type="button"
+              className="inline-flex items-center rounded-pill border border-border-default bg-surface-page px-2 py-0.5 text-2xs font-medium text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
+              aria-label={`عرض ${overflow.length} عنصرًا إضافيًا`}
+            >
+              +{overflow.length}
+            </button>
+          </Tooltip>
+        )}
+      </span>
+    </TooltipProvider>
+  );
 }
 
 /** Generic Arabic-aware comparator used by the column-header sort.

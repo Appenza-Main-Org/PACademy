@@ -129,8 +129,8 @@ export interface ApplicantSpecializationYearBase {
    *  At least one year must be picked. */
   graduationYears: number[];
   /** Multi-select. At least one gender must be picked. When the parent
-   *  category's `genderScope` is not `'any'`, the UI locks this set to
-   *  the single allowed gender. */
+   *  category's `genderScope` is a single-entry array, the UI locks this
+   *  set to that gender (see `ParentCategorySnapshot.lockedGender`). */
   genderTypes: GenderType[];
   /** Multi-select. FK → `marital-statuses[code]`. Empty array = any. */
   maritalStatusCodes: string[];

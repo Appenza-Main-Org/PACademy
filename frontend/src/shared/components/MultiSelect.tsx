@@ -15,11 +15,12 @@
  *   />
  */
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
-import type { ComboboxOption } from './Combobox';
+import type { ComboboxGroup, ComboboxOption } from './Combobox';
 
 const POPOVER_GAP = 8;
 
@@ -35,6 +36,20 @@ interface MultiSelectProps {
   required?: boolean;
   className?: string;
   ariaLabel?: string;
+  /** When provided, options are reordered to match this group sequence
+   *  and rendered under sticky section headers (same shape as Combobox).
+   *  Options without a matching `groupId` sink to the end. */
+  groups?: readonly ComboboxGroup[];
+  /** When `true`, surfaces "تحديد الكل" / "إلغاء الكل" action buttons in
+   *  the popover header. The actions operate on the currently filtered
+   *  slice, so search + select-all composes naturally. */
+  enableSelectAll?: boolean;
+  /** Optional override for the trigger's body. When set, replaces the
+   *  chip cluster with a compact summary (e.g. "5 تخصصات مختارة"). The
+   *  popover still surfaces full chip semantics, and removal is one click
+   *  away inside it. Receives the resolved option list for the picked
+   *  values; an empty list signals "no selection — render placeholder". */
+  selectionSummary?: (selected: readonly ComboboxOption[]) => ReactNode;
 }
 
 export function MultiSelect({
@@ -49,6 +64,9 @@ export function MultiSelect({
   required,
   className,
   ariaLabel,
+  groups,
+  enableSelectAll,
+  selectionSummary,
 }: MultiSelectProps): JSX.Element {
   const id = useId();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -71,13 +89,29 @@ export function MultiSelect({
     setPosition({ top: rect.bottom + POPOVER_GAP, left: rect.left, width: rect.width });
   };
 
+  const grouped = groups != null && groups.length > 0;
+
   const filtered = useMemo(() => {
-    if (!term.trim()) return options;
-    const needle = normalize(term);
-    return options.filter((o) =>
-      [o.label, o.value, o.keywords ?? ''].some((s) => normalize(s).includes(needle)),
-    );
-  }, [options, term]);
+    const base = !term.trim()
+      ? options
+      : (() => {
+          const needle = normalize(term);
+          return options.filter((o) =>
+            [o.label, o.value, o.keywords ?? ''].some((s) => normalize(s).includes(needle)),
+          );
+        })();
+    if (!grouped) return base;
+    const order = new Map(groups!.map((g, i) => [g.id, i]));
+    return base
+      .map((opt, i) => ({ opt, i, gi: opt.groupId ? order.get(opt.groupId) ?? Infinity : Infinity }))
+      .sort((a, b) => (a.gi - b.gi) || (a.i - b.i))
+      .map(({ opt }) => opt);
+  }, [options, term, grouped, groups]);
+
+  const groupById = useMemo(
+    () => (grouped ? new Map(groups!.map((g) => [g.id, g])) : null),
+    [grouped, groups],
+  );
 
   const selectedOptions = options.filter((o) => valueSet.has(o.value));
 
@@ -150,6 +184,24 @@ export function MultiSelect({
     onChange?.(Array.from(next));
   };
 
+  /* Select-all / clear-all operate on the currently filtered slice so the
+   * search input composes naturally — "filter to faculty X, hit تحديد الكل,
+   * clear search" picks every option under that faculty without touching
+   * unrelated rows. */
+  const filteredValues = useMemo(() => filtered.map((o) => o.value), [filtered]);
+  const allFilteredSelected = filteredValues.length > 0
+    && filteredValues.every((v) => valueSet.has(v));
+  const selectAll = (): void => {
+    const next = new Set(value);
+    for (const v of filteredValues) next.add(v);
+    onChange?.(Array.from(next));
+  };
+  const clearAll = (): void => {
+    const next = new Set(value);
+    for (const v of filteredValues) next.delete(v);
+    onChange?.(Array.from(next));
+  };
+
   return (
     <div ref={wrapperRef} className={cn('flex flex-col gap-1', className)}>
       {label && (
@@ -176,7 +228,15 @@ export function MultiSelect({
           )}
         >
           <span className="flex flex-1 flex-wrap items-center gap-1">
-            {selectedOptions.length === 0 ? (
+            {selectionSummary ? (
+              selectedOptions.length === 0 ? (
+                <span className="text-ink-400">{placeholder}</span>
+              ) : (
+                <span className="text-sm text-ink-900">
+                  {selectionSummary(selectedOptions)}
+                </span>
+              )
+            ) : selectedOptions.length === 0 ? (
               <span className="text-ink-400">{placeholder}</span>
             ) : (
               selectedOptions.map((opt) => (
@@ -216,7 +276,7 @@ export function MultiSelect({
               zIndex: 'var(--z-popover)' as unknown as number,
             }}
           >
-            <div className="border-b border-border-subtle px-3 py-2">
+            <div className="flex flex-col gap-1.5 border-b border-border-subtle px-3 py-2">
               <div className="relative">
                 <Search
                   size={14}
@@ -234,6 +294,48 @@ export function MultiSelect({
                   className="w-full rounded-md border border-transparent bg-ink-50 ps-7 pe-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:bg-surface-card focus-visible:outline-none"
                 />
               </div>
+              {enableSelectAll && filtered.length > 0 && (
+                <div className="flex items-center justify-between text-2xs text-ink-500">
+                  <span>
+                    {selectedOptions.length > 0
+                      ? `محدد: ${selectedOptions.length}`
+                      : 'لم يتم اختيار شيء'}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); selectAll(); }}
+                      disabled={allFilteredSelected}
+                      className={cn(
+                        'rounded-sm px-1.5 py-0.5 font-medium',
+                        'transition-colors duration-fast ease-standard',
+                        'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
+                        allFilteredSelected
+                          ? 'cursor-not-allowed text-ink-300'
+                          : 'text-teal-700 hover:bg-teal-50',
+                      )}
+                    >
+                      تحديد الكل
+                    </button>
+                    <span aria-hidden className="text-ink-300">·</span>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); clearAll(); }}
+                      disabled={selectedOptions.length === 0}
+                      className={cn(
+                        'rounded-sm px-1.5 py-0.5 font-medium',
+                        'transition-colors duration-fast ease-standard',
+                        'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
+                        selectedOptions.length === 0
+                          ? 'cursor-not-allowed text-ink-300'
+                          : 'text-terra-700 hover:bg-terra-50',
+                      )}
+                    >
+                      إلغاء الكل
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <ul
               ref={listRef}
@@ -245,39 +347,53 @@ export function MultiSelect({
               {filtered.length === 0 && (
                 <li className="px-3 py-4 text-center text-sm text-ink-500">لا توجد نتائج</li>
               )}
-              {filtered.map((opt) => {
+              {filtered.map((opt, idx) => {
                 const checked = valueSet.has(opt.value);
+                const prev = idx > 0 ? filtered[idx - 1] : null;
+                const showHeader =
+                  grouped && opt.groupId != null && opt.groupId !== prev?.groupId;
+                const headerGroup =
+                  showHeader && groupById ? groupById.get(opt.groupId!) : null;
                 return (
-                  <li
-                    key={opt.value}
-                    role="option"
-                    aria-selected={checked}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      toggle(opt.value);
-                    }}
-                    className={cn(
-                      'flex h-9 cursor-pointer items-center gap-2 px-3 text-sm hover:bg-teal-50',
-                      checked && 'font-medium text-teal-700',
-                      opt.disabled && 'cursor-not-allowed text-ink-300',
+                  <Fragment key={opt.value}>
+                    {headerGroup && (
+                      <li
+                        role="presentation"
+                        className="sticky top-0 z-10 bg-ink-50/95 px-3 py-1 text-2xs font-medium text-ink-500 backdrop-blur"
+                      >
+                        {headerGroup.label}
+                      </li>
                     )}
-                  >
-                    <span
+                    <li
+                      role="option"
+                      aria-selected={checked}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        toggle(opt.value);
+                      }}
                       className={cn(
-                        'flex h-4 w-4 items-center justify-center rounded-sm border',
-                        checked ? 'border-teal-500 bg-teal-500 text-white' : 'border-border-strong',
+                        'flex h-9 cursor-pointer items-center gap-2 px-3 text-sm hover:bg-teal-50',
+                        checked && 'font-medium text-teal-700',
+                        opt.disabled && 'cursor-not-allowed text-ink-300',
                       )}
-                      aria-hidden
                     >
-                      {checked && <Check size={11} strokeWidth={2.4} />}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{opt.label}</span>
-                    {opt.badge && (
-                      <span className="rounded-pill bg-ink-100 px-2.5 py-1 text-2xs text-ink-700">
-                        {opt.badge}
+                      <span
+                        className={cn(
+                          'flex h-4 w-4 items-center justify-center rounded-sm border',
+                          checked ? 'border-teal-500 bg-teal-500 text-white' : 'border-border-strong',
+                        )}
+                        aria-hidden
+                      >
+                        {checked && <Check size={11} strokeWidth={2.4} />}
                       </span>
-                    )}
-                  </li>
+                      <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+                      {opt.badge && (
+                        <span className="rounded-pill bg-ink-100 px-2.5 py-1 text-2xs text-ink-700">
+                          {opt.badge}
+                        </span>
+                      )}
+                    </li>
+                  </Fragment>
                 );
               })}
             </ul>

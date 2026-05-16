@@ -387,10 +387,10 @@ const applicantCategories: ApplicantCategoryRow[] = [
     nameEn: 'General Officers Department',
     description: 'الالتحاق بكلية الشرطة عبر القسم العام لخريجي الثانوية العامة',
     isOpen: true,
-    genderScope: 'male',
-    applicationMode: 'general',
+    genderScope: ['male'],
     type: 'pre_university',
-    facultySelectionType: null,
+    facultyCodes: [],
+    specializationCodes: [],
     conditions: {
       ageMin: null, ageMax: null, minScorePercent: null,
       requiredQualification: 'thanaweya_amma', gender: 'male',
@@ -418,10 +418,10 @@ const applicantCategories: ApplicantCategoryRow[] = [
     nameEn: 'Bachelor of Law',
     description: 'الالتحاق لخريجي كليات الحقوق',
     isOpen: true,
-    genderScope: 'any',
-    applicationMode: 'general',
+    genderScope: ['male', 'female'],
     type: 'university',
-    facultySelectionType: 'single',
+    facultyCodes: ['FAC-17'],
+    specializationCodes: [],
     conditions: {
       ageMin: null, ageMax: null, minScorePercent: null,
       requiredQualification: 'bachelor_law', gender: 'any',
@@ -448,10 +448,10 @@ const applicantCategories: ApplicantCategoryRow[] = [
     nameEn: 'Bachelor of Physical Education',
     description: 'الالتحاق لخريجات كليات التربية الرياضية',
     isOpen: true,
-    genderScope: 'female',
-    applicationMode: 'general',
+    genderScope: ['female'],
     type: 'university',
-    facultySelectionType: 'single',
+    facultyCodes: ['FAC-18'],
+    specializationCodes: [],
     conditions: {
       ageMin: null, ageMax: null, minScorePercent: null,
       requiredQualification: 'bachelor', gender: 'female',
@@ -478,10 +478,18 @@ const applicantCategories: ApplicantCategoryRow[] = [
     nameEn: 'Specialized Officers',
     description: 'الالتحاق لخريجي الجامعات في تخصصات الطب والهندسة والإعلام وغيرها',
     isOpen: true,
-    genderScope: 'any',
-    applicationMode: 'general',
+    genderScope: ['male', 'female'],
     type: 'university',
-    facultySelectionType: 'multiple',
+    /* All faculties listed under /admin/lookups/faculties except the
+     * single-discipline ones already claimed by other categories
+     * (FAC-17 الحقوق, FAC-18 التربية الرياضية). */
+    facultyCodes: [
+      'FAC-01', 'FAC-02', 'FAC-03', 'FAC-04', 'FAC-05',
+      'FAC-06', 'FAC-07', 'FAC-08', 'FAC-09', 'FAC-10',
+      'FAC-11', 'FAC-12', 'FAC-13', 'FAC-14', 'FAC-15',
+      'FAC-16',
+    ],
+    specializationCodes: [],
     conditions: {
       ageMin: null, ageMax: 28, minScorePercent: null,
       requiredQualification: 'bachelor', gender: 'any',

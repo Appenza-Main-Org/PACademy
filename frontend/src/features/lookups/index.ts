@@ -30,7 +30,7 @@ export {
   type FacultyRow,
   type ApplicantCategoryRow,
   type ApplicantCategoryGenderScope,
-  type ApplicantCategoryApplicationMode,
+  type ApplicantCategoryType,
   type NationalityCountryRow,
   type GovernorateRow,
   type GovernorateRegion,

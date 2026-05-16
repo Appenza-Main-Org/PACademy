@@ -119,10 +119,12 @@ export interface CategoryConfigJoined extends ApplicantCategoryConfig {
    *  can read it via a single named field at the top of the join shape. */
   categoryCode: string;
   categoryNameAr: string;
-  /** Gender lock derived from the lookup row. When ≠ `'any'`, the
-   *  application-settings UI renders the gender toggle as a read-only
-   *  badge per RFP §2.1. */
-  genderScope: ApplicantCategoryGenderScope;
+  /** Gender lock derived from the lookup row's `genderScope` array.
+   *  Single-entry array → that gender is locked; otherwise `null` (the
+   *  category accepts both). Mirrors the rendering invariant the
+   *  application-settings UI used to read off the old `'any' | 'male' |
+   *  'female'` enum (per RFP §2.1). */
+  lockedGender: ApplicantCategoryGenderScope | null;
   /** `true` when the category has no real specialization axis (RFP §2.1
    *  defines a per-spec axis only for `specialized_officers`). Single-axis
    *  configs render `<YearTable />` inline against the implicit-default
@@ -145,7 +147,19 @@ export interface CategorySpecializationJoined extends ApplicantCategorySpecializ
 
 export interface ParentCategorySnapshot {
   code: string;
-  genderScope: ApplicantCategoryGenderScope;
+  /** Same `lockedGender` semantics as `CategoryConfigJoined.lockedGender`:
+   *  if the category's `genderScope` array contains exactly one entry,
+   *  that's the locked value; otherwise `null` (no lock). */
+  lockedGender: ApplicantCategoryGenderScope | null;
+}
+
+/** Derive the lock from the lookup's multi-select. Single-entry array
+ *  locks to that gender; everything else (empty or both) means "no lock". */
+function deriveLockedGender(
+  scope: readonly ApplicantCategoryGenderScope[] | undefined,
+): ApplicantCategoryGenderScope | null {
+  if (!scope || scope.length !== 1) return null;
+  return scope[0] ?? null;
 }
 
 function joinConfig(c: ApplicantCategoryConfig): CategoryConfigJoined {
@@ -166,7 +180,7 @@ function joinConfig(c: ApplicantCategoryConfig): CategoryConfigJoined {
     ...c,
     categoryCode: c.categoryId,
     categoryNameAr: cat?.name ?? c.categoryId,
-    genderScope: cat?.genderScope ?? 'any',
+    lockedGender: deriveLockedGender(cat?.genderScope),
     singleAxis,
     implicitSpecId: singleAxis ? (implicitSpec?.id ?? null) : null,
     /* Hide the implicit-default junction from the counter. */
@@ -295,7 +309,7 @@ export const applicationSettingsService = {
     if (!cat) return null;
     return {
       code: cat.code,
-      genderScope: cat.genderScope,
+      lockedGender: deriveLockedGender(cat.genderScope),
     };
   },
 
