@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\Modules\Identity\PACademy.Modules.Identity.Domain\PACademy.Modules.Identity.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Admissions\PACademy.Modules.Admissions.Domain\PACademy.Modules.Admissions.Domain.csproj" />
     <ProjectReference Include="..\..\src\Modules\Committees\PACademy.Modules.Committees.Domain\PACademy.Modules.Committees.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Notifications\PACademy.Modules.Notifications.Domain\PACademy.Modules.Notifications.Domain.csproj" />
   </ItemGroup>
 
 </Project>

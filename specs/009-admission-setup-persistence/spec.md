@@ -17,6 +17,10 @@
 - Q: How do committee merge/split rules execute on their effective date? → A: **Manual "Apply" action by an admin.** The merge/split rule is a *planned* configuration with an informational `effectiveAt` date. No background job auto-executes it. On or after `effectiveAt`, an admin reviews an impact preview (which applicants move where, capacity changes, downstream side-effects) and clicks "Apply" to commit. The rule's lifecycle is `planned → applied → cancelled` (admins can cancel a planned rule before apply; an applied rule is immutable for audit).
 - Q: How is each wizard step's status pill (complete / in_progress / not_started) determined? → A: **Admin explicitly marks each step complete.** The pill defaults to `not_started` for an empty step and flips to `in_progress` automatically the first time any data is saved for the step, but only the admin clicking a "إكمال الخطوة" (Mark step complete) button promotes it to `complete`. This is auditable (action: `wizard_step_completed`) and reversible (admin can re-open a step by editing any field, dropping it back to `in_progress`).
 
+### Session 2026-05-16
+
+- Q: Is there a retention/purge window after which closed-cycle wizard data is archived to cold storage or hard-deleted? → A: **7-year online retention, then move to cold archive indefinitely; no hard-delete.** Aligns with Egyptian government audit retention (لائحة المحفوظات). After 7 years from cycle close, the cycle's wizard rows move to a cold-archive store (read-only, restorable on request); they are never hard-deleted so the admission file remains accessible for the full legal life of the decision.
+
 ## User Scenarios & Testing *(mandatory)*
 
 The admission-setup wizard is the operator's command surface for configuring a
@@ -38,13 +42,14 @@ writes to the database.
 ### User Story 1 — The 5 wizard steps with no backend today get full persistence (Priority: P1)
 
 A super-admin opens any of the five steps that have zero database backing
-today — committee merge/split rules (step 9), committee score thresholds
-(step 10), admission exam date config (step 11), total-score weights per
-applicant stream (step 13), and the electronic declaration (step 15) —
-edits the configuration, saves, closes the browser, opens the wizard again
-the next day from a different machine, and sees exactly the saved state. A
-second admin opening the same cycle's wizard sees the same data, not their
-own private in-memory copy.
+today — committee merge/split rules (`merge_split_rules`), committee score
+thresholds (`score_thresholds`), admission exam date config
+(`exam_date_config`), total-score weights per applicant stream
+(`total_score_config`), and the electronic declaration
+(`electronic_declaration`) — edits the configuration, saves, closes the
+browser, opens the wizard again the next day from a different machine, and
+sees exactly the saved state. A second admin opening the same cycle's wizard
+sees the same data, not their own private in-memory copy.
 
 **Why this priority**: These five steps are 100% non-functional for
 production use today. They render and accept input, but everything written
@@ -86,9 +91,10 @@ and sees the same saved state.
 ### User Story 2 — The 4 wizard steps with mock-only services get DB persistence (Priority: P2)
 
 The wizard steps that compose over existing services — exam-plan editor
-(step 7), committee management (step 8), date-committee binding (step 12),
-and notification authoring (step 14) — currently read from and write to
-in-memory service-layer mocks rather than the database. An admin
+(`exams`), committee management (`committees`), date-committee binding
+(`committee_bindings`), and notification authoring (`notifications`) —
+currently read from and write to in-memory service-layer mocks rather than
+the database. An admin
 configuring these steps loses their work on page reload, and a second
 admin sees a different in-memory state. The same edit-save-reload
 round-trip must succeed for these four steps.
@@ -275,7 +281,7 @@ those edits, and the source cycle's data is untouched.
 
 ### Functional Requirements
 
-- **FR-001**: All data entered into any of the 15 wizard steps MUST persist
+- **FR-001**: All data entered into any of the 13 wizard steps MUST persist
   to a durable store such that closing the browser, signing out, or
   signing in from a different machine returns the same state.
 - **FR-002**: All wizard data MUST be scoped to a specific cycle; the same
@@ -328,9 +334,11 @@ those edits, and the source cycle's data is untouched.
   to `in_progress`. Status promotion to `complete` MUST emit an audit
   entry (action: `wizard_step_completed`) and MUST be reversible.
 - **FR-015**: When a cycle is closed or archived, its wizard data MUST be
-  retained indefinitely for audit. [NEEDS CLARIFICATION: is there a
-  retention/purge window after which closed-cycle wizard data is
-  archived to cold storage or hard-deleted?]
+  retained online and queryable for **7 years from cycle close**, then
+  moved to a cold-archive store (read-only, restorable on request). Hard-
+  delete is forbidden. The 7-year window aligns with Egyptian government
+  audit retention (لائحة المحفوظات). The move to cold archive MUST preserve
+  audit-trail linkage so historical decisions remain auditable.
 - **FR-016**: The electronic declaration MUST track a monotonically
   increasing version number per cycle; admins MUST be able to publish a
   version and see which version is currently in effect.
@@ -363,10 +371,15 @@ those edits, and the source cycle's data is untouched.
 - **FR-021**: Wizard data for one cycle MUST be cloneable from another
   cycle as a starting point (in scope for this feature). The clone
   operation MUST:
-  - Copy every step's data (1 through 15) into the target cycle.
-  - Reset identity-bound fields on the target: cycle name, year,
-    application open/close dates, reference age date. The admin fills
-    those in for the new cycle.
+  - Copy every wizard step's data (steps `cycle_metadata` through
+    `electronic_declaration`, i.e. steps 2–13 per AMENDMENT-001) into
+    the target cycle. Step 1 (`application_settings`) is owned by
+    spec 011 and is not cloned here.
+  - Leave the Cycle record's own identity-bound fields (name, year,
+    application open/close dates, reference age date) intact on the
+    target; those fields live on the `Cycle` entity and are managed
+    separately through the cycle-metadata wizard step — the clone does
+    not overwrite them.
   - Remap cross-entity references where the referenced row exists in
     the target context; flag unresolvable references with a broken-
     reference indicator on the target wizard rather than failing the
@@ -384,26 +397,26 @@ those edits, and the source cycle's data is untouched.
 The five wizard-owned entities have no backend home today and must be
 created:
 
-- **CommitteeMergeSplitRule** (step 9) — a planned merge or split
-  operation against named source/target committees, with an
+- **CommitteeMergeSplitRule** (step key: `merge_split_rules`) — a planned
+  merge or split operation against named source/target committees, with an
   informational `effectiveAt` date and a lifecycle of
   `planned → applied → cancelled`. The "Apply" action is admin-driven,
   not scheduled; once applied, the rule is immutable. Belongs to one
   cycle.
-- **CommitteeScoreThreshold** (step 10) — the inclusive min/max
-  acceptance scores for one committee within one cycle. One row per
-  (cycle, committee) pair.
-- **ExamDateConfig** (step 11) — the bookable-days, blackout-dates, and
-  earliest-available-date for the cycle's admission exams. One row per
-  cycle.
-- **TotalScoreConfig** (step 13) — the per-applicant-stream component
-  weights and total-out-of denominator. One row per
-  (cycle, applicant-stream) pair, with an embedded list of components
-  referencing exams from the cycle's exam plan.
-- **ElectronicDeclaration** (step 15) — the versioned, publishable
-  Arabic declaration text shown to applicants before they print their
-  exam card. Multiple draft versions per cycle; one published version
-  active at a time.
+- **CommitteeScoreThreshold** (step key: `score_thresholds`) — the
+  inclusive min/max acceptance scores for one committee within one cycle.
+  One row per (cycle, committee) pair.
+- **ExamDateConfig** (step key: `exam_date_config`) — the bookable-days,
+  blackout-dates, and earliest-available-date for the cycle's admission
+  exams. One row per cycle.
+- **TotalScoreConfig** (step key: `total_score_config`) — the
+  per-applicant-stream component weights and total-out-of denominator. One
+  row per (cycle, applicant-stream) pair, with an embedded list of
+  components referencing exams from the cycle's exam plan.
+- **ElectronicDeclaration** (step key: `electronic_declaration`) — the
+  versioned, publishable Arabic declaration text shown to applicants before
+  they print their exam card. Multiple draft versions per cycle; one
+  published version active at a time.
 
 The other ten steps compose over entities that already exist in the
 domain model (Cycle, Category, AdmissionRule, Committee, Exam,
@@ -415,7 +428,7 @@ than introducing new shapes.
 
 ### Measurable Outcomes
 
-- **SC-001**: An admin can configure all 15 wizard steps for a new cycle,
+- **SC-001**: An admin can configure all 13 wizard steps for a new cycle,
   close the browser, sign in 24 hours later from a different device, and
   see 100% of the data they entered. No field is in-memory-only.
 - **SC-002**: Two admins simultaneously editing different steps of the
@@ -431,7 +444,7 @@ than introducing new shapes.
   the electronic-declaration text it shows matches the
   currently-published version from the cycle's wizard data; no
   hard-coded fallback string is visible on a configured cycle.
-- **SC-005**: For a cycle in "draft" status, all 15 wizard steps allow
+- **SC-005**: For a cycle in "draft" status, all 13 wizard steps allow
   reads and writes by admins with write permission. For a cycle in
   "active" or "closed" status, reads succeed and writes are rejected
   with a clear Arabic message.

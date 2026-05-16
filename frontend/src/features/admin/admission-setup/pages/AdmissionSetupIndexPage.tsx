@@ -23,8 +23,6 @@ import {
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { useCycles } from '@/features/admin/api/cycles.queries';
-import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
-import { useCommittees } from '@/features/committees';
 import { date as fmtDate } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { hasPermission, useAuthStore } from '@/features/auth';
@@ -35,19 +33,9 @@ import {
   ADMISSION_SETUP_STEPS,
   ADMISSION_SETUP_TOTAL_STEPS,
 } from '../config';
-import {
-  buildCommitteeBindingsSnapshot,
-  computeStepStatus,
-  type StepStatusInputs,
-} from '../lib/step-status';
+import { useStepStatuses } from '../lib/step-status';
 import { readDraft } from '../lib/wizard-draft';
 import type { AdmissionSetupStepKey } from '../types';
-import {
-  useCommitteeBindings,
-  useElectronicDeclaration,
-} from '../api/admission-setup.queries';
-import { useExamScheduleAggregate } from '../api/examSchedule.queries';
-import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
 
 /** First wizard step after cycle_metadata was removed — admins land here. */
 const FIRST_STEP: AdmissionSetupStepKey = 'application_settings';
@@ -176,31 +164,9 @@ function ActiveCycleCard({
   cycle: AdmissionCycle;
   onStart: (stepKey: string) => void;
 }): JSX.Element {
-  const categoriesQuery = useCategoriesAdmin();
-  const committeesQuery = useCommittees();
-  const examScheduleAggregateQuery = useExamScheduleAggregate(cycle.id);
-  const declarationQuery = useElectronicDeclaration(cycle.id);
-  const rosterQuery = useCommitteeBindings(cycle.id, null);
-  const cycleBindingsQuery = useCycleCommitteeBindings(cycle.id);
-  const committeeBindingsSnapshot =
-    examScheduleAggregateQuery.data && rosterQuery.data && cycleBindingsQuery.data
-      ? buildCommitteeBindingsSnapshot(
-          rosterQuery.data,
-          cycleBindingsQuery.data,
-          cycle.id,
-          examScheduleAggregateQuery.data.activeCategoryIds,
-        )
-      : null;
-
-  const inputs: StepStatusInputs = {
-    cycle,
-    categories: categoriesQuery.data ?? [],
-    committees: committeesQuery.data ?? [],
-    declaration: declarationQuery.data ?? null,
-    committeeBindings: committeeBindingsSnapshot,
-  };
+  const { statuses } = useStepStatuses(cycle.id);
   const completed = ADMISSION_SETUP_STEPS.filter(
-    (s) => computeStepStatus(s.key, inputs) === 'complete',
+    (s) => statuses[s.key] === 'complete',
   ).length;
   const draft = readDraft(cycle.id);
 

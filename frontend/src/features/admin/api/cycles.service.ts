@@ -329,6 +329,21 @@ export const cyclesService = {
     next: CycleStatus,
     options: { demoteCurrentActive?: boolean } = {},
   ): Promise<AdmissionCycle> {
+    /* Real backend POST /admin/cycles/{id}/status — single-active invariant
+     * + state-machine transitions enforced under Serializable isolation.
+     * When activating with demoteCurrentActive=true, route through
+     * swapActive() which closes the other active cycle first. */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      if (next === 'active' && options.demoteCurrentActive) {
+        return this.swapActive(id);
+      }
+      const r = await apiClient.post<AdmissionCycle>(
+        `/admin/cycles/${id}/status`, { newStatus: next },
+      );
+      return r.data;
+    }
+
+    /* Legacy mock fallback for non-GUID cycle ids (seeded MOCK rows). */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');

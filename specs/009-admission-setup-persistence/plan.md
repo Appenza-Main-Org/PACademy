@@ -152,9 +152,15 @@ Safari current releases). RTL Arabic-first. Backend runs as the existing
 - Per-module DbContext boundary is honoured — Committees has its own
   history table (`__EFMigrationsHistory_Committees`) per the FR-X01
   pattern from spec 005.
+- **Retention (FR-015)**: Closed-cycle wizard data stays online for
+  7 years from cycle close, then moves to a cold-archive store (read-only,
+  restorable). Hard-delete is forbidden. The archival pipeline itself is
+  out of spec-009 scope — only the contract is specified here so a
+  future archival spec has a hard target.
 
 **Scale/Scope**:
-- 15 wizard steps, 5 new entities, 2 new modules, ~35 new endpoints
+- 13 wizard steps (per Amendment 001 — step 1 `application_settings` is
+  owned by spec 011), 5 new entities, 2 new modules, ~35 new endpoints
   (List / Get / Create / Update / Archive / Restore × 5 wizard entities,
   plus committees / notifications / wizard-status / clone / apply).
 - ~5 000 applicants per cycle (current dev seed); merge/split rule apply

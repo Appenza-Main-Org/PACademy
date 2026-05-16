@@ -281,8 +281,28 @@ transaction.
 
 ---
 
-## Outstanding NEEDS CLARIFICATION items
+## Resolved post-plan clarifications
 
-- **FR-015 (retention/purge for closed-cycle wizard data)** — still open.
-  No design decision blocked by this; default is "retain indefinitely"
-  with cold-storage migration deferred to a future spec.
+### Session 2026-05-16
+
+- **FR-015 — Retention/purge for closed-cycle wizard data.**
+  - **Decision**: 7-year online retention from cycle close, then move to a
+    cold-archive store (read-only, restorable on request). **No hard-delete**.
+  - **Rationale**: Aligns with Egyptian government audit retention practice
+    (لائحة المحفوظات). Bounds hot-DB growth so query latency on active cycles
+    stays predictable, while preserving full compliance-grade access for the
+    admission file's legal life.
+  - **Alternatives considered**:
+    - *Live DB forever, no archive*: simplest, but hot-DB grows unbounded —
+      after 5+ admission seasons the cycles/categories joins start showing
+      up in slow-query logs.
+    - *10-year online retention*: bigger hot-DB footprint than the chosen 7,
+      no compliance argument that requires the extra 3 years online.
+    - *Nightly cold snapshot from day 1*: best DR posture, but most operational
+      complexity; not justified for an internal admin tool with already
+      append-only audit on every mutation.
+  - **Implementation note**: The archival job itself is **out of scope for
+    spec 009** — only the retention contract is specified here. Designing
+    the archival pipeline (job scheduling, cold-store choice, restore API)
+    is a future spec. Spec 009's contribution is FR-015's contract so the
+    archival design has a hard target to hit.

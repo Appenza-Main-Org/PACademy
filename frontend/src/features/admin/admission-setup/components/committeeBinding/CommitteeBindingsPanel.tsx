@@ -45,6 +45,7 @@ import {
   useUpdateScheduleEntryMutation,
 } from '@/features/committees/api/committee.queries';
 import { committeeService } from '@/features/committees/api/committee.service';
+import { useAdmissionSetupCycle } from '../../hooks/useAdmissionSetupCycle';
 import type {
   AdmissionCycle,
   ApplicantCategoryKey,
@@ -92,7 +93,8 @@ function toIsoDate(d: Date): string {
 export function CommitteeBindingsPanel({
   active,
 }: CommitteeBindingsPanelProps): JSX.Element {
-  const committeesQuery = useCommittees();
+  const { cycle } = useAdmissionSetupCycle();
+  const committeesQuery = useCommittees(cycle ? { cycleId: cycle.id } : {});
   const allCommittees = committeesQuery.data ?? [];
   const committeeNameById = useMemo(() => {
     const map = new Map<string, string>();

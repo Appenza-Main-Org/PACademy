@@ -43,6 +43,20 @@ internal sealed class GlobalExceptionMiddleware(RequestDelegate next, ILogger<Gl
             // throw the Shared.Contracts variant. Same 422 mapping.
             await WriteConflictAsync(context, dce.Message, dce.Code);
         }
+        catch (ArgumentException aex)
+        {
+            // Domain entities throw ArgumentException for invariant violations
+            // (e.g., blackoutDates ⊄ bookableDays, min > max). These are
+            // business-rule errors — return 422 (not 500).
+            await WriteConflictAsync(context, aex.Message, "VALIDATION_ERROR");
+        }
+        catch (InvalidOperationException ioex)
+        {
+            // Domain entities throw InvalidOperationException for state-machine
+            // violations (e.g., Archive on an applied rule, Apply on cancelled).
+            // These are business-rule errors — return 422 (not 500).
+            await WriteConflictAsync(context, ioex.Message, "INVALID_OPERATION");
+        }
         catch (UnauthorizedAccessException uae)
         {
             context.Response.StatusCode = 403;
