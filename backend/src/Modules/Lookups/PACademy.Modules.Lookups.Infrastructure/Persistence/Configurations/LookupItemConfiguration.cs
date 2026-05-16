@@ -12,6 +12,12 @@ public sealed class LookupItemConfiguration : IEntityTypeConfiguration<LookupIte
         {
             t.HasCheckConstraint("CK_LookupItem_NotSelfParent", "[parent_id] IS NULL OR [parent_id] <> [id]");
             t.HasCheckConstraint("CK_LookupItem_DateRange", "[start_date] IS NULL OR [end_date] IS NULL OR [start_date] <= [end_date]");
+            // Declare DB triggers so EF Core falls back to a trigger-safe
+            // SaveChanges path (no OUTPUT INSERTED clause). Triggers are
+            // created by migration 010a_LookupMappingsAndTriggers.
+            t.HasTrigger("tr_LookupItem_NoCycles");
+            t.HasTrigger("tr_LookupItem_BlockDelete");
+            t.HasTrigger("tr_LookupItem_FacultyFK");
         });
 
         b.HasKey(i => i.Id);

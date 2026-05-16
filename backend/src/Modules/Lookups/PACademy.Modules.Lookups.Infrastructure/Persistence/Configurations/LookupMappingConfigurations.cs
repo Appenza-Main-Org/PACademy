@@ -6,10 +6,10 @@ namespace PACademy.Modules.Lookups.Infrastructure.Persistence.Configurations;
 
 internal static class LookupMappingTables
 {
-    internal static void ConfigureMapping<T>(EntityTypeBuilder<T> b, string tableName, string pkName)
+    internal static void ConfigureMapping<T>(EntityTypeBuilder<T> b, string tableName, string pkName, string triggerName)
         where T : LookupMapping
     {
-        b.ToTable(tableName);
+        b.ToTable(tableName, t => t.HasTrigger(triggerName));
         b.HasKey(m => new { m.CategoryId, m.TargetId }).HasName(pkName);
 
         b.Property(m => m.CategoryId).HasColumnName("category_id");
@@ -34,23 +34,23 @@ internal static class LookupMappingTables
 public sealed class CategorySpecializationConfiguration : IEntityTypeConfiguration<CategorySpecialization>
 {
     public void Configure(EntityTypeBuilder<CategorySpecialization> b)
-        => LookupMappingTables.ConfigureMapping(b, "category_specializations", "PK_CategorySpecializations");
+        => LookupMappingTables.ConfigureMapping(b, "category_specializations", "PK_CategorySpecializations", "tr_CategorySpecializations_ValidateRefs");
 }
 
 public sealed class CategoryCommitteeConfiguration : IEntityTypeConfiguration<CategoryCommittee>
 {
     public void Configure(EntityTypeBuilder<CategoryCommittee> b)
-        => LookupMappingTables.ConfigureMapping(b, "category_committees", "PK_CategoryCommittees");
+        => LookupMappingTables.ConfigureMapping(b, "category_committees", "PK_CategoryCommittees", "tr_CategoryCommittees_ValidateRefs");
 }
 
 public sealed class CategoryTestConfiguration : IEntityTypeConfiguration<CategoryTest>
 {
     public void Configure(EntityTypeBuilder<CategoryTest> b)
-        => LookupMappingTables.ConfigureMapping(b, "category_tests", "PK_CategoryTests");
+        => LookupMappingTables.ConfigureMapping(b, "category_tests", "PK_CategoryTests", "tr_CategoryTests_ValidateRefs");
 }
 
 public sealed class PeriodCategoryConfiguration : IEntityTypeConfiguration<PeriodCategory>
 {
     public void Configure(EntityTypeBuilder<PeriodCategory> b)
-        => LookupMappingTables.ConfigureMapping(b, "period_categories", "PK_PeriodCategories");
+        => LookupMappingTables.ConfigureMapping(b, "period_categories", "PK_PeriodCategories", "tr_PeriodCategories_ValidateRefs");
 }
