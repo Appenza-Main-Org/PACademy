@@ -65,7 +65,6 @@ import {
   ElectronicDeclarationPage,
   ExamsManagementPage,
   NotificationsPage,
-  NotificationsStepPage,
   PaymentsPage,
   ReportsPage,
   RolesPage,
@@ -144,7 +143,7 @@ import {
   QuestionBankCRUDPage,
   QuestionBankPage,
 } from '@/features/exams';
-import { ApplicantGradesPage } from '@/features/applicant-grades';
+import { ApplicantGradesImportPage, ApplicantGradesPage } from '@/features/applicant-grades';
 
 /**
  * AdminIndexRoute — super_admin sees the admissions command center
@@ -243,6 +242,7 @@ export const routes: RouteObject[] = [
       { path: 'workflows/new', element: <WorkflowEditorPage /> },
       { path: 'workflows/:id', element: <WorkflowEditorPage /> },
       { path: 'applicant-grades', element: <ApplicantGradesPage /> },
+      { path: 'applicant-grades/import', element: <ApplicantGradesImportPage /> },
       /* Admission Setup — config-driven ordered steps. The route segments
        * mirror `routeSegment` from `ADMISSION_SETUP_STEPS`; adding a new
        * step is a config-entry append plus a route line here. AuthGuard +
@@ -261,7 +261,6 @@ export const routes: RouteObject[] = [
       { path: 'cycles/admission-setup/fees', element: <AdmissionFeesPage /> },
       { path: 'cycles/admission-setup/exams', element: <ExamsManagementPage /> },
       { path: 'cycles/admission-setup/committees', element: <CommitteesManagementPage /> },
-      { path: 'cycles/admission-setup/notifications', element: <NotificationsStepPage /> },
       { path: 'cycles/admission-setup/electronic-declaration', element: <ElectronicDeclarationPage /> },
       /* Legacy redirects — old paths used to live at /admin/admission-setup/*. */
       { path: 'admission-setup', element: <Navigate to={ROUTES.admin.admissionSetup.index} replace /> },

@@ -6,4 +6,5 @@
  */
 
 export { ApplicantGradesPage } from './pages/ApplicantGradesPage';
+export { ApplicantGradesImportPage } from './pages/ApplicantGradesImportPage';
 export type { GradeKind, GradeRow, AdjustmentReason, GradeAdjustment } from './types';

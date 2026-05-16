@@ -26,8 +26,14 @@ export interface GradeAdjustment {
 
 /** A grade row as held in the admin table.  */
 export interface GradeRow {
-  /** Cycle-scoped seating number. */
+  /** Cycle-scoped internal primary key (numeric). */
   seat: number;
+  /**
+   * Ministry-issued seating number — `رقم الجلوس` as printed on the
+   * student's exam card. Optional because legacy imports predate v2's
+   * mapping step; rendered in Eastern-Arabic numerals where shown.
+   */
+  seatingNumber: string | null;
   /** Egyptian national-id (14 digits). */
   nid: string;
   name: string;
@@ -118,4 +124,67 @@ export interface CommittedImport {
     adjustmentSum: number;
   }>;
   skipped: ImportSkipBucket[];
+}
+
+/* ── Import wizard v2 ──────────────────────────────────────────────── */
+
+/**
+ * A row from the source file, after Step 3's column mapping has been
+ * applied. Every field is keyed by `TargetField` and may be `null`
+ * either because the source cell was empty or because the field wasn't
+ * mapped at all. Step 4's filters operate on the same shape.
+ */
+export interface NormalisedRow {
+  nationalId: string | null;
+  seatingNumber: string | null;
+  nameAr: string | null;
+  gender: string | null;
+  track: string | null;
+  graduationYear: number | null;
+  totalGrade: number | null;
+  maxGrade: number | null;
+  /** 1-based row index in the source table (for "source row #N" labels). */
+  sourceRowIndex: number;
+}
+
+export type ImportGroupCode =
+  | 'DUPLICATE_NID'
+  | 'INVALID_NID'
+  | 'MISSING_REQUIRED'
+  | 'NID_NOT_FOUND'
+  | 'GRADE_OUT_OF_RANGE'
+  | 'UNREADABLE_VALUE';
+
+export type ImportGroupAction = 'skip' | 'override' | 'export' | 'create-applicant';
+
+export interface ImportFailureRow {
+  nationalId: string | null;
+  seatingNumber: string | null;
+  nameAr: string | null;
+  totalGrade: number | null;
+  sourceRowIndex: number;
+  /** Free-form explanation rendered under the row in Step 6. */
+  detail?: string;
+}
+
+export interface ImportReportGroup {
+  code: ImportGroupCode;
+  labelAr: string;
+  rows: ImportFailureRow[];
+  availableActions: readonly ImportGroupAction[];
+}
+
+export interface ImportReport {
+  totals: {
+    received: number;
+    imported: number;
+    skipped: number;
+    failed: number;
+  };
+  groups: ImportReportGroup[];
+}
+
+export interface ImportCommitResult {
+  insertedCount: number;
+  failedCount: number;
 }

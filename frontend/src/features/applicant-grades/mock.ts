@@ -11,6 +11,7 @@ import type { GradeRow } from './types';
 export const SEED_ROWS: GradeRow[] = [
   {
     seat: 142_018,
+    seatingNumber: '142018',
     nid: '30412180103456',
     name: 'أحمد محمد إبراهيم سعد',
     kind: 'general',
@@ -38,6 +39,7 @@ export const SEED_ROWS: GradeRow[] = [
   },
   {
     seat: 142_119,
+    seatingNumber: '142119',
     nid: '30406240178923',
     name: 'محمود السيد عبد الرحمن',
     kind: 'general',
@@ -54,6 +56,7 @@ export const SEED_ROWS: GradeRow[] = [
   },
   {
     seat: 27_488,
+    seatingNumber: '27488',
     nid: '30502110145678',
     name: 'يوسف خالد فؤاد المنياوي',
     kind: 'azhar',
@@ -81,6 +84,7 @@ export const SEED_ROWS: GradeRow[] = [
   },
   {
     seat: 142_204,
+    seatingNumber: '142204',
     nid: '30410050189012',
     name: 'عبد الله أحمد ناصر',
     kind: 'general',
@@ -97,6 +101,7 @@ export const SEED_ROWS: GradeRow[] = [
   },
   {
     seat: 27_512,
+    seatingNumber: '27512',
     nid: '30501120167845',
     name: 'حسن محمد رمضان السباعي',
     kind: 'azhar',
@@ -124,6 +129,7 @@ export const SEED_ROWS: GradeRow[] = [
   },
   {
     seat: 142_077,
+    seatingNumber: '142077',
     nid: '30407300134567',
     name: 'كريم مصطفى عبد المنعم',
     kind: 'general',
@@ -140,6 +146,7 @@ export const SEED_ROWS: GradeRow[] = [
   },
   {
     seat: 142_322,
+    seatingNumber: '142322',
     nid: '30408190156789',
     name: 'إسلام طارق فتحي حلمي',
     kind: 'general',
@@ -156,6 +163,7 @@ export const SEED_ROWS: GradeRow[] = [
   },
   {
     seat: 27_603,
+    seatingNumber: '27603',
     nid: '30503150123456',
     name: 'مصطفى عمرو عبد الفتاح',
     kind: 'azhar',
@@ -172,6 +180,7 @@ export const SEED_ROWS: GradeRow[] = [
   },
   {
     seat: 142_490,
+    seatingNumber: '142490',
     nid: '30411240167890',
     name: 'زياد وائل صبري الجندي',
     kind: 'general',
