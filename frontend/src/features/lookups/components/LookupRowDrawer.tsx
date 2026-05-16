@@ -642,6 +642,7 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
             placeholder="اختر الكليات"
             ariaLabel="الكليات"
             enableSelectAll
+            centered
             className="col-span-2"
             error={fieldState.error ? 'اختر كلية واحدة على الأقل' : undefined}
           />
@@ -663,6 +664,7 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
               placeholder="اختر التخصصات"
               ariaLabel="التخصصات"
               enableSelectAll
+              centered
               className="col-span-2"
               selectionSummary={(selected) =>
                 `${selected.length.toLocaleString('ar-EG')} تخصصات مختارة`
