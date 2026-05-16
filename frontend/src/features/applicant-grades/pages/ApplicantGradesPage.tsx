@@ -30,10 +30,12 @@ import {
   Plus,
   Search,
   Sheet as SheetIcon,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react';
 import {
+  AlertDialog,
   Badge,
   Button,
   Card,
@@ -51,7 +53,7 @@ import { ROUTES } from '@/config/routes';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { serializeCsv } from '@/shared/lib/csv';
 import { downloadBlob } from '@/shared/lib/download';
-import { useApplicantGradesList, useGrades } from '../api/grades.queries';
+import { useApplicantGradesList, useClearGrades, useGrades } from '../api/grades.queries';
 import { gradesService } from '../api/grades.service';
 import { downloadTemplateWorkbook } from '../lib/buildTemplateWorkbook';
 import { useImportWizardStore } from '../store/importWizard.store';
@@ -127,6 +129,8 @@ export function ApplicantGradesPage(): JSX.Element {
   const [overlay, setOverlay] = useState<OverlayState>(null);
   const [sort, setSort] = useState<DataTableSort<GradeRow> | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const clearMut = useClearGrades();
 
   const { data: paginatedData, isLoading } = useApplicantGradesList({
     page,
@@ -227,6 +231,26 @@ export function ApplicantGradesPage(): JSX.Element {
     }
   }
 
+  async function handleReset(): Promise<void> {
+    try {
+      await clearMut.mutateAsync();
+      setConfirmReset(false);
+      setSearchInput('');
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('q');
+          next.set('page', '1');
+          return next;
+        },
+        { replace: true },
+      );
+      toast('تم تصفير البيانات.', 'success');
+    } catch {
+      toast('تعذّر تصفير البيانات. حاول مرة أخرى.', 'danger');
+    }
+  }
+
   const activeRow =
     overlay && 'seat' in overlay
       ? (allRows ?? []).find((r) => r.seat === overlay.seat)
@@ -253,8 +277,8 @@ export function ApplicantGradesPage(): JSX.Element {
       className: 'min-w-[9ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) =>
         r.seatingNumber ? (
-          <span className="font-en text-xs text-ink-700">
-            {toEasternArabicNumerals(r.seatingNumber)}
+          <span dir="ltr" className="font-en text-xs text-ink-700">
+            {Number(r.seatingNumber).toLocaleString('en')}
           </span>
         ) : (
           <span className="text-2xs text-ink-300">—</span>
@@ -421,6 +445,16 @@ export function ApplicantGradesPage(): JSX.Element {
                 </DropdownMenu.Content>
               </DropdownMenu>
             )}
+            {!isEmpty && (
+              <Button
+                variant="ghost"
+                leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
+                onClick={() => setConfirmReset(true)}
+                className="!text-terra-700 hover:!bg-terra-50"
+              >
+                تصفير البيانات
+              </Button>
+            )}
             <Button
               variant="primary"
               leadingIcon={<Upload size={14} strokeWidth={1.75} />}
@@ -580,6 +614,20 @@ export function ApplicantGradesPage(): JSX.Element {
           </Card>
         </>
       )}
+
+      <AlertDialog
+        open={confirmReset}
+        onOpenChange={(next) => {
+          if (!clearMut.isPending) setConfirmReset(next);
+        }}
+        title="تصفير بيانات الدرجات"
+        description={`سيتم حذف جميع الصفوف المستوردة وما عليها من تعديلات (${toEasternArabicNumerals(totalsAll)} صفًا). لا يمكن التراجع.`}
+        actionLabel="تصفير البيانات"
+        cancelLabel="إلغاء"
+        tone="danger"
+        isActionLoading={clearMut.isPending}
+        onAction={() => void handleReset()}
+      />
 
       {activeDerived && (
         <>

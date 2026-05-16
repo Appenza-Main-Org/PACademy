@@ -38,6 +38,14 @@ export function useGrades() {
   });
 }
 
+export function useClearGrades() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => gradesService.clearAll(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
+  });
+}
+
 export function useAddAdjustment() {
   const qc = useQueryClient();
   return useMutation({
