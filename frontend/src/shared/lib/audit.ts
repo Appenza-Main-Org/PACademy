@@ -80,6 +80,7 @@ const ACTION_FALLBACK: Record<AuditAction, { label: string; color: AuditColor }>
   otp_verified: { label: 'تحقق من الرمز', color: 'success' },
   otp_failed: { label: 'فشل التحقق من الرمز', color: 'danger' },
   cycle_activated: { label: 'تفعيل دورة', color: 'success' },
+  cycle_deactivated: { label: 'إلغاء تفعيل دورة', color: 'warning' },
   cycle_closed: { label: 'إغلاق دورة', color: 'warning' },
   cycle_extended: { label: 'تمديد دورة', color: 'info' },
   cycle_archived: { label: 'أرشفة دورة', color: 'neutral' },

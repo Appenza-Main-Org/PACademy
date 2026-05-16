@@ -92,6 +92,8 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     expectedCapacity: 2000,
     applicantCount: 0,
     status: 'open',
+    /* Single-active invariant — only this cycle carries isActive=true at seed. */
+    isActive: true,
     openCategories: {
       officers_general: {
         isOpen: true,

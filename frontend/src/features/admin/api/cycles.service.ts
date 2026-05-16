@@ -277,6 +277,15 @@ export const cyclesService = {
       }
     }
     const now = new Date().toISOString();
+    /* If the new cycle is being seeded as active, clear isActive on every
+     * existing cycle to uphold the single-active invariant. */
+    if (payload.isActive) {
+      for (let i = 0; i < STATE.length; i += 1) {
+        if (STATE[i]!.isActive) {
+          STATE[i] = { ...STATE[i]!, isActive: false, updatedAt: now } as AdmissionCycle;
+        }
+      }
+    }
     const cycle: AdmissionCycle = {
       ...payload,
       id: `CYC-${payload.year}-${payload.cohort.toUpperCase().slice(0, 1)}-${cloneCounter++}`,
@@ -387,6 +396,53 @@ export const cyclesService = {
     STATE.unshift(draft);
     pushAudit('AdmissionCycle', draft.id, 'create', `تم نسخ دورة "${source.nameAr}" كمسودة`);
     return draft;
+  },
+
+  /**
+   * Single-active invariant — orthogonal to `status`. Marks the target
+   * cycle `isActive: true` and atomically clears the flag on every other
+   * cycle. Activation is allowed regardless of the target's status (a
+   * draft/review cycle is still activatable for editing purposes).
+   *
+   * Audit emits `cycle_activated` for the target and `cycle_deactivated`
+   * for any cycle that was previously active and is being demoted.
+   */
+  async setActive(id: string): Promise<AdmissionCycle> {
+    await simulateLatency();
+    const idx = STATE.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error('الدورة غير موجودة');
+    const now = new Date().toISOString();
+    for (let i = 0; i < STATE.length; i += 1) {
+      if (i === idx) continue;
+      const c = STATE[i]!;
+      if (c.isActive) {
+        const before = { ...c };
+        STATE[i] = { ...c, isActive: false, updatedAt: now } as AdmissionCycle;
+        emitAudit({
+          action: 'cycle_deactivated',
+          module: 'cycles',
+          entityType: 'AdmissionCycle',
+          entityLabel: 'دورة قبول',
+          entityId: c.id,
+          details: `تم إلغاء تفعيل دورة "${c.nameAr}" عند تفعيل دورة أخرى`,
+          before,
+          after: STATE[i]!,
+        });
+      }
+    }
+    const before = { ...STATE[idx]! };
+    STATE[idx] = { ...STATE[idx]!, isActive: true, updatedAt: now } as AdmissionCycle;
+    emitAudit({
+      action: 'cycle_activated',
+      module: 'cycles',
+      entityType: 'AdmissionCycle',
+      entityLabel: 'دورة قبول',
+      entityId: id,
+      details: `تم تفعيل دورة "${STATE[idx]!.nameAr}"`,
+      before,
+      after: STATE[idx]!,
+    });
+    return STATE[idx]!;
   },
 
   async transition(id: string, next: CycleStatus): Promise<AdmissionCycle> {
