@@ -31,7 +31,7 @@ import {
 } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
-import { num } from '@/shared/lib/format';
+import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import {
   useAdmissionSetupWizardStore,
@@ -175,6 +175,7 @@ export function ThanawiRulesSection({
             examRoundOptions={examRoundOptions}
             committeeOptions={committeeOptions}
             schoolCategoryOptions={schoolCategoryOptions}
+            maritalOptions={maritalOptions}
           />
         )}
       </div>
@@ -291,6 +292,7 @@ interface ThanawiFormProps {
   examRoundOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   schoolCategoryOptions: ReadonlyArray<SearchSelectOption>;
+  maritalOptions: ReadonlyArray<{ value: string; label: string }>;
 }
 
 function ThanawiForm({
@@ -298,6 +300,7 @@ function ThanawiForm({
   examRoundOptions,
   committeeOptions,
   schoolCategoryOptions,
+  maritalOptions,
 }: ThanawiFormProps): JSX.Element {
   const [draft, setDraft] = useState<ThanawiRuleRowInput>(EMPTY_INPUT);
 
@@ -409,6 +412,7 @@ function ThanawiForm({
         examRoundOptions={examRoundOptions}
         committeeOptions={committeeOptions}
         schoolCategoryOptions={schoolCategoryOptions}
+        maritalOptions={maritalOptions}
         onDelete={(id) => removeLocalRow(id)}
       />
     </div>
@@ -420,6 +424,7 @@ interface ThanawiGridProps {
   examRoundOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   schoolCategoryOptions: ReadonlyArray<SearchSelectOption>;
+  maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   onDelete: (id: string) => void;
 }
 
@@ -428,6 +433,7 @@ function ThanawiGrid({
   examRoundOptions,
   committeeOptions,
   schoolCategoryOptions,
+  maritalOptions,
   onDelete,
 }: ThanawiGridProps): JSX.Element {
   const labelForRound = (v: string): string =>
@@ -436,6 +442,8 @@ function ThanawiGrid({
     committeeOptions.find((o) => o.value === v)?.label ?? v;
   const labelForSchool = (v: string): string =>
     schoolCategoryOptions.find((o) => o.value === v)?.label ?? v;
+  const labelForMarital = (v: string): string =>
+    maritalOptions.find((o) => o.value === v)?.label ?? v;
 
   if (rows.length === 0) {
     return (
@@ -450,6 +458,10 @@ function ThanawiGrid({
       <table className="w-full border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
+            <Th>بداية التقديم</Th>
+            <Th>نهاية التقديم</Th>
+            <Th>تاريخ احتساب السن</Th>
+            <Th>الحالة الاجتماعية</Th>
             <Th>الدور</Th>
             <Th>اللجنة</Th>
             <Th>سنة التخرج</Th>
@@ -462,6 +474,14 @@ function ThanawiGrid({
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-t border-border-subtle">
+              <Td>{formatIsoDate(r.header.applicationStart)}</Td>
+              <Td>{formatIsoDate(r.header.applicationEnd)}</Td>
+              <Td>{formatIsoDate(r.header.ageReferenceDate)}</Td>
+              <Td>
+                <MultiValueCell
+                  values={r.maritalStatus.map(labelForMarital)}
+                />
+              </Td>
               <Td>{labelForRound(r.examRound)}</Td>
               <Td>{labelForCommittee(r.committee)}</Td>
               <Td>
@@ -492,9 +512,14 @@ function ThanawiGrid({
   );
 }
 
+function formatIsoDate(value: string): string {
+  if (!value) return '—';
+  return fmtDate(value, 'full');
+}
+
 function Th({ children }: { children: React.ReactNode }): JSX.Element {
   return (
-    <th className="px-3 py-2 text-start font-ar text-2xs font-medium text-ink-600">
+    <th className="whitespace-nowrap px-3 py-2 text-start font-ar text-2xs font-medium text-ink-600">
       {children}
     </th>
   );

@@ -45,7 +45,7 @@ import {
 } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
-import { num } from '@/shared/lib/format';
+import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import {
   useAdmissionSetupWizardStore,
@@ -850,6 +850,7 @@ function PerSpecForm({
         gradeOptions={gradeOptions}
         degreeOptions={degreeOptions}
         committeeOptions={committeeOptions}
+        maritalOptions={options.maritalOptions}
         onDelete={(id) => removeLocalRow(id)}
       />
     </div>
@@ -863,6 +864,7 @@ interface LocalUniversityGridProps {
   gradeOptions: ReadonlyArray<SearchSelectOption>;
   degreeOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
+  maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   onDelete: (id: string) => void;
 }
 
@@ -871,6 +873,7 @@ function LocalUniversityGrid({
   gradeOptions,
   degreeOptions,
   committeeOptions,
+  maritalOptions,
   onDelete,
 }: LocalUniversityGridProps): JSX.Element {
   const labelForGrade = (v: string): string =>
@@ -881,6 +884,8 @@ function LocalUniversityGrid({
     committeeOptions.find((o) => o.value === v)?.label ?? v;
   const labelForType = (v: string): string =>
     GENDER_OPTIONS.find((o) => o.value === v)?.label ?? v;
+  const labelForMarital = (v: string): string =>
+    maritalOptions.find((o) => o.value === v)?.label ?? v;
 
   if (rows.length === 0) {
     return (
@@ -895,6 +900,10 @@ function LocalUniversityGrid({
       <table className="w-full border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
+            <Th>بداية التقديم</Th>
+            <Th>نهاية التقديم</Th>
+            <Th>تاريخ احتساب السن</Th>
+            <Th>الحالة الاجتماعية</Th>
             <Th>النوع</Th>
             <Th>الحد الأدنى للتقدير</Th>
             <Th>الحد الأقصى للتقدير</Th>
@@ -911,6 +920,14 @@ function LocalUniversityGrid({
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-t border-border-subtle">
+              <Td>{formatIsoDate(r.header.applicationStart)}</Td>
+              <Td>{formatIsoDate(r.header.applicationEnd)}</Td>
+              <Td>{formatIsoDate(r.header.ageReferenceDate)}</Td>
+              <Td>
+                <MultiValueCell
+                  values={r.maritalStatus.map(labelForMarital)}
+                />
+              </Td>
               <Td>
                 <MultiValueCell values={r.type.map(labelForType)} />
               </Td>
@@ -961,9 +978,14 @@ function LocalUniversityGrid({
   );
 }
 
+function formatIsoDate(value: string): string {
+  if (!value) return '—';
+  return fmtDate(value, 'full');
+}
+
 function Th({ children }: { children: React.ReactNode }): JSX.Element {
   return (
-    <th className="px-3 py-2 text-start font-ar text-2xs font-medium text-ink-600">
+    <th className="whitespace-nowrap px-3 py-2 text-start font-ar text-2xs font-medium text-ink-600">
       {children}
     </th>
   );

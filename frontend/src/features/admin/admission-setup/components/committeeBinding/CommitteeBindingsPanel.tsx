@@ -356,7 +356,6 @@ export function CommitteeBindingsPanel({
           {/* ── row 2: inputs + button ──────────────────────────── */}
           <MultiSelect
             ariaLabel="الفئات"
-            label="الفئات"
             options={categoryOptions}
             value={selectedCategories}
             onChange={setSelectedCategories}
