@@ -1,6 +1,12 @@
 /**
- * ReviewCombinationsTables — read-only summary of every approved
- * application-settings combination, grouped by applicant category.
+ * ApprovedCategoryCompositionsSummary — read-only summary of every
+ * application-settings year row, grouped by applicant category. Shared
+ * by:
+ *
+ *   • the pre-review wizard step (`application_settings_review`) that
+ *     sits between `application_settings` and `review`.
+ *   • the final `review` step — same section the admin sees before
+ *     hitting «اعتماد ونشر».
  *
  * Pulls the live tree (configs → specializations → year rows) from the
  * application-settings service via `useApplicationSettingsSummary`. No
@@ -39,19 +45,19 @@ import {
 import { useLookup } from '@/features/lookups';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { date as fmtDate } from '@/shared/lib/format';
-import { useApplicationSettingsSummary } from '../../api/applicationSettings.queries';
+import { useApplicationSettingsSummary } from '../api/applicationSettings.queries';
 import type {
   CategorySettingsSummary,
   YearGroupForReview,
-} from '../../api/applicationSettings.service';
-import type { ApplicantSpecializationYear } from '../../types';
+} from '../api/applicationSettings.service';
+import type { ApplicantSpecializationYear } from '../types';
 
 const GENDER_LABEL: Readonly<Record<string, string>> = {
   male: 'ذكر',
   female: 'أنثى',
 };
 
-export function ReviewCombinationsTables(): JSX.Element {
+export function ApprovedCategoryCompositionsSummary(): JSX.Element {
   const summaryQuery = useApplicationSettingsSummary();
   const maritalQuery = useLookup('marital-statuses');
   const academicGradesQuery = useLookup('academic-grades');
