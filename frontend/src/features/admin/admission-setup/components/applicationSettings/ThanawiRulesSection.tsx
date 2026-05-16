@@ -39,15 +39,6 @@ import {
   type ThanawiRuleRowInput,
 } from '../../store/wizardSharedState';
 
-const CURRENT_YEAR = new Date().getFullYear();
-const GRADUATION_YEAR_OPTIONS: ReadonlyArray<SearchSelectOption> = Array.from(
-  { length: 5 },
-  (_, i) => {
-    const y = CURRENT_YEAR - i;
-    return { value: String(y), label: toEasternArabicNumerals(y) };
-  },
-);
-
 const EMPTY_INPUT: ThanawiRuleRowInput = {
   examRound: '',
   committee: '',
@@ -66,6 +57,7 @@ export function ThanawiRulesSection({
   const examRoundsQuery = useLookup('exam-rounds');
   const committeesQuery = useLookup('committees');
   const schoolCategoriesQuery = useLookup('school-categories');
+  const graduationYearsQuery = useLookup('graduation-years');
 
   const approve = useAdmissionSetupWizardStore((s) => s.approveLocalForCategory);
   const localCount = useAdmissionSetupWizardStore(
@@ -76,13 +68,15 @@ export function ThanawiRulesSection({
     maritalQuery.isLoading ||
     examRoundsQuery.isLoading ||
     committeesQuery.isLoading ||
-    schoolCategoriesQuery.isLoading;
+    schoolCategoriesQuery.isLoading ||
+    graduationYearsQuery.isLoading;
 
   const isError =
     maritalQuery.isError ||
     examRoundsQuery.isError ||
     committeesQuery.isError ||
-    schoolCategoriesQuery.isError;
+    schoolCategoriesQuery.isError ||
+    graduationYearsQuery.isError;
 
   const maritalOptions = useMemo(
     () =>
@@ -116,6 +110,20 @@ export function ThanawiRulesSection({
     [schoolCategoriesQuery.data],
   );
 
+  /** Graduation-year options come from the `graduation-years` admin
+   *  lookup. Active rows only; newest year first. Label is the raw
+   *  Latin-numeral year (per the operator request) — Eastern-Arabic
+   *  numerals are reserved for downstream summary rendering. */
+  const graduationYearOptions = useMemo<SearchSelectOption[]>(
+    () =>
+      (graduationYearsQuery.data ?? [])
+        .filter((g) => g.isActive)
+        .slice()
+        .sort((a, b) => b.year - a.year)
+        .map((g) => ({ value: String(g.year), label: String(g.year) })),
+    [graduationYearsQuery.data],
+  );
+
   const handleApprove = (): void => {
     const moved = approve(categoryCode);
     if (moved === 0) {
@@ -136,6 +144,7 @@ export function ThanawiRulesSection({
           examRoundsQuery.refetch();
           committeesQuery.refetch();
           schoolCategoriesQuery.refetch();
+          graduationYearsQuery.refetch();
         }}
       />
     );
@@ -176,6 +185,7 @@ export function ThanawiRulesSection({
             committeeOptions={committeeOptions}
             schoolCategoryOptions={schoolCategoryOptions}
             maritalOptions={maritalOptions}
+            graduationYearOptions={graduationYearOptions}
           />
         )}
       </div>
@@ -293,6 +303,7 @@ interface ThanawiFormProps {
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   schoolCategoryOptions: ReadonlyArray<SearchSelectOption>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
+  graduationYearOptions: ReadonlyArray<SearchSelectOption>;
 }
 
 function ThanawiForm({
@@ -301,6 +312,7 @@ function ThanawiForm({
   committeeOptions,
   schoolCategoryOptions,
   maritalOptions,
+  graduationYearOptions,
 }: ThanawiFormProps): JSX.Element {
   const [draft, setDraft] = useState<ThanawiRuleRowInput>(EMPTY_INPUT);
 
@@ -374,7 +386,7 @@ function ThanawiForm({
                   graduationYear: v === null ? null : Number(v),
                 }))
               }
-              options={GRADUATION_YEAR_OPTIONS}
+              options={graduationYearOptions}
               placeholder="اختر السنة…"
             />
           </FieldLabel>

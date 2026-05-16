@@ -60,15 +60,6 @@ const GENDER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'female', label: 'أنثى' },
 ];
 
-const CURRENT_YEAR = new Date().getFullYear();
-const GRADUATION_YEAR_OPTIONS: ReadonlyArray<SearchSelectOption> = Array.from(
-  { length: 5 },
-  (_, i) => {
-    const y = CURRENT_YEAR - i;
-    return { value: String(y), label: toEasternArabicNumerals(y) };
-  },
-);
-
 const EMPTY_INPUT: GeneralRuleRowInput = {
   type: [],
   grade: '',
@@ -110,6 +101,7 @@ export function GeneralRulesSection({
   const gradesQuery = useLookup('academic-grades');
   const degreesQuery = useLookup('academic-degrees');
   const committeesQuery = useLookup('committees');
+  const graduationYearsQuery = useLookup('graduation-years');
 
   const approve = useAdmissionSetupWizardStore((s) => s.approveLocalForCategory);
   const localCount = useAdmissionSetupWizardStore(
@@ -122,7 +114,8 @@ export function GeneralRulesSection({
     maritalQuery.isLoading ||
     gradesQuery.isLoading ||
     degreesQuery.isLoading ||
-    committeesQuery.isLoading;
+    committeesQuery.isLoading ||
+    graduationYearsQuery.isLoading;
 
   const isError =
     facultiesQuery.isError ||
@@ -130,7 +123,8 @@ export function GeneralRulesSection({
     maritalQuery.isError ||
     gradesQuery.isError ||
     degreesQuery.isError ||
-    committeesQuery.isError;
+    committeesQuery.isError ||
+    graduationYearsQuery.isError;
 
   /* ─── Faculty + specialization scoping ────────────────────────── */
 
@@ -201,6 +195,20 @@ export function GeneralRulesSection({
     [committeesQuery.data, categoryCode],
   );
 
+  /** Graduation-year options come from the `graduation-years` admin
+   *  lookup. Active rows only; newest year first. Label is the raw
+   *  Latin-numeral year (per the operator request) — Eastern-Arabic
+   *  numerals are reserved for downstream summary rendering. */
+  const graduationYearOptions = useMemo<SearchSelectOption[]>(
+    () =>
+      (graduationYearsQuery.data ?? [])
+        .filter((g) => g.isActive)
+        .slice()
+        .sort((a, b) => b.year - a.year)
+        .map((g) => ({ value: String(g.year), label: String(g.year) })),
+    [graduationYearsQuery.data],
+  );
+
   /* ─── Approve handler ─────────────────────────────────────────── */
 
   const handleApprove = (): void => {
@@ -225,6 +233,7 @@ export function GeneralRulesSection({
           gradesQuery.refetch();
           degreesQuery.refetch();
           committeesQuery.refetch();
+          graduationYearsQuery.refetch();
         }}
       />
     );
@@ -239,6 +248,7 @@ export function GeneralRulesSection({
     gradeRank,
     degreeOptions,
     committeeOptions,
+    graduationYearOptions,
   };
 
   let tree: JSX.Element;
@@ -578,6 +588,7 @@ interface PerSpecFormOptions {
   gradeRank: Map<string, number>;
   degreeOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
+  graduationYearOptions: ReadonlyArray<SearchSelectOption>;
 }
 
 interface PerSpecFormProps {
@@ -601,6 +612,7 @@ function PerSpecForm({
     gradeRank,
     degreeOptions,
     committeeOptions,
+    graduationYearOptions,
   } = options;
   const [draft, setDraft] = useState<GeneralRuleRowInput>(EMPTY_INPUT);
 
@@ -620,11 +632,15 @@ function PerSpecForm({
 
   /* ─── Validation ─── */
 
+  /* `gradeRank` reflects the academic-grades lookup order, which is
+   * authored best→worst (امتياز=0 … مقبول=N). So a higher rank index
+   * means a *worse* grade. The max bound must not be a worse grade
+   * than the min bound, i.e. invalid when `max-rank > min-rank`. */
   const gradeOrderInvalid =
     draft.grade !== '' &&
     draft.gradeMax !== '' &&
-    (gradeRank.get(draft.gradeMax) ?? Infinity) <
-      (gradeRank.get(draft.grade) ?? -Infinity);
+    (gradeRank.get(draft.gradeMax) ?? -Infinity) >
+      (gradeRank.get(draft.grade) ?? Infinity);
 
   const scoreMinOutOfBounds =
     draft.scoreMin !== null &&
@@ -824,7 +840,7 @@ function PerSpecForm({
                   graduationYear: v === null ? null : Number(v),
                 }))
               }
-              options={GRADUATION_YEAR_OPTIONS}
+              options={graduationYearOptions}
               placeholder="اختر السنة…"
             />
           </FieldLabel>

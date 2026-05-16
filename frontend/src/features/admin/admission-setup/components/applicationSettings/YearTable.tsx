@@ -65,13 +65,6 @@ interface YearTableProps {
   categorySpecializationId: string;
 }
 
-const CURRENT_YEAR = new Date().getFullYear();
-/** Last 5 graduation years including the current year, newest first. */
-const GRAD_YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => {
-  const year = CURRENT_YEAR - i;
-  return { value: String(year), label: String(year) };
-});
-
 const FIELD_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   DUPLICATE_YEAR: 'مكررة',
   GRAD_YEAR_REQUIRED: 'اختر سنة تخرج واحدة على الأقل',
@@ -99,6 +92,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   const maritalQuery = useLookup('marital-statuses');
   const academicGradesQuery = useLookup('academic-grades');
   const schoolCategoriesQuery = useLookup('school-categories');
+  const graduationYearsQuery = useLookup('graduation-years');
 
   const drafts = useDraftRows(categorySpecializationId);
   const hydrateSlice = useAppSettingsDraftStore((s) => s.hydrateSlice);
@@ -133,6 +127,19 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
     }
     return map;
   }, [academicGradesQuery.data]);
+
+  /** Graduation-year options come from the `graduation-years` admin
+   *  lookup (active rows, newest first, Latin numerals). Replaces the
+   *  hardcoded "last 5 years from CURRENT_YEAR" list. */
+  const graduationYearOptions = useMemo(
+    () =>
+      (graduationYearsQuery.data ?? [])
+        .filter((g) => g.isActive)
+        .slice()
+        .sort((a, b) => b.year - a.year)
+        .map((g) => ({ value: String(g.year), label: String(g.year) })),
+    [graduationYearsQuery.data],
+  );
 
   const gradingMode: GradingMode | null = gradingModeQuery.data ?? null;
   const setSliceMismatch = useAppSettingsDraftStore((s) => s.setSliceMismatch);
@@ -232,6 +239,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
               schoolCategoryOptions={schoolCategoryOptions}
               academicGradeOptions={academicGradeOptions}
               academicGradeRangeByCode={academicGradeRangeByCode}
+              graduationYearOptions={graduationYearOptions}
               onPatch={(patch) => patchRow(categorySpecializationId, draft.id, patch)}
               onDelete={() => deleteRow(categorySpecializationId, draft.id)}
               onRestore={() => restoreRow(categorySpecializationId, draft.id)}
@@ -273,6 +281,7 @@ interface YearCardProps {
   schoolCategoryOptions: readonly { value: string; label: string }[];
   academicGradeOptions: readonly { value: string; label: string }[];
   academicGradeRangeByCode: ReadonlyMap<string, { min: number; max: number } | null>;
+  graduationYearOptions: readonly { value: string; label: string }[];
   onPatch: (patch: Partial<ApplicantSpecializationYear>) => void;
   onDelete: () => void;
   onRestore: () => void;
@@ -287,6 +296,7 @@ function YearCard({
   schoolCategoryOptions,
   academicGradeOptions,
   academicGradeRangeByCode,
+  graduationYearOptions,
   onPatch,
   onDelete,
   onRestore,
@@ -418,7 +428,7 @@ function YearCard({
                     .sort((x, y) => y - x),
                 })
               }
-              options={GRAD_YEAR_OPTIONS}
+              options={graduationYearOptions}
               disabled={isDeleted}
               ariaLabel="سنة التخرج"
               placeholder="اختر سنة"
