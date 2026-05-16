@@ -49,6 +49,7 @@ export {
   AdmissionFeesPage,
   ExamsManagementPage,
   CommitteesManagementPage,
+  DateCommitteeBindingPage,
   NotificationsStepPage,
   ElectronicDeclarationPage,
 } from './admission-setup';

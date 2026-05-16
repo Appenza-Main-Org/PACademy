@@ -1,14 +1,15 @@
 /**
- * Per-step status checkers — surface the index-page status pill.
+ * Per-step status helpers — surface the index-page status pill.
  *
- * Status semantics:
- *   • complete    — every required setting for this step is filled in for
- *                   the picked cycle.
- *   • in_progress — the step has been touched (some settings present) but
- *                   not all required pieces are filled.
- *   • not_started — nothing exists yet for the picked cycle.
+ * `useStepStatuses(cycleId)` is the primary hook; it reads from the server's
+ * `GET /admin/admission-setup/cycles/{cycleId}/step-statuses` endpoint and
+ * maps the 13-row response to the 6 frontend `AdmissionSetupStepKey` values.
+ *
+ * `computeStepStatus` is preserved for pages that still derive status from
+ * local query data (e.g. before the server round-trip completes).
  */
 
+import { useMemo } from 'react';
 import type { AdmissionCycle, ApplicantCategory, Committee } from '@/shared/types/domain';
 import type {
   AdmissionSetupStepKey,
@@ -16,6 +17,7 @@ import type {
   CommitteeDayBinding,
   ElectronicDeclaration,
 } from '../types';
+import { useWizardStepStatuses } from '../api/admission-setup.queries';
 
 /**
  * Aggregated committee-binding snapshot consumed by the step-status check.
@@ -125,6 +127,12 @@ export function computeStepStatus(
       );
       return rosterComplete && bindingsComplete ? 'complete' : 'in_progress';
     }
+    case 'date_committee_binding':
+      /* Bindings are optional overrides — surface as in_progress once the
+       * committees step has any committees; complete when any binding exists. */
+      return committees.some((c) => !c.linkedCycleId || c.linkedCycleId === cycle.id)
+        ? 'in_progress'
+        : 'not_started';
     case 'notifications':
       /* Notifications are global — surface as in_progress; the actual page
        * shows the count and lets the admin add cycle-scoped messages. */
@@ -139,6 +147,58 @@ function openCategoryKeys(cycle: AdmissionCycle): string[] {
   return Object.entries(cycle.openCategories ?? {})
     .filter(([, v]) => v?.isOpen)
     .map(([k]) => k);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Server-authoritative step status hook
+ * ───────────────────────────────────────────────────────────────────────── */
+
+/**
+ * useStepStatuses — maps the server's WizardStepStatusRow[] to the 6
+ * AdmissionSetupStepKey values shown on the index page.
+ *
+ * Aggregation rules:
+ *   committees       ← aggregated(committees + committee_bindings)
+ *   electronic_declaration, exams, notifications ← direct server key match
+ *   application_settings, fees ← spec 011 owns these; falls back to 'not_started'
+ *   merge_split_rules / score_thresholds / exam_date_config / total_score_config
+ *     are tracked server-side but have no dedicated index-page pill; ignored here.
+ */
+export function useStepStatuses(cycleId: string | null): {
+  statuses: Record<AdmissionSetupStepKey, AdmissionSetupStepStatus>;
+  isLoading: boolean;
+} {
+  const { data: rows, isLoading } = useWizardStepStatuses(cycleId);
+
+  const statuses = useMemo((): Record<AdmissionSetupStepKey, AdmissionSetupStepStatus> => {
+    const byKey: Record<string, AdmissionSetupStepStatus> = {};
+    for (const row of rows ?? []) {
+      byKey[row.stepKey] = row.status as AdmissionSetupStepStatus;
+    }
+
+    const pick = (key: string): AdmissionSetupStepStatus =>
+      byKey[key] ?? 'not_started';
+
+    /** A step is complete only when ALL its server sub-keys are complete. */
+    const agg = (keys: string[]): AdmissionSetupStepStatus => {
+      const ss = keys.map(pick);
+      if (ss.every((s) => s === 'complete')) return 'complete';
+      if (ss.every((s) => s === 'not_started')) return 'not_started';
+      return 'in_progress';
+    };
+
+    return {
+      application_settings: pick('application_settings'),
+      fees: pick('fees'),
+      exams: pick('exams'),
+      committees: agg(['committees', 'committee_bindings']),
+      date_committee_binding: pick('date_committee_binding'),
+      notifications: pick('notifications'),
+      electronic_declaration: pick('electronic_declaration'),
+    };
+  }, [rows]);
+
+  return { statuses, isLoading };
 }
 
 export const STEP_STATUS_LABEL: Record<AdmissionSetupStepStatus, string> = {

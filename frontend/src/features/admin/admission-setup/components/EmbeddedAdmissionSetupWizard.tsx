@@ -43,6 +43,7 @@ import { ApplicationSettingsPage } from '../pages/ApplicationSettingsPage';
 import { FeesPage } from '../pages/FeesPage';
 import { ExamsManagementPage } from '../pages/ExamsManagementPage';
 import { CommitteesManagementPage } from '../pages/CommitteesManagementPage';
+import { DateCommitteeBindingPage } from '../pages/DateCommitteeBindingPage';
 import { NotificationsStepPage } from '../pages/NotificationsStepPage';
 import { ElectronicDeclarationPage } from '../pages/ElectronicDeclarationPage';
 
@@ -55,6 +56,7 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,
+  date_committee_binding: () => <DateCommitteeBindingPage />,
   notifications: () => <NotificationsStepPage />,
   electronic_declaration: () => <ElectronicDeclarationPage />,
 };

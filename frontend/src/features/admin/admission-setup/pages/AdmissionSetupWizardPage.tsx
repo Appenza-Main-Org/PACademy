@@ -35,13 +35,12 @@ import {
   Button,
   Combobox,
   EmptyState,
+  toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/shared/lib/cn';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { hasPermission, useAuthStore } from '@/features/auth';
-import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
-import { useCommittees } from '@/features/committees';
 import {
   ADMISSION_SETUP_STEPS,
   ADMISSION_SETUP_TOTAL_STEPS,
@@ -53,23 +52,19 @@ import {
 } from '../components/VerticalStepper';
 import { WizardModeProvider } from '../components/WizardModeContext';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
-import {
-  computeStepStatus,
-  type StepStatusInputs,
-} from '../lib/step-status';
+import { useStepStatuses } from '../lib/step-status';
 import { writeDraft } from '../lib/wizard-draft';
 import {
-  useCommitteeBindings,
-  useElectronicDeclaration,
+  useCompleteWizardStep,
+  useReopenWizardStep,
+  useWizardStepStatuses,
 } from '../api/admission-setup.queries';
-import { useExamScheduleAggregate } from '../api/examSchedule.queries';
-import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
-import { buildCommitteeBindingsSnapshot } from '../lib/step-status';
 import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from './ApplicationSettingsPage';
 import { FeesPage } from './FeesPage';
 import { ExamsManagementPage } from './ExamsManagementPage';
 import { CommitteesManagementPage } from './CommitteesManagementPage';
+import { DateCommitteeBindingPage } from './DateCommitteeBindingPage';
 import { NotificationsStepPage } from './NotificationsStepPage';
 import { ElectronicDeclarationPage } from './ElectronicDeclarationPage';
 import { WizardReviewPage } from './WizardReviewPage';
@@ -84,6 +79,7 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,
+  date_committee_binding: () => <DateCommitteeBindingPage />,
   notifications: () => <NotificationsStepPage />,
   electronic_declaration: () => <ElectronicDeclarationPage />,
 };
@@ -111,24 +107,10 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const isReview = activeKey === REVIEW_KEY;
 
   const cycleId = cycleCtx.cycle?.id ?? null;
-  const categoriesQuery = useCategoriesAdmin();
-  const committeesQuery = useCommittees();
-  const examScheduleAggregateQuery = useExamScheduleAggregate(cycleId);
-  const declarationQuery = useElectronicDeclaration(cycleId);
-  const rosterQuery = useCommitteeBindings(cycleId, null);
-  const cycleBindingsQuery = useCycleCommitteeBindings(cycleId);
-  const committeeBindingsSnapshot =
-    cycleId &&
-    examScheduleAggregateQuery.data &&
-    rosterQuery.data &&
-    cycleBindingsQuery.data
-      ? buildCommitteeBindingsSnapshot(
-          rosterQuery.data,
-          cycleBindingsQuery.data,
-          cycleId,
-          examScheduleAggregateQuery.data.activeCategoryIds,
-        )
-      : null;
+  const { statuses } = useStepStatuses(cycleId);
+  const { data: stepRows } = useWizardStepStatuses(cycleId);
+  const completeMut = useCompleteWizardStep();
+  const reopenMut = useReopenWizardStep();
 
   /* Persist the wizard pointer on every step change so refresh / re-entry
    * lands on the same step. Skip when no cycle is selected. */
@@ -149,19 +131,11 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     return <Navigate to={ROUTES.admin.admissionSetup.wizard(orderedSteps[0]!.key)} replace />;
   }
 
-  const statusInputs: StepStatusInputs = {
-    cycle: cycleCtx.cycle,
-    categories: categoriesQuery.data ?? [],
-    committees: committeesQuery.data ?? [],
-    declaration: declarationQuery.data ?? null,
-    committeeBindings: committeeBindingsSnapshot,
-  };
-
   const stepperItems: VerticalStepDescriptor[] = orderedSteps.map((s) => ({
     key: s.key,
     label: s.labelAr,
     order: s.order,
-    state: deriveStepperState(s.key, activeKey, statusInputs),
+    state: deriveStepperState(s.key, activeKey, statuses),
   }));
   /* Append the review step as the (N+1)th item. */
   stepperItems.push({
@@ -200,8 +174,37 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   };
 
   const activeStep = isReview ? null : orderedSteps.find((s) => s.key === activeKey);
-
   const activeLabel = isReview ? 'المراجعة والاعتماد' : activeStep?.labelAr ?? '';
+
+  /* Step completion: look up the rowVersion for the current step so we can
+   * pass it to Reopen (which requires it for optimistic locking). */
+  const activeStepKey = isReview ? null : (activeKey as AdmissionSetupStepKey);
+  const activeStepStatus = activeStepKey ? (statuses[activeStepKey] ?? 'not_started') : null;
+  const activeStepRow = activeStepKey
+    ? stepRows?.find((r) => r.stepKey === activeStepKey) ?? null
+    : null;
+
+  const handleMarkComplete = (): void => {
+    if (!cycleId || !activeStepKey) return;
+    completeMut.mutate(
+      { cycleId, stepKey: activeStepKey, rowVersion: activeStepRow?.rowVersion },
+      {
+        onSuccess: () => toast('تم تمييز الخطوة كمكتملة', 'success'),
+        onError: (err) => toast((err as Error).message, 'danger'),
+      },
+    );
+  };
+
+  const handleReopenStep = (): void => {
+    if (!cycleId || !activeStepKey || !activeStepRow?.rowVersion) return;
+    reopenMut.mutate(
+      { cycleId, stepKey: activeStepKey, rowVersion: activeStepRow.rowVersion },
+      {
+        onSuccess: () => toast('تم إعادة فتح الخطوة', 'success'),
+        onError: (err) => toast((err as Error).message, 'danger'),
+      },
+    );
+  };
 
   return (
     <WizardModeProvider>
@@ -272,7 +275,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
            * the field is always readable, never visually trapped under it. */}
           <div className="min-w-0 flex-1">
             {isReview ? (
-              <WizardReviewPage statusInputs={statusInputs} />
+              <WizardReviewPage statuses={statuses} />
             ) : (
               STEP_RENDERERS[activeKey as AdmissionSetupStepKey]()
             )}
@@ -297,6 +300,28 @@ export function AdmissionSetupWizardPage(): JSX.Element {
               السابق
             </Button>
             <div className="flex items-center gap-2">
+              {/* Step complete / reopen toggle — only on non-review steps */}
+              {!isReview && cycleId && (
+                activeStepStatus === 'complete' ? (
+                  <Button
+                    variant="ghost"
+                    onClick={handleReopenStep}
+                    isLoading={reopenMut.isPending}
+                    disabled={!activeStepRow?.rowVersion}
+                  >
+                    إعادة فتح الخطوة
+                  </Button>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    onClick={handleMarkComplete}
+                    isLoading={completeMut.isPending}
+                    leadingIcon={<CheckCircle2 size={14} strokeWidth={1.75} />}
+                  >
+                    إتمام الخطوة
+                  </Button>
+                )
+              )}
               {!isReview && (
                 <Button
                   variant="primary"
@@ -323,10 +348,10 @@ export function AdmissionSetupWizardPage(): JSX.Element {
 function deriveStepperState(
   key: AdmissionSetupStepKey,
   activeKey: WizardStepKey,
-  inputs: StepStatusInputs,
+  statuses: Record<AdmissionSetupStepKey, string>,
 ): VerticalStepState {
   if (activeKey === key) return 'current';
-  const status = computeStepStatus(key, inputs);
+  const status = statuses[key] ?? 'not_started';
   if (status === 'complete') return 'complete';
   if (status === 'in_progress') return 'in_progress';
   return 'upcoming';

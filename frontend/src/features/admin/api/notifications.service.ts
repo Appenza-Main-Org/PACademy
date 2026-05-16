@@ -1,10 +1,7 @@
 /**
- * Admin Notifications API — Gap L (admin-gaps).
+ * Admin Notifications API — Gap L (admin-gaps) + spec 009 §11 (NotificationTemplate).
  *
- * Authoring surface for system-wide and targeted notifications. Distinct
- * from the `NotificationItem` toast surface (which is in-app delivery).
- *
- * INTEGRATION CONTRACT:
+ * LEGACY (mock-backed) — push notifications for in-app delivery:
  *   GET    /api/admin/notifications?status=          → AdminNotification[]
  *   GET    /api/admin/notifications/:id              → AdminNotification
  *   POST   /api/admin/notifications                  → AdminNotification
@@ -12,9 +9,20 @@
  *   POST   /api/admin/notifications/:id/publish      → AdminNotification
  *   POST   /api/admin/notifications/:id/unpublish    → AdminNotification
  *   POST   /api/admin/notifications/:id/soft-delete  → AdminNotification
- *   GET    /api/applicants/:id/notifications         → AdminNotification[] (only published, non-expired, audience-targeted)
+ *   GET    /api/applicants/:id/notifications         → AdminNotification[]
+ *
+ * SPEC 009 §11 — NotificationTemplate (real backend, wizard step 14):
+ *   GET    /admin/notification-templates[?cycleId=&triggerEvent=&isPublished=] → NotificationTemplateDto[]
+ *   GET    /admin/notification-templates/:id                                    → NotificationTemplateDto
+ *   POST   /admin/notification-templates                                        → 201 NotificationTemplateDto
+ *   PATCH  /admin/notification-templates/:id                                   → NotificationTemplateDto
+ *   POST   /admin/notification-templates/:id/publish                           → NotificationTemplateDto
+ *   POST   /admin/notification-templates/:id/unpublish                         → NotificationTemplateDto
+ *   POST   /admin/notification-templates/:id/archive                           → 204
+ *   POST   /admin/notification-templates/:id/restore                           → NotificationTemplateDto
  */
 
+import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
@@ -95,6 +103,43 @@ export interface NotificationFilters {
   status?: AdminNotificationStatus | 'all';
   type?: AdminNotification['type'] | 'all';
   includeDeleted?: boolean;
+}
+
+/* ── Spec 009 §11 types ─────────────────────────────────────────────── */
+
+/** Notification template for the admission wizard step 14 (real backend). */
+export interface NotificationTemplateDto {
+  id: string;
+  cycleId: string | null;
+  triggerEvent: string;
+  subjectAr: string;
+  bodyAr: string;
+  channel: string;
+  isPublished: boolean;
+  publishedAt: string | null;
+  rowVersion: string;
+}
+
+export interface CreateNotificationTemplateRequest {
+  cycleId?: string;
+  triggerEvent: string;
+  subjectAr: string;
+  bodyAr: string;
+  channel: string;
+}
+
+export interface UpdateNotificationTemplateRequest {
+  subjectAr?: string;
+  bodyAr?: string;
+  triggerEvent?: string;
+  channel?: string;
+  rowVersion: string;
+}
+
+export interface NotificationTemplateFilters {
+  cycleId?: string;
+  triggerEvent?: string;
+  isPublished?: boolean;
 }
 
 export const notificationsService = {
@@ -257,5 +302,120 @@ export const notificationsService = {
       })
       .filter((n) => !n.expireAt || new Date(n.expireAt).getTime() > now)
       .sort((a, b) => new Date(b.publishAt).getTime() - new Date(a.publishAt).getTime());
+  },
+
+  /* ── Spec 009 §11 — NotificationTemplate (real backend) ─────────── */
+
+  async listTemplates(filters: NotificationTemplateFilters = {}): Promise<NotificationTemplateDto[]> {
+    const r = await apiClient.get<NotificationTemplateDto[]>('/admin/notification-templates', {
+      params: filters,
+    });
+    return r.data;
+  },
+
+  async getTemplate(id: string): Promise<NotificationTemplateDto | null> {
+    try {
+      const r = await apiClient.get<NotificationTemplateDto>(`/admin/notification-templates/${id}`);
+      return r.data;
+    } catch (err) {
+      if ((err as { status?: number })?.status === 404) return null;
+      throw err;
+    }
+  },
+
+  async createTemplate(req: CreateNotificationTemplateRequest): Promise<NotificationTemplateDto> {
+    const r = await apiClient.post<NotificationTemplateDto>('/admin/notification-templates', req);
+    emitAudit({
+      action: 'create',
+      module: 'notifications',
+      entityType: 'NotificationTemplate',
+      entityLabel: 'قالب إشعار',
+      entityId: r.data.id,
+      details: `إنشاء قالب "${req.subjectAr}"`,
+      after: r.data,
+    });
+    return r.data;
+  },
+
+  async updateTemplate(
+    id: string,
+    req: UpdateNotificationTemplateRequest,
+  ): Promise<NotificationTemplateDto> {
+    const r = await apiClient.patch<NotificationTemplateDto>(
+      `/admin/notification-templates/${id}`,
+      req,
+    );
+    emitAudit({
+      action: 'update',
+      module: 'notifications',
+      entityType: 'NotificationTemplate',
+      entityLabel: 'قالب إشعار',
+      entityId: id,
+      details: `تعديل قالب الإشعار`,
+      after: r.data,
+    });
+    return r.data;
+  },
+
+  async publishTemplate(id: string, rowVersion: string): Promise<NotificationTemplateDto> {
+    const r = await apiClient.post<NotificationTemplateDto>(
+      `/admin/notification-templates/${id}/publish`,
+      { rowVersion },
+    );
+    emitAudit({
+      action: 'notification_published',
+      module: 'notifications',
+      entityType: 'NotificationTemplate',
+      entityLabel: 'قالب إشعار',
+      entityId: id,
+      details: `نشر قالب الإشعار`,
+      after: r.data,
+    });
+    return r.data;
+  },
+
+  async unpublishTemplate(id: string, rowVersion: string): Promise<NotificationTemplateDto> {
+    const r = await apiClient.post<NotificationTemplateDto>(
+      `/admin/notification-templates/${id}/unpublish`,
+      { rowVersion },
+    );
+    emitAudit({
+      action: 'notification_unpublished',
+      module: 'notifications',
+      entityType: 'NotificationTemplate',
+      entityLabel: 'قالب إشعار',
+      entityId: id,
+      details: `سحب نشر قالب الإشعار`,
+      after: r.data,
+    });
+    return r.data;
+  },
+
+  async archiveTemplate(id: string, reason: string): Promise<void> {
+    await apiClient.post(`/admin/notification-templates/${id}/archive`, { reason });
+    emitAudit({
+      action: 'soft_delete',
+      module: 'notifications',
+      entityType: 'NotificationTemplate',
+      entityLabel: 'قالب إشعار',
+      entityId: id,
+      details: `أرشفة قالب الإشعار — السبب: ${reason}`,
+    });
+  },
+
+  async restoreTemplate(id: string): Promise<NotificationTemplateDto> {
+    const r = await apiClient.post<NotificationTemplateDto>(
+      `/admin/notification-templates/${id}/restore`,
+    );
+    emitAudit({
+      action: 'restore',
+      module: 'notifications',
+      entityType: 'NotificationTemplate',
+      entityLabel: 'قالب إشعار',
+      entityId: id,
+      details: `استعادة قالب الإشعار`,
+      after: r.data,
+    });
+    return r.data;
   },
 };

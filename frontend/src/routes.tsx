@@ -58,6 +58,7 @@ import {
   CategoriesListPage,
   CategoryEditPage,
   CommitteesManagementPage,
+  DateCommitteeBindingPage,
   CycleDetailPage,
   CycleNewPage,
   CyclesPage,
@@ -261,6 +262,7 @@ export const routes: RouteObject[] = [
       { path: 'cycles/admission-setup/fees', element: <AdmissionFeesPage /> },
       { path: 'cycles/admission-setup/exams', element: <ExamsManagementPage /> },
       { path: 'cycles/admission-setup/committees', element: <CommitteesManagementPage /> },
+      { path: 'cycles/admission-setup/date-committee-binding', element: <DateCommitteeBindingPage /> },
       { path: 'cycles/admission-setup/notifications', element: <NotificationsStepPage /> },
       { path: 'cycles/admission-setup/electronic-declaration', element: <ElectronicDeclarationPage /> },
       /* Legacy redirects — old paths used to live at /admin/admission-setup/*. */

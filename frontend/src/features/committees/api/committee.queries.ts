@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { committeeService, type CommitteePayload } from './committee.service';
+import {
+  committeeService,
+  type CommitteePayload,
+  type CommitteeDateBindingDto,
+  type CommitteeMemberDto,
+} from './committee.service';
 import type {
   ApplicantCategoryKey,
   Committee,
@@ -12,9 +17,15 @@ export const scheduleKeys = {
     [...scheduleKeys.all, 'by-category', key] as const,
 };
 
+export const dateBindingKeys = {
+  all: ['committee-date-bindings'] as const,
+  byCommittee: (committeeId: string) =>
+    [...dateBindingKeys.all, committeeId] as const,
+};
+
 export const committeeKeys = {
   all: ['committees'] as const,
-  list: (opts?: { includeDeleted?: boolean }) =>
+  list: (opts?: { includeDeleted?: boolean; cycleId?: string }) =>
     [...committeeKeys.all, 'list', opts ?? null] as const,
   detail: (id: string) => [...committeeKeys.all, 'detail', id] as const,
   queue: (id: string) => [...committeeKeys.all, 'queue', id] as const,
@@ -26,7 +37,15 @@ export const committeeKeys = {
   assigned: (id: string) => [...committeeKeys.all, 'assigned', id] as const,
 };
 
-export const useCommittees = (opts: { includeDeleted?: boolean } = {}) =>
+/**
+ * Lists committees. When `cycleId` is provided, hits the real backend
+ * (`GET /admin/committees?cycleId=...`). Without cycleId, falls back to
+ * the mock state — used by the committees overview page where cross-cycle
+ * listing is the default. Wizard pages always supply a cycle.
+ */
+export const useCommittees = (
+  opts: { includeDeleted?: boolean; cycleId?: string } = {},
+) =>
   useQuery({ queryKey: committeeKeys.list(opts), queryFn: () => committeeService.list(opts) });
 
 export const useCommitteeDependencies = (id: string | null) =>
@@ -260,6 +279,71 @@ export const useUpdateScheduleEntryMutation = () => {
     }) => committeeService.updateScheduleEntry(input.id, input.patch),
     onSuccess: (_res, vars) => {
       qc.invalidateQueries({ queryKey: scheduleKeys.byCategory(vars.categoryKey) });
+    },
+  });
+};
+
+/* ── Member management (spec 009 §9) ────────────────────────────────── */
+
+export const useAddMember = () => {
+  const qc = useQueryClient();
+  return useMutation<
+    CommitteeMemberDto,
+    Error,
+    { committeeId: string; userId: string; role: string }
+  >({
+    mutationFn: ({ committeeId, userId, role }) =>
+      committeeService.addMember(committeeId, userId, role),
+    onSuccess: (_data, { committeeId }) => {
+      qc.invalidateQueries({ queryKey: committeeKeys.detail(committeeId) });
+      qc.invalidateQueries({ queryKey: committeeKeys.list() });
+    },
+  });
+};
+
+export const useRemoveMember = () => {
+  const qc = useQueryClient();
+  return useMutation<void, Error, { committeeId: string; userId: string }>({
+    mutationFn: ({ committeeId, userId }) =>
+      committeeService.removeMember(committeeId, userId),
+    onSuccess: (_data, { committeeId }) => {
+      qc.invalidateQueries({ queryKey: committeeKeys.detail(committeeId) });
+      qc.invalidateQueries({ queryKey: committeeKeys.list() });
+    },
+  });
+};
+
+/* ── Date bindings (spec 009 §10) ───────────────────────────────────── */
+
+export const useDateBindings = (committeeId: string | null) =>
+  useQuery<CommitteeDateBindingDto[]>({
+    queryKey: dateBindingKeys.byCommittee(committeeId ?? ''),
+    queryFn: () => committeeService.listDateBindings(committeeId!),
+    enabled: Boolean(committeeId),
+  });
+
+export const useUpsertDateBinding = () => {
+  const qc = useQueryClient();
+  return useMutation<
+    CommitteeDateBindingDto,
+    Error,
+    { committeeId: string; boundDate: string; capacity: number; rowVersion?: string }
+  >({
+    mutationFn: ({ committeeId, boundDate, capacity, rowVersion }) =>
+      committeeService.upsertDateBinding(committeeId, boundDate, capacity, rowVersion),
+    onSuccess: (_data, { committeeId }) => {
+      qc.invalidateQueries({ queryKey: dateBindingKeys.byCommittee(committeeId) });
+    },
+  });
+};
+
+export const useDeleteDateBinding = () => {
+  const qc = useQueryClient();
+  return useMutation<void, Error, { committeeId: string; boundDate: string }>({
+    mutationFn: ({ committeeId, boundDate }) =>
+      committeeService.deleteDateBinding(committeeId, boundDate),
+    onSuccess: (_data, { committeeId }) => {
+      qc.invalidateQueries({ queryKey: dateBindingKeys.byCommittee(committeeId) });
     },
   });
 };

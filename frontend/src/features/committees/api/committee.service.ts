@@ -1,16 +1,29 @@
 /**
- * Committees API — Sprint 3 (RFP Scope Document §3).
+ * Committees API — Sprint 3 (RFP Scope Document §3) + spec 009 (US2).
  *
- * INTEGRATION CONTRACT:
+ * LEGACY INTEGRATION CONTRACT (mock-backed):
  *   GET    /api/committees                              → Committee[]
  *   GET    /api/committees/:id                          → Committee
- *   POST   /api/committees                              → Committee
- *   PATCH  /api/committees/:id                          → Committee
  *   GET    /api/committees/:id/applicants?date=         → Applicant[] (today's queue)
- *   POST   /api/committees/:id/results                  → CommitteeResult (preliminary)
+ *   POST   /api/committees/:id/results                  → CommitteeResult
  *   POST   /api/committees/:id/results/approve          → { approved, failed }
- *   POST   /api/committees/results/:resultId/reject     → CommitteeResult (reason logged)
+ *   POST   /api/committees/results/:resultId/reject     → CommitteeResult
  *   POST   /api/committees/:id/results/bulk-upload      → { imported, errors }
+ *
+ * SPEC 009 (§9) — Committee CRUD (real backend, GUID-scoped):
+ *   GET    /admin/committees?cycleId=<guid>             → CommitteeDto[]
+ *   GET    /admin/committees/:id                        → CommitteeDto
+ *   POST   /admin/committees                            → 201 CommitteeDto
+ *   PATCH  /admin/committees/:id                        → CommitteeDto
+ *   POST   /admin/committees/:id/members               → 201 CommitteeMemberDto
+ *   DELETE /admin/committees/:id/members/:userId        → 204
+ *   POST   /admin/committees/:id/archive               → 204
+ *   POST   /admin/committees/:id/restore               → CommitteeDto
+ *
+ * SPEC 009 (§10) — Date Bindings (real backend):
+ *   GET    /admin/committees/:committeeId/date-bindings → CommitteeDateBindingDto[]
+ *   PUT    /admin/committees/:committeeId/date-bindings/:date → CommitteeDateBindingDto
+ *   DELETE /admin/committees/:committeeId/date-bindings/:date → 204
  */
 
 import { apiClient } from '@/shared/api';
@@ -62,6 +75,8 @@ export interface CommitteePayload {
   members: number;
   capacityPerSession: number;
   cycleId: string;
+  /** Unique slug for the committee (required by spec 009 §9 backend). */
+  key?: string;
   /** Required — every new committee declares its category. */
   categoryKey: ApplicantCategoryKey;
   /** Required — total seats (1..999). */
@@ -79,6 +94,22 @@ export interface CommitteePayload {
   specializationIds?: string[];
   officerIds?: string[];
   rules?: CommitteeRules;
+}
+
+/** Backend shape for a committee member (spec 009 §9). */
+export interface CommitteeMemberDto {
+  userId: string;
+  role: string;
+  addedAt: string;
+}
+
+/** Per-committee per-date capacity override (spec 009 §10). */
+export interface CommitteeDateBindingDto {
+  committeeId: string;
+  /** ISO date string, e.g. "2030-07-15". */
+  boundDate: string;
+  capacity: number;
+  rowVersion?: string;
 }
 
 /**
@@ -116,6 +147,7 @@ function backendToFrontendCommittee(dto: BackendCommitteeDto): Committee {
     status: (dto.status === 'active' ? 'active' : 'inactive') as CommitteeStatus,
     specializationIds: dto.specializations,
     linkedCycleId: dto.cycleId,
+    rowVersion: dto.rowVersion,
   } as Committee;
 }
 
@@ -158,6 +190,30 @@ export const committeeService = {
   },
 
   async create(payload: CommitteePayload): Promise<Committee> {
+    /* Real backend path for cycle-scoped wizard flow (GUID cycleId). */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(payload.cycleId)) {
+      const r = await apiClient.post<BackendCommitteeDto>('/admin/committees', {
+        cycleId: payload.cycleId,
+        key: payload.key ?? `committee-${Date.now()}`,
+        nameAr: payload.name,
+        nameEn: null,
+        chairUserId: payload.headUserId ?? null,
+        dailyCapacity: payload.capacityPerSession || payload.capacity,
+        specializations: payload.specializationIds ?? [],
+      });
+      const created = backendToFrontendCommittee(r.data);
+      emitAudit({
+        action: 'create',
+        module: 'committees',
+        entityType: 'Committee',
+        entityLabel: 'لجنة قبول',
+        entityId: created.id,
+        details: `إنشاء لجنة "${created.name}"`,
+        after: created,
+      });
+      return created;
+    }
+
     await simulateLatency();
     /* For the specialized_officers track, gender is always derived from
      * the committee name (see deriveCommitteeGender). The service ignores
@@ -314,6 +370,28 @@ export const committeeService = {
    * emit a typed audit row with before/after.
    */
   async update(id: string, patch: Partial<Committee>): Promise<Committee> {
+    /* Real backend path for GUID ids (spec 009 §9). */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      const r = await apiClient.patch<BackendCommitteeDto>(`/admin/committees/${id}`, {
+        nameAr: patch.name,
+        nameEn: undefined,
+        chairUserId: patch.headUserId,
+        dailyCapacity: patch.capacityPerDay ?? patch.capacity,
+        rowVersion: patch.rowVersion,
+      });
+      const updated = backendToFrontendCommittee(r.data);
+      emitAudit({
+        action: 'update',
+        module: 'committees',
+        entityType: 'Committee',
+        entityLabel: 'لجنة قبول',
+        entityId: id,
+        details: `تعديل بيانات "${updated.name}"`,
+        after: updated,
+      });
+      return updated;
+    }
+
     await simulateLatency();
     const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('اللجنة غير موجودة');
@@ -416,6 +494,21 @@ export const committeeService = {
    *   POST   /api/committees/:id/restore
    */
   async softDelete(id: string, reason: string): Promise<Committee> {
+    /* Real backend path for GUID ids — archive endpoint returns 204. */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      await apiClient.post(`/admin/committees/${id}/archive`, { reason });
+      emitAudit({
+        action: 'soft_delete',
+        module: 'committees',
+        entityType: 'Committee',
+        entityLabel: 'لجنة قبول',
+        entityId: id,
+        details: `تم أرشفة اللجنة — السبب: ${reason}`,
+      });
+      /* Archive returns 204; caller should refetch. Return a minimal placeholder. */
+      return { id, deletedAt: new Date().toISOString() } as unknown as Committee;
+    }
+
     await simulateLatency();
     const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('اللجنة غير موجودة');
@@ -438,6 +531,22 @@ export const committeeService = {
   },
 
   async restore(id: string): Promise<Committee> {
+    /* Real backend path for GUID ids — restore returns 200 CommitteeDto. */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      const r = await apiClient.post<BackendCommitteeDto>(`/admin/committees/${id}/restore`);
+      const restored = backendToFrontendCommittee(r.data);
+      emitAudit({
+        action: 'restore',
+        module: 'committees',
+        entityType: 'Committee',
+        entityLabel: 'لجنة قبول',
+        entityId: id,
+        details: `تم استعادة "${restored.name}"`,
+        after: restored,
+      });
+      return restored;
+    }
+
     await simulateLatency();
     const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('اللجنة غير موجودة');
@@ -730,6 +839,85 @@ export const committeeService = {
       entityId: removed.id,
       details: `حذف موعد ${removed.date} للجنة ${removed.committeeId}`,
       before: removed,
+    });
+  },
+
+  /* ── Member management (spec 009 §9) ──────────────────────────────────── */
+
+  /** Add a member to a committee. GUID committeeId required. */
+  async addMember(committeeId: string, userId: string, role: string): Promise<CommitteeMemberDto> {
+    const r = await apiClient.post<CommitteeMemberDto>(
+      `/admin/committees/${committeeId}/members`,
+      { userId, role },
+    );
+    emitAudit({
+      action: 'create',
+      module: 'committees',
+      entityType: 'CommitteeMember',
+      entityLabel: 'عضو لجنة',
+      entityId: `${committeeId}:${userId}`,
+      details: `إضافة عضو ${userId} بدور ${role}`,
+      after: r.data,
+    });
+    return r.data;
+  },
+
+  /** Remove a member from a committee. GUID committeeId required. */
+  async removeMember(committeeId: string, userId: string): Promise<void> {
+    await apiClient.delete(`/admin/committees/${committeeId}/members/${userId}`);
+    emitAudit({
+      action: 'delete',
+      module: 'committees',
+      entityType: 'CommitteeMember',
+      entityLabel: 'عضو لجنة',
+      entityId: `${committeeId}:${userId}`,
+      details: `إزالة عضو ${userId} من اللجنة`,
+    });
+  },
+
+  /* ── Date bindings (spec 009 §10) ─────────────────────────────────────── */
+
+  /** List per-date capacity overrides for a committee. */
+  async listDateBindings(committeeId: string): Promise<CommitteeDateBindingDto[]> {
+    const r = await apiClient.get<CommitteeDateBindingDto[]>(
+      `/admin/committees/${committeeId}/date-bindings`,
+    );
+    return r.data;
+  },
+
+  /** Create-or-update the capacity override for a specific date. */
+  async upsertDateBinding(
+    committeeId: string,
+    boundDate: string,
+    capacity: number,
+    rowVersion?: string,
+  ): Promise<CommitteeDateBindingDto> {
+    const r = await apiClient.put<CommitteeDateBindingDto>(
+      `/admin/committees/${committeeId}/date-bindings/${boundDate}`,
+      { capacity, rowVersion },
+    );
+    emitAudit({
+      action: 'update',
+      module: 'committees',
+      entityType: 'CommitteeDateBinding',
+      entityLabel: 'سعة يومية',
+      entityId: `${committeeId}:${boundDate}`,
+      details: `تحديد سعة ${capacity} للجنة بتاريخ ${boundDate}`,
+      after: r.data,
+    });
+    return r.data;
+  },
+
+  /** Delete the capacity override for a specific date (resets to committee default). */
+  async deleteDateBinding(committeeId: string, boundDate: string): Promise<void> {
+    await apiClient.delete(`/admin/committees/${committeeId}/date-bindings/${boundDate}`);
+    emitAudit({
+      action: 'delete',
+      module: 'committees',
+      entityType: 'CommitteeDateBinding',
+      entityLabel: 'سعة يومية',
+      entityId: `${committeeId}:${boundDate}`,
+      details: `إزالة سعة مخصصة للجنة بتاريخ ${boundDate}`,
     });
   },
 };

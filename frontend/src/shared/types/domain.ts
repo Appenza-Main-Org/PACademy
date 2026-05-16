@@ -566,6 +566,8 @@ export interface Committee extends SoftDeleteFields {
   scopedDegreeIds?: string[];
   scopedFacultyIds?: string[];
   scopedUniversityIds?: string[];
+  /** Server-issued optimistic lock token (spec 009 backend). Echo in PATCH calls. */
+  rowVersion?: string;
 }
 
 /**

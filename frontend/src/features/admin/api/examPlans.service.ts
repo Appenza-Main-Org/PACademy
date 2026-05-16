@@ -1,15 +1,19 @@
 /**
- * Exam Plans API — Gap J (admin-gaps).
+ * Exam Plans API — Gap J (admin-gaps) + spec 009 §8 (CycleExam plan).
  *
- * Per-cycle, per-category exam ordering. Persists CycleCategoryExamPlan
- * shapes (one per cycle×category) and exposes `copyConfig` to clone all
- * plans from a previous cycle into a new draft cycle.
- *
- * INTEGRATION CONTRACT:
+ * LEGACY (mock-backed) — per-cycle, per-category exam ordering:
  *   GET    /api/cycles/:cycleId/exam-plans                                 → CycleCategoryExamPlan[]
  *   GET    /api/cycles/:cycleId/categories/:categoryId/exam-plan           → CycleCategoryExamPlan
  *   PUT    /api/cycles/:cycleId/categories/:categoryId/exam-plan           → CycleCategoryExamPlan
  *   POST   /api/cycles/:targetCycleId/exam-plans/copy?from=:sourceCycleId  → CycleCategoryExamPlan[]
+ *
+ * SPEC 009 §8 — CycleExam plan (real backend, GUID-scoped):
+ *   GET    /admin/cycles/:cycleId/exam-plan[?categoryId=]   → CycleExamDto[]
+ *   POST   /admin/cycles/:cycleId/exam-plan                 → 201 CycleExamDto
+ *   PATCH  /admin/cycle-exams/:id                           → CycleExamDto
+ *   POST   /admin/cycles/:cycleId/exam-plan/reorder         → CycleExamDto[]
+ *   POST   /admin/cycle-exams/:id/archive                   → 204
+ *   POST   /admin/cycle-exams/:id/restore                   → CycleExamDto
  *
  * Result-entry stubs (real backend wires these to:
  *   - manualEntry: POST /api/cycles/:cycleId/exams/:examId/results
@@ -17,6 +21,7 @@
  *   - deviceIntegration: webhook /api/cycles/:cycleId/exams/:examId/device-callback)
  */
 
+import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
@@ -29,6 +34,38 @@ import type {
   CycleCategoryExamPlanEntry,
   ExamResultStatus,
 } from '@/shared/types/domain';
+
+/* ── Spec 009 §8 types ──────────────────────────────────────────────── */
+
+/** Backend CycleExam entity (spec 009 §8). */
+export interface CycleExamDto {
+  id: string;
+  cycleId: string;
+  examTypeKey: string;
+  categoryId: string | null;
+  order: number;
+  isRequired: boolean;
+  feeEgp: number | null;
+  isArchived: boolean;
+  rowVersion: string;
+}
+
+export interface CreateCycleExamRequest {
+  examTypeKey: string;
+  categoryId?: string;
+  order: number;
+  isRequired: boolean;
+  feeEgp?: number;
+}
+
+export interface UpdateCycleExamRequest {
+  examTypeKey?: string;
+  categoryId?: string;
+  order?: number;
+  isRequired?: boolean;
+  feeEgp?: number;
+  rowVersion: string;
+}
 
 const PLANS: CycleCategoryExamPlan[] = [...MOCK.cycleCategoryExamPlans];
 let planIdSeq = 1;
@@ -227,5 +264,88 @@ export const examPlansService = {
   }): Promise<{ ok: true }> {
     await simulateLatency();
     return { ok: true };
+  },
+
+  /* ── Spec 009 §8 — CycleExam plan (real backend) ─────────────────── */
+
+  /** List exam entries for a cycle, optionally filtered by category GUID. */
+  async listCycleExams(
+    cycleId: string,
+    opts: { categoryId?: string } = {},
+  ): Promise<CycleExamDto[]> {
+    const r = await apiClient.get<CycleExamDto[]>(`/admin/cycles/${cycleId}/exam-plan`, {
+      params: opts.categoryId ? { categoryId: opts.categoryId } : undefined,
+    });
+    return r.data;
+  },
+
+  /** Add an exam entry to a cycle's exam plan. */
+  async createCycleExam(
+    cycleId: string,
+    req: CreateCycleExamRequest,
+  ): Promise<CycleExamDto> {
+    const r = await apiClient.post<CycleExamDto>(`/admin/cycles/${cycleId}/exam-plan`, req);
+    emitAudit({
+      action: 'create',
+      module: 'exams',
+      entityType: 'CycleExam',
+      entityLabel: 'اختبار دورة',
+      entityId: r.data.id,
+      details: `إضافة اختبار "${req.examTypeKey}" للدورة ${cycleId}`,
+      after: r.data,
+    });
+    return r.data;
+  },
+
+  /** Update an existing cycle exam entry (optimistic-locking via rowVersion). */
+  async updateCycleExam(id: string, req: UpdateCycleExamRequest): Promise<CycleExamDto> {
+    const r = await apiClient.patch<CycleExamDto>(`/admin/cycle-exams/${id}`, req);
+    emitAudit({
+      action: 'update',
+      module: 'exams',
+      entityType: 'CycleExam',
+      entityLabel: 'اختبار دورة',
+      entityId: id,
+      details: `تعديل اختبار الدورة`,
+      after: r.data,
+    });
+    return r.data;
+  },
+
+  /** Reorder cycle exam entries. Backend assigns order 10, 20, 30, … */
+  async reorderCycleExams(cycleId: string, orderedIds: string[]): Promise<CycleExamDto[]> {
+    const r = await apiClient.post<CycleExamDto[]>(
+      `/admin/cycles/${cycleId}/exam-plan/reorder`,
+      { orderedIds },
+    );
+    return r.data;
+  },
+
+  /** Soft-delete a cycle exam entry. Returns 204. */
+  async archiveCycleExam(id: string, reason: string): Promise<void> {
+    await apiClient.post(`/admin/cycle-exams/${id}/archive`, { reason });
+    emitAudit({
+      action: 'soft_delete',
+      module: 'exams',
+      entityType: 'CycleExam',
+      entityLabel: 'اختبار دورة',
+      entityId: id,
+      details: `أرشفة اختبار الدورة — السبب: ${reason}`,
+    });
+  },
+
+  /** Restore an archived cycle exam entry. */
+  async restoreCycleExam(id: string): Promise<CycleExamDto> {
+    const r = await apiClient.post<CycleExamDto>(`/admin/cycle-exams/${id}/restore`);
+    emitAudit({
+      action: 'restore',
+      module: 'exams',
+      entityType: 'CycleExam',
+      entityLabel: 'اختبار دورة',
+      entityId: id,
+      details: `استعادة اختبار الدورة`,
+      after: r.data,
+    });
+    return r.data;
   },
 };

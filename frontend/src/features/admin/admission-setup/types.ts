@@ -34,6 +34,7 @@ export type AdmissionSetupStepKey =
   | 'fees'
   | 'exams'
   | 'committees'
+  | 'date_committee_binding'
   | 'notifications'
   | 'electronic_declaration';
 
@@ -45,7 +46,7 @@ export type AdmissionSetupStepStatus = 'complete' | 'in_progress' | 'not_started
  * Shapes mirror the proposed SQL Server tables in INTEGRATION_HANDOFF §8.
  * ─────────────────────────────────────────────────────────────────────── */
 
-/** Admission exam date config for the cycle. */
+/** Admission exam date config for the cycle (step key: `exam_date_config`). */
 export interface ExamDateConfig {
   id: string;
   cycleId: string;
@@ -57,7 +58,128 @@ export interface ExamDateConfig {
   blackoutDates: string[];
   updatedAt: string;
   updatedBy: string;
+  /** Server-issued optimistic lock token; echo in every PUT. */
   rowVersion: string;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Committee Merge/Split Rules (step key: `merge_split_rules`)
+ * ─────────────────────────────────────────────────────────────────────── */
+
+export type MergeSplitRuleType = 'merge' | 'split';
+export type MergeSplitRuleStatus = 'planned' | 'applied' | 'cancelled';
+
+export interface CommitteeMergeSplitRule {
+  id: string;
+  cycleId: string;
+  type: MergeSplitRuleType;
+  sourceCommitteeIds: string[];
+  targetCommitteeIds: string[];
+  reason: string | null;
+  /** ISO date — informational only; admin triggers Apply manually. */
+  effectiveAt: string;
+  status: MergeSplitRuleStatus;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+  rowVersion: string;
+  isArchived: boolean;
+}
+
+export interface MergeSplitApplicantMove {
+  applicantId: string;
+  fromCommitteeId: string;
+  toCommitteeId: string;
+}
+
+export interface MergeSplitCapacityChange {
+  committeeId: string;
+  before: number;
+  after: number;
+}
+
+export interface MergeSplitBrokenReference {
+  kind: string;
+  committeeId: string;
+  reason: string;
+}
+
+export interface MergeSplitPreviewDto {
+  applicantsMoved: MergeSplitApplicantMove[];
+  capacityChanges: MergeSplitCapacityChange[];
+  brokenReferences: MergeSplitBrokenReference[];
+  previewHash: string;
+}
+
+export interface ApplyMergeSplitRuleResult {
+  applied: boolean;
+  applicantsMoved: number;
+  durationMs: number;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Committee Score Thresholds (step key: `score_thresholds`)
+ * ─────────────────────────────────────────────────────────────────────── */
+
+export interface CommitteeScoreThresholdRow {
+  cycleId: string;
+  committeeId: string;
+  min: number;
+  max: number;
+  updatedAt: string;
+  updatedBy: string;
+  rowVersion: string;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Total Score Config (step key: `total_score_config`)
+ * ─────────────────────────────────────────────────────────────────────── */
+
+export interface TotalScoreComponent {
+  examKey: string;
+  weightPercent: number;
+  label: string;
+}
+
+export interface TotalScoreConfig {
+  cycleId: string;
+  applicantStream: string;
+  components: TotalScoreComponent[];
+  totalScoreOutOf: number;
+  updatedAt: string;
+  updatedBy: string;
+  rowVersion: string;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Wizard Step Status (all steps)
+ * ─────────────────────────────────────────────────────────────────────── */
+
+export interface WizardStepStatusRow {
+  cycleId: string;
+  stepKey: AdmissionSetupStepKey;
+  status: AdmissionSetupStepStatus;
+  completedAt: string | null;
+  completedBy: string | null;
+  rowVersion: string;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Cross-cycle clone (P4)
+ * ─────────────────────────────────────────────────────────────────────── */
+
+export interface CycleCloneBrokenReference {
+  stepKey: string;
+  sourceId: string;
+  key: string;
+  reason: string;
+}
+
+export interface CycleCloneSummaryDto {
+  copied: { totalRows: number; perStep: Record<string, number> };
+  brokenReferences: CycleCloneBrokenReference[];
+  durationMs: number;
 }
 
 /* ───────────────────────────────────────────────────────────────────────
@@ -335,7 +457,7 @@ export interface DeclarationDocument {
 /** Which surface the applicant sees on Stage 9 — rich-text body or PDF. */
 export type DeclarationMode = 'text' | 'pdf';
 
-/** Electronic declaration shown to the applicant on Stage 9.
+/** Electronic declaration shown to the applicant on Stage 9 (step key: `electronic_declaration`).
  *
  * Both modes (rich text + PDF) coexist on every saved record so admins can
  * switch between tabs without losing the other tab's prior content.
@@ -358,4 +480,6 @@ export interface ElectronicDeclaration {
   createdBy: string;
   /** Soft delete marker — kept for backend mirroring. */
   deletedAt?: string | null;
+  /** Server-issued optimistic lock token; echo in every PATCH/publish/archive. */
+  rowVersion: string;
 }
