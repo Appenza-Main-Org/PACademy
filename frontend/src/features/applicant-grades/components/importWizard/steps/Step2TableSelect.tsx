@@ -14,7 +14,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Sheet as SheetIcon } from 'lucide-react';
 import { ErrorState } from '@/shared/components';
 import { useImportWizardStore } from '../../../store/importWizard.store';
-import { parseGradesFile, type ParsedSheet } from '../../../lib/parseGradesFile';
+import {
+  ParseGradesError,
+  parseGradesFile,
+  type ParsedSheet,
+} from '../../../lib/parseGradesFile';
 import { autoMapColumns } from '../../../lib/targetFields';
 
 interface Step2Props {
@@ -32,7 +36,7 @@ export function Step2TableSelect({ onAutoAdvance }: Step2Props): JSX.Element {
   const setMapping = useImportWizardStore((s) => s.setMapping);
 
   const [status, setStatus] = useState<'idle' | 'parsing' | 'error'>('idle');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; raw: string | null } | null>(null);
   const lastParsedFileRef = useRef<File | null>(null);
 
   const runParse = useCallback(
@@ -52,7 +56,21 @@ export function Step2TableSelect({ onAutoAdvance }: Step2Props): JSX.Element {
         }
         setStatus('idle');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'تعذّر قراءة الملف.');
+        /* Friendly Arabic message lives on `err.message`; the raw
+         * underlying parser error lives on `err.rawMessage` for
+         * `ParseGradesError` (we re-attach it from mdb-reader's
+         * exception in `parseGradesFile`). Surface both so the admin
+         * sees a workable hint while the dev console keeps the
+         * machine-readable cause for triage. */
+        const isParseErr = err instanceof ParseGradesError;
+        setError({
+          message: isParseErr
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'تعذّر قراءة الملف.',
+          raw: isParseErr ? err.rawMessage ?? null : null,
+        });
         setStatus('error');
       }
     },
@@ -90,9 +108,24 @@ export function Step2TableSelect({ onAutoAdvance }: Step2Props): JSX.Element {
     return (
       <ErrorState
         title="تعذّر قراءة الملف"
-        description={error ?? 'تأكد من سلامة الملف ثم أعد المحاولة.'}
+        description={error?.message ?? 'تأكد من سلامة الملف ثم أعد المحاولة.'}
         icon={<AlertTriangle size={24} strokeWidth={1.5} aria-hidden />}
         onRetry={() => void runParse(file)}
+        extraActions={
+          error?.raw ? (
+            <details className="mt-2 max-w-[440px] text-start">
+              <summary className="cursor-pointer text-2xs text-ink-500">
+                عرض التفاصيل التقنية
+              </summary>
+              <pre
+                dir="ltr"
+                className="mt-1.5 overflow-auto rounded-md border border-border-subtle bg-ink-50 p-2 text-2xs text-ink-700"
+              >
+                {error.raw}
+              </pre>
+            </details>
+          ) : undefined
+        }
       />
     );
   }

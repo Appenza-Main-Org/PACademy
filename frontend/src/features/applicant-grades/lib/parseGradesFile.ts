@@ -44,11 +44,25 @@ export interface ParsedSheet {
 }
 
 export class ParseGradesError extends Error {
-  constructor(message: string) {
+  /** Raw underlying message (for the developer console / dev logs). */
+  readonly rawMessage?: string;
+  constructor(message: string, rawMessage?: string) {
     super(message);
     this.name = 'ParseGradesError';
+    this.rawMessage = rawMessage;
   }
 }
+
+/**
+ * Friendly Arabic suggestion shown when `mdb-reader` chokes on a
+ * Ministry `.accdb` export. Some real-world exports use Access 2010+
+ * features (encryption headers, newer page-usage map variants) that
+ * the open-source `mdb-reader` parser doesn't fully cover yet. When
+ * that happens the admin has a workable escape hatch: open the file
+ * in Microsoft Access and "Save As" to `.xlsx`, then re-upload.
+ */
+const ACCESS_FALLBACK_HINT =
+  'يبدو أن صيغة ملف Access هذه غير مدعومة. جرّب فتحه في Microsoft Access وحفظه بصيغة Excel (.xlsx) ثم أعد الرفع.';
 
 const ACCESS_EXTENSIONS = ['.mdb', '.accdb'] as const;
 const SPREADSHEET_EXTENSIONS = ['.xlsx', '.xls', '.csv'] as const;
@@ -104,15 +118,31 @@ async function parseAccess(file: File): Promise<ParsedTable[]> {
   const MDBReader = await loadMdbReader();
   const { Buffer } = await import('buffer');
   const buffer = await file.arrayBuffer();
+
+  /* The MDBReader constructor doesn't just validate the file header —
+   * it eagerly traverses the system-object table, walks page-usage
+   * maps, and may throw deep inside `usage-map.js` for `.accdb`
+   * variants the open-source parser doesn't cover (e.g. encrypted
+   * pages, mixed Access 2010+ layout). Catch everything that bubbles
+   * out and rewrap with the friendly fallback hint while keeping the
+   * raw message available for dev console + Sprint-10 telemetry. */
   let reader: MDBReaderType;
   try {
     reader = new MDBReader(Buffer.from(buffer));
   } catch (err) {
-    throw new ParseGradesError(
-      err instanceof Error ? `تعذّر قراءة ملف Access: ${err.message}` : 'تعذّر قراءة ملف Access.',
-    );
+    const raw = err instanceof Error ? err.message : String(err);
+    /* eslint-disable-next-line no-console */
+    console.error('[applicant-grades] mdb-reader ctor failed:', err);
+    throw new ParseGradesError(ACCESS_FALLBACK_HINT, raw);
   }
-  const tableNames = reader.getTableNames();
+
+  let tableNames: string[];
+  try {
+    tableNames = [...reader.getTableNames()];
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
+    throw new ParseGradesError(ACCESS_FALLBACK_HINT, raw);
+  }
   if (tableNames.length === 0) {
     throw new ParseGradesError('لا يوجد جدول قابل للقراءة في الملف.');
   }
@@ -137,7 +167,7 @@ async function parseAccess(file: File): Promise<ParsedTable[]> {
     tables.push({ name: tableName, columns, rows, rowCount: rows.length });
   }
   if (tables.length === 0) {
-    throw new ParseGradesError('لا يوجد جدول قابل للقراءة في الملف.');
+    throw new ParseGradesError(ACCESS_FALLBACK_HINT);
   }
   return tables;
 }
