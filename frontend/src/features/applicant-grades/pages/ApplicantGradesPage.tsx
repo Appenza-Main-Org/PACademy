@@ -316,7 +316,7 @@ export function ApplicantGradesPage(): JSX.Element {
     return (
       <div>
         <PageHeader
-          title="إدارة المجموع والدرجات"
+          title="درجات الثانوية العامة والأزهرية"
           subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         />
         <LoadingState variant="page" />
@@ -329,7 +329,7 @@ export function ApplicantGradesPage(): JSX.Element {
   return (
     <div>
       <PageHeader
-        title="إدارة المجموع والدرجات"
+        title="درجات الثانوية العامة والأزهرية"
         subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         actions={
           <>

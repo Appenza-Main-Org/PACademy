@@ -3,7 +3,6 @@ import {
   Banknote,
   BarChart3,
   Bell,
-  Calendar,
   CalendarDays,
   ClipboardList,
   Database,
@@ -12,7 +11,6 @@ import {
   Settings,
   Shield,
   Users,
-  Workflow,
 } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
@@ -63,8 +61,7 @@ const SIDEBAR: SidebarSection[] = [
     permission: 'admission-setup:read',
     items: [
       { key: 'cycles',             label: 'الدورات',         icon: <CalendarDays size={18} />,   to: ROUTES.admin.cycles },
-      { key: 'applicant-grades',   label: 'إدارة المجموع والدرجات', icon: <FileSpreadsheet size={18} />, to: ROUTES.admin.applicantGrades },
-      { key: 'committee-schedule', label: 'الجدول الزمني',   icon: <Calendar size={18} />,       to: ROUTES.committee.schedule },
+      { key: 'applicant-grades',   label: 'درجات الثانوية العامة والأزهرية', icon: <FileSpreadsheet size={18} />, to: ROUTES.admin.applicantGrades },
     ],
   },
   /* ── 3. Cross-cycle reference data ─────────────────────────────────── */
@@ -72,7 +69,6 @@ const SIDEBAR: SidebarSection[] = [
     label: 'البيانات المرجعية والإعدادات',
     items: [
       { key: 'lookups',       label: 'الأكواد المرجعية', icon: <Database size={18} />,  to: ROUTES.admin.adminLookups },
-      { key: 'workflows',     label: 'سير العمل',         icon: <Workflow size={18} />,  to: ROUTES.admin.workflows },
       { key: 'notifications', label: 'الإشعارات',         icon: <Bell size={18} />,      to: ROUTES.admin.notifications },
       { key: 'payments',      label: 'المدفوعات',          icon: <Banknote size={18} />,  to: ROUTES.admin.payments },
       { key: 'settings',      label: 'الإعدادات العامة',   icon: <Settings size={18} />,  to: ROUTES.admin.settings },
