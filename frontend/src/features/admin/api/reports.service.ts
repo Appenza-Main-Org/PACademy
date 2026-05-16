@@ -140,8 +140,15 @@ function activeCycleLabel(): string {
 }
 
 function activeCycleCapacity(): number | null {
+  /* Sum of per-category capacities on the active cycle's openCategories map.
+   * Returns null when the cycle is missing or has no opened category with a
+   * numeric cap. */
   const cycle = MOCK.cycles.find((c) => c.id === ACTIVE_CYCLE_ID);
-  return cycle?.expectedCapacity ?? null;
+  if (!cycle) return null;
+  const total = Object.values(cycle.openCategories ?? {})
+    .filter((c): c is NonNullable<typeof c> => Boolean(c?.isOpen))
+    .reduce((sum, c) => sum + (typeof c.capacity === 'number' ? c.capacity : 0), 0);
+  return total > 0 ? total : null;
 }
 
 /** Map an applicant deterministically into one of the 7 departments. */

@@ -15,6 +15,5 @@ public sealed class CreateCycleValidator : AbstractValidator<CreateCycleRequest>
             .WithMessage("Cohort must be 'male' or 'female'.");
         RuleFor(r => r.OpenDate).LessThan(r => r.CloseDate)
             .WithMessage("OpenDate must be before CloseDate.");
-        RuleFor(r => r.ExpectedCapacity).GreaterThan(0);
     }
 }

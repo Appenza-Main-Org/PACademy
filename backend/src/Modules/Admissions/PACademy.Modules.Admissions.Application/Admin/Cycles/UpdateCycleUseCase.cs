@@ -25,7 +25,6 @@ public sealed class UpdateCycleUseCase(IAdmissionsDbContext db)
             request.NameAr,
             request.OpenDate,
             request.CloseDate,
-            request.ExpectedCapacity,
             openCatJson,
             overridesJson);
 

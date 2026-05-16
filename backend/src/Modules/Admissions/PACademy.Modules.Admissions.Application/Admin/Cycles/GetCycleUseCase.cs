@@ -30,7 +30,7 @@ public sealed class GetCycleUseCase(IAdmissionsDbContext db)
         return new CycleDetailDto(
             c.Id, c.NameAr, c.Year, c.Cohort,
             c.Status.ToString().ToLowerInvariant(),
-            c.OpenDate, c.CloseDate, c.ExpectedCapacity,
+            c.OpenDate, c.CloseDate,
             applicantCount,
             openCategories,
             conditionOverrides,

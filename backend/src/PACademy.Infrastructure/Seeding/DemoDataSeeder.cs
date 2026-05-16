@@ -231,7 +231,6 @@ public sealed class DemoDataSeeder(
         {
             var cycle = Cycle.Create(
                 nameAr, year, cohort,
-                expectedCapacity: 500,
                 openDate: openDate,
                 closeDate: closeDate,
                 createdBy: createdBy,

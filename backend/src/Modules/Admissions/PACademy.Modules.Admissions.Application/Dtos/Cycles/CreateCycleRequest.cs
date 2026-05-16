@@ -5,5 +5,4 @@ public sealed record CreateCycleRequest(
     int Year,
     string Cohort,
     DateTime OpenDate,
-    DateTime CloseDate,
-    int ExpectedCapacity);
+    DateTime CloseDate);

@@ -830,9 +830,9 @@ export interface RefCaseType extends SoftDeleteFields {
  * Post-polish extension: `openCategories`, `conditionOverrides`,
  * `createdAt`/`updatedAt`, and the additional `'active'`/`'archived'`
  * status tokens. Existing fields (`nameAr`, `openDate`, `closeDate`,
- * `cohort`, `year`, `expectedCapacity`, `applicantCount`) are kept as-is
- * for backwards compatibility with CyclesPage/CycleDetailPage and
- * AdmissionRule references. Map old↔new at the service layer:
+ * `cohort`, `year`, `applicantCount`) are kept as-is for backwards
+ * compatibility with CyclesPage/CycleDetailPage and AdmissionRule
+ * references. Map old↔new at the service layer:
  *   'open' ≡ 'active', 'finalized' ≡ 'archived', 'processing' is internal.
  */
 
@@ -946,7 +946,6 @@ export interface AdmissionCycle extends SoftDeleteFields {
   linkedCommitteeIds?: string[];
   /** Ordered exam keys to be administered (Gap F + J). */
   examOrder?: string[];
-  expectedCapacity: number;
   applicantCount: number;
   status: CycleStatus;
   /** English label, optional — defaults to a computed transliteration in UI. */

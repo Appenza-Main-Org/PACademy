@@ -51,7 +51,7 @@ public sealed class ListCyclesUseCase(IAdmissionsDbContext db)
         var dtos = cycles.Select(c => new CycleListItemDto(
             c.Id, c.NameAr, c.Year, c.Cohort,
             c.Status.ToString().ToLowerInvariant(),
-            c.OpenDate, c.CloseDate, c.ExpectedCapacity,
+            c.OpenDate, c.CloseDate,
             applicantCounts.GetValueOrDefault(c.Id, 0))).ToList();
 
         var totalPages = (int)Math.Ceiling(total / (double)pageSize);

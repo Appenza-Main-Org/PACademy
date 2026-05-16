@@ -18,7 +18,6 @@ public sealed class CreateCycleUseCase(
             request.NameAr,
             request.Year,
             request.Cohort,
-            request.ExpectedCapacity,
             request.OpenDate,
             request.CloseDate,
             actor.Id);

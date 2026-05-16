@@ -246,9 +246,15 @@ function CycleCard({
   selected: boolean;
   onPick: () => void;
 }): JSX.Element {
-  const openCount = Object.values(cycle.openCategories ?? {}).filter(
-    (c) => c?.isOpen,
-  ).length;
+  const openConfigs = Object.values(cycle.openCategories ?? {}).filter(
+    (c): c is NonNullable<typeof c> => Boolean(c?.isOpen),
+  );
+  const openCount = openConfigs.length;
+  /* Nulls treat as unbounded categories and are skipped from the sum. */
+  const totalCapacity = openConfigs.reduce(
+    (sum, c) => sum + (typeof c.capacity === 'number' ? c.capacity : 0),
+    0,
+  );
 
   return (
     <button
@@ -299,7 +305,7 @@ function CycleCard({
         <div className="rounded-md bg-ink-50 px-2 py-1.5">
           <dt className="text-ink-500">السعة المتوقعة</dt>
           <dd className="font-numeric tnum mt-0.5 font-bold text-ink-900">
-            {cycle.expectedCapacity}
+            {totalCapacity}
           </dd>
         </div>
         <div className="rounded-md bg-ink-50 px-2 py-1.5">

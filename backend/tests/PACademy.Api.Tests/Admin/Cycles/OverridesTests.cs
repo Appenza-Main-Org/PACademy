@@ -45,8 +45,7 @@ public sealed class OverridesTests(SqlServerFixture sqlFixture) : IAsyncLifetime
         var req = new CreateCycleRequest(
             nameAr, year, "male",
             new DateTime(year, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(year, 9, 30, 0, 0, 0, DateTimeKind.Utc),
-            200);
+            new DateTime(year, 9, 30, 0, 0, 0, DateTimeKind.Utc));
         var resp = await _client.PostAsJsonAsync("/admin/cycles", req);
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<CycleDetailDto>())!;
@@ -64,7 +63,7 @@ public sealed class OverridesTests(SqlServerFixture sqlFixture) : IAsyncLifetime
             ["forensics"] = new OpenCategoryEntryDto(IsOpen: false, Capacity: null, Notes: null),
         };
 
-        var patch = new UpdateCycleRequest(null, null, null, null, openCats, null);
+        var patch = new UpdateCycleRequest(null, null, null, openCats, null);
         var patchResp = await _client.PatchAsJsonAsync($"/admin/cycles/{cycle.Id}", patch);
         patchResp.IsSuccessStatusCode.Should().BeTrue();
 
@@ -87,7 +86,7 @@ public sealed class OverridesTests(SqlServerFixture sqlFixture) : IAsyncLifetime
             ["police"] = JsonSerializer.SerializeToElement(new { minAge = 18, maxAge = 24 }),
         };
 
-        var patch = new UpdateCycleRequest(null, null, null, null, null, overrides);
+        var patch = new UpdateCycleRequest(null, null, null, null, overrides);
         var resp = await _client.PatchAsJsonAsync($"/admin/cycles/{cycle.Id}", patch);
         resp.IsSuccessStatusCode.Should().BeTrue();
 
@@ -125,8 +124,7 @@ public sealed class OverridesTests(SqlServerFixture sqlFixture) : IAsyncLifetime
         var req = new CreateCycleRequest(
             "دورة نشطة للحذف", 2064, "female",
             DateTime.UtcNow.AddDays(-1),   // window includes now
-            DateTime.UtcNow.AddDays(90),
-            50);
+            DateTime.UtcNow.AddDays(90));
         var createResp = await _client.PostAsJsonAsync("/admin/cycles", req);
         createResp.EnsureSuccessStatusCode();
         var cycle = (await createResp.Content.ReadFromJsonAsync<CycleDetailDto>())!;

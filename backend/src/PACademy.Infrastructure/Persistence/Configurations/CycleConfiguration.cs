@@ -15,7 +15,6 @@ internal sealed class CycleConfiguration : IEntityTypeConfiguration<Cycle>
             .UseCollation("Arabic_100_CI_AS_SC");
         b.Property(c => c.Year).IsRequired();
         b.Property(c => c.Cohort).HasMaxLength(8).IsRequired();
-        b.Property(c => c.ExpectedCapacity).IsRequired();
         b.Property(c => c.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         b.Property(c => c.OpenDate).IsRequired();
         b.Property(c => c.CloseDate).IsRequired();

@@ -10,7 +10,6 @@ public sealed record CycleDetailDto(
     string Status,
     DateTime OpenDate,
     DateTime CloseDate,
-    int ExpectedCapacity,
     int ApplicantCount,
     Dictionary<string, OpenCategoryEntryDto> OpenCategories,
     Dictionary<string, JsonElement> ConditionOverrides,

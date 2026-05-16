@@ -26,7 +26,6 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     year: 2024,
     openDate: '2024-01-15T00:00:00.000Z',
     closeDate: '2024-03-31T00:00:00.000Z',
-    expectedCapacity: 1500,
     applicantCount: 1487,
     status: 'finalized',
     openCategories: {
@@ -44,7 +43,6 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     year: 2025,
     openDate: '2025-01-15T00:00:00.000Z',
     closeDate: '2025-03-31T00:00:00.000Z',
-    expectedCapacity: 1800,
     applicantCount: 1762,
     status: 'processing',
     openCategories: {
@@ -66,7 +64,6 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
      * active cycle (CYC-2026-M, "دورة التقديم 2026"). Kept as historical
      * test data. */
     closeDate: '2025-04-15T23:59:59.000Z',
-    expectedCapacity: 240,
     applicantCount: 238,
     status: 'closed',
     openCategories: {
@@ -89,7 +86,6 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     /* The single active admission cycle for the demo — closeDate kept beyond
      * the demo date so /admin/admission-setup shows it as the active cycle. */
     closeDate: '2026-12-31T23:59:59.000Z',
-    expectedCapacity: 2000,
     applicantCount: 0,
     status: 'open',
     openCategories: {
@@ -146,7 +142,6 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     year: 2027,
     openDate: '2027-01-15T00:00:00.000Z',
     closeDate: '2027-03-31T00:00:00.000Z',
-    expectedCapacity: 2200,
     applicantCount: 0,
     status: 'draft',
     openCategories: {

@@ -26,7 +26,6 @@ public sealed class UpdateCycleUseCase(IPaDbContext db)
             request.NameAr,
             request.OpenDate,
             request.CloseDate,
-            request.ExpectedCapacity,
             openCatJson,
             overridesJson);
 

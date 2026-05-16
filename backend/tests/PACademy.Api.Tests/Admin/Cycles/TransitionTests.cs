@@ -42,7 +42,7 @@ public sealed class TransitionTests(SqlServerFixture sqlFixture) : IAsyncLifetim
         string nameAr, int year, string cohort,
         DateTime openDate, DateTime closeDate)
     {
-        var req = new CreateCycleRequest(nameAr, year, cohort, openDate, closeDate, 100);
+        var req = new CreateCycleRequest(nameAr, year, cohort, openDate, closeDate);
         var resp = await _client.PostAsJsonAsync("/admin/cycles", req);
         resp.EnsureSuccessStatusCode();
         return (await resp.Content.ReadFromJsonAsync<CycleDetailDto>())!;

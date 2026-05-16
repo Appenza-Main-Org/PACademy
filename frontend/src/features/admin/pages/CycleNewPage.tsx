@@ -80,7 +80,6 @@ function buildPayload(values: CycleValues): Omit<AdmissionCycle, 'id' | 'applica
     year: values.year,
     openDate: openIso,
     closeDate: closeIso,
-    expectedCapacity: 0,
     status: values.status,
     openCategories: {},
     conditionOverrides: {},

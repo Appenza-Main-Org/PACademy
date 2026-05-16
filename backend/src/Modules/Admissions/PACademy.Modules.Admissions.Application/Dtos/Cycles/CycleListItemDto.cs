@@ -8,5 +8,4 @@ public sealed record CycleListItemDto(
     string Status,
     DateTime OpenDate,
     DateTime CloseDate,
-    int ExpectedCapacity,
     int ApplicantCount);

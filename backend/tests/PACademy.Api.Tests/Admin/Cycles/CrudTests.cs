@@ -48,8 +48,7 @@ public sealed class CrudTests(SqlServerFixture sqlFixture) : IAsyncLifetime
             Year: 2027,
             Cohort: "male",
             OpenDate: new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-            CloseDate: new DateTime(2027, 8, 31, 0, 0, 0, DateTimeKind.Utc),
-            ExpectedCapacity: 300);
+            CloseDate: new DateTime(2027, 8, 31, 0, 0, 0, DateTimeKind.Utc));
 
         var resp = await _client.PostAsJsonAsync("/admin/cycles", req);
 
@@ -75,8 +74,7 @@ public sealed class CrudTests(SqlServerFixture sqlFixture) : IAsyncLifetime
             Year: 2027,
             Cohort: "male",
             OpenDate: new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-            CloseDate: new DateTime(2027, 8, 31, 0, 0, 0, DateTimeKind.Utc),
-            ExpectedCapacity: 300);
+            CloseDate: new DateTime(2027, 8, 31, 0, 0, 0, DateTimeKind.Utc));
 
         var resp = await _client.PostAsJsonAsync("/admin/cycles", req);
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -91,8 +89,7 @@ public sealed class CrudTests(SqlServerFixture sqlFixture) : IAsyncLifetime
             Year: 2027,
             Cohort: "male",
             OpenDate: new DateTime(2027, 9, 1, 0, 0, 0, DateTimeKind.Utc),
-            CloseDate: new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-            ExpectedCapacity: 300);
+            CloseDate: new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc));
 
         var resp = await _client.PostAsJsonAsync("/admin/cycles", req);
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -107,8 +104,7 @@ public sealed class CrudTests(SqlServerFixture sqlFixture) : IAsyncLifetime
             Year: 2027,
             Cohort: "mixed",
             OpenDate: new DateTime(2027, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-            CloseDate: new DateTime(2027, 8, 31, 0, 0, 0, DateTimeKind.Utc),
-            ExpectedCapacity: 300);
+            CloseDate: new DateTime(2027, 8, 31, 0, 0, 0, DateTimeKind.Utc));
 
         var resp = await _client.PostAsJsonAsync("/admin/cycles", req);
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -121,8 +117,7 @@ public sealed class CrudTests(SqlServerFixture sqlFixture) : IAsyncLifetime
         var req = new CreateCycleRequest(
             "دورة للقائمة", 2028, "female",
             new DateTime(2028, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-            new DateTime(2028, 9, 30, 0, 0, 0, DateTimeKind.Utc),
-            200);
+            new DateTime(2028, 9, 30, 0, 0, 0, DateTimeKind.Utc));
         await _client.PostAsJsonAsync("/admin/cycles", req);
 
         var resp = await _client.GetAsync("/admin/cycles?year=2028");
@@ -140,8 +135,7 @@ public sealed class CrudTests(SqlServerFixture sqlFixture) : IAsyncLifetime
         var created = await (await _client.PostAsJsonAsync("/admin/cycles",
             new CreateCycleRequest("دورة للتفاصيل", 2029, "male",
                 new DateTime(2029, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-                new DateTime(2029, 9, 30, 0, 0, 0, DateTimeKind.Utc),
-                400)))
+                new DateTime(2029, 9, 30, 0, 0, 0, DateTimeKind.Utc))))
             .Content.ReadFromJsonAsync<CycleDetailDto>();
 
         var resp = await _client.GetAsync($"/admin/cycles/{created!.Id}");
@@ -167,17 +161,15 @@ public sealed class CrudTests(SqlServerFixture sqlFixture) : IAsyncLifetime
         var created = await (await _client.PostAsJsonAsync("/admin/cycles",
             new CreateCycleRequest("اسم قديم", 2030, "male",
                 new DateTime(2030, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-                new DateTime(2030, 9, 30, 0, 0, 0, DateTimeKind.Utc),
-                100)))
+                new DateTime(2030, 9, 30, 0, 0, 0, DateTimeKind.Utc))))
             .Content.ReadFromJsonAsync<CycleDetailDto>();
 
-        var patch = new UpdateCycleRequest("اسم جديد", null, null, 250, null, null);
+        var patch = new UpdateCycleRequest("اسم جديد", null, null, null, null);
         var resp = await _client.PatchAsJsonAsync($"/admin/cycles/{created!.Id}", patch);
 
         resp.IsSuccessStatusCode.Should().BeTrue();
         var dto = await resp.Content.ReadFromJsonAsync<CycleDetailDto>();
         dto!.NameAr.Should().Be("اسم جديد");
-        dto.ExpectedCapacity.Should().Be(250);
     }
 
     // AC-5: DELETE Draft with no applicants → 204
@@ -187,8 +179,7 @@ public sealed class CrudTests(SqlServerFixture sqlFixture) : IAsyncLifetime
         var created = await (await _client.PostAsJsonAsync("/admin/cycles",
             new CreateCycleRequest("دورة للحذف", 2031, "female",
                 new DateTime(2031, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-                new DateTime(2031, 9, 30, 0, 0, 0, DateTimeKind.Utc),
-                50)))
+                new DateTime(2031, 9, 30, 0, 0, 0, DateTimeKind.Utc))))
             .Content.ReadFromJsonAsync<CycleDetailDto>();
 
         var resp = await _client.DeleteAsync($"/admin/cycles/{created!.Id}");
@@ -202,8 +193,7 @@ public sealed class CrudTests(SqlServerFixture sqlFixture) : IAsyncLifetime
         await _client.PostAsJsonAsync("/admin/cycles",
             new CreateCycleRequest("مسودة عامة", 2032, "male",
                 new DateTime(2032, 3, 1, 0, 0, 0, DateTimeKind.Utc),
-                new DateTime(2032, 9, 30, 0, 0, 0, DateTimeKind.Utc),
-                100));
+                new DateTime(2032, 9, 30, 0, 0, 0, DateTimeKind.Utc)));
 
         var publicClient = _factory.CreateClient();
         var resp = await publicClient.GetAsync("/cycles");

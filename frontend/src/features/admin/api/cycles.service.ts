@@ -208,9 +208,9 @@ const CYCLE_DEP_LABELS: Record<string, string> = {
 
 /* Backend `GET /admin/cycles` returns CycleListItemDto[] inside a PagedResult.
  * CycleListItemDto carries id, nameAr, year, cohort, status, openDate, closeDate,
- * expectedCapacity, applicantCount — a strict subset of frontend AdmissionCycle.
- * Optional rich fields (openCategories, fees, conditionOverrides, …) default to
- * empty here; the wizard's per-step services own those shapes anyway. */
+ * applicantCount — a strict subset of frontend AdmissionCycle. Optional rich
+ * fields (openCategories, fees, conditionOverrides, …) default to empty here;
+ * the wizard's per-step services own those shapes anyway. */
 interface BackendCycleListItem {
   id: string;
   nameAr: string;
@@ -219,7 +219,6 @@ interface BackendCycleListItem {
   status: AdmissionCycle['status'];
   openDate: string;
   closeDate: string;
-  expectedCapacity: number;
   applicantCount: number;
 }
 interface BackendPagedResult<T> {
@@ -251,7 +250,6 @@ export const cyclesService = {
         status: c.status,
         openDate: c.openDate,
         closeDate: c.closeDate,
-        expectedCapacity: c.expectedCapacity,
         applicantCount: c.applicantCount,
       }))
       .sort((a, b) => b.year - a.year);
@@ -303,19 +301,18 @@ export const cyclesService = {
     _options: { demoteCurrentActive?: boolean } = {},
   ): Promise<AdmissionCycle> {
     /* Real backend POST /admin/cycles. Body matches CreateCycleRequest:
-     * { nameAr, year, cohort, openDate, closeDate, expectedCapacity }.
-     * Backend always creates in Draft status; activation is a separate
-     * call via POST /admin/cycles/{id}/status. The single-active invariant
-     * is enforced on the backend during that transition, so the
-     * demoteCurrentActive option is now meaningless on create — kept on
-     * the signature for backwards compatibility with existing callers. */
+     * { nameAr, year, cohort, openDate, closeDate }. Backend always creates
+     * in Draft status; activation is a separate call via POST
+     * /admin/cycles/{id}/status. The single-active invariant is enforced on
+     * the backend during that transition, so the demoteCurrentActive option
+     * is now meaningless on create — kept on the signature for backwards
+     * compatibility with existing callers. */
     const r = await apiClient.post<AdmissionCycle>('/admin/cycles', {
       nameAr: payload.nameAr,
       year: payload.year,
       cohort: payload.cohort,
       openDate: payload.openDate,
       closeDate: payload.closeDate,
-      expectedCapacity: payload.expectedCapacity,
     });
     return r.data;
   },
@@ -388,10 +385,10 @@ export const cyclesService = {
 
   async update(id: string, patch: Partial<AdmissionCycle>): Promise<AdmissionCycle> {
     /* Real backend PATCH /admin/cycles/{id} — accepts a subset of fields:
-     * nameAr, openDate, closeDate, expectedCapacity, openCategories,
-     * conditionOverrides. Other fields on the frontend AdmissionCycle (status,
-     * cohort, year, …) are immutable post-create or have dedicated endpoints
-     * (e.g. POST /admin/cycles/{id}/status for status transitions).
+     * nameAr, openDate, closeDate, openCategories, conditionOverrides. Other
+     * fields on the frontend AdmissionCycle (status, cohort, year, …) are
+     * immutable post-create or have dedicated endpoints (e.g. POST
+     * /admin/cycles/{id}/status for status transitions).
      *
      * If the id is a real GUID, hit the backend. Otherwise fall back to mock
      * so legacy cycle ids (e.g., CYC-2026-M from older sessionStorage state)
@@ -401,7 +398,6 @@ export const cyclesService = {
       if (patch.nameAr !== undefined) body.nameAr = patch.nameAr;
       if (patch.openDate !== undefined) body.openDate = patch.openDate;
       if (patch.closeDate !== undefined) body.closeDate = patch.closeDate;
-      if (patch.expectedCapacity !== undefined) body.expectedCapacity = patch.expectedCapacity;
       if (patch.openCategories !== undefined) body.openCategories = patch.openCategories;
       if (patch.conditionOverrides !== undefined) body.conditionOverrides = patch.conditionOverrides;
       const r = await apiClient.patch<AdmissionCycle>(`/admin/cycles/${id}`, body);
@@ -448,7 +444,6 @@ export const cyclesService = {
         cohort: source.cohort,
         openDate: source.openDate ? shiftYear(source.openDate) : new Date().toISOString(),
         closeDate: source.closeDate ? shiftYear(source.closeDate) : new Date().toISOString(),
-        expectedCapacity: source.expectedCapacity,
       });
       emitAudit({
         action: 'create',

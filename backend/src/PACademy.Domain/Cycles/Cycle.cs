@@ -8,7 +8,6 @@ public sealed class Cycle : AggregateRoot<Guid>, IAuditableWrite, ISoftDeletable
     public string NameAr { get; private set; } = string.Empty;
     public int Year { get; private set; }
     public string Cohort { get; private set; } = string.Empty;
-    public int ExpectedCapacity { get; private set; }
     public CycleStatus Status { get; private set; }
     public DateTime OpenDate { get; private set; }
     public DateTime CloseDate { get; private set; }
@@ -27,7 +26,6 @@ public sealed class Cycle : AggregateRoot<Guid>, IAuditableWrite, ISoftDeletable
         string nameAr,
         int year,
         string cohort,
-        int expectedCapacity,
         DateTime openDate,
         DateTime closeDate,
         Guid createdBy,
@@ -40,7 +38,6 @@ public sealed class Cycle : AggregateRoot<Guid>, IAuditableWrite, ISoftDeletable
             NameAr = nameAr,
             Year = year,
             Cohort = cohort,
-            ExpectedCapacity = expectedCapacity,
             Status = status,
             OpenDate = openDate,
             CloseDate = closeDate,
@@ -55,14 +52,12 @@ public sealed class Cycle : AggregateRoot<Guid>, IAuditableWrite, ISoftDeletable
         string? nameAr,
         DateTime? openDate,
         DateTime? closeDate,
-        int? expectedCapacity,
         string? openCategoriesJson,
         string? conditionOverridesJson)
     {
         if (nameAr is not null) NameAr = nameAr;
         if (openDate is not null) OpenDate = openDate.Value;
         if (closeDate is not null) CloseDate = closeDate.Value;
-        if (expectedCapacity is not null) ExpectedCapacity = expectedCapacity.Value;
         if (openCategoriesJson is not null) OpenCategoriesJson = openCategoriesJson;
         if (conditionOverridesJson is not null) ConditionOverridesJson = conditionOverridesJson;
         UpdatedAt = DateTime.UtcNow;
