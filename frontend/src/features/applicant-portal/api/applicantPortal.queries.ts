@@ -81,7 +81,7 @@ export function useVerifyApplicantMutation() {
 
 export function useCreatePaymentIntent() {
   return useMutation({
-    mutationFn: (input: { method: 'fawry-code' | 'credit-card' }) =>
+    mutationFn: (input: { method: 'fawry-code' }) =>
       applicantPortalService.createPaymentIntent(input),
   });
 }

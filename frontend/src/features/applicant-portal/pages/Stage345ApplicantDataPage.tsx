@@ -18,14 +18,26 @@
  * Submit routes to `/applicant/verify` (PDF p.5 lower).
  */
 
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
-import { GraduationCap, MapPin, Phone, ShieldCheck, User } from 'lucide-react';
 import {
+  Check,
+  GraduationCap,
+  Info,
+  MapPin,
+  Phone,
+  ShieldCheck,
+  User,
+} from 'lucide-react';
+import {
+  Badge,
   Button,
   Card,
   Field,
+  IconStamp,
   Input,
+  LoadingState,
   SearchSelect,
   Select,
   Textarea,
@@ -40,6 +52,10 @@ import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
 import { CITIES } from '@/shared/mock-data/dictionaries';
+import { useGrades } from '@/features/applicant-grades/api/grades.queries';
+import { useLookup } from '@/features/lookups/api/lookups.queries';
+import type { GradeRow } from '@/features/applicant-grades/types';
+import type { SchoolCategoryRow } from '@/features/lookups';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 
@@ -86,11 +102,15 @@ const UNIVERSITY_OPTIONS: readonly SearchSelectOption[] = [
   { value: 'بنها', label: 'جامعة بنها' },
 ];
 
-const THANAWI_TYPE_OPTIONS = [
-  { value: 'علمي علوم', label: 'ثانوية عامة — علمي علوم' },
-  { value: 'علمي رياضة', label: 'ثانوية عامة — علمي رياضة' },
-  { value: 'أدبي', label: 'ثانوية عامة — أدبي' },
-  { value: 'علمي', label: 'ثانوية أزهرية — علمي' },
+/* Branch / track options shown when the applicant enters thanawi data
+ * manually. The school category itself comes from the
+ * `school-categories` lookup; the branch values match the existing zod
+ * union to keep the schema stable. */
+const THANAWI_BRANCH_OPTIONS = [
+  { value: 'علمي علوم', label: 'علمي علوم' },
+  { value: 'علمي رياضة', label: 'علمي رياضة' },
+  { value: 'أدبي', label: 'أدبي' },
+  { value: 'علمي', label: 'علمي' },
 ] as const;
 
 export function Stage345ApplicantDataPage(): JSX.Element {
@@ -100,11 +120,30 @@ export function Stage345ApplicantDataPage(): JSX.Element {
 
   const session = MOI_APPLICANT_SESSION;
 
+  /* Thanawi data is sourced from the admin /admin/applicant-grades dataset
+   * by NID. If the applicant is found, the row is rendered read-only +
+   * synced into the form on mount. If not found, the school-type Select
+   * narrows to lookup rows whose `externalGradesImport` is false (the
+   * manual-entry tracks: foreign equivalent diplomas, etc.). */
+  const gradesQuery = useGrades();
+  const schoolCategoriesQuery = useLookup('school-categories');
+  const matchedGradeRow = useMemo<GradeRow | null>(() => {
+    if (!gradesQuery.data) return null;
+    return gradesQuery.data.find((r) => r.nid === session.nationalId) ?? null;
+  }, [gradesQuery.data, session.nationalId]);
+  const externalImport = matchedGradeRow !== null;
+
+  const manualSchoolCategories = useMemo<SchoolCategoryRow[]>(() => {
+    const all = schoolCategoriesQuery.data ?? [];
+    return all.filter((c) => c.isActive && !c.externalGradesImport);
+  }, [schoolCategoriesQuery.data]);
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     control,
+    setValue,
   } = useForm<Stage345Values>({
     resolver: zodResolver(stage345Schema),
     defaultValues: {
@@ -133,10 +172,34 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     },
   });
 
+  /* Sync the matched grade row into the form state so submission carries
+   * the values even though the inputs are read-only. */
+  useEffect(() => {
+    if (!matchedGradeRow) return;
+    const pct = matchedGradeRow.total / matchedGradeRow.importMax;
+    setValue('thanawiTotal', matchedGradeRow.total);
+    setValue(
+      'thanawiPercentage',
+      Number((pct * 100).toFixed(2)),
+    );
+    setValue('schoolNameAr', matchedGradeRow.school);
+    setValue('schoolAddress', matchedGradeRow.region);
+    setValue('thanawiCountry', 'مصر');
+    /* Branch maps from the imported grade row's branch field. */
+    const branch = matchedGradeRow.branch.trim();
+    const known = THANAWI_BRANCH_OPTIONS.find((b) => b.value === branch);
+    if (known) {
+      setValue('thanawiType', known.value);
+    }
+  }, [matchedGradeRow, setValue]);
+
   const onSubmit = async (values: Stage345Values): Promise<void> => {
     await applicantPortalService.submitStage(APPLICANT_ID, 3, { profile: values });
     toast('تم حفظ بيانات الطالب', 'success');
-    navigate(ROUTES.applicantVerify);
+    /* MOI-aligned: skip the legacy re-verify step — the applicant's
+     * identity was already confirmed on moi.gov.eg. Route directly to
+     * the summary. */
+    navigate(ROUTES.applicant);
   };
 
   return (
@@ -223,63 +286,18 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           icon={<GraduationCap size={16} strokeWidth={1.75} />}
           title="بيانات الشهادة الثانوية"
         />
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="دولة الشهادة الثانوية" required error={errors.thanawiCountry?.message}>
-            <Controller
-              control={control}
-              name="thanawiCountry"
-              render={({ field }) => (
-                <SearchSelect
-                  ariaLabel="دولة الشهادة الثانوية"
-                  placeholder="اختر الدولة"
-                  options={COUNTRY_OPTIONS}
-                  value={field.value ?? null}
-                  onChange={(v) => field.onChange(v ?? '')}
-                />
-              )}
-            />
-          </Field>
-          <Input
-            label="مجموع الثانوية العامة"
-            type="number"
-            required
-            dir="ltr"
-            {...register('thanawiTotal')}
-            error={errors.thanawiTotal?.message}
+        {gradesQuery.isLoading || schoolCategoriesQuery.isLoading ? (
+          <LoadingState variant="list" rows={3} />
+        ) : externalImport && matchedGradeRow ? (
+          <ExternalGradesPanel row={matchedGradeRow} />
+        ) : (
+          <ManualThanawiFields
+            register={register}
+            control={control}
+            errors={errors}
+            categories={manualSchoolCategories}
           />
-          <Select
-            label="نوع الثانوية العامة"
-            required
-            {...register('thanawiType')}
-            options={[...THANAWI_TYPE_OPTIONS]}
-            error={errors.thanawiType?.message}
-          />
-          <Input
-            label="النسبة المئوية للثانوية العامة"
-            type="number"
-            min={0}
-            max={100}
-            step="0.01"
-            required
-            dir="ltr"
-            {...register('thanawiPercentage')}
-            error={errors.thanawiPercentage?.message}
-          />
-          <Input
-            label="إسم المدرسة باللغة العربية"
-            required
-            {...register('schoolNameAr')}
-            error={errors.schoolNameAr?.message}
-            containerClassName="md:col-span-2"
-          />
-          <Input
-            label="عنوان المدرسة"
-            required
-            {...register('schoolAddress')}
-            error={errors.schoolAddress?.message}
-            containerClassName="md:col-span-2"
-          />
-        </div>
+        )}
       </Card>
 
       <Card variant="compact">
@@ -506,6 +524,122 @@ function ReadOnlyInline({
           {value}
         </span>
         <span className="text-2xs text-ink-500">من بوابة وزارة الداخلية</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── ثانوية sub-panels ──────────────────────────────────────────── */
+
+function ExternalGradesPanel({ row }: { row: GradeRow }): JSX.Element {
+  const percent = ((row.total / row.importMax) * 100).toFixed(2);
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-teal-500/30 bg-teal-50/40 px-3 py-2">
+        <span className="inline-flex items-center gap-2 text-2xs text-teal-800">
+          <IconStamp width={11} height={11} />
+          تم استيراد بياناتك تلقائياً من قاعدة بيانات النتائج
+        </span>
+        <Badge tone="success">
+          <Check size={11} strokeWidth={1.75} className="me-1 inline-block" />
+          {row.kind === 'azhar' ? 'ثانوية أزهرية' : 'ثانوية عامة'}
+        </Badge>
+      </div>
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
+        <ReadOnlyRow label="رقم الجلوس" value={row.seatingNumber ?? '—'} ltr mono />
+        <ReadOnlyRow label="الشعبة" value={row.branch} />
+        <ReadOnlyRow label="المجموع" value={`${row.total} / ${row.importMax}`} ltr />
+        <ReadOnlyRow label="النسبة المئوية" value={`${percent}%`} ltr />
+        <ReadOnlyRow label="إسم المدرسة" value={row.school} />
+        <ReadOnlyRow label="المحافظة / المنطقة" value={row.region} />
+      </dl>
+      <p className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
+        <Info size={11} strokeWidth={1.75} className="me-1 inline-block" aria-hidden />
+        للتعديل أو الاعتراض يرجى التوجه إلى لجنة القبول مصطحباً الأوراق الثبوتية.
+      </p>
+    </div>
+  );
+}
+
+function ManualThanawiFields({
+  register,
+  control,
+  errors,
+  categories,
+}: {
+  register: ReturnType<typeof useForm<Stage345Values>>['register'];
+  control: ReturnType<typeof useForm<Stage345Values>>['control'];
+  errors: ReturnType<typeof useForm<Stage345Values>>['formState']['errors'];
+  categories: readonly SchoolCategoryRow[];
+}): JSX.Element {
+  const typeOptions = categories.map((c) => ({ value: c.name, label: c.name }));
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
+        <Info size={11} strokeWidth={1.75} className="me-1 inline-block" aria-hidden />
+        لم يتم العثور على بياناتك في قاعدة الثانوية العامة / الأزهرية. يرجى إدخالها يدوياً —
+        نوع الشهادة يقتصر على الفئات التي لا تُستورَد آلياً.
+      </p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Field label="دولة الشهادة الثانوية" required error={errors.thanawiCountry?.message}>
+          <Controller
+            control={control}
+            name="thanawiCountry"
+            render={({ field }) => (
+              <SearchSelect
+                ariaLabel="دولة الشهادة الثانوية"
+                placeholder="اختر الدولة"
+                options={COUNTRY_OPTIONS}
+                value={field.value ?? null}
+                onChange={(v) => field.onChange(v ?? '')}
+              />
+            )}
+          />
+        </Field>
+        <Select
+          label="نوع الشهادة"
+          required
+          {...register('thanawiType')}
+          options={
+            typeOptions.length > 0
+              ? typeOptions
+              : [{ value: '', label: 'لا توجد فئات متاحة' }]
+          }
+          error={errors.thanawiType?.message}
+        />
+        <Input
+          label="المجموع"
+          type="number"
+          required
+          dir="ltr"
+          {...register('thanawiTotal')}
+          error={errors.thanawiTotal?.message}
+        />
+        <Input
+          label="النسبة المئوية"
+          type="number"
+          min={0}
+          max={100}
+          step="0.01"
+          required
+          dir="ltr"
+          {...register('thanawiPercentage')}
+          error={errors.thanawiPercentage?.message}
+        />
+        <Input
+          label="إسم المدرسة باللغة العربية"
+          required
+          {...register('schoolNameAr')}
+          error={errors.schoolNameAr?.message}
+          containerClassName="md:col-span-2"
+        />
+        <Input
+          label="عنوان المدرسة"
+          required
+          {...register('schoolAddress')}
+          error={errors.schoolAddress?.message}
+          containerClassName="md:col-span-2"
+        />
       </div>
     </div>
   );

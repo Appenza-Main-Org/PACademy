@@ -37,15 +37,12 @@ import {
   EligibilityCheckPage,
   Stage10FollowUpPage,
   Stage11AcquaintanceDocPage,
-  Stage1AuthPhonePage,
-  Stage2AuthSmsPage,
   Stage345ApplicantDataPage,
   Stage6PaymentPage,
   Stage7FamilyPage,
   Stage8ExamSchedulePage,
   Stage9PrintCardPage,
   TestScheduleAndResultsPage,
-  VerifyApplicantPage,
 } from '@/features/applicant-portal';
 import {
   AdminLayout,
@@ -226,6 +223,13 @@ export const routes: RouteObject[] = [
         path: 'lookups/applicant-categories/:id',
         element: <ApplicantCategoryDetailPage />,
       },
+      /* `submission-types` was folded into `applicant-categories` as an
+       * attribute (each category's metadata.submissionTypeCode resolves
+       * its gradingMode). The legacy tab URL bounces to the new home. */
+      {
+        path: 'lookups/submission-types',
+        element: <Navigate to="/admin/lookups/applicant-categories" replace />,
+      },
       { path: 'lookups/:tab', element: <LookupsHubPage /> },
       { path: 'reference-data', element: <Navigate to="/admin/lookups" replace /> },
       { path: 'reference-data/:tab', element: <Navigate to="/admin/lookups/:tab" replace /> },
@@ -284,8 +288,10 @@ export const routes: RouteObject[] = [
     element: <AuthGuard app="applicant"><ApplicantPortalLayout /></AuthGuard>,
     children: [
       { index: true, element: <ApplicantPortalPage /> },
-      { path: 'auth/step-1', element: <Stage1AuthPhonePage /> },
-      { path: 'auth/step-2', element: <Stage2AuthSmsPage /> },
+      /* `/applicant/auth/step-{1,2}` are gone — MOI portal handles auth
+       * upstream. Legacy URLs redirect to the post-MOI profile entry. */
+      { path: 'auth/step-1', element: <Navigate to="/applicant/profile" replace /> },
+      { path: 'auth/step-2', element: <Navigate to="/applicant/profile" replace /> },
       /* MOI-aligned: legacy `/applicant/profile/{personal,education}` paths
        * redirect to the collapsed single-page form. `marital` redirects to
        * the family page where marital data now lives. */
@@ -293,7 +299,11 @@ export const routes: RouteObject[] = [
       { path: 'profile/personal', element: <Navigate to="/applicant/profile" replace /> },
       { path: 'profile/education', element: <Navigate to="/applicant/profile" replace /> },
       { path: 'profile/marital', element: <Navigate to="/applicant/profile/family" replace /> },
-      { path: 'verify', element: <VerifyApplicantPage /> },
+      /* `/applicant/verify` was dropped — MOI integration carries the
+       * verified identity from the portal handoff, so the re-verify
+       * screen became redundant. Redirect to the summary for any
+       * deep-links that still point at the old URL. */
+      { path: 'verify', element: <Navigate to="/applicant" replace /> },
       { path: 'payment', element: <Stage6PaymentPage /> },
       { path: 'profile/family', element: <Stage7FamilyPage /> },
       { path: 'exam-schedule', element: <Stage8ExamSchedulePage /> },

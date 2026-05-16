@@ -30,8 +30,9 @@ export type Stage2Values = z.infer<typeof stage2Schema>;
  * `stage345Schema` below for the collapsed single-page form. */
 
 export const stage6Schema = z.object({
-  /* MOI-aligned: two methods — fawry-code and credit-card paths (PDF pp.6-7). */
-  method: z.enum(['fawry-code', 'credit-card']),
+  /* Single-method scheduling — Fawry code only. Credit-card path was
+   * removed per ops feedback; reintroduce by extending this enum. */
+  method: z.enum(['fawry-code']),
 });
 export type Stage6Values = z.infer<typeof stage6Schema>;
 
@@ -59,10 +60,13 @@ export const stage345Schema = z
     bachelorPercentage: z.union([z.coerce.number().min(0).max(100), z.literal('')]).optional(),
     bachelorYear: z.union([z.coerce.number().int().min(1990).max(2099), z.literal('')]).optional(),
 
-    /* Thanaweya block — always required. */
+    /* Thanaweya block — always required. `thanawiType` accepts any string
+     * because the manual-entry path sources it from the `school-categories`
+     * lookup (e.g. الشهادات المعادلة من الخارج); the matched-by-grades path
+     * carries the branch from the imported row. */
     thanawiCountry: z.string().min(1, 'مطلوب'),
     thanawiTotal: z.coerce.number().min(0, 'مطلوب'),
-    thanawiType: z.enum(['علمي', 'أدبي', 'علمي رياضة', 'علمي علوم']),
+    thanawiType: z.string().min(1, 'مطلوب'),
     thanawiPercentage: z.coerce.number().min(0).max(100),
     schoolNameAr: z.string().min(1, 'مطلوب'),
     schoolAddress: z.string().min(1, 'مطلوب'),

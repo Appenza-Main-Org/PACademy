@@ -282,7 +282,7 @@ function Row({
 }
 
 function nextStepCaption(paid: boolean, parentsApproved: boolean, firstExamDate: string | null): string {
-  if (!paid) return 'لإتمام التقدم يلزم سداد مقابل الخدمة. يمكنك الدفع عبر فوري أو بطاقة إئتمانية.';
+  if (!paid) return 'لإتمام التقدم يلزم سداد مقابل الخدمة عبر كود فوري.';
   if (!parentsApproved) return 'بعد السداد يلزم إدراج واعتماد بيانات الوالدين قبل تحديد موعد الإختبار.';
   if (!firstExamDate) return 'البيانات مكتملة — اختر يوم اختبار قدرات من المواعيد المتاحة.';
   return 'البيانات مكتملة وموعد الإختبار محجوز. اطبع بطاقة التردد قبل الذهاب للأكاديمية.';

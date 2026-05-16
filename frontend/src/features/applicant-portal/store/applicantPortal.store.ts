@@ -17,7 +17,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type ApplicantPaymentMethod = 'fawry-code' | 'credit-card';
+export type ApplicantPaymentMethod = 'fawry-code';
 
 interface ApplicantPortalState {
   nationalId: string | null;

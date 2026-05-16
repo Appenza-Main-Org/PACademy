@@ -14,8 +14,6 @@
  * used across the wizard mocks.
  */
 
-import { parseNationalId } from '@/shared/lib/national-id';
-
 export interface MoiApplicantSession {
   applicantId: string;
   fullName: string;
@@ -32,14 +30,17 @@ export interface MoiApplicantSession {
   religion: 'مسلم' | 'مسيحي';
 }
 
-/* NID: 14 digits. Layout (matches `parseNationalId`):
- *   2 (century: 3=20s)  ·  YYMMDD  ·  2 (governorate)  ·  4 (sequence)
- *   ·  1 (gender check) ·  1 (checksum)
+/* NID: 14 digits. Picked to match the first row of the seeded grade dataset
+ * (`features/applicant-grades/mock.ts`) so the demo applicant arrives with
+ * an external-imported ثانوية record — exercising the matched branch of
+ * Stage 3+4+5. Manual-entry fallback is still exercised whenever an admin
+ * imports a fresh dataset that omits this NID.
  *
- * 30506121601234 → century 3 (2050? actually 3 = 19xx, so 1995-06-12), gov 16,
- * gender digit 3 (odd → male). Matches the printed reference card.
- */
-const NID = '30506121601234';
+ * NB: the shared `parseNationalId` helper has an inverted century lookup
+ * — we hardcode the DOB + gender here rather than derive them via the
+ * helper. */
+const NID = '30412180103456';
+const DOB_ISO = '2004-12-18';
 
 function fmtArabic(date: Date): string {
   return date.toLocaleDateString('ar-EG', {
@@ -49,20 +50,19 @@ function fmtArabic(date: Date): string {
   });
 }
 
-const parsed = parseNationalId(NID);
-const dob = parsed.birthDate ?? new Date('1995-06-12');
-const dobIso = `${dob.getFullYear()}-${String(dob.getMonth() + 1).padStart(2, '0')}-${String(dob.getDate()).padStart(2, '0')}`;
-const gender: 'male' | 'female' = parsed.gender ?? 'male';
+const dob = new Date(DOB_ISO);
+const dobIso = DOB_ISO;
+const gender: 'male' | 'female' = 'male';
 
 export const MOI_APPLICANT_SESSION: MoiApplicantSession = {
   applicantId: 'APP-2026000',
-  fullName: 'يوسف أحمد محمد الخطيب',
+  fullName: 'أحمد محمد إبراهيم سعد',
   nationalId: NID,
   dateOfBirth: dobIso,
   dateOfBirthAr: fmtArabic(dob),
   gender,
   mobile: '01012345678',
-  email: 'youssef.alkhatib@gmail.com',
+  email: 'ahmed.ibrahim.saad@gmail.com',
   birthGovernorate: 'القاهرة',
   birthDistrict: 'مدينة نصر',
   religion: 'مسلم',

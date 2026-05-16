@@ -1,13 +1,12 @@
 export { ApplicantPortalLayout, STAGE_KEYS as APPLICANT_STAGE_KEYS, STAGE_LABELS as APPLICANT_STAGE_LABELS } from './ApplicantPortalLayout';
 export { ApplicantPreWizardLayout } from './ApplicantPreWizardLayout';
 export { ApplicantPortalPage } from './pages/ApplicantPortalPage';
-export { Stage1AuthPhonePage } from './pages/Stage1AuthPhonePage';
-export { Stage2AuthSmsPage } from './pages/Stage2AuthSmsPage';
 
-/* MOI-aligned: the old Stage 3 / 4 / 5 pages are gone — their content is
- * collapsed into Stage345ApplicantDataPage per the reference flow (PDF p.4). */
+/* MOI-aligned: the legacy phone/SMS auth (Stage 1+2) is gone — the
+ * applicant arrives already-authenticated via the moi.gov.eg SSO. The
+ * old Stage 3 / 4 / 5 pages are likewise collapsed into
+ * Stage345ApplicantDataPage per the reference flow (PDF p.4). */
 export { Stage345ApplicantDataPage } from './pages/Stage345ApplicantDataPage';
-export { VerifyApplicantPage } from './pages/VerifyApplicantPage';
 
 export { Stage6PaymentPage } from './pages/Stage6PaymentPage';
 export { Stage7FamilyPage } from './pages/Stage7FamilyPage';

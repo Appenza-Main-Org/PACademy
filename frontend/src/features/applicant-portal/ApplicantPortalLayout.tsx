@@ -28,26 +28,19 @@ import { useDraft } from './api/applicantPortal.queries';
 import { useApplicantPortalStore } from './store/applicantPortal.store';
 
 /**
- * 11-stage wizard sequence — MOI-aligned (PDF DOC-20220806-WA0053).
+ * Wizard sequence — MOI-aligned post-SSO (PDF DOC-20220806-WA0053).
  *
- * Stages 3+4+5 of the original sequence (personal / education / marital)
- * are collapsed into a single `profile` step per the MOI reference (PDF
- * p.4). A new `verify` step (التحقق من المستخدم — PDF p.5 lower) sits
- * between profile and the summary, where the applicant re-confirms their
- * NID + mobile before reaching the summary action cluster. The summary
- * itself is the index of `/applicant` and counts as one stepper node.
+ * The applicant arrives already-authenticated from moi.gov.eg, so the
+ * legacy phone/SMS auth (Stage 1+2) and the re-verify screen (PDF p.5
+ * lower) are skipped. The MOI session carries NID, mobile, and the
+ * applicant identity straight into the profile step.
  *
- * Stepper count stays at 11 (was 11) — net: removed 2, added 2.
- *
- * The `profile/family` key must precede `profile` here so the exact-match
- * lookup below resolves `/applicant/profile/family` to the family stage
- * rather than the personal-data stage.
+ * Stages 3+4+5 (personal / education / marital) are collapsed into a
+ * single `profile` step per PDF p.4. The summary is the index of
+ * `/applicant` and counts as a stepper node.
  */
 export const STAGE_KEYS = [
-  'auth/step-1',
-  'auth/step-2',
   'profile',
-  'verify',
   '', // summary — the `/applicant` index route
   'payment',
   'profile/family',
@@ -58,10 +51,7 @@ export const STAGE_KEYS = [
 ] as const;
 
 export const STAGE_LABELS = [
-  'التحقق · الهاتف',
-  'التحقق · رمز SMS',
   'البيانات الشخصية والدراسية',
-  'التحقق من المستخدم',
   'ملخّص الطلب',
   'سداد رسوم التقديم',
   'بيانات الوالدين',

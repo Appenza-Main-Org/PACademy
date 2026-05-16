@@ -210,19 +210,20 @@ export const applicantPortalService = {
    *   body: { method: 'fawry-code' | 'credit-card' }
    *   response: { intentId, refNumber, fawryCode? }
    */
-  async createPaymentIntent(input: {
-    method: 'fawry-code' | 'credit-card';
-  }): Promise<{ intentId: string; refNumber: string; fawryCode?: string }> {
+  async createPaymentIntent(_input: {
+    method: 'fawry-code';
+  }): Promise<{ intentId: string; refNumber: string; fawryCode: string }> {
     await simulateLatency(400, 700);
     const { deterministicPaymentReference, deterministicFawryCode } = await import(
       '../lib/deterministic-codes'
     );
     const refNumber = deterministicPaymentReference(DRAFT.applicantId);
     const intentId = `INT-${refNumber}`;
-    if (input.method === 'fawry-code') {
-      return { intentId, refNumber, fawryCode: deterministicFawryCode(DRAFT.applicantId) };
-    }
-    return { intentId, refNumber };
+    return {
+      intentId,
+      refNumber,
+      fawryCode: deterministicFawryCode(DRAFT.applicantId),
+    };
   },
 
   /**
