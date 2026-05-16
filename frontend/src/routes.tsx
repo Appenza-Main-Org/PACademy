@@ -242,19 +242,22 @@ export const routes: RouteObject[] = [
        * permission check (`admission-setup:read`) is enforced inside the
        * pages so an admin without the permission lands on a calm empty
        * state instead of a redirect. */
-      { path: 'admission-setup', element: <AdmissionSetupIndexPage /> },
+      { path: 'cycles/admission-setup', element: <AdmissionSetupIndexPage /> },
       /* Wizard route — single page that orchestrates all setup steps as
        * a top-stepper flow. `:stepKey` is one of `AdmissionSetupStepKey`
        * or the literal `'review'` (handled inside the page). */
-      { path: 'admission-setup/wizard', element: <Navigate to={ROUTES.admin.admissionSetup.wizard('application_settings')} replace /> },
-      { path: 'admission-setup/wizard/:stepKey', element: <AdmissionSetupWizardPage /> },
-      { path: 'admission-setup/application-settings', element: <ApplicationSettingsPage /> },
-      { path: 'admission-setup/application-status', element: <ApplicationStatusPage /> },
-      { path: 'admission-setup/fees', element: <AdmissionFeesPage /> },
-      { path: 'admission-setup/exams', element: <ExamsManagementPage /> },
-      { path: 'admission-setup/committees', element: <CommitteesManagementPage /> },
-      { path: 'admission-setup/notifications', element: <NotificationsStepPage /> },
-      { path: 'admission-setup/electronic-declaration', element: <ElectronicDeclarationPage /> },
+      { path: 'cycles/admission-setup/wizard', element: <Navigate to={ROUTES.admin.admissionSetup.wizard('application_settings')} replace /> },
+      { path: 'cycles/admission-setup/wizard/:stepKey', element: <AdmissionSetupWizardPage /> },
+      { path: 'cycles/admission-setup/application-settings', element: <ApplicationSettingsPage /> },
+      { path: 'cycles/admission-setup/application-status', element: <ApplicationStatusPage /> },
+      { path: 'cycles/admission-setup/fees', element: <AdmissionFeesPage /> },
+      { path: 'cycles/admission-setup/exams', element: <ExamsManagementPage /> },
+      { path: 'cycles/admission-setup/committees', element: <CommitteesManagementPage /> },
+      { path: 'cycles/admission-setup/notifications', element: <NotificationsStepPage /> },
+      { path: 'cycles/admission-setup/electronic-declaration', element: <ElectronicDeclarationPage /> },
+      /* Legacy redirects — old paths used to live at /admin/admission-setup/*. */
+      { path: 'admission-setup', element: <Navigate to={ROUTES.admin.admissionSetup.index} replace /> },
+      { path: 'admission-setup/*', element: <Navigate to={ROUTES.admin.admissionSetup.index} replace /> },
     ],
   },
 

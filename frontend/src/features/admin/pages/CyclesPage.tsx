@@ -16,9 +16,9 @@
  *   • تفعيل      — flips isActive on the row (and clears it on every
  *                  other cycle). Confirms via AlertDialog. The currently
  *                  active row gets a "نشطة" badge in place of the button.
- *   • إعداد القبول — opens the admission-setup wizard inline in a Drawer
- *                    for the currently active cycle. Aria-disabled +
- *                    tooltip ("متاح فقط للدورة النشطة") for non-active rows.
+ *   • إعداد القبول — navigates to /admin/cycles/admission-setup for the
+ *                    currently active cycle. Aria-disabled + tooltip
+ *                    ("متاح فقط للدورة النشطة") for non-active rows.
  */
 
 import { useMemo, useState } from 'react';
@@ -30,7 +30,6 @@ import {
   Button,
   Card,
   DataTable,
-  Drawer,
   EmptyState,
   IconStamp,
   Modal,
@@ -59,7 +58,6 @@ import {
   toListStatus,
   type CycleListStatus,
 } from '../components/cycles/cycleListStatus';
-import { EmbeddedAdmissionSetupWizard } from '../admission-setup';
 
 const LOCKED_EDIT_HINT = 'لا يمكن التعديل بعد الاعتماد والنشر';
 const SETUP_LOCKED_HINT = 'متاح فقط للدورة النشطة';
@@ -87,7 +85,6 @@ export function CyclesPage(): JSX.Element {
     targetId: string;
   } | null>(null);
   const [activateTarget, setActivateTarget] = useState<AdmissionCycle | null>(null);
-  const [setupTarget, setSetupTarget] = useState<AdmissionCycle | null>(null);
 
   const activeCycle = useMemo(
     () => (data ?? []).find((c) => c.isActive) ?? null,
@@ -263,7 +260,7 @@ export function CyclesPage(): JSX.Element {
             }
             onClick={() => {
               if (isSetupDisabled) return;
-              setSetupTarget(c);
+              navigate(ROUTES.admin.admissionSetup.index);
             }}
           >
             إعداد القبول
@@ -367,6 +364,14 @@ export function CyclesPage(): JSX.Element {
                   {fmtDate(activeCycle.closeDate, 'short')}
                 </p>
               </div>
+              <Button
+                variant="primary"
+                size="sm"
+                leadingIcon={<Settings2 size={14} strokeWidth={1.75} />}
+                onClick={() => navigate(ROUTES.admin.admissionSetup.index)}
+              >
+                إعداد القبول
+              </Button>
               <Badge tone="success">
                 <IconStamp width={12} height={12} className="me-1 inline-block" />
                 {ACTIVE_LABEL}
@@ -482,25 +487,6 @@ export function CyclesPage(): JSX.Element {
           onAction={confirmActivate}
         />
 
-        <Drawer
-          open={setupTarget !== null}
-          onClose={() => setSetupTarget(null)}
-          title="إعداد القبول"
-          subtitle={setupTarget?.nameAr}
-          size="lg"
-          transparentBackdrop={false}
-        >
-          <Drawer.Body className="h-full">
-            {setupTarget && <EmbeddedAdmissionSetupWizard cycleId={setupTarget.id} />}
-          </Drawer.Body>
-          <Drawer.Footer>
-            <div className="flex items-center justify-end">
-              <Button variant="ghost" onClick={() => setSetupTarget(null)}>
-                إغلاق
-              </Button>
-            </div>
-          </Drawer.Footer>
-        </Drawer>
       </CenteredShell>
     </TooltipProvider>
   );

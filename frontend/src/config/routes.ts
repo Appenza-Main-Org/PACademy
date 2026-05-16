@@ -55,20 +55,20 @@ export const ROUTES = {
      * metadata is NOT a step — admins enter the wizard by selecting an
      * already-configured cycle from `/admin/cycles`. */
     admissionSetup: {
-      index: '/admin/admission-setup',
+      index: '/admin/cycles/admission-setup',
       /** Wizard entry — top-stepper flow. `stepKey` is either an
        *  `AdmissionSetupStepKey` or the literal `'review'`. */
       wizard: (stepKey = ':stepKey'): string =>
-        `/admin/admission-setup/wizard/${stepKey}`,
-      wizardReview: '/admin/admission-setup/wizard/review',
-      applicationSettings: '/admin/admission-setup/application-settings',
-      applicationStatus: '/admin/admission-setup/application-status',
-      maritalStatusRules: '/admin/admission-setup/marital-status-rules',
-      fees: '/admin/admission-setup/fees',
-      exams: '/admin/admission-setup/exams',
-      committees: '/admin/admission-setup/committees',
-      notifications: '/admin/admission-setup/notifications',
-      electronicDeclaration: '/admin/admission-setup/electronic-declaration',
+        `/admin/cycles/admission-setup/wizard/${stepKey}`,
+      wizardReview: '/admin/cycles/admission-setup/wizard/review',
+      applicationSettings: '/admin/cycles/admission-setup/application-settings',
+      applicationStatus: '/admin/cycles/admission-setup/application-status',
+      maritalStatusRules: '/admin/cycles/admission-setup/marital-status-rules',
+      fees: '/admin/cycles/admission-setup/fees',
+      exams: '/admin/cycles/admission-setup/exams',
+      committees: '/admin/cycles/admission-setup/committees',
+      notifications: '/admin/cycles/admission-setup/notifications',
+      electronicDeclaration: '/admin/cycles/admission-setup/electronic-declaration',
     },
   },
 
