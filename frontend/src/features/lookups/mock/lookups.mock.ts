@@ -135,14 +135,25 @@ const testResults: TestResultRow[] = [
 /* ─── 5. committees — admission committees ───────────────────────────── */
 
 const committees: CommitteeRow[] = [
-  { code: 'CMT-01', name: 'لجنة تسجيل البيانات',    isActive: true, applicantCategoryId: 'officers_general' },
-  { code: 'CMT-02', name: 'لجنة المقابلة الشخصية',  isActive: true, applicantCategoryId: 'officers_general' },
-  { code: 'CMT-03', name: 'لجنة القدرات',           isActive: true, applicantCategoryId: 'officers_general' },
-  { code: 'CMT-04', name: 'لجنة السمات',            isActive: true, applicantCategoryId: 'officers_general' },
-  { code: 'CMT-05', name: 'لجنة الكشف الطبي',       isActive: true, applicantCategoryId: 'law_bachelor' },
-  { code: 'CMT-06', name: 'لجنة الكشف الرياضي',     isActive: true, applicantCategoryId: 'physical_education_bachelor' },
-  { code: 'CMT-07', name: 'لجنة المراجعة النهائية', isActive: true, applicantCategoryId: 'specialized_officers' },
-  { code: 'CMT-08', name: 'لجنة التحريات',          isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-01', name: 'اللجنة الأولى قسم خاص (طالبات)',  isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-02', name: 'اللجنة الثانية قسم خاص (طالبات)', isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-03', name: 'اللجنة الثالثة قسم خاص (طالبات)', isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-04', name: 'اللجنة الرابعة قسم خاص (طالبات)', isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-05', name: 'اللجنة الخامسة قسم خاص',          isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-06', name: 'اللجنة السادسة قسم خاص',          isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-07', name: 'اللجنة السابعة قسم خاص',          isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-08', name: 'اللجنة الثامنة قسم خاص',          isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-09', name: 'اللجنة الأولى بكالوريوس تربية رياضية (طالبات)', isActive: true, applicantCategoryId: 'physical_education_bachelor' },
+  { code: 'CMT-10', name: 'اللجنة الأولى ليسانس حقوق (طالبات)', isActive: true, applicantCategoryId: 'law_bachelor' },
+  { code: 'CMT-11', name: 'اللجنة الثانية ليسانس حقوق',        isActive: true, applicantCategoryId: 'law_bachelor' },
+  { code: 'CMT-12', name: 'اللجنة الأولى قسم عام',   isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-13', name: 'اللجنة الثانية قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-14', name: 'اللجنة الثالثة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-15', name: 'اللجنة الرابعة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-16', name: 'اللجنة الخامسة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-17', name: 'اللجنة السادسة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-18', name: 'اللجنة السابعة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-19', name: 'اللجنة الثامنة قسم عام',  isActive: true, applicantCategoryId: 'officers_general' },
 ];
 
 /* ─── 6. faculties — Egyptian university faculties ─────────────────────
