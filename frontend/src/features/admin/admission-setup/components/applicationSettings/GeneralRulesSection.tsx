@@ -723,7 +723,7 @@ function PerSpecForm({
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <FieldLabel label="الحد الأدنى للدرجة">
+          <FieldLabel label="الحد الأدنى للدرجة (٪)">
             <Input
               type="number"
               min={SCORE_MIN_BOUND}
@@ -732,7 +732,6 @@ function PerSpecForm({
               inputMode="decimal"
               placeholder="٠ – ١٠٠"
               value={draft.scoreMin ?? ''}
-              trailingIcon={<span className="text-xs text-ink-500">%</span>}
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
@@ -747,7 +746,7 @@ function PerSpecForm({
             />
           </FieldLabel>
 
-          <FieldLabel label="الحد الأقصى للدرجة">
+          <FieldLabel label="الحد الأقصى للدرجة (٪)">
             <Input
               type="number"
               min={SCORE_MIN_BOUND}
@@ -756,7 +755,6 @@ function PerSpecForm({
               inputMode="decimal"
               placeholder="٠ – ١٠٠"
               value={draft.scoreMax ?? ''}
-              trailingIcon={<span className="text-xs text-ink-500">%</span>}
               onChange={(e) =>
                 setDraft((d) => ({
                   ...d,
