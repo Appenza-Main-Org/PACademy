@@ -146,10 +146,22 @@ async function parseAccess(file: File): Promise<ParsedTable[]> {
 
 async function parseSpreadsheet(file: File): Promise<ParsedTable[]> {
   const XLSX = (await import('xlsx')) as typeof XLSXType;
-  const buffer = await file.arrayBuffer();
+  const isCsv = file.name.toLowerCase().endsWith('.csv');
   let workbook: XLSXType.WorkBook;
   try {
-    workbook = XLSX.read(buffer, { type: 'array' });
+    if (isCsv) {
+      /* SheetJS's `type: 'array'` defaults to cp1252 for CSV inputs that
+       * lack a BOM, which mangles Arabic into Ø-mojibake. Read the file
+       * as UTF-8 text first via the browser's `File.text()` (which uses
+       * `TextDecoder('utf-8')`) and feed it as a string instead. The
+       * `xlsx`/`xls` branch still goes through the array path because
+       * those formats carry their own encoding metadata. */
+      const text = await file.text();
+      workbook = XLSX.read(text, { type: 'string' });
+    } else {
+      const buffer = await file.arrayBuffer();
+      workbook = XLSX.read(buffer, { type: 'array', codepage: 65001 });
+    }
   } catch (err) {
     throw new ParseGradesError(
       err instanceof Error ? `تعذّر قراءة الملف: ${err.message}` : 'تعذّر قراءة الملف.',
