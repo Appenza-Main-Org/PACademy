@@ -135,14 +135,14 @@ const testResults: TestResultRow[] = [
 /* ─── 5. committees — admission committees ───────────────────────────── */
 
 const committees: CommitteeRow[] = [
-  { code: 'CMT-01', name: 'لجنة تسجيل البيانات',    isActive: true, kind: 'primary',     chairTitle: 'رئيس لجنة التسجيل' },
-  { code: 'CMT-02', name: 'لجنة المقابلة الشخصية',  isActive: true, kind: 'interview',   chairTitle: 'رئيس لجنة المقابلة' },
-  { code: 'CMT-03', name: 'لجنة القدرات',           isActive: true, kind: 'capacities',  chairTitle: 'رئيس لجنة القدرات' },
-  { code: 'CMT-04', name: 'لجنة السمات',            isActive: true, kind: 'traits',      chairTitle: 'رئيس لجنة السمات' },
-  { code: 'CMT-05', name: 'لجنة الكشف الطبي',       isActive: true, kind: 'medical',     chairTitle: 'رئيس القومسيون الطبي' },
-  { code: 'CMT-06', name: 'لجنة الكشف الرياضي',     isActive: true, kind: 'sports',      chairTitle: 'رئيس لجنة الرياضة' },
-  { code: 'CMT-07', name: 'لجنة المراجعة النهائية', isActive: true, kind: 'final',       chairTitle: 'رئيس لجنة المراجعة' },
-  { code: 'CMT-08', name: 'لجنة التحريات',          isActive: true, kind: 'primary',     chairTitle: 'رئيس لجنة التحريات' },
+  { code: 'CMT-01', name: 'لجنة تسجيل البيانات',    isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-02', name: 'لجنة المقابلة الشخصية',  isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-03', name: 'لجنة القدرات',           isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-04', name: 'لجنة السمات',            isActive: true, applicantCategoryId: 'officers_general' },
+  { code: 'CMT-05', name: 'لجنة الكشف الطبي',       isActive: true, applicantCategoryId: 'law_bachelor' },
+  { code: 'CMT-06', name: 'لجنة الكشف الرياضي',     isActive: true, applicantCategoryId: 'physical_education_bachelor' },
+  { code: 'CMT-07', name: 'لجنة المراجعة النهائية', isActive: true, applicantCategoryId: 'specialized_officers' },
+  { code: 'CMT-08', name: 'لجنة التحريات',          isActive: true, applicantCategoryId: 'officers_general' },
 ];
 
 /* ─── 6. faculties — Egyptian university faculties ─────────────────────

@@ -25,7 +25,6 @@ export {
   type TestResultOutcome,
   type TestResultTone,
   type CommitteeRow,
-  type CommitteeKind,
   type SpecializationRow,
   type FacultyRow,
   type ApplicantCategoryRow,

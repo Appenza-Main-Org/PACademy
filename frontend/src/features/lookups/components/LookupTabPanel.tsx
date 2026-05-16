@@ -185,6 +185,10 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
   const filteredCount = rows.length;
   const isFiltered = filteredCount !== totalCount;
   const hasActiveQuery = search.trim().length > 0 || filterValue !== 'all';
+  /* The applicant-categories list is short and hand-curated — the team
+   * dropped the count chip there because it adds visual noise without
+   * earning its keep. Every other lookup keeps the counter. */
+  const showRecordCount = lookupKey !== 'applicant-categories';
 
   return (
     <div className="flex flex-col gap-3">
@@ -206,24 +210,27 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
             containerClassName="min-w-52"
           />
         )}
-        <span
-          aria-live="polite"
-          className="ms-auto inline-flex h-9 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-page px-2.5 text-2xs text-ink-600"
-        >
-          <span className="font-mono font-medium text-ink-900">{filteredCount}</span>
-          <span>سجل</span>
-          {isFiltered && (
-            <>
-              <span className="text-ink-300">·</span>
-              <span className="text-ink-500">من {totalCount}</span>
-            </>
-          )}
-        </span>
+        {showRecordCount && (
+          <span
+            aria-live="polite"
+            className="ms-auto inline-flex h-9 items-center gap-1.5 rounded-md border border-border-subtle bg-surface-page px-2.5 text-2xs text-ink-600"
+          >
+            <span className="font-mono font-medium text-ink-900">{filteredCount}</span>
+            <span>سجل</span>
+            {isFiltered && (
+              <>
+                <span className="text-ink-300">·</span>
+                <span className="text-ink-500">من {totalCount}</span>
+              </>
+            )}
+          </span>
+        )}
         <Button
           variant="primary"
           leadingIcon={<Plus size={16} />}
           onClick={handleAdd}
           aria-label={`إضافة سجل جديد إلى ${meta.label}`}
+          className={cn(!showRecordCount && 'ms-auto')}
         >
           إضافة
         </Button>
@@ -517,8 +524,7 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
       ];
     case 'committees':
       return [
-        { key: 'kind',       label: 'النوع',  sortable: true, width: 110, render: (r: CommitteeRow) => <Badge tone="neutral">{COMMITTEE_KIND_LABEL[r.kind]}</Badge> },
-        { key: 'chairTitle', label: 'الرئيس', sortable: true, render: (r: CommitteeRow) => r.chairTitle },
+        { key: 'applicantCategoryId', label: 'الفئة', sortable: true, render: (r: CommitteeRow) => labelByCode('applicant-categories', r.applicantCategoryId) },
       ];
     case 'specializations':
       return [
@@ -615,10 +621,6 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
 const TEST_KIND_LABEL: Record<TestRow['kind'], string> = {
   physical: 'رياضي', medical: 'طبي', interview: 'مقابلة', written: 'كتابي', psych: 'نفسي',
 };
-const COMMITTEE_KIND_LABEL: Record<CommitteeRow['kind'], string> = {
-  primary: 'رئيسية', capacities: 'قدرات', traits: 'سمات', sports: 'رياضية', medical: 'طبية', interview: 'مقابلة', final: 'نهائية',
-};
-
 function labelByCode(key: LookupKey, code: string): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = (MOCK.lookups[key] as any[]).find((r) => r.code === code);

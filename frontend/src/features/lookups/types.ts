@@ -177,11 +177,9 @@ export interface TestResultRow extends LookupRowBase {
   tone: TestResultTone;
 }
 
-export type CommitteeKind = 'primary' | 'medical' | 'final' | 'capacities' | 'traits' | 'sports' | 'interview';
-
 export interface CommitteeRow extends LookupRowBase {
-  kind: CommitteeKind;
-  chairTitle: string;
+  /** FK → `applicant-categories` (row `code`). Required, single-select. */
+  applicantCategoryId: string;
 }
 
 export interface FacultyRow extends LookupRowBase {}

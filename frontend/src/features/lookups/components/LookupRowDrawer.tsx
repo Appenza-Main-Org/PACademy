@@ -245,22 +245,22 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
       );
     case 'committees':
       return (
-        <>
-          <Select
-            label="نوع اللجنة"
-            options={[
-              { value: 'primary',    label: 'رئيسية' },
-              { value: 'capacities', label: 'قدرات' },
-              { value: 'traits',     label: 'سمات' },
-              { value: 'sports',     label: 'رياضية' },
-              { value: 'medical',    label: 'طبية' },
-              { value: 'interview',  label: 'مقابلة' },
-              { value: 'final',      label: 'نهائية' },
-            ]}
-            {...register('kind')}
-          />
-          <Input label="مسمى الرئيس" containerClassName="col-span-2" {...register('chairTitle')} />
-        </>
+        <Controller
+          control={control}
+          name="applicantCategoryId"
+          rules={{ required: true }}
+          render={({ field, fieldState }) => (
+            <ForeignKeySelect
+              lookupKey="applicant-categories"
+              label="الفئة"
+              required
+              value={(field.value as string | undefined) ?? ''}
+              onChange={field.onChange}
+              error={fieldState.error ? 'اختر فئة' : undefined}
+              containerClassName="col-span-2"
+            />
+          )}
+        />
       );
     case 'specializations':
       return (
@@ -716,6 +716,9 @@ interface ForeignKeySelectProps {
   value: string;
   onChange: (v: string) => void;
   allowEmpty?: string;
+  required?: boolean;
+  error?: string;
+  containerClassName?: string;
 }
 
 interface RowMinimal {
@@ -724,11 +727,23 @@ interface RowMinimal {
   isActive: boolean;
 }
 
-function ForeignKeySelect({ lookupKey, label, value, onChange, allowEmpty }: ForeignKeySelectProps): JSX.Element {
+function ForeignKeySelect({
+  lookupKey,
+  label,
+  value,
+  onChange,
+  allowEmpty,
+  required,
+  error,
+  containerClassName,
+}: ForeignKeySelectProps): JSX.Element {
   const items = MOCK.lookups[lookupKey] as unknown as RowMinimal[];
   return (
     <Select
       label={label}
+      required={required}
+      error={error}
+      containerClassName={containerClassName}
       value={value ?? ''}
       onChange={(e) => onChange(e.currentTarget.value)}
       options={[
@@ -753,7 +768,7 @@ function blankRow(key: LookupKey): Record<string, unknown> {
     case 'test-results':
       return { ...base, outcome: 'pass', tone: 'success' };
     case 'committees':
-      return { ...base, kind: 'primary', chairTitle: '' };
+      return { ...base, applicantCategoryId: '' };
     case 'specializations':
       return { ...base, facultyCode: '' };
     case 'submission-types':
@@ -762,7 +777,10 @@ function blankRow(key: LookupKey): Record<string, unknown> {
       return {
         ...base,
         genderScope: ['male', 'female'],
-        type: 'pre_university',
+        /* New rows default to "جامعي" so the faculty + specialization
+         * pickers are revealed on first open (admins more often configure
+         * university-stage categories; the toggle still works either way). */
+        type: 'university',
         facultyCodes: [],
         specializationCodes: [],
       };
