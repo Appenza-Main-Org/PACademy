@@ -18,7 +18,6 @@
  */
 
 import {
-  ClipboardCheck,
   ClipboardSignature,
   FileSignature,
   Settings2,
@@ -98,19 +97,8 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     subtitleAr: 'إنشاء اللجان وتعيين الرؤساء والأعضاء وربطها بمواعيد الاختبارات.',
   },
   {
-    key: 'notifications',
-    order: 5,
-    labelAr: 'التنبيهات',
-    routeSegment: 'notifications',
-    icon: ClipboardCheck,
-    permission: 'admission-setup:read',
-    reuses: 'features/admin/pages/NotificationsPage.tsx',
-    isImplemented: true,
-    subtitleAr: 'إعداد رسائل النظام للمتقدمين.',
-  },
-  {
     key: 'electronic_declaration',
-    order: 6,
+    order: 5,
     labelAr: 'الإقرار الإلكتروني',
     routeSegment: 'electronic-declaration',
     icon: FileSignature,

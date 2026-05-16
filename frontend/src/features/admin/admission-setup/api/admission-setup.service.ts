@@ -2,10 +2,10 @@
  * Admission Setup API Contract — net-new entities for the wizard.
  *
  * Composed steps (application_settings, fees,
- * exams, committees, notifications) reuse `cyclesService`,
- * `categoriesService`, `committeeService`, `examPlansService`, and
- * `notificationsService` directly; this service only owns the shapes
- * defined in `../types.ts` that have no admin-gaps home today.
+ * exams, committees) reuse `cyclesService`, `categoriesService`,
+ * `committeeService`, and `examPlansService` directly; this service
+ * only owns the shapes defined in `../types.ts` that have no admin-gaps
+ * home today.
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/admission-setup/cycles/:cycleId/exam-dates            → ExamDateConfig | null

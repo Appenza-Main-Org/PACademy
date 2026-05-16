@@ -49,7 +49,6 @@ export {
   AdmissionFeesPage,
   ExamsManagementPage,
   CommitteesManagementPage,
-  NotificationsStepPage,
   ElectronicDeclarationPage,
 } from './admission-setup';
 export type { AdmissionSetupStep, AdmissionSetupStepKey } from './admission-setup';

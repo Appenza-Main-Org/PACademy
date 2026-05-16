@@ -34,7 +34,6 @@ export type AdmissionSetupStepKey =
   | 'fees'
   | 'exams'
   | 'committees'
-  | 'notifications'
   | 'electronic_declaration';
 
 /** Per-step status pill state shown on the index landing. */

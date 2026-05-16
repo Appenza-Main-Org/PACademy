@@ -125,10 +125,6 @@ export function computeStepStatus(
       );
       return rosterComplete && bindingsComplete ? 'complete' : 'in_progress';
     }
-    case 'notifications':
-      /* Notifications are global — surface as in_progress; the actual page
-       * shows the count and lets the admin add cycle-scoped messages. */
-      return 'in_progress';
     case 'electronic_declaration':
       if (!declaration) return 'not_started';
       return declaration.publishedAt ? 'complete' : 'in_progress';

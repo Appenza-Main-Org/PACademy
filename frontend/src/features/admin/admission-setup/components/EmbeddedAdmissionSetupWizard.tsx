@@ -43,7 +43,6 @@ import { ApplicationSettingsPage } from '../pages/ApplicationSettingsPage';
 import { FeesPage } from '../pages/FeesPage';
 import { ExamsManagementPage } from '../pages/ExamsManagementPage';
 import { CommitteesManagementPage } from '../pages/CommitteesManagementPage';
-import { NotificationsStepPage } from '../pages/NotificationsStepPage';
 import { ElectronicDeclarationPage } from '../pages/ElectronicDeclarationPage';
 
 /* Mirrors the renderer map in AdmissionSetupWizardPage. Adding a step
@@ -55,7 +54,6 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,
-  notifications: () => <NotificationsStepPage />,
   electronic_declaration: () => <ElectronicDeclarationPage />,
 };
 

@@ -117,3 +117,47 @@ Follow-up wired on top of the same wizard step.
 - ليسانس حقوق (1F/1S flat): percentage inputs render `٠ – ١٠٠ %` placeholder + `%` suffix on the logical end-edge; الدرجة العلمية opens a multi-select listbox (`multiselectable=true`).
 - ثانوي section: `فئة المدرسة` opens a multi-select listbox; previously-added rows continue to render in the grid via the new chip path.
 - `npm run typecheck` → 0 errors. `npm run build` → succeeds. `GET /wizard/application_settings` → 200.
+
+---
+
+# Remove notifications step
+
+Drops the `notifications` step from the admission-setup wizard. The
+standalone `/admin/notifications` admin page (a separate feature) is
+unchanged — only the in-wizard step that wrapped it is removed.
+
+## Files deleted
+
+- [frontend/src/features/admin/admission-setup/pages/NotificationsStepPage.tsx](../../../frontend/src/features/admin/admission-setup/pages/NotificationsStepPage.tsx) — the wizard-only shell that wrapped `NotificationsPage`.
+
+## Files touched
+
+- [frontend/src/features/admin/admission-setup/config.ts](../../../frontend/src/features/admin/admission-setup/config.ts) — dropped the `notifications` entry from `ADMISSION_SETUP_STEPS`; renumbered `electronic_declaration` from `order: 6` to `order: 5`. Dropped the now-unused `ClipboardCheck` icon import.
+- [frontend/src/features/admin/admission-setup/types.ts](../../../frontend/src/features/admin/admission-setup/types.ts) — dropped `'notifications'` from the `AdmissionSetupStepKey` discriminated union. Compile-fail enforces removal everywhere because the renderer maps key against this closed union.
+- [frontend/src/features/admin/admission-setup/lib/step-status.ts](../../../frontend/src/features/admin/admission-setup/lib/step-status.ts) — dropped the `case 'notifications':` arm of `computeStepStatus`.
+- [frontend/src/features/admin/admission-setup/pages/AdmissionSetupWizardPage.tsx](../../../frontend/src/features/admin/admission-setup/pages/AdmissionSetupWizardPage.tsx) — dropped the `NotificationsStepPage` import and the `notifications` entry in the routed wizard's `STEP_RENDERERS`.
+- [frontend/src/features/admin/admission-setup/components/EmbeddedAdmissionSetupWizard.tsx](../../../frontend/src/features/admin/admission-setup/components/EmbeddedAdmissionSetupWizard.tsx) — same drop in the embedded wizard's `STEP_RENDERERS`.
+- [frontend/src/features/admin/admission-setup/api/admission-setup.service.ts](../../../frontend/src/features/admin/admission-setup/api/admission-setup.service.ts) — dropped `notifications` and `notificationsService` from the file's doc header.
+- [frontend/src/features/admin/admission-setup/index.ts](../../../frontend/src/features/admin/admission-setup/index.ts) — dropped the `NotificationsStepPage` re-export.
+- [frontend/src/features/admin/index.ts](../../../frontend/src/features/admin/index.ts) — dropped the `NotificationsStepPage` re-export.
+- [frontend/src/config/routes.ts](../../../frontend/src/config/routes.ts) — dropped `notifications: '/admin/cycles/admission-setup/notifications'` from `ROUTES.admin.admissionSetup`.
+- [frontend/src/routes.tsx](../../../frontend/src/routes.tsx) — dropped the `NotificationsStepPage` import and the `cycles/admission-setup/notifications` route entry. The wizard route (`cycles/admission-setup/wizard/:stepKey`) keeps working because `:stepKey` is no longer accepted as `'notifications'`; if someone deep-links the old URL, `AdmissionSetupWizardPage` falls back to the first step via its existing `validKeys.includes(activeKey)` guard.
+
+## Navigation
+
+The brief asked the step previously before `notifications` to advance directly to `review`. In the canonical step order, `notifications` sat at `order: 5`, *between* `committees` (4) and `electronic_declaration` (6). Removing it leaves `electronic_declaration` as the new last config step, so `committees → electronic_declaration → review` falls out naturally — the existing `handleNext` / `handlePrev` in `AdmissionSetupWizardPage` index into the live `orderedSteps` array, so no navigation code changes were needed:
+
+- From `committees`, «التالي» now lands on `electronic_declaration` (next in order).
+- From `electronic_declaration` (new final config step), «التالي» («إرسال للاعتماد») lands on `review`.
+- From `review`, «السابق» lands back on `electronic_declaration` (the new `orderedSteps[ADMISSION_SETUP_TOTAL_STEPS - 1]`).
+
+No Zustand wizard-store slice, selector, validator, or submit payload referenced the removed step — `notifications` was a composed step that re-used the global `NotificationsPage`, so nothing was state-owned by the wizard for this step. Nothing to strip there.
+
+## Search sweep
+
+`grep -rn "NotificationsStepPage\|admissionSetup.notifications\|admission-setup/notifications\|case 'notifications'" frontend/src` returns no hits post-edit. Unrelated notification surfaces (the standalone `/admin/notifications` page, the in-app `NotificationCenter` drawer, `useNotificationCenter` hooks, `audit:notifications`-prefixed audit emissions, etc.) are intentionally untouched.
+
+## Verification
+
+- `npm run typecheck` → 0 errors.
+- `npm run build` → succeeds.

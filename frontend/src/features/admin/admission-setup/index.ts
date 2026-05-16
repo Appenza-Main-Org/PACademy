@@ -30,5 +30,4 @@ export { ApplicationStatusPage } from './pages/ApplicationStatusPage';
 export { FeesPage as AdmissionFeesPage } from './pages/FeesPage';
 export { ExamsManagementPage } from './pages/ExamsManagementPage';
 export { CommitteesManagementPage } from './pages/CommitteesManagementPage';
-export { NotificationsStepPage } from './pages/NotificationsStepPage';
 export { ElectronicDeclarationPage } from './pages/ElectronicDeclarationPage';
