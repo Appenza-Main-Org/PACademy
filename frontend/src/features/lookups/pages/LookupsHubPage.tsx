@@ -52,7 +52,7 @@ export function LookupsHubPage(): JSX.Element {
         <aside className="col-span-12 lg:col-span-3 xl:col-span-3">
           <nav
             aria-label="أقسام الأكواد المرجعية"
-            className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface-card p-3 shadow-xs lg:sticky lg:top-20 lg:h-[calc(100dvh-6rem)] lg:overflow-y-auto"
+            className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface-card p-3 shadow-xs lg:sticky lg:top-20 lg:h-[calc(100dvh_-_6rem)] lg:overflow-y-auto"
           >
             {LOOKUP_SECTIONS.map((section, idx) => (
               <div key={section.key} className={cn(idx > 0 && 'border-t border-border-subtle pt-4')}>

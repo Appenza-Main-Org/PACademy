@@ -254,7 +254,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
                * (~64px) plus a hair of breathing room. The rail is sized
                * to the available viewport so all 16 steps distribute
                * evenly and fit without a scroll spine. */
-              'md:sticky md:top-20 md:h-[calc(100vh-7rem)] md:w-[260px] md:overflow-hidden',
+              'md:sticky md:top-20 md:h-[calc(100vh_-_7rem)] md:w-[260px] md:overflow-hidden',
             )}
           >
             <VerticalStepper
