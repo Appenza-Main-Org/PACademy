@@ -19,13 +19,7 @@ import { SUPPORTED_GRADES_EXTENSIONS } from '../../../lib/parseGradesFile';
 import { downloadTemplateWorkbook } from '../../../lib/buildTemplateWorkbook';
 
 const MB = 1024 * 1024;
-const SIZE_LIMITS_MB: Record<string, number> = {
-  '.mdb': 500,
-  '.accdb': 500,
-  '.xlsx': 500,
-  '.xls': 500,
-  '.csv': 500,
-};
+const MAX_FILE_SIZE_MB = 500;
 
 function matchExtension(fileName: string): string | null {
   const lower = fileName.toLowerCase();
@@ -37,10 +31,9 @@ function validateFile(file: { name: string; size: number }): string | null {
   if (!ext) {
     return `صيغة الملف غير مدعومة. الصيغ المقبولة: ${SUPPORTED_GRADES_EXTENSIONS.join('، ')}`;
   }
-  const limitMb = SIZE_LIMITS_MB[ext];
-  if (limitMb && file.size > limitMb * MB) {
+  if (file.size > MAX_FILE_SIZE_MB * MB) {
     const actualMb = (file.size / MB).toFixed(file.size / MB >= 100 ? 0 : 1);
-    return `حجم الملف (${actualMb} م.ب) يتجاوز الحد الأقصى ${limitMb} م.ب لصيغة ${ext}`;
+    return `حجم الملف (${actualMb} م.ب) يتجاوز الحد الأقصى ${MAX_FILE_SIZE_MB} م.ب`;
   }
   return null;
 }

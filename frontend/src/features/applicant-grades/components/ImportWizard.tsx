@@ -289,22 +289,11 @@ const ACCEPTED_EXTENSIONS: Record<'general' | 'azhar', readonly string[]> = {
   azhar: ['.mdb', '.accdb', '.xlsx', '.xls', '.csv'],
 };
 
-/**
- * Maximum file size per extension, in megabytes. `.mdb` exports run
- * larger than `.accdb` because the older format doesn't compact
- * tablespace pages between writes; the spreadsheet variants are
- * hand-prepared and stay small. We cap each at the highest size
- * we've seen in practice (with a small margin) so an admin who
- * uploads the wrong DB still hits a useful error rather than a
- * silent timeout.
- */
-const SIZE_LIMITS_MB: Record<string, number> = {
-  '.mdb': 500,
-  '.accdb': 500,
-  '.xlsx': 500,
-  '.xls': 500,
-  '.csv': 500,
-};
+/** Single ceiling for every supported extension — the upload pipeline
+ *  treats `.mdb` / `.accdb` / `.xlsx` / `.xls` / `.csv` uniformly and
+ *  rejects anything beyond 500 MB so an admin who picks the wrong file
+ *  still hits a useful error rather than a silent timeout. */
+const MAX_FILE_SIZE_MB = 500;
 
 const MB = 1024 * 1024;
 
@@ -327,10 +316,9 @@ function validateFile(
     const list = ACCEPTED_EXTENSIONS[kind].join('، ');
     return `صيغة الملف غير مدعومة. الصيغ المقبولة: ${list}`;
   }
-  const limitMb = SIZE_LIMITS_MB[ext];
-  if (limitMb && file.size > limitMb * MB) {
+  if (file.size > MAX_FILE_SIZE_MB * MB) {
     const actualMb = (file.size / MB).toFixed(file.size / MB >= 100 ? 0 : 1);
-    return `حجم الملف (${actualMb} م.ب) يتجاوز الحد الأقصى ${limitMb} م.ب لصيغة ${ext}`;
+    return `حجم الملف (${actualMb} م.ب) يتجاوز الحد الأقصى ${MAX_FILE_SIZE_MB} م.ب`;
   }
   return null;
 }
@@ -413,11 +401,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
 
   const acceptedExts = ACCEPTED_EXTENSIONS[setup.kind];
   const acceptAttr = acceptedExts.join(',');
-
-  /** Single-extension hint: each kind now accepts exactly one Access
-   *  format (`.mdb` for general, `.accdb` for azhar) with its own
-   *  size cap. Read straight off `SIZE_LIMITS_MB`. */
-  const sizeLimitMb = SIZE_LIMITS_MB[acceptedExts[0]!] ?? 100;
+  const sizeLimitMb = MAX_FILE_SIZE_MB;
 
   const canSubmit =
     setup.file && setup.maxDegree > 0 && fileError === null && upload.status === 'success';
