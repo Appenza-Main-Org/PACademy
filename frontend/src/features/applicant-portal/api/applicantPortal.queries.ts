@@ -7,7 +7,19 @@ export const apKeys = {
   draft: (applicantId: string) => [...apKeys.all, 'draft', applicantId] as const,
   slots: () => [...apKeys.all, 'exam-slots'] as const,
   followUp: (applicantId: string) => [...apKeys.all, 'follow-up', applicantId] as const,
+  moi: (nid: string) => [...apKeys.all, 'moi', nid] as const,
 };
+
+/** Fetch the applicant's MOI-verified identity payload. Disabled until a
+ *  NID is available so TanStack Query won't fire on an empty store. */
+export function useMoiVerification(nid: string | null) {
+  return useQuery({
+    queryKey: apKeys.moi(nid ?? ''),
+    queryFn: () => applicantPortalService.fetchMoiVerification(nid!),
+    enabled: Boolean(nid),
+    staleTime: 5 * 60_000,
+  });
+}
 
 export function useDraft(applicantId: string) {
   return useQuery({

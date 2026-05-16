@@ -18,10 +18,12 @@
  * Submit routes to `/applicant/verify` (PDF p.5 lower).
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import {
+  ArrowRight,
+  BadgeCheck,
   Check,
   GraduationCap,
   Info,
@@ -34,6 +36,7 @@ import {
   Badge,
   Button,
   Card,
+  ErrorState,
   Field,
   IconStamp,
   Input,
@@ -49,13 +52,21 @@ import { ROUTES } from '@/config/routes';
 import { stage345Schema, type Stage345Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
-import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
+import { MOI_APPLICANT_SESSION, type MoiApplicantSession } from '../lib/moi-session.mock';
+import { useMoiVerification } from '../api/applicantPortal.queries';
 import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
 import { CITIES } from '@/shared/mock-data/dictionaries';
-import { useGrades } from '@/features/applicant-grades/api/grades.queries';
-import { useLookup } from '@/features/lookups/api/lookups.queries';
+import {
+  useApplicantGradeByNid,
+  useGrades,
+} from '@/features/applicant-grades/api/grades.queries';
+import { useApplicantCategories, useLookup } from '@/features/lookups/api/lookups.queries';
 import type { GradeRow } from '@/features/applicant-grades/types';
-import type { SchoolCategoryRow } from '@/features/lookups';
+import type {
+  ApplicantCategoryRow,
+  SchoolCategoryRow,
+} from '@/features/lookups';
+import { emitAudit } from '@/shared/lib/audit';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 
@@ -115,10 +126,73 @@ const THANAWI_BRANCH_OPTIONS = [
 
 export function Stage345ApplicantDataPage(): JSX.Element {
   const navigate = useNavigate();
+  const storeNid = useApplicantPortalStore((s) => s.nationalId);
+  const selectedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
-  const showBachelor = selectedCategoryKey !== 'officers_general';
+  const setSelectedCategoryKey = useApplicantPortalStore(
+    (s) => s.setSelectedCategoryKey,
+  );
 
-  const session = MOI_APPLICANT_SESSION;
+  /* The wizard store mirrors the MOI session NID once eligibility resolves;
+   * if a deep-link refresh empties the store before that point, fall back
+   * to the static MOI session payload so the gate still has something to
+   * resolve against. */
+  const nid = storeNid ?? MOI_APPLICANT_SESSION.nationalId;
+
+  const moiQuery = useMoiVerification(nid);
+  const gradeByNidQuery = useApplicantGradeByNid(nid, selectedCycleId);
+  const allCategoriesQuery = useApplicantCategories();
+  const secondaryCategories = useMemo<ApplicantCategoryRow[]>(
+    () => (allCategoriesQuery.data ?? []).filter((c) => c.type === 'pre_university'),
+    [allCategoriesQuery.data],
+  );
+  const otherCategories = useMemo<ApplicantCategoryRow[]>(
+    () => (allCategoriesQuery.data ?? []).filter((c) => c.type === 'university'),
+    [allCategoriesQuery.data],
+  );
+
+  const gateLoading = gradeByNidQuery.isLoading || allCategoriesQuery.isLoading;
+  const gradesMatched = gradeByNidQuery.data ?? null;
+  const secondaryCategory = secondaryCategories[0] ?? null;
+  const selectedCategory =
+    (allCategoriesQuery.data ?? []).find((c) => c.code === selectedCategoryKey) ??
+    null;
+  const userPickedSecondary = selectedCategory?.type === 'pre_university';
+
+  /* Audit emit once per (nid + cycle + match-state + selection) tuple so
+   * refreshes / re-renders don't spam the audit log. */
+  const auditKey = `${nid}|${selectedCycleId ?? ''}|${gradesMatched?.seat ?? 'none'}|${selectedCategoryKey ?? ''}`;
+  const [lastAuditKey, setLastAuditKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (gateLoading) return;
+    if (!selectedCategoryKey) return;
+    if (auditKey === lastAuditKey) return;
+    emitAudit({
+      action: 'applicant.transition',
+      module: 'applicants',
+      entityType: 'applicant_eligibility',
+      entityLabel: 'تأهيل المتقدم — مرحلة 3',
+      entityId: MOI_APPLICANT_SESSION.applicantId,
+      details: `تم تحديد الفئة (${selectedCategoryKey}) ${
+        gradesMatched ? `بناءً على نتيجة الثانوية (رقم الجلوس ${gradesMatched.seat})` : 'بدون مطابقة للنتائج'
+      }`,
+      after: {
+        nid,
+        cycleId: selectedCycleId,
+        matchedGradeId: gradesMatched ? String(gradesMatched.seat) : null,
+        selectedCategoryKey,
+      },
+      actor: {
+        id: MOI_APPLICANT_SESSION.applicantId,
+        name: MOI_APPLICANT_SESSION.fullName,
+        role: 'applicant',
+      },
+    });
+    setLastAuditKey(auditKey);
+  }, [auditKey, gateLoading, lastAuditKey, selectedCategoryKey, nid, selectedCycleId, gradesMatched]);
+
+  const showBachelor = selectedCategoryKey !== 'officers_general';
+  const session = moiQuery.data ?? MOI_APPLICANT_SESSION;
 
   /* Thanawi data is sourced from the admin /admin/applicant-grades dataset
    * by NID. If the applicant is found, the row is rendered read-only +
@@ -213,6 +287,18 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           ورقم المحمول والبريد الإلكتروني مستوردة من بوابة وزارة الداخلية ولا تُعدَّل.
         </p>
       </Card>
+
+      <MoiVerificationCard query={moiQuery} />
+
+      <EligibilityGate
+        loading={gateLoading}
+        gradesMatched={gradesMatched}
+        secondaryCategory={secondaryCategory}
+        otherCategories={otherCategories}
+        selectedCategoryKey={selectedCategoryKey}
+        userPickedSecondary={userPickedSecondary}
+        onSelectCategory={setSelectedCategoryKey}
+      />
 
       {showBachelor && (
         <Card>
@@ -438,12 +524,224 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           <p className="mt-2 text-2xs text-terra-700">{errors.declaration.message}</p>
         )}
         <div className="mt-4 flex items-center justify-end gap-2">
-          <Button type="submit" variant="primary" size="lg" isLoading={isSubmitting}>
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            isLoading={isSubmitting}
+            disabled={!selectedCategoryKey}
+          >
             حفظ والمتابعة
           </Button>
         </div>
       </Card>
     </form>
+  );
+}
+
+/* ─── MOI verification card ─────────────────────────────────────── */
+
+function MoiVerificationCard({
+  query,
+}: {
+  query: ReturnType<typeof useMoiVerification>;
+}): JSX.Element {
+  if (query.isLoading) {
+    return (
+      <Card>
+        <SectionHeader
+          icon={<BadgeCheck size={16} strokeWidth={1.75} />}
+          title="البيانات المسترجعة من بوابة التحقق القومي"
+        />
+        <LoadingState variant="list" rows={3} />
+      </Card>
+    );
+  }
+  if (query.error || !query.data) {
+    return (
+      <Card>
+        <SectionHeader
+          icon={<BadgeCheck size={16} strokeWidth={1.75} />}
+          title="البيانات المسترجعة من بوابة التحقق القومي"
+        />
+        <ErrorState
+          error={query.error as Error | undefined}
+          title="تعذّر استرجاع البيانات"
+          description="حاول مرة أخرى بعد قليل."
+          onRetry={() => query.refetch()}
+        />
+      </Card>
+    );
+  }
+  const data: MoiApplicantSession = query.data;
+  return (
+    <Card>
+      <SectionHeader
+        icon={<BadgeCheck size={16} strokeWidth={1.75} />}
+        title="البيانات المسترجعة من بوابة التحقق القومي"
+      />
+      <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-teal-500/30 bg-teal-50 px-3 py-1.5 text-2xs text-teal-800">
+        <IconStamp width={11} height={11} />
+        تم التحقق من هويتك آلياً عبر بوابة وزارة الداخلية — هذه البيانات للعرض فقط.
+      </div>
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
+        <ReadOnlyRow label="الإسم رباعي" value={data.fullName} />
+        <ReadOnlyRow label="الرقم القومي" value={data.nationalId} ltr mono />
+        <ReadOnlyRow label="النوع" value={data.gender === 'male' ? 'ذكر' : 'أنثى'} />
+        <ReadOnlyRow label="تاريخ الميلاد" value={data.dateOfBirthAr} />
+        <ReadOnlyRow label="محافظة الميلاد" value={data.birthGovernorate} />
+        <ReadOnlyRow label="رقم المحمول" value={data.mobile} ltr mono />
+      </dl>
+    </Card>
+  );
+}
+
+/* ─── Eligibility gate ────────────────────────────────────────────── */
+
+function EligibilityGate({
+  loading,
+  gradesMatched,
+  secondaryCategory,
+  otherCategories,
+  selectedCategoryKey,
+  userPickedSecondary,
+  onSelectCategory,
+}: {
+  loading: boolean;
+  gradesMatched: GradeRow | null;
+  secondaryCategory: ApplicantCategoryRow | null;
+  otherCategories: readonly ApplicantCategoryRow[];
+  selectedCategoryKey: string | null;
+  userPickedSecondary: boolean;
+  onSelectCategory: (code: string | null) => void;
+}): JSX.Element {
+  if (loading) {
+    return (
+      <Card>
+        <SectionHeader
+          icon={<ShieldCheck size={16} strokeWidth={1.75} />}
+          title="تحديد فئة التقدم"
+        />
+        <LoadingState variant="list" rows={2} />
+      </Card>
+    );
+  }
+  if (gradesMatched) {
+    return (
+      <MatchedGateCard
+        row={gradesMatched}
+        secondaryCategory={secondaryCategory}
+        userPickedSecondary={userPickedSecondary}
+        onSelectCategory={onSelectCategory}
+      />
+    );
+  }
+  return (
+    <UnmatchedGateCard
+      otherCategories={otherCategories}
+      selectedCategoryKey={selectedCategoryKey}
+      onSelectCategory={onSelectCategory}
+    />
+  );
+}
+
+function MatchedGateCard({
+  row,
+  secondaryCategory,
+  userPickedSecondary,
+  onSelectCategory,
+}: {
+  row: GradeRow;
+  secondaryCategory: ApplicantCategoryRow | null;
+  userPickedSecondary: boolean;
+  onSelectCategory: (code: string | null) => void;
+}): JSX.Element {
+  const percent = ((row.total / row.importMax) * 100).toFixed(2);
+  return (
+    <Card>
+      <SectionHeader
+        icon={<ShieldCheck size={16} strokeWidth={1.75} />}
+        title="تحديد فئة التقدم"
+      />
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-teal-500/30 bg-teal-50/40 px-3 py-2">
+        <Badge tone="success">
+          <IconStamp width={11} height={11} className="me-1 inline-block" />
+          مؤهل لمرحلة الالتحاق - ثانوي
+        </Badge>
+        <span className="text-2xs text-teal-800">
+          المصدر: بيانات نتائج الثانوية العامة المستوردة
+        </span>
+      </div>
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+        <ReadOnlyRow label="إسم المدرسة" value={row.school} />
+        <ReadOnlyRow label="المجموع" value={`${row.total} / ${row.importMax} (${percent}%)`} ltr />
+        <ReadOnlyRow label="نوع الشهادة" value={row.kind === 'azhar' ? 'ثانوية أزهرية' : 'ثانوية عامة'} />
+      </dl>
+      {secondaryCategory && !userPickedSecondary && (
+        <div
+          role="note"
+          className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700"
+        >
+          <span className="leading-relaxed">
+            بناءً على بيانات الثانوية المسترجَعة فأنت مؤهَّل أيضاً لفئة{' '}
+            <strong>{secondaryCategory.name}</strong> (ثانوي). هل تريد التحويل؟
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => onSelectCategory(secondaryCategory.code)}
+            leadingIcon={<ArrowRight size={12} strokeWidth={1.75} className="rtl:rotate-180" />}
+          >
+            التحويل إلى {secondaryCategory.name}
+          </Button>
+        </div>
+      )}
+      {secondaryCategory && userPickedSecondary && (
+        <p className="mt-3 text-2xs text-ink-500">
+          الفئة المختارة:{' '}
+          <strong className="text-ink-900">{secondaryCategory.name}</strong>
+        </p>
+      )}
+    </Card>
+  );
+}
+
+function UnmatchedGateCard({
+  otherCategories,
+  selectedCategoryKey,
+  onSelectCategory,
+}: {
+  otherCategories: readonly ApplicantCategoryRow[];
+  selectedCategoryKey: string | null;
+  onSelectCategory: (code: string | null) => void;
+}): JSX.Element {
+  return (
+    <Card>
+      <SectionHeader
+        icon={<ShieldCheck size={16} strokeWidth={1.75} />}
+        title="تحديد فئة التقدم"
+      />
+      <p
+        role="note"
+        className="mb-3 rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700"
+      >
+        <Info size={11} strokeWidth={1.75} className="me-1 inline-block" aria-hidden />
+        لم يتم العثور على الرقم القومي ببيانات الثانوية العامة — يمكنك التقدم لإحدى الفئات
+        الأخرى.
+      </p>
+      <Field label="فئة التقدم" required>
+        <Select
+          required
+          value={selectedCategoryKey ?? ''}
+          onChange={(e) => onSelectCategory(e.target.value || null)}
+          options={[
+            { value: '', label: '— اختر الفئة —' },
+            ...otherCategories.map((c) => ({ value: c.code, label: c.name })),
+          ]}
+        />
+      </Field>
+    </Card>
   );
 }
 

@@ -23,6 +23,8 @@ import type {
 export const gradesKeys = {
   all: ['applicant-grades'] as const,
   list: () => [...gradesKeys.all, 'list'] as const,
+  byNid: (nid: string, cycleId: string) =>
+    [...gradesKeys.all, 'by-nid', cycleId, nid] as const,
   paginated: (params: {
     page: number;
     pageSize: number;
@@ -35,6 +37,20 @@ export function useGrades() {
   return useQuery({
     queryKey: gradesKeys.list(),
     queryFn: () => gradesService.list(),
+  });
+}
+
+/**
+ * NID-driven grade lookup for the applicant-portal eligibility gate
+ * (RFP §المرحلة 3-4). Disabled until both `nid` and `cycleId` are
+ * available — TanStack Query won't fire and the consumer can render a
+ * skeleton in the meantime.
+ */
+export function useApplicantGradeByNid(nid: string | null, cycleId: string | null) {
+  return useQuery({
+    queryKey: gradesKeys.byNid(nid ?? '', cycleId ?? ''),
+    queryFn: () => gradesService.findByNationalId(nid!, cycleId!),
+    enabled: Boolean(nid && cycleId),
   });
 }
 

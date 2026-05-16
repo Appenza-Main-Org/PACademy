@@ -202,6 +202,25 @@ export const applicantPortalService = {
   },
 
   /**
+   * MOI identity-verification fetch — RFP §المرحلة 3. Backs the
+   * read-only "البيانات المسترجعة من بوابة التحقق القومي" card on the
+   * applicant-profile page. Mocked via `mockMoiVerifyNid` (deterministic
+   * lookup over the seeded NID + structural derivation for any other
+   * well-formed 14-digit NID).
+   *
+   * INTEGRATION CONTRACT: GET /applicant/moi/verify/:nid
+   *   200 → MoiApplicantSession
+   *   404 → null (NID not registered with MOI)
+   */
+  async fetchMoiVerification(nid: string) {
+    await simulateLatency(300, 600);
+    const { mockMoiVerifyNid } = await import('../lib/moi-session.mock');
+    const result = mockMoiVerifyNid(nid);
+    if (!result) throw new Error('الرقم القومي غير مسجَّل لدى بوابة التحقق القومي');
+    return result;
+  },
+
+  /**
    * Create a payment intent (PDF pp.6-7). Returns an intentId + a
    * deterministic 10-digit reference. Fawry-code intents also carry an
    * 8-digit code valid for 48 hours.

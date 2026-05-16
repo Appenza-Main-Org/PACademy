@@ -59,6 +59,26 @@ export const gradesService = {
     return clone(STATE);
   },
 
+  /**
+   * Look up a single grade row by national ID within a cycle.
+   *
+   * INTEGRATION CONTRACT:
+   *   GET /api/admin/applicant-grades/by-nid/:nid?cycleId=…
+   *   200 → GradeRow
+   *   404 → null
+   *
+   * Mock: the in-memory STATE is implicitly scoped to the active cycle
+   * (no per-row cycleId today — the dataset is wiped on cycle rollover).
+   * The `cycleId` parameter is accepted for contract parity and used as
+   * part of the query key so cache invalidation flows naturally on
+   * cycle change.
+   */
+  async findByNationalId(nid: string, _cycleId: string): Promise<GradeRow | null> {
+    await simulateLatency(120, 240);
+    const match = STATE.find((r) => r.nid === nid);
+    return match ? clone([match])[0]! : null;
+  },
+
   async clearAll(): Promise<void> {
     await simulateLatency(80, 160);
     STATE = [];
