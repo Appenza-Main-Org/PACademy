@@ -1,29 +1,36 @@
 /**
  * CyclesPage — list of admission cycles.
  *
- * Columns mirror the Add form (CycleNewPage) field set 1:1:
- *   اسم الدورة · السنة · حالة الدورة.
+ * Columns mirror the Add form (CycleNewPage) field set 1:1, plus the
+ * orthogonal active flag and per-row actions:
+ *   اسم الدورة · السنة · حالة الدورة · حالة التفعيل · إجراءات.
  *
- * Status is a two-state binary on this surface — see cycleListStatus.ts:
- *   إدراج ومراجعة → draft (editable)
- *   اعتماد ونشر  → published (locked — Edit action is aria-disabled with a
- *                  tooltip explaining why).
+ * Status (review/published) and isActive are independent — see
+ * cycleListStatus.ts and AdmissionCycle.isActive. Activating a cycle is a
+ * separate concern from editing its status, and the mock service upholds
+ * the single-active invariant atomically.
  *
- * Per-row Edit opens a modal that flips the cycle between the two states.
- * Promoting a draft to "اعتماد ونشر" while another cycle is already
- * published triggers the same confirm-and-demote dialog used by
- * /admin/cycles/new.
+ * Per-row actions:
+ *   • تعديل      — enabled only while the cycle is in "إدراج ومراجعة";
+ *                  aria-disabled with a Tooltip otherwise.
+ *   • تفعيل      — flips isActive on the row (and clears it on every
+ *                  other cycle). Confirms via AlertDialog. The currently
+ *                  active row gets a "نشطة" badge in place of the button.
+ *   • إعداد القبول — opens the admission-setup wizard inline in a Drawer
+ *                    for the currently active cycle. Aria-disabled +
+ *                    tooltip ("متاح فقط للدورة النشطة") for non-active rows.
  */
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarRange, Pencil, Plus, Save } from 'lucide-react';
+import { CalendarRange, Pencil, Plus, Power, Save, Settings2 } from 'lucide-react';
 import {
   AlertDialog,
   Badge,
   Button,
   Card,
   DataTable,
+  Drawer,
   EmptyState,
   IconStamp,
   Modal,
@@ -39,7 +46,11 @@ import { ROUTES } from '@/config/routes';
 import { date as fmtDate } from '@/shared/lib/format';
 import { isConflictError } from '@/shared/lib/errors';
 import type { AdmissionCycle } from '@/shared/types/domain';
-import { useActiveCycle, useCycleUpdateStatus, useCycles } from '../api/cycles.queries';
+import {
+  useCycles,
+  useCycleSetActive,
+  useCycleUpdateStatus,
+} from '../api/cycles.queries';
 import {
   fromListStatus,
   LIST_STATUS_LABEL,
@@ -48,11 +59,16 @@ import {
   toListStatus,
   type CycleListStatus,
 } from '../components/cycles/cycleListStatus';
+import { EmbeddedAdmissionSetupWizard } from '../admission-setup';
 
 const LOCKED_EDIT_HINT = 'لا يمكن التعديل بعد الاعتماد والنشر';
+const SETUP_LOCKED_HINT = 'متاح فقط للدورة النشطة';
+
+const ACTIVE_LABEL = 'نشطة';
+const INACTIVE_LABEL = 'غير نشطة';
 
 /* Drafts (إدراج ومراجعة) bubble to the top — they're the only rows the
- * admin can act on. Published rows follow, ordered by year desc. */
+ * admin can edit. Published rows follow, ordered by year desc. */
 const LIST_STATUS_PRIORITY: Record<CycleListStatus, number> = {
   review: 0,
   published: 1,
@@ -61,8 +77,8 @@ const LIST_STATUS_PRIORITY: Record<CycleListStatus, number> = {
 export function CyclesPage(): JSX.Element {
   const navigate = useNavigate();
   const { data, isLoading } = useCycles();
-  const { data: activeCycle } = useActiveCycle();
   const updateStatusMut = useCycleUpdateStatus();
+  const setActiveMut = useCycleSetActive();
 
   const [editing, setEditing] = useState<AdmissionCycle | null>(null);
   const [draftStatus, setDraftStatus] = useState<CycleListStatus>('review');
@@ -70,10 +86,19 @@ export function CyclesPage(): JSX.Element {
     activeCycleName: string;
     targetId: string;
   } | null>(null);
+  const [activateTarget, setActivateTarget] = useState<AdmissionCycle | null>(null);
+  const [setupTarget, setSetupTarget] = useState<AdmissionCycle | null>(null);
+
+  const activeCycle = useMemo(
+    () => (data ?? []).find((c) => c.isActive) ?? null,
+    [data],
+  );
 
   const sortedCycles = useMemo(() => {
     const rows = [...(data ?? [])];
     rows.sort((a, b) => {
+      /* Active row pinned at top regardless of status. */
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
       const byStatus =
         LIST_STATUS_PRIORITY[toListStatus(a.status)] -
         LIST_STATUS_PRIORITY[toListStatus(b.status)];
@@ -101,6 +126,11 @@ export function CyclesPage(): JSX.Element {
             labelAr: 'حالة الدورة',
             format: (v) =>
               LIST_STATUS_LABEL[toListStatus(v as AdmissionCycle['status'])],
+          },
+          {
+            key: 'isActive',
+            labelAr: 'حالة التفعيل',
+            format: (v) => (v ? ACTIVE_LABEL : INACTIVE_LABEL),
           },
         ],
       },
@@ -152,6 +182,19 @@ export function CyclesPage(): JSX.Element {
     );
   };
 
+  const confirmActivate = (): void => {
+    if (!activateTarget) return;
+    setActiveMut.mutate(activateTarget.id, {
+      onSuccess: () => {
+        toast(`تم تفعيل دورة "${activateTarget.nameAr}"`, 'success');
+        setActivateTarget(null);
+      },
+      onError: (err) => {
+        toast((err as Error).message, 'danger');
+      },
+    });
+  };
+
   const columns: DataTableColumn<AdmissionCycle>[] = [
     {
       key: 'nameAr',
@@ -184,14 +227,70 @@ export function CyclesPage(): JSX.Element {
       },
     },
     {
+      key: 'isActive',
+      label: 'حالة التفعيل',
+      render: (c) =>
+        c.isActive ? (
+          <Badge tone="success">
+            <IconStamp width={12} height={12} className="me-1 inline-block" />
+            {ACTIVE_LABEL}
+          </Badge>
+        ) : (
+          <Badge tone="neutral">{INACTIVE_LABEL}</Badge>
+        ),
+    },
+    {
       key: '_actions',
       label: <span className="sr-only">إجراءات</span>,
       align: 'end',
       render: (c) => {
         const isLocked = toListStatus(c.status) === 'published';
-        /* When locked we deliberately omit the native `disabled` so the
-         * button stays focusable + hoverable for the tooltip, and guard
-         * the click handler instead. aria-disabled exposes the state to AT. */
+        const isSetupDisabled = !c.isActive;
+
+        /* Setup button — primary look on the active row; aria-disabled +
+         * tooltip on every other row. We omit native `disabled` on the
+         * locked variant so the tooltip can still hover/focus-attach. */
+        const setupButton = (
+          <Button
+            variant="primary"
+            size="sm"
+            leadingIcon={<Settings2 size={12} strokeWidth={1.75} />}
+            aria-disabled={isSetupDisabled || undefined}
+            className={
+              isSetupDisabled
+                ? 'cursor-not-allowed opacity-60 hover:bg-teal-500'
+                : undefined
+            }
+            onClick={() => {
+              if (isSetupDisabled) return;
+              setSetupTarget(c);
+            }}
+          >
+            إعداد القبول
+          </Button>
+        );
+        const setupSlot = isSetupDisabled ? (
+          <Tooltip content={SETUP_LOCKED_HINT}>
+            <span tabIndex={0} aria-label={SETUP_LOCKED_HINT} className="inline-flex">
+              {setupButton}
+            </span>
+          </Tooltip>
+        ) : (
+          setupButton
+        );
+
+        /* Activate button — hidden on the already-active row. */
+        const activateSlot = c.isActive ? null : (
+          <Button
+            variant="secondary"
+            size="sm"
+            leadingIcon={<Power size={12} strokeWidth={1.75} />}
+            onClick={() => setActivateTarget(c)}
+          >
+            تفعيل
+          </Button>
+        );
+
         const editButton = (
           <Button
             variant="ghost"
@@ -211,7 +310,7 @@ export function CyclesPage(): JSX.Element {
             تعديل
           </Button>
         );
-        return isLocked ? (
+        const editSlot = isLocked ? (
           <Tooltip content={LOCKED_EDIT_HINT}>
             <span tabIndex={0} aria-label={LOCKED_EDIT_HINT} className="inline-flex">
               {editButton}
@@ -219,6 +318,14 @@ export function CyclesPage(): JSX.Element {
           </Tooltip>
         ) : (
           editButton
+        );
+
+        return (
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            {setupSlot}
+            {activateSlot}
+            {editSlot}
+          </div>
         );
       },
     },
@@ -253,16 +360,16 @@ export function CyclesPage(): JSX.Element {
               </span>
               <div className="flex-1">
                 <p className="font-ar-display text-md font-bold text-ink-900">
-                  الدورة المعتمدة والمنشورة: {activeCycle.nameAr}
+                  الدورة النشطة: {activeCycle.nameAr}
                 </p>
                 <p className="mt-0.5 text-2xs text-ink-500">
                   {fmtDate(activeCycle.openDate, 'short')} إلى{' '}
                   {fmtDate(activeCycle.closeDate, 'short')}
                 </p>
               </div>
-              <Badge tone={LIST_STATUS_TONE.published}>
+              <Badge tone="success">
                 <IconStamp width={12} height={12} className="me-1 inline-block" />
-                {LIST_STATUS_LABEL.published}
+                {ACTIVE_LABEL}
               </Badge>
             </div>
           </Card>
@@ -349,6 +456,51 @@ export function CyclesPage(): JSX.Element {
             submitEdit({ demoteCurrentActive: true });
           }}
         />
+
+        <AlertDialog
+          open={activateTarget !== null}
+          onOpenChange={(next) => {
+            if (!next) setActivateTarget(null);
+          }}
+          title="تأكيد تفعيل الدورة"
+          description={
+            activateTarget ? (
+              <>
+                سيتم تفعيل دورة{' '}
+                <strong className="font-semibold text-ink-900">
+                  &quot;{activateTarget.nameAr}&quot;
+                </strong>{' '}
+                وإلغاء تفعيل أي دورة أخرى نشطة حالياً (دورة واحدة فقط يمكن أن تكون
+                نشطة في كل وقت). هل تريد المتابعة؟
+              </>
+            ) : null
+          }
+          actionLabel="تأكيد التفعيل"
+          cancelLabel="إلغاء"
+          tone="danger"
+          isActionLoading={setActiveMut.isPending}
+          onAction={confirmActivate}
+        />
+
+        <Drawer
+          open={setupTarget !== null}
+          onClose={() => setSetupTarget(null)}
+          title="إعداد القبول"
+          subtitle={setupTarget?.nameAr}
+          size="lg"
+          transparentBackdrop={false}
+        >
+          <Drawer.Body className="h-full">
+            {setupTarget && <EmbeddedAdmissionSetupWizard cycleId={setupTarget.id} />}
+          </Drawer.Body>
+          <Drawer.Footer>
+            <div className="flex items-center justify-end">
+              <Button variant="ghost" onClick={() => setSetupTarget(null)}>
+                إغلاق
+              </Button>
+            </div>
+          </Drawer.Footer>
+        </Drawer>
       </CenteredShell>
     </TooltipProvider>
   );

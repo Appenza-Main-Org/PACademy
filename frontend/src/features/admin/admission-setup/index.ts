@@ -19,6 +19,10 @@ export type { AdmissionSetupStepKey, AdmissionSetupStepStatus } from './types';
 /* Pages */
 export { AdmissionSetupIndexPage } from './pages/AdmissionSetupIndexPage';
 export { AdmissionSetupWizardPage } from './pages/AdmissionSetupWizardPage';
+
+/* Embeddable variants — for hosting inside a Drawer/Modal from a parent
+ * route (e.g. /admin/cycles "إعداد القبول") without forcing navigation. */
+export { EmbeddedAdmissionSetupWizard } from './components/EmbeddedAdmissionSetupWizard';
 export { ApplicationSettingsPage } from './pages/ApplicationSettingsPage';
 export { ApplicationStatusPage } from './pages/ApplicationStatusPage';
 /* AgeRulesPage removed 2026-05; MaritalStatusRulesPage removed when
