@@ -39,14 +39,13 @@ import {
   Stage11AcquaintanceDocPage,
   Stage1AuthPhonePage,
   Stage2AuthSmsPage,
-  Stage3PersonalPage,
-  Stage4EducationPage,
-  Stage5MaritalPage,
+  Stage345ApplicantDataPage,
   Stage6PaymentPage,
   Stage7FamilyPage,
   Stage8ExamSchedulePage,
   Stage9PrintCardPage,
   TestScheduleAndResultsPage,
+  VerifyApplicantPage,
 } from '@/features/applicant-portal';
 import {
   AdminLayout,
@@ -287,9 +286,14 @@ export const routes: RouteObject[] = [
       { index: true, element: <ApplicantPortalPage /> },
       { path: 'auth/step-1', element: <Stage1AuthPhonePage /> },
       { path: 'auth/step-2', element: <Stage2AuthSmsPage /> },
-      { path: 'profile/personal', element: <Stage3PersonalPage /> },
-      { path: 'profile/education', element: <Stage4EducationPage /> },
-      { path: 'profile/marital', element: <Stage5MaritalPage /> },
+      /* MOI-aligned: legacy `/applicant/profile/{personal,education}` paths
+       * redirect to the collapsed single-page form. `marital` redirects to
+       * the family page where marital data now lives. */
+      { path: 'profile', element: <Stage345ApplicantDataPage /> },
+      { path: 'profile/personal', element: <Navigate to="/applicant/profile" replace /> },
+      { path: 'profile/education', element: <Navigate to="/applicant/profile" replace /> },
+      { path: 'profile/marital', element: <Navigate to="/applicant/profile/family" replace /> },
+      { path: 'verify', element: <VerifyApplicantPage /> },
       { path: 'payment', element: <Stage6PaymentPage /> },
       { path: 'profile/family', element: <Stage7FamilyPage /> },
       { path: 'exam-schedule', element: <Stage8ExamSchedulePage /> },

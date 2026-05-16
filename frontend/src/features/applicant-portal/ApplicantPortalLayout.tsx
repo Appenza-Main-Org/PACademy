@@ -27,12 +27,28 @@ import { useAuthStore } from '@/features/auth';
 import { useDraft } from './api/applicantPortal.queries';
 import { useApplicantPortalStore } from './store/applicantPortal.store';
 
+/**
+ * 11-stage wizard sequence — MOI-aligned (PDF DOC-20220806-WA0053).
+ *
+ * Stages 3+4+5 of the original sequence (personal / education / marital)
+ * are collapsed into a single `profile` step per the MOI reference (PDF
+ * p.4). A new `verify` step (التحقق من المستخدم — PDF p.5 lower) sits
+ * between profile and the summary, where the applicant re-confirms their
+ * NID + mobile before reaching the summary action cluster. The summary
+ * itself is the index of `/applicant` and counts as one stepper node.
+ *
+ * Stepper count stays at 11 (was 11) — net: removed 2, added 2.
+ *
+ * The `profile/family` key must precede `profile` here so the exact-match
+ * lookup below resolves `/applicant/profile/family` to the family stage
+ * rather than the personal-data stage.
+ */
 export const STAGE_KEYS = [
   'auth/step-1',
   'auth/step-2',
-  'profile/personal',
-  'profile/education',
-  'profile/marital',
+  'profile',
+  'verify',
+  '', // summary — the `/applicant` index route
   'payment',
   'profile/family',
   'exam-schedule',
@@ -44,14 +60,14 @@ export const STAGE_KEYS = [
 export const STAGE_LABELS = [
   'التحقق · الهاتف',
   'التحقق · رمز SMS',
-  'البيانات الشخصية',
-  'البيانات التعليمية',
-  'الحالة الاجتماعية',
+  'البيانات الشخصية والدراسية',
+  'التحقق من المستخدم',
+  'ملخّص الطلب',
   'سداد رسوم التقديم',
-  'بيانات الأسرة',
+  'بيانات الوالدين',
   'موعد الاختبار',
-  'طباعة كارت التردد',
-  'متابعة الإجراءات',
+  'بطاقة التردد',
+  'نتائج الاختبارات',
   'وثيقة التعارف',
 ] as const;
 
@@ -78,8 +94,13 @@ export function ApplicantPortalLayout(): JSX.Element {
 
   const activeIndex = useMemo(() => {
     const path = location.pathname.replace(/^\/applicant\/?/, '');
-    if (!path) return 0;
-    const idx = STAGE_KEYS.findIndex((k) => path.startsWith(k));
+    /* Empty path = `/applicant` index = the summary stage. */
+    const exact = STAGE_KEYS.indexOf(path as typeof STAGE_KEYS[number]);
+    if (exact !== -1) return exact;
+    /* Fall back: any nested child path (e.g. legacy /applicant/profile/personal
+     * before its redirect kicks in) lands on its parent stage. Skip the
+     * empty key so it never matches via startsWith. */
+    const idx = STAGE_KEYS.findIndex((k) => k !== '' && path.startsWith(`${k}/`));
     return idx === -1 ? 0 : idx;
   }, [location.pathname]);
 

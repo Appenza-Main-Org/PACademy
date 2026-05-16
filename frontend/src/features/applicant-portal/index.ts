@@ -3,9 +3,12 @@ export { ApplicantPreWizardLayout } from './ApplicantPreWizardLayout';
 export { ApplicantPortalPage } from './pages/ApplicantPortalPage';
 export { Stage1AuthPhonePage } from './pages/Stage1AuthPhonePage';
 export { Stage2AuthSmsPage } from './pages/Stage2AuthSmsPage';
-export { Stage3PersonalPage } from './pages/Stage3PersonalPage';
-export { Stage4EducationPage } from './pages/Stage4EducationPage';
-export { Stage5MaritalPage } from './pages/Stage5MaritalPage';
+
+/* MOI-aligned: the old Stage 3 / 4 / 5 pages are gone — their content is
+ * collapsed into Stage345ApplicantDataPage per the reference flow (PDF p.4). */
+export { Stage345ApplicantDataPage } from './pages/Stage345ApplicantDataPage';
+export { VerifyApplicantPage } from './pages/VerifyApplicantPage';
+
 export { Stage6PaymentPage } from './pages/Stage6PaymentPage';
 export { Stage7FamilyPage } from './pages/Stage7FamilyPage';
 export { Stage8ExamSchedulePage } from './pages/Stage8ExamSchedulePage';

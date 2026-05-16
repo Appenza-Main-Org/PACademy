@@ -69,3 +69,43 @@ export function useFollowUp(applicantId: string) {
     queryFn: () => applicantPortalService.getFollowUp(applicantId),
   });
 }
+
+/* ── MOI-aligned mutations ──────────────────────────────────────────── */
+
+export function useVerifyApplicantMutation() {
+  return useMutation({
+    mutationFn: (input: { nationalId: string; mobile: string }) =>
+      applicantPortalService.verifyApplicant(input),
+  });
+}
+
+export function useCreatePaymentIntent() {
+  return useMutation({
+    mutationFn: (input: { method: 'fawry-code' | 'credit-card' }) =>
+      applicantPortalService.createPaymentIntent(input),
+  });
+}
+
+export function useConfirmPaymentMutation(applicantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { intentId: string }) => applicantPortalService.confirmPayment(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+  });
+}
+
+export function useApproveParentsMutation(applicantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => applicantPortalService.approveParents(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+  });
+}
+
+export function usePickFirstExamDateMutation(applicantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { date: string }) => applicantPortalService.pickFirstExamDate(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+  });
+}

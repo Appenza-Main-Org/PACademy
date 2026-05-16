@@ -33,7 +33,8 @@ export function Stage2AuthSmsPage(): JSX.Element {
     try {
       await applicantPortalService.verifyAuth('SESS-DEMO', values.smsCode);
       toast('تم التحقق بنجاح', 'success');
-      navigate('/applicant/profile/personal');
+      /* MOI-aligned: stages 3+4+5 are collapsed into `/applicant/profile`. */
+      navigate('/applicant/profile');
     } catch (err) {
       toast((err as Error).message ?? 'تعذر التحقق', 'danger');
     }

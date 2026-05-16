@@ -85,6 +85,20 @@ export const ROUTES = {
   applicantEligibility: '/applicant/eligibility',
   applicantTests: '/applicant/tests',
   applicantApplicationSummary: '/applicant/application/summary',
+  /* MOI-alignment additions:
+   *  - `applicantProfile` collapses the old `/applicant/profile/{personal,education,marital}`
+   *    triplet into a single scrollable page per the MOI reference (PDF p.4).
+   *    The three legacy paths redirect here.
+   *  - `applicantVerify` is the التحقق من المستخدم screen (PDF p.5 lower);
+   *    sits between profile and summary.
+   *  - `applicantFamily` is unchanged at `/applicant/profile/family`. */
+  applicantProfile: '/applicant/profile',
+  applicantVerify: '/applicant/verify',
+  applicantFamily: '/applicant/profile/family',
+  applicantPayment: '/applicant/payment',
+  applicantExamSchedule: '/applicant/exam-schedule',
+  applicantPrintCard: '/applicant/print-card',
+  applicantFollowUp: '/applicant/follow-up',
 
   /* ── Internal staff apps ── */
   committee: {

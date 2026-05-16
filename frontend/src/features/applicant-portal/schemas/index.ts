@@ -26,98 +26,75 @@ export const stage2Schema = z.object({
 });
 export type Stage2Values = z.infer<typeof stage2Schema>;
 
-export const stage3Schema = z.object({
-  firstName: z.string().min(2, 'مطلوب'),
-  secondName: z.string().min(2, 'مطلوب'),
-  thirdName: z.string().min(2, 'مطلوب'),
-  fourthName: z.string().min(2, 'مطلوب'),
-  /* dateOfBirth and gender are derived from the National ID — see Stage3PersonalPage */
-  dateOfBirth: z.string().min(1, 'مطلوب'),
-  gender: z.enum(['male', 'female']),
-  placeOfBirth: z.string().min(1, 'مطلوب'),
-  religion: z.enum(['مسلم', 'مسيحي']),
-  currentAddress: z.string().min(5, 'مطلوب'),
-  permanentAddress: z.string().min(5, 'مطلوب'),
-  permanentSameAsCurrent: z.boolean().optional().default(false),
-  homePhone: z.string().optional(),
-  mobilePhone: z.string().regex(EG_PHONE_REGEX, 'رقم محمول غير صحيح'),
-  email: z.string().email('بريد إلكتروني غير صحيح').optional().or(z.literal('')),
-});
-export type Stage3Values = z.infer<typeof stage3Schema>;
-
-export const stage4Schema = z.object({
-  certificateType: z.string().min(1, 'مطلوب'),
-  certificateYear: z.coerce.number().int().min(2020, 'العام غير صحيح').max(new Date().getFullYear()),
-  seatNumber: z.string().optional(),
-  totalScore: z.coerce.number().min(0),
-  percentage: z.coerce.number().min(0).max(100),
-  schoolName: z.string().min(1, 'مطلوب'),
-  schoolGovernorate: z.string().min(1, 'مطلوب'),
-  azharBranch: z.enum(['علمي', 'أدبي']).optional(),
-  /* Track-specific fields surfaced by category (AF-4):
-   *  - barLicenseNumber: required for the حقوقيين track (bachelor_law)
-   *  - sportSpecialty + competitionHistory: required for the female sport
-   *    track (institute_* keys with female cohort) */
-  barLicenseNumber: z.string().optional(),
-  sportSpecialty: z.string().optional(),
-  competitionHistory: z.string().optional(),
-});
-export type Stage4Values = z.infer<typeof stage4Schema>;
-
-export const stage5Schema = z
-  .object({
-    maritalStatus: z.enum(['أعزب', 'متزوج', 'مطلق', 'أرمل']),
-    spouseName: z.string().optional(),
-    spouseNationalId: z.string().optional(),
-    marriageDate: z.string().optional(),
-    spouseOccupation: z.string().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.maritalStatus === 'متزوج') {
-      if (!data.spouseName) ctx.addIssue({ code: 'custom', path: ['spouseName'], message: 'مطلوب' });
-      if (!data.spouseNationalId)
-        ctx.addIssue({ code: 'custom', path: ['spouseNationalId'], message: 'مطلوب' });
-      if (!data.marriageDate)
-        ctx.addIssue({ code: 'custom', path: ['marriageDate'], message: 'مطلوب' });
-    }
-  });
-export type Stage5Values = z.infer<typeof stage5Schema>;
+/* Stage 3, 4, 5 schemas removed in the MOI-alignment refactor — see
+ * `stage345Schema` below for the collapsed single-page form. */
 
 export const stage6Schema = z.object({
-  /* Single-method scheduling — Fawry only. The credit-card path was
-   * removed per ops feedback; if it's reintroduced, extend this enum. */
-  method: z.enum(['fawry']),
+  /* MOI-aligned: two methods — fawry-code and credit-card paths (PDF pp.6-7). */
+  method: z.enum(['fawry-code', 'credit-card']),
 });
 export type Stage6Values = z.infer<typeof stage6Schema>;
 
-const familyMemberSchema = z.object({
-  fullName: z.string().min(2, 'مطلوب'),
-  nationalId: z.string().regex(NID_REGEX, 'الرقم القومي يجب أن يكون 14 رقماً').optional().or(z.literal('')),
-  occupation: z.string().optional(),
-  alive: z.boolean(),
-  causeOfDeath: z.string().optional(),
-  governorate: z.string().optional(),
-  education: z.string().optional(),
-});
+/**
+ * Stage 3+4+5 collapsed — applicant-data form (PDF p.4 / MOI-aligned).
+ *
+ * The MOI reference flow uses a single scrollable page with section
+ * headings rather than three separate sub-pages. The bachelor block is
+ * conditional on the chosen category (non-`officers_general`). Personal
+ * data fields (name, NID, DOB, gender, mobile, email) are prefilled
+ * read-only from the MOI session and stored separately on the wizard
+ * store — they don't appear here.
+ *
+ * Marital data is intentionally absent here; it moves into the
+ * `/applicant/profile/family` page per the MOI reference (PDF p.8 dropdown).
+ */
+export const stage345Schema = z
+  .object({
+    /* Bachelor block — required only when category !== officers_general. */
+    bachelorMajor: z.string().optional().or(z.literal('')),
+    bachelorBranch: z.string().optional().or(z.literal('')),
+    bachelorSpecialization: z.string().optional().or(z.literal('')),
+    bachelorFaculty: z.string().optional().or(z.literal('')),
+    bachelorUniversity: z.string().optional().or(z.literal('')),
+    bachelorPercentage: z.union([z.coerce.number().min(0).max(100), z.literal('')]).optional(),
+    bachelorYear: z.union([z.coerce.number().int().min(1990).max(2099), z.literal('')]).optional(),
 
-/* Stepfather (زوج الوالدة) is optional — fullName is non-required because
- * the entire block is only filled when the applicant's mother has remarried. */
-const optionalFamilyMemberSchema = familyMemberSchema.extend({
-  fullName: z.string().optional().or(z.literal('')),
-});
+    /* Thanaweya block — always required. */
+    thanawiCountry: z.string().min(1, 'مطلوب'),
+    thanawiTotal: z.coerce.number().min(0, 'مطلوب'),
+    thanawiType: z.enum(['علمي', 'أدبي', 'علمي رياضة', 'علمي علوم']),
+    thanawiPercentage: z.coerce.number().min(0).max(100),
+    schoolNameAr: z.string().min(1, 'مطلوب'),
+    schoolAddress: z.string().min(1, 'مطلوب'),
 
-export const stage7Schema = z.object({
-  father: familyMemberSchema,
-  mother: familyMemberSchema,
-  stepfather: optionalFamilyMemberSchema.optional(),
-  paternalGrandfather: familyMemberSchema,
-  paternalGrandmother: familyMemberSchema,
-  maternalGrandfather: familyMemberSchema,
-  maternalGrandmother: familyMemberSchema,
-  siblings: z.array(familyMemberSchema).default([]),
-  relatives: z.array(familyMemberSchema.extend({ relationshipId: z.string().min(1, 'مطلوب') })).default([]),
+    /* Address + contact. Mobile + email come from MOI and are not editable. */
+    currentAddressDetail: z.string().min(5, 'العنوان يجب أن يكون أكثر تفصيلاً'),
+    addressGovernorate: z.string().min(1, 'مطلوب'),
+    addressDistrict: z.string().min(1, 'مطلوب'),
+    homePhone: z.string().optional().or(z.literal('')),
+    fax: z.string().optional().or(z.literal('')),
+    secondaryMobile: z.string().optional().or(z.literal('')),
+    twitter: z.string().optional().or(z.literal('')),
+    instagram: z.string().optional().or(z.literal('')),
+
+    /* Footer attestation — must be checked. */
+    declaration: z.literal(true, {
+      errorMap: () => ({ message: 'يجب الموافقة على شروط الإلتحاق والإقرار الإلكتروني' }),
+    }),
+  });
+export type Stage345Values = z.infer<typeof stage345Schema>;
+
+/** Verify step (PDF p.5 lower) — applicant re-enters NID + mobile. */
+export const verifyApplicantSchema = z.object({
+  nationalId: z.string().regex(NID_REGEX, 'الرقم القومي يجب أن يكون 14 رقماً'),
+  mobile: z.string().regex(EG_PHONE_REGEX, 'رقم المحمول غير صحيح'),
 });
-export type Stage7Values = z.infer<typeof stage7Schema>;
+export type VerifyApplicantValues = z.infer<typeof verifyApplicantSchema>;
+
+/* Stage 7 family schema removed in the MOI-alignment refactor. The new
+ * page collects only الوالد / الوالدة / زوج الوالدة (PDF pp.8-10) and
+ * uses an inline form shape rather than the previous extended family tree
+ * (grandparents + siblings + relatives to the 4th degree). */
 
 export const stage8Schema = z.object({
   slotId: z.string().min(1, 'اختر موعداً'),
