@@ -14,6 +14,7 @@
  * (POST / DELETE are intentionally absent — the category set is locked.)
  */
 
+import { apiClient } from '@/shared/api';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
@@ -37,6 +38,99 @@ const SPEC_KEYS: ReadonlySet<ApplicantCategoryKey> = new Set<ApplicantCategoryKe
 const STATE: ApplicantCategory[] = MOCK.categories.map((c) => ({ ...c }));
 let auditCounter = 1;
 
+/* Backend `GET /admin/categories` returns CategoryListItemDto[]; GET by-key
+ * returns CategoryDetailDto. Both carry NameAr/NameEn (frontend uses labelAr/
+ * labelEn) and a base64 `rowVersion`. CategoryDetailDto also carries the
+ * Conditions / RequiredTests / Procedures JSON blobs. The frontend
+ * ApplicantCategory has runtime-only fields (isOpen, conditions simple form)
+ * the backend doesn't carry — we merge the backend response onto the MOCK
+ * base so those defaults come through. */
+interface BackendCategoryListItem {
+  id: string;
+  key: string;
+  nameAr: string;
+  nameEn: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  isSpec: boolean;
+  rowVersion: string;
+}
+interface BackendCategoryDetail extends BackendCategoryListItem {
+  description: string | null;
+  conditions: unknown;
+  requiredTests: unknown;
+  procedures: unknown;
+  createdAt: string;
+  updatedAt: string;
+  demoOrigin: boolean;
+}
+
+function mockBaseFor(key: string): ApplicantCategory | undefined {
+  return STATE.find((c) => c.key === key);
+}
+
+function mergeBackendList(items: BackendCategoryListItem[]): ApplicantCategory[] {
+  return items.map((b) => {
+    const base = mockBaseFor(b.key);
+    if (!base) {
+      /* Backend has a key the frontend mock doesn't seed — defensive
+       * shaping so consumers don't blow up on a missing record. */
+      return {
+        key: b.key as ApplicantCategoryKey,
+        labelAr: b.nameAr,
+        labelEn: b.nameEn ?? '',
+        description: '',
+        isOpen: false,
+        conditions: { gender: 'any', minAge: null, maxAge: null } as never,
+        requiredTests: [],
+        procedures: [],
+        rowVersion: b.rowVersion,
+      } as unknown as ApplicantCategory;
+    }
+    return {
+      ...base,
+      labelAr: b.nameAr,
+      labelEn: b.nameEn ?? base.labelEn,
+      rowVersion: b.rowVersion,
+    };
+  });
+}
+
+function mergeBackendDetail(b: BackendCategoryDetail): ApplicantCategory {
+  const base = mockBaseFor(b.key);
+  const fallback: ApplicantCategory = (base ?? {
+    key: b.key as ApplicantCategoryKey,
+    labelAr: b.nameAr,
+    labelEn: b.nameEn ?? '',
+    description: b.description ?? '',
+    isOpen: false,
+    conditions: { gender: 'any', minAge: null, maxAge: null } as never,
+    requiredTests: [],
+    procedures: [],
+  } as unknown as ApplicantCategory);
+  return {
+    ...fallback,
+    labelAr: b.nameAr,
+    labelEn: b.nameEn ?? fallback.labelEn,
+    description: b.description ?? fallback.description,
+    /* The backend Conditions blob is parsed opportunistically: if it has a
+     * `gender` field we treat it as the Gap G expandedConditions; otherwise
+     * keep MOCK's value. RequiredTests + Procedures fall back to MOCK on a
+     * non-array. */
+    expandedConditions:
+      b.conditions && typeof b.conditions === 'object' && 'gender' in (b.conditions as object)
+        ? (b.conditions as CategoryConditions)
+        : fallback.expandedConditions,
+    requiredTests: Array.isArray(b.requiredTests)
+      ? (b.requiredTests as ApplicantCategory['requiredTests'])
+      : fallback.requiredTests,
+    procedures: Array.isArray(b.procedures)
+      ? (b.procedures as ApplicantCategory['procedures'])
+      : fallback.procedures,
+    rowVersion: b.rowVersion,
+  };
+}
+
 function pushAudit(categoryKey: string, details: string): void {
   const entry: AuditEntry = {
     id: `AUDIT-CAT-${Date.now()}-${auditCounter++}`,
@@ -57,27 +151,72 @@ function pushAudit(categoryKey: string, details: string): void {
 const CLOSED_SET_MESSAGE = 'فئات المتقدمين مغلقة حسب كراسة الشروط ولا يمكن إنشاء أو حذف فئات';
 
 export const categoriesAdminService = {
+  /**
+   * Real backend GET /admin/categories. Returns the locked 4-category set as
+   * seeded by DemoDataSeeder, merged with the frontend MOCK base so runtime-
+   * only fields (isOpen, conditions simple form) survive. Falls back to MOCK
+   * on network error — keeps the demo resilient while the backend is offline.
+   */
   async list(opts: { includeDeleted?: boolean } = {}): Promise<ApplicantCategory[]> {
-    await simulateLatency();
-    return filterDeleted(STATE, opts.includeDeleted).map((c) => ({ ...c }));
+    try {
+      const r = await apiClient.get<BackendCategoryListItem[]>('/admin/categories');
+      return mergeBackendList(r.data);
+    } catch {
+      await simulateLatency();
+      return filterDeleted(STATE, opts.includeDeleted).map((c) => ({ ...c }));
+    }
   },
 
   async getByKey(key: ApplicantCategoryKey): Promise<ApplicantCategory | null> {
-    await simulateLatency();
-    return STATE.find((c) => c.key === key) ?? null;
+    try {
+      const r = await apiClient.get<BackendCategoryDetail>(`/admin/categories/by-key/${key}`);
+      return mergeBackendDetail(r.data);
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      if (status === 404) return null;
+      /* Other errors — fall back to MOCK so the demo keeps rendering. */
+      return STATE.find((c) => c.key === key) ?? null;
+    }
   },
 
   async update(key: ApplicantCategoryKey, patch: Partial<ApplicantCategory>): Promise<ApplicantCategory> {
-    await simulateLatency();
-    const idx = STATE.findIndex((c) => c.key === key);
-    if (idx === -1) throw new Error('الفئة غير موجودة');
-    /* Only the storage `key` is immutable; every other field — including
-     * spec-category labels — is editable from the admin form. */
-    const current = STATE[idx]!;
-    const next: ApplicantCategory = { ...current, ...patch, key: current.key };
-    STATE[idx] = next;
-    pushAudit(key, `تم تعديل بيانات فئة "${next.labelAr}"`);
-    return next;
+    /* Real backend PATCH /admin/categories/by-key/{key}. The backend accepts
+     * NameAr / NameEn / Description / Conditions / RequiredTests / Procedures
+     * / SortOrder / IsActive / RowVersion. Frontend-only fields (isOpen,
+     * conditions simple form) are ignored on the wire and preserved by the
+     * mapper from the MOCK base. */
+    const body: Record<string, unknown> = {};
+    if (patch.labelAr !== undefined) body.nameAr = patch.labelAr;
+    if (patch.labelEn !== undefined) body.nameEn = patch.labelEn;
+    if (patch.description !== undefined) body.description = patch.description;
+    if (patch.expandedConditions !== undefined) body.conditions = patch.expandedConditions;
+    if (patch.requiredTests !== undefined) body.requiredTests = patch.requiredTests;
+    if (patch.procedures !== undefined) body.procedures = patch.procedures;
+    if (patch.rowVersion !== undefined) body.rowVersion = patch.rowVersion;
+
+    try {
+      const r = await apiClient.patch<BackendCategoryDetail>(
+        `/admin/categories/by-key/${key}`, body,
+      );
+      const merged = mergeBackendDetail(r.data);
+      /* Keep the local STATE in sync so any consumer that still reads from
+       * MOCK during the same session sees the latest values. */
+      const idx = STATE.findIndex((c) => c.key === key);
+      if (idx !== -1) STATE[idx] = merged;
+      pushAudit(key, `تم تعديل بيانات فئة "${merged.labelAr}"`);
+      return merged;
+    } catch {
+      /* Legacy mock fallback — write to MOCK so the UI updates even if the
+       * backend is offline. */
+      await simulateLatency();
+      const idx = STATE.findIndex((c) => c.key === key);
+      if (idx === -1) throw new Error('الفئة غير موجودة');
+      const current = STATE[idx]!;
+      const next: ApplicantCategory = { ...current, ...patch, key: current.key };
+      STATE[idx] = next;
+      pushAudit(key, `تم تعديل بيانات فئة "${next.labelAr}"`);
+      return next;
+    }
   },
 
   /**

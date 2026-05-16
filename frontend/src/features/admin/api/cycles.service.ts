@@ -501,6 +501,15 @@ export const cyclesService = {
    * for any cycle that was previously active and is being demoted.
    */
   async setActive(id: string): Promise<AdmissionCycle> {
+    /* Backend has no `isActive` orthogonal flag — the single-active invariant
+     * is enforced via status=Active. Route through swapActive() so the prior
+     * active cycle is automatically closed and the target activated under
+     * one atomic interaction. */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(id)) {
+      return this.swapActive(id);
+    }
+
+    /* Legacy mock fallback */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -869,6 +878,22 @@ export const cyclesService = {
     categoryKey: ApplicantCategoryKey,
     config: AdmissionCycleCategoryConfig,
   ): Promise<AdmissionCycle> {
+    /* Real backend PATCH /admin/cycles/{id} with the merged openCategories
+     * map. The backend wholesale-replaces openCategories on update, so the
+     * caller must send the merged map — fetch current → merge → patch. */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(cycleId)) {
+      const current = await this.getById(cycleId);
+      if (!current) throw new Error('الدورة غير موجودة');
+      const issues = validateCategoryConfig(current, config);
+      if (issues.length > 0) throw new Error(issues[0]);
+      const merged: AdmissionCycle['openCategories'] = {
+        ...(current.openCategories ?? {}),
+        [categoryKey]: config,
+      };
+      return this.update(cycleId, { openCategories: merged });
+    }
+
+    /* Legacy mock fallback */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === cycleId);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -904,6 +929,19 @@ export const cyclesService = {
     categoryKey: ApplicantCategoryKey,
     overrides: Partial<CategoryCondition>,
   ): Promise<AdmissionCycle> {
+    /* Real backend PATCH /admin/cycles/{id} with merged conditionOverrides. */
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(cycleId)) {
+      const current = await this.getById(cycleId);
+      if (!current) throw new Error('الدورة غير موجودة');
+      const existing = current.conditionOverrides ?? {};
+      const merged = {
+        ...existing,
+        [categoryKey]: { ...(existing[categoryKey] ?? {}), ...overrides },
+      };
+      return this.update(cycleId, { conditionOverrides: merged });
+    }
+
+    /* Legacy mock fallback */
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === cycleId);
     if (idx === -1) throw new Error('الدورة غير موجودة');
