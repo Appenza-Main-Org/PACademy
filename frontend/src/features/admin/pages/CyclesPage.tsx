@@ -16,14 +16,16 @@
  *   • تفعيل      — flips isActive on the row (and clears it on every
  *                  other cycle). Confirms via AlertDialog. The currently
  *                  active row gets a "نشطة" badge in place of the button.
- *   • إعداد القبول — navigates to /admin/cycles/admission-setup for the
- *                    currently active cycle. Aria-disabled + tooltip
- *                    ("متاح فقط للدورة النشطة") for non-active rows.
+ *   • إعداد التقديم — pins the row's cycle in sessionStorage and lands
+ *                     the user in the first wizard step
+ *                     (`application_settings`). Aria-disabled + tooltip
+ *                     ("متاح فقط للدورة النشطة") for non-active rows.
  */
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarRange, Pencil, Plus, Power, Save, Settings2 } from 'lucide-react';
+import { ADMISSION_SETUP_CYCLE_STORAGE_KEY } from '@/features/admin/admission-setup/config';
 import {
   AlertDialog,
   Badge,
@@ -42,7 +44,6 @@ import {
 import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
-import { date as fmtDate } from '@/shared/lib/format';
 import { isConflictError } from '@/shared/lib/errors';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import {
@@ -77,6 +78,17 @@ export function CyclesPage(): JSX.Element {
   const { data, isLoading } = useCycles();
   const updateStatusMut = useCycleUpdateStatus();
   const setActiveMut = useCycleSetActive();
+
+  /* Land in the first wizard step (إعدادات التقديم) and pin the chosen
+   * cycle in sessionStorage so the wizard page can resolve it on mount. */
+  const openSetupWizard = (cycleId: string): void => {
+    try {
+      sessionStorage.setItem(ADMISSION_SETUP_CYCLE_STORAGE_KEY, cycleId);
+    } catch {
+      /* sessionStorage unavailable — wizard will fall back to active cycle. */
+    }
+    navigate(ROUTES.admin.admissionSetup.wizard('application_settings'));
+  };
 
   const [editing, setEditing] = useState<AdmissionCycle | null>(null);
   const [draftStatus, setDraftStatus] = useState<CycleListStatus>('review');
@@ -260,10 +272,10 @@ export function CyclesPage(): JSX.Element {
             }
             onClick={() => {
               if (isSetupDisabled) return;
-              navigate(ROUTES.admin.admissionSetup.index);
+              openSetupWizard(c.id);
             }}
           >
-            إعداد القبول
+            إعداد التقديم
           </Button>
         );
         const setupSlot = isSetupDisabled ? (
@@ -359,18 +371,14 @@ export function CyclesPage(): JSX.Element {
                 <p className="font-ar-display text-md font-bold text-ink-900">
                   الدورة النشطة: {activeCycle.nameAr}
                 </p>
-                <p className="mt-0.5 text-2xs text-ink-500">
-                  {fmtDate(activeCycle.openDate, 'short')} إلى{' '}
-                  {fmtDate(activeCycle.closeDate, 'short')}
-                </p>
               </div>
               <Button
                 variant="primary"
                 size="sm"
                 leadingIcon={<Settings2 size={14} strokeWidth={1.75} />}
-                onClick={() => navigate(ROUTES.admin.admissionSetup.index)}
+                onClick={() => openSetupWizard(activeCycle.id)}
               >
-                إعداد القبول
+                إعداد التقديم
               </Button>
               <Badge tone="success">
                 <IconStamp width={12} height={12} className="me-1 inline-block" />
