@@ -11,6 +11,7 @@ using PACademy.Modules.Admissions.Infrastructure;
 using PACademy.Modules.Committees.Infrastructure;
 using PACademy.Modules.Notifications.Infrastructure;
 using PACademy.Modules.Lookups.Infrastructure;
+using PACademy.Modules.Grades.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,7 +31,8 @@ builder.Services
     .AddAdmissionsModule(builder.Configuration)
     .AddCommitteesModule(builder.Configuration)
     .AddNotificationsModule(builder.Configuration)
-    .AddLookupsModule(builder.Configuration);
+    .AddLookupsModule(builder.Configuration)
+    .AddGradesModule(builder.Configuration);
 
 builder.Services.AddPaInfrastructure(builder.Configuration);
 

@@ -28,6 +28,7 @@
     <ProjectReference Include="..\Modules\Committees\PACademy.Modules.Committees.Infrastructure\PACademy.Modules.Committees.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Notifications\PACademy.Modules.Notifications.Infrastructure\PACademy.Modules.Notifications.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Lookups\PACademy.Modules.Lookups.Infrastructure\PACademy.Modules.Lookups.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Grades\PACademy.Modules.Grades.Infrastructure\PACademy.Modules.Grades.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

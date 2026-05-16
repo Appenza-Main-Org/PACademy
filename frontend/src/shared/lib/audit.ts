@@ -104,6 +104,11 @@ const ACTION_FALLBACK: Record<AuditAction, { label: string; color: AuditColor }>
   entity_exported: { label: 'تصدير قائمة', color: 'warning' },
   entity_imported: { label: 'استيراد قائمة', color: 'success' },
   entity_duplicated: { label: 'نسخ سجل', color: 'info' },
+  /* Applicant grades module (new Grades backend) */
+  grade_imported: { label: 'استيراد درجات', color: 'success' },
+  grade_adjusted: { label: 'تعديل درجة', color: 'info' },
+  grade_override_set: { label: 'تعديل الدرجة العظمى', color: 'warning' },
+  grades_cleared: { label: 'مسح جميع الدرجات', color: 'danger' },
 };
 
 function resolveActionLabel(action: AuditAction): { label: string; color: AuditColor } {

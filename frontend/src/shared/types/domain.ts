@@ -243,7 +243,12 @@ export type AuditAction =
   /* Universal list-actions (Tasks/LIST_ACTIONS_PROMPT.md) */
   | 'entity_exported'
   | 'entity_imported'
-  | 'entity_duplicated';
+  | 'entity_duplicated'
+  /* Applicant grades module */
+  | 'grade_imported'
+  | 'grade_adjusted'
+  | 'grade_override_set'
+  | 'grades_cleared';
 export type AuditColor = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 
 /** Typed module taxonomy — used by Gap E filters and the withAudit() helper. */

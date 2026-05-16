@@ -39,5 +39,14 @@
     <ProjectReference Include="..\..\src\Modules\Workflows\PACademy.Modules.Workflows.Application\PACademy.Modules.Workflows.Application.csproj" />
     <ProjectReference Include="..\..\src\Modules\Workflows\PACademy.Modules.Workflows.Infrastructure\PACademy.Modules.Workflows.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Modules\Workflows\PACademy.Modules.Workflows.Public\PACademy.Modules.Workflows.Public.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Committees\PACademy.Modules.Committees.Domain\PACademy.Modules.Committees.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Committees\PACademy.Modules.Committees.Application\PACademy.Modules.Committees.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Committees\PACademy.Modules.Committees.Infrastructure\PACademy.Modules.Committees.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Committees\PACademy.Modules.Committees.Public\PACademy.Modules.Committees.Public.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Notifications\PACademy.Modules.Notifications.Domain\PACademy.Modules.Notifications.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Notifications\PACademy.Modules.Notifications.Application\PACademy.Modules.Notifications.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Notifications\PACademy.Modules.Notifications.Infrastructure\PACademy.Modules.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Notifications\PACademy.Modules.Notifications.Public\PACademy.Modules.Notifications.Public.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Grades\PACademy.Modules.Grades.Infrastructure\PACademy.Modules.Grades.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

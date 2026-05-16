@@ -1,7 +1,10 @@
 using FluentAssertions;
 using NetArchTest.Rules;
 using PACademy.Modules.Admissions.Infrastructure;
+using PACademy.Modules.Committees.Infrastructure;
+using PACademy.Modules.Grades.Infrastructure;
 using PACademy.Modules.Identity.Infrastructure;
+using PACademy.Modules.Notifications.Infrastructure;
 using PACademy.Modules.ReferenceData.Infrastructure;
 using PACademy.Modules.Workflows.Infrastructure;
 using PACademy.Shared.Audit.Infrastructure;
@@ -314,6 +317,139 @@ public sealed class ModuleBoundariesTests
 
         result.IsSuccessful.Should().BeTrue(
             $"Legacy Infrastructure must not depend on Identity module's Application layer. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    // ── T069 — Committees module must not reference sibling Domain/Infrastructure ──
+    [Fact]
+    public void Committees_Infrastructure_does_not_depend_on_Identity_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(CommitteesModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Identity.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Committees must not depend on Identity.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Committees_Infrastructure_does_not_depend_on_Notifications_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(CommitteesModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Notifications.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Committees must not depend on Notifications.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Committees_may_reference_AdmissionsPublic_but_not_AdmissionsInfrastructure()
+    {
+        var result = Types.InAssembly(typeof(CommitteesModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Admissions.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Committees may reference Admissions.Public but not Admissions.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    // ── T070 — Notifications module must not reference sibling Infrastructure ─
+    [Fact]
+    public void Notifications_Infrastructure_does_not_depend_on_Identity_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(NotificationsModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Identity.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Notifications must not depend on Identity.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Notifications_Infrastructure_does_not_depend_on_Committees_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(NotificationsModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Committees.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Notifications must not depend on Committees.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Notifications_Infrastructure_does_not_depend_on_Admissions_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(NotificationsModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Admissions.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Notifications must not depend on Admissions.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    // ── Grades module isolation (T025 / new) ──────────────────────────────────
+    [Fact]
+    public void Grades_Infrastructure_does_not_depend_on_Identity_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(GradesModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Identity.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Grades must not depend on Identity.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Grades_Infrastructure_does_not_depend_on_Committees_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(GradesModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Committees.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Grades must not depend on Committees.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Grades_Infrastructure_does_not_depend_on_Notifications_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(GradesModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Notifications.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Grades must not depend on Notifications.Infrastructure. Failing: " +
+            $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
+    }
+
+    [Fact]
+    public void Grades_may_reference_AdmissionsPublic_but_not_AdmissionsInfrastructure()
+    {
+        var result = Types.InAssembly(typeof(GradesModule).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("PACademy.Modules.Admissions.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            $"Grades may reference Admissions.Public but not Admissions.Infrastructure. Failing: " +
             $"{string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>())}");
     }
 }
