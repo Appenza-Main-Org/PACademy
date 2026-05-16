@@ -188,20 +188,35 @@ function findDataTable(
 }
 
 async function parseAccess(buffer: ArrayBuffer, map: ColumnMap): Promise<ImportedGradeRow[]> {
-  /* Resolve `mdb-reader` + `buffer` on first call only. Both reach
-   * for Node globals at module-evaluation time, so a static import
-   * would crash the bundle before React mounts. */
-  const [{ default: MDBReader }, { Buffer }] = await Promise.all([
-    import('mdb-reader'),
-    import('buffer'),
-  ]);
+  /* `mdb-reader` internally calls `Buffer.allocUnsafe()` / `Buffer.from()`
+   * via the *global* `Buffer` symbol. The browser has no such global, so
+   * the polyfill from the `buffer` package must be installed onto
+   * `globalThis.Buffer` BEFORE `mdb-reader` is evaluated — wrapping the
+   * input bytes alone isn't enough because every page read inside the
+   * library reaches for that same global.
+   *
+   * The import order here is sequential rather than parallel for that
+   * reason: resolve `buffer`, plant the global, then resolve
+   * `mdb-reader`. Both modules are lazy-loaded so the heavy chunks only
+   * ship when an admin actually uploads an Access file. */
+  const bufferMod = await import('buffer');
+  const BufferCtor = bufferMod.Buffer;
+  if (typeof (globalThis as { Buffer?: unknown }).Buffer === 'undefined') {
+    (globalThis as unknown as { Buffer: typeof BufferCtor }).Buffer = BufferCtor;
+  }
+  const mdbMod = await import('mdb-reader');
+  /* Vite's CJS↔ESM interop occasionally surfaces the default export
+   * under `.default.default` in prod builds; guard with a runtime
+   * fallback so the destructure can't end up with `undefined`. */
+  const MDBReader =
+    (mdbMod as { default?: typeof MDBReaderType }).default ?? (mdbMod as unknown as typeof MDBReaderType);
   let reader: MDBReaderType;
   try {
     /* `mdb-reader` constructor signature requires a Node `Buffer`; in
      * the browser we polyfill via the `buffer` package so the same
      * call works in both environments. `Buffer.from(arrayBuffer)`
      * wraps the bytes without copying. */
-    reader = new MDBReader(Buffer.from(buffer));
+    reader = new MDBReader(BufferCtor.from(buffer));
   } catch (err) {
     throw new ParseError(
       err instanceof Error ? `تعذّر قراءة الملف: ${err.message}` : 'تعذّر قراءة الملف.',
