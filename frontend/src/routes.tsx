@@ -12,7 +12,7 @@
 
 import { Navigate, useParams, type RouteObject } from 'react-router-dom';
 import { AuthGuard } from '@/app/providers/AuthGuard';
-import { LoginPage, useAuthStore } from '@/features/auth';
+import { LoginPage } from '@/features/auth';
 import { ROUTES } from '@/config/routes';
 import { HubPage } from '@/features/hub';
 import { ArchitecturePage } from '@/features/architecture';
@@ -66,7 +66,6 @@ import {
   CycleDetailPage,
   CycleNewPage,
   CyclesPage,
-  DashboardPage,
   ElectronicDeclarationPage,
   ExamsManagementPage,
   NotificationsPage,
@@ -151,16 +150,12 @@ import {
 import { ApplicantGradesImportPage, ApplicantGradesPage } from '@/features/applicant-grades';
 
 /**
- * AdminIndexRoute — super_admin sees the admissions command center
- * (/admin/reports) as their /admin landing; other admin roles see the
- * legacy DashboardPage.
+ * AdminIndexRoute — every admin role lands on the admissions command
+ * center (/admin/reports). The legacy DashboardPage is no longer the
+ * default index for any role.
  */
 function AdminIndexRoute(): JSX.Element {
-  const user = useAuthStore((s) => s.user);
-  if (user?.role === 'super_admin') {
-    return <Navigate to={ROUTES.admin.reports} replace />;
-  }
-  return <DashboardPage />;
+  return <Navigate to={ROUTES.admin.reports} replace />;
 }
 
 /**

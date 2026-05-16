@@ -7,7 +7,6 @@ import {
   ClipboardList,
   Database,
   FileSpreadsheet,
-  Grid3x3,
   Settings,
   Shield,
   Users,
@@ -17,10 +16,9 @@ import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
 
 /**
- * Admin sidebar — four explicit sections (plus a header-less hub link at the
- * top). Order reflects access frequency, not authoring chain:
+ * Admin sidebar — four explicit sections. Order reflects access frequency,
+ * not authoring chain:
  *
- *   ── (hub)                          back-nav to all apps
  *   1. العمليات                       daily landing surfaces
  *   2. التقديم والدورات                per-cycle configuration + committees
  *   3. البيانات المرجعية والإعدادات    cross-cycle reference data
@@ -35,19 +33,12 @@ import { ROUTES } from '@/config/routes';
  * so gating the whole section by that permission is safe.
  */
 const SIDEBAR: SidebarSection[] = [
-  {
-    /* Header-less top entry — visually separated by Sidebar's first-section
-     * spacing. Hub is a back-nav, not part of any thematic group. */
-    items: [
-      { key: 'hub', label: 'كل التطبيقات', icon: <Grid3x3 size={18} />, to: ROUTES.hub },
-    ],
-  },
   /* ── 1. Daily operations ─────────────────────────────────────────────── */
   {
     label: 'العمليات',
     items: [
-      { key: 'applicants', label: 'المتقدمون', icon: <ClipboardList size={18} />, to: ROUTES.admin.applicants },
       { key: 'reports',    label: 'التقارير',   icon: <BarChart3 size={18} />,     to: ROUTES.admin.reports },
+      { key: 'applicants', label: 'المتقدمون', icon: <ClipboardList size={18} />, to: ROUTES.admin.applicants },
     ],
   },
   /* ── 2. Per-cycle configuration ──────────────────────────────────────────
