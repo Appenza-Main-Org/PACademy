@@ -80,10 +80,14 @@ export const LOOKUP_SECTIONS = [
   {
     key: 'process',
     label: 'العملية والمحتوى',
+    /* `submission-types` is intentionally NOT exposed here. It is
+     * an internal lookup whose `gradingMode` is an attribute of the
+     * applicant-category that points at it, and the admin manages it
+     * via `/admin/lookups/applicant-categories`. The route still
+     * redirects so direct URL hits land on the right tab. */
     keys: [
       'tests',
       'test-results',
-      'submission-types',
       'announcements',
       'applicant-divisions',
       'school-categories',
