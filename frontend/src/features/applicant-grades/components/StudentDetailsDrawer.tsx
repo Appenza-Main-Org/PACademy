@@ -59,12 +59,19 @@ export function StudentDetailsDrawer({
                   {row.kind === 'general' ? 'ثانوية عامة' : 'ثانوية أزهرية'}
                 </Badge>
               </div>
-              <div className="mt-1 flex gap-2.5 text-2xs text-ink-500">
-                <span dir="ltr" className="font-en">
-                  رقم الجلوس {row.seat.toLocaleString('en')}
+              <div className="mt-1 flex flex-col gap-0.5 text-2xs text-ink-500">
+                <span>
+                  رقم الجلوس{' '}
+                  <span dir="ltr" className="font-en text-ink-700">
+                    {row.seat.toLocaleString('en')}
+                  </span>
                 </span>
-                <span>·</span>
-                <span dir="ltr" className="font-en">{row.nid}</span>
+                <span>
+                  الرقم القومي{' '}
+                  <span dir="ltr" className="font-en text-ink-700">
+                    {row.nid}
+                  </span>
+                </span>
               </div>
             </div>
           </div>

@@ -11,7 +11,7 @@
  *   • Toolbar "تصدير" Dropdown — current page vs. all-data, CSV vs. XLSX.
  *     The full-data export bypasses pagination via `gradesService.exportAll`.
  *   • Toolbar "تنزيل نموذج Excel" → `buildTemplateWorkbook`.
- *   • New `seatingNumber` column rendered in Eastern-Arabic numerals.
+ *   • New `seatingNumber` column rendered in Western numerals (LTR).
  */
 
 import { useEffect, useMemo, useState } from 'react';
