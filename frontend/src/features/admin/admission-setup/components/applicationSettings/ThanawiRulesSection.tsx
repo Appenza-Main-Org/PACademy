@@ -27,6 +27,7 @@ import {
   SearchSelect,
   toast,
   Tooltip,
+  TooltipProvider,
 } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
@@ -510,18 +511,21 @@ function Td({ children }: { children: React.ReactNode }): JSX.Element {
 /** Renders a list of resolved labels as a comma-separated string that
  *  truncates with ellipsis when it overflows the parent cell. The full
  *  list always sits behind a Radix Tooltip so callers can recover the
- *  truncated portion via hover or keyboard focus. */
+ *  truncated portion via hover or keyboard focus. Self-mounts its own
+ *  `TooltipProvider` because the wizard shell does not provide one. */
 function MultiValueCell({ values }: { values: readonly string[] }): JSX.Element {
   if (values.length === 0) return <>—</>;
   const text = values.join('، ');
   return (
-    <Tooltip content={text} delayDuration={120}>
-      <span
-        tabIndex={0}
-        className="block max-w-full truncate focus-visible:outline-none focus-visible:shadow-focus-teal"
-      >
-        {text}
-      </span>
-    </Tooltip>
+    <TooltipProvider delayDuration={120}>
+      <Tooltip content={text} delayDuration={120}>
+        <span
+          tabIndex={0}
+          className="block max-w-full truncate focus-visible:outline-none focus-visible:shadow-focus-teal"
+        >
+          {text}
+        </span>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
