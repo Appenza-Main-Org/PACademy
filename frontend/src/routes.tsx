@@ -81,7 +81,6 @@ import {
   CommitteeCreatePage,
   CommitteeDetailPage,
   CommitteeEditPage,
-  CommitteeListPage,
   CommitteeOverviewPage,
   CommitteeSchedulePage,
 } from '@/features/committees';
@@ -304,7 +303,6 @@ export const routes: RouteObject[] = [
     element: <AuthGuard app="committee"><AdminLayout /></AuthGuard>,
     children: [
       { index: true, element: <CommitteeOverviewPage /> },
-      { path: 'list', element: <CommitteeListPage /> },
       { path: 'schedule', element: <CommitteeSchedulePage /> },
       { path: 'create', element: <CommitteeCreatePage /> },
       { path: ':id', element: <CommitteeDetailPage /> },
@@ -314,7 +312,6 @@ export const routes: RouteObject[] = [
   },
   /* Back-compat: old /committee/* URLs land users on the new paths. */
   { path: '/committee', element: <Navigate to="/admin/committee" replace /> },
-  { path: '/committee/list', element: <Navigate to="/admin/committee/list" replace /> },
   { path: '/committee/schedule', element: <Navigate to="/admin/committee/schedule" replace /> },
   { path: '/committee/create', element: <Navigate to="/admin/committee/create" replace /> },
   { path: '/committee/:id', element: <LegacyCommitteeDetailRedirect /> },

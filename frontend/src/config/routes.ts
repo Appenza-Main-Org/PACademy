@@ -85,7 +85,6 @@ export const ROUTES = {
   /* ── Internal staff apps ── */
   committee: {
     overview: '/admin/committee',
-    list: '/admin/committee/list',
     schedule: '/admin/committee/schedule',
     create: '/admin/committee/create',
     detail: (id = ':id'): string => `/admin/committee/${id}`,

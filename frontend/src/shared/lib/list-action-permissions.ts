@@ -54,7 +54,6 @@ const RESOURCE_OVERRIDES: Record<string, string> = {
   'admin.notifications': 'admin',
   'admin.payments': 'admin',
   'admin.roles': 'admin',
-  'committee.list': 'committees',
   'board.sessions': 'board',
   'board.decisions': 'board',
   'board.members': 'board',
