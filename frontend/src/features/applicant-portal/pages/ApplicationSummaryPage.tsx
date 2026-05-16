@@ -33,52 +33,41 @@ export function ApplicationSummaryPage(): JSX.Element {
   if (isLoading || !draft) return <LoadingState variant="page" />;
 
   const furthest = draft.furthestStage;
-  const personalSummary = (draft.personal as Record<string, unknown> | undefined)?.firstName
-    ? `${(draft.personal as Record<string, unknown>).firstName ?? ''} ${(draft.personal as Record<string, unknown>).fourthName ?? ''}`.trim()
-    : '— لم يُكتمل بعد —';
-  const educationSummary = (draft.education as Record<string, unknown> | undefined)?.certificateType
-    ? String((draft.education as Record<string, unknown>).certificateType)
-    : '— لم يُكتمل بعد —';
-  const maritalSummary = (draft.marital as Record<string, unknown> | undefined)?.maritalStatus
-    ? String((draft.marital as Record<string, unknown>).maritalStatus)
-    : '— لم يُكتمل بعد —';
+  const profile = draft.personal as Record<string, unknown> | undefined;
+  const profileSummary = profile?.firstName
+    ? `${profile.firstName ?? ''} ${profile.fourthName ?? ''}`.trim()
+    : 'بيانات شخصية ودراسية';
   const paymentSummary = draft.payment?.paidAt
     ? `تم السداد · ${draft.payment.method === 'fawry' ? 'فوري' : 'بطاقة ائتمانية'}`
     : '— لم يُسدَّد بعد —';
   const familySummary = (draft.family as Record<string, unknown> | undefined)?.father
-    ? 'تم إدخال بيانات الأسرة'
+    ? 'تم إدخال بيانات الوالدين'
     : '— لم تُدخَل بعد —';
-  const examSummary = draft.examSlot ? `${draft.examSlot.date.slice(0, 10)} · ${draft.examSlot.time}` : '— لم يُحجَز موعد —';
+  const examSummary = draft.examSlot
+    ? `${draft.examSlot.date.slice(0, 10)} · ${draft.examSlot.time}`
+    : '— لم يُحجَز موعد —';
 
+  /* MOI-aligned: stageIndex values mirror the new STAGE_KEYS order:
+   *   2 = profile (collapsed 3/4/5)
+   *   5 = payment
+   *   6 = profile/family
+   *   7 = exam-schedule */
   const sections: SectionRow[] = [
     {
       stageIndex: 2,
-      heading: 'البيانات الشخصية',
-      summary: personalSummary,
-      locked: false,
-    },
-    {
-      stageIndex: 3,
-      heading: 'البيانات التعليمية',
-      summary: educationSummary,
-      locked: false,
-    },
-    {
-      stageIndex: 4,
-      heading: 'الحالة الاجتماعية',
-      summary: maritalSummary,
+      heading: 'البيانات الشخصية والدراسية',
+      summary: profileSummary,
       locked: false,
     },
     {
       stageIndex: 5,
       heading: 'سداد الرسوم',
       summary: paymentSummary,
-      /* Once paid, payment is locked — applicant can't change method. */
       locked: Boolean(draft.payment?.paidAt),
     },
     {
       stageIndex: 6,
-      heading: 'بيانات الأسرة',
+      heading: 'بيانات الوالدين',
       summary: familySummary,
       locked: false,
     },
@@ -86,8 +75,6 @@ export function ApplicationSummaryPage(): JSX.Element {
       stageIndex: 7,
       heading: 'موعد الاختبار',
       summary: examSummary,
-      /* Once a slot is reserved, applicant can't reschedule via the portal
-       * — that requires admin intervention. */
       locked: Boolean(draft.examSlot),
     },
   ];
