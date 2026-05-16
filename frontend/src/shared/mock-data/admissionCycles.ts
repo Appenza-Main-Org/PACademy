@@ -1,18 +1,20 @@
 /**
  * Admission cycles + versioned admission rules — Sprint 1 (KARASA_GAPS §1.2.C-D),
  * extended post-polish (Bucket E) with openCategories + conditionOverrides
- * + createdAt/updatedAt + a forward-looking 2027 draft.
+ * + createdAt/updatedAt.
  *
- * Cycle status mapping:
- *   2024-M     finalized → reads as archived in new flows
- *   2025-M     processing → reads as closed
- *   2025-F     closed     → inactive (kept as historical test data)
- *   2026     open       → ACTIVE — the single active admission cycle ("دورة التقديم 2026")
- *   2027-M     draft (post-polish addition for the cycles UI)
+ * Demo invariant: ONE published + active cycle, every other row is a
+ * draft (`إدراج ومراجعة` / `غير نشطة`) parked on an old year.
  *
- * Only `CYC-2026-M` is active for the demo so admins land on a single cycle
- * in /admin/admission-setup. Existing AdmissionRule rows reference these IDs;
- * do not rename.
+ *   2023-M     draft → إدراج ومراجعة / غير نشطة
+ *   2024-M     draft → إدراج ومراجعة / غير نشطة
+ *   2025-M     draft → إدراج ومراجعة / غير نشطة
+ *   2025-F     draft → إدراج ومراجعة / غير نشطة
+ *   2026     open + isActive → اعتماد ونشر / نشطة — the single active cycle
+ *
+ * Only `CYC-2026-M` is published/active for the demo so admins land on a
+ * single cycle in /admin/admission-setup. Existing AdmissionRule rows
+ * reference these IDs; do not rename.
  */
 
 import type { AdmissionCycle, AdmissionRule } from '@/shared/types/domain';
@@ -28,9 +30,9 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     closeDate: '2024-03-31T00:00:00.000Z',
     expectedCapacity: 1500,
     applicantCount: 1487,
-    status: 'finalized',
+    status: 'draft',
     openCategories: {
-      officers_general: { isOpen: false, capacity: 1500, notes: 'دورة 2024 — منتهية' },
+      officers_general: { isOpen: false, capacity: 1500, notes: 'دورة 2024 — أرشيف' },
     },
     conditionOverrides: {},
     createdAt: '2023-11-01T00:00:00.000Z',
@@ -46,9 +48,9 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     closeDate: '2025-03-31T00:00:00.000Z',
     expectedCapacity: 1800,
     applicantCount: 1762,
-    status: 'processing',
+    status: 'draft',
     openCategories: {
-      officers_general: { isOpen: false, capacity: 1800, notes: 'تحت المعالجة' },
+      officers_general: { isOpen: false, capacity: 1800, notes: 'أرشيف' },
       specialized_officers: { isOpen: false, capacity: 200, notes: '' },
     },
     conditionOverrides: {},
@@ -62,13 +64,13 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     cohort: 'female',
     year: 2025,
     openDate: '2025-02-15T00:00:00.000Z',
-    /* Closed for the demo so /admin/admission-setup highlights a single
-     * active cycle (CYC-2026-M, "دورة التقديم 2026"). Kept as historical
-     * test data. */
+    /* Parked as draft for the demo so /admin/admission-setup highlights a
+     * single published cycle (CYC-2026-M, "دورة التقديم 2026"). Kept as
+     * historical test data. */
     closeDate: '2025-04-15T23:59:59.000Z',
     expectedCapacity: 240,
     applicantCount: 238,
-    status: 'closed',
+    status: 'draft',
     openCategories: {
       officers_general: { isOpen: true, capacity: 200, notes: 'الفئة الرئيسية للدورة' },
       specialized_officers: { isOpen: true, capacity: 40, notes: 'تقديم لخريجي الجامعات' },
@@ -128,7 +130,7 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     },
     conditionOverrides: {},
     fees: {
-      applicationFee: 1500,
+      applicationFee: 250,
       fawryConfig: {
         merchantCode: 'PA-ACADEMY-2026',
         label: 'فوري',
@@ -141,22 +143,22 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     updatedAt: '2026-04-01T00:00:00.000Z',
   },
   {
-    id: 'CYC-2027-M',
-    nameAr: 'دورة 2027 - الذكور',
-    labelEn: 'Cycle 2027 (Male)',
+    id: 'CYC-2023-M',
+    nameAr: 'دورة 2023 - الذكور',
+    labelEn: 'Cycle 2023 (Male)',
     cohort: 'male',
-    year: 2027,
-    openDate: '2027-01-15T00:00:00.000Z',
-    closeDate: '2027-03-31T00:00:00.000Z',
-    expectedCapacity: 2200,
-    applicantCount: 0,
+    year: 2023,
+    openDate: '2023-01-15T00:00:00.000Z',
+    closeDate: '2023-03-31T00:00:00.000Z',
+    expectedCapacity: 1400,
+    applicantCount: 1352,
     status: 'draft',
     openCategories: {
-      officers_general: { isOpen: false, capacity: 2200, notes: 'مسودة' },
+      officers_general: { isOpen: false, capacity: 1400, notes: 'أرشيف' },
     },
     conditionOverrides: {},
-    createdAt: '2026-04-15T00:00:00.000Z',
-    updatedAt: '2026-04-15T00:00:00.000Z',
+    createdAt: '2022-11-01T00:00:00.000Z',
+    updatedAt: '2023-03-31T00:00:00.000Z',
   },
 ];
 
