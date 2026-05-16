@@ -35,17 +35,13 @@ internal sealed class GlobalExceptionMiddleware(RequestDelegate next, ILogger<Gl
         {
             // Resolved Clarification #19: domain-rule violations map to 422
             // (Unprocessable Entity). 409 reserved for true concurrency conflicts.
-            context.Response.StatusCode = 422;
-            context.Response.ContentType = "application/problem+json";
-            var problem = new
-            {
-                type = "https://tools.ietf.org/html/rfc7807",
-                title = "Unprocessable Entity",
-                status = 422,
-                detail = dce.Message,
-                code = dce.Code,
-            };
-            await context.Response.WriteAsync(JsonSerializer.Serialize(problem), context.RequestAborted);
+            await WriteConflictAsync(context, dce.Message, dce.Code);
+        }
+        catch (PACademy.Shared.Contracts.DomainConflictException dce)
+        {
+            // Modular use-cases (Modules.Admissions, Modules.Lookups, …)
+            // throw the Shared.Contracts variant. Same 422 mapping.
+            await WriteConflictAsync(context, dce.Message, dce.Code);
         }
         catch (UnauthorizedAccessException uae)
         {
@@ -96,5 +92,20 @@ internal sealed class GlobalExceptionMiddleware(RequestDelegate next, ILogger<Gl
             };
             await context.Response.WriteAsync(JsonSerializer.Serialize(problem), context.RequestAborted);
         }
+    }
+
+    private static async Task WriteConflictAsync(HttpContext context, string detail, string code)
+    {
+        context.Response.StatusCode = 422;
+        context.Response.ContentType = "application/problem+json";
+        var problem = new
+        {
+            type = "https://tools.ietf.org/html/rfc7807",
+            title = "Unprocessable Entity",
+            status = 422,
+            detail,
+            code,
+        };
+        await context.Response.WriteAsync(JsonSerializer.Serialize(problem), context.RequestAborted);
     }
 }

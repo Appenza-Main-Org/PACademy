@@ -11,7 +11,9 @@ public sealed class TransitionCycleStatusUseCase(IAdmissionsDbContext db)
     private static readonly Dictionary<CycleStatus, CycleStatus[]> AllowedTransitions = new()
     {
         [CycleStatus.Draft] = [CycleStatus.Active],
-        [CycleStatus.Active] = [CycleStatus.Closed],
+        // Active → Draft only when no applicants exist yet (guarded below);
+        // used by the wizard's "إلغاء الاعتماد" path to iterate before launch.
+        [CycleStatus.Active] = [CycleStatus.Closed, CycleStatus.Draft],
         [CycleStatus.Closed] = [CycleStatus.Archived],
         [CycleStatus.Archived] = [],
     };
@@ -36,6 +38,16 @@ public sealed class TransitionCycleStatusUseCase(IAdmissionsDbContext db)
             throw new DomainConflictException(
                 $"Transition {cycle.Status} → {newStatus} is not permitted.",
                 "INVALID_CYCLE_TRANSITION");
+
+        if (cycle.Status == CycleStatus.Active && newStatus == CycleStatus.Draft)
+        {
+            var hasApplicants = await db.Applicants.AsNoTracking()
+                .AnyAsync(a => a.CycleId == id, ct);
+            if (hasApplicants)
+                throw new DomainConflictException(
+                    "لا يمكن إلغاء اعتماد الدورة بعد بدء استقبال المتقدمين.",
+                    "ACTIVE_HAS_APPLICANTS");
+        }
 
         if (newStatus == CycleStatus.Active)
         {
