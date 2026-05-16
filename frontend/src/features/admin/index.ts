@@ -50,7 +50,6 @@ export {
   ExamsManagementPage,
   CommitteesManagementPage,
   DateCommitteeBindingPage,
-  NotificationsStepPage,
   ElectronicDeclarationPage,
 } from './admission-setup';
 export type { AdmissionSetupStep, AdmissionSetupStepKey } from './admission-setup';

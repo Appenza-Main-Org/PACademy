@@ -360,6 +360,7 @@ export function CommitteeBindingsPanel({
             value={selectedCategories}
             onChange={setSelectedCategories}
             placeholder="اختر فئة أو أكثر…"
+            centered
           />
           <DatePicker
             value={pickedDate}

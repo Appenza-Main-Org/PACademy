@@ -97,6 +97,16 @@ export function LookupRowDrawer<K extends LookupKey>({
 
   const submit = handleSubmit((values) => {
     const next = { ...values } as Record<string, unknown>;
+    if (lookupKey === 'graduation-years') {
+      const parsed = Number.parseInt(String(next.name ?? '').trim(), 10);
+      if (Number.isFinite(parsed)) {
+        next.year = parsed;
+        next.name = String(parsed);
+        if (!isEdit && (!next.code || String(next.code).trim() === '')) {
+          next.code = `${LOOKUP_META['graduation-years'].codePrefix}-${parsed}`;
+        }
+      }
+    }
     if (!isEdit && (!next.code || String(next.code).trim() === '')) {
       next.code = nextCodeFor(lookupKey);
     }
@@ -1050,6 +1060,8 @@ function blankRow(key: LookupKey): Record<string, unknown> {
       };
     case 'nid-missing-reasons':
       return { ...base, requiresUpload: false };
+    case 'graduation-years':
+      return { ...base, year: new Date().getFullYear() };
     default:
       return base;
   }

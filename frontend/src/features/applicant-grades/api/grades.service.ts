@@ -18,15 +18,25 @@
  */
 
 import { simulateLatency } from '@/shared/lib/mock-helpers';
+import { isValidNationalId } from '@/shared/lib/national-id';
+import { normalizeArabic } from '@/shared/lib/arabic';
+import { easternToAscii } from '../lib/normalise';
 import { SEED_ROWS } from '../mock';
 import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
   AdjustmentReason,
   CommittedImport,
   GradeRow,
+  ImportCommitResult,
   ImportDuplicateRow,
+  ImportFailureRow,
+  ImportGroupAction,
+  ImportGroupCode,
+  ImportReport,
+  ImportReportGroup,
   ImportResolution,
   ImportSkipBucket,
+  NormalisedRow,
   StagedImport,
 } from '../types';
 
@@ -274,6 +284,7 @@ export const gradesService = {
 
     const newGradeRows: GradeRow[] = pending.newRows.map((r) => ({
       seat: r.seat,
+      seatingNumber: String(r.seat),
       nid: r.nid,
       name: r.name,
       kind: r.kind,
@@ -298,6 +309,284 @@ export const gradesService = {
       deactivated,
       skipped: staged.skipped,
     };
+  },
+
+  /* ── Import wizard v2 ───────────────────────────────────────── */
+
+  /**
+   * Bucket every normalised row into success / failure groups according
+   * to the v2 wizard's semantics. Mock-side bookkeeping: rows that
+   * make it through every check end up countable as `imported`; rows
+   * that hit any group are reflected in `failed`. The grouping is
+   * exclusive — each row contributes to *one* group max, in the
+   * declared order below (DUPLICATE_NID before INVALID_NID, etc.) so
+   * the totals stay coherent.
+   */
+  async runImportPreflight(input: {
+    rows: NormalisedRow[];
+    graduationYear: number;
+  }): Promise<ImportReport> {
+    await simulateLatency(120, 240);
+    const { rows } = input;
+    const existingNids = new Set(STATE.map((r) => r.nid));
+
+    const buckets: Record<ImportGroupCode, ImportFailureRow[]> = {
+      DUPLICATE_NID: [],
+      INVALID_NID: [],
+      MISSING_REQUIRED: [],
+      NID_NOT_FOUND: [],
+      GRADE_OUT_OF_RANGE: [],
+      UNREADABLE_VALUE: [],
+    };
+
+    let imported = 0;
+    for (const row of rows) {
+      const failure: ImportFailureRow = {
+        nationalId: row.nationalId,
+        seatingNumber: row.seatingNumber,
+        nameAr: row.nameAr,
+        totalGrade: row.totalGrade,
+        sourceRowIndex: row.sourceRowIndex,
+      };
+
+      if (!row.nationalId || !row.nameAr) {
+        const missing = [
+          !row.nationalId ? 'الرقم القومي' : null,
+          !row.nameAr ? 'الاسم' : null,
+        ]
+          .filter((x): x is string => x !== null)
+          .join(' · ');
+        buckets.MISSING_REQUIRED.push({ ...failure, detail: missing });
+        continue;
+      }
+
+      if (!/^\d{14}$/.test(row.nationalId) || !isValidNationalId(row.nationalId)) {
+        buckets.INVALID_NID.push({ ...failure, detail: 'رقم قومي غير صالح' });
+        continue;
+      }
+
+      if (row.totalGrade == null || !Number.isFinite(row.totalGrade)) {
+        buckets.UNREADABLE_VALUE.push({ ...failure, detail: 'تعذّر قراءة المجموع' });
+        continue;
+      }
+
+      const max = row.maxGrade ?? Infinity;
+      if (row.totalGrade < 0 || row.totalGrade > max) {
+        buckets.GRADE_OUT_OF_RANGE.push({
+          ...failure,
+          detail:
+            row.maxGrade != null
+              ? `المجموع ${row.totalGrade} خارج النطاق (0–${row.maxGrade})`
+              : `المجموع ${row.totalGrade} سالب`,
+        });
+        continue;
+      }
+
+      if (existingNids.has(row.nationalId)) {
+        buckets.DUPLICATE_NID.push({ ...failure, detail: 'الرقم القومي موجود مسبقًا' });
+        continue;
+      }
+
+      /* For the mock layer we don't have a true cycle-applicant
+       * registry; flag rows whose national-ID isn't in any seeded
+       * Ministry list as `NID_NOT_FOUND` only when the wizard is run
+       * against a non-empty applicant pool. Until that integration
+       * lands, every passing row counts as imported. */
+      imported += 1;
+    }
+
+    const groups: ImportReportGroup[] = [];
+    const pushGroup = (
+      code: ImportGroupCode,
+      labelAr: string,
+      actions: readonly ImportGroupAction[],
+    ): void => {
+      const list = buckets[code];
+      if (list.length === 0) return;
+      groups.push({ code, labelAr, rows: list, availableActions: actions });
+    };
+    pushGroup('DUPLICATE_NID', 'أرقام قومية مكررة', ['skip', 'override', 'export']);
+    pushGroup('INVALID_NID', 'أرقام قومية غير صالحة', ['skip', 'export']);
+    pushGroup('MISSING_REQUIRED', 'حقول مطلوبة فارغة', ['skip', 'export']);
+    pushGroup('NID_NOT_FOUND', 'متقدمون غير مسجلين بالدورة', ['skip', 'create-applicant', 'export']);
+    pushGroup('GRADE_OUT_OF_RANGE', 'مجاميع خارج النطاق', ['skip', 'override', 'export']);
+    pushGroup('UNREADABLE_VALUE', 'قيم غير قابلة للقراءة', ['skip', 'export']);
+
+    const failed = groups.reduce((s, g) => s + g.rows.length, 0);
+    return {
+      totals: {
+        received: rows.length,
+        imported,
+        skipped: 0,
+        failed,
+      },
+      groups,
+    };
+  },
+
+  /**
+   * Commit the wizard's surviving rows, applying the per-group action
+   * decisions (skip / override / create-applicant). Mock-side: only
+   * rows that passed every preflight check are written; override/skip
+   * decisions adjust how many of the failure rows get re-counted as
+   * inserted or dropped.
+   */
+  async runImportCommit(input: {
+    rows: NormalisedRow[];
+    graduationYear: number;
+    perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
+  }): Promise<ImportCommitResult> {
+    await simulateLatency(180, 340);
+    const { rows, perGroupActions } = input;
+    const existingByNid = new Map(STATE.map((r) => [r.nid, r]));
+    let inserted = 0;
+    let failed = 0;
+
+    for (const row of rows) {
+      if (!row.nationalId || !row.nameAr || !row.track) {
+        failed += 1;
+        continue;
+      }
+      if (!/^\d{14}$/.test(row.nationalId) || !isValidNationalId(row.nationalId)) {
+        failed += 1;
+        continue;
+      }
+      if (row.totalGrade == null || !Number.isFinite(row.totalGrade)) {
+        failed += 1;
+        continue;
+      }
+      const isDup = existingByNid.has(row.nationalId);
+      if (isDup) {
+        const action = perGroupActions.DUPLICATE_NID;
+        if (action === 'skip') {
+          continue;
+        }
+        if (action !== 'override') {
+          failed += 1;
+          continue;
+        }
+        /* override → replace existing total + max in place. */
+        const existing = existingByNid.get(row.nationalId)!;
+        existingByNid.set(row.nationalId, {
+          ...existing,
+          total: row.totalGrade,
+          importMax: row.maxGrade ?? existing.importMax,
+          seatingNumber: row.seatingNumber ?? existing.seatingNumber,
+          name: row.nameAr,
+          branch: row.track,
+          status: existing.status,
+        });
+        inserted += 1;
+        continue;
+      }
+
+      const newRow: GradeRow = {
+        seat: existingByNid.size + inserted + 1,
+        seatingNumber: row.seatingNumber,
+        nid: row.nationalId,
+        name: row.nameAr,
+        kind: row.maxGrade === 510 ? 'azhar' : 'general',
+        branch: row.track,
+        school: '',
+        region: '',
+        total: row.totalGrade,
+        importMax: row.maxGrade ?? 410,
+        overrideMax: null,
+        lastEditedAt: null,
+        lastEditedBy: null,
+        status: '—',
+        log: [],
+      };
+      existingByNid.set(row.nationalId, newRow);
+      inserted += 1;
+    }
+
+    STATE = Array.from(existingByNid.values());
+    return { insertedCount: inserted, failedCount: failed };
+  },
+
+  /* ── Paginated list (v2) ────────────────────────────────────── */
+
+  /**
+   * Server-side paginated + searchable list. The mock filters + sorts
+   * in-memory; once the backend lands, this becomes a single query
+   * against the cycle-scoped grades view.
+   *
+   * Search matches:
+   *  - `nid` exact / prefix on the digit string
+   *  - `seatingNumber` exact / prefix (digit-form-insensitive)
+   *  - `nameAr` substring (Arabic-normalised, diacritic-insensitive)
+   */
+  async listPaginated(input: {
+    page: number;
+    pageSize: number;
+    search: string;
+    sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+  }): Promise<{ rows: GradeRow[]; total: number }> {
+    await simulateLatency(80, 200);
+    const q = input.search.trim();
+    let rows = STATE.slice();
+    if (q.length > 0) {
+      const qDigits = easternToAscii(q).replace(/\D/g, '');
+      const qNorm = normalizeArabic(q);
+      rows = rows.filter((r) => {
+        if (qDigits && (r.nid.startsWith(qDigits) || (r.seatingNumber ?? '').startsWith(qDigits))) {
+          return true;
+        }
+        if (qNorm && normalizeArabic(r.name).includes(qNorm)) return true;
+        return false;
+      });
+    }
+    if (input.sort) {
+      const { key, direction } = input.sort;
+      const dir = direction === 'asc' ? 1 : -1;
+      rows.sort((a, b) => {
+        const av = a[key];
+        const bv = b[key];
+        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+        return String(av ?? '').localeCompare(String(bv ?? ''), 'ar', { sensitivity: 'base' }) * dir;
+      });
+    }
+    const total = rows.length;
+    const start = Math.max(0, (input.page - 1) * input.pageSize);
+    const page = rows.slice(start, start + input.pageSize);
+    return { rows: clone(page), total };
+  },
+
+  /**
+   * Export-side hook — returns the **entire filtered dataset** as a
+   * flat array. Pagination is intentionally skipped because the
+   * caller writes the result straight to disk (CSV/XLSX).
+   */
+  async exportAll(input: {
+    search: string;
+    sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+  }): Promise<GradeRow[]> {
+    await simulateLatency(120, 260);
+    const q = input.search.trim();
+    let rows = STATE.slice();
+    if (q.length > 0) {
+      const qDigits = easternToAscii(q).replace(/\D/g, '');
+      const qNorm = normalizeArabic(q);
+      rows = rows.filter((r) => {
+        if (qDigits && (r.nid.startsWith(qDigits) || (r.seatingNumber ?? '').startsWith(qDigits))) {
+          return true;
+        }
+        if (qNorm && normalizeArabic(r.name).includes(qNorm)) return true;
+        return false;
+      });
+    }
+    if (input.sort) {
+      const { key, direction } = input.sort;
+      const dir = direction === 'asc' ? 1 : -1;
+      rows.sort((a, b) => {
+        const av = a[key];
+        const bv = b[key];
+        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+        return String(av ?? '').localeCompare(String(bv ?? ''), 'ar', { sensitivity: 'base' }) * dir;
+      });
+    }
+    return clone(rows);
   },
 };
 

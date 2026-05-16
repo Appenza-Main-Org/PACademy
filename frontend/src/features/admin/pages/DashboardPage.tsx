@@ -14,7 +14,6 @@ import {
   CreditCard,
   Hourglass,
   Layers,
-  ListChecks,
   Plus,
   Users,
   Users2,
@@ -172,11 +171,6 @@ export function DashboardPage(): JSX.Element {
                 to={ROUTES.admin.adminLookupsType('committees')}
                 icon={<Users2 size={18} strokeWidth={1.75} />}
                 label="إدارة اللجان"
-              />
-              <QuickAction
-                to={ROUTES.admin.workflows}
-                icon={<ListChecks size={18} strokeWidth={1.75} />}
-                label="ضبط مسار الاختبارات"
               />
               <QuickAction
                 to={ROUTES.admin.payments}

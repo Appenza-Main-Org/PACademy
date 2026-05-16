@@ -49,6 +49,8 @@ export {
   type MaritalStatusRow,
   type AcademicGradeRow,
   type AcademicDegreeRow,
+  type ExamRoundRow,
+  type GraduationYearRow,
   type DeleteResult,
 } from './types';
 

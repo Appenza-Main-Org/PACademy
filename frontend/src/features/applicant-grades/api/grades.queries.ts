@@ -10,19 +10,39 @@ import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
   AdjustmentReason,
   CommittedImport,
+  GradeRow,
+  ImportCommitResult,
+  ImportGroupAction,
+  ImportGroupCode,
+  ImportReport,
   ImportResolution,
+  NormalisedRow,
   StagedImport,
 } from '../types';
 
 export const gradesKeys = {
   all: ['applicant-grades'] as const,
   list: () => [...gradesKeys.all, 'list'] as const,
+  paginated: (params: {
+    page: number;
+    pageSize: number;
+    search: string;
+    sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+  }) => [...gradesKeys.all, 'paginated', params] as const,
 };
 
 export function useGrades() {
   return useQuery({
     queryKey: gradesKeys.list(),
     queryFn: () => gradesService.list(),
+  });
+}
+
+export function useClearGrades() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => gradesService.clearAll(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
   });
 }
 
@@ -93,5 +113,43 @@ export function useCommitImport() {
     onSuccess: (_result: CommittedImport) => {
       qc.invalidateQueries({ queryKey: gradesKeys.list() });
     },
+  });
+}
+
+/* ── Import wizard v2 ─────────────────────────────────────────────── */
+
+export function useApplicantGradesPreflight() {
+  return useMutation({
+    mutationFn: (input: { rows: NormalisedRow[]; graduationYear: number }): Promise<ImportReport> =>
+      gradesService.runImportPreflight(input),
+  });
+}
+
+export function useApplicantGradesCommit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      rows: NormalisedRow[];
+      graduationYear: number;
+      perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
+    }): Promise<ImportCommitResult> => gradesService.runImportCommit(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: gradesKeys.all });
+    },
+  });
+}
+
+/* ── Paginated list (v2) ─────────────────────────────────────────── */
+
+export function useApplicantGradesList(input: {
+  page: number;
+  pageSize: number;
+  search: string;
+  sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+}) {
+  return useQuery({
+    queryKey: gradesKeys.paginated(input),
+    queryFn: () => gradesService.listPaginated(input),
+    placeholderData: (prev) => prev,
   });
 }

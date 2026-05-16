@@ -19,7 +19,6 @@
 
 import {
   CalendarDays,
-  ClipboardCheck,
   ClipboardSignature,
   FileSignature,
   Settings2,
@@ -109,19 +108,8 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     subtitleAr: 'تحديد السعة اليومية لكل لجنة بحسب التاريخ.',
   },
   {
-    key: 'notifications',
-    order: 6,
-    labelAr: 'التنبيهات',
-    routeSegment: 'notifications',
-    icon: ClipboardCheck,
-    permission: 'admission-setup:read',
-    reuses: 'features/admin/pages/NotificationsPage.tsx',
-    isImplemented: true,
-    subtitleAr: 'إعداد رسائل النظام للمتقدمين.',
-  },
-  {
     key: 'electronic_declaration',
-    order: 7,
+    order: 6,
     labelAr: 'الإقرار الإلكتروني',
     routeSegment: 'electronic-declaration',
     icon: FileSignature,

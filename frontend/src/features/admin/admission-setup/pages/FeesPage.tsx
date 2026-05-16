@@ -20,6 +20,8 @@ import type { AdmissionCycle, CycleFees } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 
+const DEFAULT_APPLICATION_FEE = 250;
+
 export function FeesPage(): JSX.Element {
   const { cycle } = useAdmissionSetupCycle();
   const canWrite = useAdmissionSetupCanWrite();
@@ -35,13 +37,13 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   const readOnly = !canWrite || cycle.status === 'archived' || cycle.status === 'finalized';
   const fees = cycle.fees;
 
-  const [applicationFee, setApplicationFee] = useState<number>(fees?.applicationFee ?? 0);
+  const [applicationFee, setApplicationFee] = useState<number>(fees?.applicationFee ?? DEFAULT_APPLICATION_FEE);
 
   useEffect(() => {
-    setApplicationFee(fees?.applicationFee ?? 0);
+    setApplicationFee(fees?.applicationFee ?? DEFAULT_APPLICATION_FEE);
   }, [fees]);
 
-  const dirty = applicationFee !== (fees?.applicationFee ?? 0);
+  const dirty = applicationFee !== (fees?.applicationFee ?? DEFAULT_APPLICATION_FEE);
 
   const save = (): void => {
     if (readOnly || applicationFee <= 0) {

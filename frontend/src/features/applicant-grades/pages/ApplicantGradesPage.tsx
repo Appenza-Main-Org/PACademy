@@ -2,34 +2,40 @@
  * ApplicantGradesPage — admin landing for the grades import + adjustment
  * surface.
  *
- * Three states served by the same component:
- *   • loading  — LoadingState (page variant) while initial query is in flight
- *   • empty    — illustration + import CTA + required-columns hint card
- *   • full     — StatCard strip + Card-wrapped filters + DataTable<DerivedRow>
- *                with inline row-level actions (add adj / log / details).
- *
- * Conforms to the existing admin chrome: `.filters` + `.input` + `.select`
- * legacy CSS classes for the toolbar, shared `Card` / `StatCard` /
- * `DataTable` primitives instead of bespoke ones.
+ * v2 changes vs. the earlier modal-based wizard:
+ *   • "استيراد ملف" navigates to the standalone `/admin/applicant-grades/import`
+ *     wizard page (no more in-page modal).
+ *   • Server-side pagination + search via `useApplicantGradesList` —
+ *     `page`, `size`, `q` live in URL search params so refresh preserves
+ *     position.
+ *   • Toolbar "تصدير" Dropdown — current page vs. all-data, CSV vs. XLSX.
+ *     The full-data export bypasses pagination via `gradesService.exportAll`.
+ *   • Toolbar "تنزيل نموذج Excel" → `buildTemplateWorkbook`.
+ *   • New `seatingNumber` column rendered in Western numerals (LTR).
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowDownRight,
   ArrowUpRight,
   Download,
   Eye,
   FileSpreadsheet,
+  FileText,
   History,
   Info,
   Layers,
   MoreVertical,
   Plus,
   Search,
+  Sheet as SheetIcon,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react';
 import {
+  AlertDialog,
   Badge,
   Button,
   Card,
@@ -40,125 +46,216 @@ import {
   LoadingState,
   PageHeader,
   StatCard,
+  toast,
 } from '@/shared/components';
 import type { DataTableColumn, DataTableSort } from '@/shared/components';
-import { useGrades } from '../api/grades.queries';
+import { ROUTES } from '@/config/routes';
+import { toEasternArabicNumerals } from '@/shared/lib/arabic';
+import { serializeCsv } from '@/shared/lib/csv';
+import { downloadBlob } from '@/shared/lib/download';
+import { useApplicantGradesList, useClearGrades, useGrades } from '../api/grades.queries';
+import { gradesService } from '../api/grades.service';
+import { downloadTemplateWorkbook } from '../lib/buildTemplateWorkbook';
+import { useImportWizardStore } from '../store/importWizard.store';
 import { AddAdjustmentDialog } from '../components/AddAdjustmentDialog';
-import { ImportWizard } from '../components/ImportWizard';
 import { LogDrawer } from '../components/LogDrawer';
 import { StudentDetailsDrawer } from '../components/StudentDetailsDrawer';
-import { arNormalize, deriveRow, type DerivedRow } from '../lib/derive';
+import { deriveRow, type DerivedRow } from '../lib/derive';
+import type { GradeRow } from '../types';
 
 type OverlayState =
-  | { kind: 'import' }
   | { kind: 'add-adj'; seat: number }
   | { kind: 'log'; seat: number }
   | { kind: 'student'; seat: number }
   | null;
 
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200] as const;
+const DEFAULT_PAGE_SIZE = 50;
+const DEBOUNCE_MS = 250;
+
+function useDebouncedValue<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebounced(value), ms);
+    return () => window.clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}
+
 export function ApplicantGradesPage(): JSX.Element {
-  const { data, isLoading } = useGrades();
-  const [search, setSearch] = useState('');
-  const [kindFilter, setKindFilter] = useState<'all' | 'general' | 'azhar'>('all');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const resetImportWizard = useImportWizardStore((s) => s.reset);
+
+  /* Every "استيراد ملف" entry resets the wizard before navigating.
+   * The persisted sessionStorage state is only there to survive an
+   * accidental refresh mid-flow — starting a new import deliberately
+   * should always begin at Step 1 with the prior File reference gone
+   * (File objects don't survive a navigation anyway, so resuming a
+   * past session at Step 5 would land in a broken empty state). */
+  const startNewImport = (): void => {
+    resetImportWizard();
+    navigate(ROUTES.admin.applicantGradesImport);
+  };
+
+  const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+  const sizeFromUrl = Number(searchParams.get('size') ?? DEFAULT_PAGE_SIZE);
+  const pageSize = PAGE_SIZE_OPTIONS.includes(sizeFromUrl as 20 | 50 | 100 | 200)
+    ? (sizeFromUrl as number)
+    : DEFAULT_PAGE_SIZE;
+  const qFromUrl = searchParams.get('q') ?? '';
+
+  /* Local search input that debounces into the URL state. The URL
+   * value is the source of truth for the query; the input only
+   * mirrors it so a refresh restores both. */
+  const [searchInput, setSearchInput] = useState(qFromUrl);
+  const debouncedSearch = useDebouncedValue(searchInput, DEBOUNCE_MS);
+
+  useEffect(() => {
+    if (debouncedSearch === qFromUrl) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (debouncedSearch.trim() === '') next.delete('q');
+        else next.set('q', debouncedSearch);
+        next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [debouncedSearch]);
+
   const [overlay, setOverlay] = useState<OverlayState>(null);
-  /**
-   * Sort state. `null` means "use the default", which sorts by effective
-   * percentage descending (the most useful default for admins triaging
-   * who's at risk on the cutoff). Clicking a sortable header cycles
-   * asc → desc → null (back to default) — DataTable already emits the
-   * null transition on the third click.
-   */
-  const [sort, setSort] = useState<DataTableSort<DerivedRow> | null>(null);
+  const [sort, setSort] = useState<DataTableSort<GradeRow> | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const clearMut = useClearGrades();
 
-  const derived = useMemo<DerivedRow[]>(() => (data ?? []).map(deriveRow), [data]);
+  const { data: paginatedData, isLoading } = useApplicantGradesList({
+    page,
+    pageSize,
+    search: qFromUrl,
+    sort,
+  });
+  /* Keep the unpaginated query alive so the stats strip + overlay
+   * drawers have the full set of rows to render against. */
+  const { data: allRows } = useGrades();
 
-  const searchN = useMemo(() => arNormalize(search), [search]);
-  const filtered = useMemo(() => {
-    let out = derived;
-    if (kindFilter !== 'all') out = out.filter((r) => r.kind === kindFilter);
-    if (searchN) {
-      const s = search.trim();
-      out = out.filter((r) => {
-        if (arNormalize(r.name).includes(searchN)) return true;
-        if (r.nid.includes(s)) return true;
-        if (String(r.seat).includes(s)) return true;
-        /* Seat / school / region / status are no longer visible columns
-         * (per the polish pass), but stay searchable from the toolbar
-         * so admins can still locate a student by any of them. */
-        if (arNormalize(r.school).includes(searchN)) return true;
-        if (arNormalize(r.region).includes(searchN)) return true;
-        if (arNormalize(r.status).includes(searchN)) return true;
-        return false;
-      });
+  const rows = paginatedData?.rows ?? [];
+  const total = paginatedData?.total ?? 0;
+  const derived = useMemo<DerivedRow[]>(() => rows.map(deriveRow), [rows]);
+  const totalsAll = allRows?.length ?? 0;
+  const generalCount = (allRows ?? []).filter((r) => r.kind === 'general').length;
+  const azharCount = (allRows ?? []).filter((r) => r.kind === 'azhar').length;
+  const withAdjCount = (allRows ?? []).filter((r) => r.log.some((x) => x.isActive)).length;
+
+  function setPage(p: number): void {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('page', String(Math.max(1, p)));
+        return next;
+      },
+      { replace: true },
+    );
+  }
+  function setSize(s: number): void {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('size', String(s));
+        next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  async function handleExport(scope: 'page' | 'all', format: 'csv' | 'xlsx'): Promise<void> {
+    if (exporting) return;
+    setExporting(true);
+    const toastTimer = window.setTimeout(
+      () => toast('جارٍ تجهيز الملف…', 'info'),
+      150,
+    );
+    try {
+      const dataset =
+        scope === 'all' ? await gradesService.exportAll({ search: qFromUrl, sort }) : rows;
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `applicant-grades-2026-${today}.${format}`;
+      const headers = [
+        'الرقم القومي',
+        'رقم الجلوس',
+        'الاسم باللغة العربية',
+        'النوع',
+        'الشعبة',
+        'سنة التخرج',
+        'المجموع الكلي',
+        'الدرجة العظمى',
+      ];
+      const csvRows = dataset.map((r) => [
+        r.nid,
+        r.seatingNumber ?? '',
+        r.name,
+        r.kind === 'azhar' ? 'ثانوية أزهرية' : 'ثانوية عامة',
+        r.branch,
+        '',
+        r.total,
+        r.overrideMax ?? r.importMax,
+      ]);
+      if (format === 'csv') {
+        const csv = serializeCsv(headers, csvRows);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        downloadBlob(blob, filename);
+      } else {
+        const XLSX = await import('xlsx');
+        const aoa: unknown[][] = [headers, ...csvRows];
+        const sheet = XLSX.utils.aoa_to_sheet(aoa);
+        sheet['!freeze'] = { ySplit: 1 };
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, sheet, 'درجات المتقدمين');
+        const bin = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+        const blob = new Blob([bin], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        downloadBlob(blob, filename);
+      }
+      window.clearTimeout(toastTimer);
+      toast(`تم تنزيل ${dataset.length.toLocaleString('en')} صفًا.`, 'success');
+    } catch {
+      window.clearTimeout(toastTimer);
+      toast('تعذّر تصدير الملف. حاول مرة أخرى.', 'danger');
+    } finally {
+      setExporting(false);
     }
-    return out;
-  }, [derived, kindFilter, searchN, search]);
+  }
 
-  const matchCounts = useMemo(() => {
-    if (!search.trim()) return { name: 0, nid: 0, seat: 0, other: 0 };
-    const s = search.trim();
-    const n = arNormalize(s);
-    return {
-      name: derived.filter((r) => arNormalize(r.name).includes(n)).length,
-      nid: derived.filter((r) => r.nid.includes(s)).length,
-      seat: derived.filter((r) => String(r.seat).includes(s)).length,
-      /* Aggregate match count for the three hidden but searchable fields. */
-      other: derived.filter((r) =>
-        arNormalize(r.school).includes(n)
-        || arNormalize(r.region).includes(n)
-        || arNormalize(r.status).includes(n),
-      ).length,
-    };
-  }, [derived, search]);
-
-  const stats = useMemo(() => {
-    const total = derived.length;
-    const general = derived.filter((r) => r.kind === 'general').length;
-    const azhar = derived.filter((r) => r.kind === 'azhar').length;
-    const withAdj = derived.filter((r) => r.adj !== 0).length;
-    return { total, general, azhar, withAdj };
-  }, [derived]);
+  async function handleReset(): Promise<void> {
+    try {
+      await clearMut.mutateAsync();
+      setConfirmReset(false);
+      setSearchInput('');
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('q');
+          next.set('page', '1');
+          return next;
+        },
+        { replace: true },
+      );
+      toast('تم تصفير البيانات.', 'success');
+    } catch {
+      toast('تعذّر تصفير البيانات. حاول مرة أخرى.', 'danger');
+    }
+  }
 
   const activeRow =
-    overlay && 'seat' in overlay ? derived.find((r) => r.seat === overlay.seat) ?? null : null;
-
-  /**
-   * Apply the active sort. When no explicit sort is set, fall back to
-   * effective-percentage descending so the table always lands on a
-   * meaningful order. Arabic name sort uses `localeCompare` with the
-   * `ar` locale + `sensitivity: 'base'` so the canonical Arabic
-   * collation rules apply (matching the SQL Server `Arabic_CI_AI`
-   * collation we'll plug into on integration day).
-   */
-  const sorted = useMemo(() => {
-    const arr = [...filtered];
-    const active = sort ?? ({ key: 'effPct', direction: 'desc' } as const);
-    const dir = active.direction === 'asc' ? 1 : -1;
-    const cmp = (a: DerivedRow, b: DerivedRow): number => {
-      switch (active.key) {
-        case 'name':
-          return a.name.localeCompare(b.name, 'ar', { sensitivity: 'base' }) * dir;
-        case 'branch':
-          return a.branch.localeCompare(b.branch, 'ar', { sensitivity: 'base' }) * dir;
-        case 'kind':
-          return a.kind.localeCompare(b.kind) * dir;
-        case 'nid':
-          return a.nid.localeCompare(b.nid) * dir;
-        case 'total':
-          return (a.total - b.total) * dir;
-        case 'pct':
-          return (a.pct - b.pct) * dir;
-        case 'eff':
-          return (a.eff - b.eff) * dir;
-        case 'effPct':
-          return (a.effPct - b.effPct) * dir;
-        default:
-          return 0;
-      }
-    };
-    arr.sort(cmp);
-    return arr;
-  }, [filtered, sort]);
+    overlay && 'seat' in overlay
+      ? (allRows ?? []).find((r) => r.seat === overlay.seat)
+      : null;
+  const activeDerived = activeRow ? deriveRow(activeRow) : null;
 
   const columns: DataTableColumn<DerivedRow>[] = [
     {
@@ -171,6 +268,21 @@ export function ApplicantGradesPage(): JSX.Element {
           {r.nid}
         </span>
       ),
+    },
+    {
+      key: 'seatingNumber',
+      label: 'رقم الجلوس',
+      sortable: true,
+      align: 'center',
+      className: 'min-w-[9ch] font-numeric tabular-nums whitespace-nowrap',
+      render: (r) =>
+        r.seatingNumber ? (
+          <span dir="ltr" className="font-en text-xs text-ink-700">
+            {Number(r.seatingNumber).toLocaleString('en')}
+          </span>
+        ) : (
+          <span className="text-2xs text-ink-300">—</span>
+        ),
     },
     {
       key: 'name',
@@ -204,30 +316,12 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'المجموع الإجمالي',
       align: 'center',
       sortable: true,
-      /* `align: 'center'` overrides the `numeric: true` auto-rule that
-       * would have given us `text-end font-numeric tnum`, so re-apply
-       * `font-numeric tabular-nums` via className to keep the digit
-       * alignment we still need across rows. `whitespace-nowrap` keeps
-       * the wider label "المجموع الإجمالي" on one line in the header. */
       className: 'min-w-[14ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
         <>
           <span className="font-semibold text-ink-900">{r.total}</span>
-          {r.isOverridden && (
-            <span
-              className="mx-1 rounded-full bg-gold-100 px-1.5 py-px text-2xs font-semibold text-gold-700"
-              title={`الأصلي: ${r.importMax} · المعدّل: ${r.max}`}
-            >
-              معدّل
-            </span>
-          )}
           <span className="text-2xs text-ink-300"> / </span>
-          <span
-            className={`text-2xs ${r.isOverridden ? 'font-semibold text-gold-700' : 'text-ink-400'}`}
-            title={r.isOverridden ? `الأصلي: ${r.importMax} · المعدّل: ${r.max}` : undefined}
-          >
-            {r.max}
-          </span>
+          <span className="text-2xs text-ink-400">{r.max}</span>
         </>
       ),
     },
@@ -246,57 +340,34 @@ export function ApplicantGradesPage(): JSX.Element {
     },
     {
       key: 'eff',
-      label: 'المجموع الإجمالي بعد التعديل',
+      label: 'المجموع بعد التعديل',
       align: 'center',
       sortable: true,
-      /* New label is ~5× longer than "الفعلي"; bump the column floor so
-       * it fits on one line in the header at standard desktop widths.
-       * `align: 'center'` lines the values up under the header label. */
-      className: 'min-w-[20ch] font-numeric tabular-nums whitespace-nowrap',
+      className: 'min-w-[18ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
-        /* 3-column grid keeps every row's number stack centered, regardless
-         * of whether a diff badge is present. The badge slots into the
-         * inline-end spacer column so rows with/without adjustments share
-         * the same column-2 anchor; an empty inline-start column mirrors
-         * the badge's reserved width via `minmax(0, 1fr)`. */
-        <span
-          className="grid items-center gap-2"
-          style={{ gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)' }}
-        >
-          <span aria-hidden />
-          <span className="flex flex-col items-center gap-px leading-tight">
-            <span
-              className={`font-bold ${
-                r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-900'
-              }`}
-            >
-              {r.eff}
-            </span>
-            <span
-              className={`text-2xs ${
-                r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-500'
-              }`}
-            >
-              {r.effPct.toFixed(2)}٪
-            </span>
+        <span className="flex items-center justify-center gap-2">
+          <span
+            className={`font-bold ${
+              r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-900'
+            }`}
+          >
+            {r.eff}
           </span>
-          <span className="justify-self-start">
-            {r.adj !== 0 && (
-              <Badge
-                tone={r.adj > 0 ? 'warning' : 'danger'}
-                icon={
-                  r.adj > 0 ? (
-                    <ArrowUpRight size={9} strokeWidth={2.5} aria-hidden />
-                  ) : (
-                    <ArrowDownRight size={9} strokeWidth={2.5} aria-hidden />
-                  )
-                }
-                className="!px-1.5 !py-0 !text-2xs"
-              >
-                <span className="font-numeric tabular-nums">{Math.abs(r.adj)}</span>
-              </Badge>
-            )}
-          </span>
+          {r.adj !== 0 && (
+            <Badge
+              tone={r.adj > 0 ? 'warning' : 'danger'}
+              icon={
+                r.adj > 0 ? (
+                  <ArrowUpRight size={9} strokeWidth={2.5} aria-hidden />
+                ) : (
+                  <ArrowDownRight size={9} strokeWidth={2.5} aria-hidden />
+                )
+              }
+              className="!px-1.5 !py-0 !text-2xs"
+            >
+              <span className="font-numeric tabular-nums">{Math.abs(r.adj)}</span>
+            </Badge>
+          )}
         </span>
       ),
     },
@@ -304,19 +375,18 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'actions',
       label: 'إجراءات',
       align: 'center',
-      /* Bump the floor from 5ch (just the kebab) to 8ch so the header
-       * label "إجراءات" sits comfortably above the trigger and the
-       * column doesn't collapse on narrower viewports. */
       className: 'min-w-[8ch] whitespace-nowrap',
       render: (r) => <RowActions row={r} onSelect={setOverlay} />,
     },
   ];
 
-  if (isLoading) {
+  const isEmpty = totalsAll === 0;
+
+  if (isLoading && !paginatedData) {
     return (
       <div>
         <PageHeader
-          title="إدارة المجموع والدرجات"
+          title="درجات الثانوية العامة والأزهرية"
           subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         />
         <LoadingState variant="page" />
@@ -324,29 +394,71 @@ export function ApplicantGradesPage(): JSX.Element {
     );
   }
 
-  const isEmpty = derived.length === 0;
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(total, page * pageSize);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div>
       <PageHeader
-        title="إدارة المجموع والدرجات"
+        title="درجات الثانوية العامة والأزهرية"
         subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         actions={
           <>
+            <Button
+              variant="ghost"
+              leadingIcon={<FileText size={14} strokeWidth={1.75} />}
+              onClick={() => void downloadTemplateWorkbook()}
+            >
+              تنزيل نموذج Excel
+            </Button>
             {!isEmpty && (
-              <Button variant="secondary" leadingIcon={<Download size={14} strokeWidth={1.75} />}>
-                تصدير
-              </Button>
+              <DropdownMenu>
+                <DropdownMenu.Trigger asChild>
+                  <Button
+                    variant="secondary"
+                    leadingIcon={<Download size={14} strokeWidth={1.75} />}
+                    disabled={exporting}
+                  >
+                    تصدير
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content sideOffset={6}>
+                  <DropdownMenu.Item
+                    leadingIcon={<SheetIcon size={14} strokeWidth={1.75} aria-hidden />}
+                    onSelect={() => void handleExport('all', 'csv')}
+                  >
+                    تصدير كل البيانات (CSV)
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    leadingIcon={<SheetIcon size={14} strokeWidth={1.75} aria-hidden />}
+                    onSelect={() => void handleExport('all', 'xlsx')}
+                  >
+                    تصدير كل البيانات (XLSX)
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    leadingIcon={<FileText size={14} strokeWidth={1.75} aria-hidden />}
+                    onSelect={() => void handleExport('page', 'csv')}
+                  >
+                    تصدير الصفحة الحالية (CSV)
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu>
             )}
-            {isEmpty && (
-              <Button variant="ghost" leadingIcon={<Download size={14} strokeWidth={1.75} />}>
-                تنزيل القالب
+            {!isEmpty && (
+              <Button
+                variant="ghost"
+                leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
+                onClick={() => setConfirmReset(true)}
+                className="!text-terra-700 hover:!bg-terra-50"
+              >
+                تصفير البيانات
               </Button>
             )}
             <Button
               variant="primary"
               leadingIcon={<Upload size={14} strokeWidth={1.75} />}
-              onClick={() => setOverlay({ kind: 'import' })}
+              onClick={startNewImport}
             >
               استيراد ملف
             </Button>
@@ -355,7 +467,7 @@ export function ApplicantGradesPage(): JSX.Element {
       />
 
       {isEmpty ? (
-        <EmptyGradesCard onImport={() => setOverlay({ kind: 'import' })} />
+        <EmptyGradesCard onImport={startNewImport} />
       ) : (
         <>
           <div
@@ -364,28 +476,26 @@ export function ApplicantGradesPage(): JSX.Element {
           >
             <StatCard
               label="إجمالي الطلاب"
-              value={stats.total}
+              value={totalsAll}
               icon={<Layers size={16} strokeWidth={1.75} />}
             />
             <StatCard
               label="ثانوية عامة"
-              value={stats.general}
+              value={generalCount}
               icon={<FileSpreadsheet size={16} strokeWidth={1.75} />}
               iconBg="var(--teal-50)"
               iconColor="var(--teal-700)"
-              trend={pctTrend(stats.general, stats.total)}
             />
             <StatCard
               label="ثانوية أزهرية"
-              value={stats.azhar}
+              value={azharCount}
               icon={<FileSpreadsheet size={16} strokeWidth={1.75} />}
               iconBg="var(--gold-50)"
               iconColor="var(--gold-700)"
-              trend={pctTrend(stats.azhar, stats.total)}
             />
             <StatCard
               label="صفوف بها تعديلات"
-              value={stats.withAdj}
+              value={withAdjCount}
               icon={<History size={16} strokeWidth={1.75} />}
               iconBg="var(--gold-50)"
               iconColor="var(--gold-700)"
@@ -400,82 +510,52 @@ export function ApplicantGradesPage(): JSX.Element {
                     className="input"
                     type="search"
                     placeholder="بحث بالاسم / الرقم القومي / رقم الجلوس"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
                     aria-label="بحث"
                   />
                   <Search size={18} />
                 </div>
-                <select
-                  className="select"
-                  value={kindFilter}
-                  onChange={(e) => setKindFilter(e.target.value as typeof kindFilter)}
-                  aria-label="تصفية حسب نوع الثانوية"
-                  /* Default `.select` is 180-200px; with the per-option
-                   * count suffix dropped, the longest option is now
-                   * "ثانوية أزهرية" which fits at 220px with breathing
-                   * room for the chevron. */
-                  style={{ minInlineSize: 220, flexBasis: 220 }}
-                >
-                  <option value="all">كل الأنواع</option>
-                  <option value="general">ثانوية عامة</option>
-                  <option value="azhar">ثانوية أزهرية</option>
-                </select>
+                {qFromUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchInput('')}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-full border-0 bg-transparent px-2 py-0.5 text-2xs text-teal-700 hover:bg-teal-50"
+                  >
+                    <X size={11} strokeWidth={1.75} aria-hidden /> مسح البحث
+                  </button>
+                )}
                 <span className="ms-auto self-center text-2xs text-ink-500">
                   <span className="font-numeric font-medium tabular-nums text-ink-700">
-                    {filtered.length}
+                    {total}
                   </span>{' '}
-                  نتيجة من{' '}
-                  <span className="font-numeric font-medium tabular-nums text-ink-700">
-                    {stats.total}
-                  </span>
+                  نتيجة
                 </span>
               </div>
 
-              {search.trim() && (
-                <div className="mb-4 flex flex-wrap items-center gap-1.5 text-2xs text-ink-500">
-                  <span>طابق</span>
-                  <MatchChip label="الاسم" count={matchCounts.name} />
-                  <MatchChip label="الرقم القومي" count={matchCounts.nid} />
-                  <MatchChip label="رقم الجلوس" count={matchCounts.seat} />
-                  <MatchChip label="المدرسة / المنطقة / الحالة" count={matchCounts.other} />
-                  <button
-                    type="button"
-                    onClick={() => setSearch('')}
-                    className="ms-1 inline-flex cursor-pointer items-center gap-1 rounded-full border-0 bg-transparent px-1.5 py-0.5 text-2xs text-teal-700 hover:bg-teal-50"
-                  >
-                    <X size={11} strokeWidth={1.75} aria-hidden /> مسح
-                  </button>
-                </div>
-              )}
-
               <DataTable<DerivedRow>
-                data={sorted}
+                data={derived}
                 columns={columns}
                 rowKey={(r) => r.seat}
-                sort={sort}
-                onSortChange={setSort}
+                sort={sort as DataTableSort<DerivedRow> | null}
+                onSortChange={(next) => setSort(next as DataTableSort<GradeRow> | null)}
                 onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
                 empty={
                   <EmptyState
                     variant="generic"
                     title="لا نتائج مطابقة"
                     description={
-                      search.trim()
-                        ? `لا توجد صفوف مطابقة للبحث «${search}»`
+                      qFromUrl
+                        ? `لا توجد نتائج لـ "${qFromUrl}"`
                         : 'لا توجد صفوف مطابقة للتصفية الحالية'
                     }
                     icon={<Search size={28} strokeWidth={1.5} />}
                     action={
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
-                          setSearch('');
-                          setKindFilter('all');
-                        }}
-                      >
-                        مسح التصفية
-                      </Button>
+                      qFromUrl ? (
+                        <Button variant="ghost" onClick={() => setSearchInput('')}>
+                          مسح البحث
+                        </Button>
+                      ) : undefined
                     }
                   />
                 }
@@ -483,32 +563,91 @@ export function ApplicantGradesPage(): JSX.Element {
                 stickyHeader
                 density="compact"
               />
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle bg-surface-card px-4 py-2 text-sm text-ink-500">
+                <span className="font-numeric tnum">
+                  عرض{' '}
+                  <span className="text-ink-900">{toEasternArabicNumerals(from)}</span>
+                  –<span className="text-ink-900">{toEasternArabicNumerals(to)}</span> من{' '}
+                  <span className="text-ink-900">{toEasternArabicNumerals(total)}</span>
+                </span>
+                <label className="inline-flex items-center gap-2">
+                  <span>لكل صفحة:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setSize(Number(e.target.value))}
+                    className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                    aria-label="عدد الصفوف لكل صفحة"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPage(page - 1)}
+                    disabled={page <= 1}
+                    aria-label="الصفحة السابقة"
+                  >
+                    السابق
+                  </Button>
+                  <span className="px-2 font-en">
+                    {page} / {totalPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setPage(page + 1)}
+                    disabled={page >= totalPages}
+                    aria-label="الصفحة التالية"
+                  >
+                    التالي
+                  </Button>
+                </div>
+              </div>
             </CardBody>
           </Card>
         </>
       )}
 
-      <ImportWizard open={overlay?.kind === 'import'} onClose={() => setOverlay(null)} />
+      <AlertDialog
+        open={confirmReset}
+        onOpenChange={(next) => {
+          if (!clearMut.isPending) setConfirmReset(next);
+        }}
+        title="تصفير بيانات الدرجات"
+        description={`سيتم حذف جميع الصفوف المستوردة وما عليها من تعديلات (${toEasternArabicNumerals(totalsAll)} صفًا). لا يمكن التراجع.`}
+        actionLabel="تصفير البيانات"
+        cancelLabel="إلغاء"
+        tone="danger"
+        isActionLoading={clearMut.isPending}
+        onAction={() => void handleReset()}
+      />
 
-      {activeRow && (
+      {activeDerived && (
         <>
           <AddAdjustmentDialog
             open={overlay?.kind === 'add-adj'}
             onClose={() => setOverlay(null)}
-            row={activeRow}
+            row={activeDerived}
           />
           <LogDrawer
             open={overlay?.kind === 'log'}
             onClose={() => setOverlay(null)}
-            row={activeRow}
-            onAddAdjustment={() => setOverlay({ kind: 'add-adj', seat: activeRow.seat })}
-            onOpenDetails={() => setOverlay({ kind: 'student', seat: activeRow.seat })}
+            row={activeDerived}
+            onAddAdjustment={() => setOverlay({ kind: 'add-adj', seat: activeDerived.seat })}
+            onOpenDetails={() => setOverlay({ kind: 'student', seat: activeDerived.seat })}
           />
           <StudentDetailsDrawer
             open={overlay?.kind === 'student'}
             onClose={() => setOverlay(null)}
-            row={activeRow}
-            onAddAdjustment={() => setOverlay({ kind: 'add-adj', seat: activeRow.seat })}
+            row={activeDerived}
+            onAddAdjustment={() => setOverlay({ kind: 'add-adj', seat: activeDerived.seat })}
           />
         </>
       )}
@@ -516,27 +655,6 @@ export function ApplicantGradesPage(): JSX.Element {
   );
 }
 
-function pctTrend(part: number, total: number): { label: string; tone: 'neutral' } | undefined {
-  if (!total) return undefined;
-  const v = Math.round((part / total) * 100);
-  return { label: `${v}٪ من الإجمالي`, tone: 'neutral' };
-}
-
-/* ────────────────────────────────────────────────────────────────────── */
-
-/**
- * RowActions — three-dots-vertical kebab opening a DropdownMenu with
- * the three per-row affordances (add-adjustment / log / details).
- *
- * The kebab itself is always visible so the affordance can be discovered
- * at rest (unlike the earlier amber dot, which was too subtle on
- * non-overridden rows). Rows that already carry adjustments show a 6×6
- * gold dot on the top-end corner with a `يوجد تعديلات` tooltip — same
- * pattern as the notification-bell unread indicator in AppShell.
- *
- * The wrapping `<span>` stops click-bubble so opening the menu doesn't
- * also fire the row's `onRowClick` (which opens the details drawer).
- */
 function RowActions({
   row,
   onSelect,
@@ -570,13 +688,6 @@ function RowActions({
           </DropdownMenu.Item>
           <DropdownMenu.Item
             leadingIcon={<History size={14} strokeWidth={1.75} className="text-gold-700" aria-hidden />}
-            shortcut={
-              hasAdjustments ? (
-                <span className="font-en font-semibold text-gold-700 tabular-nums">
-                  {row.log.length}
-                </span>
-              ) : undefined
-            }
             onSelect={() => onSelect({ kind: 'log', seat: row.seat })}
           >
             عرض السجل
@@ -599,30 +710,6 @@ function RowActions({
   );
 }
 
-/* ────────────────────────────────────────────────────────────────────── */
-
-function MatchChip({ label, count }: { label: string; count: number }): JSX.Element {
-  const active = count > 0;
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs ${
-        active
-          ? 'border-teal-100 bg-teal-50 font-semibold text-teal-700'
-          : 'border-transparent bg-ink-50 font-medium text-ink-500'
-      }`}
-    >
-      {label}
-      <span
-        className={`font-numeric text-2xs font-semibold tabular-nums ${
-          active ? 'text-teal-700' : 'text-ink-400'
-        }`}
-      >
-        {count}
-      </span>
-    </span>
-  );
-}
-
 function EmptyGradesCard({ onImport }: { onImport: () => void }): JSX.Element {
   return (
     <Card>
@@ -639,18 +726,9 @@ function EmptyGradesCard({ onImport }: { onImport: () => void }): JSX.Element {
             stroke="var(--gold-500)"
             strokeWidth="1.25"
           />
-          <path
-            d="M86 18 L98 30 L86 30 Z"
-            fill="var(--gold-100)"
-            stroke="var(--gold-500)"
-            strokeWidth="1.25"
-          />
           <line x1="22" y1="32" x2="98" y2="32" stroke="var(--ink-200)" strokeWidth="0.75" />
           <line x1="22" y1="44" x2="98" y2="44" stroke="var(--ink-200)" strokeWidth="0.75" />
           <line x1="22" y1="56" x2="98" y2="56" stroke="var(--ink-200)" strokeWidth="0.75" />
-          <line x1="22" y1="68" x2="98" y2="68" stroke="var(--ink-200)" strokeWidth="0.75" />
-          <line x1="48" y1="32" x2="48" y2="78" stroke="var(--ink-200)" strokeWidth="0.75" />
-          <line x1="72" y1="32" x2="72" y2="78" stroke="var(--ink-200)" strokeWidth="0.75" />
           <circle cx="60" cy="48" r="14" fill="var(--teal-50)" stroke="var(--teal-500)" strokeWidth="1.25" />
           <path
             d="M60 54 L60 42 M55 47 L60 42 L65 47"
@@ -665,44 +743,32 @@ function EmptyGradesCard({ onImport }: { onImport: () => void }): JSX.Element {
           لا توجد درجات مستوردة بعد
         </h2>
         <p className="m-0 max-w-[420px] text-sm text-ink-500">
-          ابدأ بـ«استيراد ملف» لرفع كشف درجات الثانوية العامة أو الأزهرية. يدعم الملف صيغ{' '}
-          <span className="font-numeric tabular-nums">.xlsx</span> و
-          <span className="font-numeric tabular-nums">.xls</span> حتى ١٠ ميجا.
+          ابدأ بـ«استيراد ملف» لرفع كشف درجات الثانوية العامة أو الأزهرية. يدعم الاستيراد صيغ{' '}
+          <span dir="ltr" className="font-numeric tabular-nums">
+            .xlsx · .xls · .csv · .mdb · .accdb
+          </span>
+          .
         </p>
         <div className="mt-6 flex gap-2.5">
           <Button variant="primary" leadingIcon={<Upload size={14} strokeWidth={1.75} />} onClick={onImport}>
             استيراد ملف
           </Button>
-          <Button variant="ghost" leadingIcon={<Download size={14} strokeWidth={1.75} />}>
-            تنزيل قالب نموذجي
+          <Button
+            variant="ghost"
+            leadingIcon={<FileText size={14} strokeWidth={1.75} />}
+            onClick={() => void downloadTemplateWorkbook()}
+          >
+            تنزيل نموذج Excel
           </Button>
         </div>
-
-        <div className="mt-8 w-full max-w-[600px] rounded-md border border-gold-200 bg-gold-50 px-5 py-3.5 text-start">
-          <div className="mb-2.5 flex items-center gap-2">
-            <Info size={14} strokeWidth={1.75} className="text-gold-700" aria-hidden />
-            <span className="text-xs font-semibold text-gold-700">
-              أسماء الأعمدة المطلوبة في الملف
-            </span>
-          </div>
-          <div className="grid gap-3.5 text-xs sm:grid-cols-2">
-            <div>
-              <div className="mb-1 font-semibold text-gold-700">ثانوية عامة</div>
-              <div className="font-mono text-2xs leading-relaxed text-ink-600">
-                seating_no · national_no · arabic_name · sex_name · school_name · branch_desc_new
-                · total_degree · student_case_desc
-              </div>
-            </div>
-            <div>
-              <div className="mb-1 font-semibold text-gold-700">ثانوية أزهرية</div>
-              <div className="font-mono text-2xs leading-relaxed text-ink-600">
-                StSeatNo · StudenName · DevisionName · National_Code · ZonName · InstituteName · Total2
-              </div>
-            </div>
-          </div>
+        <div className="mt-8 flex w-full max-w-[600px] items-start gap-2 rounded-md border border-gold-200 bg-gold-50 px-4 py-3 text-2xs text-gold-700">
+          <Info size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
+          <span>
+            نزّل النموذج لضمان تطابق أعمدة الملف مع المتوقّع في خطوة ربط الأعمدة — يصلح الإرسال
+            مباشرة دون تعديل يدوي.
+          </span>
         </div>
       </CardBody>
     </Card>
   );
 }
-

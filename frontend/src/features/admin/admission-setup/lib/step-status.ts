@@ -133,10 +133,6 @@ export function computeStepStatus(
       return committees.some((c) => !c.linkedCycleId || c.linkedCycleId === cycle.id)
         ? 'in_progress'
         : 'not_started';
-    case 'notifications':
-      /* Notifications are global — surface as in_progress; the actual page
-       * shows the count and lets the admin add cycle-scoped messages. */
-      return 'in_progress';
     case 'electronic_declaration':
       if (!declaration) return 'not_started';
       return declaration.publishedAt ? 'complete' : 'in_progress';
@@ -193,7 +189,6 @@ export function useStepStatuses(cycleId: string | null): {
       exams: pick('exams'),
       committees: agg(['committees', 'committee_bindings']),
       date_committee_binding: pick('date_committee_binding'),
-      notifications: pick('notifications'),
       electronic_declaration: pick('electronic_declaration'),
     };
   }, [rows]);

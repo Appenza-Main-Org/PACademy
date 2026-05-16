@@ -31,5 +31,4 @@ export { FeesPage as AdmissionFeesPage } from './pages/FeesPage';
 export { ExamsManagementPage } from './pages/ExamsManagementPage';
 export { CommitteesManagementPage } from './pages/CommitteesManagementPage';
 export { DateCommitteeBindingPage } from './pages/DateCommitteeBindingPage';
-export { NotificationsStepPage } from './pages/NotificationsStepPage';
 export { ElectronicDeclarationPage } from './pages/ElectronicDeclarationPage';

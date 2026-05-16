@@ -190,12 +190,18 @@ export function SearchSelect({
           sideOffset={4}
           dir="rtl"
           className={cn(
-            'z-dropdown w-[var(--radix-popover-trigger-width)] min-w-48',
+            /* Width: at least the trigger, grows with longest option label,
+               capped at 24rem (or viewport - 2rem) so long Arabic committee
+               names like "اللجنة الأولى قسم خاص (طالبات)" stay readable in
+               narrow grid columns without overflowing the viewport. */
+            'z-dropdown w-max min-w-48',
             'rounded-lg border border-border-subtle bg-surface-elevated shadow-md',
             'flex flex-col p-2 outline-none font-ar',
           )}
           style={{
             animation: 'pageEnter var(--duration-fast) var(--ease-standard)',
+            minWidth: 'var(--radix-popover-trigger-width)',
+            maxWidth: 'min(calc(100vw - 2rem), 24rem)',
             /* Clamp to whatever vertical space Radix Popper picked. Without
                this the popover renders at full content height and clips off
                the top of the viewport when flipped above a near-bottom

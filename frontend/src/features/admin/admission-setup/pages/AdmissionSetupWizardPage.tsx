@@ -65,7 +65,6 @@ import { FeesPage } from './FeesPage';
 import { ExamsManagementPage } from './ExamsManagementPage';
 import { CommitteesManagementPage } from './CommitteesManagementPage';
 import { DateCommitteeBindingPage } from './DateCommitteeBindingPage';
-import { NotificationsStepPage } from './NotificationsStepPage';
 import { ElectronicDeclarationPage } from './ElectronicDeclarationPage';
 import { WizardReviewPage } from './WizardReviewPage';
 
@@ -80,7 +79,6 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   exams: () => <ExamsManagementPage />,
   committees: () => <CommitteesManagementPage />,
   date_committee_binding: () => <DateCommitteeBindingPage />,
-  notifications: () => <NotificationsStepPage />,
   electronic_declaration: () => <ElectronicDeclarationPage />,
 };
 
@@ -259,7 +257,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
                * (~64px) plus a hair of breathing room. The rail is sized
                * to the available viewport so all 16 steps distribute
                * evenly and fit without a scroll spine. */
-              'md:sticky md:top-20 md:h-[calc(100vh-7rem)] md:w-[260px] md:overflow-hidden',
+              'md:sticky md:top-20 md:h-[calc(100vh_-_7rem)] md:w-[260px] md:overflow-hidden',
             )}
           >
             <VerticalStepper

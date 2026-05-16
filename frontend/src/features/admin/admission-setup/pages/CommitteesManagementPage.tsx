@@ -1,14 +1,9 @@
 /**
  * إدارة مواعيد الاختبارات واللجان — wizard step.
- *
- * Renders the step's two affordances — «إضافة» and «عرض» — as horizontal
- * tabs so both are visible at once and a single click flips between them.
- * The `?sub=` search param mirrors the active tab so deep-links and the
- * browser Back button still behave (default = «عرض»).
  */
 
-import { useCallback, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import {
   Badge,
@@ -17,7 +12,6 @@ import {
   EmptyState,
   LoadingState,
   PageHeader,
-  Tabs,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import {
@@ -29,11 +23,8 @@ import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import { useActiveCategoriesForCycle } from '../lib/activeCategories';
 import { CommitteeBindingsPanel } from '../components/committeeBinding/CommitteeBindingsPanel';
-import { ApprovedRulesView } from '../components/committeeBinding/ApprovedRulesView';
 import { useAdmissionSetupWizardStore } from '../store/wizardSharedState';
 import { num } from '@/shared/lib/format';
-
-type SubPage = 'view' | 'add';
 
 /** Cycles only declare `year`; the academic year string is `${year}-${year+1}`. */
 function academicYearForCycle(cycle: AdmissionCycle): string {
@@ -42,10 +33,6 @@ function academicYearForCycle(cycle: AdmissionCycle): string {
 
 function isApplicantCategoryKey(code: string): code is ApplicantCategoryKey {
   return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(code);
-}
-
-function readSubPage(raw: string | null): SubPage {
-  return raw === 'add' ? 'add' : 'view';
 }
 
 export function CommitteesManagementPage(): JSX.Element {
@@ -98,39 +85,16 @@ function Body({ cycle }: BodyProps): JSX.Element {
     );
   }
 
-  return <CommitteesTabs cycle={cycle} active={active} />;
+  return <CommitteesContent cycle={cycle} active={active} />;
 }
 
-interface CommitteesTabsProps {
+interface CommitteesContentProps {
   cycle: AdmissionCycle;
   active: Array<{ key: ApplicantCategoryKey; labelAr: string }>;
 }
 
-function CommitteesTabs({ cycle, active }: CommitteesTabsProps): JSX.Element {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const sub = readSubPage(searchParams.get('sub'));
+function CommitteesContent({ cycle, active }: CommitteesContentProps): JSX.Element {
   const approvedCount = useAdmissionSetupWizardStore((s) => s.approved.length);
-
-  /* Mutate only the `sub` param so we don't clobber other state on the
-   * URL (the wizard's :stepKey lives in the path, not the search). */
-  const onTabChange = useCallback(
-    (next: string) => {
-      setSearchParams(
-        (prev) => {
-          const params = new URLSearchParams(prev);
-          if (next === 'view') {
-            params.delete('sub');
-          } else {
-            params.set('sub', next);
-          }
-          return params;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
   const academicYear = academicYearForCycle(cycle);
 
   return (
@@ -162,26 +126,11 @@ function CommitteesTabs({ cycle, active }: CommitteesTabsProps): JSX.Element {
         }
       />
 
-      <Tabs value={sub} onValueChange={onTabChange}>
-        <Tabs.List aria-label="إضافة موعد أو عرض القواعد المعتمدة">
-          <Tabs.Tab value="add">إضافة</Tabs.Tab>
-          <Tabs.Tab value="view" badge={approvedCount > 0 ? num(approvedCount) : undefined}>
-            عرض
-          </Tabs.Tab>
-        </Tabs.List>
-
-        <Tabs.Panel value="add">
-          <Card>
-            <div className="p-3">
-              <CommitteeBindingsPanel cycle={cycle} active={active} />
-            </div>
-          </Card>
-        </Tabs.Panel>
-
-        <Tabs.Panel value="view">
-          <ApprovedRulesView />
-        </Tabs.Panel>
-      </Tabs>
+      <Card>
+        <div className="p-3">
+          <CommitteeBindingsPanel cycle={cycle} active={active} />
+        </div>
+      </Card>
     </div>
   );
 }

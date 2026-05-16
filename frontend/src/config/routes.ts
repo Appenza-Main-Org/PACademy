@@ -50,6 +50,8 @@ export const ROUTES = {
     workflowNew: '/admin/workflows/new',
     /** Applicant Grades — import + adjustments console (per-cycle data). */
     applicantGrades: '/admin/applicant-grades',
+    /** Standalone v2 import wizard (renders inside AdminLayout). */
+    applicantGradesImport: '/admin/applicant-grades/import',
     notifications: '/admin/notifications',
     payments: '/admin/payments',
     /* Admission Setup section — ordered configuration steps. The keys
@@ -70,7 +72,6 @@ export const ROUTES = {
       fees: '/admin/cycles/admission-setup/fees',
       exams: '/admin/cycles/admission-setup/exams',
       committees: '/admin/cycles/admission-setup/committees',
-      notifications: '/admin/cycles/admission-setup/notifications',
       electronicDeclaration: '/admin/cycles/admission-setup/electronic-declaration',
     },
   },

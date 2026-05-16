@@ -49,6 +49,7 @@ import { LOOKUPS_SEED } from '@/features/lookups/mock/lookups.mock';
 import type {
   ApplicantCategoryGenderScope,
   ApplicantCategoryRow,
+  ApplicantCategoryType,
   SpecializationRow,
   SubmissionTypeRow,
 } from '@/features/lookups/types';
@@ -119,6 +120,18 @@ export interface CategoryConfigJoined extends ApplicantCategoryConfig {
    *  can read it via a single named field at the top of the join shape. */
   categoryCode: string;
   categoryNameAr: string;
+  /** Entry stage — `'university'` ("جامعي") opens the faculty +
+   *  specialization picker; `'pre_university'` ("ثانوي") opens the
+   *  examRound + committee + schoolCategory grid. Mirrored from the
+   *  underlying `applicant-categories` lookup row. */
+  categoryType: ApplicantCategoryType;
+  /** Faculty FKs the category is scoped to (lookup `facultyCodes`).
+   *  Empty array means "any faculty". */
+  categoryFacultyCodes: readonly string[];
+  /** Specialization FKs the category is scoped to (lookup
+   *  `specializationCodes`). Empty array means "all specializations of
+   *  the picked faculties". */
+  categorySpecializationCodes: readonly string[];
   /** Gender lock derived from the lookup row's `genderScope` array.
    *  Single-entry array → that gender is locked; otherwise `null` (the
    *  category accepts both). Mirrors the rendering invariant the
@@ -180,6 +193,9 @@ function joinConfig(c: ApplicantCategoryConfig): CategoryConfigJoined {
     ...c,
     categoryCode: c.categoryId,
     categoryNameAr: cat?.name ?? c.categoryId,
+    categoryType: cat?.type ?? 'university',
+    categoryFacultyCodes: cat?.facultyCodes ?? [],
+    categorySpecializationCodes: cat?.specializationCodes ?? [],
     lockedGender: deriveLockedGender(cat?.genderScope),
     singleAxis,
     implicitSpecId: singleAxis ? (implicitSpec?.id ?? null) : null,

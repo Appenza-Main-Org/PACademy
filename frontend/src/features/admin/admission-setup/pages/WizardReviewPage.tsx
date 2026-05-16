@@ -23,6 +23,7 @@ import {
   useCycleTransition,
 } from '@/features/admin/api/cycles.queries';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
+import { ReviewCombinationsTables } from '../components/review/ReviewCombinationsTables';
 import { ADMISSION_SETUP_STEPS } from '../config';
 import {
   computeStepStatus,
@@ -152,6 +153,8 @@ export function WizardReviewPage({ statusInputs }: WizardReviewPageProps): JSX.E
           </ul>
         </div>
       </Card>
+
+      <ReviewCombinationsTables />
 
       <Card variant="elevated">
         <div className="flex flex-col gap-3">

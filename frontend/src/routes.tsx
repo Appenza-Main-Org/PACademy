@@ -12,7 +12,7 @@
 
 import { Navigate, useParams, type RouteObject } from 'react-router-dom';
 import { AuthGuard } from '@/app/providers/AuthGuard';
-import { LoginPage, useAuthStore } from '@/features/auth';
+import { LoginPage } from '@/features/auth';
 import { ROUTES } from '@/config/routes';
 import { HubPage } from '@/features/hub';
 import { ArchitecturePage } from '@/features/architecture';
@@ -20,7 +20,12 @@ import { RevampComparisonPage } from '@/features/design-revamp';
 import { ProfilePage } from '@/features/profile';
 import { HelpPage } from '@/features/help';
 import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
-import { AppSettingsReviewPage, LookupsReviewPage, PrimitivesReviewPage } from '@/features/dev';
+import {
+  ApplicantGradesImportReviewPage,
+  AppSettingsReviewPage,
+  LookupsReviewPage,
+  PrimitivesReviewPage,
+} from '@/features/dev';
 import { LookupsHubPage } from '@/features/lookups/pages/LookupsHubPage';
 import { ApplicantCategoryDetailPage } from '@/features/lookups/pages/ApplicantCategoryDetailPage';
 import {
@@ -62,11 +67,9 @@ import {
   CycleDetailPage,
   CycleNewPage,
   CyclesPage,
-  DashboardPage,
   ElectronicDeclarationPage,
   ExamsManagementPage,
   NotificationsPage,
-  NotificationsStepPage,
   PaymentsPage,
   ReportsPage,
   RolesPage,
@@ -145,19 +148,15 @@ import {
   QuestionBankCRUDPage,
   QuestionBankPage,
 } from '@/features/exams';
-import { ApplicantGradesPage } from '@/features/applicant-grades';
+import { ApplicantGradesImportPage, ApplicantGradesPage } from '@/features/applicant-grades';
 
 /**
- * AdminIndexRoute — super_admin sees the admissions command center
- * (/admin/reports) as their /admin landing; other admin roles see the
- * legacy DashboardPage.
+ * AdminIndexRoute — every admin role lands on the admissions command
+ * center (/admin/reports). The legacy DashboardPage is no longer the
+ * default index for any role.
  */
 function AdminIndexRoute(): JSX.Element {
-  const user = useAuthStore((s) => s.user);
-  if (user?.role === 'super_admin') {
-    return <Navigate to={ROUTES.admin.reports} replace />;
-  }
-  return <DashboardPage />;
+  return <Navigate to={ROUTES.admin.reports} replace />;
 }
 
 /**
@@ -244,6 +243,7 @@ export const routes: RouteObject[] = [
       { path: 'workflows/new', element: <WorkflowEditorPage /> },
       { path: 'workflows/:id', element: <WorkflowEditorPage /> },
       { path: 'applicant-grades', element: <ApplicantGradesPage /> },
+      { path: 'applicant-grades/import', element: <ApplicantGradesImportPage /> },
       /* Admission Setup — config-driven ordered steps. The route segments
        * mirror `routeSegment` from `ADMISSION_SETUP_STEPS`; adding a new
        * step is a config-entry append plus a route line here. AuthGuard +
@@ -263,7 +263,6 @@ export const routes: RouteObject[] = [
       { path: 'cycles/admission-setup/exams', element: <ExamsManagementPage /> },
       { path: 'cycles/admission-setup/committees', element: <CommitteesManagementPage /> },
       { path: 'cycles/admission-setup/date-committee-binding', element: <DateCommitteeBindingPage /> },
-      { path: 'cycles/admission-setup/notifications', element: <NotificationsStepPage /> },
       { path: 'cycles/admission-setup/electronic-declaration', element: <ElectronicDeclarationPage /> },
       /* Legacy redirects — old paths used to live at /admin/admission-setup/*. */
       { path: 'admission-setup', element: <Navigate to={ROUTES.admin.admissionSetup.index} replace /> },
@@ -421,6 +420,7 @@ export const routes: RouteObject[] = [
         { path: '/_dev/primitives', element: <PrimitivesReviewPage /> },
         { path: '/_dev/lookups', element: <LookupsReviewPage /> },
         { path: '/_dev/app-settings', element: <AppSettingsReviewPage /> },
+        { path: '/_dev/applicant-grades-import', element: <ApplicantGradesImportReviewPage /> },
       ] satisfies RouteObject[])
     : []),
 
