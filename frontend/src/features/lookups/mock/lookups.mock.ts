@@ -832,11 +832,11 @@ const applicantDivisions: ApplicantDivisionRow[] = [
 /* ─── 17. school-categories ──────────────────────────────────────────── */
 
 const schoolCategories: SchoolCategoryRow[] = [
-  { code: 'SCH-01', name: 'الثانوية العامة',                                ...active },
-  { code: 'SCH-03', name: 'الثانوية الأزهرية',                              ...active },
-  { code: 'SCH-05', name: 'الشهادات المعادلة من الخارج',                    ...active },
-  { code: 'SCH-06', name: 'الدبلومات الأجنبية',                             ...active },
-  { code: 'SCH-07', name: 'مدارس المتفوقين في العلوم والتكنولوجيا STEM',   ...active },
+  { code: 'SCH-01', name: 'الثانوية العامة',                                isActive: true, externalGradesImport: true  },
+  { code: 'SCH-03', name: 'الثانوية الأزهرية',                              isActive: true, externalGradesImport: true  },
+  { code: 'SCH-05', name: 'الشهادات المعادلة من الخارج',                    isActive: true, externalGradesImport: false },
+  { code: 'SCH-06', name: 'الدبلومات الأجنبية',                             isActive: true, externalGradesImport: false },
+  { code: 'SCH-07', name: 'مدارس المتفوقين في العلوم والتكنولوجيا STEM',   isActive: true, externalGradesImport: true  },
 ];
 
 /* ─── 18. nid-missing-reasons ────────────────────────────────────────── */
@@ -973,16 +973,9 @@ const examRounds: ExamRoundRow[] = [
  * following year naturally (e.g. `GYR-2027` → `GYR-2028`). */
 
 const graduationYears: GraduationYearRow[] = [
-  { code: 'GYR-2018', name: '2018', year: 2018, ...active },
-  { code: 'GYR-2019', name: '2019', year: 2019, ...active },
-  { code: 'GYR-2020', name: '2020', year: 2020, ...active },
-  { code: 'GYR-2021', name: '2021', year: 2021, ...active },
-  { code: 'GYR-2022', name: '2022', year: 2022, ...active },
-  { code: 'GYR-2023', name: '2023', year: 2023, ...active },
   { code: 'GYR-2024', name: '2024', year: 2024, ...active },
   { code: 'GYR-2025', name: '2025', year: 2025, ...active },
   { code: 'GYR-2026', name: '2026', year: 2026, ...active },
-  { code: 'GYR-2027', name: '2027', year: 2027, ...active },
 ];
 
 /* ─── Aggregate — `MOCK.lookups[key]` ────────────────────────────────── */

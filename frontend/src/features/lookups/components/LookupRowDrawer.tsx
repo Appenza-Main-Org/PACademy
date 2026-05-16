@@ -476,6 +476,27 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
           )}
         />
       );
+    case 'school-categories':
+      return (
+        <div className="col-span-2 flex flex-col gap-2 rounded-md border border-border-subtle bg-surface-page p-3">
+          <Controller
+            control={control}
+            name="externalGradesImport"
+            render={({ field }) => (
+              <Switch
+                checked={Boolean(field.value)}
+                onCheckedChange={field.onChange}
+                label="تُستورد الدرجات من ملف خارجي"
+              />
+            )}
+          />
+          <p className="text-2xs text-ink-500">
+            عند التفعيل، تأتي درجات المتقدمين من هذه الفئة من ملف خارجي يُرفع عبر
+            شاشة <span className="font-medium text-ink-700">درجات المتقدمين</span>.
+            عند التعطيل، يُدخل المتقدم درجاته يدويًا أثناء التقديم.
+          </p>
+        </div>
+      );
     default:
       return <></>;
   }
@@ -1060,6 +1081,8 @@ function blankRow(key: LookupKey): Record<string, unknown> {
       };
     case 'nid-missing-reasons':
       return { ...base, requiresUpload: false };
+    case 'school-categories':
+      return { ...base, externalGradesImport: false };
     case 'graduation-years':
       return { ...base, year: new Date().getFullYear() };
     default:

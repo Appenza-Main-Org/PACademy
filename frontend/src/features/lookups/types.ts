@@ -346,7 +346,14 @@ export interface AnnouncementRow extends LookupRowBase {
 
 export interface ApplicantDivisionRow extends LookupRowBase {}
 
-export interface SchoolCategoryRow extends LookupRowBase {}
+export interface SchoolCategoryRow extends LookupRowBase {
+  /** When true, applicant grades for this school category are sourced from
+   *  the external bulk upload at `/admin/applicant-grades` (the Thanaweya
+   *  results pipeline). When false, grades are entered manually by the
+   *  applicant during their portal flow. Seeded `true` for الثانوية العامة,
+   *  الثانوية الأزهرية, and مدارس المتفوقين STEM. */
+  externalGradesImport: boolean;
+}
 
 export interface NidMissingReasonRow extends LookupRowBase {
   /** If true, the eligibility flow forces the applicant to upload
