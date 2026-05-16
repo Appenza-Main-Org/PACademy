@@ -21,7 +21,16 @@ public sealed class ElectronicDeclarationTests
     private static readonly DateTime Effective = new(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc);
 
     private static ElectronicDeclaration MakeDraft(string body = "نص الإقرار", int version = 1) =>
-        ElectronicDeclaration.CreateDraft(CycleId, body, Effective, Actor, version);
+        ElectronicDeclaration.CreateDraft(
+            CycleId,
+            DeclarationMode.Text,
+            body,
+            documentFileName: null,
+            documentRelativeUrl: null,
+            documentSize: null,
+            Effective,
+            Actor,
+            version);
 
     [Fact]
     public void CreateDraft_HappyPath_Succeeds()
@@ -41,7 +50,10 @@ public sealed class ElectronicDeclarationTests
     [InlineData("   ")]
     public void CreateDraft_EmptyBody_Throws(string emptyBody)
     {
-        var act = () => ElectronicDeclaration.CreateDraft(CycleId, emptyBody, Effective, Actor);
+        var act = () => ElectronicDeclaration.CreateDraft(
+            CycleId, DeclarationMode.Text, emptyBody,
+            documentFileName: null, documentRelativeUrl: null, documentSize: null,
+            Effective, Actor);
 
         act.Should().Throw<ArgumentException>().WithMessage("*فارغاً*");
     }
@@ -91,7 +103,10 @@ public sealed class ElectronicDeclarationTests
         var decl = MakeDraft();
         decl.Publish();
 
-        var act = () => decl.Update("نص جديد", null);
+        var act = () => decl.Update(
+            mode: null, bodyAr: "نص جديد",
+            documentFileName: null, documentRelativeUrl: null, documentSize: null,
+            clearDocument: false, effectiveFrom: null);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*منشور*");
     }
@@ -101,7 +116,10 @@ public sealed class ElectronicDeclarationTests
     {
         var decl = MakeDraft();
 
-        var act = () => decl.Update("   ", null);
+        var act = () => decl.Update(
+            mode: null, bodyAr: "   ",
+            documentFileName: null, documentRelativeUrl: null, documentSize: null,
+            clearDocument: false, effectiveFrom: null);
 
         act.Should().Throw<ArgumentException>().WithMessage("*فارغاً*");
     }
@@ -111,7 +129,10 @@ public sealed class ElectronicDeclarationTests
     {
         var decl = MakeDraft("النص الأصلي");
 
-        decl.Update(null, Effective.AddDays(1));
+        decl.Update(
+            mode: null, bodyAr: null,
+            documentFileName: null, documentRelativeUrl: null, documentSize: null,
+            clearDocument: false, effectiveFrom: Effective.AddDays(1));
 
         decl.BodyAr.Should().Be("النص الأصلي");
         decl.EffectiveFrom.Should().Be(Effective.AddDays(1));

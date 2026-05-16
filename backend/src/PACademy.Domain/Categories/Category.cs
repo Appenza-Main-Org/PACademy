@@ -21,6 +21,13 @@ public sealed class Category : AggregateRoot<Guid>, IAuditableWrite, ISoftDeleta
     public DateTime? ArchivedAt { get; private set; }
     public bool DemoOrigin { get; private set; }
 
+    /// <summary>
+    /// SQL Server rowversion. Set automatically on insert/update; used as the
+    /// optimistic-concurrency token (FR-012). Surfaced to the wire as a hex-
+    /// encoded string so the frontend can echo it back on PATCH.
+    /// </summary>
+    public byte[] RowVersion { get; private set; } = [];
+
     private Category() { }
 
     public static Category Create(

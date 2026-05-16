@@ -31,6 +31,10 @@ internal sealed class CycleConfiguration : IEntityTypeConfiguration<Cycle>
             .HasColumnType("nvarchar(max)")
             .HasDefaultValue("{}");
 
+        // FR-012 — optimistic concurrency token; the rowversion column was
+        // added to the shared `cycles` table by migration 009_AdmissionSetupEntities.
+        b.Property(c => c.RowVersion).IsRowVersion();
+
         b.HasIndex(c => c.Archived)
             .HasFilter("[Archived] = 0")
             .HasDatabaseName("IX_cycles_active");

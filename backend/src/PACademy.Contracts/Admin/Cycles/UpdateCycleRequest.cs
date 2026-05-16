@@ -7,4 +7,5 @@ public sealed record UpdateCycleRequest(
     DateTime? OpenDate,
     DateTime? CloseDate,
     Dictionary<string, OpenCategoryEntryDto>? OpenCategories,
-    Dictionary<string, JsonElement>? ConditionOverrides);
+    Dictionary<string, JsonElement>? ConditionOverrides,
+    string? RowVersion = null);

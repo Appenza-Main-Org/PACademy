@@ -10,4 +10,5 @@ public sealed record UpdateCategoryRequest(
     JsonElement? RequiredTests,
     JsonElement? Procedures,
     int? SortOrder,
-    bool? IsActive);
+    bool? IsActive,
+    string? RowVersion = null);

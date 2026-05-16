@@ -16,4 +16,5 @@ public sealed record CategoryDetailDto(
     bool IsSpec,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    bool DemoOrigin);
+    bool DemoOrigin,
+    string RowVersion);

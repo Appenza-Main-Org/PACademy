@@ -14,4 +14,5 @@ public sealed record CycleDetailDto(
     Dictionary<string, OpenCategoryEntryDto> OpenCategories,
     Dictionary<string, JsonElement> ConditionOverrides,
     DateTime CreatedAt,
-    DateTime? ArchivedAt);
+    DateTime? ArchivedAt,
+    string RowVersion);

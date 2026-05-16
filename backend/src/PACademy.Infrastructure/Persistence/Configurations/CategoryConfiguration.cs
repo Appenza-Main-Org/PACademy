@@ -27,6 +27,10 @@ internal sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         b.Property(c => c.Archived).HasDefaultValue(false).IsRequired();
         b.Property(c => c.DemoOrigin).HasDefaultValue(false).IsRequired();
 
+        // FR-012 — optimistic concurrency token; the rowversion column was
+        // added to the shared `categories` table by migration 009_AdmissionSetupEntities.
+        b.Property(c => c.RowVersion).IsRowVersion();
+
         b.HasIndex(c => c.Key).IsUnique().HasDatabaseName("IX_categories_key");
     }
 }

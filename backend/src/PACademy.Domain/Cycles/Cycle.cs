@@ -20,6 +20,13 @@ public sealed class Cycle : AggregateRoot<Guid>, IAuditableWrite, ISoftDeletable
     public string OpenCategoriesJson { get; private set; } = "{}";
     public string ConditionOverridesJson { get; private set; } = "{}";
 
+    /// <summary>
+    /// SQL Server rowversion. Set automatically on insert/update; used as the
+    /// optimistic-concurrency token (FR-012). Surfaced to the wire as a hex-
+    /// encoded string so the frontend can echo it back on PATCH.
+    /// </summary>
+    public byte[] RowVersion { get; private set; } = [];
+
     private Cycle() { }
 
     public static Cycle Create(

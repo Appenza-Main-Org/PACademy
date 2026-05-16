@@ -26,5 +26,6 @@ public sealed class GetCategoryUseCase(IPaDbContext db)
             JsonDocument.Parse(string.IsNullOrWhiteSpace(c.RequiredTestsJson) ? "[]" : c.RequiredTestsJson).RootElement.Clone(),
             JsonDocument.Parse(string.IsNullOrWhiteSpace(c.ProceduresJson) ? "[]" : c.ProceduresJson).RootElement.Clone(),
             c.SortOrder, c.IsActive, c.IsSpec,
-            c.CreatedAt, c.UpdatedAt, c.DemoOrigin);
+            c.CreatedAt, c.UpdatedAt, c.DemoOrigin,
+            Convert.ToBase64String(c.RowVersion));
 }

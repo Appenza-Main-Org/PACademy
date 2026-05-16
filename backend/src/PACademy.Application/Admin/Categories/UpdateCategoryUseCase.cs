@@ -29,6 +29,17 @@ public sealed class UpdateCategoryUseCase(IPaDbContext db)
         UpdateCategoryRequest request,
         CancellationToken ct)
     {
+        // FR-012: prime EF's OriginalValue from the client's known RowVersion
+        // so SaveChanges raises DbUpdateConcurrencyException (→ 409 via
+        // DbUpdateConcurrencyExceptionMiddleware) when the row was changed
+        // concurrently. Omitting RowVersion preserves legacy last-write-wins
+        // behavior for callers that haven't migrated yet.
+        if (!string.IsNullOrEmpty(request.RowVersion))
+        {
+            var clientRv = Convert.FromBase64String(request.RowVersion);
+            db.Entry(category).Property(c => c.RowVersion).OriginalValue = clientRv;
+        }
+
         category.Update(
             request.NameAr,
             request.NameEn,

@@ -17,7 +17,8 @@ public sealed class ListCategoriesUseCase(IPaDbContext db)
             .OrderBy(c => c.SortOrder)
             .ThenBy(c => c.NameAr)
             .Select(c => new CategoryListItemDto(
-                c.Id, c.Key, c.NameAr, c.NameEn, c.SortOrder, c.IsActive, c.IsSpec))
+                c.Id, c.Key, c.NameAr, c.NameEn, c.SortOrder, c.IsActive, c.IsSpec,
+                Convert.ToBase64String(c.RowVersion)))
             .ToListAsync(ct);
     }
 }

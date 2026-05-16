@@ -1,6 +1,6 @@
 using System.Reflection;
 using FluentAssertions;
-using PACademy.Modules.Admissions.Application.Dtos;
+using PACademy.Contracts.Admin.Categories;
 
 namespace PACademy.Api.Tests.Audit;
 
@@ -29,12 +29,14 @@ public sealed class CategoryEndpointsCoverageTests
         "UpdatedAt",   // system timestamp set on Update
         "IsSpec",      // system flag set during seed; locks delete + labelAr edit
         "DemoOrigin",  // system flag set by the demo seeder, never user-writable
+        "RowVersion",  // SQL Server rowversion; auto-managed, surfaced for optimistic-locking only
     };
 
     private static readonly HashSet<string> CategoryListReadOnlyAllowList = new(StringComparer.Ordinal)
     {
         "Id",
         "IsSpec",
+        "RowVersion",  // SQL Server rowversion
     };
 
     [Fact]

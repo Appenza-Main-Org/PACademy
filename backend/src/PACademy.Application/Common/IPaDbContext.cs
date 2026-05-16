@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage;
 using PACademy.Domain.AdmissionRules;
 using PACademy.Domain.Applicants;
@@ -49,6 +50,12 @@ public interface IPaDbContext
     DbSet<CommitteeType> CommitteeTypes { get; }
     DbSet<RejectionReason> RejectionReasons { get; }
     DbSet<NotificationDepartment> NotificationDepartments { get; }
+
+    /// <summary>
+    /// Surfaced for use cases that need to seed EF Core's OriginalValue
+    /// snapshot (e.g., optimistic-locking RowVersion priming on PATCH).
+    /// </summary>
+    EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
     Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken ct = default);

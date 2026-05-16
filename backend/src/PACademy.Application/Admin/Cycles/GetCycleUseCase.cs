@@ -36,6 +36,7 @@ public sealed class GetCycleUseCase(IPaDbContext db)
             openCategories,
             conditionOverrides,
             c.CreatedAt,
-            c.ArchivedAt);
+            c.ArchivedAt,
+            Convert.ToBase64String(c.RowVersion));
     }
 }

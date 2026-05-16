@@ -756,6 +756,13 @@ export interface ApplicantCategory extends SoftDeleteFields {
   expandedConditions?: CategoryConditions;
   requiredTests: RequiredTest[];
   procedures: string[];
+  /**
+   * Optimistic-concurrency token. Echoed back on PATCH via
+   * `UpdateCategoryRequest.rowVersion`; the backend returns 409 with
+   * `RowVersionConflictResult` if it's stale. Base64-encoded SQL Server
+   * rowversion. Optional because legacy MOCK rows don't carry it.
+   */
+  rowVersion?: string;
 }
 
 export type EligibilityRejectionReason =
@@ -978,6 +985,13 @@ export interface AdmissionCycle extends SoftDeleteFields {
   conditionOverrides?: Partial<Record<ApplicantCategoryKey, Partial<CategoryCondition>>>;
   createdAt?: string;
   updatedAt?: string;
+  /**
+   * Optimistic-concurrency token. Echoed back on PATCH via
+   * `UpdateCycleRequest.rowVersion`; the backend returns 409 with
+   * `RowVersionConflictResult` if it's stale. Base64-encoded SQL Server
+   * rowversion. Optional because legacy MOCK rows don't carry it.
+   */
+  rowVersion?: string;
 }
 
 /* ── Admission rules — Sprint 1 (§1.2.C) ──────────────────────────────── */

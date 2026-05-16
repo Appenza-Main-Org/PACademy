@@ -7,4 +7,5 @@ public sealed record CategoryListItemDto(
     string? NameEn,
     int SortOrder,
     bool IsActive,
-    bool IsSpec);
+    bool IsSpec,
+    string RowVersion);

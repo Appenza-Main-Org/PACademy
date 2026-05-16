@@ -53,7 +53,8 @@ public sealed class ListCyclesUseCase(IPaDbContext db)
             c.Id, c.NameAr, c.Year, c.Cohort,
             c.Status.ToString().ToLowerInvariant(),
             c.OpenDate, c.CloseDate,
-            applicantCounts.GetValueOrDefault(c.Id, 0))).ToList();
+            applicantCounts.GetValueOrDefault(c.Id, 0),
+            Convert.ToBase64String(c.RowVersion))).ToList();
 
         var totalPages = (int)Math.Ceiling(total / (double)pageSize);
         return new PagedResult<CycleListItemDto>(dtos, page, pageSize, total, totalPages);

@@ -28,12 +28,14 @@ public sealed class CycleEndpointsCoverageTests
         "ApplicantCount",  // computed from joined applicant rows
         "CreatedAt",       // system timestamp set on Create
         "ArchivedAt",      // system timestamp set by /status transition to Archived
+        "RowVersion",      // SQL Server rowversion; auto-managed, surfaced for optimistic-locking only
     };
 
     private static readonly HashSet<string> CycleListReadOnlyAllowList = new(StringComparer.Ordinal)
     {
         "Id",
         "ApplicantCount",
+        "RowVersion",      // SQL Server rowversion
     };
 
     /// <summary>
