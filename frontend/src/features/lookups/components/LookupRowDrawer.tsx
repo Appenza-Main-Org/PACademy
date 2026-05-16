@@ -10,7 +10,7 @@
  * RHF v7's strict generics resist.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Controller,
   FormProvider,
@@ -22,15 +22,19 @@ import { z } from 'zod';
 import {
   Button,
   Drawer,
+  FileUpload,
   Input,
   MultiSelect,
   Select,
   Switch,
+  Tabs,
   Textarea,
+  toast,
   type ComboboxGroup,
   type ComboboxOption,
+  type UploadFile,
 } from '@/shared/components';
-import { Check } from 'lucide-react';
+import { Check, ExternalLink, FileText, Trash2 } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { MOCK } from '@/shared/mock-data';
@@ -42,6 +46,9 @@ import {
   type LookupKey,
   type LookupRow,
   type SpecializationRow,
+  type TestInstructions,
+  type TestInstructionsDocument,
+  type TestInstructionsMode,
 } from '../types';
 
 interface LookupRowDrawerProps<K extends LookupKey> {
@@ -92,6 +99,14 @@ export function LookupRowDrawer<K extends LookupKey>({
     const next = { ...values } as Record<string, unknown>;
     if (!isEdit && (!next.code || String(next.code).trim() === '')) {
       next.code = nextCodeFor(lookupKey);
+    }
+    if (lookupKey === 'committees') {
+      const trimmed = typeof next.description === 'string' ? next.description.trim() : '';
+      if (trimmed.length === 0) {
+        delete next.description;
+      } else {
+        next.description = trimmed;
+      }
     }
     onSubmit(next as unknown as LookupRow<K>);
   });
@@ -215,6 +230,7 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
               <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} label="إلزامي" />
             )}
           />
+          <TestInstructionsFields />
         </>
       );
     case 'test-results':
@@ -245,22 +261,25 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
       );
     case 'committees':
       return (
-        <Controller
-          control={control}
-          name="applicantCategoryId"
-          rules={{ required: true }}
-          render={({ field, fieldState }) => (
-            <ForeignKeySelect
-              lookupKey="applicant-categories"
-              label="الفئة"
-              required
-              value={(field.value as string | undefined) ?? ''}
-              onChange={field.onChange}
-              error={fieldState.error ? 'اختر فئة' : undefined}
-              containerClassName="col-span-2"
-            />
-          )}
-        />
+        <>
+          <Controller
+            control={control}
+            name="applicantCategoryId"
+            rules={{ required: true }}
+            render={({ field, fieldState }) => (
+              <ForeignKeySelect
+                lookupKey="applicant-categories"
+                label="الفئة"
+                required
+                value={(field.value as string | undefined) ?? ''}
+                onChange={field.onChange}
+                error={fieldState.error ? 'اختر فئة' : undefined}
+                containerClassName="col-span-2"
+              />
+            )}
+          />
+          <CommitteeDescriptionField />
+        </>
       );
     case 'specializations':
       return (
@@ -450,6 +469,204 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
     default:
       return <></>;
   }
+}
+
+/* ─── tests: instructions (text or PDF) ──────────────────────────────── */
+
+const MAX_INSTRUCTIONS_PDF_BYTES = 10 * 1024 * 1024;
+
+function TestInstructionsFields(): JSX.Element {
+  const { control } = useFormContext();
+  return (
+    <Controller
+      control={control}
+      name="instructions"
+      render={({ field }) => (
+        <div className="col-span-2 flex flex-col gap-2 rounded-md border border-border-subtle bg-surface-page p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-ink-700">تعليمات الاختبار</span>
+            <span className="text-2xs text-ink-500">اختياري — تظهر للمتقدم</span>
+          </div>
+          <TestInstructionsEditor
+            value={(field.value as TestInstructions | undefined) ?? null}
+            onChange={(next) => field.onChange(next ?? undefined)}
+          />
+        </div>
+      )}
+    />
+  );
+}
+
+function TestInstructionsEditor({
+  value,
+  onChange,
+}: {
+  value: TestInstructions | null;
+  onChange: (next: TestInstructions | null) => void;
+}): JSX.Element {
+  const initialMode: TestInstructionsMode = value?.mode ?? 'text';
+  const initialBody = value?.bodyAr ?? '';
+  const initialDoc = value?.document ?? null;
+
+  const initialFiles = useMemo<UploadFile[]>(() => {
+    if (!initialDoc) return [];
+    return [
+      {
+        id: `instructions-${initialDoc.fileName}`,
+        file: new File([], initialDoc.fileName, { type: 'application/pdf' }),
+        status: 'success',
+        progress: 100,
+      },
+    ];
+  }, [initialDoc]);
+
+  const [mode, setMode] = useState<TestInstructionsMode>(initialMode);
+  const [bodyAr, setBodyAr] = useState<string>(initialBody);
+  const [doc, setDoc] = useState<TestInstructionsDocument | null>(initialDoc);
+  const [uploadFiles, setUploadFiles] = useState<UploadFile[]>(initialFiles);
+
+  const persist = (next: { mode?: TestInstructionsMode; bodyAr?: string; doc?: TestInstructionsDocument | null }): void => {
+    const merged: TestInstructions = {
+      mode: next.mode ?? mode,
+      bodyAr: next.bodyAr ?? bodyAr,
+      document: next.doc !== undefined ? next.doc : doc,
+    };
+    const hasContent =
+      (merged.bodyAr && merged.bodyAr.trim().length > 0) || merged.document !== null;
+    onChange(hasContent ? merged : null);
+  };
+
+  const handleModeChange = (next: string): void => {
+    const nextMode = next as TestInstructionsMode;
+    setMode(nextMode);
+    persist({ mode: nextMode });
+  };
+
+  const handleBodyChange = (next: string): void => {
+    setBodyAr(next);
+    persist({ bodyAr: next });
+  };
+
+  const handleFilesChange = (next: UploadFile[]): void => {
+    setUploadFiles(next);
+    const picked = next[0];
+    if (!picked || picked.status === 'error') {
+      setDoc(null);
+      persist({ doc: null });
+      return;
+    }
+    const file = picked.file;
+    if (file.type && file.type !== 'application/pdf') {
+      toast('يجب أن يكون الملف بصيغة PDF', 'danger');
+      setUploadFiles([]);
+      setDoc(null);
+      persist({ doc: null });
+      return;
+    }
+    if (file.size > MAX_INSTRUCTIONS_PDF_BYTES) {
+      toast('حجم الملف يتجاوز 10 ميجابايت', 'danger');
+      setUploadFiles([]);
+      setDoc(null);
+      persist({ doc: null });
+      return;
+    }
+    if (file.size === 0 && doc) {
+      return;
+    }
+    const nextDoc: TestInstructionsDocument = {
+      fileName: file.name,
+      fileUrl: URL.createObjectURL(file),
+      size: file.size,
+    };
+    setDoc(nextDoc);
+    persist({ doc: nextDoc });
+  };
+
+  const handleRemoveDocument = (): void => {
+    if (doc?.fileUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(doc.fileUrl);
+    }
+    setDoc(null);
+    setUploadFiles([]);
+    persist({ doc: null });
+  };
+
+  return (
+    <Tabs value={mode} onValueChange={handleModeChange}>
+      <Tabs.List aria-label="نوع التعليمات">
+        <Tabs.Tab value="text">نص</Tabs.Tab>
+        <Tabs.Tab value="pdf">PDF</Tabs.Tab>
+      </Tabs.List>
+
+      <Tabs.Panel value="text" className="pt-3">
+        <Textarea
+          value={bodyAr}
+          onChange={(e) => handleBodyChange(e.currentTarget.value)}
+          rows={6}
+          placeholder="اكتب نص التعليمات الذي يقرأه المتقدم قبل أداء الاختبار…"
+        />
+      </Tabs.Panel>
+
+      <Tabs.Panel value="pdf" className="pt-3">
+        <FileUpload
+          accept="application/pdf,.pdf"
+          maxSize={MAX_INSTRUCTIONS_PDF_BYTES}
+          files={uploadFiles}
+          onFilesChange={handleFilesChange}
+          title="اسحب مستند التعليمات (PDF) هنا أو انقر للاختيار"
+          helper="نوع مدعوم: PDF · الحد الأقصى للحجم: 10 ميجابايت"
+        />
+
+        {doc && (
+          <div className="mt-3 flex items-start gap-3 rounded-md border border-border-subtle bg-surface-card p-3">
+            <span
+              aria-hidden
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
+              style={{ background: 'var(--accent-50)', color: 'var(--accent-600)' }}
+            >
+              <FileText size={16} strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-ink-900">{doc.fileName}</p>
+              <p className="mt-0.5 text-2xs text-ink-500">
+                <span className="font-numeric tnum">{formatBytes(doc.size)}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {doc.fileUrl && doc.fileUrl.length > 0 && (
+                <a
+                  href={doc.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-2xs text-teal-700 hover:bg-teal-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                >
+                  <ExternalLink size={12} strokeWidth={1.75} />
+                  معاينة
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={handleRemoveDocument}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-2xs text-terra-700 hover:bg-terra-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                aria-label="إزالة المستند"
+              >
+                <Trash2 size={12} strokeWidth={1.75} />
+                إزالة
+              </button>
+            </div>
+          </div>
+        )}
+      </Tabs.Panel>
+    </Tabs>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 ب';
+  const units = ['ب', 'ك.ب', 'م.ب', 'ج.ب'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const value = bytes / 1024 ** i;
+  return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[i] ?? 'ب'}`;
 }
 
 /* ─── applicant-categories: bespoke form section ─────────────────────── */
@@ -677,6 +894,31 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
   );
 }
 
+/* ─── committees: optional description with live counter ────────────── */
+
+const COMMITTEE_DESCRIPTION_MAX = 500;
+
+function CommitteeDescriptionField(): JSX.Element {
+  const { register, watch } = useFormContext();
+  const value = (watch('description') as string | undefined) ?? '';
+  const count = value.length;
+  return (
+    <Textarea
+      label="الوصف"
+      placeholder="وصف اختياري للجنة..."
+      maxLength={COMMITTEE_DESCRIPTION_MAX}
+      rows={4}
+      containerClassName="col-span-2"
+      helper={
+        <span className="block text-end font-mono text-2xs text-ink-500">
+          {count}/{COMMITTEE_DESCRIPTION_MAX}
+        </span>
+      }
+      {...register('description')}
+    />
+  );
+}
+
 /* ─── FK selects ─────────────────────────────────────────────────────── */
 
 interface ParentCodeSelectProps {
@@ -770,7 +1012,7 @@ function blankRow(key: LookupKey): Record<string, unknown> {
     case 'test-results':
       return { ...base, outcome: 'pass', tone: 'success' };
     case 'committees':
-      return { ...base, applicantCategoryId: '' };
+      return { ...base, applicantCategoryId: '', description: '' };
     case 'specializations':
       return { ...base, facultyCode: '' };
     case 'submission-types':

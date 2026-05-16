@@ -517,6 +517,14 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
         { key: 'kind',     label: 'النوع',   sortable: true, width: 110, render: (r: TestRow) => <Badge tone="info">{TEST_KIND_LABEL[r.kind]}</Badge> },
         { key: 'order',    label: 'الترتيب', sortable: true, width: 80,  numeric: true, render: (r: TestRow) => r.order },
         { key: 'required', label: 'إلزامي',  sortable: true, width: 90,  render: (r: TestRow) => r.required ? <Badge tone="success">إلزامي</Badge> : <Badge tone="neutral">اختياري</Badge> },
+        { key: 'instructions', label: 'التعليمات', width: 110, render: (r: TestRow) => {
+          const ins = r.instructions;
+          const hasText = ins?.mode === 'text' && !!ins.bodyAr && ins.bodyAr.trim().length > 0;
+          const hasPdf  = ins?.mode === 'pdf'  && !!ins.document;
+          if (hasText) return <Badge tone="neutral">نص</Badge>;
+          if (hasPdf)  return <Badge tone="accent">PDF</Badge>;
+          return <span className="text-ink-400">—</span>;
+        } },
       ];
     case 'test-results':
       return [

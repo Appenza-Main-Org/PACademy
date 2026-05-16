@@ -166,11 +166,36 @@ export interface RelationshipDegreeTierRow extends LookupRowBase {
 
 export type TestKind = 'physical' | 'medical' | 'interview' | 'written' | 'psych';
 
+/** Per-test applicant-facing instructions. Either an Arabic rich-text body
+ *  shown inline, or a single uploaded PDF (≤10 MB) the applicant opens for
+ *  review. Both surfaces coexist on the row so admins can switch modes
+ *  without losing the other tab's prior content. */
+export type TestInstructionsMode = 'text' | 'pdf';
+
+export interface TestInstructionsDocument {
+  fileName: string;
+  /** Object/blob URL or remote path opened for preview. */
+  fileUrl: string;
+  /** Bytes. Enforced ≤ 10 MB on save. */
+  size: number;
+}
+
+export interface TestInstructions {
+  mode: TestInstructionsMode;
+  /** Arabic body when `mode = 'text'`. */
+  bodyAr?: string;
+  /** Uploaded PDF when `mode = 'pdf'`. */
+  document?: TestInstructionsDocument | null;
+}
+
 export interface TestRow extends LookupRowBase {
   kind: TestKind;
   /** Sequence order within the admission pipeline. */
   order: number;
   required: boolean;
+  /** Optional applicant-facing instructions. Absent when neither a body
+   *  nor a document have been authored. */
+  instructions?: TestInstructions;
 }
 
 export type TestResultOutcome = 'pass' | 'fail' | 'defer' | 'withdrawn';
@@ -184,6 +209,9 @@ export interface TestResultRow extends LookupRowBase {
 export interface CommitteeRow extends LookupRowBase {
   /** FK → `applicant-categories` (row `code`). Required, single-select. */
   applicantCategoryId: string;
+  /** Optional admin-authored description, ≤500 chars. Trimmed on save;
+   *  cleared field persists as `undefined` (not empty string). */
+  description?: string;
 }
 
 export interface FacultyRow extends LookupRowBase {}
