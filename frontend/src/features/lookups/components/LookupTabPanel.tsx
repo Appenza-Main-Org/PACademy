@@ -92,13 +92,30 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
     filtered = applyKeyFilter(lookupKey, filtered, filterValue);
     if (sort) {
       const { key, direction } = sort;
-      filtered = [...filtered].sort((a, b) =>
-        compareLookupValues(
-          (a as unknown as Record<string, unknown>)[key],
-          (b as unknown as Record<string, unknown>)[key],
-          direction,
-        ),
-      );
+      /* committees: sort by the resolved category label (Arabic name)
+       * rather than the raw code, then tie-break by the committee name
+       * so rows within the same category remain alphabetically ordered. */
+      if (lookupKey === 'committees' && key === 'applicantCategoryId') {
+        filtered = [...filtered].sort((a, b) => {
+          const ar = a as unknown as CommitteeRow;
+          const br = b as unknown as CommitteeRow;
+          const primary = compareLookupValues(
+            labelByCode('applicant-categories', ar.applicantCategoryId),
+            labelByCode('applicant-categories', br.applicantCategoryId),
+            direction,
+          );
+          if (primary !== 0) return primary;
+          return compareLookupValues(ar.name, br.name, 'asc');
+        });
+      } else {
+        filtered = [...filtered].sort((a, b) =>
+          compareLookupValues(
+            (a as unknown as Record<string, unknown>)[key],
+            (b as unknown as Record<string, unknown>)[key],
+            direction,
+          ),
+        );
+      }
     }
     return filtered;
   }, [listQuery.data, search, filterValue, lookupKey, sort]);
@@ -532,7 +549,7 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
       ];
     case 'committees':
       return [
-        { key: 'applicantCategoryId', label: 'الفئة', sortable: true, render: (r: CommitteeRow) => labelByCode('applicant-categories', r.applicantCategoryId) },
+        { key: 'applicantCategoryId', label: 'فئات المتقدمين', sortable: true, render: (r: CommitteeRow) => labelByCode('applicant-categories', r.applicantCategoryId) },
       ];
     case 'specializations':
       return [
