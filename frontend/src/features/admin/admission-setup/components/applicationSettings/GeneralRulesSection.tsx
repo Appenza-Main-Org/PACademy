@@ -1,17 +1,29 @@
 /**
- * GeneralRulesSection — «قواعد عامة» sub-section under «الضباط المتخصصون».
+ * GeneralRulesSection — «الشروط العامة» editor for one
+ * university (`type === 'university'`) applicant-category.
  *
- * Composed of:
- *   1. Header — bounded dates + top-level graduation years (shared state).
- *   2. Faculty / Specialization accordion (Radix, type="multiple").
- *      Each specialization panel hosts its own «القواعد العامة» form and
- *      a local grid of rows the admin has added but not yet approved.
- *   3. «اعتماد» button — promotes every local row across all specializations
- *      into the committees view (shared Zustand slice) and clears local.
+ * Layout
+ * ------
+ *  1. Section header — application dates + الحالة الاجتماعية + top-level
+ *     graduation years (kept per-category in the wizard store).
+ *  2. Faculty + specialization tree — rendered per the V2 accordion rule:
+ *       • 1 faculty + 1 specialization → flat (no accordion).
+ *       • 1 faculty + N specializations → accordion over specializations.
+ *       • N faculties → accordion per faculty (each pane recurses into a
+ *         per-specialization accordion when the faculty has >1 specs).
+ *     The same component tree is used for every university category;
+ *     the brief explicitly asked for the «الضباط المتخصصون» pattern to be
+ *     generalised here.
+ *  3. «اعتماد» — promotes every local row authored under this category
+ *     into the «عرض» tab via the shared wizard store.
  *
- * The faculties and specializations come from the existing lookup
- * catalogue (`useLookup('faculties')` / `useLookup('specializations')`);
- * filtered by `isActive === true`. No new query layer is introduced.
+ * Single-select fields use the shared `SearchSelect` primitive
+ * (Radix-backed). NO multi-select committee/degree picker remains —
+ * single-select per the V2 brief.
+ *
+ * Duplicate rows are blocked at the store boundary (composite key over
+ * every combination field). The form surfaces a danger toast when the
+ * store rejects.
  */
 
 import { useMemo, useState } from 'react';
@@ -20,77 +32,82 @@ import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import {
   Button,
   Card,
-  Checkbox,
   DatePicker,
   EmptyState,
   ErrorState,
+  Input,
   LoadingState,
   MultiSelect,
-  Select,
+  SearchSelect,
   toast,
 } from '@/shared/components';
-import type { ComboboxOption } from '@/shared/components';
+import type { SearchSelectOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
-import { useCommittees } from '@/features/committees/api/committee.queries';
-import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 import { num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import {
   useAdmissionSetupWizardStore,
   type GeneralRuleRowInput,
-  type LocalGeneralRuleRow,
+  type LocalUniversityRow,
 } from '../../store/wizardSharedState';
 
-/* ── Static option sets ──────────────────────────────────────────────
- * النوع is per-row gender (ذكر/أنثى). Academic degrees are a fixed
- * multi-checkbox set. Graduation years cover the last 5 years inclusive
- * of the current calendar year. Marital status + التقدير come from the
- * lookup catalogue. */
+/* ── Static option sets ───────────────────────────────────────────── */
 
 const GENDER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'male', label: 'ذكر' },
   { value: 'female', label: 'أنثى' },
 ];
 
-/**
- * Shape of a committee option flowing down the accordion. Carries
- * `gender` so the per-spec form can filter the اللجنة list against the
- * selected النوع. The runtime source is `Committee[]` from the
- * committees feature; this is the projection the inner components see.
- */
-interface CommitteeOption {
-  id: string;
-  name: string;
-  /** Derived from the committee's name via `deriveCommitteeGender` —
-   *  optional because some upstream committees may predate the helper;
-   *  the per-spec filter falls back to the helper at the call site. */
-  gender?: 'male' | 'female' | 'any';
-}
-
 const CURRENT_YEAR = new Date().getFullYear();
-const GRADUATION_YEAR_OPTIONS: ReadonlyArray<ComboboxOption> = Array.from(
+const GRADUATION_YEAR_OPTIONS: ReadonlyArray<SearchSelectOption> = Array.from(
   { length: 5 },
   (_, i) => {
     const y = CURRENT_YEAR - i;
-    return { value: String(y), label: String(y) };
+    return { value: String(y), label: toEasternArabicNumerals(y) };
   },
 );
 
-/** Code of the «الضباط المتخصصون» applicant-category. The «اللجنة»
- *  multi-checkbox is scoped to committees with this `categoryKey` so
- *  the picker stays focused on the active section. */
-const SPECIALIZED_OFFICERS_KEY = 'specialized_officers';
+const EMPTY_INPUT: GeneralRuleRowInput = {
+  type: [],
+  grade: '',
+  gradeMax: '',
+  scoreMin: null,
+  scoreMax: null,
+  academicDegree: '',
+  committee: '',
+  graduationYear: null,
+};
 
-export function GeneralRulesSection(): JSX.Element {
+/* ── Props + entry ────────────────────────────────────────────────── */
+
+interface GeneralRulesSectionProps {
+  /** Applicant-category lookup code, e.g. `specialized_officers`. */
+  categoryCode: string;
+  /** Faculties the category is scoped to (lookup `facultyCodes`).
+   *  When empty, the whole faculty lookup is used (read as "any"). */
+  facultyCodes: readonly string[];
+  /** Specializations the category is scoped to (lookup
+   *  `specializationCodes`). When empty, all specializations of the
+   *  picked faculties are used. */
+  specializationCodes: readonly string[];
+}
+
+export function GeneralRulesSection({
+  categoryCode,
+  facultyCodes,
+  specializationCodes,
+}: GeneralRulesSectionProps): JSX.Element {
   const facultiesQuery = useLookup('faculties');
   const specializationsQuery = useLookup('specializations');
   const maritalQuery = useLookup('marital-statuses');
   const gradesQuery = useLookup('academic-grades');
   const degreesQuery = useLookup('academic-degrees');
-  const committeesQuery = useCommittees();
+  const committeesQuery = useLookup('committees');
 
-  const approveLocal = useAdmissionSetupWizardStore((s) => s.approveLocal);
-  const localCount = useAdmissionSetupWizardStore((s) => s.local.length);
+  const approve = useAdmissionSetupWizardStore((s) => s.approveLocalForCategory);
+  const localCount = useAdmissionSetupWizardStore(
+    (s) => s.local.filter((r) => r.categoryCode === categoryCode).length,
+  );
 
   const isLoading =
     facultiesQuery.isLoading ||
@@ -108,23 +125,36 @@ export function GeneralRulesSection(): JSX.Element {
     degreesQuery.isError ||
     committeesQuery.isError;
 
-  const activeFaculties = useMemo(
-    () => (facultiesQuery.data ?? []).filter((f) => f.isActive),
-    [facultiesQuery.data],
-  );
+  /* ─── Faculty + specialization scoping ────────────────────────── */
 
-  const activeSpecializationsByFaculty = useMemo(() => {
+  /** Active faculties allowed for this category. Falls back to "all
+   *  active faculties" when the category exposes no facultyCodes. */
+  const scopedFaculties = useMemo(() => {
+    const allActive = (facultiesQuery.data ?? []).filter((f) => f.isActive);
+    if (facultyCodes.length === 0) return allActive;
+    const allowed = new Set(facultyCodes);
+    return allActive.filter((f) => allowed.has(f.code));
+  }, [facultiesQuery.data, facultyCodes]);
+
+  /** Specializations grouped by facultyCode, scoped to the category's
+   *  `specializationCodes` when non-empty. */
+  const specsByFaculty = useMemo(() => {
+    const allow =
+      specializationCodes.length > 0 ? new Set(specializationCodes) : null;
     const map = new Map<string, Array<{ code: string; name: string }>>();
     for (const s of specializationsQuery.data ?? []) {
       if (!s.isActive) continue;
-      const list = map.get(s.facultyCode);
-      if (list) list.push({ code: s.code, name: s.name });
+      if (allow && !allow.has(s.code)) continue;
+      const arr = map.get(s.facultyCode);
+      if (arr) arr.push({ code: s.code, name: s.name });
       else map.set(s.facultyCode, [{ code: s.code, name: s.name }]);
     }
     return map;
-  }, [specializationsQuery.data]);
+  }, [specializationsQuery.data, specializationCodes]);
 
-  const maritalOptions = useMemo<Array<{ value: string; label: string }>>(
+  /* ─── Option sets ─────────────────────────────────────────────── */
+
+  const maritalOptions = useMemo(
     () =>
       (maritalQuery.data ?? [])
         .filter((m) => m.isActive)
@@ -132,7 +162,7 @@ export function GeneralRulesSection(): JSX.Element {
     [maritalQuery.data],
   );
 
-  const gradeOptions = useMemo<Array<{ value: string; label: string }>>(
+  const gradeOptions = useMemo<SearchSelectOption[]>(
     () =>
       (gradesQuery.data ?? [])
         .filter((g) => g.isActive)
@@ -140,7 +170,13 @@ export function GeneralRulesSection(): JSX.Element {
     [gradesQuery.data],
   );
 
-  const degreeOptions = useMemo<Array<{ value: string; label: string }>>(
+  const gradeRank = useMemo(() => {
+    const map = new Map<string, number>();
+    (gradesQuery.data ?? []).forEach((g, i) => map.set(g.code, i));
+    return map;
+  }, [gradesQuery.data]);
+
+  const degreeOptions = useMemo<SearchSelectOption[]>(
     () =>
       (degreesQuery.data ?? [])
         .filter((d) => d.isActive)
@@ -148,18 +184,20 @@ export function GeneralRulesSection(): JSX.Element {
     [degreesQuery.data],
   );
 
-  /* Committees are scoped to the «الضباط المتخصصون» category. النوع is
-   * gender now and no longer gates this list. */
-  const committeeOptions = useMemo(
+  /** Committees scoped to the active category (committees lookup row
+   *  carries `applicantCategoryId` → matches `categoryCode`). */
+  const committeeOptions = useMemo<SearchSelectOption[]>(
     () =>
-      (committeesQuery.data ?? []).filter(
-        (c) => !c.deletedAt && c.categoryKey === SPECIALIZED_OFFICERS_KEY,
-      ),
-    [committeesQuery.data],
+      (committeesQuery.data ?? [])
+        .filter((c) => c.isActive && c.applicantCategoryId === categoryCode)
+        .map((c) => ({ value: c.code, label: c.name })),
+    [committeesQuery.data, categoryCode],
   );
 
+  /* ─── Approve handler ─────────────────────────────────────────── */
+
   const handleApprove = (): void => {
-    const moved = approveLocal();
+    const moved = approve(categoryCode);
     if (moved === 0) {
       toast('لا توجد قواعد جاهزة للاعتماد', 'info');
       return;
@@ -171,7 +209,7 @@ export function GeneralRulesSection(): JSX.Element {
   if (isError) {
     return (
       <ErrorState
-        title="تعذر تحميل بيانات الكليات والتخصصات"
+        title="تعذر تحميل البيانات المرجعية"
         description="حاول إعادة المحاولة بعد قليل."
         onRetry={() => {
           facultiesQuery.refetch();
@@ -182,6 +220,90 @@ export function GeneralRulesSection(): JSX.Element {
           committeesQuery.refetch();
         }}
       />
+    );
+  }
+
+  /* ─── Faculty/spec accordion-rule rendering ───────────────────── */
+
+  const formOptions: PerSpecFormOptions = {
+    categoryCode,
+    maritalOptions,
+    gradeOptions,
+    gradeRank,
+    degreeOptions,
+    committeeOptions,
+  };
+
+  let tree: JSX.Element;
+  if (scopedFaculties.length === 0) {
+    tree = (
+      <EmptyState
+        variant="generic"
+        title="لا توجد كليات مرتبطة بهذه الفئة"
+        description="فعّل كلية واحدة على الأقل أو اضبط نطاق الفئة في الأكواد المرجعية."
+      />
+    );
+  } else if (scopedFaculties.length === 1) {
+    const faculty = scopedFaculties[0]!;
+    const specs = specsByFaculty.get(faculty.code) ?? [];
+    if (specs.length === 0) {
+      tree = (
+        <EmptyState
+          variant="generic"
+          title="لا توجد تخصصات نشطة في هذه الكلية"
+          description="فعّل تخصصاً واحداً على الأقل من الأكواد المرجعية."
+        />
+      );
+    } else if (specs.length === 1) {
+      /* 1F + 1S → flat. No accordion at all. */
+      const spec = specs[0]!;
+      tree = (
+        <Card variant="compact">
+          <SpecHeader
+            facultyNameAr={faculty.name}
+            specializationNameAr={spec.name}
+          />
+          <PerSpecForm
+            facultyCode={faculty.code}
+            facultyNameAr={faculty.name}
+            specializationCode={spec.code}
+            specializationNameAr={spec.name}
+            options={formOptions}
+          />
+        </Card>
+      );
+    } else {
+      /* 1F + NS → accordion for specializations only. */
+      tree = (
+        <Accordion.Root type="multiple" dir="rtl" className="flex flex-col gap-2">
+          {specs.map((spec) => (
+            <SpecializationItem
+              key={spec.code}
+              facultyCode={faculty.code}
+              facultyNameAr={faculty.name}
+              specializationCode={spec.code}
+              specializationNameAr={spec.name}
+              options={formOptions}
+            />
+          ))}
+        </Accordion.Root>
+      );
+    }
+  } else {
+    /* >1 faculties → accordion per faculty, each one drilling into a
+     * specialization accordion. */
+    tree = (
+      <Accordion.Root type="multiple" dir="rtl" className="flex flex-col gap-2">
+        {scopedFaculties.map((faculty) => (
+          <FacultyItem
+            key={faculty.code}
+            facultyCode={faculty.code}
+            facultyNameAr={faculty.name}
+            specializations={specsByFaculty.get(faculty.code) ?? []}
+            options={formOptions}
+          />
+        ))}
+      </Accordion.Root>
     );
   }
 
@@ -196,44 +318,14 @@ export function GeneralRulesSection(): JSX.Element {
             الشروط العامة
           </h3>
           <p className="mt-0.5 font-ar text-xs text-ink-500">
-            عيّن نطاق التقديم وقواعد القبول لكل تخصص نشط.
+            عيّن نطاق التقديم، الحالة الاجتماعية، وقواعد القبول لكل تخصص نشط.
           </p>
         </div>
       </header>
 
-      <TopFields />
+      <TopFields categoryCode={categoryCode} maritalOptions={maritalOptions} />
 
-      <div className="mt-4">
-        {activeFaculties.length === 0 ? (
-          <EmptyState
-            variant="generic"
-            title="لا توجد كليات نشطة"
-            description="فعّل كلية واحدة على الأقل من قائمة المراجع."
-          />
-        ) : (
-          <Accordion.Root
-            type="multiple"
-            dir="rtl"
-            className="flex flex-col gap-2"
-          >
-            {activeFaculties.map((faculty) => {
-              const specs = activeSpecializationsByFaculty.get(faculty.code) ?? [];
-              return (
-                <FacultyItem
-                  key={faculty.code}
-                  facultyCode={faculty.code}
-                  facultyNameAr={faculty.name}
-                  specializations={specs}
-                  maritalOptions={maritalOptions}
-                  gradeOptions={gradeOptions}
-                  degreeOptions={degreeOptions}
-                  committeeOptions={committeeOptions}
-                />
-              );
-            })}
-          </Accordion.Root>
-        )}
-      </div>
+      <div className="mt-4">{tree}</div>
 
       <div className="mt-5 flex items-center justify-end gap-3 border-t border-border-subtle pt-4">
         <span className="font-ar text-xs text-ink-500">
@@ -254,33 +346,55 @@ export function GeneralRulesSection(): JSX.Element {
   );
 }
 
-/* ── Top fields ──────────────────────────────────────────────────── */
+/* ── Top fields (per-category header) ─────────────────────────────── */
 
-function TopFields(): JSX.Element {
-  const header = useAdmissionSetupWizardStore((s) => s.header);
+interface TopFieldsProps {
+  categoryCode: string;
+  maritalOptions: ReadonlyArray<{ value: string; label: string }>;
+}
+
+function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Element {
+  const header = useAdmissionSetupWizardStore(
+    (s) => s.headers[categoryCode] ?? s.getHeader(categoryCode),
+  );
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
 
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
       <FieldLabel label="بداية التقديم">
         <DatePicker
           value={isoToDate(header.applicationStart)}
-          onChange={(d) => setHeaderField('applicationStart', dateToIso(d))}
+          onChange={(d) =>
+            setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
+          }
           placeholder="اختر اليوم…"
         />
       </FieldLabel>
       <FieldLabel label="نهاية التقديم">
         <DatePicker
           value={isoToDate(header.applicationEnd)}
-          onChange={(d) => setHeaderField('applicationEnd', dateToIso(d))}
+          onChange={(d) =>
+            setHeaderField(categoryCode, 'applicationEnd', dateToIso(d))
+          }
           placeholder="اختر اليوم…"
         />
       </FieldLabel>
       <FieldLabel label="تاريخ احتساب السن">
         <DatePicker
           value={isoToDate(header.ageReferenceDate)}
-          onChange={(d) => setHeaderField('ageReferenceDate', dateToIso(d))}
+          onChange={(d) =>
+            setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
+          }
           placeholder="اختر اليوم…"
+        />
+      </FieldLabel>
+      <FieldLabel label="الحالة الاجتماعية">
+        <MultiSelect
+          ariaLabel="الحالة الاجتماعية"
+          value={header.maritalStatus}
+          onChange={(next) => setHeaderField(categoryCode, 'maritalStatus', next)}
+          options={maritalOptions}
+          placeholder="اختر الحالة الاجتماعية…"
         />
       </FieldLabel>
     </div>
@@ -303,44 +417,32 @@ function dateToIso(d: Date | null): string {
 
 interface FieldLabelProps {
   label: string;
-  htmlFor?: string;
   children: React.ReactNode;
 }
 
-function FieldLabel({ label, htmlFor, children }: FieldLabelProps): JSX.Element {
+function FieldLabel({ label, children }: FieldLabelProps): JSX.Element {
   return (
     <div className="flex flex-col gap-1">
-      <label
-        htmlFor={htmlFor}
-        className="font-ar text-xs font-medium text-ink-700"
-      >
-        {label}
-      </label>
+      <span className="font-ar text-xs font-medium text-ink-700">{label}</span>
       {children}
     </div>
   );
 }
 
-/* ── Faculty accordion item ──────────────────────────────────────── */
+/* ── Faculty accordion item ───────────────────────────────────────── */
 
 interface FacultyItemProps {
   facultyCode: string;
   facultyNameAr: string;
   specializations: Array<{ code: string; name: string }>;
-  maritalOptions: ReadonlyArray<{ value: string; label: string }>;
-  gradeOptions: ReadonlyArray<{ value: string; label: string }>;
-  degreeOptions: ReadonlyArray<{ value: string; label: string }>;
-  committeeOptions: ReadonlyArray<CommitteeOption>;
+  options: PerSpecFormOptions;
 }
 
 function FacultyItem({
   facultyCode,
   facultyNameAr,
   specializations,
-  maritalOptions,
-  gradeOptions,
-  degreeOptions,
-  committeeOptions,
+  options,
 }: FacultyItemProps): JSX.Element {
   return (
     <Accordion.Item
@@ -368,6 +470,14 @@ function FacultyItem({
           <p className="font-ar text-xs text-ink-500">
             لا توجد تخصصات نشطة في هذه الكلية.
           </p>
+        ) : specializations.length === 1 ? (
+          <PerSpecForm
+            facultyCode={facultyCode}
+            facultyNameAr={facultyNameAr}
+            specializationCode={specializations[0]!.code}
+            specializationNameAr={specializations[0]!.name}
+            options={options}
+          />
         ) : (
           <Accordion.Root type="multiple" dir="rtl" className="flex flex-col gap-2">
             {specializations.map((spec) => (
@@ -377,10 +487,7 @@ function FacultyItem({
                 facultyNameAr={facultyNameAr}
                 specializationCode={spec.code}
                 specializationNameAr={spec.name}
-                maritalOptions={maritalOptions}
-                gradeOptions={gradeOptions}
-                degreeOptions={degreeOptions}
-                committeeOptions={committeeOptions}
+                options={options}
               />
             ))}
           </Accordion.Root>
@@ -390,17 +497,14 @@ function FacultyItem({
   );
 }
 
-/* ── Specialization accordion item ───────────────────────────────── */
+/* ── Specialization accordion item ────────────────────────────────── */
 
 interface SpecializationItemProps {
   facultyCode: string;
   facultyNameAr: string;
   specializationCode: string;
   specializationNameAr: string;
-  maritalOptions: ReadonlyArray<{ value: string; label: string }>;
-  gradeOptions: ReadonlyArray<{ value: string; label: string }>;
-  degreeOptions: ReadonlyArray<{ value: string; label: string }>;
-  committeeOptions: ReadonlyArray<CommitteeOption>;
+  options: PerSpecFormOptions;
 }
 
 function SpecializationItem({
@@ -408,10 +512,7 @@ function SpecializationItem({
   facultyNameAr,
   specializationCode,
   specializationNameAr,
-  maritalOptions,
-  gradeOptions,
-  degreeOptions,
-  committeeOptions,
+  options,
 }: SpecializationItemProps): JSX.Element {
   const value = `${facultyCode}::${specializationCode}`;
   return (
@@ -433,124 +534,129 @@ function SpecializationItem({
         </Accordion.Trigger>
       </Accordion.Header>
       <Accordion.Content className="border-t border-border-subtle px-3 py-3">
-        <SpecializationPanel
+        <PerSpecForm
           facultyCode={facultyCode}
           facultyNameAr={facultyNameAr}
           specializationCode={specializationCode}
           specializationNameAr={specializationNameAr}
-          maritalOptions={maritalOptions}
-          gradeOptions={gradeOptions}
-          degreeOptions={degreeOptions}
-          committeeOptions={committeeOptions}
+          options={options}
         />
       </Accordion.Content>
     </Accordion.Item>
   );
 }
 
-/* ── القواعد العامة form + per-spec grid ─────────────────────────── */
+function SpecHeader({
+  facultyNameAr,
+  specializationNameAr,
+}: {
+  facultyNameAr: string;
+  specializationNameAr: string;
+}): JSX.Element {
+  return (
+    <div className="mb-3 flex items-center gap-2 font-ar text-sm text-ink-700">
+      <span className="font-medium text-ink-900">{facultyNameAr}</span>
+      <span className="text-ink-400">·</span>
+      <span>{specializationNameAr}</span>
+    </div>
+  );
+}
 
-interface SpecializationPanelProps extends SpecializationItemProps {}
+/* ── Per-specialization form ─────────────────────────────────────── */
 
-const EMPTY_INPUT: GeneralRuleRowInput = {
-  type: [],
-  maritalStatus: [],
-  grade: '',
-  academicDegrees: [],
-  committees: [],
-  graduationYears: [],
-};
+interface PerSpecFormOptions {
+  categoryCode: string;
+  maritalOptions: ReadonlyArray<{ value: string; label: string }>;
+  gradeOptions: ReadonlyArray<SearchSelectOption>;
+  gradeRank: Map<string, number>;
+  degreeOptions: ReadonlyArray<SearchSelectOption>;
+  committeeOptions: ReadonlyArray<SearchSelectOption>;
+}
 
-function SpecializationPanel({
+interface PerSpecFormProps {
+  facultyCode: string;
+  facultyNameAr: string;
+  specializationCode: string;
+  specializationNameAr: string;
+  options: PerSpecFormOptions;
+}
+
+function PerSpecForm({
   facultyCode,
   facultyNameAr,
   specializationCode,
   specializationNameAr,
-  maritalOptions,
-  gradeOptions,
-  degreeOptions,
-  committeeOptions,
-}: SpecializationPanelProps): JSX.Element {
+  options,
+}: PerSpecFormProps): JSX.Element {
+  const {
+    categoryCode,
+    gradeOptions,
+    gradeRank,
+    degreeOptions,
+    committeeOptions,
+  } = options;
   const [draft, setDraft] = useState<GeneralRuleRowInput>(EMPTY_INPUT);
 
-  const addLocalRow = useAdmissionSetupWizardStore((s) => s.addLocalRow);
+  const addUniversityRow = useAdmissionSetupWizardStore(
+    (s) => s.addUniversityRow,
+  );
   const removeLocalRow = useAdmissionSetupWizardStore((s) => s.removeLocalRow);
   const rows = useAdmissionSetupWizardStore((s) =>
     s.local.filter(
-      (r) =>
+      (r): r is LocalUniversityRow =>
+        r.kind === 'university' &&
+        r.categoryCode === categoryCode &&
         r.facultyCode === facultyCode &&
         r.specializationCode === specializationCode,
     ),
   );
 
-  /**
-   * Committees visible in the اللجنة CheckboxGroup honour the selected
-   * النوع. النوع is a multi-select (`string[]`) — a committee passes
-   * the filter when its derived gender is included in the picked set,
-   * or when nothing is picked (empty array = "any"). We read the
-   * committee's `gender` field when present (set by the seed and the
-   * create form via `deriveCommitteeGender`) and fall back to the same
-   * helper when missing so the "طالبات" check has exactly one
-   * implementation across the app.
-   *
-   * Memoised against `(committeeOptions, draft.type)`. Stale picks that
-   * no longer match the filter are deselected in the النوع onChange
-   * handler below so `draft.committees` stays in sync with the visible
-   * options without a useEffect.
-   */
-  const filteredCommitteeOptions = useMemo(() => {
-    if (draft.type.length === 0) return committeeOptions;
-    const allowed = new Set(draft.type);
-    return committeeOptions.filter((c) =>
-      allowed.has(c.gender ?? deriveCommitteeGender(c.name)),
-    );
-  }, [committeeOptions, draft.type]);
+  /* ─── Validation ─── */
 
-  const isGenderFilterActive = draft.type.length > 0;
-  const isFilteredCommitteeListEmpty =
-    isGenderFilterActive && filteredCommitteeOptions.length === 0;
+  const gradeOrderInvalid =
+    draft.grade !== '' &&
+    draft.gradeMax !== '' &&
+    (gradeRank.get(draft.gradeMax) ?? Infinity) <
+      (gradeRank.get(draft.grade) ?? -Infinity);
 
-  /**
-   * Event-driven reconciliation of stale committee picks when النوع
-   * changes. Computes the next filter inline (the
-   * `filteredCommitteeOptions` memo still uses the previous `draft.type`
-   * until the state batch lands) and trims `draft.committees` to ids
-   * present in the new list. No confirmation modal — the dropdown
-   * visibly updates.
-   */
-  const handleGenderChange = (nextType: string[]): void => {
-    setDraft((d) => {
-      const nextAllowed =
-        nextType.length > 0
-          ? new Set(
-              committeeOptions
-                .filter((c) =>
-                  nextType.includes(c.gender ?? deriveCommitteeGender(c.name)),
-                )
-                .map((c) => c.id),
-            )
-          : null;
-      const nextCommittees = nextAllowed
-        ? d.committees.filter((id) => nextAllowed.has(id))
-        : d.committees;
-      return { ...d, type: nextType, committees: nextCommittees };
-    });
-  };
+  const scoreNegative =
+    (draft.scoreMin !== null && draft.scoreMin < 0) ||
+    (draft.scoreMax !== null && draft.scoreMax < 0);
+
+  const scoreOrderInvalid =
+    draft.scoreMin !== null &&
+    draft.scoreMax !== null &&
+    draft.scoreMax < draft.scoreMin;
 
   const canAdd =
     draft.type.length > 0 &&
-    draft.maritalStatus.length > 0 &&
     draft.grade.length > 0 &&
-    draft.academicDegrees.length > 0 &&
-    draft.committees.length > 0 &&
-    draft.graduationYears.length > 0;
+    draft.gradeMax.length > 0 &&
+    !gradeOrderInvalid &&
+    draft.scoreMin !== null &&
+    draft.scoreMax !== null &&
+    !scoreNegative &&
+    !scoreOrderInvalid &&
+    draft.academicDegree.length > 0 &&
+    draft.committee.length > 0 &&
+    draft.graduationYear !== null;
 
   const handleAdd = (): void => {
     if (!canAdd) return;
-    addLocalRow(
-      { facultyCode, facultyNameAr, specializationCode, specializationNameAr },
+    const result = addUniversityRow(
+      categoryCode,
+      {
+        facultyCode,
+        facultyNameAr,
+        specializationCode,
+        specializationNameAr,
+      },
       draft,
     );
+    if (!result.ok) {
+      toast('هذه القاعدة موجودة بالفعل بنفس البيانات', 'danger');
+      return;
+    }
     setDraft(EMPTY_INPUT);
     toast('تمت إضافة القاعدة محلياً', 'success');
   };
@@ -569,94 +675,140 @@ function SpecializationPanel({
             <MultiSelect
               ariaLabel="النوع"
               value={draft.type}
-              onChange={handleGenderChange}
+              onChange={(next) => setDraft((d) => ({ ...d, type: next }))}
               options={GENDER_OPTIONS}
               placeholder="اختر النوع…"
             />
           </FieldLabel>
 
-          <FieldLabel label="الحالة الاجتماعية">
-            <MultiSelect
-              ariaLabel="الحالة الاجتماعية"
-              value={draft.maritalStatus}
-              onChange={(next) =>
-                setDraft((d) => ({ ...d, maritalStatus: next }))
-              }
-              options={maritalOptions}
-              placeholder="اختر الحالة الاجتماعية…"
+          <FieldLabel label="الحد الأدنى للتقدير">
+            <SearchSelect
+              ariaLabel="الحد الأدنى للتقدير"
+              value={draft.grade || null}
+              onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
+              options={gradeOptions}
+              placeholder="اختر التقدير…"
             />
           </FieldLabel>
 
-          <FieldLabel label="الحد الأدنى للتقدير">
-            <Select
-              aria-label="الحد الأدنى للتقدير"
-              value={draft.grade}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, grade: e.target.value }))
+          <FieldLabel label="الحد الأقصى للتقدير">
+            <SearchSelect
+              ariaLabel="الحد الأقصى للتقدير"
+              value={draft.gradeMax || null}
+              onChange={(v) =>
+                setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
               }
-              options={[{ value: '', label: 'اختر…' }, ...gradeOptions]}
+              options={gradeOptions}
+              placeholder="اختر التقدير…"
+              invalid={gradeOrderInvalid}
             />
+            {gradeOrderInvalid && (
+              <span className="font-ar text-2xs text-terra-700">
+                يجب ألا يقل الحد الأقصى عن الحد الأدنى للتقدير.
+              </span>
+            )}
           </FieldLabel>
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <FieldLabel label="الحد الأدنى للدرجة">
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              placeholder="مثال: ٦٠"
+              value={draft.scoreMin ?? ''}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  scoreMin: e.target.value === '' ? null : Number(e.target.value),
+                }))
+              }
+              error={
+                draft.scoreMin !== null && draft.scoreMin < 0
+                  ? 'الدرجة غير قابلة للسالب'
+                  : undefined
+              }
+            />
+          </FieldLabel>
+
+          <FieldLabel label="الحد الأقصى للدرجة">
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              placeholder="مثال: ١٠٠"
+              value={draft.scoreMax ?? ''}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  scoreMax: e.target.value === '' ? null : Number(e.target.value),
+                }))
+              }
+              error={
+                draft.scoreMax !== null && draft.scoreMax < 0
+                  ? 'الدرجة غير قابلة للسالب'
+                  : scoreOrderInvalid
+                    ? 'يجب ألا تقل عن الحد الأدنى'
+                    : undefined
+              }
+            />
+          </FieldLabel>
+
           <FieldLabel label="الدرجة العلمية">
             {degreeOptions.length === 0 ? (
               <p className="font-ar text-2xs text-ink-500">
                 لا توجد درجات علمية مفعّلة في المراجع.
               </p>
             ) : (
-              <CheckboxGroup
-                options={degreeOptions}
-                value={draft.academicDegrees}
-                onChange={(next) =>
-                  setDraft((d) => ({ ...d, academicDegrees: next }))
+              <SearchSelect
+                ariaLabel="الدرجة العلمية"
+                value={draft.academicDegree || null}
+                onChange={(v) =>
+                  setDraft((d) => ({ ...d, academicDegree: v ?? '' }))
                 }
+                options={degreeOptions}
+                placeholder="اختر الدرجة العلمية…"
               />
             )}
           </FieldLabel>
+        </div>
 
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
           <FieldLabel label="اللجنة">
             {committeeOptions.length === 0 ? (
               <p className="font-ar text-2xs text-ink-500">
-                لا توجد لجان مرتبطة بفئة «الضباط المتخصصون».
-              </p>
-            ) : isFilteredCommitteeListEmpty ? (
-              <p
-                className="rounded-md border border-dashed border-border-subtle bg-ink-50/40 px-3 py-2 font-ar text-2xs text-ink-500"
-                aria-live="polite"
-              >
-                لا توجد لجان متاحة لهذا النوع
+                لا توجد لجان مرتبطة بهذه الفئة.
               </p>
             ) : (
-              <CheckboxGroup
-                options={filteredCommitteeOptions.map((c) => ({
-                  value: c.id,
-                  label: c.name,
-                }))}
-                value={draft.committees}
-                onChange={(next) =>
-                  setDraft((d) => ({ ...d, committees: next }))
+              <SearchSelect
+                ariaLabel="اللجنة"
+                value={draft.committee || null}
+                onChange={(v) =>
+                  setDraft((d) => ({ ...d, committee: v ?? '' }))
                 }
+                options={committeeOptions}
+                placeholder="اختر اللجنة…"
               />
             )}
           </FieldLabel>
 
           <FieldLabel label="سنة التخرج">
-            <CheckboxGroup
-              options={GRADUATION_YEAR_OPTIONS.map((o) => ({
-                value: o.value,
-                label: o.label,
-              }))}
-              value={draft.graduationYears.map(String)}
-              onChange={(next) =>
+            <SearchSelect
+              ariaLabel="سنة التخرج"
+              value={
+                draft.graduationYear !== null ? String(draft.graduationYear) : null
+              }
+              onChange={(v) =>
                 setDraft((d) => ({
                   ...d,
-                  graduationYears: next
-                    .map((v) => Number(v))
-                    .filter((n) => Number.isFinite(n)),
+                  graduationYear: v === null ? null : Number(v),
                 }))
               }
+              options={GRADUATION_YEAR_OPTIONS}
+              placeholder="اختر السنة…"
             />
           </FieldLabel>
         </div>
@@ -674,9 +826,8 @@ function SpecializationPanel({
         </div>
       </Card>
 
-      <LocalRulesGrid
+      <LocalUniversityGrid
         rows={rows}
-        maritalOptions={maritalOptions}
         gradeOptions={gradeOptions}
         degreeOptions={degreeOptions}
         committeeOptions={committeeOptions}
@@ -686,82 +837,31 @@ function SpecializationPanel({
   );
 }
 
-/* ── CheckboxGroup primitive ─────────────────────────────────────── *
- * Wrap-friendly multi-checkbox built on the shared <Checkbox /> Radix
- * wrapper. Lives inside this section because it is one-shot — promote
- * to shared/ only if a third caller appears. */
+/* ── Per-spec local rows grid ─────────────────────────────────────── */
 
-interface CheckboxGroupProps {
-  options: ReadonlyArray<{ value: string; label: string }>;
-  value: readonly string[];
-  onChange: (next: string[]) => void;
-}
-
-function CheckboxGroup({
-  options,
-  value,
-  onChange,
-}: CheckboxGroupProps): JSX.Element {
-  const selected = new Set(value);
-
-  const toggle = (v: string): void => {
-    const next = new Set(selected);
-    if (next.has(v)) next.delete(v);
-    else next.add(v);
-    onChange(Array.from(next));
-  };
-
-  if (options.length === 0) {
-    return <p className="font-ar text-2xs text-ink-500">لا توجد خيارات.</p>;
-  }
-
-  return (
-    <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto rounded-md border border-border-subtle bg-surface-card p-2">
-      {options.map((opt) => (
-        <Checkbox
-          key={opt.value}
-          checked={selected.has(opt.value)}
-          onCheckedChange={() => toggle(opt.value)}
-          label={opt.label}
-        />
-      ))}
-    </div>
-  );
-}
-
-/* ── Per-specialization local grid ───────────────────────────────── */
-
-interface LocalRulesGridProps {
-  rows: LocalGeneralRuleRow[];
-  maritalOptions: ReadonlyArray<{ value: string; label: string }>;
-  gradeOptions: ReadonlyArray<{ value: string; label: string }>;
-  degreeOptions: ReadonlyArray<{ value: string; label: string }>;
-  committeeOptions: ReadonlyArray<CommitteeOption>;
+interface LocalUniversityGridProps {
+  rows: LocalUniversityRow[];
+  gradeOptions: ReadonlyArray<SearchSelectOption>;
+  degreeOptions: ReadonlyArray<SearchSelectOption>;
+  committeeOptions: ReadonlyArray<SearchSelectOption>;
   onDelete: (id: string) => void;
 }
 
-function LocalRulesGrid({
+function LocalUniversityGrid({
   rows,
-  maritalOptions,
   gradeOptions,
   degreeOptions,
   committeeOptions,
   onDelete,
-}: LocalRulesGridProps): JSX.Element {
-  const labelForType = (v: string): string =>
-    GENDER_OPTIONS.find((o) => o.value === v)?.label ?? v;
-  const labelForTypes = (values: readonly string[]): string =>
-    values.length === 0 ? '—' : values.map(labelForType).join('، ');
-  const labelForMarital = (v: string): string =>
-    maritalOptions.find((o) => o.value === v)?.label ?? v;
-  const labelForMaritals = (values: readonly string[]): string =>
-    values.length === 0 ? '—' : values.map(labelForMarital).join('، ');
+}: LocalUniversityGridProps): JSX.Element {
   const labelForGrade = (v: string): string =>
     gradeOptions.find((o) => o.value === v)?.label ?? v;
   const labelForDegree = (v: string): string =>
     degreeOptions.find((o) => o.value === v)?.label ?? v;
-  const labelForCommittee = (id: string): string =>
-    committeeOptions.find((c) => c.id === id)?.name ?? id;
+  const labelForCommittee = (v: string): string =>
+    committeeOptions.find((o) => o.value === v)?.label ?? v;
+  const labelForType = (v: string): string =>
+    GENDER_OPTIONS.find((o) => o.value === v)?.label ?? v;
 
   if (rows.length === 0) {
     return (
@@ -777,8 +877,10 @@ function LocalRulesGrid({
         <thead className="bg-ink-50/80">
           <tr>
             <Th>النوع</Th>
-            <Th>الحالة الاجتماعية</Th>
             <Th>الحد الأدنى للتقدير</Th>
+            <Th>الحد الأقصى للتقدير</Th>
+            <Th>الحد الأدنى للدرجة</Th>
+            <Th>الحد الأقصى للدرجة</Th>
             <Th>الدرجة العلمية</Th>
             <Th>اللجنة</Th>
             <Th>سنة التخرج</Th>
@@ -790,14 +892,32 @@ function LocalRulesGrid({
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-t border-border-subtle">
-              <Td>{labelForTypes(r.type)}</Td>
-              <Td>{labelForMaritals(r.maritalStatus)}</Td>
+              <Td>{r.type.length === 0 ? '—' : r.type.map(labelForType).join('، ')}</Td>
               <Td>{labelForGrade(r.grade)}</Td>
-              <Td>{r.academicDegrees.map(labelForDegree).join('، ')}</Td>
+              <Td>{labelForGrade(r.gradeMax)}</Td>
               <Td>
-                {r.committees.map((id) => labelForCommittee(id)).join('، ')}
+                {r.scoreMin !== null ? toEasternArabicNumerals(r.scoreMin) : '—'}
               </Td>
-              <Td>{r.graduationYears.map((y) => toEasternArabicNumerals(y)).join('، ')}</Td>
+              <Td>
+                {r.scoreMax !== null ? toEasternArabicNumerals(r.scoreMax) : '—'}
+              </Td>
+              <Td>
+                {r.academicDegrees.length === 0
+                  ? '—'
+                  : r.academicDegrees.map(labelForDegree).join('، ')}
+              </Td>
+              <Td>
+                {r.committees.length === 0
+                  ? '—'
+                  : r.committees.map(labelForCommittee).join('، ')}
+              </Td>
+              <Td>
+                {r.graduationYears.length === 0
+                  ? '—'
+                  : r.graduationYears
+                      .map((y) => toEasternArabicNumerals(y))
+                      .join('، ')}
+              </Td>
               <td className="px-3 py-2 align-middle text-end">
                 <button
                   type="button"

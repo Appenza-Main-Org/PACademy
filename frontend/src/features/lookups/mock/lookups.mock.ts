@@ -23,6 +23,7 @@ import type {
   ApplicantCategoryRow,
   ApplicantDivisionRow,
   CommitteeRow,
+  ExamRoundRow,
   FacultyRow,
   GovernorateRow,
   JobRow,
@@ -952,6 +953,17 @@ const academicDegrees: AcademicDegreeRow[] = [
  *  this directly instead of going through `useLookup('academic-degrees')`. */
 export const ACADEMIC_DEGREES: ReadonlyArray<AcademicDegreeRow> = academicDegrees;
 
+/* ─── 22. exam-rounds — دور الامتحان ────────────────────────────────────
+ *
+ * Two-round Thanaweya structure. Picked by the Thanaweya admission rules
+ * form so admins can scope a row to applicants who passed in either the
+ * first or the second round. */
+
+const examRounds: ExamRoundRow[] = [
+  { code: 'ROUND-01', name: 'الدور الأول',  ...active },
+  { code: 'ROUND-02', name: 'الدور الثاني', ...active },
+];
+
 /* ─── Aggregate — `MOCK.lookups[key]` ────────────────────────────────── */
 
 export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
@@ -977,4 +989,5 @@ export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
   'marital-statuses': maritalStatuses,
   'academic-grades': academicGrades,
   'academic-degrees': academicDegrees,
+  'exam-rounds': examRounds,
 };

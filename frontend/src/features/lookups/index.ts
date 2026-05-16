@@ -49,6 +49,7 @@ export {
   type MaritalStatusRow,
   type AcademicGradeRow,
   type AcademicDegreeRow,
+  type ExamRoundRow,
   type DeleteResult,
 } from './types';
 

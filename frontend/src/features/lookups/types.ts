@@ -38,6 +38,7 @@ export const LOOKUP_KEYS = [
   'marital-statuses',
   'academic-grades',
   'academic-degrees',
+  'exam-rounds',
 ] as const;
 
 export type LookupKey = (typeof LOOKUP_KEYS)[number];
@@ -88,6 +89,7 @@ export const LOOKUP_SECTIONS = [
       'marital-statuses',
       'academic-grades',
       'academic-degrees',
+      'exam-rounds',
     ] as const,
   },
   {
@@ -130,6 +132,7 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'marital-statuses':             { label: 'الحالة الاجتماعية',            codePrefix: 'MAR', padding: 2 },
   'academic-grades':              { label: 'التقدير الأكاديمي',             codePrefix: 'AGR', padding: 2 },
   'academic-degrees':             { label: 'الدرجة العلمية',                codePrefix: 'DEG', padding: 2 },
+  'exam-rounds':                  { label: 'دور الامتحان',                  codePrefix: 'ROUND', padding: 2 },
 };
 
 /* ─── Per-row base ───────────────────────────────────────────────────── */
@@ -373,6 +376,11 @@ export interface AcademicGradeRow extends LookupRowBase {
  *  form to scope which academic degree the committee evaluates. */
 export interface AcademicDegreeRow extends LookupRowBase {}
 
+/** Exam-round lookup row (دور الامتحان). Used by the Thanaweya admission
+ *  rules form to pick "first round" vs "second round" results when the
+ *  applicant submits their school transcript. */
+export interface ExamRoundRow extends LookupRowBase {}
+
 /* ─── Mapped type: discriminated union over LookupKey ─────────────── */
 
 export interface LookupRowMap {
@@ -398,6 +406,7 @@ export interface LookupRowMap {
   'marital-statuses': MaritalStatusRow;
   'academic-grades': AcademicGradeRow;
   'academic-degrees': AcademicDegreeRow;
+  'exam-rounds': ExamRoundRow;
 }
 
 export type LookupRow<K extends LookupKey = LookupKey> = LookupRowMap[K];
