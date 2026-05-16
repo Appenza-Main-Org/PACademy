@@ -93,7 +93,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     routeSegment: 'committees',
     icon: ShieldCheck,
     permission: 'admission-setup:read',
-    reuses: 'features/committees/pages/CommitteeListPage.tsx',
+    reuses: 'features/admin/admission-setup/pages/CommitteesManagementPage.tsx',
     isImplemented: true,
     subtitleAr: 'إنشاء اللجان وتعيين الرؤساء والأعضاء وربطها بمواعيد الاختبارات.',
   },

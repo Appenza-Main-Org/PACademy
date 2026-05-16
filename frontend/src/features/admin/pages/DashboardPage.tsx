@@ -169,7 +169,7 @@ export function DashboardPage(): JSX.Element {
                 label="إدارة فئات القبول"
               />
               <QuickAction
-                to={ROUTES.committee.list}
+                to={ROUTES.admin.adminLookupsType('committees')}
                 icon={<Users2 size={18} strokeWidth={1.75} />}
                 label="إدارة اللجان"
               />

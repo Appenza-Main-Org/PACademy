@@ -165,7 +165,7 @@ export function CommitteeDetailPage(): JSX.Element {
         title={committee.name}
         subtitle={`رئيس اللجنة: ${committee.head} · الأعضاء: ${committee.members}`}
         breadcrumbs={[
-          { label: 'لجان القبول', href: ROUTES.committee.list },
+          { label: 'اللجان', href: ROUTES.admin.adminLookupsType('committees') },
           { label: committee.name },
         ]}
         actions={
