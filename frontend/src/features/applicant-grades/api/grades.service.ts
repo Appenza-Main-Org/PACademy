@@ -349,11 +349,10 @@ export const gradesService = {
         sourceRowIndex: row.sourceRowIndex,
       };
 
-      if (!row.nationalId || !row.nameAr || !row.track) {
+      if (!row.nationalId || !row.nameAr) {
         const missing = [
           !row.nationalId ? 'الرقم القومي' : null,
           !row.nameAr ? 'الاسم' : null,
-          !row.track ? 'الشعبة' : null,
         ]
           .filter((x): x is string => x !== null)
           .join(' · ');

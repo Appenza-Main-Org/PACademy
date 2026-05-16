@@ -21,10 +21,10 @@ import { downloadTemplateWorkbook } from '../../../lib/buildTemplateWorkbook';
 const MB = 1024 * 1024;
 const SIZE_LIMITS_MB: Record<string, number> = {
   '.mdb': 500,
-  '.accdb': 100,
-  '.xlsx': 10,
-  '.xls': 10,
-  '.csv': 10,
+  '.accdb': 500,
+  '.xlsx': 500,
+  '.xls': 500,
+  '.csv': 500,
 };
 
 function matchExtension(fileName: string): string | null {

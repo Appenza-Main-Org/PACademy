@@ -15,7 +15,7 @@
  * memory prompts the admin via AlertDialog before bailing.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -61,6 +61,17 @@ export function ApplicantGradesImportPage(): JSX.Element {
 
   const [confirmCancel, setConfirmCancel] = useState(false);
   const commit = useApplicantGradesCommit();
+
+  /* Safety rail: the `File` + `ParsedSheet` slices of the store are
+   * deliberately not persisted (File objects can't be serialised), so
+   * arriving at the wizard with a persisted `step > 1` but a missing
+   * file means a prior session was abandoned. Snap back to Step 1
+   * instead of rendering a broken Step 2/3/4/5/6 against null data. */
+  useEffect(() => {
+    if (step > 1 && file == null) {
+      setStep(1);
+    }
+  }, [step, file, setStep]);
 
   const table = useMemo(
     () => parsed?.tables.find((t) => t.name === selectedTableName) ?? null,

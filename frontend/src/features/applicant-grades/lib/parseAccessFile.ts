@@ -95,7 +95,6 @@ const GENERAL_MAP: ColumnMap = {
     'arabic_name',
     'school_name',
     'moderia_name',
-    'branch_desc_new',
     'total_degree',
     'student_case_desc',
   ],
@@ -116,7 +115,6 @@ const AZHAR_MAP: ColumnMap = {
   required: [
     'StSeatNo',
     'StudenName',
-    'DevisionName',
     'National_Code',
     'ZonName',
     'InstituteName',

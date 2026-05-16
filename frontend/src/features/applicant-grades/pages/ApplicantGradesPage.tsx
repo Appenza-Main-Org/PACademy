@@ -54,6 +54,7 @@ import { downloadBlob } from '@/shared/lib/download';
 import { useApplicantGradesList, useGrades } from '../api/grades.queries';
 import { gradesService } from '../api/grades.service';
 import { downloadTemplateWorkbook } from '../lib/buildTemplateWorkbook';
+import { useImportWizardStore } from '../store/importWizard.store';
 import { AddAdjustmentDialog } from '../components/AddAdjustmentDialog';
 import { LogDrawer } from '../components/LogDrawer';
 import { StudentDetailsDrawer } from '../components/StudentDetailsDrawer';
@@ -82,6 +83,18 @@ function useDebouncedValue<T>(value: T, ms: number): T {
 export function ApplicantGradesPage(): JSX.Element {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const resetImportWizard = useImportWizardStore((s) => s.reset);
+
+  /* Every "استيراد ملف" entry resets the wizard before navigating.
+   * The persisted sessionStorage state is only there to survive an
+   * accidental refresh mid-flow — starting a new import deliberately
+   * should always begin at Step 1 with the prior File reference gone
+   * (File objects don't survive a navigation anyway, so resuming a
+   * past session at Step 5 would land in a broken empty state). */
+  const startNewImport = (): void => {
+    resetImportWizard();
+    navigate(ROUTES.admin.applicantGradesImport);
+  };
 
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
   const sizeFromUrl = Number(searchParams.get('size') ?? DEFAULT_PAGE_SIZE);
@@ -411,7 +424,7 @@ export function ApplicantGradesPage(): JSX.Element {
             <Button
               variant="primary"
               leadingIcon={<Upload size={14} strokeWidth={1.75} />}
-              onClick={() => navigate(ROUTES.admin.applicantGradesImport)}
+              onClick={startNewImport}
             >
               استيراد ملف
             </Button>
@@ -420,7 +433,7 @@ export function ApplicantGradesPage(): JSX.Element {
       />
 
       {isEmpty ? (
-        <EmptyGradesCard onImport={() => navigate(ROUTES.admin.applicantGradesImport)} />
+        <EmptyGradesCard onImport={startNewImport} />
       ) : (
         <>
           <div

@@ -113,7 +113,7 @@ export const TARGET_FIELDS: readonly TargetFieldDescriptor[] = [
   {
     key: 'track',
     labelAr: 'الشعبة',
-    required: true,
+    required: false,
     synonyms: [
       'الشعبه',
       'الشعبة',

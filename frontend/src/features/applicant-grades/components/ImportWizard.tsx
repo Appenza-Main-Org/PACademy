@@ -300,10 +300,10 @@ const ACCEPTED_EXTENSIONS: Record<'general' | 'azhar', readonly string[]> = {
  */
 const SIZE_LIMITS_MB: Record<string, number> = {
   '.mdb': 500,
-  '.accdb': 100,
-  '.xlsx': 10,
-  '.xls': 10,
-  '.csv': 10,
+  '.accdb': 500,
+  '.xlsx': 500,
+  '.xls': 500,
+  '.csv': 500,
 };
 
 const MB = 1024 * 1024;
@@ -1641,14 +1641,12 @@ const REQUIRED_COLUMNS: Record<'general' | 'azhar', readonly string[]> = {
     'arabic_name',
     'school_name',
     'moderia_name',
-    'branch_desc_new',
     'total_degree',
     'student_case_desc',
   ],
   azhar: [
     'StSeatNo',
     'StudenName',
-    'DevisionName',
     'National_Code',
     'ZonName',
     'InstituteName',
