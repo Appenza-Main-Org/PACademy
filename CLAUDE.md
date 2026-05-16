@@ -6,12 +6,26 @@
 
 ## 1. What this project is
 
-**منظومة القبول · أكاديمية الشرطة** — the production frontend for the Egyptian Police Academy Admissions Platform. A single-page React application that unifies **9 connected applications** behind a single shell, organised across **3 surfaces** (PUBLIC / APPLICANT / STAFF), with **11 RBAC roles** and ~80 routes, fully **RTL Arabic-first** UI.
+**منظومة القبول · أكاديمية الشرطة** — the production frontend for the Egyptian Police Academy Admissions Platform. A single-page React application that unifies **9 connected applications** behind a single shell, organised across **3 surfaces** (PUBLIC / APPLICANT / STAFF), with **11 RBAC roles** and ~110 routes, fully **RTL Arabic-first** UI.
 
 - **Owner:** وزارة الداخلية · أكاديمية الشرطة (Ministry of Interior · Police Academy)
 - **Built by:** Appenza Studio — Engineering Manager: Mortada
-- **Status:** Frontend feature-complete; design polish complete (`polish-complete` tag, 2026-05-03); backend kickoff is the next workstream.
-- **Demo deadline:** 2026-05-29 (~4 weeks out). The polish program (docs/POLISH_REPORT.md) was sized against this date.
+- **Status:** Frontend feature-complete; design polish complete (`polish-complete` tag, 2026-05-03); major scope-alignment + admission-setup-wizard + lookups + admin-users-NID + applicant-grades work landed through 2026-05-16. Backend kickoff is the next workstream.
+- **Demo deadline:** 2026-05-29 (~2 weeks out). The polish program (docs/POLISH_REPORT.md) was sized against this date.
+- **Live demo:** https://appenzademo.com (the old `pa-cademy.vercel.app` URL is dead).
+- **Deploy:** Vercel, configured by [vercel.json](vercel.json) at the repo root — installs + builds the `frontend/` workspace, serves `frontend/dist`, SPA-rewrites every path to `/index.html`, and sets long-cache headers for `/assets/*`.
+
+### Milestone tags (baselines that docs reference)
+
+| Tag | What shipped |
+|---|---|
+| `polish-complete` (2026-05-03) | 4-phase polish program — see [docs/POLISH_REPORT.md](docs/POLISH_REPORT.md) |
+| `admin-gaps-complete` / `admin-gaps-verified` (2026-05-07) | 13 admin gaps A–M shipped + verified — see [Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md](Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md), [docs/VERIFICATION_REPORT.md](docs/VERIFICATION_REPORT.md), [docs/INTEGRATION_HANDOFF.md](docs/INTEGRATION_HANDOFF.md) |
+| `applicant-flow-aligned` / `applicant-flow-verified` (2026-05-09) | 17 applicant-flow gaps AF-1 → AF-17 shipped + verified — see [docs/APPLICANT_FLOW_ALIGNMENT_REPORT.md](docs/APPLICANT_FLOW_ALIGNMENT_REPORT.md), [docs/APPLICANT_FLOW_VERIFICATION_REPORT.md](docs/APPLICANT_FLOW_VERIFICATION_REPORT.md) |
+| `v0.2.0-demo` | first internal demo cut |
+| (untagged, 2026-05-12 → 2026-05-16) | admission-setup wizard + lookups + admin-users-NID + applicant-grades — see §11 |
+
+The doc baselines point at these tags — when reading `docs/*REPORT.md`, treat the named tag as the snapshot the doc was written against. Code may have moved since.
 
 ### Monorepo layout (as of 2026-05-07)
 
@@ -64,12 +78,20 @@ The app is a **production-grade rebuild** of a vanilla HTML/JS demo (preserved u
 
 ### Scripts (run from `frontend/`, or use `npm --prefix frontend run <script>`)
 ```bash
-npm run dev         # vite dev server → http://localhost:5173 (auto-opens)
-npm run typecheck   # tsc --noEmit (must be 0 errors)
-npm run build       # tsc -b && vite build → dist/
-npm run preview     # serve built bundle
-npm run lint        # eslint (config not yet committed; planned)
+npm run dev               # vite dev server → http://localhost:5173 (auto-opens)
+npm run typecheck         # tsc --noEmit (must be 0 errors)
+npm run build             # tsc -b && vite build → dist/
+npm run preview           # serve built bundle
+npm run lint              # eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0
+                          #   (config not yet committed — Sprint 10 hardening)
+npm run test:routes       # scripts/test-routes.mjs — smoke-test every route returns 200 against localhost:5173
+npm run test:routes:prod  # same, against the deployed URL (script default; override with arg)
 ```
+
+### Notable dependencies (added since the Sprint 0 baseline)
+- **@dnd-kit/core + sortable + utilities** — drag-and-drop reordering (exam plan editor, LookupTree).
+- **@radix-ui/react-*** — 10 primitives: `accordion`, `alert-dialog`, `checkbox`, `collapsible`, `dialog`, `dropdown-menu`, `popover`, `select`, `switch`, `tabs`, `tooltip`. The sanctioned set is documented in [Tasks/RADIX_ADOPTION_REPORT.md](Tasks/RADIX_ADOPTION_REPORT.md).
+- **mdb-reader + xlsx + buffer** — applicant-grades parses `.mdb` / `.accdb` / `.xlsx` / `.xls` / `.csv`. Both parsers are **lazy-loaded** (dynamic `import()`) so they don't block prod boot.
 
 ---
 
@@ -147,21 +169,33 @@ frontend/src/
 │   ├── profile/          /profile (any authenticated user)
 │   ├── architecture/     /architecture (route still registered; UI entry points hidden — direct URL only)
 │   ├── design-revamp/    /design-revamp (internal before/after viewer)
-│   ├── admin/            17+ sub-routes — DashboardPage, ReportsPage (command-center),
+│   ├── admin/            20+ sub-routes — DashboardPage, ReportsPage (command-center),
 │   │                     Applicants/Users/Audit/Settings, Cycles, Categories,
-│   │                     Workflows, AdmissionRules, ReferenceData
+│   │                     Workflows, AdmissionRules + admission-setup/ wizard
+│   │                     (6 steps: application_settings, fees, exams, committees,
+│   │                     notifications, electronic_declaration) + users/ (NID-driven
+│   │                     create + RolesPage over cloud permission matrix)
+│   ├── applicant-grades/ /admin/applicant-grades — import (.mdb/.accdb/.xlsx/.xls/.csv)
+│   │                     + adjustments console. Lazy-loaded parsers (mdb-reader, xlsx)
+│   ├── lookups/          /admin/lookups — 22 typed lookups in 5 sections.
+│   │                     Drawer-based add/edit, FK-guarded delete, sortable + inline
+│   │                     status toggle, mapping screens. Replaces reference-data
 │   ├── applicant-portal/ Pre-wizard gate (`/applicant/start`, `/eligibility`, `/tests`)
 │   │                     + 11-stage Wizard (`/applicant/auth/step-1` … `/acquaintance-doc`)
 │   ├── applicants/       Shared applicant service+queries (consumed by admin)
-│   ├── audit/            service + queries
-│   ├── committees/       overview, list, schedule, create, :id detail — all served under `/admin/committee/*` and rendered inside AdminLayout
+│   ├── audit/            service + queries — expanded detail parsing, status pill, coherent details
+│   ├── committees/       overview, list, schedule, create, :id detail/edit/applicants —
+│   │                     all served under `/admin/committee/*` and rendered inside AdminLayout.
+│   │                     `categoryKey` + `gradeType` domain model; 12 seeded committees
+│   │                     grouped by category tabs; CommitteeBindingMatrix (8 conflict codes)
 │   ├── board/            overview, sessions list/create/live, decisions, members
 │   ├── investigations/   cases, incoming, outgoing, distribution, create, detail
 │   ├── medical/          overview, queue, results, station/:key, certificate
 │   ├── barcode/          generate, lookup, batch, scan, replace, scans-history
 │   ├── biometric/        verify, enroll, history, verify-ops, monitoring
-│   └── exams/            QuestionBank (CRUD), Exams list, Exam create/detail/take/proctor,
-│                         dedicated /question-bank/proctor landing, results
+│   ├── exams/            QuestionBank (CRUD), Exams list, Exam create/detail/take/proctor,
+│   │                     dedicated /question-bank/proctor landing, results
+│   └── dev/              /_dev/primitives, /_dev/lookups, /_dev/app-settings review pages
 │
 ├── shared/               ⭐ Cross-cutting code (NEVER imports from features/)
 │   ├── components/       Button, Card, Badge, Input, Select, Avatar, Skeleton,
@@ -230,13 +264,16 @@ The app is organised across **3 surfaces**:
 | `/design-revamp` | RevampComparisonPage | `architecture` |
 | `/admin` | AdminIndexRoute (super_admin → ReportsPage; others → DashboardPage) | `admin` |
 | `/admin/applicants` `/new` `/:id` `/:id/edit` | Applicants* | `admin` |
-| `/admin/users` `/audit` `/settings` `/reports` | Users / Audit / Settings / Reports | `admin` |
-| `/admin/reference-data` `/:tab` | ReferenceDataPage | `admin` |
-| `/admin/admission-rules` | AdmissionRulesPage | `admin` |
-| `/admin/cycles` `/new` `/:id` | Cycles* | `admin` |
-| `/admin/categories` `/:key` | Categories* | `admin` |
+| `/admin/applicant-grades` | ApplicantGradesPage (import + adjustments console) | `admin` |
+| `/admin/users` `/new` `/:id` `/:id/edit` `/roles` | Users* (NID-driven create) + RolesPage (cloud permission matrix) | `admin` |
+| `/admin/audit` `/settings` `/reports` `/notifications` `/payments` | Audit / Settings / Reports / Notifications / Payments | `admin` |
+| `/admin/lookups` `/:typeCode` `/mappings/:kind` | LookupsHubPage (22 typed lookups in 5 sections) — replaces `/admin/reference-data` (redirects) | `admin` |
+| `/admin/admission-rules` | AdmissionRulesPage — **UI entry points hidden** (direct URL only) | `admin` |
+| `/admin/admission-setup` `/wizard/:stepKey` (+ 6 step routes) | Admission-Setup wizard (top-stepper, 6 steps: application_settings → fees → exams → committees → notifications → electronic_declaration) | `admin` (perm `admission-setup:read`) |
+| `/admin/cycles` `/new` `/:id` | Cycles* (single-active-cycle guard; inline status edit; one-click activation swap) | `admin` |
+| `/admin/categories` `/new` `/:key` | Categories* (locked to RFP 4-category set; dedicated /new page) | `admin` |
 | `/admin/workflows` `/new` `/:id` | Workflow editor | `admin` |
-| `/admin/committee` `/list` `/schedule` `/create` `/:id` | Committee* (renders inside `AdminLayout` chrome; `/committee/*` legacy URLs redirect here) | `committee` |
+| `/admin/committee` `/list` `/schedule` `/create` `/:id` `/:id/edit` `/:id/applicants` | Committee* (renders inside `AdminLayout` chrome; `/committee/*` legacy URLs redirect here; `/schedule` is the per-cycle exam-schedule planner) | `committee` |
 | `/board` `/sessions` `/sessions/create` `/sessions/:id/live` `/decisions` `/members` (+ `*-legacy`) | Board* | `board` |
 | `/investigations` `/incoming` `/outgoing` `/distribution` `/create` `/cases/:id` | Investigations* | `investigations` |
 | `/medical` `/queue` `/results` `/station/:key` `/certificate` | Medical* | `medical` |
@@ -457,6 +494,46 @@ Mini Zustand-backed toast in [frontend/src/shared/components/Toast.tsx](frontend
 - **`/architecture` hidden from chrome.** Removed the "System Architecture" link from `AppShell` header and the "معمارية النظام" entry from `CommandPalette`. The route itself stays registered, so direct URL access still works.
 - **Popover scroll fix** in `Combobox` and `MultiSelect`: the global capture-phase scroll listener used to close the popover on **any** scroll, including scrolling the popover's own option list. Both now ignore scroll events whose target is inside `popoverRef.current`. Outer-page scrolls still close the popover (it's `position: fixed`, so it'd otherwise detach from its trigger). Hit by `/admin/users/new` role picker.
 
+✅ **Done (scope-alignment + admission-setup wizard, 2026-05-12 → 2026-05-16)**
+
+- **Admission-Setup wizard** at `/admin/admission-setup`. Cycle picker landing → top-stepper wizard (`/admin/admission-setup/wizard/:stepKey`). Config-driven step registry in [frontend/src/features/admin/admission-setup/config.ts](frontend/src/features/admin/admission-setup/config.ts) — single source of truth for sidebar/breadcrumb/route order. **Six steps** ship interactive content: `application_settings` → `fees` → `exams` → `committees` (with Add/View sub-tabs labelled 4.1/4.2) → `notifications` → `electronic_declaration`. Earlier age, marital, application_status, and total-grade steps were folded into `application_settings` and dropped. Cycle metadata (name/year/dates) is **not** a wizard step — admins enter the wizard by selecting an already-configured cycle from `/admin/cycles`. New `admission-setup:read|write` typed permissions in [frontend/src/features/auth/rbac.ts](frontend/src/features/auth/rbac.ts).
+
+- **Application Settings (شروط التخصص)** — per-category year-row schema with discriminated-union `gradeKind` ("percentage" vs branched per-track grade), multi-gender, multi-marital, multi-graduation-years (`graduationYears`), max-age (no min). Faculty/specialization conditions where the النوع field is a multi-select; faculty/specialization columns surfaced on the approved-rules grid. Conflict banner for misaligned existing rows. Service-level `GRADE_MODE_MISMATCH` enforcement. Inline pill toggle + chevron-down on expand. Bulk-save bar + unsaved-changes prompt. See [frontend/src/features/admin/admission-setup/components/applicationSettings/](frontend/src/features/admin/admission-setup/components/applicationSettings/).
+
+- **Lookup Management Module** (`/admin/lookups`) — replaces `/admin/reference-data` (which now redirects). 22 typed lookups grouped into 5 sections (kinship · الكليات · التخصصات · process · geography/admin). Each lookup has a typed per-key row shape via `LookupRow<K>`. Drawer-based add/edit ([frontend/src/features/lookups/components/LookupFormDrawer.tsx](frontend/src/features/lookups/components/LookupFormDrawer.tsx)), FK-guarded delete, inline status toggle, sortable columns. Four mapping screens via `MappingMatrix`. `applicant-categories` lookup is locked to the RFP 4-category set; faculties + specializations reseeded from RFP scope list. `submission-types` has an FK guard to `applicant-categories`. English code column hidden from admin UI — Arabic names only. Status labels use "نشط / غير نشط" across all 18+ lookups. See [frontend/src/features/lookups/index.ts](frontend/src/features/lookups/index.ts) and [docs/lookups/](docs/lookups/) migration report.
+
+- **Admin Users NID-driven flow** — new `/admin/users/new` (NID lookup), `/admin/users/:id`, `/admin/users/:id/edit`, and `/admin/users/roles`. Role multi-select, status toggle, role-conflict rules, audit emissions, a11y. RolesPage rebuilt over a new **cloud permission matrix** ([frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts)) — closed union of `admin` + `applicant` sections only. **Operational on-prem modules (committees, medical, investigations, board, exams, biometric, barcode, workflows) are intentionally absent — they deploy on the Ministry's on-prem cluster with a separate RBAC surface.** Don't extend this matrix to cover them. super_admin creation pre-enables all permissions; every permission checkbox is selectable.
+
+- **Applicant Grades** (`/admin/applicant-grades`) — per-cycle grades import + adjustments console. Real `FileReader`-driven upload (no `setInterval` simulation) of `.mdb` / `.accdb` / `.xlsx` / `.xls` / `.csv` with per-extension size limits, client-side validation, progress UI with cancel/retry. `mdb-reader` and `xlsx` are lazy-loaded so they don't block prod boot. Drawer-based row details, sortable on every column, search across all fields. See [frontend/src/features/applicant-grades/](frontend/src/features/applicant-grades/).
+
+- **Committee module expansion** — `categoryKey` + `gradeType` domain on `CommitteeRow`. 12 hand-written committees seeded grouped by category. CommitteeListPage groups by category tabs with inline edit dialog. `/admin/committee/schedule` page for per-cycle exam-schedule planning with editable capacity (`features/committees/pages/CommitteeSchedulePage.tsx` + new `examSchedule` service/queries). CommitteeBindingMatrix in admission-setup with **8 conflict codes** (`BINDING_*`) added to [docs/DB_CONSTRAINTS.md](docs/DB_CONSTRAINTS.md). Create form scoped to the active category; gender derived from category; max-percentage instead of fixed capacity; category-driven filters. `specialized_officers` category derives gender from the picked specialization.
+
+- **Cycles** — single-active-cycle invariant. Status-driven create form, capacity input slimmed, dropped notes/dates from create, one-click activation swap, segmented gender toggle. Inline status edit on list. Detail page trimmed to current field set.
+
+- **Categories** — dedicated `/admin/categories/new` page (modal replaced; old `/new` route redirects to list). Locked to RFP 4-category set. Form trimmed to name + description; English code column dropped from list. Edit page mirrors new-page form. Spec categories allow editing `labelAr`. Per-category gender + application window with academic-year validation.
+
+- **Reference-Data dropped → Lookups.** `referenceData` + `referenceDataRoot` keys in `ROUTES.admin` are marked `@deprecated`; routes redirect. Ranks tab dropped; specialties reparented under faculties. Colleges + qualifications tabs dropped.
+
+- **List-Actions** primitives — wired across 20 list pages. See `features/shared/list-actions/` and toolbar buttons matching page-header actions.
+
+- **Sidebar consolidation** — drops dashboard, categories, application-settings, committee-overview, committee-list entries from the admin sidebar in favor of the admission-setup wizard. Unified sidebar pattern across all 7 staff apps with hairline separators and full-viewport height. Collapsible group for admission-setup.
+
+- **AppShell + chrome** — dropped the deprecated `appLabel` pill from `AppShell`. Polished staff header toolbar rhythm. Active cycle in shell flipped to "دورة التقديم 2026".
+
+- **Audit** — expanded detail parsing (each row names section + action + target), status pill column, coherent details.
+
+- **Combobox/MultiSelect popover fixes** — added a `data-radix-popper-content-wrapper`-style marker so a portaled popover doesn't dismiss its host Radix Dialog/Sheet on option click. Manual scroll handling so `react-remove-scroll` can't block wheel events inside the popover when it's nested in a Radix Dialog.
+
+- **Modal / Drawer** — stopped tearing down the focus trap on every parent re-render (was causing flicker + dropped focus).
+
+- **DatePicker / DateRangePicker** — portal popover renders above modals, flips up when viewport is tight, clamps within viewport; weekday-label crowding + 2-digit-date crowding fixed.
+
+- **Dev review pages** — `/_dev/primitives`, `/_dev/lookups`, `/_dev/app-settings` (registered in `routes.tsx`, exported from [frontend/src/features/dev/](frontend/src/features/dev/)).
+
+- **`/admin/admission-rules` entry points hidden** (route still registered for direct URL).
+
+- **Wizard / step naming** — Arabic labels updated: "قواعد عامة" → "الشروط العامة"; "التقدير" → "الحد الأدنى للتقدير"; "نوع التقديم" badge dropped; "الإقرار الإلكتروني" now supports a PDF upload alongside the rich-text mode; graduation year rendered as Eastern Arabic numerals.
+
 🚧 **Next sprints**
 - **Sprint 10 — Hardening**: Vitest + Testing Library, Playwright smoke E2E, `eslint-plugin-boundaries`, Husky pre-commit, accessibility audit, print polish.
 - **Backend integration** (post-demo): replace `simulateLatency()` + `MOCK` reads in every `*.service.ts` with real `apiClient.get/post(...)` calls. See §6 for the integration pattern. Component/query/type contracts stay unchanged.
@@ -479,6 +556,10 @@ Mini Zustand-backed toast in [frontend/src/shared/components/Toast.tsx](frontend
 12. **§4 two-phase signature canon** (PRODUCT.md §4): any "preliminary save" affordance uses the dashed `border-gold-300 bg-gold-50 text-gold-700` notice shape; any "final / approved / معتمد" Badge carries the `<IconStamp width={12} height={12} />` glyph on the start edge. Don't invent new affordances for the same workflow.
 13. **App.tsx auto-seeds a super_admin demo user** (`ensureDemoUser()`). To verify `/staff-login` visually, temporarily disable that block — `LoginPage` redirects authenticated users straight to `/hub`.
 14. **Terminology — use "RFP Scope Document" not "karasa"** in code, comments, and user-facing copy. The `Tasks/KARASA_GAPS.md` filename stays for git-history continuity, but the term inside is "RFP Scope Document."
+15. **Admission-Setup is config-driven.** Don't hand-edit the sidebar, routes table, or breadcrumbs to add a step — append to `ADMISSION_SETUP_STEPS` in [frontend/src/features/admin/admission-setup/config.ts](frontend/src/features/admin/admission-setup/config.ts) and the rest follows. Cycle metadata is **never** a step; admins pick a cycle from `/admin/cycles` before entering the wizard.
+16. **Cloud-vs-on-prem RBAC split.** The cloud permission matrix in [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) is **deliberately closed** — only `admin` + `applicant` sections. Operational on-prem modules (committees, medical, investigations, board, exams, biometric, barcode, workflows) have a separate RBAC on the on-prem deployment. Don't add their modules/actions here.
+17. **Lookups replaced reference-data.** Don't add new entries under `/admin/reference-data` — it redirects. New admin-managed reference values become lookups in [frontend/src/features/lookups/](frontend/src/features/lookups/).
+18. **Single active cycle.** The admin cycles UI enforces "one active cycle at a time" with a one-click swap when activating a new one. Don't add code that assumes multiple active cycles can coexist.
 
 ---
 
@@ -505,23 +586,59 @@ Mini Zustand-backed toast in [frontend/src/shared/components/Toast.tsx](frontend
 | Add an admin Reports section | new file under `frontend/src/features/admin/components/reports/` + import in `ReportsPage.tsx`; data via `reports.queries.ts` |
 | Notify the user from anywhere | Zustand notif store consumed by `<NotificationCenter />` (mounted in `AppShell`) |
 | Portal-based popover (Combobox/MultiSelect) | Outer-page scroll closes the popover; scrolls whose target is inside `popoverRef.current` are ignored so the option list can scroll. Replicate this guard in any new portal-anchored popover that has its own scrollable region. |
+| Add an admission-setup step | Append an entry to `ADMISSION_SETUP_STEPS` in [frontend/src/features/admin/admission-setup/config.ts](frontend/src/features/admin/admission-setup/config.ts) + add the route segment under `ROUTES.admin.admissionSetup` + create the page file. Sidebar/breadcrumbs/wizard nav derive automatically. |
+| Add a lookup | Add the key to `LOOKUP_KEYS` in [frontend/src/features/lookups/types.ts](frontend/src/features/lookups/types.ts) + extend `LookupRowMap` with the row shape + seed in [frontend/src/features/lookups/mock/lookups.mock.ts](frontend/src/features/lookups/mock/lookups.mock.ts) + place in a `LOOKUP_SECTIONS` group. CRUD UI is generated by `LookupsHubPage`. |
+| Change cloud RBAC | [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) — closed union of admin + applicant sections only. Do **not** add on-prem operational modules; they have a separate RBAC. |
+| Add a DB constraint / conflict code | [docs/DB_CONSTRAINTS.md](docs/DB_CONSTRAINTS.md) — frontend mock services throw typed `ConflictError` codes that the backend must mirror at integration time. |
+| Per-cycle exam schedule | [frontend/src/features/committees/pages/CommitteeSchedulePage.tsx](frontend/src/features/committees/pages/CommitteeSchedulePage.tsx); service+queries under `features/committees/api/examSchedule.*`. |
+| Live demo URL | https://appenzademo.com (`pa-cademy.vercel.app` is dead — don't link it). |
+| Smoke-test routes | `npm --prefix frontend run test:routes` (against localhost) or `:prod` (deployed). Driven by [frontend/scripts/test-routes.mjs](frontend/scripts/test-routes.mjs) — confirms SPA rewrite catches every direct-URL hit. |
+| Deploy config | [vercel.json](vercel.json) — `installCommand` + `buildCommand` scoped to `frontend/`; SPA rewrite + asset cache headers. |
+| Park tech-debt | [TODO.md](TODO.md) at repo root — durable record of deferred items, including the two intentional `: any` exceptions. |
 
 ---
 
 ## 14. Context-document index
 
-| Doc | Purpose | Status |
+### Live (read these before working in their area)
+
+| Doc | Purpose |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | This file — operating context for Claude Code (always read first) |
+| [PRODUCT.md](docs/PRODUCT.md) | Strategic context: users, brand, anti-references, §4 two-phase canon |
+| [DESIGN.md](docs/DESIGN.md) → [Tasks/DESIGN_SYSTEM.md](Tasks/DESIGN_SYSTEM.md) | Visual constitution — tokens, type, motion (read before any visual work) |
+| [docs/DB_CONSTRAINTS.md](docs/DB_CONSTRAINTS.md) | DB invariants + typed `ConflictError` codes the backend must mirror — read before opening any mutating service file |
+| [docs/INTEGRATION_HANDOFF.md](docs/INTEGRATION_HANDOFF.md) | Backend integration bible — every `*.service.ts` contract mapped to its real REST endpoint, every typed error mapped to its required response shape (baseline tag: `admin-gaps-verified`) |
+| [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | The script for the 2026-05-29 evaluator demo — the customer-facing narrative |
+| [Tasks/KARASA_GAPS.md](Tasks/KARASA_GAPS.md) | RFP Scope Document coverage map (filename retained; term inside is "RFP Scope Document") |
+| [Tasks/RADIX_ADOPTION_REPORT.md](Tasks/RADIX_ADOPTION_REPORT.md) | Inventory of sanctioned Radix primitives + composition patterns (referenced by §2.5) |
+| [TODO.md](TODO.md) | Durable tech-debt record — documented `: any` exceptions, parked follow-ups |
+| [docs/README.md](docs/README.md) | Public-facing README + quick-start |
+| [docs/INDEX.md](docs/INDEX.md) | Index of the `docs/` folder |
+
+### Snapshots (point-in-time records — useful for context, not for the current code state)
+
+| Doc | What it captured | Tag baseline |
 |---|---|---|
-| [CLAUDE.md](CLAUDE.md) | This file — operating context for Claude Code | Live (always read first) |
-| [PRODUCT.md](docs/PRODUCT.md) | Strategic context: users, brand, anti-references, §4 two-phase canon | Live (read for product/UX decisions) |
-| [DESIGN.md](docs/DESIGN.md) → [Tasks/DESIGN_SYSTEM.md](Tasks/DESIGN_SYSTEM.md) | Visual constitution — tokens, type, motion | Live (read before any visual work) |
-| [POLISH_REPORT.md](docs/POLISH_REPORT.md) | Closeout report on the 4-phase polish program | Live snapshot at 2026-05-03 |
-| [docs/polish/SHAPE_BRIEFS.md](docs/polish/SHAPE_BRIEFS.md) | Per-screen shape briefs for all 16 flagship screens | Reference (read before re-touching a flagship) |
-| [docs/polish/POLISH_PROGRESS.md](docs/polish/POLISH_PROGRESS.md) | Append-only live log of the polish program | Historical record |
-| [POLISH_PLAN.md](docs/POLISH_PLAN.md) | Original polish program plan + 10 audit findings (S1–S10) | Historical (superseded by POLISH_REPORT.md) |
-| [HANDOFF.md](docs/HANDOFF.md) | Session-handoff doc that ran the polish work | Historical (polish is complete) |
-| [Tasks/DESIGN_SYSTEM.md](Tasks/DESIGN_SYSTEM.md) | Visual constitution (Arabic Heritage Modern) | Live |
-| [Tasks/KARASA_GAPS.md](Tasks/KARASA_GAPS.md) | RFP Scope Document coverage map | Live (filename retained; terminology inside is "RFP Scope Document") |
+| [docs/POLISH_REPORT.md](docs/POLISH_REPORT.md) | Closeout of the 4-phase polish program | `polish-complete` (2026-05-03) |
+| [docs/polish/SHAPE_BRIEFS.md](docs/polish/SHAPE_BRIEFS.md) | Per-screen briefs for all 16 flagship screens | `polish-complete` |
+| [docs/polish/POLISH_PROGRESS.md](docs/polish/POLISH_PROGRESS.md) | Append-only live log of the polish program | `polish-complete` |
+| [Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md](Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md) | 13 admin gaps A–M — scope + plan + closeout | `admin-gaps-complete` |
+| [docs/VERIFICATION_REPORT.md](docs/VERIFICATION_REPORT.md) | Verification pass over the 13 admin gaps | `admin-gaps-verified` |
+| [docs/PA_ADMIN_SCOPE_CHECKPOINTS.md](docs/PA_ADMIN_SCOPE_CHECKPOINTS.md) | 20 PA-Academy admin scope checkpoints CP1–CP20 mapped to evidence | `admin-gaps-verified` |
+| [docs/APPLICANT_FLOW_ALIGNMENT_REPORT.md](docs/APPLICANT_FLOW_ALIGNMENT_REPORT.md) | 17 applicant-flow gaps AF-1 → AF-17 | `applicant-flow-aligned` |
+| [docs/APPLICANT_FLOW_VERIFICATION_REPORT.md](docs/APPLICANT_FLOW_VERIFICATION_REPORT.md) | Verification pass over the 17 applicant-flow gaps | `applicant-flow-verified` |
+| [docs/FRONTEND_FLOW_CLOSURE.md](docs/FRONTEND_FLOW_CLOSURE.md) | End-to-end admin + applicant user-flow walk-through | post-`applicant-flow-verified` |
+| [docs/LIST_ACTIONS_INVENTORY.md](docs/LIST_ACTIONS_INVENTORY.md) | Inventory of the 20 list pages wired to list-actions | — |
+| [docs/ADMISSION_SETUP_REVIEW_RESULTS.md](docs/ADMISSION_SETUP_REVIEW_RESULTS.md) | Closeout of admission-setup wizard review | post-admission-setup work |
+| [Tasks/ADMISSION_SETUP_REVIEW_CHECKLIST.md](Tasks/ADMISSION_SETUP_REVIEW_CHECKLIST.md) | Checklist used to drive the admission-setup review | — |
+| [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | Earlier UX/UI audit findings | Historical |
+| [docs/SCOPE_AUDIT.md](docs/SCOPE_AUDIT.md) | Scope audit against the RFP | Historical |
+| [docs/PADDING_AUDIT.md](docs/PADDING_AUDIT.md) | Spacing/padding consistency audit | Historical |
+| [docs/POLISH_PLAN.md](docs/POLISH_PLAN.md) | Original polish program plan + 10 audit findings (S1–S10) | Superseded by POLISH_REPORT.md |
+| [docs/HANDOFF.md](docs/HANDOFF.md) | Session-handoff doc that ran the polish work | Polish complete |
+| [docs/PRESENTATION_PROMPT.md](docs/PRESENTATION_PROMPT.md) | Presentation-prep prompt for the demo | Reference for DEMO_SCRIPT.md |
+| [docs/migration/](docs/migration/) [docs/wizard-cleanup/](docs/wizard-cleanup/) [docs/exam-schedule/](docs/exam-schedule/) [docs/committee-grade-types/](docs/committee-grade-types/) [docs/changes/](docs/changes/) | Per-mini-project closeout folders with screenshots | Various |
 | [Tasks/tasks.md](Tasks/tasks.md) | Original sprint task plan | Reference |
 | [Tasks/CLAUDE_CODE_BRIEF.md](Tasks/CLAUDE_CODE_BRIEF.md) | Original Claude-Code project brief | Historical (kickoff context) |
-| [README.md](docs/README.md) | Public-facing README + quick-start | Live |
+| [Tasks/ADMISSION_SETUP_PROMPT.md](Tasks/ADMISSION_SETUP_PROMPT.md) [Tasks/LIST_ACTIONS_PROMPT.md](Tasks/LIST_ACTIONS_PROMPT.md) | Drive-prompts used to deliver those workstreams | Historical |
