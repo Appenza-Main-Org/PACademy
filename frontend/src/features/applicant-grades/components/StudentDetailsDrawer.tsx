@@ -7,10 +7,11 @@
  * The edit-max card opens EditMaxDegreeDialog above the drawer.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { History, Pencil, Plus, Sheet } from 'lucide-react';
 import { Badge, Button, Drawer } from '@/shared/components';
 import { initials } from '@/shared/lib/format';
+import { useLookup } from '@/features/lookups';
 import { EditMaxDegreeDialog } from './EditMaxDegreeDialog';
 import type { DerivedRow } from '../lib/derive';
 
@@ -33,7 +34,7 @@ export function StudentDetailsDrawer({
   const [editMaxOpen, setEditMaxOpen] = useState(false);
 
   const tabs: Array<{ v: Tab; label: string; count: number | null }> = [
-    { v: 'basic', label: 'بيانات أساسية', count: row.kind === 'general' ? 5 : 4 },
+    { v: 'basic', label: 'بيانات أساسية', count: row.kind === 'general' ? 7 : 7 },
     { v: 'grades', label: 'الدرجات', count: null },
     { v: 'log', label: 'سجل التعديلات', count: row.log.length },
   ];
@@ -203,19 +204,38 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
    * student_case_id, dept_name = always "—", etc.). Admins only
    * need the human-readable identifiers + the grade fields.
    *
-   * `النوع` shows the textual value (e.g. "ذكر") rather than the
-   * numeric code; the code column was paired noise. */
+   * `النوع` shows the textual value (`ذكر` / `أنثى`) sourced from the
+   * row's typed `gender` field — earlier revisions hardcoded a single
+   * value because the field didn't exist on the row yet. */
+  const schoolCategoriesQuery = useLookup('school-categories');
+  const schoolCategoryName = useMemo(() => {
+    if (!row.schoolCategoryCode) return null;
+    return (
+      (schoolCategoriesQuery.data ?? []).find((r) => r.code === row.schoolCategoryCode)?.name ??
+      row.schoolCategoryCode
+    );
+  }, [schoolCategoriesQuery.data, row.schoolCategoryCode]);
+
+  const genderLabel = row.gender === 'female' ? 'أنثى' : 'ذكر';
+  const yearLabel = row.graduationYear != null ? String(row.graduationYear) : '—';
+  const schoolLabel = schoolCategoryName ?? '—';
+
   const general: Array<KVProps> = [
     { label: 'الاسم باللغة العربية', sourceKey: 'arabic_name', value: row.name },
     { label: 'الرقم القومي', sourceKey: 'national_no', value: row.nid, mono: true },
-    { label: 'النوع', sourceKey: 'sex_name', value: 'ذكر' },
+    { label: 'النوع', sourceKey: 'sex_name', value: genderLabel },
     { label: 'الشعبة', sourceKey: 'branch_desc_new', value: row.branch },
+    { label: 'سنة التخرج', sourceKey: 'graduation_year', value: yearLabel, mono: true },
+    { label: 'فئة المدرسة', sourceKey: 'school_category', value: schoolLabel },
     { label: 'المجموع الكلي', sourceKey: 'total_degree', value: String(row.total), mono: true },
   ];
   const azhar: Array<KVProps> = [
     { label: 'الاسم', sourceKey: 'StudenName', value: row.name },
     { label: 'الرقم القومي', sourceKey: 'National_Code', value: row.nid, mono: true },
+    { label: 'النوع', sourceKey: 'sex_name', value: genderLabel },
     { label: 'الشعبة', sourceKey: 'DevisionName', value: row.branch },
+    { label: 'سنة التخرج', sourceKey: 'graduation_year', value: yearLabel, mono: true },
+    { label: 'فئة المدرسة', sourceKey: 'school_category', value: schoolLabel },
     { label: 'المجموع الكلي', sourceKey: 'Total2', value: String(row.total), mono: true },
   ];
   const fields = row.kind === 'general' ? general : azhar;

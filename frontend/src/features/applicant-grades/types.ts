@@ -10,6 +10,8 @@
 
 export type GradeKind = 'general' | 'azhar';
 
+export type ApplicantGender = 'male' | 'female';
+
 export type AdjustmentReason = 'SPORTS_ACTIVITY' | 'GRIEVANCE' | 'LEGAL_CASE' | 'OTHER';
 
 export interface GradeAdjustment {
@@ -38,8 +40,18 @@ export interface GradeRow {
   nid: string;
   name: string;
   kind: GradeKind;
+  /** Applicant gender — `male` / `female`. Backfilled from the import
+   *  file's gender column (synonyms include `النوع`, `الجنس`, `sex_name`)
+   *  via `normalise.ts#asGender`. */
+  gender: ApplicantGender;
   /** الشعبة. */
   branch: string;
+  /** سنة التخرج. `null` until backfilled — older imports predate the
+   *  column-mapping step. */
+  graduationYear: number | null;
+  /** FK → `school-categories[code]` (فئة المدرسة). Optional —
+   *  uploaders may skip this column in the column-mapping step. */
+  schoolCategoryCode: string | null;
   /** اسم المدرسة / المعهد. */
   school: string;
   /** المحافظة / المنطقة. */
@@ -143,6 +155,10 @@ export interface NormalisedRow {
   graduationYear: number | null;
   totalGrade: number | null;
   maxGrade: number | null;
+  /** Raw `فئة المدرسة` value from the source file. Resolved against the
+   *  active `school-categories` lookup by code OR Arabic name during
+   *  commit; rows whose value matches neither pass with `null`. */
+  schoolCategory: string | null;
   /** 1-based row index in the source table (for "source row #N" labels). */
   sourceRowIndex: number;
 }

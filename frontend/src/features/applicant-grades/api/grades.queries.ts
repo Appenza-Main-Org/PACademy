@@ -9,7 +9,9 @@ import { gradesService } from './grades.service';
 import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
   AdjustmentReason,
+  ApplicantGender,
   CommittedImport,
+  GradeKind,
   GradeRow,
   ImportCommitResult,
   ImportGroupAction,
@@ -20,17 +22,24 @@ import type {
   StagedImport,
 } from '../types';
 
+export interface PaginatedGradesParams {
+  page: number;
+  pageSize: number;
+  search: string;
+  sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+  gender?: ApplicantGender | 'all';
+  branch?: string | 'all';
+  graduationYear?: number | 'all';
+  schoolCategoryCode?: string | 'all';
+}
+
 export const gradesKeys = {
   all: ['applicant-grades'] as const,
   list: () => [...gradesKeys.all, 'list'] as const,
   byNid: (nid: string, cycleId: string) =>
     [...gradesKeys.all, 'by-nid', cycleId, nid] as const,
-  paginated: (params: {
-    page: number;
-    pageSize: number;
-    search: string;
-    sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
-  }) => [...gradesKeys.all, 'paginated', params] as const,
+  paginated: (params: PaginatedGradesParams) =>
+    [...gradesKeys.all, 'paginated', params] as const,
 };
 
 export function useGrades() {
@@ -147,6 +156,7 @@ export function useApplicantGradesCommit() {
     mutationFn: (input: {
       rows: NormalisedRow[];
       graduationYear: number;
+      kind: GradeKind;
       perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
     }): Promise<ImportCommitResult> => gradesService.runImportCommit(input),
     onSuccess: () => {
@@ -157,12 +167,7 @@ export function useApplicantGradesCommit() {
 
 /* ── Paginated list (v2) ─────────────────────────────────────────── */
 
-export function useApplicantGradesList(input: {
-  page: number;
-  pageSize: number;
-  search: string;
-  sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
-}) {
+export function useApplicantGradesList(input: PaginatedGradesParams) {
   return useQuery({
     queryKey: gradesKeys.paginated(input),
     queryFn: () => gradesService.listPaginated(input),

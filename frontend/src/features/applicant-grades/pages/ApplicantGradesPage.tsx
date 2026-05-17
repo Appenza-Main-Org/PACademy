@@ -53,6 +53,7 @@ import { ROUTES } from '@/config/routes';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { serializeCsv } from '@/shared/lib/csv';
 import { downloadBlob } from '@/shared/lib/download';
+import { useLookup } from '@/features/lookups';
 import { useApplicantGradesList, useClearGrades, useGrades } from '../api/grades.queries';
 import { gradesService } from '../api/grades.service';
 import { downloadTemplateWorkbook } from '../lib/buildTemplateWorkbook';
@@ -61,7 +62,7 @@ import { AddAdjustmentDialog } from '../components/AddAdjustmentDialog';
 import { LogDrawer } from '../components/LogDrawer';
 import { StudentDetailsDrawer } from '../components/StudentDetailsDrawer';
 import { deriveRow, type DerivedRow } from '../lib/derive';
-import type { GradeRow } from '../types';
+import type { ApplicantGender, GradeRow } from '../types';
 
 type OverlayState =
   | { kind: 'add-adj'; seat: number }
@@ -105,6 +106,27 @@ export function ApplicantGradesPage(): JSX.Element {
     : DEFAULT_PAGE_SIZE;
   const qFromUrl = searchParams.get('q') ?? '';
 
+  /* Filter state lives in URL search params so refresh / share preserves
+   * the active filter set. `'all'` is the sentinel for "no filter"; the
+   * service layer treats it the same as omitting the field. */
+  const genderFromUrl = (searchParams.get('gender') ?? 'all') as ApplicantGender | 'all';
+  const branchFromUrl = searchParams.get('branch') ?? 'all';
+  const yearFromUrlRaw = searchParams.get('year') ?? 'all';
+  const yearFromUrl: number | 'all' =
+    yearFromUrlRaw === 'all' ? 'all' : Number(yearFromUrlRaw) || 'all';
+  const schoolCategoryFromUrl = searchParams.get('school') ?? 'all';
+
+  const schoolCategoriesQuery = useLookup('school-categories');
+  const activeSchoolCategories = useMemo(
+    () => (schoolCategoriesQuery.data ?? []).filter((r) => r.isActive),
+    [schoolCategoriesQuery.data],
+  );
+  const schoolCategoryLabel = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of schoolCategoriesQuery.data ?? []) map.set(r.code, r.name);
+    return map;
+  }, [schoolCategoriesQuery.data]);
+
   /* Local search input that debounces into the URL state. The URL
    * value is the source of truth for the query; the input only
    * mirrors it so a refresh restores both. */
@@ -137,6 +159,10 @@ export function ApplicantGradesPage(): JSX.Element {
     pageSize,
     search: qFromUrl,
     sort,
+    gender: genderFromUrl,
+    branch: branchFromUrl,
+    graduationYear: yearFromUrl,
+    schoolCategoryCode: schoolCategoryFromUrl,
   });
   /* Keep the unpaginated query alive so the stats strip + overlay
    * drawers have the full set of rows to render against. */
@@ -149,6 +175,60 @@ export function ApplicantGradesPage(): JSX.Element {
   const generalCount = (allRows ?? []).filter((r) => r.kind === 'general').length;
   const azharCount = (allRows ?? []).filter((r) => r.kind === 'azhar').length;
   const withAdjCount = (allRows ?? []).filter((r) => r.log.some((x) => x.isActive)).length;
+
+  /* Branch + year filter options are derived from rows actually present
+   * in the dataset. The year filter is back-padded with the last 10
+   * years so newly-uploaded datasets always have a usable range even
+   * before any row carries a real graduationYear. */
+  const branchOptions = useMemo<string[]>(() => {
+    const set = new Set<string>();
+    for (const r of allRows ?? []) if (r.branch) set.add(r.branch);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ar'));
+  }, [allRows]);
+
+  const yearOptions = useMemo<number[]>(() => {
+    const set = new Set<number>();
+    for (const r of allRows ?? []) {
+      if (typeof r.graduationYear === 'number') set.add(r.graduationYear);
+    }
+    const currentYear = new Date().getFullYear();
+    for (let i = 0; i < 10; i += 1) set.add(currentYear - i);
+    return Array.from(set).sort((a, b) => b - a);
+  }, [allRows]);
+
+  function setFilter(key: 'gender' | 'branch' | 'year' | 'school', value: string): void {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value === 'all') next.delete(key);
+        else next.set(key, value);
+        next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  const activeFilterCount =
+    (genderFromUrl !== 'all' ? 1 : 0) +
+    (branchFromUrl !== 'all' ? 1 : 0) +
+    (yearFromUrl !== 'all' ? 1 : 0) +
+    (schoolCategoryFromUrl !== 'all' ? 1 : 0);
+
+  function clearAllFilters(): void {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('gender');
+        next.delete('branch');
+        next.delete('year');
+        next.delete('school');
+        next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
   function setPage(p: number): void {
     setSearchParams(
@@ -181,16 +261,27 @@ export function ApplicantGradesPage(): JSX.Element {
     );
     try {
       const dataset =
-        scope === 'all' ? await gradesService.exportAll({ search: qFromUrl, sort }) : rows;
+        scope === 'all'
+          ? await gradesService.exportAll({
+              search: qFromUrl,
+              sort,
+              gender: genderFromUrl,
+              branch: branchFromUrl,
+              graduationYear: yearFromUrl,
+              schoolCategoryCode: schoolCategoryFromUrl,
+            })
+          : rows;
       const today = new Date().toISOString().slice(0, 10);
       const filename = `applicant-grades-2026-${today}.${format}`;
       const headers = [
         'الرقم القومي',
         'رقم الجلوس',
         'الاسم باللغة العربية',
+        'نوع الشهادة',
         'النوع',
         'الشعبة',
         'سنة التخرج',
+        'فئة المدرسة',
         'المجموع الكلي',
         'الدرجة العظمى',
       ];
@@ -199,8 +290,10 @@ export function ApplicantGradesPage(): JSX.Element {
         r.seatingNumber ?? '',
         r.name,
         r.kind === 'azhar' ? 'ثانوية أزهرية' : 'ثانوية عامة',
+        r.gender === 'female' ? 'أنثى' : 'ذكر',
         r.branch,
-        '',
+        r.graduationYear ?? '',
+        r.schoolCategoryCode ? schoolCategoryLabel.get(r.schoolCategoryCode) ?? '' : '',
         r.total,
         r.overrideMax ?? r.importMax,
       ]);
@@ -310,6 +403,34 @@ export function ApplicantGradesPage(): JSX.Element {
       sortable: true,
       className: 'min-w-[10ch]',
       render: (r) => <span className="text-xs">{r.branch}</span>,
+    },
+    {
+      key: 'graduationYear',
+      label: 'سنة التخرج',
+      align: 'center',
+      sortable: true,
+      hideOn: 'md',
+      className: 'min-w-[8ch] font-numeric tabular-nums whitespace-nowrap',
+      render: (r) =>
+        r.graduationYear != null ? (
+          <span className="font-en text-xs text-ink-700">{r.graduationYear}</span>
+        ) : (
+          <span className="text-2xs text-ink-300">—</span>
+        ),
+    },
+    {
+      key: 'schoolCategoryCode',
+      label: 'فئة المدرسة',
+      hideOn: 'md',
+      className: 'min-w-[10ch]',
+      render: (r) =>
+        r.schoolCategoryCode ? (
+          <span className="text-xs text-ink-700">
+            {schoolCategoryLabel.get(r.schoolCategoryCode) ?? r.schoolCategoryCode}
+          </span>
+        ) : (
+          <span className="text-2xs text-ink-300">—</span>
+        ),
     },
     {
       key: 'total',
@@ -505,7 +626,7 @@ export function ApplicantGradesPage(): JSX.Element {
           <Card>
             <CardBody className="card-body">
               <div className="filters">
-                <div className="search flex-1" style={{ minInlineSize: 420 }}>
+                <div className="search flex-1" style={{ minInlineSize: 360 }}>
                   <input
                     className="input"
                     type="search"
@@ -516,13 +637,65 @@ export function ApplicantGradesPage(): JSX.Element {
                   />
                   <Search size={18} />
                 </div>
-                {qFromUrl && (
+                <select
+                  className="select"
+                  value={genderFromUrl}
+                  onChange={(e) => setFilter('gender', e.target.value)}
+                  aria-label="تصفية حسب النوع"
+                >
+                  <option value="all">كل الأنواع</option>
+                  <option value="male">ذكر</option>
+                  <option value="female">أنثى</option>
+                </select>
+                <select
+                  className="select"
+                  value={branchFromUrl}
+                  onChange={(e) => setFilter('branch', e.target.value)}
+                  aria-label="تصفية حسب الشعبة"
+                >
+                  <option value="all">كل الشعب</option>
+                  {branchOptions.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="select"
+                  value={yearFromUrl === 'all' ? 'all' : String(yearFromUrl)}
+                  onChange={(e) => setFilter('year', e.target.value)}
+                  aria-label="تصفية حسب سنة التخرج"
+                >
+                  <option value="all">كل السنوات</option>
+                  {yearOptions.map((y) => (
+                    <option key={y} value={String(y)}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="select"
+                  value={schoolCategoryFromUrl}
+                  onChange={(e) => setFilter('school', e.target.value)}
+                  aria-label="تصفية حسب فئة المدرسة"
+                >
+                  <option value="all">كل فئات المدرسة</option>
+                  {activeSchoolCategories.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                {(activeFilterCount > 0 || qFromUrl) && (
                   <button
                     type="button"
-                    onClick={() => setSearchInput('')}
+                    onClick={() => {
+                      if (qFromUrl) setSearchInput('');
+                      if (activeFilterCount > 0) clearAllFilters();
+                    }}
                     className="inline-flex cursor-pointer items-center gap-1 rounded-full border-0 bg-transparent px-2 py-0.5 text-2xs text-teal-700 hover:bg-teal-50"
                   >
-                    <X size={11} strokeWidth={1.75} aria-hidden /> مسح البحث
+                    <X size={11} strokeWidth={1.75} aria-hidden /> مسح التصفية
                   </button>
                 )}
                 <span className="ms-auto self-center text-2xs text-ink-500">

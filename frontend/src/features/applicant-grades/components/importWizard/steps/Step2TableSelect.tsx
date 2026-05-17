@@ -17,6 +17,7 @@ import { useImportWizardStore } from '../../../store/importWizard.store';
 import {
   ParseGradesError,
   parseGradesFile,
+  type ParseProgress,
   type ParsedSheet,
 } from '../../../lib/parseGradesFile';
 import { autoMapColumns } from '../../../lib/targetFields';
@@ -37,14 +38,18 @@ export function Step2TableSelect({ onAutoAdvance }: Step2Props): JSX.Element {
 
   const [status, setStatus] = useState<'idle' | 'parsing' | 'error'>('idle');
   const [error, setError] = useState<{ message: string; raw: string | null } | null>(null);
+  const [progress, setProgress] = useState<ParseProgress | null>(null);
   const lastParsedFileRef = useRef<File | null>(null);
 
   const runParse = useCallback(
     async (f: File): Promise<void> => {
       setStatus('parsing');
+      setProgress(null);
       setError(null);
       try {
-        const result: ParsedSheet = await parseGradesFile(f);
+        const result: ParsedSheet = await parseGradesFile(f, {
+          onProgress: (p) => setProgress(p),
+        });
         setParsed(result);
         lastParsedFileRef.current = f;
         /* If exactly one table → auto-pick and fast-forward. */
@@ -96,10 +101,31 @@ export function Step2TableSelect({ onAutoAdvance }: Step2Props): JSX.Element {
   }
 
   if (status === 'parsing') {
+    const pct =
+      progress && progress.total > 0
+        ? Math.min(100, Math.round((progress.processed / progress.total) * 100))
+        : null;
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-md border border-border-subtle bg-white py-12 text-sm text-ink-500">
+      <div className="flex flex-col items-center justify-center gap-3 rounded-md border border-border-subtle bg-white px-6 py-12 text-sm text-ink-500">
         <SheetIcon size={20} className="animate-pulse text-teal-500" aria-hidden />
-        جارٍ قراءة الملف…
+        <span>جارٍ قراءة الملف…</span>
+        {progress && (
+          <div className="flex w-full max-w-sm flex-col gap-1.5">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
+              <div
+                className="h-full bg-teal-500 transition-[inline-size]"
+                style={{ inlineSize: `${pct ?? 0}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-2xs text-ink-500">
+              <span className="font-en tabular-nums">
+                {progress.processed.toLocaleString('en')}
+                {progress.total > 0 && ` / ${progress.total.toLocaleString('en')}`}
+              </span>
+              {pct != null && <span className="font-en tabular-nums">{pct}%</span>}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

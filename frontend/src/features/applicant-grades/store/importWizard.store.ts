@@ -70,6 +70,7 @@ const EMPTY_MAPPING: Record<TargetField, string | null> = {
   graduationYear: null,
   totalGrade: null,
   maxGrade: null,
+  schoolCategory: null,
 };
 
 const CURRENT_YEAR = new Date().getFullYear();

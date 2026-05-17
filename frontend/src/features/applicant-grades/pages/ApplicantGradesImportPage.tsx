@@ -56,6 +56,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const mapping = useImportWizardStore((s) => s.mapping);
   const filters = useImportWizardStore((s) => s.filters);
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
+  const secondaryType = useImportWizardStore((s) => s.secondaryType);
   const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
   const reset = useImportWizardStore((s) => s.reset);
 
@@ -130,7 +131,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
       UNREADABLE_VALUE: filterAction(perGroupActions.UNREADABLE_VALUE),
     };
     commit.mutate(
-      { rows, graduationYear, perGroupActions: actions },
+      { rows, graduationYear, kind: secondaryType, perGroupActions: actions },
       {
         onSuccess: (res) => {
           toast(

@@ -25,7 +25,8 @@ export type TargetField =
   | 'track'
   | 'graduationYear'
   | 'totalGrade'
-  | 'maxGrade';
+  | 'maxGrade'
+  | 'schoolCategory';
 
 export interface TargetFieldDescriptor {
   key: TargetField;
@@ -167,6 +168,20 @@ export const TARGET_FIELDS: readonly TargetFieldDescriptor[] = [
       'max',
     ],
   },
+  {
+    key: 'schoolCategory',
+    labelAr: 'فئة المدرسة',
+    required: false,
+    synonyms: [
+      'فئة المدرسة',
+      'فئه المدرسه',
+      'نوع المدرسة',
+      'نوع المدرسه',
+      'school_category',
+      'school_type',
+      'school_kind',
+    ],
+  },
 ];
 
 const SYNONYM_LOOKUP = new Map<string, TargetField>();
@@ -194,6 +209,7 @@ export function autoMapColumns(
     graduationYear: null,
     totalGrade: null,
     maxGrade: null,
+    schoolCategory: null,
   };
   const claimed = new Set<string>();
   for (const col of sourceColumns) {

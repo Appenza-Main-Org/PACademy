@@ -88,6 +88,7 @@ export function normaliseRows(
       graduationYear: asNumber(get('graduationYear')) ?? graduationYear,
       totalGrade: asNumber(get('totalGrade')),
       maxGrade: asNumber(get('maxGrade')),
+      schoolCategory: asString(get('schoolCategory')),
       sourceRowIndex: i + 1,
     });
   });

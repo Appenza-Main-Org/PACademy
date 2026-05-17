@@ -15,17 +15,26 @@
  *   DELETE /api/grades/:seat/adjustments/:id    → GradeRow
  *   PATCH  /api/grades/:seat/override-max       → GradeRow
  *     body:  { overrideMax: number | null }
+ *   POST   /api/grades/v2/commit                → ImportCommitResult
+ *     body:  { rows, graduationYear, kind, perGroupActions }
+ *     The `kind` field is sourced from the wizard's Step 1
+ *     `secondaryType` (general / azhar) — it overrides any inference
+ *     from `row.maxGrade` so admins choosing «ثانوية أزهرية» land rows
+ *     as `azhar` even when the file omits a max-grade column.
  */
 
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { isValidNationalId } from '@/shared/lib/national-id';
 import { normalizeArabic } from '@/shared/lib/arabic';
+import { MOCK } from '@/shared/mock-data';
 import { easternToAscii } from '../lib/normalise';
 import { SEED_ROWS } from '../mock';
 import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
   AdjustmentReason,
+  ApplicantGender,
   CommittedImport,
+  GradeKind,
   GradeRow,
   ImportCommitResult,
   ImportDuplicateRow,
@@ -51,6 +60,41 @@ const REASON_LABEL: Record<AdjustmentReason, string> = {
 
 function clone(rows: GradeRow[]): GradeRow[] {
   return rows.map((r) => ({ ...r, log: r.log.map((e) => ({ ...e })) }));
+}
+
+/** Map a raw `النوع` cell to the typed gender enum. Matches the Arabic
+ *  strings used by the existing seed + template (`ذكر` / `أنثى`) plus a
+ *  few common synonyms / ASCII fallbacks. Defaults to `male` when the
+ *  value is empty or unrecognised so downstream filters always have a
+ *  bucket to land in. */
+function resolveGender(raw: string | null): ApplicantGender {
+  if (!raw) return 'male';
+  const trimmed = raw.trim().toLowerCase();
+  if (
+    trimmed === 'أنثى' ||
+    trimmed === 'انثى' ||
+    trimmed === 'f' ||
+    trimmed === 'female' ||
+    trimmed === '2'
+  ) {
+    return 'female';
+  }
+  return 'male';
+}
+
+/** Resolve the import wizard's raw `فئة المدرسة` value (Arabic name or
+ *  English code) against the active `school-categories` lookup. Returns
+ *  the row `code` on match, `null` otherwise. */
+function resolveSchoolCategoryCode(raw: string | null): string | null {
+  if (!raw) return null;
+  const needle = raw.trim();
+  if (needle === '') return null;
+  const lookup = MOCK.lookups['school-categories'];
+  const direct = lookup.find((r) => r.code === needle);
+  if (direct) return direct.code;
+  const byName = lookup.find((r) => r.name === needle);
+  if (byName) return byName.code;
+  return null;
 }
 
 export const gradesService = {
@@ -308,7 +352,10 @@ export const gradesService = {
       nid: r.nid,
       name: r.name,
       kind: r.kind,
+      gender: 'male',
       branch: r.branch,
+      graduationYear: null,
+      schoolCategoryCode: null,
       school: r.school,
       region: r.region,
       total: r.total,
@@ -450,14 +497,21 @@ export const gradesService = {
    * rows that passed every preflight check are written; override/skip
    * decisions adjust how many of the failure rows get re-counted as
    * inserted or dropped.
+   *
+   * `kind` is sourced from the wizard's Step 1 `secondaryType` (azhar
+   * vs general) — earlier revisions derived this from `row.maxGrade`
+   * (`=== 510 ? 'azhar' : 'general'`) and so silently downgraded every
+   * أزهرية upload to عامة whenever the file omitted a max-grade column.
    */
   async runImportCommit(input: {
     rows: NormalisedRow[];
     graduationYear: number;
+    kind: GradeKind;
     perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
   }): Promise<ImportCommitResult> {
     await simulateLatency(180, 340);
-    const { rows, perGroupActions } = input;
+    const { rows, kind, perGroupActions } = input;
+    const defaultMax = kind === 'azhar' ? 510 : 410;
     const existingByNid = new Map(STATE.map((r) => [r.nid, r]));
     let inserted = 0;
     let failed = 0;
@@ -475,6 +529,10 @@ export const gradesService = {
         failed += 1;
         continue;
       }
+      const gender = resolveGender(row.gender);
+      const graduationYear = row.graduationYear ?? input.graduationYear;
+      const schoolCategoryCode = resolveSchoolCategoryCode(row.schoolCategory);
+
       const isDup = existingByNid.has(row.nationalId);
       if (isDup) {
         const action = perGroupActions.DUPLICATE_NID;
@@ -489,11 +547,15 @@ export const gradesService = {
         const existing = existingByNid.get(row.nationalId)!;
         existingByNid.set(row.nationalId, {
           ...existing,
+          kind,
+          gender,
           total: row.totalGrade,
           importMax: row.maxGrade ?? existing.importMax,
           seatingNumber: row.seatingNumber ?? existing.seatingNumber,
           name: row.nameAr,
           branch: row.track,
+          graduationYear,
+          schoolCategoryCode: schoolCategoryCode ?? existing.schoolCategoryCode,
           status: existing.status,
         });
         inserted += 1;
@@ -505,12 +567,15 @@ export const gradesService = {
         seatingNumber: row.seatingNumber,
         nid: row.nationalId,
         name: row.nameAr,
-        kind: row.maxGrade === 510 ? 'azhar' : 'general',
+        kind,
+        gender,
         branch: row.track,
+        graduationYear,
+        schoolCategoryCode,
         school: '',
         region: '',
         total: row.totalGrade,
-        importMax: row.maxGrade ?? 410,
+        importMax: row.maxGrade ?? defaultMax,
         overrideMax: null,
         lastEditedAt: null,
         lastEditedBy: null,
@@ -536,37 +601,26 @@ export const gradesService = {
    *  - `nid` exact / prefix on the digit string
    *  - `seatingNumber` exact / prefix (digit-form-insensitive)
    *  - `nameAr` substring (Arabic-normalised, diacritic-insensitive)
+   *
+   * INTEGRATION CONTRACT:
+   *   GET /api/grades?page=&size=&q=&gender=&branch=&year=&schoolCategoryCode=
+   *   The four filter fields each default to `'all'` (no filter); the
+   *   query string just omits them in that case. Server returns the
+   *   same `{ rows, total }` envelope.
    */
   async listPaginated(input: {
     page: number;
     pageSize: number;
     search: string;
     sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+    gender?: ApplicantGender | 'all';
+    branch?: string | 'all';
+    graduationYear?: number | 'all';
+    schoolCategoryCode?: string | 'all';
   }): Promise<{ rows: GradeRow[]; total: number }> {
     await simulateLatency(80, 200);
-    const q = input.search.trim();
-    let rows = STATE.slice();
-    if (q.length > 0) {
-      const qDigits = easternToAscii(q).replace(/\D/g, '');
-      const qNorm = normalizeArabic(q);
-      rows = rows.filter((r) => {
-        if (qDigits && (r.nid.startsWith(qDigits) || (r.seatingNumber ?? '').startsWith(qDigits))) {
-          return true;
-        }
-        if (qNorm && normalizeArabic(r.name).includes(qNorm)) return true;
-        return false;
-      });
-    }
-    if (input.sort) {
-      const { key, direction } = input.sort;
-      const dir = direction === 'asc' ? 1 : -1;
-      rows.sort((a, b) => {
-        const av = a[key];
-        const bv = b[key];
-        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
-        return String(av ?? '').localeCompare(String(bv ?? ''), 'ar', { sensitivity: 'base' }) * dir;
-      });
-    }
+    const rows = applyFilters(STATE, input);
+    sortInPlace(rows, input.sort);
     const total = rows.length;
     const start = Math.max(0, (input.page - 1) * input.pageSize);
     const page = rows.slice(start, start + input.pageSize);
@@ -577,38 +631,78 @@ export const gradesService = {
    * Export-side hook — returns the **entire filtered dataset** as a
    * flat array. Pagination is intentionally skipped because the
    * caller writes the result straight to disk (CSV/XLSX).
+   *
+   * INTEGRATION CONTRACT:
+   *   GET /api/grades/export?q=&gender=&branch=&year=&schoolCategoryCode=
+   *   Same filter set as `listPaginated`; server streams the full
+   *   filtered set in a single response.
    */
   async exportAll(input: {
     search: string;
     sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+    gender?: ApplicantGender | 'all';
+    branch?: string | 'all';
+    graduationYear?: number | 'all';
+    schoolCategoryCode?: string | 'all';
   }): Promise<GradeRow[]> {
     await simulateLatency(120, 260);
-    const q = input.search.trim();
-    let rows = STATE.slice();
-    if (q.length > 0) {
-      const qDigits = easternToAscii(q).replace(/\D/g, '');
-      const qNorm = normalizeArabic(q);
-      rows = rows.filter((r) => {
-        if (qDigits && (r.nid.startsWith(qDigits) || (r.seatingNumber ?? '').startsWith(qDigits))) {
-          return true;
-        }
-        if (qNorm && normalizeArabic(r.name).includes(qNorm)) return true;
-        return false;
-      });
-    }
-    if (input.sort) {
-      const { key, direction } = input.sort;
-      const dir = direction === 'asc' ? 1 : -1;
-      rows.sort((a, b) => {
-        const av = a[key];
-        const bv = b[key];
-        if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
-        return String(av ?? '').localeCompare(String(bv ?? ''), 'ar', { sensitivity: 'base' }) * dir;
-      });
-    }
+    const rows = applyFilters(STATE, input);
+    sortInPlace(rows, input.sort);
     return clone(rows);
   },
 };
+
+interface FilterInput {
+  search: string;
+  gender?: ApplicantGender | 'all';
+  branch?: string | 'all';
+  graduationYear?: number | 'all';
+  schoolCategoryCode?: string | 'all';
+}
+
+function applyFilters(source: readonly GradeRow[], input: FilterInput): GradeRow[] {
+  const q = input.search.trim();
+  let rows = source.slice();
+  if (q.length > 0) {
+    const qDigits = easternToAscii(q).replace(/\D/g, '');
+    const qNorm = normalizeArabic(q);
+    rows = rows.filter((r) => {
+      if (qDigits && (r.nid.startsWith(qDigits) || (r.seatingNumber ?? '').startsWith(qDigits))) {
+        return true;
+      }
+      if (qNorm && normalizeArabic(r.name).includes(qNorm)) return true;
+      return false;
+    });
+  }
+  if (input.gender && input.gender !== 'all') {
+    rows = rows.filter((r) => r.gender === input.gender);
+  }
+  if (input.branch && input.branch !== 'all') {
+    rows = rows.filter((r) => r.branch === input.branch);
+  }
+  if (input.graduationYear && input.graduationYear !== 'all') {
+    rows = rows.filter((r) => r.graduationYear === input.graduationYear);
+  }
+  if (input.schoolCategoryCode && input.schoolCategoryCode !== 'all') {
+    rows = rows.filter((r) => r.schoolCategoryCode === input.schoolCategoryCode);
+  }
+  return rows;
+}
+
+function sortInPlace(
+  rows: GradeRow[],
+  sort: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null | undefined,
+): void {
+  if (!sort) return;
+  const { key, direction } = sort;
+  const dir = direction === 'asc' ? 1 : -1;
+  rows.sort((a, b) => {
+    const av = a[key];
+    const bv = b[key];
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
+    return String(av ?? '').localeCompare(String(bv ?? ''), 'ar', { sensitivity: 'base' }) * dir;
+  });
+}
 
 let pendingImport: {
   kind: 'general' | 'azhar';
