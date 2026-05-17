@@ -247,12 +247,11 @@ export function Stage7FamilyPage(): JSX.Element {
           <MemberFormCard
             form={father}
             title="بيانات الأب"
-            showShuhra
             onChange={setFather}
             onSave={() => {
               setSavedFather(true);
               toast('تم حفظ بيانات الأب', 'success');
-              setTab('father-wives');
+              setTab(hasFatherWives ? 'father-wives' : 'mother');
             }}
           />
         </Tabs.Panel>
@@ -289,7 +288,7 @@ export function Stage7FamilyPage(): JSX.Element {
             onSave={() => {
               setSavedMother(true);
               toast('تم حفظ بيانات الأم', 'success');
-              setTab('mother-husbands');
+              setTab(hasMotherHusbands ? 'mother-husbands' : 'grandparents');
             }}
           />
         </Tabs.Panel>
@@ -362,13 +361,11 @@ function MemberFormCard({
   title,
   onChange,
   onSave,
-  showShuhra,
 }: {
   form: FamilyMemberForm;
   title: string;
   onChange: (next: FamilyMemberForm) => void;
   onSave: () => void;
-  showShuhra?: boolean;
 }): JSX.Element {
   /* shouldUnregister: true is critical — when the متوفي toggle hides the
    * residence fields, those validators must drop with the JSX. Without
@@ -402,9 +399,8 @@ function MemberFormCard({
           required
           {...register('name', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
           error={errors.name?.message}
-          containerClassName={showShuhra ? undefined : 'md:col-span-2'}
+          containerClassName="md:col-span-2"
         />
-        {showShuhra && <Input label="الشهرة" {...register('shuhra')} />}
         <Select
           label="الديانة"
           required

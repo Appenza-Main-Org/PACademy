@@ -239,6 +239,16 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     setManualPersonal((prev) => ({ ...prev, [key]: value }));
   };
 
+  /* قسم الضباط (قسم عام) is male-only — hide the gender dropdown for
+   * the manual-entry path and force the stored value to 'male' so
+   * downstream consumers still get a non-empty gender. */
+  useEffect(() => {
+    if (selectedCategoryKey !== 'officers_general') return;
+    if (isMoiVerified) return;
+    if (manualPersonal.gender === 'male') return;
+    setManualPersonal((p) => ({ ...p, gender: 'male' }));
+  }, [selectedCategoryKey, isMoiVerified, manualPersonal.gender]);
+
   /* Thanawi data is sourced from the admin /admin/applicant-grades dataset
    * by NID. If the applicant is found, the row is rendered read-only +
    * synced into the form on mount. If not found, the school-type Select
@@ -495,17 +505,19 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                 value={manualPersonal.fullName}
                 onChange={(e) => setManual('fullName', e.target.value)}
               />
-              <Field label="النوع" required>
-                <Select
-                  value={manualPersonal.gender}
-                  onChange={(e) => setManual('gender', e.target.value as 'male' | 'female' | '')}
-                  options={[
-                    { value: '', label: '— اختر —' },
-                    { value: 'male', label: 'ذكر' },
-                    { value: 'female', label: 'أنثى' },
-                  ]}
-                />
-              </Field>
+              {selectedCategoryKey !== 'officers_general' && (
+                <Field label="النوع" required>
+                  <Select
+                    value={manualPersonal.gender}
+                    onChange={(e) => setManual('gender', e.target.value as 'male' | 'female' | '')}
+                    options={[
+                      { value: '', label: '— اختر —' },
+                      { value: 'male', label: 'ذكر' },
+                      { value: 'female', label: 'أنثى' },
+                    ]}
+                  />
+                </Field>
+              )}
               <Field label="الديانة" required>
                 <Select
                   value={manualPersonal.religion}
