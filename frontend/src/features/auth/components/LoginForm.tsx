@@ -6,6 +6,11 @@
  *
  * Role is determined by the user record on the server, not picked in the
  * form. The post-login destination is derived from the verified user.
+ *
+ * Demo skin: a role-picker grid pre-fills NID + password with the
+ * `DemoDataSeeder`'s known credentials for that role. Submitting still
+ * goes through the real OTP backend — the role grid only changes which
+ * seeded demo user is being authenticated.
  */
 
 import { useState } from 'react';
@@ -17,6 +22,8 @@ import { Button, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { useRequestOtpMutation } from '../api/auth.queries';
 import { OtpStep } from './OtpStep';
+import { RoleSelector } from './RoleSelector';
+import type { Role } from '../rbac';
 import type { AuthUser, LoginCredentials } from '../types';
 import { ROUTES } from '@/config/routes';
 
@@ -30,6 +37,24 @@ const loginSchema = z.object({
 });
 type LoginValues = z.infer<typeof loginSchema>;
 
+/* Mirrors `DemoDataSeeder.GenerateSystemUserNationalId(i)` for the
+ * RoleUsers array (super_admin = index 0) and `appsettings.Development.json`'s
+ * `DemoPasswords` section. Picking a role from the grid pre-fills the form
+ * with that seeded user's credentials. Roles intentionally absent from the
+ * grid (committee_user / medical_doctor / records_clerk) reuse their parent
+ * role's demo credentials.
+ */
+const DEMO_CREDENTIALS: Partial<Record<Role, { nationalId: string; password: string }>> = {
+  super_admin:     { nationalId: '27001010150010', password: 'SuperAdmin123!' },
+  committee_admin: { nationalId: '27102020251310', password: 'CommitteeAdmin123!' },
+  medical_admin:   { nationalId: '27304041253910', password: 'MedicalAdmin123!' },
+  investigator:    { nationalId: '27506060156510', password: 'Investigator123!' },
+  board_admin:     { nationalId: '27607070257810', password: 'BoardAdmin123!' },
+  exams_admin:     { nationalId: '27708082159110', password: 'ExamsAdmin123!' },
+  biometric_user:  { nationalId: '27809091260410', password: 'BiometricUser123!' },
+  applicant:       { nationalId: '28011110163010', password: 'Applicant123!' },
+};
+
 export function LoginForm(): JSX.Element {
   const navigate = useNavigate();
   const requestOtpMut = useRequestOtpMutation();
@@ -38,15 +63,22 @@ export function LoginForm(): JSX.Element {
     otpDevice: string;
     credentials: LoginCredentials;
   } | null>(null);
+  const [role, setRole] = useState<Role>('super_admin');
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginValues>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginValues>({
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver bridges zod's variance-strict generic; project-wide pattern.
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      nationalId: '',
-      password: '',
-    },
+    defaultValues: DEMO_CREDENTIALS.super_admin,
   });
+
+  const onRoleChange = (next: Role): void => {
+    setRole(next);
+    const creds = DEMO_CREDENTIALS[next];
+    if (creds) {
+      setValue('nationalId', creds.nationalId, { shouldValidate: true });
+      setValue('password', creds.password, { shouldValidate: true });
+    }
+  };
 
   const goToLanding = (user: AuthUser): void => {
     const landing =
@@ -124,9 +156,17 @@ export function LoginForm(): JSX.Element {
         type="password"
         required
         placeholder="••••••••"
+        helper="بيانات تجريبية مدخلة مسبقاً للعرض"
         {...register('password')}
         error={errors.password?.message}
       />
+
+      <div className="flex flex-col gap-2">
+        <span className="text-sm font-medium text-ink-700">
+          العرض التجريبي · اختر دور الموظف لمحاكاة الدخول
+        </span>
+        <RoleSelector value={role} onChange={onRoleChange} />
+      </div>
 
       <Button
         type="submit"

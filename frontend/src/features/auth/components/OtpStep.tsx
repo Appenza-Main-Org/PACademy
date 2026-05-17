@@ -4,12 +4,16 @@
  * Wired to POST /auth/login/verify-otp. The backend hashes the code
  * (PBKDF2) and never echoes it back; in development the
  * InMemoryOtpTransport logs the generated code to the API console at
- * Information level so a developer can complete the flow.
+ * Information level, and the dev-only endpoint
+ * `GET /auth/dev/otp-peek?phoneTail=...` surfaces it to the UI so demo
+ * walkthroughs don't need to scrape the server log. The peek endpoint
+ * 404s in non-Development environments, so production never exposes it.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RotateCcw, ShieldCheck } from 'lucide-react';
 import { Button, Input, toast } from '@/shared/components';
+import { apiClient } from '@/shared/api';
 import { useRequestOtpMutation, useVerifyOtpMutation } from '../api/auth.queries';
 import type { AuthUser, LoginCredentials } from '../types';
 
@@ -36,6 +40,7 @@ export function OtpStep({
 }: OtpStepProps): JSX.Element {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [peekedCode, setPeekedCode] = useState<string | null>(null);
   const verifyMut = useVerifyOtpMutation();
   const requestMut = useRequestOtpMutation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +48,20 @@ export function OtpStep({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  /* Dev-only peek — surface the dispatched OTP for demo walkthroughs.
+   * Endpoint 404s in non-Development environments, so this is a no-op
+   * in production. Re-fires on resend so the displayed code stays in
+   * sync with the latest InMemoryOtpTransport dispatch (pendingId
+   * rotates per request-otp; otpDevice stays the same for the user). */
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get<{ code: string }>('/auth/dev/otp-peek', { params: { phoneTail: otpDevice } })
+      .then((r) => { if (!cancelled) setPeekedCode(r.data.code); })
+      .catch(() => { if (!cancelled) setPeekedCode(null); });
+    return () => { cancelled = true; };
+  }, [otpDevice, pendingId]);
 
   const onSubmit = (e: React.FormEvent): void => {
     e.preventDefault();
@@ -101,7 +120,11 @@ export function OtpStep({
         value={code}
         onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH))}
         error={error ?? undefined}
-        helper="بيئة التطوير · افحص سجل الخادم لمشاهدة رمز التحقق"
+        helper={
+          peekedCode
+            ? `العرض التجريبي · الرمز: ${peekedCode}`
+            : 'بيئة التطوير · افحص سجل الخادم لمشاهدة رمز التحقق'
+        }
         required
       />
 

@@ -182,7 +182,8 @@ function LegacyCommitteeDetailRedirect(): JSX.Element {
 
 export const routes: RouteObject[] = [
   /* ── PUBLIC SURFACE — no auth required ───────────────────── */
-  { path: '/', element: <PublicLandingPage /> },
+  { path: '/', element: <Navigate to="/staff-login" replace /> },
+  { path: '/landing', element: <PublicLandingPage /> },
   { path: '/apply', element: <ApplyEntryPage /> },
   { path: '/staff-login', element: <LoginPage /> },
   { path: '/login', element: <Navigate to="/staff-login" replace /> },

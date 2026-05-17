@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using PACademy.Infrastructure.Identity;
 using PACademy.Modules.Identity.Application;
 using PACademy.Modules.Identity.Application.Auth;
+using PACademy.Modules.Identity.Infrastructure.Otp;
 using PACademy.Shared.Contracts;
 using System.Security.Claims;
 
@@ -19,7 +21,8 @@ public sealed class AuthController(
     VerifyOtpUseCase verifyOtp,
     UserManager<SystemUser> userManager,
     SignInManager<SystemUser> signInManager,
-    ICurrentUser currentUser)
+    ICurrentUser currentUser,
+    IWebHostEnvironment env)
     : ControllerBase
 {
     // ─── Legacy single-step login — 410 GONE post-cutover (T467) ─────────────
@@ -173,6 +176,23 @@ public sealed class AuthController(
             apps = me.Apps,
             permissions = me.Permissions,
         });
+    }
+
+    // ─── Dev-only OTP peek (demo helper) ─────────────────────────────────────
+    // Exposes the OTP code dispatched by InMemoryOtpTransport so demo
+    // walkthroughs don't have to scrape the API console. Returns 404 in any
+    // environment other than Development / Testing — the real SMS transport
+    // never populates the in-memory store, so production is safe by
+    // construction, and we add the env guard as a second belt.
+    [HttpGet("dev/otp-peek")]
+    [AllowAnonymous]
+    public IActionResult PeekOtp([FromQuery] string phoneTail)
+    {
+        if (env.EnvironmentName is not ("Development" or "Testing"))
+            return NotFound();
+
+        var code = InMemoryOtpTransport.PeekCode(phoneTail);
+        return code is null ? NotFound() : Ok(new { code });
     }
 }
 
