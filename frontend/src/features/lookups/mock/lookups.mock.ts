@@ -831,12 +831,25 @@ const applicantDivisions: ApplicantDivisionRow[] = [
 
 /* ─── 17. school-categories ──────────────────────────────────────────── */
 
+/* Two conceptual axes share this lookup. The first 5 entries are the
+ * certificate-source axis (where grades come from — drives
+ * `externalGradesImport`). The SCH-A* rows are the school-administration
+ * axis (حكومي / تجريبي / خاص / لغات / دولي / أزهري) — surfaced as a filter
+ * + column on `/admin/applicant-grades` and as a mappable target field
+ * in the import wizard. Both axes coexist here so the lookup remains
+ * the single source of truth for "فئة المدرسة" labels. */
 const schoolCategories: SchoolCategoryRow[] = [
   { code: 'SCH-01', name: 'الثانوية العامة',                                isActive: true, externalGradesImport: true  },
   { code: 'SCH-03', name: 'الثانوية الأزهرية',                              isActive: true, externalGradesImport: true  },
   { code: 'SCH-05', name: 'الشهادات المعادلة من الخارج',                    isActive: true, externalGradesImport: false },
   { code: 'SCH-06', name: 'الدبلومات الأجنبية',                             isActive: true, externalGradesImport: false },
   { code: 'SCH-07', name: 'مدارس المتفوقين في العلوم والتكنولوجيا STEM',   isActive: true, externalGradesImport: true  },
+  { code: 'SCH-A1', name: 'حكومي',                                          isActive: true, externalGradesImport: false },
+  { code: 'SCH-A2', name: 'تجريبي',                                         isActive: true, externalGradesImport: false },
+  { code: 'SCH-A3', name: 'خاص',                                            isActive: true, externalGradesImport: false },
+  { code: 'SCH-A4', name: 'لغات',                                           isActive: true, externalGradesImport: false },
+  { code: 'SCH-A5', name: 'دولي',                                           isActive: true, externalGradesImport: false },
+  { code: 'SCH-A6', name: 'أزهري',                                          isActive: true, externalGradesImport: false },
 ];
 
 /* ─── 18. nid-missing-reasons ────────────────────────────────────────── */

@@ -575,16 +575,16 @@ function ThanawiForm({
             />
           </FieldLabel>
           <FieldLabel label="فئة المدرسة" required>
-            <SearchSelect
+            <MultiSelect
               ariaLabel="فئة المدرسة"
-              value={draft.schoolCategories[0] ?? null}
-              onChange={(v) =>
-                setDraft((d) => ({
-                  ...d,
-                  schoolCategories: v ? [v] : [],
-                }))
+              value={draft.schoolCategories}
+              onChange={(next) =>
+                setDraft((d) => ({ ...d, schoolCategories: next }))
               }
-              options={schoolCategoryOptions}
+              options={schoolCategoryOptions.map((o) => ({
+                value: o.value,
+                label: o.label,
+              }))}
               placeholder="اختر فئة المدرسة…"
             />
           </FieldLabel>
