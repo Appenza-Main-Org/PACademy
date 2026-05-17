@@ -548,6 +548,8 @@ function ThanawiRowsTable({
     'اللجنة',
     'سنة التخرج',
     'فئة المدرسة',
+    'الحد الأدنى للدرجة',
+    'الحد الأقصى للدرجة',
     'الحالة الاجتماعية',
     'بداية التقديم',
     'نهاية التقديم',
@@ -587,6 +589,16 @@ function ThanawiRowsTable({
                     (c) => labels.schoolCategory.get(c) ?? c,
                   )}
                 />
+              </Td>
+              <Td>
+                {row.scoreMin !== null
+                  ? `${toEasternArabicNumerals(row.scoreMin)}٪`
+                  : '—'}
+              </Td>
+              <Td>
+                {row.scoreMax !== null
+                  ? `${toEasternArabicNumerals(row.scoreMax)}٪`
+                  : '—'}
               </Td>
               <Td>
                 <ChipList
