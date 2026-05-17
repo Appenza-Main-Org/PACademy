@@ -14,7 +14,7 @@
  * "last known residence" — they stay required.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { Check, Heart, Info, Pencil, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
@@ -73,6 +73,7 @@ const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
 
 interface FamilyMemberForm {
   name: string;
+  nationalId: string;
   shuhra?: string;
   religion: 'مسلم' | 'مسيحي';
   dateOfBirth: string;
@@ -88,6 +89,7 @@ interface FamilyMemberForm {
 
 const EMPTY_MEMBER: FamilyMemberForm = {
   name: '',
+  nationalId: '',
   shuhra: '',
   religion: 'مسلم',
   dateOfBirth: '',
@@ -129,7 +131,20 @@ export function Stage7FamilyPage(): JSX.Element {
 
   const [savedFather, setSavedFather] = useState(false);
   const [savedMother, setSavedMother] = useState(false);
-  const [savedGrandparents, setSavedGrandparents] = useState(false);
+  /* Per-grandparent saved flags — each card's "حفظ" flips its own key
+   * so عرض can show partial progress, and "حفظ الجميع" is enabled when
+   * all four are filled (validated by the inner forms). */
+  const [savedGrandparents, setSavedGrandparents] = useState<Record<keyof GrandparentsForm, boolean>>({
+    paternalGrandfather: false,
+    paternalGrandmother: false,
+    maternalGrandfather: false,
+    maternalGrandmother: false,
+  });
+  const allGrandparentsSaved =
+    savedGrandparents.paternalGrandfather &&
+    savedGrandparents.paternalGrandmother &&
+    savedGrandparents.maternalGrandfather &&
+    savedGrandparents.maternalGrandmother;
   const [savedFatherWives, setSavedFatherWives] = useState<boolean[]>([]);
   const [savedMotherHusbands, setSavedMotherHusbands] = useState<boolean[]>([]);
 
@@ -163,7 +178,7 @@ export function Stage7FamilyPage(): JSX.Element {
     motherHusbands.length > 0 && savedMotherHusbands.every(Boolean)
   );
   const canApprove =
-    savedFather && savedMother && savedGrandparents && fatherWivesOk && motherHusbandsOk;
+    savedFather && savedMother && allGrandparentsSaved && fatherWivesOk && motherHusbandsOk;
 
   const onApprove = async (): Promise<void> => {
     if (!canApprove) return;
@@ -238,7 +253,7 @@ export function Stage7FamilyPage(): JSX.Element {
             </Tabs.Tab>
           )}
           <Tabs.Tab value="grandparents">
-            <TabLabel saved={savedGrandparents}>الأجداد</TabLabel>
+            <TabLabel saved={allGrandparentsSaved}>الأجداد</TabLabel>
           </Tabs.Tab>
           <Tabs.Tab value="view">عرض</Tabs.Tab>
         </Tabs.List>
@@ -320,9 +335,19 @@ export function Stage7FamilyPage(): JSX.Element {
         <Tabs.Panel value="grandparents">
           <GrandparentsPanel
             value={grandparents}
+            savedFlags={savedGrandparents}
             onChange={setGrandparents}
-            onSave={() => {
-              setSavedGrandparents(true);
+            onSaveOne={(key) => {
+              setSavedGrandparents((s) => ({ ...s, [key]: true }));
+              toast('تم حفظ البيانات', 'success');
+            }}
+            onSaveAll={() => {
+              setSavedGrandparents({
+                paternalGrandfather: true,
+                paternalGrandmother: true,
+                maternalGrandfather: true,
+                maternalGrandmother: true,
+              });
               toast('تم حفظ بيانات الأجداد', 'success');
               setTab('view');
             }}
@@ -370,15 +395,28 @@ function MemberFormCard({
   /* shouldUnregister: true is critical — when the متوفي toggle hides the
    * residence fields, those validators must drop with the JSX. Without
    * this RHF keeps them registered with `required: 'مطلوب'` and the
-   * submit silently fails, so the parent's onChange never fires and
-   * "حفظ الجميع" stays dimmed for an all-deceased Grandparents tab. */
-  const { register, handleSubmit, control, watch, formState: { errors } } = useForm<FamilyMemberForm>({
+   * submit silently fails. */
+  const form_ = useForm<FamilyMemberForm>({
     defaultValues: form,
     shouldUnregister: true,
   });
+  const { register, handleSubmit, control, watch, formState: { errors } } = form_;
   const profession = watch('profession');
   const deceased = watch('deceased');
   const showMembership = MEMBERSHIP_PROFESSIONS.has(profession);
+
+  /* Stream live values to the parent so consumers like
+   * GrandparentsPanel's "حفظ الجميع" can compute allFilled without
+   * waiting for the inner submit. We use a ref to avoid stale-closure
+   * issues over the onChange identity. */
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  useEffect(() => {
+    const sub = form_.watch((vals) => {
+      onChangeRef.current(vals as FamilyMemberForm);
+    });
+    return () => sub.unsubscribe();
+  }, [form_]);
 
   const submit = handleSubmit((values) => {
     onChange(values);
@@ -399,6 +437,22 @@ function MemberFormCard({
           required
           {...register('name', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
           error={errors.name?.message}
+          containerClassName="md:col-span-2"
+        />
+        <Input
+          label="الرقم القومي"
+          required
+          dir="ltr"
+          placeholder="14 رقماً"
+          maxLength={14}
+          {...register('nationalId', {
+            required: 'مطلوب',
+            pattern: {
+              value: /^[0-9]{14}$/,
+              message: 'الرقم القومي يجب أن يكون 14 رقماً',
+            },
+          })}
+          error={errors.nationalId?.message}
           containerClassName="md:col-span-2"
         />
         <Select
@@ -597,29 +651,32 @@ function MultiMemberPanel({
 
 function GrandparentsPanel({
   value,
+  savedFlags,
   onChange,
-  onSave,
+  onSaveOne,
+  onSaveAll,
 }: {
   value: GrandparentsForm;
+  savedFlags: Record<keyof GrandparentsForm, boolean>;
   onChange: (next: GrandparentsForm) => void;
-  onSave: () => void;
+  onSaveOne: (key: keyof GrandparentsForm) => void;
+  onSaveAll: () => void;
 }): JSX.Element {
-  /* Track local saved flags per grandparent so the "حفظ الجميع" button
-   * only fires when all four sub-forms are valid + saved. Simpler UX:
-   * render them all inline, save them all with one button at the end. */
-  const [stale, setStale] = useState<GrandparentsForm>(value);
-  const allFilled =
-    isFilled(stale.paternalGrandfather) &&
-    isFilled(stale.paternalGrandmother) &&
-    isFilled(stale.maternalGrandfather) &&
-    isFilled(stale.maternalGrandmother);
-
+  /* Per-card "حفظ" propagates the new values to the parent AND flips
+   * that grandparent's saved flag so عرض updates immediately. "حفظ
+   * الجميع" sets all four flags + advances to the view tab. */
   const updateOne = <K extends keyof GrandparentsForm>(
     key: K,
     next: FamilyMemberForm,
   ): void => {
-    setStale((s) => ({ ...s, [key]: next }));
+    onChange({ ...value, [key]: next });
   };
+
+  const allFilled =
+    isFilled(value.paternalGrandfather) &&
+    isFilled(value.paternalGrandmother) &&
+    isFilled(value.maternalGrandfather) &&
+    isFilled(value.maternalGrandmother);
 
   return (
     <div className="flex flex-col gap-3">
@@ -632,41 +689,38 @@ function GrandparentsPanel({
         </header>
       </Card>
       <MemberFormCard
-        form={stale.paternalGrandfather}
-        title="الجد لأب"
+        form={value.paternalGrandfather}
+        title={`الجد لأب${savedFlags.paternalGrandfather ? ' — محفوظ' : ''}`}
         onChange={(next) => updateOne('paternalGrandfather', next)}
-        onSave={() => undefined}
+        onSave={() => onSaveOne('paternalGrandfather')}
       />
       <MemberFormCard
-        form={stale.paternalGrandmother}
-        title="الجدة لأب"
+        form={value.paternalGrandmother}
+        title={`الجدة لأب${savedFlags.paternalGrandmother ? ' — محفوظ' : ''}`}
         onChange={(next) => updateOne('paternalGrandmother', next)}
-        onSave={() => undefined}
+        onSave={() => onSaveOne('paternalGrandmother')}
       />
       <MemberFormCard
-        form={stale.maternalGrandfather}
-        title="الجد لأم"
+        form={value.maternalGrandfather}
+        title={`الجد لأم${savedFlags.maternalGrandfather ? ' — محفوظ' : ''}`}
         onChange={(next) => updateOne('maternalGrandfather', next)}
-        onSave={() => undefined}
+        onSave={() => onSaveOne('maternalGrandfather')}
       />
       <MemberFormCard
-        form={stale.maternalGrandmother}
-        title="الجدة لأم"
+        form={value.maternalGrandmother}
+        title={`الجدة لأم${savedFlags.maternalGrandmother ? ' — محفوظ' : ''}`}
         onChange={(next) => updateOne('maternalGrandmother', next)}
-        onSave={() => undefined}
+        onSave={() => onSaveOne('maternalGrandmother')}
       />
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-2xs text-ink-500">
-            اضغط «حفظ الجميع» بعد ملء الحقول الأربعة (كل بطاقة يجب الضغط على «حفظ» فيها أولاً).
+            اضغط «حفظ الجميع» بعد ملء الحقول الأربعة (أو احفظ كل بطاقة على حدة).
           </p>
           <Button
             variant="primary"
             disabled={!allFilled}
-            onClick={() => {
-              onChange(stale);
-              onSave();
-            }}
+            onClick={onSaveAll}
             leadingIcon={<Check size={14} strokeWidth={1.75} />}
           >
             حفظ الجميع
@@ -680,6 +734,7 @@ function GrandparentsPanel({
 function isFilled(m: FamilyMemberForm): boolean {
   const baseOk =
     m.name.length >= 2 &&
+    /^[0-9]{14}$/.test(m.nationalId) &&
     m.dateOfBirth.length > 0 &&
     m.birthGovernorate.length > 0 &&
     m.birthDistrict.length > 0 &&
@@ -721,7 +776,7 @@ function buildRows(input: {
   savedMother: boolean;
   savedFatherWives: readonly boolean[];
   savedMotherHusbands: readonly boolean[];
-  savedGrandparents: boolean;
+  savedGrandparents: Record<keyof GrandparentsForm, boolean>;
 }): readonly ViewRow[] {
   const rows: ViewRow[] = [];
   let n = 1;
@@ -766,7 +821,7 @@ function buildRows(input: {
     name: input.grandparents.paternalGrandfather.name || '—',
     relation: 'الجد لأب',
     profession: professionLabel(input.grandparents.paternalGrandfather.profession),
-    saved: input.savedGrandparents,
+    saved: input.savedGrandparents.paternalGrandfather,
     roleKey: 'grandparents',
   });
   rows.push({
@@ -774,7 +829,7 @@ function buildRows(input: {
     name: input.grandparents.paternalGrandmother.name || '—',
     relation: 'الجدة لأب',
     profession: professionLabel(input.grandparents.paternalGrandmother.profession),
-    saved: input.savedGrandparents,
+    saved: input.savedGrandparents.paternalGrandmother,
     roleKey: 'grandparents',
   });
   rows.push({
@@ -782,7 +837,7 @@ function buildRows(input: {
     name: input.grandparents.maternalGrandfather.name || '—',
     relation: 'الجد لأم',
     profession: professionLabel(input.grandparents.maternalGrandfather.profession),
-    saved: input.savedGrandparents,
+    saved: input.savedGrandparents.maternalGrandfather,
     roleKey: 'grandparents',
   });
   rows.push({
@@ -790,7 +845,7 @@ function buildRows(input: {
     name: input.grandparents.maternalGrandmother.name || '—',
     relation: 'الجدة لأم',
     profession: professionLabel(input.grandparents.maternalGrandmother.profession),
-    saved: input.savedGrandparents,
+    saved: input.savedGrandparents.maternalGrandmother,
     roleKey: 'grandparents',
   });
   return rows;
