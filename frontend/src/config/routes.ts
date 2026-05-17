@@ -67,6 +67,7 @@ export const ROUTES = {
         `/admin/cycles/admission-setup/wizard/${stepKey}`,
       wizardReview: '/admin/cycles/admission-setup/wizard/review',
       applicationSettings: '/admin/cycles/admission-setup/application-settings',
+      applicationSettingsReview: '/admin/cycles/admission-setup/application-settings-review',
       applicationStatus: '/admin/cycles/admission-setup/application-status',
       maritalStatusRules: '/admin/cycles/admission-setup/marital-status-rules',
       fees: '/admin/cycles/admission-setup/fees',

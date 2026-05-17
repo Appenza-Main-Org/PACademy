@@ -19,6 +19,7 @@
 
 import {
   CalendarDays,
+  ClipboardCheck,
   ClipboardSignature,
   FileSignature,
   Settings2,
@@ -65,8 +66,18 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     subtitleAr: 'الفئات المفتوحة، السعة، شروط القبول الموسّعة.',
   },
   {
-    key: 'fees',
+    key: 'application_settings_review',
     order: 2,
+    labelAr: 'مراجعة إعدادات التقديم لكل فئة',
+    routeSegment: 'application-settings-review',
+    icon: ClipboardCheck,
+    permission: 'admission-setup:read',
+    isImplemented: true,
+    subtitleAr: 'ملخص قراءة فقط لإعدادات كل فئة قبل الانتقال للرسوم.',
+  },
+  {
+    key: 'fees',
+    order: 3,
     labelAr: 'الرسوم المالية',
     routeSegment: 'fees',
     icon: Wallet,
@@ -77,7 +88,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'exams',
-    order: 3,
+    order: 4,
     labelAr: 'إدارة الاختبارات',
     routeSegment: 'exams',
     icon: ClipboardSignature,
@@ -88,7 +99,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'committees',
-    order: 4,
+    order: 5,
     labelAr: 'إدارة مواعيد الاختبارات واللجان',
     routeSegment: 'committees',
     icon: ShieldCheck,
@@ -99,7 +110,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'date_committee_binding',
-    order: 5,
+    order: 6,
     labelAr: 'ربط اللجان بالمواعيد',
     routeSegment: 'date-committee-binding',
     icon: CalendarDays,
@@ -109,7 +120,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
   },
   {
     key: 'electronic_declaration',
-    order: 6,
+    order: 7,
     labelAr: 'الإقرار الإلكتروني',
     routeSegment: 'electronic-declaration',
     icon: FileSignature,

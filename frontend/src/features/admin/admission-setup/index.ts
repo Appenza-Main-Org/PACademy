@@ -24,6 +24,7 @@ export { AdmissionSetupWizardPage } from './pages/AdmissionSetupWizardPage';
  * route (e.g. /admin/cycles "إعداد القبول") without forcing navigation. */
 export { EmbeddedAdmissionSetupWizard } from './components/EmbeddedAdmissionSetupWizard';
 export { ApplicationSettingsPage } from './pages/ApplicationSettingsPage';
+export { ApplicationSettingsReviewPage } from './pages/ApplicationSettingsReviewPage';
 export { ApplicationStatusPage } from './pages/ApplicationStatusPage';
 /* AgeRulesPage removed 2026-05; MaritalStatusRulesPage removed when
  * MARITAL_STATUSES dropped out of the lookup catalogue. */

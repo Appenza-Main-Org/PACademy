@@ -28,45 +28,54 @@ import {
 } from '@/shared/components';
 import { cn } from '@/shared/lib/cn';
 import { useLookup } from '@/features/lookups';
-import {
-  useCategoryConfigs,
-  useToggleCategoryActive,
-} from '../../api/applicationSettings.queries';
+import { useToggleCategoryActive } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
 import { GeneralRulesSection } from './GeneralRulesSection';
 import { ThanawiRulesSection } from './ThanawiRulesSection';
 
 export function CategoryAccordion(): JSX.Element {
-  const configsQuery = useCategoryConfigs();
   const categoriesQuery = useLookup('applicant-categories');
   const [openIds, setOpenIds] = useState<string[]>([]);
 
-  if (configsQuery.isLoading || categoriesQuery.isLoading) {
+  if (categoriesQuery.isLoading) {
     return <LoadingState variant="list" />;
   }
-  if (configsQuery.isError || categoriesQuery.isError || !configsQuery.data) {
+  if (categoriesQuery.isError || !categoriesQuery.data) {
     return (
       <ErrorState
         title="تعذر تحميل الفئات"
         description="حاول إعادة المحاولة بعد قليل."
-        onRetry={() => {
-          configsQuery.refetch();
-          categoriesQuery.refetch();
-        }}
+        onRetry={() => categoriesQuery.refetch()}
       />
     );
   }
 
-  /* Filter to active lookup rows then preserve the configs' sortOrder.
-   * The join carries `categoryType`/`categoryFacultyCodes`/
-   * `categorySpecializationCodes` straight off the lookup so feature
-   * components don't have to read the lookup themselves. */
-  const lookupActiveCodes = new Set(
-    (categoriesQuery.data ?? []).filter((c) => c.isActive).map((c) => c.code),
-  );
-  const configs = configsQuery.data.filter((c) =>
-    lookupActiveCodes.has(c.categoryCode),
-  );
+  /* Derive configs directly from the live backend lookup so every accordion
+   * row corresponds to a real `CAT-NN` row. The legacy mock service still
+   * exists for write mutations (toggle / save) — it works against config
+   * IDs we synthesise here from `acc-${cat.code}`. Spec/year counts default
+   * to zero since the mock seed keyed by snake_case codes doesn't match the
+   * new backend codes; admins re-author them through the wizard. */
+  const configs: CategoryConfigJoined[] = (categoriesQuery.data ?? [])
+    .filter((cat) => cat.isActive !== false)
+    .map((cat) => ({
+      id: `acc-${cat.code}`,
+      categoryId: cat.code,
+      isActive: cat.isActive,
+      sortOrder: 0,
+      createdAt: new Date(0).toISOString(),
+      updatedAt: new Date(0).toISOString(),
+      categoryCode: cat.code,
+      categoryNameAr: cat.name,
+      categoryType: (cat.type as 'university' | 'pre_university') ?? 'university',
+      categoryFacultyCodes: cat.facultyCodes ?? [],
+      categorySpecializationCodes: cat.specializationCodes ?? [],
+      lockedGender: cat.genderScope?.length === 1 ? cat.genderScope[0]! : null,
+      singleAxis: (cat.specializationCodes?.length ?? 0) === 0,
+      implicitSpecId: null,
+      specializationCount: cat.specializationCodes?.length ?? 0,
+      yearCount: 0,
+    }));
 
   return (
     <Accordion.Root

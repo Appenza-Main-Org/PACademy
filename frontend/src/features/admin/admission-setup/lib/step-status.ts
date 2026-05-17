@@ -85,6 +85,9 @@ export function computeStepStatus(
       if (openCount === 0) return 'not_started';
       return openCount > 0 ? 'complete' : 'in_progress';
     }
+    case 'application_settings_review':
+      /* Pure review surface — its status mirrors the step it reviews. */
+      return computeStepStatus('application_settings', inputs);
     case 'fees': {
       const fee = cycle.fees?.applicationFee ?? 0;
       const fawry = cycle.fees?.fawryConfig?.merchantCode ?? '';
@@ -185,6 +188,8 @@ export function useStepStatuses(cycleId: string | null): {
 
     return {
       application_settings: pick('application_settings'),
+      /* Review surface mirrors the step it reviews — server doesn't track it. */
+      application_settings_review: pick('application_settings'),
       fees: pick('fees'),
       exams: pick('exams'),
       committees: agg(['committees', 'committee_bindings']),

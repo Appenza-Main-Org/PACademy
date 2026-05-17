@@ -31,6 +31,7 @@ export type GenderType = Applicant['gender'];
 /** Discriminated union of the admission-setup step keys, in canonical order. */
 export type AdmissionSetupStepKey =
   | 'application_settings'
+  | 'application_settings_review'
   | 'fees'
   | 'exams'
   | 'committees'
