@@ -228,6 +228,14 @@ export const routes: RouteObject[] = [
         path: 'lookups/applicant-categories/:id',
         element: <ApplicantCategoryDetailPage />,
       },
+      /* `submission-types` was folded into `applicant-categories` as an
+       * inline attribute on each category row. The lookup itself still
+       * exists in the backend, but the hub navigation hides it — direct
+       * URL hits redirect here. */
+      {
+        path: 'lookups/submission-types',
+        element: <Navigate to="/admin/lookups/applicant-categories" replace />,
+      },
       { path: 'lookups/:tab', element: <LookupsHubPage /> },
       { path: 'reference-data', element: <Navigate to="/admin/lookups" replace /> },
       { path: 'reference-data/:tab', element: <Navigate to="/admin/lookups/:tab" replace /> },

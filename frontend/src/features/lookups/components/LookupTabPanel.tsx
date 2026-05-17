@@ -36,6 +36,7 @@ import {
   useLookup,
   useUpdateLookupRow,
 } from '../api/lookups.queries';
+import { lookupLabelByCode } from '../api/lookups.service';
 import {
   LOOKUP_META,
   type AnnouncementRow,
@@ -70,6 +71,13 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
   const createMut = useCreateLookupRow(lookupKey);
   const updateMut = useUpdateLookupRow(lookupKey);
   const deleteMut = useDeleteLookupRow(lookupKey);
+  /* Prefetch the FK target lookups commonly referenced by column renderers
+   * so `labelByCode` resolves backend codes (CAT-NN, FAC-NN, GOV-NN, …) to
+   * their Arabic labels on the first render. Cheap — TanStack Query
+   * deduplicates so the same prefetch from sibling tabs is free. */
+  useLookup('applicant-categories');
+  useLookup('faculties');
+  useLookup('governorates');
 
   const [search, setSearch] = useState('');
   const [filterValue, setFilterValue] = useState<string>('all');
@@ -692,6 +700,11 @@ const TEST_KIND_LABEL: Record<TestRow['kind'], string> = {
   physical: 'رياضي', medical: 'طبي', interview: 'مقابلة', written: 'كتابي', psych: 'نفسي',
 };
 function labelByCode(key: LookupKey, code: string): string {
+  /* Live backend cache wins — required because new backend lookup keys
+   * (e.g. APPLICANT_CATEGORIES = CAT-NN) don't exist in the MOCK seed. */
+  const live = lookupLabelByCode(key, code);
+  if (live) return live;
+  /* Fall back to MOCK for any lookup whose live list hasn't loaded yet. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = (MOCK.lookups[key] as any[]).find((r) => r.code === code);
   return row ? row.name : '—';

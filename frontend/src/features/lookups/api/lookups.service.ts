@@ -113,20 +113,36 @@ interface BackendUpdateRequest {
 
 /* ─── Per-(typeCode) cache populated on listLookup ───────────────────── */
 
-interface CacheEntry { id: string; code: string; rowVersion: string }
+interface CacheEntry { id: string; code: string; nameAr: string; rowVersion: string }
 const cache: Record<string, CacheEntry[]> = {};
 
 function refreshCache(typeCode: string, rows: LookupItemDto[]): void {
-  cache[typeCode] = rows.map((r) => ({ id: r.id, code: r.code, rowVersion: r.rowVersion }));
+  cache[typeCode] = rows.map((r) => ({
+    id: r.id, code: r.code, nameAr: r.nameAr, rowVersion: r.rowVersion,
+  }));
 }
 
 function refreshCacheOne(typeCode: string, dto: LookupItemDto): void {
   const list = cache[typeCode] ?? [];
   const idx = list.findIndex((r) => r.id === dto.id);
-  const entry: CacheEntry = { id: dto.id, code: dto.code, rowVersion: dto.rowVersion };
+  const entry: CacheEntry = {
+    id: dto.id, code: dto.code, nameAr: dto.nameAr, rowVersion: dto.rowVersion,
+  };
   if (idx >= 0) list[idx] = entry;
   else list.push(entry);
   cache[typeCode] = list;
+}
+
+/**
+ * Resolve a code to its Arabic label using the live backend cache.
+ * Returns `null` if the cache hasn't been populated for this typeCode yet
+ * (caller should fall back to MOCK or render '—'). Synchronous — safe to
+ * call from column render lambdas.
+ */
+export function lookupLabelByCode(key: LookupKey, code: string | null | undefined): string | null {
+  if (!code) return null;
+  const typeCode = TYPE_CODE[key];
+  return cache[typeCode]?.find((r) => r.code === code)?.nameAr ?? null;
 }
 
 function findInCache(typeCode: string, code: string): CacheEntry | undefined {
@@ -145,7 +161,9 @@ function codeFromId(typeCode: string, id: string | null | undefined): string | n
 
 async function fetchSingle(typeCode: string, code: string): Promise<CacheEntry> {
   const r = await apiClient.get<LookupItemDto>(`/admin/lookups/${typeCode}/${code}`);
-  const entry: CacheEntry = { id: r.data.id, code: r.data.code, rowVersion: r.data.rowVersion };
+  const entry: CacheEntry = {
+    id: r.data.id, code: r.data.code, nameAr: r.data.nameAr, rowVersion: r.data.rowVersion,
+  };
   refreshCacheOne(typeCode, r.data);
   return entry;
 }
@@ -202,10 +220,14 @@ function fromBackend<K extends LookupKey>(key: K, dto: LookupItemDto): LookupRow
         tone: String(extras.tone ?? 'neutral'),
       } as any;
     case 'committees':
+      /* CommitteeRow shape (types.ts): applicantCategoryId (FK, required) +
+       * optional description. Older backend seed rows carry kind/chairTitle
+       * in extras instead — for those, applicantCategoryId comes back empty
+       * and the grid shows '—' until the row is edited. */
       return {
         ...base,
-        kind: String(extras.kind ?? 'primary'),
-        chairTitle: String(extras.chairTitle ?? ''),
+        applicantCategoryId: String(extras.applicantCategoryId ?? ''),
+        description: extras.description ? String(extras.description) : undefined,
       } as any;
     case 'specializations':
       return { ...base, facultyCode: dto.facultyCode ?? '' } as any;
@@ -217,11 +239,33 @@ function fromBackend<K extends LookupKey>(key: K, dto: LookupItemDto): LookupRow
         nameEn: dto.nameEn ?? '',
         sortOrder: dto.sortOrder,
       } as any;
-    case 'applicant-categories':
+    case 'applicant-categories': {
+      /* Backend stores `genderScope` in extrasJson as either a single
+       * string ('male' | 'female' | 'any') or an array — normalise to
+       * the frontend's ApplicantCategoryGenderScope[] (`['male']`,
+       * `['female']`, or `['male','female']` for "any"). */
+      const rawScope = extras.genderScope;
+      const genderScope: ('male' | 'female')[] = Array.isArray(rawScope)
+        ? (rawScope.filter((g): g is 'male' | 'female' => g === 'male' || g === 'female'))
+        : rawScope === 'male'
+          ? ['male']
+          : rawScope === 'female'
+            ? ['female']
+            : ['male', 'female']; // 'any' / null / undefined → both
+      /* facultyCodes + specializationCodes: backend may store as arrays
+       * inside extrasJson; default to [] if missing. */
+      const facultyCodes = Array.isArray(extras.facultyCodes)
+        ? (extras.facultyCodes as string[])
+        : [];
+      const specializationCodes = Array.isArray(extras.specializationCodes)
+        ? (extras.specializationCodes as string[])
+        : [];
       return {
         ...base,
         nameEn: dto.nameEn ?? '',
-        genderScope: String(extras.genderScope ?? 'any'),
+        genderScope,
+        facultyCodes,
+        specializationCodes,
         applicationMode: String(extras.applicationMode ?? 'general'),
         type: String(extras.type ?? 'university'),
         facultySelectionType: (extras.facultySelectionType ?? null) as any,
@@ -232,6 +276,7 @@ function fromBackend<K extends LookupKey>(key: K, dto: LookupItemDto): LookupRow
         requiredTests: (extras.requiredTests ?? []) as any,
         procedures: (extras.procedures ?? []) as any,
       } as any;
+    }
     case 'nationalities-countries':
       return {
         ...base,
@@ -319,8 +364,14 @@ function splitFields<K extends LookupKey>(key: K, row: Partial<LookupRow<K>>): T
       if ('tone' in r) extras.tone = r.tone;
       break;
     case 'committees':
-      if ('kind' in r) extras.kind = r.kind;
-      if ('chairTitle' in r) extras.chairTitle = r.chairTitle;
+      /* Persist the FK + optional description into extras so the row
+       * round-trips. Drop description from extras when blank to avoid
+       * storing empty strings. */
+      if ('applicantCategoryId' in r) extras.applicantCategoryId = r.applicantCategoryId;
+      if ('description' in r) {
+        const desc = typeof r.description === 'string' ? r.description.trim() : '';
+        if (desc) extras.description = desc;
+      }
       break;
     case 'specializations':
       facultyCode = (r.facultyCode as string | null | undefined) ?? null;

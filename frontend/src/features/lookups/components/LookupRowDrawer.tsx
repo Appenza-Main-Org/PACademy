@@ -11,6 +11,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { lookupKeys } from '../api/lookups.queries';
 import {
   Controller,
   FormProvider,
@@ -77,6 +79,14 @@ export function LookupRowDrawer<K extends LookupKey>({
   const meta = LOOKUP_META[lookupKey];
   const isEdit = editing !== null;
 
+  /* Live backend rows for this lookup — populated by the surrounding
+   * LookupTabPanel's useLookup query. Used by nextCodeFor so auto-generated
+   * codes don't collide with backend rows the frontend MOCK seed doesn't
+   * know about. */
+  const queryClient = useQueryClient();
+  const liveItems = (queryClient.getQueryData(lookupKeys.list(lookupKey))
+    ?? []) as Array<{ code: string }>;
+
   const defaults = useMemo<FieldValues>(
     () => (editing ? { ...(editing as object) } : blankRow(lookupKey)) as FieldValues,
     [editing, lookupKey],
@@ -108,7 +118,7 @@ export function LookupRowDrawer<K extends LookupKey>({
       }
     }
     if (!isEdit && (!next.code || String(next.code).trim() === '')) {
-      next.code = nextCodeFor(lookupKey);
+      next.code = nextCodeFor(lookupKey, liveItems);
     }
     if (lookupKey === 'committees') {
       const trimmed = typeof next.description === 'string' ? next.description.trim() : '';
@@ -1067,9 +1077,14 @@ function blankRow(key: LookupKey): Record<string, unknown> {
   }
 }
 
-function nextCodeFor(key: LookupKey): string {
+function nextCodeFor(key: LookupKey, liveItems?: Array<{ code: string }>): string {
   const meta = LOOKUP_META[key];
-  const items = MOCK.lookups[key] as unknown as Array<{ code: string }>;
+  /* Prefer live backend rows so the generated code matches what the server
+   * actually has. Fall back to the MOCK seed when the live cache is empty
+   * (e.g. drawer opened before the list query resolved). */
+  const items = (liveItems && liveItems.length > 0
+    ? liveItems
+    : (MOCK.lookups[key] as unknown as Array<{ code: string }>));
   let max = 0;
   for (const r of items) {
     const m = r.code.match(/-(\d+)$/);

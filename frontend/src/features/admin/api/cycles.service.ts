@@ -248,6 +248,13 @@ export const cyclesService = {
         year: c.year,
         cohort: c.cohort,
         status: c.status,
+        /* Backend's 4-state `status` (Draft/Active/Closed/Archived) is the
+         * single source of truth; the legacy frontend also carries a separate
+         * `isActive` boolean used by CyclesPage's "نشطة" badge and the active-
+         * cycle picker. Synthesise it here from the wire status so the UI
+         * keeps working without a second round-trip. */
+        isActive:
+          c.status === 'active' || c.status === 'open' || c.status === 'extended',
         openDate: c.openDate,
         closeDate: c.closeDate,
         applicantCount: c.applicantCount,
@@ -258,10 +265,17 @@ export const cyclesService = {
   async getById(id: string): Promise<AdmissionCycle | null> {
     /* Real backend GET /admin/cycles/{id} — returns CycleDetailDto. Fields
      * not on the DTO (fees, linkedCommitteeIds, etc.) come back undefined.
-     * Returns null on 404 instead of throwing — preserves the mock contract. */
+     * Returns null on 404 instead of throwing — preserves the mock contract.
+     * Synthesise the legacy `isActive` boolean from the wire status so any
+     * consumer of the detail still sees a coherent flag. */
     try {
       const r = await apiClient.get<AdmissionCycle>(`/admin/cycles/${id}`);
-      return r.data;
+      const cycle = r.data;
+      return {
+        ...cycle,
+        isActive:
+          cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended',
+      };
     } catch (err) {
       const status = (err as { status?: number })?.status;
       if (status === 404) return null;
