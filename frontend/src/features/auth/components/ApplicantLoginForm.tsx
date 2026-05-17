@@ -25,10 +25,7 @@ import { zodResolver } from '@/shared/lib/zod-resolver';
 import { authService } from '../api/auth.service';
 import { useAuthStore } from '../store/auth.store';
 import { ROUTES } from '@/config/routes';
-import {
-  DEMO_TEST_USERS,
-  mockMoiLookup,
-} from '@/features/applicant-portal/lib/moi-session.mock';
+import { mockMoiLookup } from '@/features/applicant-portal/lib/moi-session.mock';
 import { useApplicantPortalStore } from '@/features/applicant-portal/store/applicantPortal.store';
 
 const schema = z.object({
@@ -45,7 +42,7 @@ export function ApplicantLoginForm(): JSX.Element {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
-  const { register, handleSubmit, setValue, getValues, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver bridges zod's variance-strict generic
     resolver: zodResolver(schema),
     defaultValues: { nationalId: '', password: '' },
@@ -112,14 +109,6 @@ export function ApplicantLoginForm(): JSX.Element {
     void performLogin(values);
   };
 
-  /** Fill the form with a demo user AND auto-submit so a single click
-   *  drives the whole scenario. */
-  const tryDemoUser = (nid: string): void => {
-    setValue('nationalId', nid, { shouldValidate: true });
-    setValue('password', 'demo-password', { shouldValidate: true });
-    void performLogin(getValues());
-  };
-
   return (
     <form
       onSubmit={(e) => { void handleSubmit(onSubmit)(e); }}
@@ -177,37 +166,6 @@ export function ApplicantLoginForm(): JSX.Element {
           </p>
         </div>
       </aside>
-
-      <section
-        aria-label="مستخدمون تجريبيون"
-        className="rounded-md border border-dashed border-ink-200 bg-ink-50/40 px-4 py-3"
-      >
-        <header className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-2xs font-medium uppercase tracking-wide text-ink-600">
-            للعرض التجريبي
-          </span>
-          <span className="text-2xs text-ink-500">انقر على المستخدم لتسجيل الدخول مباشرةً</span>
-        </header>
-        <ul className="flex flex-col gap-2 text-2xs">
-          {DEMO_TEST_USERS.map((u) => (
-            <li key={u.nationalId} className="flex flex-col gap-1">
-              <button
-                type="button"
-                onClick={() => tryDemoUser(u.nationalId)}
-                disabled={submitting}
-                className="flex items-center justify-between gap-2 rounded-md border border-ink-200 bg-white px-3 py-2 text-start text-ink-800 transition hover:border-teal-400 hover:bg-teal-50 disabled:opacity-60"
-              >
-                <span className="flex flex-col">
-                  <span className="font-medium text-ink-900">{u.label}</span>
-                  <span className="text-ink-500" dir="ltr">{u.nationalId}</span>
-                </span>
-                <span className="shrink-0 text-2xs text-teal-700">{u.fullName}</span>
-              </button>
-              <p className="text-ink-500 leading-normal">{u.note}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
     </form>
   );
 }
