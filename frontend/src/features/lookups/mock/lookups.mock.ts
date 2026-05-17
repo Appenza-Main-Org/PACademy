@@ -26,6 +26,7 @@ import type {
   ExamRoundRow,
   FacultyRow,
   GovernorateRow,
+  GradeSourceRow,
   GraduationYearRow,
   JobRow,
   LookupKey,
@@ -832,11 +833,22 @@ const applicantDivisions: ApplicantDivisionRow[] = [
 /* ─── 17. school-categories ──────────────────────────────────────────── */
 
 const schoolCategories: SchoolCategoryRow[] = [
-  { code: 'SCH-01', name: 'الثانوية العامة',                                ...active },
-  { code: 'SCH-03', name: 'الثانوية الأزهرية',                              ...active },
-  { code: 'SCH-05', name: 'الشهادات المعادلة من الخارج',                    ...active },
-  { code: 'SCH-06', name: 'الدبلومات الأجنبية',                             ...active },
-  { code: 'SCH-07', name: 'مدارس المتفوقين في العلوم والتكنولوجيا STEM',   ...active },
+  { code: 'SCH-01', name: 'الثانوية العامة',                                gradeSourceCode: 'GSRC-01', ...active },
+  { code: 'SCH-03', name: 'الثانوية الأزهرية',                              gradeSourceCode: 'GSRC-02', ...active },
+  { code: 'SCH-05', name: 'الشهادات المعادلة من الخارج',                    gradeSourceCode: 'GSRC-03', ...active },
+  { code: 'SCH-06', name: 'الدبلومات الأجنبية',                             gradeSourceCode: 'GSRC-03', ...active },
+  { code: 'SCH-07', name: 'مدارس المتفوقين في العلوم والتكنولوجيا STEM',   gradeSourceCode: 'GSRC-01', ...active },
+];
+
+/* ─── 17b. grade-sources ─────────────────────────────────────────────── */
+
+/* The authority that issued + graded the certificate. Referenced by
+ * `SchoolCategoryRow.gradeSourceCode`. Mirrors the backend seed in
+ * migration `010c_AddGradeSourcesLookup`. */
+const gradeSources: GradeSourceRow[] = [
+  { code: 'GSRC-01', name: 'وزارة التربية والتعليم', ...active },
+  { code: 'GSRC-02', name: 'الأزهر الشريف',           ...active },
+  { code: 'GSRC-03', name: 'شهادة أجنبية معادلة',     ...active },
 ];
 
 /* ─── 18. nid-missing-reasons ────────────────────────────────────────── */
@@ -1005,6 +1017,7 @@ export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
   'announcements': announcements,
   'applicant-divisions': applicantDivisions,
   'school-categories': schoolCategories,
+  'grade-sources': gradeSources,
   'nid-missing-reasons': nidMissingReasons,
   'universities': universities,
   'marital-statuses': maritalStatuses,

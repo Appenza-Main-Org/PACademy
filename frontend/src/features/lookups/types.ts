@@ -33,6 +33,7 @@ export const LOOKUP_KEYS = [
   'announcements',
   'applicant-divisions',
   'school-categories',
+  'grade-sources',
   'nid-missing-reasons',
   'universities',
   'marital-statuses',
@@ -91,6 +92,7 @@ export const LOOKUP_SECTIONS = [
       'announcements',
       'applicant-divisions',
       'school-categories',
+      'grade-sources',
       'marital-statuses',
       'academic-grades',
       'academic-degrees',
@@ -133,6 +135,7 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'announcements':                { label: 'التنبيهات العامة للتقدم',      codePrefix: 'ANN', padding: 2 },
   'applicant-divisions':          { label: 'شعبة المتقدمين',               codePrefix: 'DIV', padding: 2 },
   'school-categories':            { label: 'فئة المدرسة',                  codePrefix: 'SCH', padding: 2 },
+  'grade-sources':                { label: 'مصدر الدرجات',                 codePrefix: 'GSRC', padding: 2 },
   'nid-missing-reasons':          { label: 'أسباب تعذر وجود رقم قومي',    codePrefix: 'NMR', padding: 2 },
   'universities':                 { label: 'الجامعات',                      codePrefix: 'UNI', padding: 2 },
   'marital-statuses':             { label: 'الحالة الاجتماعية',            codePrefix: 'MAR', padding: 2 },
@@ -350,7 +353,18 @@ export interface AnnouncementRow extends LookupRowBase {
 
 export interface ApplicantDivisionRow extends LookupRowBase {}
 
-export interface SchoolCategoryRow extends LookupRowBase {}
+/** School-category lookup row (فئة المدرسة). `gradeSourceCode` FK names the
+ *  authority that issued + graded the certificate — drives downstream
+ *  scoring rules for the Thanaweya / equivalency tracks. */
+export interface SchoolCategoryRow extends LookupRowBase {
+  /** FK → `grade-sources[code]`. Empty string when unset (admin must edit). */
+  gradeSourceCode: string;
+}
+
+/** Grade-source lookup row (مصدر الدرجات). The authority that issued and
+ *  graded the certificate — وزارة التربية والتعليم / الأزهر الشريف /
+ *  شهادة أجنبية معادلة. Referenced by `SchoolCategoryRow.gradeSourceCode`. */
+export interface GradeSourceRow extends LookupRowBase {}
 
 export interface NidMissingReasonRow extends LookupRowBase {
   /** If true, the eligibility flow forces the applicant to upload
@@ -417,6 +431,7 @@ export interface LookupRowMap {
   'announcements': AnnouncementRow;
   'applicant-divisions': ApplicantDivisionRow;
   'school-categories': SchoolCategoryRow;
+  'grade-sources': GradeSourceRow;
   'nid-missing-reasons': NidMissingReasonRow;
   'universities': UniversityRow;
   'marital-statuses': MaritalStatusRow;

@@ -51,6 +51,7 @@ import {
   type QualificationRow,
   type RelationshipDegreeTierRow,
   type RelationshipRow,
+  type SchoolCategoryRow,
   type SpecializationRow,
   type SubmissionTypeRow,
   type TestResultRow,
@@ -689,6 +690,14 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
     case 'nid-missing-reasons':
       return [
         { key: 'requiresUpload', label: 'مستندات', sortable: true, width: 110, render: (r: NidMissingReasonRow) => r.requiresUpload ? <Badge tone="warning">مطلوبة</Badge> : <Badge tone="neutral">—</Badge> },
+      ];
+    case 'school-categories':
+      return [
+        { key: 'gradeSourceCode', label: 'مصدر الدرجات', sortable: true, render: (r: SchoolCategoryRow) => (
+          r.gradeSourceCode
+            ? <span className="text-xs text-ink-700">{labelByCode('grade-sources', r.gradeSourceCode)}</span>
+            : <span className="text-ink-400">—</span>
+        ) },
       ];
     default:
       return [];

@@ -486,6 +486,23 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
           )}
         />
       );
+    case 'school-categories':
+      return (
+        <Controller
+          control={control}
+          name="gradeSourceCode"
+          render={({ field }) => (
+            <ForeignKeySelect
+              lookupKey="grade-sources"
+              label="مصدر الدرجات"
+              allowEmpty="— غير محدد —"
+              value={(field.value as string | undefined) ?? ''}
+              onChange={field.onChange}
+              containerClassName="col-span-2"
+            />
+          )}
+        />
+      );
     default:
       return <></>;
   }
@@ -1070,6 +1087,8 @@ function blankRow(key: LookupKey): Record<string, unknown> {
       };
     case 'nid-missing-reasons':
       return { ...base, requiresUpload: false };
+    case 'school-categories':
+      return { ...base, gradeSourceCode: '' };
     case 'graduation-years':
       return { ...base, year: new Date().getFullYear() };
     default:

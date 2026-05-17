@@ -53,6 +53,7 @@ const TYPE_CODE: Record<LookupKey, string> = {
   'announcements':                'ANNOUNCEMENTS',
   'applicant-divisions':          'APPLICANT_DIVISIONS',
   'school-categories':            'SCHOOL_CATEGORIES',
+  'grade-sources':                'GRADE_SOURCES',
   'nid-missing-reasons':          'NID_MISSING_REASONS',
   'universities':                 'UNIVERSITIES',
   'marital-statuses':             'MARITAL_STATUSES',
@@ -310,10 +311,15 @@ function fromBackend<K extends LookupKey>(key: K, dto: LookupItemDto): LookupRow
         body: String(extras.body ?? ''),
       } as any;
     case 'applicant-divisions':
-    case 'school-categories':
     case 'universities':
     case 'academic-degrees':
+    case 'grade-sources':
       return base as any;
+    case 'school-categories':
+      return {
+        ...base,
+        gradeSourceCode: typeof extras.gradeSourceCode === 'string' ? extras.gradeSourceCode : '',
+      } as any;
     case 'nid-missing-reasons':
       return { ...base, requiresUpload: Boolean(extras.requiresUpload ?? false) } as any;
     case 'marital-statuses':
@@ -426,8 +432,11 @@ function splitFields<K extends LookupKey>(key: K, row: Partial<LookupRow<K>>): T
     case 'academic-grades':
       if ('nameEn' in r) nameEn = r.nameEn as string;
       break;
-    /* faculties, applicant-divisions, school-categories, universities,
-     * academic-degrees — no extras / no parent */
+    case 'school-categories':
+      if ('gradeSourceCode' in r) extras.gradeSourceCode = r.gradeSourceCode;
+      break;
+    /* faculties, applicant-divisions, universities, academic-degrees,
+     * grade-sources — no extras / no parent */
     default:
       break;
   }
