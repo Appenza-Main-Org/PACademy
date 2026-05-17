@@ -5,11 +5,18 @@
  * rows (`useLookup('governorates')` → `UseQueryResult<GovernorateRow[]>`).
  */
 
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/shared/components';
 import { ConflictError, isConflictError } from '@/shared/lib/errors';
 import { lookupsService } from './lookups.service';
-import type { DeleteResult, LookupKey, LookupRow } from '../types';
+import type {
+  ApplicantCategoryRow,
+  ApplicantCategoryType,
+  DeleteResult,
+  LookupKey,
+  LookupRow,
+} from '../types';
 
 export const lookupKeys = {
   all: ['lookups'] as const,
@@ -21,6 +28,28 @@ export function useLookup<K extends LookupKey>(key: K) {
     queryKey: lookupKeys.list(key),
     queryFn: () => lookupsService.listLookup(key),
   });
+}
+
+/**
+ * Convenience selector over `useLookup('applicant-categories')` — returns
+ * the rows pre-narrowed by entry stage (`pre_university` = ثانوي,
+ * `university` = جامعي). Used by the applicant-portal eligibility gate
+ * (RFP §المرحلة 3-4): the ثانوي category auto-resolves when grades are
+ * found by NID, otherwise the user picks from the non-ثانوي rows.
+ *
+ * Returns the same `UseQueryResult` shape as `useLookup` but with a
+ * `data` array narrowed to active rows of the requested type. When
+ * `type` is omitted, all active rows are returned.
+ */
+export function useApplicantCategories(opts: { type?: ApplicantCategoryType } = {}) {
+  const query = useLookup('applicant-categories');
+  const filtered = useMemo<ApplicantCategoryRow[] | undefined>(() => {
+    if (!query.data) return undefined;
+    const active = query.data.filter((r) => r.isActive);
+    if (!opts.type) return active;
+    return active.filter((r) => r.type === opts.type);
+  }, [query.data, opts.type]);
+  return { ...query, data: filtered };
 }
 
 const CONFLICT_MESSAGES: Record<string, string> = {

@@ -1,5 +1,6 @@
 /**
- * Applicant portal API Contract — Sprint 2 (KARASA_GAPS §2.4).
+ * Applicant portal API Contract — Sprint 2 (KARASA_GAPS §2.4) +
+ * applicant-flow MOI-alignment additions.
  *
  * INTEGRATION CONTRACT:
  *   POST /applicant/auth/initiate                  → { sessionId, expiresAt }
@@ -9,10 +10,15 @@
  *   POST /applicant/stage/:applicantId/:stage      → { valid, errors? }
  *   POST /applicant/verify-certificate             → { match, mismatchedFields }
  *   POST /applicant/payment/confirm-identity       → { confirmed }   (AF-2 pre-payment re-verification)
+ *   POST /applicant/verify                          → { confirmed }  (MOI-aligned re-verify after profile)
+ *   POST /applicant/payment/intent                  → { intentId, refNumber, fawryCode? }
+ *   POST /applicant/payment/confirm                 → { confirmed, paidAt }
  *   POST /applicant/payment/initiate               → { redirectUrl|fawryCode, refNumber }
  *   GET  /applicant/payment/verify/:refNumber      → { status, receipt }
  *   GET  /applicant/exam-slots                     → ExamSlot[]
  *   POST /applicant/exam-slots/:slotId/reserve     → { confirmed, slot }
+ *   POST /applicant/parents/approve                 → { approvedAt }     (MOI اعتماد gate)
+ *   POST /applicant/exam-date                       → { date }           (MOI first-exam-date pick)
  *   GET  /applicant/follow-up/:applicantId         → followUp pipeline
  *   POST /applicant/attendance-card/:applicantId   → Blob (PDF/print)
  *   POST /applicant/acquaintance-doc/:applicantId  → Blob (PDF/print)
@@ -173,5 +179,130 @@ export const applicantPortalService = {
   async generateAcquaintanceDoc(_applicantId: string): Promise<void> {
     await simulateLatency(200, 400);
     if (typeof window !== 'undefined') window.print();
+  },
+
+  /* ── MOI-aligned methods ──────────────────────────────────────────── */
+
+  /**
+   * MOI verify step (PDF p.5 lower). The applicant re-enters NID + mobile
+   * after submitting profile data — values must match the MOI session.
+   *
+   * INTEGRATION CONTRACT: POST /applicant/verify
+   *   body: { nationalId, mobile }
+   *   response: { confirmed: boolean }
+   *   errors: throws on validation failure
+   */
+  async verifyApplicant(input: { nationalId: string; mobile: string }): Promise<{ confirmed: boolean }> {
+    await simulateLatency(250, 500);
+    /* The mock checks against the static MOI session payload. Production
+     * compares against the server-side draft populated at MOI SSO time. */
+    const { moiSessionMatches } = await import('../lib/moi-session.mock');
+    const ok = moiSessionMatches(input);
+    return { confirmed: ok };
+  },
+
+  /**
+   * MOI identity-verification fetch — RFP §المرحلة 3. Backs the
+   * read-only "البيانات المسترجعة من بوابة التحقق القومي" card on the
+   * applicant-profile page. Mocked via `mockMoiVerifyNid` (deterministic
+   * lookup over the seeded NID + structural derivation for any other
+   * well-formed 14-digit NID).
+   *
+   * INTEGRATION CONTRACT: GET /applicant/moi/verify/:nid
+   *   200 → MoiApplicantSession
+   *   404 → null (NID not registered with MOI)
+   */
+  async fetchMoiVerification(nid: string) {
+    await simulateLatency(300, 600);
+    const { mockMoiVerifyNid } = await import('../lib/moi-session.mock');
+    const result = mockMoiVerifyNid(nid);
+    if (!result) throw new Error('الرقم القومي غير مسجَّل لدى بوابة التحقق القومي');
+    return result;
+  },
+
+  /**
+   * Create a payment intent (PDF pp.6-7). Returns an intentId + a
+   * deterministic 10-digit reference. Fawry-code intents also carry an
+   * 8-digit code valid for 48 hours.
+   *
+   * INTEGRATION CONTRACT: POST /applicant/payment/intent
+   *   body: { method: 'fawry-code' | 'credit-card' }
+   *   response: { intentId, refNumber, fawryCode? }
+   */
+  async createPaymentIntent(_input: {
+    method: 'fawry-code';
+  }): Promise<{ intentId: string; refNumber: string; fawryCode: string }> {
+    await simulateLatency(400, 700);
+    const { deterministicPaymentReference, deterministicFawryCode } = await import(
+      '../lib/deterministic-codes'
+    );
+    const refNumber = deterministicPaymentReference(DRAFT.applicantId);
+    const intentId = `INT-${refNumber}`;
+    return {
+      intentId,
+      refNumber,
+      fawryCode: deterministicFawryCode(DRAFT.applicantId),
+    };
+  },
+
+  /**
+   * Confirm payment after the user completes the credit-card flow (PDF
+   * p.8 top). Returns the paid timestamp + marks the draft.
+   *
+   * INTEGRATION CONTRACT: POST /applicant/payment/confirm
+   *   body: { intentId }
+   *   response: { confirmed: true, paidAt }
+   */
+  async confirmPayment(_input: { intentId: string }): Promise<{ confirmed: true; paidAt: number }> {
+    await simulateLatency(500, 900);
+    const paidAt = Date.now();
+    DRAFT = {
+      ...DRAFT,
+      furthestStage: Math.max(DRAFT.furthestStage, 6),
+      lastSavedAt: paidAt,
+    };
+    return { confirmed: true, paidAt };
+  },
+
+  /**
+   * Mark parents data as اعتماد (PDF p.10). Stage 8 is blocked until this
+   * flag is set on the draft.
+   *
+   * INTEGRATION CONTRACT: POST /applicant/parents/approve
+   *   response: { approvedAt }
+   */
+  async approveParents(): Promise<{ approvedAt: number }> {
+    await simulateLatency(250, 500);
+    const approvedAt = Date.now();
+    DRAFT = {
+      ...DRAFT,
+      furthestStage: Math.max(DRAFT.furthestStage, 7),
+      lastSavedAt: approvedAt,
+    };
+    return { approvedAt };
+  },
+
+  /**
+   * Pick the first-exam date (PDF p.11). Persisted on the draft so the
+   * attendance card (Stage 9) can render the chosen date.
+   *
+   * INTEGRATION CONTRACT: POST /applicant/exam-date
+   *   body: { date: ISO string }
+   *   response: { date }
+   */
+  async pickFirstExamDate(input: { date: string }): Promise<{ date: string }> {
+    await simulateLatency(250, 500);
+    DRAFT = {
+      ...DRAFT,
+      examSlot: {
+        slotId: `MOI-${input.date}`,
+        date: input.date,
+        time: '08:00',
+        location: 'كلية الشرطة - مبنى الاختبارات - القاهرة',
+      },
+      furthestStage: Math.max(DRAFT.furthestStage, 8),
+      lastSavedAt: Date.now(),
+    };
+    return { date: input.date };
   },
 };

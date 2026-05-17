@@ -344,7 +344,7 @@ export function CyclesPage(): JSX.Element {
     <TooltipProvider>
       <CenteredShell>
         <PageHeader
-          title="دورات القبول"
+          title="دورات القبول وإعداد التقديم"
           subtitle="إدارة دورات القبول السنوية: الاسم والسنة وحالة الاعتماد والنشر."
           breadcrumbs={[
             { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },

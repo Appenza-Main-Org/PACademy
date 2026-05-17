@@ -231,6 +231,42 @@ export interface BulkSaveResult {
   deleted: number;
 }
 
+/* ─── Application-settings summary (review surfaces) ──────────────────
+ *
+ * The review surfaces (the pre-review step and the final review step) need
+ * the whole tree at once — every active category, every attached
+ * specialization, every year row. Rules-of-hooks rules out a per-spec
+ * `useYears` fan-out, and we don't want the consumer juggling N parallel
+ * queries. The service therefore exposes a single joined snapshot keyed
+ * off the live in-memory mirrors. The shape mirrors what the UI renders:
+ * a list of category cards, each carrying its specialization buckets, each
+ * carrying its year rows. The resolved `gradingMode` is included so the
+ * consumer can label the grade column without re-walking the chain.
+ *
+ * Implicit-junction (`singleAxis`) categories surface a single bucket with
+ * `nameAr: null` — the consumer renders the year table directly under the
+ * category header instead of a redundant specialization sub-header. */
+export interface YearGroupForReview {
+  /** `ApplicantCategorySpecialization.id` — useful for keying / debugging
+   *  even though the review UI doesn't drill in. */
+  csId: string;
+  /** Specialization name for multi-axis configs; `null` for the implicit
+   *  junction of a singleAxis category. */
+  nameAr: string | null;
+  years: ApplicantSpecializationYear[];
+}
+
+export interface CategorySettingsSummary {
+  config: CategoryConfigJoined;
+  /** Pre-bucketed year rows, one bucket per attached specialization
+   *  junction (including the implicit one for singleAxis categories).
+   *  Empty when the category has no attached specializations yet. */
+  groups: YearGroupForReview[];
+  /** Resolved at the service boundary so the consumer doesn't re-walk
+   *  the chain. `null` when the parent metadata is missing. */
+  gradingMode: ReturnType<typeof resolveGradingModeForSpec>;
+}
+
 export const applicationSettingsService = {
   /* ── Reads ───────────────────────────────────────────────────────── */
 
@@ -289,6 +325,47 @@ export const applicationSettingsService = {
     return years
       .filter((y) => y.categorySpecializationId === categorySpecializationId)
       .sort((a, b) => maxYear(b) - maxYear(a));
+  },
+
+  /**
+   * Joined snapshot of the entire application-settings tree — one shot
+   * across configs → specializations → year rows, with the resolved
+   * parent gradingMode stamped on each category. Drives the read-only
+   * review surfaces; not used by editing flows (those continue to fetch
+   * per-spec for cache-key granularity).
+   */
+  async getApplicationSettingsSummary(): Promise<CategorySettingsSummary[]> {
+    await simulateLatency(80, 160);
+    function maxYear(y: ApplicantSpecializationYear): number {
+      return y.graduationYears.length > 0 ? Math.max(...y.graduationYears) : 0;
+    }
+    return [...configs]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(joinConfig)
+      .map((cfg): CategorySettingsSummary => {
+        const childSpecs = specs.filter((s) => s.configId === cfg.id);
+        /* gradingMode is constant across a category's specializations
+         * (resolved off the parent category lookup row), so the first
+         * attached junction is enough to read it. Falls back to null
+         * when the category has no attachments yet. */
+        const gradingMode = childSpecs[0]
+          ? resolveGradingModeFor(childSpecs[0].id)
+          : null;
+        const groups: YearGroupForReview[] = childSpecs.map((s) => {
+          const isImplicit = s.specializationId === IMPLICIT_DEFAULT_SPEC_CODE;
+          const specRow = isImplicit
+            ? null
+            : SPECIALIZATION_LOOKUP.find((r) => r.code === s.specializationId);
+          return {
+            csId: s.id,
+            nameAr: isImplicit ? null : (specRow?.name ?? s.specializationId),
+            years: years
+              .filter((y) => y.categorySpecializationId === s.id)
+              .sort((a, b) => maxYear(b) - maxYear(a)),
+          };
+        });
+        return { config: cfg, groups, gradingMode };
+      });
   },
 
   /**

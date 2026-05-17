@@ -1,16 +1,18 @@
 /**
- * Stage 9 — printable attendance card (RFP Scope Document §2.2 stage 9).
- * Source: TIER 2 print polish.
+ * Stage 9 — printable attendance card (PDF p.11 lower + p.12, MOI-aligned).
  *
- * Polished for evaluator demo: photo box + 4-part name + national ID +
- * exam appointment + barcode + Khayameya bottom band + corner flourishes
- * + required-documents checklist.
+ * Top non-print card: accent-coloured notice + two top-end action buttons
+ * (طباعة + تحميل الإقرار). Card body: barcode column + identity column +
+ * verification stamp + payment reference line + prose exam-date sentence
+ * + كشف ومواعيد الإختبارات table.
+ *
+ * Payload values come from the wizard store (paymentReference, fileNumber,
+ * firstExamDate) so the printed card stays in sync with the choices the
+ * applicant made earlier in the flow.
  */
 
-import { FileText, MapPin, Printer, ShieldCheck, User } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { FileDown, Printer, ShieldCheck } from 'lucide-react';
 import {
-  Badge,
   Button,
   Card,
   Code128Barcode,
@@ -19,6 +21,8 @@ import {
   PrintLayout,
 } from '@/shared/components';
 import { useDraft } from '../api/applicantPortal.queries';
+import { useApplicantPortalStore } from '../store/applicantPortal.store';
+import { useCategories } from '../api/categories.queries';
 import { date as fmtDate } from '@/shared/lib/format';
 import {
   arabicDayOfWeek,
@@ -26,123 +30,144 @@ import {
   arabicTimeOfDay,
   toEasternArabicNumerals,
 } from '@/shared/lib/arabic';
+import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
+import {
+  deterministicFileNumber,
+  deterministicPaymentReference,
+} from '../lib/deterministic-codes';
 
-const APPLICANT_ID = 'APP-2026000';
-const APPLICANT_NAME = 'يوسف أحمد محمد الخطيب';
-const APPLICANT_NID = '30506121601234';
-const BARCODE = '26-CAI-00001234';
-/* Demo: committee number for the rendered card. Production sources this
- * from the reserved exam slot via committeeService once Gap H links
- * ExamSlot.committeeId through to the draft. */
+const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 const COMMITTEE_NUMBER = 2;
 
 export function Stage9PrintCardPage(): JSX.Element {
-  const navigate = useNavigate();
   const { data: draft } = useDraft(APPLICANT_ID);
-  const slot = draft?.examSlot ?? {
-    date: '2026-03-15T08:00:00.000Z',
-    time: '08:00',
-    location: 'كلية الشرطة - مبنى الاختبارات - القاهرة',
-  };
-  const fawryRef = draft?.payment?.fawryCode ?? draft?.payment?.refNumber ?? null;
+  const firstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
+  const paymentReference =
+    useApplicantPortalStore((s) => s.paymentReference) ??
+    deterministicPaymentReference(APPLICANT_ID);
+  const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  const categoriesQuery = useCategories();
+  const category = (categoriesQuery.data ?? []).find((c) => c.key === selectedCategoryKey);
+  const fileNumber = deterministicFileNumber(APPLICANT_ID);
+
+  /* Prefer the explicit firstExamDate from the store (set on Stage 8); fall
+   * back to the draft's examSlot for the legacy reservation flow. */
+  const slot = firstExamDate
+    ? { date: firstExamDate, time: '08:00', location: 'كلية الشرطة - مبنى الاختبارات - القاهرة' }
+    : draft?.examSlot ?? {
+        date: '2026-03-15T08:00:00.000Z',
+        time: '08:00',
+        location: 'كلية الشرطة - مبنى الاختبارات - القاهرة',
+      };
+
+  const barcodeValue = `${MOI_APPLICANT_SESSION.nationalId}-${paymentReference}`;
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="flex items-center justify-between no-print">
-        <div>
-          <h2 className="font-ar-display text-xl font-bold text-ink-900">طباعة كارت التردد</h2>
-          <p className="text-sm text-ink-500">
-            احتفظ بالكارت معك يوم الاختبار. الكارت يحوي باركود لتسجيل الحضور تلقائياً.
+      {/* ── Top non-print card: notice + action buttons ── */}
+      <Card className="no-print flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div
+          role="note"
+          className="flex flex-1 items-start gap-2 rounded-md border border-teal-500/40 bg-teal-50 px-3 py-2 text-2xs text-teal-800"
+        >
+          <ShieldCheck size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
+          <p className="leading-relaxed text-end" dir="rtl">
+            <strong>عزيزي الطالب:</strong> برجاء طباعة هذه الصفحة حيث أنها تُعدّ تصريح الدخول للكلية.
+            <br />
+            ** برجاء التأكد من ظهور الباركود الخاص بالطالب في بطاقة التردد.
+            <br />
+            ** برجاء طباعة هذا الطلب والتوقيع عليه بمعرفة الطالب وولي الأمر.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-shrink-0 flex-wrap gap-2">
           <Button
             variant="primary"
             leadingIcon={<Printer size={14} strokeWidth={1.75} />}
             onClick={() => window.print()}
           >
-            طباعة الكارت
+            طباعة
           </Button>
           <Button
             variant="secondary"
-            leadingIcon={<FileText size={14} strokeWidth={1.75} />}
-            onClick={() => navigate('/applicant/acquaintance-doc')}
-            title="تنزيل وثيقة التعارف للمراجعة الأمنية"
+            leadingIcon={<FileDown size={14} strokeWidth={1.75} />}
+            onClick={() => window.print()}
+            title="تحميل الإقرار للتوقيع"
           >
-            تنزيل إقرار التعارف
-          </Button>
-          <Button variant="ghost" onClick={() => navigate('/applicant/follow-up')}>
-            تخطّي
+            تحميل
           </Button>
         </div>
       </Card>
 
+      {/* ── The printable card itself ── */}
       <PrintLayout
         title="بطاقة التردد"
-        subtitle="دفعة قبول 2026 — أكاديمية الشرطة"
+        subtitle={`دفعة قبول 2026 — ${category?.labelAr ?? 'أكاديمية الشرطة'}`}
         reportId={APPLICANT_ID}
         generatedAt={fmtDate(Date.now(), 'short')}
       >
-        {/* Header strip with applicant identity */}
-        <div className="mb-6 grid grid-cols-[120px_1fr_auto] gap-5 rounded-lg border-2 border-teal-500 bg-teal-50/40 p-4">
-          {/* Photo */}
-          <div className="flex flex-col items-center justify-center rounded-md border-2 border-dashed border-teal-300 bg-surface-card p-2">
-            <div className="flex h-24 w-24 items-center justify-center rounded-md bg-ink-100 text-ink-400">
-              <User size={36} strokeWidth={1.25} />
-            </div>
-            <p className="mt-1 text-2xs text-ink-500">الصورة الشخصية</p>
+        <div className="mb-6 grid grid-cols-[140px_1fr_auto] gap-5 rounded-lg border-2 border-teal-500 bg-teal-50/40 p-4">
+          {/* Barcode column (PDF p.12 left) */}
+          <div className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-teal-300 bg-surface-card p-2">
+            <Code128Barcode value={barcodeValue} height={56} moduleWidth={2} showText={false} />
+            <p className="font-mono text-2xs tracking-widest text-ink-500" dir="ltr">
+              {barcodeValue}
+            </p>
+            <p className="text-2xs text-ink-500">
+              رقم الملف: <span className="font-mono" dir="ltr">{fileNumber}</span>
+            </p>
           </div>
 
-          {/* Identity */}
+          {/* Identity column */}
           <div className="flex flex-col justify-center gap-2">
             <div>
-              <p className="text-2xs uppercase tracking-wide text-ink-500">اسم الطالب</p>
-              <p className="font-ar-display text-lg font-bold text-ink-900">{APPLICANT_NAME}</p>
+              <p className="text-2xs uppercase tracking-wide text-ink-500">إسم الطالب</p>
+              <p className="font-ar-display text-lg font-bold text-ink-900">
+                {MOI_APPLICANT_SESSION.fullName}
+              </p>
             </div>
-            <div>
-              <p className="text-2xs uppercase tracking-wide text-ink-500">اللجنة</p>
-              <p className="font-ar-display text-md font-bold text-ink-900">{arabicOrdinal(COMMITTEE_NUMBER)}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
-                <p className="text-2xs uppercase tracking-wide text-ink-500">الرقم القومى</p>
-                <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_NID}</p>
+                <p className="text-2xs uppercase tracking-wide text-ink-500">اللجنة</p>
+                <p className="font-ar-display text-md font-bold text-ink-900">
+                  {arabicOrdinal(COMMITTEE_NUMBER)}
+                </p>
               </div>
               <div>
-                {/* AF-13 — label-only resolution: 'رقم الملف' relabels the existing
-                 *  APPLICANT_ID. If the academy needs a distinct numeric file
-                 *  number, follow-up gap adds Applicant.fileNumber with a
-                 *  UNIQUE-per-cycle invariant. */}
                 <p className="text-2xs uppercase tracking-wide text-ink-500">رقم الملف</p>
-                <p className="font-mono text-sm text-ink-900" dir="ltr">{APPLICANT_ID}</p>
+                <p className="font-mono text-sm text-ink-900" dir="ltr">
+                  {fileNumber}
+                </p>
+              </div>
+              <div>
+                <p className="text-2xs uppercase tracking-wide text-ink-500">الرقم القومي</p>
+                <p className="font-mono text-sm text-ink-900" dir="ltr">
+                  {MOI_APPLICANT_SESSION.nationalId}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Verification stamp */}
-          <div className="flex flex-col items-center justify-center text-center">
-            <span aria-hidden className="inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-teal-500 text-teal-700">
+          {/* Verification stamp column */}
+          <div className="flex flex-col items-center justify-center gap-1 text-center">
+            <span
+              aria-hidden
+              className="inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-teal-500 text-teal-700"
+            >
               <ShieldCheck size={24} strokeWidth={1.75} />
             </span>
-            <p className="mt-1 text-2xs font-bold text-teal-700">مُوثَّق</p>
+            <p className="text-2xs font-bold text-teal-700">مُوثَّق</p>
           </div>
         </div>
 
-        {/* Fawry payment reference line — verbatim phrasing from the printed
-            reference card. Falls back to the internal refNumber if no
-            Fawry-side code was issued (card-method payment). */}
-        {fawryRef && (
-          <p className="mb-5 rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-sm text-ink-700">
-            تم الدفع بواسطة فورى بالمدفوعة رقم:{' '}
-            <span className="font-numeric tnum font-bold text-ink-900">
-              {toEasternArabicNumerals(fawryRef)}
-            </span>
-          </p>
-        )}
+        {/* Payment reference line (PDF p.12) */}
+        <p className="mb-5 rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-sm text-ink-700">
+          تم الدفع بالبطاقة البنكية بالرقم المرجعي:{' '}
+          <span className="font-numeric tnum font-bold text-ink-900" dir="ltr">
+            {toEasternArabicNumerals(paymentReference)}
+          </span>
+        </p>
 
-        {/* Exam-date sentence — prose form matching the printed reference:
-            'تاريخ إختبار قدرات يوم الأربعاء YYYY/MM/DD الساعة السادسة صباحاً'.
-            Day of week + Gregorian date + Arabic-word time of day. */}
+        {/* Exam-date prose sentence (PDF p.12) */}
         {(() => {
           const examDate = new Date(slot.date);
           const dayName = arabicDayOfWeek(examDate);
@@ -153,68 +178,15 @@ export function Stage9PrintCardPage(): JSX.Element {
           return (
             <p className="mb-5 rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-sm text-ink-900">
               تاريخ إختبار قدرات يوم {dayName}{' '}
-              <span dir="ltr" className="font-numeric tnum">{dateStr}</span>{' '}
+              <span dir="ltr" className="font-numeric tnum">
+                {dateStr}
+              </span>{' '}
               الساعة {hourWord} {periodWord}
             </p>
           );
         })()}
 
-        {/* Exam location — kept as a small icon-row so applicants can still
-            see where to go without needing to read the prose sentence. */}
-        <div className="mb-6 flex items-start gap-3 rounded-md border border-border-default bg-surface-card p-4">
-          <span aria-hidden className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-            <MapPin size={18} strokeWidth={1.75} />
-          </span>
-          <div>
-            <p className="text-2xs uppercase tracking-wide text-ink-500">مكان الاختبار</p>
-            <p className="mt-0.5 font-medium text-ink-900">{slot.location}</p>
-            <p className="mt-0.5 text-2xs text-ink-500">احرص على الحضور قبل الموعد بـ 30 دقيقة</p>
-          </div>
-        </div>
-
-        {/* Required documents */}
-        <div className="mb-6 rounded-md border border-border-subtle bg-ink-50 p-4">
-          <p className="mb-2 text-2xs uppercase tracking-wide text-ink-500">المستندات المطلوبة يوم الاختبار</p>
-          <ul className="grid grid-cols-2 gap-2 text-sm">
-            {[
-              'بطاقة الرقم القومي (الأصل)',
-              'كارت تردد مطبوع',
-              'أصل شهادة الثانوية العامة',
-              '4 صور شخصية حديثة',
-              'شهادة طبية معتمدة',
-              'شهادة حسن السير والسلوك',
-            ].map((doc) => (
-              <li key={doc} className="flex items-center gap-2">
-                <span aria-hidden className="inline-flex h-4 w-4 items-center justify-center rounded-sm border border-ink-700 text-2xs">☐</span>
-                <span className="text-ink-700">{doc}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Barcode block — real Code 128 carrying the applicant payload.
-            The label printed beneath the bars repeats the committee ordinal
-            (matches the printed reference card); the numeric tracking string
-            sits at the very bottom of the block for staff reference. */}
-        <div className="mb-2 flex flex-col items-center gap-2 rounded-lg border-2 border-ink-700 bg-surface-card py-4 px-3">
-          <Badge tone="brand">امسح هذا الكود لتسجيل الحضور</Badge>
-          <Code128Barcode
-            value={BARCODE}
-            height={80}
-            moduleWidth={2}
-            showText={false}
-          />
-          <p className="font-ar-display text-md font-bold text-ink-900">
-            اللجنة {arabicOrdinal(COMMITTEE_NUMBER)}
-          </p>
-          <p className="font-mono text-2xs tracking-widest text-ink-500" dir="ltr">{BARCODE}</p>
-        </div>
-
-        {/* كشف ومواعيد الإختبارات — exam schedule and results table.
-            One row per scheduled test; results populate as the pipeline
-            advances (the printed reference shows only the first row at
-            issuance, with the النتيجة cell carrying 'لم يحدد' placeholder
-            until grading lands). */}
+        {/* كشف ومواعيد الإختبارات table */}
         <div className="mb-4">
           <h3 className="mb-2 text-center font-ar-display text-md font-bold text-ink-900">
             كشف ومواعيد الإختبارات
@@ -239,9 +211,11 @@ export function Stage9PrintCardPage(): JSX.Element {
                   <tr className="text-center">
                     <td className="border border-border-default px-2 py-1.5 font-numeric tnum">١</td>
                     <td className="border border-border-default px-2 py-1.5">قدرات</td>
-                    <td className="border border-border-default px-2 py-1.5 font-numeric tnum" dir="ltr">{dateStr}</td>
-                    <td className="border border-border-default px-2 py-1.5 text-ink-500">لم يحدد</td>
-                    <td className="border border-border-default px-2 py-1.5 text-ink-500"></td>
+                    <td className="border border-border-default px-2 py-1.5 font-numeric tnum" dir="ltr">
+                      {dateStr}
+                    </td>
+                    <td className="border border-border-default px-2 py-1.5 text-ink-500">غير محدد</td>
+                    <td className="border border-border-default px-2 py-1.5 text-ink-500">—</td>
                   </tr>
                 );
               })()}
@@ -252,14 +226,13 @@ export function Stage9PrintCardPage(): JSX.Element {
         {/* Signature block */}
         <div className="mb-4 grid grid-cols-3 gap-4">
           <SignatureLine label="توقيع المتقدم" />
-          <SignatureLine label="موظف الاستقبال — الاسم والرتبة" />
+          <SignatureLine label="توقيع ولي الأمر" />
           <div className="flex flex-col items-center gap-1.5 rounded-md border border-border-subtle bg-ink-50 px-3 pt-3 pb-2">
             <LogoMark size={40} />
             <span className="text-2xs uppercase tracking-wide text-ink-500">ختم الإدارة</span>
           </div>
         </div>
 
-        {/* Footer note */}
         <p className="my-4 text-center text-2xs text-ink-500">
           يجب أن يكون الكارت في صورته الأصلية يوم الاختبار · أيّ تعديل أو نسخ يبطل صلاحيته
         </p>

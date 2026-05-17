@@ -1,27 +1,57 @@
 /**
  * Applicant-portal store — Zustand with sessionStorage persistence.
  *
- * Holds the cross-stage state the wizard needs but TanStack Query draft
- * doesn't carry: the National ID captured in Stage 1 (so Stage 3 can
- * derive DOB/gender from it) and the category chosen in the pre-wizard
- * gate (so the wizard header can show the badge and Stage 8/Test screens
- * can drive their test list from it).
+ * Cross-stage state the wizard needs but TanStack Query draft doesn't carry:
+ *   - National ID captured in Stage 1 (so Stage 3+ can derive DOB/gender)
+ *   - Category chosen in the pre-wizard gate (drives wizard header + tests)
+ *   - Cycle id (per-cycle openness/eligibility)
+ *   - Payment state (paid flag + Fawry code + reference + chosen method)
+ *   - First exam date (set on Stage 8 reservation, printed on Stage 9 card)
+ *   - Parents-approval flag (Stage 7 اعتماد gate)
  *
  * `selectedCategoryKey` is widened to `string | null` here to keep this
- * file independent of the domain-types churn in Bucket B1; consumers
- * narrow via the imported `ApplicantCategoryKey` union when reading.
+ * file independent of the domain-types churn elsewhere; consumers narrow
+ * via the imported `ApplicantCategoryKey` union when reading.
  */
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+export type ApplicantPaymentMethod = 'fawry-code';
+
 interface ApplicantPortalState {
   nationalId: string | null;
   selectedCategoryKey: string | null;
   selectedCycleId: string | null;
+
+  /** Identity re-verification (PDF p.5 lower) — set on /applicant/verify. */
+  verifiedAt: number | null;
+
+  /** Payment block — set on Stage 6. paid implies paymentReference. */
+  paid: boolean;
+  paymentMethod: ApplicantPaymentMethod | null;
+  /** 10-digit reference, deterministic via seed-42 LCG. */
+  paymentReference: string | null;
+  /** 8-digit Fawry code (only set when method === 'fawry-code'). */
+  fawryCode: string | null;
+
+  /** First exam date, ISO string — set on Stage 8 reservation. */
+  firstExamDate: string | null;
+  /** Stage 7 اعتماد flag (parents must be approved before Stage 8). */
+  parentsApproved: boolean;
+
   setNationalId: (id: string | null) => void;
   setSelectedCategoryKey: (key: string | null) => void;
   setSelectedCycleId: (id: string | null) => void;
+  setVerifiedAt: (ts: number | null) => void;
+  setPayment: (input: {
+    paid: boolean;
+    paymentMethod: ApplicantPaymentMethod | null;
+    paymentReference: string | null;
+    fawryCode: string | null;
+  }) => void;
+  setFirstExamDate: (iso: string | null) => void;
+  setParentsApproved: (approved: boolean) => void;
   clear: () => void;
 }
 
@@ -31,14 +61,32 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       nationalId: null,
       selectedCategoryKey: null,
       selectedCycleId: null,
+      verifiedAt: null,
+      paid: false,
+      paymentMethod: null,
+      paymentReference: null,
+      fawryCode: null,
+      firstExamDate: null,
+      parentsApproved: false,
       setNationalId: (id) => set({ nationalId: id }),
       setSelectedCategoryKey: (key) => set({ selectedCategoryKey: key }),
       setSelectedCycleId: (id) => set({ selectedCycleId: id }),
+      setVerifiedAt: (ts) => set({ verifiedAt: ts }),
+      setPayment: (input) => set(input),
+      setFirstExamDate: (iso) => set({ firstExamDate: iso }),
+      setParentsApproved: (approved) => set({ parentsApproved: approved }),
       clear: () =>
         set({
           nationalId: null,
           selectedCategoryKey: null,
           selectedCycleId: null,
+          verifiedAt: null,
+          paid: false,
+          paymentMethod: null,
+          paymentReference: null,
+          fawryCode: null,
+          firstExamDate: null,
+          parentsApproved: false,
         }),
     }),
     {

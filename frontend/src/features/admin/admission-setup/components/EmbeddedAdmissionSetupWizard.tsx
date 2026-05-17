@@ -40,12 +40,12 @@ import { useExamScheduleAggregate } from '../api/examSchedule.queries';
 import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
 import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from '../pages/ApplicationSettingsPage';
+import { ApplicationSettingsReviewPage } from '../pages/ApplicationSettingsReviewPage';
 import { FeesPage } from '../pages/FeesPage';
 import { ExamsManagementPage } from '../pages/ExamsManagementPage';
 import { CommitteesManagementPage } from '../pages/CommitteesManagementPage';
 import { DateCommitteeBindingPage } from '../pages/DateCommitteeBindingPage';
 import { ElectronicDeclarationPage } from '../pages/ElectronicDeclarationPage';
-import { ApplicationSettingsReviewPage } from '../pages/ApplicationSettingsReviewPage';
 
 /* Mirrors the renderer map in AdmissionSetupWizardPage. Adding a step
  * means appending to ADMISSION_SETUP_STEPS, the routed wizard renderer

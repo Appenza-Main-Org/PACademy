@@ -51,7 +51,7 @@ const SIDEBAR: SidebarSection[] = [
     label: 'التقديم والدورات',
     permission: 'admission-setup:read',
     items: [
-      { key: 'cycles',             label: 'الدورات',         icon: <CalendarDays size={18} />,   to: ROUTES.admin.cycles },
+      { key: 'cycles',             label: 'دورات القبول وإعداد التقديم', icon: <CalendarDays size={18} />,   to: ROUTES.admin.cycles },
       { key: 'applicant-grades',   label: 'درجات الثانوية العامة والأزهرية', icon: <FileSpreadsheet size={18} />, to: ROUTES.admin.applicantGrades },
     ],
   },

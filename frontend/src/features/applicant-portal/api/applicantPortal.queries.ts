@@ -7,7 +7,19 @@ export const apKeys = {
   draft: (applicantId: string) => [...apKeys.all, 'draft', applicantId] as const,
   slots: () => [...apKeys.all, 'exam-slots'] as const,
   followUp: (applicantId: string) => [...apKeys.all, 'follow-up', applicantId] as const,
+  moi: (nid: string) => [...apKeys.all, 'moi', nid] as const,
 };
+
+/** Fetch the applicant's MOI-verified identity payload. Disabled until a
+ *  NID is available so TanStack Query won't fire on an empty store. */
+export function useMoiVerification(nid: string | null) {
+  return useQuery({
+    queryKey: apKeys.moi(nid ?? ''),
+    queryFn: () => applicantPortalService.fetchMoiVerification(nid!),
+    enabled: Boolean(nid),
+    staleTime: 5 * 60_000,
+  });
+}
 
 export function useDraft(applicantId: string) {
   return useQuery({
@@ -67,5 +79,45 @@ export function useFollowUp(applicantId: string) {
   return useQuery({
     queryKey: apKeys.followUp(applicantId),
     queryFn: () => applicantPortalService.getFollowUp(applicantId),
+  });
+}
+
+/* ── MOI-aligned mutations ──────────────────────────────────────────── */
+
+export function useVerifyApplicantMutation() {
+  return useMutation({
+    mutationFn: (input: { nationalId: string; mobile: string }) =>
+      applicantPortalService.verifyApplicant(input),
+  });
+}
+
+export function useCreatePaymentIntent() {
+  return useMutation({
+    mutationFn: (input: { method: 'fawry-code' }) =>
+      applicantPortalService.createPaymentIntent(input),
+  });
+}
+
+export function useConfirmPaymentMutation(applicantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { intentId: string }) => applicantPortalService.confirmPayment(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+  });
+}
+
+export function useApproveParentsMutation(applicantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => applicantPortalService.approveParents(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+  });
+}
+
+export function usePickFirstExamDateMutation(applicantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { date: string }) => applicantPortalService.pickFirstExamDate(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
   });
 }

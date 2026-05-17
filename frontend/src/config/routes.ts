@@ -67,6 +67,9 @@ export const ROUTES = {
         `/admin/cycles/admission-setup/wizard/${stepKey}`,
       wizardReview: '/admin/cycles/admission-setup/wizard/review',
       applicationSettings: '/admin/cycles/admission-setup/application-settings',
+      /** Read-only pre-review checkpoint — sits between application_settings
+       *  and the final review step. Renders the same shared summary the
+       *  review step renders. */
       applicationSettingsReview: '/admin/cycles/admission-setup/application-settings-review',
       applicationStatus: '/admin/cycles/admission-setup/application-status',
       maritalStatusRules: '/admin/cycles/admission-setup/marital-status-rules',
@@ -86,6 +89,20 @@ export const ROUTES = {
   applicantEligibility: '/applicant/eligibility',
   applicantTests: '/applicant/tests',
   applicantApplicationSummary: '/applicant/application/summary',
+  /* MOI-alignment additions:
+   *  - `applicantProfile` collapses the old `/applicant/profile/{personal,education,marital}`
+   *    triplet into a single scrollable page per the MOI reference (PDF p.4).
+   *    The three legacy paths redirect here.
+   *  - `applicantVerify` is the التحقق من المستخدم screen (PDF p.5 lower);
+   *    sits between profile and summary.
+   *  - `applicantFamily` is unchanged at `/applicant/profile/family`. */
+  applicantProfile: '/applicant/profile',
+  applicantVerify: '/applicant/verify',
+  applicantFamily: '/applicant/profile/family',
+  applicantPayment: '/applicant/payment',
+  applicantExamSchedule: '/applicant/exam-schedule',
+  applicantPrintCard: '/applicant/print-card',
+  applicantFollowUp: '/applicant/follow-up',
 
   /* ── Internal staff apps ── */
   committee: {

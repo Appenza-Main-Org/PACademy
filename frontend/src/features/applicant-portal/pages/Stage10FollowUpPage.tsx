@@ -1,105 +1,122 @@
 /**
- * Stage 10 — pipeline follow-up (RFP Scope Document §2.2 stage 10).
- * Status of every downstream stage + next-action CTA.
+ * Stage 10 — exam-results follow-up (PDF p.12 lower, MOI-aligned).
+ *
+ * The MOI reference flow renders this stage as a simple table with the
+ * same five columns as the printed card's exam table (م · الإختبار ·
+ * التاريخ · النتيجة · ملاحظات). The previous rich pipeline cards
+ * (capacities/traits/sports/medical/investigation/finalResult tiles) are
+ * gone — that detail moves to the staff-side committee/medical/board
+ * surfaces. Applicants get the same five-column row view that's printed
+ * on their attendance card.
  */
 
-import { Link } from 'react-router-dom';
-import { Activity, AlertCircle, ArrowLeft, CheckCircle2, Clock, ShieldQuestion, XCircle } from 'lucide-react';
-import { Badge, Button, Card, LoadingState } from '@/shared/components';
+import { useMemo } from 'react';
+import { Calendar } from 'lucide-react';
+import {
+  Badge,
+  Card,
+  DataTable,
+  LoadingState,
+} from '@/shared/components';
+import type { DataTableColumn } from '@/shared/components';
 import { useDraft, useFollowUp } from '../api/applicantPortal.queries';
-import type { PipelineState } from '@/shared/types/domain';
-import { ROUTES } from '@/config/routes';
 import { date as fmtDate } from '@/shared/lib/format';
+import { useApplicantPortalStore } from '../store/applicantPortal.store';
+import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 
-const APPLICANT_ID = 'APP-2026000';
+const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 
-const STAGE_LABELS: Record<keyof NonNullable<ReturnType<typeof useFollowUp>['data']>, string> = {
-  capacities: 'اختبار القدرات',
-  traits: 'اختبار السمات',
-  sports: 'اللياقة البدنية',
+interface ResultRow {
+  serial: number;
+  testLabel: string;
+  date: string | null;
+  result: { label: string; tone: 'success' | 'danger' | 'warning' | 'neutral' };
+  notes: string;
+}
+
+const TEST_LABELS: Record<string, string> = {
+  capacities: 'قدرات',
+  traits: 'السمات',
+  sports: 'لياقة بدنية',
   medical: 'القومسيون الطبي',
   investigation: 'التحريات',
   finalResult: 'النتيجة النهائية',
 };
 
-const TONE_MAP: Record<PipelineState, { tone: 'success' | 'warning' | 'danger' | 'info' | 'neutral'; icon: JSX.Element; label: string }> = {
-  pending:           { tone: 'neutral', icon: <Clock size={14} strokeWidth={1.75} />, label: 'لم يبدأ' },
-  'in-progress':     { tone: 'info',    icon: <Activity size={14} strokeWidth={1.75} />, label: 'جارٍ' },
-  passed:            { tone: 'success', icon: <CheckCircle2 size={14} strokeWidth={1.75} />, label: 'اجتاز' },
-  failed:            { tone: 'danger',  icon: <XCircle size={14} strokeWidth={1.75} />, label: 'لم يجتز' },
-  'awaiting-approval': { tone: 'warning', icon: <ShieldQuestion size={14} strokeWidth={1.75} />, label: 'بانتظار الاعتماد' },
+const RESULT_TONE: Record<string, ResultRow['result']> = {
+  passed: { label: 'اجتاز', tone: 'success' },
+  failed: { label: 'لم يجتز', tone: 'danger' },
+  'in-progress': { label: 'جارٍ', tone: 'warning' },
+  'awaiting-approval': { label: 'بانتظار الاعتماد', tone: 'warning' },
+  pending: { label: 'لم يبدأ', tone: 'neutral' },
 };
 
 export function Stage10FollowUpPage(): JSX.Element {
   const { data: draft } = useDraft(APPLICANT_ID);
   const { data: followUp, isLoading } = useFollowUp(APPLICANT_ID);
+  const firstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
 
-  if (isLoading || !followUp) return <LoadingState variant="card-grid" count={6} />;
+  const rows: readonly ResultRow[] = useMemo(() => {
+    if (!followUp) return [];
+    const examDate = firstExamDate ?? draft?.examSlot?.date ?? null;
+    const order = ['capacities', 'traits', 'sports', 'medical', 'investigation', 'finalResult'] as const;
+    return order.map((key, i) => ({
+      serial: i + 1,
+      testLabel: TEST_LABELS[key] ?? key,
+      date: key === 'capacities' ? examDate : null,
+      result: RESULT_TONE[followUp[key as keyof typeof followUp] ?? 'pending'] ?? RESULT_TONE.pending!,
+      notes: '—',
+    }));
+  }, [followUp, firstExamDate, draft?.examSlot?.date]);
 
-  const investigationOpen = followUp.investigation === 'in-progress' || followUp.investigation === 'awaiting-approval';
+  const columns: DataTableColumn<ResultRow>[] = useMemo(
+    () => [
+      { key: 'serial', label: 'م', width: '56px', render: (r: ResultRow) => <span className="font-numeric tnum">{r.serial}</span> },
+      { key: 'testLabel', label: 'الإختبار', render: (r: ResultRow) => r.testLabel },
+      {
+        key: 'date',
+        label: 'التاريخ',
+        render: (r: ResultRow) =>
+          r.date ? (
+            <span className="font-numeric tnum" dir="ltr">
+              {fmtDate(r.date, 'short')}
+            </span>
+          ) : (
+            <span className="text-ink-500">—</span>
+          ),
+      },
+      {
+        key: 'result',
+        label: 'النتيجة',
+        render: (r: ResultRow) => <Badge tone={r.result.tone}>{r.result.label}</Badge>,
+      },
+      { key: 'notes', label: 'ملاحظات', render: (r: ResultRow) => <span className="text-ink-500">{r.notes}</span> },
+    ],
+    [],
+  );
+
+  if (isLoading || !followUp) return <LoadingState variant="table" rows={6} />;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <Card>
-        <h2 className="font-ar-display text-xl font-bold text-ink-900">متابعة إجراءات التقدم</h2>
-        <p className="mt-1 text-sm text-ink-500">
-          تابع كل مراحل الفحص والاختبار من هنا. سيتم إخطارك فور تحديث أي حالة.
-        </p>
-        {draft?.examSlot && (
-          <p className="mt-3 inline-flex items-center gap-2 rounded-md bg-teal-50 px-3 py-2 text-xs text-teal-700">
-            موعدك القادم: <span dir="ltr" className="font-numeric tnum">{fmtDate(draft.examSlot.date, 'short')} - {draft.examSlot.time}</span>
-            · {draft.examSlot.location}
-          </p>
-        )}
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {(Object.keys(STAGE_LABELS)).map((key) => {
-          const state = followUp[key];
-          const cfg = TONE_MAP[state];
-          return (
-            <Card key={key} className="flex items-center justify-between">
-              <div>
-                <h3 className="text-md font-bold text-ink-900">{STAGE_LABELS[key]}</h3>
-                <p className="mt-0.5 text-xs text-ink-500">حالة المرحلة الحالية</p>
-              </div>
-              <Badge tone={cfg.tone} icon={cfg.icon}>{cfg.label}</Badge>
-            </Card>
-          );
-        })}
-      </div>
-
-      {investigationOpen && (
-        <Card className="border-gold-300 bg-gold-50">
-          <div className="flex items-start gap-3">
-            <AlertCircle size={18} strokeWidth={1.75} className="mt-0.5 text-gold-700" aria-hidden />
-            <div>
-              <h3 className="text-md font-bold text-gold-700">يُرجى البدء في وثيقة التعارف</h3>
-              <p className="mt-1 text-sm text-gold-700/90">
-                انتقل إلى وثيقة التعارف لاستكمال البيانات المطلوبة من إدارة التحريات.
-              </p>
-              <Link
-                to={`${ROUTES.applicant}/acquaintance-doc`}
-                className="mt-3 inline-flex items-center rounded-md bg-gold-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-gold-600"
-              >
-                ابدأ وثيقة التعارف ←
-              </Link>
-            </div>
+        <header className="mb-3 flex items-start gap-3">
+          <span aria-hidden className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+            <Calendar size={20} strokeWidth={1.75} />
+          </span>
+          <div>
+            <h2 className="font-ar-display text-xl font-bold text-ink-900">نتائج ومواعيد الإختبارات</h2>
+            <p className="mt-1 text-sm text-ink-500 leading-normal">
+              تابع كل إختبار من هنا. تظهر النتائج تلقائياً فور اعتمادها بمعرفة الجهات المختصة.
+            </p>
           </div>
-        </Card>
-      )}
-
-      {/* Always-visible advance CTA so the wizard isn't a dead-end */}
-      <div className="flex flex-wrap justify-end gap-2 pt-2">
-        <Link to={ROUTES.applicantTests}>
-          <Button variant="secondary">مواعيد الاختبارات</Button>
-        </Link>
-        <Link to={`${ROUTES.applicant}/acquaintance-doc`}>
-          <Button variant="primary" size="lg" trailingIcon={<ArrowLeft size={14} strokeWidth={1.75} />}>
-            المتابعة إلى وثيقة التعارف
-          </Button>
-        </Link>
-      </div>
+        </header>
+        <DataTable<ResultRow>
+          data={[...rows]}
+          columns={columns}
+          rowKey={(r: ResultRow) => `result-${r.serial}`}
+        />
+      </Card>
     </div>
   );
 }

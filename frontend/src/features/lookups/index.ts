@@ -61,6 +61,7 @@ export { lookupsService } from './api/lookups.service';
 export {
   lookupKeys,
   useLookup,
+  useApplicantCategories,
   useCreateLookupRow,
   useUpdateLookupRow,
   useDeleteLookupRow,

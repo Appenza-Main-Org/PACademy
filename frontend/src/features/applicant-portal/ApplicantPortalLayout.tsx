@@ -27,12 +27,21 @@ import { useAuthStore } from '@/features/auth';
 import { useDraft } from './api/applicantPortal.queries';
 import { useApplicantPortalStore } from './store/applicantPortal.store';
 
+/**
+ * Wizard sequence — MOI-aligned post-SSO (PDF DOC-20220806-WA0053).
+ *
+ * The applicant arrives already-authenticated from moi.gov.eg, so the
+ * legacy phone/SMS auth (Stage 1+2) and the re-verify screen (PDF p.5
+ * lower) are skipped. The MOI session carries NID, mobile, and the
+ * applicant identity straight into the profile step.
+ *
+ * Stages 3+4+5 (personal / education / marital) are collapsed into a
+ * single `profile` step per PDF p.4. The summary is the index of
+ * `/applicant` and counts as a stepper node.
+ */
 export const STAGE_KEYS = [
-  'auth/step-1',
-  'auth/step-2',
-  'profile/personal',
-  'profile/education',
-  'profile/marital',
+  'profile',
+  '', // summary — the `/applicant` index route
   'payment',
   'profile/family',
   'exam-schedule',
@@ -42,16 +51,13 @@ export const STAGE_KEYS = [
 ] as const;
 
 export const STAGE_LABELS = [
-  'التحقق · الهاتف',
-  'التحقق · رمز SMS',
-  'البيانات الشخصية',
-  'البيانات التعليمية',
-  'الحالة الاجتماعية',
+  'البيانات الشخصية والدراسية',
+  'ملخّص الطلب',
   'سداد رسوم التقديم',
-  'بيانات الأسرة',
+  'بيانات الوالدين',
   'موعد الاختبار',
-  'طباعة كارت التردد',
-  'متابعة الإجراءات',
+  'بطاقة التردد',
+  'نتائج الاختبارات',
   'وثيقة التعارف',
 ] as const;
 
@@ -78,8 +84,13 @@ export function ApplicantPortalLayout(): JSX.Element {
 
   const activeIndex = useMemo(() => {
     const path = location.pathname.replace(/^\/applicant\/?/, '');
-    if (!path) return 0;
-    const idx = STAGE_KEYS.findIndex((k) => path.startsWith(k));
+    /* Empty path = `/applicant` index = the summary stage. */
+    const exact = STAGE_KEYS.indexOf(path as typeof STAGE_KEYS[number]);
+    if (exact !== -1) return exact;
+    /* Fall back: any nested child path (e.g. legacy /applicant/profile/personal
+     * before its redirect kicks in) lands on its parent stage. Skip the
+     * empty key so it never matches via startsWith. */
+    const idx = STAGE_KEYS.findIndex((k) => k !== '' && path.startsWith(`${k}/`));
     return idx === -1 ? 0 : idx;
   }, [location.pathname]);
 

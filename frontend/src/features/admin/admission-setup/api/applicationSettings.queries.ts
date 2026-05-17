@@ -19,6 +19,7 @@ import type {
   BulkSaveResult,
   BulkYearChange,
   CategoryConfigJoined,
+  CategorySettingsSummary,
   CategorySpecializationJoined,
   ParentCategorySnapshot,
 } from './applicationSettings.service';
@@ -45,6 +46,7 @@ export const appSettingsKeys = {
     [...appSettingsKeys.all, 'grading-mode', categorySpecializationId] as const,
   parentCategory: (categorySpecializationId: string) =>
     [...appSettingsKeys.all, 'parent-category', categorySpecializationId] as const,
+  summary: () => [...appSettingsKeys.all, 'summary'] as const,
 };
 
 /* ─── Conflict messages ──────────────────────────────────────────────── */
@@ -146,6 +148,19 @@ export function useResolvedGradingModeForSpec(
     },
     enabled: enabled && Boolean(categorySpecializationId),
     staleTime: 60_000,
+  });
+}
+
+/**
+ * One-shot joined snapshot of the entire application-settings tree.
+ * Powers the read-only review surfaces (pre-review wizard step + final
+ * review step). Cache invalidates on any app-settings mutation via the
+ * shared `appSettingsKeys.all` prefix.
+ */
+export function useApplicationSettingsSummary() {
+  return useQuery<CategorySettingsSummary[]>({
+    queryKey: appSettingsKeys.summary(),
+    queryFn: () => applicationSettingsService.getApplicationSettingsSummary(),
   });
 }
 

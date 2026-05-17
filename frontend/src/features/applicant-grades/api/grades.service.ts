@@ -136,6 +136,16 @@ export const gradesService = {
     return r.data.map(mapRow);
   },
 
+  /** NID-driven single-row lookup for the applicant portal eligibility
+   *  gate. Implemented as a client-side filter on `list()` until the
+   *  backend exposes a dedicated `/admin/grades/by-nid/:nid` endpoint;
+   *  the `cycleId` arg is accepted for contract parity (the dataset is
+   *  scoped per active cycle on the backend). */
+  async findByNationalId(nid: string, _cycleId: string): Promise<GradeRow | null> {
+    const rows = await gradesService.list();
+    return rows.find((r) => r.nid === nid) ?? null;
+  },
+
   async clearAll(): Promise<void> {
     await apiClient.delete('/admin/grades');
     emitAudit({

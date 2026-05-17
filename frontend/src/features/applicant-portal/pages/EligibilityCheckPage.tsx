@@ -8,13 +8,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
 import { ArrowLeft, ArrowRight, Home, ShieldCheck, XCircle } from 'lucide-react';
 import {
   Button,
   Card,
   ErrorState,
-  Input,
   LoadingState,
   PageHeader,
 } from '@/shared/components';
@@ -36,6 +34,7 @@ import {
   useEligibilityMutation,
 } from '../api/categories.queries';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
+import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 
 const REJECTION_LABEL: Record<EligibilityRejectionReason, string> = {
   cycle_not_active: 'لا توجد دورة قبول نشطة حالياً',
@@ -70,10 +69,6 @@ const LINK_GHOST =
 const LINK_SECONDARY =
   'inline-flex items-center gap-2 h-9 rounded-md border border-border-default bg-surface-card px-3 text-sm font-semibold text-ink-900 transition-colors duration-fast ease-standard hover:border-border-strong hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none';
 
-interface EligibilityFormValues {
-  nid: string;
-}
-
 export function EligibilityCheckPage(): JSX.Element {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -107,11 +102,25 @@ export function EligibilityCheckPage(): JSX.Element {
     [categoriesQuery.data, categoryParam],
   );
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<EligibilityFormValues>({ defaultValues: { nid: '' } });
+  /* MOI-aligned: NID is no longer typed in — it's carried over from the
+   * MOI portal session that brought the applicant here. We run the
+   * eligibility check automatically against the MOI session NID the
+   * first time the page mounts with a known category. */
+  useEffect(() => {
+    if (!category || result) return;
+    void eligibilityMut
+      .mutateAsync({
+        categoryKey: category.key,
+        nid: MOI_APPLICANT_SESSION.nationalId,
+        cycleId: resolvedCycleId ?? undefined,
+      })
+      .then((r) => {
+        setResult(r);
+        if (r.eligible) setNationalId(MOI_APPLICANT_SESSION.nationalId);
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category?.key]);
 
   if (categoriesQuery.isLoading || cyclesQuery.isLoading) return <LoadingState variant="page" />;
   if (categoriesQuery.error) {
@@ -130,19 +139,12 @@ export function EligibilityCheckPage(): JSX.Element {
     );
   }
 
-  const onSubmit = async (values: EligibilityFormValues): Promise<void> => {
-    const r = await eligibilityMut.mutateAsync({
-      categoryKey: category.key,
-      nid: values.nid,
-      cycleId: resolvedCycleId ?? undefined,
-    });
-    setResult(r);
-    if (r.eligible) setNationalId(values.nid);
-  };
-
   const onStartApplication = (): void => {
     setSelectedCategoryKey(category.key);
-    navigate(ROUTES.applicant);
+    /* MOI-aligned: profile is the post-eligibility entry point — the
+     * applicant fills thanawi + bachelor data before reaching the
+     * read-only summary. */
+    navigate(ROUTES.applicantProfile);
   };
 
   const startUrl = resolvedCycleId
@@ -176,27 +178,26 @@ export function EligibilityCheckPage(): JSX.Element {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <h3 className="mb-3 font-ar-display text-lg font-bold text-ink-900">
-            أدخل رقمك القومي للتحقق
+            مطابقة البيانات مع شروط الفئة
           </h3>
           <p className="mb-4 text-sm text-ink-500">
-            سنستخدم رقمك القومي للتحقق من بياناتك ومطابقتها مع شروط هذه الفئة.
+            بياناتك مأخوذة من بوابة وزارة الداخلية. نقارنها مع شروط هذه الفئة تلقائياً.
           </p>
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
-            <Input
-              label="الرقم القومي"
-              required
-              dir="ltr"
-              placeholder="14 رقماً"
-              {...register('nid', {
-                required: 'مطلوب',
-                pattern: { value: /^[0-9]{14}$/, message: 'الرقم القومي يجب أن يكون 14 رقماً' },
-              })}
-              error={errors.nid?.message}
-            />
-            <Button type="submit" variant="primary" size="lg" isLoading={eligibilityMut.isPending}>
-              تحقق من الأهلية
-            </Button>
-          </form>
+          <div className="mb-4 rounded-md border border-border-default bg-ink-50/60 p-3">
+            <p className="text-2xs uppercase tracking-wide text-ink-500">المتقدم</p>
+            <p className="mt-0.5 text-sm font-medium text-ink-900">
+              {MOI_APPLICANT_SESSION.fullName}
+            </p>
+            <p className="mt-0.5 font-mono text-2xs text-ink-700" dir="ltr">
+              {MOI_APPLICANT_SESSION.nationalId}
+            </p>
+            <p className="mt-1 text-2xs text-ink-500">من بوابة وزارة الداخلية</p>
+          </div>
+          {eligibilityMut.isPending && !result && (
+            <div className="mb-3 rounded-md border border-border-default bg-surface-card px-3 py-2 text-sm text-ink-700">
+              جاري التحقق من بياناتك...
+            </div>
+          )}
 
           {result && result.eligible && (
             <div className="mt-5 rounded-md border border-teal-500/40 bg-teal-50/40 p-4">
