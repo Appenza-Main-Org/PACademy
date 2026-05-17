@@ -46,6 +46,12 @@ export interface GeneralRulesHeader {
   /** Marital-status codes — multi-select. Empty array = none picked
    *  yet (form blocks «إضافة» until at least one is chosen). */
   maritalStatus: string[];
+  /** Category-level upper age bound («الحد الأقصى للسن») in years.
+   *  Distinct from the per-year-row `maxAge` on
+   *  `ApplicantSpecializationYear` — this one is a section-wide
+   *  envelope on the general-conditions block. Positive integer only;
+   *  `null` means «not set». */
+  maxAge: number | null;
 }
 
 /** A single editable row inside one university-category section's form. */
@@ -188,6 +194,7 @@ export const INITIAL_HEADER: GeneralRulesHeader = {
   ageReferenceDate: '',
   graduationYears: [],
   maritalStatus: [],
+  maxAge: null,
 };
 
 let rowIdSeed = 0;

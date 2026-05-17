@@ -22,6 +22,7 @@ import {
   DatePicker,
   EmptyState,
   ErrorState,
+  Input,
   LoadingState,
   MultiSelect,
   SearchSelect,
@@ -226,7 +227,7 @@ function ThanawiTopFields({
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
 
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
       <FieldLabel label="بداية التقديم">
         <DatePicker
           value={isoToDate(header.applicationStart)}
@@ -263,7 +264,73 @@ function ThanawiTopFields({
           placeholder="اختر الحالة الاجتماعية…"
         />
       </FieldLabel>
+      <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} />
     </div>
+  );
+}
+
+/* ── Max-age field ────────────────────────────────────────────────── */
+
+/** Category-level «الحد الأقصى للسن» input.
+ *
+ *  Positive integer only. Empty allowed. `0`, negatives, decimals, and
+ *  non-numerics are stripped at the keystroke + change boundary; on
+ *  blur we surface the contract-required error message if the value
+ *  somehow slipped through (e.g. devtools). */
+interface MaxAgeFieldProps {
+  categoryCode: string;
+  maxAge: number | null;
+}
+
+function MaxAgeField({ categoryCode, maxAge }: MaxAgeFieldProps): JSX.Element {
+  const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
+  const [touched, setTouched] = useState(false);
+
+  const display = maxAge === null ? '' : String(maxAge);
+  const isInvalid =
+    touched && maxAge !== null && (!Number.isInteger(maxAge) || maxAge < 1);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const digits = e.target.value.replace(/\D/g, '').replace(/^0+/, '');
+    setHeaderField(
+      categoryCode,
+      'maxAge',
+      digits === '' ? null : Number(digits),
+    );
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (['-', '+', '.', ',', 'e', 'E'].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  return (
+    <FieldLabel label="الحد الأقصى للسن">
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          min={1}
+          step={1}
+          inputMode="numeric"
+          value={display}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onBlur={() => setTouched(true)}
+          aria-label="الحد الأقصى للسن"
+          placeholder="—"
+          containerClassName="flex-1"
+          className="[appearance:textfield] [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none"
+          error={isInvalid ? 'يجب أن يكون رقمًا موجبًا' : undefined}
+        />
+        <span
+          aria-hidden
+          className="shrink-0 font-ar text-xs text-ink-600"
+        >
+          سنة
+        </span>
+      </div>
+    </FieldLabel>
   );
 }
 
