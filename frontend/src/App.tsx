@@ -28,6 +28,11 @@ setListActionPermissionsProvider(() => useAuthStore.getState().user?.permissions
 function ensureDemoUser(): void {
   const store = useAuthStore.getState();
   if (store.user) return;
+  /* Skip the auto-seed on public-applicant entry URLs so the new
+   * /applicant-login flow isn't short-circuited by a pre-existing
+   * super_admin in the store. */
+  const path = typeof window !== 'undefined' ? window.location.pathname : '';
+  if (path === '/' || path.startsWith('/applicant')) return;
   const def = ROLE_DEFINITIONS.super_admin;
   store.setUser({
     id: 'U-DEMO',
@@ -53,7 +58,7 @@ ensureDemoUser();
  * Reload detection uses the Performance Navigation API
  * (`performance.getEntriesByType('navigation')[0].type`).
  */
-const PUBLIC_PATH_PREFIXES = ['/apply', '/staff-login', '/login', '/terms', '/help'];
+const PUBLIC_PATH_PREFIXES = ['/applicant-login', '/staff-login', '/login', '/terms', '/help'];
 
 function isReloadNavigation(): boolean {
   if (typeof performance === 'undefined') return false;
@@ -74,11 +79,11 @@ function DemoBootstrapRedirect(): null {
     const isPublic = PUBLIC_PATH_PREFIXES.some((p) => location.pathname.startsWith(p));
     if (isPublic) return;
     if (location.pathname === ROUTES.admin.reports) return;
-    /* Two cases redirect to the command center:
-     *  1. User reloaded the page (Cmd+R / F5).
-     *  2. User landed on the bare root "/".
-     * Direct navigation to any other URL is respected. */
-    if (!isReloadNavigation() && location.pathname !== '/') return;
+    /* Only the reload case redirects super_admin to the command center.
+     * Bare-root visits land on PublicLandingPage so applicants can use
+     * /applicant-login. Direct navigation to any other URL is respected. */
+    if (!isReloadNavigation()) return;
+    if (location.pathname === '/') return;
     navigate(ROUTES.admin.reports, { replace: true });
   }, [navigate, location.pathname]);
 

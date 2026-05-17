@@ -11,7 +11,7 @@
  * applicant made earlier in the flow.
  */
 
-import { FileDown, Printer, ShieldCheck } from 'lucide-react';
+import { FileDown, Printer, ShieldCheck, Square } from 'lucide-react';
 import {
   Button,
   Card,
@@ -96,6 +96,37 @@ export function Stage9PrintCardPage(): JSX.Element {
             تحميل
           </Button>
         </div>
+      </Card>
+
+      {/* ── Required documents — instruction card shown above the printable
+            card (not inside it). `no-print` so it's screen-only. ── */}
+      <Card
+        className="no-print"
+        aria-label="المستندات المطلوبة يوم الاختبار"
+      >
+        <h3 className="mb-3 text-start font-ar-display text-md font-bold text-ink-900">
+          المستندات المطلوبة يوم الاختبار
+        </h3>
+        <ul className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm text-ink-800 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            'بطاقة الرقم القومي (الأصل)',
+            'أصل شهادة الثانوية العامة',
+            'شهادة طبية معتمدة',
+            'كارت تردد مطبوع',
+            '4 صور شخصية حديثة',
+            'شهادة حسن السير والسلوك',
+          ].map((doc) => (
+            <li key={doc} className="flex items-center gap-2">
+              <Square
+                size={16}
+                strokeWidth={1.75}
+                className="shrink-0 text-ink-500"
+                aria-hidden
+              />
+              <span>{doc}</span>
+            </li>
+          ))}
+        </ul>
       </Card>
 
       {/* ── The printable card itself ── */}

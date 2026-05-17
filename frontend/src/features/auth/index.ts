@@ -1,4 +1,5 @@
 export { LoginPage } from './pages/LoginPage';
+export { ApplicantLoginPage } from './pages/ApplicantLoginPage';
 export { useAuthStore, getCurrentUser, isAuthenticated } from './store/auth.store';
 export { ROLE_DEFINITIONS, ROLES, hasPermission, canAccessApp } from './rbac';
 export type { Permission, Role, RoleDefinition } from './rbac';

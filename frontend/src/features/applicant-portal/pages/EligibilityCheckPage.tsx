@@ -76,6 +76,13 @@ export function EligibilityCheckPage(): JSX.Element {
   const setSelectedCategoryKey = useApplicantPortalStore((s) => s.setSelectedCategoryKey);
   const setSelectedCycleId = useApplicantPortalStore((s) => s.setSelectedCycleId);
   const storedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
+  const moiSession = useApplicantPortalStore((s) => s.moiSession);
+  const storeNid = useApplicantPortalStore((s) => s.nationalId);
+  /* Identity source-of-truth — the MOI snapshot when available; for
+   * not_found we shouldn't be on this page (the category picker now
+   * skips us), but keep a fallback just in case. */
+  const identity = moiSession ?? MOI_APPLICANT_SESSION;
+  const checkNid = storeNid ?? identity.nationalId;
   const cyclesQuery = useActiveCycles();
   const eligibilityMut = useEligibilityMutation();
   const [result, setResult] = useState<EligibilityResult | null>(null);
@@ -111,12 +118,12 @@ export function EligibilityCheckPage(): JSX.Element {
     void eligibilityMut
       .mutateAsync({
         categoryKey: category.key,
-        nid: MOI_APPLICANT_SESSION.nationalId,
+        nid: checkNid,
         cycleId: resolvedCycleId ?? undefined,
       })
       .then((r) => {
         setResult(r);
-        if (r.eligible) setNationalId(MOI_APPLICANT_SESSION.nationalId);
+        if (r.eligible) setNationalId(checkNid);
       })
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -186,10 +193,10 @@ export function EligibilityCheckPage(): JSX.Element {
           <div className="mb-4 rounded-md border border-border-default bg-ink-50/60 p-3">
             <p className="text-2xs uppercase tracking-wide text-ink-500">المتقدم</p>
             <p className="mt-0.5 text-sm font-medium text-ink-900">
-              {MOI_APPLICANT_SESSION.fullName}
+              {identity.fullName}
             </p>
             <p className="mt-0.5 font-mono text-2xs text-ink-700" dir="ltr">
-              {MOI_APPLICANT_SESSION.nationalId}
+              {identity.nationalId}
             </p>
             <p className="mt-1 text-2xs text-ink-500">من بوابة وزارة الداخلية</p>
           </div>

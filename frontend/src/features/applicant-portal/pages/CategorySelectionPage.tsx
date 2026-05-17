@@ -87,6 +87,14 @@ export function CategorySelectionPage(): JSX.Element {
   const cyclesQuery = useActiveCycles();
   const storedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
   const setStoredCycleId = useApplicantPortalStore((s) => s.setSelectedCycleId);
+  const moiSession = useApplicantPortalStore((s) => s.moiSession);
+  const storeNid = useApplicantPortalStore((s) => s.nationalId);
+  const setSelectedCategoryKey = useApplicantPortalStore((s) => s.setSelectedCategoryKey);
+  /* Source-of-truth for the identity strip: prefer the MOI snapshot
+   * captured at login; for not_found scenarios we fall back to a stub
+   * derived from the entered NID and route directly to the profile
+   * (no MOI data = no eligibility comparison to run). */
+  const identity = moiSession ?? null;
 
   const cycles = cyclesQuery.data ?? [];
   const cycleParam = params.get('cycle');
@@ -139,6 +147,15 @@ export function CategorySelectionPage(): JSX.Element {
 
   const onPickCategory = (categoryKey: string, enabled: boolean): void => {
     if (!enabled || !selectedCycle) return;
+    /* For not_found-in-MOI users there is no MOI snapshot to compare
+     * against, so the eligibility check has nothing meaningful to do.
+     * Persist the choice and skip straight to the profile where the
+     * applicant fills their identity manually. */
+    if (!identity) {
+      setSelectedCategoryKey(categoryKey);
+      navigate(ROUTES.applicantProfile);
+      return;
+    }
     navigate(
       `${ROUTES.applicantEligibility}?category=${categoryKey}&cycle=${selectedCycle.id}`,
     );
@@ -174,18 +191,34 @@ export function CategorySelectionPage(): JSX.Element {
           <HeaderRow
             icon={<User size={16} strokeWidth={1.75} aria-hidden />}
             content={
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-ink-800">
-                <LabeledFact label="إسم المتقدم" value={MOI_APPLICANT_SESSION.fullName} />
-                <LabeledFact label="الرقم القومي" value={MOI_APPLICANT_SESSION.nationalId} ltr mono />
-                <LabeledFact label="تاريخ الميلاد" value={MOI_APPLICANT_SESSION.dateOfBirthAr} />
-                <LabeledFact
-                  label="النوع"
-                  value={MOI_APPLICANT_SESSION.gender === 'male' ? 'ذكر' : 'أنثى'}
-                />
-              </div>
+              identity ? (
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-ink-800">
+                  <LabeledFact label="إسم المتقدم" value={identity.fullName} />
+                  <LabeledFact label="الرقم القومي" value={identity.nationalId} ltr mono />
+                  <LabeledFact label="تاريخ الميلاد" value={identity.dateOfBirthAr} />
+                  <LabeledFact
+                    label="النوع"
+                    value={identity.gender === 'male' ? 'ذكر' : 'أنثى'}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-ink-700">
+                  <LabeledFact
+                    label="الرقم القومي"
+                    value={storeNid ?? '—'}
+                    ltr
+                    mono
+                  />
+                  <span className="text-2xs text-gold-700">
+                    لم يتم استرجاع بيانات من وزارة الداخلية — ستُدخلها يدوياً في الخطوة التالية.
+                  </span>
+                </div>
+              )
             }
             action={
-              <ViewButton onClick={() => setDrawer('identity')} ariaLabel="عرض بيانات المتقدم" />
+              identity ? (
+                <ViewButton onClick={() => setDrawer('identity')} ariaLabel="عرض بيانات المتقدم" />
+              ) : null
             }
           />
           <HeaderRow

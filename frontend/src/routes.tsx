@@ -3,7 +3,7 @@
  * Source: ARCH-04 (public/private split).
  *
  * Three surfaces:
- *  - PUBLIC (no auth)   → /, /apply, /staff-login, /terms, /help
+ *  - PUBLIC (no auth)   → /, /applicant-login, /staff-login, /terms, /help
  *  - APPLICANT (Stage1+2 auth) → /applicant/*
  *  - STAFF (AuthGuard)  → /hub, /admin/*, /committee/*, /board/*, /investigations/*,
  *                         /medical/*, /barcode/*, /biometric/*, /question-bank/*,
@@ -12,14 +12,14 @@
 
 import { Navigate, useParams, type RouteObject } from 'react-router-dom';
 import { AuthGuard } from '@/app/providers/AuthGuard';
-import { LoginPage } from '@/features/auth';
+import { LoginPage, ApplicantLoginPage } from '@/features/auth';
 import { ROUTES } from '@/config/routes';
 import { HubPage } from '@/features/hub';
 import { ArchitecturePage } from '@/features/architecture';
 import { RevampComparisonPage } from '@/features/design-revamp';
 import { ProfilePage } from '@/features/profile';
 import { HelpPage } from '@/features/help';
-import { ApplyEntryPage, PublicLandingPage, TermsPage } from '@/features/landing';
+import { PublicLandingPage, TermsPage } from '@/features/landing';
 import {
   ApplicantGradesImportReviewPage,
   AppSettingsReviewPage,
@@ -29,6 +29,7 @@ import {
 import { LookupsHubPage } from '@/features/lookups/pages/LookupsHubPage';
 import { ApplicantCategoryDetailPage } from '@/features/lookups/pages/ApplicantCategoryDetailPage';
 import {
+  ApplicantIneligiblePage,
   ApplicantPortalLayout,
   ApplicationSummaryPage,
   ApplicantPortalPage,
@@ -178,8 +179,8 @@ function LegacyCommitteeDetailRedirect(): JSX.Element {
 export const routes: RouteObject[] = [
   /* ── PUBLIC SURFACE — no auth required ───────────────────── */
   { path: '/', element: <PublicLandingPage /> },
-  { path: '/apply', element: <ApplyEntryPage /> },
   { path: '/staff-login', element: <LoginPage /> },
+  { path: '/applicant-login', element: <ApplicantLoginPage /> },
   { path: '/login', element: <Navigate to="/staff-login" replace /> },
   { path: '/terms', element: <TermsPage /> },
   { path: '/help', element: <HelpPage /> },
@@ -283,6 +284,7 @@ export const routes: RouteObject[] = [
       { path: '/applicant/start', element: <CategorySelectionPage /> },
       { path: '/applicant/eligibility', element: <EligibilityCheckPage /> },
       { path: '/applicant/tests', element: <TestScheduleAndResultsPage /> },
+      { path: '/applicant/ineligible', element: <ApplicantIneligiblePage /> },
     ],
   },
   {

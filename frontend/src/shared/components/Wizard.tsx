@@ -107,7 +107,7 @@ export function Wizard({
                   <button
                     type="button"
                     onClick={() => onStepClick?.(s.key)}
-                    disabled={s.state === 'blocked'}
+                    disabled={s.state === 'blocked' || s.state === 'skipped'}
                     className={cn(
                       'rounded-md px-2 py-1 transition-colors duration-fast ease-standard',
                       s.key === activeStepKey
@@ -115,6 +115,7 @@ export function Wizard({
                         : 'hover:bg-ink-50',
                       s.state === 'complete' && 'text-success',
                       s.state === 'blocked' && 'cursor-not-allowed text-terra-500',
+                      s.state === 'skipped' && 'cursor-not-allowed text-ink-300',
                     )}
                   >
                     {s.label}
@@ -174,8 +175,10 @@ function VerticalStepper({
     <ol className="flex flex-col gap-1">
       {steps.map((s, i) => {
         const isActive = s.key === activeKey;
-        // Demo mode: any step that has a click handler is reachable, including upcoming ones.
-        const clickable = s.state !== 'blocked' && Boolean(onStepClick);
+        // Demo mode: any step that has a click handler is reachable,
+        // including upcoming ones. Blocked + skipped stay non-clickable.
+        const clickable =
+          s.state !== 'blocked' && s.state !== 'skipped' && Boolean(onStepClick);
         return (
           <li key={s.key} className="relative">
             {i < steps.length - 1 && (

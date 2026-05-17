@@ -119,7 +119,7 @@ export function LoginForm(): JSX.Element {
         <p className="mt-1 text-sm leading-relaxed text-ink-500">
           يتم التحقق من هوية الضباط والموظفين عبر منصّة التحقق الرقمي للحكومة المصرية.
           المتقدّمون للالتحاق يستخدمون
-          <a href={ROUTES.apply} className="mx-1 font-medium text-teal-700 hover:underline">صفحة التقديم</a>
+          <a href={ROUTES.applicantLogin} className="mx-1 font-medium text-teal-700 hover:underline">صفحة التقديم</a>
           مباشرةً.
         </p>
       </header>

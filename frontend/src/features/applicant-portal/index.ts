@@ -25,3 +25,7 @@ export { TestScheduleAndResultsPage } from './pages/TestScheduleAndResultsPage';
 
 /* AF-3 — applicant-facing تعديل الطلب edit surface */
 export { ApplicationSummaryPage } from './pages/ApplicationSummaryPage';
+
+/* MOI-driven rejection screen — shown when MOI returned a session for
+ * an applicant who doesn't qualify for any open category. */
+export { ApplicantIneligiblePage } from './pages/ApplicantIneligiblePage';

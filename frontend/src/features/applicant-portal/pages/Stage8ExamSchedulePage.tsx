@@ -13,7 +13,7 @@
 
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarCheck, CheckCircle2 } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, Check } from 'lucide-react';
 import {
   Button,
   Card,
@@ -21,7 +21,6 @@ import {
   ErrorState,
   LoadingState,
   Modal,
-  Select,
   toast,
 } from '@/shared/components';
 import { date as fmtDate } from '@/shared/lib/format';
@@ -46,22 +45,28 @@ export function Stage8ExamSchedulePage(): JSX.Element {
 
   const slots = data ?? [];
 
-  /* PDF p.11 surface: one entry per available day. We dedupe by date and
-   * keep the earliest occurrence (slot id) since the user picks the day,
-   * not a specific time slot. */
+  /* One entry per available day. Dedupe by date, skip until the first
+   * Tuesday (per client direction 2026-05-18), then keep three so the
+   * series is always Tue / Wed / Thu — a compact 3-card row. */
   const dayOptions = useMemo(() => {
     const seen = new Set<string>();
-    const ordered: Array<{ value: string; label: string }> = [];
+    const ordered: Array<{ value: string; dayName: string; dateLabel: string }> = [];
+    let started = false;
     for (const s of [...slots].sort((a, b) => a.date.localeCompare(b.date))) {
       const dayKey = s.date.slice(0, 10);
       if (seen.has(dayKey)) continue;
       seen.add(dayKey);
       const examDate = new Date(s.date);
-      const dayName = arabicDayOfWeek(examDate);
+      /* getDay(): 0=Sun, 1=Mon, 2=Tue, ... — start the visible series
+       * at the earliest Tuesday in the available slots. */
+      if (!started && examDate.getDay() !== 2) continue;
+      started = true;
       ordered.push({
         value: s.date,
-        label: `${dayName} — ${fmtDate(s.date, 'short')}`,
+        dayName: arabicDayOfWeek(examDate),
+        dateLabel: fmtDate(s.date, 'full'),
       });
+      if (ordered.length === 3) break;
     }
     return ordered;
   }, [slots]);
@@ -106,28 +111,59 @@ export function Stage8ExamSchedulePage(): JSX.Element {
         <DefRow label="اللجنة" value="اللجنة الثانية" />
       </dl>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-        <Select
-          label="تاريخ الإختبار"
-          required
-          value={picked}
-          onChange={(e) => setPicked(e.target.value)}
-          options={[
-            { value: '', label: '— اختر التاريخ —' },
-            ...dayOptions,
-          ]}
-        />
-        <div className="flex items-end">
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={onSave}
-            isLoading={pickMut.isPending}
-            disabled={!picked}
-          >
-            حفظ
-          </Button>
-        </div>
+      <div role="radiogroup" aria-label="تاريخ الإختبار" className="mb-4 grid gap-3 sm:grid-cols-3">
+        {dayOptions.map((opt) => {
+          const selected = picked === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => setPicked(opt.value)}
+              className={
+                'group relative flex flex-col items-center justify-center gap-2 rounded-lg border px-4 py-6 text-center transition-all duration-fast ease-standard focus-visible:shadow-focus-teal focus-visible:outline-none ' +
+                (selected
+                  ? 'border-teal-500 bg-teal-50 shadow-sm'
+                  : 'border-border-default bg-surface-card hover:border-teal-400 hover:bg-teal-50/40')
+              }
+            >
+              {selected && (
+                <span
+                  aria-hidden
+                  className="absolute end-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-teal-500 text-white"
+                >
+                  <Check size={14} strokeWidth={2.5} />
+                </span>
+              )}
+              <span
+                aria-hidden
+                className={
+                  'inline-flex h-10 w-10 items-center justify-center rounded-md ' +
+                  (selected ? 'bg-teal-500 text-white' : 'bg-teal-50 text-teal-700')
+                }
+              >
+                <CalendarCheck size={20} strokeWidth={1.75} />
+              </span>
+              <span className="font-ar-display text-md font-bold text-ink-900">
+                {opt.dayName}
+              </span>
+              <span className="text-2xs text-ink-500">{opt.dateLabel}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-end">
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={onSave}
+          isLoading={pickMut.isPending}
+          disabled={!picked}
+        >
+          حفظ
+        </Button>
       </div>
 
       <Modal
@@ -186,7 +222,15 @@ function DefRow({
     <div>
       <dt className="text-2xs uppercase tracking-wide text-ink-500">{label}</dt>
       <dd
-        className={'mt-0.5 text-sm font-medium text-ink-900 ' + (mono ? 'font-mono' : '')}
+        className={
+          'mt-0.5 text-sm font-medium text-ink-900 ' +
+          /* `text-end` resolves against the element's OWN dir. For LTR
+           * values (digits) we set dir="ltr" so `text-end` = right,
+           * which aligns them to the column edge under the RTL label.
+           * For RTL values we leave the alignment default (right). */
+          (ltr ? 'text-end ' : '') +
+          (mono ? 'font-mono' : '')
+        }
         dir={ltr ? 'ltr' : undefined}
       >
         {value}

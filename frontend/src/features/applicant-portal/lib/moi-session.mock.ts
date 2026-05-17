@@ -79,6 +79,68 @@ export function moiSessionMatches(input: {
   );
 }
 
+/* ────────────────────────────────────────────────────────────────────
+ * DEMO TEST USERS — three scenarios the client wants to demo.
+ *
+ * Login routing reads the discriminated `MoiLookupResult` to decide
+ * where to send the applicant after they sign in:
+ *   eligible    → /applicant/profile (category pre-selected, dimmed fields)
+ *   not_found   → /applicant/start   (CategorySelectionPage)
+ *   ineligible  → /applicant/ineligible (polite rejection)
+ * ──────────────────────────────────────────────────────────────────── */
+
+import type { ApplicantCategoryKey } from '@/shared/types/domain';
+
+export type MoiLookupResult =
+  | { kind: 'eligible'; session: MoiApplicantSession; categoryKey: ApplicantCategoryKey }
+  | { kind: 'ineligible'; session: MoiApplicantSession; reasonAr: string }
+  | { kind: 'not_found' };
+
+/** A second seeded MOI session — older applicant whose data is found but
+ *  who does not qualify for any open category (over the age cutoff). */
+const KHALED_NID = '28503150103456';
+const KHALED_DOB = new Date('1985-03-15');
+const KHALED_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-2026-KH',
+  fullName: 'خالد عبد الرحمن سامي مصطفى',
+  nationalId: KHALED_NID,
+  dateOfBirth: '1985-03-15',
+  dateOfBirthAr: fmtArabic(KHALED_DOB),
+  gender: 'male',
+  mobile: '01098765432',
+  email: 'khaled.samy@gmail.com',
+  birthGovernorate: 'الإسكندرية',
+  birthDistrict: 'سيدي جابر',
+  religion: 'مسلم',
+};
+
+/** Third test NID — MOI cannot find this applicant, simulating someone
+ *  whose identity record isn't in the ministry database. */
+const MOHAMED_UNKNOWN_NID = '30506200103456';
+
+/** Test-user catalog surfaced on the login page so demo runners know
+ *  which NID exercises which scenario. */
+export const DEMO_TEST_USERS = [
+  {
+    label: 'مؤهل (عام)',
+    nationalId: MOI_APPLICANT_SESSION.nationalId,
+    fullName: MOI_APPLICANT_SESSION.fullName,
+    note: 'يجد المنظومة بياناته في وزارة الداخلية ويتأهَّل للقسم العام مباشرةً.',
+  },
+  {
+    label: 'لم يُعثَر على البيانات',
+    nationalId: MOHAMED_UNKNOWN_NID,
+    fullName: '— (غير مسجَّل في الوزارة)',
+    note: 'تنتقل المنظومة إلى شاشة اختيار فئة التقدم يدوياً.',
+  },
+  {
+    label: 'غير مؤهَّل',
+    nationalId: KHALED_NID,
+    fullName: KHALED_SESSION.fullName,
+    note: 'البيانات موجودة لكن المتقدِّم خارج الفئة العمرية للقبول.',
+  },
+] as const;
+
 /**
  * Mock the MOI portal identity-verification call. Returns the
  * deterministic session payload for the seeded NID; otherwise derives a
@@ -94,6 +156,8 @@ export function moiSessionMatches(input: {
  */
 export function mockMoiVerifyNid(nid: string): MoiApplicantSession | null {
   if (nid === MOI_APPLICANT_SESSION.nationalId) return MOI_APPLICANT_SESSION;
+  if (nid === KHALED_SESSION.nationalId) return KHALED_SESSION;
+  if (nid === MOHAMED_UNKNOWN_NID) return null;
   const parsed = parseNidStructure(nid);
   if (!parsed) return null;
   const hash = djb2(nid);
@@ -197,4 +261,28 @@ function djb2(s: string): number {
     h = (h * 33 + s.charCodeAt(i)) & 0x7fffffff;
   }
   return h;
+}
+
+/**
+ * Scenario-driven lookup used by the applicant login flow.
+ * Maps the 3 demo NIDs to explicit verdicts; any other valid NID is
+ * treated as `not_found` (so unknown applicants land on the manual
+ * category-selection screen rather than getting auto-eligible).
+ */
+export function mockMoiLookup(nid: string): MoiLookupResult {
+  if (nid === MOI_APPLICANT_SESSION.nationalId) {
+    return {
+      kind: 'eligible',
+      session: MOI_APPLICANT_SESSION,
+      categoryKey: 'officers_general',
+    };
+  }
+  if (nid === KHALED_SESSION.nationalId) {
+    return {
+      kind: 'ineligible',
+      session: KHALED_SESSION,
+      reasonAr: 'تخطَّى المتقدِّم الحدّ الأقصى للسنّ المقبول للالتحاق بالأكاديمية.',
+    };
+  }
+  return { kind: 'not_found' };
 }

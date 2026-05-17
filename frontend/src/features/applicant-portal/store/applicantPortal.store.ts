@@ -16,6 +16,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import type { MoiApplicantSession } from '../lib/moi-session.mock';
 
 export type ApplicantPaymentMethod = 'fawry-code';
 
@@ -23,6 +24,11 @@ interface ApplicantPortalState {
   nationalId: string | null;
   selectedCategoryKey: string | null;
   selectedCycleId: string | null;
+
+  /** Snapshot of the MOI identity-verification response captured on
+   *  login. Drives the dimmed/auto-populated identity fields in the
+   *  profile page. Null when MOI returned 404 or wasn't called. */
+  moiSession: MoiApplicantSession | null;
 
   /** Identity re-verification (PDF p.5 lower) — set on /applicant/verify. */
   verifiedAt: number | null;
@@ -43,6 +49,7 @@ interface ApplicantPortalState {
   setNationalId: (id: string | null) => void;
   setSelectedCategoryKey: (key: string | null) => void;
   setSelectedCycleId: (id: string | null) => void;
+  setMoiSession: (session: MoiApplicantSession | null) => void;
   setVerifiedAt: (ts: number | null) => void;
   setPayment: (input: {
     paid: boolean;
@@ -61,6 +68,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       nationalId: null,
       selectedCategoryKey: null,
       selectedCycleId: null,
+      moiSession: null,
       verifiedAt: null,
       paid: false,
       paymentMethod: null,
@@ -71,6 +79,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       setNationalId: (id) => set({ nationalId: id }),
       setSelectedCategoryKey: (key) => set({ selectedCategoryKey: key }),
       setSelectedCycleId: (id) => set({ selectedCycleId: id }),
+      setMoiSession: (session) => set({ moiSession: session }),
       setVerifiedAt: (ts) => set({ verifiedAt: ts }),
       setPayment: (input) => set(input),
       setFirstExamDate: (iso) => set({ firstExamDate: iso }),
@@ -80,6 +89,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
           nationalId: null,
           selectedCategoryKey: null,
           selectedCycleId: null,
+          moiSession: null,
           verifiedAt: null,
           paid: false,
           paymentMethod: null,

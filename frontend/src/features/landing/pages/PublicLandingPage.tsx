@@ -102,7 +102,7 @@ export function PublicLandingPage(): JSX.Element {
         </h2>
         <div className="grid gap-6 md:grid-cols-2">
           <CtaCard
-            to={ROUTES.apply}
+            to={ROUTES.applicantLogin}
             icon={<GraduationCap size={26} strokeWidth={1.75} />}
             badge="للمتقدّمين"
             title="تقديم جديد للالتحاق"

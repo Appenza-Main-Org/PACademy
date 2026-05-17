@@ -27,7 +27,12 @@ export function AuthGuard({ children, app }: AuthGuardProps): JSX.Element {
   const location = useLocation();
 
   if (!user) {
-    return <Navigate to={ROUTES.staffLogin} replace state={{ from: location.pathname }} />;
+    /* Applicant-gated routes (and any /applicant/* URL) send the visitor
+     * to the dedicated applicant login. All other gated routes use the
+     * staff login. */
+    const isApplicantRoute = app === 'applicant' || location.pathname.startsWith('/applicant');
+    const loginPath = isApplicantRoute ? ROUTES.applicantLogin : ROUTES.staffLogin;
+    return <Navigate to={loginPath} replace state={{ from: location.pathname }} />;
   }
 
   if (app && !canAccessApp(user.apps, app)) {

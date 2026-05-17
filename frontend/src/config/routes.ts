@@ -3,8 +3,10 @@ import type { AppKey } from '@/shared/lib/constants';
 export const ROUTES = {
   /* ── Public surface (no auth required) ── */
   landing: '/',
-  apply: '/apply',
   staffLogin: '/staff-login',
+  /** Applicant-only login (NID + password). Separate from /staff-login —
+   *  no role picker, no OTP step. Lands on /applicant on success. */
+  applicantLogin: '/applicant-login',
   /** Backwards-compat alias — `/login` redirects to `/staff-login`. */
   login: '/staff-login',
   terms: '/terms',
@@ -87,6 +89,9 @@ export const ROUTES = {
   applicant: '/applicant',
   applicantStart: '/applicant/start',
   applicantEligibility: '/applicant/eligibility',
+  /** Polite-rejection screen shown when MOI returned a session but the
+   *  applicant doesn't qualify for any open category. */
+  applicantIneligible: '/applicant/ineligible',
   applicantTests: '/applicant/tests',
   applicantApplicationSummary: '/applicant/application/summary',
   /* MOI-alignment additions:

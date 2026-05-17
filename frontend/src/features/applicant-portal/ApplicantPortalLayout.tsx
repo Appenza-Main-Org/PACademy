@@ -11,7 +11,7 @@
 
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
-import { Ban, BellRing, ClipboardCheck, HelpCircle, LogOut, Pencil, ScrollText } from 'lucide-react';
+import { Ban, ClipboardCheck, LogOut, Pencil, ScrollText } from 'lucide-react';
 import {
   Badge,
   KhayameyaStripe,
@@ -54,7 +54,7 @@ export const STAGE_LABELS = [
   'البيانات الشخصية والدراسية',
   'ملخّص الطلب',
   'سداد رسوم التقديم',
-  'بيانات الوالدين',
+  'بيانات العائلة',
   'موعد الاختبار',
   'بطاقة التردد',
   'نتائج الاختبارات',
@@ -94,6 +94,10 @@ export function ApplicantPortalLayout(): JSX.Element {
     return idx === -1 ? 0 : idx;
   }, [location.pathname]);
 
+  /* Step rendering — the empty-key entry (summary, served by the
+   * `/applicant` index) is filtered out of the visible stepper per
+   * client request. Raw STAGE_KEYS indices are preserved upstream so
+   * draft.furthestStage math (and admin reports) keep working. */
   const steps: WizardStep[] = STAGE_KEYS.map((key, i): WizardStep => {
     const reached = (draft?.furthestStage ?? 0) >= i + 1;
     let state: WizardStepState = 'upcoming';
@@ -101,8 +105,12 @@ export function ApplicantPortalLayout(): JSX.Element {
     else if (i === activeIndex) state = 'current';
     else if (!reached && i > activeIndex) state = 'upcoming';
     if (draft?.suspended && i > 0) state = 'blocked';
+    /* وثيقة التعارف is parked for now per client request — render
+     * the step as dimmed/skipped so the stepper still shows it but it
+     * doesn't read as an active or upcoming gate. */
+    if (key === 'acquaintance-doc') state = 'skipped';
     return { key, label: STAGE_LABELS[i] ?? key, state };
-  });
+  }).filter((s) => s.key !== '');
 
   const autoSaveStatus = draft && Date.now() - draft.lastSavedAt < 4_000 ? 'saved' : 'idle';
 
@@ -249,7 +257,7 @@ function FloatingHelp(): JSX.Element {
       className="no-print fixed bottom-6 inset-inline-end-6 flex items-center gap-2 rounded-pill bg-surface-card px-3 py-2 shadow-md"
       style={{ zIndex: 'var(--z-raised)' as unknown as number }}
     >
-      <BellRing size={14} strokeWidth={1.75} className="text-teal-700" aria-hidden />
+      {/* <BellRing size={14} strokeWidth={1.75} className="text-teal-700" aria-hidden />
       <span className="text-2xs text-ink-700">دعم فني</span>
       <a
         href="tel:19000"
@@ -257,7 +265,7 @@ function FloatingHelp(): JSX.Element {
       >
         19000
       </a>
-      <HelpCircle size={14} strokeWidth={1.75} className="text-ink-500" aria-hidden />
+      <HelpCircle size={14} strokeWidth={1.75} className="text-ink-500" aria-hidden /> */}
     </aside>
   );
 }

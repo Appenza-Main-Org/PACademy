@@ -36,18 +36,21 @@ import { useActiveCycle, useCategories } from '../api/categories.queries';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { deterministicFileNumber } from '../lib/deterministic-codes';
 
-const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
-
 export function ApplicantPortalPage(): JSX.Element {
   const paid = useApplicantPortalStore((s) => s.paid);
   const parentsApproved = useApplicantPortalStore((s) => s.parentsApproved);
   const firstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  const moiSession = useApplicantPortalStore((s) => s.moiSession);
   const categoriesQuery = useCategories();
   const activeCycle = useActiveCycle();
   const [showInstructions, setShowInstructions] = useState(false);
 
-  const session = MOI_APPLICANT_SESSION;
+  /* Read the MOI session from the store first — it's set by the login
+   * form per the picked demo user. Fall back to the static default only
+   * for direct-link visits that bypass login (e.g. dev navigation). */
+  const session = moiSession ?? MOI_APPLICANT_SESSION;
+  const APPLICANT_ID = session.applicantId;
   const fileNumber = paid ? deterministicFileNumber(APPLICANT_ID) : null;
   const committeeNumber = paid ? 'اللجنة الثانية' : null;
   const category = (categoriesQuery.data ?? []).find((c) => c.key === selectedCategoryKey);
