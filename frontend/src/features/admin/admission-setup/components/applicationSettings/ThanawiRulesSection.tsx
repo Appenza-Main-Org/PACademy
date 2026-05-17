@@ -45,7 +45,14 @@ const EMPTY_INPUT: ThanawiRuleRowInput = {
   committee: '',
   graduationYear: null,
   schoolCategories: [],
+  scoreMin: null,
+  scoreMax: null,
 };
+
+/** Inclusive percentage bounds for the score range — bounded by the
+ *  admission test grading convention (0–100). */
+const SCORE_MIN_BOUND = 0;
+const SCORE_MAX_BOUND = 100;
 
 interface ThanawiRulesSectionProps {
   categoryCode: string;
@@ -392,11 +399,29 @@ function ThanawiForm({
     ),
   );
 
+  const scoreMinOutOfBounds =
+    draft.scoreMin !== null &&
+    (draft.scoreMin < SCORE_MIN_BOUND || draft.scoreMin > SCORE_MAX_BOUND);
+
+  const scoreMaxOutOfBounds =
+    draft.scoreMax !== null &&
+    (draft.scoreMax < SCORE_MIN_BOUND || draft.scoreMax > SCORE_MAX_BOUND);
+
+  const scoreOrderInvalid =
+    draft.scoreMin !== null &&
+    draft.scoreMax !== null &&
+    draft.scoreMax < draft.scoreMin;
+
   const canAdd =
     draft.examRound.length > 0 &&
     draft.committee.length > 0 &&
     draft.graduationYear !== null &&
-    draft.schoolCategories.length > 0;
+    draft.schoolCategories.length > 0 &&
+    draft.scoreMin !== null &&
+    draft.scoreMax !== null &&
+    !scoreMinOutOfBounds &&
+    !scoreMaxOutOfBounds &&
+    !scoreOrderInvalid;
 
   const handleAdd = (): void => {
     if (!canAdd) return;
@@ -458,17 +483,67 @@ function ThanawiForm({
             />
           </FieldLabel>
           <FieldLabel label="فئة المدرسة">
-            <MultiSelect
+            <SearchSelect
               ariaLabel="فئة المدرسة"
-              value={draft.schoolCategories}
-              onChange={(next) =>
-                setDraft((d) => ({ ...d, schoolCategories: next }))
+              value={draft.schoolCategories[0] ?? null}
+              onChange={(v) =>
+                setDraft((d) => ({
+                  ...d,
+                  schoolCategories: v ? [v] : [],
+                }))
               }
-              options={schoolCategoryOptions.map((o) => ({
-                value: o.value,
-                label: o.label,
-              }))}
+              options={schoolCategoryOptions}
               placeholder="اختر فئة المدرسة…"
+            />
+          </FieldLabel>
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <FieldLabel label="الحد الأدنى للدرجة (٪)">
+            <Input
+              type="number"
+              min={SCORE_MIN_BOUND}
+              max={SCORE_MAX_BOUND}
+              step="0.01"
+              inputMode="decimal"
+              placeholder="٠ – ١٠٠"
+              value={draft.scoreMin ?? ''}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  scoreMin: e.target.value === '' ? null : Number(e.target.value),
+                }))
+              }
+              error={
+                scoreMinOutOfBounds
+                  ? 'القيمة خارج النطاق ٠–١٠٠٪'
+                  : undefined
+              }
+            />
+          </FieldLabel>
+
+          <FieldLabel label="الحد الأقصى للدرجة (٪)">
+            <Input
+              type="number"
+              min={SCORE_MIN_BOUND}
+              max={SCORE_MAX_BOUND}
+              step="0.01"
+              inputMode="decimal"
+              placeholder="٠ – ١٠٠"
+              value={draft.scoreMax ?? ''}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  scoreMax: e.target.value === '' ? null : Number(e.target.value),
+                }))
+              }
+              error={
+                scoreMaxOutOfBounds
+                  ? 'القيمة خارج النطاق ٠–١٠٠٪'
+                  : scoreOrderInvalid
+                    ? 'يجب ألا تقل عن الحد الأدنى'
+                    : undefined
+              }
             />
           </FieldLabel>
         </div>
@@ -545,6 +620,8 @@ function ThanawiGrid({
             <Th>اللجنة</Th>
             <Th>سنة التخرج</Th>
             <Th>فئة المدرسة</Th>
+            <Th>الحد الأدنى للدرجة</Th>
+            <Th>الحد الأقصى للدرجة</Th>
             <th className="px-3 py-2">
               <span className="sr-only">إجراءات</span>
             </th>
@@ -572,6 +649,16 @@ function ThanawiGrid({
                 <MultiValueCell
                   values={r.schoolCategories.map(labelForSchool)}
                 />
+              </Td>
+              <Td>
+                {r.scoreMin !== null
+                  ? `${toEasternArabicNumerals(r.scoreMin)}٪`
+                  : '—'}
+              </Td>
+              <Td>
+                {r.scoreMax !== null
+                  ? `${toEasternArabicNumerals(r.scoreMax)}٪`
+                  : '—'}
               </Td>
               <td className="px-3 py-2 align-middle text-end">
                 <button

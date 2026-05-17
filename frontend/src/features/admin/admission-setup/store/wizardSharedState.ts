@@ -82,8 +82,14 @@ export interface ThanawiRuleRowInput {
   committee: string;
   /** Graduation year — single year. */
   graduationYear: number | null;
-  /** School-category lookup codes (فئة المدرسة) — multi-select. */
+  /** School-category lookup codes (فئة المدرسة). Persisted as an array
+   *  for backward compatibility with `ApprovedRulesView`, but the UI now
+   *  binds a single-select that emits a 0- or 1-element array. */
   schoolCategories: string[];
+  /** Inclusive minimum percentage score (الحد الأدنى للدرجة). 0–100. */
+  scoreMin: number | null;
+  /** Inclusive maximum percentage score (الحد الأقصى للدرجة). 0–100. */
+  scoreMax: number | null;
 }
 
 /** Faculty + specialization context attached at the call site of
@@ -136,6 +142,9 @@ export interface LocalThanawiRow extends LocalRowBase {
   graduationYear: number | null;
   /** Multi-select fan-out per row (فئة المدرسة). */
   schoolCategories: string[];
+  /** Inclusive percentage bounds for the score range (الحد الأدنى/الأقصى للدرجة). */
+  scoreMin: number | null;
+  scoreMax: number | null;
   /* Legacy shape so ApprovedRulesView renders thanawi rows alongside
    * university rows in the same table without crashes. Empty arrays
    * render as «—» in the viewer. */
@@ -229,6 +238,8 @@ function thanawiCompositeKey(r: LocalThanawiRow): string {
     r.committee,
     String(r.graduationYear),
     [...r.schoolCategories].sort().join('|'),
+    String(r.scoreMin),
+    String(r.scoreMax),
   ].join('::');
 }
 
@@ -273,6 +284,8 @@ function buildThanawiRow(
     committee: input.committee,
     graduationYear: input.graduationYear,
     schoolCategories: [...input.schoolCategories],
+    scoreMin: input.scoreMin,
+    scoreMax: input.scoreMax,
     type: [],
     maritalStatus: header.maritalStatus,
     grade: '',
