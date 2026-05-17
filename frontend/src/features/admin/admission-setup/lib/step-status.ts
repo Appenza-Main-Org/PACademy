@@ -90,10 +90,7 @@ export function computeStepStatus(
       return computeStepStatus('application_settings', inputs);
     case 'fees': {
       const fee = cycle.fees?.applicationFee ?? 0;
-      const fawry = cycle.fees?.fawryConfig?.merchantCode ?? '';
-      if (fee > 0 && fawry) return 'complete';
-      if (fee > 0 || fawry) return 'in_progress';
-      return 'not_started';
+      return fee > 0 ? 'complete' : 'not_started';
     }
     case 'exams': {
       const openKeys = openCategoryKeys(cycle);

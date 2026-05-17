@@ -371,16 +371,24 @@ Notifications + exam-plans are P2 work (T071–T074). The remaining services
 (workflows, roles, users, payments, nid-lookup, reports) are outside spec
 009 — they migrate under their own specs once backend endpoints land.
 
-### Gap P3-3 — `FawryConfigCard` still imports but the fees step dropped it
+### Gap P3-3 — `FawryConfigCard` still imports but the fees step dropped it — ✅ CLOSED 2026-05-17
 
 - **What**: CLAUDE.md §11 records "Dropped the optional fee inputs and the
   `FawryConfigCard` — only the application-fee input remains" but the
-  component still lives at `frontend/src/features/admin/components/cycles/FawryConfigCard.tsx`.
-  Per spec-009 T106 we need to verify whether any surviving consumer of the
-  card actually persists its values, or if the file is dead.
-- **Fix shape**: Grep for all imports of `FawryConfigCard`. If none exist
-  outside its own file, delete it. If any do exist, confirm the field paths
-  it edits round-trip through `cycles.service.ts.updateCycle`.
+  component still lived at `frontend/src/features/admin/components/cycles/FawryConfigCard.tsx`.
+- **Resolution**: Grep confirmed zero importers (the file referenced only
+  itself; not re-exported from any barrel). Deleted the file. Two further
+  fawry leftovers — `step-status.ts` `case 'fees'` requiring
+  `fawryConfig.merchantCode` for completion, and `cycles.service.ts`
+  `collectActivationIssues` emitting `"إعدادات بوابة فوري غير مكتملة"` —
+  were also trimmed, since the wizard no longer authors `fawryConfig`
+  anywhere and the gates therefore permanently blocked any non-seeded cycle
+  with no way for an admin to satisfy them.
+- **Preserved**: The `FawryConfig` type, the seeded `fawryConfig` value on
+  the demo cycle, and the read-only consumer `Stage6PaymentPage.tsx` that
+  reads `fees.fawryConfig?.retryWindowHours` with a `48` fallback. Backend
+  integration can re-introduce an authoring surface (or move it to a
+  payment-gateway settings page) without churning the data model.
 
 ### Gap P3-4 — `CategoryConditionBuilder` writes go through `ConditionsJson` (OK in principle)
 

@@ -68,9 +68,6 @@ function collectActivationIssues(cycle: AdmissionCycle): string[] {
   if (!fee || fee <= 0) {
     issues.push('رسوم التقديم غير مضبوطة');
   }
-  if (!cycle.fees?.fawryConfig?.merchantCode) {
-    issues.push('إعدادات بوابة فوري غير مكتملة (رمز التاجر مطلوب)');
-  }
 
   /* 3. At least one open category */
   const openCategoryCount = Object.values(cycle.openCategories ?? {}).filter(

@@ -235,7 +235,7 @@
 - [ ] T103 [US3] Run the gap-audit (T099, T100) and produce a list of missing endpoints / fields. Track output in `specs/009-admission-setup-persistence/research.md` as a new "P3 gap inventory" section appended.
 - [ ] T104 [US3] For each gap on the backend, add the missing use case + controller method. Group commits by Cycle vs Category — at most one new controller method per task.
 - [ ] T105 [US3] For each gap on the frontend, finish the service-layer migration (replace any remaining `simulateLatency` / `MOCK.*` reads with `apiClient` calls).
-- [ ] T106 [P] [US3] Update the FawryConfigCard component if its persistence path was incomplete — verify saves round-trip through the cycle endpoints.
+- [x] T106 [P] [US3] Update the FawryConfigCard component if its persistence path was incomplete — verify saves round-trip through the cycle endpoints. *Resolution (2026-05-17, gap P3-3): the component was orphaned with zero importers — deleted. Two stale fawry gates (fees step-status completion check + activation pre-flight issue) were also dropped since nothing in the wizard authors `fawryConfig` anymore. `FawryConfig` type + seed + read-only Stage 6 consumer preserved.*
 - [ ] T107 [P] [US3] Update the CategoryConditionBuilder component if any rule-type writes weren't persisted (age / marital / score / education conditions).
 
 **Checkpoint**: US3 fully functional — steps 1–6 have no in-memory state. Audit confirms every save emits an entry.
