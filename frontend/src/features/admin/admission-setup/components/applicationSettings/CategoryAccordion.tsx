@@ -18,21 +18,19 @@
  * is shown to applicants. Both stay in sync at this seam.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import { ChevronDown, ListChecks } from 'lucide-react';
-import {
-  AlertDialog,
-  ErrorState,
-  LoadingState,
-} from '@/shared/components';
-import { cn } from '@/shared/lib/cn';
+import { Check, ChevronDown, Circle, CircleDashed, ListChecks } from 'lucide-react';
+import { Badge, ErrorState, LoadingState } from '@/shared/components';
+import type { BadgeTone } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
-import {
-  useCategoryConfigs,
-  useToggleCategoryActive,
-} from '../../api/applicationSettings.queries';
+import { useCategoryConfigs } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
+import {
+  selectCategoryCompletion,
+  useAdmissionSetupWizardStore,
+  type CategoryCompletionState,
+} from '../../store/wizardSharedState';
 import { GeneralRulesSection } from './GeneralRulesSection';
 import { ThanawiRulesSection } from './ThanawiRulesSection';
 
@@ -88,16 +86,23 @@ interface ConfigItemProps {
 }
 
 function ConfigItem({ config }: ConfigItemProps): JSX.Element {
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const toggleMut = useToggleCategoryActive();
+  const approved = useAdmissionSetupWizardStore((s) => s.approved);
 
-  const handleCheckedChange = (next: boolean): void => {
-    if (config.isActive && !next && config.yearCount > 0) {
-      setConfirmOpen(true);
-      return;
-    }
-    toggleMut.mutate(config.id);
-  };
+  const completion = useMemo(
+    () =>
+      selectCategoryCompletion(
+        config.categoryCode,
+        config.categoryType,
+        approved,
+        config.categorySpecializationCodes,
+      ),
+    [
+      approved,
+      config.categoryCode,
+      config.categoryType,
+      config.categorySpecializationCodes,
+    ],
+  );
 
   const typeLabel = config.categoryType === 'university' ? 'جامعي' : 'ثانوي';
 
@@ -127,26 +132,7 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
                 : `${config.specializationCount} تخصص · ${config.yearCount} سنة دراسية`}
             </span>
           </Accordion.Trigger>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={config.isActive}
-            aria-label={`تفعيل فئة ${config.categoryNameAr}`}
-            disabled={toggleMut.isPending}
-            onClick={() => handleCheckedChange(!config.isActive)}
-            className={cn(
-              'inline-flex shrink-0 items-center justify-center rounded-pill px-4 py-1.5 text-xs font-medium',
-              'transition-colors duration-[var(--motion-fast)]',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]',
-              config.isActive
-                ? 'border border-transparent text-white'
-                : 'border border-border-default bg-white text-ink-600 hover:bg-ink-50',
-              toggleMut.isPending && 'cursor-not-allowed opacity-60',
-            )}
-            style={config.isActive ? { background: 'var(--accent-600)' } : undefined}
-          >
-            {config.isActive ? 'مفعّل' : 'موقوف'}
-          </button>
+          <CompletionBadge state={completion} />
         </div>
       </Accordion.Header>
 
@@ -161,16 +147,43 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
           <ThanawiRulesSection categoryCode={config.categoryCode} />
         )}
       </Accordion.Content>
-
-      <AlertDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title="إيقاف الفئة"
-        description={`هذه الفئة تحتوي على ${config.yearCount} سنة دراسية نشطة. سيرفض النظام الإيقاف حتى توقف السنوات النشطة أولاً.`}
-        actionLabel="فهمت"
-        onAction={() => setConfirmOpen(false)}
-        tone="primary"
-      />
     </Accordion.Item>
+  );
+}
+
+interface CompletionMeta {
+  tone: BadgeTone;
+  label: string;
+  icon: JSX.Element;
+}
+
+const COMPLETION_META: Record<CategoryCompletionState, CompletionMeta> = {
+  complete: {
+    tone: 'success',
+    label: 'مكتمل',
+    icon: <Check size={12} strokeWidth={2} aria-hidden />,
+  },
+  partial: {
+    tone: 'warning',
+    label: 'جزئي',
+    icon: <CircleDashed size={12} strokeWidth={1.75} aria-hidden />,
+  },
+  empty: {
+    tone: 'neutral',
+    label: 'فارغ',
+    icon: <Circle size={12} strokeWidth={1.75} aria-hidden />,
+  },
+};
+
+function CompletionBadge({
+  state,
+}: {
+  state: CategoryCompletionState;
+}): JSX.Element {
+  const meta = COMPLETION_META[state];
+  return (
+    <Badge tone={meta.tone} icon={meta.icon} className="shrink-0">
+      {meta.label}
+    </Badge>
   );
 }

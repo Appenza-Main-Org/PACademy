@@ -486,3 +486,96 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
   setEditingRow: (id) => set({ editingRowId: id }),
   clearEditingRow: () => set({ editingRowId: null }),
 }));
+
+/* ── Completion-state selector ───────────────────────────────────────
+ *
+ * Pure derivation off the wizard's `approved` bucket and the category's
+ * scoped specialization list. Returns one of three states for the
+ * application_settings category accordion row badge:
+ *
+ *   • `'complete'` — every active specialization under the category has
+ *     at least one approved row with all required fields filled. For
+ *     pre-university (ثانوي) categories the category itself is the unit.
+ *   • `'partial'`  — at least one specialization has approved rows but
+ *     the all-units-complete condition fails.
+ *   • `'empty'`    — no specialization under the category has approved
+ *     rows at all.
+ */
+
+export type CategoryCompletionState = 'complete' | 'partial' | 'empty';
+
+function isHeaderComplete(h: GeneralRulesHeader): boolean {
+  return (
+    h.applicationStart !== '' &&
+    h.applicationEnd !== '' &&
+    h.ageReferenceDate !== '' &&
+    h.maxAge !== null &&
+    h.maritalStatus.length > 0
+  );
+}
+
+function isUniversityRowComplete(r: LocalUniversityRow): boolean {
+  return (
+    isHeaderComplete(r.header) &&
+    r.type.length > 0 &&
+    r.grade !== '' &&
+    r.gradeMax !== '' &&
+    r.scoreMin !== null &&
+    r.scoreMax !== null &&
+    r.academicDegrees.length > 0 &&
+    r.committees.length > 0 &&
+    r.graduationYears.length > 0
+  );
+}
+
+function isThanawiRowComplete(r: LocalThanawiRow): boolean {
+  return (
+    isHeaderComplete(r.header) &&
+    r.examRound !== '' &&
+    r.committee !== '' &&
+    r.graduationYear !== null &&
+    r.schoolCategories.length > 0 &&
+    r.scoreMin !== null &&
+    r.scoreMax !== null
+  );
+}
+
+export function selectCategoryCompletion(
+  categoryCode: string,
+  categoryType: 'university' | 'pre_university',
+  approvedRows: readonly ApprovedGeneralRuleRow[],
+  scopedSpecCodes: readonly string[],
+): CategoryCompletionState {
+  const rows = approvedRows.filter((r) => r.categoryCode === categoryCode);
+  if (rows.length === 0) return 'empty';
+
+  if (categoryType === 'pre_university') {
+    const hasComplete = rows.some(
+      (r): r is LocalThanawiRow =>
+        r.kind === 'thanawi' && isThanawiRowComplete(r),
+    );
+    return hasComplete ? 'complete' : 'partial';
+  }
+
+  // university — when the category has no spec scope (rare), treat the
+  // whole category as one unit so the badge isn't permanently `partial`.
+  if (scopedSpecCodes.length === 0) {
+    const hasComplete = rows.some(
+      (r): r is LocalUniversityRow =>
+        r.kind === 'university' && isUniversityRowComplete(r),
+    );
+    return hasComplete ? 'complete' : 'partial';
+  }
+
+  let allUnitsComplete = true;
+  for (const specCode of scopedSpecCodes) {
+    const specRows = rows.filter(
+      (r): r is LocalUniversityRow =>
+        r.kind === 'university' && r.specializationCode === specCode,
+    );
+    if (specRows.length === 0 || !specRows.some(isUniversityRowComplete)) {
+      allUnitsComplete = false;
+    }
+  }
+  return allUnitsComplete ? 'complete' : 'partial';
+}
