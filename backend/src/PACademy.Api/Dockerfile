@@ -14,5 +14,5 @@ RUN dotnet publish "src/PACademy.Api/PACademy.Api.csproj" \
 
 FROM base AS final
 WORKDIR /app
-COPY --from=publish /app/publish .
+COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "PACademy.Api.dll"]

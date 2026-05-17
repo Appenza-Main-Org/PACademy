@@ -14,6 +14,10 @@ public sealed class LookupsDbContext(DbContextOptions<LookupsDbContext> options)
     public DbSet<CategoryTest> CategoryTests => Set<CategoryTest>();
     public DbSet<PeriodCategory> PeriodCategories => Set<PeriodCategory>();
 
+    public DbSet<ApplicantCategoryConfig> ApplicantCategoryConfigs => Set<ApplicantCategoryConfig>();
+    public DbSet<ApplicantCategorySpecialization> ApplicantCategorySpecializations => Set<ApplicantCategorySpecialization>();
+    public DbSet<ApplicantSpecializationYear> ApplicantSpecializationYears => Set<ApplicantSpecializationYear>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.ApplyConfigurationsFromAssembly(typeof(LookupsDbContext).Assembly);
 

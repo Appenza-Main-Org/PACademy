@@ -13,6 +13,10 @@ public interface ILookupsDbContext
     DbSet<CategoryTest> CategoryTests { get; }
     DbSet<PeriodCategory> PeriodCategories { get; }
 
+    DbSet<ApplicantCategoryConfig> ApplicantCategoryConfigs { get; }
+    DbSet<ApplicantCategorySpecialization> ApplicantCategorySpecializations { get; }
+    DbSet<ApplicantSpecializationYear> ApplicantSpecializationYears { get; }
+
     EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);

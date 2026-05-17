@@ -390,21 +390,58 @@ Notifications + exam-plans are P2 work (T071–T074). The remaining services
   integration can re-introduce an authoring surface (or move it to a
   payment-gateway settings page) without churning the data model.
 
-### Gap P3-4 — `CategoryConditionBuilder` writes go through `ConditionsJson` (OK in principle)
+### Gap P3-4 — `CategoryConditionBuilder` writes go through `ConditionsJson` — ✅ CLOSED 2026-05-17
 
-- **What**: T107 calls out `CategoryConditionBuilder` rule-type writes
-  (age / marital / score / education). The component lives at
-  `frontend/src/features/admin/components/categories/CategoryConditionBuilder.tsx`
-  and is a pure controlled form — the parent (CategoryEditPage) owns the
-  draft and decides when to save.
-- **Status**: The conditions are persisted on `Category.ConditionsJson`
-  via `UpdateCategoryRequest.Conditions` (typed as `JsonElement?`). That
-  path *is* wired through the backend audit and is in `UpdateCategoryRequest`,
-  so the field passes the T100 coverage test.
-- **Outstanding verification**: The frontend's `categories.service.ts` is
-  still on mocks (Gap P3-2), so the live round-trip can't be exercised yet.
-  Once P3-2 lands for `categories.service.ts.updateCategory`, exercise an
-  edit of each rule type and confirm the JSON shape persists unchanged.
+- **What**: T107 called out `CategoryConditionBuilder` rule-type writes
+  (age / marital / score / education) and asked us to verify the JSON
+  shape survives the round-trip end-to-end.
+
+- **Code-level verification** — the persistence path is a pure JSON-blob
+  passthrough, so any rule shape round-trips by construction:
+  1. Wire body: `UpdateCategoryRequest.Conditions` is typed as
+     `JsonElement?` — accepts any JSON.
+  2. Use case: `UpdateCategoryUseCase.ApplyAsync` calls
+     `category.Update(..., request.Conditions?.GetRawText(), ...)` —
+     raw passthrough, no field validation, no transformation.
+  3. Domain: `Category.Update` stores it in `ConditionsJson` (a
+     `nvarchar(max)` string field).
+  4. Read back: `GetCategoryUseCase.MapToDetail` runs
+     `JsonDocument.Parse(c.ConditionsJson).RootElement.Clone()` —
+     raw rehydration to JsonElement on the DTO.
+  5. Frontend re-parse: `categories.service.ts mergeBackendDetail`
+     casts the JsonElement to `CategoryConditions` and merges into the
+     ApplicantCategory.
+
+- **Live verification** — exercised against the dev backend
+  (`http://localhost:5097`) with super_admin session:
+  - PATCH `/admin/categories/by-key/officers_general` with a Conditions
+    blob carrying every rule type the builder produces (gender, minAge,
+    maxAge, ageCalcDate, educationTypes, graduationYear,
+    maritalStatuses, minScore, requiredDocuments, requiredExamIds,
+    examOrder).
+  - GET the same row back. PATCH response and follow-up GET response
+    were byte-identical. Arabic strings (`شهادة` etc.) preserved at
+    the byte level (verified by scanning the raw response stream for
+    the UTF-8 sequence `D8 B4 D9 87 D8 A7 D8 AF D8 A9` — found at the
+    expected offset).
+  - `rowVersion` advanced as expected, confirming the row was actually
+    written.
+
+- **Caveat — no live UI surface today.** Both
+  `CategoryConditionBuilder.tsx` and `useUpdateExpandedConditions` in
+  `categories.queries.ts` have **zero importers**. `CategoryEditPage`
+  only PATCHes `labelAr` + `description`; conditions are never sent
+  from the admin UI as currently wired. The path is verified to work
+  on the wire, but a future spec wanting to surface the editor will
+  need to add the component to the page and call
+  `useUpdateExpandedConditions` (or fold `expandedConditions` into the
+  existing `useUpdateCategoryMutation` patch).
+
+- **Recommendation**: This gap is closed as "infrastructure-ready,
+  no-op for now". Don't delete the component or the query hook — the
+  spec 011 application-settings work may resurrect them. Just note in
+  the closeout that wiring them up is a 5-line CategoryEditPage change
+  whenever the product needs it.
 
 ### Gap P3-5 — `IsActive` on `Category` is set by Update only, not Create
 
