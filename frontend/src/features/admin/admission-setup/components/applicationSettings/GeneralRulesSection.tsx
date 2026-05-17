@@ -26,9 +26,9 @@
  * store rejects.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Pencil, Trash2, X } from 'lucide-react';
 import {
   Button,
   Card,
@@ -214,10 +214,10 @@ export function GeneralRulesSection({
   const handleApprove = (): void => {
     const moved = approve(categoryCode);
     if (moved === 0) {
-      toast('لا توجد قواعد جاهزة للاعتماد', 'info');
+      toast('لا توجد شروط جاهزة للاعتماد', 'info');
       return;
     }
-    toast(`تم اعتماد ${num(moved)} قاعدة ونقلها إلى تبويب «العرض»`, 'success');
+    toast(`تم اعتماد ${num(moved)} شرط ونقلها إلى تبويب «العرض»`, 'success');
   };
 
   if (isLoading) return <LoadingState variant="list" />;
@@ -335,7 +335,7 @@ export function GeneralRulesSection({
             الشروط العامة
           </h3>
           <p className="mt-0.5 font-ar text-xs text-ink-500">
-            عيّن نطاق التقديم، الحالة الاجتماعية، وقواعد القبول لكل تخصص نشط.
+            عيّن نطاق التقديم، الحالة الاجتماعية، وشروط اللجنة لكل تخصص نشط.
           </p>
         </div>
       </header>
@@ -345,11 +345,11 @@ export function GeneralRulesSection({
       <div className="mt-4">{tree}</div>
 
       <div className="mt-5 flex items-center justify-end gap-3 border-t border-border-subtle pt-4">
-        <span className="font-ar text-xs text-ink-500">
-          {localCount === 0
-            ? 'لا توجد قواعد محلية بعد'
-            : `${num(localCount)} قاعدة جاهزة للاعتماد`}
-        </span>
+        {localCount > 0 && (
+          <span className="font-ar text-xs text-ink-500">
+            {`${num(localCount)} شرط جاهز للاعتماد`}
+          </span>
+        )}
         <Button
           variant="primary"
           size="md"
@@ -378,7 +378,7 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
 
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <FieldLabel label="بداية التقديم">
+      <FieldLabel label="بداية التقديم" required>
         <DatePicker
           value={isoToDate(header.applicationStart)}
           onChange={(d) =>
@@ -387,7 +387,7 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
           placeholder="اختر اليوم…"
         />
       </FieldLabel>
-      <FieldLabel label="نهاية التقديم">
+      <FieldLabel label="نهاية التقديم" required>
         <DatePicker
           value={isoToDate(header.applicationEnd)}
           onChange={(d) =>
@@ -396,7 +396,7 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
           placeholder="اختر اليوم…"
         />
       </FieldLabel>
-      <FieldLabel label="تاريخ احتساب السن">
+      <FieldLabel label="تاريخ احتساب السن" required>
         <DatePicker
           value={isoToDate(header.ageReferenceDate)}
           onChange={(d) =>
@@ -405,7 +405,7 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
           placeholder="اختر اليوم…"
         />
       </FieldLabel>
-      <FieldLabel label="الحالة الاجتماعية">
+      <FieldLabel label="الحالة الاجتماعية" required>
         <MultiSelect
           ariaLabel="الحالة الاجتماعية"
           value={header.maritalStatus}
@@ -456,7 +456,7 @@ function MaxAgeField({ categoryCode, maxAge }: MaxAgeFieldProps): JSX.Element {
   };
 
   return (
-    <FieldLabel label="الحد الأقصى للسن">
+    <FieldLabel label="الحد الأقصى للسن" required>
       <div className="flex items-center gap-2">
         <Input
           type="number"
@@ -501,12 +501,24 @@ function dateToIso(d: Date | null): string {
 interface FieldLabelProps {
   label: string;
   children: React.ReactNode;
+  required?: boolean;
 }
 
-function FieldLabel({ label, children }: FieldLabelProps): JSX.Element {
+function FieldLabel({
+  label,
+  children,
+  required = false,
+}: FieldLabelProps): JSX.Element {
   return (
     <div className="flex flex-col gap-1">
-      <span className="font-ar text-xs font-medium text-ink-700">{label}</span>
+      <span className="font-ar text-xs font-medium text-ink-700">
+        {label}
+        {required && (
+          <span aria-hidden className="ms-1 text-terra-600">
+            *
+          </span>
+        )}
+      </span>
       {children}
     </div>
   );
@@ -665,6 +677,19 @@ interface PerSpecFormProps {
   options: PerSpecFormOptions;
 }
 
+function rowToUniversityInput(r: LocalUniversityRow): GeneralRuleRowInput {
+  return {
+    type: [...r.type],
+    grade: r.grade,
+    gradeMax: r.gradeMax,
+    scoreMin: r.scoreMin,
+    scoreMax: r.scoreMax,
+    academicDegrees: [...r.academicDegrees],
+    committee: r.committees[0] ?? '',
+    graduationYear: r.graduationYears[0] ?? null,
+  };
+}
+
 function PerSpecForm({
   facultyCode,
   facultyNameAr,
@@ -681,11 +706,29 @@ function PerSpecForm({
     graduationYearOptions,
   } = options;
   const [draft, setDraft] = useState<GeneralRuleRowInput>(EMPTY_INPUT);
+  const formRef = useRef<HTMLDivElement>(null);
+
+  const header = useAdmissionSetupWizardStore(
+    (s) => s.headers[categoryCode] ?? s.getHeader(categoryCode),
+  );
+  const isHeaderComplete =
+    header.applicationStart !== '' &&
+    header.applicationEnd !== '' &&
+    header.ageReferenceDate !== '' &&
+    header.maritalStatus.length > 0 &&
+    header.maxAge !== null;
 
   const addUniversityRow = useAdmissionSetupWizardStore(
     (s) => s.addUniversityRow,
   );
+  const updateUniversityRow = useAdmissionSetupWizardStore(
+    (s) => s.updateUniversityRow,
+  );
   const removeLocalRow = useAdmissionSetupWizardStore((s) => s.removeLocalRow);
+  const setEditingRow = useAdmissionSetupWizardStore((s) => s.setEditingRow);
+  const clearEditingRow = useAdmissionSetupWizardStore(
+    (s) => s.clearEditingRow,
+  );
   const rows = useAdmissionSetupWizardStore((s) =>
     s.local.filter(
       (r): r is LocalUniversityRow =>
@@ -695,6 +738,39 @@ function PerSpecForm({
         r.specializationCode === specializationCode,
     ),
   );
+
+  /** The row currently being edited, scoped to *this* form: must be a
+   *  university row under the same (category, faculty, specialization)
+   *  triple. Editing a row in another scope drops this form back into
+   *  add-mode without losing the user's place in the wizard. */
+  const editingRow = useAdmissionSetupWizardStore((s) => {
+    if (s.editingRowId === null) return null;
+    const r =
+      s.local.find((x) => x.id === s.editingRowId) ??
+      s.approved.find((x) => x.id === s.editingRowId);
+    if (
+      !r ||
+      r.kind !== 'university' ||
+      r.categoryCode !== categoryCode ||
+      r.facultyCode !== facultyCode ||
+      r.specializationCode !== specializationCode
+    ) {
+      return null;
+    }
+    return r;
+  });
+  const editingId = editingRow?.id ?? null;
+  const isEditing = editingRow !== null;
+
+  /** State derivation: when `editingId` changes (entering edit mode,
+   *  switching rows, or cancelling), reset the local draft to the
+   *  appropriate input shape. Uses the React docs' "adjust state during
+   *  render" pattern via a tracking ref to avoid a useEffect sync. */
+  const lastEditingIdRef = useRef<string | null>(null);
+  if (lastEditingIdRef.current !== editingId) {
+    lastEditingIdRef.current = editingId;
+    setDraft(editingRow ? rowToUniversityInput(editingRow) : EMPTY_INPUT);
+  }
 
   /* ─── Validation ─── */
 
@@ -721,7 +797,8 @@ function PerSpecForm({
     draft.scoreMax !== null &&
     draft.scoreMax < draft.scoreMin;
 
-  const canAdd =
+  const canSubmit =
+    isHeaderComplete &&
     draft.type.length > 0 &&
     draft.grade.length > 0 &&
     draft.gradeMax.length > 0 &&
@@ -735,37 +812,61 @@ function PerSpecForm({
     draft.committee.length > 0 &&
     draft.graduationYear !== null;
 
-  const handleAdd = (): void => {
-    if (!canAdd) return;
-    const result = addUniversityRow(
-      categoryCode,
-      {
-        facultyCode,
-        facultyNameAr,
-        specializationCode,
-        specializationNameAr,
-      },
-      draft,
-    );
+  const spec = {
+    facultyCode,
+    facultyNameAr,
+    specializationCode,
+    specializationNameAr,
+  };
+
+  const handleSubmit = (): void => {
+    if (!canSubmit) return;
+    if (isEditing && editingId !== null) {
+      const result = updateUniversityRow(editingId, spec, draft);
+      if (!result.ok) {
+        toast(
+          result.reason === 'duplicate'
+            ? 'هذا الشرط موجود بالفعل بنفس البيانات'
+            : 'تعذر تعديل الشرط',
+          'danger',
+        );
+        return;
+      }
+      setDraft(EMPTY_INPUT);
+      toast('تم تعديل الشرط', 'success');
+      return;
+    }
+    const result = addUniversityRow(categoryCode, spec, draft);
     if (!result.ok) {
-      toast('هذه القاعدة موجودة بالفعل بنفس البيانات', 'danger');
+      toast('هذا الشرط موجود بالفعل بنفس البيانات', 'danger');
       return;
     }
     setDraft(EMPTY_INPUT);
-    toast('تمت إضافة القاعدة محلياً', 'success');
+    toast('تمت إضافة الشرط محلياً', 'success');
+  };
+
+  const handleCancelEdit = (): void => {
+    clearEditingRow();
+  };
+
+  const handleEdit = (id: string): void => {
+    setEditingRow(id);
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <Card variant="compact">
+      <Card variant="compact" ref={formRef}>
         <header className="mb-3 flex items-center justify-between gap-3">
           <h4 className="font-ar text-sm font-semibold text-ink-900">
-            شروط التخصص
+            {isEditing ? 'تعديل شرط اللجنة' : 'شروط اللجنة'}
           </h4>
         </header>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <FieldLabel label="النوع">
+          <FieldLabel label="النوع" required>
             <MultiSelect
               ariaLabel="النوع"
               value={draft.type}
@@ -775,7 +876,7 @@ function PerSpecForm({
             />
           </FieldLabel>
 
-          <FieldLabel label="الحد الأدنى للتقدير">
+          <FieldLabel label="الحد الأدنى للتقدير" required>
             <SearchSelect
               ariaLabel="الحد الأدنى للتقدير"
               value={draft.grade || null}
@@ -785,7 +886,7 @@ function PerSpecForm({
             />
           </FieldLabel>
 
-          <FieldLabel label="الحد الأقصى للتقدير">
+          <FieldLabel label="الحد الأقصى للتقدير" required>
             <SearchSelect
               ariaLabel="الحد الأقصى للتقدير"
               value={draft.gradeMax || null}
@@ -805,7 +906,7 @@ function PerSpecForm({
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <FieldLabel label="الحد الأدنى للدرجة (٪)">
+          <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
             <Input
               type="number"
               min={SCORE_MIN_BOUND}
@@ -828,7 +929,7 @@ function PerSpecForm({
             />
           </FieldLabel>
 
-          <FieldLabel label="الحد الأقصى للدرجة (٪)">
+          <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
             <Input
               type="number"
               min={SCORE_MIN_BOUND}
@@ -853,7 +954,7 @@ function PerSpecForm({
             />
           </FieldLabel>
 
-          <FieldLabel label="الدرجة العلمية">
+          <FieldLabel label="الدرجة العلمية" required>
             {degreeOptions.length === 0 ? (
               <p className="font-ar text-2xs text-ink-500">
                 لا توجد درجات علمية مفعّلة في المراجع.
@@ -876,7 +977,7 @@ function PerSpecForm({
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <FieldLabel label="اللجنة">
+          <FieldLabel label="اللجنة" required>
             {committeeOptions.length === 0 ? (
               <p className="font-ar text-2xs text-ink-500">
                 لا توجد لجان مرتبطة بهذه الفئة.
@@ -894,7 +995,7 @@ function PerSpecForm({
             )}
           </FieldLabel>
 
-          <FieldLabel label="سنة التخرج">
+          <FieldLabel label="سنة التخرج" required>
             <SearchSelect
               ariaLabel="سنة التخرج"
               value={
@@ -912,25 +1013,41 @@ function PerSpecForm({
           </FieldLabel>
         </div>
 
-        <div className="mt-4 flex items-center justify-end">
+        <div className="mt-4 flex items-center justify-end gap-3">
+          {!isHeaderComplete && (
+            <span className="font-ar text-2xs text-terra-700">
+              أكمل بيانات الفئة أولاً
+            </span>
+          )}
+          {isEditing && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancelEdit}
+              leadingIcon={<X size={14} strokeWidth={1.75} aria-hidden />}
+            >
+              إلغاء
+            </Button>
+          )}
           <Button
             variant="primary"
             size="sm"
-            onClick={handleAdd}
-            disabled={!canAdd}
-            leadingIcon={<Plus size={14} strokeWidth={1.75} aria-hidden />}
+            onClick={handleSubmit}
+            disabled={!canSubmit}
           >
-            إضافة
+            {isEditing ? 'تعديل' : 'اعتماد'}
           </Button>
         </div>
       </Card>
 
       <LocalUniversityGrid
         rows={rows}
+        editingId={editingId}
         gradeOptions={gradeOptions}
         degreeOptions={degreeOptions}
         committeeOptions={committeeOptions}
         maritalOptions={options.maritalOptions}
+        onEdit={handleEdit}
         onDelete={(id) => removeLocalRow(id)}
       />
     </div>
@@ -941,19 +1058,24 @@ function PerSpecForm({
 
 interface LocalUniversityGridProps {
   rows: LocalUniversityRow[];
+  /** Row id currently in edit mode for this form (null = add mode). */
+  editingId: string | null;
   gradeOptions: ReadonlyArray<SearchSelectOption>;
   degreeOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
+  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
 function LocalUniversityGrid({
   rows,
+  editingId,
   gradeOptions,
   degreeOptions,
   committeeOptions,
   maritalOptions,
+  onEdit,
   onDelete,
 }: LocalUniversityGridProps): JSX.Element {
   const labelForGrade = (v: string): string =>
@@ -970,7 +1092,7 @@ function LocalUniversityGrid({
   if (rows.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border-subtle bg-ink-50/40 px-3 py-3 text-2xs text-ink-500">
-        لم تُضف قواعد بعد لهذا التخصص.
+        لم تُضف شروط لجان بعد لهذا التخصص.
       </div>
     );
   }
@@ -998,60 +1120,79 @@ function LocalUniversityGrid({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-t border-border-subtle">
-              <Td>{formatIsoDate(r.header.applicationStart)}</Td>
-              <Td>{formatIsoDate(r.header.applicationEnd)}</Td>
-              <Td>{formatIsoDate(r.header.ageReferenceDate)}</Td>
-              <Td>
-                <MultiValueCell
-                  values={r.maritalStatus.map(labelForMarital)}
-                />
-              </Td>
-              <Td>
-                <MultiValueCell values={r.type.map(labelForType)} />
-              </Td>
-              <Td>{labelForGrade(r.grade)}</Td>
-              <Td>{labelForGrade(r.gradeMax)}</Td>
-              <Td>
-                {r.scoreMin !== null
-                  ? `${toEasternArabicNumerals(r.scoreMin)}٪`
-                  : '—'}
-              </Td>
-              <Td>
-                {r.scoreMax !== null
-                  ? `${toEasternArabicNumerals(r.scoreMax)}٪`
-                  : '—'}
-              </Td>
-              <Td>
-                <MultiValueCell
-                  values={r.academicDegrees.map(labelForDegree)}
-                />
-              </Td>
-              <Td>
-                <MultiValueCell
-                  values={r.committees.map(labelForCommittee)}
-                />
-              </Td>
-              <Td>
-                <MultiValueCell
-                  values={r.graduationYears.map((y) =>
-                    toEasternArabicNumerals(y),
-                  )}
-                />
-              </Td>
-              <td className="px-3 py-2 align-middle text-end">
-                <button
-                  type="button"
-                  aria-label="حذف القاعدة"
-                  onClick={() => onDelete(r.id)}
-                  className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-                >
-                  <Trash2 size={14} strokeWidth={1.75} aria-hidden />
-                </button>
-              </td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const isRowEditing = r.id === editingId;
+            return (
+              <tr
+                key={r.id}
+                className={`border-t border-border-subtle ${
+                  isRowEditing ? 'bg-gold-50/60' : ''
+                }`}
+              >
+                <Td>{formatIsoDate(r.header.applicationStart)}</Td>
+                <Td>{formatIsoDate(r.header.applicationEnd)}</Td>
+                <Td>{formatIsoDate(r.header.ageReferenceDate)}</Td>
+                <Td>
+                  <MultiValueCell
+                    values={r.maritalStatus.map(labelForMarital)}
+                  />
+                </Td>
+                <Td>
+                  <MultiValueCell values={r.type.map(labelForType)} />
+                </Td>
+                <Td>{labelForGrade(r.grade)}</Td>
+                <Td>{labelForGrade(r.gradeMax)}</Td>
+                <Td>
+                  {r.scoreMin !== null
+                    ? `${toEasternArabicNumerals(r.scoreMin)}٪`
+                    : '—'}
+                </Td>
+                <Td>
+                  {r.scoreMax !== null
+                    ? `${toEasternArabicNumerals(r.scoreMax)}٪`
+                    : '—'}
+                </Td>
+                <Td>
+                  <MultiValueCell
+                    values={r.academicDegrees.map(labelForDegree)}
+                  />
+                </Td>
+                <Td>
+                  <MultiValueCell
+                    values={r.committees.map(labelForCommittee)}
+                  />
+                </Td>
+                <Td>
+                  <MultiValueCell
+                    values={r.graduationYears.map((y) =>
+                      toEasternArabicNumerals(y),
+                    )}
+                  />
+                </Td>
+                <td className="px-3 py-2 align-middle text-end">
+                  <div className="inline-flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label="تعديل الشرط"
+                      aria-pressed={isRowEditing}
+                      onClick={() => onEdit(r.id)}
+                      className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none aria-pressed:bg-teal-50 aria-pressed:text-teal-700"
+                    >
+                      <Pencil size={14} strokeWidth={1.75} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="حذف الشرط"
+                      onClick={() => onDelete(r.id)}
+                      className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                    >
+                      <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

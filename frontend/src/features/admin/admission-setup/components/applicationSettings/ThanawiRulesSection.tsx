@@ -14,8 +14,8 @@
  * a danger toast when the store reports a collision.
  */
 
-import { useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { Pencil, Trash2, X } from 'lucide-react';
 import {
   Button,
   Card,
@@ -135,10 +135,10 @@ export function ThanawiRulesSection({
   const handleApprove = (): void => {
     const moved = approve(categoryCode);
     if (moved === 0) {
-      toast('لا توجد قواعد جاهزة للاعتماد', 'info');
+      toast('لا توجد شروط جاهزة للاعتماد', 'info');
       return;
     }
-    toast(`تم اعتماد ${num(moved)} قاعدة ونقلها إلى تبويب «العرض»`, 'success');
+    toast(`تم اعتماد ${num(moved)} شرط ونقلها إلى تبويب «العرض»`, 'success');
   };
 
   if (isLoading) return <LoadingState variant="list" />;
@@ -169,7 +169,7 @@ export function ThanawiRulesSection({
             الشروط العامة
           </h3>
           <p className="mt-0.5 font-ar text-xs text-ink-500">
-            عيّن نطاق التقديم، الحالة الاجتماعية، وقواعد قبول الثانوية العامة.
+            عيّن نطاق التقديم، الحالة الاجتماعية، وشروط لجان قبول الثانوية العامة.
           </p>
         </div>
       </header>
@@ -199,11 +199,11 @@ export function ThanawiRulesSection({
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-3 border-t border-border-subtle pt-4">
-        <span className="font-ar text-xs text-ink-500">
-          {localCount === 0
-            ? 'لا توجد قواعد محلية بعد'
-            : `${num(localCount)} قاعدة جاهزة للاعتماد`}
-        </span>
+        {localCount > 0 && (
+          <span className="font-ar text-xs text-ink-500">
+            {`${num(localCount)} شرط جاهز للاعتماد`}
+          </span>
+        )}
         <Button
           variant="primary"
           size="md"
@@ -235,7 +235,7 @@ function ThanawiTopFields({
 
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <FieldLabel label="بداية التقديم">
+      <FieldLabel label="بداية التقديم" required>
         <DatePicker
           value={isoToDate(header.applicationStart)}
           onChange={(d) =>
@@ -244,7 +244,7 @@ function ThanawiTopFields({
           placeholder="اختر اليوم…"
         />
       </FieldLabel>
-      <FieldLabel label="نهاية التقديم">
+      <FieldLabel label="نهاية التقديم" required>
         <DatePicker
           value={isoToDate(header.applicationEnd)}
           onChange={(d) =>
@@ -253,7 +253,7 @@ function ThanawiTopFields({
           placeholder="اختر اليوم…"
         />
       </FieldLabel>
-      <FieldLabel label="تاريخ احتساب السن">
+      <FieldLabel label="تاريخ احتساب السن" required>
         <DatePicker
           value={isoToDate(header.ageReferenceDate)}
           onChange={(d) =>
@@ -262,7 +262,7 @@ function ThanawiTopFields({
           placeholder="اختر اليوم…"
         />
       </FieldLabel>
-      <FieldLabel label="الحالة الاجتماعية">
+      <FieldLabel label="الحالة الاجتماعية" required>
         <MultiSelect
           ariaLabel="الحالة الاجتماعية"
           value={header.maritalStatus}
@@ -313,7 +313,7 @@ function MaxAgeField({ categoryCode, maxAge }: MaxAgeFieldProps): JSX.Element {
   };
 
   return (
-    <FieldLabel label="الحد الأقصى للسن">
+    <FieldLabel label="الحد الأقصى للسن" required>
       <div className="flex items-center gap-2">
         <Input
           type="number"
@@ -358,12 +358,24 @@ function dateToIso(d: Date | null): string {
 interface FieldLabelProps {
   label: string;
   children: React.ReactNode;
+  required?: boolean;
 }
 
-function FieldLabel({ label, children }: FieldLabelProps): JSX.Element {
+function FieldLabel({
+  label,
+  children,
+  required = false,
+}: FieldLabelProps): JSX.Element {
   return (
     <div className="flex flex-col gap-1">
-      <span className="font-ar text-xs font-medium text-ink-700">{label}</span>
+      <span className="font-ar text-xs font-medium text-ink-700">
+        {label}
+        {required && (
+          <span aria-hidden className="ms-1 text-terra-600">
+            *
+          </span>
+        )}
+      </span>
       {children}
     </div>
   );
@@ -380,6 +392,17 @@ interface ThanawiFormProps {
   graduationYearOptions: ReadonlyArray<SearchSelectOption>;
 }
 
+function rowToThanawiInput(r: LocalThanawiRow): ThanawiRuleRowInput {
+  return {
+    examRound: r.examRound,
+    committee: r.committee,
+    graduationYear: r.graduationYear,
+    schoolCategories: [...r.schoolCategories],
+    scoreMin: r.scoreMin,
+    scoreMax: r.scoreMax,
+  };
+}
+
 function ThanawiForm({
   categoryCode,
   examRoundOptions,
@@ -389,15 +412,55 @@ function ThanawiForm({
   graduationYearOptions,
 }: ThanawiFormProps): JSX.Element {
   const [draft, setDraft] = useState<ThanawiRuleRowInput>(EMPTY_INPUT);
+  const formRef = useRef<HTMLDivElement>(null);
+
+  const header = useAdmissionSetupWizardStore(
+    (s) => s.headers[categoryCode] ?? s.getHeader(categoryCode),
+  );
+  const isHeaderComplete =
+    header.applicationStart !== '' &&
+    header.applicationEnd !== '' &&
+    header.ageReferenceDate !== '' &&
+    header.maritalStatus.length > 0 &&
+    header.maxAge !== null;
 
   const addThanawiRow = useAdmissionSetupWizardStore((s) => s.addThanawiRow);
+  const updateThanawiRow = useAdmissionSetupWizardStore((s) => s.updateThanawiRow);
   const removeLocalRow = useAdmissionSetupWizardStore((s) => s.removeLocalRow);
+  const setEditingRow = useAdmissionSetupWizardStore((s) => s.setEditingRow);
+  const clearEditingRow = useAdmissionSetupWizardStore((s) => s.clearEditingRow);
   const rows = useAdmissionSetupWizardStore((s) =>
     s.local.filter(
       (r): r is LocalThanawiRow =>
         r.kind === 'thanawi' && r.categoryCode === categoryCode,
     ),
   );
+
+  /** The row currently being edited, scoped to *this* form: must be a
+   *  thanawi row under the same applicant-category. Editing a row in
+   *  another section transparently drops this form back into add-mode. */
+  const editingRow = useAdmissionSetupWizardStore((s) => {
+    if (s.editingRowId === null) return null;
+    const r =
+      s.local.find((x) => x.id === s.editingRowId) ??
+      s.approved.find((x) => x.id === s.editingRowId);
+    if (!r || r.kind !== 'thanawi' || r.categoryCode !== categoryCode) {
+      return null;
+    }
+    return r;
+  });
+  const editingId = editingRow?.id ?? null;
+  const isEditing = editingRow !== null;
+
+  /** State derivation: when `editingId` changes (entering edit mode,
+   *  switching rows, or cancelling), reset the local draft to the
+   *  appropriate input shape. Uses the React docs' "adjust state during
+   *  render" pattern via a tracking ref to avoid a useEffect sync. */
+  const lastEditingIdRef = useRef<string | null>(null);
+  if (lastEditingIdRef.current !== editingId) {
+    lastEditingIdRef.current = editingId;
+    setDraft(editingRow ? rowToThanawiInput(editingRow) : EMPTY_INPUT);
+  }
 
   const scoreMinOutOfBounds =
     draft.scoreMin !== null &&
@@ -412,7 +475,8 @@ function ThanawiForm({
     draft.scoreMax !== null &&
     draft.scoreMax < draft.scoreMin;
 
-  const canAdd =
+  const canSubmit =
+    isHeaderComplete &&
     draft.examRound.length > 0 &&
     draft.committee.length > 0 &&
     draft.graduationYear !== null &&
@@ -423,28 +487,56 @@ function ThanawiForm({
     !scoreMaxOutOfBounds &&
     !scoreOrderInvalid;
 
-  const handleAdd = (): void => {
-    if (!canAdd) return;
+  const handleSubmit = (): void => {
+    if (!canSubmit) return;
+    if (isEditing && editingId !== null) {
+      const result = updateThanawiRow(editingId, draft);
+      if (!result.ok) {
+        toast(
+          result.reason === 'duplicate'
+            ? 'هذا الشرط موجود بالفعل في الجدول'
+            : 'تعذر تعديل الشرط',
+          'danger',
+        );
+        return;
+      }
+      setDraft(EMPTY_INPUT);
+      toast('تم تعديل الشرط', 'success');
+      return;
+    }
     const result = addThanawiRow(categoryCode, draft);
     if (!result.ok) {
-      toast('هذه التركيبة موجودة بالفعل في الجدول', 'danger');
+      toast('هذا الشرط موجود بالفعل في الجدول', 'danger');
       return;
     }
     setDraft(EMPTY_INPUT);
-    toast('تمت إضافة القاعدة محلياً', 'success');
+    toast('تمت إضافة الشرط محلياً', 'success');
+  };
+
+  const handleCancelEdit = (): void => {
+    clearEditingRow();
+  };
+
+  const handleEdit = (id: string): void => {
+    setEditingRow(id);
+    /* Defer scroll so the layout has reflowed with edit-mode chrome
+     * (cancel button) before we measure scroll position. */
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   return (
     <div className="flex flex-col gap-4">
-      <Card variant="compact">
+      <Card variant="compact" ref={formRef}>
         <header className="mb-3 flex items-center justify-between gap-3">
           <h4 className="font-ar text-sm font-semibold text-ink-900">
-            تركيبات القبول (الثانوية العامة)
+            {isEditing ? 'تعديل شرط اللجنة' : 'شروط اللجنة'}
           </h4>
         </header>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <FieldLabel label="الدور">
+          <FieldLabel label="الدور" required>
             <SearchSelect
               ariaLabel="الدور"
               value={draft.examRound || null}
@@ -455,7 +547,7 @@ function ThanawiForm({
               placeholder="اختر الدور…"
             />
           </FieldLabel>
-          <FieldLabel label="اللجنة">
+          <FieldLabel label="اللجنة" required>
             <SearchSelect
               ariaLabel="اللجنة"
               value={draft.committee || null}
@@ -466,7 +558,7 @@ function ThanawiForm({
               placeholder="اختر اللجنة…"
             />
           </FieldLabel>
-          <FieldLabel label="سنة التخرج">
+          <FieldLabel label="سنة التخرج" required>
             <SearchSelect
               ariaLabel="سنة التخرج"
               value={
@@ -482,7 +574,7 @@ function ThanawiForm({
               placeholder="اختر السنة…"
             />
           </FieldLabel>
-          <FieldLabel label="فئة المدرسة">
+          <FieldLabel label="فئة المدرسة" required>
             <SearchSelect
               ariaLabel="فئة المدرسة"
               value={draft.schoolCategories[0] ?? null}
@@ -499,7 +591,7 @@ function ThanawiForm({
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <FieldLabel label="الحد الأدنى للدرجة (٪)">
+          <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
             <Input
               type="number"
               min={SCORE_MIN_BOUND}
@@ -522,7 +614,7 @@ function ThanawiForm({
             />
           </FieldLabel>
 
-          <FieldLabel label="الحد الأقصى للدرجة (٪)">
+          <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
             <Input
               type="number"
               min={SCORE_MIN_BOUND}
@@ -548,25 +640,41 @@ function ThanawiForm({
           </FieldLabel>
         </div>
 
-        <div className="mt-4 flex items-center justify-end">
+        <div className="mt-4 flex items-center justify-end gap-3">
+          {!isHeaderComplete && (
+            <span className="font-ar text-2xs text-terra-700">
+              أكمل بيانات الفئة أولاً
+            </span>
+          )}
+          {isEditing && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancelEdit}
+              leadingIcon={<X size={14} strokeWidth={1.75} aria-hidden />}
+            >
+              إلغاء
+            </Button>
+          )}
           <Button
             variant="primary"
             size="sm"
-            onClick={handleAdd}
-            disabled={!canAdd}
-            leadingIcon={<Plus size={14} strokeWidth={1.75} aria-hidden />}
+            onClick={handleSubmit}
+            disabled={!canSubmit}
           >
-            إضافة
+            {isEditing ? 'تعديل' : 'اعتماد'}
           </Button>
         </div>
       </Card>
 
       <ThanawiGrid
         rows={rows}
+        editingId={editingId}
         examRoundOptions={examRoundOptions}
         committeeOptions={committeeOptions}
         schoolCategoryOptions={schoolCategoryOptions}
         maritalOptions={maritalOptions}
+        onEdit={handleEdit}
         onDelete={(id) => removeLocalRow(id)}
       />
     </div>
@@ -575,19 +683,24 @@ function ThanawiForm({
 
 interface ThanawiGridProps {
   rows: LocalThanawiRow[];
+  /** Row id currently in edit mode for this form (null = add mode). */
+  editingId: string | null;
   examRoundOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   schoolCategoryOptions: ReadonlyArray<SearchSelectOption>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
+  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
 function ThanawiGrid({
   rows,
+  editingId,
   examRoundOptions,
   committeeOptions,
   schoolCategoryOptions,
   maritalOptions,
+  onEdit,
   onDelete,
 }: ThanawiGridProps): JSX.Element {
   const labelForRound = (v: string): string =>
@@ -602,7 +715,7 @@ function ThanawiGrid({
   if (rows.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border-subtle bg-ink-50/40 px-3 py-3 text-2xs text-ink-500">
-        لم تُضف تركيبات بعد لهذه الفئة.
+        لم تُضف شروط لجان بعد لهذه الفئة.
       </div>
     );
   }
@@ -628,50 +741,69 @@ function ThanawiGrid({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-t border-border-subtle">
-              <Td>{formatIsoDate(r.header.applicationStart)}</Td>
-              <Td>{formatIsoDate(r.header.applicationEnd)}</Td>
-              <Td>{formatIsoDate(r.header.ageReferenceDate)}</Td>
-              <Td>
-                <MultiValueCell
-                  values={r.maritalStatus.map(labelForMarital)}
-                />
-              </Td>
-              <Td>{labelForRound(r.examRound)}</Td>
-              <Td>{labelForCommittee(r.committee)}</Td>
-              <Td>
-                {r.graduationYear !== null
-                  ? toEasternArabicNumerals(r.graduationYear)
-                  : '—'}
-              </Td>
-              <Td>
-                <MultiValueCell
-                  values={r.schoolCategories.map(labelForSchool)}
-                />
-              </Td>
-              <Td>
-                {r.scoreMin !== null
-                  ? `${toEasternArabicNumerals(r.scoreMin)}٪`
-                  : '—'}
-              </Td>
-              <Td>
-                {r.scoreMax !== null
-                  ? `${toEasternArabicNumerals(r.scoreMax)}٪`
-                  : '—'}
-              </Td>
-              <td className="px-3 py-2 align-middle text-end">
-                <button
-                  type="button"
-                  aria-label="حذف القاعدة"
-                  onClick={() => onDelete(r.id)}
-                  className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-                >
-                  <Trash2 size={14} strokeWidth={1.75} aria-hidden />
-                </button>
-              </td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const isRowEditing = r.id === editingId;
+            return (
+              <tr
+                key={r.id}
+                className={`border-t border-border-subtle ${
+                  isRowEditing ? 'bg-gold-50/60' : ''
+                }`}
+              >
+                <Td>{formatIsoDate(r.header.applicationStart)}</Td>
+                <Td>{formatIsoDate(r.header.applicationEnd)}</Td>
+                <Td>{formatIsoDate(r.header.ageReferenceDate)}</Td>
+                <Td>
+                  <MultiValueCell
+                    values={r.maritalStatus.map(labelForMarital)}
+                  />
+                </Td>
+                <Td>{labelForRound(r.examRound)}</Td>
+                <Td>{labelForCommittee(r.committee)}</Td>
+                <Td>
+                  {r.graduationYear !== null
+                    ? toEasternArabicNumerals(r.graduationYear)
+                    : '—'}
+                </Td>
+                <Td>
+                  <MultiValueCell
+                    values={r.schoolCategories.map(labelForSchool)}
+                  />
+                </Td>
+                <Td>
+                  {r.scoreMin !== null
+                    ? `${toEasternArabicNumerals(r.scoreMin)}٪`
+                    : '—'}
+                </Td>
+                <Td>
+                  {r.scoreMax !== null
+                    ? `${toEasternArabicNumerals(r.scoreMax)}٪`
+                    : '—'}
+                </Td>
+                <td className="px-3 py-2 align-middle text-end">
+                  <div className="inline-flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label="تعديل الشرط"
+                      aria-pressed={isRowEditing}
+                      onClick={() => onEdit(r.id)}
+                      className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none aria-pressed:bg-teal-50 aria-pressed:text-teal-700"
+                    >
+                      <Pencil size={14} strokeWidth={1.75} aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="حذف الشرط"
+                      onClick={() => onDelete(r.id)}
+                      className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                    >
+                      <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -172,6 +172,10 @@ interface WizardSharedState {
   headers: Record<string, GeneralRulesHeader>;
   local: LocalGeneralRuleRow[];
   approved: ApprovedGeneralRuleRow[];
+  /** Row currently in edit mode across the wizard. `null` means every
+   *  section form is in «add» mode. Single-edit across the wizard so
+   *  switching focus to another row cleanly cancels the prior edit. */
+  editingRowId: string | null;
 }
 
 interface WizardSharedActions {
@@ -190,9 +194,20 @@ interface WizardSharedActions {
     categoryCode: string,
     input: ThanawiRuleRowInput,
   ) => { ok: true } | { ok: false; reason: 'duplicate' };
+  updateUniversityRow: (
+    id: string,
+    spec: SpecKey,
+    input: GeneralRuleRowInput,
+  ) => { ok: true } | { ok: false; reason: 'duplicate' | 'not-found' };
+  updateThanawiRow: (
+    id: string,
+    input: ThanawiRuleRowInput,
+  ) => { ok: true } | { ok: false; reason: 'duplicate' | 'not-found' };
   removeLocalRow: (id: string) => void;
   removeApprovedRow: (id: string) => void;
   approveLocalForCategory: (categoryCode: string) => number;
+  setEditingRow: (id: string) => void;
+  clearEditingRow: () => void;
 }
 
 type Store = WizardSharedState & WizardSharedActions;
@@ -206,10 +221,14 @@ export const INITIAL_HEADER: GeneralRulesHeader = {
   maxAge: null,
 };
 
-let rowIdSeed = 0;
+/** Stable row id. `crypto.randomUUID` is available in every supported
+ *  browser and in Node 19+; the small fallback keeps the demo working
+ *  in older preview environments without changing the call-site. */
 function nextRowId(): string {
-  rowIdSeed += 1;
-  return `gr-${Date.now().toString(36)}-${rowIdSeed}`;
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `gr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /** Composite key for university rows — duplicates are blocked at the
@@ -303,6 +322,7 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
   headers: {},
   local: [],
   approved: [],
+  editingRowId: null,
 
   getHeader: (categoryCode) => {
     const state = get();
@@ -366,11 +386,91 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
     return { ok: true };
   },
 
+  updateUniversityRow: (id, spec, input) => {
+    const state = get();
+    const existing =
+      state.local.find((r) => r.id === id) ??
+      state.approved.find((r) => r.id === id);
+    if (!existing || existing.kind !== 'university') {
+      return { ok: false, reason: 'not-found' };
+    }
+    const candidate: LocalUniversityRow = {
+      ...buildUniversityRow(existing.categoryCode, spec, input, existing.header),
+      id,
+    };
+    const key = universityCompositeKey(candidate);
+    const collision =
+      state.local.some(
+        (r) =>
+          r.id !== id &&
+          r.kind === 'university' &&
+          r.categoryCode === existing.categoryCode &&
+          universityCompositeKey(r) === key,
+      ) ||
+      state.approved.some(
+        (r) =>
+          r.id !== id &&
+          r.kind === 'university' &&
+          r.categoryCode === existing.categoryCode &&
+          universityCompositeKey(r) === key,
+      );
+    if (collision) return { ok: false, reason: 'duplicate' };
+    set((s) => ({
+      local: s.local.map((r) => (r.id === id ? candidate : r)),
+      approved: s.approved.map((r) => (r.id === id ? candidate : r)),
+      editingRowId: null,
+    }));
+    return { ok: true };
+  },
+
+  updateThanawiRow: (id, input) => {
+    const state = get();
+    const existing =
+      state.local.find((r) => r.id === id) ??
+      state.approved.find((r) => r.id === id);
+    if (!existing || existing.kind !== 'thanawi') {
+      return { ok: false, reason: 'not-found' };
+    }
+    const candidate: LocalThanawiRow = {
+      ...buildThanawiRow(existing.categoryCode, input, existing.header),
+      id,
+    };
+    const key = thanawiCompositeKey(candidate);
+    const collision =
+      state.local.some(
+        (r) =>
+          r.id !== id &&
+          r.kind === 'thanawi' &&
+          r.categoryCode === existing.categoryCode &&
+          thanawiCompositeKey(r) === key,
+      ) ||
+      state.approved.some(
+        (r) =>
+          r.id !== id &&
+          r.kind === 'thanawi' &&
+          r.categoryCode === existing.categoryCode &&
+          thanawiCompositeKey(r) === key,
+      );
+    if (collision) return { ok: false, reason: 'duplicate' };
+    set((s) => ({
+      local: s.local.map((r) => (r.id === id ? candidate : r)),
+      approved: s.approved.map((r) => (r.id === id ? candidate : r)),
+      editingRowId: null,
+    }));
+    return { ok: true };
+  },
+
   removeLocalRow: (id) =>
-    set((s) => ({ local: s.local.filter((r) => r.id !== id) })),
+    set((s) => ({
+      local: s.local.filter((r) => r.id !== id),
+      editingRowId: s.editingRowId === id ? null : s.editingRowId,
+    })),
 
   removeApprovedRow: (id) =>
-    set((s) => ({ approved: s.approved.filter((r) => r.id !== id) })),
+    set((s) => ({
+      approved: s.approved.filter((r) => r.id !== id),
+      editingRowId: s.editingRowId === id ? null : s.editingRowId,
+    })),
 
   approveLocalForCategory: (categoryCode) => {
     const { local, approved } = get();
@@ -382,4 +482,7 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
     });
     return moving.length;
   },
+
+  setEditingRow: (id) => set({ editingRowId: id }),
+  clearEditingRow: () => set({ editingRowId: null }),
 }));
