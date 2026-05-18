@@ -15,11 +15,9 @@
 import { useMemo, useState } from 'react';
 import { Check, ChevronDown, Filter as FilterIcon } from 'lucide-react';
 import { Button, Popover } from '@/shared/components';
-import { useLookup } from '@/features/lookups';
 import { useImportWizardStore, type FilterState } from '../../../store/importWizard.store';
 import { TARGET_FIELDS, type TargetField } from '../../../lib/targetFields';
 import { countFiltered, distinctValues } from '../../../lib/normalise';
-import type { ParsedTable } from '../../../lib/parseGradesFile';
 
 const COLUMN_VALUE_CAP = 200;
 
@@ -47,21 +45,6 @@ export function Step4Filters(): JSX.Element {
     }
     return out;
   }, [mapping]);
-
-  /** Active rows from the canonical school-categories lookup. Drives
-   *  the filter value list when a column is mapped to فئة المدرسة so
-   *  the admin picks against the curated lookup labels rather than the
-   *  raw distinct strings in the file. No new lookup rows are created
-   *  from import data — file values that don't match a lookup label
-   *  are simply absent from the picker. */
-  const schoolCategoriesQuery = useLookup('school-categories');
-  const schoolCategoryLabels = useMemo<readonly string[]>(
-    () =>
-      (schoolCategoriesQuery.data ?? [])
-        .filter((r) => r.isActive)
-        .map((r) => r.name),
-    [schoolCategoriesQuery.data],
-  );
 
   const filteredCount = useMemo(
     () => (table ? countFiltered(table, filters) : 0),
@@ -92,12 +75,9 @@ export function Step4Filters(): JSX.Element {
       </div>
 
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {mappedColumns.map(({ targetKey, targetLabel, column }) => {
+        {mappedColumns.map(({ targetLabel, column }) => {
           const state: FilterState = filters[column] ?? { mode: 'all', values: [] };
-          const values =
-            targetKey === 'schoolCategory'
-              ? lookupValues(table, column, schoolCategoryLabels)
-              : distinctValues(table, column);
+          const values = distinctValues(table, column);
           const totalValues = values.length;
           return (
             <li key={column}>
@@ -242,30 +222,3 @@ function FilterCard({
   );
 }
 
-/** Build the filter option list off the canonical school-categories
- *  lookup instead of the raw distinct cell values. Counts come from
- *  the source table (case-insensitive trimmed compare against the
- *  lookup label) so admins still see how many rows each lookup value
- *  covers in the picked file. Lookup entries with zero coverage are
- *  kept in the list so admins can intentionally allow them in advance
- *  of a partial import. */
-function lookupValues(
-  table: ParsedTable,
-  column: string,
-  labels: readonly string[],
-): Array<{ value: string; count: number }> {
-  const counts = new Map<string, number>();
-  for (const label of labels) counts.set(label, 0);
-  const normalised = new Map<string, string>();
-  for (const label of labels) normalised.set(label.trim().toLowerCase(), label);
-  for (const row of table.rows) {
-    const cell = row[column];
-    if (cell == null) continue;
-    const key = String(cell).trim().toLowerCase();
-    const label = normalised.get(key);
-    if (label !== undefined) counts.set(label, (counts.get(label) ?? 0) + 1);
-  }
-  return Array.from(counts.entries())
-    .map(([value, count]) => ({ value, count }))
-    .sort((a, b) => b.count - a.count);
-}

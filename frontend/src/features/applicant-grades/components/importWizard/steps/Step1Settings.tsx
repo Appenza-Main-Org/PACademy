@@ -2,10 +2,10 @@
  * Step 1 — الإعدادات.
  *
  * Captures the wizard's pre-parse inputs:
- *   • School categories (multi-select from the school-categories lookup)
- *     — each picked category exposes its own الدرجة العظمى input.
- *     Replaces the prior general/azhar binary toggle so admins can load
- *     a mixed file in a single pass.
+ *   • School category — single-select from the school-categories lookup.
+ *     The picked category exposes its own الدرجة العظمى input. Stored
+ *     as a single-element array on the store so the downstream commit
+ *     contract (which accepts `string[]`) stays stable.
  *   • Graduation year (default = active cycle's year)
  *   • File pick (validated by extension + size; no parsing here)
  *
@@ -74,13 +74,19 @@ export function Step1Settings(): JSX.Element {
   const activeCategories = (schoolCategoriesQuery.data ?? []).filter(
     (r) => r.isActive,
   );
-  const selectedSet = new Set(selectedSchoolCategories);
+  const pickedCode = selectedSchoolCategories[0] ?? null;
+  const pickedCategory = pickedCode
+    ? activeCategories.find((c) => c.code === pickedCode) ?? null
+    : null;
+  const pickedMax = pickedCode
+    ? maxGradeByCategory[pickedCode] ?? defaultMaxFor(pickedCode)
+    : null;
 
-  function toggleCategory(code: string): void {
-    const next = selectedSet.has(code)
-      ? selectedSchoolCategories.filter((c) => c !== code)
-      : [...selectedSchoolCategories, code];
-    setSelectedSchoolCategories(next);
+  function pickCategory(code: string): void {
+    /* Single-select: clicking a chip replaces the selection. Clicking
+     * the active chip again clears it so the admin can back out without
+     * having to refresh. */
+    setSelectedSchoolCategories(pickedCode === code ? [] : [code]);
   }
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -127,7 +133,7 @@ export function Step1Settings(): JSX.Element {
       <Field
         label="فئة المدرسة"
         required
-        helper="اختر فئة واحدة أو أكثر من الأكواد المرجعية. لكل فئة درجتها العظمى الخاصة."
+        helper="اختر فئة واحدة من الأكواد المرجعية. تُحدّد درجتها العظمى أدناه."
       >
         {schoolCategoriesQuery.isLoading ? (
           <LoadingState variant="list" />
@@ -137,16 +143,20 @@ export function Step1Settings(): JSX.Element {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            <div className="flex flex-wrap gap-1.5">
+            <div
+              role="radiogroup"
+              aria-label="فئة المدرسة"
+              className="flex flex-wrap gap-1.5"
+            >
               {activeCategories.map((c) => {
-                const active = selectedSet.has(c.code);
+                const active = pickedCode === c.code;
                 return (
                   <button
                     key={c.code}
                     type="button"
-                    role="switch"
+                    role="radio"
                     aria-checked={active}
-                    onClick={() => toggleCategory(c.code)}
+                    onClick={() => pickCategory(c.code)}
                     className="cursor-pointer rounded-full border px-3 py-1 text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                     style={{
                       background: active ? 'var(--teal-500)' : '#fff',
@@ -161,44 +171,32 @@ export function Step1Settings(): JSX.Element {
                 );
               })}
             </div>
-            {selectedSchoolCategories.length > 0 && (
-              <ul className="m-0 flex list-none flex-col gap-1.5 rounded-md border border-border-subtle bg-ink-50/40 p-2">
-                {selectedSchoolCategories.map((code) => {
-                  const cat = activeCategories.find((x) => x.code === code);
-                  if (!cat) return null;
-                  const value =
-                    maxGradeByCategory[code] ?? defaultMaxFor(code);
-                  return (
-                    <li
-                      key={code}
-                      className="flex items-center justify-between gap-3 rounded-sm bg-white px-2.5 py-1.5"
-                    >
-                      <span className="text-sm font-medium text-ink-900">
-                        {cat.name}
-                      </span>
-                      <label className="inline-flex h-8 cursor-text items-center gap-2 rounded-md border border-border-default bg-white px-2.5 text-sm font-medium text-ink-900"
-                        style={{ width: 140 }}
-                      >
-                        <span className="text-2xs text-ink-500">الدرجة العظمى</span>
-                        <input
-                          type="number"
-                          value={value}
-                          min={1}
-                          max={1000}
-                          onChange={(e) =>
-                            setMaxGradeForCategory(
-                              code,
-                              e.target.value === '' ? 0 : Number(e.target.value),
-                            )
-                          }
-                          className="min-w-0 flex-1 border-0 bg-transparent p-0 font-en text-sm font-semibold text-ink-900 outline-none"
-                          aria-label={`الدرجة العظمى لفئة ${cat.name}`}
-                        />
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
+            {pickedCategory && pickedCode && pickedMax != null && (
+              <div className="flex items-center justify-between gap-3 rounded-md border border-border-subtle bg-ink-50/40 px-3 py-2">
+                <span className="text-sm font-medium text-ink-900">
+                  {pickedCategory.name}
+                </span>
+                <label
+                  className="inline-flex h-8 cursor-text items-center gap-2 rounded-md border border-border-default bg-white px-2.5 text-sm font-medium text-ink-900"
+                  style={{ width: 160 }}
+                >
+                  <span className="text-2xs text-ink-500">الدرجة العظمى</span>
+                  <input
+                    type="number"
+                    value={pickedMax}
+                    min={1}
+                    max={1000}
+                    onChange={(e) =>
+                      setMaxGradeForCategory(
+                        pickedCode,
+                        e.target.value === '' ? 0 : Number(e.target.value),
+                      )
+                    }
+                    className="min-w-0 flex-1 border-0 bg-transparent p-0 font-en text-sm font-semibold text-ink-900 outline-none"
+                    aria-label={`الدرجة العظمى لفئة ${pickedCategory.name}`}
+                  />
+                </label>
+              </div>
             )}
           </div>
         )}

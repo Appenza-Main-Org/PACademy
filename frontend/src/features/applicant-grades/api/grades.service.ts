@@ -542,7 +542,17 @@ export const gradesService = {
       }
       const gender = resolveGender(row.gender);
       const graduationYear = row.graduationYear ?? input.graduationYear;
-      const schoolCategoryCode = resolveSchoolCategoryCode(row.schoolCategory);
+      const resolvedFromRow = resolveSchoolCategoryCode(row.schoolCategory);
+      /* Single-select fallback: when the admin picked exactly one
+       * category in Step 1 and the row's own `schoolCategory` cell is
+       * empty or doesn't match the lookup, assume the picked category
+       * — admins typically import a homogenous file per category and
+       * shouldn't have to add a column just to repeat that fact. With
+       * a multi-select selection we keep the strict per-row resolve
+       * so each row lands in the right bucket. */
+      const schoolCategoryCode: string | null =
+        resolvedFromRow ??
+        (selectedSchoolCategories.length === 1 ? selectedSchoolCategories[0]! : null);
 
       /* When the admin restricts the import to a category subset and
        * the row's resolved code is not in it (or is unresolved), the
