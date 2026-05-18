@@ -63,6 +63,12 @@
     <Project Path="src/Modules/Grades/PACademy.Modules.Grades.Infrastructure/PACademy.Modules.Grades.Infrastructure.csproj" />
     <Project Path="src/Modules/Grades/PACademy.Modules.Grades.Public/PACademy.Modules.Grades.Public.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Payments/">
+    <Project Path="src/Modules/Payments/PACademy.Modules.Payments.Domain/PACademy.Modules.Payments.Domain.csproj" />
+    <Project Path="src/Modules/Payments/PACademy.Modules.Payments.Application/PACademy.Modules.Payments.Application.csproj" />
+    <Project Path="src/Modules/Payments/PACademy.Modules.Payments.Infrastructure/PACademy.Modules.Payments.Infrastructure.csproj" />
+    <Project Path="src/Modules/Payments/PACademy.Modules.Payments.Public/PACademy.Modules.Payments.Public.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PACademy.Api.Tests/PACademy.Api.Tests.csproj" />
     <Project Path="tests/PACademy.Application.Tests/PACademy.Application.Tests.csproj" />

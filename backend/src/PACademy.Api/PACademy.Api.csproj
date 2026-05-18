@@ -29,6 +29,7 @@
     <ProjectReference Include="..\Modules\Notifications\PACademy.Modules.Notifications.Infrastructure\PACademy.Modules.Notifications.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Lookups\PACademy.Modules.Lookups.Infrastructure\PACademy.Modules.Lookups.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\Grades\PACademy.Modules.Grades.Infrastructure\PACademy.Modules.Grades.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Payments\PACademy.Modules.Payments.Infrastructure\PACademy.Modules.Payments.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

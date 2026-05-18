@@ -51,6 +51,8 @@ public sealed class Payment
 
     public static Payment Create(
         Guid applicantId,
+        string applicantName,
+        string nationalId,
         Guid cycleId,
         string fawryReference,
         decimal amount,
@@ -59,6 +61,10 @@ public sealed class Payment
     {
         if (string.IsNullOrWhiteSpace(fawryReference))
             throw new ArgumentException("Fawry reference is required.", nameof(fawryReference));
+        if (string.IsNullOrWhiteSpace(applicantName))
+            throw new ArgumentException("Applicant name is required.", nameof(applicantName));
+        if (string.IsNullOrWhiteSpace(nationalId))
+            throw new ArgumentException("National ID is required.", nameof(nationalId));
         if (amount <= 0)
             throw new ArgumentException("Amount must be positive.", nameof(amount));
 
@@ -67,6 +73,8 @@ public sealed class Payment
         {
             Id = Guid.NewGuid(),
             ApplicantId = applicantId,
+            ApplicantName = applicantName,
+            NationalId = nationalId,
             CycleId = cycleId,
             FawryReference = fawryReference,
             Amount = amount,
@@ -114,6 +122,8 @@ public sealed class Payment
     /// </summary>
     public static Payment CreateSeeded(
         Guid applicantId,
+        string applicantName,
+        string nationalId,
         Guid cycleId,
         string fawryReference,
         decimal amount,
@@ -126,6 +136,8 @@ public sealed class Payment
         {
             Id = Guid.NewGuid(),
             ApplicantId = applicantId,
+            ApplicantName = applicantName,
+            NationalId = nationalId,
             CycleId = cycleId,
             FawryReference = fawryReference,
             Amount = amount,

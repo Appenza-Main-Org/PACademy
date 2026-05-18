@@ -12,6 +12,7 @@ using PACademy.Modules.Committees.Infrastructure;
 using PACademy.Modules.Notifications.Infrastructure;
 using PACademy.Modules.Lookups.Infrastructure;
 using PACademy.Modules.Grades.Infrastructure;
+using PACademy.Modules.Payments.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +33,8 @@ builder.Services
     .AddCommitteesModule(builder.Configuration)
     .AddNotificationsModule(builder.Configuration)
     .AddLookupsModule(builder.Configuration)
-    .AddGradesModule(builder.Configuration);
+    .AddGradesModule(builder.Configuration)
+    .AddPaymentsModule(builder.Configuration);
 
 builder.Services.AddPaInfrastructure(builder.Configuration);
 
