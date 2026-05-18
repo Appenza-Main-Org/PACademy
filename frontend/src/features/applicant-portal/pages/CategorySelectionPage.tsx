@@ -133,25 +133,19 @@ export function CategorySelectionPage(): JSX.Element {
       />
     );
   }
-  if (cycles.length === 0) {
-    return (
-      <EmptyState
-        variant="generic"
-        title="لا توجد دورة قبول مفتوحة حالياً"
-        description="يرجى المتابعة لاحقاً لمتابعة فتح باب القبول."
-      />
-    );
-  }
+  /* Demo direction (2026-05-18): always render the page even when no
+   * cycle is currently within its open/close window — the user still
+   * wants the categories visible. The "no active cycle" empty state is
+   * intentionally removed. */
 
   const cycleYear = selectedCycle?.year ?? new Date().getFullYear();
 
   const onPickCategory = (categoryKey: string, enabled: boolean): void => {
-    if (!enabled || !selectedCycle) return;
-    /* For not_found-in-MOI users there is no MOI snapshot to compare
-     * against, so the eligibility check has nothing meaningful to do.
-     * Persist the choice and skip straight to the profile where the
-     * applicant fills their identity manually. */
-    if (!identity) {
+    if (!enabled) return;
+    /* For not_found-in-MOI users (or when there's no live cycle to run
+     * an eligibility check against) skip the eligibility step and go
+     * straight to the profile. */
+    if (!identity || !selectedCycle) {
       setSelectedCategoryKey(categoryKey);
       navigate(ROUTES.applicantProfile);
       return;
@@ -396,7 +390,14 @@ function CategoryRows({
       </div>
     );
   }
-  const categories = categoriesQuery.data ?? [];
+  /* Demo direction (2026-05-18):
+   *  - Show every category from the mock catalogue even when no live
+   *    cycle is in window (force isOpen so the row is clickable).
+   *  - Hide بكالوريوس تربية رياضية (physical_education_bachelor) per
+   *    client request. */
+  const categories = (categoriesQuery.data ?? [])
+    .filter((c) => c.key !== 'physical_education_bachelor')
+    .map((c) => ({ ...c, isOpen: true }));
   if (categories.length === 0) {
     return (
       <div className="px-5 py-6">
