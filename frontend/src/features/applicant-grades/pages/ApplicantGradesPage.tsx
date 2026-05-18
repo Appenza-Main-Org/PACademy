@@ -678,7 +678,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   value={schoolCategoryFromUrl}
                   onChange={(e) => setFilter('school', e.target.value)}
                   aria-label="تصفية حسب فئة المدرسة"
-                  style={{ flex: '0 1 340px', minInlineSize: 280 }}
+                  style={{ flex: '0 0 auto', inlineSize: 380 }}
                 >
                   <option value="all">كل فئات المدرسة</option>
                   {activeSchoolCategories.map((c) => (
