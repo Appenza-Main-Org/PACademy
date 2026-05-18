@@ -18,7 +18,6 @@ import {
   Badge,
   Button,
   Card,
-  DatePicker,
   EmptyState,
   FileUpload,
   PageHeader,
@@ -61,17 +60,13 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   const [bodyAr, setBodyAr] = useState<string>(current?.bodyAr ?? '');
   const [pendingDoc, setPendingDoc] = useState<DeclarationDocument | null>(null);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
-  const [effectiveFrom, setEffectiveFrom] = useState<Date | null>(
-    current?.effectiveFrom ? new Date(current.effectiveFrom) : new Date(),
-  );
 
   useEffect(() => {
     setActiveMode(current?.mode ?? 'text');
     setBodyAr(current?.bodyAr ?? '');
     setPendingDoc(null);
     setUploadFiles([]);
-    setEffectiveFrom(current?.effectiveFrom ? new Date(current.effectiveFrom) : new Date());
-  }, [current?.id, current?.effectiveFrom, current?.mode, current?.bodyAr]);
+  }, [current?.id, current?.mode, current?.bodyAr]);
 
   const displayDoc = pendingDoc ?? current?.document ?? null;
 
@@ -79,17 +74,13 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     if (activeMode === 'text') {
       return (
         bodyAr.trim() !== (current?.bodyAr ?? '').trim() ||
-        activeMode !== current?.mode ||
-        (effectiveFrom?.toISOString() ?? '') !== (current?.effectiveFrom ?? '')
+        activeMode !== current?.mode
       );
     }
     if (pendingDoc) return true;
     if (!current) return false;
-    return (
-      activeMode !== current.mode ||
-      (effectiveFrom?.toISOString() ?? '') !== current.effectiveFrom
-    );
-  }, [activeMode, bodyAr, current, effectiveFrom, pendingDoc]);
+    return activeMode !== current.mode;
+  }, [activeMode, bodyAr, current, pendingDoc]);
 
   const handleFilesChange = (next: UploadFile[]): void => {
     setUploadFiles(next);
@@ -125,7 +116,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   };
 
   const handleSave = (): void => {
-    if (!canWrite || !effectiveFrom) return;
+    if (!canWrite) return;
     if (activeMode === 'text' && !bodyAr.trim()) {
       toast('يجب إدخال نص الإقرار قبل الحفظ', 'warning');
       return;
@@ -134,6 +125,11 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
       toast('يجب رفع مستند الإقرار قبل الحفظ', 'warning');
       return;
     }
+    /* `effectiveFrom` is no longer admin-input — stamp it at save time
+     * so the API contract stays satisfied. Re-uses any prior value when
+     * the admin is editing an existing record. */
+    const effectiveFromIso =
+      current?.effectiveFrom ?? new Date().toISOString();
     setMut.mutate(
       {
         cycleId: cycle.id,
@@ -143,7 +139,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
           activeMode === 'pdf'
             ? pendingDoc ?? current?.document ?? null
             : undefined,
-        effectiveFrom: effectiveFrom.toISOString(),
+        effectiveFrom: effectiveFromIso,
       },
       {
         onSuccess: (next) => {
@@ -200,7 +196,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
       />
 
       <Card>
-        <div className="grid gap-4 md:grid-cols-[2fr_1fr]">
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3">
             <Tabs
               value={activeMode}
@@ -285,32 +281,24 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
             </Tabs>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <DatePicker
-              label="تاريخ السريان"
-              value={effectiveFrom}
-              onChange={setEffectiveFrom}
-              disabled={!canWrite}
-            />
-            {current && (
-              <div className="rounded-md border border-border-subtle bg-ink-50 p-3 text-2xs">
-                <p className="text-ink-700">
-                  <span className="font-medium">الوضع المنشور: </span>
-                  {current.mode === 'text' ? 'نص' : 'PDF'}
+          {current && (
+            <div className="rounded-md border border-border-subtle bg-ink-50 p-3 text-2xs">
+              <p className="text-ink-700">
+                <span className="font-medium">الوضع المنشور: </span>
+                {current.mode === 'text' ? 'نص' : 'PDF'}
+              </p>
+              <p className="mt-1 text-ink-700">
+                <span className="font-medium">آخر حفظ: </span>
+                {fmtDate(current.createdAt, 'full')}
+              </p>
+              {isPublished && (
+                <p className="mt-1 text-success">
+                  <span className="font-medium">تاريخ النشر: </span>
+                  {fmtDate(current.publishedAt!, 'full')}
                 </p>
-                <p className="mt-1 text-ink-700">
-                  <span className="font-medium">آخر حفظ: </span>
-                  {fmtDate(current.createdAt, 'full')}
-                </p>
-                {isPublished && (
-                  <p className="mt-1 text-success">
-                    <span className="font-medium">تاريخ النشر: </span>
-                    {fmtDate(current.publishedAt!, 'full')}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 
