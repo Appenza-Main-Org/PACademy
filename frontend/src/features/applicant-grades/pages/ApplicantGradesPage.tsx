@@ -440,9 +440,9 @@ export function ApplicantGradesPage(): JSX.Element {
       className: 'min-w-[14ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
         <>
-          <span className="font-semibold text-ink-900">{r.total}</span>
+          <span className="font-semibold text-ink-900">{Math.round(r.total)}</span>
           <span className="text-2xs text-ink-300"> / </span>
-          <span className="text-2xs text-ink-400">{r.max}</span>
+          <span className="text-2xs text-ink-400">{Math.round(r.max)}</span>
         </>
       ),
     },
@@ -472,7 +472,7 @@ export function ApplicantGradesPage(): JSX.Element {
               r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-900'
             }`}
           >
-            {r.eff}
+            {Math.round(r.eff)}
           </span>
           {r.adj !== 0 && (
             <Badge
@@ -678,6 +678,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   value={schoolCategoryFromUrl}
                   onChange={(e) => setFilter('school', e.target.value)}
                   aria-label="تصفية حسب فئة المدرسة"
+                  style={{ flex: '0 1 340px', minInlineSize: 280 }}
                 >
                   <option value="all">كل فئات المدرسة</option>
                   {activeSchoolCategories.map((c) => (

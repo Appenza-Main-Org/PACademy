@@ -143,11 +143,24 @@
   color: var(--text-primary);
   transition: all var(--dur-fast) var(--ease-out);
 }
-/* Reserve room for the native dropdown chevron on the inline-end edge so
- * RTL labels (e.g. "كل الحالات") don't collide with it. */
+/* Replace the native chevron with a custom inline-SVG one. macOS Chrome's
+ * native `<select>` arrow ignores `padding-inline-end` and clips RTL text
+ * (even short labels like "ذكر" became "ذك،") because the system chevron
+ * is drawn inside our reserved gap. With `appearance: none` the padding is
+ * honored and our chevron sits cleanly on the inline-end edge. */
 .select {
+  appearance: none;
+  -webkit-appearance: none;
   padding-inline-end: 32px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%2364615A' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1.5L6 6.5L11 1.5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
 }
+[dir="rtl"] .select {
+  background-position: left 12px center;
+}
+.select::-ms-expand { display: none; }
 .input:focus,
 .select:focus,
 .textarea:focus {

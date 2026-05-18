@@ -116,16 +116,16 @@ export function StudentDetailsDrawer({
           <div className="-mx-6 -mt-6 mb-4 grid grid-cols-4 gap-2 border-b border-border-subtle bg-ink-50 px-6 py-3.5">
             <PinStat
               label="المجموع"
-              value={String(row.total)}
-              sub={`من ${row.max}`}
+              value={String(Math.round(row.total))}
+              sub={`من ${Math.round(row.max)}`}
               overrideHint={row.isOverridden}
             />
             <PinStat label="النسبة" value={`${row.pct.toFixed(2)}٪`} />
             <PinStat
               label="الفعلي"
-              value={String(row.eff)}
+              value={String(Math.round(row.eff))}
               tone="gold"
-              sub={(row.eff - row.total >= 0 ? '+' : '') + (row.eff - row.total)}
+              sub={(row.eff - row.total >= 0 ? '+' : '') + Math.round(row.eff - row.total)}
             />
             <PinStat label="الفعلي %" value={`${row.effPct.toFixed(2)}٪`} tone="gold-strong" />
           </div>
@@ -227,7 +227,7 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
     { label: 'الشعبة', sourceKey: 'branch_desc_new', value: row.branch },
     { label: 'سنة التخرج', sourceKey: 'graduation_year', value: yearLabel, mono: true },
     { label: 'فئة المدرسة', sourceKey: 'school_category', value: schoolLabel },
-    { label: 'المجموع الكلي', sourceKey: 'total_degree', value: String(row.total), mono: true },
+    { label: 'المجموع الكلي', sourceKey: 'total_degree', value: String(Math.round(row.total)), mono: true },
   ];
   const azhar: Array<KVProps> = [
     { label: 'الاسم', sourceKey: 'StudenName', value: row.name },
@@ -236,7 +236,7 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
     { label: 'الشعبة', sourceKey: 'DevisionName', value: row.branch },
     { label: 'سنة التخرج', sourceKey: 'graduation_year', value: yearLabel, mono: true },
     { label: 'فئة المدرسة', sourceKey: 'school_category', value: schoolLabel },
-    { label: 'المجموع الكلي', sourceKey: 'Total2', value: String(row.total), mono: true },
+    { label: 'المجموع الكلي', sourceKey: 'Total2', value: String(Math.round(row.total)), mono: true },
   ];
   const fields = row.kind === 'general' ? general : azhar;
 
@@ -301,11 +301,11 @@ function GradesTab({ row, onEditMax }: { row: DerivedRow; onEditMax: () => void 
       </h3>
 
       <div className="grid grid-cols-2 gap-2.5">
-        <BigStat label="المجموع الأصلي" value={String(row.total)} sub={`من ${row.max}`} />
+        <BigStat label="المجموع الأصلي" value={String(Math.round(row.total))} sub={`من ${Math.round(row.max)}`} />
         <BigStat
           label="الحد الأقصى"
-          value={String(row.max)}
-          sub={row.isOverridden ? `الأصلي عند الاستيراد: ${row.importMax}` : undefined}
+          value={String(Math.round(row.max))}
+          sub={row.isOverridden ? `الأصلي عند الاستيراد: ${Math.round(row.importMax)}` : undefined}
           badge={row.isOverridden ? 'معدّل' : undefined}
           tone={row.isOverridden ? 'gold' : undefined}
           onEdit={onEditMax}
@@ -313,14 +313,14 @@ function GradesTab({ row, onEditMax }: { row: DerivedRow; onEditMax: () => void 
         <BigStat label="النسبة الأصلية" value={`${row.pct.toFixed(2)}٪`} />
         <BigStat
           label="إجمالي التعديلات"
-          value={(adj >= 0 ? '+' : '') + adj}
+          value={(adj >= 0 ? '+' : '') + Math.round(adj)}
           tone="gold"
           sub={`${row.log.filter((x) => x.isActive).length} نشطة`}
         />
         <div className="col-span-2">
           <BigStat
             label="الفعلي النهائي"
-            value={`${row.eff} · ${row.effPct.toFixed(2)}٪`}
+            value={`${Math.round(row.eff)} · ${row.effPct.toFixed(2)}٪`}
             tone="success"
           />
         </div>
@@ -343,7 +343,7 @@ function GradesTab({ row, onEditMax }: { row: DerivedRow; onEditMax: () => void 
         </div>
         <div className="mt-2 flex justify-between text-2xs text-ink-500">
           <span className="font-en">0</span>
-          <span className="font-en">{row.max}</span>
+          <span className="font-en">{Math.round(row.max)}</span>
         </div>
       </div>
     </div>
