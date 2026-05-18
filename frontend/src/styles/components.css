@@ -218,16 +218,29 @@
 }
 .filters .input,
 .filters .select {
-  height: 38px;
+  /* `min-height` (not fixed `height`) keeps Arabic descenders + the long
+   * school-category labels from getting clipped — Arabic glyphs have
+   * larger vertical metrics than the Latin baseline used to size native
+   * <select> chrome, so a fixed 38px line clipped the top + bottom of
+   * letters like ج / ع / ف on macOS Chrome. `line-height: 1.4`
+   * vertically centers the text within the bumped box. */
+  min-height: 42px;
+  line-height: 1.4;
   width: auto;
   min-width: 180px;
   flex: 0 1 200px;
+  /* Keep the chosen value on one line and ellipsise long category
+   * labels (e.g. "مدارس المتفوقين في العلوم والتكنولوجيا STEM") rather
+   * than wrap into the chevron slot. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .filters .search {
   flex: 1 1 280px;
   min-width: 240px;
 }
-.filters .search input { height: 38px; }
+.filters .search input { min-height: 42px; }
 
 /* ─── Tables ─── */
 .table-wrap {

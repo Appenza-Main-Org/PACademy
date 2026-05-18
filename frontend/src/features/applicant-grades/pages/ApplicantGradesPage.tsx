@@ -186,15 +186,26 @@ export function ApplicantGradesPage(): JSX.Element {
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'ar'));
   }, [allRows]);
 
+  /* Year filter options come from the admin-managed `graduation-years`
+   * lookup (active rows only). Falling back to the years actually
+   * present in the imported rows + the current cycle year keeps the
+   * filter usable while the lookup is loading or if it ends up empty
+   * after admin pruning. */
+  const graduationYearsQuery = useLookup('graduation-years');
   const yearOptions = useMemo<number[]>(() => {
     const set = new Set<number>();
-    for (const r of allRows ?? []) {
-      if (typeof r.graduationYear === 'number') set.add(r.graduationYear);
+    const lookupRows = graduationYearsQuery.data ?? [];
+    for (const r of lookupRows) {
+      if (r.isActive && Number.isFinite(r.year)) set.add(r.year);
     }
-    const currentYear = new Date().getFullYear();
-    for (let i = 0; i < 10; i += 1) set.add(currentYear - i);
+    if (set.size === 0) {
+      for (const r of allRows ?? []) {
+        if (typeof r.graduationYear === 'number') set.add(r.graduationYear);
+      }
+      set.add(new Date().getFullYear());
+    }
     return Array.from(set).sort((a, b) => b - a);
-  }, [allRows]);
+  }, [allRows, graduationYearsQuery.data]);
 
   function setFilter(key: 'gender' | 'branch' | 'year' | 'school', value: string): void {
     setSearchParams(
