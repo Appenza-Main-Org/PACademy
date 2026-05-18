@@ -119,7 +119,7 @@ export function AddAdjustmentDialog({
             {row.kind === 'general' ? 'عامة' : 'أزهرية'}
           </Badge>
           <span className="text-ink-400">·</span>
-          <span dir="ltr" className="font-en">رقم الجلوس {row.seat.toLocaleString('en')}</span>
+          <span dir="ltr" className="font-en">رقم الجلوس {row.seatingNumber ?? String(row.seat)}</span>
         </span>
       }
     >

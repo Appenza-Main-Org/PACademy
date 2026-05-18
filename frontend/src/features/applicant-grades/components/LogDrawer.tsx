@@ -66,7 +66,7 @@ export function LogDrawer({
           <Badge tone={row.kind === 'general' ? 'info' : 'warning'}>
             {row.kind === 'general' ? 'عامة' : 'أزهرية'}
           </Badge>
-          <span dir="ltr" className="font-en">رقم الجلوس {row.seat.toLocaleString('en')}</span>
+          <span dir="ltr" className="font-en">رقم الجلوس {row.seatingNumber ?? String(row.seat)}</span>
           <span>·</span>
           <span dir="ltr" className="font-en">{row.nid}</span>
         </div>

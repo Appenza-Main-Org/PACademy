@@ -371,7 +371,7 @@ export function ApplicantGradesPage(): JSX.Element {
       render: (r) =>
         r.seatingNumber ? (
           <span dir="ltr" className="font-en text-xs text-ink-700">
-            {Number(r.seatingNumber).toLocaleString('en')}
+            {r.seatingNumber}
           </span>
         ) : (
           <span className="text-2xs text-ink-300">—</span>

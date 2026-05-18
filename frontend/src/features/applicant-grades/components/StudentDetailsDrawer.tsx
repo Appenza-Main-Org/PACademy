@@ -64,7 +64,7 @@ export function StudentDetailsDrawer({
                 <span>
                   رقم الجلوس{' '}
                   <span dir="ltr" className="font-en text-ink-700">
-                    {row.seat.toLocaleString('en')}
+                    {row.seatingNumber ?? String(row.seat)}
                   </span>
                 </span>
                 <span>
