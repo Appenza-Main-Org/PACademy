@@ -31,7 +31,6 @@ import { isValidNationalId } from '@/shared/lib/national-id';
 import { normalizeArabic } from '@/shared/lib/arabic';
 import { MOCK } from '@/shared/mock-data';
 import { easternToAscii } from '../lib/normalise';
-import { SEED_ROWS } from '../mock';
 import { AZHAR_CATEGORY_CODES } from '../store/importWizard.store';
 import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
@@ -53,7 +52,7 @@ import type {
   StagedImport,
 } from '../types';
 
-let STATE: GradeRow[] = SEED_ROWS.map((r) => ({ ...r, log: r.log.map((e) => ({ ...e })) }));
+let STATE: GradeRow[] = [];
 
 const REASON_LABEL: Record<AdjustmentReason, string> = {
   SPORTS_ACTIVITY: 'نشاط رياضي',
