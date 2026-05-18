@@ -29,7 +29,7 @@
 
 import { useEffect, useMemo } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Eye } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -40,6 +40,7 @@ import { ROUTES } from '@/config/routes';
 import { cn } from '@/shared/lib/cn';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { hasPermission, useAuthStore } from '@/features/auth';
+import { useAdmissionSetupIsReadOnly } from '../components/AdmissionSetupShell';
 import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
 import { useCommittees } from '@/features/committees';
 import {
@@ -94,6 +95,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const cycleCtx = useAdmissionSetupCycle();
   const user = useAuthStore((s) => s.user);
   const canRead = Boolean(user && hasPermission(user.permissions, 'admission-setup:read'));
+  const isReadOnly = useAdmissionSetupIsReadOnly();
 
   /* Sorted once; ADMISSION_SETUP_STEPS already arrives in order but the
    * sort is cheap and guards against config drift. */
@@ -243,6 +245,37 @@ export function AdmissionSetupWizardPage(): JSX.Element {
           <CycleSwitcher cycleCtx={cycleCtx} />
         </div>
 
+        {/* Read-only banner — visible whenever the chosen cycle has passed
+         * the إدراج ومراجعة stage. Admins can navigate every step and
+         * inspect every value, but the descendant `<fieldset disabled>`
+         * neutralises every form control so nothing can be mutated. */}
+        {isReadOnly && cycleCtx.cycle && (
+          <div
+            role="status"
+            className="no-print flex flex-wrap items-start gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700"
+          >
+            <Eye size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-gold-700">
+                هذه الدورة في حالة «اعتماد ونشر» — وضع الاطلاع فقط
+              </p>
+              <p className="mt-0.5 text-gold-700/85">
+                يمكن استعراض كافة خطوات إعداد التقديم لدورة{' '}
+                <span className="font-medium">{cycleCtx.cycle.nameAr}</span> دون
+                إجراء أي تعديل. للعودة إلى وضع التحرير، يلزم إعادة الدورة إلى
+                حالة «إدراج ومراجعة» من{' '}
+                <Link
+                  to={ROUTES.admin.cycles}
+                  className="underline underline-offset-2 hover:text-gold-800"
+                >
+                  إدارة الدورات
+                </Link>
+                .
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Two-column body: vertical stepper rail (sticky) + step content.
          * Rail collapses below md so narrow viewports (and print) get a
          * stacked layout instead of a cramped side-by-side. */}
@@ -269,8 +302,33 @@ export function AdmissionSetupWizardPage(): JSX.Element {
           {/* Step content — renders into the natural document scroll. The
            * trailing spacer below guarantees the last form field has air
            * above the sticky toolbar when the page is fully scrolled, so
-           * the field is always readable, never visually trapped under it. */}
-          <div className="min-w-0 flex-1">
+           * the field is always readable, never visually trapped under it.
+           *
+           * The wrapping `<fieldset disabled>` is the defensive belt for
+           * read-only mode: a disabled fieldset propagates the `disabled`
+           * state to every nested `<input>`, `<select>`, `<textarea>`,
+           * `<button>` — even the ones whose components don't explicitly
+           * consult `useAdmissionSetupCanWrite()`. `all: unset` + `display:
+           * contents` keeps the fieldset transparent to the flex layout
+           * (no extra box, no default browser padding/border). */}
+          {/* In view-only mode we don't disable the step content wholesale
+           * — admins need to expand accordions, switch tabs, and inspect
+           * the configuration in-place. Write protection is layered
+           * instead:
+           *   • The banner above states the mode plainly.
+           *   • `useAdmissionSetupCanWrite()` returns false for non-draft
+           *     cycles, so every save / approve / publish button that
+           *     consults it is disabled at the source.
+           *   • The `[data-admission-setup-readonly]` attribute below
+           *     scopes a CSS rule (admission-setup.css) that visually
+           *     marks form controls as read-only.
+           * The review step manages its own gating because it owns the
+           * "إلغاء الاعتماد" affordance — the only way back from
+           * approved → draft. */}
+          <div
+            className="min-w-0 flex-1"
+            data-admission-setup-readonly={isReadOnly || undefined}
+          >
             {isReview ? (
               <WizardReviewPage statusInputs={statusInputs} />
             ) : (

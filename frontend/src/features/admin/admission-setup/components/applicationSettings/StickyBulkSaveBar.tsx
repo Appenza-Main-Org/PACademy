@@ -16,6 +16,7 @@ import { Save, Undo2 } from 'lucide-react';
 import { Button } from '@/shared/components';
 import { useBulkSave } from '../../api/applicationSettings.queries';
 import type { BulkYearChange } from '../../api/applicationSettings.service';
+import { useAdmissionSetupIsReadOnly } from '../AdmissionSetupShell';
 import {
   useAppSettingsDraftStore,
   useDraftSummary,
@@ -28,6 +29,13 @@ export function StickyBulkSaveBar(): JSX.Element | null {
   const resetAll = useAppSettingsDraftStore((s) => s.resetAll);
   const hasMismatch = useHasAnyMismatch();
   const bulkSave = useBulkSave();
+  const isReadOnly = useAdmissionSetupIsReadOnly();
+
+  /* View-only cycles cannot commit changes — suppress the bar entirely
+   * rather than render it disabled. The wizard banner already tells the
+   * admin the mode is read-only; leaving a phantom save bar at the
+   * bottom would be confusing. */
+  if (isReadOnly) return null;
 
   if (summary.total === 0 && !hasMismatch) return null;
 

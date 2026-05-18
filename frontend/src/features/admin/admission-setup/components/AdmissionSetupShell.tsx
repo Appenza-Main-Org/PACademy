@@ -64,9 +64,31 @@ export function AdmissionSetupShell({
   );
 }
 
-/** Resolve write capability for the step actions inside child pages. */
+/** Resolve write capability for the step actions inside child pages.
+ *
+ * Two gates, both required:
+ *   1. The user holds `admission-setup:write` permission.
+ *   2. The currently selected cycle is still in "إدراج ومراجعة" (status === 'draft').
+ *      Once a cycle is approved & published (any non-draft status), the
+ *      wizard collapses to a view-only surface — admins can walk the steps
+ *      but cannot mutate anything. See CyclesPage business rules.
+ *
+ * If no cycle is selected yet (e.g. first render before sessionStorage
+ * resolves), we don't lock the surface — the wizard guards against the
+ * "no cycle" case separately via the per-step `<NoCycle />` empty states.
+ */
 export function useAdmissionSetupCanWrite(): boolean {
   const user = useAuthStore((s) => s.user);
+  const { cycle } = useAdmissionSetupCycle();
   if (!user) return false;
-  return hasPermission(user.permissions, 'admission-setup:write');
+  if (!hasPermission(user.permissions, 'admission-setup:write')) return false;
+  if (cycle && cycle.status !== 'draft') return false;
+  return true;
+}
+
+/** True when the active admission-setup cycle is past the draft stage and
+ * the wizard should render in view-only mode. */
+export function useAdmissionSetupIsReadOnly(): boolean {
+  const { cycle } = useAdmissionSetupCycle();
+  return Boolean(cycle && cycle.status !== 'draft');
 }
