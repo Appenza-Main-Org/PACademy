@@ -20,10 +20,16 @@ import type {
 /**
  * Aggregated committee-binding snapshot consumed by the step-status check.
  *
- * The committees step is complete when both:
- *   1. roster — every active category has ≥1 row in `CategoryCommittees`
- *   2. bindings — every active category has ≥1 active `CommitteeDayBinding`
- * Either dimension empty for any active category → `in_progress`.
+ * The committees step is complete once the admin has authored at least one
+ * active `CommitteeDayBinding` for any active category — once dates are
+ * picked the admin has done the meaningful work of this step. Earlier
+ * rules required every active category to carry both roster + bindings,
+ * which left the step pinned at `in_progress` whenever the admin only
+ * cared about a subset of categories.
+ *
+ *   • complete    — ≥1 active binding exists for any active category
+ *   • in_progress — roster rows exist but no bindings yet
+ *   • not_started — neither dimension touched
  */
 export interface CommitteeBindingsSnapshot {
   /** Per-active-category roster count (from `CategoryCommittees`). */
@@ -117,20 +123,15 @@ export function computeStepStatus(
         return cycleCommittees.length > 0 ? 'complete' : 'not_started';
       }
       if (snap.activeCategoryIds.length === 0) return 'not_started';
-      const rosterTouched = snap.activeCategoryIds.some(
+      const anyRoster = snap.activeCategoryIds.some(
         (id) => (snap.rosterByCategory[id] ?? 0) > 0,
       );
-      const bindingsTouched = snap.activeCategoryIds.some(
+      const anyBindings = snap.activeCategoryIds.some(
         (id) => (snap.activeBindingsByCategory[id] ?? 0) > 0,
       );
-      if (!rosterTouched && !bindingsTouched) return 'not_started';
-      const rosterComplete = snap.activeCategoryIds.every(
-        (id) => (snap.rosterByCategory[id] ?? 0) > 0,
-      );
-      const bindingsComplete = snap.activeCategoryIds.every(
-        (id) => (snap.activeBindingsByCategory[id] ?? 0) > 0,
-      );
-      return rosterComplete && bindingsComplete ? 'complete' : 'in_progress';
+      if (anyBindings) return 'complete';
+      if (anyRoster) return 'in_progress';
+      return 'not_started';
     }
     case 'electronic_declaration':
       if (!declaration) return 'not_started';

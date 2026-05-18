@@ -79,7 +79,7 @@ export function VerticalStepper({
               className="flex w-full flex-1 items-stretch gap-3 min-h-0"
             >
               {/* Spine column — dot + connector */}
-              <div className="relative flex w-7 shrink-0 flex-col items-center">
+              <div className="relative flex w-8 shrink-0 flex-col items-center">
                 <StepDot state={step.state} order={step.order} />
                 {!isLast && (
                   <span
@@ -107,7 +107,7 @@ export function VerticalStepper({
               >
                 <span
                   className={cn(
-                    'whitespace-normal text-2xs leading-tight',
+                    'whitespace-normal text-sm leading-snug',
                     isActive
                       ? 'font-bold text-ink-900'
                       : step.state === 'complete'
@@ -136,11 +136,11 @@ function StepDot({
   order: number;
 }): JSX.Element {
   const base =
-    'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-2xs font-numeric tnum';
+    'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-numeric tnum';
   if (state === 'complete') {
     return (
       <span className={cn(base, 'border-teal-500 bg-teal-500 text-white')} aria-hidden>
-        <Check size={12} strokeWidth={2.4} />
+        <Check size={14} strokeWidth={2.4} />
       </span>
     );
   }
