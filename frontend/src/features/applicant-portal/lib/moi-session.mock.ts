@@ -264,6 +264,34 @@ function djb2(s: string): number {
 }
 
 /**
+ * Demo Thanaweya rows keyed by NID — used as a client-side fallback in
+ * the applicant profile page when the real `/admin/grades` backend isn't
+ * available (i.e. mock-only demo runs). Only known eligible NIDs need
+ * entries; everyone else falls through to the manual-entry block.
+ */
+export interface DemoGradeRow {
+  seatingNumber: string;
+  branch: string;
+  total: number;
+  importMax: number;
+  school: string;
+  region: string;
+  kind: 'general' | 'azhar';
+}
+
+export const DEMO_APPLICANT_GRADES: Record<string, DemoGradeRow> = {
+  [MOI_APPLICANT_SESSION.nationalId]: {
+    seatingNumber: '142018',
+    branch: 'علمي علوم',
+    total: 392,
+    importMax: 410,
+    school: 'ثانوية النيل النموذجية',
+    region: 'القاهرة',
+    kind: 'general',
+  },
+};
+
+/**
  * Scenario-driven lookup used by the applicant login flow.
  * Maps the 3 demo NIDs to explicit verdicts; any other valid NID is
  * treated as `not_found` (so unknown applicants land on the manual

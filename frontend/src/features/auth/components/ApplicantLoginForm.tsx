@@ -1,9 +1,12 @@
 /**
  * ApplicantLoginForm — applicant-only login at /applicant-login.
  *
- * Differences from the officer LoginForm:
+ * Applicants log in with **national ID + mobile number** (not a password)
+ * per client direction (2026-05-18). The staff login at /staff-login is
+ * unchanged. Differences from the officer LoginForm:
  *  - No role picker (role is hardcoded to 'applicant').
  *  - No OTP step.
+ *  - Mobile number replaces the password field.
  *  - Routes the applicant by the (mocked) MOI lookup verdict:
  *      eligible    → /applicant/profile (category pre-selected)
  *      not_found   → /applicant/start   (category selection)
@@ -19,7 +22,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ArrowLeft, Lock } from 'lucide-react';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import { Button, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { authService } from '../api/auth.service';
@@ -34,7 +37,12 @@ const schema = z.object({
     .min(14, 'الرقم القومي يجب أن يكون 14 رقماً')
     .max(14, 'الرقم القومي يجب أن يكون 14 رقماً')
     .regex(/^[0-9]{14}$/, 'الرقم القومي يجب أن يحتوي على أرقام فقط'),
-  password: z.string().min(1, 'كلمة المرور مطلوبة'),
+  mobile: z
+    .string()
+    .regex(
+      /^01[0125][0-9]{8}$/,
+      'رقم المحمول يجب أن يكون 11 رقماً ويبدأ بـ 010 / 011 / 012 / 015',
+    ),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -45,14 +53,9 @@ export function ApplicantLoginForm(): JSX.Element {
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- zodResolver bridges zod's variance-strict generic
     resolver: zodResolver(schema),
-    defaultValues: { nationalId: '', password: '' },
+    defaultValues: { nationalId: '', mobile: '' },
   });
 
-  /**
-   * Imperative login. Returns the destination URL based on MOI verdict.
-   * Caller is responsible for navigating; we keep navigation OUT of this
-   * function so the dest is observable in tests/debug.
-   */
   const performLogin = async (values: FormValues): Promise<void> => {
     setSubmitting(true);
     try {
@@ -62,9 +65,13 @@ export function ApplicantLoginForm(): JSX.Element {
       useAuthStore.getState().clear();
       useApplicantPortalStore.getState().clear();
 
+      /* The mock authService.login expects a `password` arg — the
+       * applicant flow uses the mobile as the second credential
+       * (mock auth doesn't actually validate it, it just needs to be
+       * non-empty). */
       const user = await authService.login({
         username: values.nationalId,
-        password: values.password,
+        password: values.mobile,
         role: 'applicant',
       });
 
@@ -119,7 +126,7 @@ export function ApplicantLoginForm(): JSX.Element {
           دخول المتقدمين
         </h2>
         <p className="mt-1 text-sm leading-relaxed text-ink-500">
-          أدخل الرقم القومي وكلمة المرور للوصول إلى ملف التقديم الخاص بك.
+          أدخل الرقم القومي ورقم المحمول للوصول إلى ملف التقديم الخاص بك.
         </p>
       </header>
 
@@ -134,12 +141,14 @@ export function ApplicantLoginForm(): JSX.Element {
       />
 
       <Input
-        label="كلمة المرور"
-        type="password"
+        label="رقم المحمول"
+        type="tel"
         required
-        placeholder="••••••••"
-        {...register('password')}
-        error={errors.password?.message}
+        dir="ltr"
+        placeholder="01XXXXXXXXX"
+        maxLength={11}
+        {...register('mobile')}
+        error={errors.mobile?.message}
       />
 
       <Button
@@ -158,11 +167,12 @@ export function ApplicantLoginForm(): JSX.Element {
         role="note"
         className="flex items-start gap-3 rounded-md border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700"
       >
-        <Lock size={18} strokeWidth={1.75} aria-hidden className="mt-0.5 flex-shrink-0" />
+        <ShieldCheck size={18} strokeWidth={1.75} aria-hidden className="mt-0.5 flex-shrink-0" />
         <div>
           <p className="font-medium">دخول آمن</p>
           <p className="mt-0.5 text-xs text-teal-700/80 leading-normal">
-            بياناتك مُشفّرة. لاسترجاع كلمة المرور تواصَل مع الدعم الفنّي للأكاديمية.
+            بياناتك مُشفّرة. عند الحاجة لتحديث رقم المحمول تواصَل مع الدعم الفنّي
+            للأكاديمية.
           </p>
         </div>
       </aside>

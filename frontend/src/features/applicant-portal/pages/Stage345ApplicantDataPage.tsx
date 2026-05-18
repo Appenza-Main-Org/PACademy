@@ -52,7 +52,12 @@ import { ROUTES } from '@/config/routes';
 import { stage345Schema, type Stage345Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
-import { MOI_APPLICANT_SESSION, type MoiApplicantSession } from '../lib/moi-session.mock';
+import {
+  DEMO_APPLICANT_GRADES,
+  MOI_APPLICANT_SESSION,
+  mockMoiLookup,
+  type MoiApplicantSession,
+} from '../lib/moi-session.mock';
 import { useMoiVerification } from '../api/applicantPortal.queries';
 import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
 import { CITIES } from '@/shared/mock-data/dictionaries';
@@ -138,10 +143,22 @@ export function Stage345ApplicantDataPage(): JSX.Element {
    * store. For the "not found in MOI" path it's intentionally null —
    * fall back to a stub session built from the entered NID rather than
    * the static demo Ahmed, so the identity rows don't leak another
-   * user's data. The MOI verification badge is suppressed in that case. */
+   * user's data. The MOI verification badge is suppressed in that case.
+   *
+   * Defensive fallback: when the persisted store predates the moiSession
+   * field (or got cleared mid-flow) we re-derive the MOI verdict from
+   * the entered NID via mockMoiLookup. That way scenario 1 (Ahmed) still
+   * shows MOI-verified UI even if the store didn't capture the session
+   * for some reason. */
   const nid = storeNid ?? moiSessionFromStore?.nationalId ?? '';
+  const lookupSession = useMemo<MoiApplicantSession | null>(() => {
+    if (!nid) return null;
+    const r = mockMoiLookup(nid);
+    return r.kind === 'eligible' || r.kind === 'ineligible' ? r.session : null;
+  }, [nid]);
+  const effectiveSession = moiSessionFromStore ?? lookupSession;
   const session: MoiApplicantSession =
-    moiSessionFromStore ??
+    effectiveSession ??
     {
       applicantId: storeNid ? `APP-MAN-${storeNid.slice(-6)}` : 'APP-MANUAL',
       fullName: '',
@@ -155,7 +172,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       birthDistrict: '',
       religion: 'مسلم',
     };
-  const isMoiVerified = moiSessionFromStore !== null;
+  const isMoiVerified = effectiveSession !== null;
 
   const moiQuery = useMoiVerification(isMoiVerified ? nid : '');
   const gradeByNidQuery = useApplicantGradeByNid(nid, selectedCycleId);
@@ -257,9 +274,36 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   const gradesQuery = useGrades();
   const schoolCategoriesQuery = useLookup('school-categories');
   const matchedGradeRow = useMemo<GradeRow | null>(() => {
-    if (!gradesQuery.data) return null;
-    return gradesQuery.data.find((r) => r.nid === session.nationalId) ?? null;
-  }, [gradesQuery.data, session.nationalId]);
+    /* Prefer a real row from the backend when available. */
+    const fromBackend = gradesQuery.data?.find((r) => r.nid === session.nationalId) ?? null;
+    if (fromBackend) return fromBackend;
+    /* Fallback for mock-only demo runs (no `/admin/grades` endpoint) —
+     * known eligible NIDs (e.g. Ahmed) get a hardcoded Thanaweya row so
+     * the ExternalGradesPanel actually populates instead of falling
+     * through to an empty manual-entry form. */
+    const demo = DEMO_APPLICANT_GRADES[session.nationalId];
+    if (!demo) return null;
+    return {
+      seat: 0,
+      seatingNumber: demo.seatingNumber,
+      nid: session.nationalId,
+      name: session.fullName || 'متقدم',
+      kind: demo.kind,
+      gender: session.gender,
+      branch: demo.branch,
+      graduationYear: null,
+      schoolCategoryCode: null,
+      school: demo.school,
+      region: demo.region,
+      total: demo.total,
+      importMax: demo.importMax,
+      overrideMax: null,
+      lastEditedAt: null,
+      lastEditedBy: null,
+      status: '—',
+      log: [],
+    };
+  }, [gradesQuery.data, session.nationalId, session.fullName, session.gender]);
   const externalImport = matchedGradeRow !== null;
 
   const manualSchoolCategories = useMemo<SchoolCategoryRow[]>(() => {
@@ -1060,7 +1104,7 @@ function ReadOnlyInline({
         >
           {value}
         </span>
-        <span className="text-2xs text-ink-500">من بوابة وزارة الداخلية</span>
+        {/* <span className="text-2xs text-ink-500">من بوابة وزارة الداخلية</span> */}
       </div>
     </div>
   );
