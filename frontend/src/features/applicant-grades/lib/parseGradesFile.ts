@@ -256,7 +256,179 @@ async function parseAccess(
   return tables;
 }
 
-/* ── Spreadsheet (.xlsx / .xls / .csv) branch ─────────────────────── */
+/* ── CSV (.csv) streaming branch ──────────────────────────────────── */
+
+/** Parse a single CSV record (one logical row's worth of text — may
+ *  contain escaped quotes but, by the time it reaches here, contains
+ *  no unquoted newlines). Handles RFC 4180 quoting: a field wrapped in
+ *  `"…"` may contain `,` and embedded newlines, and a literal `"`
+ *  inside a quoted field is escaped as `""`. */
+function parseCsvRecord(record: string): string[] {
+  const fields: string[] = [];
+  let field = '';
+  let inQuote = false;
+  for (let i = 0; i < record.length; i += 1) {
+    const ch = record[i];
+    if (inQuote) {
+      if (ch === '"') {
+        if (record[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuote = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      inQuote = true;
+    } else if (ch === ',') {
+      fields.push(field);
+      field = '';
+    } else {
+      field += ch;
+    }
+  }
+  fields.push(field);
+  return fields;
+}
+
+/**
+ * Stream-parse a CSV file row-by-row off `file.stream()`. Built for
+ * Ministry exports that run into the hundreds of thousands of rows —
+ * SheetJS's `XLSX.read(text, { type: 'string' })` allocates the full
+ * file as a JS string *plus* a dense 2D cell-object array, which on a
+ * 700k-row × ~13-col file trips V8's `Invalid array length` guard
+ * even with `dense: true`. Streaming the bytes through a
+ * `TextDecoderStream` keeps the in-flight buffer bounded and pushes
+ * one plain object per row so the resulting memory footprint scales
+ * with populated cells, not declared sheet range.
+ *
+ * Handles quoted fields (with embedded `,` and newlines), `""`-escaped
+ * quotes, and both `\n` and `\r\n` line endings. Skips a leading UTF-8
+ * BOM. Yields to the event loop every `CHUNK_SIZE` rows so the
+ * progress bar in Step 2 advances and the tab stays responsive.
+ */
+async function parseCsvStreaming(
+  file: File,
+  onProgress: ParseProgressCallback | undefined,
+): Promise<ParsedTable[]> {
+  const tableName = 'بيانات';
+  /* Approximate row total off file size so the progress bar has
+   * something to draw against. Refined once we've actually seen a few
+   * rows so the bar tracks reality rather than the initial guess. */
+  const SIZE_PER_ROW_GUESS = 120;
+  let total = Math.max(1, Math.floor(file.size / SIZE_PER_ROW_GUESS));
+
+  const reader = file.stream().getReader();
+  const decoder = new TextDecoder('utf-8');
+
+  let buffer = '';
+  let columns: string[] | null = null;
+  const rows: Array<Record<string, ParsedCell>> = [];
+  let processed = 0;
+  let sawAnyByte = false;
+
+  /** Walk `buffer` looking for the next unquoted line terminator;
+   *  returns `{ record, nextIdx }` for the slice up to (but not
+   *  including) the terminator, plus the index just past it. Returns
+   *  `null` when no complete record is buffered yet. */
+  const consumeRecord = (start: number): { record: string; nextIdx: number } | null => {
+    let inQuote = false;
+    for (let i = start; i < buffer.length; i += 1) {
+      const ch = buffer[i];
+      if (ch === '"') {
+        if (inQuote && buffer[i + 1] === '"') {
+          i += 1;
+        } else {
+          inQuote = !inQuote;
+        }
+      } else if (!inQuote && (ch === '\n' || ch === '\r')) {
+        const record = buffer.slice(start, i);
+        let nextIdx = i + 1;
+        if (ch === '\r' && buffer[nextIdx] === '\n') nextIdx += 1;
+        return { record, nextIdx };
+      }
+    }
+    return null;
+  };
+
+  const ingestRecord = (record: string): void => {
+    if (record.length === 0) return;
+    const cells = parseCsvRecord(record);
+    if (!columns) {
+      columns = cells.map((c, i) => {
+        const t = c.trim();
+        return t === '' ? `العمود ${i + 1}` : t;
+      });
+      return;
+    }
+    const row: Record<string, ParsedCell> = {};
+    let nonEmpty = false;
+    const width = columns.length;
+    for (let i = 0; i < width; i += 1) {
+      const v = coerceCell(cells[i] ?? null);
+      row[columns[i]!] = v;
+      if (v != null) nonEmpty = true;
+    }
+    processed += 1;
+    if (nonEmpty) rows.push(row);
+  };
+
+  try {
+    while (true) {
+      // eslint-disable-next-line no-await-in-loop
+      const { done, value } = await reader.read();
+      if (done) {
+        const tail = decoder.decode();
+        if (tail) buffer += tail;
+        if (buffer.length > 0) ingestRecord(buffer);
+        break;
+      }
+      sawAnyByte = true;
+      buffer += decoder.decode(value, { stream: true });
+      /* Strip a UTF-8 BOM if it landed at the very start of the file. */
+      if (processed === 0 && !columns && buffer.charCodeAt(0) === 0xfeff) {
+        buffer = buffer.slice(1);
+      }
+
+      let cursor = 0;
+      while (true) {
+        const next = consumeRecord(cursor);
+        if (!next) break;
+        ingestRecord(next.record);
+        cursor = next.nextIdx;
+        if (processed > 0 && processed % CHUNK_SIZE === 0) {
+          if (processed > total) total = processed * 2;
+          onProgress?.({ processed, total, tableName });
+          // eslint-disable-next-line no-await-in-loop
+          await yieldToEventLoop();
+        }
+        if (processed > MAX_ROWS) {
+          throw new ParseGradesError(OVER_LIMIT_MESSAGE);
+        }
+      }
+      buffer = buffer.slice(cursor);
+    }
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      /* lock release is best-effort — if the stream errored mid-read
+       * the lock may already be gone. */
+    }
+  }
+
+  if (!sawAnyByte || !columns || rows.length === 0) {
+    throw new ParseGradesError('لا توجد ورقة بيانات قابلة للقراءة في الملف.');
+  }
+
+  onProgress?.({ processed, total: processed, tableName });
+
+  return [{ name: tableName, columns, rows, rowCount: rows.length }];
+}
+
+/* ── Spreadsheet (.xlsx / .xls) branch ────────────────────────────── */
 
 /**
  * SheetJS shape for dense-mode worksheets. The library writes a 2D row
@@ -281,10 +453,9 @@ function denseRows(
  *  (`sheet['!data']`) when present — it's a row-of-arrays 2D structure
  *  that side-steps the sparse-property bulk allocation that crashes on
  *  ~700k-row files. Falls back to the A1-address lookup when a sheet
- *  was read without `dense: true` (CSV path, older parser variants).
- *  Either way the iteration yields to the event loop every
- *  `CHUNK_SIZE` rows so the progress UI advances and the tab stays
- *  responsive. */
+ *  was read without `dense: true` (older parser variants). Either way
+ *  the iteration yields to the event loop every `CHUNK_SIZE` rows so
+ *  the progress UI advances and the tab stays responsive. */
 async function readSheetRows(
   XLSX: typeof XLSXType,
   sheet: XLSXType.WorkSheet,
@@ -304,16 +475,20 @@ async function readSheetRows(
   const startCol = range.s.c;
   const endCol = range.e.c;
   const startRow = range.s.r;
-  const endRow = range.e.r;
+  /* Clamp the effective end-row at MAX_ROWS above the header. If the
+   * workbook's `!ref` is corrupted (or the cap during `XLSX.read`
+   * didn't fully bound the range), this keeps the dense iteration
+   * below from spinning over billions of synthetic empty rows while
+   * still letting the file's real data through. */
+  const rawEndRow = range.e.r;
+  const endRow =
+    Number.isFinite(rawEndRow) && rawEndRow - startRow > MAX_ROWS
+      ? startRow + MAX_ROWS
+      : rawEndRow;
   const colCount = endCol - startCol + 1;
   const dataRowCount = Math.max(0, endRow - startRow); // excludes header
 
-  if (
-    !Number.isFinite(dataRowCount) ||
-    !Number.isFinite(colCount) ||
-    colCount < 0 ||
-    dataRowCount > MAX_ROWS
-  ) {
+  if (!Number.isFinite(dataRowCount) || !Number.isFinite(colCount) || colCount < 0) {
     throw new ParseGradesError(OVER_LIMIT_MESSAGE);
   }
 
@@ -376,50 +551,60 @@ async function parseSpreadsheet(
   onProgress: ParseProgressCallback | undefined,
 ): Promise<ParsedTable[]> {
   const XLSX = (await import('xlsx')) as typeof XLSXType;
-  const isCsv = file.name.toLowerCase().endsWith('.csv');
+
+  /* `dense: true` is the critical flag for large workbooks — it
+   * tells SheetJS to store cells in a per-sheet `!data` 2D array
+   * instead of materialising a sparse property bag keyed by every
+   * cell address. On a 700k-row × N-col file the sparse form
+   * allocates millions of object properties up-front and trips
+   * V8's `Invalid array length` guard; dense mode reads in linear
+   * memory proportional to populated cells.
+   * `cellHTML/cellFormula/cellStyles: false` strip out parse-time
+   * work we don't need — header text + numeric values is all the
+   * wizard ever reads. */
+  const baseOpts: XLSXType.ParsingOptions = {
+    dense: true,
+    cellHTML: false,
+    cellFormula: false,
+    cellStyles: false,
+    cellDates: true,
+  } as unknown as XLSXType.ParsingOptions;
+
+  const readOpts: XLSXType.ParsingOptions = {
+    ...baseOpts,
+    type: 'array',
+    codepage: 65001,
+  };
+  const source = await file.arrayBuffer();
+
+  const tryRead = (extra?: XLSXType.ParsingOptions): XLSXType.WorkBook =>
+    XLSX.read(source, extra ? { ...readOpts, ...extra } : readOpts);
+
   let workbook: XLSXType.WorkBook;
   try {
-    /* `dense: true` is the critical flag for large workbooks — it
-     * tells SheetJS to store cells in a per-sheet `!data` 2D array
-     * instead of materialising a sparse property bag keyed by every
-     * cell address. On a 700k-row × N-col file the sparse form
-     * allocates millions of object properties up-front and trips
-     * V8's `Invalid array length` guard; dense mode reads in linear
-     * memory proportional to populated cells.
-     * `cellHTML/cellFormula/cellStyles: false` strip out parse-time
-     * work we don't need — header text + numeric values is all the
-     * wizard ever reads. */
-    const baseOpts: XLSXType.ParsingOptions = {
-      dense: true,
-      cellHTML: false,
-      cellFormula: false,
-      cellStyles: false,
-      cellDates: true,
-    } as unknown as XLSXType.ParsingOptions;
-    if (isCsv) {
-      /* SheetJS's `type: 'array'` defaults to cp1252 for CSV inputs that
-       * lack a BOM, which mangles Arabic into Ø-mojibake. Read the file
-       * as UTF-8 text first via the browser's `File.text()` (which uses
-       * `TextDecoder('utf-8')`) and feed it as a string instead. The
-       * `xlsx`/`xls` branch still goes through the array path because
-       * those formats carry their own encoding metadata. */
-      const text = await file.text();
-      workbook = XLSX.read(text, { ...baseOpts, type: 'string' });
-    } else {
-      const buffer = await file.arrayBuffer();
-      workbook = XLSX.read(buffer, { ...baseOpts, type: 'array', codepage: 65001 });
-    }
+    workbook = tryRead();
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
     /* `Invalid array length` here means SheetJS hit V8's array-size
      * ceiling while materialising the workbook even with dense mode
      * on — usually a malformed `!ref` range pointing at billions of
-     * rows. Surface the friendly over-limit message; the raw cause
-     * is still attached for the technical-details disclosure. */
+     * rows. Don't bail yet: retry with `sheetRows` capped, which
+     * tells SheetJS to truncate the read range at parse time so the
+     * dense allocation stays bounded. Real data in such files is
+     * almost always small; only the metadata is corrupted. */
     if (/invalid array length/i.test(raw)) {
-      throw new ParseGradesError(OVER_LIMIT_MESSAGE, raw);
+      try {
+        workbook = tryRead({ sheetRows: MAX_ROWS + 1 });
+      } catch (retryErr) {
+        const retryRaw = retryErr instanceof Error ? retryErr.message : String(retryErr);
+        if (/invalid array length/i.test(retryRaw)) {
+          throw new ParseGradesError(OVER_LIMIT_MESSAGE, retryRaw);
+        }
+        throw new ParseGradesError(`تعذّر قراءة الملف: ${retryRaw}`, retryRaw);
+      }
+    } else {
+      throw new ParseGradesError(`تعذّر قراءة الملف: ${raw}`, raw);
     }
-    throw new ParseGradesError(`تعذّر قراءة الملف: ${raw}`, raw);
   }
   const tables: ParsedTable[] = [];
   for (const name of workbook.SheetNames) {
@@ -457,9 +642,18 @@ export async function parseGradesFile(
   if (!format) {
     throw new ParseGradesError(`صيغة الملف غير مدعومة: ${file.name}`);
   }
-  const tables =
-    format === 'accdb' || format === 'mdb'
-      ? await parseAccess(file, options.onProgress)
-      : await parseSpreadsheet(file, options.onProgress);
+  let tables: ParsedTable[];
+  if (format === 'accdb' || format === 'mdb') {
+    tables = await parseAccess(file, options.onProgress);
+  } else if (format === 'csv') {
+    /* CSV gets its own streaming reader — SheetJS chokes on real
+     * Ministry exports that run past ~500k rows even with dense mode
+     * on, because it allocates the full file as a JS string plus a
+     * 2D cell-object array up-front. Streaming off `file.stream()`
+     * keeps the in-flight buffer bounded. */
+    tables = await parseCsvStreaming(file, options.onProgress);
+  } else {
+    tables = await parseSpreadsheet(file, options.onProgress);
+  }
   return { sourceName: file.name, format, tables };
 }
