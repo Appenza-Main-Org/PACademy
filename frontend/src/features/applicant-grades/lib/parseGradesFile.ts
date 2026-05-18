@@ -194,33 +194,60 @@ async function parseAccess(
   }
   const tables: ParsedTable[] = [];
   for (const tableName of tableNames) {
+    let table: ReturnType<MDBReaderType['getTable']>;
     let columns: string[];
-    let raws: Array<Record<string, Value>>;
+    let totalRows: number;
     try {
-      const table = reader.getTable(tableName);
+      table = reader.getTable(tableName);
       columns = [...table.getColumnNames()];
-      raws = table.getData<Record<string, Value>>();
+      totalRows = table.rowCount;
     } catch {
       /* Skip tables that fail to enumerate — Ministry exports
        * occasionally carry index/system tables we can't parse. */
       continue;
     }
-    if (raws.length > MAX_ROWS) {
+    if (!Number.isFinite(totalRows) || totalRows > MAX_ROWS) {
       throw new ParseGradesError(OVER_LIMIT_MESSAGE);
     }
+    /* Page through `getData({ rowOffset, rowLimit })` in `CHUNK_SIZE`
+     * batches — mdb-reader's bulk `getData()` allocates the full row
+     * array up-front and trips `Invalid array length` on big tables,
+     * mirroring the SheetJS sparse-allocation problem the spreadsheet
+     * branch fixes with `dense: true`. Paging keeps the per-iteration
+     * allocation bounded; the parser yields to the event loop
+     * between pages so the progress UI advances and the tab stays
+     * responsive. */
     const rows: Array<Record<string, ParsedCell>> = [];
-    for (let i = 0; i < raws.length; i += 1) {
-      const raw = raws[i]!;
-      const out: Record<string, ParsedCell> = {};
-      for (const col of columns) out[col] = coerceCell(raw[col]);
-      rows.push(out);
-      if ((i + 1) % CHUNK_SIZE === 0) {
-        onProgress?.({ processed: i + 1, total: raws.length, tableName });
+    let rowOffset = 0;
+    try {
+      while (rowOffset < totalRows) {
+        const page = table.getData<Record<string, Value>>({
+          rowOffset,
+          rowLimit: CHUNK_SIZE,
+        });
+        if (page.length === 0) break;
+        for (const raw of page) {
+          const out: Record<string, ParsedCell> = {};
+          for (const col of columns) out[col] = coerceCell(raw[col]);
+          rows.push(out);
+        }
+        rowOffset += page.length;
+        onProgress?.({ processed: rowOffset, total: totalRows, tableName });
         // eslint-disable-next-line no-await-in-loop
         await yieldToEventLoop();
       }
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      if (/invalid array length/i.test(raw)) {
+        throw new ParseGradesError(OVER_LIMIT_MESSAGE, raw);
+      }
+      /* Other per-table errors (encrypted page, malformed record) —
+       * fall through and let the table appear with whatever rows
+       * survived the loop; if none did, we drop it from `tables`
+       * below. Continue keeps multi-table Access files usable when
+       * one stray table goes bad. */
     }
-    onProgress?.({ processed: rows.length, total: raws.length, tableName });
+    onProgress?.({ processed: rows.length, total: totalRows, tableName });
     tables.push({ name: tableName, columns, rows, rowCount: rows.length });
   }
   if (tables.length === 0) {
