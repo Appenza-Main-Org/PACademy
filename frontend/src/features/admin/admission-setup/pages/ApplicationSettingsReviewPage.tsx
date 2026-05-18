@@ -28,7 +28,7 @@
 
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Printer } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -58,13 +58,35 @@ const GENDER_LABEL: Readonly<Record<string, string>> = {
   female: 'أنثى',
 };
 
+/* Print: landscape A4 fits the wide row tables comfortably; tighter
+ * font keeps two-column data legible on paper. The global print.css
+ * already hides chrome-side elements that carry `.no-print`. */
+const PRINT_CSS = `
+@media print {
+  @page { size: A4 landscape; margin: 12mm 10mm; }
+  .app-settings-review-print table { font-size: 9pt; }
+  .app-settings-review-print thead th { font-size: 8pt; }
+}
+`;
+
 export function ApplicationSettingsReviewPage(): JSX.Element {
   return (
     <AdmissionSetupShell>
-      <div className="flex flex-col gap-4">
+      <style>{PRINT_CSS}</style>
+      <div className="app-settings-review-print flex flex-col gap-4">
         <PageHeader
           title="مراجعة إعدادات التقديم لكل فئة"
           subtitle="مراجعة قراءة فقط لكل ما تم إدخاله في خطوة «إعدادات التقديم»."
+          actions={
+            <Button
+              variant="primary"
+              size="sm"
+              leadingIcon={<Printer size={14} strokeWidth={1.75} aria-hidden />}
+              onClick={() => window.print()}
+            >
+              طباعة
+            </Button>
+          }
         />
         <ReviewBody />
       </div>

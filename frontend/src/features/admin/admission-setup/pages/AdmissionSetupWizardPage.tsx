@@ -214,7 +214,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
       >
         {/* Slim breadcrumb-style context bar — replaces the duplicate
          * outer PageHeader. Step page below renders the H1. */}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-2xs text-ink-500">
+        <div className="no-print flex flex-wrap items-center justify-between gap-2 text-2xs text-ink-500">
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to={ROUTES.admin.admissionSetup.index}
@@ -250,7 +250,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
           <aside
             aria-label="مراحل المعالج"
             className={cn(
-              'w-full shrink-0 rounded-md border border-border-subtle bg-surface-card p-3',
+              'no-print w-full shrink-0 rounded-md border border-border-subtle bg-surface-card p-3',
               /* Sticky on md+ so the rail stays visible while the form
                * scrolls. Top offset clears the staff chrome header
                * (~64px) plus a hair of breathing room. The rail is sized
@@ -284,7 +284,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
          * column — sidebar isn't overlapped, and scrolling reveals all
          * form content without the toolbar covering the last fields. */}
         <footer
-          className="sticky bottom-0 -mx-6 mt-2 border-t border-border-subtle bg-surface-card/95 px-6 py-3 shadow-sm backdrop-blur"
+          className="no-print sticky bottom-0 -mx-6 mt-2 border-t border-border-subtle bg-surface-card/95 px-6 py-3 shadow-sm backdrop-blur"
           style={{ zIndex: 'var(--z-sticky)' as unknown as number }}
         >
           <div className="flex items-center justify-between gap-3">
