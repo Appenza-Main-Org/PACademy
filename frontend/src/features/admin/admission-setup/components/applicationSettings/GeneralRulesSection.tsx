@@ -356,7 +356,7 @@ export function GeneralRulesSection({
           onClick={handleApprove}
           disabled={localCount === 0}
         >
-          اعتماد
+          اعتماد الفئة
         </Button>
       </div>
     </section>
@@ -1051,7 +1051,7 @@ function PerSpecForm({
             onClick={handleSubmit}
             disabled={!canSubmit}
           >
-            {isEditing ? 'تعديل' : 'اعتماد'}
+            {isEditing ? 'تعديل' : 'إضافة'}
           </Button>
         </div>
       </Card>
@@ -1130,9 +1130,7 @@ function LocalUniversityGrid({
             <Th>الدرجة العلمية</Th>
             <Th>اللجنة</Th>
             <Th>سنة التخرج</Th>
-            <th className="px-3 py-2">
-              <span className="sr-only">إجراءات</span>
-            </th>
+            <Th>إجراءات</Th>
           </tr>
         </thead>
         <tbody>

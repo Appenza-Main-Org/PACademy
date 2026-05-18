@@ -210,7 +210,7 @@ export function ThanawiRulesSection({
           onClick={handleApprove}
           disabled={localCount === 0}
         >
-          اعتماد
+          اعتماد الفئة
         </Button>
       </div>
     </section>
@@ -677,7 +677,7 @@ function ThanawiForm({
             onClick={handleSubmit}
             disabled={!canSubmit}
           >
-            {isEditing ? 'تعديل' : 'اعتماد'}
+            {isEditing ? 'تعديل' : 'إضافة'}
           </Button>
         </div>
       </Card>
@@ -750,9 +750,7 @@ function ThanawiGrid({
             <Th>فئة المدرسة</Th>
             <Th>الحد الأدنى للدرجة</Th>
             <Th>الحد الأقصى للدرجة</Th>
-            <th className="px-3 py-2">
-              <span className="sr-only">إجراءات</span>
-            </th>
+            <Th>إجراءات</Th>
           </tr>
         </thead>
         <tbody>
