@@ -427,14 +427,29 @@ function ThanawiForm({
   const addThanawiRow = useAdmissionSetupWizardStore((s) => s.addThanawiRow);
   const updateThanawiRow = useAdmissionSetupWizardStore((s) => s.updateThanawiRow);
   const removeLocalRow = useAdmissionSetupWizardStore((s) => s.removeLocalRow);
+  const removeApprovedRow = useAdmissionSetupWizardStore(
+    (s) => s.removeApprovedRow,
+  );
   const setEditingRow = useAdmissionSetupWizardStore((s) => s.setEditingRow);
   const clearEditingRow = useAdmissionSetupWizardStore((s) => s.clearEditingRow);
-  const rows = useAdmissionSetupWizardStore((s) =>
-    s.local.filter(
-      (r): r is LocalThanawiRow =>
-        r.kind === 'thanawi' && r.categoryCode === categoryCode,
-    ),
+  /* Read both buckets so authored rows stay visible after the
+   * section-level «اعتماد» button promotes them to `approved` — without
+   * this the grid would go empty even though the data is still in the
+   * store (and the category badge would still read «مكتمل»). */
+  const localRows = useAdmissionSetupWizardStore((s) => s.local);
+  const approvedRows = useAdmissionSetupWizardStore((s) => s.approved);
+  const rows = useMemo(
+    () =>
+      [...localRows, ...approvedRows].filter(
+        (r): r is LocalThanawiRow =>
+          r.kind === 'thanawi' && r.categoryCode === categoryCode,
+      ),
+    [localRows, approvedRows, categoryCode],
   );
+  const handleDelete = (id: string): void => {
+    removeLocalRow(id);
+    removeApprovedRow(id);
+  };
 
   /** The row currently being edited, scoped to *this* form: must be a
    *  thanawi row under the same applicant-category. Editing a row in
@@ -675,7 +690,7 @@ function ThanawiForm({
         schoolCategoryOptions={schoolCategoryOptions}
         maritalOptions={maritalOptions}
         onEdit={handleEdit}
-        onDelete={(id) => removeLocalRow(id)}
+        onDelete={handleDelete}
       />
     </div>
   );

@@ -725,19 +725,35 @@ function PerSpecForm({
     (s) => s.updateUniversityRow,
   );
   const removeLocalRow = useAdmissionSetupWizardStore((s) => s.removeLocalRow);
+  const removeApprovedRow = useAdmissionSetupWizardStore(
+    (s) => s.removeApprovedRow,
+  );
   const setEditingRow = useAdmissionSetupWizardStore((s) => s.setEditingRow);
   const clearEditingRow = useAdmissionSetupWizardStore(
     (s) => s.clearEditingRow,
   );
-  const rows = useAdmissionSetupWizardStore((s) =>
-    s.local.filter(
-      (r): r is LocalUniversityRow =>
-        r.kind === 'university' &&
-        r.categoryCode === categoryCode &&
-        r.facultyCode === facultyCode &&
-        r.specializationCode === specializationCode,
-    ),
+  /* Read both buckets so rows promoted via the section-level «اعتماد»
+   * button (which moves them from `local` → `approved`) stay visible
+   * in the editor grid. Without this the grid would empty out while
+   * the category badge still reads مكتمل — confusing on round-trips
+   * through `application_settings_review`. */
+  const localRows = useAdmissionSetupWizardStore((s) => s.local);
+  const approvedRows = useAdmissionSetupWizardStore((s) => s.approved);
+  const rows = useMemo(
+    () =>
+      [...localRows, ...approvedRows].filter(
+        (r): r is LocalUniversityRow =>
+          r.kind === 'university' &&
+          r.categoryCode === categoryCode &&
+          r.facultyCode === facultyCode &&
+          r.specializationCode === specializationCode,
+      ),
+    [localRows, approvedRows, categoryCode, facultyCode, specializationCode],
   );
+  const handleDelete = (id: string): void => {
+    removeLocalRow(id);
+    removeApprovedRow(id);
+  };
 
   /** The row currently being edited, scoped to *this* form: must be a
    *  university row under the same (category, faculty, specialization)
@@ -1048,7 +1064,7 @@ function PerSpecForm({
         committeeOptions={committeeOptions}
         maritalOptions={options.maritalOptions}
         onEdit={handleEdit}
-        onDelete={(id) => removeLocalRow(id)}
+        onDelete={handleDelete}
       />
     </div>
   );
