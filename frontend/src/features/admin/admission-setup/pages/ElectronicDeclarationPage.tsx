@@ -100,10 +100,19 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
       setPendingDoc(null);
       return;
     }
-    setPendingDoc({
+    const doc: DeclarationDocument = {
       fileName: file.name,
       fileUrl: URL.createObjectURL(file),
       size: file.size,
+    };
+    setPendingDoc(doc);
+    /* Auto-save right after pick — matches the text-mode blur behaviour
+     * so admins don't have to click «حفظ كنسخة جديدة» separately. */
+    persistDeclaration({
+      mode: 'pdf',
+      bodyAr,
+      document: doc,
+      silent: true,
     });
   };
 
@@ -115,14 +124,24 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     setUploadFiles([]);
   };
 
-  const handleSave = (): void => {
+  /** Persist a declaration version. `silent: true` skips the success
+   *  toast (auto-save calls); explicit «حفظ كنسخة جديدة» clicks pass
+   *  `silent: false` so the admin still sees the version-saved feedback. */
+  const persistDeclaration = (
+    options: {
+      mode: DeclarationMode;
+      bodyAr: string;
+      document: DeclarationDocument | null;
+      silent: boolean;
+    },
+  ): void => {
     if (!canWrite) return;
-    if (activeMode === 'text' && !bodyAr.trim()) {
-      toast('يجب إدخال نص الإقرار قبل الحفظ', 'warning');
+    if (options.mode === 'text' && !options.bodyAr.trim()) {
+      if (!options.silent) toast('يجب إدخال نص الإقرار قبل الحفظ', 'warning');
       return;
     }
-    if (activeMode === 'pdf' && !pendingDoc && !current?.document) {
-      toast('يجب رفع مستند الإقرار قبل الحفظ', 'warning');
+    if (options.mode === 'pdf' && !options.document) {
+      if (!options.silent) toast('يجب رفع مستند الإقرار قبل الحفظ', 'warning');
       return;
     }
     /* `effectiveFrom` is no longer admin-input — stamp it at save time
@@ -133,23 +152,50 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     setMut.mutate(
       {
         cycleId: cycle.id,
-        mode: activeMode,
-        bodyAr: activeMode === 'text' ? bodyAr.trim() : undefined,
-        document:
-          activeMode === 'pdf'
-            ? pendingDoc ?? current?.document ?? null
-            : undefined,
+        mode: options.mode,
+        bodyAr: options.mode === 'text' ? options.bodyAr.trim() : undefined,
+        document: options.mode === 'pdf' ? options.document : undefined,
         effectiveFrom: effectiveFromIso,
       },
       {
         onSuccess: (next) => {
-          toast(`تم حفظ النسخة رقم ${toEasternArabicNumerals(next.version)}`, 'success');
+          if (!options.silent) {
+            toast(
+              `تم حفظ النسخة رقم ${toEasternArabicNumerals(next.version)}`,
+              'success',
+            );
+          }
           setPendingDoc(null);
           setUploadFiles([]);
         },
         onError: (err) => toast((err as Error).message, 'danger'),
       },
     );
+  };
+
+  const handleSave = (): void => {
+    persistDeclaration({
+      mode: activeMode,
+      bodyAr,
+      document: pendingDoc ?? current?.document ?? null,
+      silent: false,
+    });
+  };
+
+  /* Auto-save the text body on blur — eliminates the "I typed but the
+   * step still reads لم يبدأ" surprise admins hit when they navigate
+   * away before clicking «حفظ كنسخة جديدة». Silent so we don't spam
+   * toasts. The dirty check stops repeated saves of the same text. */
+  const handleTextBlur = (): void => {
+    if (setMut.isPending) return;
+    if (!dirty) return;
+    if (activeMode !== 'text') return;
+    persistDeclaration({
+      mode: 'text',
+      bodyAr,
+      document: null,
+      silent: true,
+    });
   };
 
   const handlePublish = (): void => {
@@ -211,6 +257,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
                 <Textarea
                   value={bodyAr}
                   onChange={(e) => setBodyAr(e.currentTarget.value)}
+                  onBlur={handleTextBlur}
                   disabled={!canWrite}
                   rows={12}
                   placeholder="اكتب نص الإقرار الذي سيوقّع عليه المتقدم…"
