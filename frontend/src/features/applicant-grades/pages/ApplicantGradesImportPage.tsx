@@ -56,7 +56,10 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const mapping = useImportWizardStore((s) => s.mapping);
   const filters = useImportWizardStore((s) => s.filters);
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
-  const secondaryType = useImportWizardStore((s) => s.secondaryType);
+  const selectedSchoolCategories = useImportWizardStore(
+    (s) => s.selectedSchoolCategories,
+  );
+  const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
   const reset = useImportWizardStore((s) => s.reset);
 
@@ -81,8 +84,17 @@ export function ApplicantGradesImportPage(): JSX.Element {
 
   function canAdvance(): boolean {
     switch (step) {
-      case 1:
-        return file != null;
+      case 1: {
+        if (file == null) return false;
+        if (selectedSchoolCategories.length === 0) return false;
+        /* Every picked category must carry a positive integer max so
+         * Step 5's preflight + Step 6's commit always have a usable
+         * scale to gate `totalGrade` against. */
+        return selectedSchoolCategories.every((code) => {
+          const v = maxGradeByCategory[code];
+          return typeof v === 'number' && v > 0 && Number.isFinite(v);
+        });
+      }
       case 2:
         return parsed != null && selectedTableName != null;
       case 3:
@@ -131,7 +143,13 @@ export function ApplicantGradesImportPage(): JSX.Element {
       UNREADABLE_VALUE: filterAction(perGroupActions.UNREADABLE_VALUE),
     };
     commit.mutate(
-      { rows, graduationYear, kind: secondaryType, perGroupActions: actions },
+      {
+        rows,
+        graduationYear,
+        selectedSchoolCategories,
+        maxGradeByCategory,
+        perGroupActions: actions,
+      },
       {
         onSuccess: (res) => {
           toast(

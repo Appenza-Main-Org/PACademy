@@ -16,8 +16,6 @@ import type { TargetField } from '../lib/targetFields';
 
 export type ImportStep = 1 | 2 | 3 | 4 | 5 | 6;
 
-export type SecondaryType = 'general' | 'azhar';
-
 export interface FilterState {
   /** `all` = include every distinct value; `include` = keep only those listed in `values`. */
   mode: 'all' | 'include';
@@ -27,8 +25,15 @@ export interface FilterState {
 /** Shape that survives a JSON round-trip in sessionStorage. */
 export interface PersistedImportWizardState {
   step: ImportStep;
-  secondaryType: SecondaryType;
-  maxGrade: number;
+  /** Codes of school-categories the import targets (from the
+   *  `school-categories` lookup, e.g. `SCH-01`, `SCH-03`). Replaces the
+   *  prior binary `secondaryType` (general | azhar) toggle so admins can
+   *  load a mixed file in a single pass. */
+  selectedSchoolCategories: string[];
+  /** Per-category max grade (الدرجة العظمى) keyed by lookup code. The
+   *  commit path reads `maxGradeByCategory[row.schoolCategoryCode]`, so
+   *  every selected category must carry a value before advancing. */
+  maxGradeByCategory: Record<string, number>;
   graduationYear: number;
   /** File metadata only — the File object itself is non-serialisable. */
   fileMeta: { name: string; size: number } | null;
@@ -46,8 +51,8 @@ export interface ImportWizardState extends PersistedImportWizardState {
 
   /** Mutators. */
   setStep: (step: ImportStep) => void;
-  setSecondaryType: (t: SecondaryType) => void;
-  setMaxGrade: (v: number) => void;
+  setSelectedSchoolCategories: (codes: string[]) => void;
+  setMaxGradeForCategory: (code: string, value: number) => void;
   setGraduationYear: (y: number) => void;
   setFile: (file: File | null) => void;
   setParsed: (parsed: ParsedSheet | null) => void;
@@ -59,6 +64,28 @@ export interface ImportWizardState extends PersistedImportWizardState {
   setImportResult: (r: ImportReport | null) => void;
   setPerGroupAction: (code: string, action: 'skip' | 'override' | 'create-applicant') => void;
   reset: () => void;
+}
+
+/** Default max grade per school-category code. Falls back to 410 for
+ *  any code not listed (e.g. STEM, foreign diplomas). The الأزهرية
+ *  certificate ramps to 510 because the maximum credit total there is
+ *  higher than the general curriculum. */
+export const DEFAULT_MAX_GRADE_BY_CATEGORY: Readonly<Record<string, number>> = {
+  'SCH-01': 410,
+  'SCH-03': 510,
+  'SCH-05': 410,
+  'SCH-06': 410,
+  'SCH-07': 410,
+};
+
+/** Hard-coded list of school-category codes that should map to the
+ *  `azhar` GradeKind. Everything else maps to `general`. Hard-coded
+ *  rather than read off the lookup so the kind partition stays explicit
+ *  even if the lookup label changes downstream. */
+export const AZHAR_CATEGORY_CODES: readonly string[] = ['SCH-03'];
+
+export function defaultMaxFor(code: string): number {
+  return DEFAULT_MAX_GRADE_BY_CATEGORY[code] ?? 410;
 }
 
 const EMPTY_MAPPING: Record<TargetField, string | null> = {
@@ -78,8 +105,8 @@ const CURRENT_YEAR = new Date().getFullYear();
 function defaultState(): PersistedImportWizardState {
   return {
     step: 1,
-    secondaryType: 'general',
-    maxGrade: 410,
+    selectedSchoolCategories: [],
+    maxGradeByCategory: {},
     graduationYear: CURRENT_YEAR,
     fileMeta: null,
     selectedTableName: null,
@@ -98,12 +125,22 @@ export const useImportWizardStore = create<ImportWizardState>()(
       parsed: null,
 
       setStep: (step) => set({ step }),
-      setSecondaryType: (secondaryType) =>
-        set({
-          secondaryType,
-          maxGrade: secondaryType === 'azhar' ? 510 : 410,
+      setSelectedSchoolCategories: (codes) =>
+        set((s) => {
+          /* Seed any newly-selected category with its default max so
+           * the UI never renders a blank input for a freshly-checked
+           * chip. Untick → drop the entry so the persisted state stays
+           * lean across sessions. */
+          const next: Record<string, number> = {};
+          for (const code of codes) {
+            next[code] = s.maxGradeByCategory[code] ?? defaultMaxFor(code);
+          }
+          return { selectedSchoolCategories: codes, maxGradeByCategory: next };
         }),
-      setMaxGrade: (maxGrade) => set({ maxGrade }),
+      setMaxGradeForCategory: (code, value) =>
+        set((s) => ({
+          maxGradeByCategory: { ...s.maxGradeByCategory, [code]: value },
+        })),
       setGraduationYear: (graduationYear) => set({ graduationYear }),
       setFile: (file) =>
         set({
@@ -142,8 +179,8 @@ export const useImportWizardStore = create<ImportWizardState>()(
        * are recreated when the admin re-picks the file. */
       partialize: (s): PersistedImportWizardState => ({
         step: s.step,
-        secondaryType: s.secondaryType,
-        maxGrade: s.maxGrade,
+        selectedSchoolCategories: s.selectedSchoolCategories,
+        maxGradeByCategory: s.maxGradeByCategory,
         graduationYear: s.graduationYear,
         fileMeta: s.fileMeta,
         selectedTableName: s.selectedTableName,

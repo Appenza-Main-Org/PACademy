@@ -16,11 +16,14 @@
  *   PATCH  /api/grades/:seat/override-max       → GradeRow
  *     body:  { overrideMax: number | null }
  *   POST   /api/grades/v2/commit                → ImportCommitResult
- *     body:  { rows, graduationYear, kind, perGroupActions }
- *     The `kind` field is sourced from the wizard's Step 1
- *     `secondaryType` (general / azhar) — it overrides any inference
- *     from `row.maxGrade` so admins choosing «ثانوية أزهرية» land rows
- *     as `azhar` even when the file omits a max-grade column.
+ *     body:  { rows, graduationYear, selectedSchoolCategories,
+ *              maxGradeByCategory, perGroupActions }
+ *     `selectedSchoolCategories` are lookup codes from
+ *     `school-categories` (e.g. `SCH-01`, `SCH-03`). The commit derives
+ *     each row's `GradeKind` from its resolved schoolCategoryCode
+ *     (azhar-coded categories → `azhar`, else → `general`) and seeds
+ *     `importMax` from `maxGradeByCategory[code]`. Rows whose category
+ *     is not in the selected set are skipped (counted as failed).
  */
 
 import { simulateLatency } from '@/shared/lib/mock-helpers';
@@ -29,6 +32,7 @@ import { normalizeArabic } from '@/shared/lib/arabic';
 import { MOCK } from '@/shared/mock-data';
 import { easternToAscii } from '../lib/normalise';
 import { SEED_ROWS } from '../mock';
+import { AZHAR_CATEGORY_CODES } from '../store/importWizard.store';
 import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
   AdjustmentReason,
@@ -498,20 +502,28 @@ export const gradesService = {
    * decisions adjust how many of the failure rows get re-counted as
    * inserted or dropped.
    *
-   * `kind` is sourced from the wizard's Step 1 `secondaryType` (azhar
-   * vs general) — earlier revisions derived this from `row.maxGrade`
-   * (`=== 510 ? 'azhar' : 'general'`) and so silently downgraded every
-   * أزهرية upload to عامة whenever the file omitted a max-grade column.
+   * `kind` is derived per-row from each row's resolved
+   * `schoolCategoryCode`: codes in `AZHAR_CATEGORY_CODES` (`SCH-03`) →
+   * `azhar`; everything else → `general`. Rows that don't resolve to a
+   * code in `selectedSchoolCategories` are skipped — the admin picked
+   * the categories the file is supposed to land into, so anything
+   * outside that set is treated as an authoring error.
    */
   async runImportCommit(input: {
     rows: NormalisedRow[];
     graduationYear: number;
-    kind: GradeKind;
+    selectedSchoolCategories: string[];
+    maxGradeByCategory: Record<string, number>;
     perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
   }): Promise<ImportCommitResult> {
     await simulateLatency(180, 340);
-    const { rows, kind, perGroupActions } = input;
-    const defaultMax = kind === 'azhar' ? 510 : 410;
+    const {
+      rows,
+      selectedSchoolCategories,
+      maxGradeByCategory,
+      perGroupActions,
+    } = input;
+    const allowedCategories = new Set(selectedSchoolCategories);
     const existingByNid = new Map(STATE.map((r) => [r.nid, r]));
     let inserted = 0;
     let failed = 0;
@@ -533,6 +545,29 @@ export const gradesService = {
       const graduationYear = row.graduationYear ?? input.graduationYear;
       const schoolCategoryCode = resolveSchoolCategoryCode(row.schoolCategory);
 
+      /* When the admin restricts the import to a category subset and
+       * the row's resolved code is not in it (or is unresolved), the
+       * row is rejected. When no categories are picked we fall back
+       * to legacy behaviour (accept everything) so existing flows keep
+       * working until the admin opts into the new per-category UI. */
+      if (allowedCategories.size > 0) {
+        if (schoolCategoryCode === null || !allowedCategories.has(schoolCategoryCode)) {
+          failed += 1;
+          continue;
+        }
+      }
+
+      const kind: GradeKind =
+        schoolCategoryCode !== null && AZHAR_CATEGORY_CODES.includes(schoolCategoryCode)
+          ? 'azhar'
+          : 'general';
+      const categoryMax =
+        schoolCategoryCode !== null && maxGradeByCategory[schoolCategoryCode] != null
+          ? maxGradeByCategory[schoolCategoryCode]
+          : kind === 'azhar'
+            ? 510
+            : 410;
+
       const isDup = existingByNid.has(row.nationalId);
       if (isDup) {
         const action = perGroupActions.DUPLICATE_NID;
@@ -550,7 +585,7 @@ export const gradesService = {
           kind,
           gender,
           total: row.totalGrade,
-          importMax: row.maxGrade ?? existing.importMax,
+          importMax: row.maxGrade ?? categoryMax,
           seatingNumber: row.seatingNumber ?? existing.seatingNumber,
           name: row.nameAr,
           branch: row.track,
@@ -575,7 +610,7 @@ export const gradesService = {
         school: '',
         region: '',
         total: row.totalGrade,
-        importMax: row.maxGrade ?? defaultMax,
+        importMax: row.maxGrade ?? categoryMax,
         overrideMax: null,
         lastEditedAt: null,
         lastEditedBy: null,

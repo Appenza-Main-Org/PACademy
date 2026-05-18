@@ -11,7 +11,6 @@ import type {
   AdjustmentReason,
   ApplicantGender,
   CommittedImport,
-  GradeKind,
   GradeRow,
   ImportCommitResult,
   ImportGroupAction,
@@ -156,7 +155,14 @@ export function useApplicantGradesCommit() {
     mutationFn: (input: {
       rows: NormalisedRow[];
       graduationYear: number;
-      kind: GradeKind;
+      /** Lookup codes (from `school-categories`) the admin selected on
+       *  Step 1 — used to constrain which rows the commit accepts and
+       *  to derive each row's GradeKind. */
+      selectedSchoolCategories: string[];
+      /** Per-category الدرجة العظمى keyed by lookup code. The commit
+       *  reads `maxGradeByCategory[row.schoolCategoryCode]` to gate the
+       *  totalGrade range check and to seed `importMax`. */
+      maxGradeByCategory: Record<string, number>;
       perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
     }): Promise<ImportCommitResult> => gradesService.runImportCommit(input),
     onSuccess: () => {

@@ -2,8 +2,10 @@
  * Step 1 — الإعدادات.
  *
  * Captures the wizard's pre-parse inputs:
- *   • Secondary type (general / azhar)
- *   • Max grade (410 / 510 + manual override)
+ *   • School categories (multi-select from the school-categories lookup)
+ *     — each picked category exposes its own الدرجة العظمى input.
+ *     Replaces the prior general/azhar binary toggle so admins can load
+ *     a mixed file in a single pass.
  *   • Graduation year (default = active cycle's year)
  *   • File pick (validated by extension + size; no parsing here)
  *
@@ -13,8 +15,12 @@
 
 import { useRef, useState } from 'react';
 import { Download, Sheet, Upload, X } from 'lucide-react';
-import { Button, Combobox, Field } from '@/shared/components';
-import { useImportWizardStore } from '../../../store/importWizard.store';
+import { Button, Combobox, Field, LoadingState } from '@/shared/components';
+import { useLookup } from '@/features/lookups';
+import {
+  defaultMaxFor,
+  useImportWizardStore,
+} from '../../../store/importWizard.store';
 import { SUPPORTED_GRADES_EXTENSIONS } from '../../../lib/parseGradesFile';
 import { downloadTemplateWorkbook } from '../../../lib/buildTemplateWorkbook';
 
@@ -48,15 +54,34 @@ function formatSize(bytes: number): string {
 }
 
 export function Step1Settings(): JSX.Element {
-  const secondaryType = useImportWizardStore((s) => s.secondaryType);
-  const setSecondaryType = useImportWizardStore((s) => s.setSecondaryType);
-  const maxGrade = useImportWizardStore((s) => s.maxGrade);
-  const setMaxGrade = useImportWizardStore((s) => s.setMaxGrade);
+  const selectedSchoolCategories = useImportWizardStore(
+    (s) => s.selectedSchoolCategories,
+  );
+  const setSelectedSchoolCategories = useImportWizardStore(
+    (s) => s.setSelectedSchoolCategories,
+  );
+  const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
+  const setMaxGradeForCategory = useImportWizardStore(
+    (s) => s.setMaxGradeForCategory,
+  );
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
   const setGraduationYear = useImportWizardStore((s) => s.setGraduationYear);
   const file = useImportWizardStore((s) => s.file);
   const fileMeta = useImportWizardStore((s) => s.fileMeta);
   const setFile = useImportWizardStore((s) => s.setFile);
+
+  const schoolCategoriesQuery = useLookup('school-categories');
+  const activeCategories = (schoolCategoriesQuery.data ?? []).filter(
+    (r) => r.isActive,
+  );
+  const selectedSet = new Set(selectedSchoolCategories);
+
+  function toggleCategory(code: string): void {
+    const next = selectedSet.has(code)
+      ? selectedSchoolCategories.filter((c) => c !== code)
+      : [...selectedSchoolCategories, code];
+    setSelectedSchoolCategories(next);
+  }
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -99,70 +124,84 @@ export function Step1Settings(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
-      <Field label="نوع الثانوية" required helper="يحدد الدرجة العظمى الافتراضية">
-        <div
-          className="inline-flex w-fit gap-0.5 rounded-md border border-border-default bg-ink-50 p-0.5"
-          role="group"
-        >
-          {(
-            [
-              { v: 'general', label: 'ثانوية عامة' },
-              { v: 'azhar', label: 'ثانوية أزهرية' },
-            ] as const
-          ).map(({ v, label }) => {
-            const active = secondaryType === v;
-            return (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setSecondaryType(v)}
-                className="cursor-pointer rounded-sm border-0 px-4 py-1.5 text-sm font-medium transition-colors"
-                style={{
-                  background: active ? 'var(--teal-500)' : 'transparent',
-                  color: active ? '#fff' : 'var(--ink-700)',
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      </Field>
-
-      <Field label="الدرجة العظمى" required helper="القيمة المستخدمة لاحتساب النسبة المئوية">
-        <div className="flex items-center gap-2">
-          <label
-            className="inline-flex h-9 cursor-text items-center gap-2 rounded-md border border-border-default bg-white px-3 text-sm font-medium text-ink-900"
-            style={{ width: 120 }}
-          >
-            <input
-              type="number"
-              value={maxGrade}
-              min={1}
-              max={1000}
-              onChange={(e) => setMaxGrade(e.target.value === '' ? 0 : Number(e.target.value))}
-              className="min-w-0 flex-1 border-0 bg-transparent p-0 font-en text-sm font-medium text-ink-900 outline-none"
-            />
-            <span className="text-xs text-ink-500">درجة</span>
-          </label>
-          <div className="flex gap-1">
-            {[410, 510].map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setMaxGrade(p)}
-                className="cursor-pointer rounded-full border px-3 py-1 font-en text-2xs font-medium"
-                style={{
-                  background: maxGrade === p ? 'var(--teal-500)' : '#fff',
-                  color: maxGrade === p ? '#fff' : 'var(--ink-700)',
-                  borderColor: maxGrade === p ? 'var(--teal-500)' : 'var(--border-default)',
-                }}
-              >
-                {p}
-              </button>
-            ))}
+      <Field
+        label="فئة المدرسة"
+        required
+        helper="اختر فئة واحدة أو أكثر من الأكواد المرجعية. لكل فئة درجتها العظمى الخاصة."
+      >
+        {schoolCategoriesQuery.isLoading ? (
+          <LoadingState variant="list" />
+        ) : activeCategories.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border-default bg-ink-50/40 px-3 py-3 text-2xs text-ink-500">
+            لا توجد فئات مدارس مفعّلة. أضف الفئات من «الأكواد المرجعية» أولاً.
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            <div className="flex flex-wrap gap-1.5">
+              {activeCategories.map((c) => {
+                const active = selectedSet.has(c.code);
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    role="switch"
+                    aria-checked={active}
+                    onClick={() => toggleCategory(c.code)}
+                    className="cursor-pointer rounded-full border px-3 py-1 text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                    style={{
+                      background: active ? 'var(--teal-500)' : '#fff',
+                      color: active ? '#fff' : 'var(--ink-700)',
+                      borderColor: active
+                        ? 'var(--teal-500)'
+                        : 'var(--border-default)',
+                    }}
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedSchoolCategories.length > 0 && (
+              <ul className="m-0 flex list-none flex-col gap-1.5 rounded-md border border-border-subtle bg-ink-50/40 p-2">
+                {selectedSchoolCategories.map((code) => {
+                  const cat = activeCategories.find((x) => x.code === code);
+                  if (!cat) return null;
+                  const value =
+                    maxGradeByCategory[code] ?? defaultMaxFor(code);
+                  return (
+                    <li
+                      key={code}
+                      className="flex items-center justify-between gap-3 rounded-sm bg-white px-2.5 py-1.5"
+                    >
+                      <span className="text-sm font-medium text-ink-900">
+                        {cat.name}
+                      </span>
+                      <label className="inline-flex h-8 cursor-text items-center gap-2 rounded-md border border-border-default bg-white px-2.5 text-sm font-medium text-ink-900"
+                        style={{ width: 140 }}
+                      >
+                        <span className="text-2xs text-ink-500">الدرجة العظمى</span>
+                        <input
+                          type="number"
+                          value={value}
+                          min={1}
+                          max={1000}
+                          onChange={(e) =>
+                            setMaxGradeForCategory(
+                              code,
+                              e.target.value === '' ? 0 : Number(e.target.value),
+                            )
+                          }
+                          className="min-w-0 flex-1 border-0 bg-transparent p-0 font-en text-sm font-semibold text-ink-900 outline-none"
+                          aria-label={`الدرجة العظمى لفئة ${cat.name}`}
+                        />
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
       </Field>
 
       <Field
