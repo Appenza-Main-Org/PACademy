@@ -6,11 +6,8 @@
  *   node frontend/scripts/generate-large-grades-file.mjs [rows] [out] [format]
  *
  * Defaults: 700_000 rows → /tmp/applicant-grades-700k.csv (csv format)
- * Use `xlsx` for the third arg to write an .xlsx instead — note that
- * SheetJS's `aoa_to_sheet` materialises the whole sparse cell object in
- * memory, so xlsx output above ~250k rows requires `NODE_OPTIONS=
- * --max-old-space-size=8192` and a few minutes. CSV streams to disk
- * line-by-line and finishes in seconds at 700k rows.
+ * `xlsx` writes an .xlsx via SheetJS's dense-mode `aoa_to_sheet` —
+ * still RAM-hungry at 700k+ rows, so prefer `csv` for the largest tests.
  *
  * The output mirrors the template headers exactly so the wizard's
  * auto-mapping step claims every column without manual picks.
@@ -83,12 +80,16 @@ if (FORMAT === 'csv') {
   await new Promise((res, rej) => stream.end((err) => (err ? rej(err) : res())));
   console.log(`✓ Wrote ${OUT}`);
 } else {
+  /* Build the workbook in dense mode + write via `XLSX.write`. Dense
+   * mode skips SheetJS's per-cell sparse-property allocation, which
+   * is what trips the V8 array-size ceiling at large row counts —
+   * matches the parser's `XLSX.read(..., { dense: true })` path. */
   const { utils, write } = await import('xlsx');
   const { writeFile } = await import('node:fs/promises');
-  console.log('  building in-memory sheet (this will use lots of RAM)…');
+  console.log('  building in-memory sheet (dense)…');
   const aoa = [HEADERS];
   for (let i = 0; i < ROWS; i += 1) aoa.push(row(i));
-  const sheet = utils.aoa_to_sheet(aoa);
+  const sheet = utils.aoa_to_sheet(aoa, { dense: true });
   const wb = utils.book_new();
   utils.book_append_sheet(wb, sheet, 'درجات المتقدمين');
   const bin = write(wb, { bookType: 'xlsx', type: 'array' });

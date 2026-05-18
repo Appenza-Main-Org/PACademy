@@ -231,11 +231,33 @@ async function parseAccess(
 
 /* ── Spreadsheet (.xlsx / .xls / .csv) branch ─────────────────────── */
 
-/** Read a single worksheet row-by-row via the cell-address grid so we
- *  never hand SheetJS a row count that would trigger its bulk
- *  allocation path (the source of the `Invalid array length` crash on
- *  700k-row files). Each cell is looked up directly via the encoded
- *  address; missing addresses coerce to `null`. */
+/**
+ * SheetJS shape for dense-mode worksheets. The library writes a 2D row
+ * array onto `sheet['!data']` instead of populating sparse `A1`/`B1`
+ * properties — this skips the multi-million-property allocation that
+ * causes `Invalid array length` blow-ups on workbooks with very large
+ * `!ref` ranges. The type isn't part of SheetJS's public typings so
+ * we shape-narrow it locally.
+ */
+interface DenseSheet {
+  '!data'?: ReadonlyArray<ReadonlyArray<{ v?: unknown } | undefined> | undefined>;
+}
+
+function denseRows(
+  sheet: XLSXType.WorkSheet,
+): ReadonlyArray<ReadonlyArray<{ v?: unknown } | undefined> | undefined> | null {
+  const data = (sheet as unknown as DenseSheet)['!data'];
+  return Array.isArray(data) ? data : null;
+}
+
+/** Read a single worksheet row-by-row. Uses SheetJS's dense storage
+ *  (`sheet['!data']`) when present — it's a row-of-arrays 2D structure
+ *  that side-steps the sparse-property bulk allocation that crashes on
+ *  ~700k-row files. Falls back to the A1-address lookup when a sheet
+ *  was read without `dense: true` (CSV path, older parser variants).
+ *  Either way the iteration yields to the event loop every
+ *  `CHUNK_SIZE` rows so the progress UI advances and the tab stays
+ *  responsive. */
 async function readSheetRows(
   XLSX: typeof XLSXType,
   sheet: XLSXType.WorkSheet,
@@ -268,14 +290,25 @@ async function readSheetRows(
     throw new ParseGradesError(OVER_LIMIT_MESSAGE);
   }
 
+  const dense = denseRows(sheet);
+
   /* Build the header row first. Empty header cells get a stable
    * positional name so downstream mapping has something to bind to. */
   const columns: string[] = [];
-  for (let c = startCol; c <= endCol; c += 1) {
-    const addr = XLSX.utils.encode_cell({ r: startRow, c });
-    const cell = sheet[addr];
-    const raw = cell == null ? '' : String(cell.v ?? '').trim();
-    columns.push(raw === '' ? `العمود ${c - startCol + 1}` : raw);
+  if (dense) {
+    const headerRow = dense[startRow] ?? [];
+    for (let c = startCol; c <= endCol; c += 1) {
+      const cell = headerRow[c];
+      const raw = cell == null ? '' : String(cell.v ?? '').trim();
+      columns.push(raw === '' ? `العمود ${c - startCol + 1}` : raw);
+    }
+  } else {
+    for (let c = startCol; c <= endCol; c += 1) {
+      const addr = XLSX.utils.encode_cell({ r: startRow, c });
+      const cell = sheet[addr];
+      const raw = cell == null ? '' : String(cell.v ?? '').trim();
+      columns.push(raw === '' ? `العمود ${c - startCol + 1}` : raw);
+    }
   }
 
   const rows: Array<Record<string, ParsedCell>> = [];
@@ -283,10 +316,18 @@ async function readSheetRows(
   for (let r = startRow + 1; r <= endRow; r += 1) {
     const row: Record<string, ParsedCell> = {};
     let nonEmpty = false;
+    const denseRow = dense ? dense[r] : null;
     for (let c = startCol; c <= endCol; c += 1) {
-      const addr = XLSX.utils.encode_cell({ r, c });
-      const cell = sheet[addr];
-      const v = cell == null ? null : coerceCell(cell.v);
+      let cellV: unknown = null;
+      if (denseRow) {
+        const cell = denseRow[c];
+        if (cell != null) cellV = cell.v ?? null;
+      } else {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        const cell = sheet[addr];
+        if (cell != null) cellV = cell.v ?? null;
+      }
+      const v = coerceCell(cellV);
       row[columns[c - startCol]!] = v;
       if (v != null) nonEmpty = true;
     }
@@ -311,6 +352,23 @@ async function parseSpreadsheet(
   const isCsv = file.name.toLowerCase().endsWith('.csv');
   let workbook: XLSXType.WorkBook;
   try {
+    /* `dense: true` is the critical flag for large workbooks — it
+     * tells SheetJS to store cells in a per-sheet `!data` 2D array
+     * instead of materialising a sparse property bag keyed by every
+     * cell address. On a 700k-row × N-col file the sparse form
+     * allocates millions of object properties up-front and trips
+     * V8's `Invalid array length` guard; dense mode reads in linear
+     * memory proportional to populated cells.
+     * `cellHTML/cellFormula/cellStyles: false` strip out parse-time
+     * work we don't need — header text + numeric values is all the
+     * wizard ever reads. */
+    const baseOpts: XLSXType.ParsingOptions = {
+      dense: true,
+      cellHTML: false,
+      cellFormula: false,
+      cellStyles: false,
+      cellDates: true,
+    } as unknown as XLSXType.ParsingOptions;
     if (isCsv) {
       /* SheetJS's `type: 'array'` defaults to cp1252 for CSV inputs that
        * lack a BOM, which mangles Arabic into Ø-mojibake. Read the file
@@ -319,18 +377,18 @@ async function parseSpreadsheet(
        * `xlsx`/`xls` branch still goes through the array path because
        * those formats carry their own encoding metadata. */
       const text = await file.text();
-      workbook = XLSX.read(text, { type: 'string' });
+      workbook = XLSX.read(text, { ...baseOpts, type: 'string' });
     } else {
       const buffer = await file.arrayBuffer();
-      workbook = XLSX.read(buffer, { type: 'array', codepage: 65001 });
+      workbook = XLSX.read(buffer, { ...baseOpts, type: 'array', codepage: 65001 });
     }
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
-    /* `Invalid array length` (and the small family of similar SheetJS
-     * allocation errors) is what bubbled up on 700k-row files before
-     * the streaming rewrite. The over-limit guard inside
-     * `readSheetRows` should catch this case earlier — but keep a
-     * dedicated branch in case the parser still chokes mid-workbook. */
+    /* `Invalid array length` here means SheetJS hit V8's array-size
+     * ceiling while materialising the workbook even with dense mode
+     * on — usually a malformed `!ref` range pointing at billions of
+     * rows. Surface the friendly over-limit message; the raw cause
+     * is still attached for the technical-details disclosure. */
     if (/invalid array length/i.test(raw)) {
       throw new ParseGradesError(OVER_LIMIT_MESSAGE, raw);
     }
