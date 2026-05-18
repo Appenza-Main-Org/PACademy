@@ -20,16 +20,18 @@ import type {
 /**
  * Aggregated committee-binding snapshot consumed by the step-status check.
  *
- * The committees step is complete once the admin has authored at least one
- * active `CommitteeDayBinding` for any active category — once dates are
- * picked the admin has done the meaningful work of this step. Earlier
- * rules required every active category to carry both roster + bindings,
- * which left the step pinned at `in_progress` whenever the admin only
- * cared about a subset of categories.
+ * The committees step is complete once the admin has authored any data —
+ * either roster rows or active day-bindings — for any active category.
+ * Earlier rules required every active category to carry both dimensions,
+ * which left the step pinned at `in_progress` even after admins added
+ * everything they cared about. The looser rule trusts the admin's intent:
+ * once they've added committee data, the step is done.
  *
- *   • complete    — ≥1 active binding exists for any active category
- *   • in_progress — roster rows exist but no bindings yet
+ *   • complete    — ≥1 roster row OR ≥1 active binding for any active category
  *   • not_started — neither dimension touched
+ *
+ * `in_progress` no longer fires here; the step is binary so the cycle
+ * approval gate can flip on once data exists.
  */
 export interface CommitteeBindingsSnapshot {
   /** Per-active-category roster count (from `CategoryCommittees`). */
@@ -129,13 +131,15 @@ export function computeStepStatus(
       const anyBindings = snap.activeCategoryIds.some(
         (id) => (snap.activeBindingsByCategory[id] ?? 0) > 0,
       );
-      if (anyBindings) return 'complete';
-      if (anyRoster) return 'in_progress';
-      return 'not_started';
+      return anyRoster || anyBindings ? 'complete' : 'not_started';
     }
     case 'electronic_declaration':
-      if (!declaration) return 'not_started';
-      return declaration.publishedAt ? 'complete' : 'in_progress';
+      /* Once the admin saves a declaration record (text or PDF), the
+       * step is done from their perspective. The earlier rule required
+       * a separate `نشر` click; admins routinely forgot that and got
+       * blocked at the approval gate even though they'd authored the
+       * declaration content. */
+      return declaration ? 'complete' : 'not_started';
   }
 }
 
