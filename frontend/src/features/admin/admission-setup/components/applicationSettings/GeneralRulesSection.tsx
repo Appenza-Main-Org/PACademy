@@ -28,7 +28,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import { ChevronDown, Pencil, Trash2, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Pencil, Trash2, X } from 'lucide-react';
 import {
   Button,
   Card,
@@ -107,6 +107,30 @@ export function GeneralRulesSection({
   const localCount = useAdmissionSetupWizardStore(
     (s) => s.local.filter((r) => r.categoryCode === categoryCode).length,
   );
+
+  /* Per-faculty + per-specialization "has authored rows" sets (across
+   * local ⊕ approved) so the accordion headers can highlight which
+   * faculties/specs already carry rules. A row of any completeness
+   * counts — once it's in the bucket it's "filled" from the admin's
+   * perspective, even before all required fields are set. Computed via
+   * useMemo off the raw arrays so the Set identity stays stable
+   * between renders (a selector that returned a new Set every call
+   * would defeat Zustand's referential equality and re-render the
+   * whole section continuously). */
+  const localRowsAll = useAdmissionSetupWizardStore((s) => s.local);
+  const approvedRowsAll = useAdmissionSetupWizardStore((s) => s.approved);
+  const { filledFacultyCodes, filledSpecCodes } = useMemo(() => {
+    const faculties = new Set<string>();
+    const specs = new Set<string>();
+    for (const r of [...localRowsAll, ...approvedRowsAll]) {
+      if (r.categoryCode !== categoryCode) continue;
+      faculties.add(r.facultyCode);
+      if (r.kind === 'university') {
+        specs.add((r as LocalUniversityRow).specializationCode);
+      }
+    }
+    return { filledFacultyCodes: faculties, filledSpecCodes: specs };
+  }, [localRowsAll, approvedRowsAll, categoryCode]);
 
   const isLoading =
     facultiesQuery.isLoading ||
@@ -296,6 +320,7 @@ export function GeneralRulesSection({
           {specs.map((spec) => (
             <SpecializationItem
               key={spec.code}
+              isFilled={filledSpecCodes.has(spec.code)}
               facultyCode={faculty.code}
               facultyNameAr={faculty.name}
               specializationCode={spec.code}
@@ -317,6 +342,8 @@ export function GeneralRulesSection({
             facultyCode={faculty.code}
             facultyNameAr={faculty.name}
             specializations={specsByFaculty.get(faculty.code) ?? []}
+            isFilled={filledFacultyCodes.has(faculty.code)}
+            filledSpecCodes={filledSpecCodes}
             options={formOptions}
           />
         ))}
@@ -530,6 +557,13 @@ interface FacultyItemProps {
   facultyCode: string;
   facultyNameAr: string;
   specializations: Array<{ code: string; name: string }>;
+  /** `true` when at least one specialization under this faculty has an
+   *  authored row (local or approved) — drives the highlighted header
+   *  treatment so the admin can spot configured faculties at a glance. */
+  isFilled: boolean;
+  /** Specialization codes that have authored rows — passed through to
+   *  the nested per-spec accordion so its items can highlight too. */
+  filledSpecCodes: ReadonlySet<string>;
   options: PerSpecFormOptions;
 }
 
@@ -537,12 +571,18 @@ function FacultyItem({
   facultyCode,
   facultyNameAr,
   specializations,
+  isFilled,
+  filledSpecCodes,
   options,
 }: FacultyItemProps): JSX.Element {
   return (
     <Accordion.Item
       value={facultyCode}
-      className="rounded-md border border-border-subtle bg-surface"
+      className={
+        isFilled
+          ? 'rounded-md border border-teal-200 bg-teal-50/40'
+          : 'rounded-md border border-border-subtle bg-surface'
+      }
     >
       <Accordion.Header className="flex">
         <Accordion.Trigger className="group flex w-full items-center justify-between gap-3 px-3 py-2 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
@@ -555,12 +595,26 @@ function FacultyItem({
             />
             {facultyNameAr}
           </span>
-          <span className="font-ar text-2xs text-ink-500">
-            {num(specializations.length)} تخصص نشط
+          <span className="inline-flex items-center gap-1.5 font-ar text-2xs text-ink-500">
+            {isFilled && (
+              <CheckCircle2
+                size={12}
+                strokeWidth={2}
+                className="text-teal-600"
+                aria-label="تحتوي على شروط محفوظة"
+              />
+            )}
+            <span>{num(specializations.length)} تخصص نشط</span>
           </span>
         </Accordion.Trigger>
       </Accordion.Header>
-      <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 px-3 py-3">
+      <Accordion.Content
+        className={
+          isFilled
+            ? 'border-t border-teal-200 bg-ink-50/30 px-3 py-3'
+            : 'border-t border-border-subtle bg-ink-50/30 px-3 py-3'
+        }
+      >
         {specializations.length === 0 ? (
           <p className="font-ar text-xs text-ink-500">
             لا توجد تخصصات نشطة في هذه الكلية.
@@ -582,6 +636,7 @@ function FacultyItem({
                 facultyNameAr={facultyNameAr}
                 specializationCode={spec.code}
                 specializationNameAr={spec.name}
+                isFilled={filledSpecCodes.has(spec.code)}
                 options={options}
               />
             ))}
@@ -599,6 +654,9 @@ interface SpecializationItemProps {
   facultyNameAr: string;
   specializationCode: string;
   specializationNameAr: string;
+  /** `true` when this specialization has at least one authored row
+   *  (local or approved) — drives the highlighted header treatment. */
+  isFilled: boolean;
   options: PerSpecFormOptions;
 }
 
@@ -607,13 +665,18 @@ function SpecializationItem({
   facultyNameAr,
   specializationCode,
   specializationNameAr,
+  isFilled,
   options,
 }: SpecializationItemProps): JSX.Element {
   const value = `${facultyCode}::${specializationCode}`;
   return (
     <Accordion.Item
       value={value}
-      className="rounded-md border border-border-subtle bg-surface-card"
+      className={
+        isFilled
+          ? 'rounded-md border border-teal-200 bg-teal-50/40'
+          : 'rounded-md border border-border-subtle bg-surface-card'
+      }
     >
       <Accordion.Header className="flex">
         <Accordion.Trigger className="group flex w-full items-center justify-between gap-3 px-3 py-2 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
@@ -626,9 +689,23 @@ function SpecializationItem({
             />
             {specializationNameAr}
           </span>
+          {isFilled && (
+            <CheckCircle2
+              size={12}
+              strokeWidth={2}
+              className="text-teal-600"
+              aria-label="تحتوي على شروط محفوظة"
+            />
+          )}
         </Accordion.Trigger>
       </Accordion.Header>
-      <Accordion.Content className="border-t border-border-subtle px-3 py-3">
+      <Accordion.Content
+        className={
+          isFilled
+            ? 'border-t border-teal-200 px-3 py-3'
+            : 'border-t border-border-subtle px-3 py-3'
+        }
+      >
         <PerSpecForm
           facultyCode={facultyCode}
           facultyNameAr={facultyNameAr}
