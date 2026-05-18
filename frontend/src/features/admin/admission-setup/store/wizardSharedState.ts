@@ -489,16 +489,20 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
 
 /* ── Completion-state selector ───────────────────────────────────────
  *
- * Pure derivation off the wizard's `approved` bucket and the category's
- * scoped specialization list. Returns one of three states for the
- * application_settings category accordion row badge:
+ * Pure derivation off the wizard's authored rows (`local` ⊕ `approved`)
+ * and the category's scoped specialization list. Both buckets count as
+ * "saved" from the admin's perspective — anything visible in the grid
+ * has all required fields filled (the `canSubmit` gate in the form
+ * enforces it). Pulling from just `approved` would lag behind authoring
+ * until the admin clicks the section-level «اعتماد» button, which is
+ * confusing.
  *
  *   • `'complete'` — every active specialization under the category has
- *     at least one approved row with all required fields filled. For
+ *     at least one authored row with all required fields filled. For
  *     pre-university (ثانوي) categories the category itself is the unit.
- *   • `'partial'`  — at least one specialization has approved rows but
+ *   • `'partial'`  — at least one specialization has authored rows but
  *     the all-units-complete condition fails.
- *   • `'empty'`    — no specialization under the category has approved
+ *   • `'empty'`    — no specialization under the category has authored
  *     rows at all.
  */
 
@@ -543,10 +547,10 @@ function isThanawiRowComplete(r: LocalThanawiRow): boolean {
 export function selectCategoryCompletion(
   categoryCode: string,
   categoryType: 'university' | 'pre_university',
-  approvedRows: readonly ApprovedGeneralRuleRow[],
+  authoredRows: readonly LocalGeneralRuleRow[],
   scopedSpecCodes: readonly string[],
 ): CategoryCompletionState {
-  const rows = approvedRows.filter((r) => r.categoryCode === categoryCode);
+  const rows = authoredRows.filter((r) => r.categoryCode === categoryCode);
   if (rows.length === 0) return 'empty';
 
   if (categoryType === 'pre_university') {

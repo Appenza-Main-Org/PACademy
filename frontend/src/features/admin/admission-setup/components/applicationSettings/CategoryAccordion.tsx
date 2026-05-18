@@ -86,6 +86,11 @@ interface ConfigItemProps {
 }
 
 function ConfigItem({ config }: ConfigItemProps): JSX.Element {
+  /* Selector reads both buckets — see `selectCategoryCompletion` JSDoc.
+   * Authored rows that haven't been promoted via the section-level
+   * «اعتماد» button still count, so the badge tracks what the admin
+   * sees in the grid. */
+  const local = useAdmissionSetupWizardStore((s) => s.local);
   const approved = useAdmissionSetupWizardStore((s) => s.approved);
 
   const completion = useMemo(
@@ -93,10 +98,11 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
       selectCategoryCompletion(
         config.categoryCode,
         config.categoryType,
-        approved,
+        [...local, ...approved],
         config.categorySpecializationCodes,
       ),
     [
+      local,
       approved,
       config.categoryCode,
       config.categoryType,
