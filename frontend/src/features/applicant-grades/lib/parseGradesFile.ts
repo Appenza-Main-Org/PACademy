@@ -546,6 +546,124 @@ async function readSheetRows(
   return { columns, rows };
 }
 
+/** Per-sheet diagnostic line built during a workbook pass. Surfaced
+ *  on the `rawMessage` of the "no readable sheet" error so the admin
+ *  can see exactly why each sheet was skipped instead of getting a
+ *  generic "no data" message that hides the cause. */
+interface SheetDiagnostic {
+  name: string;
+  ref: string | null;
+  denseRows: number | null;
+  dataRowCount: number;
+  rowsEmitted: number;
+  skippedReason: string | null;
+}
+
+function diagnosticsToString(label: string, diags: ReadonlyArray<SheetDiagnostic>): string {
+  if (diags.length === 0) return `[${label}] no sheets in workbook`;
+  return [
+    `[${label}]`,
+    ...diags.map((d) => {
+      const parts = [
+        `sheet="${d.name}"`,
+        `ref=${d.ref ?? 'null'}`,
+        `dense=${d.denseRows == null ? 'none' : d.denseRows}`,
+        `rows=${d.dataRowCount}`,
+        `emitted=${d.rowsEmitted}`,
+      ];
+      if (d.skippedReason) parts.push(`skip=${d.skippedReason}`);
+      return `  ${parts.join(' ')}`;
+    }),
+  ].join('\n');
+}
+
+async function iterateWorkbook(
+  XLSX: typeof XLSXType,
+  workbook: XLSXType.WorkBook,
+  onProgress: ParseProgressCallback | undefined,
+): Promise<{ tables: ParsedTable[]; diagnostics: SheetDiagnostic[] }> {
+  const tables: ParsedTable[] = [];
+  const diagnostics: SheetDiagnostic[] = [];
+  for (const name of workbook.SheetNames) {
+    const sheet = workbook.Sheets[name];
+    if (!sheet) {
+      diagnostics.push({
+        name,
+        ref: null,
+        denseRows: null,
+        dataRowCount: 0,
+        rowsEmitted: 0,
+        skippedReason: 'sheet entry missing',
+      });
+      continue;
+    }
+    const ref = (sheet['!ref'] as string | undefined) ?? null;
+    const denseLen = denseRows(sheet)?.length ?? null;
+    let result: { columns: string[]; rows: Array<Record<string, ParsedCell>> } | null;
+    let dataRowCount = 0;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      result = await readSheetRows(XLSX, sheet, name, onProgress);
+      if (result && ref) {
+        try {
+          const range = XLSX.utils.decode_range(ref);
+          dataRowCount = Math.max(0, range.e.r - range.s.r);
+        } catch {
+          /* leave dataRowCount at 0 */
+        }
+      }
+    } catch (err) {
+      if (err instanceof ParseGradesError) throw err;
+      diagnostics.push({
+        name,
+        ref,
+        denseRows: denseLen,
+        dataRowCount: 0,
+        rowsEmitted: 0,
+        skippedReason: `readSheetRows threw: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      continue;
+    }
+    if (!result) {
+      diagnostics.push({
+        name,
+        ref,
+        denseRows: denseLen,
+        dataRowCount,
+        rowsEmitted: 0,
+        skippedReason: ref ? 'readSheetRows returned null' : 'missing !ref',
+      });
+      continue;
+    }
+    if (result.rows.length === 0) {
+      diagnostics.push({
+        name,
+        ref,
+        denseRows: denseLen,
+        dataRowCount,
+        rowsEmitted: 0,
+        skippedReason: 'all rows empty after coerceCell',
+      });
+      continue;
+    }
+    diagnostics.push({
+      name,
+      ref,
+      denseRows: denseLen,
+      dataRowCount,
+      rowsEmitted: result.rows.length,
+      skippedReason: null,
+    });
+    tables.push({
+      name,
+      columns: result.columns,
+      rows: result.rows,
+      rowCount: result.rows.length,
+    });
+  }
+  return { tables, diagnostics };
+}
+
 async function parseSpreadsheet(
   file: File,
   onProgress: ParseProgressCallback | undefined,
@@ -563,7 +681,6 @@ async function parseSpreadsheet(
    * work we don't need — header text + numeric values is all the
    * wizard ever reads. */
   const baseOpts: XLSXType.ParsingOptions = {
-    dense: true,
     cellHTML: false,
     cellFormula: false,
     cellStyles: false,
@@ -582,7 +699,7 @@ async function parseSpreadsheet(
 
   let workbook: XLSXType.WorkBook;
   try {
-    workbook = tryRead();
+    workbook = tryRead({ dense: true } as XLSXType.ParsingOptions);
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
     /* `Invalid array length` here means SheetJS hit V8's array-size
@@ -594,7 +711,7 @@ async function parseSpreadsheet(
      * almost always small; only the metadata is corrupted. */
     if (/invalid array length/i.test(raw)) {
       try {
-        workbook = tryRead({ sheetRows: MAX_ROWS + 1 });
+        workbook = tryRead({ dense: true, sheetRows: MAX_ROWS + 1 } as XLSXType.ParsingOptions);
       } catch (retryErr) {
         const retryRaw = retryErr instanceof Error ? retryErr.message : String(retryErr);
         if (/invalid array length/i.test(retryRaw)) {
@@ -606,28 +723,38 @@ async function parseSpreadsheet(
       throw new ParseGradesError(`تعذّر قراءة الملف: ${raw}`, raw);
     }
   }
-  const tables: ParsedTable[] = [];
-  for (const name of workbook.SheetNames) {
-    const sheet = workbook.Sheets[name];
-    if (!sheet) continue;
-    let result: { columns: string[]; rows: Array<Record<string, ParsedCell>> } | null;
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      result = await readSheetRows(XLSX, sheet, name, onProgress);
-    } catch (err) {
-      if (err instanceof ParseGradesError) throw err;
-      continue;
-    }
-    if (!result || result.rows.length === 0) continue;
-    tables.push({
-      name,
-      columns: result.columns,
-      rows: result.rows,
-      rowCount: result.rows.length,
-    });
-  }
+  let { tables, diagnostics } = await iterateWorkbook(XLSX, workbook, onProgress);
+  let allDiagnostics = diagnosticsToString('dense', diagnostics);
+
+  /* SheetJS's dense mode occasionally returns a worksheet where
+   * `!data` is populated but rows aren't aligned with the `!ref`
+   * range (seen on some Excel-for-Mac saves, files with AutoFilter
+   * active, and workbooks routed through certain export pipelines).
+   * The dense pass then produces zero rows. Retry once with dense
+   * off so SheetJS populates the sparse A1-address cell bag and our
+   * fallback iteration path can read them. */
   if (tables.length === 0) {
-    throw new ParseGradesError('لا توجد ورقة بيانات قابلة للقراءة في الملف.');
+    let sparseWorkbook: XLSXType.WorkBook | null = null;
+    try {
+      sparseWorkbook = tryRead();
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      allDiagnostics += `\n[sparse-retry-failed] ${raw}`;
+    }
+    if (sparseWorkbook) {
+      const retry = await iterateWorkbook(XLSX, sparseWorkbook, onProgress);
+      tables = retry.tables;
+      allDiagnostics += `\n${diagnosticsToString('sparse', retry.diagnostics)}`;
+    }
+  }
+
+  if (tables.length === 0) {
+    /* eslint-disable-next-line no-console */
+    console.error('[applicant-grades] no readable sheet:\n' + allDiagnostics);
+    throw new ParseGradesError(
+      'لا توجد ورقة بيانات قابلة للقراءة في الملف.',
+      allDiagnostics,
+    );
   }
   return tables;
 }
