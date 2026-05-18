@@ -386,21 +386,24 @@ export function MultiSelect({
                             toggle(opt.value);
                           }}
                           className={cn(
-                            'flex h-9 cursor-pointer items-center gap-2 px-3 text-sm hover:bg-teal-50',
+                            'flex min-h-9 cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-teal-50',
                             checked && 'font-medium text-teal-700',
                             opt.disabled && 'cursor-not-allowed text-ink-300',
                           )}
+                          title={opt.label}
                         >
                           <span
                             className={cn(
-                              'flex h-4 w-4 items-center justify-center rounded-sm border',
+                              'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
                               checked ? 'border-teal-500 bg-teal-500 text-white' : 'border-border-strong',
                             )}
                             aria-hidden
                           >
                             {checked && <Check size={11} strokeWidth={2.4} />}
                           </span>
-                          <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+                          <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">
+                            {opt.label}
+                          </span>
                           {opt.badge && (
                             <span className="rounded-pill bg-ink-100 px-2.5 py-1 text-2xs text-ink-700">
                               {opt.badge}

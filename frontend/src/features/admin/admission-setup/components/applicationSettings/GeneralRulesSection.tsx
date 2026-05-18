@@ -1118,6 +1118,7 @@ function LocalUniversityGrid({
       <table className="w-full border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
+            <Th>اللجنة</Th>
             <Th>بداية التقديم</Th>
             <Th>نهاية التقديم</Th>
             <Th>تاريخ احتساب السن</Th>
@@ -1128,7 +1129,6 @@ function LocalUniversityGrid({
             <Th>الحد الأدنى للدرجة</Th>
             <Th>الحد الأقصى للدرجة</Th>
             <Th>الدرجة العلمية</Th>
-            <Th>اللجنة</Th>
             <Th>سنة التخرج</Th>
             <Th>إجراءات</Th>
           </tr>
@@ -1143,6 +1143,11 @@ function LocalUniversityGrid({
                   isRowEditing ? 'bg-gold-50/60' : ''
                 }`}
               >
+                <Td>
+                  <MultiValueCell
+                    values={r.committees.map(labelForCommittee)}
+                  />
+                </Td>
                 <Td>{formatIsoDate(r.header.applicationStart)}</Td>
                 <Td>{formatIsoDate(r.header.applicationEnd)}</Td>
                 <Td>{formatIsoDate(r.header.ageReferenceDate)}</Td>
@@ -1169,11 +1174,6 @@ function LocalUniversityGrid({
                 <Td>
                   <MultiValueCell
                     values={r.academicDegrees.map(labelForDegree)}
-                  />
-                </Td>
-                <Td>
-                  <MultiValueCell
-                    values={r.committees.map(labelForCommittee)}
                   />
                 </Td>
                 <Td>

@@ -458,6 +458,7 @@ function UniversityRowsTable({
   labels,
 }: UniversityRowsTableProps): JSX.Element {
   const headers: string[] = [
+    'اللجنة',
     'الكلية',
     'التخصص',
     'النوع',
@@ -466,7 +467,6 @@ function UniversityRowsTable({
     'الحد الأدنى للدرجة',
     'الحد الأقصى للدرجة',
     'الدرجة العلمية',
-    'اللجنة',
     'سنوات التخرج',
     'الحالة الاجتماعية',
     'بداية التقديم',
@@ -486,6 +486,13 @@ function UniversityRowsTable({
         <tbody>
           {rows.map((row) => (
             <tr key={row.id} className="border-t border-border-subtle">
+              <Td>
+                <ChipList
+                  values={row.committees.map(
+                    (c) => labels.committee.get(c) ?? c,
+                  )}
+                />
+              </Td>
               <Td>{labels.faculty.get(row.facultyCode) ?? row.facultyNameAr ?? '—'}</Td>
               <Td>
                 {labels.specialization.get(row.specializationCode) ??
@@ -519,13 +526,6 @@ function UniversityRowsTable({
                 <ChipList
                   values={row.academicDegrees.map(
                     (c) => labels.academicDegree.get(c) ?? c,
-                  )}
-                />
-              </Td>
-              <Td>
-                <ChipList
-                  values={row.committees.map(
-                    (c) => labels.committee.get(c) ?? c,
                   )}
                 />
               </Td>
@@ -566,8 +566,8 @@ function ThanawiRowsTable({
   labels,
 }: ThanawiRowsTableProps): JSX.Element {
   const headers: string[] = [
-    'الدور',
     'اللجنة',
+    'الدور',
     'سنة التخرج',
     'فئة المدرسة',
     'الحد الأدنى للدرجة',
@@ -591,13 +591,13 @@ function ThanawiRowsTable({
           {rows.map((row) => (
             <tr key={row.id} className="border-t border-border-subtle">
               <Td>
-                {row.examRound
-                  ? labels.examRound.get(row.examRound) ?? row.examRound
+                {row.committee
+                  ? labels.committee.get(row.committee) ?? row.committee
                   : '—'}
               </Td>
               <Td>
-                {row.committee
-                  ? labels.committee.get(row.committee) ?? row.committee
+                {row.examRound
+                  ? labels.examRound.get(row.examRound) ?? row.examRound
                   : '—'}
               </Td>
               <Td>

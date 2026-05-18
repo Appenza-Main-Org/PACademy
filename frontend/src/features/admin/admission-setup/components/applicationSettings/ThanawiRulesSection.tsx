@@ -740,12 +740,12 @@ function ThanawiGrid({
       <table className="w-full border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
+            <Th>اللجنة</Th>
             <Th>بداية التقديم</Th>
             <Th>نهاية التقديم</Th>
             <Th>تاريخ احتساب السن</Th>
             <Th>الحالة الاجتماعية</Th>
             <Th>الدور</Th>
-            <Th>اللجنة</Th>
             <Th>سنة التخرج</Th>
             <Th>فئة المدرسة</Th>
             <Th>الحد الأدنى للدرجة</Th>
@@ -763,6 +763,7 @@ function ThanawiGrid({
                   isRowEditing ? 'bg-gold-50/60' : ''
                 }`}
               >
+                <Td>{labelForCommittee(r.committee)}</Td>
                 <Td>{formatIsoDate(r.header.applicationStart)}</Td>
                 <Td>{formatIsoDate(r.header.applicationEnd)}</Td>
                 <Td>{formatIsoDate(r.header.ageReferenceDate)}</Td>
@@ -772,7 +773,6 @@ function ThanawiGrid({
                   />
                 </Td>
                 <Td>{labelForRound(r.examRound)}</Td>
-                <Td>{labelForCommittee(r.committee)}</Td>
                 <Td>
                   {r.graduationYear !== null
                     ? toEasternArabicNumerals(r.graduationYear)
