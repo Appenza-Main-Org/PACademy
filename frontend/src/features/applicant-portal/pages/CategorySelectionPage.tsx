@@ -35,6 +35,7 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  Modal,
   PageHeader,
   Tooltip,
   TooltipProvider,
@@ -265,38 +266,45 @@ export function CategorySelectionPage(): JSX.Element {
           </Drawer.Body>
         </Drawer>
 
-        <Drawer
+        {/* Client direction 2026-05-19: eligibility / specializations /
+         * instructions now open as centered Modals (instead of side
+         * Drawers) so applicants read them carefully without losing
+         * the page context. The Identity panel above stays a Drawer. */}
+        <Modal
           open={drawer === 'eligibility'}
           onClose={() => setDrawer(null)}
           title="شروط الإلتحاق"
+          size="lg"
         >
-          <Drawer.Body>
+          <Modal.Body>
             <EligibilityDrawerBody
               cycle={selectedCycle}
               categories={categoriesQuery.data ?? []}
             />
-          </Drawer.Body>
-        </Drawer>
+          </Modal.Body>
+        </Modal>
 
-        <Drawer
+        <Modal
           open={drawer === 'specializations'}
           onClose={() => setDrawer(null)}
           title="التخصصات المطلوبة"
+          size="lg"
         >
-          <Drawer.Body>
+          <Modal.Body>
             <SpecializationsDrawerBody categories={categoriesQuery.data ?? []} />
-          </Drawer.Body>
-        </Drawer>
+          </Modal.Body>
+        </Modal>
 
-        <Drawer
+        <Modal
           open={drawer === 'instructions'}
           onClose={() => setDrawer(null)}
           title="إرشادات التقدم"
+          size="lg"
         >
-          <Drawer.Body>
+          <Modal.Body>
             <InstructionsDrawerBody />
-          </Drawer.Body>
-        </Drawer>
+          </Modal.Body>
+        </Modal>
       </div>
     </TooltipProvider>
   );
@@ -537,30 +545,30 @@ function EligibilityDrawerBody({
   categories: readonly ApplicantCategory[];
 }): JSX.Element {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5 text-base leading-relaxed">
       {cycle && (
-        <div className="rounded-md border border-border-default bg-ink-50 px-3 py-2 text-2xs text-ink-700">
+        <div className="rounded-md border border-border-default bg-ink-50 px-4 py-3 text-sm text-ink-700">
           الدورة الحالية: <span className="font-medium">{cycle.nameAr}</span> · فترة التقدم تنتهي في{' '}
           {fmtDate(cycle.closeDate, 'short')}
         </div>
       )}
       {categories.length === 0 ? (
-        <p className="text-sm text-ink-700">لا توجد شروط معروضة في الوقت الحالي.</p>
+        <p className="text-base text-ink-700">لا توجد شروط معروضة في الوقت الحالي.</p>
       ) : (
-        <ul className="flex flex-col gap-4">
+        <ul className="flex flex-col gap-6">
           {categories.map((c) => (
             <li key={c.key}>
-              <p className="mb-1.5 font-ar-display text-md font-bold text-ink-900">{c.labelAr}</p>
-              <ul className="space-y-1 text-sm text-ink-700">
+              <p className="mb-3 font-ar-display text-lg font-bold text-ink-900">{c.labelAr}</p>
+              <ul className="space-y-2 text-base leading-relaxed text-ink-800">
                 {summariseConditions(c.conditions).map((line, i) => (
-                  <li key={`${c.key}-c-${i}`} className="flex items-start gap-2">
-                    <span aria-hidden className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
+                  <li key={`${c.key}-c-${i}`} className="flex items-start gap-2.5">
+                    <span aria-hidden className="mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-teal-500" />
                     <span>{line}</span>
                   </li>
                 ))}
               </ul>
               {c.conditions.freeText.length > 0 && (
-                <ul className="mt-2 list-inside list-disc text-2xs text-ink-500">
+                <ul className="mt-3 list-inside list-disc space-y-1.5 ps-2 text-sm text-ink-600">
                   {c.conditions.freeText.map((t, i) => (
                     <li key={`${c.key}-f-${i}`}>{t}</li>
                   ))}
@@ -598,31 +606,31 @@ function SpecializationsDrawerBody({
   categories: readonly ApplicantCategory[];
 }): JSX.Element {
   if (categories.length === 0) {
-    return <p className="text-sm text-ink-700">لا توجد تخصصات معروضة في الوقت الحالي.</p>;
+    return <p className="text-base text-ink-700">لا توجد تخصصات معروضة في الوقت الحالي.</p>;
   }
   return (
-    <ul className="flex flex-col gap-4">
+    <ul className="flex flex-col gap-6 text-base leading-relaxed">
       {categories.map((c) => (
         <li key={c.key}>
-          <p className="mb-1.5 inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
-            <GraduationCap size={14} strokeWidth={1.75} className="text-teal-700" aria-hidden />
+          <p className="mb-3 inline-flex items-center gap-2 font-ar-display text-lg font-bold text-ink-900">
+            <GraduationCap size={18} strokeWidth={1.75} className="text-teal-700" aria-hidden />
             {c.labelAr}
           </p>
           {c.requiredTests.length === 0 ? (
-            <p className="text-2xs text-ink-500">لم تُحدَّد اختبارات بعد لهذه الفئة.</p>
+            <p className="text-sm text-ink-500">لم تُحدَّد اختبارات بعد لهذه الفئة.</p>
           ) : (
-            <ul className="space-y-1.5 text-sm text-ink-700">
+            <ul className="space-y-2.5 text-base text-ink-800">
               {c.requiredTests.map((t) => {
                 const Icon = TEST_KIND_ICON[t.kind];
                 return (
-                  <li key={`${c.key}-t-${t.kind}`} className="flex items-center gap-2">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-ink-50 text-ink-700">
-                      <Icon size={12} strokeWidth={1.75} />
+                  <li key={`${c.key}-t-${t.kind}`} className="flex items-center gap-2.5">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-ink-50 text-ink-700">
+                      <Icon size={16} strokeWidth={1.75} />
                     </span>
-                    <span className="font-numeric tnum text-2xs text-ink-500">{t.order}.</span>
+                    <span className="font-numeric tnum text-sm text-ink-500">{t.order}.</span>
                     <span>{TEST_KIND_LABEL_AR[t.kind]}</span>
                     {t.passingCriteria && (
-                      <span className="ms-1 text-2xs text-ink-500">— {t.passingCriteria}</span>
+                      <span className="ms-1 text-sm text-ink-500">— {t.passingCriteria}</span>
                     )}
                   </li>
                 );
@@ -637,7 +645,7 @@ function SpecializationsDrawerBody({
 
 function InstructionsDrawerBody(): JSX.Element {
   return (
-    <div className="flex flex-col gap-3 text-sm leading-normal text-ink-800">
+    <div className="flex flex-col gap-4 text-base leading-relaxed text-ink-800">
       <p>
         <strong>قبل التقدم:</strong> راجع البيانات المُسجَّلة على بوابة وزارة الداخلية (الاسم رباعي
         والرقم القومي ورقم المحمول)، وتأكد من صحتها — حيث ستُستخدم لاستكمال إجراءات التقدم وارسال
@@ -651,10 +659,12 @@ function InstructionsDrawerBody(): JSX.Element {
         <strong>مقابل الخدمة:</strong> {APPLICATION_FEE_LABEL.replace('مقابل تقديم الخدمة إلكترونياً: ', '')} — يُسدَّد مرة واحدة
         خلال الدورة الحالية، ويُستحَق فور تأكيد البيانات.
       </p>
-      <p className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
-        <FileText size={12} strokeWidth={1.75} className="me-1 inline-block" aria-hidden />
-        احرص على طباعة بطاقة التردد والإقرار قبل موعد أول اختبار، وعلى توقيعها من المتقدم وولي
-        الأمر.
+      <p className="flex items-start gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 px-4 py-3 text-sm leading-relaxed text-gold-700">
+        <FileText size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
+        <span>
+          احرص على طباعة بطاقة التردد والإقرار قبل موعد أول اختبار، وعلى توقيعها من المتقدم وولي
+          الأمر.
+        </span>
       </p>
     </div>
   );
