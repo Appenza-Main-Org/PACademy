@@ -40,6 +40,7 @@ export const LOOKUP_KEYS = [
   'academic-degrees',
   'exam-rounds',
   'graduation-years',
+  'excellence-criteria',
 ] as const;
 
 export type LookupKey = (typeof LOOKUP_KEYS)[number];
@@ -96,6 +97,7 @@ export const LOOKUP_SECTIONS = [
       'academic-degrees',
       'exam-rounds',
       'graduation-years',
+      'excellence-criteria',
     ] as const,
   },
   {
@@ -140,6 +142,7 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'academic-degrees':             { label: 'الدرجة العلمية',                codePrefix: 'DEG', padding: 2 },
   'exam-rounds':                  { label: 'دور الامتحان',                  codePrefix: 'ROUND', padding: 2 },
   'graduation-years':             { label: 'سنوات التخرج',                  codePrefix: 'GYR', padding: 4 },
+  'excellence-criteria':          { label: 'معيار التميز',                  codePrefix: 'EXC', padding: 2 },
 };
 
 /* ─── Per-row base ───────────────────────────────────────────────────── */
@@ -294,6 +297,16 @@ export interface ApplicantCategoryRow extends LookupRowBase {
   expandedConditions?: CategoryConditions;
   requiredTests: RequiredTest[];
   procedures: string[];
+  /** When true, the wizard's «الشروط العامة» surfaces this category and
+   *  renders its معيار التميز value as a row field. When false, the
+   *  category is filtered out of the wizard. Defaults to `true` for
+   *  legacy rows authored before this flag existed. */
+  excellenceCriteriaVisible: boolean;
+  /** FK → `excellence-criteria` (row `code`). The chosen criterion for
+   *  this category — either `EXC-01` (تقدير) or `EXC-02` (درجة). `null`
+   *  when the admin hasn't picked one yet; the wizard then renders an
+   *  «اختر معيار التميز» placeholder under the row. */
+  excellenceCriterion: string | null;
 }
 
 export interface NationalityCountryRow extends LookupRowBase {
@@ -404,6 +417,13 @@ export interface GraduationYearRow extends LookupRowBase {
   year: number;
 }
 
+/** Excellence-criterion lookup row (معيار التميز). Two rows by default —
+ *  «تقدير» (qualitative grade) vs «درجة» (numeric percentage) — that the
+ *  applicant-categories form picks from per-category, paired with a
+ *  visibility toggle that controls whether the wizard's الشروط العامة
+ *  section surfaces that category. */
+export interface ExcellenceCriterionRow extends LookupRowBase {}
+
 /* ─── Mapped type: discriminated union over LookupKey ─────────────── */
 
 export interface LookupRowMap {
@@ -431,6 +451,7 @@ export interface LookupRowMap {
   'academic-degrees': AcademicDegreeRow;
   'exam-rounds': ExamRoundRow;
   'graduation-years': GraduationYearRow;
+  'excellence-criteria': ExcellenceCriterionRow;
 }
 
 export type LookupRow<K extends LookupKey = LookupKey> = LookupRowMap[K];

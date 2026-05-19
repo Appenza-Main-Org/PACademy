@@ -113,6 +113,12 @@ export function ApplicantCategoryDetailPage(): JSX.Element {
 
   const faculties = MOCK.lookups.faculties as FacultyRow[];
   const specializations = MOCK.lookups.specializations as SpecializationRow[];
+  const excellenceCriteria = MOCK.lookups['excellence-criteria'];
+  const excellenceLabel =
+    row.excellenceCriterion === null
+      ? null
+      : excellenceCriteria.find((c) => c.code === row.excellenceCriterion)?.name ??
+        row.excellenceCriterion;
 
   return (
     <CenteredShell>
@@ -184,6 +190,29 @@ export function ApplicantCategoryDetailPage(): JSX.Element {
                       </Badge>
                     ))}
                   </span>
+                )
+              }
+            />
+          </div>
+        </Card>
+
+        <Card>
+          <div className="grid gap-5 md:grid-cols-2">
+            <Field
+              label="إظهار «معيار التميز» في إعدادات التقديم"
+              value={
+                <Badge tone={row.excellenceCriteriaVisible ? 'success' : 'neutral'}>
+                  {row.excellenceCriteriaVisible ? 'مفعّل' : 'غير مفعّل'}
+                </Badge>
+              }
+            />
+            <Field
+              label="معيار التميز"
+              value={
+                excellenceLabel === null ? (
+                  <Dash />
+                ) : (
+                  <Badge tone="accent">{excellenceLabel}</Badge>
                 )
               }
             />

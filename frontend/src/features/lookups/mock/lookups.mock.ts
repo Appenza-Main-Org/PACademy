@@ -24,6 +24,7 @@ import type {
   ApplicantDivisionRow,
   CommitteeRow,
   ExamRoundRow,
+  ExcellenceCriterionRow,
   FacultyRow,
   GovernorateRow,
   GraduationYearRow,
@@ -422,6 +423,9 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 7, passingCriteria: '' },
     ],
     procedures: [],
+    excellenceCriteriaVisible: true,
+    /* officers_general uses numeric percentage grading (SUB-001 / GRADES). */
+    excellenceCriterion: 'EXC-02',
   },
   {
     code: 'law_bachelor',
@@ -452,6 +456,9 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
+    excellenceCriteriaVisible: true,
+    /* law_bachelor uses qualitative grading (SUB-003 / TAGDIR). */
+    excellenceCriterion: 'EXC-01',
   },
   {
     code: 'physical_education_bachelor',
@@ -482,6 +489,8 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
+    excellenceCriteriaVisible: true,
+    excellenceCriterion: 'EXC-01',
   },
   {
     code: 'specialized_officers',
@@ -524,6 +533,8 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
+    excellenceCriteriaVisible: true,
+    excellenceCriterion: 'EXC-01',
   },
 ];
 
@@ -981,6 +992,18 @@ const graduationYears: GraduationYearRow[] = [
   { code: 'GYR-2026', name: '2026', year: 2026, ...active },
 ];
 
+/* ─── 24. excellence-criteria — معيار التميز ────────────────────────────
+ *
+ * Closed two-row lookup picked by every applicant-category to declare
+ * whether the "تميز" axis is graded qualitatively (تقدير) or numerically
+ * (درجة). The visibility flag lives on each applicant-category row;
+ * this lookup is just the value catalogue. */
+
+const excellenceCriteria: ExcellenceCriterionRow[] = [
+  { code: 'EXC-01', name: 'تقدير', ...active },
+  { code: 'EXC-02', name: 'درجة', ...active },
+];
+
 /* ─── Aggregate — `MOCK.lookups[key]` ────────────────────────────────── */
 
 export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
@@ -1008,4 +1031,5 @@ export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
   'academic-degrees': academicDegrees,
   'exam-rounds': examRounds,
   'graduation-years': graduationYears,
+  'excellence-criteria': excellenceCriteria,
 };
