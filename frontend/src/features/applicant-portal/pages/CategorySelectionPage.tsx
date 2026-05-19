@@ -58,6 +58,8 @@ import {
 } from '../api/categories.queries';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
+import { useLookup } from '@/features/lookups/api/lookups.queries';
+import type { FacultyRow, SpecializationRow } from '@/features/lookups';
 
 const COHORT_LABEL: Record<AdmissionCycle['cohort'], string> = {
   male: 'الذكور',
@@ -92,6 +94,16 @@ export function CategorySelectionPage(): JSX.Element {
   const storeNid = useApplicantPortalStore((s) => s.nationalId);
   const setSelectedCategoryKey = useApplicantPortalStore((s) => s.setSelectedCategoryKey);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  const setSelectedFaculty = useApplicantPortalStore((s) => s.setSelectedFaculty);
+  const setSelectedSpecialization = useApplicantPortalStore((s) => s.setSelectedSpecialization);
+  /* Faculty + specialization picker shown after specialized-officers
+   * selection. Applicant picks الكلية first, then chooses a specialization
+   * scoped to that faculty. Sourced from the lookups module. */
+  const [specializationPickerOpen, setSpecializationPickerOpen] = useState(false);
+  const [pickedFacultyCode, setPickedFacultyCode] = useState<string | null>(null);
+  const [pickedSpecializationCode, setPickedSpecializationCode] = useState<string | null>(null);
+  const facultiesQuery = useLookup('faculties');
+  const specializationsQuery = useLookup('specializations');
   /* Source-of-truth for the identity strip: prefer the MOI snapshot
    * captured at login; for not_found scenarios we fall back to a stub
    * derived from the entered NID and route directly to the profile
@@ -126,6 +138,22 @@ export function CategorySelectionPage(): JSX.Element {
 
   const categoriesQuery = useCategories(selectedCycle?.id);
 
+  /* Lookup-derived option lists — declared HERE (above the conditional
+   * returns below) so they sit in a stable hook position across renders.
+   * Moving the useMemo calls below the `if (loading) return` violated
+   * Rules of Hooks and crashed the page on first paint (blank screen).
+   */
+  const allFaculties: readonly FacultyRow[] = facultiesQuery.data ?? [];
+  const allSpecializations: readonly SpecializationRow[] = specializationsQuery.data ?? [];
+  const facultyByCode = useMemo(
+    () => new Map(allFaculties.map((f) => [f.code, f])),
+    [allFaculties],
+  );
+  const specializationByCode = useMemo(
+    () => new Map(allSpecializations.map((s) => [s.code, s])),
+    [allSpecializations],
+  );
+
   if (cyclesQuery.isLoading) return <LoadingState variant="page" />;
   if (cyclesQuery.error) {
     return (
@@ -144,16 +172,51 @@ export function CategorySelectionPage(): JSX.Element {
 
   const onPickCategory = (categoryKey: string, enabled: boolean): void => {
     if (!enabled) return;
+    /* For الضباط المتخصصون the applicant must pick a sub-specialization
+     * BEFORE entering the wizard (client direction 2026-05-19). Set the
+     * category key now so the picker title contextually matches, then
+     * open the picker — confirmation will navigate. */
+    if (categoryKey === 'specialized_officers') {
+      setSelectedCategoryKey(categoryKey);
+      setPickedFacultyCode(null);
+      setPickedSpecializationCode(null);
+      setSpecializationPickerOpen(true);
+      return;
+    }
     /* For not_found-in-MOI users (or when there's no live cycle to run
      * an eligibility check against) skip the eligibility step and go
      * straight to the profile. */
     if (!identity || !selectedCycle) {
       setSelectedCategoryKey(categoryKey);
+      setSelectedFaculty(null);
+      setSelectedSpecialization(null);
+      navigate(ROUTES.applicantProfile);
+      return;
+    }
+    setSelectedFaculty(null);
+    setSelectedSpecialization(null);
+    navigate(
+      `${ROUTES.applicantEligibility}?category=${categoryKey}&cycle=${selectedCycle.id}`,
+    );
+  };
+
+  const confirmSpecialization = (): void => {
+    if (!pickedFacultyCode || !pickedSpecializationCode) return;
+    const faculty = facultyByCode.get(pickedFacultyCode);
+    const specialization = specializationByCode.get(pickedSpecializationCode);
+    if (!faculty || !specialization) return;
+    setSelectedFaculty(faculty.name);
+    setSelectedSpecialization(specialization.name);
+    setSpecializationPickerOpen(false);
+    /* Same routing logic as the standard onPickCategory path: skip the
+     * eligibility step for not_found-in-MOI users, otherwise navigate
+     * to the eligibility-check page first. */
+    if (!identity || !selectedCycle) {
       navigate(ROUTES.applicantProfile);
       return;
     }
     navigate(
-      `${ROUTES.applicantEligibility}?category=${categoryKey}&cycle=${selectedCycle.id}`,
+      `${ROUTES.applicantEligibility}?category=specialized_officers&cycle=${selectedCycle.id}`,
     );
   };
 
@@ -305,8 +368,165 @@ export function CategorySelectionPage(): JSX.Element {
             <InstructionsDrawerBody />
           </Modal.Body>
         </Modal>
+
+        {/* Specialization picker — opened when an applicant chooses
+            الضباط المتخصصون. They must select a specialization here
+            before entering the wizard (client direction 2026-05-19). */}
+        <Modal
+          open={specializationPickerOpen}
+          onClose={() => setSpecializationPickerOpen(false)}
+          title="اختر الكلية والتخصص"
+          size="lg"
+        >
+          <Modal.Body>
+            <SpecializationPickerBody
+              faculties={allFaculties}
+              specializations={allSpecializations}
+              pickedFacultyCode={pickedFacultyCode}
+              pickedSpecializationCode={pickedSpecializationCode}
+              onPickFaculty={(code) => {
+                setPickedFacultyCode(code);
+                /* Drop any previously-picked specialization when faculty
+                 * changes — it likely belongs to the old faculty. */
+                setPickedSpecializationCode(null);
+              }}
+              onPickSpecialization={setPickedSpecializationCode}
+              loading={facultiesQuery.isLoading || specializationsQuery.isLoading}
+            />
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              onClick={() => setSpecializationPickerOpen(false)}
+            >
+              إلغاء
+            </Button>
+            <Button
+              variant="primary"
+              onClick={confirmSpecialization}
+              disabled={!pickedFacultyCode || !pickedSpecializationCode}
+            >
+              متابعة
+            </Button>
+          </Modal.Footer>
+        </Modal>
       </div>
     </TooltipProvider>
+  );
+}
+
+function SpecializationPickerBody({
+  faculties,
+  specializations,
+  pickedFacultyCode,
+  pickedSpecializationCode,
+  onPickFaculty,
+  onPickSpecialization,
+  loading,
+}: {
+  faculties: readonly FacultyRow[];
+  specializations: readonly SpecializationRow[];
+  pickedFacultyCode: string | null;
+  pickedSpecializationCode: string | null;
+  onPickFaculty: (code: string) => void;
+  onPickSpecialization: (code: string) => void;
+  loading: boolean;
+}): JSX.Element {
+  const activeFaculties = faculties.filter((f) => f.isActive);
+  const scopedSpecializations = pickedFacultyCode
+    ? specializations.filter((s) => s.isActive && s.facultyCode === pickedFacultyCode)
+    : [];
+
+  if (loading) {
+    return <LoadingState variant="list" rows={6} />;
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-sm leading-relaxed text-ink-700">
+        اختر الكلية أولاً ثم التخصص الذي ستتقدم به لقسم الضباط المتخصصون.
+      </p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          <h3 className="font-ar-display text-sm font-bold text-ink-900">الكلية</h3>
+          <ul className="flex max-h-80 flex-col gap-1.5 overflow-y-auto pe-1">
+            {activeFaculties.map((f) => {
+              const active = f.code === pickedFacultyCode;
+              return (
+                <li key={f.code}>
+                  <PickerButton
+                    active={active}
+                    onClick={() => onPickFaculty(f.code)}
+                    label={f.name}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        <div className="flex flex-col gap-2">
+          <h3 className="font-ar-display text-sm font-bold text-ink-900">التخصص</h3>
+          {!pickedFacultyCode ? (
+            <p className="rounded-md border border-dashed border-border-default bg-ink-50 px-3 py-3 text-2xs text-ink-500">
+              اختر الكلية أولاً لعرض التخصصات المتاحة.
+            </p>
+          ) : scopedSpecializations.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border-default bg-ink-50 px-3 py-3 text-2xs text-ink-500">
+              لا توجد تخصصات نشطة لهذه الكلية حالياً.
+            </p>
+          ) : (
+            <ul className="flex max-h-80 flex-col gap-1.5 overflow-y-auto pe-1">
+              {scopedSpecializations.map((s) => {
+                const active = s.code === pickedSpecializationCode;
+                return (
+                  <li key={s.code}>
+                    <PickerButton
+                      active={active}
+                      onClick={() => onPickSpecialization(s.code)}
+                      label={s.name}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PickerButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'flex w-full items-center gap-2.5 rounded-md border bg-surface-card px-3 py-2 text-start text-sm transition-colors duration-fast ease-standard',
+        'focus-visible:shadow-focus-teal focus-visible:outline-none',
+        active
+          ? 'border-teal-500 bg-teal-50 text-ink-900 shadow-card ring-2 ring-teal-500/30'
+          : 'border-border-default text-ink-800 hover:border-teal-500 hover:bg-teal-50',
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'inline-block h-2 w-2 rounded-full',
+          active ? 'bg-teal-500' : 'bg-ink-300',
+        )}
+      />
+      <span className="font-medium">{label}</span>
+    </button>
   );
 }
 

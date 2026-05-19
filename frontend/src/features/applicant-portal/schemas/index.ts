@@ -74,6 +74,19 @@ export const stage345Schema = z
     /* Thanaweya — optional graduation date (auto-filled from grades
      * import when available, manual otherwise). */
     thanawiGradDate: z.string().optional().or(z.literal('')),
+    /* التقدير — qualitative grade rating for thanaweya (manual path). */
+    thanawiGrade: z.string().optional().or(z.literal('')),
+    /* التقدير العام — qualitative grade rating for the bachelor degree. */
+    bachelorGrade: z.string().optional().or(z.literal('')),
+
+    /* Postgraduate block — only rendered for specialized_officers
+     * category. All fields are optional at schema-level so other
+     * categories that never see these inputs pass validation. */
+    postgradDegree: z.string().optional().or(z.literal('')),
+    postgradSpecialization: z.string().optional().or(z.literal('')),
+    postgradUniversity: z.string().optional().or(z.literal('')),
+    postgradYear: z.union([z.coerce.number().int().min(1990).max(2099), z.literal('')]).optional(),
+    postgradGrade: z.string().optional().or(z.literal('')),
 
     /* Birth-place picker (separate from MOI's birthGovernorate). */
     birthDistrict: z.string().optional().or(z.literal('')),

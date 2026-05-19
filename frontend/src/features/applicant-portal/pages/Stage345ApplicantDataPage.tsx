@@ -20,7 +20,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import {
   Check,
   Download,
@@ -65,7 +65,11 @@ import {
 } from '@/features/applicant-grades/api/grades.queries';
 import { useApplicantCategories, useLookup } from '@/features/lookups/api/lookups.queries';
 import type { GradeRow } from '@/features/applicant-grades/types';
-import type { SchoolCategoryRow } from '@/features/lookups';
+import type {
+  FacultyRow,
+  SchoolCategoryRow,
+  UniversityRow,
+} from '@/features/lookups';
 import { emitAudit } from '@/shared/lib/audit';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
@@ -90,29 +94,6 @@ const COUNTRY_OPTIONS: readonly SearchSelectOption[] = [
   { value: 'البحرين', label: 'البحرين' },
 ];
 
-const FACULTY_OPTIONS: readonly SearchSelectOption[] = [
-  { value: 'الحقوق', label: 'الحقوق' },
-  { value: 'الشرطة', label: 'الشرطة' },
-  { value: 'التربية الرياضية', label: 'التربية الرياضية' },
-  { value: 'الآداب', label: 'الآداب' },
-  { value: 'العلوم', label: 'العلوم' },
-  { value: 'الهندسة', label: 'الهندسة' },
-  { value: 'الإعلام', label: 'الإعلام' },
-  { value: 'الطب', label: 'الطب' },
-];
-
-const UNIVERSITY_OPTIONS: readonly SearchSelectOption[] = [
-  { value: 'القاهرة', label: 'جامعة القاهرة' },
-  { value: 'عين شمس', label: 'جامعة عين شمس' },
-  { value: 'الإسكندرية', label: 'جامعة الإسكندرية' },
-  { value: 'الأزهر', label: 'جامعة الأزهر' },
-  { value: 'المنصورة', label: 'جامعة المنصورة' },
-  { value: 'الزقازيق', label: 'جامعة الزقازيق' },
-  { value: 'أسيوط', label: 'جامعة أسيوط' },
-  { value: 'حلوان', label: 'جامعة حلوان' },
-  { value: 'بنها', label: 'جامعة بنها' },
-];
-
 /* Branch / track options shown when the applicant enters thanawi data
  * manually. The school category itself comes from the
  * `school-categories` lookup; the branch values match the existing zod
@@ -130,6 +111,8 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   const moiSessionFromStore = useApplicantPortalStore((s) => s.moiSession);
   const selectedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  const selectedFaculty = useApplicantPortalStore((s) => s.selectedFaculty);
+  const selectedSpecialization = useApplicantPortalStore((s) => s.selectedSpecialization);
 
   /* The MOI snapshot is captured at login and persisted in the portal
    * store. For the "not found in MOI" path it's intentionally null —
@@ -205,6 +188,16 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   }, [auditKey, gateLoading, lastAuditKey, selectedCategoryKey, nid, selectedCycleId, gradesMatched]);
 
   const showBachelor = selectedCategoryKey !== 'officers_general';
+  const isSpecializedOfficers = selectedCategoryKey === 'specialized_officers';
+
+  /* Qualification level — picked by الضباط المتخصصون applicants to drive
+   *  whether the postgraduate block renders (master/doctorate) or just
+   *  the bachelor row (license/bachelor). Local state because schemas
+   *  for this category vary; the picked value is surfaced on submit. */
+  const [qualificationLevel, setQualificationLevel] = useState<
+    '' | 'license' | 'bachelor' | 'master' | 'doctorate'
+  >('');
+  const showPostgrad = isSpecializedOfficers && (qualificationLevel === 'master' || qualificationLevel === 'doctorate');
 
   /* Manual-entry buffer for the personal-data block. Used only on the
    * not_found-in-MOI path; if MOI returned a session these inputs aren't
@@ -254,6 +247,34 @@ export function Stage345ApplicantDataPage(): JSX.Element {
    * manual-entry tracks: foreign equivalent diplomas, etc.). */
   const gradesQuery = useGrades();
   const schoolCategoriesQuery = useLookup('school-categories');
+  /* Bachelor / postgrad pickers are sourced from the admin lookups module
+   * (/admin/lookups/{faculties,specializations,universities}) so the
+   * options stay in lockstep with whatever the admin team configures. */
+  const facultiesQuery = useLookup('faculties');
+  const specializationsQuery = useLookup('specializations');
+  const universitiesQuery = useLookup('universities');
+  const facultyOptions: readonly SearchSelectOption[] = useMemo(
+    () =>
+      (facultiesQuery.data ?? [])
+        .filter((f: FacultyRow) => f.isActive)
+        .map((f) => ({ value: f.name, label: f.name })),
+    [facultiesQuery.data],
+  );
+  /* Lookup helpers for the bachelor block — looking faculty up by its
+   * Arabic name (which is what the SearchSelect stores) lets us scope
+   * specializations to that faculty's FK. */
+  const facultyByName = useMemo(() => {
+    const m = new Map<string, FacultyRow>();
+    for (const f of facultiesQuery.data ?? []) m.set(f.name, f);
+    return m;
+  }, [facultiesQuery.data]);
+  const universityOptions: readonly SearchSelectOption[] = useMemo(
+    () =>
+      (universitiesQuery.data ?? [])
+        .filter((u: UniversityRow) => u.isActive)
+        .map((u) => ({ value: u.name, label: u.name })),
+    [universitiesQuery.data],
+  );
   const matchedGradeRow = useMemo<GradeRow | null>(() => {
     /* Prefer a real row from the backend when available. */
     const fromBackend = gradesQuery.data?.find((r) => r.nid === session.nationalId) ?? null;
@@ -318,6 +339,13 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       schoolNameAr: '',
       schoolAddress: '',
       thanawiGradDate: '',
+      thanawiGrade: '',
+      bachelorGrade: '',
+      postgradDegree: '',
+      postgradSpecialization: '',
+      postgradUniversity: '',
+      postgradYear: '',
+      postgradGrade: '',
       birthDistrict: '',
       currentAddressDetail: '',
       addressGovernorate: '',
@@ -331,6 +359,27 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       declaration: false as unknown as true,
     },
   });
+
+  /* Cascading filter — the التخصص dropdown in the bachelor block lists
+   * only the specializations whose facultyCode matches the currently-
+   * picked الكلية. Clears the picked specialization whenever the faculty
+   * changes to a value where the old specialization no longer fits. */
+  const watchedFaculty = useWatch({ control, name: 'bachelorFaculty' });
+  const watchedSpecialization = useWatch({ control, name: 'bachelorSpecialization' });
+  const scopedSpecializationOptions: readonly SearchSelectOption[] = useMemo(() => {
+    if (!watchedFaculty) return [];
+    const f = facultyByName.get(watchedFaculty);
+    if (!f) return [];
+    return (specializationsQuery.data ?? [])
+      .filter((s) => s.isActive && s.facultyCode === f.code)
+      .map((s) => ({ value: s.name, label: s.name }));
+  }, [watchedFaculty, facultyByName, specializationsQuery.data]);
+  useEffect(() => {
+    if (!watchedSpecialization) return;
+    if (scopedSpecializationOptions.length === 0) return;
+    const valid = scopedSpecializationOptions.some((o) => o.value === watchedSpecialization);
+    if (!valid) setValue('bachelorSpecialization', '');
+  }, [scopedSpecializationOptions, watchedSpecialization, setValue]);
 
   /* Demo prefill for the "submitted" user. Reads from a single source
    * (SUBMITTED_APPLICANT_PROFILE) shared with ApplicantPortalPage so the
@@ -369,6 +418,16 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     }));
   }, [nid, setValue]);
 
+  /* For specialized-officers applicants the التخصص + الكلية are picked
+   * on /applicant/start (sourced from the lookups module). Mirror them
+   * into the form so the submit payload still carries the values even
+   * though their inputs are read-only. */
+  useEffect(() => {
+    if (!isSpecializedOfficers) return;
+    if (selectedSpecialization) setValue('bachelorSpecialization', selectedSpecialization);
+    if (selectedFaculty) setValue('bachelorFaculty', selectedFaculty);
+  }, [isSpecializedOfficers, selectedFaculty, selectedSpecialization, setValue]);
+
   /* Sync the matched grade row into the form state so submission carries
    * the values even though the inputs are read-only. */
   useEffect(() => {
@@ -406,31 +465,36 @@ export function Stage345ApplicantDataPage(): JSX.Element {
         <Card className="order-5">
           <SectionHeader
             icon={<GraduationCap size={16} strokeWidth={1.75} />}
-            title="بيانات المؤهل الجامعي (للتقدم)"
+            title="بيانات المؤهل الجامعي "
           />
+          {isSpecializedOfficers && (
+            <div className="mb-4 grid gap-3 md:grid-cols-3">
+              {selectedFaculty && <ReadOnlyRow label="الكلية" value={selectedFaculty} />}
+              {selectedSpecialization && (
+                <ReadOnlyRow label="التخصص" value={selectedSpecialization} />
+              )}
+              <Field label="المؤهل / الدرجة العلمية" required>
+                <Select
+                  value={qualificationLevel}
+                  onChange={(e) =>
+                    setQualificationLevel(
+                      e.target.value as '' | 'license' | 'bachelor' | 'master' | 'doctorate',
+                    )
+                  }
+                  options={[
+                    { value: '', label: '— اختر —' },
+                    { value: 'license', label: 'ليسانس' },
+                    { value: 'bachelor', label: 'بكالوريوس' },
+                    { value: 'master', label: 'ماجستير' },
+                    { value: 'doctorate', label: 'دكتوراه' },
+                  ]}
+                />
+              </Field>
+            </div>
+          )}
           <div className="grid gap-3 md:grid-cols-3">
-            <Input label="المجموعة" {...register('bachelorMajor')} error={errors.bachelorMajor?.message} />
-            <Input label="الشعبة" {...register('bachelorBranch')} error={errors.bachelorBranch?.message} />
-            <Input
-              label="التخصص"
-              {...register('bachelorSpecialization')}
-              error={errors.bachelorSpecialization?.message}
-            />
-            <Field label="الكلية" error={errors.bachelorFaculty?.message}>
-              <Controller
-                control={control}
-                name="bachelorFaculty"
-                render={({ field }) => (
-                  <SearchSelect
-                    ariaLabel="الكلية"
-                    placeholder="اختر الكلية"
-                    options={FACULTY_OPTIONS}
-                    value={field.value ?? null}
-                    onChange={(v) => field.onChange(v ?? '')}
-                  />
-                )}
-              />
-            </Field>
+            {/* Field order (client direction 2026-05-19):
+                الجامعة → الكلية → التخصص (scoped to الكلية) → rest. */}
             <Field label="الجامعة" error={errors.bachelorUniversity?.message}>
               <Controller
                 control={control}
@@ -439,13 +503,56 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                   <SearchSelect
                     ariaLabel="الجامعة"
                     placeholder="اختر الجامعة"
-                    options={UNIVERSITY_OPTIONS}
+                    options={universityOptions}
                     value={field.value ?? null}
                     onChange={(v) => field.onChange(v ?? '')}
                   />
                 )}
               />
             </Field>
+            {/* For specialized-officers الكلية + التخصص are shown in the
+                read-only strip above (picked on /applicant/start); other
+                categories pick الكلية from the faculties lookup, then
+                التخصص narrows to that faculty's options. */}
+            {!isSpecializedOfficers && (
+              <Field label="الكلية" error={errors.bachelorFaculty?.message}>
+                <Controller
+                  control={control}
+                  name="bachelorFaculty"
+                  render={({ field }) => (
+                    <SearchSelect
+                      ariaLabel="الكلية"
+                      placeholder="اختر الكلية"
+                      options={facultyOptions}
+                      value={field.value ?? null}
+                      onChange={(v) => field.onChange(v ?? '')}
+                    />
+                  )}
+                />
+              </Field>
+            )}
+            {!isSpecializedOfficers && (
+              <Field label="التخصص" error={errors.bachelorSpecialization?.message}>
+                <Controller
+                  control={control}
+                  name="bachelorSpecialization"
+                  render={({ field }) => (
+                    <SearchSelect
+                      ariaLabel="التخصص"
+                      placeholder={
+                        watchedFaculty ? 'اختر التخصص' : 'اختر الكلية أولاً'
+                      }
+                      options={scopedSpecializationOptions}
+                      value={field.value ?? null}
+                      onChange={(v) => field.onChange(v ?? '')}
+                      disabled={!watchedFaculty}
+                    />
+                  )}
+                />
+              </Field>
+            )}
+            <Input label="المجموعة" {...register('bachelorMajor')} error={errors.bachelorMajor?.message} />
+            <Input label="الشعبة" {...register('bachelorBranch')} error={errors.bachelorBranch?.message} />
             <Input
               label="النسبة المئوية"
               type="number"
@@ -457,7 +564,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               error={errors.bachelorPercentage?.message as string | undefined}
             />
             <Input
-              label="سنة الحصول على المؤهل"
+              label="سنة التخرج"
               type="number"
               min={1990}
               max={2099}
@@ -465,33 +572,76 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               {...register('bachelorYear')}
               error={errors.bachelorYear?.message as string | undefined}
             />
+            <Select
+              label="التقدير العام"
+              {...register('bachelorGrade')}
+              options={GRADE_RATING_OPTIONS as unknown as { value: string; label: string }[]}
+              error={errors.bachelorGrade?.message as string | undefined}
+            />
           </div>
         </Card>
       )}
 
-      {isMoiVerified && (
-        <Card className="order-4">
+      {showPostgrad && (
+        <Card className="order-5">
           <SectionHeader
             icon={<GraduationCap size={16} strokeWidth={1.75} />}
-            title="بيانات التعليم"
+            title="بيانات الدراسات العليا"
           />
-          {gradesQuery.isLoading || schoolCategoriesQuery.isLoading ? (
-            <LoadingState variant="list" rows={3} />
-          ) : externalImport && matchedGradeRow ? (
-            <div className="flex flex-col gap-4">
-              <ExternalGradesPanel row={matchedGradeRow} />
-              <SchoolDetailFields register={register} control={control} errors={errors} />
-            </div>
-          ) : (
-            <ManualThanawiFields
-              register={register}
-              control={control}
-              errors={errors}
-              categories={manualSchoolCategories}
+          <div className="grid gap-3 md:grid-cols-3">
+            <Input
+              label="نوع الشهادة"
+              {...register('postgradDegree')}
+              placeholder={qualificationLevel === 'doctorate' ? 'دكتوراه' : 'ماجستير'}
+              error={errors.postgradDegree?.message as string | undefined}
             />
-          )}
+            <Input
+              label="سنة الحصول على الشهادة"
+              type="number"
+              min={1990}
+              max={2099}
+              dir="ltr"
+              {...register('postgradYear')}
+              error={errors.postgradYear?.message as string | undefined}
+            />
+            <Select
+              label="التقدير"
+              {...register('postgradGrade')}
+              options={GRADE_RATING_OPTIONS as unknown as { value: string; label: string }[]}
+              error={errors.postgradGrade?.message as string | undefined}
+            />
+          </div>
         </Card>
       )}
+
+      {/* Education block — when MOI returned a session AND a matching grade
+       *  row exists, render the read-only imported panel + manual school
+       *  detail fields. Otherwise (MOI not_found OR MOI verified but no
+       *  imported grades) the applicant enters every education field
+       *  manually. Per client direction 2026-05-19, not_found applicants
+       *  must enter the full education chain themselves. */}
+      <Card className="order-4">
+        <SectionHeader
+          icon={<GraduationCap size={16} strokeWidth={1.75} />}
+          title="بيانات التعليم"
+        />
+        {gradesQuery.isLoading || schoolCategoriesQuery.isLoading ? (
+          <LoadingState variant="list" rows={3} />
+        ) : externalImport && matchedGradeRow ? (
+          <div className="flex flex-col gap-4">
+            <ExternalGradesPanel row={matchedGradeRow} />
+            <SchoolDetailFields register={register} control={control} errors={errors} />
+          </div>
+        ) : (
+          <ManualThanawiFields
+            register={register}
+            control={control}
+            errors={errors}
+            categories={manualSchoolCategories}
+            isMoiVerified={isMoiVerified}
+          />
+        )}
+      </Card>
 
       <Card variant="compact" className="order-1">
         <SectionHeader
@@ -1076,33 +1226,51 @@ function SchoolDetailFields({
   );
 }
 
+/* Options for التقدير (qualitative grade rating) — shared between thanawi
+ * and bachelor selects in the manual-entry path. */
+const GRADE_RATING_OPTIONS = [
+  { value: '', label: '— اختر —' },
+  { value: 'ممتاز', label: 'ممتاز' },
+  { value: 'جيد جداً', label: 'جيد جداً' },
+  { value: 'جيد', label: 'جيد' },
+  { value: 'مقبول', label: 'مقبول' },
+] as const;
+
 function ManualThanawiFields({
   register,
   control,
   errors,
   categories,
+  isMoiVerified,
 }: {
   register: ReturnType<typeof useForm<Stage345Values>>['register'];
   control: ReturnType<typeof useForm<Stage345Values>>['control'];
   errors: ReturnType<typeof useForm<Stage345Values>>['formState']['errors'];
   categories: readonly SchoolCategoryRow[];
+  /** When true the gold "not in MOI" banner renders (MOI-verified user
+   *  whose grades didn't import). When false (not_found path) we skip
+   *  the banner since the applicant already knows MOI didn't return
+   *  data — the message would be redundant. */
+  isMoiVerified: boolean;
 }): JSX.Element {
   const typeOptions = categories.map((c) => ({ value: c.name, label: c.name }));
   return (
     <div className="flex flex-col gap-3">
-      <p className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
-        <Info size={11} strokeWidth={1.75} className="me-1 inline-block" aria-hidden />
-        لم يتم العثور على بياناتك في قاعدة الثانوية العامة / الأزهرية. يرجى إدخالها يدوياً —
-        نوع الشهادة يقتصر على الفئات التي لا تُستورَد آلياً.
-      </p>
+      {isMoiVerified && (
+        <p className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
+          <Info size={11} strokeWidth={1.75} className="me-1 inline-block" aria-hidden />
+          لم يتم العثور على بياناتك في قاعدة الثانوية العامة / الأزهرية. يرجى إدخالها يدوياً —
+          نوع الشهادة يقتصر على الفئات التي لا تُستورَد آلياً.
+        </p>
+      )}
       <div className="grid gap-3 md:grid-cols-2">
-        <Field label="دولة الشهادة الثانوية" required error={errors.thanawiCountry?.message}>
+        <Field label="دولة المدرسة" required error={errors.thanawiCountry?.message}>
           <Controller
             control={control}
             name="thanawiCountry"
             render={({ field }) => (
               <SearchSelect
-                ariaLabel="دولة الشهادة الثانوية"
+                ariaLabel="دولة المدرسة"
                 placeholder="اختر الدولة"
                 options={COUNTRY_OPTIONS}
                 value={field.value ?? null}
@@ -1123,6 +1291,31 @@ function ManualThanawiFields({
           error={errors.thanawiType?.message}
         />
         <Input
+          label="اسم المدرسة"
+          required
+          {...register('schoolNameAr')}
+          error={errors.schoolNameAr?.message}
+        />
+        <Input
+          label="عنوان المدرسة"
+          required
+          {...register('schoolAddress')}
+          error={errors.schoolAddress?.message}
+        />
+        <Input
+          label="تاريخ الحصول على الشهادة"
+          type="date"
+          dir="ltr"
+          {...register('thanawiGradDate')}
+          error={errors.thanawiGradDate?.message}
+        />
+        <Select
+          label="التقدير"
+          {...register('thanawiGrade')}
+          options={GRADE_RATING_OPTIONS as unknown as { value: string; label: string }[]}
+          error={errors.thanawiGrade?.message as string | undefined}
+        />
+        <Input
           label="المجموع"
           type="number"
           required
@@ -1140,20 +1333,6 @@ function ManualThanawiFields({
           dir="ltr"
           {...register('thanawiPercentage')}
           error={errors.thanawiPercentage?.message}
-        />
-        <Input
-          label="إسم المدرسة باللغة العربية"
-          required
-          {...register('schoolNameAr')}
-          error={errors.schoolNameAr?.message}
-          containerClassName="md:col-span-2"
-        />
-        <Input
-          label="عنوان المدرسة"
-          required
-          {...register('schoolAddress')}
-          error={errors.schoolAddress?.message}
-          containerClassName="md:col-span-2"
         />
       </div>
     </div>

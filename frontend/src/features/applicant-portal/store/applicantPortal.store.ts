@@ -24,6 +24,17 @@ interface ApplicantPortalState {
   nationalId: string | null;
   selectedCategoryKey: string | null;
   selectedCycleId: string | null;
+  /** Faculty picked on /applicant/start for the `specialized_officers`
+   *  category — the applicant picks الكلية first, then chooses a
+   *  specialization scoped to that faculty. Stored as the human-readable
+   *  Arabic name (matches the lookups `name` field). Null when the picker
+   *  hasn't been used. */
+  selectedFaculty: string | null;
+  /** Sub-specialization picked on /applicant/start when the category is
+   *  `specialized_officers` — the applicant chooses which specialization
+   *  to apply for before entering the wizard. Null for all other
+   *  categories (or before the picker has been used). */
+  selectedSpecialization: string | null;
 
   /** Snapshot of the MOI identity-verification response captured on
    *  login. Drives the dimmed/auto-populated identity fields in the
@@ -54,6 +65,8 @@ interface ApplicantPortalState {
   setNationalId: (id: string | null) => void;
   setSelectedCategoryKey: (key: string | null) => void;
   setSelectedCycleId: (id: string | null) => void;
+  setSelectedFaculty: (f: string | null) => void;
+  setSelectedSpecialization: (s: string | null) => void;
   setMoiSession: (session: MoiApplicantSession | null) => void;
   setVerifiedAt: (ts: number | null) => void;
   setPayment: (input: {
@@ -74,6 +87,8 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       nationalId: null,
       selectedCategoryKey: null,
       selectedCycleId: null,
+      selectedFaculty: null,
+      selectedSpecialization: null,
       moiSession: null,
       verifiedAt: null,
       paid: false,
@@ -86,6 +101,8 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       setNationalId: (id) => set({ nationalId: id }),
       setSelectedCategoryKey: (key) => set({ selectedCategoryKey: key }),
       setSelectedCycleId: (id) => set({ selectedCycleId: id }),
+      setSelectedFaculty: (f) => set({ selectedFaculty: f }),
+      setSelectedSpecialization: (s) => set({ selectedSpecialization: s }),
       setMoiSession: (session) => set({ moiSession: session }),
       setVerifiedAt: (ts) => set({ verifiedAt: ts }),
       setPayment: (input) => set(input),
@@ -97,6 +114,8 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
           nationalId: null,
           selectedCategoryKey: null,
           selectedCycleId: null,
+          selectedFaculty: null,
+          selectedSpecialization: null,
           moiSession: null,
           verifiedAt: null,
           paid: false,
