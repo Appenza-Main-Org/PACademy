@@ -32,3 +32,10 @@ export { FeesPage as AdmissionFeesPage } from './pages/FeesPage';
 export { ExamsManagementPage } from './pages/ExamsManagementPage';
 export { CommitteesManagementPage } from './pages/CommitteesManagementPage';
 export { ElectronicDeclarationPage } from './pages/ElectronicDeclarationPage';
+
+/* Embeddable add-form used by both the wizard committees step and the
+ * `/admin/committees-exam-config` management page so admins can author
+ * new (committee × date) rows from either surface. */
+export { CommitteeInstanceAddForm } from './components/committeeBinding/CommitteeInstanceAddForm';
+export { useActiveCategoriesForCycle } from './lib/activeCategories';
+export type { ActiveCategoryView } from './lib/activeCategories';

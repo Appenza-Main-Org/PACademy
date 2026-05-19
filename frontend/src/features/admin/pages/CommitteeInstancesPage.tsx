@@ -56,11 +56,24 @@ import {
   type ReservationTransferConflict,
 } from '@/features/committees';
 import { isConflictError } from '@/shared/lib/errors';
-import type { AdmissionCycle, CommitteeInstance } from '@/shared/types/domain';
+import type {
+  AdmissionCycle,
+  ApplicantCategoryKey,
+  CommitteeInstance,
+} from '@/shared/types/domain';
+import { APPLICANT_CATEGORY_KEYS } from '@/shared/types/domain';
+import {
+  CommitteeInstanceAddForm,
+  useActiveCategoriesForCycle,
+} from '@/features/admin/admission-setup';
 import {
   resolveExpandedDates,
   useDayExpansionStore,
 } from './committee-instances/expansionStore';
+
+function isApplicantCategoryKey(code: string): code is ApplicantCategoryKey {
+  return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(code);
+}
 
 interface InstanceRow extends CommitteeInstance {
   categoryLabelAr: string;
@@ -109,6 +122,24 @@ export function CommitteeInstancesPage(): JSX.Element {
 
   const activeCycle = activeCycleQuery.data ?? null;
   const activeCycleId = activeCycle?.id ?? null;
+
+  /* Active categories for the cycle — feeds the inline «إضافة موعد اختبار»
+   * form so admins can author the same (committee × date × capacity)
+   * rows the admission-setup wizard would. The cycleId arg is currently
+   * advisory (see lib/activeCategories.ts) but passed through anyway so
+   * the call site keeps the right shape for the day it becomes
+   * cycle-scoped. */
+  const activeCategoriesQuery = useActiveCategoriesForCycle(activeCycleId ?? '');
+  const activeCategoriesForForm = useMemo(
+    () =>
+      (activeCategoriesQuery.data ?? [])
+        .filter((c) => isApplicantCategoryKey(c.code))
+        .map((c) => ({
+          key: c.code as ApplicantCategoryKey,
+          labelAr: c.nameAr,
+        })),
+    [activeCategoriesQuery.data],
+  );
 
   const categoryLabelByKey = useMemo(() => {
     const map = new Map<string, string>();
@@ -218,7 +249,7 @@ export function CommitteeInstancesPage(): JSX.Element {
     <CenteredShell>
       <PageHeader
         title="إدارة مواعيد الاختبارات واللجان"
-        subtitle="مواعيد اللجان داخل الدورة النشطة، مُجمَّعة باليوم. اللجان نفسها تُدار في الأكواد المرجعية؛ مواعيد كل دورة تُنشأ من معالج إعداد التقديم وتُحرّر هنا."
+        subtitle="مواعيد اللجان داخل الدورة النشطة، مُجمَّعة باليوم. أضِف يوماً جديداً من النموذج أدناه، أو حرّر السعة ومواعيد اللجان مباشرةً من جداول الأيام."
         breadcrumbs={[
           { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
           { label: 'إدارة مواعيد الاختبارات واللجان' },
@@ -226,6 +257,13 @@ export function CommitteeInstancesPage(): JSX.Element {
       />
 
       <CycleHeaderBlock cycle={activeCycle} />
+
+      {activeCycle && activeCategoriesForForm.length > 0 && (
+        <CommitteeInstanceAddForm
+          cycle={activeCycle}
+          active={activeCategoriesForForm}
+        />
+      )}
 
       {loading ? (
         <LoadingState variant="card-grid" />
@@ -245,7 +283,7 @@ export function CommitteeInstancesPage(): JSX.Element {
             <EmptyState
               variant="generic"
               title={`لا توجد مواعيد لجان في ${activeCycle?.nameAr ?? 'الدورة النشطة'}`}
-              description="افتح معالج إعداد التقديم من «دورات القبول» وأضِف مواعيد لجان اللجنة المختصة لتظهر هنا."
+              description="استخدم نموذج «إضافة موعد اختبار» أعلاه لإنشاء أول يوم لجان، أو افتح معالج إعداد التقديم من «دورات القبول»."
             />
           </div>
         </Card>
