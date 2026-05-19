@@ -336,9 +336,9 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       'thanawiPercentage',
       Number((pct * 100).toFixed(2)),
     );
-    setValue('schoolNameAr', matchedGradeRow.school);
-    setValue('schoolAddress', matchedGradeRow.region);
-    setValue('thanawiCountry', 'مصر');
+    /* School name / address / country / grad date are NOT auto-filled —
+     * the applicant enters them manually (client direction 2026-05-19),
+     * since the grades API doesn't provide them. */
     /* Branch maps from the imported grade row's branch field. */
     const branch = matchedGradeRow.branch.trim();
     const known = THANAWI_BRANCH_OPTIONS.find((b) => b.value === branch);
@@ -435,7 +435,10 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           {gradesQuery.isLoading || schoolCategoriesQuery.isLoading ? (
             <LoadingState variant="list" rows={3} />
           ) : externalImport && matchedGradeRow ? (
-            <ExternalGradesPanel row={matchedGradeRow} />
+            <div className="flex flex-col gap-4">
+              <ExternalGradesPanel row={matchedGradeRow} />
+              <SchoolDetailFields register={register} control={control} errors={errors} />
+            </div>
           ) : (
             <ManualThanawiFields
               register={register}
@@ -956,14 +959,62 @@ function ExternalGradesPanel({ row }: { row: GradeRow }): JSX.Element {
         <ReadOnlyRow label="الشعبة" value={row.branch} />
         <ReadOnlyRow label="المجموع" value={`${row.total} / ${row.importMax}`} ltr />
         <ReadOnlyRow label="النسبة المئوية" value={`${percent}%`} ltr />
-        <ReadOnlyRow label="اسم المدرسة" value={row.school} />
-        <ReadOnlyRow
-          label="عنوان المدرسة"
-          value={`${row.region} — شارع مصطفى النحاس — مدينة نصر`}
-        />
-        <ReadOnlyRow label="دولة المدرسة" value="مصر" />
-        <ReadOnlyRow label="تاريخ الحصول على الثانوية" value="2024 - 2025" />
       </dl>
+    </div>
+  );
+}
+
+/* Manual school fields rendered alongside the matched-grades panel.
+ * The four fields below (اسم المدرسة / عنوان المدرسة / دولة المدرسة /
+ * تاريخ الحصول على الثانوية) are intentionally always editable per
+ * client direction 2026-05-19 — the upstream MOI/grades API doesn't
+ * return them, so the applicant fills them in by hand. */
+function SchoolDetailFields({
+  register,
+  control,
+  errors,
+}: {
+  register: ReturnType<typeof useForm<Stage345Values>>['register'];
+  control: ReturnType<typeof useForm<Stage345Values>>['control'];
+  errors: ReturnType<typeof useForm<Stage345Values>>['formState']['errors'];
+}): JSX.Element {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      <Input
+        label="اسم المدرسة"
+        required
+        {...register('schoolNameAr')}
+        error={errors.schoolNameAr?.message}
+      />
+      <Input
+        label="عنوان المدرسة"
+        required
+        {...register('schoolAddress')}
+        error={errors.schoolAddress?.message}
+      />
+      <Field label="دولة المدرسة" required error={errors.thanawiCountry?.message}>
+        <Controller
+          control={control}
+          name="thanawiCountry"
+          render={({ field }) => (
+            <SearchSelect
+              ariaLabel="دولة المدرسة"
+              placeholder="اختر الدولة"
+              options={COUNTRY_OPTIONS}
+              value={field.value ?? null}
+              onChange={(v) => field.onChange(v ?? '')}
+            />
+          )}
+        />
+      </Field>
+      <Input
+        label="تاريخ الحصول على الثانوية"
+        type="date"
+        dir="ltr"
+        required
+        {...register('thanawiGradDate')}
+        error={errors.thanawiGradDate?.message}
+      />
     </div>
   );
 }
