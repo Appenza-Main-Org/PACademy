@@ -423,9 +423,12 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 7, passingCriteria: '' },
     ],
     procedures: [],
-    excellenceCriteriaVisible: true,
-    /* officers_general uses numeric percentage grading (SUB-001 / GRADES). */
-    excellenceCriterion: 'EXC-02',
+    /* Pre-university (ثانوي) categories don't carry a معيار التميز —
+     * the wizard's application_settings step hides them when both flags
+     * below are unset, and the detail page suppresses the criterion
+     * Card whenever `excellenceCriterion` is null. */
+    excellenceCriteriaVisible: false,
+    excellenceCriterion: null,
   },
   {
     code: 'law_bachelor',

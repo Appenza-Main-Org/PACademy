@@ -207,6 +207,15 @@ export const lookupsService = {
   getRow<K extends LookupKey>(key: K, code: string): LookupRow<K> | undefined {
     return rowsOf(key).find((r) => r.code === code);
   },
+
+  /** Synchronous live read of the entire lookup. Cross-feature consumers
+   *  (e.g. `applicationSettings.service.ts`) call this so that admin edits
+   *  to a lookup propagate to downstream joins without a process restart.
+   *  Returned array is a snapshot — safe to iterate, mutations on it are
+   *  ignored. */
+  readLookup<K extends LookupKey>(key: K): readonly LookupRow<K>[] {
+    return rowsOf(key);
+  },
 };
 
 export type LookupsService = typeof lookupsService;

@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/shared/components';
 import { ConflictError, isConflictError } from '@/shared/lib/errors';
 import type { GradingMode } from '@/features/lookups';
+import { useLookup } from '@/features/lookups';
 import type { SpecializationRow } from '@/features/lookups/types';
 import { applicationSettingsService } from './applicationSettings.service';
 import type {
@@ -82,8 +83,18 @@ function surfaceConflict(err: unknown, fallback: string): void {
 /* ─── Reads ──────────────────────────────────────────────────────────── */
 
 export function useCategoryConfigs() {
+  /* Tie the configs query to the applicant-categories lookup's data
+   * identity. When an admin edits a lookup row (e.g. flips
+   * `excellenceCriteriaVisible` or changes the criterion), the lookup
+   * query's `dataUpdatedAt` advances on next read, which rotates this
+   * query's key and forces a refetch of the join. Without this seam
+   * the wizard would render stale lookup values until a full reload. */
+  const lookupQuery = useLookup('applicant-categories');
   return useQuery<CategoryConfigJoined[]>({
-    queryKey: appSettingsKeys.configs(),
+    queryKey: [
+      ...appSettingsKeys.configs(),
+      lookupQuery.dataUpdatedAt ?? 0,
+    ],
     queryFn: () => applicationSettingsService.listCategoryConfigs(),
   });
 }

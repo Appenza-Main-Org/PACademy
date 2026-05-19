@@ -45,7 +45,7 @@
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { ConflictError } from '@/shared/lib/errors';
-import { LOOKUPS_SEED } from '@/features/lookups/mock/lookups.mock';
+import { lookupsService } from '@/features/lookups/api/lookups.service';
 import type {
   ApplicantCategoryGenderScope,
   ApplicantCategoryRow,
@@ -72,9 +72,19 @@ let configs: ApplicantCategoryConfig[] = [...MOCK.applicantCategoryConfigs];
 let specs: ApplicantCategorySpecialization[] = [...MOCK.applicantCategorySpecializations];
 let years: ApplicantSpecializationYear[] = [...MOCK.applicantSpecializationYears];
 
-const CATEGORY_LOOKUP: readonly ApplicantCategoryRow[] = LOOKUPS_SEED['applicant-categories'];
-const SPECIALIZATION_LOOKUP: readonly SpecializationRow[] = LOOKUPS_SEED['specializations'];
-const SUBMISSION_TYPE_LOOKUP: readonly SubmissionTypeRow[] = LOOKUPS_SEED['submission-types'];
+/* The lookups are read live (not frozen at module init) so admin edits
+ * to `applicant-categories` flow through to the wizard's join without
+ * a process restart. `lookupsService.readLookup` returns the current
+ * mutable state — same source the lookup-management UI writes against. */
+function categoryLookup(): readonly ApplicantCategoryRow[] {
+  return lookupsService.readLookup('applicant-categories');
+}
+function specializationLookup(): readonly SpecializationRow[] {
+  return lookupsService.readLookup('specializations');
+}
+function submissionTypeLookup(): readonly SubmissionTypeRow[] {
+  return lookupsService.readLookup('submission-types');
+}
 
 /**
  * Resolve the parent gradingMode for a year-row write. Service boundary
@@ -88,8 +98,8 @@ function resolveGradingModeFor(
   return resolveGradingModeForSpec(categorySpecializationId, {
     specs,
     configs,
-    categoryLookup: CATEGORY_LOOKUP,
-    submissionTypeLookup: SUBMISSION_TYPE_LOOKUP,
+    categoryLookup: categoryLookup(),
+    submissionTypeLookup: submissionTypeLookup(),
   });
 }
 
@@ -185,7 +195,7 @@ function deriveLockedGender(
 }
 
 function joinConfig(c: ApplicantCategoryConfig): CategoryConfigJoined {
-  const cat = CATEGORY_LOOKUP.find((r) => r.code === c.categoryId);
+  const cat = categoryLookup().find((r) => r.code === c.categoryId);
   const childSpecs = specs.filter((s) => s.configId === c.id);
   const childSpecIds = new Set(childSpecs.map((s) => s.id));
   const yearsForConfig = years.filter((y) =>
@@ -218,7 +228,7 @@ function joinConfig(c: ApplicantCategoryConfig): CategoryConfigJoined {
 }
 
 function joinSpec(s: ApplicantCategorySpecialization): CategorySpecializationJoined {
-  const spec = SPECIALIZATION_LOOKUP.find((r) => r.code === s.specializationId);
+  const spec = specializationLookup().find((r) => r.code === s.specializationId);
   return {
     ...s,
     specializationNameAr: spec?.name ?? s.specializationId,
@@ -323,7 +333,7 @@ export const applicationSettingsService = {
     const attached = new Set(
       specs.filter((s) => s.configId === configId).map((s) => s.specializationId),
     );
-    return SPECIALIZATION_LOOKUP
+    return specializationLookup()
       .filter((s) => s.isActive && !attached.has(s.code));
   },
 
@@ -367,7 +377,7 @@ export const applicationSettingsService = {
           const isImplicit = s.specializationId === IMPLICIT_DEFAULT_SPEC_CODE;
           const specRow = isImplicit
             ? null
-            : SPECIALIZATION_LOOKUP.find((r) => r.code === s.specializationId);
+            : specializationLookup().find((r) => r.code === s.specializationId);
           return {
             csId: s.id,
             nameAr: isImplicit ? null : (specRow?.name ?? s.specializationId),
@@ -410,7 +420,7 @@ export const applicationSettingsService = {
     if (!spec) return null;
     const config = configs.find((c) => c.id === spec.configId);
     if (!config) return null;
-    const cat = CATEGORY_LOOKUP.find((r) => r.code === config.categoryId);
+    const cat = categoryLookup().find((r) => r.code === config.categoryId);
     if (!cat) return null;
     return {
       code: cat.code,
@@ -427,7 +437,7 @@ export const applicationSettingsService = {
     await simulateLatency();
     const config = configs.find((c) => c.id === configId);
     if (!config) throw new Error(`Config ${configId} not found`);
-    if (!SPECIALIZATION_LOOKUP.some((s) => s.code === specializationId)) {
+    if (!specializationLookup().some((s) => s.code === specializationId)) {
       throw new ConflictError('SPECIALIZATION_NOT_MAPPED', {
         categoryId: config.categoryId,
         specializationId,

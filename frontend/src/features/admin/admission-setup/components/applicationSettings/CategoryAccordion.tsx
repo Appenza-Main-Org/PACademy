@@ -106,12 +106,18 @@ export function CategoryAccordion(): JSX.Element {
     lookupActiveCodes.has(c.categoryCode),
   );
 
-  /* Visibility filter from item 9 — keep categories whose toggle is on,
-   * plus any whose toggle is off but the wizard already holds authored
-   * rules for. The latter render with an inline warning. */
+  /* Visibility filter — a category appears here only when it carries
+   * a معيار التميز (`excellenceCriterion !== null`) AND the admin
+   * hasn't toggled visibility off. The criterion-null path covers
+   * pre-university categories that don't use this axis at all
+   * (officers_general); the visibility-flag path keeps the original
+   * per-row admin override. Categories that fail both flags but
+   * already have authored rules stay editable with an inline warning
+   * so admins don't silently lose data. */
   const visibleConfigs = activeConfigs.filter(
     (c) =>
-      c.excellenceCriteriaVisible || referencedCategoryCodes.has(c.categoryCode),
+      (c.excellenceCriteriaVisible && c.excellenceCriterion !== null) ||
+      referencedCategoryCodes.has(c.categoryCode),
   );
 
   const criterionLabelByCode = new Map(
