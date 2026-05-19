@@ -542,6 +542,12 @@ export const gradesService = {
     selectedSchoolCategories: string[];
     maxGradeByCategory: Record<string, number>;
     perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
+    /** Optional per-row accept/reject decisions from the wizard's
+     *  diff-review step. When provided, decisions here override the
+     *  per-group `DUPLICATE_NID` action for the matching national-ids
+     *  — `accept` writes the incoming row, `reject` leaves the
+     *  existing record untouched. */
+    existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
   }): Promise<ImportCommitResult> {
     await simulateLatency(180, 340);
     const {
@@ -549,6 +555,7 @@ export const gradesService = {
       selectedSchoolCategories,
       maxGradeByCategory,
       perGroupActions,
+      existingDiffDecisions,
     } = input;
     const allowedCategories = new Set(selectedSchoolCategories);
     const existingByNid = new Map(STATE.map((r) => [r.nid, r]));
@@ -607,11 +614,29 @@ export const gradesService = {
 
       const isDup = existingByNid.has(row.nationalId);
       if (isDup) {
-        const action = perGroupActions.DUPLICATE_NID;
-        if (action === 'skip') {
+        /* Per-row decisions trump the global per-group action. Only
+         * when the admin hasn't flipped a switch for this nid do we
+         * fall back to perGroupActions.DUPLICATE_NID — which preserves
+         * the legacy bulk-skip/bulk-override path for admins who never
+         * opened the Step 6 diff view. */
+        const perRow = existingDiffDecisions?.[row.nationalId];
+        let writeOverride: boolean;
+        if (perRow === 'accept') {
+          writeOverride = true;
+        } else if (perRow === 'reject') {
           continue;
+        } else {
+          const action = perGroupActions.DUPLICATE_NID;
+          if (action === 'skip') {
+            continue;
+          }
+          if (action !== 'override') {
+            failed += 1;
+            continue;
+          }
+          writeOverride = true;
         }
-        if (action !== 'override') {
+        if (!writeOverride) {
           failed += 1;
           continue;
         }

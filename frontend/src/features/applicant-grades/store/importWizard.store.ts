@@ -14,7 +14,21 @@ import type { ImportReport } from '../types';
 import type { ParsedSheet } from '../lib/parseGradesFile';
 import type { TargetField } from '../lib/targetFields';
 
-export type ImportStep = 1 | 2 | 3 | 4 | 5 | 6;
+export type ImportStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+/** Per-row decision on an existing-record diff. `accept` writes the
+ *  incoming values; `reject` leaves the existing row untouched. */
+export type ExistingDiffDecision = 'accept' | 'reject';
+
+/** Resolution for an intra-upload duplicate `المجموع الكلي`. The store
+ *  records the picked total whenever the admin chooses a specific row,
+ *  so the commit can write deterministic data even if the wizard is
+ *  resumed mid-flow. */
+export type UploadDuplicateDecision =
+  | { action: 'pick-higher' }
+  | { action: 'pick-lower' }
+  | { action: 'pick-specific'; pickedTotal: number }
+  | { action: 'reject' };
 
 export interface FilterState {
   /** `all` = include every distinct value; `include` = keep only those listed in `values`. */
@@ -46,6 +60,16 @@ export interface PersistedImportWizardState {
   filters: Record<string, FilterState>;
   importResult: ImportReport | null;
   perGroupActions: Record<string, 'skip' | 'override' | 'create-applicant'>;
+  /** Per-row decision for rows whose national-id matches an existing
+   *  record. Drives Step 6's diff-review UI; rows without an entry
+   *  default to `reject` (existing record left alone) until the admin
+   *  flips them via the per-row or bulk controls. */
+  existingDiffDecisions: Record<string, ExistingDiffDecision>;
+  /** Per-NID decision for upload rows whose `المجموع الكلي` appears
+   *  with two different values inside the same file. Default action is
+   *  `pick-higher` so the wizard is always advanceable; the admin can
+   *  flip per-row or via the bulk "قبول الكل بالدرجة الأعلى" action. */
+  uploadDuplicateDecisions: Record<string, UploadDuplicateDecision>;
 }
 
 export interface ImportWizardState extends PersistedImportWizardState {
@@ -67,6 +91,10 @@ export interface ImportWizardState extends PersistedImportWizardState {
   setFilter: (column: string, state: FilterState) => void;
   setImportResult: (r: ImportReport | null) => void;
   setPerGroupAction: (code: string, action: 'skip' | 'override' | 'create-applicant') => void;
+  setExistingDiffDecision: (nid: string, decision: ExistingDiffDecision) => void;
+  setBulkExistingDiffDecisions: (decisions: Record<string, ExistingDiffDecision>) => void;
+  setUploadDuplicateDecision: (nid: string, decision: UploadDuplicateDecision) => void;
+  setBulkUploadDuplicateDecisions: (decisions: Record<string, UploadDuplicateDecision>) => void;
   reset: () => void;
 }
 
@@ -119,6 +147,8 @@ function defaultState(): PersistedImportWizardState {
     filters: {},
     importResult: null,
     perGroupActions: {},
+    existingDiffDecisions: {},
+    uploadDuplicateDecisions: {},
   };
 }
 
@@ -158,6 +188,8 @@ export const useImportWizardStore = create<ImportWizardState>()(
           filters: {},
           importResult: null,
           perGroupActions: {},
+          existingDiffDecisions: {},
+          uploadDuplicateDecisions: {},
         }),
       setParsed: (parsed) => set({ parsed }),
       setSelectedTableName: (selectedTableName) => set({ selectedTableName }),
@@ -170,6 +202,18 @@ export const useImportWizardStore = create<ImportWizardState>()(
       setImportResult: (importResult) => set({ importResult }),
       setPerGroupAction: (code, action) =>
         set((s) => ({ perGroupActions: { ...s.perGroupActions, [code]: action } })),
+      setExistingDiffDecision: (nid, decision) =>
+        set((s) => ({
+          existingDiffDecisions: { ...s.existingDiffDecisions, [nid]: decision },
+        })),
+      setBulkExistingDiffDecisions: (decisions) =>
+        set({ existingDiffDecisions: decisions }),
+      setUploadDuplicateDecision: (nid, decision) =>
+        set((s) => ({
+          uploadDuplicateDecisions: { ...s.uploadDuplicateDecisions, [nid]: decision },
+        })),
+      setBulkUploadDuplicateDecisions: (decisions) =>
+        set({ uploadDuplicateDecisions: decisions }),
       reset: () =>
         set({
           ...defaultState(),
@@ -193,6 +237,8 @@ export const useImportWizardStore = create<ImportWizardState>()(
         filters: s.filters,
         importResult: s.importResult,
         perGroupActions: s.perGroupActions,
+        existingDiffDecisions: s.existingDiffDecisions,
+        uploadDuplicateDecisions: s.uploadDuplicateDecisions,
       }),
     },
   ),

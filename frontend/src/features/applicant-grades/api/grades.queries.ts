@@ -165,6 +165,9 @@ export function useApplicantGradesCommit() {
        *  totalGrade range check and to seed `importMax`. */
       maxGradeByCategory: Record<string, number>;
       perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
+      /** Per-NID decisions from the diff-review step. Overrides the
+       *  per-group DUPLICATE_NID action for the matching nids. */
+      existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
     }): Promise<ImportCommitResult> => gradesService.runImportCommit(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: gradesKeys.all });

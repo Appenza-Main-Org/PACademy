@@ -34,16 +34,20 @@ import { Step2TableSelect } from '../components/importWizard/steps/Step2TableSel
 import { Step3ColumnMapping } from '../components/importWizard/steps/Step3ColumnMapping';
 import { Step4Filters } from '../components/importWizard/steps/Step4Filters';
 import { Step5DuplicateReview } from '../components/importWizard/steps/Step5DuplicateReview';
+import { Step6ChangesReview } from '../components/importWizard/steps/Step6ChangesReview';
 import { Step6Result } from '../components/importWizard/steps/Step6Result';
 import type { ImportGroupCode } from '../types';
 
-const STEPS: Array<{ index: 1 | 2 | 3 | 4 | 5 | 6; label: string }> = [
+type StepIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+const STEPS: Array<{ index: StepIndex; label: string }> = [
   { index: 1, label: 'الإعدادات' },
   { index: 2, label: 'اختيار الجدول' },
   { index: 3, label: 'ربط الأعمدة' },
   { index: 4, label: 'تصفية القيم' },
   { index: 5, label: 'مراجعة التكرار' },
-  { index: 6, label: 'النتيجة' },
+  { index: 6, label: 'مراجعة التغييرات' },
+  { index: 7, label: 'النتيجة' },
 ];
 
 export function ApplicantGradesImportPage(): JSX.Element {
@@ -61,6 +65,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   );
   const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
+  const existingDiffDecisions = useImportWizardStore((s) => s.existingDiffDecisions);
   const reset = useImportWizardStore((s) => s.reset);
 
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -90,7 +95,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         if (selectedSchoolCategories.length === 0) return false;
         if (graduationYear == null) return false;
         /* Every picked category must carry a positive integer max so
-         * Step 5's preflight + Step 6's commit always have a usable
+         * Step 5's preflight + Step 7's commit always have a usable
          * scale to gate `totalGrade` against. */
         return selectedSchoolCategories.every((code) => {
           const v = maxGradeByCategory[code];
@@ -106,6 +111,12 @@ export function ApplicantGradesImportPage(): JSX.Element {
       case 5:
         return true;
       case 6:
+        /* Step 6's diff review is always advanceable — the default
+         * decision (reject for existing diffs, pick-higher for upload
+         * duplicates) keeps the commit safe even if the admin
+         * skips through. */
+        return true;
+      case 7:
         return false;
       default:
         return false;
@@ -131,10 +142,10 @@ export function ApplicantGradesImportPage(): JSX.Element {
       return;
     }
     if (step === 1) setShowStep1Errors(false);
-    if (step < 6) setStep((step + 1) as 2 | 3 | 4 | 5 | 6);
+    if (step < 7) setStep((step + 1) as StepIndex);
   }
   function back(): void {
-    if (step > 1) setStep((step - 1) as 1 | 2 | 3 | 4 | 5);
+    if (step > 1) setStep((step - 1) as StepIndex);
   }
 
   function commitImport(): void {
@@ -159,6 +170,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         selectedSchoolCategories,
         maxGradeByCategory,
         perGroupActions: actions,
+        existingDiffDecisions,
       },
       {
         onSuccess: (res) => {
@@ -205,7 +217,8 @@ export function ApplicantGradesImportPage(): JSX.Element {
         {step === 3 && <Step3ColumnMapping />}
         {step === 4 && <Step4Filters />}
         {step === 5 && <Step5DuplicateReview />}
-        {step === 6 && <Step6Result />}
+        {step === 6 && <Step6ChangesReview />}
+        {step === 7 && <Step6Result />}
       </section>
 
       <footer className="sticky bottom-0 mt-4 flex items-center justify-between gap-3 border-t border-border-subtle bg-white px-6 py-4">
@@ -218,7 +231,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
           السابق
         </Button>
         <div className="flex items-center gap-2">
-          {step < 6 && (
+          {step < 7 && (
             <Button
               variant="primary"
               trailingIcon={<ChevronLeft size={14} strokeWidth={1.75} aria-hidden />}
@@ -232,7 +245,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
               متابعة
             </Button>
           )}
-          {step === 6 && (
+          {step === 7 && (
             <Button
               variant="primary"
               leadingIcon={<Check size={14} strokeWidth={1.75} aria-hidden />}
@@ -271,8 +284,8 @@ function TopStepper({
   step,
   onJump,
 }: {
-  step: 1 | 2 | 3 | 4 | 5 | 6;
-  onJump: (s: 1 | 2 | 3 | 4 | 5 | 6) => void;
+  step: StepIndex;
+  onJump: (s: StepIndex) => void;
 }): JSX.Element {
   return (
     <ol className="m-0 flex list-none items-center gap-0 overflow-auto p-0 text-2xs">
