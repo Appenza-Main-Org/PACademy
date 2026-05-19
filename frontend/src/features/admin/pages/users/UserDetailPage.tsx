@@ -8,7 +8,7 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Pencil } from 'lucide-react';
+import { ArrowRight, Pencil, Power } from 'lucide-react';
 import {
   AlertDialog,
   Badge,
@@ -17,7 +17,6 @@ import {
   ErrorState,
   LoadingState,
   PageHeader,
-  StatusBadge,
   toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
@@ -60,7 +59,7 @@ export function UserDetailPage(): JSX.Element {
     );
   }
 
-  const nextStatus: AccountStatus = user.accountStatus === 'active' ? 'inactive' : 'active';
+  const isInactive = user.accountStatus === 'inactive';
 
   const performToggle = async (): Promise<void> => {
     if (!confirmToggle) return;
@@ -101,7 +100,20 @@ export function UserDetailPage(): JSX.Element {
             <Link to={ROUTES.admin.users} className="btn btn-ghost">
               <ArrowRight size={16} className="rtl:rotate-180" /> الرجوع للقائمة
             </Link>
-            <Link to={ROUTES.admin.userEdit(user.id)} className="btn btn-primary">
+            {isInactive && (
+              <Button
+                variant="primary"
+                leadingIcon={<Power size={14} strokeWidth={1.75} />}
+                onClick={() => setConfirmToggle('active')}
+                isLoading={setStatusMut.isPending}
+              >
+                تفعيل الحساب
+              </Button>
+            )}
+            <Link
+              to={ROUTES.admin.userEdit(user.id)}
+              className={isInactive ? 'btn btn-secondary' : 'btn btn-primary'}
+            >
               <Pencil size={14} strokeWidth={1.75} /> تعديل
             </Link>
           </div>
@@ -141,21 +153,26 @@ export function UserDetailPage(): JSX.Element {
           <div className="flex flex-col gap-4 p-5">
             <h2 className="text-base font-semibold text-ink-900">الحالة</h2>
             <div className="flex items-center gap-2">
-              {user.accountStatus === 'active' ? (
-                <StatusBadge status="approved" />
-              ) : (
+              {isInactive ? (
                 <Badge tone="neutral">غير نشط</Badge>
+              ) : (
+                <Badge tone="success">نشط</Badge>
               )}
             </div>
-            <Button
-              variant={user.accountStatus === 'active' ? 'ghost' : 'primary'}
-              onClick={() => setConfirmToggle(nextStatus)}
-              isLoading={setStatusMut.isPending}
-            >
-              {user.accountStatus === 'active' ? 'تعطيل الحساب' : 'تفعيل الحساب'}
-            </Button>
+            {isInactive && (
+              <Button
+                variant="primary"
+                leadingIcon={<Power size={14} strokeWidth={1.75} />}
+                onClick={() => setConfirmToggle('active')}
+                isLoading={setStatusMut.isPending}
+              >
+                تفعيل الحساب
+              </Button>
+            )}
             <p className="text-2xs text-ink-500 leading-normal">
-              الحساب غير النشط لا يستطيع تسجيل الدخول حتى يُعاد تفعيله.
+              {isInactive
+                ? 'الحساب غير النشط لا يستطيع تسجيل الدخول حتى يُعاد تفعيله.'
+                : 'الحساب نشط — يمكن للمستخدم تسجيل الدخول حالياً.'}
             </p>
           </div>
         </Card>
@@ -203,14 +220,10 @@ export function UserDetailPage(): JSX.Element {
       <AlertDialog
         open={confirmToggle !== null}
         onOpenChange={(open) => !open && setConfirmToggle(null)}
-        title={confirmToggle === 'inactive' ? 'تعطيل الحساب' : 'تفعيل الحساب'}
-        description={
-          confirmToggle === 'inactive'
-            ? `سيُمنع ${user.fullArabicName} من تسجيل الدخول حتى تتم إعادة تفعيل الحساب.`
-            : `سيستعيد ${user.fullArabicName} القدرة على الدخول للنظام.`
-        }
-        actionLabel={confirmToggle === 'inactive' ? 'تأكيد التعطيل' : 'تأكيد التفعيل'}
-        tone={confirmToggle === 'inactive' ? 'danger' : 'primary'}
+        title="تفعيل الحساب"
+        description={`سيستعيد ${user.fullArabicName} القدرة على الدخول للنظام.`}
+        actionLabel="تأكيد التفعيل"
+        tone="primary"
         onAction={performToggle}
         isActionLoading={setStatusMut.isPending}
       />
