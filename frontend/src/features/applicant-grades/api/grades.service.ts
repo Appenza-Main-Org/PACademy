@@ -548,14 +548,16 @@ export const gradesService = {
      *  — `accept` writes the incoming row, `reject` leaves the
      *  existing record untouched. */
     existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
-    /** Resolution for intra-upload `المجموع الكلي` conflicts (same NID
-     *  with two different totals in the same file). Defaults to
-     *  `pick-higher` per-NID when no entry is provided. */
+    /** Resolution for intra-upload duplicate-NID cases (same NID with
+     *  two or more rows in the same file). Defaults to `pick-higher`
+     *  per-NID when no entry is provided. `pick-row` picks the row
+     *  whose `sourceRowIndex` equals `pickedSourceRowIndex`. */
     uploadDuplicateDecisions?: Record<
       string,
       | { action: 'pick-higher' }
       | { action: 'pick-lower' }
       | { action: 'pick-specific'; pickedTotal: number }
+      | { action: 'pick-row'; pickedSourceRowIndex: number }
       | { action: 'reject' }
     >;
   }): Promise<ImportCommitResult> {
@@ -593,20 +595,39 @@ export const gradesService = {
         rows.push(bucket[0]!);
         continue;
       }
+      const nid = bucket[0]!.nationalId;
+      if (!nid) {
+        /* No-NID synthetic key — bucket is always one row long, but
+         * guard defensively in case the bucketing logic changes. */
+        rows.push(bucket[0]!);
+        continue;
+      }
+      const decision = uploadDuplicateDecisions?.[nid] ?? { action: 'pick-higher' };
+      if (decision.action === 'reject') {
+        preFailed += bucket.length;
+        continue;
+      }
+      if (decision.action === 'pick-row') {
+        const picked = bucket.find(
+          (r) => r.sourceRowIndex === decision.pickedSourceRowIndex,
+        );
+        if (picked) {
+          rows.push(picked);
+        } else {
+          /* Stale source-row index — fall back to highest total so a
+           * record is never silently lost. */
+          rows.push(pickByHighestTotal(bucket));
+        }
+        continue;
+      }
       const totals = bucket
         .map((r) => r.totalGrade)
         .filter((t): t is number => t != null && Number.isFinite(t));
       const distinct = Array.from(new Set(totals));
       if (distinct.length <= 1) {
-        /* No real conflict — same total appears twice. Keep the first
+        /* No total conflict — same total appears twice. Keep the first
          * row and drop the rest. */
         rows.push(bucket[0]!);
-        continue;
-      }
-      const nid = bucket[0]!.nationalId!;
-      const decision = uploadDuplicateDecisions?.[nid] ?? { action: 'pick-higher' };
-      if (decision.action === 'reject') {
-        preFailed += bucket.length;
         continue;
       }
       let pickedTotal: number;
@@ -625,11 +646,7 @@ export const gradesService = {
       } else {
         /* `pick-specific` with a stale total the file no longer has —
          * fall back to pick-higher so we never silently lose a record. */
-        const fallback = bucket.find(
-          (r) => r.totalGrade === Math.max(...distinct),
-        );
-        if (fallback) rows.push(fallback);
-        else preFailed += bucket.length;
+        rows.push(pickByHighestTotal(bucket));
       }
     }
     const allowedCategories = new Set(selectedSchoolCategories);
@@ -915,3 +932,18 @@ let pendingImport: {
   newRows: ImportedGradeRow[];
   duplicates: ImportDuplicateRow[];
 } | null = null;
+
+/** Pick the row with the highest non-null `totalGrade`. Falls back to
+ *  the first row when no totals are usable. */
+function pickByHighestTotal(bucket: NormalisedRow[]): NormalisedRow {
+  let best = bucket[0]!;
+  let bestTotal = Number.NEGATIVE_INFINITY;
+  for (const r of bucket) {
+    const t = r.totalGrade;
+    if (t != null && Number.isFinite(t) && t > bestTotal) {
+      best = r;
+      bestTotal = t;
+    }
+  }
+  return best;
+}

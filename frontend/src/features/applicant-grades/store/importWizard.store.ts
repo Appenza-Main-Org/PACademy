@@ -20,14 +20,21 @@ export type ImportStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
  *  incoming values; `reject` leaves the existing row untouched. */
 export type ExistingDiffDecision = 'accept' | 'reject';
 
-/** Resolution for an intra-upload duplicate `المجموع الكلي`. The store
- *  records the picked total whenever the admin chooses a specific row,
- *  so the commit can write deterministic data even if the wizard is
- *  resumed mid-flow. */
+/** Resolution for an intra-upload duplicate NID. The store records the
+ *  picked total OR source-row index whenever the admin chooses a
+ *  specific row, so the commit can write deterministic data even if the
+ *  wizard is resumed mid-flow.
+ *
+ *  `pick-row` is the row-level picker — admins explicitly pick which
+ *  source row to keep by its 1-based `sourceRowIndex` (mirrors
+ *  `NormalisedRow.sourceRowIndex`). Surfaces every duplicate, not just
+ *  total conflicts, so admins resolve which of the duplicate rows
+ *  represents the canonical record. */
 export type UploadDuplicateDecision =
   | { action: 'pick-higher' }
   | { action: 'pick-lower' }
   | { action: 'pick-specific'; pickedTotal: number }
+  | { action: 'pick-row'; pickedSourceRowIndex: number }
   | { action: 'reject' };
 
 export interface FilterState {

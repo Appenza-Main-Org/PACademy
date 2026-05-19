@@ -13,10 +13,11 @@
  */
 
 import { useEffect, useMemo } from 'react';
-import { Activity, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Activity, AlertTriangle, Layers, ShieldCheck } from 'lucide-react';
 import { useImportWizardStore } from '../../../store/importWizard.store';
 import { normaliseRows } from '../../../lib/normalise';
 import { useApplicantGradesPreflight } from '../../../api/grades.queries';
+import { buildUploadDuplicates } from '../../../lib/buildDiff';
 
 export function Step5DuplicateReview(): JSX.Element {
   const parsed = useImportWizardStore((s) => s.parsed);
@@ -83,10 +84,17 @@ export function Step5DuplicateReview(): JSX.Element {
   const dup = report.groups.find((g) => g.code === 'DUPLICATE_NID')?.rows.length ?? 0;
   const invalid = report.groups.find((g) => g.code === 'INVALID_NID')?.rows.length ?? 0;
   const missing = report.groups.find((g) => g.code === 'MISSING_REQUIRED')?.rows.length ?? 0;
+  const intraFileDup = buildUploadDuplicates(normalised).length;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-3 overflow-hidden rounded-md border border-border-subtle bg-white">
+      <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle bg-white">
+        <Counter
+          icon={<Layers size={14} aria-hidden />}
+          label="تكرار داخل الملف بنفس الرقم القومي"
+          value={intraFileDup}
+          tone="warning"
+        />
         <Counter
           icon={<Activity size={14} aria-hidden />}
           label="مطابقات سابقة بالرقم القومي"
@@ -114,7 +122,7 @@ export function Step5DuplicateReview(): JSX.Element {
         <Summary label="ملغاة" value={report.totals.skipped} />
       </div>
 
-      {report.totals.failed === 0 ? (
+      {report.totals.failed === 0 && intraFileDup === 0 ? (
         <div className="flex items-center gap-2 rounded-md border border-success bg-success-bg px-3.5 py-2.5 text-xs text-success">
           <ShieldCheck size={14} aria-hidden />
           لا توجد مشاكل في الصفوف المُختارة — يمكن الانتقال لعرض النتيجة وتأكيد الاستيراد.
@@ -122,8 +130,18 @@ export function Step5DuplicateReview(): JSX.Element {
       ) : (
         <div className="flex items-center gap-2 rounded-md border border-gold-300 bg-gold-50 px-3.5 py-2.5 text-xs text-gold-700">
           <AlertTriangle size={14} aria-hidden />
-          توجد {report.totals.failed.toLocaleString('en')} صفًا تحتاج إلى قرار — راجعها في الخطوة
-          التالية.
+          {intraFileDup > 0 && (
+            <span>
+              يوجد {intraFileDup.toLocaleString('en')} رقم قومي مكرر داخل الملف — اختر الصف
+              المعتمد لكل طالب في خطوة «مراجعة التغييرات».
+            </span>
+          )}
+          {report.totals.failed > 0 && (
+            <span>
+              توجد {report.totals.failed.toLocaleString('en')} صفًا تحتاج إلى قرار — راجعها في
+              خطوة «النتيجة».
+            </span>
+          )}
         </div>
       )}
     </div>

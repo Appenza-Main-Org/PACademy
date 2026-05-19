@@ -64,8 +64,7 @@ export interface UploadDuplicate {
   rows: NormalisedRow[];
   /** Distinct `totalGrade` values across the duplicate rows. */
   distinctTotals: number[];
-  /** True when at least two distinct non-null totals appear — the case
-   *  the admin has to resolve before commit. */
+  /** True when at least two distinct non-null totals appear. */
   hasTotalConflict: boolean;
 }
 

@@ -34,7 +34,7 @@ export function StudentDetailsDrawer({
   const [editMaxOpen, setEditMaxOpen] = useState(false);
 
   const tabs: Array<{ v: Tab; label: string; count: number | null }> = [
-    { v: 'basic', label: 'بيانات أساسية', count: row.kind === 'general' ? 7 : 7 },
+    { v: 'basic', label: 'بيانات أساسية', count: 9 },
     { v: 'grades', label: 'الدرجات', count: null },
     { v: 'log', label: 'سجل التعديلات', count: row.log.length },
   ];
@@ -218,7 +218,9 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
 
   const genderLabel = row.gender === 'female' ? 'أنثى' : 'ذكر';
   const yearLabel = row.graduationYear != null ? String(row.graduationYear) : '—';
-  const schoolLabel = schoolCategoryName ?? '—';
+  const schoolCategoryLabel = schoolCategoryName ?? '—';
+  const schoolNameLabel = row.school && row.school.trim() !== '' ? row.school : '—';
+  const examRoundLabel = row.examRound && row.examRound.trim() !== '' ? row.examRound : '—';
 
   const general: Array<KVProps> = [
     { label: 'الاسم باللغة العربية', sourceKey: 'arabic_name', value: row.name },
@@ -226,7 +228,9 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
     { label: 'النوع', sourceKey: 'sex_name', value: genderLabel },
     { label: 'الشعبة', sourceKey: 'branch_desc_new', value: row.branch },
     { label: 'سنة التخرج', sourceKey: 'graduation_year', value: yearLabel, mono: true },
-    { label: 'فئة المدرسة', sourceKey: 'school_category', value: schoolLabel },
+    { label: 'فئة المدرسة', sourceKey: 'school_category', value: schoolCategoryLabel },
+    { label: 'اسم المدرسة', sourceKey: 'school_name', value: schoolNameLabel, empty: schoolNameLabel === '—' },
+    { label: 'الدور', sourceKey: 'exam_round', value: examRoundLabel, empty: examRoundLabel === '—' },
     { label: 'المجموع الكلي', sourceKey: 'total_degree', value: String(Math.round(row.total)), mono: true },
   ];
   const azhar: Array<KVProps> = [
@@ -235,7 +239,9 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
     { label: 'النوع', sourceKey: 'sex_name', value: genderLabel },
     { label: 'الشعبة', sourceKey: 'DevisionName', value: row.branch },
     { label: 'سنة التخرج', sourceKey: 'graduation_year', value: yearLabel, mono: true },
-    { label: 'فئة المدرسة', sourceKey: 'school_category', value: schoolLabel },
+    { label: 'فئة المدرسة', sourceKey: 'school_category', value: schoolCategoryLabel },
+    { label: 'اسم المدرسة', sourceKey: 'school_name', value: schoolNameLabel, empty: schoolNameLabel === '—' },
+    { label: 'الدور', sourceKey: 'exam_round', value: examRoundLabel, empty: examRoundLabel === '—' },
     { label: 'المجموع الكلي', sourceKey: 'Total2', value: String(Math.round(row.total)), mono: true },
   ];
   const fields = row.kind === 'general' ? general : azhar;

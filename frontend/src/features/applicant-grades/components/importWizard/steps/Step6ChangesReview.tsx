@@ -18,7 +18,7 @@
  * every conflict to the max in one click.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { Check, ShieldAlert, X } from 'lucide-react';
 import { Badge, Button, Card, CardBody } from '@/shared/components';
 import { useImportWizardStore } from '../../../store/importWizard.store';
@@ -79,8 +79,13 @@ export function Step6ChangesReview(): JSX.Element {
     () => buildExistingDiffs(normalised, allRows ?? []).filter((d) => d.hasChanges),
     [normalised, allRows],
   );
+  /* Surface every duplicate-NID case — not just total conflicts — so
+   * admins can explicitly pick which of the duplicate rows is the
+   * canonical record (per request: "if the uploaded sheet has more than
+   * one row with same national id, allow the admin to take action which
+   * row to take"). */
   const uploadDuplicates = useMemo<UploadDuplicate[]>(
-    () => buildUploadDuplicates(normalised).filter((d) => d.hasTotalConflict),
+    () => buildUploadDuplicates(normalised),
     [normalised],
   );
 
@@ -113,7 +118,16 @@ export function Step6ChangesReview(): JSX.Element {
     let touched = false;
     for (const u of uploadDuplicates) {
       if (seeded[u.nationalId] == null) {
-        seeded[u.nationalId] = { action: 'pick-higher' };
+        /* When totals conflict the safer default is highest-total
+         * (legacy behaviour). When there's no total conflict we still
+         * need a default; pick the first row by source order so the
+         * commit has something deterministic to write. */
+        seeded[u.nationalId] = u.hasTotalConflict
+          ? { action: 'pick-higher' }
+          : {
+              action: 'pick-row',
+              pickedSourceRowIndex: u.rows[0]!.sourceRowIndex,
+            };
         touched = true;
       }
     }
@@ -394,7 +408,7 @@ function UploadDuplicatesSection({
             <span className="font-numeric font-bold text-ink-900">
               {duplicates.length.toLocaleString('en')}
             </span>{' '}
-            طالب بمجاميع مكررة داخل الملف. الافتراضي «قبول الدرجة الأعلى» —{' '}
+            رقم قومي مكرر داخل الملف. اختر الصف الذي تريد اعتماده لكل طالب —{' '}
             <span className="font-numeric font-bold">
               {undecidedCount.toLocaleString('en')}
             </span>{' '}
@@ -412,15 +426,23 @@ function UploadDuplicatesSection({
       </header>
 
       <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
-        {duplicates.map((u) => (
-          <li key={u.nationalId}>
-            <UploadDuplicateCard
-              duplicate={u}
-              decision={decisions[u.nationalId] ?? { action: 'pick-higher' }}
-              onSetDecision={(d) => onSetDecision(u.nationalId, d)}
-            />
-          </li>
-        ))}
+        {duplicates.map((u) => {
+          const fallback: UploadDuplicateDecision = u.hasTotalConflict
+            ? { action: 'pick-higher' }
+            : {
+                action: 'pick-row',
+                pickedSourceRowIndex: u.rows[0]!.sourceRowIndex,
+              };
+          return (
+            <li key={u.nationalId}>
+              <UploadDuplicateCard
+                duplicate={u}
+                decision={decisions[u.nationalId] ?? fallback}
+                onSetDecision={(d) => onSetDecision(u.nationalId, d)}
+              />
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -437,7 +459,39 @@ function UploadDuplicateCard({
   decision,
   onSetDecision,
 }: UploadDuplicateCardProps): JSX.Element {
-  const higher = Math.max(...duplicate.distinctTotals);
+  /* Sort rows by source order so the picker matches the file's row
+   * numbering. Compute the row with the highest total so a "الأعلى"
+   * chip can highlight it as the recommended pick. */
+  const sortedRows = useMemo(
+    () => [...duplicate.rows].sort((a, b) => a.sourceRowIndex - b.sourceRowIndex),
+    [duplicate.rows],
+  );
+  const higherTotal =
+    duplicate.distinctTotals.length > 0
+      ? Math.max(...duplicate.distinctTotals)
+      : null;
+  const higherRowIndex = useMemo(() => {
+    if (higherTotal == null) return null;
+    return sortedRows.find((r) => r.totalGrade === higherTotal)?.sourceRowIndex ?? null;
+  }, [sortedRows, higherTotal]);
+
+  const selectedRowIndex = computeSelectedRowIndex(decision, sortedRows, higherTotal);
+
+  function badgeLabel(): string {
+    switch (decision.action) {
+      case 'pick-higher':
+        return 'قبول بالدرجة الأعلى';
+      case 'pick-lower':
+        return 'قبول بالدرجة الأدنى';
+      case 'pick-specific':
+        return `اختيار درجة: ${decision.pickedTotal}`;
+      case 'pick-row':
+        return `اختيار الصف رقم ${decision.pickedSourceRowIndex}`;
+      case 'reject':
+        return 'استبعاد الطالب';
+    }
+  }
+
   return (
     <Card>
       <CardBody className="p-3.5">
@@ -455,37 +509,36 @@ function UploadDuplicateCard({
               </span>{' '}
               صفوف
             </Badge>
+            {duplicate.hasTotalConflict && (
+              <Badge tone="danger">تعارض في المجموع</Badge>
+            )}
           </div>
           <Badge tone={decision.action === 'reject' ? 'danger' : 'info'}>
-            {decision.action === 'pick-higher' && 'قبول بالدرجة الأعلى'}
-            {decision.action === 'pick-lower' && 'قبول بالدرجة الأدنى'}
-            {decision.action === 'pick-specific' &&
-              `اختيار درجة: ${decision.pickedTotal}`}
-            {decision.action === 'reject' && 'استبعاد الطالب'}
+            {badgeLabel()}
           </Badge>
         </div>
 
         <div
           role="radiogroup"
-          aria-label="درجة الطالب"
+          aria-label="اختر الصف المعتمد"
           className="mt-3 flex flex-col gap-2"
         >
-          {duplicate.distinctTotals.map((total) => {
-            const isSpecific =
-              decision.action === 'pick-specific' && decision.pickedTotal === total;
-            const isHigherDefault =
-              decision.action === 'pick-higher' && total === higher;
-            const selected = isSpecific || isHigherDefault;
+          {sortedRows.map((row) => {
+            const selected = selectedRowIndex === row.sourceRowIndex;
+            const isHigher = higherRowIndex === row.sourceRowIndex;
             return (
               <button
-                key={total}
+                key={row.sourceRowIndex}
                 type="button"
                 role="radio"
                 aria-checked={selected}
                 onClick={() =>
-                  onSetDecision({ action: 'pick-specific', pickedTotal: total })
+                  onSetDecision({
+                    action: 'pick-row',
+                    pickedSourceRowIndex: row.sourceRowIndex,
+                  })
                 }
-                className="flex cursor-pointer items-center justify-between gap-3 rounded-md border bg-white px-3 py-2 text-start text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                className="flex cursor-pointer flex-wrap items-center gap-3 rounded-md border bg-white px-3 py-2 text-start text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                 style={{
                   borderColor: selected
                     ? 'var(--teal-500)'
@@ -493,7 +546,7 @@ function UploadDuplicateCard({
                   background: selected ? 'var(--teal-50)' : '#fff',
                 }}
               >
-                <span className="flex items-center gap-2">
+                <span className="flex shrink-0 items-center gap-2">
                   <span
                     aria-hidden
                     className="grid h-4 w-4 place-items-center rounded-full border"
@@ -509,27 +562,49 @@ function UploadDuplicateCard({
                       />
                     )}
                   </span>
-                  <span className="font-en text-base font-semibold">
-                    {total}
+                  <span className="rounded-pill bg-ink-100 px-2 py-0.5 font-en text-2xs font-semibold text-ink-700">
+                    صف #
+                    <span className="tabular-nums">{row.sourceRowIndex}</span>
                   </span>
-                  {total === higher && (
-                    <Badge tone="info">الأعلى</Badge>
-                  )}
                 </span>
-                <span className="text-2xs text-ink-500">اختيار درجة</span>
+                <RowCell label="المجموع">
+                  <span className="font-en text-sm font-bold text-ink-900">
+                    {row.totalGrade ?? '—'}
+                  </span>
+                </RowCell>
+                <RowCell label="الشعبة">
+                  <span className="text-xs text-ink-700">
+                    {row.track ?? '—'}
+                  </span>
+                </RowCell>
+                <RowCell label="اسم المدرسة">
+                  <span className="text-xs text-ink-700">
+                    {row.schoolName ?? '—'}
+                  </span>
+                </RowCell>
+                <RowCell label="الدور">
+                  <span className="text-xs text-ink-700">
+                    {row.examRound ?? '—'}
+                  </span>
+                </RowCell>
+                {isHigher && duplicate.hasTotalConflict && (
+                  <Badge tone="info">الأعلى</Badge>
+                )}
               </button>
             );
           })}
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <Button
-            size="sm"
-            variant={decision.action === 'pick-higher' ? 'primary' : 'secondary'}
-            onClick={() => onSetDecision({ action: 'pick-higher' })}
-          >
-            قبول بالدرجة الأعلى
-          </Button>
+          {duplicate.hasTotalConflict && (
+            <Button
+              size="sm"
+              variant={decision.action === 'pick-higher' ? 'primary' : 'secondary'}
+              onClick={() => onSetDecision({ action: 'pick-higher' })}
+            >
+              قبول بالدرجة الأعلى
+            </Button>
+          )}
           <Button
             size="sm"
             variant={decision.action === 'reject' ? 'primary' : 'secondary'}
@@ -542,4 +617,50 @@ function UploadDuplicateCard({
       </CardBody>
     </Card>
   );
+}
+
+function RowCell({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <span className="inline-flex min-w-0 flex-col gap-0.5">
+      <span className="text-2xs text-ink-500">{label}</span>
+      <span className="truncate">{children}</span>
+    </span>
+  );
+}
+
+/** Resolve which source row should appear selected in the picker for a
+ *  given decision. `pick-row` is direct; `pick-higher` / `pick-lower` /
+ *  `pick-specific` resolve to the row matching the corresponding total;
+ *  `reject` clears the selection. */
+function computeSelectedRowIndex(
+  decision: UploadDuplicateDecision,
+  rows: ReadonlyArray<{ sourceRowIndex: number; totalGrade: number | null }>,
+  higherTotal: number | null,
+): number | null {
+  switch (decision.action) {
+    case 'pick-row':
+      return decision.pickedSourceRowIndex;
+    case 'reject':
+      return null;
+    case 'pick-higher':
+      return higherTotal != null
+        ? rows.find((r) => r.totalGrade === higherTotal)?.sourceRowIndex ?? null
+        : null;
+    case 'pick-lower': {
+      const lows = rows
+        .map((r) => r.totalGrade)
+        .filter((t): t is number => t != null && Number.isFinite(t));
+      if (lows.length === 0) return null;
+      const lower = Math.min(...lows);
+      return rows.find((r) => r.totalGrade === lower)?.sourceRowIndex ?? null;
+    }
+    case 'pick-specific':
+      return rows.find((r) => r.totalGrade === decision.pickedTotal)?.sourceRowIndex ?? null;
+  }
 }

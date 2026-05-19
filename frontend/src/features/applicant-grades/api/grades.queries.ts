@@ -168,12 +168,14 @@ export function useApplicantGradesCommit() {
       /** Per-NID decisions from the diff-review step. Overrides the
        *  per-group DUPLICATE_NID action for the matching nids. */
       existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
-      /** Per-NID resolutions for intra-upload `المجموع الكلي` conflicts. */
+      /** Per-NID resolutions for intra-upload duplicate-NID cases —
+       *  same NID appearing on two or more rows of the same file. */
       uploadDuplicateDecisions?: Record<
         string,
         | { action: 'pick-higher' }
         | { action: 'pick-lower' }
         | { action: 'pick-specific'; pickedTotal: number }
+        | { action: 'pick-row'; pickedSourceRowIndex: number }
         | { action: 'reject' }
       >;
     }): Promise<ImportCommitResult> => gradesService.runImportCommit(input),

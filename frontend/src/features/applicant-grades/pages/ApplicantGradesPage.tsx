@@ -317,6 +317,8 @@ export function ApplicantGradesPage(): JSX.Element {
         'الشعبة',
         'سنة التخرج',
         'فئة المدرسة',
+        'اسم المدرسة',
+        'الدور',
         'المجموع الكلي',
         'الدرجة العظمى',
       ];
@@ -329,6 +331,8 @@ export function ApplicantGradesPage(): JSX.Element {
         r.branch,
         r.graduationYear ?? '',
         r.schoolCategoryCode ? schoolCategoryLabel.get(r.schoolCategoryCode) ?? '' : '',
+        r.school ?? '',
+        r.examRound ?? '',
         r.total,
         r.overrideMax ?? r.importMax,
       ]);
@@ -489,6 +493,37 @@ export function ApplicantGradesPage(): JSX.Element {
           <span className="text-xs text-ink-700">
             {schoolCategoryLabel.get(r.schoolCategoryCode) ?? r.schoolCategoryCode}
           </span>
+        ) : (
+          <span className="text-2xs text-ink-300">—</span>
+        ),
+    },
+    {
+      key: 'school',
+      label: 'اسم المدرسة',
+      hideOn: 'md',
+      sortable: true,
+      getSortValue: (r) => r.school ?? '',
+      filter: { kind: 'text', getValue: (r) => r.school ?? '' },
+      className: 'min-w-[16ch] whitespace-normal',
+      render: (r) =>
+        r.school ? (
+          <span className="text-xs text-ink-700">{r.school}</span>
+        ) : (
+          <span className="text-2xs text-ink-300">—</span>
+        ),
+    },
+    {
+      key: 'examRound',
+      label: 'الدور',
+      hideOn: 'md',
+      align: 'center',
+      sortable: true,
+      getSortValue: (r) => r.examRound ?? '',
+      filter: { kind: 'text', getValue: (r) => r.examRound ?? '' },
+      className: 'min-w-[7ch]',
+      render: (r) =>
+        r.examRound ? (
+          <span className="text-xs text-ink-700">{r.examRound}</span>
         ) : (
           <span className="text-2xs text-ink-300">—</span>
         ),
