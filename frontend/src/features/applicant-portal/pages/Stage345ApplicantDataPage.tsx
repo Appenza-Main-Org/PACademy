@@ -539,9 +539,9 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           </>
         ) : (
           <>
-            <div className="mb-3 inline-flex rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-1.5 text-2xs text-gold-700">
+            {/* <div className="mb-3 inline-flex rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-1.5 text-2xs text-gold-700">
               لم يتم استرجاع بيانات من وزارة الداخلية — يرجى إدخال بياناتك يدوياً.
-            </div>
+            </div> */}
             <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
               <Input
                 label="الإسم رباعي"

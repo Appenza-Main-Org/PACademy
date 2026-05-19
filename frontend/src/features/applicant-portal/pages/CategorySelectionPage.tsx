@@ -90,6 +90,7 @@ export function CategorySelectionPage(): JSX.Element {
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
   const storeNid = useApplicantPortalStore((s) => s.nationalId);
   const setSelectedCategoryKey = useApplicantPortalStore((s) => s.setSelectedCategoryKey);
+  const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   /* Source-of-truth for the identity strip: prefer the MOI snapshot
    * captured at login; for not_found scenarios we fall back to a stub
    * derived from the entered NID and route directly to the profile
@@ -203,9 +204,9 @@ export function CategorySelectionPage(): JSX.Element {
                     ltr
                     mono
                   />
-                  <span className="text-2xs text-gold-700">
+                  {/* <span className="text-2xs text-gold-700">
                     لم يتم استرجاع بيانات من وزارة الداخلية — ستُدخلها يدوياً في الخطوة التالية.
-                  </span>
+                  </span> */}
                 </div>
               )
             }
@@ -245,6 +246,10 @@ export function CategorySelectionPage(): JSX.Element {
           {/* ── Category rows ── */}
           <CategoryRows
             categoriesQuery={categoriesQuery}
+            /* When MOI verified the applicant for a specific category,
+             * show only that one. For not_found / no MOI session, show
+             * the full catalogue so the applicant can pick. */
+            eligibleKey={identity && selectedCategoryKey ? selectedCategoryKey : null}
             onPick={onPickCategory}
           />
         </Card>
@@ -368,9 +373,14 @@ function ViewButton({
 
 function CategoryRows({
   categoriesQuery,
+  eligibleKey,
   onPick,
 }: {
   categoriesQuery: ReturnType<typeof useCategories>;
+  /** Restrict the rendered list to a single category when the MOI
+   *  lookup already decided eligibility — Ahmed sees only قسم الضباط
+   *  (officers_general). When null, the full catalogue renders. */
+  eligibleKey: string | null;
   onPick: (key: string, enabled: boolean) => void;
 }): JSX.Element {
   if (categoriesQuery.isLoading) {
@@ -397,6 +407,7 @@ function CategoryRows({
    *    client request. */
   const categories = (categoriesQuery.data ?? [])
     .filter((c) => c.key !== 'physical_education_bachelor')
+    .filter((c) => eligibleKey === null || c.key === eligibleKey)
     .map((c) => ({ ...c, isOpen: true }));
   if (categories.length === 0) {
     return (

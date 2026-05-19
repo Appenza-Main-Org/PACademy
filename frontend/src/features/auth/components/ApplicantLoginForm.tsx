@@ -84,7 +84,10 @@ export function ApplicantLoginForm(): JSX.Element {
         case 'eligible':
           portal.setMoiSession(result.session);
           portal.setSelectedCategoryKey(result.categoryKey);
-          dest = ROUTES.applicantProfile;
+          /* Client direction 2026-05-19: every applicant lands on
+           * /applicant/start so they see the full category list with
+           * eligibility cues — even when only one category qualifies. */
+          dest = ROUTES.applicantStart;
           break;
         case 'ineligible':
           portal.setMoiSession(result.session);
