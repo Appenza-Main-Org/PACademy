@@ -56,10 +56,12 @@ const EMPTY_INPUT: ThanawiRuleRowInput = {
   maxScoreOperator: DEFAULT_MAX_SCORE_OPERATOR,
 };
 
-/** Inclusive percentage bounds for the score range — bounded by the
- *  admission test grading convention (0–100). */
+/** Lower bound for both inputs — "positive numbers only".
+ *  The min field has an upper bound at 100 (percentage convention).
+ *  The max field has no upper bound and may exceed 100. */
 const SCORE_MIN_BOUND = 0;
-const SCORE_MAX_BOUND = 100;
+/** Upper bound for the «الحد الأدنى للدرجة» input only. */
+const MIN_SCORE_UPPER_BOUND = 100;
 
 /** Comparison-operator options for the lower percentage-score bound. */
 const MIN_SCORE_OPERATOR_OPTIONS: ReadonlyArray<RadixSelectOption<MinScoreOperator>> = [
@@ -511,13 +513,19 @@ function ThanawiForm({
     setDraft(editingRow ? rowToThanawiInput(editingRow) : EMPTY_INPUT);
   }
 
+  /* OperatorScoreField clamps to [0, maxBound] on blur, but we still
+   *  guard the submit gate so a focus-stolen blur or paste-then-submit
+   *  can't sneak an out-of-range value past. Max has no upper bound;
+   *  only enforce the lower 0. */
   const scoreMinOutOfBounds =
     draft.scoreMin !== null &&
-    (draft.scoreMin < SCORE_MIN_BOUND || draft.scoreMin > SCORE_MAX_BOUND);
+    (draft.scoreMin < SCORE_MIN_BOUND || draft.scoreMin > MIN_SCORE_UPPER_BOUND);
 
   const scoreMaxOutOfBounds =
-    draft.scoreMax !== null &&
-    (draft.scoreMax < SCORE_MIN_BOUND || draft.scoreMax > SCORE_MAX_BOUND);
+    draft.scoreMax !== null && draft.scoreMax < SCORE_MIN_BOUND;
+
+  const [scoreMinMessage, setScoreMinMessage] = useState<string | null>(null);
+  const [scoreMaxMessage, setScoreMaxMessage] = useState<string | null>(null);
 
   const scoreOrderInvalid =
     draft.scoreMin !== null &&
@@ -653,11 +661,13 @@ function ThanawiForm({
                 setDraft((d) => ({ ...d, scoreMin: next }))
               }
               scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
-              invalid={scoreMinOutOfBounds}
+              invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
+              maxBound={MIN_SCORE_UPPER_BOUND}
+              onClampMessage={setScoreMinMessage}
             />
-            {scoreMinOutOfBounds && (
+            {scoreMinMessage && (
               <span className="font-ar text-2xs text-terra-700">
-                القيمة خارج النطاق ٠–١٠٠٪
+                {scoreMinMessage}
               </span>
             )}
           </FieldLabel>
@@ -675,13 +685,15 @@ function ThanawiForm({
                 setDraft((d) => ({ ...d, scoreMax: next }))
               }
               scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
-              invalid={scoreMaxOutOfBounds || scoreOrderInvalid}
+              invalid={
+                scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
+              }
+              maxBound={MIN_SCORE_UPPER_BOUND}
+              onClampMessage={setScoreMaxMessage}
             />
-            {(scoreMaxOutOfBounds || scoreOrderInvalid) && (
+            {(scoreMaxMessage || scoreOrderInvalid) && (
               <span className="font-ar text-2xs text-terra-700">
-                {scoreMaxOutOfBounds
-                  ? 'القيمة خارج النطاق ٠–١٠٠٪'
-                  : 'يجب ألا تقل عن الحد الأدنى'}
+                {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
               </span>
             )}
           </FieldLabel>
