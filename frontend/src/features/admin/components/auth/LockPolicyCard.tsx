@@ -4,9 +4,9 @@
  * Surfaces the configurable lock policy alongside the list of currently
  * locked users. Super-admin only — the parent SettingsPage gates render.
  *
- * The policy is two integers (max-failed-attempts, lock-duration-minutes);
- * unlocks emit `account_unlocked` audit and reset the actor's failed
- * counter.
+ * Exposes a single knob — lock-duration-minutes. The former
+ * `maxFailedAttempts` admin setting was retired; the OTP flow's lockout
+ * threshold is now a fixed internal constant inside `auth.service.ts`.
  */
 
 import { useEffect, useState } from 'react';
@@ -34,20 +34,18 @@ export function LockPolicyCard(): JSX.Element {
   const updateMut = useUpdateLockPolicy();
   const unlockMut = useUnlockUser();
 
-  const [maxAttempts, setMaxAttempts] = useState<number>(5);
   const [lockMinutes, setLockMinutes] = useState<number>(30);
 
   /* Hydrate local state once the server snapshot arrives. */
   useEffect(() => {
     if (policyQuery.data) {
-      setMaxAttempts(policyQuery.data.maxFailedAttempts);
       setLockMinutes(policyQuery.data.lockDurationMinutes);
     }
   }, [policyQuery.data]);
 
   const onSave = (): void => {
     updateMut.mutate(
-      { maxFailedAttempts: maxAttempts, lockDurationMinutes: lockMinutes },
+      { lockDurationMinutes: lockMinutes },
       {
         onSuccess: () => toast('تم حفظ سياسة الإيقاف', 'success'),
         onError: (err) => toast(err.message, 'danger'),
@@ -71,18 +69,10 @@ export function LockPolicyCard(): JSX.Element {
     <Card>
       <CardHeader
         title="سياسة إيقاف الحسابات"
-        subtitle="ضبط الحدود وعرض الحسابات الموقوفة حالياً"
+        subtitle="ضبط مدة الإيقاف وعرض الحسابات الموقوفة حالياً"
       />
       <CardBody>
         <div className="grid gap-3 md:grid-cols-3">
-          <Input
-            label="الحد الأقصى لمحاولات الدخول الفاشلة"
-            type="number"
-            min={1}
-            max={10}
-            value={maxAttempts}
-            onChange={(e) => setMaxAttempts(Number(e.target.value))}
-          />
           <Input
             label="مدة الإيقاف بالدقائق"
             type="number"
@@ -91,11 +81,10 @@ export function LockPolicyCard(): JSX.Element {
             value={lockMinutes}
             onChange={(e) => setLockMinutes(Number(e.target.value))}
           />
-          <div className="flex items-end">
+          <div className="flex items-end md:col-span-2">
             <Button
               variant="primary"
               size="md"
-              fullWidth
               isLoading={updateMut.isPending}
               leadingIcon={<Lock size={14} strokeWidth={1.75} />}
               onClick={onSave}
