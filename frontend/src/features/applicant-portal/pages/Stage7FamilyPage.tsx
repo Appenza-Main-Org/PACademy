@@ -74,22 +74,35 @@ const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
 interface FamilyMemberForm {
   name: string;
   nationalId: string;
+  /** When true, NID input is hidden and a `nidUnavailableReason` dropdown
+   *  is required. Per client direction 2026-05-19 (تعذر وجود الرقم القومي). */
+  nidUnavailable: boolean;
+  nidUnavailableReason: '' | 'fallen_record' | 'born_abroad';
   shuhra?: string;
   religion: 'مسلم' | 'مسيحي';
   dateOfBirth: string;
   birthGovernorate: string;
   birthDistrict: string;
+  /** متوفي toggle — moved to the END of the card per client request;
+   *  address fields stay visible/required when on. */
   deceased: boolean;
   residenceGovernorate: string;
   residenceDistrict: string;
   residenceDetail: string;
   profession: string;
-  membershipNumber?: string;
+  /** Required when profession is شرطة / جيش — labelled "رقم الأقدمية". */
+  seniorityNumber?: string;
+  /** المؤهل + free-text descriptors added per client request 2026-05-19. */
+  qualification: string;
+  qualificationDetail: string;
+  professionDetail: string;
 }
 
 const EMPTY_MEMBER: FamilyMemberForm = {
   name: '',
   nationalId: '',
+  nidUnavailable: false,
+  nidUnavailableReason: '',
   shuhra: '',
   religion: 'مسلم',
   dateOfBirth: '',
@@ -100,10 +113,73 @@ const EMPTY_MEMBER: FamilyMemberForm = {
   residenceDistrict: '',
   residenceDetail: '',
   profession: '',
-  membershipNumber: '',
+  seniorityNumber: '',
+  qualification: '',
+  qualificationDetail: '',
+  professionDetail: '',
 };
 
-type TabKey = 'father' | 'father-wives' | 'mother' | 'mother-husbands' | 'grandparents' | 'view';
+const QUALIFICATION_OPTIONS = [
+  { value: '', label: '— اختر —' },
+  { value: 'none', label: 'بدون مؤهل' },
+  { value: 'primary', label: 'ابتدائي' },
+  { value: 'preparatory', label: 'إعدادي' },
+  { value: 'secondary', label: 'ثانوي' },
+  { value: 'diploma', label: 'دبلوم' },
+  { value: 'bachelor', label: 'بكالوريوس / ليسانس' },
+  { value: 'masters', label: 'ماجستير' },
+  { value: 'phd', label: 'دكتوراه' },
+  { value: 'other', label: 'أخرى' },
+] as const;
+
+type RelativeKind =
+  | 'brothers'
+  | 'sisters'
+  | 'paternal_uncles'
+  | 'paternal_aunts'
+  | 'maternal_aunts'
+  | 'maternal_uncles';
+
+const RELATIVE_LABEL: Record<RelativeKind, { plural: string; singular: string }> = {
+  brothers: { plural: 'الإخوة', singular: 'الأخ' },
+  sisters: { plural: 'الأخوات', singular: 'الأخت' },
+  paternal_uncles: { plural: 'الأعمام', singular: 'العم' },
+  paternal_aunts: { plural: 'العمات', singular: 'العمة' },
+  maternal_aunts: { plural: 'الخالات', singular: 'الخالة' },
+  maternal_uncles: { plural: 'الأخوال', singular: 'الخال' },
+};
+
+interface GuardianForm {
+  name: string;
+  profession: string;
+  /** Required when profession is شرطة / جيش — same رقم الأقدمية rule
+   *  as MemberFormCard. */
+  seniorityNumber?: string;
+  qualification: string;
+  qualificationDetail: string;
+  professionDetail: string;
+  workplaceDetail: string;
+}
+
+const EMPTY_GUARDIAN: GuardianForm = {
+  name: '',
+  profession: '',
+  seniorityNumber: '',
+  qualification: '',
+  qualificationDetail: '',
+  professionDetail: '',
+  workplaceDetail: '',
+};
+
+type TabKey =
+  | 'father'
+  | 'father-wives'
+  | 'mother'
+  | 'mother-husbands'
+  | 'grandparents'
+  | RelativeKind
+  | 'guardian'
+  | 'view';
 
 interface GrandparentsForm {
   paternalGrandfather: FamilyMemberForm;
@@ -148,6 +224,60 @@ export function Stage7FamilyPage(): JSX.Element {
   const [savedFatherWives, setSavedFatherWives] = useState<boolean[]>([]);
   const [savedMotherHusbands, setSavedMotherHusbands] = useState<boolean[]>([]);
 
+  /* Relatives — count-driven dynamic cards per kind (الإخوة/الأخوات/
+   * الأعمام/العمات/الخالات/الأخوال). Empty = "none of this kind". */
+  const [relatives, setRelatives] = useState<Record<RelativeKind, FamilyMemberForm[]>>({
+    brothers: [],
+    sisters: [],
+    paternal_uncles: [],
+    paternal_aunts: [],
+    maternal_aunts: [],
+    maternal_uncles: [],
+  });
+  const [savedRelatives, setSavedRelatives] = useState<Record<RelativeKind, boolean[]>>({
+    brothers: [],
+    sisters: [],
+    paternal_uncles: [],
+    paternal_aunts: [],
+    maternal_aunts: [],
+    maternal_uncles: [],
+  });
+  const setRelativeCount = (kind: RelativeKind, next: number): void => {
+    const n = Math.max(0, Math.min(20, Math.floor(next || 0)));
+    setRelatives((r) => {
+      const current = r[kind];
+      const sized: FamilyMemberForm[] =
+        n > current.length
+          ? [...current, ...Array.from({ length: n - current.length }, () => ({ ...EMPTY_MEMBER }))]
+          : current.slice(0, n);
+      return { ...r, [kind]: sized };
+    });
+    setSavedRelatives((r) => {
+      const current = r[kind];
+      const sized: boolean[] =
+        n > current.length
+          ? [...current, ...Array.from({ length: n - current.length }, () => false)]
+          : current.slice(0, n);
+      return { ...r, [kind]: sized };
+    });
+  };
+
+  /* Guardian — ولي الأمر */
+  const [guardian, setGuardian] = useState<GuardianForm>(EMPTY_GUARDIAN);
+  const [savedGuardian, setSavedGuardian] = useState(false);
+  const guardianOk =
+    savedGuardian &&
+    guardian.name.length >= 2 &&
+    guardian.profession.length > 0 &&
+    guardian.qualification.length > 0;
+
+  /* For relatives: a kind is OK if either the count is 0 OR every added
+   * card has been saved. */
+  const relativesOk = (Object.keys(relatives) as RelativeKind[]).every((k) => {
+    const list = savedRelatives[k];
+    return list.length === 0 || list.every(Boolean);
+  });
+
   /* Optional sections — the tabs only render when the applicant opts in
    * via the checkboxes on the intro card. When off we clear the entries
    * so a previously-added (but now-hidden) spouse doesn't block "اعتماد". */
@@ -178,7 +308,13 @@ export function Stage7FamilyPage(): JSX.Element {
     motherHusbands.length > 0 && savedMotherHusbands.every(Boolean)
   );
   const canApprove =
-    savedFather && savedMother && allGrandparentsSaved && fatherWivesOk && motherHusbandsOk;
+    savedFather
+    && savedMother
+    && allGrandparentsSaved
+    && fatherWivesOk
+    && motherHusbandsOk
+    && relativesOk
+    && guardianOk;
 
   const onApprove = async (): Promise<void> => {
     if (!canApprove) return;
@@ -204,30 +340,6 @@ export function Stage7FamilyPage(): JSX.Element {
             </p>
           </div>
         </header>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <label className="flex items-start gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
-            <input
-              type="checkbox"
-              checked={hasFatherWives}
-              onChange={(e) => toggleHasFatherWives(e.target.checked)}
-              className="mt-0.5 h-4 w-4 cursor-pointer accent-teal-500"
-            />
-            <span className="leading-normal">
-              الأب متزوج بأخرى — قم بتفعيل هذا الخيار لإظهار تبويب «زوجات الأب».
-            </span>
-          </label>
-          <label className="flex items-start gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
-            <input
-              type="checkbox"
-              checked={hasMotherHusbands}
-              onChange={(e) => toggleHasMotherHusbands(e.target.checked)}
-              className="mt-0.5 h-4 w-4 cursor-pointer accent-teal-500"
-            />
-            <span className="leading-normal">
-              الأم متزوجة بغير الأب — قم بتفعيل هذا الخيار لإظهار تبويب «أزواج الأم».
-            </span>
-          </label>
-        </div>
       </Card>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
@@ -255,7 +367,22 @@ export function Stage7FamilyPage(): JSX.Element {
           <Tabs.Tab value="grandparents">
             <TabLabel saved={allGrandparentsSaved}>الأجداد</TabLabel>
           </Tabs.Tab>
-          <Tabs.Tab value="view">عرض</Tabs.Tab>
+          {(Object.keys(RELATIVE_LABEL) as RelativeKind[]).map((k) => {
+            const list = relatives[k];
+            const ok = list.length === 0 || savedRelatives[k].every(Boolean);
+            return (
+              <Tabs.Tab key={k} value={k}>
+                <TabLabel saved={ok}>
+                  {RELATIVE_LABEL[k].plural}
+                  {list.length > 0 ? ` (${list.length})` : ''}
+                </TabLabel>
+              </Tabs.Tab>
+            );
+          })}
+          <Tabs.Tab value="guardian">
+            <TabLabel saved={guardianOk}>تحديد ولي الأمر</TabLabel>
+          </Tabs.Tab>
+          <Tabs.Tab value="view">عرض واعتماد بيانات العائلة</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="father">
@@ -268,6 +395,17 @@ export function Stage7FamilyPage(): JSX.Element {
               toast('تم حفظ بيانات الأب', 'success');
               setTab(hasFatherWives ? 'father-wives' : 'mother');
             }}
+            headerExtras={
+              <label className="inline-flex items-center gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-1.5 text-2xs text-gold-700">
+                <input
+                  type="checkbox"
+                  checked={hasFatherWives}
+                  onChange={(e) => toggleHasFatherWives(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer accent-teal-500"
+                />
+                <span>الأب متزوج بأخرى</span>
+              </label>
+            }
           />
         </Tabs.Panel>
 
@@ -305,6 +443,17 @@ export function Stage7FamilyPage(): JSX.Element {
               toast('تم حفظ بيانات الأم', 'success');
               setTab(hasMotherHusbands ? 'mother-husbands' : 'grandparents');
             }}
+            headerExtras={
+              <label className="inline-flex items-center gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-1.5 text-2xs text-gold-700">
+                <input
+                  type="checkbox"
+                  checked={hasMotherHusbands}
+                  onChange={(e) => toggleHasMotherHusbands(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer accent-teal-500"
+                />
+                <span>الأم متزوجة بغير الأب</span>
+              </label>
+            }
           />
         </Tabs.Panel>
 
@@ -349,6 +498,42 @@ export function Stage7FamilyPage(): JSX.Element {
                 maternalGrandmother: true,
               });
               toast('تم حفظ بيانات الأجداد', 'success');
+              setTab('brothers');
+            }}
+          />
+        </Tabs.Panel>
+
+        {(Object.keys(RELATIVE_LABEL) as RelativeKind[]).map((kind) => (
+          <Tabs.Panel key={kind} value={kind}>
+            <DynamicRelativePanel
+              kind={kind}
+              members={relatives[kind]}
+              savedFlags={savedRelatives[kind]}
+              onSetCount={(n) => setRelativeCount(kind, n)}
+              onChange={(i, next) =>
+                setRelatives((r) => ({
+                  ...r,
+                  [kind]: r[kind].map((x, idx) => (idx === i ? next : x)),
+                }))
+              }
+              onSave={(i) => {
+                setSavedRelatives((s) => ({
+                  ...s,
+                  [kind]: s[kind].map((v, idx) => (idx === i ? true : v)),
+                }));
+                toast('تم حفظ البيانات', 'success');
+              }}
+            />
+          </Tabs.Panel>
+        ))}
+
+        <Tabs.Panel value="guardian">
+          <GuardianFormCard
+            value={guardian}
+            onChange={setGuardian}
+            onSave={() => {
+              setSavedGuardian(true);
+              toast('تم حفظ بيانات ولي الأمر', 'success');
               setTab('view');
             }}
           />
@@ -362,6 +547,10 @@ export function Stage7FamilyPage(): JSX.Element {
               fatherWives,
               motherHusbands,
               grandparents,
+              relatives,
+              savedRelatives,
+              guardian,
+              savedGuardian,
               savedFather,
               savedMother,
               savedFatherWives,
@@ -386,29 +575,28 @@ function MemberFormCard({
   title,
   onChange,
   onSave,
+  headerExtras,
 }: {
   form: FamilyMemberForm;
   title: string;
   onChange: (next: FamilyMemberForm) => void;
   onSave: () => void;
+  /** Optional content rendered inside the card header (used by الأب /
+   *  الأم cards to host their "متزوج بأخرى" / "متزوجة بغير الأب"
+   *  toggles). */
+  headerExtras?: React.ReactNode;
 }): JSX.Element {
-  /* shouldUnregister: true is critical — when the متوفي toggle hides the
-   * residence fields, those validators must drop with the JSX. Without
-   * this RHF keeps them registered with `required: 'مطلوب'` and the
-   * submit silently fails. */
   const form_ = useForm<FamilyMemberForm>({
     defaultValues: form,
-    shouldUnregister: true,
   });
   const { register, handleSubmit, control, watch, formState: { errors } } = form_;
   const profession = watch('profession');
-  const deceased = watch('deceased');
-  const showMembership = MEMBERSHIP_PROFESSIONS.has(profession);
+  const nidUnavailable = watch('nidUnavailable');
+  const showSeniority = MEMBERSHIP_PROFESSIONS.has(profession);
 
   /* Stream live values to the parent so consumers like
    * GrandparentsPanel's "حفظ الجميع" can compute allFilled without
-   * waiting for the inner submit. We use a ref to avoid stale-closure
-   * issues over the onChange identity. */
+   * waiting for the inner submit. */
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   useEffect(() => {
@@ -425,11 +613,14 @@ function MemberFormCard({
 
   return (
     <Card>
-      <header className="mb-3 flex items-center gap-2">
-        <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-          <Users size={14} strokeWidth={1.75} />
-        </span>
-        <h3 className="font-ar-display text-md font-bold text-ink-900">{title}</h3>
+      <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+            <Users size={14} strokeWidth={1.75} />
+          </span>
+          <h3 className="font-ar-display text-md font-bold text-ink-900">{title}</h3>
+        </div>
+        {headerExtras}
       </header>
       <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
         <Input
@@ -439,22 +630,48 @@ function MemberFormCard({
           error={errors.name?.message}
           containerClassName="md:col-span-2"
         />
-        <Input
-          label="الرقم القومي"
-          required
-          dir="ltr"
-          placeholder="14 رقماً"
-          maxLength={14}
-          {...register('nationalId', {
-            required: 'مطلوب',
-            pattern: {
-              value: /^[0-9]{14}$/,
-              message: 'الرقم القومي يجب أن يكون 14 رقماً',
-            },
-          })}
-          error={errors.nationalId?.message}
-          containerClassName="md:col-span-2"
-        />
+
+        {/* NID block — checkbox toggles between NID input and reason dropdown */}
+        <label className="md:col-span-2 inline-flex items-center gap-2 text-sm text-ink-800">
+          <input
+            type="checkbox"
+            {...register('nidUnavailable')}
+            className="h-4 w-4 cursor-pointer accent-teal-500"
+          />
+          تعذر وجود الرقم القومي
+        </label>
+        {nidUnavailable ? (
+          <Select
+            label="سبب عدم وجود الرقم القومي"
+            required
+            {...register('nidUnavailableReason', { required: 'مطلوب' })}
+            options={[
+              { value: '', label: '— اختر —' },
+              { value: 'fallen_record', label: 'ساقط قيد' },
+              { value: 'born_abroad', label: 'مواليد الخارج' },
+            ]}
+            error={errors.nidUnavailableReason?.message as string | undefined}
+            containerClassName="md:col-span-2"
+          />
+        ) : (
+          <Input
+            label="الرقم القومي"
+            required
+            dir="ltr"
+            placeholder="14 رقماً"
+            maxLength={14}
+            {...register('nationalId', {
+              validate: (v: string) => {
+                if (nidUnavailable) return true;
+                if (!v) return 'مطلوب';
+                return /^[0-9]{14}$/.test(v) || 'الرقم القومي يجب أن يكون 14 رقماً';
+              },
+            })}
+            error={errors.nationalId?.message}
+            containerClassName="md:col-span-2"
+          />
+        )}
+
         <Select
           label="الديانة"
           required
@@ -503,6 +720,8 @@ function MemberFormCard({
             )}
           />
         </Field>
+
+        {/* Profession + qualification block */}
         <Select
           label="المهنة"
           required
@@ -510,63 +729,93 @@ function MemberFormCard({
           options={[...PROFESSION_OPTIONS]}
           error={errors.profession?.message}
         />
-        {showMembership && (
+        {showSeniority && (
           <Input
-            label="رقم العضوية"
+            label="رقم الأقدمية"
             required
             dir="ltr"
-            {...register('membershipNumber', { required: 'مطلوب' })}
-            error={errors.membershipNumber?.message}
+            {...register('seniorityNumber', { required: 'مطلوب' })}
+            error={errors.seniorityNumber?.message}
           />
         )}
-        <label className="md:col-span-2 inline-flex items-center gap-2 text-sm text-ink-800">
-          <input type="checkbox" {...register('deceased')} className="h-4 w-4 cursor-pointer accent-teal-500" />
+        <Select
+          label="المؤهل"
+          required
+          {...register('qualification', { required: 'مطلوب' })}
+          options={[...QUALIFICATION_OPTIONS]}
+          error={errors.qualification?.message}
+        />
+        <Textarea
+          label="وصف تفصيلي للوظيفة"
+          rows={2}
+          {...register('professionDetail')}
+          error={errors.professionDetail?.message}
+          containerClassName="md:col-span-2"
+        />
+        <Textarea
+          label="وصف تفصيلي للمؤهل"
+          rows={2}
+          {...register('qualificationDetail')}
+          error={errors.qualificationDetail?.message}
+          containerClassName="md:col-span-2"
+        />
+
+        {/* Residence block — always shown (even for deceased members,
+            who carry their last known residence). */}
+        <Field label="محافظة الإقامة" required error={errors.residenceGovernorate?.message}>
+          <Controller
+            control={control}
+            name="residenceGovernorate"
+            rules={{ required: 'مطلوب' }}
+            render={({ field }) => (
+              <SearchSelect
+                ariaLabel="محافظة الإقامة"
+                placeholder="اختر المحافظة"
+                options={GOV_OPTIONS}
+                value={field.value ?? null}
+                onChange={(v) => field.onChange(v ?? '')}
+              />
+            )}
+          />
+        </Field>
+        <Field label="قسم / مركز الإقامة" required error={errors.residenceDistrict?.message}>
+          <Controller
+            control={control}
+            name="residenceDistrict"
+            rules={{ required: 'مطلوب' }}
+            render={({ field }) => (
+              <SearchSelect
+                ariaLabel="قسم / مركز الإقامة"
+                placeholder="اختر القسم"
+                options={DISTRICT_OPTIONS}
+                value={field.value ?? null}
+                onChange={(v) => field.onChange(v ?? '')}
+              />
+            )}
+          />
+        </Field>
+        <Textarea
+          label="تفصيلي عنوان الإقامة"
+          rows={2}
+          required
+          {...register('residenceDetail', {
+            required: 'مطلوب',
+            minLength: { value: 5, message: 'مطلوب' },
+          })}
+          error={errors.residenceDetail?.message}
+          containerClassName="md:col-span-2"
+        />
+
+        {/* متوفي — moved to the END per client direction 2026-05-19. */}
+        <label className="md:col-span-2 mt-1 inline-flex items-center gap-2 rounded-md border border-border-default bg-ink-50 px-3 py-2 text-sm text-ink-800">
+          <input
+            type="checkbox"
+            {...register('deceased')}
+            className="h-4 w-4 cursor-pointer accent-teal-500"
+          />
           متوفي
         </label>
-        {!deceased && (
-          <>
-            <Field label="محافظة الإقامة" required error={errors.residenceGovernorate?.message}>
-              <Controller
-                control={control}
-                name="residenceGovernorate"
-                rules={{ required: 'مطلوب' }}
-                render={({ field }) => (
-                  <SearchSelect
-                    ariaLabel="محافظة الإقامة"
-                    placeholder="اختر المحافظة"
-                    options={GOV_OPTIONS}
-                    value={field.value ?? null}
-                    onChange={(v) => field.onChange(v ?? '')}
-                  />
-                )}
-              />
-            </Field>
-            <Field label="قسم / مركز الإقامة" required error={errors.residenceDistrict?.message}>
-              <Controller
-                control={control}
-                name="residenceDistrict"
-                rules={{ required: 'مطلوب' }}
-                render={({ field }) => (
-                  <SearchSelect
-                    ariaLabel="قسم / مركز الإقامة"
-                    placeholder="اختر القسم"
-                    options={DISTRICT_OPTIONS}
-                    value={field.value ?? null}
-                    onChange={(v) => field.onChange(v ?? '')}
-                  />
-                )}
-              />
-            </Field>
-            <Textarea
-              label="تفصيلي عنوان الإقامة"
-              rows={2}
-              required
-              {...register('residenceDetail', { required: 'مطلوب', minLength: { value: 5, message: 'مطلوب' } })}
-              error={errors.residenceDetail?.message}
-              containerClassName="md:col-span-2"
-            />
-          </>
-        )}
+
         <div className="md:col-span-2 flex justify-end pt-1">
           <Button type="submit" variant="primary">
             حفظ
@@ -644,6 +893,159 @@ function MultiMemberPanel({
         </div>
       ))}
     </div>
+  );
+}
+
+/* ─── Dynamic count-driven relatives panel ────────────────────────── */
+
+function DynamicRelativePanel({
+  kind,
+  members,
+  savedFlags,
+  onSetCount,
+  onChange,
+  onSave,
+}: {
+  kind: RelativeKind;
+  members: readonly FamilyMemberForm[];
+  savedFlags: readonly boolean[];
+  onSetCount: (n: number) => void;
+  onChange: (i: number, next: FamilyMemberForm) => void;
+  onSave: (i: number) => void;
+}): JSX.Element {
+  const label = RELATIVE_LABEL[kind];
+  return (
+    <div className="flex flex-col gap-3">
+      <Card>
+        <header className="mb-2">
+          <h3 className="font-ar-display text-md font-bold text-ink-900">
+            بيانات {label.plural}
+          </h3>
+          <p className="mt-1 text-2xs text-ink-500 leading-normal">
+            أدخل عدد {label.plural} أولاً، ثم سيظهر لكل واحدٍ كرت بياناته. اترك العدد
+            صفراً إذا لم يوجد.
+          </p>
+        </header>
+        <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+          <Input
+            label={`عدد ${label.plural}`}
+            type="number"
+            min={0}
+            max={20}
+            dir="ltr"
+            value={members.length}
+            onChange={(e) => onSetCount(Number(e.target.value))}
+          />
+        </div>
+      </Card>
+      {members.map((m, i) => (
+        <div key={i} className="relative">
+          <MemberFormCard
+            form={m}
+            title={`${label.singular} رقم ${i + 1}${savedFlags[i] ? ' (محفوظ)' : ''}`}
+            onChange={(next) => onChange(i, next)}
+            onSave={() => onSave(i)}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Guardian form (ولي الأمر) ────────────────────────────────────── */
+
+function GuardianFormCard({
+  value,
+  onChange,
+  onSave,
+}: {
+  value: GuardianForm;
+  onChange: (next: GuardianForm) => void;
+  onSave: () => void;
+}): JSX.Element {
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<GuardianForm>({
+    defaultValues: value,
+  });
+  const guardianProfession = watch('profession');
+  const showGuardianSeniority = MEMBERSHIP_PROFESSIONS.has(guardianProfession);
+  /* Stream live values to the parent so the summary tab reflects edits
+   * before the explicit حفظ click. */
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  useEffect(() => {
+    const sub = watch((vals) => onChangeRef.current(vals as GuardianForm));
+    return () => sub.unsubscribe();
+  }, [watch]);
+
+  const submit = handleSubmit((vals) => {
+    onChange(vals);
+    onSave();
+  });
+  return (
+    <Card>
+      <header className="mb-3 flex items-center gap-2">
+        <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+          <ShieldCheck size={14} strokeWidth={1.75} />
+        </span>
+        <h3 className="font-ar-display text-md font-bold text-ink-900">تحديد ولي الأمر</h3>
+      </header>
+      <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
+        <Input
+          label="الاسم"
+          required
+          {...register('name', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+          error={errors.name?.message}
+          containerClassName="md:col-span-2"
+        />
+        <Select
+          label="الوظيفة"
+          required
+          {...register('profession', { required: 'مطلوب' })}
+          options={[...PROFESSION_OPTIONS]}
+          error={errors.profession?.message}
+        />
+        {showGuardianSeniority && (
+          <Input
+            label="رقم الأقدمية"
+            required
+            dir="ltr"
+            {...register('seniorityNumber', { required: 'مطلوب' })}
+            error={errors.seniorityNumber?.message}
+          />
+        )}
+        <Select
+          label="المؤهل"
+          required
+          {...register('qualification', { required: 'مطلوب' })}
+          options={[...QUALIFICATION_OPTIONS]}
+          error={errors.qualification?.message}
+        />
+        <Textarea
+          label="وصف تفصيلي للمؤهل"
+          rows={2}
+          {...register('qualificationDetail')}
+          error={errors.qualificationDetail?.message}
+          containerClassName="md:col-span-2"
+        />
+        <Textarea
+          label="وصف تفصيلي للوظيفة"
+          rows={2}
+          {...register('professionDetail')}
+          error={errors.professionDetail?.message}
+          containerClassName="md:col-span-2"
+        />
+        <Textarea
+          label="بيانات جهة العمل / الوظيفة"
+          rows={2}
+          {...register('workplaceDetail')}
+          error={errors.workplaceDetail?.message}
+          containerClassName="md:col-span-2"
+        />
+        <div className="md:col-span-2 flex justify-end pt-1">
+          <Button type="submit" variant="primary">حفظ</Button>
+        </div>
+      </form>
+    </Card>
   );
 }
 
@@ -734,16 +1136,18 @@ function GrandparentsPanel({
 function isFilled(m: FamilyMemberForm): boolean {
   const baseOk =
     m.name.length >= 2 &&
-    /^[0-9]{14}$/.test(m.nationalId) &&
+    (m.nidUnavailable
+      ? m.nidUnavailableReason.length > 0
+      : /^[0-9]{14}$/.test(m.nationalId)) &&
     m.dateOfBirth.length > 0 &&
     m.birthGovernorate.length > 0 &&
     m.birthDistrict.length > 0 &&
     m.profession.length > 0 &&
-    (!MEMBERSHIP_PROFESSIONS.has(m.profession) || (m.membershipNumber ?? '').length > 0);
+    m.qualification.length > 0 &&
+    (!MEMBERSHIP_PROFESSIONS.has(m.profession) || (m.seniorityNumber ?? '').length > 0);
   if (!baseOk) return false;
-  /* Deceased members skip the residence requirement — those fields are
-   * removed from the form when the متوفي toggle is on. */
-  if (m.deceased) return true;
+  /* Residence is now required for every member (even deceased — last
+   * known address). */
   return (
     m.residenceGovernorate.length > 0 &&
     m.residenceDistrict.length > 0 &&
@@ -772,6 +1176,10 @@ function buildRows(input: {
   fatherWives: readonly FamilyMemberForm[];
   motherHusbands: readonly FamilyMemberForm[];
   grandparents: GrandparentsForm;
+  relatives: Record<RelativeKind, readonly FamilyMemberForm[]>;
+  savedRelatives: Record<RelativeKind, readonly boolean[]>;
+  guardian: GuardianForm;
+  savedGuardian: boolean;
   savedFather: boolean;
   savedMother: boolean;
   savedFatherWives: readonly boolean[];
@@ -847,6 +1255,28 @@ function buildRows(input: {
     profession: professionLabel(input.grandparents.maternalGrandmother.profession),
     saved: input.savedGrandparents.maternalGrandmother,
     roleKey: 'grandparents',
+  });
+  /* Dynamic relatives — only render rows for kinds the applicant added. */
+  (Object.keys(RELATIVE_LABEL) as RelativeKind[]).forEach((kind) => {
+    input.relatives[kind].forEach((m, i) => {
+      rows.push({
+        serial: n++,
+        name: m.name || '—',
+        relation: `${RELATIVE_LABEL[kind].singular} ${i + 1}`,
+        profession: professionLabel(m.profession),
+        saved: input.savedRelatives[kind][i] === true,
+        roleKey: kind,
+      });
+    });
+  });
+  /* Guardian — last row in the summary. */
+  rows.push({
+    serial: n++,
+    name: input.guardian.name || '—',
+    relation: 'ولي الأمر',
+    profession: professionLabel(input.guardian.profession),
+    saved: input.savedGuardian,
+    roleKey: 'guardian',
   });
   return rows;
 }
