@@ -26,6 +26,7 @@ import {
   History,
   Info,
   Layers,
+  ListChecks,
   MoreVertical,
   Plus,
   Search,
@@ -120,6 +121,7 @@ export function ApplicantGradesPage(): JSX.Element {
   const yearFromUrl: number | 'all' =
     yearFromUrlRaw === 'all' ? 'all' : Number(yearFromUrlRaw) || 'all';
   const schoolCategoryFromUrl = searchParams.get('school') ?? 'all';
+  const changedOnly = searchParams.get('changed') === '1';
 
   const schoolCategoriesQuery = useLookup('school-categories');
   const activeSchoolCategories = useMemo(
@@ -168,6 +170,7 @@ export function ApplicantGradesPage(): JSX.Element {
     branch: branchFromUrl,
     graduationYear: yearFromUrl,
     schoolCategoryCode: schoolCategoryFromUrl,
+    changedOnly,
   });
   /* Keep the unpaginated query alive so the stats strip + overlay
    * drawers have the full set of rows to render against. */
@@ -225,11 +228,25 @@ export function ApplicantGradesPage(): JSX.Element {
     );
   }
 
+  function setChangedOnly(value: boolean): void {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set('changed', '1');
+        else next.delete('changed');
+        next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   const activeFilterCount =
     (genderFromUrl !== 'all' ? 1 : 0) +
     (branchFromUrl !== 'all' ? 1 : 0) +
     (yearFromUrl !== 'all' ? 1 : 0) +
-    (schoolCategoryFromUrl !== 'all' ? 1 : 0);
+    (schoolCategoryFromUrl !== 'all' ? 1 : 0) +
+    (changedOnly ? 1 : 0);
 
   function clearAllFilters(): void {
     setSearchParams(
@@ -239,6 +256,7 @@ export function ApplicantGradesPage(): JSX.Element {
         next.delete('branch');
         next.delete('year');
         next.delete('school');
+        next.delete('changed');
         next.set('page', '1');
         return next;
       },
@@ -285,6 +303,7 @@ export function ApplicantGradesPage(): JSX.Element {
               branch: branchFromUrl,
               graduationYear: yearFromUrl,
               schoolCategoryCode: schoolCategoryFromUrl,
+              changedOnly,
             })
           : rows;
       const today = new Date().toISOString().slice(0, 10);
@@ -582,6 +601,15 @@ export function ApplicantGradesPage(): JSX.Element {
               تنزيل نموذج Excel
             </Button>
             {!isEmpty && (
+              <Button
+                variant="ghost"
+                leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
+                onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
+              >
+                تعديلات الدرجات
+              </Button>
+            )}
+            {!isEmpty && (
               <DropdownMenu>
                 <DropdownMenu.Trigger asChild>
                   <Button
@@ -735,6 +763,34 @@ export function ApplicantGradesPage(): JSX.Element {
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={changedOnly}
+                  onClick={() => setChangedOnly(!changedOnly)}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  style={{
+                    background: changedOnly ? 'var(--gold-500)' : '#fff',
+                    color: changedOnly ? '#fff' : 'var(--ink-700)',
+                    borderColor: changedOnly ? 'var(--gold-500)' : 'var(--border-default)',
+                  }}
+                  title="تصفية الطلاب الذين تم تعديل درجاتهم"
+                >
+                  <ListChecks size={12} strokeWidth={1.75} aria-hidden />
+                  درجات معدّلة فقط
+                </button>
+                {changedOnly && (
+                  <a
+                    href={ROUTES.admin.applicantGradesChanges}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate(ROUTES.admin.applicantGradesChanges);
+                    }}
+                    className="text-2xs text-teal-700 underline-offset-2 hover:underline"
+                  >
+                    عرض صفحة تعديلات الدرجات
+                  </a>
+                )}
                 {(activeFilterCount > 0 || qFromUrl) && (
                   <button
                     type="button"

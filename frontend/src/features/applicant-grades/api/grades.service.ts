@@ -136,10 +136,14 @@ export const gradesService = {
     payload: { reason: AdjustmentReason; note: string | null; amount: number; isActive: boolean; by: string },
   ): Promise<GradeRow> {
     await simulateLatency(120, 240);
+    const now = new Date().toISOString();
     STATE = STATE.map((r) =>
       r.seat === seat
         ? {
             ...r,
+            gradeChangedAt: now,
+            lastEditedBy: payload.by,
+            lastEditedAt: 'الآن',
             log: [
               {
                 id: `adj-${Date.now()}`,
@@ -164,9 +168,15 @@ export const gradesService = {
 
   async toggleAdjustment(seat: number, entryId: string): Promise<GradeRow> {
     await simulateLatency(80, 160);
+    const now = new Date().toISOString();
     STATE = STATE.map((r) =>
       r.seat === seat
-        ? { ...r, log: r.log.map((e) => (e.id === entryId ? { ...e, isActive: !e.isActive } : e)) }
+        ? {
+            ...r,
+            gradeChangedAt: now,
+            lastEditedAt: 'الآن',
+            log: r.log.map((e) => (e.id === entryId ? { ...e, isActive: !e.isActive } : e)),
+          }
         : r,
     );
     const row = STATE.find((r) => r.seat === seat);
@@ -176,8 +186,16 @@ export const gradesService = {
 
   async deleteAdjustment(seat: number, entryId: string): Promise<GradeRow> {
     await simulateLatency(80, 160);
+    const now = new Date().toISOString();
     STATE = STATE.map((r) =>
-      r.seat === seat ? { ...r, log: r.log.filter((e) => e.id !== entryId) } : r,
+      r.seat === seat
+        ? {
+            ...r,
+            gradeChangedAt: now,
+            lastEditedAt: 'الآن',
+            log: r.log.filter((e) => e.id !== entryId),
+          }
+        : r,
     );
     const row = STATE.find((r) => r.seat === seat);
     if (!row) throw new Error(`Row ${seat} not found`);
@@ -190,6 +208,7 @@ export const gradesService = {
     by: string,
   ): Promise<GradeRow> {
     await simulateLatency(120, 240);
+    const now = new Date().toISOString();
     STATE = STATE.map((r) =>
       r.seat === seat
         ? {
@@ -197,6 +216,7 @@ export const gradesService = {
             overrideMax,
             lastEditedAt: overrideMax == null ? null : 'الآن',
             lastEditedBy: overrideMax == null ? null : by,
+            gradeChangedAt: now,
           }
         : r,
     );
@@ -334,6 +354,7 @@ export const gradesService = {
         });
       }
 
+      const totalChanged = existing.total !== incomingTotal;
       existingByNid.set(dup.nationalId, {
         ...existing,
         seat: dup.seatIncoming,
@@ -346,6 +367,10 @@ export const gradesService = {
         total: incomingTotal,
         importMax: pending.maxDegree,
         log: nextLog,
+        previousGrade: totalChanged ? existing.total : existing.previousGrade,
+        gradeChangedAt: totalChanged ? new Date().toISOString() : existing.gradeChangedAt,
+        lastEditedAt: totalChanged ? 'الآن' : existing.lastEditedAt,
+        lastEditedBy: totalChanged ? 'استيراد ملف' : existing.lastEditedBy,
       });
     }
 
@@ -366,6 +391,8 @@ export const gradesService = {
       overrideMax: null,
       lastEditedAt: null,
       lastEditedBy: null,
+      gradeChangedAt: null,
+      previousGrade: null,
       status: r.status,
       log: [],
     }));
@@ -587,8 +614,14 @@ export const gradesService = {
           failed += 1;
           continue;
         }
-        /* override → replace existing total + max in place. */
+        /* override → replace existing total + max in place. Capture
+         * the prior raw total as `previousGrade` whenever the incoming
+         * row actually shifts the value, so /admin/applicant-grades/changes
+         * can render a meaningful diff. The change timestamp is bumped
+         * regardless — overriding to the same total still represents a
+         * deliberate admin decision. */
         const existing = existingByNid.get(row.nationalId)!;
+        const totalChanged = existing.total !== row.totalGrade;
         existingByNid.set(row.nationalId, {
           ...existing,
           kind,
@@ -601,6 +634,10 @@ export const gradesService = {
           graduationYear,
           schoolCategoryCode: schoolCategoryCode ?? existing.schoolCategoryCode,
           status: existing.status,
+          previousGrade: totalChanged ? existing.total : existing.previousGrade,
+          gradeChangedAt: new Date().toISOString(),
+          lastEditedAt: 'الآن',
+          lastEditedBy: 'استيراد ملف',
         });
         inserted += 1;
         continue;
@@ -623,6 +660,8 @@ export const gradesService = {
         overrideMax: null,
         lastEditedAt: null,
         lastEditedBy: null,
+        gradeChangedAt: null,
+        previousGrade: null,
         status: '—',
         log: [],
       };
@@ -661,6 +700,10 @@ export const gradesService = {
     branch?: string | 'all';
     graduationYear?: number | 'all';
     schoolCategoryCode?: string | 'all';
+    /** When true, restrict the result set to rows with `gradeChangedAt`
+     *  set (or any active adjustment). Mirrors the toggle the list page
+     *  exposes for the grade-change audit view. */
+    changedOnly?: boolean;
   }): Promise<{ rows: GradeRow[]; total: number }> {
     await simulateLatency(80, 200);
     const rows = applyFilters(STATE, input);
@@ -688,6 +731,7 @@ export const gradesService = {
     branch?: string | 'all';
     graduationYear?: number | 'all';
     schoolCategoryCode?: string | 'all';
+    changedOnly?: boolean;
   }): Promise<GradeRow[]> {
     await simulateLatency(120, 260);
     const rows = applyFilters(STATE, input);
@@ -702,6 +746,13 @@ interface FilterInput {
   branch?: string | 'all';
   graduationYear?: number | 'all';
   schoolCategoryCode?: string | 'all';
+  changedOnly?: boolean;
+}
+
+/** True when the row has been touched after its initial import — either
+ *  a recorded `gradeChangedAt` timestamp or any adjustment in the log. */
+export function hasGradeChange(r: GradeRow): boolean {
+  return r.gradeChangedAt != null || r.log.length > 0;
 }
 
 function applyFilters(source: readonly GradeRow[], input: FilterInput): GradeRow[] {
@@ -726,6 +777,9 @@ function applyFilters(source: readonly GradeRow[], input: FilterInput): GradeRow
   }
   if (input.graduationYear && input.graduationYear !== 'all') {
     rows = rows.filter((r) => r.graduationYear === input.graduationYear);
+  }
+  if (input.changedOnly) {
+    rows = rows.filter(hasGradeChange);
   }
   if (input.schoolCategoryCode && input.schoolCategoryCode !== 'all') {
     rows = rows.filter((r) => r.schoolCategoryCode === input.schoolCategoryCode);
