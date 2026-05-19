@@ -119,16 +119,14 @@ export function Step6ChangesReview(): JSX.Element {
     let touched = false;
     for (const u of uploadDuplicates) {
       if (seeded[u.nationalId] == null) {
-        /* When totals conflict the safer default is highest-total
-         * (legacy behaviour). When there's no total conflict we still
-         * need a default; pick the first row by source order so the
-         * commit has something deterministic to write. */
-        seeded[u.nationalId] = u.hasTotalConflict
-          ? { action: 'pick-higher' }
-          : {
-              action: 'pick-row',
-              pickedSourceRowIndex: u.rows[0]!.sourceRowIndex,
-            };
+        /* Default selection is the row with the highest total — seeded
+         * as an explicit `pick-row` so the radio UI lights up on that
+         * row immediately. Rows without a parseable total fall to the
+         * first row so the commit has something deterministic to write. */
+        seeded[u.nationalId] = {
+          action: 'pick-row',
+          pickedSourceRowIndex: pickDefaultRowIndex(u.rows),
+        };
         touched = true;
       }
     }
@@ -407,12 +405,10 @@ function UploadDuplicatesSection({
 
       <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
         {duplicates.map((u) => {
-          const fallback: UploadDuplicateDecision = u.hasTotalConflict
-            ? { action: 'pick-higher' }
-            : {
-                action: 'pick-row',
-                pickedSourceRowIndex: u.rows[0]!.sourceRowIndex,
-              };
+          const fallback: UploadDuplicateDecision = {
+            action: 'pick-row',
+            pickedSourceRowIndex: pickDefaultRowIndex(u.rows),
+          };
           return (
             <li key={u.nationalId}>
               <UploadDuplicateCard
@@ -589,7 +585,7 @@ function UploadDuplicateCard({
               });
             }}
           >
-            قبول الطالب بالدرجة المختارة
+            قبول
           </Button>
           <Button
             size="sm"
@@ -618,6 +614,22 @@ function RowCell({
       <span className="truncate">{children}</span>
     </span>
   );
+}
+
+/** Pick the default-selected row for a duplicate-NID group: the one
+ *  with the highest parseable total. Ties break by source order (first
+ *  occurrence wins). Falls back to the first row when no totals are
+ *  parseable so the commit always has a deterministic target. */
+function pickDefaultRowIndex(
+  rows: ReadonlyArray<{ sourceRowIndex: number; totalGrade: number | null }>,
+): number {
+  const ordered = [...rows].sort((a, b) => a.sourceRowIndex - b.sourceRowIndex);
+  let best = ordered[0]!;
+  for (const r of ordered) {
+    if (r.totalGrade == null || !Number.isFinite(r.totalGrade)) continue;
+    if (best.totalGrade == null || r.totalGrade > best.totalGrade) best = r;
+  }
+  return best.sourceRowIndex;
 }
 
 /** Resolve which source row should appear selected in the picker for a
