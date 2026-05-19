@@ -102,6 +102,14 @@ export function buildExistingDiffs(
     const ex = existingByNid.get(r.nationalId);
     if (!ex) continue;
 
+    /* Surface only the grade-shape fields (المجموع الكلي + الدرجة
+     * العظمى). Other field comparisons (gender / school / region / …)
+     * frequently show up as "phantom" diffs because the existing record
+     * stores codes (e.g. `male`, `SCH-07`) while the import normalises
+     * to Arabic display labels — review wise that's noise, so they're
+     * intentionally excluded from the per-row diff view. Commit logic
+     * still writes whatever the incoming row carries; this list only
+     * controls what the admin reviews. */
     const cells: DiffCell[] = [
       {
         field: 'totalGrade',
@@ -116,62 +124,6 @@ export function buildExistingDiffs(
         oldValue: ex.importMax,
         newValue: r.maxGrade,
         changed: r.maxGrade != null && !normalisedEquals(ex.importMax, r.maxGrade),
-      },
-      {
-        field: 'graduationYear',
-        labelAr: DIFF_FIELD_LABELS.graduationYear,
-        oldValue: ex.graduationYear,
-        newValue: r.graduationYear,
-        changed: !normalisedEquals(ex.graduationYear, r.graduationYear),
-      },
-      {
-        field: 'track',
-        labelAr: DIFF_FIELD_LABELS.track,
-        oldValue: ex.branch,
-        newValue: r.track,
-        changed: !normalisedEquals(ex.branch, r.track),
-      },
-      {
-        field: 'gender',
-        labelAr: DIFF_FIELD_LABELS.gender,
-        oldValue: ex.gender,
-        newValue: r.gender,
-        changed: r.gender != null && !normalisedEquals(ex.gender, r.gender),
-      },
-      {
-        field: 'schoolCategory',
-        labelAr: DIFF_FIELD_LABELS.schoolCategory,
-        oldValue: ex.schoolCategoryCode,
-        newValue: r.schoolCategory,
-        changed: r.schoolCategory != null && !normalisedEquals(ex.schoolCategoryCode, r.schoolCategory),
-      },
-      {
-        field: 'schoolName',
-        labelAr: DIFF_FIELD_LABELS.schoolName,
-        oldValue: ex.school,
-        newValue: r.schoolName,
-        changed: r.schoolName != null && !normalisedEquals(ex.school, r.schoolName),
-      },
-      {
-        field: 'regionName',
-        labelAr: DIFF_FIELD_LABELS.regionName,
-        oldValue: ex.region,
-        newValue: r.regionName,
-        changed: r.regionName != null && !normalisedEquals(ex.region, r.regionName),
-      },
-      {
-        field: 'examRound',
-        labelAr: DIFF_FIELD_LABELS.examRound,
-        oldValue: ex.examRound,
-        newValue: r.examRound,
-        changed: r.examRound != null && !normalisedEquals(ex.examRound, r.examRound),
-      },
-      {
-        field: 'seatingNumber',
-        labelAr: DIFF_FIELD_LABELS.seatingNumber,
-        oldValue: ex.seatingNumber,
-        newValue: r.seatingNumber,
-        changed: r.seatingNumber != null && !normalisedEquals(ex.seatingNumber, r.seatingNumber),
       },
     ];
 
