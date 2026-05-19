@@ -22,9 +22,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import {
-  ArrowRight,
-  BadgeCheck,
   Check,
+  Download,
   GraduationCap,
   Info,
   MapPin,
@@ -36,14 +35,11 @@ import {
   Badge,
   Button,
   Card,
-  ErrorState,
   Field,
-  IconStamp,
   Input,
   LoadingState,
   SearchSelect,
   Select,
-  Textarea,
   toast,
 } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
@@ -58,7 +54,6 @@ import {
   mockMoiLookup,
   type MoiApplicantSession,
 } from '../lib/moi-session.mock';
-import { useMoiVerification } from '../api/applicantPortal.queries';
 import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
 import { CITIES } from '@/shared/mock-data/dictionaries';
 import {
@@ -67,10 +62,7 @@ import {
 } from '@/features/applicant-grades/api/grades.queries';
 import { useApplicantCategories, useLookup } from '@/features/lookups/api/lookups.queries';
 import type { GradeRow } from '@/features/applicant-grades/types';
-import type {
-  ApplicantCategoryRow,
-  SchoolCategoryRow,
-} from '@/features/lookups';
+import type { SchoolCategoryRow } from '@/features/lookups';
 import { emitAudit } from '@/shared/lib/audit';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
@@ -135,9 +127,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   const moiSessionFromStore = useApplicantPortalStore((s) => s.moiSession);
   const selectedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
-  const setSelectedCategoryKey = useApplicantPortalStore(
-    (s) => s.setSelectedCategoryKey,
-  );
 
   /* The MOI snapshot is captured at login and persisted in the portal
    * store. For the "not found in MOI" path it's intentionally null —
@@ -174,25 +163,11 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     };
   const isMoiVerified = effectiveSession !== null;
 
-  const moiQuery = useMoiVerification(isMoiVerified ? nid : '');
   const gradeByNidQuery = useApplicantGradeByNid(nid, selectedCycleId);
   const allCategoriesQuery = useApplicantCategories();
-  const secondaryCategories = useMemo<ApplicantCategoryRow[]>(
-    () => (allCategoriesQuery.data ?? []).filter((c) => c.type === 'pre_university'),
-    [allCategoriesQuery.data],
-  );
-  const otherCategories = useMemo<ApplicantCategoryRow[]>(
-    () => (allCategoriesQuery.data ?? []).filter((c) => c.type === 'university'),
-    [allCategoriesQuery.data],
-  );
 
   const gateLoading = gradeByNidQuery.isLoading || allCategoriesQuery.isLoading;
   const gradesMatched = gradeByNidQuery.data ?? null;
-  const secondaryCategory = secondaryCategories[0] ?? null;
-  const selectedCategory =
-    (allCategoriesQuery.data ?? []).find((c) => c.code === selectedCategoryKey) ??
-    null;
-  const userPickedSecondary = selectedCategory?.type === 'pre_university';
 
   /* Audit emit once per (nid + cycle + match-state + selection) tuple so
    * refreshes / re-renders don't spam the audit log. */
@@ -241,6 +216,9 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     birthDistrict: '',
     mobile: '',
     email: '',
+    /** Nickname — always editable per client direction 2026-05-19
+     *  (was read-only-from-MOI before). */
+    shuhra: '',
     /** Marital status — required in البيانات الشخصية for every applicant
      *  (MOI doesn't carry this field, so it's always editable). */
     maritalStatus: '' as '' | 'single' | 'married' | 'divorced' | 'widowed',
@@ -333,12 +311,15 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       thanawiPercentage: 0,
       schoolNameAr: '',
       schoolAddress: '',
+      thanawiGradDate: '',
+      birthDistrict: '',
       currentAddressDetail: '',
       addressGovernorate: '',
       addressDistrict: '',
       homePhone: '',
       fax: '',
       secondaryMobile: '',
+      facebook: '',
       twitter: '',
       instagram: '',
       declaration: false as unknown as true,
@@ -375,41 +356,11 @@ export function Stage345ApplicantDataPage(): JSX.Element {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
-      <Card>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="font-ar-display text-xl font-bold text-ink-900">
-              التقدم للإلتحاق بأكاديمية الشرطة
-            </h2>
-            <p className="mt-1 text-sm text-ink-500 leading-normal">
-              املأ البيانات الدراسية وعنوان الإقامة بدقة طبقاً للأوراق الثبوتية. البيانات الشخصية
-              ورقم المحمول والبريد الإلكتروني مستوردة من بوابة وزارة الداخلية ولا تُعدَّل.
-            </p>
-          </div>
-          {selectedCategory && (
-            <div className="flex flex-col items-start gap-1 text-start">
-              <span className="text-2xs text-ink-500">فئة التقدم</span>
-              <Badge tone="info">{selectedCategory.name}</Badge>
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {isMoiVerified && <MoiVerificationCard query={moiQuery} />}
-
-      <EligibilityGate
-        loading={gateLoading}
-        gradesMatched={gradesMatched}
-        secondaryCategory={secondaryCategory}
-        otherCategories={otherCategories}
-        selectedCategoryKey={selectedCategoryKey}
-        selectedCategory={selectedCategory}
-        userPickedSecondary={userPickedSecondary}
-        onSelectCategory={setSelectedCategoryKey}
-      />
-
+      {/* Client direction 2026-05-19: page now starts directly with
+       *  البيانات الشخصية — the page header card, MOI verification card,
+       *  and eligibility-gate card were dropped per client request. */}
       {showBachelor && (
-        <Card>
+        <Card className="order-5">
           <SectionHeader
             icon={<GraduationCap size={16} strokeWidth={1.75} />}
             title="بيانات المؤهل الجامعي (للتقدم)"
@@ -476,10 +427,10 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       )}
 
       {isMoiVerified && (
-        <Card>
+        <Card className="order-4">
           <SectionHeader
             icon={<GraduationCap size={16} strokeWidth={1.75} />}
-            title="بيانات الشهادة الثانوية"
+            title="بيانات التعليم"
           />
           {gradesQuery.isLoading || schoolCategoriesQuery.isLoading ? (
             <LoadingState variant="list" rows={3} />
@@ -496,164 +447,154 @@ export function Stage345ApplicantDataPage(): JSX.Element {
         </Card>
       )}
 
-      <Card variant="compact">
+      <Card variant="compact" className="order-1">
         <SectionHeader
           icon={<User size={16} strokeWidth={1.75} />}
           title="البيانات الشخصية"
         />
-        {isMoiVerified ? (
-          <>
-            <div className="mb-3 inline-flex rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-1.5 text-2xs text-gold-700">
-              هذه البيانات مستوردة من بوابة وزارة الداخلية ولا يمكن تعديلها
-            </div>
-            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
-              <ReadOnlyRow label="الإسم رباعي" value={session.fullName} />
-              <ReadOnlyRow label="إسم الشهرة" value={session.fullName.split(' ').slice(0, 2).join(' ')} />
-              <ReadOnlyRow label="النوع" value={session.gender === 'male' ? 'ذكر' : 'أنثى'} />
-              <ReadOnlyRow label="الديانة" value={session.religion} />
-              <ReadOnlyRow label="تاريخ الميلاد" value={session.dateOfBirthAr} />
-              <ReadOnlyRow
-                label="محل الميلاد"
-                value={`${session.birthGovernorate} — ${session.birthDistrict}`}
+        <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
+          {isMoiVerified ? (
+            <ReadOnlyRow label="الإسم رباعي" value={session.fullName} />
+          ) : (
+            <Input
+              label="الإسم رباعي"
+              required
+              value={manualPersonal.fullName}
+              onChange={(e) => setManual('fullName', e.target.value)}
+            />
+          )}
+          <Input
+            label="اسم الشهرة (إن وجد)"
+            value={manualPersonal.shuhra}
+            onChange={(e) => setManual('shuhra', e.target.value)}
+          />
+          {isMoiVerified ? (
+            <ReadOnlyRow label="النوع" value={session.gender === 'male' ? 'ذكر' : 'أنثى'} />
+          ) : selectedCategoryKey !== 'officers_general' ? (
+            <Field label="النوع" required>
+              <Select
+                value={manualPersonal.gender}
+                onChange={(e) => setManual('gender', e.target.value as 'male' | 'female' | '')}
+                options={[
+                  { value: '', label: '— اختر —' },
+                  { value: 'male', label: 'ذكر' },
+                  { value: 'female', label: 'أنثى' },
+                ]}
               />
-              <ReadOnlyRow label="الرقم القومي" value={session.nationalId} ltr mono />
-              <Field label="الحالة الاجتماعية" required>
-                <Select
-                  value={manualPersonal.maritalStatus}
-                  onChange={(e) =>
-                    setManual(
-                      'maritalStatus',
-                      e.target.value as 'single' | 'married' | 'divorced' | 'widowed' | '',
-                    )
-                  }
-                  options={[
-                    { value: '', label: '— اختر —' },
-                    { value: 'single', label: 'أعزب' },
-                    { value: 'married', label: 'متزوج' },
-                    { value: 'divorced', label: 'مطلق' },
-                    { value: 'widowed', label: 'أرمل' },
-                  ]}
-                />
-              </Field>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* <div className="mb-3 inline-flex rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-1.5 text-2xs text-gold-700">
-              لم يتم استرجاع بيانات من وزارة الداخلية — يرجى إدخال بياناتك يدوياً.
-            </div> */}
-            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
-              <Input
-                label="الإسم رباعي"
-                required
-                value={manualPersonal.fullName}
-                onChange={(e) => setManual('fullName', e.target.value)}
+            </Field>
+          ) : null}
+          {isMoiVerified ? (
+            <ReadOnlyRow label="الديانة" value={session.religion} />
+          ) : (
+            <Field label="الديانة" required>
+              <Select
+                value={manualPersonal.religion}
+                onChange={(e) => setManual('religion', e.target.value as 'مسلم' | 'مسيحي' | '')}
+                options={[
+                  { value: '', label: '— اختر —' },
+                  { value: 'مسلم', label: 'مسلم' },
+                  { value: 'مسيحي', label: 'مسيحي' },
+                ]}
               />
-              {selectedCategoryKey !== 'officers_general' && (
-                <Field label="النوع" required>
-                  <Select
-                    value={manualPersonal.gender}
-                    onChange={(e) => setManual('gender', e.target.value as 'male' | 'female' | '')}
-                    options={[
-                      { value: '', label: '— اختر —' },
-                      { value: 'male', label: 'ذكر' },
-                      { value: 'female', label: 'أنثى' },
-                    ]}
-                  />
-                </Field>
-              )}
-              <Field label="الديانة" required>
-                <Select
-                  value={manualPersonal.religion}
-                  onChange={(e) => setManual('religion', e.target.value as 'مسلم' | 'مسيحي' | '')}
-                  options={[
-                    { value: '', label: '— اختر —' },
-                    { value: 'مسلم', label: 'مسلم' },
-                    { value: 'مسيحي', label: 'مسيحي' },
-                  ]}
-                />
-              </Field>
-              <Input
-                label="تاريخ الميلاد"
-                type="date"
-                dir="ltr"
-                required
-                value={manualPersonal.dateOfBirthAr}
-                onChange={(e) => setManual('dateOfBirthAr', e.target.value)}
+            </Field>
+          )}
+          {isMoiVerified ? (
+            <ReadOnlyRow label="تاريخ الميلاد" value={session.dateOfBirthAr} />
+          ) : (
+            <Input
+              label="تاريخ الميلاد"
+              type="date"
+              dir="ltr"
+              required
+              value={manualPersonal.dateOfBirthAr}
+              onChange={(e) => setManual('dateOfBirthAr', e.target.value)}
+            />
+          )}
+          <ReadOnlyRow label="الرقم القومي" value={session.nationalId} ltr mono />
+          {/* Marital status — required for every applicant. Red error
+              label appears immediately when empty so the field is visually
+              flagged on first paint (no need to blur first). */}
+          <Field
+            label="الحالة الاجتماعية"
+            required
+            error={manualPersonal.maritalStatus === '' ? 'مطلوب' : undefined}
+          >
+            <Select
+              value={manualPersonal.maritalStatus}
+              onChange={(e) =>
+                setManual(
+                  'maritalStatus',
+                  e.target.value as 'single' | 'married' | 'divorced' | 'widowed' | '',
+                )
+              }
+              options={[
+                { value: '', label: '— اختر —' },
+                { value: 'single', label: 'أعزب' },
+                { value: 'married', label: 'متزوج' },
+                { value: 'divorced', label: 'مطلق' },
+                { value: 'widowed', label: 'أرمل' },
+              ]}
+            />
+          </Field>
+          {!isMoiVerified && selectedCategoryKey === 'officers_general' && (
+            <Field label="فئة المدرسة" required>
+              <Select
+                value={manualPersonal.officerApplicantType}
+                onChange={(e) =>
+                  setManual(
+                    'officerApplicantType',
+                    e.target.value as 'expat' | 'foreign_certificate' | '',
+                  )
+                }
+                options={[
+                  { value: '', label: '— اختر —' },
+                  { value: 'expat', label: 'وافدين' },
+                  { value: 'foreign_certificate', label: 'شهادات أجنبية' },
+                ]}
               />
-              <Input
-                label="محافظة الميلاد"
-                value={manualPersonal.birthGovernorate}
-                onChange={(e) => setManual('birthGovernorate', e.target.value)}
-              />
-              <Input
-                label="القسم / المركز"
-                value={manualPersonal.birthDistrict}
-                onChange={(e) => setManual('birthDistrict', e.target.value)}
-              />
-              <ReadOnlyRow label="الرقم القومي" value={session.nationalId} ltr mono />
-              <Field label="الحالة الاجتماعية" required>
-                <Select
-                  value={manualPersonal.maritalStatus}
-                  onChange={(e) =>
-                    setManual(
-                      'maritalStatus',
-                      e.target.value as 'single' | 'married' | 'divorced' | 'widowed' | '',
-                    )
-                  }
-                  options={[
-                    { value: '', label: '— اختر —' },
-                    { value: 'single', label: 'أعزب' },
-                    { value: 'married', label: 'متزوج' },
-                    { value: 'divorced', label: 'مطلق' },
-                    { value: 'widowed', label: 'أرمل' },
-                  ]}
-                />
-              </Field>
-              {selectedCategoryKey === 'officers_general' && (
-                <Field label="فئة المدرسة" required>
-                  <Select
-                    value={manualPersonal.officerApplicantType}
-                    onChange={(e) =>
-                      setManual(
-                        'officerApplicantType',
-                        e.target.value as 'expat' | 'foreign_certificate' | '',
-                      )
-                    }
-                    options={[
-                      { value: '', label: '— اختر —' },
-                      { value: 'expat', label: 'وافدين' },
-                      { value: 'foreign_certificate', label: 'شهادات أجنبية' },
-                    ]}
-                  />
-                </Field>
-              )}
-            </div>
-          </>
-        )}
+            </Field>
+          )}
+        </div>
       </Card>
 
-      <Card>
+      <Card className="order-2">
         <SectionHeader
           icon={<MapPin size={16} strokeWidth={1.75} />}
-          title="عنوان الإقامة وبيانات التواصل"
+          title="محل الإقامة والميلاد"
         />
         <div className="grid gap-3 md:grid-cols-2">
-          <Textarea
-            label="محل الإقامة الحالي تفصيلياً"
-            required
-            rows={2}
-            {...register('currentAddressDetail')}
-            error={errors.currentAddressDetail?.message}
-            containerClassName="md:col-span-2"
-          />
-          <Field label="المحافظة" required error={errors.addressGovernorate?.message}>
+          {/* محل الميلاد — auto-filled from MOI when available, manual otherwise. */}
+          {isMoiVerified ? (
+            <ReadOnlyRow label="محل الميلاد" value={session.birthGovernorate} />
+          ) : (
+            <Input
+              label="محل الميلاد"
+              value={manualPersonal.birthGovernorate}
+              onChange={(e) => setManual('birthGovernorate', e.target.value)}
+            />
+          )}
+          <Field label="القسم / مركز الميلاد" required error={errors.birthDistrict?.message}>
+            <Controller
+              control={control}
+              name="birthDistrict"
+              render={({ field }) => (
+                <SearchSelect
+                  ariaLabel="القسم / مركز الميلاد"
+                  placeholder="اختر القسم أو المركز"
+                  options={DISTRICT_OPTIONS}
+                  value={field.value ?? null}
+                  onChange={(v) => field.onChange(v ?? '')}
+                />
+              )}
+            />
+          </Field>
+          <Field label="محافظة الإقامة" required error={errors.addressGovernorate?.message}>
             <Controller
               control={control}
               name="addressGovernorate"
               render={({ field }) => (
                 <SearchSelect
-                  ariaLabel="المحافظة"
+                  ariaLabel="محافظة الإقامة"
                   placeholder="اختر المحافظة"
                   options={GOV_OPTIONS}
                   value={field.value ?? null}
@@ -662,13 +603,13 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               )}
             />
           </Field>
-          <Field label="القسم / المركز" required error={errors.addressDistrict?.message}>
+          <Field label="القسم / مركز الإقامة" required error={errors.addressDistrict?.message}>
             <Controller
               control={control}
               name="addressDistrict"
               render={({ field }) => (
                 <SearchSelect
-                  ariaLabel="القسم / المركز"
+                  ariaLabel="القسم / مركز الإقامة"
                   placeholder="اختر القسم أو المركز"
                   options={DISTRICT_OPTIONS}
                   value={field.value ?? null}
@@ -678,17 +619,11 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             />
           </Field>
           <Input
-            label="رقم التليفون السكني"
+            label="رقم تليفون المنزل"
             type="tel"
             dir="ltr"
             {...register('homePhone')}
             error={errors.homePhone?.message}
-          />
-          <Input
-            label="الفاكس"
-            dir="ltr"
-            {...register('fax')}
-            error={errors.fax?.message}
           />
           {isMoiVerified ? (
             <ReadOnlyInline
@@ -715,20 +650,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             {...register('secondaryMobile')}
             error={errors.secondaryMobile?.message}
           />
-          <Input
-            label="تويتر"
-            dir="ltr"
-            placeholder="@username"
-            {...register('twitter')}
-            error={errors.twitter?.message}
-          />
-          <Input
-            label="إنستجرام"
-            dir="ltr"
-            placeholder="@username"
-            {...register('instagram')}
-            error={errors.instagram?.message}
-          />
           {isMoiVerified ? (
             <ReadOnlyInline
               label="البريد الإلكتروني"
@@ -736,7 +657,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               ltr
               mono
               icon={<ShieldCheck size={14} strokeWidth={1.75} />}
-              containerClassName="md:col-span-2"
             />
           ) : (
             <Input
@@ -746,13 +666,42 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               required
               value={manualPersonal.email}
               onChange={(e) => setManual('email', e.target.value)}
-              containerClassName="md:col-span-2"
             />
           )}
         </div>
       </Card>
 
-      <Card>
+      <Card className="order-3">
+        <SectionHeader
+          icon={<ShieldCheck size={16} strokeWidth={1.75} />}
+          title="بيانات التواصل"
+        />
+        <div className="grid gap-3 md:grid-cols-3">
+          <Input
+            label="فيسبوك"
+            dir="ltr"
+            placeholder="@username أو https://facebook.com/username"
+            {...register('facebook')}
+            error={errors.facebook?.message}
+          />
+          <Input
+            label="تويتر"
+            dir="ltr"
+            placeholder="@username أو https://twitter.com/username"
+            {...register('twitter')}
+            error={errors.twitter?.message}
+          />
+          <Input
+            label="إنستجرام"
+            dir="ltr"
+            placeholder="@username أو https://instagram.com/username"
+            {...register('instagram')}
+            error={errors.instagram?.message}
+          />
+        </div>
+      </Card>
+
+      <Card className="order-6">
         <Controller
           control={control}
           name="declaration"
@@ -777,7 +726,16 @@ export function Stage345ApplicantDataPage(): JSX.Element {
         {errors.declaration && (
           <p className="mt-2 text-2xs text-terra-700">{errors.declaration.message}</p>
         )}
-        <div className="mt-4 flex items-center justify-end gap-2">
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            leadingIcon={<Download size={16} strokeWidth={1.75} />}
+            onClick={downloadInstructions}
+          >
+            تحميل ملف الإرشادات
+          </Button>
           <Button
             type="submit"
             variant="primary"
@@ -793,228 +751,99 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   );
 }
 
-/* ─── MOI verification card ─────────────────────────────────────── */
+/**
+ * Open the applicant instructions as a printable document in a new
+ * window and immediately trigger the browser's print dialog so the
+ * user can save it as PDF. Avoids pulling a heavy PDF library for
+ * what's a one-off demo asset.
+ */
+function downloadInstructions(): void {
+  const html = `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>إرشادات التقديم — أكاديمية الشرطة</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'IBM Plex Sans Arabic', 'Tajawal', Tahoma, system-ui, Arial;
+      color: #1a1a1a;
+      line-height: 1.85;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    header { border-bottom: 3px solid #1a6868; padding-bottom: 12px; margin-bottom: 24px; }
+    header h1 { font-size: 22px; color: #1a6868; margin: 0 0 4px; }
+    header p { font-size: 12px; color: #555; margin: 0; }
+    h2 { font-size: 16px; color: #1a6868; margin: 24px 0 8px; }
+    p { margin: 8px 0; }
+    ul { padding-right: 22px; margin: 8px 0; }
+    li { margin-bottom: 6px; }
+    .note { background: #fff8e6; border: 1px dashed #d4a445; padding: 10px 14px; border-radius: 6px; font-size: 13px; }
+    .meta { font-size: 11px; color: #777; margin-top: 32px; border-top: 1px dashed #ccc; padding-top: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>إرشادات التقديم لأكاديمية الشرطة</h1>
+    <p>منظومة القبول — وزارة الداخلية</p>
+  </header>
 
-function MoiVerificationCard({
-  query,
-}: {
-  query: ReturnType<typeof useMoiVerification>;
-}): JSX.Element {
-  if (query.isLoading) {
-    return (
-      <Card>
-        <SectionHeader
-          icon={<BadgeCheck size={16} strokeWidth={1.75} />}
-          title="البيانات المسترجعة من بوابة التحقق القومي"
-        />
-        <LoadingState variant="list" rows={3} />
-      </Card>
-    );
+  <h2>قبل التقدم</h2>
+  <ul>
+    <li>راجع البيانات المُسجَّلة على بوابة وزارة الداخلية (الاسم رباعي والرقم القومي ورقم المحمول)، وتأكد من صحتها.</li>
+    <li>ستُستخدم هذه البيانات لاستكمال إجراءات التقدم وإرسال الإخطارات.</li>
+    <li>للتعديل على البيانات الخاطئة يجب التوجه إلى الجهة المختصة قبل بدء التقدم.</li>
+  </ul>
+
+  <h2>أثناء التقدم</h2>
+  <ul>
+    <li>سيُطلب منك إدخال بيانات الدراسة بدقة طبقاً لأوراقك الثبوتية.</li>
+    <li>أيّ مخالفة بين البيانات المُدرَجة والأوراق الأصلية قد تؤدي إلى منعك من الاختبار.</li>
+    <li>تأكد من إدخال البيانات الشخصية، محل الإقامة والميلاد، وبيانات التواصل بشكل كامل.</li>
+    <li>أدخل بيانات أفراد العائلة بدقة، فهي تخضع للتحقق الأمني قبل الموافقة على الطلب.</li>
+  </ul>
+
+  <h2>مقابل الخدمة</h2>
+  <ul>
+    <li>مقابل تقديم الخدمة إلكترونياً: ٢٥٠ جنيه.</li>
+    <li>يُسدَّد مرة واحدة خلال الدورة الحالية، ويُستحَق فور تأكيد البيانات.</li>
+    <li>الدفع متاح عبر بوابة فوري.</li>
+  </ul>
+
+  <h2>يوم الاختبار</h2>
+  <ul>
+    <li>احضر إلى موقع الاختبار قبل الموعد المُحدَّد بنصف ساعة على الأقل.</li>
+    <li>أحضر معك المستندات الأصلية: بطاقة الرقم القومي، أصل الثانوية العامة، شهادة طبية معتمدة، كارت التردد المطبوع، ٤ صور شخصية حديثة، شهادة حسن السير والسلوك.</li>
+    <li>احرص على طباعة بطاقة التردد والإقرار قبل موعد أول اختبار، وعلى توقيعها من المتقدم وولي الأمر.</li>
+  </ul>
+
+  <p class="note">
+    تأكيدك على الإقرار الإلكتروني يعني موافقتك على أن البيانات المُدرَجة صحيحة ومطابقة للأوراق الثبوتية،
+    وأنك ستلتزم بإحضارها يوم الاختبار.
+  </p>
+
+  <p class="meta">
+    وثيقة الإرشادات للعرض والتحميل · أكاديمية الشرطة — وزارة الداخلية · ${new Date().getFullYear()}
+  </p>
+</body>
+</html>`;
+  const win = window.open('', '_blank');
+  if (!win) {
+    toast('يرجى السماح بفتح النوافذ المنبثقة لتنزيل ملف الإرشادات', 'warning');
+    return;
   }
-  if (query.error || !query.data) {
-    return (
-      <Card>
-        <SectionHeader
-          icon={<BadgeCheck size={16} strokeWidth={1.75} />}
-          title="البيانات المسترجعة من بوابة التحقق القومي"
-        />
-        <ErrorState
-          error={query.error as Error | undefined}
-          title="تعذّر استرجاع البيانات"
-          description="حاول مرة أخرى بعد قليل."
-          onRetry={() => query.refetch()}
-        />
-      </Card>
-    );
-  }
-  const data: MoiApplicantSession = query.data;
-  return (
-    <Card>
-      <SectionHeader
-        icon={<BadgeCheck size={16} strokeWidth={1.75} />}
-        title="البيانات المسترجعة من بوابة التحقق القومي"
-      />
-      <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-teal-500/30 bg-teal-50 px-3 py-1.5 text-2xs text-teal-800">
-        <IconStamp width={11} height={11} />
-        تم التحقق من هويتك آلياً عبر بوابة وزارة الداخلية — هذه البيانات للعرض فقط.
-      </div>
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
-        <ReadOnlyRow label="الإسم رباعي" value={data.fullName} />
-        <ReadOnlyRow label="الرقم القومي" value={data.nationalId} ltr mono />
-        <ReadOnlyRow label="النوع" value={data.gender === 'male' ? 'ذكر' : 'أنثى'} />
-        <ReadOnlyRow label="تاريخ الميلاد" value={data.dateOfBirthAr} />
-        <ReadOnlyRow label="محافظة الميلاد" value={data.birthGovernorate} />
-        <ReadOnlyRow label="رقم المحمول" value={data.mobile} ltr mono />
-      </dl>
-    </Card>
-  );
-}
-
-/* ─── Eligibility gate ────────────────────────────────────────────── */
-
-function EligibilityGate({
-  loading,
-  gradesMatched,
-  secondaryCategory,
-  otherCategories,
-  selectedCategoryKey,
-  selectedCategory,
-  userPickedSecondary,
-  onSelectCategory,
-}: {
-  loading: boolean;
-  gradesMatched: GradeRow | null;
-  secondaryCategory: ApplicantCategoryRow | null;
-  otherCategories: readonly ApplicantCategoryRow[];
-  selectedCategoryKey: string | null;
-  /** Pre-resolved category (looked up against the FULL category list,
-   *  not just the university-typed subset) — UnmatchedGateCard would
-   *  otherwise miss `pre_university` rows like officers_general. */
-  selectedCategory: ApplicantCategoryRow | null;
-  userPickedSecondary: boolean;
-  onSelectCategory: (code: string | null) => void;
-}): JSX.Element {
-  if (loading) {
-    return (
-      <Card>
-        <SectionHeader
-          icon={<ShieldCheck size={16} strokeWidth={1.75} />}
-          title="تحديد فئة التقدم"
-        />
-        <LoadingState variant="list" rows={2} />
-      </Card>
-    );
-  }
-  if (gradesMatched) {
-    return (
-      <MatchedGateCard
-        row={gradesMatched}
-        secondaryCategory={secondaryCategory}
-        userPickedSecondary={userPickedSecondary}
-        onSelectCategory={onSelectCategory}
-      />
-    );
-  }
-  return (
-    <UnmatchedGateCard
-      otherCategories={otherCategories}
-      selectedCategoryKey={selectedCategoryKey}
-      selectedCategory={selectedCategory}
-      onSelectCategory={onSelectCategory}
-    />
-  );
-}
-
-function MatchedGateCard({
-  row,
-  secondaryCategory,
-  userPickedSecondary,
-  onSelectCategory,
-}: {
-  row: GradeRow;
-  secondaryCategory: ApplicantCategoryRow | null;
-  userPickedSecondary: boolean;
-  onSelectCategory: (code: string | null) => void;
-}): JSX.Element {
-  const percent = ((row.total / row.importMax) * 100).toFixed(2);
-  return (
-    <Card>
-      <SectionHeader
-        icon={<ShieldCheck size={16} strokeWidth={1.75} />}
-        title="تحديد فئة التقدم"
-      />
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-teal-500/30 bg-teal-50/40 px-3 py-2">
-        <Badge tone="success">
-          <IconStamp width={11} height={11} className="me-1 inline-block" />
-          مؤهل لمرحلة الالتحاق - ثانوي
-        </Badge>
-        <span className="text-2xs text-teal-800">
-          المصدر: بيانات نتائج الثانوية العامة المستوردة
-        </span>
-      </div>
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
-        <ReadOnlyRow label="إسم المدرسة" value={row.school} />
-        <ReadOnlyRow label="المجموع" value={`${row.total} / ${row.importMax} (${percent}%)`} ltr />
-        <ReadOnlyRow label="نوع الشهادة" value={row.kind === 'azhar' ? 'ثانوية أزهرية' : 'ثانوية عامة'} />
-      </dl>
-      {secondaryCategory && !userPickedSecondary && (
-        <div
-          role="note"
-          className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700"
-        >
-          <span className="leading-relaxed">
-            بناءً على بيانات الثانوية المسترجَعة فأنت مؤهَّل أيضاً لفئة{' '}
-            <strong>{secondaryCategory.name}</strong> (ثانوي). هل تريد التحويل؟
-          </span>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => onSelectCategory(secondaryCategory.code)}
-            leadingIcon={<ArrowRight size={12} strokeWidth={1.75} className="rtl:rotate-180" />}
-          >
-            التحويل إلى {secondaryCategory.name}
-          </Button>
-        </div>
-      )}
-      {secondaryCategory && userPickedSecondary && (
-        <p className="mt-3 text-2xs text-ink-500">
-          الفئة المختارة:{' '}
-          <strong className="text-ink-900">{secondaryCategory.name}</strong>
-        </p>
-      )}
-    </Card>
-  );
-}
-
-function UnmatchedGateCard({
-  selectedCategory,
-}: {
-  otherCategories: readonly ApplicantCategoryRow[];
-  selectedCategoryKey: string | null;
-  /** Pre-resolved category (passed in by EligibilityGate from the FULL
-   *  list) — local lookup against `otherCategories` would miss
-   *  pre-university rows like officers_general. */
-  selectedCategory: ApplicantCategoryRow | null;
-  /* Retained for prop-shape parity with MatchedGateCard but unused — the
-   * category is now picked upstream (CategorySelectionPage or pre-set by
-   * the MOI lookup), so the in-place Select was removed. */
-  onSelectCategory: (code: string | null) => void;
-}): JSX.Element {
-  const navigate = useNavigate();
-  return (
-    <Card>
-      <SectionHeader
-        icon={<ShieldCheck size={16} strokeWidth={1.75} />}
-        title="تحديد فئة التقدم"
-      />
-      <p
-        role="note"
-        className="mb-3 rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700"
-      >
-        <Info size={11} strokeWidth={1.75} className="me-1 inline-block" aria-hidden />
-        لم يتم العثور على الرقم القومي ببيانات الثانوية العامة — التقدم سيكون على الفئة
-        المحدَّدة في شاشة اختيار الفئة.
-      </p>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-ink-200 bg-ink-50/40 px-3 py-2">
-        <div className="flex flex-col">
-          <span className="text-2xs text-ink-500">الفئة المختارة</span>
-          <span className="text-sm font-medium text-ink-900">
-            {selectedCategory?.name ?? '— لم تُحدَّد بعد —'}
-          </span>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(ROUTES.applicantStart)}
-          leadingIcon={<ArrowRight size={12} strokeWidth={1.75} className="rtl:rotate-180" />}
-        >
-          تغيير الفئة
-        </Button>
-      </div>
-    </Card>
-  );
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  /* Wait for fonts/layout to settle before triggering print so the
+   * Arabic text renders correctly in the PDF preview. */
+  window.setTimeout(() => {
+    win.focus();
+    win.print();
+  }, 350);
 }
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
@@ -1116,11 +945,7 @@ function ExternalGradesPanel({ row }: { row: GradeRow }): JSX.Element {
   const percent = ((row.total / row.importMax) * 100).toFixed(2);
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-teal-500/30 bg-teal-50/40 px-3 py-2">
-        <span className="inline-flex items-center gap-2 text-2xs text-teal-800">
-          <IconStamp width={11} height={11} />
-          تم استيراد بياناتك تلقائياً من قاعدة بيانات النتائج
-        </span>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <Badge tone="success">
           <Check size={11} strokeWidth={1.75} className="me-1 inline-block" />
           {row.kind === 'azhar' ? 'ثانوية أزهرية' : 'ثانوية عامة'}
@@ -1131,13 +956,14 @@ function ExternalGradesPanel({ row }: { row: GradeRow }): JSX.Element {
         <ReadOnlyRow label="الشعبة" value={row.branch} />
         <ReadOnlyRow label="المجموع" value={`${row.total} / ${row.importMax}`} ltr />
         <ReadOnlyRow label="النسبة المئوية" value={`${percent}%`} ltr />
-        <ReadOnlyRow label="إسم المدرسة" value={row.school} />
-        <ReadOnlyRow label="المحافظة / المنطقة" value={row.region} />
+        <ReadOnlyRow label="اسم المدرسة" value={row.school} />
+        <ReadOnlyRow
+          label="عنوان المدرسة"
+          value={`${row.region} — شارع مصطفى النحاس — مدينة نصر`}
+        />
+        <ReadOnlyRow label="دولة المدرسة" value="مصر" />
+        <ReadOnlyRow label="تاريخ الحصول على الثانوية" value="2024 - 2025" />
       </dl>
-      <p className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
-        <Info size={11} strokeWidth={1.75} className="me-1 inline-block" aria-hidden />
-        للتعديل أو الاعتراض يرجى التوجه إلى لجنة القبول مصطحباً الأوراق الثبوتية.
-      </p>
     </div>
   );
 }

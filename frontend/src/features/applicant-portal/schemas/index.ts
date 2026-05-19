@@ -71,15 +71,48 @@ export const stage345Schema = z
     schoolNameAr: z.string().min(1, 'مطلوب'),
     schoolAddress: z.string().min(1, 'مطلوب'),
 
-    /* Address + contact. Mobile + email come from MOI and are not editable. */
-    currentAddressDetail: z.string().min(5, 'العنوان يجب أن يكون أكثر تفصيلاً'),
+    /* Thanaweya — optional graduation date (auto-filled from grades
+     * import when available, manual otherwise). */
+    thanawiGradDate: z.string().optional().or(z.literal('')),
+
+    /* Birth-place picker (separate from MOI's birthGovernorate). */
+    birthDistrict: z.string().optional().or(z.literal('')),
+
+    /* Address + contact. Mobile + email come from MOI and are not editable.
+     * `fax` was retired from the UI; kept here as optional so legacy
+     * persisted drafts don't fail validation. */
+    currentAddressDetail: z.string().optional().or(z.literal('')),
     addressGovernorate: z.string().min(1, 'مطلوب'),
     addressDistrict: z.string().min(1, 'مطلوب'),
     homePhone: z.string().optional().or(z.literal('')),
     fax: z.string().optional().or(z.literal('')),
     secondaryMobile: z.string().optional().or(z.literal('')),
-    twitter: z.string().optional().or(z.literal('')),
-    instagram: z.string().optional().or(z.literal('')),
+    /* Social handles — accept either a bare/@-prefixed username OR a
+     * full profile URL on the respective platform. Empty is allowed. */
+    facebook: z
+      .string()
+      .regex(
+        /^(?:$|@?[A-Za-z0-9.]{3,50}|https?:\/\/(?:www\.)?facebook\.com\/[A-Za-z0-9.]+\/?)$/i,
+        'صيغة الفيسبوك غير صحيحة',
+      )
+      .optional()
+      .or(z.literal('')),
+    twitter: z
+      .string()
+      .regex(
+        /^(?:$|@?[A-Za-z0-9_]{1,15}|https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[A-Za-z0-9_]+\/?)$/i,
+        'صيغة تويتر غير صحيحة',
+      )
+      .optional()
+      .or(z.literal('')),
+    instagram: z
+      .string()
+      .regex(
+        /^(?:$|@?[A-Za-z0-9._]{1,30}|https?:\/\/(?:www\.)?instagram\.com\/[A-Za-z0-9._]+\/?)$/i,
+        'صيغة إنستجرام غير صحيحة',
+      )
+      .optional()
+      .or(z.literal('')),
 
     /* Footer attestation — must be checked. */
     declaration: z.literal(true, {
