@@ -23,6 +23,12 @@ export {
   useUnpublishNotification,
 } from './api/notifications.queries';
 export { SettingsPage } from './pages/SettingsPage';
+export {
+  useAdminSettings,
+  useUpdateAdminSettings,
+  adminSettingsKeys,
+} from './api/settings.queries';
+export type { AdminSettings } from './api/settings.service';
 export { ReportsPage } from './pages/ReportsPage';
 /* ReferenceDataPage removed — superseded by `/admin/lookups`
  * (features/lookups/pages/LookupsHubPage). */
