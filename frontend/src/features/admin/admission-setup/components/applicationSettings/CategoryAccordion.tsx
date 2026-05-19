@@ -16,11 +16,27 @@
  * `ApplicantCategoryConfig.isActive` (mirrors the prior wiring); the
  * lookup row's `isActive` is the master flag for whether the category
  * is shown to applicants. Both stay in sync at this seam.
+ *
+ * «معيار التميز» filter:
+ *   • Categories with `excellenceCriteriaVisible === true` appear here.
+ *   • Categories with the toggle off are filtered out — unless the
+ *     wizard already holds authored rows (local or approved) that
+ *     reference them, in which case the row stays editable and carries
+ *     a warning so the admin doesn't silently lose data.
+ *   • Each visible row renders its picked معيار التميز value next to
+ *     the category counts.
  */
 
 import { useMemo, useState } from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
-import { Check, ChevronDown, Circle, CircleDashed, ListChecks } from 'lucide-react';
+import {
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  Circle,
+  CircleDashed,
+  ListChecks,
+} from 'lucide-react';
 import { Badge, ErrorState, LoadingState } from '@/shared/components';
 import type { BadgeTone } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
@@ -37,12 +53,35 @@ import { ThanawiRulesSection } from './ThanawiRulesSection';
 export function CategoryAccordion(): JSX.Element {
   const configsQuery = useCategoryConfigs();
   const categoriesQuery = useLookup('applicant-categories');
+  const excellenceQuery = useLookup('excellence-criteria');
+
+  /* Read authored rows here once so child <ConfigItem /> reads stay
+   * lightweight. We also need this list to detect orphan references
+   * (rules pointing at a category whose visibility was later turned off). */
+  const local = useAdmissionSetupWizardStore((s) => s.local);
+  const approved = useAdmissionSetupWizardStore((s) => s.approved);
+  const referencedCategoryCodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of local) set.add(r.categoryCode);
+    for (const r of approved) set.add(r.categoryCode);
+    return set;
+  }, [local, approved]);
+
   const [openIds, setOpenIds] = useState<string[]>([]);
 
-  if (configsQuery.isLoading || categoriesQuery.isLoading) {
+  if (
+    configsQuery.isLoading ||
+    categoriesQuery.isLoading ||
+    excellenceQuery.isLoading
+  ) {
     return <LoadingState variant="list" />;
   }
-  if (configsQuery.isError || categoriesQuery.isError || !configsQuery.data) {
+  if (
+    configsQuery.isError ||
+    categoriesQuery.isError ||
+    excellenceQuery.isError ||
+    !configsQuery.data
+  ) {
     return (
       <ErrorState
         title="تعذر تحميل الفئات"
@@ -50,6 +89,7 @@ export function CategoryAccordion(): JSX.Element {
         onRetry={() => {
           configsQuery.refetch();
           categoriesQuery.refetch();
+          excellenceQuery.refetch();
         }}
       />
     );
@@ -62,8 +102,20 @@ export function CategoryAccordion(): JSX.Element {
   const lookupActiveCodes = new Set(
     (categoriesQuery.data ?? []).filter((c) => c.isActive).map((c) => c.code),
   );
-  const configs = configsQuery.data.filter((c) =>
+  const activeConfigs = configsQuery.data.filter((c) =>
     lookupActiveCodes.has(c.categoryCode),
+  );
+
+  /* Visibility filter from item 9 — keep categories whose toggle is on,
+   * plus any whose toggle is off but the wizard already holds authored
+   * rules for. The latter render with an inline warning. */
+  const visibleConfigs = activeConfigs.filter(
+    (c) =>
+      c.excellenceCriteriaVisible || referencedCategoryCodes.has(c.categoryCode),
+  );
+
+  const criterionLabelByCode = new Map(
+    (excellenceQuery.data ?? []).map((row) => [row.code, row.name] as const),
   );
 
   return (
@@ -74,8 +126,21 @@ export function CategoryAccordion(): JSX.Element {
       onValueChange={setOpenIds}
       className="flex flex-col divide-y divide-border-subtle rounded-md border border-border-subtle bg-surface-card"
     >
-      {configs.map((config) => (
-        <ConfigItem key={config.id} config={config} />
+      {visibleConfigs.map((config) => (
+        <ConfigItem
+          key={config.id}
+          config={config}
+          excellenceLabel={
+            config.excellenceCriterion === null
+              ? null
+              : criterionLabelByCode.get(config.excellenceCriterion) ??
+                config.excellenceCriterion
+          }
+          orphaned={
+            !config.excellenceCriteriaVisible &&
+            referencedCategoryCodes.has(config.categoryCode)
+          }
+        />
       ))}
     </Accordion.Root>
   );
@@ -83,9 +148,17 @@ export function CategoryAccordion(): JSX.Element {
 
 interface ConfigItemProps {
   config: CategoryConfigJoined;
+  excellenceLabel: string | null;
+  /** Category is referenced by saved rules but its visibility toggle is
+   *  off — surface a warning so the admin notices the misalignment. */
+  orphaned: boolean;
 }
 
-function ConfigItem({ config }: ConfigItemProps): JSX.Element {
+function ConfigItem({
+  config,
+  excellenceLabel,
+  orphaned,
+}: ConfigItemProps): JSX.Element {
   /* Selector reads both buckets — see `selectCategoryCompletion` JSDoc.
    * Authored rows that haven't been promoted via the section-level
    * «اعتماد» button still count, so the badge tracks what the admin
@@ -119,7 +192,7 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
           <Accordion.Trigger
             className="group flex flex-1 items-center justify-between gap-3 rounded-md text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           >
-            <span className="flex items-center gap-2 font-ar text-base font-medium text-ink-900">
+            <span className="flex flex-wrap items-center gap-2 font-ar text-base font-medium text-ink-900">
               <ChevronDown
                 size={16}
                 strokeWidth={1.75}
@@ -130,6 +203,23 @@ function ConfigItem({ config }: ConfigItemProps): JSX.Element {
               <span className="rounded-full bg-ink-50 px-2 py-0.5 text-2xs font-medium text-ink-600">
                 {typeLabel}
               </span>
+              {excellenceLabel && (
+                <span
+                  className="rounded-full bg-gold-50 px-2 py-0.5 text-2xs font-medium text-gold-700"
+                  aria-label={`معيار التميز: ${excellenceLabel}`}
+                >
+                  معيار التميز: {excellenceLabel}
+                </span>
+              )}
+              {orphaned && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-gold-300 bg-gold-50 px-2 py-0.5 text-2xs text-gold-700"
+                  role="alert"
+                >
+                  <AlertTriangle size={12} strokeWidth={1.75} aria-hidden />
+                  «معيار التميز» معطّل — توجد بيانات محفوظة
+                </span>
+              )}
             </span>
             <span className="inline-flex items-center gap-1.5 text-2xs text-ink-500">
               <ListChecks size={12} strokeWidth={1.75} aria-hidden />

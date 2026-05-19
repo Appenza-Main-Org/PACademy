@@ -462,6 +462,8 @@ function buildColumns<K extends LookupKey>(
     key: 'name',
     label: 'الاسم',
     sortable: true,
+    getSortValue: (row) => row.name,
+    filter: { kind: 'text', getValue: (row) => row.name },
     render: (row) => {
       const href = viewRouteFor?.(row);
       if (href) {
@@ -482,6 +484,15 @@ function buildColumns<K extends LookupKey>(
     label: 'الحالة',
     sortable: true,
     width: 130,
+    getSortValue: (row) => (row.isActive ? 1 : 0),
+    filter: {
+      kind: 'enum',
+      getValue: (row) => (row.isActive ? 'active' : 'inactive'),
+      options: [
+        { value: 'active', label: 'نشط' },
+        { value: 'inactive', label: 'غير نشط' },
+      ],
+    },
     render: (row) => (
       <span
         className="inline-flex items-center gap-2"

@@ -366,6 +366,8 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'nid',
       label: 'الرقم القومي',
       sortable: true,
+      getSortValue: (r) => r.nid,
+      filter: { kind: 'text', getValue: (r) => r.nid, placeholder: '14 رقماً…' },
       className: 'min-w-[14ch]',
       render: (r) => (
         <span className="font-mono text-2xs text-ink-600" dir="ltr">
@@ -378,6 +380,8 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'رقم الجلوس',
       sortable: true,
       align: 'center',
+      getSortValue: (r) => r.seatingNumber ?? '',
+      filter: { kind: 'text', getValue: (r) => r.seatingNumber ?? '' },
       className: 'min-w-[9ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) =>
         r.seatingNumber ? (
@@ -392,6 +396,8 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'name',
       label: 'الاسم',
       sortable: true,
+      getSortValue: (r) => r.name,
+      filter: { kind: 'text', getValue: (r) => r.name },
       className: 'min-w-[18ch] whitespace-normal',
       render: (r) => <span className="font-medium text-ink-900">{r.name}</span>,
     },
@@ -400,6 +406,15 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'النوع',
       align: 'center',
       sortable: true,
+      getSortValue: (r) => r.kind,
+      filter: {
+        kind: 'enum',
+        getValue: (r) => r.kind,
+        options: [
+          { value: 'general', label: 'عامة' },
+          { value: 'azhar', label: 'أزهرية' },
+        ],
+      },
       className: 'min-w-[6ch]',
       render: (r) => (
         <Badge tone={r.kind === 'general' ? 'info' : 'warning'}>
@@ -412,6 +427,8 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'الشعبة',
       hideOn: 'md',
       sortable: true,
+      getSortValue: (r) => r.branch ?? '',
+      filter: { kind: 'text', getValue: (r) => r.branch ?? '' },
       className: 'min-w-[10ch]',
       render: (r) => <span className="text-xs">{r.branch}</span>,
     },
@@ -421,6 +438,8 @@ export function ApplicantGradesPage(): JSX.Element {
       align: 'center',
       sortable: true,
       hideOn: 'md',
+      getSortValue: (r) => r.graduationYear ?? 0,
+      filter: { kind: 'number', getValue: (r) => r.graduationYear ?? null },
       className: 'min-w-[8ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) =>
         r.graduationYear != null ? (
@@ -433,6 +452,13 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'schoolCategoryCode',
       label: 'فئة المدرسة',
       hideOn: 'md',
+      sortable: true,
+      getSortValue: (r) => r.schoolCategoryCode ?? '',
+      filter: {
+        kind: 'enum',
+        getValue: (r) => r.schoolCategoryCode ?? '',
+        options: activeSchoolCategories.map((s) => ({ value: s.code, label: s.name })),
+      },
       className: 'min-w-[10ch]',
       render: (r) =>
         r.schoolCategoryCode ? (
@@ -448,6 +474,8 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'المجموع الإجمالي',
       align: 'center',
       sortable: true,
+      getSortValue: (r) => r.total,
+      filter: { kind: 'number', getValue: (r) => r.total },
       className: 'min-w-[14ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
         <>
@@ -462,6 +490,8 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'النسبة',
       align: 'center',
       sortable: true,
+      getSortValue: (r) => r.pct,
+      filter: { kind: 'number', getValue: (r) => r.pct },
       className: 'min-w-[8ch] font-numeric tabular-nums',
       render: (r) => (
         <>
@@ -475,6 +505,8 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'المجموع بعد التعديل',
       align: 'center',
       sortable: true,
+      getSortValue: (r) => r.eff,
+      filter: { kind: 'number', getValue: (r) => r.eff },
       className: 'min-w-[18ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
         <span className="flex items-center justify-center gap-2">

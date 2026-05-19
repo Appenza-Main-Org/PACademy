@@ -108,6 +108,9 @@ export function UsersPage(): JSX.Element {
       {
         key: 'user',
         label: 'المستخدم',
+        sortable: true,
+        getSortValue: (u) => u.fullArabicName,
+        filter: { kind: 'text', getValue: (u) => u.fullArabicName, placeholder: 'بحث في الأسماء…' },
         render: (u) => (
           <div className="flex items-center gap-3">
             <Avatar name={u.fullArabicName} size="sm" />
@@ -124,6 +127,9 @@ export function UsersPage(): JSX.Element {
         key: 'nationalId',
         label: 'الرقم القومى',
         hideOn: 'sm',
+        sortable: true,
+        getSortValue: (u) => u.nationalId,
+        filter: { kind: 'text', getValue: (u) => u.nationalId, placeholder: '14 رقماً…' },
         render: (u) => (
           <span className="text-2xs text-ink-700 font-mono tnum" dir="ltr">
             {u.nationalId || '—'}
@@ -134,6 +140,9 @@ export function UsersPage(): JSX.Element {
         key: 'officerCode',
         label: 'الكود',
         hideOn: 'md',
+        sortable: true,
+        getSortValue: (u) => u.officerCode,
+        filter: { kind: 'text', getValue: (u) => u.officerCode },
         render: (u) => (
           <span className="text-2xs text-ink-700 font-mono" dir="ltr">
             {u.officerCode || '—'}
@@ -143,6 +152,16 @@ export function UsersPage(): JSX.Element {
       {
         key: 'roles',
         label: 'الأدوار',
+        sortable: true,
+        getSortValue: (u) => (u.roles[0] ?? u.role),
+        filter: {
+          kind: 'enum',
+          getValue: (u) => (u.roles.length > 0 ? u.roles : [u.role]),
+          options: ROLES.filter((r) => r !== 'applicant').map((r) => ({
+            value: r,
+            label: ROLE_DEFINITIONS[r].labelAr,
+          })),
+        },
         render: (u) => {
           const roles = u.roles.length > 0 ? u.roles : [u.role];
           const visible = roles.slice(0, 2);
@@ -163,10 +182,28 @@ export function UsersPage(): JSX.Element {
           );
         },
       },
-      { key: 'unit', label: 'الوحدة', hideOn: 'md', render: (u) => u.unit || '—' },
+      {
+        key: 'unit',
+        label: 'الوحدة',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (u) => u.unit,
+        filter: { kind: 'text', getValue: (u) => u.unit },
+        render: (u) => u.unit || '—',
+      },
       {
         key: 'accountStatus',
         label: 'الحالة',
+        sortable: true,
+        getSortValue: (u) => u.accountStatus,
+        filter: {
+          kind: 'enum',
+          getValue: (u) => u.accountStatus,
+          options: [
+            { value: 'active', label: 'نشط' },
+            { value: 'inactive', label: 'غير نشط' },
+          ],
+        },
         render: (u) =>
           u.accountStatus === 'active' ? (
             <StatusBadge status="approved" />
@@ -178,6 +215,9 @@ export function UsersPage(): JSX.Element {
         key: 'lastLogin',
         label: 'آخر دخول',
         hideOn: 'md',
+        sortable: true,
+        getSortValue: (u) => u.lastLogin,
+        filter: { kind: 'date', getValue: (u) => (u.lastLogin ? u.lastLogin : null) },
         render: (u) => (
           <span className="text-2xs text-ink-500">
             {u.lastLogin ? fmtDate(u.lastLogin, 'rel') : '—'}

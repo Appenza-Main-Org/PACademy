@@ -46,6 +46,14 @@ import { cn } from '@/shared/lib/cn';
 import { LoadingState } from './LoadingState';
 import { ListActions } from './data-table/ListActions';
 import type { ImportResult, ListActionsConfig } from './data-table/list-actions.types';
+import {
+  ColumnFilterTrigger,
+  rowPassesFilter,
+} from './data-table/ColumnFilter';
+import type {
+  ColumnFilterConfig,
+  ColumnFilterValue,
+} from './data-table/ColumnFilter';
 
 export type DataTableDensity = 'compact' | 'default' | 'comfortable';
 export type DataTableSelectionMode = 'none' | 'single' | 'multi';
@@ -70,6 +78,15 @@ export interface DataTableColumn<TRow> {
   className?: string;
   /** Hide on small screens. */
   hideOn?: 'sm' | 'md';
+  /** Per-column filter — opt in by providing a kind + accessor.
+   *  When set, the header surfaces a funnel trigger and DataTable applies
+   *  the filter client-side. Pair with a string Arabic header label for
+   *  the popover heading + aria-label. */
+  filter?: ColumnFilterConfig<TRow>;
+  /** Value used for client-side sorting when no `onSortChange` is provided.
+   *  Defaults to `accessor` when set; otherwise sort is a no-op on that
+   *  column even if `sortable: true`. */
+  getSortValue?: (row: TRow) => string | number | Date | null | undefined;
 }
 
 export interface DataTablePagination {
@@ -95,6 +112,11 @@ interface DataTableProps<TRow> {
 
   sort?: DataTableSort<TRow> | null;
   onSortChange?: (next: DataTableSort<TRow> | null) => void;
+  /** Controlled per-column filter values keyed by column `key`. Omit for
+   *  uncontrolled internal state. When omitted, DataTable applies the
+   *  filters to `data` client-side. */
+  columnFilters?: Readonly<Record<string, ColumnFilterValue>>;
+  onColumnFiltersChange?: (next: Record<string, ColumnFilterValue>) => void;
 
   onRowClick?: (row: TRow, index: number) => void;
   density?: DataTableDensity;
@@ -133,6 +155,8 @@ export function DataTable<TRow>({
   onSelectionChange,
   sort,
   onSortChange,
+  columnFilters,
+  onColumnFiltersChange,
   onRowClick,
   density = 'default',
   zebraStripes,
@@ -147,6 +171,55 @@ export function DataTable<TRow>({
   const [internalSort, setInternalSort] = useState<DataTableSort<TRow> | null>(sort ?? null);
   const activeSort = sort ?? internalSort;
 
+  const [internalFilters, setInternalFilters] = useState<Record<string, ColumnFilterValue>>({});
+  const activeFilters = columnFilters ?? internalFilters;
+
+  /* Apply column filters client-side, then client sort when uncontrolled.
+   * Controlled callers (`onSortChange` / `onColumnFiltersChange`) are
+   * trusted to pre-process `data` themselves — typical for server-side
+   * pagination. */
+  const processed = useMemo(() => {
+    const filterEntries = Object.entries(activeFilters);
+    let rows = data;
+    if (!columnFilters && filterEntries.length > 0) {
+      rows = rows.filter((row) =>
+        filterEntries.every(([colKey, value]) => {
+          const col = columns.find((c) => c.key === colKey);
+          if (!col?.filter) return true;
+          return rowPassesFilter(row, col.filter, value);
+        }),
+      );
+    }
+    if (!onSortChange && activeSort) {
+      const col = columns.find(
+        (c) => (c.accessor ?? c.key) === activeSort.key || c.key === activeSort.key,
+      );
+      const getValue = col?.getSortValue
+        ? col.getSortValue
+        : col?.accessor
+          ? (row: TRow): unknown => (row as Record<string, unknown>)[col.accessor as string]
+          : null;
+      if (getValue) {
+        const direction = activeSort.direction === 'asc' ? 1 : -1;
+        rows = [...rows].sort((a, b) => {
+          const av = getValue(a);
+          const bv = getValue(b);
+          if (av == null && bv == null) return 0;
+          if (av == null) return 1;
+          if (bv == null) return -1;
+          if (typeof av === 'number' && typeof bv === 'number') {
+            return (av - bv) * direction;
+          }
+          if (av instanceof Date && bv instanceof Date) {
+            return (av.getTime() - bv.getTime()) * direction;
+          }
+          return String(av).localeCompare(String(bv), 'ar') * direction;
+        });
+      }
+    }
+    return rows;
+  }, [data, columns, columnFilters, activeFilters, onSortChange, activeSort]);
+
   const cellPad =
     density === 'compact' ? 'px-3 py-2' : density === 'comfortable' ? 'px-5 py-4' : 'px-4 py-3';
   const headerPad =
@@ -155,8 +228,8 @@ export function DataTable<TRow>({
   const selectedSet = useMemo(() => new Set(selectedRowKeys), [selectedRowKeys]);
 
   const allKeys = useMemo(
-    () => data.map((row, i) => rowKey?.(row, i) ?? i),
-    [data, rowKey],
+    () => processed.map((row, i) => rowKey?.(row, i) ?? i),
+    [processed, rowKey],
   );
   const allSelected = allKeys.length > 0 && allKeys.every((k) => selectedSet.has(k));
   const someSelected = allKeys.some((k) => selectedSet.has(k)) && !allSelected;
@@ -197,7 +270,7 @@ export function DataTable<TRow>({
     <div className={cn('flex flex-col gap-3', className)}>
       {listActions && (
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <ListActions rows={data} config={listActions} onImported={onImported} />
+          <ListActions rows={processed} config={listActions} onImported={onImported} />
         </div>
       )}
       {toolbar}
@@ -233,6 +306,15 @@ export function DataTable<TRow>({
                   const sorted =
                     activeSort && activeSort.key === (col.accessor ?? col.key);
                   const dir = sorted ? activeSort?.direction : null;
+                  const columnLabel = typeof col.label === 'string' ? col.label : col.key;
+                  const filterValue = activeFilters[col.key];
+                  const setFilter = (next: ColumnFilterValue | undefined): void => {
+                    const merged = { ...activeFilters };
+                    if (next === undefined) delete merged[col.key];
+                    else merged[col.key] = next;
+                    if (onColumnFiltersChange) onColumnFiltersChange(merged);
+                    else setInternalFilters(merged);
+                  };
                   return (
                     <th
                       key={col.key}
@@ -249,20 +331,35 @@ export function DataTable<TRow>({
                         col.className,
                       )}
                     >
-                      {col.sortable ? (
-                        <button
-                          type="button"
-                          onClick={() => sortBy(col)}
-                          className="inline-flex items-center gap-1 font-medium uppercase tracking-wide hover:text-ink-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-                        >
+                      <div
+                        className={cn(
+                          'inline-flex items-center gap-1.5',
+                          (col.align === 'end' || (col.numeric && !col.align)) && 'flex-row-reverse',
+                        )}
+                      >
+                        {col.sortable ? (
+                          <button
+                            type="button"
+                            onClick={() => sortBy(col)}
+                            className="inline-flex items-center gap-1 font-medium uppercase tracking-wide hover:text-ink-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                          >
+                            <span>{col.label}</span>
+                            {dir === 'asc' && <ChevronUp size={12} aria-hidden />}
+                            {dir === 'desc' && <ChevronDown size={12} aria-hidden />}
+                            {!dir && <ChevronUp size={12} aria-hidden className="opacity-30" />}
+                          </button>
+                        ) : (
                           <span>{col.label}</span>
-                          {dir === 'asc' && <ChevronUp size={12} aria-hidden />}
-                          {dir === 'desc' && <ChevronDown size={12} aria-hidden />}
-                          {!dir && <ChevronUp size={12} aria-hidden className="opacity-30" />}
-                        </button>
-                      ) : (
-                        col.label
-                      )}
+                        )}
+                        {col.filter && (
+                          <ColumnFilterTrigger
+                            columnLabel={columnLabel}
+                            filter={col.filter}
+                            value={filterValue}
+                            onChange={setFilter}
+                          />
+                        )}
+                      </div>
                     </th>
                   );
                 })}
@@ -289,7 +386,7 @@ export function DataTable<TRow>({
                   </td>
                 </tr>
               )}
-              {!loading && !error && data.length === 0 && (
+              {!loading && !error && processed.length === 0 && (
                 <tr>
                   <td
                     colSpan={columns.length + (selectionMode !== 'none' ? 1 : 0)}
@@ -303,8 +400,8 @@ export function DataTable<TRow>({
               )}
               {!loading &&
                 !error &&
-                data.length > 0 &&
-                data.map((row, i) => {
+                processed.length > 0 &&
+                processed.map((row, i) => {
                   const key = rowKey?.(row, i) ?? i;
                   const isSelected = selectedSet.has(key);
                   const interactive = Boolean(onRowClick) || selectionMode !== 'none';

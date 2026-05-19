@@ -119,11 +119,17 @@ export function PaymentsPage(): JSX.Element {
     {
       key: 'applicantName',
       label: 'المتقدم',
+      sortable: true,
+      getSortValue: (r) => r.applicantName,
+      filter: { kind: 'text', getValue: (r) => r.applicantName },
       render: (r) => <span className="font-medium text-ink-900">{r.applicantName}</span>,
     },
     {
       key: 'nationalId',
       label: 'الرقم القومي',
+      sortable: true,
+      getSortValue: (r) => r.nationalId,
+      filter: { kind: 'text', getValue: (r) => r.nationalId },
       render: (r) => (
         <span dir="ltr" className="font-mono text-2xs text-ink-500">
           {r.nationalId}
@@ -133,6 +139,9 @@ export function PaymentsPage(): JSX.Element {
     {
       key: 'fawryReference',
       label: 'مرجع فوري',
+      sortable: true,
+      getSortValue: (r) => r.fawryReference,
+      filter: { kind: 'text', getValue: (r) => r.fawryReference },
       render: (r) => (
         <span dir="ltr" className="font-mono text-2xs text-ink-700">
           {r.fawryReference}
@@ -143,16 +152,32 @@ export function PaymentsPage(): JSX.Element {
       key: 'amount',
       label: 'المبلغ',
       numeric: true,
+      sortable: true,
+      getSortValue: (r) => r.amount,
+      filter: { kind: 'number', getValue: (r) => r.amount },
       render: (r) => <span className="font-numeric tnum">{num(r.amount)} ج.م</span>,
     },
     {
       key: 'status',
       label: 'الحالة',
+      sortable: true,
+      getSortValue: (r) => r.status,
+      filter: {
+        kind: 'enum',
+        getValue: (r) => r.status,
+        options: (Object.entries(STATUS_LABEL) as [FawryPaymentStatus, string][]).map(([v, l]) => ({
+          value: v,
+          label: l,
+        })),
+      },
       render: (r) => <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>,
     },
     {
       key: 'lastSyncAt',
       label: 'آخر مزامنة',
+      sortable: true,
+      getSortValue: (r) => new Date(r.lastSyncAt).getTime(),
+      filter: { kind: 'date', getValue: (r) => r.lastSyncAt },
       render: (r) => (
         <span className="text-2xs text-ink-500">
           {fmtDate(new Date(r.lastSyncAt).getTime(), 'rel')}

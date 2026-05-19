@@ -147,6 +147,9 @@ export function CyclesPage(): JSX.Element {
     {
       key: 'nameAr',
       label: 'اسم الدورة',
+      sortable: true,
+      getSortValue: (c) => c.nameAr,
+      filter: { kind: 'text', getValue: (c) => c.nameAr },
       render: (c) => (
         <Link
           to={ROUTES.admin.cycleDetail(c.id)}
@@ -160,6 +163,9 @@ export function CyclesPage(): JSX.Element {
       key: 'year',
       label: 'السنة',
       numeric: true,
+      sortable: true,
+      getSortValue: (c) => c.year,
+      filter: { kind: 'number', getValue: (c) => c.year },
       render: (c) => (
         <span className="font-numeric tnum" dir="ltr">
           {c.year}
@@ -169,6 +175,16 @@ export function CyclesPage(): JSX.Element {
     {
       key: 'status',
       label: 'حالة الدورة',
+      sortable: true,
+      getSortValue: (c) => toListStatus(c.status),
+      filter: {
+        kind: 'enum',
+        getValue: (c) => toListStatus(c.status),
+        options: (Object.keys(LIST_STATUS_LABEL) as CycleListStatus[]).map((k) => ({
+          value: k,
+          label: LIST_STATUS_LABEL[k],
+        })),
+      },
       render: (c) => {
         const ls = toListStatus(c.status);
         return <Badge tone={LIST_STATUS_TONE[ls]}>{LIST_STATUS_LABEL[ls]}</Badge>;
@@ -177,6 +193,16 @@ export function CyclesPage(): JSX.Element {
     {
       key: 'isActive',
       label: 'حالة التفعيل',
+      sortable: true,
+      getSortValue: (c) => (c.isActive ? 1 : 0),
+      filter: {
+        kind: 'enum',
+        getValue: (c) => (c.isActive ? 'active' : 'inactive'),
+        options: [
+          { value: 'active', label: ACTIVE_LABEL },
+          { value: 'inactive', label: INACTIVE_LABEL },
+        ],
+      },
       render: (c) =>
         c.isActive ? (
           <Badge tone="success">

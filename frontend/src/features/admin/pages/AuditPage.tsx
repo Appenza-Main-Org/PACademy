@@ -215,24 +215,52 @@ export function AuditPage(): JSX.Element {
     {
       key: 'user',
       label: 'المستخدم',
+      sortable: true,
+      getSortValue: (e) => e.userName,
+      filter: { kind: 'text', getValue: (e) => e.userName },
       render: (e) => <span className="text-sm font-medium text-ink-900">{shortName(e.userName, 3)}</span>,
     },
     {
       key: 'action',
       label: 'الإجراء',
+      sortable: true,
+      getSortValue: (e) => e.actionLabel,
+      filter: {
+        kind: 'enum',
+        getValue: (e) => e.action,
+        options: AUDIT_ACTIONS.map((a) => ({ value: a.action, label: a.label })),
+      },
       render: (e) => <Badge tone={e.actionColor}>{e.actionLabel}</Badge>,
     },
-    { key: 'entity', label: 'الكيان', render: (e) => e.entity, hideOn: 'sm' },
+    {
+      key: 'entity',
+      label: 'الكيان',
+      hideOn: 'sm',
+      sortable: true,
+      getSortValue: (e) => e.entity,
+      filter: {
+        kind: 'enum',
+        getValue: (e) => e.entity,
+        options: (entityTypes ?? []).map((t) => ({ value: t, label: t })),
+      },
+      render: (e) => e.entity,
+    },
     {
       key: 'details',
       label: 'التفاصيل',
-      render: (e) => <DetailsCell entry={e} />,
       hideOn: 'sm',
+      sortable: true,
+      getSortValue: (e) => e.details,
+      filter: { kind: 'text', getValue: (e) => e.details },
+      render: (e) => <DetailsCell entry={e} />,
     },
     {
       key: 'ip',
       label: 'IP',
       hideOn: 'md',
+      sortable: true,
+      getSortValue: (e) => e.ip,
+      filter: { kind: 'text', getValue: (e) => e.ip },
       render: (e) => (
         <span className="text-2xs text-ink-500 font-mono" dir="ltr">
           {e.ip}
@@ -242,6 +270,9 @@ export function AuditPage(): JSX.Element {
     {
       key: 'timestamp',
       label: 'الوقت',
+      sortable: true,
+      getSortValue: (e) => e.timestamp,
+      filter: { kind: 'date', getValue: (e) => e.timestamp },
       render: (e) => <span className="text-2xs text-ink-500">{fmtDate(e.timestamp, 'rel')}</span>,
     },
     {

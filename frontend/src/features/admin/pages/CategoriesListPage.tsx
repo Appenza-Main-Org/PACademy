@@ -62,6 +62,9 @@ export function CategoriesListPage(): JSX.Element {
     {
       key: 'labelAr',
       label: 'اسم الفئة',
+      sortable: true,
+      getSortValue: (c) => c.labelAr,
+      filter: { kind: 'text', getValue: (c) => c.labelAr },
       render: (cat) => (
         <button
           type="button"
@@ -75,6 +78,9 @@ export function CategoriesListPage(): JSX.Element {
     {
       key: 'description',
       label: 'الوصف',
+      sortable: true,
+      getSortValue: (c) => c.description ?? '',
+      filter: { kind: 'text', getValue: (c) => c.description ?? '' },
       render: (cat) => {
         const text = (cat.description ?? '').trim();
         if (!text) return <span className="text-2xs text-ink-400">—</span>;
