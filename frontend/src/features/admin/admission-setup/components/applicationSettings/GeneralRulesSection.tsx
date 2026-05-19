@@ -47,6 +47,7 @@ import type { RadixSelectOption, SearchSelectOption } from '@/shared/components'
 import { useLookup } from '@/features/lookups';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
+import type { ExcellenceMode } from '../../lib/excellenceMode';
 import {
   DEFAULT_MAX_SCORE_OPERATOR,
   DEFAULT_MIN_SCORE_OPERATOR,
@@ -119,12 +120,18 @@ interface GeneralRulesSectionProps {
    *  `specializationCodes`). When empty, all specializations of the
    *  picked faculties are used. */
   specializationCodes: readonly string[];
+  /** Resolved «معيار التمييز» — `TAGDIR` shows only الحد الأدنى/الأقصى
+   *  للتقدير, `GRADES` shows only الحد الأدنى/الأقصى للدرجة (٪). `null`
+   *  (no criterion picked yet) renders both pairs so admins can still
+   *  fill the row in. */
+  excellenceMode: ExcellenceMode | null;
 }
 
 export function GeneralRulesSection({
   categoryCode,
   facultyCodes,
   specializationCodes,
+  excellenceMode,
 }: GeneralRulesSectionProps): JSX.Element {
   const facultiesQuery = useLookup('faculties');
   const specializationsQuery = useLookup('specializations');
@@ -304,6 +311,7 @@ export function GeneralRulesSection({
     degreeOptions,
     committeeOptions,
     graduationYearOptions,
+    excellenceMode,
   };
 
   let tree: JSX.Element;
@@ -775,6 +783,9 @@ interface PerSpecFormOptions {
   degreeOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   graduationYearOptions: ReadonlyArray<SearchSelectOption>;
+  /** Discriminates which bound pair the form surfaces — see
+   *  `GeneralRulesSectionProps.excellenceMode`. */
+  excellenceMode: ExcellenceMode | null;
 }
 
 interface PerSpecFormProps {
@@ -817,7 +828,12 @@ function PerSpecForm({
     degreeOptions,
     committeeOptions,
     graduationYearOptions,
+    excellenceMode,
   } = options;
+  /* `null` (criterion not picked) keeps both pairs visible so admins
+   * can still fill the row in until they assign a criterion. */
+  const showGradePair = excellenceMode !== 'GRADES';
+  const showScorePair = excellenceMode !== 'TAGDIR';
   const [draft, setDraft] = useState<GeneralRuleRowInput>(EMPTY_INPUT);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -933,17 +949,22 @@ function PerSpecForm({
     draft.scoreMax !== null &&
     draft.scoreMax < draft.scoreMin;
 
+  const gradePairOk = showGradePair
+    ? draft.grade.length > 0 && draft.gradeMax.length > 0 && !gradeOrderInvalid
+    : true;
+  const scorePairOk = showScorePair
+    ? draft.scoreMin !== null &&
+      draft.scoreMax !== null &&
+      !scoreMinOutOfBounds &&
+      !scoreMaxOutOfBounds &&
+      !scoreOrderInvalid
+    : true;
+
   const canSubmit =
     isHeaderComplete &&
     draft.type.length > 0 &&
-    draft.grade.length > 0 &&
-    draft.gradeMax.length > 0 &&
-    !gradeOrderInvalid &&
-    draft.scoreMin !== null &&
-    draft.scoreMax !== null &&
-    !scoreMinOutOfBounds &&
-    !scoreMaxOutOfBounds &&
-    !scoreOrderInvalid &&
+    gradePairOk &&
+    scorePairOk &&
     draft.academicDegrees.length > 0 &&
     draft.committee.length > 0 &&
     draft.graduationYear !== null;
@@ -955,10 +976,23 @@ function PerSpecForm({
     specializationNameAr,
   };
 
+  /** Blank-out fields that the active criterion hides so a row authored
+   *  under one criterion doesn't carry orphan values if the admin switches
+   *  later. The store still receives both pairs on the row — just zeroed
+   *  for the inactive branch. */
+  const normalizeForSubmit = (input: GeneralRuleRowInput): GeneralRuleRowInput => ({
+    ...input,
+    grade: showGradePair ? input.grade : '',
+    gradeMax: showGradePair ? input.gradeMax : '',
+    scoreMin: showScorePair ? input.scoreMin : null,
+    scoreMax: showScorePair ? input.scoreMax : null,
+  });
+
   const handleSubmit = (): void => {
     if (!canSubmit) return;
+    const payload = normalizeForSubmit(draft);
     if (isEditing && editingId !== null) {
-      const result = updateUniversityRow(editingId, spec, draft);
+      const result = updateUniversityRow(editingId, spec, payload);
       if (!result.ok) {
         toast(
           result.reason === 'duplicate'
@@ -972,7 +1006,7 @@ function PerSpecForm({
       toast('تم تعديل الشرط', 'success');
       return;
     }
-    const result = addUniversityRow(categoryCode, spec, draft);
+    const result = addUniversityRow(categoryCode, spec, payload);
     if (!result.ok) {
       toast('هذا الشرط موجود بالفعل بنفس البيانات', 'danger');
       return;
@@ -1012,85 +1046,93 @@ function PerSpecForm({
             />
           </FieldLabel>
 
-          <FieldLabel label="الحد الأدنى للتقدير" required>
-            <SearchSelect
-              ariaLabel="الحد الأدنى للتقدير"
-              value={draft.grade || null}
-              onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
-              options={gradeOptions}
-              placeholder="اختر التقدير…"
-            />
-          </FieldLabel>
+          {showGradePair && (
+            <>
+              <FieldLabel label="الحد الأدنى للتقدير" required>
+                <SearchSelect
+                  ariaLabel="الحد الأدنى للتقدير"
+                  value={draft.grade || null}
+                  onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
+                  options={gradeOptions}
+                  placeholder="اختر التقدير…"
+                />
+              </FieldLabel>
 
-          <FieldLabel label="الحد الأقصى للتقدير" required>
-            <SearchSelect
-              ariaLabel="الحد الأقصى للتقدير"
-              value={draft.gradeMax || null}
-              onChange={(v) =>
-                setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
-              }
-              options={gradeOptions}
-              placeholder="اختر التقدير…"
-              invalid={gradeOrderInvalid}
-            />
-            {gradeOrderInvalid && (
-              <span className="font-ar text-2xs text-terra-700">
-                يجب ألا يقل الحد الأقصى عن الحد الأدنى للتقدير.
-              </span>
-            )}
-          </FieldLabel>
+              <FieldLabel label="الحد الأقصى للتقدير" required>
+                <SearchSelect
+                  ariaLabel="الحد الأقصى للتقدير"
+                  value={draft.gradeMax || null}
+                  onChange={(v) =>
+                    setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
+                  }
+                  options={gradeOptions}
+                  placeholder="اختر التقدير…"
+                  invalid={gradeOrderInvalid}
+                />
+                {gradeOrderInvalid && (
+                  <span className="font-ar text-2xs text-terra-700">
+                    يجب ألا يقل الحد الأقصى عن الحد الأدنى للتقدير.
+                  </span>
+                )}
+              </FieldLabel>
+            </>
+          )}
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-          <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
-            <OperatorScoreField<MinScoreOperator>
-              operatorValue={draft.minScoreOperator}
-              onOperatorChange={(v) =>
-                setDraft((d) => ({ ...d, minScoreOperator: v }))
-              }
-              operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
-              operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
-              scoreValue={draft.scoreMin}
-              onScoreChange={(next) =>
-                setDraft((d) => ({ ...d, scoreMin: next }))
-              }
-              scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
-              invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
-              maxBound={MIN_SCORE_UPPER_BOUND}
-              onClampMessage={setScoreMinMessage}
-            />
-            {scoreMinMessage && (
-              <span className="font-ar text-2xs text-terra-700">
-                {scoreMinMessage}
-              </span>
-            )}
-          </FieldLabel>
+          {showScorePair && (
+            <>
+              <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
+                <OperatorScoreField<MinScoreOperator>
+                  operatorValue={draft.minScoreOperator}
+                  onOperatorChange={(v) =>
+                    setDraft((d) => ({ ...d, minScoreOperator: v }))
+                  }
+                  operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
+                  operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
+                  scoreValue={draft.scoreMin}
+                  onScoreChange={(next) =>
+                    setDraft((d) => ({ ...d, scoreMin: next }))
+                  }
+                  scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
+                  invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
+                  maxBound={MIN_SCORE_UPPER_BOUND}
+                  onClampMessage={setScoreMinMessage}
+                />
+                {scoreMinMessage && (
+                  <span className="font-ar text-2xs text-terra-700">
+                    {scoreMinMessage}
+                  </span>
+                )}
+              </FieldLabel>
 
-          <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
-            <OperatorScoreField<MaxScoreOperator>
-              operatorValue={draft.maxScoreOperator}
-              onOperatorChange={(v) =>
-                setDraft((d) => ({ ...d, maxScoreOperator: v }))
-              }
-              operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
-              operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
-              scoreValue={draft.scoreMax}
-              onScoreChange={(next) =>
-                setDraft((d) => ({ ...d, scoreMax: next }))
-              }
-              scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
-              invalid={
-                scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
-              }
-              maxBound={null}
-              onClampMessage={setScoreMaxMessage}
-            />
-            {(scoreMaxMessage || scoreOrderInvalid) && (
-              <span className="font-ar text-2xs text-terra-700">
-                {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
-              </span>
-            )}
-          </FieldLabel>
+              <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
+                <OperatorScoreField<MaxScoreOperator>
+                  operatorValue={draft.maxScoreOperator}
+                  onOperatorChange={(v) =>
+                    setDraft((d) => ({ ...d, maxScoreOperator: v }))
+                  }
+                  operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
+                  operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
+                  scoreValue={draft.scoreMax}
+                  onScoreChange={(next) =>
+                    setDraft((d) => ({ ...d, scoreMax: next }))
+                  }
+                  scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
+                  invalid={
+                    scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
+                  }
+                  maxBound={null}
+                  onClampMessage={setScoreMaxMessage}
+                />
+                {(scoreMaxMessage || scoreOrderInvalid) && (
+                  <span className="font-ar text-2xs text-terra-700">
+                    {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
+                  </span>
+                )}
+              </FieldLabel>
+            </>
+          )}
 
           <FieldLabel label="الدرجة العلمية" required>
             {degreeOptions.length === 0 ? (
@@ -1185,6 +1227,8 @@ function PerSpecForm({
         degreeOptions={degreeOptions}
         committeeOptions={committeeOptions}
         maritalOptions={options.maritalOptions}
+        showGradePair={showGradePair}
+        showScorePair={showScorePair}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
@@ -1202,6 +1246,10 @@ interface LocalUniversityGridProps {
   degreeOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
+  /** Mirror the form's visibility — hides تقدير / درجة columns when the
+   *  active criterion does not surface them. */
+  showGradePair: boolean;
+  showScorePair: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -1213,6 +1261,8 @@ function LocalUniversityGrid({
   degreeOptions,
   committeeOptions,
   maritalOptions,
+  showGradePair,
+  showScorePair,
   onEdit,
   onDelete,
 }: LocalUniversityGridProps): JSX.Element {
@@ -1246,10 +1296,10 @@ function LocalUniversityGrid({
             <Th>تاريخ احتساب السن</Th>
             <Th>الحالة الاجتماعية</Th>
             <Th>النوع</Th>
-            <Th>الحد الأدنى للتقدير</Th>
-            <Th>الحد الأقصى للتقدير</Th>
-            <Th>الحد الأدنى للدرجة</Th>
-            <Th>الحد الأقصى للدرجة</Th>
+            {showGradePair && <Th>الحد الأدنى للتقدير</Th>}
+            {showGradePair && <Th>الحد الأقصى للتقدير</Th>}
+            {showScorePair && <Th>الحد الأدنى للدرجة</Th>}
+            {showScorePair && <Th>الحد الأقصى للدرجة</Th>}
             <Th>الدرجة العلمية</Th>
             <Th>سنة التخرج</Th>
             <Th>إجراءات</Th>
@@ -1281,18 +1331,22 @@ function LocalUniversityGrid({
                 <Td>
                   <MultiValueCell values={r.type.map(labelForType)} />
                 </Td>
-                <Td>{labelForGrade(r.grade)}</Td>
-                <Td>{labelForGrade(r.gradeMax)}</Td>
-                <Td>
-                  {r.scoreMin !== null
-                    ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
-                    : '—'}
-                </Td>
-                <Td>
-                  {r.scoreMax !== null
-                    ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
-                    : '—'}
-                </Td>
+                {showGradePair && <Td>{labelForGrade(r.grade)}</Td>}
+                {showGradePair && <Td>{labelForGrade(r.gradeMax)}</Td>}
+                {showScorePair && (
+                  <Td>
+                    {r.scoreMin !== null
+                      ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
+                      : '—'}
+                  </Td>
+                )}
+                {showScorePair && (
+                  <Td>
+                    {r.scoreMax !== null
+                      ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
+                      : '—'}
+                  </Td>
+                )}
                 <Td>
                   <MultiValueCell
                     values={r.academicDegrees.map(labelForDegree)}

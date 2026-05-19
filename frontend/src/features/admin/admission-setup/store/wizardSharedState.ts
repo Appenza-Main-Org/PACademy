@@ -107,6 +107,13 @@ export interface ThanawiRuleRowInput {
    *  for backward compatibility with `ApprovedRulesView`, but the UI now
    *  binds a single-select that emits a 0- or 1-element array. */
   schoolCategories: string[];
+  /** Minimum acceptable academic grade — single code (الحد الأدنى).
+   *  Only filled when the parent category's «معيار التمييز» is TAGDIR;
+   *  blank under the GRADES branch. */
+  grade: string;
+  /** Maximum acceptable academic grade — single code (الحد الأقصى).
+   *  Mirrors `grade`'s applicability rule. */
+  gradeMax: string;
   /** Inclusive minimum percentage score (الحد الأدنى للدرجة). 0–100. */
   scoreMin: number | null;
   /** Comparison operator paired with `scoreMin` — controls whether the
@@ -176,12 +183,15 @@ export interface LocalThanawiRow extends LocalRowBase {
   minScoreOperator: MinScoreOperator;
   scoreMax: number | null;
   maxScoreOperator: MaxScoreOperator;
+  /** Min/max academic grade (التقدير). Filled only when the parent
+   *  category's «معيار التمييز» is TAGDIR; blank under GRADES. */
+  grade: string;
+  gradeMax: string;
   /* Legacy shape so ApprovedRulesView renders thanawi rows alongside
    * university rows in the same table without crashes. Empty arrays
    * render as «—» in the viewer. */
   type: string[];
   maritalStatus: string[];
-  grade: string;
   academicDegrees: string[];
   committees: string[];
   graduationYears: number[];
@@ -290,6 +300,8 @@ function thanawiCompositeKey(r: LocalThanawiRow): string {
     r.committee,
     String(r.graduationYear),
     [...r.schoolCategories].sort().join('|'),
+    r.grade,
+    r.gradeMax,
     String(r.scoreMin),
     r.minScoreOperator,
     String(r.scoreMax),
@@ -340,13 +352,14 @@ function buildThanawiRow(
     committee: input.committee,
     graduationYear: input.graduationYear,
     schoolCategories: [...input.schoolCategories],
+    grade: input.grade,
+    gradeMax: input.gradeMax,
     scoreMin: input.scoreMin,
     minScoreOperator: input.minScoreOperator,
     scoreMax: input.scoreMax,
     maxScoreOperator: input.maxScoreOperator,
     type: [],
     maritalStatus: header.maritalStatus,
-    grade: '',
     academicDegrees: [],
     committees: input.committee ? [input.committee] : [],
     graduationYears: input.graduationYear !== null ? [input.graduationYear] : [],
@@ -557,14 +570,22 @@ function isHeaderComplete(h: GeneralRulesHeader): boolean {
   );
 }
 
+/** The row's «معيار التمييز» branch is satisfied when either the grade
+ *  pair or the score pair is fully filled — the form only ever surfaces
+ *  one of the two depending on the parent category's criterion. */
+function hasGradePair(r: { grade: string; gradeMax: string }): boolean {
+  return r.grade !== '' && r.gradeMax !== '';
+}
+
+function hasScorePair(r: { scoreMin: number | null; scoreMax: number | null }): boolean {
+  return r.scoreMin !== null && r.scoreMax !== null;
+}
+
 function isUniversityRowComplete(r: LocalUniversityRow): boolean {
   return (
     isHeaderComplete(r.header) &&
     r.type.length > 0 &&
-    r.grade !== '' &&
-    r.gradeMax !== '' &&
-    r.scoreMin !== null &&
-    r.scoreMax !== null &&
+    (hasGradePair(r) || hasScorePair(r)) &&
     r.academicDegrees.length > 0 &&
     r.committees.length > 0 &&
     r.graduationYears.length > 0
@@ -578,8 +599,7 @@ function isThanawiRowComplete(r: LocalThanawiRow): boolean {
     r.committee !== '' &&
     r.graduationYear !== null &&
     r.schoolCategories.length > 0 &&
-    r.scoreMin !== null &&
-    r.scoreMax !== null
+    (hasGradePair(r) || hasScorePair(r))
   );
 }
 

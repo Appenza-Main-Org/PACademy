@@ -34,6 +34,7 @@ import type { RadixSelectOption, SearchSelectOption } from '@/shared/components'
 import { useLookup } from '@/features/lookups';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
+import type { ExcellenceMode } from '../../lib/excellenceMode';
 import {
   DEFAULT_MAX_SCORE_OPERATOR,
   DEFAULT_MIN_SCORE_OPERATOR,
@@ -50,6 +51,8 @@ const EMPTY_INPUT: ThanawiRuleRowInput = {
   committee: '',
   graduationYear: null,
   schoolCategories: [],
+  grade: '',
+  gradeMax: '',
   scoreMin: null,
   minScoreOperator: DEFAULT_MIN_SCORE_OPERATOR,
   scoreMax: null,
@@ -87,16 +90,22 @@ const MAX_OPERATOR_SYMBOL: Record<MaxScoreOperator, string> = {
 
 interface ThanawiRulesSectionProps {
   categoryCode: string;
+  /** Resolved «معيار التمييز» — `TAGDIR` shows only الحد الأدنى/الأقصى
+   *  للتقدير, `GRADES` shows only الحد الأدنى/الأقصى للدرجة (٪). `null`
+   *  (criterion not picked) renders both pairs. */
+  excellenceMode: ExcellenceMode | null;
 }
 
 export function ThanawiRulesSection({
   categoryCode,
+  excellenceMode,
 }: ThanawiRulesSectionProps): JSX.Element {
   const maritalQuery = useLookup('marital-statuses');
   const examRoundsQuery = useLookup('exam-rounds');
   const committeesQuery = useLookup('committees');
   const schoolCategoriesQuery = useLookup('school-categories');
   const graduationYearsQuery = useLookup('graduation-years');
+  const gradesQuery = useLookup('academic-grades');
 
   const approve = useAdmissionSetupWizardStore((s) => s.approveLocalForCategory);
   const localCount = useAdmissionSetupWizardStore(
@@ -108,14 +117,16 @@ export function ThanawiRulesSection({
     examRoundsQuery.isLoading ||
     committeesQuery.isLoading ||
     schoolCategoriesQuery.isLoading ||
-    graduationYearsQuery.isLoading;
+    graduationYearsQuery.isLoading ||
+    gradesQuery.isLoading;
 
   const isError =
     maritalQuery.isError ||
     examRoundsQuery.isError ||
     committeesQuery.isError ||
     schoolCategoriesQuery.isError ||
-    graduationYearsQuery.isError;
+    graduationYearsQuery.isError ||
+    gradesQuery.isError;
 
   const maritalOptions = useMemo(
     () =>
@@ -163,6 +174,20 @@ export function ThanawiRulesSection({
     [graduationYearsQuery.data],
   );
 
+  const gradeOptions = useMemo<SearchSelectOption[]>(
+    () =>
+      (gradesQuery.data ?? [])
+        .filter((g) => g.isActive)
+        .map((g) => ({ value: g.code, label: g.name })),
+    [gradesQuery.data],
+  );
+
+  const gradeRank = useMemo(() => {
+    const map = new Map<string, number>();
+    (gradesQuery.data ?? []).forEach((g, i) => map.set(g.code, i));
+    return map;
+  }, [gradesQuery.data]);
+
   const handleApprove = (): void => {
     const moved = approve(categoryCode);
     if (moved === 0) {
@@ -184,6 +209,7 @@ export function ThanawiRulesSection({
           committeesQuery.refetch();
           schoolCategoriesQuery.refetch();
           graduationYearsQuery.refetch();
+          gradesQuery.refetch();
         }}
       />
     );
@@ -225,6 +251,9 @@ export function ThanawiRulesSection({
             schoolCategoryOptions={schoolCategoryOptions}
             maritalOptions={maritalOptions}
             graduationYearOptions={graduationYearOptions}
+            gradeOptions={gradeOptions}
+            gradeRank={gradeRank}
+            excellenceMode={excellenceMode}
           />
         )}
       </div>
@@ -421,6 +450,9 @@ interface ThanawiFormProps {
   schoolCategoryOptions: ReadonlyArray<SearchSelectOption>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   graduationYearOptions: ReadonlyArray<SearchSelectOption>;
+  gradeOptions: ReadonlyArray<SearchSelectOption>;
+  gradeRank: Map<string, number>;
+  excellenceMode: ExcellenceMode | null;
 }
 
 function rowToThanawiInput(r: LocalThanawiRow): ThanawiRuleRowInput {
@@ -429,6 +461,8 @@ function rowToThanawiInput(r: LocalThanawiRow): ThanawiRuleRowInput {
     committee: r.committee,
     graduationYear: r.graduationYear,
     schoolCategories: [...r.schoolCategories],
+    grade: r.grade,
+    gradeMax: r.gradeMax,
     scoreMin: r.scoreMin,
     /* Defensive fallback for legacy rows authored before operator fields
      * existed on the row shape — defaults to the inclusive (`≥`/`≤`)
@@ -446,7 +480,14 @@ function ThanawiForm({
   schoolCategoryOptions,
   maritalOptions,
   graduationYearOptions,
+  gradeOptions,
+  gradeRank,
+  excellenceMode,
 }: ThanawiFormProps): JSX.Element {
+  /* `null` (criterion not picked) keeps both pairs visible so admins
+   * can still fill the row in until they assign a criterion. */
+  const showGradePair = excellenceMode !== 'GRADES';
+  const showScorePair = excellenceMode !== 'TAGDIR';
   const [draft, setDraft] = useState<ThanawiRuleRowInput>(EMPTY_INPUT);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -532,22 +573,52 @@ function ThanawiForm({
     draft.scoreMax !== null &&
     draft.scoreMax < draft.scoreMin;
 
+  /* `gradeRank` reflects the academic-grades lookup order, which is
+   * authored best→worst (امتياز=0 … مقبول=N). So a higher rank index
+   * means a *worse* grade. The max bound must not be a worse grade
+   * than the min bound, i.e. invalid when `max-rank > min-rank`. */
+  const gradeOrderInvalid =
+    draft.grade !== '' &&
+    draft.gradeMax !== '' &&
+    (gradeRank.get(draft.gradeMax) ?? -Infinity) >
+      (gradeRank.get(draft.grade) ?? Infinity);
+
+  const gradePairOk = showGradePair
+    ? draft.grade.length > 0 && draft.gradeMax.length > 0 && !gradeOrderInvalid
+    : true;
+  const scorePairOk = showScorePair
+    ? draft.scoreMin !== null &&
+      draft.scoreMax !== null &&
+      !scoreMinOutOfBounds &&
+      !scoreMaxOutOfBounds &&
+      !scoreOrderInvalid
+    : true;
+
   const canSubmit =
     isHeaderComplete &&
     draft.examRound.length > 0 &&
     draft.committee.length > 0 &&
     draft.graduationYear !== null &&
     draft.schoolCategories.length > 0 &&
-    draft.scoreMin !== null &&
-    draft.scoreMax !== null &&
-    !scoreMinOutOfBounds &&
-    !scoreMaxOutOfBounds &&
-    !scoreOrderInvalid;
+    gradePairOk &&
+    scorePairOk;
+
+  /** Blank-out fields that the active criterion hides so a row authored
+   *  under one criterion doesn't carry orphan values if the admin switches
+   *  later. */
+  const normalizeForSubmit = (input: ThanawiRuleRowInput): ThanawiRuleRowInput => ({
+    ...input,
+    grade: showGradePair ? input.grade : '',
+    gradeMax: showGradePair ? input.gradeMax : '',
+    scoreMin: showScorePair ? input.scoreMin : null,
+    scoreMax: showScorePair ? input.scoreMax : null,
+  });
 
   const handleSubmit = (): void => {
     if (!canSubmit) return;
+    const payload = normalizeForSubmit(draft);
     if (isEditing && editingId !== null) {
-      const result = updateThanawiRow(editingId, draft);
+      const result = updateThanawiRow(editingId, payload);
       if (!result.ok) {
         toast(
           result.reason === 'duplicate'
@@ -561,7 +632,7 @@ function ThanawiForm({
       toast('تم تعديل الشرط', 'success');
       return;
     }
-    const result = addThanawiRow(categoryCode, draft);
+    const result = addThanawiRow(categoryCode, payload);
     if (!result.ok) {
       toast('هذا الشرط موجود بالفعل في الجدول', 'danger');
       return;
@@ -647,57 +718,91 @@ function ThanawiForm({
           </FieldLabel>
         </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
-            <OperatorScoreField<MinScoreOperator>
-              operatorValue={draft.minScoreOperator}
-              onOperatorChange={(v) =>
-                setDraft((d) => ({ ...d, minScoreOperator: v }))
-              }
-              operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
-              operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
-              scoreValue={draft.scoreMin}
-              onScoreChange={(next) =>
-                setDraft((d) => ({ ...d, scoreMin: next }))
-              }
-              scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
-              invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
-              maxBound={MIN_SCORE_UPPER_BOUND}
-              onClampMessage={setScoreMinMessage}
-            />
-            {scoreMinMessage && (
-              <span className="font-ar text-2xs text-terra-700">
-                {scoreMinMessage}
-              </span>
-            )}
-          </FieldLabel>
+        {showGradePair && (
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <FieldLabel label="الحد الأدنى للتقدير" required>
+              <SearchSelect
+                ariaLabel="الحد الأدنى للتقدير"
+                value={draft.grade || null}
+                onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
+                options={gradeOptions}
+                placeholder="اختر التقدير…"
+              />
+            </FieldLabel>
 
-          <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
-            <OperatorScoreField<MaxScoreOperator>
-              operatorValue={draft.maxScoreOperator}
-              onOperatorChange={(v) =>
-                setDraft((d) => ({ ...d, maxScoreOperator: v }))
-              }
-              operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
-              operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
-              scoreValue={draft.scoreMax}
-              onScoreChange={(next) =>
-                setDraft((d) => ({ ...d, scoreMax: next }))
-              }
-              scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
-              invalid={
-                scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
-              }
-              maxBound={null}
-              onClampMessage={setScoreMaxMessage}
-            />
-            {(scoreMaxMessage || scoreOrderInvalid) && (
-              <span className="font-ar text-2xs text-terra-700">
-                {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
-              </span>
-            )}
-          </FieldLabel>
-        </div>
+            <FieldLabel label="الحد الأقصى للتقدير" required>
+              <SearchSelect
+                ariaLabel="الحد الأقصى للتقدير"
+                value={draft.gradeMax || null}
+                onChange={(v) =>
+                  setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
+                }
+                options={gradeOptions}
+                placeholder="اختر التقدير…"
+                invalid={gradeOrderInvalid}
+              />
+              {gradeOrderInvalid && (
+                <span className="font-ar text-2xs text-terra-700">
+                  يجب ألا يقل الحد الأقصى عن الحد الأدنى للتقدير.
+                </span>
+              )}
+            </FieldLabel>
+          </div>
+        )}
+
+        {showScorePair && (
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
+              <OperatorScoreField<MinScoreOperator>
+                operatorValue={draft.minScoreOperator}
+                onOperatorChange={(v) =>
+                  setDraft((d) => ({ ...d, minScoreOperator: v }))
+                }
+                operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
+                operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
+                scoreValue={draft.scoreMin}
+                onScoreChange={(next) =>
+                  setDraft((d) => ({ ...d, scoreMin: next }))
+                }
+                scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
+                invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
+                maxBound={MIN_SCORE_UPPER_BOUND}
+                onClampMessage={setScoreMinMessage}
+              />
+              {scoreMinMessage && (
+                <span className="font-ar text-2xs text-terra-700">
+                  {scoreMinMessage}
+                </span>
+              )}
+            </FieldLabel>
+
+            <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
+              <OperatorScoreField<MaxScoreOperator>
+                operatorValue={draft.maxScoreOperator}
+                onOperatorChange={(v) =>
+                  setDraft((d) => ({ ...d, maxScoreOperator: v }))
+                }
+                operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
+                operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
+                scoreValue={draft.scoreMax}
+                onScoreChange={(next) =>
+                  setDraft((d) => ({ ...d, scoreMax: next }))
+                }
+                scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
+                invalid={
+                  scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
+                }
+                maxBound={null}
+                onClampMessage={setScoreMaxMessage}
+              />
+              {(scoreMaxMessage || scoreOrderInvalid) && (
+                <span className="font-ar text-2xs text-terra-700">
+                  {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
+                </span>
+              )}
+            </FieldLabel>
+          </div>
+        )}
 
         <div className="mt-4 flex items-center justify-end gap-3">
           {!isHeaderComplete && (
@@ -733,6 +838,9 @@ function ThanawiForm({
         committeeOptions={committeeOptions}
         schoolCategoryOptions={schoolCategoryOptions}
         maritalOptions={maritalOptions}
+        gradeOptions={gradeOptions}
+        showGradePair={showGradePair}
+        showScorePair={showScorePair}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
@@ -748,6 +856,11 @@ interface ThanawiGridProps {
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   schoolCategoryOptions: ReadonlyArray<SearchSelectOption>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
+  gradeOptions: ReadonlyArray<SearchSelectOption>;
+  /** Mirror the form's visibility — hides تقدير / درجة columns when the
+   *  active criterion does not surface them. */
+  showGradePair: boolean;
+  showScorePair: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -759,6 +872,9 @@ function ThanawiGrid({
   committeeOptions,
   schoolCategoryOptions,
   maritalOptions,
+  gradeOptions,
+  showGradePair,
+  showScorePair,
   onEdit,
   onDelete,
 }: ThanawiGridProps): JSX.Element {
@@ -770,6 +886,8 @@ function ThanawiGrid({
     schoolCategoryOptions.find((o) => o.value === v)?.label ?? v;
   const labelForMarital = (v: string): string =>
     maritalOptions.find((o) => o.value === v)?.label ?? v;
+  const labelForGrade = (v: string): string =>
+    gradeOptions.find((o) => o.value === v)?.label ?? v;
 
   if (rows.length === 0) {
     return (
@@ -792,8 +910,10 @@ function ThanawiGrid({
             <Th>الدور</Th>
             <Th>سنة التخرج</Th>
             <Th>فئة المدرسة</Th>
-            <Th>الحد الأدنى للدرجة</Th>
-            <Th>الحد الأقصى للدرجة</Th>
+            {showGradePair && <Th>الحد الأدنى للتقدير</Th>}
+            {showGradePair && <Th>الحد الأقصى للتقدير</Th>}
+            {showScorePair && <Th>الحد الأدنى للدرجة</Th>}
+            {showScorePair && <Th>الحد الأقصى للدرجة</Th>}
             <Th>إجراءات</Th>
           </tr>
         </thead>
@@ -827,16 +947,26 @@ function ThanawiGrid({
                     values={r.schoolCategories.map(labelForSchool)}
                   />
                 </Td>
-                <Td>
-                  {r.scoreMin !== null
-                    ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
-                    : '—'}
-                </Td>
-                <Td>
-                  {r.scoreMax !== null
-                    ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
-                    : '—'}
-                </Td>
+                {showGradePair && (
+                  <Td>{r.grade ? labelForGrade(r.grade) : '—'}</Td>
+                )}
+                {showGradePair && (
+                  <Td>{r.gradeMax ? labelForGrade(r.gradeMax) : '—'}</Td>
+                )}
+                {showScorePair && (
+                  <Td>
+                    {r.scoreMin !== null
+                      ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
+                      : '—'}
+                  </Td>
+                )}
+                {showScorePair && (
+                  <Td>
+                    {r.scoreMax !== null
+                      ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
+                      : '—'}
+                  </Td>
+                )}
                 <td className="px-3 py-2 align-middle text-end">
                   <div className="inline-flex items-center gap-1">
                     <button

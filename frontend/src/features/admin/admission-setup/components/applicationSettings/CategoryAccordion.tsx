@@ -41,6 +41,10 @@ import { useLookup } from '@/features/lookups';
 import { useCategoryConfigs } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
 import {
+  deriveExcellenceMode,
+  type ExcellenceMode,
+} from '../../lib/excellenceMode';
+import {
   selectCategoryCompletion,
   useAdmissionSetupWizardStore,
   type CategoryCompletionState,
@@ -101,6 +105,7 @@ export function CategoryAccordion(): JSX.Element {
   const criterionLabelByCode = new Map(
     (excellenceQuery.data ?? []).map((row) => [row.code, row.name] as const),
   );
+  const excellenceRows = excellenceQuery.data ?? [];
 
   return (
     <Accordion.Root
@@ -122,6 +127,10 @@ export function CategoryAccordion(): JSX.Element {
               : criterionLabelByCode.get(config.excellenceCriterion) ??
                 config.excellenceCriterion
           }
+          excellenceMode={deriveExcellenceMode(
+            config.excellenceCriterion,
+            excellenceRows,
+          )}
         />
       ))}
     </Accordion.Root>
@@ -131,11 +140,16 @@ export function CategoryAccordion(): JSX.Element {
 interface ConfigItemProps {
   config: CategoryConfigJoined;
   excellenceLabel: string | null;
+  /** Resolved «معيار التمييز» discriminator — TAGDIR (تقدير) hides the
+   *  score pair, GRADES (درجة) hides the grade pair. `null` (no
+   *  criterion picked) keeps both pairs visible. */
+  excellenceMode: ExcellenceMode | null;
 }
 
 function ConfigItem({
   config,
   excellenceLabel,
+  excellenceMode,
 }: ConfigItemProps): JSX.Element {
   /* Selector reads both buckets — see `selectCategoryCompletion` JSDoc.
    * Authored rows that haven't been promoted via the section-level
@@ -207,9 +221,13 @@ function ConfigItem({
             categoryCode={config.categoryCode}
             facultyCodes={config.categoryFacultyCodes}
             specializationCodes={config.categorySpecializationCodes}
+            excellenceMode={excellenceMode}
           />
         ) : (
-          <ThanawiRulesSection categoryCode={config.categoryCode} />
+          <ThanawiRulesSection
+            categoryCode={config.categoryCode}
+            excellenceMode={excellenceMode}
+          />
         )}
       </Accordion.Content>
     </Accordion.Item>
