@@ -1,45 +1,40 @@
 /**
  * /admin/committees-exam-config — committee instances management.
  *
- * Lists every CommitteeInstance configured across cycles. Each row is a
- * cycle-bound, dated, capacity-bearing assignment that pairs a lookup
- * CommitteeDefinition with a (cycle × date) slot. The same record set
- * the admission-setup wizard step authors at
+ * Lists every CommitteeInstance configured for the **currently selected
+ * cycle**, grouped by exam day. Each day section lists the committees
+ * sitting on that day with their category, capacity, and inline-editable
+ * capacity. Same record set the admission-setup wizard step authors at
  * `/admin/cycles/admission-setup/wizard/committees`.
  *
- * Editable inline: `date` and `capacity`. Saving writes through the
- * shared `committeeInstanceService`, so changes round-trip to the wizard
- * surface on next render.
- *
- * Columns:
- *   - الدورة            — cycle (filter: enum)
- *   - الفئة             — applicant-category (filter: enum)
- *   - اللجنة            — committee name resolved from the lookup
- *   - تاريخ الاختبار     — date (inline edit, filter: date range)
- *   - سعة اللجنة         — capacity (inline edit, filter: number range)
- *   - إجراءات           — delete
+ * Cycle scope:
+ *   - The cycle id is read from the `?cycle=…` URL search param so the
+ *     selection survives navigation back to the page.
+ *   - Default: the active cycle (`useActiveCycle()`), falling back to the
+ *     first cycle that has at least one instance.
+ *   - When more than one cycle exists in the system, a SearchSelect
+ *     surfaces next to the page header for switching.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { Check, Pencil, Trash2, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Check, Pencil, X } from 'lucide-react';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
   Card,
-  DataTable,
-  DatePicker,
   EmptyState,
+  LoadingState,
   PageHeader,
+  SearchSelect,
   toast,
 } from '@/shared/components';
-import type { DataTableColumn } from '@/shared/components';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
-import { useCycles } from '../api/cycles.queries';
+import { useActiveCycle, useCycles } from '../api/cycles.queries';
 import { useLookup } from '@/features/lookups';
 import {
   useCommitteeInstances,
-  useRemoveCommitteeInstanceMutation,
   useUpdateCommitteeInstanceMutation,
 } from '@/features/committees';
 import type { AdmissionCycle, CommitteeInstance } from '@/shared/types/domain';
@@ -54,38 +49,56 @@ function isBlockedNumericKey(event: KeyboardEvent<HTMLInputElement>): boolean {
   return BLOCKED_NUMERIC_KEYS.has(event.key);
 }
 
-function toIsoDate(d: Date): string {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function fromIsoDate(iso: string): Date | null {
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
-}
-
 interface InstanceRow extends CommitteeInstance {
-  cycleLabelAr: string;
   categoryLabelAr: string;
   committeeName: string;
 }
 
+interface DayGroup {
+  date: string;
+  rows: InstanceRow[];
+}
+
 export function CommitteeInstancesPage(): JSX.Element {
-  const instancesQuery = useCommitteeInstances();
+  const [searchParams, setSearchParams] = useSearchParams();
   const cyclesQuery = useCycles({ includeDeleted: false });
+  const activeCycleQuery = useActiveCycle();
+  const allInstancesQuery = useCommitteeInstances();
   const definitionsQuery = useLookup('committees');
   const categoriesQuery = useLookup('applicant-categories');
-  const removeMut = useRemoveCommitteeInstanceMutation();
-  const updateMut = useUpdateCommitteeInstanceMutation();
 
-  const cycleById = useMemo(() => {
-    const map = new Map<string, AdmissionCycle>();
-    for (const c of cyclesQuery.data ?? []) map.set(c.id, c);
-    return map;
-  }, [cyclesQuery.data]);
+  /* Cycle resolution: explicit `?cycle=` wins; else active cycle id; else
+   * the first cycle that has any instances; else null. Stored back into
+   * the URL search param when the user picks one so the selection is
+   * shareable + survives back/forward nav. */
+  const cycleIdsWithInstances = useMemo(() => {
+    const set = new Set<string>();
+    for (const i of allInstancesQuery.data ?? []) set.add(i.cycleId);
+    return set;
+  }, [allInstancesQuery.data]);
+
+  const explicitCycleId = searchParams.get('cycle');
+  const resolvedCycleId = useMemo<string | null>(() => {
+    if (explicitCycleId) return explicitCycleId;
+    if (activeCycleQuery.data?.id) return activeCycleQuery.data.id;
+    const first = (cyclesQuery.data ?? []).find((c) => cycleIdsWithInstances.has(c.id));
+    if (first) return first.id;
+    return cyclesQuery.data?.[0]?.id ?? null;
+  }, [
+    explicitCycleId,
+    activeCycleQuery.data,
+    cyclesQuery.data,
+    cycleIdsWithInstances,
+  ]);
+
+  const setCycleId = (next: string | null): void => {
+    setSearchParams((prev) => {
+      const sp = new URLSearchParams(prev);
+      if (next) sp.set('cycle', next);
+      else sp.delete('cycle');
+      return sp;
+    });
+  };
 
   const categoryLabelByKey = useMemo(() => {
     const map = new Map<string, string>();
@@ -100,42 +113,182 @@ export function CommitteeInstancesPage(): JSX.Element {
   }, [definitionsQuery.data]);
 
   const rows = useMemo<InstanceRow[]>(() => {
-    return (instancesQuery.data ?? []).map((inst) => ({
-      ...inst,
-      cycleLabelAr: cycleById.get(inst.cycleId)?.nameAr ?? inst.cycleId,
-      categoryLabelAr: categoryLabelByKey.get(inst.categoryKey) ?? inst.categoryKey,
-      committeeName: definitionNameByCode.get(inst.definitionCode) ?? inst.definitionCode,
-    }));
-  }, [instancesQuery.data, cycleById, categoryLabelByKey, definitionNameByCode]);
+    if (!resolvedCycleId) return [];
+    return (allInstancesQuery.data ?? [])
+      .filter((i) => i.cycleId === resolvedCycleId)
+      .map((inst) => ({
+        ...inst,
+        categoryLabelAr: categoryLabelByKey.get(inst.categoryKey) ?? inst.categoryKey,
+        committeeName: definitionNameByCode.get(inst.definitionCode) ?? inst.definitionCode,
+      }));
+  }, [
+    allInstancesQuery.data,
+    resolvedCycleId,
+    categoryLabelByKey,
+    definitionNameByCode,
+  ]);
+
+  /* Group rows by date; sort dates ascending. Within each day, primary
+   * sort by category label then committee name so visually consecutive
+   * committees from the same category cluster together. */
+  const dayGroups = useMemo<DayGroup[]>(() => {
+    const arabicCmp = (a: string, b: string): number =>
+      a.localeCompare(b, 'ar', { numeric: true });
+    const bucket = new Map<string, InstanceRow[]>();
+    for (const r of rows) {
+      const list = bucket.get(r.date);
+      if (list) list.push(r);
+      else bucket.set(r.date, [r]);
+    }
+    return Array.from(bucket.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, rs]) => ({
+        date,
+        rows: [...rs].sort((a, b) => {
+          const c = arabicCmp(a.categoryLabelAr, b.categoryLabelAr);
+          return c !== 0 ? c : arabicCmp(a.committeeName, b.committeeName);
+        }),
+      }));
+  }, [rows]);
 
   const cycleOptions = useMemo(
     () =>
-      Array.from(new Set(rows.map((r) => r.cycleId))).map((id) => ({
-        value: id,
-        label: cycleById.get(id)?.nameAr ?? id,
+      (cyclesQuery.data ?? []).map((c) => ({
+        value: c.id,
+        label: c.nameAr,
+        keywords: c.labelEn ?? '',
       })),
-    [rows, cycleById],
+    [cyclesQuery.data],
   );
 
-  const categoryOptions = useMemo(
-    () =>
-      Array.from(new Set(rows.map((r) => r.categoryKey))).map((key) => ({
-        value: key,
-        label: categoryLabelByKey.get(key) ?? key,
-      })),
-    [rows, categoryLabelByKey],
-  );
+  const selectedCycle = useMemo<AdmissionCycle | null>(() => {
+    if (!resolvedCycleId) return null;
+    return (cyclesQuery.data ?? []).find((c) => c.id === resolvedCycleId) ?? null;
+  }, [cyclesQuery.data, resolvedCycleId]);
 
-  const handleDateCommit = (row: InstanceRow, nextIso: string): void => {
-    if (nextIso === row.date) return;
-    updateMut.mutate(
-      { id: row.id, patch: { date: nextIso } },
-      {
-        onSuccess: () => toast('تم تحديث التاريخ', 'success'),
-        onError: (err) => toast((err as Error).message, 'danger'),
-      },
-    );
-  };
+  const showCycleSelector = (cyclesQuery.data ?? []).length > 1;
+
+  const loading =
+    allInstancesQuery.isLoading ||
+    cyclesQuery.isLoading ||
+    definitionsQuery.isLoading ||
+    categoriesQuery.isLoading;
+
+  return (
+    <CenteredShell>
+      <PageHeader
+        title="إدارة مواعيد اللجان"
+        subtitle="مواعيد اللجان داخل الدورة المختارة، مُجمَّعة باليوم. اللجان نفسها تُدار في الأكواد المرجعية؛ مواعيد كل دورة تُنشأ من معالج إعداد التقديم وتُحرّر هنا."
+        breadcrumbs={[
+          { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
+          { label: 'مواعيد اللجان' },
+        ]}
+      />
+
+      <CycleHeaderBlock
+        cycle={selectedCycle}
+        showSelector={showCycleSelector}
+        options={cycleOptions}
+        onChange={setCycleId}
+      />
+
+      {loading ? (
+        <LoadingState variant="card-grid" />
+      ) : dayGroups.length === 0 ? (
+        <Card>
+          <div className="p-6">
+            <EmptyState
+              variant="generic"
+              title={
+                selectedCycle
+                  ? `لا توجد مواعيد لجان في ${selectedCycle.nameAr}`
+                  : 'لا توجد مواعيد لجان لعرضها'
+              }
+              description="افتح إعداد التقديم في «دورات القبول» لإنشاء أول موعد."
+            />
+          </div>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {dayGroups.map((group) => (
+            <DaySection key={group.date} group={group} />
+          ))}
+        </div>
+      )}
+    </CenteredShell>
+  );
+}
+
+/* ── Cycle field at the top of the page ─────────────────────────── */
+
+interface CycleHeaderBlockProps {
+  cycle: AdmissionCycle | null;
+  showSelector: boolean;
+  options: ReadonlyArray<{ value: string; label: string; keywords?: string }>;
+  onChange: (next: string | null) => void;
+}
+
+function CycleHeaderBlock({
+  cycle,
+  showSelector,
+  options,
+  onChange,
+}: CycleHeaderBlockProps): JSX.Element {
+  return (
+    <Card variant="elevated" className="mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-2xs font-medium uppercase tracking-wide text-ink-500">
+            الدورة
+          </span>
+          <span className="font-ar-display text-md font-bold text-ink-900">
+            {cycle ? cycle.nameAr : 'لم تُحدد بعد'}
+          </span>
+        </div>
+        {showSelector && (
+          <div className="min-w-[18rem]">
+            <SearchSelect
+              ariaLabel="اختر الدورة"
+              value={cycle?.id ?? null}
+              onChange={(next) => onChange(next)}
+              options={options}
+              placeholder="اختر دورة…"
+            />
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/* ── Day section ────────────────────────────────────────────────── */
+
+interface DaySectionProps {
+  group: DayGroup;
+}
+
+function DaySection({ group }: DaySectionProps): JSX.Element {
+  return (
+    <Card>
+      <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
+        <h2 className="font-ar-display text-sm font-bold text-ink-900">
+          {fmtDate(group.date, 'full')}
+        </h2>
+        <span className="text-2xs text-ink-500">
+          {num(group.rows.length)} لجنة
+        </span>
+      </header>
+      <CommitteeRowsTable rows={group.rows} />
+    </Card>
+  );
+}
+
+interface CommitteeRowsTableProps {
+  rows: InstanceRow[];
+}
+
+function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
+  const updateMut = useUpdateCommitteeInstanceMutation();
 
   const handleCapacityCommit = (row: InstanceRow, next: number): void => {
     if (next === row.capacity) return;
@@ -148,199 +301,42 @@ export function CommitteeInstancesPage(): JSX.Element {
     );
   };
 
-  const handleDelete = (row: InstanceRow): void => {
-    if (typeof window !== 'undefined') {
-      const ok = window.confirm('سيتم حذف هذا الموعد. هل تريد المتابعة؟');
-      if (!ok) return;
-    }
-    removeMut.mutate(row.id, {
-      onSuccess: () => toast('تم حذف الموعد', 'success'),
-      onError: (err) => toast((err as Error).message, 'danger'),
-    });
-  };
-
-  const columns: DataTableColumn<InstanceRow>[] = [
-    {
-      key: 'cycleLabelAr',
-      label: 'الدورة',
-      sortable: true,
-      accessor: 'cycleLabelAr',
-      filter: {
-        kind: 'enum',
-        getValue: (r) => r.cycleId,
-        options: cycleOptions,
-      },
-    },
-    {
-      key: 'categoryLabelAr',
-      label: 'الفئة',
-      sortable: true,
-      accessor: 'categoryLabelAr',
-      filter: {
-        kind: 'enum',
-        getValue: (r) => r.categoryKey,
-        options: categoryOptions,
-      },
-    },
-    {
-      key: 'committeeName',
-      label: 'اللجنة',
-      sortable: true,
-      accessor: 'committeeName',
-      filter: {
-        kind: 'text',
-        getValue: (r) => r.committeeName,
-        placeholder: 'بحث…',
-      },
-    },
-    {
-      key: 'date',
-      label: 'تاريخ الاختبار',
-      sortable: true,
-      accessor: 'date',
-      filter: {
-        kind: 'date',
-        getValue: (r) => r.date,
-      },
-      render: (row) => (
-        <DateCell
-          row={row}
-          isSaving={updateMut.isPending}
-          onCommit={(iso) => handleDateCommit(row, iso)}
-        />
-      ),
-    },
-    {
-      key: 'capacity',
-      label: 'سعة اللجنة',
-      sortable: true,
-      numeric: true,
-      getSortValue: (r) => r.capacity,
-      filter: {
-        kind: 'number',
-        getValue: (r) => r.capacity,
-      },
-      render: (row) => (
-        <CapacityCell
-          row={row}
-          isSaving={updateMut.isPending}
-          onCommit={(next) => handleCapacityCommit(row, next)}
-        />
-      ),
-    },
-    {
-      key: 'actions',
-      label: '',
-      align: 'end',
-      render: (row) => (
-        <button
-          type="button"
-          aria-label="حذف الموعد"
-          onClick={() => handleDelete(row)}
-          className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-        >
-          <Trash2 size={14} strokeWidth={1.75} aria-hidden />
-        </button>
-      ),
-    },
-  ];
-
-  const loading =
-    instancesQuery.isLoading ||
-    cyclesQuery.isLoading ||
-    definitionsQuery.isLoading ||
-    categoriesQuery.isLoading;
-
   return (
-    <CenteredShell>
-      <PageHeader
-        title="إدارة مواعيد اللجان"
-        subtitle="كل مواعيد اللجان المُعَدّة عبر الدورات. اللجان نفسها تُدار في الأكواد المرجعية؛ مواعيد كل دورة تُنشأ من معالج إعداد التقديم وتُحرّر هنا."
-        breadcrumbs={[
-          { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
-          { label: 'مواعيد اللجان' },
-        ]}
-      />
-
-      <Card>
-        <DataTable<InstanceRow>
-          data={rows}
-          columns={columns}
-          rowKey={(r) => r.id}
-          loading={loading}
-          empty={
-            <EmptyState
-              variant="generic"
-              title="لا توجد مواعيد لجان حالياً"
-              description="افتح إعداد التقديم في «دورات القبول» لإنشاء أول موعد."
-            />
-          }
-          zebraStripes
-        />
-      </Card>
-    </CenteredShell>
-  );
-}
-
-/* ── Inline-editable date cell ────────────────────────────────────── */
-
-interface DateCellProps {
-  row: InstanceRow;
-  isSaving: boolean;
-  onCommit: (iso: string) => void;
-}
-
-function DateCell({ row, isSaving, onCommit }: DateCellProps): JSX.Element {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<Date | null>(fromIsoDate(row.date));
-
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          setDraft(fromIsoDate(row.date));
-          setEditing(true);
-        }}
-        aria-label="تعديل التاريخ"
-        className="group inline-flex items-center justify-start gap-1.5 rounded-md px-1 py-0.5 text-ink-900 transition-colors hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
-      >
-        <span>{fmtDate(row.date, 'full')}</span>
-        <Pencil
-          size={11}
-          strokeWidth={1.75}
-          className="text-ink-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
-          aria-hidden
-        />
-      </button>
-    );
-  }
-
-  return (
-    <div className="inline-flex items-center gap-1">
-      <DatePicker value={draft} onChange={setDraft} placeholder="اختر اليوم…" />
-      <button
-        type="button"
-        aria-label="حفظ التاريخ"
-        disabled={isSaving || !draft}
-        onClick={() => {
-          if (!draft) return;
-          onCommit(toIsoDate(draft));
-          setEditing(false);
-        }}
-        className="inline-flex items-center justify-center rounded-md p-1 text-teal-700 transition-colors hover:bg-teal-50 focus-visible:shadow-focus-teal focus-visible:outline-none disabled:opacity-50"
-      >
-        <Check size={12} strokeWidth={2} aria-hidden />
-      </button>
-      <button
-        type="button"
-        aria-label="إلغاء"
-        onClick={() => setEditing(false)}
-        disabled={isSaving}
-        className="inline-flex items-center justify-center rounded-md p-1 text-ink-500 transition-colors hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none disabled:opacity-50"
-      >
-        <X size={12} strokeWidth={2} aria-hidden />
-      </button>
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead className="bg-surface-sunken">
+          <tr>
+            <th className="px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
+              الفئة
+            </th>
+            <th className="px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
+              اللجنة
+            </th>
+            <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
+              سعة اللجنة
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className="border-t border-border-subtle hover:bg-ink-50/40">
+              <td className="px-4 py-2 align-middle text-ink-900">
+                {row.categoryLabelAr}
+              </td>
+              <td className="px-4 py-2 align-middle text-ink-900">
+                {row.committeeName}
+              </td>
+              <td className="px-4 py-2 align-middle text-end">
+                <CapacityCell
+                  row={row}
+                  isSaving={updateMut.isPending}
+                  onCommit={(next) => handleCapacityCommit(row, next)}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -356,6 +352,13 @@ interface CapacityCellProps {
 function CapacityCell({ row, isSaving, onCommit }: CapacityCellProps): JSX.Element {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>(String(row.capacity));
+
+  /* Keep draft in sync if upstream capacity changes (e.g. via the wizard
+   * step) while the field is collapsed. Only mirrors when not editing so
+   * the user's in-progress edit isn't stomped. */
+  useEffect(() => {
+    if (!editing) setDraft(String(row.capacity));
+  }, [editing, row.capacity]);
 
   const commit = (): void => {
     const next = Number(draft);
