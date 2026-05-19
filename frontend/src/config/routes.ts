@@ -114,6 +114,9 @@ export const ROUTES = {
   applicantProfile: '/applicant/profile',
   applicantVerify: '/applicant/verify',
   applicantFamily: '/applicant/profile/family',
+  /** Review + اعتماد step — surfaces the family summary table as a
+   *  dedicated wizard stop between data entry and exam-date selection. */
+  applicantFamilyReview: '/applicant/profile/family-review',
   applicantPayment: '/applicant/payment',
   applicantExamSchedule: '/applicant/exam-schedule',
   applicantPrintCard: '/applicant/print-card',

@@ -10,6 +10,7 @@ export { Stage345ApplicantDataPage } from './pages/Stage345ApplicantDataPage';
 
 export { Stage6PaymentPage } from './pages/Stage6PaymentPage';
 export { Stage7FamilyPage } from './pages/Stage7FamilyPage';
+export { Stage7ReviewFamilyPage } from './pages/Stage7ReviewFamilyPage';
 export { Stage8ExamSchedulePage } from './pages/Stage8ExamSchedulePage';
 export { Stage9PrintCardPage } from './pages/Stage9PrintCardPage';
 export { Stage10FollowUpPage } from './pages/Stage10FollowUpPage';

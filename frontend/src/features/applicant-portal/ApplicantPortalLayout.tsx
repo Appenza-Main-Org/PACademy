@@ -44,6 +44,7 @@ export const STAGE_KEYS = [
   '', // summary — the `/applicant` index route
   'payment',
   'profile/family',
+  'profile/family-review',
   'exam-schedule',
   'print-card',
   'follow-up',
@@ -55,6 +56,7 @@ export const STAGE_LABELS = [
   'ملخّص الطلب',
   'سداد رسوم التقديم',
   'بيانات العائلة',
+  'عرض واعتماد بيانات العائلة',
   'موعد الاختبار',
   'بطاقة التردد',
   'نتائج الاختبارات',

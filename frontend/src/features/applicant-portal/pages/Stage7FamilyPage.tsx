@@ -14,17 +14,14 @@
  * "last known residence" — they stay required.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
-import { Check, Heart, Info, Pencil, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
+import { ArrowRight, Check, Heart, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
 import {
-  Badge,
   Button,
   Card,
-  DataTable,
   Field,
-  IconStamp,
   Input,
   SearchSelect,
   Select,
@@ -32,15 +29,21 @@ import {
   Textarea,
   toast,
 } from '@/shared/components';
-import type { DataTableColumn, SearchSelectOption } from '@/shared/components';
+import type { SearchSelectOption } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
-import { useApplicantPortalStore } from '../store/applicantPortal.store';
-import { useApproveParentsMutation } from '../api/applicantPortal.queries';
 import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
 import { CITIES } from '@/shared/mock-data/dictionaries';
-import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
-
-const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
+import {
+  EMPTY_GUARDIAN,
+  EMPTY_MEMBER,
+  PROFESSION_OPTIONS,
+  RELATIVE_LABEL,
+  saveFamilySnapshot,
+  type FamilyMemberForm,
+  type GrandparentsForm,
+  type GuardianForm,
+  type RelativeKind,
+} from '../lib/familyData';
 
 const GOV_OPTIONS: readonly SearchSelectOption[] = REF_GOVERNORATES.map((g) => ({
   value: g.nameAr,
@@ -53,71 +56,7 @@ const DISTRICT_OPTIONS: readonly SearchSelectOption[] = CITIES.map((c) => ({
   label: c,
 }));
 
-const PROFESSION_OPTIONS = [
-  { value: '', label: '— اختر —' },
-  { value: 'police_officer', label: 'ضابط شرطة' },
-  { value: 'army_officer', label: 'ضابط جيش' },
-  { value: 'doctor', label: 'طبيب' },
-  { value: 'engineer', label: 'مهندس' },
-  { value: 'teacher', label: 'معلّم' },
-  { value: 'lawyer', label: 'محامي' },
-  { value: 'merchant', label: 'تاجر' },
-  { value: 'gov_employee', label: 'موظف حكومي' },
-  { value: 'private_employee', label: 'موظف قطاع خاص' },
-  { value: 'retired', label: 'متقاعد' },
-  { value: 'housewife', label: 'ربة منزل' },
-  { value: 'other', label: 'أخرى' },
-] as const;
-
 const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
-
-interface FamilyMemberForm {
-  name: string;
-  nationalId: string;
-  /** When true, NID input is hidden and a `nidUnavailableReason` dropdown
-   *  is required. Per client direction 2026-05-19 (تعذر وجود الرقم القومي). */
-  nidUnavailable: boolean;
-  nidUnavailableReason: '' | 'fallen_record' | 'born_abroad';
-  shuhra?: string;
-  religion: 'مسلم' | 'مسيحي';
-  dateOfBirth: string;
-  birthGovernorate: string;
-  birthDistrict: string;
-  /** متوفي toggle — moved to the END of the card per client request;
-   *  address fields stay visible/required when on. */
-  deceased: boolean;
-  residenceGovernorate: string;
-  residenceDistrict: string;
-  residenceDetail: string;
-  profession: string;
-  /** Required when profession is شرطة / جيش — labelled "رقم الأقدمية". */
-  seniorityNumber?: string;
-  /** المؤهل + free-text descriptors added per client request 2026-05-19. */
-  qualification: string;
-  qualificationDetail: string;
-  professionDetail: string;
-}
-
-const EMPTY_MEMBER: FamilyMemberForm = {
-  name: '',
-  nationalId: '',
-  nidUnavailable: false,
-  nidUnavailableReason: '',
-  shuhra: '',
-  religion: 'مسلم',
-  dateOfBirth: '',
-  birthGovernorate: '',
-  birthDistrict: '',
-  deceased: false,
-  residenceGovernorate: '',
-  residenceDistrict: '',
-  residenceDetail: '',
-  profession: '',
-  seniorityNumber: '',
-  qualification: '',
-  qualificationDetail: '',
-  professionDetail: '',
-};
 
 const QUALIFICATION_OPTIONS = [
   { value: '', label: '— اختر —' },
@@ -132,45 +71,9 @@ const QUALIFICATION_OPTIONS = [
   { value: 'other', label: 'أخرى' },
 ] as const;
 
-type RelativeKind =
-  | 'brothers'
-  | 'sisters'
-  | 'paternal_uncles'
-  | 'paternal_aunts'
-  | 'maternal_aunts'
-  | 'maternal_uncles';
-
-const RELATIVE_LABEL: Record<RelativeKind, { plural: string; singular: string }> = {
-  brothers: { plural: 'الإخوة', singular: 'الأخ' },
-  sisters: { plural: 'الأخوات', singular: 'الأخت' },
-  paternal_uncles: { plural: 'الأعمام', singular: 'العم' },
-  paternal_aunts: { plural: 'العمات', singular: 'العمة' },
-  maternal_aunts: { plural: 'الخالات', singular: 'الخالة' },
-  maternal_uncles: { plural: 'الأخوال', singular: 'الخال' },
-};
-
-interface GuardianForm {
-  name: string;
-  profession: string;
-  /** Required when profession is شرطة / جيش — same رقم الأقدمية rule
-   *  as MemberFormCard. */
-  seniorityNumber?: string;
-  qualification: string;
-  qualificationDetail: string;
-  professionDetail: string;
-  workplaceDetail: string;
-}
-
-const EMPTY_GUARDIAN: GuardianForm = {
-  name: '',
-  profession: '',
-  seniorityNumber: '',
-  qualification: '',
-  qualificationDetail: '',
-  professionDetail: '',
-  workplaceDetail: '',
-};
-
+/* Tab keys — `view` was retired as the data-entry page's last tab and
+ * moved into a dedicated wizard step (`/applicant/profile/family-review`)
+ * per client direction 2026-05-19. */
 type TabKey =
   | 'father'
   | 'father-wives'
@@ -178,20 +81,10 @@ type TabKey =
   | 'mother-husbands'
   | 'grandparents'
   | RelativeKind
-  | 'guardian'
-  | 'view';
-
-interface GrandparentsForm {
-  paternalGrandfather: FamilyMemberForm;
-  paternalGrandmother: FamilyMemberForm;
-  maternalGrandfather: FamilyMemberForm;
-  maternalGrandmother: FamilyMemberForm;
-}
+  | 'guardian';
 
 export function Stage7FamilyPage(): JSX.Element {
   const navigate = useNavigate();
-  const setParentsApproved = useApplicantPortalStore((s) => s.setParentsApproved);
-  const approveMut = useApproveParentsMutation(APPLICANT_ID);
 
   const [tab, setTab] = useState<TabKey>('father');
   const [father, setFather] = useState<FamilyMemberForm>(EMPTY_MEMBER);
@@ -316,12 +209,31 @@ export function Stage7FamilyPage(): JSX.Element {
     && relativesOk
     && guardianOk;
 
-  const onApprove = async (): Promise<void> => {
-    if (!canApprove) return;
-    await approveMut.mutateAsync();
-    setParentsApproved(true);
-    toast('تم اعتماد بيانات العائلة', 'success');
-    navigate(ROUTES.applicantExamSchedule);
+  /* Snapshot all family state to sessionStorage and hand off to the
+   * dedicated review step (`/applicant/profile/family-review`) for
+   * summary + اعتماد. Available regardless of the canApprove gate so
+   * the applicant can review partial progress too — the اعتماد button
+   * on the review page enforces completeness. */
+  const onContinueToReview = (): void => {
+    saveFamilySnapshot({
+      father,
+      mother,
+      fatherWives,
+      motherHusbands,
+      grandparents,
+      relatives,
+      guardian,
+      savedFather,
+      savedMother,
+      savedFatherWives,
+      savedMotherHusbands,
+      savedGrandparents,
+      savedRelatives,
+      savedGuardian,
+      hasFatherWives,
+      hasMotherHusbands,
+    });
+    navigate(ROUTES.applicantFamilyReview);
   };
 
   return (
@@ -382,7 +294,6 @@ export function Stage7FamilyPage(): JSX.Element {
           <Tabs.Tab value="guardian">
             <TabLabel saved={guardianOk}>تحديد ولي الأمر</TabLabel>
           </Tabs.Tab>
-          <Tabs.Tab value="view">عرض واعتماد بيانات العائلة</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="father">
@@ -534,36 +445,36 @@ export function Stage7FamilyPage(): JSX.Element {
             onSave={() => {
               setSavedGuardian(true);
               toast('تم حفظ بيانات ولي الأمر', 'success');
-              setTab('view');
             }}
           />
         </Tabs.Panel>
-
-        <Tabs.Panel value="view">
-          <ViewPanel
-            rows={buildRows({
-              father,
-              mother,
-              fatherWives,
-              motherHusbands,
-              grandparents,
-              relatives,
-              savedRelatives,
-              guardian,
-              savedGuardian,
-              savedFather,
-              savedMother,
-              savedFatherWives,
-              savedMotherHusbands,
-              savedGrandparents,
-            })}
-            canApprove={canApprove}
-            approving={approveMut.isPending}
-            onApprove={onApprove}
-            onEdit={(t) => setTab(t)}
-          />
-        </Tabs.Panel>
       </Tabs>
+
+      {/* Footer CTA — bumps the applicant to the dedicated review +
+          اعتماد step. Always enabled; the review page enforces the
+          completeness gate. */}
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-ar-display text-md font-bold text-ink-900">
+              الانتقال لمراجعة بيانات العائلة
+            </h3>
+            <p className="mt-1 text-2xs text-ink-500">
+              {canApprove
+                ? 'كل البيانات مكتملة — انتقل لعرض الملخّص والاعتماد.'
+                : 'يمكنك الانتقال للمراجعة، وسيظهر الجدول مع تنبيه بأي حقول ناقصة.'}
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={onContinueToReview}
+            trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}
+          >
+            متابعة للمراجعة
+          </Button>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -1152,224 +1063,6 @@ function isFilled(m: FamilyMemberForm): boolean {
     m.residenceGovernorate.length > 0 &&
     m.residenceDistrict.length > 0 &&
     m.residenceDetail.length >= 5
-  );
-}
-
-/* ─── ViewPanel + table ───────────────────────────────────────────── */
-
-interface ViewRow {
-  serial: number;
-  name: string;
-  relation: string;
-  profession: string;
-  saved: boolean;
-  roleKey: TabKey;
-}
-
-function professionLabel(code: string): string {
-  return PROFESSION_OPTIONS.find((o) => o.value === code)?.label ?? '—';
-}
-
-function buildRows(input: {
-  father: FamilyMemberForm;
-  mother: FamilyMemberForm;
-  fatherWives: readonly FamilyMemberForm[];
-  motherHusbands: readonly FamilyMemberForm[];
-  grandparents: GrandparentsForm;
-  relatives: Record<RelativeKind, readonly FamilyMemberForm[]>;
-  savedRelatives: Record<RelativeKind, readonly boolean[]>;
-  guardian: GuardianForm;
-  savedGuardian: boolean;
-  savedFather: boolean;
-  savedMother: boolean;
-  savedFatherWives: readonly boolean[];
-  savedMotherHusbands: readonly boolean[];
-  savedGrandparents: Record<keyof GrandparentsForm, boolean>;
-}): readonly ViewRow[] {
-  const rows: ViewRow[] = [];
-  let n = 1;
-  rows.push({
-    serial: n++,
-    name: input.father.name || '—',
-    relation: 'الأب',
-    profession: professionLabel(input.father.profession),
-    saved: input.savedFather,
-    roleKey: 'father',
-  });
-  input.fatherWives.forEach((w, i) => {
-    rows.push({
-      serial: n++,
-      name: w.name || '—',
-      relation: `زوجة الأب ${i + 1}`,
-      profession: professionLabel(w.profession),
-      saved: input.savedFatherWives[i] === true,
-      roleKey: 'father-wives',
-    });
-  });
-  rows.push({
-    serial: n++,
-    name: input.mother.name || '—',
-    relation: 'الأم',
-    profession: professionLabel(input.mother.profession),
-    saved: input.savedMother,
-    roleKey: 'mother',
-  });
-  input.motherHusbands.forEach((h, i) => {
-    rows.push({
-      serial: n++,
-      name: h.name || '—',
-      relation: `زوج الأم ${i + 1}`,
-      profession: professionLabel(h.profession),
-      saved: input.savedMotherHusbands[i] === true,
-      roleKey: 'mother-husbands',
-    });
-  });
-  rows.push({
-    serial: n++,
-    name: input.grandparents.paternalGrandfather.name || '—',
-    relation: 'الجد لأب',
-    profession: professionLabel(input.grandparents.paternalGrandfather.profession),
-    saved: input.savedGrandparents.paternalGrandfather,
-    roleKey: 'grandparents',
-  });
-  rows.push({
-    serial: n++,
-    name: input.grandparents.paternalGrandmother.name || '—',
-    relation: 'الجدة لأب',
-    profession: professionLabel(input.grandparents.paternalGrandmother.profession),
-    saved: input.savedGrandparents.paternalGrandmother,
-    roleKey: 'grandparents',
-  });
-  rows.push({
-    serial: n++,
-    name: input.grandparents.maternalGrandfather.name || '—',
-    relation: 'الجد لأم',
-    profession: professionLabel(input.grandparents.maternalGrandfather.profession),
-    saved: input.savedGrandparents.maternalGrandfather,
-    roleKey: 'grandparents',
-  });
-  rows.push({
-    serial: n++,
-    name: input.grandparents.maternalGrandmother.name || '—',
-    relation: 'الجدة لأم',
-    profession: professionLabel(input.grandparents.maternalGrandmother.profession),
-    saved: input.savedGrandparents.maternalGrandmother,
-    roleKey: 'grandparents',
-  });
-  /* Dynamic relatives — only render rows for kinds the applicant added. */
-  (Object.keys(RELATIVE_LABEL) as RelativeKind[]).forEach((kind) => {
-    input.relatives[kind].forEach((m, i) => {
-      rows.push({
-        serial: n++,
-        name: m.name || '—',
-        relation: `${RELATIVE_LABEL[kind].singular} ${i + 1}`,
-        profession: professionLabel(m.profession),
-        saved: input.savedRelatives[kind][i] === true,
-        roleKey: kind,
-      });
-    });
-  });
-  /* Guardian — last row in the summary. */
-  rows.push({
-    serial: n++,
-    name: input.guardian.name || '—',
-    relation: 'ولي الأمر',
-    profession: professionLabel(input.guardian.profession),
-    saved: input.savedGuardian,
-    roleKey: 'guardian',
-  });
-  return rows;
-}
-
-function ViewPanel({
-  rows,
-  canApprove,
-  approving,
-  onApprove,
-  onEdit,
-}: {
-  rows: readonly ViewRow[];
-  canApprove: boolean;
-  approving: boolean;
-  onApprove: () => void;
-  onEdit: (role: TabKey) => void;
-}): JSX.Element {
-  const columns: DataTableColumn<ViewRow>[] = useMemo(
-    () => [
-      { key: 'serial', label: 'م', width: '56px', render: (r: ViewRow) => <span className="font-numeric tnum">{r.serial}</span> },
-      { key: 'name', label: 'الإسم', render: (r: ViewRow) => r.name },
-      { key: 'relation', label: 'درجة القرابة', render: (r: ViewRow) => r.relation },
-      { key: 'profession', label: 'المهنة', render: (r: ViewRow) => r.profession },
-      {
-        key: 'saved',
-        label: 'الحالة',
-        render: (r: ViewRow) =>
-          r.saved ? (
-            <Badge tone="success">
-              <Check size={11} strokeWidth={1.75} className="me-1 inline-block" />
-              محفوظ
-            </Badge>
-          ) : (
-            <Badge tone="warning">لم يُحفَظ</Badge>
-          ),
-      },
-      {
-        key: 'actions',
-        label: 'إجراءات',
-        render: (r: ViewRow) => (
-          <button
-            type="button"
-            onClick={() => onEdit(r.roleKey)}
-            aria-label={`تعديل ${r.relation}`}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border-default bg-surface-card text-ink-700 hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700"
-          >
-            <Pencil size={13} strokeWidth={1.75} />
-          </button>
-        ),
-      },
-    ],
-    [onEdit],
-  );
-
-  return (
-    <Card>
-      <header className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="font-ar-display text-md font-bold text-ink-900">عرض بيانات العائلة</h3>
-        <Badge tone={canApprove ? 'success' : 'neutral'}>
-          {canApprove ? (
-            <>
-              <ShieldCheck size={11} strokeWidth={1.75} className="me-1 inline-block" />
-              جاهز للاعتماد
-            </>
-          ) : (
-            <>
-              <Info size={11} strokeWidth={1.75} className="me-1 inline-block" />
-              أكمل البيانات المطلوبة
-            </>
-          )}
-        </Badge>
-      </header>
-      <DataTable<ViewRow>
-        data={[...rows]}
-        columns={columns}
-        rowKey={(r: ViewRow) => `${r.roleKey}-${r.serial}`}
-      />
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-2xs text-ink-500">
-          بعد اعتماد البيانات لا يمكن تعديل التبويبات إلا بإجراء إداري.
-        </p>
-        <Button
-          variant="primary"
-          size="lg"
-          disabled={!canApprove}
-          isLoading={approving}
-          onClick={onApprove}
-          leadingIcon={<IconStamp width={14} height={14} />}
-        >
-          اعتماد
-        </Button>
-      </div>
-    </Card>
   );
 }
 
