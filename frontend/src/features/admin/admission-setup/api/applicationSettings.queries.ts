@@ -84,11 +84,11 @@ function surfaceConflict(err: unknown, fallback: string): void {
 
 export function useCategoryConfigs() {
   /* Tie the configs query to the applicant-categories lookup's data
-   * identity. When an admin edits a lookup row (e.g. flips
-   * `excellenceCriteriaVisible` or changes the criterion), the lookup
-   * query's `dataUpdatedAt` advances on next read, which rotates this
-   * query's key and forces a refetch of the join. Without this seam
-   * the wizard would render stale lookup values until a full reload. */
+   * identity. When an admin edits a lookup row (e.g. changes the
+   * excellence criterion), the lookup query's `dataUpdatedAt` advances
+   * on next read, which rotates this query's key and forces a refetch
+   * of the join. Without this seam the wizard would render stale
+   * lookup values until a full reload. */
   const lookupQuery = useLookup('applicant-categories');
   return useQuery<CategoryConfigJoined[]>({
     queryKey: [

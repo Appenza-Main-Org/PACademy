@@ -17,14 +17,13 @@
  * lookup row's `isActive` is the master flag for whether the category
  * is shown to applicants. Both stay in sync at this seam.
  *
- * «معيار التميز» rendering:
+ * «معيار التمييز» rendering:
  *   • Every active category renders here regardless of its criterion
  *     state — admins still need to author the rest of the rules.
  *   • The criterion *label* on the row header only shows when the
- *     category carries a criterion (`excellenceCriterion !== null`)
- *     AND its visibility toggle is on. Otherwise the label is hidden
- *     and the rest of the header (name + stage badge + counts +
- *     completion badge) renders normally.
+ *     category carries a criterion (`excellenceCriterion !== null`).
+ *     Otherwise the label is hidden and the rest of the header (name +
+ *     stage badge + counts + completion badge) renders normally.
  */
 
 import { useMemo, useState } from 'react';
@@ -93,11 +92,10 @@ export function CategoryAccordion(): JSX.Element {
     lookupActiveCodes.has(c.categoryCode),
   );
 
-  /* Every active category renders here — the معيار التميز flag only
-   * controls whether the criterion *label* shows on the row header
-   * (see ConfigItem below). Categories whose criterion is off still
-   * need to be editable (admins set the rest of the rules regardless),
-   * so the row stays visible and the label simply disappears. */
+  /* Every active category renders here. The criterion label on the
+   * row header only appears when the category carries one — categories
+   * without a criterion still need to be editable (admins set the rest
+   * of the rules regardless), so the row stays visible. */
   const visibleConfigs = activeConfigs;
 
   const criterionLabelByCode = new Map(
@@ -118,9 +116,8 @@ export function CategoryAccordion(): JSX.Element {
           config={config}
           excellenceLabel={
             /* Label only renders when the category actually carries a
-             * criterion AND the admin's visibility toggle is on. The
-             * row itself stays visible either way. */
-            config.excellenceCriterion === null || !config.excellenceCriteriaVisible
+             * criterion. The row itself stays visible either way. */
+            config.excellenceCriterion === null
               ? null
               : criterionLabelByCode.get(config.excellenceCriterion) ??
                 config.excellenceCriterion
@@ -187,9 +184,9 @@ function ConfigItem({
               {excellenceLabel && (
                 <span
                   className="rounded-full bg-gold-50 px-2 py-0.5 text-2xs font-medium text-gold-700"
-                  aria-label={`معيار التميز: ${excellenceLabel}`}
+                  aria-label={`معيار التمييز: ${excellenceLabel}`}
                 >
-                  معيار التميز: {excellenceLabel}
+                  معيار التمييز: {excellenceLabel}
                 </span>
               )}
             </span>

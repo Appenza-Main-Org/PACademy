@@ -423,11 +423,10 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 7, passingCriteria: '' },
     ],
     procedures: [],
-    /* Pre-university (ثانوي) categories don't carry a معيار التميز —
-     * the wizard's application_settings step hides them when both flags
-     * below are unset, and the detail page suppresses the criterion
-     * Card whenever `excellenceCriterion` is null. */
-    excellenceCriteriaVisible: false,
+    /* Pre-university (ثانوي) categories don't carry a معيار التمييز
+     * by default — admins can still pick one from the lookup drawer,
+     * and the detail page suppresses the criterion Card whenever
+     * `excellenceCriterion` is null. */
     excellenceCriterion: null,
   },
   {
@@ -459,7 +458,6 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
-    excellenceCriteriaVisible: true,
     /* law_bachelor uses qualitative grading (EXC-01 / تقدير) per the
      * SUB-003 / TAGDIR submission-type. The other جامعي categories
      * stay on EXC-02 / درجة. */
@@ -494,7 +492,6 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
-    excellenceCriteriaVisible: true,
     excellenceCriterion: 'EXC-02',
   },
   {
@@ -538,7 +535,6 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
-    excellenceCriteriaVisible: true,
     excellenceCriterion: 'EXC-02',
   },
 ];
@@ -997,7 +993,7 @@ const graduationYears: GraduationYearRow[] = [
   { code: 'GYR-2026', name: '2026', year: 2026, ...active },
 ];
 
-/* ─── 24. excellence-criteria — معيار التميز ────────────────────────────
+/* ─── 24. excellence-criteria — معيار التمييز ───────────────────────────
  *
  * Closed two-row lookup picked by every applicant-category to declare
  * whether the "تميز" axis is graded qualitatively (تقدير) or numerically

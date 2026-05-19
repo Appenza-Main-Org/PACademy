@@ -161,11 +161,6 @@ export interface CategoryConfigJoined extends ApplicantCategoryConfig {
   specializationCount: number;
   /** Total year rows under this config, active or otherwise. */
   yearCount: number;
-  /** Mirrored from the underlying `applicant-categories` lookup row. When
-   *  `false`, the wizard's «الشروط العامة» section filters this category
-   *  out (unless saved rules already reference it — then the section
-   *  surfaces a warning and keeps the category editable). */
-  excellenceCriteriaVisible: boolean;
   /** Mirrored from the lookup row. `null` until the admin picks one;
    *  resolved to a label in the wizard via the `excellence-criteria`
    *  lookup. */
@@ -221,8 +216,6 @@ function joinConfig(c: ApplicantCategoryConfig): CategoryConfigJoined {
     /* Hide the implicit-default junction from the counter. */
     specializationCount: realSpecs.length,
     yearCount: yearsForConfig.length,
-    /* Default to `true` for legacy rows authored before the toggle existed. */
-    excellenceCriteriaVisible: cat?.excellenceCriteriaVisible ?? true,
     excellenceCriterion: cat?.excellenceCriterion ?? null,
   };
 }

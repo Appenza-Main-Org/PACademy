@@ -621,15 +621,12 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
             {r.type === 'university' ? 'جامعي' : 'ثانوي'}
           </Badge>
         ) },
-        /* معيار التميز* — required for every university (جامعي) row.
-         * Pre-university (ثانوي) rows don't carry a criterion (the
-         * column shows «—»). The value resolves through the
-         * `excellence-criteria` lookup so a label change there flows
-         * through here without a code edit. */
-        { key: 'excellenceCriterion', label: 'معيار التميز*', sortable: true, width: 160, render: (r: ApplicantCategoryRow) => {
-          if (r.type !== 'university') {
-            return <span className="text-ink-400">—</span>;
-          }
+        /* معيار التمييز* — admins pick a single criterion per category
+         * from the `excellence-criteria` lookup. Rows without a
+         * configured criterion render «غير محدد». The value resolves
+         * through the lookup so a label change there flows through
+         * here without a code edit. */
+        { key: 'excellenceCriterion', label: 'معيار التمييز*', sortable: true, width: 160, render: (r: ApplicantCategoryRow) => {
           if (!r.excellenceCriterion) {
             return <Badge tone="warning">غير محدد</Badge>;
           }

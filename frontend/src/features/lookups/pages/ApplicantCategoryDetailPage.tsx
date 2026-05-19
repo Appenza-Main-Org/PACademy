@@ -196,26 +196,15 @@ export function ApplicantCategoryDetailPage(): JSX.Element {
           </div>
         </Card>
 
-        {/* معيار التميز Card — only rendered for categories that
-         *  actually carry a criterion. Pre-university (ثانوي)
-         *  categories don't use this axis at all, so showing an empty
-         *  "مفعّل / غير مفعّل" pair next to a Dash is just noise. */}
+        {/* معيار التمييز Card — only rendered for categories that
+         *  actually carry a criterion. Categories without a configured
+         *  criterion show no card at all rather than an empty Dash. */}
         {row.excellenceCriterion !== null && (
           <Card>
-            <div className="grid gap-5 md:grid-cols-2">
-              <Field
-                label="إظهار «معيار التميز» في إعدادات التقديم"
-                value={
-                  <Badge tone={row.excellenceCriteriaVisible ? 'success' : 'neutral'}>
-                    {row.excellenceCriteriaVisible ? 'مفعّل' : 'غير مفعّل'}
-                  </Badge>
-                }
-              />
-              <Field
-                label="معيار التميز"
-                value={<Badge tone="accent">{excellenceLabel}</Badge>}
-              />
-            </div>
+            <Field
+              label="معيار التمييز"
+              value={<Badge tone="accent">{excellenceLabel}</Badge>}
+            />
           </Card>
         )}
       </div>
