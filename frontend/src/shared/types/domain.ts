@@ -468,6 +468,16 @@ export interface CommitteeInstance {
   date: string;
   /** Seats for this instance on this date (1..999). */
   capacity: number;
+  /** Seats currently reserved by scheduled applicants. Refreshed from the
+   *  scheduling backend on demand (the management page's «تحديث» button
+   *  invalidates the query). `reserved > capacity` is visually flagged
+   *  on the management surface but never blocked at the data layer —
+   *  over-reservation is observable, not corrected here. */
+  reserved: number;
+  /** ISO timestamp of the last time `reserved` was synced. Surfaces in
+   *  the management page's «آخر تحديث» column so admins can tell whether
+   *  the count they're looking at is stale. */
+  reservedRefreshedAt: string;
   createdAt: string;
   updatedAt: string;
 }

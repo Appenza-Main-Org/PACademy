@@ -115,6 +115,11 @@ export const committeeInstanceService = {
         categoryKey: i.categoryKey,
         date: i.date,
         capacity: i.capacity,
+        /* New instances start with no reservations — applicants schedule
+         * onto them after creation, then the management page's «تحديث»
+         * button pulls the live count in. */
+        reserved: 0,
+        reservedRefreshedAt: now,
         createdAt: now,
         updatedAt: now,
       };

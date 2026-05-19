@@ -67,6 +67,30 @@ function nextId(): string {
   return out;
 }
 
+/**
+ * Deterministic reserved-seat count for a given (cycle × category ×
+ * definition × date) tuple. Hashes the inputs into a fixed-point in
+ * roughly the [0.55, 1.05] band — biased toward "near capacity" with
+ * a handful of "over-capacity" cases so the warning + danger styles
+ * on the management page show up by default. No rng() calls, so the
+ * demo seed stays deterministic across module loads.
+ */
+function reservedFor(
+  cycleId: string,
+  categoryKey: string,
+  definitionCode: string,
+  date: string,
+  capacity: number,
+): number {
+  const input = `${cycleId}|${categoryKey}|${definitionCode}|${date}`;
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
+  }
+  const unit = ((Math.abs(hash) % 1000) / 1000) * 0.5 + 0.55;
+  return Math.max(0, Math.round(capacity * unit));
+}
+
 const out: CommitteeInstance[] = [];
 const definitions = LOOKUPS_SEED['committees'];
 
@@ -75,13 +99,16 @@ for (const seed of SEEDS) {
     const matching = definitions.filter((d) => d.applicantCategoryId === categoryKey && d.isActive);
     const slice = matching.slice(0, seed.maxPerCategory);
     slice.forEach((def, idx) => {
+      const date = stepDate(seed.anchorDate, idx);
       out.push({
         id: nextId(),
         definitionCode: def.code,
         cycleId: seed.cycleId,
         categoryKey,
-        date: stepDate(seed.anchorDate, idx),
+        date,
         capacity: seed.capacity,
+        reserved: reservedFor(seed.cycleId, categoryKey, def.code, date, seed.capacity),
+        reservedRefreshedAt: seededAt,
         createdAt: seededAt,
         updatedAt: seededAt,
       });

@@ -378,6 +378,9 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
             <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
               سعة اللجنة
             </th>
+            <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
+              المحجوز
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -396,11 +399,55 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
                   onCommit={(next) => handleCapacityCommit(row, next)}
                 />
               </td>
+              <td className="px-4 py-2 align-middle text-end">
+                <ReservedCell row={row} />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+/* ── Reserved-vs-capacity cell ───────────────────────────────────── *
+ * Visual emphasis tracks utilisation:
+ *   reserved ≥ capacity         → terra-700 on terra-50 (over capacity)
+ *   reserved ≥ 0.9 × capacity   → gold-700 on gold-50 (approaching)
+ *   else                        → plain ink-700                                 */
+
+interface ReservedCellProps {
+  row: InstanceRow;
+}
+
+function ReservedCell({ row }: ReservedCellProps): JSX.Element {
+  const ratio = row.capacity > 0 ? row.reserved / row.capacity : 0;
+  const overCapacity = row.reserved >= row.capacity;
+  const approaching = !overCapacity && ratio >= 0.9;
+  const tone = overCapacity
+    ? 'bg-terra-50 text-terra-700 ring-1 ring-inset ring-terra-200'
+    : approaching
+      ? 'bg-gold-50 text-gold-700 ring-1 ring-inset ring-gold-200'
+      : 'text-ink-700';
+  const label = overCapacity
+    ? 'تجاوز السعة'
+    : approaching
+      ? 'يقترب من السعة'
+      : undefined;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-numeric tnum text-2xs ${tone}`}
+      aria-label={
+        label
+          ? `${num(row.reserved)} من ${num(row.capacity)} (${label})`
+          : `${num(row.reserved)} من ${num(row.capacity)}`
+      }
+      title={label}
+    >
+      <span>{num(row.reserved)}</span>
+      <span aria-hidden className="text-ink-400">/</span>
+      <span>{num(row.capacity)}</span>
+    </span>
   );
 }
 
