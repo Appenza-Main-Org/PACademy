@@ -27,7 +27,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   MoveRight,
-  MoreVertical,
   RefreshCcw,
   Trash2,
 } from 'lucide-react';
@@ -39,7 +38,6 @@ import {
   Card,
   DatePicker,
   Dialog,
-  DropdownMenu,
   EmptyState,
   LoadingState,
   PageHeader,
@@ -301,7 +299,7 @@ export function CommitteeInstancesPage(): JSX.Element {
                       </span>
                     }
                     actions={
-                      <DayActionsMenu
+                      <DayActions
                         cycleId={activeCycleId}
                         group={group}
                         otherDays={dayGroups
@@ -323,58 +321,50 @@ export function CommitteeInstancesPage(): JSX.Element {
   );
 }
 
-/* ── Per-day actions menu ────────────────────────────────────────── *
- * Drives the «حذف اليوم» and «نقل اليوم» flows. Both surface
- * reservation-aware confirmation dialogs when any committee on the day
- * has reserved > 0, so the admin sees what's at stake before committing
- * the action.                                                            */
+/* ── Per-day actions ─────────────────────────────────────────────── *
+ * Drives the «حذف اليوم» and «نقل اليوم» flows as inline buttons next
+ * to each day header. Both surface reservation-aware confirmation
+ * dialogs when any committee on the day has reserved > 0, so the admin
+ * sees what's at stake before committing the action.                     */
 
-interface DayActionsMenuProps {
+interface DayActionsProps {
   cycleId: string;
   group: DayGroup;
-  /** Dates of every other day in the same cycle — the target candidates
-   *  for the «نقل اليوم» dropdown. Empty when this is the only day. */
+  /** Dates of every other day in the same cycle — used to gate the
+   *  «نقل اليوم» button. Empty when this is the only day. */
   otherDays: string[];
 }
 
-function DayActionsMenu({
+function DayActions({
   cycleId,
   group,
   otherDays,
-}: DayActionsMenuProps): JSX.Element {
+}: DayActionsProps): JSX.Element {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenu.Trigger asChild>
-          <button
-            type="button"
-            aria-label="إجراءات اليوم"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-          >
-            <MoreVertical size={16} strokeWidth={1.75} aria-hidden />
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content>
-          <DropdownMenu.Item
-            leadingIcon={<MoveRight size={14} strokeWidth={1.75} />}
-            disabled={otherDays.length === 0}
-            onSelect={() => setTransferOpen(true)}
-          >
-            نقل اليوم
-          </DropdownMenu.Item>
-          <DropdownMenu.Separator />
-          <DropdownMenu.Item
-            destructive
-            leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
-            onSelect={() => setDeleteOpen(true)}
-          >
-            حذف اليوم
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          leadingIcon={<MoveRight size={14} strokeWidth={1.75} />}
+          disabled={otherDays.length === 0}
+          onClick={() => setTransferOpen(true)}
+        >
+          نقل اليوم
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-terra-700 hover:bg-terra-50 hover:text-terra-800"
+          leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
+          onClick={() => setDeleteOpen(true)}
+        >
+          حذف اليوم
+        </Button>
+      </div>
 
       <DeleteDayDialog
         open={deleteOpen}
@@ -838,13 +828,13 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
             <th className="px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
               اللجنة
             </th>
-            <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
+            <th className="px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
               سعة اللجنة
             </th>
-            <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
+            <th className="px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
               المحجوز
             </th>
-            <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
+            <th className="px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
               آخر تحديث
             </th>
           </tr>
@@ -858,13 +848,13 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
               <td className="px-4 py-2 align-middle text-ink-900">
                 {row.committeeName}
               </td>
-              <td className="px-4 py-2 align-middle text-end font-numeric tnum text-ink-900">
+              <td className="px-4 py-2 align-middle text-center font-numeric tnum text-ink-900">
                 {num(row.capacity)}
               </td>
-              <td className="px-4 py-2 align-middle text-end font-numeric tnum text-ink-900">
+              <td className="px-4 py-2 align-middle text-center font-numeric tnum text-ink-900">
                 {num(effectiveReserved(row))}
               </td>
-              <td className="px-4 py-2 align-middle text-end">
+              <td className="px-4 py-2 align-middle text-center">
                 <LastUpdatedCell value={row.reservedRefreshedAt} />
               </td>
             </tr>
