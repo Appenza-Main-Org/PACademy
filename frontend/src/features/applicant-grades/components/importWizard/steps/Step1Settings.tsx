@@ -153,7 +153,6 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
       <Field
         label="فئة المدرسة"
         required
-        helper="اختر فئة من الأكواد المرجعية. تُحدّد درجتها العظمى أدناه."
         error={categoryError}
       >
         {schoolCategoriesQuery.isLoading ? (
@@ -171,6 +170,7 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
               placeholder="اختر فئة المدرسة"
               ariaLabel="فئة المدرسة"
               clearable
+              triggerClassName="h-11 px-3.5 text-sm font-medium shadow-sm hover:border-teal-400 data-[state=open]:border-teal-500"
             />
             {pickedCategory && pickedCode && pickedMax != null && (
               <div className="flex items-center justify-between gap-3 rounded-md border border-border-subtle bg-ink-50/40 px-3 py-2">
@@ -206,7 +206,6 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
       <Field
         label="سنة التخرج"
         required
-        helper="تُطبَّق على كل صف يُستورد إن لم يحمل عمود سنة تخرّج خاص به"
         error={yearError}
       >
         <Combobox
@@ -216,6 +215,7 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
           placeholder="اختر السنة"
           ariaLabel="سنة التخرج"
           clearable
+          triggerClassName="h-11 px-3.5 text-sm font-medium shadow-sm hover:border-teal-400 data-[state=open]:border-teal-500"
         />
       </Field>
 

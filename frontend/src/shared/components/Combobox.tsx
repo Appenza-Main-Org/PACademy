@@ -57,6 +57,11 @@ interface ComboboxProps {
   /** Fires when the user types in the search input. Useful for async fetch. */
   onSearchChange?: (term: string) => void;
   className?: string;
+  /** Optional class names merged onto the trigger `<button>` itself.
+   *  Use this when a consumer needs to override sizing / typography /
+   *  border on the closed-state control (the outer `className` only
+   *  targets the wrapper). */
+  triggerClassName?: string;
   ariaLabel?: string;
   /** When provided, options are reordered to match this group sequence and
    *  rendered under sticky section headers. Virtualisation is disabled. */
@@ -83,6 +88,7 @@ export function Combobox({
   required,
   onSearchChange,
   className,
+  triggerClassName,
   ariaLabel,
   groups,
   clearable = false,
@@ -275,6 +281,7 @@ export function Combobox({
             error ? 'border-terra-500' : 'border-border-strong hover:border-ink-400',
             'focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none',
             disabled && 'cursor-not-allowed opacity-60',
+            triggerClassName,
           )}
         >
           <span className={cn(selected ? 'truncate text-ink-900' : 'text-ink-400')}>
