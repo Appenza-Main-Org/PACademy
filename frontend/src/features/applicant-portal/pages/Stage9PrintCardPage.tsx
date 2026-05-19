@@ -11,13 +11,12 @@
  * applicant made earlier in the flow.
  */
 
-import { FileDown, Printer, ShieldCheck, Square } from 'lucide-react';
+import { FileDown, Printer } from 'lucide-react';
 import {
   Button,
   Card,
   Code128Barcode,
   KhayameyaStripe,
-  LogoMark,
   PrintLayout,
 } from '@/shared/components';
 import { useDraft } from '../api/applicantPortal.queries';
@@ -63,51 +62,19 @@ export function Stage9PrintCardPage(): JSX.Element {
   const barcodeValue = `${MOI_APPLICANT_SESSION.nationalId}-${paymentReference}`;
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* ── Top non-print card: notice + action buttons ── */}
-      <Card className="no-print flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div
-          role="note"
-          className="flex flex-1 items-start gap-2 rounded-md border border-teal-500/40 bg-teal-50 px-3 py-2 text-2xs text-teal-800"
-        >
-          <ShieldCheck size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
-          <p className="leading-relaxed text-end" dir="rtl">
-            <strong>عزيزي الطالب:</strong> برجاء طباعة هذه الصفحة حيث أنها تُعدّ تصريح الدخول للكلية.
-            <br />
-            ** برجاء التأكد من ظهور الباركود الخاص بالطالب في بطاقة التردد.
-            <br />
-            ** برجاء طباعة هذا الطلب والتوقيع عليه بمعرفة الطالب وولي الأمر.
-          </p>
-        </div>
-        <div className="flex flex-shrink-0 flex-wrap gap-2">
-          <Button
-            variant="primary"
-            leadingIcon={<Printer size={14} strokeWidth={1.75} />}
-            onClick={() => window.print()}
-          >
-            طباعة
-          </Button>
-          <Button
-            variant="secondary"
-            leadingIcon={<FileDown size={14} strokeWidth={1.75} />}
-            onClick={() => window.print()}
-            title="تحميل الإقرار للتوقيع"
-          >
-            تحميل
-          </Button>
-        </div>
-      </Card>
-
-      {/* ── Required documents — instruction card shown above the printable
-            card (not inside it). `no-print` so it's screen-only. ── */}
+    <div
+      className="mx-auto flex flex-col gap-4"
+      style={{ width: '210mm' }}
+    >
+      {/* ── Required documents — bullet list, on-screen only ── */}
       <Card
         className="no-print"
         aria-label="المستندات المطلوبة يوم الاختبار"
       >
-        <h3 className="mb-3 text-start font-ar-display text-md font-bold text-ink-900">
+        <h3 className="mb-4 text-start font-ar-display text-md font-bold text-ink-900">
           المستندات المطلوبة يوم الاختبار
         </h3>
-        <ul className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm text-ink-800 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm text-ink-800 sm:grid-cols-2 lg:grid-cols-3">
           {[
             'بطاقة الرقم القومي (الأصل)',
             'أصل شهادة الثانوية العامة',
@@ -116,14 +83,11 @@ export function Stage9PrintCardPage(): JSX.Element {
             '4 صور شخصية حديثة',
             'شهادة حسن السير والسلوك',
           ].map((doc) => (
-            <li key={doc} className="flex items-center gap-2">
-              <Square
-                size={16}
-                strokeWidth={1.75}
-                className="shrink-0 text-ink-500"
-                aria-hidden
-              />
-              <span>{doc}</span>
+            <li
+              key={doc}
+              className="relative ps-5 leading-relaxed before:absolute before:start-0 before:top-[0.55em] before:h-2 before:w-2 before:rounded-full before:bg-teal-600 before:content-['']"
+            >
+              {doc}
             </li>
           ))}
         </ul>
@@ -133,7 +97,6 @@ export function Stage9PrintCardPage(): JSX.Element {
       <PrintLayout
         title="بطاقة التردد"
         subtitle={`دفعة قبول 2026 — ${category?.labelAr ?? 'أكاديمية الشرطة'}`}
-        reportId={APPLICANT_ID}
         generatedAt={fmtDate(Date.now(), 'short')}
       >
         <div className="mb-6 grid grid-cols-[140px_1fr_auto] gap-5 rounded-lg border-2 border-teal-500 bg-teal-50/40 p-4">
@@ -178,23 +141,19 @@ export function Stage9PrintCardPage(): JSX.Element {
             </div>
           </div>
 
-          {/* Verification stamp column */}
-          <div className="flex flex-col items-center justify-center gap-1 text-center">
-            <span
-              aria-hidden
-              className="inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-teal-500 text-teal-700"
-            >
-              <ShieldCheck size={24} strokeWidth={1.75} />
-            </span>
-            <p className="text-2xs font-bold text-teal-700">مُوثَّق</p>
-          </div>
         </div>
 
-        {/* Payment reference line (PDF p.12) */}
+        {/* Payment reference + date line */}
         <p className="mb-5 rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-sm text-ink-700">
-          تم الدفع بالبطاقة البنكية بالرقم المرجعي:{' '}
+          تم الدفع بالرقم المرجعي:{' '}
           <span className="font-numeric tnum font-bold text-ink-900" dir="ltr">
             {toEasternArabicNumerals(paymentReference)}
+          </span>
+          {' '}— تاريخ السداد:{' '}
+          <span className="font-numeric tnum font-bold text-ink-900" dir="ltr">
+            {toEasternArabicNumerals(
+              fmtDate(draft?.payment?.paidAt ?? Date.now(), 'short'),
+            )}
           </span>
         </p>
 
@@ -254,31 +213,34 @@ export function Stage9PrintCardPage(): JSX.Element {
           </table>
         </div>
 
-        {/* Signature block */}
-        <div className="mb-4 grid grid-cols-3 gap-4">
-          <SignatureLine label="توقيع المتقدم" />
-          <SignatureLine label="توقيع ولي الأمر" />
-          <div className="flex flex-col items-center gap-1.5 rounded-md border border-border-subtle bg-ink-50 px-3 pt-3 pb-2">
-            <LogoMark size={40} />
-            <span className="text-2xs uppercase tracking-wide text-ink-500">ختم الإدارة</span>
-          </div>
-        </div>
-
         <p className="my-4 text-center text-2xs text-ink-500">
           يجب أن يكون الكارت في صورته الأصلية يوم الاختبار · أيّ تعديل أو نسخ يبطل صلاحيته
         </p>
 
         <KhayameyaStripe height="lg" />
       </PrintLayout>
-    </div>
-  );
-}
 
-function SignatureLine({ label }: { label: string }): JSX.Element {
-  return (
-    <div className="flex flex-col items-center gap-1.5 rounded-md border border-border-subtle bg-ink-50 px-3 pt-3 pb-2">
-      <span aria-hidden className="block h-10 w-full border-b border-dashed border-ink-700/60" />
-      <span className="text-2xs uppercase tracking-wide text-ink-500">{label}</span>
+      {/* ── Bottom action row: print + download (screen only) ── */}
+      <Card className="no-print">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="secondary"
+            size="lg"
+            leadingIcon={<FileDown size={16} strokeWidth={1.75} />}
+            onClick={() => window.print()}
+          >
+            تحميل
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
+            leadingIcon={<Printer size={16} strokeWidth={1.75} />}
+            onClick={() => window.print()}
+          >
+            طباعة
+          </Button>
+        </div>
+      </Card>
     </div>
   );
 }

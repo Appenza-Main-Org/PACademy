@@ -11,7 +11,7 @@
 
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
-import { Ban, ClipboardCheck, LogOut, Pencil, ScrollText } from 'lucide-react';
+import { Ban, LogOut, Pencil } from 'lucide-react';
 import {
   Badge,
   KhayameyaStripe,
@@ -160,24 +160,6 @@ export function ApplicantPortalLayout(): JSX.Element {
               {draft.applicantId}
             </span>
           )}
-          {/* Edit-application surface — applicant can review the entire
-              draft and re-open any unlocked stage. */}
-          <Link
-            to={ROUTES.applicantApplicationSummary}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-ink-800 transition-colors hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-          >
-            <ScrollText size={15} strokeWidth={1.75} />
-            <span className="hidden sm:inline">تعديل الطلب</span>
-          </Link>
-          {/* Persistent results-tracker — reachable from any wizard stage so
-              applicants can check progress without backing out of the wizard. */}
-          <Link
-            to={ROUTES.applicantTests}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-ink-800 transition-colors hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-          >
-            <ClipboardCheck size={15} strokeWidth={1.75} />
-            <span className="hidden sm:inline">نتائج الإختبارات</span>
-          </Link>
           <button
             type="button"
             onClick={handleExit}
