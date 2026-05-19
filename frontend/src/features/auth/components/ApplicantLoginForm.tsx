@@ -28,7 +28,10 @@ import { zodResolver } from '@/shared/lib/zod-resolver';
 import { authService } from '../api/auth.service';
 import { useAuthStore } from '../store/auth.store';
 import { ROUTES } from '@/config/routes';
-import { mockMoiLookup } from '@/features/applicant-portal/lib/moi-session.mock';
+import {
+  SUBMITTED_APPLICANT_NID,
+  mockMoiLookup,
+} from '@/features/applicant-portal/lib/moi-session.mock';
 import { useApplicantPortalStore } from '@/features/applicant-portal/store/applicantPortal.store';
 
 const schema = z.object({
@@ -84,6 +87,27 @@ export function ApplicantLoginForm(): JSX.Element {
         case 'eligible':
           portal.setMoiSession(result.session);
           portal.setSelectedCategoryKey(result.categoryKey);
+          /* Submitted-state demo user (user #4): pre-populate the wizard
+           * progress (paid + parents approved + exam date picked) so the
+           * post-exam 4-tab view renders instead of the wizard. */
+          if (values.nationalId === SUBMITTED_APPLICANT_NID) {
+            const firstExam = new Date();
+            firstExam.setDate(firstExam.getDate() + 3);
+            firstExam.setHours(8, 0, 0, 0);
+            portal.setPayment({
+              paid: true,
+              paymentMethod: 'fawry-code',
+              paymentReference: '1234567890',
+              fawryCode: '87654321',
+            });
+            portal.setParentsApproved(true);
+            portal.setFirstExamDate(firstExam.toISOString());
+            /* Flip the demo-only flag so ApplicantPortalLayout swaps the
+             * wizard for the 4-tab post-submission view. */
+            portal.setSubmittedDemo(true);
+            dest = ROUTES.applicant;
+            break;
+          }
           /* Client direction 2026-05-19: every applicant lands on
            * /applicant/start so they see the full category list with
            * eligibility cues — even when only one category qualifies. */

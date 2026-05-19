@@ -33,7 +33,10 @@ import { ROUTES } from '@/config/routes';
 import { date as fmtDate } from '@/shared/lib/format';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { useActiveCycle, useCategories } from '../api/categories.queries';
-import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
+import {
+  MOI_APPLICANT_SESSION,
+  SUBMITTED_APPLICANT_PROFILE,
+} from '../lib/moi-session.mock';
 import { deterministicFileNumber } from '../lib/deterministic-codes';
 
 export function ApplicantPortalPage(): JSX.Element {
@@ -42,6 +45,11 @@ export function ApplicantPortalPage(): JSX.Element {
   const firstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
+  const submittedDemo = useApplicantPortalStore((s) => s.submittedDemo);
+  /* The submitted demo user has a curated profile bundle that mirrors
+   * what they entered in Stage345 — surface it here so ملخّص طلب
+   * الإلتحاق matches البيانات الأساسية field-for-field. */
+  const profile = submittedDemo ? SUBMITTED_APPLICANT_PROFILE : null;
   const categoriesQuery = useCategories();
   const activeCycle = useActiveCycle();
   const [showInstructions, setShowInstructions] = useState(false);
@@ -162,6 +170,7 @@ export function ApplicantPortalPage(): JSX.Element {
         </header>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
           <Row label="إسم الطالب" value={session.fullName} />
+          <Row label="اسم الشهرة" value={profile?.shuhra ?? '—'} />
           <Row label="الرقم القومي" value={session.nationalId} ltr mono />
           <Row label="القسم" value={category?.labelAr ?? '— لم يُختر —'} />
           <Row label="اللجنة" value={committeeNumber ?? '—'} />
@@ -169,10 +178,15 @@ export function ApplicantPortalPage(): JSX.Element {
           <Row label="تاريخ الميلاد" value={session.dateOfBirthAr} />
           <Row label="رقم الملف" value={fileNumber ?? '—'} ltr mono />
           <Row label="الديانة" value={session.religion} />
+          <Row label="الحالة الاجتماعية" value={maritalLabel(profile?.maritalStatus)} />
           <Row label="محل الميلاد" value={`${session.birthGovernorate} — ${session.birthDistrict}`} />
           <Row
             label="العنوان"
-            value={`${session.birthGovernorate}`}
+            value={
+              profile
+                ? `${profile.addressGovernorate} — ${profile.addressDistrict} — ${profile.currentAddressDetail}`
+                : session.birthGovernorate
+            }
             containerClassName="sm:col-span-2 md:col-span-3"
           />
         </dl>
@@ -187,12 +201,47 @@ export function ApplicantPortalPage(): JSX.Element {
           <h3 className="font-ar-display text-md font-bold text-ink-900">بيانات التواصل</h3>
         </header>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
-          <Row label="أرقام التليفون" value={session.mobile} ltr mono />
+          <Row label="رقم تليفون المنزل" value={profile?.homePhone ?? '—'} ltr mono />
+          <Row label="رقم المحمول" value={session.mobile} ltr mono />
+          <Row label="رقم محمول آخر" value={profile?.secondaryMobile ?? '—'} ltr mono />
           <Row label="البريد الإلكتروني" value={session.email} ltr mono />
-          <Row label="تويتر" value="—" />
-          <Row label="إنستجرام" value="—" />
+          <Row label="فيسبوك" value={profile?.facebook ?? '—'} ltr />
+          <Row label="تويتر" value={profile?.twitter ?? '—'} ltr />
+          <Row label="إنستجرام" value={profile?.instagram ?? '—'} ltr />
         </dl>
       </Card>
+
+      {/* ── بيانات التعليم — appears only for submitted demo applicants
+            because their academic data is captured here in the prefill. */}
+      {profile && (
+        <Card>
+          <header className="mb-3 flex items-center gap-2">
+            <span
+              aria-hidden
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700"
+            >
+              <ScrollText size={14} strokeWidth={1.75} />
+            </span>
+            <h3 className="font-ar-display text-md font-bold text-ink-900">بيانات التعليم</h3>
+          </header>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
+            <Row label="اسم المدرسة" value={profile.schoolNameAr} />
+            <Row label="عنوان المدرسة" value={profile.schoolAddress} />
+            <Row label="دولة المدرسة" value={profile.thanawiCountry} />
+            <Row label="تاريخ الحصول على الثانوية" value={profile.thanawiGradDate} ltr />
+            <Row label="الشعبة" value={profile.thanawiType} />
+            <Row label="المجموع" value={`${profile.thanawiTotal} / 410`} ltr />
+            <Row label="النسبة المئوية" value={`${profile.thanawiPercentage}%`} ltr />
+            <Row label="الكلية" value={profile.bachelorFaculty} />
+            <Row label="الجامعة" value={`جامعة ${profile.bachelorUniversity}`} />
+            <Row label="المجموعة" value={profile.bachelorMajor} />
+            <Row label="الشعبة (المؤهل العالي)" value={profile.bachelorBranch} />
+            <Row label="التخصص" value={profile.bachelorSpecialization} />
+            <Row label="النسبة المئوية للمؤهل" value={`${profile.bachelorPercentage}%`} ltr />
+            <Row label="سنة التخرج" value={String(profile.bachelorYear)} ltr />
+          </dl>
+        </Card>
+      )}
 
       {/* ── بيانات الوالدين (only when approved) ────────────── */}
       {parentsApproved && <ParentsSection />}
@@ -258,6 +307,18 @@ export function ApplicantPortalPage(): JSX.Element {
   }
 }
 
+const MARITAL_LABEL: Record<string, string> = {
+  single: 'أعزب',
+  married: 'متزوج',
+  divorced: 'مطلق',
+  widowed: 'أرمل',
+};
+
+function maritalLabel(key: string | undefined): string {
+  if (!key) return '—';
+  return MARITAL_LABEL[key] ?? '—';
+}
+
 function Row({
   label,
   value,
@@ -275,7 +336,14 @@ function Row({
     <div className={containerClassName}>
       <dt className="text-2xs uppercase tracking-wide text-ink-500">{label}</dt>
       <dd
-        className={'mt-0.5 text-sm font-medium text-ink-900 ' + (mono ? 'font-mono' : '')}
+        className={
+          'mt-0.5 text-sm font-medium text-ink-900 ' +
+          /* LTR values (digits, emails) need text-end so they align to
+           * the right edge of the column under the RTL right-aligned
+           * label — without it they hug the left edge. */
+          (ltr ? 'text-end ' : '') +
+          (mono ? 'font-mono' : '')
+        }
         dir={ltr ? 'ltr' : undefined}
       >
         {value}

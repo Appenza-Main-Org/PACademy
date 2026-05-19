@@ -45,6 +45,11 @@ interface ApplicantPortalState {
   firstExamDate: string | null;
   /** Stage 7 اعتماد flag (parents must be approved before Stage 8). */
   parentsApproved: boolean;
+  /** Demo-only flag set when the "submitted" sample applicant logs in.
+   *  Triggers the 4-tab post-submission view in ApplicantPortalLayout
+   *  instead of the wizard. Reaching the wizard's exam-date stage by
+   *  walking through the normal flow does NOT flip this. */
+  submittedDemo: boolean;
 
   setNationalId: (id: string | null) => void;
   setSelectedCategoryKey: (key: string | null) => void;
@@ -59,6 +64,7 @@ interface ApplicantPortalState {
   }) => void;
   setFirstExamDate: (iso: string | null) => void;
   setParentsApproved: (approved: boolean) => void;
+  setSubmittedDemo: (on: boolean) => void;
   clear: () => void;
 }
 
@@ -76,6 +82,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       fawryCode: null,
       firstExamDate: null,
       parentsApproved: false,
+      submittedDemo: false,
       setNationalId: (id) => set({ nationalId: id }),
       setSelectedCategoryKey: (key) => set({ selectedCategoryKey: key }),
       setSelectedCycleId: (id) => set({ selectedCycleId: id }),
@@ -84,6 +91,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       setPayment: (input) => set(input),
       setFirstExamDate: (iso) => set({ firstExamDate: iso }),
       setParentsApproved: (approved) => set({ parentsApproved: approved }),
+      setSubmittedDemo: (on) => set({ submittedDemo: on }),
       clear: () =>
         set({
           nationalId: null,
@@ -97,6 +105,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
           fawryCode: null,
           firstExamDate: null,
           parentsApproved: false,
+          submittedDemo: false,
         }),
     }),
     {

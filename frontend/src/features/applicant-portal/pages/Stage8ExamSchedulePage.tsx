@@ -45,22 +45,20 @@ export function Stage8ExamSchedulePage(): JSX.Element {
 
   const slots = data ?? [];
 
-  /* One entry per available day. Dedupe by date, skip until the first
-   * Tuesday (per client direction 2026-05-18), then keep three so the
-   * series is always Tue / Wed / Thu — a compact 3-card row. */
+  /* One entry per available day. Dedupe by date, keep only the first
+   * three slots whose date is strictly after today — the picker is a
+   * compact 3-card row of the soonest available days. */
   const dayOptions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const seen = new Set<string>();
     const ordered: Array<{ value: string; dayName: string; dateLabel: string }> = [];
-    let started = false;
     for (const s of [...slots].sort((a, b) => a.date.localeCompare(b.date))) {
       const dayKey = s.date.slice(0, 10);
       if (seen.has(dayKey)) continue;
-      seen.add(dayKey);
       const examDate = new Date(s.date);
-      /* getDay(): 0=Sun, 1=Mon, 2=Tue, ... — start the visible series
-       * at the earliest Tuesday in the available slots. */
-      if (!started && examDate.getDay() !== 2) continue;
-      started = true;
+      if (examDate.getTime() <= today.getTime()) continue;
+      seen.add(dayKey);
       ordered.push({
         value: s.date,
         dayName: arabicDayOfWeek(examDate),

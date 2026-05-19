@@ -118,6 +118,61 @@ const KHALED_SESSION: MoiApplicantSession = {
  *  whose identity record isn't in the ministry database. */
 const MOHAMED_UNKNOWN_NID = '30506200103456';
 
+/** Fourth test NID — eligible applicant who has already submitted +
+ *  paid + approved parents + picked an exam date. Used to land directly
+ *  on the post-exam-date 4-tab view, bypassing the wizard. */
+export const SUBMITTED_APPLICANT_NID = '30407010103456';
+export const SUBMITTED_APPLICANT_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-2026099',
+  fullName: 'يوسف عمر فاروق منصور',
+  nationalId: SUBMITTED_APPLICANT_NID,
+  dateOfBirth: '2004-07-01',
+  dateOfBirthAr: '١ يوليو ٢٠٠٤',
+  gender: 'male',
+  mobile: '01098765432',
+  email: 'youssef.mansour@example.eg',
+  birthGovernorate: 'الجيزة',
+  birthDistrict: 'الدقي',
+  religion: 'مسلم',
+};
+
+/** Demo-only prefill bundle for the submitted user. Both
+ *  Stage345ApplicantDataPage (form prefill) and ApplicantPortalPage
+ *  (read-only summary) read from this single source. */
+export const SUBMITTED_APPLICANT_PROFILE = {
+  /* Personal */
+  shuhra: 'يوسف عمر',
+  maritalStatus: 'single' as const,
+  /* Bachelor */
+  bachelorMajor: 'علوم سياسية',
+  bachelorBranch: 'دراسات استراتيجية',
+  bachelorSpecialization: 'سياسات أمنية',
+  bachelorFaculty: 'الحقوق',
+  bachelorUniversity: 'القاهرة',
+  bachelorPercentage: 87.45,
+  bachelorYear: 2025,
+  /* Thanaweya */
+  thanawiCountry: 'مصر',
+  thanawiType: 'علمي علوم',
+  thanawiTotal: 392,
+  thanawiPercentage: 95.61,
+  schoolNameAr: 'ثانوية النيل النموذجية',
+  schoolAddress: 'الجيزة — شارع التحرير — الدقي',
+  thanawiGradDate: '2024-07-15',
+  /* Address */
+  currentAddressDetail: '12 شارع البطل أحمد عبد العزيز — المهندسين',
+  addressGovernorate: 'الجيزة',
+  addressDistrict: 'المهندسين',
+  /* Phones */
+  homePhone: '0233456789',
+  secondaryMobile: '01112345678',
+  /* Social */
+  facebook: 'youssef.mansour',
+  twitter: '@youssef_m',
+  instagram: 'youssef.mansour.ig',
+};
+export type SubmittedApplicantProfile = typeof SUBMITTED_APPLICANT_PROFILE;
+
 /** Test-user catalog surfaced on the login page so demo runners know
  *  which NID exercises which scenario. */
 export const DEMO_TEST_USERS = [
@@ -138,6 +193,12 @@ export const DEMO_TEST_USERS = [
     nationalId: KHALED_NID,
     fullName: KHALED_SESSION.fullName,
     note: 'البيانات موجودة لكن المتقدِّم خارج الفئة العمرية للقبول.',
+  },
+  {
+    label: 'بعد التقديم (موعد الإختبار محدَّد)',
+    nationalId: SUBMITTED_APPLICANT_NID,
+    fullName: SUBMITTED_APPLICANT_SESSION.fullName,
+    note: 'سيدخل المتقدِّم مباشرةً إلى عرض التبويبات (البيانات / التنبيهات / كارت التردد / نتائج الاختبارات).',
   },
 ] as const;
 
@@ -310,6 +371,13 @@ export function mockMoiLookup(nid: string): MoiLookupResult {
       kind: 'ineligible',
       session: KHALED_SESSION,
       reasonAr: 'تخطَّى المتقدِّم الحدّ الأقصى للسنّ المقبول للالتحاق بالأكاديمية.',
+    };
+  }
+  if (nid === SUBMITTED_APPLICANT_NID) {
+    return {
+      kind: 'eligible',
+      session: SUBMITTED_APPLICANT_SESSION,
+      categoryKey: 'officers_general',
     };
   }
   return { kind: 'not_found' };

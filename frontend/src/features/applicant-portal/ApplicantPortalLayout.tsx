@@ -75,6 +75,7 @@ export function ApplicantPortalLayout(): JSX.Element {
   const { data: draft } = useDraft(APPLICANT_ID);
   const clear = useAuthStore((s) => s.clear);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  const submittedDemo = useApplicantPortalStore((s) => s.submittedDemo);
   const selectedCategory = selectedCategoryKey
     ? MOCK.categories.find((c) => c.key === selectedCategoryKey) ?? null
     : null;
@@ -174,27 +175,78 @@ export function ApplicantPortalLayout(): JSX.Element {
 
       <div className="relative mx-auto w-full max-w-[1200px] flex-1 px-6 pb-12 pt-6">
         {draft?.suspended && <SuspendedBanner />}
-        <Wizard
-          title="رحلة المتقدم · دفعة 2026"
-          steps={steps}
-          activeStepKey={STAGE_KEYS[activeIndex] ?? STAGE_KEYS[0]}
-          onStepClick={(key) => {
-            if (draft?.suspended && key !== STAGE_KEYS[0]) {
-              toast('طلبك موقوف مؤقتاً — لا يمكن التنقّل.', 'warning');
-              return;
-            }
-            navigate(`${ROUTES.applicant}/${key}`);
-          }}
-          autoSaveStatus={autoSaveStatus}
-        >
-          {/* AUD-007 — when suspended, gate every stage form behind a single
-              read-only screen instead of rendering the Outlet's form. */}
-          {draft?.suspended ? <SuspendedScreen /> : <Outlet />}
-        </Wizard>
+        {submittedDemo ? (
+          /* Post-submission view (client direction 2026-05-19): only the
+             demo "submitted" applicant lands here on login. The wizard
+             flow is unchanged for everyone else, even after picking
+             موعد الاختبار. The 4-section tab strip below — البيانات
+             الأساسية / التنبيهات / كارت التردد / نتائج الاختبارات —
+             replaces the wizard. */
+          <div className="flex flex-col gap-4">
+            <PostExamNav />
+            {draft?.suspended ? <SuspendedScreen /> : <Outlet />}
+          </div>
+        ) : (
+          <Wizard
+            title="رحلة المتقدم · دفعة 2026"
+            steps={steps}
+            activeStepKey={STAGE_KEYS[activeIndex] ?? STAGE_KEYS[0]}
+            onStepClick={(key) => {
+              if (draft?.suspended && key !== STAGE_KEYS[0]) {
+                toast('طلبك موقوف مؤقتاً — لا يمكن التنقّل.', 'warning');
+                return;
+              }
+              navigate(`${ROUTES.applicant}/${key}`);
+            }}
+            autoSaveStatus={autoSaveStatus}
+          >
+            {/* AUD-007 — when suspended, gate every stage form behind a single
+                read-only screen instead of rendering the Outlet's form. */}
+            {draft?.suspended ? <SuspendedScreen /> : <Outlet />}
+          </Wizard>
+        )}
       </div>
 
       <FloatingHelp />
     </div>
+  );
+}
+
+/* Post-exam-date navigation — 4-tab section nav that replaces the
+ * wizard stepper once firstExamDate is set. Each tab is route-driven so
+ * deep links + the browser's back button stay intact. */
+function PostExamNav(): JSX.Element {
+  const location = useLocation();
+  const tabs = [
+    { label: 'البيانات الأساسية', path: ROUTES.applicantProfile },
+    { label: 'التنبيهات', path: ROUTES.applicant },
+    { label: 'كارت التردد', path: ROUTES.applicantPrintCard },
+    { label: 'نتائج الاختبارات', path: ROUTES.applicantFollowUp },
+  ] as const;
+  return (
+    <nav
+      aria-label="أقسام بوابة المتقدم"
+      className="flex flex-wrap gap-1 rounded-lg border border-border-default bg-surface-card p-1"
+    >
+      {tabs.map((t) => {
+        const active = location.pathname === t.path
+          || (t.path === ROUTES.applicant && location.pathname === `${ROUTES.applicant}/`);
+        return (
+          <Link
+            key={t.path}
+            to={t.path}
+            className={
+              'inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors '
+              + (active
+                ? 'bg-teal-50 text-teal-700'
+                : 'text-ink-700 hover:bg-ink-50')
+            }
+          >
+            {t.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 

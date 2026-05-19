@@ -52,6 +52,8 @@ import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import {
   DEMO_APPLICANT_GRADES,
   MOI_APPLICANT_SESSION,
+  SUBMITTED_APPLICANT_NID,
+  SUBMITTED_APPLICANT_PROFILE,
   mockMoiLookup,
   type MoiApplicantSession,
 } from '../lib/moi-session.mock';
@@ -329,6 +331,43 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       declaration: false as unknown as true,
     },
   });
+
+  /* Demo prefill for the "submitted" user. Reads from a single source
+   * (SUBMITTED_APPLICANT_PROFILE) shared with ApplicantPortalPage so the
+   * summary view and the editable form stay in lockstep. */
+  useEffect(() => {
+    if (nid !== SUBMITTED_APPLICANT_NID) return;
+    const p = SUBMITTED_APPLICANT_PROFILE;
+    setValue('bachelorMajor', p.bachelorMajor);
+    setValue('bachelorBranch', p.bachelorBranch);
+    setValue('bachelorSpecialization', p.bachelorSpecialization);
+    setValue('bachelorFaculty', p.bachelorFaculty);
+    setValue('bachelorUniversity', p.bachelorUniversity);
+    setValue('bachelorPercentage', p.bachelorPercentage);
+    setValue('bachelorYear', p.bachelorYear);
+    setValue('thanawiCountry', p.thanawiCountry);
+    setValue('thanawiType', p.thanawiType);
+    setValue('thanawiTotal', p.thanawiTotal);
+    setValue('thanawiPercentage', p.thanawiPercentage);
+    setValue('schoolNameAr', p.schoolNameAr);
+    setValue('schoolAddress', p.schoolAddress);
+    setValue('thanawiGradDate', p.thanawiGradDate);
+    setValue('currentAddressDetail', p.currentAddressDetail);
+    setValue('addressGovernorate', p.addressGovernorate);
+    setValue('addressDistrict', p.addressDistrict);
+    setValue('homePhone', p.homePhone);
+    setValue('secondaryMobile', p.secondaryMobile);
+    setValue('facebook', p.facebook);
+    setValue('twitter', p.twitter);
+    setValue('instagram', p.instagram);
+    setValue('declaration', true as unknown as true);
+    setManualPersonal((prev) => ({
+      ...prev,
+      shuhra: p.shuhra,
+      maritalStatus: p.maritalStatus,
+      religion: 'مسلم',
+    }));
+  }, [nid, setValue]);
 
   /* Sync the matched grade row into the form state so submission carries
    * the values even though the inputs are read-only. */
