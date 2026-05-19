@@ -52,6 +52,7 @@ import {
   useRefreshReservedCountsMutation,
   useRemoveCommitteeInstanceDayMutation,
   useTransferCommitteeInstanceDayMutation,
+  useUpdateCommitteeInstanceMutation,
   type ReservationTransferConflict,
 } from '@/features/committees';
 import { isConflictError } from '@/shared/lib/errors';
@@ -302,9 +303,7 @@ export function CommitteeInstancesPage(): JSX.Element {
                       <DayActions
                         cycleId={activeCycleId}
                         group={group}
-                        otherDays={dayGroups
-                          .filter((g) => g.date !== group.date)
-                          .map((g) => g.date)}
+                        dayGroups={dayGroups}
                       />
                     }
                   />
@@ -330,18 +329,20 @@ export function CommitteeInstancesPage(): JSX.Element {
 interface DayActionsProps {
   cycleId: string;
   group: DayGroup;
-  /** Dates of every other day in the same cycle — used to gate the
-   *  «نقل اليوم» button. Empty when this is the only day. */
-  otherDays: string[];
+  /** Every day group in the cycle — the transfer dialog uses this to
+   *  preview destination-day rows for the upfront capacity-conflict
+   *  alert. */
+  dayGroups: DayGroup[];
 }
 
 function DayActions({
   cycleId,
   group,
-  otherDays,
+  dayGroups,
 }: DayActionsProps): JSX.Element {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const hasOtherDays = dayGroups.some((g) => g.date !== group.date);
 
   return (
     <>
@@ -350,7 +351,7 @@ function DayActions({
           variant="ghost"
           size="sm"
           leadingIcon={<MoveRight size={14} strokeWidth={1.75} />}
-          disabled={otherDays.length === 0}
+          disabled={!hasOtherDays}
           onClick={() => setTransferOpen(true)}
         >
           نقل اليوم
@@ -377,7 +378,7 @@ function DayActions({
         onOpenChange={setTransferOpen}
         cycleId={cycleId}
         group={group}
-        otherDays={otherDays}
+        dayGroups={dayGroups}
       />
     </>
   );
@@ -474,7 +475,21 @@ interface TransferDayDialogProps {
   onOpenChange: (next: boolean) => void;
   cycleId: string;
   group: DayGroup;
-  otherDays: string[];
+  /** Every day group in the cycle. Used to (a) gate the calendar's
+   *  same-day check and (b) compute the upfront destination-capacity
+   *  conflict preview when the admin picks a target with existing
+   *  committees. */
+  dayGroups: DayGroup[];
+}
+
+interface PreviewConflict {
+  definitionCode: string;
+  committeeName: string;
+  sourceReserved: number;
+  destinationCapacity: number;
+  destinationReserved: number;
+  freeSeats: number;
+  requiredCapacity: number;
 }
 
 function TransferDayDialog({
@@ -482,7 +497,7 @@ function TransferDayDialog({
   onOpenChange,
   cycleId,
   group,
-  otherDays,
+  dayGroups,
 }: TransferDayDialogProps): JSX.Element {
   const transferMut = useTransferCommitteeInstanceDayMutation();
   const [target, setTarget] = useState<Date | null>(null);
@@ -508,12 +523,16 @@ function TransferDayDialog({
    * day, let alone submit one. We re-check below so a programmatically-
    * set value can't slip through. */
   const todayIso = todayIsoLocal();
-  const otherDaySet = useMemo(() => new Set(otherDays), [otherDays]);
+  const rowsByDate = useMemo(() => {
+    const map = new Map<string, InstanceRow[]>();
+    for (const g of dayGroups) map.set(g.date, g.rows);
+    return map;
+  }, [dayGroups]);
 
   const targetIso = target ? localDateToIso(target) : null;
   const isSameDay = targetIso === group.date;
   const isPastTarget = targetIso !== null && targetIso < todayIso;
-  const destinationExists = targetIso !== null && otherDaySet.has(targetIso);
+  const destinationExists = targetIso !== null && rowsByDate.has(targetIso);
 
   const targetInvalidReason = !targetIso
     ? null
@@ -523,6 +542,40 @@ function TransferDayDialog({
         ? 'هذا هو نفس اليوم الحالي — اختر يوماً مختلفاً.'
         : null;
   const targetValid = targetIso !== null && targetInvalidReason === null;
+
+  /* Upfront capacity-conflict preview. Mirrors the service's check in
+   * committeeInstance.service.ts so the admin sees over-capacity rows
+   * the moment they pick a target — instead of finding out only after
+   * clicking "نقل الحجوزات". The real check still runs server-side at
+   * submit time; if the admin proceeds anyway, the second-stage
+   * CapacityConflictPanel lets them bump capacity inline. */
+  const previewConflicts = useMemo<PreviewConflict[]>(() => {
+    if (!targetValid || !targetIso || !destinationExists) return [];
+    const destRows = rowsByDate.get(targetIso) ?? [];
+    const destByCode = new Map<string, InstanceRow>();
+    for (const r of destRows) destByCode.set(r.definitionCode, r);
+    const out: PreviewConflict[] = [];
+    for (const source of reservedRows) {
+      const destination = destByCode.get(source.definitionCode);
+      if (!destination) continue;
+      const sourceReserved = effectiveReserved(source);
+      const destReserved = effectiveReserved(destination);
+      const freeSeats = destination.capacity - destReserved;
+      if (freeSeats < sourceReserved) {
+        out.push({
+          definitionCode: source.definitionCode,
+          committeeName: source.committeeName,
+          sourceReserved,
+          destinationCapacity: destination.capacity,
+          destinationReserved: destReserved,
+          freeSeats: Math.max(0, freeSeats),
+          requiredCapacity: destReserved + sourceReserved,
+        });
+      }
+    }
+    return out;
+  }, [targetValid, targetIso, destinationExists, rowsByDate, reservedRows]);
+  const hasPreviewConflicts = previewConflicts.length > 0;
 
   const submit = (capacityOverrides?: Record<string, number>): void => {
     if (!targetIso || !targetValid) return;
@@ -591,6 +644,33 @@ function TransferDayDialog({
                 : undefined
             }
           />
+          {hasPreviewConflicts && (
+            <div
+              role="alert"
+              className="rounded-md border border-terra-200 bg-terra-50 p-3 text-2xs text-terra-700"
+            >
+              <p className="font-medium">
+                تنبيه: سعة بعض لجان اليوم المستهدف لا تكفي لاستيعاب الحجوزات
+                المنقولة. عدّل السعة من الجدول أعلاه أو اختر يوماً آخر، أو
+                تابع لزيادة السعة من نافذة النقل.
+              </p>
+              <ul className="mt-2 flex flex-col gap-1">
+                {previewConflicts.map((c) => (
+                  <li
+                    key={c.definitionCode}
+                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5"
+                  >
+                    <span className="truncate font-medium">{c.committeeName}</span>
+                    <span className="font-numeric tnum">
+                      السعة الحالية {num(c.destinationCapacity)} · المحجوز{' '}
+                      {num(c.destinationReserved)} · المطلوب{' '}
+                      {num(c.requiredCapacity)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {hasReservations && (
             <ul className="max-h-40 overflow-auto rounded-md border border-border-subtle bg-surface-sunken p-2 text-2xs text-ink-700">
               {reservedRows.map((r) => (
@@ -848,8 +928,8 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
               <td className="px-4 py-2 align-middle text-ink-900">
                 {row.committeeName}
               </td>
-              <td className="px-4 py-2 align-middle text-center font-numeric tnum text-ink-900">
-                {num(row.capacity)}
+              <td className="px-4 py-2 align-middle text-center">
+                <CapacityCell row={row} />
               </td>
               <td className="px-4 py-2 align-middle text-center font-numeric tnum text-ink-900">
                 {num(effectiveReserved(row))}
@@ -862,6 +942,78 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/* ── سعة اللجنة inline-edit cell ──────────────────────────────────── *
+ * Renders the capacity as an inline number input. Commits on Enter or
+ * blur when the value has actually changed; reverts on Esc. The service
+ * enforces the [1, 999] envelope and silently clamps `reserved` down if
+ * the new capacity is below the current reservation count
+ * (committeeInstance.service.ts), so the field accepts any positive
+ * integer and the service handles the rest.                              */
+
+interface CapacityCellProps {
+  row: InstanceRow;
+}
+
+function CapacityCell({ row }: CapacityCellProps): JSX.Element {
+  const updateMut = useUpdateCommitteeInstanceMutation();
+  const [value, setValue] = useState<string>(() => String(row.capacity));
+
+  /* External value can shift (refresh-reserved, mutation invalidation).
+   * Re-sync whenever the row's persisted capacity changes — unless the
+   * user is actively typing on this cell (the input is the focused
+   * element), in which case we leave their draft alone. */
+  useEffect(() => {
+    const ownerDoc = typeof document !== 'undefined' ? document : null;
+    const inputEl = ownerDoc?.activeElement as HTMLInputElement | null;
+    if (inputEl?.dataset.capacityCellId === row.id) return;
+    setValue(String(row.capacity));
+  }, [row.capacity, row.id]);
+
+  const commit = (): void => {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 999) {
+      toast('السعة يجب أن تكون عدداً صحيحاً بين 1 و 999', 'danger');
+      setValue(String(row.capacity));
+      return;
+    }
+    if (parsed === row.capacity) return;
+    updateMut.mutate(
+      { id: row.id, patch: { capacity: parsed } },
+      {
+        onError: (err) => {
+          toast((err as Error).message, 'danger');
+          setValue(String(row.capacity));
+        },
+      },
+    );
+  };
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={1}
+      max={999}
+      value={value}
+      data-capacity-cell-id={row.id}
+      aria-label={`سعة ${row.committeeName}`}
+      disabled={updateMut.isPending}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          (e.currentTarget as HTMLInputElement).blur();
+        } else if (e.key === 'Escape') {
+          setValue(String(row.capacity));
+          (e.currentTarget as HTMLInputElement).blur();
+        }
+      }}
+      className="mx-auto block w-16 rounded-md border border-border-subtle bg-surface-card px-2 py-1 text-center font-numeric tnum text-sm text-ink-900 transition-colors hover:border-ink-300 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none disabled:cursor-wait disabled:opacity-60"
+    />
   );
 }
 
