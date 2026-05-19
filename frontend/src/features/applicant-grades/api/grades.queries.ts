@@ -168,6 +168,14 @@ export function useApplicantGradesCommit() {
       /** Per-NID decisions from the diff-review step. Overrides the
        *  per-group DUPLICATE_NID action for the matching nids. */
       existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
+      /** Per-NID resolutions for intra-upload `المجموع الكلي` conflicts. */
+      uploadDuplicateDecisions?: Record<
+        string,
+        | { action: 'pick-higher' }
+        | { action: 'pick-lower' }
+        | { action: 'pick-specific'; pickedTotal: number }
+        | { action: 'reject' }
+      >;
     }): Promise<ImportCommitResult> => gradesService.runImportCommit(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: gradesKeys.all });

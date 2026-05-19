@@ -66,6 +66,9 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
   const existingDiffDecisions = useImportWizardStore((s) => s.existingDiffDecisions);
+  const uploadDuplicateDecisions = useImportWizardStore(
+    (s) => s.uploadDuplicateDecisions,
+  );
   const reset = useImportWizardStore((s) => s.reset);
 
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -171,6 +174,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         maxGradeByCategory,
         perGroupActions: actions,
         existingDiffDecisions,
+        uploadDuplicateDecisions,
       },
       {
         onSuccess: (res) => {

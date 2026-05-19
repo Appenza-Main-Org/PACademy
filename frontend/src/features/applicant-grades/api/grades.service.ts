@@ -548,19 +548,94 @@ export const gradesService = {
      *  — `accept` writes the incoming row, `reject` leaves the
      *  existing record untouched. */
     existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
+    /** Resolution for intra-upload `المجموع الكلي` conflicts (same NID
+     *  with two different totals in the same file). Defaults to
+     *  `pick-higher` per-NID when no entry is provided. */
+    uploadDuplicateDecisions?: Record<
+      string,
+      | { action: 'pick-higher' }
+      | { action: 'pick-lower' }
+      | { action: 'pick-specific'; pickedTotal: number }
+      | { action: 'reject' }
+    >;
   }): Promise<ImportCommitResult> {
     await simulateLatency(180, 340);
     const {
-      rows,
+      rows: incomingRows,
       selectedSchoolCategories,
       maxGradeByCategory,
       perGroupActions,
       existingDiffDecisions,
+      uploadDuplicateDecisions,
     } = input;
+
+    /* ── Pre-pass: collapse intra-upload duplicate totals ─────────
+     * Group rows by NID. When the same NID shows up with two distinct
+     * non-null `totalGrade` values, apply the admin's decision before
+     * the per-row processing below. Rejected NIDs are removed entirely
+     * (counted as failed in the result); picked NIDs keep exactly one
+     * row at the chosen total. */
+    const rowsByNid = new Map<string, NormalisedRow[]>();
+    for (const r of incomingRows) {
+      if (!r.nationalId) {
+        rowsByNid.set(`__no-nid-${r.sourceRowIndex}`, [r]);
+        continue;
+      }
+      const bucket = rowsByNid.get(r.nationalId);
+      if (bucket) bucket.push(r);
+      else rowsByNid.set(r.nationalId, [r]);
+    }
+
+    const rows: NormalisedRow[] = [];
+    let preFailed = 0;
+    for (const [, bucket] of rowsByNid) {
+      if (bucket.length === 1) {
+        rows.push(bucket[0]!);
+        continue;
+      }
+      const totals = bucket
+        .map((r) => r.totalGrade)
+        .filter((t): t is number => t != null && Number.isFinite(t));
+      const distinct = Array.from(new Set(totals));
+      if (distinct.length <= 1) {
+        /* No real conflict — same total appears twice. Keep the first
+         * row and drop the rest. */
+        rows.push(bucket[0]!);
+        continue;
+      }
+      const nid = bucket[0]!.nationalId!;
+      const decision = uploadDuplicateDecisions?.[nid] ?? { action: 'pick-higher' };
+      if (decision.action === 'reject') {
+        preFailed += bucket.length;
+        continue;
+      }
+      let pickedTotal: number;
+      if (decision.action === 'pick-higher') {
+        pickedTotal = Math.max(...distinct);
+      } else if (decision.action === 'pick-lower') {
+        pickedTotal = Math.min(...distinct);
+      } else {
+        pickedTotal = decision.pickedTotal;
+      }
+      const picked = bucket.find((r) => r.totalGrade === pickedTotal);
+      if (picked) {
+        rows.push(picked);
+        /* The rest are silently dropped — they're not failures, just
+         * deduplicated against the resolved row. */
+      } else {
+        /* `pick-specific` with a stale total the file no longer has —
+         * fall back to pick-higher so we never silently lose a record. */
+        const fallback = bucket.find(
+          (r) => r.totalGrade === Math.max(...distinct),
+        );
+        if (fallback) rows.push(fallback);
+        else preFailed += bucket.length;
+      }
+    }
     const allowedCategories = new Set(selectedSchoolCategories);
     const existingByNid = new Map(STATE.map((r) => [r.nid, r]));
     let inserted = 0;
-    let failed = 0;
+    let failed = preFailed;
 
     for (const row of rows) {
       if (!row.nationalId || !row.nameAr || !row.track) {
