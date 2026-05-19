@@ -23,14 +23,20 @@ import {
   Check,
   ChevronsDownUp,
   ChevronsUpDown,
+  MoveRight,
+  MoreVertical,
   Pencil,
+  Trash2,
   X,
 } from 'lucide-react';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
   Accordion,
+  AlertDialog,
   Button,
   Card,
+  Dialog,
+  DropdownMenu,
   EmptyState,
   LoadingState,
   PageHeader,
@@ -43,6 +49,8 @@ import { useActiveCycle, useCycles } from '../api/cycles.queries';
 import { useLookup } from '@/features/lookups';
 import {
   useCommitteeInstances,
+  useRemoveCommitteeInstanceDayMutation,
+  useTransferCommitteeInstanceDayMutation,
   useUpdateCommitteeInstanceMutation,
 } from '@/features/committees';
 import type { AdmissionCycle, CommitteeInstance } from '@/shared/types/domain';
@@ -279,16 +287,29 @@ export function CommitteeInstancesPage(): JSX.Element {
             >
               {dayGroups.map((group) => (
                 <Accordion.Item key={group.date} value={group.date}>
-                  <Accordion.Trigger>
-                    <span className="flex w-full items-center justify-between gap-2">
-                      <span className="font-ar-display text-sm font-bold text-ink-900">
-                        {fmtDate(group.date, 'full')}
+                  <Accordion.HeaderRow
+                    trigger={
+                      <span className="flex w-full items-center justify-between gap-2 pe-2">
+                        <span className="font-ar-display text-sm font-bold text-ink-900">
+                          {fmtDate(group.date, 'full')}
+                        </span>
+                        <span className="text-2xs text-ink-500">
+                          {num(group.rows.length)} لجنة
+                        </span>
                       </span>
-                      <span className="text-2xs text-ink-500">
-                        {num(group.rows.length)} لجنة
-                      </span>
-                    </span>
-                  </Accordion.Trigger>
+                    }
+                    actions={
+                      resolvedCycleId ? (
+                        <DayActionsMenu
+                          cycleId={resolvedCycleId}
+                          group={group}
+                          otherDays={dayGroups
+                            .filter((g) => g.date !== group.date)
+                            .map((g) => g.date)}
+                        />
+                      ) : null
+                    }
+                  />
                   <Accordion.Content>
                     <CommitteeRowsTable rows={group.rows} />
                   </Accordion.Content>
@@ -299,6 +320,287 @@ export function CommitteeInstancesPage(): JSX.Element {
         </>
       )}
     </CenteredShell>
+  );
+}
+
+/* ── Per-day actions menu ────────────────────────────────────────── *
+ * Drives the «حذف اليوم» and «نقل اليوم» flows. Both surface
+ * reservation-aware confirmation dialogs when any committee on the day
+ * has reserved > 0, so the admin sees what's at stake before committing
+ * the action.                                                            */
+
+interface DayActionsMenuProps {
+  cycleId: string;
+  group: DayGroup;
+  /** Dates of every other day in the same cycle — the target candidates
+   *  for the «نقل اليوم» dropdown. Empty when this is the only day. */
+  otherDays: string[];
+}
+
+function DayActionsMenu({
+  cycleId,
+  group,
+  otherDays,
+}: DayActionsMenuProps): JSX.Element {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenu.Trigger asChild>
+          <button
+            type="button"
+            aria-label="إجراءات اليوم"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+          >
+            <MoreVertical size={16} strokeWidth={1.75} aria-hidden />
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content>
+          <DropdownMenu.Item
+            leadingIcon={<MoveRight size={14} strokeWidth={1.75} />}
+            disabled={otherDays.length === 0}
+            onSelect={() => setTransferOpen(true)}
+          >
+            نقل اليوم
+          </DropdownMenu.Item>
+          <DropdownMenu.Separator />
+          <DropdownMenu.Item
+            destructive
+            leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
+            onSelect={() => setDeleteOpen(true)}
+          >
+            حذف اليوم
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu>
+
+      <DeleteDayDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        cycleId={cycleId}
+        group={group}
+      />
+      <TransferDayDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        cycleId={cycleId}
+        group={group}
+        otherDays={otherDays}
+      />
+    </>
+  );
+}
+
+/* ── Delete-day confirmation ─────────────────────────────────────── */
+
+interface DeleteDayDialogProps {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  cycleId: string;
+  group: DayGroup;
+}
+
+function DeleteDayDialog({
+  open,
+  onOpenChange,
+  cycleId,
+  group,
+}: DeleteDayDialogProps): JSX.Element {
+  const removeDayMut = useRemoveCommitteeInstanceDayMutation();
+  const reservedRows = group.rows.filter((r) => r.reserved > 0);
+  const hasReservations = reservedRows.length > 0;
+
+  const handleDelete = (): void => {
+    removeDayMut.mutate(
+      { cycleId, date: group.date },
+      {
+        onSuccess: (removed) => {
+          toast(`تم حذف ${num(removed.length)} موعد في ${fmtDate(group.date, 'full')}`, 'success');
+          onOpenChange(false);
+        },
+        onError: (err) => toast((err as Error).message, 'danger'),
+      },
+    );
+  };
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`حذف يوم ${fmtDate(group.date, 'full')}`}
+      description={
+        hasReservations
+          ? 'هناك متقدمون محجوزون في لجان هذا اليوم. الحذف سيُسقط جميع الحجوزات أدناه. هل تريد المتابعة؟'
+          : `سيتم حذف ${num(group.rows.length)} موعد لجنة في هذا اليوم. لا توجد حجوزات.`
+      }
+      actionLabel={hasReservations ? 'حذف رغم الحجوزات' : 'حذف'}
+      tone="danger"
+      onAction={handleDelete}
+      isActionLoading={removeDayMut.isPending}
+    >
+      {hasReservations && (
+        <ul className="mt-3 max-h-48 overflow-auto rounded-md border border-terra-200 bg-terra-50 p-2 text-2xs text-terra-700">
+          {reservedRows.map((r) => (
+            <li key={r.id} className="flex items-center justify-between gap-2 py-0.5">
+              <span className="truncate">{r.committeeName}</span>
+              <span className="font-numeric tnum">
+                {num(r.reserved)} / {num(r.capacity)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </AlertDialog>
+  );
+}
+
+/* ── Transfer-day flow ───────────────────────────────────────────── *
+ * Two-step: pick a target date (SearchSelect of other days in the same
+ * cycle), then — only if any reservations exist — a confirmation panel
+ * that lists what's moving. Both steps render inside the same Dialog so
+ * the admin can step back to change the target without re-opening.      */
+
+interface TransferDayDialogProps {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  cycleId: string;
+  group: DayGroup;
+  otherDays: string[];
+}
+
+function TransferDayDialog({
+  open,
+  onOpenChange,
+  cycleId,
+  group,
+  otherDays,
+}: TransferDayDialogProps): JSX.Element {
+  const transferMut = useTransferCommitteeInstanceDayMutation();
+  const [target, setTarget] = useState<string | null>(null);
+  const [stage, setStage] = useState<'pick' | 'confirm'>('pick');
+
+  /* Reset internal state every time the dialog opens. */
+  useEffect(() => {
+    if (open) {
+      setTarget(null);
+      setStage('pick');
+    }
+  }, [open]);
+
+  const reservedRows = group.rows.filter((r) => r.reserved > 0);
+  const hasReservations = reservedRows.length > 0;
+
+  const targetOptions = useMemo(
+    () =>
+      otherDays
+        .slice()
+        .sort()
+        .map((d) => ({
+          value: d,
+          label: fmtDate(d, 'full'),
+          keywords: d,
+        })),
+    [otherDays],
+  );
+
+  const handleProceed = (): void => {
+    if (!target) return;
+    if (hasReservations) {
+      setStage('confirm');
+      return;
+    }
+    submitTransfer();
+  };
+
+  const submitTransfer = (): void => {
+    if (!target) return;
+    transferMut.mutate(
+      { cycleId, fromDate: group.date, toDate: target },
+      {
+        onSuccess: ({ moved, merged }) => {
+          const total = moved.length + merged.length;
+          const message =
+            merged.length > 0
+              ? `تم نقل ${num(total)} موعد (${num(merged.length)} دمج مع مواعيد قائمة)`
+              : `تم نقل ${num(total)} موعد`;
+          toast(message, 'success');
+          onOpenChange(false);
+        },
+        onError: (err) => toast((err as Error).message, 'danger'),
+      },
+    );
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`نقل يوم ${fmtDate(group.date, 'full')}`}
+      size="md"
+    >
+      {stage === 'pick' ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-ink-700">
+            اختر اليوم المستهدف لنقل جميع لجان هذا اليوم إليه.
+            {hasReservations &&
+              ' سيتم نقل الحجوزات الحالية مع كل لجنة دون فقد، ودمج التكرارات مع المواعيد الموجودة.'}
+          </p>
+          <SearchSelect
+            ariaLabel="اليوم المستهدف"
+            value={target}
+            onChange={setTarget}
+            options={targetOptions}
+            placeholder="اختر يوماً…"
+            emptyText="لا توجد أيام أخرى لهذه الدورة"
+          />
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>
+              إلغاء
+            </Button>
+            <Button variant="primary" onClick={handleProceed} disabled={!target}>
+              {hasReservations ? 'متابعة' : 'نقل'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-ink-700">
+            ستُنقل اللجان التالية إلى{' '}
+            <span className="font-ar-display font-bold text-ink-900">
+              {target ? fmtDate(target, 'full') : ''}
+            </span>
+            . الحجوزات تنتقل مع كل لجنة كما هي.
+          </p>
+          <ul className="max-h-48 overflow-auto rounded-md border border-terra-200 bg-terra-50 p-2 text-2xs text-terra-700">
+            {reservedRows.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-2 py-0.5"
+              >
+                <span className="truncate">{r.committeeName}</span>
+                <span className="font-numeric tnum">
+                  {num(r.reserved)} / {num(r.capacity)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setStage('pick')}>
+              رجوع
+            </Button>
+            <Button
+              variant="primary"
+              onClick={submitTransfer}
+              isLoading={transferMut.isPending}
+            >
+              تأكيد النقل
+            </Button>
+          </div>
+        </div>
+      )}
+    </Dialog>
   );
 }
 

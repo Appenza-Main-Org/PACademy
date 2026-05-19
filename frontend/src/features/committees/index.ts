@@ -37,4 +37,6 @@ export {
   useAddCommitteeInstancesMutation,
   useUpdateCommitteeInstanceMutation,
   useRemoveCommitteeInstanceMutation,
+  useRemoveCommitteeInstanceDayMutation,
+  useTransferCommitteeInstanceDayMutation,
 } from './api/committeeInstance.queries';

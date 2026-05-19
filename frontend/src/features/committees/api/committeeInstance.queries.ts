@@ -61,3 +61,25 @@ export function useRemoveCommitteeInstanceMutation() {
     },
   });
 }
+
+export function useRemoveCommitteeInstanceDayMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { cycleId: string; date: string }) =>
+      committeeInstanceService.removeDay(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: committeeInstanceKeys.all });
+    },
+  });
+}
+
+export function useTransferCommitteeInstanceDayMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { cycleId: string; fromDate: string; toDate: string }) =>
+      committeeInstanceService.transferDay(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: committeeInstanceKeys.all });
+    },
+  });
+}

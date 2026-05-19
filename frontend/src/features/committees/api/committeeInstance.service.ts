@@ -200,4 +200,121 @@ export const committeeInstanceService = {
       before: removed,
     });
   },
+
+  /**
+   * Remove every instance for a (cycle × date) tuple in one call.
+   *
+   * Returns the list of removed rows so the caller can surface a
+   * summary toast. The dialog-level «reserved > 0» confirmation is the
+   * UI's responsibility; this method does not enforce it — admins with
+   * authority over the cycle can force-delete a day with reservations
+   * after the explicit confirmation step.
+   *
+   * INTEGRATION CONTRACT:
+   *   DELETE /api/committee-instances?cycleId=&date=
+   */
+  async removeDay(input: { cycleId: string; date: string }): Promise<CommitteeInstance[]> {
+    await simulateLatency();
+    const removed: CommitteeInstance[] = [];
+    /* Iterate back-to-front so splice indices stay valid. */
+    for (let i = MOCK.committeeInstances.length - 1; i >= 0; i -= 1) {
+      const r = MOCK.committeeInstances[i]!;
+      if (r.cycleId === input.cycleId && r.date === input.date) {
+        MOCK.committeeInstances.splice(i, 1);
+        removed.push(r);
+      }
+    }
+    if (removed.length > 0) {
+      emitAudit({
+        action: 'delete',
+        module: 'committees',
+        entityType: 'CommitteeInstance',
+        entityLabel: 'مواعيد لجان',
+        entityId: `${input.cycleId}:${input.date}`,
+        details: `حذف ${removed.length} موعد لجنة في ${input.date}`,
+        before: removed,
+      });
+    }
+    return removed;
+  },
+
+  /**
+   * Move every instance for a (cycle × fromDate) tuple to `toDate`.
+   *
+   * When a target collision exists (same cycle + definition + toDate
+   * already there) the rows merge: capacity is summed (clamped to 999),
+   * reserved is summed, and the source row is dropped. Merging avoids
+   * the COMMITTEE_INSTANCE_DUPLICATE conflict and matches the wizard's
+   * idempotent-merge behaviour on add.
+   *
+   * Returns `{ moved, merged }` — `moved` rows changed date in place,
+   * `merged` rows collapsed into pre-existing targets.
+   *
+   * INTEGRATION CONTRACT:
+   *   POST /api/committee-instances/transfer-day
+   *     body: { cycleId, fromDate, toDate } → { moved: [], merged: [] }
+   */
+  async transferDay(input: {
+    cycleId: string;
+    fromDate: string;
+    toDate: string;
+  }): Promise<{ moved: CommitteeInstance[]; merged: CommitteeInstance[] }> {
+    await simulateLatency();
+    if (input.fromDate === input.toDate) {
+      return { moved: [], merged: [] };
+    }
+    const now = new Date().toISOString();
+    const moved: CommitteeInstance[] = [];
+    const merged: CommitteeInstance[] = [];
+    const sourceIndices: number[] = [];
+    for (let i = 0; i < MOCK.committeeInstances.length; i += 1) {
+      const r = MOCK.committeeInstances[i]!;
+      if (r.cycleId === input.cycleId && r.date === input.fromDate) {
+        sourceIndices.push(i);
+      }
+    }
+    /* Process source rows in reverse so the splice() at merge time
+     * doesn't invalidate the earlier indices in the list. */
+    for (let k = sourceIndices.length - 1; k >= 0; k -= 1) {
+      const idx = sourceIndices[k]!;
+      const source = MOCK.committeeInstances[idx]!;
+      const targetIdx = MOCK.committeeInstances.findIndex(
+        (x) =>
+          x.cycleId === input.cycleId &&
+          x.definitionCode === source.definitionCode &&
+          x.date === input.toDate,
+      );
+      if (targetIdx !== -1) {
+        const target = MOCK.committeeInstances[targetIdx]!;
+        const mergedTarget: CommitteeInstance = {
+          ...target,
+          capacity: Math.min(999, target.capacity + source.capacity),
+          reserved: target.reserved + source.reserved,
+          updatedAt: now,
+        };
+        MOCK.committeeInstances[targetIdx] = mergedTarget;
+        MOCK.committeeInstances.splice(idx, 1);
+        merged.push(source);
+      } else {
+        const nextRow: CommitteeInstance = {
+          ...source,
+          date: input.toDate,
+          updatedAt: now,
+        };
+        MOCK.committeeInstances[idx] = nextRow;
+        moved.push(source);
+      }
+    }
+    if (moved.length > 0 || merged.length > 0) {
+      emitAudit({
+        action: 'update',
+        module: 'committees',
+        entityType: 'CommitteeInstance',
+        entityLabel: 'مواعيد لجان',
+        entityId: `${input.cycleId}:${input.fromDate}→${input.toDate}`,
+        details: `نقل ${moved.length + merged.length} موعد من ${input.fromDate} إلى ${input.toDate} (دمج ${merged.length})`,
+      });
+    }
+    return { moved, merged };
+  },
 };
