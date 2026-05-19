@@ -423,11 +423,12 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 7, passingCriteria: '' },
     ],
     procedures: [],
-    /* Pre-university (ثانوي) categories don't carry a معيار التمييز
-     * by default — admins can still pick one from the lookup drawer,
-     * and the detail page suppresses the criterion Card whenever
-     * `excellenceCriterion` is null. */
-    excellenceCriterion: null,
+    /* Thanawya-amma is graded on a numeric scale (e.g. /410), so
+     * pre-university categories default to EXC-02 (درجة). The criterion
+     * chip + grade-pair form are surfaced consistently across both
+     * `pre_university` and `university` types — every category carries a
+     * criterion. */
+    excellenceCriterion: 'EXC-02',
   },
   {
     code: 'law_bachelor',
