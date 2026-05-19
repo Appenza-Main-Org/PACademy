@@ -233,16 +233,19 @@ export const applicantPortalService = {
     method: 'fawry-code';
   }): Promise<{ intentId: string; refNumber: string; fawryCode: string }> {
     await simulateLatency(400, 700);
-    const { deterministicPaymentReference, deterministicFawryCode } = await import(
+    const { deterministicPaymentReference } = await import(
       '../lib/deterministic-codes'
     );
     const refNumber = deterministicPaymentReference(DRAFT.applicantId);
     const intentId = `INT-${refNumber}`;
-    return {
-      intentId,
-      refNumber,
-      fawryCode: deterministicFawryCode(DRAFT.applicantId),
-    };
+    /* Fawry code is freshly generated every intent (per client direction
+     * 2026-05-19 — a fresh code on every page visit). The reference
+     * number stays deterministic because it's the applicant's persistent
+     * file identifier, not a single payment attempt. */
+    const fawryCode = String(
+      Math.floor(Math.random() * 90_000_000) + 10_000_000,
+    );
+    return { intentId, refNumber, fawryCode };
   },
 
   /**
