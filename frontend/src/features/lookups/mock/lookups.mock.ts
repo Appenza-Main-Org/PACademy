@@ -457,8 +457,11 @@ const applicantCategories: ApplicantCategoryRow[] = [
     ],
     procedures: [],
     excellenceCriteriaVisible: true,
-    /* law_bachelor uses qualitative grading (SUB-003 / TAGDIR). */
-    excellenceCriterion: 'EXC-01',
+    /* Per product decision (2026-05-19): every جامعي category uses
+     * numeric grading (EXC-02 / درجة) as the معيار التميز. The
+     * EXC-01 (تقدير) row remains in the excellence-criteria lookup
+     * but is no longer the default for university categories. */
+    excellenceCriterion: 'EXC-02',
   },
   {
     code: 'physical_education_bachelor',
@@ -490,7 +493,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
     ],
     procedures: [],
     excellenceCriteriaVisible: true,
-    excellenceCriterion: 'EXC-01',
+    excellenceCriterion: 'EXC-02',
   },
   {
     code: 'specialized_officers',
@@ -534,7 +537,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
     ],
     procedures: [],
     excellenceCriteriaVisible: true,
-    excellenceCriterion: 'EXC-01',
+    excellenceCriterion: 'EXC-02',
   },
 ];
 

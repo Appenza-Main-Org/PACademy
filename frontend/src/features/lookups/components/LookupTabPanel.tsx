@@ -22,8 +22,6 @@ import {
   StatusBadge,
   Switch,
   toast,
-  Tooltip,
-  TooltipProvider,
   type DataTableColumn,
   type DataTableSort,
 } from '@/shared/components';
@@ -623,24 +621,20 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
             {r.type === 'university' ? 'جامعي' : 'ثانوي'}
           </Badge>
         ) },
-        { key: 'facultyCodes', label: 'الكليات', width: 220, render: (r: ApplicantCategoryRow) => (
-          <ChipStack
-            codes={r.facultyCodes}
-            lookupKey="faculties"
-            emptyLabel="—"
-            tone="neutral"
-            ariaLabel="الكليات"
-          />
-        ) },
-        { key: 'specializationCodes', label: 'التخصصات', width: 240, render: (r: ApplicantCategoryRow) => (
-          <ChipStack
-            codes={r.specializationCodes}
-            lookupKey="specializations"
-            emptyLabel="الكل"
-            tone="accent"
-            ariaLabel="التخصصات"
-          />
-        ) },
+        /* معيار التميز* — required for every university (جامعي) row.
+         * Pre-university (ثانوي) rows don't carry a criterion (the
+         * column shows «—»). The value resolves through the
+         * `excellence-criteria` lookup so a label change there flows
+         * through here without a code edit. */
+        { key: 'excellenceCriterion', label: 'معيار التميز*', sortable: true, width: 160, render: (r: ApplicantCategoryRow) => {
+          if (r.type !== 'university') {
+            return <span className="text-ink-400">—</span>;
+          }
+          if (!r.excellenceCriterion) {
+            return <Badge tone="warning">غير محدد</Badge>;
+          }
+          return <Badge tone="info">{labelByCode('excellence-criteria', r.excellenceCriterion)}</Badge>;
+        } },
       ];
     case 'nationalities-countries':
       return [
@@ -705,60 +699,6 @@ function labelByCode(key: LookupKey, code: string): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = (MOCK.lookups[key] as any[]).find((r) => r.code === code);
   return row ? row.name : '—';
-}
-
-/**
- * ChipStack — truncated chip cluster with `+N` overflow + hover-reveal
- * Tooltip showing the full list. Used in list cells where the cell can
- * hold many tags but only ~2 inline.
- *
- * `tone` flows through to `Badge`. `emptyLabel` controls the rendered
- * affordance when `codes` is empty (e.g. "—" vs "الكل" for a "no spec
- * filter = all specs" semantic).
- */
-interface ChipStackProps {
-  codes: readonly string[];
-  lookupKey: LookupKey;
-  emptyLabel: string;
-  tone: 'neutral' | 'accent' | 'info';
-  ariaLabel: string;
-}
-
-const MAX_INLINE_CHIPS = 2;
-
-function ChipStack({ codes, lookupKey, emptyLabel, tone, ariaLabel }: ChipStackProps): JSX.Element {
-  if (codes.length === 0) {
-    return <span className="text-ink-400">{emptyLabel}</span>;
-  }
-  const inline = codes.slice(0, MAX_INLINE_CHIPS);
-  const overflow = codes.slice(MAX_INLINE_CHIPS);
-  const overflowList = overflow.map((c) => labelByCode(lookupKey, c)).join('، ');
-
-  return (
-    <TooltipProvider>
-      <span
-        className="inline-flex max-w-full flex-wrap items-center gap-1"
-        aria-label={ariaLabel}
-      >
-        {inline.map((c) => (
-          <Badge key={c} tone={tone} className="max-w-[140px] truncate">
-            {labelByCode(lookupKey, c)}
-          </Badge>
-        ))}
-        {overflow.length > 0 && (
-          <Tooltip content={overflowList} side="top">
-            <button
-              type="button"
-              className="inline-flex items-center rounded-pill border border-border-default bg-surface-page px-2 py-0.5 text-2xs font-medium text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
-              aria-label={`عرض ${overflow.length} عنصرًا إضافيًا`}
-            >
-              +{overflow.length}
-            </button>
-          </Tooltip>
-        )}
-      </span>
-    </TooltipProvider>
-  );
 }
 
 /** Generic Arabic-aware comparator used by the column-header sort.
