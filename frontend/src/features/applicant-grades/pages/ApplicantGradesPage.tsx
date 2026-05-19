@@ -432,6 +432,72 @@ export function ApplicantGradesPage(): JSX.Element {
       render: (r) => <span className="font-medium text-ink-900">{r.name}</span>,
     },
     {
+      key: 'total',
+      label: 'المجموع الإجمالي',
+      align: 'center',
+      sortable: true,
+      getSortValue: (r) => r.total,
+      filter: { kind: 'number', getValue: (r) => r.total },
+      className: 'min-w-[14ch] font-numeric tabular-nums whitespace-nowrap',
+      render: (r) => (
+        <>
+          <span className="font-semibold text-ink-900">{Math.round(r.total)}</span>
+          <span className="text-2xs text-ink-300"> / </span>
+          <span className="text-2xs text-ink-400">{Math.round(r.max)}</span>
+        </>
+      ),
+    },
+    {
+      key: 'pct',
+      label: 'النسبة',
+      align: 'center',
+      sortable: true,
+      getSortValue: (r) => r.pct,
+      filter: { kind: 'number', getValue: (r) => r.pct },
+      className: 'min-w-[8ch] font-numeric tabular-nums',
+      render: (r) => (
+        <>
+          <span className="font-semibold text-ink-900">{r.pct.toFixed(2)}</span>
+          <span className="text-2xs text-ink-400">٪</span>
+        </>
+      ),
+    },
+    {
+      key: 'eff',
+      label: 'المجموع بعد التعديل',
+      align: 'center',
+      sortable: true,
+      getSortValue: (r) => r.eff,
+      filter: { kind: 'number', getValue: (r) => r.eff },
+      className: 'min-w-[18ch] font-numeric tabular-nums whitespace-nowrap',
+      render: (r) => (
+        <span className="flex items-center justify-center gap-2">
+          <span
+            className={`font-bold ${
+              r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-900'
+            }`}
+          >
+            {Math.round(r.eff)}
+          </span>
+          {r.adj !== 0 && (
+            <Badge
+              tone={r.adj > 0 ? 'warning' : 'danger'}
+              icon={
+                r.adj > 0 ? (
+                  <ArrowUpRight size={9} strokeWidth={2.5} aria-hidden />
+                ) : (
+                  <ArrowDownRight size={9} strokeWidth={2.5} aria-hidden />
+                )
+              }
+              className="!px-1.5 !py-0 !text-2xs"
+            >
+              <span className="font-numeric tabular-nums">{Math.abs(r.adj)}</span>
+            </Badge>
+          )}
+        </span>
+      ),
+    },
+    {
       key: 'kind',
       label: 'النوع',
       align: 'center',
@@ -541,72 +607,6 @@ export function ApplicantGradesPage(): JSX.Element {
         ) : (
           <span className="text-2xs text-ink-300">—</span>
         ),
-    },
-    {
-      key: 'total',
-      label: 'المجموع الإجمالي',
-      align: 'center',
-      sortable: true,
-      getSortValue: (r) => r.total,
-      filter: { kind: 'number', getValue: (r) => r.total },
-      className: 'min-w-[14ch] font-numeric tabular-nums whitespace-nowrap',
-      render: (r) => (
-        <>
-          <span className="font-semibold text-ink-900">{Math.round(r.total)}</span>
-          <span className="text-2xs text-ink-300"> / </span>
-          <span className="text-2xs text-ink-400">{Math.round(r.max)}</span>
-        </>
-      ),
-    },
-    {
-      key: 'pct',
-      label: 'النسبة',
-      align: 'center',
-      sortable: true,
-      getSortValue: (r) => r.pct,
-      filter: { kind: 'number', getValue: (r) => r.pct },
-      className: 'min-w-[8ch] font-numeric tabular-nums',
-      render: (r) => (
-        <>
-          <span className="font-semibold text-ink-900">{r.pct.toFixed(2)}</span>
-          <span className="text-2xs text-ink-400">٪</span>
-        </>
-      ),
-    },
-    {
-      key: 'eff',
-      label: 'المجموع بعد التعديل',
-      align: 'center',
-      sortable: true,
-      getSortValue: (r) => r.eff,
-      filter: { kind: 'number', getValue: (r) => r.eff },
-      className: 'min-w-[18ch] font-numeric tabular-nums whitespace-nowrap',
-      render: (r) => (
-        <span className="flex items-center justify-center gap-2">
-          <span
-            className={`font-bold ${
-              r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-900'
-            }`}
-          >
-            {Math.round(r.eff)}
-          </span>
-          {r.adj !== 0 && (
-            <Badge
-              tone={r.adj > 0 ? 'warning' : 'danger'}
-              icon={
-                r.adj > 0 ? (
-                  <ArrowUpRight size={9} strokeWidth={2.5} aria-hidden />
-                ) : (
-                  <ArrowDownRight size={9} strokeWidth={2.5} aria-hidden />
-                )
-              }
-              className="!px-1.5 !py-0 !text-2xs"
-            >
-              <span className="font-numeric tabular-nums">{Math.abs(r.adj)}</span>
-            </Badge>
-          )}
-        </span>
-      ),
     },
     {
       key: 'actions',
