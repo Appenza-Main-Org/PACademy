@@ -51,7 +51,10 @@ export const ROUTES = {
     /* Committee instances — cycle-bound, dated, capacity-bearing committee
      * assignments. Authored from the admission-setup wizard committees
      * step; managed (list / filter / inline-edit date+capacity) here. */
-    committees: '/admin/committees',
+    committeesExamConfig: '/admin/committees-exam-config',
+    /** @deprecated — renamed to `committeesExamConfig`. The route now
+     *  redirects so external bookmarks keep landing on the new page. */
+    committees: '/admin/committees-exam-config',
     workflows: '/admin/workflows',
     workflowEdit: (id = ':id'): string => `/admin/workflows/${id}`,
     workflowNew: '/admin/workflows/new',

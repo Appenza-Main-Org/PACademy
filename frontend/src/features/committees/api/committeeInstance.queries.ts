@@ -2,7 +2,7 @@
  * Committee Instances — TanStack Query bindings.
  *
  * Both the admission-setup wizard step (`/admin/cycles/admission-setup/wizard/committees`)
- * and the new management page (`/admin/committees`) consume the same
+ * and the new management page (`/admin/committees-exam-config`) consume the same
  * query keys so mutations on one surface reactively refresh the other.
  */
 

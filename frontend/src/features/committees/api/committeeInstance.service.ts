@@ -6,7 +6,7 @@
  * (the lookup row at `/admin/lookups/committees`) with a cycle, a
  * category, a date, and a seat count. Both the admission-setup wizard
  * step `/admin/cycles/admission-setup/wizard/committees` and the new
- * `/admin/committees` management page operate on this same record set.
+ * `/admin/committees-exam-config` management page operate on this same record set.
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/committee-instances?cycleId=&categoryKey=    → CommitteeInstance[]

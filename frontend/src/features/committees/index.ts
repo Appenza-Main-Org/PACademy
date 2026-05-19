@@ -23,7 +23,7 @@ export { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 
 /* Committee instances — cycle-bound, dated, capacity-bearing committee
  * assignments. Authored by the admission-setup wizard step + the
- * `/admin/committees` management page; both surfaces share the same
+ * `/admin/committees-exam-config` management page; both surfaces share the same
  * underlying record set. */
 export {
   committeeInstanceService,

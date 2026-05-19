@@ -1177,7 +1177,7 @@ export const MOCK = {
   examSchedule: [] as ExamScheduleEntry[],
   /* Committee instances — cycle-bound, dated, capacity-bearing committee
    * assignments. The wizard `/admin/cycles/admission-setup/wizard/committees`
-   * authors these from picked category definitions; `/admin/committees`
+   * authors these from picked category definitions; `/admin/committees-exam-config`
    * lists + edits them. Both surfaces share this single source of truth. */
   committeeInstances: [...COMMITTEE_INSTANCES_SEED] as CommitteeInstance[],
 };

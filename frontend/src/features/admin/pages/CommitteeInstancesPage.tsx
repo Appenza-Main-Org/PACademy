@@ -1,5 +1,5 @@
 /**
- * /admin/committees — committee instances management.
+ * /admin/committees-exam-config — committee instances management.
  *
  * Lists every CommitteeInstance configured across cycles. Each row is a
  * cycle-bound, dated, capacity-bearing assignment that pairs a lookup

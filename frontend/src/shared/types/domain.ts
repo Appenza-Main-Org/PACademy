@@ -441,13 +441,13 @@ export type CommitteeStatus = 'active' | 'inactive';
  *
  *   2. **CommitteeInstance** (this type) — a cycle-scoped assignment that
  *      pairs a definition with a date + capacity. The admission-setup
- *      wizard creates instances; `/admin/committees` lists and edits
+ *      wizard creates instances; `/admin/committees-exam-config` lists and edits
  *      every instance across cycles.
  *
  * Authoring sites:
  *   - Wizard step `/admin/cycles/admission-setup/wizard/committees` creates
  *     instances from the picked category's definitions.
- *   - `/admin/committees` management page lists, filters, sorts, and
+ *   - `/admin/committees-exam-config` management page lists, filters, sorts, and
  *     inline-edits date + capacity on every existing instance.
  *
  * Both sites operate on the same record — edits in either location update

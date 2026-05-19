@@ -253,7 +253,10 @@ export const routes: RouteObject[] = [
       /* Committee instances management — cross-cycle list + inline edit
        * for date + capacity. Reads the same record set the wizard step
        * (cycles/admission-setup/wizard/committees) authors. */
-      { path: 'committees', element: <CommitteeInstancesPage /> },
+      { path: 'committees-exam-config', element: <CommitteeInstancesPage /> },
+      /* Legacy redirect — `/admin/committees` renamed during the
+       * committees-exam-config rework. External bookmarks land here. */
+      { path: 'committees', element: <Navigate to="/admin/committees-exam-config" replace /> },
       { path: 'workflows', element: <WorkflowsListPage /> },
       { path: 'workflows/new', element: <WorkflowEditorPage /> },
       { path: 'workflows/:id', element: <WorkflowEditorPage /> },
