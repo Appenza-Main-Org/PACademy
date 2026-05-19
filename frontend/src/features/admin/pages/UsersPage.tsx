@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Copy, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { z } from 'zod';
 import {
   Avatar,
@@ -15,13 +15,10 @@ import {
   Button,
   Card,
   DataTable,
-  DropdownMenu,
-  DuplicateAction,
   EmptyState,
   Input,
   PageHeader,
   Select,
-  StatusBadge,
 } from '@/shared/components';
 import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
@@ -206,7 +203,7 @@ export function UsersPage(): JSX.Element {
         },
         render: (u) =>
           u.accountStatus === 'active' ? (
-            <StatusBadge status="approved" />
+            <Badge tone="success">نشط</Badge>
           ) : (
             <Badge tone="neutral">غير نشط</Badge>
           ),
@@ -224,73 +221,8 @@ export function UsersPage(): JSX.Element {
           </span>
         ),
       },
-      {
-        key: '_actions',
-        label: <span className="sr-only">إجراءات</span>,
-        align: 'end',
-        width: 96,
-        render: (u) => (
-          <DuplicateAction
-            row={u}
-            entityKey="admin.users"
-            entityLabelAr="مستخدم"
-            auditModule="users"
-            config={{
-              enabled: true,
-              transform: (row) => ({
-                fullArabicName: `${row.fullArabicName} (نسخة)`,
-                roles: [...row.roles],
-                unit: row.unit,
-                userType: row.userType,
-                accountStatus: 'inactive' as AccountStatus,
-                /* NID + mobile must be re-entered before save (uniqueness). */
-                nationalId: '',
-                mobileNumber: '',
-                officerCode: '',
-              }),
-              onCommit: async (_draft, source) => {
-                /* The duplicate lands inactive with placeholder NID; the
-                 * admin completes the fields on the edit page. */
-                return usersService.createFromTemplate(source.id, {
-                  nationalId: `00000000000000-${source.id}`,
-                  fullArabicName: `${source.fullArabicName} (نسخة)`,
-                  officerCode: '',
-                  mobileNumber: '',
-                });
-              },
-              redirectTo: (row) => ROUTES.admin.userEdit(row.id),
-            }}
-            onSuccess={() => qc.invalidateQueries({ queryKey: usersKeys.all })}
-          >
-            {({ onClick }) => (
-              <DropdownMenu>
-                <DropdownMenu.Trigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => e.stopPropagation()}
-                    leadingIcon={<Copy size={12} strokeWidth={1.75} />}
-                  >
-                    نسخ
-                  </Button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content>
-                  <DropdownMenu.Item
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      onClick();
-                    }}
-                  >
-                    إنشاء نسخة كمسودة
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu>
-            )}
-          </DuplicateAction>
-        ),
-      },
     ],
-    [qc],
+    [],
   );
 
   const listActions: ListActionsConfig<SystemUser> = useMemo(
