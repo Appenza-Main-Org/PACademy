@@ -194,12 +194,18 @@ export function SearchSelect({
                capped at 24rem (or viewport - 2rem) so long Arabic committee
                names like "اللجنة الأولى قسم خاص (طالبات)" stay readable in
                narrow grid columns without overflowing the viewport. */
-            'z-dropdown w-max min-w-48',
+            'w-max min-w-48',
             'rounded-lg border border-border-subtle bg-surface-elevated shadow-md',
             'flex flex-col p-2 outline-none font-ar',
           )}
           style={{
             animation: 'pageEnter var(--duration-fast) var(--ease-standard)',
+            /* --z-popover (1050) sits above --z-modal (1000) so the option
+             * list renders on top when SearchSelect is opened from inside a
+             * Dialog/Drawer. The earlier `z-dropdown` (200) sat below
+             * `--z-modal`, which hid the list behind the move-day dialog on
+             * /admin/committees-exam-config. */
+            zIndex: 'var(--z-popover)' as unknown as number,
             minWidth: 'var(--radix-popover-trigger-width)',
             maxWidth: 'min(calc(100vw - 2rem), 24rem)',
             /* Clamp to whatever vertical space Radix Popper picked. Without
