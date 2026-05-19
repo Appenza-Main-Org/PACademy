@@ -60,6 +60,7 @@ import {
   AuditPage,
   CategoriesListPage,
   CategoryEditPage,
+  CommitteeInstancesPage,
   CommitteesManagementPage,
   CycleDetailPage,
   CycleEditPage,
@@ -249,6 +250,10 @@ export const routes: RouteObject[] = [
       { path: 'cycles/new', element: <CycleNewPage /> },
       { path: 'cycles/:id', element: <CycleDetailPage /> },
       { path: 'cycles/:id/edit', element: <CycleEditPage /> },
+      /* Committee instances management — cross-cycle list + inline edit
+       * for date + capacity. Reads the same record set the wizard step
+       * (cycles/admission-setup/wizard/committees) authors. */
+      { path: 'committees', element: <CommitteeInstancesPage /> },
       { path: 'workflows', element: <WorkflowsListPage /> },
       { path: 'workflows/new', element: <WorkflowEditorPage /> },
       { path: 'workflows/:id', element: <WorkflowEditorPage /> },

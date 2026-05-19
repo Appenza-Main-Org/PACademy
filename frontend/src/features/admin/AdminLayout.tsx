@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Database,
   FileSpreadsheet,
+  Gavel,
   Settings,
   Shield,
   Users,
@@ -52,6 +53,7 @@ const SIDEBAR: SidebarSection[] = [
     permission: 'admission-setup:read',
     items: [
       { key: 'cycles',             label: 'دورات القبول وإعداد التقديم', icon: <CalendarDays size={18} />,   to: ROUTES.admin.cycles },
+      { key: 'committees',         label: 'مواعيد اللجان',                icon: <Gavel size={18} />,          to: ROUTES.admin.committees },
       { key: 'applicant-grades',   label: 'درجات الثانوية العامة والأزهرية', icon: <FileSpreadsheet size={18} />, to: ROUTES.admin.applicantGrades },
     ],
   },

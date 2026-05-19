@@ -40,6 +40,7 @@ export { CycleEditPage } from './pages/CycleEditPage';
 export { CategoriesListPage } from './pages/CategoriesListPage';
 export { CategoryEditPage } from './pages/CategoryEditPage';
 export { CycleNewPage } from './pages/CycleNewPage';
+export { CommitteeInstancesPage } from './pages/CommitteeInstancesPage';
 
 /* Post-polish admin pages — Department Workflow Builder (RFP §3 / §6) */
 export { WorkflowsListPage } from './pages/WorkflowsListPage';

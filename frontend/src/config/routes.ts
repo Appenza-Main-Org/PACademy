@@ -48,6 +48,10 @@ export const ROUTES = {
     cycleEdit: (id = ':id'): string => `/admin/cycles/${id}/edit`,
     categories: '/admin/categories',
     categoryEdit: (key = ':key'): string => `/admin/categories/${key}`,
+    /* Committee instances — cycle-bound, dated, capacity-bearing committee
+     * assignments. Authored from the admission-setup wizard committees
+     * step; managed (list / filter / inline-edit date+capacity) here. */
+    committees: '/admin/committees',
     workflows: '/admin/workflows',
     workflowEdit: (id = ':id'): string => `/admin/workflows/${id}`,
     workflowNew: '/admin/workflows/new',
