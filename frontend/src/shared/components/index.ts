@@ -113,4 +113,8 @@ export type {
   ImportPreviewRow,
   ImportResult,
   DuplicateConfig,
+  ColumnFilterKind,
+  ColumnFilterOption,
+  ColumnFilterConfig,
+  ColumnFilterValue,
 } from './data-table';

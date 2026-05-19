@@ -53,7 +53,14 @@ function formatSize(bytes: number): string {
   return `${bytes} ب`;
 }
 
-export function Step1Settings(): JSX.Element {
+interface Step1SettingsProps {
+  /** When true, render inline "required" errors under fields whose value
+   *  is still empty. Driven by the wizard page: errors are suppressed on
+   *  initial render and switched on once the admin attempts to advance. */
+  showRequiredErrors?: boolean;
+}
+
+export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps = {}): JSX.Element {
   const selectedSchoolCategories = useImportWizardStore(
     (s) => s.selectedSchoolCategories,
   );
@@ -82,11 +89,15 @@ export function Step1Settings(): JSX.Element {
     ? maxGradeByCategory[pickedCode] ?? defaultMaxFor(pickedCode)
     : null;
 
-  function pickCategory(code: string): void {
-    /* Single-select: clicking a chip replaces the selection. Clicking
-     * the active chip again clears it so the admin can back out without
-     * having to refresh. */
-    setSelectedSchoolCategories(pickedCode === code ? [] : [code]);
+  function pickCategory(code: string | null): void {
+    /* Single-select. Passing `null` clears (used by Combobox's clear
+     * action). Passing the active code is a no-op to keep the
+     * Combobox's option-click semantics straightforward. */
+    if (code === null) {
+      setSelectedSchoolCategories([]);
+      return;
+    }
+    setSelectedSchoolCategories([code]);
   }
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -126,6 +137,15 @@ export function Step1Settings(): JSX.Element {
     return { value: String(y), label: String(y) };
   });
 
+  const schoolCategoryOptions = activeCategories.map((c) => ({
+    value: c.code,
+    label: c.name,
+  }));
+  const categoryError =
+    showRequiredErrors && pickedCode == null ? 'الرجاء اختيار فئة المدرسة' : undefined;
+  const yearError =
+    showRequiredErrors && graduationYear == null ? 'الرجاء اختيار سنة التخرج' : undefined;
+
   const meta = file ?? fileMeta;
 
   return (
@@ -133,7 +153,8 @@ export function Step1Settings(): JSX.Element {
       <Field
         label="فئة المدرسة"
         required
-        helper="اختر فئة واحدة من الأكواد المرجعية. تُحدّد درجتها العظمى أدناه."
+        helper="اختر فئة من الأكواد المرجعية. تُحدّد درجتها العظمى أدناه."
+        error={categoryError}
       >
         {schoolCategoriesQuery.isLoading ? (
           <LoadingState variant="list" />
@@ -143,34 +164,14 @@ export function Step1Settings(): JSX.Element {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            <div
-              role="radiogroup"
-              aria-label="فئة المدرسة"
-              className="flex flex-wrap gap-1.5"
-            >
-              {activeCategories.map((c) => {
-                const active = pickedCode === c.code;
-                return (
-                  <button
-                    key={c.code}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => pickCategory(c.code)}
-                    className="cursor-pointer rounded-full border px-3 py-1 text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                    style={{
-                      background: active ? 'var(--teal-500)' : '#fff',
-                      color: active ? '#fff' : 'var(--ink-700)',
-                      borderColor: active
-                        ? 'var(--teal-500)'
-                        : 'var(--border-default)',
-                    }}
-                  >
-                    {c.name}
-                  </button>
-                );
-              })}
-            </div>
+            <Combobox
+              value={pickedCode}
+              onChange={pickCategory}
+              options={schoolCategoryOptions}
+              placeholder="اختر فئة المدرسة"
+              ariaLabel="فئة المدرسة"
+              clearable
+            />
             {pickedCategory && pickedCode && pickedMax != null && (
               <div className="flex items-center justify-between gap-3 rounded-md border border-border-subtle bg-ink-50/40 px-3 py-2">
                 <span className="text-sm font-medium text-ink-900">
@@ -206,13 +207,15 @@ export function Step1Settings(): JSX.Element {
         label="سنة التخرج"
         required
         helper="تُطبَّق على كل صف يُستورد إن لم يحمل عمود سنة تخرّج خاص به"
+        error={yearError}
       >
         <Combobox
-          value={String(graduationYear)}
-          onChange={(v) => setGraduationYear(v ? Number(v) : currentYear)}
+          value={graduationYear == null ? null : String(graduationYear)}
+          onChange={(v) => setGraduationYear(v == null ? null : Number(v))}
           options={yearOptions}
           placeholder="اختر السنة"
           ariaLabel="سنة التخرج"
+          clearable
         />
       </Field>
 

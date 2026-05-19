@@ -221,17 +221,6 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
     case 'tests':
       return (
         <>
-          <Select
-            label="نوع الاختبار"
-            options={[
-              { value: 'physical',  label: 'رياضي' },
-              { value: 'medical',   label: 'طبي' },
-              { value: 'interview', label: 'مقابلة' },
-              { value: 'written',   label: 'كتابي' },
-              { value: 'psych',     label: 'نفسي' },
-            ]}
-            {...register('kind')}
-          />
           <Input label="ترتيب التنفيذ" type="number" {...register('order', { valueAsNumber: true })} />
           <Controller
             control={control}
@@ -713,7 +702,8 @@ const STAGE_OPTIONS: { value: ApplicantCategoryType; label: string }[] = [
 ];
 
 function ApplicantCategoryFields(): JSX.Element {
-  const { control } = useFormContext();
+  const { control, watch } = useFormContext();
+  const excellenceVisible = Boolean(watch('excellenceCriteriaVisible'));
   return (
     <>
       <Controller
@@ -746,6 +736,45 @@ function ApplicantCategoryFields(): JSX.Element {
       />
 
       <FacultyAndSpecializationFields />
+
+      <div className="col-span-2 flex flex-col gap-3 rounded-md border border-border-subtle bg-surface-page p-3">
+        <Controller
+          control={control}
+          name="excellenceCriteriaVisible"
+          render={({ field }) => (
+            <Switch
+              checked={Boolean(field.value)}
+              onCheckedChange={field.onChange}
+              label="إظهار «معيار التميز» في إعدادات التقديم"
+            />
+          )}
+        />
+        <p className="text-2xs text-ink-500">
+          عند التفعيل، تظهر هذه الفئة ضمن «الشروط العامة» في معالج إعداد التقديم
+          ويُعرض معيار التميز المحدد بجوار صفها. عند التعطيل تُخفى الفئة من
+          المعالج دون فقد أي بيانات محفوظة سابقًا.
+        </p>
+        {excellenceVisible && (
+          <Controller
+            control={control}
+            name="excellenceCriterion"
+            render={({ field }) => (
+              <ForeignKeySelect
+                lookupKey="excellence-criteria"
+                label="معيار التميز"
+                required
+                value={(field.value as string | null | undefined) ?? ''}
+                onChange={(next) => field.onChange(next || null)}
+                error={
+                  excellenceVisible && !field.value
+                    ? 'اختر معيارًا واحدًا'
+                    : undefined
+                }
+              />
+            )}
+          />
+        )}
+      </div>
     </>
   );
 }
@@ -1058,6 +1087,8 @@ function blankRow(key: LookupKey): Record<string, unknown> {
         type: 'university',
         facultyCodes: [],
         specializationCodes: [],
+        excellenceCriteriaVisible: true,
+        excellenceCriterion: null,
       };
     case 'nationalities-countries':
       return { ...base, iso2: '', isArab: false };

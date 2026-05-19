@@ -64,6 +64,21 @@ export interface GradeRow {
   overrideMax: number | null;
   lastEditedAt: string | null;
   lastEditedBy: string | null;
+  /**
+   * Timestamp of the most recent change to any grade-affecting field
+   * (raw total, override max, adjustment add/toggle/delete). `null` for
+   * rows that have never been edited since the initial import. Drives
+   * the `/admin/applicant-grades/changes` page + the list-page filter.
+   */
+  gradeChangedAt: string | null;
+  /**
+   * Raw `total` value before the most recent total replacement (via the
+   * import wizard's DUPLICATE_NID override action, or future direct
+   * grade edits). Adjustments + override-max changes don't shift `total`
+   * itself, so they don't touch this — but they still bump
+   * `gradeChangedAt`. `null` when the total has never been replaced.
+   */
+  previousGrade: number | null;
   /** حالة الطالب — مستجد / باقٍ للإعادة / —. */
   status: string;
   log: GradeAdjustment[];

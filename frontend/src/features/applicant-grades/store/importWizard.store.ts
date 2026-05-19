@@ -34,7 +34,11 @@ export interface PersistedImportWizardState {
    *  commit path reads `maxGradeByCategory[row.schoolCategoryCode]`, so
    *  every selected category must carry a value before advancing. */
   maxGradeByCategory: Record<string, number>;
-  graduationYear: number;
+  /** `null` = the admin hasn't picked a graduation year yet. Step 1's
+   *  "متابعة" gate enforces that this is non-null before advancing —
+   *  the field starts empty so admins don't accidentally import under
+   *  the current year when they meant a back-year cohort. */
+  graduationYear: number | null;
   /** File metadata only — the File object itself is non-serialisable. */
   fileMeta: { name: string; size: number } | null;
   selectedTableName: string | null;
@@ -53,7 +57,7 @@ export interface ImportWizardState extends PersistedImportWizardState {
   setStep: (step: ImportStep) => void;
   setSelectedSchoolCategories: (codes: string[]) => void;
   setMaxGradeForCategory: (code: string, value: number) => void;
-  setGraduationYear: (y: number) => void;
+  setGraduationYear: (y: number | null) => void;
   setFile: (file: File | null) => void;
   setParsed: (parsed: ParsedSheet | null) => void;
   setSelectedTableName: (name: string | null) => void;
@@ -100,14 +104,12 @@ const EMPTY_MAPPING: Record<TargetField, string | null> = {
   schoolCategory: null,
 };
 
-const CURRENT_YEAR = new Date().getFullYear();
-
 function defaultState(): PersistedImportWizardState {
   return {
     step: 1,
     selectedSchoolCategories: [],
     maxGradeByCategory: {},
-    graduationYear: CURRENT_YEAR,
+    graduationYear: null,
     fileMeta: null,
     selectedTableName: null,
     mapping: { ...EMPTY_MAPPING },

@@ -24,10 +24,18 @@ function fakeJWT(payload: object): string {
   return `mock.${btoa(unescape(encodeURIComponent(JSON.stringify(payload))))}.signature`;
 }
 
-/* ── Lock-policy mock state (Gap A) ────────────────────────────────────── */
+/* ── Lock-policy mock state (Gap A) ──────────────────────────────────────
+ *
+ * The "max failed attempts" knob was removed from /admin/settings; the
+ * lockout threshold is now a fixed internal constant so the OTP flow
+ * still rejects brute-force attempts. The remaining `lockDurationMinutes`
+ * is the only admin-configurable knob on this policy. */
+
+/** Fixed lockout threshold — was the `maxFailedAttempts` setting. Hardcoded
+ *  internally now that admins no longer configure it. */
+const FAILED_ATTEMPT_LIMIT = 5;
 
 export interface LockPolicy {
-  maxFailedAttempts: number;
   lockDurationMinutes: number;
 }
 
@@ -40,7 +48,7 @@ export interface LockedUser {
   unlocksAt: string | null;
 }
 
-const lockPolicy: LockPolicy = { maxFailedAttempts: 5, lockDurationMinutes: 30 };
+const lockPolicy: LockPolicy = { lockDurationMinutes: 30 };
 const failedAttempts = new Map<string, number>();
 const lockedUsers = new Map<string, LockedUser>();
 
@@ -258,9 +266,9 @@ export const authService = {
         entityType: 'auth.session',
         entityLabel: 'جلسة دخول',
         entityId: matchUser.id,
-        details: `فشل التحقق من الرمز — المحاولات: ${next}/${lockPolicy.maxFailedAttempts}`,
+        details: `فشل التحقق من الرمز — المحاولات: ${next}/${FAILED_ATTEMPT_LIMIT}`,
       });
-      if (next >= lockPolicy.maxFailedAttempts) {
+      if (next >= FAILED_ATTEMPT_LIMIT) {
         const now = new Date();
         const unlocksAt = new Date(now.getTime() + lockPolicy.lockDurationMinutes * 60_000);
         const lock: LockedUser = {
@@ -330,12 +338,6 @@ export const authService = {
 
   async updateLockPolicy(patch: Partial<LockPolicy>): Promise<LockPolicy> {
     await simulateLatency();
-    if (patch.maxFailedAttempts !== undefined) {
-      if (patch.maxFailedAttempts < 1 || patch.maxFailedAttempts > 10) {
-        throw new Error('الحد الأقصى لعدد المحاولات يجب أن يكون بين 1 و 10');
-      }
-      lockPolicy.maxFailedAttempts = patch.maxFailedAttempts;
-    }
     if (patch.lockDurationMinutes !== undefined) {
       if (patch.lockDurationMinutes < 5 || patch.lockDurationMinutes > 120) {
         throw new Error('مدة الإيقاف يجب أن تكون بين 5 و 120 دقيقة');

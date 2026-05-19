@@ -30,6 +30,7 @@ export interface PaginatedGradesParams {
   branch?: string | 'all';
   graduationYear?: number | 'all';
   schoolCategoryCode?: string | 'all';
+  changedOnly?: boolean;
 }
 
 export const gradesKeys = {

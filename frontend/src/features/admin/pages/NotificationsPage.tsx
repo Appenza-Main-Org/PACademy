@@ -154,26 +154,55 @@ export function NotificationsPage(): JSX.Element {
     {
       key: 'titleAr',
       label: 'العنوان',
+      sortable: true,
+      getSortValue: (n) => n.titleAr,
+      filter: { kind: 'text', getValue: (n) => n.titleAr },
       render: (n) => <span className="font-medium text-ink-900">{n.titleAr}</span>,
     },
     {
       key: 'type',
       label: 'النوع',
+      sortable: true,
+      getSortValue: (n) => n.type,
+      filter: {
+        kind: 'enum',
+        getValue: (n) => n.type,
+        options: (Object.entries(TYPE_LABEL) as [AdminNotificationType, string][]).map(([v, l]) => ({
+          value: v,
+          label: l,
+        })),
+      },
       render: (n) => <Badge tone="neutral">{TYPE_LABEL[n.type]}</Badge>,
     },
     {
       key: 'status',
       label: 'الحالة',
+      sortable: true,
+      getSortValue: (n) => n.status,
+      filter: {
+        kind: 'enum',
+        getValue: (n) => n.status,
+        options: (Object.entries(STATUS_LABEL) as [AdminNotificationStatus, string][]).map(([v, l]) => ({
+          value: v,
+          label: l,
+        })),
+      },
       render: (n) => <Badge tone={STATUS_TONE[n.status]}>{STATUS_LABEL[n.status]}</Badge>,
     },
     {
       key: 'publishAt',
       label: 'النشر',
+      sortable: true,
+      getSortValue: (n) => n.publishAt,
+      filter: { kind: 'date', getValue: (n) => n.publishAt },
       render: (n) => <span className="text-2xs text-ink-500">{fmtDate(n.publishAt, 'short')}</span>,
     },
     {
       key: 'expireAt',
       label: 'الانتهاء',
+      sortable: true,
+      getSortValue: (n) => n.expireAt ?? '',
+      filter: { kind: 'date', getValue: (n) => n.expireAt },
       render: (n) => (
         <span className="text-2xs text-ink-500">{n.expireAt ? fmtDate(n.expireAt, 'short') : '—'}</span>
       ),

@@ -64,6 +64,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const reset = useImportWizardStore((s) => s.reset);
 
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [showStep1Errors, setShowStep1Errors] = useState(false);
   const commit = useApplicantGradesCommit();
 
   /* Safety rail: the `File` + `ParsedSheet` slices of the store are
@@ -87,6 +88,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
       case 1: {
         if (file == null) return false;
         if (selectedSchoolCategories.length === 0) return false;
+        if (graduationYear == null) return false;
         /* Every picked category must carry a positive integer max so
          * Step 5's preflight + Step 6's commit always have a usable
          * scale to gate `totalGrade` against. */
@@ -124,7 +126,11 @@ export function ApplicantGradesImportPage(): JSX.Element {
   }
 
   function next(): void {
-    if (!canAdvance()) return;
+    if (!canAdvance()) {
+      if (step === 1) setShowStep1Errors(true);
+      return;
+    }
+    if (step === 1) setShowStep1Errors(false);
     if (step < 6) setStep((step + 1) as 2 | 3 | 4 | 5 | 6);
   }
   function back(): void {
@@ -133,6 +139,10 @@ export function ApplicantGradesImportPage(): JSX.Element {
 
   function commitImport(): void {
     if (!table) return;
+    /* `graduationYear` is gated by canAdvance on Step 1; commit can only
+     * fire once the wizard reached Step 6, so the non-null assertion
+     * matches the actual invariant the UI enforces. */
+    if (graduationYear == null) return;
     const rows = normaliseRows(table, mapping, filters, graduationYear);
     const actions: Record<ImportGroupCode, 'skip' | 'override' | 'create-applicant' | undefined> = {
       DUPLICATE_NID: filterAction(perGroupActions.DUPLICATE_NID),
@@ -190,7 +200,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
       <TopStepper step={step} onJump={(s) => setStep(s)} />
 
       <section className="mt-6 rounded-lg border border-border-subtle bg-white p-6">
-        {step === 1 && <Step1Settings />}
+        {step === 1 && <Step1Settings showRequiredErrors={showStep1Errors} />}
         {step === 2 && <Step2TableSelect onAutoAdvance={() => setStep(3)} />}
         {step === 3 && <Step3ColumnMapping />}
         {step === 4 && <Step4Filters />}
@@ -213,7 +223,11 @@ export function ApplicantGradesImportPage(): JSX.Element {
               variant="primary"
               trailingIcon={<ChevronLeft size={14} strokeWidth={1.75} aria-hidden />}
               onClick={next}
-              disabled={!canAdvance()}
+              /* Step 1 stays enabled so clicking it surfaces inline errors
+               * rather than silently no-op'ing on a disabled button — the
+               * prompt wants validation messages, not a dead UI. Other
+               * steps keep the gating behavior. */
+              disabled={step !== 1 && !canAdvance()}
             >
               متابعة
             </Button>

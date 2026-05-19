@@ -26,6 +26,7 @@ import {
   History,
   Info,
   Layers,
+  ListChecks,
   MoreVertical,
   Plus,
   Search,
@@ -70,8 +71,16 @@ type OverlayState =
   | { kind: 'student'; seat: number }
   | null;
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100, 200] as const;
-const DEFAULT_PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
+const DEFAULT_PAGE_SIZE = 25;
+const MAX_PAGE_SIZE = 10_000;
+
+function parsePageSize(raw: string | null): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) return DEFAULT_PAGE_SIZE;
+  return Math.min(MAX_PAGE_SIZE, n);
+}
+
 const DEBOUNCE_MS = 250;
 
 function useDebouncedValue<T>(value: T, ms: number): T {
@@ -100,10 +109,7 @@ export function ApplicantGradesPage(): JSX.Element {
   };
 
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
-  const sizeFromUrl = Number(searchParams.get('size') ?? DEFAULT_PAGE_SIZE);
-  const pageSize = PAGE_SIZE_OPTIONS.includes(sizeFromUrl as 20 | 50 | 100 | 200)
-    ? (sizeFromUrl as number)
-    : DEFAULT_PAGE_SIZE;
+  const pageSize = parsePageSize(searchParams.get('size'));
   const qFromUrl = searchParams.get('q') ?? '';
 
   /* Filter state lives in URL search params so refresh / share preserves
@@ -115,6 +121,7 @@ export function ApplicantGradesPage(): JSX.Element {
   const yearFromUrl: number | 'all' =
     yearFromUrlRaw === 'all' ? 'all' : Number(yearFromUrlRaw) || 'all';
   const schoolCategoryFromUrl = searchParams.get('school') ?? 'all';
+  const changedOnly = searchParams.get('changed') === '1';
 
   const schoolCategoriesQuery = useLookup('school-categories');
   const activeSchoolCategories = useMemo(
@@ -163,6 +170,7 @@ export function ApplicantGradesPage(): JSX.Element {
     branch: branchFromUrl,
     graduationYear: yearFromUrl,
     schoolCategoryCode: schoolCategoryFromUrl,
+    changedOnly,
   });
   /* Keep the unpaginated query alive so the stats strip + overlay
    * drawers have the full set of rows to render against. */
@@ -220,11 +228,25 @@ export function ApplicantGradesPage(): JSX.Element {
     );
   }
 
+  function setChangedOnly(value: boolean): void {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set('changed', '1');
+        else next.delete('changed');
+        next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   const activeFilterCount =
     (genderFromUrl !== 'all' ? 1 : 0) +
     (branchFromUrl !== 'all' ? 1 : 0) +
     (yearFromUrl !== 'all' ? 1 : 0) +
-    (schoolCategoryFromUrl !== 'all' ? 1 : 0);
+    (schoolCategoryFromUrl !== 'all' ? 1 : 0) +
+    (changedOnly ? 1 : 0);
 
   function clearAllFilters(): void {
     setSearchParams(
@@ -234,6 +256,7 @@ export function ApplicantGradesPage(): JSX.Element {
         next.delete('branch');
         next.delete('year');
         next.delete('school');
+        next.delete('changed');
         next.set('page', '1');
         return next;
       },
@@ -280,6 +303,7 @@ export function ApplicantGradesPage(): JSX.Element {
               branch: branchFromUrl,
               graduationYear: yearFromUrl,
               schoolCategoryCode: schoolCategoryFromUrl,
+              changedOnly,
             })
           : rows;
       const today = new Date().toISOString().slice(0, 10);
@@ -366,6 +390,8 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'nid',
       label: 'الرقم القومي',
       sortable: true,
+      getSortValue: (r) => r.nid,
+      filter: { kind: 'text', getValue: (r) => r.nid, placeholder: '14 رقماً…' },
       className: 'min-w-[14ch]',
       render: (r) => (
         <span className="font-mono text-2xs text-ink-600" dir="ltr">
@@ -378,6 +404,8 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'رقم الجلوس',
       sortable: true,
       align: 'center',
+      getSortValue: (r) => r.seatingNumber ?? '',
+      filter: { kind: 'text', getValue: (r) => r.seatingNumber ?? '' },
       className: 'min-w-[9ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) =>
         r.seatingNumber ? (
@@ -392,6 +420,8 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'name',
       label: 'الاسم',
       sortable: true,
+      getSortValue: (r) => r.name,
+      filter: { kind: 'text', getValue: (r) => r.name },
       className: 'min-w-[18ch] whitespace-normal',
       render: (r) => <span className="font-medium text-ink-900">{r.name}</span>,
     },
@@ -400,6 +430,15 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'النوع',
       align: 'center',
       sortable: true,
+      getSortValue: (r) => r.kind,
+      filter: {
+        kind: 'enum',
+        getValue: (r) => r.kind,
+        options: [
+          { value: 'general', label: 'عامة' },
+          { value: 'azhar', label: 'أزهرية' },
+        ],
+      },
       className: 'min-w-[6ch]',
       render: (r) => (
         <Badge tone={r.kind === 'general' ? 'info' : 'warning'}>
@@ -412,6 +451,8 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'الشعبة',
       hideOn: 'md',
       sortable: true,
+      getSortValue: (r) => r.branch ?? '',
+      filter: { kind: 'text', getValue: (r) => r.branch ?? '' },
       className: 'min-w-[10ch]',
       render: (r) => <span className="text-xs">{r.branch}</span>,
     },
@@ -421,6 +462,8 @@ export function ApplicantGradesPage(): JSX.Element {
       align: 'center',
       sortable: true,
       hideOn: 'md',
+      getSortValue: (r) => r.graduationYear ?? 0,
+      filter: { kind: 'number', getValue: (r) => r.graduationYear ?? null },
       className: 'min-w-[8ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) =>
         r.graduationYear != null ? (
@@ -433,6 +476,13 @@ export function ApplicantGradesPage(): JSX.Element {
       key: 'schoolCategoryCode',
       label: 'فئة المدرسة',
       hideOn: 'md',
+      sortable: true,
+      getSortValue: (r) => r.schoolCategoryCode ?? '',
+      filter: {
+        kind: 'enum',
+        getValue: (r) => r.schoolCategoryCode ?? '',
+        options: activeSchoolCategories.map((s) => ({ value: s.code, label: s.name })),
+      },
       className: 'min-w-[10ch]',
       render: (r) =>
         r.schoolCategoryCode ? (
@@ -448,6 +498,8 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'المجموع الإجمالي',
       align: 'center',
       sortable: true,
+      getSortValue: (r) => r.total,
+      filter: { kind: 'number', getValue: (r) => r.total },
       className: 'min-w-[14ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
         <>
@@ -462,6 +514,8 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'النسبة',
       align: 'center',
       sortable: true,
+      getSortValue: (r) => r.pct,
+      filter: { kind: 'number', getValue: (r) => r.pct },
       className: 'min-w-[8ch] font-numeric tabular-nums',
       render: (r) => (
         <>
@@ -475,6 +529,8 @@ export function ApplicantGradesPage(): JSX.Element {
       label: 'المجموع بعد التعديل',
       align: 'center',
       sortable: true,
+      getSortValue: (r) => r.eff,
+      filter: { kind: 'number', getValue: (r) => r.eff },
       className: 'min-w-[18ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
         <span className="flex items-center justify-center gap-2">
@@ -544,6 +600,15 @@ export function ApplicantGradesPage(): JSX.Element {
             >
               تنزيل نموذج Excel
             </Button>
+            {!isEmpty && (
+              <Button
+                variant="ghost"
+                leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
+                onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
+              >
+                تعديلات الدرجات
+              </Button>
+            )}
             {!isEmpty && (
               <DropdownMenu>
                 <DropdownMenu.Trigger asChild>
@@ -698,6 +763,34 @@ export function ApplicantGradesPage(): JSX.Element {
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={changedOnly}
+                  onClick={() => setChangedOnly(!changedOnly)}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                  style={{
+                    background: changedOnly ? 'var(--gold-500)' : '#fff',
+                    color: changedOnly ? '#fff' : 'var(--ink-700)',
+                    borderColor: changedOnly ? 'var(--gold-500)' : 'var(--border-default)',
+                  }}
+                  title="تصفية الطلاب الذين تم تعديل درجاتهم"
+                >
+                  <ListChecks size={12} strokeWidth={1.75} aria-hidden />
+                  درجات معدّلة فقط
+                </button>
+                {changedOnly && (
+                  <a
+                    href={ROUTES.admin.applicantGradesChanges}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate(ROUTES.admin.applicantGradesChanges);
+                    }}
+                    className="text-2xs text-teal-700 underline-offset-2 hover:underline"
+                  >
+                    عرض صفحة تعديلات الدرجات
+                  </a>
+                )}
                 {(activeFilterCount > 0 || qFromUrl) && (
                   <button
                     type="button"
@@ -756,21 +849,8 @@ export function ApplicantGradesPage(): JSX.Element {
                   –<span className="text-ink-900">{toEasternArabicNumerals(to)}</span> من{' '}
                   <span className="text-ink-900">{toEasternArabicNumerals(total)}</span>
                 </span>
-                <label className="inline-flex items-center gap-2">
-                  <span>لكل صفحة:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => setSize(Number(e.target.value))}
-                    className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
-                    aria-label="عدد الصفوف لكل صفحة"
-                  >
-                    {PAGE_SIZE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <PageSizeSelector pageSize={pageSize} onChange={setSize} />
+
                 <div className="flex items-center gap-1">
                   <Button
                     size="sm"
@@ -955,5 +1035,73 @@ function EmptyGradesCard({ onImport }: { onImport: () => void }): JSX.Element {
         </div>
       </CardBody>
     </Card>
+  );
+}
+
+/** Page-size selector — preset options plus a "custom" entry that
+ *  reveals a numeric input for any positive integer ≤ MAX_PAGE_SIZE. */
+function PageSizeSelector({
+  pageSize,
+  onChange,
+}: {
+  pageSize: number;
+  onChange: (size: number) => void;
+}): JSX.Element {
+  const isPreset = (PAGE_SIZE_OPTIONS as readonly number[]).includes(pageSize);
+  const [customMode, setCustomMode] = useState(!isPreset);
+  const [draft, setDraft] = useState<string>(isPreset ? '' : String(pageSize));
+
+  const commitCustom = (): void => {
+    const n = Number(draft);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) return;
+    onChange(Math.min(MAX_PAGE_SIZE, n));
+  };
+
+  return (
+    <label className="inline-flex items-center gap-2">
+      <span>لكل صفحة:</span>
+      <select
+        value={customMode ? 'custom' : pageSize}
+        onChange={(e) => {
+          if (e.target.value === 'custom') {
+            setCustomMode(true);
+            setDraft(String(pageSize));
+            return;
+          }
+          setCustomMode(false);
+          onChange(Number(e.target.value));
+        }}
+        className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+        aria-label="عدد الصفوف لكل صفحة"
+      >
+        {PAGE_SIZE_OPTIONS.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+        <option value="custom">مخصّص…</option>
+      </select>
+      {customMode && (
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={MAX_PAGE_SIZE}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commitCustom}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitCustom();
+            }
+          }}
+          placeholder="أدخل عدداً…"
+          aria-label="عدد مخصّص للصفوف لكل صفحة"
+          className="h-7 w-20 rounded-md border border-border-default bg-surface-card px-2 text-sm font-numeric tnum focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+          dir="ltr"
+        />
+      )}
+    </label>
   );
 }

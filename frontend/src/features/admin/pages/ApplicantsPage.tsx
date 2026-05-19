@@ -27,6 +27,9 @@ const APPLICANT_COLUMNS: DataTableColumn<Applicant>[] = [
   {
     key: 'name',
     label: 'المتقدم',
+    sortable: true,
+    getSortValue: (a) => a.name,
+    filter: { kind: 'text', getValue: (a) => a.name },
     render: (a) => (
       <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex items-center gap-3">
         <Avatar name={a.name} size="sm" />
@@ -37,23 +40,78 @@ const APPLICANT_COLUMNS: DataTableColumn<Applicant>[] = [
       </Link>
     ),
   },
-  { key: 'nationalId', label: 'الرقم القومي', render: (a) => <span className="font-mono" dir="ltr">{maskNationalId(a.nationalId)}</span>, hideOn: 'sm' },
-  { key: 'governorate', label: 'المحافظة', render: (a) => a.governorate, hideOn: 'sm' },
+  {
+    key: 'nationalId',
+    label: 'الرقم القومي',
+    hideOn: 'sm',
+    sortable: true,
+    getSortValue: (a) => a.nationalId,
+    filter: { kind: 'text', getValue: (a) => a.nationalId },
+    render: (a) => <span className="font-mono" dir="ltr">{maskNationalId(a.nationalId)}</span>,
+  },
+  {
+    key: 'governorate',
+    label: 'المحافظة',
+    hideOn: 'sm',
+    sortable: true,
+    getSortValue: (a) => a.governorate,
+    filter: { kind: 'text', getValue: (a) => a.governorate },
+    render: (a) => a.governorate,
+  },
   {
     key: 'certType',
     label: 'الشهادة',
+    hideOn: 'md',
+    sortable: true,
+    getSortValue: (a) => a.certType,
+    filter: { kind: 'text', getValue: (a) => a.certType },
     render: (a) => (
       <div className="text-2xs">
         <p className="text-ink-700">{a.certType}</p>
         <p className="text-ink-500">{a.certSection}</p>
       </div>
     ),
-    hideOn: 'md',
   },
-  { key: 'paymentStatus', label: 'الدفع', render: (a) => <PaymentBadge status={a.paymentStatus} /> },
-  { key: 'stageLabel', label: 'المرحلة', render: (a) => <Badge tone="info">{a.stageLabel}</Badge>, hideOn: 'md' },
-  { key: 'status', label: 'الحالة', render: (a) => <StatusBadge status={a.status} /> },
-  { key: 'registeredAt', label: 'التسجيل', render: (a) => <span className="text-2xs text-ink-500">{fmtDate(a.registeredAt, 'short')}</span>, hideOn: 'sm' },
+  {
+    key: 'paymentStatus',
+    label: 'الدفع',
+    sortable: true,
+    getSortValue: (a) => a.paymentStatus,
+    filter: {
+      kind: 'enum',
+      getValue: (a) => a.paymentStatus,
+      options: [
+        { value: 'paid', label: 'مدفوع' },
+        { value: 'pending', label: 'معلّق' },
+      ],
+    },
+    render: (a) => <PaymentBadge status={a.paymentStatus} />,
+  },
+  {
+    key: 'stageLabel',
+    label: 'المرحلة',
+    hideOn: 'md',
+    sortable: true,
+    getSortValue: (a) => a.stageLabel,
+    filter: { kind: 'text', getValue: (a) => a.stageLabel },
+    render: (a) => <Badge tone="info">{a.stageLabel}</Badge>,
+  },
+  {
+    key: 'status',
+    label: 'الحالة',
+    sortable: true,
+    getSortValue: (a) => a.status,
+    render: (a) => <StatusBadge status={a.status} />,
+  },
+  {
+    key: 'registeredAt',
+    label: 'التسجيل',
+    hideOn: 'sm',
+    sortable: true,
+    getSortValue: (a) => a.registeredAt,
+    filter: { kind: 'date', getValue: (a) => a.registeredAt },
+    render: (a) => <span className="text-2xs text-ink-500">{fmtDate(a.registeredAt, 'short')}</span>,
+  },
 ];
 
 export function ApplicantsPage(): JSX.Element {

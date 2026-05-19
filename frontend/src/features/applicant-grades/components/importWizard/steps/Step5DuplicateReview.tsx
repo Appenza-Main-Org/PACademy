@@ -33,7 +33,10 @@ export function Step5DuplicateReview(): JSX.Element {
   );
 
   const normalised = useMemo(
-    () => (table ? normaliseRows(table, mapping, filters, graduationYear) : []),
+    () =>
+      table && graduationYear != null
+        ? normaliseRows(table, mapping, filters, graduationYear)
+        : [],
     [table, mapping, filters, graduationYear],
   );
 
@@ -43,7 +46,7 @@ export function Step5DuplicateReview(): JSX.Element {
    * normalised rowset. The mutation is idempotent against the same
    * input so navigating back/forward doesn't double-charge. */
   useEffect(() => {
-    if (normalised.length === 0) {
+    if (normalised.length === 0 || graduationYear == null) {
       setImportResult({
         totals: { received: 0, imported: 0, skipped: 0, failed: 0 },
         groups: [],

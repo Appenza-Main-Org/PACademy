@@ -135,11 +135,35 @@ export function RolesPage(): JSX.Element {
   const rows = (listQuery.data ?? []).filter((r) => r.key !== 'applicant');
 
   const columns: DataTableColumn<RoleDefinitionRow>[] = [
-    { key: 'labelAr', label: 'الاسم', render: (r) => <span className="font-medium text-ink-900">{r.labelAr}</span> },
-    { key: 'isSystem', label: 'النوع', render: (r) => (r.isSystem ? <Badge tone="info">نظام</Badge> : <Badge tone="neutral">مخصص</Badge>) },
+    {
+      key: 'labelAr',
+      label: 'الاسم',
+      sortable: true,
+      getSortValue: (r) => r.labelAr,
+      filter: { kind: 'text', getValue: (r) => r.labelAr },
+      render: (r) => <span className="font-medium text-ink-900">{r.labelAr}</span>,
+    },
+    {
+      key: 'isSystem',
+      label: 'النوع',
+      sortable: true,
+      getSortValue: (r) => (r.isSystem ? 1 : 0),
+      filter: {
+        kind: 'enum',
+        getValue: (r) => (r.isSystem ? 'system' : 'custom'),
+        options: [
+          { value: 'system', label: 'نظام' },
+          { value: 'custom', label: 'مخصص' },
+        ],
+      },
+      render: (r) => (r.isSystem ? <Badge tone="info">نظام</Badge> : <Badge tone="neutral">مخصص</Badge>),
+    },
     {
       key: 'permissions',
       label: 'الصلاحيات',
+      sortable: true,
+      getSortValue: (r) => (r.permissions.includes('*') ? Number.MAX_SAFE_INTEGER : r.permissions.length),
+      filter: { kind: 'number', getValue: (r) => r.permissions.length },
       render: (r) =>
         r.permissions.includes('*') ? (
           <Badge tone="warning">جميع الصلاحيات</Badge>
@@ -152,6 +176,16 @@ export function RolesPage(): JSX.Element {
     {
       key: 'deletedAt',
       label: 'الحالة',
+      sortable: true,
+      getSortValue: (r) => (r.deletedAt ? 1 : 0),
+      filter: {
+        kind: 'enum',
+        getValue: (r) => (r.deletedAt ? 'deleted' : 'active'),
+        options: [
+          { value: 'active', label: 'نشط' },
+          { value: 'deleted', label: 'محذوف' },
+        ],
+      },
       render: (r) => (r.deletedAt ? <Badge tone="warning">محذوف</Badge> : <Badge tone="success">نشط</Badge>),
     },
     {

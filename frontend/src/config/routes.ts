@@ -55,6 +55,8 @@ export const ROUTES = {
     applicantGrades: '/admin/applicant-grades',
     /** Standalone v2 import wizard (renders inside AdminLayout). */
     applicantGradesImport: '/admin/applicant-grades/import',
+    /** Audit view: students whose grades have changed since initial import. */
+    applicantGradesChanges: '/admin/applicant-grades/changes',
     notifications: '/admin/notifications',
     payments: '/admin/payments',
     /* Admission Setup section — ordered configuration steps. The keys

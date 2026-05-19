@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Copy, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { z } from 'zod';
 import {
   Avatar,
@@ -15,13 +15,10 @@ import {
   Button,
   Card,
   DataTable,
-  DropdownMenu,
-  DuplicateAction,
   EmptyState,
   Input,
   PageHeader,
   Select,
-  StatusBadge,
 } from '@/shared/components';
 import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
@@ -108,6 +105,9 @@ export function UsersPage(): JSX.Element {
       {
         key: 'user',
         label: 'المستخدم',
+        sortable: true,
+        getSortValue: (u) => u.fullArabicName,
+        filter: { kind: 'text', getValue: (u) => u.fullArabicName, placeholder: 'بحث في الأسماء…' },
         render: (u) => (
           <div className="flex items-center gap-3">
             <Avatar name={u.fullArabicName} size="sm" />
@@ -124,6 +124,9 @@ export function UsersPage(): JSX.Element {
         key: 'nationalId',
         label: 'الرقم القومى',
         hideOn: 'sm',
+        sortable: true,
+        getSortValue: (u) => u.nationalId,
+        filter: { kind: 'text', getValue: (u) => u.nationalId, placeholder: '14 رقماً…' },
         render: (u) => (
           <span className="text-2xs text-ink-700 font-mono tnum" dir="ltr">
             {u.nationalId || '—'}
@@ -134,6 +137,9 @@ export function UsersPage(): JSX.Element {
         key: 'officerCode',
         label: 'الكود',
         hideOn: 'md',
+        sortable: true,
+        getSortValue: (u) => u.officerCode,
+        filter: { kind: 'text', getValue: (u) => u.officerCode },
         render: (u) => (
           <span className="text-2xs text-ink-700 font-mono" dir="ltr">
             {u.officerCode || '—'}
@@ -143,6 +149,16 @@ export function UsersPage(): JSX.Element {
       {
         key: 'roles',
         label: 'الأدوار',
+        sortable: true,
+        getSortValue: (u) => (u.roles[0] ?? u.role),
+        filter: {
+          kind: 'enum',
+          getValue: (u) => (u.roles.length > 0 ? u.roles : [u.role]),
+          options: ROLES.filter((r) => r !== 'applicant').map((r) => ({
+            value: r,
+            label: ROLE_DEFINITIONS[r].labelAr,
+          })),
+        },
         render: (u) => {
           const roles = u.roles.length > 0 ? u.roles : [u.role];
           const visible = roles.slice(0, 2);
@@ -163,13 +179,31 @@ export function UsersPage(): JSX.Element {
           );
         },
       },
-      { key: 'unit', label: 'الوحدة', hideOn: 'md', render: (u) => u.unit || '—' },
+      {
+        key: 'unit',
+        label: 'الوحدة',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (u) => u.unit,
+        filter: { kind: 'text', getValue: (u) => u.unit },
+        render: (u) => u.unit || '—',
+      },
       {
         key: 'accountStatus',
         label: 'الحالة',
+        sortable: true,
+        getSortValue: (u) => u.accountStatus,
+        filter: {
+          kind: 'enum',
+          getValue: (u) => u.accountStatus,
+          options: [
+            { value: 'active', label: 'نشط' },
+            { value: 'inactive', label: 'غير نشط' },
+          ],
+        },
         render: (u) =>
           u.accountStatus === 'active' ? (
-            <StatusBadge status="approved" />
+            <Badge tone="success">نشط</Badge>
           ) : (
             <Badge tone="neutral">غير نشط</Badge>
           ),
@@ -178,79 +212,17 @@ export function UsersPage(): JSX.Element {
         key: 'lastLogin',
         label: 'آخر دخول',
         hideOn: 'md',
+        sortable: true,
+        getSortValue: (u) => u.lastLogin,
+        filter: { kind: 'date', getValue: (u) => (u.lastLogin ? u.lastLogin : null) },
         render: (u) => (
           <span className="text-2xs text-ink-500">
             {u.lastLogin ? fmtDate(u.lastLogin, 'rel') : '—'}
           </span>
         ),
       },
-      {
-        key: '_actions',
-        label: <span className="sr-only">إجراءات</span>,
-        align: 'end',
-        width: 96,
-        render: (u) => (
-          <DuplicateAction
-            row={u}
-            entityKey="admin.users"
-            entityLabelAr="مستخدم"
-            auditModule="users"
-            config={{
-              enabled: true,
-              transform: (row) => ({
-                fullArabicName: `${row.fullArabicName} (نسخة)`,
-                roles: [...row.roles],
-                unit: row.unit,
-                userType: row.userType,
-                accountStatus: 'inactive' as AccountStatus,
-                /* NID + mobile must be re-entered before save (uniqueness). */
-                nationalId: '',
-                mobileNumber: '',
-                officerCode: '',
-              }),
-              onCommit: async (_draft, source) => {
-                /* The duplicate lands inactive with placeholder NID; the
-                 * admin completes the fields on the edit page. */
-                return usersService.createFromTemplate(source.id, {
-                  nationalId: `00000000000000-${source.id}`,
-                  fullArabicName: `${source.fullArabicName} (نسخة)`,
-                  officerCode: '',
-                  mobileNumber: '',
-                });
-              },
-              redirectTo: (row) => ROUTES.admin.userEdit(row.id),
-            }}
-            onSuccess={() => qc.invalidateQueries({ queryKey: usersKeys.all })}
-          >
-            {({ onClick }) => (
-              <DropdownMenu>
-                <DropdownMenu.Trigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => e.stopPropagation()}
-                    leadingIcon={<Copy size={12} strokeWidth={1.75} />}
-                  >
-                    نسخ
-                  </Button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content>
-                  <DropdownMenu.Item
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      onClick();
-                    }}
-                  >
-                    إنشاء نسخة كمسودة
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu>
-            )}
-          </DuplicateAction>
-        ),
-      },
     ],
-    [qc],
+    [],
   );
 
   const listActions: ListActionsConfig<SystemUser> = useMemo(

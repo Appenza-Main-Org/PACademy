@@ -688,7 +688,7 @@ function ThanawiForm({
               invalid={
                 scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
               }
-              maxBound={MIN_SCORE_UPPER_BOUND}
+              maxBound={null}
               onClampMessage={setScoreMaxMessage}
             />
             {(scoreMaxMessage || scoreOrderInvalid) && (

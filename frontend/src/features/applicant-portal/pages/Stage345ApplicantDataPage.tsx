@@ -278,6 +278,8 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       overrideMax: null,
       lastEditedAt: null,
       lastEditedBy: null,
+      gradeChangedAt: null,
+      previousGrade: null,
       status: '—',
       log: [],
     };
