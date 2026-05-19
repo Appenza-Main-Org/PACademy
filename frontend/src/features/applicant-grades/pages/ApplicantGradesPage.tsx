@@ -70,8 +70,16 @@ type OverlayState =
   | { kind: 'student'; seat: number }
   | null;
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100, 200] as const;
-const DEFAULT_PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
+const DEFAULT_PAGE_SIZE = 25;
+const MAX_PAGE_SIZE = 10_000;
+
+function parsePageSize(raw: string | null): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) return DEFAULT_PAGE_SIZE;
+  return Math.min(MAX_PAGE_SIZE, n);
+}
+
 const DEBOUNCE_MS = 250;
 
 function useDebouncedValue<T>(value: T, ms: number): T {
@@ -100,10 +108,7 @@ export function ApplicantGradesPage(): JSX.Element {
   };
 
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
-  const sizeFromUrl = Number(searchParams.get('size') ?? DEFAULT_PAGE_SIZE);
-  const pageSize = PAGE_SIZE_OPTIONS.includes(sizeFromUrl as 20 | 50 | 100 | 200)
-    ? (sizeFromUrl as number)
-    : DEFAULT_PAGE_SIZE;
+  const pageSize = parsePageSize(searchParams.get('size'));
   const qFromUrl = searchParams.get('q') ?? '';
 
   /* Filter state lives in URL search params so refresh / share preserves
@@ -788,21 +793,8 @@ export function ApplicantGradesPage(): JSX.Element {
                   –<span className="text-ink-900">{toEasternArabicNumerals(to)}</span> من{' '}
                   <span className="text-ink-900">{toEasternArabicNumerals(total)}</span>
                 </span>
-                <label className="inline-flex items-center gap-2">
-                  <span>لكل صفحة:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => setSize(Number(e.target.value))}
-                    className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
-                    aria-label="عدد الصفوف لكل صفحة"
-                  >
-                    {PAGE_SIZE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <PageSizeSelector pageSize={pageSize} onChange={setSize} />
+
                 <div className="flex items-center gap-1">
                   <Button
                     size="sm"
@@ -987,5 +979,73 @@ function EmptyGradesCard({ onImport }: { onImport: () => void }): JSX.Element {
         </div>
       </CardBody>
     </Card>
+  );
+}
+
+/** Page-size selector — preset options plus a "custom" entry that
+ *  reveals a numeric input for any positive integer ≤ MAX_PAGE_SIZE. */
+function PageSizeSelector({
+  pageSize,
+  onChange,
+}: {
+  pageSize: number;
+  onChange: (size: number) => void;
+}): JSX.Element {
+  const isPreset = (PAGE_SIZE_OPTIONS as readonly number[]).includes(pageSize);
+  const [customMode, setCustomMode] = useState(!isPreset);
+  const [draft, setDraft] = useState<string>(isPreset ? '' : String(pageSize));
+
+  const commitCustom = (): void => {
+    const n = Number(draft);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) return;
+    onChange(Math.min(MAX_PAGE_SIZE, n));
+  };
+
+  return (
+    <label className="inline-flex items-center gap-2">
+      <span>لكل صفحة:</span>
+      <select
+        value={customMode ? 'custom' : pageSize}
+        onChange={(e) => {
+          if (e.target.value === 'custom') {
+            setCustomMode(true);
+            setDraft(String(pageSize));
+            return;
+          }
+          setCustomMode(false);
+          onChange(Number(e.target.value));
+        }}
+        className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+        aria-label="عدد الصفوف لكل صفحة"
+      >
+        {PAGE_SIZE_OPTIONS.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+        <option value="custom">مخصّص…</option>
+      </select>
+      {customMode && (
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={MAX_PAGE_SIZE}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commitCustom}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitCustom();
+            }
+          }}
+          placeholder="أدخل عدداً…"
+          aria-label="عدد مخصّص للصفوف لكل صفحة"
+          className="h-7 w-20 rounded-md border border-border-default bg-surface-card px-2 text-sm font-numeric tnum focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+          dir="ltr"
+        />
+      )}
+    </label>
   );
 }
