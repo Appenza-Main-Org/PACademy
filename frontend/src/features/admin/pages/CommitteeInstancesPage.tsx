@@ -140,16 +140,16 @@ export function CommitteeInstancesPage(): JSX.Element {
 
   /* Group rows by date; sort dates ascending. Within each day, primary
    * sort by category label then committee name so visually consecutive
-   * committees from the same category cluster together. Past days are
-   * filtered out — admins can't change a day that has already happened,
-   * so it doesn't earn a slot in the management view. */
-  const todayIso = todayIsoLocal();
+   * committees from the same category cluster together. Every day the
+   * wizard authored is rendered — past, present, future — so admins
+   * can audit completed exam days and keep parity with what they see
+   * in the admission-setup wizard. Transfer destinations remain
+   * restricted to today+ via the DatePicker's `min` (further down). */
   const dayGroups = useMemo<DayGroup[]>(() => {
     const arabicCmp = (a: string, b: string): number =>
       a.localeCompare(b, 'ar', { numeric: true });
     const bucket = new Map<string, InstanceRow[]>();
     for (const r of rows) {
-      if (r.date < todayIso) continue;
       const list = bucket.get(r.date);
       if (list) list.push(r);
       else bucket.set(r.date, [r]);
@@ -163,7 +163,7 @@ export function CommitteeInstancesPage(): JSX.Element {
           return c !== 0 ? c : arabicCmp(a.committeeName, b.committeeName);
         }),
       }));
-  }, [rows, todayIso]);
+  }, [rows]);
 
   const loading =
     activeCycleQuery.isLoading ||
@@ -244,8 +244,8 @@ export function CommitteeInstancesPage(): JSX.Element {
           <div className="p-6">
             <EmptyState
               variant="generic"
-              title={`لا توجد مواعيد قادمة في ${activeCycle?.nameAr ?? 'الدورة النشطة'}`}
-              description="افتح إعداد التقديم في «دورات القبول» لإنشاء موعد جديد. الأيام السابقة لا تظهر هنا."
+              title={`لا توجد مواعيد لجان في ${activeCycle?.nameAr ?? 'الدورة النشطة'}`}
+              description="افتح معالج إعداد التقديم من «دورات القبول» وأضِف مواعيد لجان اللجنة المختصة لتظهر هنا."
             />
           </div>
         </Card>
