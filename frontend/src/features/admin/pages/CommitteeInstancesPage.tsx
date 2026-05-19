@@ -839,6 +839,9 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
               اللجنة
             </th>
             <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
+              سعة اللجنة
+            </th>
+            <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
               المحجوز
             </th>
             <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
@@ -854,6 +857,9 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
               </td>
               <td className="px-4 py-2 align-middle text-ink-900">
                 {row.committeeName}
+              </td>
+              <td className="px-4 py-2 align-middle text-end font-numeric tnum text-ink-900">
+                {num(row.capacity)}
               </td>
               <td className="px-4 py-2 align-middle text-end font-numeric tnum text-ink-900">
                 {num(effectiveReserved(row))}
