@@ -83,3 +83,14 @@ export function useTransferCommitteeInstanceDayMutation() {
     },
   });
 }
+
+export function useRefreshReservedCountsMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (filters: CommitteeInstanceListFilters = {}) =>
+      committeeInstanceService.refreshReservedCounts(filters),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: committeeInstanceKeys.all });
+    },
+  });
+}

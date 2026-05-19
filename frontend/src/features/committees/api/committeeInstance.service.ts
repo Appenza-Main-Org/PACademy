@@ -184,6 +184,37 @@ export const committeeInstanceService = {
     return next;
   },
 
+  /**
+   * Pull fresh reserved-seat counts for every instance scoped to the
+   * filter and stamp `reservedRefreshedAt = now` on each. Surfaces the
+   * touched rows so the caller can update its local cache without a
+   * round-trip.
+   *
+   * The mock implementation leaves `reserved` unchanged — real backend
+   * will reconcile from the scheduling table; for the demo the timestamp
+   * stamp alone is enough to verify the «آخر تحديث» column moves on
+   * every refresh.
+   *
+   * INTEGRATION CONTRACT:
+   *   POST /api/committee-instances/refresh-reserved
+   *     body: { cycleId? } → CommitteeInstance[]
+   */
+  async refreshReservedCounts(
+    filters: CommitteeInstanceListFilters = {},
+  ): Promise<CommitteeInstance[]> {
+    await simulateLatency();
+    const now = new Date().toISOString();
+    const touched: CommitteeInstance[] = [];
+    for (let i = 0; i < MOCK.committeeInstances.length; i += 1) {
+      const r = MOCK.committeeInstances[i]!;
+      if (!matchesFilters(r, filters)) continue;
+      const next: CommitteeInstance = { ...r, reservedRefreshedAt: now };
+      MOCK.committeeInstances[i] = next;
+      touched.push(next);
+    }
+    return touched;
+  },
+
   async remove(id: string): Promise<void> {
     await simulateLatency();
     const idx = MOCK.committeeInstances.findIndex((r) => r.id === id);

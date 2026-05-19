@@ -26,6 +26,7 @@ import {
   MoveRight,
   MoreVertical,
   Pencil,
+  RefreshCcw,
   Trash2,
   X,
 } from 'lucide-react';
@@ -49,6 +50,7 @@ import { useActiveCycle, useCycles } from '../api/cycles.queries';
 import { useLookup } from '@/features/lookups';
 import {
   useCommitteeInstances,
+  useRefreshReservedCountsMutation,
   useRemoveCommitteeInstanceDayMutation,
   useTransferCommitteeInstanceDayMutation,
   useUpdateCommitteeInstanceMutation,
@@ -223,6 +225,20 @@ export function CommitteeInstancesPage(): JSX.Element {
   const allExpanded = allDayDates.length > 0 && expandedDates.length === allDayDates.length;
   const allCollapsed = expandedDates.length === 0;
 
+  const refreshMut = useRefreshReservedCountsMutation();
+  const handleRefresh = (): void => {
+    if (!resolvedCycleId) return;
+    refreshMut.mutate(
+      { cycleId: resolvedCycleId },
+      {
+        onSuccess: (touched) => {
+          toast(`تم تحديث ${num(touched.length)} موعد لجنة`, 'success');
+        },
+        onError: (err) => toast((err as Error).message, 'danger'),
+      },
+    );
+  };
+
   return (
     <CenteredShell>
       <PageHeader
@@ -260,6 +276,15 @@ export function CommitteeInstancesPage(): JSX.Element {
       ) : (
         <>
           <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              isLoading={refreshMut.isPending}
+              leadingIcon={<RefreshCcw size={14} strokeWidth={1.75} />}
+            >
+              تحديث
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -683,6 +708,9 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
             <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
               المحجوز
             </th>
+            <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
+              آخر تحديث
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -704,11 +732,36 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
               <td className="px-4 py-2 align-middle text-end">
                 <ReservedCell row={row} />
               </td>
+              <td className="px-4 py-2 align-middle text-end">
+                <LastUpdatedCell value={row.reservedRefreshedAt} />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+/* ── آخر تحديث cell ───────────────────────────────────────────────── *
+ * Renders the relative-time stamp (e.g. «منذ 5 دقيقة») with the absolute
+ * ISO timestamp surfaced as a tooltip so the admin can fall through to
+ * the exact value when needed.                                          */
+
+interface LastUpdatedCellProps {
+  value: string;
+}
+
+function LastUpdatedCell({ value }: LastUpdatedCellProps): JSX.Element {
+  const absolute = fmtDate(value, 'full');
+  return (
+    <span
+      className="text-2xs text-ink-600"
+      title={absolute}
+      aria-label={`آخر تحديث: ${absolute}`}
+    >
+      {fmtDate(value, 'rel')}
+    </span>
   );
 }
 
