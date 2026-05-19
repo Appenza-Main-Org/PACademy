@@ -16,6 +16,7 @@ import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { MOCK } from '@/shared/mock-data';
 import { emitAudit } from '@/shared/lib/audit';
 import { AccountInactiveError } from '@/shared/lib/errors';
+import { ON_PREM_APPS, type AppKey } from '@/shared/lib/constants';
 import { ROLE_DEFINITIONS, type Role } from '../rbac';
 import { useAuthStore } from '../store/auth.store';
 import type { AuthUser, LoginCredentials } from '../types';
@@ -113,17 +114,30 @@ function maskedPhone(): string {
  * apps / scope take effect on next login without code changes. Falls
  * back to the static legacy ROLE_DEFINITIONS table if the dynamic seed
  * has no row for the key (newly defined Role union members).
+ *
+ * Cloud-vs-on-prem app merge: the cloud seed is authoritative for cloud
+ * apps (admin, applicant, architecture) — admin edits via /admin/users/roles
+ * persist there. On-prem apps (committee, board, investigations, medical,
+ * barcode, biometric, exams) are governed by the separate on-prem RBAC,
+ * which the cloud frontend can't model in its matrix. To keep the unified
+ * hub honest at demo time, we union the cloud-seed apps with the on-prem
+ * subset of the legacy table so cloud-mixed roles (committee_admin etc.)
+ * still see the on-prem cards they're authorized for.
  */
 function buildAuthUser(role: Role): AuthUser {
   const dyn = MOCK.roleDefinitions.find((r) => r.key === role && !r.deletedAt);
   const legacy = ROLE_DEFINITIONS[role];
   const matchUser = MOCK.users.find((u) => u.role === role) ?? MOCK.users[0]!;
+  const onPremFromLegacy = legacy.apps.filter((a): a is AppKey => ON_PREM_APPS.includes(a));
+  const apps: readonly AppKey[] = dyn
+    ? Array.from(new Set<AppKey>([...dyn.apps, ...onPremFromLegacy]))
+    : legacy.apps;
   return {
     id: matchUser.id,
     name: matchUser.name,
     role,
     roleLabel: dyn?.labelAr ?? legacy.labelAr,
-    apps: dyn ? dyn.apps : legacy.apps,
+    apps,
     permissions: dyn ? dyn.permissions : legacy.permissions,
     token: fakeJWT({ sub: matchUser.id, role, iat: Date.now() }),
     loggedInAt: Date.now(),

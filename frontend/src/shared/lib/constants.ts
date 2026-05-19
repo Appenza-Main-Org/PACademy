@@ -31,3 +31,20 @@ export const APP_KEYS = [
 ] as const;
 
 export type AppKey = (typeof APP_KEYS)[number];
+
+/* Cloud-vs-on-prem split. The cloud RBAC matrix (features/admin/users/lib/
+ * cloudPermissions.ts + shared/mock-data/roles.ts) is deliberately closed —
+ * it only models cloud-deployed apps. Operational on-prem modules have a
+ * separate RBAC surface that the cloud frontend can't edit but still needs
+ * to *render* correctly in the unified hub. See CLAUDE.md §1, §5 + brief
+ * "Cloud-vs-on-prem RBAC split". */
+export const CLOUD_APPS: readonly AppKey[] = ['admin', 'applicant', 'architecture'];
+export const ON_PREM_APPS: readonly AppKey[] = [
+  'committee',
+  'board',
+  'investigations',
+  'medical',
+  'barcode',
+  'biometric',
+  'exams',
+];
