@@ -424,7 +424,7 @@ export function MultiSelect({
                * via the e.target === e.currentTarget guard. */
               return (
                 <div
-                  className="fixed inset-0 flex items-center justify-center bg-ink-900/40 p-4"
+                  className="pointer-events-auto fixed inset-0 flex items-center justify-center bg-ink-900/40 p-4"
                   style={{ zIndex: 'var(--z-popover)' as unknown as number }}
                   onMouseDown={(e) => {
                     if (e.target === e.currentTarget) setOpen(false);
@@ -463,12 +463,16 @@ export function MultiSelect({
               <div
                 ref={popoverRef}
                 data-portal-popover="multiselect"
-                className="rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
+                className="pointer-events-auto rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
                 style={{
                   position: 'fixed',
                   top: position!.top,
                   left: position!.left,
                   width: position!.width,
+                  /* `pointer-events-auto`: react-remove-scroll (used by
+                   * Radix Dialog/Sheet) sets `pointer-events: none` on
+                   * <body>; the portaled popover inherits it without this
+                   * opt-in and clicks pass through. */
                   zIndex: 'var(--z-popover)' as unknown as number,
                 }}
               >

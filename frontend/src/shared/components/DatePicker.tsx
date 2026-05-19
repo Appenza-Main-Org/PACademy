@@ -204,14 +204,20 @@ export function DatePicker({
               role="dialog"
               aria-label="اختر تاريخاً"
               data-portal-popover="datepicker"
-              className="rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg"
+              className="pointer-events-auto rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg"
               style={{
                 position: 'fixed',
                 top: position.top,
                 left: position.left,
                 width: POPOVER_WIDTH,
                 /* --z-popover (1050) sits above --z-modal (1000) so the
-                 * calendar renders on top when opened from inside a modal. */
+                 * calendar renders on top when opened from inside a modal.
+                 *
+                 * `pointer-events-auto` is required because Radix Dialog
+                 * (via react-remove-scroll) sets `pointer-events: none`
+                 * on <body>, which the portaled popover inherits. Without
+                 * the opt-in, clicks on day cells pass through to the
+                 * trigger underneath and never reach onSelect. */
                 zIndex: 'var(--z-popover)' as unknown as number,
               }}
             >

@@ -310,12 +310,16 @@ export function Combobox({
           <div
             ref={popoverRef}
             data-portal-popover="combobox"
-            className="rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
+            className="pointer-events-auto rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
             style={{
               position: 'fixed',
               top: position.top,
               left: position.left,
               width: position.width,
+              /* `pointer-events-auto`: react-remove-scroll (used by Radix
+               * Dialog/Sheet) sets `pointer-events: none` on <body>, which
+               * the portaled popover inherits — clicks would pass through
+               * without this opt-in. */
               zIndex: 'var(--z-popover)' as unknown as number,
             }}
           >

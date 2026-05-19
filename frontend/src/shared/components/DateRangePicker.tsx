@@ -226,12 +226,17 @@ export function DateRangePicker({
           role="dialog"
           aria-label="اختر فترة"
           data-portal-popover="daterangepicker"
-          className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg md:flex-row"
+          className="pointer-events-auto flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-elevated p-3 shadow-lg md:flex-row"
           style={{
             position: 'fixed',
             top: position.top,
             left: position.left,
             maxWidth: 'calc(100vw - 16px)',
+            /* `pointer-events-auto`: when this popover opens from inside a
+             * Radix Dialog/Sheet, react-remove-scroll sets `pointer-events:
+             * none` on <body>, which the portaled popover inherits. Without
+             * the opt-in, clicks pass through to whatever sits at the same
+             * screen position underneath. */
             zIndex: 'var(--z-popover)' as unknown as number,
           }}
         >
