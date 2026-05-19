@@ -109,21 +109,21 @@ const relationshipDegreeTiers: RelationshipDegreeTierRow[] = [
 /* ─── 3. tests — admission pipeline tests ────────────────────────────── */
 
 const tests: TestRow[] = [
-  { code: 'TST-01', name: 'القدرات',               isActive: true, kind: 'written',   order: 1,  required: true },
-  { code: 'TST-02', name: 'المعلومات العامة',       isActive: true, kind: 'written',   order: 2,  required: true },
-  { code: 'TST-03', name: 'الطول',                 isActive: true, kind: 'medical',   order: 3,  required: true },
-  { code: 'TST-04', name: 'السمات الخارجية',        isActive: true, kind: 'interview', order: 4,  required: true },
-  { code: 'TST-05', name: 'السمات الداخلية',        isActive: true, kind: 'interview', order: 5,  required: true },
-  { code: 'TST-06', name: 'اللياقة الرياضية',       isActive: true, kind: 'physical',  order: 6,  required: true },
-  { code: 'TST-07', name: 'إعادة الرياضي',          isActive: true, kind: 'physical',  order: 7,  required: false },
-  { code: 'TST-08', name: 'الهيئة',                isActive: true, kind: 'interview', order: 8,  required: true },
-  { code: 'TST-09', name: 'القوام',                isActive: true, kind: 'medical',   order: 9,  required: true },
-  { code: 'TST-10', name: 'إعادة القوام',           isActive: true, kind: 'medical',   order: 10, required: false },
-  { code: 'TST-11', name: 'الكشف الطبي',           isActive: true, kind: 'medical',   order: 11, required: true },
-  { code: 'TST-12', name: 'إعادة الطبي',           isActive: true, kind: 'medical',   order: 12, required: false },
-  { code: 'TST-13', name: 'الاتزان النفسي',         isActive: true, kind: 'psych',     order: 13, required: true },
-  { code: 'TST-14', name: 'الكشف الطبي المتقدم',    isActive: true, kind: 'medical',   order: 14, required: true },
-  { code: 'TST-15', name: 'المقابلة الشخصية',       isActive: true, kind: 'interview', order: 15, required: true },
+  { code: 'TST-01', name: 'القدرات',               isActive: true, order: 1,  required: true },
+  { code: 'TST-02', name: 'المعلومات العامة',       isActive: true, order: 2,  required: true },
+  { code: 'TST-03', name: 'الطول',                 isActive: true, order: 3,  required: true },
+  { code: 'TST-04', name: 'السمات الخارجية',        isActive: true, order: 4,  required: true },
+  { code: 'TST-05', name: 'السمات الداخلية',        isActive: true, order: 5,  required: true },
+  { code: 'TST-06', name: 'اللياقة الرياضية',       isActive: true, order: 6,  required: true },
+  { code: 'TST-07', name: 'إعادة الرياضي',          isActive: true, order: 7,  required: false },
+  { code: 'TST-08', name: 'الهيئة',                isActive: true, order: 8,  required: true },
+  { code: 'TST-09', name: 'القوام',                isActive: true, order: 9,  required: true },
+  { code: 'TST-10', name: 'إعادة القوام',           isActive: true, order: 10, required: false },
+  { code: 'TST-11', name: 'الكشف الطبي',           isActive: true, order: 11, required: true },
+  { code: 'TST-12', name: 'إعادة الطبي',           isActive: true, order: 12, required: false },
+  { code: 'TST-13', name: 'الاتزان النفسي',         isActive: true, order: 13, required: true },
+  { code: 'TST-14', name: 'الكشف الطبي المتقدم',    isActive: true, order: 14, required: true },
+  { code: 'TST-15', name: 'المقابلة الشخصية',       isActive: true, order: 15, required: true },
 ];
 
 /* ─── 4. test-results ────────────────────────────────────────────────── */

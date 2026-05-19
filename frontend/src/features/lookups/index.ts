@@ -20,7 +20,6 @@ export {
   type RelationshipGender,
   type RelationshipDegreeTierRow,
   type TestRow,
-  type TestKind,
   type TestResultRow,
   type TestResultOutcome,
   type TestResultTone,

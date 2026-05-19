@@ -177,8 +177,6 @@ export interface RelationshipDegreeTierRow extends LookupRowBase {
   maxDegree: 1 | 2 | 3 | 4;
 }
 
-export type TestKind = 'physical' | 'medical' | 'interview' | 'written' | 'psych';
-
 /** Per-test applicant-facing instructions. Either an Arabic rich-text body
  *  shown inline, or a single uploaded PDF (≤10 MB) the applicant opens for
  *  review. Both surfaces coexist on the row so admins can switch modes
@@ -202,7 +200,6 @@ export interface TestInstructions {
 }
 
 export interface TestRow extends LookupRowBase {
-  kind: TestKind;
   /** Sequence order within the admission pipeline. */
   order: number;
   required: boolean;

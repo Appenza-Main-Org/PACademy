@@ -382,18 +382,6 @@ function filterDescriptor(key: LookupKey): FilterDescriptor | null {
         field: 'facultyCode',
         options: MOCK.lookups.faculties.map((f) => ({ value: f.code, label: f.name })),
       };
-    case 'tests':
-      return {
-        label: 'تصفية بنوع الاختبار',
-        field: 'kind',
-        options: [
-          { value: 'physical',  label: 'رياضي' },
-          { value: 'medical',   label: 'طبي' },
-          { value: 'interview', label: 'مقابلة' },
-          { value: 'written',   label: 'كتابي' },
-          { value: 'psych',     label: 'نفسي' },
-        ],
-      };
     case 'qualifications':
       return {
         label: 'تصفية بالمستوى',
@@ -441,7 +429,6 @@ function applyKeyFilter<K extends LookupKey>(key: K, rows: LookupRow<K>[], value
     case 'jobs':                  return r.filter((row) => value === 'roots' ? row.parentCode === null : row.parentCode === value) as LookupRow<K>[];
     case 'announcements':         return r.filter((row) => row.categoryCode === value) as LookupRow<K>[];
     case 'specializations':       return r.filter((row) => row.facultyCode === value) as LookupRow<K>[];
-    case 'tests':                 return r.filter((row) => row.kind === value) as LookupRow<K>[];
     case 'qualifications':        return r.filter((row) => row.level === value) as LookupRow<K>[];
     case 'governorates':          return r.filter((row) => row.region === value) as LookupRow<K>[];
     case 'nationalities-countries': return r.filter((row) => value === 'arab' ? row.isArab : !row.isArab) as LookupRow<K>[];
@@ -588,7 +575,6 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
       ];
     case 'tests':
       return [
-        { key: 'kind',     label: 'النوع',   sortable: true, width: 110, render: (r: TestRow) => <Badge tone="info">{TEST_KIND_LABEL[r.kind]}</Badge> },
         { key: 'order',    label: 'الترتيب', sortable: true, width: 80,  numeric: true, render: (r: TestRow) => r.order },
         { key: 'required', label: 'إلزامي',  sortable: true, width: 90,  render: (r: TestRow) => r.required ? <Badge tone="success">إلزامي</Badge> : <Badge tone="neutral">اختياري</Badge> },
         { key: 'instructions', label: 'التعليمات', width: 110, render: (r: TestRow) => {
@@ -715,9 +701,6 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-const TEST_KIND_LABEL: Record<TestRow['kind'], string> = {
-  physical: 'رياضي', medical: 'طبي', interview: 'مقابلة', written: 'كتابي', psych: 'نفسي',
-};
 function labelByCode(key: LookupKey, code: string): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = (MOCK.lookups[key] as any[]).find((r) => r.code === code);

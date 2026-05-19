@@ -221,17 +221,6 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
     case 'tests':
       return (
         <>
-          <Select
-            label="نوع الاختبار"
-            options={[
-              { value: 'physical',  label: 'رياضي' },
-              { value: 'medical',   label: 'طبي' },
-              { value: 'interview', label: 'مقابلة' },
-              { value: 'written',   label: 'كتابي' },
-              { value: 'psych',     label: 'نفسي' },
-            ]}
-            {...register('kind')}
-          />
           <Input label="ترتيب التنفيذ" type="number" {...register('order', { valueAsNumber: true })} />
           <Controller
             control={control}
