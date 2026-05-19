@@ -65,6 +65,40 @@ function nextId(): string {
   return id;
 }
 
+/** FNV-1a 32-bit hash. Deterministic across reloads — same (committee,
+ *  date) pair always produces the same dummy reservation count. */
+function hash32(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/** Mock-only: synthesize a plausible reservation count for a freshly
+ *  authored committee instance so the demo on
+ *  `/admin/committees-exam-config` doesn't look empty the moment an
+ *  admin steps out of the wizard. Backend integration should drop this
+ *  helper entirely and keep `reserved: 0` at creation — real reservation
+ *  counts come from the scheduling system via the «تحديث» button.
+ *
+ *  Range: ~45%–95% of capacity, clamped to [1, capacity]. Deterministic
+ *  in `(definitionCode, date)` so the same row keeps the same dummy
+ *  number across reloads (and across the in-memory store's lifetime). */
+function demoReservations(
+  definitionCode: string,
+  date: string,
+  capacity: number,
+): number {
+  const h = hash32(`${definitionCode}|${date}`);
+  /* Fill ratio in [0.45, 0.95) — five-thousand-step bucket keeps the
+   * spread visually varied without ever hitting exactly 0 or capacity. */
+  const ratio = 0.45 + (h % 5000) / 10000;
+  const reserved = Math.round(capacity * ratio);
+  return Math.max(1, Math.min(capacity, reserved));
+}
+
 function matchesFilters(row: CommitteeInstance, filters: CommitteeInstanceListFilters): boolean {
   if (filters.cycleId && row.cycleId !== filters.cycleId) return false;
   if (filters.categoryKey && row.categoryKey !== filters.categoryKey) return false;
@@ -115,10 +149,12 @@ export const committeeInstanceService = {
         categoryKey: i.categoryKey,
         date: i.date,
         capacity: i.capacity,
-        /* New instances start with no reservations — applicants schedule
-         * onto them after creation, then the management page's «تحديث»
-         * button pulls the live count in. */
-        reserved: 0,
+        /* Demo only: seed a deterministic dummy reservation count so the
+         * management page surfaces realistic numbers right after wizard
+         * authoring. The real backend will keep this at 0 — applicants
+         * schedule onto instances after creation. See `demoReservations`
+         * for the integration contract. */
+        reserved: demoReservations(i.definitionCode, i.date, i.capacity),
         reservedRefreshedAt: now,
         createdAt: now,
         updatedAt: now,
