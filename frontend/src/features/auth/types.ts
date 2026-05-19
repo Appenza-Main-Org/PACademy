@@ -6,7 +6,6 @@ export interface AuthUser {
   name: string;
   role: Role;
   roleLabel: string;
-  unit: string;
   apps: readonly AppKey[];
   permissions: readonly string[];
   token: string;

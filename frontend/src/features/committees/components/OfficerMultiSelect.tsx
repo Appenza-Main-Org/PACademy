@@ -31,7 +31,7 @@ export function OfficerMultiSelect({
       onChange={onChange}
       options={officers.map((o) => ({
         value: o.id,
-        label: `${o.name} · ${o.unit}`,
+        label: o.name,
       }))}
       placeholder="اختر الضباط من قائمة الموظفين بصلاحية اللجنة"
     />

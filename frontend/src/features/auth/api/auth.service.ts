@@ -123,7 +123,6 @@ function buildAuthUser(role: Role): AuthUser {
     name: matchUser.name,
     role,
     roleLabel: dyn?.labelAr ?? legacy.labelAr,
-    unit: matchUser.unit,
     apps: dyn ? dyn.apps : legacy.apps,
     permissions: dyn ? dyn.permissions : legacy.permissions,
     token: fakeJWT({ sub: matchUser.id, role, iat: Date.now() }),

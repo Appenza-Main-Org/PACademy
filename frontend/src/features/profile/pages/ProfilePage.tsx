@@ -43,7 +43,6 @@ export function ProfilePage(): JSX.Element {
               <Avatar name={user.name} size="xl" />
               <p className="text-md font-bold text-ink-900">{user.name}</p>
               <p className="text-2xs text-ink-500" dir="ltr">{user.id}</p>
-              <p className="text-2xs text-ink-500">{user.unit}</p>
             </div>
           </Card>
 

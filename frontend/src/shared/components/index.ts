@@ -69,6 +69,8 @@ export { SearchSelect } from './SearchSelect';
 export type { SearchSelectOption } from './SearchSelect';
 export { RadixSelect } from './RadixSelect';
 export type { RadixSelectOption } from './RadixSelect';
+export { RadixMultiSelect } from './RadixMultiSelect';
+export type { RadixMultiSelectOption } from './RadixMultiSelect';
 export { Sheet } from './Sheet';
 export type { SheetSize } from './Sheet';
 export { Skeleton, SkeletonRow } from './Skeleton';

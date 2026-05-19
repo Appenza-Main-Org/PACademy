@@ -317,7 +317,6 @@ export interface SystemUser {
   /** Legacy single-role field — kept in sync with `roles[0]` for
    *  bulk-assign and other single-role consumers. */
   role: string;
-  unit: string;
   active: boolean;
   status?: SystemUserStatus;
   lastLogin: number;
@@ -427,6 +426,51 @@ export interface CommitteeRules {
 }
 
 export type CommitteeStatus = 'active' | 'inactive';
+
+/**
+ * CommitteeInstance — a cycle-bound, dated, capacity-bearing committee
+ * assignment.
+ *
+ * Domain model: a committee has two surfaces.
+ *
+ *   1. **CommitteeDefinition** (the catalog) — the row in the
+ *      `/admin/lookups/committees` lookup. Holds the committee's identity
+ *      (name, applicantCategoryId) and is admin-managed cross-cycle.
+ *      Lives at `features/lookups/types.ts → CommitteeRow` (re-exported
+ *      as `CommitteeDefinition` from the lookups barrel for clarity).
+ *
+ *   2. **CommitteeInstance** (this type) — a cycle-scoped assignment that
+ *      pairs a definition with a date + capacity. The admission-setup
+ *      wizard creates instances; `/admin/committees` lists and edits
+ *      every instance across cycles.
+ *
+ * Authoring sites:
+ *   - Wizard step `/admin/cycles/admission-setup/wizard/committees` creates
+ *     instances from the picked category's definitions.
+ *   - `/admin/committees` management page lists, filters, sorts, and
+ *     inline-edits date + capacity on every existing instance.
+ *
+ * Both sites operate on the same record — edits in either location update
+ * the same entity.
+ */
+export interface CommitteeInstance {
+  id: string;
+  /** FK → lookups['committees'].code — the committee definition. */
+  definitionCode: string;
+  /** FK → AdmissionCycle.id — the cycle this instance is scoped to. */
+  cycleId: string;
+  /** FK → ApplicantCategory.key — the category this instance serves.
+   *  Carried explicitly so cross-cycle filters don't have to round-trip
+   *  through the definition row. Mirrors the parent definition's
+   *  `applicantCategoryId`. */
+  categoryKey: ApplicantCategoryKey;
+  /** ISO yyyy-mm-dd date this instance sits on. */
+  date: string;
+  /** Seats for this instance on this date (1..999). */
+  capacity: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 /**
  * ExamScheduleEntry — one (committee × date) row backing the

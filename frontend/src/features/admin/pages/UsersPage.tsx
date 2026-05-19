@@ -51,7 +51,6 @@ const userImportSchema = z.object({
   mobileNumber: z.string().regex(/^\d{11}$/, 'رقم الموبايل يجب أن يكون 11 رقماً'),
   userType: z.enum(['officer', 'civilian', 'contractor']),
   roles: z.array(z.string().min(1)).min(1, 'يجب تحديد دور واحد على الأقل'),
-  unit: z.string().optional(),
   accountStatus: z.enum(['active', 'inactive']),
 });
 
@@ -68,7 +67,6 @@ function mapImportRow(raw: Record<string, string>): Record<string, unknown> {
       .split(/[،,]/)
       .map((r) => r.trim())
       .filter(Boolean),
-    unit: raw['الوحدة'] ?? raw['unit'] ?? '',
     accountStatus: ((raw['الحالة'] ?? raw['accountStatus'] ?? 'inactive') === 'نشط'
       ? 'active'
       : (raw['الحالة'] ?? raw['accountStatus'] ?? 'inactive')) as AccountStatus,
@@ -180,15 +178,6 @@ export function UsersPage(): JSX.Element {
         },
       },
       {
-        key: 'unit',
-        label: 'الوحدة',
-        hideOn: 'md',
-        sortable: true,
-        getSortValue: (u) => u.unit,
-        filter: { kind: 'text', getValue: (u) => u.unit },
-        render: (u) => u.unit || '—',
-      },
-      {
         key: 'accountStatus',
         label: 'الحالة',
         sortable: true,
@@ -241,7 +230,6 @@ export function UsersPage(): JSX.Element {
           { key: 'mobileNumber', labelAr: 'رقم الموبايل' },
           { key: 'userType', labelAr: 'النوع' },
           { key: 'roles', labelAr: 'الأدوار', format: (v) => (Array.isArray(v) ? v.join('، ') : String(v ?? '')) },
-          { key: 'unit', labelAr: 'الوحدة' },
           {
             key: 'accountStatus',
             labelAr: 'الحالة',
@@ -266,7 +254,6 @@ export function UsersPage(): JSX.Element {
           { key: 'mobileNumber', labelAr: 'رقم الموبايل', sample: '01000000000' },
           { key: 'userType', labelAr: 'النوع', sample: 'officer' },
           { key: 'roles', labelAr: 'الأدوار', sample: 'committee_admin، investigator' },
-          { key: 'unit', labelAr: 'الوحدة', sample: 'إدارة الشؤون الإدارية' },
           { key: 'accountStatus', labelAr: 'الحالة', sample: 'نشط' },
         ],
       },

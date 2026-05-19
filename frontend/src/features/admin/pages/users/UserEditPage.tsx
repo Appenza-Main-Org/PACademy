@@ -33,7 +33,6 @@ interface DraftState {
   fullArabicName: string;
   officerCode: string;
   mobileNumber: string;
-  unit: string;
   roles: Role[];
   accountStatus: AccountStatus;
 }
@@ -43,7 +42,6 @@ function toDraft(u: SystemUser): DraftState {
     fullArabicName: u.fullArabicName,
     officerCode: u.officerCode,
     mobileNumber: u.mobileNumber,
-    unit: u.unit,
     roles: u.roles as Role[],
     accountStatus: u.accountStatus,
   };
@@ -53,7 +51,6 @@ function isDirty(a: DraftState, b: DraftState): boolean {
   if (a.fullArabicName !== b.fullArabicName) return true;
   if (a.officerCode !== b.officerCode) return true;
   if (a.mobileNumber !== b.mobileNumber) return true;
-  if (a.unit !== b.unit) return true;
   if (a.accountStatus !== b.accountStatus) return true;
   if (a.roles.length !== b.roles.length) return true;
   if (a.roles.some((r, i) => r !== b.roles[i])) return true;
@@ -115,7 +112,6 @@ export function UserEditPage(): JSX.Element {
           fullArabicName: draft.fullArabicName,
           officerCode: draft.officerCode,
           mobileNumber: draft.mobileNumber,
-          unit: draft.unit,
           roles: draft.roles,
           accountStatus: draft.accountStatus,
         },
@@ -184,11 +180,6 @@ export function UserEditPage(): JSX.Element {
                 onChange={(e) => setDraft({ ...draft, mobileNumber: e.target.value })}
                 inputMode="tel"
                 dir="ltr"
-              />
-              <Input
-                label="الوحدة / الإدارة"
-                value={draft.unit}
-                onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
               />
             </div>
           </div>

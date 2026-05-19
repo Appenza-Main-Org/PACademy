@@ -29,7 +29,6 @@ interface FormState {
   /** Local override fields — used when admin clicks "تعديل" to correct
    *  an auto-filled value. */
   overrides: Partial<OfficerCandidate>;
-  unit: string;
   roles: Role[];
   accountStatus: AccountStatus;
   /** Whether auto-filled fields are unlocked for editing. */
@@ -39,7 +38,6 @@ interface FormState {
 const INITIAL: FormState = {
   candidate: null,
   overrides: {},
-  unit: '',
   roles: [],
   accountStatus: 'active',
   unlocked: false,
@@ -93,7 +91,6 @@ export function UserCreatePage(): JSX.Element {
         officerCode: merged.officerCode,
         mobileNumber: merged.mobileNumber,
         userType: merged.userType,
-        unit: form.unit,
         roles: form.roles,
         accountStatus: form.accountStatus,
       });
@@ -170,13 +167,6 @@ export function UserCreatePage(): JSX.Element {
                   />
                 </div>
               )}
-
-              <Input
-                label="الوحدة / الإدارة"
-                value={form.unit}
-                onChange={(e) => setForm((p) => ({ ...p, unit: e.target.value }))}
-                placeholder="اختياري — مثال: لجان القبول"
-              />
 
               <RoleMultiSelect
                 value={form.roles}

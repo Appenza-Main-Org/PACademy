@@ -118,7 +118,6 @@ export function UserDetailPage(): JSX.Element {
               <DefRow label="رمز الضابط / الكود" value={user.officerCode} mono />
               <DefRow label="رقم المحمول" value={user.mobileNumber} mono />
               <DefRow label="الفئة" value={USER_TYPE_LABEL[user.userType]} />
-              <DefRow label="الوحدة / الإدارة" value={user.unit || '—'} />
               <DefRow label="تاريخ الإنشاء" value={fmtDate(user.createdAt, 'full')} />
               <DefRow label="آخر تعديل" value={fmtDate(user.updatedAt, 'rel')} />
               <DefRow label="آخر دخول" value={user.lastLogin ? fmtDate(user.lastLogin, 'rel') : 'لم يسجل بعد'} />

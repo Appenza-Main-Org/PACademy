@@ -490,7 +490,6 @@ interface SummaryEligibleOfficer {
   id: string;
   name: string;
   role: string;
-  unit: string;
 }
 
 interface SummarySpecialization {
@@ -625,7 +624,6 @@ function CommitteeSummary({
               >
                 <Avatar name={o.name} size="sm" />
                 <span className="font-medium text-ink-900">{o.name}</span>
-                <span className="text-2xs text-ink-500">· {o.unit}</span>
                 {o.id === committee.headUserId && <Badge tone="warning">رئيس</Badge>}
               </span>
             ))}

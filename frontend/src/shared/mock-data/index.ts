@@ -22,6 +22,7 @@ import type {
   AuditDiff,
   AuditEntry,
   Committee,
+  CommitteeInstance,
   DayPoint,
   ExamScheduleEntry,
   ExamSession,
@@ -32,6 +33,7 @@ import type {
   SystemUser,
   UserActivityEntry,
 } from '@/shared/types/domain';
+import { COMMITTEE_INSTANCES_SEED } from './committeeInstances';
 import { QUESTION_POOL } from './questionPool';
 import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 /* REFERENCE_DATA dropped — superseded by MOCK.lookupItems filtered by
@@ -198,21 +200,20 @@ const USER_SEED: Array<{
   id: string;
   legacyName: string;
   role: string;
-  unit: string;
   active: boolean;
   lastLoginOffsetMs: number;
   nidIndex: number; /* index into OFFICER_DIRECTORY */
 }> = [
-  { id: 'U-001', legacyName: 'العميد د. أحمد محمود الفقي',  role: 'super_admin',     unit: 'كلية الشرطة',           active: true,  lastLoginOffsetMs: 3600000,         nidIndex: 0 },
-  { id: 'U-002', legacyName: 'العقيد محمد إبراهيم حسن',     role: 'committee_admin', unit: 'لجان القبول',           active: true,  lastLoginOffsetMs: 7200000,         nidIndex: 1 },
-  { id: 'U-003', legacyName: 'الرائد طارق علي الخطيب',      role: 'medical_admin',   unit: 'القومسيون الطبي',       active: true,  lastLoginOffsetMs: 1800000,         nidIndex: 5 },
-  { id: 'U-004', legacyName: 'النقيب يوسف أحمد المصري',     role: 'investigator',    unit: 'إدارة التحريات',        active: true,  lastLoginOffsetMs: 86400000,        nidIndex: 6 },
-  { id: 'U-005', legacyName: 'النقيب وليد سامح الديب',      role: 'committee_user',  unit: 'لجنة طلبة 1',           active: true,  lastLoginOffsetMs: 600000,          nidIndex: 3 },
-  { id: 'U-006', legacyName: 'الملازم أول عمر حازم البنا',  role: 'biometric_user',  unit: 'بوابة الأمن',           active: true,  lastLoginOffsetMs: 300000,          nidIndex: 8 },
-  { id: 'U-007', legacyName: 'العقيد أيمن شريف رمضان',      role: 'board_admin',     unit: 'الهيئة',                active: true,  lastLoginOffsetMs: 14400000,        nidIndex: 2 },
-  { id: 'U-008', legacyName: 'الرائد ياسر هشام منصور',      role: 'exams_admin',     unit: 'الاختبارات الإلكترونية', active: true,  lastLoginOffsetMs: 4500000,         nidIndex: 7 },
-  { id: 'U-009', legacyName: 'النقيب كريم زياد فاروق',      role: 'records_clerk',   unit: 'إدراج النتائج',         active: false, lastLoginOffsetMs: 7 * 86400000,    nidIndex: 4 },
-  { id: 'U-010', legacyName: 'الرائد د. حسن محمد عبدالباقي', role: 'medical_doctor',  unit: 'عيادة الباطنة',         active: true,  lastLoginOffsetMs: 9000000,         nidIndex: 9 },
+  { id: 'U-001', legacyName: 'العميد د. أحمد محمود الفقي',  role: 'super_admin',     active: true,  lastLoginOffsetMs: 3600000,         nidIndex: 0 },
+  { id: 'U-002', legacyName: 'العقيد محمد إبراهيم حسن',     role: 'committee_admin', active: true,  lastLoginOffsetMs: 7200000,         nidIndex: 1 },
+  { id: 'U-003', legacyName: 'الرائد طارق علي الخطيب',      role: 'medical_admin',   active: true,  lastLoginOffsetMs: 1800000,         nidIndex: 5 },
+  { id: 'U-004', legacyName: 'النقيب يوسف أحمد المصري',     role: 'investigator',    active: true,  lastLoginOffsetMs: 86400000,        nidIndex: 6 },
+  { id: 'U-005', legacyName: 'النقيب وليد سامح الديب',      role: 'committee_user',  active: true,  lastLoginOffsetMs: 600000,          nidIndex: 3 },
+  { id: 'U-006', legacyName: 'الملازم أول عمر حازم البنا',  role: 'biometric_user',  active: true,  lastLoginOffsetMs: 300000,          nidIndex: 8 },
+  { id: 'U-007', legacyName: 'العقيد أيمن شريف رمضان',      role: 'board_admin',     active: true,  lastLoginOffsetMs: 14400000,        nidIndex: 2 },
+  { id: 'U-008', legacyName: 'الرائد ياسر هشام منصور',      role: 'exams_admin',     active: true,  lastLoginOffsetMs: 4500000,         nidIndex: 7 },
+  { id: 'U-009', legacyName: 'النقيب كريم زياد فاروق',      role: 'records_clerk',   active: false, lastLoginOffsetMs: 7 * 86400000,    nidIndex: 4 },
+  { id: 'U-010', legacyName: 'الرائد د. حسن محمد عبدالباقي', role: 'medical_doctor',  active: true,  lastLoginOffsetMs: 9000000,         nidIndex: 9 },
 ];
 
 const SEED_NOW = Date.now();
@@ -229,7 +230,6 @@ const users: SystemUser[] = USER_SEED.map((s, idx) => {
     id: s.id,
     name: candidate.fullArabicName,
     role: s.role,
-    unit: s.unit,
     active: s.active,
     status: s.active ? 'active' : 'suspended',
     lastLogin: SEED_NOW - s.lastLoginOffsetMs,
@@ -1175,6 +1175,11 @@ export const MOCK = {
    * with capacity. Seeded empty so the screen lands on the EmptyState
    * until the admin adds their first batch from the form. */
   examSchedule: [] as ExamScheduleEntry[],
+  /* Committee instances — cycle-bound, dated, capacity-bearing committee
+   * assignments. The wizard `/admin/cycles/admission-setup/wizard/committees`
+   * authors these from picked category definitions; `/admin/committees`
+   * lists + edits them. Both surfaces share this single source of truth. */
+  committeeInstances: [...COMMITTEE_INSTANCES_SEED] as CommitteeInstance[],
 };
 
 export { findOfficerByNid };

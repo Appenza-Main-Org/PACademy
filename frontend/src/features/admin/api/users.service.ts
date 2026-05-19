@@ -74,7 +74,6 @@ export interface CreateUserPayload {
   userType: UserType;
   /** Multi-role assignment — at least one. */
   roles: string[];
-  unit?: string;
   accountStatus: AccountStatus;
   /** Optional override for the actor (defaults to the auth-store user). */
   actorId?: string;
@@ -85,7 +84,6 @@ export interface UpdateUserPayload {
   officerCode?: string;
   mobileNumber?: string;
   userType?: UserType;
-  unit?: string;
   roles?: string[];
   accountStatus?: AccountStatus;
 }
@@ -130,7 +128,6 @@ export const usersService = {
           id: `U-${String(userCounter++).padStart(3, '0')}`,
           name: payload.fullArabicName,
           role: payload.roles[0]!, /* legacy single-role mirror */
-          unit: payload.unit ?? '',
           active: legacy.active,
           status: legacy.status,
           lastLogin: 0,
@@ -189,7 +186,6 @@ export const usersService = {
       officerCode: patch.officerCode ?? before.officerCode,
       mobileNumber: patch.mobileNumber ?? before.mobileNumber,
       userType: patch.userType ?? before.userType,
-      unit: patch.unit ?? before.unit,
       roles: nextRoles,
       role: nextRoles[0] ?? before.role,
       accountStatus: nextAccountStatus,
@@ -426,7 +422,6 @@ export const usersService = {
           mobileNumber: row.mobileNumber,
           userType: row.userType,
           roles: row.roles,
-          unit: row.unit,
           accountStatus: row.accountStatus,
         });
         successCount += 1;
@@ -463,7 +458,6 @@ export const usersService = {
       mobileNumber: overrides.mobileNumber,
       userType: source.userType,
       roles: [...source.roles],
-      unit: source.unit,
       accountStatus: 'inactive',
     });
   },
@@ -476,6 +470,5 @@ export interface BulkImportUserRow {
   mobileNumber: string;
   userType: UserType;
   roles: string[];
-  unit?: string;
   accountStatus: AccountStatus;
 }

@@ -415,11 +415,11 @@ export const committeeService = {
    * List system users eligible for committee assignment — `committee_admin`
    * or `committee_user` role only. Surfaced by the admin officer-multi-select.
    */
-  async getEligibleOfficers(): Promise<{ id: string; name: string; role: string; unit: string }[]> {
+  async getEligibleOfficers(): Promise<{ id: string; name: string; role: string }[]> {
     await simulateLatency(80, 160);
     return MOCK.users
       .filter((u) => u.role === 'committee_admin' || u.role === 'committee_user')
-      .map((u) => ({ id: u.id, name: u.name, role: u.role, unit: u.unit }));
+      .map((u) => ({ id: u.id, name: u.name, role: u.role }));
   },
 
   /**

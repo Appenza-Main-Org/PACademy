@@ -39,7 +39,6 @@ function ensureDemoUser(): void {
     name: 'العميد د. أحمد محمود الفقي',
     role: 'super_admin',
     roleLabel: def.labelAr,
-    unit: 'إدارة المنظومة',
     apps: def.apps,
     permissions: def.permissions,
     token: 'demo.bypass.token',
