@@ -155,14 +155,6 @@ export function ApplicantPortalLayout(): JSX.Element {
               )}
             </span>
           )}
-          {draft?.applicantId && (
-            <span
-              className="hidden rounded-md border border-border-subtle bg-ink-50 px-2.5 py-1.5 font-mono text-2xs text-ink-700 md:inline-flex"
-              dir="ltr"
-            >
-              {draft.applicantId}
-            </span>
-          )}
           <button
             type="button"
             onClick={handleExit}
