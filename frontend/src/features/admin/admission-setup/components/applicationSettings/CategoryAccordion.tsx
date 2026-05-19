@@ -17,20 +17,19 @@
  * lookup row's `isActive` is the master flag for whether the category
  * is shown to applicants. Both stay in sync at this seam.
  *
- * «معيار التميز» filter:
- *   • Categories with `excellenceCriteriaVisible === true` appear here.
- *   • Categories with the toggle off are filtered out — unless the
- *     wizard already holds authored rows (local or approved) that
- *     reference them, in which case the row stays editable and carries
- *     a warning so the admin doesn't silently lose data.
- *   • Each visible row renders its picked معيار التميز value next to
- *     the category counts.
+ * «معيار التميز» rendering:
+ *   • Every active category renders here regardless of its criterion
+ *     state — admins still need to author the rest of the rules.
+ *   • The criterion *label* on the row header only shows when the
+ *     category carries a criterion (`excellenceCriterion !== null`)
+ *     AND its visibility toggle is on. Otherwise the label is hidden
+ *     and the rest of the header (name + stage badge + counts +
+ *     completion badge) renders normally.
  */
 
 import { useMemo, useState } from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
 import {
-  AlertTriangle,
   Check,
   ChevronDown,
   Circle,
@@ -54,18 +53,6 @@ export function CategoryAccordion(): JSX.Element {
   const configsQuery = useCategoryConfigs();
   const categoriesQuery = useLookup('applicant-categories');
   const excellenceQuery = useLookup('excellence-criteria');
-
-  /* Read authored rows here once so child <ConfigItem /> reads stay
-   * lightweight. We also need this list to detect orphan references
-   * (rules pointing at a category whose visibility was later turned off). */
-  const local = useAdmissionSetupWizardStore((s) => s.local);
-  const approved = useAdmissionSetupWizardStore((s) => s.approved);
-  const referencedCategoryCodes = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of local) set.add(r.categoryCode);
-    for (const r of approved) set.add(r.categoryCode);
-    return set;
-  }, [local, approved]);
 
   const [openIds, setOpenIds] = useState<string[]>([]);
 
@@ -106,19 +93,12 @@ export function CategoryAccordion(): JSX.Element {
     lookupActiveCodes.has(c.categoryCode),
   );
 
-  /* Visibility filter — a category appears here only when it carries
-   * a معيار التميز (`excellenceCriterion !== null`) AND the admin
-   * hasn't toggled visibility off. The criterion-null path covers
-   * pre-university categories that don't use this axis at all
-   * (officers_general); the visibility-flag path keeps the original
-   * per-row admin override. Categories that fail both flags but
-   * already have authored rules stay editable with an inline warning
-   * so admins don't silently lose data. */
-  const visibleConfigs = activeConfigs.filter(
-    (c) =>
-      (c.excellenceCriteriaVisible && c.excellenceCriterion !== null) ||
-      referencedCategoryCodes.has(c.categoryCode),
-  );
+  /* Every active category renders here — the معيار التميز flag only
+   * controls whether the criterion *label* shows on the row header
+   * (see ConfigItem below). Categories whose criterion is off still
+   * need to be editable (admins set the rest of the rules regardless),
+   * so the row stays visible and the label simply disappears. */
+  const visibleConfigs = activeConfigs;
 
   const criterionLabelByCode = new Map(
     (excellenceQuery.data ?? []).map((row) => [row.code, row.name] as const),
@@ -137,14 +117,13 @@ export function CategoryAccordion(): JSX.Element {
           key={config.id}
           config={config}
           excellenceLabel={
-            config.excellenceCriterion === null
+            /* Label only renders when the category actually carries a
+             * criterion AND the admin's visibility toggle is on. The
+             * row itself stays visible either way. */
+            config.excellenceCriterion === null || !config.excellenceCriteriaVisible
               ? null
               : criterionLabelByCode.get(config.excellenceCriterion) ??
                 config.excellenceCriterion
-          }
-          orphaned={
-            !config.excellenceCriteriaVisible &&
-            referencedCategoryCodes.has(config.categoryCode)
           }
         />
       ))}
@@ -155,15 +134,11 @@ export function CategoryAccordion(): JSX.Element {
 interface ConfigItemProps {
   config: CategoryConfigJoined;
   excellenceLabel: string | null;
-  /** Category is referenced by saved rules but its visibility toggle is
-   *  off — surface a warning so the admin notices the misalignment. */
-  orphaned: boolean;
 }
 
 function ConfigItem({
   config,
   excellenceLabel,
-  orphaned,
 }: ConfigItemProps): JSX.Element {
   /* Selector reads both buckets — see `selectCategoryCompletion` JSDoc.
    * Authored rows that haven't been promoted via the section-level
@@ -215,15 +190,6 @@ function ConfigItem({
                   aria-label={`معيار التميز: ${excellenceLabel}`}
                 >
                   معيار التميز: {excellenceLabel}
-                </span>
-              )}
-              {orphaned && (
-                <span
-                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-gold-300 bg-gold-50 px-2 py-0.5 text-2xs text-gold-700"
-                  role="alert"
-                >
-                  <AlertTriangle size={12} strokeWidth={1.75} aria-hidden />
-                  «معيار التميز» معطّل — توجد بيانات محفوظة
                 </span>
               )}
             </span>

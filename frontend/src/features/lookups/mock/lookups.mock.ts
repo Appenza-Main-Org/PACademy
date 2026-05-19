@@ -460,11 +460,10 @@ const applicantCategories: ApplicantCategoryRow[] = [
     ],
     procedures: [],
     excellenceCriteriaVisible: true,
-    /* Per product decision (2026-05-19): every جامعي category uses
-     * numeric grading (EXC-02 / درجة) as the معيار التميز. The
-     * EXC-01 (تقدير) row remains in the excellence-criteria lookup
-     * but is no longer the default for university categories. */
-    excellenceCriterion: 'EXC-02',
+    /* law_bachelor uses qualitative grading (EXC-01 / تقدير) per the
+     * SUB-003 / TAGDIR submission-type. The other جامعي categories
+     * stay on EXC-02 / درجة. */
+    excellenceCriterion: 'EXC-01',
   },
   {
     code: 'physical_education_bachelor',
