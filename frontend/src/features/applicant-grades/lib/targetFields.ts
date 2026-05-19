@@ -26,7 +26,10 @@ export type TargetField =
   | 'graduationYear'
   | 'totalGrade'
   | 'maxGrade'
-  | 'schoolCategory';
+  | 'schoolCategory'
+  | 'examRound'
+  | 'schoolName'
+  | 'regionName';
 
 export interface TargetFieldDescriptor {
   key: TargetField;
@@ -182,6 +185,53 @@ export const TARGET_FIELDS: readonly TargetFieldDescriptor[] = [
       'school_kind',
     ],
   },
+  {
+    key: 'examRound',
+    labelAr: 'الدور',
+    required: false,
+    synonyms: [
+      'الدور',
+      'دور الامتحان',
+      'دور الإمتحان',
+      'الفصل الدراسي',
+      'exam_round',
+      'round',
+      'session',
+    ],
+  },
+  {
+    key: 'schoolName',
+    labelAr: 'اسم المدرسة',
+    required: false,
+    synonyms: [
+      'اسم المدرسة',
+      'اسم المدرسه',
+      'المدرسة',
+      'المدرسه',
+      'المعهد',
+      'school_name',
+      'school',
+      'institute',
+    ],
+  },
+  {
+    key: 'regionName',
+    labelAr: 'المنطقة',
+    required: false,
+    synonyms: [
+      'المنطقة',
+      'المنطقه',
+      'المحافظة',
+      'المحافظه',
+      'الإدارة',
+      'الاداره',
+      'الإدارة التعليمية',
+      'region_name',
+      'region',
+      'governorate',
+      'idarah',
+    ],
+  },
 ];
 
 const SYNONYM_LOOKUP = new Map<string, TargetField>();
@@ -210,6 +260,9 @@ export function autoMapColumns(
     totalGrade: null,
     maxGrade: null,
     schoolCategory: null,
+    examRound: null,
+    schoolName: null,
+    regionName: null,
   };
   const claimed = new Set<string>();
   for (const col of sourceColumns) {

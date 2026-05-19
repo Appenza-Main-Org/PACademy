@@ -56,6 +56,9 @@ export interface GradeRow {
   school: string;
   /** المحافظة / المنطقة. */
   region: string;
+  /** الدور — optional secondary-exam round identifier (دور أول / ثاني /
+   *  ملحق). `null` until backfilled. */
+  examRound: string | null;
   /** المجموع الأصلي عند الاستيراد. */
   total: number;
   /** الدرجة العظمى المطبقة على هذه الدفعة (من ملف الاستيراد). */
@@ -174,6 +177,14 @@ export interface NormalisedRow {
    *  active `school-categories` lookup by code OR Arabic name during
    *  commit; rows whose value matches neither pass with `null`. */
   schoolCategory: string | null;
+  /** Optional `الدور` / exam round (دور أول / ثاني / إلخ). Free-form
+   *  string — stored verbatim so the admin can filter on it downstream. */
+  examRound: string | null;
+  /** Optional اسم المدرسة / المعهد. Persists onto `GradeRow.school` for
+   *  new rows; replaces the existing value on override-import. */
+  schoolName: string | null;
+  /** Optional المحافظة / المنطقة. Persists onto `GradeRow.region`. */
+  regionName: string | null;
   /** 1-based row index in the source table (for "source row #N" labels). */
   sourceRowIndex: number;
 }

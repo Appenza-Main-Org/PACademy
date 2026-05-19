@@ -273,6 +273,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       schoolCategoryCode: null,
       school: demo.school,
       region: demo.region,
+      examRound: null,
       total: demo.total,
       importMax: demo.importMax,
       overrideMax: null,

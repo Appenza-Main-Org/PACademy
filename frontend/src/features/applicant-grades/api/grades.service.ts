@@ -386,6 +386,7 @@ export const gradesService = {
       schoolCategoryCode: null,
       school: r.school,
       region: r.region,
+      examRound: null,
       total: r.total,
       importMax: pending.maxDegree,
       overrideMax: null,
@@ -619,7 +620,9 @@ export const gradesService = {
          * row actually shifts the value, so /admin/applicant-grades/changes
          * can render a meaningful diff. The change timestamp is bumped
          * regardless — overriding to the same total still represents a
-         * deliberate admin decision. */
+         * deliberate admin decision. Optional examRound / schoolName /
+         * regionName fall back to the existing value when unmapped so
+         * an incomplete override doesn't blank out prior data. */
         const existing = existingByNid.get(row.nationalId)!;
         const totalChanged = existing.total !== row.totalGrade;
         existingByNid.set(row.nationalId, {
@@ -633,6 +636,9 @@ export const gradesService = {
           branch: row.track,
           graduationYear,
           schoolCategoryCode: schoolCategoryCode ?? existing.schoolCategoryCode,
+          school: row.schoolName ?? existing.school,
+          region: row.regionName ?? existing.region,
+          examRound: row.examRound ?? existing.examRound,
           status: existing.status,
           previousGrade: totalChanged ? existing.total : existing.previousGrade,
           gradeChangedAt: new Date().toISOString(),
@@ -653,8 +659,9 @@ export const gradesService = {
         branch: row.track,
         graduationYear,
         schoolCategoryCode,
-        school: '',
-        region: '',
+        school: row.schoolName ?? '',
+        region: row.regionName ?? '',
+        examRound: row.examRound,
         total: row.totalGrade,
         importMax: row.maxGrade ?? categoryMax,
         overrideMax: null,

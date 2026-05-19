@@ -89,6 +89,9 @@ export function normaliseRows(
       totalGrade: asNumber(get('totalGrade')),
       maxGrade: asNumber(get('maxGrade')),
       schoolCategory: asString(get('schoolCategory')),
+      examRound: asString(get('examRound')),
+      schoolName: asString(get('schoolName')),
+      regionName: asString(get('regionName')),
       sourceRowIndex: i + 1,
     });
   });

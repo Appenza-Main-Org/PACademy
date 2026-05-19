@@ -102,6 +102,9 @@ const EMPTY_MAPPING: Record<TargetField, string | null> = {
   totalGrade: null,
   maxGrade: null,
   schoolCategory: null,
+  examRound: null,
+  schoolName: null,
+  regionName: null,
 };
 
 function defaultState(): PersistedImportWizardState {
