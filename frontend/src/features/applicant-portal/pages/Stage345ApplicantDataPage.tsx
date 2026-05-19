@@ -40,6 +40,7 @@ import {
   LoadingState,
   SearchSelect,
   Select,
+  Textarea,
   toast,
 } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
@@ -569,16 +570,22 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           title="محل الإقامة والميلاد"
         />
         <div className="grid gap-3 md:grid-cols-2">
-          {/* محل الميلاد — auto-filled from MOI when available, manual otherwise. */}
-          {isMoiVerified ? (
-            <ReadOnlyRow label="محل الميلاد" value={session.birthGovernorate} />
-          ) : (
-            <Input
-              label="محل الميلاد"
-              value={manualPersonal.birthGovernorate}
-              onChange={(e) => setManual('birthGovernorate', e.target.value)}
+          {/* محل الميلاد — dropdown. For MOI-verified applicants the
+              value is pre-filled and disabled; for not_found the
+              applicant picks from GOV_OPTIONS. */}
+          <Field label="محل الميلاد" required>
+            <SearchSelect
+              ariaLabel="محل الميلاد"
+              placeholder="اختر المحافظة"
+              options={GOV_OPTIONS}
+              value={
+                (isMoiVerified ? session.birthGovernorate : manualPersonal.birthGovernorate) ||
+                null
+              }
+              onChange={(v) => setManual('birthGovernorate', v ?? '')}
+              disabled={isMoiVerified}
             />
-          )}
+          </Field>
           <Field label="القسم / مركز الميلاد" required error={errors.birthDistrict?.message}>
             <Controller
               control={control}
@@ -624,6 +631,23 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               )}
             />
           </Field>
+          <Textarea
+            label="العنوان التفصيلي"
+            rows={2}
+            required
+            {...register('currentAddressDetail')}
+            error={errors.currentAddressDetail?.message}
+            containerClassName="md:col-span-2"
+          />
+        </div>
+      </Card>
+
+      <Card className="order-3">
+        <SectionHeader
+          icon={<ShieldCheck size={16} strokeWidth={1.75} />}
+          title="بيانات التواصل"
+        />
+        <div className="grid gap-3 md:grid-cols-2">
           <Input
             label="رقم تليفون المنزل"
             type="tel"
@@ -674,15 +698,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               onChange={(e) => setManual('email', e.target.value)}
             />
           )}
-        </div>
-      </Card>
-
-      <Card className="order-3">
-        <SectionHeader
-          icon={<ShieldCheck size={16} strokeWidth={1.75} />}
-          title="بيانات التواصل"
-        />
-        <div className="grid gap-3 md:grid-cols-3">
           <Input
             label="فيسبوك"
             dir="ltr"
