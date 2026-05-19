@@ -50,7 +50,11 @@ export type ConflictCode =
   | 'DAY_NOT_WORKING'
   | 'COMMITTEE_WRONG_CATEGORY'
   // Committee instances — `/admin/committees` and the wizard committees step.
-  | 'COMMITTEE_INSTANCE_DUPLICATE';
+  | 'COMMITTEE_INSTANCE_DUPLICATE'
+  // Transfer-day reservation flow — destination doesn't have enough free
+  // seats to absorb the incoming reservation. Payload lists every (committee,
+  // category) row that fails so the UI can render the capacity-bump popup.
+  | 'RESERVATIONS_OVER_DESTINATION_CAPACITY';
 
 /** Generic conflict — a precondition rejected the mutation. */
 export class ConflictError<TPayload = unknown> extends Error {

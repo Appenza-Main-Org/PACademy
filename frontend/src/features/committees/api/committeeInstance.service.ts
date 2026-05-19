@@ -279,87 +279,238 @@ export const committeeInstanceService = {
   },
 
   /**
-   * Move every instance for a (cycle × fromDate) tuple to `toDate`.
+   * Transfer **reservations** from every (committee × category) row on
+   * `fromDate` to the matching row on `toDate`. Committee instances on
+   * the source day stay in place with their capacity intact — only the
+   * `reserved` count moves. After a successful transfer, every source
+   * row that had `reserved > 0` is zeroed out and the destination row
+   * absorbs the count.
    *
-   * When a target collision exists (same cycle + definition + toDate
-   * already there) the rows merge: capacity is summed (clamped to 999),
-   * reserved is summed, and the source row is dropped. Merging avoids
-   * the COMMITTEE_INSTANCE_DUPLICATE conflict and matches the wizard's
-   * idempotent-merge behaviour on add.
+   * Per-row rules:
+   *   - Source rows with `reserved === 0` are skipped (nothing to move).
+   *   - If a matching destination row exists, the transfer adds
+   *     `source.reserved` to `destination.reserved`, but only if the
+   *     destination has enough free seats
+   *     (`destination.capacity - destination.reserved >= source.reserved`).
+   *     When this check fails, the call throws
+   *     `ConflictError('RESERVATIONS_OVER_DESTINATION_CAPACITY')` with a
+   *     payload listing every blocking row + the minimum capacity each
+   *     destination needs to accept the transfer. The UI surfaces a
+   *     capacity-bump popup and re-submits with `capacityOverrides`.
+   *   - If no matching destination row exists, the service clones the
+   *     source row onto `toDate` carrying its capacity + reservation
+   *     forward — this is the "same config" branch.
    *
-   * Returns `{ moved, merged }` — `moved` rows changed date in place,
-   * `merged` rows collapsed into pre-existing targets.
+   * `capacityOverrides` lets the caller pre-bump destination capacities
+   * (keyed by destination instance id) before the transfer runs. Each
+   * override is validated against the [1, 999] envelope. The override
+   * is committed atomically with the transfer — if any row still fails
+   * after the bump, the whole transaction rolls back conceptually (the
+   * service throws before mutating any rows).
    *
    * INTEGRATION CONTRACT:
    *   POST /api/committee-instances/transfer-day
-   *     body: { cycleId, fromDate, toDate } → { moved: [], merged: [] }
+   *     body: { cycleId, fromDate, toDate, capacityOverrides? }
+   *     → { transferred: number; createdAtDestination: number;
+   *         bumped: number; totalReservationsMoved: number }
+   *     409 ConflictError(RESERVATIONS_OVER_DESTINATION_CAPACITY,
+   *         { conflicts: ReservationTransferConflict[] })
    */
   async transferDay(input: {
     cycleId: string;
     fromDate: string;
     toDate: string;
-  }): Promise<{ moved: CommitteeInstance[]; merged: CommitteeInstance[] }> {
+    capacityOverrides?: Record<string, number>;
+  }): Promise<{
+    transferred: number;
+    createdAtDestination: number;
+    bumped: number;
+    totalReservationsMoved: number;
+  }> {
     await simulateLatency();
     if (input.fromDate === input.toDate) {
-      return { moved: [], merged: [] };
+      return {
+        transferred: 0,
+        createdAtDestination: 0,
+        bumped: 0,
+        totalReservationsMoved: 0,
+      };
     }
-    const now = new Date().toISOString();
-    const moved: CommitteeInstance[] = [];
-    const merged: CommitteeInstance[] = [];
-    const sourceIndices: number[] = [];
-    for (let i = 0; i < MOCK.committeeInstances.length; i += 1) {
-      const r = MOCK.committeeInstances[i]!;
-      if (r.cycleId === input.cycleId && r.date === input.fromDate) {
-        sourceIndices.push(i);
-      }
+    const overrides = input.capacityOverrides ?? {};
+
+    /* Validate every override against the capacity envelope before
+     * touching state — a bad override fails the whole call. */
+    for (const [, capacity] of Object.entries(overrides)) {
+      assertCapacity(capacity);
     }
-    /* Process source rows in reverse so the splice() at merge time
-     * doesn't invalidate the earlier indices in the list. */
-    for (let k = sourceIndices.length - 1; k >= 0; k -= 1) {
-      const idx = sourceIndices[k]!;
-      const source = MOCK.committeeInstances[idx]!;
-      const targetIdx = MOCK.committeeInstances.findIndex(
+
+    /* Pre-flight check — gather every conflict before mutating so the UI
+     * gets a complete list and the operation is all-or-nothing. */
+    const sourceRows = MOCK.committeeInstances.filter(
+      (r) =>
+        r.cycleId === input.cycleId &&
+        r.date === input.fromDate &&
+        r.reserved > 0,
+    );
+
+    interface PlannedTransfer {
+      sourceIndex: number;
+      destinationIndex: number | null;
+      destinationId: string | null;
+      reservedToMove: number;
+      /** Final destination capacity after applying any override. */
+      destinationCapacity: number;
+      destinationReserved: number;
+    }
+    const plan: PlannedTransfer[] = [];
+    const conflicts: ReservationTransferConflict[] = [];
+
+    for (const source of sourceRows) {
+      const sourceIndex = MOCK.committeeInstances.findIndex((r) => r.id === source.id);
+      const destinationIndex = MOCK.committeeInstances.findIndex(
         (x) =>
           x.cycleId === input.cycleId &&
           x.definitionCode === source.definitionCode &&
           x.date === input.toDate,
       );
-      if (targetIdx !== -1) {
-        const target = MOCK.committeeInstances[targetIdx]!;
-        const mergedCapacity = Math.min(999, target.capacity + source.capacity);
-        const mergedTarget: CommitteeInstance = {
-          ...target,
-          capacity: mergedCapacity,
-          /* Invariant: reserved ≤ capacity. The two source rows can
-           * each hold reservations up to their own capacity, but after
-           * merging, the combined reserved count must still respect the
-           * (clamped) combined capacity. */
-          reserved: Math.min(mergedCapacity, target.reserved + source.reserved),
-          updatedAt: now,
-        };
-        MOCK.committeeInstances[targetIdx] = mergedTarget;
-        MOCK.committeeInstances.splice(idx, 1);
-        merged.push(source);
-      } else {
-        const nextRow: CommitteeInstance = {
-          ...source,
-          date: input.toDate,
-          updatedAt: now,
-        };
-        MOCK.committeeInstances[idx] = nextRow;
-        moved.push(source);
+      if (destinationIndex === -1) {
+        plan.push({
+          sourceIndex,
+          destinationIndex: null,
+          destinationId: null,
+          reservedToMove: source.reserved,
+          destinationCapacity: source.capacity,
+          destinationReserved: 0,
+        });
+        continue;
       }
+      const destination = MOCK.committeeInstances[destinationIndex]!;
+      const overriddenCapacity = overrides[destination.id] ?? destination.capacity;
+      const freeSeats = overriddenCapacity - destination.reserved;
+      if (freeSeats < source.reserved) {
+        conflicts.push({
+          committeeName: source.definitionCode,
+          categoryKey: source.categoryKey,
+          sourceInstanceId: source.id,
+          destinationInstanceId: destination.id,
+          sourceReserved: source.reserved,
+          destinationCapacity: overriddenCapacity,
+          destinationReserved: destination.reserved,
+          freeSeats: Math.max(0, freeSeats),
+          requiredCapacity: destination.reserved + source.reserved,
+        });
+        continue;
+      }
+      plan.push({
+        sourceIndex,
+        destinationIndex,
+        destinationId: destination.id,
+        reservedToMove: source.reserved,
+        destinationCapacity: overriddenCapacity,
+        destinationReserved: destination.reserved,
+      });
     }
-    if (moved.length > 0 || merged.length > 0) {
+
+    if (conflicts.length > 0) {
+      throw new ConflictError(
+        'RESERVATIONS_OVER_DESTINATION_CAPACITY',
+        { conflicts },
+        'بعض لجان اليوم المستهدف ليس بها سعة كافية لاستيعاب الحجوزات. زِد السعة لهذه اللجان أو اختر يوماً آخر.',
+      );
+    }
+
+    /* Apply overrides first (so destinations carry the new capacity by
+     * the time we reconcile reserved counts), then execute the plan. */
+    const now = new Date().toISOString();
+    let bumped = 0;
+    for (const [destinationId, capacity] of Object.entries(overrides)) {
+      const idx = MOCK.committeeInstances.findIndex((r) => r.id === destinationId);
+      if (idx === -1) continue;
+      const before = MOCK.committeeInstances[idx]!;
+      if (before.capacity === capacity) continue;
+      MOCK.committeeInstances[idx] = { ...before, capacity, updatedAt: now };
+      bumped += 1;
+    }
+
+    let transferred = 0;
+    let createdAtDestination = 0;
+    let totalReservationsMoved = 0;
+
+    for (const p of plan) {
+      const source = MOCK.committeeInstances[p.sourceIndex]!;
+      if (p.destinationIndex !== null && p.destinationId !== null) {
+        /* Re-resolve indices because overrides may have shuffled the
+         * underlying objects (immutable updates above). */
+        const destinationIdx = MOCK.committeeInstances.findIndex((r) => r.id === p.destinationId);
+        if (destinationIdx === -1) continue;
+        const destination = MOCK.committeeInstances[destinationIdx]!;
+        MOCK.committeeInstances[destinationIdx] = {
+          ...destination,
+          reserved: destination.reserved + p.reservedToMove,
+          updatedAt: now,
+        };
+        transferred += 1;
+      } else {
+        const clone: CommitteeInstance = {
+          ...source,
+          id: nextId(),
+          date: input.toDate,
+          createdAt: now,
+          updatedAt: now,
+        };
+        MOCK.committeeInstances.push(clone);
+        createdAtDestination += 1;
+      }
+      /* Zero source reservation regardless of destination shape. */
+      const sourceIdxNow = MOCK.committeeInstances.findIndex((r) => r.id === source.id);
+      if (sourceIdxNow !== -1) {
+        MOCK.committeeInstances[sourceIdxNow] = {
+          ...MOCK.committeeInstances[sourceIdxNow]!,
+          reserved: 0,
+          updatedAt: now,
+        };
+      }
+      totalReservationsMoved += p.reservedToMove;
+    }
+
+    if (totalReservationsMoved > 0 || bumped > 0) {
       emitAudit({
         action: 'update',
         module: 'committees',
         entityType: 'CommitteeInstance',
         entityLabel: 'مواعيد لجان',
         entityId: `${input.cycleId}:${input.fromDate}→${input.toDate}`,
-        details: `نقل ${moved.length + merged.length} موعد من ${input.fromDate} إلى ${input.toDate} (دمج ${merged.length})`,
+        details: `نقل ${totalReservationsMoved} حجز من ${input.fromDate} إلى ${input.toDate} (${createdAtDestination} لجنة جديدة، ${bumped} زيادة سعة)`,
       });
     }
-    return { moved, merged };
+
+    return {
+      transferred,
+      createdAtDestination,
+      bumped,
+      totalReservationsMoved,
+    };
   },
 };
+
+/**
+ * Per-row conflict surfaced when the destination day can't absorb the
+ * incoming reservation count. Lives on the ConflictError payload so the
+ * UI can render a capacity-bump popup that lets the admin fix every
+ * blocking row inline before re-submitting the transfer.
+ */
+export interface ReservationTransferConflict {
+  /** Lookups['committees'].code for the committee that conflicts.
+   *  The UI joins this against the lookup to surface the Arabic name. */
+  committeeName: string;
+  categoryKey: ApplicantCategoryKey;
+  sourceInstanceId: string;
+  destinationInstanceId: string;
+  sourceReserved: number;
+  destinationCapacity: number;
+  destinationReserved: number;
+  freeSeats: number;
+  /** Minimum new capacity needed at the destination to accept the
+   *  full incoming reservation. */
+  requiredCapacity: number;
+}

@@ -54,7 +54,9 @@ import {
   useRefreshReservedCountsMutation,
   useRemoveCommitteeInstanceDayMutation,
   useTransferCommitteeInstanceDayMutation,
+  type ReservationTransferConflict,
 } from '@/features/committees';
+import { isConflictError } from '@/shared/lib/errors';
 import type { AdmissionCycle, CommitteeInstance } from '@/shared/types/domain';
 import {
   resolveExpandedDates,
@@ -453,20 +455,29 @@ function DeleteDayDialog({
 }
 
 /* ── Transfer-day flow ───────────────────────────────────────────── *
- * Two-step: pick a target date from a calendar (DatePicker, min=today —
- * past dates are disabled at the cell level and re-checked at submit),
- * then — only if any reservations exist — a confirmation panel that
- * lists what's moving. Both steps render inside the same Dialog so the
- * admin can step back to change the target without re-opening.
+ * The transfer moves **reservations only** — committee instances stay
+ * in place on the source day with their capacity intact; only their
+ * reserved counts move forward to the destination.
  *
- * Target-day semantics:
- *   - If the picked date already has committees on it in the same cycle,
- *     the transfer merges per-committee (capacity sums + reserved sums).
- *   - If the picked date is brand new, the committees just move forward
- *     with their existing capacity + reservations intact.
+ * Two-stage flow inside one Dialog:
  *
- * Both branches are handled by committeeInstanceService.transferDay; this
- * dialog only chooses the target and emits the right post-success copy.   */
+ *   1. pick — calendar (DatePicker, min=today) to choose the destination
+ *      day. Past dates are disabled at the cell level; same-day and
+ *      programmatic past values get a re-check at submit. Helper text
+ *      tells the admin up front whether the destination already has the
+ *      matching committee (top up its reservations) or not (clone the
+ *      source config forward).
+ *
+ *   2. capacity-conflict — surfaces only when the service returns
+ *      `ConflictError('RESERVATIONS_OVER_DESTINATION_CAPACITY')` because
+ *      some destination committees can't absorb the incoming reservation.
+ *      The admin can either:
+ *        - bump destination capacity inline for every blocking row
+ *          (the popup pre-fills `requiredCapacity`), then re-submit, or
+ *        - go back and pick a different day, or cancel entirely.
+ *
+ * Both branches end with a success toast «تم نقل N حجز إلى {date}» and
+ * the dialog closes.                                                       */
 
 interface TransferDayDialogProps {
   open: boolean;
@@ -485,18 +496,22 @@ function TransferDayDialog({
 }: TransferDayDialogProps): JSX.Element {
   const transferMut = useTransferCommitteeInstanceDayMutation();
   const [target, setTarget] = useState<Date | null>(null);
-  const [stage, setStage] = useState<'pick' | 'confirm'>('pick');
+  const [conflicts, setConflicts] = useState<ReservationTransferConflict[] | null>(null);
 
   /* Reset internal state every time the dialog opens. */
   useEffect(() => {
     if (open) {
       setTarget(null);
-      setStage('pick');
+      setConflicts(null);
     }
   }, [open]);
 
   const reservedRows = group.rows.filter((r) => effectiveReserved(r) > 0);
   const hasReservations = reservedRows.length > 0;
+  const totalSourceReservations = reservedRows.reduce(
+    (sum, r) => sum + effectiveReserved(r),
+    0,
+  );
 
   /* `min` boundary on the calendar = today. The DatePicker disables every
    * day before this in its grid so the admin can't even click a past
@@ -508,7 +523,7 @@ function TransferDayDialog({
   const targetIso = target ? localDateToIso(target) : null;
   const isSameDay = targetIso === group.date;
   const isPastTarget = targetIso !== null && targetIso < todayIso;
-  const willMerge = targetIso !== null && otherDaySet.has(targetIso);
+  const destinationExists = targetIso !== null && otherDaySet.has(targetIso);
 
   const targetInvalidReason = !targetIso
     ? null
@@ -519,47 +534,57 @@ function TransferDayDialog({
         : null;
   const targetValid = targetIso !== null && targetInvalidReason === null;
 
-  const handleProceed = (): void => {
-    if (!targetValid) return;
-    if (hasReservations) {
-      setStage('confirm');
-      return;
-    }
-    submitTransfer();
-  };
-
-  const submitTransfer = (): void => {
+  const submit = (capacityOverrides?: Record<string, number>): void => {
     if (!targetIso || !targetValid) return;
     transferMut.mutate(
-      { cycleId, fromDate: group.date, toDate: targetIso },
+      { cycleId, fromDate: group.date, toDate: targetIso, capacityOverrides },
       {
-        onSuccess: ({ moved, merged }) => {
-          const total = moved.length + merged.length;
-          const message =
-            merged.length > 0
-              ? `تم نقل ${num(total)} موعد (${num(merged.length)} دمج مع مواعيد قائمة)`
-              : `تم نقل ${num(total)} موعد`;
+        onSuccess: ({ totalReservationsMoved }) => {
+          const message = `تم نقل ${num(totalReservationsMoved)} حجز إلى ${fmtDate(targetIso, 'full')}`;
           toast(message, 'success');
           onOpenChange(false);
         },
-        onError: (err) => toast((err as Error).message, 'danger'),
+        onError: (err) => {
+          if (
+            isConflictError(err) &&
+            err.conflictCode === 'RESERVATIONS_OVER_DESTINATION_CAPACITY'
+          ) {
+            const payload = err.payload as { conflicts: ReservationTransferConflict[] };
+            setConflicts(payload.conflicts);
+            return;
+          }
+          toast((err as Error).message, 'danger');
+        },
       },
     );
   };
+
+  /* Disable «نقل» when there's literally nothing to move — the
+   * committee day-section can be transfer-empty if every row is at 0
+   * reserved. */
+  const nothingToTransfer = !hasReservations;
 
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`نقل يوم ${fmtDate(group.date, 'full')}`}
+      title={`نقل حجوزات يوم ${fmtDate(group.date, 'full')}`}
       size="md"
     >
-      {stage === 'pick' ? (
+      {conflicts !== null ? (
+        <CapacityConflictPanel
+          conflicts={conflicts}
+          targetIso={targetIso}
+          isSubmitting={transferMut.isPending}
+          onCancel={() => setConflicts(null)}
+          onResubmit={(overrides) => submit(overrides)}
+        />
+      ) : (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-ink-700">
-            اختر اليوم المستهدف من التقويم لنقل جميع لجان هذا اليوم إليه.
-            {hasReservations &&
-              ' سيتم نقل الحجوزات الحالية مع كل لجنة دون فقد.'}
+            {nothingToTransfer
+              ? 'لا توجد حجوزات في هذا اليوم لنقلها.'
+              : `سيتم نقل ${num(totalSourceReservations)} حجز عبر ${num(reservedRows.length)} لجنة. تبقى اللجان وسعتها في يوم ${fmtDate(group.date, 'full')} كما هي بدون تغيير، وتنتقل الحجوزات فقط إلى اليوم المستهدف.`}
           </p>
           <DatePicker
             value={target}
@@ -569,60 +594,203 @@ function TransferDayDialog({
             label="اليوم المستهدف"
             error={targetInvalidReason ?? undefined}
             helper={
-              willMerge
-                ? 'هذا اليوم يحتوي مواعيد بالفعل. سيتم دمج كل لجنة مع نظيرتها في اليوم المستهدف (جمع السعة والحجوزات).'
-                : targetIso !== null && targetValid
-                  ? 'هذا يوم جديد. سيتم إنشاء مواعيد اللجان فيه بنفس السعة والحجوزات الحالية.'
-                  : undefined
+              targetIso !== null && targetValid
+                ? destinationExists
+                  ? 'يوجد مواعيد لجان في هذا اليوم. سيتم إضافة الحجوزات إلى كل لجنة مطابقة (إذا توفرت سعة كافية).'
+                  : 'هذا يوم جديد. سيتم إنشاء مواعيد لجان مطابقة فيه بالسعة الحالية والحجوزات.'
+                : undefined
             }
           />
+          {hasReservations && (
+            <ul className="max-h-40 overflow-auto rounded-md border border-border-subtle bg-surface-sunken p-2 text-2xs text-ink-700">
+              {reservedRows.map((r) => (
+                <li
+                  key={r.id}
+                  className="flex items-center justify-between gap-2 py-0.5"
+                >
+                  <span className="truncate">{r.committeeName}</span>
+                  <span className="font-numeric tnum">
+                    {num(effectiveReserved(r))} حجز
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="flex items-center justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               إلغاء
             </Button>
-            <Button variant="primary" onClick={handleProceed} disabled={!targetValid}>
-              {hasReservations ? 'متابعة' : willMerge ? 'دمج ونقل' : 'نقل'}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-ink-700">
-            ستُنقل اللجان التالية إلى{' '}
-            <span className="font-ar-display font-bold text-ink-900">
-              {targetIso ? fmtDate(targetIso, 'full') : ''}
-            </span>
-            .{' '}
-            {willMerge
-              ? 'سيتم دمج كل لجنة مع نظيرتها في اليوم المستهدف (جمع السعة والحجوزات).'
-              : 'الحجوزات تنتقل مع كل لجنة كما هي.'}
-          </p>
-          <ul className="max-h-48 overflow-auto rounded-md border border-terra-200 bg-terra-50 p-2 text-2xs text-terra-700">
-            {reservedRows.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center justify-between gap-2 py-0.5"
-              >
-                <span className="truncate">{r.committeeName}</span>
-                <span className="font-numeric tnum">{num(effectiveReserved(r))} محجوز</span>
-              </li>
-            ))}
-          </ul>
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setStage('pick')}>
-              رجوع
-            </Button>
             <Button
               variant="primary"
-              onClick={submitTransfer}
+              onClick={() => submit()}
+              disabled={!targetValid || nothingToTransfer}
               isLoading={transferMut.isPending}
             >
-              تأكيد النقل
+              نقل الحجوزات
             </Button>
           </div>
         </div>
       )}
     </Dialog>
+  );
+}
+
+/* ── Capacity-conflict popup ─────────────────────────────────────── *
+ * Renders one editable capacity row per blocking destination. Defaults
+ * each input to the `requiredCapacity` the service returned — admins can
+ * raise it further, but not lower it below the threshold. On submit,
+ * passes a sparse `capacityOverrides` map back to the parent dialog,
+ * which re-runs the transfer atomically.                                   */
+
+interface CapacityConflictPanelProps {
+  conflicts: ReservationTransferConflict[];
+  targetIso: string | null;
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onResubmit: (overrides: Record<string, number>) => void;
+}
+
+function CapacityConflictPanel({
+  conflicts,
+  targetIso,
+  isSubmitting,
+  onCancel,
+  onResubmit,
+}: CapacityConflictPanelProps): JSX.Element {
+  /* The lookup join gives us the Arabic committee name; the service
+   * returns the bare lookup code on `committeeName` so we keep the
+   * payload typesafe and the UI does the friendly join. */
+  const definitionsQuery = useLookup('committees');
+  const definitionNameByCode = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const d of definitionsQuery.data ?? []) map.set(d.code, d.name);
+    return map;
+  }, [definitionsQuery.data]);
+
+  /* Draft input per destination, keyed by destinationInstanceId. */
+  const [draft, setDraft] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      conflicts.map((c) => [c.destinationInstanceId, String(c.requiredCapacity)]),
+    ),
+  );
+
+  /* Re-seed the draft whenever the conflicts array shifts identity (e.g.
+   * a fresh round-trip after an admin re-submits and a different row
+   * fails). */
+  useEffect(() => {
+    setDraft(
+      Object.fromEntries(
+        conflicts.map((c) => [c.destinationInstanceId, String(c.requiredCapacity)]),
+      ),
+    );
+  }, [conflicts]);
+
+  const rowValidity = conflicts.map((c) => {
+    const value = Number(draft[c.destinationInstanceId] ?? '');
+    if (!Number.isInteger(value) || value < 1 || value > 999) return false;
+    return value >= c.requiredCapacity;
+  });
+  const allValid = rowValidity.every(Boolean);
+
+  const handleSubmit = (): void => {
+    const overrides: Record<string, number> = {};
+    for (const c of conflicts) {
+      const value = Number(draft[c.destinationInstanceId]);
+      overrides[c.destinationInstanceId] = value;
+    }
+    onResubmit(overrides);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="rounded-md border border-terra-200 bg-terra-50 p-3 text-2xs text-terra-700">
+        <p className="font-medium">
+          سعة بعض لجان اليوم المستهدف{targetIso ? ` (${fmtDate(targetIso, 'full')})` : ''} لا تكفي
+          لاستيعاب الحجوزات.
+        </p>
+        <p className="mt-1">
+          زِد سعة كل لجنة لتصل على الأقل إلى الحد المطلوب، أو ارجع لاختيار يوم آخر.
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead className="bg-surface-sunken">
+            <tr>
+              <th className="px-3 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
+                اللجنة
+              </th>
+              <th className="px-3 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
+                المحجوز الوارد
+              </th>
+              <th className="px-3 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
+                السعة الحالية
+              </th>
+              <th className="px-3 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
+                السعة الجديدة
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {conflicts.map((c, idx) => {
+              const id = c.destinationInstanceId;
+              const value = draft[id] ?? '';
+              const valid = rowValidity[idx];
+              return (
+                <tr key={id} className="border-t border-border-subtle">
+                  <td className="px-3 py-2 align-middle text-2xs text-ink-900">
+                    {definitionNameByCode.get(c.committeeName) ?? c.committeeName}
+                  </td>
+                  <td className="px-3 py-2 align-middle text-end font-numeric tnum text-2xs text-ink-900">
+                    {num(c.sourceReserved)}
+                  </td>
+                  <td className="px-3 py-2 align-middle text-end font-numeric tnum text-2xs text-ink-600">
+                    {num(c.destinationCapacity)}
+                  </td>
+                  <td className="px-3 py-2 align-middle text-end">
+                    <div className="inline-flex flex-col items-end gap-0.5">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        aria-label={`السعة الجديدة للجنة ${c.committeeName}`}
+                        value={value}
+                        onChange={(e) => {
+                          const sanitized = e.target.value.replace(/\D+/g, '');
+                          setDraft((prev) => ({ ...prev, [id]: sanitized }));
+                        }}
+                        disabled={isSubmitting}
+                        style={{ inlineSize: '6ch' }}
+                        className={`rounded-md border bg-surface-elevated px-2 py-0.5 text-end font-numeric tnum text-2xs text-ink-900 focus-visible:outline-none ${
+                          valid
+                            ? 'border-border-default focus-visible:border-teal-500 focus-visible:shadow-focus-teal'
+                            : 'border-terra-400 focus-visible:shadow-[var(--ring-terra)]'
+                        }`}
+                      />
+                      <span className="text-3xs text-ink-500">
+                        الحد الأدنى {num(c.requiredCapacity)}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <Button variant="ghost" onClick={onCancel} disabled={isSubmitting}>
+          رجوع
+        </Button>
+        <Button
+          variant="primary"
+          onClick={handleSubmit}
+          disabled={!allValid}
+          isLoading={isSubmitting}
+        >
+          زيادة السعة ونقل الحجوزات
+        </Button>
+      </div>
+    </div>
   );
 }
 

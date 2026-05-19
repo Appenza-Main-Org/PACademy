@@ -30,6 +30,7 @@ export {
   type CommitteeInstanceAddInput,
   type CommitteeInstanceListFilters,
   type CommitteeInstancePatch,
+  type ReservationTransferConflict,
 } from './api/committeeInstance.service';
 export {
   committeeInstanceKeys,

@@ -76,8 +76,14 @@ export function useRemoveCommitteeInstanceDayMutation() {
 export function useTransferCommitteeInstanceDayMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { cycleId: string; fromDate: string; toDate: string }) =>
-      committeeInstanceService.transferDay(input),
+    mutationFn: (input: {
+      cycleId: string;
+      fromDate: string;
+      toDate: string;
+      /** Optional per-destination capacity bumps applied atomically with
+       *  the transfer — surfaced by the UI's capacity-conflict popup. */
+      capacityOverrides?: Record<string, number>;
+    }) => committeeInstanceService.transferDay(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: committeeInstanceKeys.all });
     },
