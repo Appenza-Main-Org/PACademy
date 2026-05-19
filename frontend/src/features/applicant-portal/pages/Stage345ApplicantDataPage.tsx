@@ -189,6 +189,15 @@ export function Stage345ApplicantDataPage(): JSX.Element {
 
   const showBachelor = selectedCategoryKey !== 'officers_general';
   const isSpecializedOfficers = selectedCategoryKey === 'specialized_officers';
+  const isLawBachelor = selectedCategoryKey === 'law_bachelor';
+
+  /* ليسانس حقوق applicants pick from a fixed two-faculty set (RFP scope)
+   * regardless of what the faculties lookup carries. Other non-officers
+   * categories continue to use the full faculties lookup. */
+  const LAW_FACULTY_OPTIONS: readonly SearchSelectOption[] = [
+    { value: 'كلية حقوق', label: 'كلية حقوق' },
+    { value: 'كلية شريعة وقانون', label: 'كلية شريعة وقانون' },
+  ];
 
   /* Qualification level — picked by الضباط المتخصصون applicants to drive
    *  whether the postgraduate block renders (master/doctorate) or just
@@ -523,7 +532,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                     <SearchSelect
                       ariaLabel="الكلية"
                       placeholder="اختر الكلية"
-                      options={facultyOptions}
+                      options={isLawBachelor ? LAW_FACULTY_OPTIONS : facultyOptions}
                       value={field.value ?? null}
                       onChange={(v) => field.onChange(v ?? '')}
                     />
@@ -531,7 +540,10 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                 />
               </Field>
             )}
-            {!isSpecializedOfficers && (
+            {/* ليسانس حقوق applicants don't pick a sub-specialization,
+                المجموعة / الشعبة / النسبة المئوية — RFP scope is narrowed
+                to faculty + سنة + التقدير only. */}
+            {!isSpecializedOfficers && !isLawBachelor && (
               <Field label="التخصص" error={errors.bachelorSpecialization?.message}>
                 <Controller
                   control={control}
@@ -551,18 +563,24 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                 />
               </Field>
             )}
-            <Input label="المجموعة" {...register('bachelorMajor')} error={errors.bachelorMajor?.message} />
-            <Input label="الشعبة" {...register('bachelorBranch')} error={errors.bachelorBranch?.message} />
-            <Input
-              label="النسبة المئوية"
-              type="number"
-              min={0}
-              max={100}
-              step="0.01"
-              dir="ltr"
-              {...register('bachelorPercentage')}
-              error={errors.bachelorPercentage?.message as string | undefined}
-            />
+            {!isLawBachelor && (
+              <Input label="المجموعة" {...register('bachelorMajor')} error={errors.bachelorMajor?.message} />
+            )}
+            {!isLawBachelor && (
+              <Input label="الشعبة" {...register('bachelorBranch')} error={errors.bachelorBranch?.message} />
+            )}
+            {!isLawBachelor && (
+              <Input
+                label="النسبة المئوية"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                dir="ltr"
+                {...register('bachelorPercentage')}
+                error={errors.bachelorPercentage?.message as string | undefined}
+              />
+            )}
             <Input
               label="سنة التخرج"
               type="number"
