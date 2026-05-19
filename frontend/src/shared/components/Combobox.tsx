@@ -19,7 +19,7 @@
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Search } from 'lucide-react';
+import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 
 const POPOVER_GAP = 8;
@@ -61,6 +61,10 @@ interface ComboboxProps {
   /** When provided, options are reordered to match this group sequence and
    *  rendered under sticky section headers. Virtualisation is disabled. */
   groups?: readonly ComboboxGroup[];
+  /** Render an inline clear (×) affordance whenever a value is selected.
+   *  Clicking it calls `onChange(null)`. Default false so existing
+   *  consumers keep their non-clearable behavior. */
+  clearable?: boolean;
 }
 
 const ROW_HEIGHT = 36;
@@ -81,6 +85,7 @@ export function Combobox({
   className,
   ariaLabel,
   groups,
+  clearable = false,
 }: ComboboxProps): JSX.Element {
   const id = useId();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -275,7 +280,30 @@ export function Combobox({
           <span className={cn(selected ? 'truncate text-ink-900' : 'text-ink-400')}>
             {selected?.label ?? placeholder}
           </span>
-          <ChevronDown size={16} strokeWidth={1.75} className="text-ink-500" aria-hidden />
+          <span className="flex items-center gap-1">
+            {clearable && selected && !disabled && (
+              <span
+                role="button"
+                tabIndex={-1}
+                aria-label="مسح الاختيار"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange?.(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onChange?.(null);
+                  }
+                }}
+                className="grid h-5 w-5 cursor-pointer place-items-center rounded-full text-ink-500 hover:bg-ink-100 hover:text-ink-700"
+              >
+                <X size={12} strokeWidth={2} aria-hidden />
+              </span>
+            )}
+            <ChevronDown size={16} strokeWidth={1.75} className="text-ink-500" aria-hidden />
+          </span>
         </button>
 
         {open && position && createPortal(
