@@ -22,7 +22,7 @@ const ROUTES = [
   '/admin', '/admin/applicants', '/admin/applicants/APP-2026000001',
   '/admin/users', '/admin/audit', '/admin/settings', '/admin/reports',
   '/admin/reference-data', '/admin/admission-rules', '/admin/cycles',
-  '/admin/cycles/CYC-2025-M',
+  '/admin/cycles/CYC-2025-M', '/admin/committees',
   // Committees
   '/committee', '/committee/list', '/committee/schedule', '/committee/create', '/committee/C-01',
   // Board
