@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { Check, ShieldAlert, X } from 'lucide-react';
+import { Check, CheckCircle2, ShieldAlert, X } from 'lucide-react';
 import { Badge, Button, Card, CardBody } from '@/shared/components';
 import { useImportWizardStore } from '../../../store/importWizard.store';
 import type {
@@ -30,6 +30,7 @@ import type {
 import { useGrades } from '../../../api/grades.queries';
 import { normaliseRows } from '../../../lib/normalise';
 import {
+  buildAlreadyImported,
   buildExistingDiffs,
   buildUploadDuplicates,
   type DiffCell,
@@ -78,6 +79,10 @@ export function Step6ChangesReview(): JSX.Element {
 
   const diffs = useMemo<ExistingDiff[]>(
     () => buildExistingDiffs(normalised, allRows ?? []).filter((d) => d.hasChanges),
+    [normalised, allRows],
+  );
+  const alreadyImported = useMemo(
+    () => buildAlreadyImported(normalised, allRows ?? []),
     [normalised, allRows],
   );
   /* Surface every duplicate-NID case — not just total conflicts — so
@@ -156,28 +161,36 @@ export function Step6ChangesReview(): JSX.Element {
 
   if (diffs.length === 0 && uploadDuplicates.length === 0) {
     return (
-      <Card>
-        <CardBody className="px-6 py-12 text-center">
-          <Check
-            size={36}
-            strokeWidth={1.5}
-            className="mx-auto text-success"
-            aria-hidden
-          />
-          <h3 className="mt-3 text-base font-semibold text-ink-900">
-            لا توجد تغييرات على سجلات موجودة
-          </h3>
-          <p className="m-0 mt-1 text-sm text-ink-500">
-            جميع الصفوف في الملف جديدة أو متطابقة مع السجلات الحالية. تابع
-            لاستكمال الاستيراد.
-          </p>
-        </CardBody>
-      </Card>
+      <div className="flex flex-col gap-4">
+        {alreadyImported.length > 0 && (
+          <AlreadyImportedBanner count={alreadyImported.length} />
+        )}
+        <Card>
+          <CardBody className="px-6 py-12 text-center">
+            <Check
+              size={36}
+              strokeWidth={1.5}
+              className="mx-auto text-success"
+              aria-hidden
+            />
+            <h3 className="mt-3 text-base font-semibold text-ink-900">
+              لا توجد تغييرات على سجلات موجودة
+            </h3>
+            <p className="m-0 mt-1 text-sm text-ink-500">
+              جميع الصفوف في الملف جديدة أو متطابقة مع السجلات الحالية. تابع
+              لاستكمال الاستيراد.
+            </p>
+          </CardBody>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
+      {alreadyImported.length > 0 && (
+        <AlreadyImportedBanner count={alreadyImported.length} />
+      )}
       {uploadDuplicates.length > 0 && (
         <UploadDuplicatesSection
           duplicates={uploadDuplicates}
@@ -613,6 +626,21 @@ function RowCell({
       <span className="text-2xs text-ink-500">{label}</span>
       <span className="truncate">{children}</span>
     </span>
+  );
+}
+
+function AlreadyImportedBanner({ count }: { count: number }): JSX.Element {
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-teal-200 bg-teal-50 px-3.5 py-2.5 text-xs text-teal-700">
+      <CheckCircle2 size={14} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />
+      <span>
+        <span className="font-numeric font-bold text-ink-900">
+          {count.toLocaleString('en')}
+        </span>{' '}
+        صفًا موجود مسبقًا بنفس الرقم القومي وبنفس الدرجة — سيُتجاهل تلقائيًا أثناء التأكيد
+        لضمان وجود درجة واحدة فقط لكل رقم قومي. لا حاجة لاتخاذ قرار.
+      </span>
+    </div>
   );
 }
 

@@ -653,6 +653,7 @@ export const gradesService = {
     const existingByNid = new Map(STATE.map((r) => [r.nid, r]));
     let inserted = 0;
     let failed = preFailed;
+    let alreadyImported = 0;
 
     for (const row of rows) {
       if (!row.nationalId || !row.nameAr || !row.track) {
@@ -706,6 +707,16 @@ export const gradesService = {
 
       const isDup = existingByNid.has(row.nationalId);
       if (isDup) {
+        /* (NID, total) exact match against the existing row → silently
+         * skip. Per the import contract, these rows are "already in the
+         * database" and must not be re-counted as inserts or failures.
+         * The admin was informed in Step 5 / Step 6 banners that this
+         * count would be auto-skipped. */
+        const existingRow = existingByNid.get(row.nationalId)!;
+        if (existingRow.total === row.totalGrade) {
+          alreadyImported += 1;
+          continue;
+        }
         /* Per-row decisions trump the global per-group action. Only
          * when the admin hasn't flipped a switch for this nid do we
          * fall back to perGroupActions.DUPLICATE_NID — which preserves
@@ -794,7 +805,11 @@ export const gradesService = {
     }
 
     STATE = Array.from(existingByNid.values());
-    return { insertedCount: inserted, failedCount: failed };
+    return {
+      insertedCount: inserted,
+      failedCount: failed,
+      alreadyImportedCount: alreadyImported,
+    };
   },
 
   /* ── Paginated list (v2) ────────────────────────────────────── */

@@ -649,15 +649,13 @@ export function ApplicantGradesPage(): JSX.Element {
             >
               تنزيل نموذج Excel
             </Button>
-            {!isEmpty && (
-              <Button
-                variant="ghost"
-                leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
-                onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
-              >
-                تعديلات الدرجات
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
+              onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
+            >
+              تعديلات الدرجات
+            </Button>
             {!isEmpty && (
               <DropdownMenu>
                 <DropdownMenu.Trigger asChild>

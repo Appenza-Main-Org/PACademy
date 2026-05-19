@@ -13,11 +13,11 @@
  */
 
 import { useEffect, useMemo } from 'react';
-import { Activity, AlertTriangle, Layers, ShieldCheck } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Layers, ShieldCheck } from 'lucide-react';
 import { useImportWizardStore } from '../../../store/importWizard.store';
 import { normaliseRows } from '../../../lib/normalise';
-import { useApplicantGradesPreflight } from '../../../api/grades.queries';
-import { buildUploadDuplicates } from '../../../lib/buildDiff';
+import { useApplicantGradesPreflight, useGrades } from '../../../api/grades.queries';
+import { buildAlreadyImported, buildUploadDuplicates } from '../../../lib/buildDiff';
 
 export function Step5DuplicateReview(): JSX.Element {
   const parsed = useImportWizardStore((s) => s.parsed);
@@ -41,6 +41,7 @@ export function Step5DuplicateReview(): JSX.Element {
     [table, mapping, filters, graduationYear],
   );
 
+  const { data: allRows } = useGrades();
   const preflight = useApplicantGradesPreflight();
 
   /* Re-run preflight every time Step 5 mounts with a different
@@ -85,10 +86,17 @@ export function Step5DuplicateReview(): JSX.Element {
   const invalid = report.groups.find((g) => g.code === 'INVALID_NID')?.rows.length ?? 0;
   const missing = report.groups.find((g) => g.code === 'MISSING_REQUIRED')?.rows.length ?? 0;
   const intraFileDup = buildUploadDuplicates(normalised).length;
+  const alreadyImported = buildAlreadyImported(normalised, allRows ?? []).length;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle bg-white">
+      <div className="grid grid-cols-5 overflow-hidden rounded-md border border-border-subtle bg-white">
+        <Counter
+          icon={<CheckCircle2 size={14} aria-hidden />}
+          label="موجود مسبقًا بنفس الدرجة — سيُتجاهل"
+          value={alreadyImported}
+          tone="info"
+        />
         <Counter
           icon={<Layers size={14} aria-hidden />}
           label="تكرار داخل الملف بنفس الرقم القومي"
@@ -144,6 +152,16 @@ export function Step5DuplicateReview(): JSX.Element {
           )}
         </div>
       )}
+
+      {alreadyImported > 0 && (
+        <div className="flex items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3.5 py-2.5 text-xs text-teal-700">
+          <CheckCircle2 size={14} aria-hidden />
+          <span>
+            {alreadyImported.toLocaleString('en')} صفًا موجود مسبقًا بنفس الرقم القومي وبنفس الدرجة —
+            سيُتجاهل تلقائيًا أثناء التأكيد. كل رقم قومي يبقى بدرجة واحدة في النظام.
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -157,9 +175,14 @@ function Counter({
   icon: JSX.Element;
   label: string;
   value: number;
-  tone: 'warning' | 'danger';
+  tone: 'info' | 'warning' | 'danger';
 }): JSX.Element {
-  const cls = tone === 'warning' ? 'text-gold-700 bg-gold-50' : 'text-terra-700 bg-terra-50';
+  const cls =
+    tone === 'info'
+      ? 'text-teal-700 bg-teal-50'
+      : tone === 'warning'
+        ? 'text-gold-700 bg-gold-50'
+        : 'text-terra-700 bg-terra-50';
   return (
     <div className={`flex flex-col gap-1.5 border-s border-border-subtle px-4 py-3.5 first:border-s-0 ${cls}`}>
       <span className="flex items-center gap-1.5 text-2xs font-semibold uppercase">

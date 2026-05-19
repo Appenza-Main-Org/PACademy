@@ -188,6 +188,43 @@ export function buildExistingDiffs(
   return out;
 }
 
+/** Rows whose `nationalId` is already in the database AND whose
+ *  `totalGrade` matches the existing row's stored total exactly. These
+ *  are the "this sheet was already imported" cases per requirement #1
+ *  — they need to be surfaced as an informational count so admins know
+ *  the upload is partially (or fully) a no-op, then silently skipped
+ *  during commit (never written, never counted as failed). The match
+ *  key is intentionally just NID + total: other field shifts on the
+ *  same NID land in `buildExistingDiffs` and require an admin decision. */
+export interface AlreadyImportedRow {
+  nationalId: string;
+  nameAr: string;
+  totalGrade: number;
+  sourceRowIndex: number;
+}
+
+export function buildAlreadyImported(
+  rows: readonly NormalisedRow[],
+  existing: readonly GradeRow[],
+): AlreadyImportedRow[] {
+  const existingByNid = new Map(existing.map((r) => [r.nid, r]));
+  const out: AlreadyImportedRow[] = [];
+  for (const r of rows) {
+    if (!r.nationalId) continue;
+    if (r.totalGrade == null || !Number.isFinite(r.totalGrade)) continue;
+    const ex = existingByNid.get(r.nationalId);
+    if (!ex) continue;
+    if (ex.total !== r.totalGrade) continue;
+    out.push({
+      nationalId: r.nationalId,
+      nameAr: r.nameAr ?? ex.name,
+      totalGrade: r.totalGrade,
+      sourceRowIndex: r.sourceRowIndex,
+    });
+  }
+  return out;
+}
+
 /** Group upload rows by national-id and flag the cases where the same
  *  NID appears with two different `totalGrade` values. */
 export function buildUploadDuplicates(
