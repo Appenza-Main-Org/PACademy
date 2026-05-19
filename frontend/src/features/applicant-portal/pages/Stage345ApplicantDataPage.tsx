@@ -48,6 +48,7 @@ import { zodResolver } from '@/shared/lib/zod-resolver';
 import { ROUTES } from '@/config/routes';
 import { stage345Schema, type Stage345Values } from '../schemas';
 import { applicantPortalService } from '../api/applicantPortal.service';
+import { saveProfileSnapshot } from '../lib/profileData';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import {
   DEMO_APPLICANT_GRADES,
@@ -462,6 +463,16 @@ export function Stage345ApplicantDataPage(): JSX.Element {
 
   const onSubmit = async (values: Stage345Values): Promise<void> => {
     await applicantPortalService.submitStage(APPLICANT_ID, 3, { profile: values });
+    /* Mirror the form payload + the manual-personal block to
+     * sessionStorage so the print-card step can pull them into the
+     * طلب الالتحاق PDF. The MOI session (when present) is the canonical
+     * source for personal data — manualPersonal is only used on the
+     * not_found path. */
+    saveProfileSnapshot({
+      values,
+      manualPersonal: manualPersonal,
+      qualificationLevel,
+    });
     toast('تم حفظ بيانات الطالب', 'success');
     /* Summary step was removed from the wizard — go straight to payment. */
     navigate(ROUTES.applicantPayment);

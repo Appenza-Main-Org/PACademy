@@ -34,6 +34,8 @@ import {
   deterministicFileNumber,
   deterministicPaymentReference,
 } from '../lib/deterministic-codes';
+import { categoryLabel, downloadAdmissionForm } from '../lib/admissionFormPdf';
+import { toast } from '@/shared/components';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 const COMMITTEE_NUMBER = 2;
@@ -48,6 +50,39 @@ export function Stage9PrintCardPage(): JSX.Element {
   const categoriesQuery = useCategories();
   const category = (categoriesQuery.data ?? []).find((c) => c.key === selectedCategoryKey);
   const fileNumber = deterministicFileNumber(APPLICANT_ID);
+  const moiSession = useApplicantPortalStore((s) => s.moiSession);
+  const storeNid = useApplicantPortalStore((s) => s.nationalId);
+  const selectedFaculty = useApplicantPortalStore((s) => s.selectedFaculty);
+  const selectedSpecialization = useApplicantPortalStore((s) => s.selectedSpecialization);
+  const paymentMethod = useApplicantPortalStore((s) => s.paymentMethod);
+  const fawryCode = useApplicantPortalStore((s) => s.fawryCode);
+
+  const paymentMethodLabel = paymentMethod === 'fawry-code' ? 'فوري — كود الدفع' : null;
+
+  /* Print the on-screen بطاقة التردد and ALSO open the طلب الالتحاق PDF
+   * in a new window. Two prints fire in sequence — the popup blocker
+   * might suppress the second window; surface a toast if so. */
+  const handlePrintBoth = (): void => {
+    downloadAdmissionForm({
+      moiSession,
+      fallbackNationalId: storeNid,
+      selectedCategoryLabel: categoryLabel(selectedCategoryKey),
+      selectedFaculty,
+      selectedSpecialization,
+      paymentReference,
+      paymentMethodLabel,
+      fawryCode,
+      firstExamDate,
+      fileNumber,
+    });
+    /* Tiny delay so the new window claims focus before we trigger the
+     * current-window print dialog — otherwise some browsers stack them
+     * and the user only sees one. */
+    window.setTimeout(() => {
+      window.print();
+    }, 600);
+    toast('يتم تجهيز بطاقة التردد وطلب الإلتحاق للطباعة', 'info');
+  };
 
   /* Prefer the explicit firstExamDate from the store (set on Stage 8); fall
    * back to the draft's examSlot for the legacy reservation flow. */
@@ -227,7 +262,7 @@ export function Stage9PrintCardPage(): JSX.Element {
             variant="secondary"
             size="lg"
             leadingIcon={<FileDown size={16} strokeWidth={1.75} />}
-            onClick={() => window.print()}
+            onClick={handlePrintBoth}
           >
             تحميل
           </Button>
@@ -235,7 +270,7 @@ export function Stage9PrintCardPage(): JSX.Element {
             variant="primary"
             size="lg"
             leadingIcon={<Printer size={16} strokeWidth={1.75} />}
-            onClick={() => window.print()}
+            onClick={handlePrintBoth}
           >
             طباعة
           </Button>
