@@ -150,6 +150,15 @@ export const committeeInstanceService = {
       ...patch,
       updatedAt: new Date().toISOString(),
     };
+    /* Invariant: reserved ≤ capacity. Editing capacity below the
+     * existing reservation count would silently leave the row over-
+     * subscribed, so we clamp `reserved` down. The clamp is silent
+     * because the affected UI («المحجوز») doesn't expose capacity at
+     * this seam — admins shouldn't have to see a transient over-
+     * allocation that the system already enforces away. */
+    if (next.reserved > next.capacity) {
+      next.reserved = next.capacity;
+    }
     if (patch.date !== undefined && patch.date !== before.date) {
       const collision = MOCK.committeeInstances.find(
         (r) =>
@@ -317,10 +326,15 @@ export const committeeInstanceService = {
       );
       if (targetIdx !== -1) {
         const target = MOCK.committeeInstances[targetIdx]!;
+        const mergedCapacity = Math.min(999, target.capacity + source.capacity);
         const mergedTarget: CommitteeInstance = {
           ...target,
-          capacity: Math.min(999, target.capacity + source.capacity),
-          reserved: target.reserved + source.reserved,
+          capacity: mergedCapacity,
+          /* Invariant: reserved ≤ capacity. The two source rows can
+           * each hold reservations up to their own capacity, but after
+           * merging, the combined reserved count must still respect the
+           * (clamped) combined capacity. */
+          reserved: Math.min(mergedCapacity, target.reserved + source.reserved),
           updatedAt: now,
         };
         MOCK.committeeInstances[targetIdx] = mergedTarget;

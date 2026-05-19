@@ -1,34 +1,35 @@
 /**
  * /admin/committees-exam-config — committee instances management.
  *
- * Lists every CommitteeInstance configured for the **currently selected
- * cycle**, grouped by exam day. Each day section lists the committees
- * sitting on that day with their category, capacity, and inline-editable
- * capacity. Same record set the admission-setup wizard step authors at
+ * Lists every CommitteeInstance configured for the **active cycle**,
+ * grouped by exam day. Each day section lists the committees sitting on
+ * that day with their category and reserved-applicant count. Same record
+ * set the admission-setup wizard step authors at
  * `/admin/cycles/admission-setup/wizard/committees`.
  *
  * Cycle scope:
- *   - The cycle id is read from the `?cycle=…` URL search param so the
- *     selection survives navigation back to the page.
- *   - Default: the active cycle (`useActiveCycle()`), falling back to the
- *     first cycle that has at least one instance.
- *   - When more than one cycle exists in the system, a SearchSelect
- *     surfaces next to the page header for switching.
+ *   - The page is locked to the currently active cycle. No URL-based
+ *     selection, no in-page picker — admins manage other cycles via
+ *     the admission-setup wizard.
+ *   - When no cycle is active the page renders an empty state nudging
+ *     the admin to activate one.
+ *
+ * المحجوز column:
+ *   - Renders a single integer. Capacity is not surfaced here at all,
+ *     and the displayed value is **clamped** to `سعة اللجنة` so the UI
+ *     never shows a reservation count higher than the configured
+ *     capacity — even if the underlying record has drifted (e.g. an
+ *     historic over-allocation that the new invariant should mask).
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import type { KeyboardEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
-  Check,
   ChevronsDownUp,
   ChevronsUpDown,
   MoveRight,
   MoreVertical,
-  Pencil,
   RefreshCcw,
   Trash2,
-  X,
 } from 'lucide-react';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
@@ -36,40 +37,29 @@ import {
   AlertDialog,
   Button,
   Card,
+  DatePicker,
   Dialog,
   DropdownMenu,
   EmptyState,
   LoadingState,
   PageHeader,
-  SearchSelect,
   toast,
 } from '@/shared/components';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
-import { useActiveCycle, useCycles } from '../api/cycles.queries';
+import { useActiveCycle } from '../api/cycles.queries';
 import { useLookup } from '@/features/lookups';
 import {
   useCommitteeInstances,
   useRefreshReservedCountsMutation,
   useRemoveCommitteeInstanceDayMutation,
   useTransferCommitteeInstanceDayMutation,
-  useUpdateCommitteeInstanceMutation,
 } from '@/features/committees';
 import type { AdmissionCycle, CommitteeInstance } from '@/shared/types/domain';
 import {
   resolveExpandedDates,
   useDayExpansionStore,
 } from './committee-instances/expansionStore';
-
-const BLOCKED_NUMERIC_KEYS = new Set(['-', '+', 'e', 'E', '.', ',']);
-
-function sanitizeDigits(s: string): string {
-  return s.replace(/\D+/g, '');
-}
-
-function isBlockedNumericKey(event: KeyboardEvent<HTMLInputElement>): boolean {
-  return BLOCKED_NUMERIC_KEYS.has(event.key);
-}
 
 interface InstanceRow extends CommitteeInstance {
   categoryLabelAr: string;
@@ -81,46 +71,43 @@ interface DayGroup {
   rows: InstanceRow[];
 }
 
+/** Reserved is hard-capped at capacity for display purposes — the
+ *  invariant the user requested: «المحجوز can't exceed سعة اللجنة».
+ *  Capacity = 0 falls back to the raw value (defensive: an unset
+ *  capacity shouldn't blank the count). */
+function effectiveReserved(row: { reserved: number; capacity: number }): number {
+  if (!row.capacity || row.capacity <= 0) return row.reserved;
+  return Math.min(row.reserved, row.capacity);
+}
+
+/** Today, normalised to local midnight, as a yyyy-mm-dd ISO string.
+ *  Past days are filtered against this — admins shouldn't see or be
+ *  able to transfer to days that have already happened. */
+function todayIsoLocal(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Convert a local `Date` to its yyyy-mm-dd ISO string so the DatePicker
+ *  value can be reconciled against existing day groups. */
+function localDateToIso(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function CommitteeInstancesPage(): JSX.Element {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const cyclesQuery = useCycles({ includeDeleted: false });
   const activeCycleQuery = useActiveCycle();
   const allInstancesQuery = useCommitteeInstances();
   const definitionsQuery = useLookup('committees');
   const categoriesQuery = useLookup('applicant-categories');
 
-  /* Cycle resolution: explicit `?cycle=` wins; else active cycle id; else
-   * the first cycle that has any instances; else null. Stored back into
-   * the URL search param when the user picks one so the selection is
-   * shareable + survives back/forward nav. */
-  const cycleIdsWithInstances = useMemo(() => {
-    const set = new Set<string>();
-    for (const i of allInstancesQuery.data ?? []) set.add(i.cycleId);
-    return set;
-  }, [allInstancesQuery.data]);
-
-  const explicitCycleId = searchParams.get('cycle');
-  const resolvedCycleId = useMemo<string | null>(() => {
-    if (explicitCycleId) return explicitCycleId;
-    if (activeCycleQuery.data?.id) return activeCycleQuery.data.id;
-    const first = (cyclesQuery.data ?? []).find((c) => cycleIdsWithInstances.has(c.id));
-    if (first) return first.id;
-    return cyclesQuery.data?.[0]?.id ?? null;
-  }, [
-    explicitCycleId,
-    activeCycleQuery.data,
-    cyclesQuery.data,
-    cycleIdsWithInstances,
-  ]);
-
-  const setCycleId = (next: string | null): void => {
-    setSearchParams((prev) => {
-      const sp = new URLSearchParams(prev);
-      if (next) sp.set('cycle', next);
-      else sp.delete('cycle');
-      return sp;
-    });
-  };
+  const activeCycle = activeCycleQuery.data ?? null;
+  const activeCycleId = activeCycle?.id ?? null;
 
   const categoryLabelByKey = useMemo(() => {
     const map = new Map<string, string>();
@@ -135,9 +122,9 @@ export function CommitteeInstancesPage(): JSX.Element {
   }, [definitionsQuery.data]);
 
   const rows = useMemo<InstanceRow[]>(() => {
-    if (!resolvedCycleId) return [];
+    if (!activeCycleId) return [];
     return (allInstancesQuery.data ?? [])
-      .filter((i) => i.cycleId === resolvedCycleId)
+      .filter((i) => i.cycleId === activeCycleId)
       .map((inst) => ({
         ...inst,
         categoryLabelAr: categoryLabelByKey.get(inst.categoryKey) ?? inst.categoryKey,
@@ -145,19 +132,23 @@ export function CommitteeInstancesPage(): JSX.Element {
       }));
   }, [
     allInstancesQuery.data,
-    resolvedCycleId,
+    activeCycleId,
     categoryLabelByKey,
     definitionNameByCode,
   ]);
 
   /* Group rows by date; sort dates ascending. Within each day, primary
    * sort by category label then committee name so visually consecutive
-   * committees from the same category cluster together. */
+   * committees from the same category cluster together. Past days are
+   * filtered out — admins can't change a day that has already happened,
+   * so it doesn't earn a slot in the management view. */
+  const todayIso = todayIsoLocal();
   const dayGroups = useMemo<DayGroup[]>(() => {
     const arabicCmp = (a: string, b: string): number =>
       a.localeCompare(b, 'ar', { numeric: true });
     const bucket = new Map<string, InstanceRow[]>();
     for (const r of rows) {
+      if (r.date < todayIso) continue;
       const list = bucket.get(r.date);
       if (list) list.push(r);
       else bucket.set(r.date, [r]);
@@ -171,28 +162,11 @@ export function CommitteeInstancesPage(): JSX.Element {
           return c !== 0 ? c : arabicCmp(a.committeeName, b.committeeName);
         }),
       }));
-  }, [rows]);
-
-  const cycleOptions = useMemo(
-    () =>
-      (cyclesQuery.data ?? []).map((c) => ({
-        value: c.id,
-        label: c.nameAr,
-        keywords: c.labelEn ?? '',
-      })),
-    [cyclesQuery.data],
-  );
-
-  const selectedCycle = useMemo<AdmissionCycle | null>(() => {
-    if (!resolvedCycleId) return null;
-    return (cyclesQuery.data ?? []).find((c) => c.id === resolvedCycleId) ?? null;
-  }, [cyclesQuery.data, resolvedCycleId]);
-
-  const showCycleSelector = (cyclesQuery.data ?? []).length > 1;
+  }, [rows, todayIso]);
 
   const loading =
+    activeCycleQuery.isLoading ||
     allInstancesQuery.isLoading ||
-    cyclesQuery.isLoading ||
     definitionsQuery.isLoading ||
     categoriesQuery.isLoading;
 
@@ -203,23 +177,23 @@ export function CommitteeInstancesPage(): JSX.Element {
   const setExpanded = useDayExpansionStore((s) => s.setExpanded);
   const allDayDates = useMemo(() => dayGroups.map((g) => g.date), [dayGroups]);
   const expandedDates = useMemo(
-    () => resolveExpandedDates(byCycle, resolvedCycleId, allDayDates),
-    [byCycle, resolvedCycleId, allDayDates],
+    () => resolveExpandedDates(byCycle, activeCycleId, allDayDates),
+    [byCycle, activeCycleId, allDayDates],
   );
 
   const handleExpansionChange = (next: string[]): void => {
-    if (!resolvedCycleId) return;
-    setExpanded(resolvedCycleId, next);
+    if (!activeCycleId) return;
+    setExpanded(activeCycleId, next);
   };
 
   const expandAll = (): void => {
-    if (!resolvedCycleId) return;
-    setExpanded(resolvedCycleId, allDayDates);
+    if (!activeCycleId) return;
+    setExpanded(activeCycleId, allDayDates);
   };
 
   const collapseAll = (): void => {
-    if (!resolvedCycleId) return;
-    setExpanded(resolvedCycleId, []);
+    if (!activeCycleId) return;
+    setExpanded(activeCycleId, []);
   };
 
   const allExpanded = allDayDates.length > 0 && expandedDates.length === allDayDates.length;
@@ -227,9 +201,9 @@ export function CommitteeInstancesPage(): JSX.Element {
 
   const refreshMut = useRefreshReservedCountsMutation();
   const handleRefresh = (): void => {
-    if (!resolvedCycleId) return;
+    if (!activeCycleId) return;
     refreshMut.mutate(
-      { cycleId: resolvedCycleId },
+      { cycleId: activeCycleId },
       {
         onSuccess: (touched) => {
           toast(`تم تحديث ${num(touched.length)} موعد لجنة`, 'success');
@@ -242,34 +216,35 @@ export function CommitteeInstancesPage(): JSX.Element {
   return (
     <CenteredShell>
       <PageHeader
-        title="إدارة مواعيد اللجان"
-        subtitle="مواعيد اللجان داخل الدورة المختارة، مُجمَّعة باليوم. اللجان نفسها تُدار في الأكواد المرجعية؛ مواعيد كل دورة تُنشأ من معالج إعداد التقديم وتُحرّر هنا."
+        title="إدارة مواعيد الاختبارات واللجان"
+        subtitle="مواعيد اللجان داخل الدورة النشطة، مُجمَّعة باليوم. اللجان نفسها تُدار في الأكواد المرجعية؛ مواعيد كل دورة تُنشأ من معالج إعداد التقديم وتُحرّر هنا."
         breadcrumbs={[
           { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
-          { label: 'مواعيد اللجان' },
+          { label: 'إدارة مواعيد الاختبارات واللجان' },
         ]}
       />
 
-      <CycleHeaderBlock
-        cycle={selectedCycle}
-        showSelector={showCycleSelector}
-        options={cycleOptions}
-        onChange={setCycleId}
-      />
+      <CycleHeaderBlock cycle={activeCycle} />
 
       {loading ? (
         <LoadingState variant="card-grid" />
+      ) : !activeCycleId ? (
+        <Card>
+          <div className="p-6">
+            <EmptyState
+              variant="generic"
+              title="لا توجد دورة نشطة"
+              description="فعّل دورة من «دورات القبول» لعرض مواعيد لجانها هنا."
+            />
+          </div>
+        </Card>
       ) : dayGroups.length === 0 ? (
         <Card>
           <div className="p-6">
             <EmptyState
               variant="generic"
-              title={
-                selectedCycle
-                  ? `لا توجد مواعيد لجان في ${selectedCycle.nameAr}`
-                  : 'لا توجد مواعيد لجان لعرضها'
-              }
-              description="افتح إعداد التقديم في «دورات القبول» لإنشاء أول موعد."
+              title={`لا توجد مواعيد قادمة في ${activeCycle?.nameAr ?? 'الدورة النشطة'}`}
+              description="افتح إعداد التقديم في «دورات القبول» لإنشاء موعد جديد. الأيام السابقة لا تظهر هنا."
             />
           </div>
         </Card>
@@ -324,15 +299,13 @@ export function CommitteeInstancesPage(): JSX.Element {
                       </span>
                     }
                     actions={
-                      resolvedCycleId ? (
-                        <DayActionsMenu
-                          cycleId={resolvedCycleId}
-                          group={group}
-                          otherDays={dayGroups
-                            .filter((g) => g.date !== group.date)
-                            .map((g) => g.date)}
-                        />
-                      ) : null
+                      <DayActionsMenu
+                        cycleId={activeCycleId}
+                        group={group}
+                        otherDays={dayGroups
+                          .filter((g) => g.date !== group.date)
+                          .map((g) => g.date)}
+                      />
                     }
                   />
                   <Accordion.Content>
@@ -434,7 +407,7 @@ function DeleteDayDialog({
   group,
 }: DeleteDayDialogProps): JSX.Element {
   const removeDayMut = useRemoveCommitteeInstanceDayMutation();
-  const reservedRows = group.rows.filter((r) => r.reserved > 0);
+  const reservedRows = group.rows.filter((r) => effectiveReserved(r) > 0);
   const hasReservations = reservedRows.length > 0;
 
   const handleDelete = (): void => {
@@ -470,9 +443,7 @@ function DeleteDayDialog({
           {reservedRows.map((r) => (
             <li key={r.id} className="flex items-center justify-between gap-2 py-0.5">
               <span className="truncate">{r.committeeName}</span>
-              <span className="font-numeric tnum">
-                {num(r.reserved)} / {num(r.capacity)}
-              </span>
+              <span className="font-numeric tnum">{num(effectiveReserved(r))} محجوز</span>
             </li>
           ))}
         </ul>
@@ -482,10 +453,20 @@ function DeleteDayDialog({
 }
 
 /* ── Transfer-day flow ───────────────────────────────────────────── *
- * Two-step: pick a target date (SearchSelect of other days in the same
- * cycle), then — only if any reservations exist — a confirmation panel
- * that lists what's moving. Both steps render inside the same Dialog so
- * the admin can step back to change the target without re-opening.      */
+ * Two-step: pick a target date from a calendar (DatePicker, min=today —
+ * past dates are disabled at the cell level and re-checked at submit),
+ * then — only if any reservations exist — a confirmation panel that
+ * lists what's moving. Both steps render inside the same Dialog so the
+ * admin can step back to change the target without re-opening.
+ *
+ * Target-day semantics:
+ *   - If the picked date already has committees on it in the same cycle,
+ *     the transfer merges per-committee (capacity sums + reserved sums).
+ *   - If the picked date is brand new, the committees just move forward
+ *     with their existing capacity + reservations intact.
+ *
+ * Both branches are handled by committeeInstanceService.transferDay; this
+ * dialog only chooses the target and emits the right post-success copy.   */
 
 interface TransferDayDialogProps {
   open: boolean;
@@ -503,7 +484,7 @@ function TransferDayDialog({
   otherDays,
 }: TransferDayDialogProps): JSX.Element {
   const transferMut = useTransferCommitteeInstanceDayMutation();
-  const [target, setTarget] = useState<string | null>(null);
+  const [target, setTarget] = useState<Date | null>(null);
   const [stage, setStage] = useState<'pick' | 'confirm'>('pick');
 
   /* Reset internal state every time the dialog opens. */
@@ -514,24 +495,32 @@ function TransferDayDialog({
     }
   }, [open]);
 
-  const reservedRows = group.rows.filter((r) => r.reserved > 0);
+  const reservedRows = group.rows.filter((r) => effectiveReserved(r) > 0);
   const hasReservations = reservedRows.length > 0;
 
-  const targetOptions = useMemo(
-    () =>
-      otherDays
-        .slice()
-        .sort()
-        .map((d) => ({
-          value: d,
-          label: fmtDate(d, 'full'),
-          keywords: d,
-        })),
-    [otherDays],
-  );
+  /* `min` boundary on the calendar = today. The DatePicker disables every
+   * day before this in its grid so the admin can't even click a past
+   * day, let alone submit one. We re-check below so a programmatically-
+   * set value can't slip through. */
+  const todayIso = todayIsoLocal();
+  const otherDaySet = useMemo(() => new Set(otherDays), [otherDays]);
+
+  const targetIso = target ? localDateToIso(target) : null;
+  const isSameDay = targetIso === group.date;
+  const isPastTarget = targetIso !== null && targetIso < todayIso;
+  const willMerge = targetIso !== null && otherDaySet.has(targetIso);
+
+  const targetInvalidReason = !targetIso
+    ? null
+    : isPastTarget
+      ? 'لا يمكن اختيار يوم سابق.'
+      : isSameDay
+        ? 'هذا هو نفس اليوم الحالي — اختر يوماً مختلفاً.'
+        : null;
+  const targetValid = targetIso !== null && targetInvalidReason === null;
 
   const handleProceed = (): void => {
-    if (!target) return;
+    if (!targetValid) return;
     if (hasReservations) {
       setStage('confirm');
       return;
@@ -540,9 +529,9 @@ function TransferDayDialog({
   };
 
   const submitTransfer = (): void => {
-    if (!target) return;
+    if (!targetIso || !targetValid) return;
     transferMut.mutate(
-      { cycleId, fromDate: group.date, toDate: target },
+      { cycleId, fromDate: group.date, toDate: targetIso },
       {
         onSuccess: ({ moved, merged }) => {
           const total = moved.length + merged.length;
@@ -568,24 +557,31 @@ function TransferDayDialog({
       {stage === 'pick' ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-ink-700">
-            اختر اليوم المستهدف لنقل جميع لجان هذا اليوم إليه.
+            اختر اليوم المستهدف من التقويم لنقل جميع لجان هذا اليوم إليه.
             {hasReservations &&
-              ' سيتم نقل الحجوزات الحالية مع كل لجنة دون فقد، ودمج التكرارات مع المواعيد الموجودة.'}
+              ' سيتم نقل الحجوزات الحالية مع كل لجنة دون فقد.'}
           </p>
-          <SearchSelect
-            ariaLabel="اليوم المستهدف"
+          <DatePicker
             value={target}
             onChange={setTarget}
-            options={targetOptions}
-            placeholder="اختر يوماً…"
-            emptyText="لا توجد أيام أخرى لهذه الدورة"
+            min={todayIso}
+            placeholder="اختر يوماً من التقويم…"
+            label="اليوم المستهدف"
+            error={targetInvalidReason ?? undefined}
+            helper={
+              willMerge
+                ? 'هذا اليوم يحتوي مواعيد بالفعل. سيتم دمج كل لجنة مع نظيرتها في اليوم المستهدف (جمع السعة والحجوزات).'
+                : targetIso !== null && targetValid
+                  ? 'هذا يوم جديد. سيتم إنشاء مواعيد اللجان فيه بنفس السعة والحجوزات الحالية.'
+                  : undefined
+            }
           />
           <div className="flex items-center justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               إلغاء
             </Button>
-            <Button variant="primary" onClick={handleProceed} disabled={!target}>
-              {hasReservations ? 'متابعة' : 'نقل'}
+            <Button variant="primary" onClick={handleProceed} disabled={!targetValid}>
+              {hasReservations ? 'متابعة' : willMerge ? 'دمج ونقل' : 'نقل'}
             </Button>
           </div>
         </div>
@@ -594,9 +590,12 @@ function TransferDayDialog({
           <p className="text-sm text-ink-700">
             ستُنقل اللجان التالية إلى{' '}
             <span className="font-ar-display font-bold text-ink-900">
-              {target ? fmtDate(target, 'full') : ''}
+              {targetIso ? fmtDate(targetIso, 'full') : ''}
             </span>
-            . الحجوزات تنتقل مع كل لجنة كما هي.
+            .{' '}
+            {willMerge
+              ? 'سيتم دمج كل لجنة مع نظيرتها في اليوم المستهدف (جمع السعة والحجوزات).'
+              : 'الحجوزات تنتقل مع كل لجنة كما هي.'}
           </p>
           <ul className="max-h-48 overflow-auto rounded-md border border-terra-200 bg-terra-50 p-2 text-2xs text-terra-700">
             {reservedRows.map((r) => (
@@ -605,9 +604,7 @@ function TransferDayDialog({
                 className="flex items-center justify-between gap-2 py-0.5"
               >
                 <span className="truncate">{r.committeeName}</span>
-                <span className="font-numeric tnum">
-                  {num(r.reserved)} / {num(r.capacity)}
-                </span>
+                <span className="font-numeric tnum">{num(effectiveReserved(r))} محجوز</span>
               </li>
             ))}
           </ul>
@@ -629,43 +626,27 @@ function TransferDayDialog({
   );
 }
 
-/* ── Cycle field at the top of the page ─────────────────────────── */
+/* ── Cycle field at the top of the page ─────────────────────────── *
+ * Read-only — the page is locked to the active cycle, so there's no
+ * picker. The block just surfaces which cycle the rows below belong
+ * to for clarity.                                                         */
 
 interface CycleHeaderBlockProps {
   cycle: AdmissionCycle | null;
-  showSelector: boolean;
-  options: ReadonlyArray<{ value: string; label: string; keywords?: string }>;
-  onChange: (next: string | null) => void;
 }
 
-function CycleHeaderBlock({
-  cycle,
-  showSelector,
-  options,
-  onChange,
-}: CycleHeaderBlockProps): JSX.Element {
+function CycleHeaderBlock({ cycle }: CycleHeaderBlockProps): JSX.Element {
   return (
     <Card variant="elevated" className="mb-4">
       <div className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="flex flex-col gap-0.5">
           <span className="text-2xs font-medium uppercase tracking-wide text-ink-500">
-            الدورة
+            الدورة النشطة
           </span>
           <span className="font-ar-display text-md font-bold text-ink-900">
-            {cycle ? cycle.nameAr : 'لم تُحدد بعد'}
+            {cycle ? cycle.nameAr : 'لا توجد دورة نشطة'}
           </span>
         </div>
-        {showSelector && (
-          <div className="min-w-[18rem]">
-            <SearchSelect
-              ariaLabel="اختر الدورة"
-              value={cycle?.id ?? null}
-              onChange={(next) => onChange(next)}
-              options={options}
-              placeholder="اختر دورة…"
-            />
-          </div>
-        )}
       </div>
     </Card>
   );
@@ -678,19 +659,6 @@ interface CommitteeRowsTableProps {
 }
 
 function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
-  const updateMut = useUpdateCommitteeInstanceMutation();
-
-  const handleCapacityCommit = (row: InstanceRow, next: number): void => {
-    if (next === row.capacity) return;
-    updateMut.mutate(
-      { id: row.id, patch: { capacity: next } },
-      {
-        onSuccess: () => toast('تم تحديث السعة', 'success'),
-        onError: (err) => toast((err as Error).message, 'danger'),
-      },
-    );
-  };
-
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
@@ -701,9 +669,6 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
             </th>
             <th className="px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
               اللجنة
-            </th>
-            <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
-              سعة اللجنة
             </th>
             <th className="px-4 py-2 text-end text-2xs font-medium uppercase tracking-wide text-ink-500">
               المحجوز
@@ -722,15 +687,8 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
               <td className="px-4 py-2 align-middle text-ink-900">
                 {row.committeeName}
               </td>
-              <td className="px-4 py-2 align-middle text-end">
-                <CapacityCell
-                  row={row}
-                  isSaving={updateMut.isPending}
-                  onCommit={(next) => handleCapacityCommit(row, next)}
-                />
-              </td>
-              <td className="px-4 py-2 align-middle text-end">
-                <ReservedCell row={row} />
+              <td className="px-4 py-2 align-middle text-end font-numeric tnum text-ink-900">
+                {num(effectiveReserved(row))}
               </td>
               <td className="px-4 py-2 align-middle text-end">
                 <LastUpdatedCell value={row.reservedRefreshedAt} />
@@ -762,144 +720,5 @@ function LastUpdatedCell({ value }: LastUpdatedCellProps): JSX.Element {
     >
       {fmtDate(value, 'rel')}
     </span>
-  );
-}
-
-/* ── Reserved-vs-capacity cell ───────────────────────────────────── *
- * Visual emphasis tracks utilisation:
- *   reserved ≥ capacity         → terra-700 on terra-50 (over capacity)
- *   reserved ≥ 0.9 × capacity   → gold-700 on gold-50 (approaching)
- *   else                        → plain ink-700                                 */
-
-interface ReservedCellProps {
-  row: InstanceRow;
-}
-
-function ReservedCell({ row }: ReservedCellProps): JSX.Element {
-  const ratio = row.capacity > 0 ? row.reserved / row.capacity : 0;
-  const overCapacity = row.reserved >= row.capacity;
-  const approaching = !overCapacity && ratio >= 0.9;
-  const tone = overCapacity
-    ? 'bg-terra-50 text-terra-700 ring-1 ring-inset ring-terra-200'
-    : approaching
-      ? 'bg-gold-50 text-gold-700 ring-1 ring-inset ring-gold-200'
-      : 'text-ink-700';
-  const label = overCapacity
-    ? 'تجاوز السعة'
-    : approaching
-      ? 'يقترب من السعة'
-      : undefined;
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-numeric tnum text-2xs ${tone}`}
-      aria-label={
-        label
-          ? `${num(row.reserved)} من ${num(row.capacity)} (${label})`
-          : `${num(row.reserved)} من ${num(row.capacity)}`
-      }
-      title={label}
-    >
-      <span>{num(row.reserved)}</span>
-      <span aria-hidden className="text-ink-400">/</span>
-      <span>{num(row.capacity)}</span>
-    </span>
-  );
-}
-
-/* ── Inline-editable capacity cell ────────────────────────────────── */
-
-interface CapacityCellProps {
-  row: InstanceRow;
-  isSaving: boolean;
-  onCommit: (next: number) => void;
-}
-
-function CapacityCell({ row, isSaving, onCommit }: CapacityCellProps): JSX.Element {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<string>(String(row.capacity));
-
-  /* Keep draft in sync if upstream capacity changes (e.g. via the wizard
-   * step) while the field is collapsed. Only mirrors when not editing so
-   * the user's in-progress edit isn't stomped. */
-  useEffect(() => {
-    if (!editing) setDraft(String(row.capacity));
-  }, [editing, row.capacity]);
-
-  const commit = (): void => {
-    const next = Number(draft);
-    if (!Number.isInteger(next) || next < 1) {
-      toast('السعة يجب أن تكون عدداً صحيحاً 1 أو أكثر', 'danger');
-      return;
-    }
-    onCommit(next);
-    setEditing(false);
-  };
-
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          setDraft(String(row.capacity));
-          setEditing(true);
-        }}
-        aria-label="تعديل السعة"
-        className="group inline-flex items-center justify-end gap-1.5 rounded-md px-1 py-0.5 text-ink-900 transition-colors hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
-      >
-        <span className="font-numeric tnum">{num(row.capacity)}</span>
-        <Pencil
-          size={11}
-          strokeWidth={1.75}
-          className="text-ink-400 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
-          aria-hidden
-        />
-      </button>
-    );
-  }
-
-  return (
-    <div className="inline-flex items-center justify-end gap-1">
-      <input
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        autoFocus
-        value={draft}
-        onChange={(e) => setDraft(sanitizeDigits(e.target.value))}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            commit();
-          } else if (e.key === 'Escape') {
-            e.preventDefault();
-            setEditing(false);
-          } else if (isBlockedNumericKey(e)) {
-            e.preventDefault();
-          }
-        }}
-        disabled={isSaving}
-        aria-label="السعة"
-        style={{ inlineSize: 'fit-content', minInlineSize: '4ch' }}
-        className="rounded-md border border-border-default bg-surface-elevated px-2 py-0.5 text-end font-numeric tnum text-2xs text-ink-900 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
-      />
-      <button
-        type="button"
-        aria-label="حفظ السعة"
-        onClick={commit}
-        disabled={isSaving}
-        className="inline-flex items-center justify-center rounded-md p-1 text-teal-700 transition-colors hover:bg-teal-50 focus-visible:shadow-focus-teal focus-visible:outline-none disabled:opacity-50"
-      >
-        <Check size={12} strokeWidth={2} aria-hidden />
-      </button>
-      <button
-        type="button"
-        aria-label="إلغاء"
-        onClick={() => setEditing(false)}
-        disabled={isSaving}
-        className="inline-flex items-center justify-center rounded-md p-1 text-ink-500 transition-colors hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none disabled:opacity-50"
-      >
-        <X size={12} strokeWidth={2} aria-hidden />
-      </button>
-    </div>
   );
 }
