@@ -355,6 +355,8 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       postgradUniversity: '',
       postgradYear: '',
       postgradGrade: '',
+      doctorateYear: '',
+      doctorateGrade: '',
       birthDistrict: '',
       currentAddressDetail: '',
       addressGovernorate: '',
@@ -600,19 +602,17 @@ export function Stage345ApplicantDataPage(): JSX.Element {
         </Card>
       )}
 
+      {/* بيانات الماجستير — required for both master AND doctorate
+       *  applicants. The doctorate hierarchy: bachelor + master +
+       *  doctorate, so doctorate applicants fill master data here and
+       *  the doctorate-specific block below. */}
       {showPostgrad && (
         <Card className="order-5">
           <SectionHeader
             icon={<GraduationCap size={16} strokeWidth={1.75} />}
-            title="بيانات الدراسات العليا"
+            title="بيانات الماجستير"
           />
           <div className="grid gap-3 md:grid-cols-3">
-            <Input
-              label="نوع الشهادة"
-              {...register('postgradDegree')}
-              placeholder={qualificationLevel === 'doctorate' ? 'دكتوراه' : 'ماجستير'}
-              error={errors.postgradDegree?.message as string | undefined}
-            />
             <Input
               label="سنة الحصول على الشهادة"
               type="number"
@@ -627,6 +627,35 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               {...register('postgradGrade')}
               options={GRADE_RATING_OPTIONS as unknown as { value: string; label: string }[]}
               error={errors.postgradGrade?.message as string | undefined}
+            />
+          </div>
+        </Card>
+      )}
+
+      {/* بيانات الدكتوراه — only for doctorate-level applicants.
+       *  Renders after the master card so the form reads bottom-up as
+       *  bachelor → master → doctorate. */}
+      {isSpecializedOfficers && qualificationLevel === 'doctorate' && (
+        <Card className="order-5">
+          <SectionHeader
+            icon={<GraduationCap size={16} strokeWidth={1.75} />}
+            title="بيانات الدكتوراه"
+          />
+          <div className="grid gap-3 md:grid-cols-3">
+            <Input
+              label="سنة الحصول على الشهادة"
+              type="number"
+              min={1990}
+              max={2099}
+              dir="ltr"
+              {...register('doctorateYear')}
+              error={errors.doctorateYear?.message as string | undefined}
+            />
+            <Select
+              label="التقدير"
+              {...register('doctorateGrade')}
+              options={GRADE_RATING_OPTIONS as unknown as { value: string; label: string }[]}
+              error={errors.doctorateGrade?.message as string | undefined}
             />
           </div>
         </Card>

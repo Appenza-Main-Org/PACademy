@@ -79,14 +79,22 @@ export const stage345Schema = z
     /* التقدير العام — qualitative grade rating for the bachelor degree. */
     bachelorGrade: z.string().optional().or(z.literal('')),
 
-    /* Postgraduate block — only rendered for specialized_officers
-     * category. All fields are optional at schema-level so other
-     * categories that never see these inputs pass validation. */
+    /* Master-level block — labelled بيانات الماجستير in the UI. Rendered
+     * for `specialized_officers` whose qualification is master OR
+     * doctorate (doctorate applicants must also fill master data per the
+     * academic hierarchy). All fields optional at schema-level so other
+     * categories pass validation. The historical `postgrad*` field names
+     * stay for backwards-compat with already-persisted drafts. */
     postgradDegree: z.string().optional().or(z.literal('')),
     postgradSpecialization: z.string().optional().or(z.literal('')),
     postgradUniversity: z.string().optional().or(z.literal('')),
     postgradYear: z.union([z.coerce.number().int().min(1990).max(2099), z.literal('')]).optional(),
     postgradGrade: z.string().optional().or(z.literal('')),
+
+    /* Doctorate block — only rendered when qualification === 'doctorate'.
+     * Mirror shape of the master block above. */
+    doctorateYear: z.union([z.coerce.number().int().min(1990).max(2099), z.literal('')]).optional(),
+    doctorateGrade: z.string().optional().or(z.literal('')),
 
     /* Birth-place picker (separate from MOI's birthGovernorate). */
     birthDistrict: z.string().optional().or(z.literal('')),
