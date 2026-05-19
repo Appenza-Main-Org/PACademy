@@ -93,7 +93,7 @@ export function Step5DuplicateReview(): JSX.Element {
       <div className="grid grid-cols-5 overflow-hidden rounded-md border border-border-subtle bg-white">
         <Counter
           icon={<CheckCircle2 size={14} aria-hidden />}
-          label="موجود مسبقًا بنفس الدرجة — سيُتجاهل"
+          label="موجود مسبقًا بنفس سنة التخرج — سيُتجاهل"
           value={alreadyImported}
           tone="info"
         />
@@ -157,8 +157,8 @@ export function Step5DuplicateReview(): JSX.Element {
         <div className="flex items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3.5 py-2.5 text-xs text-teal-700">
           <CheckCircle2 size={14} aria-hidden />
           <span>
-            {alreadyImported.toLocaleString('en')} صفًا موجود مسبقًا بنفس الرقم القومي وبنفس الدرجة —
-            سيُتجاهل تلقائيًا أثناء التأكيد. كل رقم قومي يبقى بدرجة واحدة في النظام.
+            {alreadyImported.toLocaleString('en')} صفًا موجود مسبقًا بنفس الرقم القومي وبنفس سنة التخرج —
+            سيُتجاهل تلقائيًا أثناء التأكيد. كل طالب يبقى بسجل واحد لكل سنة تخرج في النظام.
           </span>
         </div>
       )}

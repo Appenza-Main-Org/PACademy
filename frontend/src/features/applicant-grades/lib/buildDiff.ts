@@ -112,6 +112,13 @@ export function buildExistingDiffs(
      * controls what the admin reviews. */
     const cells: DiffCell[] = [
       {
+        field: 'graduationYear',
+        labelAr: DIFF_FIELD_LABELS.graduationYear,
+        oldValue: ex.graduationYear,
+        newValue: r.graduationYear,
+        changed: !normalisedEquals(ex.graduationYear, r.graduationYear),
+      },
+      {
         field: 'totalGrade',
         labelAr: DIFF_FIELD_LABELS.totalGrade,
         oldValue: ex.total,
@@ -141,17 +148,19 @@ export function buildExistingDiffs(
 }
 
 /** Rows whose `nationalId` is already in the database AND whose
- *  `totalGrade` matches the existing row's stored total exactly. These
- *  are the "this sheet was already imported" cases per requirement #1
- *  — they need to be surfaced as an informational count so admins know
- *  the upload is partially (or fully) a no-op, then silently skipped
- *  during commit (never written, never counted as failed). The match
- *  key is intentionally just NID + total: other field shifts on the
- *  same NID land in `buildExistingDiffs` and require an admin decision. */
+ *  `graduationYear` matches the existing row's stored year exactly.
+ *  These are the "this sheet was already imported" cases — they need
+ *  to be surfaced as an informational count so admins know the upload
+ *  is partially (or fully) a no-op, then silently skipped during
+ *  commit (never written, never counted as failed). The match key is
+ *  intentionally `NID + graduationYear`: the same student from the
+ *  same cohort is one record. A re-applicant from a different
+ *  graduation year lands in `buildExistingDiffs` and requires an
+ *  admin decision (graduation year shows up as a changed cell there). */
 export interface AlreadyImportedRow {
   nationalId: string;
   nameAr: string;
-  totalGrade: number;
+  graduationYear: number;
   sourceRowIndex: number;
 }
 
@@ -163,14 +172,15 @@ export function buildAlreadyImported(
   const out: AlreadyImportedRow[] = [];
   for (const r of rows) {
     if (!r.nationalId) continue;
-    if (r.totalGrade == null || !Number.isFinite(r.totalGrade)) continue;
+    if (r.graduationYear == null || !Number.isFinite(r.graduationYear)) continue;
     const ex = existingByNid.get(r.nationalId);
     if (!ex) continue;
-    if (ex.total !== r.totalGrade) continue;
+    if (ex.graduationYear == null) continue;
+    if (ex.graduationYear !== r.graduationYear) continue;
     out.push({
       nationalId: r.nationalId,
       nameAr: r.nameAr ?? ex.name,
-      totalGrade: r.totalGrade,
+      graduationYear: r.graduationYear,
       sourceRowIndex: r.sourceRowIndex,
     });
   }

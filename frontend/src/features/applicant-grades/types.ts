@@ -229,10 +229,12 @@ export interface ImportReport {
 export interface ImportCommitResult {
   insertedCount: number;
   failedCount: number;
-  /** Count of incoming rows whose `(nationalId, totalGrade)` matched an
-   *  existing record exactly. These are silently skipped during commit
-   *  (never written, never counted as failed) so the NID-uniqueness
-   *  invariant — one grade per NID — is preserved even when the same
-   *  sheet is re-uploaded. */
+  /** Count of incoming rows whose `(nationalId, graduationYear)`
+   *  matched an existing record exactly. These are silently skipped
+   *  during commit (never written, never counted as failed) — the
+   *  same student from the same cohort is one record, so re-uploading
+   *  the same sheet is a no-op. Same NID with a different graduation
+   *  year is a re-applicant case and goes through the diff-review
+   *  flow instead. */
   alreadyImportedCount: number;
 }

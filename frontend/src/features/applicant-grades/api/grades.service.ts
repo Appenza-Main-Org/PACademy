@@ -707,13 +707,19 @@ export const gradesService = {
 
       const isDup = existingByNid.has(row.nationalId);
       if (isDup) {
-        /* (NID, total) exact match against the existing row → silently
-         * skip. Per the import contract, these rows are "already in the
-         * database" and must not be re-counted as inserts or failures.
-         * The admin was informed in Step 5 / Step 6 banners that this
-         * count would be auto-skipped. */
+        /* (NID, graduationYear) exact match against the existing row →
+         * silently skip. Per the import contract, these rows are the
+         * same student from the same cohort that's already in the
+         * database, so they must not be re-counted as inserts or
+         * failures. The admin was informed in Step 5 / Step 6 banners
+         * that this count would be auto-skipped. Same NID with a
+         * different graduation year is a real re-applicant case and
+         * falls through to the per-row decision flow below. */
         const existingRow = existingByNid.get(row.nationalId)!;
-        if (existingRow.total === row.totalGrade) {
+        if (
+          existingRow.graduationYear != null &&
+          existingRow.graduationYear === row.graduationYear
+        ) {
           alreadyImported += 1;
           continue;
         }

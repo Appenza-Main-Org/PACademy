@@ -180,7 +180,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         onSuccess: (res) => {
           const skippedSuffix =
             res.alreadyImportedCount > 0
-              ? ` · ${res.alreadyImportedCount.toLocaleString('en')} متجاهل (موجود مسبقًا بنفس الدرجة)`
+              ? ` · ${res.alreadyImportedCount.toLocaleString('en')} متجاهل (موجود مسبقًا بنفس سنة التخرج)`
               : '';
           toast(
             `تم استيراد ${res.insertedCount.toLocaleString('en')} صفًا (${res.failedCount.toLocaleString('en')} مرفوض)${skippedSuffix}.`,
