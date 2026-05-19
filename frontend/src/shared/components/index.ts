@@ -67,6 +67,8 @@ export { PrintLayout } from './PrintLayout';
 export { Select } from './Select';
 export { SearchSelect } from './SearchSelect';
 export type { SearchSelectOption } from './SearchSelect';
+export { RadixSelect } from './RadixSelect';
+export type { RadixSelectOption } from './RadixSelect';
 export { Sheet } from './Sheet';
 export type { SheetSize } from './Sheet';
 export { Skeleton, SkeletonRow } from './Skeleton';

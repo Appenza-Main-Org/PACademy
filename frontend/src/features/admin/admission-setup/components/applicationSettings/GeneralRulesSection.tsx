@@ -43,15 +43,20 @@ import {
   Tooltip,
   TooltipProvider,
 } from '@/shared/components';
-import type { SearchSelectOption } from '@/shared/components';
+import type { RadixSelectOption, SearchSelectOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import {
+  DEFAULT_MAX_SCORE_OPERATOR,
+  DEFAULT_MIN_SCORE_OPERATOR,
   useAdmissionSetupWizardStore,
   type GeneralRuleRowInput,
   type LocalUniversityRow,
+  type MaxScoreOperator,
+  type MinScoreOperator,
 } from '../../store/wizardSharedState';
+import { OperatorScoreField } from './OperatorScoreField';
 
 /* ── Static option sets ───────────────────────────────────────────── */
 
@@ -65,7 +70,9 @@ const EMPTY_INPUT: GeneralRuleRowInput = {
   grade: '',
   gradeMax: '',
   scoreMin: null,
+  minScoreOperator: DEFAULT_MIN_SCORE_OPERATOR,
   scoreMax: null,
+  maxScoreOperator: DEFAULT_MAX_SCORE_OPERATOR,
   academicDegrees: [],
   committee: '',
   graduationYear: null,
@@ -75,6 +82,28 @@ const EMPTY_INPUT: GeneralRuleRowInput = {
  *  admission test grading convention (0–100). */
 const SCORE_MIN_BOUND = 0;
 const SCORE_MAX_BOUND = 100;
+
+/** Comparison-operator options for the lower percentage-score bound. */
+const MIN_SCORE_OPERATOR_OPTIONS: ReadonlyArray<RadixSelectOption<MinScoreOperator>> = [
+  { value: 'GREATER_THAN_OR_EQUAL', label: 'أكبر من أو يساوي' },
+  { value: 'GREATER_THAN', label: 'أكبر من' },
+];
+
+/** Comparison-operator options for the upper percentage-score bound. */
+const MAX_SCORE_OPERATOR_OPTIONS: ReadonlyArray<RadixSelectOption<MaxScoreOperator>> = [
+  { value: 'LESS_THAN_OR_EQUAL', label: 'أقل من أو يساوي' },
+  { value: 'LESS_THAN', label: 'أقل من' },
+];
+
+/** Short symbolic labels for inline rendering in approved-rules grids. */
+const MIN_OPERATOR_SYMBOL: Record<MinScoreOperator, string> = {
+  GREATER_THAN_OR_EQUAL: '≥',
+  GREATER_THAN: '>',
+};
+const MAX_OPERATOR_SYMBOL: Record<MaxScoreOperator, string> = {
+  LESS_THAN_OR_EQUAL: '≤',
+  LESS_THAN: '<',
+};
 
 /* ── Props + entry ────────────────────────────────────────────────── */
 
@@ -760,7 +789,12 @@ function rowToUniversityInput(r: LocalUniversityRow): GeneralRuleRowInput {
     grade: r.grade,
     gradeMax: r.gradeMax,
     scoreMin: r.scoreMin,
+    /* Defensive fallback for legacy rows authored before operator fields
+     * existed on the row shape — defaults to the inclusive (`≥`/`≤`)
+     * behaviour the bare numeric bounds historically implied. */
+    minScoreOperator: r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR,
     scoreMax: r.scoreMax,
+    maxScoreOperator: r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR,
     academicDegrees: [...r.academicDegrees],
     committee: r.committees[0] ?? '',
     graduationYear: r.graduationYears[0] ?? null,
@@ -1000,51 +1034,49 @@ function PerSpecForm({
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
           <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
-            <Input
-              type="number"
-              min={SCORE_MIN_BOUND}
-              max={SCORE_MAX_BOUND}
-              step="0.01"
-              inputMode="decimal"
-              placeholder="٠ – ١٠٠"
-              value={draft.scoreMin ?? ''}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  scoreMin: e.target.value === '' ? null : Number(e.target.value),
-                }))
+            <OperatorScoreField<MinScoreOperator>
+              operatorValue={draft.minScoreOperator}
+              onOperatorChange={(v) =>
+                setDraft((d) => ({ ...d, minScoreOperator: v }))
               }
-              error={
-                scoreMinOutOfBounds
-                  ? 'القيمة خارج النطاق ٠–١٠٠٪'
-                  : undefined
+              operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
+              operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
+              scoreValue={draft.scoreMin}
+              onScoreChange={(next) =>
+                setDraft((d) => ({ ...d, scoreMin: next }))
               }
+              scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
+              invalid={scoreMinOutOfBounds}
             />
+            {scoreMinOutOfBounds && (
+              <span className="font-ar text-2xs text-terra-700">
+                القيمة خارج النطاق ٠–١٠٠٪
+              </span>
+            )}
           </FieldLabel>
 
           <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
-            <Input
-              type="number"
-              min={SCORE_MIN_BOUND}
-              max={SCORE_MAX_BOUND}
-              step="0.01"
-              inputMode="decimal"
-              placeholder="٠ – ١٠٠"
-              value={draft.scoreMax ?? ''}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  scoreMax: e.target.value === '' ? null : Number(e.target.value),
-                }))
+            <OperatorScoreField<MaxScoreOperator>
+              operatorValue={draft.maxScoreOperator}
+              onOperatorChange={(v) =>
+                setDraft((d) => ({ ...d, maxScoreOperator: v }))
               }
-              error={
-                scoreMaxOutOfBounds
-                  ? 'القيمة خارج النطاق ٠–١٠٠٪'
-                  : scoreOrderInvalid
-                    ? 'يجب ألا تقل عن الحد الأدنى'
-                    : undefined
+              operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
+              operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
+              scoreValue={draft.scoreMax}
+              onScoreChange={(next) =>
+                setDraft((d) => ({ ...d, scoreMax: next }))
               }
+              scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
+              invalid={scoreMaxOutOfBounds || scoreOrderInvalid}
             />
+            {(scoreMaxOutOfBounds || scoreOrderInvalid) && (
+              <span className="font-ar text-2xs text-terra-700">
+                {scoreMaxOutOfBounds
+                  ? 'القيمة خارج النطاق ٠–١٠٠٪'
+                  : 'يجب ألا تقل عن الحد الأدنى'}
+              </span>
+            )}
           </FieldLabel>
 
           <FieldLabel label="الدرجة العلمية" required>
@@ -1240,12 +1272,12 @@ function LocalUniversityGrid({
                 <Td>{labelForGrade(r.gradeMax)}</Td>
                 <Td>
                   {r.scoreMin !== null
-                    ? `${toEasternArabicNumerals(r.scoreMin)}٪`
+                    ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
                     : '—'}
                 </Td>
                 <Td>
                   {r.scoreMax !== null
-                    ? `${toEasternArabicNumerals(r.scoreMax)}٪`
+                    ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
                     : '—'}
                 </Td>
                 <Td>

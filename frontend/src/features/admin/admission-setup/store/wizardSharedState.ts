@@ -54,6 +54,21 @@ export interface GeneralRulesHeader {
   maxAge: number | null;
 }
 
+/** Comparison operator on the lower percentage-score bound.
+ *  `GREATER_THAN_OR_EQUAL` is the inclusive default (legacy behaviour);
+ *  `GREATER_THAN` becomes a strict lower bound. */
+export type MinScoreOperator = 'GREATER_THAN_OR_EQUAL' | 'GREATER_THAN';
+
+/** Comparison operator on the upper percentage-score bound.
+ *  `LESS_THAN_OR_EQUAL` is the inclusive default (legacy behaviour);
+ *  `LESS_THAN` becomes a strict upper bound. */
+export type MaxScoreOperator = 'LESS_THAN_OR_EQUAL' | 'LESS_THAN';
+
+/** Inclusive-bound default for the lower percentage score. */
+export const DEFAULT_MIN_SCORE_OPERATOR: MinScoreOperator = 'GREATER_THAN_OR_EQUAL';
+/** Inclusive-bound default for the upper percentage score. */
+export const DEFAULT_MAX_SCORE_OPERATOR: MaxScoreOperator = 'LESS_THAN_OR_EQUAL';
+
 /** A single editable row inside one university-category section's form. */
 export interface GeneralRuleRowInput {
   /** Genders accepted by this rule. Empty array means "any". */
@@ -64,8 +79,14 @@ export interface GeneralRuleRowInput {
   gradeMax: string;
   /** Inclusive minimum percentage score (الحد الأدنى للدرجة). 0–100. */
   scoreMin: number | null;
+  /** Comparison operator paired with `scoreMin` — controls whether the
+   *  lower bound is inclusive (`≥`) or strict (`>`). */
+  minScoreOperator: MinScoreOperator;
   /** Inclusive maximum percentage score (الحد الأقصى للدرجة). 0–100. */
   scoreMax: number | null;
+  /** Comparison operator paired with `scoreMax` — controls whether the
+   *  upper bound is inclusive (`≤`) or strict (`<`). */
+  maxScoreOperator: MaxScoreOperator;
   /** Academic degrees — multi-select (الدرجة العلمية). */
   academicDegrees: string[];
   /** Committee — single id (اللجنة). */
@@ -88,8 +109,14 @@ export interface ThanawiRuleRowInput {
   schoolCategories: string[];
   /** Inclusive minimum percentage score (الحد الأدنى للدرجة). 0–100. */
   scoreMin: number | null;
+  /** Comparison operator paired with `scoreMin` — controls whether the
+   *  lower bound is inclusive (`≥`) or strict (`>`). */
+  minScoreOperator: MinScoreOperator;
   /** Inclusive maximum percentage score (الحد الأقصى للدرجة). 0–100. */
   scoreMax: number | null;
+  /** Comparison operator paired with `scoreMax` — controls whether the
+   *  upper bound is inclusive (`≤`) or strict (`<`). */
+  maxScoreOperator: MaxScoreOperator;
 }
 
 /** Faculty + specialization context attached at the call site of
@@ -128,7 +155,9 @@ export interface LocalUniversityRow extends LocalRowBase {
   grade: string;
   gradeMax: string;
   scoreMin: number | null;
+  minScoreOperator: MinScoreOperator;
   scoreMax: number | null;
+  maxScoreOperator: MaxScoreOperator;
   /** 1-element array — preserves the legacy ApprovedRulesView shape. */
   academicDegrees: string[];
   committees: string[];
@@ -144,7 +173,9 @@ export interface LocalThanawiRow extends LocalRowBase {
   schoolCategories: string[];
   /** Inclusive percentage bounds for the score range (الحد الأدنى/الأقصى للدرجة). */
   scoreMin: number | null;
+  minScoreOperator: MinScoreOperator;
   scoreMax: number | null;
+  maxScoreOperator: MaxScoreOperator;
   /* Legacy shape so ApprovedRulesView renders thanawi rows alongside
    * university rows in the same table without crashes. Empty arrays
    * render as «—» in the viewer. */
@@ -243,7 +274,9 @@ function universityCompositeKey(r: LocalUniversityRow): string {
     r.grade,
     r.gradeMax,
     String(r.scoreMin),
+    r.minScoreOperator,
     String(r.scoreMax),
+    r.maxScoreOperator,
     [...r.academicDegrees].sort().join('|'),
     [...r.committees].sort().join('|'),
     [...r.graduationYears].sort().join('|'),
@@ -258,7 +291,9 @@ function thanawiCompositeKey(r: LocalThanawiRow): string {
     String(r.graduationYear),
     [...r.schoolCategories].sort().join('|'),
     String(r.scoreMin),
+    r.minScoreOperator,
     String(r.scoreMax),
+    r.maxScoreOperator,
   ].join('::');
 }
 
@@ -282,7 +317,9 @@ function buildUniversityRow(
     grade: input.grade,
     gradeMax: input.gradeMax,
     scoreMin: input.scoreMin,
+    minScoreOperator: input.minScoreOperator,
     scoreMax: input.scoreMax,
+    maxScoreOperator: input.maxScoreOperator,
     academicDegrees: [...input.academicDegrees],
     committees: input.committee ? [input.committee] : [],
     graduationYears: input.graduationYear !== null ? [input.graduationYear] : [],
@@ -304,7 +341,9 @@ function buildThanawiRow(
     graduationYear: input.graduationYear,
     schoolCategories: [...input.schoolCategories],
     scoreMin: input.scoreMin,
+    minScoreOperator: input.minScoreOperator,
     scoreMax: input.scoreMax,
+    maxScoreOperator: input.maxScoreOperator,
     type: [],
     maritalStatus: header.maritalStatus,
     grade: '',

@@ -45,17 +45,30 @@ import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
 import {
+  DEFAULT_MAX_SCORE_OPERATOR,
+  DEFAULT_MIN_SCORE_OPERATOR,
   useAdmissionSetupWizardStore,
   type ApprovedGeneralRuleRow,
   type GeneralRulesHeader,
   type LocalGeneralRuleRow,
   type LocalThanawiRow,
   type LocalUniversityRow,
+  type MaxScoreOperator,
+  type MinScoreOperator,
 } from '../store/wizardSharedState';
 
 const GENDER_LABEL: Readonly<Record<string, string>> = {
   male: 'ذكر',
   female: 'أنثى',
+};
+
+const MIN_OPERATOR_SYMBOL: Record<MinScoreOperator, string> = {
+  GREATER_THAN_OR_EQUAL: '≥',
+  GREATER_THAN: '>',
+};
+const MAX_OPERATOR_SYMBOL: Record<MaxScoreOperator, string> = {
+  LESS_THAN_OR_EQUAL: '≤',
+  LESS_THAN: '<',
 };
 
 /* Print: landscape A4 fits the wide row tables comfortably; tighter
@@ -514,12 +527,12 @@ function UniversityRowsTable({
               </Td>
               <Td>
                 {row.scoreMin !== null
-                  ? `${toEasternArabicNumerals(row.scoreMin)}٪`
+                  ? `${MIN_OPERATOR_SYMBOL[row.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(row.scoreMin)}٪`
                   : '—'}
               </Td>
               <Td>
                 {row.scoreMax !== null
-                  ? `${toEasternArabicNumerals(row.scoreMax)}٪`
+                  ? `${MAX_OPERATOR_SYMBOL[row.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(row.scoreMax)}٪`
                   : '—'}
               </Td>
               <Td>
@@ -614,12 +627,12 @@ function ThanawiRowsTable({
               </Td>
               <Td>
                 {row.scoreMin !== null
-                  ? `${toEasternArabicNumerals(row.scoreMin)}٪`
+                  ? `${MIN_OPERATOR_SYMBOL[row.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(row.scoreMin)}٪`
                   : '—'}
               </Td>
               <Td>
                 {row.scoreMax !== null
-                  ? `${toEasternArabicNumerals(row.scoreMax)}٪`
+                  ? `${MAX_OPERATOR_SYMBOL[row.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(row.scoreMax)}٪`
                   : '—'}
               </Td>
               <Td>
