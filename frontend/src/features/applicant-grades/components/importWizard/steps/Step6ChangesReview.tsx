@@ -14,8 +14,9 @@
  * Sibling concern — item 6: when the upload contains two different
  * `المجموع الكلي` values for the same nationalId, the conflict is
  * surfaced here too with a radio-style resolver. Default action is
- * `pick-higher`; a "قبول الكل بالدرجة الأعلى" bulk button collapses
- * every conflict to the max in one click.
+ * `pick-higher` (highest total selected); the admin can switch to any
+ * specific row via the radio picker, then confirm with the per-card
+ * "قبول الطالب بالدرجة المختارة" button.
  */
 
 import { useEffect, useMemo, type ReactNode } from 'react';
@@ -145,16 +146,6 @@ export function Step6ChangesReview(): JSX.Element {
     for (const d of diffs) next[d.nationalId] = 'reject';
     setBulkExistingDiffDecisions(next);
   }
-  function acceptHigherAllUploadDuplicates(): void {
-    const next: Record<string, UploadDuplicateDecision> = {
-      ...uploadDuplicateDecisions,
-    };
-    for (const u of uploadDuplicates) {
-      next[u.nationalId] = { action: 'pick-higher' };
-    }
-    setBulkUploadDuplicateDecisions(next);
-  }
-
   const acceptedCount = diffs.filter(
     (d) => existingDiffDecisions[d.nationalId] === 'accept',
   ).length;
@@ -195,7 +186,6 @@ export function Step6ChangesReview(): JSX.Element {
           decisions={uploadDuplicateDecisions}
           undecidedCount={undecidedUploadDuplicates}
           onSetDecision={setUploadDuplicateDecision}
-          onAcceptAllHigher={acceptHigherAllUploadDuplicates}
         />
       )}
 
@@ -389,7 +379,6 @@ interface UploadDuplicatesSectionProps {
   decisions: Record<string, UploadDuplicateDecision>;
   undecidedCount: number;
   onSetDecision: (nid: string, decision: UploadDuplicateDecision) => void;
-  onAcceptAllHigher: () => void;
 }
 
 function UploadDuplicatesSection({
@@ -397,7 +386,6 @@ function UploadDuplicatesSection({
   decisions,
   undecidedCount,
   onSetDecision,
-  onAcceptAllHigher,
 }: UploadDuplicatesSectionProps): JSX.Element {
   return (
     <section className="flex flex-col gap-3">
@@ -415,14 +403,6 @@ function UploadDuplicatesSection({
             بحاجة لقرار صريح.
           </span>
         </div>
-        <Button
-          size="sm"
-          variant="primary"
-          leadingIcon={<Check size={12} strokeWidth={2} aria-hidden />}
-          onClick={onAcceptAllHigher}
-        >
-          قبول الكل بالدرجة الأعلى
-        </Button>
       </header>
 
       <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
@@ -596,15 +576,21 @@ function UploadDuplicateCard({
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {duplicate.hasTotalConflict && (
-            <Button
-              size="sm"
-              variant={decision.action === 'pick-higher' ? 'primary' : 'secondary'}
-              onClick={() => onSetDecision({ action: 'pick-higher' })}
-            >
-              قبول بالدرجة الأعلى
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant={decision.action !== 'reject' ? 'primary' : 'secondary'}
+            leadingIcon={<Check size={12} strokeWidth={2} aria-hidden />}
+            disabled={selectedRowIndex == null}
+            onClick={() => {
+              if (selectedRowIndex == null) return;
+              onSetDecision({
+                action: 'pick-row',
+                pickedSourceRowIndex: selectedRowIndex,
+              });
+            }}
+          >
+            قبول الطالب بالدرجة المختارة
+          </Button>
           <Button
             size="sm"
             variant={decision.action === 'reject' ? 'primary' : 'secondary'}

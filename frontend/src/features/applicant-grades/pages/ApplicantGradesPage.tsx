@@ -318,6 +318,7 @@ export function ApplicantGradesPage(): JSX.Element {
         'سنة التخرج',
         'فئة المدرسة',
         'اسم المدرسة',
+        'المحافظة',
         'الدور',
         'المجموع الكلي',
         'الدرجة العظمى',
@@ -332,6 +333,7 @@ export function ApplicantGradesPage(): JSX.Element {
         r.graduationYear ?? '',
         r.schoolCategoryCode ? schoolCategoryLabel.get(r.schoolCategoryCode) ?? '' : '',
         r.school ?? '',
+        r.region ?? '',
         r.examRound ?? '',
         r.total,
         r.overrideMax ?? r.importMax,
@@ -500,7 +502,6 @@ export function ApplicantGradesPage(): JSX.Element {
     {
       key: 'school',
       label: 'اسم المدرسة',
-      hideOn: 'md',
       sortable: true,
       getSortValue: (r) => r.school ?? '',
       filter: { kind: 'text', getValue: (r) => r.school ?? '' },
@@ -513,9 +514,22 @@ export function ApplicantGradesPage(): JSX.Element {
         ),
     },
     {
+      key: 'region',
+      label: 'المحافظة',
+      sortable: true,
+      getSortValue: (r) => r.region ?? '',
+      filter: { kind: 'text', getValue: (r) => r.region ?? '' },
+      className: 'min-w-[10ch] whitespace-normal',
+      render: (r) =>
+        r.region ? (
+          <span className="text-xs text-ink-700">{r.region}</span>
+        ) : (
+          <span className="text-2xs text-ink-300">—</span>
+        ),
+    },
+    {
       key: 'examRound',
       label: 'الدور',
-      hideOn: 'md',
       align: 'center',
       sortable: true,
       getSortValue: (r) => r.examRound ?? '',
