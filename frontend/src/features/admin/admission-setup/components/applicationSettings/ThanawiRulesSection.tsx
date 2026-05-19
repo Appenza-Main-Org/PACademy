@@ -30,15 +30,20 @@ import {
   Tooltip,
   TooltipProvider,
 } from '@/shared/components';
-import type { SearchSelectOption } from '@/shared/components';
+import type { RadixSelectOption, SearchSelectOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import {
+  DEFAULT_MAX_SCORE_OPERATOR,
+  DEFAULT_MIN_SCORE_OPERATOR,
   useAdmissionSetupWizardStore,
   type LocalThanawiRow,
+  type MaxScoreOperator,
+  type MinScoreOperator,
   type ThanawiRuleRowInput,
 } from '../../store/wizardSharedState';
+import { OperatorScoreField } from './OperatorScoreField';
 
 const EMPTY_INPUT: ThanawiRuleRowInput = {
   examRound: '',
@@ -46,13 +51,39 @@ const EMPTY_INPUT: ThanawiRuleRowInput = {
   graduationYear: null,
   schoolCategories: [],
   scoreMin: null,
+  minScoreOperator: DEFAULT_MIN_SCORE_OPERATOR,
   scoreMax: null,
+  maxScoreOperator: DEFAULT_MAX_SCORE_OPERATOR,
 };
 
-/** Inclusive percentage bounds for the score range — bounded by the
- *  admission test grading convention (0–100). */
+/** Lower bound for both inputs — "positive numbers only".
+ *  The min field has an upper bound at 100 (percentage convention).
+ *  The max field has no upper bound and may exceed 100. */
 const SCORE_MIN_BOUND = 0;
-const SCORE_MAX_BOUND = 100;
+/** Upper bound for the «الحد الأدنى للدرجة» input only. */
+const MIN_SCORE_UPPER_BOUND = 100;
+
+/** Comparison-operator options for the lower percentage-score bound. */
+const MIN_SCORE_OPERATOR_OPTIONS: ReadonlyArray<RadixSelectOption<MinScoreOperator>> = [
+  { value: 'GREATER_THAN_OR_EQUAL', label: 'أكبر من أو يساوي' },
+  { value: 'GREATER_THAN', label: 'أكبر من' },
+];
+
+/** Comparison-operator options for the upper percentage-score bound. */
+const MAX_SCORE_OPERATOR_OPTIONS: ReadonlyArray<RadixSelectOption<MaxScoreOperator>> = [
+  { value: 'LESS_THAN_OR_EQUAL', label: 'أقل من أو يساوي' },
+  { value: 'LESS_THAN', label: 'أقل من' },
+];
+
+/** Short symbolic labels for inline rendering in approved-rules grids. */
+const MIN_OPERATOR_SYMBOL: Record<MinScoreOperator, string> = {
+  GREATER_THAN_OR_EQUAL: '≥',
+  GREATER_THAN: '>',
+};
+const MAX_OPERATOR_SYMBOL: Record<MaxScoreOperator, string> = {
+  LESS_THAN_OR_EQUAL: '≤',
+  LESS_THAN: '<',
+};
 
 interface ThanawiRulesSectionProps {
   categoryCode: string;
@@ -399,7 +430,12 @@ function rowToThanawiInput(r: LocalThanawiRow): ThanawiRuleRowInput {
     graduationYear: r.graduationYear,
     schoolCategories: [...r.schoolCategories],
     scoreMin: r.scoreMin,
+    /* Defensive fallback for legacy rows authored before operator fields
+     * existed on the row shape — defaults to the inclusive (`≥`/`≤`)
+     * behaviour the bare numeric bounds historically implied. */
+    minScoreOperator: r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR,
     scoreMax: r.scoreMax,
+    maxScoreOperator: r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR,
   };
 }
 
@@ -477,13 +513,19 @@ function ThanawiForm({
     setDraft(editingRow ? rowToThanawiInput(editingRow) : EMPTY_INPUT);
   }
 
+  /* OperatorScoreField clamps to [0, maxBound] on blur, but we still
+   *  guard the submit gate so a focus-stolen blur or paste-then-submit
+   *  can't sneak an out-of-range value past. Max has no upper bound;
+   *  only enforce the lower 0. */
   const scoreMinOutOfBounds =
     draft.scoreMin !== null &&
-    (draft.scoreMin < SCORE_MIN_BOUND || draft.scoreMin > SCORE_MAX_BOUND);
+    (draft.scoreMin < SCORE_MIN_BOUND || draft.scoreMin > MIN_SCORE_UPPER_BOUND);
 
   const scoreMaxOutOfBounds =
-    draft.scoreMax !== null &&
-    (draft.scoreMax < SCORE_MIN_BOUND || draft.scoreMax > SCORE_MAX_BOUND);
+    draft.scoreMax !== null && draft.scoreMax < SCORE_MIN_BOUND;
+
+  const [scoreMinMessage, setScoreMinMessage] = useState<string | null>(null);
+  const [scoreMaxMessage, setScoreMaxMessage] = useState<string | null>(null);
 
   const scoreOrderInvalid =
     draft.scoreMin !== null &&
@@ -607,51 +649,53 @@ function ThanawiForm({
 
         <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
           <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
-            <Input
-              type="number"
-              min={SCORE_MIN_BOUND}
-              max={SCORE_MAX_BOUND}
-              step="0.01"
-              inputMode="decimal"
-              placeholder="٠ – ١٠٠"
-              value={draft.scoreMin ?? ''}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  scoreMin: e.target.value === '' ? null : Number(e.target.value),
-                }))
+            <OperatorScoreField<MinScoreOperator>
+              operatorValue={draft.minScoreOperator}
+              onOperatorChange={(v) =>
+                setDraft((d) => ({ ...d, minScoreOperator: v }))
               }
-              error={
-                scoreMinOutOfBounds
-                  ? 'القيمة خارج النطاق ٠–١٠٠٪'
-                  : undefined
+              operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
+              operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
+              scoreValue={draft.scoreMin}
+              onScoreChange={(next) =>
+                setDraft((d) => ({ ...d, scoreMin: next }))
               }
+              scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
+              invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
+              maxBound={MIN_SCORE_UPPER_BOUND}
+              onClampMessage={setScoreMinMessage}
             />
+            {scoreMinMessage && (
+              <span className="font-ar text-2xs text-terra-700">
+                {scoreMinMessage}
+              </span>
+            )}
           </FieldLabel>
 
           <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
-            <Input
-              type="number"
-              min={SCORE_MIN_BOUND}
-              max={SCORE_MAX_BOUND}
-              step="0.01"
-              inputMode="decimal"
-              placeholder="٠ – ١٠٠"
-              value={draft.scoreMax ?? ''}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  scoreMax: e.target.value === '' ? null : Number(e.target.value),
-                }))
+            <OperatorScoreField<MaxScoreOperator>
+              operatorValue={draft.maxScoreOperator}
+              onOperatorChange={(v) =>
+                setDraft((d) => ({ ...d, maxScoreOperator: v }))
               }
-              error={
-                scoreMaxOutOfBounds
-                  ? 'القيمة خارج النطاق ٠–١٠٠٪'
-                  : scoreOrderInvalid
-                    ? 'يجب ألا تقل عن الحد الأدنى'
-                    : undefined
+              operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
+              operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
+              scoreValue={draft.scoreMax}
+              onScoreChange={(next) =>
+                setDraft((d) => ({ ...d, scoreMax: next }))
               }
+              scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
+              invalid={
+                scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
+              }
+              maxBound={MIN_SCORE_UPPER_BOUND}
+              onClampMessage={setScoreMaxMessage}
             />
+            {(scoreMaxMessage || scoreOrderInvalid) && (
+              <span className="font-ar text-2xs text-terra-700">
+                {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
+              </span>
+            )}
           </FieldLabel>
         </div>
 
@@ -785,12 +829,12 @@ function ThanawiGrid({
                 </Td>
                 <Td>
                   {r.scoreMin !== null
-                    ? `${toEasternArabicNumerals(r.scoreMin)}٪`
+                    ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
                     : '—'}
                 </Td>
                 <Td>
                   {r.scoreMax !== null
-                    ? `${toEasternArabicNumerals(r.scoreMax)}٪`
+                    ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
                     : '—'}
                 </Td>
                 <td className="px-3 py-2 align-middle text-end">

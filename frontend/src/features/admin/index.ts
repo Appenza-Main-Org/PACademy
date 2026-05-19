@@ -28,6 +28,7 @@ export { ReportsPage } from './pages/ReportsPage';
  * (features/lookups/pages/LookupsHubPage). */
 export { CyclesPage } from './pages/CyclesPage';
 export { CycleDetailPage } from './pages/CycleDetailPage';
+export { CycleEditPage } from './pages/CycleEditPage';
 
 /* Post-polish admin pages — Buckets D and E */
 export { CategoriesListPage } from './pages/CategoriesListPage';

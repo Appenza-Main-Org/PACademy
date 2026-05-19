@@ -45,6 +45,7 @@ export const ROUTES = {
     cycles: '/admin/cycles',
     cycleDetail: (id = ':id'): string => `/admin/cycles/${id}`,
     cycleNew: '/admin/cycles/new',
+    cycleEdit: (id = ':id'): string => `/admin/cycles/${id}/edit`,
     categories: '/admin/categories',
     categoryEdit: (key = ':key'): string => `/admin/categories/${key}`,
     workflows: '/admin/workflows',

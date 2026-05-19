@@ -1,9 +1,11 @@
 /**
  * CycleDetailPage — read-only summary of one admission cycle.
  *
- * Shows the trimmed field set that survives the schema simplification:
- *   اسم الدورة · السنة · تاريخ الفتح · تاريخ الإغلاق · الحالة.
- * No editing affordances here — admins create cycles from /admin/cycles/new.
+ * Mirrors the field set of `/admin/cycles/new` (CycleNewPage) 1:1 —
+ * اسم الدورة · السنة — so reading the detail page reads the same row
+ * the admin authored. Status sits alongside as a Badge in the header.
+ * Editing happens from the cycles list (CyclesPage) which routes to
+ * the dedicated edit page.
  */
 
 import { useParams } from 'react-router-dom';
@@ -17,7 +19,6 @@ import {
 } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
-import { date as fmtDate } from '@/shared/lib/format';
 import { useCycle } from '../api/cycles.queries';
 import type { CycleStatus } from '@/shared/types/domain';
 
@@ -108,16 +109,6 @@ export function CycleDetailPage(): JSX.Element {
               <span className="font-numeric tnum" dir="ltr">
                 {cycle.year}
               </span>
-            }
-          />
-          <Field label="تاريخ الفتح" value={fmtDate(cycle.openDate, 'full')} />
-          <Field label="تاريخ الإغلاق" value={fmtDate(cycle.closeDate, 'full')} />
-          <Field
-            label="حالة الدورة"
-            value={
-              <Badge tone={STATUS_TONE[cycle.status]}>
-                {STATUS_LABEL[cycle.status]}
-              </Badge>
             }
           />
         </div>
