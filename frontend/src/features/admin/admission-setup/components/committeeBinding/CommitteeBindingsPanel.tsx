@@ -1,27 +1,37 @@
 /**
  * إدارة مواعيد الاختبارات واللجان — bindings panel (wizard step).
  *
- * Form: a 3-row grid (labels / inputs+button / helpers) so the "إضافة"
- * button sits flush with the bottom edge of the input boxes regardless
- * of helper-text presence.
+ * Sources:
+ *   - Committee **definitions** (the catalog) come from the
+ *     `/admin/lookups/committees` lookup, read via `useLookup('committees')`.
+ *     Definitions filtered by `applicantCategoryId === currentCategory`.
+ *   - Per-cycle, per-date assignments are persisted as `CommitteeInstance`
+ *     records via `committeeInstanceService` — the same record set the
+ *     `/admin/committees` management page lists + edits. Edits in either
+ *     surface update the same entity.
  *
- * Grid: rows are always grouped by exam date inside a Radix Accordion.
- * The `اليوم` value lives in the section header, so each section's
- * body keeps only three data columns — `الفئة`, `اللجنة`, `سعة اللجنة`
- * — plus the per-row delete action. Rows are always primary-sorted by
- * `الفئة` so a custom `MergedCategoryTable` can `rowSpan` consecutive
- * matches into a single vertically-centred cell.
+ * UX: a 3-row grid (labels / inputs+button / helpers). The form picks
+ * one or more applicant-categories, then the date + capacity. On submit
+ * the panel fans out to every active definition in each picked category
+ * and creates one instance per (definition × date). Already-existing
+ * (cycle × definition × date) rows accumulate capacity through update;
+ * missing ones come through insert. A summary toast reports both counts.
  *
- * Add semantics: idempotent merge. When the user submits, the panel
- * splits the (category × committee × date) targets into two buckets —
- * rows that already exist accumulate their capacity via update; rows
- * that don't are inserted via `addScheduleEntries`. A summary toast
- * reports both counts.
+ * Grid: rows are grouped by exam date inside a Radix Accordion. Each
+ * section's body keeps three data columns — `الفئة`, `اللجنة`, `سعة اللجنة`
+ * — plus the per-row delete. Rows are primary-sorted by `الفئة` so the
+ * `MergedCategoryTable` can `rowSpan` consecutive matches into a single
+ * vertically-centred cell.
+ *
+ * Wizard state contract: this panel persists only committee **codes**
+ * (lookups['committees'].code) on the instance row. Display names are
+ * resolved at render time from the lookup, never mirrored on the
+ * instance. That's why dropping a definition from the lookup is enough
+ * to drop it from every cycle that references it.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { useQueries } from '@tanstack/react-query';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import {
   Accordion,
@@ -37,18 +47,18 @@ import {
 import type { ComboboxOption } from '@/shared/components';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
+import { useLookup } from '@/features/lookups';
+import type { CommitteeDefinition } from '@/features/lookups';
 import {
-  scheduleKeys,
-  useAddScheduleEntriesMutation,
-  useCommittees,
-  useRemoveScheduleEntryMutation,
-  useUpdateScheduleEntryMutation,
-} from '@/features/committees/api/committee.queries';
-import { committeeService } from '@/features/committees/api/committee.service';
+  useAddCommitteeInstancesMutation,
+  useCommitteeInstances,
+  useRemoveCommitteeInstanceMutation,
+  useUpdateCommitteeInstanceMutation,
+} from '@/features/committees';
 import type {
   AdmissionCycle,
   ApplicantCategoryKey,
-  ExamScheduleEntry,
+  CommitteeInstance,
 } from '@/shared/types/domain';
 
 export interface CommitteeBindingsPanelProps {
@@ -58,7 +68,7 @@ export interface CommitteeBindingsPanelProps {
 
 interface BindingRow {
   id: string;
-  committeeId: string;
+  definitionCode: string;
   committeeName: string;
   date: string;
   capacity: number;
@@ -90,19 +100,38 @@ function toIsoDate(d: Date): string {
 }
 
 export function CommitteeBindingsPanel({
+  cycle,
   active,
 }: CommitteeBindingsPanelProps): JSX.Element {
-  const committeesQuery = useCommittees();
-  const allCommittees = committeesQuery.data ?? [];
-  const committeeNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of allCommittees) map.set(c.id, c.name);
-    return map;
-  }, [allCommittees]);
+  const definitionsQuery = useLookup('committees');
+  const allDefinitions = definitionsQuery.data ?? [];
 
-  const addEntriesMut = useAddScheduleEntriesMutation();
-  const removeMut = useRemoveScheduleEntryMutation();
-  const updateMut = useUpdateScheduleEntryMutation();
+  /* Filter by `isActive` so retired definitions can't be re-assigned, and
+   * group by category for the per-(category × definition) fan-out below. */
+  const definitionsByCategory = useMemo(() => {
+    const map = new Map<string, CommitteeDefinition[]>();
+    for (const def of allDefinitions) {
+      if (!def.isActive) continue;
+      const list = map.get(def.applicantCategoryId);
+      if (list) list.push(def);
+      else map.set(def.applicantCategoryId, [def]);
+    }
+    return map;
+  }, [allDefinitions]);
+
+  const definitionNameByCode = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const def of allDefinitions) map.set(def.code, def.name);
+    return map;
+  }, [allDefinitions]);
+
+  /* Instances scoped to this cycle — the wizard surface only reads/writes
+   * its own cycle's rows. The `/admin/committees` management page reads
+   * across all cycles. */
+  const instancesQuery = useCommitteeInstances({ cycleId: cycle.id });
+  const addMut = useAddCommitteeInstancesMutation();
+  const removeMut = useRemoveCommitteeInstanceMutation();
+  const updateMut = useUpdateCommitteeInstanceMutation();
 
   /* ── form state ───────────────────────────────────────────────── */
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -117,22 +146,11 @@ export function CommitteeBindingsPanel({
   const dateValid = pickedDate !== null;
   const categoriesValid = selectedCategories.length >= 1;
 
-  /* ── grid data: one query per active category ─────────────────── */
-  const scheduleQueries = useQueries({
-    queries: active.map((a) => ({
-      queryKey: scheduleKeys.byCategory(a.key),
-      queryFn: () => committeeService.listSchedule(a.key),
-    })),
-  });
-  const scheduleLoading = scheduleQueries.some((q) => q.isLoading);
-  const submitting = addEntriesMut.isPending || updateMut.isPending;
+  const submitting = addMut.isPending || updateMut.isPending;
+  const loading = instancesQuery.isLoading || definitionsQuery.isLoading;
 
   const canSubmit =
-    dateValid &&
-    capacityValid &&
-    categoriesValid &&
-    !submitting &&
-    !scheduleLoading;
+    dateValid && capacityValid && categoriesValid && !submitting && !loading;
 
   const categoryOptions = useMemo<ComboboxOption[]>(
     () => active.map((a) => ({ value: a.key, label: a.labelAr })),
@@ -141,65 +159,49 @@ export function CommitteeBindingsPanel({
 
   const formCommitteeCount = useMemo(() => {
     return selectedCategories.reduce((sum, key) => {
-      return (
-        sum +
-        allCommittees.filter(
-          (c) => c.categoryKey === (key as ApplicantCategoryKey) && !c.deletedAt,
-        ).length
-      );
+      return sum + (definitionsByCategory.get(key)?.length ?? 0);
     }, 0);
-  }, [allCommittees, selectedCategories]);
+  }, [definitionsByCategory, selectedCategories]);
 
   const handleAdd = async (): Promise<void> => {
     if (!canSubmit || !pickedDate) return;
     const iso = toIsoDate(pickedDate);
 
-    /* Build (category × committee × date) targets for the selected
+    /* Build (category × definition × date) targets for the selected
      * categories. */
     const targets: Array<{
       categoryKey: ApplicantCategoryKey;
-      committeeId: string;
+      definitionCode: string;
       date: string;
       capacity: number;
     }> = [];
     for (const key of selectedCategories) {
       const catKey = key as ApplicantCategoryKey;
-      const cats = allCommittees.filter(
-        (c) => c.categoryKey === catKey && !c.deletedAt,
-      );
-      for (const committee of cats) {
+      const defs = definitionsByCategory.get(catKey) ?? [];
+      for (const def of defs) {
         targets.push({
           categoryKey: catKey,
-          committeeId: committee.id,
+          definitionCode: def.code,
           date: iso,
           capacity: capacityRaw,
         });
       }
     }
 
-    /* Partition: rows already present accumulate; rows missing are
-     * inserted. Existing rows live in the per-category schedule query
-     * caches we already streamed via `useQueries`. */
-    const existingByKey = new Map<string, ExamScheduleEntry>();
-    scheduleQueries.forEach((q) => {
-      const rows = q.data ?? [];
-      for (const e of rows) existingByKey.set(`${e.committeeId}|${e.date}`, e);
-    });
+    /* Partition: rows already present in this cycle accumulate; rows
+     * missing are inserted. Keyed by (definitionCode, date) since cycle
+     * is fixed in this panel. */
+    const existingByKey = new Map<string, CommitteeInstance>();
+    for (const e of instancesQuery.data ?? []) {
+      existingByKey.set(`${e.definitionCode}|${e.date}`, e);
+    }
 
-    const updates: Array<{
-      id: string;
-      categoryKey: ApplicantCategoryKey;
-      nextCapacity: number;
-    }> = [];
+    const updates: Array<{ id: string; nextCapacity: number }> = [];
     const inserts: typeof targets = [];
     for (const t of targets) {
-      const existing = existingByKey.get(`${t.committeeId}|${t.date}`);
+      const existing = existingByKey.get(`${t.definitionCode}|${t.date}`);
       if (existing) {
-        updates.push({
-          id: existing.id,
-          categoryKey: t.categoryKey,
-          nextCapacity: existing.capacity + t.capacity,
-        });
+        updates.push({ id: existing.id, nextCapacity: existing.capacity + t.capacity });
       } else {
         inserts.push(t);
       }
@@ -210,12 +212,19 @@ export function CommitteeBindingsPanel({
         ...updates.map((u) =>
           updateMut.mutateAsync({
             id: u.id,
-            categoryKey: u.categoryKey,
             patch: { capacity: u.nextCapacity },
           }),
         ),
         inserts.length > 0
-          ? addEntriesMut.mutateAsync(inserts)
+          ? addMut.mutateAsync(
+              inserts.map((i) => ({
+                cycleId: cycle.id,
+                categoryKey: i.categoryKey,
+                definitionCode: i.definitionCode,
+                date: i.date,
+                capacity: i.capacity,
+              })),
+            )
           : Promise.resolve(null),
       ]);
       const added = inserts.length;
@@ -241,48 +250,46 @@ export function CommitteeBindingsPanel({
       const ok = window.confirm('سيتم حذف هذا الموعد. هل تريد المتابعة؟');
       if (!ok) return;
     }
-    removeMut.mutate(
-      { id: row.id, categoryKey: row.categoryKey },
-      {
-        onSuccess: () => toast('تم حذف الموعد', 'success'),
-        onError: (err) => toast((err as Error).message, 'danger'),
-      },
-    );
+    removeMut.mutate(row.id, {
+      onSuccess: () => toast('تم حذف الموعد', 'success'),
+      onError: (err) => toast((err as Error).message, 'danger'),
+    });
   };
+
+  /* Build view rows by joining instances (this cycle) with the active
+   * category list (for label) and the definitions lookup (for name).
+   * Instances whose category isn't currently active in the cycle stay
+   * filtered out — admins flip them back on by reactivating the category
+   * upstream. */
+  const activeLabelByKey = useMemo(() => {
+    const map = new Map<ApplicantCategoryKey, string>();
+    for (const a of active) map.set(a.key, a.labelAr);
+    return map;
+  }, [active]);
 
   const rows = useMemo<BindingRow[]>(() => {
     const out: BindingRow[] = [];
-    scheduleQueries.forEach((q, idx) => {
-      const cat = active[idx];
-      if (!cat || !q.data) return;
-      for (const entry of q.data) {
-        out.push({
-          id: entry.id,
-          committeeId: entry.committeeId,
-          committeeName: committeeNameById.get(entry.committeeId) ?? entry.committeeId,
-          date: entry.date,
-          capacity: entry.capacity,
-          categoryKey: cat.key,
-          categoryLabel: cat.labelAr,
-        });
-      }
-    });
+    for (const inst of instancesQuery.data ?? []) {
+      const categoryLabel = activeLabelByKey.get(inst.categoryKey);
+      if (!categoryLabel) continue;
+      out.push({
+        id: inst.id,
+        definitionCode: inst.definitionCode,
+        committeeName: definitionNameByCode.get(inst.definitionCode) ?? inst.definitionCode,
+        date: inst.date,
+        capacity: inst.capacity,
+        categoryKey: inst.categoryKey,
+        categoryLabel,
+      });
+    }
     return out;
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [
-    active,
-    committeeNameById,
-    scheduleQueries.map((q) => q.dataUpdatedAt).join('|'),
-    scheduleQueries.map((q) => q.data?.length ?? 0).join('|'),
-  ]);
+  }, [activeLabelByKey, definitionNameByCode, instancesQuery.data]);
 
   /* ── grouping by exam date ─────────────────────────────────────── *
    * Within each date section rows are primary-sorted by الفئة (then by
    * committee name as a stable secondary key) so the rowspan-merge in
    * `MergedCategoryTable` lands on truly-consecutive matches. */
-  const dateGroups = useMemo<
-    { date: string; rows: BindingRow[] }[]
-  >(() => {
+  const dateGroups = useMemo<{ date: string; rows: BindingRow[] }[]>(() => {
     const arabicCmp = (a: string, b: string): number =>
       a.localeCompare(b, 'ar', { numeric: true });
     const bucket = new Map<string, BindingRow[]>();
@@ -304,7 +311,7 @@ export function CommitteeBindingsPanel({
 
   const handleCapacityCommit = (row: BindingRow, next: number): void => {
     updateMut.mutate(
-      { id: row.id, categoryKey: row.categoryKey, patch: { capacity: next } },
+      { id: row.id, patch: { capacity: next } },
       {
         onSuccess: () => toast('تم تحديث السعة', 'success'),
         onError: (err) => toast((err as Error).message, 'danger'),
@@ -402,7 +409,7 @@ export function CommitteeBindingsPanel({
 
       <DateGroupedView
         groups={dateGroups}
-        loading={scheduleLoading}
+        loading={loading}
         isCapacitySaving={updateMut.isPending}
         onCapacityCommit={handleCapacityCommit}
         onDelete={handleRemove}
