@@ -146,7 +146,11 @@ import {
   QuestionBankCRUDPage,
   QuestionBankPage,
 } from '@/features/exams';
-import { ApplicantGradesImportPage, ApplicantGradesPage } from '@/features/applicant-grades';
+import {
+  ApplicantGradesChangesPage,
+  ApplicantGradesImportPage,
+  ApplicantGradesPage,
+} from '@/features/applicant-grades';
 
 /**
  * AdminIndexRoute — every admin role lands on the admissions command
@@ -250,6 +254,7 @@ export const routes: RouteObject[] = [
       { path: 'workflows/:id', element: <WorkflowEditorPage /> },
       { path: 'applicant-grades', element: <ApplicantGradesPage /> },
       { path: 'applicant-grades/import', element: <ApplicantGradesImportPage /> },
+      { path: 'applicant-grades/changes', element: <ApplicantGradesChangesPage /> },
       /* Admission Setup — config-driven ordered steps. The route segments
        * mirror `routeSegment` from `ADMISSION_SETUP_STEPS`; adding a new
        * step is a config-entry append plus a route line here. AuthGuard +
