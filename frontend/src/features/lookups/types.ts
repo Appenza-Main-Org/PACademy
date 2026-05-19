@@ -224,6 +224,14 @@ export interface CommitteeRow extends LookupRowBase {
   description?: string;
 }
 
+/**
+ * CommitteeDefinition — semantic alias for `CommitteeRow`. The lookup
+ * row is the **catalog** entry (cross-cycle identity); the per-cycle
+ * scheduled assignment is `CommitteeInstance` in `shared/types/domain`.
+ * Consumers that care about the distinction import this alias.
+ */
+export type CommitteeDefinition = CommitteeRow;
+
 export interface FacultyRow extends LookupRowBase {}
 
 /** Specialization belongs to exactly one faculty (FK → `faculties`).

@@ -20,3 +20,21 @@ export {
 } from './api/committee.queries';
 export { useApproveResults, useEnterResult, useRejectResult } from './api/committee.queries';
 export { deriveCommitteeGender } from '@/shared/lib/committee-gender';
+
+/* Committee instances — cycle-bound, dated, capacity-bearing committee
+ * assignments. Authored by the admission-setup wizard step + the
+ * `/admin/committees` management page; both surfaces share the same
+ * underlying record set. */
+export {
+  committeeInstanceService,
+  type CommitteeInstanceAddInput,
+  type CommitteeInstanceListFilters,
+  type CommitteeInstancePatch,
+} from './api/committeeInstance.service';
+export {
+  committeeInstanceKeys,
+  useCommitteeInstances,
+  useAddCommitteeInstancesMutation,
+  useUpdateCommitteeInstanceMutation,
+  useRemoveCommitteeInstanceMutation,
+} from './api/committeeInstance.queries';

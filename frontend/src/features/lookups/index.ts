@@ -24,6 +24,7 @@ export {
   type TestResultOutcome,
   type TestResultTone,
   type CommitteeRow,
+  type CommitteeDefinition,
   type SpecializationRow,
   type FacultyRow,
   type ApplicantCategoryRow,

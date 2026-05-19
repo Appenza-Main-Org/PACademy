@@ -48,7 +48,9 @@ export type ConflictCode =
   | 'TAGDIR_GRADE_NOT_FOUND'
   | 'MODE_MISMATCH'
   | 'DAY_NOT_WORKING'
-  | 'COMMITTEE_WRONG_CATEGORY';
+  | 'COMMITTEE_WRONG_CATEGORY'
+  // Committee instances — `/admin/committees` and the wizard committees step.
+  | 'COMMITTEE_INSTANCE_DUPLICATE';
 
 /** Generic conflict — a precondition rejected the mutation. */
 export class ConflictError<TPayload = unknown> extends Error {
