@@ -19,9 +19,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Check, Pencil, X } from 'lucide-react';
+import {
+  Check,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Pencil,
+  X,
+} from 'lucide-react';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
+  Accordion,
+  Button,
   Card,
   EmptyState,
   LoadingState,
@@ -38,6 +46,10 @@ import {
   useUpdateCommitteeInstanceMutation,
 } from '@/features/committees';
 import type { AdmissionCycle, CommitteeInstance } from '@/shared/types/domain';
+import {
+  resolveExpandedDates,
+  useDayExpansionStore,
+} from './committee-instances/expansionStore';
 
 const BLOCKED_NUMERIC_KEYS = new Set(['-', '+', 'e', 'E', '.', ',']);
 
@@ -174,6 +186,35 @@ export function CommitteeInstancesPage(): JSX.Element {
     definitionsQuery.isLoading ||
     categoriesQuery.isLoading;
 
+  /* Expansion state — persisted per cycle in localStorage. Default is
+   * "all days expanded" until the admin touches a section, after which
+   * their explicit set wins until they hit reset. */
+  const byCycle = useDayExpansionStore((s) => s.byCycle);
+  const setExpanded = useDayExpansionStore((s) => s.setExpanded);
+  const allDayDates = useMemo(() => dayGroups.map((g) => g.date), [dayGroups]);
+  const expandedDates = useMemo(
+    () => resolveExpandedDates(byCycle, resolvedCycleId, allDayDates),
+    [byCycle, resolvedCycleId, allDayDates],
+  );
+
+  const handleExpansionChange = (next: string[]): void => {
+    if (!resolvedCycleId) return;
+    setExpanded(resolvedCycleId, next);
+  };
+
+  const expandAll = (): void => {
+    if (!resolvedCycleId) return;
+    setExpanded(resolvedCycleId, allDayDates);
+  };
+
+  const collapseAll = (): void => {
+    if (!resolvedCycleId) return;
+    setExpanded(resolvedCycleId, []);
+  };
+
+  const allExpanded = allDayDates.length > 0 && expandedDates.length === allDayDates.length;
+  const allCollapsed = expandedDates.length === 0;
+
   return (
     <CenteredShell>
       <PageHeader
@@ -209,11 +250,53 @@ export function CommitteeInstancesPage(): JSX.Element {
           </div>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3">
-          {dayGroups.map((group) => (
-            <DaySection key={group.date} group={group} />
-          ))}
-        </div>
+        <>
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={expandAll}
+              disabled={allExpanded}
+              leadingIcon={<ChevronsUpDown size={14} strokeWidth={1.75} />}
+            >
+              توسيع الكل
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={collapseAll}
+              disabled={allCollapsed}
+              leadingIcon={<ChevronsDownUp size={14} strokeWidth={1.75} />}
+            >
+              طي الكل
+            </Button>
+          </div>
+          <Card>
+            <Accordion
+              type="multiple"
+              value={expandedDates}
+              onValueChange={(next) => handleExpansionChange(next as string[])}
+            >
+              {dayGroups.map((group) => (
+                <Accordion.Item key={group.date} value={group.date}>
+                  <Accordion.Trigger>
+                    <span className="flex w-full items-center justify-between gap-2">
+                      <span className="font-ar-display text-sm font-bold text-ink-900">
+                        {fmtDate(group.date, 'full')}
+                      </span>
+                      <span className="text-2xs text-ink-500">
+                        {num(group.rows.length)} لجنة
+                      </span>
+                    </span>
+                  </Accordion.Trigger>
+                  <Accordion.Content>
+                    <CommitteeRowsTable rows={group.rows} />
+                  </Accordion.Content>
+                </Accordion.Item>
+              ))}
+            </Accordion>
+          </Card>
+        </>
       )}
     </CenteredShell>
   );
@@ -261,27 +344,7 @@ function CycleHeaderBlock({
   );
 }
 
-/* ── Day section ────────────────────────────────────────────────── */
-
-interface DaySectionProps {
-  group: DayGroup;
-}
-
-function DaySection({ group }: DaySectionProps): JSX.Element {
-  return (
-    <Card>
-      <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
-        <h2 className="font-ar-display text-sm font-bold text-ink-900">
-          {fmtDate(group.date, 'full')}
-        </h2>
-        <span className="text-2xs text-ink-500">
-          {num(group.rows.length)} لجنة
-        </span>
-      </header>
-      <CommitteeRowsTable rows={group.rows} />
-    </Card>
-  );
-}
+/* ── Per-day committee rows ──────────────────────────────────────── */
 
 interface CommitteeRowsTableProps {
   rows: InstanceRow[];
