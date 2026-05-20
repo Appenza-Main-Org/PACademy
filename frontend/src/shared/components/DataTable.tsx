@@ -248,8 +248,12 @@ export function DataTable<TRow>({
   };
 
   const toggleAll = (): void => {
-    if (allSelected) onSelectionChange?.([]);
-    else onSelectionChange?.(allKeys);
+    const visibleKeys = new Set(allKeys);
+    if (allSelected) {
+      onSelectionChange?.(selectedRowKeys.filter((key) => !visibleKeys.has(key)));
+      return;
+    }
+    onSelectionChange?.(Array.from(new Set([...selectedRowKeys, ...allKeys])));
   };
 
   const sortBy = (col: DataTableColumn<TRow>): void => {

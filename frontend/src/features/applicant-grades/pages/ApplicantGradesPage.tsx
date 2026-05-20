@@ -56,7 +56,12 @@ import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { serializeCsv } from '@/shared/lib/csv';
 import { downloadBlob } from '@/shared/lib/download';
 import { useLookup } from '@/features/lookups';
-import { useApplicantGradesList, useClearGrades, useGrades } from '../api/grades.queries';
+import {
+  useApplicantGradesList,
+  useClearGrades,
+  useDeleteGrades,
+  useGrades,
+} from '../api/grades.queries';
 import { gradesService } from '../api/grades.service';
 import { downloadTemplateWorkbook } from '../lib/buildTemplateWorkbook';
 import { useImportWizardStore } from '../store/importWizard.store';
@@ -160,7 +165,10 @@ export function ApplicantGradesPage(): JSX.Element {
   const [sort, setSort] = useState<DataTableSort<GradeRow> | null>(null);
   const [exporting, setExporting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<(string | number)[]>([]);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const clearMut = useClearGrades();
+  const deleteMut = useDeleteGrades();
 
   const { data: paginatedData, isLoading } = useApplicantGradesList({
     page,
@@ -383,6 +391,24 @@ export function ApplicantGradesPage(): JSX.Element {
       toast('تم تصفير البيانات.', 'success');
     } catch {
       toast('تعذّر تصفير البيانات. حاول مرة أخرى.', 'danger');
+    }
+  }
+
+  async function handleBulkDelete(): Promise<void> {
+    const seats = selectedRowKeys
+      .map((key) => (typeof key === 'number' ? key : Number(key)))
+      .filter((seat) => Number.isFinite(seat));
+    if (seats.length === 0) return;
+    try {
+      const result = await deleteMut.mutateAsync(seats);
+      setConfirmBulkDelete(false);
+      setSelectedRowKeys([]);
+      toast(
+        `تم حذف ${result.deleted.toLocaleString('en')} صفًا من بيانات الدرجات.`,
+        'success',
+      );
+    } catch {
+      toast('تعذّر حذف الصفوف المحددة. حاول مرة أخرى.', 'danger');
     }
   }
 
@@ -850,10 +876,37 @@ export function ApplicantGradesPage(): JSX.Element {
                 </span>
               </div>
 
+              {selectedRowKeys.length > 0 && (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-default bg-ink-50 px-3.5 py-2.5">
+                  <div className="flex items-center gap-2 text-sm text-ink-700">
+                    <Badge tone="info">
+                      <span className="font-numeric tabular-nums">
+                        {selectedRowKeys.length.toLocaleString('en')}
+                      </span>{' '}
+                      محدد
+                    </Badge>
+                    <span className="text-2xs text-ink-500">
+                      تنطبق الإجراءات على الصفوف المحددة عبر صفحات الجدول.
+                    </span>
+                  </div>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    leadingIcon={<Trash2 size={13} strokeWidth={1.75} aria-hidden />}
+                    onClick={() => setConfirmBulkDelete(true)}
+                  >
+                    حذف المحدد
+                  </Button>
+                </div>
+              )}
+
               <DataTable<DerivedRow>
                 data={derived}
                 columns={columns}
                 rowKey={(r) => r.seat}
+                selectionMode="multi"
+                selectedRowKeys={selectedRowKeys}
+                onSelectionChange={setSelectedRowKeys}
                 sort={sort as DataTableSort<DerivedRow> | null}
                 onSortChange={(next) => setSort(next as DataTableSort<GradeRow> | null)}
                 onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
@@ -931,6 +984,21 @@ export function ApplicantGradesPage(): JSX.Element {
         tone="danger"
         isActionLoading={clearMut.isPending}
         onAction={() => void handleReset()}
+      />
+
+      <AlertDialog
+        open={confirmBulkDelete}
+        onOpenChange={(next) => {
+          if (!deleteMut.isPending) setConfirmBulkDelete(next);
+        }}
+        title="حذف الصفوف المحددة"
+        description={`سيتم حذف ${toEasternArabicNumerals(selectedRowKeys.length)} صفًا من بيانات الدرجات. لا يمكن التراجع.`}
+        actionLabel="حذف المحدد"
+        cancelLabel="إلغاء"
+        tone="danger"
+        isActionLoading={deleteMut.isPending}
+        isActionDisabled={selectedRowKeys.length === 0}
+        onAction={() => void handleBulkDelete()}
       />
 
       {activeDerived && (

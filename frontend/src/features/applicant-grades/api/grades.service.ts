@@ -3,6 +3,8 @@
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/grades                          → GradeRow[]
+ *   DELETE /api/grades                          → { deleted: number }
+ *     body:  { seats: number[] }
  *   POST   /api/grades/import/stage             → StagedImport
  *     body:  { kind, maxDegree, rows: ImportedGradeRow[] }
  *     409   { code: 'MISSING_REQUIRED_COLUMN', missing: string[] }
@@ -129,6 +131,14 @@ export const gradesService = {
   async clearAll(): Promise<void> {
     await simulateLatency(80, 160);
     STATE = [];
+  },
+
+  async deleteRows(seats: readonly number[]): Promise<{ deleted: number }> {
+    await simulateLatency(80, 180);
+    const selected = new Set(seats);
+    const before = STATE.length;
+    STATE = STATE.filter((row) => !selected.has(row.seat));
+    return { deleted: before - STATE.length };
   },
 
   async addAdjustment(

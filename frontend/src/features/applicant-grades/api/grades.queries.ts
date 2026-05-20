@@ -71,6 +71,14 @@ export function useClearGrades() {
   });
 }
 
+export function useDeleteGrades() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (seats: readonly number[]) => gradesService.deleteRows(seats),
+    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
+  });
+}
+
 export function useAddAdjustment() {
   const qc = useQueryClient();
   return useMutation({
