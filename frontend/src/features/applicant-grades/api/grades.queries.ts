@@ -5,13 +5,16 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { gradesService } from './grades.service';
+import {
+  gradesService,
+  type ApplicantGradesColumnFilters,
+  type ApplicantGradesSort,
+} from './grades.service';
 import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
   AdjustmentReason,
   ApplicantGender,
   CommittedImport,
-  GradeRow,
   ImportCommitResult,
   ImportGroupAction,
   ImportGroupCode,
@@ -25,11 +28,12 @@ export interface PaginatedGradesParams {
   page: number;
   pageSize: number;
   search: string;
-  sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+  sort?: ApplicantGradesSort | null;
   gender?: ApplicantGender | 'all';
   branch?: string | 'all';
   graduationYear?: number | 'all';
   schoolCategoryCode?: string | 'all';
+  columnFilters?: ApplicantGradesColumnFilters;
   changedOnly?: boolean;
 }
 

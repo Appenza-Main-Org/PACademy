@@ -49,6 +49,7 @@ import { ListActions } from './data-table/ListActions';
 import type { ImportResult, ListActionsConfig } from './data-table/list-actions.types';
 import {
   ColumnFilterTrigger,
+  isFilterActive,
   rowPassesFilter,
 } from './data-table/ColumnFilter';
 import type {
@@ -313,6 +314,7 @@ export function DataTable<TRow>({
                   const dir = sorted ? activeSort?.direction : null;
                   const columnLabel = typeof col.label === 'string' ? col.label : col.key;
                   const filterValue = activeFilters[col.key];
+                  const filterActive = isFilterActive(filterValue);
                   const setFilter = (next: ColumnFilterValue | undefined): void => {
                     const merged = { ...activeFilters };
                     if (next === undefined) delete merged[col.key];
@@ -333,6 +335,8 @@ export function DataTable<TRow>({
                         !col.align && !col.numeric && 'text-start',
                         col.hideOn === 'sm' && 'hidden md:table-cell',
                         col.hideOn === 'md' && 'hidden lg:table-cell',
+                        filterActive &&
+                          'bg-teal-50 text-teal-800 shadow-[inset_0_-2px_0_var(--teal-500)]',
                         col.className,
                       )}
                     >

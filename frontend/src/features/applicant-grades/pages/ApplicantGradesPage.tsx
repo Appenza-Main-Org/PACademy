@@ -51,6 +51,7 @@ import {
   toast,
 } from '@/shared/components';
 import type { DataTableColumn, DataTableSort } from '@/shared/components';
+import { isFilterActive, type ColumnFilterValue } from '@/shared/components/data-table';
 import { ROUTES } from '@/config/routes';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { serializeCsv } from '@/shared/lib/csv';
@@ -62,14 +63,14 @@ import {
   useDeleteGrades,
   useGrades,
 } from '../api/grades.queries';
-import { gradesService } from '../api/grades.service';
+import { gradesService, type ApplicantGradesColumnFilters } from '../api/grades.service';
 import { downloadTemplateWorkbook } from '../lib/buildTemplateWorkbook';
 import { useImportWizardStore } from '../store/importWizard.store';
 import { AddAdjustmentDialog } from '../components/AddAdjustmentDialog';
 import { LogDrawer } from '../components/LogDrawer';
 import { StudentDetailsDrawer } from '../components/StudentDetailsDrawer';
 import { deriveRow, type DerivedRow } from '../lib/derive';
-import type { ApplicantGender, GradeRow } from '../types';
+import type { ApplicantGender } from '../types';
 
 type OverlayState =
   | { kind: 'add-adj'; seat: number }
@@ -88,6 +89,8 @@ function parsePageSize(raw: string | null): number {
 }
 
 const DEBOUNCE_MS = 250;
+const ACTIVE_FILTER_CONTROL_CLASS =
+  '!border-teal-500 !bg-teal-50 !text-teal-800 shadow-[inset_0_0_0_1px_var(--teal-500)]';
 
 function useDebouncedValue<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -96,6 +99,25 @@ function useDebouncedValue<T>(value: T, ms: number): T {
     return () => window.clearTimeout(t);
   }, [value, ms]);
   return debounced;
+}
+
+function textColumnFilter(value: ColumnFilterValue | undefined): string | undefined {
+  if (!value || value.kind !== 'text') return undefined;
+  const text = value.contains.trim();
+  return text === '' ? undefined : text;
+}
+
+function numberColumnFilter(
+  value: ColumnFilterValue | undefined,
+): { min: number | null; max: number | null } | null {
+  if (!value || value.kind !== 'number') return null;
+  if (value.min === null && value.max === null) return null;
+  return { min: value.min, max: value.max };
+}
+
+function enumColumnFilter(value: ColumnFilterValue | undefined): readonly string[] | undefined {
+  if (!value || value.kind !== 'enum' || value.values.length === 0) return undefined;
+  return value.values;
 }
 
 export function ApplicantGradesPage(): JSX.Element {
@@ -156,6 +178,7 @@ export function ApplicantGradesPage(): JSX.Element {
   const debouncedSearch = useDebouncedValue(searchInput, DEBOUNCE_MS);
 
   useEffect(() => {
+    if (debouncedSearch !== searchInput) return;
     if (debouncedSearch === qFromUrl) return;
     setSearchParams(
       (prev) => {
@@ -167,11 +190,11 @@ export function ApplicantGradesPage(): JSX.Element {
       },
       { replace: true },
     );
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [debouncedSearch]);
+  }, [debouncedSearch, qFromUrl, searchInput, setSearchParams]);
 
   const [overlay, setOverlay] = useState<OverlayState>(null);
-  const [sort, setSort] = useState<DataTableSort<GradeRow> | null>(null);
+  const [sort, setSort] = useState<DataTableSort<DerivedRow> | null>(null);
+  const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({});
   const [exporting, setExporting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<(string | number)[]>([]);
@@ -182,7 +205,42 @@ export function ApplicantGradesPage(): JSX.Element {
   useEffect(() => {
     setSelectedRowKeys([]);
     setConfirmBulkDelete(false);
-  }, [qFromUrl, genderFromUrl, branchFromUrl, yearFromUrl, schoolCategoryFromUrl, changedOnly]);
+  }, [
+    qFromUrl,
+    genderFromUrl,
+    branchFromUrl,
+    yearFromUrl,
+    schoolCategoryFromUrl,
+    changedOnly,
+    columnFilters,
+  ]);
+
+  const gradeColumnFilters = useMemo<ApplicantGradesColumnFilters>(() => {
+    const totalRange = numberColumnFilter(columnFilters.total);
+    const pctRange = numberColumnFilter(columnFilters.pct);
+    const effRange = numberColumnFilter(columnFilters.eff);
+    const graduationYearRange = numberColumnFilter(columnFilters.graduationYear);
+    return {
+      nid: textColumnFilter(columnFilters.nid),
+      seatingNumber: textColumnFilter(columnFilters.seatingNumber),
+      name: textColumnFilter(columnFilters.name),
+      totalMin: totalRange?.min,
+      totalMax: totalRange?.max,
+      pctMin: pctRange?.min,
+      pctMax: pctRange?.max,
+      effMin: effRange?.min,
+      effMax: effRange?.max,
+      schoolCategoryCodes: enumColumnFilter(columnFilters.schoolCategoryCode),
+      school: textColumnFilter(columnFilters.school),
+      graduationYearMin: graduationYearRange?.min,
+      graduationYearMax: graduationYearRange?.max,
+    };
+  }, [columnFilters]);
+
+  const activeColumnFilterCount = useMemo(
+    () => Object.values(columnFilters).filter(isFilterActive).length,
+    [columnFilters],
+  );
 
   const { data: paginatedData, isLoading } = useApplicantGradesList({
     page,
@@ -193,6 +251,7 @@ export function ApplicantGradesPage(): JSX.Element {
     branch: branchFromUrl,
     graduationYear: yearFromUrl,
     schoolCategoryCode: schoolCategoryFromUrl,
+    columnFilters: gradeColumnFilters,
     changedOnly,
   });
   /* Keep the unpaginated query alive so the stats strip + overlay
@@ -270,11 +329,17 @@ export function ApplicantGradesPage(): JSX.Element {
     (yearFromUrl !== 'all' ? 1 : 0) +
     (schoolCategoryFromUrl !== 'all' ? 1 : 0) +
     (changedOnly ? 1 : 0);
+  const activeSearchCount = qFromUrl.trim() !== '' ? 1 : 0;
+  const activeTotalFilterCount = activeFilterCount + activeSearchCount + activeColumnFilterCount;
+  const hasActiveFilters = activeTotalFilterCount > 0;
 
   function clearAllFilters(): void {
+    setSearchInput('');
+    setColumnFilters({});
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
+        next.delete('q');
         next.delete('gender');
         next.delete('branch');
         next.delete('year');
@@ -309,6 +374,18 @@ export function ApplicantGradesPage(): JSX.Element {
     );
   }
 
+  function handleColumnFiltersChange(nextFilters: Record<string, ColumnFilterValue>): void {
+    setColumnFilters(nextFilters);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   async function handleExport(scope: 'page' | 'all', format: 'csv' | 'xlsx'): Promise<void> {
     if (exporting) return;
     setExporting(true);
@@ -326,6 +403,7 @@ export function ApplicantGradesPage(): JSX.Element {
               branch: branchFromUrl,
               graduationYear: yearFromUrl,
               schoolCategoryCode: schoolCategoryFromUrl,
+              columnFilters: gradeColumnFilters,
               changedOnly,
             })
           : rows;
@@ -393,6 +471,7 @@ export function ApplicantGradesPage(): JSX.Element {
       await clearMut.mutateAsync();
       setConfirmReset(false);
       setSearchInput('');
+      setColumnFilters({});
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -765,6 +844,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   aria-label="تصفية حسب النوع"
                   value={genderFromUrl}
                   onChange={(e) => setFilter('gender', e.target.value)}
+                  className={genderFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined}
                   options={[
                     { value: 'all', label: 'كل الأنواع' },
                     { value: 'male', label: 'ذكر' },
@@ -776,6 +856,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   aria-label="تصفية حسب الشعبة"
                   value={branchFromUrl}
                   onChange={(e) => setFilter('branch', e.target.value)}
+                  className={branchFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined}
                   options={[
                     { value: 'all', label: 'كل الشعب' },
                     ...branchOptions.map((b) => ({ value: b, label: b })),
@@ -786,6 +867,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   aria-label="تصفية حسب سنة التخرج"
                   value={yearFromUrl === 'all' ? 'all' : String(yearFromUrl)}
                   onChange={(e) => setFilter('year', e.target.value)}
+                  className={yearFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined}
                   options={[
                     { value: 'all', label: 'كل السنوات' },
                     ...yearOptions.map((y) => ({ value: String(y), label: String(y) })),
@@ -796,6 +878,9 @@ export function ApplicantGradesPage(): JSX.Element {
                   aria-label="تصفية حسب فئة المدرسة"
                   value={schoolCategoryFromUrl}
                   onChange={(e) => setFilter('school', e.target.value)}
+                  className={
+                    schoolCategoryFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined
+                  }
                   options={[
                     { value: 'all', label: 'كل فئات المدرسة' },
                     ...activeSchoolCategories.map((c) => ({ value: c.code, label: c.name })),
@@ -830,24 +915,36 @@ export function ApplicantGradesPage(): JSX.Element {
                     عرض صفحة تعديلات الدرجات
                   </a>
                 )}
-                {(activeFilterCount > 0 || qFromUrl) && (
+                {hasActiveFilters && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (qFromUrl) setSearchInput('');
-                      if (activeFilterCount > 0) clearAllFilters();
-                    }}
+                    onClick={clearAllFilters}
                     className="inline-flex cursor-pointer items-center gap-1 rounded-full border-0 bg-transparent px-2 py-0.5 text-2xs text-teal-700 hover:bg-teal-50"
                   >
                     <X size={11} strokeWidth={1.75} aria-hidden /> مسح التصفية
                   </button>
                 )}
-                <span className="ms-auto self-center text-2xs text-ink-500">
-                  <span className="font-numeric font-medium tabular-nums text-ink-700">
-                    {total}
-                  </span>{' '}
-                  نتيجة
-                </span>
+                <div className="ms-auto flex flex-wrap items-center justify-end gap-2 self-center text-2xs text-ink-500">
+                  {hasActiveFilters && (
+                    <Badge tone="info">
+                      <span className="font-numeric tabular-nums">
+                        {activeTotalFilterCount.toLocaleString('en')}
+                      </span>{' '}
+                      تصفية مفعلة
+                    </Badge>
+                  )}
+                  <span>
+                    عرض{' '}
+                    <span className="font-numeric font-medium tabular-nums text-ink-700">
+                      {total.toLocaleString('en')}
+                    </span>{' '}
+                    من{' '}
+                    <span className="font-numeric font-medium tabular-nums text-ink-700">
+                      {totalsAll.toLocaleString('en')}
+                    </span>{' '}
+                    صف
+                  </span>
+                </div>
               </div>
 
               {selectedRowKeys.length > 0 && (
@@ -881,8 +978,10 @@ export function ApplicantGradesPage(): JSX.Element {
                 selectionMode="multi"
                 selectedRowKeys={selectedRowKeys}
                 onSelectionChange={setSelectedRowKeys}
-                sort={sort as DataTableSort<DerivedRow> | null}
-                onSortChange={(next) => setSort(next as DataTableSort<GradeRow> | null)}
+                sort={sort}
+                onSortChange={setSort}
+                columnFilters={columnFilters}
+                onColumnFiltersChange={handleColumnFiltersChange}
                 onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
                 empty={
                   <EmptyState
@@ -895,9 +994,9 @@ export function ApplicantGradesPage(): JSX.Element {
                     }
                     icon={<Search size={28} strokeWidth={1.5} />}
                     action={
-                      qFromUrl ? (
-                        <Button variant="ghost" onClick={() => setSearchInput('')}>
-                          مسح البحث
+                      hasActiveFilters ? (
+                        <Button variant="ghost" onClick={clearAllFilters}>
+                          مسح التصفية
                         </Button>
                       ) : undefined
                     }
