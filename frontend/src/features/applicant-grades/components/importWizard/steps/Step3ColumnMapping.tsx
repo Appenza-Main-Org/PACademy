@@ -4,7 +4,7 @@
  * Two-column layout:
  *   Left  — every TargetField (label + required/optional pill + Combobox
  *           of detected source columns).
- *   Right — preview of the first 5 rows from the selected table, with
+ *   Right — preview of the first 20 rows from the selected table, with
  *           the columns that are currently mapped highlighted.
  *
  * Auto-mapping runs at mount (and again when the user clicks "تعيين
@@ -33,7 +33,7 @@ export function Step3ColumnMapping(): JSX.Element {
     () => parsed?.tables.find((t) => t.name === selectedTableName) ?? null,
     [parsed, selectedTableName],
   );
-  const previewRows = useMemo(() => (table ? table.rows.slice(0, 5) : []), [table]);
+  const previewRows = useMemo(() => (table ? table.rows.slice(0, 20) : []), [table]);
 
   if (!table) {
     return (
@@ -90,7 +90,7 @@ export function Step3ColumnMapping(): JSX.Element {
       </section>
 
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase text-ink-500">معاينة أول 5 صفوف</h3>
+        <h3 className="mb-3 text-xs font-semibold uppercase text-ink-500">معاينة أول 20 صف</h3>
         <div className="overflow-auto rounded-md border border-border-subtle bg-white">
           <table className="w-full border-collapse text-2xs">
             <thead className="bg-ink-50">
