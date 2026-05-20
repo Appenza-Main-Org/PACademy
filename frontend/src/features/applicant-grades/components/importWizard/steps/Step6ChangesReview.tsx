@@ -159,6 +159,29 @@ export function Step6ChangesReview(): JSX.Element {
     (u) => uploadDuplicateDecisions[u.nationalId] == null,
   ).length;
 
+  function acceptAllUploadDuplicates(): void {
+    const next: Record<string, UploadDuplicateDecision> = {
+      ...uploadDuplicateDecisions,
+    };
+    for (const duplicate of uploadDuplicates) {
+      next[duplicate.nationalId] = {
+        action: 'pick-row',
+        pickedSourceRowIndex: pickDefaultRowIndex(duplicate.rows),
+      };
+    }
+    setBulkUploadDuplicateDecisions(next);
+  }
+
+  function rejectAllUploadDuplicates(): void {
+    const next: Record<string, UploadDuplicateDecision> = {
+      ...uploadDuplicateDecisions,
+    };
+    for (const duplicate of uploadDuplicates) {
+      next[duplicate.nationalId] = { action: 'reject' };
+    }
+    setBulkUploadDuplicateDecisions(next);
+  }
+
   if (diffs.length === 0 && uploadDuplicates.length === 0) {
     return (
       <div className="flex flex-col gap-4">
@@ -197,6 +220,8 @@ export function Step6ChangesReview(): JSX.Element {
           decisions={uploadDuplicateDecisions}
           undecidedCount={undecidedUploadDuplicates}
           onSetDecision={setUploadDuplicateDecision}
+          onAcceptAll={acceptAllUploadDuplicates}
+          onRejectAll={rejectAllUploadDuplicates}
         />
       )}
 
@@ -390,6 +415,8 @@ interface UploadDuplicatesSectionProps {
   decisions: Record<string, UploadDuplicateDecision>;
   undecidedCount: number;
   onSetDecision: (nid: string, decision: UploadDuplicateDecision) => void;
+  onAcceptAll: () => void;
+  onRejectAll: () => void;
 }
 
 function UploadDuplicatesSection({
@@ -397,6 +424,8 @@ function UploadDuplicatesSection({
   decisions,
   undecidedCount,
   onSetDecision,
+  onAcceptAll,
+  onRejectAll,
 }: UploadDuplicatesSectionProps): JSX.Element {
   return (
     <section className="flex flex-col gap-3">
@@ -413,6 +442,24 @@ function UploadDuplicatesSection({
             </span>{' '}
             بحاجة لقرار صريح.
           </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="secondary"
+            leadingIcon={<X size={12} strokeWidth={2} aria-hidden />}
+            onClick={onRejectAll}
+          >
+            رفض الكل
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            leadingIcon={<Check size={12} strokeWidth={2} aria-hidden />}
+            onClick={onAcceptAll}
+          >
+            قبول الكل
+          </Button>
         </div>
       </header>
 
