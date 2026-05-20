@@ -51,6 +51,8 @@ export type ConflictCode =
   | 'COMMITTEE_WRONG_CATEGORY'
   // Committee instances — `/admin/committees` and the wizard committees step.
   | 'COMMITTEE_INSTANCE_DUPLICATE'
+  | 'COMMITTEE_INSTANCE_HAS_BOOKINGS'
+  | 'COMMITTEE_INSTANCE_DAY_PASSED'
   // Transfer-day reservation flow — destination doesn't have enough free
   // seats to absorb the incoming reservation. Payload lists every (committee,
   // category) row that fails so the UI can render the capacity-bump popup.

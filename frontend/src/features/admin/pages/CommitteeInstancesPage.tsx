@@ -50,10 +50,13 @@ import { useLookup } from '@/features/lookups';
 import {
   useCommitteeInstances,
   useRefreshReservedCountsMutation,
+  useRemoveCommitteeInstanceMutation,
   useRemoveCommitteeInstanceDayMutation,
+  useTransferCommitteeInstanceMutation,
   useTransferCommitteeInstanceDayMutation,
   useUpdateCommitteeInstanceMutation,
   type ReservationTransferConflict,
+  type TransferCapacityMode,
 } from '@/features/committees';
 import { isConflictError } from '@/shared/lib/errors';
 import type {
@@ -112,6 +115,10 @@ function localDateToIso(d: Date): string {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function isPastDay(date: string): boolean {
+  return date < todayIsoLocal();
 }
 
 export function CommitteeInstancesPage(): JSX.Element {
@@ -346,7 +353,10 @@ export function CommitteeInstancesPage(): JSX.Element {
                     }
                   />
                   <Accordion.Content>
-                    <CommitteeRowsTable rows={group.rows} />
+                    <CommitteeRowsTable
+                      rows={group.rows}
+                      dayGroups={dayGroups}
+                    />
                   </Accordion.Content>
                 </Accordion.Item>
               ))}
@@ -381,6 +391,8 @@ function DayActions({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const hasOtherDays = dayGroups.some((g) => g.date !== group.date);
+  const dayPassed = isPastDay(group.date);
+  const hasBookings = group.rows.some((r) => effectiveReserved(r) > 0);
 
   return (
     <>
@@ -389,8 +401,9 @@ function DayActions({
           variant="ghost"
           size="sm"
           leadingIcon={<MoveRight size={14} strokeWidth={1.75} />}
-          disabled={!hasOtherDays}
+          disabled={!hasOtherDays || dayPassed}
           onClick={() => setTransferOpen(true)}
+          title={dayPassed ? 'لا يمكن نقل حجوزات يوم سابق' : undefined}
         >
           نقل اليوم
         </Button>
@@ -399,7 +412,15 @@ function DayActions({
           size="sm"
           className="text-terra-700 hover:bg-terra-50 hover:text-terra-800"
           leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
+          disabled={dayPassed || hasBookings}
           onClick={() => setDeleteOpen(true)}
+          title={
+            dayPassed
+              ? 'لا يمكن حذف يوم سابق'
+              : hasBookings
+                ? 'لا يمكن حذف يوم به حجوزات'
+                : undefined
+          }
         >
           حذف اليوم
         </Button>
@@ -440,8 +461,10 @@ function DeleteDayDialog({
   const removeDayMut = useRemoveCommitteeInstanceDayMutation();
   const reservedRows = group.rows.filter((r) => effectiveReserved(r) > 0);
   const hasReservations = reservedRows.length > 0;
+  const dayPassed = isPastDay(group.date);
 
   const handleDelete = (): void => {
+    if (hasReservations || dayPassed) return;
     removeDayMut.mutate(
       { cycleId, date: group.date },
       {
@@ -460,13 +483,16 @@ function DeleteDayDialog({
       onOpenChange={onOpenChange}
       title={`حذف يوم ${fmtDate(group.date, 'full')}`}
       description={
-        hasReservations
+        dayPassed
+          ? 'لا يمكن حذف يوم اختبار سابق.'
+          : hasReservations
           ? 'هناك متقدمون محجوزون في لجان هذا اليوم. الحذف سيُسقط جميع الحجوزات أدناه. هل تريد المتابعة؟'
           : `سيتم حذف ${num(group.rows.length)} موعد لجنة في هذا اليوم. لا توجد حجوزات.`
       }
-      actionLabel={hasReservations ? 'حذف رغم الحجوزات' : 'حذف'}
+      actionLabel="حذف"
       tone="danger"
       onAction={handleDelete}
+      isActionDisabled={hasReservations || dayPassed}
       isActionLoading={removeDayMut.isPending}
     >
       {hasReservations && (
@@ -539,12 +565,14 @@ function TransferDayDialog({
 }: TransferDayDialogProps): JSX.Element {
   const transferMut = useTransferCommitteeInstanceDayMutation();
   const [target, setTarget] = useState<Date | null>(null);
+  const [mode, setMode] = useState<TransferCapacityMode>('move-only');
   const [conflicts, setConflicts] = useState<ReservationTransferConflict[] | null>(null);
 
   /* Reset internal state every time the dialog opens. */
   useEffect(() => {
     if (open) {
       setTarget(null);
+      setMode('move-only');
       setConflicts(null);
     }
   }, [open]);
@@ -613,12 +641,12 @@ function TransferDayDialog({
     }
     return out;
   }, [targetValid, targetIso, destinationExists, rowsByDate, reservedRows]);
-  const hasPreviewConflicts = previewConflicts.length > 0;
+  const hasPreviewConflicts = mode === 'move-only' && previewConflicts.length > 0;
 
   const submit = (capacityOverrides?: Record<string, number>): void => {
     if (!targetIso || !targetValid) return;
     transferMut.mutate(
-      { cycleId, fromDate: group.date, toDate: targetIso, capacityOverrides },
+      { cycleId, fromDate: group.date, toDate: targetIso, mode, capacityOverrides },
       {
         onSuccess: ({ totalReservationsMoved }) => {
           const message = `تم نقل ${num(totalReservationsMoved)} حجز إلى ${fmtDate(targetIso, 'full')}`;
@@ -667,6 +695,7 @@ function TransferDayDialog({
               ? 'لا توجد حجوزات في هذا اليوم لنقلها.'
               : `سيتم نقل ${num(totalSourceReservations)} حجز عبر ${num(reservedRows.length)} لجنة. تبقى اللجان وسعتها في يوم ${fmtDate(group.date, 'full')} كما هي بدون تغيير، وتنتقل الحجوزات فقط إلى اليوم المستهدف.`}
           </p>
+          <TransferModeChooser value={mode} onChange={setMode} />
           <DatePicker
             value={target}
             onChange={setTarget}
@@ -682,6 +711,13 @@ function TransferDayDialog({
                 : undefined
             }
           />
+          {targetIso !== null && targetValid && hasReservations && (
+            <TransferCapacityPreview
+              sources={reservedRows}
+              destinationRows={rowsByDate.get(targetIso) ?? []}
+              mode={mode}
+            />
+          )}
           {hasPreviewConflicts && (
             <div
               role="alert"
@@ -734,7 +770,9 @@ function TransferDayDialog({
               disabled={!targetValid || nothingToTransfer}
               isLoading={transferMut.isPending}
             >
-              نقل الحجوزات
+              {mode === 'move-and-add-capacity'
+                ? 'نقل الحجوزات وزيادة السعة'
+                : 'نقل الحجوزات فقط'}
             </Button>
           </div>
         </div>
@@ -932,9 +970,13 @@ function CycleHeaderBlock({ cycle }: CycleHeaderBlockProps): JSX.Element {
 
 interface CommitteeRowsTableProps {
   rows: InstanceRow[];
+  dayGroups: DayGroup[];
 }
 
-function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
+function CommitteeRowsTable({
+  rows,
+  dayGroups,
+}: CommitteeRowsTableProps): JSX.Element {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
@@ -954,6 +996,9 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
             </th>
             <th className="px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
               آخر تحديث
+            </th>
+            <th className="px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
+              إجراءات
             </th>
           </tr>
         </thead>
@@ -975,10 +1020,364 @@ function CommitteeRowsTable({ rows }: CommitteeRowsTableProps): JSX.Element {
               <td className="px-4 py-2 align-middle text-center">
                 <LastUpdatedCell value={row.reservedRefreshedAt} />
               </td>
+              <td className="px-4 py-2 align-middle text-center">
+                <CommitteeRowActions
+                  row={row}
+                  dayGroups={dayGroups}
+                />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/* ── Per-committee row actions ───────────────────────────────────── */
+
+interface CommitteeRowActionsProps {
+  row: InstanceRow;
+  dayGroups: DayGroup[];
+}
+
+function CommitteeRowActions({
+  row,
+  dayGroups,
+}: CommitteeRowActionsProps): JSX.Element {
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const dayPassed = isPastDay(row.date);
+  const reserved = effectiveReserved(row);
+  const hasBookings = reserved > 0;
+  const hasOtherDays = dayGroups.some((g) => g.date !== row.date);
+
+  return (
+    <>
+      <div className="flex items-center justify-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          leadingIcon={<MoveRight size={13} strokeWidth={1.75} />}
+          disabled={dayPassed || !hasOtherDays || !hasBookings}
+          title={
+            dayPassed
+              ? 'لا يمكن نقل حجوزات يوم سابق'
+              : !hasBookings
+                ? 'لا توجد حجوزات لنقلها'
+                : undefined
+          }
+          onClick={() => setTransferOpen(true)}
+        >
+          نقل
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-terra-700 hover:bg-terra-50 hover:text-terra-800"
+          leadingIcon={<Trash2 size={13} strokeWidth={1.75} />}
+          disabled={dayPassed || hasBookings}
+          title={
+            dayPassed
+              ? 'لا يمكن حذف يوم سابق'
+              : hasBookings
+                ? 'لا يمكن حذف لجنة لها حجوزات'
+                : undefined
+          }
+          onClick={() => setDeleteOpen(true)}
+        >
+          حذف
+        </Button>
+      </div>
+      <TransferCommitteeDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        row={row}
+        dayGroups={dayGroups}
+      />
+      <DeleteCommitteeDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        row={row}
+      />
+    </>
+  );
+}
+
+interface DeleteCommitteeDialogProps {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  row: InstanceRow;
+}
+
+function DeleteCommitteeDialog({
+  open,
+  onOpenChange,
+  row,
+}: DeleteCommitteeDialogProps): JSX.Element {
+  const removeMut = useRemoveCommitteeInstanceMutation();
+  const reserved = effectiveReserved(row);
+  const blocked = reserved > 0 || isPastDay(row.date);
+
+  const handleDelete = (): void => {
+    if (blocked) return;
+    removeMut.mutate(row.id, {
+      onSuccess: () => {
+        toast('تم حذف موعد اللجنة', 'success');
+        onOpenChange(false);
+      },
+      onError: (err) => toast((err as Error).message, 'danger'),
+    });
+  };
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`حذف ${row.committeeName}`}
+      description={
+        isPastDay(row.date)
+          ? 'لا يمكن حذف لجنة في يوم سابق.'
+          : reserved > 0
+            ? `لا يمكن حذف هذه اللجنة لأن بها ${num(reserved)} حجز قائم. انقل الحجوزات أولاً.`
+            : `سيتم حذف موعد ${row.committeeName} بتاريخ ${fmtDate(row.date, 'full')}. لا يمكن التراجع.`
+      }
+      actionLabel="حذف"
+      tone="danger"
+      onAction={handleDelete}
+      isActionDisabled={blocked}
+      isActionLoading={removeMut.isPending}
+    />
+  );
+}
+
+interface TransferCommitteeDialogProps {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  row: InstanceRow;
+  dayGroups: DayGroup[];
+}
+
+function TransferCommitteeDialog({
+  open,
+  onOpenChange,
+  row,
+  dayGroups,
+}: TransferCommitteeDialogProps): JSX.Element {
+  const transferMut = useTransferCommitteeInstanceMutation();
+  const [target, setTarget] = useState<Date | null>(null);
+  const [mode, setMode] = useState<TransferCapacityMode>('move-only');
+  const [conflicts, setConflicts] = useState<ReservationTransferConflict[] | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setTarget(null);
+      setMode('move-only');
+      setConflicts(null);
+    }
+  }, [open]);
+
+  const todayIso = todayIsoLocal();
+  const rowsByDate = useMemo(() => {
+    const map = new Map<string, InstanceRow[]>();
+    for (const g of dayGroups) map.set(g.date, g.rows);
+    return map;
+  }, [dayGroups]);
+  const targetIso = target ? localDateToIso(target) : null;
+  const isSameDay = targetIso === row.date;
+  const isPastTarget = targetIso !== null && targetIso < todayIso;
+  const targetInvalidReason = !targetIso
+    ? null
+    : isPastTarget
+      ? 'لا يمكن اختيار يوم سابق.'
+      : isSameDay
+        ? 'هذا هو نفس اليوم الحالي — اختر يوماً مختلفاً.'
+        : null;
+  const targetValid = targetIso !== null && targetInvalidReason === null;
+  const destinationRows = targetIso ? rowsByDate.get(targetIso) ?? [] : [];
+  const sourceReserved = effectiveReserved(row);
+
+  const submit = (capacityOverrides?: Record<string, number>): void => {
+    if (!targetIso || !targetValid || sourceReserved <= 0) return;
+    transferMut.mutate(
+      { id: row.id, toDate: targetIso, mode, capacityOverrides },
+      {
+        onSuccess: ({ totalReservationsMoved }) => {
+          toast(`تم نقل ${num(totalReservationsMoved)} حجز إلى ${fmtDate(targetIso, 'full')}`, 'success');
+          onOpenChange(false);
+        },
+        onError: (err) => {
+          if (
+            isConflictError(err) &&
+            err.conflictCode === 'RESERVATIONS_OVER_DESTINATION_CAPACITY'
+          ) {
+            const payload = err.payload as { conflicts: ReservationTransferConflict[] };
+            setConflicts(payload.conflicts);
+            return;
+          }
+          toast((err as Error).message, 'danger');
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`نقل حجوزات ${row.committeeName}`}
+      size="md"
+    >
+      {conflicts !== null ? (
+        <CapacityConflictPanel
+          conflicts={conflicts}
+          targetIso={targetIso}
+          isSubmitting={transferMut.isPending}
+          onCancel={() => setConflicts(null)}
+          onResubmit={(overrides) => submit(overrides)}
+        />
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-ink-700">
+            سيتم نقل {num(sourceReserved)} حجز من {fmtDate(row.date, 'full')} إلى اليوم المستهدف.
+          </p>
+          <TransferModeChooser value={mode} onChange={setMode} />
+          <DatePicker
+            value={target}
+            onChange={setTarget}
+            min={todayIso}
+            placeholder="اختر يوماً من التقويم…"
+            label="اليوم المستهدف"
+            error={targetInvalidReason ?? undefined}
+          />
+          {targetIso !== null && targetValid && (
+            <TransferCapacityPreview
+              sources={[row]}
+              destinationRows={destinationRows}
+              mode={mode}
+            />
+          )}
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>
+              إلغاء
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => submit()}
+              disabled={!targetValid || sourceReserved <= 0}
+              isLoading={transferMut.isPending}
+            >
+              {mode === 'move-and-add-capacity'
+                ? 'نقل وزيادة السعة'
+                : 'نقل فقط'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+function TransferModeChooser({
+  value,
+  onChange,
+}: {
+  value: TransferCapacityMode;
+  onChange: (next: TransferCapacityMode) => void;
+}): JSX.Element {
+  const options: Array<{ value: TransferCapacityMode; label: string; hint: string }> = [
+    {
+      value: 'move-only',
+      label: 'نقل فقط',
+      hint: 'ينقل الحجوزات إذا كانت السعة المتبقية تكفي.',
+    },
+    {
+      value: 'move-and-add-capacity',
+      label: 'نقل مع زيادة سعة الوجهة',
+      hint: 'يزيد سعة اللجنة المستهدفة بعدد الحجوزات المنقولة.',
+    },
+  ];
+
+  return (
+    <div className="grid gap-2 md:grid-cols-2" role="group" aria-label="طريقة النقل">
+      {options.map((option) => {
+        const active = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(option.value)}
+            className={`rounded-md border px-3 py-2 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${
+              active
+                ? 'border-teal-300 bg-teal-50 text-teal-800'
+                : 'border-border-default bg-surface-card text-ink-700 hover:border-border-strong hover:bg-ink-50'
+            }`}
+          >
+            <span className="block text-sm font-semibold">{option.label}</span>
+            <span className="mt-0.5 block text-2xs text-ink-500">{option.hint}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TransferCapacityPreview({
+  sources,
+  destinationRows,
+  mode,
+}: {
+  sources: readonly InstanceRow[];
+  destinationRows: readonly InstanceRow[];
+  mode: TransferCapacityMode;
+}): JSX.Element {
+  const destinationByDefinition = new Map<string, InstanceRow>();
+  for (const row of destinationRows) destinationByDefinition.set(row.definitionCode, row);
+
+  return (
+    <div className="rounded-md border border-border-subtle bg-surface-sunken p-3">
+      <div className="mb-2 text-xs font-semibold text-ink-900">معاينة السعة قبل النقل</div>
+      <ul className="m-0 flex max-h-48 list-none flex-col gap-1 overflow-y-auto p-0 pe-1">
+        {sources.map((source) => {
+          const destination = destinationByDefinition.get(source.definitionCode);
+          const moved = effectiveReserved(source);
+          const destinationCapacity = destination?.capacity ?? source.capacity;
+          const destinationReserved = destination ? effectiveReserved(destination) : 0;
+          const remainingBefore = Math.max(0, destinationCapacity - destinationReserved);
+          const addedCapacity = mode === 'move-and-add-capacity' && destination ? moved : 0;
+          const capacityAfter = destinationCapacity + addedCapacity;
+          const remainingAfter = Math.max(0, capacityAfter - destinationReserved - moved);
+          const needsMoreCapacity = destination !== undefined && remainingBefore < moved;
+          return (
+            <li
+              key={source.id}
+              className="grid gap-1 rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-2xs text-ink-700 md:grid-cols-[minmax(0,1fr)_auto]"
+            >
+              <span className="truncate font-medium text-ink-900">{source.committeeName}</span>
+              <span className="font-numeric tnum">
+                سينقل {num(moved)} · السعة الحالية {num(destinationCapacity)} · المتبقي الآن{' '}
+                {num(remainingBefore)} · المتبقي بعد النقل {num(remainingAfter)}
+              </span>
+              {!destination && (
+                <span className="md:col-span-2 text-2xs text-ink-500">
+                  لا يوجد موعد مطابق في اليوم المستهدف، سيتم إنشاء موعد جديد بنفس السعة.
+                </span>
+              )}
+              {addedCapacity > 0 && (
+                <span className="md:col-span-2 text-2xs text-teal-700">
+                  ستزيد سعة الوجهة بمقدار {num(addedCapacity)}.
+                </span>
+              )}
+              {mode === 'move-only' && needsMoreCapacity && (
+                <span className="md:col-span-2 text-2xs text-terra-700">
+                  السعة المتبقية لا تكفي للنقل بدون زيادة سعة الوجهة.
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -998,6 +1397,7 @@ interface CapacityCellProps {
 function CapacityCell({ row }: CapacityCellProps): JSX.Element {
   const updateMut = useUpdateCommitteeInstanceMutation();
   const [value, setValue] = useState<string>(() => String(row.capacity));
+  const dayPassed = isPastDay(row.date);
 
   /* External value can shift (refresh-reserved, mutation invalidation).
    * Re-sync whenever the row's persisted capacity changes — unless the
@@ -1011,6 +1411,11 @@ function CapacityCell({ row }: CapacityCellProps): JSX.Element {
   }, [row.capacity, row.id]);
 
   const commit = (): void => {
+    if (dayPassed) {
+      setValue(String(row.capacity));
+      toast('لا يمكن تعديل سعة يوم سابق', 'warning');
+      return;
+    }
     const parsed = Number(value);
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 999) {
       toast('السعة يجب أن تكون عدداً صحيحاً بين 1 و 999', 'danger');
@@ -1038,7 +1443,8 @@ function CapacityCell({ row }: CapacityCellProps): JSX.Element {
       value={value}
       data-capacity-cell-id={row.id}
       aria-label={`سعة ${row.committeeName}`}
-      disabled={updateMut.isPending}
+      disabled={updateMut.isPending || dayPassed}
+      title={dayPassed ? 'لا يمكن تعديل يوم سابق' : undefined}
       onChange={(e) => setValue(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {

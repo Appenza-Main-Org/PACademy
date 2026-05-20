@@ -1,15 +1,15 @@
 /**
  * GeneralSettingsCard — surfaces the general admin-side settings on
  * /admin/settings (super-admin only). Currently exposes
- * «عدد أيام الاختبار للطالب» — positive integer, default 3 — backed by
- * `adminSettingsService`.
+ * «عدد أيام الاختبار للطالب» and «مدة إتاحة اختيار موعد الاختبار
+ * للطالب» — positive integers backed by `adminSettingsService`.
  *
  * The input mirrors the existing admin numeric-input pattern: strict
  * keystroke filtering (digits only), `inputMode="numeric"`, and inline
  * Arabic validation. Save is a single Save button that fires the
  * `useUpdateAdminSettings` mutation; the TanStack Query refetch keeps
  * the form in sync with any future consumer that reads
- * `examDaysPerApplicant`.
+ * the settings snapshot.
  */
 
 import { useEffect, useState } from 'react';
@@ -24,27 +24,38 @@ import {
 } from '@/shared/components';
 import { useAdminSettings, useUpdateAdminSettings } from '../../api/settings.queries';
 
-const FIELD_LABEL = 'عدد أيام الاختبار للطالب';
+const EXAM_DAYS_LABEL = 'عدد أيام الاختبار للطالب';
+const SLOT_WINDOW_LABEL = 'مدة إتاحة اختيار موعد الاختبار للطالب';
 
 export function GeneralSettingsCard(): JSX.Element {
   const settingsQuery = useAdminSettings();
   const updateMut = useUpdateAdminSettings();
 
   const [examDays, setExamDays] = useState<string>('');
+  const [slotWindowDays, setSlotWindowDays] = useState<string>('');
   const [touched, setTouched] = useState(false);
 
   /* Hydrate local state once the server snapshot arrives. */
   useEffect(() => {
     if (settingsQuery.data) {
       setExamDays(String(settingsQuery.data.examDaysPerApplicant));
+      setSlotWindowDays(String(settingsQuery.data.examSlotSelectionWindowDays));
     }
   }, [settingsQuery.data]);
 
-  const parsed = examDays === '' ? null : Number(examDays);
-  const isInvalid =
+  const parsedExamDays = examDays === '' ? null : Number(examDays);
+  const parsedSlotWindowDays = slotWindowDays === '' ? null : Number(slotWindowDays);
+  const isExamDaysInvalid =
     touched &&
-    (parsed === null || !Number.isInteger(parsed) || parsed < 1);
-  const errorMessage = isInvalid ? 'يجب أن يكون رقمًا صحيحًا موجبًا' : undefined;
+    (parsedExamDays === null || !Number.isInteger(parsedExamDays) || parsedExamDays < 1);
+  const isSlotWindowInvalid =
+    touched &&
+    (parsedSlotWindowDays === null ||
+      !Number.isInteger(parsedSlotWindowDays) ||
+      parsedSlotWindowDays < 1);
+  const isInvalid = isExamDaysInvalid || isSlotWindowInvalid;
+  const examDaysError = isExamDaysInvalid ? 'يجب أن يكون رقمًا صحيحًا موجبًا' : undefined;
+  const slotWindowError = isSlotWindowInvalid ? 'يجب أن يكون رقمًا صحيحًا موجبًا' : undefined;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (['-', '+', '.', ',', 'e', 'E'].includes(e.key)) {
@@ -52,16 +63,33 @@ export function GeneralSettingsCard(): JSX.Element {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const digits = e.target.value.replace(/\D/g, '').replace(/^0+/, '');
-    setExamDays(digits);
+  const sanitizeNumber = (raw: string): string => raw.replace(/\D/g, '').replace(/^0+/, '');
+
+  const handleExamDaysChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setExamDays(sanitizeNumber(e.target.value));
+  };
+
+  const handleSlotWindowChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setSlotWindowDays(sanitizeNumber(e.target.value));
   };
 
   const onSave = (): void => {
     setTouched(true);
-    if (parsed === null || !Number.isInteger(parsed) || parsed < 1) return;
+    if (
+      parsedExamDays === null ||
+      !Number.isInteger(parsedExamDays) ||
+      parsedExamDays < 1 ||
+      parsedSlotWindowDays === null ||
+      !Number.isInteger(parsedSlotWindowDays) ||
+      parsedSlotWindowDays < 1
+    ) {
+      return;
+    }
     updateMut.mutate(
-      { examDaysPerApplicant: parsed },
+      {
+        examDaysPerApplicant: parsedExamDays,
+        examSlotSelectionWindowDays: parsedSlotWindowDays,
+      },
       {
         onSuccess: () => toast('تم حفظ الإعدادات العامة', 'success'),
         onError: (err) => toast(err.message, 'danger'),
@@ -71,8 +99,10 @@ export function GeneralSettingsCard(): JSX.Element {
 
   const isDirty =
     settingsQuery.data !== undefined &&
-    parsed !== null &&
-    parsed !== settingsQuery.data.examDaysPerApplicant;
+    parsedExamDays !== null &&
+    parsedSlotWindowDays !== null &&
+    (parsedExamDays !== settingsQuery.data.examDaysPerApplicant ||
+      parsedSlotWindowDays !== settingsQuery.data.examSlotSelectionWindowDays);
 
   return (
     <Card>
@@ -81,21 +111,34 @@ export function GeneralSettingsCard(): JSX.Element {
         subtitle="ضوابط مشتركة تستخدمها وحدات إدارة الاختبارات والجداول."
       />
       <CardBody>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
           <Input
-            label={FIELD_LABEL}
+            label={EXAM_DAYS_LABEL}
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
             value={examDays}
             onKeyDown={handleKeyDown}
-            onChange={handleChange}
+            onChange={handleExamDaysChange}
             onBlur={() => setTouched(true)}
-            error={errorMessage}
-            aria-label={FIELD_LABEL}
+            error={examDaysError}
+            aria-label={EXAM_DAYS_LABEL}
             disabled={settingsQuery.isLoading}
           />
-          <div className="flex items-end md:col-span-2">
+          <Input
+            label={SLOT_WINDOW_LABEL}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={slotWindowDays}
+            onKeyDown={handleKeyDown}
+            onChange={handleSlotWindowChange}
+            onBlur={() => setTouched(true)}
+            error={slotWindowError}
+            aria-label={SLOT_WINDOW_LABEL}
+            disabled={settingsQuery.isLoading}
+          />
+          <div className="flex items-end">
             <Button
               variant="primary"
               size="md"
@@ -110,7 +153,7 @@ export function GeneralSettingsCard(): JSX.Element {
         </div>
         <p className="mt-3 inline-flex items-center gap-2 text-2xs text-ink-500">
           <CalendarDays size={12} strokeWidth={1.75} aria-hidden />
-          عدد أيام يُقسّم عليها جدول اختبارات الطالب الواحد. القيمة الافتراضية ٣.
+          عدد أيام الاختبار الافتراضي ٣، ومدة اختيار الموعد الافتراضية ٧ أيام.
         </p>
       </CardBody>
     </Card>
