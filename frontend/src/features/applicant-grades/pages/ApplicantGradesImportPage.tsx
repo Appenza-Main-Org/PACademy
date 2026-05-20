@@ -166,6 +166,10 @@ export function ApplicantGradesImportPage(): JSX.Element {
       GRADE_OUT_OF_RANGE: filterAction(perGroupActions.GRADE_OUT_OF_RANGE),
       UNREADABLE_VALUE: filterAction(perGroupActions.UNREADABLE_VALUE),
     };
+    const acceptedDiffDecisions: Record<string, 'accept'> = {};
+    for (const [nid, decision] of Object.entries(existingDiffDecisions)) {
+      if (decision === 'accept') acceptedDiffDecisions[nid] = 'accept';
+    }
     commit.mutate(
       {
         rows,
@@ -173,7 +177,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         selectedSchoolCategories,
         maxGradeByCategory,
         perGroupActions: actions,
-        existingDiffDecisions,
+        existingDiffDecisions: acceptedDiffDecisions,
         uploadDuplicateDecisions,
       },
       {

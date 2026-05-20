@@ -175,7 +175,7 @@ export function useApplicantGradesCommit() {
       perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
       /** Per-NID decisions from the diff-review step. Overrides the
        *  per-group DUPLICATE_NID action for the matching nids. */
-      existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
+      existingDiffDecisions?: Record<string, 'accept' | 'reject' | 'pending'>;
       /** Per-NID resolutions for intra-upload duplicate-NID cases —
        *  same NID appearing on two or more rows of the same file. */
       uploadDuplicateDecisions?: Record<

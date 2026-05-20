@@ -557,7 +557,7 @@ export const gradesService = {
      *  per-group `DUPLICATE_NID` action for the matching national-ids
      *  — `accept` writes the incoming row, `reject` leaves the
      *  existing record untouched. */
-    existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
+    existingDiffDecisions?: Record<string, 'accept' | 'reject' | 'pending'>;
     /** Resolution for intra-upload duplicate-NID cases (same NID with
      *  two or more rows in the same file). Defaults to `pick-higher`
      *  per-NID when no entry is provided. `pick-row` picks the row
@@ -742,7 +742,9 @@ export const gradesService = {
         let writeOverride: boolean;
         if (perRow === 'accept') {
           writeOverride = true;
-        } else if (perRow === 'reject') {
+        } else if (perRow === 'reject' || perRow === 'pending') {
+          continue;
+        } else if (existingDiffDecisions != null) {
           continue;
         } else {
           const action = perGroupActions.DUPLICATE_NID;

@@ -17,8 +17,9 @@ import type { TargetField } from '../lib/targetFields';
 export type ImportStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 /** Per-row decision on an existing-record diff. `accept` writes the
- *  incoming values; `reject` leaves the existing row untouched. */
-export type ExistingDiffDecision = 'accept' | 'reject';
+ *  incoming values; `reject` leaves the existing row untouched;
+ *  `pending` means the admin hasn't decided yet. */
+export type ExistingDiffDecision = 'accept' | 'reject' | 'pending';
 
 /** Resolution for an intra-upload duplicate NID. The store records the
  *  picked total OR source-row index whenever the admin chooses a
@@ -69,8 +70,7 @@ export interface PersistedImportWizardState {
   perGroupActions: Record<string, 'skip' | 'override' | 'create-applicant'>;
   /** Per-row decision for rows whose national-id matches an existing
    *  record. Drives Step 6's diff-review UI; rows without an entry
-   *  default to `reject` (existing record left alone) until the admin
-   *  flips them via the per-row or bulk controls. */
+   *  render as `pending`. Only accepted NIDs are sent to commit. */
   existingDiffDecisions: Record<string, ExistingDiffDecision>;
   /** Per-NID decision for upload rows whose `المجموع الكلي` appears
    *  with two different values inside the same file. Default action is

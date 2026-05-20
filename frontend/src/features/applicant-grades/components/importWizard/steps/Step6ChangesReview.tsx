@@ -95,27 +95,6 @@ export function Step6ChangesReview(): JSX.Element {
     [normalised],
   );
 
-  /* When the diff set first lands, seed every NID with `reject` so an
-   * untouched wizard doesn't silently override existing rows. Bulk
-   * actions overwrite this default at the user's request. The keying
-   * is by national-id (stable) so re-running the preflight after edits
-   * upstream doesn't reset existing decisions. */
-  useEffect(() => {
-    if (diffs.length === 0) return;
-    const seeded: Record<string, ExistingDiffDecision> = {
-      ...existingDiffDecisions,
-    };
-    let touched = false;
-    for (const d of diffs) {
-      if (seeded[d.nationalId] == null) {
-        seeded[d.nationalId] = 'reject';
-        touched = true;
-      }
-    }
-    if (touched) setBulkExistingDiffDecisions(seeded);
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [diffs.length]);
-
   useEffect(() => {
     if (uploadDuplicates.length === 0) return;
     const seeded: Record<string, UploadDuplicateDecision> = {
@@ -141,12 +120,18 @@ export function Step6ChangesReview(): JSX.Element {
 
   function acceptAllDiffs(): void {
     const next: Record<string, ExistingDiffDecision> = { ...existingDiffDecisions };
-    for (const d of diffs) next[d.nationalId] = 'accept';
+    for (const d of diffs) {
+      const decision = existingDiffDecisions[d.nationalId] ?? 'pending';
+      if (decision === 'pending') next[d.nationalId] = 'accept';
+    }
     setBulkExistingDiffDecisions(next);
   }
   function rejectAllDiffs(): void {
     const next: Record<string, ExistingDiffDecision> = { ...existingDiffDecisions };
-    for (const d of diffs) next[d.nationalId] = 'reject';
+    for (const d of diffs) {
+      const decision = existingDiffDecisions[d.nationalId] ?? 'pending';
+      if (decision === 'pending') next[d.nationalId] = 'reject';
+    }
     setBulkExistingDiffDecisions(next);
   }
   const acceptedCount = diffs.filter(
@@ -155,6 +140,10 @@ export function Step6ChangesReview(): JSX.Element {
   const rejectedCount = diffs.filter(
     (d) => existingDiffDecisions[d.nationalId] === 'reject',
   ).length;
+  const pendingCount = diffs.filter((d) => {
+    const decision = existingDiffDecisions[d.nationalId] ?? 'pending';
+    return decision === 'pending';
+  }).length;
   const undecidedUploadDuplicates = uploadDuplicates.filter(
     (u) => uploadDuplicateDecisions[u.nationalId] == null,
   ).length;
@@ -252,6 +241,12 @@ export function Step6ChangesReview(): JSX.Element {
                     {rejectedCount.toLocaleString('en')}
                   </span>
                 </span>
+                <span className="me-1 ms-1 text-2xs text-ink-500">
+                  قيد القرار:{' '}
+                  <span className="font-numeric font-bold">
+                    {pendingCount.toLocaleString('en')}
+                  </span>
+                </span>
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -260,16 +255,18 @@ export function Step6ChangesReview(): JSX.Element {
                 variant="secondary"
                 leadingIcon={<X size={12} strokeWidth={2} aria-hidden />}
                 onClick={rejectAllDiffs}
+                disabled={pendingCount === 0}
               >
-                رفض الكل
+                رفض الكل ({pendingCount.toLocaleString('en')})
               </Button>
               <Button
                 size="sm"
                 variant="primary"
                 leadingIcon={<Check size={12} strokeWidth={2} aria-hidden />}
                 onClick={acceptAllDiffs}
+                disabled={pendingCount === 0}
               >
-                قبول الكل
+                قبول الكل ({pendingCount.toLocaleString('en')})
               </Button>
             </div>
           </header>
@@ -279,7 +276,7 @@ export function Step6ChangesReview(): JSX.Element {
               <li key={d.nationalId}>
                 <DiffCard
                   diff={d}
-                  decision={existingDiffDecisions[d.nationalId] ?? 'reject'}
+                  decision={existingDiffDecisions[d.nationalId] ?? 'pending'}
                   onDecide={(decision) =>
                     setExistingDiffDecision(d.nationalId, decision)
                   }
