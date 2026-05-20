@@ -13,8 +13,9 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Check, ChevronDown, Filter as FilterIcon } from 'lucide-react';
+import { Check, ChevronDown, Filter as FilterIcon, Search } from 'lucide-react';
 import { Button, Popover } from '@/shared/components';
+import { normalizeArabic } from '@/shared/lib/arabic';
 import { useImportWizardStore, type FilterState } from '../../../store/importWizard.store';
 import { TARGET_FIELDS, type TargetField } from '../../../lib/targetFields';
 import { countFiltered, distinctValues } from '../../../lib/normalise';
@@ -120,9 +121,16 @@ function FilterCard({
   onChange,
 }: FilterCardProps): JSX.Element {
   const [showAll, setShowAll] = useState(false);
-  const slice = showAll ? values : values.slice(0, COLUMN_VALUE_CAP);
+  const [searchTerm, setSearchTerm] = useState('');
+  const searchedValues = useMemo(() => {
+    const needle = normalizeArabic(searchTerm);
+    if (!needle) return values;
+    return values.filter(({ value }) => normalizeArabic(value || '(فارغ)').includes(needle));
+  }, [searchTerm, values]);
+  const slice = showAll ? searchedValues : searchedValues.slice(0, COLUMN_VALUE_CAP);
   const isInclude = state.mode === 'include';
-  const selected = new Set(state.values);
+  const selected = new Set(isInclude ? state.values : values.map((v) => v.value));
+  const selectedCount = selected.size;
 
   function toggleMode(): void {
     onChange(
@@ -132,11 +140,22 @@ function FilterCard({
     );
   }
   function toggleValue(v: string): void {
-    if (state.mode !== 'include') return;
     const next = new Set(selected);
     if (next.has(v)) next.delete(v);
     else next.add(v);
+    if (next.size === values.length) {
+      onChange({ mode: 'all', values: [] });
+      return;
+    }
     onChange({ mode: 'include', values: Array.from(next) });
+  }
+
+  function includeAll(): void {
+    onChange({ mode: 'all', values: [] });
+  }
+
+  function excludeAll(): void {
+    onChange({ mode: 'include', values: [] });
   }
 
   return (
@@ -148,7 +167,7 @@ function FilterCard({
         </div>
         <div className="flex items-center gap-2 text-2xs text-ink-500">
           <span>
-            <span className="font-en">{totalValues.toLocaleString('en')}</span> قيمة مميزة
+            <span className="font-en">{totalValues.toLocaleString('en')}</span> قيمة غير مكررة
           </span>
           <button
             type="button"
@@ -162,53 +181,108 @@ function FilterCard({
           >
             {isInclude ? 'تصفية مفعّلة' : 'الكل'}
           </button>
-          {isInclude && (
-            <Popover>
-              <Popover.Trigger asChild>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  leadingIcon={<FilterIcon size={12} strokeWidth={1.75} />}
-                  trailingIcon={<ChevronDown size={12} strokeWidth={1.75} />}
-                >
-                  اختيار القيم
-                </Button>
-              </Popover.Trigger>
-              <Popover.Content className="w-72">
-                <div className="mb-2 text-2xs font-semibold uppercase text-ink-500">
-                  القيم المسموح بها
+          <Popover>
+            <Popover.Trigger asChild>
+              <Button
+                size="sm"
+                variant="secondary"
+                leadingIcon={<FilterIcon size={12} strokeWidth={1.75} />}
+                trailingIcon={<ChevronDown size={12} strokeWidth={1.75} />}
+              >
+                اختيار القيم
+              </Button>
+            </Popover.Trigger>
+            <Popover.Content className="w-[min(92vw,28rem)]">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-2xs font-semibold uppercase text-ink-500">
+                    القيم المسموح بها
+                  </div>
+                  <div className="mt-0.5 text-2xs text-ink-500">
+                    <span className="font-en">{selectedCount.toLocaleString('en')}</span> من{' '}
+                    <span className="font-en">{totalValues.toLocaleString('en')}</span> مشمولة
+                  </div>
                 </div>
-                <ul className="m-0 flex max-h-72 list-none flex-col gap-px overflow-auto p-0">
-                  {slice.map(({ value, count }) => {
-                    const checked = selected.has(value);
-                    return (
-                      <li key={value}>
-                        <label className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-ink-700 hover:bg-ink-50">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleValue(value)}
-                            className="h-3.5 w-3.5 cursor-pointer accent-teal-500"
-                          />
-                          <span className="flex-1 truncate">{value === '' ? '(فارغ)' : value}</span>
-                          <span className="font-en text-2xs text-ink-500">{count}</span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {totalValues > COLUMN_VALUE_CAP && !showAll && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAll(true)}
-                    className="mt-2 cursor-pointer border-0 bg-transparent text-2xs text-teal-700 hover:underline"
-                  >
-                    +{(totalValues - COLUMN_VALUE_CAP).toLocaleString('en')} قيمة أخرى
-                  </button>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="ghost" onClick={includeAll}>
+                    شمول الكل
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={excludeAll}>
+                    استبعاد الكل
+                  </Button>
+                </div>
+              </div>
+              <label className="relative mb-2 flex h-9 items-center">
+                <Search
+                  size={14}
+                  strokeWidth={1.75}
+                  className="absolute start-3 text-ink-400"
+                  aria-hidden
+                />
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setShowAll(false);
+                  }}
+                  placeholder="ابحث داخل القيم…"
+                  className="h-9 w-full rounded-md border border-border-default bg-surface-card ps-9 pe-3 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                />
+              </label>
+              <ul className="m-0 flex max-h-80 list-none flex-col gap-1 overflow-auto p-0">
+                {slice.map(({ value, count }) => {
+                  const checked = selected.has(value);
+                  const label = value === '' ? '(فارغ)' : value;
+                  return (
+                    <li key={value}>
+                      <button
+                        type="button"
+                        onClick={() => toggleValue(value)}
+                        className="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border-subtle bg-white px-3 py-2 text-start transition-colors hover:border-border-default hover:bg-ink-50 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-ink-900">
+                            {label}
+                          </span>
+                          <span className="mt-0.5 block text-2xs text-ink-500">
+                            تكررت{' '}
+                            <span className="font-en tabular-nums">
+                              {count.toLocaleString('en')}
+                            </span>{' '}
+                            مرة
+                          </span>
+                        </span>
+                        <span
+                          className={`inline-flex min-w-[5.5rem] items-center justify-center rounded-pill border px-2.5 py-1 text-2xs font-medium ${
+                            checked
+                              ? 'border-teal-300 bg-teal-50 text-teal-700'
+                              : 'border-terra-200 bg-terra-50 text-terra-700'
+                          }`}
+                        >
+                          {checked ? 'مشمول' : 'مستبعد'}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+                {slice.length === 0 && (
+                  <li className="rounded-md border border-dashed border-border-default bg-ink-50 px-3 py-6 text-center text-sm text-ink-500">
+                    لا توجد قيم مطابقة للبحث.
+                  </li>
                 )}
-              </Popover.Content>
-            </Popover>
-          )}
+              </ul>
+              {searchedValues.length > COLUMN_VALUE_CAP && !showAll && (
+                <button
+                  type="button"
+                  onClick={() => setShowAll(true)}
+                  className="mt-2 cursor-pointer border-0 bg-transparent text-2xs text-teal-700 hover:underline focus-visible:shadow-focus-teal focus-visible:outline-none"
+                >
+                  +{(searchedValues.length - COLUMN_VALUE_CAP).toLocaleString('en')} قيمة أخرى
+                </button>
+              )}
+            </Popover.Content>
+          </Popover>
         </div>
       </header>
       {isInclude && (
