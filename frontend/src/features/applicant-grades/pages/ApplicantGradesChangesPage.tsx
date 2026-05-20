@@ -39,6 +39,8 @@ import type { DataTableColumn, DataTableSort } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { useApplicantGradesList, useGrades } from '../api/grades.queries';
+import { AddAdjustmentDialog } from '../components/AddAdjustmentDialog';
+import { StudentDetailsDrawer } from '../components/StudentDetailsDrawer';
 import { deriveRow, type DerivedRow } from '../lib/derive';
 import type { GradeRow } from '../types';
 
@@ -65,6 +67,11 @@ interface ChangedRow extends DerivedRow {
   /** Latest change instant, parsed into a Date for sort/display. */
   changedAt: Date | null;
 }
+
+type OverlayState =
+  | { kind: 'student'; seat: number }
+  | { kind: 'add-adj'; seat: number }
+  | null;
 
 function deriveChangedRow(r: GradeRow): ChangedRow {
   const derived = deriveRow(r);
@@ -108,8 +115,10 @@ export function ApplicantGradesChangesPage(): JSX.Element {
   const [searchInput, setSearchInput] = useState(qFromUrl);
   const debouncedSearch = useDebouncedValue(searchInput, DEBOUNCE_MS);
   const [sort, setSort] = useState<DataTableSort<ChangedRow> | null>(null);
+  const [overlay, setOverlay] = useState<OverlayState>(null);
 
   useEffect(() => {
+    if (debouncedSearch !== searchInput) return;
     if (debouncedSearch === qFromUrl) return;
     setSearchParams(
       (prev) => {
@@ -121,8 +130,7 @@ export function ApplicantGradesChangesPage(): JSX.Element {
       },
       { replace: true },
     );
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [debouncedSearch]);
+  }, [debouncedSearch, qFromUrl, searchInput, setSearchParams]);
 
   const { data: paginatedData, isLoading } = useApplicantGradesList({
     page,
@@ -170,6 +178,11 @@ export function ApplicantGradesChangesPage(): JSX.Element {
   const totalChanged = allChangedRows.length;
   const upsCount = allChangedRows.filter((r) => r.delta > 0).length;
   const downsCount = allChangedRows.filter((r) => r.delta < 0).length;
+  const activeRow =
+    overlay && 'seat' in overlay
+      ? (allRows ?? []).find((r) => r.seat === overlay.seat)
+      : null;
+  const activeDerived = activeRow ? deriveRow(activeRow) : null;
 
   function setPage(p: number): void {
     setSearchParams(
@@ -437,6 +450,7 @@ export function ApplicantGradesChangesPage(): JSX.Element {
                 rowKey={(r) => r.seat}
                 sort={sort}
                 onSortChange={setSort}
+                onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
                 empty={
                   <EmptyState
                     variant="generic"
@@ -504,6 +518,22 @@ export function ApplicantGradesChangesPage(): JSX.Element {
               </div>
             </CardBody>
           </Card>
+        </>
+      )}
+
+      {activeDerived && (
+        <>
+          <AddAdjustmentDialog
+            open={overlay?.kind === 'add-adj'}
+            onClose={() => setOverlay(null)}
+            row={activeDerived}
+          />
+          <StudentDetailsDrawer
+            open={overlay?.kind === 'student'}
+            onClose={() => setOverlay(null)}
+            row={activeDerived}
+            onAddAdjustment={() => setOverlay({ kind: 'add-adj', seat: activeDerived.seat })}
+          />
         </>
       )}
     </div>
