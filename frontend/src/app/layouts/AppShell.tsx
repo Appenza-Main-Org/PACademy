@@ -25,6 +25,8 @@ import type { AppKey } from '@/shared/lib/constants';
 import { Sidebar } from './Sidebar';
 import type { SidebarSection } from './Sidebar';
 
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'pa-sidebar-collapsed';
+
 interface AppShellProps {
   app?: AppKey;
   /** @deprecated No longer rendered. Kept for caller compatibility. */
@@ -40,7 +42,13 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readSidebarCollapsed());
   useCommandPaletteShortcut(setPaletteOpen);
+
+  const handleSidebarCollapsedChange = (next: boolean): void => {
+    setSidebarCollapsed(next);
+    writeSidebarCollapsed(next);
+  };
 
   const handleLogout = (): void => {
     logoutMutation.mutate(undefined, {
@@ -125,10 +133,40 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
-      <div className={hasSidebar ? 'grid flex-1 md:grid-cols-[256px_1fr]' : 'flex flex-1 flex-col'}>
-        {hasSidebar && <Sidebar sections={sidebar!} />}
+      <div
+        className={
+          hasSidebar
+            ? sidebarCollapsed
+              ? 'grid flex-1 md:grid-cols-[64px_1fr]'
+              : 'grid flex-1 md:grid-cols-[256px_1fr]'
+            : 'flex flex-1 flex-col'
+        }
+      >
+        {hasSidebar && (
+          <Sidebar
+            sections={sidebar!}
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={handleSidebarCollapsedChange}
+          />
+        )}
         <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
       </div>
     </div>
   );
+}
+
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function writeSidebarCollapsed(value: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(value));
+  } catch {
+    /* localStorage unavailable — in-memory state still works. */
+  }
 }
