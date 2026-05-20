@@ -170,6 +170,11 @@ export function ApplicantGradesPage(): JSX.Element {
   const clearMut = useClearGrades();
   const deleteMut = useDeleteGrades();
 
+  useEffect(() => {
+    setSelectedRowKeys([]);
+    setConfirmBulkDelete(false);
+  }, [qFromUrl, genderFromUrl, branchFromUrl, yearFromUrl, schoolCategoryFromUrl, changedOnly]);
+
   const { data: paginatedData, isLoading } = useApplicantGradesList({
     page,
     pageSize,
@@ -395,6 +400,12 @@ export function ApplicantGradesPage(): JSX.Element {
   }
 
   async function handleBulkDelete(): Promise<void> {
+    if (total === 0) {
+      setConfirmBulkDelete(false);
+      setSelectedRowKeys([]);
+      toast('لا توجد صفوف مطابقة للتصفية الحالية للحذف.', 'warning');
+      return;
+    }
     const seats = selectedRowKeys
       .map((key) => (typeof key === 'number' ? key : Number(key)))
       .filter((seat) => Number.isFinite(seat));
@@ -410,6 +421,16 @@ export function ApplicantGradesPage(): JSX.Element {
     } catch {
       toast('تعذّر حذف الصفوف المحددة. حاول مرة أخرى.', 'danger');
     }
+  }
+
+  function openBulkDeleteDialog(): void {
+    if (selectedRowKeys.length === 0) return;
+    if (total === 0) {
+      setSelectedRowKeys([]);
+      toast('لا توجد صفوف مطابقة للتصفية الحالية للحذف.', 'warning');
+      return;
+    }
+    setConfirmBulkDelete(true);
   }
 
   const activeRow =
@@ -819,7 +840,7 @@ export function ApplicantGradesPage(): JSX.Element {
                     variant="danger"
                     size="sm"
                     leadingIcon={<Trash2 size={13} strokeWidth={1.75} aria-hidden />}
-                    onClick={() => setConfirmBulkDelete(true)}
+                    onClick={openBulkDeleteDialog}
                   >
                     حذف المحدد
                   </Button>
@@ -918,12 +939,12 @@ export function ApplicantGradesPage(): JSX.Element {
           if (!deleteMut.isPending) setConfirmBulkDelete(next);
         }}
         title="حذف الصفوف المحددة"
-        description={`سيتم حذف ${toEasternArabicNumerals(selectedRowKeys.length)} صفًا من بيانات الدرجات. لا يمكن التراجع.`}
+        description={`سيتم حذف ${toEasternArabicNumerals(selectedRowKeys.length)} صفًا من النتائج الحالية. لا يمكن التراجع.`}
         actionLabel="حذف المحدد"
         cancelLabel="إلغاء"
         tone="danger"
         isActionLoading={deleteMut.isPending}
-        isActionDisabled={selectedRowKeys.length === 0}
+        isActionDisabled={selectedRowKeys.length === 0 || total === 0}
         onAction={() => void handleBulkDelete()}
       />
 
