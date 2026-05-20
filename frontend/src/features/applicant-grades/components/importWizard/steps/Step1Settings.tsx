@@ -15,7 +15,14 @@
 
 import { useRef, useState } from 'react';
 import { Download, Sheet, Upload, X } from 'lucide-react';
-import { Button, Combobox, Field, LoadingState } from '@/shared/components';
+import {
+  Button,
+  Combobox,
+  Field,
+  LoadingState,
+  SearchSelect,
+} from '@/shared/components';
+import type { SearchSelectOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
 import {
   defaultMaxFor,
@@ -78,6 +85,7 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
   const setFile = useImportWizardStore((s) => s.setFile);
 
   const schoolCategoriesQuery = useLookup('school-categories');
+  const graduationYearsQuery = useLookup('graduation-years');
   const activeCategories = (schoolCategoriesQuery.data ?? []).filter(
     (r) => r.isActive,
   );
@@ -131,11 +139,10 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
     setFile(f);
   }
 
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from({ length: 11 }, (_, i) => {
-    const y = currentYear - i;
-    return { value: String(y), label: String(y) };
-  });
+  const yearOptions: SearchSelectOption[] = (graduationYearsQuery.data ?? [])
+    .filter((row) => row.isActive)
+    .sort((a, b) => b.year - a.year)
+    .map((row) => ({ value: String(row.year), label: row.name }));
 
   const schoolCategoryOptions = activeCategories.map((c) => ({
     value: c.code,
@@ -208,15 +215,23 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
         required
         error={yearError}
       >
-        <Combobox
-          value={graduationYear == null ? null : String(graduationYear)}
-          onChange={(v) => setGraduationYear(v == null ? null : Number(v))}
-          options={yearOptions}
-          placeholder="اختر السنة"
-          ariaLabel="سنة التخرج"
-          clearable
-          triggerClassName="h-11 px-3.5 text-sm font-medium shadow-sm hover:border-teal-400 data-[state=open]:border-teal-500"
-        />
+        {graduationYearsQuery.isLoading ? (
+          <LoadingState variant="list" />
+        ) : yearOptions.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border-default bg-ink-50/40 px-3 py-3 text-2xs text-ink-500">
+            لا توجد سنوات تخرج مفعّلة. أضف السنوات من «الأكواد المرجعية» أولاً.
+          </div>
+        ) : (
+          <SearchSelect
+            value={graduationYear == null ? null : String(graduationYear)}
+            onChange={(v) => setGraduationYear(v == null ? null : Number(v))}
+            options={yearOptions}
+            placeholder="اختر السنة"
+            ariaLabel="سنة التخرج"
+            invalid={Boolean(yearError)}
+            className="h-11 ps-3.5 pe-9 text-sm font-medium shadow-sm"
+          />
+        )}
       </Field>
 
       <Field label="ملف البيانات" required error={fileError ?? undefined}>
