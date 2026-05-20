@@ -71,7 +71,6 @@ import { ApplicationSettingsPage } from './ApplicationSettingsPage';
 import { ApplicationSettingsReviewPage } from './ApplicationSettingsReviewPage';
 import { FeesPage } from './FeesPage';
 import { ExamsManagementPage } from './ExamsManagementPage';
-import { CommitteesManagementPage } from './CommitteesManagementPage';
 import { ElectronicDeclarationPage } from './ElectronicDeclarationPage';
 import { WizardReviewPage } from './WizardReviewPage';
 
@@ -85,7 +84,6 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   application_settings_review: () => <ApplicationSettingsReviewPage />,
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
-  committees: () => <CommitteesManagementPage />,
   electronic_declaration: () => <ElectronicDeclarationPage />,
 };
 

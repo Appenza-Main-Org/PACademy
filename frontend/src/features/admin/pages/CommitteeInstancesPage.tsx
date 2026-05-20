@@ -121,6 +121,24 @@ function isPastDay(date: string): boolean {
   return date < todayIsoLocal();
 }
 
+function committeeSetSignature(rows: readonly InstanceRow[]): string {
+  return rows
+    .map((row) => `${row.categoryKey}|${row.definitionCode}`)
+    .sort()
+    .join('::');
+}
+
+function hasSameCommitteeSet(
+  sourceRows: readonly InstanceRow[],
+  destinationRows: readonly InstanceRow[],
+): boolean {
+  return (
+    sourceRows.length > 0 &&
+    sourceRows.length === destinationRows.length &&
+    committeeSetSignature(sourceRows) === committeeSetSignature(destinationRows)
+  );
+}
+
 export function CommitteeInstancesPage(): JSX.Element {
   const activeCycleQuery = useActiveCycle();
   const allInstancesQuery = useCommitteeInstances();
@@ -599,6 +617,9 @@ function TransferDayDialog({
   const isSameDay = targetIso === group.date;
   const isPastTarget = targetIso !== null && targetIso < todayIso;
   const destinationExists = targetIso !== null && rowsByDate.has(targetIso);
+  const destinationRows = targetIso ? rowsByDate.get(targetIso) ?? [] : [];
+  const hasMatchingDestinationSet =
+    targetIso !== null && hasSameCommitteeSet(group.rows, destinationRows);
 
   const targetInvalidReason = !targetIso
     ? null
@@ -606,6 +627,8 @@ function TransferDayDialog({
       ? 'لا يمكن اختيار يوم سابق.'
       : isSameDay
         ? 'هذا هو نفس اليوم الحالي — اختر يوماً مختلفاً.'
+        : !hasMatchingDestinationSet
+          ? 'اليوم المستهدف يجب أن يحتوي نفس لجان المصدر لكل فئة.'
         : null;
   const targetValid = targetIso !== null && targetInvalidReason === null;
 
@@ -706,15 +729,15 @@ function TransferDayDialog({
             helper={
               targetIso !== null && targetValid
                 ? destinationExists
-                  ? 'يوجد مواعيد لجان في هذا اليوم. سيتم إضافة الحجوزات إلى كل لجنة مطابقة (إذا توفرت سعة كافية).'
-                  : 'هذا يوم جديد. سيتم إنشاء مواعيد لجان مطابقة فيه بالسعة الحالية والحجوزات.'
+                  ? 'سيتم إضافة الحجوزات إلى اللجان المطابقة في اليوم المستهدف.'
+                  : 'اختر يوماً يحتوي نفس لجان المصدر لكل فئة.'
                 : undefined
             }
           />
           {targetIso !== null && targetValid && hasReservations && (
             <TransferCapacityPreview
               sources={reservedRows}
-              destinationRows={rowsByDate.get(targetIso) ?? []}
+              destinationRows={destinationRows}
               mode={mode}
             />
           )}
@@ -1195,7 +1218,13 @@ function TransferCommitteeDialog({
         : null;
   const targetValid = targetIso !== null && targetInvalidReason === null;
   const destinationRows = targetIso ? rowsByDate.get(targetIso) ?? [] : [];
+  const hasMatchingDestination = destinationRows.some(
+    (destination) =>
+      destination.definitionCode === row.definitionCode &&
+      destination.categoryKey === row.categoryKey,
+  );
   const sourceReserved = effectiveReserved(row);
+  const canSubmit = targetValid && sourceReserved > 0 && hasMatchingDestination;
 
   const submit = (capacityOverrides?: Record<string, number>): void => {
     if (!targetIso || !targetValid || sourceReserved <= 0) return;
@@ -1249,8 +1278,15 @@ function TransferCommitteeDialog({
             placeholder="اختر يوماً من التقويم…"
             label="اليوم المستهدف"
             error={targetInvalidReason ?? undefined}
+            helper={
+              targetIso !== null && targetValid
+                ? hasMatchingDestination
+                  ? 'سيتم نقل الحجوزات إلى نفس اللجنة في اليوم المستهدف.'
+                  : 'اليوم المستهدف لا يحتوي نفس اللجنة لهذه الفئة.'
+                : undefined
+            }
           />
-          {targetIso !== null && targetValid && (
+          {targetIso !== null && targetValid && hasMatchingDestination && (
             <TransferCapacityPreview
               sources={[row]}
               destinationRows={destinationRows}
@@ -1264,7 +1300,7 @@ function TransferCommitteeDialog({
             <Button
               variant="primary"
               onClick={() => submit()}
-              disabled={!targetValid || sourceReserved <= 0}
+              disabled={!canSubmit}
               isLoading={transferMut.isPending}
             >
               {mode === 'move-and-add-capacity'

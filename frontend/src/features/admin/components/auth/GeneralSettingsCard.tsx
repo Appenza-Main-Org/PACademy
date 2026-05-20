@@ -1,8 +1,9 @@
 /**
  * GeneralSettingsCard — surfaces the general admin-side settings on
  * /admin/settings (super-admin only). Currently exposes
- * «عدد أيام الاختبار للطالب» and «مدة إتاحة اختيار موعد الاختبار
- * للطالب» — positive integers backed by `adminSettingsService`.
+ * «عدد أيام الاختبار للطالب» and «عدد الأيام المسموح للطالب خلالها
+ * باختيار موعد الاختبار قبل تاريخ الاختبار» — positive integers backed
+ * by `adminSettingsService`.
  *
  * The input mirrors the existing admin numeric-input pattern: strict
  * keystroke filtering (digits only), `inputMode="numeric"`, and inline
@@ -25,7 +26,7 @@ import {
 import { useAdminSettings, useUpdateAdminSettings } from '../../api/settings.queries';
 
 const EXAM_DAYS_LABEL = 'عدد أيام الاختبار للطالب';
-const SLOT_WINDOW_LABEL = 'مدة إتاحة اختيار موعد الاختبار للطالب';
+const SLOT_WINDOW_LABEL = 'عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار';
 
 export function GeneralSettingsCard(): JSX.Element {
   const settingsQuery = useAdminSettings();
@@ -153,7 +154,7 @@ export function GeneralSettingsCard(): JSX.Element {
         </div>
         <p className="mt-3 inline-flex items-center gap-2 text-2xs text-ink-500">
           <CalendarDays size={12} strokeWidth={1.75} aria-hidden />
-          عدد أيام الاختبار الافتراضي ٣، ومدة اختيار الموعد الافتراضية ٧ أيام.
+          عدد أيام الاختبار الافتراضي ٣، ومدة اختيار الموعد الافتراضية يوم واحد.
         </p>
       </CardBody>
     </Card>

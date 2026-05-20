@@ -4,9 +4,8 @@
  *
  * Domain shape: each `CommitteeInstance` pairs a `CommitteeDefinition`
  * (the lookup row at `/admin/lookups/committees`) with a cycle, a
- * category, a date, and a seat count. Both the admission-setup wizard
- * step `/admin/cycles/admission-setup/wizard/committees` and the new
- * `/admin/committees-exam-config` management page operate on this same record set.
+ * category, a date, and a seat count. `/admin/committees-exam-config`
+ * is the canonical management page for this record set.
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/committee-instances?cycleId=&categoryKey=    → CommitteeInstance[]
@@ -83,6 +82,46 @@ function assertNoBookings(row: CommitteeInstance): void {
       'COMMITTEE_INSTANCE_HAS_BOOKINGS',
       { id: row.id, reserved: row.reserved },
       'لا يمكن حذف لجنة لها حجوزات قائمة.',
+    );
+  }
+}
+
+function assertBookingsWithinCapacity(row: CommitteeInstance): void {
+  if (row.reserved > row.capacity) {
+    throw new ConflictError(
+      'COMMITTEE_INSTANCE_BOOKINGS_OVER_CAPACITY',
+      { id: row.id, reserved: row.reserved, capacity: row.capacity },
+      'عدد الحجوزات يجب ألا يتجاوز سعة اللجنة.',
+    );
+  }
+}
+
+function committeeSetKey(row: CommitteeInstance): string {
+  return `${row.categoryKey}|${row.definitionCode}`;
+}
+
+function assertSameCommitteeSet(input: {
+  cycleId: string;
+  fromDate: string;
+  toDate: string;
+}): void {
+  const sourceKeys = MOCK.committeeInstances
+    .filter((r) => r.cycleId === input.cycleId && r.date === input.fromDate)
+    .map(committeeSetKey)
+    .sort();
+  const destinationKeys = MOCK.committeeInstances
+    .filter((r) => r.cycleId === input.cycleId && r.date === input.toDate)
+    .map(committeeSetKey)
+    .sort();
+  const same =
+    sourceKeys.length > 0 &&
+    sourceKeys.length === destinationKeys.length &&
+    sourceKeys.every((key, index) => key === destinationKeys[index]);
+  if (!same) {
+    throw new ConflictError(
+      'COMMITTEE_INSTANCE_SET_MISMATCH',
+      { fromDate: input.fromDate, toDate: input.toDate },
+      'لا يمكن النقل إلا إلى يوم يحتوي نفس لجان المصدر لكل فئة.',
     );
   }
 }
@@ -425,6 +464,7 @@ export const committeeInstanceService = {
     }
     assertEditableDay(input.fromDate);
     assertEditableDay(input.toDate);
+    assertSameCommitteeSet(input);
     const mode = input.mode ?? 'move-only';
     const overrides = input.capacityOverrides ?? {};
 
@@ -442,6 +482,7 @@ export const committeeInstanceService = {
         r.date === input.fromDate &&
         r.reserved > 0,
     );
+    for (const source of sourceRows) assertBookingsWithinCapacity(source);
 
     interface PlannedTransfer {
       sourceIndex: number;
@@ -464,17 +505,14 @@ export const committeeInstanceService = {
           x.date === input.toDate,
       );
       if (destinationIndex === -1) {
-        plan.push({
-          sourceIndex,
-          destinationIndex: null,
-          destinationId: null,
-          reservedToMove: source.reserved,
-          destinationCapacity: source.capacity,
-          destinationReserved: 0,
-        });
-        continue;
+        throw new ConflictError(
+          'COMMITTEE_INSTANCE_SET_MISMATCH',
+          { fromDate: input.fromDate, toDate: input.toDate, definitionCode: source.definitionCode },
+          'لا يمكن النقل إلا إلى يوم يحتوي نفس لجان المصدر لكل فئة.',
+        );
       }
       const destination = MOCK.committeeInstances[destinationIndex]!;
+      assertBookingsWithinCapacity(destination);
       const overriddenCapacity = resolveDestinationCapacity({
         destination,
         reservedToMove: source.reserved,
@@ -553,16 +591,6 @@ export const committeeInstanceService = {
           updatedAt: now,
         };
         transferred += 1;
-      } else {
-        const clone: CommitteeInstance = {
-          ...source,
-          id: nextId(),
-          date: input.toDate,
-          createdAt: now,
-          updatedAt: now,
-        };
-        MOCK.committeeInstances.push(clone);
-        createdAtDestination += 1;
       }
       /* Zero source reservation regardless of destination shape. */
       const sourceIdxNow = MOCK.committeeInstances.findIndex((r) => r.id === source.id);
@@ -574,6 +602,17 @@ export const committeeInstanceService = {
         };
       }
       totalReservationsMoved += p.reservedToMove;
+    }
+
+    if (plan.length > 0) {
+      const remainingOnSource = MOCK.committeeInstances.some(
+        (r) => r.cycleId === input.cycleId && r.date === input.fromDate && r.reserved > 0,
+      );
+      if (!remainingOnSource) {
+        MOCK.committeeInstances = MOCK.committeeInstances.filter(
+          (r) => !(r.cycleId === input.cycleId && r.date === input.fromDate),
+        );
+      }
     }
 
     if (totalReservationsMoved > 0 || bumped > 0) {
@@ -615,6 +654,7 @@ export const committeeInstanceService = {
     }
     assertEditableDay(source.date);
     assertEditableDay(input.toDate);
+    assertBookingsWithinCapacity(source);
     const mode = input.mode ?? 'move-only';
     const overrides = input.capacityOverrides ?? {};
     for (const [, capacity] of Object.entries(overrides)) {
@@ -633,17 +673,14 @@ export const committeeInstanceService = {
     let transferred = 0;
 
     if (destinationIndex === -1) {
-      const clone: CommitteeInstance = {
-        ...source,
-        id: nextId(),
-        date: input.toDate,
-        createdAt: now,
-        updatedAt: now,
-      };
-      MOCK.committeeInstances.push(clone);
-      createdAtDestination = 1;
+      throw new ConflictError(
+        'COMMITTEE_INSTANCE_SET_MISMATCH',
+        { fromDate: source.date, toDate: input.toDate, definitionCode: source.definitionCode },
+        'لا يمكن النقل إلا إلى يوم يحتوي نفس اللجنة لنفس الفئة.',
+      );
     } else {
       const destination = MOCK.committeeInstances[destinationIndex]!;
+      assertBookingsWithinCapacity(destination);
       const destinationCapacity = resolveDestinationCapacity({
         destination,
         reservedToMove: source.reserved,
@@ -688,6 +725,7 @@ export const committeeInstanceService = {
       reserved: 0,
       updatedAt: now,
     };
+    MOCK.committeeInstances = MOCK.committeeInstances.filter((r) => r.id !== source.id);
 
     emitAudit({
       action: 'update',

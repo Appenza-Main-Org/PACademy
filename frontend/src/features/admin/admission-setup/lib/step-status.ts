@@ -81,7 +81,7 @@ export function computeStepStatus(
   key: AdmissionSetupStepKey,
   inputs: StepStatusInputs,
 ): AdmissionSetupStepStatus {
-  const { cycle, categories, committees, declaration } = inputs;
+  const { cycle, categories, declaration } = inputs;
 
   if (!cycle) return 'not_started';
 
@@ -113,25 +113,6 @@ export function computeStepStatus(
         return (cat?.requiredTests?.length ?? 0) > 0;
       });
       return anyHasExams ? 'complete' : 'in_progress';
-    }
-    case 'committees': {
-      const snap = inputs.committeeBindings;
-      if (!snap) {
-        /* Back-compat path — callers that haven't wired the binding
-         * snapshot fall back to the legacy "any committee exists" rule. */
-        const cycleCommittees = committees.filter(
-          (c) => !c.linkedCycleId || c.linkedCycleId === cycle.id,
-        );
-        return cycleCommittees.length > 0 ? 'complete' : 'not_started';
-      }
-      if (snap.activeCategoryIds.length === 0) return 'not_started';
-      const anyRoster = snap.activeCategoryIds.some(
-        (id) => (snap.rosterByCategory[id] ?? 0) > 0,
-      );
-      const anyBindings = snap.activeCategoryIds.some(
-        (id) => (snap.activeBindingsByCategory[id] ?? 0) > 0,
-      );
-      return anyRoster || anyBindings ? 'complete' : 'not_started';
     }
     case 'electronic_declaration':
       /* Once the admin saves a declaration record (text or PDF), the

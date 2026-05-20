@@ -53,6 +53,8 @@ export type ConflictCode =
   | 'COMMITTEE_INSTANCE_DUPLICATE'
   | 'COMMITTEE_INSTANCE_HAS_BOOKINGS'
   | 'COMMITTEE_INSTANCE_DAY_PASSED'
+  | 'COMMITTEE_INSTANCE_SET_MISMATCH'
+  | 'COMMITTEE_INSTANCE_BOOKINGS_OVER_CAPACITY'
   // Transfer-day reservation flow — destination doesn't have enough free
   // seats to absorb the incoming reservation. Payload lists every (committee,
   // category) row that fails so the UI can render the capacity-bump popup.

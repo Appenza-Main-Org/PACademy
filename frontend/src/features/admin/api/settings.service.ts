@@ -13,8 +13,9 @@
  *   • `examDaysPerApplicant` — عدد أيام الاختبار للطالب — positive integer,
  *     default 3. Consumed by features that need to pace exam scheduling
  *     across multiple days per applicant.
- *   • `examSlotSelectionWindowDays` — مدة إتاحة اختيار موعد الاختبار
- *     للطالب — positive integer, default 7.
+ *   • `examSlotSelectionWindowDays` — عدد الأيام المسموح للطالب خلالها
+ *     باختيار موعد الاختبار قبل تاريخ الاختبار — positive integer,
+ *     default 1.
  */
 
 import { simulateLatency } from '@/shared/lib/mock-helpers';
@@ -23,13 +24,13 @@ import { emitAudit } from '@/shared/lib/audit';
 export interface AdminSettings {
   /** عدد أيام الاختبار للطالب. Positive integer, default 3. */
   examDaysPerApplicant: number;
-  /** مدة إتاحة اختيار موعد الاختبار للطالب. Positive integer, default 7. */
+  /** عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار. Positive integer, default 1. */
   examSlotSelectionWindowDays: number;
 }
 
 const DEFAULT_SETTINGS: AdminSettings = {
   examDaysPerApplicant: 3,
-  examSlotSelectionWindowDays: 7,
+  examSlotSelectionWindowDays: 1,
 };
 
 const state: AdminSettings = { ...DEFAULT_SETTINGS };
@@ -53,7 +54,7 @@ export const adminSettingsService = {
     if (patch.examSlotSelectionWindowDays !== undefined) {
       const next = patch.examSlotSelectionWindowDays;
       if (!Number.isInteger(next) || next < 1) {
-        throw new Error('مدة إتاحة اختيار موعد الاختبار للطالب يجب أن تكون رقمًا صحيحًا موجبًا');
+        throw new Error('عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار يجب أن يكون رقمًا صحيحًا موجبًا');
       }
       state.examSlotSelectionWindowDays = next;
     }

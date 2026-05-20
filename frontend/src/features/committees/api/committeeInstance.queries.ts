@@ -1,9 +1,8 @@
 /**
  * Committee Instances — TanStack Query bindings.
  *
- * Both the admission-setup wizard step (`/admin/cycles/admission-setup/wizard/committees`)
- * and the new management page (`/admin/committees-exam-config`) consume the same
- * query keys so mutations on one surface reactively refresh the other.
+ * The `/admin/committees-exam-config` management page consumes these
+ * query keys for add/edit/delete/transfer flows.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
