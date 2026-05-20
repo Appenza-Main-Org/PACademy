@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/admin/">
+    <Project Path="admin/PACademy.Admin.Api/PACademy.Admin.Api.csproj" />
+  </Folder>
+  <Folder Name="/admin/Modules/" />
+  <Folder Name="/admin/Modules/LookupsAdmin/">
+    <Project Path="admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Application/PACademy.Modules.LookupsAdmin.Application.csproj" />
+    <Project Path="admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/PACademy.Modules.LookupsAdmin.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/shared/">
+    <Project Path="shared/PACademy.Shared.Audit/PACademy.Shared.Audit.csproj" />
+    <Project Path="shared/PACademy.Shared.Contracts/PACademy.Shared.Contracts.csproj" />
+    <Project Path="shared/PACademy.Shared.Domain/PACademy.Shared.Domain.csproj" />
+    <Project Path="shared/PACademy.Shared.Persistence/PACademy.Shared.Persistence.csproj" />
+    <Project Path="shared/PACademy.Shared.Web/PACademy.Shared.Web.csproj" />
+  </Folder>
+</Solution>
