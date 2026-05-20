@@ -1,20 +1,21 @@
 /**
- * CategoryAccordion — category condition authoring workspace.
+ * CategoryAccordion — `@radix-ui/react-accordion` (multiple-open mode).
  *
  * Sources every applicant-category from the
  * `admin/lookups/applicant-categories` lookup (no hardcoded list). Each
  * row carries a `type` (`university` | `pre_university`) that decides
- * which editor section is rendered inside the focused editor pane:
+ * which editor section is rendered inside the accordion body:
  *
- *   • `university` (جامعي)     → <GeneralRulesSection /> — generalised
- *     faculty + specialization picker (1F/1S flat, 1F/NS accordion,
- *     >1F accordion-per-faculty).
+ *   • `university` (جامعي)     → <GeneralRulesSection /> — implicit
+ *     single-form categories stay compact; `specialized_officers` gets
+ *     the faculty/specialization bulk workspace.
  *   • `pre_university` (ثانوي) → <ThanawiRulesSection /> — exam-round +
  *     committee + graduation-year + school-category grid.
  *
- * The left rail keeps long category lists manageable: admins search,
- * pick one category, then author its committee conditions without
- * scrolling through every other category's fields.
+ * Active toggle on the row uses the underlying
+ * `ApplicantCategoryConfig.isActive` (mirrors the prior wiring); the
+ * lookup row's `isActive` is the master flag for whether the category
+ * is shown to applicants. Both stay in sync at this seam.
  *
  * «معيار التمييز» rendering:
  *   • Every active category renders here regardless of its criterion
@@ -28,17 +29,14 @@
 import { useMemo, useState } from 'react';
 import {
   Check,
+  ChevronDown,
   Circle,
   CircleDashed,
-  Layers,
   ListChecks,
-  Search,
 } from 'lucide-react';
-import { Badge, EmptyState, ErrorState, LoadingState } from '@/shared/components';
+import { Accordion, Badge, ErrorState, LoadingState } from '@/shared/components';
 import type { BadgeTone } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
-import { cn } from '@/shared/lib/cn';
-import { num } from '@/shared/lib/format';
 import { useCategoryConfigs } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
 import {
@@ -58,131 +56,21 @@ export function CategoryAccordion(): JSX.Element {
   const categoriesQuery = useLookup('applicant-categories');
   const excellenceQuery = useLookup('excellence-criteria');
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [openIds, setOpenIds] = useState<string[]>([]);
 
-  const local = useAdmissionSetupWizardStore((s) => s.local);
-  const approved = useAdmissionSetupWizardStore((s) => s.approved);
-
-  const isLoading =
+  if (
     configsQuery.isLoading ||
     categoriesQuery.isLoading ||
-    excellenceQuery.isLoading;
-
-  const isError =
+    excellenceQuery.isLoading
+  ) {
+    return <LoadingState variant="list" />;
+  }
+  if (
     configsQuery.isError ||
     categoriesQuery.isError ||
     excellenceQuery.isError ||
-    !configsQuery.data;
-
-  /* Filter to active lookup rows then preserve the configs' sortOrder.
-   * The join carries `categoryType`/`categoryFacultyCodes`/
-   * `categorySpecializationCodes` straight off the lookup so feature
-   * components don't have to read the lookup themselves. */
-  const lookupActiveCodes = useMemo(
-    () =>
-      new Set(
-        (categoriesQuery.data ?? []).filter((c) => c.isActive).map((c) => c.code),
-      ),
-    [categoriesQuery.data],
-  );
-
-  const activeConfigs = useMemo(
-    () =>
-      (configsQuery.data ?? []).filter((c) =>
-        lookupActiveCodes.has(c.categoryCode),
-      ),
-    [configsQuery.data, lookupActiveCodes],
-  );
-
-  /* Every active category renders here. The criterion label on the
-   * row header only appears when the category carries one — categories
-   * without a criterion still need to be editable (admins set the rest
-   * of the rules regardless), so the row stays visible. */
-  const visibleConfigs = activeConfigs;
-
-  const criterionLabelByCode = useMemo(
-    () =>
-      new Map(
-        (excellenceQuery.data ?? []).map((row) => [row.code, row.name] as const),
-      ),
-    [excellenceQuery.data],
-  );
-  const excellenceRows = excellenceQuery.data ?? [];
-
-  const decoratedConfigs = useMemo(
-    () =>
-      visibleConfigs.map((config) => {
-        const completion = selectCategoryCompletion(
-          config.categoryCode,
-          config.categoryType,
-          [...local, ...approved],
-          config.categorySpecializationCodes,
-        );
-        const excellenceLabel =
-          config.excellenceCriterion === null
-            ? null
-            : criterionLabelByCode.get(config.excellenceCriterion) ??
-              config.excellenceCriterion;
-        const excellenceMode = deriveExcellenceMode(
-          config.excellenceCriterion,
-          excellenceRows,
-        );
-        const conditionCount = [...local, ...approved].filter(
-          (row) => row.categoryCode === config.categoryCode,
-        ).length;
-        return {
-          config,
-          completion,
-          excellenceLabel,
-          excellenceMode,
-          conditionCount,
-        };
-      }),
-    [
-      visibleConfigs,
-      local,
-      approved,
-      criterionLabelByCode,
-      excellenceRows,
-    ],
-  );
-
-  const filteredConfigs = useMemo(() => {
-    const needle = searchTerm.trim().toLowerCase();
-    if (needle === '') return decoratedConfigs;
-    return decoratedConfigs.filter(({ config, excellenceLabel }) => {
-      const haystack = [
-        config.categoryNameAr,
-        config.categoryCode,
-        config.categoryType === 'university' ? 'جامعي' : 'ثانوي',
-        excellenceLabel ?? '',
-      ]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(needle);
-    });
-  }, [decoratedConfigs, searchTerm]);
-
-  const selected =
-    decoratedConfigs.find(({ config }) => config.id === selectedId) ??
-    filteredConfigs[0] ??
-    decoratedConfigs[0] ??
-    null;
-
-  const totals = useMemo(
-    () => ({
-      complete: decoratedConfigs.filter((item) => item.completion === 'complete').length,
-      partial: decoratedConfigs.filter((item) => item.completion === 'partial').length,
-      empty: decoratedConfigs.filter((item) => item.completion === 'empty').length,
-    }),
-    [decoratedConfigs],
-  );
-
-  if (isLoading) {
-    return <LoadingState variant="list" />;
-  }
-  if (isError) {
+    !configsQuery.data
+  ) {
     return (
       <ErrorState
         title="تعذر تحميل الفئات"
@@ -196,133 +84,55 @@ export function CategoryAccordion(): JSX.Element {
     );
   }
 
-  if (decoratedConfigs.length === 0) {
-    return (
-      <EmptyState
-        variant="generic"
-        title="لا توجد فئات نشطة"
-        description="فعّل فئة واحدة على الأقل من الأكواد المرجعية لبدء إضافة الشروط."
-      />
-    );
-  }
-
-  return (
-    <section className="rounded-lg border border-border-subtle bg-surface-card">
-      <div className="border-b border-border-subtle bg-ink-50/40 px-4 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="m-0 font-ar text-base font-semibold text-ink-900">
-              شروط التقديم حسب الفئة
-            </h2>
-            <p className="m-0 mt-1 font-ar text-xs text-ink-500">
-              اختر فئة واحدة، أضف شروط اللجنة، ثم اعتمد الفئة قبل الانتقال للفئة التالية.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="success">مكتمل {num(totals.complete)}</Badge>
-            <Badge tone="warning">جزئي {num(totals.partial)}</Badge>
-            <Badge tone="neutral">فارغ {num(totals.empty)}</Badge>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid min-h-[520px] grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="border-b border-border-subtle bg-surface-subtle p-3 lg:border-b-0 lg:border-e">
-          <label className="relative block">
-            <span className="sr-only">بحث في الفئات</span>
-            <Search
-              size={15}
-              strokeWidth={1.75}
-              className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-ink-400 start-3"
-              aria-hidden
-            />
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="ابحث عن فئة…"
-              className="h-10 w-full rounded-md border border-border-default bg-surface-card ps-9 pe-3 font-ar text-sm text-ink-900 outline-none transition-colors placeholder:text-ink-400 focus:border-teal-500 focus:shadow-focus-teal"
-            />
-          </label>
-
-          <div className="mt-3 flex max-h-[620px] flex-col gap-2 overflow-y-auto pe-1">
-            {filteredConfigs.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border-subtle bg-surface-card px-3 py-6 text-center font-ar text-xs text-ink-500">
-                لا توجد فئات مطابقة للبحث.
-              </div>
-            ) : (
-              filteredConfigs.map((item) => (
-                <CategoryNavButton
-                  key={item.config.id}
-                  item={item}
-                  selected={selected?.config.id === item.config.id}
-                  onSelect={() => setSelectedId(item.config.id)}
-                />
-              ))
-            )}
-          </div>
-        </aside>
-
-        <main className="min-w-0 bg-ink-50/25 p-4">
-          {selected && <ConfigItem {...selected} />}
-        </main>
-      </div>
-    </section>
+  /* Filter to active lookup rows then preserve the configs' sortOrder.
+   * The join carries `categoryType`/`categoryFacultyCodes`/
+   * `categorySpecializationCodes` straight off the lookup so feature
+   * components don't have to read the lookup themselves. */
+  const lookupActiveCodes = new Set(
+    (categoriesQuery.data ?? []).filter((c) => c.isActive).map((c) => c.code),
   );
-}
+  const activeConfigs = configsQuery.data.filter((c) =>
+    lookupActiveCodes.has(c.categoryCode),
+  );
 
-interface DecoratedConfig {
-  config: CategoryConfigJoined;
-  excellenceLabel: string | null;
-  excellenceMode: ExcellenceMode | null;
-  completion: CategoryCompletionState;
-  conditionCount: number;
-}
+  /* Every active category renders here. The criterion label on the
+   * row header only appears when the category carries one — categories
+   * without a criterion still need to be editable (admins set the rest
+   * of the rules regardless), so the row stays visible. */
+  const visibleConfigs = activeConfigs;
 
-function CategoryNavButton({
-  item,
-  selected,
-  onSelect,
-}: {
-  item: DecoratedConfig;
-  selected: boolean;
-  onSelect: () => void;
-}): JSX.Element {
-  const typeLabel = item.config.categoryType === 'university' ? 'جامعي' : 'ثانوي';
+  const criterionLabelByCode = new Map(
+    (excellenceQuery.data ?? []).map((row) => [row.code, row.name] as const),
+  );
+  const excellenceRows = excellenceQuery.data ?? [];
+
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn(
-        'w-full rounded-md border p-3 text-start transition-colors duration-fast ease-standard',
-        'focus-visible:outline-none focus-visible:shadow-focus-teal',
-        selected
-          ? 'border-teal-300 bg-teal-50 shadow-sm'
-          : 'border-border-subtle bg-surface-card hover:border-teal-200 hover:bg-teal-50/50',
-      )}
+    <Accordion.Root
+      type="multiple"
+      dir="rtl"
+      value={openIds}
+      onValueChange={setOpenIds}
+      className="flex flex-col gap-3"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <span className="block truncate font-ar text-sm font-semibold text-ink-900">
-            {item.config.categoryNameAr}
-          </span>
-          <span className="mt-1 inline-flex items-center gap-1 font-ar text-2xs text-ink-500">
-            <Layers size={11} strokeWidth={1.75} aria-hidden />
-            {typeLabel}
-            {item.excellenceLabel ? ` · ${item.excellenceLabel}` : ''}
-          </span>
-        </div>
-        <CompletionBadge state={item.completion} />
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-2 font-ar text-2xs text-ink-500">
-        <span>
-          {item.config.singleAxis
-            ? `${item.config.yearCount} سنة`
-            : `${item.config.specializationCount} تخصص`}
-        </span>
-        <span>{num(item.conditionCount)} شرط</span>
-      </div>
-    </button>
+      {visibleConfigs.map((config) => (
+        <ConfigItem
+          key={config.id}
+          config={config}
+          excellenceLabel={
+            /* Label only renders when the category actually carries a
+             * criterion. The row itself stays visible either way. */
+            config.excellenceCriterion === null
+              ? null
+              : criterionLabelByCode.get(config.excellenceCriterion) ??
+                config.excellenceCriterion
+          }
+          excellenceMode={deriveExcellenceMode(
+            config.excellenceCriterion,
+            excellenceRows,
+          )}
+        />
+      ))}
+    </Accordion.Root>
   );
 }
 
@@ -333,51 +143,89 @@ interface ConfigItemProps {
    *  score pair, GRADES (درجة) hides the grade pair. `null` (no
    *  criterion picked) keeps both pairs visible. */
   excellenceMode: ExcellenceMode | null;
-  completion: CategoryCompletionState;
-  conditionCount: number;
 }
 
 function ConfigItem({
   config,
   excellenceLabel,
   excellenceMode,
-  completion,
-  conditionCount,
 }: ConfigItemProps): JSX.Element {
+  /* Selector reads both buckets — see `selectCategoryCompletion` JSDoc.
+   * Authored rows that haven't been promoted via the section-level
+   * «اعتماد» button still count, so the badge tracks what the admin
+   * sees in the grid. */
+  const local = useAdmissionSetupWizardStore((s) => s.local);
+  const approved = useAdmissionSetupWizardStore((s) => s.approved);
+
+  const completion = useMemo(
+    () =>
+      selectCategoryCompletion(
+        config.categoryCode,
+        config.categoryType,
+        [...local, ...approved],
+        config.categorySpecializationCodes,
+      ),
+    [
+      local,
+      approved,
+      config.categoryCode,
+      config.categoryType,
+      config.categorySpecializationCodes,
+    ],
+  );
+
   const typeLabel = config.categoryType === 'university' ? 'جامعي' : 'ثانوي';
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <header className="rounded-lg border border-border-subtle bg-surface-card p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="m-0 font-ar text-lg font-bold text-ink-900">
-                {config.categoryNameAr}
-              </h3>
-              <Badge tone="neutral">{typeLabel}</Badge>
-              {excellenceLabel && (
-                <Badge tone="warning">معيار التمييز: {excellenceLabel}</Badge>
-              )}
-            </div>
-            <p className="m-0 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-ar text-xs text-ink-500">
-              <span className="inline-flex items-center gap-1.5">
-                <ListChecks size={12} strokeWidth={1.75} aria-hidden />
-                {num(conditionCount)} شرط مضاف
+    <Accordion.Item
+      value={config.id}
+      className="group overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-xs transition-colors duration-fast data-[state=open]:border-teal-100"
+    >
+      <Accordion.Header className="flex">
+        <div className="flex w-full items-center gap-3 px-5 py-4">
+          <Accordion.Trigger
+            className="group flex min-w-0 flex-1 items-center justify-between gap-4 rounded-md text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          >
+            <span className="flex min-w-0 items-start gap-3">
+              <span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-ink-50 text-ink-600 transition-colors duration-fast group-data-[state=open]:bg-teal-50 group-data-[state=open]:text-teal-700">
+                <ChevronDown
+                  size={15}
+                  strokeWidth={2}
+                  className="transition-transform duration-fast group-data-[state=closed]:rotate-180"
+                  aria-hidden
+                />
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Layers size={12} strokeWidth={1.75} aria-hidden />
-                {config.singleAxis
-                  ? `${config.yearCount} سنة دراسية`
-                  : `${config.specializationCount} تخصص · ${config.yearCount} سنة دراسية`}
+              <span className="min-w-0">
+                <span className="block truncate font-ar text-lg font-bold leading-7 text-ink-900">
+                  {config.categoryNameAr}
+                </span>
+                <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-full bg-ink-50 px-2 py-0.5 font-ar text-2xs font-medium text-ink-600">
+                    {typeLabel}
+                  </span>
+                  {excellenceLabel && (
+                    <span
+                      className="rounded-full bg-gold-50 px-2 py-0.5 font-ar text-2xs font-medium text-gold-700"
+                      aria-label={`معيار التمييز: ${excellenceLabel}`}
+                    >
+                      معيار التمييز: {excellenceLabel}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 font-ar text-2xs text-ink-600">
+                    <ListChecks size={11} strokeWidth={1.75} aria-hidden />
+                    {config.singleAxis
+                      ? `${config.yearCount} سنة دراسية`
+                      : `${config.specializationCount} تخصص · ${config.yearCount} سنة دراسية`}
+                  </span>
+                </span>
               </span>
-            </p>
-          </div>
+            </span>
+          </Accordion.Trigger>
           <CompletionBadge state={completion} />
         </div>
-      </header>
+      </Accordion.Header>
 
-      <div>
+      <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 p-4">
         {config.categoryType === 'university' ? (
           <GeneralRulesSection
             categoryCode={config.categoryCode}
@@ -391,8 +239,8 @@ function ConfigItem({
             excellenceMode={excellenceMode}
           />
         )}
-      </div>
-    </div>
+      </Accordion.Content>
+    </Accordion.Item>
   );
 }
 

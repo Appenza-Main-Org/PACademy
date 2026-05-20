@@ -300,7 +300,7 @@ function ThanawiTopFields({
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
 
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+    <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-5">
       <FieldLabel label="بداية التقديم" required>
         <DatePicker
           value={isoToDate(header.applicationStart)}
@@ -433,11 +433,11 @@ function FieldLabel({
   required = false,
 }: FieldLabelProps): JSX.Element {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="font-ar text-xs font-medium text-ink-700">
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="flex min-h-5 items-start font-ar text-xs font-medium leading-5 text-ink-700">
         {label}
         {required && (
-          <span aria-hidden className="ms-1 text-terra-600">
+          <span aria-hidden className="ms-1 shrink-0 text-terra-600">
             *
           </span>
         )}
