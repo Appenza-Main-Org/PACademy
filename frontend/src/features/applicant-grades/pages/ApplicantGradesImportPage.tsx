@@ -59,6 +59,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
   const mapping = useImportWizardStore((s) => s.mapping);
   const filters = useImportWizardStore((s) => s.filters);
+  const lookupValueMappings = useImportWizardStore((s) => s.lookupValueMappings);
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
   const selectedSchoolCategories = useImportWizardStore(
     (s) => s.selectedSchoolCategories,
@@ -157,7 +158,13 @@ export function ApplicantGradesImportPage(): JSX.Element {
      * fire once the wizard reached Step 6, so the non-null assertion
      * matches the actual invariant the UI enforces. */
     if (graduationYear == null) return;
-    const rows = normaliseRows(table, mapping, filters, graduationYear);
+    const rows = normaliseRows(
+      table,
+      mapping,
+      filters,
+      graduationYear,
+      lookupValueMappings,
+    );
     const actions: Record<ImportGroupCode, 'skip' | 'override' | 'create-applicant' | undefined> = {
       DUPLICATE_NID: filterAction(perGroupActions.DUPLICATE_NID),
       INVALID_NID: filterAction(perGroupActions.INVALID_NID),

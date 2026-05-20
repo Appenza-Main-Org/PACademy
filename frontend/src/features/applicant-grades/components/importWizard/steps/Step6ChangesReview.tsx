@@ -49,6 +49,7 @@ export function Step6ChangesReview(): JSX.Element {
   const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
   const mapping = useImportWizardStore((s) => s.mapping);
   const filters = useImportWizardStore((s) => s.filters);
+  const lookupValueMappings = useImportWizardStore((s) => s.lookupValueMappings);
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
   const existingDiffDecisions = useImportWizardStore(
     (s) => s.existingDiffDecisions,
@@ -74,8 +75,8 @@ export function Step6ChangesReview(): JSX.Element {
   const normalised = useMemo(() => {
     const table = parsed?.tables.find((t) => t.name === selectedTableName) ?? null;
     if (!table || graduationYear == null) return [];
-    return normaliseRows(table, mapping, filters, graduationYear);
-  }, [parsed, selectedTableName, mapping, filters, graduationYear]);
+    return normaliseRows(table, mapping, filters, graduationYear, lookupValueMappings);
+  }, [parsed, selectedTableName, mapping, filters, graduationYear, lookupValueMappings]);
 
   const diffs = useMemo<ExistingDiff[]>(
     () => buildExistingDiffs(normalised, allRows ?? []).filter((d) => d.hasChanges),

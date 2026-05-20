@@ -208,6 +208,7 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
    * row's typed `gender` field — earlier revisions hardcoded a single
    * value because the field didn't exist on the row yet. */
   const schoolCategoriesQuery = useLookup('school-categories');
+  const examRoundsQuery = useLookup('exam-rounds');
   const schoolCategoryName = useMemo(() => {
     if (!row.schoolCategoryCode) return null;
     return (
@@ -215,12 +216,19 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
       row.schoolCategoryCode
     );
   }, [schoolCategoriesQuery.data, row.schoolCategoryCode]);
+  const examRoundName = useMemo(() => {
+    if (!row.examRound) return null;
+    return (
+      (examRoundsQuery.data ?? []).find((r) => r.code === row.examRound || r.name === row.examRound)
+        ?.name ?? row.examRound
+    );
+  }, [examRoundsQuery.data, row.examRound]);
 
   const genderLabel = row.gender === 'female' ? 'أنثى' : 'ذكر';
   const yearLabel = row.graduationYear != null ? String(row.graduationYear) : '—';
   const schoolCategoryLabel = schoolCategoryName ?? '—';
   const schoolNameLabel = row.school && row.school.trim() !== '' ? row.school : '—';
-  const examRoundLabel = row.examRound && row.examRound.trim() !== '' ? row.examRound : '—';
+  const examRoundLabel = examRoundName && examRoundName.trim() !== '' ? examRoundName : '—';
 
   const general: Array<KVProps> = [
     { label: 'الاسم باللغة العربية', sourceKey: 'arabic_name', value: row.name },
@@ -503,4 +511,3 @@ function KV({ label, value, mono, empty, highlight }: KVProps): JSX.Element {
     </div>
   );
 }
-

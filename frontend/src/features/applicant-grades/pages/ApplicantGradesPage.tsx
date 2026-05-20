@@ -139,6 +139,15 @@ export function ApplicantGradesPage(): JSX.Element {
     for (const r of schoolCategoriesQuery.data ?? []) map.set(r.code, r.name);
     return map;
   }, [schoolCategoriesQuery.data]);
+  const examRoundsQuery = useLookup('exam-rounds');
+  const examRoundLabel = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of examRoundsQuery.data ?? []) {
+      map.set(r.code, r.name);
+      map.set(r.name, r.name);
+    }
+    return map;
+  }, [examRoundsQuery.data]);
 
   /* Local search input that debounces into the URL state. The URL
    * value is the source of truth for the query; the input only
@@ -348,7 +357,7 @@ export function ApplicantGradesPage(): JSX.Element {
         r.schoolCategoryCode ? schoolCategoryLabel.get(r.schoolCategoryCode) ?? '' : '',
         r.school ?? '',
         r.region ?? '',
-        r.examRound ?? '',
+        r.examRound ? examRoundLabel.get(r.examRound) ?? r.examRound : '',
         r.total,
         r.overrideMax ?? r.importMax,
       ]);
@@ -546,25 +555,43 @@ export function ApplicantGradesPage(): JSX.Element {
       ),
     },
     {
-      key: 'kind',
+      key: 'schoolCategoryCode',
       label: 'النوع',
       align: 'center',
       sortable: true,
-      getSortValue: (r) => r.kind,
+      getSortValue: (r) => r.schoolCategoryCode ?? '',
       filter: {
         kind: 'enum',
-        getValue: (r) => r.kind,
-        options: [
-          { value: 'general', label: 'عامة' },
-          { value: 'azhar', label: 'أزهرية' },
-        ],
+        getValue: (r) => r.schoolCategoryCode ?? '',
+        options: activeSchoolCategories.map((c) => ({ value: c.code, label: c.name })),
       },
-      className: 'min-w-[6ch]',
-      render: (r) => (
-        <Badge tone={r.kind === 'general' ? 'info' : 'warning'}>
-          {r.kind === 'general' ? 'عامة' : 'أزهرية'}
-        </Badge>
-      ),
+      className: 'min-w-[13ch] max-w-[18ch]',
+      render: (r) =>
+        r.schoolCategoryCode ? (
+          <Badge tone={r.schoolCategoryCode === 'SCH-03' ? 'warning' : 'info'}>
+            <span className="max-w-[16ch] truncate">
+              {schoolCategoryLabel.get(r.schoolCategoryCode) ?? r.schoolCategoryCode}
+            </span>
+          </Badge>
+        ) : (
+          <span className="text-2xs text-ink-300">—</span>
+        ),
+    },
+    {
+      key: 'school',
+      label: 'اسم المدرسة',
+      sortable: true,
+      getSortValue: (r) => r.school,
+      filter: { kind: 'text', getValue: (r) => r.school },
+      className: 'min-w-[16ch] max-w-[24ch]',
+      render: (r) =>
+        r.school.trim() !== '' ? (
+          <span className="block max-w-[22ch] truncate text-xs text-ink-700" title={r.school}>
+            {r.school}
+          </span>
+        ) : (
+          <span className="text-2xs text-ink-300">—</span>
+        ),
     },
     {
       key: 'graduationYear',

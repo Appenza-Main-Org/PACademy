@@ -14,9 +14,15 @@
 
 import { useMemo, useState } from 'react';
 import { Check, ChevronDown, Filter as FilterIcon, Search } from 'lucide-react';
-import { Button, Popover } from '@/shared/components';
+import { Button, Popover, SearchSelect } from '@/shared/components';
+import type { SearchSelectOption } from '@/shared/components';
 import { normalizeArabic } from '@/shared/lib/arabic';
-import { useImportWizardStore, type FilterState } from '../../../store/importWizard.store';
+import { useLookup } from '@/features/lookups';
+import {
+  useImportWizardStore,
+  type FilterState,
+  type LookupValueMappings,
+} from '../../../store/importWizard.store';
 import { TARGET_FIELDS, type TargetField } from '../../../lib/targetFields';
 import { countFiltered, distinctValues } from '../../../lib/normalise';
 
@@ -28,6 +34,10 @@ export function Step4Filters(): JSX.Element {
   const mapping = useImportWizardStore((s) => s.mapping);
   const filters = useImportWizardStore((s) => s.filters);
   const setFilter = useImportWizardStore((s) => s.setFilter);
+  const lookupValueMappings = useImportWizardStore((s) => s.lookupValueMappings);
+  const setLookupValueMapping = useImportWizardStore((s) => s.setLookupValueMapping);
+  const schoolCategoriesQuery = useLookup('school-categories');
+  const examRoundsQuery = useLookup('exam-rounds');
 
   const table = useMemo(
     () => parsed?.tables.find((t) => t.name === selectedTableName) ?? null,
@@ -76,10 +86,21 @@ export function Step4Filters(): JSX.Element {
       </div>
 
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {mappedColumns.map(({ targetLabel, column }) => {
+        {mappedColumns.map(({ targetKey, targetLabel, column }) => {
           const state: FilterState = filters[column] ?? { mode: 'all', values: [] };
           const values = distinctValues(table, column);
           const totalValues = values.length;
+          const lookupMapping = buildLookupMapping({
+            targetKey,
+            lookupValueMappings,
+            schoolCategoryOptions: (schoolCategoriesQuery.data ?? [])
+              .filter((row) => row.isActive)
+              .map((row) => ({ value: row.code, label: row.name })),
+            examRoundOptions: (examRoundsQuery.data ?? [])
+              .filter((row) => row.isActive)
+              .map((row) => ({ value: row.code, label: row.name })),
+            onMap: setLookupValueMapping,
+          });
           return (
             <li key={column}>
               <FilterCard
@@ -88,6 +109,7 @@ export function Step4Filters(): JSX.Element {
                 state={state}
                 values={values}
                 totalValues={totalValues}
+                lookupMapping={lookupMapping}
                 onChange={(next) => setFilter(column, next)}
               />
             </li>
@@ -109,7 +131,18 @@ interface FilterCardProps {
   state: FilterState;
   values: ReadonlyArray<{ value: string; count: number }>;
   totalValues: number;
+  lookupMapping: LookupMappingConfig | null;
   onChange: (next: FilterState) => void;
+}
+
+interface LookupMappingConfig {
+  kind: keyof LookupValueMappings;
+  title: string;
+  description: string;
+  placeholder: string;
+  options: SearchSelectOption[];
+  valueByRaw: Record<string, string>;
+  onMap: (kind: keyof LookupValueMappings, rawValue: string, lookupCode: string | null) => void;
 }
 
 function FilterCard({
@@ -118,6 +151,7 @@ function FilterCard({
   state,
   values,
   totalValues,
+  lookupMapping,
   onChange,
 }: FilterCardProps): JSX.Element {
   const [showAll, setShowAll] = useState(false);
@@ -131,6 +165,7 @@ function FilterCard({
   const isInclude = state.mode === 'include';
   const selected = new Set(isInclude ? state.values : values.map((v) => v.value));
   const selectedCount = selected.size;
+  const selectedValues = values.filter(({ value }) => value !== '' && selected.has(value));
 
   function toggleMode(): void {
     onChange(
@@ -200,7 +235,7 @@ function FilterCard({
                   </div>
                   <div className="mt-0.5 text-2xs text-ink-500">
                     <span className="font-en">{selectedCount.toLocaleString('en')}</span> من{' '}
-                    <span className="font-en">{totalValues.toLocaleString('en')}</span> مشمولة
+                    <span className="font-en">{totalValues.toLocaleString('en')}</span> محددة
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -292,6 +327,90 @@ function FilterCard({
           <span className="font-en">{totalValues.toLocaleString('en')}</span> قيمة مفعّلة
         </footer>
       )}
+      {lookupMapping && selectedValues.length > 0 && (
+        <LookupValueMappingPanel
+          config={lookupMapping}
+          values={selectedValues}
+        />
+      )}
     </article>
+  );
+}
+
+function buildLookupMapping({
+  targetKey,
+  lookupValueMappings,
+  schoolCategoryOptions,
+  examRoundOptions,
+  onMap,
+}: {
+  targetKey: TargetField | undefined;
+  lookupValueMappings: LookupValueMappings;
+  schoolCategoryOptions: SearchSelectOption[];
+  examRoundOptions: SearchSelectOption[];
+  onMap: LookupMappingConfig['onMap'];
+}): LookupMappingConfig | null {
+  if (targetKey === 'schoolCategory') {
+    return {
+      kind: 'schoolCategory',
+      title: 'ربط قيم فئة المدرسة',
+      description: 'اختر الكود المرجعي المطابق لكل قيمة واردة من الملف.',
+      placeholder: 'اختر فئة المدرسة',
+      options: schoolCategoryOptions,
+      valueByRaw: lookupValueMappings.schoolCategory,
+      onMap,
+    };
+  }
+  if (targetKey === 'examRound') {
+    return {
+      kind: 'examRound',
+      title: 'ربط قيم الدور',
+      description: 'اختر دور الامتحان المرجعي المطابق لكل قيمة واردة من الملف.',
+      placeholder: 'اختر الدور',
+      options: examRoundOptions,
+      valueByRaw: lookupValueMappings.examRound,
+      onMap,
+    };
+  }
+  return null;
+}
+
+function LookupValueMappingPanel({
+  config,
+  values,
+}: {
+  config: LookupMappingConfig;
+  values: ReadonlyArray<{ value: string; count: number }>;
+}): JSX.Element {
+  return (
+    <div className="border-t border-border-subtle bg-ink-50/50 px-3.5 py-3">
+      <div className="mb-2">
+        <div className="text-xs font-semibold text-ink-900">{config.title}</div>
+        <div className="mt-0.5 text-2xs text-ink-500">{config.description}</div>
+      </div>
+      <ul className="m-0 grid list-none gap-2 p-0 md:grid-cols-2">
+        {values.map(({ value, count }) => (
+          <li
+            key={value}
+            className="grid gap-1.5 rounded-md border border-border-subtle bg-surface-card p-2.5"
+          >
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <span className="truncate text-xs font-medium text-ink-900">{value}</span>
+              <span className="shrink-0 text-2xs text-ink-500">
+                <span className="font-en tabular-nums">{count.toLocaleString('en')}</span> صف
+              </span>
+            </div>
+            <SearchSelect
+              value={config.valueByRaw[value] ?? null}
+              onChange={(next) => config.onMap(config.kind, value, next)}
+              options={config.options}
+              placeholder={config.placeholder}
+              ariaLabel={`${config.title}: ${value}`}
+              className="h-9"
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

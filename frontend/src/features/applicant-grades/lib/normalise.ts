@@ -11,7 +11,7 @@
 import type { ParsedTable } from './parseGradesFile';
 import type { TargetField } from './targetFields';
 import type { NormalisedRow } from '../types';
-import type { FilterState } from '../store/importWizard.store';
+import type { FilterState, LookupValueMappings } from '../store/importWizard.store';
 
 const EASTERN_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
 
@@ -71,6 +71,7 @@ export function normaliseRows(
   mapping: Record<TargetField, string | null>,
   filters: Record<string, FilterState>,
   graduationYear: number,
+  lookupValueMappings?: LookupValueMappings,
 ): NormalisedRow[] {
   const out: NormalisedRow[] = [];
   table.rows.forEach((raw, i) => {
@@ -79,6 +80,8 @@ export function normaliseRows(
       const src = mapping[key];
       return src ? raw[src] ?? null : null;
     };
+    const rawSchoolCategory = asString(get('schoolCategory'));
+    const rawExamRound = asString(get('examRound'));
     out.push({
       nationalId: asDigitString(get('nationalId')),
       seatingNumber: asString(get('seatingNumber')),
@@ -88,8 +91,14 @@ export function normaliseRows(
       graduationYear: asNumber(get('graduationYear')) ?? graduationYear,
       totalGrade: asNumber(get('totalGrade')),
       maxGrade: asNumber(get('maxGrade')),
-      schoolCategory: asString(get('schoolCategory')),
-      examRound: asString(get('examRound')),
+      schoolCategory:
+        rawSchoolCategory == null
+          ? null
+          : lookupValueMappings?.schoolCategory[rawSchoolCategory] ?? rawSchoolCategory,
+      examRound:
+        rawExamRound == null
+          ? null
+          : lookupValueMappings?.examRound[rawExamRound] ?? rawExamRound,
       schoolName: asString(get('schoolName')),
       regionName: asString(get('regionName')),
       sourceRowIndex: i + 1,

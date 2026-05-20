@@ -102,6 +102,21 @@ function resolveSchoolCategoryCode(raw: string | null): string | null {
   return null;
 }
 
+/** Resolve the import wizard's raw `الدور` value against the active
+ * `exam-rounds` lookup. Returns the lookup code so stored rows remain
+ * stable when display names change. */
+function resolveExamRoundCode(raw: string | null): string | null {
+  if (!raw) return null;
+  const needle = raw.trim();
+  if (needle === '') return null;
+  const lookup = MOCK.lookups['exam-rounds'];
+  const direct = lookup.find((r) => r.code === needle);
+  if (direct) return direct.code;
+  const byName = lookup.find((r) => r.name === needle);
+  if (byName) return byName.code;
+  return needle;
+}
+
 export const gradesService = {
   async list(): Promise<GradeRow[]> {
     await simulateLatency(120, 240);
@@ -681,6 +696,7 @@ export const gradesService = {
       const gender = resolveGender(row.gender);
       const graduationYear = row.graduationYear ?? input.graduationYear;
       const resolvedFromRow = resolveSchoolCategoryCode(row.schoolCategory);
+      const examRoundCode = resolveExamRoundCode(row.examRound);
       /* Single-select fallback: when the admin picked exactly one
        * category in Step 1 and the row's own `schoolCategory` cell is
        * empty or doesn't match the lookup, assume the picked category
@@ -784,7 +800,7 @@ export const gradesService = {
           schoolCategoryCode: schoolCategoryCode ?? existing.schoolCategoryCode,
           school: row.schoolName ?? existing.school,
           region: row.regionName ?? existing.region,
-          examRound: row.examRound ?? existing.examRound,
+          examRound: examRoundCode ?? existing.examRound,
           status: existing.status,
           previousGrade: totalChanged ? existing.total : existing.previousGrade,
           gradeChangedAt: new Date().toISOString(),
@@ -807,7 +823,7 @@ export const gradesService = {
         schoolCategoryCode,
         school: row.schoolName ?? '',
         region: row.regionName ?? '',
-        examRound: row.examRound,
+        examRound: examRoundCode,
         total: row.totalGrade,
         importMax: row.maxGrade ?? categoryMax,
         overrideMax: null,

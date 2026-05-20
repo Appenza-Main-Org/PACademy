@@ -44,6 +44,13 @@ export interface FilterState {
   values: string[];
 }
 
+export interface LookupValueMappings {
+  /** Raw source value → `school-categories.code`. */
+  schoolCategory: Record<string, string>;
+  /** Raw source value → `exam-rounds.code`. */
+  examRound: Record<string, string>;
+}
+
 /** Shape that survives a JSON round-trip in sessionStorage. */
 export interface PersistedImportWizardState {
   step: ImportStep;
@@ -66,6 +73,7 @@ export interface PersistedImportWizardState {
   selectedTableName: string | null;
   mapping: Record<TargetField, string | null>;
   filters: Record<string, FilterState>;
+  lookupValueMappings: LookupValueMappings;
   importResult: ImportReport | null;
   perGroupActions: Record<string, 'skip' | 'override' | 'create-applicant'>;
   /** Per-row decision for rows whose national-id matches an existing
@@ -96,6 +104,11 @@ export interface ImportWizardState extends PersistedImportWizardState {
   setMappingField: (field: TargetField, source: string | null) => void;
   setFilters: (filters: Record<string, FilterState>) => void;
   setFilter: (column: string, state: FilterState) => void;
+  setLookupValueMapping: (
+    kind: keyof LookupValueMappings,
+    rawValue: string,
+    lookupCode: string | null,
+  ) => void;
   setImportResult: (r: ImportReport | null) => void;
   setPerGroupAction: (code: string, action: 'skip' | 'override' | 'create-applicant') => void;
   setExistingDiffDecision: (nid: string, decision: ExistingDiffDecision) => void;
@@ -152,6 +165,7 @@ function defaultState(): PersistedImportWizardState {
     selectedTableName: null,
     mapping: { ...EMPTY_MAPPING },
     filters: {},
+    lookupValueMappings: { schoolCategory: {}, examRound: {} },
     importResult: null,
     perGroupActions: {},
     existingDiffDecisions: {},
@@ -193,6 +207,7 @@ export const useImportWizardStore = create<ImportWizardState>()(
           selectedTableName: null,
           mapping: { ...EMPTY_MAPPING },
           filters: {},
+          lookupValueMappings: { schoolCategory: {}, examRound: {} },
           importResult: null,
           perGroupActions: {},
           existingDiffDecisions: {},
@@ -206,6 +221,18 @@ export const useImportWizardStore = create<ImportWizardState>()(
       setFilters: (filters) => set({ filters }),
       setFilter: (column, state) =>
         set((s) => ({ filters: { ...s.filters, [column]: state } })),
+      setLookupValueMapping: (kind, rawValue, lookupCode) =>
+        set((s) => {
+          const nextBucket = { ...s.lookupValueMappings[kind] };
+          if (lookupCode == null) delete nextBucket[rawValue];
+          else nextBucket[rawValue] = lookupCode;
+          return {
+            lookupValueMappings: {
+              ...s.lookupValueMappings,
+              [kind]: nextBucket,
+            },
+          };
+        }),
       setImportResult: (importResult) => set({ importResult }),
       setPerGroupAction: (code, action) =>
         set((s) => ({ perGroupActions: { ...s.perGroupActions, [code]: action } })),
@@ -242,6 +269,7 @@ export const useImportWizardStore = create<ImportWizardState>()(
         selectedTableName: s.selectedTableName,
         mapping: s.mapping,
         filters: s.filters,
+        lookupValueMappings: s.lookupValueMappings,
         importResult: s.importResult,
         perGroupActions: s.perGroupActions,
         existingDiffDecisions: s.existingDiffDecisions,
