@@ -167,7 +167,7 @@ function FilterCard({
               <Popover.Trigger asChild>
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="secondary"
                   leadingIcon={<FilterIcon size={12} strokeWidth={1.75} />}
                   trailingIcon={<ChevronDown size={12} strokeWidth={1.75} />}
                 >

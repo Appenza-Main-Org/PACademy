@@ -20,6 +20,9 @@ import {
   type TargetField,
 } from '../../../lib/targetFields';
 
+const IMPORT_DROPDOWN_TRIGGER_CLASS =
+  '!h-11 !border-border-default !ps-3.5 !pe-3.5 text-sm font-medium shadow-sm hover:!border-border-strong focus-visible:!border-teal-500 data-[state=open]:!border-teal-500 data-[state=open]:shadow-focus-teal';
+
 export function Step3ColumnMapping(): JSX.Element {
   const parsed = useImportWizardStore((s) => s.parsed);
   const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
@@ -70,6 +73,7 @@ export function Step3ColumnMapping(): JSX.Element {
                     options={sourceOptions}
                     placeholder="اختر العمود في الملف"
                     ariaLabel={`ربط ${d.labelAr}`}
+                    triggerClassName={IMPORT_DROPDOWN_TRIGGER_CLASS}
                   />
                 </Field>
               </li>

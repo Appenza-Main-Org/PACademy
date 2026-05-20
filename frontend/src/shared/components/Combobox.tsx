@@ -275,6 +275,7 @@ export function Combobox({
           aria-expanded={open}
           aria-label={ariaLabel}
           disabled={disabled}
+          data-state={open ? 'open' : 'closed'}
           onClick={() => !disabled && setOpen((prev) => !prev)}
           className={cn(
             'flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-surface-card px-3 text-start text-sm transition-colors duration-fast ease-standard',

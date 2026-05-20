@@ -33,6 +33,8 @@ import { downloadTemplateWorkbook } from '../../../lib/buildTemplateWorkbook';
 
 const MB = 1024 * 1024;
 const MAX_FILE_SIZE_MB = 500;
+const IMPORT_DROPDOWN_TRIGGER_CLASS =
+  '!h-11 !border-border-default !ps-3.5 !pe-3.5 text-sm font-medium shadow-sm hover:!border-border-strong focus-visible:!border-teal-500 data-[state=open]:!border-teal-500 data-[state=open]:shadow-focus-teal';
 
 function matchExtension(fileName: string): string | null {
   const lower = fileName.toLowerCase();
@@ -177,7 +179,7 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
               placeholder="اختر فئة المدرسة"
               ariaLabel="فئة المدرسة"
               clearable
-              triggerClassName="h-11 px-3.5 text-sm font-medium shadow-sm hover:border-teal-400 data-[state=open]:border-teal-500"
+              triggerClassName={IMPORT_DROPDOWN_TRIGGER_CLASS}
             />
             {pickedCategory && pickedCode && pickedMax != null && (
               <div className="flex items-center justify-between gap-3 rounded-md border border-border-subtle bg-ink-50/40 px-3 py-2">
@@ -229,7 +231,7 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
             placeholder="اختر السنة"
             ariaLabel="سنة التخرج"
             invalid={Boolean(yearError)}
-            className="h-11 ps-3.5 pe-9 text-sm font-medium shadow-sm"
+            className="!h-11 !ps-3.5 !pe-9 text-sm font-medium shadow-sm"
           />
         )}
       </Field>
