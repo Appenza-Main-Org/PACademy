@@ -22,6 +22,15 @@ import {
 
 const IMPORT_DROPDOWN_TRIGGER_CLASS =
   '!h-11 !border-border-default !ps-3.5 !pe-3.5 text-sm font-medium shadow-sm hover:!border-border-strong focus-visible:!border-teal-500 data-[state=open]:!border-teal-500 data-[state=open]:shadow-focus-teal';
+const ORDERED_TARGET_FIELDS = TARGET_FIELDS.map((field, index) => ({
+  field,
+  index,
+}))
+  .sort((a, b) => {
+    if (a.field.required !== b.field.required) return a.field.required ? -1 : 1;
+    return a.index - b.index;
+  })
+  .map(({ field }) => field);
 
 export function Step3ColumnMapping(): JSX.Element {
   const parsed = useImportWizardStore((s) => s.parsed);
@@ -53,7 +62,7 @@ export function Step3ColumnMapping(): JSX.Element {
           <h3 className="m-0 text-xs font-semibold uppercase text-ink-500">ربط الأعمدة</h3>
         </div>
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
-          {TARGET_FIELDS.map((d) => {
+          {ORDERED_TARGET_FIELDS.map((d) => {
             const value = mapping[d.key];
             return (
               <li key={d.key}>
