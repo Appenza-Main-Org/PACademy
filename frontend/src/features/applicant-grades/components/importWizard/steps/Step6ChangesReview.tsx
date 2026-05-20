@@ -144,9 +144,19 @@ export function Step6ChangesReview(): JSX.Element {
     const decision = existingDiffDecisions[d.nationalId] ?? 'pending';
     return decision === 'pending';
   }).length;
+  const diffBulkMode: BulkDecisionMode =
+    diffs.length > 0 && acceptedCount === diffs.length
+      ? 'accept'
+      : diffs.length > 0 && rejectedCount === diffs.length
+        ? 'reject'
+        : null;
   const undecidedUploadDuplicates = uploadDuplicates.filter(
     (u) => uploadDuplicateDecisions[u.nationalId] == null,
   ).length;
+  const uploadBulkMode = getUploadDuplicateBulkMode(
+    uploadDuplicates,
+    uploadDuplicateDecisions,
+  );
 
   function acceptAllUploadDuplicates(): void {
     const next: Record<string, UploadDuplicateDecision> = {
@@ -208,6 +218,7 @@ export function Step6ChangesReview(): JSX.Element {
           duplicates={uploadDuplicates}
           decisions={uploadDuplicateDecisions}
           undecidedCount={undecidedUploadDuplicates}
+          bulkMode={uploadBulkMode}
           onSetDecision={setUploadDuplicateDecision}
           onAcceptAll={acceptAllUploadDuplicates}
           onRejectAll={rejectAllUploadDuplicates}
@@ -247,28 +258,16 @@ export function Step6ChangesReview(): JSX.Element {
                     {pendingCount.toLocaleString('en')}
                   </span>
                 </span>
-              </span>
+          </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="secondary"
-                leadingIcon={<X size={12} strokeWidth={2} aria-hidden />}
-                onClick={rejectAllDiffs}
-                disabled={pendingCount === 0}
-              >
-                رفض الكل ({pendingCount.toLocaleString('en')})
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                leadingIcon={<Check size={12} strokeWidth={2} aria-hidden />}
-                onClick={acceptAllDiffs}
-                disabled={pendingCount === 0}
-              >
-                قبول الكل ({pendingCount.toLocaleString('en')})
-              </Button>
-            </div>
+            <BulkDecisionToggle
+              mode={diffBulkMode}
+              acceptLabel={`قبول الكل (${pendingCount.toLocaleString('en')})`}
+              rejectLabel={`رفض الكل (${pendingCount.toLocaleString('en')})`}
+              onAccept={acceptAllDiffs}
+              onReject={rejectAllDiffs}
+              disabled={pendingCount === 0}
+            />
           </header>
 
           <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
@@ -288,6 +287,82 @@ export function Step6ChangesReview(): JSX.Element {
       )}
     </div>
   );
+}
+
+type BulkDecisionMode = 'accept' | 'reject' | null;
+
+interface BulkDecisionToggleProps {
+  mode: BulkDecisionMode;
+  acceptLabel: string;
+  rejectLabel: string;
+  onAccept: () => void;
+  onReject: () => void;
+  disabled?: boolean;
+}
+
+function BulkDecisionToggle({
+  mode,
+  acceptLabel,
+  rejectLabel,
+  onAccept,
+  onReject,
+  disabled,
+}: BulkDecisionToggleProps): JSX.Element {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="قرار جماعي"
+      className="inline-flex overflow-hidden rounded-md border border-border-default bg-surface-card p-0.5 shadow-xs"
+    >
+      <button
+        type="button"
+        role="radio"
+        aria-checked={mode === 'reject'}
+        disabled={disabled}
+        onClick={onReject}
+        className={`inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-sm px-3 text-xs font-medium transition-colors focus-visible:shadow-focus-teal focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+          mode === 'reject'
+            ? 'bg-terra-500 text-text-inverse'
+            : 'text-ink-700 hover:bg-terra-50 hover:text-terra-700'
+        }`}
+      >
+        <X size={12} strokeWidth={2} aria-hidden />
+        {rejectLabel}
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={mode === 'accept'}
+        disabled={disabled}
+        onClick={onAccept}
+        className={`inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-sm px-3 text-xs font-medium transition-colors focus-visible:shadow-focus-teal focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+          mode === 'accept'
+            ? 'bg-teal-600 text-text-inverse'
+            : 'text-ink-700 hover:bg-teal-50 hover:text-teal-700'
+        }`}
+      >
+        <Check size={12} strokeWidth={2} aria-hidden />
+        {acceptLabel}
+      </button>
+    </div>
+  );
+}
+
+function getUploadDuplicateBulkMode(
+  duplicates: ReadonlyArray<UploadDuplicate>,
+  decisions: Record<string, UploadDuplicateDecision>,
+): BulkDecisionMode {
+  if (duplicates.length === 0) return null;
+  let accepted = 0;
+  let rejected = 0;
+  for (const duplicate of duplicates) {
+    const decision = decisions[duplicate.nationalId];
+    if (decision?.action === 'reject') rejected += 1;
+    else accepted += 1;
+  }
+  if (accepted === duplicates.length) return 'accept';
+  if (rejected === duplicates.length) return 'reject';
+  return null;
 }
 
 interface DiffCardProps {
@@ -411,6 +486,7 @@ interface UploadDuplicatesSectionProps {
   duplicates: UploadDuplicate[];
   decisions: Record<string, UploadDuplicateDecision>;
   undecidedCount: number;
+  bulkMode: BulkDecisionMode;
   onSetDecision: (nid: string, decision: UploadDuplicateDecision) => void;
   onAcceptAll: () => void;
   onRejectAll: () => void;
@@ -420,6 +496,7 @@ function UploadDuplicatesSection({
   duplicates,
   decisions,
   undecidedCount,
+  bulkMode,
   onSetDecision,
   onAcceptAll,
   onRejectAll,
@@ -440,24 +517,13 @@ function UploadDuplicatesSection({
             بحاجة لقرار صريح.
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Button
-            size="sm"
-            variant="secondary"
-            leadingIcon={<X size={12} strokeWidth={2} aria-hidden />}
-            onClick={onRejectAll}
-          >
-            رفض الكل
-          </Button>
-          <Button
-            size="sm"
-            variant="primary"
-            leadingIcon={<Check size={12} strokeWidth={2} aria-hidden />}
-            onClick={onAcceptAll}
-          >
-            قبول الكل
-          </Button>
-        </div>
+        <BulkDecisionToggle
+          mode={bulkMode}
+          acceptLabel="قبول الكل"
+          rejectLabel="رفض الكل"
+          onAccept={onAcceptAll}
+          onReject={onRejectAll}
+        />
       </header>
 
       <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
