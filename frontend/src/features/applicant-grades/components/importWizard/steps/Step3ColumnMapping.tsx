@@ -7,18 +7,16 @@
  *   Right — preview of the first 20 rows from the selected table, with
  *           the columns that are currently mapped highlighted.
  *
- * Auto-mapping runs at mount (and again when the user clicks "تعيين
- * تلقائي") via `autoMapColumns`. "متابعة" is gated by
- * `unmappedRequiredFields(mapping).length === 0`.
+ * The selected table may arrive with an auto-generated initial mapping
+ * from Step 2. "متابعة" is gated by every required field having a
+ * source column.
  */
 
 import { useMemo } from 'react';
-import { Sparkles } from 'lucide-react';
-import { Badge, Button, Combobox, Field } from '@/shared/components';
+import { Badge, Combobox, Field } from '@/shared/components';
 import { useImportWizardStore } from '../../../store/importWizard.store';
 import {
   TARGET_FIELDS,
-  autoMapColumns,
   type TargetField,
 } from '../../../lib/targetFields';
 
@@ -26,7 +24,6 @@ export function Step3ColumnMapping(): JSX.Element {
   const parsed = useImportWizardStore((s) => s.parsed);
   const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
   const mapping = useImportWizardStore((s) => s.mapping);
-  const setMapping = useImportWizardStore((s) => s.setMapping);
   const setMappingField = useImportWizardStore((s) => s.setMappingField);
 
   const table = useMemo(
@@ -51,14 +48,6 @@ export function Step3ColumnMapping(): JSX.Element {
       <section>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="m-0 text-xs font-semibold uppercase text-ink-500">ربط الأعمدة</h3>
-          <Button
-            size="sm"
-            variant="ghost"
-            leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
-            onClick={() => setMapping(autoMapColumns(table.columns))}
-          >
-            تعيين تلقائي
-          </Button>
         </div>
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {TARGET_FIELDS.map((d) => {
