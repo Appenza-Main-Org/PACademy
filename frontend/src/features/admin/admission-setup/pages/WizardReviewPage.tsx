@@ -163,8 +163,8 @@ export function WizardReviewPage({ statusInputs }: WizardReviewPageProps): JSX.E
               aria-hidden
               className="inline-flex h-10 w-10 items-center justify-center rounded-md"
               style={{
-                background: isApproved ? 'var(--success-50, #E6F4EA)' : 'var(--accent-50)',
-                color: isApproved ? 'var(--success, #1E8E3E)' : 'var(--accent-600)',
+                background: isApproved ? 'var(--success-bg)' : 'var(--accent-50)',
+                color: isApproved ? 'var(--success)' : 'var(--accent-600)',
               }}
             >
               {isApproved ? (

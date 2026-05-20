@@ -228,7 +228,7 @@ export function LiveSessionsTable({
               style={{
                 borderColor: active ? 'var(--accent-500)' : 'var(--border-subtle)',
                 background: active ? 'var(--accent-500)' : 'var(--surface-card)',
-                color: active ? '#fff' : 'var(--ink-700)',
+                color: active ? 'var(--text-inverse)' : 'var(--ink-700)',
               }}
             >
               {opt.label}

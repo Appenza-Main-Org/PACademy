@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import {
+  AlertDialog,
   Button,
   Card,
   CardHeader,
@@ -85,6 +86,7 @@ export function ScheduleCategoryPanel({
 
   const [pickedDate, setPickedDate] = useState<Date | null>(null);
   const [capacityStr, setCapacityStr] = useState<string>('');
+  const [entryToRemove, setEntryToRemove] = useState<ExamScheduleEntry | null>(null);
 
   const capacity = Number(capacityStr);
   const capacityValid =
@@ -117,14 +119,18 @@ export function ScheduleCategoryPanel({
   };
 
   const handleRemove = (entry: ExamScheduleEntry): void => {
-    if (typeof window !== 'undefined') {
-      const ok = window.confirm('سيتم حذف هذا الموعد. هل تريد المتابعة؟');
-      if (!ok) return;
-    }
+    setEntryToRemove(entry);
+  };
+
+  const confirmRemove = (): void => {
+    if (!entryToRemove) return;
     removeMut.mutate(
-      { id: entry.id, categoryKey },
+      { id: entryToRemove.id, categoryKey },
       {
-        onSuccess: () => toast('تم حذف الموعد', 'success'),
+        onSuccess: () => {
+          setEntryToRemove(null);
+          toast('تم حذف الموعد', 'success');
+        },
         onError: (err) => toast((err as Error).message, 'danger'),
       },
     );
@@ -271,6 +277,20 @@ export function ScheduleCategoryPanel({
           zebraStripes
         />
       </Card>
+
+      <AlertDialog
+        open={entryToRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) setEntryToRemove(null);
+        }}
+        title="حذف موعد اختبار"
+        description="سيتم حذف هذا الموعد من جدول الفئة. يمكن إضافته مرة أخرى عند الحاجة."
+        actionLabel="حذف الموعد"
+        cancelLabel="إلغاء"
+        onAction={confirmRemove}
+        tone="danger"
+        isActionLoading={removeMut.isPending}
+      />
     </div>
   );
 }

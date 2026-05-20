@@ -252,7 +252,7 @@ function Stepper({ step }: { step: Step }): JSX.Element {
               className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-2xs font-bold"
               style={
                 state === 'current'
-                  ? { background: 'var(--accent-500)', color: '#fff' }
+                  ? { background: 'var(--accent-500)', color: 'var(--text-inverse)' }
                   : state === 'complete'
                     ? { background: 'var(--accent-50)', color: 'var(--accent-700)' }
                     : { background: 'var(--ink-100)', color: 'var(--ink-500)' }
@@ -289,7 +289,7 @@ function Step1Download({ onDownload, onNext }: { onDownload: () => void; onNext:
         <span
           aria-hidden
           className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md"
-          style={{ background: 'var(--accent-500)', color: '#fff' }}
+          style={{ background: 'var(--accent-500)', color: 'var(--text-inverse)' }}
         >
           <Download size={18} strokeWidth={1.75} />
         </span>

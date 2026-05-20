@@ -35,6 +35,7 @@ import { Link } from 'react-router-dom';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import {
   Accordion,
+  AlertDialog,
   Button,
   Card,
   EmptyState,
@@ -104,16 +105,21 @@ export function CommitteeBindingsPanel({
   const instancesQuery = useCommitteeInstances({ cycleId: cycle.id });
   const removeMut = useRemoveCommitteeInstanceMutation();
   const updateMut = useUpdateCommitteeInstanceMutation();
+  const [rowToRemove, setRowToRemove] = useState<BindingRow | null>(null);
 
   const loading = instancesQuery.isLoading || definitionsQuery.isLoading;
 
   const handleRemove = (row: BindingRow): void => {
-    if (typeof window !== 'undefined') {
-      const ok = window.confirm('سيتم حذف هذا الموعد. هل تريد المتابعة؟');
-      if (!ok) return;
-    }
-    removeMut.mutate(row.id, {
-      onSuccess: () => toast('تم حذف الموعد', 'success'),
+    setRowToRemove(row);
+  };
+
+  const confirmRemove = (): void => {
+    if (!rowToRemove) return;
+    removeMut.mutate(rowToRemove.id, {
+      onSuccess: () => {
+        setRowToRemove(null);
+        toast('تم حذف الموعد', 'success');
+      },
       onError: (err) => toast((err as Error).message, 'danger'),
     });
   };
@@ -206,6 +212,24 @@ export function CommitteeBindingsPanel({
         isCapacitySaving={updateMut.isPending}
         onCapacityCommit={handleCapacityCommit}
         onDelete={handleRemove}
+      />
+
+      <AlertDialog
+        open={rowToRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) setRowToRemove(null);
+        }}
+        title="حذف موعد اختبار"
+        description={
+          rowToRemove
+            ? `سيتم حذف موعد ${rowToRemove.committeeName} بتاريخ ${fmtDate(rowToRemove.date, 'full')}.`
+            : undefined
+        }
+        actionLabel="حذف الموعد"
+        cancelLabel="إلغاء"
+        onAction={confirmRemove}
+        tone="danger"
+        isActionLoading={removeMut.isPending}
       />
     </div>
   );

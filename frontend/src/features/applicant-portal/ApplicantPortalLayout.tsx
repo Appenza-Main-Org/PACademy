@@ -10,9 +10,10 @@
  */
 
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Ban, LogOut, Pencil } from 'lucide-react';
 import {
+  AlertDialog,
   Badge,
   KhayameyaStripe,
   LogoMark,
@@ -78,6 +79,7 @@ export function ApplicantPortalLayout(): JSX.Element {
   const clear = useAuthStore((s) => s.clear);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const submittedDemo = useApplicantPortalStore((s) => s.submittedDemo);
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const selectedCategory = selectedCategoryKey
     ? MOCK.categories.find((c) => c.key === selectedCategoryKey) ?? null
     : null;
@@ -118,7 +120,7 @@ export function ApplicantPortalLayout(): JSX.Element {
   const autoSaveStatus = draft && Date.now() - draft.lastSavedAt < 4_000 ? 'saved' : 'idle';
 
   const handleExit = (): void => {
-    if (!window.confirm('هل تريد الخروج من ملف التقديم؟ سيتم حفظ تقدّمك تلقائياً.')) return;
+    setExitDialogOpen(false);
     clear();
     toast('تم الخروج. يمكنك العودة لاحقاً عبر صفحة التقديم.', 'info');
     navigate(ROUTES.landing, { replace: true });
@@ -157,13 +159,23 @@ export function ApplicantPortalLayout(): JSX.Element {
           )}
           <button
             type="button"
-            onClick={handleExit}
+            onClick={() => setExitDialogOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-ink-800 transition-colors hover:border-terra-500 hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
           >
             <LogOut size={15} strokeWidth={1.75} /> خروج
           </button>
         </div>
       </header>
+
+      <AlertDialog
+        open={exitDialogOpen}
+        onOpenChange={setExitDialogOpen}
+        title="الخروج من ملف التقديم"
+        description="سيتم حفظ تقدّمك تلقائياً، ويمكنك العودة لاحقاً عبر صفحة التقديم."
+        actionLabel="الخروج"
+        cancelLabel="متابعة التقديم"
+        onAction={handleExit}
+      />
 
       <Pattern variant="tessellation-8" tile={96} opacity={0.04} />
 

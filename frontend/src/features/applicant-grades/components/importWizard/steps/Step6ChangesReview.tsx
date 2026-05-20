@@ -532,7 +532,7 @@ function UploadDuplicateCard({
                   borderColor: selected
                     ? 'var(--teal-500)'
                     : 'var(--border-default)',
-                  background: selected ? 'var(--teal-50)' : '#fff',
+                  background: selected ? 'var(--teal-50)' : 'var(--surface-card)',
                 }}
               >
                 <span className="flex shrink-0 items-center gap-2">

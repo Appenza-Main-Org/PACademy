@@ -286,7 +286,7 @@ function GenderToggle({
             )}
             style={
               active
-                ? { background: 'var(--accent-500)', color: '#ffffff' }
+                ? { background: 'var(--accent-500)', color: 'var(--text-inverse)' }
                 : undefined
             }
           >

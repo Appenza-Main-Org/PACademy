@@ -10,6 +10,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, UserCircle } from 'lucide-react';
 import {
+  AlertDialog,
   Avatar,
   CommandPalette,
   KhayameyaStripe,
@@ -38,12 +39,13 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
   const navigate = useNavigate();
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   useCommandPaletteShortcut(setPaletteOpen);
 
   const handleLogout = (): void => {
-    if (!window.confirm('هل تريد تسجيل الخروج من المنظومة؟')) return;
     logoutMutation.mutate(undefined, {
       onSuccess: () => {
+        setLogoutDialogOpen(false);
         toast('تم تسجيل الخروج بنجاح', 'success');
         navigate('/staff-login', { replace: true });
       },
@@ -97,7 +99,7 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
           </Link>
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => setLogoutDialogOpen(true)}
             disabled={logoutMutation.isPending}
             title="تسجيل الخروج"
             aria-label="تسجيل الخروج"
@@ -108,6 +110,18 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
           </button>
         </div>
       </header>
+
+      <AlertDialog
+        open={logoutDialogOpen}
+        onOpenChange={setLogoutDialogOpen}
+        title="تسجيل الخروج من المنظومة"
+        description="سيتم إنهاء الجلسة الحالية والعودة إلى شاشة دخول الموظفين."
+        actionLabel="تسجيل الخروج"
+        cancelLabel="البقاء"
+        onAction={handleLogout}
+        tone="danger"
+        isActionLoading={logoutMutation.isPending}
+      />
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 

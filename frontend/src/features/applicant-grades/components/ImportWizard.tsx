@@ -244,7 +244,7 @@ function StepIndicator({ step }: { step: 'setup' | 'review' | 'result' }): JSX.E
                     : active
                       ? 'var(--teal-50)'
                       : 'var(--ink-100)',
-                  color: done ? '#fff' : active ? 'var(--teal-700)' : 'var(--ink-500)',
+                  color: done ? 'var(--text-inverse)' : active ? 'var(--teal-700)' : 'var(--ink-500)',
                   border: active ? '1.5px solid var(--teal-500)' : 'none',
                 }}
               >
@@ -613,7 +613,7 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                     className="cursor-pointer rounded-sm border-0 px-4 py-1.5 text-sm font-medium transition-colors"
                     style={{
                       background: a ? 'var(--teal-500)' : 'transparent',
-                      color: a ? '#fff' : 'var(--ink-700)',
+                      color: a ? 'var(--text-inverse)' : 'var(--ink-700)',
                     }}
                   >
                     {label}
@@ -649,8 +649,8 @@ function SetupStep({ setup, onChange, onContinue, onCancel, loading }: SetupProp
                     onClick={() => onChange({ ...setup, maxDegree: p })}
                     className="cursor-pointer rounded-full border px-3 py-1 font-en text-2xs font-medium"
                     style={{
-                      background: setup.maxDegree === p ? 'var(--teal-500)' : '#fff',
-                      color: setup.maxDegree === p ? '#fff' : 'var(--ink-700)',
+                      background: setup.maxDegree === p ? 'var(--teal-500)' : 'var(--surface-card)',
+                      color: setup.maxDegree === p ? 'var(--text-inverse)' : 'var(--ink-700)',
                       borderColor: setup.maxDegree === p ? 'var(--teal-500)' : 'var(--border-default)',
                     }}
                   >

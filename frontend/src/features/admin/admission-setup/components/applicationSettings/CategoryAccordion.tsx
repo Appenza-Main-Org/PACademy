@@ -27,7 +27,6 @@
  */
 
 import { useMemo, useState } from 'react';
-import * as Accordion from '@radix-ui/react-accordion';
 import {
   Check,
   ChevronDown,
@@ -35,7 +34,7 @@ import {
   CircleDashed,
   ListChecks,
 } from 'lucide-react';
-import { Badge, ErrorState, LoadingState } from '@/shared/components';
+import { Accordion, Badge, ErrorState, LoadingState } from '@/shared/components';
 import type { BadgeTone } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
 import { useCategoryConfigs } from '../../api/applicationSettings.queries';

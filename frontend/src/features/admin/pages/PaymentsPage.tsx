@@ -10,6 +10,7 @@
 import { useMemo, useState } from 'react';
 import { Banknote, ClipboardCheck, RefreshCw, RotateCcw, Search } from 'lucide-react';
 import {
+  AlertDialog,
   Badge,
   Button,
   Card,
@@ -68,19 +69,8 @@ export function PaymentsPage(): JSX.Element {
    * methods (markReviewed / requestRefund). */
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
   const [refundRequested, setRefundRequested] = useState<Set<string>>(new Set());
+  const [refundTarget, setRefundTarget] = useState<AdminPaymentRow | null>(null);
   const reviewedSet = useMemo(() => reviewed, [reviewed]);
-
-  if (!allowed) {
-    return (
-      <CenteredShell>
-        <EmptyState
-          variant="generic"
-          title="لا تملك صلاحية مراجعة المدفوعات"
-          description="هذه الشاشة مخصصة لدور المراجع المالي ومدير المنظومة الرئيسي."
-        />
-      </CenteredShell>
-    );
-  }
 
   const rows = (tab === 'ledger' ? ledgerQuery.data : refundQuery.data) ?? [];
   const isLoading = tab === 'ledger' ? ledgerQuery.isLoading : refundQuery.isLoading;
@@ -114,6 +104,18 @@ export function PaymentsPage(): JSX.Element {
     }),
     [],
   );
+
+  if (!allowed) {
+    return (
+      <CenteredShell>
+        <EmptyState
+          variant="generic"
+          title="لا تملك صلاحية مراجعة المدفوعات"
+          description="هذه الشاشة مخصصة لدور المراجع المالي ومدير المنظومة الرئيسي."
+        />
+      </CenteredShell>
+    );
+  }
 
   const columns: DataTableColumn<AdminPaymentRow>[] = [
     {
@@ -234,15 +236,7 @@ export function PaymentsPage(): JSX.Element {
                 variant="ghost"
                 size="sm"
                 leadingIcon={<RotateCcw size={12} strokeWidth={1.75} />}
-                onClick={() => {
-                  if (!window.confirm(`هل تريد تسجيل طلب استرداد للدفعة ${r.fawryReference}؟`)) return;
-                  setRefundRequested((prev) => {
-                    const next = new Set(prev);
-                    next.add(r.fawryReference);
-                    return next;
-                  });
-                  toast('تم تسجيل طلب الاسترداد — في انتظار الموافقة', 'info');
-                }}
+                onClick={() => setRefundTarget(r)}
                 title="طلب استرداد المبلغ"
               >
                 استرداد
@@ -326,6 +320,32 @@ export function PaymentsPage(): JSX.Element {
           />
         </Card>
       )}
+
+      <AlertDialog
+        open={refundTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRefundTarget(null);
+        }}
+        title="تسجيل طلب استرداد"
+        description={
+          refundTarget
+            ? `سيتم تسجيل طلب استرداد للدفعة ${refundTarget.fawryReference} ومراجعته قبل التنفيذ.`
+            : undefined
+        }
+        actionLabel="تسجيل الطلب"
+        cancelLabel="إلغاء"
+        onAction={() => {
+          if (!refundTarget) return;
+          setRefundRequested((prev) => {
+            const next = new Set(prev);
+            next.add(refundTarget.fawryReference);
+            return next;
+          });
+          setRefundTarget(null);
+          toast('تم تسجيل طلب الاسترداد، في انتظار الموافقة', 'info');
+        }}
+        tone="danger"
+      />
     </CenteredShell>
   );
 }

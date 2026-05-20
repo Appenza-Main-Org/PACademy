@@ -275,7 +275,7 @@ export function QuestionBankPage(): JSX.Element {
                             className="inline-flex h-5 w-5 items-center justify-center rounded-full font-mono text-2xs font-bold"
                             style={
                               correct
-                                ? { background: 'var(--success)', color: '#fff' }
+                                ? { background: 'var(--success)', color: 'var(--text-inverse)' }
                                 : { background: 'var(--ink-100)', color: 'var(--ink-700)' }
                             }
                           >

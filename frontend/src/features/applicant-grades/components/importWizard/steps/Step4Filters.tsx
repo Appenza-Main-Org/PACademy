@@ -155,7 +155,7 @@ function FilterCard({
             onClick={toggleMode}
             className="cursor-pointer rounded-full border border-border-default bg-white px-2 py-0.5 text-2xs font-medium text-ink-700"
             style={{
-              background: isInclude ? 'var(--teal-50)' : '#fff',
+              background: isInclude ? 'var(--teal-50)' : 'var(--surface-card)',
               borderColor: isInclude ? 'var(--teal-300)' : 'var(--border-default)',
               color: isInclude ? 'var(--teal-700)' : 'var(--ink-700)',
             }}
@@ -221,4 +221,3 @@ function FilterCard({
     </article>
   );
 }
-

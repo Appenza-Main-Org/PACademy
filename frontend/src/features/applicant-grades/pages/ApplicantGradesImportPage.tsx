@@ -319,7 +319,7 @@ function TopStepper({
                     : active
                       ? 'var(--teal-50)'
                       : 'var(--ink-100)',
-                  color: done ? '#fff' : active ? 'var(--teal-700)' : 'var(--ink-500)',
+                  color: done ? 'var(--text-inverse)' : active ? 'var(--teal-700)' : 'var(--ink-500)',
                   border: active ? '1.5px solid var(--teal-500)' : 'none',
                 }}
               >

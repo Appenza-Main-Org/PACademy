@@ -27,9 +27,9 @@
  */
 
 import { useMemo, useRef, useState } from 'react';
-import * as Accordion from '@radix-ui/react-accordion';
 import { CheckCircle2, ChevronDown, Pencil, Trash2, X } from 'lucide-react';
 import {
+  Accordion,
   Button,
   Card,
   DatePicker,

@@ -56,7 +56,7 @@
   background: var(--danger);
   color: white;
 }
-.btn-danger:hover { background: #9C2424; }
+.btn-danger:hover { background: var(--terra-700); }
 
 .btn-icon {
   padding: 8px;
@@ -398,9 +398,9 @@
   border-radius: var(--r-pill);
   transition: width var(--dur-slow) var(--ease-out);
 }
-.progress-fill.success { background: linear-gradient(90deg, #2DA866, var(--success)); }
-.progress-fill.warning { background: linear-gradient(90deg, #D4A03A, var(--warning)); }
-.progress-fill.danger { background: linear-gradient(90deg, #D44545, var(--danger)); }
+.progress-fill.success { background: linear-gradient(90deg, var(--success-bg), var(--success)); }
+.progress-fill.warning { background: linear-gradient(90deg, var(--gold-300), var(--warning)); }
+.progress-fill.danger { background: linear-gradient(90deg, var(--terra-300), var(--danger)); }
 
 /* ─── Steps (stepper) ─── */
 .steps {

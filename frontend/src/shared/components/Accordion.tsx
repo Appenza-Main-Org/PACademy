@@ -178,14 +178,18 @@ function AccordionHeaderRow({
 
 interface AccordionComponent {
   (props: AccordionRootProps): JSX.Element;
+  Root: typeof AccordionRoot;
   Item: typeof AccordionItem;
+  Header: typeof RadixAccordion.Header;
   Trigger: typeof AccordionTrigger;
   Content: typeof AccordionContent;
   HeaderRow: typeof AccordionHeaderRow;
 }
 
 const Accordion = AccordionRoot as AccordionComponent;
+Accordion.Root = AccordionRoot;
 Accordion.Item = AccordionItem;
+Accordion.Header = RadixAccordion.Header;
 Accordion.Trigger = AccordionTrigger;
 Accordion.Content = AccordionContent;
 Accordion.HeaderRow = AccordionHeaderRow;

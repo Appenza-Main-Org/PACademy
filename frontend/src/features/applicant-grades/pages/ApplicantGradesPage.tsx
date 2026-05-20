@@ -817,8 +817,8 @@ export function ApplicantGradesPage(): JSX.Element {
                   onClick={() => setChangedOnly(!changedOnly)}
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                   style={{
-                    background: changedOnly ? 'var(--gold-500)' : '#fff',
-                    color: changedOnly ? '#fff' : 'var(--ink-700)',
+                    background: changedOnly ? 'var(--gold-500)' : 'var(--surface-card)',
+                    color: changedOnly ? 'var(--text-inverse)' : 'var(--ink-700)',
                     borderColor: changedOnly ? 'var(--gold-500)' : 'var(--border-default)',
                   }}
                   title="تصفية الطلاب الذين تم تعديل درجاتهم"
@@ -1034,7 +1034,7 @@ function EmptyGradesCard({ onImport }: { onImport: () => void }): JSX.Element {
             width="76"
             height="60"
             rx="4"
-            fill="#fff"
+            fill="var(--surface-card)"
             stroke="var(--gold-500)"
             strokeWidth="1.25"
           />

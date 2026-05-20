@@ -52,11 +52,11 @@ const ACTION_ICON: Partial<Record<AuditAction, typeof FilePlus2>> = {
 };
 
 const ACTION_COLOR_DOT: Record<string, string> = {
-  success: 'var(--success, #2E7D32)',
-  warning: 'var(--gold-700, #B8860B)',
-  danger: 'var(--terra-700, #A0341E)',
-  info: 'var(--teal-700, #0F4F4F)',
-  neutral: 'var(--ink-500, #6B6B6B)',
+  success: 'var(--success)',
+  warning: 'var(--gold-700)',
+  danger: 'var(--terra-700)',
+  info: 'var(--teal-700)',
+  neutral: 'var(--ink-500)',
 };
 
 interface Props {
