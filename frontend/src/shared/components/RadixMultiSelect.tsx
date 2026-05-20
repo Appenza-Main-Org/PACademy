@@ -32,6 +32,14 @@ import * as RadixPopover from '@radix-ui/react-popover';
 import type { ReactNode } from 'react';
 import { cn } from '@/shared/lib/cn';
 import { normalizeArabic } from '@/shared/lib/arabic';
+import {
+  dropdownChevronClassName,
+  dropdownChipClassName,
+  dropdownContentClassName,
+  dropdownOptionClassName,
+  dropdownSearchInputClassName,
+  dropdownTriggerClassName,
+} from './dropdownStyles';
 
 export interface RadixMultiSelectOption {
   value: string;
@@ -135,18 +143,7 @@ export function RadixMultiSelect({
         aria-controls={listboxId}
         aria-expanded={open}
         aria-invalid={invalid || undefined}
-        className={cn(
-          'group relative inline-flex min-h-9 w-full items-center rounded-md border border-solid',
-          'bg-surface-card text-sm text-ink-900',
-          'transition-colors duration-fast ease-standard',
-          'ps-3 pe-9 py-1.5 text-start font-ar',
-          invalid
-            ? 'border-terra-500 focus-visible:border-terra-500 focus-visible:shadow-focus-terra data-[state=open]:border-terra-500 data-[state=open]:shadow-focus-terra'
-            : 'border-border-default hover:border-border-strong focus-visible:border-teal-500 focus-visible:shadow-focus-teal data-[state=open]:border-teal-500 data-[state=open]:shadow-focus-teal',
-          'focus-visible:outline-none',
-          'disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400',
-          className,
-        )}
+        className={dropdownTriggerClassName({ invalid, multiline: true, className })}
       >
         <span className="flex flex-1 flex-wrap items-center gap-1">
           {selectedOptions.length === 0 ? (
@@ -155,7 +152,7 @@ export function RadixMultiSelect({
             selectedOptions.map((opt) => (
               <span
                 key={opt.value}
-                className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2.5 py-1 text-xs text-teal-700"
+                className={dropdownChipClassName()}
               >
                 {opt.label}
                 <span
@@ -167,7 +164,7 @@ export function RadixMultiSelect({
                     e.stopPropagation();
                     toggle(opt);
                   }}
-                  className="-mx-0.5 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-sm hover:bg-teal-100"
+                  className="-mx-0.5 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-sm hover:bg-[var(--accent-100)]"
                 >
                   <X size={11} strokeWidth={2} aria-hidden />
                 </span>
@@ -194,10 +191,7 @@ export function RadixMultiSelect({
           size={16}
           aria-hidden
           className={cn(
-            'pointer-events-none absolute end-3 inset-y-0 my-auto h-4 w-4 text-ink-400',
-            'transition-transform duration-fast ease-standard',
-            'group-data-[state=open]:rotate-180',
-            'motion-reduce:transition-none',
+            dropdownChevronClassName(),
           )}
         />
       </RadixPopover.Trigger>
@@ -208,8 +202,7 @@ export function RadixMultiSelect({
           dir="rtl"
           className={cn(
             'z-dropdown w-max min-w-48',
-            'rounded-lg border border-border-subtle bg-surface-elevated shadow-md',
-            'flex flex-col p-2 outline-none font-ar',
+            dropdownContentClassName('p-2'),
           )}
           style={{
             animation: 'pageEnter var(--duration-fast) var(--ease-standard)',
@@ -230,11 +223,7 @@ export function RadixMultiSelect({
               }}
               onKeyDown={handleKey}
               placeholder={searchPlaceholder}
-              className={cn(
-                'h-9 w-full rounded-md border border-border-default bg-surface-card ps-9 pe-3 text-sm',
-                'focus-visible:shadow-[var(--ring)] focus-visible:border-teal-500 focus-visible:outline-none',
-                'font-ar',
-              )}
+              className={dropdownSearchInputClassName()}
               autoFocus
               aria-controls={listboxId}
             />
@@ -284,18 +273,18 @@ export function RadixMultiSelect({
                         e.preventDefault();
                         toggle(opt);
                       }}
-                      className={cn(
-                        'flex h-9 cursor-pointer select-none items-center gap-2 rounded-md px-3 text-sm',
-                        'transition-colors duration-fast ease-standard',
-                        isActive && 'bg-[var(--accent-50)]',
-                        opt.disabled && 'cursor-not-allowed opacity-50',
-                        isSelected ? 'text-ink-900 font-medium' : 'text-ink-700',
-                      )}
+                      className={dropdownOptionClassName({
+                        active: isActive,
+                        selected: isSelected,
+                        disabled: opt.disabled,
+                      })}
                     >
                       <span
                         className={cn(
                           'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
-                          isSelected ? 'border-teal-500 bg-teal-500 text-white' : 'border-border-strong',
+                          isSelected
+                            ? 'border-[var(--accent-500)] bg-[var(--accent-500)] text-white'
+                            : 'border-border-strong',
                         )}
                         aria-hidden
                       >

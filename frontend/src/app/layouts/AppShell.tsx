@@ -8,7 +8,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, UserCircle } from 'lucide-react';
+import { LogOut, Search, UserCircle } from 'lucide-react';
 import {
   AlertDialog,
   Avatar,
@@ -89,12 +89,22 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
           </Link>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div role="toolbar" aria-label="أدوات المنظومة" className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-transparent px-2 text-sm font-medium text-ink-700 transition-colors duration-fast ease-standard hover:border-border-subtle hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none lg:px-3"
+            title="بحث الأوامر"
+            aria-label="بحث الأوامر"
+          >
+            <Search size={16} strokeWidth={1.75} />
+            <span className="hidden lg:inline">بحث الأوامر</span>
+          </button>
           <NotificationCenter />
           <span aria-hidden className="mx-1 hidden h-6 w-px bg-border-subtle md:inline-block" />
           <Link
             to="/profile"
-            className="inline-flex h-9 items-center gap-2 rounded-md ps-1 pe-2 text-ink-900 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-transparent ps-1 pe-2 text-ink-900 transition-colors duration-fast ease-standard hover:border-border-subtle hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
             title="الملف الشخصي"
             aria-label={`الملف الشخصي · ${user.name}`}
           >
@@ -114,7 +124,7 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
             className="inline-flex h-9 items-center gap-2 rounded-md border border-transparent px-3 text-sm font-medium text-terra-700 transition-colors duration-fast ease-standard hover:border-terra-300 hover:bg-terra-50 focus-visible:shadow-focus-terra focus-visible:outline-none active:bg-terra-500 active:text-white disabled:opacity-60"
           >
             <LogOut size={16} strokeWidth={1.75} />
-            <span className="hidden md:inline">تسجيل الخروج</span>
+            <span className="hidden lg:inline">تسجيل الخروج</span>
           </button>
         </div>
       </header>

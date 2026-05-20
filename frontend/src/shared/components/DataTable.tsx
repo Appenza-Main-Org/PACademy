@@ -44,6 +44,7 @@ import type { ReactNode } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { LoadingState } from './LoadingState';
+import { Select } from './Select';
 import { ListActions } from './data-table/ListActions';
 import type { ImportResult, ListActionsConfig } from './data-table/list-actions.types';
 import {
@@ -486,20 +487,16 @@ function Pagination({ pagination }: { pagination: DataTablePagination }): JSX.El
         إجمالي: <span dir="ltr">{total.toLocaleString('en-US')}</span>
       </span>
       {onPageSizeChange && (
-        <label className="inline-flex items-center gap-2">
+        <div className="inline-flex items-center gap-2">
           <span>لكل صفحة:</span>
-          <select
-            value={pageSize}
+          <Select
+            aria-label="عدد الصفوف لكل صفحة"
+            value={String(pageSize)}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
-          >
-            {pageSizeOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={pageSizeOptions.map((s) => ({ value: String(s), label: String(s) }))}
+            containerClassName="w-20"
+          />
+        </div>
       )}
       <span className="font-numeric tnum" dir="ltr">
         {page} / {totalPages}

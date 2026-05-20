@@ -19,6 +19,7 @@ import {
   Input,
   PageHeader,
   Select,
+  buttonClassName,
 } from '@/shared/components';
 import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
@@ -267,8 +268,8 @@ export function UsersPage(): JSX.Element {
         title="مستخدمو المنظومة"
         subtitle={`${data?.length ?? 0} حساب نشط عبر ${ROLES.length} أدوار`}
         actions={
-          <Link to={ROUTES.admin.userNew} className="btn btn-primary">
-            <Plus size={14} strokeWidth={1.75} /> إنشاء حساب جديد
+          <Link to={ROUTES.admin.userNew} className={buttonClassName({ variant: 'primary' })}>
+            <Plus size={14} strokeWidth={1.75} /> إضافة مستخدم
           </Link>
         }
       />

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CalendarRange, Hash, Printer, Search, Sparkles, User } from 'lucide-react';
-import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, KhayameyaStripe, Code128Barcode, LogoMark } from '@/shared/components';
+import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, KhayameyaStripe, Code128Barcode, LogoMark, Select } from '@/shared/components';
 import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName, maskNationalId } from '@/shared/lib/format';
 import { barcodeService } from '../api/barcode.service';
@@ -56,11 +56,16 @@ export function BarcodeGeneratePage(): JSX.Element {
           />
           <CardBody>
             <div className="filters">
-              <select className="select flex-1" value={applicantId} onChange={(e) => { setApplicantId(e.target.value); setRecord(null); }}>
-                {MOCK.applicants.slice(0, 30).map((a) => (
-                  <option key={a.id} value={a.id}>{a.id} — {shortName(a.name, 3)}</option>
-                ))}
-              </select>
+              <Select
+                aria-label="اختيار المتقدم"
+                value={applicantId}
+                onChange={(e) => { setApplicantId(e.target.value); setRecord(null); }}
+                options={MOCK.applicants.slice(0, 30).map((a) => ({
+                  value: a.id,
+                  label: `${a.id} — ${shortName(a.name, 3)}`,
+                }))}
+                containerClassName="flex-1"
+              />
             </div>
             {applicant && (
               <div className="mt-3 mb-4 rounded-md border border-border-subtle bg-ink-50 p-3">

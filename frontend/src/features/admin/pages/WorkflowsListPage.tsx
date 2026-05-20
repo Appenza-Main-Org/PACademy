@@ -113,7 +113,7 @@ export function WorkflowsListPage(): JSX.Element {
             leadingIcon={<PlusCircle size={14} strokeWidth={1.75} />}
             onClick={() => navigate(ROUTES.admin.workflowNew)}
           >
-            سير عمل جديد
+            إضافة سير عمل
           </Button>
         }
       />

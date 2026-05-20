@@ -212,7 +212,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
             leadingIcon={<X size={14} strokeWidth={1.75} aria-hidden />}
             onClick={handleCancel}
           >
-            إلغاء
+            إلغاء الاستيراد
           </Button>
         }
       />

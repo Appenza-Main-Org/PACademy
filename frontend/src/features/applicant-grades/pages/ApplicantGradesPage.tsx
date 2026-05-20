@@ -46,6 +46,7 @@ import {
   EmptyState,
   LoadingState,
   PageHeader,
+  Select,
   StatCard,
   toast,
 } from '@/shared/components';
@@ -647,14 +648,14 @@ export function ApplicantGradesPage(): JSX.Element {
               leadingIcon={<FileText size={14} strokeWidth={1.75} />}
               onClick={() => void downloadTemplateWorkbook()}
             >
-              تنزيل نموذج Excel
+              تنزيل نموذج الدرجات
             </Button>
             <Button
               variant="ghost"
               leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
               onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
             >
-              تعديلات الدرجات
+              عرض تعديلات الدرجات
             </Button>
             {!isEmpty && (
               <DropdownMenu>
@@ -664,7 +665,7 @@ export function ApplicantGradesPage(): JSX.Element {
                     leadingIcon={<Download size={14} strokeWidth={1.75} />}
                     disabled={exporting}
                   >
-                    تصدير
+                    تصدير الدرجات
                   </Button>
                 </DropdownMenu.Trigger>
                 <DropdownMenu.Content sideOffset={6}>
@@ -760,56 +761,47 @@ export function ApplicantGradesPage(): JSX.Element {
                   />
                   <Search size={18} />
                 </div>
-                <select
-                  className="select"
+                <Select
+                  aria-label="تصفية حسب النوع"
                   value={genderFromUrl}
                   onChange={(e) => setFilter('gender', e.target.value)}
-                  aria-label="تصفية حسب النوع"
-                >
-                  <option value="all">كل الأنواع</option>
-                  <option value="male">ذكر</option>
-                  <option value="female">أنثى</option>
-                </select>
-                <select
-                  className="select"
+                  options={[
+                    { value: 'all', label: 'كل الأنواع' },
+                    { value: 'male', label: 'ذكر' },
+                    { value: 'female', label: 'أنثى' },
+                  ]}
+                  containerClassName="min-w-[130px]"
+                />
+                <Select
+                  aria-label="تصفية حسب الشعبة"
                   value={branchFromUrl}
                   onChange={(e) => setFilter('branch', e.target.value)}
-                  aria-label="تصفية حسب الشعبة"
-                >
-                  <option value="all">كل الشعب</option>
-                  {branchOptions.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="select"
+                  options={[
+                    { value: 'all', label: 'كل الشعب' },
+                    ...branchOptions.map((b) => ({ value: b, label: b })),
+                  ]}
+                  containerClassName="min-w-[150px]"
+                />
+                <Select
+                  aria-label="تصفية حسب سنة التخرج"
                   value={yearFromUrl === 'all' ? 'all' : String(yearFromUrl)}
                   onChange={(e) => setFilter('year', e.target.value)}
-                  aria-label="تصفية حسب سنة التخرج"
-                >
-                  <option value="all">كل السنوات</option>
-                  {yearOptions.map((y) => (
-                    <option key={y} value={String(y)}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="select"
+                  options={[
+                    { value: 'all', label: 'كل السنوات' },
+                    ...yearOptions.map((y) => ({ value: String(y), label: String(y) })),
+                  ]}
+                  containerClassName="min-w-[140px]"
+                />
+                <Select
+                  aria-label="تصفية حسب فئة المدرسة"
                   value={schoolCategoryFromUrl}
                   onChange={(e) => setFilter('school', e.target.value)}
-                  aria-label="تصفية حسب فئة المدرسة"
-                  style={{ flex: '0 0 auto', inlineSize: 380 }}
-                >
-                  <option value="all">كل فئات المدرسة</option>
-                  {activeSchoolCategories.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: 'all', label: 'كل فئات المدرسة' },
+                    ...activeSchoolCategories.map((c) => ({ value: c.code, label: c.name })),
+                  ]}
+                  containerClassName="flex-[0_0_380px]"
+                />
                 <button
                   type="button"
                   role="switch"
@@ -1105,10 +1097,11 @@ function PageSizeSelector({
   };
 
   return (
-    <label className="inline-flex items-center gap-2">
+    <div className="inline-flex items-center gap-2">
       <span>لكل صفحة:</span>
-      <select
-        value={customMode ? 'custom' : pageSize}
+      <Select
+        aria-label="عدد الصفوف لكل صفحة"
+        value={customMode ? 'custom' : String(pageSize)}
         onChange={(e) => {
           if (e.target.value === 'custom') {
             setCustomMode(true);
@@ -1118,16 +1111,12 @@ function PageSizeSelector({
           setCustomMode(false);
           onChange(Number(e.target.value));
         }}
-        className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
-        aria-label="عدد الصفوف لكل صفحة"
-      >
-        {PAGE_SIZE_OPTIONS.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-        <option value="custom">مخصّص…</option>
-      </select>
+        options={[
+          ...PAGE_SIZE_OPTIONS.map((s) => ({ value: String(s), label: String(s) })),
+          { value: 'custom', label: 'مخصّص…' },
+        ]}
+        containerClassName="w-24"
+      />
       {customMode && (
         <input
           type="number"
@@ -1149,6 +1138,6 @@ function PageSizeSelector({
           dir="ltr"
         />
       )}
-    </label>
+    </div>
   );
 }

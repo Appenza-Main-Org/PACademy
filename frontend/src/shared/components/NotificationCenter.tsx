@@ -65,9 +65,10 @@ export function NotificationCenter(): JSX.Element {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="الإشعارات"
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-700 hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+        className="relative inline-flex h-9 items-center justify-center gap-2 rounded-md border border-transparent px-2 text-sm font-medium text-ink-700 transition-colors duration-fast ease-standard hover:border-border-subtle hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none lg:px-3"
       >
         <Bell size={18} strokeWidth={1.75} />
+        <span className="hidden lg:inline">الإشعارات</span>
         {unread > 0 && (
           <span
             aria-hidden

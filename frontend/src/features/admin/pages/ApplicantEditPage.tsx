@@ -10,7 +10,13 @@
 import { useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { ErrorState, LoadingState, PageHeader, toast } from '@/shared/components';
+import {
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  buttonClassName,
+  toast,
+} from '@/shared/components';
 import {
   useApplicant,
   useUpdateApplicant,
@@ -139,9 +145,9 @@ export function ApplicantEditPage(): JSX.Element {
         actions={
           <Link
             to={ROUTES.admin.applicantDetail(id)}
-            className="btn btn-ghost"
+            className={buttonClassName({ variant: 'ghost' })}
           >
-            <ArrowRight size={16} className="rtl:rotate-180" /> الرجوع للملف
+            <ArrowRight size={16} className="rtl:rotate-180" /> العودة إلى ملف المتقدم
           </Link>
         }
       />

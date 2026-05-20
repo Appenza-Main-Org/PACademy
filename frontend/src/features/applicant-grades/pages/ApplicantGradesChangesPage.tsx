@@ -32,6 +32,7 @@ import {
   EmptyState,
   LoadingState,
   PageHeader,
+  Select,
   StatCard,
 } from '@/shared/components';
 import type { DataTableColumn, DataTableSort } from '@/shared/components';
@@ -346,7 +347,7 @@ export function ApplicantGradesChangesPage(): JSX.Element {
             leadingIcon={<ArrowLeft size={14} strokeWidth={1.75} />}
             onClick={() => navigate(ROUTES.admin.applicantGrades)}
           >
-            العودة للقائمة
+            العودة إلى درجات المتقدمين
           </Button>
         }
       />
@@ -467,21 +468,16 @@ export function ApplicantGradesChangesPage(): JSX.Element {
                   –<span className="text-ink-900">{toEasternArabicNumerals(to)}</span> من{' '}
                   <span className="text-ink-900">{toEasternArabicNumerals(total)}</span>
                 </span>
-                <label className="inline-flex items-center gap-2">
+                <div className="inline-flex items-center gap-2">
                   <span>لكل صفحة:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => setSize(Number(e.target.value))}
-                    className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                  <Select
                     aria-label="عدد الصفوف لكل صفحة"
-                  >
-                    {PAGE_SIZE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    value={String(pageSize)}
+                    onChange={(e) => setSize(Number(e.target.value))}
+                    options={PAGE_SIZE_OPTIONS.map((s) => ({ value: String(s), label: String(s) }))}
+                    containerClassName="w-20"
+                  />
+                </div>
                 <div className="flex items-center gap-1">
                   <Button
                     size="sm"

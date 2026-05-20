@@ -303,7 +303,7 @@ export function CyclesPage(): JSX.Element {
               leadingIcon={<Plus size={14} strokeWidth={1.75} />}
               onClick={() => navigate(ROUTES.admin.cycleNew)}
             >
-              إنشاء دورة جديدة
+              إضافة دورة
             </Button>
           }
         />

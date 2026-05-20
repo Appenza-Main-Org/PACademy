@@ -26,6 +26,7 @@ import {
   ErrorState,
   LoadingState,
   PageHeader,
+  buttonClassName,
 } from '@/shared/components';
 import {
   InvestigationBadge,
@@ -69,8 +70,8 @@ export function ApplicantDetailPage(): JSX.Element {
             <div className="empty-desc mb-4">
               الكود "{id}" غير موجود في قاعدة البيانات.
             </div>
-            <Link to={ROUTES.admin.applicants} className="btn btn-secondary">
-              عودة للقائمة
+            <Link to={ROUTES.admin.applicants} className={buttonClassName({ variant: 'secondary' })}>
+              العودة إلى القائمة
             </Link>
           </div>
         </CardBody>
@@ -111,17 +112,17 @@ export function ApplicantDetailPage(): JSX.Element {
             {canEdit && (
               <Link
                 to={`${ROUTES.admin.applicantDetail(id)}/edit`}
-                className="btn btn-secondary"
+                className={buttonClassName({ variant: 'secondary' })}
               >
-                <Pencil size={14} strokeWidth={1.75} className="me-1.5" />
-                تعديل
+                <Pencil size={14} strokeWidth={1.75} />
+                تعديل البيانات
               </Link>
             )}
             <Button variant="secondary" leadingIcon={<Printer size={16} />}>
               طباعة الملف
             </Button>
-            <Link to={ROUTES.admin.applicants} className="btn btn-ghost">
-              <ArrowRight size={16} className="rtl:rotate-180" /> الرجوع
+            <Link to={ROUTES.admin.applicants} className={buttonClassName({ variant: 'ghost' })}>
+              <ArrowRight size={16} className="rtl:rotate-180" /> العودة إلى القائمة
             </Link>
           </>
         }
