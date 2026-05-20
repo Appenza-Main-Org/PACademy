@@ -192,8 +192,8 @@ function FilterCard({
                 اختيار القيم
               </Button>
             </Popover.Trigger>
-            <Popover.Content className="w-[min(92vw,28rem)]">
-              <div className="mb-3 flex items-center justify-between gap-3">
+            <Popover.Content className="flex w-[min(92vw,28rem)] max-h-[var(--radix-popover-content-available-height)] flex-col overflow-hidden">
+              <div className="mb-3 flex flex-none items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-2xs font-semibold uppercase text-ink-500">
                     القيم المسموح بها
@@ -205,14 +205,14 @@ function FilterCard({
                 </div>
                 <div className="flex items-center gap-1">
                   <Button size="sm" variant="ghost" onClick={includeAll}>
-                    شمول الكل
+                    اختيار الكل
                   </Button>
                   <Button size="sm" variant="ghost" onClick={excludeAll}>
-                    استبعاد الكل
+                    إلغاء اختيار الكل
                   </Button>
                 </div>
               </div>
-              <label className="relative mb-2 flex h-9 items-center">
+              <label className="relative mb-2 flex h-9 flex-none items-center">
                 <Search
                   size={14}
                   strokeWidth={1.75}
@@ -230,7 +230,7 @@ function FilterCard({
                   className="h-9 w-full rounded-md border border-border-default bg-surface-card ps-9 pe-3 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
                 />
               </label>
-              <ul className="m-0 flex max-h-80 list-none flex-col gap-1 overflow-auto p-0">
+              <ul className="m-0 flex min-h-0 flex-1 list-none flex-col gap-1 overflow-y-auto overscroll-contain p-0 pe-1">
                 {slice.map(({ value, count }) => {
                   const checked = selected.has(value);
                   const label = value === '' ? '(فارغ)' : value;
@@ -260,7 +260,7 @@ function FilterCard({
                               : 'border-terra-200 bg-terra-50 text-terra-700'
                           }`}
                         >
-                          {checked ? 'مشمول' : 'مستبعد'}
+                          {checked ? 'محدد' : 'مستبعد'}
                         </span>
                       </button>
                     </li>

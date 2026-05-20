@@ -546,16 +546,6 @@ export function ApplicantGradesPage(): JSX.Element {
       ),
     },
     {
-      key: 'branch',
-      label: 'الشعبة',
-      hideOn: 'md',
-      sortable: true,
-      getSortValue: (r) => r.branch ?? '',
-      filter: { kind: 'text', getValue: (r) => r.branch ?? '' },
-      className: 'min-w-[10ch]',
-      render: (r) => <span className="text-xs">{r.branch}</span>,
-    },
-    {
       key: 'graduationYear',
       label: 'سنة التخرج',
       align: 'center',
@@ -567,70 +557,6 @@ export function ApplicantGradesPage(): JSX.Element {
       render: (r) =>
         r.graduationYear != null ? (
           <span className="font-en text-xs text-ink-700">{r.graduationYear}</span>
-        ) : (
-          <span className="text-2xs text-ink-300">—</span>
-        ),
-    },
-    {
-      key: 'schoolCategoryCode',
-      label: 'فئة المدرسة',
-      hideOn: 'md',
-      sortable: true,
-      getSortValue: (r) => r.schoolCategoryCode ?? '',
-      filter: {
-        kind: 'enum',
-        getValue: (r) => r.schoolCategoryCode ?? '',
-        options: activeSchoolCategories.map((s) => ({ value: s.code, label: s.name })),
-      },
-      className: 'min-w-[10ch]',
-      render: (r) =>
-        r.schoolCategoryCode ? (
-          <span className="text-xs text-ink-700">
-            {schoolCategoryLabel.get(r.schoolCategoryCode) ?? r.schoolCategoryCode}
-          </span>
-        ) : (
-          <span className="text-2xs text-ink-300">—</span>
-        ),
-    },
-    {
-      key: 'school',
-      label: 'اسم المدرسة',
-      sortable: true,
-      getSortValue: (r) => r.school ?? '',
-      filter: { kind: 'text', getValue: (r) => r.school ?? '' },
-      className: 'min-w-[16ch] whitespace-normal',
-      render: (r) =>
-        r.school ? (
-          <span className="text-xs text-ink-700">{r.school}</span>
-        ) : (
-          <span className="text-2xs text-ink-300">—</span>
-        ),
-    },
-    {
-      key: 'region',
-      label: 'المحافظة',
-      sortable: true,
-      getSortValue: (r) => r.region ?? '',
-      filter: { kind: 'text', getValue: (r) => r.region ?? '' },
-      className: 'min-w-[10ch] whitespace-normal',
-      render: (r) =>
-        r.region ? (
-          <span className="text-xs text-ink-700">{r.region}</span>
-        ) : (
-          <span className="text-2xs text-ink-300">—</span>
-        ),
-    },
-    {
-      key: 'examRound',
-      label: 'الدور',
-      align: 'center',
-      sortable: true,
-      getSortValue: (r) => r.examRound ?? '',
-      filter: { kind: 'text', getValue: (r) => r.examRound ?? '' },
-      className: 'min-w-[7ch]',
-      render: (r) =>
-        r.examRound ? (
-          <span className="text-xs text-ink-700">{r.examRound}</span>
         ) : (
           <span className="text-2xs text-ink-300">—</span>
         ),
