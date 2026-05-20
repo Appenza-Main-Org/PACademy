@@ -71,6 +71,12 @@ const MAX_OPERATOR_SYMBOL: Record<MaxScoreOperator, string> = {
   LESS_THAN: '<',
 };
 
+function excellenceModeLabel(row: LocalGeneralRuleRow): string {
+  return (row.excellenceMode ?? (row.grade ? 'TAGDIR' : 'GRADES')) === 'TAGDIR'
+    ? 'تقدير'
+    : 'درجة';
+}
+
 /* Print: landscape A4 fits the wide row tables comfortably; tighter
  * font keeps two-column data legible on paper. The global print.css
  * already hides chrome-side elements that carry `.no-print`. */
@@ -475,6 +481,7 @@ function UniversityRowsTable({
     'الكلية',
     'التخصص',
     'النوع',
+    'معيار التمييز',
     'الحد الأدنى للتقدير',
     'الحد الأقصى للتقدير',
     'الحد الأدنى للدرجة',
@@ -517,6 +524,7 @@ function UniversityRowsTable({
                   values={row.type.map((g) => GENDER_LABEL[g] ?? g)}
                 />
               </Td>
+              <Td>{excellenceModeLabel(row)}</Td>
               <Td>
                 {row.grade ? labels.academicGrade.get(row.grade) ?? row.grade : '—'}
               </Td>
@@ -583,6 +591,9 @@ function ThanawiRowsTable({
     'الدور',
     'سنة التخرج',
     'فئة المدرسة',
+    'معيار التمييز',
+    'الحد الأدنى للتقدير',
+    'الحد الأقصى للتقدير',
     'الحد الأدنى للدرجة',
     'الحد الأقصى للدرجة',
     'الحالة الاجتماعية',
@@ -624,6 +635,15 @@ function ThanawiRowsTable({
                     (c) => labels.schoolCategory.get(c) ?? c,
                   )}
                 />
+              </Td>
+              <Td>{excellenceModeLabel(row)}</Td>
+              <Td>
+                {row.grade ? labels.academicGrade.get(row.grade) ?? row.grade : '—'}
+              </Td>
+              <Td>
+                {row.gradeMax
+                  ? labels.academicGrade.get(row.gradeMax) ?? row.gradeMax
+                  : '—'}
               </Td>
               <Td>
                 {row.scoreMin !== null

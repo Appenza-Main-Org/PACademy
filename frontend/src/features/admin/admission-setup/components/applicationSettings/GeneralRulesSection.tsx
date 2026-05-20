@@ -57,6 +57,7 @@ import {
   type MaxScoreOperator,
   type MinScoreOperator,
 } from '../../store/wizardSharedState';
+import { ExcellenceModeToggle } from './ExcellenceModeToggle';
 import { OperatorScoreField } from './OperatorScoreField';
 
 /* ── Static option sets ───────────────────────────────────────────── */
@@ -67,6 +68,7 @@ const GENDER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
 ];
 
 const EMPTY_INPUT: GeneralRuleRowInput = {
+  excellenceMode: 'GRADES',
   type: [],
   grade: '',
   gradeMax: '',
@@ -78,6 +80,10 @@ const EMPTY_INPUT: GeneralRuleRowInput = {
   committee: '',
   graduationYear: null,
 };
+
+function emptyInputFor(excellenceMode: ExcellenceMode | null): GeneralRuleRowInput {
+  return { ...EMPTY_INPUT, excellenceMode: excellenceMode ?? 'GRADES' };
+}
 
 /** Lower bound for both inputs — "positive numbers only".
  *  The min field has an upper bound at 100 (percentage convention).
@@ -798,6 +804,7 @@ interface PerSpecFormProps {
 
 function rowToUniversityInput(r: LocalUniversityRow): GeneralRuleRowInput {
   return {
+    excellenceMode: r.excellenceMode ?? (r.grade ? 'TAGDIR' : 'GRADES'),
     type: [...r.type],
     grade: r.grade,
     gradeMax: r.gradeMax,
@@ -830,11 +837,10 @@ function PerSpecForm({
     graduationYearOptions,
     excellenceMode,
   } = options;
-  /* `null` (criterion not picked) keeps both pairs visible so admins
-   * can still fill the row in until they assign a criterion. */
-  const showGradePair = excellenceMode !== 'GRADES';
-  const showScorePair = excellenceMode !== 'TAGDIR';
-  const [draft, setDraft] = useState<GeneralRuleRowInput>(EMPTY_INPUT);
+  const defaultExcellenceMode = excellenceMode ?? 'GRADES';
+  const [draft, setDraft] = useState<GeneralRuleRowInput>(() =>
+    emptyInputFor(defaultExcellenceMode),
+  );
   const formRef = useRef<HTMLDivElement>(null);
 
   const header = useAdmissionSetupWizardStore(
@@ -914,8 +920,15 @@ function PerSpecForm({
   const lastEditingIdRef = useRef<string | null>(null);
   if (lastEditingIdRef.current !== editingId) {
     lastEditingIdRef.current = editingId;
-    setDraft(editingRow ? rowToUniversityInput(editingRow) : EMPTY_INPUT);
+    setDraft(editingRow ? rowToUniversityInput(editingRow) : emptyInputFor(defaultExcellenceMode));
   }
+  const lastDefaultModeRef = useRef<ExcellenceMode>(defaultExcellenceMode);
+  if (!isEditing && lastDefaultModeRef.current !== defaultExcellenceMode) {
+    lastDefaultModeRef.current = defaultExcellenceMode;
+    setDraft(emptyInputFor(defaultExcellenceMode));
+  }
+  const showGradePair = draft.excellenceMode === 'TAGDIR';
+  const showScorePair = draft.excellenceMode === 'GRADES';
 
   /* ─── Validation ─── */
 
@@ -1002,7 +1015,7 @@ function PerSpecForm({
         );
         return;
       }
-      setDraft(EMPTY_INPUT);
+      setDraft(emptyInputFor(defaultExcellenceMode));
       toast('تم تعديل الشرط', 'success');
       return;
     }
@@ -1011,7 +1024,7 @@ function PerSpecForm({
       toast('هذا الشرط موجود بالفعل بنفس البيانات', 'danger');
       return;
     }
-    setDraft(EMPTY_INPUT);
+    setDraft(emptyInputFor(defaultExcellenceMode));
     toast('تمت إضافة الشرط محلياً', 'success');
   };
 
@@ -1034,6 +1047,32 @@ function PerSpecForm({
             {isEditing ? 'تعديل شرط اللجنة' : 'شروط اللجنة'}
           </h4>
         </header>
+
+        <div className="mb-3 rounded-md border border-border-subtle bg-ink-50/40 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="font-ar text-xs font-medium text-ink-700">
+                معيار التمييز
+              </span>
+              <p className="m-0 mt-0.5 font-ar text-2xs text-ink-500">
+                القيمة الافتراضية مأخوذة من إعداد الفئة، ويمكن تعديلها لهذا الشرط.
+              </p>
+            </div>
+            <ExcellenceModeToggle
+              value={draft.excellenceMode}
+              onChange={(next) =>
+                setDraft((d) => ({
+                  ...d,
+                  excellenceMode: next,
+                  grade: next === 'TAGDIR' ? d.grade : '',
+                  gradeMax: next === 'TAGDIR' ? d.gradeMax : '',
+                  scoreMin: next === 'GRADES' ? d.scoreMin : null,
+                  scoreMax: next === 'GRADES' ? d.scoreMax : null,
+                }))
+              }
+            />
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <FieldLabel label="النوع" required>
@@ -1227,8 +1266,6 @@ function PerSpecForm({
         degreeOptions={degreeOptions}
         committeeOptions={committeeOptions}
         maritalOptions={options.maritalOptions}
-        showGradePair={showGradePair}
-        showScorePair={showScorePair}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
@@ -1246,10 +1283,6 @@ interface LocalUniversityGridProps {
   degreeOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
-  /** Mirror the form's visibility — hides تقدير / درجة columns when the
-   *  active criterion does not surface them. */
-  showGradePair: boolean;
-  showScorePair: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -1261,8 +1294,6 @@ function LocalUniversityGrid({
   degreeOptions,
   committeeOptions,
   maritalOptions,
-  showGradePair,
-  showScorePair,
   onEdit,
   onDelete,
 }: LocalUniversityGridProps): JSX.Element {
@@ -1276,6 +1307,10 @@ function LocalUniversityGrid({
     GENDER_OPTIONS.find((o) => o.value === v)?.label ?? v;
   const labelForMarital = (v: string): string =>
     maritalOptions.find((o) => o.value === v)?.label ?? v;
+  const labelForExcellenceMode = (r: LocalUniversityRow): string =>
+    (r.excellenceMode ?? (r.grade ? 'TAGDIR' : 'GRADES')) === 'TAGDIR'
+      ? 'تقدير'
+      : 'درجة';
 
   if (rows.length === 0) {
     return (
@@ -1296,10 +1331,11 @@ function LocalUniversityGrid({
             <Th>تاريخ احتساب السن</Th>
             <Th>الحالة الاجتماعية</Th>
             <Th>النوع</Th>
-            {showGradePair && <Th>الحد الأدنى للتقدير</Th>}
-            {showGradePair && <Th>الحد الأقصى للتقدير</Th>}
-            {showScorePair && <Th>الحد الأدنى للدرجة</Th>}
-            {showScorePair && <Th>الحد الأقصى للدرجة</Th>}
+            <Th>معيار التمييز</Th>
+            <Th>الحد الأدنى للتقدير</Th>
+            <Th>الحد الأقصى للتقدير</Th>
+            <Th>الحد الأدنى للدرجة</Th>
+            <Th>الحد الأقصى للدرجة</Th>
             <Th>الدرجة العلمية</Th>
             <Th>سنة التخرج</Th>
             <Th>إجراءات</Th>
@@ -1331,22 +1367,19 @@ function LocalUniversityGrid({
                 <Td>
                   <MultiValueCell values={r.type.map(labelForType)} />
                 </Td>
-                {showGradePair && <Td>{labelForGrade(r.grade)}</Td>}
-                {showGradePair && <Td>{labelForGrade(r.gradeMax)}</Td>}
-                {showScorePair && (
-                  <Td>
-                    {r.scoreMin !== null
-                      ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
-                      : '—'}
-                  </Td>
-                )}
-                {showScorePair && (
-                  <Td>
-                    {r.scoreMax !== null
-                      ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
-                      : '—'}
-                  </Td>
-                )}
+                <Td>{labelForExcellenceMode(r)}</Td>
+                <Td>{r.grade ? labelForGrade(r.grade) : '—'}</Td>
+                <Td>{r.gradeMax ? labelForGrade(r.gradeMax) : '—'}</Td>
+                <Td>
+                  {r.scoreMin !== null
+                    ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
+                    : '—'}
+                </Td>
+                <Td>
+                  {r.scoreMax !== null
+                    ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
+                    : '—'}
+                </Td>
                 <Td>
                   <MultiValueCell
                     values={r.academicDegrees.map(labelForDegree)}

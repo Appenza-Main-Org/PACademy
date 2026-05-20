@@ -44,9 +44,11 @@ import {
   type MinScoreOperator,
   type ThanawiRuleRowInput,
 } from '../../store/wizardSharedState';
+import { ExcellenceModeToggle } from './ExcellenceModeToggle';
 import { OperatorScoreField } from './OperatorScoreField';
 
 const EMPTY_INPUT: ThanawiRuleRowInput = {
+  excellenceMode: 'GRADES',
   examRound: '',
   committee: '',
   graduationYear: null,
@@ -58,6 +60,10 @@ const EMPTY_INPUT: ThanawiRuleRowInput = {
   scoreMax: null,
   maxScoreOperator: DEFAULT_MAX_SCORE_OPERATOR,
 };
+
+function emptyInputFor(excellenceMode: ExcellenceMode | null): ThanawiRuleRowInput {
+  return { ...EMPTY_INPUT, excellenceMode: excellenceMode ?? 'GRADES' };
+}
 
 /** Lower bound for both inputs — "positive numbers only".
  *  The min field has an upper bound at 100 (percentage convention).
@@ -457,6 +463,7 @@ interface ThanawiFormProps {
 
 function rowToThanawiInput(r: LocalThanawiRow): ThanawiRuleRowInput {
   return {
+    excellenceMode: r.excellenceMode ?? (r.grade ? 'TAGDIR' : 'GRADES'),
     examRound: r.examRound,
     committee: r.committee,
     graduationYear: r.graduationYear,
@@ -484,11 +491,10 @@ function ThanawiForm({
   gradeRank,
   excellenceMode,
 }: ThanawiFormProps): JSX.Element {
-  /* `null` (criterion not picked) keeps both pairs visible so admins
-   * can still fill the row in until they assign a criterion. */
-  const showGradePair = excellenceMode !== 'GRADES';
-  const showScorePair = excellenceMode !== 'TAGDIR';
-  const [draft, setDraft] = useState<ThanawiRuleRowInput>(EMPTY_INPUT);
+  const defaultExcellenceMode = excellenceMode ?? 'GRADES';
+  const [draft, setDraft] = useState<ThanawiRuleRowInput>(() =>
+    emptyInputFor(defaultExcellenceMode),
+  );
   const formRef = useRef<HTMLDivElement>(null);
 
   const header = useAdmissionSetupWizardStore(
@@ -551,8 +557,15 @@ function ThanawiForm({
   const lastEditingIdRef = useRef<string | null>(null);
   if (lastEditingIdRef.current !== editingId) {
     lastEditingIdRef.current = editingId;
-    setDraft(editingRow ? rowToThanawiInput(editingRow) : EMPTY_INPUT);
+    setDraft(editingRow ? rowToThanawiInput(editingRow) : emptyInputFor(defaultExcellenceMode));
   }
+  const lastDefaultModeRef = useRef<ExcellenceMode>(defaultExcellenceMode);
+  if (!isEditing && lastDefaultModeRef.current !== defaultExcellenceMode) {
+    lastDefaultModeRef.current = defaultExcellenceMode;
+    setDraft(emptyInputFor(defaultExcellenceMode));
+  }
+  const showGradePair = draft.excellenceMode === 'TAGDIR';
+  const showScorePair = draft.excellenceMode === 'GRADES';
 
   /* OperatorScoreField clamps to [0, maxBound] on blur, but we still
    *  guard the submit gate so a focus-stolen blur or paste-then-submit
@@ -628,7 +641,7 @@ function ThanawiForm({
         );
         return;
       }
-      setDraft(EMPTY_INPUT);
+      setDraft(emptyInputFor(defaultExcellenceMode));
       toast('تم تعديل الشرط', 'success');
       return;
     }
@@ -637,7 +650,7 @@ function ThanawiForm({
       toast('هذا الشرط موجود بالفعل في الجدول', 'danger');
       return;
     }
-    setDraft(EMPTY_INPUT);
+    setDraft(emptyInputFor(defaultExcellenceMode));
     toast('تمت إضافة الشرط محلياً', 'success');
   };
 
@@ -662,6 +675,32 @@ function ThanawiForm({
             {isEditing ? 'تعديل شرط اللجنة' : 'شروط اللجنة'}
           </h4>
         </header>
+
+        <div className="mb-3 rounded-md border border-border-subtle bg-ink-50/40 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="font-ar text-xs font-medium text-ink-700">
+                معيار التمييز
+              </span>
+              <p className="m-0 mt-0.5 font-ar text-2xs text-ink-500">
+                القيمة الافتراضية مأخوذة من إعداد الفئة، ويمكن تعديلها لهذا الشرط.
+              </p>
+            </div>
+            <ExcellenceModeToggle
+              value={draft.excellenceMode}
+              onChange={(next) =>
+                setDraft((d) => ({
+                  ...d,
+                  excellenceMode: next,
+                  grade: next === 'TAGDIR' ? d.grade : '',
+                  gradeMax: next === 'TAGDIR' ? d.gradeMax : '',
+                  scoreMin: next === 'GRADES' ? d.scoreMin : null,
+                  scoreMax: next === 'GRADES' ? d.scoreMax : null,
+                }))
+              }
+            />
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <FieldLabel label="الدور" required>
@@ -839,8 +878,6 @@ function ThanawiForm({
         schoolCategoryOptions={schoolCategoryOptions}
         maritalOptions={maritalOptions}
         gradeOptions={gradeOptions}
-        showGradePair={showGradePair}
-        showScorePair={showScorePair}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
@@ -857,10 +894,6 @@ interface ThanawiGridProps {
   schoolCategoryOptions: ReadonlyArray<SearchSelectOption>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<SearchSelectOption>;
-  /** Mirror the form's visibility — hides تقدير / درجة columns when the
-   *  active criterion does not surface them. */
-  showGradePair: boolean;
-  showScorePair: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -873,8 +906,6 @@ function ThanawiGrid({
   schoolCategoryOptions,
   maritalOptions,
   gradeOptions,
-  showGradePair,
-  showScorePair,
   onEdit,
   onDelete,
 }: ThanawiGridProps): JSX.Element {
@@ -888,6 +919,10 @@ function ThanawiGrid({
     maritalOptions.find((o) => o.value === v)?.label ?? v;
   const labelForGrade = (v: string): string =>
     gradeOptions.find((o) => o.value === v)?.label ?? v;
+  const labelForExcellenceMode = (r: LocalThanawiRow): string =>
+    (r.excellenceMode ?? (r.grade ? 'TAGDIR' : 'GRADES')) === 'TAGDIR'
+      ? 'تقدير'
+      : 'درجة';
 
   if (rows.length === 0) {
     return (
@@ -910,10 +945,11 @@ function ThanawiGrid({
             <Th>الدور</Th>
             <Th>سنة التخرج</Th>
             <Th>فئة المدرسة</Th>
-            {showGradePair && <Th>الحد الأدنى للتقدير</Th>}
-            {showGradePair && <Th>الحد الأقصى للتقدير</Th>}
-            {showScorePair && <Th>الحد الأدنى للدرجة</Th>}
-            {showScorePair && <Th>الحد الأقصى للدرجة</Th>}
+            <Th>معيار التمييز</Th>
+            <Th>الحد الأدنى للتقدير</Th>
+            <Th>الحد الأقصى للتقدير</Th>
+            <Th>الحد الأدنى للدرجة</Th>
+            <Th>الحد الأقصى للدرجة</Th>
             <Th>إجراءات</Th>
           </tr>
         </thead>
@@ -947,26 +983,19 @@ function ThanawiGrid({
                     values={r.schoolCategories.map(labelForSchool)}
                   />
                 </Td>
-                {showGradePair && (
-                  <Td>{r.grade ? labelForGrade(r.grade) : '—'}</Td>
-                )}
-                {showGradePair && (
-                  <Td>{r.gradeMax ? labelForGrade(r.gradeMax) : '—'}</Td>
-                )}
-                {showScorePair && (
-                  <Td>
-                    {r.scoreMin !== null
-                      ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
-                      : '—'}
-                  </Td>
-                )}
-                {showScorePair && (
-                  <Td>
-                    {r.scoreMax !== null
-                      ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
-                      : '—'}
-                  </Td>
-                )}
+                <Td>{labelForExcellenceMode(r)}</Td>
+                <Td>{r.grade ? labelForGrade(r.grade) : '—'}</Td>
+                <Td>{r.gradeMax ? labelForGrade(r.gradeMax) : '—'}</Td>
+                <Td>
+                  {r.scoreMin !== null
+                    ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
+                    : '—'}
+                </Td>
+                <Td>
+                  {r.scoreMax !== null
+                    ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
+                    : '—'}
+                </Td>
                 <td className="px-3 py-2 align-middle text-end">
                   <div className="inline-flex items-center gap-1">
                     <button
