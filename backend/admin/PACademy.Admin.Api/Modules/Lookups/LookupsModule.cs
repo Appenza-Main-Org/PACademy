@@ -27,7 +27,6 @@ public static class LookupsModule
     {
         await using var scope = app.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
-        await db.Database.EnsureCreatedAsync(ct);
         await scope.ServiceProvider.GetRequiredService<LookupsSeeder>().SeedAsync(db, ct);
     }
 }

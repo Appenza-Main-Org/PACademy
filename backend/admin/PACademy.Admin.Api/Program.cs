@@ -4,6 +4,7 @@ using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Lookups;
+using PACademy.Admin.Api.Persistence;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -37,6 +38,7 @@ app.MapScalarApiReference("/scalar");
 app.UseAuthorization();
 app.MapControllers();
 
+await app.InitializeAdminDatabaseAsync();
 await app.SeedLookupsAsync();
 await app.SeedAdmissionsAsync();
 await app.SeedIdentityAsync();

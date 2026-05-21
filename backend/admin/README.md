@@ -17,6 +17,26 @@ http://localhost:5101/openapi/v1.json
 http://localhost:5101/scalar
 ```
 
+## Migrations
+
+The admin API owns migrations. The initial schema migration is under:
+
+```text
+backend/admin/PACademy.Admin.Api/Persistence/Migrations/
+```
+
+When `ConnectionStrings:AdminDb` is empty, the API uses EF InMemory for local smoke tests. When `AdminDb` is set, startup runs `Database.MigrateAsync()` before seeders execute.
+
+Add future migrations with:
+
+```bash
+dotnet dotnet-ef migrations add <Name> \
+  --project backend/admin/PACademy.Admin.Api/PACademy.Admin.Api.csproj \
+  --startup-project backend/admin/PACademy.Admin.Api/PACademy.Admin.Api.csproj \
+  --context AdminDbContext \
+  --output-dir Persistence/Migrations
+```
+
 ## Module Recipe
 
 Every admin module follows the same shape:

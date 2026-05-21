@@ -21,6 +21,7 @@
 - Added concrete admission-setup endpoints for app settings, exam schedule, committee bindings, declarations, and exam-date config.
 - Added concrete auth, officer lookup, committee, and exam-plan/result endpoints.
 - Removed `AdminFallbackController`; OpenAPI has no catchall fallback route.
+- Generated initial SQL Server migration and wired startup migration application for real `AdminDb` connection strings.
 
 ## Verification
 
@@ -55,6 +56,7 @@ Confirmed:
 - `/v1/officers/lookup`
 - `/api/committees`
 - `/api/exams/results/can-enter`
+- SQL Server migration file exists under `Persistence/Migrations`.
 - duplicate lookup conflict envelope
 - active-cycle conflict envelope
 - lookup FK delete guard
@@ -66,7 +68,7 @@ The admin pages are routed to real HTTP and the major admin domains now have con
 1. ApplicantGrades parser/import persistence beyond empty import envelopes.
 2. Reports aggregate calculations beyond lightweight seeded-data responses.
 3. Admission setup business-rule conflicts for every wizard mutation.
-4. SQL Server migrations once a real connection string is available.
+4. Running the generated migration against the real SQL Server once a connection string is available.
 5. Replacing lightweight endpoint shells with richer use cases where product behavior needs more than seeded JSON.
 
 The backend now fails visibly for unknown routes because the fallback controller is gone.

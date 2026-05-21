@@ -14,6 +14,25 @@ dotnet run --project backend/admin/PACademy.Admin.Api/PACademy.Admin.Api.csproj 
 
 The repo has a local `global.json` pinned to SDK `10.0.300` so it is not affected by `/Users/mac/global.json`.
 
+## Migration Status
+
+Initial SQL Server migration generated:
+
+```text
+backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260521200238_InitialAdminSchema.cs
+```
+
+Startup behavior:
+
+- empty `ConnectionStrings:AdminDb` -> EF InMemory + `EnsureCreatedAsync()` for local smoke
+- non-empty `ConnectionStrings:AdminDb` -> SQL Server + `MigrateAsync()` before seeders
+
+Local EF tool manifest:
+
+```text
+dotnet-tools.json
+```
+
 ## Concrete Modules Shipped
 
 ### LookupsAdmin
