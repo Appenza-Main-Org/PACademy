@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\shared\PACademy.Shared.Contracts\PACademy.Shared.Contracts.csproj" />
     <ProjectReference Include="..\..\shared\PACademy.Shared.Domain\PACademy.Shared.Domain.csproj" />
     <ProjectReference Include="..\..\shared\PACademy.Shared.Web\PACademy.Shared.Web.csproj" />
+    <ProjectReference Include="..\Modules\IdentityApplicantAdmin\PACademy.Modules.IdentityApplicantAdmin.Infrastructure\PACademy.Modules.IdentityApplicantAdmin.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

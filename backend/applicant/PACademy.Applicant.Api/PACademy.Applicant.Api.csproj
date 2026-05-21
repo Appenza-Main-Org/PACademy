@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -23,6 +24,8 @@
     <ProjectReference Include="..\..\shared\PACademy.Shared.Contracts\PACademy.Shared.Contracts.csproj" />
     <ProjectReference Include="..\..\shared\PACademy.Shared.Domain\PACademy.Shared.Domain.csproj" />
     <ProjectReference Include="..\..\shared\PACademy.Shared.Web\PACademy.Shared.Web.csproj" />
+    <ProjectReference Include="..\Modules\IdentityApplicant\PACademy.Modules.IdentityApplicant.Application\PACademy.Modules.IdentityApplicant.Application.csproj" />
+    <ProjectReference Include="..\Modules\IdentityApplicant\PACademy.Modules.IdentityApplicant.Infrastructure\PACademy.Modules.IdentityApplicant.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

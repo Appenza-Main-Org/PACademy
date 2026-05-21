@@ -7,6 +7,10 @@
     <Project Path="applicant/Modules/GradesRead/PACademy.Modules.GradesRead.Application/PACademy.Modules.GradesRead.Application.csproj" />
     <Project Path="applicant/Modules/GradesRead/PACademy.Modules.GradesRead.Infrastructure/PACademy.Modules.GradesRead.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/applicant/Modules/IdentityApplicant/">
+    <Project Path="applicant/Modules/IdentityApplicant/PACademy.Modules.IdentityApplicant.Application/PACademy.Modules.IdentityApplicant.Application.csproj" />
+    <Project Path="applicant/Modules/IdentityApplicant/PACademy.Modules.IdentityApplicant.Infrastructure/PACademy.Modules.IdentityApplicant.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/applicant/Modules/LookupsRead/">
     <Project Path="applicant/Modules/LookupsRead/PACademy.Modules.LookupsRead.Application/PACademy.Modules.LookupsRead.Application.csproj" />
     <Project Path="applicant/Modules/LookupsRead/PACademy.Modules.LookupsRead.Infrastructure/PACademy.Modules.LookupsRead.Infrastructure.csproj" />

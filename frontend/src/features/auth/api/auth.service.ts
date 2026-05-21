@@ -25,6 +25,57 @@ function fakeJWT(payload: object): string {
   return `mock.${btoa(unescape(encodeURIComponent(JSON.stringify(payload))))}.signature`;
 }
 
+/* ── Backend wiring (env-flag) ───────────────────────────────────────────
+ *
+ * `VITE_USE_APPLICANT_AUTH_BACKEND=true` flips applicant login (role
+ * 'applicant' only) from the in-process mock to a real call against the
+ * .NET applicant backend at `VITE_APPLICANT_API_BASE`. Staff/admin login
+ * stays on the mock. Default off so demos work without the backend
+ * running. */
+const APPLICANT_API_BASE = (import.meta.env.VITE_APPLICANT_API_BASE as string | undefined)
+  ?? 'http://localhost:5102';
+const USE_APPLICANT_AUTH_BACKEND =
+  import.meta.env.VITE_USE_APPLICANT_AUTH_BACKEND === 'true';
+
+async function loginApplicantViaBackend(credentials: LoginCredentials): Promise<AuthUser> {
+  const res = await fetch(`${APPLICANT_API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: credentials.username,
+      password: credentials.password,
+      role: 'applicant',
+    }),
+  });
+  if (!res.ok) {
+    /* Backend error envelope: { code, message }. Surface the Arabic
+     * message verbatim so the existing form's toast wording stays
+     * consistent with admin-side errors. */
+    const body = (await res.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(body?.message ?? 'تعذّر تسجيل الدخول');
+  }
+  const body = (await res.json()) as {
+    id: string;
+    name: string;
+    role: string;
+    roleLabel: string;
+    apps: string[];
+    permissions: string[];
+    token: string;
+    loggedInAt: number;
+  };
+  return {
+    id: body.id,
+    name: body.name,
+    role: body.role as Role,
+    roleLabel: body.roleLabel,
+    apps: body.apps as readonly AppKey[],
+    permissions: body.permissions,
+    token: body.token,
+    loggedInAt: body.loggedInAt,
+  };
+}
+
 /* ── Lock-policy mock state (Gap A) ──────────────────────────────────────
  *
  * The "max failed attempts" knob was removed from /admin/settings; the
@@ -150,9 +201,17 @@ export const authService = {
    * non-OTP demo paths. New code should use requestOtp + verifyOtp.
    */
   async login(credentials: LoginCredentials): Promise<AuthUser> {
-    await simulateLatency(450, 750);
     const { username, password, role } = credentials;
     if (!username || !password) throw new Error('بيانات الدخول مطلوبة');
+
+    /* Backend wiring — applicant role only, flag-gated. Skips the mock
+     * audit + buildAuthUser path entirely; the backend returns a real
+     * JWT and the canonical AuthUser payload. */
+    if (role === 'applicant' && USE_APPLICANT_AUTH_BACKEND) {
+      return loginApplicantViaBackend(credentials);
+    }
+
+    await simulateLatency(450, 750);
     /* Reject inactive accounts (admin-create NID flow). The mock match
      * surface is name-based, so the same role can have multiple seeded
      * users; only an *active* match yields a session. If every match for

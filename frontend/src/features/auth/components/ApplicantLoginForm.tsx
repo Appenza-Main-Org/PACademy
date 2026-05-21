@@ -30,7 +30,7 @@ import { useAuthStore } from '../store/auth.store';
 import { ROUTES } from '@/config/routes';
 import {
   SUBMITTED_APPLICANT_NID,
-  mockMoiLookup,
+  lookupMoiSession,
 } from '@/features/applicant-portal/lib/moi-session.mock';
 import { useApplicantPortalStore } from '@/features/applicant-portal/store/applicantPortal.store';
 
@@ -78,7 +78,7 @@ export function ApplicantLoginForm(): JSX.Element {
         role: 'applicant',
       });
 
-      const result = mockMoiLookup(values.nationalId);
+      const result = await lookupMoiSession(values.nationalId);
       const portal = useApplicantPortalStore.getState();
       portal.setNationalId(values.nationalId);
 
