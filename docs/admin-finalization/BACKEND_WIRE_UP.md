@@ -157,15 +157,16 @@ Concrete endpoint groups now covered:
 - `/api/admin/exam-schedule/*`
 - `/api/admin/committee-bindings/*`
 - `/api/admission-setup/*`
+- `/api/auth/*`
+- `/v1/officers/lookup`
+- `/api/committees/*`
+- `/api/exams/*`
+- `/api/cycles/{cycleId}/exam-plans`
+- `/api/cycles/{cycleId}/categories/{categoryId}/exam-plan`
 
-## Temporary Backend Fallback
+## Fallback Status
 
-`AdminFallbackController` exists only to keep the frontend on real HTTP while the remaining vertical modules are completed. It covers missing admin endpoints with empty/safe envelopes and must be deleted as Priority B/C modules replace it.
-
-Fallback-covered modules:
-
-- Auth/Identity details beyond lock-policy basics
-- Unknown admin API calls not yet represented by a concrete controller.
+`AdminFallbackController` has been deleted. `/openapi/v1.json` has no `{**path}` catchall route. Unknown admin API calls now fail visibly instead of being silently papered over.
 
 ## RBAC Claims
 
@@ -208,6 +209,10 @@ curl http://localhost:5101/api/admin/payments
 curl http://localhost:5101/api/audit
 curl http://localhost:5101/api/committee-instances
 curl http://localhost:5101/api/admin/app-settings/category-configs
+curl -X POST http://localhost:5101/api/auth/login
+curl 'http://localhost:5101/v1/officers/lookup?nationalId=29512011500011'
+curl http://localhost:5101/api/committees
+curl http://localhost:5101/api/exams/results/can-enter
 ```
 
 Smoke results:
@@ -225,6 +230,10 @@ Smoke results:
 - `/api/audit` returned `687` rows.
 - `/api/committee-instances` returned `15` rows.
 - `/api/admin/app-settings/category-configs`, `/api/admin/exam-schedule/cycles/CYC-2026-M`, and `/api/admin/committee-bindings/cycles/CYC-2026-M` returned HTTP 200.
-- OpenAPI contains 135 paths after the remaining admin controllers were added.
+- `/api/auth/login` returned an auth user with token, apps, and permissions.
+- `/v1/officers/lookup?nationalId=29512011500011` returned `OFF-1001`.
+- `/api/committees` returned 18 rows.
+- `/api/exams/results/can-enter` returned `true`.
+- OpenAPI contains 169 paths and no `{**path}` fallback after endpoint coverage was completed.
 - `/openapi/v1.json` returned 200.
 - `/scalar` returned 200 with redirect following.

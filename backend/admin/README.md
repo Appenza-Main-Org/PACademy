@@ -49,4 +49,5 @@ Rules:
 - `Identity`: concrete users, roles, and officer directory seed/read/write basics, seeded from `frontend/src/shared/mock-data/roles.ts`, `officers.ts`, and the deterministic `USER_SEED`.
 - `AdminRecords`: seeded backend JSON records for applicants, payments, audit, notifications, committee instances, workflows, reports, and settings.
 - Admission setup endpoint coverage for app settings, exam schedule, committee bindings, declarations, and exam-date config.
-- Temporary fallback controller: only catches still-unknown admin API calls while dedicated modules replace it.
+- Auth/officer lookup, committees, and exam-plan/result endpoint coverage.
+- The temporary fallback controller has been removed; OpenAPI no longer contains a `{**path}` catchall.

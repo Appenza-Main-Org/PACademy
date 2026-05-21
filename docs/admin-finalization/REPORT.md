@@ -19,7 +19,8 @@
 - Implemented `Identity` concrete backend basics for users, roles, and officer directory.
 - Implemented `AdminRecords` backend seed/store for applicants, payments, audit, notifications, committee instances, workflows, reports, and settings.
 - Added concrete admission-setup endpoints for app settings, exam schedule, committee bindings, declarations, and exam-date config.
-- Kept a narrow temporary fallback for unknown admin API calls only.
+- Added concrete auth, officer lookup, committee, and exam-plan/result endpoints.
+- Removed `AdminFallbackController`; OpenAPI has no catchall fallback route.
 
 ## Verification
 
@@ -50,6 +51,10 @@ Confirmed:
 - `/api/audit`
 - `/api/committee-instances`
 - `/api/admin/app-settings/category-configs`
+- `/api/auth/login`
+- `/v1/officers/lookup`
+- `/api/committees`
+- `/api/exams/results/can-enter`
 - duplicate lookup conflict envelope
 - active-cycle conflict envelope
 - lookup FK delete guard
@@ -62,6 +67,6 @@ The admin pages are routed to real HTTP and the major admin domains now have con
 2. Reports aggregate calculations beyond lightweight seeded-data responses.
 3. Admission setup business-rule conflicts for every wizard mutation.
 4. SQL Server migrations once a real connection string is available.
-5. Removing `AdminFallbackController` after endpoint coverage is exhaustively route-tested.
+5. Replacing lightweight endpoint shells with richer use cases where product behavior needs more than seeded JSON.
 
-The fallback controller should be deleted when the final endpoint coverage test confirms no admin service call reaches it.
+The backend now fails visibly for unknown routes because the fallback controller is gone.
