@@ -30,6 +30,40 @@ import type {
   ExamResultStatus,
 } from '@/shared/types/domain';
 
+const ADMIN_API_BASE = (import.meta.env.VITE_ADMIN_API_BASE ?? '').replace(/\/$/, '');
+const USE_EXAM_PLANS_BACKEND =
+  import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND === 'true' ||
+  (import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND !== 'false' && ADMIN_API_BASE.length > 0);
+
+interface ErrorEnvelope {
+  message?: string;
+  conflictCode?: string;
+}
+
+async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${ADMIN_API_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+  const text = await response.text();
+  const data = text ? (JSON.parse(text) as unknown) : null;
+  if (!response.ok) {
+    const envelope = data && typeof data === 'object' ? (data as ErrorEnvelope) : {};
+    if (response.status === 409 && envelope.conflictCode === 'EXAM_ORDER_DUPLICATE') {
+      throw new ConflictError(
+        'EXAM_ORDER_DUPLICATE',
+        data,
+        envelope.message ?? 'ترتيب الاختبارات مكرر',
+      );
+    }
+    throw new Error(envelope.message ?? `HTTP ${response.status}`);
+  }
+  return data as T;
+}
+
 const PLANS: CycleCategoryExamPlan[] = [...MOCK.cycleCategoryExamPlans];
 let planIdSeq = 1;
 const planId = (): string => `EP-${String(planIdSeq++).padStart(5, '0')}`;
@@ -55,11 +89,21 @@ export const examPlansService = {
   },
 
   async listForCycle(cycleId: string): Promise<CycleCategoryExamPlan[]> {
+    if (USE_EXAM_PLANS_BACKEND) {
+      return apiJson<CycleCategoryExamPlan[]>(
+        `/api/cycles/${encodeURIComponent(cycleId)}/exam-plans`,
+      );
+    }
     await simulateLatency();
     return PLANS.filter((p) => p.cycleId === cycleId).map((p) => ({ ...p, exams: [...p.exams] }));
   },
 
   async getPlan(cycleId: string, categoryId: ApplicantCategoryKey): Promise<CycleCategoryExamPlan> {
+    if (USE_EXAM_PLANS_BACKEND) {
+      return apiJson<CycleCategoryExamPlan>(
+        `/api/cycles/${encodeURIComponent(cycleId)}/categories/${encodeURIComponent(categoryId)}/exam-plan`,
+      );
+    }
     await simulateLatency();
     return { ...ensurePlan(cycleId, categoryId) };
   },
@@ -74,6 +118,15 @@ export const examPlansService = {
     categoryId: ApplicantCategoryKey,
     entries: CycleCategoryExamPlanEntry[],
   ): Promise<CycleCategoryExamPlan> {
+    if (USE_EXAM_PLANS_BACKEND) {
+      return apiJson<CycleCategoryExamPlan>(
+        `/api/cycles/${encodeURIComponent(cycleId)}/categories/${encodeURIComponent(categoryId)}/exam-plan`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({ cycleId, categoryId, exams: entries }),
+        },
+      );
+    }
     await simulateLatency();
     const seenOrders = new Set<number>();
     for (const e of entries) {
@@ -118,6 +171,12 @@ export const examPlansService = {
    * The target cycle's existing plans are wiped first.
    */
   async copyConfig(input: { fromCycleId: string; toCycleId: string }): Promise<CycleCategoryExamPlan[]> {
+    if (USE_EXAM_PLANS_BACKEND) {
+      return apiJson<CycleCategoryExamPlan[]>(
+        `/api/cycles/${encodeURIComponent(input.toCycleId)}/exam-plans/copy?from=${encodeURIComponent(input.fromCycleId)}`,
+        { method: 'POST' },
+      );
+    }
     await simulateLatency(200, 400);
     const sourcePlans = PLANS.filter((p) => p.cycleId === input.fromCycleId);
     if (sourcePlans.length === 0) {
