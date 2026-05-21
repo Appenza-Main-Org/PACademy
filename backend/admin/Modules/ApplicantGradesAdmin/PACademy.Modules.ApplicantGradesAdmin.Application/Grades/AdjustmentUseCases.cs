@@ -25,7 +25,8 @@ public sealed class AddAdjustmentUseCase(IApplicantGradesAdminDbContext db, IAud
         var label = GradeConstants.ReasonLabels.TryGetValue(request.Reason, out var reasonLabel)
             ? reasonLabel
             : GradeConstants.ReasonLabels[GradeConstants.ReasonOther];
-        row.AddAdjustment(request.Reason, label, request.Note, request.Amount, request.By ?? "مسؤول النظام");
+        var adjustment = row.AddAdjustment(request.Reason, label, request.Note, request.Amount, request.By ?? "مسؤول النظام");
+        db.ApplicantGradeAdjustments.Add(adjustment);
         await db.SaveChangesAsync(ct);
         await audit.RecordAsync("grade.adjustment.create", "applicant_grade", request.By ?? "system", row.Id.ToString(), AuditOutcome.Success, "admin", ct);
 
