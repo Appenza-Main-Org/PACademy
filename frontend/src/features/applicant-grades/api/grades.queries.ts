@@ -5,6 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import {
   gradesService,
   type ApplicantGradesColumnFilters,
@@ -46,6 +47,10 @@ export const gradesKeys = {
     [...gradesKeys.all, 'paginated', params] as const,
 };
 
+function invalidateAllGrades(qc: QueryClient): Promise<void> {
+  return qc.invalidateQueries({ queryKey: gradesKeys.all }).then(() => undefined);
+}
+
 export function useGrades() {
   return useQuery({
     queryKey: gradesKeys.list(),
@@ -71,7 +76,7 @@ export function useClearGrades() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => gradesService.clearAll(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
+    onSuccess: () => invalidateAllGrades(qc),
   });
 }
 
@@ -79,7 +84,7 @@ export function useDeleteGrades() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (seats: readonly number[]) => gradesService.deleteRows(seats),
-    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
+    onSuccess: () => invalidateAllGrades(qc),
   });
 }
 
@@ -101,7 +106,7 @@ export function useAddAdjustment() {
         isActive: input.isActive,
         by: input.by,
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.list() }),
+    onSuccess: () => invalidateAllGrades(qc),
   });
 }
 
@@ -110,7 +115,7 @@ export function useToggleAdjustment() {
   return useMutation({
     mutationFn: (input: { seat: number; entryId: string }) =>
       gradesService.toggleAdjustment(input.seat, input.entryId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.list() }),
+    onSuccess: () => invalidateAllGrades(qc),
   });
 }
 
@@ -119,7 +124,7 @@ export function useDeleteAdjustment() {
   return useMutation({
     mutationFn: (input: { seat: number; entryId: string }) =>
       gradesService.deleteAdjustment(input.seat, input.entryId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.list() }),
+    onSuccess: () => invalidateAllGrades(qc),
   });
 }
 
@@ -128,7 +133,7 @@ export function useUpdateOverrideMax() {
   return useMutation({
     mutationFn: (input: { seat: number; overrideMax: number | null; by: string }) =>
       gradesService.updateOverrideMax(input.seat, input.overrideMax, input.by),
-    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.list() }),
+    onSuccess: () => invalidateAllGrades(qc),
   });
 }
 
@@ -147,9 +152,7 @@ export function useCommitImport() {
   return useMutation({
     mutationFn: (input: { staged: StagedImport; resolutions: Record<string, ImportResolution> }) =>
       gradesService.commitImport(input.staged, input.resolutions),
-    onSuccess: (_result: CommittedImport) => {
-      qc.invalidateQueries({ queryKey: gradesKeys.list() });
-    },
+    onSuccess: (_result: CommittedImport) => invalidateAllGrades(qc),
   });
 }
 
@@ -191,9 +194,7 @@ export function useApplicantGradesCommit() {
         | { action: 'reject' }
       >;
     }): Promise<ImportCommitResult> => gradesService.runImportCommit(input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: gradesKeys.all });
-    },
+    onSuccess: () => invalidateAllGrades(qc),
   });
 }
 

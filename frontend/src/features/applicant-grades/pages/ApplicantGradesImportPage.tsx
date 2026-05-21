@@ -15,8 +15,16 @@
  * memory prompts the admin via AlertDialog before bailing.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Database,
+  Loader2,
+  X,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertDialog,
@@ -70,10 +78,13 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const uploadDuplicateDecisions = useImportWizardStore(
     (s) => s.uploadDuplicateDecisions,
   );
+  const importResult = useImportWizardStore((s) => s.importResult);
   const reset = useImportWizardStore((s) => s.reset);
 
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [showStep1Errors, setShowStep1Errors] = useState(false);
+  const [commitElapsedSeconds, setCommitElapsedSeconds] = useState(0);
+  const commitStartedAtRef = useRef<number | null>(null);
   const commit = useApplicantGradesCommit();
 
   /* Safety rail: the `File` + `ParsedSheet` slices of the store are
@@ -91,6 +102,27 @@ export function ApplicantGradesImportPage(): JSX.Element {
     () => parsed?.tables.find((t) => t.name === selectedTableName) ?? null,
     [parsed, selectedTableName],
   );
+
+  const commitRowsCount = importResult?.totals.imported ?? table?.rows.length ?? 0;
+
+  useEffect(() => {
+    if (!commit.isPending) {
+      commitStartedAtRef.current = null;
+      setCommitElapsedSeconds(0);
+      return undefined;
+    }
+
+    commitStartedAtRef.current = Date.now();
+    setCommitElapsedSeconds(0);
+    const intervalId = window.setInterval(() => {
+      const startedAt = commitStartedAtRef.current ?? Date.now();
+      setCommitElapsedSeconds(Math.max(1, Math.floor((Date.now() - startedAt) / 1000)));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [commit.isPending]);
 
   function canAdvance(): boolean {
     switch (step) {
@@ -133,6 +165,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   }
 
   function handleCancel(): void {
+    if (commit.isPending) return;
     if (parsed != null) {
       setConfirmCancel(true);
       return;
@@ -141,6 +174,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   }
 
   function next(): void {
+    if (commit.isPending) return;
     if (!canAdvance()) {
       if (step === 1) setShowStep1Errors(true);
       return;
@@ -149,10 +183,12 @@ export function ApplicantGradesImportPage(): JSX.Element {
     if (step < 7) setStep((step + 1) as StepIndex);
   }
   function back(): void {
+    if (commit.isPending) return;
     if (step > 1) setStep((step - 1) as StepIndex);
   }
 
-  function commitImport(): void {
+  async function commitImport(): Promise<void> {
+    if (commit.isPending) return;
     if (!table) return;
     /* `graduationYear` is gated by canAdvance on Step 1; commit can only
      * fire once the wizard reached Step 6, so the non-null assertion
@@ -177,8 +213,8 @@ export function ApplicantGradesImportPage(): JSX.Element {
     for (const [nid, decision] of Object.entries(existingDiffDecisions)) {
       if (decision === 'accept') acceptedDiffDecisions[nid] = 'accept';
     }
-    commit.mutate(
-      {
+    try {
+      const res = await commit.mutateAsync({
         rows,
         graduationYear,
         selectedSchoolCategories,
@@ -186,25 +222,20 @@ export function ApplicantGradesImportPage(): JSX.Element {
         perGroupActions: actions,
         existingDiffDecisions: acceptedDiffDecisions,
         uploadDuplicateDecisions,
-      },
-      {
-        onSuccess: (res) => {
-          const skippedSuffix =
-            res.alreadyImportedCount > 0
-              ? ` · ${res.alreadyImportedCount.toLocaleString('en')} متجاهل (موجود مسبقًا بنفس سنة التخرج)`
-              : '';
-          toast(
-            `تم استيراد ${res.insertedCount.toLocaleString('en')} صفًا (${res.failedCount.toLocaleString('en')} مرفوض)${skippedSuffix}.`,
-            'success',
-          );
-          reset();
-          navigate(ROUTES.admin.applicantGrades);
-        },
-        onError: () => {
-          toast('تعذّر إكمال الاستيراد. حاول مرة أخرى.', 'danger');
-        },
-      },
-    );
+      });
+      const skippedSuffix =
+        res.alreadyImportedCount > 0
+          ? ` · ${res.alreadyImportedCount.toLocaleString('en')} متجاهل (موجود مسبقًا بنفس سنة التخرج)`
+          : '';
+      toast(
+        `تم استيراد ${res.insertedCount.toLocaleString('en')} صفًا (${res.failedCount.toLocaleString('en')} مرفوض)${skippedSuffix}.`,
+        'success',
+      );
+      reset();
+      navigate(`${ROUTES.admin.applicantGrades}?page=1`);
+    } catch {
+      toast('تعذّر إكمال الاستيراد. حاول مرة أخرى.', 'danger');
+    }
   }
 
   return (
@@ -222,13 +253,14 @@ export function ApplicantGradesImportPage(): JSX.Element {
             variant="ghost"
             leadingIcon={<X size={14} strokeWidth={1.75} aria-hidden />}
             onClick={handleCancel}
+            disabled={commit.isPending}
           >
             إلغاء الاستيراد
           </Button>
         }
       />
 
-      <TopStepper step={step} onJump={(s) => setStep(s)} />
+      <TopStepper step={step} onJump={(s) => setStep(s)} disabled={commit.isPending} />
 
       <section className="mt-6 rounded-lg border border-border-subtle bg-white p-6">
         {step === 1 && <Step1Settings showRequiredErrors={showStep1Errors} />}
@@ -238,6 +270,12 @@ export function ApplicantGradesImportPage(): JSX.Element {
         {step === 5 && <Step5DuplicateReview />}
         {step === 6 && <Step6ChangesReview />}
         {step === 7 && <Step6Result />}
+        {step === 7 && commit.isPending && (
+          <CommitProgressPanel
+            rowsCount={commitRowsCount}
+            elapsedSeconds={commitElapsedSeconds}
+          />
+        )}
       </section>
 
       <footer className="sticky bottom-0 mt-4 flex items-center justify-between gap-3 border-t border-border-subtle bg-white px-6 py-4">
@@ -245,7 +283,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
           variant="ghost"
           leadingIcon={<ChevronRight size={14} strokeWidth={1.75} aria-hidden />}
           onClick={back}
-          disabled={step === 1}
+          disabled={step === 1 || commit.isPending}
         >
           السابق
         </Button>
@@ -269,9 +307,12 @@ export function ApplicantGradesImportPage(): JSX.Element {
               variant="primary"
               leadingIcon={<Check size={14} strokeWidth={1.75} aria-hidden />}
               isLoading={commit.isPending}
-              onClick={commitImport}
+              disabled={commit.isPending}
+              onClick={() => {
+                void commitImport();
+              }}
             >
-              تأكيد الاستيراد
+              {commit.isPending ? 'جاري التأكيد...' : 'تأكيد الاستيراد'}
             </Button>
           )}
         </div>
@@ -302,9 +343,11 @@ function filterAction(
 function TopStepper({
   step,
   onJump,
+  disabled = false,
 }: {
   step: StepIndex;
   onJump: (s: StepIndex) => void;
+  disabled?: boolean;
 }): JSX.Element {
   return (
     <ol className="m-0 flex list-none items-center gap-0 overflow-auto p-0 text-2xs">
@@ -315,7 +358,10 @@ function TopStepper({
           <li key={s.index} className="contents">
             <button
               type="button"
-              onClick={() => onJump(s.index)}
+              onClick={() => {
+                if (!disabled) onJump(s.index);
+              }}
+              disabled={disabled}
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-2 py-1"
               style={{
                 color: done ? 'var(--teal-700)' : active ? 'var(--ink-900)' : 'var(--ink-400)',
@@ -349,5 +395,90 @@ function TopStepper({
         );
       })}
     </ol>
+  );
+}
+
+function CommitProgressPanel({
+  rowsCount,
+  elapsedSeconds,
+}: {
+  rowsCount: number;
+  elapsedSeconds: number;
+}): JSX.Element {
+  const phase =
+    elapsedSeconds < 4
+      ? 'تجهيز الصفوف الصالحة'
+      : elapsedSeconds < 12
+        ? 'الكتابة على قاعدة البيانات'
+        : 'تحديث نتائج القائمة بعد الحفظ';
+
+  return (
+    <div
+      className="mt-5 rounded-md border px-4 py-4"
+      style={{
+        borderColor: 'var(--teal-200)',
+        background: 'var(--teal-50)',
+      }}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <span
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full"
+            style={{ background: 'var(--teal-100)', color: 'var(--teal-700)' }}
+            aria-hidden
+          >
+            <Loader2 size={20} className="animate-spin" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="m-0 text-sm font-bold text-ink-900">
+              جاري تأكيد الاستيراد
+            </h2>
+            <p className="m-0 mt-1 text-xs text-ink-600">
+              لا تغلق الصفحة. نكتب الصفوف على قاعدة البيانات ثم نحدّث القائمة.
+            </p>
+          </div>
+        </div>
+
+        <dl className="m-0 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
+          <div>
+            <dt className="flex items-center gap-1 text-ink-500">
+              <Database size={14} strokeWidth={1.75} aria-hidden />
+              الصفوف
+            </dt>
+            <dd className="m-0 mt-1 font-en text-base font-bold text-ink-900">
+              {rowsCount.toLocaleString('en')}
+            </dd>
+          </div>
+          <div>
+            <dt className="flex items-center gap-1 text-ink-500">
+              <Clock3 size={14} strokeWidth={1.75} aria-hidden />
+              الوقت
+            </dt>
+            <dd className="m-0 mt-1 font-en text-base font-bold text-ink-900">
+              {elapsedSeconds.toLocaleString('en')}s
+            </dd>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <dt className="text-ink-500">الحالة الحالية</dt>
+            <dd className="m-0 mt-1 text-sm font-bold" style={{ color: 'var(--teal-700)' }}>
+              {phase}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <div
+        className="mt-4 h-2 overflow-hidden rounded-full"
+        style={{ background: 'var(--teal-100)' }}
+        aria-hidden
+      >
+        <div
+          className="h-full w-1/2 animate-pulse rounded-full"
+          style={{ background: 'var(--teal-600)' }}
+        />
+      </div>
+    </div>
   );
 }
