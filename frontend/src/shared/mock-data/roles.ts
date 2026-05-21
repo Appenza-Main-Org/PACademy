@@ -22,31 +22,42 @@ interface CloudRoleBlueprint {
   permissions: string[];
 }
 
-/* Kept-and-migrated roles. Cloud-only or cloud-mixed; on-prem-only roles
- * (medical/investigator/board/exams/biometric/records_clerk and their
- * sub-variants) are excluded — see ROLES_REMOVED_FROM_CLOUD_SEED below. */
+/* Seed all 11 canonical roles so RolesPage renders the complete matrix.
+ * The permission matrix itself stays cloud-only (admin + applicant);
+ * operational permissions remain string claims for the on-prem apps. */
 const CLOUD_ROLE_BLUEPRINT: ReadonlyArray<CloudRoleBlueprint> = [
   {
     key: 'super_admin',
     labelAr: 'مدير النظام الرئيسي',
-    apps: ['admin', 'applicant', 'architecture'],
+    apps: ['admin', 'applicant', 'committee', 'board', 'investigations', 'medical', 'barcode', 'biometric', 'exams', 'architecture'],
     permissions: ['*'],
   },
   {
     key: 'committee_admin',
     labelAr: 'مدير لجنة قبول',
     apps: ['admin'],
-    /* Migrated from legacy. On-prem perms (committees:manage, barcode:print,
-     * biometric:verify, workflows:read/write) stripped — they govern on-prem
-     * modules and are managed by the on-prem RBAC. */
-    permissions: ['applicants:view', 'applicants:edit', 'applicants:transition'],
+    /* Admin-surface permissions only. On-prem permissions still live in
+     * the static RBAC table for the operational cluster. */
+    permissions: [
+      'admin:view',
+      'reports:view',
+      'applicants:view',
+      'applicants:edit',
+      'applicants:transition',
+      'cycles:view',
+      'categories:view',
+      'lookups:view',
+      'applicant-grades:view',
+      'committees-exam-config:view',
+      'committees-exam-config:edit',
+      'admission-setup:read',
+    ],
   },
   {
     key: 'committee_user',
     labelAr: 'موظف لجنة قبول',
-    apps: ['admin'],
-    /* Migrated from legacy. barcode:print and biometric:verify stripped. */
-    permissions: ['applicants:view'],
+    apps: ['committee', 'barcode', 'biometric'],
+    permissions: ['applicants:view', 'barcode:print', 'biometric:verify'],
   },
   {
     key: 'applicant',
@@ -56,6 +67,48 @@ const CLOUD_ROLE_BLUEPRINT: ReadonlyArray<CloudRoleBlueprint> = [
      * edit it from the roles screen (filtered out by RolesPage). Permissions
      * here drive the applicant portal itself, not the cloud matrix. */
     permissions: ['applicant:view', 'applicant:apply'],
+  },
+  {
+    key: 'medical_admin',
+    labelAr: 'مدير القومسيون الطبي',
+    apps: ['medical', 'barcode', 'biometric'],
+    permissions: ['medical:manage', 'results:enter', 'biometric:verify'],
+  },
+  {
+    key: 'medical_doctor',
+    labelAr: 'طبيب عيادة',
+    apps: ['medical'],
+    permissions: ['medical:examine', 'results:enter'],
+  },
+  {
+    key: 'investigator',
+    labelAr: 'محقق',
+    apps: ['investigations'],
+    permissions: ['investigations:view', 'investigations:edit'],
+  },
+  {
+    key: 'board_admin',
+    labelAr: 'أمين سر الهيئة',
+    apps: ['board'],
+    permissions: ['board:manage'],
+  },
+  {
+    key: 'exams_admin',
+    labelAr: 'مدير الاختبارات',
+    apps: ['exams'],
+    permissions: ['exams:manage', 'questions:manage', 'results:view'],
+  },
+  {
+    key: 'biometric_user',
+    labelAr: 'مستخدم بوابة الأمن',
+    apps: ['biometric'],
+    permissions: ['biometric:verify'],
+  },
+  {
+    key: 'records_clerk',
+    labelAr: 'مدخل نتائج',
+    apps: ['medical', 'exams'],
+    permissions: ['results:enter'],
   },
 ];
 
@@ -78,7 +131,7 @@ const financeReview: RoleDefinitionRow = {
   isSystem: true,
   /* Migrated from ['payments:review', 'payments:refund_eligibility',
    * 'reports:view']. Refund-eligibility de-duped into approve. */
-  permissions: ['applicant_payments:approve', 'dashboard:view'],
+  permissions: ['payments:review', 'payments:sync', 'applicant_payments:approve', 'dashboard:view'],
   apps: ['admin'],
   createdAt: now,
   updatedAt: now,
@@ -86,24 +139,5 @@ const financeReview: RoleDefinitionRow = {
 
 export const ROLE_DEFINITION_SEED: RoleDefinitionRow[] = [...systemRows, financeReview];
 
-/**
- * On-prem-only roles dropped from the cloud seed. Surfaced once on boot
- * in dev so it's obvious where they went — they're managed by the
- * separate on-prem RBAC, not this cloud plane.
- */
-export const ROLES_REMOVED_FROM_CLOUD_SEED = [
-  'medical_admin',
-  'medical_doctor',
-  'investigator',
-  'board_admin',
-  'exams_admin',
-  'biometric_user',
-  'records_clerk',
-] as const;
-
-if (import.meta.env.DEV) {
-  for (const name of ROLES_REMOVED_FROM_CLOUD_SEED) {
-    // eslint-disable-next-line no-console
-    console.info(`[cloud-rbac] Role ${name} removed — belongs to on-prem RBAC.`);
-  }
-}
+/** No canonical role is removed from the seed; the matrix remains scoped. */
+export const ROLES_REMOVED_FROM_CLOUD_SEED = [] as const;
