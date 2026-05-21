@@ -48,6 +48,7 @@ import {
 } from '@/features/applicant-portal';
 import {
   AdminLayout,
+  AdmissionRulesPage,
   AdmissionSetupIndexPage,
   AdmissionSetupWizardPage,
   ApplicantDetailPage,
@@ -214,13 +215,13 @@ export const routes: RouteObject[] = [
       { path: 'applicants/:id/edit', element: <ApplicantEditPage /> },
       { path: 'users', element: <UsersPage /> },
       { path: 'users/new', element: <UserCreatePage /> },
-      { path: 'users/roles', element: <RolesPage /> },
+      { path: 'users/roles', element: <AuthGuard app="admin" perm="roles:manage"><RolesPage /></AuthGuard> },
       { path: 'users/:id', element: <UserDetailPage /> },
       { path: 'users/:id/edit', element: <UserEditPage /> },
       { path: 'notifications', element: <NotificationsPage /> },
       { path: 'payments', element: <PaymentsPage /> },
-      { path: 'audit', element: <AuditPage /> },
-      { path: 'settings', element: <SettingsPage /> },
+      { path: 'audit', element: <AuthGuard app="admin" perm="audit:view"><AuditPage /></AuthGuard> },
+      { path: 'settings', element: <AuthGuard app="admin" perm="settings:manage"><SettingsPage /></AuthGuard> },
       { path: 'reports', element: <ReportsPage /> },
       /* Lookup Management Module — /admin/reference-data redirects here. */
       { path: 'lookups', element: <LookupsHubPage /> },
@@ -237,6 +238,10 @@ export const routes: RouteObject[] = [
       {
         path: 'lookups/submission-types',
         element: <Navigate to="/admin/lookups/applicant-categories" replace />,
+      },
+      {
+        path: 'lookups/mappings/:kind',
+        element: <Navigate to="/admin/lookups" replace />,
       },
       { path: 'lookups/:tab', element: <LookupsHubPage /> },
       { path: 'reference-data', element: <Navigate to="/admin/lookups" replace /> },
@@ -263,6 +268,7 @@ export const routes: RouteObject[] = [
       { path: 'applicant-grades', element: <ApplicantGradesPage /> },
       { path: 'applicant-grades/import', element: <ApplicantGradesImportPage /> },
       { path: 'applicant-grades/changes', element: <ApplicantGradesChangesPage /> },
+      { path: 'admission-rules', element: <AuthGuard app="admin" perm="admission-rules:manage"><AdmissionRulesPage /></AuthGuard> },
       /* Admission Setup — config-driven ordered steps. The route segments
        * mirror `routeSegment` from `ADMISSION_SETUP_STEPS`; adding a new
        * step is a config-entry append plus a route line here. AuthGuard +
