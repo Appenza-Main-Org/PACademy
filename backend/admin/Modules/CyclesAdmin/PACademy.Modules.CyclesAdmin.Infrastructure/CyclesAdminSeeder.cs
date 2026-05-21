@@ -22,6 +22,7 @@ public static class CyclesAdminSeeder
         SeedBucket(db, "examScheduleDays", seed["examScheduleDays"]!.AsArray());
         SeedBucket(db, "categoryCommittees", seed["categoryCommittees"]!.AsArray());
         SeedBucket(db, "committeeDayBindings", seed["committeeDayBindings"]!.AsArray());
+        SeedBucket(db, "committeeInstances", seed["committeeInstances"]!.AsArray());
         SeedBucket(db, "declarations", seed["declarations"]!.AsArray());
         SeedBucket(db, "examDateConfigs", seed["examDateConfigs"]!.AsArray());
 

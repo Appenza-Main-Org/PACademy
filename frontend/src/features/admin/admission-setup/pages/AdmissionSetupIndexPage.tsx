@@ -74,7 +74,7 @@ export function AdmissionSetupIndexPage(): JSX.Element {
     );
   }
 
-  const activeCycle = cycles.find((c) => ACTIVE_STATUSES.has(c.status)) ?? null;
+  const activeCycle = cycles.find((c) => c.isActive || ACTIVE_STATUSES.has(c.status)) ?? null;
 
   const openWizard = (cycleId: string, stepKey: string): void => {
     cycleCtx.setCycle(cycleId);
@@ -261,4 +261,3 @@ function arStatusLabel(status: AdmissionCycle['status']): string {
       return 'مؤرشفة';
   }
 }
-

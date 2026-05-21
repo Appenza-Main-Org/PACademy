@@ -4549,6 +4549,188 @@
       "updatedAt": "2026-01-01T00:00:00.000Z"
     }
   ],
+  "committeeInstances": [
+    {
+      "id": "CIN-0001",
+      "definitionCode": "CMT-12",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-05-10",
+      "capacity": 50,
+      "reserved": 50,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0002",
+      "definitionCode": "CMT-13",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-05-10",
+      "capacity": 50,
+      "reserved": 48,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0003",
+      "definitionCode": "CMT-12",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-06-15",
+      "capacity": 50,
+      "reserved": 38,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0004",
+      "definitionCode": "CMT-13",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-06-15",
+      "capacity": 50,
+      "reserved": 42,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0005",
+      "definitionCode": "CMT-14",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-06-15",
+      "capacity": 50,
+      "reserved": 20,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0006",
+      "definitionCode": "CMT-15",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-06-15",
+      "capacity": 50,
+      "reserved": 0,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0007",
+      "definitionCode": "CMT-05",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "specialized_officers",
+      "date": "2026-06-15",
+      "capacity": 40,
+      "reserved": 25,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0008",
+      "definitionCode": "CMT-12",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-06-16",
+      "capacity": 80,
+      "reserved": 10,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0009",
+      "definitionCode": "CMT-13",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-06-16",
+      "capacity": 80,
+      "reserved": 15,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0010",
+      "definitionCode": "CMT-05",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "specialized_officers",
+      "date": "2026-06-16",
+      "capacity": 50,
+      "reserved": 20,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0011",
+      "definitionCode": "CMT-12",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-06-17",
+      "capacity": 50,
+      "reserved": 20,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0012",
+      "definitionCode": "CMT-13",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-06-17",
+      "capacity": 50,
+      "reserved": 12,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0013",
+      "definitionCode": "CMT-14",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "officers_general",
+      "date": "2026-06-17",
+      "capacity": 50,
+      "reserved": 30,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0014",
+      "definitionCode": "CMT-10",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "law_bachelor",
+      "date": "2026-06-20",
+      "capacity": 40,
+      "reserved": 18,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    },
+    {
+      "id": "CIN-0015",
+      "definitionCode": "CMT-11",
+      "cycleId": "CYC-2026-M",
+      "categoryKey": "law_bachelor",
+      "date": "2026-06-20",
+      "capacity": 40,
+      "reserved": 22,
+      "reservedRefreshedAt": "2026-05-19T07:30:00.000Z",
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-05-15T10:00:00.000Z"
+    }
+  ],
   "declarations": [
     {
       "id": "DEC-SEED-0001",

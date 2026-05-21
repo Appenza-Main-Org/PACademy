@@ -25,11 +25,59 @@
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
-import { ConflictError } from '@/shared/lib/errors';
+import { ConflictError, type ConflictCode } from '@/shared/lib/errors';
 import type {
   ApplicantCategoryKey,
   CommitteeInstance,
 } from '@/shared/types/domain';
+
+const ADMIN_API_BASE = (import.meta.env.VITE_ADMIN_API_BASE ?? '').replace(/\/$/, '');
+const USE_COMMITTEE_INSTANCES_BACKEND =
+  import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND === 'true' ||
+  (import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND !== 'false' && ADMIN_API_BASE.length > 0);
+
+interface ErrorEnvelope {
+  message?: string;
+  conflictCode?: string;
+}
+
+const COMMITTEE_INSTANCE_CONFLICTS = new Set<ConflictCode>([
+  'CAPACITY_NOT_POSITIVE',
+  'COMMITTEE_INSTANCE_DUPLICATE',
+  'COMMITTEE_INSTANCE_HAS_BOOKINGS',
+  'COMMITTEE_INSTANCE_DAY_PASSED',
+  'COMMITTEE_INSTANCE_SET_MISMATCH',
+  'COMMITTEE_INSTANCE_BOOKINGS_OVER_CAPACITY',
+  'RESERVATIONS_OVER_DESTINATION_CAPACITY',
+]);
+
+function isCommitteeInstanceConflict(value: string | undefined): value is ConflictCode {
+  return value !== undefined && COMMITTEE_INSTANCE_CONFLICTS.has(value as ConflictCode);
+}
+
+async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${ADMIN_API_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+  const text = await response.text();
+  const data = text ? (JSON.parse(text) as unknown) : null;
+  if (!response.ok) {
+    const envelope = data && typeof data === 'object' ? (data as ErrorEnvelope) : {};
+    if (response.status === 409 && isCommitteeInstanceConflict(envelope.conflictCode)) {
+      throw new ConflictError(
+        envelope.conflictCode,
+        data,
+        envelope.message ?? envelope.conflictCode,
+      );
+    }
+    throw new Error(envelope.message ?? `HTTP ${response.status}`);
+  }
+  return data as T;
+}
 
 export interface CommitteeInstanceListFilters {
   cycleId?: string;
@@ -189,6 +237,14 @@ function matchesFilters(row: CommitteeInstance, filters: CommitteeInstanceListFi
 
 export const committeeInstanceService = {
   async list(filters: CommitteeInstanceListFilters = {}): Promise<CommitteeInstance[]> {
+    if (USE_COMMITTEE_INSTANCES_BACKEND) {
+      const params = new URLSearchParams();
+      if (filters.cycleId) params.set('cycleId', filters.cycleId);
+      if (filters.categoryKey) params.set('categoryKey', filters.categoryKey);
+      if (filters.definitionCode) params.set('definitionCode', filters.definitionCode);
+      const query = params.toString();
+      return apiJson<CommitteeInstance[]>(`/api/committee-instances${query ? `?${query}` : ''}`);
+    }
     await simulateLatency(80, 160);
     return MOCK.committeeInstances
       .filter((r) => matchesFilters(r, filters))
@@ -201,6 +257,12 @@ export const committeeInstanceService = {
   },
 
   async addMany(input: ReadonlyArray<CommitteeInstanceAddInput>): Promise<CommitteeInstance[]> {
+    if (USE_COMMITTEE_INSTANCES_BACKEND) {
+      return apiJson<CommitteeInstance[]>('/api/committee-instances', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    }
     await simulateLatency();
     const now = new Date().toISOString();
     const created: CommitteeInstance[] = [];
@@ -257,6 +319,12 @@ export const committeeInstanceService = {
   },
 
   async update(id: string, patch: CommitteeInstancePatch): Promise<CommitteeInstance> {
+    if (USE_COMMITTEE_INSTANCES_BACKEND) {
+      return apiJson<CommitteeInstance>(`/api/committee-instances/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+    }
     await simulateLatency();
     const idx = MOCK.committeeInstances.findIndex((r) => r.id === id);
     if (idx === -1) throw new Error('الموعد غير موجود');
@@ -330,6 +398,12 @@ export const committeeInstanceService = {
   async refreshReservedCounts(
     filters: CommitteeInstanceListFilters = {},
   ): Promise<CommitteeInstance[]> {
+    if (USE_COMMITTEE_INSTANCES_BACKEND) {
+      return apiJson<CommitteeInstance[]>('/api/committee-instances/refresh-reserved', {
+        method: 'POST',
+        body: JSON.stringify(filters),
+      });
+    }
     await simulateLatency();
     const now = new Date().toISOString();
     const touched: CommitteeInstance[] = [];
@@ -344,6 +418,12 @@ export const committeeInstanceService = {
   },
 
   async remove(id: string): Promise<void> {
+    if (USE_COMMITTEE_INSTANCES_BACKEND) {
+      await apiJson<null>(`/api/committee-instances/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      return;
+    }
     await simulateLatency();
     const idx = MOCK.committeeInstances.findIndex((r) => r.id === id);
     if (idx === -1) return;
@@ -374,6 +454,15 @@ export const committeeInstanceService = {
    *   DELETE /api/committee-instances?cycleId=&date=
    */
   async removeDay(input: { cycleId: string; date: string }): Promise<CommitteeInstance[]> {
+    if (USE_COMMITTEE_INSTANCES_BACKEND) {
+      const params = new URLSearchParams({
+        cycleId: input.cycleId,
+        date: input.date,
+      });
+      return apiJson<CommitteeInstance[]>(`/api/committee-instances?${params.toString()}`, {
+        method: 'DELETE',
+      });
+    }
     await simulateLatency();
     assertEditableDay(input.date);
     const blocking = MOCK.committeeInstances.find(
@@ -453,6 +542,17 @@ export const committeeInstanceService = {
     bumped: number;
     totalReservationsMoved: number;
   }> {
+    if (USE_COMMITTEE_INSTANCES_BACKEND) {
+      return apiJson<{
+        transferred: number;
+        createdAtDestination: number;
+        bumped: number;
+        totalReservationsMoved: number;
+      }>('/api/committee-instances/transfer-day', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    }
     await simulateLatency();
     if (input.fromDate === input.toDate) {
       return {
@@ -645,6 +745,17 @@ export const committeeInstanceService = {
     bumped: number;
     totalReservationsMoved: number;
   }> {
+    if (USE_COMMITTEE_INSTANCES_BACKEND) {
+      return apiJson<{
+        transferred: number;
+        createdAtDestination: number;
+        bumped: number;
+        totalReservationsMoved: number;
+      }>(`/api/committee-instances/${encodeURIComponent(input.id)}/transfer`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    }
     await simulateLatency();
     const sourceIndex = MOCK.committeeInstances.findIndex((r) => r.id === input.id);
     if (sourceIndex === -1) throw new Error('الموعد غير موجود');
