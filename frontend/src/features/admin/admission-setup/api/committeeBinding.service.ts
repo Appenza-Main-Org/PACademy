@@ -51,6 +51,36 @@ import type {
   CommitteeDayBinding,
 } from '../types';
 
+const ADMIN_API_BASE = (import.meta.env.VITE_ADMIN_API_BASE ?? '').replace(/\/$/, '');
+const USE_COMMITTEE_BINDINGS_BACKEND =
+  import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND === 'true' ||
+  (import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND !== 'false' && ADMIN_API_BASE.length > 0);
+
+interface ErrorEnvelope {
+  message?: string;
+  conflictCode?: BindingConflict;
+}
+
+async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${ADMIN_API_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+  const text = await response.text();
+  const data = text ? (JSON.parse(text) as unknown) : null;
+  if (!response.ok) {
+    const envelope = data && typeof data === 'object' ? (data as ErrorEnvelope) : {};
+    if (response.status === 409 && envelope.conflictCode) {
+      throw new ConflictError(envelope.conflictCode, data, envelope.message);
+    }
+    throw new Error(envelope.message ?? `HTTP ${response.status}`);
+  }
+  return data as T;
+}
+
 /* ── In-memory mutable mirror ────────────────────────────────────────── */
 
 let bindings: CommitteeDayBinding[] = COMMITTEE_DAY_BINDINGS_SEED.map((b) => ({
@@ -294,6 +324,17 @@ export interface CopyAxisInput {
 
 export const committeeBindingService = {
   async list(filters: BindingListFilters): Promise<CommitteeDayBinding[]> {
+    if (USE_COMMITTEE_BINDINGS_BACKEND) {
+      const params = new URLSearchParams();
+      if (filters.applicantCategoryId) params.set('categoryId', filters.applicantCategoryId);
+      if (filters.committeeId) params.set('committeeId', filters.committeeId);
+      if (filters.examScheduleDayId) params.set('dayId', filters.examScheduleDayId);
+      if (filters.onlyActive) params.set('onlyActive', 'true');
+      const query = params.toString();
+      return apiJson<CommitteeDayBinding[]>(
+        `/api/admin/committee-bindings/cycles/${encodeURIComponent(filters.cycleId)}${query ? `?${query}` : ''}`,
+      );
+    }
     await simulateLatency();
     return bindings
       .filter((b) => {
@@ -318,6 +359,12 @@ export const committeeBindingService = {
   },
 
   async create(input: CreateBindingInput): Promise<CommitteeDayBinding> {
+    if (USE_COMMITTEE_BINDINGS_BACKEND) {
+      return apiJson<CommitteeDayBinding>('/api/admin/committee-bindings', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    }
     await simulateLatency();
     ensureCommitteeInRoster(input);
     ensureDayWorking(input);
@@ -347,6 +394,12 @@ export const committeeBindingService = {
     id: string,
     patch: UpdateBindingPatch,
   ): Promise<CommitteeDayBinding> {
+    if (USE_COMMITTEE_BINDINGS_BACKEND) {
+      return apiJson<CommitteeDayBinding>(
+        `/api/admin/committee-bindings/${encodeURIComponent(id)}`,
+        { method: 'PATCH', body: JSON.stringify(patch) },
+      );
+    }
     await simulateLatency();
     const idx = bindings.findIndex((b) => b.id === id);
     if (idx < 0) {
@@ -371,6 +424,12 @@ export const committeeBindingService = {
   },
 
   async delete(id: string): Promise<void> {
+    if (USE_COMMITTEE_BINDINGS_BACKEND) {
+      await apiJson<null>(`/api/admin/committee-bindings/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      return;
+    }
     await simulateLatency();
     const target = bindings.find((b) => b.id === id);
     if (!target) return;
@@ -379,6 +438,12 @@ export const committeeBindingService = {
   },
 
   async toggleActive(id: string): Promise<CommitteeDayBinding> {
+    if (USE_COMMITTEE_BINDINGS_BACKEND) {
+      return apiJson<CommitteeDayBinding>(
+        `/api/admin/committee-bindings/${encodeURIComponent(id)}/toggle-active`,
+        { method: 'POST' },
+      );
+    }
     await simulateLatency();
     const idx = bindings.findIndex((b) => b.id === id);
     if (idx < 0) throw new Error('Binding not found');
@@ -408,6 +473,12 @@ export const committeeBindingService = {
   async bulkSetEligibility(
     input: BulkEligibilityInput,
   ): Promise<{ updated: number; created: number; skipped: number }> {
+    if (USE_COMMITTEE_BINDINGS_BACKEND) {
+      return apiJson<{ updated: number; created: number; skipped: number }>(
+        '/api/admin/committee-bindings/bulk-eligibility',
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+    }
     await simulateLatency();
     ensureEligibilityValid(input);
     if (input.capacity !== undefined) ensurePositiveCapacity(input.capacity);
@@ -504,6 +575,12 @@ export const committeeBindingService = {
       targetCommitteeId: string;
     },
   ): Promise<{ created: number; updated: number; skipped: number }> {
+    if (USE_COMMITTEE_BINDINGS_BACKEND) {
+      return apiJson<{ created: number; updated: number; skipped: number }>(
+        '/api/admin/committee-bindings/copy-row',
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+    }
     await simulateLatency();
     if (input.sourceCommitteeId === input.targetCommitteeId) {
       return { created: 0, updated: 0, skipped: 0 };
@@ -572,6 +649,12 @@ export const committeeBindingService = {
       targetDayId: string;
     },
   ): Promise<{ created: number; updated: number; skipped: number }> {
+    if (USE_COMMITTEE_BINDINGS_BACKEND) {
+      return apiJson<{ created: number; updated: number; skipped: number }>(
+        '/api/admin/committee-bindings/copy-column',
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+    }
     await simulateLatency();
     if (input.sourceDayId === input.targetDayId) {
       return { created: 0, updated: 0, skipped: 0 };

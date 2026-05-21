@@ -25,7 +25,7 @@
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
-import { ConflictError } from '@/shared/lib/errors';
+import { ConflictError, type ConflictCode } from '@/shared/lib/errors';
 import {
   applyRestore,
   applySoftDelete,
@@ -44,6 +44,36 @@ import type {
 
 const STATE: AdmissionCycle[] = MOCK.cycles.map((c) => ({ ...c }));
 let ACTIVE_ID: string | null = MOCK.activeCycleId;
+
+const ADMIN_API_BASE = (import.meta.env.VITE_ADMIN_API_BASE ?? '').replace(/\/$/, '');
+const USE_CYCLES_BACKEND =
+  import.meta.env.VITE_USE_CYCLES_BACKEND === 'true' ||
+  (import.meta.env.VITE_USE_CYCLES_BACKEND !== 'false' && ADMIN_API_BASE.length > 0);
+
+interface ErrorEnvelope {
+  message?: string;
+  conflictCode?: ConflictCode;
+}
+
+async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${ADMIN_API_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+  const text = await response.text();
+  const data = text ? (JSON.parse(text) as unknown) : null;
+  if (!response.ok) {
+    const envelope = data && typeof data === 'object' ? (data as ErrorEnvelope) : {};
+    if (response.status === 409 && envelope.conflictCode) {
+      throw new ConflictError(envelope.conflictCode, data, envelope.message);
+    }
+    throw new Error(envelope.message ?? `HTTP ${response.status}`);
+  }
+  return data as T;
+}
 
 /**
  * Pre-flight check for cycle activation. Returns a list of friendly
@@ -208,17 +238,33 @@ const CYCLE_DEP_LABELS: Record<string, string> = {
 
 export const cyclesService = {
   async list(opts: { includeDeleted?: boolean } = {}): Promise<AdmissionCycle[]> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle[]>(
+        `/api/cycles?includeDeleted=${opts.includeDeleted ? 'true' : 'false'}`,
+      );
+    }
     await simulateLatency();
     const visible = filterDeleted(STATE, opts.includeDeleted);
     return [...visible].sort((a, b) => b.year - a.year);
   },
 
   async getById(id: string): Promise<AdmissionCycle | null> {
+    if (USE_CYCLES_BACKEND) {
+      try {
+        return await apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}`);
+      } catch (err) {
+        if (err instanceof Error && err.message === 'HTTP 404') return null;
+        throw err;
+      }
+    }
     await simulateLatency();
     return STATE.find((c) => c.id === id) ?? null;
   },
 
   async getActive(): Promise<AdmissionCycle | null> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle | null>('/api/cycles/active');
+    }
     await simulateLatency(80, 200);
     if (!ACTIVE_ID) return null;
     const cycle = STATE.find((c) => c.id === ACTIVE_ID);
@@ -242,6 +288,12 @@ export const cyclesService = {
     payload: Omit<AdmissionCycle, 'id' | 'applicantCount'>,
     options: { demoteCurrentActive?: boolean } = {},
   ): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>('/api/cycles', {
+        method: 'POST',
+        body: JSON.stringify({ ...payload, demoteCurrentActive: options.demoteCurrentActive ?? false }),
+      });
+    }
     await simulateLatency();
     /* Single-active-cycle invariant — mirror the same rule the activate
      * lifecycle enforces, so a direct create with `status: 'active'`
@@ -311,6 +363,12 @@ export const cyclesService = {
     next: CycleStatus,
     options: { demoteCurrentActive?: boolean } = {},
   ): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}/transition`, {
+        method: 'POST',
+        body: JSON.stringify({ status: next, demoteCurrentActive: options.demoteCurrentActive ?? false }),
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -366,6 +424,12 @@ export const cyclesService = {
   },
 
   async update(id: string, patch: Partial<AdmissionCycle>): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -380,6 +444,11 @@ export const cyclesService = {
   },
 
   async clone(id: string): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}/clone`, {
+        method: 'POST',
+      });
+    }
     await simulateLatency();
     const source = STATE.find((c) => c.id === id);
     if (!source) throw new Error('الدورة غير موجودة');
@@ -408,6 +477,11 @@ export const cyclesService = {
    * for any cycle that was previously active and is being demoted.
    */
   async setActive(id: string): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}/activate`, {
+        method: 'POST',
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -446,6 +520,12 @@ export const cyclesService = {
   },
 
   async transition(id: string, next: CycleStatus): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}/transition`, {
+        method: 'POST',
+        body: JSON.stringify({ status: next }),
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -463,6 +543,11 @@ export const cyclesService = {
    * cycle that applicants then can't apply to.
    */
   async activate(id: string): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}/activate`, {
+        method: 'POST',
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -521,6 +606,11 @@ export const cyclesService = {
    * mirror the same shape so the frontend doesn't change.
    */
   async swapActive(targetId: string): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(targetId)}/activate?swap=1`, {
+        method: 'POST',
+      });
+    }
     await simulateLatency();
     const targetIdx = STATE.findIndex((c) => c.id === targetId);
     if (targetIdx === -1) throw new Error('الدورة غير موجودة');
@@ -577,6 +667,11 @@ export const cyclesService = {
   },
 
   async close(id: string): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}/close`, {
+        method: 'POST',
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -602,6 +697,12 @@ export const cyclesService = {
    * `ageCalcDate` stays put — extension moves the application window only.
    */
   async extend(id: string, newCloseDate: string): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}/extend`, {
+        method: 'POST',
+        body: JSON.stringify({ newCloseDate }),
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -633,6 +734,11 @@ export const cyclesService = {
   },
 
   async archive(id: string): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}/archive`, {
+        method: 'POST',
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -653,6 +759,11 @@ export const cyclesService = {
   },
 
   async remove(id: string): Promise<{ ok: true }> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<{ ok: true }>(`/api/cycles/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -667,6 +778,12 @@ export const cyclesService = {
     categoryKey: ApplicantCategoryKey,
     config: AdmissionCycleCategoryConfig,
   ): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(
+        `/api/cycles/${encodeURIComponent(cycleId)}/categories/${encodeURIComponent(categoryKey)}`,
+        { method: 'PATCH', body: JSON.stringify(config) },
+      );
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === cycleId);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -702,6 +819,12 @@ export const cyclesService = {
     categoryKey: ApplicantCategoryKey,
     overrides: Partial<CategoryCondition>,
   ): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(
+        `/api/cycles/${encodeURIComponent(cycleId)}/categories/${encodeURIComponent(categoryKey)}/conditions`,
+        { method: 'PATCH', body: JSON.stringify(overrides) },
+      );
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === cycleId);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -730,6 +853,9 @@ export const cyclesService = {
    * committees opened inside it count too but are non-blocking flags.
    */
   async getDependencies(id: string): Promise<DependencyResult> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<DependencyResult>(`/api/cycles/${encodeURIComponent(id)}/dependencies`);
+    }
     await simulateLatency(80, 200);
     const cycle = STATE.find((c) => c.id === id);
     if (!cycle) throw new Error('الدورة غير موجودة');
@@ -747,6 +873,12 @@ export const cyclesService = {
    * (`getDependencies({ blocking: true })`).
    */
   async softDelete(id: string, reason: string): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}/soft-delete`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');
@@ -771,6 +903,11 @@ export const cyclesService = {
 
   /** Restore a previously soft-deleted cycle. Audit-emitting. */
   async restore(id: string): Promise<AdmissionCycle> {
+    if (USE_CYCLES_BACKEND) {
+      return apiJson<AdmissionCycle>(`/api/cycles/${encodeURIComponent(id)}/restore`, {
+        method: 'POST',
+      });
+    }
     await simulateLatency();
     const idx = STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('الدورة غير موجودة');

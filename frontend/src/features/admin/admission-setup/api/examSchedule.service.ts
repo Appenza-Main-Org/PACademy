@@ -36,6 +36,32 @@ import type {
 } from '../types';
 import { WEEKEND_DAY_INDICES } from '../types';
 
+const ADMIN_API_BASE = (import.meta.env.VITE_ADMIN_API_BASE ?? '').replace(/\/$/, '');
+const USE_EXAM_SCHEDULE_BACKEND =
+  import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND === 'true' ||
+  (import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND !== 'false' && ADMIN_API_BASE.length > 0);
+
+interface ErrorEnvelope {
+  message?: string;
+}
+
+async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${ADMIN_API_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+  const text = await response.text();
+  const data = text ? (JSON.parse(text) as unknown) : null;
+  if (!response.ok) {
+    const envelope = data && typeof data === 'object' ? (data as ErrorEnvelope) : {};
+    throw new Error(envelope.message ?? `HTTP ${response.status}`);
+  }
+  return data as T;
+}
+
 /* ── In-memory mutable mirror ────────────────────────────────────────── */
 
 let days: ExamScheduleDay[] = MOCK.examScheduleDays.map((d) => ({ ...d }));
@@ -151,6 +177,11 @@ export const examScheduleService = {
     cycleId: string,
     applicantCategoryId: string,
   ): Promise<ExamScheduleDay[]> {
+    if (USE_EXAM_SCHEDULE_BACKEND) {
+      return apiJson<ExamScheduleDay[]>(
+        `/api/admin/exam-schedule/cycles/${encodeURIComponent(cycleId)}?categoryId=${encodeURIComponent(applicantCategoryId)}`,
+      );
+    }
     await simulateLatency();
     return days
       .filter(
@@ -173,6 +204,12 @@ export const examScheduleService = {
     activeCategoryIds: string[];
     days: ExamScheduleDay[];
   }> {
+    if (USE_EXAM_SCHEDULE_BACKEND) {
+      return apiJson<{
+        activeCategoryIds: string[];
+        days: ExamScheduleDay[];
+      }>(`/api/admin/exam-schedule/cycles/${encodeURIComponent(cycleId)}/aggregate`);
+    }
     await simulateLatency();
     const activeCategoryIds = MOCK.applicantCategoryConfigs
       .filter((c) => c.isActive)
@@ -190,6 +227,12 @@ export const examScheduleService = {
     endDate: string;
     note: string | null;
   }): Promise<{ created: ExamScheduleDay[]; skippedExistingDates: string[] }> {
+    if (USE_EXAM_SCHEDULE_BACKEND) {
+      return apiJson<{ created: ExamScheduleDay[]; skippedExistingDates: string[] }>(
+        `/api/admin/exam-schedule/cycles/${encodeURIComponent(input.cycleId)}/bulk`,
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+    }
     await simulateLatency();
     ensureRangeValid(input.startDate, input.endDate);
     ensureCategoryActive(input.applicantCategoryId);
@@ -246,6 +289,12 @@ export const examScheduleService = {
     applicantCategoryId: string,
     input: { date: string; kind: DayKind; note: string | null },
   ): Promise<ExamScheduleDay> {
+    if (USE_EXAM_SCHEDULE_BACKEND) {
+      return apiJson<ExamScheduleDay>(
+        `/api/admin/exam-schedule/cycles/${encodeURIComponent(cycleId)}/days`,
+        { method: 'POST', body: JSON.stringify({ ...input, applicantCategoryId }) },
+      );
+    }
     await simulateLatency();
     ensureCategoryActive(applicantCategoryId);
     ensureDateWithinCycle(cycleId, input.date);
@@ -284,6 +333,12 @@ export const examScheduleService = {
     dayId: string,
     patch: Partial<Pick<ExamScheduleDay, 'date' | 'kind' | 'note'>>,
   ): Promise<ExamScheduleDay> {
+    if (USE_EXAM_SCHEDULE_BACKEND) {
+      return apiJson<ExamScheduleDay>(
+        `/api/admin/exam-schedule/days/${encodeURIComponent(dayId)}`,
+        { method: 'PATCH', body: JSON.stringify(patch) },
+      );
+    }
     await simulateLatency();
     const idx = days.findIndex((d) => d.id === dayId);
     if (idx === -1) throw new Error('Day not found');
@@ -319,6 +374,12 @@ export const examScheduleService = {
   },
 
   async deleteDay(dayId: string): Promise<void> {
+    if (USE_EXAM_SCHEDULE_BACKEND) {
+      await apiJson<null>(`/api/admin/exam-schedule/days/${encodeURIComponent(dayId)}`, {
+        method: 'DELETE',
+      });
+      return;
+    }
     await simulateLatency();
     const idx = days.findIndex((d) => d.id === dayId);
     if (idx === -1) return;
@@ -328,6 +389,12 @@ export const examScheduleService = {
   },
 
   async toggleOff(dayId: string): Promise<ExamScheduleDay> {
+    if (USE_EXAM_SCHEDULE_BACKEND) {
+      return apiJson<ExamScheduleDay>(
+        `/api/admin/exam-schedule/days/${encodeURIComponent(dayId)}/toggle-off`,
+        { method: 'POST' },
+      );
+    }
     await simulateLatency();
     const idx = days.findIndex((d) => d.id === dayId);
     if (idx === -1) throw new Error('Day not found');
@@ -354,6 +421,12 @@ export const examScheduleService = {
     startDate: string,
     endDate: string,
   ): Promise<{ deleted: number }> {
+    if (USE_EXAM_SCHEDULE_BACKEND) {
+      return apiJson<{ deleted: number }>(
+        `/api/admin/exam-schedule/cycles/${encodeURIComponent(cycleId)}/clear-range`,
+        { method: 'POST', body: JSON.stringify({ applicantCategoryId, startDate, endDate }) },
+      );
+    }
     await simulateLatency();
     ensureRangeValid(startDate, endDate);
     const before = days.length;
@@ -385,6 +458,12 @@ export const examScheduleService = {
     targetCategoryId: string;
     overwrite: boolean;
   }): Promise<{ created: number; skipped: number }> {
+    if (USE_EXAM_SCHEDULE_BACKEND) {
+      return apiJson<{ created: number; skipped: number }>(
+        `/api/admin/exam-schedule/cycles/${encodeURIComponent(input.cycleId)}/copy-from-category`,
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+    }
     await simulateLatency();
     ensureCategoryActive(input.sourceCategoryId);
     ensureCategoryActive(input.targetCategoryId);

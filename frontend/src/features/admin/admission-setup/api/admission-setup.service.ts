@@ -34,6 +34,32 @@ import type {
   ExamDateConfig,
 } from '../types';
 
+const ADMIN_API_BASE = (import.meta.env.VITE_ADMIN_API_BASE ?? '').replace(/\/$/, '');
+const USE_ADMISSION_SETUP_BACKEND =
+  import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND === 'true' ||
+  (import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND !== 'false' && ADMIN_API_BASE.length > 0);
+
+interface ErrorEnvelope {
+  message?: string;
+}
+
+async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${ADMIN_API_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+  const text = await response.text();
+  const data = text ? (JSON.parse(text) as unknown) : null;
+  if (!response.ok) {
+    const envelope = data && typeof data === 'object' ? (data as ErrorEnvelope) : {};
+    throw new Error(envelope.message ?? `HTTP ${response.status}`);
+  }
+  return data as T;
+}
+
 /* ── In-memory state — replaced by REST persistence at integration time. ── */
 const EXAM_DATE_CONFIGS: ExamDateConfig[] = [];
 const DECLARATIONS: ElectronicDeclaration[] = [];
@@ -76,6 +102,11 @@ DECLARATIONS.push({
 export const admissionSetupService = {
   /* ── Exam date config ─────────────────────────────────────────────── */
   async getExamDateConfig(cycleId: string): Promise<ExamDateConfig | null> {
+    if (USE_ADMISSION_SETUP_BACKEND) {
+      return apiJson<ExamDateConfig | null>(
+        `/api/admission-setup/cycles/${encodeURIComponent(cycleId)}/exam-dates`,
+      );
+    }
     await simulateLatency();
     return EXAM_DATE_CONFIGS.find((c) => c.cycleId === cycleId) ?? null;
   },
@@ -86,6 +117,12 @@ export const admissionSetupService = {
     bookableDays: string[];
     blackoutDates: string[];
   }): Promise<ExamDateConfig> {
+    if (USE_ADMISSION_SETUP_BACKEND) {
+      return apiJson<ExamDateConfig>(
+        `/api/admission-setup/cycles/${encodeURIComponent(input.cycleId)}/exam-dates`,
+        { method: 'PUT', body: JSON.stringify(input) },
+      );
+    }
     await simulateLatency();
     if (input.bookableDays.length === 0) {
       throw new Error('يجب إضافة يوم واحد على الأقل من أيام التقديم');
@@ -130,6 +167,11 @@ export const admissionSetupService = {
 
   /* ── Electronic declaration ───────────────────────────────────────── */
   async getDeclaration(cycleId: string): Promise<ElectronicDeclaration | null> {
+    if (USE_ADMISSION_SETUP_BACKEND) {
+      return apiJson<ElectronicDeclaration | null>(
+        `/api/admission-setup/cycles/${encodeURIComponent(cycleId)}/declaration`,
+      );
+    }
     await simulateLatency();
     const cur = DECLARATIONS.filter((d) => d.cycleId === cycleId && !d.deletedAt)
       .sort((a, b) => b.version - a.version)[0];
@@ -143,6 +185,12 @@ export const admissionSetupService = {
     document?: DeclarationDocument | null;
     effectiveFrom: string;
   }): Promise<ElectronicDeclaration> {
+    if (USE_ADMISSION_SETUP_BACKEND) {
+      return apiJson<ElectronicDeclaration>(
+        `/api/admission-setup/cycles/${encodeURIComponent(input.cycleId)}/declaration`,
+        { method: 'PUT', body: JSON.stringify(input) },
+      );
+    }
     await simulateLatency();
     const previous = await admissionSetupService.getDeclaration(input.cycleId);
 
@@ -205,6 +253,12 @@ export const admissionSetupService = {
   },
 
   async publishDeclaration(declarationId: string): Promise<ElectronicDeclaration> {
+    if (USE_ADMISSION_SETUP_BACKEND) {
+      return apiJson<ElectronicDeclaration>(
+        `/api/admission-setup/declarations/${encodeURIComponent(declarationId)}/publish`,
+        { method: 'POST' },
+      );
+    }
     await simulateLatency();
     const idx = DECLARATIONS.findIndex((d) => d.id === declarationId);
     if (idx === -1) throw new Error('الإقرار غير موجود');
@@ -234,6 +288,11 @@ export const admissionSetupService = {
    * REST contract; granular add/remove kept off the API surface to keep
    * the audit trail clean (one diff per save). */
   async listCategoryCommittees(cycleId: string): Promise<CategoryCommittees[]> {
+    if (USE_ADMISSION_SETUP_BACKEND) {
+      return apiJson<CategoryCommittees[]>(
+        `/api/admission-setup/cycles/${encodeURIComponent(cycleId)}/committee-bindings`,
+      );
+    }
     await simulateLatency();
     return CATEGORY_COMMITTEES.filter((b) => b.cycleId === cycleId);
   },
@@ -242,6 +301,12 @@ export const admissionSetupService = {
     cycleId: string;
     categoryId?: ApplicantCategoryKey;
   }): Promise<CategoryCommittees[]> {
+    if (USE_ADMISSION_SETUP_BACKEND) {
+      const query = input.categoryId ? `?categoryId=${encodeURIComponent(input.categoryId)}` : '';
+      return apiJson<CategoryCommittees[]>(
+        `/api/admission-setup/cycles/${encodeURIComponent(input.cycleId)}/committee-bindings${query}`,
+      );
+    }
     await simulateLatency();
     return CATEGORY_COMMITTEES.filter(
       (b) =>
@@ -265,6 +330,15 @@ export const admissionSetupService = {
     committeeIds: string[];
     actorUserId?: string;
   }): Promise<CategoryCommittees[]> {
+    if (USE_ADMISSION_SETUP_BACKEND) {
+      const path = input.categoryId
+        ? `/api/admission-setup/cycles/${encodeURIComponent(input.cycleId)}/categories/${encodeURIComponent(input.categoryId)}/committees`
+        : `/api/admission-setup/cycles/${encodeURIComponent(input.cycleId)}/committee-bindings`;
+      return apiJson<CategoryCommittees[]>(path, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      });
+    }
     await simulateLatency();
     const requestedIds = Array.from(new Set(input.committeeIds));
     const allCommittees = await committeeService.list();

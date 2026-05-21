@@ -1,0 +1,4585 @@
+{
+  "cycles": [
+    {
+      "id": "CYC-2024-M",
+      "nameAr": "دورة 2024 - الذكور",
+      "labelEn": "Cycle 2024 (Male)",
+      "cohort": "male",
+      "year": 2024,
+      "openDate": "2024-01-15T00:00:00.000Z",
+      "closeDate": "2024-03-31T00:00:00.000Z",
+      "expectedCapacity": 1500,
+      "applicantCount": 1487,
+      "status": "draft",
+      "openCategories": {
+        "officers_general": {
+          "isOpen": false,
+          "capacity": 1500,
+          "notes": "دورة 2024 — أرشيف"
+        }
+      },
+      "conditionOverrides": {},
+      "createdAt": "2023-11-01T00:00:00.000Z",
+      "updatedAt": "2024-03-31T00:00:00.000Z"
+    },
+    {
+      "id": "CYC-2025-M",
+      "nameAr": "دورة 2025 - الذكور",
+      "labelEn": "Cycle 2025 (Male)",
+      "cohort": "male",
+      "year": 2025,
+      "openDate": "2025-01-15T00:00:00.000Z",
+      "closeDate": "2025-03-31T00:00:00.000Z",
+      "expectedCapacity": 1800,
+      "applicantCount": 1762,
+      "status": "draft",
+      "openCategories": {
+        "officers_general": {
+          "isOpen": false,
+          "capacity": 1800,
+          "notes": "أرشيف"
+        },
+        "specialized_officers": {
+          "isOpen": false,
+          "capacity": 200,
+          "notes": ""
+        }
+      },
+      "conditionOverrides": {},
+      "createdAt": "2024-11-01T00:00:00.000Z",
+      "updatedAt": "2025-04-01T00:00:00.000Z"
+    },
+    {
+      "id": "CYC-2025-F",
+      "nameAr": "دورة 2025 - الإناث",
+      "labelEn": "Cycle 2025 (Female)",
+      "cohort": "female",
+      "year": 2025,
+      "openDate": "2025-02-15T00:00:00.000Z",
+      "closeDate": "2025-04-15T23:59:59.000Z",
+      "expectedCapacity": 240,
+      "applicantCount": 238,
+      "status": "draft",
+      "openCategories": {
+        "officers_general": {
+          "isOpen": true,
+          "capacity": 200,
+          "notes": "الفئة الرئيسية للدورة"
+        },
+        "specialized_officers": {
+          "isOpen": true,
+          "capacity": 40,
+          "notes": "تقديم لخريجي الجامعات"
+        },
+        "law_bachelor": {
+          "isOpen": true,
+          "capacity": 30,
+          "notes": "خريجو الحقوق"
+        },
+        "physical_education_bachelor": {
+          "isOpen": false,
+          "capacity": null,
+          "notes": "يفتح في الدورة النسائية"
+        }
+      },
+      "conditionOverrides": {},
+      "createdAt": "2024-12-15T00:00:00.000Z",
+      "updatedAt": "2026-04-01T00:00:00.000Z"
+    },
+    {
+      "id": "CYC-2026-M",
+      "nameAr": "دورة التقديم 2026",
+      "labelEn": "Cycle 2026",
+      "cohort": "male",
+      "year": 2026,
+      "openDate": "2026-01-15T00:00:00.000Z",
+      "closeDate": "2026-12-31T23:59:59.000Z",
+      "expectedCapacity": 2000,
+      "applicantCount": 0,
+      "status": "draft",
+      "isActive": true,
+      "openCategories": {
+        "officers_general": {
+          "isOpen": true,
+          "capacity": 2000,
+          "notes": "الفئة الرئيسية للدورة",
+          "genderTypes": [
+            "male"
+          ],
+          "startDate": "2026-01-15",
+          "endDate": "2026-03-31"
+        },
+        "specialized_officers": {
+          "isOpen": true,
+          "capacity": 240,
+          "notes": "تقديم لخريجي الجامعات",
+          "genderTypes": [
+            "male",
+            "female"
+          ],
+          "startDate": "2026-02-01",
+          "endDate": "2026-04-15"
+        },
+        "law_bachelor": {
+          "isOpen": true,
+          "capacity": 120,
+          "notes": "تقديم لخريجي كليات الحقوق",
+          "genderTypes": [
+            "male",
+            "female"
+          ],
+          "startDate": "2026-02-01",
+          "endDate": "2026-04-15"
+        },
+        "physical_education_bachelor": {
+          "isOpen": false,
+          "capacity": null,
+          "notes": "يفتح في الدورة النسائية",
+          "genderTypes": [
+            "female"
+          ]
+        }
+      },
+      "conditionOverrides": {},
+      "fees": {
+        "applicationFee": 250,
+        "fawryConfig": {
+          "merchantCode": "PA-ACADEMY-2026",
+          "label": "فوري",
+          "retryWindowHours": 48
+        }
+      },
+      "createdAt": "2025-11-01T00:00:00.000Z",
+      "updatedAt": "2026-04-01T00:00:00.000Z"
+    },
+    {
+      "id": "CYC-2023-M",
+      "nameAr": "دورة 2023 - الذكور",
+      "labelEn": "Cycle 2023 (Male)",
+      "cohort": "male",
+      "year": 2023,
+      "openDate": "2023-01-15T00:00:00.000Z",
+      "closeDate": "2023-03-31T00:00:00.000Z",
+      "expectedCapacity": 1400,
+      "applicantCount": 1352,
+      "status": "draft",
+      "openCategories": {
+        "officers_general": {
+          "isOpen": false,
+          "capacity": 1400,
+          "notes": "أرشيف"
+        }
+      },
+      "conditionOverrides": {},
+      "createdAt": "2022-11-01T00:00:00.000Z",
+      "updatedAt": "2023-03-31T00:00:00.000Z"
+    }
+  ],
+  "activeCycleId": "CYC-2026-M",
+  "applicantCategoryConfigs": [
+    {
+      "id": "acc-1",
+      "categoryId": "officers_general",
+      "isActive": true,
+      "sortOrder": 1,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "acc-2",
+      "categoryId": "law_bachelor",
+      "isActive": true,
+      "sortOrder": 2,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "acc-3",
+      "categoryId": "physical_education_bachelor",
+      "isActive": true,
+      "sortOrder": 3,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "acc-4",
+      "categoryId": "specialized_officers",
+      "isActive": true,
+      "sortOrder": 4,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    }
+  ],
+  "applicantCategorySpecializations": [
+    {
+      "id": "acs-1",
+      "configId": "acc-1",
+      "specializationId": "__default__",
+      "isActive": true
+    },
+    {
+      "id": "acs-2",
+      "configId": "acc-2",
+      "specializationId": "__default__",
+      "isActive": true
+    },
+    {
+      "id": "acs-3",
+      "configId": "acc-3",
+      "specializationId": "__default__",
+      "isActive": true
+    },
+    {
+      "id": "acs-4",
+      "configId": "acc-4",
+      "specializationId": "SPC-01",
+      "isActive": true
+    },
+    {
+      "id": "acs-5",
+      "configId": "acc-4",
+      "specializationId": "SPC-04",
+      "isActive": true
+    },
+    {
+      "id": "acs-6",
+      "configId": "acc-4",
+      "specializationId": "SPC-12",
+      "isActive": true
+    }
+  ],
+  "applicantSpecializationYears": [
+    {
+      "id": "asy-1",
+      "categorySpecializationId": "acs-1",
+      "graduationYears": [
+        2025
+      ],
+      "genderTypes": [
+        "male"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01"
+      ],
+      "ageMin": 17,
+      "maxAge": 22,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [
+        "SCH-01",
+        "SCH-03"
+      ],
+      "applicationStartDate": "2025-06-01",
+      "applicationEndDate": "2025-07-31",
+      "ageReferenceDate": "2025-04-01",
+      "isActive": true,
+      "gradeKind": "GRADES",
+      "minPercentage": 75
+    },
+    {
+      "id": "asy-2",
+      "categorySpecializationId": "acs-1",
+      "graduationYears": [
+        2026
+      ],
+      "genderTypes": [
+        "male"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01"
+      ],
+      "ageMin": 17,
+      "maxAge": 22,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [
+        "SCH-01",
+        "SCH-03",
+        "SCH-05"
+      ],
+      "applicationStartDate": "2026-06-01",
+      "applicationEndDate": "2026-07-31",
+      "ageReferenceDate": "2026-04-01",
+      "isActive": true,
+      "gradeKind": "GRADES",
+      "minPercentage": 80
+    },
+    {
+      "id": "asy-3",
+      "categorySpecializationId": "acs-2",
+      "graduationYears": [
+        2024
+      ],
+      "genderTypes": [
+        "male"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01",
+        "MAR-02"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2024-06-01",
+      "applicationEndDate": "2024-07-31",
+      "ageReferenceDate": "2024-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-02"
+    },
+    {
+      "id": "asy-4",
+      "categorySpecializationId": "acs-2",
+      "graduationYears": [
+        2025
+      ],
+      "genderTypes": [
+        "female"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01",
+        "MAR-02"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2025-06-01",
+      "applicationEndDate": "2025-07-31",
+      "ageReferenceDate": "2025-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-03"
+    },
+    {
+      "id": "asy-5",
+      "categorySpecializationId": "acs-3",
+      "graduationYears": [
+        2024
+      ],
+      "genderTypes": [
+        "female"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01"
+      ],
+      "ageMin": 21,
+      "maxAge": 26,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2024-06-01",
+      "applicationEndDate": "2024-07-31",
+      "ageReferenceDate": "2024-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-03"
+    },
+    {
+      "id": "asy-6",
+      "categorySpecializationId": "acs-3",
+      "graduationYears": [
+        2026
+      ],
+      "genderTypes": [
+        "female"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01"
+      ],
+      "ageMin": 21,
+      "maxAge": 26,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2026-06-01",
+      "applicationEndDate": "2026-07-31",
+      "ageReferenceDate": "2026-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-02"
+    },
+    {
+      "id": "asy-7",
+      "categorySpecializationId": "acs-4",
+      "graduationYears": [
+        2023
+      ],
+      "genderTypes": [
+        "male"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2023-06-01",
+      "applicationEndDate": "2023-07-31",
+      "ageReferenceDate": "2023-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-02"
+    },
+    {
+      "id": "asy-8",
+      "categorySpecializationId": "acs-4",
+      "graduationYears": [
+        2025
+      ],
+      "genderTypes": [
+        "male"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2025-06-01",
+      "applicationEndDate": "2025-07-31",
+      "ageReferenceDate": "2025-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-03"
+    },
+    {
+      "id": "asy-9",
+      "categorySpecializationId": "acs-4",
+      "graduationYears": [
+        2026
+      ],
+      "genderTypes": [
+        "female"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01",
+        "MAR-02"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2026-06-01",
+      "applicationEndDate": "2026-07-31",
+      "ageReferenceDate": "2026-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-03"
+    },
+    {
+      "id": "asy-10",
+      "categorySpecializationId": "acs-5",
+      "graduationYears": [
+        2023
+      ],
+      "genderTypes": [
+        "male"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2023-06-01",
+      "applicationEndDate": "2023-07-31",
+      "ageReferenceDate": "2023-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-02"
+    },
+    {
+      "id": "asy-11",
+      "categorySpecializationId": "acs-5",
+      "graduationYears": [
+        2025
+      ],
+      "genderTypes": [
+        "male"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2025-06-01",
+      "applicationEndDate": "2025-07-31",
+      "ageReferenceDate": "2025-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-03"
+    },
+    {
+      "id": "asy-12",
+      "categorySpecializationId": "acs-5",
+      "graduationYears": [
+        2026
+      ],
+      "genderTypes": [
+        "female"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01",
+        "MAR-02"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2026-06-01",
+      "applicationEndDate": "2026-07-31",
+      "ageReferenceDate": "2026-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-03"
+    },
+    {
+      "id": "asy-13",
+      "categorySpecializationId": "acs-6",
+      "graduationYears": [
+        2023
+      ],
+      "genderTypes": [
+        "male"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2023-06-01",
+      "applicationEndDate": "2023-07-31",
+      "ageReferenceDate": "2023-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-02"
+    },
+    {
+      "id": "asy-14",
+      "categorySpecializationId": "acs-6",
+      "graduationYears": [
+        2025
+      ],
+      "genderTypes": [
+        "male"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2025-06-01",
+      "applicationEndDate": "2025-07-31",
+      "ageReferenceDate": "2025-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-03"
+    },
+    {
+      "id": "asy-15",
+      "categorySpecializationId": "acs-6",
+      "graduationYears": [
+        2026
+      ],
+      "genderTypes": [
+        "female"
+      ],
+      "maritalStatusCodes": [
+        "MAR-01",
+        "MAR-02"
+      ],
+      "ageMin": 21,
+      "maxAge": 28,
+      "divisionCodes": [],
+      "schoolCategoryCodes": [],
+      "applicationStartDate": "2026-06-01",
+      "applicationEndDate": "2026-07-31",
+      "ageReferenceDate": "2026-04-01",
+      "isActive": true,
+      "gradeKind": "TAGDIR",
+      "academicGradeId": "AGR-03"
+    }
+  ],
+  "examScheduleDays": [
+    {
+      "id": "ESD-SEED-1",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-01",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-2",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-02",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-3",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-03",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-4",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-04",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-5",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-05",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-6",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-06",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-7",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-07",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-8",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-08",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-9",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-09",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-10",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-10",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-11",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-11",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-12",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-12",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-13",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-13",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-14",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-14",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-15",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-15",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-16",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-16",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-17",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-17",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-18",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-18",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-19",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-19",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-20",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-20",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-21",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-21",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-22",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-22",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-23",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-23",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-24",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-24",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-25",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-25",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-26",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-26",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-27",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-27",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-28",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-28",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-29",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-29",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-30",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-30",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-31",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-15",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-32",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-16",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-33",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-17",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-34",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-18",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-35",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-19",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-36",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-20",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-37",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-21",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-38",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-22",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-39",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-23",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-40",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-24",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-41",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-25",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-42",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-26",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-43",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-27",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-44",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-28",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-45",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-29",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-46",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-30",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-47",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-01",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-48",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-02",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-49",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-03",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-50",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-04",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-51",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-05",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-52",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-06",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-53",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-07",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-54",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-08",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-55",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-09",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-56",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-10",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-57",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-11",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-58",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-12",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-59",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-13",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-60",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-14",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-61",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-01",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-62",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-02",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-63",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-03",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-64",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-04",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-65",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-05",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-66",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-06",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-67",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-07",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-68",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-08",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-69",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-09",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-70",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-10",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-71",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-11",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-72",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-12",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-73",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-13",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-74",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-14",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-75",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-15",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-76",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-16",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-77",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-17",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-78",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-18",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-79",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-19",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-80",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-20",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-81",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-21",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-82",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-22",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-83",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-23",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-84",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-24",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-85",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-25",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-86",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-26",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-87",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-27",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-88",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-28",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-89",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-29",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-90",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-30",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-91",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-15",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-92",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-16",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-93",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-17",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-94",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-18",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-95",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-19",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-96",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-20",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-97",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-21",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-98",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-22",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-99",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-23",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-100",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-24",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-101",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-25",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-102",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-26",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-103",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-27",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-104",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-28",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-105",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-29",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-106",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-30",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-107",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-31",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-108",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-01",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-109",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-02",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-110",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-03",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-111",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-04",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-112",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-05",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-113",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-06",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-114",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-07",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-115",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-08",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-116",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-09",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-117",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-10",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-118",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-11",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-119",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-12",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-SEED-120",
+      "cycleId": "CYC-2024-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-13",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-001",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-01",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-002",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-02",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-003",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-03",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-004",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-04",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-005",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-05",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-006",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-06",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-007",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-07",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-008",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-08",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-009",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-09",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-010",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-10",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-011",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-11",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-012",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-12",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-013",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-13",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-014",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-14",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-015",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-15",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-016",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-16",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-017",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-17",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-018",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-18",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-019",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-19",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-020",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-20",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-021",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-21",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-022",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-22",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-023",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-23",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-024",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-24",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-025",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-25",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-026",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-26",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-027",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-27",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-028",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-28",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-029",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-29",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-030",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "date": "2026-06-30",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-031",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-15",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-032",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-16",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-033",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-17",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-034",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-18",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-035",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-19",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-036",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-20",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-037",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-21",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-038",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-22",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-039",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-23",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-040",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-24",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-041",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-25",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-042",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-26",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-043",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-27",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-044",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-28",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-045",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-29",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-046",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-06-30",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-047",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-01",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-048",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-02",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-049",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-03",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-050",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-04",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-051",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-05",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-052",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-06",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-053",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-07",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-054",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-08",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-055",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-09",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-056",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-10",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-057",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-11",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-058",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-12",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-059",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-13",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-060",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "law_bachelor",
+      "date": "2026-07-14",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-061",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-01",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-062",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-02",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-063",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-03",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-064",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-04",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-065",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-05",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-066",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-06",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-067",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-07",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-068",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-08",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-069",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-09",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-070",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-10",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-071",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-11",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-072",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-12",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-073",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-13",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-074",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-14",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-075",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-15",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-076",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-16",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-077",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-17",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-078",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-18",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-079",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-19",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-080",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-20",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-081",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-21",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-082",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-22",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-083",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-23",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-084",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-24",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-085",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-25",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-086",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-26",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-087",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-27",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-088",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-28",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-089",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-29",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-090",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "physical_education_bachelor",
+      "date": "2026-07-30",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-091",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-15",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-092",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-16",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-093",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-17",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-094",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-18",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-095",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-19",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-096",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-20",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-097",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-21",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-098",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-22",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-099",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-23",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-100",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-24",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-101",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-25",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-102",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-26",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-103",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-27",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-104",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-28",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-105",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-29",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-106",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-30",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-107",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-07-31",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-108",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-01",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-109",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-02",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-110",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-03",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-111",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-04",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-112",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-05",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-113",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-06",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-114",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-07",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-115",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-08",
+      "kind": "OFF",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-116",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-09",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-117",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-10",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-118",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-11",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-119",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-12",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    },
+    {
+      "id": "ESD-ACTIVE-120",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "date": "2026-08-13",
+      "kind": "WORKING",
+      "note": null,
+      "createdAt": "2026-05-11T08:00:00.000Z",
+      "updatedAt": "2026-05-11T08:00:00.000Z"
+    }
+  ],
+  "categoryCommittees": [
+    {
+      "id": "CC-01",
+      "categoryId": "officers_general",
+      "committeeId": "C-01",
+      "academicYearId": "2026-2027",
+      "cycleId": "CYC-2026-M",
+      "order": 1,
+      "createdAt": "2026-04-01T08:00:00.000Z",
+      "createdBy": "U-001"
+    },
+    {
+      "id": "CC-02",
+      "categoryId": "officers_general",
+      "committeeId": "C-02",
+      "academicYearId": "2026-2027",
+      "cycleId": "CYC-2026-M",
+      "order": 2,
+      "createdAt": "2026-04-01T08:00:00.000Z",
+      "createdBy": "U-001"
+    },
+    {
+      "id": "CC-03",
+      "categoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "academicYearId": "2026-2027",
+      "cycleId": "CYC-2026-M",
+      "order": 3,
+      "createdAt": "2026-04-01T08:00:00.000Z",
+      "createdBy": "U-001"
+    },
+    {
+      "id": "CC-04",
+      "categoryId": "officers_general",
+      "committeeId": "C-04",
+      "academicYearId": "2026-2027",
+      "cycleId": "CYC-2026-M",
+      "order": 4,
+      "createdAt": "2026-04-01T08:00:00.000Z",
+      "createdBy": "U-001"
+    }
+  ],
+  "committeeDayBindings": [
+    {
+      "id": "CDB-ACTIVE-00001",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-001",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00002",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-002",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00003",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-003",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00004",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-004",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00005",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-007",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00006",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-008",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00007",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-009",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00008",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-010",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00009",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-011",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00010",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-014",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00011",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-015",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00012",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-016",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00013",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-017",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00014",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-018",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00015",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-021",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00016",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-022",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00017",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-023",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00018",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-024",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00019",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-025",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00020",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-028",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00021",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-029",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00022",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-01",
+      "examScheduleDayId": "ESD-ACTIVE-030",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00023",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-001",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00024",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-002",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00025",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-003",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00026",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-004",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00027",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-007",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00028",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-008",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00029",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-009",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00030",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-010",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00031",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-011",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00032",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-014",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00033",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-015",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00034",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-016",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00035",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-017",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00036",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-018",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00037",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-021",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00038",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-022",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00039",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-023",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00040",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-024",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00041",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-025",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00042",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-028",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00043",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-029",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00044",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-02",
+      "examScheduleDayId": "ESD-ACTIVE-030",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00045",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-091",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00046",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-092",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00047",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-095",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00048",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-096",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00049",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-097",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00050",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-098",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00051",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-099",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00052",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-102",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00053",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-103",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00054",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-104",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00055",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-105",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00056",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-106",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00057",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-109",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00058",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-110",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00059",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-111",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00060",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-112",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00061",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-113",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00062",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-116",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00063",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-117",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00064",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-118",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00065",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-119",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00066",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "specialized_officers",
+      "committeeId": "C-03",
+      "examScheduleDayId": "ESD-ACTIVE-120",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "TAGDIR",
+        "minAcademicGradeId": "AGR-03",
+        "maxAcademicGradeId": "AGR-01"
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00067",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-001",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00068",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-002",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00069",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-003",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00070",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-004",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00071",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-007",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00072",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-008",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00073",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-009",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00074",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-010",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00075",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-011",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00076",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-014",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00077",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-015",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00078",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-016",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00079",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-017",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00080",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-018",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00081",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-021",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00082",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-022",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00083",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-023",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00084",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-024",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00085",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-025",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00086",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-028",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00087",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-029",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "CDB-ACTIVE-00088",
+      "cycleId": "CYC-2026-M",
+      "applicantCategoryId": "officers_general",
+      "committeeId": "C-04",
+      "examScheduleDayId": "ESD-ACTIVE-030",
+      "capacity": 3,
+      "eligibility": {
+        "gradeKind": "GRADES",
+        "minPercentage": 60,
+        "maxPercentage": 100
+      },
+      "isActive": true,
+      "note": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "declarations": [
+    {
+      "id": "DEC-SEED-0001",
+      "cycleId": "CYC-2024-M",
+      "mode": "pdf",
+      "bodyAr": "",
+      "document": {
+        "fileName": "الإقرار-الإلكتروني-2026.pdf",
+        "fileUrl": "/mock/declarations/sample.pdf",
+        "size": 482318
+      },
+      "version": 1,
+      "effectiveFrom": "2024-01-15T00:00:00.000Z",
+      "createdAt": "2026-05-21T13:12:35.721Z",
+      "createdBy": "system"
+    },
+    {
+      "id": "DEC-SEED-ACTIVE",
+      "cycleId": "CYC-2026-M",
+      "mode": "pdf",
+      "bodyAr": "",
+      "document": {
+        "fileName": "الإقرار-الإلكتروني-2026.pdf",
+        "fileUrl": "/mock/declarations/sample.pdf",
+        "size": 482318
+      },
+      "version": 1,
+      "effectiveFrom": "2026-05-01T00:00:00.000Z",
+      "createdAt": "2026-05-01T00:00:00.000Z",
+      "createdBy": "system"
+    }
+  ],
+  "examDateConfigs": []
+}

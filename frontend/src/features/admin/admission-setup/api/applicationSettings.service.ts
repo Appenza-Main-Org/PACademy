@@ -44,7 +44,7 @@
 
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
-import { ConflictError } from '@/shared/lib/errors';
+import { ConflictError, type ConflictCode } from '@/shared/lib/errors';
 import { lookupsService } from '@/features/lookups/api/lookups.service';
 import type {
   ApplicantCategoryGenderScope,
@@ -71,6 +71,36 @@ import type {
 let configs: ApplicantCategoryConfig[] = [...MOCK.applicantCategoryConfigs];
 let specs: ApplicantCategorySpecialization[] = [...MOCK.applicantCategorySpecializations];
 let years: ApplicantSpecializationYear[] = [...MOCK.applicantSpecializationYears];
+
+const ADMIN_API_BASE = (import.meta.env.VITE_ADMIN_API_BASE ?? '').replace(/\/$/, '');
+const USE_APP_SETTINGS_BACKEND =
+  import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND === 'true' ||
+  (import.meta.env.VITE_USE_ADMISSION_SETUP_BACKEND !== 'false' && ADMIN_API_BASE.length > 0);
+
+interface ErrorEnvelope {
+  message?: string;
+  conflictCode?: ConflictCode;
+}
+
+async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${ADMIN_API_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init.headers ?? {}),
+    },
+  });
+  const text = await response.text();
+  const data = text ? (JSON.parse(text) as unknown) : null;
+  if (!response.ok) {
+    const envelope = data && typeof data === 'object' ? (data as ErrorEnvelope) : {};
+    if (response.status === 409 && envelope.conflictCode) {
+      throw new ConflictError(envelope.conflictCode, data, envelope.message);
+    }
+    throw new Error(envelope.message ?? `HTTP ${response.status}`);
+  }
+  return data as T;
+}
 
 /* The lookups are read live (not frozen at module init) so admin edits
  * to `applicant-categories` flow through to the wizard's join without
@@ -286,6 +316,9 @@ export const applicationSettingsService = {
   /* ── Reads ───────────────────────────────────────────────────────── */
 
   async listCategoryConfigs(): Promise<CategoryConfigJoined[]> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<CategoryConfigJoined[]>('/api/admin/app-settings/category-configs');
+    }
     await simulateLatency(80, 160);
     return [...configs]
       .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -295,6 +328,11 @@ export const applicationSettingsService = {
   async listSpecializationsForConfig(
     configId: string,
   ): Promise<CategorySpecializationJoined[]> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<CategorySpecializationJoined[]>(
+        `/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/specializations`,
+      );
+    }
     await simulateLatency(60, 120);
     /* Hide the implicit-default junction — it has no user-facing
      * specialization to render in the SpecializationList. The
@@ -320,6 +358,11 @@ export const applicationSettingsService = {
   async getEligibleSpecializations(
     configId: string,
   ): Promise<SpecializationRow[]> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<SpecializationRow[]>(
+        `/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/eligible-specializations`,
+      );
+    }
     await simulateLatency(60, 120);
     const config = configs.find((c) => c.id === configId);
     if (!config) return [];
@@ -333,6 +376,11 @@ export const applicationSettingsService = {
   async listYears(
     categorySpecializationId: string,
   ): Promise<ApplicantSpecializationYear[]> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<ApplicantSpecializationYear[]>(
+        `/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/years`,
+      );
+    }
     await simulateLatency(60, 120);
     function maxYear(y: ApplicantSpecializationYear): number {
       return y.graduationYears.length > 0 ? Math.max(...y.graduationYears) : 0;
@@ -350,6 +398,9 @@ export const applicationSettingsService = {
    * per-spec for cache-key granularity).
    */
   async getApplicationSettingsSummary(): Promise<CategorySettingsSummary[]> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<CategorySettingsSummary[]>('/api/admin/app-settings/summary');
+    }
     await simulateLatency(80, 160);
     function maxYear(y: ApplicantSpecializationYear): number {
       return y.graduationYears.length > 0 ? Math.max(...y.graduationYears) : 0;
@@ -393,6 +444,11 @@ export const applicationSettingsService = {
   async getGradingModeForSpec(
     categorySpecializationId: string,
   ): Promise<ReturnType<typeof resolveGradingModeForSpec>> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<ReturnType<typeof resolveGradingModeForSpec>>(
+        `/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/grading-mode`,
+      );
+    }
     await simulateLatency(40, 80);
     return resolveGradingModeFor(categorySpecializationId);
   },
@@ -408,6 +464,11 @@ export const applicationSettingsService = {
   async getParentCategoryForSpec(
     categorySpecializationId: string,
   ): Promise<ParentCategorySnapshot | null> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<ParentCategorySnapshot | null>(
+        `/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/parent-category`,
+      );
+    }
     await simulateLatency(40, 80);
     const spec = specs.find((s) => s.id === categorySpecializationId);
     if (!spec) return null;
@@ -427,6 +488,12 @@ export const applicationSettingsService = {
     configId: string,
     specializationId: string,
   ): Promise<ApplicantCategorySpecialization> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<ApplicantCategorySpecialization>(
+        `/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/specializations`,
+        { method: 'POST', body: JSON.stringify({ specializationId }) },
+      );
+    }
     await simulateLatency();
     const config = configs.find((c) => c.id === configId);
     if (!config) throw new Error(`Config ${configId} not found`);
@@ -455,6 +522,13 @@ export const applicationSettingsService = {
   async detachSpecialization(
     categorySpecializationId: string,
   ): Promise<void> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      await apiJson<null>(
+        `/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}`,
+        { method: 'DELETE' },
+      );
+      return;
+    }
     await simulateLatency();
     years = years.filter(
       (y) => y.categorySpecializationId !== categorySpecializationId,
@@ -465,6 +539,12 @@ export const applicationSettingsService = {
   async createYear(
     input: YearRowDraft,
   ): Promise<ApplicantSpecializationYear> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<ApplicantSpecializationYear>(
+        `/api/admin/app-settings/specializations/${encodeURIComponent(input.categorySpecializationId)}/years`,
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+    }
     await simulateLatency();
     const parentMode = resolveGradingModeFor(input.categorySpecializationId);
     if (parentMode) {
@@ -488,6 +568,12 @@ export const applicationSettingsService = {
     id: string,
     patch: Partial<ApplicantSpecializationYear>,
   ): Promise<ApplicantSpecializationYear> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<ApplicantSpecializationYear>(
+        `/api/admin/app-settings/years/${encodeURIComponent(id)}`,
+        { method: 'PATCH', body: JSON.stringify(patch) },
+      );
+    }
     await simulateLatency();
     const current = years.find((y) => y.id === id);
     if (!current) throw new Error(`Year ${id} not found`);
@@ -507,11 +593,23 @@ export const applicationSettingsService = {
   },
 
   async deleteYear(id: string): Promise<void> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      await apiJson<null>(`/api/admin/app-settings/years/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      return;
+    }
     await simulateLatency();
     years = years.filter((y) => y.id !== id);
   },
 
   async toggleYearActive(id: string): Promise<ApplicantSpecializationYear> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<ApplicantSpecializationYear>(
+        `/api/admin/app-settings/years/${encodeURIComponent(id)}/toggle-active`,
+        { method: 'POST' },
+      );
+    }
     await simulateLatency();
     const current = years.find((y) => y.id === id);
     if (!current) throw new Error(`Year ${id} not found`);
@@ -526,6 +624,12 @@ export const applicationSettingsService = {
   async toggleCategoryActive(
     configId: string,
   ): Promise<ApplicantCategoryConfig> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<ApplicantCategoryConfig>(
+        `/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/toggle-active`,
+        { method: 'POST' },
+      );
+    }
     await simulateLatency();
     const current = configs.find((c) => c.id === configId);
     if (!current) throw new Error(`Config ${configId} not found`);
@@ -556,6 +660,12 @@ export const applicationSettingsService = {
    * eventual `POST /bulk-save` semantics.
    */
   async bulkSave(payload: BulkYearChange[]): Promise<BulkSaveResult> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<BulkSaveResult>('/api/admin/app-settings/bulk-save', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    }
     await simulateLatency();
     // Group changes per categorySpecializationId so we validate each
     // sibling-set as a single hypothetical post-state.

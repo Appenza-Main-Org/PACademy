@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Modules\ApplicantGradesAdmin\PACademy.Modules.ApplicantGradesAdmin.Application\PACademy.Modules.ApplicantGradesAdmin.Application.csproj" />
     <ProjectReference Include="..\Modules\ApplicantGradesAdmin\PACademy.Modules.ApplicantGradesAdmin.Infrastructure\PACademy.Modules.ApplicantGradesAdmin.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\CyclesAdmin\PACademy.Modules.CyclesAdmin.Infrastructure\PACademy.Modules.CyclesAdmin.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\LookupsAdmin\PACademy.Modules.LookupsAdmin.Application\PACademy.Modules.LookupsAdmin.Application.csproj" />
     <ProjectReference Include="..\Modules\LookupsAdmin\PACademy.Modules.LookupsAdmin.Infrastructure\PACademy.Modules.LookupsAdmin.Infrastructure.csproj" />
     <ProjectReference Include="..\..\shared\PACademy.Shared.Contracts\PACademy.Shared.Contracts.csproj" />
