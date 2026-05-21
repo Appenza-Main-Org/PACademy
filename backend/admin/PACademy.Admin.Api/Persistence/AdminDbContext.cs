@@ -1,17 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.Admissions;
+using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Modules.Audit;
 
 namespace PACademy.Admin.Api.Persistence;
 
-public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext
+public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext
 {
     public DbSet<LookupRowEntity> LookupRows => Set<LookupRowEntity>();
     public DbSet<AuditRowEntity> AuditRows => Set<AuditRowEntity>();
     public DbSet<AdmissionCycleEntity> AdmissionCycles => Set<AdmissionCycleEntity>();
     public DbSet<ApplicantCategoryEntity> ApplicantCategories => Set<ApplicantCategoryEntity>();
     public DbSet<AdmissionRuleEntity> AdmissionRules => Set<AdmissionRuleEntity>();
+    public DbSet<UserEntity> Users => Set<UserEntity>();
+    public DbSet<RoleEntity> Roles => Set<RoleEntity>();
+    public DbSet<OfficerEntity> Officers => Set<OfficerEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,6 +92,48 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
             entity.HasIndex(x => new { x.CycleId, x.Version }).IsUnique().HasDatabaseName("ux_admission_rules_cycle_version");
+        });
+
+        modelBuilder.Entity<UserEntity>(entity =>
+        {
+            entity.ToTable("users");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.NationalId).HasColumnName("national_id").HasMaxLength(32);
+            entity.Property(x => x.FullArabicName).HasColumnName("full_arabic_name").HasMaxLength(256);
+            entity.Property(x => x.Role).HasColumnName("role").HasMaxLength(96);
+            entity.Property(x => x.AccountStatus).HasColumnName("account_status").HasMaxLength(48);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.NationalId).IsUnique().HasDatabaseName("ux_users_national_id");
+        });
+
+        modelBuilder.Entity<RoleEntity>(entity =>
+        {
+            entity.ToTable("roles");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.Key).HasColumnName("key").HasMaxLength(96);
+            entity.Property(x => x.LabelAr).HasColumnName("label_ar").HasMaxLength(256);
+            entity.Property(x => x.IsSystem).HasColumnName("is_system");
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.Key).IsUnique().HasDatabaseName("ux_roles_key");
+        });
+
+        modelBuilder.Entity<OfficerEntity>(entity =>
+        {
+            entity.ToTable("officer_directory");
+            entity.HasKey(x => x.NationalId);
+            entity.Property(x => x.NationalId).HasColumnName("national_id").HasMaxLength(32);
+            entity.Property(x => x.FullArabicName).HasColumnName("full_arabic_name").HasMaxLength(256);
+            entity.Property(x => x.OfficerCode).HasColumnName("officer_code").HasMaxLength(64);
+            entity.Property(x => x.MobileNumber).HasColumnName("mobile_number").HasMaxLength(32);
+            entity.Property(x => x.UserType).HasColumnName("user_type").HasMaxLength(64);
         });
     }
 }

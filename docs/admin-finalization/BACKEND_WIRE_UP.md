@@ -84,6 +84,44 @@ Typed conflicts:
 - Second active cycle returns `{ code: "CONFLICT", conflictCode: "ACTIVE_CYCLE_EXISTS" }`.
 - Locked category delete returns `{ code: "CONFLICT", conflictCode: "IN_USE" }`.
 
+### Identity / Users / Roles
+
+Seed sources:
+
+```text
+frontend/src/shared/mock-data/roles.ts
+frontend/src/shared/mock-data/officers.ts
+frontend/src/shared/mock-data/index.ts#USER_SEED
+backend/admin/PACademy.Admin.Api/SeedData/identity.seed.json
+```
+
+Seed size: 12 roles, 12 officer-directory rows, 10 users.
+
+Endpoints:
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/users` | System user list. |
+| GET | `/api/users/{id}` | One system user. |
+| POST | `/api/users` | NID-driven create, rejects duplicate NID. |
+| PATCH | `/api/users/{id}` | Updates user JSON and account status mirrors. |
+| POST | `/api/users/{id}/status` | Account status toggle. |
+| POST | `/api/users/{id}/deactivate` | Legacy inactive alias. |
+| POST | `/api/users/{id}/reset-2fa` | Acknowledgement endpoint. |
+| GET | `/api/users/{id}/activity` | Empty activity list until Audit module is fully ported. |
+| GET | `/api/roles` | Role matrix rows. |
+| GET | `/api/roles/{id}` | One role. |
+| POST | `/api/roles` | Creates custom role, rejects duplicate key. |
+| PATCH | `/api/roles/{id}` | Updates role JSON. |
+| GET | `/api/roles/{id}/dependencies` | Counts users assigned to the role. |
+| POST | `/api/roles/{id}/soft-delete` | Marks deleted timestamp. |
+| POST | `/api/roles/{id}/restore` | Clears deleted timestamp. |
+
+Typed conflicts:
+
+- Duplicate user NID returns `USER_NID_DUPLICATE`.
+- Duplicate role key returns `ROLE_KEY_DUPLICATE`.
+
 ## Temporary Backend Fallback
 
 `AdminFallbackController` exists only to keep the frontend on real HTTP while the remaining vertical modules are completed. It covers missing admin endpoints with empty/safe envelopes and must be deleted as Priority B/C modules replace it.
@@ -91,7 +129,6 @@ Typed conflicts:
 Fallback-covered modules:
 
 - Auth/Identity details beyond lock-policy basics
-- Users/Roles
 - Applicants
 - Applicant grades
 - Committees exam config
@@ -136,6 +173,8 @@ curl http://localhost:5101/api/lookups/faculties
 curl http://localhost:5101/api/cycles
 curl http://localhost:5101/api/admin/categories
 curl http://localhost:5101/api/admission-rules/CYC-2026-M/current
+curl http://localhost:5101/api/users
+curl http://localhost:5101/api/roles
 ```
 
 Smoke results:
@@ -145,5 +184,8 @@ Smoke results:
 - Deleting `FAC-01` returned an FK-blocked delete result with 26 specialization references.
 - `/api/cycles` returned 5 cycles and active cycle `CYC-2026-M`.
 - Activating a second cycle without swap returned `ACTIVE_CYCLE_EXISTS`.
+- `/api/users` returned 10 users.
+- `/api/roles` returned 12 roles.
+- `/api/roles/ROLE-SUPER_ADMIN/dependencies` returned one assigned user and `blocking: true`.
 - `/openapi/v1.json` returned 200.
 - `/scalar` returned 200 with redirect following.

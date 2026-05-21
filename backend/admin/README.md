@@ -46,4 +46,5 @@ Rules:
 
 - `LookupsAdmin`: concrete CRUD over 25 lookup dictionaries, seeded from `frontend/src/features/lookups/mock/lookups.mock.ts`.
 - `AdmissionsAdmin`: concrete cycles, applicant categories, and admission rules seed/read/write basics, seeded from `frontend/src/shared/mock-data/admissionCycles.ts` and applicant-category lookup rows.
+- `Identity`: concrete users, roles, and officer directory seed/read/write basics, seeded from `frontend/src/shared/mock-data/roles.ts`, `officers.ts`, and the deterministic `USER_SEED`.
 - Temporary fallback controller: returns real HTTP responses for remaining admin routes until their dedicated Priority B/C modules replace it.

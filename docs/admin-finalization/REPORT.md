@@ -16,6 +16,7 @@
 - Added OpenAPI and Scalar.
 - Implemented `LookupsAdmin` concrete backend slice.
 - Implemented `AdmissionsAdmin` concrete backend basics for cycles, categories, and admission rules.
+- Implemented `Identity` concrete backend basics for users, roles, and officer directory.
 - Added temporary backend fallback for remaining admin endpoints.
 
 ## Verification
@@ -40,6 +41,8 @@ Confirmed:
 - `/api/cycles`
 - `/api/admin/categories`
 - `/api/admission-rules/CYC-2026-M/current`
+- `/api/users`
+- `/api/roles`
 - duplicate lookup conflict envelope
 - active-cycle conflict envelope
 - lookup FK delete guard
@@ -48,15 +51,14 @@ Confirmed:
 
 The remaining admin pages are routed to real HTTP, but several are still served by `AdminFallbackController` placeholders until their vertical modules are fully ported from frontend mocks:
 
-1. Identity / Users / Roles
-2. Applicants
-3. ApplicantGrades
-4. CommitteesExamConfig
-5. Workflows
-6. Reports aggregate calculations
-7. Audit persistence and read facets
-8. Settings
-9. Notifications
-10. Payments
+1. Applicants
+2. ApplicantGrades
+3. CommitteesExamConfig
+4. Workflows
+5. Reports aggregate calculations
+6. Audit persistence and read facets
+7. Settings
+8. Notifications
+9. Payments
 
 The fallback controller should shrink with every subsequent module commit and be deleted when the final real module lands.
