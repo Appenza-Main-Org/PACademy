@@ -169,13 +169,13 @@ export function EditMaxDegreeDialog({
                 changed={newPct !== row.pct}
               />
               <PreviewRow
-                label="الفعلي"
+                label="المجموع بعد التعديل"
                 oldValue={String(row.eff)}
                 newValue={String(newEff)}
                 changed={newEff !== row.eff}
               />
               <PreviewRow
-                label="الفعلي %"
+                label="نسبة بعد التعديل"
                 oldValue={`${row.effPct.toFixed(2)}٪`}
                 newValue={`${newEffPct?.toFixed(2)}٪`}
                 changed={newEffPct !== row.effPct}

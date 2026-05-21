@@ -15,11 +15,11 @@ import { useAddAdjustment, useUpdateOverrideMax } from '../api/grades.queries';
 import type { AdjustmentReason } from '../types';
 import type { DerivedRow } from '../lib/derive';
 
-const REASONS: ReadonlyArray<{ v: AdjustmentReason; label: string }> = [
-  { v: 'SPORTS_ACTIVITY', label: 'نشاط رياضي' },
-  { v: 'GRIEVANCE', label: 'تظلم' },
-  { v: 'LEGAL_CASE', label: 'قضية' },
-  { v: 'OTHER', label: 'أخرى' },
+const REASONS: ReadonlyArray<{ v: AdjustmentReason; label: string; description: string }> = [
+  { v: 'SPORTS_ACTIVITY', label: 'نشاط رياضي', description: 'إضافة درجات النشاط المعتمدة' },
+  { v: 'GRIEVANCE', label: 'تظلم', description: 'تصحيح نتيجة بعد مراجعة تظلم' },
+  { v: 'LEGAL_CASE', label: 'قضية', description: 'تعديل بناءً على قرار قانوني' },
+  { v: 'OTHER', label: 'أخرى', description: 'سبب خاص مع توضيح إلزامي' },
 ];
 
 interface Props {
@@ -128,7 +128,7 @@ export function AddAdjustmentDialog({
           {/* Stats strip */}
           <div className="grid grid-cols-3 overflow-hidden rounded-md border border-border-subtle">
             <StatCell
-              label="المجموع الأصلي"
+              label="المجموع الإجمالي"
               value={String(row.total)}
               sub={
                 <span className="inline-flex items-center gap-1">
@@ -150,7 +150,7 @@ export function AddAdjustmentDialog({
               sub={`${existingAdjCount} ${existingAdjCount === 1 ? 'تعديل' : 'تعديلات'} نشطة`}
             />
             <StatCell
-              label="المجموع الفعلي"
+              label="المجموع بعد التعديل"
               value={String(liveExistingEff)}
               tone="ink-strong"
               sub={
@@ -169,7 +169,7 @@ export function AddAdjustmentDialog({
           )}
           {!totalExceedsMax && existingPushesPastMax && (
             <ErrorBanner>
-              التعديلات النشطة تدفع المجموع الفعلي (<span className="font-en">{row.total + existingAdjSum}</span>) فوق الدرجة العظمى الجديدة (<span className="font-en">{effMax}</span>). أوقف تعديلات معارضة أو ارفع الدرجة العظمى.
+              التعديلات النشطة تدفع المجموع بعد التعديل (<span className="font-en">{row.total + existingAdjSum}</span>) فوق الدرجة العظمى الجديدة (<span className="font-en">{effMax}</span>). أوقف تعديلات معارضة أو ارفع الدرجة العظمى.
             </ErrorBanner>
           )}
 
@@ -239,27 +239,57 @@ export function AddAdjustmentDialog({
             <span className="h-px flex-1 bg-border-subtle" />
           </h3>
 
-          <Field label="سبب التعديل" required>
-            <div className="flex flex-wrap gap-1.5">
-              {REASONS.map(({ v, label }) => {
+          <section className="rounded-md border border-border-subtle bg-white p-3.5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="m-0 text-sm font-bold text-ink-900">
+                  سبب التعديل <span className="text-terra-500">*</span>
+                </h3>
+                <p className="m-0 mt-0.5 text-2xs text-ink-500">
+                  اختر سبباً واحداً واضحاً قبل إدخال قيمة التعديل.
+                </p>
+              </div>
+              <span className="rounded-full border border-teal-100 bg-teal-50 px-2 py-0.5 text-2xs font-semibold text-teal-700">
+                {REASONS.find((r) => r.v === reason)?.label}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="سبب التعديل">
+              {REASONS.map(({ v, label, description }) => {
                 const active = reason === v;
                 return (
                   <button
                     key={v}
                     type="button"
+                    role="radio"
+                    aria-checked={active}
                     onClick={() => setReason(v)}
-                    className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                    className={`flex cursor-pointer items-start gap-2 rounded-md border p-3 text-start transition-colors ${
                       active
-                        ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-focus-teal'
+                        ? 'border-teal-500 bg-teal-50 text-teal-900 shadow-focus-teal'
                         : 'border-border-default bg-white text-ink-700 hover:bg-ink-50'
                     }`}
                   >
-                    {label}
+                    <span
+                      className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border ${
+                        active
+                          ? 'border-teal-600 bg-teal-600 text-white'
+                          : 'border-ink-300 bg-white text-transparent'
+                      }`}
+                      aria-hidden
+                    >
+                      <Check size={12} strokeWidth={2.2} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold">{label}</span>
+                      <span className="mt-0.5 block text-2xs leading-relaxed text-ink-500">
+                        {description}
+                      </span>
+                    </span>
                   </button>
                 );
               })}
             </div>
-          </Field>
+          </section>
 
           <Field
             label={
@@ -324,7 +354,7 @@ export function AddAdjustmentDialog({
               </div>
               <span className="text-xs text-ink-500">درجة</span>
               <span className="ms-auto inline-flex items-center gap-1.5 text-2xs text-ink-500">
-                الفعلي الجديد سيصبح
+                المجموع بعد التعديل سيصبح
                 <span
                   className={`rounded-full border px-2.5 py-0.5 font-en text-sm font-bold ${
                     overMax || belowZero
@@ -343,7 +373,7 @@ export function AddAdjustmentDialog({
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-ink-900">تفعيل التعديل فوراً</span>
               <span className="text-2xs text-ink-500">
-                سيُضاف إلى المجموع الفعلي. يمكن إيقافه لاحقاً من السجل.
+                سيُضاف إلى المجموع بعد التعديل. يمكن إيقافه لاحقاً من السجل.
               </span>
             </div>
             <button

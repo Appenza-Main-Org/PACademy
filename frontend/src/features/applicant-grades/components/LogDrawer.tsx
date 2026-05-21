@@ -77,7 +77,7 @@ export function LogDrawer({
           {/* Live totals strip */}
           <div className="flex items-stretch overflow-hidden rounded-md border border-border-subtle">
             <MiniStat
-              label="المجموع الأصلي"
+              label="المجموع الإجمالي"
               value={String(row.total)}
               sub={`من ${row.max}`}
               overrideHint={row.isOverridden}
@@ -88,7 +88,7 @@ export function LogDrawer({
               tone="gold"
             />
             <MiniStat
-              label="الفعلي الحالي"
+              label="المجموع بعد التعديل"
               value={String(row.eff)}
               sub={`${row.effPct.toFixed(2)}٪`}
               tone="strong"

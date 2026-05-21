@@ -643,13 +643,17 @@ export function ApplicantGradesPage(): JSX.Element {
       filter: { kind: 'number', getValue: (r) => r.eff },
       className: 'min-w-[18ch] font-numeric tabular-nums whitespace-nowrap',
       render: (r) => (
-        <span className="flex items-center justify-center gap-2">
-          <span
-            className={`font-bold ${
-              r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-900'
-            }`}
-          >
-            {Math.round(r.eff)}
+        <span className="flex items-center justify-center gap-2 whitespace-nowrap">
+          <span>
+            <span
+              className={`font-bold ${
+                r.adj > 0 ? 'text-gold-700' : r.adj < 0 ? 'text-terra-700' : 'text-ink-900'
+              }`}
+            >
+              {Math.round(r.eff)}
+            </span>
+            <span className="text-2xs text-ink-300"> / </span>
+            <span className="text-2xs text-ink-400">{Math.round(r.max)}</span>
           </span>
           {r.adj !== 0 && (
             <Badge
@@ -680,14 +684,20 @@ export function ApplicantGradesPage(): JSX.Element {
         getValue: (r) => r.schoolCategoryCode ?? '',
         options: activeSchoolCategories.map((c) => ({ value: c.code, label: c.name })),
       },
-      className: 'min-w-[13ch] max-w-[18ch]',
+      className: 'min-w-[18ch] max-w-[26ch]',
       render: (r) =>
         r.schoolCategoryCode ? (
-          <Badge tone={r.schoolCategoryCode === 'SCH-03' ? 'warning' : 'info'}>
-            <span className="max-w-[16ch] truncate">
+          <span
+            className={`inline-flex max-w-[24ch] items-center rounded-full border px-3 py-1 text-center text-2xs font-medium leading-snug ${
+              r.schoolCategoryCode === 'SCH-03'
+                ? 'border-gold-200 bg-gold-50 text-gold-700'
+                : 'border-teal-100 bg-teal-50 text-teal-800'
+            }`}
+          >
+            <span className="line-clamp-2 whitespace-normal break-words">
               {schoolCategoryLabel.get(r.schoolCategoryCode) ?? r.schoolCategoryCode}
             </span>
-          </Badge>
+          </span>
         ) : (
           <span className="text-2xs text-ink-300">—</span>
         ),
@@ -698,10 +708,13 @@ export function ApplicantGradesPage(): JSX.Element {
       sortable: true,
       getSortValue: (r) => r.school,
       filter: { kind: 'text', getValue: (r) => r.school },
-      className: 'min-w-[16ch] max-w-[24ch]',
+      className: 'min-w-[24ch] max-w-[36ch]',
       render: (r) =>
         r.school.trim() !== '' ? (
-          <span className="block max-w-[22ch] truncate text-xs text-ink-700" title={r.school}>
+          <span
+            className="line-clamp-2 max-w-[34ch] whitespace-normal break-words text-xs leading-relaxed text-ink-700"
+            title={r.school}
+          >
             {r.school}
           </span>
         ) : (

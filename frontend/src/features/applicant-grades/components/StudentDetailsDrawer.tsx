@@ -10,6 +10,7 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  Calculator,
   GraduationCap,
   History,
   IdCard,
@@ -17,8 +18,8 @@ import {
   Percent,
   Plus,
   School,
-  Sheet,
   Sigma,
+  UserRound,
 } from 'lucide-react';
 import { Badge, Button, Drawer } from '@/shared/components';
 import { initials } from '@/shared/lib/format';
@@ -44,10 +45,34 @@ export function StudentDetailsDrawer({
   const [tab, setTab] = useState<Tab>('basic');
   const [editMaxOpen, setEditMaxOpen] = useState(false);
 
-  const tabs: Array<{ v: Tab; label: string; count: number | null }> = [
-    { v: 'basic', label: 'بيانات أساسية', count: 9 },
-    { v: 'grades', label: 'الدرجات', count: null },
-    { v: 'log', label: 'سجل التعديلات', count: row.log.length },
+  const tabs: Array<{
+    v: Tab;
+    label: string;
+    helper: string;
+    count: number | null;
+    icon: ReactNode;
+  }> = [
+    {
+      v: 'basic',
+      label: 'بيانات الطالب',
+      helper: 'هوية ومدرسة',
+      count: null,
+      icon: <UserRound size={15} strokeWidth={1.75} aria-hidden />,
+    },
+    {
+      v: 'grades',
+      label: 'الدرجات',
+      helper: 'الأصلي والتعديل',
+      count: null,
+      icon: <Calculator size={15} strokeWidth={1.75} aria-hidden />,
+    },
+    {
+      v: 'log',
+      label: 'التعديلات',
+      helper: 'سجل الحركة',
+      count: row.log.length,
+      icon: <History size={15} strokeWidth={1.75} aria-hidden />,
+    },
   ];
 
   return (
@@ -91,33 +116,37 @@ export function StudentDetailsDrawer({
           </div>
         }
         subtitle={
-          /* Tabs nav — `gap-6` between triggers (≈ `gap-lg` on our 4px-step
-           * scale), `gap-1` between label and count (≈ `gap-xs`). The count
-           * uses the shared `Badge tone="neutral"` so it picks up the
-           * project's muted-ink palette (`bg-ink-100 text-ink-700`) and
-           * standard pill chrome — `min-w-5` keeps the 1-vs-15 widths even
-           * so the active-tab underline doesn't shift. The underline binds
-           * to `border-accent-500` so it picks up the per-app accent
-           * token from `data-app="admin"`. */
-          <nav className="mt-3 flex gap-1 overflow-x-auto border-b border-border-subtle pb-px">
+          <nav className="mt-4 grid grid-cols-3 gap-2 rounded-lg border border-border-subtle bg-ink-50 p-1.5">
             {tabs.map((t) => {
               const active = tab === t.v;
               return (
                 <button
                   key={t.v}
                   onClick={() => setTab(t.v)}
-                  className={`-mb-px inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-t-md border-0 border-b-2 px-3 py-2 text-sm transition-colors ${
+                  className={`flex min-w-0 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-start transition-colors ${
                     active
-                      ? 'border-accent-500 bg-surface-card font-semibold text-ink-900'
-                      : 'border-transparent bg-transparent font-medium text-ink-500 hover:bg-ink-50 hover:text-ink-700'
+                      ? 'border-teal-200 bg-white text-ink-900 shadow-xs'
+                      : 'border-transparent bg-transparent text-ink-500 hover:bg-white/70 hover:text-ink-700'
                   }`}
                 >
-                  {t.label}
-                  {t.count != null && (
-                    <Badge tone="neutral" className="min-w-5 justify-center !px-2 font-en tabular-nums">
-                      {t.count}
-                    </Badge>
-                  )}
+                  <span
+                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${
+                      active ? 'bg-teal-50 text-teal-700' : 'bg-white text-ink-500'
+                    }`}
+                  >
+                    {t.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-sm font-bold">
+                      {t.label}
+                      {t.count != null && (
+                        <span className="rounded-full bg-ink-100 px-1.5 font-en text-2xs text-ink-600">
+                          {t.count}
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block truncate text-2xs text-ink-500">{t.helper}</span>
+                  </span>
                 </button>
               );
             })}
@@ -128,7 +157,7 @@ export function StudentDetailsDrawer({
           {/* Pinned summary */}
           <div className="-mx-6 -mt-6 mb-5 grid grid-cols-2 gap-2 border-b border-border-subtle bg-ink-50 px-6 py-4 lg:grid-cols-4">
             <PinStat
-              label="المجموع"
+              label="المجموع الإجمالي"
               value={String(Math.round(row.total))}
               sub={`من ${Math.round(row.max)}`}
               overrideHint={row.isOverridden}
@@ -140,14 +169,14 @@ export function StudentDetailsDrawer({
               icon={<Percent size={14} strokeWidth={1.75} aria-hidden />}
             />
             <PinStat
-              label="الفعلي"
+              label="المجموع بعد التعديل"
               value={String(Math.round(row.eff))}
               tone="gold"
               sub={(row.eff - row.total >= 0 ? '+' : '') + Math.round(row.eff - row.total)}
               icon={<Sigma size={14} strokeWidth={1.75} aria-hidden />}
             />
             <PinStat
-              label="الفعلي %"
+              label="نسبة بعد التعديل"
               value={`${row.effPct.toFixed(2)}٪`}
               tone="gold-strong"
               icon={<Percent size={14} strokeWidth={1.75} aria-hidden />}
@@ -292,13 +321,12 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
               <School size={15} strokeWidth={1.75} aria-hidden />
             </span>
             <div>
-              <h3 className="m-0 text-sm font-bold text-ink-900">البيانات المستوردة</h3>
+              <h3 className="m-0 text-sm font-bold text-ink-900">بيانات الطالب والمدرسة</h3>
               <p className="m-0 mt-0.5 text-2xs text-ink-500">
                 {row.kind === 'general' ? 'ثانوية عامة' : 'ثانوية أزهرية'}
               </p>
             </div>
           </div>
-          <Badge tone="neutral">{fields.length} حقول</Badge>
         </header>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {fields.map((f) => (
@@ -307,30 +335,6 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
              * label is what the iteration is keyed by visually. */
             <KV key={f.label} {...f} />
           ))}
-        </div>
-      </section>
-
-      {/* Import-source card.
-       *
-       * No "تنزيل المصدر" action button — the mock layer never wired
-       * a download endpoint, and the real backend won't expose one
-       * for raw source files (the import-staged copy is the source
-       * of truth, not the original spreadsheet). Admins who need the
-       * file go through the cycle's audit log, not this card. */}
-      <section className="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-card p-3.5">
-        <div className="grid h-8 w-8 place-items-center rounded-md bg-teal-50 text-teal-700">
-          <Sheet size={14} aria-hidden />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold text-ink-900">
-            {row.kind === 'general'
-              ? 'درجات_الثانوية_العامة_2026.xlsx'
-              : 'درجات_الثانوية_الأزهرية_2026.xlsx'}
-          </div>
-          <div className="text-2xs text-ink-500">
-            استورده <strong className="text-ink-700">مرتضى محمود</strong> ·{' '}
-            <span className="font-en">١٤ مايو ٢٠٢٦ · ٠٩:١٢ ص</span>
-          </div>
         </div>
       </section>
 
@@ -360,7 +364,7 @@ function GradesTab({ row, onEditMax }: { row: DerivedRow; onEditMax: () => void 
           <div>
             <h3 className="m-0 text-sm font-bold text-ink-900">احتساب الدرجة</h3>
             <p className="m-0 mt-0.5 text-2xs text-ink-500">
-              المجموع الأصلي، التعديلات، والنتيجة النهائية للطالب.
+              المجموع الإجمالي، التعديلات، والمجموع بعد التعديل للطالب.
             </p>
           </div>
         </div>
@@ -370,7 +374,7 @@ function GradesTab({ row, onEditMax }: { row: DerivedRow; onEditMax: () => void 
       </header>
 
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        <BigStat label="المجموع الأصلي" value={String(Math.round(row.total))} sub={`من ${Math.round(row.max)}`} />
+        <BigStat label="المجموع الإجمالي" value={String(Math.round(row.total))} sub={`من ${Math.round(row.max)}`} />
         <BigStat
           label="الحد الأقصى"
           value={String(Math.round(row.max))}
@@ -388,7 +392,7 @@ function GradesTab({ row, onEditMax }: { row: DerivedRow; onEditMax: () => void 
         />
         <div className="sm:col-span-2">
           <BigStat
-            label="الفعلي النهائي"
+            label="المجموع بعد التعديل"
             value={`${Math.round(row.eff)} · ${row.effPct.toFixed(2)}٪`}
             tone="success"
           />
@@ -397,7 +401,7 @@ function GradesTab({ row, onEditMax }: { row: DerivedRow; onEditMax: () => void 
 
       <div className="rounded-lg border border-border-subtle bg-surface-card p-4">
         <div className="mb-2 flex items-center justify-between gap-2 text-2xs text-ink-500">
-          <span>الفعلي مقابل الحد الأقصى</span>
+          <span>المجموع بعد التعديل مقابل الحد الأقصى</span>
           <span className="font-en font-semibold text-ink-700">{row.effPct.toFixed(2)}٪</span>
         </div>
         <div className="relative h-3.5 overflow-hidden rounded-full bg-ink-100">
