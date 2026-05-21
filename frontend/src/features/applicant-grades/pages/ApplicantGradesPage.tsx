@@ -27,6 +27,7 @@ import {
   Info,
   Layers,
   ListChecks,
+  Loader2,
   MoreVertical,
   Plus,
   Search,
@@ -80,7 +81,7 @@ type OverlayState =
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 const DEFAULT_PAGE_SIZE = 25;
-const MAX_PAGE_SIZE = 10_000;
+const MAX_PAGE_SIZE = 100;
 
 function parsePageSize(raw: string | null): number {
   const n = Number(raw);
@@ -196,6 +197,7 @@ export function ApplicantGradesPage(): JSX.Element {
   const [sort, setSort] = useState<DataTableSort<DerivedRow> | null>(null);
   const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({});
   const [exporting, setExporting] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<(string | number)[]>([]);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
@@ -242,7 +244,26 @@ export function ApplicantGradesPage(): JSX.Element {
     [columnFilters],
   );
 
-  const { data: paginatedData, isLoading } = useApplicantGradesList({
+  useEffect(() => {
+    const rawSize = searchParams.get('size');
+    if (rawSize == null) return;
+    if (String(pageSize) === rawSize) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('size', String(pageSize));
+        next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [pageSize, searchParams, setSearchParams]);
+
+  const {
+    data: paginatedData,
+    isLoading,
+    isFetching,
+  } = useApplicantGradesList({
     page,
     pageSize,
     search: qFromUrl,
@@ -256,7 +277,7 @@ export function ApplicantGradesPage(): JSX.Element {
   });
   /* Keep the unpaginated query alive so the stats strip + overlay
    * drawers have the full set of rows to render against. */
-  const { data: allRows } = useGrades();
+  const { data: allRows, isLoading: isAllRowsLoading, isFetching: isAllRowsFetching } = useGrades();
 
   const rows = paginatedData?.rows ?? [];
   const total = paginatedData?.total ?? 0;
@@ -265,6 +286,9 @@ export function ApplicantGradesPage(): JSX.Element {
   const generalCount = (allRows ?? []).filter((r) => r.kind === 'general').length;
   const azharCount = (allRows ?? []).filter((r) => r.kind === 'azhar').length;
   const withAdjCount = (allRows ?? []).filter((r) => r.log.some((x) => x.isActive)).length;
+  const isInitialTableLoading = isLoading && !paginatedData;
+  const isTableRefreshing = isFetching && Boolean(paginatedData);
+  const isStatsLoading = isAllRowsLoading && allRows == null;
 
   /* Branch + year filter options are derived from rows actually present
    * in the dataset. The year filter is back-padded with the last 10
@@ -463,6 +487,18 @@ export function ApplicantGradesPage(): JSX.Element {
       toast('تعذّر تصدير الملف. حاول مرة أخرى.', 'danger');
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function handleTemplateDownload(): Promise<void> {
+    if (downloadingTemplate) return;
+    setDownloadingTemplate(true);
+    try {
+      await downloadTemplateWorkbook();
+    } catch {
+      toast('تعذّر تنزيل نموذج الدرجات. حاول مرة أخرى.', 'danger');
+    } finally {
+      setDownloadingTemplate(false);
     }
   }
 
@@ -697,9 +733,9 @@ export function ApplicantGradesPage(): JSX.Element {
     },
   ];
 
-  const isEmpty = totalsAll === 0;
+  const isEmpty = !isInitialTableLoading && !isAllRowsLoading && total === 0 && totalsAll === 0;
 
-  if (isLoading && !paginatedData) {
+  if (isInitialTableLoading) {
     return (
       <div>
         <PageHeader
@@ -725,7 +761,9 @@ export function ApplicantGradesPage(): JSX.Element {
             <Button
               variant="ghost"
               leadingIcon={<FileText size={14} strokeWidth={1.75} />}
-              onClick={() => void downloadTemplateWorkbook()}
+              isLoading={downloadingTemplate}
+              loadingLabel="جارٍ تنزيل النموذج..."
+              onClick={() => void handleTemplateDownload()}
             >
               تنزيل نموذج الدرجات
             </Button>
@@ -743,6 +781,8 @@ export function ApplicantGradesPage(): JSX.Element {
                     variant="secondary"
                     leadingIcon={<Download size={14} strokeWidth={1.75} />}
                     disabled={exporting}
+                    isLoading={exporting}
+                    loadingLabel="جارٍ التصدير..."
                   >
                     تصدير الدرجات
                   </Button>
@@ -774,6 +814,9 @@ export function ApplicantGradesPage(): JSX.Element {
                 variant="ghost"
                 leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
                 onClick={() => setConfirmReset(true)}
+                disabled={clearMut.isPending}
+                isLoading={clearMut.isPending}
+                loadingLabel="جارٍ التصفير..."
                 className="!text-terra-700 hover:!bg-terra-50"
               >
                 تصفير البيانات
@@ -800,26 +843,26 @@ export function ApplicantGradesPage(): JSX.Element {
           >
             <StatCard
               label="إجمالي الطلاب"
-              value={totalsAll}
+              value={isStatsLoading ? '...' : totalsAll}
               icon={<Layers size={16} strokeWidth={1.75} />}
             />
             <StatCard
               label="ثانوية عامة"
-              value={generalCount}
+              value={isStatsLoading ? '...' : generalCount}
               icon={<FileSpreadsheet size={16} strokeWidth={1.75} />}
               iconBg="var(--teal-50)"
               iconColor="var(--teal-700)"
             />
             <StatCard
               label="ثانوية أزهرية"
-              value={azharCount}
+              value={isStatsLoading ? '...' : azharCount}
               icon={<FileSpreadsheet size={16} strokeWidth={1.75} />}
               iconBg="var(--gold-50)"
               iconColor="var(--gold-700)"
             />
             <StatCard
               label="صفوف بها تعديلات"
-              value={withAdjCount}
+              value={isStatsLoading ? '...' : withAdjCount}
               icon={<History size={16} strokeWidth={1.75} />}
               iconBg="var(--gold-50)"
               iconColor="var(--gold-700)"
@@ -827,7 +870,7 @@ export function ApplicantGradesPage(): JSX.Element {
           </div>
 
           <Card>
-            <CardBody className="card-body">
+            <CardBody className="card-body" aria-busy={isTableRefreshing || undefined}>
               <div className="filters">
                 <div className="search flex-1" style={{ minInlineSize: 360 }}>
                   <input
@@ -837,6 +880,7 @@ export function ApplicantGradesPage(): JSX.Element {
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     aria-label="بحث"
+                    disabled={isTableRefreshing}
                   />
                   <Search size={18} />
                 </div>
@@ -844,6 +888,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   aria-label="تصفية حسب النوع"
                   value={genderFromUrl}
                   onChange={(e) => setFilter('gender', e.target.value)}
+                  disabled={isTableRefreshing}
                   className={genderFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined}
                   options={[
                     { value: 'all', label: 'كل الأنواع' },
@@ -856,6 +901,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   aria-label="تصفية حسب الشعبة"
                   value={branchFromUrl}
                   onChange={(e) => setFilter('branch', e.target.value)}
+                  disabled={isTableRefreshing}
                   className={branchFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined}
                   options={[
                     { value: 'all', label: 'كل الشعب' },
@@ -867,6 +913,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   aria-label="تصفية حسب سنة التخرج"
                   value={yearFromUrl === 'all' ? 'all' : String(yearFromUrl)}
                   onChange={(e) => setFilter('year', e.target.value)}
+                  disabled={isTableRefreshing}
                   className={yearFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined}
                   options={[
                     { value: 'all', label: 'كل السنوات' },
@@ -878,6 +925,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   aria-label="تصفية حسب فئة المدرسة"
                   value={schoolCategoryFromUrl}
                   onChange={(e) => setFilter('school', e.target.value)}
+                  disabled={isTableRefreshing}
                   className={
                     schoolCategoryFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined
                   }
@@ -892,6 +940,7 @@ export function ApplicantGradesPage(): JSX.Element {
                   role="switch"
                   aria-checked={changedOnly}
                   onClick={() => setChangedOnly(!changedOnly)}
+                  disabled={isTableRefreshing}
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                   style={{
                     background: changedOnly ? 'var(--gold-500)' : 'var(--surface-card)',
@@ -936,11 +985,11 @@ export function ApplicantGradesPage(): JSX.Element {
                   <span>
                     عرض{' '}
                     <span className="font-numeric font-medium tabular-nums text-ink-700">
-                      {total.toLocaleString('en')}
+                      {isTableRefreshing ? '...' : total.toLocaleString('en')}
                     </span>{' '}
                     من{' '}
                     <span className="font-numeric font-medium tabular-nums text-ink-700">
-                      {totalsAll.toLocaleString('en')}
+                      {isStatsLoading || isAllRowsFetching ? '...' : totalsAll.toLocaleString('en')}
                     </span>{' '}
                     صف
                   </span>
@@ -964,6 +1013,8 @@ export function ApplicantGradesPage(): JSX.Element {
                     variant="danger"
                     size="sm"
                     leadingIcon={<Trash2 size={13} strokeWidth={1.75} aria-hidden />}
+                    isLoading={deleteMut.isPending}
+                    loadingLabel="جارٍ الحذف..."
                     onClick={openBulkDeleteDialog}
                   >
                     حذف المحدد
@@ -971,74 +1022,83 @@ export function ApplicantGradesPage(): JSX.Element {
                 </div>
               )}
 
-              <DataTable<DerivedRow>
-                data={derived}
-                columns={columns}
-                rowKey={(r) => r.seat}
-                selectionMode="multi"
-                selectedRowKeys={selectedRowKeys}
-                onSelectionChange={setSelectedRowKeys}
-                sort={sort}
-                onSortChange={setSort}
-                columnFilters={columnFilters}
-                onColumnFiltersChange={handleColumnFiltersChange}
-                onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
-                empty={
-                  <EmptyState
-                    variant="generic"
-                    title="لا نتائج مطابقة"
-                    description={
-                      qFromUrl
-                        ? `لا توجد نتائج لـ "${qFromUrl}"`
-                        : 'لا توجد صفوف مطابقة للتصفية الحالية'
-                    }
-                    icon={<Search size={28} strokeWidth={1.5} />}
-                    action={
-                      hasActiveFilters ? (
-                        <Button variant="ghost" onClick={clearAllFilters}>
-                          مسح التصفية
-                        </Button>
-                      ) : undefined
-                    }
-                  />
-                }
-                zebraStripes
-                stickyHeader
-                density="compact"
-              />
+              <div className="relative">
+                <DataTable<DerivedRow>
+                  data={derived}
+                  columns={columns}
+                  rowKey={(r) => r.seat}
+                  loading={isInitialTableLoading}
+                  selectionMode="multi"
+                  selectedRowKeys={selectedRowKeys}
+                  onSelectionChange={setSelectedRowKeys}
+                  sort={sort}
+                  onSortChange={setSort}
+                  columnFilters={columnFilters}
+                  onColumnFiltersChange={handleColumnFiltersChange}
+                  onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
+                  empty={
+                    <EmptyState
+                      variant="generic"
+                      title="لا نتائج مطابقة"
+                      description={
+                        qFromUrl
+                          ? `لا توجد نتائج لـ "${qFromUrl}"`
+                          : 'لا توجد صفوف مطابقة للتصفية الحالية'
+                      }
+                      icon={<Search size={28} strokeWidth={1.5} />}
+                      action={
+                        hasActiveFilters ? (
+                          <Button variant="ghost" onClick={clearAllFilters}>
+                            مسح التصفية
+                          </Button>
+                        ) : undefined
+                      }
+                    />
+                  }
+                  zebraStripes
+                  stickyHeader
+                  density="compact"
+                />
 
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle bg-surface-card px-4 py-2 text-sm text-ink-500">
-                <span className="font-numeric tnum">
-                  عرض{' '}
-                  <span className="text-ink-900">{toEasternArabicNumerals(from)}</span>
-                  –<span className="text-ink-900">{toEasternArabicNumerals(to)}</span> من{' '}
-                  <span className="text-ink-900">{toEasternArabicNumerals(total)}</span>
-                </span>
-                <PageSizeSelector pageSize={pageSize} onChange={setSize} />
-
-                <div className="flex items-center gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setPage(page - 1)}
-                    disabled={page <= 1}
-                    aria-label="الصفحة السابقة"
-                  >
-                    السابق
-                  </Button>
-                  <span className="px-2 font-en">
-                    {page} / {totalPages}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle bg-surface-card px-4 py-2 text-sm text-ink-500">
+                  <span className="font-numeric tnum">
+                    عرض{' '}
+                    <span className="text-ink-900">{toEasternArabicNumerals(from)}</span>
+                    –<span className="text-ink-900">{toEasternArabicNumerals(to)}</span> من{' '}
+                    <span className="text-ink-900">{toEasternArabicNumerals(total)}</span>
                   </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setPage(page + 1)}
-                    disabled={page >= totalPages}
-                    aria-label="الصفحة التالية"
-                  >
-                    التالي
-                  </Button>
+                  <PageSizeSelector pageSize={pageSize} disabled={isTableRefreshing} onChange={setSize} />
+
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setPage(page - 1)}
+                      disabled={page <= 1 || isTableRefreshing}
+                      isLoading={isTableRefreshing && page > 1}
+                      loadingLabel="جارٍ التحميل..."
+                      aria-label="الصفحة السابقة"
+                    >
+                      السابق
+                    </Button>
+                    <span className="px-2 font-en">
+                      {page} / {totalPages}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setPage(page + 1)}
+                      disabled={page >= totalPages || isTableRefreshing}
+                      isLoading={isTableRefreshing && page < totalPages}
+                      loadingLabel="جارٍ التحميل..."
+                      aria-label="الصفحة التالية"
+                    >
+                      التالي
+                    </Button>
+                  </div>
                 </div>
+
+                {isTableRefreshing && <DataRefreshOverlay />}
               </div>
             </CardBody>
           </Card>
@@ -1222,9 +1282,11 @@ function EmptyGradesCard({ onImport }: { onImport: () => void }): JSX.Element {
  *  reveals a numeric input for any positive integer ≤ MAX_PAGE_SIZE. */
 function PageSizeSelector({
   pageSize,
+  disabled = false,
   onChange,
 }: {
   pageSize: number;
+  disabled?: boolean;
   onChange: (size: number) => void;
 }): JSX.Element {
   const isPreset = (PAGE_SIZE_OPTIONS as readonly number[]).includes(pageSize);
@@ -1243,6 +1305,7 @@ function PageSizeSelector({
       <Select
         aria-label="عدد الصفوف لكل صفحة"
         value={customMode ? 'custom' : String(pageSize)}
+        disabled={disabled}
         onChange={(e) => {
           if (e.target.value === 'custom') {
             setCustomMode(true);
@@ -1265,6 +1328,7 @@ function PageSizeSelector({
           min={1}
           max={MAX_PAGE_SIZE}
           value={draft}
+          disabled={disabled}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commitCustom}
           onKeyDown={(e) => {
@@ -1279,6 +1343,21 @@ function PageSizeSelector({
           dir="ltr"
         />
       )}
+    </div>
+  );
+}
+
+function DataRefreshOverlay(): JSX.Element {
+  return (
+    <div
+      className="absolute inset-0 z-raised flex items-start justify-center bg-white/70 pt-10 backdrop-blur-[1px]"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-white px-4 py-2 text-sm font-semibold text-teal-700 shadow-sm">
+        <Loader2 size={16} className="animate-spin" strokeWidth={1.75} aria-hidden />
+        جارٍ تحديث البيانات...
+      </div>
     </div>
   );
 }

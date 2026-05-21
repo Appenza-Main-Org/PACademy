@@ -7,7 +7,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Eye, History, Plus, Trash2 } from 'lucide-react';
+import { Eye, History, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Badge, Button, Drawer } from '@/shared/components';
 import { useDeleteAdjustment, useToggleAdjustment } from '../api/grades.queries';
 import type { DerivedRow } from '../lib/derive';
@@ -146,6 +146,14 @@ export function LogDrawer({
                 <LogEntry
                   key={entry.id}
                   entry={entry}
+                  isToggling={
+                    toggleMutation.isPending
+                    && toggleMutation.variables?.entryId === entry.id
+                  }
+                  isDeleting={
+                    deleteMutation.isPending
+                    && deleteMutation.variables?.entryId === entry.id
+                  }
                   onToggle={() =>
                     toggleMutation.mutate({ seat: row.seat, entryId: entry.id })
                   }
@@ -210,11 +218,19 @@ function MiniStat({
 
 interface EntryProps {
   entry: DerivedRow['log'][number];
+  isToggling?: boolean;
+  isDeleting?: boolean;
   onToggle: () => void;
   onDelete: () => void;
 }
 
-function LogEntry({ entry, onToggle, onDelete }: EntryProps): JSX.Element {
+function LogEntry({
+  entry,
+  isToggling = false,
+  isDeleting = false,
+  onToggle,
+  onDelete,
+}: EntryProps): JSX.Element {
   const { reasonLabel, reason, note, amount, by, when, isActive, fresh } = entry;
   const positive = amount > 0;
   const dotBorder = isActive
@@ -267,28 +283,40 @@ function LogEntry({ entry, onToggle, onDelete }: EntryProps): JSX.Element {
               onClick={onToggle}
               role="switch"
               aria-checked={isActive}
+              aria-busy={isToggling || undefined}
+              disabled={isToggling || isDeleting}
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border-default bg-white px-2.5 py-1 text-2xs text-ink-700"
             >
-              <span
-                className={`relative h-3 w-[22px] rounded-full transition-colors ${
-                  isActive ? 'bg-teal-500' : 'bg-ink-300'
-                }`}
-              >
+              {isToggling ? (
+                <Loader2 size={12} className="animate-spin" strokeWidth={1.75} aria-hidden />
+              ) : (
                 <span
-                  className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-[inset-inline-start] ${
-                    isActive ? 'start-[11px]' : 'start-0.5'
+                  className={`relative h-3 w-[22px] rounded-full transition-colors ${
+                    isActive ? 'bg-teal-500' : 'bg-ink-300'
                   }`}
-                />
-              </span>
-              {isActive ? 'نشط' : 'موقوف'}
+                >
+                  <span
+                    className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-[inset-inline-start] ${
+                      isActive ? 'start-[11px]' : 'start-0.5'
+                    }`}
+                  />
+                </span>
+              )}
+              {isToggling ? 'جارٍ الحفظ...' : isActive ? 'نشط' : 'موقوف'}
             </button>
             <button
               type="button"
               onClick={onDelete}
               aria-label="حذف"
+              aria-busy={isDeleting || undefined}
+              disabled={isToggling || isDeleting}
               className="inline-grid h-6 w-6 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-terra-700"
             >
-              <Trash2 size={14} />
+              {isDeleting ? (
+                <Loader2 size={14} className="animate-spin" strokeWidth={1.75} aria-hidden />
+              ) : (
+                <Trash2 size={14} />
+              )}
             </button>
           </div>
         </footer>

@@ -95,10 +95,10 @@ function appendIf(params: URLSearchParams, key: string, value: string | number |
   params.set(key, String(value));
 }
 
-async function fetchBackendRows(input?: Partial<FilterInput> & { sort?: ApplicantGradesSort | null }): Promise<GradeRow[]> {
-  const params = new URLSearchParams();
-  params.set('page', '1');
-  params.set('size', '10000');
+function appendBackendFilters(
+  params: URLSearchParams,
+  input?: Partial<FilterInput> & { sort?: ApplicantGradesSort | null },
+): void {
   appendIf(params, 'q', input?.search);
   appendIf(params, 'sort', sortParam(input?.sort));
   appendIf(params, 'gender', input?.gender);
@@ -106,8 +106,36 @@ async function fetchBackendRows(input?: Partial<FilterInput> & { sort?: Applican
   appendIf(params, 'year', input?.graduationYear);
   appendIf(params, 'school', input?.schoolCategoryCode);
   appendIf(params, 'changed', input?.changedOnly);
+}
+
+async function fetchBackendRows(input?: Partial<FilterInput> & { sort?: ApplicantGradesSort | null }): Promise<GradeRow[]> {
+  const params = new URLSearchParams();
+  params.set('page', '1');
+  params.set('size', '10000');
+  appendBackendFilters(params, input);
   const result = await apiJson<{ rows: GradeRow[]; total: number }>(ADMIN_API_BASE, `/api/grades?${params}`);
   return result.rows;
+}
+
+async function fetchBackendPage(input: FilterInput & {
+  page: number;
+  pageSize: number;
+  sort?: ApplicantGradesSort | null;
+}): Promise<{ rows: GradeRow[]; total: number }> {
+  const params = new URLSearchParams();
+  params.set('page', String(input.page));
+  params.set('size', String(input.pageSize));
+  appendBackendFilters(params, input);
+  return apiJson<{ rows: GradeRow[]; total: number }>(ADMIN_API_BASE, `/api/grades?${params}`);
+}
+
+function hasClientOnlyColumnFilters(filters: ApplicantGradesColumnFilters | undefined): boolean {
+  if (!filters) return false;
+  return Object.values(filters).some((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === 'string') return value.trim() !== '';
+    return value !== undefined && value !== null;
+  });
 }
 
 type BackendIssueRow = {
@@ -1143,6 +1171,9 @@ export const gradesService = {
     changedOnly?: boolean;
   }): Promise<{ rows: GradeRow[]; total: number }> {
     if (USE_BACKEND) {
+      if (!hasClientOnlyColumnFilters(input.columnFilters)) {
+        return fetchBackendPage(input);
+      }
       const rows = applyFilters(await fetchBackendRows(), input);
       sortInPlace(rows, input.sort);
       const total = rows.length;
