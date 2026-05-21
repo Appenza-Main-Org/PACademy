@@ -1,8 +1,8 @@
 /**
  * Cloud permission matrix — governs the two internet-facing apps only:
  * the admin app and the applicant portal. Operational on-prem modules
- * (committees, medical, investigations, board, exams, biometric, barcode,
- * workflows) deploy on the Ministry's on-prem cluster with their own
+ * (committee runtime, medical, investigations, board, exams, biometric,
+ * barcode) deploy on the Ministry's on-prem cluster with their own
  * separate RBAC surface and are intentionally absent here.
  *
  * Closed union — must not be extended to include on-prem operational
@@ -14,12 +14,19 @@ export type CloudSectionKey = 'admin' | 'applicant';
 
 export type CloudModuleKey =
   | 'cycles'
+  | 'categories'
   | 'application_setup'
+  | 'admission_rules'
   | 'lookups'
+  | 'lookup_mappings'
   | 'dashboard'
   | 'users_roles'
-  | 'payments_config'
+  | 'audit'
+  | 'settings'
   | 'notifications'
+  | 'applicant_grades'
+  | 'committees_exam_config'
+  | 'workflows'
   | 'applicants'
   | 'applicant_content'
   | 'applicant_documents'
@@ -32,7 +39,11 @@ export type CloudActionKey =
   | 'delete'
   | 'manage'
   | 'transition'
-  | 'approve';
+  | 'approve'
+  | 'export'
+  | 'toggle'
+  | 'import'
+  | 'sync';
 
 export interface CloudPermission {
   module: CloudModuleKey;
@@ -60,17 +71,24 @@ export interface CloudModule {
 }
 
 export const CLOUD_MODULES: readonly CloudModule[] = [
-  { key: 'cycles',            nameAr: 'دورات القبول',             section: 'admin', route: '/admin/cycles',          state: 'active'   },
-  { key: 'application_setup', nameAr: 'إعداد التقديم',             section: 'admin', route: '/admin/cycles/admission-setup', state: 'active'   },
-  { key: 'lookups',           nameAr: 'الأكواد المرجعية',          section: 'admin', route: '/admin/lookups',         state: 'active'   },
-  { key: 'dashboard',         nameAr: 'لوحة قيادة منظومة القبول',  section: 'admin', route: '/admin/reports',         state: 'active'   },
-  { key: 'users_roles',       nameAr: 'المستخدمون والصلاحيات',     section: 'admin', route: '/admin/users',           state: 'active'   },
-  { key: 'payments_config',   nameAr: 'إعدادات المدفوعات',         section: 'admin', route: null,                     state: 'disabled' },
-  { key: 'notifications',     nameAr: 'إدارة الإشعارات',           section: 'admin', route: '/admin/notifications',   state: 'active'   },
-  { key: 'applicants',          nameAr: 'المتقدمون',           section: 'applicant', route: '/admin/applicants', state: 'active' },
-  { key: 'applicant_content',   nameAr: 'محتوى البوابة',       section: 'applicant', route: null,                state: 'active' },
-  { key: 'applicant_documents', nameAr: 'مستندات المتقدمين',   section: 'applicant', route: null,                state: 'active' },
-  { key: 'applicant_payments',  nameAr: 'مدفوعات المتقدمين',   section: 'applicant', route: '/admin/payments',   state: 'active' },
+  { key: 'dashboard',               nameAr: 'لوحة قيادة منظومة القبول',       section: 'admin', route: '/admin/reports',                  state: 'active' },
+  { key: 'cycles',                  nameAr: 'دورات القبول',                  section: 'admin', route: '/admin/cycles',                   state: 'active' },
+  { key: 'categories',              nameAr: 'فئات التقديم',                  section: 'admin', route: '/admin/categories',               state: 'active' },
+  { key: 'application_setup',       nameAr: 'إعداد التقديم',                  section: 'admin', route: '/admin/cycles/admission-setup',   state: 'active' },
+  { key: 'admission_rules',         nameAr: 'شروط التقدم',                    section: 'admin', route: '/admin/admission-rules',          state: 'active' },
+  { key: 'lookups',                 nameAr: 'الأكواد المرجعية',               section: 'admin', route: '/admin/lookups',                  state: 'active' },
+  { key: 'lookup_mappings',         nameAr: 'خرائط الربط المرجعية',           section: 'admin', route: '/admin/lookups/mappings/:kind',   state: 'active' },
+  { key: 'applicant_grades',        nameAr: 'درجات المتقدمين',                section: 'admin', route: '/admin/applicant-grades',         state: 'active' },
+  { key: 'committees_exam_config',  nameAr: 'مواعيد الاختبارات واللجان',      section: 'admin', route: '/admin/committees-exam-config',  state: 'active' },
+  { key: 'workflows',               nameAr: 'سير العمل',                      section: 'admin', route: '/admin/workflows',                state: 'active' },
+  { key: 'users_roles',             nameAr: 'المستخدمون والصلاحيات',          section: 'admin', route: '/admin/users',                    state: 'active' },
+  { key: 'audit',                   nameAr: 'سجل النشاط',                     section: 'admin', route: '/admin/audit',                    state: 'active' },
+  { key: 'settings',                nameAr: 'الإعدادات العامة',               section: 'admin', route: '/admin/settings',                 state: 'active' },
+  { key: 'notifications',           nameAr: 'إدارة الإشعارات',                section: 'admin', route: '/admin/notifications',            state: 'active' },
+  { key: 'applicants',              nameAr: 'المتقدمون',                      section: 'applicant', route: '/admin/applicants',           state: 'active' },
+  { key: 'applicant_content',       nameAr: 'محتوى البوابة',                  section: 'applicant', route: null,                          state: 'active' },
+  { key: 'applicant_documents',     nameAr: 'مستندات المتقدمين',              section: 'applicant', route: null,                          state: 'active' },
+  { key: 'applicant_payments',      nameAr: 'مدفوعات المتقدمين',              section: 'applicant', route: '/admin/payments',             state: 'active' },
 ] as const;
 
 export interface CloudAction {
@@ -86,6 +104,10 @@ export const CLOUD_ACTIONS: readonly CloudAction[] = [
   { key: 'manage',     nameAr: 'إدارة' },
   { key: 'transition', nameAr: 'تغيير الحالة' },
   { key: 'approve',    nameAr: 'اعتماد' },
+  { key: 'export',     nameAr: 'تصدير' },
+  { key: 'toggle',     nameAr: 'تفعيل/تعطيل' },
+  { key: 'import',     nameAr: 'استيراد' },
+  { key: 'sync',       nameAr: 'مزامنة' },
 ] as const;
 
 type RowCapabilities = Record<CloudActionKey, boolean>;
@@ -96,17 +118,24 @@ type RowCapabilities = Record<CloudActionKey, boolean>;
  * regardless of this map.
  */
 export const ROW_CAPABILITY_MAP: Record<CloudModuleKey, RowCapabilities> = {
-  cycles:              { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: true  },
-  application_setup:   { view: true,  edit: true,  create: false, delete: false, manage: true,  transition: false, approve: true  },
-  lookups:             { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: false },
-  dashboard:           { view: true,  edit: false, create: false, delete: false, manage: false, transition: false, approve: false },
-  users_roles:         { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: false },
-  payments_config:     { view: false, edit: false, create: false, delete: false, manage: false, transition: false, approve: false },
-  notifications:       { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: true  },
-  applicants:          { view: true,  edit: true,  create: false, delete: true,  manage: true,  transition: true,  approve: false },
-  applicant_content:   { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: true  },
-  applicant_documents: { view: true,  edit: true,  create: false, delete: true,  manage: false, transition: false, approve: false },
-  applicant_payments:  { view: true,  edit: false, create: false, delete: false, manage: true,  transition: false, approve: true  },
+  dashboard:              { view: true,  edit: false, create: false, delete: false, manage: false, transition: false, approve: false, export: true,  toggle: false, import: false, sync: false },
+  cycles:                 { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: true,  export: true,  toggle: true,  import: false, sync: false },
+  categories:             { view: true,  edit: true,  create: false, delete: true,  manage: true,  transition: false, approve: true,  export: true,  toggle: true,  import: false, sync: false },
+  application_setup:      { view: true,  edit: true,  create: false, delete: false, manage: true,  transition: false, approve: true,  export: false, toggle: true,  import: false, sync: false },
+  admission_rules:        { view: true,  edit: true,  create: false, delete: false, manage: true,  transition: false, approve: true,  export: false, toggle: false, import: false, sync: false },
+  lookups:                { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: false, export: true,  toggle: true,  import: false, sync: false },
+  lookup_mappings:        { view: true,  edit: true,  create: false, delete: false, manage: true,  transition: false, approve: true,  export: true,  toggle: false, import: false, sync: false },
+  applicant_grades:       { view: true,  edit: true,  create: false, delete: true,  manage: true,  transition: false, approve: true,  export: true,  toggle: true,  import: true,  sync: false },
+  committees_exam_config: { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: true,  export: true,  toggle: true,  import: false, sync: true  },
+  workflows:              { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: true,  export: true,  toggle: true,  import: false, sync: false },
+  users_roles:            { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: false, export: true,  toggle: true,  import: true,  sync: false },
+  audit:                  { view: true,  edit: false, create: false, delete: false, manage: false, transition: false, approve: false, export: true,  toggle: false, import: false, sync: false },
+  settings:               { view: true,  edit: true,  create: false, delete: false, manage: true,  transition: false, approve: true,  export: false, toggle: true,  import: false, sync: false },
+  notifications:          { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: true,  export: true,  toggle: true,  import: false, sync: false },
+  applicants:             { view: true,  edit: true,  create: false, delete: true,  manage: true,  transition: true,  approve: false, export: true,  toggle: true,  import: false, sync: false },
+  applicant_content:      { view: true,  edit: true,  create: true,  delete: true,  manage: true,  transition: true,  approve: true,  export: true,  toggle: true,  import: false, sync: false },
+  applicant_documents:    { view: true,  edit: true,  create: false, delete: true,  manage: false, transition: false, approve: false, export: true,  toggle: false, import: false, sync: false },
+  applicant_payments:     { view: true,  edit: true,  create: false, delete: false, manage: true,  transition: false, approve: true,  export: true,  toggle: true,  import: false, sync: true  },
 };
 
 export function isRowDisabled(module: CloudModuleKey): boolean {
@@ -159,14 +188,22 @@ export function migrateLegacyPermission(perm: string): CloudPermission | null {
  */
 const LEGACY_MODULE_MAP: Record<string, CloudModuleKey | null> = {
   cycles: 'cycles',
+  categories: 'categories',
   'admission-setup': 'application_setup',
+  'admission-rules': 'admission_rules',
   lookups: 'lookups',
+  mappings: 'lookup_mappings',
   reports: 'dashboard',
   users: 'users_roles',
   roles: 'users_roles',
   notifications: 'notifications',
+  'applicant-grades': 'applicant_grades',
   applicants: 'applicants',
   payments: 'applicant_payments',
+  audit: 'audit',
+  settings: 'settings',
+  workflows: 'workflows',
+  'committees-exam-config': 'committees_exam_config',
   committees: null,
   medical: null,
   investigations: null,
@@ -175,9 +212,6 @@ const LEGACY_MODULE_MAP: Record<string, CloudModuleKey | null> = {
   questions: null,
   biometric: null,
   barcode: null,
-  workflows: null,
-  audit: null,
-  settings: null,
   results: null,
   applicant: null,
 };
@@ -193,6 +227,10 @@ const LEGACY_ACTION_MAP: Record<string, CloudActionKey | null> = {
   transition: 'transition',
   review: 'approve',
   approve: 'approve',
+  export: 'export',
+  toggle: 'toggle',
+  import: 'import',
+  sync: 'sync',
   print: 'view',
   verify: 'view',
   examine: 'view',
