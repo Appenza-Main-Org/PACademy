@@ -30,8 +30,64 @@ export type Role = (typeof ROLES)[number];
  */
 export type Permission =
   | '*'
+  | 'admin:view'
+  | 'reports:view'
+  | 'reports:export'
+  | 'dashboard:view'
+  | 'applicants:view'
+  | 'applicants:edit'
+  | 'applicants:transition'
+  | 'applicants:delete'
+  | 'cycles:view'
+  | 'cycles:create'
+  | 'cycles:edit'
+  | 'cycles:delete'
+  | 'cycles:transition'
+  | 'categories:view'
+  | 'categories:edit'
+  | 'categories:delete'
+  | 'lookups:view'
+  | 'lookups:create'
+  | 'lookups:edit'
+  | 'lookups:delete'
+  | 'lookups:transition'
+  | 'lookup-mappings:view'
+  | 'lookup-mappings:edit'
+  | 'applicant-grades:view'
+  | 'applicant-grades:import'
+  | 'applicant-grades:edit'
+  | 'committees-exam-config:view'
+  | 'committees-exam-config:edit'
+  | 'committees-exam-config:create'
+  | 'committees-exam-config:delete'
+  | 'committees-exam-config:transfer'
   | 'admission-setup:read'
-  | 'admission-setup:write';
+  | 'admission-setup:write'
+  | 'admission-rules:view'
+  | 'admission-rules:manage'
+  | 'users:view'
+  | 'users:create'
+  | 'users:edit'
+  | 'users:delete'
+  | 'users:manage'
+  | 'roles:view'
+  | 'roles:manage'
+  | 'audit:view'
+  | 'audit:export'
+  | 'settings:view'
+  | 'settings:manage'
+  | 'notifications:view'
+  | 'notifications:create'
+  | 'notifications:edit'
+  | 'notifications:delete'
+  | 'notifications:publish'
+  | 'payments:review'
+  | 'payments:sync'
+  | 'payments:approve'
+  | 'workflows:view'
+  | 'workflows:create'
+  | 'workflows:edit'
+  | 'workflows:delete';
 
 export interface RoleDefinition {
   labelAr: string;
@@ -49,9 +105,17 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
     labelAr: 'مدير لجنة قبول',
     apps: ['admin', 'committee', 'barcode', 'biometric'],
     permissions: [
+      'admin:view',
+      'reports:view',
       'applicants:view',
       'applicants:edit',
       'applicants:transition',
+      'cycles:view',
+      'categories:view',
+      'lookups:view',
+      'applicant-grades:view',
+      'committees-exam-config:view',
+      'committees-exam-config:edit',
       'committees:manage',
       'barcode:print',
       'biometric:verify',
