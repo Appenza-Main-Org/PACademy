@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Lookups;
@@ -6,7 +7,7 @@ using PACademy.Admin.Api.Modules.Audit;
 
 namespace PACademy.Admin.Api.Persistence;
 
-public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext
+public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext, IAdminRecordsDbContext
 {
     public DbSet<LookupRowEntity> LookupRows => Set<LookupRowEntity>();
     public DbSet<AuditRowEntity> AuditRows => Set<AuditRowEntity>();
@@ -16,6 +17,7 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<OfficerEntity> Officers => Set<OfficerEntity>();
+    public DbSet<AdminRecordEntity> AdminRecords => Set<AdminRecordEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -134,6 +136,19 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.OfficerCode).HasColumnName("officer_code").HasMaxLength(64);
             entity.Property(x => x.MobileNumber).HasColumnName("mobile_number").HasMaxLength(32);
             entity.Property(x => x.UserType).HasColumnName("user_type").HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<AdminRecordEntity>(entity =>
+        {
+            entity.ToTable("admin_records");
+            entity.HasKey(x => new { x.Module, x.Id });
+            entity.Property(x => x.Module).HasColumnName("module").HasMaxLength(96);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.Module).HasDatabaseName("ix_admin_records_module");
         });
     }
 }

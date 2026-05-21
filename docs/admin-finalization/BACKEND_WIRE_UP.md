@@ -122,6 +122,42 @@ Typed conflicts:
 - Duplicate user NID returns `USER_NID_DUPLICATE`.
 - Duplicate role key returns `ROLE_KEY_DUPLICATE`.
 
+### AdminRecords / Remaining Admin Surfaces
+
+Seed source:
+
+```text
+frontend/src/shared/mock-data/index.ts
+backend/admin/PACademy.Admin.Api/SeedData/admin-records.seed.json
+```
+
+Seed size: 6,451 backend records:
+
+- 2,847 applicants
+- 2,847 admin payments
+- 687 audit entries
+- 15 committee instances
+- 6 workflows
+- 4 notifications
+- workflow progress and transition records
+- KPI singleton
+
+Concrete endpoint groups now covered:
+
+- `/api/applicants`, `/api/v1/applicants/*`
+- `/api/admin/payments/*`
+- `/api/admin/notifications/*`
+- `/api/committee-instances/*`
+- `/api/v1/admin/workflows/*`
+- `/api/audit/*`
+- `/api/admin/reports/*`
+- `/api/admin/settings`
+- `/api/grades/*`
+- `/api/admin/app-settings/*`
+- `/api/admin/exam-schedule/*`
+- `/api/admin/committee-bindings/*`
+- `/api/admission-setup/*`
+
 ## Temporary Backend Fallback
 
 `AdminFallbackController` exists only to keep the frontend on real HTTP while the remaining vertical modules are completed. It covers missing admin endpoints with empty/safe envelopes and must be deleted as Priority B/C modules replace it.
@@ -129,15 +165,7 @@ Typed conflicts:
 Fallback-covered modules:
 
 - Auth/Identity details beyond lock-policy basics
-- Applicants
-- Applicant grades
-- Committees exam config
-- Workflows
-- Reports aggregates beyond placeholder shapes
-- Audit details beyond empty list/export
-- Settings
-- Notifications
-- Payments
+- Unknown admin API calls not yet represented by a concrete controller.
 
 ## RBAC Claims
 
@@ -175,6 +203,11 @@ curl http://localhost:5101/api/admin/categories
 curl http://localhost:5101/api/admission-rules/CYC-2026-M/current
 curl http://localhost:5101/api/users
 curl http://localhost:5101/api/roles
+curl 'http://localhost:5101/api/applicants?page=1&pageSize=3'
+curl http://localhost:5101/api/admin/payments
+curl http://localhost:5101/api/audit
+curl http://localhost:5101/api/committee-instances
+curl http://localhost:5101/api/admin/app-settings/category-configs
 ```
 
 Smoke results:
@@ -187,5 +220,11 @@ Smoke results:
 - `/api/users` returned 10 users.
 - `/api/roles` returned 12 roles.
 - `/api/roles/ROLE-SUPER_ADMIN/dependencies` returned one assigned user and `blocking: true`.
+- `/api/applicants?page=1&pageSize=3` returned total `2847`.
+- `/api/admin/payments` returned `2847` rows.
+- `/api/audit` returned `687` rows.
+- `/api/committee-instances` returned `15` rows.
+- `/api/admin/app-settings/category-configs`, `/api/admin/exam-schedule/cycles/CYC-2026-M`, and `/api/admin/committee-bindings/cycles/CYC-2026-M` returned HTTP 200.
+- OpenAPI contains 135 paths after the remaining admin controllers were added.
 - `/openapi/v1.json` returned 200.
 - `/scalar` returned 200 with redirect following.

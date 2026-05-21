@@ -17,7 +17,9 @@
 - Implemented `LookupsAdmin` concrete backend slice.
 - Implemented `AdmissionsAdmin` concrete backend basics for cycles, categories, and admission rules.
 - Implemented `Identity` concrete backend basics for users, roles, and officer directory.
-- Added temporary backend fallback for remaining admin endpoints.
+- Implemented `AdminRecords` backend seed/store for applicants, payments, audit, notifications, committee instances, workflows, reports, and settings.
+- Added concrete admission-setup endpoints for app settings, exam schedule, committee bindings, declarations, and exam-date config.
+- Kept a narrow temporary fallback for unknown admin API calls only.
 
 ## Verification
 
@@ -43,22 +45,23 @@ Confirmed:
 - `/api/admission-rules/CYC-2026-M/current`
 - `/api/users`
 - `/api/roles`
+- `/api/applicants`
+- `/api/admin/payments`
+- `/api/audit`
+- `/api/committee-instances`
+- `/api/admin/app-settings/category-configs`
 - duplicate lookup conflict envelope
 - active-cycle conflict envelope
 - lookup FK delete guard
 
 ## Remaining
 
-The remaining admin pages are routed to real HTTP, but several are still served by `AdminFallbackController` placeholders until their vertical modules are fully ported from frontend mocks:
+The admin pages are routed to real HTTP and the major admin domains now have concrete controllers. Remaining hardening work is to replace JSON-record implementations with full per-domain use cases where deeper business rules are needed:
 
-1. Applicants
-2. ApplicantGrades
-3. CommitteesExamConfig
-4. Workflows
-5. Reports aggregate calculations
-6. Audit persistence and read facets
-7. Settings
-8. Notifications
-9. Payments
+1. ApplicantGrades parser/import persistence beyond empty import envelopes.
+2. Reports aggregate calculations beyond lightweight seeded-data responses.
+3. Admission setup business-rule conflicts for every wizard mutation.
+4. SQL Server migrations once a real connection string is available.
+5. Removing `AdminFallbackController` after endpoint coverage is exhaustively route-tested.
 
-The fallback controller should shrink with every subsequent module commit and be deleted when the final real module lands.
+The fallback controller should be deleted when the final endpoint coverage test confirms no admin service call reaches it.

@@ -1,4 +1,5 @@
 using PACademy.Admin.Api.Api;
+using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Identity;
@@ -12,6 +13,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddLookupsModule(builder.Configuration);
 builder.Services.AddAdmissionsModule(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
+builder.Services.AddAdminRecordsModule(builder.Configuration);
 builder.Services.AddAuditModule();
 builder.Services.AddCors(options =>
 {
@@ -38,5 +40,6 @@ app.MapControllers();
 await app.SeedLookupsAsync();
 await app.SeedAdmissionsAsync();
 await app.SeedIdentityAsync();
+await app.SeedAdminRecordsAsync();
 
 app.Run();

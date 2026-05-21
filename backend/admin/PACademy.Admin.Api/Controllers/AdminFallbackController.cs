@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 
@@ -27,40 +26,6 @@ public sealed class AdminFallbackController : ControllerBase
 
     [HttpPatch("api/auth/{**path}")]
     public ActionResult<object> AuthPatch(string path, [FromBody] JsonObject? body) => Ok(body ?? new JsonObject { ["ok"] = true });
-
-    [HttpGet("api/admin/reports/{kind}")]
-    public ActionResult<object> Reports(string kind) => Ok(kind switch
-    {
-        "cycle-snapshot" => new { kpis = Array.Empty<object>(), categories = Array.Empty<object>(), range = "today" },
-        "funnel" => new { stages = Array.Empty<object>() },
-        "by-department" => new { departments = Array.Empty<object>() },
-        "test-results" => new { rows = Array.Empty<object>(), heatmap = Array.Empty<object>() },
-        "operational-status" => new { cards = Array.Empty<object>() },
-        "governance" => new { anomalies = Array.Empty<object>(), audit = Array.Empty<object>() },
-        "integrations" => new { systems = Array.Empty<object>() },
-        _ => new { items = Array.Empty<object>() }
-    });
-
-    [HttpGet("api/audit")]
-    public ActionResult<object> AuditList() => Ok(new { items = Array.Empty<object>(), page = 1, pageSize = 25, total = 0 });
-
-    [HttpGet("api/audit/export")]
-    public FileResult AuditExport()
-    {
-        var bytes = Encoding.UTF8.GetBytes("id,module,action,entity,createdAt\n");
-        return File(bytes, "text/csv; charset=utf-8", "audit.csv");
-    }
-
-    [HttpGet("api/audit/{**path}")]
-    public ActionResult<object> AuditGet(string path) => Ok(path switch
-    {
-        "entity-types" => Array.Empty<string>(),
-        "modules" => Array.Empty<string>(),
-        "roles" => Array.Empty<string>(),
-        "users" => Array.Empty<string>(),
-        _ when path.EndsWith("/diff", StringComparison.Ordinal) => new { before = (object?)null, after = (object?)null },
-        _ => new { id = path }
-    });
 
     [HttpGet("api/{**path}")]
     public ActionResult<object> Get(string path)
