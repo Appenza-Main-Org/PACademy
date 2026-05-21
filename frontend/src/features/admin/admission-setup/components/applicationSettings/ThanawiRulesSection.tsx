@@ -35,6 +35,7 @@ import { useLookup } from '@/features/lookups';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import type { ExcellenceMode } from '../../lib/excellenceMode';
+import { applicationSettingsService } from '../../api/applicationSettings.service';
 import {
   DEFAULT_MAX_SCORE_OPERATOR,
   DEFAULT_MIN_SCORE_OPERATOR,
@@ -194,12 +195,13 @@ export function ThanawiRulesSection({
     return map;
   }, [gradesQuery.data]);
 
-  const handleApprove = (): void => {
+  const handleApprove = async (): Promise<void> => {
     const moved = approve(categoryCode);
     if (moved === 0) {
       toast('لا توجد شروط جاهزة للاعتماد', 'info');
       return;
     }
+    await applicationSettingsService.approveRuleRows(categoryCode);
     toast(`تم اعتماد ${num(moved)} شرط ونقلها إلى تبويب «العرض»`, 'success');
   };
 
@@ -553,9 +555,10 @@ function ThanawiForm({
       ),
     [localRows, approvedRows, categoryCode],
   );
-  const handleDelete = (id: string): void => {
+  const handleDelete = async (id: string): Promise<void> => {
     removeLocalRow(id);
     removeApprovedRow(id);
+    await applicationSettingsService.deleteRuleRow(id);
   };
 
   /** The row currently being edited, scoped to *this* form: must be a
@@ -651,10 +654,13 @@ function ThanawiForm({
     scoreMax: showScorePair ? input.scoreMax : null,
   });
 
-  const handleSubmit = (): void => {
+  const handleSubmit = async (): Promise<void> => {
     if (!canSubmit) return;
     const payload = normalizeForSubmit(draft);
     if (isEditing && editingId !== null) {
+      const workflowState = approvedRows.some((r) => r.id === editingId)
+        ? 'approved'
+        : 'local';
       const result = updateThanawiRow(editingId, payload);
       if (!result.ok) {
         toast(
@@ -665,6 +671,7 @@ function ThanawiForm({
         );
         return;
       }
+      await applicationSettingsService.upsertRuleRow(result.row, workflowState);
       setDraft(emptyInputFor(defaultExcellenceMode));
       toast('تم تعديل الشرط', 'success');
       return;
@@ -674,6 +681,7 @@ function ThanawiForm({
       toast('هذا الشرط موجود بالفعل في الجدول', 'danger');
       return;
     }
+    await applicationSettingsService.upsertRuleRow(result.row, 'local');
     setDraft(emptyInputFor(defaultExcellenceMode));
     toast('تمت إضافة الشرط محلياً', 'success');
   };

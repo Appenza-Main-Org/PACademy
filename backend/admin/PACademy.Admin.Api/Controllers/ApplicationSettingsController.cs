@@ -211,6 +211,53 @@ public sealed class ApplicationSettingsController(CyclesAdminDbContext db, Looku
         return Ok(new { created, updated, deleted });
     }
 
+    [HttpGet("rule-rows")]
+    public async Task<IActionResult> RuleRows(CancellationToken ct)
+        => Ok(await List("applicationRuleRows", ct));
+
+    [HttpPut("rule-rows/{id}")]
+    public async Task<IActionResult> UpsertRuleRow([FromRoute] string id, [FromBody] JsonObject body, CancellationToken ct)
+    {
+        body["id"] = id;
+        if (ReadString(body, "workflowState") is null) body["workflowState"] = "local";
+        body["updatedAt"] = DateTimeOffset.UtcNow.ToString("O");
+        if (await Get("applicationRuleRows", id, ct) is null)
+        {
+            body["createdAt"] = DateTimeOffset.UtcNow.ToString("O");
+        }
+        await Upsert("applicationRuleRows", id, body, ct);
+        return Ok(body);
+    }
+
+    [HttpDelete("rule-rows/{id}")]
+    public async Task<IActionResult> DeleteRuleRow([FromRoute] string id, CancellationToken ct)
+    {
+        await Delete("applicationRuleRows", id, ct);
+        return NoContent();
+    }
+
+    [HttpPost("rule-rows/{categoryCode}/approve")]
+    public async Task<IActionResult> ApproveRuleRows([FromRoute] string categoryCode, CancellationToken ct)
+    {
+        var items = await db.Items
+            .Where(x => x.Bucket == "applicationRuleRows")
+            .ToListAsync(ct);
+        var moved = 0;
+        foreach (var item in items)
+        {
+            var payload = Parse(item.PayloadJson);
+            var row = payload["row"] as JsonObject;
+            if (ReadString(row, "categoryCode") != categoryCode) continue;
+            if (ReadString(payload, "workflowState") == "approved") continue;
+            payload["workflowState"] = "approved";
+            payload["updatedAt"] = DateTimeOffset.UtcNow.ToString("O");
+            item.ReplacePayload(payload.ToJsonString(JsonOptions));
+            moved++;
+        }
+        if (moved > 0) await db.SaveChangesAsync(ct);
+        return Ok(new { moved });
+    }
+
     private async Task<List<JsonObject>> JoinedConfigs(CancellationToken ct)
     {
         var configs = await List("applicantCategoryConfigs", ct);

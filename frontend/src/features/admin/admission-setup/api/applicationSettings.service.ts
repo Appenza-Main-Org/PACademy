@@ -65,12 +65,14 @@ import type {
   ApplicantCategorySpecialization,
   ApplicantSpecializationYear,
 } from '../types';
+import type { LocalGeneralRuleRow } from '../store/wizardSharedState';
 
 /* ─── In-memory mutable mirrors ──────────────────────────────────────── */
 
 let configs: ApplicantCategoryConfig[] = [...MOCK.applicantCategoryConfigs];
 let specs: ApplicantCategorySpecialization[] = [...MOCK.applicantCategorySpecializations];
 let years: ApplicantSpecializationYear[] = [...MOCK.applicantSpecializationYears];
+let persistedRuleRows: PersistedApplicationRuleRow[] = [];
 
 const ADMIN_API_BASE = (import.meta.env.VITE_ADMIN_API_BASE ?? '').replace(/\/$/, '');
 const USE_APP_SETTINGS_BACKEND =
@@ -312,6 +314,16 @@ export interface CategorySettingsSummary {
   gradingMode: ReturnType<typeof resolveGradingModeForSpec>;
 }
 
+export type ApplicationRuleWorkflowState = 'local' | 'approved';
+
+export interface PersistedApplicationRuleRow {
+  id: string;
+  workflowState: ApplicationRuleWorkflowState;
+  row: LocalGeneralRuleRow;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export const applicationSettingsService = {
   /* ── Reads ───────────────────────────────────────────────────────── */
 
@@ -388,6 +400,71 @@ export const applicationSettingsService = {
     return years
       .filter((y) => y.categorySpecializationId === categorySpecializationId)
       .sort((a, b) => maxYear(b) - maxYear(a));
+  },
+
+  async listRuleRows(): Promise<PersistedApplicationRuleRow[]> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<PersistedApplicationRuleRow[]>('/api/admin/app-settings/rule-rows');
+    }
+    await simulateLatency(40, 90);
+    return persistedRuleRows.map((entry) => ({
+      ...entry,
+      row: { ...entry.row },
+    }));
+  },
+
+  async upsertRuleRow(
+    row: LocalGeneralRuleRow,
+    workflowState: ApplicationRuleWorkflowState,
+  ): Promise<PersistedApplicationRuleRow> {
+    const payload: PersistedApplicationRuleRow = {
+      id: row.id,
+      workflowState,
+      row,
+    };
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<PersistedApplicationRuleRow>(
+        `/api/admin/app-settings/rule-rows/${encodeURIComponent(row.id)}`,
+        { method: 'PUT', body: JSON.stringify(payload) },
+      );
+    }
+    await simulateLatency(40, 90);
+    persistedRuleRows = [
+      ...persistedRuleRows.filter((entry) => entry.id !== row.id),
+      payload,
+    ];
+    return payload;
+  },
+
+  async deleteRuleRow(id: string): Promise<void> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      await apiJson<null | undefined>(
+        `/api/admin/app-settings/rule-rows/${encodeURIComponent(id)}`,
+        { method: 'DELETE' },
+      );
+      return;
+    }
+    await simulateLatency(30, 80);
+    persistedRuleRows = persistedRuleRows.filter((entry) => entry.id !== id);
+  },
+
+  async approveRuleRows(categoryCode: string): Promise<{ moved: number }> {
+    if (USE_APP_SETTINGS_BACKEND) {
+      return apiJson<{ moved: number }>(
+        `/api/admin/app-settings/rule-rows/${encodeURIComponent(categoryCode)}/approve`,
+        { method: 'POST' },
+      );
+    }
+    await simulateLatency(40, 90);
+    let moved = 0;
+    persistedRuleRows = persistedRuleRows.map((entry) => {
+      if (entry.row.categoryCode !== categoryCode || entry.workflowState === 'approved') {
+        return entry;
+      }
+      moved += 1;
+      return { ...entry, workflowState: 'approved' };
+    });
+    return { moved };
   },
 
   /**

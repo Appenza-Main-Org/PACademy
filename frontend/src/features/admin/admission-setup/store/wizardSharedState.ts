@@ -239,23 +239,29 @@ interface WizardSharedActions {
     categoryCode: string,
     spec: SpecKey,
     input: GeneralRuleRowInput,
-  ) => { ok: true } | { ok: false; reason: 'duplicate' };
+  ) => { ok: true; row: LocalUniversityRow } | { ok: false; reason: 'duplicate' };
   addThanawiRow: (
     categoryCode: string,
     input: ThanawiRuleRowInput,
-  ) => { ok: true } | { ok: false; reason: 'duplicate' };
+  ) => { ok: true; row: LocalThanawiRow } | { ok: false; reason: 'duplicate' };
   updateUniversityRow: (
     id: string,
     spec: SpecKey,
     input: GeneralRuleRowInput,
-  ) => { ok: true } | { ok: false; reason: 'duplicate' | 'not-found' };
+  ) => { ok: true; row: LocalUniversityRow } | { ok: false; reason: 'duplicate' | 'not-found' };
   updateThanawiRow: (
     id: string,
     input: ThanawiRuleRowInput,
-  ) => { ok: true } | { ok: false; reason: 'duplicate' | 'not-found' };
+  ) => { ok: true; row: LocalThanawiRow } | { ok: false; reason: 'duplicate' | 'not-found' };
   removeLocalRow: (id: string) => void;
   removeApprovedRow: (id: string) => void;
   approveLocalForCategory: (categoryCode: string) => number;
+  hydratePersistedRows: (
+    rows: {
+      workflowState: 'local' | 'approved';
+      row: LocalGeneralRuleRow;
+    }[],
+  ) => void;
   setEditingRow: (id: string) => void;
   clearEditingRow: () => void;
 }
@@ -425,7 +431,7 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
       );
     if (collision) return { ok: false, reason: 'duplicate' };
     set((s) => ({ local: [...s.local, candidate] }));
-    return { ok: true };
+    return { ok: true, row: candidate };
   },
 
   addThanawiRow: (categoryCode, input) => {
@@ -448,7 +454,7 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
       );
     if (collision) return { ok: false, reason: 'duplicate' };
     set((s) => ({ local: [...s.local, candidate] }));
-    return { ok: true };
+    return { ok: true, row: candidate };
   },
 
   updateUniversityRow: (id, spec, input) => {
@@ -485,7 +491,7 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
       approved: s.approved.map((r) => (r.id === id ? candidate : r)),
       editingRowId: null,
     }));
-    return { ok: true };
+    return { ok: true, row: candidate };
   },
 
   updateThanawiRow: (id, input) => {
@@ -522,7 +528,7 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
       approved: s.approved.map((r) => (r.id === id ? candidate : r)),
       editingRowId: null,
     }));
-    return { ok: true };
+    return { ok: true, row: candidate };
   },
 
   removeLocalRow: (id) =>
@@ -546,6 +552,21 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
       local: local.filter((r) => r.categoryCode !== categoryCode),
     });
     return moving.length;
+  },
+
+  hydratePersistedRows: (rows) => {
+    const headers: Record<string, GeneralRulesHeader> = {};
+    const local: LocalGeneralRuleRow[] = [];
+    const approved: ApprovedGeneralRuleRow[] = [];
+    for (const entry of rows) {
+      headers[entry.row.categoryCode] ??= entry.row.header;
+      if (entry.workflowState === 'approved') {
+        approved.push(entry.row);
+      } else {
+        local.push(entry.row);
+      }
+    }
+    set({ local, approved, headers, editingRowId: null });
   },
 
   setEditingRow: (id) => set({ editingRowId: id }),

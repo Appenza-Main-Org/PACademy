@@ -13,13 +13,30 @@
  * `<AdmissionSetupWizardPage />`. This page just renders body content.
  */
 
+import { useEffect } from 'react';
 import { PageHeader } from '@/shared/components';
+import { useApplicationRuleRows } from '../api/applicationSettings.queries';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
 import { CategoryAccordion } from '../components/applicationSettings/CategoryAccordion';
 import { StickyBulkSaveBar } from '../components/applicationSettings/StickyBulkSaveBar';
 import { UnsavedChangesPrompt } from '../components/applicationSettings/UnsavedChangesPrompt';
+import { useAdmissionSetupWizardStore } from '../store/wizardSharedState';
 
 export function ApplicationSettingsPage(): JSX.Element {
+  const ruleRowsQuery = useApplicationRuleRows();
+  const hydratePersistedRows = useAdmissionSetupWizardStore(
+    (s) => s.hydratePersistedRows,
+  );
+  const authoredRowCount = useAdmissionSetupWizardStore(
+    (s) => s.local.length + s.approved.length,
+  );
+
+  useEffect(() => {
+    if (!ruleRowsQuery.data) return;
+    if (authoredRowCount > 0 && ruleRowsQuery.data.length === 0) return;
+    hydratePersistedRows(ruleRowsQuery.data);
+  }, [authoredRowCount, hydratePersistedRows, ruleRowsQuery.data]);
+
   return (
     <AdmissionSetupShell>
       <div className="flex flex-col gap-4">

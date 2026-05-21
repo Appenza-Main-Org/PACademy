@@ -48,6 +48,7 @@ export const appSettingsKeys = {
   parentCategory: (categorySpecializationId: string) =>
     [...appSettingsKeys.all, 'parent-category', categorySpecializationId] as const,
   summary: () => [...appSettingsKeys.all, 'summary'] as const,
+  ruleRows: () => [...appSettingsKeys.all, 'rule-rows'] as const,
 };
 
 /* ─── Conflict messages ──────────────────────────────────────────────── */
@@ -172,6 +173,13 @@ export function useApplicationSettingsSummary() {
   return useQuery<CategorySettingsSummary[]>({
     queryKey: appSettingsKeys.summary(),
     queryFn: () => applicationSettingsService.getApplicationSettingsSummary(),
+  });
+}
+
+export function useApplicationRuleRows() {
+  return useQuery({
+    queryKey: appSettingsKeys.ruleRows(),
+    queryFn: () => applicationSettingsService.listRuleRows(),
   });
 }
 
