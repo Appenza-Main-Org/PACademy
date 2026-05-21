@@ -17,6 +17,12 @@ http://localhost:5101/openapi/v1.json
 http://localhost:5101/scalar
 ```
 
+Smoke endpoints after starting the API:
+
+```bash
+bash backend/admin/scripts/smoke-admin-api.sh http://localhost:5101
+```
+
 ## Migrations
 
 The admin API owns migrations. The initial schema migration is under:

@@ -37,6 +37,12 @@ Runtime smoke-tested on:
 http://localhost:5101
 ```
 
+Automated smoke script:
+
+```bash
+bash backend/admin/scripts/smoke-admin-api.sh http://localhost:5101
+```
+
 Confirmed:
 
 - `/openapi/v1.json`

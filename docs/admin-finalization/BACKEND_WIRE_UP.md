@@ -215,6 +215,7 @@ Commands run:
 ```bash
 dotnet build backend/admin/PACademy.Admin.slnx
 dotnet run --project backend/admin/PACademy.Admin.Api/PACademy.Admin.Api.csproj --urls http://localhost:5101
+bash backend/admin/scripts/smoke-admin-api.sh http://localhost:5101
 curl http://localhost:5101/openapi/v1.json
 curl -L http://localhost:5101/scalar
 curl http://localhost:5101/api/lookups/faculties
