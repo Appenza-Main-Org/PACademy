@@ -338,6 +338,12 @@ export interface DemoGradeRow {
   school: string;
   region: string;
   kind: 'general' | 'azhar';
+  /** School country (e.g. مصر). Returned from the MOI grades lookup
+   *  alongside the rest of the row — applicant doesn't re-enter it. */
+  country: string;
+  /** ISO yyyy-mm-dd graduation date. Returned from MOI for the matched
+   *  Thanaweya row; applicant sees it read-only on the profile page. */
+  graduationDate: string;
 }
 
 export const DEMO_APPLICANT_GRADES: Record<string, DemoGradeRow> = {
@@ -349,6 +355,8 @@ export const DEMO_APPLICANT_GRADES: Record<string, DemoGradeRow> = {
     school: 'ثانوية النيل النموذجية',
     region: 'القاهرة',
     kind: 'general',
+    country: 'مصر',
+    graduationDate: '2024-07-15',
   },
 };
 
