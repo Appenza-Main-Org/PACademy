@@ -79,6 +79,13 @@ public sealed class ApplicantGradesController(
         return NoContent();
     }
 
+    [HttpPost("delete")]
+    public async Task<IActionResult> DeleteRows([FromBody] DeleteGradesRequest body, CancellationToken ct)
+    {
+        var deleted = await clearGrades.DeleteRowsAsync(body.Seats, ct);
+        return Ok(new { deleted });
+    }
+
     [HttpPost("import/stage")]
     public async Task<IActionResult> Stage([FromBody] StageImportRequest body, CancellationToken ct)
     {

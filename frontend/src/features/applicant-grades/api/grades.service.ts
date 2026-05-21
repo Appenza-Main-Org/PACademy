@@ -56,6 +56,95 @@ import type {
 } from '../types';
 
 let STATE: GradeRow[] = [];
+let pendingBackendBatchId: string | null = null;
+
+const USE_BACKEND = import.meta.env.VITE_USE_GRADES_BACKEND === 'true';
+const ADMIN_API_BASE = import.meta.env.VITE_ADMIN_API_BASE ?? 'http://localhost:5101';
+const APPLICANT_API_BASE = import.meta.env.VITE_APPLICANT_API_BASE ?? ADMIN_API_BASE;
+
+type ApiRequestInit = Omit<RequestInit, 'body'> & { body?: unknown };
+
+async function apiJson<T>(baseUrl: string, path: string, init: ApiRequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body !== undefined && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json');
+  }
+  const res = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers,
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+  });
+  const text = await res.text();
+  const data = text.length > 0 ? JSON.parse(text) as unknown : null;
+  if (!res.ok) {
+    const message =
+      data !== null && typeof data === 'object' && 'message' in data
+        ? String((data as { message?: unknown }).message)
+        : `HTTP ${res.status}`;
+    throw new Error(message);
+  }
+  return data as T;
+}
+
+function sortParam(sort: ApplicantGradesSort | null | undefined): string | null {
+  return sort ? `${String(sort.key)}:${sort.direction}` : null;
+}
+
+function appendIf(params: URLSearchParams, key: string, value: string | number | boolean | null | undefined): void {
+  if (value === undefined || value === null || value === '' || value === 'all') return;
+  params.set(key, String(value));
+}
+
+async function fetchBackendRows(input?: Partial<FilterInput> & { sort?: ApplicantGradesSort | null }): Promise<GradeRow[]> {
+  const params = new URLSearchParams();
+  params.set('page', '1');
+  params.set('size', '10000');
+  appendIf(params, 'q', input?.search);
+  appendIf(params, 'sort', sortParam(input?.sort));
+  appendIf(params, 'gender', input?.gender);
+  appendIf(params, 'branch', input?.branch);
+  appendIf(params, 'year', input?.graduationYear);
+  appendIf(params, 'school', input?.schoolCategoryCode);
+  appendIf(params, 'changed', input?.changedOnly);
+  const result = await apiJson<{ rows: GradeRow[]; total: number }>(ADMIN_API_BASE, `/api/grades?${params}`);
+  return result.rows;
+}
+
+type BackendIssueRow = {
+  rowIndex: number;
+  nationalId: string | null;
+  name: string | null;
+  message: string | null;
+};
+
+type BackendIssueGroup = {
+  code: ImportGroupCode;
+  label: string;
+  rows: BackendIssueRow[];
+  actions: ImportGroupAction[];
+};
+
+function mapImportReport(report: {
+  totals: ImportReport['totals'];
+  groups: BackendIssueGroup[];
+}): ImportReport {
+  return {
+    totals: report.totals,
+    groups: report.groups.map((g) => ({
+      code: g.code,
+      labelAr: g.label,
+      rows: g.rows.map((r) => ({
+        nationalId: r.nationalId,
+        seatingNumber: null,
+        nameAr: r.name,
+        totalGrade: null,
+        sourceRowIndex: r.rowIndex,
+        detail: r.message ?? undefined,
+      })),
+      availableActions: g.actions,
+    })),
+  };
+}
 
 const REASON_LABEL: Record<AdjustmentReason, string> = {
   SPORTS_ACTIVITY: 'نشاط رياضي',
@@ -150,6 +239,9 @@ function resolveExamRoundCode(raw: string | null): string | null {
 
 export const gradesService = {
   async list(): Promise<GradeRow[]> {
+    if (USE_BACKEND) {
+      return apiJson<GradeRow[]>(ADMIN_API_BASE, '/api/grades');
+    }
     await simulateLatency(120, 240);
     return clone(STATE);
   },
@@ -169,17 +261,33 @@ export const gradesService = {
    * cycle change.
    */
   async findByNationalId(nid: string, _cycleId: string): Promise<GradeRow | null> {
+    if (USE_BACKEND) {
+      return apiJson<GradeRow | null>(
+        APPLICANT_API_BASE,
+        `/api/admin/applicant-grades/by-nid/${encodeURIComponent(nid)}?cycleId=${encodeURIComponent(_cycleId)}`,
+      );
+    }
     await simulateLatency(120, 240);
     const match = STATE.find((r) => r.nid === nid);
     return match ? clone([match])[0]! : null;
   },
 
   async clearAll(): Promise<void> {
+    if (USE_BACKEND) {
+      await apiJson<null>(ADMIN_API_BASE, '/api/grades', { method: 'DELETE' });
+      return;
+    }
     await simulateLatency(80, 160);
     STATE = [];
   },
 
   async deleteRows(seats: readonly number[]): Promise<{ deleted: number }> {
+    if (USE_BACKEND) {
+      return apiJson<{ deleted: number }>(ADMIN_API_BASE, '/api/grades/delete', {
+        method: 'POST',
+        body: { seats },
+      });
+    }
     await simulateLatency(80, 180);
     const selected = new Set(seats);
     const before = STATE.length;
@@ -191,6 +299,27 @@ export const gradesService = {
     seat: number,
     payload: { reason: AdjustmentReason; note: string | null; amount: number; isActive: boolean; by: string },
   ): Promise<GradeRow> {
+    if (USE_BACKEND) {
+      const row = await apiJson<GradeRow>(ADMIN_API_BASE, `/api/grades/${seat}/adjustments`, {
+        method: 'POST',
+        body: {
+          reason: payload.reason,
+          note: payload.note ?? '',
+          amount: payload.amount,
+          by: payload.by,
+        },
+      });
+      if (!payload.isActive) {
+        const entry = row.log[0];
+        if (entry) {
+          return apiJson<GradeRow>(ADMIN_API_BASE, `/api/grades/${seat}/adjustments/${entry.id}`, {
+            method: 'PATCH',
+            body: { isActive: false },
+          });
+        }
+      }
+      return row;
+    }
     await simulateLatency(120, 240);
     const now = new Date().toISOString();
     STATE = STATE.map((r) =>
@@ -223,6 +352,14 @@ export const gradesService = {
   },
 
   async toggleAdjustment(seat: number, entryId: string): Promise<GradeRow> {
+    if (USE_BACKEND) {
+      const rows = await fetchBackendRows();
+      const current = rows.find((r) => r.seat === seat)?.log.find((e) => e.id === entryId);
+      return apiJson<GradeRow>(ADMIN_API_BASE, `/api/grades/${seat}/adjustments/${entryId}`, {
+        method: 'PATCH',
+        body: { isActive: !(current?.isActive ?? true) },
+      });
+    }
     await simulateLatency(80, 160);
     const now = new Date().toISOString();
     STATE = STATE.map((r) =>
@@ -241,6 +378,11 @@ export const gradesService = {
   },
 
   async deleteAdjustment(seat: number, entryId: string): Promise<GradeRow> {
+    if (USE_BACKEND) {
+      return apiJson<GradeRow>(ADMIN_API_BASE, `/api/grades/${seat}/adjustments/${entryId}`, {
+        method: 'DELETE',
+      });
+    }
     await simulateLatency(80, 160);
     const now = new Date().toISOString();
     STATE = STATE.map((r) =>
@@ -263,6 +405,13 @@ export const gradesService = {
     overrideMax: number | null,
     by: string,
   ): Promise<GradeRow> {
+    if (USE_BACKEND) {
+      void by;
+      return apiJson<GradeRow>(ADMIN_API_BASE, `/api/grades/${seat}/override-max`, {
+        method: 'PATCH',
+        body: { overrideMax },
+      });
+    }
     await simulateLatency(120, 240);
     const now = new Date().toISOString();
     STATE = STATE.map((r) =>
@@ -288,6 +437,22 @@ export const gradesService = {
     maxDegree: number;
     rows: ImportedGradeRow[];
   }): Promise<{ ok: true; staged: StagedImport } | { ok: false; missing: string[] }> {
+    if (USE_BACKEND) {
+      const response = await apiJson<{
+        ok: true;
+        batchId: string;
+        staged: {
+          newRows: number;
+          duplicates: ImportDuplicateRow[];
+          skipped: ImportSkipBucket[];
+        };
+      }>(ADMIN_API_BASE, '/api/grades/import/stage', {
+        method: 'POST',
+        body: input,
+      });
+      pendingBackendBatchId = response.batchId;
+      return { ok: true, staged: response.staged };
+    }
     await simulateLatency(120, 240);
     const { kind, maxDegree, rows } = input;
     const existingByNid = new Map(STATE.map((r) => [r.nid, r]));
@@ -370,6 +535,38 @@ export const gradesService = {
     staged: StagedImport,
     resolutions: Record<string, ImportResolution>,
   ): Promise<CommittedImport> {
+    if (USE_BACKEND) {
+      if (pendingBackendBatchId === null) {
+        throw new Error('No staged import to commit. Call stageImport first.');
+      }
+      const response = await apiJson<{
+        ok: true;
+        inserted: number;
+        updated: number;
+        deactivatedAdjustments: Array<{ nid: string; amount: number }>;
+      }>(ADMIN_API_BASE, '/api/grades/import/commit', {
+        method: 'POST',
+        body: {
+          batchId: pendingBackendBatchId,
+          resolutions: Object.entries(resolutions).map(([nid, action]) => ({
+            nid,
+            action: action === 'ACCEPT' ? 'accept' : 'reject',
+          })),
+        },
+      });
+      pendingBackendBatchId = null;
+      return {
+        inserted: response.inserted + response.updated,
+        replaced: response.updated,
+        kept: Object.values(resolutions).filter((r) => r === 'REJECT').length,
+        deactivated: response.deactivatedAdjustments.map((x) => ({
+          nationalId: x.nid,
+          name: '',
+          adjustmentSum: x.amount,
+        })),
+        skipped: staged.skipped,
+      };
+    }
     await simulateLatency(180, 320);
     const pending = pendingImport;
     if (!pending) {
@@ -480,6 +677,17 @@ export const gradesService = {
     rows: NormalisedRow[];
     graduationYear: number;
   }): Promise<ImportReport> {
+    if (USE_BACKEND) {
+      return mapImportReport(
+        await apiJson<{
+          totals: ImportReport['totals'];
+          groups: BackendIssueGroup[];
+        }>(ADMIN_API_BASE, '/api/grades/import/preflight', {
+          method: 'POST',
+          body: input,
+        }),
+      );
+    }
     await simulateLatency(120, 240);
     const { rows } = input;
     const existingNids = new Set(STATE.map((r) => r.nid));
@@ -617,6 +825,30 @@ export const gradesService = {
       | { action: 'reject' }
     >;
   }): Promise<ImportCommitResult> {
+    if (USE_BACKEND) {
+      return apiJson<ImportCommitResult>(ADMIN_API_BASE, '/api/grades/import/v2/commit', {
+        method: 'POST',
+        body: {
+          ...input,
+          existingDiffDecisions: Object.entries(input.existingDiffDecisions ?? {}).map(
+            ([nationalId, action]) => ({ nationalId, action }),
+          ),
+          uploadDuplicateDecisions: Object.entries(input.uploadDuplicateDecisions ?? {}).map(
+            ([nationalId, decision]) => ({
+              nationalId,
+              action:
+                decision.action === 'pick-specific'
+                  ? 'pick-higher'
+                  : decision.action === 'pick-row'
+                    ? 'pick-row'
+                    : decision.action,
+              sourceRowIndex:
+                decision.action === 'pick-row' ? decision.pickedSourceRowIndex : null,
+            }),
+          ),
+        },
+      });
+    }
     await simulateLatency(180, 340);
     const {
       rows: incomingRows,
@@ -910,6 +1142,13 @@ export const gradesService = {
      *  exposes for the grade-change audit view. */
     changedOnly?: boolean;
   }): Promise<{ rows: GradeRow[]; total: number }> {
+    if (USE_BACKEND) {
+      const rows = applyFilters(await fetchBackendRows(), input);
+      sortInPlace(rows, input.sort);
+      const total = rows.length;
+      const start = Math.max(0, (input.page - 1) * input.pageSize);
+      return { rows: rows.slice(start, start + input.pageSize), total };
+    }
     await simulateLatency(80, 200);
     const rows = applyFilters(STATE, input);
     sortInPlace(rows, input.sort);
@@ -939,6 +1178,11 @@ export const gradesService = {
     columnFilters?: ApplicantGradesColumnFilters;
     changedOnly?: boolean;
   }): Promise<GradeRow[]> {
+    if (USE_BACKEND) {
+      const rows = applyFilters(await fetchBackendRows(), input);
+      sortInPlace(rows, input.sort);
+      return rows;
+    }
     await simulateLatency(120, 260);
     const rows = applyFilters(STATE, input);
     sortInPlace(rows, input.sort);

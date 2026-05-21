@@ -73,4 +73,18 @@ public sealed class ClearGradesUseCase(IApplicantGradesAdminDbContext db)
         await db.ApplicantGradeAdjustments.ExecuteDeleteAsync(ct);
         await db.ApplicantGrades.ExecuteDeleteAsync(ct);
     }
+
+    public async Task<int> DeleteRowsAsync(IReadOnlyCollection<int> seats, CancellationToken ct = default)
+    {
+        if (seats.Count == 0) return 0;
+        await db.ApplicantGradeAdjustments
+            .Where(x => db.ApplicantGrades
+                .Where(g => seats.Contains(g.Seat))
+                .Select(g => g.Id)
+                .Contains(x.ApplicantGradeId))
+            .ExecuteDeleteAsync(ct);
+        return await db.ApplicantGrades
+            .Where(x => seats.Contains(x.Seat))
+            .ExecuteDeleteAsync(ct);
+    }
 }

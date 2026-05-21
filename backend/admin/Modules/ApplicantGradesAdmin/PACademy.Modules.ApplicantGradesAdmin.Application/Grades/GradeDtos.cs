@@ -121,3 +121,4 @@ public sealed record ImportCommitResult(int InsertedCount, int FailedCount, int 
 public sealed record AddAdjustmentRequest(string Reason, string Note, decimal Amount, string? By = null, decimal? OverrideMax = null);
 public sealed record ToggleAdjustmentRequest(bool IsActive);
 public sealed record UpdateOverrideMaxRequest(decimal? OverrideMax);
+public sealed record DeleteGradesRequest(IReadOnlyList<int> Seats);
