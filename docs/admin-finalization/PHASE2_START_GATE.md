@@ -2,11 +2,11 @@
 
 **Date:** 2026-05-21  
 **Scope:** backend wiring for `/admin/*` only  
-**Status:** blocked before backend implementation
+**Status:** resolved locally; retained as start-gate history
 
 ## Current Finding
 
-Phase 2 cannot be implemented safely in this checkout yet because the required admin backend code and .NET toolchain are not present locally.
+At the start of Phase 2, backend implementation was blocked because the required admin backend code and .NET toolchain were not present locally.
 
 Evidence:
 
@@ -24,7 +24,12 @@ which brew || true
 # brew not found
 ```
 
-The attached backend status says a Faculties vertical slice exists elsewhere, but this repository currently has no local `backend/admin/` implementation to extend and no `dotnet` command to build, scaffold, run EF migrations, or verify `/scalar`.
+Resolution applied in this checkout:
+
+- Installed .NET SDK `10.0.300` under `/Users/mac/.dotnet`.
+- Added repo-local `global.json`.
+- Scaffolded `backend/admin/`, `backend/applicant/`, and `backend/shared/`.
+- Implemented the first concrete backend slices and verified build/run on `:5101`.
 
 ## What Is Already Ready
 

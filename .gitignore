@@ -12,6 +12,8 @@ dist-ssr
 !.vscode/extensions.json
 coverage
 tsconfig.tsbuildinfo
+bin/
+obj/
 
 # Agent harness directories
 .agents/

@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="../shared/PACademy.Shared.Audit/PACademy.Shared.Audit.csproj" />
+  <Project Path="../shared/PACademy.Shared.Contracts/PACademy.Shared.Contracts.csproj" />
+  <Project Path="PACademy.Admin.Api/PACademy.Admin.Api.csproj" />
+</Solution>
