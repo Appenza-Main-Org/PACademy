@@ -14,12 +14,14 @@ builder.Services.AddPacademyExceptionHandling();
 /* ── OpenAPI (.NET 10 built-in) + Scalar UI ─────────────────────── */
 builder.Services.AddOpenApi();
 
-/* ── CORS — admin frontend origin ───────────────────────────────── */
-var frontendOrigin = builder.Configuration["Cors:AdminFrontendOrigin"]
-    ?? "http://localhost:5173";
+/* ── CORS — admin frontend origins ──────────────────────────────── */
+var frontendOrigins = (builder.Configuration["Cors:AdminFrontendOrigins"]
+        ?? builder.Configuration["Cors:AdminFrontendOrigin"]
+        ?? "http://localhost:5173")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 const string CorsPolicyName = "admin-frontend";
 builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
-    .WithOrigins(frontendOrigin)
+    .WithOrigins(frontendOrigins)
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials()));
