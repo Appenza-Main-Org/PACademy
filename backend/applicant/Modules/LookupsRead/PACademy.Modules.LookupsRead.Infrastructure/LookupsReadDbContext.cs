@@ -29,5 +29,5 @@ public sealed class LookupsReadDbContext(DbContextOptions<LookupsReadDbContext> 
     public IQueryable<Faculty> Faculties => FacultiesSet.AsNoTracking();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => modelBuilder.ApplyConfigurationsFromAssembly(typeof(FacultyConfiguration).Assembly);
+        => modelBuilder.ApplyConfiguration(new FacultyConfiguration());
 }

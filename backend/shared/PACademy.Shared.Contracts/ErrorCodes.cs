@@ -22,6 +22,7 @@ public static class ErrorCodes
 
     // ── Applicants ──────────────────────────────────────────────────────
     public const string NidCycleDuplicate         = "NID_CYCLE_DUPLICATE";
+    public const string GradeNidCycleDuplicate    = "GRADE_NID_CYCLE_DUPLICATE";
     public const string ApplicantIdentityMismatch = "APPLICANT_IDENTITY_MISMATCH";
     public const string DraftVersionConflict      = "DRAFT_VERSION_CONFLICT";
 

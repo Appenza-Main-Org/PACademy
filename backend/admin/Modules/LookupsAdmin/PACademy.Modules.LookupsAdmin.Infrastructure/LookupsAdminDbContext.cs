@@ -16,7 +16,7 @@ public sealed class LookupsAdminDbContext(DbContextOptions<LookupsAdminDbContext
     public DbSet<Faculty> Faculties => Set<Faculty>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => modelBuilder.ApplyConfigurationsFromAssembly(typeof(FacultyConfiguration).Assembly);
+        => modelBuilder.ApplyConfiguration(new FacultyConfiguration());
 
     Task<int> ILookupsAdminDbContext.SaveChangesAsync(CancellationToken ct)
         => base.SaveChangesAsync(ct);
