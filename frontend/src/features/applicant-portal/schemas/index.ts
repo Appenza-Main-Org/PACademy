@@ -98,10 +98,16 @@ export const stage345Schema = z
 
     /* Birth-place picker (separate from MOI's birthGovernorate). */
     birthDistrict: z.string().optional().or(z.literal('')),
+    /* Detailed birth-place address — paired with birthGovernorate +
+     *  birthDistrict above. Added 2026-05-21 to split the address block
+     *  into separate birth/residence detail fields. */
+    birthAddressDetail: z.string().optional().or(z.literal('')),
 
     /* Address + contact. Mobile + email come from MOI and are not editable.
      * `fax` was retired from the UI; kept here as optional so legacy
-     * persisted drafts don't fail validation. */
+     * persisted drafts don't fail validation.
+     * `currentAddressDetail` is the detailed residence address (paired
+     * with addressGovernorate + addressDistrict below). */
     currentAddressDetail: z.string().optional().or(z.literal('')),
     addressGovernorate: z.string().min(1, 'مطلوب'),
     addressDistrict: z.string().min(1, 'مطلوب'),

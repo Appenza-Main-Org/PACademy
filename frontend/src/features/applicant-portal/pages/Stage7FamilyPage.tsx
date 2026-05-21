@@ -300,6 +300,7 @@ export function Stage7FamilyPage(): JSX.Element {
           <MemberFormCard
             form={father}
             title="بيانات الأب"
+            requireNationalId
             onChange={setFather}
             onSave={() => {
               setSavedFather(true);
@@ -314,7 +315,7 @@ export function Stage7FamilyPage(): JSX.Element {
                   onChange={(e) => toggleHasFatherWives(e.target.checked)}
                   className="h-4 w-4 cursor-pointer accent-teal-500"
                 />
-                <span>الأب متزوج بأخرى</span>
+                <span>الأب متزوج بأخرى غير الأم</span>
               </label>
             }
           />
@@ -348,6 +349,7 @@ export function Stage7FamilyPage(): JSX.Element {
           <MemberFormCard
             form={mother}
             title="بيانات الأم"
+            requireNationalId
             onChange={setMother}
             onSave={() => {
               setSavedMother(true);
@@ -362,7 +364,7 @@ export function Stage7FamilyPage(): JSX.Element {
                   onChange={(e) => toggleHasMotherHusbands(e.target.checked)}
                   className="h-4 w-4 cursor-pointer accent-teal-500"
                 />
-                <span>الأم متزوجة بغير الأب</span>
+                <span>الأم متزوجة بآخر غير الأب</span>
               </label>
             }
           />
@@ -487,6 +489,7 @@ function MemberFormCard({
   onChange,
   onSave,
   headerExtras,
+  requireNationalId = false,
 }: {
   form: FamilyMemberForm;
   title: string;
@@ -496,13 +499,20 @@ function MemberFormCard({
    *  الأم cards to host their "متزوج بأخرى" / "متزوجة بغير الأب"
    *  toggles). */
   headerExtras?: React.ReactNode;
+  /** When true, the "تعذر وجود الرقم القومي" escape hatch is removed —
+   *  the applicant must enter a 14-digit NID. Used for الأب + الأم per
+   *  client direction 2026-05-21 (parents' NIDs are mandatory). */
+  requireNationalId?: boolean;
 }): JSX.Element {
   const form_ = useForm<FamilyMemberForm>({
     defaultValues: form,
   });
   const { register, handleSubmit, control, watch, formState: { errors } } = form_;
   const profession = watch('profession');
-  const nidUnavailable = watch('nidUnavailable');
+  /* When requireNationalId is on, ignore any stale `nidUnavailable=true`
+   * the form may have carried over from a different role and treat the
+   * NID input as always-visible / always-required. */
+  const nidUnavailable = requireNationalId ? false : watch('nidUnavailable');
   const showSeniority = MEMBERSHIP_PROFESSIONS.has(profession);
 
   /* Stream live values to the parent so consumers like
@@ -542,15 +552,19 @@ function MemberFormCard({
           containerClassName="md:col-span-2"
         />
 
-        {/* NID block — checkbox toggles between NID input and reason dropdown */}
-        <label className="md:col-span-2 inline-flex items-center gap-2 text-sm text-ink-800">
-          <input
-            type="checkbox"
-            {...register('nidUnavailable')}
-            className="h-4 w-4 cursor-pointer accent-teal-500"
-          />
-          تعذر وجود الرقم القومي
-        </label>
+        {/* NID block — checkbox toggles between NID input and reason
+            dropdown. For الأب + الأم the toggle is hidden entirely:
+            their NID is mandatory per client direction 2026-05-21. */}
+        {!requireNationalId && (
+          <label className="md:col-span-2 inline-flex items-center gap-2 text-sm text-ink-800">
+            <input
+              type="checkbox"
+              {...register('nidUnavailable')}
+              className="h-4 w-4 cursor-pointer accent-teal-500"
+            />
+            تعذر وجود الرقم القومي
+          </label>
+        )}
         {nidUnavailable ? (
           <Select
             label="سبب عدم وجود الرقم القومي"

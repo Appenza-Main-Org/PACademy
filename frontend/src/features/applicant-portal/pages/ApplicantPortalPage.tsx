@@ -211,7 +211,7 @@ export function ApplicantPortalPage(): JSX.Element {
         </dl>
       </Card>
 
-      {/* ── بيانات التعليم — appears only for submitted demo applicants
+      {/* ── بيانات الدراسة — appears only for submitted demo applicants
             because their academic data is captured here in the prefill. */}
       {profile && (
         <Card>
@@ -222,7 +222,7 @@ export function ApplicantPortalPage(): JSX.Element {
             >
               <ScrollText size={14} strokeWidth={1.75} />
             </span>
-            <h3 className="font-ar-display text-md font-bold text-ink-900">بيانات التعليم</h3>
+            <h3 className="font-ar-display text-md font-bold text-ink-900">بيانات الدراسة</h3>
           </header>
           <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
             <Row label="اسم المدرسة" value={profile.schoolNameAr} />

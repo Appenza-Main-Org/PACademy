@@ -16,7 +16,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CalendarRange,
-  ChevronLeft,
+  ChevronDown,
   ClipboardList,
   FileText,
   GraduationCap,
@@ -31,7 +31,6 @@ import {
   Badge,
   Button,
   Card,
-  Drawer,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -81,12 +80,9 @@ const QUALIFICATION_LABEL: Record<CategoryCondition['requiredQualification'], st
 
 const APPLICATION_FEE_LABEL = 'مقابل تقديم الخدمة إلكترونياً: ٢٥٠ جنيه';
 
-type DrawerKind = 'identity' | 'eligibility' | 'specializations' | 'instructions' | null;
-
 export function CategorySelectionPage(): JSX.Element {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const [drawer, setDrawer] = useState<DrawerKind>(null);
   const cyclesQuery = useActiveCycles();
   const storedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
   const setStoredCycleId = useApplicantPortalStore((s) => s.setSelectedCycleId);
@@ -245,69 +241,57 @@ export function CategorySelectionPage(): JSX.Element {
           />
         )}
 
-        <Card variant="elevated" className="overflow-hidden p-0">
-          {/* ── Header rows (4) — applicant identity + 3 drawer triggers ── */}
-          <HeaderRow
-            icon={<User size={16} strokeWidth={1.75} aria-hidden />}
-            content={
-              identity ? (
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-ink-800">
-                  <LabeledFact label="إسم المتقدم" value={identity.fullName} />
-                  <LabeledFact label="الرقم القومي" value={identity.nationalId} ltr mono />
-                  <LabeledFact label="تاريخ الميلاد" value={identity.dateOfBirthAr} />
-                  <LabeledFact
-                    label="النوع"
-                    value={identity.gender === 'male' ? 'ذكر' : 'أنثى'}
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-ink-700">
-                  <LabeledFact
-                    label="الرقم القومي"
-                    value={storeNid ?? '—'}
-                    ltr
-                    mono
-                  />
-                  {/* <span className="text-2xs text-gold-700">
-                    لم يتم استرجاع بيانات من وزارة الداخلية — ستُدخلها يدوياً في الخطوة التالية.
-                  </span> */}
-                </div>
-              )
-            }
-            action={
-              identity ? (
-                <ViewButton onClick={() => setDrawer('identity')} ariaLabel="عرض بيانات المتقدم" />
-              ) : null
-            }
-          />
-          <HeaderRow
-            icon={<ShieldCheck size={16} strokeWidth={1.75} aria-hidden />}
-            content={<span className="text-sm font-medium text-ink-900">شروط الإلتحاق</span>}
-            action={
-              <ViewButton onClick={() => setDrawer('eligibility')} ariaLabel="عرض شروط الإلتحاق" />
-            }
-          />
-          <HeaderRow
-            icon={<Layers size={16} strokeWidth={1.75} aria-hidden />}
-            content={<span className="text-sm font-medium text-ink-900">التخصصات المطلوبة</span>}
-            action={
-              <ViewButton onClick={() => setDrawer('specializations')} ariaLabel="عرض التخصصات المطلوبة" />
-            }
-          />
-          <HeaderRow
-            icon={<ClipboardList size={16} strokeWidth={1.75} aria-hidden />}
-            content={
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                <span className="text-sm font-medium text-ink-900">إرشادات التقدم</span>
-                <span className="text-2xs text-ink-500">{APPLICATION_FEE_LABEL}</span>
-              </div>
-            }
-            action={
-              <ViewButton onClick={() => setDrawer('instructions')} ariaLabel="عرض إرشادات التقدم" />
-            }
-          />
+        {/* Client direction 2026-05-21: identity / eligibility /
+            specializations / instructions all render inline by default.
+            No popup buttons. The applicant sees the complete picture on
+            a single scroll. */}
 
-          {/* ── Category rows ── */}
+        <InlineSection icon={<User size={16} strokeWidth={1.75} />} title="بيانات المتقدم">
+          {identity ? (
+            <IdentityDrawerBody />
+          ) : (
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-ink-700">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-2xs uppercase tracking-wide text-ink-500">
+                  الرقم القومي:
+                </span>
+                <span className="font-mono text-sm font-medium text-ink-900" dir="ltr">
+                  {storeNid ?? '—'}
+                </span>
+              </span>
+            </div>
+          )}
+        </InlineSection>
+
+        <InlineSection icon={<ShieldCheck size={16} strokeWidth={1.75} />} title="شروط الإلتحاق">
+          <EligibilityDrawerBody
+            cycle={selectedCycle}
+            categories={categoriesQuery.data ?? []}
+          />
+        </InlineSection>
+
+        <InlineSection icon={<Layers size={16} strokeWidth={1.75} />} title="التخصصات المطلوبة">
+          <SpecializationsDrawerBody categories={categoriesQuery.data ?? []} />
+        </InlineSection>
+
+        <InlineSection
+          icon={<ClipboardList size={16} strokeWidth={1.75} />}
+          title="إرشادات التقدم"
+          headerExtra={<span className="text-2xs text-ink-500">{APPLICATION_FEE_LABEL}</span>}
+        >
+          <InstructionsDrawerBody />
+        </InlineSection>
+
+        <Card variant="elevated" className="overflow-hidden p-0">
+          <header className="flex items-center gap-3 border-b border-border-default bg-ink-50/40 px-5 py-3">
+            <span
+              aria-hidden
+              className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700"
+            >
+              <GraduationCap size={16} strokeWidth={1.75} />
+            </span>
+            <h3 className="font-ar-display text-md font-bold text-ink-900">اختر فئة التقدم</h3>
+          </header>
           <CategoryRows
             categoriesQuery={categoriesQuery}
             /* When MOI verified the applicant for a specific category,
@@ -318,60 +302,11 @@ export function CategorySelectionPage(): JSX.Element {
           />
         </Card>
 
-        {/* ── Drawers ── */}
-        <Drawer
-          open={drawer === 'identity'}
-          onClose={() => setDrawer(null)}
-          title="بيانات المتقدم"
-        >
-          <Drawer.Body>
-            <IdentityDrawerBody />
-          </Drawer.Body>
-        </Drawer>
-
-        {/* Client direction 2026-05-19: eligibility / specializations /
-         * instructions now open as centered Modals (instead of side
-         * Drawers) so applicants read them carefully without losing
-         * the page context. The Identity panel above stays a Drawer. */}
-        <Modal
-          open={drawer === 'eligibility'}
-          onClose={() => setDrawer(null)}
-          title="شروط الإلتحاق"
-          size="lg"
-        >
-          <Modal.Body>
-            <EligibilityDrawerBody
-              cycle={selectedCycle}
-              categories={categoriesQuery.data ?? []}
-            />
-          </Modal.Body>
-        </Modal>
-
-        <Modal
-          open={drawer === 'specializations'}
-          onClose={() => setDrawer(null)}
-          title="التخصصات المطلوبة"
-          size="lg"
-        >
-          <Modal.Body>
-            <SpecializationsDrawerBody categories={categoriesQuery.data ?? []} />
-          </Modal.Body>
-        </Modal>
-
-        <Modal
-          open={drawer === 'instructions'}
-          onClose={() => setDrawer(null)}
-          title="إرشادات التقدم"
-          size="lg"
-        >
-          <Modal.Body>
-            <InstructionsDrawerBody />
-          </Modal.Body>
-        </Modal>
-
         {/* Specialization picker — opened when an applicant chooses
             الضباط المتخصصون. They must select a specialization here
-            before entering the wizard (client direction 2026-05-19). */}
+            before entering the wizard (client direction 2026-05-19).
+            This is the only popup left on the page — info sections
+            above all render inline. */}
         <Modal
           open={specializationPickerOpen}
           onClose={() => setSpecializationPickerOpen(false)}
@@ -530,72 +465,62 @@ function PickerButton({
   );
 }
 
-/* ─── header / category rows ────────────────────────────────────────── */
+/* ─── section helpers ───────────────────────────────────────────────── */
 
-function HeaderRow({
+/**
+ * Inline section wrapper for the four info blocks on the page
+ * (applicant identity / shroot el-iltihaq / takhassossat / instructions).
+ *
+ * Each section opens by default and can be collapsed independently via
+ * the header chevron — replaces the previous popup-triggered HeaderRows
+ * per client direction 2026-05-21.
+ */
+function InlineSection({
   icon,
-  content,
-  action,
+  title,
+  headerExtra,
+  children,
 }: {
   icon: React.ReactNode;
-  content: React.ReactNode;
-  action: React.ReactNode;
+  title: string;
+  headerExtra?: React.ReactNode;
+  children: React.ReactNode;
 }): JSX.Element {
+  const [open, setOpen] = useState(true);
   return (
-    <div className="flex items-center gap-3 border-b border-border-default bg-ink-50/40 px-5 py-3 last:border-b-0">
-      <span
-        aria-hidden
-        className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700"
+    <Card>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className={cn(
+          'group -mx-1 -mt-1 mb-0 flex w-full items-center gap-2 rounded-md px-1 py-1 text-start',
+          'transition-colors duration-fast ease-standard hover:bg-ink-50/60',
+          'focus-visible:shadow-focus-teal focus-visible:outline-none',
+          open && 'mb-3',
+        )}
       >
-        {icon}
-      </span>
-      <div className="min-w-0 flex-1">{content}</div>
-      <div className="flex-shrink-0">{action}</div>
-    </div>
-  );
-}
-
-function LabeledFact({
-  label,
-  value,
-  ltr,
-  mono,
-}: {
-  label: string;
-  value: string;
-  ltr?: boolean;
-  mono?: boolean;
-}): JSX.Element {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="text-2xs uppercase tracking-wide text-ink-500">{label}:</span>
-      <span
-        className={cn('text-sm font-medium text-ink-900', mono && 'font-mono')}
-        dir={ltr ? 'ltr' : undefined}
-      >
-        {value}
-      </span>
-    </span>
-  );
-}
-
-function ViewButton({
-  onClick,
-  ariaLabel,
-}: {
-  onClick: () => void;
-  ariaLabel: string;
-}): JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      className="inline-flex items-center gap-1 rounded-md border border-teal-500/30 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition-colors duration-fast ease-standard hover:border-teal-500 hover:bg-teal-100 focus-visible:shadow-focus-teal focus-visible:outline-none"
-    >
-      <span>عرض</span>
-      <ChevronLeft size={14} strokeWidth={1.75} className="rtl:rotate-180" />
-    </button>
+        <span
+          aria-hidden
+          className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700"
+        >
+          {icon}
+        </span>
+        <h3 className="font-ar-display text-md font-bold text-ink-900">{title}</h3>
+        {headerExtra && <span className="ms-auto">{headerExtra}</span>}
+        <ChevronDown
+          size={16}
+          strokeWidth={1.75}
+          className={cn(
+            'shrink-0 text-ink-500 transition-transform duration-fast ease-standard',
+            !headerExtra && 'ms-auto',
+            open && 'rotate-180',
+          )}
+          aria-hidden
+        />
+      </button>
+      {open && <div>{children}</div>}
+    </Card>
   );
 }
 
@@ -737,9 +662,9 @@ function IdentityDrawerBody(): JSX.Element {
   ];
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
+      {/* <div className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
         هذه البيانات مستوردة من بوابة وزارة الداخلية ولا يمكن تعديلها من داخل البوابة.
-      </div>
+      </div> */}
       <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
         {rows.map((r) => (
           <div key={r.label}>

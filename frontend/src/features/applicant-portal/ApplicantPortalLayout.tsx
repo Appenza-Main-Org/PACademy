@@ -194,7 +194,7 @@ export function ApplicantPortalLayout(): JSX.Element {
           </div>
         ) : (
           <Wizard
-            title="رحلة المتقدم · دفعة 2026"
+            title="خطوات المتقدم · دفعة 2026"
             steps={steps}
             activeStepKey={STAGE_KEYS[activeIndex] ?? STAGE_KEYS[0]}
             onStepClick={(key) => {

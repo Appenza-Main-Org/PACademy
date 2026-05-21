@@ -240,6 +240,13 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     setManualPersonal((prev) => ({ ...prev, [key]: value }));
   };
 
+  /* قسم الضباط (قسم عام) requires the applicant to be غير متزوج (single).
+   * Picking متزوج anywhere on the page surfaces a blocking error on the
+   * marital field AND disables the submit button so the applicant
+   * literally cannot proceed. Client direction 2026-05-21. */
+  const maritalBlocked =
+    selectedCategoryKey === 'officers_general' && manualPersonal.maritalStatus === 'married';
+
   /* قسم الضباط (قسم عام) is male-only — hide the gender dropdown for
    * the manual-entry path and force the stored value to 'male' so
    * downstream consumers still get a non-empty gender. */
@@ -285,6 +292,17 @@ export function Stage345ApplicantDataPage(): JSX.Element {
         .map((u) => ({ value: u.name, label: u.name })),
     [universitiesQuery.data],
   );
+  /* MOI-returned school metadata that doesn't live on the canonical
+   * GradeRow shape (yet) — country + graduation date come back together
+   * with the matched Thanaweya row and are rendered read-only on the
+   * profile page. Only the demo Ahmed seed populates these today;
+   * production rows will surface them via the real grades API. */
+  const matchedSchoolExtras = useMemo<{ country: string; gradDate: string } | null>(() => {
+    const demo = DEMO_APPLICANT_GRADES[session.nationalId];
+    if (!demo) return null;
+    return { country: demo.country, gradDate: demo.graduationDate };
+  }, [session.nationalId]);
+
   const matchedGradeRow = useMemo<GradeRow | null>(() => {
     /* Prefer a real row from the backend when available. */
     const fromBackend = gradesQuery.data?.find((r) => r.nid === session.nationalId) ?? null;
@@ -359,6 +377,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       doctorateYear: '',
       doctorateGrade: '',
       birthDistrict: '',
+      birthAddressDetail: '',
       currentAddressDetail: '',
       addressGovernorate: '',
       addressDistrict: '',
@@ -450,16 +469,22 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       'thanawiPercentage',
       Number((pct * 100).toFixed(2)),
     );
-    /* School name / address / country / grad date are NOT auto-filled —
-     * the applicant enters them manually (client direction 2026-05-19),
-     * since the grades API doesn't provide them. */
+    /* School name / address are still manual on the matched path (the
+     * MOI grades feed doesn't carry them today). Country + graduation
+     * date DO come back when present — sync into the form so the
+     * read-only display in SchoolDetailFields stays in lockstep with
+     * the submit payload. Client direction 2026-05-21. */
+    if (matchedSchoolExtras) {
+      setValue('thanawiCountry', matchedSchoolExtras.country);
+      setValue('thanawiGradDate', matchedSchoolExtras.gradDate);
+    }
     /* Branch maps from the imported grade row's branch field. */
     const branch = matchedGradeRow.branch.trim();
     const known = THANAWI_BRANCH_OPTIONS.find((b) => b.value === branch);
     if (known) {
       setValue('thanawiType', known.value);
     }
-  }, [matchedGradeRow, setValue]);
+  }, [matchedGradeRow, matchedSchoolExtras, setValue]);
 
   const onSubmit = async (values: Stage345Values): Promise<void> => {
     await applicantPortalService.submitStage(APPLICANT_ID, 3, { profile: values });
@@ -681,14 +706,20 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       <Card className="order-4">
         <SectionHeader
           icon={<GraduationCap size={16} strokeWidth={1.75} />}
-          title="بيانات التعليم"
+          title="بيانات الدراسة"
         />
         {gradesQuery.isLoading || schoolCategoriesQuery.isLoading ? (
           <LoadingState variant="list" rows={3} />
         ) : externalImport && matchedGradeRow ? (
           <div className="flex flex-col gap-4">
             <ExternalGradesPanel row={matchedGradeRow} />
-            <SchoolDetailFields register={register} control={control} errors={errors} />
+            <SchoolDetailFields
+              register={register}
+              control={control}
+              errors={errors}
+              lockedCountry={matchedSchoolExtras?.country ?? null}
+              lockedGradDate={matchedSchoolExtras?.gradDate ?? null}
+            />
           </div>
         ) : (
           <ManualThanawiFields
@@ -767,11 +798,19 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           <ReadOnlyRow label="الرقم القومي" value={session.nationalId} ltr mono />
           {/* Marital status — required for every applicant. Red error
               label appears immediately when empty so the field is visually
-              flagged on first paint (no need to blur first). */}
+              flagged on first paint (no need to blur first).
+              Additionally, قسم الضباط (قسم عام) blocks متزوج applicants
+              outright — surfaces a hard-stop message + disables submit. */}
           <Field
             label="الحالة الاجتماعية"
             required
-            error={manualPersonal.maritalStatus === '' ? 'مطلوب' : undefined}
+            error={
+              maritalBlocked
+                ? 'لا يمكنك التقدم لقسم الضباط (قسم عام) في حالة الزواج — يُشترط أن يكون المتقدم غير متزوج.'
+                : manualPersonal.maritalStatus === ''
+                  ? 'مطلوب'
+                  : undefined
+            }
           >
             <Select
               value={manualPersonal.maritalStatus}
@@ -817,6 +856,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           title="محل الإقامة والميلاد"
         />
         <div className="grid gap-3 md:grid-cols-2">
+          {/* ── Birth block ── محافظة + قسم + العنوان التفصيلي للميلاد */}
           {/* محل الميلاد — dropdown. For MOI-verified applicants the
               value is pre-filled and disabled; for not_found the
               applicant picks from GOV_OPTIONS. */}
@@ -848,6 +888,16 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               )}
             />
           </Field>
+          <Textarea
+            label="العنوان التفصيلي لمحل الميلاد"
+            rows={2}
+            required
+            {...register('birthAddressDetail')}
+            error={errors.birthAddressDetail?.message}
+            containerClassName="md:col-span-2"
+          />
+
+          {/* ── Residence block ── محافظة + قسم + العنوان التفصيلي للإقامة */}
           <Field label="محافظة الإقامة" required error={errors.addressGovernorate?.message}>
             <Controller
               control={control}
@@ -879,7 +929,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             />
           </Field>
           <Textarea
-            label="العنوان التفصيلي"
+            label="العنوان التفصيلي لمحل الإقامة"
             rows={2}
             required
             {...register('currentAddressDetail')}
@@ -1009,7 +1059,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             variant="primary"
             size="lg"
             isLoading={isSubmitting}
-            disabled={!selectedCategoryKey}
+            disabled={!selectedCategoryKey || maritalBlocked}
           >
             حفظ والمتابعة
           </Button>
@@ -1230,18 +1280,25 @@ function ExternalGradesPanel({ row }: { row: GradeRow }): JSX.Element {
 }
 
 /* Manual school fields rendered alongside the matched-grades panel.
- * The four fields below (اسم المدرسة / عنوان المدرسة / دولة المدرسة /
- * تاريخ الحصول على الثانوية) are intentionally always editable per
- * client direction 2026-05-19 — the upstream MOI/grades API doesn't
- * return them, so the applicant fills them in by hand. */
+ *
+ * School name + address stay editable on the matched path (MOI grades
+ * feed doesn't carry them today). Country + graduation date arrive WITH
+ * the matched Thanaweya row when the lookup returns extras — those two
+ * render read-only with a small "from MOI" marker. When the extras
+ * aren't present (forward compat / partial responses) the fields fall
+ * back to editable inputs. */
 function SchoolDetailFields({
   register,
   control,
   errors,
+  lockedCountry,
+  lockedGradDate,
 }: {
   register: ReturnType<typeof useForm<Stage345Values>>['register'];
   control: ReturnType<typeof useForm<Stage345Values>>['control'];
   errors: ReturnType<typeof useForm<Stage345Values>>['formState']['errors'];
+  lockedCountry: string | null;
+  lockedGradDate: string | null;
 }): JSX.Element {
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -1257,29 +1314,37 @@ function SchoolDetailFields({
         {...register('schoolAddress')}
         error={errors.schoolAddress?.message}
       />
-      <Field label="دولة المدرسة" required error={errors.thanawiCountry?.message}>
-        <Controller
-          control={control}
-          name="thanawiCountry"
-          render={({ field }) => (
-            <SearchSelect
-              ariaLabel="دولة المدرسة"
-              placeholder="اختر الدولة"
-              options={COUNTRY_OPTIONS}
-              value={field.value ?? null}
-              onChange={(v) => field.onChange(v ?? '')}
-            />
-          )}
+      {lockedCountry ? (
+        <ReadOnlyRow label="دولة المدرسة" value={lockedCountry} />
+      ) : (
+        <Field label="دولة المدرسة" required error={errors.thanawiCountry?.message}>
+          <Controller
+            control={control}
+            name="thanawiCountry"
+            render={({ field }) => (
+              <SearchSelect
+                ariaLabel="دولة المدرسة"
+                placeholder="اختر الدولة"
+                options={COUNTRY_OPTIONS}
+                value={field.value ?? null}
+                onChange={(v) => field.onChange(v ?? '')}
+              />
+            )}
+          />
+        </Field>
+      )}
+      {lockedGradDate ? (
+        <ReadOnlyRow label="تاريخ الحصول على الثانوية" value={lockedGradDate} ltr />
+      ) : (
+        <Input
+          label="تاريخ الحصول على الثانوية"
+          type="date"
+          dir="ltr"
+          required
+          {...register('thanawiGradDate')}
+          error={errors.thanawiGradDate?.message}
         />
-      </Field>
-      <Input
-        label="تاريخ الحصول على الثانوية"
-        type="date"
-        dir="ltr"
-        required
-        {...register('thanawiGradDate')}
-        error={errors.thanawiGradDate?.message}
-      />
+      )}
     </div>
   );
 }
