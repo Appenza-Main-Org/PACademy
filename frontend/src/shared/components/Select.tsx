@@ -11,6 +11,7 @@ import { forwardRef } from 'react';
 import type { ReactNode, SelectHTMLAttributes } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
+import { dropdownChevronClassName, dropdownTriggerClassName } from './dropdownStyles';
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: ReactNode;
@@ -42,15 +43,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ref={ref}
             id={selectId}
             aria-invalid={Boolean(error) || undefined}
-            className={cn(
-              'block h-9 w-full appearance-none rounded-md border bg-surface-card pe-9 ps-3 text-sm text-ink-900 transition-colors duration-fast ease-standard',
-              error
-                ? 'border-terra-500 focus-visible:border-terra-500 focus-visible:shadow-focus-terra'
-                : 'border-ink-200 hover:border-ink-300 focus-visible:border-teal-500 focus-visible:shadow-focus-teal',
-              'focus-visible:outline-none',
-              'disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400',
-              className,
-            )}
+            className={cn('appearance-none', dropdownTriggerClassName({ invalid: Boolean(error), className }))}
             {...rest}
           >
             {options.map((o) => (
@@ -62,7 +55,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <ChevronDown
             size={16}
             strokeWidth={1.75}
-            className="pointer-events-none absolute inset-y-0 end-3 my-auto text-ink-500"
+            className={dropdownChevronClassName()}
             aria-hidden
           />
         </div>

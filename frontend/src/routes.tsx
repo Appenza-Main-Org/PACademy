@@ -62,7 +62,6 @@ import {
   CategoriesListPage,
   CategoryEditPage,
   CommitteeInstancesPage,
-  CommitteesManagementPage,
   CycleDetailPage,
   CycleEditPage,
   CycleNewPage,
@@ -251,9 +250,9 @@ export const routes: RouteObject[] = [
       { path: 'cycles/new', element: <CycleNewPage /> },
       { path: 'cycles/:id', element: <CycleDetailPage /> },
       { path: 'cycles/:id/edit', element: <CycleEditPage /> },
-      /* Committee instances management — cross-cycle list + inline edit
-       * for date + capacity. Reads the same record set the wizard step
-       * (cycles/admission-setup/wizard/committees) authors. */
+      /* Committee instances management — active-cycle list + inline edit
+       * for date + capacity. This is the canonical committees scheduling
+       * surface; the admission-setup wizard no longer embeds it. */
       { path: 'committees-exam-config', element: <CommitteeInstancesPage /> },
       /* Legacy redirect — `/admin/committees` renamed during the
        * committees-exam-config rework. External bookmarks land here. */
@@ -282,7 +281,7 @@ export const routes: RouteObject[] = [
       { path: 'cycles/admission-setup/application-status', element: <ApplicationStatusPage /> },
       { path: 'cycles/admission-setup/fees', element: <AdmissionFeesPage /> },
       { path: 'cycles/admission-setup/exams', element: <ExamsManagementPage /> },
-      { path: 'cycles/admission-setup/committees', element: <CommitteesManagementPage /> },
+      { path: 'cycles/admission-setup/committees', element: <Navigate to="/admin/committees-exam-config" replace /> },
       { path: 'cycles/admission-setup/electronic-declaration', element: <ElectronicDeclarationPage /> },
       /* Legacy redirects — old paths used to live at /admin/admission-setup/*. */
       { path: 'admission-setup', element: <Navigate to={ROUTES.admin.admissionSetup.index} replace /> },

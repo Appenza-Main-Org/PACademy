@@ -310,7 +310,7 @@ export function NotificationsPage(): JSX.Element {
               setDrawerOpen(true);
             }}
           >
-            إشعار جديد
+            إضافة إشعار
           </Button>
         }
       />

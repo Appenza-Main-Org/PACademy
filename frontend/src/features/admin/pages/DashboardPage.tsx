@@ -92,7 +92,7 @@ export function DashboardPage(): JSX.Element {
               options={(cycles ?? []).map((c) => ({ value: c.id, label: c.nameAr }))}
             />
             <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
-              متقدم جديد
+              إضافة متقدم
             </Button>
           </div>
         }

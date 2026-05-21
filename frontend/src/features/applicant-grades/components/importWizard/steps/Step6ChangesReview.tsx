@@ -49,6 +49,7 @@ export function Step6ChangesReview(): JSX.Element {
   const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
   const mapping = useImportWizardStore((s) => s.mapping);
   const filters = useImportWizardStore((s) => s.filters);
+  const lookupValueMappings = useImportWizardStore((s) => s.lookupValueMappings);
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
   const existingDiffDecisions = useImportWizardStore(
     (s) => s.existingDiffDecisions,
@@ -74,8 +75,8 @@ export function Step6ChangesReview(): JSX.Element {
   const normalised = useMemo(() => {
     const table = parsed?.tables.find((t) => t.name === selectedTableName) ?? null;
     if (!table || graduationYear == null) return [];
-    return normaliseRows(table, mapping, filters, graduationYear);
-  }, [parsed, selectedTableName, mapping, filters, graduationYear]);
+    return normaliseRows(table, mapping, filters, graduationYear, lookupValueMappings);
+  }, [parsed, selectedTableName, mapping, filters, graduationYear, lookupValueMappings]);
 
   const diffs = useMemo<ExistingDiff[]>(
     () => buildExistingDiffs(normalised, allRows ?? []).filter((d) => d.hasChanges),
@@ -94,27 +95,6 @@ export function Step6ChangesReview(): JSX.Element {
     () => buildUploadDuplicates(normalised),
     [normalised],
   );
-
-  /* When the diff set first lands, seed every NID with `reject` so an
-   * untouched wizard doesn't silently override existing rows. Bulk
-   * actions overwrite this default at the user's request. The keying
-   * is by national-id (stable) so re-running the preflight after edits
-   * upstream doesn't reset existing decisions. */
-  useEffect(() => {
-    if (diffs.length === 0) return;
-    const seeded: Record<string, ExistingDiffDecision> = {
-      ...existingDiffDecisions,
-    };
-    let touched = false;
-    for (const d of diffs) {
-      if (seeded[d.nationalId] == null) {
-        seeded[d.nationalId] = 'reject';
-        touched = true;
-      }
-    }
-    if (touched) setBulkExistingDiffDecisions(seeded);
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [diffs.length]);
 
   useEffect(() => {
     if (uploadDuplicates.length === 0) return;
@@ -141,12 +121,18 @@ export function Step6ChangesReview(): JSX.Element {
 
   function acceptAllDiffs(): void {
     const next: Record<string, ExistingDiffDecision> = { ...existingDiffDecisions };
-    for (const d of diffs) next[d.nationalId] = 'accept';
+    for (const d of diffs) {
+      const decision = existingDiffDecisions[d.nationalId] ?? 'pending';
+      if (decision === 'pending') next[d.nationalId] = 'accept';
+    }
     setBulkExistingDiffDecisions(next);
   }
   function rejectAllDiffs(): void {
     const next: Record<string, ExistingDiffDecision> = { ...existingDiffDecisions };
-    for (const d of diffs) next[d.nationalId] = 'reject';
+    for (const d of diffs) {
+      const decision = existingDiffDecisions[d.nationalId] ?? 'pending';
+      if (decision === 'pending') next[d.nationalId] = 'reject';
+    }
     setBulkExistingDiffDecisions(next);
   }
   const acceptedCount = diffs.filter(
@@ -155,9 +141,46 @@ export function Step6ChangesReview(): JSX.Element {
   const rejectedCount = diffs.filter(
     (d) => existingDiffDecisions[d.nationalId] === 'reject',
   ).length;
+  const pendingCount = diffs.filter((d) => {
+    const decision = existingDiffDecisions[d.nationalId] ?? 'pending';
+    return decision === 'pending';
+  }).length;
+  const diffBulkMode: BulkDecisionMode =
+    diffs.length > 0 && acceptedCount === diffs.length
+      ? 'accept'
+      : diffs.length > 0 && rejectedCount === diffs.length
+        ? 'reject'
+        : null;
   const undecidedUploadDuplicates = uploadDuplicates.filter(
     (u) => uploadDuplicateDecisions[u.nationalId] == null,
   ).length;
+  const uploadBulkMode = getUploadDuplicateBulkMode(
+    uploadDuplicates,
+    uploadDuplicateDecisions,
+  );
+
+  function acceptAllUploadDuplicates(): void {
+    const next: Record<string, UploadDuplicateDecision> = {
+      ...uploadDuplicateDecisions,
+    };
+    for (const duplicate of uploadDuplicates) {
+      next[duplicate.nationalId] = {
+        action: 'pick-row',
+        pickedSourceRowIndex: pickDefaultRowIndex(duplicate.rows),
+      };
+    }
+    setBulkUploadDuplicateDecisions(next);
+  }
+
+  function rejectAllUploadDuplicates(): void {
+    const next: Record<string, UploadDuplicateDecision> = {
+      ...uploadDuplicateDecisions,
+    };
+    for (const duplicate of uploadDuplicates) {
+      next[duplicate.nationalId] = { action: 'reject' };
+    }
+    setBulkUploadDuplicateDecisions(next);
+  }
 
   if (diffs.length === 0 && uploadDuplicates.length === 0) {
     return (
@@ -196,7 +219,10 @@ export function Step6ChangesReview(): JSX.Element {
           duplicates={uploadDuplicates}
           decisions={uploadDuplicateDecisions}
           undecidedCount={undecidedUploadDuplicates}
+          bulkMode={uploadBulkMode}
           onSetDecision={setUploadDuplicateDecision}
+          onAcceptAll={acceptAllUploadDuplicates}
+          onRejectAll={rejectAllUploadDuplicates}
         />
       )}
 
@@ -227,26 +253,22 @@ export function Step6ChangesReview(): JSX.Element {
                     {rejectedCount.toLocaleString('en')}
                   </span>
                 </span>
-              </span>
+                <span className="me-1 ms-1 text-2xs text-ink-500">
+                  قيد القرار:{' '}
+                  <span className="font-numeric font-bold">
+                    {pendingCount.toLocaleString('en')}
+                  </span>
+                </span>
+          </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Button
-                size="sm"
-                variant="secondary"
-                leadingIcon={<X size={12} strokeWidth={2} aria-hidden />}
-                onClick={rejectAllDiffs}
-              >
-                رفض الكل
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                leadingIcon={<Check size={12} strokeWidth={2} aria-hidden />}
-                onClick={acceptAllDiffs}
-              >
-                قبول الكل
-              </Button>
-            </div>
+            <BulkDecisionToggle
+              mode={diffBulkMode}
+              acceptLabel={`قبول الكل (${pendingCount.toLocaleString('en')})`}
+              rejectLabel={`رفض الكل (${pendingCount.toLocaleString('en')})`}
+              onAccept={acceptAllDiffs}
+              onReject={rejectAllDiffs}
+              disabled={pendingCount === 0}
+            />
           </header>
 
           <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
@@ -254,7 +276,7 @@ export function Step6ChangesReview(): JSX.Element {
               <li key={d.nationalId}>
                 <DiffCard
                   diff={d}
-                  decision={existingDiffDecisions[d.nationalId] ?? 'reject'}
+                  decision={existingDiffDecisions[d.nationalId] ?? 'pending'}
                   onDecide={(decision) =>
                     setExistingDiffDecision(d.nationalId, decision)
                   }
@@ -266,6 +288,82 @@ export function Step6ChangesReview(): JSX.Element {
       )}
     </div>
   );
+}
+
+type BulkDecisionMode = 'accept' | 'reject' | null;
+
+interface BulkDecisionToggleProps {
+  mode: BulkDecisionMode;
+  acceptLabel: string;
+  rejectLabel: string;
+  onAccept: () => void;
+  onReject: () => void;
+  disabled?: boolean;
+}
+
+function BulkDecisionToggle({
+  mode,
+  acceptLabel,
+  rejectLabel,
+  onAccept,
+  onReject,
+  disabled,
+}: BulkDecisionToggleProps): JSX.Element {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="قرار جماعي"
+      className="inline-flex overflow-hidden rounded-md border border-border-default bg-surface-card p-0.5 shadow-xs"
+    >
+      <button
+        type="button"
+        role="radio"
+        aria-checked={mode === 'reject'}
+        disabled={disabled}
+        onClick={onReject}
+        className={`inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-sm px-3 text-xs font-medium transition-colors focus-visible:shadow-focus-teal focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+          mode === 'reject'
+            ? 'bg-terra-500 text-text-inverse'
+            : 'text-ink-700 hover:bg-terra-50 hover:text-terra-700'
+        }`}
+      >
+        <X size={12} strokeWidth={2} aria-hidden />
+        {rejectLabel}
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={mode === 'accept'}
+        disabled={disabled}
+        onClick={onAccept}
+        className={`inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-sm px-3 text-xs font-medium transition-colors focus-visible:shadow-focus-teal focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+          mode === 'accept'
+            ? 'bg-teal-600 text-text-inverse'
+            : 'text-ink-700 hover:bg-teal-50 hover:text-teal-700'
+        }`}
+      >
+        <Check size={12} strokeWidth={2} aria-hidden />
+        {acceptLabel}
+      </button>
+    </div>
+  );
+}
+
+function getUploadDuplicateBulkMode(
+  duplicates: ReadonlyArray<UploadDuplicate>,
+  decisions: Record<string, UploadDuplicateDecision>,
+): BulkDecisionMode {
+  if (duplicates.length === 0) return null;
+  let accepted = 0;
+  let rejected = 0;
+  for (const duplicate of duplicates) {
+    const decision = decisions[duplicate.nationalId];
+    if (decision?.action === 'reject') rejected += 1;
+    else accepted += 1;
+  }
+  if (accepted === duplicates.length) return 'accept';
+  if (rejected === duplicates.length) return 'reject';
+  return null;
 }
 
 interface DiffCardProps {
@@ -389,14 +487,20 @@ interface UploadDuplicatesSectionProps {
   duplicates: UploadDuplicate[];
   decisions: Record<string, UploadDuplicateDecision>;
   undecidedCount: number;
+  bulkMode: BulkDecisionMode;
   onSetDecision: (nid: string, decision: UploadDuplicateDecision) => void;
+  onAcceptAll: () => void;
+  onRejectAll: () => void;
 }
 
 function UploadDuplicatesSection({
   duplicates,
   decisions,
   undecidedCount,
+  bulkMode,
   onSetDecision,
+  onAcceptAll,
+  onRejectAll,
 }: UploadDuplicatesSectionProps): JSX.Element {
   return (
     <section className="flex flex-col gap-3">
@@ -414,6 +518,13 @@ function UploadDuplicatesSection({
             بحاجة لقرار صريح.
           </span>
         </div>
+        <BulkDecisionToggle
+          mode={bulkMode}
+          acceptLabel="قبول الكل"
+          rejectLabel="رفض الكل"
+          onAccept={onAcceptAll}
+          onReject={onRejectAll}
+        />
       </header>
 
       <ul className="m-0 flex list-none flex-col gap-2.5 p-0">

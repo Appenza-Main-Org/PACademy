@@ -23,6 +23,12 @@
 import * as RadixSelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
+import {
+  dropdownChevronClassName,
+  dropdownContentClassName,
+  dropdownOptionClassName,
+  dropdownTriggerClassName,
+} from './dropdownStyles';
 
 export interface RadixSelectOption<V extends string = string> {
   value: V;
@@ -65,30 +71,13 @@ export function RadixSelect<V extends string = string>({
       <RadixSelectPrimitive.Trigger
         aria-label={ariaLabel}
         aria-invalid={invalid || undefined}
-        className={cn(
-          'group inline-flex h-9 w-full items-center justify-between gap-2',
-          'rounded-md border border-solid bg-surface-card text-sm text-ink-900',
-          'ps-3 pe-3 font-ar text-start',
-          'transition-colors duration-fast ease-standard',
-          invalid
-            ? 'border-terra-500 focus-visible:border-terra-500 focus-visible:shadow-focus-terra data-[state=open]:border-terra-500 data-[state=open]:shadow-focus-terra'
-            : 'border-border-default hover:border-border-strong focus-visible:border-teal-500 focus-visible:shadow-focus-teal data-[state=open]:border-teal-500 data-[state=open]:shadow-focus-teal',
-          'focus-visible:outline-none',
-          'disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400',
-          className,
-        )}
+        className={dropdownTriggerClassName({ invalid, className })}
       >
-        <RadixSelectPrimitive.Value placeholder={placeholder} />
+        <span className="min-w-0 flex-1 truncate">
+          <RadixSelectPrimitive.Value placeholder={placeholder} />
+        </span>
         <RadixSelectPrimitive.Icon asChild>
-          <ChevronDown
-            size={16}
-            aria-hidden
-            className={cn(
-              'shrink-0 text-ink-400 transition-transform duration-fast ease-standard',
-              'group-data-[state=open]:rotate-180',
-              'motion-reduce:transition-none',
-            )}
-          />
+          <ChevronDown size={16} aria-hidden className={dropdownChevronClassName()} />
         </RadixSelectPrimitive.Icon>
       </RadixSelectPrimitive.Trigger>
 
@@ -97,10 +86,7 @@ export function RadixSelect<V extends string = string>({
           position="popper"
           sideOffset={4}
           align="start"
-          className={cn(
-            'z-dropdown rounded-lg border border-border-subtle bg-surface-elevated shadow-md',
-            'overflow-hidden p-1 outline-none font-ar',
-          )}
+          className={cn('z-dropdown p-1', dropdownContentClassName())}
           style={{
             animation: 'pageEnter var(--duration-fast) var(--ease-standard)',
             minWidth: 'var(--radix-select-trigger-width)',
@@ -113,13 +99,10 @@ export function RadixSelect<V extends string = string>({
                 key={opt.value}
                 value={opt.value}
                 disabled={opt.disabled}
-                className={cn(
-                  'relative flex h-9 cursor-pointer select-none items-center gap-2 rounded-md ps-3 pe-8 text-sm',
-                  'text-ink-700 transition-colors duration-fast ease-standard',
-                  'data-[highlighted]:bg-[var(--accent-50)] data-[highlighted]:text-ink-900 data-[highlighted]:outline-none',
-                  'data-[state=checked]:font-medium data-[state=checked]:text-ink-900',
-                  'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
-                )}
+                className={dropdownOptionClassName({
+                  className:
+                    'relative pe-8 data-[highlighted]:bg-[var(--accent-50)] data-[highlighted]:outline-none data-[state=checked]:font-medium data-[state=checked]:text-ink-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
+                })}
               >
                 <RadixSelectPrimitive.ItemText>{opt.label}</RadixSelectPrimitive.ItemText>
                 <RadixSelectPrimitive.ItemIndicator className="absolute end-2 inline-flex items-center">

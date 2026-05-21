@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { Stethoscope, Users, CheckCircle, Clock, ArrowLeft } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { PageHeader, Card, CardHeader, CardBody, Badge, StatCard, EmptyState, Avatar } from '@/shared/components';
+import { PageHeader, Card, CardHeader, CardBody, Badge, StatCard, EmptyState, Avatar, Select } from '@/shared/components';
 import { ResultBadge } from '@/shared/components/StatusBadge';
 import { medicalService } from '../api/medical.service';
 import { MOCK } from '@/shared/mock-data';
@@ -76,9 +76,12 @@ export function MedicalQueuePage(): JSX.Element {
       <Card>
         <CardBody>
           <div className="filters">
-            <select className="select" value={stationId} onChange={(e) => setParams({ station: e.target.value })}>
-              {MOCK.medicalStations.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <Select
+              aria-label="اختيار المحطة الطبية"
+              value={stationId}
+              onChange={(e) => setParams({ station: e.target.value })}
+              options={MOCK.medicalStations.map((s) => ({ value: s.id, label: s.name }))}
+            />
           </div>
           {isLoading ? <div className="empty">جارٍ التحميل…</div> : !queue || queue.length === 0 ? <EmptyState title="لا يوجد متقدمون في الانتظار" /> : (
             <div className="table-wrap" style={{ border: 'none' }}>

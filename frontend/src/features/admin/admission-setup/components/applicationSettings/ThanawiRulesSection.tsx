@@ -44,9 +44,11 @@ import {
   type MinScoreOperator,
   type ThanawiRuleRowInput,
 } from '../../store/wizardSharedState';
+import { ExcellenceModeToggle } from './ExcellenceModeToggle';
 import { OperatorScoreField } from './OperatorScoreField';
 
 const EMPTY_INPUT: ThanawiRuleRowInput = {
+  excellenceMode: 'GRADES',
   examRound: '',
   committee: '',
   graduationYear: null,
@@ -58,6 +60,10 @@ const EMPTY_INPUT: ThanawiRuleRowInput = {
   scoreMax: null,
   maxScoreOperator: DEFAULT_MAX_SCORE_OPERATOR,
 };
+
+function emptyInputFor(excellenceMode: ExcellenceMode | null): ThanawiRuleRowInput {
+  return { ...EMPTY_INPUT, excellenceMode: excellenceMode ?? 'GRADES' };
+}
 
 /** Lower bound for both inputs — "positive numbers only".
  *  The min field has an upper bound at 100 (percentage convention).
@@ -294,44 +300,52 @@ function ThanawiTopFields({
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
 
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <FieldLabel label="بداية التقديم" required>
-        <DatePicker
-          value={isoToDate(header.applicationStart)}
-          onChange={(d) =>
-            setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
-          }
-          placeholder="اختر اليوم…"
-        />
-      </FieldLabel>
-      <FieldLabel label="نهاية التقديم" required>
-        <DatePicker
-          value={isoToDate(header.applicationEnd)}
-          onChange={(d) =>
-            setHeaderField(categoryCode, 'applicationEnd', dateToIso(d))
-          }
-          placeholder="اختر اليوم…"
-        />
-      </FieldLabel>
-      <FieldLabel label="تاريخ احتساب السن" required>
-        <DatePicker
-          value={isoToDate(header.ageReferenceDate)}
-          onChange={(d) =>
-            setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
-          }
-          placeholder="اختر اليوم…"
-        />
-      </FieldLabel>
-      <FieldLabel label="الحالة الاجتماعية" required>
-        <MultiSelect
-          ariaLabel="الحالة الاجتماعية"
-          value={header.maritalStatus}
-          onChange={(next) => setHeaderField(categoryCode, 'maritalStatus', next)}
-          options={maritalOptions}
-          placeholder="اختر الحالة الاجتماعية…"
-        />
-      </FieldLabel>
-      <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} />
+    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(260px,2fr)]">
+      <FieldGroup title="نطاق التقديم">
+        <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-3">
+          <FieldLabel label="بداية التقديم" required>
+            <DatePicker
+              value={isoToDate(header.applicationStart)}
+              onChange={(d) =>
+                setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
+              }
+              placeholder="اختر اليوم…"
+            />
+          </FieldLabel>
+          <FieldLabel label="نهاية التقديم" required>
+            <DatePicker
+              value={isoToDate(header.applicationEnd)}
+              onChange={(d) =>
+                setHeaderField(categoryCode, 'applicationEnd', dateToIso(d))
+              }
+              placeholder="اختر اليوم…"
+            />
+          </FieldLabel>
+          <FieldLabel label="تاريخ احتساب السن" required>
+            <DatePicker
+              value={isoToDate(header.ageReferenceDate)}
+              onChange={(d) =>
+                setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
+              }
+              placeholder="اختر اليوم…"
+            />
+          </FieldLabel>
+        </div>
+      </FieldGroup>
+      <FieldGroup title="شروط الأهلية">
+        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+          <FieldLabel label="الحالة الاجتماعية" required>
+            <MultiSelect
+              ariaLabel="الحالة الاجتماعية"
+              value={header.maritalStatus}
+              onChange={(next) => setHeaderField(categoryCode, 'maritalStatus', next)}
+              options={maritalOptions}
+              placeholder="اختر الحالة الاجتماعية…"
+            />
+          </FieldLabel>
+          <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} />
+        </div>
+      </FieldGroup>
     </div>
   );
 }
@@ -421,17 +435,33 @@ interface FieldLabelProps {
   required?: boolean;
 }
 
+interface FieldGroupProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function FieldGroup({ title, children }: FieldGroupProps): JSX.Element {
+  return (
+    <div className="rounded-md border border-border-subtle bg-surface-card p-3">
+      <h5 className="m-0 mb-3 font-ar text-xs font-semibold text-ink-800">
+        {title}
+      </h5>
+      {children}
+    </div>
+  );
+}
+
 function FieldLabel({
   label,
   children,
   required = false,
 }: FieldLabelProps): JSX.Element {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="font-ar text-xs font-medium text-ink-700">
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="flex min-h-5 items-start font-ar text-xs font-medium leading-5 text-ink-700">
         {label}
         {required && (
-          <span aria-hidden className="ms-1 text-terra-600">
+          <span aria-hidden className="ms-1 shrink-0 text-terra-600">
             *
           </span>
         )}
@@ -457,6 +487,7 @@ interface ThanawiFormProps {
 
 function rowToThanawiInput(r: LocalThanawiRow): ThanawiRuleRowInput {
   return {
+    excellenceMode: r.excellenceMode ?? (r.grade ? 'TAGDIR' : 'GRADES'),
     examRound: r.examRound,
     committee: r.committee,
     graduationYear: r.graduationYear,
@@ -484,11 +515,10 @@ function ThanawiForm({
   gradeRank,
   excellenceMode,
 }: ThanawiFormProps): JSX.Element {
-  /* `null` (criterion not picked) keeps both pairs visible so admins
-   * can still fill the row in until they assign a criterion. */
-  const showGradePair = excellenceMode !== 'GRADES';
-  const showScorePair = excellenceMode !== 'TAGDIR';
-  const [draft, setDraft] = useState<ThanawiRuleRowInput>(EMPTY_INPUT);
+  const defaultExcellenceMode = excellenceMode ?? 'GRADES';
+  const [draft, setDraft] = useState<ThanawiRuleRowInput>(() =>
+    emptyInputFor(defaultExcellenceMode),
+  );
   const formRef = useRef<HTMLDivElement>(null);
 
   const header = useAdmissionSetupWizardStore(
@@ -551,8 +581,15 @@ function ThanawiForm({
   const lastEditingIdRef = useRef<string | null>(null);
   if (lastEditingIdRef.current !== editingId) {
     lastEditingIdRef.current = editingId;
-    setDraft(editingRow ? rowToThanawiInput(editingRow) : EMPTY_INPUT);
+    setDraft(editingRow ? rowToThanawiInput(editingRow) : emptyInputFor(defaultExcellenceMode));
   }
+  const lastDefaultModeRef = useRef<ExcellenceMode>(defaultExcellenceMode);
+  if (!isEditing && lastDefaultModeRef.current !== defaultExcellenceMode) {
+    lastDefaultModeRef.current = defaultExcellenceMode;
+    setDraft(emptyInputFor(defaultExcellenceMode));
+  }
+  const showGradePair = draft.excellenceMode === 'TAGDIR';
+  const showScorePair = draft.excellenceMode === 'GRADES';
 
   /* OperatorScoreField clamps to [0, maxBound] on blur, but we still
    *  guard the submit gate so a focus-stolen blur or paste-then-submit
@@ -628,7 +665,7 @@ function ThanawiForm({
         );
         return;
       }
-      setDraft(EMPTY_INPUT);
+      setDraft(emptyInputFor(defaultExcellenceMode));
       toast('تم تعديل الشرط', 'success');
       return;
     }
@@ -637,7 +674,7 @@ function ThanawiForm({
       toast('هذا الشرط موجود بالفعل في الجدول', 'danger');
       return;
     }
-    setDraft(EMPTY_INPUT);
+    setDraft(emptyInputFor(defaultExcellenceMode));
     toast('تمت إضافة الشرط محلياً', 'success');
   };
 
@@ -663,146 +700,178 @@ function ThanawiForm({
           </h4>
         </header>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <FieldLabel label="الدور" required>
-            <SearchSelect
-              ariaLabel="الدور"
-              value={draft.examRound || null}
-              onChange={(v) =>
-                setDraft((d) => ({ ...d, examRound: v ?? '' }))
-              }
-              options={examRoundOptions}
-              placeholder="اختر الدور…"
-            />
-          </FieldLabel>
-          <FieldLabel label="اللجنة" required>
-            <SearchSelect
-              ariaLabel="اللجنة"
-              value={draft.committee || null}
-              onChange={(v) =>
-                setDraft((d) => ({ ...d, committee: v ?? '' }))
-              }
-              options={committeeOptions}
-              placeholder="اختر اللجنة…"
-            />
-          </FieldLabel>
-          <FieldLabel label="سنة التخرج" required>
-            <SearchSelect
-              ariaLabel="سنة التخرج"
-              value={
-                draft.graduationYear !== null ? String(draft.graduationYear) : null
-              }
-              onChange={(v) =>
+        <div className="mb-3 rounded-md border border-border-subtle bg-ink-50/40 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="font-ar text-xs font-medium text-ink-700">
+                معيار التمييز
+              </span>
+              <p className="m-0 mt-0.5 font-ar text-2xs text-ink-500">
+                القيمة الافتراضية مأخوذة من إعداد الفئة، ويمكن تعديلها لهذا الشرط.
+              </p>
+            </div>
+            <ExcellenceModeToggle
+              value={draft.excellenceMode}
+              onChange={(next) =>
                 setDraft((d) => ({
                   ...d,
-                  graduationYear: v === null ? null : Number(v),
+                  excellenceMode: next,
+                  grade: next === 'TAGDIR' ? d.grade : '',
+                  gradeMax: next === 'TAGDIR' ? d.gradeMax : '',
+                  scoreMin: next === 'GRADES' ? d.scoreMin : null,
+                  scoreMax: next === 'GRADES' ? d.scoreMax : null,
                 }))
               }
-              options={graduationYearOptions}
-              placeholder="اختر السنة…"
             />
-          </FieldLabel>
-          <FieldLabel label="فئة المدرسة" required>
-            <MultiSelect
-              ariaLabel="فئة المدرسة"
-              value={draft.schoolCategories}
-              onChange={(next) =>
-                setDraft((d) => ({ ...d, schoolCategories: next }))
-              }
-              options={schoolCategoryOptions.map((o) => ({
-                value: o.value,
-                label: o.label,
-              }))}
-              placeholder="اختر فئة المدرسة…"
-            />
-          </FieldLabel>
+          </div>
         </div>
 
-        {showGradePair && (
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <FieldLabel label="الحد الأدنى للتقدير" required>
+        <FieldGroup title="بيانات اللجنة والمدرسة">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+            <FieldLabel label="الدور" required>
               <SearchSelect
-                ariaLabel="الحد الأدنى للتقدير"
-                value={draft.grade || null}
-                onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
-                options={gradeOptions}
-                placeholder="اختر التقدير…"
-              />
-            </FieldLabel>
-
-            <FieldLabel label="الحد الأقصى للتقدير" required>
-              <SearchSelect
-                ariaLabel="الحد الأقصى للتقدير"
-                value={draft.gradeMax || null}
+                ariaLabel="الدور"
+                value={draft.examRound || null}
                 onChange={(v) =>
-                  setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
+                  setDraft((d) => ({ ...d, examRound: v ?? '' }))
                 }
-                options={gradeOptions}
-                placeholder="اختر التقدير…"
-                invalid={gradeOrderInvalid}
+                options={examRoundOptions}
+                placeholder="اختر الدور…"
               />
-              {gradeOrderInvalid && (
-                <span className="font-ar text-2xs text-terra-700">
-                  يجب ألا يقل الحد الأقصى عن الحد الأدنى للتقدير.
-                </span>
-              )}
+            </FieldLabel>
+            <FieldLabel label="اللجنة" required>
+              <SearchSelect
+                ariaLabel="اللجنة"
+                value={draft.committee || null}
+                onChange={(v) =>
+                  setDraft((d) => ({ ...d, committee: v ?? '' }))
+                }
+                options={committeeOptions}
+                placeholder="اختر اللجنة…"
+              />
+            </FieldLabel>
+            <FieldLabel label="سنة التخرج" required>
+              <SearchSelect
+                ariaLabel="سنة التخرج"
+                value={
+                  draft.graduationYear !== null ? String(draft.graduationYear) : null
+                }
+                onChange={(v) =>
+                  setDraft((d) => ({
+                    ...d,
+                    graduationYear: v === null ? null : Number(v),
+                  }))
+                }
+                options={graduationYearOptions}
+                placeholder="اختر السنة…"
+              />
+            </FieldLabel>
+            <FieldLabel label="فئة المدرسة" required>
+              <MultiSelect
+                ariaLabel="فئة المدرسة"
+                value={draft.schoolCategories}
+                onChange={(next) =>
+                  setDraft((d) => ({ ...d, schoolCategories: next }))
+                }
+                options={schoolCategoryOptions.map((o) => ({
+                  value: o.value,
+                  label: o.label,
+                }))}
+                placeholder="اختر فئة المدرسة…"
+              />
             </FieldLabel>
           </div>
-        )}
+        </FieldGroup>
 
-        {showScorePair && (
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
-              <OperatorScoreField<MinScoreOperator>
-                operatorValue={draft.minScoreOperator}
-                onOperatorChange={(v) =>
-                  setDraft((d) => ({ ...d, minScoreOperator: v }))
-                }
-                operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
-                operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
-                scoreValue={draft.scoreMin}
-                onScoreChange={(next) =>
-                  setDraft((d) => ({ ...d, scoreMin: next }))
-                }
-                scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
-                invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
-                maxBound={MIN_SCORE_UPPER_BOUND}
-                onClampMessage={setScoreMinMessage}
-              />
-              {scoreMinMessage && (
-                <span className="font-ar text-2xs text-terra-700">
-                  {scoreMinMessage}
-                </span>
-              )}
-            </FieldLabel>
+        <div className="mt-3">
+          <FieldGroup title="حدود التمييز">
+            {showGradePair && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <FieldLabel label="الحد الأدنى للتقدير" required>
+                  <SearchSelect
+                    ariaLabel="الحد الأدنى للتقدير"
+                    value={draft.grade || null}
+                    onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
+                    options={gradeOptions}
+                    placeholder="اختر التقدير…"
+                  />
+                </FieldLabel>
 
-            <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
-              <OperatorScoreField<MaxScoreOperator>
-                operatorValue={draft.maxScoreOperator}
-                onOperatorChange={(v) =>
-                  setDraft((d) => ({ ...d, maxScoreOperator: v }))
-                }
-                operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
-                operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
-                scoreValue={draft.scoreMax}
-                onScoreChange={(next) =>
-                  setDraft((d) => ({ ...d, scoreMax: next }))
-                }
-                scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
-                invalid={
-                  scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
-                }
-                maxBound={null}
-                onClampMessage={setScoreMaxMessage}
-              />
-              {(scoreMaxMessage || scoreOrderInvalid) && (
-                <span className="font-ar text-2xs text-terra-700">
-                  {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
-                </span>
-              )}
-            </FieldLabel>
-          </div>
-        )}
+                <FieldLabel label="الحد الأقصى للتقدير" required>
+                  <SearchSelect
+                    ariaLabel="الحد الأقصى للتقدير"
+                    value={draft.gradeMax || null}
+                    onChange={(v) =>
+                      setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
+                    }
+                    options={gradeOptions}
+                    placeholder="اختر التقدير…"
+                    invalid={gradeOrderInvalid}
+                  />
+                  {gradeOrderInvalid && (
+                    <span className="font-ar text-2xs text-terra-700">
+                      يجب ألا يقل الحد الأقصى عن الحد الأدنى للتقدير.
+                    </span>
+                  )}
+                </FieldLabel>
+              </div>
+            )}
+
+            {showScorePair && (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
+                  <OperatorScoreField<MinScoreOperator>
+                    operatorValue={draft.minScoreOperator}
+                    onOperatorChange={(v) =>
+                      setDraft((d) => ({ ...d, minScoreOperator: v }))
+                    }
+                    operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
+                    operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
+                    scoreValue={draft.scoreMin}
+                    onScoreChange={(next) =>
+                      setDraft((d) => ({ ...d, scoreMin: next }))
+                    }
+                    scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
+                    invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
+                    maxBound={MIN_SCORE_UPPER_BOUND}
+                    onClampMessage={setScoreMinMessage}
+                  />
+                  {scoreMinMessage && (
+                    <span className="font-ar text-2xs text-terra-700">
+                      {scoreMinMessage}
+                    </span>
+                  )}
+                </FieldLabel>
+
+                <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
+                  <OperatorScoreField<MaxScoreOperator>
+                    operatorValue={draft.maxScoreOperator}
+                    onOperatorChange={(v) =>
+                      setDraft((d) => ({ ...d, maxScoreOperator: v }))
+                    }
+                    operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
+                    operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
+                    scoreValue={draft.scoreMax}
+                    onScoreChange={(next) =>
+                      setDraft((d) => ({ ...d, scoreMax: next }))
+                    }
+                    scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
+                    invalid={
+                      scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
+                    }
+                    maxBound={null}
+                    onClampMessage={setScoreMaxMessage}
+                  />
+                  {(scoreMaxMessage || scoreOrderInvalid) && (
+                    <span className="font-ar text-2xs text-terra-700">
+                      {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
+                    </span>
+                  )}
+                </FieldLabel>
+              </div>
+            )}
+          </FieldGroup>
+        </div>
 
         <div className="mt-4 flex items-center justify-end gap-3">
           {!isHeaderComplete && (
@@ -839,8 +908,6 @@ function ThanawiForm({
         schoolCategoryOptions={schoolCategoryOptions}
         maritalOptions={maritalOptions}
         gradeOptions={gradeOptions}
-        showGradePair={showGradePair}
-        showScorePair={showScorePair}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
@@ -857,10 +924,6 @@ interface ThanawiGridProps {
   schoolCategoryOptions: ReadonlyArray<SearchSelectOption>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<SearchSelectOption>;
-  /** Mirror the form's visibility — hides تقدير / درجة columns when the
-   *  active criterion does not surface them. */
-  showGradePair: boolean;
-  showScorePair: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
@@ -873,8 +936,6 @@ function ThanawiGrid({
   schoolCategoryOptions,
   maritalOptions,
   gradeOptions,
-  showGradePair,
-  showScorePair,
   onEdit,
   onDelete,
 }: ThanawiGridProps): JSX.Element {
@@ -888,6 +949,10 @@ function ThanawiGrid({
     maritalOptions.find((o) => o.value === v)?.label ?? v;
   const labelForGrade = (v: string): string =>
     gradeOptions.find((o) => o.value === v)?.label ?? v;
+  const labelForExcellenceMode = (r: LocalThanawiRow): string =>
+    (r.excellenceMode ?? (r.grade ? 'TAGDIR' : 'GRADES')) === 'TAGDIR'
+      ? 'تقدير'
+      : 'درجة';
 
   if (rows.length === 0) {
     return (
@@ -910,10 +975,11 @@ function ThanawiGrid({
             <Th>الدور</Th>
             <Th>سنة التخرج</Th>
             <Th>فئة المدرسة</Th>
-            {showGradePair && <Th>الحد الأدنى للتقدير</Th>}
-            {showGradePair && <Th>الحد الأقصى للتقدير</Th>}
-            {showScorePair && <Th>الحد الأدنى للدرجة</Th>}
-            {showScorePair && <Th>الحد الأقصى للدرجة</Th>}
+            <Th>معيار التمييز</Th>
+            <Th>الحد الأدنى للتقدير</Th>
+            <Th>الحد الأقصى للتقدير</Th>
+            <Th>الحد الأدنى للدرجة</Th>
+            <Th>الحد الأقصى للدرجة</Th>
             <Th>إجراءات</Th>
           </tr>
         </thead>
@@ -947,26 +1013,19 @@ function ThanawiGrid({
                     values={r.schoolCategories.map(labelForSchool)}
                   />
                 </Td>
-                {showGradePair && (
-                  <Td>{r.grade ? labelForGrade(r.grade) : '—'}</Td>
-                )}
-                {showGradePair && (
-                  <Td>{r.gradeMax ? labelForGrade(r.gradeMax) : '—'}</Td>
-                )}
-                {showScorePair && (
-                  <Td>
-                    {r.scoreMin !== null
-                      ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
-                      : '—'}
-                  </Td>
-                )}
-                {showScorePair && (
-                  <Td>
-                    {r.scoreMax !== null
-                      ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
-                      : '—'}
-                  </Td>
-                )}
+                <Td>{labelForExcellenceMode(r)}</Td>
+                <Td>{r.grade ? labelForGrade(r.grade) : '—'}</Td>
+                <Td>{r.gradeMax ? labelForGrade(r.gradeMax) : '—'}</Td>
+                <Td>
+                  {r.scoreMin !== null
+                    ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
+                    : '—'}
+                </Td>
+                <Td>
+                  {r.scoreMax !== null
+                    ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
+                    : '—'}
+                </Td>
                 <td className="px-3 py-2 align-middle text-end">
                   <div className="inline-flex items-center gap-1">
                     <button

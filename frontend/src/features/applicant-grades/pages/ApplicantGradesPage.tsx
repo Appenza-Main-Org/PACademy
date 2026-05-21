@@ -46,24 +46,31 @@ import {
   EmptyState,
   LoadingState,
   PageHeader,
+  Select,
   StatCard,
   toast,
 } from '@/shared/components';
 import type { DataTableColumn, DataTableSort } from '@/shared/components';
+import { isFilterActive, type ColumnFilterValue } from '@/shared/components/data-table';
 import { ROUTES } from '@/config/routes';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { serializeCsv } from '@/shared/lib/csv';
 import { downloadBlob } from '@/shared/lib/download';
 import { useLookup } from '@/features/lookups';
-import { useApplicantGradesList, useClearGrades, useGrades } from '../api/grades.queries';
-import { gradesService } from '../api/grades.service';
+import {
+  useApplicantGradesList,
+  useClearGrades,
+  useDeleteGrades,
+  useGrades,
+} from '../api/grades.queries';
+import { gradesService, type ApplicantGradesColumnFilters } from '../api/grades.service';
 import { downloadTemplateWorkbook } from '../lib/buildTemplateWorkbook';
 import { useImportWizardStore } from '../store/importWizard.store';
 import { AddAdjustmentDialog } from '../components/AddAdjustmentDialog';
 import { LogDrawer } from '../components/LogDrawer';
 import { StudentDetailsDrawer } from '../components/StudentDetailsDrawer';
 import { deriveRow, type DerivedRow } from '../lib/derive';
-import type { ApplicantGender, GradeRow } from '../types';
+import type { ApplicantGender } from '../types';
 
 type OverlayState =
   | { kind: 'add-adj'; seat: number }
@@ -82,6 +89,8 @@ function parsePageSize(raw: string | null): number {
 }
 
 const DEBOUNCE_MS = 250;
+const ACTIVE_FILTER_CONTROL_CLASS =
+  '!border-teal-500 !bg-teal-50 !text-teal-800 shadow-[inset_0_0_0_1px_var(--teal-500)]';
 
 function useDebouncedValue<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -90,6 +99,25 @@ function useDebouncedValue<T>(value: T, ms: number): T {
     return () => window.clearTimeout(t);
   }, [value, ms]);
   return debounced;
+}
+
+function textColumnFilter(value: ColumnFilterValue | undefined): string | undefined {
+  if (!value || value.kind !== 'text') return undefined;
+  const text = value.contains.trim();
+  return text === '' ? undefined : text;
+}
+
+function numberColumnFilter(
+  value: ColumnFilterValue | undefined,
+): { min: number | null; max: number | null } | null {
+  if (!value || value.kind !== 'number') return null;
+  if (value.min === null && value.max === null) return null;
+  return { min: value.min, max: value.max };
+}
+
+function enumColumnFilter(value: ColumnFilterValue | undefined): readonly string[] | undefined {
+  if (!value || value.kind !== 'enum' || value.values.length === 0) return undefined;
+  return value.values;
 }
 
 export function ApplicantGradesPage(): JSX.Element {
@@ -133,6 +161,15 @@ export function ApplicantGradesPage(): JSX.Element {
     for (const r of schoolCategoriesQuery.data ?? []) map.set(r.code, r.name);
     return map;
   }, [schoolCategoriesQuery.data]);
+  const examRoundsQuery = useLookup('exam-rounds');
+  const examRoundLabel = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of examRoundsQuery.data ?? []) {
+      map.set(r.code, r.name);
+      map.set(r.name, r.name);
+    }
+    return map;
+  }, [examRoundsQuery.data]);
 
   /* Local search input that debounces into the URL state. The URL
    * value is the source of truth for the query; the input only
@@ -141,6 +178,7 @@ export function ApplicantGradesPage(): JSX.Element {
   const debouncedSearch = useDebouncedValue(searchInput, DEBOUNCE_MS);
 
   useEffect(() => {
+    if (debouncedSearch !== searchInput) return;
     if (debouncedSearch === qFromUrl) return;
     setSearchParams(
       (prev) => {
@@ -152,14 +190,57 @@ export function ApplicantGradesPage(): JSX.Element {
       },
       { replace: true },
     );
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [debouncedSearch]);
+  }, [debouncedSearch, qFromUrl, searchInput, setSearchParams]);
 
   const [overlay, setOverlay] = useState<OverlayState>(null);
-  const [sort, setSort] = useState<DataTableSort<GradeRow> | null>(null);
+  const [sort, setSort] = useState<DataTableSort<DerivedRow> | null>(null);
+  const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({});
   const [exporting, setExporting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<(string | number)[]>([]);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const clearMut = useClearGrades();
+  const deleteMut = useDeleteGrades();
+
+  useEffect(() => {
+    setSelectedRowKeys([]);
+    setConfirmBulkDelete(false);
+  }, [
+    qFromUrl,
+    genderFromUrl,
+    branchFromUrl,
+    yearFromUrl,
+    schoolCategoryFromUrl,
+    changedOnly,
+    columnFilters,
+  ]);
+
+  const gradeColumnFilters = useMemo<ApplicantGradesColumnFilters>(() => {
+    const totalRange = numberColumnFilter(columnFilters.total);
+    const pctRange = numberColumnFilter(columnFilters.pct);
+    const effRange = numberColumnFilter(columnFilters.eff);
+    const graduationYearRange = numberColumnFilter(columnFilters.graduationYear);
+    return {
+      nid: textColumnFilter(columnFilters.nid),
+      seatingNumber: textColumnFilter(columnFilters.seatingNumber),
+      name: textColumnFilter(columnFilters.name),
+      totalMin: totalRange?.min,
+      totalMax: totalRange?.max,
+      pctMin: pctRange?.min,
+      pctMax: pctRange?.max,
+      effMin: effRange?.min,
+      effMax: effRange?.max,
+      schoolCategoryCodes: enumColumnFilter(columnFilters.schoolCategoryCode),
+      school: textColumnFilter(columnFilters.school),
+      graduationYearMin: graduationYearRange?.min,
+      graduationYearMax: graduationYearRange?.max,
+    };
+  }, [columnFilters]);
+
+  const activeColumnFilterCount = useMemo(
+    () => Object.values(columnFilters).filter(isFilterActive).length,
+    [columnFilters],
+  );
 
   const { data: paginatedData, isLoading } = useApplicantGradesList({
     page,
@@ -170,6 +251,7 @@ export function ApplicantGradesPage(): JSX.Element {
     branch: branchFromUrl,
     graduationYear: yearFromUrl,
     schoolCategoryCode: schoolCategoryFromUrl,
+    columnFilters: gradeColumnFilters,
     changedOnly,
   });
   /* Keep the unpaginated query alive so the stats strip + overlay
@@ -247,11 +329,17 @@ export function ApplicantGradesPage(): JSX.Element {
     (yearFromUrl !== 'all' ? 1 : 0) +
     (schoolCategoryFromUrl !== 'all' ? 1 : 0) +
     (changedOnly ? 1 : 0);
+  const activeSearchCount = qFromUrl.trim() !== '' ? 1 : 0;
+  const activeTotalFilterCount = activeFilterCount + activeSearchCount + activeColumnFilterCount;
+  const hasActiveFilters = activeTotalFilterCount > 0;
 
   function clearAllFilters(): void {
+    setSearchInput('');
+    setColumnFilters({});
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
+        next.delete('q');
         next.delete('gender');
         next.delete('branch');
         next.delete('year');
@@ -286,6 +374,18 @@ export function ApplicantGradesPage(): JSX.Element {
     );
   }
 
+  function handleColumnFiltersChange(nextFilters: Record<string, ColumnFilterValue>): void {
+    setColumnFilters(nextFilters);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   async function handleExport(scope: 'page' | 'all', format: 'csv' | 'xlsx'): Promise<void> {
     if (exporting) return;
     setExporting(true);
@@ -303,6 +403,7 @@ export function ApplicantGradesPage(): JSX.Element {
               branch: branchFromUrl,
               graduationYear: yearFromUrl,
               schoolCategoryCode: schoolCategoryFromUrl,
+              columnFilters: gradeColumnFilters,
               changedOnly,
             })
           : rows;
@@ -334,7 +435,7 @@ export function ApplicantGradesPage(): JSX.Element {
         r.schoolCategoryCode ? schoolCategoryLabel.get(r.schoolCategoryCode) ?? '' : '',
         r.school ?? '',
         r.region ?? '',
-        r.examRound ?? '',
+        r.examRound ? examRoundLabel.get(r.examRound) ?? r.examRound : '',
         r.total,
         r.overrideMax ?? r.importMax,
       ]);
@@ -370,6 +471,7 @@ export function ApplicantGradesPage(): JSX.Element {
       await clearMut.mutateAsync();
       setConfirmReset(false);
       setSearchInput('');
+      setColumnFilters({});
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -383,6 +485,40 @@ export function ApplicantGradesPage(): JSX.Element {
     } catch {
       toast('تعذّر تصفير البيانات. حاول مرة أخرى.', 'danger');
     }
+  }
+
+  async function handleBulkDelete(): Promise<void> {
+    if (total === 0) {
+      setConfirmBulkDelete(false);
+      setSelectedRowKeys([]);
+      toast('لا توجد صفوف مطابقة للتصفية الحالية للحذف.', 'warning');
+      return;
+    }
+    const seats = selectedRowKeys
+      .map((key) => (typeof key === 'number' ? key : Number(key)))
+      .filter((seat) => Number.isFinite(seat));
+    if (seats.length === 0) return;
+    try {
+      const result = await deleteMut.mutateAsync(seats);
+      setConfirmBulkDelete(false);
+      setSelectedRowKeys([]);
+      toast(
+        `تم حذف ${result.deleted.toLocaleString('en')} صفًا من بيانات الدرجات.`,
+        'success',
+      );
+    } catch {
+      toast('تعذّر حذف الصفوف المحددة. حاول مرة أخرى.', 'danger');
+    }
+  }
+
+  function openBulkDeleteDialog(): void {
+    if (selectedRowKeys.length === 0) return;
+    if (total === 0) {
+      setSelectedRowKeys([]);
+      toast('لا توجد صفوف مطابقة للتصفية الحالية للحذف.', 'warning');
+      return;
+    }
+    setConfirmBulkDelete(true);
   }
 
   const activeRow =
@@ -498,35 +634,43 @@ export function ApplicantGradesPage(): JSX.Element {
       ),
     },
     {
-      key: 'kind',
+      key: 'schoolCategoryCode',
       label: 'النوع',
       align: 'center',
       sortable: true,
-      getSortValue: (r) => r.kind,
+      getSortValue: (r) => r.schoolCategoryCode ?? '',
       filter: {
         kind: 'enum',
-        getValue: (r) => r.kind,
-        options: [
-          { value: 'general', label: 'عامة' },
-          { value: 'azhar', label: 'أزهرية' },
-        ],
+        getValue: (r) => r.schoolCategoryCode ?? '',
+        options: activeSchoolCategories.map((c) => ({ value: c.code, label: c.name })),
       },
-      className: 'min-w-[6ch]',
-      render: (r) => (
-        <Badge tone={r.kind === 'general' ? 'info' : 'warning'}>
-          {r.kind === 'general' ? 'عامة' : 'أزهرية'}
-        </Badge>
-      ),
+      className: 'min-w-[13ch] max-w-[18ch]',
+      render: (r) =>
+        r.schoolCategoryCode ? (
+          <Badge tone={r.schoolCategoryCode === 'SCH-03' ? 'warning' : 'info'}>
+            <span className="max-w-[16ch] truncate">
+              {schoolCategoryLabel.get(r.schoolCategoryCode) ?? r.schoolCategoryCode}
+            </span>
+          </Badge>
+        ) : (
+          <span className="text-2xs text-ink-300">—</span>
+        ),
     },
     {
-      key: 'branch',
-      label: 'الشعبة',
-      hideOn: 'md',
+      key: 'school',
+      label: 'اسم المدرسة',
       sortable: true,
-      getSortValue: (r) => r.branch ?? '',
-      filter: { kind: 'text', getValue: (r) => r.branch ?? '' },
-      className: 'min-w-[10ch]',
-      render: (r) => <span className="text-xs">{r.branch}</span>,
+      getSortValue: (r) => r.school,
+      filter: { kind: 'text', getValue: (r) => r.school },
+      className: 'min-w-[16ch] max-w-[24ch]',
+      render: (r) =>
+        r.school.trim() !== '' ? (
+          <span className="block max-w-[22ch] truncate text-xs text-ink-700" title={r.school}>
+            {r.school}
+          </span>
+        ) : (
+          <span className="text-2xs text-ink-300">—</span>
+        ),
     },
     {
       key: 'graduationYear',
@@ -540,70 +684,6 @@ export function ApplicantGradesPage(): JSX.Element {
       render: (r) =>
         r.graduationYear != null ? (
           <span className="font-en text-xs text-ink-700">{r.graduationYear}</span>
-        ) : (
-          <span className="text-2xs text-ink-300">—</span>
-        ),
-    },
-    {
-      key: 'schoolCategoryCode',
-      label: 'فئة المدرسة',
-      hideOn: 'md',
-      sortable: true,
-      getSortValue: (r) => r.schoolCategoryCode ?? '',
-      filter: {
-        kind: 'enum',
-        getValue: (r) => r.schoolCategoryCode ?? '',
-        options: activeSchoolCategories.map((s) => ({ value: s.code, label: s.name })),
-      },
-      className: 'min-w-[10ch]',
-      render: (r) =>
-        r.schoolCategoryCode ? (
-          <span className="text-xs text-ink-700">
-            {schoolCategoryLabel.get(r.schoolCategoryCode) ?? r.schoolCategoryCode}
-          </span>
-        ) : (
-          <span className="text-2xs text-ink-300">—</span>
-        ),
-    },
-    {
-      key: 'school',
-      label: 'اسم المدرسة',
-      sortable: true,
-      getSortValue: (r) => r.school ?? '',
-      filter: { kind: 'text', getValue: (r) => r.school ?? '' },
-      className: 'min-w-[16ch] whitespace-normal',
-      render: (r) =>
-        r.school ? (
-          <span className="text-xs text-ink-700">{r.school}</span>
-        ) : (
-          <span className="text-2xs text-ink-300">—</span>
-        ),
-    },
-    {
-      key: 'region',
-      label: 'المحافظة',
-      sortable: true,
-      getSortValue: (r) => r.region ?? '',
-      filter: { kind: 'text', getValue: (r) => r.region ?? '' },
-      className: 'min-w-[10ch] whitespace-normal',
-      render: (r) =>
-        r.region ? (
-          <span className="text-xs text-ink-700">{r.region}</span>
-        ) : (
-          <span className="text-2xs text-ink-300">—</span>
-        ),
-    },
-    {
-      key: 'examRound',
-      label: 'الدور',
-      align: 'center',
-      sortable: true,
-      getSortValue: (r) => r.examRound ?? '',
-      filter: { kind: 'text', getValue: (r) => r.examRound ?? '' },
-      className: 'min-w-[7ch]',
-      render: (r) =>
-        r.examRound ? (
-          <span className="text-xs text-ink-700">{r.examRound}</span>
         ) : (
           <span className="text-2xs text-ink-300">—</span>
         ),
@@ -647,14 +727,14 @@ export function ApplicantGradesPage(): JSX.Element {
               leadingIcon={<FileText size={14} strokeWidth={1.75} />}
               onClick={() => void downloadTemplateWorkbook()}
             >
-              تنزيل نموذج Excel
+              تنزيل نموذج الدرجات
             </Button>
             <Button
               variant="ghost"
               leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
               onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
             >
-              تعديلات الدرجات
+              عرض تعديلات الدرجات
             </Button>
             {!isEmpty && (
               <DropdownMenu>
@@ -664,7 +744,7 @@ export function ApplicantGradesPage(): JSX.Element {
                     leadingIcon={<Download size={14} strokeWidth={1.75} />}
                     disabled={exporting}
                   >
-                    تصدير
+                    تصدير الدرجات
                   </Button>
                 </DropdownMenu.Trigger>
                 <DropdownMenu.Content sideOffset={6}>
@@ -760,56 +840,53 @@ export function ApplicantGradesPage(): JSX.Element {
                   />
                   <Search size={18} />
                 </div>
-                <select
-                  className="select"
+                <Select
+                  aria-label="تصفية حسب النوع"
                   value={genderFromUrl}
                   onChange={(e) => setFilter('gender', e.target.value)}
-                  aria-label="تصفية حسب النوع"
-                >
-                  <option value="all">كل الأنواع</option>
-                  <option value="male">ذكر</option>
-                  <option value="female">أنثى</option>
-                </select>
-                <select
-                  className="select"
+                  className={genderFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined}
+                  options={[
+                    { value: 'all', label: 'كل الأنواع' },
+                    { value: 'male', label: 'ذكر' },
+                    { value: 'female', label: 'أنثى' },
+                  ]}
+                  containerClassName="min-w-[130px]"
+                />
+                <Select
+                  aria-label="تصفية حسب الشعبة"
                   value={branchFromUrl}
                   onChange={(e) => setFilter('branch', e.target.value)}
-                  aria-label="تصفية حسب الشعبة"
-                >
-                  <option value="all">كل الشعب</option>
-                  {branchOptions.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="select"
+                  className={branchFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined}
+                  options={[
+                    { value: 'all', label: 'كل الشعب' },
+                    ...branchOptions.map((b) => ({ value: b, label: b })),
+                  ]}
+                  containerClassName="min-w-[150px]"
+                />
+                <Select
+                  aria-label="تصفية حسب سنة التخرج"
                   value={yearFromUrl === 'all' ? 'all' : String(yearFromUrl)}
                   onChange={(e) => setFilter('year', e.target.value)}
-                  aria-label="تصفية حسب سنة التخرج"
-                >
-                  <option value="all">كل السنوات</option>
-                  {yearOptions.map((y) => (
-                    <option key={y} value={String(y)}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="select"
+                  className={yearFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined}
+                  options={[
+                    { value: 'all', label: 'كل السنوات' },
+                    ...yearOptions.map((y) => ({ value: String(y), label: String(y) })),
+                  ]}
+                  containerClassName="min-w-[140px]"
+                />
+                <Select
+                  aria-label="تصفية حسب فئة المدرسة"
                   value={schoolCategoryFromUrl}
                   onChange={(e) => setFilter('school', e.target.value)}
-                  aria-label="تصفية حسب فئة المدرسة"
-                  style={{ flex: '0 0 auto', inlineSize: 380 }}
-                >
-                  <option value="all">كل فئات المدرسة</option>
-                  {activeSchoolCategories.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                  className={
+                    schoolCategoryFromUrl !== 'all' ? ACTIVE_FILTER_CONTROL_CLASS : undefined
+                  }
+                  options={[
+                    { value: 'all', label: 'كل فئات المدرسة' },
+                    ...activeSchoolCategories.map((c) => ({ value: c.code, label: c.name })),
+                  ]}
+                  containerClassName="flex-[0_0_380px]"
+                />
                 <button
                   type="button"
                   role="switch"
@@ -838,32 +915,73 @@ export function ApplicantGradesPage(): JSX.Element {
                     عرض صفحة تعديلات الدرجات
                   </a>
                 )}
-                {(activeFilterCount > 0 || qFromUrl) && (
+                {hasActiveFilters && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (qFromUrl) setSearchInput('');
-                      if (activeFilterCount > 0) clearAllFilters();
-                    }}
+                    onClick={clearAllFilters}
                     className="inline-flex cursor-pointer items-center gap-1 rounded-full border-0 bg-transparent px-2 py-0.5 text-2xs text-teal-700 hover:bg-teal-50"
                   >
                     <X size={11} strokeWidth={1.75} aria-hidden /> مسح التصفية
                   </button>
                 )}
-                <span className="ms-auto self-center text-2xs text-ink-500">
-                  <span className="font-numeric font-medium tabular-nums text-ink-700">
-                    {total}
-                  </span>{' '}
-                  نتيجة
-                </span>
+                <div className="ms-auto flex flex-wrap items-center justify-end gap-2 self-center text-2xs text-ink-500">
+                  {hasActiveFilters && (
+                    <Badge tone="info">
+                      <span className="font-numeric tabular-nums">
+                        {activeTotalFilterCount.toLocaleString('en')}
+                      </span>{' '}
+                      تصفية مفعلة
+                    </Badge>
+                  )}
+                  <span>
+                    عرض{' '}
+                    <span className="font-numeric font-medium tabular-nums text-ink-700">
+                      {total.toLocaleString('en')}
+                    </span>{' '}
+                    من{' '}
+                    <span className="font-numeric font-medium tabular-nums text-ink-700">
+                      {totalsAll.toLocaleString('en')}
+                    </span>{' '}
+                    صف
+                  </span>
+                </div>
               </div>
+
+              {selectedRowKeys.length > 0 && (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-default bg-ink-50 px-3.5 py-2.5">
+                  <div className="flex items-center gap-2 text-sm text-ink-700">
+                    <Badge tone="info">
+                      <span className="font-numeric tabular-nums">
+                        {selectedRowKeys.length.toLocaleString('en')}
+                      </span>{' '}
+                      محدد
+                    </Badge>
+                    <span className="text-2xs text-ink-500">
+                      تنطبق الإجراءات على الصفوف المحددة عبر صفحات الجدول.
+                    </span>
+                  </div>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    leadingIcon={<Trash2 size={13} strokeWidth={1.75} aria-hidden />}
+                    onClick={openBulkDeleteDialog}
+                  >
+                    حذف المحدد
+                  </Button>
+                </div>
+              )}
 
               <DataTable<DerivedRow>
                 data={derived}
                 columns={columns}
                 rowKey={(r) => r.seat}
-                sort={sort as DataTableSort<DerivedRow> | null}
-                onSortChange={(next) => setSort(next as DataTableSort<GradeRow> | null)}
+                selectionMode="multi"
+                selectedRowKeys={selectedRowKeys}
+                onSelectionChange={setSelectedRowKeys}
+                sort={sort}
+                onSortChange={setSort}
+                columnFilters={columnFilters}
+                onColumnFiltersChange={handleColumnFiltersChange}
                 onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
                 empty={
                   <EmptyState
@@ -876,9 +994,9 @@ export function ApplicantGradesPage(): JSX.Element {
                     }
                     icon={<Search size={28} strokeWidth={1.5} />}
                     action={
-                      qFromUrl ? (
-                        <Button variant="ghost" onClick={() => setSearchInput('')}>
-                          مسح البحث
+                      hasActiveFilters ? (
+                        <Button variant="ghost" onClick={clearAllFilters}>
+                          مسح التصفية
                         </Button>
                       ) : undefined
                     }
@@ -939,6 +1057,21 @@ export function ApplicantGradesPage(): JSX.Element {
         tone="danger"
         isActionLoading={clearMut.isPending}
         onAction={() => void handleReset()}
+      />
+
+      <AlertDialog
+        open={confirmBulkDelete}
+        onOpenChange={(next) => {
+          if (!deleteMut.isPending) setConfirmBulkDelete(next);
+        }}
+        title="حذف الصفوف المحددة"
+        description={`سيتم حذف ${toEasternArabicNumerals(selectedRowKeys.length)} صفًا من النتائج الحالية. لا يمكن التراجع.`}
+        actionLabel="حذف المحدد"
+        cancelLabel="إلغاء"
+        tone="danger"
+        isActionLoading={deleteMut.isPending}
+        isActionDisabled={selectedRowKeys.length === 0 || total === 0}
+        onAction={() => void handleBulkDelete()}
       />
 
       {activeDerived && (
@@ -1105,10 +1238,11 @@ function PageSizeSelector({
   };
 
   return (
-    <label className="inline-flex items-center gap-2">
+    <div className="inline-flex items-center gap-2">
       <span>لكل صفحة:</span>
-      <select
-        value={customMode ? 'custom' : pageSize}
+      <Select
+        aria-label="عدد الصفوف لكل صفحة"
+        value={customMode ? 'custom' : String(pageSize)}
         onChange={(e) => {
           if (e.target.value === 'custom') {
             setCustomMode(true);
@@ -1118,16 +1252,12 @@ function PageSizeSelector({
           setCustomMode(false);
           onChange(Number(e.target.value));
         }}
-        className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
-        aria-label="عدد الصفوف لكل صفحة"
-      >
-        {PAGE_SIZE_OPTIONS.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-        <option value="custom">مخصّص…</option>
-      </select>
+        options={[
+          ...PAGE_SIZE_OPTIONS.map((s) => ({ value: String(s), label: String(s) })),
+          { value: 'custom', label: 'مخصّص…' },
+        ]}
+        containerClassName="w-24"
+      />
       {customMode && (
         <input
           type="number"
@@ -1149,6 +1279,6 @@ function PageSizeSelector({
           dir="ltr"
         />
       )}
-    </label>
+    </div>
   );
 }

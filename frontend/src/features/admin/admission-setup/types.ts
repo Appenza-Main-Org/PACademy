@@ -40,7 +40,6 @@ export type AdmissionSetupStepKey =
   | 'application_settings_review'
   | 'fees'
   | 'exams'
-  | 'committees'
   | 'electronic_declaration';
 
 /** Per-step status pill state shown on the index landing. */

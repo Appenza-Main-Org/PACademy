@@ -10,7 +10,15 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { Button, Card, ErrorState, Input, PageHeader, toast } from '@/shared/components';
+import {
+  Button,
+  Card,
+  ErrorState,
+  Input,
+  PageHeader,
+  buttonClassName,
+  toast,
+} from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import type { Role } from '@/features/auth';
 import {
@@ -114,8 +122,8 @@ export function UserCreatePage(): JSX.Element {
           { label: 'إنشاء حساب جديد' },
         ]}
         actions={
-          <Link to={ROUTES.admin.users} className="btn btn-ghost">
-            <ArrowRight size={16} className="rtl:rotate-180" /> الرجوع للقائمة
+          <Link to={ROUTES.admin.users} className={buttonClassName({ variant: 'ghost' })}>
+            <ArrowRight size={16} className="rtl:rotate-180" /> العودة إلى قائمة المستخدمين
           </Link>
         }
       />
@@ -195,7 +203,7 @@ export function UserCreatePage(): JSX.Element {
         )}
 
         <div className="flex items-center justify-end gap-2">
-          <Link to={ROUTES.admin.users} className="btn btn-ghost">
+          <Link to={ROUTES.admin.users} className={buttonClassName({ variant: 'ghost' })}>
             إلغاء
           </Link>
           <Button

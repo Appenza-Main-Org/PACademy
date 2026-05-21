@@ -9,7 +9,7 @@ export type { AlertDialogTone } from './AlertDialog';
 export { Avatar } from './Avatar';
 export { Badge } from './Badge';
 export type { BadgeTone } from './Badge';
-export { Button } from './Button';
+export { Button, buttonClassName } from './Button';
 export { Card, CardBody, CardFooter, CardHeader } from './Card';
 export type { CardVariant } from './Card';
 export { Checkbox } from './Checkbox';

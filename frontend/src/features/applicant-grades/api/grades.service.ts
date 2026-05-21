@@ -3,6 +3,8 @@
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/grades                          → GradeRow[]
+ *   DELETE /api/grades                          → { deleted: number }
+ *     body:  { seats: number[] }
  *   POST   /api/grades/import/stage             → StagedImport
  *     body:  { kind, maxDegree, rows: ImportedGradeRow[] }
  *     409   { code: 'MISSING_REQUIRED_COLUMN', missing: string[] }
@@ -31,6 +33,7 @@ import { isValidNationalId } from '@/shared/lib/national-id';
 import { normalizeArabic } from '@/shared/lib/arabic';
 import { MOCK } from '@/shared/mock-data';
 import { easternToAscii } from '../lib/normalise';
+import { deriveRow } from '../lib/derive';
 import { AZHAR_CATEGORY_CODES } from '../store/importWizard.store';
 import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
@@ -60,6 +63,36 @@ const REASON_LABEL: Record<AdjustmentReason, string> = {
   LEGAL_CASE: 'قضية',
   OTHER: 'أخرى',
 };
+
+export type ApplicantGradesSortKey =
+  | keyof GradeRow
+  | 'max'
+  | 'isOverridden'
+  | 'adj'
+  | 'pct'
+  | 'eff'
+  | 'effPct';
+
+export interface ApplicantGradesSort {
+  key: ApplicantGradesSortKey;
+  direction: 'asc' | 'desc';
+}
+
+export interface ApplicantGradesColumnFilters {
+  nid?: string;
+  seatingNumber?: string;
+  name?: string;
+  totalMin?: number | null;
+  totalMax?: number | null;
+  pctMin?: number | null;
+  pctMax?: number | null;
+  effMin?: number | null;
+  effMax?: number | null;
+  schoolCategoryCodes?: readonly string[];
+  school?: string;
+  graduationYearMin?: number | null;
+  graduationYearMax?: number | null;
+}
 
 function clone(rows: GradeRow[]): GradeRow[] {
   return rows.map((r) => ({ ...r, log: r.log.map((e) => ({ ...e })) }));
@@ -100,6 +133,21 @@ function resolveSchoolCategoryCode(raw: string | null): string | null {
   return null;
 }
 
+/** Resolve the import wizard's raw `الدور` value against the active
+ * `exam-rounds` lookup. Returns the lookup code so stored rows remain
+ * stable when display names change. */
+function resolveExamRoundCode(raw: string | null): string | null {
+  if (!raw) return null;
+  const needle = raw.trim();
+  if (needle === '') return null;
+  const lookup = MOCK.lookups['exam-rounds'];
+  const direct = lookup.find((r) => r.code === needle);
+  if (direct) return direct.code;
+  const byName = lookup.find((r) => r.name === needle);
+  if (byName) return byName.code;
+  return needle;
+}
+
 export const gradesService = {
   async list(): Promise<GradeRow[]> {
     await simulateLatency(120, 240);
@@ -129,6 +177,14 @@ export const gradesService = {
   async clearAll(): Promise<void> {
     await simulateLatency(80, 160);
     STATE = [];
+  },
+
+  async deleteRows(seats: readonly number[]): Promise<{ deleted: number }> {
+    await simulateLatency(80, 180);
+    const selected = new Set(seats);
+    const before = STATE.length;
+    STATE = STATE.filter((row) => !selected.has(row.seat));
+    return { deleted: before - STATE.length };
   },
 
   async addAdjustment(
@@ -547,7 +603,7 @@ export const gradesService = {
      *  per-group `DUPLICATE_NID` action for the matching national-ids
      *  — `accept` writes the incoming row, `reject` leaves the
      *  existing record untouched. */
-    existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
+    existingDiffDecisions?: Record<string, 'accept' | 'reject' | 'pending'>;
     /** Resolution for intra-upload duplicate-NID cases (same NID with
      *  two or more rows in the same file). Defaults to `pick-higher`
      *  per-NID when no entry is provided. `pick-row` picks the row
@@ -671,6 +727,7 @@ export const gradesService = {
       const gender = resolveGender(row.gender);
       const graduationYear = row.graduationYear ?? input.graduationYear;
       const resolvedFromRow = resolveSchoolCategoryCode(row.schoolCategory);
+      const examRoundCode = resolveExamRoundCode(row.examRound);
       /* Single-select fallback: when the admin picked exactly one
        * category in Step 1 and the row's own `schoolCategory` cell is
        * empty or doesn't match the lookup, assume the picked category
@@ -732,7 +789,9 @@ export const gradesService = {
         let writeOverride: boolean;
         if (perRow === 'accept') {
           writeOverride = true;
-        } else if (perRow === 'reject') {
+        } else if (perRow === 'reject' || perRow === 'pending') {
+          continue;
+        } else if (existingDiffDecisions != null) {
           continue;
         } else {
           const action = perGroupActions.DUPLICATE_NID;
@@ -772,7 +831,7 @@ export const gradesService = {
           schoolCategoryCode: schoolCategoryCode ?? existing.schoolCategoryCode,
           school: row.schoolName ?? existing.school,
           region: row.regionName ?? existing.region,
-          examRound: row.examRound ?? existing.examRound,
+          examRound: examRoundCode ?? existing.examRound,
           status: existing.status,
           previousGrade: totalChanged ? existing.total : existing.previousGrade,
           gradeChangedAt: new Date().toISOString(),
@@ -795,7 +854,7 @@ export const gradesService = {
         schoolCategoryCode,
         school: row.schoolName ?? '',
         region: row.regionName ?? '',
-        examRound: row.examRound,
+        examRound: examRoundCode,
         total: row.totalGrade,
         importMax: row.maxGrade ?? categoryMax,
         overrideMax: null,
@@ -840,11 +899,12 @@ export const gradesService = {
     page: number;
     pageSize: number;
     search: string;
-    sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+    sort?: ApplicantGradesSort | null;
     gender?: ApplicantGender | 'all';
     branch?: string | 'all';
     graduationYear?: number | 'all';
     schoolCategoryCode?: string | 'all';
+    columnFilters?: ApplicantGradesColumnFilters;
     /** When true, restrict the result set to rows with `gradeChangedAt`
      *  set (or any active adjustment). Mirrors the toggle the list page
      *  exposes for the grade-change audit view. */
@@ -871,11 +931,12 @@ export const gradesService = {
    */
   async exportAll(input: {
     search: string;
-    sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+    sort?: ApplicantGradesSort | null;
     gender?: ApplicantGender | 'all';
     branch?: string | 'all';
     graduationYear?: number | 'all';
     schoolCategoryCode?: string | 'all';
+    columnFilters?: ApplicantGradesColumnFilters;
     changedOnly?: boolean;
   }): Promise<GradeRow[]> {
     await simulateLatency(120, 260);
@@ -891,6 +952,7 @@ interface FilterInput {
   branch?: string | 'all';
   graduationYear?: number | 'all';
   schoolCategoryCode?: string | 'all';
+  columnFilters?: ApplicantGradesColumnFilters;
   changedOnly?: boolean;
 }
 
@@ -929,22 +991,104 @@ function applyFilters(source: readonly GradeRow[], input: FilterInput): GradeRow
   if (input.schoolCategoryCode && input.schoolCategoryCode !== 'all') {
     rows = rows.filter((r) => r.schoolCategoryCode === input.schoolCategoryCode);
   }
+  rows = applyColumnFilters(rows, input.columnFilters);
   return rows;
 }
 
 function sortInPlace(
   rows: GradeRow[],
-  sort: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null | undefined,
+  sort: ApplicantGradesSort | null | undefined,
 ): void {
   if (!sort) return;
   const { key, direction } = sort;
   const dir = direction === 'asc' ? 1 : -1;
   rows.sort((a, b) => {
-    const av = a[key];
-    const bv = b[key];
+    const av = getSortableValue(a, key);
+    const bv = getSortableValue(b, key);
     if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
     return String(av ?? '').localeCompare(String(bv ?? ''), 'ar', { sensitivity: 'base' }) * dir;
   });
+}
+
+function applyColumnFilters(
+  source: readonly GradeRow[],
+  filters: ApplicantGradesColumnFilters | undefined,
+): GradeRow[] {
+  if (!filters) return source.slice();
+  let rows = source.slice();
+  const nid = filters.nid?.trim();
+  if (nid) {
+    const needle = easternToAscii(nid).replace(/\D/g, '');
+    rows = rows.filter((r) => (needle ? r.nid.includes(needle) : r.nid.includes(nid)));
+  }
+  const seatingNumber = filters.seatingNumber?.trim();
+  if (seatingNumber) {
+    const needle = easternToAscii(seatingNumber).replace(/\D/g, '');
+    rows = rows.filter((r) => String(r.seatingNumber ?? '').includes(needle || seatingNumber));
+  }
+  const name = filters.name?.trim();
+  if (name) {
+    const needle = normalizeArabic(name);
+    rows = rows.filter((r) => normalizeArabic(r.name).includes(needle));
+  }
+  rows = filterNumberRange(rows, (r) => r.total, filters.totalMin, filters.totalMax);
+  rows = filterNumberRange(rows, (r) => deriveRow(r).pct, filters.pctMin, filters.pctMax);
+  rows = filterNumberRange(rows, (r) => deriveRow(r).eff, filters.effMin, filters.effMax);
+  if (filters.schoolCategoryCodes && filters.schoolCategoryCodes.length > 0) {
+    const selected = new Set(filters.schoolCategoryCodes);
+    rows = rows.filter((r) => r.schoolCategoryCode != null && selected.has(r.schoolCategoryCode));
+  }
+  const school = filters.school?.trim();
+  if (school) {
+    const needle = normalizeArabic(school);
+    rows = rows.filter((r) => normalizeArabic(r.school ?? '').includes(needle));
+  }
+  rows = filterNumberRange(
+    rows,
+    (r) => r.graduationYear ?? null,
+    filters.graduationYearMin,
+    filters.graduationYearMax,
+  );
+  return rows;
+}
+
+function filterNumberRange(
+  rows: GradeRow[],
+  getValue: (row: GradeRow) => number | null,
+  min: number | null | undefined,
+  max: number | null | undefined,
+): GradeRow[] {
+  if (min == null && max == null) return rows;
+  return rows.filter((row) => {
+    const value = getValue(row);
+    if (value == null) return false;
+    if (min != null && value < min) return false;
+    if (max != null && value > max) return false;
+    return true;
+  });
+}
+
+function getSortableValue(
+  row: GradeRow,
+  key: ApplicantGradesSortKey,
+): string | number | boolean | null | undefined {
+  switch (key) {
+    case 'max':
+    case 'isOverridden':
+    case 'adj':
+    case 'pct':
+    case 'eff':
+    case 'effPct':
+      return deriveRow(row)[key];
+    default: {
+      const value = row[key];
+      if (value == null) return value;
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        return value;
+      }
+      return String(value);
+    }
+  }
 }
 
 let pendingImport: {

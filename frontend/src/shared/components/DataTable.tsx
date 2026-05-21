@@ -44,10 +44,12 @@ import type { ReactNode } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { LoadingState } from './LoadingState';
+import { Select } from './Select';
 import { ListActions } from './data-table/ListActions';
 import type { ImportResult, ListActionsConfig } from './data-table/list-actions.types';
 import {
   ColumnFilterTrigger,
+  isFilterActive,
   rowPassesFilter,
 } from './data-table/ColumnFilter';
 import type {
@@ -247,8 +249,12 @@ export function DataTable<TRow>({
   };
 
   const toggleAll = (): void => {
-    if (allSelected) onSelectionChange?.([]);
-    else onSelectionChange?.(allKeys);
+    const visibleKeys = new Set(allKeys);
+    if (allSelected) {
+      onSelectionChange?.(selectedRowKeys.filter((key) => !visibleKeys.has(key)));
+      return;
+    }
+    onSelectionChange?.(Array.from(new Set([...selectedRowKeys, ...allKeys])));
   };
 
   const sortBy = (col: DataTableColumn<TRow>): void => {
@@ -308,6 +314,7 @@ export function DataTable<TRow>({
                   const dir = sorted ? activeSort?.direction : null;
                   const columnLabel = typeof col.label === 'string' ? col.label : col.key;
                   const filterValue = activeFilters[col.key];
+                  const filterActive = isFilterActive(filterValue);
                   const setFilter = (next: ColumnFilterValue | undefined): void => {
                     const merged = { ...activeFilters };
                     if (next === undefined) delete merged[col.key];
@@ -328,6 +335,8 @@ export function DataTable<TRow>({
                         !col.align && !col.numeric && 'text-start',
                         col.hideOn === 'sm' && 'hidden md:table-cell',
                         col.hideOn === 'md' && 'hidden lg:table-cell',
+                        filterActive &&
+                          'bg-teal-50 text-teal-800 shadow-[inset_0_-2px_0_var(--teal-500)]',
                         col.className,
                       )}
                     >
@@ -486,20 +495,16 @@ function Pagination({ pagination }: { pagination: DataTablePagination }): JSX.El
         إجمالي: <span dir="ltr">{total.toLocaleString('en-US')}</span>
       </span>
       {onPageSizeChange && (
-        <label className="inline-flex items-center gap-2">
+        <div className="inline-flex items-center gap-2">
           <span>لكل صفحة:</span>
-          <select
-            value={pageSize}
+          <Select
+            aria-label="عدد الصفوف لكل صفحة"
+            value={String(pageSize)}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
-          >
-            {pageSizeOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={pageSizeOptions.map((s) => ({ value: String(s), label: String(s) }))}
+            containerClassName="w-20"
+          />
+        </div>
       )}
       <span className="font-numeric tnum" dir="ltr">
         {page} / {totalPages}

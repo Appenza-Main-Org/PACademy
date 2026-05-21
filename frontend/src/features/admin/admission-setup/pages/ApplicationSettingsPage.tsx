@@ -25,7 +25,7 @@ export function ApplicationSettingsPage(): JSX.Element {
       <div className="flex flex-col gap-4">
         <PageHeader
           title="إعدادات التقديم"
-          subtitle="بيانات مرجعية عامة: الفئات، التخصصات المرتبطة بكل فئة، والسنوات الدراسية."
+          subtitle="مساحة عمل منظمة لإضافة شروط اللجنة لكل فئة على حدة مع متابعة حالة الاكتمال."
         />
         <CategoryAccordion />
         <StickyBulkSaveBar />

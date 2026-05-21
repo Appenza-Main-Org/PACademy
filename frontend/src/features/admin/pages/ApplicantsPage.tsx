@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, UserPlus } from 'lucide-react';
-import { PageHeader, Card, Avatar, EmptyState, Badge, DataTable, SearchSelect } from '@/shared/components';
+import {
+  Avatar,
+  Badge,
+  Card,
+  DataTable,
+  EmptyState,
+  PageHeader,
+  SearchSelect,
+  Select,
+  buttonClassName,
+} from '@/shared/components';
 import type { DataTableColumn, ListActionsConfig, SearchSelectOption } from '@/shared/components';
 import { StatusBadge, PaymentBadge } from '@/shared/components/StatusBadge';
 import { useApplicants } from '@/features/applicants/api/applicant.queries';
@@ -181,10 +191,10 @@ export function ApplicantsPage(): JSX.Element {
         actions={
           <Link
             to={ROUTES.admin.applicantNew}
-            className="btn btn-primary"
+            className={buttonClassName({ variant: 'primary' })}
           >
-            <UserPlus size={14} strokeWidth={1.75} className="me-1.5" />
-            متقدم جديد
+            <UserPlus size={14} strokeWidth={1.75} />
+            إضافة متقدم
           </Link>
         }
       />
@@ -196,12 +206,19 @@ export function ApplicantsPage(): JSX.Element {
               <input className="input" type="search" placeholder="بحث بالاسم / الرقم القومي / كود التقدم" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
               <Search size={18} />
             </div>
-            <select className="select" value={status} onChange={(e) => { setStatus(e.target.value as ApplicantStatus | 'all'); setPage(1); }}>
-              <option value="all">كل الحالات</option>
-              {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
+            <Select
+              aria-label="تصفية حسب الحالة"
+              value={status}
+              onChange={(e) => { setStatus(e.target.value as ApplicantStatus | 'all'); setPage(1); }}
+              options={[
+                { value: 'all', label: 'كل الحالات' },
+                ...Object.entries(STATUS_LABELS).map(([value, item]) => ({
+                  value,
+                  label: item.label,
+                })),
+              ]}
+              containerClassName="min-w-[150px]"
+            />
             <div className="min-w-[180px] flex-[0_1_200px]">
               <SearchSelect
                 value={governorate === 'all' ? null : governorate}

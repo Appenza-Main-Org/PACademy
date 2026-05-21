@@ -21,6 +21,14 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import type { ComboboxGroup, ComboboxOption } from './Combobox';
+import {
+  dropdownChevronClassName,
+  dropdownChipClassName,
+  dropdownContentClassName,
+  dropdownOptionClassName,
+  dropdownSearchInputClassName,
+  dropdownTriggerClassName,
+} from './dropdownStyles';
 
 const POPOVER_GAP = 8;
 
@@ -237,12 +245,7 @@ export function MultiSelect({
           aria-label={ariaLabel}
           disabled={disabled}
           onClick={() => !disabled && setOpen((prev) => !prev)}
-          className={cn(
-            'flex min-h-[36px] w-full items-center gap-2 rounded-md border bg-surface-card ps-3 pe-3 py-1.5 text-start text-sm transition-colors duration-fast ease-standard',
-            error ? 'border-terra-500' : 'border-ink-200 hover:border-ink-300',
-            'focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none',
-            disabled && 'cursor-not-allowed opacity-60',
-          )}
+          className={dropdownTriggerClassName({ invalid: Boolean(error), multiline: true })}
         >
           <span className="flex flex-1 flex-wrap items-center gap-1">
             {selectionSummary ? (
@@ -259,7 +262,7 @@ export function MultiSelect({
               selectedOptions.map((opt) => (
                 <span
                   key={opt.value}
-                  className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2.5 py-1 text-xs text-teal-700"
+                  className={dropdownChipClassName()}
                 >
                   {opt.label}
                   <button
@@ -268,7 +271,7 @@ export function MultiSelect({
                       e.stopPropagation();
                       toggle(opt.value);
                     }}
-                    className="rounded-sm p-0.5 hover:bg-teal-100"
+                    className="rounded-sm p-0.5 hover:bg-[var(--accent-100)]"
                     aria-label="إزالة"
                   >
                     <X size={12} strokeWidth={2} />
@@ -277,7 +280,7 @@ export function MultiSelect({
               ))
             )}
           </span>
-          <ChevronDown size={16} strokeWidth={1.75} className="text-ink-500" aria-hidden />
+          <ChevronDown size={16} strokeWidth={1.75} className={dropdownChevronClassName()} aria-hidden />
         </button>
 
         {open && (centered || position) && createPortal(
@@ -302,7 +305,7 @@ export function MultiSelect({
                       value={term}
                       onChange={(e) => setTerm(e.target.value)}
                       placeholder="ابحث…"
-                      className="w-full rounded-md border border-transparent bg-ink-50 ps-7 pe-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:bg-surface-card focus-visible:outline-none"
+                      className={dropdownSearchInputClassName('ps-7')}
                     />
                   </div>
                   {enableSelectAll && filtered.length > 0 && (
@@ -386,16 +389,21 @@ export function MultiSelect({
                             toggle(opt.value);
                           }}
                           className={cn(
-                            'flex min-h-9 cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-teal-50',
-                            checked && 'font-medium text-teal-700',
-                            opt.disabled && 'cursor-not-allowed text-ink-300',
+                            dropdownOptionClassName({
+                              selected: checked,
+                              disabled: opt.disabled,
+                              className: 'rounded-none hover:bg-[var(--accent-50)]',
+                            }),
+                            !checked && 'hover:text-ink-900',
                           )}
                           title={opt.label}
                         >
                           <span
                             className={cn(
                               'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border',
-                              checked ? 'border-teal-500 bg-teal-500 text-white' : 'border-border-strong',
+                              checked
+                                ? 'border-[var(--accent-500)] bg-[var(--accent-500)] text-white'
+                                : 'border-border-strong',
                             )}
                             aria-hidden
                           >
@@ -436,7 +444,7 @@ export function MultiSelect({
                     role="dialog"
                     aria-modal="true"
                     aria-label={label ?? ariaLabel ?? 'options'}
-                    className="flex max-h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
+                    className={cn('flex max-h-[80vh] w-full max-w-xl', dropdownContentClassName('shadow-lg'))}
                   >
                     {label && (
                       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-subtle px-4 py-2">
@@ -463,7 +471,7 @@ export function MultiSelect({
               <div
                 ref={popoverRef}
                 data-portal-popover="multiselect"
-                className="pointer-events-auto rounded-lg border border-border-subtle bg-surface-elevated shadow-lg"
+                className={cn('pointer-events-auto', dropdownContentClassName('shadow-lg'))}
                 style={{
                   position: 'fixed',
                   top: position!.top,

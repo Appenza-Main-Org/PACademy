@@ -12,7 +12,7 @@
  * `super_admin` for the override path.
  */
 
-import { Card } from '@/shared/components';
+import { Card, Select } from '@/shared/components';
 import type { CategoryConditions } from '@/shared/types/domain';
 import { useLookup } from '@/features/lookups';
 
@@ -66,16 +66,17 @@ export function CategoryConditionBuilder({
         <SectionHeader title="الفئة الديموغرافية" subtitle="النوع والسن" />
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="النوع">
-            <select
-              className={selectCls}
+            <Select
+              aria-label="النوع"
               value={value.gender}
               disabled={readOnly}
               onChange={(e) => set('gender', e.target.value as CategoryConditions['gender'])}
-            >
-              <option value="any">الكل</option>
-              <option value="male">ذكور</option>
-              <option value="female">إناث</option>
-            </select>
+              options={[
+                { value: 'any', label: 'الكل' },
+                { value: 'male', label: 'ذكور' },
+                { value: 'female', label: 'إناث' },
+              ]}
+            />
           </Field>
           <Field label="السن الأدنى">
             <input
@@ -217,8 +218,6 @@ function Field({
 
 const inputCls =
   'w-full rounded-md border border-border-default bg-surface-card px-3 py-2 text-sm text-ink-900 transition-colors duration-fast ease-standard focus-visible:shadow-focus-teal focus-visible:outline-none disabled:opacity-50';
-const selectCls = inputCls;
-
 function CheckboxList({
   options,
   selected,

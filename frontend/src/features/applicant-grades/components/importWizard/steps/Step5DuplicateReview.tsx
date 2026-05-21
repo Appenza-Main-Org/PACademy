@@ -24,6 +24,7 @@ export function Step5DuplicateReview(): JSX.Element {
   const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
   const mapping = useImportWizardStore((s) => s.mapping);
   const filters = useImportWizardStore((s) => s.filters);
+  const lookupValueMappings = useImportWizardStore((s) => s.lookupValueMappings);
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
   const importResult = useImportWizardStore((s) => s.importResult);
   const setImportResult = useImportWizardStore((s) => s.setImportResult);
@@ -36,9 +37,9 @@ export function Step5DuplicateReview(): JSX.Element {
   const normalised = useMemo(
     () =>
       table && graduationYear != null
-        ? normaliseRows(table, mapping, filters, graduationYear)
+        ? normaliseRows(table, mapping, filters, graduationYear, lookupValueMappings)
         : [],
-    [table, mapping, filters, graduationYear],
+    [table, mapping, filters, graduationYear, lookupValueMappings],
   );
 
   const { data: allRows } = useGrades();
