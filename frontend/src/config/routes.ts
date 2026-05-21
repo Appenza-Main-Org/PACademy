@@ -66,6 +66,7 @@ export const ROUTES = {
     applicantGradesChanges: '/admin/applicant-grades/changes',
     notifications: '/admin/notifications',
     payments: '/admin/payments',
+    admissionRules: '/admin/admission-rules',
     /* Admission Setup section — ordered configuration steps. The keys
      * mirror `AdmissionSetupStepKey` (camelCased) so feature code can
      * derive the URL from a step key without a second lookup. Cycle
