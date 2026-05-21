@@ -26,7 +26,6 @@
 import { useEffect, useRef } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
-import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 
 export type VerticalStepState = 'complete' | 'current' | 'in_progress' | 'upcoming';
 
@@ -63,6 +62,14 @@ export function VerticalStepper({
 
   return (
     <nav aria-label="مراحل إعداد التقديم" className="flex h-full w-full flex-col">
+      <div className="mb-3 border-b border-border-subtle pb-3">
+        <p className="m-0 font-ar text-xs font-semibold text-ink-900">
+          خطوات إعداد التقديم
+        </p>
+        <p className="m-0 mt-1 font-ar text-2xs leading-5 text-ink-500">
+          تابع الإعدادات بالترتيب حتى المراجعة والاعتماد.
+        </p>
+      </div>
       {/* `flex-1 + min-h-0` lets the list fill the rail's available
        * height; per-row `flex-1` then distributes that height evenly
        * across every step so all entries fit without inner scroll
@@ -76,15 +83,15 @@ export function VerticalStepper({
           return (
             <li
               key={step.key}
-              className="flex w-full flex-1 items-stretch gap-3 min-h-0"
+              className="flex min-h-0 w-full flex-1 items-stretch gap-2.5"
             >
               {/* Spine column — dot + connector */}
-              <div className="relative flex w-8 shrink-0 flex-col items-center">
+              <div className="relative flex w-7 shrink-0 flex-col items-center">
                 <StepDot state={step.state} order={step.order} />
                 {!isLast && (
                   <span
                     aria-hidden
-                    className={cn('w-px flex-1 my-0.5', connectorColor)}
+                    className={cn('my-0.5 w-px flex-1', connectorColor)}
                   />
                 )}
               </div>
@@ -95,9 +102,9 @@ export function VerticalStepper({
                 ref={isActive ? activeRef : undefined}
                 onClick={() => onSelect(step.key)}
                 aria-current={isActive ? 'step' : undefined}
-                aria-label={`${step.label} — الخطوة ${toEasternArabicNumerals(step.order)}`}
+                aria-label={`${step.label} — الخطوة ${step.order}`}
                 className={cn(
-                  'group flex flex-1 items-center gap-2 self-stretch rounded-md px-2 text-start',
+                  'group flex flex-1 items-center gap-2 self-stretch rounded-md px-2.5 text-start',
                   'transition-colors duration-fast ease-standard',
                   'focus-visible:shadow-focus-teal focus-visible:outline-none',
                   isActive
@@ -107,7 +114,7 @@ export function VerticalStepper({
               >
                 <span
                   className={cn(
-                    'whitespace-normal text-sm leading-snug',
+                    'whitespace-normal font-ar text-[13px] leading-5',
                     isActive
                       ? 'font-bold text-ink-900'
                       : step.state === 'complete'
@@ -136,11 +143,11 @@ function StepDot({
   order: number;
 }): JSX.Element {
   const base =
-    'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-numeric tnum';
+    'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-2xs font-numeric tnum';
   if (state === 'complete') {
     return (
       <span className={cn(base, 'border-teal-500 bg-teal-500 text-white')} aria-hidden>
-        <Check size={14} strokeWidth={2.4} />
+        <Check size={13} strokeWidth={2.4} />
       </span>
     );
   }
@@ -151,7 +158,7 @@ function StepDot({
         style={{ background: 'var(--accent-500)' }}
         aria-hidden
       >
-        {toEasternArabicNumerals(order)}
+        {order}
       </span>
     );
   }
@@ -161,13 +168,13 @@ function StepDot({
         className={cn(base, 'border-gold-500 bg-gold-50 text-gold-700')}
         aria-hidden
       >
-        {toEasternArabicNumerals(order)}
+        {order}
       </span>
     );
   }
   return (
     <span className={cn(base, 'border-ink-300 bg-surface-card text-ink-500')} aria-hidden>
-      {toEasternArabicNumerals(order)}
+      {order}
     </span>
   );
 }

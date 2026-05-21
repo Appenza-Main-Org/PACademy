@@ -3,6 +3,8 @@
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/grades                          → GradeRow[]
+ *   DELETE /api/grades                          → { deleted: number }
+ *     body:  { seats: number[] }
  *   POST   /api/grades/import/stage             → StagedImport
  *     body:  { kind, maxDegree, rows: ImportedGradeRow[] }
  *     409   { code: 'MISSING_REQUIRED_COLUMN', missing: string[] }
@@ -31,6 +33,7 @@ import { isValidNationalId } from '@/shared/lib/national-id';
 import { normalizeArabic } from '@/shared/lib/arabic';
 import { MOCK } from '@/shared/mock-data';
 import { easternToAscii } from '../lib/normalise';
+import { deriveRow } from '../lib/derive';
 import { AZHAR_CATEGORY_CODES } from '../store/importWizard.store';
 import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
@@ -53,6 +56,95 @@ import type {
 } from '../types';
 
 let STATE: GradeRow[] = [];
+let pendingBackendBatchId: string | null = null;
+
+const USE_BACKEND = import.meta.env.VITE_USE_GRADES_BACKEND === 'true';
+const ADMIN_API_BASE = import.meta.env.VITE_ADMIN_API_BASE ?? 'http://localhost:5101';
+const APPLICANT_API_BASE = import.meta.env.VITE_APPLICANT_API_BASE ?? ADMIN_API_BASE;
+
+type ApiRequestInit = Omit<RequestInit, 'body'> & { body?: unknown };
+
+async function apiJson<T>(baseUrl: string, path: string, init: ApiRequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body !== undefined && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json');
+  }
+  const res = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers,
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+  });
+  const text = await res.text();
+  const data = text.length > 0 ? JSON.parse(text) as unknown : null;
+  if (!res.ok) {
+    const message =
+      data !== null && typeof data === 'object' && 'message' in data
+        ? String((data as { message?: unknown }).message)
+        : `HTTP ${res.status}`;
+    throw new Error(message);
+  }
+  return data as T;
+}
+
+function sortParam(sort: ApplicantGradesSort | null | undefined): string | null {
+  return sort ? `${String(sort.key)}:${sort.direction}` : null;
+}
+
+function appendIf(params: URLSearchParams, key: string, value: string | number | boolean | null | undefined): void {
+  if (value === undefined || value === null || value === '' || value === 'all') return;
+  params.set(key, String(value));
+}
+
+async function fetchBackendRows(input?: Partial<FilterInput> & { sort?: ApplicantGradesSort | null }): Promise<GradeRow[]> {
+  const params = new URLSearchParams();
+  params.set('page', '1');
+  params.set('size', '10000');
+  appendIf(params, 'q', input?.search);
+  appendIf(params, 'sort', sortParam(input?.sort));
+  appendIf(params, 'gender', input?.gender);
+  appendIf(params, 'branch', input?.branch);
+  appendIf(params, 'year', input?.graduationYear);
+  appendIf(params, 'school', input?.schoolCategoryCode);
+  appendIf(params, 'changed', input?.changedOnly);
+  const result = await apiJson<{ rows: GradeRow[]; total: number }>(ADMIN_API_BASE, `/api/grades?${params}`);
+  return result.rows;
+}
+
+type BackendIssueRow = {
+  rowIndex: number;
+  nationalId: string | null;
+  name: string | null;
+  message: string | null;
+};
+
+type BackendIssueGroup = {
+  code: ImportGroupCode;
+  label: string;
+  rows: BackendIssueRow[];
+  actions: ImportGroupAction[];
+};
+
+function mapImportReport(report: {
+  totals: ImportReport['totals'];
+  groups: BackendIssueGroup[];
+}): ImportReport {
+  return {
+    totals: report.totals,
+    groups: report.groups.map((g) => ({
+      code: g.code,
+      labelAr: g.label,
+      rows: g.rows.map((r) => ({
+        nationalId: r.nationalId,
+        seatingNumber: null,
+        nameAr: r.name,
+        totalGrade: null,
+        sourceRowIndex: r.rowIndex,
+        detail: r.message ?? undefined,
+      })),
+      availableActions: g.actions,
+    })),
+  };
+}
 
 const REASON_LABEL: Record<AdjustmentReason, string> = {
   SPORTS_ACTIVITY: 'نشاط رياضي',
@@ -60,6 +152,36 @@ const REASON_LABEL: Record<AdjustmentReason, string> = {
   LEGAL_CASE: 'قضية',
   OTHER: 'أخرى',
 };
+
+export type ApplicantGradesSortKey =
+  | keyof GradeRow
+  | 'max'
+  | 'isOverridden'
+  | 'adj'
+  | 'pct'
+  | 'eff'
+  | 'effPct';
+
+export interface ApplicantGradesSort {
+  key: ApplicantGradesSortKey;
+  direction: 'asc' | 'desc';
+}
+
+export interface ApplicantGradesColumnFilters {
+  nid?: string;
+  seatingNumber?: string;
+  name?: string;
+  totalMin?: number | null;
+  totalMax?: number | null;
+  pctMin?: number | null;
+  pctMax?: number | null;
+  effMin?: number | null;
+  effMax?: number | null;
+  schoolCategoryCodes?: readonly string[];
+  school?: string;
+  graduationYearMin?: number | null;
+  graduationYearMax?: number | null;
+}
 
 function clone(rows: GradeRow[]): GradeRow[] {
   return rows.map((r) => ({ ...r, log: r.log.map((e) => ({ ...e })) }));
@@ -100,8 +222,26 @@ function resolveSchoolCategoryCode(raw: string | null): string | null {
   return null;
 }
 
+/** Resolve the import wizard's raw `الدور` value against the active
+ * `exam-rounds` lookup. Returns the lookup code so stored rows remain
+ * stable when display names change. */
+function resolveExamRoundCode(raw: string | null): string | null {
+  if (!raw) return null;
+  const needle = raw.trim();
+  if (needle === '') return null;
+  const lookup = MOCK.lookups['exam-rounds'];
+  const direct = lookup.find((r) => r.code === needle);
+  if (direct) return direct.code;
+  const byName = lookup.find((r) => r.name === needle);
+  if (byName) return byName.code;
+  return needle;
+}
+
 export const gradesService = {
   async list(): Promise<GradeRow[]> {
+    if (USE_BACKEND) {
+      return apiJson<GradeRow[]>(ADMIN_API_BASE, '/api/grades');
+    }
     await simulateLatency(120, 240);
     return clone(STATE);
   },
@@ -121,20 +261,65 @@ export const gradesService = {
    * cycle change.
    */
   async findByNationalId(nid: string, _cycleId: string): Promise<GradeRow | null> {
+    if (USE_BACKEND) {
+      return apiJson<GradeRow | null>(
+        APPLICANT_API_BASE,
+        `/api/admin/applicant-grades/by-nid/${encodeURIComponent(nid)}?cycleId=${encodeURIComponent(_cycleId)}`,
+      );
+    }
     await simulateLatency(120, 240);
     const match = STATE.find((r) => r.nid === nid);
     return match ? clone([match])[0]! : null;
   },
 
   async clearAll(): Promise<void> {
+    if (USE_BACKEND) {
+      await apiJson<null>(ADMIN_API_BASE, '/api/grades', { method: 'DELETE' });
+      return;
+    }
     await simulateLatency(80, 160);
     STATE = [];
+  },
+
+  async deleteRows(seats: readonly number[]): Promise<{ deleted: number }> {
+    if (USE_BACKEND) {
+      return apiJson<{ deleted: number }>(ADMIN_API_BASE, '/api/grades/delete', {
+        method: 'POST',
+        body: { seats },
+      });
+    }
+    await simulateLatency(80, 180);
+    const selected = new Set(seats);
+    const before = STATE.length;
+    STATE = STATE.filter((row) => !selected.has(row.seat));
+    return { deleted: before - STATE.length };
   },
 
   async addAdjustment(
     seat: number,
     payload: { reason: AdjustmentReason; note: string | null; amount: number; isActive: boolean; by: string },
   ): Promise<GradeRow> {
+    if (USE_BACKEND) {
+      const row = await apiJson<GradeRow>(ADMIN_API_BASE, `/api/grades/${seat}/adjustments`, {
+        method: 'POST',
+        body: {
+          reason: payload.reason,
+          note: payload.note ?? '',
+          amount: payload.amount,
+          by: payload.by,
+        },
+      });
+      if (!payload.isActive) {
+        const entry = row.log[0];
+        if (entry) {
+          return apiJson<GradeRow>(ADMIN_API_BASE, `/api/grades/${seat}/adjustments/${entry.id}`, {
+            method: 'PATCH',
+            body: { isActive: false },
+          });
+        }
+      }
+      return row;
+    }
     await simulateLatency(120, 240);
     const now = new Date().toISOString();
     STATE = STATE.map((r) =>
@@ -167,6 +352,14 @@ export const gradesService = {
   },
 
   async toggleAdjustment(seat: number, entryId: string): Promise<GradeRow> {
+    if (USE_BACKEND) {
+      const rows = await fetchBackendRows();
+      const current = rows.find((r) => r.seat === seat)?.log.find((e) => e.id === entryId);
+      return apiJson<GradeRow>(ADMIN_API_BASE, `/api/grades/${seat}/adjustments/${entryId}`, {
+        method: 'PATCH',
+        body: { isActive: !(current?.isActive ?? true) },
+      });
+    }
     await simulateLatency(80, 160);
     const now = new Date().toISOString();
     STATE = STATE.map((r) =>
@@ -185,6 +378,11 @@ export const gradesService = {
   },
 
   async deleteAdjustment(seat: number, entryId: string): Promise<GradeRow> {
+    if (USE_BACKEND) {
+      return apiJson<GradeRow>(ADMIN_API_BASE, `/api/grades/${seat}/adjustments/${entryId}`, {
+        method: 'DELETE',
+      });
+    }
     await simulateLatency(80, 160);
     const now = new Date().toISOString();
     STATE = STATE.map((r) =>
@@ -207,6 +405,13 @@ export const gradesService = {
     overrideMax: number | null,
     by: string,
   ): Promise<GradeRow> {
+    if (USE_BACKEND) {
+      void by;
+      return apiJson<GradeRow>(ADMIN_API_BASE, `/api/grades/${seat}/override-max`, {
+        method: 'PATCH',
+        body: { overrideMax },
+      });
+    }
     await simulateLatency(120, 240);
     const now = new Date().toISOString();
     STATE = STATE.map((r) =>
@@ -232,6 +437,22 @@ export const gradesService = {
     maxDegree: number;
     rows: ImportedGradeRow[];
   }): Promise<{ ok: true; staged: StagedImport } | { ok: false; missing: string[] }> {
+    if (USE_BACKEND) {
+      const response = await apiJson<{
+        ok: true;
+        batchId: string;
+        staged: {
+          newRows: number;
+          duplicates: ImportDuplicateRow[];
+          skipped: ImportSkipBucket[];
+        };
+      }>(ADMIN_API_BASE, '/api/grades/import/stage', {
+        method: 'POST',
+        body: input,
+      });
+      pendingBackendBatchId = response.batchId;
+      return { ok: true, staged: response.staged };
+    }
     await simulateLatency(120, 240);
     const { kind, maxDegree, rows } = input;
     const existingByNid = new Map(STATE.map((r) => [r.nid, r]));
@@ -314,6 +535,38 @@ export const gradesService = {
     staged: StagedImport,
     resolutions: Record<string, ImportResolution>,
   ): Promise<CommittedImport> {
+    if (USE_BACKEND) {
+      if (pendingBackendBatchId === null) {
+        throw new Error('No staged import to commit. Call stageImport first.');
+      }
+      const response = await apiJson<{
+        ok: true;
+        inserted: number;
+        updated: number;
+        deactivatedAdjustments: Array<{ nid: string; amount: number }>;
+      }>(ADMIN_API_BASE, '/api/grades/import/commit', {
+        method: 'POST',
+        body: {
+          batchId: pendingBackendBatchId,
+          resolutions: Object.entries(resolutions).map(([nid, action]) => ({
+            nid,
+            action: action === 'ACCEPT' ? 'accept' : 'reject',
+          })),
+        },
+      });
+      pendingBackendBatchId = null;
+      return {
+        inserted: response.inserted + response.updated,
+        replaced: response.updated,
+        kept: Object.values(resolutions).filter((r) => r === 'REJECT').length,
+        deactivated: response.deactivatedAdjustments.map((x) => ({
+          nationalId: x.nid,
+          name: '',
+          adjustmentSum: x.amount,
+        })),
+        skipped: staged.skipped,
+      };
+    }
     await simulateLatency(180, 320);
     const pending = pendingImport;
     if (!pending) {
@@ -424,6 +677,17 @@ export const gradesService = {
     rows: NormalisedRow[];
     graduationYear: number;
   }): Promise<ImportReport> {
+    if (USE_BACKEND) {
+      return mapImportReport(
+        await apiJson<{
+          totals: ImportReport['totals'];
+          groups: BackendIssueGroup[];
+        }>(ADMIN_API_BASE, '/api/grades/import/preflight', {
+          method: 'POST',
+          body: input,
+        }),
+      );
+    }
     await simulateLatency(120, 240);
     const { rows } = input;
     const existingNids = new Set(STATE.map((r) => r.nid));
@@ -547,7 +811,7 @@ export const gradesService = {
      *  per-group `DUPLICATE_NID` action for the matching national-ids
      *  — `accept` writes the incoming row, `reject` leaves the
      *  existing record untouched. */
-    existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
+    existingDiffDecisions?: Record<string, 'accept' | 'reject' | 'pending'>;
     /** Resolution for intra-upload duplicate-NID cases (same NID with
      *  two or more rows in the same file). Defaults to `pick-higher`
      *  per-NID when no entry is provided. `pick-row` picks the row
@@ -561,6 +825,30 @@ export const gradesService = {
       | { action: 'reject' }
     >;
   }): Promise<ImportCommitResult> {
+    if (USE_BACKEND) {
+      return apiJson<ImportCommitResult>(ADMIN_API_BASE, '/api/grades/import/v2/commit', {
+        method: 'POST',
+        body: {
+          ...input,
+          existingDiffDecisions: Object.entries(input.existingDiffDecisions ?? {}).map(
+            ([nationalId, action]) => ({ nationalId, action }),
+          ),
+          uploadDuplicateDecisions: Object.entries(input.uploadDuplicateDecisions ?? {}).map(
+            ([nationalId, decision]) => ({
+              nationalId,
+              action:
+                decision.action === 'pick-specific'
+                  ? 'pick-higher'
+                  : decision.action === 'pick-row'
+                    ? 'pick-row'
+                    : decision.action,
+              sourceRowIndex:
+                decision.action === 'pick-row' ? decision.pickedSourceRowIndex : null,
+            }),
+          ),
+        },
+      });
+    }
     await simulateLatency(180, 340);
     const {
       rows: incomingRows,
@@ -671,6 +959,7 @@ export const gradesService = {
       const gender = resolveGender(row.gender);
       const graduationYear = row.graduationYear ?? input.graduationYear;
       const resolvedFromRow = resolveSchoolCategoryCode(row.schoolCategory);
+      const examRoundCode = resolveExamRoundCode(row.examRound);
       /* Single-select fallback: when the admin picked exactly one
        * category in Step 1 and the row's own `schoolCategory` cell is
        * empty or doesn't match the lookup, assume the picked category
@@ -732,7 +1021,9 @@ export const gradesService = {
         let writeOverride: boolean;
         if (perRow === 'accept') {
           writeOverride = true;
-        } else if (perRow === 'reject') {
+        } else if (perRow === 'reject' || perRow === 'pending') {
+          continue;
+        } else if (existingDiffDecisions != null) {
           continue;
         } else {
           const action = perGroupActions.DUPLICATE_NID;
@@ -772,7 +1063,7 @@ export const gradesService = {
           schoolCategoryCode: schoolCategoryCode ?? existing.schoolCategoryCode,
           school: row.schoolName ?? existing.school,
           region: row.regionName ?? existing.region,
-          examRound: row.examRound ?? existing.examRound,
+          examRound: examRoundCode ?? existing.examRound,
           status: existing.status,
           previousGrade: totalChanged ? existing.total : existing.previousGrade,
           gradeChangedAt: new Date().toISOString(),
@@ -795,7 +1086,7 @@ export const gradesService = {
         schoolCategoryCode,
         school: row.schoolName ?? '',
         region: row.regionName ?? '',
-        examRound: row.examRound,
+        examRound: examRoundCode,
         total: row.totalGrade,
         importMax: row.maxGrade ?? categoryMax,
         overrideMax: null,
@@ -840,16 +1131,24 @@ export const gradesService = {
     page: number;
     pageSize: number;
     search: string;
-    sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+    sort?: ApplicantGradesSort | null;
     gender?: ApplicantGender | 'all';
     branch?: string | 'all';
     graduationYear?: number | 'all';
     schoolCategoryCode?: string | 'all';
+    columnFilters?: ApplicantGradesColumnFilters;
     /** When true, restrict the result set to rows with `gradeChangedAt`
      *  set (or any active adjustment). Mirrors the toggle the list page
      *  exposes for the grade-change audit view. */
     changedOnly?: boolean;
   }): Promise<{ rows: GradeRow[]; total: number }> {
+    if (USE_BACKEND) {
+      const rows = applyFilters(await fetchBackendRows(), input);
+      sortInPlace(rows, input.sort);
+      const total = rows.length;
+      const start = Math.max(0, (input.page - 1) * input.pageSize);
+      return { rows: rows.slice(start, start + input.pageSize), total };
+    }
     await simulateLatency(80, 200);
     const rows = applyFilters(STATE, input);
     sortInPlace(rows, input.sort);
@@ -871,13 +1170,19 @@ export const gradesService = {
    */
   async exportAll(input: {
     search: string;
-    sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+    sort?: ApplicantGradesSort | null;
     gender?: ApplicantGender | 'all';
     branch?: string | 'all';
     graduationYear?: number | 'all';
     schoolCategoryCode?: string | 'all';
+    columnFilters?: ApplicantGradesColumnFilters;
     changedOnly?: boolean;
   }): Promise<GradeRow[]> {
+    if (USE_BACKEND) {
+      const rows = applyFilters(await fetchBackendRows(), input);
+      sortInPlace(rows, input.sort);
+      return rows;
+    }
     await simulateLatency(120, 260);
     const rows = applyFilters(STATE, input);
     sortInPlace(rows, input.sort);
@@ -891,6 +1196,7 @@ interface FilterInput {
   branch?: string | 'all';
   graduationYear?: number | 'all';
   schoolCategoryCode?: string | 'all';
+  columnFilters?: ApplicantGradesColumnFilters;
   changedOnly?: boolean;
 }
 
@@ -929,22 +1235,104 @@ function applyFilters(source: readonly GradeRow[], input: FilterInput): GradeRow
   if (input.schoolCategoryCode && input.schoolCategoryCode !== 'all') {
     rows = rows.filter((r) => r.schoolCategoryCode === input.schoolCategoryCode);
   }
+  rows = applyColumnFilters(rows, input.columnFilters);
   return rows;
 }
 
 function sortInPlace(
   rows: GradeRow[],
-  sort: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null | undefined,
+  sort: ApplicantGradesSort | null | undefined,
 ): void {
   if (!sort) return;
   const { key, direction } = sort;
   const dir = direction === 'asc' ? 1 : -1;
   rows.sort((a, b) => {
-    const av = a[key];
-    const bv = b[key];
+    const av = getSortableValue(a, key);
+    const bv = getSortableValue(b, key);
     if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir;
     return String(av ?? '').localeCompare(String(bv ?? ''), 'ar', { sensitivity: 'base' }) * dir;
   });
+}
+
+function applyColumnFilters(
+  source: readonly GradeRow[],
+  filters: ApplicantGradesColumnFilters | undefined,
+): GradeRow[] {
+  if (!filters) return source.slice();
+  let rows = source.slice();
+  const nid = filters.nid?.trim();
+  if (nid) {
+    const needle = easternToAscii(nid).replace(/\D/g, '');
+    rows = rows.filter((r) => (needle ? r.nid.includes(needle) : r.nid.includes(nid)));
+  }
+  const seatingNumber = filters.seatingNumber?.trim();
+  if (seatingNumber) {
+    const needle = easternToAscii(seatingNumber).replace(/\D/g, '');
+    rows = rows.filter((r) => String(r.seatingNumber ?? '').includes(needle || seatingNumber));
+  }
+  const name = filters.name?.trim();
+  if (name) {
+    const needle = normalizeArabic(name);
+    rows = rows.filter((r) => normalizeArabic(r.name).includes(needle));
+  }
+  rows = filterNumberRange(rows, (r) => r.total, filters.totalMin, filters.totalMax);
+  rows = filterNumberRange(rows, (r) => deriveRow(r).pct, filters.pctMin, filters.pctMax);
+  rows = filterNumberRange(rows, (r) => deriveRow(r).eff, filters.effMin, filters.effMax);
+  if (filters.schoolCategoryCodes && filters.schoolCategoryCodes.length > 0) {
+    const selected = new Set(filters.schoolCategoryCodes);
+    rows = rows.filter((r) => r.schoolCategoryCode != null && selected.has(r.schoolCategoryCode));
+  }
+  const school = filters.school?.trim();
+  if (school) {
+    const needle = normalizeArabic(school);
+    rows = rows.filter((r) => normalizeArabic(r.school ?? '').includes(needle));
+  }
+  rows = filterNumberRange(
+    rows,
+    (r) => r.graduationYear ?? null,
+    filters.graduationYearMin,
+    filters.graduationYearMax,
+  );
+  return rows;
+}
+
+function filterNumberRange(
+  rows: GradeRow[],
+  getValue: (row: GradeRow) => number | null,
+  min: number | null | undefined,
+  max: number | null | undefined,
+): GradeRow[] {
+  if (min == null && max == null) return rows;
+  return rows.filter((row) => {
+    const value = getValue(row);
+    if (value == null) return false;
+    if (min != null && value < min) return false;
+    if (max != null && value > max) return false;
+    return true;
+  });
+}
+
+function getSortableValue(
+  row: GradeRow,
+  key: ApplicantGradesSortKey,
+): string | number | boolean | null | undefined {
+  switch (key) {
+    case 'max':
+    case 'isOverridden':
+    case 'adj':
+    case 'pct':
+    case 'eff':
+    case 'effPct':
+      return deriveRow(row)[key];
+    default: {
+      const value = row[key];
+      if (value == null) return value;
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        return value;
+      }
+      return String(value);
+    }
+  }
 }
 
 let pendingImport: {

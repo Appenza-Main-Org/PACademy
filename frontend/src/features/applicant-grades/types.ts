@@ -173,12 +173,12 @@ export interface NormalisedRow {
   graduationYear: number | null;
   totalGrade: number | null;
   maxGrade: number | null;
-  /** Raw `فئة المدرسة` value from the source file. Resolved against the
-   *  active `school-categories` lookup by code OR Arabic name during
-   *  commit; rows whose value matches neither pass with `null`. */
+  /** `فئة المدرسة` value from the source file, optionally mapped to a
+   *  stable `school-categories` lookup code during Step 4. Unmapped
+   *  values are resolved by code/name during commit when possible. */
   schoolCategory: string | null;
-  /** Optional `الدور` / exam round (دور أول / ثاني / إلخ). Free-form
-   *  string — stored verbatim so the admin can filter on it downstream. */
+  /** Optional `الدور` / exam round, optionally mapped to an
+   *  `exam-rounds` lookup code during Step 4. */
   examRound: string | null;
   /** Optional اسم المدرسة / المعهد. Persists onto `GradeRow.school` for
    *  new rows; replaces the existing value on override-import. */

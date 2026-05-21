@@ -31,6 +31,7 @@ export {
   type CommitteeInstanceListFilters,
   type CommitteeInstancePatch,
   type ReservationTransferConflict,
+  type TransferCapacityMode,
 } from './api/committeeInstance.service';
 export {
   committeeInstanceKeys,
@@ -39,6 +40,7 @@ export {
   useUpdateCommitteeInstanceMutation,
   useRemoveCommitteeInstanceMutation,
   useRemoveCommitteeInstanceDayMutation,
+  useTransferCommitteeInstanceMutation,
   useTransferCommitteeInstanceDayMutation,
   useRefreshReservedCountsMutation,
 } from './api/committeeInstance.queries';

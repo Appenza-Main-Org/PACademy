@@ -64,7 +64,18 @@ export function PageHeader({
           </h1>
           {subtitle && <p className="mt-1 text-sm text-ink-500">{subtitle}</p>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        {actions && (
+          <div
+            role="toolbar"
+            aria-label="إجراءات الصفحة"
+            className={cn(
+              'flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end',
+              '[&_.btn]:h-9 [&_.btn]:px-4 [&_.btn]:text-sm [&_.btn]:font-medium',
+            )}
+          >
+            {actions}
+          </div>
+        )}
       </div>
     </header>
   );

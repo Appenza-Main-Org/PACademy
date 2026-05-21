@@ -6,20 +6,15 @@
  * ------
  *  1. Section header — application dates + الحالة الاجتماعية + top-level
  *     graduation years (kept per-category in the wizard store).
- *  2. Faculty + specialization tree — rendered per the V2 accordion rule:
- *       • 1 faculty + 1 specialization → flat (no accordion).
- *       • 1 faculty + N specializations → accordion over specializations.
- *       • N faculties → accordion per faculty (each pane recurses into a
- *         per-specialization accordion when the faculty has >1 specs).
- *     The same component tree is used for every university category;
- *     the brief explicitly asked for the «الضباط المتخصصون» pattern to be
- *     generalised here.
+ *  2. Category body — simple university categories render one focused
+ *     implicit-specialization form; `specialized_officers` renders a
+ *     faculty rail + multi-select specialization rail + bulk-apply form.
  *  3. «اعتماد» — promotes every local row authored under this category
  *     into the «عرض» tab via the shared wizard store.
  *
  * Single-select fields use the shared `SearchSelect` primitive
- * (Radix-backed). NO multi-select committee/degree picker remains —
- * single-select per the V2 brief.
+ * (Radix-backed); multi-value fields keep the existing `MultiSelect`
+ * primitive and payload shape.
  *
  * Duplicate rows are blocked at the store boundary (composite key over
  * every combination field). The form surfaces a danger toast when the
@@ -27,11 +22,19 @@
  */
 
 import { useMemo, useRef, useState } from 'react';
-import { CheckCircle2, ChevronDown, Pencil, Trash2, X } from 'lucide-react';
 import {
-  Accordion,
+  CheckCircle2,
+  ChevronLeft,
+  Layers,
+  Pencil,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
+import {
   Button,
   Card,
+  Checkbox,
   DatePicker,
   EmptyState,
   ErrorState,
@@ -45,6 +48,7 @@ import {
 } from '@/shared/components';
 import type { RadixSelectOption, SearchSelectOption } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
+import { cn } from '@/shared/lib/cn';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import type { ExcellenceMode } from '../../lib/excellenceMode';
@@ -56,7 +60,9 @@ import {
   type LocalUniversityRow,
   type MaxScoreOperator,
   type MinScoreOperator,
+  type SpecKey,
 } from '../../store/wizardSharedState';
+import { ExcellenceModeToggle } from './ExcellenceModeToggle';
 import { OperatorScoreField } from './OperatorScoreField';
 
 /* ── Static option sets ───────────────────────────────────────────── */
@@ -66,7 +72,10 @@ const GENDER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'female', label: 'أنثى' },
 ];
 
+const SPECIALIZED_OFFICERS_CATEGORY_CODE = 'specialized_officers';
+
 const EMPTY_INPUT: GeneralRuleRowInput = {
+  excellenceMode: 'GRADES',
   type: [],
   grade: '',
   gradeMax: '',
@@ -78,6 +87,10 @@ const EMPTY_INPUT: GeneralRuleRowInput = {
   committee: '',
   graduationYear: null,
 };
+
+function emptyInputFor(excellenceMode: ExcellenceMode | null): GeneralRuleRowInput {
+  return { ...EMPTY_INPUT, excellenceMode: excellenceMode ?? 'GRADES' };
+}
 
 /** Lower bound for both inputs — "positive numbers only".
  *  The min field has an upper bound at 100 (percentage convention).
@@ -301,7 +314,7 @@ export function GeneralRulesSection({
     );
   }
 
-  /* ─── Faculty/spec accordion-rule rendering ───────────────────── */
+  /* ─── Faculty/spec workspace rendering ────────────────────────── */
 
   const formOptions: PerSpecFormOptions = {
     categoryCode,
@@ -313,82 +326,6 @@ export function GeneralRulesSection({
     graduationYearOptions,
     excellenceMode,
   };
-
-  let tree: JSX.Element;
-  if (scopedFaculties.length === 0) {
-    tree = (
-      <EmptyState
-        variant="generic"
-        title="لا توجد كليات مرتبطة بهذه الفئة"
-        description="فعّل كلية واحدة على الأقل أو اضبط نطاق الفئة في الأكواد المرجعية."
-      />
-    );
-  } else if (scopedFaculties.length === 1) {
-    const faculty = scopedFaculties[0]!;
-    const specs = specsByFaculty.get(faculty.code) ?? [];
-    if (specs.length === 0) {
-      tree = (
-        <EmptyState
-          variant="generic"
-          title="لا توجد تخصصات نشطة في هذه الكلية"
-          description="فعّل تخصصاً واحداً على الأقل من الأكواد المرجعية."
-        />
-      );
-    } else if (specs.length === 1) {
-      /* 1F + 1S → flat. No accordion at all. */
-      const spec = specs[0]!;
-      tree = (
-        <Card variant="compact">
-          <SpecHeader
-            facultyNameAr={faculty.name}
-            specializationNameAr={spec.name}
-          />
-          <PerSpecForm
-            facultyCode={faculty.code}
-            facultyNameAr={faculty.name}
-            specializationCode={spec.code}
-            specializationNameAr={spec.name}
-            options={formOptions}
-          />
-        </Card>
-      );
-    } else {
-      /* 1F + NS → accordion for specializations only. */
-      tree = (
-        <Accordion.Root type="multiple" dir="rtl" className="flex flex-col gap-2">
-          {specs.map((spec) => (
-            <SpecializationItem
-              key={spec.code}
-              isFilled={filledSpecCodes.has(spec.code)}
-              facultyCode={faculty.code}
-              facultyNameAr={faculty.name}
-              specializationCode={spec.code}
-              specializationNameAr={spec.name}
-              options={formOptions}
-            />
-          ))}
-        </Accordion.Root>
-      );
-    }
-  } else {
-    /* >1 faculties → accordion per faculty, each one drilling into a
-     * specialization accordion. */
-    tree = (
-      <Accordion.Root type="multiple" dir="rtl" className="flex flex-col gap-2">
-        {scopedFaculties.map((faculty) => (
-          <FacultyItem
-            key={faculty.code}
-            facultyCode={faculty.code}
-            facultyNameAr={faculty.name}
-            specializations={specsByFaculty.get(faculty.code) ?? []}
-            isFilled={filledFacultyCodes.has(faculty.code)}
-            filledSpecCodes={filledSpecCodes}
-            options={formOptions}
-          />
-        ))}
-      </Accordion.Root>
-    );
-  }
 
   return (
     <section
@@ -408,7 +345,24 @@ export function GeneralRulesSection({
 
       <TopFields categoryCode={categoryCode} maritalOptions={maritalOptions} />
 
-      <div className="mt-4">{tree}</div>
+      <div className="mt-4">
+        {categoryCode === SPECIALIZED_OFFICERS_CATEGORY_CODE ? (
+          <SpecializedOfficersWorkspace
+            faculties={scopedFaculties}
+            specsByFaculty={specsByFaculty}
+            filledFacultyCodes={filledFacultyCodes}
+            filledSpecCodes={filledSpecCodes}
+            options={formOptions}
+          />
+        ) : (
+          <ImplicitUniversityPanel
+            faculties={scopedFaculties}
+            specsByFaculty={specsByFaculty}
+            filledSpecCodes={filledSpecCodes}
+            options={formOptions}
+          />
+        )}
+      </div>
 
       <div className="mt-5 flex items-center justify-end gap-3 border-t border-border-subtle pt-4">
         {localCount > 0 && (
@@ -443,44 +397,52 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
 
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <FieldLabel label="بداية التقديم" required>
-        <DatePicker
-          value={isoToDate(header.applicationStart)}
-          onChange={(d) =>
-            setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
-          }
-          placeholder="اختر اليوم…"
-        />
-      </FieldLabel>
-      <FieldLabel label="نهاية التقديم" required>
-        <DatePicker
-          value={isoToDate(header.applicationEnd)}
-          onChange={(d) =>
-            setHeaderField(categoryCode, 'applicationEnd', dateToIso(d))
-          }
-          placeholder="اختر اليوم…"
-        />
-      </FieldLabel>
-      <FieldLabel label="تاريخ احتساب السن" required>
-        <DatePicker
-          value={isoToDate(header.ageReferenceDate)}
-          onChange={(d) =>
-            setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
-          }
-          placeholder="اختر اليوم…"
-        />
-      </FieldLabel>
-      <FieldLabel label="الحالة الاجتماعية" required>
-        <MultiSelect
-          ariaLabel="الحالة الاجتماعية"
-          value={header.maritalStatus}
-          onChange={(next) => setHeaderField(categoryCode, 'maritalStatus', next)}
-          options={maritalOptions}
-          placeholder="اختر الحالة الاجتماعية…"
-        />
-      </FieldLabel>
-      <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} />
+    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(260px,2fr)]">
+      <FieldGroup title="نطاق التقديم">
+        <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-3">
+          <FieldLabel label="بداية التقديم" required>
+            <DatePicker
+              value={isoToDate(header.applicationStart)}
+              onChange={(d) =>
+                setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
+              }
+              placeholder="اختر اليوم…"
+            />
+          </FieldLabel>
+          <FieldLabel label="نهاية التقديم" required>
+            <DatePicker
+              value={isoToDate(header.applicationEnd)}
+              onChange={(d) =>
+                setHeaderField(categoryCode, 'applicationEnd', dateToIso(d))
+              }
+              placeholder="اختر اليوم…"
+            />
+          </FieldLabel>
+          <FieldLabel label="تاريخ احتساب السن" required>
+            <DatePicker
+              value={isoToDate(header.ageReferenceDate)}
+              onChange={(d) =>
+                setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
+              }
+              placeholder="اختر اليوم…"
+            />
+          </FieldLabel>
+        </div>
+      </FieldGroup>
+      <FieldGroup title="شروط الأهلية">
+        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+          <FieldLabel label="الحالة الاجتماعية" required>
+            <MultiSelect
+              ariaLabel="الحالة الاجتماعية"
+              value={header.maritalStatus}
+              onChange={(next) => setHeaderField(categoryCode, 'maritalStatus', next)}
+              options={maritalOptions}
+              placeholder="اختر الحالة الاجتماعية…"
+            />
+          </FieldLabel>
+          <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} />
+        </div>
+      </FieldGroup>
     </div>
   );
 }
@@ -570,17 +532,33 @@ interface FieldLabelProps {
   required?: boolean;
 }
 
+interface FieldGroupProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function FieldGroup({ title, children }: FieldGroupProps): JSX.Element {
+  return (
+    <div className="rounded-md border border-border-subtle bg-surface-card p-3">
+      <h5 className="m-0 mb-3 font-ar text-xs font-semibold text-ink-800">
+        {title}
+      </h5>
+      {children}
+    </div>
+  );
+}
+
 function FieldLabel({
   label,
   children,
   required = false,
 }: FieldLabelProps): JSX.Element {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="font-ar text-xs font-medium text-ink-700">
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="flex min-h-5 items-start font-ar text-xs font-medium leading-5 text-ink-700">
         {label}
         {required && (
-          <span aria-hidden className="ms-1 text-terra-600">
+          <span aria-hidden className="ms-1 shrink-0 text-terra-600">
             *
           </span>
         )}
@@ -590,186 +568,477 @@ function FieldLabel({
   );
 }
 
-/* ── Faculty accordion item ───────────────────────────────────────── */
+/* ── University category bodies ───────────────────────────────────── */
 
-interface FacultyItemProps {
-  facultyCode: string;
-  facultyNameAr: string;
-  specializations: Array<{ code: string; name: string }>;
-  /** `true` when at least one specialization under this faculty has an
-   *  authored row (local or approved) — drives the highlighted header
-   *  treatment so the admin can spot configured faculties at a glance. */
-  isFilled: boolean;
-  /** Specialization codes that have authored rows — passed through to
-   *  the nested per-spec accordion so its items can highlight too. */
+type FacultyOption = {
+  code: string;
+  name: string;
+};
+
+type SpecializationOption = {
+  code: string;
+  name: string;
+};
+
+interface ImplicitUniversityPanelProps {
+  faculties: readonly FacultyOption[];
+  specsByFaculty: ReadonlyMap<string, SpecializationOption[]>;
+  /** Specialization codes with at least one authored row. */
   filledSpecCodes: ReadonlySet<string>;
   options: PerSpecFormOptions;
 }
 
-function FacultyItem({
-  facultyCode,
-  facultyNameAr,
-  specializations,
-  isFilled,
+function ImplicitUniversityPanel({
+  faculties,
+  specsByFaculty,
   filledSpecCodes,
   options,
-}: FacultyItemProps): JSX.Element {
+}: ImplicitUniversityPanelProps): JSX.Element {
+  const firstFaculty =
+    faculties.find((faculty) => (specsByFaculty.get(faculty.code) ?? []).length > 0) ??
+    faculties[0] ??
+    null;
+  const firstSpec = firstFaculty
+    ? specsByFaculty.get(firstFaculty.code)?.[0] ?? null
+    : null;
+
+  if (!firstFaculty || !firstSpec) {
+    return (
+      <EmptyState
+        variant="generic"
+        title="لا توجد تخصصات مرتبطة بهذه الفئة"
+        description="فعّل تخصصاً واحداً على الأقل أو اضبط نطاق الفئة في الأكواد المرجعية."
+      />
+    );
+  }
+
   return (
-    <Accordion.Item
-      value={facultyCode}
-      className={
-        isFilled
-          ? 'rounded-md border border-teal-200 bg-teal-50/40'
-          : 'rounded-md border border-border-subtle bg-surface'
-      }
-    >
-      <Accordion.Header className="flex">
-        <Accordion.Trigger className="group flex w-full items-center justify-between gap-3 px-3 py-2 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
-          <span className="inline-flex items-center gap-2 font-ar text-sm font-medium text-ink-900">
-            <ChevronDown
-              size={14}
-              strokeWidth={1.75}
-              className="text-ink-500 transition-transform duration-fast group-data-[state=closed]:rotate-180"
-              aria-hidden
-            />
-            {facultyNameAr}
-          </span>
-          <span className="inline-flex items-center gap-1.5 font-ar text-2xs text-ink-500">
-            {isFilled && (
-              <CheckCircle2
-                size={12}
-                strokeWidth={2}
-                className="text-teal-600"
-                aria-label="تحتوي على شروط محفوظة"
-              />
-            )}
-            <span>{num(specializations.length)} تخصص نشط</span>
-          </span>
-        </Accordion.Trigger>
-      </Accordion.Header>
-      <Accordion.Content
-        className={
-          isFilled
-            ? 'border-t border-teal-200 bg-ink-50/30 px-3 py-3'
-            : 'border-t border-border-subtle bg-ink-50/30 px-3 py-3'
-        }
-      >
-        {specializations.length === 0 ? (
-          <p className="font-ar text-xs text-ink-500">
-            لا توجد تخصصات نشطة في هذه الكلية.
+    <div className="rounded-md border border-border-subtle bg-surface-card p-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="m-0 font-ar text-lg font-bold text-ink-900">
+              شروط اللجنة
+            </h4>
+            <span className="rounded-full bg-ink-50 px-2 py-0.5 font-ar text-2xs font-medium text-ink-600">
+              {firstFaculty.name} · {firstSpec.name}
+            </span>
+          </div>
+          <p className="m-0 mt-2 font-ar text-xs text-ink-500">
+            هذه الفئة لها نطاق تخصص واحد، لذلك تظهر شروطها مباشرة دون تنقل إضافي.
           </p>
-        ) : specializations.length === 1 ? (
-          <PerSpecForm
-            facultyCode={facultyCode}
-            facultyNameAr={facultyNameAr}
-            specializationCode={specializations[0]!.code}
-            specializationNameAr={specializations[0]!.name}
-            options={options}
-          />
-        ) : (
-          <Accordion.Root type="multiple" dir="rtl" className="flex flex-col gap-2">
-            {specializations.map((spec) => (
-              <SpecializationItem
-                key={spec.code}
-                facultyCode={facultyCode}
-                facultyNameAr={facultyNameAr}
-                specializationCode={spec.code}
-                specializationNameAr={spec.name}
-                isFilled={filledSpecCodes.has(spec.code)}
-                options={options}
-              />
-            ))}
-          </Accordion.Root>
+        </div>
+        {filledSpecCodes.has(firstSpec.code) && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-1 font-ar text-2xs font-medium text-teal-700">
+            <CheckCircle2 size={12} strokeWidth={2} aria-hidden />
+            يحتوي على شروط
+          </span>
         )}
-      </Accordion.Content>
-    </Accordion.Item>
+      </div>
+
+      <PerSpecForm
+        key={`${firstFaculty.code}::${firstSpec.code}`}
+        facultyCode={firstFaculty.code}
+        facultyNameAr={firstFaculty.name}
+        specializationCode={firstSpec.code}
+        specializationNameAr={firstSpec.name}
+        options={options}
+      />
+    </div>
   );
 }
 
-/* ── Specialization accordion item ────────────────────────────────── */
-
-interface SpecializationItemProps {
-  facultyCode: string;
-  facultyNameAr: string;
-  specializationCode: string;
-  specializationNameAr: string;
-  /** `true` when this specialization has at least one authored row
-   *  (local or approved) — drives the highlighted header treatment. */
-  isFilled: boolean;
+interface SpecializedOfficersWorkspaceProps {
+  faculties: readonly FacultyOption[];
+  specsByFaculty: ReadonlyMap<string, SpecializationOption[]>;
+  /** Faculty codes with at least one authored row. */
+  filledFacultyCodes: ReadonlySet<string>;
+  /** Specialization codes with at least one authored row. */
+  filledSpecCodes: ReadonlySet<string>;
   options: PerSpecFormOptions;
 }
 
-function SpecializationItem({
-  facultyCode,
-  facultyNameAr,
-  specializationCode,
-  specializationNameAr,
-  isFilled,
+function SpecializedOfficersWorkspace({
+  faculties,
+  specsByFaculty,
+  filledFacultyCodes,
+  filledSpecCodes,
   options,
-}: SpecializationItemProps): JSX.Element {
-  const value = `${facultyCode}::${specializationCode}`;
+}: SpecializedOfficersWorkspaceProps): JSX.Element {
+  const [selectedFacultyCode, setSelectedFacultyCode] = useState<string | null>(
+    null,
+  );
+  const [selectedSpecCodes, setSelectedSpecCodes] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [facultySearch, setFacultySearch] = useState('');
+  const [specSearch, setSpecSearch] = useState('');
+
+  const filteredFaculties = useMemo(() => {
+    const needle = facultySearch.trim().toLowerCase();
+    if (needle === '') return faculties;
+    return faculties.filter((faculty) =>
+      [faculty.name, faculty.code].join(' ').toLowerCase().includes(needle),
+    );
+  }, [faculties, facultySearch]);
+
+  const selectedFaculty =
+    faculties.find((faculty) => faculty.code === selectedFacultyCode) ??
+    filteredFaculties[0] ??
+    faculties[0] ??
+    null;
+
+  const selectedFacultySpecs = selectedFaculty
+    ? specsByFaculty.get(selectedFaculty.code) ?? []
+    : [];
+
+  const filteredSpecs = useMemo(() => {
+    const needle = specSearch.trim().toLowerCase();
+    if (needle === '') return selectedFacultySpecs;
+    return selectedFacultySpecs.filter((spec) =>
+      [spec.name, spec.code].join(' ').toLowerCase().includes(needle),
+    );
+  }, [selectedFacultySpecs, specSearch]);
+
+  const selectedSpecCodesInFaculty = useMemo(() => {
+    const scopedCodes = new Set(selectedFacultySpecs.map((spec) => spec.code));
+    return new Set(
+      [...selectedSpecCodes].filter((code) => scopedCodes.has(code)),
+    );
+  }, [selectedSpecCodes, selectedFacultySpecs]);
+
+  const selectedSpecTargets: SpecKey[] = useMemo(() => {
+    if (!selectedFaculty) return [];
+    return selectedFacultySpecs
+      .filter((spec) => selectedSpecCodesInFaculty.has(spec.code))
+      .map((spec) => ({
+        facultyCode: selectedFaculty.code,
+        facultyNameAr: selectedFaculty.name,
+        specializationCode: spec.code,
+        specializationNameAr: spec.name,
+      }));
+  }, [selectedFaculty, selectedFacultySpecs, selectedSpecCodesInFaculty]);
+
+  const handleFacultySelect = (facultyCode: string): void => {
+    if (facultyCode === selectedFaculty?.code) return;
+    if (selectedSpecCodes.size > 0) {
+      toast('تم مسح التحديد بعد تغيير الكلية', 'info');
+    }
+    setSelectedFacultyCode(facultyCode);
+    setSelectedSpecCodes(new Set());
+    setSpecSearch('');
+  };
+
+  const handleSpecToggle = (specCode: string): void => {
+    setSelectedSpecCodes((current) => {
+      const next = new Set(current);
+      if (next.has(specCode)) next.delete(specCode);
+      else next.add(specCode);
+      return next;
+    });
+  };
+
+  const handleSelectAllSpecs = (): void => {
+    setSelectedSpecCodes(new Set(selectedFacultySpecs.map((spec) => spec.code)));
+  };
+
+  const handleClearSpecs = (): void => {
+    setSelectedSpecCodes(new Set());
+  };
+
+  if (faculties.length === 0) {
+    return (
+      <EmptyState
+        variant="generic"
+        title="لا توجد كليات مرتبطة بهذه الفئة"
+        description="فعّل كلية واحدة على الأقل أو اضبط نطاق الفئة في الأكواد المرجعية."
+      />
+    );
+  }
+
   return (
-    <Accordion.Item
-      value={value}
-      className={
-        isFilled
-          ? 'rounded-md border border-teal-200 bg-teal-50/40'
-          : 'rounded-md border border-border-subtle bg-surface-card'
-      }
-    >
-      <Accordion.Header className="flex">
-        <Accordion.Trigger className="group flex w-full items-center justify-between gap-3 px-3 py-2 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]">
-          <span className="inline-flex items-center gap-2 font-ar text-sm text-ink-900">
-            <ChevronDown
-              size={14}
-              strokeWidth={1.75}
-              className="text-ink-500 transition-transform duration-fast group-data-[state=closed]:rotate-180"
-              aria-hidden
-            />
-            {specializationNameAr}
-          </span>
-          {isFilled && (
-            <CheckCircle2
-              size={12}
-              strokeWidth={2}
-              className="text-teal-600"
-              aria-label="تحتوي على شروط محفوظة"
-            />
-          )}
-        </Accordion.Trigger>
-      </Accordion.Header>
-      <Accordion.Content
-        className={
-          isFilled
-            ? 'border-t border-teal-200 px-3 py-3'
-            : 'border-t border-border-subtle px-3 py-3'
-        }
-      >
-        <PerSpecForm
-          facultyCode={facultyCode}
-          facultyNameAr={facultyNameAr}
-          specializationCode={specializationCode}
-          specializationNameAr={specializationNameAr}
-          options={options}
-        />
-      </Accordion.Content>
-    </Accordion.Item>
+    <div className="flex flex-col gap-4">
+      <div className="grid min-h-[520px] grid-cols-1 overflow-hidden rounded-md border border-border-subtle bg-surface-card xl:grid-cols-[260px_minmax(0,1fr)]">
+        <section className="min-w-0 border-b border-border-subtle bg-surface xl:border-b-0 xl:border-e">
+          <WorkspaceColumnHeader
+            title="الكليات"
+            subtitle="اختر كلية لعرض تخصصاتها"
+          />
+          <SearchBox
+            label="بحث في الكليات"
+            value={facultySearch}
+            onChange={setFacultySearch}
+            placeholder="ابحث عن كلية…"
+          />
+          <div className="max-h-[520px] overflow-y-auto border-t border-border-subtle">
+            {filteredFaculties.length === 0 ? (
+              <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
+                لا توجد كليات مطابقة للبحث.
+              </p>
+            ) : (
+              filteredFaculties.map((faculty) => {
+                const specs = specsByFaculty.get(faculty.code) ?? [];
+                const isSelected = selectedFaculty?.code === faculty.code;
+                const isFilled = filledFacultyCodes.has(faculty.code);
+                return (
+                  <button
+                    key={faculty.code}
+                    type="button"
+                    onClick={() => handleFacultySelect(faculty.code)}
+                    className={cn(
+                      'flex w-full items-center justify-between gap-3 border-b border-border-subtle px-4 py-4 text-start transition-colors duration-fast',
+                      'focus-visible:outline-none focus-visible:shadow-focus-teal',
+                      isSelected
+                        ? 'border-s-4 border-s-teal-600 bg-teal-50'
+                        : 'bg-surface-card hover:bg-ink-50/70',
+                    )}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-ar text-sm font-semibold text-ink-900">
+                        {faculty.name}
+                      </span>
+                      <span className="mt-1 inline-flex items-center gap-1 font-ar text-2xs text-ink-500">
+                        <Layers size={11} strokeWidth={1.75} aria-hidden />
+                        {num(specs.length)} تخصص مرتبط
+                      </span>
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      {isFilled && (
+                        <span className="size-2 rounded-full bg-teal-600" />
+                      )}
+                      <span className="font-mono text-2xs text-ink-400">
+                        {faculty.code}
+                      </span>
+                      {isSelected && (
+                        <ChevronLeft
+                          size={14}
+                          strokeWidth={2}
+                          className="text-teal-600"
+                          aria-hidden
+                        />
+                      )}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <section className="min-w-0 bg-surface">
+          <WorkspaceColumnHeader
+            title={
+              selectedFaculty
+                ? `تخصصات: ${selectedFaculty.name}`
+                : 'التخصصات'
+            }
+            subtitle={`${num(selectedSpecCodesInFaculty.size)} / ${num(selectedFacultySpecs.length)} محددة`}
+          />
+          <SearchBox
+            label="بحث في التخصصات"
+            value={specSearch}
+            onChange={setSpecSearch}
+            placeholder="ابحث عن تخصص…"
+          />
+          <div className="mx-4 mb-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="font-ar text-2xs text-ink-500">
+              اختر تخصصاً أو أكثر لتطبيق نفس الشروط.
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSelectAllSpecs}
+                disabled={selectedFacultySpecs.length === 0}
+              >
+                تحديد الكل
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearSpecs}
+                disabled={selectedSpecCodesInFaculty.size === 0}
+              >
+                إلغاء
+              </Button>
+            </span>
+          </div>
+          <div className="max-h-[520px] overflow-y-auto border-t border-border-subtle">
+            {selectedFacultySpecs.length === 0 ? (
+              <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
+                لا توجد تخصصات نشطة في هذه الكلية.
+              </p>
+            ) : filteredSpecs.length === 0 ? (
+              <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
+                لا توجد تخصصات مطابقة للبحث.
+              </p>
+            ) : (
+              filteredSpecs.map((spec) => {
+                const isSelected = selectedSpecCodesInFaculty.has(spec.code);
+                const isFilled = filledSpecCodes.has(spec.code);
+                return (
+                  <div
+                    key={spec.code}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleSpecToggle(spec.code)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handleSpecToggle(spec.code);
+                      }
+                    }}
+                    className={cn(
+                      'flex w-full cursor-pointer items-center justify-between gap-3 border-b border-border-subtle px-4 py-4 text-start transition-colors duration-fast',
+                      'focus-visible:outline-none focus-visible:shadow-focus-teal',
+                      isSelected
+                        ? 'border-s-4 border-s-teal-600 bg-teal-50'
+                        : 'bg-surface-card hover:bg-ink-50/70',
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span onClick={(event) => event.stopPropagation()}>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => handleSpecToggle(spec.code)}
+                          aria-label={`اختيار ${spec.name}`}
+                        />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-ar text-sm font-semibold text-ink-900">
+                          {spec.name}
+                        </span>
+                        <span className="mt-1 block font-mono text-2xs text-ink-400">
+                          {spec.code}
+                        </span>
+                      </span>
+                    </span>
+                    {isFilled && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-1 font-ar text-2xs font-medium text-teal-700">
+                        <CheckCircle2 size={12} strokeWidth={2} aria-hidden />
+                        شروط
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+      </div>
+
+      <section className="min-w-0 rounded-md border border-border-subtle bg-ink-50/20 p-4">
+        {selectedSpecTargets.length > 0 && selectedFaculty ? (
+          <PerSpecForm
+            key={`${selectedFaculty.code}::${selectedSpecTargets
+              .map((target) => target.specializationCode)
+              .join('|')}`}
+            facultyCode={selectedFaculty.code}
+            facultyNameAr={selectedFaculty.name}
+            specializationCode={selectedSpecTargets[0].specializationCode}
+            specializationNameAr={selectedSpecTargets[0].specializationNameAr}
+            options={options}
+            bulkTargets={selectedSpecTargets}
+            emptyRowsLabel="لم تُضف شروط لجان بعد للتخصصات المحددة."
+            showScopeColumn={selectedSpecTargets.length > 1}
+            bulkBanner={
+              <BulkApplyBanner
+                facultyName={selectedFaculty.name}
+                targets={selectedSpecTargets}
+              />
+            }
+          />
+        ) : (
+          <EmptyState
+            variant="generic"
+            title="اختر تخصصاً لإضافة الشروط"
+            description="اختر كلية ثم حدد تخصصاً أو أكثر لعرض نموذج شروط اللجنة."
+          />
+        )}
+      </section>
+    </div>
   );
 }
 
-function SpecHeader({
-  facultyNameAr,
-  specializationNameAr,
+function BulkApplyBanner({
+  facultyName,
+  targets,
 }: {
-  facultyNameAr: string;
-  specializationNameAr: string;
+  facultyName: string;
+  targets: readonly SpecKey[];
 }): JSX.Element {
   return (
-    <div className="mb-3 flex items-center gap-2 font-ar text-sm text-ink-700">
-      <span className="font-medium text-ink-900">{facultyNameAr}</span>
-      <span className="text-ink-400">·</span>
-      <span>{specializationNameAr}</span>
+    <div className="rounded-md border border-gold-200 bg-gold-50 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-ar text-xs font-semibold text-gold-800">
+          تطبيق دفعة واحدة على {num(targets.length)} تخصصات
+        </span>
+        <span className="font-ar text-xs text-gold-700">· {facultyName}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {targets.map((target) => (
+          <span
+            key={`${target.facultyCode}::${target.specializationCode}`}
+            className="rounded-full border border-gold-200 bg-surface-card px-2 py-1 font-ar text-2xs font-medium text-gold-800"
+          >
+            {target.specializationNameAr}
+          </span>
+        ))}
+      </div>
     </div>
+  );
+}
+
+function WorkspaceColumnHeader({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}): JSX.Element {
+  return (
+    <header className="flex min-h-16 items-center justify-between gap-3 px-4 py-3">
+      <div className="min-w-0">
+        <h4 className="m-0 truncate font-ar text-sm font-bold text-ink-900">
+          {title}
+        </h4>
+        <p className="m-0 mt-1 truncate font-ar text-2xs text-ink-500">
+          {subtitle}
+        </p>
+      </div>
+    </header>
+  );
+}
+
+function SearchBox({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}): JSX.Element {
+  return (
+    <label className="relative mx-4 mb-4 block">
+      <span className="sr-only">{label}</span>
+      <Search
+        size={15}
+        strokeWidth={1.75}
+        className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-ink-400 start-3"
+        aria-hidden
+      />
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-11 w-full rounded-md border border-border-default bg-surface-card ps-9 pe-3 font-ar text-sm text-ink-900 outline-none transition-colors placeholder:text-ink-400 focus:border-teal-500 focus:shadow-focus-teal"
+      />
+    </label>
   );
 }
 
@@ -794,10 +1063,15 @@ interface PerSpecFormProps {
   specializationCode: string;
   specializationNameAr: string;
   options: PerSpecFormOptions;
+  bulkTargets?: readonly SpecKey[];
+  bulkBanner?: React.ReactNode;
+  emptyRowsLabel?: string;
+  showScopeColumn?: boolean;
 }
 
 function rowToUniversityInput(r: LocalUniversityRow): GeneralRuleRowInput {
   return {
+    excellenceMode: r.excellenceMode ?? (r.grade ? 'TAGDIR' : 'GRADES'),
     type: [...r.type],
     grade: r.grade,
     gradeMax: r.gradeMax,
@@ -814,12 +1088,58 @@ function rowToUniversityInput(r: LocalUniversityRow): GeneralRuleRowInput {
   };
 }
 
+function universityInputKey(
+  categoryCode: string,
+  spec: SpecKey,
+  input: GeneralRuleRowInput,
+): string {
+  return [
+    categoryCode,
+    spec.facultyCode,
+    spec.specializationCode,
+    input.excellenceMode,
+    [...input.type].sort().join('|'),
+    input.grade,
+    input.gradeMax,
+    String(input.scoreMin),
+    input.minScoreOperator,
+    String(input.scoreMax),
+    input.maxScoreOperator,
+    [...input.academicDegrees].sort().join('|'),
+    input.committee,
+    input.graduationYear === null ? '' : String(input.graduationYear),
+  ].join('::');
+}
+
+function universityRowKey(r: LocalUniversityRow): string {
+  return [
+    r.categoryCode,
+    r.facultyCode,
+    r.specializationCode,
+    r.excellenceMode,
+    [...r.type].sort().join('|'),
+    r.grade,
+    r.gradeMax,
+    String(r.scoreMin),
+    r.minScoreOperator,
+    String(r.scoreMax),
+    r.maxScoreOperator,
+    [...r.academicDegrees].sort().join('|'),
+    [...r.committees].sort().join('|'),
+    [...r.graduationYears].sort().join('|'),
+  ].join('::');
+}
+
 function PerSpecForm({
   facultyCode,
   facultyNameAr,
   specializationCode,
   specializationNameAr,
   options,
+  bulkTargets,
+  bulkBanner,
+  emptyRowsLabel = 'لم تُضف شروط لجان بعد لهذا التخصص.',
+  showScopeColumn = false,
 }: PerSpecFormProps): JSX.Element {
   const {
     categoryCode,
@@ -830,11 +1150,10 @@ function PerSpecForm({
     graduationYearOptions,
     excellenceMode,
   } = options;
-  /* `null` (criterion not picked) keeps both pairs visible so admins
-   * can still fill the row in until they assign a criterion. */
-  const showGradePair = excellenceMode !== 'GRADES';
-  const showScorePair = excellenceMode !== 'TAGDIR';
-  const [draft, setDraft] = useState<GeneralRuleRowInput>(EMPTY_INPUT);
+  const defaultExcellenceMode = excellenceMode ?? 'GRADES';
+  const [draft, setDraft] = useState<GeneralRuleRowInput>(() =>
+    emptyInputFor(defaultExcellenceMode),
+  );
   const formRef = useRef<HTMLDivElement>(null);
 
   const header = useAdmissionSetupWizardStore(
@@ -868,16 +1187,28 @@ function PerSpecForm({
    * through `application_settings_review`. */
   const localRows = useAdmissionSetupWizardStore((s) => s.local);
   const approvedRows = useAdmissionSetupWizardStore((s) => s.approved);
+  const primarySpec: SpecKey = {
+    facultyCode,
+    facultyNameAr,
+    specializationCode,
+    specializationNameAr,
+  };
+  const submitTargets =
+    bulkTargets && bulkTargets.length > 0 ? bulkTargets : [primarySpec];
+  const targetScopeKey = submitTargets
+    .map((target) => `${target.facultyCode}::${target.specializationCode}`)
+    .join('|');
   const rows = useMemo(
-    () =>
-      [...localRows, ...approvedRows].filter(
+    () => {
+      const targetKeys = new Set(targetScopeKey.split('|').filter(Boolean));
+      return [...localRows, ...approvedRows].filter(
         (r): r is LocalUniversityRow =>
           r.kind === 'university' &&
           r.categoryCode === categoryCode &&
-          r.facultyCode === facultyCode &&
-          r.specializationCode === specializationCode,
-      ),
-    [localRows, approvedRows, categoryCode, facultyCode, specializationCode],
+          targetKeys.has(`${r.facultyCode}::${r.specializationCode}`),
+      );
+    },
+    [localRows, approvedRows, categoryCode, targetScopeKey],
   );
   const handleDelete = (id: string): void => {
     removeLocalRow(id);
@@ -890,6 +1221,7 @@ function PerSpecForm({
    *  add-mode without losing the user's place in the wizard. */
   const editingRow = useAdmissionSetupWizardStore((s) => {
     if (s.editingRowId === null) return null;
+    const targetKeys = new Set(targetScopeKey.split('|').filter(Boolean));
     const r =
       s.local.find((x) => x.id === s.editingRowId) ??
       s.approved.find((x) => x.id === s.editingRowId);
@@ -897,8 +1229,7 @@ function PerSpecForm({
       !r ||
       r.kind !== 'university' ||
       r.categoryCode !== categoryCode ||
-      r.facultyCode !== facultyCode ||
-      r.specializationCode !== specializationCode
+      !targetKeys.has(`${r.facultyCode}::${r.specializationCode}`)
     ) {
       return null;
     }
@@ -914,8 +1245,15 @@ function PerSpecForm({
   const lastEditingIdRef = useRef<string | null>(null);
   if (lastEditingIdRef.current !== editingId) {
     lastEditingIdRef.current = editingId;
-    setDraft(editingRow ? rowToUniversityInput(editingRow) : EMPTY_INPUT);
+    setDraft(editingRow ? rowToUniversityInput(editingRow) : emptyInputFor(defaultExcellenceMode));
   }
+  const lastDefaultModeRef = useRef<ExcellenceMode>(defaultExcellenceMode);
+  if (!isEditing && lastDefaultModeRef.current !== defaultExcellenceMode) {
+    lastDefaultModeRef.current = defaultExcellenceMode;
+    setDraft(emptyInputFor(defaultExcellenceMode));
+  }
+  const showGradePair = draft.excellenceMode === 'TAGDIR';
+  const showScorePair = draft.excellenceMode === 'GRADES';
 
   /* ─── Validation ─── */
 
@@ -969,13 +1307,6 @@ function PerSpecForm({
     draft.committee.length > 0 &&
     draft.graduationYear !== null;
 
-  const spec = {
-    facultyCode,
-    facultyNameAr,
-    specializationCode,
-    specializationNameAr,
-  };
-
   /** Blank-out fields that the active criterion hides so a row authored
    *  under one criterion doesn't carry orphan values if the admin switches
    *  later. The store still receives both pairs on the row — just zeroed
@@ -992,7 +1323,15 @@ function PerSpecForm({
     if (!canSubmit) return;
     const payload = normalizeForSubmit(draft);
     if (isEditing && editingId !== null) {
-      const result = updateUniversityRow(editingId, spec, payload);
+      const editingSpec: SpecKey = editingRow
+        ? {
+            facultyCode: editingRow.facultyCode,
+            facultyNameAr: editingRow.facultyNameAr,
+            specializationCode: editingRow.specializationCode,
+            specializationNameAr: editingRow.specializationNameAr,
+          }
+        : primarySpec;
+      const result = updateUniversityRow(editingId, editingSpec, payload);
       if (!result.ok) {
         toast(
           result.reason === 'duplicate'
@@ -1002,17 +1341,44 @@ function PerSpecForm({
         );
         return;
       }
-      setDraft(EMPTY_INPUT);
+      setDraft(emptyInputFor(defaultExcellenceMode));
       toast('تم تعديل الشرط', 'success');
       return;
     }
-    const result = addUniversityRow(categoryCode, spec, payload);
-    if (!result.ok) {
-      toast('هذا الشرط موجود بالفعل بنفس البيانات', 'danger');
+
+    const existingKeys = new Set(
+      [...localRows, ...approvedRows]
+        .filter(
+          (r): r is LocalUniversityRow =>
+            r.kind === 'university' && r.categoryCode === categoryCode,
+        )
+        .map(universityRowKey),
+    );
+    const duplicateTarget = submitTargets.find((target) =>
+      existingKeys.has(universityInputKey(categoryCode, target, payload)),
+    );
+    if (duplicateTarget) {
+      toast(
+        `هذا الشرط موجود بالفعل في تخصص ${duplicateTarget.specializationNameAr}`,
+        'danger',
+      );
       return;
     }
-    setDraft(EMPTY_INPUT);
-    toast('تمت إضافة الشرط محلياً', 'success');
+
+    for (const target of submitTargets) {
+      const result = addUniversityRow(categoryCode, target, payload);
+      if (!result.ok) {
+        toast('هذا الشرط موجود بالفعل بنفس البيانات', 'danger');
+        return;
+      }
+    }
+    setDraft(emptyInputFor(defaultExcellenceMode));
+    toast(
+      submitTargets.length > 1
+        ? `تمت إضافة الشرط إلى ${num(submitTargets.length)} تخصصات`
+        : 'تمت إضافة الشرط محلياً',
+      'success',
+    );
   };
 
   const handleCancelEdit = (): void => {
@@ -1028,6 +1394,7 @@ function PerSpecForm({
 
   return (
     <div className="flex flex-col gap-4">
+      {bulkBanner}
       <Card variant="compact" ref={formRef}>
         <header className="mb-3 flex items-center justify-between gap-3">
           <h4 className="font-ar text-sm font-semibold text-ink-900">
@@ -1035,162 +1402,192 @@ function PerSpecForm({
           </h4>
         </header>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <FieldLabel label="النوع" required>
-            <MultiSelect
-              ariaLabel="النوع"
-              value={draft.type}
-              onChange={(next) => setDraft((d) => ({ ...d, type: next }))}
-              options={GENDER_OPTIONS}
-              placeholder="اختر النوع…"
-            />
-          </FieldLabel>
-
-          {showGradePair && (
-            <>
-              <FieldLabel label="الحد الأدنى للتقدير" required>
-                <SearchSelect
-                  ariaLabel="الحد الأدنى للتقدير"
-                  value={draft.grade || null}
-                  onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
-                  options={gradeOptions}
-                  placeholder="اختر التقدير…"
-                />
-              </FieldLabel>
-
-              <FieldLabel label="الحد الأقصى للتقدير" required>
-                <SearchSelect
-                  ariaLabel="الحد الأقصى للتقدير"
-                  value={draft.gradeMax || null}
-                  onChange={(v) =>
-                    setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
-                  }
-                  options={gradeOptions}
-                  placeholder="اختر التقدير…"
-                  invalid={gradeOrderInvalid}
-                />
-                {gradeOrderInvalid && (
-                  <span className="font-ar text-2xs text-terra-700">
-                    يجب ألا يقل الحد الأقصى عن الحد الأدنى للتقدير.
-                  </span>
-                )}
-              </FieldLabel>
-            </>
-          )}
-        </div>
-
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-          {showScorePair && (
-            <>
-              <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
-                <OperatorScoreField<MinScoreOperator>
-                  operatorValue={draft.minScoreOperator}
-                  onOperatorChange={(v) =>
-                    setDraft((d) => ({ ...d, minScoreOperator: v }))
-                  }
-                  operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
-                  operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
-                  scoreValue={draft.scoreMin}
-                  onScoreChange={(next) =>
-                    setDraft((d) => ({ ...d, scoreMin: next }))
-                  }
-                  scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
-                  invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
-                  maxBound={MIN_SCORE_UPPER_BOUND}
-                  onClampMessage={setScoreMinMessage}
-                />
-                {scoreMinMessage && (
-                  <span className="font-ar text-2xs text-terra-700">
-                    {scoreMinMessage}
-                  </span>
-                )}
-              </FieldLabel>
-
-              <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
-                <OperatorScoreField<MaxScoreOperator>
-                  operatorValue={draft.maxScoreOperator}
-                  onOperatorChange={(v) =>
-                    setDraft((d) => ({ ...d, maxScoreOperator: v }))
-                  }
-                  operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
-                  operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
-                  scoreValue={draft.scoreMax}
-                  onScoreChange={(next) =>
-                    setDraft((d) => ({ ...d, scoreMax: next }))
-                  }
-                  scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
-                  invalid={
-                    scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
-                  }
-                  maxBound={null}
-                  onClampMessage={setScoreMaxMessage}
-                />
-                {(scoreMaxMessage || scoreOrderInvalid) && (
-                  <span className="font-ar text-2xs text-terra-700">
-                    {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
-                  </span>
-                )}
-              </FieldLabel>
-            </>
-          )}
-
-          <FieldLabel label="الدرجة العلمية" required>
-            {degreeOptions.length === 0 ? (
-              <p className="font-ar text-2xs text-ink-500">
-                لا توجد درجات علمية مفعّلة في المراجع.
+        <div className="mb-3 rounded-md border border-border-subtle bg-ink-50/40 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="font-ar text-xs font-medium text-ink-700">
+                معيار التمييز
+              </span>
+              <p className="m-0 mt-0.5 font-ar text-2xs text-ink-500">
+                القيمة الافتراضية مأخوذة من إعداد الفئة، ويمكن تعديلها لهذا الشرط.
               </p>
-            ) : (
-              <MultiSelect
-                ariaLabel="الدرجة العلمية"
-                value={draft.academicDegrees}
-                onChange={(next) =>
-                  setDraft((d) => ({ ...d, academicDegrees: next }))
-                }
-                options={degreeOptions.map((o) => ({
-                  value: o.value,
-                  label: o.label,
-                }))}
-                placeholder="اختر الدرجة العلمية…"
-              />
-            )}
-          </FieldLabel>
-        </div>
-
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <FieldLabel label="اللجنة" required>
-            {committeeOptions.length === 0 ? (
-              <p className="font-ar text-2xs text-ink-500">
-                لا توجد لجان مرتبطة بهذه الفئة.
-              </p>
-            ) : (
-              <SearchSelect
-                ariaLabel="اللجنة"
-                value={draft.committee || null}
-                onChange={(v) =>
-                  setDraft((d) => ({ ...d, committee: v ?? '' }))
-                }
-                options={committeeOptions}
-                placeholder="اختر اللجنة…"
-              />
-            )}
-          </FieldLabel>
-
-          <FieldLabel label="سنة التخرج" required>
-            <SearchSelect
-              ariaLabel="سنة التخرج"
-              value={
-                draft.graduationYear !== null ? String(draft.graduationYear) : null
-              }
-              onChange={(v) =>
+            </div>
+            <ExcellenceModeToggle
+              value={draft.excellenceMode}
+              onChange={(next) =>
                 setDraft((d) => ({
                   ...d,
-                  graduationYear: v === null ? null : Number(v),
+                  excellenceMode: next,
+                  grade: next === 'TAGDIR' ? d.grade : '',
+                  gradeMax: next === 'TAGDIR' ? d.gradeMax : '',
+                  scoreMin: next === 'GRADES' ? d.scoreMin : null,
+                  scoreMax: next === 'GRADES' ? d.scoreMax : null,
                 }))
               }
-              options={graduationYearOptions}
-              placeholder="اختر السنة…"
             />
-          </FieldLabel>
+          </div>
+        </div>
+
+        <FieldGroup title="بيانات القبول">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+            <FieldLabel label="النوع" required>
+              <MultiSelect
+                ariaLabel="النوع"
+                value={draft.type}
+                onChange={(next) => setDraft((d) => ({ ...d, type: next }))}
+                options={GENDER_OPTIONS}
+                placeholder="اختر النوع…"
+              />
+            </FieldLabel>
+
+            {showGradePair && (
+              <>
+                <FieldLabel label="الحد الأدنى للتقدير" required>
+                  <SearchSelect
+                    ariaLabel="الحد الأدنى للتقدير"
+                    value={draft.grade || null}
+                    onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
+                    options={gradeOptions}
+                    placeholder="اختر التقدير…"
+                  />
+                </FieldLabel>
+
+                <FieldLabel label="الحد الأقصى للتقدير" required>
+                  <SearchSelect
+                    ariaLabel="الحد الأقصى للتقدير"
+                    value={draft.gradeMax || null}
+                    onChange={(v) =>
+                      setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
+                    }
+                    options={gradeOptions}
+                    placeholder="اختر التقدير…"
+                    invalid={gradeOrderInvalid}
+                  />
+                  {gradeOrderInvalid && (
+                    <span className="font-ar text-2xs text-terra-700">
+                      يجب ألا يقل الحد الأقصى عن الحد الأدنى للتقدير.
+                    </span>
+                  )}
+                </FieldLabel>
+              </>
+            )}
+
+            {showScorePair && (
+              <>
+                <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
+                  <OperatorScoreField<MinScoreOperator>
+                    operatorValue={draft.minScoreOperator}
+                    onOperatorChange={(v) =>
+                      setDraft((d) => ({ ...d, minScoreOperator: v }))
+                    }
+                    operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
+                    operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
+                    scoreValue={draft.scoreMin}
+                    onScoreChange={(next) =>
+                      setDraft((d) => ({ ...d, scoreMin: next }))
+                    }
+                    scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
+                    invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
+                    maxBound={MIN_SCORE_UPPER_BOUND}
+                    onClampMessage={setScoreMinMessage}
+                  />
+                  {scoreMinMessage && (
+                    <span className="font-ar text-2xs text-terra-700">
+                      {scoreMinMessage}
+                    </span>
+                  )}
+                </FieldLabel>
+
+                <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
+                  <OperatorScoreField<MaxScoreOperator>
+                    operatorValue={draft.maxScoreOperator}
+                    onOperatorChange={(v) =>
+                      setDraft((d) => ({ ...d, maxScoreOperator: v }))
+                    }
+                    operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
+                    operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
+                    scoreValue={draft.scoreMax}
+                    onScoreChange={(next) =>
+                      setDraft((d) => ({ ...d, scoreMax: next }))
+                    }
+                    scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
+                    invalid={
+                      scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
+                    }
+                    maxBound={null}
+                    onClampMessage={setScoreMaxMessage}
+                  />
+                  {(scoreMaxMessage || scoreOrderInvalid) && (
+                    <span className="font-ar text-2xs text-terra-700">
+                      {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
+                    </span>
+                  )}
+                </FieldLabel>
+              </>
+            )}
+
+            <FieldLabel label="الدرجة العلمية" required>
+              {degreeOptions.length === 0 ? (
+                <p className="font-ar text-2xs text-ink-500">
+                  لا توجد درجات علمية مفعّلة في المراجع.
+                </p>
+              ) : (
+                <MultiSelect
+                  ariaLabel="الدرجة العلمية"
+                  value={draft.academicDegrees}
+                  onChange={(next) =>
+                    setDraft((d) => ({ ...d, academicDegrees: next }))
+                  }
+                  options={degreeOptions.map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  }))}
+                  placeholder="اختر الدرجة العلمية…"
+                />
+              )}
+            </FieldLabel>
+          </div>
+        </FieldGroup>
+
+        <div className="mt-3">
+          <FieldGroup title="اللجنة وسنة التخرج">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <FieldLabel label="اللجنة" required>
+                {committeeOptions.length === 0 ? (
+                  <p className="font-ar text-2xs text-ink-500">
+                    لا توجد لجان مرتبطة بهذه الفئة.
+                  </p>
+                ) : (
+                  <SearchSelect
+                    ariaLabel="اللجنة"
+                    value={draft.committee || null}
+                    onChange={(v) =>
+                      setDraft((d) => ({ ...d, committee: v ?? '' }))
+                    }
+                    options={committeeOptions}
+                    placeholder="اختر اللجنة…"
+                  />
+                )}
+              </FieldLabel>
+
+              <FieldLabel label="سنة التخرج" required>
+                <SearchSelect
+                  ariaLabel="سنة التخرج"
+                  value={
+                    draft.graduationYear !== null ? String(draft.graduationYear) : null
+                  }
+                  onChange={(v) =>
+                    setDraft((d) => ({
+                      ...d,
+                      graduationYear: v === null ? null : Number(v),
+                    }))
+                  }
+                  options={graduationYearOptions}
+                  placeholder="اختر السنة…"
+                />
+              </FieldLabel>
+            </div>
+          </FieldGroup>
         </div>
 
         <div className="mt-4 flex items-center justify-end gap-3">
@@ -1227,10 +1624,10 @@ function PerSpecForm({
         degreeOptions={degreeOptions}
         committeeOptions={committeeOptions}
         maritalOptions={options.maritalOptions}
-        showGradePair={showGradePair}
-        showScorePair={showScorePair}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        emptyRowsLabel={emptyRowsLabel}
+        showScopeColumn={showScopeColumn}
       />
     </div>
   );
@@ -1246,12 +1643,10 @@ interface LocalUniversityGridProps {
   degreeOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
-  /** Mirror the form's visibility — hides تقدير / درجة columns when the
-   *  active criterion does not surface them. */
-  showGradePair: boolean;
-  showScorePair: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  emptyRowsLabel: string;
+  showScopeColumn: boolean;
 }
 
 function LocalUniversityGrid({
@@ -1261,10 +1656,10 @@ function LocalUniversityGrid({
   degreeOptions,
   committeeOptions,
   maritalOptions,
-  showGradePair,
-  showScorePair,
   onEdit,
   onDelete,
+  emptyRowsLabel,
+  showScopeColumn,
 }: LocalUniversityGridProps): JSX.Element {
   const labelForGrade = (v: string): string =>
     gradeOptions.find((o) => o.value === v)?.label ?? v;
@@ -1276,11 +1671,15 @@ function LocalUniversityGrid({
     GENDER_OPTIONS.find((o) => o.value === v)?.label ?? v;
   const labelForMarital = (v: string): string =>
     maritalOptions.find((o) => o.value === v)?.label ?? v;
+  const labelForExcellenceMode = (r: LocalUniversityRow): string =>
+    (r.excellenceMode ?? (r.grade ? 'TAGDIR' : 'GRADES')) === 'TAGDIR'
+      ? 'تقدير'
+      : 'درجة';
 
   if (rows.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border-subtle bg-ink-50/40 px-3 py-3 text-2xs text-ink-500">
-        لم تُضف شروط لجان بعد لهذا التخصص.
+        {emptyRowsLabel}
       </div>
     );
   }
@@ -1290,16 +1689,18 @@ function LocalUniversityGrid({
       <table className="w-full border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
+            {showScopeColumn && <Th>التخصص</Th>}
             <Th>اللجنة</Th>
             <Th>بداية التقديم</Th>
             <Th>نهاية التقديم</Th>
             <Th>تاريخ احتساب السن</Th>
             <Th>الحالة الاجتماعية</Th>
             <Th>النوع</Th>
-            {showGradePair && <Th>الحد الأدنى للتقدير</Th>}
-            {showGradePair && <Th>الحد الأقصى للتقدير</Th>}
-            {showScorePair && <Th>الحد الأدنى للدرجة</Th>}
-            {showScorePair && <Th>الحد الأقصى للدرجة</Th>}
+            <Th>معيار التمييز</Th>
+            <Th>الحد الأدنى للتقدير</Th>
+            <Th>الحد الأقصى للتقدير</Th>
+            <Th>الحد الأدنى للدرجة</Th>
+            <Th>الحد الأقصى للدرجة</Th>
             <Th>الدرجة العلمية</Th>
             <Th>سنة التخرج</Th>
             <Th>إجراءات</Th>
@@ -1315,6 +1716,7 @@ function LocalUniversityGrid({
                   isRowEditing ? 'bg-gold-50/60' : ''
                 }`}
               >
+                {showScopeColumn && <Td>{r.specializationNameAr}</Td>}
                 <Td>
                   <MultiValueCell
                     values={r.committees.map(labelForCommittee)}
@@ -1331,22 +1733,19 @@ function LocalUniversityGrid({
                 <Td>
                   <MultiValueCell values={r.type.map(labelForType)} />
                 </Td>
-                {showGradePair && <Td>{labelForGrade(r.grade)}</Td>}
-                {showGradePair && <Td>{labelForGrade(r.gradeMax)}</Td>}
-                {showScorePair && (
-                  <Td>
-                    {r.scoreMin !== null
-                      ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
-                      : '—'}
-                  </Td>
-                )}
-                {showScorePair && (
-                  <Td>
-                    {r.scoreMax !== null
-                      ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
-                      : '—'}
-                  </Td>
-                )}
+                <Td>{labelForExcellenceMode(r)}</Td>
+                <Td>{r.grade ? labelForGrade(r.grade) : '—'}</Td>
+                <Td>{r.gradeMax ? labelForGrade(r.gradeMax) : '—'}</Td>
+                <Td>
+                  {r.scoreMin !== null
+                    ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
+                    : '—'}
+                </Td>
+                <Td>
+                  {r.scoreMax !== null
+                    ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
+                    : '—'}
+                </Td>
                 <Td>
                   <MultiValueCell
                     values={r.academicDegrees.map(labelForDegree)}

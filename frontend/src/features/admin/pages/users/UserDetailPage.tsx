@@ -17,6 +17,7 @@ import {
   ErrorState,
   LoadingState,
   PageHeader,
+  buttonClassName,
   toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
@@ -97,8 +98,8 @@ export function UserDetailPage(): JSX.Element {
         ]}
         actions={
           <div className="flex items-center gap-2">
-            <Link to={ROUTES.admin.users} className="btn btn-ghost">
-              <ArrowRight size={16} className="rtl:rotate-180" /> الرجوع للقائمة
+            <Link to={ROUTES.admin.users} className={buttonClassName({ variant: 'ghost' })}>
+              <ArrowRight size={16} className="rtl:rotate-180" /> العودة إلى القائمة
             </Link>
             {isInactive && (
               <Button
@@ -112,9 +113,9 @@ export function UserDetailPage(): JSX.Element {
             )}
             <Link
               to={ROUTES.admin.userEdit(user.id)}
-              className={isInactive ? 'btn btn-secondary' : 'btn btn-primary'}
+              className={buttonClassName({ variant: isInactive ? 'secondary' : 'primary' })}
             >
-              <Pencil size={14} strokeWidth={1.75} /> تعديل
+              <Pencil size={14} strokeWidth={1.75} /> تعديل البيانات
             </Link>
           </div>
         }

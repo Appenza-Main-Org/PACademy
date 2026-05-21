@@ -372,7 +372,7 @@ export function WorkflowEditorPage(): JSX.Element {
                 leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
                 onClick={() => setPendingDeleteWorkflow(true)}
               >
-                حذف
+                حذف سير العمل
               </Button>
             )}
             <Button
@@ -382,7 +382,7 @@ export function WorkflowEditorPage(): JSX.Element {
               onClick={handleSave}
               disabled={blocked}
             >
-              حفظ مسودة
+              حفظ كمسودة
             </Button>
             <Button
               variant="primary"
@@ -391,7 +391,7 @@ export function WorkflowEditorPage(): JSX.Element {
               onClick={handlePublishOpen}
               disabled={blocked}
             >
-              نشر
+              نشر التغييرات
             </Button>
           </div>
         }

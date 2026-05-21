@@ -375,7 +375,8 @@ function PassCriterionEditor({
     <div className="flex flex-col gap-1">
       <label className="text-sm font-medium text-ink-700">شرط النجاح</label>
       <div className="flex items-center gap-1">
-        <select
+        <Select
+          aria-label="نوع شرط النجاح"
           value={value.type}
           onChange={(e) => {
             const t = e.target.value as PassCriterion['type'];
@@ -383,14 +384,13 @@ function PassCriterionEditor({
             else if (t === 'boolean') onChange({ type: 'boolean', mustBe: 'pass' });
             else onChange({ type: 'composite', rule: 'all' });
           }}
-          className="h-9 rounded-md border border-border-default bg-surface-card px-2 text-2xs text-ink-900 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
-        >
-          {(Object.keys(CRITERION_TYPE_LABEL) as Array<PassCriterion['type']>).map((t) => (
-            <option key={t} value={t}>
-              {CRITERION_TYPE_LABEL[t]}
-            </option>
-          ))}
-        </select>
+          options={(Object.keys(CRITERION_TYPE_LABEL) as Array<PassCriterion['type']>).map((t) => ({
+            value: t,
+            label: CRITERION_TYPE_LABEL[t],
+          }))}
+          containerClassName="w-28"
+          className="text-2xs"
+        />
         {value.type === 'minScore' && (
           <>
             <input
@@ -411,26 +411,30 @@ function PassCriterionEditor({
           </>
         )}
         {value.type === 'boolean' && (
-          <select
+          <Select
             aria-label="القيمة المطلوبة"
             value={value.mustBe}
             onChange={(e) => onChange({ ...value, mustBe: e.target.value as 'pass' | 'fail' })}
-            className="h-9 rounded-md border border-border-default bg-surface-card px-2 text-2xs"
-          >
-            <option value="pass">يجب أن ينجح</option>
-            <option value="fail">يجب أن يفشل</option>
-          </select>
+            options={[
+              { value: 'pass', label: 'يجب أن ينجح' },
+              { value: 'fail', label: 'يجب أن يفشل' },
+            ]}
+            containerClassName="w-32"
+            className="text-2xs"
+          />
         )}
         {value.type === 'composite' && (
-          <select
+          <Select
             aria-label="قاعدة التركيب"
             value={value.rule}
             onChange={(e) => onChange({ ...value, rule: e.target.value as 'all' | 'any' })}
-            className="h-9 rounded-md border border-border-default bg-surface-card px-2 text-2xs"
-          >
-            <option value="all">كل الاختبارات</option>
-            <option value="any">أي اختبار</option>
-          </select>
+            options={[
+              { value: 'all', label: 'كل الاختبارات' },
+              { value: 'any', label: 'أي اختبار' },
+            ]}
+            containerClassName="w-32"
+            className="text-2xs"
+          />
         )}
       </div>
     </div>

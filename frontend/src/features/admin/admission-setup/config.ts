@@ -22,7 +22,6 @@ import {
   ClipboardSignature,
   FileSignature,
   Settings2,
-  ShieldCheck,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
@@ -103,19 +102,8 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     subtitleAr: 'ترتيب الاختبارات وإلزاميتها ورسومها لكل فئة.',
   },
   {
-    key: 'committees',
-    order: 5,
-    labelAr: 'إدارة مواعيد الاختبارات واللجان',
-    routeSegment: 'committees',
-    icon: ShieldCheck,
-    permission: 'admission-setup:read',
-    reuses: 'features/admin/admission-setup/pages/CommitteesManagementPage.tsx',
-    isImplemented: true,
-    subtitleAr: 'إنشاء اللجان وتعيين الرؤساء والأعضاء وربطها بمواعيد الاختبارات.',
-  },
-  {
     key: 'electronic_declaration',
-    order: 6,
+    order: 5,
     labelAr: 'الإقرار الإلكتروني',
     routeSegment: 'electronic-declaration',
     icon: FileSignature,

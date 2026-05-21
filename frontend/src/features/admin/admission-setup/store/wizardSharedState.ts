@@ -31,6 +31,7 @@
  */
 
 import { create } from 'zustand';
+import type { ExcellenceMode } from '../lib/excellenceMode';
 
 /** Shared header captured at the top of an applicant-category section.
  *
@@ -71,6 +72,9 @@ export const DEFAULT_MAX_SCORE_OPERATOR: MaxScoreOperator = 'LESS_THAN_OR_EQUAL'
 
 /** A single editable row inside one university-category section's form. */
 export interface GeneralRuleRowInput {
+  /** Per-condition «معيار التمييز». Defaults from the parent category
+   *  but remains editable on each شروط اللجنة row. */
+  excellenceMode: ExcellenceMode;
   /** Genders accepted by this rule. Empty array means "any". */
   type: string[];
   /** Minimum acceptable academic grade — single code (الحد الأدنى). */
@@ -97,6 +101,9 @@ export interface GeneralRuleRowInput {
 
 /** A single editable row inside one pre-university (ثانوي) section's form. */
 export interface ThanawiRuleRowInput {
+  /** Per-condition «معيار التمييز». Defaults from the parent category
+   *  but remains editable on each شروط اللجنة row. */
+  excellenceMode: ExcellenceMode;
   /** Exam-round lookup code (الدور). */
   examRound: string;
   /** Committee id, scoped to this applicant-category. */
@@ -159,6 +166,7 @@ export interface LocalUniversityRow extends LocalRowBase {
   /** Marital status mirrored from header at row-add time so historical
    *  rows are preserved if the admin later edits the header. */
   maritalStatus: string[];
+  excellenceMode: ExcellenceMode;
   grade: string;
   gradeMax: string;
   scoreMin: number | null;
@@ -173,6 +181,7 @@ export interface LocalUniversityRow extends LocalRowBase {
 
 export interface LocalThanawiRow extends LocalRowBase {
   kind: 'thanawi';
+  excellenceMode: ExcellenceMode;
   examRound: string;
   committee: string;
   graduationYear: number | null;
@@ -280,6 +289,7 @@ function universityCompositeKey(r: LocalUniversityRow): string {
     r.categoryCode,
     r.facultyCode,
     r.specializationCode,
+    r.excellenceMode,
     [...r.type].sort().join('|'),
     r.grade,
     r.gradeMax,
@@ -296,6 +306,7 @@ function universityCompositeKey(r: LocalUniversityRow): string {
 function thanawiCompositeKey(r: LocalThanawiRow): string {
   return [
     r.categoryCode,
+    r.excellenceMode,
     r.examRound,
     r.committee,
     String(r.graduationYear),
@@ -326,6 +337,7 @@ function buildUniversityRow(
     specializationNameAr: spec.specializationNameAr,
     type: input.type,
     maritalStatus: header.maritalStatus,
+    excellenceMode: input.excellenceMode,
     grade: input.grade,
     gradeMax: input.gradeMax,
     scoreMin: input.scoreMin,
@@ -348,6 +360,7 @@ function buildThanawiRow(
     kind: 'thanawi',
     categoryCode,
     header,
+    excellenceMode: input.excellenceMode,
     examRound: input.examRound,
     committee: input.committee,
     graduationYear: input.graduationYear,
@@ -585,7 +598,7 @@ function isUniversityRowComplete(r: LocalUniversityRow): boolean {
   return (
     isHeaderComplete(r.header) &&
     r.type.length > 0 &&
-    (hasGradePair(r) || hasScorePair(r)) &&
+    (r.excellenceMode === 'TAGDIR' ? hasGradePair(r) : hasScorePair(r)) &&
     r.academicDegrees.length > 0 &&
     r.committees.length > 0 &&
     r.graduationYears.length > 0
@@ -599,7 +612,7 @@ function isThanawiRowComplete(r: LocalThanawiRow): boolean {
     r.committee !== '' &&
     r.graduationYear !== null &&
     r.schoolCategories.length > 0 &&
-    (hasGradePair(r) || hasScorePair(r))
+    (r.excellenceMode === 'TAGDIR' ? hasGradePair(r) : hasScorePair(r))
   );
 }
 

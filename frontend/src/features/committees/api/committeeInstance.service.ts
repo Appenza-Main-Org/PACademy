@@ -4,9 +4,8 @@
  *
  * Domain shape: each `CommitteeInstance` pairs a `CommitteeDefinition`
  * (the lookup row at `/admin/lookups/committees`) with a cycle, a
- * category, a date, and a seat count. Both the admission-setup wizard
- * step `/admin/cycles/admission-setup/wizard/committees` and the new
- * `/admin/committees-exam-config` management page operate on this same record set.
+ * category, a date, and a seat count. `/admin/committees-exam-config`
+ * is the canonical management page for this record set.
  *
  * INTEGRATION CONTRACT:
  *   GET    /api/committee-instances?cycleId=&categoryKey=    → CommitteeInstance[]
@@ -47,6 +46,7 @@ export interface CommitteeInstanceAddInput {
 }
 
 export type CommitteeInstancePatch = Partial<Pick<CommitteeInstance, 'date' | 'capacity'>>;
+export type TransferCapacityMode = 'move-only' | 'move-and-add-capacity';
 
 function assertCapacity(value: unknown): asserts value is number {
   if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 999) {
@@ -56,6 +56,87 @@ function assertCapacity(value: unknown): asserts value is number {
       'السعة يجب أن تكون عدداً صحيحاً بين 1 و 999',
     );
   }
+}
+
+function todayIsoLocal(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function assertEditableDay(date: string): void {
+  if (date < todayIsoLocal()) {
+    throw new ConflictError(
+      'COMMITTEE_INSTANCE_DAY_PASSED',
+      { date },
+      'لا يمكن تعديل أو حذف موعد يوم سابق.',
+    );
+  }
+}
+
+function assertNoBookings(row: CommitteeInstance): void {
+  if (row.reserved > 0) {
+    throw new ConflictError(
+      'COMMITTEE_INSTANCE_HAS_BOOKINGS',
+      { id: row.id, reserved: row.reserved },
+      'لا يمكن حذف لجنة لها حجوزات قائمة.',
+    );
+  }
+}
+
+function assertBookingsWithinCapacity(row: CommitteeInstance): void {
+  if (row.reserved > row.capacity) {
+    throw new ConflictError(
+      'COMMITTEE_INSTANCE_BOOKINGS_OVER_CAPACITY',
+      { id: row.id, reserved: row.reserved, capacity: row.capacity },
+      'عدد الحجوزات يجب ألا يتجاوز سعة اللجنة.',
+    );
+  }
+}
+
+function committeeSetKey(row: CommitteeInstance): string {
+  return `${row.categoryKey}|${row.definitionCode}`;
+}
+
+function assertSameCommitteeSet(input: {
+  cycleId: string;
+  fromDate: string;
+  toDate: string;
+}): void {
+  const sourceKeys = MOCK.committeeInstances
+    .filter((r) => r.cycleId === input.cycleId && r.date === input.fromDate)
+    .map(committeeSetKey)
+    .sort();
+  const destinationKeys = MOCK.committeeInstances
+    .filter((r) => r.cycleId === input.cycleId && r.date === input.toDate)
+    .map(committeeSetKey)
+    .sort();
+  const same =
+    sourceKeys.length > 0 &&
+    sourceKeys.length === destinationKeys.length &&
+    sourceKeys.every((key, index) => key === destinationKeys[index]);
+  if (!same) {
+    throw new ConflictError(
+      'COMMITTEE_INSTANCE_SET_MISMATCH',
+      { fromDate: input.fromDate, toDate: input.toDate },
+      'لا يمكن النقل إلا إلى يوم يحتوي نفس لجان المصدر لكل فئة.',
+    );
+  }
+}
+
+function resolveDestinationCapacity(input: {
+  destination: CommitteeInstance;
+  reservedToMove: number;
+  mode: TransferCapacityMode;
+  override?: number;
+}): number {
+  if (input.override !== undefined) return input.override;
+  if (input.mode === 'move-and-add-capacity') {
+    return input.destination.capacity + input.reservedToMove;
+  }
+  return input.destination.capacity;
 }
 
 let serial = MOCK.committeeInstances.length + 1;
@@ -180,6 +261,8 @@ export const committeeInstanceService = {
     const idx = MOCK.committeeInstances.findIndex((r) => r.id === id);
     if (idx === -1) throw new Error('الموعد غير موجود');
     const before = { ...MOCK.committeeInstances[idx]! };
+    assertEditableDay(before.date);
+    if (patch.date !== undefined) assertEditableDay(patch.date);
     if (patch.capacity !== undefined) assertCapacity(patch.capacity);
     const next: CommitteeInstance = {
       ...before,
@@ -264,6 +347,9 @@ export const committeeInstanceService = {
     await simulateLatency();
     const idx = MOCK.committeeInstances.findIndex((r) => r.id === id);
     if (idx === -1) return;
+    const target = MOCK.committeeInstances[idx]!;
+    assertEditableDay(target.date);
+    assertNoBookings(target);
     const [removed] = MOCK.committeeInstances.splice(idx, 1);
     if (!removed) return;
     emitAudit({
@@ -281,16 +367,19 @@ export const committeeInstanceService = {
    * Remove every instance for a (cycle × date) tuple in one call.
    *
    * Returns the list of removed rows so the caller can surface a
-   * summary toast. The dialog-level «reserved > 0» confirmation is the
-   * UI's responsibility; this method does not enforce it — admins with
-   * authority over the cycle can force-delete a day with reservations
-   * after the explicit confirmation step.
+   * summary toast. Booked or past committee days are rejected here too,
+   * so UI affordances and backend integration share the same guardrail.
    *
    * INTEGRATION CONTRACT:
    *   DELETE /api/committee-instances?cycleId=&date=
    */
   async removeDay(input: { cycleId: string; date: string }): Promise<CommitteeInstance[]> {
     await simulateLatency();
+    assertEditableDay(input.date);
+    const blocking = MOCK.committeeInstances.find(
+      (r) => r.cycleId === input.cycleId && r.date === input.date && r.reserved > 0,
+    );
+    if (blocking) assertNoBookings(blocking);
     const removed: CommitteeInstance[] = [];
     /* Iterate back-to-front so splice indices stay valid. */
     for (let i = MOCK.committeeInstances.length - 1; i >= 0; i -= 1) {
@@ -356,6 +445,7 @@ export const committeeInstanceService = {
     cycleId: string;
     fromDate: string;
     toDate: string;
+    mode?: TransferCapacityMode;
     capacityOverrides?: Record<string, number>;
   }): Promise<{
     transferred: number;
@@ -372,6 +462,10 @@ export const committeeInstanceService = {
         totalReservationsMoved: 0,
       };
     }
+    assertEditableDay(input.fromDate);
+    assertEditableDay(input.toDate);
+    assertSameCommitteeSet(input);
+    const mode = input.mode ?? 'move-only';
     const overrides = input.capacityOverrides ?? {};
 
     /* Validate every override against the capacity envelope before
@@ -388,6 +482,7 @@ export const committeeInstanceService = {
         r.date === input.fromDate &&
         r.reserved > 0,
     );
+    for (const source of sourceRows) assertBookingsWithinCapacity(source);
 
     interface PlannedTransfer {
       sourceIndex: number;
@@ -410,18 +505,21 @@ export const committeeInstanceService = {
           x.date === input.toDate,
       );
       if (destinationIndex === -1) {
-        plan.push({
-          sourceIndex,
-          destinationIndex: null,
-          destinationId: null,
-          reservedToMove: source.reserved,
-          destinationCapacity: source.capacity,
-          destinationReserved: 0,
-        });
-        continue;
+        throw new ConflictError(
+          'COMMITTEE_INSTANCE_SET_MISMATCH',
+          { fromDate: input.fromDate, toDate: input.toDate, definitionCode: source.definitionCode },
+          'لا يمكن النقل إلا إلى يوم يحتوي نفس لجان المصدر لكل فئة.',
+        );
       }
       const destination = MOCK.committeeInstances[destinationIndex]!;
-      const overriddenCapacity = overrides[destination.id] ?? destination.capacity;
+      assertBookingsWithinCapacity(destination);
+      const overriddenCapacity = resolveDestinationCapacity({
+        destination,
+        reservedToMove: source.reserved,
+        mode,
+        override: overrides[destination.id],
+      });
+      assertCapacity(overriddenCapacity);
       const freeSeats = overriddenCapacity - destination.reserved;
       if (freeSeats < source.reserved) {
         conflicts.push({
@@ -455,11 +553,18 @@ export const committeeInstanceService = {
       );
     }
 
-    /* Apply overrides first (so destinations carry the new capacity by
-     * the time we reconcile reserved counts), then execute the plan. */
+    /* Apply capacity changes first (so destinations carry the new
+     * capacity by the time we reconcile reserved counts), then execute
+     * the plan. In "move and add capacity" mode the destination keeps
+     * its current remaining seats and gets the incoming reservation
+     * count added to its capacity. */
     const now = new Date().toISOString();
     let bumped = 0;
-    for (const [destinationId, capacity] of Object.entries(overrides)) {
+    const capacityUpdates = new Map<string, number>();
+    for (const p of plan) {
+      if (p.destinationId !== null) capacityUpdates.set(p.destinationId, p.destinationCapacity);
+    }
+    for (const [destinationId, capacity] of capacityUpdates) {
       const idx = MOCK.committeeInstances.findIndex((r) => r.id === destinationId);
       if (idx === -1) continue;
       const before = MOCK.committeeInstances[idx]!;
@@ -486,16 +591,6 @@ export const committeeInstanceService = {
           updatedAt: now,
         };
         transferred += 1;
-      } else {
-        const clone: CommitteeInstance = {
-          ...source,
-          id: nextId(),
-          date: input.toDate,
-          createdAt: now,
-          updatedAt: now,
-        };
-        MOCK.committeeInstances.push(clone);
-        createdAtDestination += 1;
       }
       /* Zero source reservation regardless of destination shape. */
       const sourceIdxNow = MOCK.committeeInstances.findIndex((r) => r.id === source.id);
@@ -507,6 +602,17 @@ export const committeeInstanceService = {
         };
       }
       totalReservationsMoved += p.reservedToMove;
+    }
+
+    if (plan.length > 0) {
+      const remainingOnSource = MOCK.committeeInstances.some(
+        (r) => r.cycleId === input.cycleId && r.date === input.fromDate && r.reserved > 0,
+      );
+      if (!remainingOnSource) {
+        MOCK.committeeInstances = MOCK.committeeInstances.filter(
+          (r) => !(r.cycleId === input.cycleId && r.date === input.fromDate),
+        );
+      }
     }
 
     if (totalReservationsMoved > 0 || bumped > 0) {
@@ -525,6 +631,116 @@ export const committeeInstanceService = {
       createdAtDestination,
       bumped,
       totalReservationsMoved,
+    };
+  },
+
+  async transferOne(input: {
+    id: string;
+    toDate: string;
+    mode?: TransferCapacityMode;
+    capacityOverrides?: Record<string, number>;
+  }): Promise<{
+    transferred: number;
+    createdAtDestination: number;
+    bumped: number;
+    totalReservationsMoved: number;
+  }> {
+    await simulateLatency();
+    const sourceIndex = MOCK.committeeInstances.findIndex((r) => r.id === input.id);
+    if (sourceIndex === -1) throw new Error('الموعد غير موجود');
+    const source = MOCK.committeeInstances[sourceIndex]!;
+    if (source.date === input.toDate || source.reserved === 0) {
+      return { transferred: 0, createdAtDestination: 0, bumped: 0, totalReservationsMoved: 0 };
+    }
+    assertEditableDay(source.date);
+    assertEditableDay(input.toDate);
+    assertBookingsWithinCapacity(source);
+    const mode = input.mode ?? 'move-only';
+    const overrides = input.capacityOverrides ?? {};
+    for (const [, capacity] of Object.entries(overrides)) {
+      assertCapacity(capacity);
+    }
+
+    const destinationIndex = MOCK.committeeInstances.findIndex(
+      (r) =>
+        r.cycleId === source.cycleId &&
+        r.definitionCode === source.definitionCode &&
+        r.date === input.toDate,
+    );
+    const now = new Date().toISOString();
+    let bumped = 0;
+    let createdAtDestination = 0;
+    let transferred = 0;
+
+    if (destinationIndex === -1) {
+      throw new ConflictError(
+        'COMMITTEE_INSTANCE_SET_MISMATCH',
+        { fromDate: source.date, toDate: input.toDate, definitionCode: source.definitionCode },
+        'لا يمكن النقل إلا إلى يوم يحتوي نفس اللجنة لنفس الفئة.',
+      );
+    } else {
+      const destination = MOCK.committeeInstances[destinationIndex]!;
+      assertBookingsWithinCapacity(destination);
+      const destinationCapacity = resolveDestinationCapacity({
+        destination,
+        reservedToMove: source.reserved,
+        mode,
+        override: overrides[destination.id],
+      });
+      assertCapacity(destinationCapacity);
+      const freeSeats = destinationCapacity - destination.reserved;
+      if (freeSeats < source.reserved) {
+        throw new ConflictError(
+          'RESERVATIONS_OVER_DESTINATION_CAPACITY',
+          {
+            conflicts: [
+              {
+                committeeName: source.definitionCode,
+                categoryKey: source.categoryKey,
+                sourceInstanceId: source.id,
+                destinationInstanceId: destination.id,
+                sourceReserved: source.reserved,
+                destinationCapacity,
+                destinationReserved: destination.reserved,
+                freeSeats: Math.max(0, freeSeats),
+                requiredCapacity: destination.reserved + source.reserved,
+              } satisfies ReservationTransferConflict,
+            ],
+          },
+          'لجنة اليوم المستهدف ليس بها سعة كافية لاستيعاب الحجوزات.',
+        );
+      }
+      MOCK.committeeInstances[destinationIndex] = {
+        ...destination,
+        capacity: destinationCapacity,
+        reserved: destination.reserved + source.reserved,
+        updatedAt: now,
+      };
+      bumped = destinationCapacity === destination.capacity ? 0 : 1;
+      transferred = 1;
+    }
+
+    MOCK.committeeInstances[sourceIndex] = {
+      ...MOCK.committeeInstances[sourceIndex]!,
+      reserved: 0,
+      updatedAt: now,
+    };
+    MOCK.committeeInstances = MOCK.committeeInstances.filter((r) => r.id !== source.id);
+
+    emitAudit({
+      action: 'update',
+      module: 'committees',
+      entityType: 'CommitteeInstance',
+      entityLabel: 'موعد لجنة',
+      entityId: source.id,
+      details: `نقل ${source.reserved} حجز من ${source.date} إلى ${input.toDate} (${bumped} زيادة سعة)`,
+    });
+
+    return {
+      transferred,
+      createdAtDestination,
+      bumped,
+      totalReservationsMoved: source.reserved,
     };
   },
 };

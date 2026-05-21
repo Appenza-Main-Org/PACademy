@@ -16,7 +16,7 @@ export { ImportDialog } from './ImportDialog';
 export { ImportPreviewTable } from './ImportPreviewTable';
 export { DuplicateAction } from './DuplicateAction';
 export { runExport } from './export-runner';
-export { ColumnFilterTrigger } from './ColumnFilter';
+export { ColumnFilterTrigger, isFilterActive } from './ColumnFilter';
 export type {
   ColumnFilterKind,
   ColumnFilterOption,

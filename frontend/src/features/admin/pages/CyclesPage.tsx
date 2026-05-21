@@ -24,7 +24,13 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CalendarRange, Pencil, Plus, Power, Settings2 } from 'lucide-react';
+import {
+  CalendarRange,
+  Pencil,
+  Plus,
+  Power,
+  Settings2,
+} from 'lucide-react';
 import { ADMISSION_SETUP_CYCLE_STORAGE_KEY } from '@/features/admin/admission-setup/config';
 import {
   AlertDialog,
@@ -43,6 +49,7 @@ import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import type { AdmissionCycle } from '@/shared/types/domain';
+import { date as formatDate } from '@/shared/lib/format';
 import { useCycles, useCycleSetActive } from '../api/cycles.queries';
 import {
   LIST_STATUS_LABEL,
@@ -55,6 +62,10 @@ const SETUP_LOCKED_HINT = 'متاح فقط للدورة النشطة';
 
 const ACTIVE_LABEL = 'نشطة';
 const INACTIVE_LABEL = 'غير نشطة';
+const COHORT_LABEL: Record<AdmissionCycle['cohort'], string> = {
+  male: 'ذكور',
+  female: 'إناث',
+};
 
 /* Drafts (إدراج ومراجعة) bubble to the top; published rows follow,
  * ordered by year desc. */
@@ -146,30 +157,28 @@ export function CyclesPage(): JSX.Element {
   const columns: DataTableColumn<AdmissionCycle>[] = [
     {
       key: 'nameAr',
-      label: 'اسم الدورة',
+      label: 'الدورة',
       sortable: true,
       getSortValue: (c) => c.nameAr,
       filter: { kind: 'text', getValue: (c) => c.nameAr },
       render: (c) => (
-        <Link
-          to={ROUTES.admin.cycleDetail(c.id)}
-          className="font-medium text-teal-700 hover:underline"
-        >
-          {c.nameAr}
-        </Link>
-      ),
-    },
-    {
-      key: 'year',
-      label: 'السنة',
-      numeric: true,
-      sortable: true,
-      getSortValue: (c) => c.year,
-      filter: { kind: 'number', getValue: (c) => c.year },
-      render: (c) => (
-        <span className="font-numeric tnum" dir="ltr">
-          {c.year}
-        </span>
+        <div className="min-w-[11rem]">
+          <Link
+            to={ROUTES.admin.cycleDetail(c.id)}
+            className="font-ar text-sm font-semibold text-teal-700 hover:underline"
+          >
+            {c.nameAr}
+          </Link>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <Badge tone="neutral">
+              <span className="font-numeric tnum">{c.year}</span>
+            </Badge>
+            <Badge tone="neutral">{COHORT_LABEL[c.cohort]}</Badge>
+            <span className="font-mono text-2xs text-ink-400" dir="ltr">
+              {c.id}
+            </span>
+          </div>
+        </div>
       ),
     },
     {
@@ -192,7 +201,7 @@ export function CyclesPage(): JSX.Element {
     },
     {
       key: 'isActive',
-      label: 'حالة التفعيل',
+      label: 'التفعيل',
       sortable: true,
       getSortValue: (c) => (c.isActive ? 1 : 0),
       filter: {
@@ -212,6 +221,20 @@ export function CyclesPage(): JSX.Element {
         ) : (
           <Badge tone="neutral">{INACTIVE_LABEL}</Badge>
         ),
+    },
+    {
+      key: 'window',
+      label: 'فترة التقديم',
+      sortable: true,
+      getSortValue: (c) => new Date(c.openDate),
+      render: (c) => (
+        <div className="min-w-[9rem] text-2xs leading-5 text-ink-600">
+          <div className="font-medium text-ink-800">
+            {formatDate(c.openDate, 'short')}
+          </div>
+          <div>{formatDate(c.closeDate, 'short')}</div>
+        </div>
+      ),
     },
     {
       key: '_actions',
@@ -277,7 +300,7 @@ export function CyclesPage(): JSX.Element {
         );
 
         return (
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <div className="flex min-w-[13rem] flex-wrap items-center justify-end gap-1.5">
             {setupSlot}
             {activateSlot}
             {editSlot}
@@ -303,45 +326,78 @@ export function CyclesPage(): JSX.Element {
               leadingIcon={<Plus size={14} strokeWidth={1.75} />}
               onClick={() => navigate(ROUTES.admin.cycleNew)}
             >
-              إنشاء دورة جديدة
+              إضافة دورة
             </Button>
           }
         />
 
-        {activeCycle && (
-          <Card variant="elevated" className="mb-4 border-l-2 border-l-teal-500">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-                <CalendarRange size={20} strokeWidth={1.75} />
-              </span>
-              <div className="flex-1">
-                <p className="font-ar-display text-md font-bold text-ink-900">
-                  الدورة النشطة: {activeCycle.nameAr}
+        <section className="mb-4">
+          {activeCycle ? (
+            <Card variant="elevated" className="overflow-hidden p-0">
+              <div className="flex flex-wrap items-center justify-between gap-4 p-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+                    <CalendarRange size={22} strokeWidth={1.75} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="success" dot>
+                        {ACTIVE_LABEL}
+                      </Badge>
+                      <Badge tone={LIST_STATUS_TONE[toListStatus(activeCycle.status)]}>
+                        {LIST_STATUS_LABEL[toListStatus(activeCycle.status)]}
+                      </Badge>
+                      <Badge tone="neutral">
+                        {formatDate(activeCycle.openDate, 'short')} -{' '}
+                        {formatDate(activeCycle.closeDate, 'short')}
+                      </Badge>
+                    </div>
+                    <p className="m-0 mt-3 font-ar text-xs font-medium text-ink-500">
+                      الدورة النشطة الآن
+                    </p>
+                    <h2 className="m-0 mt-1 font-ar-display text-2xl font-bold leading-9 text-ink-900">
+                      {activeCycle.nameAr}
+                    </h2>
+                  </div>
+                </div>
+                <Button
+                  variant="primary"
+                  leadingIcon={<Settings2 size={14} strokeWidth={1.75} />}
+                  onClick={() => openSetupWizard(activeCycle.id)}
+                >
+                  إعداد التقديم
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <Card variant="elevated" className="flex min-h-[12rem] items-center justify-between gap-4">
+              <div>
+                <h2 className="m-0 font-ar-display text-xl font-bold text-ink-900">
+                  لا توجد دورة نشطة
+                </h2>
+                <p className="m-0 mt-2 font-ar text-sm text-ink-500">
+                  فعّل دورة واحدة حتى تظهر إعدادات التقديم وباقي مسارات الدورة.
                 </p>
               </div>
               <Button
                 variant="primary"
-                size="sm"
-                leadingIcon={<Settings2 size={14} strokeWidth={1.75} />}
-                onClick={() => openSetupWizard(activeCycle.id)}
+                leadingIcon={<Plus size={14} strokeWidth={1.75} />}
+                onClick={() => navigate(ROUTES.admin.cycleNew)}
               >
-                إعداد التقديم
+                إضافة دورة
               </Button>
-              <Badge tone="success">
-                <IconStamp width={12} height={12} className="me-1 inline-block" />
-                {ACTIVE_LABEL}
-              </Badge>
-            </div>
-          </Card>
-        )}
+            </Card>
+          )}
+        </section>
 
-        <Card>
+        <Card className="p-0">
           <DataTable
             data={sortedCycles}
             columns={columns}
             rowKey={(c) => c.id}
             loading={isLoading}
             empty={<EmptyState variant="generic" title="لا توجد دورات حالياً" />}
+            density="compact"
             zebraStripes
             listActions={listActions}
           />

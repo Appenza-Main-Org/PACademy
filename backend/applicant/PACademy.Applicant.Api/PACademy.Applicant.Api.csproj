@@ -16,6 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Modules\GradesRead\PACademy.Modules.GradesRead.Application\PACademy.Modules.GradesRead.Application.csproj" />
+    <ProjectReference Include="..\Modules\GradesRead\PACademy.Modules.GradesRead.Infrastructure\PACademy.Modules.GradesRead.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\LookupsRead\PACademy.Modules.LookupsRead.Application\PACademy.Modules.LookupsRead.Application.csproj" />
     <ProjectReference Include="..\Modules\LookupsRead\PACademy.Modules.LookupsRead.Infrastructure\PACademy.Modules.LookupsRead.Infrastructure.csproj" />
     <ProjectReference Include="..\..\shared\PACademy.Shared.Contracts\PACademy.Shared.Contracts.csproj" />

@@ -59,6 +59,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
   const mapping = useImportWizardStore((s) => s.mapping);
   const filters = useImportWizardStore((s) => s.filters);
+  const lookupValueMappings = useImportWizardStore((s) => s.lookupValueMappings);
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
   const selectedSchoolCategories = useImportWizardStore(
     (s) => s.selectedSchoolCategories,
@@ -157,7 +158,13 @@ export function ApplicantGradesImportPage(): JSX.Element {
      * fire once the wizard reached Step 6, so the non-null assertion
      * matches the actual invariant the UI enforces. */
     if (graduationYear == null) return;
-    const rows = normaliseRows(table, mapping, filters, graduationYear);
+    const rows = normaliseRows(
+      table,
+      mapping,
+      filters,
+      graduationYear,
+      lookupValueMappings,
+    );
     const actions: Record<ImportGroupCode, 'skip' | 'override' | 'create-applicant' | undefined> = {
       DUPLICATE_NID: filterAction(perGroupActions.DUPLICATE_NID),
       INVALID_NID: filterAction(perGroupActions.INVALID_NID),
@@ -166,6 +173,10 @@ export function ApplicantGradesImportPage(): JSX.Element {
       GRADE_OUT_OF_RANGE: filterAction(perGroupActions.GRADE_OUT_OF_RANGE),
       UNREADABLE_VALUE: filterAction(perGroupActions.UNREADABLE_VALUE),
     };
+    const acceptedDiffDecisions: Record<string, 'accept'> = {};
+    for (const [nid, decision] of Object.entries(existingDiffDecisions)) {
+      if (decision === 'accept') acceptedDiffDecisions[nid] = 'accept';
+    }
     commit.mutate(
       {
         rows,
@@ -173,7 +184,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         selectedSchoolCategories,
         maxGradeByCategory,
         perGroupActions: actions,
-        existingDiffDecisions,
+        existingDiffDecisions: acceptedDiffDecisions,
         uploadDuplicateDecisions,
       },
       {
@@ -212,7 +223,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
             leadingIcon={<X size={14} strokeWidth={1.75} aria-hidden />}
             onClick={handleCancel}
           >
-            إلغاء
+            إلغاء الاستيراد
           </Button>
         }
       />

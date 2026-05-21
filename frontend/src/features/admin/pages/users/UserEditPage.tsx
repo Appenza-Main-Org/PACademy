@@ -16,6 +16,7 @@ import {
   Input,
   LoadingState,
   PageHeader,
+  buttonClassName,
   toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
@@ -140,8 +141,11 @@ export function UserEditPage(): JSX.Element {
           { label: 'تعديل' },
         ]}
         actions={
-          <Link to={ROUTES.admin.userDetail(user.id)} className="btn btn-ghost">
-            <ArrowRight size={16} className="rtl:rotate-180" /> الرجوع للملف
+          <Link
+            to={ROUTES.admin.userDetail(user.id)}
+            className={buttonClassName({ variant: 'ghost' })}
+          >
+            <ArrowRight size={16} className="rtl:rotate-180" /> العودة إلى ملف المستخدم
           </Link>
         }
       />
@@ -210,7 +214,10 @@ export function UserEditPage(): JSX.Element {
         </Card>
 
         <div className="flex items-center justify-end gap-2">
-          <Link to={ROUTES.admin.userDetail(user.id)} className="btn btn-ghost">
+          <Link
+            to={ROUTES.admin.userDetail(user.id)}
+            className={buttonClassName({ variant: 'ghost' })}
+          >
             إلغاء
           </Link>
           <Button

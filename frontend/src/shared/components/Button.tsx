@@ -17,6 +17,13 @@ import { cn } from '@/shared/lib/cn';
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'accent';
 type Size = 'sm' | 'md' | 'lg' | 'xl' | 'icon';
 
+interface ButtonClassNameOptions {
+  variant?: Variant;
+  size?: Size;
+  fullWidth?: boolean;
+  className?: string;
+}
+
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
@@ -64,6 +71,24 @@ const VARIANT_CLASS: Record<Variant, string> = {
     'focus-visible:shadow-[var(--shadow-focus-accent,var(--shadow-focus-teal))]',
 };
 
+export function buttonClassName({
+  variant = 'primary',
+  size = 'md',
+  fullWidth,
+  className,
+}: ButtonClassNameOptions = {}): string {
+  return cn(
+    'inline-flex items-center justify-center gap-2 rounded-md font-medium font-ar select-none whitespace-nowrap',
+    'transition-colors duration-fast ease-standard',
+    'focus-visible:outline-none',
+    'disabled:cursor-not-allowed',
+    SIZE_CLASS[size],
+    VARIANT_CLASS[variant],
+    fullWidth && 'w-full',
+    className,
+  );
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     {
@@ -87,16 +112,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ref={ref}
       type={type}
       disabled={disabled ?? isLoading}
-      className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-md font-medium font-ar select-none whitespace-nowrap',
-        'transition-colors duration-fast ease-standard',
-        'focus-visible:outline-none',
-        'disabled:cursor-not-allowed',
-        SIZE_CLASS[size],
-        VARIANT_CLASS[variant],
-        fullWidth && 'w-full',
-        className,
-      )}
+      className={buttonClassName({ variant, size, fullWidth, className })}
       style={
         variant === 'accent'
           ? { background: 'var(--accent-500)', ...style }

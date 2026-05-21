@@ -4,36 +4,45 @@
  * Two-column layout:
  *   Left  — every TargetField (label + required/optional pill + Combobox
  *           of detected source columns).
- *   Right — preview of the first 5 rows from the selected table, with
+ *   Right — preview of the first 20 rows from the selected table, with
  *           the columns that are currently mapped highlighted.
  *
- * Auto-mapping runs at mount (and again when the user clicks "تعيين
- * تلقائي") via `autoMapColumns`. "متابعة" is gated by
- * `unmappedRequiredFields(mapping).length === 0`.
+ * The selected table may arrive with an auto-generated initial mapping
+ * from Step 2. "متابعة" is gated by every required field having a
+ * source column.
  */
 
 import { useMemo } from 'react';
-import { Sparkles } from 'lucide-react';
-import { Badge, Button, Combobox, Field } from '@/shared/components';
+import { Badge, Combobox, Field } from '@/shared/components';
 import { useImportWizardStore } from '../../../store/importWizard.store';
 import {
   TARGET_FIELDS,
-  autoMapColumns,
   type TargetField,
 } from '../../../lib/targetFields';
+
+const IMPORT_DROPDOWN_TRIGGER_CLASS =
+  '!h-11 !border-border-default !ps-3.5 !pe-3.5 text-sm font-medium shadow-sm hover:!border-border-strong focus-visible:!border-teal-500 data-[state=open]:!border-teal-500 data-[state=open]:shadow-focus-teal';
+const ORDERED_TARGET_FIELDS = TARGET_FIELDS.map((field, index) => ({
+  field,
+  index,
+}))
+  .sort((a, b) => {
+    if (a.field.required !== b.field.required) return a.field.required ? -1 : 1;
+    return a.index - b.index;
+  })
+  .map(({ field }) => field);
 
 export function Step3ColumnMapping(): JSX.Element {
   const parsed = useImportWizardStore((s) => s.parsed);
   const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
   const mapping = useImportWizardStore((s) => s.mapping);
-  const setMapping = useImportWizardStore((s) => s.setMapping);
   const setMappingField = useImportWizardStore((s) => s.setMappingField);
 
   const table = useMemo(
     () => parsed?.tables.find((t) => t.name === selectedTableName) ?? null,
     [parsed, selectedTableName],
   );
-  const previewRows = useMemo(() => (table ? table.rows.slice(0, 5) : []), [table]);
+  const previewRows = useMemo(() => (table ? table.rows.slice(0, 20) : []), [table]);
 
   if (!table) {
     return (
@@ -51,17 +60,9 @@ export function Step3ColumnMapping(): JSX.Element {
       <section>
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="m-0 text-xs font-semibold uppercase text-ink-500">ربط الأعمدة</h3>
-          <Button
-            size="sm"
-            variant="ghost"
-            leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
-            onClick={() => setMapping(autoMapColumns(table.columns))}
-          >
-            تعيين تلقائي
-          </Button>
         </div>
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
-          {TARGET_FIELDS.map((d) => {
+          {ORDERED_TARGET_FIELDS.map((d) => {
             const value = mapping[d.key];
             return (
               <li key={d.key}>
@@ -81,6 +82,7 @@ export function Step3ColumnMapping(): JSX.Element {
                     options={sourceOptions}
                     placeholder="اختر العمود في الملف"
                     ariaLabel={`ربط ${d.labelAr}`}
+                    triggerClassName={IMPORT_DROPDOWN_TRIGGER_CLASS}
                   />
                 </Field>
               </li>
@@ -90,7 +92,7 @@ export function Step3ColumnMapping(): JSX.Element {
       </section>
 
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase text-ink-500">معاينة أول 5 صفوف</h3>
+        <h3 className="mb-3 text-xs font-semibold uppercase text-ink-500">معاينة أول 20 صف</h3>
         <div className="overflow-auto rounded-md border border-border-subtle bg-white">
           <table className="w-full border-collapse text-2xs">
             <thead className="bg-ink-50">

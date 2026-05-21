@@ -1,9 +1,8 @@
 /**
  * Committee Instances — TanStack Query bindings.
  *
- * Both the admission-setup wizard step (`/admin/cycles/admission-setup/wizard/committees`)
- * and the new management page (`/admin/committees-exam-config`) consume the same
- * query keys so mutations on one surface reactively refresh the other.
+ * The `/admin/committees-exam-config` management page consumes these
+ * query keys for add/edit/delete/transfer flows.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,6 +11,7 @@ import {
   type CommitteeInstanceAddInput,
   type CommitteeInstanceListFilters,
   type CommitteeInstancePatch,
+  type TransferCapacityMode,
 } from './committeeInstance.service';
 import type { CommitteeInstance } from '@/shared/types/domain';
 
@@ -80,10 +80,26 @@ export function useTransferCommitteeInstanceDayMutation() {
       cycleId: string;
       fromDate: string;
       toDate: string;
+      mode?: TransferCapacityMode;
       /** Optional per-destination capacity bumps applied atomically with
        *  the transfer — surfaced by the UI's capacity-conflict popup. */
       capacityOverrides?: Record<string, number>;
     }) => committeeInstanceService.transferDay(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: committeeInstanceKeys.all });
+    },
+  });
+}
+
+export function useTransferCommitteeInstanceMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      id: string;
+      toDate: string;
+      mode?: TransferCapacityMode;
+      capacityOverrides?: Record<string, number>;
+    }) => committeeInstanceService.transferOne(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: committeeInstanceKeys.all });
     },

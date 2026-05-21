@@ -1,4 +1,5 @@
 using PACademy.Modules.LookupsAdmin.Infrastructure;
+using PACademy.Modules.ApplicantGradesAdmin.Infrastructure;
 using PACademy.Shared.Web;
 using Scalar.AspNetCore;
 
@@ -25,6 +26,7 @@ builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
 
 /* ── Modules ────────────────────────────────────────────────────── */
 builder.Services.AddLookupsAdminModule(builder.Configuration);
+builder.Services.AddApplicantGradesAdminModule(builder.Configuration);
 
 var app = builder.Build();
 
@@ -36,6 +38,7 @@ var skipSeed = args.Contains("--no-seed")
 if (!skipSeed)
 {
     LookupsAdminSeeder.MigrateAndSeed(app.Services);
+    ApplicantGradesAdminSeeder.MigrateAndSeed(app.Services);
 }
 
 /* ── HTTP pipeline ──────────────────────────────────────────────── */

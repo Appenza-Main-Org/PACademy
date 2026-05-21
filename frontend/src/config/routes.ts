@@ -49,8 +49,8 @@ export const ROUTES = {
     categories: '/admin/categories',
     categoryEdit: (key = ':key'): string => `/admin/categories/${key}`,
     /* Committee instances — cycle-bound, dated, capacity-bearing committee
-     * assignments. Authored from the admission-setup wizard committees
-     * step; managed (list / filter / inline-edit date+capacity) here. */
+     * assignments. This is the canonical management surface for list,
+     * filter, inline capacity edits, transfer, and delete. */
     committeesExamConfig: '/admin/committees-exam-config',
     /** @deprecated — renamed to `committeesExamConfig`. The route now
      *  redirects so external bookmarks keep landing on the new page. */
@@ -87,7 +87,7 @@ export const ROUTES = {
       maritalStatusRules: '/admin/cycles/admission-setup/marital-status-rules',
       fees: '/admin/cycles/admission-setup/fees',
       exams: '/admin/cycles/admission-setup/exams',
-      committees: '/admin/cycles/admission-setup/committees',
+      committees: '/admin/committees-exam-config',
       electronicDeclaration: '/admin/cycles/admission-setup/electronic-declaration',
     },
   },

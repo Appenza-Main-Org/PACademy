@@ -1,5 +1,5 @@
 /**
- * StepHeader — title + "الخطوة N من ١٤" badge + cycle indicator.
+ * StepHeader — title + "الخطوة N من 14" badge + cycle indicator.
  * Sits below the breadcrumb and above the step content area inside
  * <AdmissionSetupShell>. Reads its step from the route, never from props,
  * so adding a new step is config-only.
@@ -10,7 +10,6 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Badge, Button, Combobox } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
-import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import {
   ADMISSION_SETUP_TOTAL_STEPS,
@@ -37,8 +36,8 @@ export function StepHeader({
   canSwitchCycle,
 }: StepHeaderProps): JSX.Element {
   const StepIcon = step.icon;
-  const stepNumber = toEasternArabicNumerals(step.order);
-  const totalSteps = toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS);
+  const stepNumber = step.order;
+  const totalSteps = ADMISSION_SETUP_TOTAL_STEPS;
 
   return (
     <header className="mb-6 flex flex-col gap-3 border-b border-border-subtle pb-4">

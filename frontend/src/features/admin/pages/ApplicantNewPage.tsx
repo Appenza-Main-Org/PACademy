@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { PageHeader, toast } from '@/shared/components';
+import { PageHeader, buttonClassName, toast } from '@/shared/components';
 import {
   ApplicantTransitionError,
   useCreateApplicant,
@@ -49,8 +49,8 @@ export function ApplicantNewPage(): JSX.Element {
           { label: 'متقدم جديد' },
         ]}
         actions={
-          <Link to={ROUTES.admin.applicants} className="btn btn-ghost">
-            <ArrowRight size={16} className="rtl:rotate-180" /> الرجوع للقائمة
+          <Link to={ROUTES.admin.applicants} className={buttonClassName({ variant: 'ghost' })}>
+            <ArrowRight size={16} className="rtl:rotate-180" /> العودة إلى قائمة المتقدمين
           </Link>
         }
       />

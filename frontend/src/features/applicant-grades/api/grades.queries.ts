@@ -5,13 +5,16 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { gradesService } from './grades.service';
+import {
+  gradesService,
+  type ApplicantGradesColumnFilters,
+  type ApplicantGradesSort,
+} from './grades.service';
 import type { ImportedGradeRow } from '../lib/parseAccessFile';
 import type {
   AdjustmentReason,
   ApplicantGender,
   CommittedImport,
-  GradeRow,
   ImportCommitResult,
   ImportGroupAction,
   ImportGroupCode,
@@ -25,11 +28,12 @@ export interface PaginatedGradesParams {
   page: number;
   pageSize: number;
   search: string;
-  sort?: { key: keyof GradeRow; direction: 'asc' | 'desc' } | null;
+  sort?: ApplicantGradesSort | null;
   gender?: ApplicantGender | 'all';
   branch?: string | 'all';
   graduationYear?: number | 'all';
   schoolCategoryCode?: string | 'all';
+  columnFilters?: ApplicantGradesColumnFilters;
   changedOnly?: boolean;
 }
 
@@ -67,6 +71,14 @@ export function useClearGrades() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => gradesService.clearAll(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
+  });
+}
+
+export function useDeleteGrades() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (seats: readonly number[]) => gradesService.deleteRows(seats),
     onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
   });
 }
@@ -167,7 +179,7 @@ export function useApplicantGradesCommit() {
       perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
       /** Per-NID decisions from the diff-review step. Overrides the
        *  per-group DUPLICATE_NID action for the matching nids. */
-      existingDiffDecisions?: Record<string, 'accept' | 'reject'>;
+      existingDiffDecisions?: Record<string, 'accept' | 'reject' | 'pending'>;
       /** Per-NID resolutions for intra-upload duplicate-NID cases —
        *  same NID appearing on two or more rows of the same file. */
       uploadDuplicateDecisions?: Record<

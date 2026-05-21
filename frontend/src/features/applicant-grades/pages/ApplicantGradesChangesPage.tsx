@@ -32,12 +32,15 @@ import {
   EmptyState,
   LoadingState,
   PageHeader,
+  Select,
   StatCard,
 } from '@/shared/components';
 import type { DataTableColumn, DataTableSort } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { useApplicantGradesList, useGrades } from '../api/grades.queries';
+import { AddAdjustmentDialog } from '../components/AddAdjustmentDialog';
+import { StudentDetailsDrawer } from '../components/StudentDetailsDrawer';
 import { deriveRow, type DerivedRow } from '../lib/derive';
 import type { GradeRow } from '../types';
 
@@ -64,6 +67,11 @@ interface ChangedRow extends DerivedRow {
   /** Latest change instant, parsed into a Date for sort/display. */
   changedAt: Date | null;
 }
+
+type OverlayState =
+  | { kind: 'student'; seat: number }
+  | { kind: 'add-adj'; seat: number }
+  | null;
 
 function deriveChangedRow(r: GradeRow): ChangedRow {
   const derived = deriveRow(r);
@@ -107,8 +115,10 @@ export function ApplicantGradesChangesPage(): JSX.Element {
   const [searchInput, setSearchInput] = useState(qFromUrl);
   const debouncedSearch = useDebouncedValue(searchInput, DEBOUNCE_MS);
   const [sort, setSort] = useState<DataTableSort<ChangedRow> | null>(null);
+  const [overlay, setOverlay] = useState<OverlayState>(null);
 
   useEffect(() => {
+    if (debouncedSearch !== searchInput) return;
     if (debouncedSearch === qFromUrl) return;
     setSearchParams(
       (prev) => {
@@ -120,8 +130,7 @@ export function ApplicantGradesChangesPage(): JSX.Element {
       },
       { replace: true },
     );
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [debouncedSearch]);
+  }, [debouncedSearch, qFromUrl, searchInput, setSearchParams]);
 
   const { data: paginatedData, isLoading } = useApplicantGradesList({
     page,
@@ -169,6 +178,11 @@ export function ApplicantGradesChangesPage(): JSX.Element {
   const totalChanged = allChangedRows.length;
   const upsCount = allChangedRows.filter((r) => r.delta > 0).length;
   const downsCount = allChangedRows.filter((r) => r.delta < 0).length;
+  const activeRow =
+    overlay && 'seat' in overlay
+      ? (allRows ?? []).find((r) => r.seat === overlay.seat)
+      : null;
+  const activeDerived = activeRow ? deriveRow(activeRow) : null;
 
   function setPage(p: number): void {
     setSearchParams(
@@ -346,7 +360,7 @@ export function ApplicantGradesChangesPage(): JSX.Element {
             leadingIcon={<ArrowLeft size={14} strokeWidth={1.75} />}
             onClick={() => navigate(ROUTES.admin.applicantGrades)}
           >
-            العودة للقائمة
+            العودة إلى درجات المتقدمين
           </Button>
         }
       />
@@ -436,6 +450,7 @@ export function ApplicantGradesChangesPage(): JSX.Element {
                 rowKey={(r) => r.seat}
                 sort={sort}
                 onSortChange={setSort}
+                onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
                 empty={
                   <EmptyState
                     variant="generic"
@@ -467,21 +482,16 @@ export function ApplicantGradesChangesPage(): JSX.Element {
                   –<span className="text-ink-900">{toEasternArabicNumerals(to)}</span> من{' '}
                   <span className="text-ink-900">{toEasternArabicNumerals(total)}</span>
                 </span>
-                <label className="inline-flex items-center gap-2">
+                <div className="inline-flex items-center gap-2">
                   <span>لكل صفحة:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => setSize(Number(e.target.value))}
-                    className="rounded-md border border-border-default bg-surface-card px-2 py-1 text-sm focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                  <Select
                     aria-label="عدد الصفوف لكل صفحة"
-                  >
-                    {PAGE_SIZE_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    value={String(pageSize)}
+                    onChange={(e) => setSize(Number(e.target.value))}
+                    options={PAGE_SIZE_OPTIONS.map((s) => ({ value: String(s), label: String(s) }))}
+                    containerClassName="w-20"
+                  />
+                </div>
                 <div className="flex items-center gap-1">
                   <Button
                     size="sm"
@@ -508,6 +518,22 @@ export function ApplicantGradesChangesPage(): JSX.Element {
               </div>
             </CardBody>
           </Card>
+        </>
+      )}
+
+      {activeDerived && (
+        <>
+          <AddAdjustmentDialog
+            open={overlay?.kind === 'add-adj'}
+            onClose={() => setOverlay(null)}
+            row={activeDerived}
+          />
+          <StudentDetailsDrawer
+            open={overlay?.kind === 'student'}
+            onClose={() => setOverlay(null)}
+            row={activeDerived}
+            onAddAdjustment={() => setOverlay({ kind: 'add-adj', seat: activeDerived.seat })}
+          />
         </>
       )}
     </div>

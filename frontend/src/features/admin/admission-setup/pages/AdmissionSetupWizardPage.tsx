@@ -38,7 +38,6 @@ import {
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/shared/lib/cn';
-import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { hasPermission, useAuthStore } from '@/features/auth';
 import { useAdmissionSetupIsReadOnly } from '../components/AdmissionSetupShell';
 import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
@@ -71,7 +70,6 @@ import { ApplicationSettingsPage } from './ApplicationSettingsPage';
 import { ApplicationSettingsReviewPage } from './ApplicationSettingsReviewPage';
 import { FeesPage } from './FeesPage';
 import { ExamsManagementPage } from './ExamsManagementPage';
-import { CommitteesManagementPage } from './CommitteesManagementPage';
 import { ElectronicDeclarationPage } from './ElectronicDeclarationPage';
 import { WizardReviewPage } from './WizardReviewPage';
 
@@ -85,7 +83,6 @@ const STEP_RENDERERS: Record<AdmissionSetupStepKey, () => JSX.Element> = {
   application_settings_review: () => <ApplicationSettingsReviewPage />,
   fees: () => <FeesPage />,
   exams: () => <ExamsManagementPage />,
-  committees: () => <CommitteesManagementPage />,
   electronic_declaration: () => <ElectronicDeclarationPage />,
 };
 
@@ -237,8 +234,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
             </span>
             <span aria-hidden className="text-ink-300">·</span>
             <span className="font-numeric tnum">
-              الخطوة {toEasternArabicNumerals(activeIndex + 1)} من{' '}
-              {toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS + 1)} —{' '}
+              الخطوة {activeIndex + 1} من {ADMISSION_SETUP_TOTAL_STEPS + 1} —{' '}
               <span className="text-ink-700">{activeLabel}</span>
             </span>
           </div>
