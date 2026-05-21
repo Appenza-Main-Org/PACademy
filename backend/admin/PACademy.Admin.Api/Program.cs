@@ -18,7 +18,7 @@ builder.Services.AddOpenApi();
 /* ── CORS — admin frontend origins ──────────────────────────────── */
 var frontendOrigins = (builder.Configuration["Cors:AdminFrontendOrigins"]
         ?? builder.Configuration["Cors:AdminFrontendOrigin"]
-        ?? "http://localhost:5173")
+        ?? "http://localhost:5173,http://127.0.0.1:5173,https://admin.appenzademo.com")
     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 const string CorsPolicyName = "admin-frontend";
 builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
