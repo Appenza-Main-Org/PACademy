@@ -32,7 +32,6 @@ import {
   ChevronDown,
   Circle,
   CircleDashed,
-  ListChecks,
 } from 'lucide-react';
 import { Accordion, Badge, ErrorState, LoadingState } from '@/shared/components';
 import type { BadgeTone } from '@/shared/components';
@@ -181,49 +180,41 @@ function ConfigItem({
       value={config.id}
       className="group overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-xs transition-colors duration-fast data-[state=open]:border-teal-100"
     >
-      <Accordion.Header className="flex">
-        <div className="flex w-full items-center gap-3 px-5 py-4">
-          <Accordion.Trigger
-            className="group flex min-w-0 flex-1 items-center justify-between gap-4 rounded-md text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-          >
-            <span className="flex min-w-0 items-start gap-3">
-              <span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-ink-50 text-ink-600 transition-colors duration-fast group-data-[state=open]:bg-teal-50 group-data-[state=open]:text-teal-700">
-                <ChevronDown
-                  size={15}
-                  strokeWidth={2}
-                  className="transition-transform duration-fast group-data-[state=closed]:rotate-180"
-                  aria-hidden
-                />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate font-ar text-lg font-bold leading-7 text-ink-900">
-                  {config.categoryNameAr}
-                </span>
-                <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-full bg-ink-50 px-2 py-0.5 font-ar text-2xs font-medium text-ink-600">
-                    {typeLabel}
-                  </span>
-                  {excellenceLabel && (
-                    <span
-                      className="rounded-full bg-gold-50 px-2 py-0.5 font-ar text-2xs font-medium text-gold-700"
-                      aria-label={`معيار التمييز: ${excellenceLabel}`}
-                    >
-                      معيار التمييز: {excellenceLabel}
-                    </span>
-                  )}
-                  <span className="inline-flex items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 font-ar text-2xs text-ink-600">
-                    <ListChecks size={11} strokeWidth={1.75} aria-hidden />
-                    {config.singleAxis
-                      ? `${config.yearCount} سنة دراسية`
-                      : `${config.specializationCount} تخصص · ${config.yearCount} سنة دراسية`}
-                  </span>
-                </span>
-              </span>
+      <Accordion.Trigger
+        hideChevron
+        contentClassName="flex min-w-0 flex-1 items-center justify-between gap-4"
+        className="group w-full px-5 py-4 transition-colors duration-fast hover:bg-ink-50/50 focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+      >
+        <span className="flex min-w-0 items-start gap-3">
+          <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-teal-50 text-teal-700 transition-colors duration-fast group-data-[state=closed]:bg-ink-50 group-data-[state=closed]:text-ink-600">
+            <ChevronDown
+              size={15}
+              strokeWidth={2}
+              className="transition-transform duration-fast group-data-[state=closed]:rotate-180"
+              aria-hidden
+            />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate font-ar text-lg font-bold leading-7 text-ink-900">
+              {config.categoryNameAr}
             </span>
-          </Accordion.Trigger>
-          <CompletionBadge state={completion} />
-        </div>
-      </Accordion.Header>
+            <span className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-ink-50 px-2 py-0.5 font-ar text-2xs font-medium text-ink-600">
+                {typeLabel}
+              </span>
+              {excellenceLabel && (
+                <span
+                  className="rounded-full bg-gold-50 px-2 py-0.5 font-ar text-2xs font-medium text-gold-700"
+                  aria-label={`معيار التمييز: ${excellenceLabel}`}
+                >
+                  معيار التمييز: {excellenceLabel}
+                </span>
+              )}
+            </span>
+          </span>
+        </span>
+        <CompletionBadge state={completion} />
+      </Accordion.Trigger>
 
       <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 p-4">
         {config.categoryType === 'university' ? (

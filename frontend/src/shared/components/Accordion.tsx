@@ -63,10 +63,18 @@ const AccordionItem = forwardRef<
 ));
 AccordionItem.displayName = 'Accordion.Item';
 
+interface AccordionTriggerProps
+  extends ComponentPropsWithoutRef<typeof RadixAccordion.Trigger> {
+  /** Optional class for the child wrapper when a screen needs a custom row layout. */
+  contentClassName?: string;
+  /** Hide the default chevron when the consumer provides its own indicator. */
+  hideChevron?: boolean;
+}
+
 const AccordionTrigger = forwardRef<
   ElementRef<typeof RadixAccordion.Trigger>,
-  ComponentPropsWithoutRef<typeof RadixAccordion.Trigger>
->(({ className, children, ...rest }, ref) => (
+  AccordionTriggerProps
+>(({ className, contentClassName, children, hideChevron = false, ...rest }, ref) => (
   <RadixAccordion.Header className="flex">
     <RadixAccordion.Trigger
       ref={ref}
@@ -81,16 +89,20 @@ const AccordionTrigger = forwardRef<
       )}
       {...rest}
     >
-      <span className="min-w-0 flex-1 truncate">{children}</span>
-      <ChevronDown
-        size={18}
-        className={cn(
-          'shrink-0 text-ink-500',
-          'transition-transform duration-base ease-standard',
-          'group-data-[state=open]:rotate-180',
-        )}
-        aria-hidden
-      />
+      <span className={cn('min-w-0 flex-1 truncate', contentClassName)}>
+        {children}
+      </span>
+      {!hideChevron && (
+        <ChevronDown
+          size={18}
+          className={cn(
+            'shrink-0 text-ink-500',
+            'transition-transform duration-base ease-standard',
+            'group-data-[state=open]:rotate-180',
+          )}
+          aria-hidden
+        />
+      )}
     </RadixAccordion.Trigger>
   </RadixAccordion.Header>
 ));

@@ -38,7 +38,6 @@ import {
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/shared/lib/cn';
-import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { hasPermission, useAuthStore } from '@/features/auth';
 import { useAdmissionSetupIsReadOnly } from '../components/AdmissionSetupShell';
 import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
@@ -235,8 +234,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
             </span>
             <span aria-hidden className="text-ink-300">·</span>
             <span className="font-numeric tnum">
-              الخطوة {toEasternArabicNumerals(activeIndex + 1)} من{' '}
-              {toEasternArabicNumerals(ADMISSION_SETUP_TOTAL_STEPS + 1)} —{' '}
+              الخطوة {activeIndex + 1} من {ADMISSION_SETUP_TOTAL_STEPS + 1} —{' '}
               <span className="text-ink-700">{activeLabel}</span>
             </span>
           </div>

@@ -26,7 +26,6 @@
 import { useEffect, useRef } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
-import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 
 export type VerticalStepState = 'complete' | 'current' | 'in_progress' | 'upcoming';
 
@@ -103,7 +102,7 @@ export function VerticalStepper({
                 ref={isActive ? activeRef : undefined}
                 onClick={() => onSelect(step.key)}
                 aria-current={isActive ? 'step' : undefined}
-                aria-label={`${step.label} — الخطوة ${toEasternArabicNumerals(step.order)}`}
+                aria-label={`${step.label} — الخطوة ${step.order}`}
                 className={cn(
                   'group flex flex-1 items-center gap-2 self-stretch rounded-md px-2.5 text-start',
                   'transition-colors duration-fast ease-standard',
@@ -159,7 +158,7 @@ function StepDot({
         style={{ background: 'var(--accent-500)' }}
         aria-hidden
       >
-        {toEasternArabicNumerals(order)}
+        {order}
       </span>
     );
   }
@@ -169,13 +168,13 @@ function StepDot({
         className={cn(base, 'border-gold-500 bg-gold-50 text-gold-700')}
         aria-hidden
       >
-        {toEasternArabicNumerals(order)}
+        {order}
       </span>
     );
   }
   return (
     <span className={cn(base, 'border-ink-300 bg-surface-card text-ink-500')} aria-hidden>
-      {toEasternArabicNumerals(order)}
+      {order}
     </span>
   );
 }

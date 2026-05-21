@@ -397,44 +397,52 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
 
   return (
-    <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <FieldLabel label="بداية التقديم" required>
-        <DatePicker
-          value={isoToDate(header.applicationStart)}
-          onChange={(d) =>
-            setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
-          }
-          placeholder="اختر اليوم…"
-        />
-      </FieldLabel>
-      <FieldLabel label="نهاية التقديم" required>
-        <DatePicker
-          value={isoToDate(header.applicationEnd)}
-          onChange={(d) =>
-            setHeaderField(categoryCode, 'applicationEnd', dateToIso(d))
-          }
-          placeholder="اختر اليوم…"
-        />
-      </FieldLabel>
-      <FieldLabel label="تاريخ احتساب السن" required>
-        <DatePicker
-          value={isoToDate(header.ageReferenceDate)}
-          onChange={(d) =>
-            setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
-          }
-          placeholder="اختر اليوم…"
-        />
-      </FieldLabel>
-      <FieldLabel label="الحالة الاجتماعية" required>
-        <MultiSelect
-          ariaLabel="الحالة الاجتماعية"
-          value={header.maritalStatus}
-          onChange={(next) => setHeaderField(categoryCode, 'maritalStatus', next)}
-          options={maritalOptions}
-          placeholder="اختر الحالة الاجتماعية…"
-        />
-      </FieldLabel>
-      <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} />
+    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(260px,2fr)]">
+      <FieldGroup title="نطاق التقديم">
+        <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-3">
+          <FieldLabel label="بداية التقديم" required>
+            <DatePicker
+              value={isoToDate(header.applicationStart)}
+              onChange={(d) =>
+                setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
+              }
+              placeholder="اختر اليوم…"
+            />
+          </FieldLabel>
+          <FieldLabel label="نهاية التقديم" required>
+            <DatePicker
+              value={isoToDate(header.applicationEnd)}
+              onChange={(d) =>
+                setHeaderField(categoryCode, 'applicationEnd', dateToIso(d))
+              }
+              placeholder="اختر اليوم…"
+            />
+          </FieldLabel>
+          <FieldLabel label="تاريخ احتساب السن" required>
+            <DatePicker
+              value={isoToDate(header.ageReferenceDate)}
+              onChange={(d) =>
+                setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
+              }
+              placeholder="اختر اليوم…"
+            />
+          </FieldLabel>
+        </div>
+      </FieldGroup>
+      <FieldGroup title="شروط الأهلية">
+        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+          <FieldLabel label="الحالة الاجتماعية" required>
+            <MultiSelect
+              ariaLabel="الحالة الاجتماعية"
+              value={header.maritalStatus}
+              onChange={(next) => setHeaderField(categoryCode, 'maritalStatus', next)}
+              options={maritalOptions}
+              placeholder="اختر الحالة الاجتماعية…"
+            />
+          </FieldLabel>
+          <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} />
+        </div>
+      </FieldGroup>
     </div>
   );
 }
@@ -522,6 +530,22 @@ interface FieldLabelProps {
   label: string;
   children: React.ReactNode;
   required?: boolean;
+}
+
+interface FieldGroupProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+function FieldGroup({ title, children }: FieldGroupProps): JSX.Element {
+  return (
+    <div className="rounded-md border border-border-subtle bg-surface-card p-3">
+      <h5 className="m-0 mb-3 font-ar text-xs font-semibold text-ink-800">
+        {title}
+      </h5>
+      {children}
+    </div>
+  );
 }
 
 function FieldLabel({
@@ -1404,162 +1428,166 @@ function PerSpecForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <FieldLabel label="النوع" required>
-            <MultiSelect
-              ariaLabel="النوع"
-              value={draft.type}
-              onChange={(next) => setDraft((d) => ({ ...d, type: next }))}
-              options={GENDER_OPTIONS}
-              placeholder="اختر النوع…"
-            />
-          </FieldLabel>
-
-          {showGradePair && (
-            <>
-              <FieldLabel label="الحد الأدنى للتقدير" required>
-                <SearchSelect
-                  ariaLabel="الحد الأدنى للتقدير"
-                  value={draft.grade || null}
-                  onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
-                  options={gradeOptions}
-                  placeholder="اختر التقدير…"
-                />
-              </FieldLabel>
-
-              <FieldLabel label="الحد الأقصى للتقدير" required>
-                <SearchSelect
-                  ariaLabel="الحد الأقصى للتقدير"
-                  value={draft.gradeMax || null}
-                  onChange={(v) =>
-                    setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
-                  }
-                  options={gradeOptions}
-                  placeholder="اختر التقدير…"
-                  invalid={gradeOrderInvalid}
-                />
-                {gradeOrderInvalid && (
-                  <span className="font-ar text-2xs text-terra-700">
-                    يجب ألا يقل الحد الأقصى عن الحد الأدنى للتقدير.
-                  </span>
-                )}
-              </FieldLabel>
-            </>
-          )}
-        </div>
-
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-          {showScorePair && (
-            <>
-              <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
-                <OperatorScoreField<MinScoreOperator>
-                  operatorValue={draft.minScoreOperator}
-                  onOperatorChange={(v) =>
-                    setDraft((d) => ({ ...d, minScoreOperator: v }))
-                  }
-                  operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
-                  operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
-                  scoreValue={draft.scoreMin}
-                  onScoreChange={(next) =>
-                    setDraft((d) => ({ ...d, scoreMin: next }))
-                  }
-                  scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
-                  invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
-                  maxBound={MIN_SCORE_UPPER_BOUND}
-                  onClampMessage={setScoreMinMessage}
-                />
-                {scoreMinMessage && (
-                  <span className="font-ar text-2xs text-terra-700">
-                    {scoreMinMessage}
-                  </span>
-                )}
-              </FieldLabel>
-
-              <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
-                <OperatorScoreField<MaxScoreOperator>
-                  operatorValue={draft.maxScoreOperator}
-                  onOperatorChange={(v) =>
-                    setDraft((d) => ({ ...d, maxScoreOperator: v }))
-                  }
-                  operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
-                  operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
-                  scoreValue={draft.scoreMax}
-                  onScoreChange={(next) =>
-                    setDraft((d) => ({ ...d, scoreMax: next }))
-                  }
-                  scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
-                  invalid={
-                    scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
-                  }
-                  maxBound={null}
-                  onClampMessage={setScoreMaxMessage}
-                />
-                {(scoreMaxMessage || scoreOrderInvalid) && (
-                  <span className="font-ar text-2xs text-terra-700">
-                    {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
-                  </span>
-                )}
-              </FieldLabel>
-            </>
-          )}
-
-          <FieldLabel label="الدرجة العلمية" required>
-            {degreeOptions.length === 0 ? (
-              <p className="font-ar text-2xs text-ink-500">
-                لا توجد درجات علمية مفعّلة في المراجع.
-              </p>
-            ) : (
+        <FieldGroup title="بيانات القبول">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+            <FieldLabel label="النوع" required>
               <MultiSelect
-                ariaLabel="الدرجة العلمية"
-                value={draft.academicDegrees}
-                onChange={(next) =>
-                  setDraft((d) => ({ ...d, academicDegrees: next }))
-                }
-                options={degreeOptions.map((o) => ({
-                  value: o.value,
-                  label: o.label,
-                }))}
-                placeholder="اختر الدرجة العلمية…"
+                ariaLabel="النوع"
+                value={draft.type}
+                onChange={(next) => setDraft((d) => ({ ...d, type: next }))}
+                options={GENDER_OPTIONS}
+                placeholder="اختر النوع…"
               />
-            )}
-          </FieldLabel>
-        </div>
+            </FieldLabel>
 
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-          <FieldLabel label="اللجنة" required>
-            {committeeOptions.length === 0 ? (
-              <p className="font-ar text-2xs text-ink-500">
-                لا توجد لجان مرتبطة بهذه الفئة.
-              </p>
-            ) : (
-              <SearchSelect
-                ariaLabel="اللجنة"
-                value={draft.committee || null}
-                onChange={(v) =>
-                  setDraft((d) => ({ ...d, committee: v ?? '' }))
-                }
-                options={committeeOptions}
-                placeholder="اختر اللجنة…"
-              />
-            )}
-          </FieldLabel>
+            {showGradePair && (
+              <>
+                <FieldLabel label="الحد الأدنى للتقدير" required>
+                  <SearchSelect
+                    ariaLabel="الحد الأدنى للتقدير"
+                    value={draft.grade || null}
+                    onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
+                    options={gradeOptions}
+                    placeholder="اختر التقدير…"
+                  />
+                </FieldLabel>
 
-          <FieldLabel label="سنة التخرج" required>
-            <SearchSelect
-              ariaLabel="سنة التخرج"
-              value={
-                draft.graduationYear !== null ? String(draft.graduationYear) : null
-              }
-              onChange={(v) =>
-                setDraft((d) => ({
-                  ...d,
-                  graduationYear: v === null ? null : Number(v),
-                }))
-              }
-              options={graduationYearOptions}
-              placeholder="اختر السنة…"
-            />
-          </FieldLabel>
+                <FieldLabel label="الحد الأقصى للتقدير" required>
+                  <SearchSelect
+                    ariaLabel="الحد الأقصى للتقدير"
+                    value={draft.gradeMax || null}
+                    onChange={(v) =>
+                      setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
+                    }
+                    options={gradeOptions}
+                    placeholder="اختر التقدير…"
+                    invalid={gradeOrderInvalid}
+                  />
+                  {gradeOrderInvalid && (
+                    <span className="font-ar text-2xs text-terra-700">
+                      يجب ألا يقل الحد الأقصى عن الحد الأدنى للتقدير.
+                    </span>
+                  )}
+                </FieldLabel>
+              </>
+            )}
+
+            {showScorePair && (
+              <>
+                <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
+                  <OperatorScoreField<MinScoreOperator>
+                    operatorValue={draft.minScoreOperator}
+                    onOperatorChange={(v) =>
+                      setDraft((d) => ({ ...d, minScoreOperator: v }))
+                    }
+                    operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
+                    operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
+                    scoreValue={draft.scoreMin}
+                    onScoreChange={(next) =>
+                      setDraft((d) => ({ ...d, scoreMin: next }))
+                    }
+                    scoreAriaLabel="الحد الأدنى للدرجة بالنسبة المئوية"
+                    invalid={scoreMinOutOfBounds || scoreMinMessage !== null}
+                    maxBound={MIN_SCORE_UPPER_BOUND}
+                    onClampMessage={setScoreMinMessage}
+                  />
+                  {scoreMinMessage && (
+                    <span className="font-ar text-2xs text-terra-700">
+                      {scoreMinMessage}
+                    </span>
+                  )}
+                </FieldLabel>
+
+                <FieldLabel label="الحد الأقصى للدرجة (٪)" required>
+                  <OperatorScoreField<MaxScoreOperator>
+                    operatorValue={draft.maxScoreOperator}
+                    onOperatorChange={(v) =>
+                      setDraft((d) => ({ ...d, maxScoreOperator: v }))
+                    }
+                    operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
+                    operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
+                    scoreValue={draft.scoreMax}
+                    onScoreChange={(next) =>
+                      setDraft((d) => ({ ...d, scoreMax: next }))
+                    }
+                    scoreAriaLabel="الحد الأقصى للدرجة بالنسبة المئوية"
+                    invalid={
+                      scoreMaxOutOfBounds || scoreOrderInvalid || scoreMaxMessage !== null
+                    }
+                    maxBound={null}
+                    onClampMessage={setScoreMaxMessage}
+                  />
+                  {(scoreMaxMessage || scoreOrderInvalid) && (
+                    <span className="font-ar text-2xs text-terra-700">
+                      {scoreMaxMessage ?? 'يجب ألا تقل عن الحد الأدنى'}
+                    </span>
+                  )}
+                </FieldLabel>
+              </>
+            )}
+
+            <FieldLabel label="الدرجة العلمية" required>
+              {degreeOptions.length === 0 ? (
+                <p className="font-ar text-2xs text-ink-500">
+                  لا توجد درجات علمية مفعّلة في المراجع.
+                </p>
+              ) : (
+                <MultiSelect
+                  ariaLabel="الدرجة العلمية"
+                  value={draft.academicDegrees}
+                  onChange={(next) =>
+                    setDraft((d) => ({ ...d, academicDegrees: next }))
+                  }
+                  options={degreeOptions.map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  }))}
+                  placeholder="اختر الدرجة العلمية…"
+                />
+              )}
+            </FieldLabel>
+          </div>
+        </FieldGroup>
+
+        <div className="mt-3">
+          <FieldGroup title="اللجنة وسنة التخرج">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <FieldLabel label="اللجنة" required>
+                {committeeOptions.length === 0 ? (
+                  <p className="font-ar text-2xs text-ink-500">
+                    لا توجد لجان مرتبطة بهذه الفئة.
+                  </p>
+                ) : (
+                  <SearchSelect
+                    ariaLabel="اللجنة"
+                    value={draft.committee || null}
+                    onChange={(v) =>
+                      setDraft((d) => ({ ...d, committee: v ?? '' }))
+                    }
+                    options={committeeOptions}
+                    placeholder="اختر اللجنة…"
+                  />
+                )}
+              </FieldLabel>
+
+              <FieldLabel label="سنة التخرج" required>
+                <SearchSelect
+                  ariaLabel="سنة التخرج"
+                  value={
+                    draft.graduationYear !== null ? String(draft.graduationYear) : null
+                  }
+                  onChange={(v) =>
+                    setDraft((d) => ({
+                      ...d,
+                      graduationYear: v === null ? null : Number(v),
+                    }))
+                  }
+                  options={graduationYearOptions}
+                  placeholder="اختر السنة…"
+                />
+              </FieldLabel>
+            </div>
+          </FieldGroup>
         </div>
 
         <div className="mt-4 flex items-center justify-end gap-3">
