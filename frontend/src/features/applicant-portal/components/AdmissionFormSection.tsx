@@ -22,6 +22,7 @@ import { date as fmtDate } from '@/shared/lib/format';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { loadProfileSnapshot } from '../lib/profileData';
 import {
+  formatMemberName,
   loadFamilySnapshot,
   professionLabel,
   RELATIVE_LABEL,
@@ -394,7 +395,7 @@ function FamilyTable({
             <tr key={`${r.relation}-${i}`}>
               <td className="border border-border-default px-2 py-1 text-ink-600">{r.relation}</td>
               <td className="border border-border-default px-2 py-1 text-ink-900">
-                {r.member?.name || '—'}
+                {r.member ? formatMemberName(r.member) : '—'}
               </td>
               <td className="border border-border-default px-2 py-1 text-ink-900">
                 {r.member ? professionLabel(r.member.profession) : '—'}
@@ -421,5 +422,5 @@ function FamilyTable({
 }
 
 function familyGuardianName(g: GuardianForm): string {
-  return g.name && g.name.trim().length > 0 ? g.name : '—';
+  return formatMemberName(g);
 }

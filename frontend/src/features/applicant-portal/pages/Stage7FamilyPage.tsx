@@ -44,6 +44,29 @@ import {
   type GuardianForm,
   type RelativeKind,
 } from '../lib/familyData';
+import { useApplicantPortalStore } from '../store/applicantPortal.store';
+
+/**
+ * Parent-child age gap rule (client direction 2026-05-21): every parent
+ * must be at least 15 years older than their child. Used on each member
+ * card's تاريخ الميلاد input via the `childDob` prop — the validator is
+ * silent when either side is missing so the field can be filled in any
+ * order without spurious errors.
+ */
+const PARENT_CHILD_MIN_YEARS = 15;
+const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
+
+function validateParentDob(parentIso: string, childIso: string | undefined): true | string {
+  if (!childIso || !parentIso) return true;
+  const parent = new Date(parentIso);
+  const child = new Date(childIso);
+  if (Number.isNaN(parent.getTime()) || Number.isNaN(child.getTime())) return true;
+  const years = (child.getTime() - parent.getTime()) / MS_PER_YEAR;
+  return (
+    years >= PARENT_CHILD_MIN_YEARS ||
+    `يجب أن يكبر تاريخ ميلاد الوالد/الوالدة عن الإبن/الإبنة بـ ${PARENT_CHILD_MIN_YEARS} سنة على الأقل`
+  );
+}
 
 const GOV_OPTIONS: readonly SearchSelectOption[] = REF_GOVERNORATES.map((g) => ({
   value: g.nameAr,
@@ -85,6 +108,12 @@ type TabKey =
 
 export function Stage7FamilyPage(): JSX.Element {
   const navigate = useNavigate();
+
+  /* Applicant DOB drives the «parent ≥ child + 15y» age-gap rule on
+   * every father/mother/stepparent card. Falls back to undefined when
+   * the MOI session hasn't loaded — the validator no-ops in that case
+   * so the form remains usable. */
+  const applicantDob = useApplicantPortalStore((s) => s.moiSession?.dateOfBirth);
 
   const [tab, setTab] = useState<TabKey>('father');
   const [father, setFather] = useState<FamilyMemberForm>(EMPTY_MEMBER);
@@ -160,7 +189,7 @@ export function Stage7FamilyPage(): JSX.Element {
   const [savedGuardian, setSavedGuardian] = useState(false);
   const guardianOk =
     savedGuardian &&
-    guardian.name.length >= 2 &&
+    guardian.firstName.length >= 2 &&
     guardian.profession.length > 0 &&
     guardian.qualification.length > 0;
 
@@ -301,6 +330,7 @@ export function Stage7FamilyPage(): JSX.Element {
             form={father}
             title="بيانات الأب"
             requireNationalId
+            childDob={applicantDob}
             onChange={setFather}
             onSave={() => {
               setSavedFather(true);
@@ -327,6 +357,7 @@ export function Stage7FamilyPage(): JSX.Element {
             singular="زوجة الأب"
             members={fatherWives}
             savedFlags={savedFatherWives}
+            childDob={applicantDob}
             onAdd={() => {
               setFatherWives((xs) => [...xs, EMPTY_MEMBER]);
               setSavedFatherWives((xs) => [...xs, false]);
@@ -350,6 +381,7 @@ export function Stage7FamilyPage(): JSX.Element {
             form={mother}
             title="بيانات الأم"
             requireNationalId
+            childDob={applicantDob}
             onChange={setMother}
             onSave={() => {
               setSavedMother(true);
@@ -376,6 +408,7 @@ export function Stage7FamilyPage(): JSX.Element {
             singular="زوج الأم"
             members={motherHusbands}
             savedFlags={savedMotherHusbands}
+            childDob={applicantDob}
             onAdd={() => {
               setMotherHusbands((xs) => [...xs, EMPTY_MEMBER]);
               setSavedMotherHusbands((xs) => [...xs, false]);
@@ -398,6 +431,8 @@ export function Stage7FamilyPage(): JSX.Element {
           <GrandparentsPanel
             value={grandparents}
             savedFlags={savedGrandparents}
+            fatherDob={father.dateOfBirth}
+            motherDob={mother.dateOfBirth}
             onChange={setGrandparents}
             onSaveOne={(key) => {
               setSavedGrandparents((s) => ({ ...s, [key]: true }));
@@ -490,6 +525,7 @@ function MemberFormCard({
   onSave,
   headerExtras,
   requireNationalId = false,
+  childDob,
 }: {
   form: FamilyMemberForm;
   title: string;
@@ -503,6 +539,10 @@ function MemberFormCard({
    *  the applicant must enter a 14-digit NID. Used for الأب + الأم per
    *  client direction 2026-05-21 (parents' NIDs are mandatory). */
   requireNationalId?: boolean;
+  /** ISO yyyy-mm-dd of the *child* this member is a parent of. When set,
+   *  the DOB input enforces the 15-year minimum age gap. Validator
+   *  no-ops if either side is empty (filling order isn't constrained). */
+  childDob?: string;
 }): JSX.Element {
   const form_ = useForm<FamilyMemberForm>({
     defaultValues: form,
@@ -544,13 +584,30 @@ function MemberFormCard({
         {headerExtras}
       </header>
       <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
-        <Input
-          label="الاسم"
-          required
-          {...register('name', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
-          error={errors.name?.message}
-          containerClassName="md:col-span-2"
-        />
+        {/* Split-name block — client direction 2026-05-21. Three Inputs
+            replace the previous single "الاسم" field. Rendered as a
+            nested 3-col sub-grid that spans the parent form width so all
+            three parts sit on one row on desktop. */}
+        <div className="grid gap-3 sm:grid-cols-3 md:col-span-2">
+          <Input
+            label="الاسم الأول"
+            required
+            {...register('firstName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.firstName?.message}
+          />
+          <Input
+            label="الاسم الثاني"
+            required
+            {...register('secondName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.secondName?.message}
+          />
+          <Input
+            label="الاسم الثالث"
+            required
+            {...register('thirdName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.thirdName?.message}
+          />
+        </div>
 
         {/* NID block — checkbox toggles between NID input and reason
             dropdown. For الأب + الأم the toggle is hidden entirely:
@@ -610,7 +667,10 @@ function MemberFormCard({
           label="تاريخ الميلاد"
           type="date"
           required
-          {...register('dateOfBirth', { required: 'مطلوب' })}
+          {...register('dateOfBirth', {
+            required: 'مطلوب',
+            validate: (v: string) => validateParentDob(v, childDob),
+          })}
           error={errors.dateOfBirth?.message}
         />
         <Field label="محافظة الميلاد" required error={errors.birthGovernorate?.message}>
@@ -658,6 +718,7 @@ function MemberFormCard({
           <Input
             label="رقم الأقدمية"
             required
+            type="text"
             dir="ltr"
             {...register('seniorityNumber', { required: 'مطلوب' })}
             error={errors.seniorityNumber?.message}
@@ -758,6 +819,7 @@ function MultiMemberPanel({
   singular,
   members,
   savedFlags,
+  childDob,
   onAdd,
   onChange,
   onRemove,
@@ -767,6 +829,9 @@ function MultiMemberPanel({
   singular: string;
   members: readonly FamilyMemberForm[];
   savedFlags: readonly boolean[];
+  /** Forwarded to each MemberFormCard so stepmother/stepfather entries
+   *  enforce the 15-year-older-than-applicant rule. */
+  childDob?: string;
   onAdd: () => void;
   onChange: (i: number, next: FamilyMemberForm) => void;
   onRemove: (i: number) => void;
@@ -812,6 +877,7 @@ function MultiMemberPanel({
           <MemberFormCard
             form={m}
             title={`${singular} رقم ${i + 1}${savedFlags[i] ? ' — محفوظ' : ''}`}
+            childDob={childDob}
             onChange={(next) => onChange(i, next)}
             onSave={() => onSave(i)}
           />
@@ -915,13 +981,30 @@ function GuardianFormCard({
         <h3 className="font-ar-display text-md font-bold text-ink-900">تحديد ولي الأمر</h3>
       </header>
       <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
-        <Input
-          label="الاسم"
-          required
-          {...register('name', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
-          error={errors.name?.message}
-          containerClassName="md:col-span-2"
-        />
+        {/* Split-name block — client direction 2026-05-21. Three Inputs
+            replace the previous single "الاسم" field. Rendered as a
+            nested 3-col sub-grid that spans the parent form width so all
+            three parts sit on one row on desktop. */}
+        <div className="grid gap-3 sm:grid-cols-3 md:col-span-2">
+          <Input
+            label="الاسم الأول"
+            required
+            {...register('firstName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.firstName?.message}
+          />
+          <Input
+            label="الاسم الثاني"
+            required
+            {...register('secondName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.secondName?.message}
+          />
+          <Input
+            label="الاسم الثالث"
+            required
+            {...register('thirdName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.thirdName?.message}
+          />
+        </div>
         <Select
           label="الوظيفة"
           required
@@ -933,6 +1016,7 @@ function GuardianFormCard({
           <Input
             label="رقم الأقدمية"
             required
+            type="text"
             dir="ltr"
             {...register('seniorityNumber', { required: 'مطلوب' })}
             error={errors.seniorityNumber?.message}
@@ -979,12 +1063,19 @@ function GuardianFormCard({
 function GrandparentsPanel({
   value,
   savedFlags,
+  fatherDob,
+  motherDob,
   onChange,
   onSaveOne,
   onSaveAll,
 }: {
   value: GrandparentsForm;
   savedFlags: Record<keyof GrandparentsForm, boolean>;
+  /** Father's DOB drives the 15-year age-gap rule for paternal
+   *  grandparents; mother's DOB drives the maternal side. Undefined
+   *  values disable the check (validator no-ops). */
+  fatherDob?: string;
+  motherDob?: string;
   onChange: (next: GrandparentsForm) => void;
   onSaveOne: (key: keyof GrandparentsForm) => void;
   onSaveAll: () => void;
@@ -1018,24 +1109,28 @@ function GrandparentsPanel({
       <MemberFormCard
         form={value.paternalGrandfather}
         title={`الجد لأب${savedFlags.paternalGrandfather ? ' — محفوظ' : ''}`}
+        childDob={fatherDob}
         onChange={(next) => updateOne('paternalGrandfather', next)}
         onSave={() => onSaveOne('paternalGrandfather')}
       />
       <MemberFormCard
         form={value.paternalGrandmother}
         title={`الجدة لأب${savedFlags.paternalGrandmother ? ' — محفوظ' : ''}`}
+        childDob={fatherDob}
         onChange={(next) => updateOne('paternalGrandmother', next)}
         onSave={() => onSaveOne('paternalGrandmother')}
       />
       <MemberFormCard
         form={value.maternalGrandfather}
         title={`الجد لأم${savedFlags.maternalGrandfather ? ' — محفوظ' : ''}`}
+        childDob={motherDob}
         onChange={(next) => updateOne('maternalGrandfather', next)}
         onSave={() => onSaveOne('maternalGrandfather')}
       />
       <MemberFormCard
         form={value.maternalGrandmother}
         title={`الجدة لأم${savedFlags.maternalGrandmother ? ' — محفوظ' : ''}`}
+        childDob={motherDob}
         onChange={(next) => updateOne('maternalGrandmother', next)}
         onSave={() => onSaveOne('maternalGrandmother')}
       />
@@ -1060,7 +1155,7 @@ function GrandparentsPanel({
 
 function isFilled(m: FamilyMemberForm): boolean {
   const baseOk =
-    m.name.length >= 2 &&
+    m.firstName.length >= 2 &&
     (m.nidUnavailable
       ? m.nidUnavailableReason.length > 0
       : /^[0-9]{14}$/.test(m.nationalId)) &&

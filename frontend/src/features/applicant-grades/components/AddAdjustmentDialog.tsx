@@ -265,7 +265,7 @@ export function AddAdjustmentDialog({
             label={
               <span className="inline-flex items-center gap-2">
                 <span>السبب التفصيلي</span>
-                {noteRequired && <span className="text-terra-500">*</span>}
+                {noteRequired && <span aria-hidden className="align-middle text-base font-bold leading-none text-terra-500">*</span>}
                 {noteRequired && (
                   <span className="rounded-full border border-gold-200 bg-gold-50 px-2 text-2xs font-semibold text-gold-700">
                     مطلوب لأن السبب «أخرى»

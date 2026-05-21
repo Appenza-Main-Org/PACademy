@@ -232,7 +232,7 @@ export function MultiSelect({
       {label && (
         <label htmlFor={id} className="text-sm font-medium text-ink-700">
           {label}
-          {required && <span className="ms-1 text-terra-500">*</span>}
+          {required && <span aria-hidden className="ms-1 align-middle text-base font-bold leading-none text-terra-500">*</span>}
         </label>
       )}
       <div className="relative">

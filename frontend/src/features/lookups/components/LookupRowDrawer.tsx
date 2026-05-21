@@ -768,7 +768,7 @@ function StageToggle({
     <div className="col-span-2 flex flex-col gap-1">
       <span className="text-sm font-medium text-ink-700">
         مرحلة الالتحاق
-        <span className="ms-1 text-terra-500">*</span>
+        <span aria-hidden className="ms-1 align-middle text-base font-bold leading-none text-terra-500">*</span>
       </span>
       <div
         role="radiogroup"

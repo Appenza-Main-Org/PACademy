@@ -47,7 +47,12 @@ export function professionLabel(code: string): string {
 }
 
 export interface FamilyMemberForm {
-  name: string;
+  /** Split per client direction 2026-05-21 — applicants enter the
+   *  Arabic name in three parts (first / father's / grandfather's)
+   *  instead of a single field. */
+  firstName: string;
+  secondName: string;
+  thirdName: string;
   nationalId: string;
   nidUnavailable: boolean;
   nidUnavailableReason: '' | 'fallen_record' | 'born_abroad';
@@ -68,7 +73,9 @@ export interface FamilyMemberForm {
 }
 
 export const EMPTY_MEMBER: FamilyMemberForm = {
-  name: '',
+  firstName: '',
+  secondName: '',
+  thirdName: '',
   nationalId: '',
   nidUnavailable: false,
   nidUnavailableReason: '',
@@ -96,7 +103,9 @@ export interface GrandparentsForm {
 }
 
 export interface GuardianForm {
-  name: string;
+  firstName: string;
+  secondName: string;
+  thirdName: string;
   profession: string;
   seniorityNumber?: string;
   qualification: string;
@@ -106,7 +115,9 @@ export interface GuardianForm {
 }
 
 export const EMPTY_GUARDIAN: GuardianForm = {
-  name: '',
+  firstName: '',
+  secondName: '',
+  thirdName: '',
   profession: '',
   seniorityNumber: '',
   qualification: '',
@@ -164,6 +175,23 @@ export function clearFamilySnapshot(): void {
   }
 }
 
+/**
+ * Join the three Arabic name parts into the canonical display form.
+ * Trims each part, drops empties, returns "—" when nothing is filled
+ * so downstream rendering doesn't have to handle the blank case.
+ */
+export function formatMemberName(m: {
+  firstName: string;
+  secondName: string;
+  thirdName: string;
+}): string {
+  const joined = [m.firstName, m.secondName, m.thirdName]
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(' ');
+  return joined.length > 0 ? joined : '—';
+}
+
 export interface FamilyViewRow {
   serial: number;
   name: string;
@@ -177,7 +205,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
   let n = 1;
   rows.push({
     serial: n++,
-    name: s.father.name || '—',
+    name: formatMemberName(s.father),
     relation: 'الأب',
     profession: professionLabel(s.father.profession),
     saved: s.savedFather,
@@ -185,7 +213,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
   s.fatherWives.forEach((w, i) => {
     rows.push({
       serial: n++,
-      name: w.name || '—',
+      name: formatMemberName(w),
       relation: `زوجة الأب ${i + 1}`,
       profession: professionLabel(w.profession),
       saved: s.savedFatherWives[i] === true,
@@ -193,7 +221,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
   });
   rows.push({
     serial: n++,
-    name: s.mother.name || '—',
+    name: formatMemberName(s.mother),
     relation: 'الأم',
     profession: professionLabel(s.mother.profession),
     saved: s.savedMother,
@@ -201,7 +229,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
   s.motherHusbands.forEach((h, i) => {
     rows.push({
       serial: n++,
-      name: h.name || '—',
+      name: formatMemberName(h),
       relation: `زوج الأم ${i + 1}`,
       profession: professionLabel(h.profession),
       saved: s.savedMotherHusbands[i] === true,
@@ -209,28 +237,28 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
   });
   rows.push({
     serial: n++,
-    name: s.grandparents.paternalGrandfather.name || '—',
+    name: formatMemberName(s.grandparents.paternalGrandfather),
     relation: 'الجد لأب',
     profession: professionLabel(s.grandparents.paternalGrandfather.profession),
     saved: s.savedGrandparents.paternalGrandfather,
   });
   rows.push({
     serial: n++,
-    name: s.grandparents.paternalGrandmother.name || '—',
+    name: formatMemberName(s.grandparents.paternalGrandmother),
     relation: 'الجدة لأب',
     profession: professionLabel(s.grandparents.paternalGrandmother.profession),
     saved: s.savedGrandparents.paternalGrandmother,
   });
   rows.push({
     serial: n++,
-    name: s.grandparents.maternalGrandfather.name || '—',
+    name: formatMemberName(s.grandparents.maternalGrandfather),
     relation: 'الجد لأم',
     profession: professionLabel(s.grandparents.maternalGrandfather.profession),
     saved: s.savedGrandparents.maternalGrandfather,
   });
   rows.push({
     serial: n++,
-    name: s.grandparents.maternalGrandmother.name || '—',
+    name: formatMemberName(s.grandparents.maternalGrandmother),
     relation: 'الجدة لأم',
     profession: professionLabel(s.grandparents.maternalGrandmother.profession),
     saved: s.savedGrandparents.maternalGrandmother,
@@ -239,7 +267,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
     s.relatives[kind].forEach((m, i) => {
       rows.push({
         serial: n++,
-        name: m.name || '—',
+        name: formatMemberName(m),
         relation: `${RELATIVE_LABEL[kind].singular} ${i + 1}`,
         profession: professionLabel(m.profession),
         saved: s.savedRelatives[kind][i] === true,
@@ -248,7 +276,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
   });
   rows.push({
     serial: n++,
-    name: s.guardian.name || '—',
+    name: formatMemberName(s.guardian),
     relation: 'ولي الأمر',
     profession: professionLabel(s.guardian.profession),
     saved: s.savedGuardian,
@@ -275,7 +303,7 @@ export function canApproveFamilySnapshot(s: FamilyDataSnapshot): boolean {
   });
   const guardianOk =
     s.savedGuardian &&
-    s.guardian.name.length >= 2 &&
+    s.guardian.firstName.trim().length >= 2 &&
     s.guardian.profession.length > 0 &&
     s.guardian.qualification.length > 0;
   return (
