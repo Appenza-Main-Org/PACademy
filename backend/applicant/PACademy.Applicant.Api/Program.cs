@@ -1,4 +1,5 @@
 using PACademy.Modules.LookupsRead.Infrastructure;
+using PACademy.Modules.GradesRead.Infrastructure;
 using PACademy.Shared.Web;
 using Scalar.AspNetCore;
 
@@ -25,6 +26,7 @@ builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
 
 /* ── Modules ────────────────────────────────────────────────────── */
 builder.Services.AddLookupsReadModule(builder.Configuration);
+builder.Services.AddGradesReadModule(builder.Configuration);
 
 var app = builder.Build();
 
