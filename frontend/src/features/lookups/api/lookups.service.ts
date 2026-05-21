@@ -29,6 +29,40 @@ import {
   type LookupRowMap,
 } from '../types';
 
+const USE_BACKEND =
+  import.meta.env.VITE_USE_LOOKUPS_BACKEND === 'true' ||
+  (import.meta.env.VITE_USE_LOOKUPS_BACKEND !== 'false' && Boolean(import.meta.env.VITE_ADMIN_API_BASE));
+const ADMIN_API_BASE = import.meta.env.VITE_ADMIN_API_BASE ?? 'http://localhost:5101';
+
+type ApiRequestInit = Omit<RequestInit, 'body'> & { body?: unknown };
+
+async function apiJson<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body !== undefined && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json');
+  }
+  const res = await fetch(`${ADMIN_API_BASE}${path}`, {
+    ...init,
+    headers,
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+  });
+  const text = await res.text();
+  const data = text.length > 0 ? JSON.parse(text) as unknown : null;
+  if (!res.ok) {
+    const envelope = data !== null && typeof data === 'object' ? data as Record<string, unknown> : {};
+    if (res.status === 409) {
+      const conflictCode = String(envelope.conflictCode ?? 'IN_USE');
+      if (conflictCode === 'LOOKUP_CODE_DUPLICATE') {
+        throw new ConflictError('DUPLICATE_CODE', envelope);
+      }
+      throw new ConflictError(conflictCode as never, envelope);
+    }
+    const message = typeof envelope.message === 'string' ? envelope.message : `HTTP ${res.status}`;
+    throw new Error(message);
+  }
+  return data as T;
+}
+
 /* ─── In-memory mutable mirror ───────────────────────────────────────── */
 
 type LookupsState = { [K in LookupKey]: LookupRow<K>[] };
@@ -154,6 +188,9 @@ function countReferences<K extends LookupKey>(key: K, code: string): ReferenceCh
 
 export const lookupsService = {
   async listLookup<K extends LookupKey>(key: K): Promise<LookupRow<K>[]> {
+    if (USE_BACKEND) {
+      return apiJson<LookupRow<K>[]>(`/api/lookups/${key}`);
+    }
     await simulateLatency(60, 140);
     return [...rowsOf(key)];
   },
@@ -162,6 +199,12 @@ export const lookupsService = {
     key: K,
     input: Omit<LookupRow<K>, 'code'> & { code?: string },
   ): Promise<LookupRow<K>> {
+    if (USE_BACKEND) {
+      return apiJson<LookupRow<K>>(`/api/lookups/${key}`, {
+        method: 'POST',
+        body: input,
+      });
+    }
     await simulateLatency();
     const code = input.code && input.code.trim() ? input.code.trim() : nextCode(key);
     assertCodeUnique(key, code);
@@ -179,6 +222,12 @@ export const lookupsService = {
     code: string,
     patch: Partial<LookupRow<K>>,
   ): Promise<LookupRow<K>> {
+    if (USE_BACKEND) {
+      return apiJson<LookupRow<K>>(`/api/lookups/${key}/${encodeURIComponent(code)}`, {
+        method: 'PATCH',
+        body: patch,
+      });
+    }
     await simulateLatency();
     const current = rowsOf(key).find((r) => r.code === code);
     if (!current) throw new Error(`Row ${code} not found in lookup ${String(key)}`);
@@ -194,6 +243,18 @@ export const lookupsService = {
   },
 
   async deleteLookupRow<K extends LookupKey>(key: K, code: string): Promise<DeleteResult> {
+    if (USE_BACKEND) {
+      const res = await fetch(`${ADMIN_API_BASE}/api/lookups/${key}/${encodeURIComponent(code)}`, {
+        method: 'DELETE',
+      });
+      const text = await res.text();
+      const data = text.length > 0 ? JSON.parse(text) as unknown : null;
+      if (res.status === 409 && data !== null && typeof data === 'object' && 'deleted' in data) {
+        return data as DeleteResult;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return data as DeleteResult;
+    }
     await simulateLatency();
     const check = countReferences(key, code);
     if (check.count > 0) {

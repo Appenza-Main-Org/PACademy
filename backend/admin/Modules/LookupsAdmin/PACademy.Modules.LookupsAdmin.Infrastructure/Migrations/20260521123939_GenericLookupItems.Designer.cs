@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PACademy.Modules.LookupsAdmin.Infrastructure;
 
@@ -11,9 +12,11 @@ using PACademy.Modules.LookupsAdmin.Infrastructure;
 namespace PACademy.Modules.LookupsAdmin.Infrastructure.Migrations
 {
     [DbContext(typeof(LookupsAdminDbContext))]
-    partial class LookupsAdminDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260521123939_GenericLookupItems")]
+    partial class GenericLookupItems
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

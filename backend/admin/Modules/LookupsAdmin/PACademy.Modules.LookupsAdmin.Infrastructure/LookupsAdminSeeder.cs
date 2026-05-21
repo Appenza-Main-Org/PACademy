@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PACademy.Shared.Domain.Lookups;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace PACademy.Modules.LookupsAdmin.Infrastructure;
 
@@ -22,13 +25,70 @@ public static class LookupsAdminSeeder
 
         db.Database.Migrate();
 
-        if (db.Faculties.Any()) return;
-        foreach (var (code, name) in SeedFaculties)
+        if (!db.Faculties.Any())
         {
-            db.Faculties.Add(Faculty.Create(code, name));
+            foreach (var (code, name) in SeedFaculties)
+            {
+                db.Faculties.Add(Faculty.Create(code, name));
+            }
+            db.SaveChanges();
         }
-        db.SaveChanges();
+
+        SeedGenericLookupItems(db);
     }
+
+    private static void SeedGenericLookupItems(LookupsAdminDbContext db)
+    {
+        var seed = LoadSeed();
+        var changed = false;
+
+        foreach (var (lookupKey, rows) in seed)
+        {
+            if (db.LookupItems.Any(x => x.LookupKey == lookupKey)) continue;
+
+            var order = 0;
+            foreach (var row in rows)
+            {
+                var code = row["code"]?.GetValue<string>() ?? throw new InvalidOperationException($"Lookup {lookupKey} row missing code.");
+                var name = row["name"]?.GetValue<string>() ?? throw new InvalidOperationException($"Lookup {lookupKey}/{code} row missing name.");
+                var isActive = row["isActive"]?.GetValue<bool>() ?? true;
+
+                db.LookupItems.Add(LookupItem.Create(
+                    lookupKey,
+                    code,
+                    name,
+                    isActive,
+                    row.ToJsonString(JsonOptions),
+                    order++));
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            db.SaveChanges();
+        }
+    }
+
+    private static Dictionary<string, List<JsonObject>> LoadSeed()
+    {
+        var baseDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+            ?? AppContext.BaseDirectory;
+        var path = Path.Combine(baseDir, "SeedData", "lookups.seed.json");
+        if (!File.Exists(path))
+        {
+            path = Path.Combine(AppContext.BaseDirectory, "SeedData", "lookups.seed.json");
+        }
+
+        var json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<Dictionary<string, List<JsonObject>>>(json, JsonOptions)
+            ?? throw new InvalidOperationException("Lookup seed file is empty.");
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = false,
+    };
 
     private static readonly (string Code, string Name)[] SeedFaculties =
     [
