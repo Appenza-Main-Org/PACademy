@@ -10,7 +10,7 @@
 
 - **Owner:** وزارة الداخلية · أكاديمية الشرطة (Ministry of Interior · Police Academy)
 - **Built by:** Appenza Studio — Engineering Manager: Mortada
-- **Status:** Frontend feature-complete; design polish complete (`polish-complete` tag, 2026-05-03); major scope-alignment + admission-setup-wizard + lookups + admin-users-NID + applicant-grades work landed through 2026-05-16. Backend kickoff is the next workstream.
+- **Status:** Frontend feature-complete; design polish complete (`polish-complete` tag, 2026-05-03); major scope-alignment + admission-setup-wizard + lookups + admin-users-NID + applicant-grades work landed through 2026-05-16; post-2026-05-18 wave shipped the `/admin/committees-exam-config` management page, applicant unified-print + Stage-7 family-review, and cross-cutting chrome polish (see §11). Backend kickoff is the next workstream.
 - **Demo deadline:** 2026-05-29 (~2 weeks out). The polish program (docs/POLISH_REPORT.md) was sized against this date.
 - **Live demo:** https://appenzademo.com (the old `pa-cademy.vercel.app` URL is dead).
 - **Deploy:** Vercel, configured by [vercel.json](vercel.json) at the repo root — installs + builds the `frontend/` workspace, serves `frontend/dist`, SPA-rewrites every path to `/index.html`, and sets long-cache headers for `/assets/*`.
@@ -24,6 +24,7 @@
 | `applicant-flow-aligned` / `applicant-flow-verified` (2026-05-09) | 17 applicant-flow gaps AF-1 → AF-17 shipped + verified — see [docs/APPLICANT_FLOW_ALIGNMENT_REPORT.md](docs/APPLICANT_FLOW_ALIGNMENT_REPORT.md), [docs/APPLICANT_FLOW_VERIFICATION_REPORT.md](docs/APPLICANT_FLOW_VERIFICATION_REPORT.md) |
 | `v0.2.0-demo` | first internal demo cut |
 | (untagged, 2026-05-12 → 2026-05-16) | admission-setup wizard + lookups + admin-users-NID + applicant-grades — see §11 |
+| (untagged, 2026-05-19 → 2026-05-20) | committees-exam-config management page + applicant unified-print + chrome polish — see §11 |
 
 The doc baselines point at these tags — when reading `docs/*REPORT.md`, treat the named tag as the snapshot the doc was written against. Code may have moved since.
 
@@ -273,6 +274,7 @@ The app is organised across **3 surfaces**:
 | `/admin/cycles` `/new` `/:id` | Cycles* (single-active-cycle guard; inline status edit; one-click activation swap) | `admin` |
 | `/admin/categories` `/new` `/:key` | Categories* (locked to RFP 4-category set; dedicated /new page) | `admin` |
 | `/admin/workflows` `/new` `/:id` | Workflow editor | `admin` |
+| `/admin/committees-exam-config` | CommitteeInstancesPage — management surface for `CommitteeInstance` rows in the active cycle. Day-grouped accordion with per-day transfer/delete, inline capacity edit, reservation refresh, and an inline «إضافة موعد اختبار» form mirroring the admission-setup wizard step. `/admin/committees` redirects here. | `admin` |
 | `/admin/committee` `/list` `/schedule` `/create` `/:id` `/:id/edit` `/:id/applicants` | Committee* (renders inside `AdminLayout` chrome; `/committee/*` legacy URLs redirect here; `/schedule` is the per-cycle exam-schedule planner) | `committee` |
 | `/board` `/sessions` `/sessions/create` `/sessions/:id/live` `/decisions` `/members` (+ `*-legacy`) | Board* | `board` |
 | `/investigations` `/incoming` `/outgoing` `/distribution` `/create` `/cases/:id` | Investigations* | `investigations` |
@@ -553,6 +555,30 @@ Aligned the applicant portal with the MOI reference flow document (`docs/referen
 
 - **`feat(admission-setup): completion-driven category badge in application settings`** — `/admin/cycles/admission-setup/wizard/application_settings`. Replaces the per-category `مفعّل`/`موقوف` switch on each accordion row with a tri-state `Badge` (`مكتمل` ✓ / `جزئي` ⊙ / `فارغ` ○) driven by a new pure selector `selectCategoryCompletion(categoryCode, categoryType, approved, scopedSpecCodes)` exported from `wizardSharedState.ts`. Derives off the same `approved` bucket the expanded panel writes into — university categories pass when every scoped specialization has at least one approved row with all required fields filled (header dates + max-age + marital + gender + grade ramp + score range + degree + committee + grad year); pre-university categories pass on the first complete thanawi row. Activation toggling is no longer surfaced from this position (the service-level `toggleCategoryActive` mutation remains on the contract for backend integration).
 
+✅ **Done (committees-exam-config + applicant admission-form + chrome polish, 2026-05-19 → 2026-05-20)**
+
+A wave of work converging on three threads: the new `/admin/committees-exam-config` management page, applicant-portal print/PDF, and cross-cutting UI hardening.
+
+- **Committees-Exam-Config (`/admin/committees-exam-config`)** — purpose-built management surface for `CommitteeInstance` rows in the active cycle. Day-grouped accordion (sorted ascending, every authored day visible — past included so completed exam days can be audited). Per-day inline actions: **«نقل اليوم»** (reservations-only transfer with all-or-nothing pre-flight; surfaces an upfront capacity-conflict alert that pre-fills `requiredCapacity` per blocking row so admins can override capacity inline before re-submitting), **«حذف اليوم»** (reservation-aware confirmation), inline capacity edit per row, and a global **«تحديث»** that re-syncs reserved counts. Mounted above the accordion: an inline **«إضافة موعد اختبار»** form mirroring the admission-setup wizard step — same multi-category + DatePicker + capacity + fan-out across active committee definitions, same accumulate-vs-insert partitioning. The form lives in [frontend/src/features/admin/admission-setup/components/committeeBinding/CommitteeInstanceAddForm.tsx](frontend/src/features/admin/admission-setup/components/committeeBinding/CommitteeInstanceAddForm.tsx) and is consumed by both the wizard panel and the management page. `/admin/committees` redirects here. The `CommitteeInstance` seed is intentionally empty in `committeeInstances.ts` (admin authors every row) — when seed data is needed for transfer testing, populate it explicitly.
+
+- **Demo-only dummy reservations** — `committeeInstanceService.addMany` synthesizes a deterministic per-row reservation count (FNV-1a hash of `${definitionCode}|${date}` mapped into [0.45, 0.95) of capacity) so admin-authored rows surface on the management page with realistic numbers instead of empty bookings. Helper carries the integration contract: backend integration must drop `demoReservations` and keep `reserved: 0` at creation — real counts come from the scheduling system via the «تحديث» button.
+
+- **Applicant admission-form unified print** (`/applicant/print-card`, Stage 9) — Stage 9 now renders the بطاقة التردد and the طلب الإلتحاق (admission form) in a single print job. Authoring lives in [frontend/src/features/applicant-portal/components/AdmissionFormSection.tsx](frontend/src/features/applicant-portal/components/AdmissionFormSection.tsx) (on-screen + printable), with a profile snapshot helper in [frontend/src/features/applicant-portal/lib/profileData.ts](frontend/src/features/applicant-portal/lib/profileData.ts). Earlier separate `admissionFormPdf.ts` PDF-generation pathway was superseded — the form is now an inline React section sharing the print stylesheet.
+
+- **Applicant Stage 7 family review step** — a review tab on the family page that surfaces a summary `DataTable` of the entered father / mother / (optional) stepfather data + an «اعتماد» button gated on the parent tabs being saved. Sits at `/applicant/profile/family`. See [frontend/src/features/applicant-portal/pages/Stage7ReviewFamilyPage.tsx](frontend/src/features/applicant-portal/pages/Stage7ReviewFamilyPage.tsx).
+
+- **Applicant category-specific fields** — specialized-officers applicants pick a faculty + specialization in the bachelor block (Stage 3-5 page); law-bachelor applicants get a fixed faculty option; doctorate fields land in the postgraduate section.
+
+- **Lookups معيار التمييز ramp-up** — `معيار التمييز` is always visible across categories (previously hidden for officers_general by default). The legacy spelling `التميز` was renamed across lookups + admission-setup. `officers_general` defaults to `EXC-02`. Committee-rules pair in admission-setup swaps when the معيار التمييز changes.
+
+- **Applicant-grades import hardening** — duplicate validation now keys on `(NID, graduationYear)` instead of `(NID, totalGrade)`: a re-applicant with a different graduation year flows through the diff-review step instead of being silently dropped. Always-on changes-review nav; per-row confirm action + region column on the list; max-total default when picking from duplicates; grade columns moved next to the student-name column; Step 1 dropdowns restyled (h-11, sm shadow, teal hover) with helper text dropped.
+
+- **Cross-cutting UI hardening (`chore(frontend)` + `polish(frontend)` commits, 2026-05-20)**:
+  - **Confirmations on shared `AlertDialog`** — replaced remaining `window.confirm()` sites with the shared dialog (consistent tone, focus trap, escape, RTL).
+  - **Hardcoded colors → tokens** — the few remaining hex/rgb values in production code routed through `tokens.css` variables.
+  - **Sidebar collapse** — staff sidebar now collapses to an icon rail with persisted state. Active-route highlighting + section emphasis preserved in both modes. Improved icon-rail keyboard accessibility.
+  - **Unified admin toolbar + dropdown controls** — `Button`, `DataTable`, `MultiSelect`, `RadixMultiSelect`, `RadixSelect`, `SearchSelect`, `Select`, `PageHeader`, and `NotificationCenter` all routed through a new shared [frontend/src/shared/components/dropdownStyles.ts](frontend/src/shared/components/dropdownStyles.ts). Same paint across admin toolbar buttons, list-page action chips, and every dropdown trigger.
+
 🚧 **Next sprints**
 - **Sprint 10 — Hardening**: Vitest + Testing Library, Playwright smoke E2E, `eslint-plugin-boundaries`, Husky pre-commit, accessibility audit, print polish.
 - **Backend integration** (post-demo): replace `simulateLatency()` + `MOCK` reads in every `*.service.ts` with real `apiClient.get/post(...)` calls. See §6 for the integration pattern. Component/query/type contracts stay unchanged.
@@ -610,6 +636,8 @@ Aligned the applicant portal with the MOI reference flow document (`docs/referen
 | Change cloud RBAC | [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) — closed union of admin + applicant sections only. Do **not** add on-prem operational modules; they have a separate RBAC. |
 | Add a DB constraint / conflict code | [docs/DB_CONSTRAINTS.md](docs/DB_CONSTRAINTS.md) — frontend mock services throw typed `ConflictError` codes that the backend must mirror at integration time. |
 | Per-cycle exam schedule | [frontend/src/features/committees/pages/CommitteeSchedulePage.tsx](frontend/src/features/committees/pages/CommitteeSchedulePage.tsx); service+queries under `features/committees/api/examSchedule.*`. |
+| Committee instances management | [frontend/src/features/admin/pages/CommitteeInstancesPage.tsx](frontend/src/features/admin/pages/CommitteeInstancesPage.tsx) (`/admin/committees-exam-config`). Service+queries under `features/committees/api/committeeInstance.*`. Shared add form: [CommitteeInstanceAddForm.tsx](frontend/src/features/admin/admission-setup/components/committeeBinding/CommitteeInstanceAddForm.tsx) — mounted on both the management page and the admission-setup wizard committees step. |
+| Toolbar / dropdown chrome | [frontend/src/shared/components/dropdownStyles.ts](frontend/src/shared/components/dropdownStyles.ts) — single source for admin-toolbar buttons, dropdown triggers, action chips. Touch this, not per-component overrides. |
 | Live demo URL | https://appenzademo.com (`pa-cademy.vercel.app` is dead — don't link it). |
 | Smoke-test routes | `npm --prefix frontend run test:routes` (against localhost) or `:prod` (deployed). Driven by [frontend/scripts/test-routes.mjs](frontend/scripts/test-routes.mjs) — confirms SPA rewrite catches every direct-URL hit. |
 | Deploy config | [vercel.json](vercel.json) — `installCommand` + `buildCommand` scoped to `frontend/`; SPA rewrite + asset cache headers. |
