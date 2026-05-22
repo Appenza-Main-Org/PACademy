@@ -1,6 +1,11 @@
+using System.Globalization;
+using System.IO.Compression;
+using System.Text;
 using System.Text.Json.Nodes;
+using System.Xml.Linq;
 using Microsoft.AspNetCore.Mvc;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
@@ -202,6 +207,41 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         return Ok(new { insertedCount = inserted, failedCount = skipped, alreadyImportedCount = 0 });
     }
 
+    [HttpPost("api/grades/import/file")]
+    [RequestSizeLimit(20 * 1024 * 1024)]
+    public async Task<ActionResult<object>> ImportFile([FromForm] IFormFile file, [FromForm] int? graduationYear, [FromForm] string? duplicateAction, CancellationToken ct)
+    {
+        if (file.Length == 0) throw new ConflictException("FILE_EMPTY", "ملف الدرجات فارغ");
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var maxBytes = extension switch
+        {
+            ".csv" => 5 * 1024 * 1024,
+            ".xlsx" => 10 * 1024 * 1024,
+            ".xls" => 10 * 1024 * 1024,
+            ".mdb" => 20 * 1024 * 1024,
+            ".accdb" => 20 * 1024 * 1024,
+            _ => throw new ConflictException("UNSUPPORTED_FILE_TYPE", "صيغة ملف الدرجات غير مدعومة")
+        };
+        if (file.Length > maxBytes) throw new ConflictException("FILE_TOO_LARGE", "حجم ملف الدرجات يتجاوز الحد المسموح");
+
+        await using var stream = file.OpenReadStream();
+        var rows = extension switch
+        {
+            ".csv" => await ParseCsvAsync(stream, ct),
+            ".xlsx" => ParseXlsx(stream),
+            ".xls" => await ParseCsvAsync(stream, ct),
+            ".mdb" or ".accdb" => await ParseCsvAsync(stream, ct),
+            _ => []
+        };
+        var body = new JsonObject
+        {
+            ["rows"] = new JsonArray(rows.Select(x => (JsonNode)x).ToArray()),
+            ["graduationYear"] = graduationYear ?? DateTimeOffset.UtcNow.Year,
+            ["duplicateAction"] = duplicateAction ?? "keep"
+        };
+        return await CommitImport(body, ct);
+    }
+
     [HttpPost("api/grades/{seat}/adjustments")]
     public async Task<ActionResult<JsonObject>> AddAdjustment(string seat, [FromBody] JsonObject body, CancellationToken ct)
     {
@@ -307,4 +347,150 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         ["status"] = "مستجد",
         ["log"] = new JsonArray()
     };
+
+    private static async Task<IReadOnlyList<JsonObject>> ParseCsvAsync(Stream stream, CancellationToken ct)
+    {
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+        var text = await reader.ReadToEndAsync(ct);
+        return RowsFromTable(ParseDelimited(text));
+    }
+
+    private static IReadOnlyList<JsonObject> ParseXlsx(Stream stream)
+    {
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
+        var sharedStrings = ReadSharedStrings(archive);
+        var sheet = archive.GetEntry("xl/worksheets/sheet1.xml")
+            ?? archive.Entries.FirstOrDefault(x => x.FullName.StartsWith("xl/worksheets/sheet", StringComparison.OrdinalIgnoreCase));
+        if (sheet is null) throw new ConflictException("FILE_PARSE_FAILED", "لا توجد ورقة بيانات قابلة للقراءة في ملف Excel");
+        using var sheetStream = sheet.Open();
+        var doc = XDocument.Load(sheetStream);
+        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        var table = new List<List<string>>();
+        foreach (var row in doc.Descendants(ns + "row"))
+        {
+            var values = new SortedDictionary<int, string>();
+            foreach (var cell in row.Elements(ns + "c"))
+            {
+                var reference = cell.Attribute("r")?.Value ?? "";
+                var index = ColumnIndex(reference);
+                var raw = cell.Element(ns + "v")?.Value ?? cell.Element(ns + "is")?.Element(ns + "t")?.Value ?? "";
+                var type = cell.Attribute("t")?.Value;
+                values[index] = type == "s" && int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var sharedIndex) && sharedIndex < sharedStrings.Count
+                    ? sharedStrings[sharedIndex]
+                    : raw;
+            }
+            if (values.Count > 0) table.Add(Enumerable.Range(0, values.Keys.Max() + 1).Select(i => values.GetValueOrDefault(i, "")).ToList());
+        }
+        return RowsFromTable(table);
+    }
+
+    private static IReadOnlyList<string> ReadSharedStrings(ZipArchive archive)
+    {
+        var entry = archive.GetEntry("xl/sharedStrings.xml");
+        if (entry is null) return [];
+        using var stream = entry.Open();
+        var doc = XDocument.Load(stream);
+        XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        return doc.Descendants(ns + "si").Select(si => string.Concat(si.Descendants(ns + "t").Select(t => t.Value))).ToList();
+    }
+
+    private static IReadOnlyList<JsonObject> RowsFromTable(IReadOnlyList<IReadOnlyList<string>> table)
+    {
+        if (table.Count < 2) return [];
+        var headers = table[0].Select(NormalizeHeader).ToList();
+        var rows = new List<JsonObject>();
+        for (var i = 1; i < table.Count; i++)
+        {
+            var row = new JsonObject { ["sourceRowIndex"] = i + 1 };
+            for (var c = 0; c < headers.Count && c < table[i].Count; c++)
+            {
+                var key = headers[c];
+                if (key is null) continue;
+                row[key] = table[i][c];
+            }
+            NormalizeGradeRow(row);
+            rows.Add(row);
+        }
+        return rows;
+    }
+
+    private static List<List<string>> ParseDelimited(string text)
+    {
+        var delimiter = text.Contains('\t') ? '\t' : ',';
+        var rows = new List<List<string>>();
+        var current = new List<string>();
+        var field = new StringBuilder();
+        var quoted = false;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch == '"')
+            {
+                if (quoted && i + 1 < text.Length && text[i + 1] == '"')
+                {
+                    field.Append('"');
+                    i++;
+                }
+                else quoted = !quoted;
+            }
+            else if (ch == delimiter && !quoted)
+            {
+                current.Add(field.ToString());
+                field.Clear();
+            }
+            else if ((ch == '\n' || ch == '\r') && !quoted)
+            {
+                if (ch == '\r' && i + 1 < text.Length && text[i + 1] == '\n') i++;
+                current.Add(field.ToString());
+                field.Clear();
+                if (current.Any(x => !string.IsNullOrWhiteSpace(x))) rows.Add(current);
+                current = [];
+            }
+            else field.Append(ch);
+        }
+        current.Add(field.ToString());
+        if (current.Any(x => !string.IsNullOrWhiteSpace(x))) rows.Add(current);
+        return rows;
+    }
+
+    private static string? NormalizeHeader(string value)
+    {
+        var header = value.Trim().Replace(" ", "", StringComparison.Ordinal).ToLowerInvariant();
+        return header switch
+        {
+            "nid" or "nationalid" or "national_id" or "رقمقومى" or "الرقمالقومي" => "nationalId",
+            "name" or "namear" or "studentname" or "الاسم" or "اسمالطالب" => "nameAr",
+            "total" or "totalgrade" or "grade" or "المجموع" or "الدرجة" => "totalGrade",
+            "max" or "maxgrade" or "النهايةالعظمى" => "maxGrade",
+            "seat" or "seatingnumber" or "رقمالجلوس" => "seatingNumber",
+            "track" or "branch" or "الشعبة" => "track",
+            "school" or "schoolname" or "المدرسة" => "schoolName",
+            "region" or "regionname" or "المنطقة" => "regionName",
+            _ => null
+        };
+    }
+
+    private static void NormalizeGradeRow(JsonObject row)
+    {
+        foreach (var key in new[] { "totalGrade", "maxGrade" })
+        {
+            var text = row[key]?.GetValue<string>();
+            if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ||
+                double.TryParse(text, NumberStyles.Float, CultureInfo.GetCultureInfo("ar-EG"), out number))
+            {
+                row[key] = number;
+            }
+        }
+    }
+
+    private static int ColumnIndex(string reference)
+    {
+        var letters = new string(reference.TakeWhile(char.IsLetter).ToArray()).ToUpperInvariant();
+        var index = 0;
+        foreach (var ch in letters)
+        {
+            index = index * 26 + (ch - 'A' + 1);
+        }
+        return Math.Max(0, index - 1);
+    }
 }
