@@ -6,6 +6,7 @@
  *   GET /api/applicants/:id
  *   GET /api/applicants/:id/timeline
  *   GET /api/applicants/stats
+ *   GET /api/applicants/status-options
  *   GET /api/applicants/distribution?field=
  *
  * WRITE / WORKFLOW ENDPOINTS:
@@ -24,6 +25,7 @@ import type {
   Applicant,
   ApplicantStatus,
   ApplicantWorkflowProgress,
+  AuditColor,
   AuditEntry,
   DepartmentWorkflow,
   Kpis,
@@ -40,6 +42,12 @@ export interface ApplicantFilters {
   status?: ApplicantStatus | 'all';
   governorate?: string | 'all';
   certType?: string | 'all';
+}
+
+export interface ApplicantStatusOption {
+  value: ApplicantStatus;
+  label: string;
+  color: AuditColor;
 }
 
 export class ApplicantTransitionError extends Error {
@@ -108,6 +116,10 @@ export const applicantService = {
 
   async getStats(): Promise<Kpis> {
     return apiClient.get('/api/applicants/stats');
+  },
+
+  async getStatusOptions(): Promise<ApplicantStatusOption[]> {
+    return apiClient.get('/api/applicants/status-options');
   },
 
   async getTimeline(id: string): Promise<TimelineEvent[]> {

@@ -13,12 +13,11 @@ import {
   buttonClassName,
 } from '@/shared/components';
 import type { DataTableColumn, ListActionsConfig, SearchSelectOption } from '@/shared/components';
-import { StatusBadge, PaymentBadge } from '@/shared/components/StatusBadge';
-import { useApplicants } from '@/features/applicants/api/applicant.queries';
+import { PaymentBadge } from '@/shared/components/StatusBadge';
+import { useApplicants, useApplicantStatusOptions } from '@/features/applicants/api/applicant.queries';
 import { useLookup } from '@/features/lookups';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, shortName, maskNationalId } from '@/shared/lib/format';
-import { STATUS_LABELS } from '@/shared/mock-data/dictionaries';
 import type { Applicant, ApplicantStatus } from '@/shared/types/domain';
 
 const PAGE_SIZE = 15;
@@ -28,97 +27,6 @@ const CERT_TYPE_OPTIONS: readonly SearchSelectOption[] = [
   { value: 'ثانوية أزهرية', label: 'ثانوية أزهرية' },
 ];
 
-const APPLICANT_COLUMNS: DataTableColumn<Applicant>[] = [
-  {
-    key: 'name',
-    label: 'المتقدم',
-    sortable: true,
-    getSortValue: (a) => a.name,
-    filter: { kind: 'text', getValue: (a) => a.name },
-    render: (a) => (
-      <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex items-center gap-3">
-        <Avatar name={a.name} size="sm" />
-        <div className="flex flex-col">
-          <span className="text-sm font-medium text-ink-900">{shortName(a.name, 3)}</span>
-          <span className="font-mono text-2xs text-ink-500" dir="ltr">{a.id}</span>
-        </div>
-      </Link>
-    ),
-  },
-  {
-    key: 'nationalId',
-    label: 'الرقم القومي',
-    hideOn: 'sm',
-    sortable: true,
-    getSortValue: (a) => a.nationalId,
-    filter: { kind: 'text', getValue: (a) => a.nationalId },
-    render: (a) => <span className="font-mono" dir="ltr">{maskNationalId(a.nationalId)}</span>,
-  },
-  {
-    key: 'governorate',
-    label: 'المحافظة',
-    hideOn: 'sm',
-    sortable: true,
-    getSortValue: (a) => a.governorate,
-    filter: { kind: 'text', getValue: (a) => a.governorate },
-    render: (a) => a.governorate,
-  },
-  {
-    key: 'certType',
-    label: 'الشهادة',
-    hideOn: 'md',
-    sortable: true,
-    getSortValue: (a) => a.certType,
-    filter: { kind: 'text', getValue: (a) => a.certType },
-    render: (a) => (
-      <div className="text-2xs">
-        <p className="text-ink-700">{a.certType}</p>
-        <p className="text-ink-500">{a.certSection}</p>
-      </div>
-    ),
-  },
-  {
-    key: 'paymentStatus',
-    label: 'الدفع',
-    sortable: true,
-    getSortValue: (a) => a.paymentStatus,
-    filter: {
-      kind: 'enum',
-      getValue: (a) => a.paymentStatus,
-      options: [
-        { value: 'paid', label: 'مدفوع' },
-        { value: 'pending', label: 'معلّق' },
-      ],
-    },
-    render: (a) => <PaymentBadge status={a.paymentStatus} />,
-  },
-  {
-    key: 'stageLabel',
-    label: 'المرحلة',
-    hideOn: 'md',
-    sortable: true,
-    getSortValue: (a) => a.stageLabel,
-    filter: { kind: 'text', getValue: (a) => a.stageLabel },
-    render: (a) => <Badge tone="info">{a.stageLabel}</Badge>,
-  },
-  {
-    key: 'status',
-    label: 'الحالة',
-    sortable: true,
-    getSortValue: (a) => a.status,
-    render: (a) => <StatusBadge status={a.status} />,
-  },
-  {
-    key: 'registeredAt',
-    label: 'التسجيل',
-    hideOn: 'sm',
-    sortable: true,
-    getSortValue: (a) => a.registeredAt,
-    filter: { kind: 'date', getValue: (a) => a.registeredAt },
-    render: (a) => <span className="text-2xs text-ink-500">{fmtDate(a.registeredAt, 'short')}</span>,
-  },
-];
-
 export function ApplicantsPage(): JSX.Element {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -126,6 +34,15 @@ export function ApplicantsPage(): JSX.Element {
   const [governorate, setGovernorate] = useState<string>('all');
   const [certType, setCertType] = useState<string>('all');
   const governoratesQuery = useLookup('governorates');
+  const statusOptionsQuery = useApplicantStatusOptions();
+  const statusOptions = useMemo(
+    () => (statusOptionsQuery.data ?? []).map((item) => ({ value: item.value, label: item.label })),
+    [statusOptionsQuery.data],
+  );
+  const statusByValue = useMemo(
+    () => new Map((statusOptionsQuery.data ?? []).map((item) => [item.value, item])),
+    [statusOptionsQuery.data],
+  );
   const governorateOptions = useMemo<readonly SearchSelectOption[]>(
     () =>
       (governoratesQuery.data ?? [])
@@ -142,6 +59,109 @@ export function ApplicantsPage(): JSX.Element {
     governorate,
     certType,
   });
+
+  const columns: DataTableColumn<Applicant>[] = useMemo(
+    () => [
+      {
+        key: 'name',
+        label: 'المتقدم',
+        sortable: true,
+        getSortValue: (a) => a.name,
+        filter: { kind: 'text', getValue: (a) => a.name },
+        render: (a) => (
+          <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex items-center gap-3">
+            <Avatar name={a.name} size="sm" />
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-ink-900">{shortName(a.name, 3)}</span>
+              <span className="font-mono text-2xs text-ink-500" dir="ltr">{a.id}</span>
+            </div>
+          </Link>
+        ),
+      },
+      {
+        key: 'nationalId',
+        label: 'الرقم القومي',
+        hideOn: 'sm',
+        sortable: true,
+        getSortValue: (a) => a.nationalId,
+        filter: { kind: 'text', getValue: (a) => a.nationalId },
+        render: (a) => <span className="font-mono" dir="ltr">{maskNationalId(a.nationalId)}</span>,
+      },
+      {
+        key: 'governorate',
+        label: 'المحافظة',
+        hideOn: 'sm',
+        sortable: true,
+        getSortValue: (a) => a.governorate,
+        filter: { kind: 'text', getValue: (a) => a.governorate },
+        render: (a) => a.governorate,
+      },
+      {
+        key: 'certType',
+        label: 'الشهادة',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.certType,
+        filter: { kind: 'text', getValue: (a) => a.certType },
+        render: (a) => (
+          <div className="text-2xs">
+            <p className="text-ink-700">{a.certType}</p>
+            <p className="text-ink-500">{a.certSection}</p>
+          </div>
+        ),
+      },
+      {
+        key: 'paymentStatus',
+        label: 'الدفع',
+        sortable: true,
+        getSortValue: (a) => a.paymentStatus,
+        filter: {
+          kind: 'enum',
+          getValue: (a) => a.paymentStatus,
+          options: [
+            { value: 'paid', label: 'مدفوع' },
+            { value: 'pending', label: 'معلّق' },
+          ],
+        },
+        render: (a) => <PaymentBadge status={a.paymentStatus} />,
+      },
+      {
+        key: 'stageLabel',
+        label: 'المرحلة',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.stageLabel,
+        filter: { kind: 'text', getValue: (a) => a.stageLabel },
+        render: (a) => <Badge tone="info">{a.stageLabel}</Badge>,
+      },
+      {
+        key: 'status',
+        label: 'الحالة',
+        sortable: true,
+        getSortValue: (a) => a.status,
+        filter: {
+          kind: 'enum',
+          getValue: (a) => a.status,
+          options: statusOptions,
+        },
+        render: (a) => {
+          const def = statusByValue.get(a.status);
+          const live = a.status === 'pending' || a.status === 'under-review';
+          return <Badge tone={def?.color ?? 'neutral'} dot={live}>{def?.label ?? a.status}</Badge>;
+        },
+      },
+      {
+        key: 'registeredAt',
+        label: 'التسجيل',
+        hideOn: 'sm',
+        sortable: true,
+        getSortValue: (a) => a.registeredAt,
+        filter: { kind: 'date', getValue: (a) => a.registeredAt },
+        render: (a) => <span className="text-2xs text-ink-500">{fmtDate(a.registeredAt, 'short')}</span>,
+      },
+    ],
+    [statusByValue, statusOptions],
+  );
 
   const listActions: ListActionsConfig<Applicant> = useMemo(
     () => ({
@@ -173,7 +193,7 @@ export function ApplicantsPage(): JSX.Element {
           {
             key: 'status',
             labelAr: 'الحالة',
-            format: (v) => STATUS_LABELS[v as ApplicantStatus]?.label ?? String(v ?? ''),
+            format: (v) => statusByValue.get(v as ApplicantStatus)?.label ?? String(v ?? ''),
           },
           {
             key: 'registeredAt',
@@ -183,7 +203,7 @@ export function ApplicantsPage(): JSX.Element {
         ],
       },
     }),
-    [],
+    [statusByValue],
   );
 
   return (
@@ -213,12 +233,11 @@ export function ApplicantsPage(): JSX.Element {
               aria-label="تصفية حسب الحالة"
               value={status}
               onChange={(e) => { setStatus(e.target.value as ApplicantStatus | 'all'); setPage(1); }}
+              disabled={statusOptionsQuery.isLoading}
+              helper={statusOptionsQuery.isError ? 'تعذر تحميل الحالات من الخادم' : undefined}
               options={[
                 { value: 'all', label: 'كل الحالات' },
-                ...Object.entries(STATUS_LABELS).map(([value, item]) => ({
-                  value,
-                  label: item.label,
-                })),
+                ...statusOptions,
               ]}
               containerClassName="min-w-[150px]"
             />
@@ -252,7 +271,7 @@ export function ApplicantsPage(): JSX.Element {
 
           <DataTable<Applicant>
             data={data?.data ?? []}
-            columns={APPLICANT_COLUMNS}
+            columns={columns}
             rowKey={(a) => a.id}
             loading={isLoading}
             empty={<EmptyState title="لا توجد نتائج" description="جرّب تعديل عوامل التصفية" />}

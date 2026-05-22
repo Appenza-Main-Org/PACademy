@@ -6,6 +6,7 @@ export const auditKeys = {
   list: (filters: AuditFilters) => [...auditKeys.all, 'list', filters] as const,
   detail: (id: string) => [...auditKeys.all, 'detail', id] as const,
   diff: (id: string) => [...auditKeys.all, 'diff', id] as const,
+  actions: () => [...auditKeys.all, 'actions'] as const,
   entityTypes: () => [...auditKeys.all, 'entity-types'] as const,
   modules: () => [...auditKeys.all, 'modules'] as const,
   roles: () => [...auditKeys.all, 'roles'] as const,
@@ -32,6 +33,13 @@ export function useAuditDiff(id: string | null) {
     queryKey: auditKeys.diff(id ?? ''),
     queryFn: () => auditService.getDiff(id!),
     enabled: Boolean(id),
+  });
+}
+
+export function useAuditActions() {
+  return useQuery({
+    queryKey: auditKeys.actions(),
+    queryFn: () => auditService.getActions(),
   });
 }
 

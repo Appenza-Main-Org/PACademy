@@ -8,11 +8,28 @@ namespace PACademy.Admin.Api.Controllers;
 [Route("")]
 public sealed class ApplicantsController(AdminRecordsService records) : ControllerBase
 {
+    private static readonly ApplicantStatusOption[] StatusOptions =
+    [
+        new("pending", "في الانتظار", "neutral"),
+        new("under-review", "قيد المراجعة", "warning"),
+        new("approved", "مقبول", "success"),
+        new("rejected", "مرفوض", "danger"),
+        new("on-hold", "موقوف", "warning"),
+        new("documents-required", "مستندات ناقصة", "info"),
+        new("under_medical_review", "قيد الكشف الطبي", "info"),
+        new("passed_physical", "اجتاز اللياقة", "success"),
+        new("failed_interview", "لم يجتز المقابلة", "danger"),
+        new("awaiting_board_decision", "بانتظار قرار الهيئة", "warning")
+    ];
+
     [HttpGet("api/applicants")]
     public async Task<ActionResult<object>> List(CancellationToken ct) => Ok(await records.PageAsync("applicants", Request.Query, ct));
 
     [HttpGet("api/applicants/stats")]
     public async Task<ActionResult<object>> Stats(CancellationToken ct) => Ok(await records.StatsAsync(ct));
+
+    [HttpGet("api/applicants/status-options")]
+    public ActionResult<IReadOnlyList<ApplicantStatusOption>> StatusOptionsList() => Ok(StatusOptions);
 
     [HttpGet("api/applicants/distribution")]
     public async Task<ActionResult<object>> Distribution([FromQuery] string field, CancellationToken ct) => Ok(await records.DistributionAsync(field, ct));
@@ -102,3 +119,5 @@ public sealed class ApplicantsController(AdminRecordsService records) : Controll
     public async Task<ActionResult<JsonObject?>> ActiveWorkflow(string id, CancellationToken ct) =>
         Ok((await records.ListAsync("workflows", ct)).FirstOrDefault());
 }
+
+public sealed record ApplicantStatusOption(string Value, string Label, string Color);

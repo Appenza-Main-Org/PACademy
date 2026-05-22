@@ -36,6 +36,19 @@ public sealed class AuditController(AdminRecordsService records, IAuditDbContext
     public async Task<ActionResult<IReadOnlyList<string>>> EntityTypes(CancellationToken ct) =>
         Ok((await AuditRowsAsync(ct)).Select(x => AdminRecordJson.StringProp(x, "entityType") ?? AdminRecordJson.StringProp(x, "entity")).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList());
 
+    [HttpGet("api/audit/actions")]
+    public async Task<ActionResult<IReadOnlyList<AuditActionOption>>> Actions(CancellationToken ct) =>
+        Ok((await AuditRowsAsync(ct))
+            .Select(x => new AuditActionOption(
+                AdminRecordJson.StringProp(x, "action") ?? "",
+                AdminRecordJson.StringProp(x, "actionLabel") ?? AdminRecordJson.StringProp(x, "action") ?? "",
+                AdminRecordJson.StringProp(x, "actionColor") ?? "neutral"))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Action))
+            .GroupBy(x => x.Action)
+            .Select(g => g.First())
+            .OrderBy(x => x.Label)
+            .ToList());
+
     [HttpGet("api/audit/modules")]
     public async Task<ActionResult<IReadOnlyList<string>>> Modules(CancellationToken ct) =>
         Ok((await AuditRowsAsync(ct)).Select(x => AdminRecordJson.StringProp(x, "module")).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList());
@@ -45,8 +58,16 @@ public sealed class AuditController(AdminRecordsService records, IAuditDbContext
         Ok((await AuditRowsAsync(ct)).Select(x => AdminRecordJson.StringProp(x, "role")).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList());
 
     [HttpGet("api/audit/users")]
-    public async Task<ActionResult<IReadOnlyList<string>>> Users(CancellationToken ct) =>
-        Ok((await AuditRowsAsync(ct)).Select(x => AdminRecordJson.StringProp(x, "userName")).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList());
+    public async Task<ActionResult<IReadOnlyList<AuditUserOption>>> Users(CancellationToken ct) =>
+        Ok((await AuditRowsAsync(ct))
+            .Select(x => new AuditUserOption(
+                AdminRecordJson.StringProp(x, "userId") ?? AdminRecordJson.StringProp(x, "userName") ?? "",
+                AdminRecordJson.StringProp(x, "userName") ?? AdminRecordJson.StringProp(x, "userId") ?? ""))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Id) && !string.IsNullOrWhiteSpace(x.Name))
+            .GroupBy(x => x.Id)
+            .Select(g => g.First())
+            .OrderBy(x => x.Name)
+            .ToList());
 
     [HttpGet("api/audit/{id}")]
     public async Task<ActionResult<JsonObject?>> Get(string id, CancellationToken ct)
@@ -105,3 +126,7 @@ public sealed class AuditController(AdminRecordsService records, IAuditDbContext
         }
     }
 }
+
+public sealed record AuditActionOption(string Action, string Label, string Color);
+
+public sealed record AuditUserOption(string Id, string Name);

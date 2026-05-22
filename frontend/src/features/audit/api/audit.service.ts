@@ -5,6 +5,7 @@
  *   GET /api/audit
  *   GET /api/audit/:id
  *   GET /api/audit/:id/diff
+ *   GET /api/audit/actions
  *   GET /api/audit/entity-types
  *   GET /api/audit/modules
  *   GET /api/audit/roles
@@ -13,7 +14,7 @@
  */
 
 import { apiClient } from '@/shared/lib/api-client';
-import type { AuditAction, AuditDiff, AuditEntry, AuditModule } from '@/shared/types/domain';
+import type { AuditAction, AuditColor, AuditDiff, AuditEntry, AuditModule } from '@/shared/types/domain';
 
 export interface AuditFilters {
   action?: AuditAction | 'all';
@@ -27,6 +28,12 @@ export interface AuditFilters {
   to?: string;
   search?: string;
   limit?: number;
+}
+
+export interface AuditActionOption {
+  action: AuditAction;
+  label: string;
+  color: AuditColor;
 }
 
 export const auditService = {
@@ -44,6 +51,10 @@ export const auditService = {
 
   async getEntityTypes(): Promise<string[]> {
     return apiClient.get('/api/audit/entity-types');
+  },
+
+  async getActions(): Promise<AuditActionOption[]> {
+    return apiClient.get('/api/audit/actions');
   },
 
   async getModules(): Promise<AuditModule[]> {

@@ -11,6 +11,7 @@ export const applicantKeys = {
   details: () => [...applicantKeys.all, 'detail'] as const,
   detail: (id: string) => [...applicantKeys.details(), id] as const,
   stats: () => [...applicantKeys.all, 'stats'] as const,
+  statusOptions: () => [...applicantKeys.all, 'status-options'] as const,
   timeline: (id: string) => [...applicantKeys.all, 'timeline', id] as const,
   distribution: (field: 'governorate' | 'certType' | 'status') =>
     [...applicantKeys.all, 'distribution', field] as const,
@@ -38,6 +39,13 @@ export function useApplicantStats() {
   return useQuery({
     queryKey: applicantKeys.stats(),
     queryFn: () => applicantService.getStats(),
+  });
+}
+
+export function useApplicantStatusOptions() {
+  return useQuery({
+    queryKey: applicantKeys.statusOptions(),
+    queryFn: () => applicantService.getStatusOptions(),
   });
 }
 

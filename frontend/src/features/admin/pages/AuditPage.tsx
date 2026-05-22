@@ -21,13 +21,13 @@ import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
 import {
   AuditDiffDrawer,
+  useAuditActions,
   useAuditEntityTypes,
   useAuditLog,
   useAuditModules,
   useAuditRoles,
   useAuditUsers,
 } from '@/features/audit';
-import { AUDIT_ACTIONS } from '@/shared/mock-data/dictionaries';
 import type { ApplicantStatus, AuditAction, AuditEntry, AuditModule } from '@/shared/types/domain';
 
 const STATUS_LABEL: Record<ApplicantStatus, string> = {
@@ -171,11 +171,16 @@ export function AuditPage(): JSX.Element {
   };
 
   const { data, isLoading } = useAuditLog(filters);
+  const actionsQuery = useAuditActions();
   const { data: entityTypes } = useAuditEntityTypes();
   const { data: modules } = useAuditModules();
   const { data: roles } = useAuditRoles();
   const { data: users } = useAuditUsers();
   const [openEntry, setOpenEntry] = useState<AuditEntry | null>(null);
+  const auditActionOptions = useMemo(
+    () => (actionsQuery.data ?? []).map((a) => ({ value: a.action, label: a.label })),
+    [actionsQuery.data],
+  );
 
   const visible = (data ?? []).filter((e) =>
     !search ? true : e.details.includes(search) || e.userName.includes(search) || e.entityId.includes(search),
@@ -228,7 +233,7 @@ export function AuditPage(): JSX.Element {
       filter: {
         kind: 'enum',
         getValue: (e) => e.action,
-        options: AUDIT_ACTIONS.map((a) => ({ value: a.action, label: a.label })),
+        options: auditActionOptions,
       },
       render: (e) => <Badge tone={e.actionColor}>{e.actionLabel}</Badge>,
     },
@@ -314,9 +319,11 @@ export function AuditPage(): JSX.Element {
             label="نوع الإجراء"
             value={action}
             onChange={(e) => setAction(e.target.value as AuditAction | 'all')}
+            disabled={actionsQuery.isLoading}
+            helper={actionsQuery.isError ? 'تعذر تحميل قائمة الإجراءات من الخادم' : undefined}
             options={[
               { value: 'all', label: 'كل الإجراءات' },
-              ...AUDIT_ACTIONS.map((a) => ({ value: a.action, label: a.label })),
+              ...auditActionOptions,
             ]}
           />
           <Select
