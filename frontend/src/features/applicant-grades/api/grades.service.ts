@@ -24,6 +24,7 @@ import type {
   CommittedImport,
   GradeRow,
   ImportCommitResult,
+  ImportCommitProgress,
   ImportGroupAction,
   ImportReport,
   ImportResolution,
@@ -32,6 +33,7 @@ import type {
 } from '../types';
 
 const GRADES_API = '/api/grades';
+const IMPORT_COMMIT_CHUNK_SIZE = 5000;
 
 export type ApplicantGradesSortKey =
   | keyof GradeRow
@@ -198,8 +200,38 @@ export const gradesService = {
     selectedSchoolCategories: string[];
     maxGradeByCategory: Record<string, number>;
     perGroupActions: Partial<Record<string, ImportGroupAction>>;
+    onProgress?: (progress: ImportCommitProgress) => void;
   }): Promise<ImportCommitResult> {
-    return apiClient.post(`${GRADES_API}/v2/commit`, input);
+    const { rows, onProgress, ...payload } = input;
+    const totalRows = rows.length;
+    const aggregate: ImportCommitResult = {
+      insertedCount: 0,
+      failedCount: 0,
+      alreadyImportedCount: 0,
+    };
+
+    if (totalRows === 0) {
+      onProgress?.({ processedRows: 0, totalRows, ...aggregate });
+      return aggregate;
+    }
+
+    for (let offset = 0; offset < totalRows; offset += IMPORT_COMMIT_CHUNK_SIZE) {
+      const chunk = rows.slice(offset, offset + IMPORT_COMMIT_CHUNK_SIZE);
+      const result = await apiClient.post<ImportCommitResult>(
+        `${GRADES_API}/v2/commit`,
+        { ...payload, rows: chunk },
+      );
+      aggregate.insertedCount += result.insertedCount;
+      aggregate.failedCount += result.failedCount;
+      aggregate.alreadyImportedCount += result.alreadyImportedCount;
+      onProgress?.({
+        processedRows: Math.min(offset + chunk.length, totalRows),
+        totalRows,
+        ...aggregate,
+      });
+    }
+
+    return aggregate;
   },
 
   async listPaginated(input: FilterInput & {

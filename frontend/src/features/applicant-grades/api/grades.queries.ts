@@ -16,6 +16,7 @@ import type {
   ApplicantGender,
   CommittedImport,
   ImportCommitResult,
+  ImportCommitProgress,
   ImportGroupAction,
   ImportGroupCode,
   ImportReport,
@@ -190,6 +191,7 @@ export function useApplicantGradesCommit() {
         | { action: 'pick-row'; pickedSourceRowIndex: number }
         | { action: 'reject' }
       >;
+      onProgress?: (progress: ImportCommitProgress) => void;
     }): Promise<ImportCommitResult> => gradesService.runImportCommit(input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: gradesKeys.all });

@@ -36,7 +36,7 @@ import { Step4Filters } from '../components/importWizard/steps/Step4Filters';
 import { Step5DuplicateReview } from '../components/importWizard/steps/Step5DuplicateReview';
 import { Step6ChangesReview } from '../components/importWizard/steps/Step6ChangesReview';
 import { Step6Result } from '../components/importWizard/steps/Step6Result';
-import type { ImportGroupCode } from '../types';
+import type { ImportCommitProgress, ImportGroupCode } from '../types';
 
 type StepIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -74,6 +74,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
 
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [showStep1Errors, setShowStep1Errors] = useState(false);
+  const [commitProgress, setCommitProgress] = useState<ImportCommitProgress | null>(null);
   const commit = useApplicantGradesCommit();
 
   /* Safety rail: the `File` + `ParsedSheet` slices of the store are
@@ -133,6 +134,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   }
 
   function handleCancel(): void {
+    if (commit.isPending) return;
     if (parsed != null) {
       setConfirmCancel(true);
       return;
@@ -149,6 +151,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
     if (step < 7) setStep((step + 1) as StepIndex);
   }
   function back(): void {
+    if (commit.isPending) return;
     if (step > 1) setStep((step - 1) as StepIndex);
   }
 
@@ -177,6 +180,13 @@ export function ApplicantGradesImportPage(): JSX.Element {
     for (const [nid, decision] of Object.entries(existingDiffDecisions)) {
       if (decision === 'accept') acceptedDiffDecisions[nid] = 'accept';
     }
+    setCommitProgress({
+      processedRows: 0,
+      totalRows: rows.length,
+      insertedCount: 0,
+      failedCount: 0,
+      alreadyImportedCount: 0,
+    });
     commit.mutate(
       {
         rows,
@@ -186,6 +196,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         perGroupActions: actions,
         existingDiffDecisions: acceptedDiffDecisions,
         uploadDuplicateDecisions,
+        onProgress: setCommitProgress,
       },
       {
         onSuccess: (res) => {
@@ -202,6 +213,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         },
         onError: () => {
           toast('تعذّر إكمال الاستيراد. حاول مرة أخرى.', 'danger');
+          setCommitProgress(null);
         },
       },
     );
@@ -222,6 +234,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
             variant="ghost"
             leadingIcon={<X size={14} strokeWidth={1.75} aria-hidden />}
             onClick={handleCancel}
+            disabled={commit.isPending}
           >
             إلغاء الاستيراد
           </Button>
@@ -240,12 +253,16 @@ export function ApplicantGradesImportPage(): JSX.Element {
         {step === 7 && <Step6Result />}
       </section>
 
+      {commitProgress && (
+        <ImportCommitProgressPanel progress={commitProgress} />
+      )}
+
       <footer className="sticky bottom-0 mt-4 flex items-center justify-between gap-3 border-t border-border-subtle bg-white px-6 py-4">
         <Button
           variant="ghost"
           leadingIcon={<ChevronRight size={14} strokeWidth={1.75} aria-hidden />}
           onClick={back}
-          disabled={step === 1}
+          disabled={step === 1 || commit.isPending}
         >
           السابق
         </Button>
@@ -269,6 +286,11 @@ export function ApplicantGradesImportPage(): JSX.Element {
               variant="primary"
               leadingIcon={<Check size={14} strokeWidth={1.75} aria-hidden />}
               isLoading={commit.isPending}
+              loadingLabel={
+                commitProgress
+                  ? `جارٍ استيراد ${commitProgress.processedRows.toLocaleString('en')} / ${commitProgress.totalRows.toLocaleString('en')}`
+                  : 'جارٍ الاستيراد…'
+              }
               onClick={commitImport}
             >
               تأكيد الاستيراد
@@ -289,6 +311,58 @@ export function ApplicantGradesImportPage(): JSX.Element {
           bailToList();
         }}
       />
+    </div>
+  );
+}
+
+function ImportCommitProgressPanel({
+  progress,
+}: {
+  progress: ImportCommitProgress;
+}): JSX.Element {
+  const pct =
+    progress.totalRows > 0
+      ? Math.min(100, Math.round((progress.processedRows / progress.totalRows) * 100))
+      : 0;
+
+  return (
+    <div
+      className="mt-4 rounded-md border border-teal-200 bg-teal-50 px-4 py-3"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-teal-800">
+        <span className="font-semibold">جارٍ كتابة الصفوف في قاعدة البيانات</span>
+        <span className="font-en tabular-nums" dir="ltr">
+          {progress.processedRows.toLocaleString('en')} / {progress.totalRows.toLocaleString('en')} · {pct}%
+        </span>
+      </div>
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white">
+        <div
+          className="h-full rounded-full bg-teal-500 transition-[inline-size] duration-base ease-standard"
+          style={{ inlineSize: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-2 grid gap-2 text-2xs text-teal-700 sm:grid-cols-3">
+        <span>
+          تم إدخال:{' '}
+          <b className="font-en tabular-nums" dir="ltr">
+            {progress.insertedCount.toLocaleString('en')}
+          </b>
+        </span>
+        <span>
+          موجود مسبقًا:{' '}
+          <b className="font-en tabular-nums" dir="ltr">
+            {progress.alreadyImportedCount.toLocaleString('en')}
+          </b>
+        </span>
+        <span>
+          مرفوض:{' '}
+          <b className="font-en tabular-nums" dir="ltr">
+            {progress.failedCount.toLocaleString('en')}
+          </b>
+        </span>
+      </div>
     </div>
   );
 }

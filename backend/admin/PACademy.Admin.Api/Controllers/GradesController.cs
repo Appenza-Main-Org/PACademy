@@ -13,6 +13,9 @@ namespace PACademy.Admin.Api.Controllers;
 [Route("")]
 public sealed class GradesController(AdminRecordsService records) : ControllerBase
 {
+    private const int ImportCommitBatchSize = 5000;
+    private const int PreflightFailureSampleLimit = 1000;
+
     [HttpGet("api/grades")]
     public async Task<ActionResult<object>> List([FromQuery] int? page, [FromQuery] int? pageSize, [FromQuery] int? size, CancellationToken ct)
     {
@@ -131,6 +134,7 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
     {
         var inputRows = body["rows"]?.AsArray() ?? [];
         var failures = new List<JsonObject>();
+        var failureCount = 0;
         foreach (var row in inputRows.OfType<JsonObject>())
         {
             var missing = string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(row, "nationalId")) ||
@@ -138,6 +142,8 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
                           row["totalGrade"] is null;
             if (missing)
             {
+                failureCount++;
+                if (failures.Count >= PreflightFailureSampleLimit) continue;
                 failures.Add(new JsonObject
                 {
                     ["nationalId"] = row["nationalId"]?.DeepClone(),
@@ -154,11 +160,11 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
             totals = new
             {
                 received = inputRows.Count,
-                imported = inputRows.Count - failures.Count,
+                imported = inputRows.Count - failureCount,
                 skipped = 0,
-                failed = failures.Count
+                failed = failureCount
             },
-            groups = failures.Count == 0
+            groups = failureCount == 0
                 ? Array.Empty<object>()
                 : new object[]
                 {
@@ -178,11 +184,21 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
     {
         var inputRows = body["rows"]?.AsArray() ?? [];
         var graduationYear = body["graduationYear"]?.GetValue<int?>() ?? DateTimeOffset.UtcNow.Year;
-        var existing = await records.ListAsync("grades", ct);
-        var existingNids = existing.Select(x => AdminRecordJson.StringProp(x, "nid")).Where(x => x is not null).ToHashSet();
+        var (existingNids, nextSeatValue) = await records.GradesImportIndexAsync(ct);
         var inserted = 0;
-        var skipped = 0;
-        var nextSeat = existing.Select(x => (int)(AdminRecordJson.NumberProp(x, "seat") ?? 0)).DefaultIfEmpty(0).Max() + 1;
+        var failed = 0;
+        var alreadyImported = 0;
+        var nextSeat = nextSeatValue;
+        var batch = new List<JsonObject>(ImportCommitBatchSize);
+
+        async Task FlushBatchAsync()
+        {
+            if (batch.Count == 0) return;
+            await records.InsertManyAsync("grades", batch, ct, ImportCommitBatchSize);
+            inserted += batch.Count;
+            batch.Clear();
+        }
+
         foreach (var row in inputRows.OfType<JsonObject>())
         {
             var nid = AdminRecordJson.StringProp(row, "nationalId");
@@ -190,21 +206,37 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
             var total = row["totalGrade"]?.GetValue<double?>();
             if (string.IsNullOrWhiteSpace(nid) || string.IsNullOrWhiteSpace(name) || total is null)
             {
-                skipped++;
+                failed++;
                 continue;
             }
             if (existingNids.Contains(nid))
             {
-                skipped++;
+                alreadyImported++;
                 continue;
             }
             var seat = nextSeat++;
+            if (row["maxGrade"] is null && MaxGradeForRow(row, body) is double maxGrade)
+            {
+                row["maxGrade"] = maxGrade;
+            }
             var grade = GradeFromImportRow(row, seat, nid, name, total.Value, graduationYear);
-            await records.UpsertAsync("grades", seat.ToString(), grade, ct);
+            batch.Add(grade);
             existingNids.Add(nid);
-            inserted++;
+            if (batch.Count >= ImportCommitBatchSize) await FlushBatchAsync();
         }
-        return Ok(new { insertedCount = inserted, failedCount = skipped, alreadyImportedCount = 0 });
+
+        await FlushBatchAsync();
+        if (inserted > 0)
+        {
+            await records.AddBulkAuditRecordAsync(
+                "grades",
+                "bulk_import",
+                $"grades-import-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}",
+                $"grades.bulk_import · inserted={inserted}, failed={failed}, alreadyImported={alreadyImported}",
+                ct);
+        }
+
+        return Ok(new { insertedCount = inserted, failedCount = failed, alreadyImportedCount = alreadyImported });
     }
 
     [HttpPost("api/grades/import/file")]
@@ -347,6 +379,14 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         ["status"] = "مستجد",
         ["log"] = new JsonArray()
     };
+
+    private static double? MaxGradeForRow(JsonObject row, JsonObject body)
+    {
+        var category = AdminRecordJson.StringProp(row, "schoolCategory");
+        if (string.IsNullOrWhiteSpace(category)) return null;
+        if (body["maxGradeByCategory"] is not JsonObject maxByCategory) return null;
+        return maxByCategory[category]?.GetValue<double?>();
+    }
 
     private static async Task<IReadOnlyList<JsonObject>> ParseCsvAsync(Stream stream, CancellationToken ct)
     {

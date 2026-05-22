@@ -6,6 +6,8 @@ namespace PACademy.Admin.Api.Modules.AdminRecords;
 
 public sealed class AdminRecordsService(IAdminRecordsDbContext db, IHttpContextAccessor httpContextAccessor)
 {
+    private const int DefaultBulkBatchSize = 5000;
+
     public async Task<IReadOnlyList<JsonObject>> ListAsync(string module, CancellationToken ct)
     {
         var rows = await db.AdminRecords.AsNoTracking().Where(x => x.Module == module).OrderBy(x => x.Id).ToListAsync(ct);
@@ -61,6 +63,90 @@ public sealed class AdminRecordsService(IAdminRecordsDbContext db, IHttpContextA
         AddAuditRecord(module, isCreate ? "create" : "update", id, payload, now);
         await db.SaveChangesAsync(ct);
         return ToJson(row);
+    }
+
+    public async Task<(HashSet<string> Nids, int NextSeat)> GradesImportIndexAsync(CancellationToken ct)
+    {
+        var nids = new HashSet<string>(StringComparer.Ordinal);
+        var maxSeat = 0;
+
+        await foreach (var payloadJson in db.AdminRecords
+            .AsNoTracking()
+            .Where(x => x.Module == "grades")
+            .Select(x => x.PayloadJson)
+            .AsAsyncEnumerable()
+            .WithCancellation(ct))
+        {
+            var payload = AdminRecordJson.Parse(payloadJson);
+            var nid = AdminRecordJson.StringProp(payload, "nid");
+            if (!string.IsNullOrWhiteSpace(nid)) nids.Add(nid);
+            maxSeat = Math.Max(maxSeat, (int)(AdminRecordJson.NumberProp(payload, "seat") ?? 0));
+        }
+
+        return (nids, maxSeat + 1);
+    }
+
+    public async Task<int> InsertManyAsync(
+        string module,
+        IReadOnlyList<JsonObject> payloads,
+        CancellationToken ct,
+        int batchSize = DefaultBulkBatchSize)
+    {
+        if (payloads.Count == 0) return 0;
+
+        var context = db as DbContext;
+        var previousAutoDetectChanges = context?.ChangeTracker.AutoDetectChangesEnabled;
+        if (context is not null) context.ChangeTracker.AutoDetectChangesEnabled = false;
+
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var inserted = 0;
+
+            for (var offset = 0; offset < payloads.Count; offset += batchSize)
+            {
+                var count = Math.Min(batchSize, payloads.Count - offset);
+                var entities = new List<AdminRecordEntity>(count);
+                for (var i = offset; i < offset + count; i++)
+                {
+                    var payload = payloads[i];
+                    var id = AdminRecordJson.StringProp(payload, "id")
+                        ?? throw new InvalidOperationException("Bulk admin record payload is missing id.");
+                    entities.Add(new AdminRecordEntity
+                    {
+                        Module = module,
+                        Id = id,
+                        PayloadJson = payload.ToJsonString(AdminRecordJson.Options),
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    });
+                }
+
+                db.AdminRecords.AddRange(entities);
+                inserted += await db.SaveChangesAsync(ct);
+                context?.ChangeTracker.Clear();
+            }
+
+            return inserted;
+        }
+        finally
+        {
+            if (context is not null && previousAutoDetectChanges is not null)
+            {
+                context.ChangeTracker.AutoDetectChangesEnabled = previousAutoDetectChanges.Value;
+            }
+        }
+    }
+
+    public async Task AddBulkAuditRecordAsync(
+        string module,
+        string action,
+        string entityId,
+        string details,
+        CancellationToken ct)
+    {
+        AddAuditSummaryRecord(module, action, entityId, details, DateTimeOffset.UtcNow);
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task<bool> DeleteAsync(string module, string id, CancellationToken ct)
@@ -167,6 +253,41 @@ public sealed class AdminRecordsService(IAdminRecordsDbContext db, IHttpContextA
             ["entityType"] = module,
             ["entityId"] = entityId,
             ["details"] = $"{module}.{action} · {entityName}",
+            ["timestamp"] = now.ToUnixTimeMilliseconds(),
+            ["ip"] = ip
+        };
+        db.AdminRecords.Add(new AdminRecordEntity
+        {
+            Module = "audit",
+            Id = auditId,
+            PayloadJson = audit.ToJsonString(AdminRecordJson.Options),
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+    }
+
+    private void AddAuditSummaryRecord(string module, string action, string entityId, string details, DateTimeOffset now)
+    {
+        if (module == "audit") return;
+
+        var userId = httpContextAccessor.HttpContext?.Request.Headers["X-User-Id"].FirstOrDefault() ?? "system";
+        var userName = httpContextAccessor.HttpContext?.Request.Headers["X-User-Name"].FirstOrDefault() ?? "النظام";
+        var ip = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "local";
+        var auditId = $"AUD-BE-{now:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}"[..39];
+        var audit = new JsonObject
+        {
+            ["id"] = auditId,
+            ["userId"] = userId,
+            ["userName"] = userName,
+            ["role"] = httpContextAccessor.HttpContext?.Request.Headers["X-User-Role"].FirstOrDefault() ?? "system",
+            ["module"] = module,
+            ["action"] = $"{module}.{action}",
+            ["actionLabel"] = "استيراد جماعي",
+            ["actionColor"] = "success",
+            ["entity"] = module,
+            ["entityType"] = module,
+            ["entityId"] = entityId,
+            ["details"] = details,
             ["timestamp"] = now.ToUnixTimeMilliseconds(),
             ["ip"] = ip
         };

@@ -238,3 +238,11 @@ export interface ImportCommitResult {
    *  flow instead. */
   alreadyImportedCount: number;
 }
+
+export interface ImportCommitProgress {
+  processedRows: number;
+  totalRows: number;
+  insertedCount: number;
+  failedCount: number;
+  alreadyImportedCount: number;
+}
