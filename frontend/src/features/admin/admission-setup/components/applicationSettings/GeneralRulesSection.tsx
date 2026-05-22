@@ -892,7 +892,7 @@ function SpecializedOfficersWorkspace({
                       'flex w-full cursor-pointer items-center justify-between gap-3 border-b border-border-subtle px-4 py-4 text-start transition-colors duration-fast',
                       'focus-visible:outline-none focus-visible:shadow-focus-teal',
                       isSelected
-                        ? 'bg-accent-50 shadow-[inset_0_0_0_1px_var(--accent-500)]'
+                        ? 'border-s-4 border-s-teal-600 bg-teal-50'
                         : 'bg-surface-card hover:bg-ink-50/70',
                     )}
                   >
@@ -902,14 +902,6 @@ function SpecializedOfficersWorkspace({
                           checked={isSelected}
                           onCheckedChange={() => handleSpecToggle(spec.code)}
                           aria-label={`اختيار ${spec.name}`}
-                          className={cn(
-                            'rounded-lg p-1 transition-colors duration-fast',
-                            '[&_[role=checkbox]]:size-5 [&_[role=checkbox]]:rounded-md [&_[role=checkbox]]:border-2',
-                            '[&_[role=checkbox]]:shadow-xs',
-                            isSelected
-                              ? 'bg-surface-card text-accent-600 shadow-[0_0_0_3px_var(--accent-50)]'
-                              : 'bg-transparent text-ink-500',
-                          )}
                         />
                       </span>
                       <span className="min-w-0">
