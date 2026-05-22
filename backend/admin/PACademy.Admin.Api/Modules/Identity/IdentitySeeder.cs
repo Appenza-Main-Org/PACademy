@@ -8,7 +8,6 @@ public sealed class IdentitySeeder(IWebHostEnvironment environment, ILogger<Iden
 {
     public async Task SeedAsync(IIdentityDbContext db, CancellationToken ct = default)
     {
-        if (await db.Users.AnyAsync(ct)) return;
         var path = Path.Combine(environment.ContentRootPath, "SeedData", "identity.seed.json");
         await using var stream = File.OpenRead(path);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -18,9 +17,11 @@ public sealed class IdentitySeeder(IWebHostEnvironment environment, ILogger<Iden
         foreach (var officer in root.GetProperty("officers").EnumerateArray())
         {
             var obj = JsonNode.Parse(officer.GetRawText())!.AsObject();
+            var nationalId = IdentityJson.StringProp(obj, "nationalId")!;
+            if (await db.Officers.AnyAsync(x => x.NationalId == nationalId, ct)) continue;
             db.Officers.Add(new OfficerEntity
             {
-                NationalId = IdentityJson.StringProp(obj, "nationalId")!,
+                NationalId = nationalId,
                 FullArabicName = IdentityJson.StringProp(obj, "fullArabicName")!,
                 OfficerCode = IdentityJson.StringProp(obj, "officerCode")!,
                 MobileNumber = IdentityJson.StringProp(obj, "mobileNumber")!,
@@ -31,10 +32,12 @@ public sealed class IdentitySeeder(IWebHostEnvironment environment, ILogger<Iden
         foreach (var role in root.GetProperty("roles").EnumerateArray())
         {
             var obj = JsonNode.Parse(role.GetRawText())!.AsObject();
+            var key = IdentityJson.StringProp(obj, "key")!;
+            if (await db.Roles.AnyAsync(x => x.Key == key, ct)) continue;
             db.Roles.Add(new RoleEntity
             {
                 Id = IdentityJson.StringProp(obj, "id")!,
-                Key = IdentityJson.StringProp(obj, "key")!,
+                Key = key,
                 LabelAr = IdentityJson.StringProp(obj, "labelAr")!,
                 IsSystem = IdentityJson.BoolProp(obj, "isSystem") ?? true,
                 PayloadJson = obj.ToJsonString(IdentityJson.Options),
@@ -46,10 +49,12 @@ public sealed class IdentitySeeder(IWebHostEnvironment environment, ILogger<Iden
         foreach (var user in root.GetProperty("users").EnumerateArray())
         {
             var obj = JsonNode.Parse(user.GetRawText())!.AsObject();
+            var nationalId = IdentityJson.StringProp(obj, "nationalId")!;
+            if (await db.Users.AnyAsync(x => x.NationalId == nationalId, ct)) continue;
             db.Users.Add(new UserEntity
             {
                 Id = IdentityJson.StringProp(obj, "id")!,
-                NationalId = IdentityJson.StringProp(obj, "nationalId")!,
+                NationalId = nationalId,
                 FullArabicName = IdentityJson.StringProp(obj, "fullArabicName")!,
                 Role = IdentityJson.StringProp(obj, "role")!,
                 AccountStatus = IdentityJson.StringProp(obj, "accountStatus")!,
@@ -60,6 +65,6 @@ public sealed class IdentitySeeder(IWebHostEnvironment environment, ILogger<Iden
         }
 
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded identity data");
+        logger.LogInformation("Seeded missing identity data");
     }
 }

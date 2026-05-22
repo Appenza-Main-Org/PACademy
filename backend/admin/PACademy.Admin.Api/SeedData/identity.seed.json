@@ -297,6 +297,13 @@
       "officerCode": "CTR-3002",
       "mobileNumber": "01533221100",
       "userType": "contractor"
+    },
+    {
+      "nationalId": "28705260103619",
+      "fullArabicName": "Mohamed Ghareeb",
+      "officerCode": "OFF-1009",
+      "mobileNumber": "01119441198",
+      "userType": "officer"
     }
   ],
   "users": [
@@ -318,6 +325,25 @@
       "accountStatus": "active",
       "createdAt": "2026-02-20T00:00:00.000Z",
       "updatedAt": "2026-02-20T00:00:00.000Z"
+    },
+    {
+      "id": "U-011",
+      "name": "Mohamed Ghareeb",
+      "role": "super_admin",
+      "active": true,
+      "status": "active",
+      "lastLogin": null,
+      "nationalId": "28705260103619",
+      "fullArabicName": "Mohamed Ghareeb",
+      "officerCode": "OFF-1009",
+      "mobileNumber": "01119441198",
+      "userType": "officer",
+      "roles": [
+        "super_admin"
+      ],
+      "accountStatus": "active",
+      "createdAt": "2026-05-23T00:00:00.000Z",
+      "updatedAt": "2026-05-23T00:00:00.000Z"
     },
     {
       "id": "U-002",
