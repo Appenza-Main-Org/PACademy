@@ -1,10 +1,12 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Shared.Audit;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.Admissions;
 
-public sealed class CyclesService(IAdmissionsDbContext db)
+public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
 {
     public async Task<IReadOnlyList<JsonObject>> ListAsync(bool includeDeleted, CancellationToken ct)
     {
@@ -48,6 +50,7 @@ public sealed class CyclesService(IAdmissionsDbContext db)
 
         db.AdmissionCycles.Add(entity);
         await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("create", id, $"إنشاء دورة قبول · {entity.NameAr}", ct);
         return ToJson(entity);
     }
 
@@ -60,6 +63,7 @@ public sealed class CyclesService(IAdmissionsDbContext db)
             await EnsureNoOtherActiveAsync(id, ct);
         Apply(entity, obj);
         await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("update", id, $"تحديث دورة قبول · {entity.NameAr}", ct);
         return ToJson(entity);
     }
 
@@ -85,6 +89,7 @@ public sealed class CyclesService(IAdmissionsDbContext db)
         obj["status"] = "active";
         Apply(entity, obj);
         await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("activate", id, $"تفعيل دورة قبول · {entity.NameAr}", ct);
         return ToJson(entity);
     }
 
@@ -98,6 +103,7 @@ public sealed class CyclesService(IAdmissionsDbContext db)
         if (status is "active" or "open") obj["isActive"] = true;
         Apply(entity, obj);
         await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("transition", id, $"تغيير حالة دورة قبول إلى {status} · {entity.NameAr}", ct);
         return ToJson(entity);
     }
 
@@ -112,6 +118,49 @@ public sealed class CyclesService(IAdmissionsDbContext db)
         obj["openCategories"] = openCategories;
         Apply(entity, obj);
         await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("update_category", id, $"تحديث فئة {key} داخل دورة {entity.NameAr}", ct);
+        return ToJson(entity);
+    }
+
+    public async Task<object> DependenciesAsync(string id, CancellationToken ct)
+    {
+        var cycle = await FindAsync(id, ct);
+        var cycleJson = ToJson(cycle);
+        var year = AdmissionJson.IntProp(cycleJson, "year") ?? cycle.Year;
+        var applicants = await CountApplicantsForCycleAsync(id, year, ct);
+        var committees = await CountRecordsForCycleAsync("committeeInstances", id, ct)
+            + await CountRecordsForCycleAsync("committees", id, ct);
+        var examPlans = await CountRecordsForCycleAsync("examPlans", id, ct);
+        var workflows = await CountRecordsForCycleAsync("workflows", id, ct);
+        return new
+        {
+            counts = new { applicants, committees, examPlans, workflows },
+            blocking = applicants > 0 || committees > 0 || examPlans > 0 || workflows > 0
+        };
+    }
+
+    public async Task<object> DeleteAsync(string id, CancellationToken ct)
+    {
+        var dependencies = await DependenciesAsync(id, ct);
+        if (IsBlocking(dependencies)) throw new ConflictException(ErrorCodes.InUse, "لا يمكن حذف دورة مرتبطة بسجلات تشغيلية");
+        var entity = await FindAsync(id, ct);
+        db.AdmissionCycles.Remove(entity);
+        await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("delete", id, $"حذف دورة قبول · {entity.NameAr}", ct);
+        return new { deleted = true, id };
+    }
+
+    public async Task<object> SoftDeleteAsync(string id, CancellationToken ct)
+    {
+        var dependencies = await DependenciesAsync(id, ct);
+        if (IsBlocking(dependencies)) throw new ConflictException(ErrorCodes.InUse, "لا يمكن أرشفة دورة مرتبطة بسجلات تشغيلية");
+        var entity = await FindAsync(id, ct);
+        var obj = ToJson(entity);
+        obj["deletedAt"] = DateTimeOffset.UtcNow.ToString("O");
+        obj["deletedBy"] = "system";
+        Apply(entity, obj);
+        await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("soft_delete", id, $"أرشفة دورة قبول · {entity.NameAr}", ct);
         return ToJson(entity);
     }
 
@@ -127,6 +176,52 @@ public sealed class CyclesService(IAdmissionsDbContext db)
         if (exists)
             throw new ConflictException(ErrorCodes.ActiveCycleExists, "توجد دورة قبول نشطة بالفعل");
     }
+
+    private async Task<int> CountApplicantsForCycleAsync(string cycleId, int year, CancellationToken ct)
+    {
+        var rows = await db.AdminRecords.AsNoTracking().Where(x => x.Module == "applicants").ToListAsync(ct);
+        return rows.Select(x => AdminRecordJson.Parse(x.PayloadJson)).Count(applicant =>
+            StringProp(applicant, "cycleId") == cycleId ||
+            StringProp(applicant, "admissionCycleId") == cycleId ||
+            RegisteredYear(applicant) == year);
+    }
+
+    private async Task<int> CountRecordsForCycleAsync(string module, string cycleId, CancellationToken ct)
+    {
+        var rows = await db.AdminRecords.AsNoTracking().Where(x => x.Module == module).ToListAsync(ct);
+        return rows.Select(x => AdminRecordJson.Parse(x.PayloadJson)).Count(row =>
+            StringProp(row, "cycleId") == cycleId ||
+            StringProp(row, "admissionCycleId") == cycleId);
+    }
+
+    private static int? RegisteredYear(JsonObject applicant)
+    {
+        var registeredAt = StringProp(applicant, "registeredAt");
+        return DateTimeOffset.TryParse(registeredAt, out var parsed) ? parsed.Year : null;
+    }
+
+    private static bool IsBlocking(object dependencies)
+    {
+        var blocking = dependencies.GetType().GetProperty("blocking")?.GetValue(dependencies);
+        return blocking is true;
+    }
+
+    private async Task EmitAuditAsync(string action, string entityId, string details, CancellationToken ct)
+    {
+        await auditSink.EmitAsync(new AuditEntry(
+            $"AUD-CYCLES-{Guid.NewGuid():N}",
+            "admissions",
+            action,
+            "cycles",
+            entityId,
+            "system",
+            "النظام",
+            details,
+            DateTimeOffset.UtcNow), ct);
+    }
+
+    private static string? StringProp(JsonObject obj, string name) =>
+        obj.TryGetPropertyValue(name, out var node) ? node?.GetValue<string>() : null;
 
     private static void Apply(AdmissionCycleEntity entity, JsonObject obj)
     {

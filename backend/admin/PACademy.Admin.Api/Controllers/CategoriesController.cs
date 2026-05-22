@@ -39,8 +39,8 @@ public sealed class CategoriesController(CategoriesService service) : Controller
     }
 
     [HttpPost("{key}/preview-rule-change")]
-    public ActionResult<object> PreviewRuleChange(string key) =>
-        Ok(new { impactedApplicants = Array.Empty<object>(), conflicts = Array.Empty<object>() });
+    public async Task<ActionResult<object>> PreviewRuleChange(string key, [FromBody] JsonObject? body, CancellationToken ct) =>
+        Ok(await service.PreviewRuleChangeAsync(key, body, ct));
 
     [HttpPatch("{key}/conditions")]
     public async Task<ActionResult<JsonObject>> UpdateConditions(string key, [FromBody] JsonObject body, CancellationToken ct)

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Lookups;
 
@@ -94,5 +95,6 @@ public interface IAdmissionsDbContext
     DbSet<ApplicationSettingsGraduationYearEntity> ApplicationSettingsGraduationYears { get; }
     DbSet<LookupRowEntity> LookupRows { get; }
     DbSet<AuditRowEntity> AuditRows { get; }
+    DbSet<AdminRecordEntity> AdminRecords { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

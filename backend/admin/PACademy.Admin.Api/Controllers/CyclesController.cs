@@ -76,13 +76,16 @@ public sealed class CyclesController(CyclesService service) : ControllerBase
         Ok(await service.TransitionAsync(id, "archived", ct));
 
     [HttpDelete("{id}")]
-    public ActionResult<object> Delete(string id) => Ok(new { deleted = true });
+    public async Task<ActionResult<object>> Delete(string id, CancellationToken ct) =>
+        Ok(await service.DeleteAsync(id, ct));
 
     [HttpGet("{id}/dependencies")]
-    public ActionResult<object> Dependencies(string id) => Ok(new { counts = new { applicants = 0, committees = 0 }, blocking = false });
+    public async Task<ActionResult<object>> Dependencies(string id, CancellationToken ct) =>
+        Ok(await service.DependenciesAsync(id, ct));
 
     [HttpPost("{id}/soft-delete")]
-    public ActionResult<object> SoftDelete(string id) => Ok(new { id, deletedAt = DateTimeOffset.UtcNow });
+    public async Task<ActionResult<object>> SoftDelete(string id, CancellationToken ct) =>
+        Ok(await service.SoftDeleteAsync(id, ct));
 
     [HttpPost("{id}/restore")]
     public async Task<ActionResult<JsonObject>> Restore(string id, CancellationToken ct)
