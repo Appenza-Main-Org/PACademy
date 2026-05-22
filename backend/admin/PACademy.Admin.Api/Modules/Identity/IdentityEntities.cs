@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PACademy.Admin.Api.Modules.Audit;
 
 namespace PACademy.Admin.Api.Modules.Identity;
 
@@ -41,5 +42,6 @@ public interface IIdentityDbContext
     DbSet<UserEntity> Users { get; }
     DbSet<RoleEntity> Roles { get; }
     DbSet<OfficerEntity> Officers { get; }
+    DbSet<AuditRowEntity> AuditRows { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

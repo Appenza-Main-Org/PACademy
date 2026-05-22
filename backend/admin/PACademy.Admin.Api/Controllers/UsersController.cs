@@ -36,13 +36,16 @@ public sealed class UsersController(UsersService service) : ControllerBase
         Ok(await service.UpdateAsync(id, new JsonObject { ["accountStatus"] = "inactive" }, ct));
 
     [HttpPost("{id}/reset-2fa")]
-    public ActionResult<object> Reset2Fa(string id) => Ok(new { ok = true });
+    public async Task<ActionResult<object>> Reset2Fa(string id, CancellationToken ct) =>
+        Ok(await service.Reset2FaAsync(id, ct));
 
     [HttpPost("bulk-assign")]
-    public ActionResult<object> BulkAssign() => Ok(new { updated = 0 });
+    public async Task<ActionResult<object>> BulkAssign([FromBody] JsonObject body, CancellationToken ct) =>
+        Ok(await service.BulkAssignAsync(body, ct));
 
     [HttpPost("bulk-import")]
-    public ActionResult<object> BulkImport() => Ok(new { created = 0, updated = 0, skipped = 0, errors = Array.Empty<object>() });
+    public async Task<ActionResult<object>> BulkImport([FromBody] JsonArray rows, CancellationToken ct) =>
+        Ok(await service.BulkImportAsync(rows, ct));
 
     [HttpPost("from-template")]
     public ActionResult<object> FromTemplate([FromBody] JsonObject body) => Ok(body);

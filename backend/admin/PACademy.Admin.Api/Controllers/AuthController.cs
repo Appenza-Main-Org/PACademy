@@ -3,13 +3,14 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.Identity;
+using PACademy.Shared.Audit;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class AuthController(IIdentityDbContext db) : ControllerBase
+public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) : ControllerBase
 {
     [HttpPost("api/auth/login")]
     [HttpPost("api/auth/login/verify-otp")]
@@ -65,10 +66,55 @@ public sealed class AuthController(IIdentityDbContext db) : ControllerBase
     public ActionResult<object> UpdateLockPolicy([FromBody] JsonObject body) => Ok(body);
 
     [HttpGet("api/auth/lock-policy/locked-users")]
-    public ActionResult<IReadOnlyList<object>> LockedUsers() => Ok(Array.Empty<object>());
+    public async Task<ActionResult<IReadOnlyList<object>>> LockedUsers(CancellationToken ct)
+    {
+        var users = await db.Users.AsNoTracking().Where(x => x.AccountStatus == "locked").ToListAsync(ct);
+        return Ok(users.Select(user =>
+        {
+            var payload = IdentityJson.Parse(user.PayloadJson);
+            return new
+            {
+                userId = user.Id,
+                name = user.FullArabicName,
+                role = user.Role,
+                reason = payload["lockReason"]?.GetValue<string>() ?? "تجاوز محاولات الدخول",
+                lockedAt = payload["lockedAt"]?.GetValue<string>() ?? user.UpdatedAt.ToString("O"),
+                unlocksAt = payload["unlocksAt"]?.GetValue<string?>()
+            };
+        }).ToList());
+    }
 
     [HttpPost("api/auth/lock-policy/unlock")]
-    public ActionResult<object> Unlock() => Ok(new { ok = true });
+    public async Task<ActionResult<object>> Unlock([FromBody] JsonObject body, CancellationToken ct)
+    {
+        var userId = body["userId"]?.GetValue<string>() ?? throw new FluentValidation.ValidationException("userId مطلوب");
+        var user = await db.Users.FirstOrDefaultAsync(x => x.Id == userId, ct)
+            ?? throw new EntityNotFoundException("المستخدم غير موجود");
+        var payload = IdentityJson.Parse(user.PayloadJson);
+        payload["accountStatus"] = "active";
+        payload["status"] = "active";
+        payload["active"] = true;
+        payload["unlockedAt"] = DateTimeOffset.UtcNow.ToString("O");
+        payload["unlockReason"] = body["reason"]?.DeepClone();
+        payload.Remove("lockedAt");
+        payload.Remove("unlocksAt");
+        payload.Remove("lockReason");
+        user.AccountStatus = "active";
+        user.PayloadJson = payload.ToJsonString(IdentityJson.Options);
+        user.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await auditSink.EmitAsync(new AuditEntry(
+            $"AUD-AUTH-{Guid.NewGuid():N}",
+            "auth",
+            "account_unlocked",
+            "users",
+            user.Id,
+            "system",
+            "النظام",
+            $"فتح قفل المستخدم · {user.FullArabicName}",
+            DateTimeOffset.UtcNow), ct);
+        return Ok(new { ok = true, userId = user.Id });
+    }
 
     [HttpGet("v1/officers/lookup")]
     public async Task<ActionResult<object>> LookupOfficer([FromQuery] string? nationalId, [FromQuery] string? nid, [FromQuery] string? code, CancellationToken ct)
