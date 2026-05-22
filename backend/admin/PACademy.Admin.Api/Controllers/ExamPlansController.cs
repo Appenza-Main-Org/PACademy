@@ -79,10 +79,42 @@ public sealed class ExamPlansController(AdminRecordsService records) : Controlle
 
     [HttpPost("api/cycles/{cycleId}/exams/{examId}/results")]
     [HttpPost("api/cycles/{cycleId}/exams/{examId}/device-callback")]
-    public ActionResult<object> ResultEntry() => Ok(new { ok = true });
+    public async Task<ActionResult<object>> ResultEntry(string cycleId, string examId, [FromBody] JsonObject? body, CancellationToken ct)
+    {
+        var payload = body ?? [];
+        var applicantId = AdminRecordJson.StringProp(payload, "applicantId") ?? AdminRecordJson.StringProp(payload, "nationalId") ?? "unknown";
+        var id = AdminRecordJson.StringProp(payload, "id") ?? $"EXR-{cycleId}-{examId}-{applicantId}";
+        payload["id"] = id;
+        payload["cycleId"] = cycleId;
+        payload["examId"] = examId;
+        payload["receivedAt"] = DateTimeOffset.UtcNow.ToString("O");
+        return Ok(await records.UpsertAsync("examResults", id, payload, ct));
+    }
 
     [HttpPost("api/cycles/{cycleId}/exams/{examId}/results/bulk-upload")]
-    public ActionResult<object> BulkUpload() => Ok(new { imported = 0, errors = Array.Empty<object>() });
+    public async Task<ActionResult<object>> BulkUpload(string cycleId, string examId, [FromBody] JsonObject? body, CancellationToken ct)
+    {
+        var rows = body?["rows"] as JsonArray ?? [];
+        var imported = 0;
+        var errors = new JsonArray();
+        foreach (var row in rows.OfType<JsonObject>())
+        {
+            var applicantId = AdminRecordJson.StringProp(row, "applicantId") ?? AdminRecordJson.StringProp(row, "nationalId");
+            if (string.IsNullOrWhiteSpace(applicantId))
+            {
+                errors.Add(new JsonObject { ["row"] = imported + errors.Count + 1, ["message"] = "applicantId مطلوب" });
+                continue;
+            }
+            var id = AdminRecordJson.StringProp(row, "id") ?? $"EXR-{cycleId}-{examId}-{applicantId}";
+            row["id"] = id;
+            row["cycleId"] = cycleId;
+            row["examId"] = examId;
+            row["receivedAt"] = DateTimeOffset.UtcNow.ToString("O");
+            await records.UpsertAsync("examResults", id, row, ct);
+            imported++;
+        }
+        return Ok(new { imported, errors });
+    }
 
     private static string PlanId(string cycleId, string categoryId) => $"EP-{cycleId}-{categoryId}";
 

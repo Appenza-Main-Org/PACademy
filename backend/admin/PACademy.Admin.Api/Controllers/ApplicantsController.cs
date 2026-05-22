@@ -26,7 +26,39 @@ public sealed class ApplicantsController(AdminRecordsService records) : Controll
     }
 
     [HttpGet("api/applicants/{id}/timeline")]
-    public ActionResult<IReadOnlyList<object>> Timeline(string id) => Ok(Array.Empty<object>());
+    public async Task<ActionResult<IReadOnlyList<object>>> Timeline(string id, CancellationToken ct)
+    {
+        var applicant = await records.GetAsync("applicants", id, ct);
+        if (applicant is null) return NotFound();
+        var registeredAt = AdminRecordJson.StringProp(applicant, "registeredAt") ?? DateTimeOffset.UtcNow.ToString("O");
+        var transitions = (await records.ListAsync("workflowTransitions", ct))
+            .Where(x => AdminRecordJson.StringProp(x, "applicantId") == id)
+            .Select(x => new
+            {
+                id = AdminRecordJson.StringProp(x, "id"),
+                at = AdminRecordJson.StringProp(x, "ts") ?? registeredAt,
+                type = "workflow",
+                label = $"{AdminRecordJson.StringProp(x, "fromStatus") ?? "بدء"} ← {AdminRecordJson.StringProp(x, "toStatus") ?? "تحديث"}",
+                actorName = AdminRecordJson.StringProp(x, "actorName") ?? "النظام",
+                details = AdminRecordJson.StringProp(x, "reason") ?? ""
+            })
+            .Cast<object>()
+            .ToList();
+        var timeline = new List<object>
+        {
+            new
+            {
+                id = $"registered-{id}",
+                at = registeredAt,
+                type = "registration",
+                label = "تسجيل ملف المتقدم",
+                actorName = "النظام",
+                details = AdminRecordJson.StringProp(applicant, "name") ?? id
+            }
+        };
+        timeline.AddRange(transitions);
+        return Ok(timeline);
+    }
 
     [HttpGet("api/v1/applicants/check-nid")]
     public async Task<ActionResult<object>> CheckNid([FromQuery] string nationalId, [FromQuery] string? excludeId, CancellationToken ct)
