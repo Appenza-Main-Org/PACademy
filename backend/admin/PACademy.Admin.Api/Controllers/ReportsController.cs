@@ -1,12 +1,14 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Audit;
 
 namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("api/admin/reports")]
-public sealed class ReportsController(AdminRecordsService records) : ControllerBase
+public sealed class ReportsController(AdminRecordsService records, IAuditDbContext auditDb) : ControllerBase
 {
     [HttpGet("cycle-snapshot")]
     public async Task<ActionResult<object>> CycleSnapshot(CancellationToken ct)
@@ -186,7 +188,9 @@ public sealed class ReportsController(AdminRecordsService records) : ControllerB
     [HttpGet("governance")]
     public async Task<ActionResult<object>> Governance(CancellationToken ct)
     {
-        var audit = await records.ListAsync("audit", ct);
+        var audit = (await records.ListAsync("audit", ct))
+            .Concat((await auditDb.AuditRows.AsNoTracking().OrderByDescending(x => x.CreatedAt).Take(500).ToListAsync(ct)).Select(AuditToJson))
+            .ToList();
         var hourly = audit
             .GroupBy(x => DateTimeOffset.FromUnixTimeMilliseconds((long)(AdminRecordJson.NumberProp(x, "timestamp") ?? 0)).ToString("HH"))
             .Select(g => new
@@ -264,4 +268,16 @@ public sealed class ReportsController(AdminRecordsService records) : ControllerB
         new() { ["key"] = "fawry", ["nameAr"] = "فوري", ["status"] = "degraded", ["lastCallRelative"] = "منذ 18 دقيقة", ["callsToday"] = 611 },
         new() { ["key"] = "sms", ["nameAr"] = "بوابة الرسائل", ["status"] = "healthy", ["lastCallRelative"] = "منذ دقيقة", ["callsToday"] = 2031 }
     ];
+
+    private static JsonObject AuditToJson(AuditRowEntity row) => new()
+    {
+        ["id"] = row.Id,
+        ["userName"] = row.ActorName,
+        ["module"] = row.Module,
+        ["action"] = row.Action,
+        ["actionLabel"] = row.Action,
+        ["entityId"] = row.EntityId,
+        ["details"] = row.Details,
+        ["timestamp"] = row.CreatedAt.ToUnixTimeMilliseconds()
+    };
 }
