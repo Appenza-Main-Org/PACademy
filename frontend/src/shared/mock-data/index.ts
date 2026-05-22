@@ -81,8 +81,8 @@ import {
   APPLICANT_CATEGORY_CONFIGS,
   APPLICANT_CATEGORY_SPECIALIZATIONS,
   APPLICANT_SPECIALIZATION_YEARS,
-} from '@/features/admin/admission-setup/mock/appSettings.mock';
-import { EXAM_SCHEDULE_DAYS } from '@/features/admin/admission-setup/mock/examSchedule.mock';
+  EXAM_SCHEDULE_DAYS,
+} from './admissionSetup';
 
 reseed(42);
 

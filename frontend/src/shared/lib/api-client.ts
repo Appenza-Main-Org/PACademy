@@ -30,6 +30,9 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
+const READ_RETRY_DELAYS_MS = [300, 900] as const;
+const TRANSIENT_READ_STATUSES = new Set([502, 503, 504]);
+
 export function isBackendEnabled(): boolean {
   if (import.meta.env.PROD && import.meta.env.VITE_USE_MOCKS === 'true') {
     throw new Error('VITE_USE_MOCKS=true is not allowed in production admin builds.');
@@ -139,6 +142,61 @@ function prepareBody(body: RequestBody, headers: Headers): BodyInit | undefined 
   return JSON.stringify(body);
 }
 
+function shouldRetryRead(method: string, status: number, attempt: number): boolean {
+  return method === 'GET' &&
+    TRANSIENT_READ_STATUSES.has(status) &&
+    attempt < READ_RETRY_DELAYS_MS.length;
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  }
+  return new Promise((resolve, reject) => {
+    const cleanup = () => signal?.removeEventListener('abort', handleAbort);
+    const timeoutId = globalThis.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+    const handleAbort = () => {
+      globalThis.clearTimeout(timeoutId);
+      cleanup();
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    signal?.addEventListener('abort', handleAbort, { once: true });
+  });
+}
+
+async function fetchWithReadRetry(
+  method: string,
+  url: string,
+  init: RequestInit,
+  signal?: AbortSignal,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= READ_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const res = await fetch(url, init);
+      if (shouldRetryRead(method, res.status, attempt)) {
+        await sleep(READ_RETRY_DELAYS_MS[attempt]!, signal);
+        continue;
+      }
+      return res;
+    } catch (error) {
+      const canRetryNetworkError =
+        method === 'GET' &&
+        !isAbortError(error) &&
+        attempt < READ_RETRY_DELAYS_MS.length;
+      if (!canRetryNetworkError) throw error;
+      await sleep(READ_RETRY_DELAYS_MS[attempt]!, signal);
+    }
+  }
+  throw new Error('تعذر الاتصال بالخادم');
+}
+
 async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
@@ -146,12 +204,12 @@ async function request<T>(method: string, path: string, options: RequestOptions 
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const body = prepareBody(options.body, headers);
-  const res = await fetch(`${apiBaseUrl()}${path}${queryString(options.query)}`, {
+  const res = await fetchWithReadRetry(method, `${apiBaseUrl()}${path}${queryString(options.query)}`, {
     method,
     headers,
     body,
     signal: options.signal,
-  });
+  }, options.signal);
   const parsed = await parseResponse(res);
   if (!res.ok) throw toServiceError(res.status, parsed);
   return parsed as T;
@@ -163,11 +221,11 @@ async function requestBlob(path: string, options: RequestOptions = {}): Promise<
   const token = readAuthToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const res = await fetch(`${apiBaseUrl()}${path}${queryString(options.query)}`, {
+  const res = await fetchWithReadRetry('GET', `${apiBaseUrl()}${path}${queryString(options.query)}`, {
     method: 'GET',
     headers,
     signal: options.signal,
-  });
+  }, options.signal);
   if (!res.ok) {
     throw toServiceError(res.status, await parseResponse(res));
   }
