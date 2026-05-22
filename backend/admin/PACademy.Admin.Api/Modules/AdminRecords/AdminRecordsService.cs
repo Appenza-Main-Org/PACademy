@@ -73,6 +73,37 @@ public sealed class AdminRecordsService(IAdminRecordsDbContext db, IHttpContextA
         return true;
     }
 
+    public async Task<int> DeleteFromArrayModulesAsync(string modulePrefix, string arrayName, string id, CancellationToken ct)
+    {
+        var rows = await db.AdminRecords
+            .Where(x => x.Module.StartsWith(modulePrefix))
+            .ToListAsync(ct);
+        var removed = 0;
+        foreach (var row in rows)
+        {
+            var payload = ToJson(row);
+            if (payload[arrayName] is not JsonArray array) continue;
+            var kept = new JsonArray();
+            var rowRemoved = 0;
+            foreach (var item in array.OfType<JsonObject>())
+            {
+                if (AdminRecordJson.StringProp(item, "id") == id)
+                {
+                    rowRemoved++;
+                    continue;
+                }
+                kept.Add(item.DeepClone());
+            }
+            if (rowRemoved == 0) continue;
+            removed += rowRemoved;
+            payload[arrayName] = kept;
+            row.PayloadJson = payload.ToJsonString(AdminRecordJson.Options);
+            row.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+        if (removed > 0) await db.SaveChangesAsync(ct);
+        return removed;
+    }
+
     public async Task<JsonObject> SingletonAsync(string module, JsonObject fallback, CancellationToken ct)
     {
         var row = await db.AdminRecords.AsNoTracking().FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);

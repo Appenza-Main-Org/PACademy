@@ -137,11 +137,47 @@ public sealed class AdmissionSetupController(AdminRecordsService records, Applic
     public async Task<ActionResult<JsonArray>> ExamSchedule(string cycleId, CancellationToken ct)
     {
         var stored = await records.SingletonAsync($"admissionSetup.examSchedule.{cycleId}", new JsonObject { ["cycleId"] = cycleId, ["days"] = new JsonArray() }, ct);
-        return Ok(stored["days"]?.AsArray() ?? new JsonArray());
+        var days = new JsonArray((stored["days"]?.AsArray() ?? []).Select(x => x!.DeepClone()).ToArray());
+        foreach (var day in await ExamScheduleDayRecordsAsync(cycleId, ct))
+        {
+            days.Add(day);
+        }
+        return Ok(days);
     }
 
     [HttpGet("api/admin/exam-schedule/cycles/{cycleId}/aggregate")]
-    public ActionResult<object> ExamScheduleAggregate(string cycleId) => Ok(new { activeCategoryIds = Array.Empty<string>(), days = Array.Empty<object>() });
+    public async Task<ActionResult<object>> ExamScheduleAggregate(string cycleId, CancellationToken ct)
+    {
+        var committeeDays = await records.ListAsync("committeeInstances", ct);
+        var scheduleDays = await ExamScheduleDayRecordsAsync(cycleId, ct);
+        var rows = committeeDays
+            .Concat(scheduleDays)
+            .Where(x => AdminRecordJson.StringProp(x, "cycleId") == cycleId)
+            .ToList();
+        var activeCategoryIds = rows
+            .Select(x => AdminRecordJson.StringProp(x, "categoryKey") ?? AdminRecordJson.StringProp(x, "categoryId"))
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var days = rows
+            .GroupBy(x => AdminRecordJson.StringProp(x, "date") ?? AdminRecordJson.StringProp(x, "day") ?? AdminRecordJson.StringProp(x, "examDate") ?? "")
+            .Where(x => !string.IsNullOrWhiteSpace(x.Key))
+            .OrderBy(x => x.Key)
+            .Select(group => new
+            {
+                date = group.Key,
+                capacity = group.Sum(x => AdminRecordJson.NumberProp(x, "capacity") ?? AdminRecordJson.NumberProp(x, "capacityPerDay") ?? 0),
+                reserved = group.Sum(x => AdminRecordJson.NumberProp(x, "reserved") ?? AdminRecordJson.NumberProp(x, "reservedCount") ?? 0),
+                categoryIds = group
+                    .Select(x => AdminRecordJson.StringProp(x, "categoryKey") ?? AdminRecordJson.StringProp(x, "categoryId"))
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList(),
+                rows = group.Count()
+            })
+            .ToList();
+        return Ok(new { activeCategoryIds, days });
+    }
 
     [HttpPost("api/admin/exam-schedule/cycles/{cycleId}/generate")]
     [HttpPost("api/admin/exam-schedule/cycles/{cycleId}/days")]
@@ -149,16 +185,19 @@ public sealed class AdmissionSetupController(AdminRecordsService records, Applic
     [HttpPost("api/admin/exam-schedule/cycles/{cycleId}/copy-from-category")]
     [HttpPatch("api/admin/exam-schedule/days/{dayId}")]
     [HttpPost("api/admin/exam-schedule/days/{dayId}/toggle-off")]
-    public async Task<ActionResult<JsonObject>> MutateExamSchedule([FromBody] JsonObject? body, CancellationToken ct)
+    public async Task<ActionResult<JsonObject>> MutateExamSchedule(string? cycleId, string? dayId, [FromBody] JsonObject? body, CancellationToken ct)
     {
         var payload = body ?? new JsonObject { ["ok"] = true };
         ValidateCapacity(payload);
+        if (!string.IsNullOrWhiteSpace(cycleId)) payload["cycleId"] = cycleId;
+        if (!string.IsNullOrWhiteSpace(dayId)) payload["id"] = dayId;
         var id = AdminRecordJson.StringProp(payload, "id") ?? $"exam-day-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
         return Ok(await records.UpsertAsync("admissionSetup.examScheduleDays", id, payload, ct));
     }
 
     [HttpDelete("api/admin/exam-schedule/days/{dayId}")]
-    public ActionResult<object> DeleteExamDay() => Ok(new { deleted = true });
+    public async Task<ActionResult<object>> DeleteExamDay(string dayId, CancellationToken ct) =>
+        Ok(new { deleted = await records.DeleteAsync("admissionSetup.examScheduleDays", dayId, ct), id = dayId });
 
     [HttpGet("api/admin/committee-bindings/cycles/{cycleId}")]
     public async Task<ActionResult<JsonArray>> CommitteeBindings(string cycleId, CancellationToken ct)
@@ -182,7 +221,20 @@ public sealed class AdmissionSetupController(AdminRecordsService records, Applic
     }
 
     [HttpDelete("api/admin/committee-bindings/{id}")]
-    public ActionResult<object> DeleteCommitteeBinding() => Ok(new { deleted = true });
+    public async Task<ActionResult<object>> DeleteCommitteeBinding(string id, CancellationToken ct)
+    {
+        var deletedRecord = await records.DeleteAsync("admissionSetup.committeeBindings", id, ct);
+        var deletedFromCycleSets = await records.DeleteFromArrayModulesAsync("admissionSetup.committeeBindings.", "bindings", id, ct);
+        return Ok(new { deleted = deletedRecord || deletedFromCycleSets > 0, id, deletedFromCycleSets });
+    }
+
+    private async Task<IReadOnlyList<JsonObject>> ExamScheduleDayRecordsAsync(string cycleId, CancellationToken ct)
+    {
+        var dayRecords = await records.ListAsync("admissionSetup.examScheduleDays", ct);
+        return dayRecords
+            .Where(x => AdminRecordJson.StringProp(x, "cycleId") == cycleId)
+            .ToList();
+    }
 
     private static void ValidateExamDateRanges(JsonObject body)
     {
