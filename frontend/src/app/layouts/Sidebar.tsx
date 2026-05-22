@@ -36,6 +36,7 @@ export interface SidebarItem {
   label: string;
   icon: ReactNode;
   to: string;
+  permission?: string;
   badge?: string | number;
   end?: boolean;
 }
@@ -71,9 +72,15 @@ export function Sidebar({
   const user = useAuthStore((s) => s.user);
   /* Filter once so the "first visible" index is stable for separator
    * placement — sections hidden by RBAC must not consume the slot. */
-  const visibleSections = sections.filter(
-    (s) => !s.permission || (user !== null && hasPermission(user.permissions, s.permission)),
-  );
+  const visibleSections = sections
+    .filter((s) => !s.permission || (user !== null && hasPermission(user.permissions, s.permission)))
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !item.permission || (user !== null && hasPermission(user.permissions, item.permission)),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
   return (
     <aside
       aria-label="القائمة الجانبية"

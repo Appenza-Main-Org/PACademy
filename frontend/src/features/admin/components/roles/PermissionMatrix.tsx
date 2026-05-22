@@ -21,6 +21,7 @@ import {
   CLOUD_MODULES,
   CLOUD_SECTIONS,
   getModulesBySection,
+  permissionIdForCell,
   type CloudAction,
   type CloudActionKey,
   type CloudModule,
@@ -42,14 +43,14 @@ export function PermissionMatrix({ permissions, onChange }: PermissionMatrixProp
     const out: string[] = [];
     for (const mod of CLOUD_MODULES) {
       for (const act of CLOUD_ACTIONS) {
-        out.push(`${mod.key}:${act.key}`);
+        out.push(permissionIdForCell(mod.key, act.key));
       }
     }
-    return out;
+    return [...new Set(out)];
   }, []);
 
   const toggle = (mod: CloudModuleKey, act: CloudActionKey): void => {
-    const id = `${mod}:${act}`;
+    const id = permissionIdForCell(mod, act);
     if (isSuper) {
       onChange(allExplicit.filter((p) => p !== id));
       return;
@@ -60,7 +61,9 @@ export function PermissionMatrix({ permissions, onChange }: PermissionMatrixProp
 
   const isOn = (mod: CloudModuleKey, act: CloudActionKey): boolean => {
     if (isSuper) return true;
-    return permissions.includes(`${mod}:${act}`) || permissions.includes(`${mod}:*`);
+    const id = permissionIdForCell(mod, act);
+    const [resource] = id.split(':');
+    return permissions.includes(id) || Boolean(resource && permissions.includes(`${resource}:*`));
   };
 
   return (

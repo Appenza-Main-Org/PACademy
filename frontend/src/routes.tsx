@@ -209,28 +209,28 @@ export const routes: RouteObject[] = [
     element: <AuthGuard app="admin"><AdminLayout /></AuthGuard>,
     children: [
       { index: true, element: <AdminIndexRoute /> },
-      { path: 'applicants', element: <ApplicantsPage /> },
-      { path: 'applicants/new', element: <ApplicantNewPage /> },
-      { path: 'applicants/:id', element: <ApplicantDetailPage /> },
-      { path: 'applicants/:id/edit', element: <ApplicantEditPage /> },
-      { path: 'users', element: <UsersPage /> },
-      { path: 'users/new', element: <UserCreatePage /> },
+      { path: 'applicants', element: <AuthGuard app="admin" perm="applicants:view"><ApplicantsPage /></AuthGuard> },
+      { path: 'applicants/new', element: <AuthGuard app="admin" perm="applicants:edit"><ApplicantNewPage /></AuthGuard> },
+      { path: 'applicants/:id', element: <AuthGuard app="admin" perm="applicants:view"><ApplicantDetailPage /></AuthGuard> },
+      { path: 'applicants/:id/edit', element: <AuthGuard app="admin" perm="applicants:edit"><ApplicantEditPage /></AuthGuard> },
+      { path: 'users', element: <AuthGuard app="admin" perm="users:view"><UsersPage /></AuthGuard> },
+      { path: 'users/new', element: <AuthGuard app="admin" perm="users:create"><UserCreatePage /></AuthGuard> },
       { path: 'users/roles', element: <AuthGuard app="admin" perm="roles:manage"><RolesPage /></AuthGuard> },
-      { path: 'users/:id', element: <UserDetailPage /> },
-      { path: 'users/:id/edit', element: <UserEditPage /> },
-      { path: 'notifications', element: <NotificationsPage /> },
-      { path: 'payments', element: <PaymentsPage /> },
+      { path: 'users/:id', element: <AuthGuard app="admin" perm="users:view"><UserDetailPage /></AuthGuard> },
+      { path: 'users/:id/edit', element: <AuthGuard app="admin" perm="users:edit"><UserEditPage /></AuthGuard> },
+      { path: 'notifications', element: <AuthGuard app="admin" perm="notifications:view"><NotificationsPage /></AuthGuard> },
+      { path: 'payments', element: <AuthGuard app="admin" perm="payments:review"><PaymentsPage /></AuthGuard> },
       { path: 'audit', element: <AuthGuard app="admin" perm="audit:view"><AuditPage /></AuthGuard> },
       { path: 'settings', element: <AuthGuard app="admin" perm="settings:manage"><SettingsPage /></AuthGuard> },
-      { path: 'reports', element: <ReportsPage /> },
+      { path: 'reports', element: <AuthGuard app="admin" perm="reports:view"><ReportsPage /></AuthGuard> },
       /* Lookup Management Module — /admin/reference-data redirects here. */
-      { path: 'lookups', element: <LookupsHubPage /> },
+      { path: 'lookups', element: <AuthGuard app="admin" perm="lookups:view"><LookupsHubPage /></AuthGuard> },
       /* Detail view registered before the catch-all `lookups/:tab` so
        * `/admin/lookups/applicant-categories/officers_general` resolves to
        * the read-only detail page rather than the tab panel. */
       {
         path: 'lookups/applicant-categories/:id',
-        element: <ApplicantCategoryDetailPage />,
+        element: <AuthGuard app="admin" perm="lookups:view"><ApplicantCategoryDetailPage /></AuthGuard>,
       },
       /* `submission-types` was folded into `applicant-categories` as an
        * attribute (each category's metadata.submissionTypeCode resolves
@@ -243,52 +243,51 @@ export const routes: RouteObject[] = [
         path: 'lookups/mappings/:kind',
         element: <Navigate to="/admin/lookups" replace />,
       },
-      { path: 'lookups/:tab', element: <LookupsHubPage /> },
+      { path: 'lookups/:tab', element: <AuthGuard app="admin" perm="lookups:view"><LookupsHubPage /></AuthGuard> },
       { path: 'reference-data', element: <Navigate to="/admin/lookups" replace /> },
       { path: 'reference-data/:tab', element: <Navigate to="/admin/lookups/:tab" replace /> },
-      { path: 'categories', element: <CategoriesListPage /> },
+      { path: 'categories', element: <AuthGuard app="admin" perm="categories:view"><CategoriesListPage /></AuthGuard> },
       /* `/new` retired — the RFP category set is locked to 4 entries.
        * Anyone hitting the legacy URL bounces back to the list. */
       { path: 'categories/new', element: <Navigate to="/admin/categories" replace /> },
-      { path: 'categories/:key', element: <CategoryEditPage /> },
-      { path: 'cycles', element: <CyclesPage /> },
-      { path: 'cycles/new', element: <CycleNewPage /> },
-      { path: 'cycles/:id', element: <CycleDetailPage /> },
-      { path: 'cycles/:id/edit', element: <CycleEditPage /> },
+      { path: 'categories/:key', element: <AuthGuard app="admin" perm="categories:edit"><CategoryEditPage /></AuthGuard> },
+      { path: 'cycles', element: <AuthGuard app="admin" perm="cycles:view"><CyclesPage /></AuthGuard> },
+      { path: 'cycles/new', element: <AuthGuard app="admin" perm="cycles:create"><CycleNewPage /></AuthGuard> },
+      { path: 'cycles/:id', element: <AuthGuard app="admin" perm="cycles:view"><CycleDetailPage /></AuthGuard> },
+      { path: 'cycles/:id/edit', element: <AuthGuard app="admin" perm="cycles:edit"><CycleEditPage /></AuthGuard> },
       /* Committee instances management — active-cycle list + inline edit
        * for date + capacity. This is the canonical committees scheduling
        * surface; the admission-setup wizard no longer embeds it. */
-      { path: 'committees-exam-config', element: <CommitteeInstancesPage /> },
+      { path: 'committees-exam-config', element: <AuthGuard app="admin" perm="committees-exam-config:view"><CommitteeInstancesPage /></AuthGuard> },
       /* Legacy redirect — `/admin/committees` renamed during the
        * committees-exam-config rework. External bookmarks land here. */
       { path: 'committees', element: <Navigate to="/admin/committees-exam-config" replace /> },
-      { path: 'workflows', element: <WorkflowsListPage /> },
-      { path: 'workflows/new', element: <WorkflowEditorPage /> },
-      { path: 'workflows/:id', element: <WorkflowEditorPage /> },
-      { path: 'applicant-grades', element: <ApplicantGradesPage /> },
-      { path: 'applicant-grades/import', element: <ApplicantGradesImportPage /> },
-      { path: 'applicant-grades/changes', element: <ApplicantGradesChangesPage /> },
+      { path: 'workflows', element: <AuthGuard app="admin" perm="workflows:view"><WorkflowsListPage /></AuthGuard> },
+      { path: 'workflows/new', element: <AuthGuard app="admin" perm="workflows:create"><WorkflowEditorPage /></AuthGuard> },
+      { path: 'workflows/:id', element: <AuthGuard app="admin" perm="workflows:edit"><WorkflowEditorPage /></AuthGuard> },
+      { path: 'applicant-grades', element: <AuthGuard app="admin" perm="applicant-grades:view"><ApplicantGradesPage /></AuthGuard> },
+      { path: 'applicant-grades/import', element: <AuthGuard app="admin" perm="applicant-grades:import"><ApplicantGradesImportPage /></AuthGuard> },
+      { path: 'applicant-grades/changes', element: <AuthGuard app="admin" perm="applicant-grades:edit"><ApplicantGradesChangesPage /></AuthGuard> },
       { path: 'admission-rules', element: <AuthGuard app="admin" perm="admission-rules:manage"><AdmissionRulesPage /></AuthGuard> },
       /* Admission Setup — config-driven ordered steps. The route segments
        * mirror `routeSegment` from `ADMISSION_SETUP_STEPS`; adding a new
        * step is a config-entry append plus a route line here. AuthGuard +
-       * `app="admin"` from the parent route already gate access; the
-       * permission check (`admission-setup:read`) is enforced inside the
-       * pages so an admin without the permission lands on a calm empty
-       * state instead of a redirect. */
-      { path: 'cycles/admission-setup', element: <AdmissionSetupIndexPage /> },
+       * `app="admin"` from the parent route gate app access, while each
+       * concrete step below also carries `admission-setup:read` so direct
+       * URLs cannot bypass the RBAC matrix. */
+      { path: 'cycles/admission-setup', element: <AuthGuard app="admin" perm="admission-setup:read"><AdmissionSetupIndexPage /></AuthGuard> },
       /* Wizard route — single page that orchestrates all setup steps as
        * a top-stepper flow. `:stepKey` is one of `AdmissionSetupStepKey`
        * or the literal `'review'` (handled inside the page). */
       { path: 'cycles/admission-setup/wizard', element: <Navigate to={ROUTES.admin.admissionSetup.wizard('application_settings')} replace /> },
-      { path: 'cycles/admission-setup/wizard/:stepKey', element: <AdmissionSetupWizardPage /> },
-      { path: 'cycles/admission-setup/application-settings', element: <ApplicationSettingsPage /> },
-      { path: 'cycles/admission-setup/application-settings-review', element: <ApplicationSettingsReviewPage /> },
-      { path: 'cycles/admission-setup/application-status', element: <ApplicationStatusPage /> },
-      { path: 'cycles/admission-setup/fees', element: <AdmissionFeesPage /> },
-      { path: 'cycles/admission-setup/exams', element: <ExamsManagementPage /> },
+      { path: 'cycles/admission-setup/wizard/:stepKey', element: <AuthGuard app="admin" perm="admission-setup:read"><AdmissionSetupWizardPage /></AuthGuard> },
+      { path: 'cycles/admission-setup/application-settings', element: <AuthGuard app="admin" perm="admission-setup:read"><ApplicationSettingsPage /></AuthGuard> },
+      { path: 'cycles/admission-setup/application-settings-review', element: <AuthGuard app="admin" perm="admission-setup:read"><ApplicationSettingsReviewPage /></AuthGuard> },
+      { path: 'cycles/admission-setup/application-status', element: <AuthGuard app="admin" perm="admission-setup:read"><ApplicationStatusPage /></AuthGuard> },
+      { path: 'cycles/admission-setup/fees', element: <AuthGuard app="admin" perm="admission-setup:read"><AdmissionFeesPage /></AuthGuard> },
+      { path: 'cycles/admission-setup/exams', element: <AuthGuard app="admin" perm="admission-setup:read"><ExamsManagementPage /></AuthGuard> },
       { path: 'cycles/admission-setup/committees', element: <Navigate to="/admin/committees-exam-config" replace /> },
-      { path: 'cycles/admission-setup/electronic-declaration', element: <ElectronicDeclarationPage /> },
+      { path: 'cycles/admission-setup/electronic-declaration', element: <AuthGuard app="admin" perm="admission-setup:read"><ElectronicDeclarationPage /></AuthGuard> },
       /* Legacy redirects — old paths used to live at /admin/admission-setup/*. */
       { path: 'admission-setup', element: <Navigate to={ROUTES.admin.admissionSetup.index} replace /> },
       { path: 'admission-setup/*', element: <Navigate to={ROUTES.admin.admissionSetup.index} replace /> },

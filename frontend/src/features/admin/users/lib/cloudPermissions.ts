@@ -155,6 +155,174 @@ export function permissionToString(p: CloudPermission): string {
   return `${p.module}:${p.action}`;
 }
 
+const CELL_PERMISSION_MAP: Partial<Record<CloudModuleKey, Partial<Record<CloudActionKey, string>>>> = {
+  dashboard: {
+    view: 'reports:view',
+    export: 'reports:export',
+  },
+  cycles: {
+    view: 'cycles:view',
+    edit: 'cycles:edit',
+    create: 'cycles:create',
+    delete: 'cycles:delete',
+    manage: 'cycles:edit',
+    transition: 'cycles:transition',
+    approve: 'cycles:transition',
+    export: 'cycles:view',
+    toggle: 'cycles:transition',
+  },
+  categories: {
+    view: 'categories:view',
+    edit: 'categories:edit',
+    delete: 'categories:delete',
+    manage: 'categories:edit',
+    approve: 'categories:edit',
+    export: 'categories:view',
+    toggle: 'categories:edit',
+  },
+  application_setup: {
+    view: 'admission-setup:read',
+    edit: 'admission-setup:write',
+    manage: 'admission-setup:write',
+    approve: 'admission-setup:write',
+    toggle: 'admission-setup:write',
+  },
+  admission_rules: {
+    view: 'admission-rules:view',
+    edit: 'admission-rules:manage',
+    manage: 'admission-rules:manage',
+    approve: 'admission-rules:manage',
+  },
+  lookups: {
+    view: 'lookups:view',
+    edit: 'lookups:edit',
+    create: 'lookups:create',
+    delete: 'lookups:delete',
+    manage: 'lookups:edit',
+    transition: 'lookups:transition',
+    export: 'lookups:view',
+    toggle: 'lookups:edit',
+  },
+  lookup_mappings: {
+    view: 'lookup-mappings:view',
+    edit: 'lookup-mappings:edit',
+    manage: 'lookup-mappings:edit',
+    approve: 'lookup-mappings:edit',
+    export: 'lookup-mappings:view',
+  },
+  applicant_grades: {
+    view: 'applicant-grades:view',
+    edit: 'applicant-grades:edit',
+    delete: 'applicant-grades:edit',
+    manage: 'applicant-grades:edit',
+    approve: 'applicant-grades:edit',
+    export: 'applicant-grades:view',
+    toggle: 'applicant-grades:edit',
+    import: 'applicant-grades:import',
+  },
+  committees_exam_config: {
+    view: 'committees-exam-config:view',
+    edit: 'committees-exam-config:edit',
+    create: 'committees-exam-config:create',
+    delete: 'committees-exam-config:delete',
+    manage: 'committees-exam-config:edit',
+    transition: 'committees-exam-config:transfer',
+    approve: 'committees-exam-config:edit',
+    export: 'committees-exam-config:view',
+    toggle: 'committees-exam-config:edit',
+    sync: 'committees-exam-config:transfer',
+  },
+  workflows: {
+    view: 'workflows:view',
+    edit: 'workflows:edit',
+    create: 'workflows:create',
+    delete: 'workflows:delete',
+    manage: 'workflows:edit',
+    transition: 'workflows:edit',
+    approve: 'workflows:edit',
+    export: 'workflows:view',
+    toggle: 'workflows:edit',
+  },
+  users_roles: {
+    view: 'users:view',
+    edit: 'users:edit',
+    create: 'users:create',
+    delete: 'users:delete',
+    manage: 'roles:manage',
+    transition: 'users:edit',
+    export: 'users:view',
+    toggle: 'users:edit',
+    import: 'users:create',
+  },
+  audit: {
+    view: 'audit:view',
+    export: 'audit:export',
+  },
+  settings: {
+    view: 'settings:view',
+    edit: 'settings:manage',
+    manage: 'settings:manage',
+    approve: 'settings:manage',
+    toggle: 'settings:manage',
+  },
+  notifications: {
+    view: 'notifications:view',
+    edit: 'notifications:edit',
+    create: 'notifications:create',
+    delete: 'notifications:delete',
+    manage: 'notifications:edit',
+    transition: 'notifications:publish',
+    approve: 'notifications:publish',
+    export: 'notifications:view',
+    toggle: 'notifications:publish',
+  },
+  applicants: {
+    view: 'applicants:view',
+    edit: 'applicants:edit',
+    delete: 'applicants:delete',
+    manage: 'applicants:edit',
+    transition: 'applicants:transition',
+    export: 'applicants:view',
+    toggle: 'applicants:edit',
+  },
+  applicant_content: {
+    view: 'applicant:view',
+    edit: 'applicant:content',
+    create: 'applicant:content',
+    delete: 'applicant:content',
+    manage: 'applicant:content',
+    transition: 'applicant:content',
+    approve: 'applicant:content',
+    export: 'applicant:view',
+    toggle: 'applicant:content',
+  },
+  applicant_documents: {
+    view: 'applicant:documents',
+    edit: 'applicant:documents',
+    delete: 'applicant:documents',
+    export: 'applicant:documents',
+  },
+  applicant_payments: {
+    view: 'payments:review',
+    edit: 'payments:approve',
+    manage: 'payments:approve',
+    approve: 'payments:approve',
+    export: 'payments:review',
+    toggle: 'payments:approve',
+    sync: 'payments:sync',
+  },
+};
+
+/**
+ * Canonical permission id enforced by AuthGuard and feature actions for a
+ * cloud matrix cell. The visible matrix labels remain business-friendly,
+ * but persisted values must match the real frontend/backend permission
+ * contract (`admission-setup:read`, `users:create`, etc.).
+ */
+export function permissionIdForCell(module: CloudModuleKey, action: CloudActionKey): string {
+  return CELL_PERMISSION_MAP[module]?.[action] ?? permissionToString({ module, action });
+}
+
 /**
  * Migrate a legacy `<module>:<action>` permission string to its cloud
  * equivalent. Returns `null` for on-prem modules, unknown keys, and
