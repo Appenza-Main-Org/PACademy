@@ -33,9 +33,9 @@ import {
   Circle,
   CircleDashed,
 } from 'lucide-react';
-import { Accordion, Badge, ErrorState, LoadingState } from '@/shared/components';
-import type { BadgeTone } from '@/shared/components';
+import { Accordion, ErrorState, LoadingState } from '@/shared/components';
 import { useLookup } from '@/features/lookups';
+import { cn } from '@/shared/lib/cn';
 import { useCategoryConfigs } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
 import {
@@ -236,26 +236,30 @@ function ConfigItem({
 }
 
 interface CompletionMeta {
-  tone: BadgeTone;
   label: string;
   icon: JSX.Element;
+  className: string;
+  iconClassName: string;
 }
 
 const COMPLETION_META: Record<CategoryCompletionState, CompletionMeta> = {
   complete: {
-    tone: 'success',
     label: 'مكتمل',
     icon: <Check size={12} strokeWidth={2} aria-hidden />,
+    className: 'border-success/30 bg-success-bg text-success ring-1 ring-success/10',
+    iconClassName: 'bg-success text-surface-card',
   },
   partial: {
-    tone: 'warning',
     label: 'جزئي',
     icon: <CircleDashed size={12} strokeWidth={1.75} aria-hidden />,
+    className: 'border-gold-200 bg-gold-50 text-gold-700 ring-1 ring-gold-500/10',
+    iconClassName: 'bg-gold-500 text-surface-card',
   },
   empty: {
-    tone: 'neutral',
     label: 'فارغ',
     icon: <Circle size={12} strokeWidth={1.75} aria-hidden />,
+    className: 'border-border-subtle bg-ink-50 text-ink-700 ring-1 ring-ink-500/10',
+    iconClassName: 'bg-surface-card text-ink-500 ring-1 ring-border-strong',
   },
 };
 
@@ -266,8 +270,21 @@ function CompletionBadge({
 }): JSX.Element {
   const meta = COMPLETION_META[state];
   return (
-    <Badge tone={meta.tone} icon={meta.icon} className="shrink-0">
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center gap-2 rounded-pill border px-2.5 py-1.5 font-ar text-2xs font-semibold leading-none',
+        meta.className,
+      )}
+    >
+      <span
+        className={cn(
+          'grid size-5 shrink-0 place-items-center rounded-full',
+          meta.iconClassName,
+        )}
+      >
+        {meta.icon}
+      </span>
       {meta.label}
-    </Badge>
+    </span>
   );
 }
