@@ -23,4 +23,8 @@
     <ProjectReference Include="..\..\shared\PACademy.Shared.Audit\PACademy.Shared.Audit.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="SeedData\**\*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -30,6 +30,10 @@
 - Added persistent exam-plan reads, saves, and copy support.
 - Added seeded category-config and app-settings summary responses for the admission setup pages.
 - Added ESLint 9 flat config and npm lint dependencies so `npm --prefix frontend run lint` is now runnable.
+- Added Railway-ready admin API deployment support: `PORT` binding, `/health`, configurable CORS, publish-time seed files, and `backend/admin/Dockerfile`.
+- Added backend mutation audit emissions for JSON-record-backed admin modules.
+- Added admission setup conflict guards for invalid date ranges, duplicate committee bindings, invalid percentage ranges, and capacity overflow.
+- Added legacy grade import commit persistence alongside the v2 grade import flow.
 
 ## Verification
 
@@ -116,13 +120,25 @@ Browser smoke:
 - Arabic admin chrome, sidebar, and reports shell rendered with seeded backend data.
 - Screenshot captured at `docs/admin-finalization/screenshots/smoke-admin-reports.png`.
 
+Role-by-route screenshot matrix:
+
+- Captured 429 screenshots covering 11 roles × 39 admin/admin-owned routes.
+- Summary: `docs/admin-finalization/screenshots/role-route-matrix/SUMMARY.md`.
+- Result: 0 failures after denied applicant access to committee routes redirected to the applicant home.
+
+Expanded backend hardening smoke:
+
+- `/health` returned `{ status: "ok" }`.
+- Invalid admission exam date range returned `conflictCode: "EXAM_DATE_RANGE_INVALID"`.
+- Grade import commit inserted a JSON-record-backed grade row.
+- `/api/audit` included backend-emitted audit entries for the grade import mutation.
+
 ## Remaining
 
-The admin pages are routed to real HTTP, the admin service layer no longer reads frontend mocks, and the major admin domains now have concrete controllers. Remaining hardening work is limited to production-depth behavior that depends on the final SQL Server environment and deeper domain policies:
+The admin pages are routed to real HTTP, the admin service layer no longer reads frontend mocks, the major admin domains now have concrete controllers, and the deployment prep is in place. Remaining production-environment work:
 
 1. Running the generated migration against the real SQL Server once a connection string is available.
-2. Emitting durable audit rows from every backend mutation, replacing the remaining lightweight acknowledgement responses.
-3. Enforcing every admission-setup typed conflict at SQL/use-case depth after the final DB constraints are confirmed.
-4. Capturing the full 11-role route screenshot matrix. One browser smoke was completed; the exhaustive matrix is still pending.
+2. Wiring the deployed Vercel frontend URL into the Railway `CORS_ALLOWED_ORIGINS` variable after the final Vercel domain is assigned.
+3. Re-running the same smoke checks against the production Vercel/Railway URLs after deployment.
 
 The backend now fails visibly for unknown routes because the fallback controller is gone.

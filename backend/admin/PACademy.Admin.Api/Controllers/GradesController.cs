@@ -69,7 +69,57 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
     }
 
     [HttpPost("api/grades/import/commit")]
-    public ActionResult<object> CommitImport() => Ok(new { inserted = 0, replaced = 0, kept = 0, deactivated = Array.Empty<object>(), skipped = Array.Empty<object>() });
+    public async Task<ActionResult<object>> CommitImport([FromBody] JsonObject body, CancellationToken ct)
+    {
+        var inputRows = body["rows"]?.AsArray() ?? [];
+        var graduationYear = body["graduationYear"]?.GetValue<int?>() ?? DateTimeOffset.UtcNow.Year;
+        var existing = await records.ListAsync("grades", ct);
+        var existingByNid = existing
+            .Select(x => new { Nid = AdminRecordJson.StringProp(x, "nid"), Row = x })
+            .Where(x => !string.IsNullOrWhiteSpace(x.Nid))
+            .ToDictionary(x => x.Nid!, x => x.Row);
+        var inserted = 0;
+        var replaced = 0;
+        var kept = 0;
+        var skipped = new JsonArray();
+        var nextSeat = existing.Select(x => (int)(AdminRecordJson.NumberProp(x, "seat") ?? 0)).DefaultIfEmpty(0).Max() + 1;
+
+        foreach (var row in inputRows.OfType<JsonObject>())
+        {
+            var nid = AdminRecordJson.StringProp(row, "nationalId") ?? AdminRecordJson.StringProp(row, "nid");
+            var name = AdminRecordJson.StringProp(row, "nameAr") ?? AdminRecordJson.StringProp(row, "name");
+            var total = row["totalGrade"]?.GetValue<double?>() ?? row["total"]?.GetValue<double?>();
+            if (string.IsNullOrWhiteSpace(nid) || string.IsNullOrWhiteSpace(name) || total is null)
+            {
+                skipped.Add(new JsonObject { ["nationalId"] = nid, ["reason"] = "MISSING_REQUIRED" });
+                continue;
+            }
+
+            if (existingByNid.TryGetValue(nid, out var previous))
+            {
+                var action = AdminRecordJson.StringProp(row, "duplicateAction") ?? AdminRecordJson.StringProp(body, "duplicateAction") ?? "keep";
+                if (action == "replace")
+                {
+                    var previousSeat = (int)(AdminRecordJson.NumberProp(previous, "seat") ?? nextSeat++);
+                    var grade = GradeFromImportRow(row, previousSeat, nid, name, total.Value, graduationYear);
+                    grade["previousGrade"] = previous["total"]?.DeepClone();
+                    await records.UpsertAsync("grades", previousSeat.ToString(), grade, ct);
+                    replaced++;
+                }
+                else
+                {
+                    kept++;
+                }
+                continue;
+            }
+
+            var seat = nextSeat++;
+            await records.UpsertAsync("grades", seat.ToString(), GradeFromImportRow(row, seat, nid, name, total.Value, graduationYear), ct);
+            inserted++;
+        }
+
+        return Ok(new { inserted, replaced, kept, deactivated = Array.Empty<object>(), skipped });
+    }
 
     [HttpPost("api/grades/v2/preflight")]
     public ActionResult<object> Preflight([FromBody] JsonObject body)

@@ -186,10 +186,13 @@ Concrete endpoint groups now covered:
 Latest hardening notes:
 
 - Reports endpoints now return seeded-data-backed aggregate rows for cycle snapshot, funnel, department, test-result, operational-status, governance, and integration sections.
-- Grades endpoints now persist JSON-record grade imports, adjustments, override-max changes, selected/all deletes, and NID detail lookups.
+- Grades endpoints now persist JSON-record grade imports through both legacy and v2 commit flows, adjustments, override-max changes, selected/all deletes, and NID detail lookups.
 - Exam plans now return academy exam definitions, generated defaults, persisted saves, and copy-plan results.
 - Admission setup app-settings endpoints now derive category config and summary rows from seeded categories.
+- Admission setup mutations now reject invalid date ranges, duplicate committee bindings, invalid percentage ranges, and capacity overflow with typed conflict envelopes.
 - Audit role filters now derive from seeded audit rows.
+- JSON-record-backed admin mutations append audit records to the admin audit feed.
+- Railway deployment support is available through `/health`, configurable `CORS_ALLOWED_ORIGINS`, `$PORT` binding, publish-time seed JSON copying, and `backend/admin/Dockerfile`.
 
 Frontend admin wire-up status:
 
@@ -249,6 +252,7 @@ curl -X POST http://localhost:5101/api/auth/login
 curl 'http://localhost:5101/v1/officers/lookup?nationalId=29512011500011'
 curl http://localhost:5101/api/committees
 curl http://localhost:5101/api/exams/results/can-enter
+curl http://localhost:5101/health
 ```
 
 Smoke results:
@@ -263,7 +267,7 @@ Smoke results:
 - `/api/roles/ROLE-SUPER_ADMIN/dependencies` returned one assigned user and `blocking: true`.
 - `/api/applicants?page=1&pageSize=3` returned total `2847`.
 - `/api/admin/payments` returned `2847` rows.
-- `/api/audit` returned `687` rows.
+- `/api/audit` returned at least `687` seeded rows and grows as backend mutations emit audit entries.
 - `/api/committee-instances` returned `15` rows.
 - `/api/admin/app-settings/category-configs`, `/api/admin/exam-schedule/cycles/CYC-2026-M`, and `/api/admin/committee-bindings/cycles/CYC-2026-M` returned HTTP 200.
 
@@ -292,13 +296,18 @@ Browser smoke on 2026-05-22:
 - Opened `http://127.0.0.1:5173/admin/reports` against `http://localhost:5101`.
 - Confirmed Arabic admin chrome and reports content rendered.
 - Screenshot: `docs/admin-finalization/screenshots/smoke-admin-reports.png`.
-- `/api/auth/login` returned an auth user with token, apps, and permissions.
-- `/v1/officers/lookup?nationalId=29512011500011` returned `OFF-1001`.
-- `/api/committees` returned 18 rows.
-- `/api/exams/results/can-enter` returned `true`.
-- OpenAPI contains 173 paths and no `{**path}` fallback after endpoint coverage was completed.
-- `/openapi/v1.json` returned 200.
-- `/scalar` returned 200 with redirect following.
-- Frontend typecheck completed with 0 errors.
-- Frontend route walker completed with 74 passed, 0 failed.
-- Lint could not be executed because ESLint is not installed in this checkout (`frontend/node_modules/.bin/eslint` missing).
+
+Role-by-route screenshot matrix on 2026-05-22:
+
+- Roles: 11.
+- Routes: 39.
+- Screenshots: 429.
+- Failures: 0.
+- Evidence root: `docs/admin-finalization/screenshots/role-route-matrix/`.
+
+Expanded hardening smoke on 2026-05-22:
+
+- `/health` returned `status: ok`.
+- Invalid exam date ranges returned `EXAM_DATE_RANGE_INVALID`.
+- Grade import commit persisted a grade row.
+- Grade import emitted an audit feed record.
