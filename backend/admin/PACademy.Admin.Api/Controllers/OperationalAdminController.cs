@@ -37,14 +37,58 @@ public sealed class OperationalAdminController(AdminRecordsService records) : Co
         Ok(new { deleted = await records.DeleteAsync("committeeInstances", id, ct) });
 
     [HttpPost("api/committee-instances/refresh-reserved")]
-    public async Task<ActionResult<IReadOnlyList<JsonObject>>> RefreshReserved(CancellationToken ct) => Ok(await records.ListAsync("committeeInstances", ct));
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> RefreshReserved(CancellationToken ct)
+    {
+        var instances = await records.ListAsync("committeeInstances", ct);
+        var applicants = await records.ListAsync("applicants", ct);
+        var committees = await records.ListAsync("committees", ct);
+        foreach (var instance in instances)
+        {
+            var definitionCode = AdminRecordJson.StringProp(instance, "definitionCode");
+            var committee = committees.FirstOrDefault(x => AdminRecordJson.StringProp(x, "id") == definitionCode || AdminRecordJson.StringProp(x, "definitionCode") == definitionCode);
+            var committeeName = committee is null ? null : AdminRecordJson.StringProp(committee, "name");
+            var reserved = string.IsNullOrWhiteSpace(committeeName)
+                ? AdminRecordJson.NumberProp(instance, "reserved") ?? 0
+                : applicants.Count(x => AdminRecordJson.StringProp(x, "committee") == committeeName);
+            instance["reserved"] = reserved;
+            instance["reservedRefreshedAt"] = DateTimeOffset.UtcNow.ToString("O");
+            await records.UpsertAsync("committeeInstances", AdminRecordJson.StringProp(instance, "id")!, instance, ct);
+        }
+        return Ok(await records.ListAsync("committeeInstances", ct));
+    }
 
     [HttpDelete("api/committee-instances")]
-    public ActionResult<object> DeleteCommitteeDay() => Ok(new { deleted = true });
+    public async Task<ActionResult<object>> DeleteCommitteeDay([FromQuery] string? date, [FromQuery] string? categoryKey, CancellationToken ct)
+    {
+        var instances = await records.ListAsync("committeeInstances", ct);
+        var targets = instances.Where(x =>
+            (string.IsNullOrWhiteSpace(date) || AdminRecordJson.StringProp(x, "date") == date) &&
+            (string.IsNullOrWhiteSpace(categoryKey) || AdminRecordJson.StringProp(x, "categoryKey") == categoryKey)).ToList();
+        foreach (var target in targets)
+        {
+            await records.DeleteAsync("committeeInstances", AdminRecordJson.StringProp(target, "id")!, ct);
+        }
+        return Ok(new { deleted = targets.Count });
+    }
 
     [HttpPost("api/committee-instances/transfer-day")]
     [HttpPost("api/committee-instances/{id}/transfer")]
-    public async Task<ActionResult<IReadOnlyList<JsonObject>>> TransferCommitteeDay(CancellationToken ct) => Ok(await records.ListAsync("committeeInstances", ct));
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> TransferCommitteeDay(string? id, [FromBody] JsonObject? body, CancellationToken ct)
+    {
+        var fromDate = body is null ? null : AdminRecordJson.StringProp(body, "fromDate");
+        var toDate = body is null ? null : AdminRecordJson.StringProp(body, "toDate");
+        var instances = await records.ListAsync("committeeInstances", ct);
+        var targets = instances.Where(x =>
+            (!string.IsNullOrWhiteSpace(id) && AdminRecordJson.StringProp(x, "id") == id) ||
+            (!string.IsNullOrWhiteSpace(fromDate) && AdminRecordJson.StringProp(x, "date") == fromDate)).ToList();
+        foreach (var target in targets)
+        {
+            if (!string.IsNullOrWhiteSpace(toDate)) target["date"] = toDate;
+            target["updatedAt"] = DateTimeOffset.UtcNow.ToString("O");
+            await records.UpsertAsync("committeeInstances", AdminRecordJson.StringProp(target, "id")!, target, ct);
+        }
+        return Ok(await records.ListAsync("committeeInstances", ct));
+    }
 
     [HttpGet("api/v1/admin/workflows")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> Workflows(CancellationToken ct) => Ok(await records.ListAsync("workflows", ct));
