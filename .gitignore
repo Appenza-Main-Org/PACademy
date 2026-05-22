@@ -21,3 +21,4 @@ obj/
 .devin/
 .windsurf/
 skills-lock.json
+.vercel
