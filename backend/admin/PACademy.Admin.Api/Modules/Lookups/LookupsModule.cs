@@ -9,9 +9,10 @@ public static class LookupsModule
     public static IServiceCollection AddLookupsModule(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("AdminDb");
+        var useInMemory = configuration.GetValue<bool>("UseInMemoryAdminDb");
         services.AddDbContext<AdminDbContext>(options =>
         {
-            if (string.IsNullOrWhiteSpace(connectionString))
+            if (useInMemory || string.IsNullOrWhiteSpace(connectionString))
                 options.UseInMemoryDatabase("PACademy_Admin");
             else
                 options.UseSqlServer(connectionString);
