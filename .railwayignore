@@ -1,0 +1,12 @@
+.git
+.vercel
+.screenshots
+docs
+Tasks
+frontend
+backend/applicant
+*.zip
+**/.DS_Store
+**/bin
+**/obj
+**/node_modules
