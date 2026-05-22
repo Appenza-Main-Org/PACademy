@@ -29,7 +29,8 @@ public sealed class AuditController(AdminRecordsService records) : ControllerBas
         Ok((await records.ListAsync("audit", ct)).Select(x => AdminRecordJson.StringProp(x, "module")).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList());
 
     [HttpGet("api/audit/roles")]
-    public ActionResult<IReadOnlyList<string>> Roles() => Ok(Array.Empty<string>());
+    public async Task<ActionResult<IReadOnlyList<string>>> Roles(CancellationToken ct) =>
+        Ok((await records.ListAsync("audit", ct)).Select(x => AdminRecordJson.StringProp(x, "role")).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList());
 
     [HttpGet("api/audit/users")]
     public async Task<ActionResult<IReadOnlyList<string>>> Users(CancellationToken ct) =>

@@ -17,7 +17,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
-import type { Resolver } from 'react-hook-form';
+import type { FieldPath, Resolver } from 'react-hook-form';
 import {
   AlertCircle,
   ChevronUp,
@@ -30,6 +30,8 @@ import {
 import { Button, Card, CardHeader, Field, Input, SearchSelect, Select, Textarea } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
+import { isValidationError } from '@/shared/lib/errors';
+import { validationFieldErrors } from '@/shared/lib/validation-errors';
 import { parseNationalId } from '@/shared/lib/national-id';
 import { date as fmtDate } from '@/shared/lib/format';
 import { GOVERNORATES } from '@/shared/mock-data/dictionaries';
@@ -186,6 +188,7 @@ export function ApplicantForm({
     control,
     handleSubmit,
     watch,
+    setError,
     setValue,
     reset,
     getValues,
@@ -289,9 +292,19 @@ export function ApplicantForm({
   }, [department, educationKind, setValue]);
 
   const submitting = handleSubmit(async (values) => {
-    await onSubmit(values);
-    if (autosaveKey) {
-      try { localStorage.removeItem(autosaveKey); } catch { /* noop */ }
+    try {
+      await onSubmit(values);
+      if (autosaveKey) {
+        try { localStorage.removeItem(autosaveKey); } catch { /* noop */ }
+      }
+    } catch (err) {
+      if (isValidationError(err)) {
+        const fieldErrors = validationFieldErrors(err);
+        for (const [field, message] of Object.entries(fieldErrors)) {
+          setError(field as FieldPath<ApplicantInput>, { type: 'server', message });
+        }
+      }
+      throw err;
     }
   });
 

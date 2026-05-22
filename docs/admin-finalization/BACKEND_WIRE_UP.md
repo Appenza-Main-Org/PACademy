@@ -1,6 +1,6 @@
 # Admin Backend Wire-Up Runbook
 
-**Date:** 2026-05-21  
+**Date:** 2026-05-22
 **Backend:** `backend/admin/` on `http://localhost:5101`
 
 ## Environment
@@ -183,6 +183,20 @@ Concrete endpoint groups now covered:
 - `/api/cycles/{cycleId}/exam-plans`
 - `/api/cycles/{cycleId}/categories/{categoryId}/exam-plan`
 
+Latest hardening notes:
+
+- Reports endpoints now return seeded-data-backed aggregate rows for cycle snapshot, funnel, department, test-result, operational-status, governance, and integration sections.
+- Grades endpoints now persist JSON-record grade imports, adjustments, override-max changes, selected/all deletes, and NID detail lookups.
+- Exam plans now return academy exam definitions, generated defaults, persisted saves, and copy-plan results.
+- Admission setup app-settings endpoints now derive category config and summary rows from seeded categories.
+- Audit role filters now derive from seeded audit rows.
+
+Frontend admin wire-up status:
+
+- Admin-facing service bodies now call `apiClient` directly.
+- The service-layer mock fallback has been removed for auth, users, roles, cycles, categories, admission rules, admission setup, lookups, applicants consumed by admin, applicant grades, audit, reports, settings, notifications, payments, workflows, and committee instances.
+- The broad admin mock-read grep returns zero hits for `MOCK.`, `from '@/shared/mock-data'`, `simulateLatency`, and `paginate(` in the admin service surface.
+
 ## Fallback Status
 
 `AdminFallbackController` has been deleted. `/openapi/v1.json` has no `{**path}` catchall route. Unknown admin API calls now fail visibly instead of being silently papered over.
@@ -216,6 +230,8 @@ Commands run:
 dotnet build backend/admin/PACademy.Admin.slnx
 dotnet run --project backend/admin/PACademy.Admin.Api/PACademy.Admin.Api.csproj --urls http://localhost:5101
 bash backend/admin/scripts/smoke-admin-api.sh http://localhost:5101
+node frontend/node_modules/typescript/lib/tsc.js -p frontend/tsconfig.json --noEmit
+/Users/mac/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node frontend/scripts/test-routes.mjs http://127.0.0.1:5173
 curl http://localhost:5101/openapi/v1.json
 curl -L http://localhost:5101/scalar
 curl http://localhost:5101/api/lookups/faculties
@@ -250,10 +266,39 @@ Smoke results:
 - `/api/audit` returned `687` rows.
 - `/api/committee-instances` returned `15` rows.
 - `/api/admin/app-settings/category-configs`, `/api/admin/exam-schedule/cycles/CYC-2026-M`, and `/api/admin/committee-bindings/cycles/CYC-2026-M` returned HTTP 200.
+
+OpenAPI result on 2026-05-22:
+
+```json
+{
+  "paths": 173,
+  "operations": 212
+}
+```
+
+Frontend verification on 2026-05-22:
+
+```bash
+node frontend/node_modules/typescript/lib/tsc.js -p frontend/tsconfig.json --noEmit
+/usr/local/bin/npm --prefix frontend run lint
+/Users/mac/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node frontend/scripts/test-routes.mjs http://127.0.0.1:5173
+```
+
+Results: typecheck clean, lint clean, route walker 74 passed / 0 failed.
+
+Browser smoke on 2026-05-22:
+
+- Authenticated as `super_admin` through the local admin API.
+- Opened `http://127.0.0.1:5173/admin/reports` against `http://localhost:5101`.
+- Confirmed Arabic admin chrome and reports content rendered.
+- Screenshot: `docs/admin-finalization/screenshots/smoke-admin-reports.png`.
 - `/api/auth/login` returned an auth user with token, apps, and permissions.
 - `/v1/officers/lookup?nationalId=29512011500011` returned `OFF-1001`.
 - `/api/committees` returned 18 rows.
 - `/api/exams/results/can-enter` returned `true`.
-- OpenAPI contains 169 paths and no `{**path}` fallback after endpoint coverage was completed.
+- OpenAPI contains 173 paths and no `{**path}` fallback after endpoint coverage was completed.
 - `/openapi/v1.json` returned 200.
 - `/scalar` returned 200 with redirect following.
+- Frontend typecheck completed with 0 errors.
+- Frontend route walker completed with 74 passed, 0 failed.
+- Lint could not be executed because ESLint is not installed in this checkout (`frontend/node_modules/.bin/eslint` missing).

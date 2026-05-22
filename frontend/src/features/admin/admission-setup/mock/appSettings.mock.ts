@@ -11,8 +11,8 @@
  *     category's submission-type `gradingMode` so GRADES vs TAGDIR
  *     branches are populated correctly out of the box
  *
- * Lookup MOCK (`MOCK.lookups['applicant-categories']`,
- * `MOCK.lookups['specializations']`, `MOCK.lookups['submission-types']`)
+ * Lookup seed dictionaries (`applicant-categories`, `specializations`,
+ * `submission-types`)
  * is **never mutated** — these seeds import the source rows and use
  * their `code` field as the FK.
  *

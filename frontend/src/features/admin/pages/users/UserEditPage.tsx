@@ -21,7 +21,8 @@ import {
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { type Role, useAuthStore } from '@/features/auth';
-import { isStatusChangeBlockedError } from '@/shared/lib/errors';
+import { isStatusChangeBlockedError, isValidationError } from '@/shared/lib/errors';
+import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 import {
   AccountStatusToggle,
   RoleMultiSelect,
@@ -67,6 +68,7 @@ export function UserEditPage(): JSX.Element {
 
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [rolesError, setRolesError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (user && draft === null) {
@@ -101,6 +103,7 @@ export function UserEditPage(): JSX.Element {
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setRolesError(null);
+    setFieldErrors({});
     if (!dirty) return;
     if (!roleValidation.ok) {
       setRolesError(roleValidation.message ?? 'مجموعة الأدوار غير صالحة');
@@ -120,7 +123,12 @@ export function UserEditPage(): JSX.Element {
       toast('تم حفظ التعديلات', 'success');
       navigate(ROUTES.admin.userDetail(user.id));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'تعذر حفظ التعديلات';
+      const msg = validationMessage(err, 'تعذر حفظ التعديلات');
+      if (isValidationError(err)) {
+        const nextFieldErrors = validationFieldErrors(err);
+        setFieldErrors(nextFieldErrors);
+        setRolesError(nextFieldErrors.roles ?? null);
+      }
       if (isStatusChangeBlockedError(err)) {
         toast(msg, 'warning');
       } else {
@@ -170,20 +178,32 @@ export function UserEditPage(): JSX.Element {
               <Input
                 label="الاسم رباعياً"
                 value={draft.fullArabicName}
-                onChange={(e) => setDraft({ ...draft, fullArabicName: e.target.value })}
+                onChange={(e) => {
+                  setDraft({ ...draft, fullArabicName: e.target.value });
+                  setFieldErrors((prev) => ({ ...prev, fullArabicName: '' }));
+                }}
                 required
+                error={fieldErrors.fullArabicName}
               />
               <Input
                 label="رمز الضابط / الكود"
                 value={draft.officerCode}
-                onChange={(e) => setDraft({ ...draft, officerCode: e.target.value })}
+                onChange={(e) => {
+                  setDraft({ ...draft, officerCode: e.target.value });
+                  setFieldErrors((prev) => ({ ...prev, officerCode: '' }));
+                }}
+                error={fieldErrors.officerCode}
               />
               <Input
                 label="رقم المحمول"
                 value={draft.mobileNumber}
-                onChange={(e) => setDraft({ ...draft, mobileNumber: e.target.value })}
+                onChange={(e) => {
+                  setDraft({ ...draft, mobileNumber: e.target.value });
+                  setFieldErrors((prev) => ({ ...prev, mobileNumber: '' }));
+                }}
                 inputMode="tel"
                 dir="ltr"
+                error={fieldErrors.mobileNumber}
               />
             </div>
           </div>

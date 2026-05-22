@@ -6,7 +6,7 @@
  * on delete with FK-reference reason surfacing when the service blocks.
  */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, MoreVertical, Plus, Search } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
@@ -27,7 +27,6 @@ import {
 } from '@/shared/components';
 import { normalizeArabic } from '@/shared/lib/arabic';
 import { cn } from '@/shared/lib/cn';
-import { MOCK } from '@/shared/mock-data';
 import {
   useCreateLookupRow,
   useDeleteLookupRow,
@@ -63,12 +62,27 @@ export interface LookupTabPanelProps<K extends LookupKey> {
   lookupKey: K;
 }
 
+interface LookupLabelRow {
+  code: string;
+  name: string;
+  parentCode?: string | null;
+}
+
+type LookupLabelSources = Partial<Record<LookupKey, readonly LookupLabelRow[]>>;
+
 export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPanelProps<K>): JSX.Element {
   const meta = LOOKUP_META[lookupKey];
   const listQuery = useLookup(lookupKey);
   const createMut = useCreateLookupRow(lookupKey);
   const updateMut = useUpdateLookupRow(lookupKey);
   const deleteMut = useDeleteLookupRow(lookupKey);
+  const governoratesQuery = useLookup('governorates');
+  const jobsQuery = useLookup('jobs');
+  const applicantCategoriesQuery = useLookup('applicant-categories');
+  const facultiesQuery = useLookup('faculties');
+  const relationshipsQuery = useLookup('relationships');
+  const excellenceCriteriaQuery = useLookup('excellence-criteria');
+  const applicantDivisionsQuery = useLookup('applicant-divisions');
 
   const [search, setSearch] = useState('');
   const [filterValue, setFilterValue] = useState<string>('all');
@@ -80,6 +94,33 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
     key: 'name' as keyof LookupRow<K> & string,
     direction: 'asc',
   });
+  const lookupSources = useMemo<LookupLabelSources>(
+    () => ({
+      governorates: governoratesQuery.data as readonly LookupLabelRow[] | undefined,
+      jobs: jobsQuery.data as readonly LookupLabelRow[] | undefined,
+      'applicant-categories': applicantCategoriesQuery.data as readonly LookupLabelRow[] | undefined,
+      faculties: facultiesQuery.data as readonly LookupLabelRow[] | undefined,
+      relationships: relationshipsQuery.data as readonly LookupLabelRow[] | undefined,
+      'excellence-criteria': excellenceCriteriaQuery.data as readonly LookupLabelRow[] | undefined,
+      'applicant-divisions': applicantDivisionsQuery.data as readonly LookupLabelRow[] | undefined,
+    }),
+    [
+      applicantCategoriesQuery.data,
+      applicantDivisionsQuery.data,
+      excellenceCriteriaQuery.data,
+      facultiesQuery.data,
+      governoratesQuery.data,
+      jobsQuery.data,
+      relationshipsQuery.data,
+    ],
+  );
+  const labelByCode = useCallback(
+    (key: LookupKey, code: string): string => {
+      const row = lookupSources[key]?.find((item) => item.code === code);
+      return row ? row.name : '—';
+    },
+    [lookupSources],
+  );
 
   const rows = useMemo(() => {
     const all = (listQuery.data ?? []) as LookupRow<K>[];
@@ -119,7 +160,7 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
       }
     }
     return filtered;
-  }, [listQuery.data, search, filterValue, lookupKey, sort]);
+  }, [labelByCode, listQuery.data, search, filterValue, lookupKey, sort]);
 
   const handleAdd = (): void => {
     setEditing(null);
@@ -199,6 +240,7 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
         handleEdit,
         handleDelete,
         handleToggleActive,
+        labelByCode,
         /* `viewRouteFor` is scoped to applicant-categories — only that
          * lookup currently has a dedicated read-only detail view. Other
          * lookups stay edit-via-drawer only. */
@@ -207,10 +249,10 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
               ROUTES.admin.adminLookupsApplicantCategoryDetail(row.code)
           : undefined,
       ),
-    [lookupKey],
+    [labelByCode, lookupKey],
   );
 
-  const filter = filterDescriptor(lookupKey);
+  const filter = filterDescriptor(lookupKey, lookupSources);
 
   const totalCount = (listQuery.data ?? []).length;
   const filteredCount = rows.length;
@@ -351,13 +393,17 @@ interface FilterDescriptor {
   options: Array<{ value: string; label: string }>;
 }
 
-function filterDescriptor(key: LookupKey): FilterDescriptor | null {
+function rowsFor(key: LookupKey, sources: LookupLabelSources): readonly LookupLabelRow[] {
+  return sources[key] ?? [];
+}
+
+function filterDescriptor(key: LookupKey, sources: LookupLabelSources): FilterDescriptor | null {
   switch (key) {
     case 'police-stations':
       return {
         label: 'تصفية بالمحافظة',
         field: 'governorateCode',
-        options: (MOCK.lookups.governorates as GovernorateRow[]).map((g) => ({ value: g.code, label: g.name })),
+        options: rowsFor('governorates', sources).map((g) => ({ value: g.code, label: g.name })),
       };
     case 'jobs':
       return {
@@ -365,20 +411,22 @@ function filterDescriptor(key: LookupKey): FilterDescriptor | null {
         field: 'parentCode',
         options: [
           { value: 'roots', label: 'فئات فقط' },
-          ...(MOCK.lookups.jobs as JobRow[]).filter((j) => j.parentCode === null).map((j) => ({ value: j.code, label: j.name })),
+          ...rowsFor('jobs', sources)
+            .filter((j) => j.parentCode === null)
+            .map((j) => ({ value: j.code, label: j.name })),
         ],
       };
     case 'announcements':
       return {
         label: 'تصفية بالفئة',
         field: 'categoryCode',
-        options: (MOCK.lookups['applicant-categories'] as ApplicantCategoryRow[]).map((c) => ({ value: c.code, label: c.name })),
+        options: rowsFor('applicant-categories', sources).map((c) => ({ value: c.code, label: c.name })),
       };
     case 'specializations':
       return {
         label: 'تصفية بالكلية',
         field: 'facultyCode',
-        options: MOCK.lookups.faculties.map((f) => ({ value: f.code, label: f.name })),
+        options: rowsFor('faculties', sources).map((f) => ({ value: f.code, label: f.name })),
       };
     case 'qualifications':
       return {
@@ -441,6 +489,7 @@ function buildColumns<K extends LookupKey>(
   onEdit: (row: LookupRow<K>) => void,
   onDelete: (row: LookupRow<K>) => void,
   onToggleActive: (row: LookupRow<K>) => void,
+  labelByCode: (key: LookupKey, code: string) => string,
   viewRouteFor?: (row: LookupRow<K>) => string,
 ): DataTableColumn<LookupRow<K>>[] {
   const nameCol: DataTableColumn<LookupRow<K>> = {
@@ -544,12 +593,15 @@ function buildColumns<K extends LookupKey>(
     ),
   };
 
-  const extras = extrasFor(key);
+  const extras = extrasFor(key, labelByCode);
   return [nameCol, ...extras, activeCol, actionsCol] as DataTableColumn<LookupRow<K>>[];
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function extrasFor(key: LookupKey): DataTableColumn<any>[] {
+function extrasFor(
+  key: LookupKey,
+  labelByCode: (key: LookupKey, code: string) => string,
+): DataTableColumn<any>[] {
   switch (key) {
     case 'relationships': {
       const govNamesForBranch: Record<string, string> = {
@@ -561,8 +613,7 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
         { key: 'degree', label: 'الدرجة', sortable: true, width: 80, numeric: true, render: (r: RelationshipRow) => <span className="font-mono text-xs">{r.degree}</span> },
         { key: 'parent', label: 'الأصل',  sortable: true, accessor: 'parentCode', hideOn: 'sm', render: (r: RelationshipRow) => {
           if (!r.parentCode) return <span className="text-ink-400">—</span>;
-          const p = (MOCK.lookups.relationships as RelationshipRow[]).find((x) => x.code === r.parentCode);
-          return <span className="text-xs text-ink-600">{p ? p.name : <span className="text-ink-400">—</span>}</span>;
+          return <span className="text-xs text-ink-600">{labelByCode('relationships', r.parentCode)}</span>;
         } },
       ];
     }
@@ -691,12 +742,6 @@ function extrasFor(key: LookupKey): DataTableColumn<any>[] {
   }
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
-
-function labelByCode(key: LookupKey, code: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const row = (MOCK.lookups[key] as any[]).find((r) => r.code === code);
-  return row ? row.name : '—';
-}
 
 /** Generic Arabic-aware comparator used by the column-header sort.
  *  Numbers compare numerically, booleans place `true` first on `asc`,

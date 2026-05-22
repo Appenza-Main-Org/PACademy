@@ -3,7 +3,7 @@
 > **React 18 + TypeScript + Vite + TanStack Query + Zustand + Tailwind**
 > Production-grade rebuild of the Police Academy Admissions Platform — 3 surfaces (PUBLIC / APPLICANT / STAFF), 11 RBAC roles, 9 connected applications, fully RTL Arabic-first.
 >
-> **Status:** feature-complete + polish-complete (tag `polish-complete`, 2026-05-03). Demo cut tagged `v0.2.0-demo`. Backend integration is a later phase. See [POLISH_REPORT.md](POLISH_REPORT.md) for the polish closeout, [CLAUDE.md](../CLAUDE.md) for full operating context.
+> **Status:** feature-complete + polish-complete (tag `polish-complete`, 2026-05-03). Demo cut tagged `v0.2.0-demo`. Admin backend integration wiring started on 2026-05-21. See [POLISH_REPORT.md](POLISH_REPORT.md) for the polish closeout, [ADMIN_BACKEND_INTEGRATION_STATUS.md](ADMIN_BACKEND_INTEGRATION_STATUS.md) for frontend API wiring, [BACKEND_IMPLEMENTATION_CONTEXT.md](BACKEND_IMPLEMENTATION_CONTEXT.md) for backend instructions, and [CLAUDE.md](../CLAUDE.md) for full operating context.
 
 ---
 
@@ -13,7 +13,7 @@ This is a monorepo with two top-level workspaces and shared docs at the root:
 
 ```
 frontend/    React 18 + TS + Vite — this README is primarily about this workspace
-backend/     empty placeholder; backend team starts here next
+backend/     local checkout is still a placeholder; backend instructions live in docs/BACKEND_IMPLEMENTATION_CONTEXT.md
 Tasks/  docs/  CLAUDE.md  PRODUCT.md  POLISH_REPORT.md  …  (project-level)
 ```
 
@@ -215,24 +215,13 @@ frontend/src/
 
 ---
 
-## Mock service layer → real API in one line per service
+## Backend integration layer + mock fallback
 
-Every service file exposes typed methods with documented `INTEGRATION CONTRACT` headers. To switch from mock to real backend, replace the body of each method:
+Every service file exposes typed methods with documented `INTEGRATION CONTRACT` headers. As of the 2026-05-21 admin backend pass, admin-relevant services call real REST endpoints by default through `frontend/src/shared/lib/api-client.ts`; mock bodies remain only as explicit local demo fallback.
 
-```ts
-// Before — mock
-async list(filters) {
-  await simulateLatency();
-  return paginate(MOCK.applicants.filter(...), filters.page, filters.pageSize);
-}
+Set `VITE_API_BASE_URL=` in `frontend/.env.example` to use same-origin `/api/...`, or set it to the backend origin. `VITE_USE_MOCKS=false` is the default; `VITE_USE_MOCKS=true` is for local demo mode only and production builds throw if it is enabled.
 
-// After — real
-async list(filters) {
-  return apiClient.get('/applicants', { params: filters }).then((r) => r.data);
-}
-```
-
-Query hooks (`*.queries.ts`), components, and types stay unchanged. This is the bridge to the backend that's coming in a later session.
+Query hooks (`*.queries.ts`), components, and types stay unchanged. The current service inventory and remaining backend notes live in [ADMIN_BACKEND_INTEGRATION_STATUS.md](ADMIN_BACKEND_INTEGRATION_STATUS.md); endpoint contracts remain in [INTEGRATION_HANDOFF.md](INTEGRATION_HANDOFF.md).
 
 ---
 
@@ -289,11 +278,12 @@ The new React app reads from the same data shapes and renders the same screens �
 - ESLint + boundaries plugin to enforce Clean Arch imports
 - Husky pre-commit gate
 - Accessibility audit, print polish
-- Backend integration (post-demo): swap `simulateLatency()` + `MOCK` reads for `apiClient.get/post(...)` in every `*.service.ts`; queries/components/types stay unchanged
+- Backend implementation: follow [BACKEND_IMPLEMENTATION_CONTEXT.md](BACKEND_IMPLEMENTATION_CONTEXT.md) for the two-service .NET topology, admin-owned migrations, read-only applicant projections, and verbatim frontend mock seeding.
+- Backend integration continuation: keep pages/query hooks stable and extend service methods/client routing as admin/applicant APIs land.
 
 ---
 
 ## Author
 
 Built by **Appenza Studio** — Engineering Manager: Mortada.
-This is the production frontend for the Police Academy Admissions Platform; backend integration is scheduled for a later session.
+This is the production frontend for the Police Academy Admissions Platform; backend integration is now in progress.

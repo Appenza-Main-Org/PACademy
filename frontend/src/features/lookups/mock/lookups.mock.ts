@@ -1006,7 +1006,7 @@ const excellenceCriteria: ExcellenceCriterionRow[] = [
   { code: 'EXC-02', name: 'درجة', ...active },
 ];
 
-/* ─── Aggregate — `MOCK.lookups[key]` ────────────────────────────────── */
+/* ─── Aggregate — lookup dictionary seed by key ──────────────────────── */
 
 export const LOOKUPS_SEED: { [K in LookupKey]: LookupRow<K>[] } = {
   'relationships': relationships,

@@ -37,7 +37,6 @@ import {
 import { Check, ExternalLink, FileText, Trash2 } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { zodResolver } from '@/shared/lib/zod-resolver';
-import { MOCK } from '@/shared/mock-data';
 import {
   LOOKUP_META,
   type ApplicantCategoryGenderScope,
@@ -50,6 +49,7 @@ import {
   type TestInstructionsDocument,
   type TestInstructionsMode,
 } from '../types';
+import { useLookup } from '../api/lookups.queries';
 
 interface LookupRowDrawerProps<K extends LookupKey> {
   open: boolean;
@@ -76,6 +76,7 @@ export function LookupRowDrawer<K extends LookupKey>({
 }: LookupRowDrawerProps<K>): JSX.Element {
   const meta = LOOKUP_META[lookupKey];
   const isEdit = editing !== null;
+  const lookupRowsQuery = useLookup(lookupKey);
 
   const defaults = useMemo<FieldValues>(
     () => (editing ? { ...(editing as object) } : blankRow(lookupKey)) as FieldValues,
@@ -108,7 +109,7 @@ export function LookupRowDrawer<K extends LookupKey>({
       }
     }
     if (!isEdit && (!next.code || String(next.code).trim() === '')) {
-      next.code = nextCodeFor(lookupKey);
+      next.code = nextCodeFor(lookupKey, lookupRowsQuery.data ?? []);
     }
     if (lookupKey === 'committees') {
       const trimmed = typeof next.description === 'string' ? next.description.trim() : '';
@@ -816,35 +817,35 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
   const stage = watch('type') as ApplicantCategoryType | undefined;
   const selectedFaculties = (watch('facultyCodes') as string[] | undefined) ?? [];
   const selectedSpecs = (watch('specializationCodes') as string[] | undefined) ?? [];
+  const facultiesQuery = useLookup('faculties');
+  const specializationsQuery = useLookup('specializations');
 
-  /* Active rows from the live lookups — no useEffect for fetching, just
-   * straight reads off MOCK like the rest of this drawer. */
   const facultyOptions = useMemo<ComboboxOption[]>(
     () =>
-      (MOCK.lookups.faculties as FacultyRow[])
+      ((facultiesQuery.data ?? []) as FacultyRow[])
         .filter((f) => f.isActive)
         .map((f) => ({ value: f.code, label: f.name })),
-    [],
+    [facultiesQuery.data],
   );
 
   const facultyById = useMemo(() => {
     const map = new Map<string, FacultyRow>();
-    for (const f of MOCK.lookups.faculties as FacultyRow[]) map.set(f.code, f);
+    for (const f of (facultiesQuery.data ?? []) as FacultyRow[]) map.set(f.code, f);
     return map;
-  }, []);
+  }, [facultiesQuery.data]);
 
   /* Spec options + groups derived from the currently picked faculties. */
   const specOptions = useMemo<ComboboxOption[]>(() => {
     if (selectedFaculties.length === 0) return [];
     const allowed = new Set(selectedFaculties);
-    return (MOCK.lookups.specializations as SpecializationRow[])
+    return ((specializationsQuery.data ?? []) as SpecializationRow[])
       .filter((s) => s.isActive && allowed.has(s.facultyCode))
       .map((s) => ({
         value: s.code,
         label: s.name,
         groupId: s.facultyCode,
       }));
-  }, [selectedFaculties]);
+  }, [selectedFaculties, specializationsQuery.data]);
 
   const specGroups = useMemo<ComboboxGroup[]>(
     () =>
@@ -864,13 +865,13 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
     if (selectedFaculties.length === 0) return [];
     const allowed = new Set(selectedFaculties);
     const next = selectedSpecs.filter((code) => {
-      const row = (MOCK.lookups.specializations as SpecializationRow[]).find(
+      const row = ((specializationsQuery.data ?? []) as SpecializationRow[]).find(
         (s) => s.code === code,
       );
       return row != null && allowed.has(row.facultyCode);
     });
     return next.length === selectedSpecs.length ? selectedSpecs : next;
-  }, [selectedSpecs, selectedFaculties]);
+  }, [selectedSpecs, selectedFaculties, specializationsQuery.data]);
 
   if (reconciledSpecs !== selectedSpecs) {
     /* RHF tolerates setValue during render as long as the value changed.
@@ -973,7 +974,8 @@ interface RowWithParent {
 }
 
 function ParentCodeSelect({ lookupKey, value, onChange, ignoreCode, onlyParents }: ParentCodeSelectProps): JSX.Element {
-  const items = MOCK.lookups[lookupKey] as unknown as RowWithParent[];
+  const { data = [] } = useLookup(lookupKey);
+  const items = data as unknown as RowWithParent[];
   const filtered = items.filter(
     (i) => i.code !== ignoreCode && (!onlyParents || (i.parentCode ?? null) === null),
   );
@@ -1018,7 +1020,8 @@ function ForeignKeySelect({
   error,
   containerClassName,
 }: ForeignKeySelectProps): JSX.Element {
-  const items = MOCK.lookups[lookupKey] as unknown as RowMinimal[];
+  const { data = [] } = useLookup(lookupKey);
+  const items = data as unknown as RowMinimal[];
   return (
     <Select
       label={label}
@@ -1097,11 +1100,10 @@ function blankRow(key: LookupKey): Record<string, unknown> {
   }
 }
 
-function nextCodeFor(key: LookupKey): string {
+function nextCodeFor(key: LookupKey, rows: readonly { code: string }[]): string {
   const meta = LOOKUP_META[key];
-  const items = MOCK.lookups[key] as unknown as Array<{ code: string }>;
   let max = 0;
-  for (const r of items) {
+  for (const r of rows) {
     const m = r.code.match(/-(\d+)$/);
     if (m) {
       const n = Number.parseInt(m[1] ?? '0', 10);

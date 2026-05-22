@@ -25,6 +25,7 @@
 | `v0.2.0-demo` | first internal demo cut |
 | (untagged, 2026-05-12 → 2026-05-16) | admission-setup wizard + lookups + admin-users-NID + applicant-grades — see §11 |
 | (untagged, 2026-05-19 → 2026-05-20) | committees-exam-config management page + applicant unified-print + chrome polish — see §11 |
+| (untagged, 2026-05-21) | admin backend integration pass — shared `apiClient`, backend-default admin services, typed backend errors, validation mapping — see [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md) |
 
 The doc baselines point at these tags — when reading `docs/*REPORT.md`, treat the named tag as the snapshot the doc was written against. Code may have moved since.
 
@@ -36,7 +37,7 @@ The repo is organised as a monorepo with two top-level workspaces. Only `CLAUDE.
 PACademy/
 ├── CLAUDE.md           ← this file (operating context for Claude Code)
 ├── frontend/           ← React 18 + TS + Vite — this CLAUDE.md is primarily about this workspace
-├── backend/            ← empty placeholder; backend team starts here next
+├── backend/            ← local placeholder; backend instructions live in docs/BACKEND_IMPLEMENTATION_CONTEXT.md
 ├── Tasks/              ← project-level: DESIGN_SYSTEM.md, KARASA_GAPS.md, sprint plan, scope-alignment
 └── docs/               ← all other project docs:
     ├── README.md       ← public-facing project README + quick-start
@@ -338,19 +339,33 @@ export type AppKey = (typeof APP_KEYS)[number];
 
 ---
 
-## 6. Mock service layer (the bridge to the future backend)
+## 6. Backend integration layer + mock fallback
 
 Every feature exposes:
-- **`api/<feature>.service.ts`** — typed methods with `INTEGRATION CONTRACT` JSDoc header listing the real REST endpoints. Reads from `MOCK` (in [frontend/src/shared/mock-data/index.ts](frontend/src/shared/mock-data/index.ts)) and uses [`simulateLatency`](frontend/src/shared/lib/mock-helpers.ts) + [`paginate`](frontend/src/shared/lib/mock-helpers.ts).
+- **`api/<feature>.service.ts`** — typed methods with `INTEGRATION CONTRACT` JSDoc header listing the real REST endpoints. Admin-relevant services now call the shared backend client by default and keep the old `MOCK` + `simulateLatency` bodies only behind explicit local demo mode.
 - **`api/<feature>.queries.ts`** — TanStack Query hooks (`useX`, `useXMutation`) with a `keys` factory (e.g. `applicantKeys.list(filters)`).
 
-To wire up the real backend, **only the body of each service method changes** — query hooks, components, and types stay the same:
+Shared integration utilities:
+- [frontend/src/shared/lib/api-client.ts](frontend/src/shared/lib/api-client.ts) — `apiClient`, token handling, `VITE_API_BASE_URL`, backend error mapping, Blob export support.
+- [frontend/src/shared/lib/validation-errors.ts](frontend/src/shared/lib/validation-errors.ts) — normalizes backend 422/field-validation envelopes for forms.
+- [frontend/.env.example](frontend/.env.example) — `VITE_API_BASE_URL=` and `VITE_USE_MOCKS=false`.
+
+Backend is **enabled by default**. Set `VITE_USE_MOCKS=true` only for explicit local demo/mock mode; production builds throw if that flag is enabled. When `VITE_API_BASE_URL` is empty, calls use same-origin `/api/...`.
+
+The admin-first backend pass on 2026-05-21 wired Auth/RBAC, users/roles/settings, cycles/categories/admission rules, lookups, admission setup, committees config, applicants, applicant grades, audit, payments, notifications, reports, and workflows to `apiClient` by default. See [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md) for the current service inventory.
+
+Backend implementation instructions from the 2026-05-21 attached handoff live in [docs/BACKEND_IMPLEMENTATION_CONTEXT.md](docs/BACKEND_IMPLEMENTATION_CONTEXT.md). The hard backend rules are: two services (`backend/admin` on `:5101`, `backend/applicant` on `:5102`) over one SQL Server DB; admin owns all migrations; applicant exposes read-only projections where it should not mutate; seed data must copy the full frontend mock dataset verbatim with no invented rows.
+
+When adding or changing backend behavior, **keep pages and query hooks calling the existing service methods**. Add or adjust service methods rather than fetching from components:
 
 ```ts
-// before (mock)
-async list(filters) { await simulateLatency(); return paginate(MOCK.applicants.filter(...), ...); }
-// after (real)
-async list(filters) { return apiClient.get('/applicants', { params: filters }).then(r => r.data); }
+async list(filters) {
+  if (isBackendEnabled()) {
+    return apiClient.get('/api/applicants', { query: filters });
+  }
+  await simulateLatency();
+  return paginate(MOCK.applicants.filter(...), ...);
+}
 ```
 
 ### Mock data shape
@@ -579,9 +594,17 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
   - **Sidebar collapse** — staff sidebar now collapses to an icon rail with persisted state. Active-route highlighting + section emphasis preserved in both modes. Improved icon-rail keyboard accessibility.
   - **Unified admin toolbar + dropdown controls** — `Button`, `DataTable`, `MultiSelect`, `RadixMultiSelect`, `RadixSelect`, `SearchSelect`, `Select`, `PageHeader`, and `NotificationCenter` all routed through a new shared [frontend/src/shared/components/dropdownStyles.ts](frontend/src/shared/components/dropdownStyles.ts). Same paint across admin toolbar buttons, list-page action chips, and every dropdown trigger.
 
+✅ **Done (admin backend integration pass, 2026-05-21)**
+
+- **Backend-first admin service layer** — added [frontend/src/shared/lib/api-client.ts](frontend/src/shared/lib/api-client.ts). Admin services call real REST endpoints by default; mock fallback is opt-in via `VITE_USE_MOCKS=true`. Production throws if mock mode is enabled. Tokens are read from `pa-auth` and sent as Bearer auth. CSV/export endpoints can request `Blob`s.
+- **Typed backend errors** — backend envelopes now map to `ConflictError`, `DependencyBlockedError`, `AccountInactiveError`, `NotFoundError`, and `ValidationError`. Field-level validation normalization lives in [frontend/src/shared/lib/validation-errors.ts](frontend/src/shared/lib/validation-errors.ts).
+- **Admin service coverage** — Auth/RBAC, users, roles, settings, cycles, categories, admission rules, lookups, admission setup, committee instances, admin applicants, applicant grades, audit, payments, notifications, reports, and workflows are wired through `apiClient` by default. See [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md).
+- **Admin UI mock-data cleanup** — dashboard, applicants filters, committee overview/detail/form/create, lookup drawer/table/detail now read from query-backed services rather than direct seeded data where touched.
+- **Server-side validation surfaced in admin forms** — applicant create/edit, user create/edit, cycle create/edit, category edit, and committee create now map backend field errors into visible form errors.
+
 🚧 **Next sprints**
 - **Sprint 10 — Hardening**: Vitest + Testing Library, Playwright smoke E2E, `eslint-plugin-boundaries`, Husky pre-commit, accessibility audit, print polish.
-- **Backend integration** (post-demo): replace `simulateLatency()` + `MOCK` reads in every `*.service.ts` with real `apiClient.get/post(...)` calls. See §6 for the integration pattern. Component/query/type contracts stay unchanged.
+- **Backend integration continuation**: keep expanding the admin-first `apiClient` pattern and remove remaining production-path mock leaks. Component/query/type contracts stay unchanged.
 
 ---
 
@@ -595,7 +618,7 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
 6. **Verify before recommending:** the legacy demo is preserved but not authoritative for the new structure — always check `frontend/src/` first for what actually exists.
 7. **Run `npm run typecheck` after non-trivial edits.** Strict-mode TS catches a lot here.
 8. **For UI changes, run `npm run dev` and click through the affected route.** Do not claim a UI feature works without exercising it.
-9. **No backend.** This frontend is pre-integration. Any "fetch from API" answer is wrong — the answer is "extend the mock service and add a query hook."
+9. **Backend-first admin integration.** Do not fetch from components. Use or extend the relevant `*.service.ts`; admin services call `apiClient` by default and retain mock fallback only for `VITE_USE_MOCKS=true`.
 10. **Arabic content is exact** — copy-paste from the legacy demo or existing files; do not retype Arabic strings (rendering edge cases bite).
 11. **Per-app surfaces consume `var(--accent-*)`, never hardcoded `bg-teal-*` / `text-gold-*`.** The S1 audit (POLISH_REPORT §3) closed this across 7 of 9 apps. New per-app surfaces must use `var(--accent-500/700/50)` via inline `style` so the `data-app="<key>"` overrides flow through.
 12. **§4 two-phase signature canon** (PRODUCT.md §4): any "preliminary save" affordance uses the dashed `border-gold-300 bg-gold-50 text-gold-700` notice shape; any "final / approved / معتمد" Badge carries the `<IconStamp width={12} height={12} />` glyph on the start edge. Don't invent new affordances for the same workflow.
@@ -656,6 +679,8 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
 | [DESIGN.md](docs/DESIGN.md) → [Tasks/DESIGN_SYSTEM.md](Tasks/DESIGN_SYSTEM.md) | Visual constitution — tokens, type, motion (read before any visual work) |
 | [docs/DB_CONSTRAINTS.md](docs/DB_CONSTRAINTS.md) | DB invariants + typed `ConflictError` codes the backend must mirror — read before opening any mutating service file |
 | [docs/INTEGRATION_HANDOFF.md](docs/INTEGRATION_HANDOFF.md) | Backend integration bible — every `*.service.ts` contract mapped to its real REST endpoint, every typed error mapped to its required response shape (baseline tag: `admin-gaps-verified`) |
+| [docs/BACKEND_IMPLEMENTATION_CONTEXT.md](docs/BACKEND_IMPLEMENTATION_CONTEXT.md) | Backend implementation instructions from attached handoff docs: two-service topology, seed-data rule, conventions, build order, verification |
+| [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md) | Current 2026-05-21 admin backend integration status: api client, env flags, wired services, validation mapping, remaining notes |
 | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | The script for the 2026-05-29 evaluator demo — the customer-facing narrative |
 | [Tasks/KARASA_GAPS.md](Tasks/KARASA_GAPS.md) | RFP Scope Document coverage map (filename retained; term inside is "RFP Scope Document") |
 | [Tasks/RADIX_ADOPTION_REPORT.md](Tasks/RADIX_ADOPTION_REPORT.md) | Inventory of sanctioned Radix primitives + composition patterns (referenced by §2.5) |

@@ -15,18 +15,13 @@ import {
 import type { DataTableColumn, ListActionsConfig, SearchSelectOption } from '@/shared/components';
 import { StatusBadge, PaymentBadge } from '@/shared/components/StatusBadge';
 import { useApplicants } from '@/features/applicants/api/applicant.queries';
+import { useLookup } from '@/features/lookups';
 import { ROUTES } from '@/config/routes';
-import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, shortName, maskNationalId } from '@/shared/lib/format';
 import { STATUS_LABELS } from '@/shared/mock-data/dictionaries';
 import type { Applicant, ApplicantStatus } from '@/shared/types/domain';
 
 const PAGE_SIZE = 15;
-
-const GOVERNORATE_OPTIONS: readonly SearchSelectOption[] = MOCK.governorates.map((g) => ({
-  value: g,
-  label: g,
-}));
 
 const CERT_TYPE_OPTIONS: readonly SearchSelectOption[] = [
   { value: 'ثانوية عامة', label: 'ثانوية عامة' },
@@ -130,6 +125,14 @@ export function ApplicantsPage(): JSX.Element {
   const [status, setStatus] = useState<ApplicantStatus | 'all'>('all');
   const [governorate, setGovernorate] = useState<string>('all');
   const [certType, setCertType] = useState<string>('all');
+  const governoratesQuery = useLookup('governorates');
+  const governorateOptions = useMemo<readonly SearchSelectOption[]>(
+    () =>
+      (governoratesQuery.data ?? [])
+        .filter((row) => row.isActive)
+        .map((row) => ({ value: row.name, label: row.name })),
+    [governoratesQuery.data],
+  );
 
   const { data, isLoading } = useApplicants({
     page,
@@ -226,7 +229,7 @@ export function ApplicantsPage(): JSX.Element {
                   setGovernorate(next ?? 'all');
                   setPage(1);
                 }}
-                options={GOVERNORATE_OPTIONS}
+                options={governorateOptions}
                 ariaLabel="تصفية حسب المحافظة"
                 placeholder="كل المحافظات"
                 className="h-[38px]"

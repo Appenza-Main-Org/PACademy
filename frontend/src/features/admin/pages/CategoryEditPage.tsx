@@ -6,7 +6,7 @@
 
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldPath } from 'react-hook-form';
 import { z } from 'zod';
 import { Save } from 'lucide-react';
 import {
@@ -22,6 +22,8 @@ import {
 import type { ApplicantCategoryKey } from '@/shared/types/domain';
 import { ROUTES } from '@/config/routes';
 import { zodResolver } from '@/shared/lib/zod-resolver';
+import { isValidationError } from '@/shared/lib/errors';
+import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 import {
   useCategoryAdmin,
   useUpdateCategoryMutation,
@@ -53,6 +55,7 @@ export function CategoryEditPage(): JSX.Element {
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors },
   } = useForm<CategoryValues>({
     resolver: zodResolver(categorySchema),
@@ -95,7 +98,14 @@ export function CategoryEditPage(): JSX.Element {
           toast('تم حفظ الفئة', 'success');
           navigate(ROUTES.admin.categories);
         },
-        onError: (err) => toast((err as Error).message, 'danger'),
+        onError: (err) => {
+          if (isValidationError(err)) {
+            for (const [field, message] of Object.entries(validationFieldErrors(err))) {
+              setError(field as FieldPath<CategoryValues>, { type: 'server', message });
+            }
+          }
+          toast(validationMessage(err, 'تعذر حفظ الفئة'), 'danger');
+        },
       },
     );
   };

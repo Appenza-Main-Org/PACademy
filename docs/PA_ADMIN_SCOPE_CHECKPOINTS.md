@@ -3,8 +3,11 @@
 **Scope:** 20 admin-app checkpoints from the PA Academy notes (CP1–CP20)
 **Baseline tag:** `applicant-flow-verified` + post-flow demo polish
 **Date:** 2026-05-10
+**Latest integration note:** 2026-05-21 admin backend pass — see [ADMIN_BACKEND_INTEGRATION_STATUS.md](ADMIN_BACKEND_INTEGRATION_STATUS.md)
 
 This document validates that every PA Academy admin-scope note is covered by the current frontend, calls out the ones that are partially done or deferred, and points at the evidence (route, component, service, type, mock-data) so backend integration can pick up against a stable contract.
+
+> **Context update:** this checkpoint audit was written while admin services were mock-first. The 2026-05-21 pass introduced `apiClient` and made backend calls the default for admin-relevant services, with `VITE_USE_MOCKS=true` retained only for explicit local demo mode.
 
 The 20 checkpoints map cleanly onto the 13 admin-gaps already shipped in [Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md](../Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md) (Gaps A–M, all closed under tag `admin-gaps-verified`). The 17 applicant-side gaps (AF-1 to AF-17) shipped on top of that closed the applicant-portal flow against the MOI reference, tagged `applicant-flow-verified`.
 
@@ -308,10 +311,10 @@ The 20 checkpoints map cleanly onto the 13 admin-gaps already shipped in [Tasks/
 
 ## Backend-integration handoff
 
-Every checkpoint above runs against typed mock services. Backend can wire the real REST endpoints documented in each `*.service.ts` `INTEGRATION CONTRACT` JSDoc header without frontend churn. Specific items requiring backend coordination:
+This audit originally validated typed mock services. As of the 2026-05-21 admin backend pass, admin-relevant services call real REST endpoints by default through `apiClient`; mock bodies are explicit local-demo fallback only. Backend should implement the REST endpoints documented in each `*.service.ts` `INTEGRATION CONTRACT` JSDoc header and the live integration inventory in `INTEGRATION_HANDOFF.md` without frontend churn. Specific items requiring backend coordination:
 
 1. **OTP gateway** (CP4) — SMS provider integration; mock returns `000000` as dev bypass.
-2. **HR sync** (CP1, CP2) — `syncOfficerFromHR` and `syncApplicant` endpoints; mock seeds 12 users + 240 applicants.
+2. **HR sync** (CP1, CP2) — `syncOfficerFromHR` and `syncApplicant` endpoints; fallback seeds still cover 12 users + 240 applicants for local demo mode.
 3. **Fawry integration** (CP9) — special integration per ops; mock returns deterministic Fawry codes.
 4. **DB constraint enforcement** (CP10) — server must enforce all 9 invariants from `DB_CONSTRAINTS.md`; frontend mirrors as defensive guards but cannot be the source of truth.
 5. **External device integration** (CP17) — exam-result device handoff is stubbed; real integration spec pending.

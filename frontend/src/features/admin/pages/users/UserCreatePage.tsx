@@ -31,6 +31,8 @@ import { useUserCreate } from '../../api/users.queries';
 import type { OfficerCandidate } from '../../api/nid-lookup.service';
 import { validateRoleSet } from '../../lib/role-rules';
 import type { AccountStatus } from '@/shared/types/domain';
+import { isValidationError } from '@/shared/lib/errors';
+import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 
 interface FormState {
   candidate: OfficerCandidate | null;
@@ -58,6 +60,7 @@ export function UserCreatePage(): JSX.Element {
   const [form, setForm] = useState<FormState>(INITIAL);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [rolesError, setRolesError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const merged: OfficerCandidate | null = form.candidate
     ? { ...form.candidate, ...form.overrides }
@@ -86,6 +89,7 @@ export function UserCreatePage(): JSX.Element {
     e.preventDefault();
     setSubmitError(null);
     setRolesError(null);
+    setFieldErrors({});
     if (!merged) return;
     const validation = validateRoleSet(form.roles);
     if (!validation.ok) {
@@ -105,7 +109,12 @@ export function UserCreatePage(): JSX.Element {
       toast(`تم إنشاء حساب ${created.fullArabicName}`, 'success');
       navigate(ROUTES.admin.userDetail(created.id));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'تعذر إنشاء الحساب';
+      const message = validationMessage(err, 'تعذر إنشاء الحساب');
+      if (isValidationError(err)) {
+        const nextFieldErrors = validationFieldErrors(err);
+        setFieldErrors(nextFieldErrors);
+        setRolesError(nextFieldErrors.roles ?? null);
+      }
       setSubmitError(message);
       toast(message, 'danger');
     }
@@ -159,19 +168,31 @@ export function UserCreatePage(): JSX.Element {
                   <Input
                     label="الاسم رباعياً"
                     value={merged.fullArabicName}
-                    onChange={(e) => handleOverride('fullArabicName', e.target.value)}
+                    onChange={(e) => {
+                      handleOverride('fullArabicName', e.target.value);
+                      setFieldErrors((prev) => ({ ...prev, fullArabicName: '' }));
+                    }}
+                    error={fieldErrors.fullArabicName}
                   />
                   <Input
                     label="رمز الضابط / الكود"
                     value={merged.officerCode}
-                    onChange={(e) => handleOverride('officerCode', e.target.value)}
+                    onChange={(e) => {
+                      handleOverride('officerCode', e.target.value);
+                      setFieldErrors((prev) => ({ ...prev, officerCode: '' }));
+                    }}
+                    error={fieldErrors.officerCode}
                   />
                   <Input
                     label="رقم المحمول"
                     value={merged.mobileNumber}
-                    onChange={(e) => handleOverride('mobileNumber', e.target.value)}
+                    onChange={(e) => {
+                      handleOverride('mobileNumber', e.target.value);
+                      setFieldErrors((prev) => ({ ...prev, mobileNumber: '' }));
+                    }}
                     inputMode="tel"
                     dir="ltr"
+                    error={fieldErrors.mobileNumber}
                   />
                 </div>
               )}

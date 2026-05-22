@@ -10,7 +10,7 @@
  */
 
 import { useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldPath } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Save } from 'lucide-react';
 import { z } from 'zod';
@@ -37,19 +37,16 @@ import {
   type CommitteeStatus,
 } from '@/shared/types/domain';
 import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
+import { useCycles } from '@/features/admin/api/cycles.queries';
 import { ACADEMIC_DEGREES } from '@/features/lookups';
 import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
+import { isValidationError } from '@/shared/lib/errors';
+import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 
 const ACADEMIC_YEARS = [
   { value: '2026-2027', label: 'العام الدراسي 2026 / 2027' },
   { value: '2025-2026', label: 'العام الدراسي 2025 / 2026' },
   { value: '2024-2025', label: 'العام الدراسي 2024 / 2025' },
-] as const;
-
-const CYCLE_OPTIONS = [
-  { value: 'CYC-2026-M', label: 'دورة التقديم 2026' },
-  { value: 'CYC-2025-M', label: 'دورة 2025 - الذكور' },
-  { value: 'CYC-2025-F', label: 'دورة 2025 - الإناث' },
 ] as const;
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: CommitteeStatus; label: string }> = [
@@ -92,6 +89,7 @@ export function CommitteeCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const createMut = useCreateCommittee();
   const categoriesQuery = useCategoriesAdmin({ includeDeleted: false });
+  const cyclesQuery = useCycles();
 
   /* When the admin clicks "إنشاء لجنة" from the committees lookup
    * (/admin/lookups/committees), the active tab's key is passed via
@@ -109,6 +107,7 @@ export function CommitteeCreatePage(): JSX.Element {
   const {
     register,
     handleSubmit,
+    setError,
     setValue,
     watch,
     formState: { errors, isSubmitting },
@@ -119,7 +118,7 @@ export function CommitteeCreatePage(): JSX.Element {
       name: '',
       academicYearId: ACADEMIC_YEARS[0].value,
       status: 'active',
-      cycleId: CYCLE_OPTIONS[0].value,
+      cycleId: '',
       maxPercentage: 100,
       filterGender: 'any',
       academicDegree: 'any',
@@ -130,6 +129,14 @@ export function CommitteeCreatePage(): JSX.Element {
   const filterGender = watch('filterGender');
   const academicDegree = watch('academicDegree');
   const committeeName = watch('name');
+  const cycleOptions = useMemo(
+    () =>
+      (cyclesQuery.data ?? []).map((cycle) => ({
+        value: cycle.id,
+        label: cycle.nameAr,
+      })),
+    [cyclesQuery.data],
+  );
 
   /* For the specialized_officers track, gender is a function of the
    * committee name (deriveCommitteeGender). The form surfaces the derived
@@ -242,7 +249,14 @@ export function CommitteeCreatePage(): JSX.Element {
           toast(`تم إنشاء لجنة ${committee.name}`, 'success');
           navigate(ROUTES.admin.adminLookupsType('committees'));
         },
-        onError: (err) => toast((err as Error).message, 'danger'),
+        onError: (err) => {
+          if (isValidationError(err)) {
+            for (const [field, message] of Object.entries(validationFieldErrors(err))) {
+              setError(field as FieldPath<FormValues>, { type: 'server', message });
+            }
+          }
+          toast(validationMessage(err, 'تعذر إنشاء اللجنة'), 'danger');
+        },
       },
     );
   };
@@ -324,7 +338,7 @@ export function CommitteeCreatePage(): JSX.Element {
                 label="الدورة المرتبطة"
                 required
                 {...register('cycleId')}
-                options={CYCLE_OPTIONS}
+                options={cycleOptions}
                 error={errors.cycleId?.message}
                 containerClassName="md:col-span-2"
               />

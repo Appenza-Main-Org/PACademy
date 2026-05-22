@@ -16,6 +16,7 @@ import {
 } from '@/features/applicants';
 import { ROUTES } from '@/config/routes';
 import { ApplicantForm } from '@/features/admin/components/applicants/ApplicantForm';
+import { isValidationError } from '@/shared/lib/errors';
 
 export function ApplicantNewPage(): JSX.Element {
   const navigate = useNavigate();
@@ -30,6 +31,10 @@ export function ApplicantNewPage(): JSX.Element {
       navigate(ROUTES.admin.applicantDetail(created.id));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'تعذر إضافة المتقدم';
+      if (isValidationError(err)) {
+        toast(message, 'danger');
+        throw err;
+      }
       if (err instanceof ApplicantTransitionError && err.code === 409) {
         setNidError(message);
       } else {

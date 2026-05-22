@@ -266,7 +266,7 @@ export type ApplicantCategoryType = 'pre_university' | 'university';
 /* The applicant-category lookup absorbs the full ApplicantCategory shape
  * — description, isOpen flag, conditions, expanded conditions, required
  * tests, procedures. This lookup is the single source of truth for
- * categories; the former /admin/categories page and MOCK.categories are
+ * categories; the former /admin/categories page and legacy category seed are
  * being retired in favour of it. Rich fields imported from
  * @/shared/types/domain (CategoryCondition etc.) so the existing
  * applicant-portal eligibility flow keeps working unchanged. */

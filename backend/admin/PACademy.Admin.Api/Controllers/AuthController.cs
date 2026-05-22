@@ -59,7 +59,7 @@ public sealed class AuthController(IIdentityDbContext db) : ControllerBase
     }
 
     [HttpGet("api/auth/lock-policy")]
-    public ActionResult<object> LockPolicy() => Ok(new { maxAttempts = 5, lockMinutes = 30, otpRequired = false });
+    public ActionResult<object> LockPolicy() => Ok(new { lockDurationMinutes = 30 });
 
     [HttpPatch("api/auth/lock-policy")]
     public ActionResult<object> UpdateLockPolicy([FromBody] JsonObject body) => Ok(body);

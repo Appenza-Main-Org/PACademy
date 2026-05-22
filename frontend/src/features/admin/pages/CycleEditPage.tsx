@@ -12,7 +12,7 @@
 
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, type FieldPath } from 'react-hook-form';
 import { z } from 'zod';
 import { Save } from 'lucide-react';
 import {
@@ -27,6 +27,8 @@ import {
   toast,
 } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
+import { isValidationError } from '@/shared/lib/errors';
+import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import { useCycle, useCycleUpdate } from '../api/cycles.queries';
@@ -62,6 +64,7 @@ export function CycleEditPage(): JSX.Element {
     handleSubmit,
     control,
     reset,
+    setError,
     formState: { errors },
   } = useForm<CycleValues>({
     resolver: zodResolver(cycleSchema),
@@ -118,7 +121,12 @@ export function CycleEditPage(): JSX.Element {
           navigate(ROUTES.admin.cycles);
         },
         onError: (err) => {
-          toast((err as Error).message, 'danger');
+          if (isValidationError(err)) {
+            for (const [field, message] of Object.entries(validationFieldErrors(err))) {
+              setError(field as FieldPath<CycleValues>, { type: 'server', message });
+            }
+          }
+          toast(validationMessage(err, 'تعذر حفظ تعديلات الدورة'), 'danger');
         },
       },
     );

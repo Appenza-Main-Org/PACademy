@@ -16,7 +16,7 @@
  * the supplied `onSubmit` with the typed payload.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Save } from 'lucide-react';
 import { z } from 'zod';
 import {
@@ -30,8 +30,8 @@ import {
   Select,
 } from '@/shared/components';
 import type { Committee, CommitteeRules, CommitteeStatus } from '@/shared/types/domain';
-import { MOCK } from '@/shared/mock-data';
-import { readPercentageRange } from '@/features/lookups';
+import { readPercentageRange, useLookup } from '@/features/lookups';
+import { useCycles } from '@/features/admin/api/cycles.queries';
 import { num } from '@/shared/lib/format';
 import {
   useCommitteeSpecializations,
@@ -46,12 +46,6 @@ const ACADEMIC_YEARS = [
   { value: '2026-2027', label: 'العام الدراسي 2026 / 2027' },
   { value: '2025-2026', label: 'العام الدراسي 2025 / 2026' },
   { value: '2024-2025', label: 'العام الدراسي 2024 / 2025' },
-];
-
-const CYCLE_OPTIONS = [
-  { value: 'CYC-2026-M', label: 'دورة التقديم 2026' },
-  { value: 'CYC-2025-M', label: 'دورة 2025 - الذكور' },
-  { value: 'CYC-2025-F', label: 'دورة 2025 - الإناث' },
 ];
 
 const schema = z
@@ -107,16 +101,17 @@ export function CommitteeForm({
   onCancel,
 }: CommitteeFormProps): JSX.Element {
   const { data: specializations = [] } = useCommitteeSpecializations();
+  const { data: cycles = [] } = useCycles();
+  const academicGradesQuery = useLookup('academic-grades');
 
   /* Academic-grade picker options, sourced from
-   * `MOCK.lookups['academic-grades']` (admin lookup at
-   * /admin/lookups/academic-grades). Ordered by band floor descending
+   * the admin lookup at /admin/lookups/academic-grades. Ordered by band floor descending
    * (امتياز → مقبول) so the picker reads top-down like a report card.
    * Each option's band hint is rendered as a Combobox badge so admins
    * can verify e.g. "جيد" maps to "65–74%" at pick time. */
   const academicGradeOptions = useMemo(
     () =>
-      MOCK.lookups['academic-grades']
+      (academicGradesQuery.data ?? [])
         .filter((g) => g.isActive)
         .slice()
         .sort((a, b) => {
@@ -132,7 +127,7 @@ export function CommitteeForm({
             badge: r ? `${num(r.min)}–${num(r.max)}%` : undefined,
           };
         }),
-    [],
+    [academicGradesQuery.data],
   );
 
   const [name, setName] = useState(initial?.name ?? '');
@@ -144,7 +139,7 @@ export function CommitteeForm({
     initial?.specializationIds ?? [],
   );
   const [capacity, setCapacity] = useState<number>(initial?.capacity ?? 600);
-  const [cycleId, setCycleId] = useState<string>(initial?.linkedCycleId ?? CYCLE_OPTIONS[0]!.value);
+  const [cycleId, setCycleId] = useState<string>(initial?.linkedCycleId ?? '');
   const [rules, setRules] = useState<CommitteeRules>(
     initial?.rules ?? {
       gradeFrom: 70,
@@ -155,6 +150,11 @@ export function CommitteeForm({
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (cycleId || cycles.length === 0) return;
+    setCycleId(cycles[0]!.id);
+  }, [cycleId, cycles]);
 
   const specializationOptions = useMemo(
     () =>
@@ -230,7 +230,7 @@ export function CommitteeForm({
               required
               value={cycleId}
               onChange={(e) => setCycleId(e.target.value)}
-              options={CYCLE_OPTIONS}
+              options={cycles.map((cycle) => ({ value: cycle.id, label: cycle.nameAr }))}
               error={errors.cycleId}
               containerClassName="md:col-span-2"
             />

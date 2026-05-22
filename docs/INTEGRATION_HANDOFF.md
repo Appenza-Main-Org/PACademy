@@ -2,6 +2,8 @@
 
 > **Tag baseline:** `admin-gaps-verified` (`d989536`).
 > **Frozen for handoff:** 2026-05-07.
+> **Latest admin backend pass:** 2026-05-21 — see [ADMIN_BACKEND_INTEGRATION_STATUS.md](ADMIN_BACKEND_INTEGRATION_STATUS.md).
+> **Backend implementation context:** two-service topology + seed-data rule ingested from attached handoff files — see [BACKEND_IMPLEMENTATION_CONTEXT.md](BACKEND_IMPLEMENTATION_CONTEXT.md).
 > **Audience:** the backend team picking up after the admin gap closure.
 >
 > This is the single document the backend team should read end-to-end
@@ -27,10 +29,28 @@ contracts in here are the integration test fixture. If the backend
 needs a different shape, it goes through `Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md`
 as a documented amendment.
 
+### 2026-05-21 admin integration update
+
+The admin surface is no longer only a mock-service contract. A shared backend client now exists at `frontend/src/shared/lib/api-client.ts`, and admin-relevant services call real endpoints by default. `VITE_USE_MOCKS=true` is explicit local demo mode only; production builds throw if that flag is enabled. `VITE_API_BASE_URL` controls the backend origin and defaults to same-origin `/api/...` when empty.
+
+Backend error envelopes are normalized into frontend typed errors:
+
+| Backend condition | Frontend error |
+|---|---|
+| `code: "CONFLICT"` + `conflictCode` | `ConflictError` |
+| `code: "DEPENDENCY_BLOCKED"` + `result` | `DependencyBlockedError` |
+| `code: "ACCOUNT_INACTIVE"` | `AccountInactiveError` |
+| `code: "NOT_FOUND"` or HTTP 404 | `NotFoundError` |
+| `code: "VALIDATION_ERROR"` / `FIELD_VALIDATION` or HTTP 422 | `ValidationError` |
+
+Field-level validation helpers live in `frontend/src/shared/lib/validation-errors.ts` and are wired into the high-risk admin forms. See [ADMIN_BACKEND_INTEGRATION_STATUS.md](ADMIN_BACKEND_INTEGRATION_STATUS.md) for the current list of wired services and UI mock-data cleanup.
+
 Cross-references:
 - [Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md](../Tasks/ADMIN_APP_SCOPE_ALIGNMENT.md) — the original gap definitions, §8 closeout, §9 verification pass.
 - [docs/VERIFICATION_REPORT.md](VERIFICATION_REPORT.md) — full audit results + tag history.
 - [docs/DB_CONSTRAINTS.md](DB_CONSTRAINTS.md) — the 9 invariants + SQL Server expressions.
+- [docs/BACKEND_IMPLEMENTATION_CONTEXT.md](BACKEND_IMPLEMENTATION_CONTEXT.md) — backend topology, seed-data rule, .NET/EF conventions, auth split, build order.
+- [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](ADMIN_BACKEND_INTEGRATION_STATUS.md) — current admin backend integration status and env flags.
 - [TODO.md](../TODO.md) — durable record of out-of-scope deferrals.
 
 ---
@@ -764,8 +784,8 @@ shouldn't surprise the backend team:
   entities** beyond the ones shipped in this verification pass. The
   Gap H committee fix (`b085af0`) covered the missed entity from
   the admin gaps; further entities (board members, biometric,
-  barcodes, etc.) should be addressed during integration when those
-  features get re-touched anyway, not as a pre-integration sweep.
+  barcodes, etc.) should be addressed when those features get
+  re-touched, not as a current admin backend-pass blocker.
 - **The `peekOtpCode` demo helper** in `auth.service.ts`. Remove on
   integration; never surface in the real backend.
 - **The `ensureDemoUser()` boot-strap** in `App.tsx`. Disable when

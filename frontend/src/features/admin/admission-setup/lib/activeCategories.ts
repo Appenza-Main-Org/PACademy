@@ -2,7 +2,7 @@
  * useActiveCategoriesForCycle — projects step 1's active categories into
  * a stable view shape consumed by the exam-schedule step's tab header.
  *
- * Source of truth: `MOCK.applicantCategoryConfigs` filtered by
+ * Source of truth: applicant category configs filtered by
  * `isActive: true`, joined with the `applicant-categories` lookup row
  * for `nameAr`, sorted by `sortOrder`.
  *

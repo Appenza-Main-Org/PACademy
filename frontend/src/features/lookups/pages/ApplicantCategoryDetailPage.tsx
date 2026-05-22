@@ -24,7 +24,6 @@ import {
 } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
-import { MOCK } from '@/shared/mock-data';
 import { useLookup } from '../api/lookups.queries';
 import type {
   ApplicantCategoryRow,
@@ -67,6 +66,9 @@ export function ApplicantCategoryDetailPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useLookup('applicant-categories');
+  const facultiesQuery = useLookup('faculties');
+  const specializationsQuery = useLookup('specializations');
+  const excellenceCriteriaQuery = useLookup('excellence-criteria');
 
   const row = useMemo(
     () => (data ?? []).find((c) => c.code === id) ?? null,
@@ -111,9 +113,9 @@ export function ApplicantCategoryDetailPage(): JSX.Element {
     );
   }
 
-  const faculties = MOCK.lookups.faculties as FacultyRow[];
-  const specializations = MOCK.lookups.specializations as SpecializationRow[];
-  const excellenceCriteria = MOCK.lookups['excellence-criteria'];
+  const faculties = (facultiesQuery.data ?? []) as FacultyRow[];
+  const specializations = (specializationsQuery.data ?? []) as SpecializationRow[];
+  const excellenceCriteria = excellenceCriteriaQuery.data ?? [];
   const excellenceLabel =
     row.excellenceCriterion === null
       ? null

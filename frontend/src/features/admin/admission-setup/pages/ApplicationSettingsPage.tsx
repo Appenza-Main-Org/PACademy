@@ -5,7 +5,7 @@
  *   ApplicantCategoryConfig → ApplicantCategorySpecialization → ApplicantSpecializationYear
  *
  * The page reads `applicant-categories` and `specializations` from the
- * existing lookup catalogue (`MOCK.lookups`) and never seeds new lookup
+ * existing lookup catalogue and never seeds new lookup
  * rows. It is intentionally cycle-agnostic — these rows are global
  * master data and the banner makes that explicit.
  *

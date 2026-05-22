@@ -6,6 +6,10 @@ Handoff documentation for the Police Academy Admissions Platform demo.
 
 | File | Purpose |
 |---|---|
+| [BACKEND_IMPLEMENTATION_CONTEXT.md](BACKEND_IMPLEMENTATION_CONTEXT.md) | Backend instructions ingested from attached handoff docs: two-service topology, seed-data rule, conventions, auth, build order, verification expectations. |
+| [ADMIN_BACKEND_INTEGRATION_STATUS.md](ADMIN_BACKEND_INTEGRATION_STATUS.md) | Current 2026-05-21 admin backend integration status: shared API client, env flags, wired services, validation mapping, remaining notes. |
+| [INTEGRATION_HANDOFF.md](INTEGRATION_HANDOFF.md) | Backend integration contract index: service endpoints, typed errors, DB invariant cross-references, auth/session notes. |
+| [DB_CONSTRAINTS.md](DB_CONSTRAINTS.md) | SQL Server invariant contract and frontend typed conflict codes. |
 | [DEMO_SCRIPT.md](DEMO_SCRIPT.md) | Live-demo flow in 3 timings (5min / 15min / 30min), per-screen talking points with KARASA citations, Q&A prep, things to avoid, pre-demo checklist. |
 | [PRESENTATION_PROMPT.md](PRESENTATION_PROMPT.md) | Drop-in prompt for Gamma / ChatGPT / Claude to generate the 20-slide Arabic-first deck before the demo. |
 | [AUDIT_REPORT.md](AUDIT_REPORT.md) | Architectural / technical audit. Useful as a leave-behind PDF. |

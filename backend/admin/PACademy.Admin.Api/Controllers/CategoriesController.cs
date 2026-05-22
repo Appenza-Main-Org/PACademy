@@ -31,6 +31,13 @@ public sealed class CategoriesController(CategoriesService service) : Controller
     public async Task<ActionResult<JsonObject>> SoftDelete(string key, CancellationToken ct) =>
         Ok(await service.SoftDeleteAsync(key, ct));
 
+    [HttpPost("{key}/restore")]
+    public async Task<ActionResult<JsonObject?>> Restore(string key, CancellationToken ct)
+    {
+        var category = await service.GetByKeyAsync(key, ct);
+        return category is null ? NotFound() : Ok(category);
+    }
+
     [HttpPost("{key}/preview-rule-change")]
     public ActionResult<object> PreviewRuleChange(string key) =>
         Ok(new { impactedApplicants = Array.Empty<object>(), conflicts = Array.Empty<object>() });
