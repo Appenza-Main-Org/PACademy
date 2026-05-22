@@ -250,13 +250,13 @@ const COMPLETION_META: Record<CategoryCompletionState, CompletionMeta> = {
     iconClassName: 'bg-success text-surface-card',
   },
   partial: {
-    label: 'جزئي',
+    label: 'غير مكتمل',
     icon: <CircleDashed size={12} strokeWidth={1.75} aria-hidden />,
     className: 'border-gold-200 bg-gold-50 text-gold-700 ring-1 ring-gold-500/10',
     iconClassName: 'bg-gold-500 text-surface-card',
   },
   empty: {
-    label: 'فارغ',
+    label: 'غير مكتمل',
     icon: <Circle size={12} strokeWidth={1.75} aria-hidden />,
     className: 'border-border-subtle bg-ink-50 text-ink-700 ring-1 ring-ink-500/10',
     iconClassName: 'bg-surface-card text-ink-500 ring-1 ring-border-strong',

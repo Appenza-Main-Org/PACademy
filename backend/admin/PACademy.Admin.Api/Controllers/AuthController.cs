@@ -16,13 +16,53 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
     [HttpPost("api/auth/login/verify-otp")]
     public async Task<ActionResult<object>> Login([FromBody] JsonObject body, CancellationToken ct)
     {
-        var role = body["role"]?.GetValue<string>() ?? "super_admin";
-        var roleRow = await db.Roles.AsNoTracking().FirstOrDefaultAsync(x => x.Key == role, ct)
-            ?? await db.Roles.AsNoTracking().FirstAsync(ct);
-        var userRow = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Role == roleRow.Key, ct)
-            ?? await db.Users.AsNoTracking().FirstAsync(ct);
-        var roleJson = IdentityJson.Parse(roleRow.PayloadJson);
+        var nationalId = ReadString(body, "nationalId") ?? ReadString(body, "username");
+        var mobile = ReadString(body, "mobileNumber") ?? ReadString(body, "mobile") ?? ReadString(body, "password");
+        var requestedRole = ReadString(body, "role");
+        if (!IsNationalId(nationalId))
+        {
+            return UnprocessableEntity(new ApiErrorEnvelope(
+                ErrorCodes.ValidationFailed,
+                Errors: new Dictionary<string, string[]> { ["nationalId"] = ["الرقم القومي يجب أن يكون 14 رقماً"] },
+                Message: "تحقق من البيانات المدخلة"));
+        }
+        if (!IsMobile(mobile))
+        {
+            return UnprocessableEntity(new ApiErrorEnvelope(
+                ErrorCodes.ValidationFailed,
+                Errors: new Dictionary<string, string[]> { ["mobile"] = ["رقم المحمول غير صحيح"] },
+                Message: "تحقق من البيانات المدخلة"));
+        }
+
+        var userRow = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.NationalId == nationalId, ct);
+        if (userRow is null)
+        {
+            return Unauthorized(new ApiErrorEnvelope("AUTH_INVALID", Message: "بيانات الدخول غير صحيحة"));
+        }
+
         var userJson = IdentityJson.Parse(userRow.PayloadJson);
+        var registeredMobile = IdentityJson.StringProp(userJson, "mobileNumber");
+        if (!SameDigits(registeredMobile, mobile))
+        {
+            return Unauthorized(new ApiErrorEnvelope("AUTH_INVALID", Message: "بيانات الدخول غير صحيحة"));
+        }
+        if (userRow.AccountStatus != "active")
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorEnvelope(
+                "ACCOUNT_INACTIVE",
+                Message: "الحساب غير مفعّل",
+                Payload: new { userId = userRow.Id }));
+        }
+        if (!string.IsNullOrWhiteSpace(requestedRole) && requestedRole != userRow.Role)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorEnvelope(
+                ErrorCodes.Forbidden,
+                Message: "هذا الحساب غير مصرح له بالدخول إلى التطبيق المحدد"));
+        }
+
+        var roleRow = await db.Roles.AsNoTracking().FirstOrDefaultAsync(x => x.Key == userRow.Role, ct)
+            ?? throw new EntityNotFoundException("الدور غير موجود");
+        var roleJson = IdentityJson.Parse(roleRow.PayloadJson);
         var authUser = new JsonObject
         {
             ["id"] = userRow.Id,
@@ -35,6 +75,16 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
         };
         var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{userRow.Id}:{roleRow.Key}:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}"));
         authUser["token"] = token;
+        await auditSink.EmitAsync(new AuditEntry(
+            $"AUD-AUTH-{Guid.NewGuid():N}",
+            "auth",
+            "login",
+            "users",
+            userRow.Id,
+            userRow.Id,
+            userRow.FullArabicName,
+            $"تسجيل دخول · {roleRow.LabelAr}",
+            DateTimeOffset.UtcNow), ct);
         return Ok(authUser);
     }
 
@@ -134,4 +184,22 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
             officer.UserType
         });
     }
+
+    private static string? ReadString(JsonObject body, string key)
+    {
+        return body.TryGetPropertyValue(key, out var node) ? node?.GetValue<string>()?.Trim() : null;
+    }
+
+    private static bool IsNationalId(string? value) =>
+        value is { Length: 14 } && value.All(char.IsDigit);
+
+    private static bool IsMobile(string? value) =>
+        value is { Length: 11 } &&
+        value.StartsWith("01", StringComparison.Ordinal) &&
+        value.All(char.IsDigit);
+
+    private static bool SameDigits(string? left, string? right) =>
+        !string.IsNullOrWhiteSpace(left) &&
+        !string.IsNullOrWhiteSpace(right) &&
+        new string(left.Where(char.IsDigit).ToArray()) == new string(right.Where(char.IsDigit).ToArray());
 }

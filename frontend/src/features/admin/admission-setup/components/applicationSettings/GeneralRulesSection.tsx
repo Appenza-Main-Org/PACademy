@@ -806,9 +806,6 @@ function SpecializedOfficersWorkspace({
                       {isFilled && (
                         <span className="size-2 rounded-full bg-[var(--accent-600)]" />
                       )}
-                      <span className="font-mono text-2xs text-ink-400">
-                        {faculty.code}
-                      </span>
                       {isSelected && (
                         <ChevronLeft
                           size={14}
@@ -907,9 +904,6 @@ function SpecializedOfficersWorkspace({
                       <span className="min-w-0">
                         <span className="block truncate font-ar text-sm font-semibold text-ink-900">
                           {spec.name}
-                        </span>
-                        <span className="mt-1 block font-mono text-2xs text-ink-400">
-                          {spec.code}
                         </span>
                       </span>
                     </span>
@@ -1472,8 +1466,33 @@ function PerSpecForm({
               </>
             )}
 
-            {showScorePair && (
-              <>
+            <FieldLabel label="الدرجة العلمية" required>
+              {degreeOptions.length === 0 ? (
+                <p className="font-ar text-2xs text-ink-500">
+                  لا توجد درجات علمية مفعّلة في المراجع.
+                </p>
+              ) : (
+                <MultiSelect
+                  ariaLabel="الدرجة العلمية"
+                  value={draft.academicDegrees}
+                  onChange={(next) =>
+                    setDraft((d) => ({ ...d, academicDegrees: next }))
+                  }
+                  options={degreeOptions.map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  }))}
+                  placeholder="اختر الدرجة العلمية…"
+                />
+              )}
+            </FieldLabel>
+          </div>
+        </FieldGroup>
+
+        {showScorePair && (
+          <div className="mt-3">
+            <FieldGroup title="حدود التمييز">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
                   <OperatorScoreField<MinScoreOperator>
                     operatorValue={draft.minScoreOperator}
@@ -1523,31 +1542,10 @@ function PerSpecForm({
                     </span>
                   )}
                 </FieldLabel>
-              </>
-            )}
-
-            <FieldLabel label="الدرجة العلمية" required>
-              {degreeOptions.length === 0 ? (
-                <p className="font-ar text-2xs text-ink-500">
-                  لا توجد درجات علمية مفعّلة في المراجع.
-                </p>
-              ) : (
-                <MultiSelect
-                  ariaLabel="الدرجة العلمية"
-                  value={draft.academicDegrees}
-                  onChange={(next) =>
-                    setDraft((d) => ({ ...d, academicDegrees: next }))
-                  }
-                  options={degreeOptions.map((o) => ({
-                    value: o.value,
-                    label: o.label,
-                  }))}
-                  placeholder="اختر الدرجة العلمية…"
-                />
-              )}
-            </FieldLabel>
+              </div>
+            </FieldGroup>
           </div>
-        </FieldGroup>
+        )}
 
         <div className="mt-3">
           <FieldGroup title="اللجنة وسنة التخرج">

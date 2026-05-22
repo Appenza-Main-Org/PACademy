@@ -3,18 +3,17 @@
  * Source: Tasks/DESIGN_SYSTEM.md Sprint 0 Part C + ARCH-04 (4-layer split).
  *
  * Used by: PublicLandingPage (`/`), StaffLoginPage (`/staff-login`),
- * TermsPage (`/terms`), HelpPage when reached anonymously.
+ * and ApplicantLoginPage (`/applicant-login`).
  *
  * Renders:
  *  - Top Khayameya stripe (anchors the public surface to the same heritage)
- *  - Slim public header with academy crest + small "تواصل" / "الأسئلة الشائعة"
+ *  - Slim public header with academy crest + the two public login entries
  *  - Full-bleed tessellation watermark at 4% opacity
  *  - Footer with ministry attribution + accessibility links
  */
 
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { HelpCircle, Phone } from 'lucide-react';
 import { KhayameyaStripe, LogoMark, Pattern } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 
@@ -40,19 +39,13 @@ export function PublicShell({ children, bareHeader }: PublicShellProps): JSX.Ele
             </span>
           </Link>
           <nav className="flex items-center gap-2">
-            <Link to={ROUTES.terms} className="hidden items-center gap-1.5 rounded-md px-3 py-2 text-sm text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none md:inline-flex">
-              شروط الاستخدام
-            </Link>
-            <Link to={ROUTES.help} className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none">
-              <HelpCircle size={15} strokeWidth={1.75} aria-hidden />
-              <span className="hidden sm:inline">الأسئلة الشائعة</span>
+            <Link to={ROUTES.applicantLogin} className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none">
+              دخول المتقدمين
             </Link>
             <span aria-hidden className="mx-1 hidden h-6 w-px bg-border-subtle sm:inline-block" />
-            <a href="tel:19000" className="inline-flex items-center gap-1.5 rounded-pill bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition-colors duration-fast ease-standard hover:bg-teal-100 focus-visible:shadow-focus-teal focus-visible:outline-none">
-              <Phone size={13} strokeWidth={1.75} aria-hidden />
-              <span>الخط الساخن</span>
-              <span dir="ltr" className="font-mono">19000</span>
-            </a>
+            <Link to={ROUTES.staffLogin} className="inline-flex items-center gap-1.5 rounded-pill bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition-colors duration-fast ease-standard hover:bg-teal-100 focus-visible:shadow-focus-teal focus-visible:outline-none">
+              دخول الإدارة
+            </Link>
           </nav>
         </header>
       )}
@@ -65,8 +58,8 @@ export function PublicShell({ children, bareHeader }: PublicShellProps): JSX.Ele
         <div className="mx-auto flex max-w-content flex-wrap items-center justify-between gap-4 px-6 text-2xs text-ink-500">
           <p>© 2026 وزارة الداخلية · أكاديمية الشرطة · إدارة تكنولوجيا المعلومات</p>
           <ul className="flex items-center gap-4">
-            <li><Link to={ROUTES.terms} className="hover:text-teal-700">شروط الاستخدام</Link></li>
-            <li><Link to={ROUTES.help} className="hover:text-teal-700">المساعدة</Link></li>
+            <li><Link to={ROUTES.applicantLogin} className="hover:text-teal-700">دخول المتقدمين</Link></li>
+            <li><Link to={ROUTES.staffLogin} className="hover:text-teal-700">دخول الإدارة</Link></li>
           </ul>
         </div>
       </footer>

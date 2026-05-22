@@ -2,23 +2,19 @@
  * LoginForm — staff login via MOIPASS-styled flow.
  * Source: ARCH-03 (MOIPASS framing) + AUD-004 (RHF retrofit).
  *
- * Demo: still uses the role picker so evaluators can simulate any role,
- * but the framing is "MOIPASS authenticated officer" rather than a generic
- * username/password. A 1.5s simulated MOIPASS verification step runs on submit.
+ * Staff users log in through the admin backend using national ID + mobile
+ * number. No OTP step is required for this sprint.
  */
 
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ArrowLeft, Lock, ShieldCheck } from 'lucide-react';
 import { Button, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
-import { useRequestOtpMutation } from '../api/auth.queries';
-import { OtpStep } from './OtpStep';
+import { useLoginMutation } from '../api/auth.queries';
 import { RoleSelector } from './RoleSelector';
-import { ROLES, type Role } from '../rbac';
-import type { LoginCredentials } from '../types';
+import type { Role } from '../rbac';
 import { ROUTES } from '@/config/routes';
 
 const loginSchema = z.object({
@@ -27,28 +23,25 @@ const loginSchema = z.object({
     .min(14, 'الرقم القومي يجب أن يكون 14 رقماً')
     .max(14, 'الرقم القومي يجب أن يكون 14 رقماً')
     .regex(/^[0-9]{14}$/, 'الرقم القومي يجب أن يحتوي على أرقام فقط'),
-  passcode: z
+  mobile: z
     .string()
-    .min(1, 'كلمة المرور مطلوبة'),
-  role: z.enum(ROLES),
+    .regex(
+      /^01[0125][0-9]{8}$/,
+      'رقم المحمول يجب أن يكون 11 رقماً ويبدأ بـ 010 / 011 / 012 / 015',
+    ),
+  role: z.enum(['super_admin', 'exams_admin']),
 });
 type LoginValues = z.infer<typeof loginSchema>;
 
 export function LoginForm(): JSX.Element {
   const navigate = useNavigate();
-  const requestOtpMut = useRequestOtpMutation();
-  const [verifying, setVerifying] = useState(false);
-  const [otpState, setOtpState] = useState<{
-    pendingId: string;
-    otpDevice: string;
-    credentials: LoginCredentials;
-  } | null>(null);
+  const loginMut = useLoginMutation();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       nationalId: '29512011500011',
-      passcode: 'demo-password',
+      mobile: '01001234521',
       role: 'super_admin',
     },
   });
@@ -57,56 +50,25 @@ export function LoginForm(): JSX.Element {
 
   const goToLanding = (chosenRole: Role): void => {
     const landing =
-      chosenRole === 'applicant'
-        ? ROUTES.applicant
-        : chosenRole === 'super_admin'
-          ? ROUTES.admin.reports
-          : ROUTES.hub;
+      chosenRole === 'exams_admin'
+        ? ROUTES.questionBank.overview
+        : ROUTES.admin.reports;
     navigate(landing, { replace: true });
   };
 
   const onSubmit = async (values: LoginValues): Promise<void> => {
-    /* Simulated MOIPASS verification delay (per ARCH-03 — 1.5s). */
-    setVerifying(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setVerifying(false);
-
-    const credentials: LoginCredentials = {
+    loginMut.mutate({
       username: values.nationalId,
-      password: values.passcode,
+      password: values.mobile,
       role: values.role,
-    };
-
-    requestOtpMut.mutate(credentials, {
-      onSuccess: ({ pendingId, otpDevice }) => {
-        toast('تم إرسال رمز التحقق', 'info');
-        setOtpState({ pendingId, otpDevice, credentials });
+    }, {
+      onSuccess: (user) => {
+        toast('تم تسجيل الدخول بنجاح', 'success');
+        goToLanding(user.role);
       },
       onError: (err) => toast(err.message || 'تعذّر بدء الدخول', 'danger'),
     });
   };
-
-  const isPending = requestOtpMut.isPending || verifying;
-
-  if (otpState) {
-    return (
-      <OtpStep
-        pendingId={otpState.pendingId}
-        otpDevice={otpState.otpDevice}
-        credentials={otpState.credentials}
-        onSuccess={(chosenRole) => {
-          setOtpState(null);
-          goToLanding(chosenRole);
-        }}
-        onBack={() => setOtpState(null)}
-        onResent={(next) =>
-          setOtpState((prev) =>
-            prev ? { ...prev, pendingId: next.pendingId, otpDevice: next.otpDevice } : prev,
-          )
-        }
-      />
-    );
-  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex w-full max-w-md flex-col gap-4 lg:gap-5">
@@ -117,7 +79,7 @@ export function LoginForm(): JSX.Element {
         </div>
         <h2 className="font-ar-display text-xl font-bold text-ink-900 lg:text-2xl">دخول الموظفين</h2>
         <p className="mt-1 text-sm leading-relaxed text-ink-500">
-          يتم التحقق من هوية الضباط والموظفين عبر منصّة التحقق الرقمي للحكومة المصرية.
+          يتم التحقق من هوية الضباط والموظفين بالرقم القومي ورقم المحمول المسجل.
           المتقدّمون للالتحاق يستخدمون
           <a href={ROUTES.applicantLogin} className="mx-1 font-medium text-teal-700 hover:underline">صفحة التقديم</a>
           مباشرةً.
@@ -135,20 +97,29 @@ export function LoginForm(): JSX.Element {
       />
 
       <Input
-        label="كلمة المرور"
-        type="password"
+        label="رقم المحمول"
+        type="tel"
         required
-        placeholder="••••••••"
-        helper="بيانات تجريبية مدخلة مسبقاً للعرض"
-        {...register('passcode')}
-        error={errors.passcode?.message}
+        dir="ltr"
+        placeholder="01XXXXXXXXX"
+        maxLength={11}
+        helper="يجب أن يطابق الرقم المسجل على حساب الموظف"
+        {...register('mobile')}
+        error={errors.mobile?.message}
       />
 
       <div className="flex flex-col gap-2">
         <span className="text-sm font-medium text-ink-700">
-          العرض التجريبي · اختر دور الموظف لمحاكاة الدخول
+          اختر التطبيق المطلوب
         </span>
-        <RoleSelector value={role} onChange={(r: Role) => setValue('role', r, { shouldValidate: true })} />
+        <RoleSelector
+          value={role}
+          onChange={(r: Role) => {
+            if (r === 'super_admin' || r === 'exams_admin') {
+              setValue('role', r, { shouldValidate: true });
+            }
+          }}
+        />
       </div>
 
       <Button
@@ -156,8 +127,8 @@ export function LoginForm(): JSX.Element {
         variant="primary"
         size="lg"
         fullWidth
-        isLoading={isPending}
-        loadingLabel={verifying ? 'جارٍ التحقق عبر MOIPASS…' : 'جارٍ الدخول…'}
+        isLoading={loginMut.isPending}
+        loadingLabel="جارٍ تسجيل الدخول…"
         trailingIcon={<ArrowLeft size={18} strokeWidth={1.75} />}
       >
         تسجيل الدخول
@@ -172,7 +143,7 @@ export function LoginForm(): JSX.Element {
           <p className="font-medium">دخول آمن</p>
           <p className="mt-0.5 text-xs text-teal-700/80 leading-normal">
             بياناتك مُشفّرة وكل عمليات الدخول تُسجَّل في سجل العمليات (Audit Trail).
-            لإعادة ضبط كلمة المرور تواصَل مع إدارة المنظومة.
+            لتحديث رقم المحمول المسجل تواصَل مع إدارة المنظومة.
           </p>
         </div>
       </aside>

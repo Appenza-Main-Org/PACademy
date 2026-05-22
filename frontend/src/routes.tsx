@@ -3,7 +3,7 @@
  * Source: ARCH-04 (public/private split).
  *
  * Three surfaces:
- *  - PUBLIC (no auth)   → /, /applicant-login, /staff-login, /terms, /help
+ *  - PUBLIC (no auth)   → /, /applicant-login, /staff-login
  *  - APPLICANT (Stage1+2 auth) → /applicant/*
  *  - STAFF (AuthGuard)  → /hub, /admin/*, /committee/*, /board/*, /investigations/*,
  *                         /medical/*, /barcode/*, /biometric/*, /question-bank/*,
@@ -18,8 +18,7 @@ import { HubPage } from '@/features/hub';
 import { ArchitecturePage } from '@/features/architecture';
 import { RevampComparisonPage } from '@/features/design-revamp';
 import { ProfilePage } from '@/features/profile';
-import { HelpPage } from '@/features/help';
-import { PublicLandingPage, TermsPage } from '@/features/landing';
+import { PublicLandingPage } from '@/features/landing';
 import {
   ApplicantGradesImportReviewPage,
   AppSettingsReviewPage,
@@ -189,8 +188,8 @@ export const routes: RouteObject[] = [
   { path: '/staff-login', element: <LoginPage /> },
   { path: '/applicant-login', element: <ApplicantLoginPage /> },
   { path: '/login', element: <Navigate to="/staff-login" replace /> },
-  { path: '/terms', element: <TermsPage /> },
-  { path: '/help', element: <HelpPage /> },
+  { path: '/terms', element: <Navigate to="/" replace /> },
+  { path: '/help', element: <Navigate to="/" replace /> },
 
   /* ── STAFF SURFACE — AuthGuard required ─────────────────── */
   { path: '/hub', element: <AuthGuard><HubIndexRoute /></AuthGuard> },
