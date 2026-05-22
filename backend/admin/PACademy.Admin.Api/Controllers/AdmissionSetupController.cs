@@ -1,13 +1,14 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class AdmissionSetupController(AdminRecordsService records) : ControllerBase
+public sealed class AdmissionSetupController(AdminRecordsService records, ApplicationSettingsService appSettings) : ControllerBase
 {
     [HttpGet("api/admission-setup/cycles/{cycleId}/exam-dates")]
     public async Task<ActionResult<JsonObject>> ExamDates(string cycleId, CancellationToken ct) =>
@@ -67,54 +68,70 @@ public sealed class AdmissionSetupController(AdminRecordsService records) : Cont
     }
 
     [HttpGet("api/admin/app-settings/category-configs")]
-    public async Task<ActionResult<IReadOnlyList<JsonObject>>> CategoryConfigs(CancellationToken ct)
-    {
-        var categories = await records.ListAsync("categories", ct);
-        return Ok(categories.Select((c, index) => CategoryConfig(c, index)).ToList());
-    }
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> CategoryConfigs(CancellationToken ct) =>
+        Ok(await appSettings.ListCategoryConfigsAsync(ct));
 
     [HttpGet("api/admin/app-settings/summary")]
-    public async Task<ActionResult<IReadOnlyList<JsonObject>>> AppSettingsSummary(CancellationToken ct)
-    {
-        var categories = await records.ListAsync("categories", ct);
-        return Ok(categories.Select((c, index) => new JsonObject
-        {
-            ["config"] = CategoryConfig(c, index),
-            ["groups"] = new JsonArray(),
-            ["gradingMode"] = "GRADES"
-        }).ToList());
-    }
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> AppSettingsSummary(CancellationToken ct) =>
+        Ok(await appSettings.SummaryAsync(ct));
 
     [HttpGet("api/admin/app-settings/category-configs/{configId}/specializations")]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> AppSettingsSpecializations(string configId, CancellationToken ct) =>
+        Ok(await appSettings.ListSpecializationsForConfigAsync(configId, ct));
+
     [HttpGet("api/admin/app-settings/category-configs/{configId}/eligible-specializations")]
-    [HttpGet("api/admin/app-settings/category-configs/{configId}/years")]
-    [HttpGet("api/admin/app-settings/specializations/{id}")]
-    [HttpGet("api/admin/app-settings/years/{id}")]
-    public ActionResult<object> AppSettingsDetail() => Ok(Array.Empty<object>());
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> AppSettingsEligibleSpecializations(string configId, CancellationToken ct) =>
+        Ok(await appSettings.EligibleSpecializationsAsync(configId, ct));
 
     [HttpGet("api/admin/app-settings/specializations/{id}/grading-mode")]
-    public ActionResult<object> AppSettingsGradingMode() => Ok(new { gradingMode = "GRADES" });
+    public async Task<ActionResult<JsonObject>> AppSettingsGradingMode(string id, CancellationToken ct) =>
+        Ok(await appSettings.GradingModeAsync(id, ct));
 
     [HttpGet("api/admin/app-settings/specializations/{id}/parent-category")]
-    public ActionResult<object> AppSettingsParentCategory() => Ok(new { code = "CAT-01", lockedGender = (string?)null });
+    public async Task<ActionResult<JsonObject?>> AppSettingsParentCategory(string id, CancellationToken ct) =>
+        Ok(await appSettings.ParentCategoryAsync(id, ct));
+
+    [HttpGet("api/admin/app-settings/specializations/{id}/years")]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> AppSettingsYears(string id, CancellationToken ct) =>
+        Ok(await appSettings.ListYearsAsync(id, ct));
 
     [HttpPost("api/admin/app-settings/category-configs/{configId}/specializations")]
-    [HttpPost("api/admin/app-settings/category-configs/{configId}/years")]
-    [HttpPost("api/admin/app-settings/bulk-save")]
+    public async Task<ActionResult<JsonObject>> AttachAppSettingsSpecialization(string configId, [FromBody] JsonObject body, CancellationToken ct) =>
+        Ok(await appSettings.AttachSpecializationAsync(configId, body, ct));
+
+    [HttpPost("api/admin/app-settings/category-configs/{categorySpecializationId}/years")]
+    public async Task<ActionResult<JsonObject>> CreateAppSettingsYear(string categorySpecializationId, [FromBody] JsonObject body, CancellationToken ct) =>
+        Ok(await appSettings.CreateYearAsync(categorySpecializationId, body, ct));
+
     [HttpPatch("api/admin/app-settings/category-configs/{configId}")]
+    public async Task<ActionResult<JsonObject>> ToggleAppSettingsCategory(string configId, CancellationToken ct) =>
+        Ok(await appSettings.ToggleCategoryAsync(configId, ct));
+
     [HttpPatch("api/admin/app-settings/years/{id}")]
+    public async Task<ActionResult<JsonObject>> UpdateAppSettingsYear(string id, [FromBody] JsonObject body, CancellationToken ct) =>
+        Ok(await appSettings.UpdateYearAsync(id, body, ct));
+
     [HttpPost("api/admin/app-settings/years/{id}/toggle-active")]
-    public async Task<ActionResult<JsonObject>> MutateAppSettings([FromBody] JsonObject? body, CancellationToken ct)
-    {
-        var payload = body ?? new JsonObject { ["ok"] = true };
-        ValidatePercentRange(payload);
-        var id = $"app-settings-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
-        return Ok(await records.UpsertAsync("admissionSetup.appSettings", id, payload, ct));
-    }
+    public async Task<ActionResult<JsonObject>> ToggleAppSettingsYear(string id, CancellationToken ct) =>
+        Ok(await appSettings.ToggleYearAsync(id, ct));
+
+    [HttpPost("api/admin/app-settings/bulk-save")]
+    public async Task<ActionResult<JsonObject>> BulkSaveAppSettings([FromBody] JsonArray body, CancellationToken ct) =>
+        Ok(await appSettings.BulkSaveAsync(body, ct));
 
     [HttpDelete("api/admin/app-settings/specializations/{id}")]
+    public async Task<ActionResult<object>> DeleteAppSettingsSpecialization(string id, CancellationToken ct)
+    {
+        await appSettings.DeleteSpecializationAsync(id, ct);
+        return Ok(new { deleted = true });
+    }
+
     [HttpDelete("api/admin/app-settings/years/{id}")]
-    public ActionResult<object> DeleteAppSettings() => Ok(new { deleted = true });
+    public async Task<ActionResult<object>> DeleteAppSettingsYear(string id, CancellationToken ct)
+    {
+        await appSettings.DeleteYearAsync(id, ct);
+        return Ok(new { deleted = true });
+    }
 
     [HttpGet("api/admin/exam-schedule/cycles/{cycleId}")]
     public async Task<ActionResult<JsonArray>> ExamSchedule(string cycleId, CancellationToken ct)
@@ -229,29 +246,4 @@ public sealed class AdmissionSetupController(AdminRecordsService records) : Cont
     private static DateTimeOffset? ParseDate(string? value) =>
         DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
 
-    private static JsonObject CategoryConfig(JsonObject category, int index)
-    {
-        var key = AdminRecordJson.StringProp(category, "key") ?? $"CAT-{index + 1:00}";
-        var label = AdminRecordJson.StringProp(category, "labelAr") ?? key;
-        return new JsonObject
-        {
-            ["id"] = $"CFG-{key}",
-            ["categoryId"] = key,
-            ["categoryCode"] = key,
-            ["categoryNameAr"] = label,
-            ["categoryType"] = key == "officers_general" ? "pre_university" : "university",
-            ["categoryFacultyCodes"] = new JsonArray(),
-            ["categorySpecializationCodes"] = new JsonArray(),
-            ["lockedGender"] = null,
-            ["singleAxis"] = key != "specialized_officers",
-            ["implicitSpecId"] = key != "specialized_officers" ? $"SPEC-{key}-DEFAULT" : null,
-            ["specializationCount"] = 0,
-            ["yearCount"] = 0,
-            ["excellenceCriterion"] = null,
-            ["isActive"] = category["isOpen"]?.DeepClone() ?? true,
-            ["sortOrder"] = index + 1,
-            ["createdAt"] = category["createdAt"]?.DeepClone() ?? DateTimeOffset.UtcNow.ToString("O"),
-            ["updatedAt"] = category["updatedAt"]?.DeepClone() ?? DateTimeOffset.UtcNow.ToString("O")
-        };
-    }
 }

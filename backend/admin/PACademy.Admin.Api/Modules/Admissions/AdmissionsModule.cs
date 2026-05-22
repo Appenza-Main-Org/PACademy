@@ -11,6 +11,7 @@ public static class AdmissionsModule
         services.AddScoped<CyclesService>();
         services.AddScoped<CategoriesService>();
         services.AddScoped<AdmissionRulesService>();
+        services.AddScoped<ApplicationSettingsService>();
         return services;
     }
 

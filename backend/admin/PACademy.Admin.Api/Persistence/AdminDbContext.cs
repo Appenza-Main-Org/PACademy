@@ -14,6 +14,9 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     public DbSet<AdmissionCycleEntity> AdmissionCycles => Set<AdmissionCycleEntity>();
     public DbSet<ApplicantCategoryEntity> ApplicantCategories => Set<ApplicantCategoryEntity>();
     public DbSet<AdmissionRuleEntity> AdmissionRules => Set<AdmissionRuleEntity>();
+    public DbSet<ApplicationSettingsCategoryConfigEntity> ApplicationSettingsCategoryConfigs => Set<ApplicationSettingsCategoryConfigEntity>();
+    public DbSet<ApplicationSettingsCategorySpecializationEntity> ApplicationSettingsCategorySpecializations => Set<ApplicationSettingsCategorySpecializationEntity>();
+    public DbSet<ApplicationSettingsGraduationYearEntity> ApplicationSettingsGraduationYears => Set<ApplicationSettingsGraduationYearEntity>();
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<OfficerEntity> Officers => Set<OfficerEntity>();
@@ -94,6 +97,63 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
             entity.HasIndex(x => new { x.CycleId, x.Version }).IsUnique().HasDatabaseName("ux_admission_rules_cycle_version");
+        });
+
+        modelBuilder.Entity<ApplicationSettingsCategoryConfigEntity>(entity =>
+        {
+            entity.ToTable("application_settings_category_configs");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.CategoryId).HasColumnName("category_id").HasMaxLength(96);
+            entity.Property(x => x.IsActive).HasColumnName("is_active");
+            entity.Property(x => x.SortOrder).HasColumnName("sort_order");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.CategoryId).IsUnique().HasDatabaseName("ux_app_settings_configs_category_id");
+            entity.HasIndex(x => x.SortOrder).HasDatabaseName("ix_app_settings_configs_sort_order");
+        });
+
+        modelBuilder.Entity<ApplicationSettingsCategorySpecializationEntity>(entity =>
+        {
+            entity.ToTable("application_settings_category_specializations");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.ConfigId).HasColumnName("config_id").HasMaxLength(96);
+            entity.Property(x => x.SpecializationId).HasColumnName("specialization_id").HasMaxLength(96);
+            entity.Property(x => x.IsActive).HasColumnName("is_active");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.ConfigId).HasDatabaseName("ix_app_settings_specs_config_id");
+            entity.HasIndex(x => new { x.ConfigId, x.SpecializationId }).IsUnique().HasDatabaseName("ux_app_settings_specs_config_specialization");
+        });
+
+        modelBuilder.Entity<ApplicationSettingsGraduationYearEntity>(entity =>
+        {
+            entity.ToTable("application_settings_graduation_years");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.CategorySpecializationId).HasColumnName("category_specialization_id").HasMaxLength(96);
+            entity.Property(x => x.GraduationYearsJson).HasColumnName("graduation_years_json");
+            entity.Property(x => x.GenderTypesJson).HasColumnName("gender_types_json");
+            entity.Property(x => x.MaritalStatusCodesJson).HasColumnName("marital_status_codes_json");
+            entity.Property(x => x.AgeMin).HasColumnName("age_min");
+            entity.Property(x => x.MaxAge).HasColumnName("max_age");
+            entity.Property(x => x.DivisionCodesJson).HasColumnName("division_codes_json");
+            entity.Property(x => x.SchoolCategoryCodesJson).HasColumnName("school_category_codes_json");
+            entity.Property(x => x.ApplicationStartDate).HasColumnName("application_start_date");
+            entity.Property(x => x.ApplicationEndDate).HasColumnName("application_end_date");
+            entity.Property(x => x.AgeReferenceDate).HasColumnName("age_reference_date");
+            entity.Property(x => x.IsActive).HasColumnName("is_active");
+            entity.Property(x => x.GradeKind).HasColumnName("grade_kind").HasMaxLength(16);
+            entity.Property(x => x.MinPercentage).HasColumnName("min_percentage").HasPrecision(5, 2);
+            entity.Property(x => x.AcademicGradeId).HasColumnName("academic_grade_id").HasMaxLength(96);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.CategorySpecializationId).HasDatabaseName("ix_app_settings_years_category_specialization_id");
+            entity.HasIndex(x => new { x.CategorySpecializationId, x.ApplicationStartDate, x.ApplicationEndDate }).HasDatabaseName("ix_app_settings_years_window");
         });
 
         modelBuilder.Entity<UserEntity>(entity =>
