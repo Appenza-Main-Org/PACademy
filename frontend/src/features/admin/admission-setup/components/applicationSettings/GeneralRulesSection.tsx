@@ -787,9 +787,9 @@ function SpecializedOfficersWorkspace({
                     onClick={() => handleFacultySelect(faculty.code)}
                     className={cn(
                       'flex w-full items-center justify-between gap-3 border-b border-border-subtle px-4 py-4 text-start transition-colors duration-fast',
-                      'focus-visible:outline-none focus-visible:shadow-focus-teal',
+                      'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
                       isSelected
-                        ? 'border-s-4 border-s-teal-600 bg-teal-50'
+                        ? 'bg-[var(--accent-50)] shadow-[inset_0_0_0_1px_var(--accent-500)]'
                         : 'bg-surface-card hover:bg-ink-50/70',
                     )}
                   >
@@ -804,7 +804,7 @@ function SpecializedOfficersWorkspace({
                     </span>
                     <span className="inline-flex items-center gap-2">
                       {isFilled && (
-                        <span className="size-2 rounded-full bg-teal-600" />
+                        <span className="size-2 rounded-full bg-[var(--accent-600)]" />
                       )}
                       <span className="font-mono text-2xs text-ink-400">
                         {faculty.code}
@@ -813,7 +813,7 @@ function SpecializedOfficersWorkspace({
                         <ChevronLeft
                           size={14}
                           strokeWidth={2}
-                          className="text-teal-600"
+                          className="text-[var(--accent-600)]"
                           aria-hidden
                         />
                       )}
@@ -890,9 +890,9 @@ function SpecializedOfficersWorkspace({
                     }}
                     className={cn(
                       'flex w-full cursor-pointer items-center justify-between gap-3 border-b border-border-subtle px-4 py-4 text-start transition-colors duration-fast',
-                      'focus-visible:outline-none focus-visible:shadow-focus-teal',
+                      'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
                       isSelected
-                        ? 'border-s-4 border-s-teal-600 bg-teal-50'
+                        ? 'bg-[var(--accent-50)] shadow-[inset_0_0_0_1px_var(--accent-500)]'
                         : 'bg-surface-card hover:bg-ink-50/70',
                     )}
                   >
@@ -914,7 +914,7 @@ function SpecializedOfficersWorkspace({
                       </span>
                     </span>
                     {isFilled && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-1 font-ar text-2xs font-medium text-teal-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-50)] px-2 py-1 font-ar text-2xs font-medium text-[var(--accent-700)]">
                         <CheckCircle2 size={12} strokeWidth={2} aria-hidden />
                         شروط
                       </span>

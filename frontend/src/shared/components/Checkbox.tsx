@@ -41,11 +41,13 @@ export const Checkbox = forwardRef<ElementRef<typeof RadixCheckbox.Root>, Checkb
           id={inputId}
           checked={checked}
           className={cn(
-            'group flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded',
-            'border border-border-strong bg-surface',
-            'transition-colors duration-fast ease-standard',
-            'data-[state=checked]:bg-accent-500 data-[state=checked]:border-accent-500',
-            'data-[state=indeterminate]:bg-accent-500 data-[state=indeterminate]:border-accent-500',
+            'group flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-md',
+            'border-2 border-border-strong bg-surface-card shadow-xs',
+            'transition-[background-color,border-color,box-shadow,transform] duration-fast ease-standard',
+            'hover:border-[var(--accent-600)] hover:shadow-sm',
+            'active:scale-95',
+            'data-[state=checked]:border-[var(--accent-700)] data-[state=checked]:bg-[var(--accent-700)]',
+            'data-[state=indeterminate]:border-[var(--accent-700)] data-[state=indeterminate]:bg-[var(--accent-700)]',
             'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
             'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
           )}
@@ -53,9 +55,9 @@ export const Checkbox = forwardRef<ElementRef<typeof RadixCheckbox.Root>, Checkb
         >
           <RadixCheckbox.Indicator>
             {checked === 'indeterminate' ? (
-              <Minus size={12} className="text-surface" />
+              <Minus size={14} strokeWidth={3} className="text-[var(--text-inverse)]" />
             ) : (
-              <Check size={12} className="text-surface" />
+              <Check size={14} strokeWidth={3} className="text-[var(--text-inverse)]" />
             )}
           </RadixCheckbox.Indicator>
         </RadixCheckbox.Root>
