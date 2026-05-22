@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using PACademy.Admin.Api.Persistence;
 
 #nullable disable
 
@@ -11,8 +12,11 @@ namespace PACademy.Admin.Api.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.EnsureSchema(name: AdminDbContext.Schema);
+
             migrationBuilder.CreateTable(
                 name: "application_settings_category_configs",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     id = table.Column<string>(type: "nvarchar(96)", maxLength: 96, nullable: false),
@@ -30,6 +34,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "application_settings_category_specializations",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     id = table.Column<string>(type: "nvarchar(96)", maxLength: 96, nullable: false),
@@ -47,6 +52,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "application_settings_graduation_years",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     id = table.Column<string>(type: "nvarchar(96)", maxLength: 96, nullable: false),
@@ -77,33 +83,39 @@ namespace PACademy.Admin.Api.Persistence.Migrations
             migrationBuilder.CreateIndex(
                 name: "ix_app_settings_configs_sort_order",
                 table: "application_settings_category_configs",
+                schema: AdminDbContext.Schema,
                 column: "sort_order");
 
             migrationBuilder.CreateIndex(
                 name: "ux_app_settings_configs_category_id",
                 table: "application_settings_category_configs",
+                schema: AdminDbContext.Schema,
                 column: "category_id",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_app_settings_specs_config_id",
                 table: "application_settings_category_specializations",
+                schema: AdminDbContext.Schema,
                 column: "config_id");
 
             migrationBuilder.CreateIndex(
                 name: "ux_app_settings_specs_config_specialization",
                 table: "application_settings_category_specializations",
+                schema: AdminDbContext.Schema,
                 columns: new[] { "config_id", "specialization_id" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_app_settings_years_category_specialization_id",
                 table: "application_settings_graduation_years",
+                schema: AdminDbContext.Schema,
                 column: "category_specialization_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_app_settings_years_window",
                 table: "application_settings_graduation_years",
+                schema: AdminDbContext.Schema,
                 columns: new[] { "category_specialization_id", "application_start_date", "application_end_date" });
         }
 
@@ -111,13 +123,16 @@ namespace PACademy.Admin.Api.Persistence.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "application_settings_category_configs");
+                name: "application_settings_category_configs",
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
-                name: "application_settings_category_specializations");
+                name: "application_settings_category_specializations",
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
-                name: "application_settings_graduation_years");
+                name: "application_settings_graduation_years",
+                schema: AdminDbContext.Schema);
         }
     }
 }

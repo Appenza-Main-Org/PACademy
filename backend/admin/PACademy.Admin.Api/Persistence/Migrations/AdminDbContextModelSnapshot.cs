@@ -17,6 +17,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("admin_v2")
                 .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
@@ -59,7 +60,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasIndex("Module")
                         .HasDatabaseName("ix_admin_records_module");
 
-                    b.ToTable("admin_records", (string)null);
+                    b.ToTable("admin_records", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.AdmissionCycleEntity", b =>
@@ -114,7 +115,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasIndex("IsActive")
                         .HasDatabaseName("ix_admission_cycles_is_active");
 
-                    b.ToTable("admission_cycles", (string)null);
+                    b.ToTable("admission_cycles", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.AdmissionRuleEntity", b =>
@@ -160,7 +161,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_admission_rules_cycle_version");
 
-                    b.ToTable("admission_rules", (string)null);
+                    b.ToTable("admission_rules", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.ApplicantCategoryEntity", b =>
@@ -202,7 +203,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
                     b.HasKey("Key");
 
-                    b.ToTable("applicant_categories", (string)null);
+                    b.ToTable("applicant_categories", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.ApplicationSettingsCategoryConfigEntity", b =>
@@ -250,7 +251,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasIndex("SortOrder")
                         .HasDatabaseName("ix_app_settings_configs_sort_order");
 
-                    b.ToTable("application_settings_category_configs", (string)null);
+                    b.ToTable("application_settings_category_configs", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.ApplicationSettingsCategorySpecializationEntity", b =>
@@ -300,7 +301,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_app_settings_specs_config_specialization");
 
-                    b.ToTable("application_settings_category_specializations", (string)null);
+                    b.ToTable("application_settings_category_specializations", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.ApplicationSettingsGraduationYearEntity", b =>
@@ -404,7 +405,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasIndex("CategorySpecializationId", "ApplicationStartDate", "ApplicationEndDate")
                         .HasDatabaseName("ix_app_settings_years_window");
 
-                    b.ToTable("application_settings_graduation_years", (string)null);
+                    b.ToTable("application_settings_graduation_years", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Audit.AuditRowEntity", b =>
@@ -472,7 +473,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("audit_entries", (string)null);
+                    b.ToTable("audit_entries", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Identity.OfficerEntity", b =>
@@ -508,7 +509,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
                     b.HasKey("NationalId");
 
-                    b.ToTable("officer_directory", (string)null);
+                    b.ToTable("officer_directory", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Identity.RoleEntity", b =>
@@ -560,7 +561,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_roles_key");
 
-                    b.ToTable("roles", (string)null);
+                    b.ToTable("roles", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Identity.UserEntity", b =>
@@ -620,7 +621,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_users_national_id");
 
-                    b.ToTable("users", (string)null);
+                    b.ToTable("users", "admin_v2");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Lookups.LookupRowEntity", b =>
@@ -670,7 +671,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasIndex("LookupKey")
                         .HasDatabaseName("ix_lookup_rows_lookup_key");
 
-                    b.ToTable("lookup_rows", (string)null);
+                    b.ToTable("lookup_rows", "admin_v2");
                 });
 #pragma warning restore 612, 618
         }

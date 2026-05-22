@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using PACademy.Admin.Api.Persistence;
 
 #nullable disable
 
@@ -11,8 +12,11 @@ namespace PACademy.Admin.Api.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.EnsureSchema(name: AdminDbContext.Schema);
+
             migrationBuilder.CreateTable(
                 name: "admin_records",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     module = table.Column<string>(type: "nvarchar(96)", maxLength: 96, nullable: false),
@@ -29,6 +33,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "admission_cycles",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     id = table.Column<string>(type: "nvarchar(96)", maxLength: 96, nullable: false),
@@ -48,6 +53,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "admission_rules",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     id = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
@@ -65,6 +71,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "applicant_categories",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     key = table.Column<string>(type: "nvarchar(96)", maxLength: 96, nullable: false),
@@ -82,6 +89,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "audit_entries",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     id = table.Column<string>(type: "nvarchar(96)", maxLength: 96, nullable: false),
@@ -103,6 +111,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "lookup_rows",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     lookup_key = table.Column<string>(type: "nvarchar(96)", maxLength: 96, nullable: false),
@@ -121,6 +130,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "officer_directory",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     national_id = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
@@ -136,6 +146,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "roles",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     id = table.Column<string>(type: "nvarchar(96)", maxLength: 96, nullable: false),
@@ -154,6 +165,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "users",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     id = table.Column<string>(type: "nvarchar(96)", maxLength: 96, nullable: false),
@@ -174,33 +186,39 @@ namespace PACademy.Admin.Api.Persistence.Migrations
             migrationBuilder.CreateIndex(
                 name: "ix_admin_records_module",
                 table: "admin_records",
+                schema: AdminDbContext.Schema,
                 column: "module");
 
             migrationBuilder.CreateIndex(
                 name: "ix_admission_cycles_is_active",
                 table: "admission_cycles",
+                schema: AdminDbContext.Schema,
                 column: "is_active");
 
             migrationBuilder.CreateIndex(
                 name: "ux_admission_rules_cycle_version",
                 table: "admission_rules",
+                schema: AdminDbContext.Schema,
                 columns: new[] { "cycle_id", "version" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_lookup_rows_lookup_key",
                 table: "lookup_rows",
+                schema: AdminDbContext.Schema,
                 column: "lookup_key");
 
             migrationBuilder.CreateIndex(
                 name: "ux_roles_key",
                 table: "roles",
+                schema: AdminDbContext.Schema,
                 column: "key",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ux_users_national_id",
                 table: "users",
+                schema: AdminDbContext.Schema,
                 column: "national_id",
                 unique: true);
         }
@@ -209,31 +227,40 @@ namespace PACademy.Admin.Api.Persistence.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "admin_records");
+                name: "admin_records",
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
-                name: "admission_cycles");
+                name: "admission_cycles",
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
-                name: "admission_rules");
+                name: "admission_rules",
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
-                name: "applicant_categories");
+                name: "applicant_categories",
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
-                name: "audit_entries");
+                name: "audit_entries",
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
-                name: "lookup_rows");
+                name: "lookup_rows",
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
-                name: "officer_directory");
+                name: "officer_directory",
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
-                name: "roles");
+                name: "roles",
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
-                name: "users");
+                name: "users",
+                schema: AdminDbContext.Schema);
         }
     }
 }

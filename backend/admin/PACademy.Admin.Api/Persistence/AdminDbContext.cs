@@ -9,6 +9,9 @@ namespace PACademy.Admin.Api.Persistence;
 
 public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext, IAdminRecordsDbContext
 {
+    public const string Schema = "admin_v2";
+    public const string MigrationsHistoryTable = "__EFMigrationsHistory_AdminApi";
+
     public DbSet<LookupRowEntity> LookupRows => Set<LookupRowEntity>();
     public DbSet<AuditRowEntity> AuditRows => Set<AuditRowEntity>();
     public DbSet<AdmissionCycleEntity> AdmissionCycles => Set<AdmissionCycleEntity>();
@@ -24,6 +27,8 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDefaultSchema(Schema);
+
         modelBuilder.Entity<LookupRowEntity>(entity =>
         {
             entity.ToTable("lookup_rows");

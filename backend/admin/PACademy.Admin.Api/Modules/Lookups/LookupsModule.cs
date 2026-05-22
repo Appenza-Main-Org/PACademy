@@ -15,7 +15,9 @@ public static class LookupsModule
             if (useInMemory || string.IsNullOrWhiteSpace(connectionString))
                 options.UseInMemoryDatabase("PACademy_Admin");
             else
-                options.UseSqlServer(connectionString);
+                options.UseSqlServer(
+                    connectionString,
+                    sql => sql.MigrationsHistoryTable(AdminDbContext.MigrationsHistoryTable, AdminDbContext.Schema));
         });
         services.AddScoped<ILookupsDbContext>(sp => sp.GetRequiredService<AdminDbContext>());
         services.AddScoped<IValidator<System.Text.Json.Nodes.JsonObject>, LookupRowValidator>();
