@@ -1,5 +1,5 @@
 /**
- * CategoryAccordion — `@radix-ui/react-accordion` (multiple-open mode).
+ * CategoryAccordion — `@radix-ui/react-accordion` (single-open mode).
  *
  * Sources every applicant-category from the
  * `admin/lookups/applicant-categories` lookup (no hardcoded list). Each
@@ -59,7 +59,7 @@ export function CategoryAccordion(): JSX.Element {
   const categoriesQuery = useLookup('applicant-categories');
   const excellenceQuery = useLookup('excellence-criteria');
 
-  const [openIds, setOpenIds] = useState<string[]>([]);
+  const [openId, setOpenId] = useState<string | undefined>(undefined);
 
   if (
     configsQuery.isLoading ||
@@ -103,10 +103,11 @@ export function CategoryAccordion(): JSX.Element {
 
   return (
     <Accordion.Root
-      type="multiple"
+      type="single"
+      collapsible
       dir="rtl"
-      value={openIds}
-      onValueChange={setOpenIds}
+      value={openId}
+      onValueChange={setOpenId}
       className="flex flex-col gap-3"
     >
       {visibleConfigs.map((config) => (
