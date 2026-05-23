@@ -141,9 +141,14 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
 
     public async Task<object> DeleteAsync(string id, CancellationToken ct)
     {
+        var entity = await FindAsync(id, ct);
+        if (entity.IsActive)
+        {
+            throw new ConflictException(ErrorCodes.InUse, "لا يمكن حذف الدورة النشطة");
+        }
+
         var dependencies = await DependenciesAsync(id, ct);
         if (IsBlocking(dependencies)) throw new ConflictException(ErrorCodes.InUse, "لا يمكن حذف دورة مرتبطة بسجلات تشغيلية");
-        var entity = await FindAsync(id, ct);
         db.AdmissionCycles.Remove(entity);
         await db.SaveChangesAsync(ct);
         await EmitAuditAsync("delete", id, $"حذف دورة قبول · {entity.NameAr}", ct);
