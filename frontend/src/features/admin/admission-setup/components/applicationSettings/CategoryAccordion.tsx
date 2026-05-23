@@ -5,7 +5,9 @@
  * `admin/lookups/applicant-categories` lookup (no hardcoded list). Each
  * row opens the service-backed specialization/year editor so previously
  * saved category settings can be viewed and edited on later visits to
- * the selected admission cycle.
+ * the selected admission cycle. Single-axis categories render their
+ * implicit year table directly; multi-specialization categories render
+ * the specialization attachment list.
  *
  * Active toggle on the row uses the underlying
  * `ApplicantCategoryConfig.isActive` (mirrors the prior wiring); the
@@ -39,6 +41,7 @@ import { useCategoryConfigs } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
 import type { CategoryCompletionState } from '../../store/wizardSharedState';
 import { SpecializationList } from './SpecializationList';
+import { YearTable } from './YearTable';
 
 export function CategoryAccordion(): JSX.Element {
   const configsQuery = useCategoryConfigs();
@@ -238,10 +241,36 @@ function ConfigItem({
       </Accordion.Trigger>
 
       <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 p-4">
-        <SpecializationList configId={config.id} />
+        <CategorySettingsBody config={config} />
       </Accordion.Content>
     </Accordion.Item>
   );
+}
+
+function CategorySettingsBody({
+  config,
+}: {
+  config: CategoryConfigJoined;
+}): JSX.Element {
+  if (config.singleAxis && config.implicitSpecId) {
+    return (
+      <div className="flex flex-col gap-3 py-3">
+        <div className="rounded-md border border-border-subtle bg-surface-card px-4 py-3">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-ar text-sm font-semibold text-ink-900">
+              شروط الفئة
+            </h3>
+            <span className="font-ar text-2xs text-ink-500">
+              إعداد مباشر بدون تخصصات فرعية
+            </span>
+          </div>
+          <YearTable categorySpecializationId={config.implicitSpecId} />
+        </div>
+      </div>
+    );
+  }
+
+  return <SpecializationList configId={config.id} />;
 }
 
 function deriveCompletionFromSavedSettings(
