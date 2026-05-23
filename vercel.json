@@ -6,11 +6,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://pacademy-admin-api-production.up.railway.app/api/$1"
+      "destination": "https://admin-api.appenzademo.com/api/$1"
     },
     {
       "source": "/v1/(.*)",
-      "destination": "https://pacademy-admin-api-production.up.railway.app/v1/$1"
+      "destination": "https://admin-api.appenzademo.com/v1/$1"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
