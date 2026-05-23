@@ -326,6 +326,14 @@ export function GeneralRulesSection({
     graduationYearOptions,
     excellenceMode,
   };
+  const scopedSpecCount = [...specsByFaculty.values()].reduce(
+    (count, specs) => count + specs.length,
+    0,
+  );
+  const shouldUseScopedWorkspace =
+    categoryCode === SPECIALIZED_OFFICERS_CATEGORY_CODE ||
+    scopedFaculties.length > 1 ||
+    scopedSpecCount > 1;
 
   return (
     <section
@@ -346,7 +354,7 @@ export function GeneralRulesSection({
       <TopFields categoryCode={categoryCode} maritalOptions={maritalOptions} />
 
       <div className="mt-4">
-        {categoryCode === SPECIALIZED_OFFICERS_CATEGORY_CODE ? (
+        {shouldUseScopedWorkspace ? (
           <SpecializedOfficersWorkspace
             faculties={scopedFaculties}
             specsByFaculty={specsByFaculty}
