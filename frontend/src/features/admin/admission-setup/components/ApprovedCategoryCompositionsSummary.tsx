@@ -45,28 +45,66 @@ import {
 import { useLookup } from '@/features/lookups';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { date as fmtDate } from '@/shared/lib/format';
-import { useApplicationSettingsSummary } from '../api/applicationSettings.queries';
+import {
+  useApplicationSettingsSummary,
+  useCategoryConfigs,
+} from '../api/applicationSettings.queries';
 import type {
   CategorySettingsSummary,
   YearGroupForReview,
 } from '../api/applicationSettings.service';
 import type { ApplicantSpecializationYear } from '../types';
+import {
+  DEFAULT_MAX_SCORE_OPERATOR,
+  DEFAULT_MIN_SCORE_OPERATOR,
+  type LocalGeneralRuleRow,
+  type LocalThanawiRow,
+  type LocalUniversityRow,
+  type MaxScoreOperator,
+  type MinScoreOperator,
+  useAdmissionSetupWizardStore,
+} from '../store/wizardSharedState';
 
 const GENDER_LABEL: Readonly<Record<string, string>> = {
   male: 'ذكر',
   female: 'أنثى',
+  both: 'ذكور وإناث',
+  ذكر: 'ذكر',
+  أنثى: 'أنثى',
+};
+
+const MIN_OPERATOR_SYMBOL: Readonly<Record<MinScoreOperator, string>> = {
+  GREATER_THAN_OR_EQUAL: '≥',
+  GREATER_THAN: '>',
+};
+
+const MAX_OPERATOR_SYMBOL: Readonly<Record<MaxScoreOperator, string>> = {
+  LESS_THAN_OR_EQUAL: '≤',
+  LESS_THAN: '<',
 };
 
 export function ApprovedCategoryCompositionsSummary(): JSX.Element {
   const summaryQuery = useApplicationSettingsSummary();
+  const configsQuery = useCategoryConfigs();
   const maritalQuery = useLookup('marital-statuses');
   const academicGradesQuery = useLookup('academic-grades');
+  const academicDegreesQuery = useLookup('academic-degrees');
+  const committeesQuery = useLookup('committees');
+  const examRoundsQuery = useLookup('exam-rounds');
   const schoolCategoriesQuery = useLookup('school-categories');
+  const authoredRows = useAdmissionSetupWizardStore((s) => [
+    ...s.local,
+    ...s.approved,
+  ]);
 
   const isLoading =
     summaryQuery.isLoading ||
+    configsQuery.isLoading ||
     maritalQuery.isLoading ||
     academicGradesQuery.isLoading ||
+    academicDegreesQuery.isLoading ||
+    committeesQuery.isLoading ||
+    examRoundsQuery.isLoading ||
     schoolCategoriesQuery.isLoading;
 
   const labels = useMemo<LabelMaps>(
@@ -75,14 +113,54 @@ export function ApprovedCategoryCompositionsSummary(): JSX.Element {
       academicGrade: new Map(
         (academicGradesQuery.data ?? []).map((r) => [r.code, r.name]),
       ),
+      academicDegree: new Map(
+        (academicDegreesQuery.data ?? []).map((r) => [r.code, r.name]),
+      ),
+      committee: new Map(
+        (committeesQuery.data ?? []).map((r) => [r.code, r.name]),
+      ),
+      examRound: new Map(
+        (examRoundsQuery.data ?? []).map((r) => [r.code, r.name]),
+      ),
       schoolCategory: new Map(
         (schoolCategoriesQuery.data ?? []).map((r) => [r.code, r.name]),
       ),
     }),
-    [maritalQuery.data, academicGradesQuery.data, schoolCategoriesQuery.data],
+    [
+      maritalQuery.data,
+      academicGradesQuery.data,
+      academicDegreesQuery.data,
+      committeesQuery.data,
+      examRoundsQuery.data,
+      schoolCategoriesQuery.data,
+    ],
+  );
+  const categoryLabels = useMemo(
+    () =>
+      new Map(
+        (configsQuery.data ?? []).map((config) => [
+          config.categoryCode,
+          {
+            name: config.categoryNameAr,
+            type: config.categoryType,
+            gradingMode: config.excellenceCriterion,
+          },
+        ]),
+      ),
+    [configsQuery.data],
   );
 
   if (isLoading) return <LoadingState variant="list" />;
+
+  if (authoredRows.length > 0) {
+    return (
+      <AuthoredRowsSummary
+        rows={authoredRows}
+        labels={labels}
+        categoryLabels={categoryLabels}
+      />
+    );
+  }
 
   const summary = summaryQuery.data ?? [];
   /* Review is not the category catalogue. It should only show categories
@@ -123,7 +201,227 @@ function hasSavedSettings(summary: CategorySettingsSummary): boolean {
 interface LabelMaps {
   marital: Map<string, string>;
   academicGrade: Map<string, string>;
+  academicDegree: Map<string, string>;
+  committee: Map<string, string>;
+  examRound: Map<string, string>;
   schoolCategory: Map<string, string>;
+}
+
+interface CategoryLabel {
+  name: string;
+  type: string;
+  gradingMode: string | null;
+}
+
+interface AuthoredRowsSummaryProps {
+  rows: readonly LocalGeneralRuleRow[];
+  labels: LabelMaps;
+  categoryLabels: ReadonlyMap<string, CategoryLabel>;
+}
+
+function AuthoredRowsSummary({
+  rows,
+  labels,
+  categoryLabels,
+}: AuthoredRowsSummaryProps): JSX.Element {
+  const grouped = useMemo(() => {
+    const map = new Map<string, LocalGeneralRuleRow[]>();
+    for (const row of rows) {
+      const group = map.get(row.categoryCode);
+      if (group) group.push(row);
+      else map.set(row.categoryCode, [row]);
+    }
+    return [...map.entries()];
+  }, [rows]);
+
+  return (
+    <TooltipProvider delayDuration={120}>
+      <div className="flex flex-col gap-3">
+        <h2 className="font-ar-display text-md font-bold text-ink-900">
+          التركيبات المحفوظة لكل فئة
+        </h2>
+        {grouped.map(([categoryCode, categoryRows]) => {
+          const meta = categoryLabels.get(categoryCode);
+          const universityRows = categoryRows.filter(
+            (row): row is LocalUniversityRow => row.kind === 'university',
+          );
+          const thanawiRows = categoryRows.filter(
+            (row): row is LocalThanawiRow => row.kind === 'thanawi',
+          );
+
+          return (
+            <Card key={categoryCode} variant="compact">
+              <section className="flex flex-col gap-3">
+                <header className="flex flex-wrap items-baseline gap-2">
+                  <h3 className="font-ar text-sm font-semibold text-ink-900">
+                    {meta?.name ?? categoryCode}
+                  </h3>
+                  <span className="font-ar text-2xs text-ink-500">
+                    {meta?.type === 'pre_university' ? 'ثانوي' : 'جامعي'}
+                  </span>
+                  {meta?.gradingMode && (
+                    <>
+                      <span className="font-ar text-2xs text-ink-400">·</span>
+                      <span className="font-ar text-2xs text-ink-500">
+                        {meta.gradingMode === 'TAGDIR' ? 'تقدير' : 'درجة مئوية'}
+                      </span>
+                    </>
+                  )}
+                </header>
+
+                {universityRows.length > 0 && (
+                  <AuthoredUniversityTable rows={universityRows} labels={labels} />
+                )}
+                {thanawiRows.length > 0 && (
+                  <AuthoredThanawiTable rows={thanawiRows} labels={labels} />
+                )}
+              </section>
+            </Card>
+          );
+        })}
+      </div>
+    </TooltipProvider>
+  );
+}
+
+interface AuthoredRowsTableProps<T extends LocalGeneralRuleRow> {
+  rows: readonly T[];
+  labels: LabelMaps;
+}
+
+function AuthoredUniversityTable({
+  rows,
+  labels,
+}: AuthoredRowsTableProps<LocalUniversityRow>): JSX.Element {
+  const headers = [
+    'الكلية / التخصص',
+    'اللجنة',
+    'بداية التقديم',
+    'نهاية التقديم',
+    'تاريخ احتساب السن',
+    'الحالة الاجتماعية',
+    'النوع',
+    'معيار التمييز',
+    'الحد الأدنى للتقدير',
+    'الحد الأقصى للتقدير',
+    'الحد الأدنى للدرجة',
+    'الحد الأقصى للدرجة',
+    'الدرجة العلمية',
+    'سنة التخرج',
+  ];
+
+  return (
+    <div className="overflow-x-auto rounded-md border border-border-subtle bg-surface-card">
+      <table className="w-full border-collapse text-sm">
+        <thead className="bg-ink-50/80">
+          <tr>
+            {headers.map((h) => (
+              <Th key={h}>{h}</Th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className="border-t border-border-subtle">
+              <Td>
+                <span className="block font-medium text-ink-900">
+                  {row.facultyNameAr || '—'}
+                </span>
+                <span className="mt-0.5 block text-ink-500">
+                  {row.specializationNameAr || '—'}
+                </span>
+              </Td>
+              <Td>
+                <ChipList values={row.committees.map((c) => labels.committee.get(c) ?? c)} />
+              </Td>
+              <Td>{formatIsoDate(row.header.applicationStart)}</Td>
+              <Td>{formatIsoDate(row.header.applicationEnd)}</Td>
+              <Td>{formatIsoDate(row.header.ageReferenceDate)}</Td>
+              <Td>
+                <ChipList values={row.maritalStatus.map((c) => labels.marital.get(c) ?? c)} />
+              </Td>
+              <Td>
+                <ChipList values={row.type.map((g) => GENDER_LABEL[g] ?? g)} />
+              </Td>
+              <Td>{row.excellenceMode === 'TAGDIR' ? 'تقدير' : 'درجة'}</Td>
+              <Td>{row.grade ? labels.academicGrade.get(row.grade) ?? row.grade : '—'}</Td>
+              <Td>{row.gradeMax ? labels.academicGrade.get(row.gradeMax) ?? row.gradeMax : '—'}</Td>
+              <Td>{formatScore(row.scoreMin, row.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR)}</Td>
+              <Td>{formatScore(row.scoreMax, row.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR)}</Td>
+              <Td>
+                <ChipList values={row.academicDegrees.map((d) => labels.academicDegree.get(d) ?? d)} />
+              </Td>
+              <Td>
+                <ChipList values={row.graduationYears.map((y) => toEasternArabicNumerals(y))} />
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AuthoredThanawiTable({
+  rows,
+  labels,
+}: AuthoredRowsTableProps<LocalThanawiRow>): JSX.Element {
+  const headers = [
+    'اللجنة',
+    'بداية التقديم',
+    'نهاية التقديم',
+    'تاريخ احتساب السن',
+    'الحالة الاجتماعية',
+    'الدور',
+    'سنة التخرج',
+    'فئة المدرسة',
+    'معيار التمييز',
+    'الحد الأدنى للتقدير',
+    'الحد الأقصى للتقدير',
+    'الحد الأدنى للدرجة',
+    'الحد الأقصى للدرجة',
+  ];
+
+  return (
+    <div className="overflow-x-auto rounded-md border border-border-subtle bg-surface-card">
+      <table className="w-full border-collapse text-sm">
+        <thead className="bg-ink-50/80">
+          <tr>
+            {headers.map((h) => (
+              <Th key={h}>{h}</Th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className="border-t border-border-subtle">
+              <Td>{labels.committee.get(row.committee) ?? row.committee}</Td>
+              <Td>{formatIsoDate(row.header.applicationStart)}</Td>
+              <Td>{formatIsoDate(row.header.applicationEnd)}</Td>
+              <Td>{formatIsoDate(row.header.ageReferenceDate)}</Td>
+              <Td>
+                <ChipList values={row.maritalStatus.map((c) => labels.marital.get(c) ?? c)} />
+              </Td>
+              <Td>{labels.examRound.get(row.examRound) ?? row.examRound}</Td>
+              <Td>
+                {row.graduationYear !== null
+                  ? toEasternArabicNumerals(row.graduationYear)
+                  : '—'}
+              </Td>
+              <Td>
+                <ChipList values={row.schoolCategories.map((c) => labels.schoolCategory.get(c) ?? c)} />
+              </Td>
+              <Td>{row.excellenceMode === 'TAGDIR' ? 'تقدير' : 'درجة'}</Td>
+              <Td>{row.grade ? labels.academicGrade.get(row.grade) ?? row.grade : '—'}</Td>
+              <Td>{row.gradeMax ? labels.academicGrade.get(row.gradeMax) ?? row.gradeMax : '—'}</Td>
+              <Td>{formatScore(row.scoreMin, row.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR)}</Td>
+              <Td>{formatScore(row.scoreMax, row.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR)}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 interface CategoryBlockProps {
@@ -320,6 +618,18 @@ function renderGradeGate(
 function formatIsoDate(value: string): string {
   if (!value) return '—';
   return fmtDate(value, 'full');
+}
+
+function formatScore(
+  value: number | null,
+  operator: MinScoreOperator | MaxScoreOperator,
+): string {
+  if (value === null) return '—';
+  const symbol =
+    operator in MIN_OPERATOR_SYMBOL
+      ? MIN_OPERATOR_SYMBOL[operator as MinScoreOperator]
+      : MAX_OPERATOR_SYMBOL[operator as MaxScoreOperator];
+  return `${symbol} ${toEasternArabicNumerals(value)}٪`;
 }
 
 function EmptyTable({ columns }: { columns: readonly string[] }): JSX.Element {

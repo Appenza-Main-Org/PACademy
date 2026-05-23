@@ -7,10 +7,13 @@
  * cycle later still shows previously authored category settings.
  */
 
+import { useEffect } from 'react';
 import { Printer } from 'lucide-react';
 import { Button, PageHeader } from '@/shared/components';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
 import { ApprovedCategoryCompositionsSummary } from '../components/ApprovedCategoryCompositionsSummary';
+import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
+import { hydrateApplicationSettingsCycleDraft } from '../lib/application-settings-cycle-draft';
 
 /* Print: landscape A4 fits the wide row tables comfortably; tighter
  * font keeps two-column data legible on paper. The global print.css
@@ -24,6 +27,8 @@ const PRINT_CSS = `
 `;
 
 export function ApplicationSettingsReviewPage(): JSX.Element {
+  useHydrateApplicationSettingsDraft();
+
   return (
     <AdmissionSetupShell>
       <style>{PRINT_CSS}</style>
@@ -49,5 +54,17 @@ export function ApplicationSettingsReviewPage(): JSX.Element {
 }
 
 export function ApplicationSettingsReviewBody(): JSX.Element {
+  useHydrateApplicationSettingsDraft();
+
   return <ApprovedCategoryCompositionsSummary />;
+}
+
+function useHydrateApplicationSettingsDraft(): void {
+  const { cycle } = useAdmissionSetupCycle();
+  const cycleId = cycle?.id ?? null;
+
+  useEffect(() => {
+    if (!cycleId) return;
+    hydrateApplicationSettingsCycleDraft(cycleId);
+  }, [cycleId]);
 }
