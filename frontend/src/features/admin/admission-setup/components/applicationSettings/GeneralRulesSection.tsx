@@ -676,6 +676,22 @@ function SpecializedOfficersWorkspace({
   );
   const [facultySearch, setFacultySearch] = useState('');
   const [specSearch, setSpecSearch] = useState('');
+  const localRows = useAdmissionSetupWizardStore((s) => s.local);
+  const approvedRows = useAdmissionSetupWizardStore((s) => s.approved);
+  const editingRowId = useAdmissionSetupWizardStore((s) => s.editingRowId);
+  const removeLocalRow = useAdmissionSetupWizardStore((s) => s.removeLocalRow);
+  const removeApprovedRow = useAdmissionSetupWizardStore(
+    (s) => s.removeApprovedRow,
+  );
+  const setEditingRow = useAdmissionSetupWizardStore((s) => s.setEditingRow);
+  const categoryRows = useMemo(
+    () =>
+      [...localRows, ...approvedRows].filter(
+        (r): r is LocalUniversityRow =>
+          r.kind === 'university' && r.categoryCode === options.categoryCode,
+      ),
+    [localRows, approvedRows, options.categoryCode],
+  );
 
   const filteredFaculties = useMemo(() => {
     const needle = facultySearch.trim().toLowerCase();
@@ -747,6 +763,19 @@ function SpecializedOfficersWorkspace({
 
   const handleClearSpecs = (): void => {
     setSelectedSpecCodes(new Set());
+  };
+
+  const handleDeleteCategoryRow = (id: string): void => {
+    removeLocalRow(id);
+    removeApprovedRow(id);
+  };
+
+  const handleEditCategoryRow = (id: string): void => {
+    const row = categoryRows.find((r) => r.id === id);
+    if (!row) return;
+    setSelectedFacultyCode(row.facultyCode);
+    setSelectedSpecCodes(new Set([row.specializationCode]));
+    setEditingRow(id);
   };
 
   if (faculties.length === 0) {
@@ -939,6 +968,7 @@ function SpecializedOfficersWorkspace({
             bulkTargets={selectedSpecTargets}
             emptyRowsLabel="لم تُضف شروط لجان بعد للتخصصات المحددة."
             showScopeColumn={selectedSpecTargets.length > 1}
+            hideRowsGrid
             onAddSuccess={handleClearSpecs}
             bulkBanner={
               <BulkApplyBanner
@@ -954,6 +984,33 @@ function SpecializedOfficersWorkspace({
             description="اختر كلية ثم حدد تخصصاً أو أكثر لعرض نموذج شروط اللجنة."
           />
         )}
+      </section>
+
+      <section className="min-w-0 rounded-md border border-border-subtle bg-surface-card p-4">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h4 className="m-0 font-ar text-sm font-semibold text-ink-900">
+              شروط الفئة المضافة
+            </h4>
+          </div>
+          {categoryRows.length > 0 && (
+            <span className="rounded-full bg-ink-50 px-2 py-1 font-ar text-2xs font-medium text-ink-600">
+              {num(categoryRows.length)} شرط
+            </span>
+          )}
+        </div>
+        <LocalUniversityGrid
+          rows={categoryRows}
+          editingId={editingRowId}
+          gradeOptions={options.gradeOptions}
+          degreeOptions={options.degreeOptions}
+          committeeOptions={options.committeeOptions}
+          maritalOptions={options.maritalOptions}
+          onEdit={handleEditCategoryRow}
+          onDelete={handleDeleteCategoryRow}
+          emptyRowsLabel="لم تُضف شروط لجان بعد لهذه الفئة."
+          showScopeColumn
+        />
       </section>
     </div>
   );
@@ -1065,6 +1122,7 @@ interface PerSpecFormProps {
   bulkBanner?: React.ReactNode;
   emptyRowsLabel?: string;
   showScopeColumn?: boolean;
+  hideRowsGrid?: boolean;
   onAddSuccess?: () => void;
 }
 
@@ -1139,6 +1197,7 @@ function PerSpecForm({
   bulkBanner,
   emptyRowsLabel = 'لم تُضف شروط لجان بعد لهذا التخصص.',
   showScopeColumn = false,
+  hideRowsGrid = false,
   onAddSuccess,
 }: PerSpecFormProps): JSX.Element {
   const {
@@ -1630,18 +1689,20 @@ function PerSpecForm({
         </div>
       </Card>
 
-      <LocalUniversityGrid
-        rows={rows}
-        editingId={editingId}
-        gradeOptions={gradeOptions}
-        degreeOptions={degreeOptions}
-        committeeOptions={committeeOptions}
-        maritalOptions={options.maritalOptions}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        emptyRowsLabel={emptyRowsLabel}
-        showScopeColumn={showScopeColumn}
-      />
+      {!hideRowsGrid && (
+        <LocalUniversityGrid
+          rows={rows}
+          editingId={editingId}
+          gradeOptions={gradeOptions}
+          degreeOptions={degreeOptions}
+          committeeOptions={committeeOptions}
+          maritalOptions={options.maritalOptions}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          emptyRowsLabel={emptyRowsLabel}
+          showScopeColumn={showScopeColumn}
+        />
+      )}
     </div>
   );
 }
@@ -1702,7 +1763,7 @@ function LocalUniversityGrid({
       <table className="w-full border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
-            {showScopeColumn && <Th>التخصص</Th>}
+            {showScopeColumn && <Th>الكلية / التخصص</Th>}
             <Th>اللجنة</Th>
             <Th>بداية التقديم</Th>
             <Th>نهاية التقديم</Th>
@@ -1729,7 +1790,16 @@ function LocalUniversityGrid({
                   isRowEditing ? 'bg-gold-50/60' : ''
                 }`}
               >
-                {showScopeColumn && <Td>{r.specializationNameAr}</Td>}
+                {showScopeColumn && (
+                  <Td>
+                    <span className="block font-medium text-ink-900">
+                      {r.facultyNameAr}
+                    </span>
+                    <span className="mt-0.5 block text-ink-500">
+                      {r.specializationNameAr}
+                    </span>
+                  </Td>
+                )}
                 <Td>
                   <MultiValueCell
                     values={r.committees.map(labelForCommittee)}
