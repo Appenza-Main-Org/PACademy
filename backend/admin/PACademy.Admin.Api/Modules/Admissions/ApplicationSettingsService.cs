@@ -39,8 +39,11 @@ public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
 
     public async Task<IReadOnlyList<JsonObject>> EligibleSpecializationsAsync(string configId, CancellationToken ct)
     {
-        var configExists = await db.ApplicationSettingsCategoryConfigs.AnyAsync(x => x.Id == configId, ct);
-        if (!configExists) return [];
+        var config = await db.ApplicationSettingsCategoryConfigs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == configId, ct);
+        if (config is null) return [];
+
+        var lookups = await LoadLookupsAsync(ct);
+        var category = Lookup(lookups.Categories, config.CategoryId);
 
         var attached = await db.ApplicationSettingsCategorySpecializations
             .AsNoTracking()
@@ -52,10 +55,14 @@ public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
         var rows = await db.LookupRows
             .AsNoTracking()
             .Where(x => x.LookupKey == "specializations" && x.IsActive && !attachedSet.Contains(x.Code))
-            .OrderBy(x => x.Code)
             .ToListAsync(ct);
 
-        return rows.Select(LookupToJson).ToList();
+        return rows
+            .Select(LookupToJson)
+            .Where(row => IsSpecializationAllowedForCategory(row, category))
+            .OrderBy(row => StringProp(row, "facultyCode"), StringComparer.Ordinal)
+            .ThenBy(row => StringProp(row, "code"), StringComparer.Ordinal)
+            .ToList();
     }
 
     public async Task<IReadOnlyList<JsonObject>> ListYearsAsync(string categorySpecializationId, CancellationToken ct)
@@ -146,6 +153,22 @@ public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
         if (!specExists)
         {
             throw new ConflictException("SPECIALIZATION_NOT_MAPPED", "التخصص غير مرتبط بهذه الفئة", new { categoryId = config.CategoryId, specializationId });
+        }
+        if (specializationId != ImplicitDefaultSpecCode)
+        {
+            var lookupsForValidation = await LoadLookupsAsync(ct);
+            var category = Lookup(lookupsForValidation.Categories, config.CategoryId);
+            var specialization = await db.LookupRows
+                .AsNoTracking()
+                .Where(x => x.LookupKey == "specializations" && x.Code == specializationId)
+                .Select(x => x.PayloadJson)
+                .FirstOrDefaultAsync(ct);
+            var specializationJson = specialization is null ? null : JsonNode.Parse(specialization)?.AsObject();
+            if (specializationJson is not null) specializationJson["code"] = specializationId;
+            if (specializationJson is null || !IsSpecializationAllowedForCategory(specializationJson, category))
+            {
+                throw new ConflictException("SPECIALIZATION_NOT_MAPPED", "التخصص غير مرتبط بهذه الفئة", new { categoryId = config.CategoryId, specializationId });
+            }
         }
 
         var existing = await db.ApplicationSettingsCategorySpecializations
@@ -648,6 +671,26 @@ public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
     {
         var genders = StringArray(category?["genderScope"]);
         return genders.Count == 1 ? genders[0] : null;
+    }
+
+    private static bool IsSpecializationAllowedForCategory(JsonObject specialization, JsonObject? category)
+    {
+        if (category is null) return false;
+
+        var specializationCodes = StringArray(category["specializationCodes"]);
+        var specializationCode = StringProp(specialization, "code");
+        if (specializationCodes.Count > 0)
+        {
+            return specializationCode is not null &&
+                specializationCodes.Contains(specializationCode, StringComparer.Ordinal);
+        }
+
+        var facultyCodes = StringArray(category["facultyCodes"]);
+        if (facultyCodes.Count == 0) return true;
+
+        var facultyCode = StringProp(specialization, "facultyCode");
+        return facultyCode is not null &&
+            facultyCodes.Contains(facultyCode, StringComparer.Ordinal);
     }
 
     private static bool Overlaps<T>(IEnumerable<T> a, IReadOnlyCollection<T> b) => a.Any(b.Contains);

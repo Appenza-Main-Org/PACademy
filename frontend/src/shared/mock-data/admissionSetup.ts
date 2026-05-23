@@ -94,12 +94,31 @@ export const APPLICANT_CATEGORY_CONFIGS: ApplicantCategoryConfigSeed[] = CATEGOR
 
 export const IMPLICIT_DEFAULT_SPEC_CODE = '__default__';
 
-const ATTACHMENT_PLAN: Record<string, string[]> = {
-  officers_general: [IMPLICIT_DEFAULT_SPEC_CODE],
-  law_bachelor: [IMPLICIT_DEFAULT_SPEC_CODE],
-  physical_education_bachelor: [IMPLICIT_DEFAULT_SPEC_CODE],
-  specialized_officers: ['SPC-01', 'SPC-04', 'SPC-12'],
-};
+const ATTACHMENT_PLAN: Record<string, string[]> = Object.fromEntries(
+  CATEGORY_ROWS.map((category) => [
+    category.code,
+    attachmentPlanForCategory(category.code),
+  ]),
+);
+
+function attachmentPlanForCategory(categoryCode: string): string[] {
+  const category = CATEGORY_ROWS.find((row) => row.code === categoryCode);
+  if (!category) return [];
+  if (category.type === 'pre_university') return [IMPLICIT_DEFAULT_SPEC_CODE];
+
+  if (category.specializationCodes.length > 0) {
+    return [...category.specializationCodes];
+  }
+
+  if (category.facultyCodes.length > 0) {
+    const allowedFaculties = new Set(category.facultyCodes);
+    return SPECIALIZATION_ROWS
+      .filter((spec) => spec.isActive && allowedFaculties.has(spec.facultyCode))
+      .map((spec) => spec.code);
+  }
+
+  return [IMPLICIT_DEFAULT_SPEC_CODE];
+}
 
 export const APPLICANT_CATEGORY_SPECIALIZATIONS: ApplicantCategorySpecializationSeed[] = (() => {
   const rows: ApplicantCategorySpecializationSeed[] = [];
