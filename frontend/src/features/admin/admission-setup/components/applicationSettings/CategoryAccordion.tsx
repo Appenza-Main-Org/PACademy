@@ -34,7 +34,7 @@ import {
   CircleDashed,
 } from 'lucide-react';
 import { Accordion, ErrorState, LoadingState } from '@/shared/components';
-import { useLookup } from '@/features/lookups';
+import { useLookup, type ApplicantCategoryRow } from '@/features/lookups';
 import { cn } from '@/shared/lib/cn';
 import { useCategoryConfigs } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
@@ -83,22 +83,14 @@ export function CategoryAccordion(): JSX.Element {
     );
   }
 
-  /* Filter to active lookup rows then preserve the configs' sortOrder.
-   * The join carries `categoryType`/`categoryFacultyCodes`/
-   * `categorySpecializationCodes` straight off the lookup so feature
-   * components don't have to read the lookup themselves. */
-  const lookupActiveCodes = new Set(
-    (categoriesQuery.data ?? []).filter((c) => c.isActive).map((c) => c.code),
-  );
-  const activeConfigs = configsQuery.data.filter((c) =>
-    lookupActiveCodes.has(c.categoryCode),
-  );
-
   /* Every active category renders here. The criterion label on the
    * row header only appears when the category carries one — categories
    * without a criterion still need to be editable (admins set the rest
    * of the rules regardless), so the row stays visible. */
-  const visibleConfigs = activeConfigs;
+  const visibleConfigs = mergeCategoryConfigsWithActiveLookups(
+    configsQuery.data,
+    categoriesQuery.data ?? [],
+  );
 
   const criterionLabelByCode = new Map(
     (excellenceQuery.data ?? []).map((row) => [row.code, row.name] as const),
@@ -133,6 +125,51 @@ export function CategoryAccordion(): JSX.Element {
       ))}
     </Accordion.Root>
   );
+}
+
+function mergeCategoryConfigsWithActiveLookups(
+  configs: readonly CategoryConfigJoined[],
+  categories: readonly ApplicantCategoryRow[],
+): CategoryConfigJoined[] {
+  const activeCategories = categories.filter((category) => category.isActive);
+  const activeCategoryCodes = new Set(
+    activeCategories.map((category) => category.code),
+  );
+  const configByCode = new Map(
+    configs.map((config) => [config.categoryCode, config] as const),
+  );
+  const visibleConfigs = configs.filter((config) =>
+    activeCategoryCodes.has(config.categoryCode),
+  );
+
+  for (const category of activeCategories) {
+    if (configByCode.has(category.code)) {
+      continue;
+    }
+
+    visibleConfigs.push({
+      id: `lookup:${category.code}`,
+      categoryId: category.code,
+      categoryCode: category.code,
+      categoryNameAr: category.name,
+      categoryType: category.type,
+      categoryFacultyCodes: category.facultyCodes,
+      categorySpecializationCodes: category.specializationCodes,
+      lockedGender:
+        category.genderScope.length === 1 ? category.genderScope[0] : null,
+      singleAxis: false,
+      implicitSpecId: null,
+      specializationCount: category.specializationCodes.length,
+      yearCount: 0,
+      excellenceCriterion: category.excellenceCriterion,
+      isActive: true,
+      sortOrder: visibleConfigs.length + 1,
+      createdAt: '',
+      updatedAt: '',
+    });
+  }
+
+  return visibleConfigs;
 }
 
 interface ConfigItemProps {
