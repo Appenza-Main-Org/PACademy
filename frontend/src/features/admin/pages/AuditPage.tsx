@@ -4,6 +4,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowRight, Eye } from 'lucide-react';
 import {
   Badge,
@@ -18,6 +19,7 @@ import {
 } from '@/shared/components';
 import type { DataTableColumn, DateRange, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
+import { ROUTES } from '@/config/routes';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
 import {
   AuditDiffDrawer,
@@ -28,7 +30,8 @@ import {
   useAuditRoles,
   useAuditUsers,
 } from '@/features/audit';
-import type { ApplicantStatus, AuditAction, AuditEntry, AuditModule } from '@/shared/types/domain';
+import { useUsers } from '@/features/admin/api/users.queries';
+import type { ApplicantStatus, AuditAction, AuditEntry, AuditModule, SystemUser } from '@/shared/types/domain';
 
 const STATUS_LABEL: Record<ApplicantStatus, string> = {
   pending: 'في الانتظار',
@@ -116,7 +119,29 @@ function FieldChip({ path }: { path: string }): JSX.Element {
   );
 }
 
-function DetailsCell({ entry }: { entry: AuditEntry }): JSX.Element {
+/**
+ * For `users` audit entries the backend stores the affected actor as a
+ * tail segment after `·` (e.g. "تحديث مستخدم · هشام البري"). We split
+ * on the first bullet so we can re-render the tail as a link to the
+ * user-detail page and pull the *current* fullArabicName from the
+ * users cache when available.
+ */
+function splitUserDetails(details: string): { prefix: string; tail: string } {
+  const idx = details.indexOf('·');
+  if (idx === -1) return { prefix: '', tail: details };
+  return {
+    prefix: details.slice(0, idx).trim(),
+    tail: details.slice(idx + 1).trim(),
+  };
+}
+
+function DetailsCell({
+  entry,
+  usersById,
+}: {
+  entry: AuditEntry;
+  usersById: Map<string, SystemUser>;
+}): JSX.Element {
   const transition = parseTransition(entry.details);
   if (transition) {
     return (
@@ -141,6 +166,29 @@ function DetailsCell({ entry }: { entry: AuditEntry }): JSX.Element {
           <FieldChip key={path} path={path} />
         ))}
       </div>
+    );
+  }
+
+  if (entry.entity === 'users' && entry.entityId) {
+    const { prefix, tail } = splitUserDetails(entry.details);
+    const freshName = usersById.get(entry.entityId)?.fullArabicName;
+    const linkText = freshName ?? tail;
+    return (
+      <span className="block whitespace-normal text-sm leading-relaxed text-ink-700" dir="auto">
+        {prefix && (
+          <>
+            <span className="text-ink-600">{prefix}</span>
+            <span className="mx-1 text-ink-400">·</span>
+          </>
+        )}
+        <Link
+          to={ROUTES.admin.userDetail(entry.entityId)}
+          onClick={(e) => e.stopPropagation()}
+          className="font-medium text-teal-700 underline decoration-teal-200 decoration-1 underline-offset-2 transition-colors duration-fast ease-standard hover:text-teal-800 hover:decoration-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+        >
+          {linkText}
+        </Link>
+      </span>
     );
   }
 
@@ -176,6 +224,14 @@ export function AuditPage(): JSX.Element {
   const { data: modules } = useAuditModules();
   const { data: roles } = useAuditRoles();
   const { data: users } = useAuditUsers();
+  /* Cross-reference the full SystemUser list so audit rows that affect a
+   * user can render the current `fullArabicName` (the audit `details`
+   * string is a snapshot — it can go stale after a rename). */
+  const { data: systemUsers } = useUsers();
+  const usersById = useMemo(
+    () => new Map<string, SystemUser>((systemUsers ?? []).map((u) => [u.id, u])),
+    [systemUsers],
+  );
   const [openEntry, setOpenEntry] = useState<AuditEntry | null>(null);
   const auditActionOptions = useMemo(
     () => (actionsQuery.data ?? []).map((a) => ({ value: a.action, label: a.label })),
@@ -257,7 +313,7 @@ export function AuditPage(): JSX.Element {
       sortable: true,
       getSortValue: (e) => e.details,
       filter: { kind: 'text', getValue: (e) => e.details },
-      render: (e) => <DetailsCell entry={e} />,
+      render: (e) => <DetailsCell entry={e} usersById={usersById} />,
     },
     {
       key: 'ip',
