@@ -53,17 +53,20 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
     [HttpDelete("api/grades")]
     public async Task<ActionResult<object>> Delete([FromBody] JsonObject? body, CancellationToken ct)
     {
-        var rows = await records.ListAsync("grades", ct);
         var seats = body?["seats"]?.AsArray().Select(x => x?.GetValue<int>()).Where(x => x is not null).Select(x => x!.Value).ToHashSet();
-        var targets = seats is { Count: > 0 }
-            ? rows.Where(x => seats.Contains((int)(AdminRecordJson.NumberProp(x, "seat") ?? -1))).ToList()
-            : rows;
-        foreach (var row in targets)
+        if (seats is not { Count: > 0 })
         {
-            var id = AdminRecordJson.StringProp(row, "id") ?? AdminRecordJson.StringProp(row, "seat") ?? "";
-            if (!string.IsNullOrWhiteSpace(id)) await records.DeleteAsync("grades", id, ct);
+            return Ok(new { deleted = await records.DeleteModuleAsync("grades", ct) });
         }
-        return Ok(new { deleted = targets.Count });
+
+        var rows = await records.ListAsync("grades", ct);
+        var targetIds = rows
+            .Where(x => seats.Contains((int)(AdminRecordJson.NumberProp(x, "seat") ?? -1)))
+            .Select(x => AdminRecordJson.StringProp(x, "id") ?? AdminRecordJson.StringProp(x, "seat") ?? "")
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return Ok(new { deleted = await records.DeleteManyAsync("grades", targetIds, ct) });
     }
 
     [HttpPost("api/grades/import/stage")]
@@ -351,7 +354,11 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
 
         rows = FilterByText(rows, "gender", "gender", exact: true);
         rows = FilterByText(rows, "branch", "branch", exact: true);
-        rows = FilterByText(rows, "schoolCategoryCode", "schoolCategoryCode", exact: true);
+        var schoolCategoryCode = Request.Query["schoolCategoryCode"].ToString();
+        if (!string.IsNullOrWhiteSpace(schoolCategoryCode))
+        {
+            rows = rows.Where(x => string.Equals(GradeSchoolCategoryCode(x), schoolCategoryCode, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
         rows = FilterByText(rows, "nid", "nid", exact: false);
         rows = FilterByText(rows, "seatingNumber", "seatingNumber", exact: false);
         rows = FilterByText(rows, "name", "name", exact: false);
@@ -360,7 +367,7 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         var schoolCategoryCodes = QueryValues("schoolCategoryCodes");
         if (schoolCategoryCodes.Count > 0)
         {
-            rows = rows.Where(x => schoolCategoryCodes.Contains(AdminRecordJson.StringProp(x, "schoolCategoryCode") ?? "")).ToList();
+            rows = rows.Where(x => schoolCategoryCodes.Contains(GradeSchoolCategoryCode(x) ?? "")).ToList();
         }
 
         if (QueryNumber("year") is double year)
@@ -490,7 +497,7 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
             "kind" => SortString(rows, x => AdminRecordJson.StringProp(x, "kind"), descending),
             "gender" => SortString(rows, x => AdminRecordJson.StringProp(x, "gender"), descending),
             "branch" => SortString(rows, x => AdminRecordJson.StringProp(x, "branch"), descending),
-            "schoolCategoryCode" => SortString(rows, x => AdminRecordJson.StringProp(x, "schoolCategoryCode"), descending),
+            "schoolCategoryCode" => SortString(rows, GradeSchoolCategoryCode, descending),
             "school" => SortString(rows, x => AdminRecordJson.StringProp(x, "school"), descending),
             "region" => SortString(rows, x => AdminRecordJson.StringProp(x, "region"), descending),
             "examRound" => SortString(rows, x => AdminRecordJson.StringProp(x, "examRound"), descending),
@@ -551,6 +558,18 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         ["status"] = "مستجد",
         ["log"] = new JsonArray()
     };
+
+    private static string? GradeSchoolCategoryCode(JsonObject row)
+    {
+        var code = AdminRecordJson.StringProp(row, "schoolCategoryCode") ?? AdminRecordJson.StringProp(row, "schoolCategory");
+        if (!string.IsNullOrWhiteSpace(code)) return code;
+        return AdminRecordJson.StringProp(row, "kind") switch
+        {
+            "azhar" => "SCH-03",
+            "general" => "SCH-01",
+            _ => null
+        };
+    }
 
     private static double? MaxGradeForRow(JsonObject row, JsonObject body)
     {

@@ -165,6 +165,43 @@ public sealed class AdminRecordsService(
         return true;
     }
 
+    public async Task<int> DeleteModuleAsync(string module, CancellationToken ct)
+    {
+        var deleted = await db.AdminRecords
+            .Where(x => x.Module == module)
+            .ExecuteDeleteAsync(ct);
+        if (deleted > 0)
+        {
+            await EmitAuditAsync(
+                module,
+                "bulk_delete",
+                module,
+                $"{module}.bulk_delete · deleted={deleted}",
+                DateTimeOffset.UtcNow,
+                ct);
+        }
+        return deleted;
+    }
+
+    public async Task<int> DeleteManyAsync(string module, IReadOnlyCollection<string> ids, CancellationToken ct)
+    {
+        if (ids.Count == 0) return 0;
+        var deleted = await db.AdminRecords
+            .Where(x => x.Module == module && ids.Contains(x.Id))
+            .ExecuteDeleteAsync(ct);
+        if (deleted > 0)
+        {
+            await EmitAuditAsync(
+                module,
+                "bulk_delete",
+                $"{module}:{deleted}",
+                $"{module}.bulk_delete · deleted={deleted}",
+                DateTimeOffset.UtcNow,
+                ct);
+        }
+        return deleted;
+    }
+
     public async Task<int> DeleteFromArrayModulesAsync(string modulePrefix, string arrayName, string id, CancellationToken ct)
     {
         var rows = await db.AdminRecords
