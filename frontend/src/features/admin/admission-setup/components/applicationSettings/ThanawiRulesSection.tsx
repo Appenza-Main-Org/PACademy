@@ -256,11 +256,6 @@ export function ThanawiRulesSection({
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-3 border-t border-border-subtle pt-4">
-        {localCount > 0 && (
-          <span className="font-ar text-xs text-ink-500">
-            {`${num(localCount)} شرط جاهز للاعتماد`}
-          </span>
-        )}
         <Button
           variant="primary"
           size="md"
