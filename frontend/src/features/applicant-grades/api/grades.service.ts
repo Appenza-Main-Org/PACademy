@@ -5,7 +5,8 @@
  *   GET    /api/grades
  *   GET    /api/grades/export
  *   GET    /api/admin/applicant-grades/by-nid/:nid?cycleId=
- *   DELETE /api/grades
+ *   POST   /api/grades/clear
+ *   POST   /api/grades/delete
  *   POST   /api/grades/:seat/adjustments
  *   POST   /api/grades/:seat/adjustments/:entryId/toggle
  *   DELETE /api/grades/:seat/adjustments/:entryId
@@ -152,11 +153,11 @@ export const gradesService = {
   },
 
   async clearAll(): Promise<void> {
-    await apiClient.delete<{ deleted: number }>(GRADES_API);
+    await apiClient.post<{ deleted: number }>(`${GRADES_API}/clear`);
   },
 
   async deleteRows(seats: readonly number[]): Promise<{ deleted: number }> {
-    return apiClient.delete<{ deleted: number }>(GRADES_API, { body: { seats } });
+    return apiClient.post<{ deleted: number }>(`${GRADES_API}/delete`, { seats });
   },
 
   async addAdjustment(

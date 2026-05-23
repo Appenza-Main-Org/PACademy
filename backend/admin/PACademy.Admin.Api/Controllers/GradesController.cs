@@ -3,37 +3,64 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class GradesController(AdminRecordsService records) : ControllerBase
+public sealed class GradesController(AdminRecordsService records, AdminDbContext db, IMemoryCache cache) : ControllerBase
 {
     private const int ImportCommitBatchSize = 5000;
     private const int PreflightFailureSampleLimit = 1000;
+    private const string GradesSummaryCacheKey = "grades:list:summary";
+    private const string GradesFacetsCacheKey = "grades:list:facets";
+    private static readonly TimeSpan GradesListCacheTtl = TimeSpan.FromMinutes(10);
 
     [HttpGet("api/grades")]
     public async Task<ActionResult<object>> List([FromQuery] int? page, [FromQuery] int? pageSize, [FromQuery] int? size, CancellationToken ct)
     {
-        var allRows = (await records.ListAsync("grades", ct)).ToList();
-        var rows = FilterRows(allRows);
         if (page is not null || pageSize is not null || size is not null)
         {
-            var p = page.GetValueOrDefault(1);
-            var ps = pageSize ?? size ?? 25;
-            return Ok(new
-            {
-                rows = rows.Skip(Math.Max(0, p - 1) * ps).Take(ps).ToList(),
-                total = rows.Count,
-                summary = BuildSummary(allRows),
-                facets = BuildFacets(allRows)
-            });
+            return await ListPageFastAsync(page.GetValueOrDefault(1), pageSize ?? size ?? 25, ct);
         }
+
+        var allRows = (await records.ListAsync("grades", ct)).ToList();
+        var rows = FilterRows(allRows);
         return Ok(rows);
+    }
+
+    private async Task<ActionResult<object>> ListPageFastAsync(int page, int pageSize, CancellationToken ct)
+    {
+        var sql = BuildGradesPageSql(page, pageSize);
+        var entities = await db.AdminRecords
+            .FromSqlRaw(sql.RowsSql, sql.Parameters.ToArray())
+            .AsNoTracking()
+            .ToListAsync(ct);
+        var rows = entities.Select(EntityToJson).ToList();
+        var summary = await BuildSummaryFastAsync(ct);
+        var total = summary.total;
+        if (sql.HasFilters)
+        {
+            total = page == 1 && rows.Count < pageSize
+                ? rows.Count
+                : await db.Database
+                    .SqlQueryRaw<int>(sql.CountSql, sql.Parameters.ToArray())
+                    .SingleAsync(ct);
+        }
+        return Ok(new
+        {
+            rows,
+            total,
+            summary,
+            facets = await BuildFacetsFastAsync(ct)
+        });
     }
 
     [HttpGet("api/grades/export")]
@@ -51,12 +78,32 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
     }
 
     [HttpDelete("api/grades")]
-    public async Task<ActionResult<object>> Delete([FromBody] JsonObject? body, CancellationToken ct)
+    public Task<ActionResult<object>> Delete([FromBody] JsonObject? body, CancellationToken ct)
+    {
+        return DeleteCore(body, ct);
+    }
+
+    [HttpPost("api/grades/delete")]
+    public Task<ActionResult<object>> DeleteViaPost([FromBody] JsonObject? body, CancellationToken ct)
+    {
+        return DeleteCore(body, ct);
+    }
+
+    [HttpPost("api/grades/clear")]
+    public Task<ActionResult<object>> ClearViaPost(CancellationToken ct)
+    {
+        return DeleteCore(null, ct);
+    }
+
+    private async Task<ActionResult<object>> DeleteCore(JsonObject? body, CancellationToken ct)
     {
         var seats = body?["seats"]?.AsArray().Select(x => x?.GetValue<int>()).Where(x => x is not null).Select(x => x!.Value).ToHashSet();
+        int deleted;
         if (seats is not { Count: > 0 })
         {
-            return Ok(new { deleted = await records.DeleteModuleAsync("grades", ct) });
+            deleted = await records.DeleteModuleTrackedAsync("grades", ct);
+            if (deleted > 0) InvalidateGradesListCache();
+            return Ok(new { deleted });
         }
 
         var rows = await records.ListAsync("grades", ct);
@@ -66,7 +113,9 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        return Ok(new { deleted = await records.DeleteManyAsync("grades", targetIds, ct) });
+        deleted = await records.DeleteManyTrackedAsync("grades", targetIds, ct);
+        if (deleted > 0) InvalidateGradesListCache();
+        return Ok(new { deleted });
     }
 
     [HttpPost("api/grades/import/stage")]
@@ -136,6 +185,7 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
             inserted++;
         }
 
+        if (inserted > 0 || replaced > 0) InvalidateGradesListCache();
         return Ok(new { inserted, replaced, kept, deactivated = Array.Empty<object>(), skipped });
     }
 
@@ -259,6 +309,7 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
                 ct);
         }
 
+        if (inserted > 0) InvalidateGradesListCache();
         return Ok(new { insertedCount = inserted, failedCount = failed, alreadyImportedCount = alreadyImported });
     }
 
@@ -317,7 +368,9 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         log.Add(entry);
         row["log"] = log;
         row["gradeChangedAt"] = DateTimeOffset.UtcNow.ToString("O");
-        return Ok(await records.UpsertAsync("grades", seat, row, ct));
+        var updated = await records.UpsertAsync("grades", seat, row, ct);
+        InvalidateGradesListCache();
+        return Ok(updated);
     }
 
     [HttpPost("api/grades/{seat}/adjustments/{entryId}/toggle")]
@@ -330,7 +383,9 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
             item["isActive"] = !(item["isActive"]?.GetValue<bool>() ?? true);
         }
         row["gradeChangedAt"] = DateTimeOffset.UtcNow.ToString("O");
-        return Ok(await records.UpsertAsync("grades", seat, row, ct));
+        var updated = await records.UpsertAsync("grades", seat, row, ct);
+        InvalidateGradesListCache();
+        return Ok(updated);
     }
 
     [HttpDelete("api/grades/{seat}/adjustments/{entryId}")]
@@ -340,7 +395,9 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         var log = row["log"]?.AsArray() ?? [];
         row["log"] = new JsonArray(log.Where(x => x is JsonObject obj && AdminRecordJson.StringProp(obj, "id") != entryId).Select(x => x?.DeepClone()).ToArray());
         row["gradeChangedAt"] = DateTimeOffset.UtcNow.ToString("O");
-        return Ok(await records.UpsertAsync("grades", seat, row, ct));
+        var updated = await records.UpsertAsync("grades", seat, row, ct);
+        InvalidateGradesListCache();
+        return Ok(updated);
     }
 
     [HttpPatch("api/grades/{seat}/override-max")]
@@ -351,7 +408,9 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         row["lastEditedBy"] = body["by"]?.DeepClone() ?? "system";
         row["lastEditedAt"] = DateTimeOffset.UtcNow.ToString("O");
         row["gradeChangedAt"] = DateTimeOffset.UtcNow.ToString("O");
-        return Ok(await records.UpsertAsync("grades", seat, row, ct));
+        var updated = await records.UpsertAsync("grades", seat, row, ct);
+        InvalidateGradesListCache();
+        return Ok(updated);
     }
 
     private List<JsonObject> FilterRows(List<JsonObject> rows)
@@ -398,6 +457,276 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
 
         return SortRows(rows);
     }
+
+    private sealed class GradesPageSql
+    {
+        public required string RowsSql { get; init; }
+        public required string CountSql { get; init; }
+        public required List<SqlParameter> Parameters { get; init; }
+        public required bool HasFilters { get; init; }
+    }
+
+    private sealed class GradesSummaryRow
+    {
+        public int Total { get; init; }
+        public int General { get; init; }
+        public int Azhar { get; init; }
+        public int WithAdjustments { get; init; }
+    }
+
+    private sealed class GradesSummaryPayload
+    {
+        public int total { get; init; }
+        public int general { get; init; }
+        public int azhar { get; init; }
+        public int withAdjustments { get; init; }
+    }
+
+    private GradesPageSql BuildGradesPageSql(int page, int pageSize)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 10_000);
+        var parameters = new List<SqlParameter>();
+        var where = new List<string> { "[a].[module] = @module" };
+        var hasFilters = false;
+        parameters.Add(new SqlParameter("@module", "grades"));
+
+        string AddParam(object value)
+        {
+            var name = $"@p{parameters.Count}";
+            parameters.Add(new SqlParameter(name, value));
+            return name;
+        }
+
+        void AddStringFilter(string queryKey, string jsonProperty, bool exact)
+        {
+            var value = Request.Query[queryKey].ToString();
+            if (string.IsNullOrWhiteSpace(value)) return;
+            hasFilters = true;
+            var param = AddParam(exact ? value : $"%{EscapeSqlLike(value)}%");
+            var expr = JsonValue(jsonProperty);
+            where.Add(exact
+                ? $"{expr} = {param}"
+                : $"COALESCE({expr}, N'') LIKE {param} ESCAPE N'\\'");
+        }
+
+        var q = Request.Query["q"].ToString();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            hasFilters = true;
+            var param = AddParam($"%{EscapeSqlLike(q)}%");
+            where.Add($"""
+                (
+                    COALESCE({JsonValue("nid")}, N'') LIKE {param} ESCAPE N'\'
+                    OR COALESCE({JsonValue("name")}, N'') LIKE {param} ESCAPE N'\'
+                    OR COALESCE({JsonValue("seatingNumber")}, N'') LIKE {param} ESCAPE N'\'
+                )
+                """);
+        }
+
+        AddStringFilter("gender", "gender", exact: true);
+        AddStringFilter("branch", "branch", exact: true);
+        AddStringFilter("nid", "nid", exact: false);
+        AddStringFilter("seatingNumber", "seatingNumber", exact: false);
+        AddStringFilter("name", "name", exact: false);
+        AddStringFilter("school", "school", exact: false);
+
+        var schoolCategoryCode = Request.Query["schoolCategoryCode"].ToString();
+        if (!string.IsNullOrWhiteSpace(schoolCategoryCode))
+        {
+            hasFilters = true;
+            where.Add($"{SchoolCategorySql()} = {AddParam(schoolCategoryCode)}");
+        }
+
+        var schoolCategoryCodes = QueryValues("schoolCategoryCodes");
+        if (schoolCategoryCodes.Count > 0)
+        {
+            hasFilters = true;
+            var inParams = schoolCategoryCodes.Select(AddParam);
+            where.Add($"{SchoolCategorySql()} IN ({string.Join(", ", inParams)})");
+        }
+
+        if (QueryNumber("year") is double year)
+        {
+            hasFilters = true;
+            where.Add($"{NumberValue("graduationYear")} = {AddParam(year)}");
+        }
+
+        AddNumberRange("total", "totalMin", "totalMax");
+        AddNumberRange("pct", "pctMin", "pctMax");
+        AddNumberRange("eff", "effMin", "effMax");
+        AddNumberRange("graduationYear", "graduationYearMin", "graduationYearMax");
+
+        var changedOnly = bool.TryParse(Request.Query["changedOnly"], out var changed) && changed;
+        if (changedOnly)
+        {
+            hasFilters = true;
+            where.Add($"({JsonValue("gradeChangedAt")} IS NOT NULL OR EXISTS (SELECT 1 FROM OPENJSON([a].[payload_json], '$.log')))");
+        }
+
+        void AddNumberRange(string field, string minKey, string maxKey)
+        {
+            var min = QueryNumber(minKey);
+            var max = QueryNumber(maxKey);
+            if (min is null && max is null) return;
+            hasFilters = true;
+            var expr = field switch
+            {
+                "pct" => PercentageSql(),
+                "eff" => EffectiveGradeSql(),
+                _ => NumberValue(field)
+            };
+            if (min is not null) where.Add($"{expr} >= {AddParam(min.Value)}");
+            if (max is not null) where.Add($"{expr} <= {AddParam(max.Value)}");
+        }
+
+        var whereSql = string.Join("\nAND ", where);
+        var orderSql = BuildOrderSql();
+        var offsetParam = AddParam(Math.Max(0, page - 1) * pageSize);
+        var pageSizeParam = AddParam(pageSize);
+        var selectSql = """
+            SELECT [a].[module], [a].[id], [a].[payload_json], [a].[created_at], [a].[updated_at], [a].[row_version]
+            FROM [admin_v2].[admin_records] AS [a]
+            """;
+        return new GradesPageSql
+        {
+            RowsSql = $"""
+                {selectSql}
+                WHERE {whereSql}
+                ORDER BY {orderSql}
+                OFFSET {offsetParam} ROWS FETCH NEXT {pageSizeParam} ROWS ONLY
+                """,
+            CountSql = $"""
+                SELECT COUNT(1) AS [Value]
+                FROM [admin_v2].[admin_records] AS [a]
+                WHERE {whereSql}
+                """,
+            Parameters = parameters,
+            HasFilters = hasFilters
+        };
+    }
+
+    private string BuildOrderSql()
+    {
+        var descending = string.Equals(Request.Query["sortDirection"].ToString(), "desc", StringComparison.OrdinalIgnoreCase);
+        var direction = descending ? "DESC" : "ASC";
+        var nullValue = descending ? "-1.7976931348623157E+308" : "1.7976931348623157E+308";
+        var expr = Request.Query["sortKey"].ToString() switch
+        {
+            "nid" => JsonValue("nid"),
+            "seatingNumber" => JsonValue("seatingNumber"),
+            "name" => JsonValue("name"),
+            "kind" => JsonValue("kind"),
+            "gender" => JsonValue("gender"),
+            "branch" => JsonValue("branch"),
+            "schoolCategoryCode" => SchoolCategorySql(),
+            "school" => JsonValue("school"),
+            "region" => JsonValue("region"),
+            "examRound" => JsonValue("examRound"),
+            "graduationYear" => NumberValue("graduationYear"),
+            "total" => NumberValue("total"),
+            "max" => GradeMaxSql(),
+            "pct" => PercentageSql(),
+            "eff" => EffectiveGradeSql(),
+            "effPct" => $"(({EffectiveGradeSql()}) / NULLIF(({GradeMaxSql()}), 0) * 100.0)",
+            _ => "TRY_CONVERT(float, [a].[id])"
+        };
+        var isNumeric = expr.StartsWith("TRY_CONVERT", StringComparison.Ordinal) ||
+            expr.StartsWith("COALESCE(TRY_CONVERT", StringComparison.Ordinal) ||
+            expr.StartsWith("CASE", StringComparison.Ordinal) ||
+            expr.StartsWith("((", StringComparison.Ordinal);
+        var primary = isNumeric ? $"COALESCE(({expr}), {nullValue}) {direction}" : $"COALESCE({expr}, N'') {direction}";
+        return $"{primary}, COALESCE(({NumberValue("seat")}), 0) ASC, [a].[id] ASC";
+    }
+
+    private async Task<GradesSummaryPayload> BuildSummaryFastAsync(CancellationToken ct)
+    {
+        if (cache.TryGetValue<GradesSummaryPayload>(GradesSummaryCacheKey, out var cachedSummary) && cachedSummary is not null)
+        {
+            return cachedSummary;
+        }
+
+#pragma warning disable EF1002
+        var summary = await db.Database
+            .SqlQueryRaw<GradesSummaryRow>($"""
+                SELECT
+                    COUNT(1) AS [Total],
+                    COALESCE(SUM(CASE WHEN {JsonValue("kind")} = N'general' THEN 1 ELSE 0 END), 0) AS [General],
+                    COALESCE(SUM(CASE WHEN {JsonValue("kind")} = N'azhar' THEN 1 ELSE 0 END), 0) AS [Azhar],
+                    COALESCE(SUM(CASE WHEN {JsonValue("gradeChangedAt")} IS NOT NULL OR JSON_QUERY([a].[payload_json], '$.log') IS NOT NULL AND JSON_QUERY([a].[payload_json], '$.log') <> N'[]' THEN 1 ELSE 0 END), 0) AS [WithAdjustments]
+                FROM [admin_v2].[admin_records] AS [a]
+                WHERE [a].[module] = N'grades'
+                """)
+            .SingleAsync(ct);
+#pragma warning restore EF1002
+        var payload = new GradesSummaryPayload
+        {
+            total = summary.Total,
+            general = summary.General,
+            azhar = summary.Azhar,
+            withAdjustments = summary.WithAdjustments
+        };
+        cache.Set(GradesSummaryCacheKey, payload, GradesListCacheTtl);
+        return payload;
+    }
+
+    private async Task<object> BuildFacetsFastAsync(CancellationToken ct)
+    {
+        if (cache.TryGetValue<object>(GradesFacetsCacheKey, out var cachedFacets) && cachedFacets is not null)
+        {
+            return cachedFacets;
+        }
+
+#pragma warning disable EF1002
+        var branches = await db.Database
+            .SqlQueryRaw<string>($"""
+                SELECT DISTINCT {JsonValue("branch")} AS [Value]
+                FROM [admin_v2].[admin_records] AS [a]
+                WHERE [a].[module] = N'grades'
+                  AND {JsonValue("branch")} IS NOT NULL
+                  AND {JsonValue("branch")} <> N''
+                ORDER BY [Value]
+                """)
+            .ToListAsync(ct);
+#pragma warning restore EF1002
+        var facets = new { branches };
+        cache.Set(GradesFacetsCacheKey, facets, GradesListCacheTtl);
+        return facets;
+    }
+
+    private void InvalidateGradesListCache()
+    {
+        cache.Remove(GradesSummaryCacheKey);
+        cache.Remove(GradesFacetsCacheKey);
+    }
+
+    private static JsonObject EntityToJson(AdminRecordEntity entity)
+    {
+        var obj = AdminRecordJson.Parse(entity.PayloadJson);
+        obj["id"] ??= entity.Id;
+        obj["createdAt"] ??= entity.CreatedAt;
+        obj["updatedAt"] ??= entity.UpdatedAt;
+        return obj;
+    }
+
+    private static string JsonValue(string property) => $"JSON_VALUE([a].[payload_json], '$.{property}')";
+    private static string NumberValue(string property) => $"TRY_CONVERT(float, {JsonValue(property)})";
+    private static string GradeMaxSql() => $"COALESCE(TRY_CONVERT(float, {JsonValue("overrideMax")}), TRY_CONVERT(float, {JsonValue("importMax")}), 410.0)";
+    private static string AdjustmentSumSql() =>
+        "COALESCE((SELECT SUM(CASE WHEN COALESCE(JSON_VALUE([adj].[value], '$.isActive'), N'true') = N'true' THEN COALESCE(TRY_CONVERT(float, JSON_VALUE([adj].[value], '$.amount')), 0.0) ELSE 0.0 END) FROM OPENJSON([a].[payload_json], '$.log') AS [adj]), 0.0)";
+    private static string EffectiveGradeSql() =>
+        $"CASE WHEN {NumberValue("total")} IS NULL THEN NULL ELSE (CASE WHEN {NumberValue("total")} + {AdjustmentSumSql()} < 0 THEN 0.0 WHEN {NumberValue("total")} + {AdjustmentSumSql()} > {GradeMaxSql()} THEN {GradeMaxSql()} ELSE {NumberValue("total")} + {AdjustmentSumSql()} END) END";
+    private static string PercentageSql() =>
+        $"CASE WHEN {NumberValue("total")} IS NULL OR {GradeMaxSql()} <= 0 THEN NULL ELSE ROUND(({NumberValue("total")} / {GradeMaxSql()}) * 100.0, 2) END";
+    private static string SchoolCategorySql() =>
+        $"COALESCE(NULLIF({JsonValue("schoolCategoryCode")}, N''), NULLIF({JsonValue("schoolCategory")}, N''), CASE {JsonValue("kind")} WHEN N'azhar' THEN N'SCH-03' WHEN N'general' THEN N'SCH-01' ELSE NULL END)";
+
+    private static string EscapeSqlLike(string value) =>
+        value
+            .Replace(@"\", @"\\", StringComparison.Ordinal)
+            .Replace("%", @"\%", StringComparison.Ordinal)
+            .Replace("_", @"\_", StringComparison.Ordinal)
+            .Replace("[", @"\[", StringComparison.Ordinal);
 
     private static object BuildSummary(IReadOnlyList<JsonObject> rows) => new
     {

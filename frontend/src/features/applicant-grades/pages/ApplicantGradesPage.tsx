@@ -44,6 +44,7 @@ import {
   DataTable,
   DropdownMenu,
   EmptyState,
+  ErrorState,
   LoadingState,
   PageHeader,
   Select,
@@ -269,7 +270,13 @@ export function ApplicantGradesPage(): JSX.Element {
     [columnFilters],
   );
 
-  const { data: paginatedData, isLoading } = useApplicantGradesList({
+  const {
+    data: paginatedData,
+    error: gradesLoadError,
+    isError: isGradesLoadError,
+    isLoading,
+    refetch: refetchGrades,
+  } = useApplicantGradesList({
     page,
     pageSize,
     search: qFromUrl,
@@ -358,6 +365,55 @@ export function ApplicantGradesPage(): JSX.Element {
   const activeSearchCount = qFromUrl.trim() !== '' ? 1 : 0;
   const activeTotalFilterCount = activeFilterCount + activeSearchCount + activeColumnFilterCount;
   const hasActiveFilters = activeTotalFilterCount > 0;
+  const activeFilterChips = useMemo(() => {
+    const chips: { key: string; label: string; value: string; tone: 'info' | 'warning' }[] = [];
+    if (qFromUrl.trim() !== '') {
+      chips.push({ key: 'q', label: 'بحث', value: qFromUrl.trim(), tone: 'info' });
+    }
+    if (genderFromUrl !== 'all') {
+      chips.push({
+        key: 'gender',
+        label: 'النوع',
+        value: genderFromUrl === 'female' ? 'أنثى' : 'ذكر',
+        tone: 'info',
+      });
+    }
+    if (branchFromUrl !== 'all') {
+      chips.push({ key: 'branch', label: 'الشعبة', value: branchFromUrl, tone: 'info' });
+    }
+    if (yearFromUrl !== 'all') {
+      chips.push({ key: 'year', label: 'سنة التخرج', value: String(yearFromUrl), tone: 'info' });
+    }
+    if (schoolCategoryFromUrl !== 'all') {
+      chips.push({
+        key: 'school',
+        label: 'فئة المدرسة',
+        value: schoolCategoryLabel.get(schoolCategoryFromUrl) ?? schoolCategoryFromUrl,
+        tone: 'info',
+      });
+    }
+    if (changedOnly) {
+      chips.push({ key: 'changed', label: 'النطاق', value: 'درجات معدّلة فقط', tone: 'warning' });
+    }
+    if (activeColumnFilterCount > 0) {
+      chips.push({
+        key: 'columns',
+        label: 'أعمدة',
+        value: `${activeColumnFilterCount.toLocaleString('en')} تصفية`,
+        tone: 'info',
+      });
+    }
+    return chips;
+  }, [
+    activeColumnFilterCount,
+    branchFromUrl,
+    changedOnly,
+    genderFromUrl,
+    qFromUrl,
+    schoolCategoryFromUrl,
+    schoolCategoryLabel,
+    yearFromUrl,
+  ]);
 
   function clearAllFilters(): void {
     setSearchInput('');
@@ -739,6 +795,27 @@ export function ApplicantGradesPage(): JSX.Element {
     );
   }
 
+  if (isGradesLoadError && !paginatedData) {
+    return (
+      <div>
+        <PageHeader
+          title="درجات الثانوية العامة والأزهرية"
+          subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
+        />
+        <Card>
+          <CardBody>
+            <ErrorState
+              error={gradesLoadError}
+              title="تعذر تحميل درجات الطلاب"
+              description="حدث خطأ أثناء تحميل بيانات الدرجات. لم يتم حذف البيانات، ويمكن إعادة المحاولة بعد لحظات."
+              onRetry={() => void refetchGrades()}
+            />
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
+
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
 
@@ -748,64 +825,7 @@ export function ApplicantGradesPage(): JSX.Element {
         title="درجات الثانوية العامة والأزهرية"
         subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         actions={
-          <>
-            <Button
-              variant="ghost"
-              leadingIcon={<FileText size={14} strokeWidth={1.75} />}
-              onClick={() => void downloadTemplateWorkbook()}
-            >
-              تنزيل نموذج الدرجات
-            </Button>
-            <Button
-              variant="ghost"
-              leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
-              onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
-            >
-              عرض تعديلات الدرجات
-            </Button>
-            {!isEmpty && (
-              <DropdownMenu>
-                <DropdownMenu.Trigger asChild>
-                  <Button
-                    variant="secondary"
-                    leadingIcon={<Download size={14} strokeWidth={1.75} />}
-                    disabled={exporting}
-                  >
-                    تصدير الدرجات
-                  </Button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content sideOffset={6}>
-                  <DropdownMenu.Item
-                    leadingIcon={<SheetIcon size={14} strokeWidth={1.75} aria-hidden />}
-                    onSelect={() => void handleExport('all', 'csv')}
-                  >
-                    تصدير كل البيانات (CSV)
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    leadingIcon={<SheetIcon size={14} strokeWidth={1.75} aria-hidden />}
-                    onSelect={() => void handleExport('all', 'xlsx')}
-                  >
-                    تصدير كل البيانات (XLSX)
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    leadingIcon={<FileText size={14} strokeWidth={1.75} aria-hidden />}
-                    onSelect={() => void handleExport('page', 'csv')}
-                  >
-                    تصدير الصفحة الحالية (CSV)
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu>
-            )}
-            {!isEmpty && (
-              <Button
-                variant="ghost"
-                leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
-                onClick={() => setConfirmReset(true)}
-                className="!text-terra-700 hover:!bg-terra-50"
-              >
-                تصفير البيانات
-              </Button>
-            )}
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="primary"
               leadingIcon={<Upload size={14} strokeWidth={1.75} />}
@@ -813,7 +833,70 @@ export function ApplicantGradesPage(): JSX.Element {
             >
               استيراد ملف
             </Button>
-          </>
+            <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-card/80 p-1">
+              {!isEmpty && (
+                <DropdownMenu>
+                  <DropdownMenu.Trigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leadingIcon={<Download size={14} strokeWidth={1.75} />}
+                      disabled={exporting}
+                    >
+                      تصدير
+                    </Button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content sideOffset={6}>
+                    <DropdownMenu.Item
+                      leadingIcon={<SheetIcon size={14} strokeWidth={1.75} aria-hidden />}
+                      onSelect={() => void handleExport('all', 'csv')}
+                    >
+                      كل البيانات (CSV)
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      leadingIcon={<SheetIcon size={14} strokeWidth={1.75} aria-hidden />}
+                      onSelect={() => void handleExport('all', 'xlsx')}
+                    >
+                      كل البيانات (XLSX)
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      leadingIcon={<FileText size={14} strokeWidth={1.75} aria-hidden />}
+                      onSelect={() => void handleExport('page', 'csv')}
+                    >
+                      الصفحة الحالية (CSV)
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<FileText size={14} strokeWidth={1.75} />}
+                onClick={() => void downloadTemplateWorkbook()}
+              >
+                النموذج
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
+                onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
+              >
+                التعديلات
+              </Button>
+              {!isEmpty && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
+                  onClick={() => setConfirmReset(true)}
+                  className="!text-terra-700 hover:!bg-terra-50 focus-visible:!shadow-focus-terra"
+                >
+                  تصفير
+                </Button>
+              )}
+            </div>
+          </div>
         }
       />
 
@@ -854,19 +937,20 @@ export function ApplicantGradesPage(): JSX.Element {
           </div>
 
           <Card>
-            <CardBody className="card-body">
-              <div className="filters">
-                <div className="search flex-1" style={{ minInlineSize: 360 }}>
+            <CardBody className="space-y-4 p-4 md:p-5">
+              <div className="grid gap-3 xl:grid-cols-[minmax(280px,1fr)_repeat(3,minmax(130px,170px))]">
+                <label className="search m-0 min-w-0">
+                  <span className="sr-only">بحث بالاسم أو الرقم القومي أو رقم الجلوس</span>
                   <input
                     className="input"
                     type="search"
                     placeholder="بحث بالاسم / الرقم القومي / رقم الجلوس"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    aria-label="بحث"
+                    aria-label="بحث بالاسم أو الرقم القومي أو رقم الجلوس"
                   />
                   <Search size={18} />
-                </div>
+                </label>
                 <Select
                   aria-label="تصفية حسب النوع"
                   value={genderFromUrl}
@@ -877,7 +961,7 @@ export function ApplicantGradesPage(): JSX.Element {
                     { value: 'male', label: 'ذكر' },
                     { value: 'female', label: 'أنثى' },
                   ]}
-                  containerClassName="min-w-[130px]"
+                  containerClassName="min-w-0"
                 />
                 <Select
                   aria-label="تصفية حسب الشعبة"
@@ -888,7 +972,7 @@ export function ApplicantGradesPage(): JSX.Element {
                     { value: 'all', label: 'كل الشعب' },
                     ...branchOptions.map((b) => ({ value: b, label: b })),
                   ]}
-                  containerClassName="min-w-[150px]"
+                  containerClassName="min-w-0"
                 />
                 <Select
                   aria-label="تصفية حسب سنة التخرج"
@@ -899,8 +983,11 @@ export function ApplicantGradesPage(): JSX.Element {
                     { value: 'all', label: 'كل السنوات' },
                     ...yearOptions.map((y) => ({ value: String(y), label: String(y) })),
                   ]}
-                  containerClassName="min-w-[140px]"
+                  containerClassName="min-w-0"
                 />
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-center">
                 <Select
                   aria-label="تصفية حسب فئة المدرسة"
                   value={schoolCategoryFromUrl}
@@ -912,47 +999,56 @@ export function ApplicantGradesPage(): JSX.Element {
                     { value: 'all', label: 'كل فئات المدرسة' },
                     ...activeSchoolCategories.map((c) => ({ value: c.code, label: c.name })),
                   ]}
-                  containerClassName="flex-[0_0_380px]"
+                  containerClassName="min-w-0"
                 />
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={changedOnly}
-                  onClick={() => setChangedOnly(!changedOnly)}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                  style={{
-                    background: changedOnly ? 'var(--gold-500)' : 'var(--surface-card)',
-                    color: changedOnly ? 'var(--text-inverse)' : 'var(--ink-700)',
-                    borderColor: changedOnly ? 'var(--gold-500)' : 'var(--border-default)',
-                  }}
-                  title="تصفية الطلاب الذين تم تعديل درجاتهم"
-                >
-                  <ListChecks size={12} strokeWidth={1.75} aria-hidden />
-                  درجات معدّلة فقط
-                </button>
-                {changedOnly && (
-                  <a
-                    href={ROUTES.admin.applicantGradesChanges}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate(ROUTES.admin.applicantGradesChanges);
-                    }}
-                    className="text-2xs text-teal-700 underline-offset-2 hover:underline"
-                  >
-                    عرض صفحة تعديلات الدرجات
-                  </a>
-                )}
-                {hasActiveFilters && (
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={clearAllFilters}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-full border-0 bg-transparent px-2 py-0.5 text-2xs text-teal-700 hover:bg-teal-50"
+                    role="switch"
+                    aria-checked={changedOnly}
+                    onClick={() => setChangedOnly(!changedOnly)}
+                    className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border-default bg-surface-card px-3 text-xs font-medium text-ink-700 transition-colors hover:border-gold-500 hover:bg-gold-50 focus-visible:outline-none focus-visible:shadow-focus-teal data-[active=true]:border-gold-500 data-[active=true]:bg-gold-500 data-[active=true]:text-white"
+                    data-active={changedOnly}
+                    title="تصفية الطلاب الذين تم تعديل درجاتهم"
                   >
-                    <X size={11} strokeWidth={1.75} aria-hidden /> مسح التصفية
+                    <ListChecks size={13} strokeWidth={1.75} aria-hidden />
+                    درجات معدّلة فقط
                   </button>
-                )}
-                <div className="ms-auto flex flex-wrap items-center justify-end gap-2 self-center text-2xs text-ink-500">
-                  {hasActiveFilters && (
+                  {changedOnly && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      leadingIcon={<ListChecks size={13} strokeWidth={1.75} aria-hidden />}
+                      onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
+                    >
+                      صفحة التعديلات
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-ink-50 px-3 py-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-700">
+                    <Info size={13} strokeWidth={1.75} aria-hidden />
+                    <span>عرض</span>
+                    <span className="font-numeric tabular-nums text-ink-900">
+                      {total.toLocaleString('en')}
+                    </span>
+                    <span>من</span>
+                    <span className="font-numeric tabular-nums text-ink-900">
+                      {totalsAll.toLocaleString('en')}
+                    </span>
+                    <span>صف</span>
+                  </span>
+                  {activeFilterChips.map((chip) => (
+                    <Badge key={chip.key} tone={chip.tone}>
+                      <span className="text-ink-500">{chip.label}</span>
+                      <span className="ms-1 me-1 text-ink-300">/</span>
+                      <span className="max-w-[22ch] truncate">{chip.value}</span>
+                    </Badge>
+                  ))}
+                  {hasActiveFilters && activeFilterChips.length === 0 && (
                     <Badge tone="info">
                       <span className="font-numeric tabular-nums">
                         {activeTotalFilterCount.toLocaleString('en')}
@@ -960,18 +1056,18 @@ export function ApplicantGradesPage(): JSX.Element {
                       تصفية مفعلة
                     </Badge>
                   )}
-                  <span>
-                    عرض{' '}
-                    <span className="font-numeric font-medium tabular-nums text-ink-700">
-                      {total.toLocaleString('en')}
-                    </span>{' '}
-                    من{' '}
-                    <span className="font-numeric font-medium tabular-nums text-ink-700">
-                      {totalsAll.toLocaleString('en')}
-                    </span>{' '}
-                    صف
-                  </span>
                 </div>
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    leadingIcon={<X size={12} strokeWidth={1.75} aria-hidden />}
+                    onClick={clearAllFilters}
+                    className="shrink-0"
+                  >
+                    مسح التصفية
+                  </Button>
+                )}
               </div>
 
               {selectedRowKeys.length > 0 && (

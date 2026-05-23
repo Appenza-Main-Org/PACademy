@@ -183,12 +183,77 @@ public sealed class AdminRecordsService(
         return deleted;
     }
 
+    public async Task<int> DeleteModuleTrackedAsync(string module, CancellationToken ct)
+    {
+        var deleted = 0;
+        while (true)
+        {
+            var rows = await db.AdminRecords
+                .Where(x => x.Module == module)
+                .OrderBy(x => x.Id)
+                .Take(DefaultBulkBatchSize)
+                .ToListAsync(ct);
+            if (rows.Count == 0) break;
+
+            db.AdminRecords.RemoveRange(rows);
+            deleted += await db.SaveChangesAsync(ct);
+        }
+
+        if (deleted > 0)
+        {
+            await EmitAuditAsync(
+                module,
+                "bulk_delete",
+                module,
+                $"{module}.bulk_delete · deleted={deleted}",
+                DateTimeOffset.UtcNow,
+                ct);
+        }
+        return deleted;
+    }
+
     public async Task<int> DeleteManyAsync(string module, IReadOnlyCollection<string> ids, CancellationToken ct)
     {
         if (ids.Count == 0) return 0;
         var deleted = await db.AdminRecords
             .Where(x => x.Module == module && ids.Contains(x.Id))
             .ExecuteDeleteAsync(ct);
+        if (deleted > 0)
+        {
+            await EmitAuditAsync(
+                module,
+                "bulk_delete",
+                $"{module}:{deleted}",
+                $"{module}.bulk_delete · deleted={deleted}",
+                DateTimeOffset.UtcNow,
+                ct);
+        }
+        return deleted;
+    }
+
+    public async Task<int> DeleteManyTrackedAsync(string module, IReadOnlyCollection<string> ids, CancellationToken ct)
+    {
+        if (ids.Count == 0) return 0;
+        var idSet = ids.ToHashSet(StringComparer.Ordinal);
+        var deleted = 0;
+
+        while (idSet.Count > 0)
+        {
+            var batchIds = idSet.Take(DefaultBulkBatchSize).ToArray();
+            var rows = await db.AdminRecords
+                .Where(x => x.Module == module && batchIds.Contains(x.Id))
+                .ToListAsync(ct);
+            if (rows.Count == 0)
+            {
+                foreach (var id in batchIds) idSet.Remove(id);
+                continue;
+            }
+
+            db.AdminRecords.RemoveRange(rows);
+            deleted += await db.SaveChangesAsync(ct);
+            foreach (var row in rows) idSet.Remove(row.Id);
+        }
+
         if (deleted > 0)
         {
             await EmitAuditAsync(

@@ -19,6 +19,7 @@ if (!string.IsNullOrWhiteSpace(port))
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 builder.Services.AddLookupsModule(builder.Configuration);
 builder.Services.AddAdmissionsModule(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
