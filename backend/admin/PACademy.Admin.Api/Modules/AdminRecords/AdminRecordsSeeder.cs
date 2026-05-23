@@ -76,42 +76,14 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
 
     private async Task RemoveMockSeedRecordsAsync(IAdminRecordsDbContext db, CancellationToken ct)
     {
-        var seedKeys = await ReadMockSeedKeysAsync(ct);
-        if (seedKeys.Count == 0) return;
-
         var rows = await db.AdminRecords
             .Where(x => MockSeedModules.Contains(x.Module))
             .ToListAsync(ct);
-        rows = rows
-            .Where(x => seedKeys.Contains((x.Module, x.Id)))
-            .ToList();
         if (rows.Count == 0) return;
 
         db.AdminRecords.RemoveRange(rows);
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Removed {Count} seeded admin mock records", rows.Count);
-    }
-
-    private async Task<HashSet<(string Module, string Id)>> ReadMockSeedKeysAsync(CancellationToken ct)
-    {
-        var path = Path.Combine(environment.ContentRootPath, "SeedData", "admin-records.seed.json");
-        await using var stream = File.OpenRead(path);
-        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
-        var root = doc.RootElement;
-        var keys = new HashSet<(string Module, string Id)>();
-
-        foreach (var module in MockSeedModules.Where(x => x != "kpis"))
-        {
-            if (!root.TryGetProperty(module, out var rows) || rows.ValueKind != JsonValueKind.Array) continue;
-            foreach (var row in rows.EnumerateArray())
-            {
-                var obj = JsonNode.Parse(row.GetRawText())!.AsObject();
-                keys.Add((module, ResolveId(module, obj)));
-            }
-        }
-
-        if (root.TryGetProperty("kpis", out _)) keys.Add(("kpis", "kpis"));
-        return keys;
     }
 
     private async Task RemoveLegacyAuditRecordsAsync(IAdminRecordsDbContext db, CancellationToken ct)
