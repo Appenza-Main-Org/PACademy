@@ -87,7 +87,6 @@ app.MapGet("/health", () => Results.Ok(new
     timestamp = DateTimeOffset.UtcNow
 }));
 
-app.UseAuthorization();
 app.MapControllers();
 
 await app.InitializeAdminDatabaseAsync();

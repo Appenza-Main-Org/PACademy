@@ -76,12 +76,29 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
 
     private async Task RemoveMockSeedRecordsAsync(IAdminRecordsDbContext db, CancellationToken ct)
     {
-        var deleted = await db.AdminRecords
-            .Where(x => MockSeedModules.Contains(x.Module))
-            .ExecuteDeleteAsync(ct);
+        var query = db.AdminRecords.Where(x => MockSeedModules.Contains(x.Module));
+        var deleted = await RemoveRowsAsync(query, db, ct);
         if (deleted == 0) return;
 
         logger.LogInformation("Removed {Count} seeded admin mock records", deleted);
+    }
+
+    private static async Task<int> RemoveRowsAsync(
+        IQueryable<AdminRecordEntity> query,
+        IAdminRecordsDbContext db,
+        CancellationToken ct)
+    {
+        try
+        {
+            return await query.ExecuteDeleteAsync(ct);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("ExecuteDelete", StringComparison.Ordinal))
+        {
+            var rows = await query.ToListAsync(ct);
+            db.AdminRecords.RemoveRange(rows);
+            await db.SaveChangesAsync(ct);
+            return rows.Count;
+        }
     }
 
     private async Task RemoveLegacyAuditRecordsAsync(IAdminRecordsDbContext db, CancellationToken ct)

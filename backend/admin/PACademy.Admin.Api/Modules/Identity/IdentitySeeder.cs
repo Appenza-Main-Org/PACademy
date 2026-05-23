@@ -103,12 +103,8 @@ public sealed class IdentitySeeder(IWebHostEnvironment environment, ILogger<Iden
 
     private async Task RemoveNonBootstrapIdentityAsync(IIdentityDbContext db, CancellationToken ct)
     {
-        var users = await db.Users
-            .Where(x => x.NationalId != BootstrapAdminNationalId)
-            .ExecuteDeleteAsync(ct);
-        var officers = await db.Officers
-            .Where(x => x.NationalId != BootstrapAdminNationalId)
-            .ExecuteDeleteAsync(ct);
+        var users = await RemoveRowsAsync(db.Users, ct);
+        var officers = await RemoveRowsAsync(db.Officers, ct);
         if (users == 0 && officers == 0) return;
 
         logger.LogInformation(
@@ -116,5 +112,24 @@ public sealed class IdentitySeeder(IWebHostEnvironment environment, ILogger<Iden
             users,
             officers,
             BootstrapAdminNationalId);
+    }
+
+    private static async Task<int> RemoveRowsAsync<TEntity>(DbSet<TEntity> rows, CancellationToken ct)
+        where TEntity : class
+    {
+        try
+        {
+            return await rows
+                .Where(x => EF.Property<string>(x, "NationalId") != BootstrapAdminNationalId)
+                .ExecuteDeleteAsync(ct);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("ExecuteDelete", StringComparison.Ordinal))
+        {
+            var staleRows = await rows
+                .Where(x => EF.Property<string>(x, "NationalId") != BootstrapAdminNationalId)
+                .ToListAsync(ct);
+            rows.RemoveRange(staleRows);
+            return staleRows.Count;
+        }
     }
 }
