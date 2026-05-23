@@ -21,7 +21,7 @@ import {
   Sigma,
 } from 'lucide-react';
 import { Badge, Button, Drawer } from '@/shared/components';
-import { initials } from '@/shared/lib/format';
+import { date as formatDate, initials } from '@/shared/lib/format';
 import { useLookup } from '@/features/lookups';
 import { EditMaxDegreeDialog } from './EditMaxDegreeDialog';
 import type { DerivedRow } from '../lib/derive';
@@ -91,33 +91,36 @@ export function StudentDetailsDrawer({
           </div>
         }
         subtitle={
-          /* Tabs nav — `gap-6` between triggers (≈ `gap-lg` on our 4px-step
-           * scale), `gap-1` between label and count (≈ `gap-xs`). The count
-           * uses the shared `Badge tone="neutral"` so it picks up the
-           * project's muted-ink palette (`bg-ink-100 text-ink-700`) and
-           * standard pill chrome — `min-w-5` keeps the 1-vs-15 widths even
-           * so the active-tab underline doesn't shift. The underline binds
-           * to `border-accent-500` so it picks up the per-app accent
-           * token from `data-app="admin"`. */
-          <nav className="mt-3 flex gap-1 overflow-x-auto border-b border-border-subtle pb-px">
+          <nav
+            className="mt-3 flex max-w-full gap-1 overflow-x-auto rounded-lg border border-border-subtle bg-ink-50 p-1"
+            aria-label="أقسام بيانات الطالب"
+            role="tablist"
+          >
             {tabs.map((t) => {
               const active = tab === t.v;
               return (
                 <button
                   key={t.v}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
                   onClick={() => setTab(t.v)}
-                  className={`-mb-px inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-t-md border-0 border-b-2 px-3 py-2 text-sm transition-colors ${
+                  className={`inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${
                     active
-                      ? 'border-accent-500 bg-surface-card font-semibold text-ink-900'
-                      : 'border-transparent bg-transparent font-medium text-ink-500 hover:bg-ink-50 hover:text-ink-700'
+                      ? 'border-accent-500 bg-surface-card font-bold text-accent-700 shadow-sm'
+                      : 'border-transparent bg-transparent font-medium text-ink-600 hover:border-border-default hover:bg-surface-card hover:text-ink-900'
                   }`}
                 >
-                  {t.label}
                   {t.count != null && (
-                    <Badge tone="neutral" className="min-w-5 justify-center !px-2 font-en tabular-nums">
+                    <span
+                      className={`inline-flex min-w-7 justify-center rounded-full px-2 py-0.5 font-en text-2xs font-bold tabular-nums ${
+                        active ? 'bg-accent-50 text-accent-700' : 'bg-ink-100 text-ink-700'
+                      }`}
+                    >
                       {t.count}
-                    </Badge>
+                    </span>
                   )}
+                  <span>{t.label}</span>
                 </button>
               );
             })}
@@ -282,6 +285,7 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
     { label: 'المجموع الكلي', sourceKey: 'Total2', value: String(Math.round(row.total)), mono: true },
   ];
   const fields = row.kind === 'general' ? general : azhar;
+  const importSource = buildImportSource(row, schoolCategoryLabel);
 
   return (
     <div className="flex flex-col gap-4">
@@ -310,26 +314,25 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
         </div>
       </section>
 
-      {/* Import-source card.
-       *
-       * No "تنزيل المصدر" action button — the mock layer never wired
-       * a download endpoint, and the real backend won't expose one
-       * for raw source files (the import-staged copy is the source
-       * of truth, not the original spreadsheet). Admins who need the
-       * file go through the cycle's audit log, not this card. */}
       <section className="flex items-center gap-3 rounded-lg border border-border-subtle bg-surface-card p-3.5">
         <div className="grid h-8 w-8 place-items-center rounded-md bg-teal-50 text-teal-700">
           <Sheet size={14} aria-hidden />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold text-ink-900">
-            {row.kind === 'general'
-              ? 'درجات_الثانوية_العامة_2026.xlsx'
-              : 'درجات_الثانوية_الأزهرية_2026.xlsx'}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="min-w-0 truncate text-xs font-semibold text-ink-900">
+              {importSource.title}
+            </span>
+            {importSource.fileName ? (
+              <Badge tone="info">ملف محفوظ</Badge>
+            ) : (
+              <Badge tone="neutral">دفعة مستوردة</Badge>
+            )}
           </div>
-          <div className="text-2xs text-ink-500">
-            استورده <strong className="text-ink-700">مرتضى محمود</strong> ·{' '}
-            <span className="font-en">١٤ مايو ٢٠٢٦ · ٠٩:١٢ ص</span>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-2xs text-ink-500">
+            <span>{importSource.actor}</span>
+            <span>{importSource.when}</span>
+            <span>{importSource.scope}</span>
           </div>
         </div>
       </section>
@@ -346,6 +349,37 @@ function BasicTab({ row }: { row: DerivedRow }): JSX.Element {
       )}
     </div>
   );
+}
+
+function buildImportSource(row: DerivedRow, schoolCategoryLabel: string): {
+  title: string;
+  fileName: string | null;
+  actor: string;
+  when: string;
+  scope: string;
+} {
+  const fileName = cleanMeta(row.importFileName);
+  const importedAt = cleanMeta(row.importedAt) ?? cleanMeta(row.createdAt) ?? cleanMeta(row.updatedAt);
+  const importedBy = cleanMeta(row.importedBy) ?? cleanMeta(row.lastEditedBy);
+  const year = row.graduationYear != null ? String(row.graduationYear) : 'غير محددة';
+  const category = schoolCategoryLabel !== '—'
+    ? schoolCategoryLabel
+    : row.kind === 'general'
+      ? 'ثانوية عامة'
+      : 'ثانوية أزهرية';
+
+  return {
+    title: fileName ?? `دفعة درجات ${category} ${year}`,
+    fileName,
+    actor: importedBy ? `استوردها ${importedBy}` : 'استيراد عبر النظام',
+    when: importedAt ? `${formatDate(importedAt, 'short')} · ${formatDate(importedAt, 'time')}` : 'وقت الاستيراد غير محفوظ',
+    scope: `رقم السجل ${row.id ?? row.seat}`,
+  };
+}
+
+function cleanMeta(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }
 
 function GradesTab({ row, onEditMax }: { row: DerivedRow; onEditMax: () => void }): JSX.Element {
