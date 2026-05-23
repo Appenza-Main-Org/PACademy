@@ -196,9 +196,12 @@ export function useCycleRemove() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => cyclesService.remove(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: cyclesKeys.list() });
+    onSuccess: (_result, id) => {
+      qc.removeQueries({ queryKey: cyclesKeys.detail(id) });
+      qc.invalidateQueries({ queryKey: [...cyclesKeys.all, 'list'] });
+      qc.invalidateQueries({ queryKey: cyclesKeys.active() });
       qc.invalidateQueries({ queryKey: CATEGORIES_PREFIX });
+      qc.refetchQueries({ queryKey: [...cyclesKeys.all, 'list'], type: 'active' });
     },
   });
 }

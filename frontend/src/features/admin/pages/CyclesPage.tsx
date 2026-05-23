@@ -80,21 +80,6 @@ const LIST_STATUS_PRIORITY: Record<CycleListStatus, number> = {
   published: 1,
 };
 
-function formatCycleDate(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!match) return '—';
-  const [, year, month, day] = match;
-  const dt = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
-  if (Number.isNaN(dt.getTime())) return '—';
-  return dt.toLocaleDateString('ar-EG', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
-}
-
 export function CyclesPage(): JSX.Element {
   const navigate = useNavigate();
   const { data, isLoading } = useCycles();
@@ -132,7 +117,7 @@ export function CyclesPage(): JSX.Element {
         LIST_STATUS_PRIORITY[toListStatus(b.status)];
       if (byStatus !== 0) return byStatus;
       if (a.year !== b.year) return b.year - a.year;
-      return new Date(b.openDate).getTime() - new Date(a.openDate).getTime();
+      return a.nameAr.localeCompare(b.nameAr, 'ar');
     });
     return rows;
   }, [data]);
@@ -276,14 +261,10 @@ export function CyclesPage(): JSX.Element {
     {
       key: 'window',
       label: 'فترة التقديم',
-      sortable: true,
-      getSortValue: (c) => new Date(c.openDate),
-      render: (c) => (
+      sortable: false,
+      render: () => (
         <div className="min-w-[9rem] text-2xs leading-5 text-ink-600">
-          <div className="font-medium text-ink-800">
-            {formatCycleDate(c.openDate)}
-          </div>
-          <div>{formatCycleDate(c.closeDate)}</div>
+          <Badge tone="neutral">غير محددة</Badge>
         </div>
       ),
     },
@@ -417,10 +398,6 @@ export function CyclesPage(): JSX.Element {
                       </Badge>
                       <Badge tone={LIST_STATUS_TONE[toListStatus(activeCycle.status)]}>
                         {LIST_STATUS_LABEL[toListStatus(activeCycle.status)]}
-                      </Badge>
-                      <Badge tone="neutral">
-                        {formatCycleDate(activeCycle.openDate)} -{' '}
-                        {formatCycleDate(activeCycle.closeDate)}
                       </Badge>
                     </div>
                     <p className="m-0 mt-3 font-ar text-xs font-medium text-ink-500">
