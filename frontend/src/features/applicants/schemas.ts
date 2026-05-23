@@ -16,20 +16,36 @@ import type { DepartmentKey } from '@/shared/types/domain';
 
 const NID_REGEX = /^[0-9]{14}$/;
 const EG_PHONE_REGEX = /^01[0125][0-9]{8}$/;
+const REQUIRED = 'مطلوب';
+const requiredText = (min = 1, message = REQUIRED) =>
+  z
+    .string({ required_error: message, invalid_type_error: message })
+    .trim()
+    .min(min, message);
+const optionalText = (max = 200) =>
+  z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim() : value),
+    z.string().max(max).optional().or(z.literal('')),
+  );
+const requiredNumber = (schema: z.ZodNumber) =>
+  z.preprocess(
+    (value) => (value === '' || value === null || value === undefined ? undefined : value),
+    schema,
+  );
 const URL_OR_HANDLE = z
-  .string()
-  .max(200)
-  .optional()
-  .or(z.literal(''));
+  .preprocess(
+    (value) => (typeof value === 'string' ? value.trim() : value),
+    z.string().max(200).optional().or(z.literal('')),
+  );
 
 /* ── §1 Identity ─────────────────────────────────────────────────────────── */
 export const identitySchema = z.object({
   nationalId: z.string().regex(NID_REGEX, 'الرقم القومي يجب أن يكون 14 رقماً'),
   fullName: z.object({
-    first: z.string().min(2, 'مطلوب'),
-    second: z.string().min(2, 'مطلوب'),
-    third: z.string().min(2, 'مطلوب'),
-    fourth: z.string().min(2, 'مطلوب'),
+    first: requiredText(2),
+    second: requiredText(2),
+    third: requiredText(2),
+    fourth: requiredText(2),
   }),
   religion: z.enum(['مسلم', 'مسيحي'], { errorMap: () => ({ message: 'مطلوب' }) }),
   maritalStatus: z.enum(['أعزب', 'متزوج', 'مطلق', 'أرمل'], {
@@ -40,19 +56,19 @@ export const identitySchema = z.object({
 /* ── §2 Address ──────────────────────────────────────────────────────────── */
 export const addressSchema = z.object({
   currentAddress: z.object({
-    governorate: z.string().min(1, 'مطلوب'),
-    city: z.string().min(1, 'مطلوب'),
-    detail: z.string().min(2, 'مطلوب'),
-    street: z.string().optional(),
+    governorate: requiredText(),
+    city: requiredText(),
+    detail: requiredText(2),
+    street: optionalText(),
   }),
 });
 
 /* ── §3 Contact ──────────────────────────────────────────────────────────── */
 export const contactSchema = z.object({
   contact: z.object({
-    homePhone: z.string().optional(),
+    homePhone: optionalText(),
     mobilePhone: z.string().regex(EG_PHONE_REGEX, 'رقم محمول مصري غير صحيح'),
-    email: z.string().email('بريد إلكتروني غير صحيح').optional().or(z.literal('')),
+    email: optionalText().pipe(z.string().email('بريد إلكتروني غير صحيح').optional().or(z.literal(''))),
     socialFacebook: URL_OR_HANDLE,
     socialInstagram: URL_OR_HANDLE,
     socialX: URL_OR_HANDLE,
@@ -72,48 +88,44 @@ export const departmentSchema = z.object({
 /* ── §5 Education (discriminated by kind, driven by department) ──────────── */
 const educationGeneralSchema = z.object({
   kind: z.literal('general'),
-  certificateName: z.string().min(2, 'مطلوب'),
-  schoolName: z.string().min(2, 'مطلوب'),
-  totalScore: z.coerce.number().min(0).max(410),
-  seatType: z.string().optional(),
+  certificateName: requiredText(2),
+  schoolName: requiredText(2),
+  totalScore: requiredNumber(z.coerce.number().min(1, 'مطلوب').max(410)),
+  seatType: optionalText(),
   branch: z.enum(['علمي علوم', 'علمي رياضة', 'أدبي'], {
     errorMap: () => ({ message: 'مطلوب' }),
   }),
-  schoolCategory: z.string().optional(),
-  graduationYear: z.coerce
-    .number()
-    .int()
-    .min(2018, 'العام غير صحيح')
-    .max(new Date().getFullYear()),
-  percentage: z.coerce.number().min(0).max(100).optional(),
+  schoolCategory: optionalText(),
+  graduationYear: requiredNumber(z.coerce.number().int().min(2018, 'العام غير صحيح').max(new Date().getFullYear())),
+  percentage: requiredNumber(z.coerce.number().min(1, 'مطلوب').max(100)).optional(),
 });
 
 const educationOverseasSchema = z.object({
   kind: z.literal('overseas'),
-  certificateName: z.string().min(2, 'مطلوب'),
-  schoolName: z.string().min(2, 'مطلوب'),
-  totalScore: z.coerce.number().min(0),
-  seatType: z.string().optional(),
-  schoolCategory: z.string().optional(),
-  country: z.string().min(2, 'مطلوب'),
-  graduationYear: z.coerce.number().int().min(2018).max(new Date().getFullYear()),
+  certificateName: requiredText(2),
+  schoolName: requiredText(2),
+  totalScore: requiredNumber(z.coerce.number().min(1, 'مطلوب')),
+  seatType: optionalText(),
+  schoolCategory: optionalText(),
+  country: requiredText(2),
+  graduationYear: requiredNumber(z.coerce.number().int().min(2018).max(new Date().getFullYear())),
 });
 
 const educationHigherSchema = z.object({
   kind: z.literal('higher'),
-  specialization: z.string().min(2, 'مطلوب'),
-  university: z.string().min(2, 'مطلوب'),
-  faculty: z.string().min(2, 'مطلوب'),
-  totalScore: z.coerce.number().min(0),
-  grade: z.string().optional(),
-  higherSpecialization: z.string().optional(),
-  graduationYear: z.coerce.number().int().min(1990).max(new Date().getFullYear()),
+  specialization: requiredText(2),
+  university: requiredText(2),
+  faculty: requiredText(2),
+  totalScore: requiredNumber(z.coerce.number().min(1, 'مطلوب')),
+  grade: optionalText(),
+  higherSpecialization: optionalText(),
+  graduationYear: requiredNumber(z.coerce.number().int().min(1990).max(new Date().getFullYear())),
   secondary: z.object({
-    certificateName: z.string().min(2, 'مطلوب'),
-    totalScore: z.coerce.number().min(0).max(410),
-    schoolCategory: z.string().optional(),
-    country: z.string().optional(),
-    percentage: z.coerce.number().min(0).max(100).optional(),
+    certificateName: requiredText(2),
+    totalScore: requiredNumber(z.coerce.number().min(1, 'مطلوب').max(410)),
+    schoolCategory: optionalText(),
+    country: optionalText(),
+    percentage: requiredNumber(z.coerce.number().min(1, 'مطلوب').max(100)).optional(),
   }),
 });
 
@@ -138,16 +150,16 @@ export const EDUCATION_KIND_BY_DEPT: Record<
 
 /* ── §6 Family (mirrors Stage7 portal) ───────────────────────────────────── */
 const familyMemberSchema = z.object({
-  fullName: z.string().min(2, 'مطلوب'),
+  fullName: requiredText(2),
   nationalId: z
     .string()
     .regex(NID_REGEX, 'الرقم القومي يجب أن يكون 14 رقماً')
     .optional()
     .or(z.literal('')),
-  occupation: z.string().optional(),
+  occupation: optionalText(),
   alive: z.boolean(),
-  governorate: z.string().optional(),
-  education: z.string().optional(),
+  governorate: optionalText(),
+  education: optionalText(),
 });
 
 const familyMemberOptionalSchema = familyMemberSchema.partial({

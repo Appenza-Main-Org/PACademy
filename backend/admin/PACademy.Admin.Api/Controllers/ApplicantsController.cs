@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
@@ -90,12 +91,20 @@ public sealed class ApplicantsController(AdminRecordsService records) : Controll
     {
         var id = $"APP-{DateTimeOffset.UtcNow:yyyy}{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
         body["id"] = id;
+        var validation = ValidateApplicant(body);
+        if (validation.Count > 0) return ValidationProblem(validation);
         return Ok(await records.UpsertAsync("applicants", id, body, ct));
     }
 
     [HttpPut("api/v1/applicants/{id}")]
-    public async Task<ActionResult<JsonObject>> Update(string id, [FromBody] JsonObject body, CancellationToken ct) =>
-        Ok(await records.UpsertAsync("applicants", id, body, ct));
+    public async Task<ActionResult<JsonObject>> Update(string id, [FromBody] JsonObject body, CancellationToken ct)
+    {
+        var current = await records.GetAsync("applicants", id, ct) ?? [];
+        foreach (var item in body) current[item.Key] = item.Value?.DeepClone();
+        var validation = ValidateApplicant(current);
+        if (validation.Count > 0) return ValidationProblem(validation);
+        return Ok(await records.UpsertAsync("applicants", id, body, ct));
+    }
 
     [HttpPost("api/v1/applicants/{id}/transition")]
     public async Task<ActionResult<JsonObject>> Transition(string id, [FromBody] JsonObject body, CancellationToken ct)
@@ -118,6 +127,136 @@ public sealed class ApplicantsController(AdminRecordsService records) : Controll
     [HttpGet("api/v1/applicants/{id}/active-workflow")]
     public async Task<ActionResult<JsonObject?>> ActiveWorkflow(string id, CancellationToken ct) =>
         Ok((await records.ListAsync("workflows", ct)).FirstOrDefault());
+
+    private ActionResult ValidationProblem(IReadOnlyDictionary<string, string[]> errors) =>
+        UnprocessableEntity(new ApiErrorEnvelope(
+            ErrorCodes.ValidationFailed,
+            Errors: errors,
+            Message: "أكمل البيانات المطلوبة قبل حفظ المتقدم"));
+
+    private static Dictionary<string, string[]> ValidateApplicant(JsonObject body)
+    {
+        var errors = new Dictionary<string, string[]>();
+        RequireNationalId(body, "nationalId", errors);
+        RequireText(body, "religion", errors);
+        RequireText(body, "maritalStatus", errors);
+        RequireText(body, "department", errors);
+
+        var fullName = ObjectProp(body, "fullName");
+        RequireText(fullName, "first", errors, "fullName.first", minLength: 2);
+        RequireText(fullName, "second", errors, "fullName.second", minLength: 2);
+        RequireText(fullName, "third", errors, "fullName.third", minLength: 2);
+        RequireText(fullName, "fourth", errors, "fullName.fourth", minLength: 2);
+
+        var address = ObjectProp(body, "currentAddress");
+        RequireText(address, "governorate", errors, "currentAddress.governorate");
+        RequireText(address, "city", errors, "currentAddress.city");
+        RequireText(address, "detail", errors, "currentAddress.detail", minLength: 2);
+
+        var contact = ObjectProp(body, "contact");
+        RequireMobile(contact, "mobilePhone", errors, "contact.mobilePhone");
+
+        var education = ObjectProp(body, "education");
+        var kind = StringProp(education, "kind");
+        RequireText(education, "kind", errors, "education.kind");
+        if (kind == "higher")
+        {
+            RequireText(education, "specialization", errors, "education.specialization", minLength: 2);
+            RequireText(education, "university", errors, "education.university", minLength: 2);
+            RequireText(education, "faculty", errors, "education.faculty", minLength: 2);
+            RequirePositiveNumber(education, "totalScore", errors, "education.totalScore");
+            RequirePositiveNumber(education, "graduationYear", errors, "education.graduationYear");
+            var secondary = ObjectProp(education, "secondary");
+            RequireText(secondary, "certificateName", errors, "education.secondary.certificateName", minLength: 2);
+            RequirePositiveNumber(secondary, "totalScore", errors, "education.secondary.totalScore");
+        }
+        else
+        {
+            RequireText(education, "certificateName", errors, "education.certificateName", minLength: 2);
+            RequireText(education, "schoolName", errors, "education.schoolName", minLength: 2);
+            RequirePositiveNumber(education, "totalScore", errors, "education.totalScore");
+            RequirePositiveNumber(education, "graduationYear", errors, "education.graduationYear");
+            if (kind == "overseas")
+            {
+                RequireText(education, "country", errors, "education.country", minLength: 2);
+            }
+        }
+
+        return errors;
+    }
+
+    private static JsonObject? ObjectProp(JsonObject? obj, string key) =>
+        obj is not null && obj.TryGetPropertyValue(key, out var node) && node is JsonObject child ? child : null;
+
+    private static string? StringProp(JsonObject? obj, string key)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(key, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<string>()?.Trim();
+        }
+        catch (InvalidOperationException)
+        {
+            return node.ToString().Trim();
+        }
+    }
+
+    private static double? NumberProp(JsonObject? obj, string key)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(key, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<double>();
+        }
+        catch (InvalidOperationException)
+        {
+            return double.TryParse(node.ToString(), out var parsed) ? parsed : null;
+        }
+    }
+
+    private static void RequireText(
+        JsonObject? obj,
+        string key,
+        IDictionary<string, string[]> errors,
+        string? field = null,
+        int minLength = 1)
+    {
+        var value = StringProp(obj, key);
+        if (string.IsNullOrWhiteSpace(value) || value.Length < minLength)
+        {
+            errors[field ?? key] = ["مطلوب"];
+        }
+    }
+
+    private static void RequireNationalId(JsonObject obj, string key, IDictionary<string, string[]> errors)
+    {
+        var value = StringProp(obj, key);
+        if (value is not { Length: 14 } || !value.All(char.IsDigit))
+        {
+            errors[key] = ["الرقم القومي يجب أن يكون 14 رقماً"];
+        }
+    }
+
+    private static void RequireMobile(JsonObject? obj, string key, IDictionary<string, string[]> errors, string field)
+    {
+        var value = StringProp(obj, key);
+        if (value is null ||
+            value.Length != 11 ||
+            !value.StartsWith("01", StringComparison.Ordinal) ||
+            !value.All(char.IsDigit))
+        {
+            errors[field] = ["رقم محمول مصري غير صحيح"];
+        }
+    }
+
+    private static void RequirePositiveNumber(JsonObject? obj, string key, IDictionary<string, string[]> errors, string field)
+    {
+        var value = NumberProp(obj, key);
+        if (value is null or <= 0)
+        {
+            errors[field] = ["مطلوب"];
+        }
+    }
 }
 
 public sealed record ApplicantStatusOption(string Value, string Label, string Color);
