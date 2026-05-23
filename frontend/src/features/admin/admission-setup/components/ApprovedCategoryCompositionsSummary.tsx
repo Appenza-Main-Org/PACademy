@@ -16,7 +16,7 @@
  * uses, so reading from it always rendered empty tables (the original
  * bug).
  *
- * One Card per active applicant category:
+ * One Card per applicant category that has saved settings:
  *
  *   • multi-axis configs (e.g. specialized_officers) render one
  *     sub-section per attached specialization, each followed by its own
@@ -85,18 +85,17 @@ export function ApprovedCategoryCompositionsSummary(): JSX.Element {
   if (isLoading) return <LoadingState variant="list" />;
 
   const summary = summaryQuery.data ?? [];
-  /* Active categories only — same filter the editor uses. Categories
-   * with no attached specializations or year rows still render so the
-   * section reads as exhaustive (consistent with the original
-   * contract). */
-  const activeCategories = summary.filter((c) => c.config.isActive);
+  /* Review is not the category catalogue. It should only show categories
+   * that actually have saved settings rows, even if other lookup
+   * categories are active. */
+  const categoriesWithSavedSettings = summary.filter(hasSavedSettings);
 
-  if (activeCategories.length === 0) {
+  if (categoriesWithSavedSettings.length === 0) {
     return (
       <EmptyState
         variant="generic"
-        title="لا توجد فئات نشطة"
-        description="فعّل فئة واحدة على الأقل من خطوة «إعدادات التقديم»."
+        title="لا توجد إعدادات محفوظة"
+        description="ارجع إلى خطوة «إعدادات التقديم» وأضف شروط القبول للفئات المطلوبة."
       />
     );
   }
@@ -107,7 +106,7 @@ export function ApprovedCategoryCompositionsSummary(): JSX.Element {
         <h2 className="font-ar-display text-md font-bold text-ink-900">
           التركيبات المعتمدة لكل فئة
         </h2>
-        {activeCategories.map((cat) => (
+        {categoriesWithSavedSettings.map((cat) => (
           <Card key={cat.config.id} variant="compact">
             <CategoryBlock summary={cat} labels={labels} />
           </Card>
@@ -115,6 +114,10 @@ export function ApprovedCategoryCompositionsSummary(): JSX.Element {
       </div>
     </TooltipProvider>
   );
+}
+
+function hasSavedSettings(summary: CategorySettingsSummary): boolean {
+  return summary.groups.some((group) => group.years.length > 0);
 }
 
 interface LabelMaps {
@@ -130,6 +133,7 @@ interface CategoryBlockProps {
 
 function CategoryBlock({ summary, labels }: CategoryBlockProps): JSX.Element {
   const { config, groups } = summary;
+  const groupsWithSavedRows = groups.filter((group) => group.years.length > 0);
   const showSchoolCategory = config.categoryCode === 'officers_general';
 
   return (
@@ -150,12 +154,12 @@ function CategoryBlock({ summary, labels }: CategoryBlockProps): JSX.Element {
         </span>
       </header>
 
-      {groups.length === 0 ? (
+      {groupsWithSavedRows.length === 0 ? (
         <p className="rounded-md border border-dashed border-border-subtle bg-ink-50/40 px-3 py-2 font-ar text-2xs text-ink-500">
-          لم تُضف تخصصات لهذه الفئة بعد.
+          لا توجد إعدادات محفوظة لهذه الفئة بعد.
         </p>
       ) : (
-        groups.map((group) => (
+        groupsWithSavedRows.map((group) => (
           <SpecializationGroup
             key={group.csId}
             group={group}
