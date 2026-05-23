@@ -243,10 +243,9 @@ async function requestBlob(path: string, options: RequestOptions = {}): Promise<
 
 export const apiClient = {
   get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, options),
-  postSimpleJson: <T>(path: string, body: object) =>
+  postForm: <T>(path: string, body: Record<string, string>) =>
     request<T>('POST', path, {
-      body: JSON.stringify(body),
-      headers: { 'Content-Type': 'text/plain' },
+      body: new URLSearchParams(body),
       skipAuth: true,
     }),
   post: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>

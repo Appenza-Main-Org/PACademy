@@ -60,7 +60,13 @@ function normalizeAuthResponse(response: AuthLoginResponse): AuthUser {
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthUser> {
-    const response = await apiClient.postSimpleJson<AuthLoginResponse>('/api/auth/login', credentials);
+    const response = await apiClient.postForm<AuthLoginResponse>('/api/auth/login-simple', {
+      username: credentials.username,
+      password: credentials.password,
+      role: credentials.role,
+      nationalId: credentials.username,
+      mobile: credentials.password,
+    });
     return normalizeAuthResponse(response);
   },
 
