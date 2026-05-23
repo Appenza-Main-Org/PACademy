@@ -55,21 +55,21 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
                 Errors: new Dictionary<string, string[]> { ["mobile"] = ["رقم المحمول غير صحيح"] },
                 Message: "تحقق من البيانات المدخلة"));
         }
-        if (nationalId == BootstrapAdminNationalId && SameDigits(BootstrapAdminMobile, mobile))
-        {
-            if (!string.IsNullOrWhiteSpace(requestedRole) && requestedRole != "super_admin")
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorEnvelope(
-                    ErrorCodes.Forbidden,
-                    Message: "هذا الحساب غير مصرح له بالدخول إلى التطبيق المحدد"));
-            }
-
-            return Ok(BootstrapAdminAuthUser());
-        }
-
         var userRow = await db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.NationalId == nationalId, ct);
         if (userRow is null)
         {
+            if (nationalId == BootstrapAdminNationalId && SameDigits(BootstrapAdminMobile, mobile))
+            {
+                if (!string.IsNullOrWhiteSpace(requestedRole) && requestedRole != "super_admin")
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorEnvelope(
+                        ErrorCodes.Forbidden,
+                        Message: "هذا الحساب غير مصرح له بالدخول إلى التطبيق المحدد"));
+                }
+
+                return Ok(BootstrapAdminAuthUser());
+            }
+
             return Unauthorized(new ApiErrorEnvelope("AUTH_INVALID", Message: "بيانات الدخول غير صحيحة"));
         }
 
@@ -241,7 +241,7 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
         var authUser = new JsonObject
         {
             ["id"] = "U-011",
-            ["name"] = "Mohamed Ghareeb",
+            ["name"] = "د. مقدم / هشام البري - مدير النظام الرئيسي",
             ["role"] = "super_admin",
             ["roleLabel"] = "مدير النظام الرئيسي",
             ["apps"] = new JsonArray(

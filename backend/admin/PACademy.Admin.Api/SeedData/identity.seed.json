@@ -31,8 +31,8 @@
   "officers": [
     {
       "nationalId": "28705260103619",
-      "fullArabicName": "Mohamed Ghareeb",
-      "officerCode": "OFF-1009",
+      "fullArabicName": "د. مقدم / هشام البري - مدير النظام الرئيسي",
+      "officerCode": "OFF-1001",
       "mobileNumber": "01119441198",
       "userType": "officer"
     }
@@ -40,14 +40,14 @@
   "users": [
     {
       "id": "U-011",
-      "name": "Mohamed Ghareeb",
+      "name": "د. مقدم / هشام البري - مدير النظام الرئيسي",
       "role": "super_admin",
       "active": true,
       "status": "active",
       "lastLogin": null,
       "nationalId": "28705260103619",
-      "fullArabicName": "Mohamed Ghareeb",
-      "officerCode": "OFF-1009",
+      "fullArabicName": "د. مقدم / هشام البري - مدير النظام الرئيسي",
+      "officerCode": "OFF-1001",
       "mobileNumber": "01119441198",
       "userType": "officer",
       "roles": [
