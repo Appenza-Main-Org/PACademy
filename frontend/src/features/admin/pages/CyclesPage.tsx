@@ -259,16 +259,6 @@ export function CyclesPage(): JSX.Element {
         ),
     },
     {
-      key: 'window',
-      label: 'فترة التقديم',
-      sortable: false,
-      render: () => (
-        <div className="min-w-[9rem] text-2xs leading-5 text-ink-600">
-          <Badge tone="neutral">غير محددة</Badge>
-        </div>
-      ),
-    },
-    {
       key: '_actions',
       label: <span className="sr-only">إجراءات</span>,
       align: 'end',
