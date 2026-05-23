@@ -17,7 +17,11 @@ public static class LookupsModule
             else
                 options.UseSqlServer(
                     connectionString,
-                    sql => sql.MigrationsHistoryTable(AdminDbContext.MigrationsHistoryTable, AdminDbContext.Schema));
+                    sql =>
+                    {
+                        sql.MigrationsHistoryTable(AdminDbContext.MigrationsHistoryTable, AdminDbContext.Schema);
+                        sql.CommandTimeout(10);
+                    });
         });
         services.AddScoped<ILookupsDbContext>(sp => sp.GetRequiredService<AdminDbContext>());
         services.AddScoped<IValidator<System.Text.Json.Nodes.JsonObject>, LookupRowValidator>();

@@ -5,6 +5,7 @@ using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -86,6 +87,16 @@ app.MapGet("/health", () => Results.Ok(new
     service = "pacademy-admin-api",
     timestamp = DateTimeOffset.UtcNow
 }));
+app.MapGet("/health/db", async (AdminDbContext db, CancellationToken ct) =>
+{
+    var result = await db.Database.SqlQueryRaw<int>("SELECT 1").FirstAsync(ct);
+    return Results.Ok(new
+    {
+        status = "ok",
+        database = result,
+        timestamp = DateTimeOffset.UtcNow
+    });
+});
 
 app.MapControllers();
 
