@@ -107,13 +107,13 @@ export function ApplicationSettingsReviewPage(): JSX.Element {
             </Button>
           }
         />
-        <ReviewBody />
+        <ApplicationSettingsReviewBody />
       </div>
     </AdmissionSetupShell>
   );
 }
 
-function ReviewBody(): JSX.Element {
+export function ApplicationSettingsReviewBody(): JSX.Element {
   const approved = useAdmissionSetupWizardStore((s) => s.approved);
   const local = useAdmissionSetupWizardStore((s) => s.local);
   const headers = useAdmissionSetupWizardStore((s) => s.headers);

@@ -78,6 +78,8 @@ public sealed class AdmissionsSeeder(IWebHostEnvironment environment, ILogger<Ad
 
     private async Task SeedApplicationSettingsAsync(AdminDbContext db, DateTimeOffset now, CancellationToken ct)
     {
+        await RemoveLegacyApplicationSettingsYearSeedsAsync(db, ct);
+
         if (await db.ApplicationSettingsCategoryConfigs.AnyAsync(ct)) return;
 
         var categoriesFromDb = await db.LookupRows
@@ -90,11 +92,6 @@ public sealed class AdmissionsSeeder(IWebHostEnvironment environment, ILogger<Ad
             .OfType<LookupRowEntity>()
             .Concat(categoriesFromDb.Where(x => !categoryOrder.Contains(x.Code)).OrderBy(x => x.Code))
             .ToList();
-        var submissionTypes = await db.LookupRows
-            .AsNoTracking()
-            .Where(x => x.LookupKey == "submission-types")
-            .ToListAsync(ct);
-
         var configByCategory = new Dictionary<string, ApplicationSettingsCategoryConfigEntity>(StringComparer.Ordinal);
         var serial = 1;
         foreach (var category in categories)
@@ -113,71 +110,42 @@ public sealed class AdmissionsSeeder(IWebHostEnvironment environment, ILogger<Ad
             serial++;
         }
 
-        var attachmentPlan = new Dictionary<string, string[]>(StringComparer.Ordinal)
-        {
-            ["officers_general"] = [ApplicationSettingsSeed.ImplicitDefaultSpecCode],
-            ["law_bachelor"] = [ApplicationSettingsSeed.ImplicitDefaultSpecCode],
-            ["physical_education_bachelor"] = [ApplicationSettingsSeed.ImplicitDefaultSpecCode],
-            ["specialized_officers"] = ["SPC-01", "SPC-04", "SPC-12"]
-        };
-
-        var specs = new List<ApplicationSettingsCategorySpecializationEntity>();
-        var specSerial = 1;
-        foreach (var (categoryCode, plan) in attachmentPlan)
-        {
-            if (!configByCategory.TryGetValue(categoryCode, out var config)) continue;
-            foreach (var specializationId in plan)
-            {
-                var spec = new ApplicationSettingsCategorySpecializationEntity
-                {
-                    Id = $"acs-{specSerial}",
-                    ConfigId = config.Id,
-                    SpecializationId = specializationId,
-                    IsActive = true,
-                    CreatedAt = now,
-                    UpdatedAt = now
-                };
-                specs.Add(spec);
-                db.ApplicationSettingsCategorySpecializations.Add(spec);
-                specSerial++;
-            }
-        }
-
-        var yearSerial = 1;
-        foreach (var spec in specs)
-        {
-            var config = configByCategory.Values.First(x => x.Id == spec.ConfigId);
-            var mode = ResolveGradingMode(config.CategoryId, categories, submissionTypes) ?? "GRADES";
-            foreach (var blueprint in ApplicationSettingsSeed.BlueprintsFor(config.CategoryId, DateTime.UtcNow.Year))
-            {
-                db.ApplicationSettingsGraduationYears.Add(ApplicationSettingsSeed.ToEntity($"asy-{yearSerial}", spec.Id, mode, blueprint, now));
-                yearSerial++;
-            }
-        }
-
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded application settings data: {ConfigCount} configs, {SpecCount} specializations, {YearCount} year rows", configByCategory.Count, specs.Count, yearSerial - 1);
+        logger.LogInformation("Seeded application settings category shells only: {ConfigCount} configs", configByCategory.Count);
     }
 
-    private static string? ResolveGradingMode(string categoryCode, IReadOnlyList<LookupRowEntity> categories, IReadOnlyList<LookupRowEntity> submissionTypes)
+    private async Task RemoveLegacyApplicationSettingsYearSeedsAsync(AdminDbContext db, CancellationToken ct)
     {
-        var category = JsonNode.Parse(categories.First(x => x.Code == categoryCode).PayloadJson)?.AsObject();
-        var metadata = category?["metadata"] as JsonObject;
-        var submissionTypeCode = metadata is not null && metadata.TryGetPropertyValue("submissionTypeCode", out var st) ? st?.GetValue<string>() : null;
-        if (submissionTypeCode is null) return null;
-        var submissionType = submissionTypes.FirstOrDefault(x => x.Code == submissionTypeCode);
-        var submissionTypeJson = submissionType is null ? null : JsonNode.Parse(submissionType.PayloadJson)?.AsObject();
-        var submissionMetadata = submissionTypeJson?["metadata"] as JsonObject;
-        return submissionMetadata is not null && submissionMetadata.TryGetPropertyValue("gradingMode", out var mode) ? mode?.GetValue<string>() : null;
+        var yearRows = await db.ApplicationSettingsGraduationYears.ToListAsync(ct);
+        if (yearRows.Count == 0) return;
+
+        var specs = await db.ApplicationSettingsCategorySpecializations
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.Id, ct);
+        var configs = await db.ApplicationSettingsCategoryConfigs
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.Id, ct);
+        var currentYear = DateTime.UtcNow.Year;
+        var legacyRows = yearRows
+            .Where(row =>
+                specs.TryGetValue(row.CategorySpecializationId, out var spec) &&
+                configs.TryGetValue(spec.ConfigId, out var config) &&
+                LegacyApplicationSettingsSeed.IsSeedBlueprint(config.CategoryId, row, currentYear))
+            .ToList();
+
+        if (legacyRows.Count == 0) return;
+
+        db.ApplicationSettingsGraduationYears.RemoveRange(legacyRows);
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Removed {Count} legacy application-settings demo year rows", legacyRows.Count);
     }
 }
 
-file static class ApplicationSettingsSeed
+file static class LegacyApplicationSettingsSeed
 {
-    public const string ImplicitDefaultSpecCode = "__default__";
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
 
-    public sealed record Blueprint(
+    private sealed record Blueprint(
         int[] GraduationYears,
         string[] GenderTypes,
         string[] MaritalStatusCodes,
@@ -192,7 +160,12 @@ file static class ApplicationSettingsSeed
         decimal MinPercentage,
         string AcademicGradeId);
 
-    public static IReadOnlyList<Blueprint> BlueprintsFor(string categoryCode, int currentYear)
+    public static bool IsSeedBlueprint(string categoryCode, ApplicationSettingsGraduationYearEntity row, int currentYear)
+    {
+        return BlueprintsFor(categoryCode, currentYear).Any(blueprint => Matches(blueprint, row));
+    }
+
+    private static IReadOnlyList<Blueprint> BlueprintsFor(string categoryCode, int currentYear)
     {
         Blueprint Basic(int year, string gender) => new(
             [year],
@@ -236,28 +209,31 @@ file static class ApplicationSettingsSeed
         };
     }
 
-    public static ApplicationSettingsGraduationYearEntity ToEntity(string id, string specId, string gradeKind, Blueprint blueprint, DateTimeOffset now)
+    private static bool Matches(Blueprint blueprint, ApplicationSettingsGraduationYearEntity row)
     {
-        return new ApplicationSettingsGraduationYearEntity
-        {
-            Id = id,
-            CategorySpecializationId = specId,
-            GraduationYearsJson = JsonSerializer.Serialize(blueprint.GraduationYears, Options),
-            GenderTypesJson = JsonSerializer.Serialize(blueprint.GenderTypes, Options),
-            MaritalStatusCodesJson = JsonSerializer.Serialize(blueprint.MaritalStatusCodes, Options),
-            AgeMin = blueprint.AgeMin,
-            MaxAge = blueprint.MaxAge,
-            DivisionCodesJson = JsonSerializer.Serialize(blueprint.DivisionCodes, Options),
-            SchoolCategoryCodesJson = JsonSerializer.Serialize(blueprint.SchoolCategoryCodes, Options),
-            ApplicationStartDate = DateOnly.Parse(blueprint.ApplicationStartDate),
-            ApplicationEndDate = DateOnly.Parse(blueprint.ApplicationEndDate),
-            AgeReferenceDate = DateOnly.Parse(blueprint.AgeReferenceDate),
-            IsActive = blueprint.IsActive,
-            GradeKind = gradeKind,
-            MinPercentage = gradeKind == "GRADES" ? blueprint.MinPercentage : null,
-            AcademicGradeId = gradeKind == "TAGDIR" ? blueprint.AcademicGradeId : null,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
+        return SameInts(IntArray(row.GraduationYearsJson), blueprint.GraduationYears) &&
+            SameStrings(StringArray(row.GenderTypesJson), blueprint.GenderTypes) &&
+            SameStrings(StringArray(row.MaritalStatusCodesJson), blueprint.MaritalStatusCodes) &&
+            row.AgeMin == blueprint.AgeMin &&
+            row.MaxAge == blueprint.MaxAge &&
+            SameStrings(StringArray(row.DivisionCodesJson), blueprint.DivisionCodes) &&
+            SameStrings(StringArray(row.SchoolCategoryCodesJson), blueprint.SchoolCategoryCodes) &&
+            row.ApplicationStartDate == DateOnly.Parse(blueprint.ApplicationStartDate) &&
+            row.ApplicationEndDate == DateOnly.Parse(blueprint.ApplicationEndDate) &&
+            row.AgeReferenceDate == DateOnly.Parse(blueprint.AgeReferenceDate) &&
+            row.IsActive == blueprint.IsActive &&
+            (row.MinPercentage == blueprint.MinPercentage || row.AcademicGradeId == blueprint.AcademicGradeId);
     }
+
+    private static IReadOnlyList<int> IntArray(string json) =>
+        JsonSerializer.Deserialize<int[]>(json, Options) ?? [];
+
+    private static IReadOnlyList<string> StringArray(string json) =>
+        JsonSerializer.Deserialize<string[]>(json, Options) ?? [];
+
+    private static bool SameInts(IReadOnlyList<int> left, IReadOnlyList<int> right) =>
+        left.Count == right.Count && left.OrderBy(x => x).SequenceEqual(right.OrderBy(x => x));
+
+    private static bool SameStrings(IReadOnlyList<string> left, IReadOnlyList<string> right) =>
+        left.Count == right.Count && left.OrderBy(x => x, StringComparer.Ordinal).SequenceEqual(right.OrderBy(x => x, StringComparer.Ordinal));
 }
