@@ -162,7 +162,12 @@ export function DatePicker({
     };
   }, [open]);
 
-  const minDate = min ? new Date(min) : null;
+  const todayDate = useMemo(() => stripTime(new Date()), []);
+  const configuredMinDate = min ? stripTime(new Date(min)) : null;
+  const minDate =
+    configuredMinDate && configuredMinDate.getTime() > todayDate.getTime()
+      ? configuredMinDate
+      : todayDate;
   const maxDate = max ? new Date(max) : null;
 
   return (
