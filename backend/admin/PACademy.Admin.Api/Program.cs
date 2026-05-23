@@ -23,35 +23,57 @@ builder.Services.AddAdmissionsModule(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddAdminRecordsModule(builder.Configuration);
 builder.Services.AddAuditModule();
+var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var envOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? [];
+var corsOrigins = configuredOrigins
+    .Concat(envOrigins)
+    .Concat([
+        "https://admin.appenzademo.com",
+        "https://appenzademo.com",
+        "https://www.appenzademo.com",
+        "https://pa-cademy.vercel.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ])
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AdminFrontend", policy =>
     {
-        var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-        var envOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
-            ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            ?? [];
-        var origins = configuredOrigins
-            .Concat(envOrigins)
-            .Concat([
-                "https://admin.appenzademo.com",
-                "https://appenzademo.com",
-                "https://www.appenzademo.com",
-                "https://pa-cademy.vercel.app",
-                "http://localhost:5173",
-                "http://127.0.0.1:5173"
-            ])
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
         policy
-            .WithOrigins(origins)
+            .WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
 
 var app = builder.Build();
+
+app.Use(async (context, next) =>
+{
+    if (!HttpMethods.IsOptions(context.Request.Method))
+    {
+        await next();
+        return;
+    }
+
+    var origin = context.Request.Headers.Origin.ToString();
+    if (corsOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+    {
+        context.Response.Headers.AccessControlAllowOrigin = origin;
+        context.Response.Headers.AccessControlAllowMethods = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
+        context.Response.Headers.AccessControlAllowHeaders =
+            context.Request.Headers.AccessControlRequestHeaders.ToString() is { Length: > 0 } requestedHeaders
+                ? requestedHeaders
+                : "content-type,authorization";
+        context.Response.Headers.Vary = "Origin";
+    }
+    context.Response.StatusCode = StatusCodes.Status204NoContent;
+});
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("AdminFrontend");
