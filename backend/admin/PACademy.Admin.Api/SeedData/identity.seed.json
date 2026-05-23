@@ -38,6 +38,7 @@
         "admin:view",
         "reports:view",
         "applicants:view",
+        "applicants:create",
         "applicants:edit",
         "applicants:transition",
         "cycles:view",
@@ -46,6 +47,9 @@
         "applicant-grades:view",
         "committees-exam-config:view",
         "committees-exam-config:edit",
+        "committees-exam-config:create",
+        "committees-exam-config:delete",
+        "committees-exam-config:transfer",
         "admission-setup:read"
       ],
       "apps": [
@@ -203,7 +207,7 @@
       "permissions": [
         "payments:review",
         "payments:sync",
-        "applicant_payments:approve",
+        "payments:approve",
         "dashboard:view"
       ],
       "apps": [
@@ -308,25 +312,6 @@
   ],
   "users": [
     {
-      "id": "U-001",
-      "name": "العميد د. أحمد محمود الفقي محمد",
-      "role": "super_admin",
-      "active": true,
-      "status": "active",
-      "lastLogin": 1779318000000,
-      "nationalId": "29512011500011",
-      "fullArabicName": "العميد د. أحمد محمود الفقي محمد",
-      "officerCode": "OFF-1001",
-      "mobileNumber": "01001234521",
-      "userType": "officer",
-      "roles": [
-        "super_admin"
-      ],
-      "accountStatus": "active",
-      "createdAt": "2026-02-20T00:00:00.000Z",
-      "updatedAt": "2026-02-20T00:00:00.000Z"
-    },
-    {
       "id": "U-011",
       "name": "Mohamed Ghareeb",
       "role": "super_admin",
@@ -344,177 +329,6 @@
       "accountStatus": "active",
       "createdAt": "2026-05-23T00:00:00.000Z",
       "updatedAt": "2026-05-23T00:00:00.000Z"
-    },
-    {
-      "id": "U-002",
-      "name": "العقيد محمد إبراهيم حسن أحمد",
-      "role": "committee_admin",
-      "active": true,
-      "status": "active",
-      "lastLogin": 1779314400000,
-      "nationalId": "28804120100022",
-      "fullArabicName": "العقيد محمد إبراهيم حسن أحمد",
-      "officerCode": "OFF-1002",
-      "mobileNumber": "01112345678",
-      "userType": "officer",
-      "roles": [
-        "committee_admin"
-      ],
-      "accountStatus": "active",
-      "createdAt": "2026-02-27T00:00:00.000Z",
-      "updatedAt": "2026-02-27T00:00:00.000Z"
-    },
-    {
-      "id": "U-003",
-      "name": "الرائد طارق علي الخطيب سعد",
-      "role": "medical_admin",
-      "active": true,
-      "status": "active",
-      "lastLogin": 1779319800000,
-      "nationalId": "29103251200066",
-      "fullArabicName": "الرائد طارق علي الخطيب سعد",
-      "officerCode": "OFF-1006",
-      "mobileNumber": "01223344556",
-      "userType": "officer",
-      "roles": [
-        "medical_admin"
-      ],
-      "accountStatus": "active",
-      "createdAt": "2026-03-06T00:00:00.000Z",
-      "updatedAt": "2026-03-06T00:00:00.000Z"
-    },
-    {
-      "id": "U-004",
-      "name": "النقيب يوسف أحمد المصري عبدالله",
-      "role": "investigator",
-      "active": true,
-      "status": "active",
-      "lastLogin": 1779235200000,
-      "nationalId": "29407170300077",
-      "fullArabicName": "النقيب يوسف أحمد المصري عبدالله",
-      "officerCode": "OFF-1007",
-      "mobileNumber": "01099887766",
-      "userType": "officer",
-      "roles": [
-        "investigator"
-      ],
-      "accountStatus": "active",
-      "createdAt": "2026-03-13T00:00:00.000Z",
-      "updatedAt": "2026-03-13T00:00:00.000Z"
-    },
-    {
-      "id": "U-005",
-      "name": "الرائد محمود الديب البنا فاروق",
-      "role": "committee_user",
-      "active": true,
-      "status": "active",
-      "lastLogin": 1779321000000,
-      "nationalId": "29209221400044",
-      "fullArabicName": "الرائد محمود الديب البنا فاروق",
-      "officerCode": "OFF-1004",
-      "mobileNumber": "01098765432",
-      "userType": "officer",
-      "roles": [
-        "committee_user"
-      ],
-      "accountStatus": "active",
-      "createdAt": "2026-03-20T00:00:00.000Z",
-      "updatedAt": "2026-03-20T00:00:00.000Z"
-    },
-    {
-      "id": "U-006",
-      "name": "حسام عبدالرحمن السيد علي",
-      "role": "biometric_user",
-      "active": true,
-      "status": "active",
-      "lastLogin": 1779321300000,
-      "nationalId": "28702280500099",
-      "fullArabicName": "حسام عبدالرحمن السيد علي",
-      "officerCode": "CIV-2001",
-      "mobileNumber": "01155443322",
-      "userType": "civilian",
-      "roles": [
-        "biometric_user"
-      ],
-      "accountStatus": "active",
-      "createdAt": "2026-03-27T00:00:00.000Z",
-      "updatedAt": "2026-03-27T00:00:00.000Z"
-    },
-    {
-      "id": "U-007",
-      "name": "العقيد د. أيمن شريف رمضان فاروق",
-      "role": "board_admin",
-      "active": true,
-      "status": "active",
-      "lastLogin": 1779307200000,
-      "nationalId": "29006150700033",
-      "fullArabicName": "العقيد د. أيمن شريف رمضان فاروق",
-      "officerCode": "OFF-1003",
-      "mobileNumber": "01234567890",
-      "userType": "officer",
-      "roles": [
-        "board_admin"
-      ],
-      "accountStatus": "active",
-      "createdAt": "2026-04-03T00:00:00.000Z",
-      "updatedAt": "2026-04-03T00:00:00.000Z"
-    },
-    {
-      "id": "U-008",
-      "name": "الرائد ياسر هشام منصور إبراهيم",
-      "role": "exams_admin",
-      "active": true,
-      "status": "active",
-      "lastLogin": 1779317100000,
-      "nationalId": "29610141900088",
-      "fullArabicName": "الرائد ياسر هشام منصور إبراهيم",
-      "officerCode": "OFF-1008",
-      "mobileNumber": "01077665544",
-      "userType": "officer",
-      "roles": [
-        "exams_admin"
-      ],
-      "accountStatus": "active",
-      "createdAt": "2026-04-10T00:00:00.000Z",
-      "updatedAt": "2026-04-10T00:00:00.000Z"
-    },
-    {
-      "id": "U-009",
-      "name": "النقيب كريم زياد فاروق نصر",
-      "role": "records_clerk",
-      "active": false,
-      "status": "suspended",
-      "lastLogin": 1778716800000,
-      "nationalId": "29501081100055",
-      "fullArabicName": "النقيب كريم زياد فاروق نصر",
-      "officerCode": "OFF-1005",
-      "mobileNumber": "01556677889",
-      "userType": "officer",
-      "roles": [
-        "records_clerk"
-      ],
-      "accountStatus": "inactive",
-      "createdAt": "2026-04-17T00:00:00.000Z",
-      "updatedAt": "2026-04-17T00:00:00.000Z"
-    },
-    {
-      "id": "U-010",
-      "name": "منى صلاح الدين فؤاد",
-      "role": "medical_doctor",
-      "active": true,
-      "status": "active",
-      "lastLogin": 1779312600000,
-      "nationalId": "29009091100110",
-      "fullArabicName": "منى صلاح الدين فؤاد",
-      "officerCode": "CIV-2002",
-      "mobileNumber": "01244332211",
-      "userType": "civilian",
-      "roles": [
-        "medical_doctor"
-      ],
-      "accountStatus": "active",
-      "createdAt": "2026-04-24T00:00:00.000Z",
-      "updatedAt": "2026-04-24T00:00:00.000Z"
     }
   ]
 }

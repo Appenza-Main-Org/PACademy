@@ -1,10 +1,14 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using PACademy.Shared.Audit;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.AdminRecords;
 
-public sealed class AdminRecordsService(IAdminRecordsDbContext db, IHttpContextAccessor httpContextAccessor)
+public sealed class AdminRecordsService(
+    IAdminRecordsDbContext db,
+    IHttpContextAccessor httpContextAccessor,
+    IAuditSink auditSink)
 {
     private const int DefaultBulkBatchSize = 5000;
 
@@ -60,8 +64,8 @@ public sealed class AdminRecordsService(IAdminRecordsDbContext db, IHttpContextA
             row.PayloadJson = current.ToJsonString(AdminRecordJson.Options);
             row.UpdatedAt = now;
         }
-        AddAuditRecord(module, isCreate ? "create" : "update", id, payload, now);
         await db.SaveChangesAsync(ct);
+        await EmitAuditAsync(module, isCreate ? "create" : "update", id, payload, now, ct);
         return ToJson(row);
     }
 
@@ -145,17 +149,19 @@ public sealed class AdminRecordsService(IAdminRecordsDbContext db, IHttpContextA
         string details,
         CancellationToken ct)
     {
-        AddAuditSummaryRecord(module, action, entityId, details, DateTimeOffset.UtcNow);
-        await db.SaveChangesAsync(ct);
+        var now = DateTimeOffset.UtcNow;
+        await EmitAuditAsync(module, action, entityId, details, now, ct);
     }
 
     public async Task<bool> DeleteAsync(string module, string id, CancellationToken ct)
     {
         var row = await db.AdminRecords.FirstOrDefaultAsync(x => x.Module == module && x.Id == id, ct);
         if (row is null) return false;
+        var payload = ToJson(row);
         db.AdminRecords.Remove(row);
-        AddAuditRecord(module, "delete", id, ToJson(row), DateTimeOffset.UtcNow);
+        var now = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
+        await EmitAuditAsync(module, "delete", id, payload, now, ct);
         return true;
     }
 
@@ -221,83 +227,44 @@ public sealed class AdminRecordsService(IAdminRecordsDbContext db, IHttpContextA
         return obj;
     }
 
-    private void AddAuditRecord(string module, string action, string entityId, JsonObject payload, DateTimeOffset now)
+    private async Task EmitAuditAsync(
+        string module,
+        string action,
+        string entityId,
+        JsonObject payload,
+        DateTimeOffset now,
+        CancellationToken ct)
     {
         if (module == "audit") return;
 
-        var userId = httpContextAccessor.HttpContext?.Request.Headers["X-User-Id"].FirstOrDefault() ?? "system";
-        var userName = httpContextAccessor.HttpContext?.Request.Headers["X-User-Name"].FirstOrDefault() ?? "النظام";
-        var ip = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "local";
-        var auditId = $"AUD-BE-{now:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}"[..39];
         var entityName = AdminRecordJson.StringProp(payload, "name")
             ?? AdminRecordJson.StringProp(payload, "nameAr")
             ?? AdminRecordJson.StringProp(payload, "labelAr")
             ?? entityId;
-        var audit = new JsonObject
-        {
-            ["id"] = auditId,
-            ["userId"] = userId,
-            ["userName"] = userName,
-            ["role"] = httpContextAccessor.HttpContext?.Request.Headers["X-User-Role"].FirstOrDefault() ?? "system",
-            ["module"] = module,
-            ["action"] = $"{module}.{action}",
-            ["actionLabel"] = action switch
-            {
-                "create" => "إنشاء سجل",
-                "update" => "تحديث سجل",
-                "delete" => "حذف سجل",
-                _ => "تعديل سجل"
-            },
-            ["actionColor"] = action == "delete" ? "danger" : action == "create" ? "success" : "info",
-            ["entity"] = module,
-            ["entityType"] = module,
-            ["entityId"] = entityId,
-            ["details"] = $"{module}.{action} · {entityName}",
-            ["timestamp"] = now.ToUnixTimeMilliseconds(),
-            ["ip"] = ip
-        };
-        db.AdminRecords.Add(new AdminRecordEntity
-        {
-            Module = "audit",
-            Id = auditId,
-            PayloadJson = audit.ToJsonString(AdminRecordJson.Options),
-            CreatedAt = now,
-            UpdatedAt = now
-        });
+        await EmitAuditAsync(module, action, entityId, $"{module}.{action} · {entityName}", now, ct);
     }
 
-    private void AddAuditSummaryRecord(string module, string action, string entityId, string details, DateTimeOffset now)
+    private async Task EmitAuditAsync(
+        string module,
+        string action,
+        string entityId,
+        string details,
+        DateTimeOffset now,
+        CancellationToken ct)
     {
         if (module == "audit") return;
 
         var userId = httpContextAccessor.HttpContext?.Request.Headers["X-User-Id"].FirstOrDefault() ?? "system";
         var userName = httpContextAccessor.HttpContext?.Request.Headers["X-User-Name"].FirstOrDefault() ?? "النظام";
-        var ip = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "local";
-        var auditId = $"AUD-BE-{now:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}"[..39];
-        var audit = new JsonObject
-        {
-            ["id"] = auditId,
-            ["userId"] = userId,
-            ["userName"] = userName,
-            ["role"] = httpContextAccessor.HttpContext?.Request.Headers["X-User-Role"].FirstOrDefault() ?? "system",
-            ["module"] = module,
-            ["action"] = $"{module}.{action}",
-            ["actionLabel"] = "استيراد جماعي",
-            ["actionColor"] = "success",
-            ["entity"] = module,
-            ["entityType"] = module,
-            ["entityId"] = entityId,
-            ["details"] = details,
-            ["timestamp"] = now.ToUnixTimeMilliseconds(),
-            ["ip"] = ip
-        };
-        db.AdminRecords.Add(new AdminRecordEntity
-        {
-            Module = "audit",
-            Id = auditId,
-            PayloadJson = audit.ToJsonString(AdminRecordJson.Options),
-            CreatedAt = now,
-            UpdatedAt = now
-        });
+        await auditSink.EmitAsync(new AuditEntry(
+            $"AUD-BE-{Guid.NewGuid():N}",
+            module,
+            $"{module}.{action}",
+            module,
+            entityId,
+            userId,
+            userName,
+            details,
+            now), ct);
     }
 }

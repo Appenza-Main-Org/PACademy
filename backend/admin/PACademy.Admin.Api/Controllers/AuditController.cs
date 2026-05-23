@@ -9,7 +9,7 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class AuditController(AdminRecordsService records, IAuditDbContext auditDb) : ControllerBase
+public sealed class AuditController(IAuditDbContext auditDb) : ControllerBase
 {
     [HttpGet("api/audit")]
     [HttpGet("api/v1/audit")]
@@ -72,8 +72,6 @@ public sealed class AuditController(AdminRecordsService records, IAuditDbContext
     [HttpGet("api/audit/{id}")]
     public async Task<ActionResult<JsonObject?>> Get(string id, CancellationToken ct)
     {
-        var row = await records.GetAsync("audit", id, ct);
-        if (row is not null) return Ok(row);
         var durable = await auditDb.AuditRows.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         return durable is null ? NotFound() : Ok(ToJson(durable));
     }
@@ -87,9 +85,13 @@ public sealed class AuditController(AdminRecordsService records, IAuditDbContext
 
     private async Task<IReadOnlyList<JsonObject>> AuditRowsAsync(CancellationToken ct)
     {
-        var legacy = await records.ListAsync("audit", ct);
-        var durable = await auditDb.AuditRows.AsNoTracking().OrderByDescending(x => x.CreatedAt).Take(500).ToListAsync(ct);
-        return legacy.Concat(durable.Select(ToJson))
+        var durable = await auditDb.AuditRows
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAt)
+            .Take(500)
+            .ToListAsync(ct);
+
+        return durable.Select(ToJson)
             .OrderByDescending(x => Timestamp(x))
             .ToList();
     }
@@ -99,11 +101,11 @@ public sealed class AuditController(AdminRecordsService records, IAuditDbContext
         ["id"] = row.Id,
         ["userId"] = row.ActorUserId,
         ["userName"] = row.ActorName,
-        ["role"] = "system",
+        ["role"] = row.ActorUserId == "system" ? "system" : "super_admin",
         ["module"] = row.Module,
         ["action"] = row.Action,
-        ["actionLabel"] = row.Action,
-        ["actionColor"] = row.Action.Contains("delete", StringComparison.OrdinalIgnoreCase) ? "danger" : "info",
+        ["actionLabel"] = ActionLabel(row.Action),
+        ["actionColor"] = ActionColor(row.Action),
         ["entity"] = row.Entity,
         ["entityType"] = row.Entity,
         ["entityId"] = row.EntityId,
@@ -112,6 +114,45 @@ public sealed class AuditController(AdminRecordsService records, IAuditDbContext
         ["createdAt"] = row.CreatedAt.ToString("O"),
         ["ip"] = ""
     };
+
+    private static string ActionLabel(string action)
+    {
+        var normalized = action.Split('.').LastOrDefault() ?? action;
+        return normalized switch
+        {
+            "login" => "تسجيل دخول",
+            "create" => "إنشاء سجل",
+            "update" => "تحديث سجل",
+            "delete" => "حذف سجل",
+            "activate" => "تفعيل",
+            "transition" => "تغيير حالة",
+            "toggle" => "تبديل حالة",
+            "bulk_assign" => "تعيين جماعي",
+            "bulk_import" => "استيراد جماعي",
+            "bulk_save" => "حفظ جماعي",
+            "reset_2fa" => "إعادة ضبط التحقق",
+            "account_unlocked" => "فتح قفل حساب",
+            _ => normalized
+        };
+    }
+
+    private static string ActionColor(string action)
+    {
+        var normalized = action.Split('.').LastOrDefault() ?? action;
+        if (normalized.Contains("delete", StringComparison.OrdinalIgnoreCase)) return "danger";
+        if (normalized.Contains("create", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("login", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("activate", StringComparison.OrdinalIgnoreCase))
+        {
+            return "success";
+        }
+        if (normalized.Contains("reset", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("unlock", StringComparison.OrdinalIgnoreCase))
+        {
+            return "warning";
+        }
+        return "info";
+    }
 
     private static long Timestamp(JsonObject row)
     {

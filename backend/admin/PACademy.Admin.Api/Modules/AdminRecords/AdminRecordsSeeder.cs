@@ -8,6 +8,7 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
 {
     public async Task SeedAsync(IAdminRecordsDbContext db, CancellationToken ct = default)
     {
+        await RemoveLegacyAuditRecordsAsync(db, ct);
         if (await db.AdminRecords.AnyAsync(ct)) return;
         var path = Path.Combine(environment.ContentRootPath, "SeedData", "admin-records.seed.json");
         await using var stream = File.OpenRead(path);
@@ -16,7 +17,7 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
         var now = DateTimeOffset.UtcNow;
         var count = 0;
 
-        foreach (var module in new[] { "applicants", "payments", "notifications", "committeeInstances", "workflows", "applicantWorkflowProgress", "workflowTransitions", "audit", "committees" })
+        foreach (var module in new[] { "applicants", "payments", "notifications", "committeeInstances", "workflows", "applicantWorkflowProgress", "workflowTransitions", "committees" })
         {
             if (!root.TryGetProperty(module, out var rows) || rows.ValueKind != JsonValueKind.Array) continue;
             foreach (var row in rows.EnumerateArray())
@@ -52,6 +53,16 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Seeded {Count} admin JSON records", count);
+    }
+
+    private async Task RemoveLegacyAuditRecordsAsync(IAdminRecordsDbContext db, CancellationToken ct)
+    {
+        var rows = await db.AdminRecords.Where(x => x.Module == "audit").ToListAsync(ct);
+        if (rows.Count == 0) return;
+
+        db.AdminRecords.RemoveRange(rows);
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Removed {Count} legacy seeded audit records; /api/audit now reads durable audit_entries only", rows.Count);
     }
 
     private static string ResolveId(string module, JsonObject obj)
