@@ -28,6 +28,7 @@ import { RangeChips, type TimeRange } from '../components/reports/RangeChips';
 import { ReportsExportRow } from '../components/reports/ReportsExportRow';
 import { StagePipelineFunnel } from '../components/reports/StagePipelineFunnel';
 import { StatusPulseStrip } from '../components/reports/StatusPulseStrip';
+import { SuperAdminSignalsSection } from '../components/reports/SuperAdminSignalsSection';
 import { TestResultsSection } from '../components/reports/TestResultsSection';
 
 const PRINT_CSS = `
@@ -75,6 +76,16 @@ export function ReportsPage(): JSX.Element {
         <StatusPulseStrip snapshot={cycle.data} integrations={integrations.data} />
       ) : (
         <LoadingState variant="kpi" />
+      )}
+
+      {funnel.data && operational.data && governance.data ? (
+        <SuperAdminSignalsSection
+          funnel={funnel.data}
+          operational={operational.data}
+          governance={governance.data}
+        />
+      ) : (
+        <LoadingState variant="card-grid" count={5} />
       )}
 
       {cycle.data ? (
