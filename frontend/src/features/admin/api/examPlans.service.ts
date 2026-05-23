@@ -2,7 +2,7 @@
  * Exam Plans API — Gap J (admin-gaps).
  *
  * INTEGRATION CONTRACT:
- *   GET  /api/exams/academy
+ *   GET  /api/lookups/tests?isActive=true
  *   GET  /api/cycles/:cycleId/exam-plans
  *   GET  /api/cycles/:cycleId/categories/:categoryId/exam-plan
  *   PUT  /api/cycles/:cycleId/categories/:categoryId/exam-plan
@@ -23,9 +23,47 @@ import type {
   ExamResultStatus,
 } from '@/shared/types/domain';
 
+interface TestLookupRow {
+  code: string;
+  name: string;
+  isActive: boolean;
+  order: number;
+  required: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+function metadataString(row: TestLookupRow, key: string): string | undefined {
+  const value = row.metadata?.[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function metadataScoreType(row: TestLookupRow): AcademyExam['scoreType'] {
+  const value = metadataString(row, 'scoreType');
+  return value === 'numeric' || value === 'qualitative' || value === 'pass_fail'
+    ? value
+    : 'pass_fail';
+}
+
+function toAcademyExam(row: TestLookupRow): AcademyExam {
+  return {
+    id: row.code,
+    key: metadataString(row, 'key') ?? row.code,
+    group: metadataString(row, 'group') ?? 'admission',
+    nameAr: row.name,
+    scoreType: metadataScoreType(row),
+    isQualifying: row.required,
+  };
+}
+
 export const examPlansService = {
   async listExams(): Promise<AcademyExam[]> {
-    return apiClient.get('/api/exams/academy');
+    const rows = await apiClient.get<TestLookupRow[]>('/api/lookups/tests', {
+      query: { isActive: true },
+    });
+    return rows
+      .slice()
+      .sort((a, b) => a.order - b.order)
+      .map(toAcademyExam);
   },
 
   async listForCycle(cycleId: string): Promise<CycleCategoryExamPlan[]> {

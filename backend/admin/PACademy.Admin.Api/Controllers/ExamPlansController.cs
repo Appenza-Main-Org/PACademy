@@ -1,15 +1,17 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Lookups;
 
 namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class ExamPlansController(AdminRecordsService records) : ControllerBase
+public sealed class ExamPlansController(AdminRecordsService records, LookupsService lookups) : ControllerBase
 {
     [HttpGet("api/exams/academy")]
-    public ActionResult<IReadOnlyList<JsonObject>> AcademyExams() => Ok(AcademyExamRows());
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> AcademyExams(CancellationToken ct) =>
+        Ok(await AcademyExamRowsAsync(ct));
 
     [HttpGet("api/cycles/{cycleId}/exam-plans")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> Plans(string cycleId, CancellationToken ct)
@@ -18,7 +20,12 @@ public sealed class ExamPlansController(AdminRecordsService records) : Controlle
         var cycleRows = rows.Where(x => AdminRecordJson.StringProp(x, "cycleId") == cycleId).ToList();
         if (cycleRows.Count > 0) return Ok(cycleRows);
         var categories = await records.ListAsync("categories", ct);
-        return Ok(categories.Select(c => DefaultPlan(cycleId, AdminRecordJson.StringProp(c, "key") ?? "officers_general")).ToList());
+        var defaults = new List<JsonObject>();
+        foreach (var category in categories)
+        {
+            defaults.Add(await DefaultPlanAsync(cycleId, AdminRecordJson.StringProp(category, "key") ?? "officers_general", ct));
+        }
+        return Ok(defaults);
     }
 
     [HttpGet("api/cycles/{cycleId}/categories/{categoryId}/exam-plan")]
@@ -26,7 +33,7 @@ public sealed class ExamPlansController(AdminRecordsService records) : Controlle
     {
         var id = PlanId(cycleId, categoryId);
         var row = await records.GetAsync("examPlans", id, ct);
-        return Ok(row ?? DefaultPlan(cycleId, categoryId));
+        return Ok(row ?? await DefaultPlanAsync(cycleId, categoryId, ct));
     }
 
     [HttpPut("api/cycles/{cycleId}/categories/{categoryId}/exam-plan")]
@@ -38,7 +45,7 @@ public sealed class ExamPlansController(AdminRecordsService records) : Controlle
             ["id"] = id,
             ["cycleId"] = cycleId,
             ["categoryId"] = categoryId,
-            ["exams"] = body["exams"]?.DeepClone() ?? DefaultExamEntries(),
+            ["exams"] = body["exams"]?.DeepClone() ?? await DefaultExamEntriesAsync(ct),
             ["updatedAt"] = DateTimeOffset.UtcNow.ToString("O")
         };
         return Ok(await records.UpsertAsync("examPlans", id, plan, ct));
@@ -51,7 +58,11 @@ public sealed class ExamPlansController(AdminRecordsService records) : Controlle
         if (source.Count == 0)
         {
             var categories = await records.ListAsync("categories", ct);
-            source = categories.Select(c => DefaultPlan(fromCycleId ?? cycleId, AdminRecordJson.StringProp(c, "key") ?? "officers_general")).ToList();
+            source = new List<JsonObject>();
+            foreach (var category in categories)
+            {
+                source.Add(await DefaultPlanAsync(fromCycleId ?? cycleId, AdminRecordJson.StringProp(category, "key") ?? "officers_general", ct));
+            }
         }
         var copied = new List<JsonObject>();
         foreach (var item in source)
@@ -63,7 +74,7 @@ public sealed class ExamPlansController(AdminRecordsService records) : Controlle
                 ["id"] = id,
                 ["cycleId"] = cycleId,
                 ["categoryId"] = categoryId,
-                ["exams"] = item["exams"]?.DeepClone() ?? DefaultExamEntries(),
+                ["exams"] = item["exams"]?.DeepClone() ?? await DefaultExamEntriesAsync(ct),
                 ["updatedAt"] = DateTimeOffset.UtcNow.ToString("O")
             };
             copied.Add(await records.UpsertAsync("examPlans", id, plan, ct));
@@ -118,28 +129,63 @@ public sealed class ExamPlansController(AdminRecordsService records) : Controlle
 
     private static string PlanId(string cycleId, string categoryId) => $"EP-{cycleId}-{categoryId}";
 
-    private static JsonObject DefaultPlan(string cycleId, string categoryId) => new()
+    private async Task<JsonObject> DefaultPlanAsync(string cycleId, string categoryId, CancellationToken ct) => new()
     {
         ["id"] = PlanId(cycleId, categoryId),
         ["cycleId"] = cycleId,
         ["categoryId"] = categoryId,
-        ["exams"] = DefaultExamEntries(),
+        ["exams"] = await DefaultExamEntriesAsync(ct),
         ["updatedAt"] = DateTimeOffset.UtcNow.ToString("O")
     };
 
-    private static JsonArray DefaultExamEntries() => new(
-        new JsonObject { ["examId"] = "medical", ["order"] = 1, ["isRequired"] = true, ["minScore"] = 0 },
-        new JsonObject { ["examId"] = "physical", ["order"] = 2, ["isRequired"] = true, ["minScore"] = 50 },
-        new JsonObject { ["examId"] = "psychological", ["order"] = 3, ["isRequired"] = true, ["minScore"] = 50 },
-        new JsonObject { ["examId"] = "interview", ["order"] = 4, ["isRequired"] = true, ["minScore"] = 0 }
-    );
+    private async Task<JsonArray> DefaultExamEntriesAsync(CancellationToken ct)
+    {
+        var rows = await TestLookupRowsAsync(ct);
+        var entries = new JsonArray();
+        var order = 1;
+        foreach (var row in rows.Where(row => BoolProp(row, "required") ?? true))
+        {
+            entries.Add(new JsonObject
+            {
+                ["examId"] = StringProp(row, "code") ?? $"TST-{order:00}",
+                ["order"] = order,
+                ["isRequired"] = true
+            });
+            order++;
+        }
+        return entries;
+    }
 
-    private static List<JsonObject> AcademyExamRows() =>
-    [
-        new() { ["id"] = "medical", ["nameAr"] = "الكشف الطبي", ["kind"] = "medical", ["defaultOrder"] = 1 },
-        new() { ["id"] = "physical", ["nameAr"] = "الاختبار الرياضي", ["kind"] = "physical", ["defaultOrder"] = 2 },
-        new() { ["id"] = "psychological", ["nameAr"] = "الاختبار النفسي", ["kind"] = "psychological", ["defaultOrder"] = 3 },
-        new() { ["id"] = "interview", ["nameAr"] = "المقابلة الشخصية", ["kind"] = "interview", ["defaultOrder"] = 4 },
-        new() { ["id"] = "drug", ["nameAr"] = "تحليل المخدرات", ["kind"] = "drug", ["defaultOrder"] = 5 }
-    ];
+    private async Task<List<JsonObject>> AcademyExamRowsAsync(CancellationToken ct)
+    {
+        var rows = await TestLookupRowsAsync(ct);
+        return rows.Select(row => new JsonObject
+        {
+            ["id"] = StringProp(row, "code"),
+            ["key"] = StringProp(row, "code"),
+            ["group"] = "admission",
+            ["nameAr"] = StringProp(row, "name"),
+            ["scoreType"] = "pass_fail",
+            ["isQualifying"] = BoolProp(row, "required") ?? true,
+            ["defaultOrder"] = IntProp(row, "order")
+        }).ToList();
+    }
+
+    private async Task<IReadOnlyList<JsonObject>> TestLookupRowsAsync(CancellationToken ct)
+    {
+        var rows = await lookups.ListAsync("tests", true, null, ct);
+        return rows
+            .OrderBy(row => IntProp(row, "order") ?? int.MaxValue)
+            .ThenBy(row => StringProp(row, "code"))
+            .ToList();
+    }
+
+    private static string? StringProp(JsonObject obj, string name) =>
+        obj.TryGetPropertyValue(name, out var node) ? node?.GetValue<string>() : null;
+
+    private static bool? BoolProp(JsonObject obj, string name) =>
+        obj.TryGetPropertyValue(name, out var node) ? node?.GetValue<bool>() : null;
+
+    private static int? IntProp(JsonObject obj, string name) =>
+        obj.TryGetPropertyValue(name, out var node) ? node?.GetValue<int>() : null;
 }

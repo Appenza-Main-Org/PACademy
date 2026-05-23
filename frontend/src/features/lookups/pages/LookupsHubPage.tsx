@@ -20,14 +20,22 @@ import {
 } from '../types';
 
 const DEFAULT_TAB: LookupKey = 'relationships';
+const TAB_ALIASES: Record<string, LookupKey> = {
+  testss: 'tests',
+};
 
 export function LookupsHubPage(): JSX.Element {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
 
-  const active: LookupKey = isLookupKey(tab) ? tab : DEFAULT_TAB;
+  const normalizedTab = tab ? (TAB_ALIASES[tab] ?? tab) : undefined;
+  const active: LookupKey = isLookupKey(normalizedTab) ? normalizedTab : DEFAULT_TAB;
 
   useEffect(() => {
+    if (tab && TAB_ALIASES[tab]) {
+      navigate(ROUTES.admin.adminLookupsType(TAB_ALIASES[tab]), { replace: true });
+      return;
+    }
     if (tab && !isLookupKey(tab)) {
       // Unknown slug — bounce to default without leaking a 404.
       navigate(ROUTES.admin.adminLookupsType(DEFAULT_TAB), { replace: true });
