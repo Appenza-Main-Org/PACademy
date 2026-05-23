@@ -23,7 +23,8 @@ export function SpecializationList({ configId }: SpecializationListProps): JSX.E
   return (
     <div className="flex flex-col gap-4 py-3">
       <div
-        className="rounded-md border border-border-default bg-surface-card p-3 shadow-sm ring-1 ring-[color:var(--accent-500)]/10"
+        className="rounded-md border border-border-default bg-surface-card p-3 shadow-sm"
+        style={{ borderInlineStartWidth: 3, borderInlineStartColor: 'var(--accent-500)' }}
       >
         <div className="mb-2 flex items-center gap-2 text-sm font-medium text-ink-700">
           <Plus size={14} strokeWidth={2} className="text-[color:var(--accent-600)]" />

@@ -3,11 +3,14 @@
  *
  * Sources every applicant-category from the
  * `admin/lookups/applicant-categories` lookup (no hardcoded list). Each
- * row opens the service-backed specialization/year editor so previously
- * saved category settings can be viewed and edited on later visits to
- * the selected admission cycle. Single-axis categories render their
- * implicit year table directly; multi-specialization categories render
- * the specialization attachment list.
+ * row carries a `type` (`university` | `pre_university`) that decides
+ * which editor section is rendered inside the accordion body:
+ *
+ *   • `university` (جامعي)     → <GeneralRulesSection /> — implicit
+ *     single-form categories stay compact; `specialized_officers` gets
+ *     the faculty/specialization bulk workspace.
+ *   • `pre_university` (ثانوي) → <ThanawiRulesSection /> — exam-round +
+ *     committee + graduation-year + school-category grid.
  *
  * Active toggle on the row uses the underlying
  * `ApplicantCategoryConfig.isActive` (mirrors the prior wiring); the
@@ -39,9 +42,17 @@ import {
 import { cn } from '@/shared/lib/cn';
 import { useCategoryConfigs } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
-import type { CategoryCompletionState } from '../../store/wizardSharedState';
-import { SpecializationList } from './SpecializationList';
-import { YearTable } from './YearTable';
+import {
+  deriveExcellenceMode,
+  type ExcellenceMode,
+} from '../../lib/excellenceMode';
+import {
+  selectCategoryCompletion,
+  useAdmissionSetupWizardStore,
+  type CategoryCompletionState,
+} from '../../store/wizardSharedState';
+import { GeneralRulesSection } from './GeneralRulesSection';
+import { ThanawiRulesSection } from './ThanawiRulesSection';
 
 export function CategoryAccordion(): JSX.Element {
   const configsQuery = useCategoryConfigs();
@@ -88,6 +99,8 @@ export function CategoryAccordion(): JSX.Element {
   const criterionLabelByCode = new Map(
     (excellenceQuery.data ?? []).map((row) => [row.code, row.name] as const),
   );
+  const excellenceRows = excellenceQuery.data ?? [];
+
   return (
     <Accordion.Root
       type="multiple"
@@ -108,6 +121,10 @@ export function CategoryAccordion(): JSX.Element {
               : criterionLabelByCode.get(config.excellenceCriterion) ??
                 config.excellenceCriterion
           }
+          excellenceMode={deriveExcellenceMode(
+            config.excellenceCriterion,
+            excellenceRows,
+          )}
         />
       ))}
     </Accordion.Root>
@@ -186,15 +203,39 @@ function normalizeApplicantCategoryType(
 interface ConfigItemProps {
   config: CategoryConfigJoined;
   excellenceLabel: string | null;
+  /** Resolved «معيار التمييز» discriminator — TAGDIR (تقدير) hides the
+   *  score pair, GRADES (درجة) hides the grade pair. `null` (no
+   *  criterion picked) keeps both pairs visible. */
+  excellenceMode: ExcellenceMode | null;
 }
 
 function ConfigItem({
   config,
   excellenceLabel,
+  excellenceMode,
 }: ConfigItemProps): JSX.Element {
+  /* Selector reads both buckets — see `selectCategoryCompletion` JSDoc.
+   * Authored rows that haven't been promoted via the section-level
+   * «اعتماد» button still count, so the badge tracks what the admin
+   * sees in the grid. */
+  const local = useAdmissionSetupWizardStore((s) => s.local);
+  const approved = useAdmissionSetupWizardStore((s) => s.approved);
+
   const completion = useMemo(
-    () => deriveCompletionFromSavedSettings(config),
-    [config],
+    () =>
+      selectCategoryCompletion(
+        config.categoryCode,
+        config.categoryType,
+        [...local, ...approved],
+        config.categorySpecializationCodes,
+      ),
+    [
+      local,
+      approved,
+      config.categoryCode,
+      config.categoryType,
+      config.categorySpecializationCodes,
+    ],
   );
 
   const typeLabel = config.categoryType === 'university' ? 'جامعي' : 'ثانوي';
@@ -241,46 +282,22 @@ function ConfigItem({
       </Accordion.Trigger>
 
       <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 p-4">
-        <CategorySettingsBody config={config} />
+        {config.categoryType === 'university' ? (
+          <GeneralRulesSection
+            categoryCode={config.categoryCode}
+            facultyCodes={config.categoryFacultyCodes}
+            specializationCodes={config.categorySpecializationCodes}
+            excellenceMode={excellenceMode}
+          />
+        ) : (
+          <ThanawiRulesSection
+            categoryCode={config.categoryCode}
+            excellenceMode={excellenceMode}
+          />
+        )}
       </Accordion.Content>
     </Accordion.Item>
   );
-}
-
-function CategorySettingsBody({
-  config,
-}: {
-  config: CategoryConfigJoined;
-}): JSX.Element {
-  if (config.singleAxis && config.implicitSpecId) {
-    return (
-      <div className="flex flex-col gap-3 py-3">
-        <div className="rounded-md border border-border-subtle bg-surface-card px-4 py-3">
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="font-ar text-sm font-semibold text-ink-900">
-              شروط الفئة
-            </h3>
-            <span className="font-ar text-2xs text-ink-500">
-              إعداد مباشر بدون تخصصات فرعية
-            </span>
-          </div>
-          <YearTable categorySpecializationId={config.implicitSpecId} />
-        </div>
-      </div>
-    );
-  }
-
-  return <SpecializationList configId={config.id} />;
-}
-
-function deriveCompletionFromSavedSettings(
-  config: CategoryConfigJoined,
-): CategoryCompletionState {
-  if (config.yearCount > 0) return 'complete';
-  if (config.specializationCount > 0 || config.implicitSpecId !== null) {
-    return 'partial';
-  }
-  return 'empty';
 }
 
 interface CompletionMeta {
