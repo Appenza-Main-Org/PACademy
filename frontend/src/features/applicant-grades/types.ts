@@ -246,3 +246,8 @@ export interface ImportCommitProgress {
   failedCount: number;
   alreadyImportedCount: number;
 }
+
+export interface ImportPreflightProgress {
+  processedRows: number;
+  totalRows: number;
+}

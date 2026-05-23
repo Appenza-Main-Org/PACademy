@@ -12,12 +12,13 @@
  * back to Step 4 and tighten filters before running the preflight.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, Layers, ShieldCheck } from 'lucide-react';
 import { useImportWizardStore } from '../../../store/importWizard.store';
 import { normaliseRows } from '../../../lib/normalise';
 import { useApplicantGradesPreflight, useGrades } from '../../../api/grades.queries';
 import { buildAlreadyImported, buildUploadDuplicates } from '../../../lib/buildDiff';
+import type { ImportPreflightProgress } from '../../../types';
 
 export function Step5DuplicateReview(): JSX.Element {
   const parsed = useImportWizardStore((s) => s.parsed);
@@ -28,6 +29,7 @@ export function Step5DuplicateReview(): JSX.Element {
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
   const importResult = useImportWizardStore((s) => s.importResult);
   const setImportResult = useImportWizardStore((s) => s.setImportResult);
+  const [progress, setProgress] = useState<ImportPreflightProgress | null>(null);
 
   const table = useMemo(
     () => parsed?.tables.find((t) => t.name === selectedTableName) ?? null,
@@ -50,16 +52,22 @@ export function Step5DuplicateReview(): JSX.Element {
    * input so navigating back/forward doesn't double-charge. */
   useEffect(() => {
     if (normalised.length === 0 || graduationYear == null) {
+      setProgress(null);
       setImportResult({
         totals: { received: 0, imported: 0, skipped: 0, failed: 0 },
         groups: [],
       });
       return;
     }
+    setProgress({ processedRows: 0, totalRows: normalised.length });
     preflight.mutate(
-      { rows: normalised, graduationYear },
+      { rows: normalised, graduationYear, onProgress: setProgress },
       {
-        onSuccess: (report) => setImportResult(report),
+        onSuccess: (report) => {
+          setImportResult(report);
+          setProgress(null);
+        },
+        onError: () => setProgress(null),
       },
     );
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
@@ -69,9 +77,7 @@ export function Step5DuplicateReview(): JSX.Element {
 
   if (preflight.isPending && !report) {
     return (
-      <div className="rounded-md border border-border-subtle bg-white py-12 text-center text-sm text-ink-500">
-        جارٍ مراجعة الصفوف…
-      </div>
+      <PreflightProgress progress={progress} />
     );
   }
 
@@ -161,6 +167,45 @@ export function Step5DuplicateReview(): JSX.Element {
             {alreadyImported.toLocaleString('en')} صفًا موجود مسبقًا بنفس الرقم القومي وبنفس سنة التخرج —
             سيُتجاهل تلقائيًا أثناء التأكيد. كل طالب يبقى بسجل واحد لكل سنة تخرج في النظام.
           </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PreflightProgress({
+  progress,
+}: {
+  progress: ImportPreflightProgress | null;
+}): JSX.Element {
+  const pct =
+    progress && progress.totalRows > 0
+      ? Math.min(100, Math.round((progress.processedRows / progress.totalRows) * 100))
+      : 0;
+
+  return (
+    <div
+      className="flex flex-col items-center justify-center gap-3 rounded-md border border-border-subtle bg-white px-6 py-12 text-sm text-ink-500"
+      role="status"
+      aria-live="polite"
+    >
+      <span>جارٍ مراجعة الصفوف…</span>
+      {progress && (
+        <div className="flex w-full max-w-sm flex-col gap-1.5">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
+            <div
+              className="h-full bg-teal-500 transition-[inline-size]"
+              style={{ inlineSize: `${pct}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-2xs text-ink-500">
+            <span className="font-en tabular-nums" dir="ltr">
+              {progress.processedRows.toLocaleString('en')} / {progress.totalRows.toLocaleString('en')}
+            </span>
+            <span className="font-en tabular-nums" dir="ltr">
+              {pct}%
+            </span>
+          </div>
         </div>
       )}
     </div>

@@ -19,6 +19,7 @@ import type {
   ImportCommitProgress,
   ImportGroupAction,
   ImportGroupCode,
+  ImportPreflightProgress,
   ImportReport,
   ImportResolution,
   NormalisedRow,
@@ -158,7 +159,11 @@ export function useCommitImport() {
 
 export function useApplicantGradesPreflight() {
   return useMutation({
-    mutationFn: (input: { rows: NormalisedRow[]; graduationYear: number }): Promise<ImportReport> =>
+    mutationFn: (input: {
+      rows: NormalisedRow[];
+      graduationYear: number;
+      onProgress?: (progress: ImportPreflightProgress) => void;
+    }): Promise<ImportReport> =>
       gradesService.runImportPreflight(input),
   });
 }

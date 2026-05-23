@@ -26,6 +26,7 @@ import type {
   ImportCommitResult,
   ImportCommitProgress,
   ImportGroupAction,
+  ImportPreflightProgress,
   ImportReport,
   ImportResolution,
   NormalisedRow,
@@ -34,6 +35,8 @@ import type {
 
 const GRADES_API = '/api/grades';
 const IMPORT_COMMIT_CHUNK_SIZE = 5000;
+const IMPORT_PREFLIGHT_CHUNK_SIZE = 5000;
+const IMPORT_PREFLIGHT_GROUP_SAMPLE_LIMIT = 1000;
 
 export type ApplicantGradesSortKey =
   | keyof GradeRow
@@ -190,8 +193,54 @@ export const gradesService = {
   async runImportPreflight(input: {
     rows: NormalisedRow[];
     graduationYear: number;
+    onProgress?: (progress: ImportPreflightProgress) => void;
   }): Promise<ImportReport> {
-    return apiClient.post(`${GRADES_API}/v2/preflight`, input);
+    const { rows, onProgress, ...payload } = input;
+    const totalRows = rows.length;
+    const aggregate: ImportReport = {
+      totals: { received: 0, imported: 0, skipped: 0, failed: 0 },
+      groups: [],
+    };
+
+    if (totalRows === 0) {
+      onProgress?.({ processedRows: 0, totalRows });
+      return aggregate;
+    }
+
+    for (let offset = 0; offset < totalRows; offset += IMPORT_PREFLIGHT_CHUNK_SIZE) {
+      const chunk = rows.slice(offset, offset + IMPORT_PREFLIGHT_CHUNK_SIZE);
+      const report = await apiClient.post<ImportReport>(
+        `${GRADES_API}/v2/preflight`,
+        { ...payload, rows: chunk },
+      );
+
+      aggregate.totals.received += report.totals.received;
+      aggregate.totals.imported += report.totals.imported;
+      aggregate.totals.skipped += report.totals.skipped;
+      aggregate.totals.failed += report.totals.failed;
+
+      for (const group of report.groups) {
+        const existing = aggregate.groups.find((item) => item.code === group.code);
+        if (existing) {
+          const remaining = IMPORT_PREFLIGHT_GROUP_SAMPLE_LIMIT - existing.rows.length;
+          if (remaining > 0) {
+            existing.rows.push(...group.rows.slice(0, remaining));
+          }
+          continue;
+        }
+        aggregate.groups.push({
+          ...group,
+          rows: group.rows.slice(0, IMPORT_PREFLIGHT_GROUP_SAMPLE_LIMIT),
+        });
+      }
+
+      onProgress?.({
+        processedRows: Math.min(offset + chunk.length, totalRows),
+        totalRows,
+      });
+    }
+
+    return aggregate;
   },
 
   async runImportCommit(input: {

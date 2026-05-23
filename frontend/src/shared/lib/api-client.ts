@@ -210,6 +210,10 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     body,
     signal: options.signal,
   }, options.signal);
+  const contentType = res.headers.get('content-type') ?? '';
+  if (res.ok && !contentType.includes('application/json')) {
+    throw new Error('استجابة الخادم غير صالحة. تحقق من إعدادات اتصال الواجهة الخلفية.');
+  }
   const parsed = await parseResponse(res);
   if (!res.ok) throw toServiceError(res.status, parsed);
   return parsed as T;
