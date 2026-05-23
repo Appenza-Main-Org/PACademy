@@ -120,7 +120,7 @@ export const LOOKUP_SECTIONS = [
 export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string; padding: number }> = {
   'relationships':                { label: 'صلات القرابة',                 codePrefix: 'REL', padding: 3 },
   'relationship-degree-tiers':    { label: 'فئات درجات القرابة',           codePrefix: 'RDT', padding: 1 },
-  'tests':                        { label: 'الاختبارات والقبول',           codePrefix: 'TST', padding: 2 },
+  'tests':                        { label: 'الاختبارات',                   codePrefix: 'TST', padding: 2 },
   'test-results':                 { label: 'نتائج الاختبارات',             codePrefix: 'RES', padding: 2 },
   'committees':                   { label: 'اللجان',                       codePrefix: 'CMT', padding: 2 },
   'specializations':              { label: 'التخصصات',                     codePrefix: 'SPC', padding: 2 },

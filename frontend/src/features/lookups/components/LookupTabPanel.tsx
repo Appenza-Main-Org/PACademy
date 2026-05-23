@@ -70,6 +70,13 @@ interface LookupLabelRow {
 
 type LookupLabelSources = Partial<Record<LookupKey, readonly LookupLabelRow[]>>;
 
+function defaultSortFor<K extends LookupKey>(lookupKey: K): DataTableSort<LookupRow<K>> {
+  return {
+    key: (lookupKey === 'tests' ? 'order' : 'name') as keyof LookupRow<K> & string,
+    direction: 'asc',
+  };
+}
+
 export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPanelProps<K>): JSX.Element {
   const meta = LOOKUP_META[lookupKey];
   const listQuery = useLookup(lookupKey);
@@ -90,10 +97,9 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
   const [editing, setEditing] = useState<LookupRow<K> | null>(null);
   const [pendingDelete, setPendingDelete] = useState<LookupRow<K> | null>(null);
   const [deleteBlocked, setDeleteBlocked] = useState<string | null>(null);
-  const [sort, setSort] = useState<DataTableSort<LookupRow<K>> | null>({
-    key: 'name' as keyof LookupRow<K> & string,
-    direction: 'asc',
-  });
+  const [sort, setSort] = useState<DataTableSort<LookupRow<K>> | null>(() =>
+    defaultSortFor(lookupKey),
+  );
   const lookupSources = useMemo<LookupLabelSources>(
     () => ({
       governorates: governoratesQuery.data as readonly LookupLabelRow[] | undefined,
