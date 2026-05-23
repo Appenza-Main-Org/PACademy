@@ -27,6 +27,9 @@ export function Step5DuplicateReview(): JSX.Element {
   const filters = useImportWizardStore((s) => s.filters);
   const lookupValueMappings = useImportWizardStore((s) => s.lookupValueMappings);
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
+  const selectedSchoolCategories = useImportWizardStore(
+    (s) => s.selectedSchoolCategories,
+  );
   const importResult = useImportWizardStore((s) => s.importResult);
   const setImportResult = useImportWizardStore((s) => s.setImportResult);
   const [progress, setProgress] = useState<ImportPreflightProgress | null>(null);
@@ -39,9 +42,16 @@ export function Step5DuplicateReview(): JSX.Element {
   const normalised = useMemo(
     () =>
       table && graduationYear != null
-        ? normaliseRows(table, mapping, filters, graduationYear, lookupValueMappings)
+        ? normaliseRows(
+            table,
+            mapping,
+            filters,
+            graduationYear,
+            lookupValueMappings,
+            selectedSchoolCategories,
+          )
         : [],
-    [table, mapping, filters, graduationYear, lookupValueMappings],
+    [table, mapping, filters, graduationYear, lookupValueMappings, selectedSchoolCategories],
   );
 
   const { data: allRows } = useGrades();

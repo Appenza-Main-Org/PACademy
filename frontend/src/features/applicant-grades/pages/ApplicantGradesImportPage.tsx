@@ -167,6 +167,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
       filters,
       graduationYear,
       lookupValueMappings,
+      selectedSchoolCategories,
     );
     const actions: Record<ImportGroupCode, 'skip' | 'override' | 'create-applicant' | undefined> = {
       DUPLICATE_NID: filterAction(perGroupActions.DUPLICATE_NID),

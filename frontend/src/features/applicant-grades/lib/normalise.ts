@@ -72,8 +72,11 @@ export function normaliseRows(
   filters: Record<string, FilterState>,
   graduationYear: number,
   lookupValueMappings?: LookupValueMappings,
+  selectedSchoolCategories: readonly string[] = [],
 ): NormalisedRow[] {
   const out: NormalisedRow[] = [];
+  const allowedCategories = new Set(selectedSchoolCategories);
+  const fallbackCategory = selectedSchoolCategories.length === 1 ? selectedSchoolCategories[0]! : null;
   table.rows.forEach((raw, i) => {
     if (!rowMatchesFilters(raw, filters)) return;
     const get = (key: TargetField): string | number | null => {
@@ -91,10 +94,12 @@ export function normaliseRows(
       graduationYear: asNumber(get('graduationYear')) ?? graduationYear,
       totalGrade: asNumber(get('totalGrade')),
       maxGrade: asNumber(get('maxGrade')),
-      schoolCategory:
-        rawSchoolCategory == null
-          ? null
-          : lookupValueMappings?.schoolCategory[rawSchoolCategory] ?? rawSchoolCategory,
+      schoolCategory: resolveSchoolCategoryCode(
+        rawSchoolCategory,
+        lookupValueMappings?.schoolCategory,
+        allowedCategories,
+        fallbackCategory,
+      ),
       examRound:
         rawExamRound == null
           ? null
@@ -105,6 +110,19 @@ export function normaliseRows(
     });
   });
   return out;
+}
+
+function resolveSchoolCategoryCode(
+  rawValue: string | null,
+  valueMapping: Record<string, string> | undefined,
+  allowedCategories: ReadonlySet<string>,
+  fallbackCategory: string | null,
+): string | null {
+  if (rawValue != null) {
+    const mapped = valueMapping?.[rawValue] ?? rawValue;
+    if (allowedCategories.has(mapped)) return mapped;
+  }
+  return fallbackCategory;
 }
 
 /** Count rows that would survive the active filter set. */

@@ -194,6 +194,11 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
     {
         var inputRows = body["rows"]?.AsArray() ?? [];
         var graduationYear = body["graduationYear"]?.GetValue<int?>() ?? DateTimeOffset.UtcNow.Year;
+        var selectedCategories = body["selectedSchoolCategories"]?.AsArray()
+            .Select(x => x?.GetValue<string>())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var (existingNids, nextSeatValue) = await records.GradesImportIndexAsync(ct);
         var inserted = 0;
         var failed = 0;
@@ -219,6 +224,14 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
                 failed++;
                 continue;
             }
+            var schoolCategoryCode = ResolveImportSchoolCategoryCode(
+                AdminRecordJson.StringProp(row, "schoolCategory"),
+                selectedCategories);
+            if (schoolCategoryCode is null)
+            {
+                failed++;
+                continue;
+            }
             if (existingNids.Contains(nid))
             {
                 alreadyImported++;
@@ -229,7 +242,7 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
             {
                 row["maxGrade"] = maxGrade;
             }
-            var grade = GradeFromImportRow(row, seat, nid, name, total.Value, graduationYear);
+            var grade = GradeFromImportRow(row, seat, nid, name, total.Value, graduationYear, schoolCategoryCode);
             batch.Add(grade);
             existingNids.Add(nid);
             if (batch.Count >= ImportCommitBatchSize) await FlushBatchAsync();
@@ -533,18 +546,25 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         throw new KeyNotFoundException("درجة الطالب غير موجودة");
     }
 
-    private static JsonObject GradeFromImportRow(JsonObject row, int seat, string nid, string name, double total, int graduationYear) => new()
+    private static JsonObject GradeFromImportRow(
+        JsonObject row,
+        int seat,
+        string nid,
+        string name,
+        double total,
+        int graduationYear,
+        string? schoolCategoryCode = null) => new()
     {
         ["id"] = seat.ToString(),
         ["seat"] = seat,
         ["seatingNumber"] = AdminRecordJson.StringProp(row, "seatingNumber") ?? seat.ToString(),
         ["nid"] = nid,
         ["name"] = name,
-        ["kind"] = "general",
+        ["kind"] = KindFromSchoolCategoryCode(schoolCategoryCode ?? AdminRecordJson.StringProp(row, "schoolCategory")),
         ["gender"] = "male",
         ["branch"] = AdminRecordJson.StringProp(row, "track") ?? "",
         ["graduationYear"] = graduationYear,
-        ["schoolCategoryCode"] = AdminRecordJson.StringProp(row, "schoolCategory"),
+        ["schoolCategoryCode"] = schoolCategoryCode ?? AdminRecordJson.StringProp(row, "schoolCategory"),
         ["school"] = AdminRecordJson.StringProp(row, "schoolName") ?? "",
         ["region"] = AdminRecordJson.StringProp(row, "regionName") ?? "",
         ["examRound"] = AdminRecordJson.StringProp(row, "examRound"),
@@ -558,6 +578,22 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         ["status"] = "مستجد",
         ["log"] = new JsonArray()
     };
+
+    private static string KindFromSchoolCategoryCode(string? code) =>
+        string.Equals(code, "SCH-03", StringComparison.OrdinalIgnoreCase) ? "azhar" : "general";
+
+    private static string? ResolveImportSchoolCategoryCode(string? value, IReadOnlyCollection<string> selectedCategories)
+    {
+        if (!string.IsNullOrWhiteSpace(value) && selectedCategories.Contains(value, StringComparer.OrdinalIgnoreCase))
+        {
+            return selectedCategories.First(x => string.Equals(x, value, StringComparison.OrdinalIgnoreCase));
+        }
+        if (selectedCategories.Count == 1)
+        {
+            return selectedCategories.First();
+        }
+        return null;
+    }
 
     private static string? GradeSchoolCategoryCode(JsonObject row)
     {
