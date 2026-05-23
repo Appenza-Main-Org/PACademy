@@ -20,7 +20,6 @@ import {
   Button,
   Card,
   DatePicker,
-  EmptyState,
   ErrorState,
   Input,
   LoadingState,
@@ -243,25 +242,17 @@ export function ThanawiRulesSection({
       />
 
       <div className="mt-4">
-        {committeeOptions.length === 0 ? (
-          <EmptyState
-            variant="generic"
-            title="لا توجد لجان مرتبطة بهذه الفئة"
-            description="اربط لجاناً بفئة المتقدمين هذه من الأكواد المرجعية أولاً."
-          />
-        ) : (
-          <ThanawiForm
-            categoryCode={categoryCode}
-            examRoundOptions={examRoundOptions}
-            committeeOptions={committeeOptions}
-            schoolCategoryOptions={schoolCategoryOptions}
-            maritalOptions={maritalOptions}
-            graduationYearOptions={graduationYearOptions}
-            gradeOptions={gradeOptions}
-            gradeRank={gradeRank}
-            excellenceMode={excellenceMode}
-          />
-        )}
+        <ThanawiForm
+          categoryCode={categoryCode}
+          examRoundOptions={examRoundOptions}
+          committeeOptions={committeeOptions}
+          schoolCategoryOptions={schoolCategoryOptions}
+          maritalOptions={maritalOptions}
+          graduationYearOptions={graduationYearOptions}
+          gradeOptions={gradeOptions}
+          gradeRank={gradeRank}
+          excellenceMode={excellenceMode}
+        />
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-3 border-t border-border-subtle pt-4">

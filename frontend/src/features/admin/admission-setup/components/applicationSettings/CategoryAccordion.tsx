@@ -34,7 +34,11 @@ import {
   CircleDashed,
 } from 'lucide-react';
 import { Accordion, ErrorState, LoadingState } from '@/shared/components';
-import { useLookup, type ApplicantCategoryRow } from '@/features/lookups';
+import {
+  useLookup,
+  type ApplicantCategoryRow,
+  type ApplicantCategoryType,
+} from '@/features/lookups';
 import { cn } from '@/shared/lib/cn';
 import { useCategoryConfigs } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
@@ -135,12 +139,24 @@ function mergeCategoryConfigsWithActiveLookups(
   const activeCategoryCodes = new Set(
     activeCategories.map((category) => category.code),
   );
+  const activeCategoryByCode = new Map(
+    activeCategories.map((category) => [category.code, category] as const),
+  );
   const configByCode = new Map(
     configs.map((config) => [config.categoryCode, config] as const),
   );
-  const visibleConfigs = configs.filter((config) =>
-    activeCategoryCodes.has(config.categoryCode),
-  );
+  const visibleConfigs = configs
+    .filter((config) => activeCategoryCodes.has(config.categoryCode))
+    .map((config) => {
+      const category = activeCategoryByCode.get(config.categoryCode);
+      return {
+        ...config,
+        categoryType: normalizeApplicantCategoryType(
+          config.categoryType,
+          category,
+        ),
+      };
+    });
 
   for (const category of activeCategories) {
     if (configByCode.has(category.code)) {
@@ -170,6 +186,18 @@ function mergeCategoryConfigsWithActiveLookups(
   }
 
   return visibleConfigs;
+}
+
+function normalizeApplicantCategoryType(
+  value: unknown,
+  category?: ApplicantCategoryRow,
+): ApplicantCategoryType {
+  if (value === 'pre_university' || value === 'ثانوي') return 'pre_university';
+  if (value === 'university' || value === 'جامعي') return 'university';
+  if (category?.type === 'pre_university' || category?.type === 'university') {
+    return category.type;
+  }
+  return 'university';
 }
 
 interface ConfigItemProps {
