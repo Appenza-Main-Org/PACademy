@@ -463,7 +463,7 @@ export interface CommitteeInstance {
    *  Carried explicitly so cross-cycle filters don't have to round-trip
    *  through the definition row. Mirrors the parent definition's
    *  `applicantCategoryId`. */
-  categoryKey: ApplicantCategoryKey;
+  categoryKey: string;
   /** ISO yyyy-mm-dd date this instance sits on. */
   date: string;
   /** Seats for this instance on this date (1..999). */
@@ -533,7 +533,7 @@ export interface Committee extends SoftDeleteFields {
   completed: number;
   /** FK → `applicant-categories[CAT-NN].code`. Required — the list page
    *  groups committees under their category header. */
-  categoryKey: ApplicantCategoryKey;
+  categoryKey: string;
   /** Total seats this committee can absorb. Required (1..999). */
   capacity: number;
   /** Discriminator for `gradeMin` / `gradeMax`. */

@@ -15,9 +15,7 @@ import {
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import {
-  APPLICANT_CATEGORY_KEYS,
   type AdmissionCycle,
-  type ApplicantCategoryKey,
 } from '@/shared/types/domain';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
@@ -29,10 +27,6 @@ import { num } from '@/shared/lib/format';
 /** Cycles only declare `year`; the academic year string is `${year}-${year+1}`. */
 function academicYearForCycle(cycle: AdmissionCycle): string {
   return `${cycle.year}-${cycle.year + 1}`;
-}
-
-function isApplicantCategoryKey(code: string): code is ApplicantCategoryKey {
-  return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(code);
 }
 
 export function CommitteesManagementPage(): JSX.Element {
@@ -53,9 +47,8 @@ function Body({ cycle }: BodyProps): JSX.Element {
   const active = useMemo(
     () =>
       (activeQuery.data ?? [])
-        .filter((c) => isApplicantCategoryKey(c.code))
         .map((c) => ({
-          key: c.code as ApplicantCategoryKey,
+          key: c.code,
           labelAr: c.nameAr,
         })),
     [activeQuery.data],
@@ -90,7 +83,7 @@ function Body({ cycle }: BodyProps): JSX.Element {
 
 interface CommitteesContentProps {
   cycle: AdmissionCycle;
-  active: Array<{ key: ApplicantCategoryKey; labelAr: string }>;
+  active: Array<{ key: string; labelAr: string }>;
 }
 
 function CommitteesContent({ cycle, active }: CommitteesContentProps): JSX.Element {

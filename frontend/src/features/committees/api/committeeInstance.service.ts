@@ -14,17 +14,17 @@
  */
 
 import { apiClient } from '@/shared/lib/api-client';
-import type { ApplicantCategoryKey, CommitteeInstance } from '@/shared/types/domain';
+import type { CommitteeInstance } from '@/shared/types/domain';
 
 export interface CommitteeInstanceListFilters {
   cycleId?: string;
-  categoryKey?: ApplicantCategoryKey;
+  categoryKey?: string;
   definitionCode?: string;
 }
 
 export interface CommitteeInstanceAddInput {
   cycleId: string;
-  categoryKey: ApplicantCategoryKey;
+  categoryKey: string;
   definitionCode: string;
   date: string;
   capacity: number;
@@ -35,7 +35,7 @@ export type TransferCapacityMode = 'move-only' | 'move-and-add-capacity';
 
 export interface ReservationTransferConflict {
   committeeName: string;
-  categoryKey: ApplicantCategoryKey;
+  categoryKey: string;
   sourceInstanceId: string;
   destinationInstanceId: string;
   sourceReserved: number;

@@ -31,14 +31,11 @@ import { zodResolver } from '@/shared/lib/zod-resolver';
 import { useCreateCommittee } from '../api/committee.queries';
 import { ROUTES } from '@/config/routes';
 import {
-  APPLICANT_CATEGORY_KEYS,
-  type ApplicantCategoryKey,
   type CommitteeRules,
   type CommitteeStatus,
 } from '@/shared/types/domain';
-import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
 import { useCycles } from '@/features/admin/api/cycles.queries';
-import { ACADEMIC_DEGREES } from '@/features/lookups';
+import { ACADEMIC_DEGREES, useLookup } from '@/features/lookups';
 import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 import { isValidationError } from '@/shared/lib/errors';
 import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
@@ -62,14 +59,10 @@ const GENDER_LABEL: Record<GenderOption, string> = {
   female: 'إناث',
 };
 
-const isApplicantCategoryKey = (v: string): v is ApplicantCategoryKey =>
-  (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(v);
-
 const schema = z.object({
   categoryKey: z
     .string()
-    .min(1, 'اختر الفئة')
-    .refine((v) => v === '' || isApplicantCategoryKey(v), 'الفئة غير صحيحة'),
+    .min(1, 'اختر الفئة'),
   name: z.string().trim().min(2, 'أدخِل اسم اللجنة'),
   academicYearId: z.string().min(1, 'اختر العام الدراسي'),
   status: z.enum(['active', 'inactive']),
@@ -88,7 +81,7 @@ type FormValues = z.infer<typeof schema>;
 export function CommitteeCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const createMut = useCreateCommittee();
-  const categoriesQuery = useCategoriesAdmin({ includeDeleted: false });
+  const categoriesQuery = useLookup('applicant-categories');
   const cyclesQuery = useCycles();
 
   /* When the admin clicks "إنشاء لجنة" from the committees lookup
@@ -98,10 +91,7 @@ export function CommitteeCreatePage(): JSX.Element {
    * selector. */
   const [searchParams] = useSearchParams();
   const requestedCategory = searchParams.get('category');
-  const presetCategoryKey: ApplicantCategoryKey | null =
-    requestedCategory && isApplicantCategoryKey(requestedCategory)
-      ? requestedCategory
-      : null;
+  const presetCategoryKey = requestedCategory?.trim() ? requestedCategory.trim() : null;
   const isCategoryLocked = presetCategoryKey !== null;
 
   const {
@@ -151,27 +141,27 @@ export function CommitteeCreatePage(): JSX.Element {
   const categoryOptions = useMemo(
     () =>
       (categoriesQuery.data ?? []).map((c) => ({
-        value: c.key,
-        label: c.labelAr,
-        badge: c.labelEn || c.key,
+        value: c.code,
+        label: c.name,
+        badge: c.nameEn || c.code,
       })),
     [categoriesQuery.data],
   );
 
   const selectedCategory = useMemo(
-    () => (categoriesQuery.data ?? []).find((c) => c.key === categoryKey),
+    () => (categoriesQuery.data ?? []).find((c) => c.code === categoryKey),
     [categoriesQuery.data, categoryKey],
   );
 
   /* Gender filter options are derived from the selected category's
-   * `conditions.gender` so the form never offers a value the category
+   * `genderScope` so the form never offers a value the category
    * has locked out. When the category fixes a value (e.g. 'male'), the
    * filter is rendered with that single option only. */
   const genderOptions = useMemo<GenderOption[]>(() => {
     if (!selectedCategory) return [];
-    const g = selectedCategory.conditions.gender;
-    if (g === 'any') return ['any', 'male', 'female'];
-    return [g];
+    return selectedCategory.genderScope.length === 1
+      ? [selectedCategory.genderScope[0]]
+      : ['any', 'male', 'female'];
   }, [selectedCategory]);
 
   /* Academic-degree options sourced from the `academic-degrees` reference
@@ -191,16 +181,12 @@ export function CommitteeCreatePage(): JSX.Element {
    * changes — the new category may not permit the previously-picked
    * gender. */
   const handleCategoryChange = (next: string | null): void => {
-    const key: ApplicantCategoryKey | '' =
-      next && isApplicantCategoryKey(next) ? next : '';
-    setValue('categoryKey', key, { shouldValidate: true });
+    setValue('categoryKey', next ?? '', { shouldValidate: true });
     setValue('filterGender', 'any', { shouldValidate: false });
     setValue('academicDegree', 'any', { shouldValidate: false });
   };
 
   const onSubmit = (values: FormValues): void => {
-    if (!isApplicantCategoryKey(values.categoryKey)) return;
-
     /* Map filter values back through the existing rule bag — gender lives
      * on `CommitteeRules` directly; the picked academic-degree lookup
      * code rides on `applicantType` (free-form lookup-key field).
@@ -293,7 +279,7 @@ export function CommitteeCreatePage(): JSX.Element {
                       className="text-md font-bold"
                       style={{ color: 'var(--accent-700)' }}
                     >
-                      {selectedCategory?.labelAr ?? presetCategoryKey}
+                      {selectedCategory?.name ?? presetCategoryKey}
                     </span>
                   </div>
                   <span className="text-xs text-ink-500">محدّدة من القائمة</span>

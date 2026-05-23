@@ -28,7 +28,6 @@ import {
 } from '@/shared/lib/soft-delete';
 import type {
   Applicant,
-  ApplicantCategoryKey,
   Committee,
   CommitteeGradeType,
   CommitteeResult,
@@ -63,7 +62,7 @@ export interface CommitteePayload {
   capacityPerSession: number;
   cycleId: string;
   /** Required — every new committee declares its category. */
-  categoryKey: ApplicantCategoryKey;
+  categoryKey: string;
   /** Required — total seats (1..999). */
   capacity: number;
   /** Required — discriminates `gradeMin`/`gradeMax` interpretation. */
@@ -582,7 +581,7 @@ export const committeeService = {
    *   DELETE /committees/schedule/:id                → 204
    */
 
-  async listSchedule(categoryKey: ApplicantCategoryKey): Promise<ExamScheduleEntry[]> {
+  async listSchedule(categoryKey: string): Promise<ExamScheduleEntry[]> {
     if (isBackendEnabled()) {
       return apiClient.get('/api/committees/schedule', { query: { category: categoryKey } });
     }
@@ -612,7 +611,7 @@ export const committeeService = {
    */
   async addScheduleEntries(
     entries: ReadonlyArray<{
-      categoryKey: ApplicantCategoryKey;
+      categoryKey: string;
       committeeId: string;
       date: string;
       capacity: number;
@@ -653,7 +652,7 @@ export const committeeService = {
   },
 
   async addScheduleBatch(input: {
-    categoryKey: ApplicantCategoryKey;
+    categoryKey: string;
     date: string;
     capacity: number;
   }): Promise<ExamScheduleEntry[]> {

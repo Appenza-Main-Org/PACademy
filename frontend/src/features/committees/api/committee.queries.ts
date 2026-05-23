@@ -1,14 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { committeeService, type CommitteePayload } from './committee.service';
 import type {
-  ApplicantCategoryKey,
   Committee,
   CommitteeStatus,
 } from '@/shared/types/domain';
 
 export const scheduleKeys = {
   all: ['committee-schedule'] as const,
-  byCategory: (key: ApplicantCategoryKey) =>
+  byCategory: (key: string) =>
     [...scheduleKeys.all, 'by-category', key] as const,
 };
 
@@ -210,7 +209,7 @@ export const useCommitteeSetStatus = () => {
 
 /* ── Exam-date schedule (per-(committee × date) seat capacity) ─────── */
 
-export const useScheduleByCategory = (key: ApplicantCategoryKey) =>
+export const useScheduleByCategory = (key: string) =>
   useQuery({
     queryKey: scheduleKeys.byCategory(key),
     queryFn: () => committeeService.listSchedule(key),
@@ -242,7 +241,7 @@ export const useAddScheduleEntriesMutation = () => {
 export const useRemoveScheduleEntryMutation = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { id: string; categoryKey: ApplicantCategoryKey }) =>
+    mutationFn: (input: { id: string; categoryKey: string }) =>
       committeeService.removeScheduleEntry(input.id),
     onSuccess: (_res, vars) => {
       qc.invalidateQueries({ queryKey: scheduleKeys.byCategory(vars.categoryKey) });
@@ -255,7 +254,7 @@ export const useUpdateScheduleEntryMutation = () => {
   return useMutation({
     mutationFn: (input: {
       id: string;
-      categoryKey: ApplicantCategoryKey;
+      categoryKey: string;
       patch: Parameters<typeof committeeService.updateScheduleEntry>[1];
     }) => committeeService.updateScheduleEntry(input.id, input.patch),
     onSuccess: (_res, vars) => {

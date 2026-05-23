@@ -46,13 +46,12 @@ import {
 } from '@/features/committees';
 import type {
   AdmissionCycle,
-  ApplicantCategoryKey,
   CommitteeInstance,
 } from '@/shared/types/domain';
 
 export interface CommitteeInstanceAddFormProps {
   cycle: AdmissionCycle;
-  active: ReadonlyArray<{ key: ApplicantCategoryKey; labelAr: string }>;
+  active: ReadonlyArray<{ key: string; labelAr: string }>;
 }
 
 /* ── Numeric-input guards ────────────────────────────────────────────
@@ -140,17 +139,16 @@ export function CommitteeInstanceAddForm({
     /* Build (category × definition × date) targets for the selected
      * categories. */
     const targets: Array<{
-      categoryKey: ApplicantCategoryKey;
+      categoryKey: string;
       definitionCode: string;
       date: string;
       capacity: number;
     }> = [];
     for (const key of selectedCategories) {
-      const catKey = key as ApplicantCategoryKey;
-      const defs = definitionsByCategory.get(catKey) ?? [];
+      const defs = definitionsByCategory.get(key) ?? [];
       for (const def of defs) {
         targets.push({
-          categoryKey: catKey,
+          categoryKey: key,
           definitionCode: def.code,
           date: iso,
           capacity: capacityRaw,
