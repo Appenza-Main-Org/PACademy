@@ -209,7 +209,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <AdminIndexRoute /> },
       { path: 'applicants', element: <AuthGuard app="admin" perm="applicants:view"><ApplicantsPage /></AuthGuard> },
-      { path: 'applicants/new', element: <AuthGuard app="admin" perm="applicants:edit"><ApplicantNewPage /></AuthGuard> },
+      { path: 'applicants/new', element: <AuthGuard app="admin" perm="applicants:create"><ApplicantNewPage /></AuthGuard> },
       { path: 'applicants/:id', element: <AuthGuard app="admin" perm="applicants:view"><ApplicantDetailPage /></AuthGuard> },
       { path: 'applicants/:id/edit', element: <AuthGuard app="admin" perm="applicants:edit"><ApplicantEditPage /></AuthGuard> },
       { path: 'users', element: <AuthGuard app="admin" perm="users:view"><UsersPage /></AuthGuard> },

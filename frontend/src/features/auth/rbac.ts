@@ -35,6 +35,7 @@ export type Permission =
   | 'reports:export'
   | 'dashboard:view'
   | 'applicants:view'
+  | 'applicants:create'
   | 'applicants:edit'
   | 'applicants:transition'
   | 'applicants:delete'
@@ -70,6 +71,7 @@ export type Permission =
   | 'users:edit'
   | 'users:delete'
   | 'users:manage'
+  | 'users:reset-2fa'
   | 'roles:view'
   | 'roles:manage'
   | 'audit:view'
@@ -108,6 +110,7 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
       'admin:view',
       'reports:view',
       'applicants:view',
+      'applicants:create',
       'applicants:edit',
       'applicants:transition',
       'cycles:view',
@@ -119,8 +122,8 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
       'committees:manage',
       'barcode:print',
       'biometric:verify',
-      'workflows:read',
-      'workflows:write',
+      'workflows:view',
+      'workflows:edit',
       /* Admission-setup section visibility for cycle-management roles. Write
        * is reserved to super_admin per the brief — reading the steps lets
        * committee admins audit the active cycle's setup. */
