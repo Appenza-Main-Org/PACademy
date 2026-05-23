@@ -76,14 +76,12 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
 
     private async Task RemoveMockSeedRecordsAsync(IAdminRecordsDbContext db, CancellationToken ct)
     {
-        var rows = await db.AdminRecords
+        var deleted = await db.AdminRecords
             .Where(x => MockSeedModules.Contains(x.Module))
-            .ToListAsync(ct);
-        if (rows.Count == 0) return;
+            .ExecuteDeleteAsync(ct);
+        if (deleted == 0) return;
 
-        db.AdminRecords.RemoveRange(rows);
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("Removed {Count} seeded admin mock records", rows.Count);
+        logger.LogInformation("Removed {Count} seeded admin mock records", deleted);
     }
 
     private async Task RemoveLegacyAuditRecordsAsync(IAdminRecordsDbContext db, CancellationToken ct)

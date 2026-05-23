@@ -105,19 +105,16 @@ public sealed class IdentitySeeder(IWebHostEnvironment environment, ILogger<Iden
     {
         var users = await db.Users
             .Where(x => x.NationalId != BootstrapAdminNationalId)
-            .ToListAsync(ct);
+            .ExecuteDeleteAsync(ct);
         var officers = await db.Officers
             .Where(x => x.NationalId != BootstrapAdminNationalId)
-            .ToListAsync(ct);
-        if (users.Count == 0 && officers.Count == 0) return;
+            .ExecuteDeleteAsync(ct);
+        if (users == 0 && officers == 0) return;
 
-        db.Users.RemoveRange(users);
-        db.Officers.RemoveRange(officers);
-        await db.SaveChangesAsync(ct);
         logger.LogInformation(
             "Removed {UserCount} non-bootstrap users and {OfficerCount} non-bootstrap officers; bootstrap admin {NationalId} remains",
-            users.Count,
-            officers.Count,
+            users,
+            officers,
             BootstrapAdminNationalId);
     }
 }
