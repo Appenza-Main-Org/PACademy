@@ -101,6 +101,30 @@ function useDebouncedValue<T>(value: T, ms: number): T {
   return debounced;
 }
 
+function useDeleteProgress(isActive: boolean): number {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (!isActive) {
+      setProgress(0);
+      return undefined;
+    }
+
+    setProgress(8);
+    const t = window.setInterval(() => {
+      setProgress((current) => {
+        if (current >= 92) return current;
+        const nextStep = Math.max(1, Math.round((92 - current) * 0.18));
+        return Math.min(92, current + nextStep);
+      });
+    }, 450);
+
+    return () => window.clearInterval(t);
+  }, [isActive]);
+
+  return progress;
+}
+
 function textColumnFilter(value: ColumnFilterValue | undefined): string | undefined {
   if (!value || value.kind !== 'text') return undefined;
   const text = value.contains.trim();
@@ -202,6 +226,8 @@ export function ApplicantGradesPage(): JSX.Element {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const clearMut = useClearGrades();
   const deleteMut = useDeleteGrades();
+  const clearProgress = useDeleteProgress(clearMut.isPending);
+  const selectedDeleteProgress = useDeleteProgress(deleteMut.isPending);
 
   useEffect(() => {
     setSelectedRowKeys([]);
@@ -1055,11 +1081,21 @@ export function ApplicantGradesPage(): JSX.Element {
         title="تصفير بيانات الدرجات"
         description={`سيتم حذف جميع الصفوف المستوردة وما عليها من تعديلات (${toEasternArabicNumerals(totalsAll)} صفًا). لا يمكن التراجع.`}
         actionLabel="تصفير البيانات"
+        actionLoadingLabel="جارٍ تصفير البيانات…"
         cancelLabel="إلغاء"
         tone="danger"
         isActionLoading={clearMut.isPending}
         onAction={() => void handleReset()}
-      />
+      >
+        {clearMut.isPending && (
+          <DeleteProgressPanel
+            progress={clearProgress}
+            totalRows={totalsAll}
+            title="جارٍ حذف بيانات الدرجات"
+            description="يبقى هذا التأكيد مفتوحًا حتى ينتهي الخادم من حذف الصفوف والتعديلات المرتبطة بها."
+          />
+        )}
+      </AlertDialog>
 
       <AlertDialog
         open={confirmBulkDelete}
@@ -1069,12 +1105,22 @@ export function ApplicantGradesPage(): JSX.Element {
         title="حذف الصفوف المحددة"
         description={`سيتم حذف ${toEasternArabicNumerals(selectedRowKeys.length)} صفًا من النتائج الحالية. لا يمكن التراجع.`}
         actionLabel="حذف المحدد"
+        actionLoadingLabel="جارٍ حذف المحدد…"
         cancelLabel="إلغاء"
         tone="danger"
         isActionLoading={deleteMut.isPending}
         isActionDisabled={selectedRowKeys.length === 0 || total === 0}
         onAction={() => void handleBulkDelete()}
-      />
+      >
+        {deleteMut.isPending && (
+          <DeleteProgressPanel
+            progress={selectedDeleteProgress}
+            totalRows={selectedRowKeys.length}
+            title="جارٍ حذف الصفوف المحددة"
+            description="سيتم تحديث الجدول تلقائيًا بعد اكتمال الحذف."
+          />
+        )}
+      </AlertDialog>
 
       {activeDerived && (
         <>
@@ -1098,6 +1144,62 @@ export function ApplicantGradesPage(): JSX.Element {
           />
         </>
       )}
+    </div>
+  );
+}
+
+function DeleteProgressPanel({
+  progress,
+  totalRows,
+  title,
+  description,
+}: {
+  progress: number;
+  totalRows: number;
+  title: string;
+  description: string;
+}): JSX.Element {
+  const boundedProgress = Math.min(99, Math.max(0, progress));
+
+  return (
+    <div
+      className="rounded-lg border border-terra-100 bg-terra-50/70 p-3"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface-card text-terra-700">
+          <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-ink-900">{title}</p>
+            <span className="font-en text-xs tabular-nums text-terra-700" dir="ltr">
+              {boundedProgress}%
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-ink-600">{description}</p>
+          <div
+            className="mt-3 h-2 overflow-hidden rounded-full bg-surface-card"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={boundedProgress}
+          >
+            <div
+              className="h-full rounded-full bg-terra-500 transition-[width] duration-slow ease-standard"
+              style={{ width: `${boundedProgress}%` }}
+            />
+          </div>
+          <p className="mt-2 text-2xs text-ink-500">
+            نطاق العملية:{' '}
+            <span className="font-numeric font-medium tabular-nums text-ink-800">
+              {toEasternArabicNumerals(totalRows)}
+            </span>{' '}
+            صف.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

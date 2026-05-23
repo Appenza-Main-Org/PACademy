@@ -57,8 +57,12 @@ interface AlertDialogProps {
   tone?: AlertDialogTone;
   /** Disable the action button (e.g. while a mutation is in flight). */
   isActionDisabled?: boolean;
+  /** Disable the cancel button while an irreversible async action is running. */
+  isCancelDisabled?: boolean;
   /** Show a loading spinner on the action button. */
   isActionLoading?: boolean;
+  /** Accessible/action label while the action button is loading. */
+  actionLoadingLabel?: string;
   className?: string;
 }
 
@@ -76,18 +80,28 @@ export function AlertDialog({
   onAction,
   tone = 'primary',
   isActionDisabled,
+  isCancelDisabled,
   isActionLoading,
+  actionLoadingLabel,
   className,
 }: AlertDialogProps): JSX.Element {
   return (
-    <RadixAlertDialog.Root open={open} onOpenChange={onOpenChange}>
+    <RadixAlertDialog.Root
+      open={open}
+      onOpenChange={(next) => {
+        if (isActionLoading && !next) return;
+        onOpenChange(next);
+      }}
+    >
       <RadixAlertDialog.Portal>
         <RadixAlertDialog.Overlay
           /* Radix AlertDialog deliberately omits onInteractOutside (ARIA: alert dialogs
              require an explicit choice). The brief asks for outside-click dismiss, so
              we wire it on the Overlay surface itself. Esc still flows through the
              AlertDialog default to onOpenChange(false). */
-          onClick={() => onOpenChange(false)}
+          onClick={() => {
+            if (!isActionLoading) onOpenChange(false);
+          }}
           className="fixed inset-0 z-modal-backdrop bg-[var(--surface-overlay)]"
           style={{ animation: OVERLAY_ANIM }}
         />
@@ -115,7 +129,7 @@ export function AlertDialog({
 
           <div className="mt-6 flex items-center justify-end gap-2">
             <RadixAlertDialog.Cancel asChild>
-              <Button variant="ghost" size="md">
+              <Button variant="ghost" size="md" disabled={isCancelDisabled || isActionLoading}>
                 {cancelLabel}
               </Button>
             </RadixAlertDialog.Cancel>
@@ -131,6 +145,7 @@ export function AlertDialog({
                 }}
                 disabled={isActionDisabled}
                 isLoading={isActionLoading}
+                loadingLabel={actionLoadingLabel}
               >
                 {actionLabel}
               </Button>
