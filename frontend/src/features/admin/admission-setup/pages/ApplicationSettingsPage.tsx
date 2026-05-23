@@ -13,13 +13,32 @@
  * `<AdmissionSetupWizardPage />`. This page just renders body content.
  */
 
+import { useEffect } from 'react';
 import { PageHeader } from '@/shared/components';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
 import { CategoryAccordion } from '../components/applicationSettings/CategoryAccordion';
 import { StickyBulkSaveBar } from '../components/applicationSettings/StickyBulkSaveBar';
 import { UnsavedChangesPrompt } from '../components/applicationSettings/UnsavedChangesPrompt';
+import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
+import {
+  hydrateApplicationSettingsCycleDraft,
+  writeApplicationSettingsCycleDraft,
+} from '../lib/application-settings-cycle-draft';
+import { useAdmissionSetupWizardStore } from '../store/wizardSharedState';
 
 export function ApplicationSettingsPage(): JSX.Element {
+  const { cycle } = useAdmissionSetupCycle();
+  const cycleId = cycle?.id ?? null;
+
+  useEffect(() => {
+    if (!cycleId) return undefined;
+    hydrateApplicationSettingsCycleDraft(cycleId);
+    const unsubscribe = useAdmissionSetupWizardStore.subscribe(() => {
+      writeApplicationSettingsCycleDraft(cycleId);
+    });
+    return unsubscribe;
+  }, [cycleId]);
+
   return (
     <AdmissionSetupShell>
       <div className="flex flex-col gap-4">
