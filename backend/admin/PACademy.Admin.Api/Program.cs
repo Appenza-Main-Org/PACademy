@@ -27,9 +27,22 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AdminFrontend", policy =>
     {
-        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-            ?? Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            ?? ["http://localhost:5173", "http://127.0.0.1:5173"];
+        var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+        var envOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
+            ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            ?? [];
+        var origins = configuredOrigins
+            .Concat(envOrigins)
+            .Concat([
+                "https://admin.appenzademo.com",
+                "https://appenzademo.com",
+                "https://www.appenzademo.com",
+                "https://pa-cademy.vercel.app",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173"
+            ])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
         policy
             .WithOrigins(origins)
