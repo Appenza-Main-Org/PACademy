@@ -60,7 +60,7 @@ function normalizeAuthResponse(response: AuthLoginResponse): AuthUser {
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthUser> {
-    const response = await apiClient.post<AuthLoginResponse>('/api/auth/login', credentials);
+    const response = await apiClient.postSimpleJson<AuthLoginResponse>('/api/auth/login', credentials);
     return normalizeAuthResponse(response);
   },
 

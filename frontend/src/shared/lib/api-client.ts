@@ -28,6 +28,7 @@ interface RequestOptions {
   body?: RequestBody;
   headers?: HeadersInit;
   signal?: AbortSignal;
+  skipAuth?: boolean;
 }
 
 const READ_RETRY_DELAYS_MS = [300, 900] as const;
@@ -55,6 +56,10 @@ function readAuthToken(): string | null {
   } catch {
     return null;
   }
+}
+
+function shouldSendAuthHeader(): boolean {
+  return import.meta.env.VITE_SEND_AUTH_HEADER === 'true';
 }
 
 export function queryString(query?: QueryObject): string {
@@ -200,7 +205,7 @@ async function fetchWithReadRetry(
 async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
-  const token = readAuthToken();
+  const token = options.skipAuth || !shouldSendAuthHeader() ? null : readAuthToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const body = prepareBody(options.body, headers);
@@ -222,7 +227,7 @@ async function request<T>(method: string, path: string, options: RequestOptions 
 async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   const headers = new Headers(options.headers);
   headers.set('Accept', '*/*');
-  const token = readAuthToken();
+  const token = options.skipAuth || !shouldSendAuthHeader() ? null : readAuthToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const res = await fetchWithReadRetry('GET', `${apiBaseUrl()}${path}${queryString(options.query)}`, {
@@ -238,6 +243,12 @@ async function requestBlob(path: string, options: RequestOptions = {}): Promise<
 
 export const apiClient = {
   get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, options),
+  postSimpleJson: <T>(path: string, body: object) =>
+    request<T>('POST', path, {
+      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'text/plain' },
+      skipAuth: true,
+    }),
   post: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
     request<T>('POST', path, { ...options, body }),
   patch: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>

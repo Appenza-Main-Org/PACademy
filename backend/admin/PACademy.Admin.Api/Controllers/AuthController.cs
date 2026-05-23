@@ -14,8 +14,9 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
 {
     [HttpPost("api/auth/login")]
     [HttpPost("api/auth/login/verify-otp")]
-    public async Task<ActionResult<object>> Login([FromBody] JsonObject body, CancellationToken ct)
+    public async Task<ActionResult<object>> Login(CancellationToken ct)
     {
+        var body = await ReadJsonBodyAsync(Request, ct);
         var nationalId = ReadString(body, "nationalId") ?? ReadString(body, "username");
         var mobile = ReadString(body, "mobileNumber") ?? ReadString(body, "mobile") ?? ReadString(body, "password");
         var requestedRole = ReadString(body, "role");
@@ -202,4 +203,13 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
         !string.IsNullOrWhiteSpace(left) &&
         !string.IsNullOrWhiteSpace(right) &&
         new string(left.Where(char.IsDigit).ToArray()) == new string(right.Where(char.IsDigit).ToArray());
+
+    private static async Task<JsonObject> ReadJsonBodyAsync(HttpRequest request, CancellationToken ct)
+    {
+        using var reader = new StreamReader(request.Body, Encoding.UTF8, leaveOpen: false);
+        var raw = await reader.ReadToEndAsync(ct);
+        return string.IsNullOrWhiteSpace(raw)
+            ? []
+            : JsonNode.Parse(raw)?.AsObject() ?? [];
+    }
 }
