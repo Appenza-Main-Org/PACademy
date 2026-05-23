@@ -87,7 +87,8 @@ function parsePageSize(raw: string | null): number {
   return Math.min(MAX_PAGE_SIZE, n);
 }
 
-const DEBOUNCE_MS = 250;
+const DEBOUNCE_MS = 400;
+const COLUMN_FILTER_DEBOUNCE_MS = 450;
 const ACTIVE_FILTER_CONTROL_CLASS =
   '!border-teal-500 !bg-teal-50 !text-teal-800 shadow-[inset_0_0_0_1px_var(--teal-500)]';
 
@@ -194,6 +195,7 @@ export function ApplicantGradesPage(): JSX.Element {
   const [overlay, setOverlay] = useState<OverlayState>(null);
   const [sort, setSort] = useState<DataTableSort<DerivedRow> | null>(null);
   const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({});
+  const debouncedColumnFilters = useDebouncedValue(columnFilters, COLUMN_FILTER_DEBOUNCE_MS);
   const [exporting, setExporting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<(string | number)[]>([]);
@@ -211,30 +213,30 @@ export function ApplicantGradesPage(): JSX.Element {
     yearFromUrl,
     schoolCategoryFromUrl,
     changedOnly,
-    columnFilters,
+    debouncedColumnFilters,
   ]);
 
   const gradeColumnFilters = useMemo<ApplicantGradesColumnFilters>(() => {
-    const totalRange = numberColumnFilter(columnFilters.total);
-    const pctRange = numberColumnFilter(columnFilters.pct);
-    const effRange = numberColumnFilter(columnFilters.eff);
-    const graduationYearRange = numberColumnFilter(columnFilters.graduationYear);
+    const totalRange = numberColumnFilter(debouncedColumnFilters.total);
+    const pctRange = numberColumnFilter(debouncedColumnFilters.pct);
+    const effRange = numberColumnFilter(debouncedColumnFilters.eff);
+    const graduationYearRange = numberColumnFilter(debouncedColumnFilters.graduationYear);
     return {
-      nid: textColumnFilter(columnFilters.nid),
-      seatingNumber: textColumnFilter(columnFilters.seatingNumber),
-      name: textColumnFilter(columnFilters.name),
+      nid: textColumnFilter(debouncedColumnFilters.nid),
+      seatingNumber: textColumnFilter(debouncedColumnFilters.seatingNumber),
+      name: textColumnFilter(debouncedColumnFilters.name),
       totalMin: totalRange?.min,
       totalMax: totalRange?.max,
       pctMin: pctRange?.min,
       pctMax: pctRange?.max,
       effMin: effRange?.min,
       effMax: effRange?.max,
-      schoolCategoryCodes: enumColumnFilter(columnFilters.schoolCategoryCode),
-      school: textColumnFilter(columnFilters.school),
+      schoolCategoryCodes: enumColumnFilter(debouncedColumnFilters.schoolCategoryCode),
+      school: textColumnFilter(debouncedColumnFilters.school),
       graduationYearMin: graduationYearRange?.min,
       graduationYearMax: graduationYearRange?.max,
     };
-  }, [columnFilters]);
+  }, [debouncedColumnFilters]);
 
   const activeColumnFilterCount = useMemo(
     () => Object.values(columnFilters).filter(isFilterActive).length,
@@ -374,14 +376,6 @@ export function ApplicantGradesPage(): JSX.Element {
 
   function handleColumnFiltersChange(nextFilters: Record<string, ColumnFilterValue>): void {
     setColumnFilters(nextFilters);
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('page', '1');
-        return next;
-      },
-      { replace: true },
-    );
   }
 
   async function handleExport(scope: 'page' | 'all', format: 'csv' | 'xlsx'): Promise<void> {
@@ -696,6 +690,16 @@ export function ApplicantGradesPage(): JSX.Element {
   ];
 
   const isEmpty = totalsAll === 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    const hasDebouncedColumnFilters = Object.values(debouncedColumnFilters).some(isFilterActive);
+    if (hasDebouncedColumnFilters && page !== 1) setPage(1);
+  }, [debouncedColumnFilters, page]);
 
   if (isLoading && !paginatedData) {
     return (
@@ -711,7 +715,6 @@ export function ApplicantGradesPage(): JSX.Element {
 
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div>
@@ -1017,7 +1020,7 @@ export function ApplicantGradesPage(): JSX.Element {
                 <div className="flex items-center gap-1">
                   <Button
                     size="sm"
-                    variant="ghost"
+                    variant="secondary"
                     onClick={() => setPage(page - 1)}
                     disabled={page <= 1}
                     aria-label="الصفحة السابقة"
@@ -1027,9 +1030,10 @@ export function ApplicantGradesPage(): JSX.Element {
                   <span className="px-2 font-en">
                     {page} / {totalPages}
                   </span>
+                  <PageJump currentPage={page} totalPages={totalPages} onChange={setPage} />
                   <Button
                     size="sm"
-                    variant="ghost"
+                    variant="secondary"
                     onClick={() => setPage(page + 1)}
                     disabled={page >= totalPages}
                     aria-label="الصفحة التالية"
@@ -1277,6 +1281,70 @@ function PageSizeSelector({
           dir="ltr"
         />
       )}
+    </div>
+  );
+}
+
+/** Direct page navigation for large imported-grade datasets. Keeps the
+ *  previous/next buttons fast while letting staff jump to a known page. */
+function PageJump({
+  currentPage,
+  totalPages,
+  onChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+}): JSX.Element {
+  const [draft, setDraft] = useState(String(currentPage));
+
+  useEffect(() => {
+    setDraft(String(currentPage));
+  }, [currentPage]);
+
+  const commit = (): void => {
+    const next = Number(draft);
+    if (!Number.isFinite(next) || !Number.isInteger(next)) {
+      setDraft(String(currentPage));
+      return;
+    }
+    const clamped = Math.min(totalPages, Math.max(1, next));
+    setDraft(String(clamped));
+    if (clamped !== currentPage) onChange(clamped);
+  };
+
+  return (
+    <div className="mx-1 inline-flex items-center gap-1 rounded-md border border-border-default bg-ink-50 px-1.5 py-1">
+      <label htmlFor="applicant-grades-page-jump" className="text-2xs text-ink-500">
+        صفحة
+      </label>
+      <input
+        id="applicant-grades-page-jump"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={totalPages}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          }
+        }}
+        aria-label="الانتقال إلى رقم صفحة"
+        className="h-7 w-16 rounded-sm border border-border-default bg-surface-card px-2 text-center text-sm font-en tabular-nums text-ink-900 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+        dir="ltr"
+      />
+      <button
+        type="button"
+        onClick={commit}
+        disabled={totalPages <= 1}
+        className="h-7 rounded-sm px-2 text-2xs font-medium text-teal-700 transition-colors hover:bg-teal-50 disabled:cursor-not-allowed disabled:text-ink-300 focus-visible:outline-none focus-visible:shadow-focus-teal"
+      >
+        انتقال
+      </button>
     </div>
   );
 }
