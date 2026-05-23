@@ -20,7 +20,7 @@ public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
         var lookups = await LoadLookupsAsync(ct);
         var specs = await db.ApplicationSettingsCategorySpecializations.AsNoTracking().ToListAsync(ct);
         var years = await db.ApplicationSettingsGraduationYears.AsNoTracking().ToListAsync(ct);
-        var configs = await db.ApplicationSettingsCategoryConfigs.AsNoTracking().OrderBy(x => x.SortOrder).ToListAsync(ct);
+        var configs = await EnsureCategoryConfigsForLookupCategoriesAsync(lookups, ct);
         return configs.Select(c => JoinConfig(c, specs, years, lookups)).ToList();
     }
 
@@ -77,7 +77,7 @@ public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
         var lookups = await LoadLookupsAsync(ct);
         var specs = await db.ApplicationSettingsCategorySpecializations.AsNoTracking().ToListAsync(ct);
         var years = await db.ApplicationSettingsGraduationYears.AsNoTracking().ToListAsync(ct);
-        var configs = await db.ApplicationSettingsCategoryConfigs.AsNoTracking().OrderBy(x => x.SortOrder).ToListAsync(ct);
+        var configs = await EnsureCategoryConfigsForLookupCategoriesAsync(lookups, ct);
 
         return configs.Select(config =>
         {
@@ -440,6 +440,53 @@ public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
             rows.Where(x => x.LookupKey == "submission-types").Select(LookupToJson).ToList());
     }
 
+    private async Task<IReadOnlyList<ApplicationSettingsCategoryConfigEntity>> EnsureCategoryConfigsForLookupCategoriesAsync(
+        LookupSnapshot lookups,
+        CancellationToken ct)
+    {
+        var configs = await db.ApplicationSettingsCategoryConfigs
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync(ct);
+        var knownCategoryIds = configs
+            .Select(x => x.CategoryId)
+            .ToHashSet(StringComparer.Ordinal);
+        var activeCategories = lookups.Categories
+            .Where(x => BoolProp(x, "isActive") != false)
+            .OrderBy(x => StringProp(x, "code"))
+            .ToList();
+        var maxSerial = MaxNumericSuffix(configs.Select(x => x.Id));
+        var nextSortOrder = configs.Count == 0 ? 1 : configs.Max(x => x.SortOrder) + 1;
+        var now = DateTimeOffset.UtcNow;
+        var added = false;
+
+        foreach (var category in activeCategories)
+        {
+            var code = StringProp(category, "code");
+            if (string.IsNullOrWhiteSpace(code) || knownCategoryIds.Contains(code)) continue;
+            var entity = new ApplicationSettingsCategoryConfigEntity
+            {
+                Id = $"acc-{++maxSerial}",
+                CategoryId = code,
+                IsActive = true,
+                SortOrder = nextSortOrder++,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            db.ApplicationSettingsCategoryConfigs.Add(entity);
+            configs.Add(entity);
+            knownCategoryIds.Add(code);
+            added = true;
+            AddAudit("create", "application_settings_category_config", entity.Id, new
+            {
+                categoryId = code,
+                source = "lookup:applicant-categories"
+            });
+        }
+
+        if (added) await db.SaveChangesAsync(ct);
+        return configs.OrderBy(x => x.SortOrder).ToList();
+    }
+
     private static JsonObject JoinConfig(ApplicationSettingsCategoryConfigEntity config, IReadOnlyList<ApplicationSettingsCategorySpecializationEntity> specs, IReadOnlyList<ApplicationSettingsGraduationYearEntity> years, LookupSnapshot lookups)
     {
         var category = Lookup(lookups.Categories, config.CategoryId);
@@ -653,6 +700,18 @@ public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
             if (int.TryParse(id[(dash + 1)..], out var serial) && serial > max) max = serial;
         }
         return $"{prefix}-{max + 1}";
+    }
+
+    private static int MaxNumericSuffix(IEnumerable<string> ids)
+    {
+        var max = 0;
+        foreach (var id in ids)
+        {
+            var dash = id.LastIndexOf('-');
+            if (dash < 0) continue;
+            if (int.TryParse(id[(dash + 1)..], out var serial) && serial > max) max = serial;
+        }
+        return max;
     }
 
     private sealed record LookupSnapshot(IReadOnlyList<JsonObject> Categories, IReadOnlyList<JsonObject> Specializations, IReadOnlyList<JsonObject> SubmissionTypes);
