@@ -103,7 +103,7 @@ export function useAddAdjustment() {
         isActive: input.isActive,
         by: input.by,
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.list() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
   });
 }
 
@@ -112,7 +112,7 @@ export function useToggleAdjustment() {
   return useMutation({
     mutationFn: (input: { seat: number; entryId: string }) =>
       gradesService.toggleAdjustment(input.seat, input.entryId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.list() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
   });
 }
 
@@ -121,7 +121,7 @@ export function useDeleteAdjustment() {
   return useMutation({
     mutationFn: (input: { seat: number; entryId: string }) =>
       gradesService.deleteAdjustment(input.seat, input.entryId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.list() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
   });
 }
 
@@ -130,7 +130,7 @@ export function useUpdateOverrideMax() {
   return useMutation({
     mutationFn: (input: { seat: number; overrideMax: number | null; by: string }) =>
       gradesService.updateOverrideMax(input.seat, input.overrideMax, input.by),
-    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.list() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
   });
 }
 
@@ -150,7 +150,7 @@ export function useCommitImport() {
     mutationFn: (input: { staged: StagedImport; resolutions: Record<string, ImportResolution> }) =>
       gradesService.commitImport(input.staged, input.resolutions),
     onSuccess: (_result: CommittedImport) => {
-      qc.invalidateQueries({ queryKey: gradesKeys.list() });
+      qc.invalidateQueries({ queryKey: gradesKeys.all });
     },
   });
 }

@@ -19,7 +19,8 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
     [HttpGet("api/grades")]
     public async Task<ActionResult<object>> List([FromQuery] int? page, [FromQuery] int? pageSize, [FromQuery] int? size, CancellationToken ct)
     {
-        var rows = await FilterRows(ct);
+        var allRows = (await records.ListAsync("grades", ct)).ToList();
+        var rows = FilterRows(allRows);
         if (page is not null || pageSize is not null || size is not null)
         {
             var p = page.GetValueOrDefault(1);
@@ -27,14 +28,20 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
             return Ok(new
             {
                 rows = rows.Skip(Math.Max(0, p - 1) * ps).Take(ps).ToList(),
-                total = rows.Count
+                total = rows.Count,
+                summary = BuildSummary(allRows),
+                facets = BuildFacets(allRows)
             });
         }
         return Ok(rows);
     }
 
     [HttpGet("api/grades/export")]
-    public async Task<ActionResult<IReadOnlyList<JsonObject>>> Export(CancellationToken ct) => Ok(await FilterRows(ct));
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> Export(CancellationToken ct)
+    {
+        var allRows = (await records.ListAsync("grades", ct)).ToList();
+        return Ok(FilterRows(allRows));
+    }
 
     [HttpGet("api/admin/applicant-grades/by-nid/{nid}")]
     public async Task<ActionResult<JsonObject>> ByNationalId(string nid, CancellationToken ct)
@@ -331,9 +338,8 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
         return Ok(await records.UpsertAsync("grades", seat, row, ct));
     }
 
-    private async Task<List<JsonObject>> FilterRows(CancellationToken ct)
+    private List<JsonObject> FilterRows(List<JsonObject> rows)
     {
-        var rows = await records.ListAsync("grades", ct);
         var q = Request.Query["q"].ToString();
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -342,10 +348,176 @@ public sealed class GradesController(AdminRecordsService records) : ControllerBa
                 (AdminRecordJson.StringProp(x, "name") ?? "").Contains(q, StringComparison.OrdinalIgnoreCase) ||
                 (AdminRecordJson.StringProp(x, "seatingNumber") ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
         }
+
+        rows = FilterByText(rows, "gender", "gender", exact: true);
+        rows = FilterByText(rows, "branch", "branch", exact: true);
+        rows = FilterByText(rows, "schoolCategoryCode", "schoolCategoryCode", exact: true);
+        rows = FilterByText(rows, "nid", "nid", exact: false);
+        rows = FilterByText(rows, "seatingNumber", "seatingNumber", exact: false);
+        rows = FilterByText(rows, "name", "name", exact: false);
+        rows = FilterByText(rows, "school", "school", exact: false);
+
+        var schoolCategoryCodes = QueryValues("schoolCategoryCodes");
+        if (schoolCategoryCodes.Count > 0)
+        {
+            rows = rows.Where(x => schoolCategoryCodes.Contains(AdminRecordJson.StringProp(x, "schoolCategoryCode") ?? "")).ToList();
+        }
+
+        if (QueryNumber("year") is double year)
+        {
+            rows = rows.Where(x => AdminRecordJson.NumberProp(x, "graduationYear") == year).ToList();
+        }
+
+        rows = FilterByNumberRange(rows, x => AdminRecordJson.NumberProp(x, "total"), "totalMin", "totalMax");
+        rows = FilterByNumberRange(rows, GradePercentage, "pctMin", "pctMax");
+        rows = FilterByNumberRange(rows, EffectiveGrade, "effMin", "effMax");
+        rows = FilterByNumberRange(rows, x => AdminRecordJson.NumberProp(x, "graduationYear"), "graduationYearMin", "graduationYearMax");
+
         var changedOnly = bool.TryParse(Request.Query["changedOnly"], out var changed) && changed;
         if (changedOnly) rows = rows.Where(x => x["gradeChangedAt"] is not null || (x["log"]?.AsArray().Count ?? 0) > 0).ToList();
-        return rows.OrderBy(x => AdminRecordJson.NumberProp(x, "seat") ?? 0).ToList();
+
+        return SortRows(rows);
     }
+
+    private static object BuildSummary(IReadOnlyList<JsonObject> rows) => new
+    {
+        total = rows.Count,
+        general = rows.Count(x => AdminRecordJson.StringProp(x, "kind") == "general"),
+        azhar = rows.Count(x => AdminRecordJson.StringProp(x, "kind") == "azhar"),
+        withAdjustments = rows.Count(x => x["gradeChangedAt"] is not null || (x["log"]?.AsArray().Count ?? 0) > 0)
+    };
+
+    private static object BuildFacets(IReadOnlyList<JsonObject> rows) => new
+    {
+        branches = rows
+            .Select(x => AdminRecordJson.StringProp(x, "branch"))
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList()
+    };
+
+    private List<JsonObject> FilterByText(List<JsonObject> rows, string queryKey, string property, bool exact)
+    {
+        var value = Request.Query[queryKey].ToString();
+        if (string.IsNullOrWhiteSpace(value)) return rows;
+        return rows.Where(x =>
+        {
+            var rowValue = AdminRecordJson.StringProp(x, property) ?? "";
+            return exact
+                ? string.Equals(rowValue, value, StringComparison.OrdinalIgnoreCase)
+                : rowValue.Contains(value, StringComparison.OrdinalIgnoreCase);
+        }).ToList();
+    }
+
+    private List<JsonObject> FilterByNumberRange(
+        List<JsonObject> rows,
+        Func<JsonObject, double?> getValue,
+        string minKey,
+        string maxKey)
+    {
+        var min = QueryNumber(minKey);
+        var max = QueryNumber(maxKey);
+        if (min is null && max is null) return rows;
+        return rows.Where(x =>
+        {
+            var value = getValue(x);
+            if (value is null) return false;
+            return (min is null || value >= min) && (max is null || value <= max);
+        }).ToList();
+    }
+
+    private List<string> QueryValues(string key) =>
+        Request.Query[key]
+            .SelectMany(value => value?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [])
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private double? QueryNumber(string key)
+    {
+        var value = Request.Query[key].ToString();
+        return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ||
+               double.TryParse(value, NumberStyles.Float, CultureInfo.GetCultureInfo("ar-EG"), out number)
+            ? number
+            : null;
+    }
+
+    private static double GradeMax(JsonObject row) =>
+        AdminRecordJson.NumberProp(row, "overrideMax") ??
+        AdminRecordJson.NumberProp(row, "importMax") ??
+        410;
+
+    private static double ActiveAdjustmentSum(JsonObject row)
+    {
+        var log = row["log"]?.AsArray();
+        if (log is null) return 0;
+        var sum = 0d;
+        foreach (var item in log.OfType<JsonObject>())
+        {
+            var isActive = item["isActive"]?.GetValue<bool?>() ?? true;
+            if (isActive) sum += AdminRecordJson.NumberProp(item, "amount") ?? 0;
+        }
+        return sum;
+    }
+
+    private static double? GradePercentage(JsonObject row)
+    {
+        var total = AdminRecordJson.NumberProp(row, "total");
+        var max = GradeMax(row);
+        if (total is null || max <= 0) return null;
+        return Math.Round((total.Value / max) * 100, 2);
+    }
+
+    private static double? EffectiveGrade(JsonObject row)
+    {
+        var total = AdminRecordJson.NumberProp(row, "total");
+        if (total is null) return null;
+        var max = GradeMax(row);
+        return Math.Max(0, Math.Min(max, total.Value + ActiveAdjustmentSum(row)));
+    }
+
+    private List<JsonObject> SortRows(List<JsonObject> rows)
+    {
+        var key = Request.Query["sortKey"].ToString();
+        var descending = string.Equals(Request.Query["sortDirection"].ToString(), "desc", StringComparison.OrdinalIgnoreCase);
+
+        return key switch
+        {
+            "nid" => SortString(rows, x => AdminRecordJson.StringProp(x, "nid"), descending),
+            "seatingNumber" => SortString(rows, x => AdminRecordJson.StringProp(x, "seatingNumber"), descending),
+            "name" => SortString(rows, x => AdminRecordJson.StringProp(x, "name"), descending),
+            "kind" => SortString(rows, x => AdminRecordJson.StringProp(x, "kind"), descending),
+            "gender" => SortString(rows, x => AdminRecordJson.StringProp(x, "gender"), descending),
+            "branch" => SortString(rows, x => AdminRecordJson.StringProp(x, "branch"), descending),
+            "schoolCategoryCode" => SortString(rows, x => AdminRecordJson.StringProp(x, "schoolCategoryCode"), descending),
+            "school" => SortString(rows, x => AdminRecordJson.StringProp(x, "school"), descending),
+            "region" => SortString(rows, x => AdminRecordJson.StringProp(x, "region"), descending),
+            "examRound" => SortString(rows, x => AdminRecordJson.StringProp(x, "examRound"), descending),
+            "graduationYear" => SortNumber(rows, x => AdminRecordJson.NumberProp(x, "graduationYear"), descending),
+            "total" => SortNumber(rows, x => AdminRecordJson.NumberProp(x, "total"), descending),
+            "max" => SortNumber(rows, x => GradeMax(x), descending),
+            "pct" => SortNumber(rows, GradePercentage, descending),
+            "eff" => SortNumber(rows, EffectiveGrade, descending),
+            "effPct" => SortNumber(rows, x =>
+            {
+                var eff = EffectiveGrade(x);
+                var max = GradeMax(x);
+                return eff is null || max <= 0 ? null : Math.Round((eff.Value / max) * 100, 2);
+            }, descending),
+            _ => SortNumber(rows, x => AdminRecordJson.NumberProp(x, "seat"), descending: false)
+        };
+    }
+
+    private static List<JsonObject> SortString(List<JsonObject> rows, Func<JsonObject, string?> getValue, bool descending) =>
+        descending
+            ? rows.OrderByDescending(x => getValue(x) ?? "", StringComparer.Ordinal).ThenBy(x => AdminRecordJson.NumberProp(x, "seat") ?? 0).ToList()
+            : rows.OrderBy(x => getValue(x) ?? "", StringComparer.Ordinal).ThenBy(x => AdminRecordJson.NumberProp(x, "seat") ?? 0).ToList();
+
+    private static List<JsonObject> SortNumber(List<JsonObject> rows, Func<JsonObject, double?> getValue, bool descending) =>
+        descending
+            ? rows.OrderByDescending(x => getValue(x) ?? double.MinValue).ThenBy(x => AdminRecordJson.NumberProp(x, "seat") ?? 0).ToList()
+            : rows.OrderBy(x => getValue(x) ?? double.MaxValue).ThenBy(x => AdminRecordJson.NumberProp(x, "seat") ?? 0).ToList();
 
     private async Task<JsonObject> GetGradeBySeat(string seat, CancellationToken ct)
     {

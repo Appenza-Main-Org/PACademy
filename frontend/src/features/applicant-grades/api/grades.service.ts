@@ -68,6 +68,20 @@ export interface ApplicantGradesColumnFilters {
   graduationYearMax?: number | null;
 }
 
+export interface PaginatedGradesResult {
+  rows: GradeRow[];
+  total: number;
+  summary?: {
+    total: number;
+    general: number;
+    azhar: number;
+    withAdjustments: number;
+  };
+  facets?: {
+    branches?: string[];
+  };
+}
+
 interface FilterInput {
   search?: string;
   gender?: GradeRow['gender'] | 'all';
@@ -287,8 +301,8 @@ export const gradesService = {
     page: number;
     pageSize: number;
     sort?: ApplicantGradesSort | null;
-  }): Promise<{ rows: GradeRow[]; total: number }> {
-    return apiClient.get<{ rows: GradeRow[]; total: number }>(GRADES_API, {
+  }): Promise<PaginatedGradesResult> {
+    return apiClient.get<PaginatedGradesResult>(GRADES_API, {
       query: toGradesQuery(input),
     });
   },

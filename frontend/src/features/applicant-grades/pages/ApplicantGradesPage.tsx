@@ -61,7 +61,6 @@ import {
   useApplicantGradesList,
   useClearGrades,
   useDeleteGrades,
-  useGrades,
 } from '../api/grades.queries';
 import { gradesService, type ApplicantGradesColumnFilters } from '../api/grades.service';
 import { downloadTemplateWorkbook } from '../lib/buildTemplateWorkbook';
@@ -254,27 +253,26 @@ export function ApplicantGradesPage(): JSX.Element {
     columnFilters: gradeColumnFilters,
     changedOnly,
   });
-  /* Keep the unpaginated query alive so the stats strip + overlay
-   * drawers have the full set of rows to render against. */
-  const { data: allRows } = useGrades();
-
   const rows = paginatedData?.rows ?? [];
   const total = paginatedData?.total ?? 0;
   const derived = useMemo<DerivedRow[]>(() => rows.map(deriveRow), [rows]);
-  const totalsAll = allRows?.length ?? 0;
-  const generalCount = (allRows ?? []).filter((r) => r.kind === 'general').length;
-  const azharCount = (allRows ?? []).filter((r) => r.kind === 'azhar').length;
-  const withAdjCount = (allRows ?? []).filter((r) => r.log.some((x) => x.isActive)).length;
+  const summary = paginatedData?.summary;
+  const totalsAll = summary?.total ?? total;
+  const generalCount = summary?.general ?? 0;
+  const azharCount = summary?.azhar ?? 0;
+  const withAdjCount = summary?.withAdjustments ?? 0;
 
   /* Branch + year filter options are derived from rows actually present
    * in the dataset. The year filter is back-padded with the last 10
    * years so newly-uploaded datasets always have a usable range even
    * before any row carries a real graduationYear. */
   const branchOptions = useMemo<string[]>(() => {
+    const fromBackend = paginatedData?.facets?.branches;
+    if (fromBackend && fromBackend.length > 0) return fromBackend;
     const set = new Set<string>();
-    for (const r of allRows ?? []) if (r.branch) set.add(r.branch);
+    for (const r of rows) if (r.branch) set.add(r.branch);
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'ar'));
-  }, [allRows]);
+  }, [paginatedData?.facets?.branches, rows]);
 
   /* Year filter options come from the admin-managed `graduation-years`
    * lookup (active rows only). Falling back to the years actually
@@ -289,13 +287,13 @@ export function ApplicantGradesPage(): JSX.Element {
       if (r.isActive && Number.isFinite(r.year)) set.add(r.year);
     }
     if (set.size === 0) {
-      for (const r of allRows ?? []) {
+      for (const r of rows) {
         if (typeof r.graduationYear === 'number') set.add(r.graduationYear);
       }
       set.add(new Date().getFullYear());
     }
     return Array.from(set).sort((a, b) => b - a);
-  }, [allRows, graduationYearsQuery.data]);
+  }, [rows, graduationYearsQuery.data]);
 
   function setFilter(key: 'gender' | 'branch' | 'year' | 'school', value: string): void {
     setSearchParams(
@@ -523,7 +521,7 @@ export function ApplicantGradesPage(): JSX.Element {
 
   const activeRow =
     overlay && 'seat' in overlay
-      ? (allRows ?? []).find((r) => r.seat === overlay.seat)
+      ? rows.find((r) => r.seat === overlay.seat)
       : null;
   const activeDerived = activeRow ? deriveRow(activeRow) : null;
 
@@ -635,7 +633,7 @@ export function ApplicantGradesPage(): JSX.Element {
     },
     {
       key: 'schoolCategoryCode',
-      label: 'النوع',
+      label: 'فئة المدرسة',
       align: 'center',
       sortable: true,
       getSortValue: (r) => r.schoolCategoryCode ?? '',
