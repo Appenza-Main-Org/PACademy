@@ -89,7 +89,7 @@ app.MapGet("/health", () => Results.Ok(new
 }));
 app.MapGet("/health/db", async (AdminDbContext db, CancellationToken ct) =>
 {
-    var result = await db.Database.SqlQueryRaw<int>("SELECT 1").FirstAsync(ct);
+    var result = await db.Database.SqlQueryRaw<int>("SELECT CAST(1 AS int) AS [Value]").FirstAsync(ct);
     return Results.Ok(new
     {
         status = "ok",
