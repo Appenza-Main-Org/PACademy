@@ -1255,41 +1255,39 @@ function PerSpecForm({
   };
   const submitTargets =
     bulkTargets && bulkTargets.length > 0 ? bulkTargets : [primarySpec];
-  const targetScopeKey = submitTargets
-    .map((target) => `${target.facultyCode}::${target.specializationCode}`)
-    .join('|');
   const rows = useMemo(
-    () => {
-      const targetKeys = new Set(targetScopeKey.split('|').filter(Boolean));
-      return [...localRows, ...approvedRows].filter(
+    () =>
+      [...localRows, ...approvedRows].filter(
         (r): r is LocalUniversityRow =>
-          r.kind === 'university' &&
-          r.categoryCode === categoryCode &&
-          targetKeys.has(`${r.facultyCode}::${r.specializationCode}`),
-      );
-    },
-    [localRows, approvedRows, categoryCode, targetScopeKey],
+          r.kind === 'university' && r.categoryCode === categoryCode,
+      ),
+    [localRows, approvedRows, categoryCode],
   );
+  const shouldShowScopeColumn =
+    showScopeColumn ||
+    rows.some(
+      (r) =>
+        r.facultyCode !== facultyCode ||
+        r.specializationCode !== specializationCode,
+    );
   const handleDelete = (id: string): void => {
     removeLocalRow(id);
     removeApprovedRow(id);
   };
 
-  /** The row currently being edited, scoped to *this* form: must be a
-   *  university row under the same (category, faculty, specialization)
-   *  triple. Editing a row in another scope drops this form back into
-   *  add-mode without losing the user's place in the wizard. */
+  /** The row currently being edited, scoped to the current category.
+   *  The visible grid is category-wide, so editing must be able to pick
+   *  up any row in that category, not just the currently selected
+   *  faculty/specialization targets. */
   const editingRow = useAdmissionSetupWizardStore((s) => {
     if (s.editingRowId === null) return null;
-    const targetKeys = new Set(targetScopeKey.split('|').filter(Boolean));
     const r =
       s.local.find((x) => x.id === s.editingRowId) ??
       s.approved.find((x) => x.id === s.editingRowId);
     if (
       !r ||
       r.kind !== 'university' ||
-      r.categoryCode !== categoryCode ||
-      !targetKeys.has(`${r.facultyCode}::${r.specializationCode}`)
+      r.categoryCode !== categoryCode
     ) {
       return null;
     }
@@ -1700,7 +1698,7 @@ function PerSpecForm({
           onEdit={handleEdit}
           onDelete={handleDelete}
           emptyRowsLabel={emptyRowsLabel}
-          showScopeColumn={showScopeColumn}
+          showScopeColumn={shouldShowScopeColumn}
         />
       )}
     </div>
