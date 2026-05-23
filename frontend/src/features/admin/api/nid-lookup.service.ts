@@ -7,6 +7,7 @@
 
 import { apiClient } from '@/shared/lib/api-client';
 import { isNotFoundError, isValidationError } from '@/shared/lib/errors';
+import { isValidNationalId } from '@/shared/lib/national-id';
 import type { UserType } from '@/shared/types/domain';
 
 export interface OfficerCandidate {
@@ -44,6 +45,9 @@ export class InvalidNidError extends Error {
 export const nidLookupService = {
   async lookup(nationalId: string): Promise<NidLookupResult> {
     const trimmed = nationalId.trim();
+    if (!/^\d{14}$/.test(trimmed) || !isValidNationalId(trimmed)) {
+      return { status: 'invalid', nationalId: trimmed, reason: 'format' };
+    }
     try {
       const data = await apiClient.get<OfficerCandidate>('/v1/officers/lookup', {
         query: { nationalId: trimmed },

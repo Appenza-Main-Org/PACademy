@@ -31,6 +31,7 @@ interface NidLookupFieldProps {
   value: string;
   onChange: (next: string) => void;
   onLookupResult: (result: OfficerCandidate | null) => void;
+  onNotFound?: (nationalId: string) => void;
   disabled?: boolean;
   /** Inline error from parent form-validation (e.g. zod required check). */
   externalError?: string;
@@ -44,6 +45,7 @@ export function NidLookupField({
   value,
   onChange,
   onLookupResult,
+  onNotFound,
   disabled,
   externalError,
   className,
@@ -54,7 +56,13 @@ export function NidLookupField({
   /* When the user edits the NID after a successful lookup, reset the
    * mutation state and clear any auto-filled form fields in the parent. */
   useEffect(() => {
-    if (lookup.data && lookup.data.status === 'found' && lookup.data.data.nationalId !== value.trim()) {
+    const trimmed = value.trim();
+    const lookedUpNationalId = lookup.data?.status === 'found'
+      ? lookup.data.data.nationalId
+      : lookup.data?.status === 'not_found'
+        ? lookup.data.nationalId
+        : null;
+    if (lookedUpNationalId && lookedUpNationalId !== trimmed) {
       lookup.reset();
       onLookupResult(null);
     }
@@ -69,6 +77,9 @@ export function NidLookupField({
       (result) => {
         if (result.status === 'found') {
           onLookupResult(result.data);
+        } else if (result.status === 'not_found') {
+          onLookupResult(null);
+          onNotFound?.(result.nationalId);
         } else {
           onLookupResult(null);
           if (result.status === 'invalid' && import.meta.env?.DEV) {

@@ -19,6 +19,8 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
     public async Task<JsonObject> CreateAsync(JsonObject payload, CancellationToken ct)
     {
         var nationalId = IdentityJson.StringProp(payload, "nationalId") ?? throw new FluentValidation.ValidationException("nationalId مطلوب");
+        if (!IsNationalId(nationalId))
+            throw new FluentValidation.ValidationException("الرقم القومي يجب أن يكون 14 رقماً");
         if (await db.Users.AnyAsync(x => x.NationalId == nationalId, ct))
             throw new ConflictException("USER_NID_DUPLICATE", "يوجد مستخدم مسجل بهذا الرقم القومي");
 
@@ -44,6 +46,7 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
             CreatedAt = now,
             UpdatedAt = now
         };
+        await EnsureOfficerDirectoryRowAsync(payload, nationalId, ct);
         db.Users.Add(entity);
         await db.SaveChangesAsync(ct);
         await EmitAuditAsync("create", entity.Id, $"إنشاء مستخدم · {entity.FullArabicName}", ct);
@@ -226,4 +229,24 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
         ["rowIndex"] = rowIndex,
         ["errors"] = new JsonArray(error)
     };
+
+    private async Task EnsureOfficerDirectoryRowAsync(JsonObject payload, string nationalId, CancellationToken ct)
+    {
+        if (await db.Officers.AnyAsync(x => x.NationalId == nationalId, ct)) return;
+
+        db.Officers.Add(new OfficerEntity
+        {
+            NationalId = nationalId,
+            FullArabicName = IdentityJson.StringProp(payload, "fullArabicName") ?? "مستخدم",
+            OfficerCode = IdentityJson.StringProp(payload, "officerCode") ?? nationalId,
+            MobileNumber = IdentityJson.StringProp(payload, "mobileNumber") ?? "",
+            UserType = NormalizeUserType(IdentityJson.StringProp(payload, "userType"))
+        });
+    }
+
+    private static bool IsNationalId(string value) =>
+        value.Length == 14 && value.All(char.IsDigit);
+
+    private static string NormalizeUserType(string? value) =>
+        value is "officer" or "civilian" or "contractor" ? value : "officer";
 }
