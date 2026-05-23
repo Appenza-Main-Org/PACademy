@@ -40,8 +40,8 @@ export function LoginForm(): JSX.Element {
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      nationalId: '29512011500011',
-      mobile: '01001234521',
+      nationalId: '28705260103619',
+      mobile: '01119441198',
       role: 'super_admin',
     },
   });
