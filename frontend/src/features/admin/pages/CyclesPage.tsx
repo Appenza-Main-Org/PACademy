@@ -68,11 +68,6 @@ const SETUP_LOCKED_HINT = 'متاح فقط للدورة النشطة';
 
 const ACTIVE_LABEL = 'نشطة';
 const INACTIVE_LABEL = 'غير نشطة';
-const COHORT_LABEL: Record<AdmissionCycle['cohort'], string> = {
-  male: 'ذكور',
-  female: 'إناث',
-};
-
 /* Drafts (إدراج ومراجعة) bubble to the top; published rows follow,
  * ordered by year desc. */
 const LIST_STATUS_PRIORITY: Record<CycleListStatus, number> = {
@@ -209,10 +204,6 @@ export function CyclesPage(): JSX.Element {
             <Badge tone="neutral">
               <span className="font-numeric tnum">{c.year}</span>
             </Badge>
-            <Badge tone="neutral">{COHORT_LABEL[c.cohort]}</Badge>
-            <span className="font-mono text-2xs text-ink-400" dir="ltr">
-              {c.id}
-            </span>
           </div>
         </div>
       ),
