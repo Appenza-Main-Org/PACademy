@@ -11,6 +11,7 @@
  *   POST   /api/cycles/:id/transition
  *   POST   /api/cycles/:id/activate
  *   POST   /api/cycles/:id/set-active
+ *   POST   /api/cycles/:id/deactivate
  *   POST   /api/cycles/:id/close
  *   POST   /api/cycles/:id/extend
  *   POST   /api/cycles/:id/archive
@@ -122,6 +123,10 @@ export const cyclesService = {
 
   async setActive(id: string): Promise<AdmissionCycle> {
     return apiClient.post(`/api/cycles/${encodeURIComponent(id)}/set-active`);
+  },
+
+  async deactivate(id: string): Promise<AdmissionCycle> {
+    return apiClient.post(`/api/cycles/${encodeURIComponent(id)}/deactivate`);
   },
 
   async transition(id: string, next: CycleStatus): Promise<AdmissionCycle> {

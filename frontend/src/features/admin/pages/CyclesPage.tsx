@@ -29,6 +29,7 @@ import {
   Pencil,
   Plus,
   Power,
+  PowerOff,
   Settings2,
   Trash2,
 } from 'lucide-react';
@@ -50,7 +51,12 @@ import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import type { AdmissionCycle } from '@/shared/types/domain';
-import { useCycles, useCycleRemove, useCycleSetActive } from '../api/cycles.queries';
+import {
+  useCycles,
+  useCycleDeactivate,
+  useCycleRemove,
+  useCycleSetActive,
+} from '../api/cycles.queries';
 import {
   LIST_STATUS_LABEL,
   LIST_STATUS_TONE,
@@ -93,6 +99,7 @@ export function CyclesPage(): JSX.Element {
   const navigate = useNavigate();
   const { data, isLoading } = useCycles();
   const setActiveMut = useCycleSetActive();
+  const deactivateMut = useCycleDeactivate();
   const removeMut = useCycleRemove();
 
   /* Land in the first wizard step (إعدادات التقديم) and pin the chosen
@@ -107,6 +114,7 @@ export function CyclesPage(): JSX.Element {
   };
 
   const [activateTarget, setActivateTarget] = useState<AdmissionCycle | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<AdmissionCycle | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdmissionCycle | null>(null);
 
   const activeCycle = useMemo(
@@ -164,6 +172,19 @@ export function CyclesPage(): JSX.Element {
       onSuccess: () => {
         toast(`تم تفعيل دورة "${activateTarget.nameAr}"`, 'success');
         setActivateTarget(null);
+      },
+      onError: (err) => {
+        toast((err as Error).message, 'danger');
+      },
+    });
+  };
+
+  const confirmDeactivate = (): void => {
+    if (!deactivateTarget) return;
+    deactivateMut.mutate(deactivateTarget.id, {
+      onSuccess: () => {
+        toast(`تم إلغاء تفعيل دورة "${deactivateTarget.nameAr}"`, 'success');
+        setDeactivateTarget(null);
       },
       onError: (err) => {
         toast((err as Error).message, 'danger');
@@ -305,8 +326,16 @@ export function CyclesPage(): JSX.Element {
           setupButton
         );
 
-        /* Activate button — hidden on the already-active row. */
-        const activateSlot = c.isActive ? null : (
+        const activeToggleSlot = c.isActive ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            leadingIcon={<PowerOff size={12} strokeWidth={1.75} />}
+            onClick={() => setDeactivateTarget(c)}
+          >
+            إلغاء التفعيل
+          </Button>
+        ) : (
           <Button
             variant="secondary"
             size="sm"
@@ -343,7 +372,7 @@ export function CyclesPage(): JSX.Element {
         return (
           <div className="flex min-w-[13rem] flex-wrap items-center justify-end gap-1.5">
             {setupSlot}
-            {activateSlot}
+            {activeToggleSlot}
             {editSlot}
             {deleteSlot}
           </div>
@@ -468,6 +497,30 @@ export function CyclesPage(): JSX.Element {
           tone="danger"
           isActionLoading={setActiveMut.isPending}
           onAction={confirmActivate}
+        />
+
+        <AlertDialog
+          open={deactivateTarget !== null}
+          onOpenChange={(next) => {
+            if (!next) setDeactivateTarget(null);
+          }}
+          title="تأكيد إلغاء تفعيل الدورة"
+          description={
+            deactivateTarget ? (
+              <>
+                سيتم إلغاء تفعيل دورة{' '}
+                <strong className="font-semibold text-ink-900">
+                  &quot;{deactivateTarget.nameAr}&quot;
+                </strong>
+                . يمكن أن تبقى المنظومة بدون دورة نشطة حتى يتم تفعيل دورة أخرى.
+              </>
+            ) : null
+          }
+          actionLabel="إلغاء التفعيل"
+          cancelLabel="إلغاء"
+          tone="danger"
+          isActionLoading={deactivateMut.isPending}
+          onAction={confirmDeactivate}
         />
 
         <AlertDialog

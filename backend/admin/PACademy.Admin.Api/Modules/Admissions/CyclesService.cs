@@ -93,6 +93,17 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
         return ToJson(entity);
     }
 
+    public async Task<JsonObject> DeactivateAsync(string id, CancellationToken ct)
+    {
+        var entity = await FindAsync(id, ct);
+        var obj = ToJson(entity);
+        obj["isActive"] = false;
+        Apply(entity, obj);
+        await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("deactivate", id, $"إلغاء تفعيل دورة قبول · {entity.NameAr}", ct);
+        return ToJson(entity);
+    }
+
     public async Task<JsonObject> TransitionAsync(string id, string status, CancellationToken ct)
     {
         var entity = await FindAsync(id, ct);

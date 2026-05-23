@@ -39,6 +39,10 @@ public sealed class CyclesController(CyclesService service) : ControllerBase
     public async Task<ActionResult<JsonObject>> SetActive(string id, CancellationToken ct) =>
         Ok(await service.ActivateAsync(id, swap: true, ct));
 
+    [HttpPost("{id}/deactivate")]
+    public async Task<ActionResult<JsonObject>> Deactivate(string id, CancellationToken ct) =>
+        Ok(await service.DeactivateAsync(id, ct));
+
     [HttpPost("{id}/clone")]
     public async Task<ActionResult<JsonObject>> Clone(string id, CancellationToken ct)
     {

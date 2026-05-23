@@ -151,6 +151,14 @@ export function useCycleSetActive() {
   });
 }
 
+export function useCycleDeactivate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cyclesService.deactivate(id),
+    onSuccess: (cycle) => invalidateCycle(qc, cycle.id),
+  });
+}
+
 export function useCycleSwapActive() {
   const qc = useQueryClient();
   return useMutation({
