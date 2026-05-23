@@ -939,6 +939,7 @@ function SpecializedOfficersWorkspace({
             bulkTargets={selectedSpecTargets}
             emptyRowsLabel="لم تُضف شروط لجان بعد للتخصصات المحددة."
             showScopeColumn={selectedSpecTargets.length > 1}
+            onAddSuccess={handleClearSpecs}
             bulkBanner={
               <BulkApplyBanner
                 facultyName={selectedFaculty.name}
@@ -1064,6 +1065,7 @@ interface PerSpecFormProps {
   bulkBanner?: React.ReactNode;
   emptyRowsLabel?: string;
   showScopeColumn?: boolean;
+  onAddSuccess?: () => void;
 }
 
 function rowToUniversityInput(r: LocalUniversityRow): GeneralRuleRowInput {
@@ -1137,6 +1139,7 @@ function PerSpecForm({
   bulkBanner,
   emptyRowsLabel = 'لم تُضف شروط لجان بعد لهذا التخصص.',
   showScopeColumn = false,
+  onAddSuccess,
 }: PerSpecFormProps): JSX.Element {
   const {
     categoryCode,
@@ -1378,6 +1381,7 @@ function PerSpecForm({
       }
     }
     resetForm();
+    onAddSuccess?.();
     toast(
       submitTargets.length > 1
         ? `تمت إضافة الشرط إلى ${num(submitTargets.length)} تخصصات`
