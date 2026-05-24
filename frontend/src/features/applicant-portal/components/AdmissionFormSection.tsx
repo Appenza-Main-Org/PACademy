@@ -599,18 +599,21 @@ const ADMISSION_FORM_CSS = `
   body:has(.admission-form) .admission-watermark {
     display: revert !important;
   }
-  /* Collapse the wizard 2-column grid to a single column so the
-   * surviving content column fills the page. */
-  body:has(.admission-form) [class*="grid-cols-"] {
-    display: block !important;
-    grid-template-columns: none !important;
+  /* Collapse ONLY the wizard's 2-column grid to a single column so
+   * the surviving content column fills the page. The wizard uses a
+   * unique bracketed Tailwind class with minmax(...); the matching
+   * attribute selector below catches it without touching nested
+   * grids like the attendance card's grid-cols-[140px_1fr_auto]. */
+  body:has(.admission-form) [class*="grid-cols-[minmax"] {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
   }
-  /* Strip max-widths + side padding from every layout container
-   * between body and the article so the article can fill 100%. */
-  body:has(.admission-form) [class*="max-w-"] {
+  /* Strip max-width + padding only on the applicant layout's
+   * outer container, not on every max-w element in the tree. */
+  body:has(.admission-form) [data-app="applicant"] [class*="max-w-["] {
     max-width: none !important;
+    padding: 0 !important;
   }
-  body:has(.admission-form) [data-app="applicant"] > div,
   body:has(.admission-form) [data-app="applicant"] {
     padding: 0 !important;
     margin: 0 !important;

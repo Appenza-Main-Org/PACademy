@@ -129,14 +129,14 @@ export function Stage9PrintCardPage(): JSX.Element {
               </div>
               <div>
                 <p className="text-2xs uppercase tracking-wide text-ink-500">رقم الملف</p>
-                <p className="font-mono text-sm text-ink-900" dir="ltr">
-                  {fileNumber}
+                <p className="font-mono text-sm text-ink-900">
+                  <span dir="ltr">{fileNumber}</span>
                 </p>
               </div>
               <div>
                 <p className="text-2xs uppercase tracking-wide text-ink-500">الرقم القومي</p>
-                <p className="font-mono text-sm text-ink-900" dir="ltr">
-                  {MOI_APPLICANT_SESSION.nationalId}
+                <p className="font-mono text-sm text-ink-900">
+                  <span dir="ltr">{MOI_APPLICANT_SESSION.nationalId}</span>
                 </p>
               </div>
             </div>
