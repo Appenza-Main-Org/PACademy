@@ -12,10 +12,11 @@ export const adminNotificationKeys = {
   forApplicant: (id: string) => [...adminNotificationKeys.all, 'for-applicant', id] as const,
 };
 
-export function useAdminNotifications(filters: NotificationFilters = {}) {
+export function useAdminNotifications(filters: NotificationFilters = {}, enabled = true) {
   return useQuery({
     queryKey: adminNotificationKeys.list(filters),
     queryFn: () => notificationsService.list(filters),
+    enabled,
   });
 }
 

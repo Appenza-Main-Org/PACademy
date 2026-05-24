@@ -100,6 +100,10 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
         {
             ["id"] = userRow.Id,
             ["name"] = userRow.FullArabicName,
+            ["nationalId"] = userRow.NationalId,
+            ["mobileNumber"] = registeredMobile,
+            ["email"] = IdentityJson.StringProp(userJson, "email"),
+            ["officerCode"] = IdentityJson.StringProp(userJson, "officerCode"),
             ["role"] = roleRow.Key,
             ["roleLabel"] = roleRow.LabelAr,
             ["apps"] = roleJson["apps"]?.DeepClone() ?? new JsonArray("admin"),
@@ -242,6 +246,10 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
         {
             ["id"] = "U-011",
             ["name"] = "د. مقدم / هشام البري - مدير النظام الرئيسي",
+            ["nationalId"] = BootstrapAdminNationalId,
+            ["mobileNumber"] = BootstrapAdminMobile,
+            ["email"] = null,
+            ["officerCode"] = "OFF-1001",
             ["role"] = "super_admin",
             ["roleLabel"] = "مدير النظام الرئيسي",
             ["apps"] = new JsonArray(
