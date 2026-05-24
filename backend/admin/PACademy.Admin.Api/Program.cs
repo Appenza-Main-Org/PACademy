@@ -2,6 +2,7 @@ using PACademy.Admin.Api.Api;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
+using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Persistence;
@@ -24,6 +25,7 @@ builder.Services.AddLookupsModule(builder.Configuration);
 builder.Services.AddAdmissionsModule(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddAdminRecordsModule(builder.Configuration);
+builder.Services.AddExamsModule(builder.Configuration);
 builder.Services.AddAuditModule();
 var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 var envOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
@@ -106,5 +108,6 @@ await app.SeedLookupsAsync();
 await app.SeedAdmissionsAsync();
 await app.SeedIdentityAsync();
 await app.SeedAdminRecordsAsync();
+await app.SeedExamsAsync();
 
 app.Run();

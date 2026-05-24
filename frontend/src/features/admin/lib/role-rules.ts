@@ -22,13 +22,18 @@ interface RoleConflictRule {
 
 const STAFF_ROLES: ReadonlyArray<Role> = [
   'super_admin',
+  'admissions_manager',
+  'applicants_officer',
+  'setup_admin',
+  'payments_officer',
+  'auditor',
+  'exams_admin',
   'committee_admin',
   'committee_user',
   'medical_admin',
   'medical_doctor',
   'investigator',
   'board_admin',
-  'exams_admin',
   'biometric_user',
   'records_clerk',
 ];

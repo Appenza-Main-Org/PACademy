@@ -35,7 +35,7 @@ expect_node "faculties seed count" "/api/lookups/faculties" "Array.isArray(data)
 expect_node "cycles seed count" "/api/cycles" "Array.isArray(data) && data.length === 5"
 expect_node "categories locked set" "/api/admin/categories" "Array.isArray(data) && data.length === 4"
 expect_node "users seed count" "/api/users" "Array.isArray(data) && data.length === 1 && data[0].nationalId === '28705260103619'"
-expect_node "roles seed count" "/api/roles" "Array.isArray(data) && data.length === 12"
+expect_node "roles seed count" "/api/roles" "Array.isArray(data) && data.length === 8"
 expect_node "applicants page is empty without mock seed" "/api/applicants?page=1&pageSize=1" "data.total === 0 && Array.isArray(data.data) && data.data.length === 0"
 expect_node "payments seed is empty without mock seed" "/api/admin/payments" "Array.isArray(data) && data.length === 0"
 expect_node "audit endpoint reads durable entries" "/api/audit" "Array.isArray(data)"
@@ -46,7 +46,10 @@ expect_node "exam schedule endpoint" "/api/admin/exam-schedule/cycles/CYC-2026-M
 expect_node "committee bindings endpoint" "/api/admin/committee-bindings/cycles/CYC-2026-M" "Array.isArray(data)"
 expect_node "exam plan endpoint" "/api/cycles/CYC-2026-M/categories/officers_general/exam-plan" "data.cycleId === 'CYC-2026-M' && data.categoryId === 'officers_general'"
 expect_node "grades endpoint" "/api/grades?page=1&pageSize=5" "Array.isArray(data.rows) && Number.isInteger(data.total)"
-expect_node "officer lookup endpoint" "/v1/officers/lookup?nationalId=28705260103619" "data.officerCode === 'OFF-1009'"
+expect_node "officer lookup endpoint" "/v1/officers/lookup?nationalId=28705260103619" "data.officerCode === 'OFF-1001'"
+expect_node "question bank seeded" "/api/questions" "Array.isArray(data) && data.length === 52"
+expect_node "exams seeded" "/api/exams" "Array.isArray(data) && data.length === 2"
+expect_node "exam categories grouped" "/api/exams/categories" "Array.isArray(data) && data.length >= 5"
 
 json_post "/api/auth/login" '{"nationalId":"28705260103619","mobile":"01119441198","role":"super_admin"}' | node -e "
   let s = '';

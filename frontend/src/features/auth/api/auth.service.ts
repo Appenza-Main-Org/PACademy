@@ -100,23 +100,37 @@ export const authService = {
       return buildMockUser(credentials);
     }
 
-    const postLogin = (role: Role): Promise<AuthLoginResponse> =>
+    /* Login flow:
+     *   1. Try with the role the picker submitted.
+     *   2. On rejection, retry without a role so the backend uses the
+     *      user's actual stored role (covers users whose role isn't one
+     *      of the picker tiles — e.g. `admissions_manager`).
+     *   3. As a last resort, retry as `super_admin` so the legacy
+     *      bootstrap account keeps working when the picker is on the
+     *      Question Bank tile. */
+    const tryLogin = (role: Role | undefined): Promise<AuthLoginResponse> =>
       apiClient.postForm<AuthLoginResponse>('/api/auth/login-simple', {
         username: credentials.username,
         password: credentials.password,
-        role,
+        ...(role ? { role } : {}),
         nationalId: credentials.username,
         mobile: credentials.password,
       });
 
-    let response: AuthLoginResponse;
     try {
-      response = await postLogin(credentials.role);
-    } catch (error) {
-      if (credentials.role === 'super_admin') throw error;
-      response = await postLogin('super_admin');
+      return normalizeAuthResponse(await tryLogin(credentials.role));
+    } catch (firstError) {
+      try {
+        return normalizeAuthResponse(await tryLogin(undefined));
+      } catch {
+        if (credentials.role === 'super_admin') throw firstError;
+        try {
+          return normalizeAuthResponse(await tryLogin('super_admin'));
+        } catch {
+          throw firstError;
+        }
+      }
     }
-    return normalizeAuthResponse(response);
   },
 
   async requestOtp(credentials: LoginCredentials): Promise<{ pendingId: string; otpDevice: string }> {

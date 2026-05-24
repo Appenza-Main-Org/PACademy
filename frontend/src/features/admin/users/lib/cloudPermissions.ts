@@ -1,10 +1,11 @@
 /**
- * Cloud permission matrix — governs the admin app and applicant-facing
- * cloud surfaces. Operational on-prem modules have their own RBAC plane
- * and are intentionally absent here.
+ * Cloud permission matrix — governs the admin app, the question bank,
+ * and applicant-facing cloud surfaces. Operational on-prem modules
+ * (committees, medical, investigations, board, biometric, barcode)
+ * keep their own RBAC plane and are intentionally absent here.
  */
 
-export type CloudSectionKey = 'admin' | 'applicant';
+export type CloudSectionKey = 'admin' | 'exams' | 'applicant';
 
 export type CloudModuleKey =
   | 'dashboard'
@@ -22,6 +23,10 @@ export type CloudModuleKey =
   | 'audit'
   | 'settings'
   | 'notifications'
+  | 'exams_bank'
+  | 'exams_exams'
+  | 'exams_proctor'
+  | 'exams_results'
   | 'applicant_content'
   | 'applicant_documents'
   | 'applicant_payments';
@@ -52,6 +57,7 @@ export interface CloudSection {
 
 export const CLOUD_SECTIONS: readonly CloudSection[] = [
   { key: 'admin', nameAr: 'إدارة المنظومة' },
+  { key: 'exams', nameAr: 'بنك الأسئلة والاختبارات' },
   { key: 'applicant', nameAr: 'بوابة المتقدمين' },
 ] as const;
 
@@ -80,6 +86,10 @@ export const CLOUD_MODULES: readonly CloudModule[] = [
   { key: 'settings',               nameAr: 'الإعدادات العامة',               section: 'admin', route: '/admin/settings',                state: 'active' },
   { key: 'notifications',          nameAr: 'الإشعارات',                      section: 'admin', route: '/admin/notifications',           state: 'active' },
   { key: 'applicant_payments',     nameAr: 'المدفوعات',                      section: 'admin', route: '/admin/payments',                state: 'active' },
+  { key: 'exams_bank',             nameAr: 'بنك الأسئلة',                    section: 'exams', route: '/question-bank/manage',          state: 'active' },
+  { key: 'exams_exams',            nameAr: 'الاختبارات',                    section: 'exams', route: '/question-bank/exams',           state: 'active' },
+  { key: 'exams_proctor',          nameAr: 'متابعة جلسات الاختبار',         section: 'exams', route: '/question-bank/proctor',         state: 'active' },
+  { key: 'exams_results',          nameAr: 'نتائج الاختبارات',              section: 'exams', route: '/question-bank/results',         state: 'active' },
   { key: 'applicant_content',      nameAr: 'محتوى بوابة المتقدمين',          section: 'applicant', route: null,                         state: 'active' },
   { key: 'applicant_documents',    nameAr: 'مستندات المتقدمين',              section: 'applicant', route: null,                         state: 'active' },
 ] as const;
@@ -123,6 +133,10 @@ const ROW_CAPABILITIES = {
   settings: ['view', 'edit', 'manage', 'approve', 'toggle'],
   notifications: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'approve', 'export', 'toggle'],
   applicant_payments: ['view', 'edit', 'manage', 'approve', 'export', 'toggle', 'sync'],
+  exams_bank: ['view', 'create', 'edit', 'delete', 'manage', 'approve', 'export', 'import'],
+  exams_exams: ['view', 'create', 'edit', 'delete', 'manage', 'approve', 'export'],
+  exams_proctor: ['view', 'manage', 'sync', 'export'],
+  exams_results: ['view', 'approve', 'export'],
   applicant_content: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'approve', 'export', 'toggle'],
   applicant_documents: ['view', 'edit', 'delete', 'export'],
 } as const satisfies Record<CloudModuleKey, CapabilityList>;
@@ -278,6 +292,36 @@ const CELL_PERMISSION_MAP: Record<CloudModuleKey, Partial<Record<CloudActionKey,
     toggle: 'payments:approve',
     sync: 'payments:sync',
   },
+  exams_bank: {
+    view: 'questions:view',
+    create: 'questions:create',
+    edit: 'questions:edit',
+    delete: 'questions:delete',
+    manage: 'questions:edit',
+    approve: 'questions:publish',
+    export: 'questions:view',
+    import: 'questions:import',
+  },
+  exams_exams: {
+    view: 'exams:view',
+    create: 'exams:create',
+    edit: 'exams:edit',
+    delete: 'exams:delete',
+    manage: 'exams:edit',
+    approve: 'exams:publish',
+    export: 'exams:view',
+  },
+  exams_proctor: {
+    view: 'exams:proctor',
+    manage: 'exams:proctor',
+    sync: 'exams:proctor',
+    export: 'exams:proctor',
+  },
+  exams_results: {
+    view: 'exams:results',
+    approve: 'exams:results',
+    export: 'exams:results',
+  },
   applicant_content: {
     view: 'applicant:view',
     create: 'applicant:content',
@@ -365,11 +409,11 @@ const LEGACY_MODULE_MAP: Record<string, CloudModuleKey | null> = {
   medical: null,
   investigations: null,
   board: null,
-  exams: null,
-  questions: null,
+  exams: 'exams_exams',
+  questions: 'exams_bank',
+  results: 'exams_results',
   biometric: null,
   barcode: null,
-  results: null,
   applicant: null,
 };
 
@@ -384,6 +428,8 @@ const LEGACY_ACTION_MAP: Record<string, CloudActionKey | null> = {
   transition: 'transition',
   review: 'approve',
   approve: 'approve',
+  publish: 'approve',
+  proctor: 'manage',
   export: 'export',
   toggle: 'toggle',
   import: 'import',

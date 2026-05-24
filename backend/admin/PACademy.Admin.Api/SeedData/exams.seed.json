@@ -1,0 +1,1021 @@
+{
+  "generatedAt": "2026-05-24",
+  "source": "frontend/src/shared/mock-data/sprint3to9.ts BANK_QUESTIONS + EXAM_CONFIGS (verbatim — CLAUDE.md backend rule)",
+  "questions": [
+    {
+      "id": "Q-00051",
+      "category": "ثقافة عامة",
+      "difficulty": 2,
+      "type": "true-false",
+      "text": "تتكوّن بطاقة الرقم القومي المصرية من 14 رقماً.",
+      "options": [
+        "صح",
+        "خطأ"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 30,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00052",
+      "category": "منطق",
+      "difficulty": 3,
+      "type": "matching",
+      "text": "صِل كل مرحلة بالإجراء المناسب لها.",
+      "options": [
+        "التحقق من الهوية",
+        "حجز الموعد",
+        "إعلان النتيجة"
+      ],
+      "correctIndex": 0,
+      "matchingPairs": [
+        {
+          "prompt": "قبل بدء الاختبار",
+          "match": "التحقق من الهوية"
+        },
+        {
+          "prompt": "بعد سداد الرسوم",
+          "match": "حجز الموعد"
+        },
+        {
+          "prompt": "بعد اعتماد اللجنة",
+          "match": "إعلان النتيجة"
+        }
+      ],
+      "timeLimitSeconds": 90,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00001",
+      "category": "قدرات لفظية",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "ما مرادف كلمة \"همّة\"؟",
+      "options": [
+        "عزيمة",
+        "كسل",
+        "همس",
+        "هَمْسة"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00002",
+      "category": "قدرات لفظية",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "ما ضدّ كلمة \"سخاء\"؟",
+      "options": [
+        "كرم",
+        "بخل",
+        "جود",
+        "عطاء"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00003",
+      "category": "قدرات لفظية",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "ما ضدّ كلمة \"سرّ\"؟",
+      "options": [
+        "خفاء",
+        "علن",
+        "كتمان",
+        "همس"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00004",
+      "category": "قدرات لفظية",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "ما الكلمة الشاذّة عن المجموعة؟",
+      "options": [
+        "شمس",
+        "قمر",
+        "كوكب",
+        "مدينة"
+      ],
+      "correctIndex": 3,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00005",
+      "category": "قدرات لفظية",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "ما جمع كلمة \"قانون\"؟",
+      "options": [
+        "قوانين",
+        "أقوان",
+        "قنون",
+        "قاوينات"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00006",
+      "category": "قدرات لفظية",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "أكمل: \"إنّ المجاهد ... يصدع بالحقّ ولا يخشى لومة لائم.\"",
+      "options": [
+        "الجبان",
+        "المتردّد",
+        "الشجاع",
+        "الصامت"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00007",
+      "category": "قدرات لفظية",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "ما المعنى الأقرب لتعبير \"يُمعن النظر\"؟",
+      "options": [
+        "يُسرع النظر",
+        "يدقّق ويتأمّل",
+        "يُغلق عينيه",
+        "ينظر بعجلة"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00008",
+      "category": "قدرات لفظية",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "معنى عبارة \"يحمل على عاتقه\" هو:",
+      "options": [
+        "يتحمّل المسؤوليّة",
+        "يحمل على كتفه ثقلاً ماديّاً",
+        "يتذمّر من الواجب",
+        "يتجاهل المهمّة"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00009",
+      "category": "قدرات لفظية",
+      "difficulty": 4,
+      "type": "mcq",
+      "text": "اختر الجملة الصحيحة نحويّاً:",
+      "options": [
+        "حضر الطلابُ المتفوّقون",
+        "حضر الطلابَ المتفوّقين",
+        "حضر الطلابُ المتفوّقين",
+        "حضر الطلابِ المتفوّقون"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00010",
+      "category": "قدرات لفظية",
+      "difficulty": 4,
+      "type": "mcq",
+      "text": "ما إعراب كلمة \"الوطنُ\" في جملة \"الوطنُ غالٍ\"؟",
+      "options": [
+        "مبتدأ مرفوع",
+        "خبر مرفوع",
+        "فاعل مرفوع",
+        "مفعول به منصوب"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00011",
+      "category": "قدرات عددية",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "إذا كان 7 × س = 91، فإنّ س =",
+      "options": [
+        "11",
+        "12",
+        "13",
+        "14"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00012",
+      "category": "قدرات عددية",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "كم تساوي 25% من 480؟",
+      "options": [
+        "100",
+        "110",
+        "120",
+        "130"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00013",
+      "category": "قدرات عددية",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "ما مساحة مستطيل طوله 12 وعرضه 7؟",
+      "options": [
+        "76",
+        "84",
+        "90",
+        "96"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00014",
+      "category": "قدرات عددية",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "أكمل المتتالية: 2، 5، 10، 17، 26، ...",
+      "options": [
+        "33",
+        "35",
+        "37",
+        "38"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00015",
+      "category": "قدرات عددية",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "قطع متدرّب 12 كم في ساعة ونصف. ما متوسّط سرعته بالكم/ساعة؟",
+      "options": [
+        "6",
+        "8",
+        "9",
+        "10"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00016",
+      "category": "قدرات عددية",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "ما مجموع الأعداد الزوجيّة من 2 إلى 20 (بالشمول)؟",
+      "options": [
+        "90",
+        "100",
+        "110",
+        "120"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00017",
+      "category": "قدرات عددية",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "عمر أحمد ثلاثة أمثال عمر أخيه، ومجموع عمريهما 24 سنة. كم عمر أحمد؟",
+      "options": [
+        "16",
+        "18",
+        "20",
+        "22"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00018",
+      "category": "قدرات عددية",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "محيط دائرة قطرها 10 سم تقريباً (π ≈ 3.14):",
+      "options": [
+        "15.7 سم",
+        "31.4 سم",
+        "62.8 سم",
+        "78.5 سم"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00019",
+      "category": "قدرات عددية",
+      "difficulty": 4,
+      "type": "mcq",
+      "text": "ما ناتج: 8 + 4 ÷ 2 × 3 − 2 ؟",
+      "options": [
+        "12",
+        "14",
+        "16",
+        "18"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00020",
+      "category": "قدرات عددية",
+      "difficulty": 4,
+      "type": "mcq",
+      "text": "اشترى تاجر بضاعة بـ 800 جنيه وباعها بـ 920 جنيهاً. ما نسبة الربح؟",
+      "options": [
+        "10%",
+        "12%",
+        "15%",
+        "20%"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00021",
+      "category": "منطق",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "كلّ المحقّقين فطنون. عليّ محقّق. إذًا:",
+      "options": [
+        "عليّ ليس فطناً",
+        "عليّ فطن",
+        "لا يمكن التحديد",
+        "بعض المحقّقين فقط فطنون"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00022",
+      "category": "منطق",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "إذا كان \"أ\" أكبر من \"ب\"، و\"ب\" أكبر من \"ج\"، فإنّ \"أ\" بالنسبة لـ\"ج\":",
+      "options": [
+        "أكبر",
+        "أصغر",
+        "مساوٍ",
+        "لا يمكن تحديده"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00023",
+      "category": "منطق",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "أيّ المتتاليات الآتية تكسر النمط؟",
+      "options": [
+        "1، 2، 4، 8، 16",
+        "3، 6، 9، 12",
+        "2، 4، 6، 7، 10",
+        "5، 10، 15، 20"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00024",
+      "category": "منطق",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "أكمل العلاقة: قلم : كاتب :: ميزان : ___",
+      "options": [
+        "قاضٍ",
+        "تاجر",
+        "حارس",
+        "محقّق"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00025",
+      "category": "منطق",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "كلّ الموظّفين منضبطون. سامي ليس منضبطاً. ما الاستنتاج الصحيح؟",
+      "options": [
+        "سامي موظّف غير ملتزم",
+        "سامي ليس موظّفاً",
+        "بعض الموظّفين غير منضبطين",
+        "لا يمكن الاستنتاج"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00026",
+      "category": "منطق",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "في غرفة 5 أشخاص، صافح كلٌّ منهم الآخر مرّةً واحدة. كم مصافحةً تمّت؟",
+      "options": [
+        "8",
+        "10",
+        "12",
+        "20"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00027",
+      "category": "منطق",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "سار شخص شمالاً 4 خطوات، ثم شرقاً 3 خطوات. ما المسافة المباشرة عن نقطة البداية؟",
+      "options": [
+        "4 خطوات",
+        "5 خطوات",
+        "6 خطوات",
+        "7 خطوات"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00028",
+      "category": "منطق",
+      "difficulty": 4,
+      "type": "mcq",
+      "text": "إذا كانت \"كلّ الجواسيس يكذبون\" صحيحة، فالعبارة \"بعض من يكذبون جواسيس\" تكون:",
+      "options": [
+        "صحيحة بالضرورة",
+        "خاطئة بالضرورة",
+        "محتملة وليست بالضرورة",
+        "لا علاقة لها بالأولى"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00029",
+      "category": "منطق",
+      "difficulty": 4,
+      "type": "mcq",
+      "text": "قال محقّق: \"إن لم يكن المتّهم في المكان فلديه دليل غياب.\" لا يوجد دليل غياب. إذًا:",
+      "options": [
+        "كان في المكان",
+        "لم يكن في المكان",
+        "لا يمكن الاستنتاج",
+        "البيان غير منطقي"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00030",
+      "category": "منطق",
+      "difficulty": 4,
+      "type": "mcq",
+      "text": "لو قال جنديٌّ صادقٌ \"أنا أكذب\"، فإنّ القول:",
+      "options": [
+        "متناقض ذاتيّاً",
+        "صادق",
+        "كاذب",
+        "لا يحمل معنىً"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00031",
+      "category": "سرعة بديهة",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "كم شهراً في السنة يحتوي على 28 يوماً على الأقل؟",
+      "options": [
+        "شهر واحد",
+        "شهران",
+        "سبعة أشهر",
+        "كلّ الشهور"
+      ],
+      "correctIndex": 3,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00032",
+      "category": "سرعة بديهة",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "ما الذي يكبر كلّما أخذنا منه؟",
+      "options": [
+        "الكنز",
+        "الحفرة",
+        "الميزان",
+        "الكتاب"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00033",
+      "category": "سرعة بديهة",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "كم لاعباً من فريقٍ واحد على أرض ملعب كرة القدم وقت اللعب؟",
+      "options": [
+        "9",
+        "10",
+        "11",
+        "12"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00034",
+      "category": "سرعة بديهة",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "والد سامي له ثلاثة أبناء: محمّد، وأحمد، ومن الثالث؟",
+      "options": [
+        "عليّ",
+        "حسن",
+        "سامي",
+        "لا يمكن تحديده"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00035",
+      "category": "سرعة بديهة",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "إذا قسمتَ 30 على نصف ثمّ أضفت 10، فما الناتج؟",
+      "options": [
+        "25",
+        "40",
+        "70",
+        "20"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "live",
+      "version": 1
+    },
+    {
+      "id": "Q-00036",
+      "category": "سرعة بديهة",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "كم مرّة يمكنك طرح الرقم 5 من الرقم 25؟",
+      "options": [
+        "مرّة واحدة",
+        "مرّتان",
+        "ثلاث مرّات",
+        "خمس مرّات"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "review",
+      "version": 1
+    },
+    {
+      "id": "Q-00037",
+      "category": "سرعة بديهة",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "شجرة عليها 10 طيور، أطلق صيّاد طلقةً وأصاب طائراً. كم طائراً بقي على الشجرة؟",
+      "options": [
+        "9",
+        "10",
+        "0",
+        "لا يمكن التحديد"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "review",
+      "version": 1
+    },
+    {
+      "id": "Q-00038",
+      "category": "سرعة بديهة",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "ساعة معطّلة (لا تعمل). كم مرّةً تكون عقاربها صحيحة في اليوم الواحد؟",
+      "options": [
+        "صفر",
+        "مرّة",
+        "مرّتان",
+        "أربع مرّات"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "review",
+      "version": 1
+    },
+    {
+      "id": "Q-00039",
+      "category": "سرعة بديهة",
+      "difficulty": 4,
+      "type": "mcq",
+      "text": "أبٌ وابنه عمراهما معاً 50 سنة، وعمر الأب أربعة أمثال عمر الابن. كم عمر الابن؟",
+      "options": [
+        "8",
+        "10",
+        "12",
+        "15"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "review",
+      "version": 1
+    },
+    {
+      "id": "Q-00040",
+      "category": "سرعة بديهة",
+      "difficulty": 4,
+      "type": "mcq",
+      "text": "ما الذي ينكسر بمجرّد ذكر اسمه؟",
+      "options": [
+        "الزجاج",
+        "الصمت",
+        "الوعد",
+        "العهد"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "review",
+      "version": 1
+    },
+    {
+      "id": "Q-00041",
+      "category": "ثقافة عامة",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "ما عاصمة جمهوريّة مصر العربيّة؟",
+      "options": [
+        "الإسكندريّة",
+        "القاهرة",
+        "الجيزة",
+        "أسوان"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "review",
+      "version": 1
+    },
+    {
+      "id": "Q-00042",
+      "category": "ثقافة عامة",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "ما أطول نهر في العالم؟",
+      "options": [
+        "نهر الأمازون",
+        "نهر النيل",
+        "نهر اليانغتسي",
+        "نهر المسيسبي"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "review",
+      "version": 1
+    },
+    {
+      "id": "Q-00043",
+      "category": "ثقافة عامة",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "العملة الرسميّة لجمهوريّة مصر العربيّة هي:",
+      "options": [
+        "الجنيه المصري",
+        "الدينار",
+        "الدرهم",
+        "الريال"
+      ],
+      "correctIndex": 0,
+      "timeLimitSeconds": 60,
+      "status": "review",
+      "version": 1
+    },
+    {
+      "id": "Q-00044",
+      "category": "ثقافة عامة",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "ما تاريخ الاحتفال بعيد الشرطة المصريّة سنويّاً؟",
+      "options": [
+        "23 يوليو",
+        "6 أكتوبر",
+        "25 يناير",
+        "18 يونيو"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "review",
+      "version": 1
+    },
+    {
+      "id": "Q-00045",
+      "category": "ثقافة عامة",
+      "difficulty": 2,
+      "type": "mcq",
+      "text": "في أيّ عام قامت ثورة 23 يوليو في مصر؟",
+      "options": [
+        "1948",
+        "1950",
+        "1952",
+        "1956"
+      ],
+      "correctIndex": 2,
+      "timeLimitSeconds": 60,
+      "status": "review",
+      "version": 1
+    },
+    {
+      "id": "Q-00046",
+      "category": "ثقافة عامة",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "ألوان علم جمهوريّة مصر العربيّة من أعلى إلى أسفل هي:",
+      "options": [
+        "أخضر، أبيض، أسود",
+        "أحمر، أبيض، أسود",
+        "أحمر، أبيض، أخضر",
+        "أسود، أبيض، أحمر"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "draft",
+      "version": 1
+    },
+    {
+      "id": "Q-00047",
+      "category": "ثقافة عامة",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "في أيّ محافظة يقع مقرّ كليّة الشرطة (أكاديميّة الشرطة)؟",
+      "options": [
+        "الإسكندريّة",
+        "القاهرة",
+        "الجيزة",
+        "القليوبيّة"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "draft",
+      "version": 1
+    },
+    {
+      "id": "Q-00048",
+      "category": "ثقافة عامة",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "في أيّ مدينة يقع المقرّ الرئيسيّ لمنظّمة الأمم المتّحدة؟",
+      "options": [
+        "جنيف",
+        "نيويورك",
+        "باريس",
+        "فيينا"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "draft",
+      "version": 1
+    },
+    {
+      "id": "Q-00049",
+      "category": "ثقافة عامة",
+      "difficulty": 3,
+      "type": "mcq",
+      "text": "في أيّ محافظة مصريّة تقع قمّة جبل كاترين، أعلى قمّة في مصر؟",
+      "options": [
+        "البحر الأحمر",
+        "جنوب سيناء",
+        "مرسى مطروح",
+        "أسوان"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "draft",
+      "version": 1
+    },
+    {
+      "id": "Q-00050",
+      "category": "ثقافة عامة",
+      "difficulty": 4,
+      "type": "mcq",
+      "text": "وفقاً للدستور المصريّ الصادر عام 2014، نظام الحكم في مصر هو:",
+      "options": [
+        "ملكيّ دستوريّ",
+        "جمهوريّ ديمقراطيّ",
+        "فيدراليّ",
+        "برلمانيّ بحت"
+      ],
+      "correctIndex": 1,
+      "timeLimitSeconds": 60,
+      "status": "draft",
+      "version": 1
+    }
+  ],
+  "exams": [
+    {
+      "id": "EXAM-2026-CAP-01",
+      "nameAr": "اختبار القدرات — دورة 2026",
+      "cycleId": "CYC-2026-M",
+      "rules": [
+        {
+          "category": "قدرات لفظية",
+          "difficultyMin": 2,
+          "difficultyMax": 4,
+          "count": 15,
+          "minutes": 15
+        },
+        {
+          "category": "قدرات عددية",
+          "difficultyMin": 2,
+          "difficultyMax": 4,
+          "count": 15,
+          "minutes": 15
+        },
+        {
+          "category": "منطق",
+          "difficultyMin": 3,
+          "difficultyMax": 5,
+          "count": 10,
+          "minutes": 20
+        }
+      ],
+      "questionIds": [
+        "Q-00051",
+        "Q-00052",
+        "Q-00001",
+        "Q-00002",
+        "Q-00003",
+        "Q-00004",
+        "Q-00005",
+        "Q-00006",
+        "Q-00007",
+        "Q-00008",
+        "Q-00009",
+        "Q-00010",
+        "Q-00011",
+        "Q-00012",
+        "Q-00013",
+        "Q-00014",
+        "Q-00015",
+        "Q-00016",
+        "Q-00017",
+        "Q-00018",
+        "Q-00019",
+        "Q-00020",
+        "Q-00021",
+        "Q-00022",
+        "Q-00023",
+        "Q-00024",
+        "Q-00025",
+        "Q-00026",
+        "Q-00027",
+        "Q-00028",
+        "Q-00029",
+        "Q-00030",
+        "Q-00031",
+        "Q-00032",
+        "Q-00033",
+        "Q-00034",
+        "Q-00035",
+        "Q-00036",
+        "Q-00037",
+        "Q-00038"
+      ],
+      "status": "published"
+    },
+    {
+      "id": "EXAM-2026-TRT-01",
+      "nameAr": "اختبار السمات — دورة 2026",
+      "cycleId": "CYC-2026-M",
+      "rules": [
+        {
+          "category": "ثقافة عامة",
+          "difficultyMin": 1,
+          "difficultyMax": 3,
+          "count": 30,
+          "minutes": 30
+        }
+      ],
+      "questionIds": [
+        "Q-00051",
+        "Q-00052",
+        "Q-00001",
+        "Q-00002",
+        "Q-00003",
+        "Q-00004",
+        "Q-00005",
+        "Q-00006",
+        "Q-00007",
+        "Q-00008",
+        "Q-00009",
+        "Q-00010",
+        "Q-00011",
+        "Q-00012",
+        "Q-00013",
+        "Q-00014",
+        "Q-00015",
+        "Q-00016",
+        "Q-00017",
+        "Q-00018",
+        "Q-00019",
+        "Q-00020",
+        "Q-00021",
+        "Q-00022",
+        "Q-00023",
+        "Q-00024",
+        "Q-00025",
+        "Q-00026",
+        "Q-00027",
+        "Q-00028"
+      ],
+      "status": "draft"
+    }
+  ]
+}
