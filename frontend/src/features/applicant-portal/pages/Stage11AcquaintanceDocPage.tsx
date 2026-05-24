@@ -303,7 +303,7 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="font-ar-display text-xl font-bold text-ink-900">
-              وثيقة تعارف · طالب قسم عام
+              وثيقة تعارف 
             </h2>
             <p className="mt-1 text-sm text-ink-500 leading-relaxed">
               املأ المجموعات السبع بالترتيب، ثم استعرض النسخة المطبوعة قبل الاعتماد.

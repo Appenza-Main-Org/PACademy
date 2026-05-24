@@ -237,7 +237,6 @@ function CoverPage({ cover }: { cover: VothiqaTaarufDocument['personal']['cover'
       <h1 className="cover-title">
         وثيقة تعارف
         <br />
-        طالب قسم عام
       </h1>
       <div className="cover-fields">
         <div className="cover-row">
