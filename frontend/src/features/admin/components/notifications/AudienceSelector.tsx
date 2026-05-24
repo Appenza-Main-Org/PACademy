@@ -69,10 +69,12 @@ export interface AudienceSelectorProps {
 export function AudienceSelector({ value, onChange }: AudienceSelectorProps): JSX.Element {
   const committeesQuery = useLookup('committees');
   const categoriesQuery = useLookup('applicant-categories');
-  const categoryOptions = (categoriesQuery.data ?? []).map((c) => ({
-    value: c.code,
-    label: c.name,
-  }));
+  const categoryOptions = (categoriesQuery.data ?? [])
+    .filter((c) => c.isActive)
+    .map((c) => ({
+      value: c.code,
+      label: c.name,
+    }));
 
   const selectedKinds = useMemo<AudienceKind[]>(
     () => value.map((a) => a.type),

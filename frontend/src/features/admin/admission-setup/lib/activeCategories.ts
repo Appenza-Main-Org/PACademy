@@ -13,6 +13,7 @@
  */
 
 import { useCategoryConfigs } from '../api/applicationSettings.queries';
+import { useLookup } from '@/features/lookups';
 
 export interface ActiveCategoryView {
   /** Lookup `code` field (`officers_general` etc.) — used as the
@@ -35,8 +36,14 @@ export function useActiveCategoriesForCycle(
   _cycleId: string,
 ): UseActiveCategoriesForCycleResult {
   const query = useCategoryConfigs();
+  const categoriesQuery = useLookup('applicant-categories');
+  const activeLookupCodes = new Set(
+    (categoriesQuery.data ?? [])
+      .filter((category) => category.isActive)
+      .map((category) => category.code),
+  );
   const data = query.data
-    ?.filter((c) => c.isActive)
+    ?.filter((c) => c.isActive && activeLookupCodes.has(c.categoryCode))
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map<ActiveCategoryView>((c) => ({
@@ -47,7 +54,7 @@ export function useActiveCategoriesForCycle(
     }));
   return {
     data,
-    isLoading: query.isLoading,
-    isError: query.isError,
+    isLoading: query.isLoading || categoriesQuery.isLoading,
+    isError: query.isError || categoriesQuery.isError,
   };
 }

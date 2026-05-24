@@ -140,11 +140,13 @@ export function CommitteeCreatePage(): JSX.Element {
 
   const categoryOptions = useMemo(
     () =>
-      (categoriesQuery.data ?? []).map((c) => ({
-        value: c.code,
-        label: c.name,
-        badge: c.nameEn || c.code,
-      })),
+      (categoriesQuery.data ?? [])
+        .filter((c) => c.isActive)
+        .map((c) => ({
+          value: c.code,
+          label: c.name,
+          badge: c.nameEn || c.code,
+        })),
     [categoriesQuery.data],
   );
 
