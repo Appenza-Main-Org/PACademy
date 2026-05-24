@@ -31,7 +31,9 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
             return await ListPageFastAsync(page.GetValueOrDefault(1), pageSize ?? size ?? 25, ct);
         }
 
-        var allRows = (await records.ListAsync("grades", ct)).ToList();
+        var allRows = (await records.ListAsync("grades", ct))
+            .Where(x => !AdminRecordJson.IsSoftDeleted(x))
+            .ToList();
         var rows = FilterRows(allRows);
         return Ok(rows);
     }
@@ -66,14 +68,19 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
     [HttpGet("api/grades/export")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> Export(CancellationToken ct)
     {
-        var allRows = (await records.ListAsync("grades", ct)).ToList();
+        var allRows = (await records.ListAsync("grades", ct))
+            .Where(x => !AdminRecordJson.IsSoftDeleted(x))
+            .ToList();
         return Ok(FilterRows(allRows));
     }
 
     [HttpGet("api/admin/applicant-grades/by-nid/{nid}")]
     public async Task<ActionResult<JsonObject>> ByNationalId(string nid, CancellationToken ct)
     {
-        var row = (await records.ListAsync("grades", ct)).FirstOrDefault(x => AdminRecordJson.StringProp(x, "nid") == nid);
+        var row = (await records.ListAsync("grades", ct))
+            .FirstOrDefault(x =>
+                AdminRecordJson.StringProp(x, "nid") == nid
+                && !AdminRecordJson.IsSoftDeleted(x));
         return row is null ? NotFound() : Ok(row);
     }
 
@@ -98,22 +105,26 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
     private async Task<ActionResult<object>> DeleteCore(JsonObject? body, CancellationToken ct)
     {
         var seats = body?["seats"]?.AsArray().Select(x => x?.GetValue<int>()).Where(x => x is not null).Select(x => x!.Value).ToHashSet();
+        var deletedBy = Request.Headers["X-User-Id"].FirstOrDefault();
+        var reason = AdminRecordJson.StringProp(body ?? [], "reason");
         int deleted;
         if (seats is not { Count: > 0 })
         {
-            deleted = await records.DeleteModuleTrackedAsync("grades", ct);
+            deleted = await records.SoftDeleteModuleAsync("grades", deletedBy, reason, ct);
             if (deleted > 0) InvalidateGradesListCache();
             return Ok(new { deleted });
         }
 
         var rows = await records.ListAsync("grades", ct);
+        // Skip rows that are already tombstoned — admin actions shouldn't reprocess soft-deleted rows.
         var targetIds = rows
+            .Where(x => !AdminRecordJson.IsSoftDeleted(x))
             .Where(x => seats.Contains((int)(AdminRecordJson.NumberProp(x, "seat") ?? -1)))
             .Select(x => AdminRecordJson.StringProp(x, "id") ?? AdminRecordJson.StringProp(x, "seat") ?? "")
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        deleted = await records.DeleteManyTrackedAsync("grades", targetIds, ct);
+        deleted = await records.SoftDeleteManyAsync("grades", targetIds, deletedBy, reason, ct);
         if (deleted > 0) InvalidateGradesListCache();
         return Ok(new { deleted });
     }
@@ -123,7 +134,11 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
     {
         var rows = body["rows"]?.AsArray() ?? [];
         var existing = await records.ListAsync("grades", ct);
-        var existingNids = existing.Select(x => AdminRecordJson.StringProp(x, "nid")).Where(x => x is not null).ToHashSet();
+        var existingNids = existing
+            .Where(x => !AdminRecordJson.IsSoftDeleted(x))
+            .Select(x => AdminRecordJson.StringProp(x, "nid"))
+            .Where(x => x is not null)
+            .ToHashSet();
         var duplicates = new JsonArray();
         var newRows = 0;
         foreach (var node in rows.OfType<JsonObject>())
@@ -142,6 +157,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var graduationYear = body["graduationYear"]?.GetValue<int?>() ?? DateTimeOffset.UtcNow.Year;
         var existing = await records.ListAsync("grades", ct);
         var existingByNid = existing
+            .Where(x => !AdminRecordJson.IsSoftDeleted(x))
             .Select(x => new { Nid = AdminRecordJson.StringProp(x, "nid"), Row = x })
             .Where(x => !string.IsNullOrWhiteSpace(x.Nid))
             .ToDictionary(x => x.Nid!, x => x.Row);
@@ -149,6 +165,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var replaced = 0;
         var kept = 0;
         var skipped = new JsonArray();
+        // `seat` max includes soft-deleted rows so we don't reissue a tombstoned seat id.
         var nextSeat = existing.Select(x => (int)(AdminRecordJson.NumberProp(x, "seat") ?? 0)).DefaultIfEmpty(0).Max() + 1;
 
         foreach (var row in inputRows.OfType<JsonObject>())
@@ -487,7 +504,12 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 10_000);
         var parameters = new List<SqlParameter>();
-        var where = new List<string> { "[a].[module] = @module" };
+        // Soft-delete guard: never return tombstoned rows from the list endpoint.
+        var where = new List<string>
+        {
+            "[a].[module] = @module",
+            $"{JsonValue("deletedAt")} IS NULL"
+        };
         var hasFilters = false;
         parameters.Add(new SqlParameter("@module", "grades"));
 
@@ -656,6 +678,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                     COALESCE(SUM(CASE WHEN {JsonValue("gradeChangedAt")} IS NOT NULL OR JSON_QUERY([a].[payload_json], '$.log') IS NOT NULL AND JSON_QUERY([a].[payload_json], '$.log') <> N'[]' THEN 1 ELSE 0 END), 0) AS [WithAdjustments]
                 FROM [admin_v2].[admin_records] AS [a]
                 WHERE [a].[module] = N'grades'
+                  AND {JsonValue("deletedAt")} IS NULL
                 """)
             .SingleAsync(ct);
 #pragma warning restore EF1002
@@ -683,6 +706,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                 SELECT DISTINCT {JsonValue("branch")} AS [Value]
                 FROM [admin_v2].[admin_records] AS [a]
                 WHERE [a].[module] = N'grades'
+                  AND {JsonValue("deletedAt")} IS NULL
                   AND {JsonValue("branch")} IS NOT NULL
                   AND {JsonValue("branch")} <> N''
                 ORDER BY [Value]
@@ -871,8 +895,12 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
     private async Task<JsonObject> GetGradeBySeat(string seat, CancellationToken ct)
     {
         var row = await records.GetAsync("grades", seat, ct);
-        if (row is not null) return row;
-        throw new KeyNotFoundException("درجة الطالب غير موجودة");
+        if (row is null) throw new KeyNotFoundException("درجة الطالب غير موجودة");
+        if (AdminRecordJson.IsSoftDeleted(row))
+        {
+            throw new ConflictException("GRADE_SOFT_DELETED", "لا يمكن تعديل سجل درجات محذوف");
+        }
+        return row;
     }
 
     private static JsonObject GradeFromImportRow(

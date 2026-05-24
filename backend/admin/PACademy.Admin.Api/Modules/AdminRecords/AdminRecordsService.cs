@@ -82,9 +82,11 @@ public sealed class AdminRecordsService(
             .WithCancellation(ct))
         {
             var payload = AdminRecordJson.Parse(payloadJson);
+            // `seat` still counts soft-deleted rows so we never reissue a tombstoned seat id.
+            maxSeat = Math.Max(maxSeat, (int)(AdminRecordJson.NumberProp(payload, "seat") ?? 0));
+            if (AdminRecordJson.IsSoftDeleted(payload)) continue;
             var nid = AdminRecordJson.StringProp(payload, "nid");
             if (!string.IsNullOrWhiteSpace(nid)) nids.Add(nid);
-            maxSeat = Math.Max(maxSeat, (int)(AdminRecordJson.NumberProp(payload, "seat") ?? 0));
         }
 
         return (nids, maxSeat + 1);
@@ -262,6 +264,123 @@ public sealed class AdminRecordsService(
                 $"{module}:{deleted}",
                 $"{module}.bulk_delete · deleted={deleted}",
                 DateTimeOffset.UtcNow,
+                ct);
+        }
+        return deleted;
+    }
+
+    /// <summary>
+    /// Stamps `deletedAt` / `deletedBy` / `deleteReason` on the payload JSON for the
+    /// given module + ids. Already-soft-deleted rows are skipped. No-op if none found.
+    /// </summary>
+    public async Task<int> SoftDeleteManyAsync(
+        string module,
+        IReadOnlyCollection<string> ids,
+        string? deletedBy,
+        string? reason,
+        CancellationToken ct)
+    {
+        if (ids.Count == 0) return 0;
+        var idSet = ids.ToHashSet(StringComparer.Ordinal);
+        var deleted = 0;
+
+        while (idSet.Count > 0)
+        {
+            var batchIds = idSet.Take(DefaultBulkBatchSize).ToArray();
+            var rows = await db.AdminRecords
+                .Where(x => x.Module == module && batchIds.Contains(x.Id))
+                .ToListAsync(ct);
+            if (rows.Count == 0)
+            {
+                foreach (var id in batchIds) idSet.Remove(id);
+                continue;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var batchModified = 0;
+            foreach (var row in rows)
+            {
+                var payload = AdminRecordJson.Parse(row.PayloadJson);
+                if (AdminRecordJson.IsSoftDeleted(payload))
+                {
+                    idSet.Remove(row.Id);
+                    continue;
+                }
+                payload["deletedAt"] = now.ToString("O");
+                payload["deletedBy"] = deletedBy ?? "system";
+                if (!string.IsNullOrWhiteSpace(reason)) payload["deleteReason"] = reason;
+                row.PayloadJson = payload.ToJsonString(AdminRecordJson.Options);
+                row.UpdatedAt = now;
+                deleted++;
+                batchModified++;
+                idSet.Remove(row.Id);
+            }
+            // Also drop any batch ids whose rows weren't found (and thus weren't in `rows`).
+            foreach (var id in batchIds) idSet.Remove(id);
+
+            if (batchModified > 0) await db.SaveChangesAsync(ct);
+        }
+
+        if (deleted > 0)
+        {
+            await EmitAuditAsync(
+                module,
+                "bulk_soft_delete",
+                $"{module}:{deleted}",
+                $"{module}.bulk_soft_delete · deleted={deleted}",
+                DateTimeOffset.UtcNow,
+                ct);
+        }
+        return deleted;
+    }
+
+    /// <summary>
+    /// Bulk soft-delete for an entire module — stamps `deletedAt` on every live row.
+    /// Already-soft-deleted rows are skipped. Used by `clearAll` operations that
+    /// want an audit trail rather than a hard wipe.
+    /// </summary>
+    public async Task<int> SoftDeleteModuleAsync(
+        string module,
+        string? deletedBy,
+        string? reason,
+        CancellationToken ct)
+    {
+        var deleted = 0;
+        var now = DateTimeOffset.UtcNow;
+        var nowIso = now.ToString("O");
+        while (true)
+        {
+            var rows = await db.AdminRecords
+                .Where(x => x.Module == module)
+                .OrderBy(x => x.Id)
+                .Take(DefaultBulkBatchSize)
+                .ToListAsync(ct);
+            if (rows.Count == 0) break;
+            var hadLiveRows = false;
+            foreach (var row in rows)
+            {
+                var payload = AdminRecordJson.Parse(row.PayloadJson);
+                if (AdminRecordJson.IsSoftDeleted(payload)) continue;
+                payload["deletedAt"] = nowIso;
+                payload["deletedBy"] = deletedBy ?? "system";
+                if (!string.IsNullOrWhiteSpace(reason)) payload["deleteReason"] = reason;
+                row.PayloadJson = payload.ToJsonString(AdminRecordJson.Options);
+                row.UpdatedAt = now;
+                deleted++;
+                hadLiveRows = true;
+            }
+            if (!hadLiveRows) break;
+            await db.SaveChangesAsync(ct);
+        }
+
+        if (deleted > 0)
+        {
+            await EmitAuditAsync(
+                module,
+                "bulk_soft_delete",
+                module,
+                $"{module}.bulk_soft_delete · deleted={deleted}",
+                now,
                 ct);
         }
         return deleted;
