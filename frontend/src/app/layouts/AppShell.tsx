@@ -19,7 +19,7 @@ import {
   toast,
   useCommandPaletteShortcut,
 } from '@/shared/components';
-import { useAuthStore, useLogoutMutation } from '@/features/auth';
+import { getDefaultRouteForUser, useAuthStore, useLogoutMutation } from '@/features/auth';
 import { shortName } from '@/shared/lib/format';
 import type { AppKey } from '@/shared/lib/constants';
 import { Sidebar } from './Sidebar';
@@ -77,7 +77,7 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
       >
         <div className="flex min-w-0 items-center gap-3">
           <Link
-            to="/hub"
+            to={getDefaultRouteForUser(user)}
             className="flex items-center gap-3 rounded-md px-1 py-1 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
             title="العودة إلى البوابة"
           >

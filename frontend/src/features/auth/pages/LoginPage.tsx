@@ -3,7 +3,7 @@
  * Source: ARCH-03 (MOIPASS framing for officers, public/private split).
  *
  * Applicants don't reach this page — they use /apply instead.
- * After successful auth: redirect to /hub (or /admin if super_admin).
+ * After successful auth: redirect to the user's default allowed page.
  */
 
 import { Navigate } from 'react-router-dom';
@@ -11,21 +11,12 @@ import { Pattern } from '@/shared/components';
 import { useAuthStore } from '../store/auth.store';
 import { LoginArtPanel } from '../components/LoginArtPanel';
 import { LoginForm } from '../components/LoginForm';
-import { ROUTES } from '@/config/routes';
+import { getDefaultRouteForUser } from '../lib/default-route';
 
 export function LoginPage(): JSX.Element {
   const user = useAuthStore((s) => s.user);
-  /* Already-authenticated visitors: applicants → applicant portal,
-     super_admin → admissions command center (/admin/reports),
-     all other officers → staff hub. */
   if (user) {
-    const dest =
-      user.role === 'applicant'
-        ? ROUTES.applicant
-        : user.role === 'super_admin'
-          ? ROUTES.admin.reports
-          : ROUTES.hub;
-    return <Navigate to={dest} replace />;
+    return <Navigate to={getDefaultRouteForUser(user)} replace />;
   }
 
   return (

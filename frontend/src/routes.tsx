@@ -5,16 +5,15 @@
  * Three surfaces:
  *  - PUBLIC (no auth)   → /, /applicant-login, /staff-login
  *  - APPLICANT (Stage1+2 auth) → /applicant/*
- *  - STAFF (AuthGuard)  → /hub, /admin/*, /committee/*, /board/*, /investigations/*,
+ *  - STAFF (AuthGuard)  → /admin/*, /committee/*, /board/*, /investigations/*,
  *                         /medical/*, /barcode/*, /biometric/*, /question-bank/*,
  *                         /architecture, /profile
  */
 
 import { Navigate, useParams, type RouteObject } from 'react-router-dom';
 import { AuthGuard } from '@/app/providers/AuthGuard';
-import { LoginPage, ApplicantLoginPage } from '@/features/auth';
+import { getDefaultRouteForUser, LoginPage, ApplicantLoginPage, useAuthStore } from '@/features/auth';
 import { ROUTES } from '@/config/routes';
-import { HubPage } from '@/features/hub';
 import { ArchitecturePage } from '@/features/architecture';
 import { RevampComparisonPage } from '@/features/design-revamp';
 import { ProfilePage } from '@/features/profile';
@@ -162,15 +161,9 @@ function AdminIndexRoute(): JSX.Element {
   return <Navigate to={ROUTES.admin.reports} replace />;
 }
 
-/**
- * HubIndexRoute — every authenticated officer (and the applicant escape
- * hatch) gets the hub. super_admin used to be bounced to /admin/reports
- * here, but that broke their primary path back to other apps once they
- * landed on the command center. Initial-landing is now handled by
- * LoginForm's onSuccess + DemoBootstrapRedirect, not by this route.
- */
-function HubIndexRoute(): JSX.Element {
-  return <HubPage />;
+function LegacyHubRedirect(): JSX.Element {
+  const user = useAuthStore((s) => s.user);
+  return <Navigate to={user ? getDefaultRouteForUser(user) : ROUTES.staffLogin} replace />;
 }
 
 /**
@@ -192,7 +185,7 @@ export const routes: RouteObject[] = [
   { path: '/help', element: <Navigate to="/" replace /> },
 
   /* ── STAFF SURFACE — AuthGuard required ─────────────────── */
-  { path: '/hub', element: <AuthGuard><HubIndexRoute /></AuthGuard> },
+  { path: '/hub', element: <AuthGuard><LegacyHubRedirect /></AuthGuard> },
   {
     path: '/architecture',
     element: <AuthGuard app="architecture"><ArchitecturePage /></AuthGuard>,

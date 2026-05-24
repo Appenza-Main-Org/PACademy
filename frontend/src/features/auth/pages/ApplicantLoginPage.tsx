@@ -13,13 +13,12 @@ import { Pattern } from '@/shared/components';
 import { useAuthStore } from '../store/auth.store';
 import { LoginArtPanel } from '../components/LoginArtPanel';
 import { ApplicantLoginForm } from '../components/ApplicantLoginForm';
-import { ROUTES } from '@/config/routes';
+import { getDefaultRouteForUser } from '../lib/default-route';
 
 export function ApplicantLoginPage(): JSX.Element {
   const user = useAuthStore((s) => s.user);
   if (user && user.role !== 'applicant') {
-    const dest = user.role === 'super_admin' ? ROUTES.admin.reports : ROUTES.hub;
-    return <Navigate to={dest} replace />;
+    return <Navigate to={getDefaultRouteForUser(user)} replace />;
   }
 
   return (

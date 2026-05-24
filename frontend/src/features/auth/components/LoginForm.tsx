@@ -14,7 +14,9 @@ import { Button, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { useLoginMutation } from '../api/auth.queries';
 import { RoleSelector } from './RoleSelector';
+import { getDefaultRouteForUser } from '../lib/default-route';
 import type { Role } from '../rbac';
+import type { AuthUser } from '../types';
 import { ROUTES } from '@/config/routes';
 
 const loginSchema = z.object({
@@ -48,12 +50,8 @@ export function LoginForm(): JSX.Element {
 
   const role = watch('role');
 
-  const goToLanding = (chosenRole: Role): void => {
-    const landing =
-      chosenRole === 'exams_admin'
-        ? ROUTES.questionBank.overview
-        : ROUTES.admin.reports;
-    navigate(landing, { replace: true });
+  const goToLanding = (user: AuthUser): void => {
+    navigate(getDefaultRouteForUser(user), { replace: true });
   };
 
   const onSubmit = async (values: LoginValues): Promise<void> => {
@@ -64,7 +62,7 @@ export function LoginForm(): JSX.Element {
     }, {
       onSuccess: (user) => {
         toast('تم تسجيل الدخول بنجاح', 'success');
-        goToLanding(user.role);
+        goToLanding(user);
       },
       onError: (err) => toast(err.message || 'تعذّر بدء الدخول', 'danger'),
     });

@@ -3,8 +3,8 @@
  * Source: Sprint 0 + ARCH-04 (public/private split).
  *
  * Redirects to /staff-login if not authenticated; if already authenticated
- * with insufficient role, sends back to the user's home (/applicant for
- * applicants, /hub for officers) with a toast.
+ * with insufficient role, sends back to the user's default allowed page
+ * with a toast.
  *
  * Architecture-page guard (AUD-006) — when used on /architecture, only
  * super_admin and admin-tier roles should pass.
@@ -12,7 +12,12 @@
 
 import { Navigate, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { useAuthStore, canAccessApp, hasPermission } from '@/features/auth';
+import {
+  useAuthStore,
+  canAccessApp,
+  getDefaultRouteForUser,
+  hasPermission,
+} from '@/features/auth';
 import { toast } from '@/shared/components';
 import type { AppKey } from '@/shared/lib/constants';
 import { ROUTES } from '@/config/routes';
@@ -39,7 +44,7 @@ export function AuthGuard({ children, app, perm }: AuthGuardProps): JSX.Element 
 
   if (app && !canAccessApp(user.apps, app)) {
     toast('ليس لديك صلاحية الوصول لهذا التطبيق', 'danger');
-    return <Navigate to={user.role === 'applicant' ? ROUTES.applicant : ROUTES.hub} replace />;
+    return <Navigate to={getDefaultRouteForUser(user)} replace />;
   }
 
   if (perm) {
@@ -47,7 +52,7 @@ export function AuthGuard({ children, app, perm }: AuthGuardProps): JSX.Element 
     const allowed = required.some((p) => hasPermission(user.permissions, p));
     if (!allowed) {
       toast('ليس لديك صلاحية تنفيذ هذا الإجراء', 'danger');
-      return <Navigate to={user.role === 'applicant' ? ROUTES.applicant : ROUTES.hub} replace />;
+      return <Navigate to={getDefaultRouteForUser(user)} replace />;
     }
   }
 

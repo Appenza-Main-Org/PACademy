@@ -1,7 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import {
   Barcode as BarcodeIcon,
-  Grid3x3,
   History,
   Layers,
   RefreshCw,
@@ -13,12 +12,6 @@ import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
 
 const SIDEBAR: SidebarSection[] = [
-  {
-    label: 'التنقل',
-    items: [
-      { key: 'hub', label: 'كل التطبيقات', icon: <Grid3x3 size={18} />, to: ROUTES.hub },
-    ],
-  },
   {
     label: 'العمليات',
     items: [

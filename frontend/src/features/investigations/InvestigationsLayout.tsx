@@ -4,19 +4,13 @@
  */
 
 import { Outlet } from 'react-router-dom';
-import { Grid3x3, Inbox, LayoutDashboard, ListChecks, Lock, Mailbox, Send } from 'lucide-react';
+import { Inbox, LayoutDashboard, ListChecks, Lock, Mailbox, Send } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
 
 const SIDEBAR: SidebarSection[] = [
-  {
-    label: 'التنقل',
-    items: [
-      { key: 'hub', label: 'كل التطبيقات', icon: <Grid3x3 size={18} />, to: ROUTES.hub },
-    ],
-  },
   {
     label: 'إدارة القضايا',
     items: [
