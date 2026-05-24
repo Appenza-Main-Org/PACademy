@@ -136,6 +136,7 @@ import {
 import {
   ExamCreatePage,
   ExamDetailPage,
+  ExamPreviewPage,
   ExamsLayout,
   ExamsListPage,
   ExamsListPageNew,
@@ -433,6 +434,7 @@ export const routes: RouteObject[] = [
       { path: 'exams-legacy', element: <ExamsListPage /> },
       { path: 'exams/create', element: <ExamCreatePage /> },
       { path: 'exams/:examId', element: <ExamDetailPage /> },
+      { path: 'exams/:examId/preview', element: <ExamPreviewPage /> },
       { path: 'exams/:examId/take', element: <LiveExamPage /> },
       { path: 'exams/:examId/proctor', element: <ProctorViewPage /> },
       { path: 'proctor', element: <ProctorListPage /> },

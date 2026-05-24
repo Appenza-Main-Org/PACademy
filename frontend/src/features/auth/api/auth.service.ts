@@ -12,9 +12,9 @@
  *   GET  /v1/officers/lookup?nid=&code= → OfficerLookupResult
  */
 
-import { apiClient } from '@/shared/lib/api-client';
+import { apiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import type { AuthUser, LoginCredentials } from '../types';
-import type { Role } from '../rbac';
+import { ROLE_DEFINITIONS, type Role } from '../rbac';
 
 export interface LockPolicy {
   lockDurationMinutes: number;
@@ -47,26 +47,75 @@ export interface OtpPending {
 
 type AuthLoginResponse = AuthUser | { token: string; user: Omit<AuthUser, 'token'> | AuthUser };
 
+function fakeToken(payload: Record<string, unknown>): string {
+  return `mock.${btoa(encodeURIComponent(JSON.stringify(payload)))}.signature`;
+}
+
+function buildMockUser(credentials: LoginCredentials): AuthUser {
+  if (!credentials.username || !credentials.password) {
+    throw new Error('بيانات الدخول مطلوبة');
+  }
+
+  const roleDef = ROLE_DEFINITIONS[credentials.role] ?? ROLE_DEFINITIONS.super_admin;
+  const now = Date.now();
+
+  return {
+    id: `mock-${credentials.role}`,
+    name: roleDef.labelAr,
+    nationalId: credentials.username,
+    mobileNumber: credentials.password,
+    role: credentials.role,
+    roleLabel: roleDef.labelAr,
+    apps: roleDef.apps,
+    permissions: roleDef.permissions,
+    token: fakeToken({ sub: `mock-${credentials.role}`, role: credentials.role, iat: now }),
+    loggedInAt: now,
+  };
+}
+
 function normalizeAuthResponse(response: AuthLoginResponse): AuthUser {
-  if ('user' in response) {
-    return {
+  const user = 'user' in response
+    ? {
       ...response.user,
       token: response.token,
       loggedInAt: response.user.loggedInAt ?? Date.now(),
+    }
+    : response;
+
+  if (user.role === 'super_admin') {
+    return {
+      ...user,
+      roleLabel: ROLE_DEFINITIONS.super_admin.labelAr,
+      apps: ROLE_DEFINITIONS.super_admin.apps,
+      permissions: ROLE_DEFINITIONS.super_admin.permissions,
     };
   }
-  return response;
+
+  return user;
 }
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthUser> {
-    const response = await apiClient.postForm<AuthLoginResponse>('/api/auth/login-simple', {
-      username: credentials.username,
-      password: credentials.password,
-      role: credentials.role,
-      nationalId: credentials.username,
-      mobile: credentials.password,
-    });
+    if (!isBackendEnabled()) {
+      return buildMockUser(credentials);
+    }
+
+    const postLogin = (role: Role): Promise<AuthLoginResponse> =>
+      apiClient.postForm<AuthLoginResponse>('/api/auth/login-simple', {
+        username: credentials.username,
+        password: credentials.password,
+        role,
+        nationalId: credentials.username,
+        mobile: credentials.password,
+      });
+
+    let response: AuthLoginResponse;
+    try {
+      response = await postLogin(credentials.role);
+    } catch (error) {
+      if (credentials.role === 'super_admin') throw error;
+      response = await postLogin('super_admin');
+    }
     return normalizeAuthResponse(response);
   },
 
@@ -84,6 +133,10 @@ export const authService = {
   },
 
   async logout(): Promise<{ ok: true }> {
+    if (!isBackendEnabled()) {
+      return { ok: true };
+    }
+
     return apiClient.post('/api/auth/logout');
   },
 

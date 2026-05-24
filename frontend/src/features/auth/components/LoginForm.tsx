@@ -62,6 +62,10 @@ export function LoginForm(): JSX.Element {
     }, {
       onSuccess: (user) => {
         toast('تم تسجيل الدخول بنجاح', 'success');
+        if (values.role === 'exams_admin' && user.role === 'super_admin') {
+          navigate(ROUTES.questionBank.exams, { replace: true });
+          return;
+        }
         goToLanding(user);
       },
       onError: (err) => toast(err.message || 'تعذّر بدء الدخول', 'danger'),

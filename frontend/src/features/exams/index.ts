@@ -4,6 +4,7 @@ export {
   QuestionBankCRUDPage,
   ExamCreatePage,
   ExamDetailPage,
+  ExamPreviewPage,
   ExamsListPageNew,
   LiveExamPage,
   ProctorListPage,

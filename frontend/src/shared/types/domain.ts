@@ -1456,8 +1456,13 @@ export type ExamResultStatus = 'draft' | 'review' | 'approved' | 'published';
 
 /* ── Question Bank & e-Exams — Sprint 7 (RFP Scope Document §9) ────────────────── */
 
-export type QuestionType = 'mcq' | 'true-false' | 'ordering' | 'fill-in';
+export type QuestionType = 'mcq' | 'true-false' | 'matching' | 'ordering' | 'fill-in';
 export type QuestionStatus = 'draft' | 'review' | 'approved' | 'live';
+
+export interface MatchingPair {
+  prompt: string;
+  match: string;
+}
 
 export interface BankQuestion {
   id: string;
@@ -1467,6 +1472,7 @@ export interface BankQuestion {
   text: string;
   options: string[];
   correctIndex: number;
+  matchingPairs?: MatchingPair[];
   timeLimitSeconds: number;
   notes?: string;
   status: QuestionStatus;
@@ -1490,11 +1496,13 @@ export interface ExamAttempt {
   applicantId: string;
   startedAt: number;
   submittedAt?: number;
-  answers: Record<string, number>;
+  answers: Record<string, ExamAnswer>;
   flagged: string[];
   score?: number;
   passFail?: 'pass' | 'fail';
 }
+
+export type ExamAnswer = number | Record<string, string>;
 
 /** Payload for the bulk import wizard — mirrors a manually-created question.
  *  Resolves to a `BankQuestion` after the service stamps id/status/version.
@@ -1506,6 +1514,7 @@ export interface QuestionDraft {
   text: string;
   options: string[];
   correctIndex: number;
+  matchingPairs?: MatchingPair[];
   timeLimitSeconds: number;
   notes?: string;
 }

@@ -176,6 +176,7 @@ export const ROUTES = {
     exams: '/question-bank/exams',
     examCreate: '/question-bank/exams/create',
     examDetail: (id = ':examId'): string => `/question-bank/exams/${id}`,
+    examPreview: (id = ':examId'): string => `/question-bank/exams/${id}/preview`,
     examTake: (id = ':examId'): string => `/question-bank/exams/${id}/take`,
     examProctor: (id = ':examId'): string => `/question-bank/exams/${id}/proctor`,
     proctor: '/question-bank/proctor',

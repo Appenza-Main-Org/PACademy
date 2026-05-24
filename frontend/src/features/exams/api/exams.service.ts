@@ -25,6 +25,7 @@ import type {
   BankQuestion,
   BatchCreateResult,
   ExamAttempt,
+  ExamAnswer,
   ExamConfig,
   ExamSession,
   LiveSessionsResponse,
@@ -41,6 +42,19 @@ const SESSIONS_STATE: ExamSession[] = MOCK.liveExamSessions.map((s) => ({ ...s }
 let qId = QS_STATE.length + 1;
 let eId = EX_STATE.length + 1;
 let aId = ATT_STATE.length + 1;
+
+function isMatchingAnswer(answer: ExamAnswer | undefined): answer is Record<string, string> {
+  return Boolean(answer && typeof answer === 'object' && !Array.isArray(answer));
+}
+
+function isQuestionCorrect(question: BankQuestion, answer: ExamAnswer | undefined): boolean {
+  if (question.type === 'matching') {
+    if (!question.matchingPairs || question.matchingPairs.length === 0 || !isMatchingAnswer(answer)) return false;
+    return question.matchingPairs.every((pair) => answer[pair.prompt] === pair.match);
+  }
+
+  return typeof answer === 'number' && answer === question.correctIndex;
+}
 
 export const examsService = {
   async listQuestions(filters: { status?: QuestionStatus | 'all'; category?: string | 'all' } = {}): Promise<BankQuestion[]> {
@@ -126,7 +140,7 @@ export const examsService = {
     return next;
   },
 
-  async submitAttempt(attemptId: string, answers: Record<string, number>): Promise<ExamAttempt> {
+  async submitAttempt(attemptId: string, answers: Record<string, ExamAnswer>): Promise<ExamAttempt> {
     await simulateLatency();
     const a = ATT_STATE.find((x) => x.id === attemptId);
     if (!a) throw new Error('Attempt not found');
@@ -138,7 +152,7 @@ export const examsService = {
       let correct = 0;
       for (const qid of exam.questionIds) {
         const q = QS_STATE.find((x) => x.id === qid);
-        if (q && answers[qid] === q.correctIndex) correct += 1;
+        if (q && isQuestionCorrect(q, answers[qid])) correct += 1;
       }
       const pct = Math.round((correct / Math.max(1, total)) * 100);
       a.score = pct;

@@ -56,7 +56,7 @@ import { z } from 'zod';
 const questionImportSchema = z.object({
   category: z.string().min(1, 'الفئة مطلوبة'),
   difficulty: z.coerce.number().int().min(1).max(5),
-  type: z.enum(['mcq', 'true-false', 'ordering', 'fill-in']).default('mcq'),
+  type: z.enum(['mcq', 'true-false', 'matching', 'ordering', 'fill-in']).default('mcq'),
   text: z.string().min(5, 'نص السؤال مطلوب'),
   options: z.array(z.string().min(1)).min(2, 'يلزم خياران على الأقل'),
   correctIndex: z.coerce.number().int().min(0),
@@ -93,7 +93,7 @@ import { useLiveSessions } from '../api/exams.queries';
 import { ImportWizard } from '../components/ImportWizard';
 import { LiveSessionsTable } from '../components/LiveSessionsTable';
 import { SESSION_STATUS_LABEL } from '../components/SessionStatusBadge';
-import type { BankQuestion, ExamConfig, QuestionStatus, SessionStatus } from '@/shared/types/domain';
+import type { BankQuestion, ExamAnswer, ExamConfig, MatchingPair, QuestionStatus, QuestionType, SessionStatus } from '@/shared/types/domain';
 
 /* ─────────── Question Bank list with create/edit ─────────── */
 
@@ -103,6 +103,75 @@ const STATUS_LABEL: Record<QuestionStatus, string> = {
 const STATUS_TONE: Record<QuestionStatus, 'neutral' | 'warning' | 'info' | 'success'> = {
   draft: 'neutral', review: 'warning', approved: 'success', live: 'info',
 };
+
+const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
+  mcq: 'اختيار من متعدد',
+  'true-false': 'صح / خطأ',
+  matching: 'وصل',
+  ordering: 'ترتيب',
+  'fill-in': 'إكمال',
+};
+
+const QUESTION_TYPE_OPTIONS: ReadonlyArray<{ value: QuestionType; label: string }> = [
+  { value: 'mcq', label: QUESTION_TYPE_LABEL.mcq },
+  { value: 'true-false', label: QUESTION_TYPE_LABEL['true-false'] },
+  { value: 'matching', label: QUESTION_TYPE_LABEL.matching },
+];
+
+interface QuestionDraftState {
+  category: string;
+  type: QuestionType;
+  text: string;
+  options: string[];
+  matchingPairs: MatchingPair[];
+  correctIndex: number;
+  difficulty: number;
+  timeLimitSeconds: number;
+}
+
+const DEFAULT_MATCHING_PAIRS: MatchingPair[] = [
+  { prompt: '', match: '' },
+  { prompt: '', match: '' },
+  { prompt: '', match: '' },
+];
+
+function normaliseQuestionDraft(draft: QuestionDraftState): Omit<BankQuestion, 'id' | 'status' | 'version'> {
+  if (draft.type === 'true-false') {
+    return {
+      category: draft.category,
+      difficulty: draft.difficulty as 1 | 2 | 3 | 4 | 5,
+      type: draft.type,
+      text: draft.text,
+      options: ['صح', 'خطأ'],
+      correctIndex: draft.correctIndex > 1 ? 0 : draft.correctIndex,
+      timeLimitSeconds: draft.timeLimitSeconds,
+    };
+  }
+
+  if (draft.type === 'matching') {
+    const pairs = draft.matchingPairs.filter((pair) => pair.prompt.trim() && pair.match.trim());
+    return {
+      category: draft.category,
+      difficulty: draft.difficulty as 1 | 2 | 3 | 4 | 5,
+      type: draft.type,
+      text: draft.text,
+      options: pairs.map((pair) => pair.match),
+      correctIndex: 0,
+      matchingPairs: pairs,
+      timeLimitSeconds: draft.timeLimitSeconds,
+    };
+  }
+
+  return {
+    category: draft.category,
+    difficulty: draft.difficulty as 1 | 2 | 3 | 4 | 5,
+    type: draft.type,
+    text: draft.text,
+    options: draft.options,
+    correctIndex: draft.correctIndex,
+    timeLimitSeconds: draft.timeLimitSeconds,
+  };
+}
 
 export function QuestionBankCRUDPage(): JSX.Element {
   const qc = useQueryClient();
@@ -137,11 +206,21 @@ export function QuestionBankCRUDPage(): JSX.Element {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [draft, setDraft] = useState({ category: 'قدرات لفظية', text: '', options: ['', '', '', ''], correctIndex: 0, difficulty: 3, timeLimitSeconds: 60 });
+  const [draft, setDraft] = useState<QuestionDraftState>({
+    category: 'قدرات لفظية',
+    type: 'mcq',
+    text: '',
+    options: ['', '', '', ''],
+    matchingPairs: DEFAULT_MATCHING_PAIRS,
+    correctIndex: 0,
+    difficulty: 3,
+    timeLimitSeconds: 60,
+  });
 
   const columns: DataTableColumn<BankQuestion>[] = [
     { key: 'id', label: 'الرقم', width: 100, render: (q) => <span className="font-mono" dir="ltr">{q.id}</span> },
     { key: 'category', label: 'الفئة', render: (q) => q.category },
+    { key: 'type', label: 'النوع', render: (q) => <Badge tone="neutral">{QUESTION_TYPE_LABEL[q.type]}</Badge> },
     { key: 'difficulty', label: 'الصعوبة', numeric: true, render: (q) => '★'.repeat(q.difficulty) },
     { key: 'text', label: 'نص السؤال', render: (q) => <span className="block max-w-md truncate">{q.text}</span> },
     { key: 'status', label: 'الحالة', render: (q) => <Badge tone={STATUS_TONE[q.status]}>{q.status === 'approved' && <IconStamp width={12} height={12} className="me-1 inline-block" />}{STATUS_LABEL[q.status]}</Badge> },
@@ -168,6 +247,7 @@ export function QuestionBankCRUDPage(): JSX.Element {
                   text: `${source.text} (نسخة)`,
                   options: [...source.options],
                   correctIndex: source.correctIndex,
+                  matchingPairs: source.matchingPairs ? source.matchingPairs.map((pair) => ({ ...pair })) : undefined,
                   timeLimitSeconds: source.timeLimitSeconds,
                   notes: source.notes,
                 }),
@@ -351,7 +431,7 @@ export function QuestionBankCRUDPage(): JSX.Element {
                 templateColumns: [
                   { key: 'category', labelAr: 'الفئة', sample: 'قدرات لفظية' },
                   { key: 'difficulty', labelAr: 'الصعوبة', sample: '3' },
-                  { key: 'type', labelAr: 'النوع', sample: 'mcq' },
+                  { key: 'type', labelAr: 'النوع', sample: 'mcq / true-false / matching' },
                   { key: 'text', labelAr: 'نص السؤال', sample: 'مثال سؤال' },
                   { key: 'option1', labelAr: 'الخيار 1', sample: 'خيار أ' },
                   { key: 'option2', labelAr: 'الخيار 2', sample: 'خيار ب' },
@@ -382,41 +462,79 @@ export function QuestionBankCRUDPage(): JSX.Element {
             className="flex flex-col gap-4"
             onSubmit={(e) => {
               e.preventDefault();
-              createMut.mutate({
-                category: draft.category,
-                difficulty: draft.difficulty as 1 | 2 | 3 | 4 | 5,
-                type: 'mcq',
-                text: draft.text,
-                options: draft.options,
-                correctIndex: draft.correctIndex,
-                timeLimitSeconds: draft.timeLimitSeconds,
-              }, { onSuccess: () => { toast('تم حفظ السؤال كمسودّة', 'success'); setDrawerOpen(false); } });
+              createMut.mutate(normaliseQuestionDraft(draft), {
+                onSuccess: () => { toast('تم حفظ السؤال كمسودّة', 'success'); setDrawerOpen(false); },
+              });
             }}
           >
             <div className="grid gap-4 md:grid-cols-2">
               <Select label="الفئة" value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })} options={['قدرات لفظية', 'قدرات عددية', 'منطق', 'سرعة بديهة', 'ثقافة عامة'].map((c) => ({ value: c, label: c }))} />
               <Select label="الصعوبة" value={String(draft.difficulty)} onChange={(e) => setDraft({ ...draft, difficulty: Number(e.target.value) })} options={[1, 2, 3, 4, 5].map((d) => ({ value: String(d), label: `${d} نجوم` }))} />
+              <Select
+                label="نوع السؤال"
+                value={draft.type}
+                onChange={(e) => setDraft({ ...draft, type: e.target.value as QuestionType, correctIndex: 0 })}
+                options={QUESTION_TYPE_OPTIONS}
+              />
             </div>
             <Textarea label="نص السؤال" required value={draft.text} onChange={(e) => setDraft({ ...draft, text: e.target.value })} />
-            <div className="flex flex-col gap-3">
-              <p className="text-2xs font-medium uppercase tracking-wide text-ink-500">
-                الخيارات (اختر الإجابة الصحيحة)
-              </p>
-              {draft.options.map((opt, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="correct"
-                    checked={draft.correctIndex === i}
-                    onChange={() => setDraft({ ...draft, correctIndex: i })}
-                    className="h-4 w-4 cursor-pointer"
-                    style={{ accentColor: 'var(--accent-500)' }}
-                    aria-label={`الإجابة الصحيحة: الخيار ${i + 1}`}
-                  />
-                  <Input label={`الخيار ${i + 1}`} value={opt} onChange={(e) => { const next = [...draft.options]; next[i] = e.target.value; setDraft({ ...draft, options: next }); }} containerClassName="flex-1" />
-                </div>
-              ))}
-            </div>
+            {draft.type === 'matching' ? (
+              <div className="flex flex-col gap-3">
+                <p className="text-2xs font-medium uppercase tracking-wide text-ink-500">
+                  أزواج الوصل
+                </p>
+                {draft.matchingPairs.map((pair, i) => (
+                  <div key={i} className="grid gap-2 md:grid-cols-2">
+                    <Input
+                      label={`الطرف ${i + 1}`}
+                      value={pair.prompt}
+                      onChange={(e) => {
+                        const next = draft.matchingPairs.map((item, idx) => idx === i ? { ...item, prompt: e.target.value } : item);
+                        setDraft({ ...draft, matchingPairs: next });
+                      }}
+                    />
+                    <Input
+                      label={`الإجابة المطابقة ${i + 1}`}
+                      value={pair.match}
+                      onChange={(e) => {
+                        const next = draft.matchingPairs.map((item, idx) => idx === i ? { ...item, match: e.target.value } : item);
+                        setDraft({ ...draft, matchingPairs: next });
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-2xs font-medium uppercase tracking-wide text-ink-500">
+                  الخيارات (اختر الإجابة الصحيحة)
+                </p>
+                {(draft.type === 'true-false' ? ['صح', 'خطأ'] : draft.options).map((opt, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="correct"
+                      checked={draft.correctIndex === i}
+                      onChange={() => setDraft({ ...draft, correctIndex: i })}
+                      className="h-4 w-4 cursor-pointer"
+                      style={{ accentColor: 'var(--accent-500)' }}
+                      aria-label={`الإجابة الصحيحة: الخيار ${i + 1}`}
+                    />
+                    <Input
+                      label={`الخيار ${i + 1}`}
+                      value={opt}
+                      disabled={draft.type === 'true-false'}
+                      onChange={(e) => {
+                        const next = [...draft.options];
+                        next[i] = e.target.value;
+                        setDraft({ ...draft, options: next });
+                      }}
+                      containerClassName="flex-1"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
             <Input label="الزمن (ثوانٍ)" type="number" value={draft.timeLimitSeconds} onChange={(e) => setDraft({ ...draft, timeLimitSeconds: Number(e.target.value) })} containerClassName="md:max-w-[200px]" />
           </form>
         </Modal.Body>
@@ -521,6 +639,7 @@ export function ExamCreatePage(): JSX.Element {
   const poolColumns: DataTableColumn<BankQuestion>[] = [
     { key: 'id', label: 'الرقم', width: 110, render: (q) => <span className="font-mono text-2xs" dir="ltr">{q.id}</span> },
     { key: 'category', label: 'الفئة', render: (q) => <span className="text-2xs text-ink-700">{q.category}</span> },
+    { key: 'type', label: 'النوع', width: 120, render: (q) => <Badge tone="neutral">{QUESTION_TYPE_LABEL[q.type]}</Badge> },
     { key: 'difficulty', label: 'الصعوبة', numeric: true, width: 90, render: (q) => <span className="text-2xs text-gold-700">{'★'.repeat(q.difficulty)}</span> },
     { key: 'text', label: 'نص السؤال', render: (q) => <span className="block max-w-md truncate text-2xs">{q.text}</span> },
     { key: 'time', label: 'الزمن', numeric: true, width: 80, render: (q) => <span className="font-numeric tnum text-2xs text-ink-500">{q.timeLimitSeconds}ث</span> },
@@ -659,12 +778,20 @@ export function ExamCreatePage(): JSX.Element {
 
 /* ─────────── Live exam (applicant-facing) ─────────── */
 
+export function ExamPreviewPage(): JSX.Element {
+  return <LiveExamExperience isPreview />;
+}
+
 export function LiveExamPage(): JSX.Element {
+  return <LiveExamExperience />;
+}
+
+function LiveExamExperience({ isPreview = false }: { isPreview?: boolean }): JSX.Element {
   const { examId = '' } = useParams<{ examId: string }>();
   const { data: exam, isLoading, error, refetch } = useQuery({ queryKey: ['exams', 'config', examId], queryFn: () => examsService.getExam(examId), enabled: Boolean(examId) });
   const [phase, setPhase] = useState<'pre' | 'exam' | 'submitted'>('pre');
   const [activeIdx, setActiveIdx] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [answers, setAnswers] = useState<Record<string, ExamAnswer>>({});
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [seconds, setSeconds] = useState(45 * 60);
   const [questions, setQuestions] = useState<BankQuestion[]>([]);
@@ -672,7 +799,7 @@ export function LiveExamPage(): JSX.Element {
   /* Fetch the exam's questions when entering exam phase. */
   useEffect(() => {
     if (phase !== 'exam' || !exam) return;
-    Promise.all(exam.questionIds.slice(0, 12).map((id) => examsService.getQuestion(id))).then((qs) => {
+    Promise.all(exam.questionIds.map((id) => examsService.getQuestion(id))).then((qs) => {
       setQuestions(qs.filter(Boolean) as BankQuestion[]);
     });
   }, [phase, exam]);
@@ -696,12 +823,18 @@ export function LiveExamPage(): JSX.Element {
       <CenteredShell>
         <Card className="text-center">
           <h2 className="font-ar-display text-2xl font-bold text-ink-900">{exam.nameAr}</h2>
-          <p className="mt-2 text-sm text-ink-500">يرجى التحقق من هويتك بيومترياً قبل بدء الاختبار. الاختبار يقفل في وضع ملء الشاشة ولا يُسمح بمغادرة الصفحة.</p>
+          <p className="mt-2 text-sm text-ink-500">
+            {isPreview
+              ? 'معاينة إدارية بنفس واجهة المختبر. لن تُحفظ إجابات ولن تُنشأ محاولة اختبار.'
+              : 'يرجى التحقق من هويتك بيومترياً قبل بدء الاختبار. الاختبار يقفل في وضع ملء الشاشة ولا يُسمح بمغادرة الصفحة.'}
+          </p>
           <div className="my-6 flex flex-col items-center gap-3">
             <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-teal-50 text-teal-700"><ShieldCheck size={32} strokeWidth={1.75} /></span>
-            <Badge tone="success">تم التحقق البيومتري</Badge>
+            <Badge tone={isPreview ? 'info' : 'success'}>{isPreview ? 'وضع المعاينة' : 'تم التحقق البيومتري'}</Badge>
           </div>
-          <Button variant="primary" size="lg" onClick={() => setPhase('exam')}>ابدأ الاختبار</Button>
+          <Button variant="primary" size="lg" onClick={() => setPhase('exam')}>
+            {isPreview ? 'بدء المعاينة' : 'ابدأ الاختبار'}
+          </Button>
         </Card>
       </CenteredShell>
     );
@@ -723,43 +856,37 @@ export function LiveExamPage(): JSX.Element {
     <CenteredShell>
       <PageHeader
         title={exam.nameAr}
-        subtitle={`السؤال ${activeIdx + 1} من ${questions.length || 12}`}
+        subtitle={`${isPreview ? 'معاينة الاختبار · ' : ''}السؤال ${activeIdx + 1} من ${questions.length || exam.questionIds.length}`}
         actions={
           <div className="flex items-center gap-3">
+            {isPreview && <Badge tone="info">معاينة إدارية</Badge>}
             <span className="inline-flex items-center gap-1 rounded-pill bg-terra-50 px-3 py-1 text-2xs font-bold text-terra-700">
               <Timer size={12} strokeWidth={1.75} />
               <span dir="ltr" className="font-numeric tnum">{String(minutes).padStart(2, '0')}:{String(secs).padStart(2, '0')}</span>
             </span>
-            <Button variant="primary" onClick={async () => { const att = await examsService.startAttempt(exam.id, 'APP-2026000'); await examsService.submitAttempt(att.id, answers); setPhase('submitted'); }}>تسليم</Button>
+            <Button
+              variant="primary"
+              onClick={async () => {
+                if (!isPreview) {
+                  const att = await examsService.startAttempt(exam.id, 'APP-2026000');
+                  await examsService.submitAttempt(att.id, answers);
+                }
+                setPhase('submitted');
+              }}
+            >
+              {isPreview ? 'إنهاء المعاينة' : 'تسليم'}
+            </Button>
           </div>
         }
       />
       {activeQ ? (
         <Card>
           <p className="mb-4 text-md font-medium text-ink-900">{activeQ.text}</p>
-          <ol className="flex flex-col gap-2">
-            {activeQ.options.map((opt, i) => {
-              const checked = answers[activeQ.id] === i;
-              return (
-                <li key={i}>
-                  <button
-                    type="button"
-                    onClick={() => setAnswers({ ...answers, [activeQ.id]: i })}
-                    className={'flex w-full items-center gap-3 rounded-md border px-3 py-2 text-start text-sm ' + (checked ? '' : 'border-border-default hover:bg-ink-50')}
-                    style={checked ? { borderColor: 'var(--accent-500)', background: 'var(--accent-50)' } : undefined}
-                  >
-                    <span
-                      className={'inline-flex h-5 w-5 items-center justify-center rounded-full ' + (checked ? 'text-white' : 'border border-border-strong')}
-                      style={checked ? { background: 'var(--accent-500)' } : undefined}
-                    >
-                      {i + 1}
-                    </span>
-                    {opt}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+          <StudentQuestionAnswer
+            question={activeQ}
+            answer={answers[activeQ.id]}
+            onChange={(answer) => setAnswers({ ...answers, [activeQ.id]: answer })}
+          />
           <div className="mt-4 flex items-center justify-between">
             <Button variant="ghost" leadingIcon={<ArrowRight size={14} strokeWidth={1.75} />} disabled={activeIdx === 0} onClick={() => setActiveIdx((i) => i - 1)}>السابق</Button>
             <Button variant="secondary" leadingIcon={<Flag size={14} strokeWidth={1.75} />} onClick={() => { const next = new Set(flagged); next.has(activeQ.id) ? next.delete(activeQ.id) : next.add(activeQ.id); setFlagged(next); }}>
@@ -772,6 +899,69 @@ export function LiveExamPage(): JSX.Element {
         <LoadingState variant="card-grid" count={1} />
       )}
     </CenteredShell>
+  );
+}
+
+function StudentQuestionAnswer({
+  question,
+  answer,
+  onChange,
+}: {
+  question: BankQuestion;
+  answer: ExamAnswer | undefined;
+  onChange: (answer: ExamAnswer) => void;
+}): JSX.Element {
+  if (question.type === 'matching') {
+    const pairs = question.matchingPairs ?? [];
+    const matches = question.options.length > 0 ? question.options : pairs.map((pair) => pair.match);
+    const current = typeof answer === 'object' && answer !== null && !Array.isArray(answer) ? answer : {};
+
+    return (
+      <div className="flex flex-col gap-3">
+        {pairs.map((pair, i) => (
+          <div key={pair.prompt} className="grid items-end gap-2 rounded-md border border-border-default bg-surface-page p-3 md:grid-cols-[1fr_260px]">
+            <div>
+              <span className="mb-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-ink-100 font-numeric text-2xs text-ink-700">
+                {i + 1}
+              </span>
+              <p className="text-sm font-medium text-ink-900">{pair.prompt}</p>
+            </div>
+            <Select
+              label="اختر المطابقة"
+              value={current[pair.prompt] ?? ''}
+              onChange={(e) => onChange({ ...current, [pair.prompt]: e.target.value })}
+              options={[{ value: '', label: 'اختر الإجابة' }, ...matches.map((match) => ({ value: match, label: match }))]}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <ol className="flex flex-col gap-2">
+      {question.options.map((opt, i) => {
+        const checked = answer === i;
+        return (
+          <li key={i}>
+            <button
+              type="button"
+              onClick={() => onChange(i)}
+              className={'flex w-full items-center gap-3 rounded-md border px-3 py-2 text-start text-sm transition-colors duration-fast ease-standard focus-visible:shadow-focus-teal focus-visible:outline-none ' + (checked ? '' : 'border-border-default hover:bg-ink-50')}
+              style={checked ? { borderColor: 'var(--accent-500)', background: 'var(--accent-50)' } : undefined}
+            >
+              <span
+                className={'inline-flex h-5 w-5 items-center justify-center rounded-full ' + (checked ? 'text-white' : 'border border-border-strong')}
+                style={checked ? { background: 'var(--accent-500)' } : undefined}
+              >
+                {i + 1}
+              </span>
+              {opt}
+            </button>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -1097,6 +1287,17 @@ export function ExamsListPageNew(): JSX.Element {
             }}
           >
             تفاصيل
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            leadingIcon={<BookOpen size={12} strokeWidth={1.75} />}
+            onClick={(ev) => {
+              ev.stopPropagation();
+              navigate(ROUTES.questionBank.examPreview(e.id));
+            }}
+          >
+            معاينة
           </Button>
           {e.status === 'published' && (
             <Button
@@ -1473,6 +1674,7 @@ export function ExamDetailPage(): JSX.Element {
   const detailColumns: DataTableColumn<BankQuestion>[] = [
     { key: 'id', label: 'الرقم', width: 110, render: (q) => <span className="font-mono text-2xs" dir="ltr">{q.id}</span> },
     { key: 'category', label: 'الفئة', render: (q) => <span className="text-2xs text-ink-700">{q.category}</span> },
+    { key: 'type', label: 'النوع', width: 120, render: (q) => <Badge tone="neutral">{QUESTION_TYPE_LABEL[q.type]}</Badge> },
     { key: 'difficulty', label: 'الصعوبة', numeric: true, width: 90, render: (q) => <span className="text-2xs text-gold-700">{'★'.repeat(q.difficulty)}</span> },
     { key: 'text', label: 'نص السؤال', render: (q) => <span className="block max-w-md truncate text-2xs">{q.text}</span> },
     { key: 'time', label: 'الزمن', numeric: true, width: 80, render: (q) => <span className="font-numeric tnum text-2xs text-ink-500">{q.timeLimitSeconds}ث</span> },
@@ -1498,6 +1700,13 @@ export function ExamDetailPage(): JSX.Element {
               onClick={() => navigate(ROUTES.questionBank.exams)}
             >
               العودة
+            </Button>
+            <Button
+              variant="secondary"
+              leadingIcon={<BookOpen size={14} strokeWidth={1.75} />}
+              onClick={() => navigate(ROUTES.questionBank.examPreview(exam.id))}
+            >
+              معاينة الاختبار
             </Button>
             {exam.status === 'draft' && (
               <Button
