@@ -58,6 +58,16 @@ export interface DuplicateAudit {
   exceedsThreshold: boolean;
 }
 
+export interface IntegrityAuditRow {
+  code: 'MISSING_REQUIRED' | 'GRADE_OUT_OF_RANGE' | 'UNREADABLE_VALUE';
+  labelAr: string;
+  sourceRowIndex: number;
+  nationalId: string | null;
+  nameAr: string | null;
+  totalGrade: number | null;
+  detail: string;
+}
+
 export function buildDuplicateAudit(
   rows: readonly NormalisedRow[],
 ): DuplicateAudit {
@@ -99,6 +109,94 @@ export function buildDuplicateAudit(
   };
 }
 
+export function dedupeRowsFirstOccurrence(rows: readonly NormalisedRow[]): {
+  uniqueRows: NormalisedRow[];
+  skippedRows: NormalisedRow[];
+} {
+  const seen = new Set<string>();
+  const uniqueRows: NormalisedRow[] = [];
+  const skippedRows: NormalisedRow[] = [];
+
+  for (const row of rows) {
+    if (!row.nationalId) {
+      uniqueRows.push(row);
+      continue;
+    }
+    if (seen.has(row.nationalId)) {
+      skippedRows.push(row);
+      continue;
+    }
+    seen.add(row.nationalId);
+    uniqueRows.push(row);
+  }
+
+  return { uniqueRows, skippedRows };
+}
+
+export function buildIntegrityAuditRows(input: {
+  rows: readonly NormalisedRow[];
+  selectedSchoolCategories: readonly string[];
+  maxGradeByCategory: Readonly<Record<string, number>>;
+}): IntegrityAuditRow[] {
+  const fallbackMax =
+    input.selectedSchoolCategories
+      .map((code) => input.maxGradeByCategory[code])
+      .find((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0) ?? null;
+
+  const out: IntegrityAuditRow[] = [];
+  for (const row of input.rows) {
+    const missing: string[] = [];
+    if (!row.nationalId) missing.push('الرقم القومي');
+    if (!row.nameAr) missing.push('الاسم باللغة العربية');
+    if (row.totalGrade == null) missing.push('المجموع الكلي');
+    if (missing.length > 0) {
+      out.push({
+        code: 'MISSING_REQUIRED',
+        labelAr: 'حقول مطلوبة فارغة',
+        sourceRowIndex: row.sourceRowIndex,
+        nationalId: row.nationalId,
+        nameAr: row.nameAr,
+        totalGrade: row.totalGrade,
+        detail: `حقول مفقودة: ${missing.join('، ')}`,
+      });
+    }
+
+    if (row.totalGrade == null) continue;
+    if (!Number.isFinite(row.totalGrade)) {
+      out.push({
+        code: 'UNREADABLE_VALUE',
+        labelAr: 'قيمة غير قابلة للقراءة',
+        sourceRowIndex: row.sourceRowIndex,
+        nationalId: row.nationalId,
+        nameAr: row.nameAr,
+        totalGrade: row.totalGrade,
+        detail: 'المجموع الكلي ليس رقمًا صالحًا',
+      });
+      continue;
+    }
+
+    const max =
+      row.maxGrade ??
+      (row.schoolCategory ? input.maxGradeByCategory[row.schoolCategory] : undefined) ??
+      fallbackMax;
+    if (row.totalGrade < 0 || (typeof max === 'number' && row.totalGrade > max)) {
+      out.push({
+        code: 'GRADE_OUT_OF_RANGE',
+        labelAr: 'درجة خارج النطاق',
+        sourceRowIndex: row.sourceRowIndex,
+        nationalId: row.nationalId,
+        nameAr: row.nameAr,
+        totalGrade: row.totalGrade,
+        detail:
+          row.totalGrade < 0
+            ? 'المجموع الكلي أقل من صفر'
+            : `المجموع الكلي (${row.totalGrade}) يتجاوز الدرجة العظمى (${max})`,
+      });
+    }
+  }
+  return out;
+}
+
 /** Compose the full pre-import audit CSV — a single file containing
  *  the summary header rows, the duplicate distribution, and every
  *  failure-group row the preflight surfaced. Excel-friendly via the
@@ -107,10 +205,11 @@ export function buildAuditCsv(input: {
   audit: DuplicateAudit;
   report: ImportReport | null;
   rows: readonly NormalisedRow[];
+  integrityRows?: readonly IntegrityAuditRow[];
   graduationYear: number | null;
   fileName: string | null;
 }): string {
-  const { audit, report, rows, graduationYear, fileName } = input;
+  const { audit, report, rows, integrityRows = [], graduationYear, fileName } = input;
   const sections: Array<{ headers: readonly string[]; rows: ReadonlyArray<readonly unknown[]> }> = [];
 
   sections.push({
@@ -142,6 +241,25 @@ export function buildAuditCsv(input: {
         d.nationalId,
         d.nameAr ?? '—',
         d.count,
+      ]),
+    });
+  }
+
+  if (integrityRows.length > 0) {
+    sections.push({
+      headers: ['فحص السلامة الكامل'],
+      rows: [['الكود', 'الفئة', 'الصف', 'الرقم القومي', 'الاسم', 'المجموع', 'الملاحظة']],
+    });
+    sections.push({
+      headers: ['', '', '', '', '', '', ''],
+      rows: integrityRows.map((r) => [
+        r.code,
+        r.labelAr,
+        r.sourceRowIndex,
+        r.nationalId ?? '',
+        r.nameAr ?? '',
+        r.totalGrade ?? '',
+        r.detail,
       ]),
     });
   }

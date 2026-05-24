@@ -36,7 +36,13 @@ import { Step4Filters } from '../components/importWizard/steps/Step4Filters';
 import { Step5DuplicateReview } from '../components/importWizard/steps/Step5DuplicateReview';
 import { Step6ChangesReview } from '../components/importWizard/steps/Step6ChangesReview';
 import { Step6Result } from '../components/importWizard/steps/Step6Result';
-import { buildDuplicateAudit } from '../lib/duplicateAudit';
+import {
+  buildAuditCsv,
+  buildDuplicateAudit,
+  buildIntegrityAuditRows,
+  dedupeRowsFirstOccurrence,
+} from '../lib/duplicateAudit';
+import { saveApplicantGradesImportHistoryRecord } from '../lib/importHistory';
 import type { ImportCommitProgress, ImportGroupCode } from '../types';
 
 type StepIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -72,6 +78,8 @@ export function ApplicantGradesImportPage(): JSX.Element {
     (s) => s.uploadDuplicateDecisions,
   );
   const loudDuplicateAck = useImportWizardStore((s) => s.loudDuplicateAck);
+  const fileMeta = useImportWizardStore((s) => s.fileMeta);
+  const importResult = useImportWizardStore((s) => s.importResult);
   const reset = useImportWizardStore((s) => s.reset);
 
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -117,6 +125,31 @@ export function ApplicantGradesImportPage(): JSX.Element {
     graduationYear,
     lookupValueMappings,
     selectedSchoolCategories,
+  ]);
+
+  const integrityRows = useMemo(() => {
+    if (!table || graduationYear == null) return [];
+    const rows = normaliseRows(
+      table,
+      mapping,
+      filters,
+      graduationYear,
+      lookupValueMappings,
+      selectedSchoolCategories,
+    );
+    return buildIntegrityAuditRows({
+      rows,
+      selectedSchoolCategories,
+      maxGradeByCategory,
+    });
+  }, [
+    table,
+    mapping,
+    filters,
+    graduationYear,
+    lookupValueMappings,
+    selectedSchoolCategories,
+    maxGradeByCategory,
   ]);
 
   const loudGuardBlocks =
@@ -215,9 +248,10 @@ export function ApplicantGradesImportPage(): JSX.Element {
     for (const [nid, decision] of Object.entries(existingDiffDecisions)) {
       if (decision === 'accept') acceptedDiffDecisions[nid] = 'accept';
     }
+    const deduped = dedupeRowsFirstOccurrence(rows);
     setCommitProgress({
       processedRows: 0,
-      totalRows: rows.length,
+      totalRows: deduped.uniqueRows.length,
       insertedCount: 0,
       failedCount: 0,
       alreadyImportedCount: 0,
@@ -230,7 +264,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
     const auditSnapshot = duplicateAudit;
     commit.mutate(
       {
-        rows,
+        rows: deduped.uniqueRows,
         graduationYear,
         selectedSchoolCategories,
         maxGradeByCategory,
@@ -241,23 +275,41 @@ export function ApplicantGradesImportPage(): JSX.Element {
       },
       {
         onSuccess: (res) => {
+          const audit = auditSnapshot ?? buildDuplicateAudit(rows);
+          const auditCsv = buildAuditCsv({
+            audit,
+            report: importResult,
+            rows,
+            integrityRows,
+            graduationYear,
+            fileName: fileMeta?.name ?? null,
+          });
+          const historyRecord = saveApplicantGradesImportHistoryRecord({
+            fileName: fileMeta?.name ?? null,
+            graduationYear,
+            report: importResult,
+            audit,
+            integrityRows,
+            auditCsv,
+            importedCount: res.insertedCount,
+            skippedExistingCount: res.alreadyImportedCount,
+            loudDuplicateAck,
+          });
           const parts = [
             `${res.insertedCount.toLocaleString('en')} مستورد`,
             `${res.failedCount.toLocaleString('en')} مرفوض`,
+            `${audit.duplicateRowCount.toLocaleString('en')} مكرر متجاوز`,
+            `${integrityRows.length.toLocaleString('en')} غير صالح`,
+            `${audit.totalRows.toLocaleString('en')} إجمالي`,
           ];
           if (res.alreadyImportedCount > 0) {
             parts.push(
               `${res.alreadyImportedCount.toLocaleString('en')} متجاهل (موجود مسبقًا)`,
             );
           }
-          if (auditSnapshot && auditSnapshot.duplicateRowCount > 0) {
-            parts.push(
-              `${auditSnapshot.duplicateRowCount.toLocaleString('en')} مكرر داخل الملف`,
-            );
-          }
           toast(`تم الاستيراد — ${parts.join(' · ')}.`, 'success');
           reset();
-          navigate(ROUTES.admin.applicantGrades);
+          navigate(`${ROUTES.admin.applicantGradesImportHistory}?record=${encodeURIComponent(historyRecord.id)}`);
         },
         onError: () => {
           toast('تعذّر إكمال الاستيراد. حاول مرة أخرى.', 'danger');

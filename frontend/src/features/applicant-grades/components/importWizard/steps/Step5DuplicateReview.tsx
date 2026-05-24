@@ -40,6 +40,7 @@ import { buildAlreadyImported } from '../../../lib/buildDiff';
 import {
   buildAuditCsv,
   buildDuplicateAudit,
+  buildIntegrityAuditRows,
   DUPLICATE_RATIO_THRESHOLD,
   type DuplicateAudit,
 } from '../../../lib/duplicateAudit';
@@ -56,6 +57,7 @@ export function Step5DuplicateReview(): JSX.Element {
   const selectedSchoolCategories = useImportWizardStore(
     (s) => s.selectedSchoolCategories,
   );
+  const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const importResult = useImportWizardStore((s) => s.importResult);
   const setImportResult = useImportWizardStore((s) => s.setImportResult);
   const loudDuplicateAck = useImportWizardStore((s) => s.loudDuplicateAck);
@@ -83,6 +85,15 @@ export function Step5DuplicateReview(): JSX.Element {
   );
 
   const audit = useMemo(() => buildDuplicateAudit(normalised), [normalised]);
+  const integrityRows = useMemo(
+    () =>
+      buildIntegrityAuditRows({
+        rows: normalised,
+        selectedSchoolCategories,
+        maxGradeByCategory,
+      }),
+    [normalised, selectedSchoolCategories, maxGradeByCategory],
+  );
 
   /* Auto-clear the acknowledgement whenever the audit shape stops being
    * dangerous (e.g. admin tightened filters in Step 4). Stays sticky
@@ -136,9 +147,9 @@ export function Step5DuplicateReview(): JSX.Element {
 
   const dup = report.groups.find((g) => g.code === 'DUPLICATE_NID')?.rows.length ?? 0;
   const invalid = report.groups.find((g) => g.code === 'INVALID_NID')?.rows.length ?? 0;
-  const missing = report.groups.find((g) => g.code === 'MISSING_REQUIRED')?.rows.length ?? 0;
-  const outOfRange =
-    report.groups.find((g) => g.code === 'GRADE_OUT_OF_RANGE')?.rows.length ?? 0;
+  const missing = integrityRows.filter((row) => row.code === 'MISSING_REQUIRED').length;
+  const outOfRange = integrityRows.filter((row) => row.code === 'GRADE_OUT_OF_RANGE').length;
+  const unreadable = integrityRows.filter((row) => row.code === 'UNREADABLE_VALUE').length;
   const alreadyImported = buildAlreadyImported(normalised, allRows ?? []).length;
 
   function handleDownloadAudit(): void {
@@ -146,6 +157,7 @@ export function Step5DuplicateReview(): JSX.Element {
       audit,
       report,
       rows: normalised,
+      integrityRows,
       graduationYear,
       fileName: fileMeta?.name ?? null,
     });
@@ -191,6 +203,21 @@ export function Step5DuplicateReview(): JSX.Element {
           icon={<AlertTriangle size={14} aria-hidden />}
           label="صفوف بحقول مطلوبة فارغة"
           value={missing}
+          tone="danger"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-white">
+        <Counter
+          icon={<AlertTriangle size={14} aria-hidden />}
+          label="درجات خارج النطاق"
+          value={outOfRange}
+          tone="danger"
+        />
+        <Counter
+          icon={<AlertTriangle size={14} aria-hidden />}
+          label="قيم غير رقمية / غير مقروءة"
+          value={unreadable}
           tone="danger"
         />
       </div>
@@ -369,6 +396,31 @@ function DuplicateDistributionTable({
   audit: DuplicateAudit;
   totalRows: number;
 }): JSX.Element {
+  const [sortKey, setSortKey] = useState<'nationalId' | 'nameAr' | 'count'>('count');
+  const [direction, setDirection] = useState<'asc' | 'desc'>('desc');
+  const sorted = useMemo(() => {
+    const rows = [...audit.distribution];
+    rows.sort((a, b) => {
+      const av = sortKey === 'nameAr' ? a.nameAr ?? '' : a[sortKey];
+      const bv = sortKey === 'nameAr' ? b.nameAr ?? '' : b[sortKey];
+      const cmp = typeof av === 'number' && typeof bv === 'number'
+        ? av - bv
+        : String(av).localeCompare(String(bv), 'ar');
+      return direction === 'asc' ? cmp : -cmp;
+    });
+    return rows;
+  }, [audit.distribution, direction, sortKey]);
+  const toggleSort = (key: 'nationalId' | 'nameAr' | 'count'): void => {
+    if (sortKey === key) {
+      setDirection((cur) => (cur === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setDirection(key === 'count' ? 'desc' : 'asc');
+  };
+  const sortMark = (key: 'nationalId' | 'nameAr' | 'count'): string =>
+    sortKey === key ? (direction === 'asc' ? ' ↑' : ' ↓') : '';
+
   return (
     <section className="overflow-hidden rounded-md border border-border-subtle bg-white">
       <header className="flex items-center justify-between border-b border-border-subtle bg-ink-50/60 px-3.5 py-2 text-2xs font-semibold text-ink-700">
@@ -390,13 +442,19 @@ function DuplicateDistributionTable({
               #
             </th>
             <th scope="col" className="px-3 py-1.5 text-start font-semibold">
-              الرقم القومي
+              <button type="button" onClick={() => toggleSort('nationalId')} className="hover:text-ink-900">
+                الرقم القومي{sortMark('nationalId')}
+              </button>
             </th>
             <th scope="col" className="px-3 py-1.5 text-start font-semibold">
-              الاسم
+              <button type="button" onClick={() => toggleSort('nameAr')} className="hover:text-ink-900">
+                الاسم{sortMark('nameAr')}
+              </button>
             </th>
             <th scope="col" className="px-3 py-1.5 text-end font-semibold" style={{ width: 120 }}>
-              عدد مرات التكرار
+              <button type="button" onClick={() => toggleSort('count')} className="hover:text-ink-900">
+                عدد مرات التكرار{sortMark('count')}
+              </button>
             </th>
             <th scope="col" className="px-3 py-1.5 text-end font-semibold" style={{ width: 100 }}>
               نسبة الملف
@@ -404,7 +462,7 @@ function DuplicateDistributionTable({
           </tr>
         </thead>
         <tbody>
-          {audit.distribution.map((d, i) => {
+          {sorted.map((d, i) => {
             const pct = totalRows === 0 ? 0 : (d.count / totalRows) * 100;
             return (
               <tr key={d.nationalId} className="border-t border-border-subtle">

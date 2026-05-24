@@ -25,7 +25,7 @@ import { serializeCsv } from '@/shared/lib/csv';
 import { downloadBlob } from '@/shared/lib/download';
 import { useImportWizardStore } from '../../../store/importWizard.store';
 import { normaliseRows } from '../../../lib/normalise';
-import { buildAuditCsv, buildDuplicateAudit } from '../../../lib/duplicateAudit';
+import { buildAuditCsv, buildDuplicateAudit, buildIntegrityAuditRows } from '../../../lib/duplicateAudit';
 import type {
   ImportFailureRow,
   ImportGroupAction,
@@ -69,6 +69,7 @@ export function Step6Result(): JSX.Element {
   const selectedSchoolCategories = useImportWizardStore(
     (s) => s.selectedSchoolCategories,
   );
+  const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const fileMeta = useImportWizardStore((s) => s.fileMeta);
 
   const normalised = useMemo(() => {
@@ -92,6 +93,15 @@ export function Step6Result(): JSX.Element {
     selectedSchoolCategories,
   ]);
   const audit = useMemo(() => buildDuplicateAudit(normalised), [normalised]);
+  const integrityRows = useMemo(
+    () =>
+      buildIntegrityAuditRows({
+        rows: normalised,
+        selectedSchoolCategories,
+        maxGradeByCategory,
+      }),
+    [normalised, selectedSchoolCategories, maxGradeByCategory],
+  );
 
   if (!importResult) {
     return (
@@ -108,6 +118,7 @@ export function Step6Result(): JSX.Element {
       audit,
       report: importResult,
       rows: normalised,
+      integrityRows,
       graduationYear,
       fileName: fileMeta?.name ?? null,
     });

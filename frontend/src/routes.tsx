@@ -149,6 +149,7 @@ import {
 } from '@/features/exams';
 import {
   ApplicantGradesChangesPage,
+  ApplicantGradesImportHistoryPage,
   ApplicantGradesImportPage,
   ApplicantGradesPage,
 } from '@/features/applicant-grades';
@@ -260,6 +261,7 @@ export const routes: RouteObject[] = [
       { path: 'workflows/:id', element: <AuthGuard app="admin" perm="workflows:edit"><WorkflowEditorPage /></AuthGuard> },
       { path: 'applicant-grades', element: <AuthGuard app="admin" perm="applicant-grades:view"><ApplicantGradesPage /></AuthGuard> },
       { path: 'applicant-grades/import', element: <AuthGuard app="admin" perm="applicant-grades:import"><ApplicantGradesImportPage /></AuthGuard> },
+      { path: 'applicant-grades/import-history', element: <AuthGuard app="admin" perm="applicant-grades:view"><ApplicantGradesImportHistoryPage /></AuthGuard> },
       { path: 'applicant-grades/changes', element: <AuthGuard app="admin" perm="applicant-grades:edit"><ApplicantGradesChangesPage /></AuthGuard> },
       { path: 'admission-rules', element: <AuthGuard app="admin" perm="admission-rules:manage"><AdmissionRulesPage /></AuthGuard> },
       /* Admission Setup — config-driven ordered steps. The route segments

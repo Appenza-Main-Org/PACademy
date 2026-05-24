@@ -62,6 +62,8 @@ export const ROUTES = {
     applicantGrades: '/admin/applicant-grades',
     /** Standalone v2 import wizard (renders inside AdminLayout). */
     applicantGradesImport: '/admin/applicant-grades/import',
+    /** Import audit history + downloadable reports. */
+    applicantGradesImportHistory: '/admin/applicant-grades/import-history',
     /** Audit view: students whose grades have changed since initial import. */
     applicantGradesChanges: '/admin/applicant-grades/changes',
     notifications: '/admin/notifications',
