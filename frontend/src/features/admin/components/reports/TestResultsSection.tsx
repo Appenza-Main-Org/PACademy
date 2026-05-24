@@ -23,9 +23,28 @@ interface TestResultsSectionProps {
 }
 
 export function TestResultsSection({ report }: TestResultsSectionProps): JSX.Element {
+  const weakestTest = report.byKind.slice().sort((a, b) => a.passRate - b.passRate)[0];
+  const strongestDelta = report.byKind.slice().sort((a, b) => b.deltaPercent - a.deltaPercent)[0];
+
   return (
     <section className="mb-8">
-      <SectionHeading title="نتائج الاختبارات" />
+      <SectionHeading
+        title="نتائج الاختبارات"
+        trailing={
+          <div className="flex flex-wrap items-center gap-2 text-2xs">
+            {weakestTest && (
+              <span className="rounded-pill bg-terra-50 px-2.5 py-1 text-terra-700">
+                أقل نجاح: <span className="font-medium">{weakestTest.labelAr}</span>
+              </span>
+            )}
+            {strongestDelta && (
+              <span className="rounded-pill bg-teal-50 px-2.5 py-1 text-teal-700">
+                أفضل تحسن: <span className="font-medium">{strongestDelta.labelAr}</span>
+              </span>
+            )}
+          </div>
+        }
+      />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {report.byKind.map((k) => (
           <TestKindTile key={k.kind} result={k} />

@@ -1,11 +1,11 @@
 /**
  * StatusPulseStrip — top of /admin/reports.
- * Five inline tiles separated by vertical dividers (POLISH_REPORT §5
- * shape canon). Reads from CycleSnapshot + IntegrationStatus[].
+ * Five inline tiles separated by vertical dividers. Reads from
+ * CycleSnapshot + IntegrationStatus[] and gives the page its live pulse.
  */
 
-import { Activity } from 'lucide-react';
-import { num } from '@/shared/lib/format';
+import { Activity, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { date as fmtDate, num } from '@/shared/lib/format';
 import { Card, LogoMark } from '@/shared/components';
 import type { CycleSnapshot, IntegrationStatus } from '@/shared/types/domain';
 
@@ -21,6 +21,9 @@ const INTEGRATION_TONE: Record<IntegrationStatus['status'], string> = {
 };
 
 export function StatusPulseStrip({ snapshot, integrations }: StatusPulseStripProps): JSX.Element {
+  const degradedCount = integrations.filter((item) => item.status !== 'healthy').length;
+  const StatusIcon = degradedCount > 0 ? AlertTriangle : CheckCircle2;
+  const generatedTime = fmtDate(snapshot.generatedAt, 'time');
   const daysTone =
     snapshot.daysRemaining > 30
       ? 'text-success'
@@ -30,6 +33,20 @@ export function StatusPulseStrip({ snapshot, integrations }: StatusPulseStripPro
 
   return (
     <Card className="mb-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-3">
+        <div>
+          <p className="text-2xs uppercase tracking-wide text-gold-700">Live Command Pulse</p>
+          <h2 className="font-ar-display text-lg font-bold text-ink-900">المؤشرات التي لا تنتظر التقرير الكامل</h2>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-2xs ${
+            degradedCount > 0 ? 'bg-gold-50 text-gold-700' : 'bg-success-bg text-success'
+          }`}
+        >
+          <StatusIcon size={12} strokeWidth={1.75} aria-hidden />
+          آخر قراءة {generatedTime}
+        </span>
+      </div>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-4 md:grid-cols-5 md:gap-x-6">
         <Tile
           label="الدورة النشطة"

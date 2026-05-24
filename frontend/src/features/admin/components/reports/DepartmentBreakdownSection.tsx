@@ -26,6 +26,10 @@ const DONUT_PALETTE = [
 
 export function DepartmentBreakdownSection({ report }: DepartmentBreakdownSectionProps): JSX.Element {
   const totalApplicants = report.byDepartment.reduce((s, d) => s + d.total, 0);
+  const highestVolume = report.byDepartment.slice().sort((a, b) => b.total - a.total)[0];
+  const weakestEligibility = report.byDepartment
+    .slice()
+    .sort((a, b) => a.eligibilityPassRate - b.eligibilityPassRate)[0];
   const donutData = report.byDepartment.map((d, i) => ({
     label: d.labelAr,
     value: d.total,
@@ -34,7 +38,24 @@ export function DepartmentBreakdownSection({ report }: DepartmentBreakdownSectio
 
   return (
     <section className="mb-8">
-      <SectionHeading title="التوزيع حسب الأقسام" eyebrow="Application Categories" />
+      <SectionHeading
+        title="التوزيع حسب الأقسام"
+        eyebrow="Application Categories"
+        trailing={
+          <div className="flex flex-wrap items-center gap-2 text-2xs">
+            {highestVolume && (
+              <span className="rounded-pill bg-teal-50 px-2.5 py-1 text-teal-700">
+                أعلى إقبال: <span className="font-medium">{highestVolume.labelAr}</span>
+              </span>
+            )}
+            {weakestEligibility && (
+              <span className="rounded-pill bg-gold-50 px-2.5 py-1 text-gold-700">
+                أقل أهلية: <span className="font-medium">{weakestEligibility.labelAr}</span>
+              </span>
+            )}
+          </div>
+        }
+      />
       <div className="grid gap-5 lg:grid-cols-3">
         <Card>
           <CardHeader title="التوزيع حسب القسم" subtitle={`${num(totalApplicants)} متقدم موزعون على ${report.byDepartment.length} أقسام`} />
@@ -89,7 +110,10 @@ export function DepartmentBreakdownSection({ report }: DepartmentBreakdownSectio
         </Card>
 
         <Card>
-          <CardHeader title="أسباب الرفض الأكثر شيوعاً" subtitle="أعلى ٥ أسباب لرفض الأهلية" />
+          <CardHeader
+            title="أسباب الرفض الأكثر شيوعاً"
+            subtitle="تساعد في ضبط الشروط ورسائل الإرشاد قبل تكرار نفس الأخطاء"
+          />
           <CardBody>
             {report.topRejectionReasons.length === 0 ? (
               <p className="px-4 py-9 text-center text-sm text-ink-500">لا توجد بيانات</p>

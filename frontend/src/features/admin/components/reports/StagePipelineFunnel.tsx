@@ -16,13 +16,37 @@ interface StagePipelineFunnelProps {
 
 export function StagePipelineFunnel({ funnel }: StagePipelineFunnelProps): JSX.Element {
   const maxCount = Math.max(1, ...funnel.map((p) => p.count));
+  const bottlenecks = funnel.filter((p) => p.isBottleneck);
+  const worstDrop = funnel
+    .slice(1)
+    .reduce<StageFunnelPoint | null>(
+      (current, point) =>
+        current === null || point.dropOffFromPrevPercent > current.dropOffFromPrevPercent ? point : current,
+      null,
+    );
 
   return (
     <section className="mb-8">
-      <SectionHeading title="قمع المراحل الإحدى عشر" eyebrow="Application Pipeline" />
+      <SectionHeading
+        title="قمع المراحل الإحدى عشر"
+        eyebrow="Application Pipeline"
+        trailing={
+          <div className="flex flex-wrap items-center gap-2 text-2xs">
+            <span className="rounded-pill bg-terra-50 px-2.5 py-1 text-terra-700">
+              اختناقات: <span className="font-numeric tnum font-bold">{num(bottlenecks.length)}</span>
+            </span>
+            <span className="rounded-pill bg-gold-50 px-2.5 py-1 text-gold-700">
+              أعلى فاقد: <span className="font-numeric tnum font-bold">{worstDrop?.dropOffFromPrevPercent ?? 0}%</span>
+            </span>
+          </div>
+        }
+      />
       <div className="grid gap-5 lg:grid-cols-[2fr_1fr]">
         <Card>
-          <CardHeader title="عدد المتقدمين الحاليين بكل مرحلة" />
+          <CardHeader
+            title="عدد المتقدمين الحاليين بكل مرحلة"
+            subtitle={worstDrop ? `أكثر نقطة فقد عند الانتقال إلى ${worstDrop.stageLabel}` : 'لا يوجد فقد واضح بين المراحل'}
+          />
           <CardBody>
             <FunnelSvg points={funnel} maxCount={maxCount} />
           </CardBody>

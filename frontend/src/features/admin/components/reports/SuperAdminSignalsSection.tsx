@@ -4,8 +4,10 @@
  * audit anomalies from the command-center datasets already available to admin.
  */
 
-import { AlertTriangle, Activity, ClipboardList, Scale, ShieldAlert } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, Activity, ArrowUpRight, ClipboardList, Scale, ShieldAlert } from 'lucide-react';
 import { Card } from '@/shared/components';
+import { ROUTES } from '@/config/routes';
 import { num } from '@/shared/lib/format';
 import type { GovernanceReport, OperationalStatus, StageFunnelPoint } from '@/shared/types/domain';
 
@@ -20,6 +22,8 @@ interface Signal {
   title: string;
   value: string;
   detail: string;
+  actionLabel: string;
+  href: string;
   tone: 'danger' | 'warning' | 'info';
   icon: JSX.Element;
 }
@@ -28,6 +32,12 @@ const TONE_CLASS: Record<Signal['tone'], string> = {
   danger: 'border-terra-200 bg-terra-50 text-terra-700',
   warning: 'border-gold-200 bg-gold-50 text-gold-700',
   info: 'border-teal-100 bg-teal-50 text-teal-700',
+};
+
+const ACTION_CLASS: Record<Signal['tone'], string> = {
+  danger: 'text-terra-700 hover:bg-terra-100',
+  warning: 'text-gold-700 hover:bg-gold-100',
+  info: 'text-teal-700 hover:bg-teal-100',
 };
 
 export function SuperAdminSignalsSection({
@@ -53,6 +63,8 @@ export function SuperAdminSignalsSection({
       detail: bottlenecks.length > 0
         ? `أعلى اختناق: ${bottlenecks[0]?.stageLabel ?? 'مرحلة غير محددة'}`
         : 'لا توجد مراحل تتجاوز حد المتابعة',
+      actionLabel: 'فتح المتقدمين',
+      href: ROUTES.admin.applicants,
       tone: bottlenecks.length > 0 ? 'danger' : 'info',
       icon: <AlertTriangle size={16} strokeWidth={1.75} />,
     },
@@ -61,6 +73,8 @@ export function SuperAdminSignalsSection({
       title: 'متقدمون عالقون',
       value: num(stalledApplicants),
       detail: 'إجمالي المتقدمين داخل مراحل تتجاوز ٥ أيام متوسط انتظار',
+      actionLabel: 'مراجعة سير العمل',
+      href: ROUTES.admin.workflows,
       tone: stalledApplicants > 0 ? 'warning' : 'info',
       icon: <Activity size={16} strokeWidth={1.75} />,
     },
@@ -68,7 +82,9 @@ export function SuperAdminSignalsSection({
       key: 'load',
       title: 'اختلال توزيع اللجان',
       value: num(loadSpread),
-      detail: `الفارق بين أكبر وأصغر طابور اليوم، ${num(unsignedCommittees)} لجان بلا اعتماد`,
+      detail: `الفارق بين أكبر وأصغر طابور اليوم. لجان بلا اعتماد: ${num(unsignedCommittees)}`,
+      actionLabel: 'توزيع اللجان',
+      href: ROUTES.committee.overview,
       tone: loadSpread >= 45 || unsignedCommittees > 0 ? 'warning' : 'info',
       icon: <Scale size={16} strokeWidth={1.75} />,
     },
@@ -77,6 +93,8 @@ export function SuperAdminSignalsSection({
       title: 'ضغط القومسيون الطبي',
       value: num(longMedicalQueues),
       detail: 'محطات يتجاوز متوسط انتظارها ٣٥ دقيقة',
+      actionLabel: 'فتح القومسيون',
+      href: ROUTES.medical.queue,
       tone: longMedicalQueues > 0 ? 'warning' : 'info',
       icon: <ClipboardList size={16} strokeWidth={1.75} />,
     },
@@ -85,6 +103,8 @@ export function SuperAdminSignalsSection({
       title: 'عمليات حساسة',
       value: num(highSensitivity),
       detail: `${num(governance.anomalies.length)} إشارات شذوذ مفتوحة للمراجعة`,
+      actionLabel: 'فتح التدقيق',
+      href: ROUTES.admin.audit,
       tone: governance.anomalies.length > 0 ? 'danger' : 'info',
       icon: <ShieldAlert size={16} strokeWidth={1.75} />,
     },
@@ -94,7 +114,7 @@ export function SuperAdminSignalsSection({
     <section className="mb-8">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-2xs uppercase tracking-wide text-gold-700">Super Admin Signals</p>
+          <p className="text-2xs uppercase tracking-wide text-gold-700">Decision Signals</p>
           <h2 className="font-ar-display text-lg font-bold text-ink-900">إشارات تحتاج قرارًا إداريًا</h2>
         </div>
         <p className="max-w-2xl text-xs leading-6 text-ink-500">
@@ -116,6 +136,13 @@ export function SuperAdminSignalsSection({
                 </div>
               </div>
               <p className="mt-2 min-h-10 text-2xs leading-5 text-ink-700">{signal.detail}</p>
+              <Link
+                to={signal.href}
+                className={`mt-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:shadow-focus-teal ${ACTION_CLASS[signal.tone]}`}
+              >
+                {signal.actionLabel}
+                <ArrowUpRight size={12} strokeWidth={1.75} aria-hidden className="rtl:scale-x-[-1]" />
+              </Link>
             </li>
           ))}
         </ul>
