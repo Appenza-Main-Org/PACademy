@@ -114,6 +114,47 @@ export interface MotherRecord {
   currentHusband: SpouseSubRecord;
 }
 
+/** Applicant's spouse — the wife (male applicant) or husband (female
+ *  applicant), captured only when `personal.maritalStatus === 'married'`
+ *  (and optionally for divorced/widowed if the previous spouse is on
+ *  record). Mirrors نظام-العامين-الدارسيين نموذج 2 / 4 layout. */
+export interface ApplicantSpouseRecord {
+  fullName: string;
+  dateOfBirth: string;
+  nationality: string;
+  birthPlace: string;
+  religion: string;
+  qualification: string;
+  profession: string;
+  /** Required when profession is `police_officer` or `army_officer`. */
+  seniorityNumber: string;
+  workplace: string;
+  workNature: string;
+  address: string;
+  homePhone: string;
+  mobile: string;
+  nationalId: string;
+}
+
+/** Applicant's child — son or daughter — captured only when married.
+ *  Same shape as `AdultRelativeRecord` so the print mirror can reuse
+ *  the same row layout. */
+export type ApplicantChildRecord = AdultRelativeRecord;
+
+/** Applicant's own family — only filled when marital status is
+ *  «married» (or divorced/widowed with a recorded ex-spouse). Single
+ *  applicants skip this section entirely. */
+export interface ApplicantFamilySection {
+  /** Optional 2nd wife for male applicants (PDF: «الزوجة الثانية إن وجدت»). */
+  hasSecondSpouse: boolean;
+  spouse: ApplicantSpouseRecord;
+  secondSpouse: ApplicantSpouseRecord;
+  /** Sons — for male applicants this is «أبناء الطالب الذكور»; for
+   *  female applicants the same field carries the شرعية sons.  */
+  sons: RelativeList<ApplicantChildRecord>;
+  daughters: RelativeList<ApplicantChildRecord>;
+}
+
 /** نموذج 5 — بيانات مسكن الأسرة. */
 export interface HousingRecord {
   housingType: string;
@@ -283,10 +324,15 @@ export interface ForeignAndCasesSection {
  * ──────────────────────────────────────────────────────────────────── */
 
 export interface VothiqaTaarufDocument {
-  /** Stable identifier (`'general'` for Case 1; future cases extend
-   *  this union as Cases 2 / 3 ship). */
-  section: 'general';
+  /** Stable identifier — Case 1 (`'general'`), Case 2
+   *  (`'specialized_officers'`), Case 3 (`'law_bachelor'`).  All three
+   *  share the same document shape; the discriminator drives the
+   *  cover-page title + a few sub-labels. */
+  section: 'general' | 'specialized_officers' | 'law_bachelor';
   personal: PersonalSection;
+  /** Optional — only consumed when `personal.personal.maritalStatus`
+   *  is «married» (or divorced/widowed with retained ex-spouse). */
+  applicantFamily: ApplicantFamilySection;
   parents: ParentsSection;
   grandparents: GrandparentsSection;
   siblings: SiblingsSection;
@@ -295,9 +341,14 @@ export interface VothiqaTaarufDocument {
   foreignAndCases: ForeignAndCasesSection;
 }
 
-/** Section keys in display order — drives accordion + progress strip. */
+/** Section keys in display order — drives accordion + progress strip.
+ *  `applicantFamily` sits between «personal» and «parents» so the
+ *  applicant captures their own immediate family before the parents
+ *  + extended-family sections (matches the new template's نموذج 2/4/12
+ *  positioning). */
 export const GROUP_KEYS = [
   'personal',
+  'applicantFamily',
   'parents',
   'grandparents',
   'siblings',
@@ -310,6 +361,7 @@ export type GroupKey = (typeof GROUP_KEYS)[number];
 
 export const GROUP_LABELS: Record<GroupKey, string> = {
   personal: 'بيانات الطالب وأسرته',
+  applicantFamily: 'الزوج/الزوجة والأبناء (للمتزوج)',
   parents: 'الوالدان وولي الأمر',
   grandparents: 'الأجداد',
   siblings: 'الإخوة وأبناؤهم',
@@ -365,6 +417,25 @@ export function emptyGuardian(): GuardianRecord {
     qualification: '', profession: '', seniorityNumber: '', workplace: '', workNature: '',
     address: '', nationality: 'مصرية', governorate: '', religion: '',
     nationalId: '', mobile: '',
+  };
+}
+
+export function emptyApplicantSpouse(): ApplicantSpouseRecord {
+  return {
+    fullName: '', dateOfBirth: '', nationality: 'مصرية', birthPlace: '',
+    religion: '', qualification: '', profession: '', seniorityNumber: '',
+    workplace: '', workNature: '', address: '', homePhone: '',
+    mobile: '', nationalId: '',
+  };
+}
+
+export function emptyApplicantFamily(): ApplicantFamilySection {
+  return {
+    hasSecondSpouse: false,
+    spouse: emptyApplicantSpouse(),
+    secondSpouse: emptyApplicantSpouse(),
+    sons: emptyList(),
+    daughters: emptyList(),
   };
 }
 
@@ -427,6 +498,7 @@ export function emptyDocument(): VothiqaTaarufDocument {
       housing: emptyHousing(),
       income: emptyIncome(),
     },
+    applicantFamily: emptyApplicantFamily(),
     parents: {
       father: emptyFather(),
       guardian: emptyGuardian(),

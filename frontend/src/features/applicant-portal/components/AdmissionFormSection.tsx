@@ -359,13 +359,33 @@ function RelativeTable({ title, members }: RelativeTableProps): JSX.Element {
 }
 
 function StudentNameWatermark({ name }: { name: string }): JSX.Element | null {
-  const text = name.trim().length > 0 ? name : '';
+  const text = name.trim();
   if (!text) return null;
+  /* Render a small, repetitive watermark by tiling a tiny inline-SVG
+   * across the whole page. Each tile shows the name once at -28°;
+   * `background-repeat: repeat` does the rest. The SVG is encoded as
+   * a data URI so we don't need a separate asset. */
+  const tileWidth = 240;
+  const tileHeight = 96;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${tileWidth}" height="${tileHeight}" viewBox="0 0 ${tileWidth} ${tileHeight}"><text x="${tileWidth / 2}" y="${tileHeight / 2}" text-anchor="middle" dominant-baseline="middle" font-family="Tajawal, Cairo, 'IBM Plex Sans Arabic', sans-serif" font-size="14" fill="rgba(0,0,0,0.08)" transform="rotate(-28 ${tileWidth / 2} ${tileHeight / 2})">${escapeSvgText(text)}</text></svg>`;
+  const dataUri = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
   return (
-    <div aria-hidden className="admission-watermark">
-      <span>{text}</span>
-    </div>
+    <div
+      aria-hidden
+      className="admission-watermark"
+      style={{ backgroundImage: dataUri }}
+    />
   );
+}
+
+function escapeSvgText(s: string): string {
+  return s.replace(/[<>&"']/g, (c) => {
+    if (c === '<') return '&lt;';
+    if (c === '>') return '&gt;';
+    if (c === '&') return '&amp;';
+    if (c === '"') return '&quot;';
+    return '&apos;';
+  });
 }
 
 function toArabicNumeral(n: number): string {
@@ -495,29 +515,21 @@ const ADMISSION_FORM_CSS = `
 .sig-fill { flex: 1; border-bottom: 1px dotted #000; min-height: 1em; padding: 0 4px; font-weight: 600; }
 .sig-line .filled { border-bottom: 1px dotted #000; padding: 0 4px; min-width: 30mm; font-weight: 600; }
 
-/* Student-name watermark — print only. Sized small enough to fit
- * within the printable area without overflowing either edge. */
+/* Student-name watermark — print only. Tiled small text repeats
+ * across every printed page via a data-URI SVG background. */
 .admission-watermark { display: none; }
 @media print {
   .admission-watermark {
     position: fixed;
     inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     pointer-events: none;
     z-index: 0;
-    overflow: hidden;
-  }
-  .admission-watermark span {
-    font-family: var(--font-ar-display);
-    font-size: 56px;
-    font-weight: 800;
-    color: rgba(0, 0, 0, 0.06);
-    transform: rotate(-30deg);
-    white-space: nowrap;
-    letter-spacing: 2px;
-    max-width: 90vw;
+    background-repeat: repeat;
+    background-position: top left;
+    /* Ensure the tiled background prints (browsers may strip
+     * decorative backgrounds by default). */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   /* Make sure the rest of the form sits visually above the watermark. */
   .admission-form > *:not(.admission-watermark) {

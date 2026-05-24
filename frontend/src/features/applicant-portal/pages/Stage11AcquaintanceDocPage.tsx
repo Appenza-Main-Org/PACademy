@@ -44,6 +44,7 @@ import {
   GROUP_KEYS,
   GROUP_LABELS,
   emptyAdultRelative,
+  type ApplicantSpouseRecord,
   type GroupKey,
   type VothiqaTaarufDocument,
 } from '../lib/vothiqaTaaruf.types';
@@ -366,7 +367,7 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
         expanded={expanded === 'personal'}
         complete={completed.personal}
         readOnly={isLocked}
-        onToggle={() => setExpanded(expanded === 'personal' ? 'parents' : 'personal')}
+        onToggle={() => setExpanded(expanded === 'personal' ? 'applicantFamily' : 'personal')}
         onComplete={() => onGroupComplete('personal')}
         validate={() => validatePersonal(doc)}
       >
@@ -377,9 +378,30 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
         />
       </AccordionGroup>
 
-      {/* Group 2 — Parents + guardian */}
+      {/* Group 2 — Applicant's spouse + children (married only) */}
       <AccordionGroup
         index={1}
+        total={GROUP_KEYS.length}
+        label={GROUP_LABELS.applicantFamily}
+        expanded={expanded === 'applicantFamily'}
+        complete={completed.applicantFamily}
+        readOnly={isLocked}
+        onToggle={() => setExpanded(expanded === 'applicantFamily' ? 'parents' : 'applicantFamily')}
+        onComplete={() => onGroupComplete('applicantFamily')}
+        validate={() => validateApplicantFamily(doc)}
+      >
+        <ApplicantFamilyGroup
+          value={doc.applicantFamily}
+          onChange={(next) => patchSection('applicantFamily', next)}
+          maritalStatus={doc.personal.personal.maritalStatus}
+          gender={moiSession?.gender ?? 'male'}
+          readOnly={isLocked}
+        />
+      </AccordionGroup>
+
+      {/* Group 3 — Parents + guardian */}
+      <AccordionGroup
+        index={2}
         total={GROUP_KEYS.length}
         label={GROUP_LABELS.parents}
         expanded={expanded === 'parents'}
@@ -397,9 +419,9 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
         />
       </AccordionGroup>
 
-      {/* Group 3 — Grandparents */}
+      {/* Group 4 — Grandparents */}
       <AccordionGroup
-        index={2}
+        index={3}
         total={GROUP_KEYS.length}
         label={GROUP_LABELS.grandparents}
         expanded={expanded === 'grandparents'}
@@ -418,9 +440,9 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
         />
       </AccordionGroup>
 
-      {/* Group 4 — Siblings + their children */}
+      {/* Group 5 — Siblings + their children */}
       <AccordionGroup
-        index={3}
+        index={4}
         total={GROUP_KEYS.length}
         label={GROUP_LABELS.siblings}
         expanded={expanded === 'siblings'}
@@ -437,9 +459,9 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
         />
       </AccordionGroup>
 
-      {/* Group 5 — Paternal relatives */}
+      {/* Group 6 — Paternal relatives */}
       <AccordionGroup
-        index={4}
+        index={5}
         total={GROUP_KEYS.length}
         label={GROUP_LABELS.paternalRelatives}
         expanded={expanded === 'paternalRelatives'}
@@ -456,9 +478,9 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
         />
       </AccordionGroup>
 
-      {/* Group 6 — Maternal relatives */}
+      {/* Group 7 — Maternal relatives */}
       <AccordionGroup
-        index={5}
+        index={6}
         total={GROUP_KEYS.length}
         label={GROUP_LABELS.maternalRelatives}
         expanded={expanded === 'maternalRelatives'}
@@ -475,9 +497,9 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
         />
       </AccordionGroup>
 
-      {/* Group 7 — Foreign + criminal cases */}
+      {/* Group 8 — Foreign + criminal cases */}
       <AccordionGroup
-        index={6}
+        index={7}
         total={GROUP_KEYS.length}
         label={GROUP_LABELS.foreignAndCases}
         expanded={expanded === 'foreignAndCases'}
@@ -656,7 +678,129 @@ function PersonalGroup({ value, onChange, readOnly }: PersonalGroupProps): JSX.E
 }
 
 /* ────────────────────────────────────────────────────────────────────
- * Group 2 — Parents + guardian (نموذج 2, 3, 4)
+ * Group 2 — Applicant's spouse + children (married applicants only)
+ *
+ * Used by Case 2 (الضباط المتخصصون) and Case 3 (ليسانس حقوق) demo
+ * users where the applicant can be a married professional. Single
+ * applicants see a brief notice instead of the form fields.
+ * ──────────────────────────────────────────────────────────────────── */
+
+interface ApplicantFamilyGroupProps {
+  value: VothiqaTaarufDocument['applicantFamily'];
+  onChange: (next: VothiqaTaarufDocument['applicantFamily']) => void;
+  maritalStatus: 'single' | 'married' | 'divorced' | '';
+  gender: 'male' | 'female';
+  readOnly?: boolean;
+}
+
+function ApplicantFamilyGroup({
+  value,
+  onChange,
+  maritalStatus,
+  gender,
+  readOnly,
+}: ApplicantFamilyGroupProps): JSX.Element {
+  /* Single applicants don't fill this — show the notice + nothing else.
+   * The «التالي» button on the parent AccordionGroup still works
+   * because validateApplicantFamily() returns null when single. */
+  if (maritalStatus !== 'married') {
+    return (
+      <div className="rounded-md border border-dashed border-border-default bg-ink-50 px-4 py-6 text-center text-sm text-ink-600">
+        <p className="font-medium">هذه المجموعة للمتقدمين المتزوجين فقط.</p>
+        <p className="mt-1 text-2xs text-ink-500">
+          حالتك الحالية «أعزب» — اضغط «التالي» للانتقال إلى المجموعة التالية.
+          إذا كنت متزوجاً، عد إلى المجموعة الأولى وحدّث الحالة الاجتماعية.
+        </p>
+      </div>
+    );
+  }
+
+  const spouseLabel = gender === 'female' ? 'الزوج' : 'الزوجة';
+  const spouseTitle =
+    gender === 'female'
+      ? 'بيانات زوج الطالبة'
+      : 'بيانات زوجة الطالب';
+  const secondSpouseTitle =
+    gender === 'female'
+      ? 'بيانات الزوج السابق إن وجد'
+      : 'بيانات الزوجة الثانية إن وجدت';
+
+  const setSpouse = (patch: Partial<ApplicantSpouseRecord>): void =>
+    onChange({ ...value, spouse: { ...value.spouse, ...patch } });
+  const setSecondSpouse = (patch: Partial<ApplicantSpouseRecord>): void =>
+    onChange({ ...value, secondSpouse: { ...value.secondSpouse, ...patch } });
+
+  return (
+    <>
+      <RecordGrid formNumber="نموذج 2" title={spouseTitle} cols={2}>
+        <Cell label={`اسم ${spouseLabel}`} required value={value.spouse.fullName} onChange={(v) => setSpouse({ fullName: v })} disabled={readOnly} colSpan={2} />
+        <Cell label="الجنسية" required type="select" options={NATIONALITY_OPTIONS} value={value.spouse.nationality} onChange={(v) => setSpouse({ nationality: v })} disabled={readOnly} />
+        <Cell label="تاريخ الميلاد" required type="date" value={value.spouse.dateOfBirth} onChange={(v) => setSpouse({ dateOfBirth: v })} disabled={readOnly} />
+        <Cell label="محل الميلاد" required value={value.spouse.birthPlace} onChange={(v) => setSpouse({ birthPlace: v })} disabled={readOnly} />
+        <Cell label="الديانة" required type="select" options={gender === 'female' ? RELIGION_OPTIONS : RELIGION_OPTIONS_FEMALE} value={value.spouse.religion} onChange={(v) => setSpouse({ religion: v })} disabled={readOnly} />
+        <Cell label="المؤهل" required type="select" options={QUALIFICATION_OPTIONS} value={value.spouse.qualification} onChange={(v) => setSpouse({ qualification: v })} disabled={readOnly} />
+        <Cell label="الوظيفة" required type="select" options={PROFESSION_OPTIONS} value={value.spouse.profession} onChange={(v) => setSpouse({ profession: v })} disabled={readOnly} />
+        {isOfficer(value.spouse.profession) && (
+          <Cell label="رقم الأقدمية" required dir="ltr" value={value.spouse.seniorityNumber} onChange={(v) => setSpouse({ seniorityNumber: v })} disabled={readOnly} />
+        )}
+        <Cell label="جهة العمل" value={value.spouse.workplace} onChange={(v) => setSpouse({ workplace: v })} disabled={readOnly} />
+        <Cell label="العمل القائم به" value={value.spouse.workNature} onChange={(v) => setSpouse({ workNature: v })} disabled={readOnly} />
+        <Cell label="العنوان" required type="textarea" value={value.spouse.address} onChange={(v) => setSpouse({ address: v })} disabled={readOnly} colSpan={2} />
+        <Cell label="التليفون" dir="ltr" value={value.spouse.homePhone} onChange={(v) => setSpouse({ homePhone: v })} disabled={readOnly} />
+        <Cell label="المحمول" dir="ltr" value={value.spouse.mobile} onChange={(v) => setSpouse({ mobile: v })} disabled={readOnly} />
+        <Cell label="الرقم القومي" dir="ltr" value={value.spouse.nationalId} onChange={(v) => setSpouse({ nationalId: v })} disabled={readOnly} colSpan={2} />
+        <Cell
+          label={
+            gender === 'female'
+              ? 'هل سبق لكِ الزواج من شخص آخر؟'
+              : 'هل لديك زوجة ثانية؟'
+          }
+          type="checkbox"
+          checkboxLabel="نعم"
+          value={value.hasSecondSpouse}
+          onChange={(v) => onChange({ ...value, hasSecondSpouse: v })}
+          disabled={readOnly}
+          colSpan={2}
+        />
+      </RecordGrid>
+
+      {value.hasSecondSpouse && (
+        <RecordGrid formNumber="نموذج 3" title={secondSpouseTitle} cols={2}>
+          <Cell label={`اسم ${spouseLabel}`} required value={value.secondSpouse.fullName} onChange={(v) => setSecondSpouse({ fullName: v })} disabled={readOnly} colSpan={2} />
+          <Cell label="تاريخ الميلاد" type="date" value={value.secondSpouse.dateOfBirth} onChange={(v) => setSecondSpouse({ dateOfBirth: v })} disabled={readOnly} />
+          <Cell label="محل الميلاد" value={value.secondSpouse.birthPlace} onChange={(v) => setSecondSpouse({ birthPlace: v })} disabled={readOnly} />
+          <Cell label="المؤهل" type="select" options={QUALIFICATION_OPTIONS} value={value.secondSpouse.qualification} onChange={(v) => setSecondSpouse({ qualification: v })} disabled={readOnly} />
+          <Cell label="الوظيفة" type="select" options={PROFESSION_OPTIONS} value={value.secondSpouse.profession} onChange={(v) => setSecondSpouse({ profession: v })} disabled={readOnly} />
+          {isOfficer(value.secondSpouse.profession) && (
+            <Cell label="رقم الأقدمية" required dir="ltr" value={value.secondSpouse.seniorityNumber} onChange={(v) => setSecondSpouse({ seniorityNumber: v })} disabled={readOnly} />
+          )}
+          <Cell label="جهة العمل" value={value.secondSpouse.workplace} onChange={(v) => setSecondSpouse({ workplace: v })} disabled={readOnly} />
+          <Cell label="الرقم القومي" dir="ltr" value={value.secondSpouse.nationalId} onChange={(v) => setSecondSpouse({ nationalId: v })} disabled={readOnly} colSpan={2} />
+        </RecordGrid>
+      )}
+
+      <AdultListPanel
+        formNumber="نموذج 12"
+        title="بيانات أبناء الطالب الذكور وزوجاتهم"
+        itemSingular="ابن"
+        value={value.sons}
+        onChange={(n) => onChange({ ...value, sons: n })}
+        readOnly={readOnly}
+      />
+      <AdultListPanel
+        formNumber="نموذج 12/1"
+        title="بيانات بنات الطالب وأزواجهن"
+        itemSingular="ابنة"
+        value={value.daughters}
+        onChange={(n) => onChange({ ...value, daughters: n })}
+        readOnly={readOnly}
+      />
+    </>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────
+ * Group 3 — Parents + guardian (نموذج 2, 3, 4)
  * ──────────────────────────────────────────────────────────────────── */
 
 interface ParentsGroupProps {
@@ -1187,6 +1331,33 @@ function validatePersonal(doc: VothiqaTaarufDocument): string | null {
   const inc = doc.personal.income;
   if (!isFilled(inc.incomeDetails)) return 'يرجى استكمال «تفصيلات الدخل» في نموذج 6.';
   if (!isFilled(inc.totalIncome)) return 'يرجى استكمال «إجمالي الدخل» في نموذج 6.';
+  return null;
+}
+
+function validateApplicantFamily(doc: VothiqaTaarufDocument): string | null {
+  /* Single applicants skip this group — nothing to validate. */
+  if (doc.personal.personal.maritalStatus !== 'married') return null;
+  const s = doc.applicantFamily.spouse;
+  if (!isFilled(s.fullName)) return 'يرجى استكمال اسم الزوج/الزوجة في نموذج 2.';
+  if (!isFilled(s.dateOfBirth)) return 'يرجى استكمال تاريخ ميلاد الزوج/الزوجة في نموذج 2.';
+  if (isOfficer(s.profession) && !isFilled(s.seniorityNumber)) {
+    return 'يرجى إدخال رقم الأقدمية للزوج/الزوجة (ضابط).';
+  }
+  /* Second spouse + children rows only validated when added. */
+  if (doc.applicantFamily.hasSecondSpouse) {
+    const ss = doc.applicantFamily.secondSpouse;
+    if (!isFilled(ss.fullName)) return 'يرجى استكمال اسم الزوج/الزوجة الثانية في نموذج 3.';
+  }
+  for (const list of [doc.applicantFamily.sons, doc.applicantFamily.daughters]) {
+    if (!list.none && list.items.length === 0) {
+      return 'يرجى إما إضافة بيانات الأبناء/البنات أو تأكيد «لا يوجد».';
+    }
+    for (const child of list.items) {
+      if (!isFilled(child.name)) {
+        return 'يرجى استكمال اسم كل ابن/ابنة مُضاف، أو حذفه إن لم تكن لديك بياناته.';
+      }
+    }
+  }
   return null;
 }
 

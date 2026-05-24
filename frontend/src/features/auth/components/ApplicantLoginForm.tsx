@@ -33,13 +33,35 @@ import {
   SUBMITTED_APPLICANT_NID,
   VOTHIQA_EXPIRED_NID,
   VOTHIQA_FILLABLE_NID,
+  VOTHIQA_LAW_BACHELOR_NID,
+  VOTHIQA_SPECIALIZED_OFFICERS_NID,
   mockMoiLookup,
 } from '@/features/applicant-portal/lib/moi-session.mock';
 import { useApplicantPortalStore } from '@/features/applicant-portal/store/applicantPortal.store';
 import { saveVothiqaTaarufSnapshot } from '@/features/applicant-portal/lib/vothiqaTaaruf.snapshot';
 import { EXPIRED_DEMO_DOCUMENT } from '@/features/applicant-portal/lib/vothiqaTaaruf.expiredDemo';
+import { emptyDocument } from '@/features/applicant-portal/lib/vothiqaTaaruf.types';
 import { ROLE_DEFINITIONS } from '../rbac';
 import type { AuthUser } from '../types';
+
+/* Set of NIDs that should land directly on /applicant/acquaintance-doc
+ * after login (وثيقة تعارف demo users). All three (fillable قسم عام
+ * + the two married professional users) share the same pre-fill: paid
+ * + parents approved + exam date so the post-submission view shows
+ * the وثيقة تعارف tab and skips the wizard. */
+const VOTHIQA_DIRECT_LAND_NIDS = new Set<string>([
+  VOTHIQA_FILLABLE_NID,
+  VOTHIQA_SPECIALIZED_OFFICERS_NID,
+  VOTHIQA_LAW_BACHELOR_NID,
+]);
+
+/* Subset that's married — these get marital='married' pre-set in the
+ * وثيقة تعارف snapshot so the new applicant-spouse + children
+ * sections surface immediately. */
+const VOTHIQA_MARRIED_NIDS = new Set<string>([
+  VOTHIQA_SPECIALIZED_OFFICERS_NID,
+  VOTHIQA_LAW_BACHELOR_NID,
+]);
 
 /* Demo NIDs are frontend-only and not all seeded in the .NET backend —
  * when VITE_USE_APPLICANT_AUTH_BACKEND=true the real `/api/auth/login-simple`
@@ -149,16 +171,22 @@ export function ApplicantLoginForm(): JSX.Element {
             dest = ROUTES.applicant;
             break;
           }
-          /* وثيقة تعارف — fillable demo (user #5, Case 1 قسم عام):
+          /* وثيقة تعارف direct-land demos (Cases 1/2/3):
            * the applicant has already paid, approved parents, and picked
            * an exam date — only the وثيقة تعارف remains. Land them on
            * the document page directly so the demo doesn't have to walk
            * through 10 already-completed stages.
            *
+           * The two married professional NIDs (specialized_officers +
+           * law_bachelor) get a pre-seeded document snapshot with
+           * marital='married' so the new applicant-spouse + children
+           * sections surface immediately. The fillable قسم-عام demo
+           * stays single (no snapshot pre-seed).
+           *
            * Difference vs the expired demo below: we do NOT stamp
            * `vothiqaTaarufSubmittedAt`, so the 24-hour edit window
            * never starts — every field stays editable. */
-          if (values.nationalId === VOTHIQA_FILLABLE_NID) {
+          if (VOTHIQA_DIRECT_LAND_NIDS.has(values.nationalId)) {
             const firstExam = new Date();
             firstExam.setDate(firstExam.getDate() + 3);
             firstExam.setHours(8, 0, 0, 0);
@@ -171,7 +199,20 @@ export function ApplicantLoginForm(): JSX.Element {
             portal.setParentsApproved(true);
             portal.setFirstExamDate(firstExam.toISOString());
             portal.setSubmittedDemo(true);
-            /* No setVothiqaTaarufSubmittedAt — keep the document editable. */
+            if (VOTHIQA_MARRIED_NIDS.has(values.nationalId)) {
+              const doc = emptyDocument();
+              doc.personal.personal.maritalStatus = 'married';
+              doc.personal.personal.fullName = result.session.fullName;
+              doc.personal.personal.nationalId = result.session.nationalId;
+              doc.personal.personal.dateOfBirth = result.session.dateOfBirth;
+              doc.personal.personal.religion = result.session.religion;
+              doc.personal.personal.governorate = result.session.birthGovernorate;
+              doc.personal.personal.birthPlace = result.session.birthDistrict;
+              doc.personal.personal.mobile = result.session.mobile;
+              doc.personal.cover.fullName = result.session.fullName;
+              doc.personal.cover.admissionYear = '2026';
+              saveVothiqaTaarufSnapshot(values.nationalId, doc);
+            }
             dest = `${ROUTES.applicant}/acquaintance-doc`;
             break;
           }

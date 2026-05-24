@@ -120,7 +120,7 @@ export function Stage9PrintCardPage(): JSX.Element {
                 {MOI_APPLICANT_SESSION.fullName}
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
               <div>
                 <p className="text-2xs uppercase tracking-wide text-ink-500">اللجنة</p>
                 <p className="font-ar-display text-md font-bold text-ink-900">

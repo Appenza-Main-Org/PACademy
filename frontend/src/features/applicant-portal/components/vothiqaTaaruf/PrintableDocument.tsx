@@ -20,6 +20,7 @@
 import type {
   AdultRelativeList,
   AdultRelativeRecord,
+  ApplicantSpouseRecord,
   CriminalCaseList,
   ForeignEmployedList,
   GrandparentRecord,
@@ -72,6 +73,31 @@ export function PrintableDocument({ doc }: PrintableDocumentProps): JSX.Element 
       <style>{vothiqaPrintCss}</style>
       <CoverPage cover={doc.personal.cover} />
       <Form1Personal doc={doc} />
+      {/* Applicant's spouse + children — only when married. The
+       *  page-faithful نموذج 2 / 3 / 12 / 12·1 layout from the
+       *  «نظام العامين الدارسيين» supplementary template. */}
+      {doc.personal.personal.maritalStatus === 'married' && (
+        <>
+          <ApplicantSpousePage doc={doc} />
+          {doc.applicantFamily.hasSecondSpouse && <ApplicantSecondSpousePage doc={doc} />}
+          <ApplicantChildrenPage
+            formNumber="نموذج (12)"
+            title="بيانات أبناء الطالب الذكور وزوجاتهم"
+            counterLabel="عدد أبناء الطالب"
+            list={doc.applicantFamily.sons}
+            subjectLabel="اسم الإبن"
+            spouseLabel="اسم الزوجة"
+          />
+          <ApplicantChildrenPage
+            formNumber="نموذج (12/1)"
+            title="بيانات بنات الطالب وأزواجهن"
+            counterLabel="عدد بنات الطالب"
+            list={doc.applicantFamily.daughters}
+            subjectLabel="اسم البنت"
+            spouseLabel="اسم الزوج"
+          />
+        </>
+      )}
       <Form2Father doc={doc} />
       <Form3Guardian doc={doc} />
       <Form4Mother doc={doc} />
@@ -295,6 +321,113 @@ function Form1Personal({ doc }: { doc: VothiqaTaarufDocument }): JSX.Element {
 }
 
 /* ── نموذج 2 ──────────────────────────────────────────────────────── */
+
+/* ── Applicant's spouse / children pages (married applicants only) ── */
+
+function ApplicantSpousePage({ doc }: { doc: VothiqaTaarufDocument }): JSX.Element {
+  const s = doc.applicantFamily.spouse;
+  return (
+    <section className="vothiqa-form">
+      <FormHeader formNumber="نموذج (2)" title="بيانات زوج/زوجة الطالب" />
+      <div className="grid-2">
+        <FieldBox label="الاسم" value={s.fullName} />
+        <FieldBox label="الجنسية" value={s.nationality} />
+        <FieldBox label="تاريخ الميلاد" value={s.dateOfBirth} />
+        <FieldBox label="محل الميلاد" value={s.birthPlace} />
+        <FieldBox label="الديانة" value={s.religion} />
+        <FieldBox label="المؤهل" value={qualLabel(s.qualification)} />
+        <FieldBox label="الوظيفة" value={profPrint(s.profession, s.seniorityNumber)} />
+        <FieldBox label="جهة العمل" value={s.workplace} />
+        <FieldBox label="العمل القائم به" value={s.workNature} />
+      </div>
+      <div className="grid-1">
+        <FieldBox label="العنوان" value={s.address} />
+      </div>
+      <div className="grid-3">
+        <FieldBox label="التليفون" value={s.homePhone} />
+        <FieldBox label="المحمول" value={s.mobile} />
+        <FieldBox label="الرقم القومي" value={s.nationalId} />
+      </div>
+      <FooterDeclaration />
+    </section>
+  );
+}
+
+function ApplicantSecondSpousePage({ doc }: { doc: VothiqaTaarufDocument }): JSX.Element {
+  const s: ApplicantSpouseRecord = doc.applicantFamily.secondSpouse;
+  return (
+    <section className="vothiqa-form">
+      <FormHeader formNumber="نموذج (3)" title="بيانات الزوج/الزوجة الثانية إن وجدت" />
+      <div className="grid-2">
+        <FieldBox label="الاسم" value={s.fullName} />
+        <FieldBox label="تاريخ الميلاد" value={s.dateOfBirth} />
+        <FieldBox label="محل الميلاد" value={s.birthPlace} />
+        <FieldBox label="المؤهل" value={qualLabel(s.qualification)} />
+        <FieldBox label="الوظيفة" value={profPrint(s.profession, s.seniorityNumber)} />
+        <FieldBox label="جهة العمل" value={s.workplace} />
+        <FieldBox label="الرقم القومي" value={s.nationalId} colSpan={2} />
+      </div>
+      <FooterDeclaration />
+    </section>
+  );
+}
+
+function ApplicantChildrenPage({
+  formNumber,
+  title,
+  counterLabel,
+  subjectLabel,
+  spouseLabel,
+  list,
+}: {
+  formNumber: string;
+  title: string;
+  counterLabel: string;
+  subjectLabel: string;
+  spouseLabel: string;
+  list: AdultRelativeList;
+}): JSX.Element {
+  const slots: (AdultRelativeRecord | null)[] = Array.from({ length: 4 }, (_, i) => list.items[i] ?? null);
+  const notes = ['تذكر جميع البيانات في حالة الوفاة.', list.none ? 'لا يوجد.' : undefined].filter(
+    (x): x is string => Boolean(x),
+  );
+  return (
+    <section className="vothiqa-form">
+      <FormHeader
+        formNumber={formNumber}
+        title={title}
+        counterLabel={counterLabel}
+        counterValue={list.items.length || ''}
+        notes={notes}
+      />
+      <table className="vothiqa-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>الاسم</th>
+            <th>تاريخ الميلاد</th>
+            <th>محل الميلاد</th>
+            <th>المؤهل</th>
+            <th>الوظيفة</th>
+            <th>جهة العمل</th>
+            <th>الرقم القومي</th>
+          </tr>
+        </thead>
+        <tbody>
+          {slots.map((slot, i) => (
+            <AdultRelativeRows
+              key={i}
+              row={slot}
+              subjectLabel={subjectLabel}
+              spouseLabel={spouseLabel}
+            />
+          ))}
+        </tbody>
+      </table>
+      <FooterDeclaration />
+    </section>
+  );
+}
 
 function Form2Father({ doc }: { doc: VothiqaTaarufDocument }): JSX.Element {
   const f = doc.parents.father;

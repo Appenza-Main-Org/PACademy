@@ -170,6 +170,41 @@ export const VOTHIQA_EXPIRED_SESSION: MoiApplicantSession = {
   religion: 'مسلم',
 };
 
+/** Case 2 — قسم الضباط المتخصصون. Married professional applicant
+ *  who fills the وثيقة تعارف including the new applicant-spouse +
+ *  applicant-children sections. */
+export const VOTHIQA_SPECIALIZED_OFFICERS_NID = '30502010103456';
+export const VOTHIQA_SPECIALIZED_OFFICERS_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-2026733',
+  fullName: 'محمود فؤاد عبد الرحمن العقّاد',
+  nationalId: VOTHIQA_SPECIALIZED_OFFICERS_NID,
+  dateOfBirth: '1990-02-15',
+  dateOfBirthAr: '١٥ فبراير ١٩٩٠',
+  gender: 'male',
+  mobile: '01098765434',
+  email: 'mahmoud.elaqqad.specialized@example.eg',
+  birthGovernorate: 'القاهرة',
+  birthDistrict: 'مدينة نصر',
+  religion: 'مسلم',
+};
+
+/** Case 3 — قسم ليسانس حقوق. Same married-professional shape, law
+ *  bachelor category. */
+export const VOTHIQA_LAW_BACHELOR_NID = '30503010103456';
+export const VOTHIQA_LAW_BACHELOR_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-2026734',
+  fullName: 'يوسف عمر محمد فاروق',
+  nationalId: VOTHIQA_LAW_BACHELOR_NID,
+  dateOfBirth: '1988-09-22',
+  dateOfBirthAr: '٢٢ سبتمبر ١٩٨٨',
+  gender: 'male',
+  mobile: '01098765435',
+  email: 'youssef.faroq.law@example.eg',
+  birthGovernorate: 'الإسكندرية',
+  birthDistrict: 'سيدي جابر',
+  religion: 'مسلم',
+};
+
 /** Demo-only prefill bundle for the submitted user. Both
  *  Stage345ApplicantDataPage (form prefill) and ApplicantPortalPage
  *  (read-only summary) read from this single source. */
@@ -245,6 +280,18 @@ export const DEMO_TEST_USERS = [
     nationalId: VOTHIQA_EXPIRED_NID,
     fullName: VOTHIQA_EXPIRED_SESSION.fullName,
     note: 'سبق أن قام بتعبئة الوثيقة وانتهت فترة الـ 24 ساعة — يمكنه العرض والطباعة فقط.',
+  },
+  {
+    label: 'وثيقة تعارف · الضباط المتخصصون · متزوج',
+    nationalId: VOTHIQA_SPECIALIZED_OFFICERS_NID,
+    fullName: VOTHIQA_SPECIALIZED_OFFICERS_SESSION.fullName,
+    note: 'متقدم متزوج لقسم الضباط المتخصصون — يعبّئ بيانات الزوجة والأبناء ضمن وثيقة التعارف.',
+  },
+  {
+    label: 'وثيقة تعارف · ليسانس حقوق · متزوج',
+    nationalId: VOTHIQA_LAW_BACHELOR_NID,
+    fullName: VOTHIQA_LAW_BACHELOR_SESSION.fullName,
+    note: 'متقدم متزوج لقسم ليسانس الحقوق — يعبّئ بيانات الزوجة والأبناء ضمن وثيقة التعارف.',
   },
 ] as const;
 
@@ -446,6 +493,20 @@ export function mockMoiLookup(nid: string): MoiLookupResult {
       kind: 'eligible',
       session: VOTHIQA_EXPIRED_SESSION,
       categoryKey: 'officers_general',
+    };
+  }
+  if (nid === VOTHIQA_SPECIALIZED_OFFICERS_NID) {
+    return {
+      kind: 'eligible',
+      session: VOTHIQA_SPECIALIZED_OFFICERS_SESSION,
+      categoryKey: 'specialized_officers',
+    };
+  }
+  if (nid === VOTHIQA_LAW_BACHELOR_NID) {
+    return {
+      kind: 'eligible',
+      session: VOTHIQA_LAW_BACHELOR_SESSION,
+      categoryKey: 'law_bachelor',
     };
   }
   return { kind: 'not_found' };

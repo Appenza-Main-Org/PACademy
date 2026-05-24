@@ -30,6 +30,8 @@ import { useApplicantPortalStore } from './store/applicantPortal.store';
 import {
   VOTHIQA_EXPIRED_NID,
   VOTHIQA_FILLABLE_NID,
+  VOTHIQA_LAW_BACHELOR_NID,
+  VOTHIQA_SPECIALIZED_OFFICERS_NID,
 } from './lib/moi-session.mock';
 
 /* NIDs that get the وثيقة تعارف stepper step un-skipped + the
@@ -38,6 +40,8 @@ import {
 const VOTHIQA_ENABLED_NIDS = new Set<string>([
   VOTHIQA_FILLABLE_NID,
   VOTHIQA_EXPIRED_NID,
+  VOTHIQA_SPECIALIZED_OFFICERS_NID,
+  VOTHIQA_LAW_BACHELOR_NID,
 ]);
 
 /**
