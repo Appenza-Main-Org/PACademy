@@ -11,7 +11,12 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
     public async Task<IReadOnlyList<JsonObject>> ListAsync(bool includeDeleted, CancellationToken ct)
     {
         var rows = await db.AdmissionCycles.AsNoTracking().OrderByDescending(x => x.Year).ToListAsync(ct);
-        return rows.Select(ToJson).ToList();
+        var cycles = rows.Select(ToJson);
+        if (!includeDeleted)
+        {
+            cycles = cycles.Where(x => x["deletedAt"] is null);
+        }
+        return cycles.ToList();
     }
 
     public async Task<JsonObject?> GetActiveAsync(CancellationToken ct)
