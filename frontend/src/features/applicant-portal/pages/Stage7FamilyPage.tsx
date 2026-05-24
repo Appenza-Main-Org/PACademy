@@ -36,6 +36,7 @@ import { CITIES } from '@/shared/mock-data/dictionaries';
 import {
   EMPTY_GUARDIAN,
   EMPTY_MEMBER,
+  formatMemberName,
   PROFESSION_OPTIONS,
   RELATIVE_LABEL,
   saveFamilySnapshot,
@@ -45,28 +46,7 @@ import {
   type RelativeKind,
 } from '../lib/familyData';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
-
-/**
- * Parent-child age gap rule (client direction 2026-05-21): every parent
- * must be at least 15 years older than their child. Used on each member
- * card's تاريخ الميلاد input via the `childDob` prop — the validator is
- * silent when either side is missing so the field can be filled in any
- * order without spurious errors.
- */
-const PARENT_CHILD_MIN_YEARS = 15;
-const MS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
-
-function validateParentDob(parentIso: string, childIso: string | undefined): true | string {
-  if (!childIso || !parentIso) return true;
-  const parent = new Date(parentIso);
-  const child = new Date(childIso);
-  if (Number.isNaN(parent.getTime()) || Number.isNaN(child.getTime())) return true;
-  const years = (child.getTime() - parent.getTime()) / MS_PER_YEAR;
-  return (
-    years >= PARENT_CHILD_MIN_YEARS ||
-    `يجب أن يكبر تاريخ ميلاد الوالد/الوالدة عن الإبن/الإبنة بـ ${PARENT_CHILD_MIN_YEARS} سنة على الأقل`
-  );
-}
+import { validateParentDob } from '../lib/validateParentDob';
 
 const GOV_OPTIONS: readonly SearchSelectOption[] = REF_GOVERNORATES.map((g) => ({
   value: g.nameAr,
@@ -479,6 +459,14 @@ export function Stage7FamilyPage(): JSX.Element {
           <GuardianFormCard
             value={guardian}
             onChange={setGuardian}
+            familyMemberOptions={buildGuardianFamilyMemberOptions({
+              father,
+              mother,
+              fatherWives,
+              motherHusbands,
+              grandparents,
+              relatives,
+            })}
             onSave={() => {
               setSavedGuardian(true);
               toast('تم حفظ بيانات ولي الأمر', 'success');
@@ -945,16 +933,80 @@ function DynamicRelativePanel({
 
 /* ─── Guardian form (ولي الأمر) ────────────────────────────────────── */
 
+/* Build the "اختر ولي الأمر من أفراد الأسرة" picker options from every
+ * family-member slot the applicant has filled — father, mother,
+ * stepparents, grandparents, and the six relative kinds. */
+interface GuardianMemberOption {
+  /** Stable key — used as the <select> value + as the lookup key
+   *  inside the GuardianFormCard reset handler. */
+  value: string;
+  /** Display label: "<relation> — <full name>" so the user sees who
+   *  they're selecting at a glance. */
+  label: string;
+  /** Direct reference to the FamilyMemberForm we'll copy from. */
+  member: FamilyMemberForm;
+}
+
+function buildGuardianFamilyMemberOptions(input: {
+  father: FamilyMemberForm;
+  mother: FamilyMemberForm;
+  fatherWives: FamilyMemberForm[];
+  motherHusbands: FamilyMemberForm[];
+  grandparents: GrandparentsForm;
+  relatives: Record<RelativeKind, FamilyMemberForm[]>;
+}): GuardianMemberOption[] {
+  const opts: GuardianMemberOption[] = [];
+  const pushIfNamed = (key: string, label: string, m: FamilyMemberForm): void => {
+    const name = formatMemberName(m);
+    if (name === '—' || name.trim().length === 0) return;
+    opts.push({ value: key, label: `${label} — ${name}`, member: m });
+  };
+
+  pushIfNamed('father', 'الأب', input.father);
+  pushIfNamed('mother', 'الأم', input.mother);
+  input.fatherWives.forEach((m, i) => pushIfNamed(`fatherWife-${i}`, `زوجة الأب ${i + 1}`, m));
+  input.motherHusbands.forEach((m, i) => pushIfNamed(`motherHusband-${i}`, `زوج الأم ${i + 1}`, m));
+  pushIfNamed('paternalGrandfather', 'الجد لأب', input.grandparents.paternalGrandfather);
+  pushIfNamed('paternalGrandmother', 'الجدة لأب', input.grandparents.paternalGrandmother);
+  pushIfNamed('maternalGrandfather', 'الجد لأم', input.grandparents.maternalGrandfather);
+  pushIfNamed('maternalGrandmother', 'الجدة لأم', input.grandparents.maternalGrandmother);
+  (Object.keys(input.relatives) as RelativeKind[]).forEach((kind) => {
+    input.relatives[kind].forEach((m, i) => {
+      pushIfNamed(`relative-${kind}-${i}`, `${RELATIVE_LABEL[kind].singular} ${i + 1}`, m);
+    });
+  });
+  return opts;
+}
+
+/** Map a FamilyMemberForm into the GuardianForm shape — copies the
+ * five fields the two records share. The textarea/details fields fall
+ * back to empty strings when the source doesn't carry them. */
+function familyMemberToGuardian(m: FamilyMemberForm): GuardianForm {
+  return {
+    firstName: m.firstName,
+    secondName: m.secondName,
+    thirdName: m.thirdName,
+    profession: m.profession,
+    seniorityNumber: m.seniorityNumber ?? '',
+    qualification: m.qualification,
+    qualificationDetail: m.qualificationDetail ?? '',
+    professionDetail: m.professionDetail ?? '',
+    workplaceDetail: '',
+  };
+}
+
 function GuardianFormCard({
   value,
   onChange,
   onSave,
+  familyMemberOptions,
 }: {
   value: GuardianForm;
   onChange: (next: GuardianForm) => void;
   onSave: () => void;
+  familyMemberOptions: GuardianMemberOption[];
 }): JSX.Element {
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<GuardianForm>({
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<GuardianForm>({
     defaultValues: value,
   });
   const guardianProfession = watch('profession');
@@ -967,6 +1019,26 @@ function GuardianFormCard({
     const sub = watch((vals) => onChangeRef.current(vals as GuardianForm));
     return () => sub.unsubscribe();
   }, [watch]);
+
+  /* Guardian-source picker — transient UI state, not stored. When the
+   * applicant picks a family member, copy that member's data into the
+   * form via reset() (form internals stay in sync) → the streaming
+   * watch() above propagates to the parent state. Picking «آخر» just
+   * leaves the form alone for manual editing. */
+  const [guardianSource, setGuardianSource] = useState<string>('');
+  const handleSourceChange = (next: string): void => {
+    setGuardianSource(next);
+    if (!next || next === 'manual') return;
+    const opt = familyMemberOptions.find((o) => o.value === next);
+    if (!opt) return;
+    const mapped = familyMemberToGuardian(opt.member);
+    reset(mapped);
+    onChange(mapped);
+  };
+  /* When the source is a family member, dim the form fields so the
+   * applicant can't edit derived data. Clearing the lock requires
+   * switching the picker back to «آخر — إدخال البيانات يدوياً». */
+  const guardianLocked = guardianSource !== '' && guardianSource !== 'manual';
 
   const submit = handleSubmit((vals) => {
     onChange(vals);
@@ -981,6 +1053,27 @@ function GuardianFormCard({
         <h3 className="font-ar-display text-md font-bold text-ink-900">تحديد ولي الأمر</h3>
       </header>
       <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
+        {/* Guardian-source picker — copy from an existing family member
+            already added in this page, or pick «آخر» to enter manually. */}
+        <div className="md:col-span-2">
+          <Select
+            label="اختيار ولي الأمر"
+            required
+            value={guardianSource}
+            onChange={(e) => handleSourceChange(e.target.value)}
+            options={[
+              { value: '', label: '— اختر —' },
+              ...familyMemberOptions.map((o) => ({ value: o.value, label: o.label })),
+              { value: 'manual', label: 'آخر — إدخال البيانات يدوياً' },
+            ]}
+          />
+          <p className="mt-1 text-2xs text-ink-500 leading-relaxed">
+            {familyMemberOptions.length === 0
+              ? 'لم تُسجَّل بيانات عائلة أخرى بعد — يمكنك إدخال بيانات ولي الأمر يدوياً.'
+              : 'اختيار أحد أفراد الأسرة يملأ الحقول التالية تلقائياً، ويمكنك تعديلها بعد ذلك.'}
+          </p>
+        </div>
+
         {/* Split-name block — client direction 2026-05-21. Three Inputs
             replace the previous single "الاسم" field. Rendered as a
             nested 3-col sub-grid that spans the parent form width so all
@@ -989,18 +1082,21 @@ function GuardianFormCard({
           <Input
             label="الاسم الأول"
             required
+            disabled={guardianLocked}
             {...register('firstName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
             error={errors.firstName?.message}
           />
           <Input
             label="الاسم الثاني"
             required
+            disabled={guardianLocked}
             {...register('secondName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
             error={errors.secondName?.message}
           />
           <Input
             label="الاسم الثالث"
             required
+            disabled={guardianLocked}
             {...register('thirdName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
             error={errors.thirdName?.message}
           />
@@ -1008,6 +1104,7 @@ function GuardianFormCard({
         <Select
           label="الوظيفة"
           required
+          disabled={guardianLocked}
           {...register('profession', { required: 'مطلوب' })}
           options={[...PROFESSION_OPTIONS]}
           error={errors.profession?.message}
@@ -1018,6 +1115,7 @@ function GuardianFormCard({
             required
             type="text"
             dir="ltr"
+            disabled={guardianLocked}
             {...register('seniorityNumber', { required: 'مطلوب' })}
             error={errors.seniorityNumber?.message}
           />
@@ -1025,6 +1123,7 @@ function GuardianFormCard({
         <Select
           label="المؤهل"
           required
+          disabled={guardianLocked}
           {...register('qualification', { required: 'مطلوب' })}
           options={[...QUALIFICATION_OPTIONS]}
           error={errors.qualification?.message}
@@ -1032,6 +1131,7 @@ function GuardianFormCard({
         <Textarea
           label="وصف تفصيلي للمؤهل"
           rows={2}
+          disabled={guardianLocked}
           {...register('qualificationDetail')}
           error={errors.qualificationDetail?.message}
           containerClassName="md:col-span-2"
@@ -1039,6 +1139,7 @@ function GuardianFormCard({
         <Textarea
           label="وصف تفصيلي للوظيفة"
           rows={2}
+          disabled={guardianLocked}
           {...register('professionDetail')}
           error={errors.professionDetail?.message}
           containerClassName="md:col-span-2"
@@ -1046,6 +1147,7 @@ function GuardianFormCard({
         <Textarea
           label="بيانات جهة العمل / الوظيفة"
           rows={2}
+          disabled={guardianLocked}
           {...register('workplaceDetail')}
           error={errors.workplaceDetail?.message}
           containerClassName="md:col-span-2"

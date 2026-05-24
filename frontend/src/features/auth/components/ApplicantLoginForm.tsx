@@ -29,10 +29,38 @@ import { authService } from '../api/auth.service';
 import { useAuthStore } from '../store/auth.store';
 import { ROUTES } from '@/config/routes';
 import {
+  DEMO_TEST_USERS,
   SUBMITTED_APPLICANT_NID,
+  VOTHIQA_EXPIRED_NID,
+  VOTHIQA_FILLABLE_NID,
   mockMoiLookup,
 } from '@/features/applicant-portal/lib/moi-session.mock';
 import { useApplicantPortalStore } from '@/features/applicant-portal/store/applicantPortal.store';
+import { saveVothiqaTaarufSnapshot } from '@/features/applicant-portal/lib/vothiqaTaaruf.snapshot';
+import { EXPIRED_DEMO_DOCUMENT } from '@/features/applicant-portal/lib/vothiqaTaaruf.expiredDemo';
+import { ROLE_DEFINITIONS } from '../rbac';
+import type { AuthUser } from '../types';
+
+/* Demo NIDs are frontend-only and not all seeded in the .NET backend —
+ * when VITE_USE_APPLICANT_AUTH_BACKEND=true the real `/api/auth/login-simple`
+ * call returns 404 for them. Short-circuit the network call for every
+ * NID that appears in DEMO_TEST_USERS so the full demo runs without a
+ * backend seed change. Non-demo NIDs hit the backend as before. */
+const DEMO_BYPASS_NIDS = new Set<string>(DEMO_TEST_USERS.map((u) => u.nationalId));
+
+function buildDemoApplicantUser(nationalId: string, fullName: string): AuthUser {
+  const def = ROLE_DEFINITIONS.applicant;
+  return {
+    id: `demo-applicant-${nationalId}`,
+    name: fullName,
+    role: 'applicant',
+    roleLabel: def.labelAr,
+    apps: def.apps,
+    permissions: def.permissions,
+    token: `demo-${nationalId}`,
+    loggedInAt: Date.now(),
+  };
+}
 
 const schema = z.object({
   nationalId: z
@@ -71,14 +99,27 @@ export function ApplicantLoginForm(): JSX.Element {
       /* The mock authService.login expects a `password` arg — the
        * applicant flow uses the mobile as the second credential
        * (mock auth doesn't actually validate it, it just needs to be
-       * non-empty). */
-      const user = await authService.login({
-        username: values.nationalId,
-        password: values.mobile,
-        role: 'applicant',
-      });
-
+       * non-empty).
+       *
+       * For Case-1 demo NIDs the .NET backend has no seed row, so we
+       * fabricate an AuthUser locally instead of hitting the backend
+       * (which would 404 with «السجل غير موجود»). */
       const result = mockMoiLookup(values.nationalId);
+      const fakeUser = DEMO_BYPASS_NIDS.has(values.nationalId)
+        ? buildDemoApplicantUser(
+            values.nationalId,
+            result.kind === 'eligible' || result.kind === 'ineligible'
+              ? result.session.fullName
+              : 'متقدم تجريبي',
+          )
+        : null;
+      const user = fakeUser
+        ?? (await authService.login({
+          username: values.nationalId,
+          password: values.mobile,
+          role: 'applicant',
+        }));
+
       const portal = useApplicantPortalStore.getState();
       portal.setNationalId(values.nationalId);
 
@@ -106,6 +147,55 @@ export function ApplicantLoginForm(): JSX.Element {
              * wizard for the 4-tab post-submission view. */
             portal.setSubmittedDemo(true);
             dest = ROUTES.applicant;
+            break;
+          }
+          /* وثيقة تعارف — fillable demo (user #5, Case 1 قسم عام):
+           * the applicant has already paid, approved parents, and picked
+           * an exam date — only the وثيقة تعارف remains. Land them on
+           * the document page directly so the demo doesn't have to walk
+           * through 10 already-completed stages.
+           *
+           * Difference vs the expired demo below: we do NOT stamp
+           * `vothiqaTaarufSubmittedAt`, so the 24-hour edit window
+           * never starts — every field stays editable. */
+          if (values.nationalId === VOTHIQA_FILLABLE_NID) {
+            const firstExam = new Date();
+            firstExam.setDate(firstExam.getDate() + 3);
+            firstExam.setHours(8, 0, 0, 0);
+            portal.setPayment({
+              paid: true,
+              paymentMethod: 'fawry-code',
+              paymentReference: '1234567898',
+              fawryCode: '87654323',
+            });
+            portal.setParentsApproved(true);
+            portal.setFirstExamDate(firstExam.toISOString());
+            portal.setSubmittedDemo(true);
+            /* No setVothiqaTaarufSubmittedAt — keep the document editable. */
+            dest = `${ROUTES.applicant}/acquaintance-doc`;
+            break;
+          }
+          /* وثيقة تعارف — expired demo (user #6, Case 1 قسم عام):
+           * pre-populate the wizard progress AND seed a complete
+           * قسم-عام document whose 25-hour-old submission timestamp
+           * trips the edit-window-expired gate on Stage 11. */
+          if (values.nationalId === VOTHIQA_EXPIRED_NID) {
+            const firstExam = new Date();
+            firstExam.setDate(firstExam.getDate() + 3);
+            firstExam.setHours(8, 0, 0, 0);
+            portal.setPayment({
+              paid: true,
+              paymentMethod: 'fawry-code',
+              paymentReference: '1234567899',
+              fawryCode: '87654322',
+            });
+            portal.setParentsApproved(true);
+            portal.setFirstExamDate(firstExam.toISOString());
+            portal.setSubmittedDemo(true);
+            /* 25 hours ago — past the 24h edit window. */
+            portal.setVothiqaTaarufSubmittedAt(Date.now() - 25 * 60 * 60 * 1000);
+            saveVothiqaTaarufSnapshot(values.nationalId, EXPIRED_DEMO_DOCUMENT);
+            dest = `${ROUTES.applicant}/acquaintance-doc`;
             break;
           }
           /* Client direction 2026-05-19: every applicant lands on
