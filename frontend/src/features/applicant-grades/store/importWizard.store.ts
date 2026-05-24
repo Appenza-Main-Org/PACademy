@@ -85,6 +85,13 @@ export interface PersistedImportWizardState {
    *  `pick-higher` so the wizard is always advanceable; the admin can
    *  flip per-row or via the bulk "قبول الكل بالدرجة الأعلى" action. */
   uploadDuplicateDecisions: Record<string, UploadDuplicateDecision>;
+  /** Admin override for the high-duplicate-ratio guard (see
+   *  `DUPLICATE_RATIO_THRESHOLD` in `lib/duplicateAudit.ts`). Stays
+   *  `false` by default; the wizard blocks advancement past Step 5 and
+   *  the commit button on Step 7 until the admin explicitly ticks the
+   *  in-banner acknowledgement. Reset to `false` on every new file
+   *  pick so a fresh upload always re-triggers the gate. */
+  loudDuplicateAck: boolean;
 }
 
 export interface ImportWizardState extends PersistedImportWizardState {
@@ -115,6 +122,7 @@ export interface ImportWizardState extends PersistedImportWizardState {
   setBulkExistingDiffDecisions: (decisions: Record<string, ExistingDiffDecision>) => void;
   setUploadDuplicateDecision: (nid: string, decision: UploadDuplicateDecision) => void;
   setBulkUploadDuplicateDecisions: (decisions: Record<string, UploadDuplicateDecision>) => void;
+  setLoudDuplicateAck: (ack: boolean) => void;
   reset: () => void;
 }
 
@@ -170,6 +178,7 @@ function defaultState(): PersistedImportWizardState {
     perGroupActions: {},
     existingDiffDecisions: {},
     uploadDuplicateDecisions: {},
+    loudDuplicateAck: false,
   };
 }
 
@@ -212,6 +221,7 @@ export const useImportWizardStore = create<ImportWizardState>()(
           perGroupActions: {},
           existingDiffDecisions: {},
           uploadDuplicateDecisions: {},
+          loudDuplicateAck: false,
         }),
       setParsed: (parsed) => set({ parsed }),
       setSelectedTableName: (selectedTableName) => set({ selectedTableName }),
@@ -248,6 +258,7 @@ export const useImportWizardStore = create<ImportWizardState>()(
         })),
       setBulkUploadDuplicateDecisions: (decisions) =>
         set({ uploadDuplicateDecisions: decisions }),
+      setLoudDuplicateAck: (loudDuplicateAck) => set({ loudDuplicateAck }),
       reset: () =>
         set({
           ...defaultState(),
@@ -274,6 +285,7 @@ export const useImportWizardStore = create<ImportWizardState>()(
         perGroupActions: s.perGroupActions,
         existingDiffDecisions: s.existingDiffDecisions,
         uploadDuplicateDecisions: s.uploadDuplicateDecisions,
+        loudDuplicateAck: s.loudDuplicateAck,
       }),
     },
   ),

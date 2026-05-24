@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, ShieldAlert, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertDialog,
@@ -36,6 +36,7 @@ import { Step4Filters } from '../components/importWizard/steps/Step4Filters';
 import { Step5DuplicateReview } from '../components/importWizard/steps/Step5DuplicateReview';
 import { Step6ChangesReview } from '../components/importWizard/steps/Step6ChangesReview';
 import { Step6Result } from '../components/importWizard/steps/Step6Result';
+import { buildDuplicateAudit } from '../lib/duplicateAudit';
 import type { ImportCommitProgress, ImportGroupCode } from '../types';
 
 type StepIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -70,6 +71,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const uploadDuplicateDecisions = useImportWizardStore(
     (s) => s.uploadDuplicateDecisions,
   );
+  const loudDuplicateAck = useImportWizardStore((s) => s.loudDuplicateAck);
   const reset = useImportWizardStore((s) => s.reset);
 
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -93,6 +95,33 @@ export function ApplicantGradesImportPage(): JSX.Element {
     [parsed, selectedTableName],
   );
 
+  /* Re-run the duplicate audit at the page level so the wizard footer
+   * (Step 5 next, Step 7 commit) can gate on the same threshold the
+   * loud-guard banner uses inside Step 5. Cheap: a single pass over the
+   * already-normalised rows. */
+  const duplicateAudit = useMemo(() => {
+    if (!table || graduationYear == null) return null;
+    const rows = normaliseRows(
+      table,
+      mapping,
+      filters,
+      graduationYear,
+      lookupValueMappings,
+      selectedSchoolCategories,
+    );
+    return buildDuplicateAudit(rows);
+  }, [
+    table,
+    mapping,
+    filters,
+    graduationYear,
+    lookupValueMappings,
+    selectedSchoolCategories,
+  ]);
+
+  const loudGuardBlocks =
+    duplicateAudit?.exceedsThreshold === true && !loudDuplicateAck;
+
   function canAdvance(): boolean {
     switch (step) {
       case 1: {
@@ -114,7 +143,12 @@ export function ApplicantGradesImportPage(): JSX.Element {
       case 4:
         return true;
       case 5:
-        return true;
+        /* Block advancement when the intra-file duplicate ratio exceeds
+         * the threshold (default 1%) unless the admin has explicitly
+         * acknowledged the override in the loud-guard banner. Keeps
+         * pathological re-exports (e.g. 23k rows / 3 unique NIDs) from
+         * flowing silently through to the commit step. */
+        return !loudGuardBlocks;
       case 6:
         /* Step 6's diff review is always advanceable — the default
          * decision (reject for existing diffs, pick-higher for upload
@@ -188,6 +222,12 @@ export function ApplicantGradesImportPage(): JSX.Element {
       failedCount: 0,
       alreadyImportedCount: 0,
     });
+    /* Snapshot the pre-commit audit so the toast can attribute every
+     * row dropped to its bucket (existing-record hit vs intra-file
+     * dedupe vs preflight rejection). The commit result only reports
+     * inserted/failed/alreadyImported; the duplicate-row count comes
+     * from the audit. */
+    const auditSnapshot = duplicateAudit;
     commit.mutate(
       {
         rows,
@@ -201,14 +241,21 @@ export function ApplicantGradesImportPage(): JSX.Element {
       },
       {
         onSuccess: (res) => {
-          const skippedSuffix =
-            res.alreadyImportedCount > 0
-              ? ` · ${res.alreadyImportedCount.toLocaleString('en')} متجاهل (موجود مسبقًا بنفس سنة التخرج)`
-              : '';
-          toast(
-            `تم استيراد ${res.insertedCount.toLocaleString('en')} صفًا (${res.failedCount.toLocaleString('en')} مرفوض)${skippedSuffix}.`,
-            'success',
-          );
+          const parts = [
+            `${res.insertedCount.toLocaleString('en')} مستورد`,
+            `${res.failedCount.toLocaleString('en')} مرفوض`,
+          ];
+          if (res.alreadyImportedCount > 0) {
+            parts.push(
+              `${res.alreadyImportedCount.toLocaleString('en')} متجاهل (موجود مسبقًا)`,
+            );
+          }
+          if (auditSnapshot && auditSnapshot.duplicateRowCount > 0) {
+            parts.push(
+              `${auditSnapshot.duplicateRowCount.toLocaleString('en')} مكرر داخل الملف`,
+            );
+          }
+          toast(`تم الاستيراد — ${parts.join(' · ')}.`, 'success');
           reset();
           navigate(ROUTES.admin.applicantGrades);
         },
@@ -258,6 +305,19 @@ export function ApplicantGradesImportPage(): JSX.Element {
         <ImportCommitProgressPanel progress={commitProgress} />
       )}
 
+      {loudGuardBlocks && (step === 5 || step === 6 || step === 7) && (
+        <div
+          role="status"
+          className="mt-3 flex items-center gap-2 rounded-md border border-terra-300 border-s-[3px] border-s-terra-500 bg-terra-50 px-3.5 py-2.5 text-xs text-terra-700"
+        >
+          <ShieldAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
+          <span>
+            لا يمكن المتابعة حتى تُقرّ بتجاوز كثافة التكرار في خطوة «مراجعة التكرار». ارجع إلى
+            الخطوة وراجع التوزيع ثم اضغط الإقرار.
+          </span>
+        </div>
+      )}
+
       <footer className="sticky bottom-0 mt-4 flex items-center justify-between gap-3 border-t border-border-subtle bg-white px-6 py-4">
         <Button
           variant="ghost"
@@ -293,6 +353,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
                   : 'جارٍ الاستيراد…'
               }
               onClick={commitImport}
+              disabled={loudGuardBlocks}
             >
               تأكيد الاستيراد
             </Button>

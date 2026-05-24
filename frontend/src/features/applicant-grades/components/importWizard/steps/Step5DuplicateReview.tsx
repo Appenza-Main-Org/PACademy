@@ -2,22 +2,47 @@
  * Step 5 — مراجعة التكرار.
  *
  * Runs the v2 preflight against the filtered + mapped rowset and renders
- * a top-line summary plus three high-signal counters:
+ * a top-line summary plus high-signal counters covering both intra-file
+ * duplicates and existing-record matches:
  *   • مطابقات سابقة بالرقم القومي  (DUPLICATE_NID)
  *   • أرقام قومية غير صالحة         (INVALID_NID)
- *   • صفوف بحقول مطلوبة فارغة      (MISSING_REQUIRED)
+ *   • صفوف بحقول مطلوبة فالغة      (MISSING_REQUIRED)
  *
- * The actual per-row resolution UI is Step 6's job — Step 5 is the
- * pre-commit hint that lets the admin know whether they want to step
- * back to Step 4 and tighten filters before running the preflight.
+ * When intra-file duplicate density exceeds `DUPLICATE_RATIO_THRESHOLD`
+ * (1%) the step escalates the warning to a hard guard: a destructive
+ * banner with an acknowledgement checkbox blocks advancement until the
+ * admin explicitly accepts the risk. The same gate is mirrored on Step 7
+ * above the commit button so the override is reaffirmed at write time.
+ *
+ * Every issue surfaced by the preflight is exportable as a single
+ * audit-report CSV from this step, so the decision trail survives the
+ * import even before the backend grows a server-side history table.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, CheckCircle2, Layers, ShieldCheck } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  Hash,
+  Layers,
+  ShieldAlert,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
+import { Button, Checkbox } from '@/shared/components';
+import { downloadBlob } from '@/shared/lib/download';
 import { useImportWizardStore } from '../../../store/importWizard.store';
 import { normaliseRows } from '../../../lib/normalise';
 import { useApplicantGradesPreflight, useGrades } from '../../../api/grades.queries';
-import { buildAlreadyImported, buildUploadDuplicates } from '../../../lib/buildDiff';
+import { buildAlreadyImported } from '../../../lib/buildDiff';
+import {
+  buildAuditCsv,
+  buildDuplicateAudit,
+  DUPLICATE_RATIO_THRESHOLD,
+  type DuplicateAudit,
+} from '../../../lib/duplicateAudit';
 import type { ImportPreflightProgress } from '../../../types';
 
 export function Step5DuplicateReview(): JSX.Element {
@@ -27,11 +52,14 @@ export function Step5DuplicateReview(): JSX.Element {
   const filters = useImportWizardStore((s) => s.filters);
   const lookupValueMappings = useImportWizardStore((s) => s.lookupValueMappings);
   const graduationYear = useImportWizardStore((s) => s.graduationYear);
+  const fileMeta = useImportWizardStore((s) => s.fileMeta);
   const selectedSchoolCategories = useImportWizardStore(
     (s) => s.selectedSchoolCategories,
   );
   const importResult = useImportWizardStore((s) => s.importResult);
   const setImportResult = useImportWizardStore((s) => s.setImportResult);
+  const loudDuplicateAck = useImportWizardStore((s) => s.loudDuplicateAck);
+  const setLoudDuplicateAck = useImportWizardStore((s) => s.setLoudDuplicateAck);
   const [progress, setProgress] = useState<ImportPreflightProgress | null>(null);
 
   const table = useMemo(
@@ -54,12 +82,21 @@ export function Step5DuplicateReview(): JSX.Element {
     [table, mapping, filters, graduationYear, lookupValueMappings, selectedSchoolCategories],
   );
 
+  const audit = useMemo(() => buildDuplicateAudit(normalised), [normalised]);
+
+  /* Auto-clear the acknowledgement whenever the audit shape stops being
+   * dangerous (e.g. admin tightened filters in Step 4). Stays sticky
+   * while the threshold is still exceeded so an in-flight ack survives
+   * a re-mount / re-preflight. */
+  useEffect(() => {
+    if (!audit.exceedsThreshold && loudDuplicateAck) {
+      setLoudDuplicateAck(false);
+    }
+  }, [audit.exceedsThreshold, loudDuplicateAck, setLoudDuplicateAck]);
+
   const { data: allRows } = useGrades();
   const preflight = useApplicantGradesPreflight();
 
-  /* Re-run preflight every time Step 5 mounts with a different
-   * normalised rowset. The mutation is idempotent against the same
-   * input so navigating back/forward doesn't double-charge. */
   useEffect(() => {
     if (normalised.length === 0 || graduationYear == null) {
       setProgress(null);
@@ -86,9 +123,7 @@ export function Step5DuplicateReview(): JSX.Element {
   const report = importResult;
 
   if (preflight.isPending && !report) {
-    return (
-      <PreflightProgress progress={progress} />
-    );
+    return <PreflightProgress progress={progress} />;
   }
 
   if (!report) {
@@ -102,23 +137,43 @@ export function Step5DuplicateReview(): JSX.Element {
   const dup = report.groups.find((g) => g.code === 'DUPLICATE_NID')?.rows.length ?? 0;
   const invalid = report.groups.find((g) => g.code === 'INVALID_NID')?.rows.length ?? 0;
   const missing = report.groups.find((g) => g.code === 'MISSING_REQUIRED')?.rows.length ?? 0;
-  const intraFileDup = buildUploadDuplicates(normalised).length;
+  const outOfRange =
+    report.groups.find((g) => g.code === 'GRADE_OUT_OF_RANGE')?.rows.length ?? 0;
   const alreadyImported = buildAlreadyImported(normalised, allRows ?? []).length;
+
+  function handleDownloadAudit(): void {
+    const csv = buildAuditCsv({
+      audit,
+      report,
+      rows: normalised,
+      graduationYear,
+      fileName: fileMeta?.name ?? null,
+    });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    downloadBlob(
+      new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+      `applicant-grades-audit-${stamp}.csv`,
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-5 overflow-hidden rounded-md border border-border-subtle bg-white">
-        <Counter
-          icon={<CheckCircle2 size={14} aria-hidden />}
-          label="موجود مسبقًا بنفس سنة التخرج — سيُتجاهل"
-          value={alreadyImported}
-          tone="info"
+      <AuditSummaryRow audit={audit} />
+
+      {audit.exceedsThreshold && (
+        <LoudDuplicateGuard
+          audit={audit}
+          ack={loudDuplicateAck}
+          onToggleAck={setLoudDuplicateAck}
         />
+      )}
+
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-white md:grid-cols-4">
         <Counter
           icon={<Layers size={14} aria-hidden />}
-          label="تكرار داخل الملف بنفس الرقم القومي"
-          value={intraFileDup}
-          tone="warning"
+          label="صفوف مكررة داخل الملف"
+          value={audit.duplicateRowCount}
+          tone={audit.exceedsThreshold ? 'danger' : 'warning'}
         />
         <Counter
           icon={<Activity size={14} aria-hidden />}
@@ -147,27 +202,26 @@ export function Step5DuplicateReview(): JSX.Element {
         <Summary label="ملغاة" value={report.totals.skipped} />
       </div>
 
-      {report.totals.failed === 0 && intraFileDup === 0 ? (
-        <div className="flex items-center gap-2 rounded-md border border-success bg-success-bg px-3.5 py-2.5 text-xs text-success">
-          <ShieldCheck size={14} aria-hidden />
-          لا توجد مشاكل في الصفوف المُختارة — يمكن الانتقال لعرض النتيجة وتأكيد الاستيراد.
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-subtle bg-white px-3.5 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-ink-600">
+          <ShieldCheck size={14} aria-hidden className="text-teal-600" />
+          <span>
+            احفظ نسخة من تقرير المراجعة (يتضمّن التكرارات، الحقول الناقصة،
+            وأي تجاوز للحد الأقصى) قبل تأكيد الاستيراد.
+          </span>
         </div>
-      ) : (
-        <div className="flex items-center gap-2 rounded-md border border-gold-300 bg-gold-50 px-3.5 py-2.5 text-xs text-gold-700">
-          <AlertTriangle size={14} aria-hidden />
-          {intraFileDup > 0 && (
-            <span>
-              يوجد {intraFileDup.toLocaleString('en')} رقم قومي مكرر داخل الملف — اختر الصف
-              المعتمد لكل طالب في خطوة «مراجعة التغييرات».
-            </span>
-          )}
-          {report.totals.failed > 0 && (
-            <span>
-              توجد {report.totals.failed.toLocaleString('en')} صفًا تحتاج إلى قرار — راجعها في
-              خطوة «النتيجة».
-            </span>
-          )}
-        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          leadingIcon={<Download size={12} strokeWidth={1.75} aria-hidden />}
+          onClick={handleDownloadAudit}
+        >
+          تحميل تقرير المراجعة
+        </Button>
+      </div>
+
+      {audit.distribution.length > 0 && (
+        <DuplicateDistributionTable audit={audit} totalRows={audit.totalRows} />
       )}
 
       {alreadyImported > 0 && (
@@ -179,7 +233,200 @@ export function Step5DuplicateReview(): JSX.Element {
           </span>
         </div>
       )}
+
+      {!audit.exceedsThreshold && report.totals.failed === 0 && audit.duplicateRowCount === 0 ? (
+        <div className="flex items-center gap-2 rounded-md border border-success bg-success-bg px-3.5 py-2.5 text-xs text-success">
+          <ShieldCheck size={14} aria-hidden />
+          لا توجد مشاكل في الصفوف المُختارة — يمكن الانتقال لعرض النتيجة وتأكيد الاستيراد.
+        </div>
+      ) : !audit.exceedsThreshold ? (
+        <div className="flex items-center gap-2 rounded-md border border-gold-300 bg-gold-50 px-3.5 py-2.5 text-xs text-gold-700">
+          <AlertTriangle size={14} aria-hidden />
+          {audit.duplicateRowCount > 0 && (
+            <span>
+              {audit.duplicateNidGroups.toLocaleString('en')} طلاب يحملون أرقام قومية مكررة —{' '}
+              {audit.duplicateRowCount.toLocaleString('en')} صف سيُتم تجاوزه ضمنيًا. اختر الصف
+              المعتمد في خطوة «مراجعة التغييرات».
+            </span>
+          )}
+          {report.totals.failed > 0 && (
+            <span>
+              توجد {report.totals.failed.toLocaleString('en')} صفًا تحتاج إلى قرار — راجعها في خطوة
+              «النتيجة».
+            </span>
+          )}
+          {outOfRange > 0 && (
+            <span>
+              {outOfRange.toLocaleString('en')} صفًا تتجاوز الحد الأقصى — راجعها في «النتيجة».
+            </span>
+          )}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function AuditSummaryRow({ audit }: { audit: DuplicateAudit }): JSX.Element {
+  const ratioPct =
+    audit.totalRows === 0
+      ? '0٪'
+      : `${(audit.duplicateRatio * 100).toFixed(audit.duplicateRatio < 0.1 ? 2 : 1)}٪`;
+  return (
+    <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-white md:grid-cols-4">
+      <SummaryStat
+        icon={<Hash size={14} aria-hidden />}
+        label="إجمالي الصفوف"
+        value={audit.totalRows.toLocaleString('en')}
+      />
+      <SummaryStat
+        icon={<Users size={14} aria-hidden />}
+        label="أرقام قومية فريدة"
+        value={audit.uniqueNidCount.toLocaleString('en')}
+      />
+      <SummaryStat
+        icon={<Layers size={14} aria-hidden />}
+        label="أرقام قومية مكررة"
+        value={audit.duplicateNidGroups.toLocaleString('en')}
+        tone={audit.exceedsThreshold ? 'danger' : audit.duplicateNidGroups > 0 ? 'warning' : undefined}
+      />
+      <SummaryStat
+        icon={<ShieldAlert size={14} aria-hidden />}
+        label="نسبة التكرار"
+        value={ratioPct}
+        tone={audit.exceedsThreshold ? 'danger' : audit.duplicateRowCount > 0 ? 'warning' : undefined}
+      />
+    </div>
+  );
+}
+
+interface LoudDuplicateGuardProps {
+  audit: DuplicateAudit;
+  ack: boolean;
+  onToggleAck: (ack: boolean) => void;
+}
+
+function LoudDuplicateGuard({
+  audit,
+  ack,
+  onToggleAck,
+}: LoudDuplicateGuardProps): JSX.Element {
+  const ratioPct = `${(audit.duplicateRatio * 100).toFixed(2)}٪`;
+  const thresholdPct = `${(DUPLICATE_RATIO_THRESHOLD * 100).toFixed(0)}٪`;
+  return (
+    <div
+      role="alert"
+      className="flex flex-col gap-3 rounded-md border-2 border-terra-500 bg-terra-50 p-4 text-xs text-terra-700"
+    >
+      <div className="flex items-start gap-2.5">
+        <ShieldAlert size={18} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-bold">
+            تنبيه — كثافة تكرار غير معتادة في الملف
+          </span>
+          <p className="m-0 leading-relaxed">
+            من بين <strong className="font-en">{audit.totalRows.toLocaleString('en')}</strong> صفًا في
+            هذا الملف، هناك فقط{' '}
+            <strong className="font-en">{audit.uniqueNidCount.toLocaleString('en')}</strong> رقم قومي
+            فريد — أي أن{' '}
+            <strong className="font-en">{audit.duplicateRowCount.toLocaleString('en')}</strong> صفًا
+            (<strong className="font-en">{ratioPct}</strong>) ستُتجاوز ضمنيًا أثناء الاستيراد
+            (يُحتفظ بأول ظهور لكل رقم قومي). يتجاوز هذا الحد الأقصى المسموح به{' '}
+            <strong className="font-en">{thresholdPct}</strong> ويُشير في الغالب إلى ملف مُصدَّر
+            بشكل خاطئ أو إلى تحديد عمود الرقم القومي بشكل غير صحيح في الخطوات السابقة.
+          </p>
+          <p className="m-0 leading-relaxed">
+            راجع توزيع التكرار بالأسفل قبل المتابعة. لا يمكن إكمال الاستيراد إلا بعد إقرار صريح
+            بالتجاوز.
+          </p>
+        </div>
+      </div>
+      <div className="flex cursor-pointer items-start gap-2 rounded-md border border-terra-300 bg-white p-3">
+        <Checkbox
+          id="loud-duplicate-ack"
+          checked={ack}
+          onCheckedChange={(value) => onToggleAck(value === true)}
+          aria-label="إقرار بتجاوز كثافة التكرار"
+        />
+        <label htmlFor="loud-duplicate-ack" className="flex cursor-pointer flex-col gap-0.5 text-xs text-ink-700">
+          <span className="font-semibold text-terra-700">
+            أُقرّ بأنني راجعت توزيع التكرار وأرغب بإكمال الاستيراد على مسؤوليتي.
+          </span>
+          <span className="text-2xs text-ink-500">
+            سيتم استيراد أول ظهور لكل رقم قومي فقط (
+            <span className="font-en">{audit.uniqueNidCount.toLocaleString('en')}</span> صف)، وسيُسجّل
+            هذا الإقرار في تقرير المراجعة.
+          </span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function DuplicateDistributionTable({
+  audit,
+  totalRows,
+}: {
+  audit: DuplicateAudit;
+  totalRows: number;
+}): JSX.Element {
+  return (
+    <section className="overflow-hidden rounded-md border border-border-subtle bg-white">
+      <header className="flex items-center justify-between border-b border-border-subtle bg-ink-50/60 px-3.5 py-2 text-2xs font-semibold text-ink-700">
+        <span>توزيع التكرار — أعلى الأرقام القومية تكرارًا</span>
+        <span className="font-en text-ink-500">
+          {audit.distribution.length.toLocaleString('en')}
+          {audit.duplicateNidGroups > audit.distribution.length && (
+            <span className="text-ink-400">
+              {' '}
+              / {audit.duplicateNidGroups.toLocaleString('en')}
+            </span>
+          )}
+        </span>
+      </header>
+      <table className="w-full border-collapse text-xs">
+        <thead className="bg-ink-50/30 text-2xs uppercase text-ink-500">
+          <tr>
+            <th scope="col" className="px-3 py-1.5 text-start font-semibold" style={{ width: 48 }}>
+              #
+            </th>
+            <th scope="col" className="px-3 py-1.5 text-start font-semibold">
+              الرقم القومي
+            </th>
+            <th scope="col" className="px-3 py-1.5 text-start font-semibold">
+              الاسم
+            </th>
+            <th scope="col" className="px-3 py-1.5 text-end font-semibold" style={{ width: 120 }}>
+              عدد مرات التكرار
+            </th>
+            <th scope="col" className="px-3 py-1.5 text-end font-semibold" style={{ width: 100 }}>
+              نسبة الملف
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {audit.distribution.map((d, i) => {
+            const pct = totalRows === 0 ? 0 : (d.count / totalRows) * 100;
+            return (
+              <tr key={d.nationalId} className="border-t border-border-subtle">
+                <td className="px-3 py-1.5 font-en text-2xs text-ink-500 tabular-nums">{i + 1}</td>
+                <td className="px-3 py-1.5">
+                  <span className="font-mono text-2xs text-ink-700" dir="ltr">
+                    {d.nationalId}
+                  </span>
+                </td>
+                <td className="px-3 py-1.5 text-ink-700">{d.nameAr ?? '—'}</td>
+                <td className="px-3 py-1.5 text-end font-en text-xs font-semibold text-ink-900 tabular-nums">
+                  {d.count.toLocaleString('en')}
+                </td>
+                <td className="px-3 py-1.5 text-end font-en text-2xs text-ink-500 tabular-nums">
+                  {pct.toFixed(pct < 1 ? 2 : 1)}٪
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>
   );
 }
 
@@ -246,6 +493,36 @@ function Counter({
         {label}
       </span>
       <span className="font-en text-2xl font-bold">{value.toLocaleString('en')}</span>
+    </div>
+  );
+}
+
+function SummaryStat({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: JSX.Element;
+  label: string;
+  value: string;
+  tone?: 'warning' | 'danger';
+}): JSX.Element {
+  const cls =
+    tone === 'danger'
+      ? 'text-terra-700 bg-terra-50'
+      : tone === 'warning'
+        ? 'text-gold-700 bg-gold-50'
+        : 'text-ink-700 bg-white';
+  return (
+    <div
+      className={`flex flex-col gap-1 border-s border-border-subtle px-4 py-3 first:border-s-0 ${cls}`}
+    >
+      <span className="flex items-center gap-1.5 text-2xs uppercase opacity-80">
+        {icon}
+        {label}
+      </span>
+      <span className="font-en text-xl font-bold tabular-nums">{value}</span>
     </div>
   );
 }

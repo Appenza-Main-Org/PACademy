@@ -12,6 +12,7 @@
  * Carry counts in the toast message per the prompt.
  */
 
+import { useMemo } from 'react';
 import { Download, FileText, ShieldCheck, SkipForward, UserPlus } from 'lucide-react';
 import {
   Accordion,
@@ -23,6 +24,8 @@ import {
 import { serializeCsv } from '@/shared/lib/csv';
 import { downloadBlob } from '@/shared/lib/download';
 import { useImportWizardStore } from '../../../store/importWizard.store';
+import { normaliseRows } from '../../../lib/normalise';
+import { buildAuditCsv, buildDuplicateAudit } from '../../../lib/duplicateAudit';
 import type {
   ImportFailureRow,
   ImportGroupAction,
@@ -57,6 +60,38 @@ export function Step6Result(): JSX.Element {
   const importResult = useImportWizardStore((s) => s.importResult);
   const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
   const setPerGroupAction = useImportWizardStore((s) => s.setPerGroupAction);
+  const parsed = useImportWizardStore((s) => s.parsed);
+  const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
+  const mapping = useImportWizardStore((s) => s.mapping);
+  const filters = useImportWizardStore((s) => s.filters);
+  const lookupValueMappings = useImportWizardStore((s) => s.lookupValueMappings);
+  const graduationYear = useImportWizardStore((s) => s.graduationYear);
+  const selectedSchoolCategories = useImportWizardStore(
+    (s) => s.selectedSchoolCategories,
+  );
+  const fileMeta = useImportWizardStore((s) => s.fileMeta);
+
+  const normalised = useMemo(() => {
+    const table = parsed?.tables.find((t) => t.name === selectedTableName) ?? null;
+    if (!table || graduationYear == null) return [];
+    return normaliseRows(
+      table,
+      mapping,
+      filters,
+      graduationYear,
+      lookupValueMappings,
+      selectedSchoolCategories,
+    );
+  }, [
+    parsed,
+    selectedTableName,
+    mapping,
+    filters,
+    graduationYear,
+    lookupValueMappings,
+    selectedSchoolCategories,
+  ]);
+  const audit = useMemo(() => buildDuplicateAudit(normalised), [normalised]);
 
   if (!importResult) {
     return (
@@ -68,6 +103,21 @@ export function Step6Result(): JSX.Element {
 
   const groups = importResult.groups;
 
+  function handleDownloadAudit(): void {
+    const csv = buildAuditCsv({
+      audit,
+      report: importResult,
+      rows: normalised,
+      graduationYear,
+      fileName: fileMeta?.name ?? null,
+    });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    downloadBlob(
+      new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+      `applicant-grades-audit-${stamp}.csv`,
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle">
@@ -75,6 +125,32 @@ export function Step6Result(): JSX.Element {
         <SummaryBlock label="مستوردة" value={importResult.totals.imported} tone="success" big />
         <SummaryBlock label="ملغاة" value={importResult.totals.skipped} />
         <SummaryBlock label="مرفوضة" value={importResult.totals.failed} tone="warning" />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-subtle bg-white px-3.5 py-2.5">
+        <div className="flex flex-wrap items-center gap-3 text-2xs text-ink-600">
+          <span>
+            <span className="font-en font-bold text-ink-900">
+              {audit.uniqueNidCount.toLocaleString('en')}
+            </span>{' '}
+            رقم قومي فريد
+          </span>
+          <span>·</span>
+          <span>
+            <span className="font-en font-bold text-ink-900">
+              {audit.duplicateRowCount.toLocaleString('en')}
+            </span>{' '}
+            صف مكرر داخل الملف سيُتجاوز
+          </span>
+        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          leadingIcon={<Download size={12} strokeWidth={1.75} aria-hidden />}
+          onClick={handleDownloadAudit}
+        >
+          تحميل تقرير المراجعة
+        </Button>
       </div>
 
       {groups.length === 0 ? (
