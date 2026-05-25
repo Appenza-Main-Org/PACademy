@@ -325,8 +325,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
             if (existingNids.Contains(nid))
             {
                 if (acceptedExistingNids.Contains(nid) &&
-                    existingByNid.TryGetValue(nid, out var previous) &&
-                    total.Value > (AdminRecordJson.NumberProp(previous, "total") ?? double.NegativeInfinity))
+                    existingByNid.TryGetValue(nid, out var previous))
                 {
                     var previousSeat = (int)(AdminRecordJson.NumberProp(previous, "seat") ?? 0);
                     if (previousSeat <= 0)

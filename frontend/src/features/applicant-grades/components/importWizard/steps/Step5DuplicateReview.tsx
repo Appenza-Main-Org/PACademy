@@ -374,16 +374,20 @@ function LoudDuplicateGuard({
           </p>
         </div>
       </div>
-      <div className="flex cursor-pointer items-start gap-2 rounded-md border border-terra-300 bg-white p-3">
+      <div className="flex cursor-pointer items-start gap-3 rounded-md border-2 border-terra-500 bg-white p-3.5 shadow-[0_0_0_3px_var(--terra-50)]">
         <Checkbox
           id="loud-duplicate-ack"
           checked={ack}
           onCheckedChange={(value) => onToggleAck(value === true)}
           aria-label="إقرار بتجاوز كثافة التكرار"
+          className="mt-0.5 [&_[role=checkbox]]:h-7 [&_[role=checkbox]]:w-7 [&_[role=checkbox]]:border-terra-700 [&_[role=checkbox]]:bg-terra-50 [&_[role=checkbox]]:shadow-sm [&_[role=checkbox][data-state=checked]]:bg-terra-700"
         />
-        <label htmlFor="loud-duplicate-ack" className="flex cursor-pointer flex-col gap-0.5 text-xs text-ink-700">
-          <span className="font-semibold text-terra-700">
-            أُقرّ بأنني راجعت توزيع التكرار وأرغب بإكمال الاستيراد على مسؤوليتي.
+        <label htmlFor="loud-duplicate-ack" className="flex flex-1 cursor-pointer flex-col gap-1 text-xs text-ink-700">
+          <span className="inline-flex w-fit items-center rounded-sm bg-terra-100 px-2 py-0.5 text-2xs font-bold text-terra-800">
+            مطلوب قبل المتابعة
+          </span>
+          <span className="text-sm font-bold text-terra-800">
+            ضع علامة هنا لتأكيد أنك راجعت توزيع التكرار وتريد إكمال الاستيراد.
           </span>
           <span className="text-2xs text-ink-500">
             سيتم استيراد أول ظهور لكل رقم قومي فقط (
