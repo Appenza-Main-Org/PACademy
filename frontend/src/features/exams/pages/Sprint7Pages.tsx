@@ -580,6 +580,7 @@ export function ExamCreatePage(): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('live');
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const { data: pool, isLoading: poolLoading } = useQuery({
     queryKey: ['exams', 'questions', 'all'],
@@ -618,7 +619,7 @@ export function ExamCreatePage(): JSX.Element {
 
   const createMut = useMutation({
     mutationFn: () => examsService.createExam({
-      nameAr: name || 'اختبار جديد',
+      nameAr: name.trim(),
       cycleId: 'CYC-2026-M',
       scheduledFor: new Date(scheduledFor).toISOString(),
       rules: [{
@@ -633,7 +634,7 @@ export function ExamCreatePage(): JSX.Element {
     onSuccess: (next) => { toast(`تم إنشاء الاختبار ${next.id} كمسودّة`, 'success'); navigate(ROUTES.questionBank.exams); },
   });
 
-  const canSubmit = Boolean(name.trim()) && selectedIds.length > 0 && !createMut.isPending;
+  const canSubmit = selectedIds.length > 0 && !createMut.isPending;
   const countMatchesTarget = selectedIds.length === targetCount;
 
   const poolColumns: DataTableColumn<BankQuestion>[] = [
@@ -657,7 +658,17 @@ export function ExamCreatePage(): JSX.Element {
         <Card>
           <CardHeader title="تفاصيل الاختبار" subtitle="معلومات أساسية تظهر للمختبرين" />
           <div className="grid gap-4 md:grid-cols-2">
-            <Input label="اسم الاختبار" required value={name} onChange={(e) => setName(e.target.value)} containerClassName="md:col-span-2" />
+            <Input
+              label="اسم الاختبار"
+              required
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameError(null);
+              }}
+              error={nameError ?? undefined}
+              containerClassName="md:col-span-2"
+            />
             <Input label="موعد الاختبار" type="date" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} />
             <Input
               label="العدد المستهدف للأسئلة"
@@ -765,7 +776,13 @@ export function ExamCreatePage(): JSX.Element {
               leadingIcon={<Pencil size={14} strokeWidth={1.75} />}
               isLoading={createMut.isPending}
               disabled={!canSubmit}
-              onClick={() => createMut.mutate()}
+              onClick={() => {
+                if (name.trim().length === 0) {
+                  setNameError('اسم الاختبار مطلوب');
+                  return;
+                }
+                createMut.mutate();
+              }}
             >
               إنشاء كمسودّة
             </Button>

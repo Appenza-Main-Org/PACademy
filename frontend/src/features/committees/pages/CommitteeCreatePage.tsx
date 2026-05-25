@@ -63,7 +63,7 @@ const schema = z.object({
   categoryKey: z
     .string()
     .min(1, 'اختر الفئة'),
-  name: z.string().trim().min(2, 'أدخِل اسم اللجنة'),
+  name: z.string().trim().min(1, 'اسم اللجنة مطلوب').min(2, 'أدخِل اسم اللجنة'),
   academicYearId: z.string().min(1, 'اختر العام الدراسي'),
   status: z.enum(['active', 'inactive']),
   cycleId: z.string().min(1, 'اختر الدورة المرتبطة'),
@@ -189,6 +189,16 @@ export function CommitteeCreatePage(): JSX.Element {
   };
 
   const onSubmit = (values: FormValues): void => {
+    const name = values.name.trim();
+    if (name.length === 0) {
+      setError('name', { type: 'manual', message: 'اسم اللجنة مطلوب' }, { shouldFocus: true });
+      return;
+    }
+    if (name.length < 2) {
+      setError('name', { type: 'manual', message: 'أدخِل اسم اللجنة' }, { shouldFocus: true });
+      return;
+    }
+
     /* Map filter values back through the existing rule bag — gender lives
      * on `CommitteeRules` directly; the picked academic-degree lookup
      * code rides on `applicantType` (free-form lookup-key field).
@@ -199,7 +209,7 @@ export function CommitteeCreatePage(): JSX.Element {
      * also re-derives it on persist as a defence-in-depth measure.) */
     const persistedGender =
       values.categoryKey === 'specialized_officers'
-        ? deriveCommitteeGender(values.name)
+        ? deriveCommitteeGender(name)
         : values.filterGender !== 'any'
           ? values.filterGender
           : null;
@@ -216,7 +226,7 @@ export function CommitteeCreatePage(): JSX.Element {
 
     createMut.mutate(
       {
-        name: values.name,
+        name,
         head: '',
         type: 'capacities',
         members: 0,

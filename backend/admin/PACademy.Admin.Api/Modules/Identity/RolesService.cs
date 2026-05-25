@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Shared.Contracts;
 
@@ -18,11 +20,13 @@ public sealed class RolesService(IIdentityDbContext db)
     public async Task<JsonObject> CreateAsync(JsonObject payload, CancellationToken ct)
     {
         var key = IdentityJson.StringProp(payload, "key") ?? throw new FluentValidation.ValidationException("key مطلوب");
+        var labelAr = RequiredLabelAr(payload);
         if (await db.Roles.AnyAsync(x => x.Key == key, ct))
             throw new ConflictException("ROLE_KEY_DUPLICATE", "مفتاح الدور موجود بالفعل");
         var now = DateTimeOffset.UtcNow;
         var obj = IdentityJson.Clone(payload);
         obj["id"] = $"ROLE-CUSTOM-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+        obj["labelAr"] = labelAr;
         obj["isSystem"] = false;
         obj["createdAt"] = now;
         obj["updatedAt"] = now;
@@ -30,7 +34,7 @@ public sealed class RolesService(IIdentityDbContext db)
         {
             Id = IdentityJson.StringProp(obj, "id")!,
             Key = key,
-            LabelAr = IdentityJson.StringProp(obj, "labelAr") ?? key,
+            LabelAr = labelAr,
             IsSystem = false,
             PayloadJson = obj.ToJsonString(IdentityJson.Options),
             CreatedAt = now,
@@ -47,7 +51,8 @@ public sealed class RolesService(IIdentityDbContext db)
             ?? throw new EntityNotFoundException("الدور غير موجود");
         var obj = ToJson(entity);
         foreach (var item in patch) obj[item.Key] = item.Value?.DeepClone();
-        entity.LabelAr = IdentityJson.StringProp(obj, "labelAr") ?? entity.LabelAr;
+        entity.LabelAr = RequiredLabelAr(obj);
+        obj["labelAr"] = entity.LabelAr;
         entity.PayloadJson = obj.ToJsonString(IdentityJson.Options);
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
@@ -60,6 +65,17 @@ public sealed class RolesService(IIdentityDbContext db)
             ?? throw new EntityNotFoundException("الدور غير موجود");
         var users = await db.Users.CountAsync(x => x.Role == role.Key, ct);
         return new { counts = new { users }, blocking = users > 0 };
+    }
+
+    private static string RequiredLabelAr(JsonObject obj)
+    {
+        var labelAr = IdentityJson.StringProp(obj, "labelAr")?.Trim();
+        if (!string.IsNullOrWhiteSpace(labelAr)) return labelAr;
+
+        throw new ValidationException(
+        [
+            new ValidationFailure("labelAr", "اسم الدور مطلوب")
+        ]);
     }
 
     private static JsonObject ToJson(RoleEntity entity)

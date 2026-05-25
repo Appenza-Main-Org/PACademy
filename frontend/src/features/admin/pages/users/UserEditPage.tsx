@@ -105,6 +105,13 @@ export function UserEditPage(): JSX.Element {
     setRolesError(null);
     setFieldErrors({});
     if (!dirty) return;
+    if (draft.fullArabicName.trim().length === 0) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        fullArabicName: 'الاسم رباعياً مطلوب',
+      }));
+      return;
+    }
     if (!roleValidation.ok) {
       setRolesError(roleValidation.message ?? 'مجموعة الأدوار غير صالحة');
       return;
@@ -113,7 +120,7 @@ export function UserEditPage(): JSX.Element {
       await updateMut.mutateAsync({
         id: user.id,
         patch: {
-          fullArabicName: draft.fullArabicName,
+          fullArabicName: draft.fullArabicName.trim(),
           officerCode: draft.officerCode,
           mobileNumber: draft.mobileNumber,
           roles: draft.roles,

@@ -145,7 +145,7 @@ export function UserCreatePage(): JSX.Element {
     try {
       const created = await createMut.mutateAsync({
         nationalId: merged.nationalId,
-        fullArabicName: merged.fullArabicName,
+        fullArabicName: merged.fullArabicName.trim(),
         officerCode: merged.officerCode,
         mobileNumber: merged.mobileNumber,
         userType: merged.userType,
@@ -219,6 +219,7 @@ export function UserCreatePage(): JSX.Element {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Input
                     label="الاسم رباعياً"
+                    required
                     value={merged.fullArabicName}
                     onChange={(e) => {
                       handleOverride('fullArabicName', e.target.value);
