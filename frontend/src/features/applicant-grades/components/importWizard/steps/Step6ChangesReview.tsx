@@ -72,6 +72,7 @@ export function Step6ChangesReview(): JSX.Element {
   const setBulkUploadDuplicateDecisions = useImportWizardStore(
     (s) => s.setBulkUploadDuplicateDecisions,
   );
+  const importResult = useImportWizardStore((s) => s.importResult);
 
   const { data: allRows } = useGrades();
 
@@ -176,6 +177,12 @@ export function Step6ChangesReview(): JSX.Element {
     uploadDuplicates,
     uploadDuplicateDecisions,
   );
+  const skippedExistingCount = alreadyImported.length;
+  const skippedCount = (importResult?.totals.skipped ?? 0) + skippedExistingCount;
+  const importableCount = Math.max(
+    0,
+    (importResult?.totals.imported ?? normalised.length) - skippedExistingCount,
+  );
 
   function acceptAllUploadDuplicates(): void {
     const next: Record<string, UploadDuplicateDecision> = {
@@ -203,6 +210,13 @@ export function Step6ChangesReview(): JSX.Element {
   if (diffs.length === 0 && uploadDuplicates.length === 0) {
     return (
       <div className="flex flex-col gap-4">
+        <ImportDecisionSummary
+          received={importResult?.totals.received ?? normalised.length}
+          importable={importableCount}
+          skipped={skippedCount}
+          rejected={importResult?.totals.failed ?? 0}
+          skippedExisting={skippedExistingCount}
+        />
         {alreadyImported.length > 0 && (
           <AlreadyImportedBanner count={alreadyImported.length} />
         )}
@@ -229,6 +243,13 @@ export function Step6ChangesReview(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
+      <ImportDecisionSummary
+        received={importResult?.totals.received ?? normalised.length}
+        importable={importableCount}
+        skipped={skippedCount}
+        rejected={importResult?.totals.failed ?? 0}
+        skippedExisting={skippedExistingCount}
+      />
       {alreadyImported.length > 0 && (
         <AlreadyImportedBanner count={alreadyImported.length} />
       )}
@@ -309,6 +330,66 @@ export function Step6ChangesReview(): JSX.Element {
 }
 
 type BulkDecisionMode = 'accept' | 'reject' | null;
+
+interface ImportDecisionSummaryProps {
+  received: number;
+  importable: number;
+  skipped: number;
+  rejected: number;
+  skippedExisting: number;
+}
+
+function ImportDecisionSummary({
+  received,
+  importable,
+  skipped,
+  rejected,
+  skippedExisting,
+}: ImportDecisionSummaryProps): JSX.Element {
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-white p-3">
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle md:grid-cols-4">
+        <DecisionStat label="مستلمة" value={received} />
+        <DecisionStat label="سيتم استيرادها" value={importable} tone="success" />
+        <DecisionStat label="سيتم تجاهلها" value={skipped} tone="warning" />
+        <DecisionStat label="مرفوضة" value={rejected} tone="danger" />
+      </div>
+      {skippedExisting > 0 && (
+        <div className="rounded-md border border-gold-200 bg-gold-50 px-3 py-2 text-xs text-gold-700">
+          <span className="font-numeric font-bold text-ink-900">
+            {skippedExisting.toLocaleString('en')}
+          </span>{' '}
+          صفًا موجود مسبقًا بنفس الرقم القومي وسنة التخرج، ولن يتم استيراده مرة أخرى.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DecisionStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: 'success' | 'warning' | 'danger';
+}): JSX.Element {
+  const toneClass =
+    tone === 'success'
+      ? 'bg-success-bg text-success'
+      : tone === 'warning'
+        ? 'bg-gold-50 text-gold-700'
+        : tone === 'danger'
+          ? 'bg-terra-50 text-terra-700'
+          : 'bg-white text-ink-700';
+  return (
+    <div className={`border-e border-border-subtle px-3 py-2.5 last:border-e-0 ${toneClass}`}>
+      <div className="text-2xs">{label}</div>
+      <div className="mt-1 font-numeric text-xl font-bold">{value.toLocaleString('en')}</div>
+    </div>
+  );
+}
 
 interface BulkDecisionToggleProps {
   mode: BulkDecisionMode;

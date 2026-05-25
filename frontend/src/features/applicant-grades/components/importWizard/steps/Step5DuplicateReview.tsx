@@ -151,6 +151,9 @@ export function Step5DuplicateReview(): JSX.Element {
   const outOfRange = integrityRows.filter((row) => row.code === 'GRADE_OUT_OF_RANGE').length;
   const unreadable = integrityRows.filter((row) => row.code === 'UNREADABLE_VALUE').length;
   const alreadyImported = buildAlreadyImported(normalised, allRows ?? []).length;
+  const duplicateMatches = dup + alreadyImported;
+  const skippedCount = report.totals.skipped + alreadyImported;
+  const readyToWrite = Math.max(0, report.totals.imported - alreadyImported);
 
   function handleDownloadAudit(): void {
     const csv = buildAuditCsv({
@@ -190,7 +193,7 @@ export function Step5DuplicateReview(): JSX.Element {
         <Counter
           icon={<Activity size={14} aria-hidden />}
           label="مطابقات سابقة بالرقم القومي"
-          value={dup}
+          value={duplicateMatches}
           tone="warning"
         />
         <Counter
@@ -224,9 +227,9 @@ export function Step5DuplicateReview(): JSX.Element {
 
       <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle bg-ink-50">
         <Summary label="مستلمة" value={report.totals.received} />
-        <Summary label="جاهزة للكتابة" value={report.totals.imported} tone="success" />
+        <Summary label="جاهزة للكتابة" value={readyToWrite} tone="success" />
         <Summary label="مرفوضة" value={report.totals.failed} tone="warning" />
-        <Summary label="ملغاة" value={report.totals.skipped} />
+        <Summary label="ملغاة" value={skippedCount} />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-subtle bg-white px-3.5 py-2.5">

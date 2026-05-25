@@ -24,7 +24,9 @@ import {
 import { serializeCsv } from '@/shared/lib/csv';
 import { downloadBlob } from '@/shared/lib/download';
 import { useImportWizardStore } from '../../../store/importWizard.store';
+import { useGrades } from '../../../api/grades.queries';
 import { normaliseRows } from '../../../lib/normalise';
+import { buildAlreadyImported } from '../../../lib/buildDiff';
 import { buildAuditCsv, buildDuplicateAudit, buildIntegrityAuditRows } from '../../../lib/duplicateAudit';
 import type {
   ImportFailureRow,
@@ -71,6 +73,7 @@ export function Step6Result(): JSX.Element {
   );
   const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const fileMeta = useImportWizardStore((s) => s.fileMeta);
+  const { data: allRows } = useGrades();
 
   const normalised = useMemo(() => {
     const table = parsed?.tables.find((t) => t.name === selectedTableName) ?? null;
@@ -102,6 +105,10 @@ export function Step6Result(): JSX.Element {
       }),
     [normalised, selectedSchoolCategories, maxGradeByCategory],
   );
+  const alreadyImported = useMemo(
+    () => buildAlreadyImported(normalised, allRows ?? []),
+    [normalised, allRows],
+  );
 
   if (!importResult) {
     return (
@@ -112,6 +119,9 @@ export function Step6Result(): JSX.Element {
   }
 
   const groups = importResult.groups;
+  const skippedExistingCount = alreadyImported.length;
+  const skippedCount = importResult.totals.skipped + skippedExistingCount;
+  const importableCount = Math.max(0, importResult.totals.imported - skippedExistingCount);
 
   function handleDownloadAudit(): void {
     const csv = buildAuditCsv({
@@ -133,8 +143,8 @@ export function Step6Result(): JSX.Element {
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle">
         <SummaryBlock label="مستلمة" value={importResult.totals.received} />
-        <SummaryBlock label="مستوردة" value={importResult.totals.imported} tone="success" big />
-        <SummaryBlock label="ملغاة" value={importResult.totals.skipped} />
+        <SummaryBlock label="مستوردة" value={importableCount} tone="success" big />
+        <SummaryBlock label="ملغاة" value={skippedCount} />
         <SummaryBlock label="مرفوضة" value={importResult.totals.failed} tone="warning" />
       </div>
 
@@ -153,6 +163,17 @@ export function Step6Result(): JSX.Element {
             </span>{' '}
             صف مكرر داخل الملف سيُتجاوز
           </span>
+          {skippedExistingCount > 0 && (
+            <>
+              <span>·</span>
+              <span className="text-gold-700">
+                <span className="font-en font-bold text-ink-900">
+                  {skippedExistingCount.toLocaleString('en')}
+                </span>{' '}
+                صف موجود مسبقًا لن يُستورد
+              </span>
+            </>
+          )}
         </div>
         <Button
           size="sm"
@@ -167,7 +188,9 @@ export function Step6Result(): JSX.Element {
       {groups.length === 0 ? (
         <div className="flex items-center gap-2 rounded-md border border-success bg-success-bg px-3.5 py-3 text-xs text-success">
           <ShieldCheck size={14} aria-hidden />
-          كل الصفوف نظيفة. اضغط «تأكيد الاستيراد» للكتابة على قاعدة البيانات.
+          {skippedExistingCount > 0
+            ? `سيتم استيراد ${importableCount.toLocaleString('en')} صفًا، وتجاهل ${skippedExistingCount.toLocaleString('en')} صفًا موجودًا مسبقًا بنفس الرقم القومي وسنة التخرج.`
+            : 'كل الصفوف نظيفة. اضغط «تأكيد الاستيراد» للكتابة على قاعدة البيانات.'}
         </div>
       ) : (
         <Accordion type="multiple">
