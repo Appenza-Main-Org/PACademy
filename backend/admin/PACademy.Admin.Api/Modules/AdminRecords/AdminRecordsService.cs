@@ -348,15 +348,18 @@ public sealed class AdminRecordsService(
         var deleted = 0;
         var now = DateTimeOffset.UtcNow;
         var nowIso = now.ToString("O");
+        var offset = 0;
         while (true)
         {
             var rows = await db.AdminRecords
                 .Where(x => x.Module == module)
                 .OrderBy(x => x.Id)
+                .Skip(offset)
                 .Take(DefaultBulkBatchSize)
                 .ToListAsync(ct);
             if (rows.Count == 0) break;
-            var hadLiveRows = false;
+            offset += rows.Count;
+            var batchModified = 0;
             foreach (var row in rows)
             {
                 var payload = AdminRecordJson.Parse(row.PayloadJson);
@@ -367,10 +370,9 @@ public sealed class AdminRecordsService(
                 row.PayloadJson = payload.ToJsonString(AdminRecordJson.Options);
                 row.UpdatedAt = now;
                 deleted++;
-                hadLiveRows = true;
+                batchModified++;
             }
-            if (!hadLiveRows) break;
-            await db.SaveChangesAsync(ct);
+            if (batchModified > 0) await db.SaveChangesAsync(ct);
         }
 
         if (deleted > 0)
