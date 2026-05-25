@@ -11,6 +11,7 @@ import {
   type GeneralRulesHeader,
   type LocalGeneralRuleRow,
 } from '../store/wizardSharedState';
+import { applicationSettingsService } from '../api/applicationSettings.service';
 
 const KEY_PREFIX = 'pa-admission-setup-application-settings:';
 const VERSION = 1;
@@ -65,13 +66,32 @@ export function writeApplicationSettingsCycleDraft(cycleId: string): void {
       approved: state.approved,
     };
     localStorage.setItem(storageKey(cycleId), JSON.stringify(draft));
+    void applicationSettingsService.saveCycleDraft(cycleId, draft);
   } catch {
     /* localStorage unavailable; the in-memory store still works. */
   }
 }
 
-export function hydrateApplicationSettingsCycleDraft(cycleId: string): void {
-  const draft = readApplicationSettingsCycleDraft(cycleId);
+export async function hydrateApplicationSettingsCycleDraft(cycleId: string): Promise<void> {
+  const localDraft = readApplicationSettingsCycleDraft(cycleId);
+  let draft = localDraft;
+  try {
+    const remoteDraft = await applicationSettingsService.getCycleDraft(cycleId);
+    const remoteCandidate = isDraft(remoteDraft, cycleId)
+      ? remoteDraft
+      : null;
+    if (
+      remoteCandidate &&
+      (!localDraft || Date.parse(remoteCandidate.updatedAt) > Date.parse(localDraft.updatedAt))
+    ) {
+      draft = remoteCandidate;
+    } else if (localDraft) {
+      void applicationSettingsService.saveCycleDraft(cycleId, localDraft);
+    }
+  } catch {
+    /* Backend sync is best-effort; local draft remains the fallback. */
+  }
+
   useAdmissionSetupWizardStore.setState({
     headers: draft?.headers ?? {},
     local: draft?.local ?? [],

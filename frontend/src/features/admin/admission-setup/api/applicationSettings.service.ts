@@ -79,6 +79,15 @@ export interface CategorySettingsSummary {
   gradingMode: YearGradeKind | null;
 }
 
+export interface ApplicationSettingsCycleDraftPayload {
+  version: number;
+  cycleId: string;
+  updatedAt?: string;
+  headers: Record<string, unknown>;
+  local: unknown[];
+  approved: unknown[];
+}
+
 export const applicationSettingsService = {
   async listCategoryConfigs(): Promise<CategoryConfigJoined[]> {
     return apiClient.get('/api/admin/app-settings/category-configs');
@@ -104,6 +113,17 @@ export const applicationSettingsService = {
 
   async getApplicationSettingsSummary(): Promise<CategorySettingsSummary[]> {
     return apiClient.get('/api/admin/app-settings/summary');
+  },
+
+  async getCycleDraft(cycleId: string): Promise<ApplicationSettingsCycleDraftPayload> {
+    return apiClient.get(`/api/admin/app-settings/cycle-drafts/${encodeURIComponent(cycleId)}`);
+  },
+
+  async saveCycleDraft(
+    cycleId: string,
+    draft: ApplicationSettingsCycleDraftPayload,
+  ): Promise<ApplicationSettingsCycleDraftPayload> {
+    return apiClient.put(`/api/admin/app-settings/cycle-drafts/${encodeURIComponent(cycleId)}`, draft);
   },
 
   async getGradingModeForSpec(

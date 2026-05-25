@@ -67,6 +67,35 @@ public sealed class AdmissionSetupController(AdminRecordsService records, Applic
         return Ok(await records.UpsertAsync(module, module, body, ct));
     }
 
+    [HttpGet("api/admin/app-settings/cycle-drafts/{cycleId}")]
+    public async Task<ActionResult<JsonObject>> AppSettingsCycleDraft(string cycleId, CancellationToken ct)
+    {
+        var module = $"admissionSetup.applicationSettings.{cycleId}";
+        return Ok(await records.SingletonAsync(module, new JsonObject
+        {
+            ["id"] = module,
+            ["cycleId"] = cycleId,
+            ["version"] = 1,
+            ["headers"] = new JsonObject(),
+            ["local"] = new JsonArray(),
+            ["approved"] = new JsonArray()
+        }, ct));
+    }
+
+    [HttpPut("api/admin/app-settings/cycle-drafts/{cycleId}")]
+    public async Task<ActionResult<JsonObject>> SaveAppSettingsCycleDraft(string cycleId, [FromBody] JsonObject body, CancellationToken ct)
+    {
+        var module = $"admissionSetup.applicationSettings.{cycleId}";
+        body["id"] = module;
+        body["cycleId"] = cycleId;
+        body["version"] = 1;
+        body["updatedAt"] = DateTimeOffset.UtcNow.ToString("O");
+        body["headers"] ??= new JsonObject();
+        body["local"] ??= new JsonArray();
+        body["approved"] ??= new JsonArray();
+        return Ok(await records.UpsertAsync(module, module, body, ct));
+    }
+
     [HttpGet("api/admin/app-settings/category-configs")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> CategoryConfigs(CancellationToken ct) =>
         Ok(await appSettings.ListCategoryConfigsAsync(ct));

@@ -51,11 +51,16 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
         var firstReferenceDate = years.Select(x => (DateOnly?)x.AgeReferenceDate).OrderBy(x => x).FirstOrDefault()
             ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
         var applicant = BuildApplicantContext(nid, grade, firstReferenceDate);
+        var draftRules = await LoadCycleDraftRulesAsync(activeCycle.Id, configs, specs, categoryLookups, ct);
+        var committeeIdsByRuleId = draftRules
+            .Where(x => x.CommitteeIds.Count > 0)
+            .ToDictionary(x => x.Rule.Id, x => x.CommitteeIds, StringComparer.OrdinalIgnoreCase);
+        var allYears = years.Concat(draftRules.Select(x => x.Rule)).ToArray();
 
         var results = new List<CategoryEligibilityResult>();
         foreach (var config in configs)
         {
-            var categoryRules = years
+            var categoryRules = allYears
                 .Where(year => specs.Any(spec => spec.ConfigId == config.Id && spec.Id == year.CategorySpecializationId))
                 .ToArray();
             categoryLookups.TryGetValue(config.CategoryId, out var categoryLookup);
@@ -71,7 +76,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
             var checks = evaluation.Checks;
             var failedReasons = evaluation.FailedReasons;
             var committees = failedReasons.Count == 0
-                ? ResolveCommittees(committeeLookups, settings.CategoryId, settings.CategoryName)
+                ? ResolveCommittees(committeeLookups, settings.CategoryId, settings.CategoryName, evaluation.MatchedRuleId, committeeIdsByRuleId)
                 : [];
             results.Add(new CategoryEligibilityResult(
                 settings.CategoryId,
@@ -99,6 +104,81 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
             .FirstOrDefault(x =>
                 !AdminRecordJson.IsSoftDeleted(x) &&
                 string.Equals(AdminRecordJson.StringProp(x, "nid") ?? AdminRecordJson.StringProp(x, "nationalId"), nationalId, StringComparison.Ordinal));
+    }
+
+    private async Task<IReadOnlyList<DraftEligibilityRule>> LoadCycleDraftRulesAsync(
+        string cycleId,
+        IReadOnlyList<ApplicationSettingsCategoryConfigEntity> configs,
+        IReadOnlyList<ApplicationSettingsCategorySpecializationEntity> specs,
+        IReadOnlyDictionary<string, JsonObject> categoryLookups,
+        CancellationToken ct)
+    {
+        var module = $"admissionSetup.applicationSettings.{cycleId}";
+        var draft = await records.GetAsync(module, module, ct);
+        if (draft is null) return [];
+
+        var rows = new List<JsonObject>();
+        AddRows(rows, EligibilityJson.ArrayProp(draft, "approved"));
+        AddRows(rows, EligibilityJson.ArrayProp(draft, "local"));
+        if (rows.Count == 0) return [];
+
+        var configByCategory = configs.ToDictionary(x => x.CategoryId, StringComparer.OrdinalIgnoreCase);
+        var specsByConfig = specs
+            .GroupBy(x => x.ConfigId)
+            .ToDictionary(x => x.Key, x => x.ToArray(), StringComparer.OrdinalIgnoreCase);
+        var output = new List<DraftEligibilityRule>();
+        foreach (var row in rows)
+        {
+            var categoryCode = EligibilityJson.StringProp(row, "categoryCode");
+            if (string.IsNullOrWhiteSpace(categoryCode) || !configByCategory.TryGetValue(categoryCode, out var config)) continue;
+            if (!specsByConfig.TryGetValue(config.Id, out var categorySpecs) || categorySpecs.Length == 0) continue;
+
+            var spec = ResolveDraftSpec(row, categorySpecs);
+            var header = EligibilityJson.ObjectProp(row, "header") ?? [];
+            categoryLookups.TryGetValue(categoryCode, out var categoryLookup);
+            var graduationYears = EligibilityJson.IntArray(row, "graduationYears");
+            if (graduationYears.Count == 0 && EligibilityJson.IntProp(row, "graduationYear") is { } graduationYear)
+            {
+                graduationYears = [graduationYear];
+            }
+
+            var genders = EligibilityJson.StringArray(row, "type");
+            if (genders.Count == 0)
+            {
+                genders = EligibilityJson.StringArray(categoryLookup, "genderScope");
+            }
+
+            var schoolCategoryCodes = EligibilityJson.StringArray(row, "schoolCategories");
+            var scoreMin = EligibilityJson.DecimalProp(row, "scoreMin");
+            var academicGradeId = EligibilityJson.FirstString(row, "grade", "academicGradeId");
+            var gradeKind = string.IsNullOrWhiteSpace(academicGradeId) ? "GRADES" : "TAGDIR";
+
+            output.Add(new DraftEligibilityRule(
+                new ApplicationSettingsGraduationYearEntity
+                {
+                    Id = EligibilityJson.StringProp(row, "id") ?? $"draft-{output.Count + 1}",
+                    CategorySpecializationId = spec.Id,
+                    GraduationYearsJson = EligibilityJson.Serialize(graduationYears),
+                    GenderTypesJson = EligibilityJson.Serialize(genders),
+                    MaritalStatusCodesJson = EligibilityJson.Serialize(EligibilityJson.StringArray(header, "maritalStatus")),
+                    AgeMin = EligibilityJson.IntProp(categoryLookup, "minAge") ?? 17,
+                    MaxAge = EligibilityJson.IntProp(header, "maxAge"),
+                    DivisionCodesJson = "[]",
+                    SchoolCategoryCodesJson = EligibilityJson.Serialize(schoolCategoryCodes),
+                    ApplicationStartDate = ParseDate(EligibilityJson.StringProp(header, "applicationStart")),
+                    ApplicationEndDate = ParseDate(EligibilityJson.StringProp(header, "applicationEnd")),
+                    AgeReferenceDate = ParseDate(EligibilityJson.StringProp(header, "ageReferenceDate")),
+                    IsActive = true,
+                    GradeKind = gradeKind,
+                    MinPercentage = gradeKind == "GRADES" ? scoreMin : null,
+                    AcademicGradeId = gradeKind == "TAGDIR" ? academicGradeId : null,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                    UpdatedAt = DateTimeOffset.UtcNow
+                },
+                ResolveDraftCommitteeIds(row)));
+        }
+
+        return output;
     }
 
     private static ApplicantEligibilityContext BuildApplicantContext(
@@ -142,7 +222,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
         if (category.Rules.Count == 0)
         {
             var checks = RunChecks(applicant, category, lookups);
-            return new CategoryEvaluation(checks, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
+            return new CategoryEvaluation(checks, null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
         }
 
         CategoryEvaluation? best = null;
@@ -162,7 +242,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
             };
             var checks = RunChecks(applicant, rowSettings, lookups);
             var failedReasons = BuildFailedReasons(checks, rowSettings);
-            var evaluation = new CategoryEvaluation(checks, failedReasons);
+            var evaluation = new CategoryEvaluation(checks, rule.Id, failedReasons);
             if (failedReasons.Count == 0)
             {
                 return evaluation;
@@ -174,7 +254,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
             }
         }
 
-        return best ?? new CategoryEvaluation(RunChecks(applicant, category, lookups), ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
+        return best ?? new CategoryEvaluation(RunChecks(applicant, category, lookups), null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
     }
 
     private static EligibilityChecks RunChecks(
@@ -202,10 +282,16 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
     private static IReadOnlyList<EligibleCommitteeResult> ResolveCommittees(
         IReadOnlyList<JsonObject> committeeLookups,
         string categoryId,
-        string categoryName)
+        string categoryName,
+        string? matchedRuleId,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> committeeIdsByRuleId)
     {
+        var allowedIds = matchedRuleId is not null && committeeIdsByRuleId.TryGetValue(matchedRuleId, out var ids)
+            ? ids
+            : [];
         return committeeLookups
             .Where(row => EligibilityJson.TextEquals(EligibilityJson.FirstString(row, "applicantCategoryId", "categoryId", "categoryCode"), categoryId))
+            .Where(row => allowedIds.Count == 0 || allowedIds.Contains(EligibilityJson.StringProp(row, "code") ?? "", StringComparer.OrdinalIgnoreCase))
             .Select(row => new EligibleCommitteeResult(
                 EligibilityJson.StringProp(row, "code") ?? "",
                 EligibilityJson.StringProp(row, "name") ?? EligibilityJson.StringProp(row, "code") ?? "",
@@ -225,6 +311,37 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
         if (total is null || max is null || max <= 0) return null;
         return Math.Round((total.Value / max.Value) * 100, 2);
     }
+
+    private static void AddRows(List<JsonObject> target, JsonArray? rows)
+    {
+        if (rows is null) return;
+        target.AddRange(rows.OfType<JsonObject>());
+    }
+
+    private static ApplicationSettingsCategorySpecializationEntity ResolveDraftSpec(
+        JsonObject row,
+        IReadOnlyList<ApplicationSettingsCategorySpecializationEntity> specs)
+    {
+        var specializationCode = EligibilityJson.StringProp(row, "specializationCode");
+        if (!string.IsNullOrWhiteSpace(specializationCode))
+        {
+            var matched = specs.FirstOrDefault(x => EligibilityJson.TextEquals(x.SpecializationId, specializationCode));
+            if (matched is not null) return matched;
+        }
+
+        return specs[0];
+    }
+
+    private static IReadOnlyList<string> ResolveDraftCommitteeIds(JsonObject row)
+    {
+        var ids = EligibilityJson.StringArray(row, "committees");
+        if (ids.Count > 0) return ids;
+        var committee = EligibilityJson.StringProp(row, "committee");
+        return string.IsNullOrWhiteSpace(committee) ? [] : [committee];
+    }
+
+    private static DateOnly ParseDate(string? value) =>
+        DateOnly.TryParse(value, out var parsed) ? parsed : DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
     private static IReadOnlyList<string> BuildFailedReasons(EligibilityChecks checks, CategoryEligibilitySettings settings)
     {
@@ -265,7 +382,12 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
 
     private sealed record CategoryEvaluation(
         EligibilityChecks Checks,
+        string? MatchedRuleId,
         IReadOnlyList<string> FailedReasons);
+
+    private sealed record DraftEligibilityRule(
+        ApplicationSettingsGraduationYearEntity Rule,
+        IReadOnlyList<string> CommitteeIds);
 
     private static JsonObject LookupToJson(Modules.Lookups.LookupRowEntity entity)
     {

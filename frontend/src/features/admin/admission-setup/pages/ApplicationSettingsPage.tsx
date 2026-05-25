@@ -32,7 +32,7 @@ export function ApplicationSettingsPage(): JSX.Element {
 
   useEffect(() => {
     if (!cycleId) return undefined;
-    hydrateApplicationSettingsCycleDraft(cycleId);
+    void hydrateApplicationSettingsCycleDraft(cycleId);
     const unsubscribe = useAdmissionSetupWizardStore.subscribe(() => {
       writeApplicationSettingsCycleDraft(cycleId);
     });

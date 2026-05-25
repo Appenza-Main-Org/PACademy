@@ -52,6 +52,15 @@ internal static class EligibilityJson
                 : null;
     }
 
+    public static JsonArray? ArrayProp(JsonObject? obj, string name)
+    {
+        return obj is not null &&
+            obj.TryGetPropertyValue(name, out var node) &&
+            node is JsonArray child
+                ? child
+                : null;
+    }
+
     public static int? IntProp(JsonObject? obj, string name)
     {
         if (obj is null || !obj.TryGetPropertyValue(name, out var node) || node is null) return null;
@@ -85,10 +94,34 @@ internal static class EligibilityJson
         return JsonSerializer.Deserialize<List<string>>(json, Options) ?? [];
     }
 
+    public static IReadOnlyList<string> StringArray(JsonObject? obj, string name)
+    {
+        var array = ArrayProp(obj, name);
+        if (array is null) return [];
+        return array
+            .Select(x => x?.ToString())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!)
+            .ToArray();
+    }
+
     public static IReadOnlyList<int> IntArray(string json)
     {
         return JsonSerializer.Deserialize<List<int>>(json, Options) ?? [];
     }
+
+    public static IReadOnlyList<int> IntArray(JsonObject? obj, string name)
+    {
+        var array = ArrayProp(obj, name);
+        if (array is null) return [];
+        return array
+            .Select(x => int.TryParse(x?.ToString(), out var parsed) ? parsed : (int?)null)
+            .Where(x => x is not null)
+            .Select(x => x!.Value)
+            .ToArray();
+    }
+
+    public static string Serialize<T>(IEnumerable<T> values) => JsonSerializer.Serialize(values, Options);
 
     public static bool TextEquals(string? left, string? right)
     {
