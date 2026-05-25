@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Shared.Audit;
@@ -35,7 +37,9 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
     {
         var obj = AdmissionJson.Clone(input);
         var id = AdmissionJson.StringProp(obj, "id") ?? $"CYC-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        var nameAr = RequiredCycleName(obj);
         obj["id"] = id;
+        obj["nameAr"] = nameAr;
         obj["status"] = AdmissionJson.StringProp(obj, "status") ?? "draft";
         if (AdmissionJson.BoolProp(obj, "isActive") == true)
             await EnsureNoOtherActiveAsync(null, ct);
@@ -44,7 +48,7 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
         var entity = new AdmissionCycleEntity
         {
             Id = id,
-            NameAr = AdmissionJson.StringProp(obj, "nameAr") ?? "دورة جديدة",
+            NameAr = nameAr,
             Year = AdmissionJson.IntProp(obj, "year") ?? DateTimeOffset.UtcNow.Year,
             Status = AdmissionJson.StringProp(obj, "status") ?? "draft",
             IsActive = AdmissionJson.BoolProp(obj, "isActive") ?? false,
@@ -246,12 +250,24 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
 
     private static void Apply(AdmissionCycleEntity entity, JsonObject obj)
     {
-        entity.NameAr = AdmissionJson.StringProp(obj, "nameAr") ?? entity.NameAr;
+        entity.NameAr = RequiredCycleName(obj);
+        obj["nameAr"] = entity.NameAr;
         entity.Year = AdmissionJson.IntProp(obj, "year") ?? entity.Year;
         entity.Status = AdmissionJson.StringProp(obj, "status") ?? entity.Status;
         entity.IsActive = AdmissionJson.BoolProp(obj, "isActive") ?? entity.IsActive;
         entity.PayloadJson = obj.ToJsonString(AdmissionJson.Options);
         entity.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static string RequiredCycleName(JsonObject obj)
+    {
+        var name = AdmissionJson.StringProp(obj, "nameAr")?.Trim();
+        if (!string.IsNullOrWhiteSpace(name)) return name;
+
+        throw new ValidationException(
+        [
+            new ValidationFailure("nameAr", "اسم الدورة مطلوب")
+        ]);
     }
 
     private static JsonObject ToJson(AdmissionCycleEntity entity)

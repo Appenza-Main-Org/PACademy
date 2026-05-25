@@ -36,12 +36,21 @@ const cycleSchema = z.object({
   name: z
     .string()
     .trim()
+    .min(1, 'اسم الدورة مطلوب')
     .min(3, 'اسم الدورة يجب ألا يقل عن 3 أحرف')
     .max(80, 'اسم الدورة يجب ألا يزيد عن 80 حرفًا'),
   year: z.number().int(),
 });
 
 type CycleValues = z.infer<typeof cycleSchema>;
+
+function cycleNameError(name: string): string | null {
+  const length = name.trim().length;
+  if (length === 0) return 'اسم الدورة مطلوب';
+  if (length < 3) return 'اسم الدورة يجب ألا يقل عن 3 أحرف';
+  if (length > 80) return 'اسم الدورة يجب ألا يزيد عن 80 حرفًا';
+  return null;
+}
 
 function buildPayload(values: CycleValues): Omit<AdmissionCycle, 'id' | 'applicantCount'> {
   const nowIso = new Date().toISOString();
@@ -94,8 +103,15 @@ export function CycleNewPage(): JSX.Element {
   });
 
   const onSubmit = (values: CycleValues): void => {
+    const name = values.name.trim();
+    const nameError = cycleNameError(name);
+    if (nameError !== null) {
+      setError('name', { type: 'manual', message: nameError }, { shouldFocus: true });
+      return;
+    }
+
     createMut.mutate(
-      { payload: buildPayload(values) },
+      { payload: buildPayload({ ...values, name }) },
       {
         onSuccess: () => {
           toast('تم حفظ المسودة', 'success');
@@ -104,7 +120,8 @@ export function CycleNewPage(): JSX.Element {
         onError: (err) => {
           if (isValidationError(err)) {
             for (const [field, message] of Object.entries(validationFieldErrors(err))) {
-              setError(field as FieldPath<CycleValues>, { type: 'server', message });
+              const fieldName = field === 'nameAr' ? 'name' : field;
+              setError(fieldName as FieldPath<CycleValues>, { type: 'server', message });
             }
           }
           toast(validationMessage(err, 'تعذر حفظ الدورة'), 'danger');
