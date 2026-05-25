@@ -248,7 +248,9 @@ export function ApplicantGradesImportPage(): JSX.Element {
     for (const [nid, decision] of Object.entries(existingDiffDecisions)) {
       if (decision === 'accept') acceptedDiffDecisions[nid] = 'accept';
     }
-    const deduped = dedupeRowsFirstOccurrence(rows);
+    const invalidSourceRows = new Set(integrityRows.map((row) => row.sourceRowIndex));
+    const rowsEligibleForCommit = rows.filter((row) => !invalidSourceRows.has(row.sourceRowIndex));
+    const deduped = dedupeRowsFirstOccurrence(rowsEligibleForCommit);
     setCommitProgress({
       processedRows: 0,
       totalRows: deduped.uniqueRows.length,
@@ -284,7 +286,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
             graduationYear,
             fileName: fileMeta?.name ?? null,
           });
-          const historyRecord = saveApplicantGradesImportHistoryRecord({
+          saveApplicantGradesImportHistoryRecord({
             fileName: fileMeta?.name ?? null,
             graduationYear,
             report: importResult,
@@ -297,7 +299,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
           });
           const parts = [
             `${res.insertedCount.toLocaleString('en')} مستورد`,
-            `${res.failedCount.toLocaleString('en')} مرفوض`,
+            `${(res.failedCount + invalidSourceRows.size).toLocaleString('en')} مرفوض`,
             `${audit.duplicateRowCount.toLocaleString('en')} مكرر متجاوز`,
             `${integrityRows.length.toLocaleString('en')} غير صالح`,
             `${audit.totalRows.toLocaleString('en')} إجمالي`,
@@ -309,7 +311,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
           }
           toast(`تم الاستيراد — ${parts.join(' · ')}.`, 'success');
           reset();
-          navigate(`${ROUTES.admin.applicantGradesImportHistory}?record=${encodeURIComponent(historyRecord.id)}`);
+          navigate(ROUTES.admin.applicantGrades);
         },
         onError: () => {
           toast('تعذّر إكمال الاستيراد. حاول مرة أخرى.', 'danger');

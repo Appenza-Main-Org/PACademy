@@ -299,13 +299,19 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                 failed++;
                 continue;
             }
+            var maxGrade = row["maxGrade"]?.GetValue<double?>() ?? MaxGradeForRow(row, body);
+            if (total.Value < 0 || (maxGrade is not null && total.Value > maxGrade.Value))
+            {
+                failed++;
+                continue;
+            }
             if (existingNids.Contains(nid))
             {
                 alreadyImported++;
                 continue;
             }
             var seat = nextSeat++;
-            if (row["maxGrade"] is null && MaxGradeForRow(row, body) is double maxGrade)
+            if (row["maxGrade"] is null && maxGrade is not null)
             {
                 row["maxGrade"] = maxGrade;
             }

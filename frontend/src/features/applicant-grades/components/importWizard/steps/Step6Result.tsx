@@ -120,8 +120,12 @@ export function Step6Result(): JSX.Element {
 
   const groups = importResult.groups;
   const skippedExistingCount = alreadyImported.length;
+  const rejectedCount = Math.max(
+    importResult.totals.failed,
+    new Set(integrityRows.map((row) => row.sourceRowIndex)).size,
+  );
   const skippedCount = importResult.totals.skipped + skippedExistingCount;
-  const importableCount = Math.max(0, importResult.totals.imported - skippedExistingCount);
+  const importableCount = Math.max(0, importResult.totals.received - skippedCount - rejectedCount);
 
   function handleDownloadAudit(): void {
     const csv = buildAuditCsv({
@@ -145,7 +149,7 @@ export function Step6Result(): JSX.Element {
         <SummaryBlock label="مستلمة" value={importResult.totals.received} />
         <SummaryBlock label="مستوردة" value={importableCount} tone="success" big />
         <SummaryBlock label="ملغاة" value={skippedCount} />
-        <SummaryBlock label="مرفوضة" value={importResult.totals.failed} tone="warning" />
+        <SummaryBlock label="مرفوضة" value={rejectedCount} tone="warning" />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-subtle bg-white px-3.5 py-2.5">

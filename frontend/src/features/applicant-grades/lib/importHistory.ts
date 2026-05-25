@@ -80,7 +80,7 @@ export function saveApplicantGradesImportHistoryRecord(input: {
     skippedDuplicateCount: input.audit.duplicateRowCount,
     skippedInvalidCount,
     skippedExistingCount: input.skippedExistingCount,
-    failedCount: input.report?.totals.failed ?? skippedInvalidCount,
+    failedCount: Math.max(input.report?.totals.failed ?? 0, skippedInvalidCount),
     uniqueNidCount: input.audit.uniqueNidCount,
     duplicateNidGroups: input.audit.duplicateNidGroups,
     duplicateRatio: input.audit.duplicateRatio,
