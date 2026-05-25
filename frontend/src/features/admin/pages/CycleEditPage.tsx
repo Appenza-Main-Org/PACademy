@@ -1,18 +1,16 @@
 /**
  * CycleEditPage — edit a saved admission cycle.
  *
- * Exposes every field present on /admin/cycles/new (CycleNewPage), in the
- * same order and with the same labels, pre-filled from the cycle record.
- * Save updates the cycle through `cyclesService.update` and routes back
- * to the list.
+ * Exposes the editable cycle name only. System year fields remain internal
+ * and are not modified by this form.
  *
  * Available regardless of cycle status — the prior published-status gate
  * was lifted in the same commit set.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Controller, useForm, type FieldPath } from 'react-hook-form';
+import { useForm, type FieldPath } from 'react-hook-form';
 import { z } from 'zod';
 import { Save } from 'lucide-react';
 import {
@@ -23,7 +21,6 @@ import {
   Input,
   LoadingState,
   PageHeader,
-  Select,
   toast,
 } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
@@ -40,7 +37,6 @@ const cycleSchema = z.object({
     .min(1, 'اسم الدورة مطلوب')
     .min(3, 'اسم الدورة يجب ألا يقل عن 3 أحرف')
     .max(80, 'اسم الدورة يجب ألا يزيد عن 80 حرفًا'),
-  year: z.number().int(),
 });
 
 type CycleValues = z.infer<typeof cycleSchema>;
@@ -59,25 +55,15 @@ export function CycleEditPage(): JSX.Element {
   const cycleQuery = useCycle(id);
   const updateMut = useCycleUpdate();
 
-  const currentYear = new Date().getFullYear();
-  const yearOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = [];
-    for (let y = currentYear - 5; y <= currentYear + 5; y += 1) {
-      opts.push({ value: String(y), label: String(y) });
-    }
-    return opts;
-  }, [currentYear]);
-
   const {
     register,
     handleSubmit,
-    control,
     reset,
     setError,
     formState: { errors },
   } = useForm<CycleValues>({
     resolver: zodResolver(cycleSchema),
-    defaultValues: { name: '', year: currentYear },
+    defaultValues: { name: '' },
   });
 
   /* Pre-fill once the cycle resolves. We use reset rather than
@@ -85,7 +71,7 @@ export function CycleEditPage(): JSX.Element {
    * leave stale form state behind. */
   useEffect(() => {
     if (cycleQuery.data) {
-      reset({ name: cycleQuery.data.nameAr, year: cycleQuery.data.year });
+      reset({ name: cycleQuery.data.nameAr });
     }
   }, [cycleQuery.data, reset]);
 
@@ -118,17 +104,11 @@ export function CycleEditPage(): JSX.Element {
       setError('name', { type: 'manual', message: nameError }, { shouldFocus: true });
       return;
     }
-
-    const openIso = new Date(Date.UTC(values.year, 0, 1)).toISOString();
-    const closeIso = new Date(Date.UTC(values.year, 11, 31)).toISOString();
     updateMut.mutate(
       {
         id,
         patch: {
           nameAr: name,
-          year: values.year,
-          openDate: openIso,
-          closeDate: closeIso,
         },
       },
       {
@@ -170,23 +150,6 @@ export function CycleEditPage(): JSX.Element {
               {...register('name')}
               error={errors.name?.message}
             />
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <Controller
-                control={control}
-                name="year"
-                render={({ field }) => (
-                  <Select
-                    label="السنة"
-                    required
-                    options={yearOptions}
-                    value={String(field.value)}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                    error={errors.year?.message}
-                  />
-                )}
-              />
-            </div>
 
             <div className="mt-2 flex items-center justify-end gap-2">
               <Button

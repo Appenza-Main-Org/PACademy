@@ -3,7 +3,7 @@
  *
  * Columns mirror the Add form (CycleNewPage) field set 1:1, plus the
  * orthogonal active flag and per-row actions:
- *   اسم الدورة · السنة · حالة الدورة · حالة التفعيل · إجراءات.
+ *   اسم الدورة · حالة الدورة · حالة التفعيل · إجراءات.
  *
  * Status (review/published) and isActive are independent — see
  * cycleListStatus.ts and AdmissionCycle.isActive. Activating a cycle is a
@@ -68,12 +68,17 @@ const SETUP_LOCKED_HINT = 'متاح فقط للدورة النشطة';
 
 const ACTIVE_LABEL = 'نشطة';
 const INACTIVE_LABEL = 'غير نشطة';
-/* Drafts (إدراج ومراجعة) bubble to the top; published rows follow,
- * ordered by year desc. */
+/* Drafts (إدراج ومراجعة) bubble to the top; published rows follow. */
 const LIST_STATUS_PRIORITY: Record<CycleListStatus, number> = {
   review: 0,
   published: 1,
 };
+
+function cycleSortTime(cycle: AdmissionCycle): number {
+  const stamp = cycle.updatedAt ?? cycle.createdAt ?? cycle.openDate;
+  const time = new Date(stamp).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
 
 export function CyclesPage(): JSX.Element {
   const navigate = useNavigate();
@@ -111,7 +116,8 @@ export function CyclesPage(): JSX.Element {
         LIST_STATUS_PRIORITY[toListStatus(a.status)] -
         LIST_STATUS_PRIORITY[toListStatus(b.status)];
       if (byStatus !== 0) return byStatus;
-      if (a.year !== b.year) return b.year - a.year;
+      const byUpdated = cycleSortTime(b) - cycleSortTime(a);
+      if (byUpdated !== 0) return byUpdated;
       return a.nameAr.localeCompare(b.nameAr, 'ar');
     });
     return rows;
@@ -128,7 +134,6 @@ export function CyclesPage(): JSX.Element {
         filenamePrefix: 'دورات-القبول-',
         columns: [
           { key: 'nameAr', labelAr: 'اسم الدورة' },
-          { key: 'year', labelAr: 'السنة' },
           {
             key: 'status',
             labelAr: 'حالة الدورة',
@@ -200,11 +205,6 @@ export function CyclesPage(): JSX.Element {
           >
             {c.nameAr}
           </Link>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <Badge tone="neutral">
-              <span className="font-numeric tnum">{c.year}</span>
-            </Badge>
-          </div>
         </div>
       ),
     },
@@ -348,7 +348,7 @@ export function CyclesPage(): JSX.Element {
       <CenteredShell>
         <PageHeader
           title="دورات القبول وإعداد التقديم"
-          subtitle="إدارة دورات القبول السنوية: الاسم والسنة وحالة الاعتماد والنشر."
+          subtitle="إدارة دورات القبول: الاسم وحالة الاعتماد والنشر."
           breadcrumbs={[
             { label: 'إدارة المنظومة', href: ROUTES.admin.dashboard },
             { label: 'الدورات' },
