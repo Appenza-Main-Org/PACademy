@@ -238,7 +238,8 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
                 MinAge = rule.AgeMin ?? EligibilityJson.IntProp(category.CategoryLookup, "minAge") ?? 17,
                 AgeReferenceDate = rule.AgeReferenceDate,
                 MinPercentage = rule.MinPercentage,
-                AcademicGradeId = rule.AcademicGradeId
+                AcademicGradeId = rule.AcademicGradeId,
+                AllowsManualGradeEntryWithoutRecord = IsPreUniversityCategory(category.CategoryLookup)
             };
             var checks = RunChecks(applicant, rowSettings, lookups);
             var failedReasons = BuildFailedReasons(checks, rowSettings);
@@ -342,6 +343,13 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
 
     private static DateOnly ParseDate(string? value) =>
         DateOnly.TryParse(value, out var parsed) ? parsed : DateOnly.FromDateTime(DateTime.UtcNow.Date);
+
+    private static bool IsPreUniversityCategory(JsonObject categoryLookup)
+    {
+        var type = EligibilityJson.FirstString(categoryLookup, "type", "categoryType", "stage", "مرحلة الالتحاق");
+        return EligibilityJson.TextEquals(type, "pre_university") ||
+            EligibilityJson.TextEquals(type, "ثانوي");
+    }
 
     private static IReadOnlyList<string> BuildFailedReasons(EligibilityChecks checks, CategoryEligibilitySettings settings)
     {

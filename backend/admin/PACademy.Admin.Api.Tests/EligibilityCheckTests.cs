@@ -87,6 +87,21 @@ public sealed class EligibilityCheckTests
         Assert.Empty(result.MatchedLookup);
     }
 
+    [Fact]
+    public void GradesCheckAllowsManualEntrySchoolCategoriesWhenNoGradeRowExists()
+    {
+        var applicant = Applicant("30001010123457");
+        var category = Category(allowManualGradeEntryWithoutRecord: true);
+        var lookups = Lookups(SchoolLookup("SCH-MAN", "الشهادة الثانوية من الخارج", "إدخال يدوي"));
+
+        var result = EligibilityCheckRegistry.GradesCheck(applicant, category, lookups);
+
+        Assert.True(result.Passed);
+        Assert.False(result.HasGrade);
+        Assert.Single(result.MatchedLookup);
+        Assert.Equal("إدخال يدوي", result.Source);
+    }
+
     private static ApplicantEligibilityContext Applicant(
         string nationalId,
         JsonObject? grade = null,
@@ -115,7 +130,8 @@ public sealed class EligibilityCheckTests
         IReadOnlyList<string>? genders = null,
         IReadOnlyList<string>? schoolCategoryCodes = null,
         string? requiredGradesSource = null,
-        string? requiredStage = null)
+        string? requiredStage = null,
+        bool allowManualGradeEntryWithoutRecord = false)
     {
         var categoryLookup = new JsonObject
         {
@@ -150,7 +166,10 @@ public sealed class EligibilityCheckTests
             UpdatedAt = DateTimeOffset.UtcNow
         };
 
-        return new CategoryEligibilitySettings("CAT-TEST", "قسم تجريبي", categoryLookup, [rule], []);
+        return new CategoryEligibilitySettings("CAT-TEST", "قسم تجريبي", categoryLookup, [rule], [])
+        {
+            AllowsManualGradeEntryWithoutRecord = allowManualGradeEntryWithoutRecord
+        };
     }
 
     private static JsonObject Grade(string code, string certificateType, string stage) => new()

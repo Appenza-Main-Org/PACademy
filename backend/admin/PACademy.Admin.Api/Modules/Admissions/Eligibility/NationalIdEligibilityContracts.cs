@@ -126,6 +126,8 @@ internal sealed record CategoryEligibilitySettings(
     public string? AcademicGradeId { get; init; } =
         Rules.Select(x => x.AcademicGradeId)
             .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+
+    public bool AllowsManualGradeEntryWithoutRecord { get; init; }
 }
 
 internal sealed record EligibilityLookupSnapshot(IReadOnlyList<JsonObject> SchoolCategories);

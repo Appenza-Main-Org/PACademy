@@ -68,7 +68,21 @@ internal static class EligibilityCheckRegistry
 
         if (!hasGrade)
         {
-            return new GradesCheckResult(false, false, applicant.SchoolCategory, [], applicant.GradeSource);
+            if (!category.AllowsManualGradeEntryWithoutRecord)
+            {
+                return new GradesCheckResult(false, false, applicant.SchoolCategory, [], applicant.GradeSource);
+            }
+
+            var manualMatches = lookups.SchoolCategories
+                .Where(IsManualEntrySchoolCategory)
+                .Select(EligibilityJson.Clone)
+                .ToArray();
+            return new GradesCheckResult(
+                manualMatches.Length > 0,
+                false,
+                applicant.SchoolCategory,
+                manualMatches,
+                "إدخال يدوي");
         }
 
         if (category.RequiredGraduationYears.Count > 0 &&
@@ -150,5 +164,17 @@ internal static class EligibilityCheckRegistry
         }
 
         return true;
+    }
+
+    private static bool IsManualEntrySchoolCategory(JsonObject lookup)
+    {
+        var source = EligibilityJson.FirstString(lookup, "gradesSource", "source", "مصدر الدرجات");
+        if (EligibilityJson.TextEquals(source, "إدخال يدوي")) return true;
+        if (EligibilityJson.BoolProp(lookup, "externalGradesImport") is { } externalImport)
+        {
+            return !externalImport;
+        }
+
+        return false;
     }
 }

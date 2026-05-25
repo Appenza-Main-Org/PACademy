@@ -74,6 +74,19 @@ internal static class EligibilityJson
         }
     }
 
+    public static bool? BoolProp(JsonObject? obj, string name)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(name, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<bool>();
+        }
+        catch (InvalidOperationException)
+        {
+            return bool.TryParse(node.ToString(), out var parsed) ? parsed : null;
+        }
+    }
+
     public static decimal? DecimalProp(JsonObject? obj, string name)
     {
         if (obj is null || !obj.TryGetPropertyValue(name, out var node) || node is null) return null;
