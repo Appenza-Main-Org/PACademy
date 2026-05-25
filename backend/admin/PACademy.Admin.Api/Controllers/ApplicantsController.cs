@@ -1,13 +1,14 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Admissions.Eligibility;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class ApplicantsController(AdminRecordsService records) : ControllerBase
+public sealed class ApplicantsController(AdminRecordsService records, ApplicantEligibilityService eligibility) : ControllerBase
 {
     private static readonly ApplicantStatusOption[] StatusOptions =
     [
@@ -31,6 +32,22 @@ public sealed class ApplicantsController(AdminRecordsService records) : Controll
 
     [HttpGet("api/applicants/status-options")]
     public ActionResult<IReadOnlyList<ApplicantStatusOption>> StatusOptionsList() => Ok(StatusOptions);
+
+    [HttpGet("api/applicants/{nationalId}/eligible-categories")]
+    public async Task<ActionResult<ApplicantEligibilityResponse>> EligibleCategories(string nationalId, CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await eligibility.GetEligibleCategoriesAsync(nationalId, ct));
+        }
+        catch (NationalIdFormatException ex)
+        {
+            return BadRequest(new ApiErrorEnvelope(
+                ErrorCodes.ValidationFailed,
+                Errors: new Dictionary<string, string[]> { ["nationalId"] = [ex.Message] },
+                Message: "الرقم القومي غير صحيح"));
+        }
+    }
 
     [HttpGet("api/applicants/distribution")]
     public async Task<ActionResult<object>> Distribution([FromQuery] string field, CancellationToken ct) => Ok(await records.DistributionAsync(field, ct));

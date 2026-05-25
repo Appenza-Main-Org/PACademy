@@ -15,6 +15,7 @@
  */
 
 import { MOCK } from '@/shared/mock-data';
+import { apiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { parseNationalId } from '@/shared/lib/national-id';
 import type {
@@ -30,6 +31,37 @@ interface EligibilityInput {
   categoryKey: ApplicantCategoryKey;
   nid: string;
   cycleId?: string;
+}
+
+export interface ApplicantEligibleCategoriesResponse {
+  nationalId: string;
+  derived: {
+    birthDate: string;
+    age: number;
+    gender: string;
+    governorate: string;
+  };
+  cycleId: string;
+  categories: ApplicantCategoryEligibility[];
+}
+
+export interface ApplicantCategoryEligibility {
+  categoryId: string;
+  categoryName: string;
+  eligible: boolean;
+  checks: {
+    ageCheck: { passed: boolean; applicantAge: number; maxAge: number | null };
+    genderCheck: { passed: boolean; applicantGender: string; allowedGender: string[] };
+    stageCheck: { passed: boolean; requiredStage: string | null; applicantStage: string | null };
+    gradesCheck: {
+      passed: boolean;
+      hasGrade: boolean;
+      schoolCategory: string | null;
+      matchedLookup: Record<string, unknown>[];
+      source: string | null;
+    };
+  };
+  failedReasons: string[];
 }
 
 function isCycleLive(cycle: AdmissionCycle): boolean {
@@ -258,6 +290,72 @@ export const categoriesPublicService = {
       cycleId: activeCycle.id,
       eligible: reasons.length === 0,
       reasons,
+    };
+  },
+
+  async eligibleCategories(nationalId: string): Promise<ApplicantEligibleCategoriesResponse> {
+    if (isBackendEnabled()) {
+      return apiClient.get<ApplicantEligibleCategoriesResponse>(
+        `/api/applicants/${encodeURIComponent(nationalId)}/eligible-categories`,
+      );
+    }
+
+    await simulateLatency(160, 320);
+    const cycle = resolveCycle();
+    const parsed = parseNationalId(nationalId);
+    const derived = {
+      birthDate: parsed.birthDate?.toISOString().slice(0, 10) ?? '',
+      age: parsed.birthDate
+        ? Math.floor((Date.now() - parsed.birthDate.getTime()) / (365.25 * 24 * 3600 * 1000))
+        : 0,
+      gender: parsed.gender === 'male' ? 'ذكر' : parsed.gender === 'female' ? 'أنثى' : '',
+      governorate: parsed.governorateCode ?? '',
+    };
+    const categories = await Promise.all(
+      MOCK.categories.map(async (category) => {
+        const result = await categoriesPublicService.checkEligibility({
+          categoryKey: category.key,
+          nid: nationalId,
+          cycleId: cycle?.id,
+        });
+        return {
+          categoryId: category.key,
+          categoryName: category.labelAr,
+          eligible: result.eligible,
+          checks: {
+            ageCheck: {
+              passed: !result.reasons.includes('age_out_of_range'),
+              applicantAge: derived.age,
+              maxAge: category.conditions.ageMax,
+            },
+            genderCheck: {
+              passed: !result.reasons.includes('gender_mismatch'),
+              applicantGender: derived.gender,
+              allowedGender: category.conditions.gender === 'any' ? [] : [category.conditions.gender],
+            },
+            stageCheck: {
+              passed: !result.reasons.includes('qualification_mismatch'),
+              requiredStage: category.conditions.requiredQualification,
+              applicantStage: null,
+            },
+            gradesCheck: {
+              passed: !result.reasons.includes('data_not_found') && !result.reasons.includes('score_below_min'),
+              hasGrade: !result.reasons.includes('data_not_found'),
+              schoolCategory: null,
+              matchedLookup: [],
+              source: null,
+            },
+          },
+          failedReasons: result.reasons,
+        };
+      }),
+    );
+
+    return {
+      nationalId,
+      derived,
+      cycleId: cycle?.id ?? '',
+      categories,
     };
   },
 };

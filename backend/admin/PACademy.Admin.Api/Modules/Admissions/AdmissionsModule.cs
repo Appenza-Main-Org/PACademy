@@ -1,4 +1,5 @@
 using PACademy.Admin.Api.Persistence;
+using PACademy.Admin.Api.Modules.Admissions.Eligibility;
 
 namespace PACademy.Admin.Api.Modules.Admissions;
 
@@ -12,6 +13,7 @@ public static class AdmissionsModule
         services.AddScoped<CategoriesService>();
         services.AddScoped<AdmissionRulesService>();
         services.AddScoped<ApplicationSettingsService>();
+        services.AddScoped<ApplicantEligibilityService>();
         return services;
     }
 

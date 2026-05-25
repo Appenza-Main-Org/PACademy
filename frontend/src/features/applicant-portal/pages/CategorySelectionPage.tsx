@@ -54,7 +54,9 @@ import {
 import {
   useActiveCycles,
   useCategories,
+  useEligibleCategories,
 } from '../api/categories.queries';
+import type { ApplicantCategoryEligibility } from '../api/categories.service';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { useLookup } from '@/features/lookups/api/lookups.queries';
@@ -133,6 +135,7 @@ export function CategorySelectionPage(): JSX.Element {
   }, [selectedCycle, cycleParam, params, setParams, storedCycleId, setStoredCycleId]);
 
   const categoriesQuery = useCategories(selectedCycle?.id);
+  const eligibilityCategoriesQuery = useEligibleCategories(identity?.nationalId ?? storeNid);
 
   /* Lookup-derived option lists — declared HERE (above the conditional
    * returns below) so they sit in a stable hook position across renders.
@@ -294,6 +297,7 @@ export function CategorySelectionPage(): JSX.Element {
           </header>
           <CategoryRows
             categoriesQuery={categoriesQuery}
+            eligibility={eligibilityCategoriesQuery.data?.categories ?? []}
             /* When MOI verified the applicant for a specific category,
              * show only that one. For not_found / no MOI session, show
              * the full catalogue so the applicant can pick. */
@@ -526,10 +530,12 @@ function InlineSection({
 
 function CategoryRows({
   categoriesQuery,
+  eligibility,
   eligibleKey,
   onPick,
 }: {
   categoriesQuery: ReturnType<typeof useCategories>;
+  eligibility: readonly ApplicantCategoryEligibility[];
   /** Restrict the rendered list to a single category when the MOI
    *  lookup already decided eligibility — Ahmed sees only قسم الضباط
    *  (officers_general). When null, the full catalogue renders. */
@@ -561,7 +567,14 @@ function CategoryRows({
   const categories = (categoriesQuery.data ?? [])
     .filter((c) => c.key !== 'physical_education_bachelor')
     .filter((c) => eligibleKey === null || c.key === eligibleKey)
-    .map((c) => ({ ...c, isOpen: true }));
+    .map((c) => {
+      const verdict = eligibility.find((item) => item.categoryId === c.key);
+      return {
+        ...c,
+        isOpen: verdict ? verdict.eligible : true,
+        backendFailedReasons: verdict?.failedReasons ?? [],
+      };
+    });
   if (categories.length === 0) {
     return (
       <div className="px-5 py-6">
@@ -576,6 +589,7 @@ function CategoryRows({
         <CategoryRow
           key={c.key}
           category={c}
+          failedReasons={c.backendFailedReasons}
           onPick={(enabled) => onPick(c.key, enabled)}
           isLast={i === categories.length - 1}
         />
@@ -586,17 +600,21 @@ function CategoryRows({
 
 function CategoryRow({
   category,
+  failedReasons,
   onPick,
   isLast,
 }: {
   category: ApplicantCategory;
+  failedReasons: readonly string[];
   onPick: (enabled: boolean) => void;
   isLast: boolean;
 }): JSX.Element {
   const enabled = category.isOpen;
   const disabledReason = enabled
     ? null
-    : category.conditions.nominationOnly
+    : failedReasons.length > 0
+      ? failedReasons.join('، ')
+      : category.conditions.nominationOnly
       ? 'هذا القسم يفتح عبر الترشيح الإداري فقط — لا تقديم مباشر.'
       : 'باب التقدم غير مفتوح لهذه الفئة في الدورة الحالية.';
 
