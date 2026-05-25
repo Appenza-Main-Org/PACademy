@@ -27,6 +27,22 @@ import { ROUTES } from '@/config/routes';
 import { useAuthStore } from '@/features/auth';
 import { useDraft } from './api/applicantPortal.queries';
 import { useApplicantPortalStore } from './store/applicantPortal.store';
+import {
+  VOTHIQA_EXPIRED_NID,
+  VOTHIQA_FILLABLE_NID,
+  VOTHIQA_LAW_BACHELOR_NID,
+  VOTHIQA_SPECIALIZED_OFFICERS_NID,
+} from './lib/moi-session.mock';
+
+/* NIDs that get the وثيقة تعارف stepper step un-skipped + the
+ * post-submission «وثيقة تعارف» tab. Other demo users still see the
+ * dimmed/skipped step. Expand this set as new قسم templates ship. */
+const VOTHIQA_ENABLED_NIDS = new Set<string>([
+  VOTHIQA_FILLABLE_NID,
+  VOTHIQA_EXPIRED_NID,
+  VOTHIQA_SPECIALIZED_OFFICERS_NID,
+  VOTHIQA_LAW_BACHELOR_NID,
+]);
 
 /**
  * Wizard sequence — MOI-aligned post-SSO (PDF DOC-20220806-WA0053).
@@ -79,6 +95,8 @@ export function ApplicantPortalLayout(): JSX.Element {
   const clear = useAuthStore((s) => s.clear);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const submittedDemo = useApplicantPortalStore((s) => s.submittedDemo);
+  const currentNid = useApplicantPortalStore((s) => s.nationalId);
+  const vothiqaEnabled = currentNid !== null && VOTHIQA_ENABLED_NIDS.has(currentNid);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const selectedCategory = selectedCategoryKey
     ? MOCK.categories.find((c) => c.key === selectedCategoryKey) ?? null
@@ -110,10 +128,11 @@ export function ApplicantPortalLayout(): JSX.Element {
     else if (i === activeIndex) state = 'current';
     else if (!reached && i > activeIndex) state = 'upcoming';
     if (draft?.suspended && i > 0) state = 'blocked';
-    /* وثيقة التعارف is parked for now per client request — render
-     * the step as dimmed/skipped so the stepper still shows it but it
-     * doesn't read as an active or upcoming gate. */
-    if (key === 'acquaintance-doc') state = 'skipped';
+    /* وثيقة التعارف is parked for most demo users — render the step
+     * as dimmed/skipped so the stepper still shows it. The Case-1
+     * demo NIDs (VOTHIQA_ENABLED_NIDS) un-skip it so they can walk
+     * through the full 31-form entry experience. */
+    if (key === 'acquaintance-doc' && !vothiqaEnabled) state = 'skipped';
     return { key, label: STAGE_LABELS[i] ?? key, state };
   }).filter((s) => s.key !== '');
 
@@ -189,7 +208,7 @@ export function ApplicantPortalLayout(): JSX.Element {
              الأساسية / التنبيهات / كارت التردد / نتائج الاختبارات —
              replaces the wizard. */
           <div className="flex flex-col gap-4">
-            <PostExamNav />
+            <PostExamNav vothiqaEnabled={vothiqaEnabled} />
             {draft?.suspended ? <SuspendedScreen /> : <Outlet />}
           </div>
         ) : (
@@ -220,14 +239,23 @@ export function ApplicantPortalLayout(): JSX.Element {
 
 /* Post-exam-date navigation — 4-tab section nav that replaces the
  * wizard stepper once firstExamDate is set. Each tab is route-driven so
- * deep links + the browser's back button stay intact. */
-function PostExamNav(): JSX.Element {
+ * deep links + the browser's back button stay intact.
+ *
+ * When `vothiqaEnabled` is true, a 5th tab «وثيقة تعارف» is appended,
+ * pointing at /applicant/acquaintance-doc. The post-submission gate is
+ * what surfaces the locked view-and-print experience to the expired
+ * demo user; the fillable demo user reaches the same route via the
+ * wizard stepper instead. */
+function PostExamNav({ vothiqaEnabled }: { vothiqaEnabled: boolean }): JSX.Element {
   const location = useLocation();
   const tabs = [
     { label: 'البيانات الأساسية', path: ROUTES.applicantProfile },
     { label: 'التنبيهات', path: ROUTES.applicant },
     { label: 'كارت التردد', path: ROUTES.applicantPrintCard },
     { label: 'نتائج الاختبارات', path: ROUTES.applicantFollowUp },
+    ...(vothiqaEnabled
+      ? [{ label: 'وثيقة تعارف', path: `${ROUTES.applicant}/acquaintance-doc` }]
+      : []),
   ] as const;
   return (
     <nav

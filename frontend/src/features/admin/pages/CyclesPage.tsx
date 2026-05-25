@@ -29,7 +29,9 @@ import {
   Pencil,
   Plus,
   Power,
+  PowerOff,
   Settings2,
+  Trash2,
 } from 'lucide-react';
 import { ADMISSION_SETUP_CYCLE_STORAGE_KEY } from '@/features/admin/admission-setup/config';
 import {
@@ -49,8 +51,12 @@ import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
 import type { AdmissionCycle } from '@/shared/types/domain';
-import { date as formatDate } from '@/shared/lib/format';
-import { useCycles, useCycleSetActive } from '../api/cycles.queries';
+import {
+  useCycles,
+  useCycleDeactivate,
+  useCycleRemove,
+  useCycleSetActive,
+} from '../api/cycles.queries';
 import {
   LIST_STATUS_LABEL,
   LIST_STATUS_TONE,
@@ -62,11 +68,6 @@ const SETUP_LOCKED_HINT = 'متاح فقط للدورة النشطة';
 
 const ACTIVE_LABEL = 'نشطة';
 const INACTIVE_LABEL = 'غير نشطة';
-const COHORT_LABEL: Record<AdmissionCycle['cohort'], string> = {
-  male: 'ذكور',
-  female: 'إناث',
-};
-
 /* Drafts (إدراج ومراجعة) bubble to the top; published rows follow,
  * ordered by year desc. */
 const LIST_STATUS_PRIORITY: Record<CycleListStatus, number> = {
@@ -78,6 +79,8 @@ export function CyclesPage(): JSX.Element {
   const navigate = useNavigate();
   const { data, isLoading } = useCycles();
   const setActiveMut = useCycleSetActive();
+  const deactivateMut = useCycleDeactivate();
+  const removeMut = useCycleRemove();
 
   /* Land in the first wizard step (إعدادات التقديم) and pin the chosen
    * cycle in sessionStorage so the wizard page can resolve it on mount. */
@@ -91,6 +94,8 @@ export function CyclesPage(): JSX.Element {
   };
 
   const [activateTarget, setActivateTarget] = useState<AdmissionCycle | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<AdmissionCycle | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdmissionCycle | null>(null);
 
   const activeCycle = useMemo(
     () => (data ?? []).find((c) => c.isActive) ?? null,
@@ -107,7 +112,7 @@ export function CyclesPage(): JSX.Element {
         LIST_STATUS_PRIORITY[toListStatus(b.status)];
       if (byStatus !== 0) return byStatus;
       if (a.year !== b.year) return b.year - a.year;
-      return new Date(b.openDate).getTime() - new Date(a.openDate).getTime();
+      return a.nameAr.localeCompare(b.nameAr, 'ar');
     });
     return rows;
   }, [data]);
@@ -154,6 +159,32 @@ export function CyclesPage(): JSX.Element {
     });
   };
 
+  const confirmDeactivate = (): void => {
+    if (!deactivateTarget) return;
+    deactivateMut.mutate(deactivateTarget.id, {
+      onSuccess: () => {
+        toast(`تم إلغاء تفعيل دورة "${deactivateTarget.nameAr}"`, 'success');
+        setDeactivateTarget(null);
+      },
+      onError: (err) => {
+        toast((err as Error).message, 'danger');
+      },
+    });
+  };
+
+  const confirmDelete = (): void => {
+    if (!deleteTarget || deleteTarget.isActive) return;
+    removeMut.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        toast(`تم حذف دورة "${deleteTarget.nameAr}"`, 'success');
+        setDeleteTarget(null);
+      },
+      onError: (err) => {
+        toast((err as Error).message || 'تعذر حذف الدورة', 'danger');
+      },
+    });
+  };
+
   const columns: DataTableColumn<AdmissionCycle>[] = [
     {
       key: 'nameAr',
@@ -173,10 +204,6 @@ export function CyclesPage(): JSX.Element {
             <Badge tone="neutral">
               <span className="font-numeric tnum">{c.year}</span>
             </Badge>
-            <Badge tone="neutral">{COHORT_LABEL[c.cohort]}</Badge>
-            <span className="font-mono text-2xs text-ink-400" dir="ltr">
-              {c.id}
-            </span>
           </div>
         </div>
       ),
@@ -223,20 +250,6 @@ export function CyclesPage(): JSX.Element {
         ),
     },
     {
-      key: 'window',
-      label: 'فترة التقديم',
-      sortable: true,
-      getSortValue: (c) => new Date(c.openDate),
-      render: (c) => (
-        <div className="min-w-[9rem] text-2xs leading-5 text-ink-600">
-          <div className="font-medium text-ink-800">
-            {formatDate(c.openDate, 'short')}
-          </div>
-          <div>{formatDate(c.closeDate, 'short')}</div>
-        </div>
-      ),
-    },
-    {
       key: '_actions',
       label: <span className="sr-only">إجراءات</span>,
       align: 'end',
@@ -275,8 +288,16 @@ export function CyclesPage(): JSX.Element {
           setupButton
         );
 
-        /* Activate button — hidden on the already-active row. */
-        const activateSlot = c.isActive ? null : (
+        const activeToggleSlot = c.isActive ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            leadingIcon={<PowerOff size={12} strokeWidth={1.75} />}
+            onClick={() => setDeactivateTarget(c)}
+          >
+            إلغاء التفعيل
+          </Button>
+        ) : (
           <Button
             variant="secondary"
             size="sm"
@@ -299,11 +320,23 @@ export function CyclesPage(): JSX.Element {
           </Button>
         );
 
+        const deleteSlot = c.isActive ? null : (
+          <Button
+            variant="ghost"
+            size="sm"
+            leadingIcon={<Trash2 size={12} strokeWidth={1.75} />}
+            onClick={() => setDeleteTarget(c)}
+          >
+            حذف
+          </Button>
+        );
+
         return (
           <div className="flex min-w-[13rem] flex-wrap items-center justify-end gap-1.5">
             {setupSlot}
-            {activateSlot}
+            {activeToggleSlot}
             {editSlot}
+            {deleteSlot}
           </div>
         );
       },
@@ -346,10 +379,6 @@ export function CyclesPage(): JSX.Element {
                       </Badge>
                       <Badge tone={LIST_STATUS_TONE[toListStatus(activeCycle.status)]}>
                         {LIST_STATUS_LABEL[toListStatus(activeCycle.status)]}
-                      </Badge>
-                      <Badge tone="neutral">
-                        {formatDate(activeCycle.openDate, 'short')} -{' '}
-                        {formatDate(activeCycle.closeDate, 'short')}
                       </Badge>
                     </div>
                     <p className="m-0 mt-3 font-ar text-xs font-medium text-ink-500">
@@ -426,6 +455,54 @@ export function CyclesPage(): JSX.Element {
           tone="danger"
           isActionLoading={setActiveMut.isPending}
           onAction={confirmActivate}
+        />
+
+        <AlertDialog
+          open={deactivateTarget !== null}
+          onOpenChange={(next) => {
+            if (!next) setDeactivateTarget(null);
+          }}
+          title="تأكيد إلغاء تفعيل الدورة"
+          description={
+            deactivateTarget ? (
+              <>
+                سيتم إلغاء تفعيل دورة{' '}
+                <strong className="font-semibold text-ink-900">
+                  &quot;{deactivateTarget.nameAr}&quot;
+                </strong>
+                . يمكن أن تبقى المنظومة بدون دورة نشطة حتى يتم تفعيل دورة أخرى.
+              </>
+            ) : null
+          }
+          actionLabel="إلغاء التفعيل"
+          cancelLabel="إلغاء"
+          tone="danger"
+          isActionLoading={deactivateMut.isPending}
+          onAction={confirmDeactivate}
+        />
+
+        <AlertDialog
+          open={deleteTarget !== null}
+          onOpenChange={(next) => {
+            if (!next) setDeleteTarget(null);
+          }}
+          title="تأكيد حذف الدورة"
+          description={
+            deleteTarget ? (
+              <>
+                سيتم حذف دورة{' '}
+                <strong className="font-semibold text-ink-900">
+                  &quot;{deleteTarget.nameAr}&quot;
+                </strong>
+                . لا يمكن حذف الدورة النشطة، ولا يمكن حذف دورة مرتبطة بسجلات تشغيلية.
+              </>
+            ) : null
+          }
+          actionLabel="حذف"
+          cancelLabel="إلغاء"
+          tone="danger"
+          isActionLoading={removeMut.isPending}
+          onAction={confirmDelete}
         />
 
       </CenteredShell>

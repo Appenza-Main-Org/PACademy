@@ -1,0 +1,10 @@
+.git
+.screenshots
+backend
+docs
+Tasks
+*.zip
+**/.DS_Store
+**/bin
+**/obj
+**/node_modules

@@ -10,6 +10,7 @@ export { auditService } from './api/audit.service';
 export type { AuditFilters } from './api/audit.service';
 export {
   auditKeys,
+  useAuditActions,
   useAuditDiff,
   useAuditEntityTypes,
   useAuditEntry,

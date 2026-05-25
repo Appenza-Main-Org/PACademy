@@ -56,14 +56,33 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
   const saveMut = useSaveExamPlan();
 
   const [entries, setEntries] = useState<CycleCategoryExamPlanEntry[]>([]);
+  const exams = examsQuery.data ?? [];
 
   useEffect(() => {
     if (planQuery.data) {
-      setEntries([...planQuery.data.exams].sort((a, b) => a.order - b.order));
-    }
-  }, [planQuery.data]);
+      if (!examsQuery.data) {
+        setEntries([...planQuery.data.exams].sort((a, b) => a.order - b.order));
+        return;
+      }
 
-  const exams = examsQuery.data ?? [];
+      const knownExamIds = new Set(examsQuery.data.map((exam) => exam.id));
+      const validEntries = planQuery.data.exams
+        .filter((entry) => knownExamIds.has(entry.examId))
+        .sort((a, b) => a.order - b.order);
+      const nextEntries =
+        planQuery.data.exams.length > 0 && validEntries.length === 0
+          ? examsQuery.data
+              .filter((exam) => exam.isQualifying)
+              .map((exam, index) => ({
+                examId: exam.id,
+                order: index + 1,
+                isRequired: true,
+              }))
+          : validEntries;
+      setEntries(nextEntries);
+    }
+  }, [examsQuery.data, planQuery.data]);
+
   const examLabel = (id: string): string => exams.find((e) => e.id === id)?.nameAr ?? id;
 
   /* Mouse and keyboard sensors. PointerSensor distance=4 prevents a stray

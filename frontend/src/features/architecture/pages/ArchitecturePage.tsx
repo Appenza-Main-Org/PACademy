@@ -480,17 +480,22 @@ const APP_LABELS_EN: Record<AppKey, string> = {
 };
 
 const ROLE_LABELS_EN: Record<Role, string> = {
-  super_admin:     'Super Admin',
-  committee_admin: 'Committee Admin',
-  committee_user:  'Committee User',
-  medical_admin:   'Medical Admin',
-  medical_doctor:  'Medical Doctor',
-  investigator:    'Investigator',
-  board_admin:     'Board Admin / Secretary',
-  exams_admin:     'Exams Admin',
-  biometric_user:  'Biometric Operator',
-  records_clerk:   'Records Clerk',
-  applicant:       'Applicant',
+  super_admin:         'Super Admin',
+  admissions_manager:  'Admissions Manager',
+  applicants_officer:  'Applicants Officer',
+  setup_admin:         'Setup Admin',
+  payments_officer:    'Payments Officer',
+  auditor:             'Auditor',
+  exams_admin:         'Question Bank & Exams Admin',
+  applicant:           'Applicant',
+  committee_admin:     'Committee Admin (on-prem)',
+  committee_user:      'Committee User (on-prem)',
+  medical_admin:       'Medical Admin (on-prem)',
+  medical_doctor:      'Medical Doctor (on-prem)',
+  investigator:        'Investigator (on-prem)',
+  board_admin:         'Board Admin / Secretary (on-prem)',
+  biometric_user:      'Biometric Operator (on-prem)',
+  records_clerk:       'Records Clerk (on-prem)',
 };
 
 function Section7(): JSX.Element {

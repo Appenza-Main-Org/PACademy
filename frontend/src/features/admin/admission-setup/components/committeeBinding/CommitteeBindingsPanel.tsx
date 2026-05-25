@@ -51,13 +51,12 @@ import {
 } from '@/features/committees';
 import type {
   AdmissionCycle,
-  ApplicantCategoryKey,
 } from '@/shared/types/domain';
 import { CommitteeInstanceAddForm } from './CommitteeInstanceAddForm';
 
 export interface CommitteeBindingsPanelProps {
   cycle: AdmissionCycle;
-  active: Array<{ key: ApplicantCategoryKey; labelAr: string }>;
+  active: Array<{ key: string; labelAr: string }>;
 }
 
 interface BindingRow {
@@ -66,7 +65,7 @@ interface BindingRow {
   committeeName: string;
   date: string;
   capacity: number;
-  categoryKey: ApplicantCategoryKey;
+  categoryKey: string;
   categoryLabel: string;
 }
 
@@ -130,7 +129,7 @@ export function CommitteeBindingsPanel({
    * filtered out — admins flip them back on by reactivating the category
    * upstream. */
   const activeLabelByKey = useMemo(() => {
-    const map = new Map<ApplicantCategoryKey, string>();
+    const map = new Map<string, string>();
     for (const a of active) map.set(a.key, a.labelAr);
     return map;
   }, [active]);

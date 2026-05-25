@@ -25,6 +25,7 @@
 | `v0.2.0-demo` | first internal demo cut |
 | (untagged, 2026-05-12 → 2026-05-16) | admission-setup wizard + lookups + admin-users-NID + applicant-grades — see §11 |
 | (untagged, 2026-05-19 → 2026-05-20) | committees-exam-config management page + applicant unified-print + chrome polish — see §11 |
+| (untagged, 2026-05-21) | admin backend integration pass — shared `apiClient`, backend-default admin services, typed backend errors, validation mapping — see [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md) |
 
 The doc baselines point at these tags — when reading `docs/*REPORT.md`, treat the named tag as the snapshot the doc was written against. Code may have moved since.
 
@@ -36,7 +37,7 @@ The repo is organised as a monorepo with two top-level workspaces. Only `CLAUDE.
 PACademy/
 ├── CLAUDE.md           ← this file (operating context for Claude Code)
 ├── frontend/           ← React 18 + TS + Vite — this CLAUDE.md is primarily about this workspace
-├── backend/            ← empty placeholder; backend team starts here next
+├── backend/            ← local placeholder; backend instructions live in docs/BACKEND_IMPLEMENTATION_CONTEXT.md
 ├── Tasks/              ← project-level: DESIGN_SYSTEM.md, KARASA_GAPS.md, sprint plan, scope-alignment
 └── docs/               ← all other project docs:
     ├── README.md       ← public-facing project README + quick-start
@@ -305,23 +306,34 @@ The app is organised across **3 surfaces**:
 
 ---
 
-## 5. RBAC — 11 roles
+## 5. RBAC — cloud + on-prem split
 
-Defined in [frontend/src/features/auth/rbac.ts](frontend/src/features/auth/rbac.ts). `ROLES` is a `const`-tuple → derives `Role` union type.
+Defined in [frontend/src/features/auth/rbac.ts](frontend/src/features/auth/rbac.ts). `ROLES` is a `const`-tuple → derives `Role` union type. The 2026-05-24 rebuild aligned the cloud role set with the live permission matrix in [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts).
+
+### Cloud roles (8)
+
+Backed by `apiClient` and the cloud permission matrix. Login through `/staff-login` (or `/applicant/auth/step-1` for the applicant role).
 
 | Role | Arabic label | Apps |
 |---|---|---|
 | `super_admin` | مدير النظام الرئيسي | all 9 + architecture |
-| `committee_admin` | مدير لجنة قبول | admin, committee, barcode, biometric |
-| `committee_user` | موظف لجنة قبول | committee, barcode, biometric |
-| `medical_admin` | مدير القومسيون الطبي | medical, barcode, biometric |
-| `medical_doctor` | طبيب عيادة | medical |
-| `investigator` | محقق | investigations |
-| `board_admin` | أمين سر الهيئة | board |
-| `exams_admin` | مدير الاختبارات | exams |
-| `biometric_user` | مستخدم بوابة الأمن | biometric |
-| `records_clerk` | مدخل نتائج | medical, exams |
+| `admissions_manager` | مدير القبول | admin |
+| `applicants_officer` | موظف ملفات المتقدمين | admin |
+| `setup_admin` | مهندس إعدادات القبول | admin |
+| `payments_officer` | موظف المدفوعات | admin |
+| `auditor` | مراجع النظام | admin |
+| `exams_admin` | مدير بنك الأسئلة والاختبارات | exams |
 | `applicant` | متقدم | applicant |
+
+### On-prem roles (legacy keys, type-only)
+
+Kept in the `ROLES` tuple so existing mock data, the `transitions.ts` workflow guards, and the architecture page docs keep type-checking. Cloud `apps` + `permissions` are deliberately **empty** — the on-prem deployment owns their RBAC plane and authentication path. They cannot reach cloud surfaces.
+
+`committee_admin` · `committee_user` · `medical_admin` · `medical_doctor` · `investigator` · `board_admin` · `biometric_user` · `records_clerk`
+
+### Cloud permission matrix
+
+[frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) is the source of truth. 21 modules across 3 sections — `admin` (16), `exams` (4 — bank, exams, proctor, results), `applicant` (2). 12 actions: view, create, edit, delete, manage, transition, approve, export, toggle, import, sync, reset. Cells `module × action` mapped to permission strings via `CELL_PERMISSION_MAP`. Roles list permissions matching these cells.
 
 ### Permission helpers
 - `hasPermission(perms, required)` — supports `*` (super) and `resource:*` wildcard prefix.
@@ -338,19 +350,33 @@ export type AppKey = (typeof APP_KEYS)[number];
 
 ---
 
-## 6. Mock service layer (the bridge to the future backend)
+## 6. Backend integration layer + mock fallback
 
 Every feature exposes:
-- **`api/<feature>.service.ts`** — typed methods with `INTEGRATION CONTRACT` JSDoc header listing the real REST endpoints. Reads from `MOCK` (in [frontend/src/shared/mock-data/index.ts](frontend/src/shared/mock-data/index.ts)) and uses [`simulateLatency`](frontend/src/shared/lib/mock-helpers.ts) + [`paginate`](frontend/src/shared/lib/mock-helpers.ts).
+- **`api/<feature>.service.ts`** — typed methods with `INTEGRATION CONTRACT` JSDoc header listing the real REST endpoints. Admin-relevant services now call the shared backend client by default and keep the old `MOCK` + `simulateLatency` bodies only behind explicit local demo mode.
 - **`api/<feature>.queries.ts`** — TanStack Query hooks (`useX`, `useXMutation`) with a `keys` factory (e.g. `applicantKeys.list(filters)`).
 
-To wire up the real backend, **only the body of each service method changes** — query hooks, components, and types stay the same:
+Shared integration utilities:
+- [frontend/src/shared/lib/api-client.ts](frontend/src/shared/lib/api-client.ts) — `apiClient`, token handling, `VITE_API_BASE_URL`, backend error mapping, Blob export support.
+- [frontend/src/shared/lib/validation-errors.ts](frontend/src/shared/lib/validation-errors.ts) — normalizes backend 422/field-validation envelopes for forms.
+- [frontend/.env.example](frontend/.env.example) — `VITE_API_BASE_URL=` and `VITE_USE_MOCKS=false`.
+
+Backend is **enabled by default**. Set `VITE_USE_MOCKS=true` only for explicit local demo/mock mode; production builds throw if that flag is enabled. When `VITE_API_BASE_URL` is empty, calls use same-origin `/api/...`.
+
+The admin-first backend pass on 2026-05-21 wired Auth/RBAC, users/roles/settings, cycles/categories/admission rules, lookups, admission setup, committees config, applicants, applicant grades, audit, payments, notifications, reports, and workflows to `apiClient` by default. See [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md) for the current service inventory.
+
+Backend implementation instructions from the 2026-05-21 attached handoff live in [docs/BACKEND_IMPLEMENTATION_CONTEXT.md](docs/BACKEND_IMPLEMENTATION_CONTEXT.md). The hard backend rules are: two services (`backend/admin` on `:5101`, `backend/applicant` on `:5102`) over one SQL Server DB; admin owns all migrations; applicant exposes read-only projections where it should not mutate; seed data must copy the full frontend mock dataset verbatim with no invented rows.
+
+When adding or changing backend behavior, **keep pages and query hooks calling the existing service methods**. Add or adjust service methods rather than fetching from components:
 
 ```ts
-// before (mock)
-async list(filters) { await simulateLatency(); return paginate(MOCK.applicants.filter(...), ...); }
-// after (real)
-async list(filters) { return apiClient.get('/applicants', { params: filters }).then(r => r.data); }
+async list(filters) {
+  if (isBackendEnabled()) {
+    return apiClient.get('/api/applicants', { query: filters });
+  }
+  await simulateLatency();
+  return paginate(MOCK.applicants.filter(...), ...);
+}
 ```
 
 ### Mock data shape
@@ -504,7 +530,7 @@ Mini Zustand-backed toast in [frontend/src/shared/components/Toast.tsx](frontend
 
 - **Lookup Management Module** (`/admin/lookups`) — replaces `/admin/reference-data` (which now redirects). 22 typed lookups grouped into 5 sections (kinship · الكليات · التخصصات · process · geography/admin). Each lookup has a typed per-key row shape via `LookupRow<K>`. Drawer-based add/edit ([frontend/src/features/lookups/components/LookupFormDrawer.tsx](frontend/src/features/lookups/components/LookupFormDrawer.tsx)), FK-guarded delete, inline status toggle, sortable columns. Four mapping screens via `MappingMatrix`. `applicant-categories` lookup is locked to the RFP 4-category set; faculties + specializations reseeded from RFP scope list. `submission-types` has an FK guard to `applicant-categories`. English code column hidden from admin UI — Arabic names only. Status labels use "نشط / غير نشط" across all 18+ lookups. See [frontend/src/features/lookups/index.ts](frontend/src/features/lookups/index.ts) and [docs/lookups/](docs/lookups/) migration report.
 
-- **Admin Users NID-driven flow** — new `/admin/users/new` (NID lookup), `/admin/users/:id`, `/admin/users/:id/edit`, and `/admin/users/roles`. Role multi-select, status toggle, role-conflict rules, audit emissions, a11y. RolesPage rebuilt over a new **cloud permission matrix** ([frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts)) — closed union of `admin` + `applicant` sections only. **Operational on-prem modules (committees, medical, investigations, board, exams, biometric, barcode, workflows) are intentionally absent — they deploy on the Ministry's on-prem cluster with a separate RBAC surface.** Don't extend this matrix to cover them. super_admin creation pre-enables all permissions; every permission checkbox is selectable.
+- **Admin Users NID-driven flow** — new `/admin/users/new` (NID lookup), `/admin/users/:id`, `/admin/users/:id/edit`, and `/admin/users/roles`. Role multi-select, status toggle, role-conflict rules, audit emissions, a11y. RolesPage rebuilt over a new **cloud permission matrix** ([frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts)) — `admin` + `exams` + `applicant` sections (operational on-prem modules — committees, medical, investigations, board, biometric, barcode, workflows — deploy on the Ministry's on-prem cluster with a separate RBAC surface and are intentionally absent). Don't extend this matrix to cover them. super_admin creation pre-enables all permissions; every permission checkbox is selectable.
 
 - **Applicant Grades** (`/admin/applicant-grades`) — per-cycle grades import + adjustments console. Real `FileReader`-driven upload (no `setInterval` simulation) of `.mdb` / `.accdb` / `.xlsx` / `.xls` / `.csv` with per-extension size limits, client-side validation, progress UI with cancel/retry. `mdb-reader` and `xlsx` are lazy-loaded so they don't block prod boot. Drawer-based row details, sortable on every column, search across all fields. See [frontend/src/features/applicant-grades/](frontend/src/features/applicant-grades/).
 
@@ -579,9 +605,27 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
   - **Sidebar collapse** — staff sidebar now collapses to an icon rail with persisted state. Active-route highlighting + section emphasis preserved in both modes. Improved icon-rail keyboard accessibility.
   - **Unified admin toolbar + dropdown controls** — `Button`, `DataTable`, `MultiSelect`, `RadixMultiSelect`, `RadixSelect`, `SearchSelect`, `Select`, `PageHeader`, and `NotificationCenter` all routed through a new shared [frontend/src/shared/components/dropdownStyles.ts](frontend/src/shared/components/dropdownStyles.ts). Same paint across admin toolbar buttons, list-page action chips, and every dropdown trigger.
 
+✅ **Done (admin backend integration pass, 2026-05-21)**
+
+- **Backend-first admin service layer** — added [frontend/src/shared/lib/api-client.ts](frontend/src/shared/lib/api-client.ts). Admin services call real REST endpoints by default; mock fallback is opt-in via `VITE_USE_MOCKS=true`. Production throws if mock mode is enabled. Tokens are read from `pa-auth` and sent as Bearer auth. CSV/export endpoints can request `Blob`s.
+- **Typed backend errors** — backend envelopes now map to `ConflictError`, `DependencyBlockedError`, `AccountInactiveError`, `NotFoundError`, and `ValidationError`. Field-level validation normalization lives in [frontend/src/shared/lib/validation-errors.ts](frontend/src/shared/lib/validation-errors.ts).
+- **Admin service coverage** — Auth/RBAC, users, roles, settings, cycles, categories, admission rules, lookups, admission setup, committee instances, admin applicants, applicant grades, audit, payments, notifications, reports, and workflows are wired through `apiClient` by default. See [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md).
+- **Admin UI mock-data cleanup** — dashboard, applicants filters, committee overview/detail/form/create, lookup drawer/table/detail now read from query-backed services rather than direct seeded data where touched.
+- **Server-side validation surfaced in admin forms** — applicant create/edit, user create/edit, cycle create/edit, category edit, and committee create now map backend field errors into visible form errors.
+
+✅ **Done (RBAC rebuild + Question Bank backend, 2026-05-24)**
+
+- **Cloud RBAC rebuild.** Old 11-role mix (admin + on-prem) collapsed into a clean 8-role cloud set: `super_admin`, `admissions_manager`, `applicants_officer`, `setup_admin`, `payments_officer`, `auditor`, `exams_admin`, `applicant`. Each role's `permissions` array is derived from the cells the role should fire in [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts). On-prem keys (`committee_admin`, `committee_user`, `medical_admin`, `medical_doctor`, `investigator`, `board_admin`, `biometric_user`, `records_clerk`) stay in the `ROLES` tuple so legacy mock data + `transitions.ts` guards type-check; their cloud `apps` + `permissions` are deliberately empty. See [rbac.ts](frontend/src/features/auth/rbac.ts) and the §5 RBAC table.
+- **Permission matrix gained the exams section.** `cloudPermissions.ts` now has 3 sections (`admin`, `exams`, `applicant`) and 21 modules. New exams modules: `exams_bank`, `exams_exams`, `exams_proctor`, `exams_results` — wired to `questions:*` / `exams:*` permission strings.
+- **Question Bank wired to backend.** [frontend/src/features/exams/api/exams.service.ts](frontend/src/features/exams/api/exams.service.ts) now calls `apiClient` by default for the full INTEGRATION CONTRACT — listQuestions/getQuestion/createQuestion/updateQuestion/publishQuestion/getCategories/listExams/getExam/createExam/publishExam/startAttempt/submitAttempt/getAttempts/checkConflict/createQuestionBatch/listLiveSessions. Mock fallback only behind `VITE_USE_MOCKS=true`.
+- **Backend Exams module** ([backend/admin/PACademy.Admin.Api/Modules/Exams/](backend/admin/PACademy.Admin.Api/Modules/Exams/)) — `ExamsService` + `ExamsSeeder` + `ExamsController`, backed by the shared `admin_records` JSON store (no new migration). Buckets: `questions`, `exams`, `exam-attempts`, `exam-live-sessions`. Grading supports mcq + true-false (`correctIndex` compare) + matching (`matchingPairs` dict compare). 6-month re-take conflict check matches frontend.
+- **Exams seed data** ([backend/admin/PACademy.Admin.Api/SeedData/exams.seed.json](backend/admin/PACademy.Admin.Api/SeedData/exams.seed.json)) — 52 questions (50-question MCQ pool + 2 mixed-type samples) and 2 exam configs copied verbatim from the frontend mock per the CLAUDE.md backend rule. Seeder is idempotent (only fills empty buckets so manual edits via the API are preserved).
+- **Login fallback for cloud roles** — `auth.service.ts` now tries the requested role first, then retries without a role (backend uses user's stored role), then falls back to `super_admin`. New cloud users like `admissions_manager` can log in through either picker tile without 403.
+- **Identity seed** ([backend/admin/PACademy.Admin.Api/SeedData/identity.seed.json](backend/admin/PACademy.Admin.Api/SeedData/identity.seed.json)) — ships the 8 cloud roles as system rows (super_admin is the only seeded user; admin creates the rest via `/admin/users/new`).
+
 🚧 **Next sprints**
 - **Sprint 10 — Hardening**: Vitest + Testing Library, Playwright smoke E2E, `eslint-plugin-boundaries`, Husky pre-commit, accessibility audit, print polish.
-- **Backend integration** (post-demo): replace `simulateLatency()` + `MOCK` reads in every `*.service.ts` with real `apiClient.get/post(...)` calls. See §6 for the integration pattern. Component/query/type contracts stay unchanged.
+- **Backend integration continuation**: keep expanding the admin-first `apiClient` pattern and remove remaining production-path mock leaks. Component/query/type contracts stay unchanged.
 
 ---
 
@@ -595,14 +639,14 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
 6. **Verify before recommending:** the legacy demo is preserved but not authoritative for the new structure — always check `frontend/src/` first for what actually exists.
 7. **Run `npm run typecheck` after non-trivial edits.** Strict-mode TS catches a lot here.
 8. **For UI changes, run `npm run dev` and click through the affected route.** Do not claim a UI feature works without exercising it.
-9. **No backend.** This frontend is pre-integration. Any "fetch from API" answer is wrong — the answer is "extend the mock service and add a query hook."
+9. **Backend-first admin integration.** Do not fetch from components. Use or extend the relevant `*.service.ts`; admin services call `apiClient` by default and retain mock fallback only for `VITE_USE_MOCKS=true`.
 10. **Arabic content is exact** — copy-paste from the legacy demo or existing files; do not retype Arabic strings (rendering edge cases bite).
 11. **Per-app surfaces consume `var(--accent-*)`, never hardcoded `bg-teal-*` / `text-gold-*`.** The S1 audit (POLISH_REPORT §3) closed this across 7 of 9 apps. New per-app surfaces must use `var(--accent-500/700/50)` via inline `style` so the `data-app="<key>"` overrides flow through.
 12. **§4 two-phase signature canon** (PRODUCT.md §4): any "preliminary save" affordance uses the dashed `border-gold-300 bg-gold-50 text-gold-700` notice shape; any "final / approved / معتمد" Badge carries the `<IconStamp width={12} height={12} />` glyph on the start edge. Don't invent new affordances for the same workflow.
 13. **App.tsx auto-seeds a super_admin demo user** (`ensureDemoUser()`). To verify `/staff-login` visually, temporarily disable that block — `LoginPage` redirects authenticated users straight to `/hub`.
 14. **Terminology — use "RFP Scope Document" not "karasa"** in code, comments, and user-facing copy. The `Tasks/KARASA_GAPS.md` filename stays for git-history continuity, but the term inside is "RFP Scope Document."
 15. **Admission-Setup is config-driven.** Don't hand-edit the sidebar, routes table, or breadcrumbs to add a step — append to `ADMISSION_SETUP_STEPS` in [frontend/src/features/admin/admission-setup/config.ts](frontend/src/features/admin/admission-setup/config.ts) and the rest follows. Cycle metadata is **never** a step; admins pick a cycle from `/admin/cycles` before entering the wizard.
-16. **Cloud-vs-on-prem RBAC split.** The cloud permission matrix in [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) is **deliberately closed** — only `admin` + `applicant` sections. Operational on-prem modules (committees, medical, investigations, board, exams, biometric, barcode, workflows) have a separate RBAC on the on-prem deployment. Don't add their modules/actions here.
+16. **Cloud-vs-on-prem RBAC split.** The cloud permission matrix in [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) covers `admin` + `exams` + `applicant` sections. Operational on-prem modules (committees, medical, investigations, board, biometric, barcode, workflows) have a separate RBAC on the on-prem deployment and are intentionally absent from this matrix. Don't add their modules/actions here. The Question Bank joined the cloud plane on 2026-05-24 — see §11 for the rebuild notes.
 17. **Lookups replaced reference-data.** Don't add new entries under `/admin/reference-data` — it redirects. New admin-managed reference values become lookups in [frontend/src/features/lookups/](frontend/src/features/lookups/).
 18. **Single active cycle.** The admin cycles UI enforces "one active cycle at a time" with a one-click swap when activating a new one. Don't add code that assumes multiple active cycles can coexist.
 
@@ -633,7 +677,8 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
 | Portal-based popover (Combobox/MultiSelect) | Outer-page scroll closes the popover; scrolls whose target is inside `popoverRef.current` are ignored so the option list can scroll. Replicate this guard in any new portal-anchored popover that has its own scrollable region. |
 | Add an admission-setup step | Append an entry to `ADMISSION_SETUP_STEPS` in [frontend/src/features/admin/admission-setup/config.ts](frontend/src/features/admin/admission-setup/config.ts) + add the route segment under `ROUTES.admin.admissionSetup` + create the page file. Sidebar/breadcrumbs/wizard nav derive automatically. |
 | Add a lookup | Add the key to `LOOKUP_KEYS` in [frontend/src/features/lookups/types.ts](frontend/src/features/lookups/types.ts) + extend `LookupRowMap` with the row shape + seed in [frontend/src/features/lookups/mock/lookups.mock.ts](frontend/src/features/lookups/mock/lookups.mock.ts) + place in a `LOOKUP_SECTIONS` group. CRUD UI is generated by `LookupsHubPage`. |
-| Change cloud RBAC | [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) — closed union of admin + applicant sections only. Do **not** add on-prem operational modules; they have a separate RBAC. |
+| Change cloud RBAC | [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) — admin + exams + applicant sections only. Mirror role definitions in [frontend/src/features/auth/rbac.ts](frontend/src/features/auth/rbac.ts), [frontend/src/shared/mock-data/roles.ts](frontend/src/shared/mock-data/roles.ts), and [backend/admin/PACademy.Admin.Api/SeedData/identity.seed.json](backend/admin/PACademy.Admin.Api/SeedData/identity.seed.json). Do **not** add on-prem operational modules; they have a separate RBAC. |
+| Question Bank backend | [backend/admin/PACademy.Admin.Api/Modules/Exams/](backend/admin/PACademy.Admin.Api/Modules/Exams/) — `ExamsService` over `AdminRecords`. Seeded from [exams.seed.json](backend/admin/PACademy.Admin.Api/SeedData/exams.seed.json). REST surface in [ExamsController.cs](backend/admin/PACademy.Admin.Api/Controllers/ExamsController.cs); frontend client in [exams.service.ts](frontend/src/features/exams/api/exams.service.ts). |
 | Add a DB constraint / conflict code | [docs/DB_CONSTRAINTS.md](docs/DB_CONSTRAINTS.md) — frontend mock services throw typed `ConflictError` codes that the backend must mirror at integration time. |
 | Per-cycle exam schedule | [frontend/src/features/committees/pages/CommitteeSchedulePage.tsx](frontend/src/features/committees/pages/CommitteeSchedulePage.tsx); service+queries under `features/committees/api/examSchedule.*`. |
 | Committee instances management | [frontend/src/features/admin/pages/CommitteeInstancesPage.tsx](frontend/src/features/admin/pages/CommitteeInstancesPage.tsx) (`/admin/committees-exam-config`). Service+queries under `features/committees/api/committeeInstance.*`. Shared add form: [CommitteeInstanceAddForm.tsx](frontend/src/features/admin/admission-setup/components/committeeBinding/CommitteeInstanceAddForm.tsx) — mounted on both the management page and the admission-setup wizard committees step. |
@@ -656,6 +701,8 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
 | [DESIGN.md](docs/DESIGN.md) → [Tasks/DESIGN_SYSTEM.md](Tasks/DESIGN_SYSTEM.md) | Visual constitution — tokens, type, motion (read before any visual work) |
 | [docs/DB_CONSTRAINTS.md](docs/DB_CONSTRAINTS.md) | DB invariants + typed `ConflictError` codes the backend must mirror — read before opening any mutating service file |
 | [docs/INTEGRATION_HANDOFF.md](docs/INTEGRATION_HANDOFF.md) | Backend integration bible — every `*.service.ts` contract mapped to its real REST endpoint, every typed error mapped to its required response shape (baseline tag: `admin-gaps-verified`) |
+| [docs/BACKEND_IMPLEMENTATION_CONTEXT.md](docs/BACKEND_IMPLEMENTATION_CONTEXT.md) | Backend implementation instructions from attached handoff docs: two-service topology, seed-data rule, conventions, build order, verification |
+| [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md) | Current 2026-05-21 admin backend integration status: api client, env flags, wired services, validation mapping, remaining notes |
 | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | The script for the 2026-05-29 evaluator demo — the customer-facing narrative |
 | [Tasks/KARASA_GAPS.md](Tasks/KARASA_GAPS.md) | RFP Scope Document coverage map (filename retained; term inside is "RFP Scope Document") |
 | [Tasks/RADIX_ADOPTION_REPORT.md](Tasks/RADIX_ADOPTION_REPORT.md) | Inventory of sanctioned Radix primitives + composition patterns (referenced by §2.5) |

@@ -25,6 +25,7 @@ import {
 import { ROUTES } from '@/config/routes';
 import type { Applicant, ApplicantEducation } from '@/shared/types/domain';
 import { ApplicantForm } from '@/features/admin/components/applicants/ApplicantForm';
+import { isValidationError } from '@/shared/lib/errors';
 
 function applicantToInput(a: Applicant): Partial<ApplicantInput> {
   /* Reverse the inputToApplicant() mapping. Falls back to plausible defaults
@@ -128,6 +129,7 @@ export function ApplicantEditPage(): JSX.Element {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'تعذر حفظ التعديلات';
       toast(message, 'danger');
+      if (isValidationError(err)) throw err;
     }
   };
 

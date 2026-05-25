@@ -12,6 +12,7 @@
  * Carry counts in the toast message per the prompt.
  */
 
+import { useMemo } from 'react';
 import { Download, FileText, ShieldCheck, SkipForward, UserPlus } from 'lucide-react';
 import {
   Accordion,
@@ -23,6 +24,10 @@ import {
 import { serializeCsv } from '@/shared/lib/csv';
 import { downloadBlob } from '@/shared/lib/download';
 import { useImportWizardStore } from '../../../store/importWizard.store';
+import { useGrades } from '../../../api/grades.queries';
+import { normaliseRows } from '../../../lib/normalise';
+import { buildAlreadyImported } from '../../../lib/buildDiff';
+import { buildAuditCsv, buildDuplicateAudit, buildIntegrityAuditRows } from '../../../lib/duplicateAudit';
 import type {
   ImportFailureRow,
   ImportGroupAction,
@@ -57,6 +62,53 @@ export function Step6Result(): JSX.Element {
   const importResult = useImportWizardStore((s) => s.importResult);
   const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
   const setPerGroupAction = useImportWizardStore((s) => s.setPerGroupAction);
+  const parsed = useImportWizardStore((s) => s.parsed);
+  const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
+  const mapping = useImportWizardStore((s) => s.mapping);
+  const filters = useImportWizardStore((s) => s.filters);
+  const lookupValueMappings = useImportWizardStore((s) => s.lookupValueMappings);
+  const graduationYear = useImportWizardStore((s) => s.graduationYear);
+  const selectedSchoolCategories = useImportWizardStore(
+    (s) => s.selectedSchoolCategories,
+  );
+  const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
+  const fileMeta = useImportWizardStore((s) => s.fileMeta);
+  const { data: allRows } = useGrades();
+
+  const normalised = useMemo(() => {
+    const table = parsed?.tables.find((t) => t.name === selectedTableName) ?? null;
+    if (!table || graduationYear == null) return [];
+    return normaliseRows(
+      table,
+      mapping,
+      filters,
+      graduationYear,
+      lookupValueMappings,
+      selectedSchoolCategories,
+    );
+  }, [
+    parsed,
+    selectedTableName,
+    mapping,
+    filters,
+    graduationYear,
+    lookupValueMappings,
+    selectedSchoolCategories,
+  ]);
+  const audit = useMemo(() => buildDuplicateAudit(normalised), [normalised]);
+  const integrityRows = useMemo(
+    () =>
+      buildIntegrityAuditRows({
+        rows: normalised,
+        selectedSchoolCategories,
+        maxGradeByCategory,
+      }),
+    [normalised, selectedSchoolCategories, maxGradeByCategory],
+  );
+  const alreadyImported = useMemo(
+    () => buildAlreadyImported(normalised, allRows ?? []),
+    [normalised, allRows],
+  );
 
   if (!importResult) {
     return (
@@ -67,20 +119,78 @@ export function Step6Result(): JSX.Element {
   }
 
   const groups = importResult.groups;
+  const skippedExistingCount = alreadyImported.length;
+  const skippedCount = importResult.totals.skipped + skippedExistingCount;
+  const importableCount = Math.max(0, importResult.totals.imported - skippedExistingCount);
+
+  function handleDownloadAudit(): void {
+    const csv = buildAuditCsv({
+      audit,
+      report: importResult,
+      rows: normalised,
+      integrityRows,
+      graduationYear,
+      fileName: fileMeta?.name ?? null,
+    });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    downloadBlob(
+      new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+      `applicant-grades-audit-${stamp}.csv`,
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle">
         <SummaryBlock label="مستلمة" value={importResult.totals.received} />
-        <SummaryBlock label="مستوردة" value={importResult.totals.imported} tone="success" big />
-        <SummaryBlock label="ملغاة" value={importResult.totals.skipped} />
+        <SummaryBlock label="مستوردة" value={importableCount} tone="success" big />
+        <SummaryBlock label="ملغاة" value={skippedCount} />
         <SummaryBlock label="مرفوضة" value={importResult.totals.failed} tone="warning" />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-subtle bg-white px-3.5 py-2.5">
+        <div className="flex flex-wrap items-center gap-3 text-2xs text-ink-600">
+          <span>
+            <span className="font-en font-bold text-ink-900">
+              {audit.uniqueNidCount.toLocaleString('en')}
+            </span>{' '}
+            رقم قومي فريد
+          </span>
+          <span>·</span>
+          <span>
+            <span className="font-en font-bold text-ink-900">
+              {audit.duplicateRowCount.toLocaleString('en')}
+            </span>{' '}
+            صف مكرر داخل الملف سيُتجاوز
+          </span>
+          {skippedExistingCount > 0 && (
+            <>
+              <span>·</span>
+              <span className="text-gold-700">
+                <span className="font-en font-bold text-ink-900">
+                  {skippedExistingCount.toLocaleString('en')}
+                </span>{' '}
+                صف موجود مسبقًا لن يُستورد
+              </span>
+            </>
+          )}
+        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          leadingIcon={<Download size={12} strokeWidth={1.75} aria-hidden />}
+          onClick={handleDownloadAudit}
+        >
+          تحميل تقرير المراجعة
+        </Button>
       </div>
 
       {groups.length === 0 ? (
         <div className="flex items-center gap-2 rounded-md border border-success bg-success-bg px-3.5 py-3 text-xs text-success">
           <ShieldCheck size={14} aria-hidden />
-          كل الصفوف نظيفة. اضغط «تأكيد الاستيراد» للكتابة على قاعدة البيانات.
+          {skippedExistingCount > 0
+            ? `سيتم استيراد ${importableCount.toLocaleString('en')} صفًا، وتجاهل ${skippedExistingCount.toLocaleString('en')} صفًا موجودًا مسبقًا بنفس الرقم القومي وسنة التخرج.`
+            : 'كل الصفوف نظيفة. اضغط «تأكيد الاستيراد» للكتابة على قاعدة البيانات.'}
         </div>
       ) : (
         <Accordion type="multiple">

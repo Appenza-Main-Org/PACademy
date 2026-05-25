@@ -1,0 +1,4292 @@
+[
+  {
+    "role": "super_admin",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/admin/reports",
+    "status": "ok",
+    "ms": 2347,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/admin/reports",
+    "status": "ok",
+    "ms": 1813,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_reports.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/admin/applicants",
+    "status": "ok",
+    "ms": 1736,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_applicants.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/admin/applicants/new",
+    "status": "ok",
+    "ms": 1529,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_applicants_new.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/admin/applicants/APP-2026000001",
+    "status": "ok",
+    "ms": 2097,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/admin/applicants/APP-2026000001/edit",
+    "status": "ok",
+    "ms": 1508,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/admin/applicant-grades",
+    "status": "ok",
+    "ms": 1489,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_applicant-grades.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/admin/users",
+    "status": "ok",
+    "ms": 1539,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_users.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/admin/users/new",
+    "status": "ok",
+    "ms": 1367,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_users_new.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/admin/users/U-001",
+    "status": "ok",
+    "ms": 1462,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_users_U-001.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/admin/users/U-001/edit",
+    "status": "ok",
+    "ms": 1559,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/admin/users/roles",
+    "status": "ok",
+    "ms": 1441,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_users_roles.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/admin/audit",
+    "status": "ok",
+    "ms": 1578,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_audit.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/admin/settings",
+    "status": "ok",
+    "ms": 1555,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_settings.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/admin/notifications",
+    "status": "ok",
+    "ms": 1411,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_notifications.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/admin/payments",
+    "status": "ok",
+    "ms": 4020,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_payments.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/admin/lookups",
+    "status": "ok",
+    "ms": 1636,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_lookups.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/admin/lookups/faculties",
+    "status": "ok",
+    "ms": 1595,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_lookups_faculties.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/admin/lookups/applicant-categories/officers_general",
+    "status": "ok",
+    "ms": 1457,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/admin/admission-rules",
+    "status": "ok",
+    "ms": 1513,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_admission-rules.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles",
+    "status": "ok",
+    "ms": 1454,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_cycles.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/new",
+    "status": "ok",
+    "ms": 1432,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_cycles_new.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/CYC-2026-M",
+    "status": "ok",
+    "ms": 1460,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/CYC-2026-M/edit",
+    "status": "ok",
+    "ms": 1412,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/admin/categories",
+    "status": "ok",
+    "ms": 1397,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_categories.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/admin/categories",
+    "status": "ok",
+    "ms": 1688,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_categories_new.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/admin/categories/officers_general",
+    "status": "ok",
+    "ms": 1432,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_categories_officers_general.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/admin/workflows",
+    "status": "ok",
+    "ms": 1426,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_workflows.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/admin/workflows/new",
+    "status": "ok",
+    "ms": 1506,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_workflows_new.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/admin/workflows/WF-DOCTORATE",
+    "status": "ok",
+    "ms": 1489,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/admin/committees-exam-config",
+    "status": "ok",
+    "ms": 1643,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_committees-exam-config.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup",
+    "status": "ok",
+    "ms": 1569,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup/wizard/application_settings",
+    "status": "ok",
+    "ms": 1977,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup/application-settings",
+    "status": "ok",
+    "ms": 5196,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup/fees",
+    "status": "ok",
+    "ms": 3344,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup/exams",
+    "status": "ok",
+    "ms": 2729,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup/electronic-declaration",
+    "status": "ok",
+    "ms": 2290,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/admin/committee",
+    "status": "ok",
+    "ms": 2849,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_committee.png"
+  },
+  {
+    "role": "super_admin",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/admin/committee/schedule",
+    "status": "ok",
+    "ms": 2194,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/super_admin/admin_committee_schedule.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/admin/reports",
+    "status": "ok",
+    "ms": 3547,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/admin/reports",
+    "status": "ok",
+    "ms": 3322,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_reports.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/admin/applicants",
+    "status": "ok",
+    "ms": 2507,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_applicants.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/admin/applicants/new",
+    "status": "ok",
+    "ms": 2253,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_applicants_new.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/admin/applicants/APP-2026000001",
+    "status": "ok",
+    "ms": 3512,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/admin/applicants/APP-2026000001/edit",
+    "status": "ok",
+    "ms": 2456,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/admin/applicant-grades",
+    "status": "ok",
+    "ms": 2239,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_applicant-grades.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/admin/users",
+    "status": "ok",
+    "ms": 2448,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_users.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/admin/users/new",
+    "status": "ok",
+    "ms": 2059,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_users_new.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/admin/users/U-001",
+    "status": "ok",
+    "ms": 2353,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_users_U-001.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/admin/users/U-001/edit",
+    "status": "ok",
+    "ms": 2334,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2728,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_users_roles.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2269,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_audit.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1851,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_settings.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/admin/notifications",
+    "status": "ok",
+    "ms": 2402,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_notifications.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/admin/payments",
+    "status": "ok",
+    "ms": 2156,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_payments.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/admin/lookups",
+    "status": "ok",
+    "ms": 2563,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_lookups.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/admin/lookups/faculties",
+    "status": "ok",
+    "ms": 2536,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_lookups_faculties.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/admin/lookups/applicant-categories/officers_general",
+    "status": "ok",
+    "ms": 2215,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2221,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_admission-rules.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles",
+    "status": "ok",
+    "ms": 2100,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_cycles.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/new",
+    "status": "ok",
+    "ms": 2484,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_cycles_new.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/CYC-2026-M",
+    "status": "ok",
+    "ms": 2022,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/CYC-2026-M/edit",
+    "status": "ok",
+    "ms": 2208,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/admin/categories",
+    "status": "ok",
+    "ms": 2197,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_categories.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/admin/categories",
+    "status": "ok",
+    "ms": 2016,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_categories_new.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/admin/categories/officers_general",
+    "status": "ok",
+    "ms": 2372,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_categories_officers_general.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/admin/workflows",
+    "status": "ok",
+    "ms": 2247,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_workflows.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/admin/workflows/new",
+    "status": "ok",
+    "ms": 3056,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_workflows_new.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/admin/workflows/WF-DOCTORATE",
+    "status": "ok",
+    "ms": 2837,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/admin/committees-exam-config",
+    "status": "ok",
+    "ms": 2324,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_committees-exam-config.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup",
+    "status": "ok",
+    "ms": 2263,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup/wizard/application_settings",
+    "status": "ok",
+    "ms": 2302,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup/application-settings",
+    "status": "ok",
+    "ms": 2349,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup/fees",
+    "status": "ok",
+    "ms": 2203,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup/exams",
+    "status": "ok",
+    "ms": 2265,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/admin/cycles/admission-setup/electronic-declaration",
+    "status": "ok",
+    "ms": 2387,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2121,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_committee.png"
+  },
+  {
+    "role": "committee_admin",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2770,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_admin/admin_committee_schedule.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 3277,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2266,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_reports.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2420,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_applicants.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2043,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_applicants_new.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2661,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1829,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2190,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_applicant-grades.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1969,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_users.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2039,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_users_new.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1910,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_users_U-001.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2086,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2026,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_users_roles.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2035,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_audit.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2716,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_settings.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1840,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_notifications.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2108,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_payments.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2029,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_lookups.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2249,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_lookups_faculties.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2155,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2030,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_admission-rules.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2073,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_cycles.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2182,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_cycles_new.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1880,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2024,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1942,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_categories.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2207,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_categories_new.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2036,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_categories_officers_general.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2656,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_workflows.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1883,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_workflows_new.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2068,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2405,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_committees-exam-config.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2232,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2058,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1939,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2025,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2156,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 3170,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/admin/committee",
+    "status": "ok",
+    "ms": 2082,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_committee.png"
+  },
+  {
+    "role": "committee_user",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/admin/committee/schedule",
+    "status": "ok",
+    "ms": 2298,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/committee_user/admin_committee_schedule.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2846,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2277,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_reports.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2551,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_applicants.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1904,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_applicants_new.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2101,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1886,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2162,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_applicant-grades.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1940,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_users.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2235,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_users_new.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1936,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_users_U-001.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2191,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1864,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_users_roles.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2072,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_audit.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1937,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_settings.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2280,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_notifications.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2543,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_payments.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2431,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_lookups.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2028,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_lookups_faculties.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2068,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2752,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_admission-rules.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1888,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_cycles.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2150,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_cycles_new.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2449,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2204,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2039,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_categories.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2571,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_categories_new.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2053,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_categories_officers_general.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2689,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_workflows.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2175,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_workflows_new.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1956,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2959,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_committees-exam-config.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2350,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1982,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2078,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1839,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2022,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2606,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2093,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_committee.png"
+  },
+  {
+    "role": "medical_admin",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1864,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_admin/admin_committee_schedule.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 3088,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1873,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_reports.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2369,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_applicants.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2123,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_applicants_new.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2608,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2069,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2507,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_applicant-grades.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2787,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_users.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1919,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_users_new.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2376,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_users_U-001.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2191,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2180,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_users_roles.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2269,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_audit.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1961,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_settings.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2120,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_notifications.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1914,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_payments.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2178,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_lookups.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1856,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_lookups_faculties.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2030,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2047,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_admission-rules.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2721,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_cycles.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1980,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_cycles_new.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2249,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2140,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2478,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_categories.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2694,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_categories_new.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1871,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_categories_officers_general.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2022,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_workflows.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2469,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_workflows_new.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2527,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2335,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_committees-exam-config.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2179,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2160,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1946,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2426,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2147,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1907,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1810,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_committee.png"
+  },
+  {
+    "role": "medical_doctor",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2026,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/medical_doctor/admin_committee_schedule.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2876,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2092,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_reports.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1833,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_applicants.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2154,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_applicants_new.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1940,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2263,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1852,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_applicant-grades.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2076,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_users.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1931,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_users_new.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2028,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_users_U-001.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2124,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2264,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_users_roles.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1950,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_audit.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2069,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_settings.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1963,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_notifications.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2417,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_payments.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1966,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_lookups.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2151,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_lookups_faculties.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1932,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2263,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_admission-rules.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2124,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_cycles.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2084,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_cycles_new.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2264,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1846,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2205,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_categories.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1874,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_categories_new.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2362,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_categories_officers_general.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1874,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_workflows.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2061,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_workflows_new.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1974,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2457,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_committees-exam-config.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1856,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2129,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1911,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2428,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1987,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2258,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2155,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_committee.png"
+  },
+  {
+    "role": "investigator",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2271,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/investigator/admin_committee_schedule.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2531,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2272,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_reports.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1968,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_applicants.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2076,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_applicants_new.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2304,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1969,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2064,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_applicant-grades.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1960,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_users.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2125,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_users_new.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1856,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_users_U-001.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2221,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1892,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_users_roles.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2091,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_audit.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1886,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_settings.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2116,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_notifications.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1825,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_payments.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2041,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_lookups.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1992,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_lookups_faculties.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2008,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1844,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_admission-rules.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2130,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_cycles.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1917,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_cycles_new.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2044,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2477,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1986,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_categories.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2422,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_categories_new.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2249,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_categories_officers_general.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1931,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_workflows.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2182,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_workflows_new.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2271,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2301,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_committees-exam-config.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2215,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1798,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2183,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2656,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2562,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2728,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2083,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_committee.png"
+  },
+  {
+    "role": "board_admin",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2387,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/board_admin/admin_committee_schedule.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2828,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1912,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_reports.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1831,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_applicants.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2125,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_applicants_new.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1836,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2160,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1919,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_applicant-grades.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2149,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_users.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1836,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_users_new.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2007,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_users_U-001.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1888,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2404,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_users_roles.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2009,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_audit.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2226,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_settings.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1901,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_notifications.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2263,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_payments.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1932,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_lookups.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2686,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_lookups_faculties.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1919,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2008,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_admission-rules.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2102,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_cycles.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2082,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_cycles_new.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2101,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1986,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1999,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_categories.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2126,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_categories_new.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2347,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_categories_officers_general.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1932,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_workflows.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2341,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_workflows_new.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2563,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2551,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_committees-exam-config.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2183,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2029,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2150,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1933,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2174,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1858,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2117,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_committee.png"
+  },
+  {
+    "role": "exams_admin",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1910,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/exams_admin/admin_committee_schedule.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2944,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1940,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_reports.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2174,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_applicants.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1799,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_applicants_new.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1889,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2118,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2019,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_applicant-grades.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2003,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_users.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2179,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_users_new.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1960,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_users_U-001.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2109,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1953,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_users_roles.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2173,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_audit.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1949,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_settings.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2130,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_notifications.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1779,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_payments.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2021,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_lookups.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1932,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_lookups_faculties.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2150,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1925,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_admission-rules.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2616,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_cycles.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1862,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_cycles_new.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2010,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1846,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2196,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_categories.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1882,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_categories_new.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2088,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_categories_officers_general.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1925,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_workflows.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2197,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_workflows_new.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1999,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2628,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_committees-exam-config.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2074,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2615,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2636,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1863,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1998,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1941,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2277,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_committee.png"
+  },
+  {
+    "role": "biometric_user",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2016,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/biometric_user/admin_committee_schedule.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 3189,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2551,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_reports.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1949,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_applicants.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2325,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_applicants_new.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1850,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2178,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1851,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_applicant-grades.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2068,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_users.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1901,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_users_new.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2064,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_users_U-001.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1905,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2097,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_users_roles.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1889,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_audit.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2070,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_settings.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2491,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_notifications.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2299,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_payments.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1911,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_lookups.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2278,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_lookups_faculties.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1917,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2008,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_admission-rules.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2236,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_cycles.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2689,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_cycles_new.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2039,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2159,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2087,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_categories.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 1997,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_categories_new.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2397,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_categories_officers_general.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2369,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_workflows.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2398,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_workflows_new.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 3178,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2554,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_committees-exam-config.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2955,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2855,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2822,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2353,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2365,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2077,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 3374,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_committee.png"
+  },
+  {
+    "role": "records_clerk",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/hub",
+    "status": "ok",
+    "ms": 2463,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/records_clerk/admin_committee_schedule.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2911,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/reports",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2012,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_reports.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/applicants",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1962,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_applicants.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/applicants/new",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2884,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_applicants_new.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/applicants/APP-2026000001",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2198,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_applicants_APP-2026000001.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/applicants/APP-2026000001/edit",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1976,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_applicants_APP-2026000001_edit.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/applicant-grades",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2706,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_applicant-grades.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/users",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2008,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_users.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/users/new",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2189,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_users_new.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/users/U-001",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1896,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_users_U-001.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/users/U-001/edit",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2686,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_users_U-001_edit.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/users/roles",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1913,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_users_roles.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/audit",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1940,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_audit.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/settings",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2012,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_settings.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/notifications",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2607,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_notifications.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/payments",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2016,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_payments.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/lookups",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1819,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_lookups.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/lookups/faculties",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2183,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_lookups_faculties.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/lookups/applicant-categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2537,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_lookups_applicant-categories_officers_general.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/admission-rules",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1971,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_admission-rules.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/cycles",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1877,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_cycles.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/cycles/new",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2099,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_cycles_new.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/cycles/CYC-2026-M",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1861,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_cycles_CYC-2026-M.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/cycles/CYC-2026-M/edit",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2221,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_cycles_CYC-2026-M_edit.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/categories",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1828,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_categories.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/categories/new",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2199,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_categories_new.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/categories/officers_general",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1783,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_categories_officers_general.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/workflows",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2070,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_workflows.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/workflows/new",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1797,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_workflows_new.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/workflows/WF-DOCTORATE",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2229,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_workflows_WF-DOCTORATE.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/committees-exam-config",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1906,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_committees-exam-config.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/cycles/admission-setup",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2161,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_cycles_admission-setup.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/cycles/admission-setup/wizard/application_settings",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1977,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_cycles_admission-setup_wizard_application_settings.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/cycles/admission-setup/application-settings",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2355,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_cycles_admission-setup_application-settings.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/cycles/admission-setup/fees",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1787,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_cycles_admission-setup_fees.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/cycles/admission-setup/exams",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2851,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_cycles_admission-setup_exams.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/cycles/admission-setup/electronic-declaration",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 2022,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_cycles_admission-setup_electronic-declaration.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/committee",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1840,
+    "hasArabicUi": true,
+    "message": "",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_committee.png"
+  },
+  {
+    "role": "applicant",
+    "route": "/admin/committee/schedule",
+    "finalUrl": "http://127.0.0.1:5173/applicant",
+    "status": "ok",
+    "ms": 1218,
+    "hasArabicUi": true,
+    "message": "redirected to applicant home for denied committee app access",
+    "screenshot": "docs/admin-finalization/screenshots/role-route-matrix/applicant/admin_committee_schedule.png"
+  }
+]

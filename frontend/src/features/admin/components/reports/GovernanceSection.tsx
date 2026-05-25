@@ -46,12 +46,23 @@ export function GovernanceSection({ governance, integrations, range }: Governanc
   const hourly = governance.hourly.slice(governance.hourly.length - window);
   const total = hourly.reduce((s, b) => s + b.total, 0);
   const highSens = hourly.reduce((s, b) => s + b.highSensitivity, 0);
+  const degraded = integrations.filter((integration) => integration.status !== 'healthy');
 
   return (
     <section className="mb-8">
       <SectionHeading
         title="الحوكمة والامتثال"
         eyebrow="Audit Log + Integration Monitoring"
+        trailing={
+          <div className="flex flex-wrap items-center gap-2 text-2xs">
+            <span className="rounded-pill bg-terra-50 px-2.5 py-1 text-terra-700">
+              عمليات حساسة: <span className="font-numeric tnum font-bold">{num(highSens)}</span>
+            </span>
+            <span className="rounded-pill bg-gold-50 px-2.5 py-1 text-gold-700">
+              تكاملات تحتاج متابعة: <span className="font-numeric tnum font-bold">{num(degraded.length)}</span>
+            </span>
+          </div>
+        }
       />
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Tile A — Audited activity */}

@@ -18,9 +18,11 @@
 import { useMemo } from 'react';
 import {
   CLOUD_ACTIONS,
-  CLOUD_MODULES,
   CLOUD_SECTIONS,
+  explicitCloudPermissionIds,
   getModulesBySection,
+  isCellInteractive,
+  permissionIdForCell,
   type CloudAction,
   type CloudActionKey,
   type CloudModule,
@@ -35,21 +37,14 @@ export interface PermissionMatrixProps {
 export function PermissionMatrix({ permissions, onChange }: PermissionMatrixProps): JSX.Element {
   const isSuper = permissions.includes('*');
 
-  /* Full enumeration of every `<module>:<action>` pair. Used when the
-   * admin overrides a wildcard role — we expand `'*'` to the explicit
-   * list so toggling a cell off lands on a coherent state. */
-  const allExplicit = useMemo<string[]>(() => {
-    const out: string[] = [];
-    for (const mod of CLOUD_MODULES) {
-      for (const act of CLOUD_ACTIONS) {
-        out.push(`${mod.key}:${act.key}`);
-      }
-    }
-    return out;
-  }, []);
+  /* Full enumeration of every real admin/applicant cloud permission.
+   * Used when the admin overrides a wildcard role — we expand `'*'` to
+   * explicit canonical ids, not placeholder matrix coordinates. */
+  const allExplicit = useMemo<string[]>(() => explicitCloudPermissionIds(), []);
 
   const toggle = (mod: CloudModuleKey, act: CloudActionKey): void => {
-    const id = `${mod}:${act}`;
+    if (!isCellInteractive(mod, act)) return;
+    const id = permissionIdForCell(mod, act);
     if (isSuper) {
       onChange(allExplicit.filter((p) => p !== id));
       return;
@@ -60,7 +55,9 @@ export function PermissionMatrix({ permissions, onChange }: PermissionMatrixProp
 
   const isOn = (mod: CloudModuleKey, act: CloudActionKey): boolean => {
     if (isSuper) return true;
-    return permissions.includes(`${mod}:${act}`) || permissions.includes(`${mod}:*`);
+    const id = permissionIdForCell(mod, act);
+    const [resource] = id.split(':');
+    return permissions.includes(id) || Boolean(resource && permissions.includes(`${resource}:*`));
   };
 
   return (
@@ -120,17 +117,21 @@ function MatrixSection({ sectionLabel, modules, actions, isOn, toggle }: MatrixS
       {modules.map((mod) => (
         <tr key={mod.key} className="border-b border-border-subtle last:border-b-0">
           <th className="px-3 py-2 text-start font-medium text-ink-900">{mod.nameAr}</th>
-          {actions.map((act) => (
-            <td key={act.key} className="px-2 py-1 text-center">
-              <input
-                type="checkbox"
-                aria-label={`${mod.nameAr} · ${act.nameAr}`}
-                checked={isOn(mod.key, act.key)}
-                onChange={() => toggle(mod.key, act.key)}
-                className="h-4 w-4 cursor-pointer accent-teal-500"
-              />
-            </td>
-          ))}
+          {actions.map((act) => {
+            const enabled = isCellInteractive(mod.key, act.key);
+            return (
+              <td key={act.key} className="px-2 py-1 text-center">
+                <input
+                  type="checkbox"
+                  aria-label={`${mod.nameAr} · ${act.nameAr}`}
+                  checked={enabled && isOn(mod.key, act.key)}
+                  disabled={!enabled}
+                  onChange={() => toggle(mod.key, act.key)}
+                  className="h-4 w-4 cursor-pointer accent-teal-500 disabled:cursor-not-allowed disabled:opacity-25"
+                />
+              </td>
+            );
+          })}
         </tr>
       ))}
     </>

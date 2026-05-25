@@ -62,6 +62,11 @@ interface ApplicantPortalState {
    *  walking through the normal flow does NOT flip this. */
   submittedDemo: boolean;
 
+  /** Timestamp (ms epoch) the applicant pressed «تأكيد الإرسال» on the
+   *  وثيقة تعارف (Stage 11). Drives a 24-hour edit window after which
+   *  the document becomes view-and-print only. */
+  vothiqaTaarufSubmittedAt: number | null;
+
   setNationalId: (id: string | null) => void;
   setSelectedCategoryKey: (key: string | null) => void;
   setSelectedCycleId: (id: string | null) => void;
@@ -78,6 +83,7 @@ interface ApplicantPortalState {
   setFirstExamDate: (iso: string | null) => void;
   setParentsApproved: (approved: boolean) => void;
   setSubmittedDemo: (on: boolean) => void;
+  setVothiqaTaarufSubmittedAt: (ts: number | null) => void;
   clear: () => void;
 }
 
@@ -98,6 +104,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       firstExamDate: null,
       parentsApproved: false,
       submittedDemo: false,
+      vothiqaTaarufSubmittedAt: null,
       setNationalId: (id) => set({ nationalId: id }),
       setSelectedCategoryKey: (key) => set({ selectedCategoryKey: key }),
       setSelectedCycleId: (id) => set({ selectedCycleId: id }),
@@ -109,6 +116,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       setFirstExamDate: (iso) => set({ firstExamDate: iso }),
       setParentsApproved: (approved) => set({ parentsApproved: approved }),
       setSubmittedDemo: (on) => set({ submittedDemo: on }),
+      setVothiqaTaarufSubmittedAt: (ts) => set({ vothiqaTaarufSubmittedAt: ts }),
       clear: () =>
         set({
           nationalId: null,
@@ -125,6 +133,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
           firstExamDate: null,
           parentsApproved: false,
           submittedDemo: false,
+          vothiqaTaarufSubmittedAt: null,
         }),
     }),
     {

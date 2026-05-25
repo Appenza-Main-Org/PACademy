@@ -62,10 +62,13 @@ export const ROUTES = {
     applicantGrades: '/admin/applicant-grades',
     /** Standalone v2 import wizard (renders inside AdminLayout). */
     applicantGradesImport: '/admin/applicant-grades/import',
+    /** Import audit history + downloadable reports. */
+    applicantGradesImportHistory: '/admin/applicant-grades/import-history',
     /** Audit view: students whose grades have changed since initial import. */
     applicantGradesChanges: '/admin/applicant-grades/changes',
     notifications: '/admin/notifications',
     payments: '/admin/payments',
+    admissionRules: '/admin/admission-rules',
     /* Admission Setup section — ordered configuration steps. The keys
      * mirror `AdmissionSetupStepKey` (camelCased) so feature code can
      * derive the URL from a step key without a second lookup. Cycle
@@ -175,6 +178,7 @@ export const ROUTES = {
     exams: '/question-bank/exams',
     examCreate: '/question-bank/exams/create',
     examDetail: (id = ':examId'): string => `/question-bank/exams/${id}`,
+    examPreview: (id = ':examId'): string => `/question-bank/exams/${id}/preview`,
     examTake: (id = ':examId'): string => `/question-bank/exams/${id}/take`,
     examProctor: (id = ':examId'): string => `/question-bank/exams/${id}/proctor`,
     proctor: '/question-bank/proctor',

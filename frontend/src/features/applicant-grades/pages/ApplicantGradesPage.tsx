@@ -44,6 +44,7 @@ import {
   DataTable,
   DropdownMenu,
   EmptyState,
+  ErrorState,
   LoadingState,
   PageHeader,
   Select,
@@ -61,7 +62,6 @@ import {
   useApplicantGradesList,
   useClearGrades,
   useDeleteGrades,
-  useGrades,
 } from '../api/grades.queries';
 import { gradesService, type ApplicantGradesColumnFilters } from '../api/grades.service';
 import { downloadTemplateWorkbook } from '../lib/buildTemplateWorkbook';
@@ -88,7 +88,8 @@ function parsePageSize(raw: string | null): number {
   return Math.min(MAX_PAGE_SIZE, n);
 }
 
-const DEBOUNCE_MS = 250;
+const DEBOUNCE_MS = 400;
+const COLUMN_FILTER_DEBOUNCE_MS = 450;
 const ACTIVE_FILTER_CONTROL_CLASS =
   '!border-teal-500 !bg-teal-50 !text-teal-800 shadow-[inset_0_0_0_1px_var(--teal-500)]';
 
@@ -99,6 +100,30 @@ function useDebouncedValue<T>(value: T, ms: number): T {
     return () => window.clearTimeout(t);
   }, [value, ms]);
   return debounced;
+}
+
+function useDeleteProgress(isActive: boolean): number {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (!isActive) {
+      setProgress(0);
+      return undefined;
+    }
+
+    setProgress(8);
+    const t = window.setInterval(() => {
+      setProgress((current) => {
+        if (current >= 92) return current;
+        const nextStep = Math.max(1, Math.round((92 - current) * 0.18));
+        return Math.min(92, current + nextStep);
+      });
+    }, 450);
+
+    return () => window.clearInterval(t);
+  }, [isActive]);
+
+  return progress;
 }
 
 function textColumnFilter(value: ColumnFilterValue | undefined): string | undefined {
@@ -195,12 +220,15 @@ export function ApplicantGradesPage(): JSX.Element {
   const [overlay, setOverlay] = useState<OverlayState>(null);
   const [sort, setSort] = useState<DataTableSort<DerivedRow> | null>(null);
   const [columnFilters, setColumnFilters] = useState<Record<string, ColumnFilterValue>>({});
+  const debouncedColumnFilters = useDebouncedValue(columnFilters, COLUMN_FILTER_DEBOUNCE_MS);
   const [exporting, setExporting] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<(string | number)[]>([]);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const clearMut = useClearGrades();
   const deleteMut = useDeleteGrades();
+  const clearProgress = useDeleteProgress(clearMut.isPending);
+  const selectedDeleteProgress = useDeleteProgress(deleteMut.isPending);
 
   useEffect(() => {
     setSelectedRowKeys([]);
@@ -212,37 +240,43 @@ export function ApplicantGradesPage(): JSX.Element {
     yearFromUrl,
     schoolCategoryFromUrl,
     changedOnly,
-    columnFilters,
+    debouncedColumnFilters,
   ]);
 
   const gradeColumnFilters = useMemo<ApplicantGradesColumnFilters>(() => {
-    const totalRange = numberColumnFilter(columnFilters.total);
-    const pctRange = numberColumnFilter(columnFilters.pct);
-    const effRange = numberColumnFilter(columnFilters.eff);
-    const graduationYearRange = numberColumnFilter(columnFilters.graduationYear);
+    const totalRange = numberColumnFilter(debouncedColumnFilters.total);
+    const pctRange = numberColumnFilter(debouncedColumnFilters.pct);
+    const effRange = numberColumnFilter(debouncedColumnFilters.eff);
+    const graduationYearRange = numberColumnFilter(debouncedColumnFilters.graduationYear);
     return {
-      nid: textColumnFilter(columnFilters.nid),
-      seatingNumber: textColumnFilter(columnFilters.seatingNumber),
-      name: textColumnFilter(columnFilters.name),
+      nid: textColumnFilter(debouncedColumnFilters.nid),
+      seatingNumber: textColumnFilter(debouncedColumnFilters.seatingNumber),
+      name: textColumnFilter(debouncedColumnFilters.name),
       totalMin: totalRange?.min,
       totalMax: totalRange?.max,
       pctMin: pctRange?.min,
       pctMax: pctRange?.max,
       effMin: effRange?.min,
       effMax: effRange?.max,
-      schoolCategoryCodes: enumColumnFilter(columnFilters.schoolCategoryCode),
-      school: textColumnFilter(columnFilters.school),
+      schoolCategoryCodes: enumColumnFilter(debouncedColumnFilters.schoolCategoryCode),
+      school: textColumnFilter(debouncedColumnFilters.school),
       graduationYearMin: graduationYearRange?.min,
       graduationYearMax: graduationYearRange?.max,
     };
-  }, [columnFilters]);
+  }, [debouncedColumnFilters]);
 
   const activeColumnFilterCount = useMemo(
     () => Object.values(columnFilters).filter(isFilterActive).length,
     [columnFilters],
   );
 
-  const { data: paginatedData, isLoading } = useApplicantGradesList({
+  const {
+    data: paginatedData,
+    error: gradesLoadError,
+    isError: isGradesLoadError,
+    isLoading,
+    refetch: refetchGrades,
+  } = useApplicantGradesList({
     page,
     pageSize,
     search: qFromUrl,
@@ -254,27 +288,26 @@ export function ApplicantGradesPage(): JSX.Element {
     columnFilters: gradeColumnFilters,
     changedOnly,
   });
-  /* Keep the unpaginated query alive so the stats strip + overlay
-   * drawers have the full set of rows to render against. */
-  const { data: allRows } = useGrades();
-
   const rows = paginatedData?.rows ?? [];
   const total = paginatedData?.total ?? 0;
   const derived = useMemo<DerivedRow[]>(() => rows.map(deriveRow), [rows]);
-  const totalsAll = allRows?.length ?? 0;
-  const generalCount = (allRows ?? []).filter((r) => r.kind === 'general').length;
-  const azharCount = (allRows ?? []).filter((r) => r.kind === 'azhar').length;
-  const withAdjCount = (allRows ?? []).filter((r) => r.log.some((x) => x.isActive)).length;
+  const summary = paginatedData?.summary;
+  const totalsAll = summary?.total ?? total;
+  const generalCount = summary?.general ?? 0;
+  const azharCount = summary?.azhar ?? 0;
+  const withAdjCount = summary?.withAdjustments ?? 0;
 
   /* Branch + year filter options are derived from rows actually present
    * in the dataset. The year filter is back-padded with the last 10
    * years so newly-uploaded datasets always have a usable range even
    * before any row carries a real graduationYear. */
   const branchOptions = useMemo<string[]>(() => {
+    const fromBackend = paginatedData?.facets?.branches;
+    if (fromBackend && fromBackend.length > 0) return fromBackend;
     const set = new Set<string>();
-    for (const r of allRows ?? []) if (r.branch) set.add(r.branch);
+    for (const r of rows) if (r.branch) set.add(r.branch);
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'ar'));
-  }, [allRows]);
+  }, [paginatedData?.facets?.branches, rows]);
 
   /* Year filter options come from the admin-managed `graduation-years`
    * lookup (active rows only). Falling back to the years actually
@@ -289,13 +322,13 @@ export function ApplicantGradesPage(): JSX.Element {
       if (r.isActive && Number.isFinite(r.year)) set.add(r.year);
     }
     if (set.size === 0) {
-      for (const r of allRows ?? []) {
+      for (const r of rows) {
         if (typeof r.graduationYear === 'number') set.add(r.graduationYear);
       }
       set.add(new Date().getFullYear());
     }
     return Array.from(set).sort((a, b) => b - a);
-  }, [allRows, graduationYearsQuery.data]);
+  }, [rows, graduationYearsQuery.data]);
 
   function setFilter(key: 'gender' | 'branch' | 'year' | 'school', value: string): void {
     setSearchParams(
@@ -332,6 +365,55 @@ export function ApplicantGradesPage(): JSX.Element {
   const activeSearchCount = qFromUrl.trim() !== '' ? 1 : 0;
   const activeTotalFilterCount = activeFilterCount + activeSearchCount + activeColumnFilterCount;
   const hasActiveFilters = activeTotalFilterCount > 0;
+  const activeFilterChips = useMemo(() => {
+    const chips: { key: string; label: string; value: string; tone: 'info' | 'warning' }[] = [];
+    if (qFromUrl.trim() !== '') {
+      chips.push({ key: 'q', label: 'بحث', value: qFromUrl.trim(), tone: 'info' });
+    }
+    if (genderFromUrl !== 'all') {
+      chips.push({
+        key: 'gender',
+        label: 'النوع',
+        value: genderFromUrl === 'female' ? 'أنثى' : 'ذكر',
+        tone: 'info',
+      });
+    }
+    if (branchFromUrl !== 'all') {
+      chips.push({ key: 'branch', label: 'الشعبة', value: branchFromUrl, tone: 'info' });
+    }
+    if (yearFromUrl !== 'all') {
+      chips.push({ key: 'year', label: 'سنة التخرج', value: String(yearFromUrl), tone: 'info' });
+    }
+    if (schoolCategoryFromUrl !== 'all') {
+      chips.push({
+        key: 'school',
+        label: 'فئة المدرسة',
+        value: schoolCategoryLabel.get(schoolCategoryFromUrl) ?? schoolCategoryFromUrl,
+        tone: 'info',
+      });
+    }
+    if (changedOnly) {
+      chips.push({ key: 'changed', label: 'النطاق', value: 'درجات معدّلة فقط', tone: 'warning' });
+    }
+    if (activeColumnFilterCount > 0) {
+      chips.push({
+        key: 'columns',
+        label: 'أعمدة',
+        value: `${activeColumnFilterCount.toLocaleString('en')} تصفية`,
+        tone: 'info',
+      });
+    }
+    return chips;
+  }, [
+    activeColumnFilterCount,
+    branchFromUrl,
+    changedOnly,
+    genderFromUrl,
+    qFromUrl,
+    schoolCategoryFromUrl,
+    schoolCategoryLabel,
+    yearFromUrl,
+  ]);
 
   function clearAllFilters(): void {
     setSearchInput('');
@@ -376,14 +458,6 @@ export function ApplicantGradesPage(): JSX.Element {
 
   function handleColumnFiltersChange(nextFilters: Record<string, ColumnFilterValue>): void {
     setColumnFilters(nextFilters);
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('page', '1');
-        return next;
-      },
-      { replace: true },
-    );
   }
 
   async function handleExport(scope: 'page' | 'all', format: 'csv' | 'xlsx'): Promise<void> {
@@ -468,7 +542,8 @@ export function ApplicantGradesPage(): JSX.Element {
 
   async function handleReset(): Promise<void> {
     try {
-      await clearMut.mutateAsync();
+      const result = await clearMut.mutateAsync();
+      await refetchGrades();
       setConfirmReset(false);
       setSearchInput('');
       setColumnFilters({});
@@ -481,7 +556,11 @@ export function ApplicantGradesPage(): JSX.Element {
         },
         { replace: true },
       );
-      toast('تم تصفير البيانات.', 'success');
+      if (result.deleted > 0) {
+        toast(`تم تصفير ${result.deleted.toLocaleString('en')} صفًا من البيانات.`, 'success');
+      } else {
+        toast('لا توجد صفوف غير محذوفة لتصفيرها.', 'warning');
+      }
     } catch {
       toast('تعذّر تصفير البيانات. حاول مرة أخرى.', 'danger');
     }
@@ -523,7 +602,7 @@ export function ApplicantGradesPage(): JSX.Element {
 
   const activeRow =
     overlay && 'seat' in overlay
-      ? (allRows ?? []).find((r) => r.seat === overlay.seat)
+      ? rows.find((r) => r.seat === overlay.seat)
       : null;
   const activeDerived = activeRow ? deriveRow(activeRow) : null;
 
@@ -635,7 +714,7 @@ export function ApplicantGradesPage(): JSX.Element {
     },
     {
       key: 'schoolCategoryCode',
-      label: 'النوع',
+      label: 'فئة المدرسة',
       align: 'center',
       sortable: true,
       getSortValue: (r) => r.schoolCategoryCode ?? '',
@@ -698,6 +777,16 @@ export function ApplicantGradesPage(): JSX.Element {
   ];
 
   const isEmpty = totalsAll === 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  useEffect(() => {
+    const hasDebouncedColumnFilters = Object.values(debouncedColumnFilters).some(isFilterActive);
+    if (hasDebouncedColumnFilters && page !== 1) setPage(1);
+  }, [debouncedColumnFilters, page]);
 
   if (isLoading && !paginatedData) {
     return (
@@ -711,9 +800,29 @@ export function ApplicantGradesPage(): JSX.Element {
     );
   }
 
+  if (isGradesLoadError && !paginatedData) {
+    return (
+      <div>
+        <PageHeader
+          title="درجات الثانوية العامة والأزهرية"
+          subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
+        />
+        <Card>
+          <CardBody>
+            <ErrorState
+              error={gradesLoadError}
+              title="تعذر تحميل درجات الطلاب"
+              description="حدث خطأ أثناء تحميل بيانات الدرجات. لم يتم حذف البيانات، ويمكن إعادة المحاولة بعد لحظات."
+              onRetry={() => void refetchGrades()}
+            />
+          </CardBody>
+        </Card>
+      </div>
+    );
+  }
+
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div>
@@ -721,64 +830,7 @@ export function ApplicantGradesPage(): JSX.Element {
         title="درجات الثانوية العامة والأزهرية"
         subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         actions={
-          <>
-            <Button
-              variant="ghost"
-              leadingIcon={<FileText size={14} strokeWidth={1.75} />}
-              onClick={() => void downloadTemplateWorkbook()}
-            >
-              تنزيل نموذج الدرجات
-            </Button>
-            <Button
-              variant="ghost"
-              leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
-              onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
-            >
-              عرض تعديلات الدرجات
-            </Button>
-            {!isEmpty && (
-              <DropdownMenu>
-                <DropdownMenu.Trigger asChild>
-                  <Button
-                    variant="secondary"
-                    leadingIcon={<Download size={14} strokeWidth={1.75} />}
-                    disabled={exporting}
-                  >
-                    تصدير الدرجات
-                  </Button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content sideOffset={6}>
-                  <DropdownMenu.Item
-                    leadingIcon={<SheetIcon size={14} strokeWidth={1.75} aria-hidden />}
-                    onSelect={() => void handleExport('all', 'csv')}
-                  >
-                    تصدير كل البيانات (CSV)
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    leadingIcon={<SheetIcon size={14} strokeWidth={1.75} aria-hidden />}
-                    onSelect={() => void handleExport('all', 'xlsx')}
-                  >
-                    تصدير كل البيانات (XLSX)
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item
-                    leadingIcon={<FileText size={14} strokeWidth={1.75} aria-hidden />}
-                    onSelect={() => void handleExport('page', 'csv')}
-                  >
-                    تصدير الصفحة الحالية (CSV)
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu>
-            )}
-            {!isEmpty && (
-              <Button
-                variant="ghost"
-                leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
-                onClick={() => setConfirmReset(true)}
-                className="!text-terra-700 hover:!bg-terra-50"
-              >
-                تصفير البيانات
-              </Button>
-            )}
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               variant="primary"
               leadingIcon={<Upload size={14} strokeWidth={1.75} />}
@@ -786,7 +838,70 @@ export function ApplicantGradesPage(): JSX.Element {
             >
               استيراد ملف
             </Button>
-          </>
+            <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-card/80 p-1">
+              {!isEmpty && (
+                <DropdownMenu>
+                  <DropdownMenu.Trigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leadingIcon={<Download size={14} strokeWidth={1.75} />}
+                      disabled={exporting}
+                    >
+                      تصدير
+                    </Button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content sideOffset={6}>
+                    <DropdownMenu.Item
+                      leadingIcon={<SheetIcon size={14} strokeWidth={1.75} aria-hidden />}
+                      onSelect={() => void handleExport('all', 'csv')}
+                    >
+                      كل البيانات (CSV)
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      leadingIcon={<SheetIcon size={14} strokeWidth={1.75} aria-hidden />}
+                      onSelect={() => void handleExport('all', 'xlsx')}
+                    >
+                      كل البيانات (XLSX)
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      leadingIcon={<FileText size={14} strokeWidth={1.75} aria-hidden />}
+                      onSelect={() => void handleExport('page', 'csv')}
+                    >
+                      الصفحة الحالية (CSV)
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<FileText size={14} strokeWidth={1.75} />}
+                onClick={() => void downloadTemplateWorkbook()}
+              >
+                النموذج
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<ListChecks size={14} strokeWidth={1.75} />}
+                onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
+              >
+                التعديلات
+              </Button>
+              {!isEmpty && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
+                  onClick={() => setConfirmReset(true)}
+                  className="!text-terra-700 hover:!bg-terra-50 focus-visible:!shadow-focus-terra"
+                >
+                  تصفير
+                </Button>
+              )}
+            </div>
+          </div>
         }
       />
 
@@ -827,19 +942,20 @@ export function ApplicantGradesPage(): JSX.Element {
           </div>
 
           <Card>
-            <CardBody className="card-body">
-              <div className="filters">
-                <div className="search flex-1" style={{ minInlineSize: 360 }}>
+            <CardBody className="space-y-4 p-4 md:p-5">
+              <div className="grid gap-3 xl:grid-cols-[minmax(280px,1fr)_repeat(3,minmax(130px,170px))]">
+                <label className="search m-0 min-w-0">
+                  <span className="sr-only">بحث بالاسم أو الرقم القومي أو رقم الجلوس</span>
                   <input
                     className="input"
                     type="search"
                     placeholder="بحث بالاسم / الرقم القومي / رقم الجلوس"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    aria-label="بحث"
+                    aria-label="بحث بالاسم أو الرقم القومي أو رقم الجلوس"
                   />
                   <Search size={18} />
-                </div>
+                </label>
                 <Select
                   aria-label="تصفية حسب النوع"
                   value={genderFromUrl}
@@ -850,7 +966,7 @@ export function ApplicantGradesPage(): JSX.Element {
                     { value: 'male', label: 'ذكر' },
                     { value: 'female', label: 'أنثى' },
                   ]}
-                  containerClassName="min-w-[130px]"
+                  containerClassName="min-w-0"
                 />
                 <Select
                   aria-label="تصفية حسب الشعبة"
@@ -861,7 +977,7 @@ export function ApplicantGradesPage(): JSX.Element {
                     { value: 'all', label: 'كل الشعب' },
                     ...branchOptions.map((b) => ({ value: b, label: b })),
                   ]}
-                  containerClassName="min-w-[150px]"
+                  containerClassName="min-w-0"
                 />
                 <Select
                   aria-label="تصفية حسب سنة التخرج"
@@ -872,8 +988,11 @@ export function ApplicantGradesPage(): JSX.Element {
                     { value: 'all', label: 'كل السنوات' },
                     ...yearOptions.map((y) => ({ value: String(y), label: String(y) })),
                   ]}
-                  containerClassName="min-w-[140px]"
+                  containerClassName="min-w-0"
                 />
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-[minmax(260px,1fr)_auto] xl:items-center">
                 <Select
                   aria-label="تصفية حسب فئة المدرسة"
                   value={schoolCategoryFromUrl}
@@ -885,47 +1004,56 @@ export function ApplicantGradesPage(): JSX.Element {
                     { value: 'all', label: 'كل فئات المدرسة' },
                     ...activeSchoolCategories.map((c) => ({ value: c.code, label: c.name })),
                   ]}
-                  containerClassName="flex-[0_0_380px]"
+                  containerClassName="min-w-0"
                 />
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={changedOnly}
-                  onClick={() => setChangedOnly(!changedOnly)}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-                  style={{
-                    background: changedOnly ? 'var(--gold-500)' : 'var(--surface-card)',
-                    color: changedOnly ? 'var(--text-inverse)' : 'var(--ink-700)',
-                    borderColor: changedOnly ? 'var(--gold-500)' : 'var(--border-default)',
-                  }}
-                  title="تصفية الطلاب الذين تم تعديل درجاتهم"
-                >
-                  <ListChecks size={12} strokeWidth={1.75} aria-hidden />
-                  درجات معدّلة فقط
-                </button>
-                {changedOnly && (
-                  <a
-                    href={ROUTES.admin.applicantGradesChanges}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate(ROUTES.admin.applicantGradesChanges);
-                    }}
-                    className="text-2xs text-teal-700 underline-offset-2 hover:underline"
-                  >
-                    عرض صفحة تعديلات الدرجات
-                  </a>
-                )}
-                {hasActiveFilters && (
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={clearAllFilters}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-full border-0 bg-transparent px-2 py-0.5 text-2xs text-teal-700 hover:bg-teal-50"
+                    role="switch"
+                    aria-checked={changedOnly}
+                    onClick={() => setChangedOnly(!changedOnly)}
+                    className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border-default bg-surface-card px-3 text-xs font-medium text-ink-700 transition-colors hover:border-gold-500 hover:bg-gold-50 focus-visible:outline-none focus-visible:shadow-focus-teal data-[active=true]:border-gold-500 data-[active=true]:bg-gold-500 data-[active=true]:text-white"
+                    data-active={changedOnly}
+                    title="تصفية الطلاب الذين تم تعديل درجاتهم"
                   >
-                    <X size={11} strokeWidth={1.75} aria-hidden /> مسح التصفية
+                    <ListChecks size={13} strokeWidth={1.75} aria-hidden />
+                    درجات معدّلة فقط
                   </button>
-                )}
-                <div className="ms-auto flex flex-wrap items-center justify-end gap-2 self-center text-2xs text-ink-500">
-                  {hasActiveFilters && (
+                  {changedOnly && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      leadingIcon={<ListChecks size={13} strokeWidth={1.75} aria-hidden />}
+                      onClick={() => navigate(ROUTES.admin.applicantGradesChanges)}
+                    >
+                      صفحة التعديلات
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-ink-50 px-3 py-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-700">
+                    <Info size={13} strokeWidth={1.75} aria-hidden />
+                    <span>عرض</span>
+                    <span className="font-numeric tabular-nums text-ink-900">
+                      {total.toLocaleString('en')}
+                    </span>
+                    <span>من</span>
+                    <span className="font-numeric tabular-nums text-ink-900">
+                      {totalsAll.toLocaleString('en')}
+                    </span>
+                    <span>صف</span>
+                  </span>
+                  {activeFilterChips.map((chip) => (
+                    <Badge key={chip.key} tone={chip.tone}>
+                      <span className="text-ink-500">{chip.label}</span>
+                      <span className="ms-1 me-1 text-ink-300">/</span>
+                      <span className="max-w-[22ch] truncate">{chip.value}</span>
+                    </Badge>
+                  ))}
+                  {hasActiveFilters && activeFilterChips.length === 0 && (
                     <Badge tone="info">
                       <span className="font-numeric tabular-nums">
                         {activeTotalFilterCount.toLocaleString('en')}
@@ -933,18 +1061,18 @@ export function ApplicantGradesPage(): JSX.Element {
                       تصفية مفعلة
                     </Badge>
                   )}
-                  <span>
-                    عرض{' '}
-                    <span className="font-numeric font-medium tabular-nums text-ink-700">
-                      {total.toLocaleString('en')}
-                    </span>{' '}
-                    من{' '}
-                    <span className="font-numeric font-medium tabular-nums text-ink-700">
-                      {totalsAll.toLocaleString('en')}
-                    </span>{' '}
-                    صف
-                  </span>
                 </div>
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    leadingIcon={<X size={12} strokeWidth={1.75} aria-hidden />}
+                    onClick={clearAllFilters}
+                    className="shrink-0"
+                  >
+                    مسح التصفية
+                  </Button>
+                )}
               </div>
 
               {selectedRowKeys.length > 0 && (
@@ -1019,7 +1147,7 @@ export function ApplicantGradesPage(): JSX.Element {
                 <div className="flex items-center gap-1">
                   <Button
                     size="sm"
-                    variant="ghost"
+                    variant="secondary"
                     onClick={() => setPage(page - 1)}
                     disabled={page <= 1}
                     aria-label="الصفحة السابقة"
@@ -1029,9 +1157,10 @@ export function ApplicantGradesPage(): JSX.Element {
                   <span className="px-2 font-en">
                     {page} / {totalPages}
                   </span>
+                  <PageJump currentPage={page} totalPages={totalPages} onChange={setPage} />
                   <Button
                     size="sm"
-                    variant="ghost"
+                    variant="secondary"
                     onClick={() => setPage(page + 1)}
                     disabled={page >= totalPages}
                     aria-label="الصفحة التالية"
@@ -1053,11 +1182,21 @@ export function ApplicantGradesPage(): JSX.Element {
         title="تصفير بيانات الدرجات"
         description={`سيتم حذف جميع الصفوف المستوردة وما عليها من تعديلات (${toEasternArabicNumerals(totalsAll)} صفًا). لا يمكن التراجع.`}
         actionLabel="تصفير البيانات"
+        actionLoadingLabel="جارٍ تصفير البيانات…"
         cancelLabel="إلغاء"
         tone="danger"
         isActionLoading={clearMut.isPending}
         onAction={() => void handleReset()}
-      />
+      >
+        {clearMut.isPending && (
+          <DeleteProgressPanel
+            progress={clearProgress}
+            totalRows={totalsAll}
+            title="جارٍ حذف بيانات الدرجات"
+            description="يبقى هذا التأكيد مفتوحًا حتى ينتهي الخادم من حذف الصفوف والتعديلات المرتبطة بها."
+          />
+        )}
+      </AlertDialog>
 
       <AlertDialog
         open={confirmBulkDelete}
@@ -1067,12 +1206,22 @@ export function ApplicantGradesPage(): JSX.Element {
         title="حذف الصفوف المحددة"
         description={`سيتم حذف ${toEasternArabicNumerals(selectedRowKeys.length)} صفًا من النتائج الحالية. لا يمكن التراجع.`}
         actionLabel="حذف المحدد"
+        actionLoadingLabel="جارٍ حذف المحدد…"
         cancelLabel="إلغاء"
         tone="danger"
         isActionLoading={deleteMut.isPending}
         isActionDisabled={selectedRowKeys.length === 0 || total === 0}
         onAction={() => void handleBulkDelete()}
-      />
+      >
+        {deleteMut.isPending && (
+          <DeleteProgressPanel
+            progress={selectedDeleteProgress}
+            totalRows={selectedRowKeys.length}
+            title="جارٍ حذف الصفوف المحددة"
+            description="سيتم تحديث الجدول تلقائيًا بعد اكتمال الحذف."
+          />
+        )}
+      </AlertDialog>
 
       {activeDerived && (
         <>
@@ -1096,6 +1245,62 @@ export function ApplicantGradesPage(): JSX.Element {
           />
         </>
       )}
+    </div>
+  );
+}
+
+function DeleteProgressPanel({
+  progress,
+  totalRows,
+  title,
+  description,
+}: {
+  progress: number;
+  totalRows: number;
+  title: string;
+  description: string;
+}): JSX.Element {
+  const boundedProgress = Math.min(99, Math.max(0, progress));
+
+  return (
+    <div
+      className="rounded-lg border border-terra-100 bg-terra-50/70 p-3"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface-card text-terra-700">
+          <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-ink-900">{title}</p>
+            <span className="font-en text-xs tabular-nums text-terra-700" dir="ltr">
+              {boundedProgress}%
+            </span>
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-ink-600">{description}</p>
+          <div
+            className="mt-3 h-2 overflow-hidden rounded-full bg-surface-card"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={boundedProgress}
+          >
+            <div
+              className="h-full rounded-full bg-terra-500 transition-[width] duration-slow ease-standard"
+              style={{ width: `${boundedProgress}%` }}
+            />
+          </div>
+          <p className="mt-2 text-2xs text-ink-500">
+            نطاق العملية:{' '}
+            <span className="font-numeric font-medium tabular-nums text-ink-800">
+              {toEasternArabicNumerals(totalRows)}
+            </span>{' '}
+            صف.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1279,6 +1484,70 @@ function PageSizeSelector({
           dir="ltr"
         />
       )}
+    </div>
+  );
+}
+
+/** Direct page navigation for large imported-grade datasets. Keeps the
+ *  previous/next buttons fast while letting staff jump to a known page. */
+function PageJump({
+  currentPage,
+  totalPages,
+  onChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+}): JSX.Element {
+  const [draft, setDraft] = useState(String(currentPage));
+
+  useEffect(() => {
+    setDraft(String(currentPage));
+  }, [currentPage]);
+
+  const commit = (): void => {
+    const next = Number(draft);
+    if (!Number.isFinite(next) || !Number.isInteger(next)) {
+      setDraft(String(currentPage));
+      return;
+    }
+    const clamped = Math.min(totalPages, Math.max(1, next));
+    setDraft(String(clamped));
+    if (clamped !== currentPage) onChange(clamped);
+  };
+
+  return (
+    <div className="mx-1 inline-flex items-center gap-1 rounded-md border border-border-default bg-ink-50 px-1.5 py-1">
+      <label htmlFor="applicant-grades-page-jump" className="text-2xs text-ink-500">
+        صفحة
+      </label>
+      <input
+        id="applicant-grades-page-jump"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={totalPages}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          }
+        }}
+        aria-label="الانتقال إلى رقم صفحة"
+        className="h-7 w-16 rounded-sm border border-border-default bg-surface-card px-2 text-center text-sm font-en tabular-nums text-ink-900 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
+        dir="ltr"
+      />
+      <button
+        type="button"
+        onClick={commit}
+        disabled={totalPages <= 1}
+        className="h-7 rounded-sm px-2 text-2xs font-medium text-teal-700 transition-colors hover:bg-teal-50 disabled:cursor-not-allowed disabled:text-ink-300 focus-visible:outline-none focus-visible:shadow-focus-teal"
+      >
+        انتقال
+      </button>
     </div>
   );
 }

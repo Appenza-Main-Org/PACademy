@@ -22,12 +22,14 @@ import {
 } from '../api/reports.queries';
 import { CycleOverviewSection } from '../components/reports/CycleOverviewSection';
 import { DepartmentBreakdownSection } from '../components/reports/DepartmentBreakdownSection';
+import { DecisionBriefSection } from '../components/reports/DecisionBriefSection';
 import { GovernanceSection } from '../components/reports/GovernanceSection';
 import { OperationalStatusSection } from '../components/reports/OperationalStatusSection';
 import { RangeChips, type TimeRange } from '../components/reports/RangeChips';
 import { ReportsExportRow } from '../components/reports/ReportsExportRow';
 import { StagePipelineFunnel } from '../components/reports/StagePipelineFunnel';
 import { StatusPulseStrip } from '../components/reports/StatusPulseStrip';
+import { SuperAdminSignalsSection } from '../components/reports/SuperAdminSignalsSection';
 import { TestResultsSection } from '../components/reports/TestResultsSection';
 
 const PRINT_CSS = `
@@ -75,6 +77,29 @@ export function ReportsPage(): JSX.Element {
         <StatusPulseStrip snapshot={cycle.data} integrations={integrations.data} />
       ) : (
         <LoadingState variant="kpi" />
+      )}
+
+      {cycle.data && funnel.data && operational.data && governance.data && integrations.data ? (
+        <DecisionBriefSection
+          snapshot={cycle.data}
+          funnel={funnel.data}
+          operational={operational.data}
+          governance={governance.data}
+          integrations={integrations.data}
+          range={range}
+        />
+      ) : (
+        <LoadingState variant="card-grid" count={3} />
+      )}
+
+      {funnel.data && operational.data && governance.data ? (
+        <SuperAdminSignalsSection
+          funnel={funnel.data}
+          operational={operational.data}
+          governance={governance.data}
+        />
+      ) : (
+        <LoadingState variant="card-grid" count={5} />
       )}
 
       {cycle.data ? (

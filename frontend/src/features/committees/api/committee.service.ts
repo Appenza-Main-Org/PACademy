@@ -16,6 +16,7 @@
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { emitAudit } from '@/shared/lib/audit';
+import { apiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { ConflictError } from '@/shared/lib/errors';
 import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
 import {
@@ -27,7 +28,6 @@ import {
 } from '@/shared/lib/soft-delete';
 import type {
   Applicant,
-  ApplicantCategoryKey,
   Committee,
   CommitteeGradeType,
   CommitteeResult,
@@ -62,7 +62,7 @@ export interface CommitteePayload {
   capacityPerSession: number;
   cycleId: string;
   /** Required — every new committee declares its category. */
-  categoryKey: ApplicantCategoryKey;
+  categoryKey: string;
   /** Required — total seats (1..999). */
   capacity: number;
   /** Required — discriminates `gradeMin`/`gradeMax` interpretation. */
@@ -82,16 +82,25 @@ export interface CommitteePayload {
 
 export const committeeService = {
   async list(opts: { includeDeleted?: boolean } = {}): Promise<Committee[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get('/api/committees', { query: opts });
+    }
     await simulateLatency();
     return [...filterDeleted(COMMITTEES_STATE, opts.includeDeleted)];
   },
 
   async getById(id: string): Promise<Committee | null> {
+    if (isBackendEnabled()) {
+      return apiClient.get(`/api/committees/${encodeURIComponent(id)}`);
+    }
     await simulateLatency();
     return COMMITTEES_STATE.find((c) => c.id === id) ?? null;
   },
 
   async create(payload: CommitteePayload): Promise<Committee> {
+    if (isBackendEnabled()) {
+      return apiClient.post('/api/committees', payload);
+    }
     await simulateLatency();
     /* For the specialized_officers track, gender is always derived from
      * the committee name (see deriveCommitteeGender). The service ignores
@@ -145,6 +154,9 @@ export const committeeService = {
    * `status === 'inactive'` are filtered out.
    */
   async listAssignableFor(applicantId: string): Promise<Committee[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get(`/api/committees/assignable/${encodeURIComponent(applicantId)}`);
+    }
     await simulateLatency();
     const a = MOCK.applicants.find((x) => x.id === applicantId);
     if (!a) return [];
@@ -153,11 +165,17 @@ export const committeeService = {
   },
 
   async getApplicants(committeeName: string): Promise<Applicant[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get('/api/committees/applicants', { query: { committeeName } });
+    }
     await simulateLatency();
     return MOCK.applicants.filter((a) => a.committee === committeeName).slice(0, 50);
   },
 
   async getDailyQueue(committeeId: string): Promise<Applicant[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get(`/api/committees/${encodeURIComponent(committeeId)}/queue`);
+    }
     await simulateLatency();
     const c = COMMITTEES_STATE.find((x) => x.id === committeeId);
     if (!c) return [];
@@ -165,6 +183,9 @@ export const committeeService = {
   },
 
   async listResults(committeeId: string): Promise<CommitteeResult[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get(`/api/committees/${encodeURIComponent(committeeId)}/results`);
+    }
     await simulateLatency();
     return RESULTS_STATE.filter((r) => r.committeeId === committeeId);
   },
@@ -177,6 +198,9 @@ export const committeeService = {
     passFail: 'pass' | 'fail';
     notes?: string;
   }): Promise<CommitteeResult> {
+    if (isBackendEnabled()) {
+      return apiClient.post(`/api/committees/${encodeURIComponent(committeeId)}/results`, payload);
+    }
     await simulateLatency();
     const result: CommitteeResult = {
       id: `RES-C-${String(rId++).padStart(5, '0')}`,
@@ -195,6 +219,11 @@ export const committeeService = {
   },
 
   async approveResults(_committeeId: string, resultIds: ReadonlyArray<string>): Promise<{ approved: number; failed: number }> {
+    if (isBackendEnabled()) {
+      return apiClient.post(`/api/committees/${encodeURIComponent(_committeeId)}/results/approve`, {
+        resultIds,
+      });
+    }
     await simulateLatency(400, 800);
     let approved = 0;
     for (const id of resultIds) {
@@ -210,6 +239,9 @@ export const committeeService = {
   },
 
   async rejectResult(resultId: string, reason: string): Promise<CommitteeResult | null> {
+    if (isBackendEnabled()) {
+      return apiClient.post(`/api/committees/results/${encodeURIComponent(resultId)}/reject`, { reason });
+    }
     await simulateLatency();
     const r = RESULTS_STATE.find((x) => x.id === resultId);
     if (!r) return null;
@@ -219,6 +251,11 @@ export const committeeService = {
   },
 
   async bulkUploadResults(_committeeId: string, rows: ReadonlyArray<Record<string, unknown>>): Promise<{ imported: number; errors: { row: number; message: string }[] }> {
+    if (isBackendEnabled()) {
+      return apiClient.post(`/api/committees/${encodeURIComponent(_committeeId)}/results/bulk-upload`, {
+        rows,
+      });
+    }
     await simulateLatency(600, 1200);
     const errors: { row: number; message: string }[] = [];
     let imported = 0;
@@ -248,6 +285,9 @@ export const committeeService = {
    * emit a typed audit row with before/after.
    */
   async update(id: string, patch: Partial<Committee>): Promise<Committee> {
+    if (isBackendEnabled()) {
+      return apiClient.patch(`/api/committees/${encodeURIComponent(id)}`, patch);
+    }
     await simulateLatency();
     const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('اللجنة غير موجودة');
@@ -308,6 +348,9 @@ export const committeeService = {
     committeeId: string,
     input: { applicantId: string; dateIso: string },
   ): Promise<{ ok: true; remainingForDay: number }> {
+    if (isBackendEnabled()) {
+      return apiClient.post(`/api/committees/${encodeURIComponent(committeeId)}/schedule`, input);
+    }
     await simulateLatency();
     const c = COMMITTEES_STATE.find((x) => x.id === committeeId);
     if (!c) throw new Error('اللجنة غير موجودة');
@@ -350,6 +393,9 @@ export const committeeService = {
    *   POST   /api/committees/:id/restore
    */
   async softDelete(id: string, reason: string): Promise<Committee> {
+    if (isBackendEnabled()) {
+      return apiClient.post(`/api/committees/${encodeURIComponent(id)}/soft-delete`, { reason });
+    }
     await simulateLatency();
     const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('اللجنة غير موجودة');
@@ -372,6 +418,9 @@ export const committeeService = {
   },
 
   async restore(id: string): Promise<Committee> {
+    if (isBackendEnabled()) {
+      return apiClient.post(`/api/committees/${encodeURIComponent(id)}/restore`);
+    }
     await simulateLatency();
     const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('اللجنة غير موجودة');
@@ -397,6 +446,9 @@ export const committeeService = {
    * for it (also blocking — deleting would orphan grade records).
    */
   async getDependencies(id: string): Promise<DependencyResult> {
+    if (isBackendEnabled()) {
+      return apiClient.get(`/api/committees/${encodeURIComponent(id)}/dependencies`);
+    }
     await simulateLatency(80, 200);
     const c = COMMITTEES_STATE.find((x) => x.id === id);
     if (!c) throw new Error('اللجنة غير موجودة');
@@ -416,6 +468,9 @@ export const committeeService = {
    * or `committee_user` role only. Surfaced by the admin officer-multi-select.
    */
   async getEligibleOfficers(): Promise<{ id: string; name: string; role: string }[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get('/api/committees/eligible-officers');
+    }
     await simulateLatency(80, 160);
     return MOCK.users
       .filter((u) => u.role === 'committee_admin' || u.role === 'committee_user')
@@ -435,6 +490,9 @@ export const committeeService = {
    * (`specializationIds.includes(id)`) keep working.
    */
   async listSpecializations(): Promise<{ id: string; nameAr: string; code: string; active: boolean }[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get('/api/committees/specializations');
+    }
     await simulateLatency(60, 140);
     return MOCK.categories
       .filter((c) => !c.deletedAt)
@@ -456,6 +514,9 @@ export const committeeService = {
    *   GET /api/lookups/educationTypes?active=true
    */
   async listEducationTypes(): Promise<{ id: string; key: string; labelAr: string; isActive: boolean }[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get('/api/lookups/educationTypes', { query: { active: true } });
+    }
     await simulateLatency(60, 140);
     return MOCK.lookups['school-categories']
       .filter((l) => l.isActive)
@@ -472,6 +533,9 @@ export const committeeService = {
    *   GET /api/committees/:id/applicants
    */
   async getAssignedApplicants(committeeId: string): Promise<Applicant[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get(`/api/committees/${encodeURIComponent(committeeId)}/applicants`);
+    }
     await simulateLatency();
     const c = COMMITTEES_STATE.find((x) => x.id === committeeId);
     if (!c) return [];
@@ -483,6 +547,9 @@ export const committeeService = {
    * entry that the activity log can pick up.
    */
   async setStatus(id: string, status: CommitteeStatus): Promise<Committee> {
+    if (isBackendEnabled()) {
+      return apiClient.post(`/api/committees/${encodeURIComponent(id)}/status`, { status });
+    }
     await simulateLatency();
     const idx = COMMITTEES_STATE.findIndex((c) => c.id === id);
     if (idx === -1) throw new Error('اللجنة غير موجودة');
@@ -514,7 +581,10 @@ export const committeeService = {
    *   DELETE /committees/schedule/:id                → 204
    */
 
-  async listSchedule(categoryKey: ApplicantCategoryKey): Promise<ExamScheduleEntry[]> {
+  async listSchedule(categoryKey: string): Promise<ExamScheduleEntry[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get('/api/committees/schedule', { query: { category: categoryKey } });
+    }
     await simulateLatency(80, 160);
     /* Resolve via committee membership so the page can filter by tab
      * without storing categoryKey twice. */
@@ -541,12 +611,15 @@ export const committeeService = {
    */
   async addScheduleEntries(
     entries: ReadonlyArray<{
-      categoryKey: ApplicantCategoryKey;
+      categoryKey: string;
       committeeId: string;
       date: string;
       capacity: number;
     }>,
   ): Promise<ExamScheduleEntry[]> {
+    if (isBackendEnabled()) {
+      return apiClient.post('/api/committees/schedule', entries);
+    }
     await simulateLatency();
     const now = Date.now();
     const created: ExamScheduleEntry[] = entries.map((e, idx) => {
@@ -579,10 +652,13 @@ export const committeeService = {
   },
 
   async addScheduleBatch(input: {
-    categoryKey: ApplicantCategoryKey;
+    categoryKey: string;
     date: string;
     capacity: number;
   }): Promise<ExamScheduleEntry[]> {
+    if (isBackendEnabled()) {
+      return apiClient.post('/api/committees/schedule/batch', input);
+    }
     await simulateLatency();
     if (!Number.isInteger(input.capacity) || input.capacity < 1 || input.capacity > 999) {
       throw new ConflictError(
@@ -618,6 +694,9 @@ export const committeeService = {
     id: string,
     patch: Partial<Pick<ExamScheduleEntry, 'capacity' | 'date'>>,
   ): Promise<ExamScheduleEntry> {
+    if (isBackendEnabled()) {
+      return apiClient.patch(`/api/committees/schedule/${encodeURIComponent(id)}`, patch);
+    }
     await simulateLatency();
     const idx = MOCK.examSchedule.findIndex((e) => e.id === id);
     if (idx === -1) throw new Error('الموعد غير موجود');
@@ -651,6 +730,10 @@ export const committeeService = {
   },
 
   async removeScheduleEntry(id: string): Promise<void> {
+    if (isBackendEnabled()) {
+      await apiClient.delete(`/api/committees/schedule/${encodeURIComponent(id)}`);
+      return;
+    }
     await simulateLatency();
     const idx = MOCK.examSchedule.findIndex((e) => e.id === id);
     if (idx === -1) return;

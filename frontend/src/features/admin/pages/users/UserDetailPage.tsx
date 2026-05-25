@@ -8,9 +8,10 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Pencil, Power } from 'lucide-react';
+import { ArrowRight, Pencil, Power, ShieldCheck, ShieldOff } from 'lucide-react';
 import {
   AlertDialog,
+  Avatar,
   Badge,
   Button,
   Card,
@@ -61,6 +62,10 @@ export function UserDetailPage(): JSX.Element {
   }
 
   const isInactive = user.accountStatus === 'inactive';
+  const primaryRoleLabel =
+    user.roles.length > 0
+      ? ROLE_DEFINITIONS[user.roles[0] as Role]?.labelAr ?? user.roles[0]
+      : null;
 
   const performToggle = async (): Promise<void> => {
     if (!confirmToggle) return;
@@ -90,7 +95,7 @@ export function UserDetailPage(): JSX.Element {
     <>
       <PageHeader
         title={user.fullArabicName}
-        subtitle={`الكود: ${user.id}`}
+        subtitle={primaryRoleLabel ? `${primaryRoleLabel} · الكود ${user.id}` : `الكود: ${user.id}`}
         breadcrumbs={[
           { label: 'الإدارة', href: '#' + ROUTES.admin.dashboard },
           { label: 'المستخدمون', href: '#' + ROUTES.admin.users },
@@ -101,19 +106,9 @@ export function UserDetailPage(): JSX.Element {
             <Link to={ROUTES.admin.users} className={buttonClassName({ variant: 'ghost' })}>
               <ArrowRight size={16} className="rtl:rotate-180" /> العودة إلى القائمة
             </Link>
-            {isInactive && (
-              <Button
-                variant="primary"
-                leadingIcon={<Power size={14} strokeWidth={1.75} />}
-                onClick={() => setConfirmToggle('active')}
-                isLoading={setStatusMut.isPending}
-              >
-                تفعيل الحساب
-              </Button>
-            )}
             <Link
               to={ROUTES.admin.userEdit(user.id)}
-              className={buttonClassName({ variant: isInactive ? 'secondary' : 'primary' })}
+              className={buttonClassName({ variant: 'primary' })}
             >
               <Pencil size={14} strokeWidth={1.75} /> تعديل البيانات
             </Link>
@@ -121,48 +116,46 @@ export function UserDetailPage(): JSX.Element {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <div className="flex flex-col gap-4 p-5">
-            <h2 className="text-base font-semibold text-ink-900">بيانات الحساب</h2>
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <DefRow label="الاسم رباعياً" value={user.fullArabicName} />
-              <DefRow label="الرقم القومى" value={user.nationalId} mono />
-              <DefRow label="رمز الضابط / الكود" value={user.officerCode} mono />
-              <DefRow label="رقم المحمول" value={user.mobileNumber} mono />
-              <DefRow label="الفئة" value={USER_TYPE_LABEL[user.userType]} />
-              <DefRow label="تاريخ الإنشاء" value={fmtDate(user.createdAt, 'full')} />
-              <DefRow label="آخر تعديل" value={fmtDate(user.updatedAt, 'rel')} />
-              <DefRow label="آخر دخول" value={user.lastLogin ? fmtDate(user.lastLogin, 'rel') : 'لم يسجل بعد'} />
-            </dl>
-
-            <div className="flex flex-col gap-2">
-              <span className="text-2xs font-medium text-ink-500">الأدوار</span>
-              <div className="flex flex-wrap gap-1.5">
-                {user.roles.length === 0 && <span className="text-sm text-ink-500">—</span>}
-                {user.roles.map((r) => (
+      {/* ─── Hero: avatar · name · roles · status ─────────────────── */}
+      <Card variant="feature" withAccentBorder className="mb-4">
+        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center">
+          <Avatar size="xl" name={user.fullArabicName} />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <h2 className="font-ar-display text-lg font-semibold leading-snug text-ink-900">
+              {user.fullArabicName}
+            </h2>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {user.roles.length === 0 ? (
+                <span className="text-sm text-ink-500">— لا توجد أدوار</span>
+              ) : (
+                user.roles.map((r) => (
                   <Badge key={r} tone="brand">
                     {ROLE_DEFINITIONS[r as Role]?.labelAr ?? r}
                   </Badge>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex flex-col gap-4 p-5">
-            <h2 className="text-base font-semibold text-ink-900">الحالة</h2>
-            <div className="flex items-center gap-2">
-              {isInactive ? (
-                <Badge tone="neutral">غير نشط</Badge>
-              ) : (
-                <Badge tone="success">نشط</Badge>
+                ))
               )}
             </div>
+          </div>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            {isInactive ? (
+              <span className="inline-flex items-center gap-1.5 rounded-pill bg-ink-50 px-2.5 py-1 text-2xs font-medium text-ink-700">
+                <ShieldOff size={12} strokeWidth={2} aria-hidden /> الحساب غير نشط
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-2xs font-medium"
+                style={{ background: 'var(--accent-50)', color: 'var(--accent-700)' }}
+              >
+                <ShieldCheck size={12} strokeWidth={2} aria-hidden /> الحساب نشط
+              </span>
+            )}
+            <span className="text-2xs text-ink-500">
+              آخر دخول · {user.lastLogin ? fmtDate(user.lastLogin, 'rel') : 'لم يسجل بعد'}
+            </span>
             {isInactive && (
               <Button
                 variant="primary"
+                size="sm"
                 leadingIcon={<Power size={14} strokeWidth={1.75} />}
                 onClick={() => setConfirmToggle('active')}
                 isLoading={setStatusMut.isPending}
@@ -170,15 +163,36 @@ export function UserDetailPage(): JSX.Element {
                 تفعيل الحساب
               </Button>
             )}
-            <p className="text-2xs text-ink-500 leading-normal">
-              {isInactive
-                ? 'الحساب غير النشط لا يستطيع تسجيل الدخول حتى يُعاد تفعيله.'
-                : 'الحساب نشط — يمكن للمستخدم تسجيل الدخول حالياً.'}
-            </p>
           </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
+      {/* ─── بيانات الحساب — flat 3-col grid ──────────────────────── */}
+      <Card>
+        <div className="flex flex-col gap-4 p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-ink-900">بيانات الحساب</h2>
+            <span className="font-mono text-2xs text-ink-500" dir="ltr">
+              {user.id}
+            </span>
+          </div>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DefRow label="الاسم رباعياً" value={user.fullArabicName} />
+            <DefRow label="الرقم القومى" value={user.nationalId} mono />
+            <DefRow label="رمز الضابط / الكود" value={user.officerCode} mono />
+            <DefRow label="رقم المحمول" value={user.mobileNumber} mono />
+            <DefRow label="الفئة" value={USER_TYPE_LABEL[user.userType]} />
+            <DefRow label="تاريخ الإنشاء" value={fmtDate(user.createdAt, 'full')} />
+            <DefRow label="آخر تعديل" value={fmtDate(user.updatedAt, 'rel')} />
+            <DefRow
+              label="آخر دخول"
+              value={user.lastLogin ? fmtDate(user.lastLogin, 'rel') : 'لم يسجل بعد'}
+            />
+          </dl>
+        </div>
+      </Card>
+
+      {/* ─── سجل النشاط ────────────────────────────────────────── */}
       <Card className="mt-4">
         <div className="flex flex-col gap-3 p-5">
           <div className="flex items-center justify-between">
@@ -200,16 +214,12 @@ export function UserDetailPage(): JSX.Element {
                   className="flex flex-col rounded-md border border-border-subtle bg-surface-card px-3 py-2"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-ink-900">
-                      {entry.actionLabel}
-                    </span>
+                    <span className="text-sm font-medium text-ink-900">{entry.actionLabel}</span>
                     <span className="text-2xs text-ink-500">{fmtDate(entry.timestamp, 'rel')}</span>
                   </div>
                   <p className="mt-1 text-sm text-ink-700">{entry.details}</p>
                   {entry.userName && (
-                    <p className="mt-0.5 text-2xs text-ink-500">
-                      {entry.userName}
-                    </p>
+                    <p className="mt-0.5 text-2xs text-ink-500">{entry.userName}</p>
                   )}
                 </li>
               ))}
@@ -234,8 +244,8 @@ export function UserDetailPage(): JSX.Element {
 
 function DefRow({ label, value, mono }: { label: string; value: string; mono?: boolean }): JSX.Element {
   return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-2xs font-medium text-ink-500">{label}</dt>
+    <div className="flex flex-col gap-0.5 border-b border-dashed border-border-subtle pb-3 sm:border-0 sm:pb-0">
+      <dt className="text-2xs font-medium uppercase tracking-wide text-ink-500">{label}</dt>
       <dd
         className="text-sm font-medium text-ink-900"
         dir={mono ? 'ltr' : undefined}

@@ -1,16 +1,10 @@
 import { Outlet } from 'react-router-dom';
-import { Activity, BookOpen, ChartBar, FileText, Grid3x3, Pencil } from 'lucide-react';
+import { Activity, BookOpen, ChartBar, FileText, Pencil } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
 
 const SIDEBAR: SidebarSection[] = [
-  {
-    label: 'التنقل',
-    items: [
-      { key: 'hub', label: 'كل التطبيقات', icon: <Grid3x3 size={18} />, to: ROUTES.hub },
-    ],
-  },
   {
     label: 'بنك الأسئلة',
     items: [

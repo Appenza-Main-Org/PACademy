@@ -1,30 +1,33 @@
 /**
  * Exams / Question Bank API — Sprint 7 (RFP Scope Document §9).
  *
- * INTEGRATION CONTRACT:
+ * INTEGRATION CONTRACT (backend default; mock fallback when VITE_USE_MOCKS=true):
  *   GET    /api/questions?status=&category=                  → BankQuestion[]
  *   GET    /api/questions/:id                                → BankQuestion
  *   POST   /api/questions                                    → BankQuestion (draft)
- *   POST   /api/questions/batch                              → BatchCreateResult (bulk import)
+ *   POST   /api/questions/batch                              → BatchCreateResult
  *   PATCH  /api/questions/:id                                → BankQuestion (++version)
  *   POST   /api/questions/:id/publish                        → BankQuestion (status: live)
+ *   GET    /api/exams/categories                             → { name, count }[]
  *   GET    /api/exams                                        → ExamConfig[]
  *   GET    /api/exams/:id                                    → ExamConfig
  *   POST   /api/exams                                        → ExamConfig
  *   POST   /api/exams/:id/publish                            → ExamConfig (published)
  *   POST   /api/exams/:id/take/start                         → ExamAttempt
- *   POST   /api/exams/:id/take/submit                        → ExamAttempt (auto-graded)
+ *   POST   /api/exams/attempts/:attemptId/submit             → ExamAttempt (auto-graded)
  *   GET    /api/exams/:id/attempts                           → ExamAttempt[]
+ *   GET    /api/exams/:id/conflict?applicantId=…             → { ok, reason? }
  *   GET    /api/exams/:id/sessions/live                      → LiveSessionsResponse
- *   GET    /api/exams/categories                             → category counts
  */
 
+import { apiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import type {
   BankQuestion,
   BatchCreateResult,
   ExamAttempt,
+  ExamAnswer,
   ExamConfig,
   ExamSession,
   LiveSessionsResponse,
@@ -42,8 +45,29 @@ let qId = QS_STATE.length + 1;
 let eId = EX_STATE.length + 1;
 let aId = ATT_STATE.length + 1;
 
+function isMatchingAnswer(answer: ExamAnswer | undefined): answer is Record<string, string> {
+  return Boolean(answer && typeof answer === 'object' && !Array.isArray(answer));
+}
+
+function isQuestionCorrect(question: BankQuestion, answer: ExamAnswer | undefined): boolean {
+  if (question.type === 'matching') {
+    if (!question.matchingPairs || question.matchingPairs.length === 0 || !isMatchingAnswer(answer)) return false;
+    return question.matchingPairs.every((pair) => answer[pair.prompt] === pair.match);
+  }
+
+  return typeof answer === 'number' && answer === question.correctIndex;
+}
+
 export const examsService = {
   async listQuestions(filters: { status?: QuestionStatus | 'all'; category?: string | 'all' } = {}): Promise<BankQuestion[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<BankQuestion[]>('/api/questions', {
+        query: {
+          status: filters.status ?? undefined,
+          category: filters.category ?? undefined,
+        },
+      });
+    }
     await simulateLatency();
     let out = QS_STATE;
     if (filters.status && filters.status !== 'all') out = out.filter((q) => q.status === filters.status);
@@ -52,11 +76,21 @@ export const examsService = {
   },
 
   async getQuestion(id: string): Promise<BankQuestion | null> {
+    if (isBackendEnabled()) {
+      try {
+        return await apiClient.get<BankQuestion>(`/api/questions/${encodeURIComponent(id)}`);
+      } catch {
+        return null;
+      }
+    }
     await simulateLatency();
     return QS_STATE.find((q) => q.id === id) ?? null;
   },
 
   async createQuestion(payload: Omit<BankQuestion, 'id' | 'status' | 'version'>): Promise<BankQuestion> {
+    if (isBackendEnabled()) {
+      return apiClient.post<BankQuestion>('/api/questions', payload);
+    }
     await simulateLatency();
     const next: BankQuestion = {
       ...payload,
@@ -69,6 +103,13 @@ export const examsService = {
   },
 
   async updateQuestion(id: string, patch: Partial<BankQuestion>): Promise<BankQuestion | null> {
+    if (isBackendEnabled()) {
+      try {
+        return await apiClient.patch<BankQuestion>(`/api/questions/${encodeURIComponent(id)}`, patch);
+      } catch {
+        return null;
+      }
+    }
     await simulateLatency();
     const i = QS_STATE.findIndex((q) => q.id === id);
     if (i === -1) return null;
@@ -77,10 +118,20 @@ export const examsService = {
   },
 
   async publishQuestion(id: string): Promise<BankQuestion | null> {
+    if (isBackendEnabled()) {
+      try {
+        return await apiClient.post<BankQuestion>(`/api/questions/${encodeURIComponent(id)}/publish`);
+      } catch {
+        return null;
+      }
+    }
     return examsService.updateQuestion(id, { status: 'live' });
   },
 
   async getCategories(): Promise<Array<{ name: string; count: number }>> {
+    if (isBackendEnabled()) {
+      return apiClient.get<Array<{ name: string; count: number }>>('/api/exams/categories');
+    }
     await simulateLatency();
     const counts = new Map<string, number>();
     for (const q of QS_STATE) counts.set(q.category, (counts.get(q.category) ?? 0) + 1);
@@ -88,16 +139,29 @@ export const examsService = {
   },
 
   async listExams(): Promise<ExamConfig[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<ExamConfig[]>('/api/exams');
+    }
     await simulateLatency();
     return [...EX_STATE];
   },
 
   async getExam(id: string): Promise<ExamConfig | null> {
+    if (isBackendEnabled()) {
+      try {
+        return await apiClient.get<ExamConfig>(`/api/exams/${encodeURIComponent(id)}`);
+      } catch {
+        return null;
+      }
+    }
     await simulateLatency();
     return EX_STATE.find((e) => e.id === id) ?? null;
   },
 
   async createExam(payload: Omit<ExamConfig, 'id' | 'status'>): Promise<ExamConfig> {
+    if (isBackendEnabled()) {
+      return apiClient.post<ExamConfig>('/api/exams', payload);
+    }
     await simulateLatency();
     const next: ExamConfig = { ...payload, id: `EXAM-${String(eId++).padStart(4, '0')}`, status: 'draft' };
     EX_STATE.unshift(next);
@@ -105,6 +169,13 @@ export const examsService = {
   },
 
   async publishExam(id: string): Promise<ExamConfig | null> {
+    if (isBackendEnabled()) {
+      try {
+        return await apiClient.post<ExamConfig>(`/api/exams/${encodeURIComponent(id)}/publish`);
+      } catch {
+        return null;
+      }
+    }
     await simulateLatency();
     const e = EX_STATE.find((x) => x.id === id);
     if (!e) return null;
@@ -113,6 +184,9 @@ export const examsService = {
   },
 
   async startAttempt(examId: string, applicantId: string): Promise<ExamAttempt> {
+    if (isBackendEnabled()) {
+      return apiClient.post<ExamAttempt>(`/api/exams/${encodeURIComponent(examId)}/take/start`, { applicantId });
+    }
     await simulateLatency();
     const next: ExamAttempt = {
       id: `ATT-${String(aId++).padStart(5, '0')}`,
@@ -126,7 +200,10 @@ export const examsService = {
     return next;
   },
 
-  async submitAttempt(attemptId: string, answers: Record<string, number>): Promise<ExamAttempt> {
+  async submitAttempt(attemptId: string, answers: Record<string, ExamAnswer>): Promise<ExamAttempt> {
+    if (isBackendEnabled()) {
+      return apiClient.post<ExamAttempt>(`/api/exams/attempts/${encodeURIComponent(attemptId)}/submit`, { answers });
+    }
     await simulateLatency();
     const a = ATT_STATE.find((x) => x.id === attemptId);
     if (!a) throw new Error('Attempt not found');
@@ -138,7 +215,7 @@ export const examsService = {
       let correct = 0;
       for (const qid of exam.questionIds) {
         const q = QS_STATE.find((x) => x.id === qid);
-        if (q && answers[qid] === q.correctIndex) correct += 1;
+        if (q && isQuestionCorrect(q, answers[qid])) correct += 1;
       }
       const pct = Math.round((correct / Math.max(1, total)) * 100);
       a.score = pct;
@@ -148,12 +225,21 @@ export const examsService = {
   },
 
   async getAttempts(examId: string): Promise<ExamAttempt[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<ExamAttempt[]>(`/api/exams/${encodeURIComponent(examId)}/attempts`);
+    }
     await simulateLatency();
     return ATT_STATE.filter((a) => a.examId === examId);
   },
 
   /** Pre-exam check: prevents re-take within 6 months for the same exam (per K§3.5). */
   async checkConflict(applicantId: string, examId: string): Promise<{ ok: boolean; reason?: string }> {
+    if (isBackendEnabled()) {
+      return apiClient.get<{ ok: boolean; reason?: string }>(
+        `/api/exams/${encodeURIComponent(examId)}/conflict`,
+        { query: { applicantId } },
+      );
+    }
     await simulateLatency(80, 160);
     const sixMonthsAgo = Date.now() - 180 * 86_400_000;
     const recent = ATT_STATE.find((a) => a.applicantId === applicantId && a.examId === examId && a.startedAt > sixMonthsAgo);
@@ -180,10 +266,10 @@ export const examsService = {
 
   /**
    * INTEGRATION CONTRACT
-   * POST /api/v1/question-bank/questions/batch
+   * POST /api/questions/batch
    * Body: { questions: QuestionDraft[] }   // up to 1000 rows
    * Response: { created: number, skipped: number, ids: string[] }
-   * Auth: requires `exams:create` permission.
+   * Auth: requires `questions:import` permission.
    * Side-effect: emits audit entries (one per created question).
    *
    * Imported rows land in `draft` state — same lifecycle as a manually-created
@@ -193,6 +279,9 @@ export const examsService = {
     if (rows.length === 0) return { created: 0, skipped: 0, ids: [] };
     if (rows.length > 1000) {
       throw new Error('عدد الأسئلة يتجاوز الحد المسموح (1000 سؤال).');
+    }
+    if (isBackendEnabled()) {
+      return apiClient.post<BatchCreateResult>('/api/questions/batch', { questions: rows });
     }
     /* Latency proportional to row count, clamped to keep the demo snappy. */
     await simulateLatency(Math.min(800, 200 + rows.length * 2), Math.min(1400, 400 + rows.length * 3));
@@ -212,16 +301,19 @@ export const examsService = {
 
   /**
    * INTEGRATION CONTRACT
-   * GET /api/v1/exams/{examId}/sessions/live
-   * Response: { sessions: ExamSession[], totalsByStatus: Record<SessionStatus, number>, lastUpdated: string }
+   * GET /api/exams/{examId}/sessions/live
+   * Response: { sessions: ExamSession[], totalsByStatus: Record<SessionStatus, number>, lastUpdated: string, answersPerMinute: number[] }
    * Auth: requires `exams:proctor`.
-   * Polling: 5s recommended. Server sends only deltas if If-None-Match.
+   * Polling: 5s recommended.
    *
    * Mock layer rotates a small percentage of sessions on every poll so the
    * proctor surface feels alive in the demo. `answersPerMinute` is a 24-cell
    * strip of "answers in the last 60s" sampled from the running totals.
    */
-  async listLiveSessions(_examId: string): Promise<LiveSessionsResponse> {
+  async listLiveSessions(examId: string): Promise<LiveSessionsResponse> {
+    if (isBackendEnabled()) {
+      return apiClient.get<LiveSessionsResponse>(`/api/exams/${encodeURIComponent(examId)}/sessions/live`);
+    }
     await simulateLatency(120, 240);
     const now = Date.now();
     /* Drift: ~1 in 6 in-progress rows tick up an answer; ~1 in 30 transitions status. */

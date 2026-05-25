@@ -4,6 +4,14 @@
   "buildCommand": "npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://admin-api.appenzademo.com/api/$1"
+    },
+    {
+      "source": "/v1/(.*)",
+      "destination": "https://admin-api.appenzademo.com/v1/$1"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

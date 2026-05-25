@@ -24,7 +24,6 @@ interface CommandItem {
 }
 
 const NAVIGATION: CommandItem[] = [
-  { id: 'nav-hub',         label: 'الذهاب إلى الـ Hub',          href: ROUTES.hub,                   group: 'navigation' },
   { id: 'nav-admin',       label: 'لوحة تحكم الإدارة',           href: ROUTES.admin.dashboard,       group: 'navigation' },
   { id: 'nav-applicants',  label: 'قائمة المتقدمين',              href: ROUTES.admin.applicants,      group: 'navigation', icon: <ClipboardList size={14} strokeWidth={1.75} /> },
   { id: 'nav-users',       label: 'مستخدمو المنظومة',            href: ROUTES.admin.users,           group: 'navigation', icon: <Users size={14} strokeWidth={1.75} /> },

@@ -20,7 +20,6 @@ import {
   Button,
   Card,
   DatePicker,
-  EmptyState,
   ErrorState,
   Input,
   LoadingState,
@@ -243,33 +242,20 @@ export function ThanawiRulesSection({
       />
 
       <div className="mt-4">
-        {committeeOptions.length === 0 ? (
-          <EmptyState
-            variant="generic"
-            title="لا توجد لجان مرتبطة بهذه الفئة"
-            description="اربط لجاناً بفئة المتقدمين هذه من الأكواد المرجعية أولاً."
-          />
-        ) : (
-          <ThanawiForm
-            categoryCode={categoryCode}
-            examRoundOptions={examRoundOptions}
-            committeeOptions={committeeOptions}
-            schoolCategoryOptions={schoolCategoryOptions}
-            maritalOptions={maritalOptions}
-            graduationYearOptions={graduationYearOptions}
-            gradeOptions={gradeOptions}
-            gradeRank={gradeRank}
-            excellenceMode={excellenceMode}
-          />
-        )}
+        <ThanawiForm
+          categoryCode={categoryCode}
+          examRoundOptions={examRoundOptions}
+          committeeOptions={committeeOptions}
+          schoolCategoryOptions={schoolCategoryOptions}
+          maritalOptions={maritalOptions}
+          graduationYearOptions={graduationYearOptions}
+          gradeOptions={gradeOptions}
+          gradeRank={gradeRank}
+          excellenceMode={excellenceMode}
+        />
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-3 border-t border-border-subtle pt-4">
-        {localCount > 0 && (
-          <span className="font-ar text-xs text-ink-500">
-            {`${num(localCount)} شرط جاهز للاعتماد`}
-          </span>
-        )}
         <Button
           variant="primary"
           size="md"
@@ -519,6 +505,7 @@ function ThanawiForm({
   const [draft, setDraft] = useState<ThanawiRuleRowInput>(() =>
     emptyInputFor(defaultExcellenceMode),
   );
+  const [formResetKey, setFormResetKey] = useState(0);
   const formRef = useRef<HTMLDivElement>(null);
 
   const header = useAdmissionSetupWizardStore(
@@ -651,6 +638,13 @@ function ThanawiForm({
     scoreMax: showScorePair ? input.scoreMax : null,
   });
 
+  const resetForm = (): void => {
+    setDraft(emptyInputFor(defaultExcellenceMode));
+    setScoreMinMessage(null);
+    setScoreMaxMessage(null);
+    setFormResetKey((key) => key + 1);
+  };
+
   const handleSubmit = (): void => {
     if (!canSubmit) return;
     const payload = normalizeForSubmit(draft);
@@ -674,7 +668,7 @@ function ThanawiForm({
       toast('هذا الشرط موجود بالفعل في الجدول', 'danger');
       return;
     }
-    setDraft(emptyInputFor(defaultExcellenceMode));
+    resetForm();
     toast('تمت إضافة الشرط محلياً', 'success');
   };
 
@@ -693,7 +687,7 @@ function ThanawiForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card variant="compact" ref={formRef}>
+      <Card key={formResetKey} variant="compact" ref={formRef}>
         <header className="mb-3 flex items-center justify-between gap-3">
           <h4 className="font-ar text-sm font-semibold text-ink-900">
             {isEditing ? 'تعديل شرط اللجنة' : 'شروط اللجنة'}

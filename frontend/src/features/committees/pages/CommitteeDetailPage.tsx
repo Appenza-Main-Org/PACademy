@@ -55,8 +55,8 @@ import {
   useEnterResult,
   useRejectResult,
 } from '../api/committee.queries';
-import { MOCK } from '@/shared/mock-data';
-import type { Applicant, Committee, CommitteeResult } from '@/shared/types/domain';
+import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
+import type { Applicant, ApplicantCategory, Committee, CommitteeResult } from '@/shared/types/domain';
 import { formatCommitteeGrade } from '../lib/formatCommitteeGrade';
 import { CommitteeEditDialog } from '../components/CommitteeEditDialog';
 
@@ -69,6 +69,7 @@ export function CommitteeDetailPage(): JSX.Element {
   const { data: specializations = [] } = useCommitteeSpecializations();
   const { data: officers = [] } = useEligibleOfficers();
   const { data: assignedApplicants = [] } = useCommitteeAssignedApplicants(id);
+  const { data: categories = [] } = useCategoriesAdmin();
   const enterMut = useEnterResult(id);
   const approveMut = useApproveResults(id);
   const rejectMut = useRejectResult(id);
@@ -216,6 +217,7 @@ export function CommitteeDetailPage(): JSX.Element {
         committee={committee}
         specializations={specializations}
         officers={officers}
+        categories={categories}
         assignedCount={assignedApplicants.length}
       />
 
@@ -503,11 +505,13 @@ function CommitteeSummary({
   committee,
   specializations,
   officers,
+  categories,
   assignedCount,
 }: {
   committee: Committee;
   specializations: SummarySpecialization[];
   officers: SummaryEligibleOfficer[];
+  categories: ApplicantCategory[];
   assignedCount: number;
 }): JSX.Element {
   const capacity = committee.capacity ?? 0;
@@ -599,10 +603,7 @@ function CommitteeSummary({
         <div className="grid grid-cols-2 gap-4 p-4 md:grid-cols-4">
           <SummaryItem
             label="الفئة"
-            value={
-              MOCK.categories.find((cat) => cat.key === committee.categoryKey)?.labelAr ??
-              committee.categoryKey
-            }
+            value={categories.find((cat) => cat.key === committee.categoryKey)?.labelAr ?? committee.categoryKey}
           />
           <SummaryItem label="السعة" value={num(committee.capacity)} />
           <SummaryItem

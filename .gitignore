@@ -12,6 +12,8 @@ dist-ssr
 !.vscode/extensions.json
 coverage
 tsconfig.tsbuildinfo
+bin/
+obj/
 
 # Agent harness directories
 .agents/
@@ -19,11 +21,6 @@ tsconfig.tsbuildinfo
 .devin/
 .windsurf/
 skills-lock.json
-
-
-bin/
-obj/
-.vscode/
 .cursor/
 .cursorrules
 .cursorignore
@@ -34,3 +31,4 @@ obj/
 .cursorignorefoldersfiles
 .cursorignorefoldersfolders
 .cursorignorefoldersfoldersrules
+.vercel

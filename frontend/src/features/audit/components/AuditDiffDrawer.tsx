@@ -3,7 +3,7 @@
  *
  * Side-by-side before/after viewer for an audit entry. Reads the diff via
  * the audit query layer (which prefers inline `before`/`after` and falls
- * back to MOCK.auditDiffs for legacy seeded rows). Field keys are surfaced
+ * back to the legacy audit diff seed for old seeded rows). Field keys are surfaced
  * with Arabic labels via the field-label dictionary.
  */
 

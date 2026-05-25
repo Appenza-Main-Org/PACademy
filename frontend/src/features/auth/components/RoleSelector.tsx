@@ -6,16 +6,7 @@
  * accent of its primary app via inline style.
  */
 
-import {
-  ClipboardList,
-  GraduationCap,
-  Scale,
-  ScrollText,
-  Search,
-  ShieldCheck,
-  Stethoscope,
-  UserCog,
-} from 'lucide-react';
+import { ScrollText, UserCog } from 'lucide-react';
 import type { ElementType } from 'react';
 import { cn } from '@/shared/lib/cn';
 import type { Role } from '../rbac';
@@ -28,13 +19,7 @@ interface RoleOption {
 
 const ROLE_OPTIONS: readonly RoleOption[] = [
   { key: 'super_admin',     Icon: UserCog,        label: 'إدارة منظومة القبول' },
-  { key: 'committee_admin', Icon: ClipboardList,  label: 'لجان القبول' },
-  { key: 'medical_admin',   Icon: Stethoscope,    label: 'القومسيون الطبي' },
-  { key: 'investigator',    Icon: Search,         label: 'التحريات' },
-  { key: 'board_admin',     Icon: Scale,          label: 'الهيئة وأمانة السر' },
   { key: 'exams_admin',     Icon: ScrollText,     label: 'بنك الأسئلة والاختبارات' },
-  { key: 'biometric_user',  Icon: ShieldCheck,    label: 'تسجيل واستعلام بيومتري' },
-  { key: 'applicant',       Icon: GraduationCap,  label: 'موقع المتقدمين' },
 ];
 
 interface RoleSelectorProps {

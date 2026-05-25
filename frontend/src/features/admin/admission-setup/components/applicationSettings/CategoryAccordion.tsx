@@ -1,5 +1,5 @@
 /**
- * CategoryAccordion — `@radix-ui/react-accordion` (multiple-open mode).
+ * CategoryAccordion — `@radix-ui/react-accordion` (single-open mode).
  *
  * Sources every applicant-category from the
  * `admin/lookups/applicant-categories` lookup (no hardcoded list). Each
@@ -33,9 +33,13 @@ import {
   Circle,
   CircleDashed,
 } from 'lucide-react';
-import { Accordion, Badge, ErrorState, LoadingState } from '@/shared/components';
-import type { BadgeTone } from '@/shared/components';
-import { useLookup } from '@/features/lookups';
+import { Accordion, ErrorState, LoadingState } from '@/shared/components';
+import {
+  useLookup,
+  type ApplicantCategoryRow,
+  type ApplicantCategoryType,
+} from '@/features/lookups';
+import { cn } from '@/shared/lib/cn';
 import { useCategoryConfigs } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
 import {
@@ -55,7 +59,7 @@ export function CategoryAccordion(): JSX.Element {
   const categoriesQuery = useLookup('applicant-categories');
   const excellenceQuery = useLookup('excellence-criteria');
 
-  const [openIds, setOpenIds] = useState<string[]>([]);
+  const [openId, setOpenId] = useState<string | undefined>(undefined);
 
   if (
     configsQuery.isLoading ||
@@ -83,22 +87,14 @@ export function CategoryAccordion(): JSX.Element {
     );
   }
 
-  /* Filter to active lookup rows then preserve the configs' sortOrder.
-   * The join carries `categoryType`/`categoryFacultyCodes`/
-   * `categorySpecializationCodes` straight off the lookup so feature
-   * components don't have to read the lookup themselves. */
-  const lookupActiveCodes = new Set(
-    (categoriesQuery.data ?? []).filter((c) => c.isActive).map((c) => c.code),
-  );
-  const activeConfigs = configsQuery.data.filter((c) =>
-    lookupActiveCodes.has(c.categoryCode),
-  );
-
   /* Every active category renders here. The criterion label on the
    * row header only appears when the category carries one — categories
    * without a criterion still need to be editable (admins set the rest
    * of the rules regardless), so the row stays visible. */
-  const visibleConfigs = activeConfigs;
+  const visibleConfigs = mergeCategoryConfigsWithActiveLookups(
+    configsQuery.data,
+    categoriesQuery.data ?? [],
+  );
 
   const criterionLabelByCode = new Map(
     (excellenceQuery.data ?? []).map((row) => [row.code, row.name] as const),
@@ -107,10 +103,11 @@ export function CategoryAccordion(): JSX.Element {
 
   return (
     <Accordion.Root
-      type="multiple"
+      type="single"
+      collapsible
       dir="rtl"
-      value={openIds}
-      onValueChange={setOpenIds}
+      value={openId}
+      onValueChange={setOpenId}
       className="flex flex-col gap-3"
     >
       {visibleConfigs.map((config) => (
@@ -133,6 +130,75 @@ export function CategoryAccordion(): JSX.Element {
       ))}
     </Accordion.Root>
   );
+}
+
+function mergeCategoryConfigsWithActiveLookups(
+  configs: readonly CategoryConfigJoined[],
+  categories: readonly ApplicantCategoryRow[],
+): CategoryConfigJoined[] {
+  const activeCategories = categories.filter((category) => category.isActive);
+  const activeCategoryCodes = new Set(
+    activeCategories.map((category) => category.code),
+  );
+  const activeCategoryByCode = new Map(
+    activeCategories.map((category) => [category.code, category] as const),
+  );
+  const configByCode = new Map(
+    configs.map((config) => [config.categoryCode, config] as const),
+  );
+  const visibleConfigs = configs
+    .filter((config) => activeCategoryCodes.has(config.categoryCode))
+    .map((config) => {
+      const category = activeCategoryByCode.get(config.categoryCode);
+      return {
+        ...config,
+        categoryType: normalizeApplicantCategoryType(
+          config.categoryType,
+          category,
+        ),
+      };
+    });
+
+  for (const category of activeCategories) {
+    if (configByCode.has(category.code)) {
+      continue;
+    }
+
+    visibleConfigs.push({
+      id: `lookup:${category.code}`,
+      categoryId: category.code,
+      categoryCode: category.code,
+      categoryNameAr: category.name,
+      categoryType: category.type,
+      categoryFacultyCodes: category.facultyCodes,
+      categorySpecializationCodes: category.specializationCodes,
+      lockedGender:
+        category.genderScope.length === 1 ? category.genderScope[0] : null,
+      singleAxis: false,
+      implicitSpecId: null,
+      specializationCount: category.specializationCodes.length,
+      yearCount: 0,
+      excellenceCriterion: category.excellenceCriterion,
+      isActive: true,
+      sortOrder: visibleConfigs.length + 1,
+      createdAt: '',
+      updatedAt: '',
+    });
+  }
+
+  return visibleConfigs;
+}
+
+function normalizeApplicantCategoryType(
+  value: unknown,
+  category?: ApplicantCategoryRow,
+): ApplicantCategoryType {
+  if (value === 'pre_university' || value === 'ثانوي') return 'pre_university';
+  if (value === 'university' || value === 'جامعي') return 'university';
+  if (category?.type === 'pre_university' || category?.type === 'university') {
+    return category.type;
+  }
+  return 'university';
 }
 
 interface ConfigItemProps {
@@ -236,26 +302,30 @@ function ConfigItem({
 }
 
 interface CompletionMeta {
-  tone: BadgeTone;
   label: string;
   icon: JSX.Element;
+  className: string;
+  iconClassName: string;
 }
 
 const COMPLETION_META: Record<CategoryCompletionState, CompletionMeta> = {
   complete: {
-    tone: 'success',
     label: 'مكتمل',
     icon: <Check size={12} strokeWidth={2} aria-hidden />,
+    className: 'border-success/30 bg-success-bg text-success ring-1 ring-success/10',
+    iconClassName: 'bg-success text-surface-card',
   },
   partial: {
-    tone: 'warning',
-    label: 'جزئي',
+    label: 'غير مكتمل',
     icon: <CircleDashed size={12} strokeWidth={1.75} aria-hidden />,
+    className: 'border-gold-200 bg-gold-50 text-gold-700 ring-1 ring-gold-500/10',
+    iconClassName: 'bg-gold-500 text-surface-card',
   },
   empty: {
-    tone: 'neutral',
-    label: 'فارغ',
+    label: 'غير مكتمل',
     icon: <Circle size={12} strokeWidth={1.75} aria-hidden />,
+    className: 'border-border-subtle bg-ink-50 text-ink-700 ring-1 ring-ink-500/10',
+    iconClassName: 'bg-surface-card text-ink-500 ring-1 ring-border-strong',
   },
 };
 
@@ -266,8 +336,21 @@ function CompletionBadge({
 }): JSX.Element {
   const meta = COMPLETION_META[state];
   return (
-    <Badge tone={meta.tone} icon={meta.icon} className="shrink-0">
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center gap-2 rounded-pill border px-2.5 py-1.5 font-ar text-2xs font-semibold leading-none',
+        meta.className,
+      )}
+    >
+      <span
+        className={cn(
+          'grid size-5 shrink-0 place-items-center rounded-full',
+          meta.iconClassName,
+        )}
+      >
+        {meta.icon}
+      </span>
       {meta.label}
-    </Badge>
+    </span>
   );
 }

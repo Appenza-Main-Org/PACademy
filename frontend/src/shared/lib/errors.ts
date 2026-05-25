@@ -92,6 +92,35 @@ export function isAccountInactiveError(err: unknown): err is AccountInactiveErro
   return err instanceof AccountInactiveError;
 }
 
+/** Generic not-found marker for backend envelopes that return `code: NOT_FOUND`. */
+export class NotFoundError extends Error {
+  readonly code = 'NOT_FOUND' as const;
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundError';
+  }
+}
+
+export function isNotFoundError(err: unknown): err is NotFoundError {
+  return err instanceof NotFoundError;
+}
+
+/** Backend validation envelope — field-level errors from form/API validators. */
+export class ValidationError extends Error {
+  readonly code = 'VALIDATION_ERROR' as const;
+  readonly fields: unknown;
+
+  constructor(fields: unknown, message?: string) {
+    super(message ?? 'تحقق من البيانات المدخلة');
+    this.name = 'ValidationError';
+    this.fields = fields;
+  }
+}
+
+export function isValidationError(err: unknown): err is ValidationError {
+  return err instanceof ValidationError;
+}
+
 /** Self-deactivation guard error — admin-create NID flow. Thrown by
  *  `usersService.setAccountStatus` when an actor attempts to deactivate
  *  their own account or the last super_admin. */

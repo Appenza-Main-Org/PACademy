@@ -162,7 +162,12 @@ export function DatePicker({
     };
   }, [open]);
 
-  const minDate = min ? new Date(min) : null;
+  const todayDate = useMemo(() => stripTime(new Date()), []);
+  const configuredMinDate = min ? stripTime(new Date(min)) : null;
+  const minDate =
+    configuredMinDate && configuredMinDate.getTime() > todayDate.getTime()
+      ? configuredMinDate
+      : todayDate;
   const maxDate = max ? new Date(max) : null;
 
   return (
@@ -170,7 +175,7 @@ export function DatePicker({
       {label && (
         <label htmlFor={id} className="text-sm font-medium text-ink-700">
           {label}
-          {required && <span className="ms-1 text-terra-500">*</span>}
+          {required && <span aria-hidden className="ms-1 align-middle text-base font-bold leading-none text-terra-500">*</span>}
         </label>
       )}
       <div className="relative">

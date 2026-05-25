@@ -17,7 +17,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
-import type { Resolver } from 'react-hook-form';
+import type { FieldPath, Resolver } from 'react-hook-form';
 import {
   AlertCircle,
   ChevronUp,
@@ -30,10 +30,11 @@ import {
 import { Button, Card, CardHeader, Field, Input, SearchSelect, Select, Textarea } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
+import { isValidationError } from '@/shared/lib/errors';
+import { validationFieldErrors } from '@/shared/lib/validation-errors';
 import { parseNationalId } from '@/shared/lib/national-id';
 import { date as fmtDate } from '@/shared/lib/format';
-import { GOVERNORATES } from '@/shared/mock-data/dictionaries';
-import { REF_RELATIONSHIPS } from '@/shared/mock-data/referenceData';
+import { useLookup } from '@/features/lookups';
 import {
   applicantInputSchema,
   EDUCATION_KIND_BY_DEPT,
@@ -53,16 +54,6 @@ const NID_GOVERNORATE_LABELS: Record<string, string> = {
   '28': 'أسوان', '29': 'الأقصر', '31': 'البحر الأحمر', '32': 'الوادي الجديد',
   '33': 'مرسى مطروح', '34': 'شمال سيناء', '35': 'جنوب سيناء',
 };
-
-const RELATIONSHIP_OPTIONS = REF_RELATIONSHIPS.map((r) => ({
-  value: r.id,
-  label: r.nameAr,
-}));
-
-const GOV_OPTIONS: readonly SearchSelectOption[] = GOVERNORATES.map((g) => ({
-  value: g,
-  label: g,
-}));
 
 const DEPARTMENT_OPTIONS: { value: DepartmentKey; label: string }[] = (
   Object.entries(DEPARTMENT_LABELS) as [DepartmentKey, string][]
@@ -167,6 +158,22 @@ export function ApplicantForm({
   autosaveKey = NEW_DRAFT_KEY,
 }: ApplicantFormProps): JSX.Element {
   const seed = useMemo(() => mergeDefaults(initialValues), [initialValues]);
+  const governoratesQuery = useLookup('governorates');
+  const relationshipsQuery = useLookup('relationships');
+  const govOptions = useMemo<readonly SearchSelectOption[]>(
+    () =>
+      (governoratesQuery.data ?? [])
+        .filter((row) => row.isActive)
+        .map((row) => ({ value: row.name, label: row.name })),
+    [governoratesQuery.data],
+  );
+  const relationshipOptions = useMemo(
+    () =>
+      (relationshipsQuery.data ?? [])
+        .filter((row) => row.isActive)
+        .map((row) => ({ value: row.code, label: row.name })),
+    [relationshipsQuery.data],
+  );
 
   /* Hydrate from autosave once, only when no initialValues were passed
    * (autosave is for the "new" path). */
@@ -186,6 +193,7 @@ export function ApplicantForm({
     control,
     handleSubmit,
     watch,
+    setError,
     setValue,
     reset,
     getValues,
@@ -289,9 +297,19 @@ export function ApplicantForm({
   }, [department, educationKind, setValue]);
 
   const submitting = handleSubmit(async (values) => {
-    await onSubmit(values);
-    if (autosaveKey) {
-      try { localStorage.removeItem(autosaveKey); } catch { /* noop */ }
+    try {
+      await onSubmit(values);
+      if (autosaveKey) {
+        try { localStorage.removeItem(autosaveKey); } catch { /* noop */ }
+      }
+    } catch (err) {
+      if (isValidationError(err)) {
+        const fieldErrors = validationFieldErrors(err);
+        for (const [field, message] of Object.entries(fieldErrors)) {
+          setError(field as FieldPath<ApplicantInput>, { type: 'server', message });
+        }
+      }
+      throw err;
     }
   });
 
@@ -314,6 +332,12 @@ export function ApplicantForm({
   return (
     <form onSubmit={submitting} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_240px]">
       <div className="flex min-w-0 flex-col gap-5">
+        {(governoratesQuery.isError || relationshipsQuery.isError) && (
+          <div className="flex items-start gap-3 rounded-md border border-dashed border-terra-200 bg-terra-50 p-3 text-sm text-terra-700">
+            <AlertCircle size={16} strokeWidth={1.75} className="mt-0.5 flex-shrink-0" />
+            <p>تعذر تحميل مراجع المحافظات أو صلات القرابة من الخادم.</p>
+          </div>
+        )}
         {fullyLocked && (
           <div className="flex items-start gap-3 rounded-md border border-dashed border-gold-300 bg-gold-50 p-3 text-sm text-gold-700">
             <ShieldCheck size={16} strokeWidth={1.75} className="mt-0.5 flex-shrink-0" />
@@ -411,10 +435,10 @@ export function ApplicantForm({
                     <SearchSelect
                       value={field.value ? field.value : null}
                       onChange={(next) => field.onChange(next ?? '')}
-                      options={GOV_OPTIONS}
+                      options={govOptions}
                       ariaLabel="المحافظة"
                       placeholder="اختر المحافظة"
-                      disabled={!allowEdit}
+                      disabled={!allowEdit || governoratesQuery.isLoading}
                     />
                   )}
                 />
@@ -733,8 +757,8 @@ export function ApplicantForm({
                   <Select
                     label="درجة القرابة"
                     required
-                    disabled={!allowEdit}
-                    options={[{ value: '', label: '— اختر —' }, ...RELATIONSHIP_OPTIONS]}
+                    disabled={!allowEdit || relationshipsQuery.isLoading}
+                    options={[{ value: '', label: '— اختر —' }, ...relationshipOptions]}
                     {...register(`family.relatives.${i}.relationshipId` as const)}
                   />
                   <Button

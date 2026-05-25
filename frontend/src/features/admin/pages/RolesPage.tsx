@@ -34,9 +34,7 @@ import {
 import { rolesService } from '../api/roles.service';
 import { PermissionMatrix } from '../components/roles/PermissionMatrix';
 import {
-  CLOUD_ACTIONS,
-  CLOUD_MODULES,
-  isCellInteractive,
+  explicitCloudPermissionIds,
 } from '@/features/admin/users/lib/cloudPermissions';
 import type { RoleDefinitionRow } from '@/shared/types/domain';
 
@@ -49,15 +47,7 @@ type RoleTemplateKey = 'custom' | 'super_admin';
  *  Memoised at module level — the matrix taxonomy is a build-time
  *  constant, so we recompute zero times per drawer open. */
 const ALL_INTERACTIVE_PERMISSIONS: readonly string[] = (() => {
-  const out: string[] = [];
-  for (const mod of CLOUD_MODULES) {
-    for (const act of CLOUD_ACTIONS) {
-      if (isCellInteractive(mod.key, act.key)) {
-        out.push(`${mod.key}:${act.key}`);
-      }
-    }
-  }
-  return out;
+  return explicitCloudPermissionIds();
 })();
 
 const ROLE_DEP_LABELS: Record<string, string> = {

@@ -36,6 +36,7 @@ import { CITIES } from '@/shared/mock-data/dictionaries';
 import {
   EMPTY_GUARDIAN,
   EMPTY_MEMBER,
+  formatMemberName,
   PROFESSION_OPTIONS,
   RELATIVE_LABEL,
   saveFamilySnapshot,
@@ -44,6 +45,8 @@ import {
   type GuardianForm,
   type RelativeKind,
 } from '../lib/familyData';
+import { useApplicantPortalStore } from '../store/applicantPortal.store';
+import { validateParentDob } from '../lib/validateParentDob';
 
 const GOV_OPTIONS: readonly SearchSelectOption[] = REF_GOVERNORATES.map((g) => ({
   value: g.nameAr,
@@ -85,6 +88,12 @@ type TabKey =
 
 export function Stage7FamilyPage(): JSX.Element {
   const navigate = useNavigate();
+
+  /* Applicant DOB drives the «parent ≥ child + 15y» age-gap rule on
+   * every father/mother/stepparent card. Falls back to undefined when
+   * the MOI session hasn't loaded — the validator no-ops in that case
+   * so the form remains usable. */
+  const applicantDob = useApplicantPortalStore((s) => s.moiSession?.dateOfBirth);
 
   const [tab, setTab] = useState<TabKey>('father');
   const [father, setFather] = useState<FamilyMemberForm>(EMPTY_MEMBER);
@@ -160,7 +169,7 @@ export function Stage7FamilyPage(): JSX.Element {
   const [savedGuardian, setSavedGuardian] = useState(false);
   const guardianOk =
     savedGuardian &&
-    guardian.name.length >= 2 &&
+    guardian.firstName.length >= 2 &&
     guardian.profession.length > 0 &&
     guardian.qualification.length > 0;
 
@@ -301,6 +310,7 @@ export function Stage7FamilyPage(): JSX.Element {
             form={father}
             title="بيانات الأب"
             requireNationalId
+            childDob={applicantDob}
             onChange={setFather}
             onSave={() => {
               setSavedFather(true);
@@ -327,6 +337,7 @@ export function Stage7FamilyPage(): JSX.Element {
             singular="زوجة الأب"
             members={fatherWives}
             savedFlags={savedFatherWives}
+            childDob={applicantDob}
             onAdd={() => {
               setFatherWives((xs) => [...xs, EMPTY_MEMBER]);
               setSavedFatherWives((xs) => [...xs, false]);
@@ -350,6 +361,7 @@ export function Stage7FamilyPage(): JSX.Element {
             form={mother}
             title="بيانات الأم"
             requireNationalId
+            childDob={applicantDob}
             onChange={setMother}
             onSave={() => {
               setSavedMother(true);
@@ -376,6 +388,7 @@ export function Stage7FamilyPage(): JSX.Element {
             singular="زوج الأم"
             members={motherHusbands}
             savedFlags={savedMotherHusbands}
+            childDob={applicantDob}
             onAdd={() => {
               setMotherHusbands((xs) => [...xs, EMPTY_MEMBER]);
               setSavedMotherHusbands((xs) => [...xs, false]);
@@ -398,6 +411,8 @@ export function Stage7FamilyPage(): JSX.Element {
           <GrandparentsPanel
             value={grandparents}
             savedFlags={savedGrandparents}
+            fatherDob={father.dateOfBirth}
+            motherDob={mother.dateOfBirth}
             onChange={setGrandparents}
             onSaveOne={(key) => {
               setSavedGrandparents((s) => ({ ...s, [key]: true }));
@@ -444,6 +459,14 @@ export function Stage7FamilyPage(): JSX.Element {
           <GuardianFormCard
             value={guardian}
             onChange={setGuardian}
+            familyMemberOptions={buildGuardianFamilyMemberOptions({
+              father,
+              mother,
+              fatherWives,
+              motherHusbands,
+              grandparents,
+              relatives,
+            })}
             onSave={() => {
               setSavedGuardian(true);
               toast('تم حفظ بيانات ولي الأمر', 'success');
@@ -490,6 +513,7 @@ function MemberFormCard({
   onSave,
   headerExtras,
   requireNationalId = false,
+  childDob,
 }: {
   form: FamilyMemberForm;
   title: string;
@@ -503,6 +527,10 @@ function MemberFormCard({
    *  the applicant must enter a 14-digit NID. Used for الأب + الأم per
    *  client direction 2026-05-21 (parents' NIDs are mandatory). */
   requireNationalId?: boolean;
+  /** ISO yyyy-mm-dd of the *child* this member is a parent of. When set,
+   *  the DOB input enforces the 15-year minimum age gap. Validator
+   *  no-ops if either side is empty (filling order isn't constrained). */
+  childDob?: string;
 }): JSX.Element {
   const form_ = useForm<FamilyMemberForm>({
     defaultValues: form,
@@ -544,13 +572,30 @@ function MemberFormCard({
         {headerExtras}
       </header>
       <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
-        <Input
-          label="الاسم"
-          required
-          {...register('name', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
-          error={errors.name?.message}
-          containerClassName="md:col-span-2"
-        />
+        {/* Split-name block — client direction 2026-05-21. Three Inputs
+            replace the previous single "الاسم" field. Rendered as a
+            nested 3-col sub-grid that spans the parent form width so all
+            three parts sit on one row on desktop. */}
+        <div className="grid gap-3 sm:grid-cols-3 md:col-span-2">
+          <Input
+            label="الاسم الأول"
+            required
+            {...register('firstName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.firstName?.message}
+          />
+          <Input
+            label="الاسم الثاني"
+            required
+            {...register('secondName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.secondName?.message}
+          />
+          <Input
+            label="الاسم الثالث"
+            required
+            {...register('thirdName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.thirdName?.message}
+          />
+        </div>
 
         {/* NID block — checkbox toggles between NID input and reason
             dropdown. For الأب + الأم the toggle is hidden entirely:
@@ -610,7 +655,10 @@ function MemberFormCard({
           label="تاريخ الميلاد"
           type="date"
           required
-          {...register('dateOfBirth', { required: 'مطلوب' })}
+          {...register('dateOfBirth', {
+            required: 'مطلوب',
+            validate: (v: string) => validateParentDob(v, childDob),
+          })}
           error={errors.dateOfBirth?.message}
         />
         <Field label="محافظة الميلاد" required error={errors.birthGovernorate?.message}>
@@ -658,6 +706,7 @@ function MemberFormCard({
           <Input
             label="رقم الأقدمية"
             required
+            type="text"
             dir="ltr"
             {...register('seniorityNumber', { required: 'مطلوب' })}
             error={errors.seniorityNumber?.message}
@@ -758,6 +807,7 @@ function MultiMemberPanel({
   singular,
   members,
   savedFlags,
+  childDob,
   onAdd,
   onChange,
   onRemove,
@@ -767,6 +817,9 @@ function MultiMemberPanel({
   singular: string;
   members: readonly FamilyMemberForm[];
   savedFlags: readonly boolean[];
+  /** Forwarded to each MemberFormCard so stepmother/stepfather entries
+   *  enforce the 15-year-older-than-applicant rule. */
+  childDob?: string;
   onAdd: () => void;
   onChange: (i: number, next: FamilyMemberForm) => void;
   onRemove: (i: number) => void;
@@ -812,6 +865,7 @@ function MultiMemberPanel({
           <MemberFormCard
             form={m}
             title={`${singular} رقم ${i + 1}${savedFlags[i] ? ' — محفوظ' : ''}`}
+            childDob={childDob}
             onChange={(next) => onChange(i, next)}
             onSave={() => onSave(i)}
           />
@@ -879,16 +933,80 @@ function DynamicRelativePanel({
 
 /* ─── Guardian form (ولي الأمر) ────────────────────────────────────── */
 
+/* Build the "اختر ولي الأمر من أفراد الأسرة" picker options from every
+ * family-member slot the applicant has filled — father, mother,
+ * stepparents, grandparents, and the six relative kinds. */
+interface GuardianMemberOption {
+  /** Stable key — used as the <select> value + as the lookup key
+   *  inside the GuardianFormCard reset handler. */
+  value: string;
+  /** Display label: "<relation> — <full name>" so the user sees who
+   *  they're selecting at a glance. */
+  label: string;
+  /** Direct reference to the FamilyMemberForm we'll copy from. */
+  member: FamilyMemberForm;
+}
+
+function buildGuardianFamilyMemberOptions(input: {
+  father: FamilyMemberForm;
+  mother: FamilyMemberForm;
+  fatherWives: FamilyMemberForm[];
+  motherHusbands: FamilyMemberForm[];
+  grandparents: GrandparentsForm;
+  relatives: Record<RelativeKind, FamilyMemberForm[]>;
+}): GuardianMemberOption[] {
+  const opts: GuardianMemberOption[] = [];
+  const pushIfNamed = (key: string, label: string, m: FamilyMemberForm): void => {
+    const name = formatMemberName(m);
+    if (name === '—' || name.trim().length === 0) return;
+    opts.push({ value: key, label: `${label} — ${name}`, member: m });
+  };
+
+  pushIfNamed('father', 'الأب', input.father);
+  pushIfNamed('mother', 'الأم', input.mother);
+  input.fatherWives.forEach((m, i) => pushIfNamed(`fatherWife-${i}`, `زوجة الأب ${i + 1}`, m));
+  input.motherHusbands.forEach((m, i) => pushIfNamed(`motherHusband-${i}`, `زوج الأم ${i + 1}`, m));
+  pushIfNamed('paternalGrandfather', 'الجد لأب', input.grandparents.paternalGrandfather);
+  pushIfNamed('paternalGrandmother', 'الجدة لأب', input.grandparents.paternalGrandmother);
+  pushIfNamed('maternalGrandfather', 'الجد لأم', input.grandparents.maternalGrandfather);
+  pushIfNamed('maternalGrandmother', 'الجدة لأم', input.grandparents.maternalGrandmother);
+  (Object.keys(input.relatives) as RelativeKind[]).forEach((kind) => {
+    input.relatives[kind].forEach((m, i) => {
+      pushIfNamed(`relative-${kind}-${i}`, `${RELATIVE_LABEL[kind].singular} ${i + 1}`, m);
+    });
+  });
+  return opts;
+}
+
+/** Map a FamilyMemberForm into the GuardianForm shape — copies the
+ * five fields the two records share. The textarea/details fields fall
+ * back to empty strings when the source doesn't carry them. */
+function familyMemberToGuardian(m: FamilyMemberForm): GuardianForm {
+  return {
+    firstName: m.firstName,
+    secondName: m.secondName,
+    thirdName: m.thirdName,
+    profession: m.profession,
+    seniorityNumber: m.seniorityNumber ?? '',
+    qualification: m.qualification,
+    qualificationDetail: m.qualificationDetail ?? '',
+    professionDetail: m.professionDetail ?? '',
+    workplaceDetail: '',
+  };
+}
+
 function GuardianFormCard({
   value,
   onChange,
   onSave,
+  familyMemberOptions,
 }: {
   value: GuardianForm;
   onChange: (next: GuardianForm) => void;
   onSave: () => void;
+  familyMemberOptions: GuardianMemberOption[];
 }): JSX.Element {
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<GuardianForm>({
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<GuardianForm>({
     defaultValues: value,
   });
   const guardianProfession = watch('profession');
@@ -901,6 +1019,26 @@ function GuardianFormCard({
     const sub = watch((vals) => onChangeRef.current(vals as GuardianForm));
     return () => sub.unsubscribe();
   }, [watch]);
+
+  /* Guardian-source picker — transient UI state, not stored. When the
+   * applicant picks a family member, copy that member's data into the
+   * form via reset() (form internals stay in sync) → the streaming
+   * watch() above propagates to the parent state. Picking «آخر» just
+   * leaves the form alone for manual editing. */
+  const [guardianSource, setGuardianSource] = useState<string>('');
+  const handleSourceChange = (next: string): void => {
+    setGuardianSource(next);
+    if (!next || next === 'manual') return;
+    const opt = familyMemberOptions.find((o) => o.value === next);
+    if (!opt) return;
+    const mapped = familyMemberToGuardian(opt.member);
+    reset(mapped);
+    onChange(mapped);
+  };
+  /* When the source is a family member, dim the form fields so the
+   * applicant can't edit derived data. Clearing the lock requires
+   * switching the picker back to «آخر — إدخال البيانات يدوياً». */
+  const guardianLocked = guardianSource !== '' && guardianSource !== 'manual';
 
   const submit = handleSubmit((vals) => {
     onChange(vals);
@@ -915,16 +1053,58 @@ function GuardianFormCard({
         <h3 className="font-ar-display text-md font-bold text-ink-900">تحديد ولي الأمر</h3>
       </header>
       <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
-        <Input
-          label="الاسم"
-          required
-          {...register('name', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
-          error={errors.name?.message}
-          containerClassName="md:col-span-2"
-        />
+        {/* Guardian-source picker — copy from an existing family member
+            already added in this page, or pick «آخر» to enter manually. */}
+        <div className="md:col-span-2">
+          <Select
+            label="اختيار ولي الأمر"
+            required
+            value={guardianSource}
+            onChange={(e) => handleSourceChange(e.target.value)}
+            options={[
+              { value: '', label: '— اختر —' },
+              ...familyMemberOptions.map((o) => ({ value: o.value, label: o.label })),
+              { value: 'manual', label: 'آخر — إدخال البيانات يدوياً' },
+            ]}
+          />
+          <p className="mt-1 text-2xs text-ink-500 leading-relaxed">
+            {familyMemberOptions.length === 0
+              ? 'لم تُسجَّل بيانات عائلة أخرى بعد — يمكنك إدخال بيانات ولي الأمر يدوياً.'
+              : 'اختيار أحد أفراد الأسرة يملأ الحقول التالية تلقائياً، ويمكنك تعديلها بعد ذلك.'}
+          </p>
+        </div>
+
+        {/* Split-name block — client direction 2026-05-21. Three Inputs
+            replace the previous single "الاسم" field. Rendered as a
+            nested 3-col sub-grid that spans the parent form width so all
+            three parts sit on one row on desktop. */}
+        <div className="grid gap-3 sm:grid-cols-3 md:col-span-2">
+          <Input
+            label="الاسم الأول"
+            required
+            disabled={guardianLocked}
+            {...register('firstName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.firstName?.message}
+          />
+          <Input
+            label="الاسم الثاني"
+            required
+            disabled={guardianLocked}
+            {...register('secondName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.secondName?.message}
+          />
+          <Input
+            label="الاسم الثالث"
+            required
+            disabled={guardianLocked}
+            {...register('thirdName', { required: 'مطلوب', minLength: { value: 2, message: 'مطلوب' } })}
+            error={errors.thirdName?.message}
+          />
+        </div>
         <Select
           label="الوظيفة"
           required
+          disabled={guardianLocked}
           {...register('profession', { required: 'مطلوب' })}
           options={[...PROFESSION_OPTIONS]}
           error={errors.profession?.message}
@@ -933,7 +1113,9 @@ function GuardianFormCard({
           <Input
             label="رقم الأقدمية"
             required
+            type="text"
             dir="ltr"
+            disabled={guardianLocked}
             {...register('seniorityNumber', { required: 'مطلوب' })}
             error={errors.seniorityNumber?.message}
           />
@@ -941,6 +1123,7 @@ function GuardianFormCard({
         <Select
           label="المؤهل"
           required
+          disabled={guardianLocked}
           {...register('qualification', { required: 'مطلوب' })}
           options={[...QUALIFICATION_OPTIONS]}
           error={errors.qualification?.message}
@@ -948,6 +1131,7 @@ function GuardianFormCard({
         <Textarea
           label="وصف تفصيلي للمؤهل"
           rows={2}
+          disabled={guardianLocked}
           {...register('qualificationDetail')}
           error={errors.qualificationDetail?.message}
           containerClassName="md:col-span-2"
@@ -955,6 +1139,7 @@ function GuardianFormCard({
         <Textarea
           label="وصف تفصيلي للوظيفة"
           rows={2}
+          disabled={guardianLocked}
           {...register('professionDetail')}
           error={errors.professionDetail?.message}
           containerClassName="md:col-span-2"
@@ -962,6 +1147,7 @@ function GuardianFormCard({
         <Textarea
           label="بيانات جهة العمل / الوظيفة"
           rows={2}
+          disabled={guardianLocked}
           {...register('workplaceDetail')}
           error={errors.workplaceDetail?.message}
           containerClassName="md:col-span-2"
@@ -979,12 +1165,19 @@ function GuardianFormCard({
 function GrandparentsPanel({
   value,
   savedFlags,
+  fatherDob,
+  motherDob,
   onChange,
   onSaveOne,
   onSaveAll,
 }: {
   value: GrandparentsForm;
   savedFlags: Record<keyof GrandparentsForm, boolean>;
+  /** Father's DOB drives the 15-year age-gap rule for paternal
+   *  grandparents; mother's DOB drives the maternal side. Undefined
+   *  values disable the check (validator no-ops). */
+  fatherDob?: string;
+  motherDob?: string;
   onChange: (next: GrandparentsForm) => void;
   onSaveOne: (key: keyof GrandparentsForm) => void;
   onSaveAll: () => void;
@@ -1018,24 +1211,28 @@ function GrandparentsPanel({
       <MemberFormCard
         form={value.paternalGrandfather}
         title={`الجد لأب${savedFlags.paternalGrandfather ? ' — محفوظ' : ''}`}
+        childDob={fatherDob}
         onChange={(next) => updateOne('paternalGrandfather', next)}
         onSave={() => onSaveOne('paternalGrandfather')}
       />
       <MemberFormCard
         form={value.paternalGrandmother}
         title={`الجدة لأب${savedFlags.paternalGrandmother ? ' — محفوظ' : ''}`}
+        childDob={fatherDob}
         onChange={(next) => updateOne('paternalGrandmother', next)}
         onSave={() => onSaveOne('paternalGrandmother')}
       />
       <MemberFormCard
         form={value.maternalGrandfather}
         title={`الجد لأم${savedFlags.maternalGrandfather ? ' — محفوظ' : ''}`}
+        childDob={motherDob}
         onChange={(next) => updateOne('maternalGrandfather', next)}
         onSave={() => onSaveOne('maternalGrandfather')}
       />
       <MemberFormCard
         form={value.maternalGrandmother}
         title={`الجدة لأم${savedFlags.maternalGrandmother ? ' — محفوظ' : ''}`}
+        childDob={motherDob}
         onChange={(next) => updateOne('maternalGrandmother', next)}
         onSave={() => onSaveOne('maternalGrandmother')}
       />
@@ -1060,7 +1257,7 @@ function GrandparentsPanel({
 
 function isFilled(m: FamilyMemberForm): boolean {
   const baseOk =
-    m.name.length >= 2 &&
+    m.firstName.length >= 2 &&
     (m.nidUnavailable
       ? m.nidUnavailableReason.length > 0
       : /^[0-9]{14}$/.test(m.nationalId)) &&

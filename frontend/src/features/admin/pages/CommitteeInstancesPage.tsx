@@ -61,10 +61,8 @@ import {
 import { isConflictError } from '@/shared/lib/errors';
 import type {
   AdmissionCycle,
-  ApplicantCategoryKey,
   CommitteeInstance,
 } from '@/shared/types/domain';
-import { APPLICANT_CATEGORY_KEYS } from '@/shared/types/domain';
 import {
   CommitteeInstanceAddForm,
   useActiveCategoriesForCycle,
@@ -73,10 +71,6 @@ import {
   resolveExpandedDates,
   useDayExpansionStore,
 } from './committee-instances/expansionStore';
-
-function isApplicantCategoryKey(code: string): code is ApplicantCategoryKey {
-  return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(code);
-}
 
 interface InstanceRow extends CommitteeInstance {
   categoryLabelAr: string;
@@ -158,9 +152,8 @@ export function CommitteeInstancesPage(): JSX.Element {
   const activeCategoriesForForm = useMemo(
     () =>
       (activeCategoriesQuery.data ?? [])
-        .filter((c) => isApplicantCategoryKey(c.code))
         .map((c) => ({
-          key: c.code as ApplicantCategoryKey,
+          key: c.code,
           labelAr: c.nameAr,
         })),
     [activeCategoriesQuery.data],

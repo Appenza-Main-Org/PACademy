@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, ShieldAlert, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertDialog,
@@ -36,7 +36,14 @@ import { Step4Filters } from '../components/importWizard/steps/Step4Filters';
 import { Step5DuplicateReview } from '../components/importWizard/steps/Step5DuplicateReview';
 import { Step6ChangesReview } from '../components/importWizard/steps/Step6ChangesReview';
 import { Step6Result } from '../components/importWizard/steps/Step6Result';
-import type { ImportGroupCode } from '../types';
+import {
+  buildAuditCsv,
+  buildDuplicateAudit,
+  buildIntegrityAuditRows,
+  dedupeRowsFirstOccurrence,
+} from '../lib/duplicateAudit';
+import { saveApplicantGradesImportHistoryRecord } from '../lib/importHistory';
+import type { ImportCommitProgress, ImportGroupCode } from '../types';
 
 type StepIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -70,10 +77,14 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const uploadDuplicateDecisions = useImportWizardStore(
     (s) => s.uploadDuplicateDecisions,
   );
+  const loudDuplicateAck = useImportWizardStore((s) => s.loudDuplicateAck);
+  const fileMeta = useImportWizardStore((s) => s.fileMeta);
+  const importResult = useImportWizardStore((s) => s.importResult);
   const reset = useImportWizardStore((s) => s.reset);
 
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [showStep1Errors, setShowStep1Errors] = useState(false);
+  const [commitProgress, setCommitProgress] = useState<ImportCommitProgress | null>(null);
   const commit = useApplicantGradesCommit();
 
   /* Safety rail: the `File` + `ParsedSheet` slices of the store are
@@ -91,6 +102,58 @@ export function ApplicantGradesImportPage(): JSX.Element {
     () => parsed?.tables.find((t) => t.name === selectedTableName) ?? null,
     [parsed, selectedTableName],
   );
+
+  /* Re-run the duplicate audit at the page level so the wizard footer
+   * (Step 5 next, Step 7 commit) can gate on the same threshold the
+   * loud-guard banner uses inside Step 5. Cheap: a single pass over the
+   * already-normalised rows. */
+  const duplicateAudit = useMemo(() => {
+    if (!table || graduationYear == null) return null;
+    const rows = normaliseRows(
+      table,
+      mapping,
+      filters,
+      graduationYear,
+      lookupValueMappings,
+      selectedSchoolCategories,
+    );
+    return buildDuplicateAudit(rows);
+  }, [
+    table,
+    mapping,
+    filters,
+    graduationYear,
+    lookupValueMappings,
+    selectedSchoolCategories,
+  ]);
+
+  const integrityRows = useMemo(() => {
+    if (!table || graduationYear == null) return [];
+    const rows = normaliseRows(
+      table,
+      mapping,
+      filters,
+      graduationYear,
+      lookupValueMappings,
+      selectedSchoolCategories,
+    );
+    return buildIntegrityAuditRows({
+      rows,
+      selectedSchoolCategories,
+      maxGradeByCategory,
+    });
+  }, [
+    table,
+    mapping,
+    filters,
+    graduationYear,
+    lookupValueMappings,
+    selectedSchoolCategories,
+    maxGradeByCategory,
+  ]);
+
+  const loudGuardBlocks =
+    duplicateAudit?.exceedsThreshold === true && !loudDuplicateAck;
 
   function canAdvance(): boolean {
     switch (step) {
@@ -113,7 +176,12 @@ export function ApplicantGradesImportPage(): JSX.Element {
       case 4:
         return true;
       case 5:
-        return true;
+        /* Block advancement when the intra-file duplicate ratio exceeds
+         * the threshold (default 1%) unless the admin has explicitly
+         * acknowledged the override in the loud-guard banner. Keeps
+         * pathological re-exports (e.g. 23k rows / 3 unique NIDs) from
+         * flowing silently through to the commit step. */
+        return !loudGuardBlocks;
       case 6:
         /* Step 6's diff review is always advanceable — the default
          * decision (reject for existing diffs, pick-higher for upload
@@ -133,6 +201,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   }
 
   function handleCancel(): void {
+    if (commit.isPending) return;
     if (parsed != null) {
       setConfirmCancel(true);
       return;
@@ -149,6 +218,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
     if (step < 7) setStep((step + 1) as StepIndex);
   }
   function back(): void {
+    if (commit.isPending) return;
     if (step > 1) setStep((step - 1) as StepIndex);
   }
 
@@ -164,6 +234,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
       filters,
       graduationYear,
       lookupValueMappings,
+      selectedSchoolCategories,
     );
     const actions: Record<ImportGroupCode, 'skip' | 'override' | 'create-applicant' | undefined> = {
       DUPLICATE_NID: filterAction(perGroupActions.DUPLICATE_NID),
@@ -177,31 +248,72 @@ export function ApplicantGradesImportPage(): JSX.Element {
     for (const [nid, decision] of Object.entries(existingDiffDecisions)) {
       if (decision === 'accept') acceptedDiffDecisions[nid] = 'accept';
     }
+    const deduped = dedupeRowsFirstOccurrence(rows);
+    setCommitProgress({
+      processedRows: 0,
+      totalRows: deduped.uniqueRows.length,
+      insertedCount: 0,
+      failedCount: 0,
+      alreadyImportedCount: 0,
+    });
+    /* Snapshot the pre-commit audit so the toast can attribute every
+     * row dropped to its bucket (existing-record hit vs intra-file
+     * dedupe vs preflight rejection). The commit result only reports
+     * inserted/failed/alreadyImported; the duplicate-row count comes
+     * from the audit. */
+    const auditSnapshot = duplicateAudit;
     commit.mutate(
       {
-        rows,
+        rows: deduped.uniqueRows,
         graduationYear,
         selectedSchoolCategories,
         maxGradeByCategory,
         perGroupActions: actions,
         existingDiffDecisions: acceptedDiffDecisions,
         uploadDuplicateDecisions,
+        onProgress: setCommitProgress,
       },
       {
         onSuccess: (res) => {
-          const skippedSuffix =
-            res.alreadyImportedCount > 0
-              ? ` · ${res.alreadyImportedCount.toLocaleString('en')} متجاهل (موجود مسبقًا بنفس سنة التخرج)`
-              : '';
-          toast(
-            `تم استيراد ${res.insertedCount.toLocaleString('en')} صفًا (${res.failedCount.toLocaleString('en')} مرفوض)${skippedSuffix}.`,
-            'success',
-          );
+          const audit = auditSnapshot ?? buildDuplicateAudit(rows);
+          const auditCsv = buildAuditCsv({
+            audit,
+            report: importResult,
+            rows,
+            integrityRows,
+            graduationYear,
+            fileName: fileMeta?.name ?? null,
+          });
+          const historyRecord = saveApplicantGradesImportHistoryRecord({
+            fileName: fileMeta?.name ?? null,
+            graduationYear,
+            report: importResult,
+            audit,
+            integrityRows,
+            auditCsv,
+            importedCount: res.insertedCount,
+            skippedExistingCount: res.alreadyImportedCount,
+            loudDuplicateAck,
+          });
+          const parts = [
+            `${res.insertedCount.toLocaleString('en')} مستورد`,
+            `${res.failedCount.toLocaleString('en')} مرفوض`,
+            `${audit.duplicateRowCount.toLocaleString('en')} مكرر متجاوز`,
+            `${integrityRows.length.toLocaleString('en')} غير صالح`,
+            `${audit.totalRows.toLocaleString('en')} إجمالي`,
+          ];
+          if (res.alreadyImportedCount > 0) {
+            parts.push(
+              `${res.alreadyImportedCount.toLocaleString('en')} متجاهل (موجود مسبقًا)`,
+            );
+          }
+          toast(`تم الاستيراد — ${parts.join(' · ')}.`, 'success');
           reset();
-          navigate(ROUTES.admin.applicantGrades);
+          navigate(`${ROUTES.admin.applicantGradesImportHistory}?record=${encodeURIComponent(historyRecord.id)}`);
         },
         onError: () => {
           toast('تعذّر إكمال الاستيراد. حاول مرة أخرى.', 'danger');
+          setCommitProgress(null);
         },
       },
     );
@@ -222,6 +334,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
             variant="ghost"
             leadingIcon={<X size={14} strokeWidth={1.75} aria-hidden />}
             onClick={handleCancel}
+            disabled={commit.isPending}
           >
             إلغاء الاستيراد
           </Button>
@@ -240,12 +353,29 @@ export function ApplicantGradesImportPage(): JSX.Element {
         {step === 7 && <Step6Result />}
       </section>
 
+      {commitProgress && (
+        <ImportCommitProgressPanel progress={commitProgress} />
+      )}
+
+      {loudGuardBlocks && (step === 5 || step === 6 || step === 7) && (
+        <div
+          role="status"
+          className="mt-3 flex items-center gap-2 rounded-md border border-terra-300 border-s-[3px] border-s-terra-500 bg-terra-50 px-3.5 py-2.5 text-xs text-terra-700"
+        >
+          <ShieldAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
+          <span>
+            لا يمكن المتابعة حتى تُقرّ بتجاوز كثافة التكرار في خطوة «مراجعة التكرار». ارجع إلى
+            الخطوة وراجع التوزيع ثم اضغط الإقرار.
+          </span>
+        </div>
+      )}
+
       <footer className="sticky bottom-0 mt-4 flex items-center justify-between gap-3 border-t border-border-subtle bg-white px-6 py-4">
         <Button
           variant="ghost"
           leadingIcon={<ChevronRight size={14} strokeWidth={1.75} aria-hidden />}
           onClick={back}
-          disabled={step === 1}
+          disabled={step === 1 || commit.isPending}
         >
           السابق
         </Button>
@@ -269,7 +399,13 @@ export function ApplicantGradesImportPage(): JSX.Element {
               variant="primary"
               leadingIcon={<Check size={14} strokeWidth={1.75} aria-hidden />}
               isLoading={commit.isPending}
+              loadingLabel={
+                commitProgress
+                  ? `جارٍ استيراد ${commitProgress.processedRows.toLocaleString('en')} / ${commitProgress.totalRows.toLocaleString('en')}`
+                  : 'جارٍ الاستيراد…'
+              }
               onClick={commitImport}
+              disabled={loudGuardBlocks}
             >
               تأكيد الاستيراد
             </Button>
@@ -289,6 +425,58 @@ export function ApplicantGradesImportPage(): JSX.Element {
           bailToList();
         }}
       />
+    </div>
+  );
+}
+
+function ImportCommitProgressPanel({
+  progress,
+}: {
+  progress: ImportCommitProgress;
+}): JSX.Element {
+  const pct =
+    progress.totalRows > 0
+      ? Math.min(100, Math.round((progress.processedRows / progress.totalRows) * 100))
+      : 0;
+
+  return (
+    <div
+      className="mt-4 rounded-md border border-teal-200 bg-teal-50 px-4 py-3"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-teal-800">
+        <span className="font-semibold">جارٍ كتابة الصفوف في قاعدة البيانات</span>
+        <span className="font-en tabular-nums" dir="ltr">
+          {progress.processedRows.toLocaleString('en')} / {progress.totalRows.toLocaleString('en')} · {pct}%
+        </span>
+      </div>
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white">
+        <div
+          className="h-full rounded-full bg-teal-500 transition-[inline-size] duration-base ease-standard"
+          style={{ inlineSize: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-2 grid gap-2 text-2xs text-teal-700 sm:grid-cols-3">
+        <span>
+          تم إدخال:{' '}
+          <b className="font-en tabular-nums" dir="ltr">
+            {progress.insertedCount.toLocaleString('en')}
+          </b>
+        </span>
+        <span>
+          موجود مسبقًا:{' '}
+          <b className="font-en tabular-nums" dir="ltr">
+            {progress.alreadyImportedCount.toLocaleString('en')}
+          </b>
+        </span>
+        <span>
+          مرفوض:{' '}
+          <b className="font-en tabular-nums" dir="ltr">
+            {progress.failedCount.toLocaleString('en')}
+          </b>
+        </span>
+      </div>
     </div>
   );
 }

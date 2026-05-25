@@ -30,6 +30,7 @@ export {
 } from './api/settings.queries';
 export type { AdminSettings } from './api/settings.service';
 export { ReportsPage } from './pages/ReportsPage';
+export { AdmissionRulesPage } from './pages/AdmissionRulesPage';
 /* ReferenceDataPage removed — superseded by `/admin/lookups`
  * (features/lookups/pages/LookupsHubPage). */
 export { CyclesPage } from './pages/CyclesPage';

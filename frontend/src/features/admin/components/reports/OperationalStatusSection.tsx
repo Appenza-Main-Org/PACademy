@@ -15,9 +15,29 @@ interface OperationalStatusSectionProps {
 }
 
 export function OperationalStatusSection({ status }: OperationalStatusSectionProps): JSX.Element {
+  const totalCommitteeQueue = status.committees.reduce((sum, committee) => sum + committee.todayQueue, 0);
+  const totalCommitteeProcessed = status.committees.reduce((sum, committee) => sum + committee.todayProcessed, 0);
+  const committeeThroughput =
+    totalCommitteeQueue > 0 ? Math.round((totalCommitteeProcessed / totalCommitteeQueue) * 100) : 0;
+  const busiestStation = status.medicalStations
+    .slice()
+    .sort((a, b) => b.avgWaitMinutes - a.avgWaitMinutes)[0];
+  const liveSessions = status.boardSessions.filter((session) => session.state === 'live').length;
+  const abandonedExams = status.ongoingExams.reduce((sum, exam) => sum + exam.abandonedCount, 0);
+
   return (
     <section className="mb-8">
-      <SectionHeading title="الحالة التشغيلية الفورية" />
+      <SectionHeading
+        title="الحالة التشغيلية الفورية"
+        trailing={
+          <div className="grid grid-cols-2 gap-2 text-2xs md:grid-cols-4">
+            <OpsPill label="إنجاز اللجان" value={`${committeeThroughput}%`} tone={committeeThroughput >= 65 ? 'success' : 'warning'} />
+            <OpsPill label="أطول انتظار" value={busiestStation ? `${busiestStation.avgWaitMinutes}د` : '—'} tone={busiestStation && busiestStation.avgWaitMinutes >= 35 ? 'warning' : 'success'} />
+            <OpsPill label="جلسات مباشرة" value={num(liveSessions)} tone={liveSessions > 0 ? 'warning' : 'success'} />
+            <OpsPill label="انسحاب اختبار" value={num(abandonedExams)} tone={abandonedExams > 0 ? 'warning' : 'success'} />
+          </div>
+        }
+      />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {/* Tile A — Committees */}
         <Card variant="compact">
@@ -55,7 +75,7 @@ export function OperationalStatusSection({ status }: OperationalStatusSectionPro
                           className="block h-full rounded-pill"
                           style={{
                             width: `${Math.round(ratio * 100)}%`,
-                            background: 'var(--accent-500)',
+                            background: ratio >= 0.65 ? 'var(--success)' : 'var(--gold-500)',
                           }}
                         />
                       </span>
@@ -154,6 +174,29 @@ export function OperationalStatusSection({ status }: OperationalStatusSectionPro
         </Card>
       </div>
     </section>
+  );
+}
+
+function OpsPill({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'success' | 'warning';
+}): JSX.Element {
+  return (
+    <span
+      className={`inline-flex items-center justify-between gap-2 rounded-md border px-2.5 py-1 ${
+        tone === 'success'
+          ? 'border-teal-100 bg-teal-50 text-teal-700'
+          : 'border-gold-200 bg-gold-50 text-gold-700'
+      }`}
+    >
+      <span>{label}</span>
+      <span className="font-numeric tnum font-bold">{value}</span>
+    </span>
   );
 }
 

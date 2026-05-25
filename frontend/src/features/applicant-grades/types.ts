@@ -28,6 +28,8 @@ export interface GradeAdjustment {
 
 /** A grade row as held in the admin table.  */
 export interface GradeRow {
+  /** Backend record id. Usually equals `seat`, but kept optional for older mock rows. */
+  id?: string;
   /** Cycle-scoped internal primary key (numeric). */
   seat: number;
   /**
@@ -67,6 +69,13 @@ export interface GradeRow {
   overrideMax: number | null;
   lastEditedAt: string | null;
   lastEditedBy: string | null;
+  /** Backend record timestamps, used for import-source metadata in detail drawers. */
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  /** Optional source-file metadata when the backend/import pipeline stores it. */
+  importFileName?: string | null;
+  importedBy?: string | null;
+  importedAt?: string | null;
   /**
    * Timestamp of the most recent change to any grade-affecting field
    * (raw total, override max, adjustment add/toggle/delete). `null` for
@@ -237,4 +246,17 @@ export interface ImportCommitResult {
    *  year is a re-applicant case and goes through the diff-review
    *  flow instead. */
   alreadyImportedCount: number;
+}
+
+export interface ImportCommitProgress {
+  processedRows: number;
+  totalRows: number;
+  insertedCount: number;
+  failedCount: number;
+  alreadyImportedCount: number;
+}
+
+export interface ImportPreflightProgress {
+  processedRows: number;
+  totalRows: number;
 }

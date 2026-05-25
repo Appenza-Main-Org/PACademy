@@ -10,7 +10,7 @@
  */
 
 import { useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldPath } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Save } from 'lucide-react';
 import { z } from 'zod';
@@ -31,25 +31,19 @@ import { zodResolver } from '@/shared/lib/zod-resolver';
 import { useCreateCommittee } from '../api/committee.queries';
 import { ROUTES } from '@/config/routes';
 import {
-  APPLICANT_CATEGORY_KEYS,
-  type ApplicantCategoryKey,
   type CommitteeRules,
   type CommitteeStatus,
 } from '@/shared/types/domain';
-import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
-import { ACADEMIC_DEGREES } from '@/features/lookups';
+import { useCycles } from '@/features/admin/api/cycles.queries';
+import { ACADEMIC_DEGREES, useLookup } from '@/features/lookups';
 import { deriveCommitteeGender } from '@/shared/lib/committee-gender';
+import { isValidationError } from '@/shared/lib/errors';
+import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 
 const ACADEMIC_YEARS = [
   { value: '2026-2027', label: 'العام الدراسي 2026 / 2027' },
   { value: '2025-2026', label: 'العام الدراسي 2025 / 2026' },
   { value: '2024-2025', label: 'العام الدراسي 2024 / 2025' },
-] as const;
-
-const CYCLE_OPTIONS = [
-  { value: 'CYC-2026-M', label: 'دورة التقديم 2026' },
-  { value: 'CYC-2025-M', label: 'دورة 2025 - الذكور' },
-  { value: 'CYC-2025-F', label: 'دورة 2025 - الإناث' },
 ] as const;
 
 const STATUS_OPTIONS: ReadonlyArray<{ value: CommitteeStatus; label: string }> = [
@@ -65,14 +59,10 @@ const GENDER_LABEL: Record<GenderOption, string> = {
   female: 'إناث',
 };
 
-const isApplicantCategoryKey = (v: string): v is ApplicantCategoryKey =>
-  (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(v);
-
 const schema = z.object({
   categoryKey: z
     .string()
-    .min(1, 'اختر الفئة')
-    .refine((v) => v === '' || isApplicantCategoryKey(v), 'الفئة غير صحيحة'),
+    .min(1, 'اختر الفئة'),
   name: z.string().trim().min(2, 'أدخِل اسم اللجنة'),
   academicYearId: z.string().min(1, 'اختر العام الدراسي'),
   status: z.enum(['active', 'inactive']),
@@ -91,7 +81,8 @@ type FormValues = z.infer<typeof schema>;
 export function CommitteeCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const createMut = useCreateCommittee();
-  const categoriesQuery = useCategoriesAdmin({ includeDeleted: false });
+  const categoriesQuery = useLookup('applicant-categories');
+  const cyclesQuery = useCycles();
 
   /* When the admin clicks "إنشاء لجنة" from the committees lookup
    * (/admin/lookups/committees), the active tab's key is passed via
@@ -100,15 +91,13 @@ export function CommitteeCreatePage(): JSX.Element {
    * selector. */
   const [searchParams] = useSearchParams();
   const requestedCategory = searchParams.get('category');
-  const presetCategoryKey: ApplicantCategoryKey | null =
-    requestedCategory && isApplicantCategoryKey(requestedCategory)
-      ? requestedCategory
-      : null;
+  const presetCategoryKey = requestedCategory?.trim() ? requestedCategory.trim() : null;
   const isCategoryLocked = presetCategoryKey !== null;
 
   const {
     register,
     handleSubmit,
+    setError,
     setValue,
     watch,
     formState: { errors, isSubmitting },
@@ -119,7 +108,7 @@ export function CommitteeCreatePage(): JSX.Element {
       name: '',
       academicYearId: ACADEMIC_YEARS[0].value,
       status: 'active',
-      cycleId: CYCLE_OPTIONS[0].value,
+      cycleId: '',
       maxPercentage: 100,
       filterGender: 'any',
       academicDegree: 'any',
@@ -130,6 +119,14 @@ export function CommitteeCreatePage(): JSX.Element {
   const filterGender = watch('filterGender');
   const academicDegree = watch('academicDegree');
   const committeeName = watch('name');
+  const cycleOptions = useMemo(
+    () =>
+      (cyclesQuery.data ?? []).map((cycle) => ({
+        value: cycle.id,
+        label: cycle.nameAr,
+      })),
+    [cyclesQuery.data],
+  );
 
   /* For the specialized_officers track, gender is a function of the
    * committee name (deriveCommitteeGender). The form surfaces the derived
@@ -143,28 +140,30 @@ export function CommitteeCreatePage(): JSX.Element {
 
   const categoryOptions = useMemo(
     () =>
-      (categoriesQuery.data ?? []).map((c) => ({
-        value: c.key,
-        label: c.labelAr,
-        badge: c.labelEn || c.key,
-      })),
+      (categoriesQuery.data ?? [])
+        .filter((c) => c.isActive)
+        .map((c) => ({
+          value: c.code,
+          label: c.name,
+          badge: c.nameEn || c.code,
+        })),
     [categoriesQuery.data],
   );
 
   const selectedCategory = useMemo(
-    () => (categoriesQuery.data ?? []).find((c) => c.key === categoryKey),
+    () => (categoriesQuery.data ?? []).find((c) => c.code === categoryKey),
     [categoriesQuery.data, categoryKey],
   );
 
   /* Gender filter options are derived from the selected category's
-   * `conditions.gender` so the form never offers a value the category
+   * `genderScope` so the form never offers a value the category
    * has locked out. When the category fixes a value (e.g. 'male'), the
    * filter is rendered with that single option only. */
   const genderOptions = useMemo<GenderOption[]>(() => {
     if (!selectedCategory) return [];
-    const g = selectedCategory.conditions.gender;
-    if (g === 'any') return ['any', 'male', 'female'];
-    return [g];
+    return selectedCategory.genderScope.length === 1
+      ? [selectedCategory.genderScope[0]]
+      : ['any', 'male', 'female'];
   }, [selectedCategory]);
 
   /* Academic-degree options sourced from the `academic-degrees` reference
@@ -184,16 +183,12 @@ export function CommitteeCreatePage(): JSX.Element {
    * changes — the new category may not permit the previously-picked
    * gender. */
   const handleCategoryChange = (next: string | null): void => {
-    const key: ApplicantCategoryKey | '' =
-      next && isApplicantCategoryKey(next) ? next : '';
-    setValue('categoryKey', key, { shouldValidate: true });
+    setValue('categoryKey', next ?? '', { shouldValidate: true });
     setValue('filterGender', 'any', { shouldValidate: false });
     setValue('academicDegree', 'any', { shouldValidate: false });
   };
 
   const onSubmit = (values: FormValues): void => {
-    if (!isApplicantCategoryKey(values.categoryKey)) return;
-
     /* Map filter values back through the existing rule bag — gender lives
      * on `CommitteeRules` directly; the picked academic-degree lookup
      * code rides on `applicantType` (free-form lookup-key field).
@@ -242,7 +237,14 @@ export function CommitteeCreatePage(): JSX.Element {
           toast(`تم إنشاء لجنة ${committee.name}`, 'success');
           navigate(ROUTES.admin.adminLookupsType('committees'));
         },
-        onError: (err) => toast((err as Error).message, 'danger'),
+        onError: (err) => {
+          if (isValidationError(err)) {
+            for (const [field, message] of Object.entries(validationFieldErrors(err))) {
+              setError(field as FieldPath<FormValues>, { type: 'server', message });
+            }
+          }
+          toast(validationMessage(err, 'تعذر إنشاء اللجنة'), 'danger');
+        },
       },
     );
   };
@@ -279,7 +281,7 @@ export function CommitteeCreatePage(): JSX.Element {
                       className="text-md font-bold"
                       style={{ color: 'var(--accent-700)' }}
                     >
-                      {selectedCategory?.labelAr ?? presetCategoryKey}
+                      {selectedCategory?.name ?? presetCategoryKey}
                     </span>
                   </div>
                   <span className="text-xs text-ink-500">محدّدة من القائمة</span>
@@ -324,7 +326,7 @@ export function CommitteeCreatePage(): JSX.Element {
                 label="الدورة المرتبطة"
                 required
                 {...register('cycleId')}
-                options={CYCLE_OPTIONS}
+                options={cycleOptions}
                 error={errors.cycleId?.message}
                 containerClassName="md:col-span-2"
               />

@@ -463,7 +463,7 @@ export interface CommitteeInstance {
    *  Carried explicitly so cross-cycle filters don't have to round-trip
    *  through the definition row. Mirrors the parent definition's
    *  `applicantCategoryId`. */
-  categoryKey: ApplicantCategoryKey;
+  categoryKey: string;
   /** ISO yyyy-mm-dd date this instance sits on. */
   date: string;
   /** Seats for this instance on this date (1..999). */
@@ -533,7 +533,7 @@ export interface Committee extends SoftDeleteFields {
   completed: number;
   /** FK → `applicant-categories[CAT-NN].code`. Required — the list page
    *  groups committees under their category header. */
-  categoryKey: ApplicantCategoryKey;
+  categoryKey: string;
   /** Total seats this committee can absorb. Required (1..999). */
   capacity: number;
   /** Discriminator for `gradeMin` / `gradeMax`. */
@@ -1456,8 +1456,13 @@ export type ExamResultStatus = 'draft' | 'review' | 'approved' | 'published';
 
 /* ── Question Bank & e-Exams — Sprint 7 (RFP Scope Document §9) ────────────────── */
 
-export type QuestionType = 'mcq' | 'true-false' | 'ordering' | 'fill-in';
+export type QuestionType = 'mcq' | 'true-false' | 'matching' | 'ordering' | 'fill-in';
 export type QuestionStatus = 'draft' | 'review' | 'approved' | 'live';
+
+export interface MatchingPair {
+  prompt: string;
+  match: string;
+}
 
 export interface BankQuestion {
   id: string;
@@ -1467,6 +1472,7 @@ export interface BankQuestion {
   text: string;
   options: string[];
   correctIndex: number;
+  matchingPairs?: MatchingPair[];
   timeLimitSeconds: number;
   notes?: string;
   status: QuestionStatus;
@@ -1490,11 +1496,13 @@ export interface ExamAttempt {
   applicantId: string;
   startedAt: number;
   submittedAt?: number;
-  answers: Record<string, number>;
+  answers: Record<string, ExamAnswer>;
   flagged: string[];
   score?: number;
   passFail?: 'pass' | 'fail';
 }
+
+export type ExamAnswer = number | Record<string, string>;
 
 /** Payload for the bulk import wizard — mirrors a manually-created question.
  *  Resolves to a `BankQuestion` after the service stamps id/status/version.
@@ -1506,6 +1514,7 @@ export interface QuestionDraft {
   text: string;
   options: string[];
   correctIndex: number;
+  matchingPairs?: MatchingPair[];
   timeLimitSeconds: number;
   notes?: string;
 }

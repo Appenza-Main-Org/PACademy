@@ -196,7 +196,7 @@ const DIFFICULTY_FROM_LABEL: Record<'سهل' | 'متوسط' | 'صعب', 1 | 2 | 
   صعب: 4,
 };
 
-export const BANK_QUESTIONS: BankQuestion[] = QUESTION_POOL.map((q, i) => ({
+const BASE_BANK_QUESTIONS: BankQuestion[] = QUESTION_POOL.map((q, i) => ({
   id: `Q-${String(i + 1).padStart(5, '0')}`,
   category: q.category,
   difficulty: DIFFICULTY_FROM_LABEL[q.difficultyLabel],
@@ -208,6 +208,40 @@ export const BANK_QUESTIONS: BankQuestion[] = QUESTION_POOL.map((q, i) => ({
   status: i < 35 ? 'live' : i < 45 ? 'review' : 'draft',
   version: 1,
 }));
+
+const MIXED_TYPE_QUESTIONS: BankQuestion[] = [
+  {
+    id: 'Q-00051',
+    category: 'ثقافة عامة',
+    difficulty: 2,
+    type: 'true-false',
+    text: 'تتكوّن بطاقة الرقم القومي المصرية من 14 رقماً.',
+    options: ['صح', 'خطأ'],
+    correctIndex: 0,
+    timeLimitSeconds: 30,
+    status: 'live',
+    version: 1,
+  },
+  {
+    id: 'Q-00052',
+    category: 'منطق',
+    difficulty: 3,
+    type: 'matching',
+    text: 'صِل كل مرحلة بالإجراء المناسب لها.',
+    options: ['التحقق من الهوية', 'حجز الموعد', 'إعلان النتيجة'],
+    correctIndex: 0,
+    matchingPairs: [
+      { prompt: 'قبل بدء الاختبار', match: 'التحقق من الهوية' },
+      { prompt: 'بعد سداد الرسوم', match: 'حجز الموعد' },
+      { prompt: 'بعد اعتماد اللجنة', match: 'إعلان النتيجة' },
+    ],
+    timeLimitSeconds: 90,
+    status: 'live',
+    version: 1,
+  },
+];
+
+export const BANK_QUESTIONS: BankQuestion[] = [...MIXED_TYPE_QUESTIONS, ...BASE_BANK_QUESTIONS];
 
 export const EXAM_CONFIGS: ExamConfig[] = [
   {

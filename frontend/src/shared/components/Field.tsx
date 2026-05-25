@@ -65,7 +65,7 @@ export function Field({
     <div className={cn('flex flex-col gap-1', className)}>
       <span className="text-sm font-medium text-ink-700">
         {label}
-        {required && <span className="ms-1 text-terra-500">*</span>}
+        {required && <span aria-hidden className="ms-1 align-middle text-base font-bold leading-none text-terra-500">*</span>}
       </span>
       {children}
       {helperText && <span className={cn('text-xs', helperTone)}>{helperText}</span>}

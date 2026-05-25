@@ -35,16 +35,28 @@ import { DonutChart, Heatmap, LineChart } from '@/shared/components/charts';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
   useApplicantDistribution,
+  useApplicants,
   useApplicantStats,
 } from '@/features/applicants/api/applicant.queries';
 import { useAuditLog } from '@/features/audit/api/audit.queries';
-import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
 import { useCycles } from '../api/cycles.queries';
+import type { Kpis } from '@/shared/types/domain';
 
 const HEATMAP_DAY_LABELS = ['السبت', 'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
 const HEATMAP_HOUR_LABELS = Array.from({ length: 24 }, (_, h) => (h % 4 === 0 ? String(h) : ''));
+const EMPTY_HEATMAP = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0));
+const EMPTY_KPIS: Kpis = {
+  totalApplicants: 0,
+  paidApplicants: 0,
+  underReview: 0,
+  approved: 0,
+  rejected: 0,
+  pending: 0,
+  byGender: { male: 0, female: 0 },
+  byCertType: {},
+};
 
 const TICKER_DOT: Record<'success' | 'warning' | 'danger' | 'info' | 'neutral', string> = {
   success: 'var(--success)',
@@ -69,14 +81,19 @@ export function DashboardPage(): JSX.Element {
   const { data: govDist } = useApplicantDistribution('governorate');
   const { data: ticker } = useAuditLog({ limit: 6 });
   const { data: recentAudit } = useAuditLog({ limit: 8 });
+  const { data: recentApplicants } = useApplicants({ page: 1, pageSize: 8 });
 
-  const k = stats ?? MOCK.kpis;
-  const recent = MOCK.applicants
-    .slice()
-    .sort((a, b) => new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime())
-    .slice(0, 8);
+  const k = stats ?? EMPTY_KPIS;
+  const recent = recentApplicants?.data ?? [];
+  const sparklineSeed = recent.map((a) => new Date(a.registeredAt).getDate());
+  const registrationsSparkline = sparklineSeed.length > 0 ? sparklineSeed : [0];
+  const paymentsSparkline = sparklineSeed.length > 0 ? sparklineSeed.map((v) => Math.max(0, v - 1)) : [0];
+  const registrationsTrend = recent.map((a) => ({
+    label: fmtDate(a.registeredAt, 'short'),
+    value: 1,
+  }));
 
-  const actionsRequired = computeActionsRequired();
+  const actionsRequired = computeActionsRequired(k);
 
   return (
     <CenteredShell>
@@ -107,7 +124,7 @@ export function DashboardPage(): JSX.Element {
           value={k.totalApplicants}
           icon={<Users size={16} strokeWidth={1.75} />}
           trend={{ label: '+12% عن دورة 2025', tone: 'success' }}
-          sparkline={MOCK.last14Days.map((d) => d.registrations)}
+          sparkline={registrationsSparkline}
         />
         <StatCard
           label="مدفوع الرسوم"
@@ -117,7 +134,7 @@ export function DashboardPage(): JSX.Element {
             label: `${Math.round((k.paidApplicants / Math.max(1, k.totalApplicants)) * 100)}% من الإجمالي`,
             tone: 'success',
           }}
-          sparkline={MOCK.last14Days.map((d) => d.payments)}
+          sparkline={paymentsSparkline}
         />
         <StatCard
           label="قيد المراجعة"
@@ -260,11 +277,11 @@ export function DashboardPage(): JSX.Element {
           <CardHeader
             title="حركة التسجيلات — آخر 14 يوم"
             subtitle="عدد المتقدمين المسجلين يومياً"
-            actions={<Badge tone="info">+18% أسبوعياً</Badge>}
+            actions={<Badge tone="info">آخر البيانات</Badge>}
           />
           <CardBody>
             <LineChart
-              data={MOCK.last14Days.map((d) => ({ label: d.label, value: d.registrations }))}
+              data={registrationsTrend}
             />
           </CardBody>
         </Card>
@@ -289,7 +306,7 @@ export function DashboardPage(): JSX.Element {
         />
         <CardBody>
           <Heatmap
-            data={MOCK.heatmapHourDay}
+            data={EMPTY_HEATMAP}
             rowLabels={HEATMAP_DAY_LABELS}
             colLabels={HEATMAP_HOUR_LABELS}
             cellSize={20}
@@ -389,10 +406,10 @@ export function DashboardPage(): JSX.Element {
   );
 }
 
-function computeActionsRequired(): { label: string; detail: string; href: string }[] {
-  const pendingPayments = MOCK.applicants.filter((a) => a.paymentStatus === 'pending').length;
-  const flaggedInvest = MOCK.applicants.filter((a) => a.investigation === 'flagged').length;
-  const stuck = MOCK.applicants.filter((a) => a.status === 'on-hold').length;
+function computeActionsRequired(kpis: Kpis): { label: string; detail: string; href: string }[] {
+  const pendingPayments = Math.max(0, kpis.totalApplicants - kpis.paidApplicants);
+  const flaggedInvest = kpis.underReview;
+  const stuck = kpis.pending;
   return [
     {
       label: 'متقدمون لم يسددوا الرسوم',

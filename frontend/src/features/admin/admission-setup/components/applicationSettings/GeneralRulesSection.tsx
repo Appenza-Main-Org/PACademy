@@ -326,6 +326,14 @@ export function GeneralRulesSection({
     graduationYearOptions,
     excellenceMode,
   };
+  const scopedSpecCount = [...specsByFaculty.values()].reduce(
+    (count, specs) => count + specs.length,
+    0,
+  );
+  const shouldUseScopedWorkspace =
+    categoryCode === SPECIALIZED_OFFICERS_CATEGORY_CODE ||
+    scopedFaculties.length > 1 ||
+    scopedSpecCount > 1;
 
   return (
     <section
@@ -346,7 +354,7 @@ export function GeneralRulesSection({
       <TopFields categoryCode={categoryCode} maritalOptions={maritalOptions} />
 
       <div className="mt-4">
-        {categoryCode === SPECIALIZED_OFFICERS_CATEGORY_CODE ? (
+        {shouldUseScopedWorkspace ? (
           <SpecializedOfficersWorkspace
             faculties={scopedFaculties}
             specsByFaculty={specsByFaculty}
@@ -365,11 +373,6 @@ export function GeneralRulesSection({
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-3 border-t border-border-subtle pt-4">
-        {localCount > 0 && (
-          <span className="font-ar text-xs text-ink-500">
-            {`${num(localCount)} شرط جاهز للاعتماد`}
-          </span>
-        )}
         <Button
           variant="primary"
           size="md"
@@ -673,6 +676,22 @@ function SpecializedOfficersWorkspace({
   );
   const [facultySearch, setFacultySearch] = useState('');
   const [specSearch, setSpecSearch] = useState('');
+  const localRows = useAdmissionSetupWizardStore((s) => s.local);
+  const approvedRows = useAdmissionSetupWizardStore((s) => s.approved);
+  const editingRowId = useAdmissionSetupWizardStore((s) => s.editingRowId);
+  const removeLocalRow = useAdmissionSetupWizardStore((s) => s.removeLocalRow);
+  const removeApprovedRow = useAdmissionSetupWizardStore(
+    (s) => s.removeApprovedRow,
+  );
+  const setEditingRow = useAdmissionSetupWizardStore((s) => s.setEditingRow);
+  const categoryRows = useMemo(
+    () =>
+      [...localRows, ...approvedRows].filter(
+        (r): r is LocalUniversityRow =>
+          r.kind === 'university' && r.categoryCode === options.categoryCode,
+      ),
+    [localRows, approvedRows, options.categoryCode],
+  );
 
   const filteredFaculties = useMemo(() => {
     const needle = facultySearch.trim().toLowerCase();
@@ -746,6 +765,19 @@ function SpecializedOfficersWorkspace({
     setSelectedSpecCodes(new Set());
   };
 
+  const handleDeleteCategoryRow = (id: string): void => {
+    removeLocalRow(id);
+    removeApprovedRow(id);
+  };
+
+  const handleEditCategoryRow = (id: string): void => {
+    const row = categoryRows.find((r) => r.id === id);
+    if (!row) return;
+    setSelectedFacultyCode(row.facultyCode);
+    setSelectedSpecCodes(new Set([row.specializationCode]));
+    setEditingRow(id);
+  };
+
   if (faculties.length === 0) {
     return (
       <EmptyState
@@ -787,9 +819,9 @@ function SpecializedOfficersWorkspace({
                     onClick={() => handleFacultySelect(faculty.code)}
                     className={cn(
                       'flex w-full items-center justify-between gap-3 border-b border-border-subtle px-4 py-4 text-start transition-colors duration-fast',
-                      'focus-visible:outline-none focus-visible:shadow-focus-teal',
+                      'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
                       isSelected
-                        ? 'border-s-4 border-s-teal-600 bg-teal-50'
+                        ? 'bg-[var(--accent-50)] shadow-[inset_0_0_0_1px_var(--accent-500)]'
                         : 'bg-surface-card hover:bg-ink-50/70',
                     )}
                   >
@@ -804,16 +836,13 @@ function SpecializedOfficersWorkspace({
                     </span>
                     <span className="inline-flex items-center gap-2">
                       {isFilled && (
-                        <span className="size-2 rounded-full bg-teal-600" />
+                        <span className="size-2 rounded-full bg-[var(--accent-600)]" />
                       )}
-                      <span className="font-mono text-2xs text-ink-400">
-                        {faculty.code}
-                      </span>
                       {isSelected && (
                         <ChevronLeft
                           size={14}
                           strokeWidth={2}
-                          className="text-teal-600"
+                          className="text-[var(--accent-600)]"
                           aria-hidden
                         />
                       )}
@@ -890,9 +919,9 @@ function SpecializedOfficersWorkspace({
                     }}
                     className={cn(
                       'flex w-full cursor-pointer items-center justify-between gap-3 border-b border-border-subtle px-4 py-4 text-start transition-colors duration-fast',
-                      'focus-visible:outline-none focus-visible:shadow-focus-teal',
+                      'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
                       isSelected
-                        ? 'border-s-4 border-s-teal-600 bg-teal-50'
+                        ? 'bg-[var(--accent-50)] shadow-[inset_0_0_0_1px_var(--accent-500)]'
                         : 'bg-surface-card hover:bg-ink-50/70',
                     )}
                   >
@@ -908,13 +937,10 @@ function SpecializedOfficersWorkspace({
                         <span className="block truncate font-ar text-sm font-semibold text-ink-900">
                           {spec.name}
                         </span>
-                        <span className="mt-1 block font-mono text-2xs text-ink-400">
-                          {spec.code}
-                        </span>
                       </span>
                     </span>
                     {isFilled && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-1 font-ar text-2xs font-medium text-teal-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-50)] px-2 py-1 font-ar text-2xs font-medium text-[var(--accent-700)]">
                         <CheckCircle2 size={12} strokeWidth={2} aria-hidden />
                         شروط
                       </span>
@@ -942,6 +968,8 @@ function SpecializedOfficersWorkspace({
             bulkTargets={selectedSpecTargets}
             emptyRowsLabel="لم تُضف شروط لجان بعد للتخصصات المحددة."
             showScopeColumn={selectedSpecTargets.length > 1}
+            hideRowsGrid
+            onAddSuccess={handleClearSpecs}
             bulkBanner={
               <BulkApplyBanner
                 facultyName={selectedFaculty.name}
@@ -956,6 +984,33 @@ function SpecializedOfficersWorkspace({
             description="اختر كلية ثم حدد تخصصاً أو أكثر لعرض نموذج شروط اللجنة."
           />
         )}
+      </section>
+
+      <section className="min-w-0 rounded-md border border-border-subtle bg-surface-card p-4">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h4 className="m-0 font-ar text-sm font-semibold text-ink-900">
+              شروط الفئة المضافة
+            </h4>
+          </div>
+          {categoryRows.length > 0 && (
+            <span className="rounded-full bg-ink-50 px-2 py-1 font-ar text-2xs font-medium text-ink-600">
+              {num(categoryRows.length)} شرط
+            </span>
+          )}
+        </div>
+        <LocalUniversityGrid
+          rows={categoryRows}
+          editingId={editingRowId}
+          gradeOptions={options.gradeOptions}
+          degreeOptions={options.degreeOptions}
+          committeeOptions={options.committeeOptions}
+          maritalOptions={options.maritalOptions}
+          onEdit={handleEditCategoryRow}
+          onDelete={handleDeleteCategoryRow}
+          emptyRowsLabel="لم تُضف شروط لجان بعد لهذه الفئة."
+          showScopeColumn
+        />
       </section>
     </div>
   );
@@ -1067,6 +1122,8 @@ interface PerSpecFormProps {
   bulkBanner?: React.ReactNode;
   emptyRowsLabel?: string;
   showScopeColumn?: boolean;
+  hideRowsGrid?: boolean;
+  onAddSuccess?: () => void;
 }
 
 function rowToUniversityInput(r: LocalUniversityRow): GeneralRuleRowInput {
@@ -1140,6 +1197,8 @@ function PerSpecForm({
   bulkBanner,
   emptyRowsLabel = 'لم تُضف شروط لجان بعد لهذا التخصص.',
   showScopeColumn = false,
+  hideRowsGrid = false,
+  onAddSuccess,
 }: PerSpecFormProps): JSX.Element {
   const {
     categoryCode,
@@ -1154,6 +1213,7 @@ function PerSpecForm({
   const [draft, setDraft] = useState<GeneralRuleRowInput>(() =>
     emptyInputFor(defaultExcellenceMode),
   );
+  const [formResetKey, setFormResetKey] = useState(0);
   const formRef = useRef<HTMLDivElement>(null);
 
   const header = useAdmissionSetupWizardStore(
@@ -1195,41 +1255,39 @@ function PerSpecForm({
   };
   const submitTargets =
     bulkTargets && bulkTargets.length > 0 ? bulkTargets : [primarySpec];
-  const targetScopeKey = submitTargets
-    .map((target) => `${target.facultyCode}::${target.specializationCode}`)
-    .join('|');
   const rows = useMemo(
-    () => {
-      const targetKeys = new Set(targetScopeKey.split('|').filter(Boolean));
-      return [...localRows, ...approvedRows].filter(
+    () =>
+      [...localRows, ...approvedRows].filter(
         (r): r is LocalUniversityRow =>
-          r.kind === 'university' &&
-          r.categoryCode === categoryCode &&
-          targetKeys.has(`${r.facultyCode}::${r.specializationCode}`),
-      );
-    },
-    [localRows, approvedRows, categoryCode, targetScopeKey],
+          r.kind === 'university' && r.categoryCode === categoryCode,
+      ),
+    [localRows, approvedRows, categoryCode],
   );
+  const shouldShowScopeColumn =
+    showScopeColumn ||
+    rows.some(
+      (r) =>
+        r.facultyCode !== facultyCode ||
+        r.specializationCode !== specializationCode,
+    );
   const handleDelete = (id: string): void => {
     removeLocalRow(id);
     removeApprovedRow(id);
   };
 
-  /** The row currently being edited, scoped to *this* form: must be a
-   *  university row under the same (category, faculty, specialization)
-   *  triple. Editing a row in another scope drops this form back into
-   *  add-mode without losing the user's place in the wizard. */
+  /** The row currently being edited, scoped to the current category.
+   *  The visible grid is category-wide, so editing must be able to pick
+   *  up any row in that category, not just the currently selected
+   *  faculty/specialization targets. */
   const editingRow = useAdmissionSetupWizardStore((s) => {
     if (s.editingRowId === null) return null;
-    const targetKeys = new Set(targetScopeKey.split('|').filter(Boolean));
     const r =
       s.local.find((x) => x.id === s.editingRowId) ??
       s.approved.find((x) => x.id === s.editingRowId);
     if (
       !r ||
       r.kind !== 'university' ||
-      r.categoryCode !== categoryCode ||
-      !targetKeys.has(`${r.facultyCode}::${r.specializationCode}`)
+      r.categoryCode !== categoryCode
     ) {
       return null;
     }
@@ -1319,6 +1377,13 @@ function PerSpecForm({
     scoreMax: showScorePair ? input.scoreMax : null,
   });
 
+  const resetForm = (): void => {
+    setDraft(emptyInputFor(defaultExcellenceMode));
+    setScoreMinMessage(null);
+    setScoreMaxMessage(null);
+    setFormResetKey((key) => key + 1);
+  };
+
   const handleSubmit = (): void => {
     if (!canSubmit) return;
     const payload = normalizeForSubmit(draft);
@@ -1372,7 +1437,8 @@ function PerSpecForm({
         return;
       }
     }
-    setDraft(emptyInputFor(defaultExcellenceMode));
+    resetForm();
+    onAddSuccess?.();
     toast(
       submitTargets.length > 1
         ? `تمت إضافة الشرط إلى ${num(submitTargets.length)} تخصصات`
@@ -1395,7 +1461,7 @@ function PerSpecForm({
   return (
     <div className="flex flex-col gap-4">
       {bulkBanner}
-      <Card variant="compact" ref={formRef}>
+      <Card key={formResetKey} variant="compact" ref={formRef}>
         <header className="mb-3 flex items-center justify-between gap-3">
           <h4 className="font-ar text-sm font-semibold text-ink-900">
             {isEditing ? 'تعديل شرط اللجنة' : 'شروط اللجنة'}
@@ -1472,8 +1538,33 @@ function PerSpecForm({
               </>
             )}
 
-            {showScorePair && (
-              <>
+            <FieldLabel label="الدرجة العلمية" required>
+              {degreeOptions.length === 0 ? (
+                <p className="font-ar text-2xs text-ink-500">
+                  لا توجد درجات علمية مفعّلة في المراجع.
+                </p>
+              ) : (
+                <MultiSelect
+                  ariaLabel="الدرجة العلمية"
+                  value={draft.academicDegrees}
+                  onChange={(next) =>
+                    setDraft((d) => ({ ...d, academicDegrees: next }))
+                  }
+                  options={degreeOptions.map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  }))}
+                  placeholder="اختر الدرجة العلمية…"
+                />
+              )}
+            </FieldLabel>
+          </div>
+        </FieldGroup>
+
+        {showScorePair && (
+          <div className="mt-3">
+            <FieldGroup title="حدود التمييز">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <FieldLabel label="الحد الأدنى للدرجة (٪)" required>
                   <OperatorScoreField<MinScoreOperator>
                     operatorValue={draft.minScoreOperator}
@@ -1523,31 +1614,10 @@ function PerSpecForm({
                     </span>
                   )}
                 </FieldLabel>
-              </>
-            )}
-
-            <FieldLabel label="الدرجة العلمية" required>
-              {degreeOptions.length === 0 ? (
-                <p className="font-ar text-2xs text-ink-500">
-                  لا توجد درجات علمية مفعّلة في المراجع.
-                </p>
-              ) : (
-                <MultiSelect
-                  ariaLabel="الدرجة العلمية"
-                  value={draft.academicDegrees}
-                  onChange={(next) =>
-                    setDraft((d) => ({ ...d, academicDegrees: next }))
-                  }
-                  options={degreeOptions.map((o) => ({
-                    value: o.value,
-                    label: o.label,
-                  }))}
-                  placeholder="اختر الدرجة العلمية…"
-                />
-              )}
-            </FieldLabel>
+              </div>
+            </FieldGroup>
           </div>
-        </FieldGroup>
+        )}
 
         <div className="mt-3">
           <FieldGroup title="اللجنة وسنة التخرج">
@@ -1617,18 +1687,20 @@ function PerSpecForm({
         </div>
       </Card>
 
-      <LocalUniversityGrid
-        rows={rows}
-        editingId={editingId}
-        gradeOptions={gradeOptions}
-        degreeOptions={degreeOptions}
-        committeeOptions={committeeOptions}
-        maritalOptions={options.maritalOptions}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        emptyRowsLabel={emptyRowsLabel}
-        showScopeColumn={showScopeColumn}
-      />
+      {!hideRowsGrid && (
+        <LocalUniversityGrid
+          rows={rows}
+          editingId={editingId}
+          gradeOptions={gradeOptions}
+          degreeOptions={degreeOptions}
+          committeeOptions={committeeOptions}
+          maritalOptions={options.maritalOptions}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          emptyRowsLabel={emptyRowsLabel}
+          showScopeColumn={shouldShowScopeColumn}
+        />
+      )}
     </div>
   );
 }
@@ -1689,7 +1761,7 @@ function LocalUniversityGrid({
       <table className="w-full border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
-            {showScopeColumn && <Th>التخصص</Th>}
+            {showScopeColumn && <Th>الكلية / التخصص</Th>}
             <Th>اللجنة</Th>
             <Th>بداية التقديم</Th>
             <Th>نهاية التقديم</Th>
@@ -1716,7 +1788,16 @@ function LocalUniversityGrid({
                   isRowEditing ? 'bg-gold-50/60' : ''
                 }`}
               >
-                {showScopeColumn && <Td>{r.specializationNameAr}</Td>}
+                {showScopeColumn && (
+                  <Td>
+                    <span className="block font-medium text-ink-900">
+                      {r.facultyNameAr}
+                    </span>
+                    <span className="mt-0.5 block text-ink-500">
+                      {r.specializationNameAr}
+                    </span>
+                  </Td>
+                )}
                 <Td>
                   <MultiValueCell
                     values={r.committees.map(labelForCommittee)}

@@ -136,6 +136,75 @@ export const SUBMITTED_APPLICANT_SESSION: MoiApplicantSession = {
   religion: 'مسلم',
 };
 
+/** Fifth + sixth test NIDs — وثيقة تعارف Case 1 (قسم عام) demo. The
+ *  first is the fillable applicant, the second has already submitted
+ *  and their 24-hour edit window has expired (view + print only). */
+export const VOTHIQA_FILLABLE_NID = '30501010103456';
+export const VOTHIQA_EXPIRED_NID = '30501010203456';
+
+export const VOTHIQA_FILLABLE_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-2026731',
+  fullName: 'كريم محمود فؤاد العقّاد',
+  nationalId: VOTHIQA_FILLABLE_NID,
+  dateOfBirth: '2005-01-01',
+  dateOfBirthAr: '١ يناير ٢٠٠٥',
+  gender: 'male',
+  mobile: '01098765432',
+  email: 'karim.elaqqad@example.eg',
+  birthGovernorate: 'الجيزة',
+  birthDistrict: 'الدقي',
+  religion: 'مسلم',
+};
+
+export const VOTHIQA_EXPIRED_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-2026732',
+  fullName: 'كريم محمود فؤاد العقّاد',
+  nationalId: VOTHIQA_EXPIRED_NID,
+  dateOfBirth: '2005-01-01',
+  dateOfBirthAr: '١ يناير ٢٠٠٥',
+  gender: 'male',
+  mobile: '01098765433',
+  email: 'karim.elaqqad.expired@example.eg',
+  birthGovernorate: 'الجيزة',
+  birthDistrict: 'الدقي',
+  religion: 'مسلم',
+};
+
+/** Case 2 — قسم الضباط المتخصصون. Married professional applicant
+ *  who fills the وثيقة تعارف including the new applicant-spouse +
+ *  applicant-children sections. */
+export const VOTHIQA_SPECIALIZED_OFFICERS_NID = '30502010103456';
+export const VOTHIQA_SPECIALIZED_OFFICERS_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-2026733',
+  fullName: 'محمود فؤاد عبد الرحمن العقّاد',
+  nationalId: VOTHIQA_SPECIALIZED_OFFICERS_NID,
+  dateOfBirth: '1990-02-15',
+  dateOfBirthAr: '١٥ فبراير ١٩٩٠',
+  gender: 'male',
+  mobile: '01098765434',
+  email: 'mahmoud.elaqqad.specialized@example.eg',
+  birthGovernorate: 'القاهرة',
+  birthDistrict: 'مدينة نصر',
+  religion: 'مسلم',
+};
+
+/** Case 3 — قسم ليسانس حقوق. Same married-professional shape, law
+ *  bachelor category. */
+export const VOTHIQA_LAW_BACHELOR_NID = '30503010103456';
+export const VOTHIQA_LAW_BACHELOR_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-2026734',
+  fullName: 'يوسف عمر محمد فاروق',
+  nationalId: VOTHIQA_LAW_BACHELOR_NID,
+  dateOfBirth: '1988-09-22',
+  dateOfBirthAr: '٢٢ سبتمبر ١٩٨٨',
+  gender: 'male',
+  mobile: '01098765435',
+  email: 'youssef.faroq.law@example.eg',
+  birthGovernorate: 'الإسكندرية',
+  birthDistrict: 'سيدي جابر',
+  religion: 'مسلم',
+};
+
 /** Demo-only prefill bundle for the submitted user. Both
  *  Stage345ApplicantDataPage (form prefill) and ApplicantPortalPage
  *  (read-only summary) read from this single source. */
@@ -199,6 +268,30 @@ export const DEMO_TEST_USERS = [
     nationalId: SUBMITTED_APPLICANT_NID,
     fullName: SUBMITTED_APPLICANT_SESSION.fullName,
     note: 'سيدخل المتقدِّم مباشرةً إلى عرض التبويبات (البيانات / التنبيهات / كارت التردد / نتائج الاختبارات).',
+  },
+  {
+    label: 'وثيقة تعارف · قسم عام · تعبئة',
+    nationalId: VOTHIQA_FILLABLE_NID,
+    fullName: VOTHIQA_FILLABLE_SESSION.fullName,
+    note: 'يعبّئ وثيقة التعارف (31 نموذجاً) ثم يطبعها — تستخدم لاختبار مسار الإدخال الكامل.',
+  },
+  {
+    label: 'وثيقة تعارف · قسم عام · انتهت فترة التعديل',
+    nationalId: VOTHIQA_EXPIRED_NID,
+    fullName: VOTHIQA_EXPIRED_SESSION.fullName,
+    note: 'سبق أن قام بتعبئة الوثيقة وانتهت فترة الـ 24 ساعة — يمكنه العرض والطباعة فقط.',
+  },
+  {
+    label: 'وثيقة تعارف · الضباط المتخصصون · متزوج',
+    nationalId: VOTHIQA_SPECIALIZED_OFFICERS_NID,
+    fullName: VOTHIQA_SPECIALIZED_OFFICERS_SESSION.fullName,
+    note: 'متقدم متزوج لقسم الضباط المتخصصون — يعبّئ بيانات الزوجة والأبناء ضمن وثيقة التعارف.',
+  },
+  {
+    label: 'وثيقة تعارف · ليسانس حقوق · متزوج',
+    nationalId: VOTHIQA_LAW_BACHELOR_NID,
+    fullName: VOTHIQA_LAW_BACHELOR_SESSION.fullName,
+    note: 'متقدم متزوج لقسم ليسانس الحقوق — يعبّئ بيانات الزوجة والأبناء ضمن وثيقة التعارف.',
   },
 ] as const;
 
@@ -386,6 +479,34 @@ export function mockMoiLookup(nid: string): MoiLookupResult {
       kind: 'eligible',
       session: SUBMITTED_APPLICANT_SESSION,
       categoryKey: 'officers_general',
+    };
+  }
+  if (nid === VOTHIQA_FILLABLE_NID) {
+    return {
+      kind: 'eligible',
+      session: VOTHIQA_FILLABLE_SESSION,
+      categoryKey: 'officers_general',
+    };
+  }
+  if (nid === VOTHIQA_EXPIRED_NID) {
+    return {
+      kind: 'eligible',
+      session: VOTHIQA_EXPIRED_SESSION,
+      categoryKey: 'officers_general',
+    };
+  }
+  if (nid === VOTHIQA_SPECIALIZED_OFFICERS_NID) {
+    return {
+      kind: 'eligible',
+      session: VOTHIQA_SPECIALIZED_OFFICERS_SESSION,
+      categoryKey: 'specialized_officers',
+    };
+  }
+  if (nid === VOTHIQA_LAW_BACHELOR_NID) {
+    return {
+      kind: 'eligible',
+      session: VOTHIQA_LAW_BACHELOR_SESSION,
+      categoryKey: 'law_bachelor',
     };
   }
   return { kind: 'not_found' };

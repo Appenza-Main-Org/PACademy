@@ -33,7 +33,6 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Eye } from 'lucide-react';
 import {
   Badge,
   Button,
-  Combobox,
   EmptyState,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
@@ -391,7 +390,7 @@ function CycleSwitcher({
 }: {
   cycleCtx: ReturnType<typeof useAdmissionSetupCycle>;
 }): JSX.Element | null {
-  const { cycle, availableCycles, setCycle } = cycleCtx;
+  const { cycle, availableCycles } = cycleCtx;
   if (availableCycles.length === 0) {
     return (
       <Link to={ROUTES.admin.cycleNew} className="text-2xs text-gold-700 underline">
@@ -399,19 +398,15 @@ function CycleSwitcher({
       </Link>
     );
   }
-  if (availableCycles.length === 1 || !cycle) {
+  if (!cycle) {
     return null;
   }
   return (
-    <div className="min-w-[200px]">
-      <Combobox
-        value={cycle.id}
-        onChange={(next) => {
-          if (next) setCycle(next);
-        }}
-        options={availableCycles.map((c) => ({ value: c.id, label: c.nameAr }))}
-        placeholder="اختر دورة"
-      />
-    </div>
+    <span
+      className="inline-flex min-h-10 min-w-[200px] items-center justify-center rounded-md border border-border-subtle bg-surface-card px-4 font-ar text-sm font-medium text-ink-900 shadow-xs"
+      aria-label={`الدورة الحالية: ${cycle.nameAr}`}
+    >
+      {cycle.nameAr}
+    </span>
   );
 }

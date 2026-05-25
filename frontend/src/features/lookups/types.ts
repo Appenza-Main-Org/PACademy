@@ -120,7 +120,7 @@ export const LOOKUP_SECTIONS = [
 export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string; padding: number }> = {
   'relationships':                { label: 'صلات القرابة',                 codePrefix: 'REL', padding: 3 },
   'relationship-degree-tiers':    { label: 'فئات درجات القرابة',           codePrefix: 'RDT', padding: 1 },
-  'tests':                        { label: 'الاختبارات والقبول',           codePrefix: 'TST', padding: 2 },
+  'tests':                        { label: 'الاختبارات',                   codePrefix: 'TST', padding: 2 },
   'test-results':                 { label: 'نتائج الاختبارات',             codePrefix: 'RES', padding: 2 },
   'committees':                   { label: 'اللجان',                       codePrefix: 'CMT', padding: 2 },
   'specializations':              { label: 'التخصصات',                     codePrefix: 'SPC', padding: 2 },
@@ -266,7 +266,7 @@ export type ApplicantCategoryType = 'pre_university' | 'university';
 /* The applicant-category lookup absorbs the full ApplicantCategory shape
  * — description, isOpen flag, conditions, expanded conditions, required
  * tests, procedures. This lookup is the single source of truth for
- * categories; the former /admin/categories page and MOCK.categories are
+ * categories; the former /admin/categories page and legacy category seed are
  * being retired in favour of it. Rich fields imported from
  * @/shared/types/domain (CategoryCondition etc.) so the existing
  * applicant-portal eligibility flow keeps working unchanged. */
@@ -277,6 +277,9 @@ import type {
 } from '@/shared/types/domain';
 
 export interface ApplicantCategoryRow extends LookupRowBase {
+  /** Minimum applicant age for this category. Defaults to 17 and feeds the
+   *  applicant eligible-categories API unless a cycle row overrides it. */
+  minAge: number;
   /** Gender scope — multi-select. `['male','female']` is the old `'any'`
    *  semantics; a single-entry array locks the category to that gender.
    *  Required, min 1. */

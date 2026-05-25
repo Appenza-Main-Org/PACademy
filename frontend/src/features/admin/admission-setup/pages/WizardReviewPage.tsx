@@ -23,7 +23,6 @@ import {
   useCycleTransition,
 } from '@/features/admin/api/cycles.queries';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
-import { ApprovedCategoryCompositionsSummary } from '../components/ApprovedCategoryCompositionsSummary';
 import { ADMISSION_SETUP_STEPS } from '../config';
 import {
   computeStepStatus,
@@ -32,6 +31,7 @@ import {
   type StepStatusInputs,
 } from '../lib/step-status';
 import { clearDraft } from '../lib/wizard-draft';
+import { ApplicationSettingsReviewBody } from './ApplicationSettingsReviewPage';
 
 interface WizardReviewPageProps {
   statusInputs: StepStatusInputs;
@@ -154,7 +154,7 @@ export function WizardReviewPage({ statusInputs }: WizardReviewPageProps): JSX.E
         </div>
       </Card>
 
-      <ApprovedCategoryCompositionsSummary />
+      <ApplicationSettingsReviewBody />
 
       <Card variant="elevated">
         <div className="flex flex-col gap-3">

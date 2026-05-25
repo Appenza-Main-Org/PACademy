@@ -19,8 +19,9 @@ import {
   toast,
   useCommandPaletteShortcut,
 } from '@/shared/components';
-import { useAuthStore, useLogoutMutation } from '@/features/auth';
-import { shortName } from '@/shared/lib/format';
+import { getDefaultRouteForUser, useAuthStore, useLogoutMutation } from '@/features/auth';
+import { useAdminNotifications } from '@/features/admin/api/notifications.queries';
+import type { AdminNotification, NotificationItem } from '@/shared/types/domain';
 import type { AppKey } from '@/shared/lib/constants';
 import { Sidebar } from './Sidebar';
 import type { SidebarSection } from './Sidebar';
@@ -43,6 +44,8 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readSidebarCollapsed());
+  const shouldUseAdminNotifications = Boolean(user && (app === 'admin' || user.role === 'super_admin'));
+  const adminNotificationsQuery = useAdminNotifications({ status: 'published' }, shouldUseAdminNotifications);
   useCommandPaletteShortcut(setPaletteOpen);
 
   const handleSidebarCollapsedChange = (next: boolean): void => {
@@ -63,6 +66,10 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
   if (!user) return <>{children}</>;
 
   const hasSidebar = Boolean(sidebar);
+  const toolbarName = firstName(user.name);
+  const adminNotificationItems = shouldUseAdminNotifications
+    ? adminNotificationsQuery.data?.map(mapAdminNotificationToToolbarItem) ?? []
+    : undefined;
 
   return (
     <div
@@ -77,7 +84,7 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
       >
         <div className="flex min-w-0 items-center gap-3">
           <Link
-            to="/hub"
+            to={getDefaultRouteForUser(user)}
             className="flex items-center gap-3 rounded-md px-1 py-1 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
             title="العودة إلى البوابة"
           >
@@ -100,7 +107,11 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
             <Search size={16} strokeWidth={1.75} />
             <span className="hidden lg:inline">بحث الأوامر</span>
           </button>
-          <NotificationCenter />
+          <NotificationCenter
+            items={adminNotificationItems}
+            isLoading={shouldUseAdminNotifications && adminNotificationsQuery.isLoading}
+            isError={shouldUseAdminNotifications && adminNotificationsQuery.isError}
+          />
           <span aria-hidden className="mx-1 hidden h-6 w-px bg-border-subtle md:inline-block" />
           <Link
             to="/profile"
@@ -110,7 +121,7 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
           >
             <Avatar name={user.name} size="sm" />
             <span className="hidden flex-col items-start leading-tight md:flex">
-              <span className="text-xs font-medium text-ink-900">{shortName(user.name, 3)}</span>
+              <span className="text-xs font-medium text-ink-900">{toolbarName}</span>
               <span className="text-2xs text-ink-500">{user.roleLabel}</span>
             </span>
             <UserCircle size={14} strokeWidth={1.75} className="text-ink-500 md:hidden" />
@@ -163,6 +174,43 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
       </div>
     </div>
   );
+}
+
+function firstName(name: string): string {
+  const [firstMeaningfulToken] = name
+    .replace(/[\\/]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((token) => !TITLE_TOKENS.has(token));
+
+  return firstMeaningfulToken ?? name;
+}
+
+const TITLE_TOKENS = new Set([
+  'د.',
+  'د',
+  'اللواء',
+  'العميد',
+  'العقيد',
+  'المقدم',
+  'مقدم',
+  'الرائد',
+  'النقيب',
+  'الملازم',
+  'أول',
+]);
+
+function mapAdminNotificationToToolbarItem(notification: AdminNotification): NotificationItem {
+  return {
+    id: notification.id,
+    ts: new Date(notification.publishAt || notification.createdAt).getTime(),
+    recipientRole: 'admin',
+    type: notification.type,
+    title: notification.titleAr,
+    body: notification.bodyAr,
+    read: false,
+    href: '/admin/notifications',
+  };
 }
 
 function readSidebarCollapsed(): boolean {

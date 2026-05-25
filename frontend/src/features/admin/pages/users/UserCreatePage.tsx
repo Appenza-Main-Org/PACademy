@@ -16,6 +16,8 @@ import {
   ErrorState,
   Input,
   PageHeader,
+  RadixSelect,
+  type RadixSelectOption,
   buttonClassName,
   toast,
 } from '@/shared/components';
@@ -30,7 +32,9 @@ import {
 import { useUserCreate } from '../../api/users.queries';
 import type { OfficerCandidate } from '../../api/nid-lookup.service';
 import { validateRoleSet } from '../../lib/role-rules';
-import type { AccountStatus } from '@/shared/types/domain';
+import type { AccountStatus, UserType } from '@/shared/types/domain';
+import { isValidationError } from '@/shared/lib/errors';
+import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 
 interface FormState {
   candidate: OfficerCandidate | null;
@@ -41,6 +45,7 @@ interface FormState {
   accountStatus: AccountStatus;
   /** Whether auto-filled fields are unlocked for editing. */
   unlocked: boolean;
+  isManualIdentity: boolean;
 }
 
 const INITIAL: FormState = {
@@ -49,7 +54,19 @@ const INITIAL: FormState = {
   roles: [],
   accountStatus: 'active',
   unlocked: false,
+  isManualIdentity: false,
 };
+
+const USER_TYPE_OPTIONS: ReadonlyArray<RadixSelectOption<UserType>> = [
+  { value: 'officer', label: 'ضابط' },
+  { value: 'civilian', label: 'مدنى' },
+  { value: 'contractor', label: 'متعاقد' },
+];
+
+const REQUIRED_CANDIDATE_FIELDS: ReadonlyArray<keyof Pick<
+  OfficerCandidate,
+  'fullArabicName' | 'officerCode' | 'mobileNumber'
+>> = ['fullArabicName', 'officerCode', 'mobileNumber'];
 
 export function UserCreatePage(): JSX.Element {
   const navigate = useNavigate();
@@ -58,13 +75,18 @@ export function UserCreatePage(): JSX.Element {
   const [form, setForm] = useState<FormState>(INITIAL);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [rolesError, setRolesError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const merged: OfficerCandidate | null = form.candidate
     ? { ...form.candidate, ...form.overrides }
     : null;
 
+  const hasCandidateDetails = merged
+    ? REQUIRED_CANDIDATE_FIELDS.every((field) => merged[field].trim().length > 0)
+    : false;
+
   const canSubmit =
-    Boolean(merged) && form.roles.length > 0 && !createMut.isPending;
+    Boolean(merged) && hasCandidateDetails && form.roles.length > 0 && !createMut.isPending;
 
   const handleLookupResult = (data: OfficerCandidate | null): void => {
     setForm((prev) => ({
@@ -72,7 +94,26 @@ export function UserCreatePage(): JSX.Element {
       candidate: data,
       overrides: {},
       unlocked: false,
+      isManualIdentity: false,
     }));
+  };
+
+  const handleLookupNotFound = (nationalId: string): void => {
+    setForm((prev) => ({
+      ...prev,
+      candidate: {
+        nationalId,
+        fullArabicName: '',
+        officerCode: '',
+        mobileNumber: '',
+        userType: 'officer',
+      },
+      overrides: {},
+      unlocked: true,
+      isManualIdentity: true,
+    }));
+    setSubmitError(null);
+    setFieldErrors({});
   };
 
   const handleOverride = <K extends keyof OfficerCandidate>(field: K, value: OfficerCandidate[K]): void => {
@@ -86,7 +127,16 @@ export function UserCreatePage(): JSX.Element {
     e.preventDefault();
     setSubmitError(null);
     setRolesError(null);
+    setFieldErrors({});
     if (!merged) return;
+    const missingField = REQUIRED_CANDIDATE_FIELDS.find((field) => merged[field].trim().length === 0);
+    if (missingField) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        [missingField]: 'هذا الحقل مطلوب لاستكمال إنشاء الحساب',
+      }));
+      return;
+    }
     const validation = validateRoleSet(form.roles);
     if (!validation.ok) {
       setRolesError(validation.message ?? 'مجموعة الأدوار غير صالحة');
@@ -105,7 +155,12 @@ export function UserCreatePage(): JSX.Element {
       toast(`تم إنشاء حساب ${created.fullArabicName}`, 'success');
       navigate(ROUTES.admin.userDetail(created.id));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'تعذر إنشاء الحساب';
+      const message = validationMessage(err, 'تعذر إنشاء الحساب');
+      if (isValidationError(err)) {
+        const nextFieldErrors = validationFieldErrors(err);
+        setFieldErrors(nextFieldErrors);
+        setRolesError(nextFieldErrors.roles ?? null);
+      }
       setSubmitError(message);
       toast(message, 'danger');
     }
@@ -136,9 +191,15 @@ export function UserCreatePage(): JSX.Element {
               value={nid}
               onChange={setNid}
               onLookupResult={handleLookupResult}
+              onNotFound={handleLookupNotFound}
               disabled={createMut.isPending}
             />
-            {merged && (
+            {form.isManualIdentity && (
+              <div className="rounded-md border border-gold-300 bg-gold-50 px-4 py-3 text-sm text-ink-700">
+                لم يتم العثور على الرقم القومى فى دليل الأفراد. أدخل البيانات الأساسية بالأسفل لإنشاء الحساب وإضافة الهوية إلى الدليل.
+              </div>
+            )}
+            {merged && !form.isManualIdentity && (
               <NidLookupResultCard
                 data={merged}
                 onEditOverride={() =>
@@ -159,20 +220,41 @@ export function UserCreatePage(): JSX.Element {
                   <Input
                     label="الاسم رباعياً"
                     value={merged.fullArabicName}
-                    onChange={(e) => handleOverride('fullArabicName', e.target.value)}
+                    onChange={(e) => {
+                      handleOverride('fullArabicName', e.target.value);
+                      setFieldErrors((prev) => ({ ...prev, fullArabicName: '' }));
+                    }}
+                    error={fieldErrors.fullArabicName}
                   />
                   <Input
                     label="رمز الضابط / الكود"
                     value={merged.officerCode}
-                    onChange={(e) => handleOverride('officerCode', e.target.value)}
+                    onChange={(e) => {
+                      handleOverride('officerCode', e.target.value);
+                      setFieldErrors((prev) => ({ ...prev, officerCode: '' }));
+                    }}
+                    error={fieldErrors.officerCode}
                   />
                   <Input
                     label="رقم المحمول"
                     value={merged.mobileNumber}
-                    onChange={(e) => handleOverride('mobileNumber', e.target.value)}
+                    onChange={(e) => {
+                      handleOverride('mobileNumber', e.target.value);
+                      setFieldErrors((prev) => ({ ...prev, mobileNumber: '' }));
+                    }}
                     inputMode="tel"
                     dir="ltr"
+                    error={fieldErrors.mobileNumber}
                   />
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-ink-700">الفئة</label>
+                    <RadixSelect<UserType>
+                      value={merged.userType}
+                      onChange={(next) => handleOverride('userType', next)}
+                      options={USER_TYPE_OPTIONS}
+                      ariaLabel="الفئة"
+                    />
+                  </div>
                 </div>
               )}
 

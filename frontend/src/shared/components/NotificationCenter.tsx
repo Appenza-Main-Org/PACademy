@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, RefreshCw } from 'lucide-react';
 import { create } from 'zustand';
 import { Drawer } from './Drawer';
 import { Button } from './Button';
@@ -26,17 +26,23 @@ import { date as fmtDate } from '@/shared/lib/format';
 
 interface NotificationsStoreState {
   items: NotificationItem[];
-  hydrated: boolean;
-  hydrate: (items: readonly NotificationItem[]) => void;
+  sync: (items: readonly NotificationItem[]) => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
 }
 
 const useNotificationsStore = create<NotificationsStoreState>((set) => ({
   items: [],
-  hydrated: false,
-  hydrate: (items) =>
-    set((state) => (state.hydrated ? state : { items: [...items], hydrated: true })),
+  sync: (items) =>
+    set((state) => {
+      const readIds = new Set(state.items.filter((n) => n.read).map((n) => n.id));
+      return {
+        items: items.map((item) => ({
+          ...item,
+          read: item.read || readIds.has(item.id),
+        })),
+      };
+    }),
   markRead: (id) =>
     set((state) => ({
       items: state.items.map((n) => (n.id === id ? { ...n, read: true } : n)),
@@ -45,17 +51,26 @@ const useNotificationsStore = create<NotificationsStoreState>((set) => ({
     set((state) => ({ items: state.items.map((n) => ({ ...n, read: true })) })),
 }));
 
-export function NotificationCenter(): JSX.Element {
+interface NotificationCenterProps {
+  items?: readonly NotificationItem[];
+  isLoading?: boolean;
+  isError?: boolean;
+}
+
+export function NotificationCenter({
+  items: sourceItems,
+  isLoading = false,
+  isError = false,
+}: NotificationCenterProps): JSX.Element {
   const [open, setOpen] = useState(false);
   const items = useNotificationsStore((s) => s.items);
-  const hydrated = useNotificationsStore((s) => s.hydrated);
-  const hydrate = useNotificationsStore((s) => s.hydrate);
+  const sync = useNotificationsStore((s) => s.sync);
   const markRead = useNotificationsStore((s) => s.markRead);
   const markAllRead = useNotificationsStore((s) => s.markAllRead);
 
   useEffect(() => {
-    if (!hydrated) hydrate(MOCK.notifications);
-  }, [hydrated, hydrate]);
+    sync(sourceItems ?? MOCK.notifications);
+  }, [sourceItems, sync]);
 
   const unread = items.filter((n) => !n.read).length;
 
@@ -83,13 +98,21 @@ export function NotificationCenter(): JSX.Element {
         open={open}
         onClose={() => setOpen(false)}
         title="مركز الإشعارات"
-        subtitle={`${unread} إشعار غير مقروء من ${items.length}`}
+        subtitle={isLoading ? 'جارٍ تحميل الإشعارات' : `${unread} إشعار غير مقروء من ${items.length}`}
         size="sm"
         transparentBackdrop
       >
         <Drawer.Body className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+          {isError && (
+            <div className="rounded-md border border-gold-300 bg-gold-50 px-3 py-2 text-xs text-gold-700">
+              تعذر تحميل آخر الإشعارات من الخادم. تُعرض آخر قائمة متاحة لحين إعادة المحاولة.
+            </div>
+          )}
           <div className="flex shrink-0 items-center justify-between">
-            <span className="text-2xs text-ink-500">{items.length} إشعار</span>
+            <span className="inline-flex items-center gap-1 text-2xs text-ink-500">
+              {isLoading && <RefreshCw size={11} strokeWidth={1.75} className="animate-spin" />}
+              {items.length} إشعار
+            </span>
             <Button
               variant="ghost"
               size="sm"
