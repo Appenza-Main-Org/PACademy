@@ -62,6 +62,13 @@ export interface ApplicantCategoryEligibility {
     };
   };
   committees: Array<{ committeeId: string; committeeName: string; reason: string }>;
+  academicPrograms: Array<{
+    facultyCode: string;
+    facultyName: string;
+    specializationCode: string;
+    specializationName: string;
+    reason: string;
+  }>;
   failedReasons: string[];
 }
 
@@ -348,6 +355,7 @@ export const categoriesPublicService = {
             },
           },
           committees: [],
+          academicPrograms: [],
           failedReasons: result.reasons,
         };
       }),

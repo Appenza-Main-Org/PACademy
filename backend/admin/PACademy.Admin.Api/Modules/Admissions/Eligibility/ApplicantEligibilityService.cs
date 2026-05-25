@@ -55,6 +55,9 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
         var committeeIdsByRuleId = draftRules
             .Where(x => x.CommitteeIds.Count > 0)
             .ToDictionary(x => x.Rule.Id, x => x.CommitteeIds, StringComparer.OrdinalIgnoreCase);
+        var academicProgramsByRuleId = draftRules
+            .Where(x => x.AcademicPrograms.Count > 0)
+            .ToDictionary(x => x.Rule.Id, x => x.AcademicPrograms, StringComparer.OrdinalIgnoreCase);
         var allYears = years.Concat(draftRules.Select(x => x.Rule)).ToArray();
 
         var results = new List<CategoryEligibilityResult>();
@@ -78,12 +81,16 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
             var committees = failedReasons.Count == 0
                 ? ResolveCommittees(committeeLookups, settings.CategoryId, settings.CategoryName, evaluation.MatchedRuleId, committeeIdsByRuleId)
                 : [];
+            var academicPrograms = failedReasons.Count == 0
+                ? ResolveAcademicPrograms(settings.CategoryName, evaluation.MatchedRuleId, academicProgramsByRuleId)
+                : [];
             results.Add(new CategoryEligibilityResult(
                 settings.CategoryId,
                 settings.CategoryName,
                 failedReasons.Count == 0,
                 checks,
                 committees,
+                academicPrograms,
                 failedReasons));
         }
 
@@ -175,7 +182,8 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
                     CreatedAt = DateTimeOffset.UtcNow,
                     UpdatedAt = DateTimeOffset.UtcNow
                 },
-                ResolveDraftCommitteeIds(row)));
+                ResolveDraftCommitteeIds(row),
+                ResolveDraftAcademicPrograms(row)));
         }
 
         return output;
@@ -301,6 +309,24 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
             .ToArray();
     }
 
+    private static IReadOnlyList<EligibleAcademicProgramResult> ResolveAcademicPrograms(
+        string categoryName,
+        string? matchedRuleId,
+        IReadOnlyDictionary<string, IReadOnlyList<EligibleAcademicProgramResult>> academicProgramsByRuleId)
+    {
+        if (matchedRuleId is null || !academicProgramsByRuleId.TryGetValue(matchedRuleId, out var programs))
+        {
+            return [];
+        }
+
+        return programs
+            .Select(program => program with
+            {
+                Reason = $"مطابق لإعدادات فئة {categoryName} لهذا التخصص"
+            })
+            .ToArray();
+    }
+
     private static decimal? CalculatePercentage(JsonObject? grade)
     {
         var total = EligibilityJson.DecimalProp(grade, "effectiveTotal")
@@ -339,6 +365,26 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
         if (ids.Count > 0) return ids;
         var committee = EligibilityJson.StringProp(row, "committee");
         return string.IsNullOrWhiteSpace(committee) ? [] : [committee];
+    }
+
+    private static IReadOnlyList<EligibleAcademicProgramResult> ResolveDraftAcademicPrograms(JsonObject row)
+    {
+        var facultyCode = EligibilityJson.StringProp(row, "facultyCode");
+        var specializationCode = EligibilityJson.StringProp(row, "specializationCode");
+        if (string.IsNullOrWhiteSpace(facultyCode) && string.IsNullOrWhiteSpace(specializationCode))
+        {
+            return [];
+        }
+
+        return
+        [
+            new EligibleAcademicProgramResult(
+                facultyCode ?? "",
+                EligibilityJson.StringProp(row, "facultyNameAr") ?? facultyCode ?? "",
+                specializationCode ?? "",
+                EligibilityJson.StringProp(row, "specializationNameAr") ?? specializationCode ?? "",
+                "")
+        ];
     }
 
     private static DateOnly ParseDate(string? value) =>
@@ -395,7 +441,8 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
 
     private sealed record DraftEligibilityRule(
         ApplicationSettingsGraduationYearEntity Rule,
-        IReadOnlyList<string> CommitteeIds);
+        IReadOnlyList<string> CommitteeIds,
+        IReadOnlyList<EligibleAcademicProgramResult> AcademicPrograms);
 
     private static JsonObject LookupToJson(Modules.Lookups.LookupRowEntity entity)
     {

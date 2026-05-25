@@ -21,11 +21,19 @@ public sealed record CategoryEligibilityResult(
     bool Eligible,
     EligibilityChecks Checks,
     IReadOnlyList<EligibleCommitteeResult> Committees,
+    IReadOnlyList<EligibleAcademicProgramResult> AcademicPrograms,
     IReadOnlyList<string> FailedReasons);
 
 public sealed record EligibleCommitteeResult(
     string CommitteeId,
     string CommitteeName,
+    string Reason);
+
+public sealed record EligibleAcademicProgramResult(
+    string FacultyCode,
+    string FacultyName,
+    string SpecializationCode,
+    string SpecializationName,
     string Reason);
 
 public sealed record EligibilityChecks(
