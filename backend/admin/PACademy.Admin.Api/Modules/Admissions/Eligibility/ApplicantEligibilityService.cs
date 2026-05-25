@@ -154,6 +154,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
         if (db.Database.IsSqlServer())
         {
             var parameter = new SqlParameter("@nid", nationalId);
+#pragma warning disable EF1002
             var entity = await db.AdminRecords
                 .FromSqlRaw($"""
                     SELECT TOP(1)
@@ -163,7 +164,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
                         [created_at],
                         [updated_at],
                         [row_version]
-                    FROM [{AdminDbContext.Schema}].[admin_records]
+                    FROM {AdminDbContext.QualifiedTableName("admin_records")}
                     WHERE [module] = N'grades'
                         AND JSON_VALUE([payload_json], '$.nid') = @nid
                         AND JSON_VALUE([payload_json], '$.deletedAt') IS NULL
@@ -171,6 +172,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
                     """, parameter)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(ct);
+#pragma warning restore EF1002
             return entity is null ? null : AdminRecordJson.Parse(entity.PayloadJson);
         }
 

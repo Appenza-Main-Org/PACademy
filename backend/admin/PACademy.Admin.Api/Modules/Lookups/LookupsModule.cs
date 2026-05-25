@@ -8,15 +8,15 @@ public static class LookupsModule
 {
     public static IServiceCollection AddLookupsModule(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("AdminDb");
-        var useInMemory = configuration.GetValue<bool>("UseInMemoryAdminDb");
+        var database = configuration.ResolveAdminDatabaseSettings();
+        AdminDbContext.ConfigureSchema(database.Schema);
         services.AddDbContext<AdminDbContext>(options =>
         {
-            if (useInMemory || string.IsNullOrWhiteSpace(connectionString))
+            if (database.UseInMemory)
                 options.UseInMemoryDatabase("PACademy_Admin");
             else
                 options.UseSqlServer(
-                    connectionString,
+                    database.ConnectionString,
                     sql =>
                     {
                         sql.MigrationsHistoryTable(AdminDbContext.MigrationsHistoryTable, AdminDbContext.Schema);

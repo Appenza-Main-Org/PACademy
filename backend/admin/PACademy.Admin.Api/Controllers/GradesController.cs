@@ -649,10 +649,11 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var orderSql = BuildOrderSql();
         var offsetParam = AddParam(Math.Max(0, page - 1) * pageSize);
         var pageSizeParam = AddParam(pageSize);
+        var tableName = AdminDbContext.QualifiedTableName("admin_records");
         var selectSql = """
             SELECT [a].[module], [a].[id], [a].[payload_json], [a].[created_at], [a].[updated_at], [a].[row_version]
-            FROM [admin_v2].[admin_records] AS [a]
-            """;
+            FROM __ADMIN_RECORDS_TABLE__ AS [a]
+            """.Replace("__ADMIN_RECORDS_TABLE__", tableName, StringComparison.Ordinal);
         return new GradesPageSql
         {
             RowsSql = $"""
@@ -663,7 +664,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                 """,
             CountSql = $"""
                 SELECT COUNT(1) AS [Value]
-                FROM [admin_v2].[admin_records] AS [a]
+                FROM {tableName} AS [a]
                 WHERE {whereSql}
                 """,
             Parameters = parameters,
@@ -719,7 +720,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                     COALESCE(SUM(CASE WHEN {JsonValue("kind")} = N'general' THEN 1 ELSE 0 END), 0) AS [General],
                     COALESCE(SUM(CASE WHEN {JsonValue("kind")} = N'azhar' THEN 1 ELSE 0 END), 0) AS [Azhar],
                     COALESCE(SUM(CASE WHEN {JsonValue("gradeChangedAt")} IS NOT NULL OR JSON_QUERY([a].[payload_json], '$.log') IS NOT NULL AND JSON_QUERY([a].[payload_json], '$.log') <> N'[]' THEN 1 ELSE 0 END), 0) AS [WithAdjustments]
-                FROM [admin_v2].[admin_records] AS [a]
+                FROM {AdminDbContext.QualifiedTableName("admin_records")} AS [a]
                 WHERE [a].[module] = N'grades'
                   AND {JsonValue("deletedAt")} IS NULL
                 """)
@@ -747,7 +748,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var branches = await db.Database
             .SqlQueryRaw<string>($"""
                 SELECT DISTINCT {JsonValue("branch")} AS [Value]
-                FROM [admin_v2].[admin_records] AS [a]
+                FROM {AdminDbContext.QualifiedTableName("admin_records")} AS [a]
                 WHERE [a].[module] = N'grades'
                   AND {JsonValue("deletedAt")} IS NULL
                   AND {JsonValue("branch")} IS NOT NULL

@@ -35,6 +35,7 @@ var corsOrigins = configuredOrigins
     .Concat(envOrigins)
     .Concat([
         "https://admin.appenzademo.com",
+        "https://admin-prod.appenzademo.com",
         "https://appenzademo.com",
         "https://www.appenzademo.com",
         "https://pa-cademy.vercel.app",
@@ -92,10 +93,15 @@ app.MapGet("/health", () => Results.Ok(new
 }));
 app.MapGet("/health/db", async (AdminDbContext db, CancellationToken ct) =>
 {
+    var database = app.Configuration.ResolveAdminDatabaseSettings();
     var result = await db.Database.SqlQueryRaw<int>("SELECT CAST(1 AS int) AS [Value]").FirstAsync(ct);
     return Results.Ok(new
     {
         status = "ok",
+        provider = db.Database.ProviderName,
+        connectionName = database.ConnectionName,
+        schema = database.Schema,
+        useInMemory = database.UseInMemory,
         database = result,
         timestamp = DateTimeOffset.UtcNow
     });
