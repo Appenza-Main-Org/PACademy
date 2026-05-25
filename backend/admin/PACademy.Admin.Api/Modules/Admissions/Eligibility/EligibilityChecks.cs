@@ -23,7 +23,7 @@ internal static class EligibilityCheckRegistry
         var age = NationalIdParser.CalculateAge(applicant.NationalId.BirthDate, referenceDate);
         var passed = (category.MinAge is null || age >= category.MinAge.Value) &&
             (category.MaxAge is null || age <= category.MaxAge.Value);
-        return new AgeCheckResult(passed, age, category.MaxAge);
+        return new AgeCheckResult(passed, age, category.MaxAge, category.MinAge);
     }
 
     public static GenderCheckResult GenderCheck(ApplicantEligibilityContext applicant, CategoryEligibilitySettings category, EligibilityLookupSnapshot lookups)
@@ -71,6 +71,24 @@ internal static class EligibilityCheckRegistry
             return new GradesCheckResult(false, false, applicant.SchoolCategory, [], applicant.GradeSource);
         }
 
+        if (category.RequiredGraduationYears.Count > 0 &&
+            (applicant.GraduationYear is null || !category.RequiredGraduationYears.Contains(applicant.GraduationYear.Value)))
+        {
+            return new GradesCheckResult(false, true, applicant.SchoolCategory, [], applicant.GradeSource);
+        }
+
+        if (category.MinPercentage is not null &&
+            (applicant.GradePercentage is null || applicant.GradePercentage.Value < category.MinPercentage.Value))
+        {
+            return new GradesCheckResult(false, true, applicant.SchoolCategory, [], applicant.GradeSource);
+        }
+
+        if (!string.IsNullOrWhiteSpace(category.AcademicGradeId) &&
+            !EligibilityJson.TextEquals(category.AcademicGradeId, applicant.AcademicGradeId))
+        {
+            return new GradesCheckResult(false, true, applicant.SchoolCategory, [], applicant.GradeSource);
+        }
+
         var matched = lookups.SchoolCategories
             .Where(row => MatchesSchoolCategory(row, applicant, category))
             .Select(EligibilityJson.Clone)
@@ -86,6 +104,9 @@ internal static class EligibilityCheckRegistry
 
     private static bool RequiresGrade(CategoryEligibilitySettings category) =>
         category.RequiredSchoolCategoryCodes.Count > 0 ||
+        category.RequiredGraduationYears.Count > 0 ||
+        category.MinPercentage is not null ||
+        !string.IsNullOrWhiteSpace(category.AcademicGradeId) ||
         !string.IsNullOrWhiteSpace(category.RequiredGradesSource) ||
         !string.IsNullOrWhiteSpace(category.RequiredStage);
 

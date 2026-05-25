@@ -65,9 +65,29 @@ internal static class EligibilityJson
         }
     }
 
+    public static decimal? DecimalProp(JsonObject? obj, string name)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(name, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<decimal>();
+        }
+        catch (InvalidOperationException)
+        {
+            return decimal.TryParse(node.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
+                ? parsed
+                : null;
+        }
+    }
+
     public static IReadOnlyList<string> StringArray(string json)
     {
         return JsonSerializer.Deserialize<List<string>>(json, Options) ?? [];
+    }
+
+    public static IReadOnlyList<int> IntArray(string json)
+    {
+        return JsonSerializer.Deserialize<List<int>>(json, Options) ?? [];
     }
 
     public static bool TextEquals(string? left, string? right)

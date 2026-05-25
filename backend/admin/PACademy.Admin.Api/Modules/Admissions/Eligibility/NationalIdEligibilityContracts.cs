@@ -20,7 +20,13 @@ public sealed record CategoryEligibilityResult(
     string CategoryName,
     bool Eligible,
     EligibilityChecks Checks,
+    IReadOnlyList<EligibleCommitteeResult> Committees,
     IReadOnlyList<string> FailedReasons);
+
+public sealed record EligibleCommitteeResult(
+    string CommitteeId,
+    string CommitteeName,
+    string Reason);
 
 public sealed record EligibilityChecks(
     AgeCheckResult AgeCheck,
@@ -28,7 +34,7 @@ public sealed record EligibilityChecks(
     StageCheckResult StageCheck,
     GradesCheckResult GradesCheck);
 
-public sealed record AgeCheckResult(bool Passed, int ApplicantAge, int? MaxAge);
+public sealed record AgeCheckResult(bool Passed, int ApplicantAge, int? MaxAge, int? MinAge = null);
 
 public sealed record GenderCheckResult(bool Passed, string ApplicantGender, IReadOnlyList<string> AllowedGender);
 
@@ -49,6 +55,9 @@ internal sealed record ApplicantEligibilityContext(
     string? SchoolCategoryCode,
     string? CertificateType,
     string? GradeSource,
+    int? GraduationYear,
+    decimal? GradePercentage,
+    string? AcademicGradeId,
     string? Stage,
     string Governorate);
 
@@ -63,6 +72,11 @@ internal sealed record CategoryEligibilitySettings(
         Rules.SelectMany(x => EligibilityJson.StringArray(x.SchoolCategoryCodesJson))
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    public IReadOnlyList<int> RequiredGraduationYears { get; init; } =
+        Rules.SelectMany(x => EligibilityJson.IntArray(x.GraduationYearsJson))
+            .Distinct()
             .ToArray();
 
     public IReadOnlyList<string> AllowedGenders { get; init; } =
@@ -105,6 +119,13 @@ internal sealed record CategoryEligibilitySettings(
             "requiredGradesSource",
             "gradesSource",
             "مصدر الدرجات");
+
+    public decimal? MinPercentage { get; init; } =
+        Rules.Select(x => x.MinPercentage).Where(x => x is not null).Max();
+
+    public string? AcademicGradeId { get; init; } =
+        Rules.Select(x => x.AcademicGradeId)
+            .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
 }
 
 internal sealed record EligibilityLookupSnapshot(IReadOnlyList<JsonObject> SchoolCategories);

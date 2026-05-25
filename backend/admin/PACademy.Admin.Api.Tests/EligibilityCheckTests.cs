@@ -102,6 +102,9 @@ public sealed class EligibilityCheckTests
             EligibilityJson.FirstString(grade, "schoolCategoryCode", "schoolCategory"),
             EligibilityJson.FirstString(grade, "certificateType", "schoolCategoryName", "kind"),
             EligibilityJson.FirstString(grade, "gradesSource", "source"),
+            EligibilityJson.IntProp(grade, "graduationYear"),
+            EligibilityJson.DecimalProp(grade, "percentage"),
+            EligibilityJson.FirstString(grade, "academicGradeId", "academicGrade"),
             stage ?? EligibilityJson.FirstString(grade, "stage", "kind"),
             info.GovernorateCode);
     }
@@ -156,6 +159,8 @@ public sealed class EligibilityCheckTests
         ["schoolCategoryCode"] = code,
         ["schoolCategoryName"] = certificateType,
         ["certificateType"] = certificateType,
+        ["graduationYear"] = 2026,
+        ["percentage"] = 80,
         ["kind"] = stage
     };
 

@@ -26,6 +26,7 @@ public sealed class ApplicantEligibilityServiceTests
         var category = Assert.Single(response.Categories);
         Assert.True(category.Eligible);
         Assert.True(category.Checks.GradesCheck.Passed);
+        Assert.Contains(category.Committees, x => x.CommitteeId == "CMT-1");
         Assert.Equal("cycle-2026", response.CycleId);
     }
 
@@ -220,6 +221,10 @@ public sealed class ApplicantEligibilityServiceTests
             {
                 ["certificateType"] = "ثانوية عامة",
                 ["gradesSource"] = "إدخال داخلي"
+            }),
+            Lookup("committees", "CMT-1", "اللجنة الأولى قسم عام", new JsonObject
+            {
+                ["applicantCategoryId"] = "CAT-GEN"
             }));
         db.AdminRecords.Add(new AdminRecordEntity
         {
@@ -232,6 +237,9 @@ public sealed class ApplicantEligibilityServiceTests
                 ["schoolCategoryCode"] = schoolCategoryCode,
                 ["schoolCategoryName"] = "ثانوية عامة",
                 ["certificateType"] = "ثانوية عامة",
+                ["graduationYear"] = 2026,
+                ["total"] = 80,
+                ["max"] = 100,
                 ["kind"] = "general",
                 ["gradesSource"] = gradeSource
             }.ToJsonString(),

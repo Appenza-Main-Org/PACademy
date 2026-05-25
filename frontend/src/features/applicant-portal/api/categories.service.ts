@@ -50,7 +50,7 @@ export interface ApplicantCategoryEligibility {
   categoryName: string;
   eligible: boolean;
   checks: {
-    ageCheck: { passed: boolean; applicantAge: number; maxAge: number | null };
+    ageCheck: { passed: boolean; applicantAge: number; maxAge: number | null; minAge?: number | null };
     genderCheck: { passed: boolean; applicantGender: string; allowedGender: string[] };
     stageCheck: { passed: boolean; requiredStage: string | null; applicantStage: string | null };
     gradesCheck: {
@@ -61,6 +61,7 @@ export interface ApplicantCategoryEligibility {
       source: string | null;
     };
   };
+  committees: Array<{ committeeId: string; committeeName: string; reason: string }>;
   failedReasons: string[];
 }
 
@@ -346,6 +347,7 @@ export const categoriesPublicService = {
               source: null,
             },
           },
+          committees: [],
           failedReasons: result.reasons,
         };
       }),
