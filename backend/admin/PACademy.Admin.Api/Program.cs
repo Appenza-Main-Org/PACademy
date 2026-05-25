@@ -101,6 +101,7 @@ app.MapGet("/health/db", async (AdminDbContext db, CancellationToken ct) =>
         provider = db.Database.ProviderName,
         connectionName = database.ConnectionName,
         schema = database.Schema,
+        skipMigrationsAndSeed = database.SkipMigrationsAndSeed,
         useInMemory = database.UseInMemory,
         database = result,
         timestamp = DateTimeOffset.UtcNow
@@ -110,10 +111,14 @@ app.MapGet("/health/db", async (AdminDbContext db, CancellationToken ct) =>
 app.MapControllers();
 
 await app.InitializeAdminDatabaseAsync();
-await app.SeedLookupsAsync();
-await app.SeedAdmissionsAsync();
-await app.SeedIdentityAsync();
-await app.SeedAdminRecordsAsync();
-await app.SeedExamsAsync();
+
+if (!app.Configuration.ResolveAdminDatabaseSettings().SkipMigrationsAndSeed)
+{
+    await app.SeedLookupsAsync();
+    await app.SeedAdmissionsAsync();
+    await app.SeedIdentityAsync();
+    await app.SeedAdminRecordsAsync();
+    await app.SeedExamsAsync();
+}
 
 app.Run();

@@ -132,6 +132,7 @@ sqlcmd -S <server> -U <user> -P '<password>' -d PACademy_Admin \
 ```
 
 Run the UAT backend as a separate service with `ASPNETCORE_ENVIRONMENT=Uat`, `Database__ActiveConnectionName=AdminDbUat`, `Database__Schema=PACademy_staging_db`, and its own CORS origins.
+For a staging schema that was already created and copied from prod, set `SkipMigrationsAndSeed=true` so startup does not try to rerun EF migrations against the runtime-switched schema.
 
 Deploy the UAT frontend as a separate Vercel project using:
 
