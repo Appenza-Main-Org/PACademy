@@ -542,7 +542,8 @@ export function ApplicantGradesPage(): JSX.Element {
 
   async function handleReset(): Promise<void> {
     try {
-      await clearMut.mutateAsync();
+      const result = await clearMut.mutateAsync();
+      await refetchGrades();
       setConfirmReset(false);
       setSearchInput('');
       setColumnFilters({});
@@ -555,7 +556,11 @@ export function ApplicantGradesPage(): JSX.Element {
         },
         { replace: true },
       );
-      toast('تم تصفير البيانات.', 'success');
+      if (result.deleted > 0) {
+        toast(`تم تصفير ${result.deleted.toLocaleString('en')} صفًا من البيانات.`, 'success');
+      } else {
+        toast('لا توجد صفوف غير محذوفة لتصفيرها.', 'warning');
+      }
     } catch {
       toast('تعذّر تصفير البيانات. حاول مرة أخرى.', 'danger');
     }

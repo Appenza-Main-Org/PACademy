@@ -152,8 +152,8 @@ export const gradesService = {
     }
   },
 
-  async clearAll(): Promise<void> {
-    await apiClient.post<{ deleted: number }>(`${GRADES_API}/clear`);
+  async clearAll(): Promise<{ deleted: number }> {
+    return apiClient.post<{ deleted: number }>(`${GRADES_API}/clear`);
   },
 
   async deleteRows(seats: readonly number[]): Promise<{ deleted: number }> {
