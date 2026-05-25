@@ -24,10 +24,28 @@
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { ChevronDown, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { ChevronDown, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { hasPermission, useAuthStore } from '@/features/auth';
 import { cn } from '@/shared/lib/cn';
+
+/** Tracks the md breakpoint (768 px) so internal collapsed styling can be
+ * disabled on mobile, where the sidebar renders as a full-width drawer and
+ * should always show labels regardless of the user's desktop collapse state. */
+function useIsDesktop(): boolean {
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window === 'undefined' ? true : window.matchMedia('(min-width: 768px)').matches,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onChange = (e: MediaQueryListEvent): void => setIsDesktop(e.matches);
+    setIsDesktop(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return isDesktop;
+}
 
 const GROUP_STORAGE_KEY = 'pa-sidebar-groups';
 
@@ -62,14 +80,24 @@ interface SidebarProps {
   sections: readonly SidebarSection[];
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  /** Mobile drawer open state — drives slide-in transform and backdrop. */
+  mobileOpen?: boolean;
+  /** Mobile drawer close handler — wired to backdrop click + close button. */
+  onMobileClose?: () => void;
 }
 
 export function Sidebar({
   sections,
   collapsed = false,
   onCollapsedChange,
+  mobileOpen = false,
+  onMobileClose,
 }: SidebarProps): JSX.Element {
   const user = useAuthStore((s) => s.user);
+  const isDesktop = useIsDesktop();
+  /* On mobile the drawer is always rendered at full width; the user's
+   * desktop collapse preference must NOT shrink labels here. */
+  const effectiveCollapsed = isDesktop && collapsed;
   /* Filter once so the "first visible" index is stable for separator
    * placement — sections hidden by RBAC must not consume the slot. */
   const visibleSections = sections
@@ -82,56 +110,89 @@ export function Sidebar({
     }))
     .filter((section) => section.items.length > 0);
   return (
-    <aside
-      aria-label="القائمة الجانبية"
-      data-collapsed={collapsed || undefined}
-      className={cn(
-        'sticky top-16 hidden h-[calc(100dvh_-_64px)] flex-shrink-0 overflow-y-auto border-s border-border-subtle bg-surface-card py-3 md:block',
-        'transition-[width,padding] duration-base ease-standard motion-reduce:transition-none',
-        collapsed ? 'w-16 px-2' : 'w-64 px-3',
-      )}
-    >
-      <div className={cn('mb-3 flex', collapsed ? 'justify-center' : 'justify-end')}>
+    <>
+      {/* Mobile-only backdrop. Hidden at md+ via the `md:hidden` utility. */}
+      {mobileOpen && (
         <button
           type="button"
-          onClick={() => onCollapsedChange?.(!collapsed)}
-          aria-label={collapsed ? 'توسيع القائمة الجانبية' : 'طي القائمة الجانبية'}
-          title={collapsed ? 'توسيع القائمة' : 'طي القائمة'}
-          className={cn(
-            'inline-flex h-9 w-9 items-center justify-center rounded-md border border-border-subtle bg-surface-card text-ink-600',
-            'transition-colors duration-fast ease-standard hover:border-border-strong hover:bg-ink-50 hover:text-ink-900',
-            'focus-visible:shadow-[var(--ring)] focus-visible:outline-none',
-          )}
-        >
-          {collapsed ? (
-            <PanelRightOpen size={17} strokeWidth={1.75} aria-hidden />
-          ) : (
-            <PanelRightClose size={17} strokeWidth={1.75} aria-hidden />
-          )}
-        </button>
-      </div>
-      {visibleSections.map((section, i) => {
-        const isFirst = i === 0;
-        if (section.collapsible) {
+          tabIndex={-1}
+          aria-hidden
+          onClick={onMobileClose}
+          className="fixed inset-0 z-modal-backdrop bg-surface-overlay md:hidden"
+        />
+      )}
+      <aside
+        aria-label="القائمة الجانبية"
+        data-collapsed={effectiveCollapsed || undefined}
+        className={cn(
+          /* Mobile drawer: fixed at end edge, slides via translate. */
+          'fixed inset-y-0 end-0 z-modal flex w-72 max-w-[85vw] flex-col overflow-y-auto',
+          'border-s border-border-subtle bg-surface-card px-3 py-3 shadow-xl',
+          'transition-[transform,width,padding] duration-base ease-standard motion-reduce:transition-none',
+          mobileOpen ? 'translate-x-0' : 'translate-x-full rtl:-translate-x-full',
+          /* Desktop overrides: static, in-flow grid cell, no shadow, no transform. */
+          'md:static md:z-auto md:h-full md:max-w-none md:translate-x-0 md:shadow-none md:rtl:translate-x-0',
+          collapsed ? 'md:w-16 md:px-2' : 'md:w-64 md:px-3',
+          'md:flex-shrink-0',
+        )}
+      >
+        <div className={cn('mb-3 flex', effectiveCollapsed ? 'md:justify-center' : 'justify-end')}>
+          {/* Mobile-only close button. */}
+          <button
+            type="button"
+            onClick={onMobileClose}
+            aria-label="إغلاق القائمة الجانبية"
+            title="إغلاق القائمة"
+            className={cn(
+              'inline-flex h-10 w-10 items-center justify-center rounded-md border border-border-subtle bg-surface-card text-ink-600 md:hidden',
+              'transition-colors duration-fast ease-standard hover:border-border-strong hover:bg-ink-50 hover:text-ink-900',
+              'focus-visible:shadow-[var(--ring)] focus-visible:outline-none',
+            )}
+          >
+            <X size={18} strokeWidth={1.75} aria-hidden />
+          </button>
+          {/* Desktop-only collapse toggle. */}
+          <button
+            type="button"
+            onClick={() => onCollapsedChange?.(!collapsed)}
+            aria-label={collapsed ? 'توسيع القائمة الجانبية' : 'طي القائمة الجانبية'}
+            title={collapsed ? 'توسيع القائمة' : 'طي القائمة'}
+            className={cn(
+              'hidden h-9 w-9 items-center justify-center rounded-md border border-border-subtle bg-surface-card text-ink-600 md:inline-flex',
+              'transition-colors duration-fast ease-standard hover:border-border-strong hover:bg-ink-50 hover:text-ink-900',
+              'focus-visible:shadow-[var(--ring)] focus-visible:outline-none',
+            )}
+          >
+            {collapsed ? (
+              <PanelRightOpen size={17} strokeWidth={1.75} aria-hidden />
+            ) : (
+              <PanelRightClose size={17} strokeWidth={1.75} aria-hidden />
+            )}
+          </button>
+        </div>
+        {visibleSections.map((section, i) => {
+          const isFirst = i === 0;
+          if (section.collapsible) {
+            return (
+              <CollapsibleSection
+                key={section.groupKey ?? section.label ?? `g-${i}`}
+                section={section}
+                isFirst={isFirst}
+                collapsed={effectiveCollapsed}
+              />
+            );
+          }
           return (
-            <CollapsibleSection
-              key={section.groupKey ?? section.label ?? `g-${i}`}
+            <PlainSection
+              key={section.label ?? `s-${i}`}
               section={section}
               isFirst={isFirst}
-              collapsed={collapsed}
+              collapsed={effectiveCollapsed}
             />
           );
-        }
-        return (
-          <PlainSection
-            key={section.label ?? `s-${i}`}
-            section={section}
-            isFirst={isFirst}
-            collapsed={collapsed}
-          />
-        );
-      })}
-    </aside>
+        })}
+      </aside>
+    </>
   );
 }
 

@@ -367,7 +367,7 @@ function StudentNameWatermark({ name }: { name: string }): JSX.Element | null {
    * a data URI so we don't need a separate asset. */
   const tileWidth = 240;
   const tileHeight = 96;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${tileWidth}" height="${tileHeight}" viewBox="0 0 ${tileWidth} ${tileHeight}"><text x="${tileWidth / 2}" y="${tileHeight / 2}" text-anchor="middle" dominant-baseline="middle" font-family="Tajawal, Cairo, 'IBM Plex Sans Arabic', sans-serif" font-size="14" fill="rgba(0,0,0,0.08)" transform="rotate(-28 ${tileWidth / 2} ${tileHeight / 2})">${escapeSvgText(text)}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${tileWidth}" height="${tileHeight}" viewBox="0 0 ${tileWidth} ${tileHeight}"><text x="${tileWidth / 2}" y="${tileHeight / 2}" text-anchor="middle" dominant-baseline="middle" font-family="Cairo, sans-serif" font-size="14" fill="rgba(0,0,0,0.08)" transform="rotate(-28 ${tileWidth / 2} ${tileHeight / 2})">${escapeSvgText(text)}</text></svg>`;
   const dataUri = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
   return (
     <div
