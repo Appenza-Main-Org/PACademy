@@ -188,11 +188,10 @@ function OpsPill({
 }): JSX.Element {
   return (
     <span
-      className={`inline-flex items-center justify-between gap-2 rounded-md border px-2.5 py-1 ${
-        tone === 'success'
+      className={`inline-flex items-center justify-between gap-2 rounded-md border px-2 py-1 ${tone === 'success'
           ? 'border-teal-100 bg-teal-50 text-teal-700'
           : 'border-gold-200 bg-gold-50 text-gold-700'
-      }`}
+        }`}
     >
       <span>{label}</span>
       <span className="font-numeric tnum font-bold">{value}</span>

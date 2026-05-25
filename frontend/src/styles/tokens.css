@@ -95,11 +95,11 @@
   --accent-700: var(--teal-700);
 
   /* ── TYPOGRAPHY — §2.3 ── */
-  --font-ar:         'IBM Plex Sans Arabic', 'Noto Sans Arabic', system-ui, sans-serif;
-  --font-ar-display: 'Tajawal', 'IBM Plex Sans Arabic', system-ui, sans-serif;
-  --font-en:         'Inter', system-ui, sans-serif;
+  --font-ar:         'Cairo', 'Noto Sans Arabic', system-ui, sans-serif;
+  --font-ar-display: 'Cairo', 'Noto Sans Arabic', system-ui, sans-serif;
+  --font-en:         'Cairo', system-ui, sans-serif;
   --font-mono:       'JetBrains Mono', 'SF Mono', Menlo, monospace;
-  --font-numeric:    'Inter', sans-serif;
+  --font-numeric:    'Cairo', sans-serif;
 
   /* font-size scale (modular, ratio 1.200) */
   --text-2xs: 11px;

@@ -112,11 +112,11 @@ export default {
     },
 
     fontFamily: {
-      ar:        ['"IBM Plex Sans Arabic"', '"Noto Sans Arabic"', 'system-ui', 'sans-serif'],
-      'ar-display': ['Tajawal', '"IBM Plex Sans Arabic"', 'system-ui', 'sans-serif'],
-      en:        ['Inter', 'system-ui', 'sans-serif'],
+      ar:        ['Cairo', '"Noto Sans Arabic"', 'system-ui', 'sans-serif'],
+      'ar-display': ['Cairo', '"Noto Sans Arabic"', 'system-ui', 'sans-serif'],
+      en:        ['Cairo', 'system-ui', 'sans-serif'],
       mono:      ['"JetBrains Mono"', '"SF Mono"', 'Menlo', 'monospace'],
-      numeric:   ['Inter', 'sans-serif'],
+      numeric:   ['Cairo', 'sans-serif'],
     },
 
     fontSize: {

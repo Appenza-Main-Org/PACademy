@@ -91,7 +91,7 @@ export function LoginForm(): JSX.Element {
       <Input
         label="الرقم القومي"
         required
-        dir="ltr"
+        dir="rtl"
         placeholder="14 رقماً"
         maxLength={14}
         {...register('nationalId')}
@@ -102,7 +102,7 @@ export function LoginForm(): JSX.Element {
         label="رقم المحمول"
         type="tel"
         required
-        dir="ltr"
+        dir="rtl"
         placeholder="01XXXXXXXXX"
         maxLength={11}
         helper="يجب أن يطابق الرقم المسجل على حساب الموظف"
@@ -127,7 +127,7 @@ export function LoginForm(): JSX.Element {
       <Button
         type="submit"
         variant="primary"
-        size="lg"
+        size="md"
         fullWidth
         isLoading={loginMut.isPending}
         loadingLabel="جارٍ تسجيل الدخول…"

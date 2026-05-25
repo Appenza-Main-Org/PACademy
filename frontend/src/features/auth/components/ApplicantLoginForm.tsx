@@ -129,11 +129,11 @@ export function ApplicantLoginForm(): JSX.Element {
       const result = mockMoiLookup(values.nationalId);
       const fakeUser = DEMO_BYPASS_NIDS.has(values.nationalId)
         ? buildDemoApplicantUser(
-            values.nationalId,
-            result.kind === 'eligible' || result.kind === 'ineligible'
-              ? result.session.fullName
-              : 'متقدم تجريبي',
-          )
+          values.nationalId,
+          result.kind === 'eligible' || result.kind === 'ineligible'
+            ? result.session.fullName
+            : 'متقدم تجريبي',
+        )
         : null;
       const user = fakeUser
         ?? (await authService.login({
@@ -291,7 +291,7 @@ export function ApplicantLoginForm(): JSX.Element {
       <Input
         label="الرقم القومي"
         required
-        dir="ltr"
+        dir="rtl"
         placeholder="14 رقماً"
         maxLength={14}
         {...register('nationalId')}
@@ -302,7 +302,7 @@ export function ApplicantLoginForm(): JSX.Element {
         label="رقم المحمول"
         type="tel"
         required
-        dir="ltr"
+        dir="rtl"
         placeholder="01XXXXXXXXX"
         maxLength={11}
         {...register('mobile')}
@@ -312,7 +312,7 @@ export function ApplicantLoginForm(): JSX.Element {
       <Button
         type="submit"
         variant="primary"
-        size="lg"
+        size="md"
         fullWidth
         isLoading={submitting}
         loadingLabel="جارٍ تسجيل الدخول…"

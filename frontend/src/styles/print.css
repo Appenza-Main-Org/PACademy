@@ -283,7 +283,7 @@
   @page {
     @bottom-center {
       content: "Police Academy Admissions System — Technical Reference — Page " counter(page) " of " counter(pages);
-      font-family: 'Inter', sans-serif;
+      font-family: 'Cairo', sans-serif;
       font-size: 8pt;
       color: #6b6b6b;
     }

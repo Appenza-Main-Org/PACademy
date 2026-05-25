@@ -38,9 +38,9 @@ const APPLICATION_CLOSE = '31 مارس 2026';
 
 const HIGHLIGHTS = [
   { icon: CheckCircle2, label: 'تسجيل إلكتروني كامل' },
-  { icon: ShieldCheck,  label: 'هويّة موثّقة بالرقم القومي' },
-  { icon: ScrollText,   label: 'متابعة لحظية لكل المراحل' },
-  { icon: Layers,       label: 'تكامل مع الجهات الحكومية' },
+  { icon: ShieldCheck, label: 'هويّة موثّقة بالرقم القومي' },
+  { icon: ScrollText, label: 'متابعة لحظية لكل المراحل' },
+  { icon: Layers, label: 'تكامل مع الجهات الحكومية' },
 ];
 
 export function PublicLandingPage(): JSX.Element {
@@ -103,7 +103,7 @@ export function PublicLandingPage(): JSX.Element {
         <div className="grid gap-6 md:grid-cols-2">
           <CtaCard
             to={ROUTES.applicantLogin}
-            icon={<GraduationCap size={26} strokeWidth={1.75} />}
+            icon={<GraduationCap size={46} strokeWidth={1.75} />}
             badge="للمتقدّمين"
             title="تقديم جديد للالتحاق"
             description="ابدأ ملفّك الإلكتروني خلال خطوات معدودة. سيتم التحقق من رقمك القومي ورقم هاتفك ثم استكمال البيانات والمستندات."
@@ -113,7 +113,7 @@ export function PublicLandingPage(): JSX.Element {
           />
           <CtaCard
             to={ROUTES.staffLogin}
-            icon={<UserCog size={26} strokeWidth={1.75} />}
+            icon={<UserCog size={46} strokeWidth={1.75} />}
             badge="للموظّفين"
             title="دخول الضباط والموظفين"
             description="تسجيل دخول آمن عبر منصّة التحقق الرقمي للحكومة المصرية (MOIPASS) للوصول إلى تطبيقات اللجان والقومسيون والتحريات والهيئة."

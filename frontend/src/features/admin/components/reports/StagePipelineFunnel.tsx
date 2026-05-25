@@ -181,7 +181,7 @@ function FunnelSvg({ points, maxCount }: FunnelSvgProps): JSX.Element {
               x={x + barW + 8}
               y={y + rowHeight / 2 + 4}
               fontSize={11}
-              fontFamily="Inter"
+              fontFamily="Cairo"
               style={{ fontFeatureSettings: '"tnum"' }}
               fill="var(--ink-700)"
             >

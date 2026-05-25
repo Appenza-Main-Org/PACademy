@@ -91,7 +91,7 @@ export function BarChart({
                 textAnchor="middle"
                 fontSize={11}
                 fill="var(--ink-700)"
-                fontFamily="Inter"
+                fontFamily="Cairo"
                 style={{ fontFeatureSettings: '"tnum"' }}
               >
                 {num(d.value)}
