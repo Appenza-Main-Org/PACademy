@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Admissions.Eligibility;
@@ -140,8 +141,7 @@ public sealed class ApplicantEligibilityServiceTests
 
     private static ApplicantEligibilityService CreateService(AdminDbContext db)
     {
-        var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
-        return new ApplicantEligibilityService(db, records);
+        return new ApplicantEligibilityService(db, new MemoryCache(new MemoryCacheOptions()));
     }
 
     private static async Task SeedBaseAsync(
