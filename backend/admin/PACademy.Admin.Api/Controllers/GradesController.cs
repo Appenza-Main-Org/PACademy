@@ -185,9 +185,9 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                 if (action == "replace")
                 {
                     var previousSeat = (int)(AdminRecordJson.NumberProp(previous, "seat") ?? nextSeat++);
-                    var grade = GradeFromImportRow(row, previousSeat, nid, name, total.Value, graduationYear);
-                    grade["previousGrade"] = previous["total"]?.DeepClone();
-                    await records.UpsertAsync("grades", previousSeat.ToString(), grade, ct);
+                    var updatedGrade = GradeFromImportRow(row, previousSeat, nid, name, total.Value, graduationYear);
+                    updatedGrade["previousGrade"] = previous["total"]?.DeepClone();
+                    await records.UpsertAsync("grades", previousSeat.ToString(), updatedGrade, ct);
                     replaced++;
                 }
                 else
@@ -272,7 +272,18 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                 actions["GRADE_OUT_OF_RANGE"]?.GetValue<string>(),
                 "override",
                 StringComparison.OrdinalIgnoreCase);
+        var acceptedExistingNids = body["existingDiffDecisions"] is JsonObject existingDiffDecisions
+            ? existingDiffDecisions
+                .Where(kv => string.Equals(kv.Value?.GetValue<string>(), "accept", StringComparison.OrdinalIgnoreCase))
+                .Select(kv => kv.Key)
+                .ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal);
         var (existingNids, nextSeatValue) = await records.GradesImportIndexAsync(ct);
+        var existingByNid = (await records.ListAsync("grades", ct))
+            .Where(x => !AdminRecordJson.IsSoftDeleted(x))
+            .Select(x => new { Nid = AdminRecordJson.StringProp(x, "nid"), Row = x })
+            .Where(x => !string.IsNullOrWhiteSpace(x.Nid))
+            .ToDictionary(x => x.Nid!, x => x.Row, StringComparer.Ordinal);
         var inserted = 0;
         var failed = 0;
         var alreadyImported = 0;
@@ -313,6 +324,27 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
             }
             if (existingNids.Contains(nid))
             {
+                if (acceptedExistingNids.Contains(nid) &&
+                    existingByNid.TryGetValue(nid, out var previous) &&
+                    total.Value > (AdminRecordJson.NumberProp(previous, "total") ?? double.NegativeInfinity))
+                {
+                    var previousSeat = (int)(AdminRecordJson.NumberProp(previous, "seat") ?? 0);
+                    if (previousSeat <= 0)
+                    {
+                        failed++;
+                        continue;
+                    }
+                    if (row["maxGrade"] is null && maxGrade is not null)
+                    {
+                        row["maxGrade"] = maxGrade;
+                    }
+                    var updatedGrade = GradeFromImportRow(row, previousSeat, nid, name, total.Value, graduationYear, schoolCategoryCode);
+                    updatedGrade["previousGrade"] = previous["total"]?.DeepClone();
+                    await records.UpsertAsync("grades", previousSeat.ToString(CultureInfo.InvariantCulture), updatedGrade, ct);
+                    existingByNid[nid] = updatedGrade;
+                    inserted++;
+                    continue;
+                }
                 alreadyImported++;
                 continue;
             }

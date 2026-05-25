@@ -43,7 +43,8 @@ import {
   dedupeRowsFirstOccurrence,
 } from '../lib/duplicateAudit';
 import { saveApplicantGradesImportHistoryRecord } from '../lib/importHistory';
-import type { ImportCommitProgress, ImportGroupCode } from '../types';
+import type { UploadDuplicateDecision } from '../store/importWizard.store';
+import type { ImportCommitProgress, ImportGroupCode, NormalisedRow } from '../types';
 
 type StepIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
@@ -254,7 +255,10 @@ export function ApplicantGradesImportPage(): JSX.Element {
         .filter((row) => !(row.code === 'GRADE_OUT_OF_RANGE' && allowOutOfRange))
         .map((row) => row.sourceRowIndex),
     );
-    const rowsEligibleForCommit = rows.filter((row) => !invalidSourceRows.has(row.sourceRowIndex));
+    const rowsEligibleForCommit = resolveUploadDuplicateRows(
+      rows.filter((row) => !invalidSourceRows.has(row.sourceRowIndex)),
+      uploadDuplicateDecisions,
+    );
     const deduped = dedupeRowsFirstOccurrence(rowsEligibleForCommit);
     setCommitProgress({
       processedRows: 0,
@@ -492,6 +496,61 @@ function filterAction(
   a: 'skip' | 'override' | 'create-applicant' | undefined,
 ): 'skip' | 'override' | 'create-applicant' | undefined {
   return a;
+}
+
+function resolveUploadDuplicateRows(
+  rows: readonly NormalisedRow[],
+  decisions: Record<string, UploadDuplicateDecision>,
+): NormalisedRow[] {
+  const groups = new Map<string, NormalisedRow[]>();
+  const passthrough: NormalisedRow[] = [];
+  for (const row of rows) {
+    if (!row.nationalId) {
+      passthrough.push(row);
+      continue;
+    }
+    const bucket = groups.get(row.nationalId) ?? [];
+    bucket.push(row);
+    groups.set(row.nationalId, bucket);
+  }
+
+  const resolved: NormalisedRow[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      resolved.push(group[0]!);
+      continue;
+    }
+    const decision = decisions[group[0]!.nationalId ?? ''];
+    if (decision?.action === 'reject') continue;
+    resolved.push(pickDuplicateRow(group, decision));
+  }
+
+  return [...passthrough, ...resolved].sort((a, b) => a.sourceRowIndex - b.sourceRowIndex);
+}
+
+function pickDuplicateRow(
+  rows: readonly NormalisedRow[],
+  decision: UploadDuplicateDecision | undefined,
+): NormalisedRow {
+  const ordered = [...rows].sort((a, b) => a.sourceRowIndex - b.sourceRowIndex);
+  if (decision?.action === 'pick-row') {
+    return ordered.find((row) => row.sourceRowIndex === decision.pickedSourceRowIndex) ?? ordered[0]!;
+  }
+  if (decision?.action === 'pick-specific') {
+    return ordered.find((row) => row.totalGrade === decision.pickedTotal) ?? ordered[0]!;
+  }
+
+  const numericRows = ordered.filter(
+    (row): row is NormalisedRow & { totalGrade: number } =>
+      row.totalGrade != null && Number.isFinite(row.totalGrade),
+  );
+  if (numericRows.length === 0) return ordered[0]!;
+
+  const targetTotal =
+    decision?.action === 'pick-lower'
+      ? Math.min(...numericRows.map((row) => row.totalGrade))
+      : Math.max(...numericRows.map((row) => row.totalGrade));
+  return numericRows.find((row) => row.totalGrade === targetTotal) ?? ordered[0]!;
 }
 
 function TopStepper({
