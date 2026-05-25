@@ -266,6 +266,12 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x!)
             .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var allowOutOfRangeGrades =
+            body["perGroupActions"] is JsonObject actions &&
+            string.Equals(
+                actions["GRADE_OUT_OF_RANGE"]?.GetValue<string>(),
+                "override",
+                StringComparison.OrdinalIgnoreCase);
         var (existingNids, nextSeatValue) = await records.GradesImportIndexAsync(ct);
         var inserted = 0;
         var failed = 0;
@@ -300,7 +306,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                 continue;
             }
             var maxGrade = row["maxGrade"]?.GetValue<double?>() ?? MaxGradeForRow(row, body);
-            if (total.Value < 0 || (maxGrade is not null && total.Value > maxGrade.Value))
+            if (total.Value < 0 || (!allowOutOfRangeGrades && maxGrade is not null && total.Value > maxGrade.Value))
             {
                 failed++;
                 continue;

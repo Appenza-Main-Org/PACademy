@@ -118,11 +118,54 @@ export function Step6Result(): JSX.Element {
     );
   }
 
-  const groups = importResult.groups;
+  const integrityGroups = useMemo<ImportReportGroup[]>(() => {
+    const labels: Record<ImportGroupCode, string> = {
+      DUPLICATE_NID: 'مطابقات سابقة بالرقم القومي',
+      INVALID_NID: 'أرقام قومية غير صالحة',
+      MISSING_REQUIRED: 'حقول مطلوبة ناقصة',
+      NID_NOT_FOUND: 'رقم قومي غير موجود',
+      GRADE_OUT_OF_RANGE: 'درجات تتجاوز الدرجة العظمى',
+      UNREADABLE_VALUE: 'قيم غير قابلة للقراءة',
+    };
+    const grouped = new Map<ImportGroupCode, ImportFailureRow[]>();
+    for (const row of integrityRows) {
+      const bucket = grouped.get(row.code) ?? [];
+      bucket.push({
+        nationalId: row.nationalId,
+        seatingNumber: null,
+        nameAr: row.nameAr,
+        totalGrade: row.totalGrade,
+        sourceRowIndex: row.sourceRowIndex,
+        detail: row.detail,
+      });
+      grouped.set(row.code, bucket);
+    }
+    return Array.from(grouped.entries()).map(([code, rows]) => ({
+      code,
+      labelAr: labels[code],
+      rows,
+      availableActions:
+        code === 'GRADE_OUT_OF_RANGE'
+          ? (['skip', 'override', 'export'] as const)
+          : (['skip', 'export'] as const),
+    }));
+  }, [integrityRows]);
+
+  const groups = useMemo<ImportReportGroup[]>(() => {
+    const byCode = new Map<ImportGroupCode, ImportReportGroup>();
+    for (const group of importResult.groups) byCode.set(group.code, group);
+    for (const group of integrityGroups) byCode.set(group.code, group);
+    return Array.from(byCode.values());
+  }, [importResult.groups, integrityGroups]);
   const skippedExistingCount = alreadyImported.length;
+  const allowOutOfRange = perGroupActions.GRADE_OUT_OF_RANGE === 'override';
   const rejectedCount = Math.max(
     importResult.totals.failed,
-    new Set(integrityRows.map((row) => row.sourceRowIndex)).size,
+    new Set(
+      integrityRows
+        .filter((row) => !(row.code === 'GRADE_OUT_OF_RANGE' && allowOutOfRange))
+        .map((row) => row.sourceRowIndex),
+    ).size,
   );
   const skippedCount = importResult.totals.skipped + skippedExistingCount;
   const importableCount = Math.max(0, importResult.totals.received - skippedCount - rejectedCount);

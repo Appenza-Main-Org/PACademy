@@ -68,6 +68,7 @@ export function Step6ChangesReview(): JSX.Element {
   const uploadDuplicateDecisions = useImportWizardStore(
     (s) => s.uploadDuplicateDecisions,
   );
+  const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
   const setUploadDuplicateDecision = useImportWizardStore(
     (s) => s.setUploadDuplicateDecision,
   );
@@ -189,9 +190,14 @@ export function Step6ChangesReview(): JSX.Element {
     uploadDuplicateDecisions,
   );
   const skippedExistingCount = alreadyImported.length;
+  const allowOutOfRange = perGroupActions.GRADE_OUT_OF_RANGE === 'override';
   const summaryRejectedCount = Math.max(
     importResult?.totals.failed ?? 0,
-    new Set(integrityRows.map((row) => row.sourceRowIndex)).size,
+    new Set(
+      integrityRows
+        .filter((row) => !(row.code === 'GRADE_OUT_OF_RANGE' && allowOutOfRange))
+        .map((row) => row.sourceRowIndex),
+    ).size,
   );
   const skippedCount = (importResult?.totals.skipped ?? 0) + skippedExistingCount;
   const importableCount = Math.max(

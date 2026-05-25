@@ -248,7 +248,12 @@ export function ApplicantGradesImportPage(): JSX.Element {
     for (const [nid, decision] of Object.entries(existingDiffDecisions)) {
       if (decision === 'accept') acceptedDiffDecisions[nid] = 'accept';
     }
-    const invalidSourceRows = new Set(integrityRows.map((row) => row.sourceRowIndex));
+    const allowOutOfRange = perGroupActions.GRADE_OUT_OF_RANGE === 'override';
+    const invalidSourceRows = new Set(
+      integrityRows
+        .filter((row) => !(row.code === 'GRADE_OUT_OF_RANGE' && allowOutOfRange))
+        .map((row) => row.sourceRowIndex),
+    );
     const rowsEligibleForCommit = rows.filter((row) => !invalidSourceRows.has(row.sourceRowIndex));
     const deduped = dedupeRowsFirstOccurrence(rowsEligibleForCommit);
     setCommitProgress({
