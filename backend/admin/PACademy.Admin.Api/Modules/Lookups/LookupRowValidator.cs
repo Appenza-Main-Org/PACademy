@@ -14,5 +14,11 @@ public sealed class LookupRowValidator : AbstractValidator<JsonObject>
         RuleFor(x => LookupJson.StringProp(x, "code"))
             .Must(code => code is null || code.Trim().Length > 0)
             .WithMessage("كود السجل غير صالح");
+
+        RuleFor(x => LookupJson.IntProp(x, "minAge"))
+            .Must((row, minAge) =>
+                LookupJson.StringProp(row, "type") is null ||
+                minAge is null or > 0)
+            .WithMessage("الحد الأدنى للسن يجب أن يكون رقمًا صحيحًا موجبًا");
     }
 }

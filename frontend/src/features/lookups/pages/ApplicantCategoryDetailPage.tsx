@@ -163,6 +163,10 @@ export function ApplicantCategoryDetailPage(): JSX.Element {
               }
             />
             <Field
+              label="الحد الأدنى للسن"
+              value={<span className="font-mono text-sm text-ink-900">{row.minAge ?? 17}</span>}
+            />
+            <Field
               label="الكليات المؤهلة"
               value={
                 row.facultyCodes.length === 0 ? (

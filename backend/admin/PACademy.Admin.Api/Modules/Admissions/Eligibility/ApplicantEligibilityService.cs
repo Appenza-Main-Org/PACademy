@@ -123,7 +123,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
         var reasons = new List<string>();
         if (!checks.AgeCheck.Passed)
         {
-            reasons.Add($"السن أكبر من الحد المسموح لهذه الفئة ({checks.AgeCheck.MaxAge})");
+            reasons.Add("السن خارج النطاق المسموح لهذه الفئة");
         }
 
         if (!checks.GenderCheck.Passed)

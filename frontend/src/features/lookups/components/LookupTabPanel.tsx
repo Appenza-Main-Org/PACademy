@@ -678,6 +678,9 @@ function extrasFor(
             {r.type === 'university' ? 'جامعي' : 'ثانوي'}
           </Badge>
         ) },
+        { key: 'minAge', label: 'الحد الأدنى للسن', sortable: true, width: 120, render: (r: ApplicantCategoryRow) => (
+          <span className="font-mono text-sm text-ink-900">{r.minAge ?? 17}</span>
+        ) },
         /* معيار التمييز* — admins pick a single criterion per category
          * from the `excellence-criteria` lookup. Rows without a
          * configured criterion render «غير محدد». The value resolves

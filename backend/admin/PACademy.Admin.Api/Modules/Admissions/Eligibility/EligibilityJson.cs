@@ -52,6 +52,19 @@ internal static class EligibilityJson
                 : null;
     }
 
+    public static int? IntProp(JsonObject? obj, string name)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(name, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<int>();
+        }
+        catch (InvalidOperationException)
+        {
+            return int.TryParse(node.ToString(), out var parsed) ? parsed : null;
+        }
+    }
+
     public static IReadOnlyList<string> StringArray(string json)
     {
         return JsonSerializer.Deserialize<List<string>>(json, Options) ?? [];

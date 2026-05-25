@@ -39,7 +39,7 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
 
         await EnsureUniqueAsync(key, code, ignoreCode: null, ct);
 
-        var rowJson = LookupJson.Clone(input);
+        var rowJson = NormalizeRow(key, LookupJson.Clone(input));
         rowJson["code"] = code;
         rowJson["isActive"] = LookupJson.BoolProp(rowJson, "isActive") ?? true;
         var now = DateTimeOffset.UtcNow;
@@ -65,7 +65,7 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
         var entity = await db.LookupRows.FirstOrDefaultAsync(x => x.LookupKey == key && x.Code == code, ct)
             ?? throw new EntityNotFoundException("كود المرجع غير موجود");
 
-        var current = LookupJson.ParseObject(entity.PayloadJson);
+        var current = NormalizeRow(key, LookupJson.ParseObject(entity.PayloadJson));
         foreach (var item in patch)
         {
             current[item.Key] = item.Value?.DeepClone();
@@ -179,6 +179,7 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
     private static JsonObject ToJson(LookupRowEntity entity)
     {
         var obj = LookupJson.ParseObject(entity.PayloadJson);
+        obj = NormalizeRow(entity.LookupKey, obj);
         obj["code"] = entity.Code;
         obj["name"] = entity.Name;
         obj["isActive"] = entity.IsActive;
@@ -186,6 +187,16 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
         obj["updatedAt"] = entity.UpdatedAt;
         obj["rowVersion"] = Convert.ToBase64String(entity.RowVersion);
         return obj;
+    }
+
+    private static JsonObject NormalizeRow(string key, JsonObject row)
+    {
+        if (key == "applicant-categories")
+        {
+            row["minAge"] = LookupJson.IntProp(row, "minAge") ?? 17;
+        }
+
+        return row;
     }
 
     private static void EnsureKnown(string key)

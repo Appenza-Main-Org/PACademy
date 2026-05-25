@@ -48,10 +48,22 @@ public sealed class ApplicantEligibilityServiceTests
     public async Task UnderAgeApplicantFailsAgeCheck()
     {
         await using var db = CreateDb();
-        await SeedBaseAsync(db, ageMin: 18);
+        await SeedBaseAsync(db, categoryMinAge: 18);
         var service = CreateService(db);
 
         var response = await service.GetEligibleCategoriesAsync("31001010123457", CancellationToken.None);
+
+        Assert.False(Assert.Single(response.Categories).Checks.AgeCheck.Passed);
+    }
+
+    [Fact]
+    public async Task CategoryLookupMinAgeIsUsedWhenCycleRuleDoesNotOverrideIt()
+    {
+        await using var db = CreateDb();
+        await SeedBaseAsync(db, categoryMinAge: 27);
+        var service = CreateService(db);
+
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
 
         Assert.False(Assert.Single(response.Categories).Checks.AgeCheck.Passed);
     }
@@ -138,7 +150,8 @@ public sealed class ApplicantEligibilityServiceTests
         IReadOnlyList<string>? requiredCodes = null,
         IReadOnlyList<string>? genders = null,
         int maxAge = 30,
-        int? ageMin = null)
+        int? ageMin = null,
+        int categoryMinAge = 17)
     {
         var now = DateTimeOffset.UtcNow;
         db.AdmissionCycles.Add(new AdmissionCycleEntity
@@ -194,6 +207,7 @@ public sealed class ApplicantEligibilityServiceTests
         db.LookupRows.AddRange(
             Lookup("applicant-categories", "CAT-GEN", "قسم الضباط (قسم عام)", new JsonObject
             {
+                ["minAge"] = categoryMinAge,
                 ["requiredStage"] = "general",
                 ["metadata"] = new JsonObject { ["requiredGradesSource"] = "استيراد خارجي" }
             }),

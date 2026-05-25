@@ -75,7 +75,9 @@ internal sealed record CategoryEligibilitySettings(
         Rules.Select(x => x.MaxAge).Where(x => x is not null).Min();
 
     public int? MinAge { get; init; } =
-        Rules.Select(x => x.AgeMin).Where(x => x is not null).Max();
+        Rules.Select(x => x.AgeMin).Where(x => x is not null).Max()
+        ?? EligibilityJson.IntProp(CategoryLookup, "minAge")
+        ?? 17;
 
     public DateOnly? AgeReferenceDate { get; init; } =
         Rules.Select(x => (DateOnly?)x.AgeReferenceDate).OrderBy(x => x).FirstOrDefault();

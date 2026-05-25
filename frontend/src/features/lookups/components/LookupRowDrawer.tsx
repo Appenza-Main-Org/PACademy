@@ -79,7 +79,7 @@ export function LookupRowDrawer<K extends LookupKey>({
   const lookupRowsQuery = useLookup(lookupKey);
 
   const defaults = useMemo<FieldValues>(
-    () => (editing ? { ...(editing as object) } : blankRow(lookupKey)) as FieldValues,
+    () => normalizeDefaults(lookupKey, editing ? { ...(editing as object) } : blankRow(lookupKey)) as FieldValues,
     [editing, lookupKey],
   );
 
@@ -735,6 +735,27 @@ function ApplicantCategoryFields(): JSX.Element {
         )}
       />
 
+      <Controller
+        control={control}
+        name="minAge"
+        render={({ field, fieldState }) => (
+          <Input
+            type="number"
+            min={1}
+            step={1}
+            label="الحد الأدنى للسن"
+            required
+            value={(field.value as number | undefined) ?? 17}
+            onChange={(e) => {
+              const value = e.currentTarget.value;
+              field.onChange(value === '' ? 17 : Number(value));
+            }}
+            error={fieldState.error ? 'أدخل سنًا صحيحًا' : undefined}
+            containerClassName="col-span-2"
+          />
+        )}
+      />
+
       <FacultyAndSpecializationFields />
 
       <div className="col-span-2">
@@ -1065,6 +1086,7 @@ function blankRow(key: LookupKey): Record<string, unknown> {
          * pickers are revealed on first open (admins more often configure
          * university-stage categories; the toggle still works either way). */
         type: 'university',
+        minAge: 17,
         facultyCodes: [],
         specializationCodes: [],
         excellenceCriterion: null,
@@ -1098,6 +1120,14 @@ function blankRow(key: LookupKey): Record<string, unknown> {
     default:
       return base;
   }
+}
+
+function normalizeDefaults(key: LookupKey, row: Record<string, unknown>): Record<string, unknown> {
+  if (key !== 'applicant-categories') return row;
+  const minAge = typeof row.minAge === 'number' && Number.isFinite(row.minAge)
+    ? row.minAge
+    : 17;
+  return { ...row, minAge };
 }
 
 function nextCodeFor(key: LookupKey, rows: readonly { code: string }[]): string {

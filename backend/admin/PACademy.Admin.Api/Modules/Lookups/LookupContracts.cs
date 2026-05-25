@@ -96,4 +96,17 @@ public static class LookupJson
     {
         return obj.TryGetPropertyValue(name, out var node) ? node?.GetValue<bool>() : null;
     }
+
+    public static int? IntProp(JsonObject obj, string name)
+    {
+        if (!obj.TryGetPropertyValue(name, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<int>();
+        }
+        catch (InvalidOperationException)
+        {
+            return int.TryParse(node.ToString(), out var parsed) ? parsed : null;
+        }
+    }
 }

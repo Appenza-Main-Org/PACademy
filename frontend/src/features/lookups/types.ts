@@ -277,6 +277,9 @@ import type {
 } from '@/shared/types/domain';
 
 export interface ApplicantCategoryRow extends LookupRowBase {
+  /** Minimum applicant age for this category. Defaults to 17 and feeds the
+   *  applicant eligible-categories API unless a cycle row overrides it. */
+  minAge: number;
   /** Gender scope — multi-select. `['male','female']` is the old `'any'`
    *  semantics; a single-entry array locks the category to that gender.
    *  Required, min 1. */
