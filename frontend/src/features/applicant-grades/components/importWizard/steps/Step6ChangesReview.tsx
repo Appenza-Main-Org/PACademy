@@ -29,6 +29,7 @@ import type {
 } from '../../../store/importWizard.store';
 import { useGrades } from '../../../api/grades.queries';
 import { normaliseRows } from '../../../lib/normalise';
+import { buildIntegrityAuditRows } from '../../../lib/duplicateAudit';
 import {
   buildAlreadyImported,
   buildExistingDiffs,
@@ -54,6 +55,7 @@ export function Step6ChangesReview(): JSX.Element {
   const selectedSchoolCategories = useImportWizardStore(
     (s) => s.selectedSchoolCategories,
   );
+  const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const existingDiffDecisions = useImportWizardStore(
     (s) => s.existingDiffDecisions,
   );
@@ -66,6 +68,7 @@ export function Step6ChangesReview(): JSX.Element {
   const uploadDuplicateDecisions = useImportWizardStore(
     (s) => s.uploadDuplicateDecisions,
   );
+  const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
   const setUploadDuplicateDecision = useImportWizardStore(
     (s) => s.setUploadDuplicateDecision,
   );
@@ -104,6 +107,15 @@ export function Step6ChangesReview(): JSX.Element {
   const alreadyImported = useMemo(
     () => buildAlreadyImported(normalised, allRows ?? []),
     [normalised, allRows],
+  );
+  const integrityRows = useMemo(
+    () =>
+      buildIntegrityAuditRows({
+        rows: normalised,
+        selectedSchoolCategories,
+        maxGradeByCategory,
+      }),
+    [normalised, selectedSchoolCategories, maxGradeByCategory],
   );
   /* Surface every duplicate-NID case — not just total conflicts — so
    * admins can explicitly pick which of the duplicate rows is the
@@ -178,10 +190,19 @@ export function Step6ChangesReview(): JSX.Element {
     uploadDuplicateDecisions,
   );
   const skippedExistingCount = alreadyImported.length;
+  const allowOutOfRange = perGroupActions.GRADE_OUT_OF_RANGE === 'override';
+  const summaryRejectedCount = Math.max(
+    importResult?.totals.failed ?? 0,
+    new Set(
+      integrityRows
+        .filter((row) => !(row.code === 'GRADE_OUT_OF_RANGE' && allowOutOfRange))
+        .map((row) => row.sourceRowIndex),
+    ).size,
+  );
   const skippedCount = (importResult?.totals.skipped ?? 0) + skippedExistingCount;
   const importableCount = Math.max(
     0,
-    (importResult?.totals.imported ?? normalised.length) - skippedExistingCount,
+    (importResult?.totals.received ?? normalised.length) - skippedCount - summaryRejectedCount,
   );
 
   function acceptAllUploadDuplicates(): void {
@@ -214,7 +235,7 @@ export function Step6ChangesReview(): JSX.Element {
           received={importResult?.totals.received ?? normalised.length}
           importable={importableCount}
           skipped={skippedCount}
-          rejected={importResult?.totals.failed ?? 0}
+          rejected={summaryRejectedCount}
           skippedExisting={skippedExistingCount}
         />
         {alreadyImported.length > 0 && (
@@ -247,7 +268,7 @@ export function Step6ChangesReview(): JSX.Element {
         received={importResult?.totals.received ?? normalised.length}
         importable={importableCount}
         skipped={skippedCount}
-        rejected={importResult?.totals.failed ?? 0}
+        rejected={summaryRejectedCount}
         skippedExisting={skippedExistingCount}
       />
       {alreadyImported.length > 0 && (

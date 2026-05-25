@@ -182,7 +182,7 @@ export function buildIntegrityAuditRows(input: {
     if (row.totalGrade < 0 || (typeof max === 'number' && row.totalGrade > max)) {
       out.push({
         code: 'GRADE_OUT_OF_RANGE',
-        labelAr: 'درجة خارج النطاق',
+        labelAr: 'درجة تتجاوز الدرجة العظمى',
         sourceRowIndex: row.sourceRowIndex,
         nationalId: row.nationalId,
         nameAr: row.nameAr,

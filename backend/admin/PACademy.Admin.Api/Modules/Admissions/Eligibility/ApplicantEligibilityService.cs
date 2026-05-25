@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Persistence;
@@ -6,46 +8,27 @@ using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.Admissions.Eligibility;
 
-public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsService records)
+public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache cache)
 {
-    public async Task<ApplicantEligibilityResponse> GetEligibleCategoriesAsync(string nationalId, CancellationToken ct)
+    private const string SettingsCacheKey = "eligibility:active-settings:v2";
+    private static readonly TimeSpan SettingsCacheTtl = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan DraftCacheTtl = TimeSpan.FromSeconds(30);
+
+    public async Task<ApplicantEligibilityResponse> GetEligibleCategoriesAsync(
+        string nationalId,
+        CancellationToken ct,
+        bool includeIneligible = false)
     {
         var nid = NationalIdParser.ParseEgyptianNationalId(nationalId);
-        var activeCycle = await db.AdmissionCycles
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.IsActive, ct)
-            ?? throw new EntityNotFoundException("لا توجد دورة قبول نشطة");
-
-        var configs = await db.ApplicationSettingsCategoryConfigs
-            .AsNoTracking()
-            .Where(x => x.IsActive)
-            .OrderBy(x => x.SortOrder)
-            .ToListAsync(ct);
-        var configIds = configs.Select(x => x.Id).ToArray();
-        var specs = await db.ApplicationSettingsCategorySpecializations
-            .AsNoTracking()
-            .Where(x => x.IsActive && configIds.Contains(x.ConfigId))
-            .ToListAsync(ct);
-        var specIds = specs.Select(x => x.Id).ToArray();
-        var years = await db.ApplicationSettingsGraduationYears
-            .AsNoTracking()
-            .Where(x => x.IsActive && specIds.Contains(x.CategorySpecializationId))
-            .ToListAsync(ct);
-
-        var lookupRows = await db.LookupRows
-            .AsNoTracking()
-            .Where(x => x.IsActive && (x.LookupKey == "applicant-categories" || x.LookupKey == "school-categories" || x.LookupKey == "committees"))
-            .ToListAsync(ct);
-        var categoryLookups = lookupRows
-            .Where(x => x.LookupKey == "applicant-categories")
-            .Select(LookupToJson)
-            .ToDictionary(x => EligibilityJson.StringProp(x, "code") ?? "", StringComparer.OrdinalIgnoreCase);
-        var committeeLookups = lookupRows
-            .Where(x => x.LookupKey == "committees")
-            .Select(LookupToJson)
-            .ToArray();
-        var lookups = new EligibilityLookupSnapshot(
-            lookupRows.Where(x => x.LookupKey == "school-categories").Select(LookupToJson).ToArray());
+        var snapshot = await LoadActiveSettingsSnapshotAsync(ct);
+        var activeCycle = snapshot.ActiveCycle;
+        var configs = snapshot.Configs;
+        var specs = snapshot.Specs;
+        var years = await LoadActiveYearsAsync(specs, ct);
+        var lookupRows = snapshot.LookupRows;
+        var categoryLookups = snapshot.CategoryLookups;
+        var committeeLookups = snapshot.CommitteeLookups;
+        var lookups = snapshot.Lookups;
 
         var grade = await LoadGradeAsync(nid.NationalId, ct);
         var firstReferenceDate = years.Select(x => (DateOnly?)x.AgeReferenceDate).OrderBy(x => x).FirstOrDefault()
@@ -102,12 +85,102 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
                 nid.GenderAr,
                 nid.GovernorateCode),
             activeCycle.Id,
-            results);
+            includeIneligible ? results : results.Where(x => x.Eligible).ToArray());
+    }
+
+    private async Task<ActiveEligibilitySnapshot> LoadActiveSettingsSnapshotAsync(CancellationToken ct)
+    {
+        if (cache.TryGetValue(SettingsCacheKey, out ActiveEligibilitySnapshot? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var activeCycle = await db.AdmissionCycles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.IsActive, ct)
+            ?? throw new EntityNotFoundException("لا توجد دورة قبول نشطة");
+
+        var configs = await db.ApplicationSettingsCategoryConfigs
+            .AsNoTracking()
+            .Where(x => x.IsActive)
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync(ct);
+        var configIds = configs.Select(x => x.Id).ToArray();
+        var specs = await db.ApplicationSettingsCategorySpecializations
+            .AsNoTracking()
+            .Where(x => x.IsActive && configIds.Contains(x.ConfigId))
+            .ToListAsync(ct);
+
+        var lookupRows = await db.LookupRows
+            .AsNoTracking()
+            .Where(x => x.IsActive && (x.LookupKey == "applicant-categories" || x.LookupKey == "school-categories" || x.LookupKey == "committees"))
+            .ToListAsync(ct);
+        var categoryLookups = lookupRows
+            .Where(x => x.LookupKey == "applicant-categories")
+            .Select(LookupToJson)
+            .ToDictionary(x => EligibilityJson.StringProp(x, "code") ?? "", StringComparer.OrdinalIgnoreCase);
+        var committeeLookups = lookupRows
+            .Where(x => x.LookupKey == "committees")
+            .Select(LookupToJson)
+            .ToArray();
+        var lookups = new EligibilityLookupSnapshot(
+            lookupRows.Where(x => x.LookupKey == "school-categories").Select(LookupToJson).ToArray());
+
+        var snapshot = new ActiveEligibilitySnapshot(
+            activeCycle,
+            configs,
+            specs,
+            lookupRows,
+            categoryLookups,
+            committeeLookups,
+            lookups);
+        cache.Set(SettingsCacheKey, snapshot, SettingsCacheTtl);
+        return snapshot;
+    }
+
+    private async Task<IReadOnlyList<ApplicationSettingsGraduationYearEntity>> LoadActiveYearsAsync(
+        IReadOnlyList<ApplicationSettingsCategorySpecializationEntity> specs,
+        CancellationToken ct)
+    {
+        var specIds = specs.Select(x => x.Id).ToArray();
+        return await db.ApplicationSettingsGraduationYears
+            .AsNoTracking()
+            .Where(x => x.IsActive && specIds.Contains(x.CategorySpecializationId))
+            .ToListAsync(ct);
     }
 
     private async Task<JsonObject?> LoadGradeAsync(string nationalId, CancellationToken ct)
     {
-        return (await records.ListAsync("grades", ct))
+        if (db.Database.IsSqlServer())
+        {
+            var parameter = new SqlParameter("@nid", nationalId);
+            var entity = await db.AdminRecords
+                .FromSqlRaw($"""
+                    SELECT TOP(1)
+                        [module],
+                        [id],
+                        [payload_json],
+                        [created_at],
+                        [updated_at],
+                        [row_version]
+                    FROM [{AdminDbContext.Schema}].[admin_records]
+                    WHERE [module] = N'grades'
+                        AND JSON_VALUE([payload_json], '$.nid') = @nid
+                        AND JSON_VALUE([payload_json], '$.deletedAt') IS NULL
+                    ORDER BY [id]
+                    """, parameter)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(ct);
+            return entity is null ? null : AdminRecordJson.Parse(entity.PayloadJson);
+        }
+
+        var candidates = await db.AdminRecords
+            .AsNoTracking()
+            .Where(x => x.Module == "grades" && x.PayloadJson.Contains(nationalId))
+            .OrderBy(x => x.Id)
+            .ToListAsync(ct);
+        return candidates
+            .Select(x => AdminRecordJson.Parse(x.PayloadJson))
             .FirstOrDefault(x =>
                 !AdminRecordJson.IsSoftDeleted(x) &&
                 string.Equals(AdminRecordJson.StringProp(x, "nid") ?? AdminRecordJson.StringProp(x, "nationalId"), nationalId, StringComparison.Ordinal));
@@ -121,7 +194,15 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
         CancellationToken ct)
     {
         var module = $"admissionSetup.applicationSettings.{cycleId}";
-        var draft = await records.GetAsync(module, module, ct);
+        var cacheKey = $"eligibility:cycle-draft:{cycleId}";
+        if (!cache.TryGetValue(cacheKey, out JsonObject? draft) || draft is null)
+        {
+            var record = await db.AdminRecords
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
+            draft = record is null ? null : AdminRecordJson.Parse(record.PayloadJson);
+            cache.Set(cacheKey, draft, DraftCacheTtl);
+        }
         if (draft is null) return [];
 
         var rows = new List<JsonObject>();
@@ -443,6 +524,15 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, AdminRecordsS
         ApplicationSettingsGraduationYearEntity Rule,
         IReadOnlyList<string> CommitteeIds,
         IReadOnlyList<EligibleAcademicProgramResult> AcademicPrograms);
+
+    private sealed record ActiveEligibilitySnapshot(
+        AdmissionCycleEntity ActiveCycle,
+        IReadOnlyList<ApplicationSettingsCategoryConfigEntity> Configs,
+        IReadOnlyList<ApplicationSettingsCategorySpecializationEntity> Specs,
+        IReadOnlyList<Modules.Lookups.LookupRowEntity> LookupRows,
+        IReadOnlyDictionary<string, JsonObject> CategoryLookups,
+        IReadOnlyList<JsonObject> CommitteeLookups,
+        EligibilityLookupSnapshot Lookups);
 
     private static JsonObject LookupToJson(Modules.Lookups.LookupRowEntity entity)
     {

@@ -151,9 +151,13 @@ export function Step5DuplicateReview(): JSX.Element {
   const outOfRange = integrityRows.filter((row) => row.code === 'GRADE_OUT_OF_RANGE').length;
   const unreadable = integrityRows.filter((row) => row.code === 'UNREADABLE_VALUE').length;
   const alreadyImported = buildAlreadyImported(normalised, allRows ?? []).length;
+  const rejectedCount = Math.max(
+    report.totals.failed,
+    new Set(integrityRows.map((row) => row.sourceRowIndex)).size,
+  );
   const duplicateMatches = dup + alreadyImported;
   const skippedCount = report.totals.skipped + alreadyImported;
-  const readyToWrite = Math.max(0, report.totals.imported - alreadyImported);
+  const readyToWrite = Math.max(0, report.totals.received - skippedCount - rejectedCount);
 
   function handleDownloadAudit(): void {
     const csv = buildAuditCsv({
@@ -213,7 +217,7 @@ export function Step5DuplicateReview(): JSX.Element {
       <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-white">
         <Counter
           icon={<AlertTriangle size={14} aria-hidden />}
-          label="درجات خارج النطاق"
+          label="درجات تتجاوز الدرجة العظمى"
           value={outOfRange}
           tone="danger"
         />
@@ -228,7 +232,7 @@ export function Step5DuplicateReview(): JSX.Element {
       <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle bg-ink-50">
         <Summary label="مستلمة" value={report.totals.received} />
         <Summary label="جاهزة للكتابة" value={readyToWrite} tone="success" />
-        <Summary label="مرفوضة" value={report.totals.failed} tone="warning" />
+        <Summary label="مرفوضة" value={rejectedCount} tone="warning" />
         <Summary label="ملغاة" value={skippedCount} />
       </div>
 
@@ -264,7 +268,7 @@ export function Step5DuplicateReview(): JSX.Element {
         </div>
       )}
 
-      {!audit.exceedsThreshold && report.totals.failed === 0 && audit.duplicateRowCount === 0 ? (
+      {!audit.exceedsThreshold && rejectedCount === 0 && audit.duplicateRowCount === 0 ? (
         <div className="flex items-center gap-2 rounded-md border border-success bg-success-bg px-3.5 py-2.5 text-xs text-success">
           <ShieldCheck size={14} aria-hidden />
           لا توجد مشاكل في الصفوف المُختارة — يمكن الانتقال لعرض النتيجة وتأكيد الاستيراد.
@@ -279,9 +283,9 @@ export function Step5DuplicateReview(): JSX.Element {
               المعتمد في خطوة «مراجعة التغييرات».
             </span>
           )}
-          {report.totals.failed > 0 && (
+          {rejectedCount > 0 && (
             <span>
-              توجد {report.totals.failed.toLocaleString('en')} صفًا تحتاج إلى قرار — راجعها في خطوة
+              توجد {rejectedCount.toLocaleString('en')} صفًا تحتاج إلى قرار — راجعها في خطوة
               «النتيجة».
             </span>
           )}
