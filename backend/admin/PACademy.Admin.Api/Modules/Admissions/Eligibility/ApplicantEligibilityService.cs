@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
@@ -13,7 +14,10 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
     private static readonly TimeSpan SettingsCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan DraftCacheTtl = TimeSpan.FromSeconds(30);
 
-    public async Task<ApplicantEligibilityResponse> GetEligibleCategoriesAsync(string nationalId, CancellationToken ct)
+    public async Task<ApplicantEligibilityResponse> GetEligibleCategoriesAsync(
+        string nationalId,
+        CancellationToken ct,
+        bool includeIneligible = false)
     {
         var nid = NationalIdParser.ParseEgyptianNationalId(nationalId);
         var snapshot = await LoadActiveSettingsSnapshotAsync(ct);
@@ -81,7 +85,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
                 nid.GenderAr,
                 nid.GovernorateCode),
             activeCycle.Id,
-            results);
+            includeIneligible ? results : results.Where(x => x.Eligible).ToArray());
     }
 
     private async Task<ActiveEligibilitySnapshot> LoadActiveSettingsSnapshotAsync(CancellationToken ct)
@@ -147,6 +151,29 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
 
     private async Task<JsonObject?> LoadGradeAsync(string nationalId, CancellationToken ct)
     {
+        if (db.Database.IsSqlServer())
+        {
+            var parameter = new SqlParameter("@nid", nationalId);
+            var entity = await db.AdminRecords
+                .FromSqlRaw($"""
+                    SELECT TOP(1)
+                        [module],
+                        [id],
+                        [payload_json],
+                        [created_at],
+                        [updated_at],
+                        [row_version]
+                    FROM [{AdminDbContext.Schema}].[admin_records]
+                    WHERE [module] = N'grades'
+                        AND JSON_VALUE([payload_json], '$.nid') = @nid
+                        AND JSON_VALUE([payload_json], '$.deletedAt') IS NULL
+                    ORDER BY [id]
+                    """, parameter)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(ct);
+            return entity is null ? null : AdminRecordJson.Parse(entity.PayloadJson);
+        }
+
         var candidates = await db.AdminRecords
             .AsNoTracking()
             .Where(x => x.Module == "grades" && x.PayloadJson.Contains(nationalId))

@@ -22,7 +22,7 @@ public sealed class ApplicantEligibilityServiceTests
         await SeedBaseAsync(db, gradeSource: "استيراد خارجي");
         var service = CreateService(db);
 
-        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None, includeIneligible: true);
 
         var category = Assert.Single(response.Categories);
         Assert.True(category.Eligible);
@@ -38,12 +38,24 @@ public sealed class ApplicantEligibilityServiceTests
         await SeedBaseAsync(db, gradeSource: "إدخال داخلي", schoolCategoryCode: "SCH-INT");
         var service = CreateService(db);
 
-        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None, includeIneligible: true);
 
         var category = Assert.Single(response.Categories);
         Assert.False(category.Eligible);
         Assert.False(category.Checks.GradesCheck.Passed);
         Assert.Contains(category.FailedReasons, x => x.Contains("مصدر الدرجات", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task DefaultResponseReturnsEligibleCategoriesOnly()
+    {
+        await using var db = CreateDb();
+        await SeedBaseAsync(db, gradeSource: "إدخال داخلي", schoolCategoryCode: "SCH-INT");
+        var service = CreateService(db);
+
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
+
+        Assert.Empty(response.Categories);
     }
 
     [Fact]
@@ -53,7 +65,7 @@ public sealed class ApplicantEligibilityServiceTests
         await SeedBaseAsync(db, categoryMinAge: 18);
         var service = CreateService(db);
 
-        var response = await service.GetEligibleCategoriesAsync("31001010123457", CancellationToken.None);
+        var response = await service.GetEligibleCategoriesAsync("31001010123457", CancellationToken.None, includeIneligible: true);
 
         Assert.False(Assert.Single(response.Categories).Checks.AgeCheck.Passed);
     }
@@ -65,7 +77,7 @@ public sealed class ApplicantEligibilityServiceTests
         await SeedBaseAsync(db, categoryMinAge: 27);
         var service = CreateService(db);
 
-        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None, includeIneligible: true);
 
         Assert.False(Assert.Single(response.Categories).Checks.AgeCheck.Passed);
     }
@@ -77,7 +89,7 @@ public sealed class ApplicantEligibilityServiceTests
         await SeedBaseAsync(db, genders: ["ذكر"]);
         var service = CreateService(db);
 
-        var response = await service.GetEligibleCategoriesAsync("30001010123467", CancellationToken.None);
+        var response = await service.GetEligibleCategoriesAsync("30001010123467", CancellationToken.None, includeIneligible: true);
 
         var category = Assert.Single(response.Categories);
         Assert.False(category.Eligible);
@@ -91,7 +103,7 @@ public sealed class ApplicantEligibilityServiceTests
         await SeedBaseAsync(db, gradeSource: "إدخال داخلي", schoolCategoryCode: "SCH-INT", requiredCodes: ["SCH-INT"]);
         var service = CreateService(db);
 
-        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None, includeIneligible: true);
 
         var grades = Assert.Single(response.Categories).Checks.GradesCheck;
         Assert.False(grades.Passed);
@@ -114,7 +126,7 @@ public sealed class ApplicantEligibilityServiceTests
         row.GenderTypesJson = JsonSerializer.Serialize(new[] { "أنثى" });
         await db.SaveChangesAsync(ct);
 
-        var second = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
+        var second = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None, includeIneligible: true);
         var category = Assert.Single(second.Categories);
         Assert.False(category.Eligible);
         Assert.False(category.Checks.AgeCheck.Passed);
