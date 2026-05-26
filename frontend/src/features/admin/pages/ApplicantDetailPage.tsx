@@ -3,13 +3,12 @@
  *
  * Layout:
  *   • Header card: photo + name + code + current status badge + current stage
- *     chip + 3 primary actions (تعديل · تحديث الحالة · طباعة).
+ *     chip + primary actions (تعديل · طباعة).
  *   • Two-column body (desktop) / single column (mobile):
  *      - Left: 7 mirrored read-only sections (identity / address / contact /
  *        department / education / family / relatives) each rendered as a <dl>
  *        grid. Section headers anchor the same as the form.
- *      - Right: ApplicantWorkflowPanel (StageStepper + tests + transition
- *        dialog + workflow timeline) + AuditTimeline + legacy timeline card.
+ *      - Right: AuditTimeline + legacy timeline card.
  *   • Each query renders its own per-section ErrorState — failures don't
  *     black out the whole page.
  */
@@ -37,11 +36,8 @@ import {
 import {
   useApplicant,
   useApplicantTimeline,
-  useApplicantWorkflow,
-  useApplicantProgress,
 } from '@/features/applicants';
 import { useAuthStore } from '@/features/auth';
-import { hasPermission } from '@/features/auth/rbac';
 import { date as fmtDate, num, maskNationalId } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
 import {
@@ -50,7 +46,6 @@ import {
   type ApplicantEducation,
   type ApplicantFamilyMember,
 } from '@/shared/types/domain';
-import { ApplicantWorkflowPanel } from '@/features/admin/components/workflow/ApplicantWorkflowPanel';
 import { AuditTimeline } from '@/features/admin/components/applicants/AuditTimeline';
 import { SECTION_LABELS } from '@/features/applicants/schemas';
 
@@ -91,7 +86,6 @@ export function ApplicantDetailPage(): JSX.Element {
   }
 
   const canEdit = Boolean(user) && user!.role !== 'records_clerk';
-  const canTransition = canEdit && hasPermission(user!.permissions, 'applicants:edit');
 
   return (
     <>
@@ -294,41 +288,14 @@ export function ApplicantDetailPage(): JSX.Element {
           </Card>
         </div>
 
-        {/* ── Right rail: workflow + audit ────────────────────────────── */}
+        {/* ── Right rail: audit and timeline ───────────────────────────── */}
         <div className="flex flex-col gap-5">
-          <WorkflowPanelOrFallback applicantId={id} canTransition={canTransition} />
           <AuditTimeline applicantId={id} />
           <LegacyTimelineCard applicantId={id} />
         </div>
       </div>
     </>
   );
-}
-
-function WorkflowPanelOrFallback({
-  applicantId,
-  canTransition,
-}: {
-  applicantId: string;
-  canTransition: boolean;
-}): JSX.Element {
-  const wf = useApplicantWorkflow(applicantId);
-  const progress = useApplicantProgress(applicantId);
-  if (wf.error || progress.error) {
-    return (
-      <Card>
-        <CardHeader title="سير العمل" />
-        <ErrorState
-          error={(wf.error ?? progress.error) as Error}
-          onRetry={() => {
-            wf.refetch();
-            progress.refetch();
-          }}
-        />
-      </Card>
-    );
-  }
-  return <ApplicantWorkflowPanel applicantId={applicantId} canTransition={canTransition} />;
 }
 
 function LegacyTimelineCard({ applicantId }: { applicantId: string }): JSX.Element {
