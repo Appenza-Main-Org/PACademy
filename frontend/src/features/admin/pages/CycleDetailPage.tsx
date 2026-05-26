@@ -1,9 +1,8 @@
 /**
  * CycleDetailPage — read-only summary of one admission cycle.
  *
- * Mirrors the field set of `/admin/cycles/new` (CycleNewPage) 1:1 —
- * اسم الدورة · السنة — so reading the detail page reads the same row
- * the admin authored. Status sits alongside as a Badge in the header.
+ * Mirrors the visible field set of `/admin/cycles/new` (CycleNewPage):
+ * اسم الدورة. Status sits alongside as a Badge in the header.
  * Editing happens from the cycles list (CyclesPage) which routes to
  * the dedicated edit page.
  */
@@ -43,20 +42,6 @@ const STATUS_TONE: Record<CycleStatus, 'success' | 'danger' | 'neutral' | 'info'
   finalized: 'neutral',
   archived: 'neutral',
 };
-
-interface FieldProps {
-  label: string;
-  value: React.ReactNode;
-}
-
-function Field({ label, value }: FieldProps): JSX.Element {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-2xs uppercase tracking-wide text-ink-500">{label}</span>
-      <span className="text-sm text-ink-900">{value}</span>
-    </div>
-  );
-}
 
 export function CycleDetailPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
@@ -101,16 +86,11 @@ export function CycleDetailPage(): JSX.Element {
       />
 
       <Card>
-        <div className="grid gap-5 md:grid-cols-2">
-          <Field label="اسم الدورة" value={cycle.nameAr} />
-          <Field
-            label="السنة"
-            value={
-              <span className="font-numeric tnum" dir="ltr">
-                {cycle.year}
-              </span>
-            }
-          />
+        <div className="flex flex-col gap-1">
+          <span className="text-2xs uppercase tracking-wide text-ink-500">
+            اسم الدورة
+          </span>
+          <span className="text-sm text-ink-900">{cycle.nameAr}</span>
         </div>
       </Card>
     </CenteredShell>

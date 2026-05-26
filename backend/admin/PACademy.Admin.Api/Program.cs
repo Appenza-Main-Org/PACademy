@@ -28,12 +28,27 @@ builder.Services.AddOpenApi();
 /* ── CORS — admin frontend + deployed Vercel origin ─────────────── */
 var frontendOrigin = builder.Configuration["Cors:AdminFrontendOrigin"]
     ?? "http://localhost:5173";
+var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var envOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? [];
+var corsOrigins = configuredOrigins
+    .Concat(envOrigins)
+    .Concat([
+        frontendOrigin,
+        "https://admin.appenzademo.com",
+        "https://admin-prod.appenzademo.com",
+        "https://appenzademo.com",
+        "https://www.appenzademo.com",
+        "https://pa-cademy.vercel.app",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ])
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
 const string CorsPolicyName = "admin-frontend";
 builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
-    .WithOrigins(
-        frontendOrigin,
-        "https://appenzademo.com",
-        "https://www.appenzademo.com")
+    .WithOrigins(corsOrigins)
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials()));
@@ -91,6 +106,30 @@ if (app.Environment.IsDevelopment())
         .WithTitle("PACademy Admin API")
         .WithTheme(ScalarTheme.Default));
 }
+
+/* ── Health endpoints ───────────────────────────────────────────── */
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "ok",
+    service = "pacademy-admin-api",
+    timestamp = DateTimeOffset.UtcNow
+}));
+app.MapGet("/health/db", async (AdminDbContext db, CancellationToken ct) =>
+{
+    var database = app.Configuration.ResolveAdminDatabaseSettings();
+    var result = await db.Database.SqlQueryRaw<int>("SELECT CAST(1 AS int) AS [Value]").FirstAsync(ct);
+    return Results.Ok(new
+    {
+        status = "ok",
+        provider = db.Database.ProviderName,
+        connectionName = database.ConnectionName,
+        schema = database.Schema,
+        skipMigrationsAndSeed = database.SkipMigrationsAndSeed,
+        useInMemory = database.UseInMemory,
+        database = result,
+        timestamp = DateTimeOffset.UtcNow
+    });
+});
 
 app.UseCors(CorsPolicyName);
 app.MapControllers();

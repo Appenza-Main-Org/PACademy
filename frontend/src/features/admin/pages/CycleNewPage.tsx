@@ -1,9 +1,9 @@
 /**
  * CycleNewPage — minimal create form for an admission cycle.
  *
- * Surfaces: name, year.
- * openDate/closeDate default to Jan 1 / Dec 31 of the selected year and
- * are configured later from CycleDetailPage / the admission-setup wizard.
+ * Surfaces: name only.
+ * year/openDate/closeDate default internally to the current year and are
+ * configured later from the admission-setup flow.
  * Every other AdmissionCycle field (cohort, fees, capacity, openCategories, …)
  * is filled in by the service with sensible defaults.
  *
@@ -12,9 +12,8 @@
  * promote later from the list.
  */
 
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Controller, useForm, type FieldPath } from 'react-hook-form';
+import { useForm, type FieldPath } from 'react-hook-form';
 import { z } from 'zod';
 import { Save } from 'lucide-react';
 import {
@@ -22,7 +21,6 @@ import {
   Card,
   Input,
   PageHeader,
-  Select,
   toast,
 } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
@@ -36,23 +34,32 @@ const cycleSchema = z.object({
   name: z
     .string()
     .trim()
+    .min(1, 'اسم الدورة مطلوب')
     .min(3, 'اسم الدورة يجب ألا يقل عن 3 أحرف')
     .max(80, 'اسم الدورة يجب ألا يزيد عن 80 حرفًا'),
-  year: z.number().int(),
 });
 
 type CycleValues = z.infer<typeof cycleSchema>;
 
+function cycleNameError(name: string): string | null {
+  const length = name.trim().length;
+  if (length === 0) return 'اسم الدورة مطلوب';
+  if (length < 3) return 'اسم الدورة يجب ألا يقل عن 3 أحرف';
+  if (length > 80) return 'اسم الدورة يجب ألا يزيد عن 80 حرفًا';
+  return null;
+}
+
 function buildPayload(values: CycleValues): Omit<AdmissionCycle, 'id' | 'applicantCount'> {
   const nowIso = new Date().toISOString();
-  /* Dates are intentionally left as year-bookends here — admins configure
-   * the real application window from CycleDetailPage / admission-setup. */
-  const openIso = new Date(Date.UTC(values.year, 0, 1)).toISOString();
-  const closeIso = new Date(Date.UTC(values.year, 11, 31)).toISOString();
+  const year = new Date().getFullYear();
+  /* Dates are intentionally left as current-year bookends here — admins
+   * configure the real application window from admission-setup. */
+  const openIso = new Date(Date.UTC(year, 0, 1)).toISOString();
+  const closeIso = new Date(Date.UTC(year, 11, 31)).toISOString();
   return {
     nameAr: values.name.trim(),
     cohort: 'male',
-    year: values.year,
+    year,
     openDate: openIso,
     closeDate: closeIso,
     expectedCapacity: 0,
@@ -70,32 +77,28 @@ export function CycleNewPage(): JSX.Element {
   const navigate = useNavigate();
   const createMut = useCycleCreate();
 
-  const currentYear = new Date().getFullYear();
-  const yearOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = [];
-    for (let y = currentYear - 5; y <= currentYear + 5; y += 1) {
-      opts.push({ value: String(y), label: String(y) });
-    }
-    return opts;
-  }, [currentYear]);
-
   const {
     register,
     handleSubmit,
-    control,
     setError,
     formState: { errors },
   } = useForm<CycleValues>({
     resolver: zodResolver(cycleSchema),
     defaultValues: {
       name: '',
-      year: currentYear,
     },
   });
 
   const onSubmit = (values: CycleValues): void => {
+    const name = values.name.trim();
+    const nameError = cycleNameError(name);
+    if (nameError !== null) {
+      setError('name', { type: 'manual', message: nameError }, { shouldFocus: true });
+      return;
+    }
+
     createMut.mutate(
-      { payload: buildPayload(values) },
+      { payload: buildPayload({ ...values, name }) },
       {
         onSuccess: () => {
           toast('تم حفظ المسودة', 'success');
@@ -104,7 +107,8 @@ export function CycleNewPage(): JSX.Element {
         onError: (err) => {
           if (isValidationError(err)) {
             for (const [field, message] of Object.entries(validationFieldErrors(err))) {
-              setError(field as FieldPath<CycleValues>, { type: 'server', message });
+              const fieldName = field === 'nameAr' ? 'name' : field;
+              setError(fieldName as FieldPath<CycleValues>, { type: 'server', message });
             }
           }
           toast(validationMessage(err, 'تعذر حفظ الدورة'), 'danger');
@@ -133,23 +137,6 @@ export function CycleNewPage(): JSX.Element {
             {...register('name')}
             error={errors.name?.message}
           />
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <Controller
-              control={control}
-              name="year"
-              render={({ field }) => (
-                <Select
-                  label="السنة"
-                  required
-                  options={yearOptions}
-                  value={String(field.value)}
-                  onChange={(e) => field.onChange(Number(e.target.value))}
-                  error={errors.year?.message}
-                />
-              )}
-            />
-          </div>
 
           <div className="mt-2 flex items-center justify-end gap-2">
             <Button

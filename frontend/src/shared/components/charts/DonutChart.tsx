@@ -95,7 +95,7 @@ export function DonutChart({
           y={cy - 2}
           textAnchor="middle"
           fontSize={20}
-          fontFamily="Inter"
+          fontFamily="Cairo"
           fontWeight={700}
           style={{ fontFeatureSettings: '"tnum"' }}
           fill="var(--ink-900)"

@@ -257,6 +257,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
     }
 
     [HttpPost("api/grades/v2/commit")]
+    [RequestSizeLimit(50 * 1024 * 1024)]
     public async Task<ActionResult<object>> CommitV2([FromBody] JsonObject body, CancellationToken ct)
     {
         var inputRows = body["rows"]?.AsArray() ?? [];
@@ -284,6 +285,11 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
             .Select(x => new { Nid = AdminRecordJson.StringProp(x, "nid"), Row = x })
             .Where(x => !string.IsNullOrWhiteSpace(x.Nid))
             .ToDictionary(x => x.Nid!, x => x.Row, StringComparer.Ordinal);
+        var existingBySeatingNumber = existingByNid.Values
+            .Select(x => new { SeatingNumber = AdminRecordJson.StringProp(x, "seatingNumber"), Row = x })
+            .Where(x => !string.IsNullOrWhiteSpace(x.SeatingNumber))
+            .GroupBy(x => x.SeatingNumber!, StringComparer.Ordinal)
+            .ToDictionary(x => x.Key, x => x.First().Row, StringComparer.Ordinal);
         var inserted = 0;
         var failed = 0;
         var alreadyImported = 0;
@@ -301,6 +307,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         foreach (var row in inputRows.OfType<JsonObject>())
         {
             var nid = AdminRecordJson.StringProp(row, "nationalId");
+            var seatingNumber = AdminRecordJson.StringProp(row, "seatingNumber");
             var name = AdminRecordJson.StringProp(row, "nameAr");
             var total = row["totalGrade"]?.GetValue<double?>();
             if (string.IsNullOrWhiteSpace(nid) || string.IsNullOrWhiteSpace(name) || total is null)
@@ -322,11 +329,11 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                 failed++;
                 continue;
             }
-            if (existingNids.Contains(nid))
+            var previous = FindExistingGradeMatch(nid, seatingNumber, existingByNid, existingBySeatingNumber);
+            if (previous is not null)
             {
-                if (acceptedExistingNids.Contains(nid) &&
-                    existingByNid.TryGetValue(nid, out var previous) &&
-                    total.Value > (AdminRecordJson.NumberProp(previous, "total") ?? double.NegativeInfinity))
+                var previousNid = AdminRecordJson.StringProp(previous, "nid") ?? nid;
+                if (acceptedExistingNids.Contains(nid) || acceptedExistingNids.Contains(previousNid))
                 {
                     var previousSeat = (int)(AdminRecordJson.NumberProp(previous, "seat") ?? 0);
                     if (previousSeat <= 0)
@@ -338,10 +345,14 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                     {
                         row["maxGrade"] = maxGrade;
                     }
-                    var updatedGrade = GradeFromImportRow(row, previousSeat, nid, name, total.Value, graduationYear, schoolCategoryCode);
+                    var updatedGrade = GradeFromImportRow(row, previousSeat, previousNid, name, total.Value, graduationYear, schoolCategoryCode);
                     updatedGrade["previousGrade"] = previous["total"]?.DeepClone();
                     await records.UpsertAsync("grades", previousSeat.ToString(CultureInfo.InvariantCulture), updatedGrade, ct);
-                    existingByNid[nid] = updatedGrade;
+                    existingByNid[previousNid] = updatedGrade;
+                    if (!string.IsNullOrWhiteSpace(seatingNumber))
+                    {
+                        existingBySeatingNumber[seatingNumber] = updatedGrade;
+                    }
                     inserted++;
                     continue;
                 }
@@ -356,6 +367,10 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
             var grade = GradeFromImportRow(row, seat, nid, name, total.Value, graduationYear, schoolCategoryCode);
             batch.Add(grade);
             existingNids.Add(nid);
+            if (!string.IsNullOrWhiteSpace(seatingNumber))
+            {
+                existingBySeatingNumber[seatingNumber] = grade;
+            }
             if (batch.Count >= ImportCommitBatchSize) await FlushBatchAsync();
         }
 
@@ -372,6 +387,21 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
 
         if (inserted > 0) InvalidateGradesListCache();
         return Ok(new { insertedCount = inserted, failedCount = failed, alreadyImportedCount = alreadyImported });
+    }
+
+    private static JsonObject? FindExistingGradeMatch(
+        string nid,
+        string? seatingNumber,
+        IReadOnlyDictionary<string, JsonObject> existingByNid,
+        IReadOnlyDictionary<string, JsonObject> existingBySeatingNumber)
+    {
+        if (existingByNid.TryGetValue(nid, out var byNid)) return byNid;
+        if (!string.IsNullOrWhiteSpace(seatingNumber) &&
+            existingBySeatingNumber.TryGetValue(seatingNumber, out var bySeatingNumber))
+        {
+            return bySeatingNumber;
+        }
+        return null;
     }
 
     [HttpPost("api/grades/import/file")]
@@ -551,11 +581,9 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         // Soft-delete guard: never return tombstoned rows from the list endpoint.
         var where = new List<string>
         {
-            "[a].[module] = @module",
-            $"{JsonValue("deletedAt")} IS NULL"
+            LiveGradeSql()
         };
         var hasFilters = false;
-        parameters.Add(new SqlParameter("@module", "grades"));
 
         string AddParam(object value)
         {
@@ -650,10 +678,16 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var orderSql = BuildOrderSql();
         var offsetParam = AddParam(Math.Max(0, page - 1) * pageSize);
         var pageSizeParam = AddParam(pageSize);
+        var tableName = AdminDbContext.QualifiedTableName("applicant_grades");
         var selectSql = """
-            SELECT [a].[module], [a].[id], [a].[payload_json], [a].[created_at], [a].[updated_at], [a].[row_version]
-            FROM [admin_v2].[admin_records] AS [a]
-            """;
+            SELECT N'grades' AS [module],
+                   COALESCE([a].[admin_record_id], CONVERT(nvarchar(128), [a].[seat])) AS [id],
+                   [a].[payload_json],
+                   [a].[created_at],
+                   [a].[updated_at],
+                   [a].[row_version]
+            FROM __ADMIN_RECORDS_TABLE__ AS [a]
+            """.Replace("__ADMIN_RECORDS_TABLE__", tableName, StringComparison.Ordinal);
         return new GradesPageSql
         {
             RowsSql = $"""
@@ -664,7 +698,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                 """,
             CountSql = $"""
                 SELECT COUNT(1) AS [Value]
-                FROM [admin_v2].[admin_records] AS [a]
+                FROM {tableName} AS [a]
                 WHERE {whereSql}
                 """,
             Parameters = parameters,
@@ -695,7 +729,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
             "pct" => PercentageSql(),
             "eff" => EffectiveGradeSql(),
             "effPct" => $"(({EffectiveGradeSql()}) / NULLIF(({GradeMaxSql()}), 0) * 100.0)",
-            _ => "TRY_CONVERT(float, [a].[id])"
+            _ => "TRY_CONVERT(float, [a].[seat])"
         };
         var isNumeric = expr.StartsWith("TRY_CONVERT", StringComparison.Ordinal) ||
             expr.StartsWith("COALESCE(TRY_CONVERT", StringComparison.Ordinal) ||
@@ -720,9 +754,8 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                     COALESCE(SUM(CASE WHEN {JsonValue("kind")} = N'general' THEN 1 ELSE 0 END), 0) AS [General],
                     COALESCE(SUM(CASE WHEN {JsonValue("kind")} = N'azhar' THEN 1 ELSE 0 END), 0) AS [Azhar],
                     COALESCE(SUM(CASE WHEN {JsonValue("gradeChangedAt")} IS NOT NULL OR JSON_QUERY([a].[payload_json], '$.log') IS NOT NULL AND JSON_QUERY([a].[payload_json], '$.log') <> N'[]' THEN 1 ELSE 0 END), 0) AS [WithAdjustments]
-                FROM [admin_v2].[admin_records] AS [a]
-                WHERE [a].[module] = N'grades'
-                  AND {JsonValue("deletedAt")} IS NULL
+                FROM {AdminDbContext.QualifiedTableName("applicant_grades")} AS [a]
+                WHERE {LiveGradeSql()}
                 """)
             .SingleAsync(ct);
 #pragma warning restore EF1002
@@ -748,9 +781,8 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var branches = await db.Database
             .SqlQueryRaw<string>($"""
                 SELECT DISTINCT {JsonValue("branch")} AS [Value]
-                FROM [admin_v2].[admin_records] AS [a]
-                WHERE [a].[module] = N'grades'
-                  AND {JsonValue("deletedAt")} IS NULL
+                FROM {AdminDbContext.QualifiedTableName("applicant_grades")} AS [a]
+                WHERE {LiveGradeSql()}
                   AND {JsonValue("branch")} IS NOT NULL
                   AND {JsonValue("branch")} <> N''
                 ORDER BY [Value]
@@ -778,6 +810,8 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
     }
 
     private static string JsonValue(string property) => $"JSON_VALUE([a].[payload_json], '$.{property}')";
+    private static string LiveGradeSql() =>
+        $"({JsonValue("deletedAt")} IS NULL AND COALESCE(LOWER({JsonValue("isDeleted")}), N'false') <> N'true')";
     private static string NumberValue(string property) => $"TRY_CONVERT(float, {JsonValue(property)})";
     private static string GradeMaxSql() => $"COALESCE(TRY_CONVERT(float, {JsonValue("overrideMax")}), TRY_CONVERT(float, {JsonValue("importMax")}), 410.0)";
     private static string AdjustmentSumSql() =>

@@ -68,6 +68,35 @@ export interface IntegrityAuditRow {
   detail: string;
 }
 
+export interface IntegrityDecisionSummary {
+  rejectedSourceRows: Set<number>;
+  pendingOutOfRangeCount: number;
+}
+
+export function summarizeIntegrityDecisions(
+  rows: readonly IntegrityAuditRow[],
+  outOfRangeDecisions: Readonly<Record<number, 'accept' | 'reject'>>,
+): IntegrityDecisionSummary {
+  const rejectedSourceRows = new Set<number>();
+  let pendingOutOfRangeCount = 0;
+
+  for (const row of rows) {
+    if (row.code === 'GRADE_OUT_OF_RANGE') {
+      const decision = outOfRangeDecisions[row.sourceRowIndex];
+      if (decision === 'accept') continue;
+      if (decision === 'reject') {
+        rejectedSourceRows.add(row.sourceRowIndex);
+        continue;
+      }
+      pendingOutOfRangeCount += 1;
+      continue;
+    }
+    rejectedSourceRows.add(row.sourceRowIndex);
+  }
+
+  return { rejectedSourceRows, pendingOutOfRangeCount };
+}
+
 export function buildDuplicateAudit(
   rows: readonly NormalisedRow[],
 ): DuplicateAudit {

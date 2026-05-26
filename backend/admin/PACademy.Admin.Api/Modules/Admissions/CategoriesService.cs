@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Shared.Audit;
@@ -37,7 +39,8 @@ public sealed class CategoriesService(IAdmissionsDbContext db, IAuditSink auditS
         var obj = ToJson(entity);
         foreach (var item in patch) obj[item.Key] = item.Value?.DeepClone();
         obj["key"] = key;
-        entity.LabelAr = AdmissionJson.StringProp(obj, "labelAr") ?? entity.LabelAr;
+        entity.LabelAr = RequiredLabelAr(obj);
+        obj["labelAr"] = entity.LabelAr;
         entity.IsOpen = AdmissionJson.BoolProp(obj, "isOpen") ?? entity.IsOpen;
         entity.PayloadJson = obj.ToJsonString(AdmissionJson.Options);
         entity.UpdatedAt = DateTimeOffset.UtcNow;
@@ -154,4 +157,15 @@ public sealed class CategoriesService(IAdmissionsDbContext db, IAuditSink auditS
 
     private static string? StringProp(JsonObject obj, string name) =>
         obj.TryGetPropertyValue(name, out var node) ? node?.GetValue<string>() : null;
+
+    private static string RequiredLabelAr(JsonObject obj)
+    {
+        var labelAr = AdmissionJson.StringProp(obj, "labelAr")?.Trim();
+        if (!string.IsNullOrWhiteSpace(labelAr)) return labelAr;
+
+        throw new ValidationException(
+        [
+            new ValidationFailure("labelAr", "اسم الفئة مطلوب")
+        ]);
+    }
 }

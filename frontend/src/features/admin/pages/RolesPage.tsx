@@ -79,6 +79,7 @@ export function RolesPage(): JSX.Element {
    * cell pre-checked. The admin can uncheck any cell — the template only
    * seeds the initial state, never locks it. */
   const [roleTemplate, setRoleTemplate] = useState<RoleTemplateKey>('custom');
+  const [labelArError, setLabelArError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<RoleDefinitionRow | null>(null);
   const [deleteDeps, setDeleteDeps] = useState<Awaited<ReturnType<typeof rolesService.getDependencies>> | null>(null);
 
@@ -190,6 +191,7 @@ export function RolesPage(): JSX.Element {
             leadingIcon={<Pencil size={12} strokeWidth={1.75} />}
             onClick={() => {
               setEditing(r);
+              setLabelArError(null);
               setDrawerOpen(true);
             }}
           >
@@ -228,9 +230,16 @@ export function RolesPage(): JSX.Element {
   const isEditingSystem = Boolean(editing?.isSystem);
 
   const onSave = (): void => {
+    const labelAr = draft.labelAr.trim();
+    if (labelAr.length === 0) {
+      setLabelArError('اسم الدور مطلوب');
+      return;
+    }
+
+    const nextDraft = { ...draft, labelAr };
     if (editing) {
       updateMut.mutate(
-        { id: editing.id, patch: draft },
+        { id: editing.id, patch: nextDraft },
         {
           onSuccess: () => {
             toast('تم حفظ الدور', 'success');
@@ -244,7 +253,7 @@ export function RolesPage(): JSX.Element {
     } else {
       /* Key is no longer admin-edited — auto-generate a stable
        * `custom_<timestamp>` so the row gets a unique identifier. */
-      const payload = { ...draft, key: draft.key.trim() || `custom_${Date.now()}` };
+      const payload = { ...nextDraft, key: nextDraft.key.trim() || `custom_${Date.now()}` };
       createMut.mutate(payload, {
         onSuccess: () => {
           toast('تم إنشاء الدور', 'success');
@@ -279,6 +288,7 @@ export function RolesPage(): JSX.Element {
               leadingIcon={<Plus size={14} strokeWidth={1.75} />}
               onClick={() => {
                 setEditing(null);
+                setLabelArError(null);
                 setDrawerOpen(true);
               }}
             >
@@ -333,6 +343,7 @@ export function RolesPage(): JSX.Element {
         onClose={() => {
           setDrawerOpen(false);
           setEditing(null);
+          setLabelArError(null);
           setRoleTemplate('custom');
         }}
         title={editing ? `تعديل دور · ${editing.labelAr}` : 'إضافة دور'}
@@ -346,7 +357,11 @@ export function RolesPage(): JSX.Element {
               required
               value={draft.labelAr}
               disabled={isEditingSystem}
-              onChange={(e) => setDraft({ ...draft, labelAr: e.target.value })}
+              onChange={(e) => {
+                setDraft({ ...draft, labelAr: e.target.value });
+                setLabelArError(null);
+              }}
+              error={labelArError ?? undefined}
               containerClassName="md:col-span-2"
             />
             {!editing && (

@@ -1,11 +1,12 @@
 /**
  * Step 6 — النتيجة.
  *
- * Renders the preflight report as a stack of Radix `Accordion` cards —
- * one per non-empty failure group. Each card has:
+ * Renders the read-only preflight report as a stack of Radix
+ * `Accordion` cards — one per non-empty failure group. Each card has:
  *   • header with count + Arabic label + colored badge
  *   • DataTable<ImportFailureRow> of the offending rows
- *   • per-group action toolbar (skip / override / export / create-applicant)
+ *   • export action only; all accept/reject decisions happen on Step 6
+ *     (`Step6ChangesReview`) before the admin can reach this step
  *
  * The "تأكيد الاستيراد" button at the bottom triggers the v2 commit
  * mutation; success bounces back to the list page with a success toast.
@@ -13,7 +14,7 @@
  */
 
 import { useMemo } from 'react';
-import { Download, FileText, ShieldCheck, SkipForward, UserPlus } from 'lucide-react';
+import { Download, ShieldCheck } from 'lucide-react';
 import {
   Accordion,
   Badge,
@@ -27,27 +28,17 @@ import { useImportWizardStore } from '../../../store/importWizard.store';
 import { useGrades } from '../../../api/grades.queries';
 import { normaliseRows } from '../../../lib/normalise';
 import { buildAlreadyImported } from '../../../lib/buildDiff';
-import { buildAuditCsv, buildDuplicateAudit, buildIntegrityAuditRows } from '../../../lib/duplicateAudit';
+import {
+  buildAuditCsv,
+  buildDuplicateAudit,
+  buildIntegrityAuditRows,
+  summarizeIntegrityDecisions,
+} from '../../../lib/duplicateAudit';
 import type {
   ImportFailureRow,
-  ImportGroupAction,
   ImportGroupCode,
   ImportReportGroup,
 } from '../../../types';
-
-const ACTION_LABELS: Record<ImportGroupAction, string> = {
-  skip: 'تجاهل',
-  override: 'استبدال',
-  export: 'تصدير',
-  'create-applicant': 'إنشاء متقدم',
-};
-
-const ACTION_ICONS: Record<ImportGroupAction, JSX.Element> = {
-  skip: <SkipForward size={12} strokeWidth={1.75} />,
-  override: <ShieldCheck size={12} strokeWidth={1.75} />,
-  export: <Download size={12} strokeWidth={1.75} />,
-  'create-applicant': <UserPlus size={12} strokeWidth={1.75} />,
-};
 
 const GROUP_TONE: Record<ImportGroupCode, 'warning' | 'danger' | 'info'> = {
   DUPLICATE_NID: 'warning',
@@ -60,8 +51,7 @@ const GROUP_TONE: Record<ImportGroupCode, 'warning' | 'danger' | 'info'> = {
 
 export function Step6Result(): JSX.Element {
   const importResult = useImportWizardStore((s) => s.importResult);
-  const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
-  const setPerGroupAction = useImportWizardStore((s) => s.setPerGroupAction);
+  const outOfRangeDecisions = useImportWizardStore((s) => s.outOfRangeDecisions);
   const parsed = useImportWizardStore((s) => s.parsed);
   const selectedTableName = useImportWizardStore((s) => s.selectedTableName);
   const mapping = useImportWizardStore((s) => s.mapping);
@@ -110,14 +100,6 @@ export function Step6Result(): JSX.Element {
     [normalised, allRows],
   );
 
-  if (!importResult) {
-    return (
-      <div className="rounded-md border border-border-subtle bg-white p-6 text-center text-sm text-ink-500">
-        تشغيل المراجعة في الخطوة السابقة لعرض النتيجة.
-      </div>
-    );
-  }
-
   const integrityGroups = useMemo<ImportReportGroup[]>(() => {
     const labels: Record<ImportGroupCode, string> = {
       DUPLICATE_NID: 'مطابقات سابقة بالرقم القومي',
@@ -153,22 +135,28 @@ export function Step6Result(): JSX.Element {
 
   const groups = useMemo<ImportReportGroup[]>(() => {
     const byCode = new Map<ImportGroupCode, ImportReportGroup>();
-    for (const group of importResult.groups) byCode.set(group.code, group);
+    for (const group of importResult?.groups ?? []) byCode.set(group.code, group);
     for (const group of integrityGroups) byCode.set(group.code, group);
     return Array.from(byCode.values());
-  }, [importResult.groups, integrityGroups]);
+  }, [importResult?.groups, integrityGroups]);
   const skippedExistingCount = alreadyImported.length;
-  const allowOutOfRange = perGroupActions.GRADE_OUT_OF_RANGE === 'override';
-  const rejectedCount = Math.max(
-    importResult.totals.failed,
-    new Set(
-      integrityRows
-        .filter((row) => !(row.code === 'GRADE_OUT_OF_RANGE' && allowOutOfRange))
-        .map((row) => row.sourceRowIndex),
-    ).size,
+  const decisionSummary = summarizeIntegrityDecisions(
+    integrityRows,
+    outOfRangeDecisions,
   );
-  const skippedCount = importResult.totals.skipped + skippedExistingCount;
-  const importableCount = Math.max(0, importResult.totals.received - skippedCount - rejectedCount);
+  const rejectedCount = Math.max(
+    importResult?.totals.failed ?? 0,
+    decisionSummary.rejectedSourceRows.size,
+  );
+  const pendingDecisionCount = decisionSummary.pendingOutOfRangeCount;
+  const skippedCount = (importResult?.totals.skipped ?? 0) + skippedExistingCount;
+  const importableCount = Math.max(
+    0,
+    (importResult?.totals.received ?? normalised.length) -
+      skippedCount -
+      rejectedCount -
+      pendingDecisionCount,
+  );
 
   function handleDownloadAudit(): void {
     const csv = buildAuditCsv({
@@ -186,14 +174,34 @@ export function Step6Result(): JSX.Element {
     );
   }
 
+  if (!importResult) {
+    return (
+      <div className="rounded-md border border-border-subtle bg-white p-6 text-center text-sm text-ink-500">
+        تشغيل المراجعة في الخطوة السابقة لعرض النتيجة.
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle">
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle md:grid-cols-5">
         <SummaryBlock label="مستلمة" value={importResult.totals.received} />
         <SummaryBlock label="مستوردة" value={importableCount} tone="success" big />
         <SummaryBlock label="ملغاة" value={skippedCount} />
+        <SummaryBlock label="تحتاج قرار" value={pendingDecisionCount} tone="warning" />
         <SummaryBlock label="مرفوضة" value={rejectedCount} tone="warning" />
       </div>
+
+      {pendingDecisionCount > 0 && (
+        <div className="rounded-md border border-gold-300 bg-gold-50 px-3.5 py-2.5 text-xs text-gold-700">
+          توجد{' '}
+          <span className="font-en font-bold text-ink-900">
+            {pendingDecisionCount.toLocaleString('en')}
+          </span>{' '}
+          صفًا تتجاوز الدرجة العظمى. اختر «قبول» لتضمينها أو «رفض / تجاهل» لاستبعادها قبل تأكيد
+          الاستيراد.
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-subtle bg-white px-3.5 py-2.5">
         <div className="flex flex-wrap items-center gap-3 text-2xs text-ink-600">
@@ -253,11 +261,7 @@ export function Step6Result(): JSX.Element {
                 </span>
               </Accordion.Trigger>
               <Accordion.Content>
-                <GroupBody
-                  group={g}
-                  action={perGroupActions[g.code]}
-                  onAction={(a) => setPerGroupAction(g.code, a)}
-                />
+                <GroupBody group={g} />
               </Accordion.Content>
             </Accordion.Item>
           ))}
@@ -269,11 +273,9 @@ export function Step6Result(): JSX.Element {
 
 interface GroupBodyProps {
   group: ImportReportGroup;
-  action: 'skip' | 'override' | 'create-applicant' | undefined;
-  onAction: (a: 'skip' | 'override' | 'create-applicant') => void;
 }
 
-function GroupBody({ group, action, onAction }: GroupBodyProps): JSX.Element {
+function GroupBody({ group }: GroupBodyProps): JSX.Element {
   const columns: DataTableColumn<ImportFailureRow>[] = [
     {
       key: 'sourceRowIndex',
@@ -343,39 +345,17 @@ function GroupBody({ group, action, onAction }: GroupBodyProps): JSX.Element {
   return (
     <div className="flex flex-col gap-2.5 pt-1">
       <div className="flex flex-wrap items-center gap-2">
-        {group.availableActions.map((a) => {
-          const active = a === action || (a === 'export' && action === undefined);
-          if (a === 'export') {
-            return (
-              <Button
-                key={a}
-                size="sm"
-                variant="secondary"
-                leadingIcon={ACTION_ICONS[a]}
-                onClick={handleExport}
-              >
-                تصدير CSV
-              </Button>
-            );
-          }
-          return (
-            <Button
-              key={a}
-              size="sm"
-              variant={active ? 'primary' : 'secondary'}
-              leadingIcon={ACTION_ICONS[a]}
-              onClick={() => onAction(a as 'skip' | 'override' | 'create-applicant')}
-            >
-              {ACTION_LABELS[a]}
-            </Button>
-          );
-        })}
-        {action && (
-          <span className="text-2xs text-teal-700">
-            <FileText size={11} className="me-1 inline-block" aria-hidden />
-            التصرف المختار: <strong>{ACTION_LABELS[action]}</strong>
-          </span>
-        )}
+        <Button
+          size="sm"
+          variant="secondary"
+          leadingIcon={<Download size={12} strokeWidth={1.75} aria-hidden />}
+          onClick={handleExport}
+        >
+          تصدير CSV
+        </Button>
+        <span className="text-2xs text-ink-500">
+          القرارات تتم من شاشة «مراجعة التغييرات» السابقة.
+        </span>
       </div>
       <DataTable<ImportFailureRow>
         data={group.rows}

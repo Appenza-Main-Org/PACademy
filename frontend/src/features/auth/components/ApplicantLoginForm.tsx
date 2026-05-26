@@ -323,7 +323,7 @@ export function ApplicantLoginForm(): JSX.Element {
       <Input
         label="الرقم القومي"
         required
-        dir="ltr"
+        dir="rtl"
         placeholder="14 رقماً"
         maxLength={14}
         {...register('nationalId')}
@@ -334,7 +334,7 @@ export function ApplicantLoginForm(): JSX.Element {
         label="رقم المحمول"
         type="tel"
         required
-        dir="ltr"
+        dir="rtl"
         placeholder="01XXXXXXXXX"
         maxLength={11}
         {...register('mobile')}
@@ -344,7 +344,7 @@ export function ApplicantLoginForm(): JSX.Element {
       <Button
         type="submit"
         variant="primary"
-        size="lg"
+        size="md"
         fullWidth
         isLoading={submitting}
         loadingLabel="جارٍ تسجيل الدخول…"

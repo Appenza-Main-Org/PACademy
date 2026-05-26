@@ -96,7 +96,7 @@ export function Gauge({
           textAnchor="middle"
           fontSize={28}
           fontWeight={700}
-          fontFamily="Inter"
+          fontFamily="Cairo"
           style={{ fontFeatureSettings: '"tnum"' }}
           fill="var(--ink-900)"
         >

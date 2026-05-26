@@ -43,11 +43,16 @@ export const Switch = forwardRef<ElementRef<typeof RadixSwitch.Root>, SwitchProp
         <RadixSwitch.Root
           ref={ref}
           id={inputId}
+          style={{
+            boxShadow: 'inset 0 1px 2px rgba(28, 25, 15, 0.18)',
+          }}
           className={cn(
-            'group inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full',
-            'border border-border-subtle bg-ink-100',
+            'group relative inline-block h-5 w-9 shrink-0 cursor-pointer rounded-full',
+            'border border-ink-400 bg-ink-300',
             'transition-colors duration-fast ease-standard',
-            'data-[state=checked]:bg-accent-500 data-[state=checked]:border-accent-500',
+            'hover:bg-ink-400',
+            'data-[state=checked]:bg-accent-500 data-[state=checked]:border-accent-700',
+            'data-[state=checked]:hover:bg-accent-600',
             'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
             'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
             'motion-reduce:transition-none',
@@ -56,10 +61,10 @@ export const Switch = forwardRef<ElementRef<typeof RadixSwitch.Root>, SwitchProp
         >
           <RadixSwitch.Thumb
             className={cn(
-              'block h-5 w-5 rounded-full bg-white shadow-sm ring-1 ring-black/5',
-              'transition-transform duration-fast ease-standard',
-              'translate-x-0.5 data-[state=checked]:translate-x-[1.375rem]',
-              'rtl:-translate-x-0.5 rtl:data-[state=checked]:-translate-x-[1.375rem]',
+              'absolute top-1/2 block h-4 w-4 -translate-y-1/2 rounded-full bg-white',
+              'shadow-md ring-1 ring-ink-400/40',
+              'start-0.5 data-[state=checked]:start-[18px]',
+              'transition-[inset-inline-start] duration-fast ease-standard',
               'motion-reduce:transition-none',
             )}
           />

@@ -42,6 +42,7 @@ import {
   buildDuplicateAudit,
   buildIntegrityAuditRows,
   DUPLICATE_RATIO_THRESHOLD,
+  summarizeIntegrityDecisions,
   type DuplicateAudit,
 } from '../../../lib/duplicateAudit';
 import type { ImportPreflightProgress } from '../../../types';
@@ -60,6 +61,7 @@ export function Step5DuplicateReview(): JSX.Element {
   const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const importResult = useImportWizardStore((s) => s.importResult);
   const setImportResult = useImportWizardStore((s) => s.setImportResult);
+  const outOfRangeDecisions = useImportWizardStore((s) => s.outOfRangeDecisions);
   const loudDuplicateAck = useImportWizardStore((s) => s.loudDuplicateAck);
   const setLoudDuplicateAck = useImportWizardStore((s) => s.setLoudDuplicateAck);
   const [progress, setProgress] = useState<ImportPreflightProgress | null>(null);
@@ -151,13 +153,21 @@ export function Step5DuplicateReview(): JSX.Element {
   const outOfRange = integrityRows.filter((row) => row.code === 'GRADE_OUT_OF_RANGE').length;
   const unreadable = integrityRows.filter((row) => row.code === 'UNREADABLE_VALUE').length;
   const alreadyImported = buildAlreadyImported(normalised, allRows ?? []).length;
+  const decisionSummary = summarizeIntegrityDecisions(
+    integrityRows,
+    outOfRangeDecisions,
+  );
   const rejectedCount = Math.max(
     report.totals.failed,
-    new Set(integrityRows.map((row) => row.sourceRowIndex)).size,
+    decisionSummary.rejectedSourceRows.size,
   );
+  const pendingDecisionCount = decisionSummary.pendingOutOfRangeCount;
   const duplicateMatches = dup + alreadyImported;
   const skippedCount = report.totals.skipped + alreadyImported;
-  const readyToWrite = Math.max(0, report.totals.received - skippedCount - rejectedCount);
+  const readyToWrite = Math.max(
+    0,
+    report.totals.received - skippedCount - rejectedCount - pendingDecisionCount,
+  );
 
   function handleDownloadAudit(): void {
     const csv = buildAuditCsv({
@@ -229,9 +239,10 @@ export function Step5DuplicateReview(): JSX.Element {
         />
       </div>
 
-      <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle bg-ink-50">
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-ink-50 md:grid-cols-5">
         <Summary label="مستلمة" value={report.totals.received} />
         <Summary label="جاهزة للكتابة" value={readyToWrite} tone="success" />
+        <Summary label="تحتاج قرار" value={pendingDecisionCount} tone="warning" />
         <Summary label="مرفوضة" value={rejectedCount} tone="warning" />
         <Summary label="ملغاة" value={skippedCount} />
       </div>
@@ -283,15 +294,15 @@ export function Step5DuplicateReview(): JSX.Element {
               المعتمد في خطوة «مراجعة التغييرات».
             </span>
           )}
-          {rejectedCount > 0 && (
+          {pendingDecisionCount > 0 && (
             <span>
-              توجد {rejectedCount.toLocaleString('en')} صفًا تحتاج إلى قرار — راجعها في خطوة
-              «النتيجة».
+              توجد {pendingDecisionCount.toLocaleString('en')} صفًا تتجاوز الدرجة العظمى وتحتاج
+              إلى قرار قبول أو رفض — راجعها في خطوة «النتيجة».
             </span>
           )}
-          {outOfRange > 0 && (
+          {rejectedCount > 0 && (
             <span>
-              {outOfRange.toLocaleString('en')} صفًا تتجاوز الحد الأقصى — راجعها في «النتيجة».
+              توجد {rejectedCount.toLocaleString('en')} صفًا مرفوضًا بسبب أخطاء لا يمكن تجاوزها.
             </span>
           )}
         </div>
@@ -374,16 +385,20 @@ function LoudDuplicateGuard({
           </p>
         </div>
       </div>
-      <div className="flex cursor-pointer items-start gap-2 rounded-md border border-terra-300 bg-white p-3">
+      <div className="flex cursor-pointer items-start gap-3 rounded-md border-2 border-terra-500 bg-white p-3.5 shadow-[0_0_0_3px_var(--terra-50)]">
         <Checkbox
           id="loud-duplicate-ack"
           checked={ack}
           onCheckedChange={(value) => onToggleAck(value === true)}
           aria-label="إقرار بتجاوز كثافة التكرار"
+          className="mt-0.5 [&_[role=checkbox]]:h-7 [&_[role=checkbox]]:w-7 [&_[role=checkbox]]:border-terra-700 [&_[role=checkbox]]:bg-terra-50 [&_[role=checkbox]]:shadow-sm [&_[role=checkbox][data-state=checked]]:bg-terra-700"
         />
-        <label htmlFor="loud-duplicate-ack" className="flex cursor-pointer flex-col gap-0.5 text-xs text-ink-700">
-          <span className="font-semibold text-terra-700">
-            أُقرّ بأنني راجعت توزيع التكرار وأرغب بإكمال الاستيراد على مسؤوليتي.
+        <label htmlFor="loud-duplicate-ack" className="flex flex-1 cursor-pointer flex-col gap-1 text-xs text-ink-700">
+          <span className="inline-flex w-fit items-center rounded-sm bg-terra-100 px-2 py-0.5 text-2xs font-bold text-terra-800">
+            مطلوب قبل المتابعة
+          </span>
+          <span className="text-sm font-bold text-terra-800">
+            ضع علامة هنا لتأكيد أنك راجعت توزيع التكرار وتريد إكمال الاستيراد.
           </span>
           <span className="text-2xs text-ink-500">
             سيتم استيراد أول ظهور لكل رقم قومي فقط (

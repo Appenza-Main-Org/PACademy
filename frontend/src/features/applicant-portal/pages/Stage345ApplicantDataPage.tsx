@@ -1169,7 +1169,7 @@ function downloadInstructions(): void {
     @page { size: A4; margin: 18mm; }
     * { box-sizing: border-box; }
     body {
-      font-family: 'IBM Plex Sans Arabic', 'Tajawal', Tahoma, system-ui, Arial;
+      font-family: 'Cairo', Tahoma, system-ui, Arial;
       color: #1a1a1a;
       line-height: 1.85;
       max-width: 720px;

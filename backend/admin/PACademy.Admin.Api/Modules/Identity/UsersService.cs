@@ -1,4 +1,6 @@
 using System.Text.Json.Nodes;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Shared.Audit;
 using PACademy.Shared.Contracts;
@@ -19,6 +21,7 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
     public async Task<JsonObject> CreateAsync(JsonObject payload, CancellationToken ct)
     {
         var nationalId = IdentityJson.StringProp(payload, "nationalId") ?? throw new FluentValidation.ValidationException("nationalId مطلوب");
+        var fullArabicName = RequiredFullArabicName(payload);
         if (!IsNationalId(nationalId))
             throw new FluentValidation.ValidationException("الرقم القومي يجب أن يكون 14 رقماً");
         if (await db.Users.AnyAsync(x => x.NationalId == nationalId, ct))
@@ -28,7 +31,8 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
         var id = $"U-{(await db.Users.CountAsync(ct) + 1).ToString().PadLeft(3, '0')}";
         var obj = IdentityJson.Clone(payload);
         obj["id"] = id;
-        obj["name"] = IdentityJson.StringProp(obj, "fullArabicName");
+        obj["fullArabicName"] = fullArabicName;
+        obj["name"] = fullArabicName;
         obj["role"] = obj["roles"] is JsonArray roles && roles.Count > 0 ? roles[0]?.GetValue<string>() : IdentityJson.StringProp(obj, "role") ?? "committee_user";
         obj["active"] = IdentityJson.StringProp(obj, "accountStatus") != "inactive";
         obj["status"] = IdentityJson.StringProp(obj, "accountStatus") == "inactive" ? "suspended" : "active";
@@ -39,7 +43,7 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
         {
             Id = id,
             NationalId = nationalId,
-            FullArabicName = IdentityJson.StringProp(obj, "fullArabicName") ?? "مستخدم",
+            FullArabicName = fullArabicName,
             Role = IdentityJson.StringProp(obj, "role") ?? "committee_user",
             AccountStatus = IdentityJson.StringProp(obj, "accountStatus") ?? "active",
             PayloadJson = obj.ToJsonString(IdentityJson.Options),
@@ -171,7 +175,9 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
 
     private static void Apply(UserEntity entity, JsonObject obj)
     {
-        entity.FullArabicName = IdentityJson.StringProp(obj, "fullArabicName") ?? entity.FullArabicName;
+        entity.FullArabicName = RequiredFullArabicName(obj);
+        obj["fullArabicName"] = entity.FullArabicName;
+        obj["name"] = entity.FullArabicName;
         entity.Role = obj["roles"] is JsonArray roles && roles.Count > 0
             ? roles[0]?.GetValue<string>() ?? entity.Role
             : IdentityJson.StringProp(obj, "role") ?? entity.Role;
@@ -192,6 +198,17 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
         obj["updatedAt"] = DateTimeOffset.UtcNow;
         entity.PayloadJson = obj.ToJsonString(IdentityJson.Options);
         entity.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private static string RequiredFullArabicName(JsonObject obj)
+    {
+        var fullArabicName = IdentityJson.StringProp(obj, "fullArabicName")?.Trim();
+        if (!string.IsNullOrWhiteSpace(fullArabicName)) return fullArabicName;
+
+        throw new ValidationException(
+        [
+            new ValidationFailure("fullArabicName", "الاسم رباعياً مطلوب")
+        ]);
     }
 
     private static JsonObject ToJson(UserEntity entity)
@@ -237,7 +254,7 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
         db.Officers.Add(new OfficerEntity
         {
             NationalId = nationalId,
-            FullArabicName = IdentityJson.StringProp(payload, "fullArabicName") ?? "مستخدم",
+            FullArabicName = RequiredFullArabicName(payload),
             OfficerCode = IdentityJson.StringProp(payload, "officerCode") ?? nationalId,
             MobileNumber = IdentityJson.StringProp(payload, "mobileNumber") ?? "",
             UserType = NormalizeUserType(IdentityJson.StringProp(payload, "userType"))

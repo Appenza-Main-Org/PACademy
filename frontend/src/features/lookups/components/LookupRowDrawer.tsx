@@ -62,7 +62,7 @@ interface LookupRowDrawerProps<K extends LookupKey> {
 
 const baseSchema = z.object({
   code: z.string().min(1, 'الكود مطلوب').max(40),
-  name: z.string().min(2, 'الاسم لا يقل عن حرفين').max(120, 'الاسم طويل جدًا'),
+  name: z.string().trim().min(1, 'الاسم مطلوب').min(2, 'الاسم لا يقل عن حرفين').max(120, 'الاسم طويل جدًا'),
   isActive: z.boolean(),
 });
 
@@ -98,6 +98,16 @@ export function LookupRowDrawer<K extends LookupKey>({
 
   const submit = handleSubmit((values) => {
     const next = { ...values } as Record<string, unknown>;
+    const name = typeof next.name === 'string' ? next.name.trim() : '';
+    if (name.length === 0) {
+      methods.setError('name', { type: 'manual', message: 'الاسم مطلوب' }, { shouldFocus: true });
+      return;
+    }
+    if (name.length < 2) {
+      methods.setError('name', { type: 'manual', message: 'الاسم لا يقل عن حرفين' }, { shouldFocus: true });
+      return;
+    }
+    next.name = name;
     if (lookupKey === 'graduation-years') {
       const parsed = Number.parseInt(String(next.name ?? '').trim(), 10);
       if (Number.isFinite(parsed)) {

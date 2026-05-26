@@ -4,11 +4,20 @@
  *
  * Per-app theming via `data-app="<key>"` on the shell wrapper which flips
  * --accent-* CSS variables (see src/styles/apps.css).
+ *
+ * Responsive behavior:
+ *  • Desktop (md+): sidebar is fixed in-flow as a grid column with internal
+ *    scroll. Header at h-16 with full padding.
+ *  • Mobile (<md): sidebar hides; a hamburger in the header opens it as a
+ *    fixed end-edge drawer with a backdrop. Drawer auto-closes on route
+ *    change and on Esc.
+ *  • Outer wrapper uses 100dvh (dynamic viewport height) so iOS Safari's
+ *    chrome doesn't push content offscreen.
  */
 
-import { useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { LogOut, Search, UserCircle } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LogOut, Menu, Search, UserCircle } from 'lucide-react';
 import {
   AlertDialog,
   Avatar,
@@ -40,13 +49,31 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
   const user = useAuthStore((s) => s.user);
   const logoutMutation = useLogoutMutation();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readSidebarCollapsed());
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const shouldUseAdminNotifications = Boolean(user && (app === 'admin' || user.role === 'super_admin'));
   const adminNotificationsQuery = useAdminNotifications({ status: 'published' }, shouldUseAdminNotifications);
   useCommandPaletteShortcut(setPaletteOpen);
+
+  /* Auto-close the mobile drawer on every navigation — same UX users expect
+   * from any drawer-based navigation pattern. */
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
+
+  /* Esc closes the mobile drawer. */
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setMobileSidebarOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileSidebarOpen]);
 
   const handleSidebarCollapsedChange = (next: boolean): void => {
     setSidebarCollapsed(next);
@@ -74,18 +101,30 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
   return (
     <div
       data-app={app ?? undefined}
-      className="page-enter relative flex min-h-screen flex-col bg-surface-page"
+      className="page-enter relative flex h-[100dvh] flex-col overflow-hidden bg-surface-page"
     >
       <KhayameyaStripe height="sm" />
 
       <header
-        className="sticky top-0 flex h-16 items-center justify-between gap-3 border-b border-border-subtle bg-surface-card px-4 md:px-6"
+        className="flex h-16 flex-shrink-0 items-center justify-between gap-1 border-b border-border-subtle bg-surface-card px-2 sm:gap-3 sm:px-4 md:px-6"
         style={{ zIndex: 'var(--z-sticky)' as unknown as number }}
       >
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-3">
+          {hasSidebar && (
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(true)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-transparent text-ink-700 transition-colors duration-fast ease-standard hover:border-border-subtle hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none md:hidden"
+              aria-label="فتح القائمة الجانبية"
+              aria-expanded={mobileSidebarOpen}
+              title="فتح القائمة"
+            >
+              <Menu size={20} strokeWidth={1.75} aria-hidden />
+            </button>
+          )}
           <Link
             to={getDefaultRouteForUser(user)}
-            className="flex items-center gap-3 rounded-md px-1 py-1 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+            className="flex items-center gap-2 rounded-md px-1 py-1 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none sm:gap-3"
             title="العودة إلى البوابة"
           >
             <LogoMark size={36} ariaLabel="شعار أكاديمية الشرطة" className="rounded-full shadow-xs" />
@@ -158,9 +197,9 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
         className={
           hasSidebar
             ? sidebarCollapsed
-              ? 'grid flex-1 md:grid-cols-[64px_1fr]'
-              : 'grid flex-1 md:grid-cols-[256px_1fr]'
-            : 'flex flex-1 flex-col'
+              ? 'flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[64px_1fr]'
+              : 'flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[256px_1fr]'
+            : 'flex min-h-0 flex-1 flex-col'
         }
       >
         {hasSidebar && (
@@ -168,9 +207,11 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
             sections={sidebar!}
             collapsed={sidebarCollapsed}
             onCollapsedChange={handleSidebarCollapsedChange}
+            mobileOpen={mobileSidebarOpen}
+            onMobileClose={() => setMobileSidebarOpen(false)}
           />
         )}
-        <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 sm:px-5 sm:py-5 md:px-6 md:py-6">{children}</main>
       </div>
     </div>
   );

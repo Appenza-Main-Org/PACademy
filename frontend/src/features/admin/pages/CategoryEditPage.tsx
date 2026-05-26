@@ -33,6 +33,7 @@ const categorySchema = z.object({
   name: z
     .string()
     .trim()
+    .min(1, 'اسم الفئة مطلوب')
     .min(2, 'اسم الفئة يجب ألا يقل عن حرفين')
     .max(80, 'اسم الفئة يجب ألا يزيد عن 80 حرفًا'),
   description: z
@@ -43,6 +44,14 @@ const categorySchema = z.object({
     .or(z.literal('')),
 });
 type CategoryValues = z.infer<typeof categorySchema>;
+
+function categoryNameError(name: string): string | null {
+  const length = name.trim().length;
+  if (length === 0) return 'اسم الفئة مطلوب';
+  if (length < 2) return 'اسم الفئة يجب ألا يقل عن حرفين';
+  if (length > 80) return 'اسم الفئة يجب ألا يزيد عن 80 حرفًا';
+  return null;
+}
 
 export function CategoryEditPage(): JSX.Element {
   const { key = '' } = useParams<{ key: string }>();
@@ -85,11 +94,18 @@ export function CategoryEditPage(): JSX.Element {
   }
 
   const onSubmit = (values: CategoryValues): void => {
+    const name = values.name.trim();
+    const nameError = categoryNameError(name);
+    if (nameError !== null) {
+      setError('name', { type: 'manual', message: nameError }, { shouldFocus: true });
+      return;
+    }
+
     updateMut.mutate(
       {
         key: categoryKey,
         patch: {
-          labelAr: values.name.trim(),
+          labelAr: name,
           description: (values.description ?? '').trim(),
         },
       },

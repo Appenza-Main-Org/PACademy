@@ -154,24 +154,17 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
         if (db.Database.IsSqlServer())
         {
             var parameter = new SqlParameter("@nid", nationalId);
-            var entity = await db.AdminRecords
-                .FromSqlRaw($"""
-                    SELECT TOP(1)
-                        [module],
-                        [id],
-                        [payload_json],
-                        [created_at],
-                        [updated_at],
-                        [row_version]
-                    FROM [{AdminDbContext.Schema}].[admin_records]
-                    WHERE [module] = N'grades'
-                        AND JSON_VALUE([payload_json], '$.nid') = @nid
-                        AND JSON_VALUE([payload_json], '$.deletedAt') IS NULL
-                    ORDER BY [id]
+#pragma warning disable EF1002
+            var payload = await db.Database
+                .SqlQueryRaw<string>($"""
+                    SELECT TOP(1) [payload_json] AS [Value]
+                    FROM {AdminDbContext.QualifiedTableName("applicant_grades")}
+                    WHERE [nid] = @nid
+                    ORDER BY [seat]
                     """, parameter)
-                .AsNoTracking()
                 .FirstOrDefaultAsync(ct);
-            return entity is null ? null : AdminRecordJson.Parse(entity.PayloadJson);
+#pragma warning restore EF1002
+            return payload is null ? null : AdminRecordJson.Parse(payload);
         }
 
         var candidates = await db.AdminRecords
@@ -197,10 +190,27 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
         var cacheKey = $"eligibility:cycle-draft:{cycleId}";
         if (!cache.TryGetValue(cacheKey, out JsonObject? draft) || draft is null)
         {
-            var record = await db.AdminRecords
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
-            draft = record is null ? null : AdminRecordJson.Parse(record.PayloadJson);
+            if (db.Database.IsSqlServer())
+            {
+                var parameter = new SqlParameter("@id", module);
+#pragma warning disable EF1002
+                var payload = await db.Database
+                    .SqlQueryRaw<string>($"""
+                        SELECT TOP(1) [payload_json] AS [Value]
+                        FROM {AdminDbContext.QualifiedTableName("cycle_application_settings")}
+                        WHERE [id] = @id
+                        """, parameter)
+                    .FirstOrDefaultAsync(ct);
+#pragma warning restore EF1002
+                draft = payload is null ? null : AdminRecordJson.Parse(payload);
+            }
+            else
+            {
+                var record = await db.AdminRecords
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
+                draft = record is null ? null : AdminRecordJson.Parse(record.PayloadJson);
+            }
             cache.Set(cacheKey, draft, DraftCacheTtl);
         }
         if (draft is null) return [];

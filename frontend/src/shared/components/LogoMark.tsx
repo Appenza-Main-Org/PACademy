@@ -106,7 +106,7 @@ function LogoMarkSvg({
       {detailed && (
         <>
           {/* Top arc text — جمهورية مصر العربية */}
-          <text fill="#E5BB55" fontSize="11" fontWeight="700" letterSpacing="0.3" fontFamily="Tajawal, IBM Plex Sans Arabic, system-ui">
+          <text fill="#E5BB55" fontSize="11" fontWeight="700" letterSpacing="0.3" fontFamily="Cairo, system-ui">
             <textPath href="#topArc" startOffset="50%" textAnchor="middle">
               جمهورية مصر العربية
             </textPath>
@@ -174,7 +174,7 @@ function LogoMarkSvg({
               fill="#091633"
               fontSize="12"
               fontWeight="900"
-              fontFamily="Tajawal, IBM Plex Sans Arabic, system-ui"
+              fontFamily="Cairo, system-ui"
             >
               الشرطة
             </text>

@@ -9,8 +9,34 @@ namespace PACademy.Admin.Api.Persistence;
 
 public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext, IAdminRecordsDbContext
 {
-    public const string Schema = "admin_v2";
+    public const string DefaultSchema = "admin_v2";
     public const string MigrationsHistoryTable = "__EFMigrationsHistory_AdminApi";
+    public static string Schema { get; private set; } = DefaultSchema;
+
+    public static void ConfigureSchema(string schema)
+    {
+        Schema = NormalizeSchema(schema);
+    }
+
+    public static string NormalizeSchema(string schema)
+    {
+        var trimmed = schema.Trim();
+        if (trimmed.Length == 0)
+            return DefaultSchema;
+
+        if (trimmed.Any(c => !(char.IsLetterOrDigit(c) || c == '_')))
+            throw new InvalidOperationException("Database schema may only contain letters, numbers, and underscores.");
+
+        return trimmed;
+    }
+
+    public static string QualifiedTableName(string tableName)
+    {
+        if (tableName.Any(c => !(char.IsLetterOrDigit(c) || c == '_')))
+            throw new InvalidOperationException("Database table name may only contain letters, numbers, and underscores.");
+
+        return $"[{Schema}].[{tableName}]";
+    }
 
     public DbSet<LookupRowEntity> LookupRows => Set<LookupRowEntity>();
     public DbSet<AuditRowEntity> AuditRows => Set<AuditRowEntity>();
