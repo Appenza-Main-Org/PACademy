@@ -29,7 +29,6 @@ import {
   Pencil,
   Plus,
   Power,
-  PowerOff,
   Settings2,
   Trash2,
 } from 'lucide-react';
@@ -43,6 +42,7 @@ import {
   EmptyState,
   IconStamp,
   PageHeader,
+  Select,
   toast,
   Tooltip,
   TooltipProvider,
@@ -53,12 +53,14 @@ import { ROUTES } from '@/config/routes';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import {
   useCycles,
-  useCycleDeactivate,
   useCycleRemove,
   useCycleSetActive,
+  useCycleUpdateStatus,
 } from '../api/cycles.queries';
 import {
+  fromListStatus,
   LIST_STATUS_LABEL,
+  LIST_STATUS_OPTIONS,
   LIST_STATUS_TONE,
   toListStatus,
   type CycleListStatus,
@@ -84,7 +86,7 @@ export function CyclesPage(): JSX.Element {
   const navigate = useNavigate();
   const { data, isLoading } = useCycles();
   const setActiveMut = useCycleSetActive();
-  const deactivateMut = useCycleDeactivate();
+  const updateStatusMut = useCycleUpdateStatus();
   const removeMut = useCycleRemove();
 
   /* Land in the first wizard step (إعدادات التقديم) and pin the chosen
@@ -99,8 +101,11 @@ export function CyclesPage(): JSX.Element {
   };
 
   const [activateTarget, setActivateTarget] = useState<AdmissionCycle | null>(null);
-  const [deactivateTarget, setDeactivateTarget] = useState<AdmissionCycle | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdmissionCycle | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{
+    cycle: AdmissionCycle;
+    next: CycleListStatus;
+  } | null>(null);
 
   const activeCycle = useMemo(
     () => (data ?? []).find((c) => c.isActive) ?? null,
@@ -164,12 +169,32 @@ export function CyclesPage(): JSX.Element {
     });
   };
 
-  const confirmDeactivate = (): void => {
-    if (!deactivateTarget) return;
-    deactivateMut.mutate(deactivateTarget.id, {
+  const confirmStatusChange = (): void => {
+    if (!statusTarget) return;
+    const { cycle, next } = statusTarget;
+    const current = toListStatus(cycle.status);
+    if (current === next) {
+      setStatusTarget(null);
+      return;
+    }
+
+    if (next === 'published') {
+      setActiveMut.mutate(cycle.id, {
+        onSuccess: () => {
+          toast(`تم اعتماد ونشر دورة "${cycle.nameAr}" وتفعيلها`, 'success');
+          setStatusTarget(null);
+        },
+        onError: (err) => {
+          toast((err as Error).message, 'danger');
+        },
+      });
+      return;
+    }
+
+    updateStatusMut.mutate({ id: cycle.id, next: fromListStatus(next) }, {
       onSuccess: () => {
-        toast(`تم إلغاء تفعيل دورة "${deactivateTarget.nameAr}"`, 'success');
-        setDeactivateTarget(null);
+        toast(`تم تغيير حالة دورة "${cycle.nameAr}" إلى ${LIST_STATUS_LABEL[next]}`, 'success');
+        setStatusTarget(null);
       },
       onError: (err) => {
         toast((err as Error).message, 'danger');
@@ -223,7 +248,27 @@ export function CyclesPage(): JSX.Element {
       },
       render: (c) => {
         const ls = toListStatus(c.status);
-        return <Badge tone={LIST_STATUS_TONE[ls]}>{LIST_STATUS_LABEL[ls]}</Badge>;
+        return (
+          <div className="min-w-[10rem]">
+            <Select
+              aria-label={`حالة دورة ${c.nameAr}`}
+              value={ls}
+              options={LIST_STATUS_OPTIONS}
+              containerClassName="min-w-[9.5rem]"
+              className={
+                ls === 'published'
+                  ? 'h-9 rounded-full border-teal-100 bg-teal-50 py-1.5 pe-8 ps-3 text-xs font-semibold text-teal-700'
+                  : 'h-9 rounded-full border-ink-100 bg-ink-50 py-1.5 pe-8 ps-3 text-xs font-semibold text-ink-700'
+              }
+              disabled={setActiveMut.isPending || updateStatusMut.isPending}
+              onChange={(event) => {
+                const next = event.currentTarget.value as CycleListStatus;
+                if (next === ls) return;
+                setStatusTarget({ cycle: c, next });
+              }}
+            />
+          </div>
+        );
       },
     },
     {
@@ -288,16 +333,7 @@ export function CyclesPage(): JSX.Element {
           setupButton
         );
 
-        const activeToggleSlot = c.isActive ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            leadingIcon={<PowerOff size={12} strokeWidth={1.75} />}
-            onClick={() => setDeactivateTarget(c)}
-          >
-            إلغاء التفعيل
-          </Button>
-        ) : (
+        const activeToggleSlot = c.isActive ? null : (
           <Button
             variant="secondary"
             size="sm"
@@ -458,27 +494,33 @@ export function CyclesPage(): JSX.Element {
         />
 
         <AlertDialog
-          open={deactivateTarget !== null}
+          open={statusTarget !== null}
           onOpenChange={(next) => {
-            if (!next) setDeactivateTarget(null);
+            if (!next) setStatusTarget(null);
           }}
-          title="تأكيد إلغاء تفعيل الدورة"
+          title="تأكيد تغيير حالة الدورة"
           description={
-            deactivateTarget ? (
+            statusTarget ? (
               <>
-                سيتم إلغاء تفعيل دورة{' '}
+                سيتم تغيير حالة دورة{' '}
                 <strong className="font-semibold text-ink-900">
-                  &quot;{deactivateTarget.nameAr}&quot;
-                </strong>
-                . يمكن أن تبقى المنظومة بدون دورة نشطة حتى يتم تفعيل دورة أخرى.
+                  &quot;{statusTarget.cycle.nameAr}&quot;
+                </strong>{' '}
+                من {LIST_STATUS_LABEL[toListStatus(statusTarget.cycle.status)]} إلى{' '}
+                {LIST_STATUS_LABEL[statusTarget.next]}.
+                {statusTarget.next === 'published'
+                  ? ' عند الاعتماد والنشر سيتم تفعيل هذه الدورة وإلغاء تفعيل أي دورة أخرى، لضمان وجود دورة نشطة واحدة فقط.'
+                  : statusTarget.cycle.isActive
+                    ? ' ستبقى هذه الدورة هي الدورة النشطة بعد الرجوع إلى إدراج ومراجعة حتى لا تبقى المنظومة بدون دورة نشطة.'
+                    : ''}
               </>
             ) : null
           }
-          actionLabel="إلغاء التفعيل"
+          actionLabel="تأكيد التغيير"
           cancelLabel="إلغاء"
-          tone="danger"
-          isActionLoading={deactivateMut.isPending}
-          onAction={confirmDeactivate}
+          tone="primary"
+          isActionLoading={setActiveMut.isPending || updateStatusMut.isPending}
+          onAction={confirmStatusChange}
         />
 
         <AlertDialog
