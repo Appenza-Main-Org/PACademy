@@ -56,6 +56,11 @@ interface ApplicantPortalState {
   firstExamDate: string | null;
   /** Stage 7 اعتماد flag (parents must be approved before Stage 8). */
   parentsApproved: boolean;
+  /** Committee assigned by the eligibility check for the selected category.
+   *  Taken from the first committee in the eligible-categories response.
+   *  Displayed on Stage 8 and printed on the print card. */
+  assignedCommitteeId: string | null;
+  assignedCommitteeName: string | null;
   /** Demo-only flag set when the "submitted" sample applicant logs in.
    *  Triggers the 4-tab post-submission view in ApplicantPortalLayout
    *  instead of the wizard. Reaching the wizard's exam-date stage by
@@ -82,6 +87,7 @@ interface ApplicantPortalState {
   }) => void;
   setFirstExamDate: (iso: string | null) => void;
   setParentsApproved: (approved: boolean) => void;
+  setAssignedCommittee: (id: string | null, name: string | null) => void;
   setSubmittedDemo: (on: boolean) => void;
   setVothiqaTaarufSubmittedAt: (ts: number | null) => void;
   clear: () => void;
@@ -105,6 +111,8 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       parentsApproved: false,
       submittedDemo: false,
       vothiqaTaarufSubmittedAt: null,
+      assignedCommitteeId: null,
+      assignedCommitteeName: null,
       setNationalId: (id) => set({ nationalId: id }),
       setSelectedCategoryKey: (key) => set({ selectedCategoryKey: key }),
       setSelectedCycleId: (id) => set({ selectedCycleId: id }),
@@ -115,6 +123,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       setPayment: (input) => set(input),
       setFirstExamDate: (iso) => set({ firstExamDate: iso }),
       setParentsApproved: (approved) => set({ parentsApproved: approved }),
+      setAssignedCommittee: (id, name) => set({ assignedCommitteeId: id, assignedCommitteeName: name }),
       setSubmittedDemo: (on) => set({ submittedDemo: on }),
       setVothiqaTaarufSubmittedAt: (ts) => set({ vothiqaTaarufSubmittedAt: ts }),
       clear: () =>
@@ -134,6 +143,8 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
           parentsApproved: false,
           submittedDemo: false,
           vothiqaTaarufSubmittedAt: null,
+          assignedCommitteeId: null,
+          assignedCommitteeName: null,
         }),
     }),
     {

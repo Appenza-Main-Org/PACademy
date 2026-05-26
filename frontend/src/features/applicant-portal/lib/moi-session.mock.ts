@@ -511,3 +511,41 @@ export function mockMoiLookup(nid: string): MoiLookupResult {
   }
   return { kind: 'not_found' };
 }
+
+/* ── Backend-aware MOI lookup ─────────────────────────────────────────
+ *
+ * When `VITE_USE_APPLICANT_AUTH_BACKEND=true` the helper calls the real
+ * .NET endpoint `GET /applicant/moi/verify/:nid` and reshapes the
+ * response into a `MoiLookupResult`. The backend currently returns just
+ * `MoiApplicantSession | 404` — it doesn't yet decide eligibility
+ * (that's coming in a later slice). To preserve the existing routing
+ * (Khaled → ineligible, others → eligible/officers_general), the
+ * verdict for "session-found" rows is still derived here from the NID.
+ *
+ * Flag off → synchronous fallback to `mockMoiLookup` so demos without
+ * the backend running stay unchanged. */
+const APPLICANT_API_BASE = (import.meta.env.VITE_APPLICANT_API_BASE as string | undefined)
+  ?? 'http://localhost:5102';
+const USE_BACKEND = import.meta.env.VITE_USE_APPLICANT_AUTH_BACKEND === 'true';
+
+export async function lookupMoiSession(nid: string): Promise<MoiLookupResult> {
+  if (!USE_BACKEND) return mockMoiLookup(nid);
+
+  const res = await fetch(`${APPLICANT_API_BASE}/applicant/moi/verify/${encodeURIComponent(nid)}`);
+  if (res.status === 404) return { kind: 'not_found' };
+  if (!res.ok) {
+    // Network/5xx — fall back to the mock so the demo flow doesn't dead-end.
+    return mockMoiLookup(nid);
+  }
+  const session = (await res.json()) as MoiApplicantSession;
+  /* Verdict derivation — until the backend ships its eligibility
+   * endpoint, mirror the existing NID-keyed routing exactly. */
+  if (session.nationalId === KHALED_SESSION.nationalId) {
+    return {
+      kind: 'ineligible',
+      session,
+      reasonAr: 'تخطَّى المتقدِّم الحدّ الأقصى للسنّ المقبول للالتحاق بالأكاديمية.',
+    };
+  }
+  return { kind: 'eligible', session, categoryKey: 'officers_general' };
+}

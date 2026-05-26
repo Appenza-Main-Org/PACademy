@@ -17,7 +17,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("admin_v2")
+                .HasDefaultSchema("PACademy_staging_db")
                 .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
@@ -60,7 +60,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasIndex("Module")
                         .HasDatabaseName("ix_admin_records_module");
 
-                    b.ToTable("admin_records", "admin_v2");
+                    b.ToTable("admin_records", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.AdmissionCycleEntity", b =>
@@ -115,7 +115,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasIndex("IsActive")
                         .HasDatabaseName("ix_admission_cycles_is_active");
 
-                    b.ToTable("admission_cycles", "admin_v2");
+                    b.ToTable("admission_cycles", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.AdmissionRuleEntity", b =>
@@ -161,7 +161,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_admission_rules_cycle_version");
 
-                    b.ToTable("admission_rules", "admin_v2");
+                    b.ToTable("admission_rules", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.ApplicantCategoryEntity", b =>
@@ -203,7 +203,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
                     b.HasKey("Key");
 
-                    b.ToTable("applicant_categories", "admin_v2");
+                    b.ToTable("applicant_categories", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.ApplicationSettingsCategoryConfigEntity", b =>
@@ -251,7 +251,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasIndex("SortOrder")
                         .HasDatabaseName("ix_app_settings_configs_sort_order");
 
-                    b.ToTable("application_settings_category_configs", "admin_v2");
+                    b.ToTable("application_settings_category_configs", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.ApplicationSettingsCategorySpecializationEntity", b =>
@@ -301,7 +301,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_app_settings_specs_config_specialization");
 
-                    b.ToTable("application_settings_category_specializations", "admin_v2");
+                    b.ToTable("application_settings_category_specializations", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Admissions.ApplicationSettingsGraduationYearEntity", b =>
@@ -405,7 +405,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasIndex("CategorySpecializationId", "ApplicationStartDate", "ApplicationEndDate")
                         .HasDatabaseName("ix_app_settings_years_window");
 
-                    b.ToTable("application_settings_graduation_years", "admin_v2");
+                    b.ToTable("application_settings_graduation_years", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Audit.AuditRowEntity", b =>
@@ -473,7 +473,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("audit_entries", "admin_v2");
+                    b.ToTable("audit_entries", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Identity.OfficerEntity", b =>
@@ -509,7 +509,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
                     b.HasKey("NationalId");
 
-                    b.ToTable("officer_directory", "admin_v2");
+                    b.ToTable("officer_directory", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Identity.RoleEntity", b =>
@@ -561,7 +561,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_roles_key");
 
-                    b.ToTable("roles", "admin_v2");
+                    b.ToTable("roles", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Identity.UserEntity", b =>
@@ -621,7 +621,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_users_national_id");
 
-                    b.ToTable("users", "admin_v2");
+                    b.ToTable("users", "PACademy_staging_db");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Lookups.LookupRowEntity", b =>
@@ -671,7 +671,107 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasIndex("LookupKey")
                         .HasDatabaseName("ix_lookup_rows_lookup_key");
 
-                    b.ToTable("lookup_rows", "admin_v2");
+                    b.ToTable("lookup_rows", "PACademy_staging_db");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Persistence.ApplicantPortalRecordEntity", b =>
+                {
+                    b.Property<string>("Type")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("type");
+
+                    b.Property<string>("RecordId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("record_id");
+
+                    b.Property<string>("ApplicantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("applicant_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("payload_json");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Type", "RecordId");
+
+                    b.HasIndex("ApplicantId")
+                        .HasDatabaseName("ix_portal_records_applicant_id");
+
+                    b.ToTable("applicant_portal_records", "PACademy_staging_db");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Persistence.ExamSlotEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("int")
+                        .HasColumnName("capacity");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)")
+                        .HasColumnName("location");
+
+                    b.Property<int>("Reserved")
+                        .HasColumnType("int")
+                        .HasColumnName("reserved");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("Time")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasColumnName("time");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date")
+                        .HasDatabaseName("ix_exam_slots_date");
+
+                    b.ToTable("exam_slots", "PACademy_staging_db");
                 });
 #pragma warning restore 612, 618
         }

@@ -32,11 +32,9 @@ import { Badge, Button, Card, Drawer, IconStamp } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate } from '@/shared/lib/format';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
+import { useDraft } from '../api/applicantPortal.queries';
 import { useActiveCycle, useCategories } from '../api/categories.queries';
-import {
-  MOI_APPLICANT_SESSION,
-  SUBMITTED_APPLICANT_PROFILE,
-} from '../lib/moi-session.mock';
+import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { deterministicFileNumber } from '../lib/deterministic-codes';
 
 export function ApplicantPortalPage(): JSX.Element {
@@ -45,20 +43,18 @@ export function ApplicantPortalPage(): JSX.Element {
   const firstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
-  const submittedDemo = useApplicantPortalStore((s) => s.submittedDemo);
-  /* The submitted demo user has a curated profile bundle that mirrors
-   * what they entered in Stage345 — surface it here so ملخّص طلب
-   * الإلتحاق matches البيانات الأساسية field-for-field. */
-  const profile = submittedDemo ? SUBMITTED_APPLICANT_PROFILE : null;
-  const categoriesQuery = useCategories();
-  const activeCycle = useActiveCycle();
-  const [showInstructions, setShowInstructions] = useState(false);
-
   /* Read the MOI session from the store first — it's set by the login
    * form per the picked demo user. Fall back to the static default only
    * for direct-link visits that bypass login (e.g. dev navigation). */
   const session = moiSession ?? MOI_APPLICANT_SESSION;
   const APPLICANT_ID = session.applicantId;
+  const { data: draft } = useDraft(APPLICANT_ID);
+  /* Profile fields come from the draft saved in Stage 3 (real data).
+   * The draft is undefined until fetched, so every field is optional. */
+  const profile = draft?.profile;
+  const categoriesQuery = useCategories();
+  const activeCycle = useActiveCycle();
+  const [showInstructions, setShowInstructions] = useState(false);
   const fileNumber = paid ? deterministicFileNumber(APPLICANT_ID) : null;
   const committeeNumber = paid ? 'اللجنة الثانية' : null;
   const category = (categoriesQuery.data ?? []).find((c) => c.key === selectedCategoryKey);
@@ -183,8 +179,8 @@ export function ApplicantPortalPage(): JSX.Element {
           <Row
             label="العنوان"
             value={
-              profile
-                ? `${profile.addressGovernorate} — ${profile.addressDistrict} — ${profile.currentAddressDetail}`
+              profile?.addressGovernorate
+                ? `${profile.addressGovernorate} — ${profile.addressDistrict ?? ''} — ${profile.currentAddressDetail ?? ''}`
                 : session.birthGovernorate
             }
             containerClassName="sm:col-span-2 md:col-span-3"
@@ -211,37 +207,41 @@ export function ApplicantPortalPage(): JSX.Element {
         </dl>
       </Card>
 
-      {/* ── بيانات الدراسة — appears only for submitted demo applicants
-            because their academic data is captured here in the prefill. */}
-      {profile && (
-        <Card>
-          <header className="mb-3 flex items-center gap-2">
-            <span
-              aria-hidden
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700"
-            >
-              <ScrollText size={14} strokeWidth={1.75} />
-            </span>
-            <h3 className="font-ar-display text-md font-bold text-ink-900">بيانات الدراسة</h3>
-          </header>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
-            <Row label="اسم المدرسة" value={profile.schoolNameAr} />
-            <Row label="عنوان المدرسة" value={profile.schoolAddress} />
-            <Row label="دولة المدرسة" value={profile.thanawiCountry} />
-            <Row label="تاريخ الحصول على الثانوية" value={profile.thanawiGradDate} ltr />
-            <Row label="الشعبة" value={profile.thanawiType} />
-            <Row label="المجموع" value={`${profile.thanawiTotal} / 410`} ltr />
-            <Row label="النسبة المئوية" value={`${profile.thanawiPercentage}%`} ltr />
-            <Row label="الكلية" value={profile.bachelorFaculty} />
-            <Row label="الجامعة" value={`جامعة ${profile.bachelorUniversity}`} />
-            <Row label="المجموعة" value={profile.bachelorMajor} />
-            <Row label="الشعبة (المؤهل العالي)" value={profile.bachelorBranch} />
-            <Row label="التخصص" value={profile.bachelorSpecialization} />
-            <Row label="النسبة المئوية للمؤهل" value={`${profile.bachelorPercentage}%`} ltr />
-            <Row label="سنة التخرج" value={String(profile.bachelorYear)} ltr />
-          </dl>
-        </Card>
-      )}
+      {/* ── بيانات الدراسة — shown only when the draft has at least one field */}
+      {profile && (() => {
+        const studyRows: Array<{ label: string; value: string; ltr?: boolean }> = [
+          ...(profile.schoolNameAr          ? [{ label: 'اسم المدرسة',                   value: profile.schoolNameAr }]                                 : []),
+          ...(profile.schoolAddress         ? [{ label: 'عنوان المدرسة',                  value: profile.schoolAddress }]                                : []),
+          ...(profile.thanawiCountry        ? [{ label: 'دولة المدرسة',                   value: profile.thanawiCountry }]                               : []),
+          ...(profile.thanawiGradDate       ? [{ label: 'تاريخ الحصول على الثانوية',       value: profile.thanawiGradDate, ltr: true }]                  : []),
+          ...(profile.thanawiType           ? [{ label: 'الشعبة',                         value: profile.thanawiType }]                                  : []),
+          ...(profile.thanawiTotal   != null ? [{ label: 'المجموع',                        value: `${profile.thanawiTotal} / 410`, ltr: true }]           : []),
+          ...(profile.thanawiPercentage != null ? [{ label: 'النسبة المئوية',             value: `${profile.thanawiPercentage}%`, ltr: true }]            : []),
+          ...(profile.bachelorFaculty       ? [{ label: 'الكلية',                         value: profile.bachelorFaculty }]                              : []),
+          ...(profile.bachelorUniversity    ? [{ label: 'الجامعة',                        value: `جامعة ${profile.bachelorUniversity}` }]                : []),
+          ...(profile.bachelorMajor         ? [{ label: 'المجموعة',                       value: profile.bachelorMajor }]                                : []),
+          ...(profile.bachelorBranch        ? [{ label: 'الشعبة (المؤهل العالي)',          value: profile.bachelorBranch }]                               : []),
+          ...(profile.bachelorSpecialization ? [{ label: 'التخصص',                        value: profile.bachelorSpecialization }]                       : []),
+          ...(profile.bachelorPercentage != null ? [{ label: 'النسبة المئوية للمؤهل',    value: `${profile.bachelorPercentage}%`, ltr: true }]           : []),
+          ...(profile.bachelorYear   != null ? [{ label: 'سنة التخرج',                    value: String(profile.bachelorYear), ltr: true }]              : []),
+        ];
+        if (studyRows.length === 0) return null;
+        return (
+          <Card>
+            <header className="mb-3 flex items-center gap-2">
+              <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+                <ScrollText size={14} strokeWidth={1.75} />
+              </span>
+              <h3 className="font-ar-display text-md font-bold text-ink-900">بيانات الدراسة</h3>
+            </header>
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
+              {studyRows.map((r) => (
+                <Row key={r.label} label={r.label} value={r.value} ltr={r.ltr} />
+              ))}
+            </dl>
+          </Card>
+        );
+      })()}
 
       {/* ── بيانات الوالدين (only when approved) ────────────── */}
       {parentsApproved && <ParentsSection />}

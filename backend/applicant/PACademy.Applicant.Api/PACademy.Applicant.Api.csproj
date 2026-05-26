@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Scalar.AspNetCore" Version="2.0.16" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Modules\GradesRead\PACademy.Modules.GradesRead.Application\PACademy.Modules.GradesRead.Application.csproj" />
+    <ProjectReference Include="..\Modules\GradesRead\PACademy.Modules.GradesRead.Infrastructure\PACademy.Modules.GradesRead.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\LookupsRead\PACademy.Modules.LookupsRead.Application\PACademy.Modules.LookupsRead.Application.csproj" />
+    <ProjectReference Include="..\Modules\LookupsRead\PACademy.Modules.LookupsRead.Infrastructure\PACademy.Modules.LookupsRead.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\shared\PACademy.Shared.Contracts\PACademy.Shared.Contracts.csproj" />
+    <ProjectReference Include="..\..\shared\PACademy.Shared.Domain\PACademy.Shared.Domain.csproj" />
+    <ProjectReference Include="..\..\shared\PACademy.Shared.Web\PACademy.Shared.Web.csproj" />
+    <ProjectReference Include="..\Modules\IdentityApplicant\PACademy.Modules.IdentityApplicant.Application\PACademy.Modules.IdentityApplicant.Application.csproj" />
+    <ProjectReference Include="..\Modules\IdentityApplicant\PACademy.Modules.IdentityApplicant.Infrastructure\PACademy.Modules.IdentityApplicant.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

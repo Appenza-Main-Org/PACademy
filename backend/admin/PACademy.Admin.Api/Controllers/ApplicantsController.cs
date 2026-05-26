@@ -34,11 +34,14 @@ public sealed class ApplicantsController(AdminRecordsService records, ApplicantE
     public ActionResult<IReadOnlyList<ApplicantStatusOption>> StatusOptionsList() => Ok(StatusOptions);
 
     [HttpGet("api/applicants/{nationalId}/eligible-categories")]
-    public async Task<ActionResult<ApplicantEligibilityResponse>> EligibleCategories(string nationalId, CancellationToken ct)
+    public async Task<ActionResult<ApplicantEligibilityResponse>> EligibleCategories(
+        string nationalId,
+        [FromQuery] bool includeIneligible = false,
+        CancellationToken ct = default)
     {
         try
         {
-            return Ok(await eligibility.GetEligibleCategoriesAsync(nationalId, ct));
+            return Ok(await eligibility.GetEligibleCategoriesAsync(nationalId, ct, includeIneligible));
         }
         catch (NationalIdFormatException ex)
         {

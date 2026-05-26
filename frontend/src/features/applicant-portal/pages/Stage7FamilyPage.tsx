@@ -14,7 +14,7 @@
  * "last known residence" — they stay required.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
 import { ArrowRight, Check, Heart, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
@@ -31,8 +31,6 @@ import {
 } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
-import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
-import { CITIES } from '@/shared/mock-data/dictionaries';
 import {
   EMPTY_GUARDIAN,
   EMPTY_MEMBER,
@@ -47,17 +45,11 @@ import {
 } from '../lib/familyData';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { validateParentDob } from '../lib/validateParentDob';
-
-const GOV_OPTIONS: readonly SearchSelectOption[] = REF_GOVERNORATES.map((g) => ({
-  value: g.nameAr,
-  label: g.nameAr,
-  keywords: g.nameEn,
-}));
-
-const DISTRICT_OPTIONS: readonly SearchSelectOption[] = CITIES.map((c) => ({
-  value: c,
-  label: c,
-}));
+import { applicantPortalService } from '../api/applicantPortal.service';
+import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
+import { useDraft } from '../api/applicantPortal.queries';
+import { useLookup } from '@/features/lookups/api/lookups.queries';
+import type { GovernorateRow, PoliceStationRow } from '@/features/lookups';
 
 const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
 
@@ -93,7 +85,10 @@ export function Stage7FamilyPage(): JSX.Element {
    * every father/mother/stepparent card. Falls back to undefined when
    * the MOI session hasn't loaded — the validator no-ops in that case
    * so the form remains usable. */
-  const applicantDob = useApplicantPortalStore((s) => s.moiSession?.dateOfBirth);
+  const moiSession = useApplicantPortalStore((s) => s.moiSession);
+  const applicantDob = moiSession?.dateOfBirth;
+  const applicantId = moiSession?.applicantId ?? MOI_APPLICANT_SESSION.applicantId;
+  const { data: draft } = useDraft(applicantId);
 
   const [tab, setTab] = useState<TabKey>('father');
   const [father, setFather] = useState<FamilyMemberForm>(EMPTY_MEMBER);
@@ -106,6 +101,10 @@ export function Stage7FamilyPage(): JSX.Element {
     maternalGrandfather: EMPTY_MEMBER,
     maternalGrandmother: EMPTY_MEMBER,
   });
+  /* Incremented once when draft hydration runs — forces every MemberFormCard
+   * to remount so its useForm picks up the restored defaultValues. */
+  const [formKey, setFormKey] = useState(0);
+  const hasHydrated = useRef(false);
 
   const [savedFather, setSavedFather] = useState(false);
   const [savedMother, setSavedMother] = useState(false);
@@ -203,6 +202,58 @@ export function Stage7FamilyPage(): JSX.Element {
     }
   };
 
+  /* Restore family data from the backend draft on first load. Fires once
+   * when the draft query resolves and has a `family` block. Incrementing
+   * `formKey` forces every MemberFormCard to unmount + remount so their
+   * internal useForm picks up the hydrated defaultValues. */
+  useEffect(() => {
+    if (!draft?.family || hasHydrated.current) return;
+    hasHydrated.current = true;
+
+    const f = draft.family as {
+      father?: FamilyMemberForm;
+      mother?: FamilyMemberForm;
+      fatherWives?: FamilyMemberForm[];
+      motherHusbands?: FamilyMemberForm[];
+      grandparents?: GrandparentsForm;
+      relatives?: Record<RelativeKind, FamilyMemberForm[]>;
+      guardian?: GuardianForm;
+    };
+
+    if (f.father?.firstName) { setFather(f.father); setSavedFather(true); }
+    if (f.mother?.firstName) { setMother(f.mother); setSavedMother(true); }
+    if (f.fatherWives?.length) {
+      setFatherWives(f.fatherWives);
+      setSavedFatherWives(f.fatherWives.map(() => true));
+      setHasFatherWives(true);
+    }
+    if (f.motherHusbands?.length) {
+      setMotherHusbands(f.motherHusbands);
+      setSavedMotherHusbands(f.motherHusbands.map(() => true));
+      setHasMotherHusbands(true);
+    }
+    if (f.grandparents) {
+      setGrandparents(f.grandparents);
+      setSavedGrandparents({
+        paternalGrandfather: !!f.grandparents.paternalGrandfather?.firstName,
+        paternalGrandmother: !!f.grandparents.paternalGrandmother?.firstName,
+        maternalGrandfather: !!f.grandparents.maternalGrandfather?.firstName,
+        maternalGrandmother: !!f.grandparents.maternalGrandmother?.firstName,
+      });
+    }
+    if (f.relatives) {
+      setRelatives((prev) => ({ ...prev, ...f.relatives }));
+      const restoredSaved: Record<RelativeKind, boolean[]> = {} as Record<RelativeKind, boolean[]>;
+      for (const kind of Object.keys(f.relatives) as RelativeKind[]) {
+        restoredSaved[kind] = f.relatives[kind].map(() => true);
+      }
+      setSavedRelatives((prev) => ({ ...prev, ...restoredSaved }));
+    }
+    if (f.guardian?.firstName) { setGuardian(f.guardian); setSavedGuardian(true); }
+
+    setFormKey((k) => k + 1);
+  }, [draft]);
+
   const fatherWivesOk = !hasFatherWives || (
     fatherWives.length > 0 && savedFatherWives.every(Boolean)
   );
@@ -218,13 +269,10 @@ export function Stage7FamilyPage(): JSX.Element {
     && relativesOk
     && guardianOk;
 
-  /* Snapshot all family state to sessionStorage and hand off to the
-   * dedicated review step (`/applicant/profile/family-review`) for
-   * summary + اعتماد. Available regardless of the canApprove gate so
-   * the applicant can review partial progress too — the اعتماد button
-   * on the review page enforces completeness. */
+  /* Snapshot all family state to sessionStorage and persist to the
+   * backend, then hand off to the review step for summary + اعتماد. */
   const onContinueToReview = (): void => {
-    saveFamilySnapshot({
+    const snapshot = {
       father,
       mother,
       fatherWives,
@@ -241,8 +289,32 @@ export function Stage7FamilyPage(): JSX.Element {
       savedGuardian,
       hasFatherWives,
       hasMotherHusbands,
-    });
+    };
+    saveFamilySnapshot(snapshot);
+    void applicantPortalService.saveDraft(applicantId, {
+      family: { father, mother, fatherWives, motherHusbands, grandparents, relatives, guardian },
+    } as Parameters<typeof applicantPortalService.saveDraft>[1]);
     navigate(ROUTES.applicantFamilyReview);
+  };
+
+  /* Persist the complete family snapshot to the backend. Takes an optional
+   * per-member override so callers can supply the just-submitted values
+   * directly from react-hook-form (bypassing React's async state batching). */
+  const persistFamily = (patch: {
+    father?: FamilyMemberForm;
+    mother?: FamilyMemberForm;
+    fatherWives?: FamilyMemberForm[];
+    motherHusbands?: FamilyMemberForm[];
+    grandparents?: GrandparentsForm;
+    relatives?: Record<RelativeKind, FamilyMemberForm[]>;
+    guardian?: GuardianForm;
+  } = {}): void => {
+    void applicantPortalService.saveDraft(applicantId, {
+      family: {
+        father, mother, fatherWives, motherHusbands, grandparents, relatives, guardian,
+        ...patch,
+      },
+    } as Parameters<typeof applicantPortalService.saveDraft>[1]);
   };
 
   return (
@@ -263,7 +335,7 @@ export function Stage7FamilyPage(): JSX.Element {
         </header>
       </Card>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+      <Tabs key={formKey} value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <Tabs.List>
           <Tabs.Tab value="father">
             <TabLabel saved={savedFather}>الأب</TabLabel>
@@ -312,8 +384,9 @@ export function Stage7FamilyPage(): JSX.Element {
             requireNationalId
             childDob={applicantDob}
             onChange={setFather}
-            onSave={() => {
+            onSave={(values) => {
               setSavedFather(true);
+              persistFamily({ father: values });
               toast('تم حفظ بيانات الأب', 'success');
               setTab(hasFatherWives ? 'father-wives' : 'mother');
             }}
@@ -349,8 +422,10 @@ export function Stage7FamilyPage(): JSX.Element {
               setFatherWives((xs) => xs.filter((_, idx) => idx !== i));
               setSavedFatherWives((xs) => xs.filter((_, idx) => idx !== i));
             }}
-            onSave={(i) => {
+            onSave={(i, values) => {
+              const updated = fatherWives.map((f, idx) => (idx === i ? values : f));
               setSavedFatherWives((xs) => xs.map((s, idx) => (idx === i ? true : s)));
+              persistFamily({ fatherWives: updated });
               toast(`تم حفظ بيانات زوجة الأب رقم ${i + 1}`, 'success');
             }}
           />
@@ -363,8 +438,9 @@ export function Stage7FamilyPage(): JSX.Element {
             requireNationalId
             childDob={applicantDob}
             onChange={setMother}
-            onSave={() => {
+            onSave={(values) => {
               setSavedMother(true);
+              persistFamily({ mother: values });
               toast('تم حفظ بيانات الأم', 'success');
               setTab(hasMotherHusbands ? 'mother-husbands' : 'grandparents');
             }}
@@ -400,8 +476,10 @@ export function Stage7FamilyPage(): JSX.Element {
               setMotherHusbands((xs) => xs.filter((_, idx) => idx !== i));
               setSavedMotherHusbands((xs) => xs.filter((_, idx) => idx !== i));
             }}
-            onSave={(i) => {
+            onSave={(i, values) => {
+              const updated = motherHusbands.map((m, idx) => (idx === i ? values : m));
               setSavedMotherHusbands((xs) => xs.map((s, idx) => (idx === i ? true : s)));
+              persistFamily({ motherHusbands: updated });
               toast(`تم حفظ بيانات زوج الأم رقم ${i + 1}`, 'success');
             }}
           />
@@ -414,8 +492,10 @@ export function Stage7FamilyPage(): JSX.Element {
             fatherDob={father.dateOfBirth}
             motherDob={mother.dateOfBirth}
             onChange={setGrandparents}
-            onSaveOne={(key) => {
+            onSaveOne={(key, values) => {
+              const updated = { ...grandparents, [key]: values };
               setSavedGrandparents((s) => ({ ...s, [key]: true }));
+              persistFamily({ grandparents: updated });
               toast('تم حفظ البيانات', 'success');
             }}
             onSaveAll={() => {
@@ -425,6 +505,7 @@ export function Stage7FamilyPage(): JSX.Element {
                 maternalGrandfather: true,
                 maternalGrandmother: true,
               });
+              persistFamily();
               toast('تم حفظ بيانات الأجداد', 'success');
               setTab('brothers');
             }}
@@ -444,11 +525,13 @@ export function Stage7FamilyPage(): JSX.Element {
                   [kind]: r[kind].map((x, idx) => (idx === i ? next : x)),
                 }))
               }
-              onSave={(i) => {
+              onSave={(i, values) => {
+                const updated = relatives[kind].map((m, idx) => (idx === i ? values : m));
                 setSavedRelatives((s) => ({
                   ...s,
                   [kind]: s[kind].map((v, idx) => (idx === i ? true : v)),
                 }));
+                persistFamily({ relatives: { ...relatives, [kind]: updated } });
                 toast('تم حفظ البيانات', 'success');
               }}
             />
@@ -467,8 +550,9 @@ export function Stage7FamilyPage(): JSX.Element {
               grandparents,
               relatives,
             })}
-            onSave={() => {
+            onSave={(values) => {
               setSavedGuardian(true);
+              persistFamily({ guardian: values });
               toast('تم حفظ بيانات ولي الأمر', 'success');
             }}
           />
@@ -518,7 +602,7 @@ function MemberFormCard({
   form: FamilyMemberForm;
   title: string;
   onChange: (next: FamilyMemberForm) => void;
-  onSave: () => void;
+  onSave: (values: FamilyMemberForm) => void;
   /** Optional content rendered inside the card header (used by الأب /
    *  الأم cards to host their "متزوج بأخرى" / "متزوجة بغير الأب"
    *  toggles). */
@@ -535,13 +619,61 @@ function MemberFormCard({
   const form_ = useForm<FamilyMemberForm>({
     defaultValues: form,
   });
-  const { register, handleSubmit, control, watch, formState: { errors } } = form_;
+  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = form_;
   const profession = watch('profession');
+  const birthGov = watch('birthGovernorate');
+  const residenceGov = watch('residenceGovernorate');
   /* When requireNationalId is on, ignore any stale `nidUnavailable=true`
    * the form may have carried over from a different role and treat the
    * NID input as always-visible / always-required. */
   const nidUnavailable = requireNationalId ? false : watch('nidUnavailable');
   const showSeniority = MEMBERSHIP_PROFESSIONS.has(profession);
+
+  /* Lookup-backed governorate + police-station data. TanStack Query caches
+   * these so multiple MemberFormCard instances don't trigger extra fetches. */
+  const governoratesQuery = useLookup('governorates');
+  const policeStationsQuery = useLookup('police-stations');
+
+  const govOptions = useMemo<SearchSelectOption[]>(
+    () => (governoratesQuery.data ?? [])
+      .filter((g: GovernorateRow) => g.isActive)
+      .map((g: GovernorateRow) => ({ value: g.name, label: g.name })),
+    [governoratesQuery.data],
+  );
+  const govNameToCode = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of governoratesQuery.data ?? []) m.set(g.name, g.code);
+    return m;
+  }, [governoratesQuery.data]);
+
+  const birthDistrictOptions = useMemo<SearchSelectOption[]>(() => {
+    const code = govNameToCode.get(birthGov ?? '');
+    if (!code) return [];
+    return (policeStationsQuery.data ?? [])
+      .filter((ps: PoliceStationRow) => ps.isActive && ps.governorateCode === code)
+      .map((ps: PoliceStationRow) => ({ value: ps.name, label: ps.name }));
+  }, [birthGov, govNameToCode, policeStationsQuery.data]);
+
+  const residenceDistrictOptions = useMemo<SearchSelectOption[]>(() => {
+    const code = govNameToCode.get(residenceGov ?? '');
+    if (!code) return [];
+    return (policeStationsQuery.data ?? [])
+      .filter((ps: PoliceStationRow) => ps.isActive && ps.governorateCode === code)
+      .map((ps: PoliceStationRow) => ({ value: ps.name, label: ps.name }));
+  }, [residenceGov, govNameToCode, policeStationsQuery.data]);
+
+  /* Reset district when governorate changes so stale values don't persist.
+   * Mount guards skip the first run so hydrated district values are preserved. */
+  const birthGovMounted = useRef(false);
+  const residenceGovMounted = useRef(false);
+  useEffect(() => {
+    if (!birthGovMounted.current) { birthGovMounted.current = true; return; }
+    setValue('birthDistrict', '');
+  }, [birthGov, setValue]);
+  useEffect(() => {
+    if (!residenceGovMounted.current) { residenceGovMounted.current = true; return; }
+    setValue('residenceDistrict', '');
+  }, [residenceGov, setValue]);
 
   /* Stream live values to the parent so consumers like
    * GrandparentsPanel's "حفظ الجميع" can compute allFilled without
@@ -557,7 +689,7 @@ function MemberFormCard({
 
   const submit = handleSubmit((values) => {
     onChange(values);
-    onSave();
+    onSave(values);
   });
 
   return (
@@ -670,7 +802,7 @@ function MemberFormCard({
               <SearchSelect
                 ariaLabel="محافظة الميلاد"
                 placeholder="اختر المحافظة"
-                options={GOV_OPTIONS}
+                options={govOptions}
                 value={field.value ?? null}
                 onChange={(v) => field.onChange(v ?? '')}
               />
@@ -685,10 +817,11 @@ function MemberFormCard({
             render={({ field }) => (
               <SearchSelect
                 ariaLabel="قسم / مركز الميلاد"
-                placeholder="اختر القسم"
-                options={DISTRICT_OPTIONS}
+                placeholder={birthGov ? 'اختر القسم أو المركز' : 'اختر المحافظة أولاً'}
+                options={birthDistrictOptions}
                 value={field.value ?? null}
                 onChange={(v) => field.onChange(v ?? '')}
+                disabled={!birthGov}
               />
             )}
           />
@@ -745,7 +878,7 @@ function MemberFormCard({
               <SearchSelect
                 ariaLabel="محافظة الإقامة"
                 placeholder="اختر المحافظة"
-                options={GOV_OPTIONS}
+                options={govOptions}
                 value={field.value ?? null}
                 onChange={(v) => field.onChange(v ?? '')}
               />
@@ -760,10 +893,11 @@ function MemberFormCard({
             render={({ field }) => (
               <SearchSelect
                 ariaLabel="قسم / مركز الإقامة"
-                placeholder="اختر القسم"
-                options={DISTRICT_OPTIONS}
+                placeholder={residenceGov ? 'اختر القسم أو المركز' : 'اختر المحافظة أولاً'}
+                options={residenceDistrictOptions}
                 value={field.value ?? null}
                 onChange={(v) => field.onChange(v ?? '')}
+                disabled={!residenceGov}
               />
             )}
           />
@@ -823,7 +957,7 @@ function MultiMemberPanel({
   onAdd: () => void;
   onChange: (i: number, next: FamilyMemberForm) => void;
   onRemove: (i: number) => void;
-  onSave: (i: number) => void;
+  onSave: (i: number, values: FamilyMemberForm) => void;
 }): JSX.Element {
   return (
     <div className="flex flex-col gap-3">
@@ -867,7 +1001,7 @@ function MultiMemberPanel({
             title={`${singular} رقم ${i + 1}${savedFlags[i] ? ' — محفوظ' : ''}`}
             childDob={childDob}
             onChange={(next) => onChange(i, next)}
-            onSave={() => onSave(i)}
+            onSave={(values) => onSave(i, values)}
           />
         </div>
       ))}
@@ -890,7 +1024,7 @@ function DynamicRelativePanel({
   savedFlags: readonly boolean[];
   onSetCount: (n: number) => void;
   onChange: (i: number, next: FamilyMemberForm) => void;
-  onSave: (i: number) => void;
+  onSave: (i: number, values: FamilyMemberForm) => void;
 }): JSX.Element {
   const label = RELATIVE_LABEL[kind];
   return (
@@ -923,7 +1057,7 @@ function DynamicRelativePanel({
             form={m}
             title={`${label.singular} رقم ${i + 1}${savedFlags[i] ? ' (محفوظ)' : ''}`}
             onChange={(next) => onChange(i, next)}
-            onSave={() => onSave(i)}
+            onSave={(values) => onSave(i, values)}
           />
         </div>
       ))}
@@ -1003,7 +1137,7 @@ function GuardianFormCard({
 }: {
   value: GuardianForm;
   onChange: (next: GuardianForm) => void;
-  onSave: () => void;
+  onSave: (values: GuardianForm) => void;
   familyMemberOptions: GuardianMemberOption[];
 }): JSX.Element {
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<GuardianForm>({
@@ -1042,7 +1176,7 @@ function GuardianFormCard({
 
   const submit = handleSubmit((vals) => {
     onChange(vals);
-    onSave();
+    onSave(vals);
   });
   return (
     <Card>
@@ -1179,7 +1313,7 @@ function GrandparentsPanel({
   fatherDob?: string;
   motherDob?: string;
   onChange: (next: GrandparentsForm) => void;
-  onSaveOne: (key: keyof GrandparentsForm) => void;
+  onSaveOne: (key: keyof GrandparentsForm, values: FamilyMemberForm) => void;
   onSaveAll: () => void;
 }): JSX.Element {
   /* Per-card "حفظ" propagates the new values to the parent AND flips
@@ -1213,28 +1347,28 @@ function GrandparentsPanel({
         title={`الجد لأب${savedFlags.paternalGrandfather ? ' — محفوظ' : ''}`}
         childDob={fatherDob}
         onChange={(next) => updateOne('paternalGrandfather', next)}
-        onSave={() => onSaveOne('paternalGrandfather')}
+        onSave={(values) => onSaveOne('paternalGrandfather', values)}
       />
       <MemberFormCard
         form={value.paternalGrandmother}
         title={`الجدة لأب${savedFlags.paternalGrandmother ? ' — محفوظ' : ''}`}
         childDob={fatherDob}
         onChange={(next) => updateOne('paternalGrandmother', next)}
-        onSave={() => onSaveOne('paternalGrandmother')}
+        onSave={(values) => onSaveOne('paternalGrandmother', values)}
       />
       <MemberFormCard
         form={value.maternalGrandfather}
         title={`الجد لأم${savedFlags.maternalGrandfather ? ' — محفوظ' : ''}`}
         childDob={motherDob}
         onChange={(next) => updateOne('maternalGrandfather', next)}
-        onSave={() => onSaveOne('maternalGrandfather')}
+        onSave={(values) => onSaveOne('maternalGrandfather', values)}
       />
       <MemberFormCard
         form={value.maternalGrandmother}
         title={`الجدة لأم${savedFlags.maternalGrandmother ? ' — محفوظ' : ''}`}
         childDob={motherDob}
         onChange={(next) => updateOne('maternalGrandmother', next)}
-        onSave={() => onSaveOne('maternalGrandmother')}
+        onSave={(values) => onSaveOne('maternalGrandmother', values)}
       />
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -82,6 +82,15 @@ export function useFollowUp(applicantId: string) {
   });
 }
 
+export function useUpdateFollowUpMutation(applicantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<NonNullable<import('@/shared/types/domain').ApplicantDraft['followUp']>>) =>
+      applicantPortalService.updateFollowUp(applicantId, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.followUp(applicantId) }),
+  });
+}
+
 /* ── MOI-aligned mutations ──────────────────────────────────────────── */
 
 export function useVerifyApplicantMutation() {
@@ -117,7 +126,7 @@ export function useApproveParentsMutation(applicantId: string) {
 export function usePickFirstExamDateMutation(applicantId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { date: string }) => applicantPortalService.pickFirstExamDate(input),
+    mutationFn: (input: { slotId: string }) => applicantPortalService.pickFirstExamDate(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
   });
 }

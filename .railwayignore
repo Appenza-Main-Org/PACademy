@@ -4,7 +4,6 @@
 docs
 Tasks
 frontend
-backend/applicant
 *.zip
 **/.DS_Store
 **/bin

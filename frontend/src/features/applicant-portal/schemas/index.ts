@@ -141,7 +141,7 @@ export const stage345Schema = z
       .optional()
       .or(z.literal('')),
 
-    /* Footer attestation — must be checked. */
+    /* Footer attestation — must be checked before حفظ والمتابعة is enabled. */
     declaration: z.literal(true, {
       errorMap: () => ({ message: 'يجب الموافقة على شروط الإلتحاق والإقرار الإلكتروني' }),
     }),

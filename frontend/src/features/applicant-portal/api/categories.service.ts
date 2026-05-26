@@ -15,7 +15,7 @@
  */
 
 import { MOCK } from '@/shared/mock-data';
-import { apiClient, isBackendEnabled } from '@/shared/lib/api-client';
+import { adminApiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { parseNationalId } from '@/shared/lib/national-id';
 import type {
@@ -318,7 +318,7 @@ export const categoriesPublicService = {
 
   async eligibleCategories(nationalId: string): Promise<ApplicantEligibleCategoriesResponse> {
     if (isBackendEnabled()) {
-      return apiClient.get<ApplicantEligibleCategoriesResponse>(
+      return adminApiClient.get<ApplicantEligibleCategoriesResponse>(
         `/api/applicants/${encodeURIComponent(nationalId)}/eligible-categories`,
       );
     }

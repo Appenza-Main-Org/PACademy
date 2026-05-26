@@ -35,14 +35,16 @@ import {
   VOTHIQA_FILLABLE_NID,
   VOTHIQA_LAW_BACHELOR_NID,
   VOTHIQA_SPECIALIZED_OFFICERS_NID,
-  mockMoiLookup,
+  lookupMoiSession,
 } from '@/features/applicant-portal/lib/moi-session.mock';
 import { useApplicantPortalStore } from '@/features/applicant-portal/store/applicantPortal.store';
+import { applicantPortalService } from '@/features/applicant-portal/api/applicantPortal.service';
 import { saveVothiqaTaarufSnapshot } from '@/features/applicant-portal/lib/vothiqaTaaruf.snapshot';
 import { EXPIRED_DEMO_DOCUMENT } from '@/features/applicant-portal/lib/vothiqaTaaruf.expiredDemo';
 import { emptyDocument } from '@/features/applicant-portal/lib/vothiqaTaaruf.types';
 import { ROLE_DEFINITIONS } from '../rbac';
 import type { AuthUser } from '../types';
+import type { ApplicantDraft } from '@/shared/types/domain';
 
 /* Set of NIDs that should land directly on /applicant/acquaintance-doc
  * after login (وثيقة تعارف demo users). All three (fillable قسم عام
@@ -63,12 +65,24 @@ const VOTHIQA_MARRIED_NIDS = new Set<string>([
   VOTHIQA_LAW_BACHELOR_NID,
 ]);
 
-/* Demo NIDs are frontend-only and not all seeded in the .NET backend —
- * when VITE_USE_APPLICANT_AUTH_BACKEND=true the real `/api/auth/login-simple`
- * call returns 404 for them. Short-circuit the network call for every
- * NID that appears in DEMO_TEST_USERS so the full demo runs without a
- * backend seed change. Non-demo NIDs hit the backend as before. */
+/* When VITE_DEMO_BYPASS=false all NIDs (including demo ones) hit the
+ * real applicant backend auth flow. Default is true so the demo
+ * presentation runs without a backend dependency. */
+const DEMO_BYPASS_ENABLED = import.meta.env.VITE_DEMO_BYPASS !== 'false';
 const DEMO_BYPASS_NIDS = new Set<string>(DEMO_TEST_USERS.map((u) => u.nationalId));
+
+/** Map a saved backend draft to the correct wizard route to resume from. */
+function resolveResumeRoute(draft: ApplicantDraft | null): string {
+  if (!draft) return ROUTES.applicantStart;
+  const stage = draft.furthestStage;
+  if (stage >= 9) return ROUTES.applicantFollowUp;
+  if (stage >= 8) return ROUTES.applicantPrintCard;
+  if (stage >= 7) return ROUTES.applicantExamSchedule;
+  if (stage >= 6) return ROUTES.applicantFamily;
+  if (stage >= 3) return ROUTES.applicantPayment;
+  if (draft.categoryKey) return ROUTES.applicantProfile;
+  return ROUTES.applicantStart;
+}
 
 function buildDemoApplicantUser(nationalId: string, fullName: string): AuthUser {
   const def = ROLE_DEFINITIONS.applicant;
@@ -109,159 +123,177 @@ export function ApplicantLoginForm(): JSX.Element {
     defaultValues: { nationalId: '', mobile: '' },
   });
 
+  const finishLogin = async (
+    nationalId: string,
+    user: Awaited<ReturnType<typeof authService.login>>,
+    sessionOverride?: import('@/features/applicant-portal/lib/moi-session.mock').MoiApplicantSession | null,
+  ): Promise<void> => {
+    const result = sessionOverride !== undefined
+      ? sessionOverride
+        ? { kind: 'eligible' as const, session: sessionOverride, categoryKey: null as unknown as import('@/shared/types/domain').ApplicantCategoryKey }
+        : { kind: 'not_found' as const }
+      : await lookupMoiSession(nationalId);
+    const portal = useApplicantPortalStore.getState();
+    portal.setNationalId(nationalId);
+
+    let dest: string = ROUTES.applicantStart;
+    switch (result.kind) {
+      case 'eligible':
+        portal.setMoiSession(result.session);
+        portal.setSelectedCategoryKey(result.categoryKey);
+        if (nationalId === SUBMITTED_APPLICANT_NID) {
+          const firstExam = new Date();
+          firstExam.setDate(firstExam.getDate() + 3);
+          firstExam.setHours(8, 0, 0, 0);
+          portal.setPayment({ paid: true, paymentMethod: 'fawry-code', paymentReference: '1234567890', fawryCode: '87654321' });
+          portal.setParentsApproved(true);
+          portal.setFirstExamDate(firstExam.toISOString());
+          portal.setSubmittedDemo(true);
+          dest = ROUTES.applicant;
+          break;
+        }
+        if (VOTHIQA_DIRECT_LAND_NIDS.has(nationalId)) {
+          const firstExam = new Date();
+          firstExam.setDate(firstExam.getDate() + 3);
+          firstExam.setHours(8, 0, 0, 0);
+          portal.setPayment({ paid: true, paymentMethod: 'fawry-code', paymentReference: '1234567898', fawryCode: '87654323' });
+          portal.setParentsApproved(true);
+          portal.setFirstExamDate(firstExam.toISOString());
+          portal.setSubmittedDemo(true);
+          if (VOTHIQA_MARRIED_NIDS.has(nationalId)) {
+            const doc = emptyDocument();
+            doc.personal.personal.maritalStatus = 'married';
+            doc.personal.personal.fullName = result.session.fullName;
+            doc.personal.personal.nationalId = result.session.nationalId;
+            doc.personal.personal.dateOfBirth = result.session.dateOfBirth;
+            doc.personal.personal.religion = result.session.religion;
+            doc.personal.personal.governorate = result.session.birthGovernorate;
+            doc.personal.personal.birthPlace = result.session.birthDistrict;
+            doc.personal.personal.mobile = result.session.mobile;
+            doc.personal.cover.fullName = result.session.fullName;
+            doc.personal.cover.admissionYear = '2026';
+            saveVothiqaTaarufSnapshot(nationalId, doc);
+          }
+          dest = `${ROUTES.applicant}/acquaintance-doc`;
+          break;
+        }
+        if (nationalId === VOTHIQA_EXPIRED_NID) {
+          const firstExam = new Date();
+          firstExam.setDate(firstExam.getDate() + 3);
+          firstExam.setHours(8, 0, 0, 0);
+          portal.setPayment({ paid: true, paymentMethod: 'fawry-code', paymentReference: '1234567899', fawryCode: '87654322' });
+          portal.setParentsApproved(true);
+          portal.setFirstExamDate(firstExam.toISOString());
+          portal.setSubmittedDemo(true);
+          portal.setVothiqaTaarufSubmittedAt(Date.now() - 25 * 60 * 60 * 1000);
+          saveVothiqaTaarufSnapshot(nationalId, EXPIRED_DEMO_DOCUMENT);
+          dest = `${ROUTES.applicant}/acquaintance-doc`;
+          break;
+        }
+        dest = ROUTES.applicantStart;
+        break;
+      case 'ineligible':
+        portal.setMoiSession(result.session);
+        portal.setSelectedCategoryKey(null);
+        dest = ROUTES.applicantIneligible;
+        break;
+      case 'not_found':
+      default:
+        portal.setMoiSession(null);
+        portal.setSelectedCategoryKey(null);
+        dest = ROUTES.applicantStart;
+        break;
+    }
+
+    useAuthStore.getState().setUser(user);
+    navigate(dest, { replace: true });
+  };
+
   const performLogin = async (values: FormValues): Promise<void> => {
     setSubmitting(true);
     try {
-      /* Reset both stores so a previous scenario can't leak state into
-       * this login (the most common demo bug — Ahmed's category lingered
-       * after switching to Khaled). */
       useAuthStore.getState().clear();
       useApplicantPortalStore.getState().clear();
 
-      /* The mock authService.login expects a `password` arg — the
-       * applicant flow uses the mobile as the second credential
-       * (mock auth doesn't actually validate it, it just needs to be
-       * non-empty).
-       *
-       * For Case-1 demo NIDs the .NET backend has no seed row, so we
-       * fabricate an AuthUser locally instead of hitting the backend
-       * (which would 404 with «السجل غير موجود»). */
-      const result = mockMoiLookup(values.nationalId);
-      const fakeUser = DEMO_BYPASS_NIDS.has(values.nationalId)
-        ? buildDemoApplicantUser(
+      if (DEMO_BYPASS_ENABLED && DEMO_BYPASS_NIDS.has(values.nationalId)) {
+        // Demo bypass — build fake user from mock session without hitting backend.
+        const result = await lookupMoiSession(values.nationalId);
+        const user = buildDemoApplicantUser(
           values.nationalId,
-          result.kind === 'eligible' || result.kind === 'ineligible'
-            ? result.session.fullName
-            : 'متقدم تجريبي',
-        )
-        : null;
-      const user = fakeUser
-        ?? (await authService.login({
-          username: values.nationalId,
-          password: values.mobile,
-          role: 'applicant',
-        }));
+          result.kind === 'eligible' || result.kind === 'ineligible' ? result.session.fullName : 'متقدم تجريبي',
+        );
+        await finishLogin(values.nationalId, user);
+      } else {
+        // Real backend auth — initiate then auto-verify (no UI step needed).
+        const { sessionId } = await applicantPortalService.initiateAuth(values.nationalId, values.mobile);
+        const { token, applicantId, profile } = await applicantPortalService.verifyAuth(sessionId, '123456');
+        const user = buildDemoApplicantUser(values.nationalId, profile?.fullName ?? 'متقدم');
+        const backendUser = { ...user, id: applicantId, token };
 
-      const portal = useApplicantPortalStore.getState();
-      portal.setNationalId(values.nationalId);
+        // Build moiSession from backend profile so بيانات المتقدم shows real data.
+        const backendSession = profile ? {
+          applicantId: profile.applicantId,
+          fullName: profile.fullName,
+          nationalId: profile.nationalId,
+          dateOfBirth: profile.dateOfBirth,
+          dateOfBirthAr: profile.dateOfBirth
+            ? new Date(profile.dateOfBirth).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' })
+            : '',
+          gender: (profile.gender as 'male' | 'female') ?? 'male',
+          mobile: profile.mobile,
+          email: profile.email,
+          birthGovernorate: profile.birthGovernorate,
+          birthDistrict: profile.birthDistrict,
+          religion: (profile.religion as 'مسلم' | 'مسيحي') ?? 'مسلم',
+        } : null;
 
-      let dest: string = ROUTES.applicantStart;
-      switch (result.kind) {
-        case 'eligible':
-          portal.setMoiSession(result.session);
-          portal.setSelectedCategoryKey(result.categoryKey);
-          /* Submitted-state demo user (user #4): pre-populate the wizard
-           * progress (paid + parents approved + exam date picked) so the
-           * post-exam 4-tab view renders instead of the wizard. */
-          if (values.nationalId === SUBMITTED_APPLICANT_NID) {
-            const firstExam = new Date();
-            firstExam.setDate(firstExam.getDate() + 3);
-            firstExam.setHours(8, 0, 0, 0);
+        // Write token to sessionStorage BEFORE fetching draft so readAuthToken()
+        // finds it when applicantApiClient sends the Bearer header.
+        useAuthStore.getState().setUser(backendUser);
+
+        // Fetch saved draft to restore wizard progress across logout/login cycles.
+        let savedDraft: ApplicantDraft | null = null;
+        try {
+          const fetched = await applicantPortalService.getDraft(applicantId);
+          // A blank draft (furthestStage=0, no categoryKey) means new applicant.
+          savedDraft = (fetched.furthestStage > 0 || fetched.categoryKey) ? fetched : null;
+        } catch {
+          // Network error — proceed to start, user can re-select category.
+        }
+
+        // Hydrate portal store from draft so every wizard step sees correct state
+        // on first render without requiring a re-fetch.
+        const portal = useApplicantPortalStore.getState();
+        portal.setNationalId(values.nationalId);
+        if (backendSession) portal.setMoiSession(backendSession);
+        if (savedDraft) {
+          if (savedDraft.categoryKey) portal.setSelectedCategoryKey(savedDraft.categoryKey);
+          if (savedDraft.cycleId) portal.setSelectedCycleId(savedDraft.cycleId);
+          if (savedDraft.payment?.paidAt) {
             portal.setPayment({
               paid: true,
               paymentMethod: 'fawry-code',
-              paymentReference: '1234567890',
-              fawryCode: '87654321',
+              paymentReference: savedDraft.payment.refNumber ?? null,
+              fawryCode: savedDraft.payment.fawryCode ?? null,
             });
-            portal.setParentsApproved(true);
-            portal.setFirstExamDate(firstExam.toISOString());
-            /* Flip the demo-only flag so ApplicantPortalLayout swaps the
-             * wizard for the 4-tab post-submission view. */
-            portal.setSubmittedDemo(true);
-            dest = ROUTES.applicant;
-            break;
           }
-          /* وثيقة تعارف direct-land demos (Cases 1/2/3):
-           * the applicant has already paid, approved parents, and picked
-           * an exam date — only the وثيقة تعارف remains. Land them on
-           * the document page directly so the demo doesn't have to walk
-           * through 10 already-completed stages.
-           *
-           * The two married professional NIDs (specialized_officers +
-           * law_bachelor) get a pre-seeded document snapshot with
-           * marital='married' so the new applicant-spouse + children
-           * sections surface immediately. The fillable قسم-عام demo
-           * stays single (no snapshot pre-seed).
-           *
-           * Difference vs the expired demo below: we do NOT stamp
-           * `vothiqaTaarufSubmittedAt`, so the 24-hour edit window
-           * never starts — every field stays editable. */
-          if (VOTHIQA_DIRECT_LAND_NIDS.has(values.nationalId)) {
-            const firstExam = new Date();
-            firstExam.setDate(firstExam.getDate() + 3);
-            firstExam.setHours(8, 0, 0, 0);
-            portal.setPayment({
-              paid: true,
-              paymentMethod: 'fawry-code',
-              paymentReference: '1234567898',
-              fawryCode: '87654323',
-            });
+          /* parentsApproved may not be in older drafts — derive from furthestStage:
+           * stage 8+ (exam scheduling) requires parent approval, so if they got there
+           * they must have approved. */
+          if (savedDraft.parentsApproved || (savedDraft.furthestStage ?? 0) >= 8) {
             portal.setParentsApproved(true);
-            portal.setFirstExamDate(firstExam.toISOString());
-            portal.setSubmittedDemo(true);
-            if (VOTHIQA_MARRIED_NIDS.has(values.nationalId)) {
-              const doc = emptyDocument();
-              doc.personal.personal.maritalStatus = 'married';
-              doc.personal.personal.fullName = result.session.fullName;
-              doc.personal.personal.nationalId = result.session.nationalId;
-              doc.personal.personal.dateOfBirth = result.session.dateOfBirth;
-              doc.personal.personal.religion = result.session.religion;
-              doc.personal.personal.governorate = result.session.birthGovernorate;
-              doc.personal.personal.birthPlace = result.session.birthDistrict;
-              doc.personal.personal.mobile = result.session.mobile;
-              doc.personal.cover.fullName = result.session.fullName;
-              doc.personal.cover.admissionYear = '2026';
-              saveVothiqaTaarufSnapshot(values.nationalId, doc);
-            }
-            dest = `${ROUTES.applicant}/acquaintance-doc`;
-            break;
           }
-          /* وثيقة تعارف — expired demo (user #6, Case 1 قسم عام):
-           * pre-populate the wizard progress AND seed a complete
-           * قسم-عام document whose 25-hour-old submission timestamp
-           * trips the edit-window-expired gate on Stage 11. */
-          if (values.nationalId === VOTHIQA_EXPIRED_NID) {
-            const firstExam = new Date();
-            firstExam.setDate(firstExam.getDate() + 3);
-            firstExam.setHours(8, 0, 0, 0);
-            portal.setPayment({
-              paid: true,
-              paymentMethod: 'fawry-code',
-              paymentReference: '1234567899',
-              fawryCode: '87654322',
-            });
-            portal.setParentsApproved(true);
-            portal.setFirstExamDate(firstExam.toISOString());
+          if (savedDraft.examSlot?.date) portal.setFirstExamDate(savedDraft.examSlot.date);
+          // Switch to the post-submission tab view (PostExamNav) once the
+          // applicant has reached exam scheduling — mirrors what the demo
+          // SUBMITTED_APPLICANT_NID triggers via the mock path.
+          if ((savedDraft.furthestStage ?? 0) >= 8) {
             portal.setSubmittedDemo(true);
-            /* 25 hours ago — past the 24h edit window. */
-            portal.setVothiqaTaarufSubmittedAt(Date.now() - 25 * 60 * 60 * 1000);
-            saveVothiqaTaarufSnapshot(values.nationalId, EXPIRED_DEMO_DOCUMENT);
-            dest = `${ROUTES.applicant}/acquaintance-doc`;
-            break;
           }
-          /* Client direction 2026-05-19: every applicant lands on
-           * /applicant/start so they see the full category list with
-           * eligibility cues — even when only one category qualifies. */
-          dest = ROUTES.applicantStart;
-          break;
-        case 'ineligible':
-          portal.setMoiSession(result.session);
-          portal.setSelectedCategoryKey(null);
-          dest = ROUTES.applicantIneligible;
-          break;
-        case 'not_found':
-        default:
-          portal.setMoiSession(null);
-          portal.setSelectedCategoryKey(null);
-          dest = ROUTES.applicantStart;
-          break;
+        }
+
+        navigate(resolveResumeRoute(savedDraft), { replace: true });
       }
-
-      /* setUser and navigate in the same batch — page-level redirect on
-       * /applicant-login can't race us because the URL is updated in the
-       * same tick the user becomes truthy. */
-      useAuthStore.getState().setUser(user);
-      navigate(dest, { replace: true });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'تعذّر تسجيل الدخول';
       toast(message, 'danger');

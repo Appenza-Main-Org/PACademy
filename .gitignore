@@ -21,4 +21,14 @@ obj/
 .devin/
 .windsurf/
 skills-lock.json
+.cursor/
+.cursorrules
+.cursorignore
+.cursorignorerules
+.cursorignorefiles
+.cursorignorefolders
+.cursorignorefoldersrules
+.cursorignorefoldersfiles
+.cursorignorefoldersfolders
+.cursorignorefoldersfoldersrules
 .vercel

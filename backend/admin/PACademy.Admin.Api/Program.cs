@@ -1,4 +1,3 @@
-using PACademy.Admin.Api.Api;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
@@ -6,27 +5,29 @@ using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Persistence;
+using PACademy.Modules.LookupsAdmin.Infrastructure;
+using PACademy.Modules.ApplicantGradesAdmin.Infrastructure;
+using PACademy.Modules.IdentityApplicantAdmin.Infrastructure;
+using PACademy.Shared.Web;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var port = Environment.GetEnvironmentVariable("PORT");
-if (!string.IsNullOrWhiteSpace(port))
-{
-    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
-}
-
+/* ── Web API basics ─────────────────────────────────────────────── */
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
-builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
-builder.Services.AddLookupsModule(builder.Configuration);
-builder.Services.AddAdmissionsModule(builder.Configuration);
-builder.Services.AddIdentityModule(builder.Configuration);
-builder.Services.AddAdminRecordsModule(builder.Configuration);
-builder.Services.AddExamsModule(builder.Configuration);
-builder.Services.AddAuditModule();
+builder.Services.AddHttpContextAccessor();
+
+/* ── Global exception handling ──────────────────────────────────── */
+builder.Services.AddPacademyExceptionHandling();
+
+/* ── OpenAPI (.NET 10 built-in) + Scalar UI ─────────────────────── */
+builder.Services.AddOpenApi();
+
+/* ── CORS — admin frontend + deployed Vercel origin ─────────────── */
+var frontendOrigin = builder.Configuration["Cors:AdminFrontendOrigin"]
+    ?? "http://localhost:5173";
 var configuredOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 var envOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
     ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -34,6 +35,7 @@ var envOrigins = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS")
 var corsOrigins = configuredOrigins
     .Concat(envOrigins)
     .Concat([
+        frontendOrigin,
         "https://admin.appenzademo.com",
         "https://admin-prod.appenzademo.com",
         "https://appenzademo.com",
@@ -44,47 +46,68 @@ var corsOrigins = configuredOrigins
     ])
     .Distinct(StringComparer.OrdinalIgnoreCase)
     .ToArray();
+const string CorsPolicyName = "admin-frontend";
+builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
+    .WithOrigins(corsOrigins)
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials()));
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AdminFrontend", policy =>
-    {
-        policy
-            .WithOrigins(corsOrigins)
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-    });
-});
+/* ── Internal modules (all share AdminDbContext) ────────────────── */
+// LookupsModule registers AdminDbContext first; all others resolve it.
+builder.Services.AddLookupsModule(builder.Configuration);
+builder.Services.AddIdentityModule(builder.Configuration);
+builder.Services.AddAdminRecordsModule(builder.Configuration);
+builder.Services.AddAdmissionsModule(builder.Configuration);
+builder.Services.AddAuditModule();
+builder.Services.AddExamsModule(builder.Configuration);
+
+/* ── External legacy modules (separate DbContexts + migrations) ─── */
+builder.Services.AddLookupsAdminModule(builder.Configuration);
+builder.Services.AddApplicantGradesAdminModule(builder.Configuration);
+builder.Services.AddIdentityApplicantAdminModule(builder.Configuration);
 
 var app = builder.Build();
 
-app.Use(async (context, next) =>
+/* ── Apply migrations + idempotent seed ─────────────────────────── */
+var skipSeed = args.Contains("--no-seed")
+    || app.Configuration.GetValue<bool>("SkipMigrationsAndSeed");
+
+if (!skipSeed)
 {
-    if (!HttpMethods.IsOptions(context.Request.Method))
+    // Migrate the main AdminDbContext (covers portal tables, admission tables, etc.)
+    await using (var scope = app.Services.CreateAsyncScope())
     {
-        await next();
-        return;
+        var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
+        if (db.Database.IsRelational())
+            await db.Database.MigrateAsync();
     }
 
-    var origin = context.Request.Headers.Origin.ToString();
-    if (corsOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
-    {
-        context.Response.Headers.AccessControlAllowOrigin = origin;
-        context.Response.Headers.AccessControlAllowMethods = "GET,POST,PUT,PATCH,DELETE,OPTIONS";
-        context.Response.Headers.AccessControlAllowHeaders =
-            context.Request.Headers.AccessControlRequestHeaders.ToString() is { Length: > 0 } requestedHeaders
-                ? requestedHeaders
-                : "content-type,authorization";
-        context.Response.Headers.Vary = "Origin";
-    }
-    context.Response.StatusCode = StatusCodes.Status204NoContent;
-});
+    // Seed each internal module (idempotent — skips rows that already exist).
+    await app.SeedLookupsAsync();
+    await app.SeedIdentityAsync();
+    await app.SeedAdminRecordsAsync();
+    await app.SeedAdmissionsAsync();
+    await app.SeedExamsAsync();
 
-app.UseCors("AdminFrontend");
-app.UseMiddleware<ExceptionHandlingMiddleware>();
+    // External-module DbContexts (each owns its own migrations history table).
+    LookupsAdminSeeder.MigrateAndSeed(app.Services);
+    ApplicantGradesAdminSeeder.MigrateAndSeed(app.Services);
+    IdentityApplicantAdminSeeder.MigrateAndSeed(app.Services);
+}
 
-app.MapOpenApi();
-app.MapScalarApiReference("/scalar");
+/* ── HTTP pipeline ──────────────────────────────────────────────── */
+app.UsePacademyExceptionHandling();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference(o => o
+        .WithTitle("PACademy Admin API")
+        .WithTheme(ScalarTheme.Default));
+}
+
+/* ── Health endpoints ───────────────────────────────────────────── */
 app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
@@ -108,17 +131,7 @@ app.MapGet("/health/db", async (AdminDbContext db, CancellationToken ct) =>
     });
 });
 
+app.UseCors(CorsPolicyName);
 app.MapControllers();
-
-await app.InitializeAdminDatabaseAsync();
-
-if (!app.Configuration.ResolveAdminDatabaseSettings().SkipMigrationsAndSeed)
-{
-    await app.SeedLookupsAsync();
-    await app.SeedAdmissionsAsync();
-    await app.SeedIdentityAsync();
-    await app.SeedAdminRecordsAsync();
-    await app.SeedExamsAsync();
-}
 
 app.Run();

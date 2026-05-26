@@ -216,13 +216,6 @@ export function ApplicantPortalLayout(): JSX.Element {
             title="خطوات المتقدم · دفعة 2026"
             steps={steps}
             activeStepKey={STAGE_KEYS[activeIndex] ?? STAGE_KEYS[0]}
-            onStepClick={(key) => {
-              if (draft?.suspended && key !== STAGE_KEYS[0]) {
-                toast('طلبك موقوف مؤقتاً — لا يمكن التنقّل.', 'warning');
-                return;
-              }
-              navigate(`${ROUTES.applicant}/${key}`);
-            }}
             autoSaveStatus={autoSaveStatus}
           >
             {/* AUD-007 — when suspended, gate every stage form behind a single
@@ -249,8 +242,7 @@ export function ApplicantPortalLayout(): JSX.Element {
 function PostExamNav({ vothiqaEnabled }: { vothiqaEnabled: boolean }): JSX.Element {
   const location = useLocation();
   const tabs = [
-    { label: 'البيانات الأساسية', path: ROUTES.applicantProfile },
-    { label: 'التنبيهات', path: ROUTES.applicant },
+    { label: 'البيانات الأساسية', path: ROUTES.applicant },
     { label: 'كارت التردد', path: ROUTES.applicantPrintCard },
     { label: 'نتائج الاختبارات', path: ROUTES.applicantFollowUp },
     ...(vothiqaEnabled
