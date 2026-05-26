@@ -50,6 +50,14 @@ public sealed class ApplicantsController(AdminRecordsService records, ApplicantE
                 Errors: new Dictionary<string, string[]> { ["nationalId"] = [ex.Message] },
                 Message: "الرقم القومي غير صحيح"));
         }
+        catch (EntityNotFoundException ex) when (ex.Message == "لا توجد دورة قبول نشطة")
+        {
+            return Conflict(new ApiErrorEnvelope(
+                ErrorCodes.Conflict,
+                ConflictCode: ErrorCodes.NoActiveCycle,
+                Message: "لا توجد دورة قبول نشطة حالياً",
+                Payload: new { reasons = new[] { "cycle_not_active" } }));
+        }
     }
 
     [HttpGet("api/applicants/distribution")]

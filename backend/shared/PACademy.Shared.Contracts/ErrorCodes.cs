@@ -28,6 +28,7 @@ public static class ErrorCodes
     // ── Admission cycles ────────────────────────────────────────────────
     public const string ActiveCycleExists         = "ACTIVE_CYCLE_EXISTS";
     public const string OverlappingActiveCycle    = "OVERLAPPING_ACTIVE_CYCLE";
+    public const string NoActiveCycle             = "NO_ACTIVE_CYCLE";
     public const string CycleActivationIncomplete = "CYCLE_ACTIVATION_INCOMPLETE";
 
     // ── Applicants ──────────────────────────────────────────────────────
