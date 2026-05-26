@@ -8,6 +8,7 @@ import {
   Database,
   FileSpreadsheet,
   Gavel,
+  LayoutDashboard,
   Settings,
   Shield,
   Users,
@@ -38,6 +39,7 @@ const SIDEBAR: SidebarSection[] = [
   {
     label: 'العمليات',
     items: [
+      { key: 'dashboard',  label: 'لوحة التحكم', icon: <LayoutDashboard size={18} />, to: ROUTES.admin.dashboard, permission: 'reports:view' },
       { key: 'reports',    label: 'التقارير',   icon: <BarChart3 size={18} />,     to: ROUTES.admin.reports, permission: 'reports:view' },
       { key: 'applicants', label: 'المتقدمون', icon: <ClipboardList size={18} />, to: ROUTES.admin.applicants, permission: 'applicants:view' },
     ],
