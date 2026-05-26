@@ -23,6 +23,8 @@ import { ROUTES } from '@/config/routes';
 import { date as fmtDate, shortName } from '@/shared/lib/format';
 import {
   AuditDiffDrawer,
+  auditEntityLabel,
+  auditModuleLabel,
   useAuditActions,
   useAuditEntityTypes,
   useAuditLog,
@@ -169,7 +171,7 @@ function DetailsCell({
     );
   }
 
-  if (entry.entity === 'users' && entry.entityId) {
+  if ((entry.entity === 'users' || entry.entity === 'مستخدمو المنظومة' || entry.entityType === 'users' || entry.entityType === 'مستخدمو المنظومة') && entry.entityId) {
     const { prefix, tail } = splitUserDetails(entry.details);
     const freshName = usersById.get(entry.entityId)?.fullArabicName;
     const linkText = freshName ?? tail;
@@ -302,7 +304,7 @@ export function AuditPage(): JSX.Element {
       filter: {
         kind: 'enum',
         getValue: (e) => e.entity,
-        options: (entityTypes ?? []).map((t) => ({ value: t, label: t })),
+        options: (entityTypes ?? []).map((t) => ({ value: auditEntityLabel(t), label: auditEntityLabel(t) })),
       },
       render: (e) => e.entity,
     },
@@ -388,7 +390,7 @@ export function AuditPage(): JSX.Element {
             onChange={(e) => setEntity(e.target.value)}
             options={[
               { value: 'all', label: 'الكل' },
-              ...((entityTypes ?? []).map((e) => ({ value: e, label: e }))),
+              ...((entityTypes ?? []).map((e) => ({ value: e, label: auditEntityLabel(e) }))),
             ]}
           />
           <Select
@@ -397,7 +399,7 @@ export function AuditPage(): JSX.Element {
             onChange={(e) => setModuleFilter(e.target.value as AuditModule | 'all')}
             options={[
               { value: 'all', label: 'كل الوحدات' },
-              ...((modules ?? []).map((m) => ({ value: m, label: m }))),
+              ...((modules ?? []).map((m) => ({ value: m, label: auditModuleLabel(m) }))),
             ]}
           />
           <Select

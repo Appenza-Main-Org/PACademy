@@ -6,7 +6,7 @@
  * consumers should reach for the symbols re-exported here.
  */
 
-export { auditService } from './api/audit.service';
+export { auditEntityLabel, auditModuleLabel, auditService } from './api/audit.service';
 export type { AuditFilters } from './api/audit.service';
 export {
   auditKeys,
