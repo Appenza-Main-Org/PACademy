@@ -447,16 +447,26 @@ Invariants enforced frontend-side (mirror in backend):
 on the existing `committeesService` so the threshold flows through every
 Gap-H committee surface unchanged.
 
+### Reports endpoints (2026-05-27 amendment)
+
+The reports RFP scope is exposed through the admin backend under `/api/admin/reports`.
+
+- `GET /api/admin/reports/applicants/aggregate` accepts the shared reports filters plus `groupBy` and returns `{ groupBy, rows, grandTotal, generatedAt }`.
+- `GET /api/admin/reports/applicants/detail` accepts the same filters plus `page`, `pageSize`, `sort`, `search` and returns `{ data, total, page, pageSize, totalPages }`.
+- `GET /api/admin/reports/stage-dropoff` accepts the same filters plus `stoppedAtStage` and `staleDays`, returning stuck-applicant rows plus an 11-stage funnel.
+- `GET /api/admin/reports/data-availability` returns `{ ok, cycleId, cycleExists, cycleStatus, totals, missingReferences, appliedFiltersMatchCount, generatedAt }`.
+- `POST /api/admin/reports/export` accepts `{ filters, format, report, title }` and returns a downloadable file.
+
+`missingReferences` reports filter references and applicant-row references that cannot be resolved against the current reference data. Performance targets for the normalized SQL implementation: probe < 200ms p95, aggregate < 800ms p95, detail < 1.2s p95.
+
+Open questions: cache strategy for the probe once the normalized applicant schema lands; exact audit detail level for export filter snapshots.
+
 ### Missing contracts
 
 These services have public methods but no `INTEGRATION CONTRACT`
 JSDoc header. Backend should align with frontend before exposing
 endpoints:
 
-- `reports.service.ts` — internal aggregator. Real implementation
-  may consolidate to a single `GET /api/admin/reports/snapshot?cycleId=…`
-  returning the typed `ReportSnapshot` (or split per section). Confirm
-  with frontend before settling.
 - `examPlans.service.ts:canEnterResult` — pure helper used by the
   result-entry pipeline; depends on the result-storage endpoint shape.
 

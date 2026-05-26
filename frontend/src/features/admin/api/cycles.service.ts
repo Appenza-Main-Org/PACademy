@@ -80,6 +80,15 @@ export function normalizeCycleStatus(status: CycleStatus): 'draft' | 'active' | 
   return NORMALIZE_STATUS[status];
 }
 
+export function resolveActiveCycle(cycles: AdmissionCycle[] | undefined): AdmissionCycle | null {
+  if (!cycles?.length) return null;
+  return (
+    cycles.find((cycle) => cycle.isActive === true) ??
+    cycles.find((cycle) => cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended') ??
+    null
+  );
+}
+
 export const cyclesService = {
   async list(opts: { includeDeleted?: boolean } = {}): Promise<AdmissionCycle[]> {
     return apiClient.get('/api/cycles', { query: opts });

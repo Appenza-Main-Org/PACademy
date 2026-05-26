@@ -1,6 +1,7 @@
 import { PageHeader } from '@/shared/components';
 import { useAuthStore } from '@/features/auth';
 import { GeneralSettingsCard } from '../components/auth/GeneralSettingsCard';
+import { ApplicantControlScreensSettingsCard } from '../components/auth/ApplicantControlScreensSettingsCard';
 import { LockPolicyCard } from '../components/auth/LockPolicyCard';
 
 export function SettingsPage(): JSX.Element {
@@ -13,6 +14,7 @@ export function SettingsPage(): JSX.Element {
       {isSuperAdmin && (
         <div className="mt-5 flex flex-col gap-5">
           <GeneralSettingsCard />
+          <ApplicantControlScreensSettingsCard />
           <LockPolicyCard />
         </div>
       )}

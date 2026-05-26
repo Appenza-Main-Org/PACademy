@@ -65,6 +65,7 @@ import {
   CycleEditPage,
   CycleNewPage,
   CyclesPage,
+  DashboardPage,
   ElectronicDeclarationPage,
   ExamsManagementPage,
   NotificationsPage,
@@ -155,12 +156,10 @@ import {
 } from '@/features/applicant-grades';
 
 /**
- * AdminIndexRoute — every admin role lands on the admissions command
- * center (/admin/reports). The legacy DashboardPage is no longer the
- * default index for any role.
+ * AdminIndexRoute — every admin role lands on the live admissions dashboard.
  */
 function AdminIndexRoute(): JSX.Element {
-  return <Navigate to={ROUTES.admin.reports} replace />;
+  return <DashboardPage />;
 }
 
 function LegacyHubRedirect(): JSX.Element {

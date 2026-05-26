@@ -130,6 +130,14 @@ public sealed class OperationalAdminController(AdminRecordsService records) : Co
         Ok(await records.SingletonAsync("settings", new JsonObject(), ct));
 
     [HttpPatch("api/admin/settings")]
-    public async Task<ActionResult<JsonObject>> UpdateSettings([FromBody] JsonObject body, CancellationToken ct) =>
-        Ok(await records.UpsertAsync("settings", "settings", body, ct));
+    public async Task<ActionResult<JsonObject>> UpdateSettings([FromBody] JsonObject body, CancellationToken ct)
+    {
+        var current = await records.SingletonAsync("settings", new JsonObject(), ct);
+        foreach (var item in body)
+        {
+            current[item.Key] = item.Value?.DeepClone();
+        }
+
+        return Ok(await records.UpsertAsync("settings", "settings", current, ct));
+    }
 }

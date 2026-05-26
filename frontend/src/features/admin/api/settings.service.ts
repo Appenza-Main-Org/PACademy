@@ -13,6 +13,16 @@ export interface AdminSettings {
   examDaysPerApplicant: number;
   /** عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار. Positive integer, default 1. */
   examSlotSelectionWindowDays: number;
+  /** الاختبار المسؤول عن إظهار شاشات إدراج بيانات الأقارب الأولية. */
+  primaryRelativesEntryResponsibleTestCode?: string;
+  /** الاختبار المسؤول عن إظهار شاشات إدراج وثائق التعارف. */
+  acquaintanceDocumentsEntryResponsibleTestCode?: string;
+  /** الاختبار المسؤول عن إظهار شاشات طباعة وثائق التعارف. */
+  acquaintanceDocumentsPrintResponsibleTestCode?: string;
+  /** توقيت غلق الإدراج/الحذف/التعديل لوثائق التعارف. */
+  acquaintanceDocumentsMutationLockTiming?: 'on_test_start' | 'on_test_end' | 'after_print' | 'manual';
+  /** المرحلة/الاختبار المسؤول عن إظهار شاشات الأقارب الأولية. */
+  primaryRelativesVisibilityResponsibleTestCode?: string;
 }
 
 export const adminSettingsService = {
