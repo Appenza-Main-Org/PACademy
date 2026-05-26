@@ -27,6 +27,17 @@ const CERT_TYPE_OPTIONS: readonly SearchSelectOption[] = [
   { value: 'ثانوية أزهرية', label: 'ثانوية أزهرية' },
 ];
 
+function displayValue(value: string | number | null | undefined): string {
+  if (value === undefined || value === null || value === '') return 'غير مسجل';
+  return String(value);
+}
+
+function genderLabel(value: Applicant['gender'] | string | undefined): string {
+  if (value === 'male' || value === 'ذكر') return 'ذكر';
+  if (value === 'female' || value === 'أنثى') return 'أنثى';
+  return displayValue(value);
+}
+
 export function ApplicantsPage(): JSX.Element {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -74,9 +85,21 @@ export function ApplicantsPage(): JSX.Element {
             <div className="flex flex-col">
               <span className="text-sm font-medium text-ink-900">{shortName(a.name, 3)}</span>
               <span className="font-mono text-2xs text-ink-500" dir="ltr">{a.id}</span>
+              {a.applicantTableId && (
+                <span className="font-mono text-2xs text-ink-400" dir="ltr">{a.applicantTableId}</span>
+              )}
             </div>
           </Link>
         ),
+      },
+      {
+        key: 'adminRecordId',
+        label: 'سجل الإدارة',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.adminRecordId ?? a.id,
+        filter: { kind: 'text', getValue: (a) => a.adminRecordId ?? a.id },
+        render: (a) => <span className="font-mono text-2xs" dir="ltr">{displayValue(a.adminRecordId ?? a.id)}</span>,
       },
       {
         key: 'nationalId',
@@ -88,6 +111,51 @@ export function ApplicantsPage(): JSX.Element {
         render: (a) => <span className="font-mono" dir="ltr">{maskNationalId(a.nationalId)}</span>,
       },
       {
+        key: 'phoneNumber',
+        label: 'الهاتف',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.phoneNumber ?? a.contact?.mobilePhone,
+        filter: { kind: 'text', getValue: (a) => a.phoneNumber ?? a.contact?.mobilePhone ?? '' },
+        render: (a) => <span className="font-mono text-2xs" dir="ltr">{displayValue(a.phoneNumber ?? a.contact?.mobilePhone)}</span>,
+      },
+      {
+        key: 'email',
+        label: 'البريد',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.email ?? a.contact?.email,
+        filter: { kind: 'text', getValue: (a) => a.email ?? a.contact?.email ?? '' },
+        render: (a) => <span className="text-2xs text-ink-600" dir="ltr">{displayValue(a.email ?? a.contact?.email)}</span>,
+      },
+      {
+        key: 'gender',
+        label: 'النوع',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => genderLabel(a.gender),
+        filter: { kind: 'text', getValue: (a) => genderLabel(a.gender) },
+        render: (a) => genderLabel(a.gender),
+      },
+      {
+        key: 'religion',
+        label: 'الديانة',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.religion,
+        filter: { kind: 'text', getValue: (a) => a.religion ?? '' },
+        render: (a) => displayValue(a.religion),
+      },
+      {
+        key: 'birthDate',
+        label: 'تاريخ الميلاد',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.birthDate,
+        filter: { kind: 'date', getValue: (a) => a.birthDate },
+        render: (a) => <span className="text-2xs text-ink-600">{a.birthDate ? fmtDate(a.birthDate, 'short') : 'غير مسجل'}</span>,
+      },
+      {
         key: 'governorate',
         label: 'المحافظة',
         hideOn: 'sm',
@@ -95,6 +163,24 @@ export function ApplicantsPage(): JSX.Element {
         getSortValue: (a) => a.governorate,
         filter: { kind: 'text', getValue: (a) => a.governorate },
         render: (a) => a.governorate,
+      },
+      {
+        key: 'birthGovernorate',
+        label: 'محافظة الميلاد',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.birthGovernorate,
+        filter: { kind: 'text', getValue: (a) => a.birthGovernorate ?? '' },
+        render: (a) => displayValue(a.birthGovernorate),
+      },
+      {
+        key: 'birthDistrict',
+        label: 'قسم الميلاد',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.birthDistrict,
+        filter: { kind: 'text', getValue: (a) => a.birthDistrict ?? '' },
+        render: (a) => displayValue(a.birthDistrict),
       },
       {
         key: 'certType',
@@ -109,6 +195,15 @@ export function ApplicantsPage(): JSX.Element {
             <p className="text-ink-500">{a.certSection}</p>
           </div>
         ),
+      },
+      {
+        key: 'source',
+        label: 'المصدر',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.source,
+        filter: { kind: 'text', getValue: (a) => a.source ?? '' },
+        render: (a) => displayValue(a.source),
       },
       {
         key: 'paymentStatus',
@@ -174,15 +269,24 @@ export function ApplicantsPage(): JSX.Element {
         filenamePrefix: 'متقدمين-',
         columns: [
           { key: 'id', labelAr: 'كود التقدم' },
+          { key: 'applicantTableId', labelAr: 'معرف جدول المتقدمين' },
+          { key: 'adminRecordId', labelAr: 'معرف سجل الإدارة' },
           { key: 'nationalId', labelAr: 'الرقم القومي' },
           { key: 'name', labelAr: 'الاسم' },
           {
             key: 'gender',
             labelAr: 'النوع',
-            format: (v) => (v === 'male' ? 'ذكر' : 'أنثى'),
+            format: (v) => genderLabel(v as Applicant['gender'] | string | undefined),
           },
+          { key: 'religion', labelAr: 'الديانة' },
+          { key: 'birthDate', labelAr: 'تاريخ الميلاد' },
+          { key: 'birthGovernorate', labelAr: 'محافظة الميلاد' },
+          { key: 'birthDistrict', labelAr: 'قسم الميلاد' },
+          { key: 'phoneNumber', labelAr: 'رقم الهاتف' },
+          { key: 'email', labelAr: 'البريد الإلكتروني' },
           { key: 'governorate', labelAr: 'المحافظة' },
           { key: 'certType', labelAr: 'نوع الشهادة' },
+          { key: 'source', labelAr: 'مصدر السجل' },
           { key: 'certPercent', labelAr: 'النسبة المئوية' },
           {
             key: 'paymentStatus',

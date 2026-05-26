@@ -54,6 +54,17 @@ import { ApplicantWorkflowPanel } from '@/features/admin/components/workflow/App
 import { AuditTimeline } from '@/features/admin/components/applicants/AuditTimeline';
 import { SECTION_LABELS } from '@/features/applicants/schemas';
 
+function displayValue(value: React.ReactNode | null | undefined): React.ReactNode {
+  if (value === undefined || value === null || value === '') return '—';
+  return value;
+}
+
+function genderLabel(value: Applicant['gender'] | string | undefined): string {
+  if (value === 'male' || value === 'ذكر') return 'ذكر';
+  if (value === 'female' || value === 'أنثى') return 'أنثى';
+  return '—';
+}
+
 export function ApplicantDetailPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const { data: applicant, isLoading, error, refetch } = useApplicant(id);
@@ -133,6 +144,14 @@ export function ApplicantDetailPage(): JSX.Element {
         <div className="flex min-w-0 flex-col gap-5">
           {/* §1 Identity */}
           <SectionCard id="section-identity" title={SECTION_LABELS.identity}>
+            <DefRow
+              label="معرف جدول المتقدمين"
+              value={<span className="font-mono" dir="ltr">{displayValue(applicant.applicantTableId)}</span>}
+            />
+            <DefRow
+              label="معرف سجل الإدارة"
+              value={<span className="font-mono" dir="ltr">{displayValue(applicant.adminRecordId ?? applicant.id)}</span>}
+            />
             <DefRow label="الاسم رباعي" value={applicant.name} />
             <DefRow
               label="الرقم القومي"
@@ -142,10 +161,13 @@ export function ApplicantDetailPage(): JSX.Element {
                 </span>
               }
             />
-            <DefRow label="النوع" value={applicant.gender === 'male' ? 'ذكر' : 'أنثى'} />
-            <DefRow label="تاريخ الميلاد" value={fmtDate(applicant.birthDate, 'short')} />
-            <DefRow label="الديانة" value={applicant.religion ?? '—'} />
-            <DefRow label="الحالة الاجتماعية" value={applicant.maritalStatus ?? '—'} />
+            <DefRow label="النوع" value={genderLabel(applicant.gender)} />
+            <DefRow label="تاريخ الميلاد" value={applicant.birthDate ? fmtDate(applicant.birthDate, 'short') : '—'} />
+            <DefRow label="محافظة الميلاد" value={displayValue(applicant.birthGovernorate)} />
+            <DefRow label="قسم الميلاد" value={displayValue(applicant.birthDistrict)} />
+            <DefRow label="الديانة" value={displayValue(applicant.religion)} />
+            <DefRow label="الحالة الاجتماعية" value={displayValue(applicant.maritalStatus)} />
+            <DefRow label="مصدر السجل" value={displayValue(applicant.source)} />
           </SectionCard>
 
           {/* §2 Address */}
@@ -166,9 +188,9 @@ export function ApplicantDetailPage(): JSX.Element {
             <DefRow
               label="محمول رئيسي"
               value={
-                applicant.contact?.mobilePhone ? (
+                applicant.contact?.mobilePhone || applicant.phoneNumber ? (
                   <span className="font-mono" dir="ltr">
-                    {applicant.contact.mobilePhone}
+                    {applicant.contact?.mobilePhone ?? applicant.phoneNumber}
                   </span>
                 ) : (
                   '—'
@@ -177,7 +199,7 @@ export function ApplicantDetailPage(): JSX.Element {
             />
             <DefRow
               label="البريد الإلكتروني"
-              value={applicant.contact?.email ?? '—'}
+              value={applicant.contact?.email ?? applicant.email ?? '—'}
               wide
             />
             <DefRow label="فيسبوك" value={applicant.contact?.socialFacebook ?? '—'} />

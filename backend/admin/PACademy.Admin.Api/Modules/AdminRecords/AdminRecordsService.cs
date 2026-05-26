@@ -713,9 +713,14 @@ public sealed class AdminRecordsService(
         var kind = NormalizedModuleKind(module);
         return kind switch
         {
-            "applicants" => await QueryPayloadRowsAsync(
-                $"SELECT [payload_json], [admin_record_id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicants")} ORDER BY [national_id]",
-                "admin_record_id",
+            "applicants" => await QueryApplicantRowsAsync(
+                $"""
+                SELECT [payload_json], [id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender],
+                       [religion], [date_of_birth], [birth_governorate], [birth_district], [certificate_type], [source],
+                       [created_at], [updated_at]
+                FROM {AdminDbContext.QualifiedTableName("applicants")}
+                ORDER BY [national_id]
+                """,
                 ct),
             "grades" => await QueryPayloadRowsAsync(
                 $"SELECT [payload_json], CONVERT(nvarchar(128), [seat]) AS [row_id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicant_grades")} ORDER BY [seat]",
@@ -747,9 +752,14 @@ public sealed class AdminRecordsService(
         var kind = NormalizedModuleKind(module);
         var rows = kind switch
         {
-            "applicants" => await QueryPayloadRowsAsync(
-                $"SELECT TOP (1) [payload_json], [admin_record_id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicants")} WHERE [admin_record_id] = @id OR [national_id] = @id",
-                "admin_record_id",
+            "applicants" => await QueryApplicantRowsAsync(
+                $"""
+                SELECT TOP (1) [payload_json], [id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender],
+                       [religion], [date_of_birth], [birth_governorate], [birth_district], [certificate_type], [source],
+                       [created_at], [updated_at]
+                FROM {AdminDbContext.QualifiedTableName("applicants")}
+                WHERE [admin_record_id] = @id OR [national_id] = @id OR CONVERT(nvarchar(64), [id]) = @id
+                """,
                 ct,
                 command => AddParameter(command, "@id", id)),
             "grades" => await QueryPayloadRowsAsync(
@@ -785,6 +795,10 @@ public sealed class AdminRecordsService(
     {
         var kind = NormalizedModuleKind(module);
         payload["id"] ??= id;
+        if (kind == "applicants")
+        {
+            NormalizeApplicantPayload(payload);
+        }
         var payloadJson = payload.ToJsonString(AdminRecordJson.Options);
         var now = DateTimeOffset.UtcNow;
 
@@ -892,25 +906,26 @@ public sealed class AdminRecordsService(
                     ON target.[national_id] COLLATE DATABASE_DEFAULT = source.[national_id] COLLATE DATABASE_DEFAULT
                     WHEN MATCHED THEN UPDATE SET
                         [admin_record_id] = @id,
-                        [phone_number] = COALESCE(JSON_VALUE(@payload, '$.phoneNumber'), JSON_VALUE(@payload, '$.phone_number'), [phone_number]),
-                        [full_name] = COALESCE(JSON_VALUE(@payload, '$.name'), JSON_VALUE(@payload, '$.fullName'), [full_name]),
-                        [email] = COALESCE(JSON_VALUE(@payload, '$.email'), [email]),
+                        [phone_number] = COALESCE(JSON_VALUE(@payload, '$.phoneNumber'), JSON_VALUE(@payload, '$.phone_number'), JSON_VALUE(@payload, '$.contact.mobilePhone'), [phone_number]),
+                        [full_name] = COALESCE(JSON_VALUE(@payload, '$.name'), [full_name]),
+                        [email] = COALESCE(JSON_VALUE(@payload, '$.email'), JSON_VALUE(@payload, '$.contact.email'), [email]),
                         [gender] = COALESCE(JSON_VALUE(@payload, '$.gender'), [gender]),
                         [religion] = COALESCE(JSON_VALUE(@payload, '$.religion'), [religion]),
                         [date_of_birth] = COALESCE(TRY_CONVERT(date, JSON_VALUE(@payload, '$.birthDate')), TRY_CONVERT(date, JSON_VALUE(@payload, '$.dateOfBirth')), [date_of_birth]),
-                        [birth_governorate] = COALESCE(JSON_VALUE(@payload, '$.governorate'), JSON_VALUE(@payload, '$.birthGovernorate'), [birth_governorate]),
-                        [birth_district] = COALESCE(JSON_VALUE(@payload, '$.city'), JSON_VALUE(@payload, '$.birthDistrict'), [birth_district]),
-                        [certificate_type] = COALESCE(JSON_VALUE(@payload, '$.certType'), [certificate_type]),
+                        [birth_governorate] = COALESCE(JSON_VALUE(@payload, '$.birthGovernorate'), JSON_VALUE(@payload, '$.currentAddress.governorate'), JSON_VALUE(@payload, '$.governorate'), [birth_governorate]),
+                        [birth_district] = COALESCE(JSON_VALUE(@payload, '$.birthDistrict'), JSON_VALUE(@payload, '$.currentAddress.city'), JSON_VALUE(@payload, '$.city'), [birth_district]),
+                        [certificate_type] = COALESCE(JSON_VALUE(@payload, '$.certType'), JSON_VALUE(@payload, '$.education.certificateName'), [certificate_type]),
                         [payload_json] = @payload,
                         [updated_at] = @now
                     WHEN NOT MATCHED THEN INSERT
                         ([id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender], [religion], [date_of_birth], [birth_governorate], [birth_district], [certificate_type], [source], [payload_json], [created_at], [updated_at])
                     VALUES
-                        (NEWID(), @id, @nationalId, COALESCE(JSON_VALUE(@payload, '$.phoneNumber'), JSON_VALUE(@payload, '$.phone_number')),
-                         COALESCE(JSON_VALUE(@payload, '$.name'), JSON_VALUE(@payload, '$.fullName')), JSON_VALUE(@payload, '$.email'), JSON_VALUE(@payload, '$.gender'),
+                        (NEWID(), @id, @nationalId, COALESCE(JSON_VALUE(@payload, '$.phoneNumber'), JSON_VALUE(@payload, '$.phone_number'), JSON_VALUE(@payload, '$.contact.mobilePhone')),
+                         JSON_VALUE(@payload, '$.name'), COALESCE(JSON_VALUE(@payload, '$.email'), JSON_VALUE(@payload, '$.contact.email')), JSON_VALUE(@payload, '$.gender'),
                          JSON_VALUE(@payload, '$.religion'), COALESCE(TRY_CONVERT(date, JSON_VALUE(@payload, '$.birthDate')), TRY_CONVERT(date, JSON_VALUE(@payload, '$.dateOfBirth'))),
-                         COALESCE(JSON_VALUE(@payload, '$.governorate'), JSON_VALUE(@payload, '$.birthGovernorate')), COALESCE(JSON_VALUE(@payload, '$.city'), JSON_VALUE(@payload, '$.birthDistrict')),
-                         JSON_VALUE(@payload, '$.certType'), N'api', @payload, @now, @now);
+                         COALESCE(JSON_VALUE(@payload, '$.birthGovernorate'), JSON_VALUE(@payload, '$.currentAddress.governorate'), JSON_VALUE(@payload, '$.governorate')),
+                         COALESCE(JSON_VALUE(@payload, '$.birthDistrict'), JSON_VALUE(@payload, '$.currentAddress.city'), JSON_VALUE(@payload, '$.city')),
+                         COALESCE(JSON_VALUE(@payload, '$.certType'), JSON_VALUE(@payload, '$.education.certificateName')), N'api', @payload, @now, @now);
                     """, command =>
                 {
                     AddParameter(command, "@id", id);
@@ -1043,6 +1058,105 @@ public sealed class AdminRecordsService(
             payload["updatedAt"] ??= reader.GetFieldValue<DateTimeOffset>(3);
             return payload;
         }, ct);
+    }
+
+    private async Task<IReadOnlyList<JsonObject>> QueryApplicantRowsAsync(
+        string sql,
+        CancellationToken ct,
+        Action<DbCommand>? bind = null)
+    {
+        return await ExecuteNormalizedQueryAsync(sql, bind, reader =>
+        {
+            var payload = reader.IsDBNull(0) ? new JsonObject() : AdminRecordJson.Parse(reader.GetString(0));
+            var tableId = reader.GetGuid(1).ToString();
+            var adminRecordId = ReadString(reader, 2);
+            var nationalId = ReadString(reader, 3);
+            var phoneNumber = ReadString(reader, 4);
+            var fullName = ReadString(reader, 5);
+            var email = ReadString(reader, 6);
+            var gender = ReadString(reader, 7);
+            var religion = ReadString(reader, 8);
+            var birthDate = reader.IsDBNull(9) ? null : reader.GetFieldValue<DateTime>(9).ToString("yyyy-MM-dd");
+            var birthGovernorate = ReadString(reader, 10);
+            var birthDistrict = ReadString(reader, 11);
+            var certificateType = ReadString(reader, 12);
+            var source = ReadString(reader, 13);
+
+            payload["applicantTableId"] = tableId;
+            if (!string.IsNullOrWhiteSpace(adminRecordId)) payload["adminRecordId"] = adminRecordId;
+            payload["id"] ??= adminRecordId ?? tableId;
+            SetIfPresent(payload, "nationalId", nationalId);
+            SetIfPresent(payload, "phoneNumber", phoneNumber);
+            SetIfPresent(payload, "name", fullName);
+            SetIfPresent(payload, "email", email);
+            SetIfPresent(payload, "gender", gender);
+            SetIfPresent(payload, "religion", religion);
+            SetIfPresent(payload, "birthDate", birthDate);
+            SetIfPresent(payload, "birthGovernorate", birthGovernorate);
+            SetIfPresent(payload, "birthDistrict", birthDistrict);
+            SetIfPresent(payload, "certType", certificateType);
+            SetIfPresent(payload, "source", source);
+            payload["createdAt"] ??= reader.GetFieldValue<DateTimeOffset>(14);
+            payload["updatedAt"] ??= reader.GetFieldValue<DateTimeOffset>(15);
+            return payload;
+        }, ct);
+    }
+
+    private static string? ReadString(DbDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+
+    private static void NormalizeApplicantPayload(JsonObject payload)
+    {
+        var fullName = AdminRecordJson.StringProp(payload, "name") ?? JoinedFullName(payload);
+        SetIfPresent(payload, "name", fullName);
+        SetIfPresent(payload, "phoneNumber", NestedString(payload, "contact", "mobilePhone"));
+        SetIfPresent(payload, "email", NestedString(payload, "contact", "email"));
+        SetIfPresent(payload, "governorate", NestedString(payload, "currentAddress", "governorate"));
+        SetIfPresent(payload, "city", NestedString(payload, "currentAddress", "city"));
+        SetIfPresent(payload, "certType", NestedString(payload, "education", "certificateName"));
+
+        if (AdminRecordJson.StringProp(payload, "nationalId") is { Length: 14 } nationalId &&
+            NationalIdParser.TryParseEgyptianNationalId(nationalId, out var info, out _))
+        {
+            payload["birthDate"] ??= info.BirthDate.ToString("yyyy-MM-dd");
+            payload["gender"] ??= info.Gender == EgyptianNationalIdGender.Male ? "male" : "female";
+            payload["birthGovernorate"] ??= info.GovernorateCode;
+        }
+    }
+
+    private static string? JoinedFullName(JsonObject payload)
+    {
+        if (!payload.TryGetPropertyValue("fullName", out var node) || node is not JsonObject fullName)
+            return null;
+
+        var parts = new[]
+        {
+            AdminRecordJson.StringProp(fullName, "first"),
+            AdminRecordJson.StringProp(fullName, "second"),
+            AdminRecordJson.StringProp(fullName, "third"),
+            AdminRecordJson.StringProp(fullName, "fourth")
+        }
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => part!.Trim())
+            .ToArray();
+
+        return parts.Length == 0 ? null : string.Join(' ', parts);
+    }
+
+    private static string? NestedString(JsonObject payload, string objectKey, string key)
+    {
+        if (!payload.TryGetPropertyValue(objectKey, out var node) || node is not JsonObject child)
+            return null;
+
+        return AdminRecordJson.StringProp(child, key);
+    }
+
+    private static void SetIfPresent(JsonObject payload, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            payload[key] = value;
+        }
     }
 
     private async Task<IReadOnlyList<JsonObject>> ExecuteNormalizedQueryAsync(

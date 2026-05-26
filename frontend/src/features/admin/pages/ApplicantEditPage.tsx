@@ -59,9 +59,9 @@ function applicantToInput(a: Applicant): Partial<ApplicantInput> {
       street: '',
     },
     contact: a.contact ?? {
-      mobilePhone: '',
+      mobilePhone: a.phoneNumber ?? '',
       homePhone: '',
-      email: '',
+      email: a.email ?? '',
       socialFacebook: '',
       socialInstagram: '',
       socialX: '',
