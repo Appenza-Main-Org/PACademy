@@ -35,7 +35,7 @@ import type {
 } from '../types';
 
 const GRADES_API = '/api/grades';
-const IMPORT_COMMIT_CHUNK_SIZE = 5000;
+const IMPORT_COMMIT_CHUNK_SIZE = 500;
 const IMPORT_PREFLIGHT_CHUNK_SIZE = 5000;
 const IMPORT_PREFLIGHT_GROUP_SAMPLE_LIMIT = 1000;
 

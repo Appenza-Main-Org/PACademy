@@ -257,6 +257,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
     }
 
     [HttpPost("api/grades/v2/commit")]
+    [RequestSizeLimit(50 * 1024 * 1024)]
     public async Task<ActionResult<object>> CommitV2([FromBody] JsonObject body, CancellationToken ct)
     {
         var inputRows = body["rows"]?.AsArray() ?? [];

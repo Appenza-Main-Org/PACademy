@@ -80,8 +80,8 @@ app.Use(async (context, next) =>
     context.Response.StatusCode = StatusCodes.Status204NoContent;
 });
 
-app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("AdminFrontend");
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.MapOpenApi();
 app.MapScalarApiReference("/scalar");
