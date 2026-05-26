@@ -11,7 +11,7 @@ namespace PACademy.Applicant.Api.Modules.ApplicantPortal;
 public sealed class PortalDbContext(DbContextOptions<PortalDbContext> options)
     : DbContext(options)
 {
-    private const string Schema = "admin_v2";
+    private const string Schema = "PACademy_staging_db";
 
     public DbSet<ApplicantPortalRecordEntity> PortalRecords => Set<ApplicantPortalRecordEntity>();
     public DbSet<ExamSlotEntity> ExamSlots => Set<ExamSlotEntity>();
