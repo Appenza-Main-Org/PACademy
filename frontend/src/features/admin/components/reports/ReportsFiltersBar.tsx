@@ -1,4 +1,4 @@
-import { CalendarDays, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronUp, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useLookup } from '@/features/lookups/api/lookups.queries';
 import { Badge, Button, Card, DateRangePicker, Input, Select, Sheet } from '@/shared/components';
@@ -43,6 +43,7 @@ function without<K extends keyof ReportsFilters>(filters: ReportsFilters, key: K
 
 export function ReportsFiltersBar(): JSX.Element {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const cycles = useCycles();
   const categories = useLookup('applicant-categories');
   const specializations = useLookup('specializations');
@@ -207,6 +208,16 @@ export function ReportsFiltersBar(): JSX.Element {
               </span>
             </Badge>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            leadingIcon={isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            aria-expanded={isExpanded}
+            aria-controls="reports-filters-panel"
+            onClick={() => setIsExpanded((current) => !current)}
+          >
+            {isExpanded ? 'طي الفلاتر' : 'عرض الفلاتر'}
+          </Button>
           <Button variant="accent" size="sm" leadingIcon={<Search size={14} />} onClick={() => setFilters({ cycleId: effectiveCycleId })}>
             تطبيق
           </Button>
@@ -215,17 +226,21 @@ export function ReportsFiltersBar(): JSX.Element {
           </Button>
         </div>
       </div>
-      <div className="hidden p-4 lg:block">{controls}</div>
-      <div className="lg:hidden">
-        <div className="p-4">
-          <Button variant="secondary" leadingIcon={<SlidersHorizontal size={16} />} onClick={() => setMobileOpen(true)} fullWidth>
-            ضبط الفلاتر
-          </Button>
+      {isExpanded && (
+        <div id="reports-filters-panel">
+          <div className="hidden p-4 lg:block">{controls}</div>
+          <div className="lg:hidden">
+            <div className="p-4">
+              <Button variant="secondary" leadingIcon={<SlidersHorizontal size={16} />} onClick={() => setMobileOpen(true)} fullWidth>
+                ضبط الفلاتر
+              </Button>
+            </div>
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen} title="تصفية التقارير" size="md">
+              {controls}
+            </Sheet>
+          </div>
         </div>
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen} title="تصفية التقارير" size="md">
-          {controls}
-        </Sheet>
-      </div>
+      )}
       {chips.length > 0 && (
         <div className="flex flex-wrap gap-2 border-t border-border-subtle px-4 py-3">
           {chips.map((chip) => (
