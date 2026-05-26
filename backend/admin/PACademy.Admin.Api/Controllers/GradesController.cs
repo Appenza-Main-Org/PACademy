@@ -285,6 +285,11 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
             .Select(x => new { Nid = AdminRecordJson.StringProp(x, "nid"), Row = x })
             .Where(x => !string.IsNullOrWhiteSpace(x.Nid))
             .ToDictionary(x => x.Nid!, x => x.Row, StringComparer.Ordinal);
+        var existingBySeatingNumber = existingByNid.Values
+            .Select(x => new { SeatingNumber = AdminRecordJson.StringProp(x, "seatingNumber"), Row = x })
+            .Where(x => !string.IsNullOrWhiteSpace(x.SeatingNumber))
+            .GroupBy(x => x.SeatingNumber!, StringComparer.Ordinal)
+            .ToDictionary(x => x.Key, x => x.First().Row, StringComparer.Ordinal);
         var inserted = 0;
         var failed = 0;
         var alreadyImported = 0;
@@ -302,6 +307,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         foreach (var row in inputRows.OfType<JsonObject>())
         {
             var nid = AdminRecordJson.StringProp(row, "nationalId");
+            var seatingNumber = AdminRecordJson.StringProp(row, "seatingNumber");
             var name = AdminRecordJson.StringProp(row, "nameAr");
             var total = row["totalGrade"]?.GetValue<double?>();
             if (string.IsNullOrWhiteSpace(nid) || string.IsNullOrWhiteSpace(name) || total is null)
@@ -323,10 +329,11 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                 failed++;
                 continue;
             }
-            if (existingNids.Contains(nid))
+            var previous = FindExistingGradeMatch(nid, seatingNumber, existingByNid, existingBySeatingNumber);
+            if (previous is not null)
             {
-                if (acceptedExistingNids.Contains(nid) &&
-                    existingByNid.TryGetValue(nid, out var previous))
+                var previousNid = AdminRecordJson.StringProp(previous, "nid") ?? nid;
+                if (acceptedExistingNids.Contains(nid) || acceptedExistingNids.Contains(previousNid))
                 {
                     var previousSeat = (int)(AdminRecordJson.NumberProp(previous, "seat") ?? 0);
                     if (previousSeat <= 0)
@@ -338,10 +345,14 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                     {
                         row["maxGrade"] = maxGrade;
                     }
-                    var updatedGrade = GradeFromImportRow(row, previousSeat, nid, name, total.Value, graduationYear, schoolCategoryCode);
+                    var updatedGrade = GradeFromImportRow(row, previousSeat, previousNid, name, total.Value, graduationYear, schoolCategoryCode);
                     updatedGrade["previousGrade"] = previous["total"]?.DeepClone();
                     await records.UpsertAsync("grades", previousSeat.ToString(CultureInfo.InvariantCulture), updatedGrade, ct);
-                    existingByNid[nid] = updatedGrade;
+                    existingByNid[previousNid] = updatedGrade;
+                    if (!string.IsNullOrWhiteSpace(seatingNumber))
+                    {
+                        existingBySeatingNumber[seatingNumber] = updatedGrade;
+                    }
                     inserted++;
                     continue;
                 }
@@ -356,6 +367,10 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
             var grade = GradeFromImportRow(row, seat, nid, name, total.Value, graduationYear, schoolCategoryCode);
             batch.Add(grade);
             existingNids.Add(nid);
+            if (!string.IsNullOrWhiteSpace(seatingNumber))
+            {
+                existingBySeatingNumber[seatingNumber] = grade;
+            }
             if (batch.Count >= ImportCommitBatchSize) await FlushBatchAsync();
         }
 
@@ -372,6 +387,21 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
 
         if (inserted > 0) InvalidateGradesListCache();
         return Ok(new { insertedCount = inserted, failedCount = failed, alreadyImportedCount = alreadyImported });
+    }
+
+    private static JsonObject? FindExistingGradeMatch(
+        string nid,
+        string? seatingNumber,
+        IReadOnlyDictionary<string, JsonObject> existingByNid,
+        IReadOnlyDictionary<string, JsonObject> existingBySeatingNumber)
+    {
+        if (existingByNid.TryGetValue(nid, out var byNid)) return byNid;
+        if (!string.IsNullOrWhiteSpace(seatingNumber) &&
+            existingBySeatingNumber.TryGetValue(seatingNumber, out var bySeatingNumber))
+        {
+            return bySeatingNumber;
+        }
+        return null;
     }
 
     [HttpPost("api/grades/import/file")]

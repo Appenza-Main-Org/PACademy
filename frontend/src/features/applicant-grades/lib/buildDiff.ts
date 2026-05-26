@@ -56,6 +56,12 @@ export interface ExistingDiff {
   hasChanges: boolean;
 }
 
+export function defaultExistingDiffDecision(diff: ExistingDiff): 'accept' | 'reject' {
+  const incomingTotal = diff.incoming.totalGrade;
+  if (incomingTotal == null || !Number.isFinite(incomingTotal)) return 'reject';
+  return incomingTotal > diff.existing.total ? 'accept' : 'reject';
+}
+
 export interface UploadDuplicate {
   nationalId: string;
   /** Latest non-null `nameAr` seen across the duplicate rows. */
@@ -102,11 +108,18 @@ export function buildExistingDiffs(
   rows: readonly NormalisedRow[],
   existing: readonly GradeRow[],
 ): ExistingDiff[] {
-  const existingByNid = new Map(existing.filter(isLiveGradeRow).map((r) => [r.nid, r]));
+  const liveExisting = existing.filter(isLiveGradeRow);
+  const existingByNid = new Map(liveExisting.map((r) => [r.nid, r]));
+  const existingBySeatingNumber = new Map(
+    liveExisting
+      .filter((r) => r.seatingNumber != null && r.seatingNumber.trim().length > 0)
+      .map((r) => [r.seatingNumber!.trim(), r]),
+  );
   const out: ExistingDiff[] = [];
   for (const r of rows) {
-    if (!r.nationalId) continue;
-    const ex = existingByNid.get(r.nationalId);
+    const ex =
+      (r.nationalId ? existingByNid.get(r.nationalId) : undefined) ??
+      (r.seatingNumber ? existingBySeatingNumber.get(r.seatingNumber.trim()) : undefined);
     if (!ex) continue;
 
     /* Surface only the grade-shape fields (المجموع الكلي + الدرجة
@@ -143,7 +156,7 @@ export function buildExistingDiffs(
 
     const hasChanges = cells.some((c) => c.changed);
     out.push({
-      nationalId: r.nationalId,
+      nationalId: r.nationalId ?? ex.nid,
       nameAr: r.nameAr ?? ex.name,
       existing: ex,
       incoming: r,
@@ -175,17 +188,24 @@ export function buildAlreadyImported(
   rows: readonly NormalisedRow[],
   existing: readonly GradeRow[],
 ): AlreadyImportedRow[] {
-  const existingByNid = new Map(existing.filter(isLiveGradeRow).map((r) => [r.nid, r]));
+  const liveExisting = existing.filter(isLiveGradeRow);
+  const existingByNid = new Map(liveExisting.map((r) => [r.nid, r]));
+  const existingBySeatingNumber = new Map(
+    liveExisting
+      .filter((r) => r.seatingNumber != null && r.seatingNumber.trim().length > 0)
+      .map((r) => [r.seatingNumber!.trim(), r]),
+  );
   const out: AlreadyImportedRow[] = [];
   for (const r of rows) {
-    if (!r.nationalId) continue;
     if (r.graduationYear == null || !Number.isFinite(r.graduationYear)) continue;
-    const ex = existingByNid.get(r.nationalId);
+    const ex =
+      (r.nationalId ? existingByNid.get(r.nationalId) : undefined) ??
+      (r.seatingNumber ? existingBySeatingNumber.get(r.seatingNumber.trim()) : undefined);
     if (!ex) continue;
     if (ex.graduationYear == null) continue;
     if (ex.graduationYear !== r.graduationYear) continue;
     out.push({
-      nationalId: r.nationalId,
+      nationalId: r.nationalId ?? ex.nid,
       nameAr: r.nameAr ?? ex.name,
       graduationYear: r.graduationYear,
       sourceRowIndex: r.sourceRowIndex,

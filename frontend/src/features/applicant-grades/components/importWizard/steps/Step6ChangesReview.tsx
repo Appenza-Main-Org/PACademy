@@ -34,6 +34,7 @@ import {
   buildAlreadyImported,
   buildExistingDiffs,
   buildUploadDuplicates,
+  defaultExistingDiffDecision,
   type DiffCell,
   type ExistingDiff,
   type UploadDuplicate,
@@ -128,6 +129,19 @@ export function Step6ChangesReview(): JSX.Element {
   );
 
   useEffect(() => {
+    if (diffs.length === 0) return;
+    const seeded: Record<string, ExistingDiffDecision> = { ...existingDiffDecisions };
+    let touched = false;
+    for (const diff of diffs) {
+      if (seeded[diff.nationalId] == null || seeded[diff.nationalId] === 'pending') {
+        seeded[diff.nationalId] = defaultExistingDiffDecision(diff);
+        touched = true;
+      }
+    }
+    if (touched) setBulkExistingDiffDecisions(seeded);
+  }, [diffs, existingDiffDecisions, setBulkExistingDiffDecisions]);
+
+  useEffect(() => {
     if (uploadDuplicates.length === 0) return;
     const seeded: Record<string, UploadDuplicateDecision> = {
       ...uploadDuplicateDecisions,
@@ -153,16 +167,14 @@ export function Step6ChangesReview(): JSX.Element {
   function acceptAllDiffs(): void {
     const next: Record<string, ExistingDiffDecision> = { ...existingDiffDecisions };
     for (const d of diffs) {
-      const decision = existingDiffDecisions[d.nationalId] ?? 'pending';
-      if (decision === 'pending') next[d.nationalId] = 'accept';
+      next[d.nationalId] = 'accept';
     }
     setBulkExistingDiffDecisions(next);
   }
   function rejectAllDiffs(): void {
     const next: Record<string, ExistingDiffDecision> = { ...existingDiffDecisions };
     for (const d of diffs) {
-      const decision = existingDiffDecisions[d.nationalId] ?? 'pending';
-      if (decision === 'pending') next[d.nationalId] = 'reject';
+      next[d.nationalId] = 'reject';
     }
     setBulkExistingDiffDecisions(next);
   }
@@ -323,11 +335,11 @@ export function Step6ChangesReview(): JSX.Element {
             </div>
             <BulkDecisionToggle
               mode={diffBulkMode}
-              acceptLabel={`قبول الكل (${pendingCount.toLocaleString('en')})`}
-              rejectLabel={`رفض الكل (${pendingCount.toLocaleString('en')})`}
+              acceptLabel="قبول الكل"
+              rejectLabel="رفض الكل"
               onAccept={acceptAllDiffs}
               onReject={rejectAllDiffs}
-              disabled={pendingCount === 0}
+              disabled={diffs.length === 0}
             />
           </header>
 
