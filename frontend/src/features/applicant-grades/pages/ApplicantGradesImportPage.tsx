@@ -12,7 +12,10 @@
  *   6. Result — grouped failure report + per-group actions + commit
  *
  * Unsaved-changes guard: cancelling mid-wizard with a parsed file in
- * memory prompts the admin via AlertDialog before bailing.
+ * memory prompts the admin via AlertDialog before bailing. Step 6 is
+ * the single decision screen for upload duplicates, existing-record
+ * changes, over-max grades, and hard data issues; Step 7 is a read-only
+ * confirmation before commit.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -75,6 +78,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   );
   const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
+  const outOfRangeDecisions = useImportWizardStore((s) => s.outOfRangeDecisions);
   const existingDiffDecisions = useImportWizardStore((s) => s.existingDiffDecisions);
   const uploadDuplicateDecisions = useImportWizardStore(
     (s) => s.uploadDuplicateDecisions,
@@ -160,12 +164,13 @@ export function ApplicantGradesImportPage(): JSX.Element {
     () =>
       summarizeIntegrityDecisions(
         integrityRows,
-        perGroupActions.GRADE_OUT_OF_RANGE,
+        outOfRangeDecisions,
       ),
-    [integrityRows, perGroupActions.GRADE_OUT_OF_RANGE],
+    [integrityRows, outOfRangeDecisions],
   );
   const outOfRangeDecisionBlocks =
-    step === 7 && outOfRangeDecisionSummary.pendingOutOfRangeCount > 0;
+    (step === 6 || step === 7) &&
+    outOfRangeDecisionSummary.pendingOutOfRangeCount > 0;
 
   function canAdvance(): boolean {
     switch (step) {
@@ -195,11 +200,10 @@ export function ApplicantGradesImportPage(): JSX.Element {
          * flowing silently through to the commit step. */
         return !loudGuardBlocks;
       case 6:
-        /* Step 6's diff review is always advanceable — the default
-         * decision (reject for existing diffs, pick-higher for upload
-         * duplicates) keeps the commit safe even if the admin
-         * skips through. */
-        return true;
+        /* Existing diffs and upload duplicates have safe defaults, but
+         * over-max grades are a policy choice; the admin must accept or
+         * reject every affected row on this one decision screen. */
+        return outOfRangeDecisionSummary.pendingOutOfRangeCount === 0;
       case 7:
         return false;
       default:
@@ -248,26 +252,26 @@ export function ApplicantGradesImportPage(): JSX.Element {
       lookupValueMappings,
       selectedSchoolCategories,
     );
+    const hasAcceptedOutOfRange = integrityRows.some(
+      (row) =>
+        row.code === 'GRADE_OUT_OF_RANGE' &&
+        outOfRangeDecisions[row.sourceRowIndex] === 'accept',
+    );
     const actions: Record<ImportGroupCode, 'skip' | 'override' | 'create-applicant' | undefined> = {
       DUPLICATE_NID: filterAction(perGroupActions.DUPLICATE_NID),
       INVALID_NID: filterAction(perGroupActions.INVALID_NID),
       MISSING_REQUIRED: filterAction(perGroupActions.MISSING_REQUIRED),
       NID_NOT_FOUND: filterAction(perGroupActions.NID_NOT_FOUND),
-      GRADE_OUT_OF_RANGE: filterAction(perGroupActions.GRADE_OUT_OF_RANGE),
+      GRADE_OUT_OF_RANGE: hasAcceptedOutOfRange ? 'override' : undefined,
       UNREADABLE_VALUE: filterAction(perGroupActions.UNREADABLE_VALUE),
     };
     const acceptedDiffDecisions: Record<string, 'accept'> = {};
     for (const [nid, decision] of Object.entries(existingDiffDecisions)) {
       if (decision === 'accept') acceptedDiffDecisions[nid] = 'accept';
     }
-    const allowOutOfRange = perGroupActions.GRADE_OUT_OF_RANGE === 'override';
     const decisionSummary = summarizeIntegrityDecisions(
       integrityRows,
-      allowOutOfRange
-        ? 'override'
-        : perGroupActions.GRADE_OUT_OF_RANGE === 'skip'
-          ? 'skip'
-          : undefined,
+      outOfRangeDecisions,
     );
     if (decisionSummary.pendingOutOfRangeCount > 0) {
       toast('اختر قبول أو رفض الصفوف التي تتجاوز الدرجة العظمى قبل تأكيد الاستيراد.', 'warning');

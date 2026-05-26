@@ -32,6 +32,7 @@ import { normaliseRows } from '../../../lib/normalise';
 import {
   buildIntegrityAuditRows,
   summarizeIntegrityDecisions,
+  type IntegrityAuditRow,
 } from '../../../lib/duplicateAudit';
 import {
   buildAlreadyImported,
@@ -72,7 +73,13 @@ export function Step6ChangesReview(): JSX.Element {
   const uploadDuplicateDecisions = useImportWizardStore(
     (s) => s.uploadDuplicateDecisions,
   );
-  const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
+  const outOfRangeDecisions = useImportWizardStore((s) => s.outOfRangeDecisions);
+  const setOutOfRangeDecision = useImportWizardStore(
+    (s) => s.setOutOfRangeDecision,
+  );
+  const setBulkOutOfRangeDecisions = useImportWizardStore(
+    (s) => s.setBulkOutOfRangeDecisions,
+  );
   const setUploadDuplicateDecision = useImportWizardStore(
     (s) => s.setUploadDuplicateDecision,
   );
@@ -207,7 +214,7 @@ export function Step6ChangesReview(): JSX.Element {
   const skippedExistingCount = alreadyImported.length;
   const decisionSummary = summarizeIntegrityDecisions(
     integrityRows,
-    perGroupActions.GRADE_OUT_OF_RANGE,
+    outOfRangeDecisions,
   );
   const summaryRejectedCount = Math.max(
     importResult?.totals.failed ?? 0,
@@ -246,7 +253,47 @@ export function Step6ChangesReview(): JSX.Element {
     setBulkUploadDuplicateDecisions(next);
   }
 
-  if (diffs.length === 0 && uploadDuplicates.length === 0) {
+  const outOfRangeRows = useMemo(
+    () => integrityRows.filter((row) => row.code === 'GRADE_OUT_OF_RANGE'),
+    [integrityRows],
+  );
+  const hardInvalidRows = useMemo(
+    () => integrityRows.filter((row) => row.code !== 'GRADE_OUT_OF_RANGE'),
+    [integrityRows],
+  );
+  const acceptedOutOfRangeCount = outOfRangeRows.filter(
+    (row) => outOfRangeDecisions[row.sourceRowIndex] === 'accept',
+  ).length;
+  const rejectedOutOfRangeCount = outOfRangeRows.filter(
+    (row) => outOfRangeDecisions[row.sourceRowIndex] === 'reject',
+  ).length;
+  const pendingOutOfRangeRowCount =
+    outOfRangeRows.length - acceptedOutOfRangeCount - rejectedOutOfRangeCount;
+  const outOfRangeBulkMode: BulkDecisionMode =
+    outOfRangeRows.length > 0 && acceptedOutOfRangeCount === outOfRangeRows.length
+      ? 'accept'
+      : outOfRangeRows.length > 0 && rejectedOutOfRangeCount === outOfRangeRows.length
+        ? 'reject'
+        : null;
+
+  function acceptAllOutOfRangeRows(): void {
+    const next = { ...outOfRangeDecisions };
+    for (const row of outOfRangeRows) next[row.sourceRowIndex] = 'accept';
+    setBulkOutOfRangeDecisions(next);
+  }
+
+  function rejectAllOutOfRangeRows(): void {
+    const next = { ...outOfRangeDecisions };
+    for (const row of outOfRangeRows) next[row.sourceRowIndex] = 'reject';
+    setBulkOutOfRangeDecisions(next);
+  }
+
+  if (
+    diffs.length === 0 &&
+    uploadDuplicates.length === 0 &&
+    outOfRangeRows.length === 0 &&
+    hardInvalidRows.length === 0
+  ) {
     return (
       <div className="flex flex-col gap-4">
         <ImportDecisionSummary
@@ -294,6 +341,7 @@ export function Step6ChangesReview(): JSX.Element {
       {alreadyImported.length > 0 && (
         <AlreadyImportedBanner count={alreadyImported.length} />
       )}
+      {hardInvalidRows.length > 0 && <HardInvalidSection rows={hardInvalidRows} />}
       {uploadDuplicates.length > 0 && (
         <UploadDuplicatesSection
           duplicates={uploadDuplicates}
@@ -303,6 +351,18 @@ export function Step6ChangesReview(): JSX.Element {
           onSetDecision={setUploadDuplicateDecision}
           onAcceptAll={acceptAllUploadDuplicates}
           onRejectAll={rejectAllUploadDuplicates}
+        />
+      )}
+
+      {outOfRangeRows.length > 0 && (
+        <OutOfRangeSection
+          rows={outOfRangeRows}
+          decisions={outOfRangeDecisions}
+          pendingCount={pendingOutOfRangeRowCount}
+          bulkMode={outOfRangeBulkMode}
+          onSetDecision={setOutOfRangeDecision}
+          onAcceptAll={acceptAllOutOfRangeRows}
+          onRejectAll={rejectAllOutOfRangeRows}
         />
       )}
 
@@ -623,6 +683,203 @@ function DiffRow({ cell }: { cell: DiffCell }): JSX.Element {
         </span>
       </td>
     </tr>
+  );
+}
+
+interface OutOfRangeSectionProps {
+  rows: IntegrityAuditRow[];
+  decisions: Record<number, 'accept' | 'reject'>;
+  pendingCount: number;
+  bulkMode: BulkDecisionMode;
+  onSetDecision: (sourceRowIndex: number, decision: 'accept' | 'reject') => void;
+  onAcceptAll: () => void;
+  onRejectAll: () => void;
+}
+
+function OutOfRangeSection({
+  rows,
+  decisions,
+  pendingCount,
+  bulkMode,
+  onSetDecision,
+  onAcceptAll,
+  onRejectAll,
+}: OutOfRangeSectionProps): JSX.Element {
+  return (
+    <section className="flex flex-col gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gold-300 bg-gold-50 px-3.5 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-gold-700">
+          <ShieldAlert size={14} strokeWidth={1.75} aria-hidden />
+          <span>
+            <span className="font-numeric font-bold text-ink-900">
+              {rows.length.toLocaleString('en')}
+            </span>{' '}
+            صفًا تتجاوز الدرجة العظمى. اختر قبول أو رفض كل صف —{' '}
+            <span className="font-numeric font-bold">
+              {pendingCount.toLocaleString('en')}
+            </span>{' '}
+            قيد القرار.
+          </span>
+        </div>
+        <BulkDecisionToggle
+          mode={bulkMode}
+          acceptLabel="قبول الكل"
+          rejectLabel="رفض الكل"
+          onAccept={onAcceptAll}
+          onReject={onRejectAll}
+        />
+      </header>
+
+      <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+        {rows.map((row) => (
+          <li key={row.sourceRowIndex}>
+            <OutOfRangeCard
+              row={row}
+              decision={decisions[row.sourceRowIndex]}
+              onDecide={(decision) => onSetDecision(row.sourceRowIndex, decision)}
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function OutOfRangeCard({
+  row,
+  decision,
+  onDecide,
+}: {
+  row: IntegrityAuditRow;
+  decision: 'accept' | 'reject' | undefined;
+  onDecide: (decision: 'accept' | 'reject') => void;
+}): JSX.Element {
+  const accent =
+    decision === 'accept'
+      ? 'var(--teal-500)'
+      : decision === 'reject'
+        ? 'var(--terra-400)'
+        : 'var(--gold-400)';
+  return (
+    <Card>
+      <CardBody className="p-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span
+              aria-hidden
+              className="inline-block h-6 w-1 rounded-pill"
+              style={{ background: accent }}
+            />
+            <span className="font-medium text-ink-900">{row.nameAr ?? '—'}</span>
+            {row.nationalId && (
+              <span className="font-mono text-2xs text-ink-500" dir="ltr">
+                {row.nationalId}
+              </span>
+            )}
+            <Badge tone="warning">
+              صف #
+              <span className="font-en tabular-nums">{row.sourceRowIndex}</span>
+            </Badge>
+            <Badge tone={decision === 'accept' ? 'success' : decision === 'reject' ? 'danger' : 'warning'}>
+              {decision === 'accept'
+                ? 'مقبول'
+                : decision === 'reject'
+                  ? 'مرفوض'
+                  : 'قيد القرار'}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant={decision === 'reject' ? 'primary' : 'secondary'}
+              leadingIcon={<X size={12} strokeWidth={2} aria-hidden />}
+              onClick={() => onDecide('reject')}
+            >
+              رفض
+            </Button>
+            <Button
+              size="sm"
+              variant={decision === 'accept' ? 'primary' : 'secondary'}
+              leadingIcon={<Check size={12} strokeWidth={2} aria-hidden />}
+              onClick={() => onDecide('accept')}
+            >
+              قبول
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-3 rounded-md border border-border-subtle bg-ink-50/60 px-3 py-2 text-xs">
+          <RowCell label="المجموع">
+            <span className="font-en text-sm font-bold text-ink-900">
+              {row.totalGrade ?? '—'}
+            </span>
+          </RowCell>
+          <RowCell label="الملاحظة">
+            <span className="text-xs text-ink-700">{row.detail}</span>
+          </RowCell>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+function HardInvalidSection({ rows }: { rows: IntegrityAuditRow[] }): JSX.Element {
+  return (
+    <section className="flex flex-col gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-terra-200 bg-terra-50 px-3.5 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-terra-700">
+          <ShieldAlert size={14} strokeWidth={1.75} aria-hidden />
+          <span>
+            <span className="font-numeric font-bold text-ink-900">
+              {rows.length.toLocaleString('en')}
+            </span>{' '}
+            صفًا به بيانات ناقصة أو غير قابلة للقراءة. هذه الصفوف مرفوضة حتى يتم تصحيح الملف.
+          </span>
+        </div>
+        <Badge tone="danger">مرفوضة</Badge>
+      </header>
+
+      <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+        {rows.map((row) => (
+          <li key={row.sourceRowIndex}>
+            <Card>
+              <CardBody className="p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span
+                      aria-hidden
+                      className="inline-block h-6 w-1 rounded-pill bg-terra-400"
+                    />
+                    <span className="font-medium text-ink-900">{row.nameAr ?? '—'}</span>
+                    {row.nationalId && (
+                      <span className="font-mono text-2xs text-ink-500" dir="ltr">
+                        {row.nationalId}
+                      </span>
+                    )}
+                    <Badge tone="danger">
+                      صف #
+                      <span className="font-en tabular-nums">{row.sourceRowIndex}</span>
+                    </Badge>
+                    <Badge tone="danger">{row.labelAr}</Badge>
+                  </div>
+                  <Badge tone="danger">مرفوض</Badge>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-3 rounded-md border border-border-subtle bg-ink-50/60 px-3 py-2 text-xs">
+                  <RowCell label="المجموع">
+                    <span className="font-en text-sm font-bold text-ink-900">
+                      {row.totalGrade ?? '—'}
+                    </span>
+                  </RowCell>
+                  <RowCell label="الملاحظة">
+                    <span className="text-xs text-ink-700">{row.detail}</span>
+                  </RowCell>
+                </div>
+              </CardBody>
+            </Card>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

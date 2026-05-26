@@ -75,15 +75,16 @@ export interface IntegrityDecisionSummary {
 
 export function summarizeIntegrityDecisions(
   rows: readonly IntegrityAuditRow[],
-  outOfRangeAction: 'skip' | 'override' | 'create-applicant' | undefined,
+  outOfRangeDecisions: Readonly<Record<number, 'accept' | 'reject'>>,
 ): IntegrityDecisionSummary {
   const rejectedSourceRows = new Set<number>();
   let pendingOutOfRangeCount = 0;
 
   for (const row of rows) {
     if (row.code === 'GRADE_OUT_OF_RANGE') {
-      if (outOfRangeAction === 'override') continue;
-      if (outOfRangeAction === 'skip') {
+      const decision = outOfRangeDecisions[row.sourceRowIndex];
+      if (decision === 'accept') continue;
+      if (decision === 'reject') {
         rejectedSourceRows.add(row.sourceRowIndex);
         continue;
       }

@@ -61,7 +61,7 @@ export function Step5DuplicateReview(): JSX.Element {
   const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const importResult = useImportWizardStore((s) => s.importResult);
   const setImportResult = useImportWizardStore((s) => s.setImportResult);
-  const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
+  const outOfRangeDecisions = useImportWizardStore((s) => s.outOfRangeDecisions);
   const loudDuplicateAck = useImportWizardStore((s) => s.loudDuplicateAck);
   const setLoudDuplicateAck = useImportWizardStore((s) => s.setLoudDuplicateAck);
   const [progress, setProgress] = useState<ImportPreflightProgress | null>(null);
@@ -155,7 +155,7 @@ export function Step5DuplicateReview(): JSX.Element {
   const alreadyImported = buildAlreadyImported(normalised, allRows ?? []).length;
   const decisionSummary = summarizeIntegrityDecisions(
     integrityRows,
-    perGroupActions.GRADE_OUT_OF_RANGE,
+    outOfRangeDecisions,
   );
   const rejectedCount = Math.max(
     report.totals.failed,

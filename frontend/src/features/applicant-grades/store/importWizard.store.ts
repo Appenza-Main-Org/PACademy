@@ -20,6 +20,7 @@ export type ImportStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
  *  incoming values; `reject` leaves the existing row untouched;
  *  `pending` means the admin hasn't decided yet. */
 export type ExistingDiffDecision = 'accept' | 'reject' | 'pending';
+export type RowDecision = 'accept' | 'reject';
 
 /** Resolution for an intra-upload duplicate NID. The store records the
  *  picked total OR source-row index whenever the admin chooses a
@@ -85,6 +86,11 @@ export interface PersistedImportWizardState {
    *  `pick-higher` so the wizard is always advanceable; the admin can
    *  flip per-row or via the bulk "قبول الكل بالدرجة الأعلى" action. */
   uploadDuplicateDecisions: Record<string, UploadDuplicateDecision>;
+  /** Per-source-row decision for grade rows that exceed the configured
+   *  maximum. These are intentionally row-scoped rather than group-wide
+   *  so admins can approve exceptional students one by one, or use bulk
+   *  controls to fill this map. */
+  outOfRangeDecisions: Record<number, RowDecision>;
   /** Admin override for the high-duplicate-ratio guard (see
    *  `DUPLICATE_RATIO_THRESHOLD` in `lib/duplicateAudit.ts`). Stays
    *  `false` by default; the wizard blocks advancement past Step 5 and
@@ -122,6 +128,8 @@ export interface ImportWizardState extends PersistedImportWizardState {
   setBulkExistingDiffDecisions: (decisions: Record<string, ExistingDiffDecision>) => void;
   setUploadDuplicateDecision: (nid: string, decision: UploadDuplicateDecision) => void;
   setBulkUploadDuplicateDecisions: (decisions: Record<string, UploadDuplicateDecision>) => void;
+  setOutOfRangeDecision: (sourceRowIndex: number, decision: RowDecision) => void;
+  setBulkOutOfRangeDecisions: (decisions: Record<number, RowDecision>) => void;
   setLoudDuplicateAck: (ack: boolean) => void;
   reset: () => void;
 }
@@ -178,6 +186,7 @@ function defaultState(): PersistedImportWizardState {
     perGroupActions: {},
     existingDiffDecisions: {},
     uploadDuplicateDecisions: {},
+    outOfRangeDecisions: {},
     loudDuplicateAck: false,
   };
 }
@@ -221,6 +230,7 @@ export const useImportWizardStore = create<ImportWizardState>()(
           perGroupActions: {},
           existingDiffDecisions: {},
           uploadDuplicateDecisions: {},
+          outOfRangeDecisions: {},
           loudDuplicateAck: false,
         }),
       setParsed: (parsed) => set({ parsed }),
@@ -258,6 +268,12 @@ export const useImportWizardStore = create<ImportWizardState>()(
         })),
       setBulkUploadDuplicateDecisions: (decisions) =>
         set({ uploadDuplicateDecisions: decisions }),
+      setOutOfRangeDecision: (sourceRowIndex, decision) =>
+        set((s) => ({
+          outOfRangeDecisions: { ...s.outOfRangeDecisions, [sourceRowIndex]: decision },
+        })),
+      setBulkOutOfRangeDecisions: (decisions) =>
+        set({ outOfRangeDecisions: decisions }),
       setLoudDuplicateAck: (loudDuplicateAck) => set({ loudDuplicateAck }),
       reset: () =>
         set({
@@ -285,6 +301,7 @@ export const useImportWizardStore = create<ImportWizardState>()(
         perGroupActions: s.perGroupActions,
         existingDiffDecisions: s.existingDiffDecisions,
         uploadDuplicateDecisions: s.uploadDuplicateDecisions,
+        outOfRangeDecisions: s.outOfRangeDecisions,
         loudDuplicateAck: s.loudDuplicateAck,
       }),
     },
