@@ -7,7 +7,6 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("api/admin/applicant-grades")]
-[Route("api/grades")]
 public sealed class ApplicantGradesController(
     ListGradesUseCase listGrades,
     FindGradeByNidUseCase findByNid,

@@ -13,6 +13,8 @@ COPY backend/applicant/Modules/LookupsRead/PACademy.Modules.LookupsRead.Applicat
 COPY backend/applicant/Modules/LookupsRead/PACademy.Modules.LookupsRead.Infrastructure/PACademy.Modules.LookupsRead.Infrastructure.csproj backend/applicant/Modules/LookupsRead/PACademy.Modules.LookupsRead.Infrastructure/
 COPY backend/applicant/Modules/GradesRead/PACademy.Modules.GradesRead.Application/PACademy.Modules.GradesRead.Application.csproj backend/applicant/Modules/GradesRead/PACademy.Modules.GradesRead.Application/
 COPY backend/applicant/Modules/GradesRead/PACademy.Modules.GradesRead.Infrastructure/PACademy.Modules.GradesRead.Infrastructure.csproj backend/applicant/Modules/GradesRead/PACademy.Modules.GradesRead.Infrastructure/
+COPY backend/applicant/Modules/IdentityApplicant/PACademy.Modules.IdentityApplicant.Application/PACademy.Modules.IdentityApplicant.Application.csproj backend/applicant/Modules/IdentityApplicant/PACademy.Modules.IdentityApplicant.Application/
+COPY backend/applicant/Modules/IdentityApplicant/PACademy.Modules.IdentityApplicant.Infrastructure/PACademy.Modules.IdentityApplicant.Infrastructure.csproj backend/applicant/Modules/IdentityApplicant/PACademy.Modules.IdentityApplicant.Infrastructure/
 COPY backend/applicant/PACademy.Applicant.Api/PACademy.Applicant.Api.csproj backend/applicant/PACademy.Applicant.Api/
 
 RUN dotnet restore backend/applicant/PACademy.Applicant.Api/PACademy.Applicant.Api.csproj

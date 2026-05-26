@@ -11,9 +11,9 @@
  * time on the print card but don't let the user pick it.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarCheck, CheckCircle2, Check } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, Check, Clock, MapPin } from 'lucide-react';
 import {
   Button,
   Card,
@@ -30,6 +30,7 @@ import {
   useExamSlots,
   usePickFirstExamDateMutation,
 } from '../api/applicantPortal.queries';
+import { useEligibleCategories } from '../api/categories.queries';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 
@@ -39,6 +40,26 @@ export function Stage8ExamSchedulePage(): JSX.Element {
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useExamSlots();
   const setFirstExamDate = useApplicantPortalStore((s) => s.setFirstExamDate);
+  const assignedCommitteeName = useApplicantPortalStore((s) => s.assignedCommitteeName);
+  const setAssignedCommittee = useApplicantPortalStore((s) => s.setAssignedCommittee);
+  const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  const moiSession = useApplicantPortalStore((s) => s.moiSession);
+  const storeNid = useApplicantPortalStore((s) => s.nationalId);
+  const nid = moiSession?.nationalId ?? storeNid ?? MOI_APPLICANT_SESSION.nationalId;
+
+  /* Fallback: if the committee wasn't saved during category selection
+   * (e.g. direct navigation or store cleared), fetch it now. */
+  const eligibilityQuery = useEligibleCategories(
+    assignedCommitteeName ? null : nid,
+  );
+  useEffect(() => {
+    if (assignedCommitteeName || !eligibilityQuery.data || !selectedCategoryKey) return;
+    const cat = eligibilityQuery.data.categories.find((c) => c.categoryId === selectedCategoryKey);
+    const first = cat?.committees?.[0] ?? null;
+    setAssignedCommittee(first?.committeeId ?? null, first?.committeeName ?? null);
+  }, [eligibilityQuery.data, assignedCommitteeName, selectedCategoryKey, setAssignedCommittee]);
+
+  const committeeLabel = assignedCommitteeName ?? (eligibilityQuery.isLoading ? '…' : '—');
   const pickMut = usePickFirstExamDateMutation(APPLICANT_ID);
   const [picked, setPicked] = useState<string>('');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -51,18 +72,17 @@ export function Stage8ExamSchedulePage(): JSX.Element {
   const dayOptions = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const seen = new Set<string>();
-    const ordered: Array<{ value: string; dayName: string; dateLabel: string }> = [];
+    const ordered: Array<{ slotId: string; value: string; dayName: string; dateLabel: string; time: string; location: string }> = [];
     for (const s of [...slots].sort((a, b) => a.date.localeCompare(b.date))) {
-      const dayKey = s.date.slice(0, 10);
-      if (seen.has(dayKey)) continue;
       const examDate = new Date(s.date);
       if (examDate.getTime() <= today.getTime()) continue;
-      seen.add(dayKey);
       ordered.push({
-        value: s.date,
+        slotId: s.id,
+        value: s.id,
         dayName: arabicDayOfWeek(examDate),
         dateLabel: fmtDate(s.date, 'full'),
+        time: s.time ?? '08:00',
+        location: s.location ?? '',
       });
       if (ordered.length === 3) break;
     }
@@ -80,8 +100,9 @@ export function Stage8ExamSchedulePage(): JSX.Element {
       toast('اختر تاريخ الإختبار أولاً', 'warning');
       return;
     }
-    await pickMut.mutateAsync({ date: picked });
-    setFirstExamDate(picked);
+    const selectedOpt = dayOptions.find((o) => o.slotId === picked);
+    const { date: resolvedDate } = await pickMut.mutateAsync({ slotId: picked });
+    setFirstExamDate(resolvedDate ?? selectedOpt?.dateLabel ?? picked);
     setConfirmOpen(true);
   };
 
@@ -106,7 +127,7 @@ export function Stage8ExamSchedulePage(): JSX.Element {
       <dl className="mb-4 grid grid-cols-1 gap-x-6 gap-y-3 rounded-md border border-border-default bg-ink-50/50 p-4 sm:grid-cols-3">
         <DefRow label="إسم الطالب" value={MOI_APPLICANT_SESSION.fullName} />
         <DefRow label="الرقم القومي" value={MOI_APPLICANT_SESSION.nationalId} ltr mono />
-        <DefRow label="اللجنة" value="اللجنة الثانية" />
+        <DefRow label="اللجنة" value={committeeLabel} />
       </dl>
 
       <div role="radiogroup" aria-label="تاريخ الإختبار" className="mb-4 grid gap-3 sm:grid-cols-3">
@@ -147,6 +168,16 @@ export function Stage8ExamSchedulePage(): JSX.Element {
                 {opt.dayName}
               </span>
               <span className="text-2xs text-ink-500">{opt.dateLabel}</span>
+              <span className="flex items-center gap-1 text-2xs text-ink-500">
+                <Clock size={11} strokeWidth={2} aria-hidden />
+                {opt.time}
+              </span>
+              {opt.location && (
+                <span className="flex items-center gap-1 text-2xs text-ink-400 text-center leading-tight">
+                  <MapPin size={11} strokeWidth={2} className="flex-shrink-0" aria-hidden />
+                  {opt.location}
+                </span>
+              )}
             </button>
           );
         })}

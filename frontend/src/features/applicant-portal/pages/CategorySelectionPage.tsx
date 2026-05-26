@@ -59,6 +59,7 @@ import {
 import type { ApplicantCategoryEligibility } from '../api/categories.service';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
+import { applicantPortalService } from '../api/applicantPortal.service';
 import { useLookup } from '@/features/lookups/api/lookups.queries';
 import type { FacultyRow, SpecializationRow } from '@/features/lookups';
 
@@ -94,6 +95,7 @@ export function CategorySelectionPage(): JSX.Element {
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const setSelectedFaculty = useApplicantPortalStore((s) => s.setSelectedFaculty);
   const setSelectedSpecialization = useApplicantPortalStore((s) => s.setSelectedSpecialization);
+  const setAssignedCommittee = useApplicantPortalStore((s) => s.setAssignedCommittee);
   /* Faculty + specialization picker shown after specialized-officers
    * selection. Applicant picks الكلية first, then chooses a specialization
    * scoped to that faculty. Sourced from the lookups module. */
@@ -137,6 +139,31 @@ export function CategorySelectionPage(): JSX.Element {
   const categoriesQuery = useCategories(selectedCycle?.id);
   const eligibilityCategoriesQuery = useEligibleCategories(identity?.nationalId ?? storeNid);
 
+  /* Derive the single eligible category key to restrict the category list.
+   * For mock-bypass logins `selectedCategoryKey` is already set by the MOI
+   * mock. For real backend logins it is null — use the backend eligibility
+   * response instead (show only the category/ies the backend says are eligible). */
+  const derivedEligibleKey = useMemo<string | null>(() => {
+    if (selectedCategoryKey) return selectedCategoryKey;
+    const cats = eligibilityCategoriesQuery.data?.categories;
+    if (!cats) return null;
+    const eligible = cats.filter((c) => c.eligible);
+    if (eligible.length === 1) return eligible[0]!.categoryId;
+    return null;
+  }, [selectedCategoryKey, eligibilityCategoriesQuery.data]);
+
+  /* When the backend returns an empty eligible list (no category matches
+   * the applicant's age / qualification / cycle rules), redirect to the
+   * ineligible page instead of showing all categories with no clear CTA. */
+  useEffect(() => {
+    if (!eligibilityCategoriesQuery.data) return;
+    if (selectedCategoryKey) return;
+    const eligible = eligibilityCategoriesQuery.data.categories.filter((c) => c.eligible);
+    if (eligible.length === 0) {
+      navigate(ROUTES.applicantIneligible, { replace: true });
+    }
+  }, [eligibilityCategoriesQuery.data, selectedCategoryKey, navigate]);
+
   /* Lookup-derived option lists — declared HERE (above the conditional
    * returns below) so they sit in a stable hook position across renders.
    * Moving the useMemo calls below the `if (loading) return` violated
@@ -169,6 +196,12 @@ export function CategorySelectionPage(): JSX.Element {
 
   const cycleYear = selectedCycle?.year ?? new Date().getFullYear();
 
+  const saveCommitteeForCategory = (categoryKey: string): void => {
+    const cat = eligibilityCategoriesQuery.data?.categories.find((c) => c.categoryId === categoryKey);
+    const first = cat?.committees?.[0] ?? null;
+    setAssignedCommittee(first?.committeeId ?? null, first?.committeeName ?? null);
+  };
+
   const onPickCategory = (categoryKey: string, enabled: boolean): void => {
     if (!enabled) return;
     /* For الضباط المتخصصون the applicant must pick a sub-specialization
@@ -177,6 +210,7 @@ export function CategorySelectionPage(): JSX.Element {
      * open the picker — confirmation will navigate. */
     if (categoryKey === 'specialized_officers') {
       setSelectedCategoryKey(categoryKey);
+      saveCommitteeForCategory(categoryKey);
       setPickedFacultyCode(null);
       setPickedSpecializationCode(null);
       setSpecializationPickerOpen(true);
@@ -187,13 +221,19 @@ export function CategorySelectionPage(): JSX.Element {
      * straight to the profile. */
     if (!identity || !selectedCycle) {
       setSelectedCategoryKey(categoryKey);
+      saveCommitteeForCategory(categoryKey);
       setSelectedFaculty(null);
       setSelectedSpecialization(null);
+      void applicantPortalService.saveDraft(MOI_APPLICANT_SESSION.applicantId, {
+        categoryKey,
+        ...(selectedCycle ? { cycleId: selectedCycle.id } : {}),
+      } as Parameters<typeof applicantPortalService.saveDraft>[1]);
       navigate(ROUTES.applicantProfile);
       return;
     }
     setSelectedFaculty(null);
     setSelectedSpecialization(null);
+    saveCommitteeForCategory(categoryKey);
     navigate(
       `${ROUTES.applicantEligibility}?category=${categoryKey}&cycle=${selectedCycle.id}`,
     );
@@ -211,6 +251,10 @@ export function CategorySelectionPage(): JSX.Element {
      * eligibility step for not_found-in-MOI users, otherwise navigate
      * to the eligibility-check page first. */
     if (!identity || !selectedCycle) {
+      void applicantPortalService.saveDraft(MOI_APPLICANT_SESSION.applicantId, {
+        categoryKey: 'specialized_officers',
+        ...(selectedCycle ? { cycleId: selectedCycle.id } : {}),
+      } as Parameters<typeof applicantPortalService.saveDraft>[1]);
       navigate(ROUTES.applicantProfile);
       return;
     }
@@ -301,7 +345,7 @@ export function CategorySelectionPage(): JSX.Element {
             /* When MOI verified the applicant for a specific category,
              * show only that one. For not_found / no MOI session, show
              * the full catalogue so the applicant can pick. */
-            eligibleKey={identity && selectedCategoryKey ? selectedCategoryKey : null}
+            eligibleKey={derivedEligibleKey}
             onPick={onPickCategory}
           />
         </Card>
@@ -667,7 +711,7 @@ function CategoryRow({
 /* ─── drawer bodies ─────────────────────────────────────────────────── */
 
 function IdentityDrawerBody(): JSX.Element {
-  const s = MOI_APPLICANT_SESSION;
+  const s = useApplicantPortalStore((st) => st.moiSession) ?? MOI_APPLICANT_SESSION;
   const rows: Array<{ label: string; value: string; ltr?: boolean; mono?: boolean }> = [
     { label: 'الإسم رباعي', value: s.fullName },
     { label: 'الرقم القومي', value: s.nationalId, ltr: true, mono: true },

@@ -40,6 +40,8 @@ export function useEligibleCategories(nationalId?: string | null) {
     queryKey: categoryKeys.eligibleCategories(nationalId),
     queryFn: () => categoriesPublicService.eligibleCategories(nationalId ?? ''),
     enabled: Boolean(nationalId),
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 

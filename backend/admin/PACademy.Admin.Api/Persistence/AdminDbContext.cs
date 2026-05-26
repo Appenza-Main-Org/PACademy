@@ -24,6 +24,8 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<OfficerEntity> Officers => Set<OfficerEntity>();
     public DbSet<AdminRecordEntity> AdminRecords => Set<AdminRecordEntity>();
+    public DbSet<ApplicantPortalRecordEntity> ApplicantPortalRecords => Set<ApplicantPortalRecordEntity>();
+    public DbSet<ExamSlotEntity> ExamSlots => Set<ExamSlotEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -214,6 +216,36 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
             entity.HasIndex(x => x.Module).HasDatabaseName("ix_admin_records_module");
+        });
+
+        modelBuilder.Entity<ApplicantPortalRecordEntity>(entity =>
+        {
+            entity.ToTable("applicant_portal_records");
+            entity.HasKey(x => new { x.Type, x.RecordId });
+            entity.Property(x => x.Type).HasColumnName("type").HasMaxLength(64);
+            entity.Property(x => x.RecordId).HasColumnName("record_id").HasMaxLength(128);
+            entity.Property(x => x.ApplicantId).HasColumnName("applicant_id").HasMaxLength(128);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.ApplicantId).HasDatabaseName("ix_portal_records_applicant_id");
+        });
+
+        modelBuilder.Entity<ExamSlotEntity>(entity =>
+        {
+            entity.ToTable("exam_slots");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(64);
+            entity.Property(x => x.Date).HasColumnName("date");
+            entity.Property(x => x.Time).HasColumnName("time").HasMaxLength(16);
+            entity.Property(x => x.Location).HasColumnName("location").HasMaxLength(512);
+            entity.Property(x => x.Capacity).HasColumnName("capacity");
+            entity.Property(x => x.Reserved).HasColumnName("reserved");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.Date).HasDatabaseName("ix_exam_slots_date");
         });
     }
 }

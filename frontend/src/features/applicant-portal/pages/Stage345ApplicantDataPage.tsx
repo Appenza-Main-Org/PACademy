@@ -58,33 +58,21 @@ import {
   mockMoiLookup,
   type MoiApplicantSession,
 } from '../lib/moi-session.mock';
-import { REF_GOVERNORATES } from '@/shared/mock-data/referenceData';
-import { CITIES } from '@/shared/mock-data/dictionaries';
 import {
   useApplicantGradeByNid,
-  useGrades,
 } from '@/features/applicant-grades/api/grades.queries';
 import { useApplicantCategories, useLookup } from '@/features/lookups/api/lookups.queries';
 import type { GradeRow } from '@/features/applicant-grades/types';
 import type {
   FacultyRow,
+  GovernorateRow,
+  PoliceStationRow,
   SchoolCategoryRow,
   UniversityRow,
 } from '@/features/lookups';
 import { emitAudit } from '@/shared/lib/audit';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
-
-const GOV_OPTIONS: readonly SearchSelectOption[] = REF_GOVERNORATES.map((g) => ({
-  value: g.nameAr,
-  label: g.nameAr,
-  keywords: g.nameEn,
-}));
-
-const DISTRICT_OPTIONS: readonly SearchSelectOption[] = CITIES.map((c) => ({
-  value: c,
-  label: c,
-}));
 
 const COUNTRY_OPTIONS: readonly SearchSelectOption[] = [
   { value: 'مصر', label: 'مصر' },
@@ -262,7 +250,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
    * synced into the form on mount. If not found, the school-type Select
    * narrows to lookup rows whose `externalGradesImport` is false (the
    * manual-entry tracks: foreign equivalent diplomas, etc.). */
-  const gradesQuery = useGrades();
   const schoolCategoriesQuery = useLookup('school-categories');
   /* Bachelor / postgrad pickers are sourced from the admin lookups module
    * (/admin/lookups/{faculties,specializations,universities}) so the
@@ -292,6 +279,23 @@ export function Stage345ApplicantDataPage(): JSX.Element {
         .map((u) => ({ value: u.name, label: u.name })),
     [universitiesQuery.data],
   );
+
+  const governoratesQuery = useLookup('governorates');
+  const policeStationsQuery = useLookup('police-stations');
+
+  const govNameToCode = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of governoratesQuery.data ?? []) m.set(g.name, g.code);
+    return m;
+  }, [governoratesQuery.data]);
+
+  const governorateOptions: readonly SearchSelectOption[] = useMemo(
+    () =>
+      (governoratesQuery.data ?? [])
+        .filter((g: GovernorateRow) => g.isActive)
+        .map((g) => ({ value: g.name, label: g.name })),
+    [governoratesQuery.data],
+  );
   /* MOI-returned school metadata that doesn't live on the canonical
    * GradeRow shape (yet) — country + graduation date come back together
    * with the matched Thanaweya row and are rendered read-only on the
@@ -305,7 +309,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
 
   const matchedGradeRow = useMemo<GradeRow | null>(() => {
     /* Prefer a real row from the backend when available. */
-    const fromBackend = gradesQuery.data?.find((r) => r.nid === session.nationalId) ?? null;
+    const fromBackend = gradeByNidQuery.data ?? null;
     if (fromBackend) return fromBackend;
     /* Fallback for mock-only demo runs (no `/admin/grades` endpoint) —
      * known eligible NIDs (e.g. Ahmed) get a hardcoded Thanaweya row so
@@ -336,7 +340,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       status: '—',
       log: [],
     };
-  }, [gradesQuery.data, session.nationalId, session.fullName, session.gender]);
+  }, [gradeByNidQuery.data, session.nationalId, session.fullName, session.gender]);
   const externalImport = matchedGradeRow !== null;
 
   const manualSchoolCategories = useMemo<SchoolCategoryRow[]>(() => {
@@ -397,6 +401,37 @@ export function Stage345ApplicantDataPage(): JSX.Element {
    * changes to a value where the old specialization no longer fits. */
   const watchedFaculty = useWatch({ control, name: 'bachelorFaculty' });
   const watchedSpecialization = useWatch({ control, name: 'bachelorSpecialization' });
+  const watchedAddressGovernorate = useWatch({ control, name: 'addressGovernorate' });
+
+  const birthGovCode = useMemo(
+    () =>
+      govNameToCode.get(
+        (isMoiVerified && session.birthGovernorate) ? session.birthGovernorate : manualPersonal.birthGovernorate,
+      ) ?? null,
+    [govNameToCode, isMoiVerified, session.birthGovernorate, manualPersonal.birthGovernorate],
+  );
+  const addressGovCode = useMemo(
+    () => govNameToCode.get(watchedAddressGovernorate ?? '') ?? null,
+    [govNameToCode, watchedAddressGovernorate],
+  );
+  const birthDistrictOptions: readonly SearchSelectOption[] = useMemo(
+    () =>
+      birthGovCode
+        ? (policeStationsQuery.data ?? [])
+            .filter((ps: PoliceStationRow) => ps.isActive && ps.governorateCode === birthGovCode)
+            .map((ps) => ({ value: ps.name, label: ps.name }))
+        : [],
+    [policeStationsQuery.data, birthGovCode],
+  );
+  const addressDistrictOptions: readonly SearchSelectOption[] = useMemo(
+    () =>
+      addressGovCode
+        ? (policeStationsQuery.data ?? [])
+            .filter((ps: PoliceStationRow) => ps.isActive && ps.governorateCode === addressGovCode)
+            .map((ps) => ({ value: ps.name, label: ps.name }))
+        : [],
+    [policeStationsQuery.data, addressGovCode],
+  );
   const scopedSpecializationOptions: readonly SearchSelectOption[] = useMemo(() => {
     if (!watchedFaculty) return [];
     const f = facultyByName.get(watchedFaculty);
@@ -487,7 +522,48 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   }, [matchedGradeRow, matchedSchoolExtras, setValue]);
 
   const onSubmit = async (values: Stage345Values): Promise<void> => {
-    await applicantPortalService.submitStage(APPLICANT_ID, 3, { profile: values });
+    /* Merge MOI session fields (identity source of truth when verified) and
+     * manualPersonal fields (maritalStatus + shuhra are always manual since
+     * MOI doesn't carry them; other identity fields come from manual on the
+     * not_found path). This ensures every personal field reaches the backend
+     * regardless of which form inputs are read-only vs editable. */
+    const personalBase = isMoiVerified
+      ? {
+          fullName: session.fullName,
+          nationalId: session.nationalId,
+          dateOfBirth: session.dateOfBirth,
+          dateOfBirthAr: session.dateOfBirthAr,
+          gender: session.gender,
+          religion: session.religion,
+          birthGovernorate: session.birthGovernorate,
+          birthDistrict: session.birthDistrict,
+          mobile: session.mobile,
+          email: session.email,
+        }
+      : {
+          fullName: manualPersonal.fullName,
+          nationalId: nid,
+          dateOfBirthAr: manualPersonal.dateOfBirthAr,
+          gender: manualPersonal.gender,
+          religion: manualPersonal.religion,
+          birthGovernorate: manualPersonal.birthGovernorate,
+          birthDistrict: manualPersonal.birthDistrict,
+          mobile: manualPersonal.mobile,
+          email: manualPersonal.email,
+          officerApplicantType: manualPersonal.officerApplicantType,
+        };
+    const profilePayload = {
+      ...personalBase,
+      maritalStatus: manualPersonal.maritalStatus,
+      shuhra: manualPersonal.shuhra,
+      qualificationLevel,
+      ...values,
+    };
+    await applicantPortalService.submitStage(APPLICANT_ID, 3, {
+      profile: profilePayload,
+      ...(selectedCategoryKey ? { categoryKey: selectedCategoryKey } : {}),
+      ...(selectedCycleId ? { cycleId: selectedCycleId } : {}),
+    });
     /* Mirror the form payload + the manual-personal block to
      * sessionStorage so the print-card step can pull them into the
      * طلب الالتحاق PDF. The MOI session (when present) is the canonical
@@ -708,7 +784,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           icon={<GraduationCap size={16} strokeWidth={1.75} />}
           title="بيانات الدراسة"
         />
-        {gradesQuery.isLoading || schoolCategoriesQuery.isLoading ? (
+        {gradeByNidQuery.isLoading || schoolCategoriesQuery.isLoading ? (
           <LoadingState variant="list" rows={3} />
         ) : externalImport && matchedGradeRow ? (
           <div className="flex flex-col gap-4">
@@ -864,13 +940,16 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             <SearchSelect
               ariaLabel="محل الميلاد"
               placeholder="اختر المحافظة"
-              options={GOV_OPTIONS}
+              options={governorateOptions}
               value={
                 (isMoiVerified ? session.birthGovernorate : manualPersonal.birthGovernorate) ||
                 null
               }
-              onChange={(v) => setManual('birthGovernorate', v ?? '')}
-              disabled={isMoiVerified}
+              onChange={(v) => {
+                setManual('birthGovernorate', v ?? '');
+                setValue('birthDistrict', '');
+              }}
+              disabled={isMoiVerified && !!session.birthGovernorate}
             />
           </Field>
           <Field label="القسم / مركز الميلاد" required error={errors.birthDistrict?.message}>
@@ -880,10 +959,11 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               render={({ field }) => (
                 <SearchSelect
                   ariaLabel="القسم / مركز الميلاد"
-                  placeholder="اختر القسم أو المركز"
-                  options={DISTRICT_OPTIONS}
+                  placeholder={birthGovCode ? 'اختر القسم أو المركز' : 'اختر المحافظة أولاً'}
+                  options={birthDistrictOptions}
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v ?? '')}
+                  disabled={!birthGovCode}
                 />
               )}
             />
@@ -906,9 +986,12 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                 <SearchSelect
                   ariaLabel="محافظة الإقامة"
                   placeholder="اختر المحافظة"
-                  options={GOV_OPTIONS}
+                  options={governorateOptions}
                   value={field.value ?? null}
-                  onChange={(v) => field.onChange(v ?? '')}
+                  onChange={(v) => {
+                    field.onChange(v ?? '');
+                    setValue('addressDistrict', '');
+                  }}
                 />
               )}
             />
@@ -920,10 +1003,11 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               render={({ field }) => (
                 <SearchSelect
                   ariaLabel="القسم / مركز الإقامة"
-                  placeholder="اختر القسم أو المركز"
-                  options={DISTRICT_OPTIONS}
+                  placeholder={addressGovCode ? 'اختر القسم أو المركز' : 'اختر المحافظة أولاً'}
+                  options={addressDistrictOptions}
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v ?? '')}
+                  disabled={!addressGovCode}
                 />
               )}
             />

@@ -36,31 +36,31 @@ import {
 } from '../lib/deterministic-codes';
 import { AdmissionFormSection } from '../components/AdmissionFormSection';
 
-const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 const COMMITTEE_NUMBER = 2;
 
 export function Stage9PrintCardPage(): JSX.Element {
-  const { data: draft } = useDraft(APPLICANT_ID);
+  const moiSession = useApplicantPortalStore((s) => s.moiSession);
+  const applicantId = moiSession?.applicantId ?? MOI_APPLICANT_SESSION.applicantId;
+  const { data: draft } = useDraft(applicantId);
   const firstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
   const paymentReference =
     useApplicantPortalStore((s) => s.paymentReference) ??
-    deterministicPaymentReference(APPLICANT_ID);
+    deterministicPaymentReference(applicantId);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const categoriesQuery = useCategories();
   const category = (categoriesQuery.data ?? []).find((c) => c.key === selectedCategoryKey);
-  const fileNumber = deterministicFileNumber(APPLICANT_ID);
+  const fileNumber = deterministicFileNumber(applicantId);
 
-  /* Prefer the explicit firstExamDate from the store (set on Stage 8); fall
-   * back to the draft's examSlot for the legacy reservation flow. */
-  const slot = firstExamDate
+  /* Prefer the draft's examSlot (has real time + location from DB); fall
+   * back to the store's firstExamDate (set on Stage 8 completion) with
+   * sensible defaults. */
+  const slot = draft?.examSlot ?? (firstExamDate
     ? { date: firstExamDate, time: '08:00', location: 'كلية الشرطة - مبنى الاختبارات - القاهرة' }
-    : draft?.examSlot ?? {
-        date: '2026-03-15T08:00:00.000Z',
-        time: '08:00',
-        location: 'كلية الشرطة - مبنى الاختبارات - القاهرة',
-      };
+    : { date: '2026-03-15T08:00:00.000Z', time: '08:00', location: 'كلية الشرطة - مبنى الاختبارات - القاهرة' });
 
-  const barcodeValue = `${MOI_APPLICANT_SESSION.nationalId}-${paymentReference}`;
+  const displayNationalId = moiSession?.nationalId ?? MOI_APPLICANT_SESSION.nationalId;
+  const displayFullName = moiSession?.fullName ?? MOI_APPLICANT_SESSION.fullName;
+  const barcodeValue = `${displayNationalId}-${paymentReference}`;
 
   return (
     <div
@@ -117,7 +117,7 @@ export function Stage9PrintCardPage(): JSX.Element {
             <div>
               <p className="text-2xs uppercase tracking-wide text-ink-500">إسم الطالب</p>
               <p className="font-ar-display text-lg font-bold text-ink-900">
-                {MOI_APPLICANT_SESSION.fullName}
+                {displayFullName}
               </p>
             </div>
             <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
@@ -136,7 +136,7 @@ export function Stage9PrintCardPage(): JSX.Element {
               <div>
                 <p className="text-2xs uppercase tracking-wide text-ink-500">الرقم القومي</p>
                 <p className="font-mono text-sm text-ink-900">
-                  <span dir="ltr">{MOI_APPLICANT_SESSION.nationalId}</span>
+                  <span dir="ltr">{displayNationalId}</span>
                 </p>
               </div>
             </div>

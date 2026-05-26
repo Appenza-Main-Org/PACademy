@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using PACademy.Applicant.Api.Modules.ApplicantPortal;
 using PACademy.Modules.IdentityApplicant.Infrastructure;
 using PACademy.Modules.LookupsRead.Infrastructure;
 using PACademy.Modules.GradesRead.Infrastructure;
@@ -23,7 +24,11 @@ var frontendOrigin = builder.Configuration["Cors:ApplicantFrontendOrigin"]
     ?? "http://localhost:5173";
 const string CorsPolicyName = "applicant-frontend";
 builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
-    .WithOrigins(frontendOrigin)
+    .WithOrigins(
+        frontendOrigin,
+        "http://localhost:5173",
+        "https://appenzademo.com",
+        "https://www.appenzademo.com")
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials()));
@@ -56,6 +61,8 @@ builder.Services.AddAuthorization();
 builder.Services.AddLookupsReadModule(builder.Configuration);
 builder.Services.AddGradesReadModule(builder.Configuration);
 builder.Services.AddIdentityApplicantModule(builder.Configuration);
+builder.Services.AddApplicantPortalModule(builder.Configuration);
+builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
@@ -64,6 +71,9 @@ if (app.Configuration.GetValue<bool>("UseInMemoryDatabase"))
 {
     LookupsDevSeeder.SeedFacultiesIfEmpty(app.Services);
 }
+
+/* Seed exam slots on every startup (idempotent — skips if already seeded). */
+await PortalSeeder.SeedExamSlotsAsync(app.Services);
 
 /* Exception handler is the FIRST middleware — catches anything
  * downstream and translates to the canonical envelope shape. */

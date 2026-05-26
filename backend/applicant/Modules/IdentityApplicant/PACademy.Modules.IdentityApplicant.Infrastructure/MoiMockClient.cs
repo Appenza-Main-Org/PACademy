@@ -3,15 +3,21 @@ using PACademy.Modules.IdentityApplicant.Application.Moi;
 namespace PACademy.Modules.IdentityApplicant.Infrastructure;
 
 /// <summary>
-/// Dev/Demo MOI client. Hardcodes the 4 demo NIDs verbatim from
-/// <c>frontend/src/features/applicant-portal/lib/moi-session.mock.ts</c>:
-///   • 30412180103456 → Ahmed (eligible)
-///   • 28503150103456 → Khaled (ineligible — frontend decides)
-///   • 30506200103456 → null (Mohamed, not_found path)
-///   • 30407010103456 → Youssef (submitted demo)
+/// Dev/Demo MOI client. Hardcodes all demo NIDs verbatim from
+/// <c>frontend/src/features/applicant-portal/lib/moi-session.mock.ts</c>.
 ///
-/// Production swaps this for <c>MoiHttpClient</c> behind the same
-/// <see cref="IMoiClient"/> interface — no consumer change.
+/// Seeded users (NID → mobile):
+///   30412180103456 → 01012345678 Ahmed  — eligible, قسم عام
+///   28503150103456 → 01098765432 Khaled — ineligible (over age)
+///   30407010103456 → 01098765432 Youssef (submitted demo)
+///   30501010103456 → 01098765432 Karim  — eligible, وثيقة تعارف fillable
+///   30501010203456 → 01098765433 Karim  — eligible, وثيقة تعارف expired
+///   30502010103456 → 01098765434 Mahmoud — eligible, ضباط متخصصون
+///   30503010103456 → 01098765435 Youssef — eligible, ليسانس حقوق
+///
+/// 30506200103456 (Mohamed) intentionally absent → null verdict (not_found).
+///
+/// Production swaps this for <c>MoiHttpClient</c> — no consumer change.
 /// </summary>
 public sealed class MoiMockClient : IMoiClient
 {
@@ -55,6 +61,59 @@ public sealed class MoiMockClient : IMoiClient
             BirthGovernorate: "الجيزة",
             BirthDistrict: "الدقي",
             Religion: "مسلم"),
+
+        ["30501010103456"] = new MoiApplicantSessionDto(
+            ApplicantId: "APP-2026731",
+            FullName: "كريم محمود فؤاد العقّاد",
+            NationalId: "30501010103456",
+            DateOfBirth: "2005-01-01",
+            DateOfBirthAr: "١ يناير ٢٠٠٥",
+            Gender: "male",
+            Mobile: "01098765432",
+            Email: "karim.elaqqad@example.eg",
+            BirthGovernorate: "الجيزة",
+            BirthDistrict: "الدقي",
+            Religion: "مسلم"),
+
+        ["30501010203456"] = new MoiApplicantSessionDto(
+            ApplicantId: "APP-2026732",
+            FullName: "كريم محمود فؤاد العقّاد",
+            NationalId: "30501010203456",
+            DateOfBirth: "2005-01-01",
+            DateOfBirthAr: "١ يناير ٢٠٠٥",
+            Gender: "male",
+            Mobile: "01098765433",
+            Email: "karim.elaqqad.expired@example.eg",
+            BirthGovernorate: "الجيزة",
+            BirthDistrict: "الدقي",
+            Religion: "مسلم"),
+
+        ["30502010103456"] = new MoiApplicantSessionDto(
+            ApplicantId: "APP-2026733",
+            FullName: "محمود فؤاد عبد الرحمن العقّاد",
+            NationalId: "30502010103456",
+            DateOfBirth: "1990-02-15",
+            DateOfBirthAr: "١٥ فبراير ١٩٩٠",
+            Gender: "male",
+            Mobile: "01098765434",
+            Email: "mahmoud.elaqqad.specialized@example.eg",
+            BirthGovernorate: "القاهرة",
+            BirthDistrict: "مدينة نصر",
+            Religion: "مسلم"),
+
+        ["30503010103456"] = new MoiApplicantSessionDto(
+            ApplicantId: "APP-2026734",
+            FullName: "يوسف عمر محمد فاروق",
+            NationalId: "30503010103456",
+            DateOfBirth: "1988-09-22",
+            DateOfBirthAr: "٢٢ سبتمبر ١٩٨٨",
+            Gender: "male",
+            Mobile: "01098765435",
+            Email: "youssef.faroq.law@example.eg",
+            BirthGovernorate: "الإسكندرية",
+            BirthDistrict: "سيدي جابر",
+            Religion: "مسلم"),
+
         // 30506200103456 (Mohamed) intentionally absent → null verdict.
     };
 

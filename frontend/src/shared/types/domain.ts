@@ -1236,6 +1236,8 @@ export interface ApplicantDraft {
   furthestStage: number;
   suspended: boolean;
   lastSavedAt: number;
+  /** Category the applicant selected on /applicant/start. */
+  categoryKey?: string;
   auth?: {
     nationalId: string;
     phoneNumber: string;
@@ -1244,14 +1246,45 @@ export interface ApplicantDraft {
   personal?: Record<string, unknown>;
   education?: Record<string, unknown>;
   marital?: Record<string, unknown>;
+  /** Profile payload saved by Stage 3 (Stage345ApplicantDataPage). */
+  profile?: {
+    shuhra?: string;
+    maritalStatus?: 'single' | 'married' | 'divorced' | 'widowed';
+    addressGovernorate?: string;
+    addressDistrict?: string;
+    currentAddressDetail?: string;
+    homePhone?: string;
+    secondaryMobile?: string;
+    facebook?: string;
+    twitter?: string;
+    instagram?: string;
+    schoolNameAr?: string;
+    schoolAddress?: string;
+    thanawiCountry?: string;
+    thanawiTotal?: number;
+    thanawiPercentage?: number;
+    thanawiType?: string;
+    thanawiGradDate?: string;
+    bachelorFaculty?: string;
+    bachelorUniversity?: string;
+    bachelorMajor?: string;
+    bachelorBranch?: string;
+    bachelorSpecialization?: string;
+    bachelorPercentage?: number;
+    bachelorYear?: number;
+    [key: string]: unknown;
+  };
   payment?: {
-    method: 'fawry' | 'card';
+    method: 'fawry' | 'card' | 'fawry-code';
     fawryCode?: string;
     refNumber?: string;
-    amount: number;
+    amount?: number;
     paidAt?: number;
   };
   family?: Record<string, unknown>;
+  /** Set after POST /applicant/parents/approve succeeds. */
+  parentsApproved?: boolean;
+  parentsApprovedAt?: number;
   examSlot?: { slotId: string; date: string; time: string; location: string };
   followUp?: Record<string, PipelineState>;
   acquaintance?: Record<string, unknown>;

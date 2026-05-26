@@ -13,6 +13,7 @@ COPY backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Applicatio
 COPY backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/PACademy.Modules.LookupsAdmin.Infrastructure.csproj backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/
 COPY backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/PACademy.Modules.ApplicantGradesAdmin.Application.csproj backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/
 COPY backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/PACademy.Modules.ApplicantGradesAdmin.Infrastructure.csproj backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/
+COPY backend/admin/Modules/IdentityApplicantAdmin/PACademy.Modules.IdentityApplicantAdmin.Infrastructure/PACademy.Modules.IdentityApplicantAdmin.Infrastructure.csproj backend/admin/Modules/IdentityApplicantAdmin/PACademy.Modules.IdentityApplicantAdmin.Infrastructure/
 COPY backend/admin/PACademy.Admin.Api/PACademy.Admin.Api.csproj backend/admin/PACademy.Admin.Api/
 
 RUN dotnet restore backend/admin/PACademy.Admin.Api/PACademy.Admin.Api.csproj

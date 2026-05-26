@@ -8,7 +8,8 @@ public static class LookupsModule
 {
     public static IServiceCollection AddLookupsModule(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("AdminDb");
+        var connectionString = configuration.GetConnectionString("AdminDb")
+            ?? configuration.GetConnectionString("Default");
         var useInMemory = configuration.GetValue<bool>("UseInMemoryAdminDb");
         services.AddDbContext<AdminDbContext>(options =>
         {

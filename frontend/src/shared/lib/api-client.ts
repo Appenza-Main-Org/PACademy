@@ -45,6 +45,16 @@ function apiBaseUrl(): string {
   return (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
 }
 
+function adminApiBaseUrl(): string {
+  const explicit = import.meta.env.VITE_ADMIN_API_BASE_URL as string | undefined;
+  return (explicit ?? import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+}
+
+function applicantApiBaseUrl(): string {
+  const explicit = import.meta.env.VITE_APPLICANT_API_BASE_URL as string | undefined;
+  return (explicit ?? import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+}
+
 function readAuthToken(): string | null {
   if (typeof sessionStorage === 'undefined') return null;
   const raw = sessionStorage.getItem('pa-auth');
@@ -59,7 +69,7 @@ function readAuthToken(): string | null {
 }
 
 function shouldSendAuthHeader(): boolean {
-  return import.meta.env.VITE_SEND_AUTH_HEADER === 'true';
+  return true;
 }
 
 export function queryString(query?: QueryObject): string {
@@ -202,17 +212,23 @@ async function fetchWithReadRetry(
   throw new Error('تعذر الاتصال بالخادم');
 }
 
-async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  options: RequestOptions = {},
+  baseOverride?: string,
+): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
   const token = options.skipAuth || !shouldSendAuthHeader() ? null : readAuthToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const body = prepareBody(options.body, headers);
-  const res = await fetchWithReadRetry(method, `${apiBaseUrl()}${path}${queryString(options.query)}`, {
+  const base = baseOverride ?? apiBaseUrl();
+  const body2 = prepareBody(options.body, headers);
+  const res = await fetchWithReadRetry(method, `${base}${path}${queryString(options.query)}`, {
     method,
     headers,
-    body,
+    body: body2,
     signal: options.signal,
   }, options.signal);
   const contentType = res.headers.get('content-type') ?? '';
@@ -241,19 +257,30 @@ async function requestBlob(path: string, options: RequestOptions = {}): Promise<
   return res.blob();
 }
 
-export const apiClient = {
-  get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, options),
-  postForm: <T>(path: string, body: Record<string, string>) =>
-    request<T>('POST', path, {
-      body: new URLSearchParams(body),
-      skipAuth: true,
-    }),
-  post: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
-    request<T>('POST', path, { ...options, body }),
-  patch: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
-    request<T>('PATCH', path, { ...options, body }),
-  put: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
-    request<T>('PUT', path, { ...options, body }),
-  delete: <T>(path: string, options?: RequestOptions) => request<T>('DELETE', path, options),
-  blob: (path: string, options?: RequestOptions) => requestBlob(path, options),
-};
+function makeClient(baseUrl: () => string) {
+  return {
+    get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, options, baseUrl()),
+    postForm: <T>(path: string, body: Record<string, string>) =>
+      request<T>('POST', path, { body: new URLSearchParams(body), skipAuth: true }, baseUrl()),
+    post: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
+      request<T>('POST', path, { ...options, body }, baseUrl()),
+    patch: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
+      request<T>('PATCH', path, { ...options, body }, baseUrl()),
+    put: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
+      request<T>('PUT', path, { ...options, body }, baseUrl()),
+    delete: <T>(path: string, options?: RequestOptions) => request<T>('DELETE', path, options, baseUrl()),
+    blob: (path: string, options?: RequestOptions) => requestBlob(path, options),
+  };
+}
+
+/** Default client — uses VITE_API_BASE_URL (admin API in admin-first integration). */
+export const apiClient = makeClient(apiBaseUrl);
+
+/** Admin API client — uses VITE_ADMIN_API_BASE_URL, falls back to VITE_API_BASE_URL.
+ *  Use this for any call that must reach the admin backend from the applicant portal
+ *  (e.g. GET /api/applicants/:nid/eligible-categories). */
+export const adminApiClient = makeClient(adminApiBaseUrl);
+
+/** Applicant API client — uses VITE_APPLICANT_API_BASE_URL, falls back to VITE_API_BASE_URL.
+ *  Use this from the applicant portal for all portal-specific endpoints. */
+export const applicantApiClient = makeClient(applicantApiBaseUrl);
