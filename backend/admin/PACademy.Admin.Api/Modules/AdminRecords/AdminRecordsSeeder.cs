@@ -22,9 +22,9 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
     public async Task SeedAsync(IAdminRecordsDbContext db, CancellationToken ct = default)
     {
         await RemoveLegacyAuditRecordsAsync(db, ct);
-        await RemoveMockSeedRecordsAsync(db, ct);
         if (!ShouldSeedMockRecords()) return;
 
+        await RemoveMockSeedRecordsAsync(db, ct);
         if (await db.AdminRecords.AnyAsync(ct)) return;
         var path = Path.Combine(environment.ContentRootPath, "SeedData", "admin-records.seed.json");
         await using var stream = File.OpenRead(path);
