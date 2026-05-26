@@ -297,8 +297,10 @@ public sealed class PortalService(PortalDbContext db)
 
     public async Task<string> PickExamDateAsync(string applicantId, string slotId, CancellationToken ct)
     {
+        // Accept either the full slot ID ("SLT-2026-06-15") or just the date
+        // ("2026-06-15") — the eligible-categories API returns bare date strings.
         var slot = await db.ExamSlots.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == slotId, ct)
+            .FirstOrDefaultAsync(x => x.Id == slotId || x.Id == $"SLT-{slotId}", ct)
             ?? throw new KeyNotFoundException($"موعد الاختبار '{slotId}' غير موجود");
 
         var draft = await GetOrCreateDraftAsync(applicantId, ct);

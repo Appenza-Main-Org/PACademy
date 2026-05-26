@@ -15,7 +15,7 @@
  */
 
 import { Link, Outlet } from 'react-router-dom';
-import { HelpCircle, Home, Phone, Users } from 'lucide-react';
+import { HelpCircle, Home, Phone } from 'lucide-react';
 import { KhayameyaStripe, LogoMark, Pattern } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 
@@ -60,14 +60,6 @@ export function ApplicantPreWizardLayout(): JSX.Element {
             aria-label="الأسئلة الشائعة"
           >
             <HelpCircle size={18} strokeWidth={1.75} />
-          </Link>
-          <span aria-hidden className="mx-1 hidden h-6 w-px bg-border-subtle sm:inline-block" />
-          <Link
-            to={ROUTES.applicant}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-surface-card px-3 py-2 text-sm font-medium text-ink-800 transition-colors duration-fast ease-standard hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-          >
-            <Users size={15} strokeWidth={1.75} aria-hidden />
-            <span className="hidden sm:inline">بوابة المتقدم</span>
           </Link>
           <Link
             to={ROUTES.hub}
