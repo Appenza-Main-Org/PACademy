@@ -6,7 +6,7 @@
  * cycleId is part of every key so switching the cycle context (via
  * `useAdmissionSetupCycle`) re-fetches without manual invalidation.
  */
-
+ 
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { admissionSetupService } from './admission-setup.service';
 import type { ApplicantCategoryKey } from '@/shared/types/domain';
