@@ -252,13 +252,24 @@ public sealed class ApplicantEligibilityService(
             {
                 var parameter = new SqlParameter("@id", module);
 #pragma warning disable EF1002
-                var payload = await db.Database
-                    .SqlQueryRaw<string>($"""
-                        SELECT TOP(1) [payload_json] AS [Value]
-                        FROM {AdminDbContext.QualifiedTableName("cycle_application_settings")}
-                        WHERE [id] = @id
-                        """, parameter)
-                    .FirstOrDefaultAsync(ct);
+                string? payload;
+                try
+                {
+                    payload = await db.Database
+                        .SqlQueryRaw<string>($"""
+                            SELECT TOP(1) [payload_json] AS [Value]
+                            FROM {AdminDbContext.QualifiedTableName("cycle_application_settings")}
+                            WHERE [id] = @id
+                            """, parameter)
+                        .FirstOrDefaultAsync(ct);
+                }
+                catch (SqlException ex) when (ex.Number == 208)
+                {
+                    var record = await db.AdminRecords
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
+                    payload = record?.PayloadJson;
+                }
 #pragma warning restore EF1002
                 draft = payload is null ? null : AdminRecordJson.Parse(payload);
             }
