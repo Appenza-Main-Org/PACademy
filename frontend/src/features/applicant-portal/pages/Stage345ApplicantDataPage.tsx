@@ -402,6 +402,10 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   const watchedFaculty = useWatch({ control, name: 'bachelorFaculty' });
   const watchedSpecialization = useWatch({ control, name: 'bachelorSpecialization' });
   const watchedAddressGovernorate = useWatch({ control, name: 'addressGovernorate' });
+  const watchedDeclaration = useWatch({ control, name: 'declaration' });
+  const watchedSchoolName = useWatch({ control, name: 'schoolNameAr' });
+  const watchedSchoolAddress = useWatch({ control, name: 'schoolAddress' });
+  const watchedAddressDistrict = useWatch({ control, name: 'addressDistrict' });
 
   const birthGovCode = useMemo(
     () =>
@@ -1143,7 +1147,15 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             variant="primary"
             size="lg"
             isLoading={isSubmitting}
-            disabled={!selectedCategoryKey || maritalBlocked}
+            disabled={
+              !watchedDeclaration ||
+              !watchedSchoolName?.trim() ||
+              !watchedSchoolAddress?.trim() ||
+              !watchedAddressGovernorate ||
+              !watchedAddressDistrict ||
+              !selectedCategoryKey ||
+              maritalBlocked
+            }
           >
             حفظ والمتابعة
           </Button>

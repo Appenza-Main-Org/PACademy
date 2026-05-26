@@ -291,9 +291,9 @@ export function Stage7FamilyPage(): JSX.Element {
       hasMotherHusbands,
     };
     saveFamilySnapshot(snapshot);
-    void applicantPortalService.submitStage(applicantId, 7, {
+    void applicantPortalService.saveDraft(applicantId, {
       family: { father, mother, fatherWives, motherHusbands, grandparents, relatives, guardian },
-    });
+    } as Parameters<typeof applicantPortalService.saveDraft>[1]);
     navigate(ROUTES.applicantFamilyReview);
   };
 
