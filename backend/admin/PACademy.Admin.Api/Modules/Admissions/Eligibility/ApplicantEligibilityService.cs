@@ -8,7 +8,10 @@ using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.Admissions.Eligibility;
 
-public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache cache)
+public sealed class ApplicantEligibilityService(
+    AdminDbContext db,
+    IMemoryCache cache,
+    AdminRecordsService? records = null)
 {
     private const string SettingsCacheKey = "eligibility:active-settings:v2";
     private static readonly TimeSpan SettingsCacheTtl = TimeSpan.FromMinutes(2);
@@ -29,6 +32,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
         var categoryLookups = snapshot.CategoryLookups;
         var committeeLookups = snapshot.CommitteeLookups;
         var lookups = snapshot.Lookups;
+        var examSlotsByCommitteeKey = await LoadCommitteeExamSlotsAsync(activeCycle.Id, ct);
 
         var grade = await LoadGradeAsync(nid.NationalId, ct);
         var firstReferenceDate = years.Select(x => (DateOnly?)x.AgeReferenceDate).OrderBy(x => x).FirstOrDefault()
@@ -62,7 +66,13 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
             var checks = evaluation.Checks;
             var failedReasons = evaluation.FailedReasons;
             var committees = failedReasons.Count == 0
-                ? ResolveCommittees(committeeLookups, settings.CategoryId, settings.CategoryName, evaluation.MatchedRuleId, committeeIdsByRuleId)
+                ? ResolveCommittees(
+                    committeeLookups,
+                    settings.CategoryId,
+                    settings.CategoryName,
+                    evaluation.MatchedRuleId,
+                    committeeIdsByRuleId,
+                    examSlotsByCommitteeKey)
                 : [];
             var academicPrograms = failedReasons.Count == 0
                 ? ResolveAcademicPrograms(settings.CategoryName, evaluation.MatchedRuleId, academicProgramsByRuleId)
@@ -71,6 +81,10 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
                 settings.CategoryId,
                 settings.CategoryName,
                 failedReasons.Count == 0,
+                evaluation.MatchedRule?.ApplicationStartDate,
+                evaluation.MatchedRule?.ApplicationEndDate,
+                evaluation.MatchedRule?.AgeReferenceDate,
+                evaluation.MatchedRule?.MaxAge,
                 checks,
                 committees,
                 academicPrograms,
@@ -155,18 +169,31 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
         {
             var parameter = new SqlParameter("@nid", nationalId);
 #pragma warning disable EF1002
-            var payload = await db.Database
-                .SqlQueryRaw<string>($"""
-                    SELECT TOP(1) [payload_json] AS [Value]
-                    FROM {AdminDbContext.QualifiedTableName("applicant_grades")}
-                    WHERE [nid] = @nid
-                    ORDER BY [seat]
-                    """, parameter)
-                .FirstOrDefaultAsync(ct);
+            string? payload;
+            try
+            {
+                payload = await db.Database
+                    .SqlQueryRaw<string>($"""
+                        SELECT TOP(1) [payload_json] AS [Value]
+                        FROM {AdminDbContext.QualifiedTableName("applicant_grades")}
+                        WHERE [nid] = @nid
+                        ORDER BY [seat]
+                        """, parameter)
+                    .FirstOrDefaultAsync(ct);
+            }
+            catch (SqlException ex) when (ex.Number == 208)
+            {
+                return await LoadGradeFromAdminRecordsAsync(nationalId, ct);
+            }
 #pragma warning restore EF1002
             return payload is null ? null : AdminRecordJson.Parse(payload);
         }
 
+        return await LoadGradeFromAdminRecordsAsync(nationalId, ct);
+    }
+
+    private async Task<JsonObject?> LoadGradeFromAdminRecordsAsync(string nationalId, CancellationToken ct)
+    {
         var candidates = await db.AdminRecords
             .AsNoTracking()
             .Where(x => x.Module == "grades" && x.PayloadJson.Contains(nationalId))
@@ -177,6 +204,37 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
             .FirstOrDefault(x =>
                 !AdminRecordJson.IsSoftDeleted(x) &&
                 string.Equals(AdminRecordJson.StringProp(x, "nid") ?? AdminRecordJson.StringProp(x, "nationalId"), nationalId, StringComparison.Ordinal));
+    }
+
+    private async Task<IReadOnlyDictionary<string, IReadOnlyList<EligibleCommitteeExamSlot>>> LoadCommitteeExamSlotsAsync(
+        string cycleId,
+        CancellationToken ct)
+    {
+        var rows = records is not null
+            ? await records.ListAsync("committeeInstances", ct)
+            : await db.AdminRecords
+                .AsNoTracking()
+                .Where(x => x.Module == "committeeInstances")
+                .OrderBy(x => x.Id)
+                .Select(x => EligibilityJson.ParseObject(x.PayloadJson))
+                .ToListAsync(ct);
+
+        return rows
+            .Where(row => EligibilityJson.TextEquals(EligibilityJson.StringProp(row, "cycleId"), cycleId))
+            .Select(ToCommitteeExamSlot)
+            .Where(x => x is not null)
+            .Select(x => x!)
+            .GroupBy(
+                x => CommitteeExamSlotKey(x.CategoryKey, x.DefinitionCode),
+                StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                x => x.Key,
+                x => (IReadOnlyList<EligibleCommitteeExamSlot>)x
+                    .OrderBy(slot => slot.Result.Date, StringComparer.Ordinal)
+                    .ThenBy(slot => slot.Result.Id, StringComparer.Ordinal)
+                    .Select(slot => slot.Result)
+                    .ToArray(),
+                StringComparer.OrdinalIgnoreCase);
     }
 
     private async Task<IReadOnlyList<DraftEligibilityRule>> LoadCycleDraftRulesAsync(
@@ -194,13 +252,24 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
             {
                 var parameter = new SqlParameter("@id", module);
 #pragma warning disable EF1002
-                var payload = await db.Database
-                    .SqlQueryRaw<string>($"""
-                        SELECT TOP(1) [payload_json] AS [Value]
-                        FROM {AdminDbContext.QualifiedTableName("cycle_application_settings")}
-                        WHERE [id] = @id
-                        """, parameter)
-                    .FirstOrDefaultAsync(ct);
+                string? payload;
+                try
+                {
+                    payload = await db.Database
+                        .SqlQueryRaw<string>($"""
+                            SELECT TOP(1) [payload_json] AS [Value]
+                            FROM {AdminDbContext.QualifiedTableName("cycle_application_settings")}
+                            WHERE [id] = @id
+                            """, parameter)
+                        .FirstOrDefaultAsync(ct);
+                }
+                catch (SqlException ex) when (ex.Number == 208)
+                {
+                    var record = await db.AdminRecords
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
+                    payload = record?.PayloadJson;
+                }
 #pragma warning restore EF1002
                 draft = payload is null ? null : AdminRecordJson.Parse(payload);
             }
@@ -321,7 +390,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
         if (category.Rules.Count == 0)
         {
             var checks = RunChecks(applicant, category, lookups);
-            return new CategoryEvaluation(checks, null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
+            return new CategoryEvaluation(checks, null, null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
         }
 
         CategoryEvaluation? best = null;
@@ -342,7 +411,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
             };
             var checks = RunChecks(applicant, rowSettings, lookups);
             var failedReasons = BuildFailedReasons(checks, rowSettings);
-            var evaluation = new CategoryEvaluation(checks, rule.Id, failedReasons);
+            var evaluation = new CategoryEvaluation(checks, rule.Id, rule, failedReasons);
             if (failedReasons.Count == 0)
             {
                 return evaluation;
@@ -354,7 +423,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
             }
         }
 
-        return best ?? new CategoryEvaluation(RunChecks(applicant, category, lookups), null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
+        return best ?? new CategoryEvaluation(RunChecks(applicant, category, lookups), null, null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
     }
 
     private static EligibilityChecks RunChecks(
@@ -384,7 +453,8 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
         string categoryId,
         string categoryName,
         string? matchedRuleId,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> committeeIdsByRuleId)
+        IReadOnlyDictionary<string, IReadOnlyList<string>> committeeIdsByRuleId,
+        IReadOnlyDictionary<string, IReadOnlyList<EligibleCommitteeExamSlot>> examSlotsByCommitteeKey)
     {
         var allowedIds = matchedRuleId is not null && committeeIdsByRuleId.TryGetValue(matchedRuleId, out var ids)
             ? ids
@@ -392,13 +462,47 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
         return committeeLookups
             .Where(row => EligibilityJson.TextEquals(EligibilityJson.FirstString(row, "applicantCategoryId", "categoryId", "categoryCode"), categoryId))
             .Where(row => allowedIds.Count == 0 || allowedIds.Contains(EligibilityJson.StringProp(row, "code") ?? "", StringComparer.OrdinalIgnoreCase))
-            .Select(row => new EligibleCommitteeResult(
-                EligibilityJson.StringProp(row, "code") ?? "",
-                EligibilityJson.StringProp(row, "name") ?? EligibilityJson.StringProp(row, "code") ?? "",
-                $"مطابق لإعدادات فئة {categoryName} واللجنة مربوطة بهذه الفئة"))
+            .Select(row =>
+            {
+                var committeeId = EligibilityJson.StringProp(row, "code") ?? "";
+                examSlotsByCommitteeKey.TryGetValue(CommitteeExamSlotKey(categoryId, committeeId), out var slots);
+                slots ??= [];
+                return new EligibleCommitteeResult(
+                    committeeId,
+                    EligibilityJson.StringProp(row, "name") ?? committeeId,
+                    $"مطابق لإعدادات فئة {categoryName} واللجنة مربوطة بهذه الفئة",
+                    slots.Select(x => x.Date).Distinct(StringComparer.Ordinal).ToArray(),
+                    slots);
+            })
             .Where(row => !string.IsNullOrWhiteSpace(row.CommitteeId))
             .ToArray();
     }
+
+    private static CommitteeExamSlotCandidate? ToCommitteeExamSlot(JsonObject row)
+    {
+        var id = EligibilityJson.StringProp(row, "id");
+        var categoryKey = EligibilityJson.StringProp(row, "categoryKey");
+        var definitionCode = EligibilityJson.StringProp(row, "definitionCode");
+        var date = EligibilityJson.StringProp(row, "date");
+        if (
+            string.IsNullOrWhiteSpace(id) ||
+            string.IsNullOrWhiteSpace(categoryKey) ||
+            string.IsNullOrWhiteSpace(definitionCode) ||
+            string.IsNullOrWhiteSpace(date))
+        {
+            return null;
+        }
+
+        var capacity = EligibilityJson.IntProp(row, "capacity") ?? 0;
+        var reserved = EligibilityJson.IntProp(row, "reserved") ?? 0;
+        return new CommitteeExamSlotCandidate(
+            categoryKey,
+            definitionCode,
+            new EligibleCommitteeExamSlot(id, date, capacity, reserved));
+    }
+
+    private static string CommitteeExamSlotKey(string categoryId, string committeeId) =>
+        $"{categoryId}::{committeeId}";
 
     private static IReadOnlyList<EligibleAcademicProgramResult> ResolveAcademicPrograms(
         string categoryName,
@@ -528,12 +632,18 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
     private sealed record CategoryEvaluation(
         EligibilityChecks Checks,
         string? MatchedRuleId,
+        ApplicationSettingsGraduationYearEntity? MatchedRule,
         IReadOnlyList<string> FailedReasons);
 
     private sealed record DraftEligibilityRule(
         ApplicationSettingsGraduationYearEntity Rule,
         IReadOnlyList<string> CommitteeIds,
         IReadOnlyList<EligibleAcademicProgramResult> AcademicPrograms);
+
+    private sealed record CommitteeExamSlotCandidate(
+        string CategoryKey,
+        string DefinitionCode,
+        EligibleCommitteeExamSlot Result);
 
     private sealed record ActiveEligibilitySnapshot(
         AdmissionCycleEntity ActiveCycle,

@@ -19,6 +19,10 @@ public sealed record CategoryEligibilityResult(
     string CategoryId,
     string CategoryName,
     bool Eligible,
+    DateOnly? ApplicationStartDate,
+    DateOnly? ApplicationEndDate,
+    DateOnly? AgeReferenceDate,
+    int? MaxAge,
     EligibilityChecks Checks,
     IReadOnlyList<EligibleCommitteeResult> Committees,
     IReadOnlyList<EligibleAcademicProgramResult> AcademicPrograms,
@@ -27,7 +31,15 @@ public sealed record CategoryEligibilityResult(
 public sealed record EligibleCommitteeResult(
     string CommitteeId,
     string CommitteeName,
-    string Reason);
+    string Reason,
+    IReadOnlyList<string> ExamDates,
+    IReadOnlyList<EligibleCommitteeExamSlot> ExamSlots);
+
+public sealed record EligibleCommitteeExamSlot(
+    string Id,
+    string Date,
+    int Capacity,
+    int Reserved);
 
 public sealed record EligibleAcademicProgramResult(
     string FacultyCode,

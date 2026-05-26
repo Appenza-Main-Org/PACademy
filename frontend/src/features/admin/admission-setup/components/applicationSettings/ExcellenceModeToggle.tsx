@@ -15,6 +15,7 @@ import type { ExcellenceMode } from '../../lib/excellenceMode';
 interface ExcellenceModeToggleProps {
   value: ExcellenceMode;
   onChange: (next: ExcellenceMode) => void;
+  disabled?: boolean;
 }
 
 const OPTIONS: ReadonlyArray<{ value: ExcellenceMode; label: string }> = [
@@ -25,6 +26,7 @@ const OPTIONS: ReadonlyArray<{ value: ExcellenceMode; label: string }> = [
 export function ExcellenceModeToggle({
   value,
   onChange,
+  disabled = false,
 }: ExcellenceModeToggleProps): JSX.Element {
   return (
     <div
@@ -40,13 +42,18 @@ export function ExcellenceModeToggle({
             type="button"
             role="radio"
             aria-checked={selected}
+            disabled={disabled}
             onClick={() => onChange(option.value)}
             className={cn(
               'min-h-9 min-w-20 rounded-sm px-3 text-sm font-medium transition-colors duration-fast ease-standard',
               'focus-visible:outline-none focus-visible:shadow-focus-teal',
+              disabled && 'cursor-not-allowed opacity-60',
               selected
                 ? 'bg-teal-600 text-white shadow-sm'
-                : 'bg-transparent text-ink-700 hover:bg-ink-50 hover:text-ink-900',
+                : cn(
+                    'bg-transparent text-ink-700',
+                    !disabled && 'hover:bg-ink-50 hover:text-ink-900',
+                  ),
             )}
           >
             {option.label}

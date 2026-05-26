@@ -30,7 +30,7 @@
  * graduation years · gender · marital status · maxAge · grade gate
  * (branched on TAGDIR vs GRADES) · application start / end · age
  * reference date · school category (only for officers_general).
- * Multi-value cells render as chip pills behind a truncation tooltip,
+ * Multi-value cells render as wrapping chip pills with a tooltip,
  * mirroring the YearTable contract.
  */
 
@@ -610,7 +610,7 @@ function renderGradeGate(
     const label = labels.academicGrade.get(row.academicGradeId);
     return <>{label ?? (row.academicGradeId || '—')}</>;
   }
-  return <>{`${toEasternArabicNumerals(row.minPercentage)}٪`}</>;
+  return <>{formatBarePercentage(row.minPercentage)}</>;
 }
 
 /* ── Shared bits ──────────────────────────────────────────────────── */
@@ -621,15 +621,20 @@ function formatIsoDate(value: string): string {
 }
 
 function formatScore(
-  value: number | null,
+  value: number | null | undefined,
   operator: MinScoreOperator | MaxScoreOperator,
 ): string {
-  if (value === null) return '—';
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
   const symbol =
     operator in MIN_OPERATOR_SYMBOL
       ? MIN_OPERATOR_SYMBOL[operator as MinScoreOperator]
       : MAX_OPERATOR_SYMBOL[operator as MaxScoreOperator];
   return `${symbol} ${toEasternArabicNumerals(value)}٪`;
+}
+
+function formatBarePercentage(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return `${toEasternArabicNumerals(value)}٪`;
 }
 
 function EmptyTable({ columns }: { columns: readonly string[] }): JSX.Element {
@@ -674,7 +679,7 @@ function Td({ children }: { children: React.ReactNode }): JSX.Element {
   );
 }
 
-/** Renders a multi-value list as inline pill chips. Truncates with a
+/** Renders a multi-value list as wrapping inline pill chips with a
  *  tooltip exposing the full list — same contract as the application-
  *  settings editor grids. */
 function ChipList({ values }: { values: readonly string[] }): JSX.Element {
@@ -684,7 +689,7 @@ function ChipList({ values }: { values: readonly string[] }): JSX.Element {
     <Tooltip content={full} delayDuration={120}>
       <span
         tabIndex={0}
-        className="flex max-w-full items-center gap-1 overflow-hidden whitespace-nowrap focus-visible:outline-none focus-visible:shadow-focus-teal"
+        className="flex max-w-full flex-wrap items-center gap-1 focus-visible:outline-none focus-visible:shadow-focus-teal"
       >
         {values.map((v, i) => (
           <span
