@@ -160,10 +160,19 @@ export interface ApplicantExtended {
 
 export interface Applicant extends ApplicantExtended {
   id: string;
+  /** Normalized SQL applicants.id, exposed for admin reconciliation screens. */
+  applicantTableId?: string;
+  /** Legacy admin_records id when the row was imported from the JSON store. */
+  adminRecordId?: string;
   nationalId: string;
   name: string;
   gender: 'male' | 'female';
   birthDate: string;
+  birthGovernorate?: string;
+  birthDistrict?: string;
+  phoneNumber?: string;
+  email?: string;
+  source?: string;
   governorate: string;
   city: string;
   certType: string;
