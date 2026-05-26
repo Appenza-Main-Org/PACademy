@@ -232,7 +232,7 @@ async function request<T>(
     signal: options.signal,
   }, options.signal);
   const contentType = res.headers.get('content-type') ?? '';
-  if (res.ok && !contentType.includes('application/json')) {
+  if (res.ok && res.status !== 204 && !contentType.includes('application/json')) {
     throw new Error('استجابة الخادم غير صالحة. تحقق من إعدادات اتصال الواجهة الخلفية.');
   }
   const parsed = await parseResponse(res);

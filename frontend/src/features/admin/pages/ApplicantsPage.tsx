@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, UserPlus } from 'lucide-react';
+import { FilterX, Search, UserPlus } from 'lucide-react';
 import {
   Avatar,
   Badge,
+  Button,
   Card,
   DataTable,
   EmptyState,
@@ -27,6 +28,21 @@ const CERT_TYPE_OPTIONS: readonly SearchSelectOption[] = [
   { value: 'ثانوية أزهرية', label: 'ثانوية أزهرية' },
 ];
 
+const GENDER_OPTIONS = [
+  { value: 'male', label: 'ذكر' },
+  { value: 'female', label: 'أنثى' },
+] as const;
+
+const RELIGION_OPTIONS = [
+  { value: 'مسلم', label: 'مسلم' },
+  { value: 'مسيحي', label: 'مسيحي' },
+] as const;
+
+const SOURCE_OPTIONS = [
+  { value: 'api', label: 'إدخال إداري' },
+  { value: 'admin_records', label: 'ترحيل سابق' },
+] as const;
+
 function displayValue(value: string | number | null | undefined): string {
   if (value === undefined || value === null || value === '') return 'غير مسجل';
   return String(value);
@@ -38,12 +54,22 @@ function genderLabel(value: Applicant['gender'] | string | undefined): string {
   return displayValue(value);
 }
 
+function sourceLabel(value: string | undefined): string {
+  if (value === 'api') return 'إدخال إداري';
+  if (value === 'admin_records') return 'ترحيل سابق';
+  return displayValue(value);
+}
+
 export function ApplicantsPage(): JSX.Element {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ApplicantStatus | 'all'>('all');
   const [governorate, setGovernorate] = useState<string>('all');
+  const [birthGovernorate, setBirthGovernorate] = useState<string>('all');
   const [certType, setCertType] = useState<string>('all');
+  const [gender, setGender] = useState<'male' | 'female' | 'all'>('all');
+  const [religion, setReligion] = useState<string>('all');
+  const [source, setSource] = useState<string>('all');
   const governoratesQuery = useLookup('governorates');
   const statusOptionsQuery = useApplicantStatusOptions();
   const statusOptions = useMemo(
@@ -68,119 +94,102 @@ export function ApplicantsPage(): JSX.Element {
     search,
     status,
     governorate,
+    birthGovernorate,
     certType,
+    gender,
+    religion,
+    source,
   });
+
+  const hasActiveFilters =
+    search.trim() !== ''
+    || status !== 'all'
+    || governorate !== 'all'
+    || birthGovernorate !== 'all'
+    || certType !== 'all'
+    || gender !== 'all'
+    || religion !== 'all'
+    || source !== 'all';
+
+  const resetFilters = (): void => {
+    setSearch('');
+    setStatus('all');
+    setGovernorate('all');
+    setBirthGovernorate('all');
+    setCertType('all');
+    setGender('all');
+    setReligion('all');
+    setSource('all');
+    setPage(1);
+  };
 
   const columns: DataTableColumn<Applicant>[] = useMemo(
     () => [
       {
         key: 'name',
         label: 'المتقدم',
+        width: '260px',
         sortable: true,
         getSortValue: (a) => a.name,
         filter: { kind: 'text', getValue: (a) => a.name },
         render: (a) => (
-          <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex items-center gap-3">
+          <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex min-w-[230px] items-center gap-3">
             <Avatar name={a.name} size="sm" />
-            <div className="flex flex-col">
+            <div className="flex min-w-0 flex-col gap-1">
               <span className="text-sm font-medium text-ink-900">{shortName(a.name, 3)}</span>
-              <span className="font-mono text-2xs text-ink-500" dir="ltr">{a.id}</span>
-              {a.applicantTableId && (
-                <span className="font-mono text-2xs text-ink-400" dir="ltr">{a.applicantTableId}</span>
-              )}
+              <span className="font-mono text-2xs text-ink-500" dir="ltr">{displayValue(a.adminRecordId ?? a.id)}</span>
+              <Badge tone="neutral" className="w-fit">{sourceLabel(a.source)}</Badge>
             </div>
           </Link>
         ),
       },
       {
-        key: 'adminRecordId',
-        label: 'سجل الإدارة',
-        hideOn: 'md',
-        sortable: true,
-        getSortValue: (a) => a.adminRecordId ?? a.id,
-        filter: { kind: 'text', getValue: (a) => a.adminRecordId ?? a.id },
-        render: (a) => <span className="font-mono text-2xs" dir="ltr">{displayValue(a.adminRecordId ?? a.id)}</span>,
-      },
-      {
-        key: 'nationalId',
-        label: 'الرقم القومي',
-        hideOn: 'sm',
+        key: 'identity',
+        label: 'الهوية',
+        width: '220px',
         sortable: true,
         getSortValue: (a) => a.nationalId,
-        filter: { kind: 'text', getValue: (a) => a.nationalId },
-        render: (a) => <span className="font-mono" dir="ltr">{maskNationalId(a.nationalId)}</span>,
+        filter: { kind: 'text', getValue: (a) => `${a.nationalId} ${genderLabel(a.gender)} ${a.religion ?? ''}` },
+        render: (a) => (
+          <div className="flex min-w-[190px] flex-col gap-1">
+            <span className="font-mono text-sm text-ink-900" dir="ltr">{maskNationalId(a.nationalId)}</span>
+            <span className="text-2xs text-ink-600">{genderLabel(a.gender)} · {displayValue(a.religion)}</span>
+            <span className="text-2xs text-ink-500">{a.birthDate ? fmtDate(a.birthDate, 'short') : 'تاريخ الميلاد غير مسجل'}</span>
+          </div>
+        ),
       },
       {
-        key: 'phoneNumber',
-        label: 'الهاتف',
+        key: 'contact',
+        label: 'الاتصال',
         hideOn: 'md',
         sortable: true,
         getSortValue: (a) => a.phoneNumber ?? a.contact?.mobilePhone,
-        filter: { kind: 'text', getValue: (a) => a.phoneNumber ?? a.contact?.mobilePhone ?? '' },
-        render: (a) => <span className="font-mono text-2xs" dir="ltr">{displayValue(a.phoneNumber ?? a.contact?.mobilePhone)}</span>,
+        filter: { kind: 'text', getValue: (a) => `${a.phoneNumber ?? a.contact?.mobilePhone ?? ''} ${a.email ?? a.contact?.email ?? ''}` },
+        render: (a) => (
+          <div className="flex min-w-[190px] flex-col gap-1">
+            <span className="font-mono text-sm text-ink-900" dir="ltr">{displayValue(a.phoneNumber ?? a.contact?.mobilePhone)}</span>
+            <span className="max-w-[210px] break-words text-2xs text-ink-500" dir="ltr">
+              {displayValue(a.email ?? a.contact?.email)}
+            </span>
+          </div>
+        ),
       },
       {
-        key: 'email',
-        label: 'البريد',
+        key: 'location',
+        label: 'الميلاد / العنوان',
         hideOn: 'md',
-        sortable: true,
-        getSortValue: (a) => a.email ?? a.contact?.email,
-        filter: { kind: 'text', getValue: (a) => a.email ?? a.contact?.email ?? '' },
-        render: (a) => <span className="text-2xs text-ink-600" dir="ltr">{displayValue(a.email ?? a.contact?.email)}</span>,
-      },
-      {
-        key: 'gender',
-        label: 'النوع',
-        hideOn: 'md',
-        sortable: true,
-        getSortValue: (a) => genderLabel(a.gender),
-        filter: { kind: 'text', getValue: (a) => genderLabel(a.gender) },
-        render: (a) => genderLabel(a.gender),
-      },
-      {
-        key: 'religion',
-        label: 'الديانة',
-        hideOn: 'md',
-        sortable: true,
-        getSortValue: (a) => a.religion,
-        filter: { kind: 'text', getValue: (a) => a.religion ?? '' },
-        render: (a) => displayValue(a.religion),
-      },
-      {
-        key: 'birthDate',
-        label: 'تاريخ الميلاد',
-        hideOn: 'md',
-        sortable: true,
-        getSortValue: (a) => a.birthDate,
-        filter: { kind: 'date', getValue: (a) => a.birthDate },
-        render: (a) => <span className="text-2xs text-ink-600">{a.birthDate ? fmtDate(a.birthDate, 'short') : 'غير مسجل'}</span>,
-      },
-      {
-        key: 'governorate',
-        label: 'المحافظة',
-        hideOn: 'sm',
         sortable: true,
         getSortValue: (a) => a.governorate,
-        filter: { kind: 'text', getValue: (a) => a.governorate },
-        render: (a) => a.governorate,
-      },
-      {
-        key: 'birthGovernorate',
-        label: 'محافظة الميلاد',
-        hideOn: 'md',
-        sortable: true,
-        getSortValue: (a) => a.birthGovernorate,
-        filter: { kind: 'text', getValue: (a) => a.birthGovernorate ?? '' },
-        render: (a) => displayValue(a.birthGovernorate),
-      },
-      {
-        key: 'birthDistrict',
-        label: 'قسم الميلاد',
-        hideOn: 'md',
-        sortable: true,
-        getSortValue: (a) => a.birthDistrict,
-        filter: { kind: 'text', getValue: (a) => a.birthDistrict ?? '' },
-        render: (a) => displayValue(a.birthDistrict),
+        filter: {
+          kind: 'text',
+          getValue: (a) => `${a.birthGovernorate ?? ''} ${a.birthDistrict ?? ''} ${a.governorate} ${a.city}`,
+        },
+        render: (a) => (
+          <div className="flex min-w-[180px] flex-col gap-1">
+            <span className="text-sm text-ink-900">{displayValue(a.birthGovernorate)} · {displayValue(a.birthDistrict)}</span>
+            <span className="text-2xs text-ink-500">{a.governorate} · {a.city}</span>
+          </div>
+        ),
       },
       {
         key: 'certType',
@@ -190,47 +199,15 @@ export function ApplicantsPage(): JSX.Element {
         getSortValue: (a) => a.certType,
         filter: { kind: 'text', getValue: (a) => a.certType },
         render: (a) => (
-          <div className="text-2xs">
-            <p className="text-ink-700">{a.certType}</p>
-            <p className="text-ink-500">{a.certSection}</p>
+          <div className="flex min-w-[150px] flex-col gap-1 text-2xs">
+            <span className="text-ink-700">{a.certType}</span>
+            <span className="text-ink-500">{a.certSection}</span>
+            <span className="font-mono text-ink-500" dir="ltr">{displayValue(a.certPercent)}</span>
           </div>
         ),
       },
       {
-        key: 'source',
-        label: 'المصدر',
-        hideOn: 'md',
-        sortable: true,
-        getSortValue: (a) => a.source,
-        filter: { kind: 'text', getValue: (a) => a.source ?? '' },
-        render: (a) => displayValue(a.source),
-      },
-      {
-        key: 'paymentStatus',
-        label: 'الدفع',
-        sortable: true,
-        getSortValue: (a) => a.paymentStatus,
-        filter: {
-          kind: 'enum',
-          getValue: (a) => a.paymentStatus,
-          options: [
-            { value: 'paid', label: 'مدفوع' },
-            { value: 'pending', label: 'معلّق' },
-          ],
-        },
-        render: (a) => <PaymentBadge status={a.paymentStatus} />,
-      },
-      {
-        key: 'stageLabel',
-        label: 'المرحلة',
-        hideOn: 'md',
-        sortable: true,
-        getSortValue: (a) => a.stageLabel,
-        filter: { kind: 'text', getValue: (a) => a.stageLabel },
-        render: (a) => <Badge tone="info">{a.stageLabel}</Badge>,
-      },
-      {
-        key: 'status',
+        key: 'progress',
         label: 'الحالة',
         sortable: true,
         getSortValue: (a) => a.status,
@@ -242,7 +219,13 @@ export function ApplicantsPage(): JSX.Element {
         render: (a) => {
           const def = statusByValue.get(a.status);
           const live = a.status === 'pending' || a.status === 'under-review';
-          return <Badge tone={def?.color ?? 'neutral'} dot={live}>{def?.label ?? a.status}</Badge>;
+          return (
+            <div className="flex min-w-[150px] flex-col items-start gap-1">
+              <Badge tone={def?.color ?? 'neutral'} dot={live}>{def?.label ?? a.status}</Badge>
+              <Badge tone="info">{a.stageLabel}</Badge>
+              <PaymentBadge status={a.paymentStatus} />
+            </div>
+          );
         },
       },
       {
@@ -328,8 +311,8 @@ export function ApplicantsPage(): JSX.Element {
 
       <Card>
         <div className="card-body">
-          <div className="filters">
-            <div className="search flex-1">
+          <div className="filters items-end">
+            <div className="search min-w-[260px] flex-[2_1_360px]">
               <input className="input" type="search" placeholder="بحث بالاسم / الرقم القومي / كود التقدم" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
               <Search size={18} />
             </div>
@@ -344,6 +327,26 @@ export function ApplicantsPage(): JSX.Element {
                 ...statusOptions,
               ]}
               containerClassName="min-w-[150px]"
+            />
+            <Select
+              aria-label="تصفية حسب النوع"
+              value={gender}
+              onChange={(e) => { setGender(e.target.value as 'male' | 'female' | 'all'); setPage(1); }}
+              options={[
+                { value: 'all', label: 'كل الأنواع' },
+                ...GENDER_OPTIONS,
+              ]}
+              containerClassName="min-w-[130px]"
+            />
+            <Select
+              aria-label="تصفية حسب الديانة"
+              value={religion}
+              onChange={(e) => { setReligion(e.target.value); setPage(1); }}
+              options={[
+                { value: 'all', label: 'كل الديانات' },
+                ...RELIGION_OPTIONS,
+              ]}
+              containerClassName="min-w-[130px]"
             />
             <div className="min-w-[180px] flex-[0_1_200px]">
               <SearchSelect
@@ -360,6 +363,19 @@ export function ApplicantsPage(): JSX.Element {
             </div>
             <div className="min-w-[180px] flex-[0_1_200px]">
               <SearchSelect
+                value={birthGovernorate === 'all' ? null : birthGovernorate}
+                onChange={(next) => {
+                  setBirthGovernorate(next ?? 'all');
+                  setPage(1);
+                }}
+                options={governorateOptions}
+                ariaLabel="تصفية حسب محافظة الميلاد"
+                placeholder="كل محافظات الميلاد"
+                className="h-[38px]"
+              />
+            </div>
+            <div className="min-w-[180px] flex-[0_1_200px]">
+              <SearchSelect
                 value={certType === 'all' ? null : certType}
                 onChange={(next) => {
                   setCertType(next ?? 'all');
@@ -371,6 +387,26 @@ export function ApplicantsPage(): JSX.Element {
                 className="h-[38px]"
               />
             </div>
+            <Select
+              aria-label="تصفية حسب مصدر السجل"
+              value={source}
+              onChange={(e) => { setSource(e.target.value); setPage(1); }}
+              options={[
+                { value: 'all', label: 'كل المصادر' },
+                ...SOURCE_OPTIONS,
+              ]}
+              containerClassName="min-w-[150px]"
+            />
+            {hasActiveFilters && (
+              <Button
+                variant="secondary"
+                size="md"
+                leadingIcon={<FilterX size={14} strokeWidth={1.75} />}
+                onClick={resetFilters}
+              >
+                مسح التصفية
+              </Button>
+            )}
           </div>
 
           <DataTable<Applicant>

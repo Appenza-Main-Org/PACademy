@@ -399,7 +399,7 @@ function DefRow({
   return (
     <div className={`flex flex-col gap-0.5 ${wide ? 'md:col-span-2' : ''}`}>
       <dt className="text-2xs font-medium uppercase tracking-wide text-ink-500">{label}</dt>
-      <dd className="text-sm text-ink-900">{value}</dd>
+      <dd className="break-words text-sm text-ink-900">{value}</dd>
     </div>
   );
 }

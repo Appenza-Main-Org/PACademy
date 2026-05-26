@@ -18,7 +18,7 @@ public sealed class ApplicantsControllerTests
         await using var db = CreateDb();
         var controller = CreateController(db);
 
-        var response = await controller.EligibleCategories("30001010123457", CancellationToken.None);
+        var response = await controller.EligibleCategories("30001010123457", ct: CancellationToken.None);
 
         var result = Assert.IsType<ConflictObjectResult>(response.Result);
         var envelope = Assert.IsType<ApiErrorEnvelope>(result.Value);

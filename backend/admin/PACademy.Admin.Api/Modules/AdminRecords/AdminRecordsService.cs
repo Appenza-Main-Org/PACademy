@@ -37,6 +37,10 @@ public sealed class AdminRecordsService(
         {
             rows = rows.Where(x => x.ToJsonString(AdminRecordJson.Options).Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
         }
+        if (module == "applicants")
+        {
+            rows = ApplyApplicantFilters(rows, query);
+        }
         var total = rows.Count;
         var data = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
         return new { data, total, page, pageSize, totalPages = (int)Math.Ceiling(total / (double)pageSize) };
@@ -687,6 +691,57 @@ public sealed class AdminRecordsService(
         obj["createdAt"] ??= entity.CreatedAt;
         obj["updatedAt"] ??= entity.UpdatedAt;
         return obj;
+    }
+
+    private static IReadOnlyList<JsonObject> ApplyApplicantFilters(
+        IReadOnlyList<JsonObject> rows,
+        IQueryCollection query)
+    {
+        return rows
+            .Where(row =>
+                StringFilterMatches(FirstString(row, "status"), query["status"])
+                && StringFilterMatches(FirstString(row, "governorate"), query["governorate"])
+                && StringFilterMatches(FirstString(row, "certType", "certificateType"), query["certType"])
+                && ApplicantGenderMatches(row, query["gender"])
+                && StringFilterMatches(FirstString(row, "religion"), query["religion"])
+                && StringFilterMatches(FirstString(row, "source"), query["source"])
+                && StringFilterMatches(FirstString(row, "birthGovernorate"), query["birthGovernorate"]))
+            .ToList();
+    }
+
+    private static bool StringFilterMatches(string? actual, string? requested)
+    {
+        if (IsAllFilter(requested)) return true;
+        return string.Equals(actual?.Trim(), requested!.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ApplicantGenderMatches(JsonObject row, string? requested)
+    {
+        if (IsAllFilter(requested)) return true;
+
+        var actual = FirstString(row, "gender");
+        if (string.IsNullOrWhiteSpace(actual)) return false;
+
+        return requested!.Trim().ToLowerInvariant() switch
+        {
+            "male" => actual.Equals("male", StringComparison.OrdinalIgnoreCase) || actual == "ذكر",
+            "female" => actual.Equals("female", StringComparison.OrdinalIgnoreCase) || actual == "أنثى",
+            _ => string.Equals(actual.Trim(), requested.Trim(), StringComparison.OrdinalIgnoreCase)
+        };
+    }
+
+    private static bool IsAllFilter(string? value) =>
+        string.IsNullOrWhiteSpace(value) || value.Equals("all", StringComparison.OrdinalIgnoreCase);
+
+    private static string? FirstString(JsonObject payload, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = AdminRecordJson.StringProp(payload, key);
+            if (!string.IsNullOrWhiteSpace(value)) return value;
+        }
+
+        return null;
     }
 
     private bool CanUseNormalizedTables(string module) =>

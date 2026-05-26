@@ -42,6 +42,10 @@ export interface ApplicantFilters {
   status?: ApplicantStatus | 'all';
   governorate?: string | 'all';
   certType?: string | 'all';
+  gender?: 'male' | 'female' | 'all';
+  religion?: string | 'all';
+  source?: string | 'all';
+  birthGovernorate?: string | 'all';
 }
 
 export interface ApplicantStatusOption {
