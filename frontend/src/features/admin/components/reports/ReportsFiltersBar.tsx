@@ -1,9 +1,10 @@
-import { RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { CalendarDays, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLookup } from '@/features/lookups/api/lookups.queries';
 import { Badge, Button, Card, DateRangePicker, Input, Select, Sheet } from '@/shared/components';
 import type { DateRange } from '@/shared/components';
 import { useCycles } from '../../api/cycles.queries';
+import { resolveActiveCycle } from '../../api/cycles.service';
 import { useReportsFiltersStore } from '../../reports/store';
 import type { ReportsFilters } from '../../reports/types';
 
@@ -49,13 +50,32 @@ export function ReportsFiltersBar(): JSX.Element {
   const setFilters = useReportsFiltersStore((state) => state.set);
   const reset = useReportsFiltersStore((state) => state.reset);
 
-  const activeCycle = cycles.data?.find((cycle) => cycle.isActive) ?? cycles.data?.[0];
+  const activeCycle = resolveActiveCycle(cycles.data) ?? cycles.data?.[0];
   const effectiveCycleId = filters.cycleId ?? activeCycle?.id ?? '';
+  const selectedCycle = cycles.data?.find((cycle) => cycle.id === effectiveCycleId) ?? activeCycle;
 
-  const categoryOptions = [
-    { value: '', label: 'الكل' },
-    ...(categories.data ?? []).map((row) => ({ value: row.code, label: row.name })),
-  ];
+  const openCategoryKeys = useMemo(
+    () =>
+      Object.entries(selectedCycle?.openCategories ?? {})
+        .filter(([, config]) => config?.isOpen === true)
+        .map(([key]) => key),
+    [selectedCycle?.openCategories],
+  );
+  const categoryOptions = useMemo(() => {
+    const labelsByCode = new Map((categories.data ?? []).map((row) => [row.code, row.name]));
+    return [
+      { value: '', label: 'الكل' },
+      ...openCategoryKeys.map((key) => ({ value: key, label: labelsByCode.get(key) ?? key })),
+    ];
+  }, [categories.data, openCategoryKeys]);
+  const selectedCategoryIsOpen =
+    !filters.categoryKey || openCategoryKeys.includes(filters.categoryKey);
+
+  useEffect(() => {
+    if (!selectedCategoryIsOpen) {
+      setFilters({ categoryKey: undefined });
+    }
+  }, [selectedCategoryIsOpen, setFilters]);
   const specializationOptions = [
     { value: '', label: 'الكل' },
     ...(specializations.data ?? []).map((row) => ({ value: row.code, label: row.name })),
@@ -85,101 +105,129 @@ export function ReportsFiltersBar(): JSX.Element {
   );
 
   const controls = (
-    <div className="grid gap-3 lg:grid-cols-4 xl:grid-cols-6">
-      <Select
-        label="الدورة"
-        value={effectiveCycleId}
-        disabled={!cycles.data?.length}
-        options={cycleOptions}
-        onChange={(event) => setFilters({ cycleId: event.target.value })}
-      />
-      <DateRangePicker
-        label="الفترة الزمنية"
-        value={dateRange}
-        onChange={(range) =>
-          setFilters({
-            dateRange: range.start && range.end ? { from: iso(range.start), to: iso(range.end) } : undefined,
-          })
-        }
-      />
-      <div className="grid grid-cols-2 gap-2">
-        <Input
-          label="السن من"
-          type="number"
-          value={filters.ageMin ?? ''}
-          onChange={(event) => setFilters({ ageMin: numberValue(event.target.value) })}
+    <div className="space-y-4">
+      <div className="grid gap-3 lg:grid-cols-[minmax(15rem,1.1fr)_minmax(16rem,1fr)_minmax(12rem,0.8fr)]">
+        <Select
+          label="الدورة"
+          value={effectiveCycleId}
+          disabled={!cycles.data?.length}
+          options={cycleOptions}
+          onChange={(event) => setFilters({ cycleId: event.target.value })}
         />
-        <Input
-          label="السن إلى"
-          type="number"
-          value={filters.ageMax ?? ''}
-          onChange={(event) => setFilters({ ageMax: numberValue(event.target.value) })}
+        <DateRangePicker
+          label="الفترة الزمنية"
+          value={dateRange}
+          onChange={(range) =>
+            setFilters({
+              dateRange: range.start && range.end ? { from: iso(range.start), to: iso(range.end) } : undefined,
+            })
+          }
         />
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            label="السن من"
+            type="number"
+            value={filters.ageMin ?? ''}
+            onChange={(event) => setFilters({ ageMin: numberValue(event.target.value) })}
+          />
+          <Input
+            label="السن إلى"
+            type="number"
+            value={filters.ageMax ?? ''}
+            onChange={(event) => setFilters({ ageMax: numberValue(event.target.value) })}
+          />
+        </div>
       </div>
-      <Select
-        label="فئة المتقدم"
-        value={filters.categoryKey ?? ''}
-        options={categoryOptions}
-        onChange={(event) => setFilters({ categoryKey: event.target.value || undefined })}
-      />
-      <Select
-        label="نوع المتقدم"
-        value={filters.applicantType ?? ''}
-        options={APPLICANT_TYPES}
-        onChange={(event) => setFilters({ applicantType: (event.target.value || undefined) as ReportsFilters['applicantType'] })}
-      />
-      <Select
-        label="الجنس"
-        value={filters.gender ?? ''}
-        options={[
-          { value: '', label: 'الكل' },
-          { value: 'male', label: 'ذكور' },
-          { value: 'female', label: 'إناث' },
-        ]}
-        onChange={(event) => setFilters({ gender: (event.target.value || undefined) as ReportsFilters['gender'] })}
-      />
-      <Select
-        label="اللجنة"
-        value={filters.committeeId ?? 'all'}
-        options={[{ value: 'all', label: 'كل اللجان' }]}
-        onChange={(event) => setFilters({ committeeId: event.target.value as ReportsFilters['committeeId'] })}
-      />
-      <Select
-        label="التخصص"
-        value={filters.specializationCode ?? ''}
-        options={specializationOptions}
-        onChange={(event) => setFilters({ specializationCode: event.target.value || undefined })}
-      />
-      <Select
-        label="حالة الدفع"
-        value={filters.paymentStatus ?? ''}
-        options={PAYMENT_OPTIONS}
-        onChange={(event) => setFilters({ paymentStatus: (event.target.value || undefined) as ReportsFilters['paymentStatus'] })}
-      />
-      <div className="flex items-end gap-2">
-        <Button variant="accent" leadingIcon={<Search size={16} />} onClick={() => setFilters({ cycleId: effectiveCycleId })}>
-          تطبيق
-        </Button>
-        <Button variant="ghost" leadingIcon={<RotateCcw size={16} />} onClick={reset}>
-          إعادة ضبط
-        </Button>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <Select
+          label="فئة المتقدم"
+          value={filters.categoryKey ?? ''}
+          options={categoryOptions}
+          onChange={(event) => setFilters({ categoryKey: event.target.value || undefined })}
+        />
+        <Select
+          label="نوع المتقدم"
+          value={filters.applicantType ?? ''}
+          options={APPLICANT_TYPES}
+          onChange={(event) => setFilters({ applicantType: (event.target.value || undefined) as ReportsFilters['applicantType'] })}
+        />
+        <Select
+          label="الجنس"
+          value={filters.gender ?? ''}
+          options={[
+            { value: '', label: 'الكل' },
+            { value: 'male', label: 'ذكور' },
+            { value: 'female', label: 'إناث' },
+          ]}
+          onChange={(event) => setFilters({ gender: (event.target.value || undefined) as ReportsFilters['gender'] })}
+        />
+        <Select
+          label="اللجنة"
+          value={filters.committeeId ?? 'all'}
+          options={[{ value: 'all', label: 'كل اللجان' }]}
+          onChange={(event) => setFilters({ committeeId: event.target.value as ReportsFilters['committeeId'] })}
+        />
+        <Select
+          label="التخصص"
+          value={filters.specializationCode ?? ''}
+          options={specializationOptions}
+          onChange={(event) => setFilters({ specializationCode: event.target.value || undefined })}
+        />
+        <Select
+          label="حالة الدفع"
+          value={filters.paymentStatus ?? ''}
+          options={PAYMENT_OPTIONS}
+          onChange={(event) => setFilters({ paymentStatus: (event.target.value || undefined) as ReportsFilters['paymentStatus'] })}
+        />
       </div>
     </div>
   );
 
   return (
-    <Card className="sticky top-3 z-sticky mb-5">
-      <div className="hidden lg:block">{controls}</div>
+    <Card className="sticky top-3 z-sticky mb-5 p-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+            <SlidersHorizontal size={18} strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0">
+            <p className="m-0 text-sm font-semibold text-ink-900">تصفية التقارير</p>
+            <p className="m-0 mt-0.5 truncate text-xs text-ink-500">
+              {selectedCycle ? `النطاق الحالي: ${selectedCycle.nameAr}` : 'اختر دورة لعرض تقاريرها'}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {selectedCycle?.isActive && (
+            <Badge tone="success">
+              <span className="inline-flex items-center gap-1">
+                <CalendarDays size={12} />
+                دورة نشطة
+              </span>
+            </Badge>
+          )}
+          <Button variant="accent" size="sm" leadingIcon={<Search size={14} />} onClick={() => setFilters({ cycleId: effectiveCycleId })}>
+            تطبيق
+          </Button>
+          <Button variant="ghost" size="sm" leadingIcon={<RotateCcw size={14} />} onClick={reset}>
+            إعادة ضبط
+          </Button>
+        </div>
+      </div>
+      <div className="hidden p-4 lg:block">{controls}</div>
       <div className="lg:hidden">
-        <Button variant="secondary" leadingIcon={<SlidersHorizontal size={16} />} onClick={() => setMobileOpen(true)}>
-          تصفية
-        </Button>
+        <div className="p-4">
+          <Button variant="secondary" leadingIcon={<SlidersHorizontal size={16} />} onClick={() => setMobileOpen(true)} fullWidth>
+            ضبط الفلاتر
+          </Button>
+        </div>
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen} title="تصفية التقارير" size="md">
           {controls}
         </Sheet>
       </div>
       {chips.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 border-t border-border-subtle px-4 py-3">
           {chips.map((chip) => (
             <Badge key={chip.key} tone="neutral">
               <span className="inline-flex items-center gap-1">

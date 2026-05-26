@@ -55,10 +55,10 @@ export function ReportsAvailabilityGate({ filters, children }: ReportsAvailabili
   if (!probe.data.cycleExists) {
     return (
       <EmptyState
-        title="لا توجد دورة قبول نشطة بقاعدة البيانات."
-        description="ابدأ بإنشاء دورة قبول ثم عد إلى التقارير."
+        title="الدورة المحددة غير متاحة للتقارير."
+        description="اختر دورة أخرى من الفلاتر أو راجع حالة الدورة في شاشة دورات القبول."
         icon={<Database className="text-ink-400" size={42} />}
-        action={<Link to="/admin/cycles/new"><Button>إنشاء دورة جديدة</Button></Link>}
+        action={<Link to="/admin/cycles"><Button>مراجعة الدورات</Button></Link>}
       />
     );
   }

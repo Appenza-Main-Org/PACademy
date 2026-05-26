@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react';
-import { LoadingState, LogoMark, PageHeader, Tabs, Card, CardHeader } from '@/shared/components';
+import { LoadingState, LogoMark, PageHeader, Tabs } from '@/shared/components';
 import { useSearchParams } from 'react-router-dom';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
@@ -35,7 +35,8 @@ import { TestResultsSection } from '../components/reports/TestResultsSection';
 import { ReportsFiltersBar } from '../components/reports/ReportsFiltersBar';
 import { ReportsAvailabilityGate } from '../components/reports/ReportsAvailabilityGate';
 import { useReportsFiltersStore } from '../reports/store';
-import { useActiveCycle } from '../api/cycles.queries';
+import { useActiveCycle, useCycles } from '../api/cycles.queries';
+import { resolveActiveCycle } from '../api/cycles.service';
 import { ApplicantsReportTab } from './reports/ApplicantsReportTab';
 import { StageDropoffTab } from './reports/StageDropoffTab';
 
@@ -46,13 +47,23 @@ const PRINT_CSS = `
 }
 `;
 
+const REPORT_TABS = ['overview', 'applicants', 'dropoff'] as const;
+type ReportTab = (typeof REPORT_TABS)[number];
+
+function resolveReportTab(value: string | null): ReportTab {
+  return REPORT_TABS.includes(value as ReportTab) ? (value as ReportTab) : 'overview';
+}
+
 export function ReportsPage(): JSX.Element {
   const [range, setRange] = useState<TimeRange>('cycle');
   const [params, setParams] = useSearchParams();
   const activeCycle = useActiveCycle();
+  const cycles = useCycles();
   const storedFilters = useReportsFiltersStore((state) => state.filters);
-  const filters = { ...storedFilters, cycleId: storedFilters.cycleId ?? activeCycle.data?.id };
-  const tab = params.get('tab') ?? 'overview';
+  const listActiveCycle = resolveActiveCycle(cycles.data);
+  const effectiveCycle = activeCycle.data ?? listActiveCycle;
+  const filters = { ...storedFilters, cycleId: storedFilters.cycleId ?? effectiveCycle?.id };
+  const tab = resolveReportTab(params.get('tab'));
   const cycle = useCycleSnapshot();
   const funnel = useStageFunnel();
   const departments = useDepartmentReports();
@@ -85,7 +96,6 @@ export function ReportsPage(): JSX.Element {
           <Tabs.Tab value="overview">نظرة عامة</Tabs.Tab>
           <Tabs.Tab value="applicants">تقرير الطلبة</Tabs.Tab>
           <Tabs.Tab value="dropoff">الطلبة المتوقفون</Tabs.Tab>
-          <Tabs.Tab value="custom">تقارير مخصصة</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="overview">
@@ -167,15 +177,6 @@ export function ReportsPage(): JSX.Element {
           </ReportsAvailabilityGate>
         </Tabs.Panel>
 
-        <Tabs.Panel value="custom">
-          <Card>
-            <CardHeader
-              title="تقارير مخصصة"
-              subtitle="هذا الباب يغطي التقارير الإضافية المرتبطة ببيانات المنظومة وسيتم تفعيله بعد اعتماد قوالبها."
-            />
-            <p className="text-sm text-ink-500">تم حجز هذا التبويب للبند السادس من نطاق التقارير دون إضافة قوالب غير معتمدة.</p>
-          </Card>
-        </Tabs.Panel>
       </Tabs>
     </CenteredShell>
   );
