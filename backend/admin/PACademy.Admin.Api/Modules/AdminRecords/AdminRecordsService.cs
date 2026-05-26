@@ -152,6 +152,11 @@ public sealed class AdminRecordsService(
         if (payloads.Count == 0) return 0;
         if (CanUseNormalizedTables(module))
         {
+            if (module == "grades")
+            {
+                return await InsertManyNormalizedGradesAsync(payloads, ct, batchSize);
+            }
+
             var inserted = 0;
             foreach (var payload in payloads)
             {
@@ -205,6 +210,99 @@ public sealed class AdminRecordsService(
                 context.ChangeTracker.AutoDetectChangesEnabled = previousAutoDetectChanges.Value;
             }
         }
+    }
+
+    private async Task<int> InsertManyNormalizedGradesAsync(
+        IReadOnlyList<JsonObject> payloads,
+        CancellationToken ct,
+        int batchSize)
+    {
+        var written = 0;
+        for (var offset = 0; offset < payloads.Count; offset += batchSize)
+        {
+            var batch = payloads
+                .Skip(offset)
+                .Take(batchSize)
+                .Select(payload =>
+                {
+                    if (AdminRecordJson.StringProp(payload, "nid") is not { Length: 14 })
+                    {
+                        throw new ConflictException("INVALID_GRADE_NID", "لا يمكن حفظ درجة بدون رقم قومي صحيح");
+                    }
+                    return payload.DeepClone();
+                })
+                .ToArray();
+            var batchJson = new JsonArray(batch).ToJsonString(AdminRecordJson.Options);
+            var now = DateTimeOffset.UtcNow;
+            await ExecuteNormalizedNonQueryAsync($"""
+                WITH source_rows AS
+                (
+                    SELECT
+                        COALESCE(JSON_VALUE([value], '$.id'), JSON_VALUE([value], '$.seat')) AS [admin_record_id],
+                        TRY_CONVERT(int, JSON_VALUE([value], '$.seat')) AS [seat],
+                        JSON_VALUE([value], '$.seatingNumber') AS [seating_number],
+                        JSON_VALUE([value], '$.nid') AS [nid],
+                        COALESCE(NULLIF(JSON_VALUE([value], '$.name'), N''), JSON_VALUE([value], '$.nameAr')) AS [name],
+                        COALESCE(NULLIF(JSON_VALUE([value], '$.kind'), N''), N'general') AS [kind],
+                        JSON_VALUE([value], '$.gender') AS [gender],
+                        JSON_VALUE([value], '$.branch') AS [branch],
+                        TRY_CONVERT(int, JSON_VALUE([value], '$.graduationYear')) AS [graduation_year],
+                        COALESCE(NULLIF(JSON_VALUE([value], '$.schoolCategoryCode'), N''), NULLIF(JSON_VALUE([value], '$.schoolCategory'), N'')) AS [school_category_code],
+                        JSON_VALUE([value], '$.school') AS [school],
+                        JSON_VALUE([value], '$.region') AS [region],
+                        JSON_VALUE([value], '$.examRound') AS [exam_round],
+                        TRY_CONVERT(decimal(7,2), JSON_VALUE([value], '$.total')) AS [total],
+                        TRY_CONVERT(decimal(7,2), JSON_VALUE([value], '$.importMax')) AS [import_max],
+                        TRY_CONVERT(decimal(7,2), JSON_VALUE([value], '$.overrideMax')) AS [override_max],
+                        JSON_VALUE([value], '$.lastEditedAt') AS [last_edited_at],
+                        JSON_VALUE([value], '$.lastEditedBy') AS [last_edited_by],
+                        TRY_CONVERT(datetimeoffset, JSON_VALUE([value], '$.gradeChangedAt')) AS [grade_changed_at],
+                        TRY_CONVERT(decimal(7,2), JSON_VALUE([value], '$.previousGrade')) AS [previous_grade],
+                        COALESCE(NULLIF(JSON_VALUE([value], '$.status'), N''), N'مستجد') AS [status],
+                        CONVERT(nvarchar(max), [value]) AS [payload_json]
+                    FROM OPENJSON(@payloads)
+                )
+                MERGE {AdminDbContext.QualifiedTableName("applicant_grades")} WITH (HOLDLOCK) AS target
+                USING source_rows AS source
+                ON target.[nid] COLLATE DATABASE_DEFAULT = source.[nid] COLLATE DATABASE_DEFAULT
+                WHEN MATCHED THEN UPDATE SET
+                    [admin_record_id] = source.[admin_record_id],
+                    [seat] = source.[seat],
+                    [seating_number] = source.[seating_number],
+                    [name] = source.[name],
+                    [kind] = source.[kind],
+                    [gender] = source.[gender],
+                    [branch] = source.[branch],
+                    [graduation_year] = source.[graduation_year],
+                    [school_category_code] = source.[school_category_code],
+                    [school] = source.[school],
+                    [region] = source.[region],
+                    [exam_round] = source.[exam_round],
+                    [total] = source.[total],
+                    [import_max] = source.[import_max],
+                    [override_max] = source.[override_max],
+                    [last_edited_at] = source.[last_edited_at],
+                    [last_edited_by] = source.[last_edited_by],
+                    [grade_changed_at] = source.[grade_changed_at],
+                    [previous_grade] = source.[previous_grade],
+                    [status] = source.[status],
+                    [payload_json] = source.[payload_json],
+                    [updated_at] = @now
+                WHEN NOT MATCHED THEN INSERT
+                    ([id], [admin_record_id], [seat], [seating_number], [nid], [name], [kind], [gender], [branch], [graduation_year], [school_category_code], [school], [region], [exam_round], [total], [import_max], [override_max], [last_edited_at], [last_edited_by], [grade_changed_at], [previous_grade], [status], [payload_json], [created_at], [updated_at])
+                VALUES
+                    (NEWID(), source.[admin_record_id], source.[seat], source.[seating_number], source.[nid], source.[name], source.[kind], source.[gender], source.[branch], source.[graduation_year],
+                     source.[school_category_code], source.[school], source.[region], source.[exam_round], source.[total], source.[import_max], source.[override_max], source.[last_edited_at],
+                     source.[last_edited_by], source.[grade_changed_at], source.[previous_grade], source.[status], source.[payload_json], @now, @now);
+                """, command =>
+            {
+                AddParameter(command, "@payloads", batchJson);
+                AddParameter(command, "@now", now);
+            }, ct);
+            written += batch.Length;
+        }
+
+        return written;
     }
 
     public async Task AddBulkAuditRecordAsync(
