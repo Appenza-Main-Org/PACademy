@@ -10,6 +10,7 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
 /* ── Web API basics ─────────────────────────────────────────────── */
 builder.Services.AddControllers();
 

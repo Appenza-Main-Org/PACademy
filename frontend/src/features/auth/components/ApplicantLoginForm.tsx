@@ -80,7 +80,7 @@ function resolveResumeRoute(draft: ApplicantDraft | null): string {
   if (stage >= 7) return ROUTES.applicantExamSchedule;
   if (stage >= 6) return ROUTES.applicantFamily;
   if (stage >= 3) return ROUTES.applicantPayment;
-  if (draft.categoryKey) return ROUTES.applicantProfile;
+  if (stage >= 1 && draft.categoryKey) return ROUTES.applicantProfile;
   return ROUTES.applicantStart;
 }
 
