@@ -13,6 +13,7 @@ public static class ErrorCodes
     public const string DuplicateCode = "DUPLICATE_CODE";
     public const string InUse = "IN_USE";
     public const string ActiveCycleExists = "ACTIVE_CYCLE_EXISTS";
+    public const string NoActiveCycle = "NO_ACTIVE_CYCLE";
     public const string CycleActivationIncomplete = "CYCLE_ACTIVATION_INCOMPLETE";
     public const string NidCycleDuplicate = "NID_CYCLE_DUPLICATE";
     public const string ExamOrderDuplicate = "EXAM_ORDER_DUPLICATE";
