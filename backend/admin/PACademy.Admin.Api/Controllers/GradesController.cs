@@ -551,7 +551,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var where = new List<string>
         {
             "[a].[module] = @module",
-            $"{JsonValue("deletedAt")} IS NULL"
+            LiveGradeSql()
         };
         var hasFilters = false;
         parameters.Add(new SqlParameter("@module", "grades"));
@@ -722,7 +722,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                     COALESCE(SUM(CASE WHEN {JsonValue("gradeChangedAt")} IS NOT NULL OR JSON_QUERY([a].[payload_json], '$.log') IS NOT NULL AND JSON_QUERY([a].[payload_json], '$.log') <> N'[]' THEN 1 ELSE 0 END), 0) AS [WithAdjustments]
                 FROM {AdminDbContext.QualifiedTableName("admin_records")} AS [a]
                 WHERE [a].[module] = N'grades'
-                  AND {JsonValue("deletedAt")} IS NULL
+                  AND {LiveGradeSql()}
                 """)
             .SingleAsync(ct);
 #pragma warning restore EF1002
@@ -750,7 +750,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                 SELECT DISTINCT {JsonValue("branch")} AS [Value]
                 FROM {AdminDbContext.QualifiedTableName("admin_records")} AS [a]
                 WHERE [a].[module] = N'grades'
-                  AND {JsonValue("deletedAt")} IS NULL
+                  AND {LiveGradeSql()}
                   AND {JsonValue("branch")} IS NOT NULL
                   AND {JsonValue("branch")} <> N''
                 ORDER BY [Value]
@@ -778,6 +778,8 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
     }
 
     private static string JsonValue(string property) => $"JSON_VALUE([a].[payload_json], '$.{property}')";
+    private static string LiveGradeSql() =>
+        $"({JsonValue("deletedAt")} IS NULL AND COALESCE(LOWER({JsonValue("isDeleted")}), N'false') <> N'true')";
     private static string NumberValue(string property) => $"TRY_CONVERT(float, {JsonValue(property)})";
     private static string GradeMaxSql() => $"COALESCE(TRY_CONVERT(float, {JsonValue("overrideMax")}), TRY_CONVERT(float, {JsonValue("importMax")}), 410.0)";
     private static string AdjustmentSumSql() =>

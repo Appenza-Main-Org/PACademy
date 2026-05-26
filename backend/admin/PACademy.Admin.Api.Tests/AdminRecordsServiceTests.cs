@@ -9,6 +9,21 @@ namespace PACademy.Admin.Api.Tests;
 
 public sealed class AdminRecordsServiceTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData("true")]
+    [InlineData("TRUE")]
+    public void IsSoftDeletedTreatsIsDeletedTrueAsTombstone(object marker)
+    {
+        var row = new JsonObject
+        {
+            ["id"] = "1",
+            ["isDeleted"] = JsonValue.Create(marker)
+        };
+
+        Assert.True(AdminRecordJson.IsSoftDeleted(row));
+    }
+
     [Fact]
     public async Task SoftDeleteModuleAsyncProcessesRowsPastFirstBatch()
     {

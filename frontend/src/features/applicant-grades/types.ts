@@ -76,6 +76,9 @@ export interface GradeRow {
   importFileName?: string | null;
   importedBy?: string | null;
   importedAt?: string | null;
+  /** Soft-delete markers from the admin records payload. Deleted rows are hidden from lists and import diff checks. */
+  deletedAt?: string | null;
+  isDeleted?: boolean | string | null;
   /**
    * Timestamp of the most recent change to any grade-affecting field
    * (raw total, override max, adjustment add/toggle/delete). `null` for

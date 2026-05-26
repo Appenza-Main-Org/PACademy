@@ -40,8 +40,23 @@ public static class AdminRecordJson
         }
     }
 
-    /// True when the payload carries a non-null `deletedAt` tombstone.
-    public static bool IsSoftDeleted(JsonObject obj) =>
-        obj.TryGetPropertyValue("deletedAt", out var node) && node is not null
-        && !string.IsNullOrWhiteSpace(node.ToString());
+    /// True when the payload carries either supported tombstone shape.
+    public static bool IsSoftDeleted(JsonObject obj)
+    {
+        if (obj.TryGetPropertyValue("deletedAt", out var deletedAt) &&
+            deletedAt is not null &&
+            !string.IsNullOrWhiteSpace(deletedAt.ToString()))
+        {
+            return true;
+        }
+
+        if (!obj.TryGetPropertyValue("isDeleted", out var isDeleted) || isDeleted is null)
+        {
+            return false;
+        }
+
+        var marker = isDeleted.ToString().Trim().Trim('"');
+        return string.Equals(marker, "true", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(marker, "1", StringComparison.Ordinal);
+    }
 }

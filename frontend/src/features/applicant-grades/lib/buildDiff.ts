@@ -88,6 +88,13 @@ function normalisedEquals(a: unknown, b: unknown): boolean {
   return String(a).trim() === String(b).trim();
 }
 
+function isLiveGradeRow(row: GradeRow): boolean {
+  if (row.deletedAt != null && String(row.deletedAt).trim().length > 0) return false;
+  if (row.isDeleted == null) return true;
+  if (typeof row.isDeleted === 'boolean') return !row.isDeleted;
+  return row.isDeleted.trim().toLowerCase() !== 'true';
+}
+
 /** Build per-row diff for every incoming row whose NID already exists.
  *  Rows that don't match an existing record are excluded so the diff
  *  view only renders the ones requiring a decision. */
@@ -95,7 +102,7 @@ export function buildExistingDiffs(
   rows: readonly NormalisedRow[],
   existing: readonly GradeRow[],
 ): ExistingDiff[] {
-  const existingByNid = new Map(existing.map((r) => [r.nid, r]));
+  const existingByNid = new Map(existing.filter(isLiveGradeRow).map((r) => [r.nid, r]));
   const out: ExistingDiff[] = [];
   for (const r of rows) {
     if (!r.nationalId) continue;
@@ -168,7 +175,7 @@ export function buildAlreadyImported(
   rows: readonly NormalisedRow[],
   existing: readonly GradeRow[],
 ): AlreadyImportedRow[] {
-  const existingByNid = new Map(existing.map((r) => [r.nid, r]));
+  const existingByNid = new Map(existing.filter(isLiveGradeRow).map((r) => [r.nid, r]));
   const out: AlreadyImportedRow[] = [];
   for (const r of rows) {
     if (!r.nationalId) continue;
