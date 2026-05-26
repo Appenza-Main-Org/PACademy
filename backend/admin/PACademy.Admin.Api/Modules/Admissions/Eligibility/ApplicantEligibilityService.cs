@@ -169,18 +169,31 @@ public sealed class ApplicantEligibilityService(
         {
             var parameter = new SqlParameter("@nid", nationalId);
 #pragma warning disable EF1002
-            var payload = await db.Database
-                .SqlQueryRaw<string>($"""
-                    SELECT TOP(1) [payload_json] AS [Value]
-                    FROM {AdminDbContext.QualifiedTableName("applicant_grades")}
-                    WHERE [nid] = @nid
-                    ORDER BY [seat]
-                    """, parameter)
-                .FirstOrDefaultAsync(ct);
+            string? payload;
+            try
+            {
+                payload = await db.Database
+                    .SqlQueryRaw<string>($"""
+                        SELECT TOP(1) [payload_json] AS [Value]
+                        FROM {AdminDbContext.QualifiedTableName("applicant_grades")}
+                        WHERE [nid] = @nid
+                        ORDER BY [seat]
+                        """, parameter)
+                    .FirstOrDefaultAsync(ct);
+            }
+            catch (SqlException ex) when (ex.Number == 208)
+            {
+                return await LoadGradeFromAdminRecordsAsync(nationalId, ct);
+            }
 #pragma warning restore EF1002
             return payload is null ? null : AdminRecordJson.Parse(payload);
         }
 
+        return await LoadGradeFromAdminRecordsAsync(nationalId, ct);
+    }
+
+    private async Task<JsonObject?> LoadGradeFromAdminRecordsAsync(string nationalId, CancellationToken ct)
+    {
         var candidates = await db.AdminRecords
             .AsNoTracking()
             .Where(x => x.Module == "grades" && x.PayloadJson.Contains(nationalId))
