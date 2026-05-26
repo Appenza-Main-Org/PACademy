@@ -26,6 +26,17 @@ import type {
   TestKindForReport,
   TestResultsReport,
 } from '@/shared/types/domain';
+import type { Pagination } from '@/shared/types/api';
+import type {
+  ApplicantReportAggregate,
+  ApplicantReportRow,
+  DataAvailabilityReport,
+  GroupByDimension,
+  ReportsExportFormat,
+  ReportsExportKind,
+  ReportsFilters,
+  StageDropoffReport,
+} from '../reports/types';
 
 export const NOW = new Date('2026-05-15T10:00:00+02:00');
 
@@ -325,6 +336,23 @@ async function mock<T>(factory: () => T): Promise<T> {
   return factory();
 }
 
+function reportsQuery(filters: ReportsFilters = {}): Record<string, string | number | undefined> {
+  return {
+    cycleId: filters.cycleId,
+    dateFrom: filters.dateRange?.from,
+    dateTo: filters.dateRange?.to,
+    ageMin: filters.ageMin,
+    ageMax: filters.ageMax,
+    categoryKey: filters.categoryKey,
+    applicantType: filters.applicantType,
+    gender: filters.gender,
+    committeeId: filters.committeeId === 'all' ? undefined : filters.committeeId,
+    specializationCode: filters.specializationCode,
+    paymentStatus: filters.paymentStatus,
+    stoppedAtStage: filters.stoppedAtStage,
+  };
+}
+
 export const reportsService = {
   async getCycleSnapshot(): Promise<CycleSnapshot> {
     if (!isBackendEnabled()) return mock(buildCycleSnapshot);
@@ -359,5 +387,82 @@ export const reportsService = {
   async getIntegrationStatus(): Promise<IntegrationStatus[]> {
     if (!isBackendEnabled()) return mock(buildIntegrationStatus);
     return apiClient.get('/api/admin/reports/integrations');
+  },
+
+  /**
+   * INTEGRATION CONTRACT:
+   *   GET /api/admin/reports/applicants/aggregate
+   *   Permission: reports:read
+   *   Query: cycleId, dateFrom, dateTo, ageMin, ageMax, categoryKey,
+   *   applicantType, gender, committeeId, specializationCode,
+   *   paymentStatus, groupBy.
+   */
+  async getApplicantsAggregate(
+    filters: ReportsFilters,
+    groupBy: GroupByDimension,
+  ): Promise<ApplicantReportAggregate> {
+    return apiClient.get('/api/admin/reports/applicants/aggregate', {
+      query: { ...reportsQuery(filters), groupBy },
+    });
+  },
+
+  /**
+   * INTEGRATION CONTRACT:
+   *   GET /api/admin/reports/applicants/detail
+   *   Permission: reports:read
+   *   Query: all report filters plus page, pageSize, sort.
+   *   Response: Page<ApplicantReportRow>.
+   */
+  async getApplicantsDetail(
+    filters: ReportsFilters,
+    opts: { page: number; pageSize: number; sort?: string; search?: string },
+  ): Promise<Pagination<ApplicantReportRow>> {
+    return apiClient.get('/api/admin/reports/applicants/detail', {
+      query: { ...reportsQuery(filters), ...opts },
+    });
+  },
+
+  /**
+   * INTEGRATION CONTRACT:
+   *   GET /api/admin/reports/stage-dropoff
+   *   Permission: reports:read
+   *   Query: all report filters plus stoppedAtStage and staleDays.
+   *   Response: Page<StuckApplicantRow> + funnel.
+   */
+  async getStageDropoff(
+    filters: ReportsFilters,
+    opts: { page: number; pageSize: number; staleDays: number },
+  ): Promise<StageDropoffReport> {
+    return apiClient.get('/api/admin/reports/stage-dropoff', {
+      query: { ...reportsQuery(filters), ...opts },
+    });
+  },
+
+  /**
+   * INTEGRATION CONTRACT:
+   *   GET /api/admin/reports/data-availability
+   *   Permission: reports:read
+   *   Query: every report filter.
+   */
+  async getDataAvailability(filters: ReportsFilters): Promise<DataAvailabilityReport> {
+    return apiClient.get('/api/admin/reports/data-availability', {
+      query: reportsQuery(filters),
+    });
+  },
+
+  /**
+   * INTEGRATION CONTRACT:
+   *   POST /api/admin/reports/export
+   *   Permission: reports:export
+   *   Body: filters + format + report.
+   *   Response: Blob with Content-Disposition filename.
+   */
+  async exportReport(payload: {
+    filters: ReportsFilters;
+    format: ReportsExportFormat;
+    report: ReportsExportKind;
+    title: string;
+  }): Promise<Blob> {
+    return apiClient.post('/api/admin/reports/export', payload, { responseType: 'blob' });
   },
 };

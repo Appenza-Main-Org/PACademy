@@ -29,6 +29,7 @@ interface RequestOptions {
   headers?: HeadersInit;
   signal?: AbortSignal;
   skipAuth?: boolean;
+  responseType?: 'json' | 'blob';
 }
 
 const READ_RETRY_DELAYS_MS = [300, 900] as const;
@@ -231,6 +232,10 @@ async function request<T>(
     body: body2,
     signal: options.signal,
   }, options.signal);
+  if (options.responseType === 'blob') {
+    if (!res.ok) throw toServiceError(res.status, await parseResponse(res));
+    return await res.blob() as T;
+  }
   const contentType = res.headers.get('content-type') ?? '';
   if (res.ok && res.status !== 204 && !contentType.includes('application/json')) {
     throw new Error('استجابة الخادم غير صالحة. تحقق من إعدادات اتصال الواجهة الخلفية.');
