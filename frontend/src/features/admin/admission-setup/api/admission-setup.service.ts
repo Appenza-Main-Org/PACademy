@@ -11,6 +11,7 @@
  *   PUT  /api/admission-setup/cycles/:cycleId/committee-bindings
  */
 
+
 import { apiClient } from '@/shared/lib/api-client';
 import type { ApplicantCategoryKey, CategoryCommittees } from '@/shared/types/domain';
 import type { DeclarationDocument, ElectronicDeclaration, ExamDateConfig } from '../types';
