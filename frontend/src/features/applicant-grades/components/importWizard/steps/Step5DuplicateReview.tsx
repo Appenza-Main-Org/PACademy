@@ -42,6 +42,7 @@ import {
   buildDuplicateAudit,
   buildIntegrityAuditRows,
   DUPLICATE_RATIO_THRESHOLD,
+  summarizeIntegrityDecisions,
   type DuplicateAudit,
 } from '../../../lib/duplicateAudit';
 import type { ImportPreflightProgress } from '../../../types';
@@ -60,6 +61,7 @@ export function Step5DuplicateReview(): JSX.Element {
   const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const importResult = useImportWizardStore((s) => s.importResult);
   const setImportResult = useImportWizardStore((s) => s.setImportResult);
+  const perGroupActions = useImportWizardStore((s) => s.perGroupActions);
   const loudDuplicateAck = useImportWizardStore((s) => s.loudDuplicateAck);
   const setLoudDuplicateAck = useImportWizardStore((s) => s.setLoudDuplicateAck);
   const [progress, setProgress] = useState<ImportPreflightProgress | null>(null);
@@ -151,13 +153,21 @@ export function Step5DuplicateReview(): JSX.Element {
   const outOfRange = integrityRows.filter((row) => row.code === 'GRADE_OUT_OF_RANGE').length;
   const unreadable = integrityRows.filter((row) => row.code === 'UNREADABLE_VALUE').length;
   const alreadyImported = buildAlreadyImported(normalised, allRows ?? []).length;
+  const decisionSummary = summarizeIntegrityDecisions(
+    integrityRows,
+    perGroupActions.GRADE_OUT_OF_RANGE,
+  );
   const rejectedCount = Math.max(
     report.totals.failed,
-    new Set(integrityRows.map((row) => row.sourceRowIndex)).size,
+    decisionSummary.rejectedSourceRows.size,
   );
+  const pendingDecisionCount = decisionSummary.pendingOutOfRangeCount;
   const duplicateMatches = dup + alreadyImported;
   const skippedCount = report.totals.skipped + alreadyImported;
-  const readyToWrite = Math.max(0, report.totals.received - skippedCount - rejectedCount);
+  const readyToWrite = Math.max(
+    0,
+    report.totals.received - skippedCount - rejectedCount - pendingDecisionCount,
+  );
 
   function handleDownloadAudit(): void {
     const csv = buildAuditCsv({
@@ -229,9 +239,10 @@ export function Step5DuplicateReview(): JSX.Element {
         />
       </div>
 
-      <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle bg-ink-50">
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-ink-50 md:grid-cols-5">
         <Summary label="مستلمة" value={report.totals.received} />
         <Summary label="جاهزة للكتابة" value={readyToWrite} tone="success" />
+        <Summary label="تحتاج قرار" value={pendingDecisionCount} tone="warning" />
         <Summary label="مرفوضة" value={rejectedCount} tone="warning" />
         <Summary label="ملغاة" value={skippedCount} />
       </div>
@@ -283,15 +294,15 @@ export function Step5DuplicateReview(): JSX.Element {
               المعتمد في خطوة «مراجعة التغييرات».
             </span>
           )}
-          {rejectedCount > 0 && (
+          {pendingDecisionCount > 0 && (
             <span>
-              توجد {rejectedCount.toLocaleString('en')} صفًا تحتاج إلى قرار — راجعها في خطوة
-              «النتيجة».
+              توجد {pendingDecisionCount.toLocaleString('en')} صفًا تتجاوز الدرجة العظمى وتحتاج
+              إلى قرار قبول أو رفض — راجعها في خطوة «النتيجة».
             </span>
           )}
-          {outOfRange > 0 && (
+          {rejectedCount > 0 && (
             <span>
-              {outOfRange.toLocaleString('en')} صفًا تتجاوز الحد الأقصى — راجعها في «النتيجة».
+              توجد {rejectedCount.toLocaleString('en')} صفًا مرفوضًا بسبب أخطاء لا يمكن تجاوزها.
             </span>
           )}
         </div>

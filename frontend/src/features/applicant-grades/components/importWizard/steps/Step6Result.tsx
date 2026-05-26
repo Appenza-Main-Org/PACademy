@@ -27,7 +27,12 @@ import { useImportWizardStore } from '../../../store/importWizard.store';
 import { useGrades } from '../../../api/grades.queries';
 import { normaliseRows } from '../../../lib/normalise';
 import { buildAlreadyImported } from '../../../lib/buildDiff';
-import { buildAuditCsv, buildDuplicateAudit, buildIntegrityAuditRows } from '../../../lib/duplicateAudit';
+import {
+  buildAuditCsv,
+  buildDuplicateAudit,
+  buildIntegrityAuditRows,
+  summarizeIntegrityDecisions,
+} from '../../../lib/duplicateAudit';
 import type {
   ImportFailureRow,
   ImportGroupAction,
@@ -36,8 +41,8 @@ import type {
 } from '../../../types';
 
 const ACTION_LABELS: Record<ImportGroupAction, string> = {
-  skip: 'تجاهل',
-  override: 'استبدال',
+  skip: 'رفض / تجاهل',
+  override: 'قبول',
   export: 'تصدير',
   'create-applicant': 'إنشاء متقدم',
 };
@@ -158,17 +163,20 @@ export function Step6Result(): JSX.Element {
     return Array.from(byCode.values());
   }, [importResult.groups, integrityGroups]);
   const skippedExistingCount = alreadyImported.length;
-  const allowOutOfRange = perGroupActions.GRADE_OUT_OF_RANGE === 'override';
+  const decisionSummary = summarizeIntegrityDecisions(
+    integrityRows,
+    perGroupActions.GRADE_OUT_OF_RANGE,
+  );
   const rejectedCount = Math.max(
     importResult.totals.failed,
-    new Set(
-      integrityRows
-        .filter((row) => !(row.code === 'GRADE_OUT_OF_RANGE' && allowOutOfRange))
-        .map((row) => row.sourceRowIndex),
-    ).size,
+    decisionSummary.rejectedSourceRows.size,
   );
+  const pendingDecisionCount = decisionSummary.pendingOutOfRangeCount;
   const skippedCount = importResult.totals.skipped + skippedExistingCount;
-  const importableCount = Math.max(0, importResult.totals.received - skippedCount - rejectedCount);
+  const importableCount = Math.max(
+    0,
+    importResult.totals.received - skippedCount - rejectedCount - pendingDecisionCount,
+  );
 
   function handleDownloadAudit(): void {
     const csv = buildAuditCsv({
@@ -188,12 +196,24 @@ export function Step6Result(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-4 overflow-hidden rounded-md border border-border-subtle">
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle md:grid-cols-5">
         <SummaryBlock label="مستلمة" value={importResult.totals.received} />
         <SummaryBlock label="مستوردة" value={importableCount} tone="success" big />
         <SummaryBlock label="ملغاة" value={skippedCount} />
+        <SummaryBlock label="تحتاج قرار" value={pendingDecisionCount} tone="warning" />
         <SummaryBlock label="مرفوضة" value={rejectedCount} tone="warning" />
       </div>
+
+      {pendingDecisionCount > 0 && (
+        <div className="rounded-md border border-gold-300 bg-gold-50 px-3.5 py-2.5 text-xs text-gold-700">
+          توجد{' '}
+          <span className="font-en font-bold text-ink-900">
+            {pendingDecisionCount.toLocaleString('en')}
+          </span>{' '}
+          صفًا تتجاوز الدرجة العظمى. اختر «قبول» لتضمينها أو «رفض / تجاهل» لاستبعادها قبل تأكيد
+          الاستيراد.
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-subtle bg-white px-3.5 py-2.5">
         <div className="flex flex-wrap items-center gap-3 text-2xs text-ink-600">
@@ -344,7 +364,7 @@ function GroupBody({ group, action, onAction }: GroupBodyProps): JSX.Element {
     <div className="flex flex-col gap-2.5 pt-1">
       <div className="flex flex-wrap items-center gap-2">
         {group.availableActions.map((a) => {
-          const active = a === action || (a === 'export' && action === undefined);
+          const active = a === action;
           if (a === 'export') {
             return (
               <Button

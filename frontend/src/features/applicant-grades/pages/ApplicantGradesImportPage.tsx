@@ -41,6 +41,7 @@ import {
   buildDuplicateAudit,
   buildIntegrityAuditRows,
   dedupeRowsFirstOccurrence,
+  summarizeIntegrityDecisions,
 } from '../lib/duplicateAudit';
 import { saveApplicantGradesImportHistoryRecord } from '../lib/importHistory';
 import type { UploadDuplicateDecision } from '../store/importWizard.store';
@@ -155,6 +156,16 @@ export function ApplicantGradesImportPage(): JSX.Element {
 
   const loudGuardBlocks =
     duplicateAudit?.exceedsThreshold === true && !loudDuplicateAck;
+  const outOfRangeDecisionSummary = useMemo(
+    () =>
+      summarizeIntegrityDecisions(
+        integrityRows,
+        perGroupActions.GRADE_OUT_OF_RANGE,
+      ),
+    [integrityRows, perGroupActions.GRADE_OUT_OF_RANGE],
+  );
+  const outOfRangeDecisionBlocks =
+    step === 7 && outOfRangeDecisionSummary.pendingOutOfRangeCount > 0;
 
   function canAdvance(): boolean {
     switch (step) {
@@ -250,11 +261,19 @@ export function ApplicantGradesImportPage(): JSX.Element {
       if (decision === 'accept') acceptedDiffDecisions[nid] = 'accept';
     }
     const allowOutOfRange = perGroupActions.GRADE_OUT_OF_RANGE === 'override';
-    const invalidSourceRows = new Set(
-      integrityRows
-        .filter((row) => !(row.code === 'GRADE_OUT_OF_RANGE' && allowOutOfRange))
-        .map((row) => row.sourceRowIndex),
+    const decisionSummary = summarizeIntegrityDecisions(
+      integrityRows,
+      allowOutOfRange
+        ? 'override'
+        : perGroupActions.GRADE_OUT_OF_RANGE === 'skip'
+          ? 'skip'
+          : undefined,
     );
+    if (decisionSummary.pendingOutOfRangeCount > 0) {
+      toast('اختر قبول أو رفض الصفوف التي تتجاوز الدرجة العظمى قبل تأكيد الاستيراد.', 'warning');
+      return;
+    }
+    const invalidSourceRows = decisionSummary.rejectedSourceRows;
     const rowsEligibleForCommit = resolveUploadDuplicateRows(
       rows.filter((row) => !invalidSourceRows.has(row.sourceRowIndex)),
       uploadDuplicateDecisions,
@@ -381,6 +400,23 @@ export function ApplicantGradesImportPage(): JSX.Element {
         </div>
       )}
 
+      {outOfRangeDecisionBlocks && (
+        <div
+          role="status"
+          className="mt-3 flex items-center gap-2 rounded-md border border-gold-300 border-s-[3px] border-s-gold-500 bg-gold-50 px-3.5 py-2.5 text-xs text-gold-700"
+        >
+          <ShieldAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
+          <span>
+            توجد{' '}
+            <span className="font-en font-bold">
+              {outOfRangeDecisionSummary.pendingOutOfRangeCount.toLocaleString('en')}
+            </span>{' '}
+            صفًا تتجاوز الدرجة العظمى. اختر قبولها أو رفضها في بطاقة «درجات تتجاوز الدرجة
+            العظمى» قبل تأكيد الاستيراد.
+          </span>
+        </div>
+      )}
+
       <footer className="sticky bottom-0 mt-4 flex items-center justify-between gap-3 border-t border-border-subtle bg-white px-6 py-4">
         <Button
           variant="ghost"
@@ -416,7 +452,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
                   : 'جارٍ الاستيراد…'
               }
               onClick={commitImport}
-              disabled={loudGuardBlocks}
+              disabled={loudGuardBlocks || outOfRangeDecisionBlocks}
             >
               تأكيد الاستيراد
             </Button>

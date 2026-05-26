@@ -29,7 +29,10 @@ import type {
 } from '../../../store/importWizard.store';
 import { useGrades } from '../../../api/grades.queries';
 import { normaliseRows } from '../../../lib/normalise';
-import { buildIntegrityAuditRows } from '../../../lib/duplicateAudit';
+import {
+  buildIntegrityAuditRows,
+  summarizeIntegrityDecisions,
+} from '../../../lib/duplicateAudit';
 import {
   buildAlreadyImported,
   buildExistingDiffs,
@@ -202,19 +205,22 @@ export function Step6ChangesReview(): JSX.Element {
     uploadDuplicateDecisions,
   );
   const skippedExistingCount = alreadyImported.length;
-  const allowOutOfRange = perGroupActions.GRADE_OUT_OF_RANGE === 'override';
+  const decisionSummary = summarizeIntegrityDecisions(
+    integrityRows,
+    perGroupActions.GRADE_OUT_OF_RANGE,
+  );
   const summaryRejectedCount = Math.max(
     importResult?.totals.failed ?? 0,
-    new Set(
-      integrityRows
-        .filter((row) => !(row.code === 'GRADE_OUT_OF_RANGE' && allowOutOfRange))
-        .map((row) => row.sourceRowIndex),
-    ).size,
+    decisionSummary.rejectedSourceRows.size,
   );
+  const pendingOutOfRangeCount = decisionSummary.pendingOutOfRangeCount;
   const skippedCount = (importResult?.totals.skipped ?? 0) + skippedExistingCount;
   const importableCount = Math.max(
     0,
-    (importResult?.totals.received ?? normalised.length) - skippedCount - summaryRejectedCount,
+    (importResult?.totals.received ?? normalised.length) -
+      skippedCount -
+      summaryRejectedCount -
+      pendingOutOfRangeCount,
   );
 
   function acceptAllUploadDuplicates(): void {
@@ -248,6 +254,7 @@ export function Step6ChangesReview(): JSX.Element {
           importable={importableCount}
           skipped={skippedCount}
           rejected={summaryRejectedCount}
+          pending={pendingOutOfRangeCount}
           skippedExisting={skippedExistingCount}
         />
         {alreadyImported.length > 0 && (
@@ -281,6 +288,7 @@ export function Step6ChangesReview(): JSX.Element {
         importable={importableCount}
         skipped={skippedCount}
         rejected={summaryRejectedCount}
+        pending={pendingOutOfRangeCount}
         skippedExisting={skippedExistingCount}
       />
       {alreadyImported.length > 0 && (
@@ -369,6 +377,7 @@ interface ImportDecisionSummaryProps {
   importable: number;
   skipped: number;
   rejected: number;
+  pending: number;
   skippedExisting: number;
 }
 
@@ -377,13 +386,15 @@ function ImportDecisionSummary({
   importable,
   skipped,
   rejected,
+  pending,
   skippedExisting,
 }: ImportDecisionSummaryProps): JSX.Element {
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-white p-3">
-      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle md:grid-cols-4">
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle md:grid-cols-5">
         <DecisionStat label="مستلمة" value={received} />
         <DecisionStat label="سيتم استيرادها" value={importable} tone="success" />
+        <DecisionStat label="تحتاج قرار" value={pending} tone="warning" />
         <DecisionStat label="سيتم تجاهلها" value={skipped} tone="warning" />
         <DecisionStat label="مرفوضة" value={rejected} tone="danger" />
       </div>
