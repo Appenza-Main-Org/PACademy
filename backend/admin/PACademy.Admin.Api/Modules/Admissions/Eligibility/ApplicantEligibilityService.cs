@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Persistence;
@@ -10,13 +9,8 @@ namespace PACademy.Admin.Api.Modules.Admissions.Eligibility;
 
 public sealed class ApplicantEligibilityService(
     AdminDbContext db,
-    IMemoryCache cache,
     AdminRecordsService? records = null)
 {
-    private const string SettingsCacheKey = "eligibility:active-settings:v2";
-    private static readonly TimeSpan SettingsCacheTtl = TimeSpan.FromMinutes(2);
-    private static readonly TimeSpan DraftCacheTtl = TimeSpan.FromSeconds(30);
-
     public async Task<ApplicantEligibilityResponse> GetEligibleCategoriesAsync(
         string nationalId,
         CancellationToken ct,
@@ -104,11 +98,6 @@ public sealed class ApplicantEligibilityService(
 
     private async Task<ActiveEligibilitySnapshot> LoadActiveSettingsSnapshotAsync(CancellationToken ct)
     {
-        if (cache.TryGetValue(SettingsCacheKey, out ActiveEligibilitySnapshot? cached) && cached is not null)
-        {
-            return cached;
-        }
-
         var activeCycle = await db.AdmissionCycles
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.IsActive, ct)
@@ -140,7 +129,7 @@ public sealed class ApplicantEligibilityService(
         var lookups = new EligibilityLookupSnapshot(
             lookupRows.Where(x => x.LookupKey == "school-categories").Select(LookupToJson).ToArray());
 
-        var snapshot = new ActiveEligibilitySnapshot(
+        return new ActiveEligibilitySnapshot(
             activeCycle,
             configs,
             specs,
@@ -148,8 +137,6 @@ public sealed class ApplicantEligibilityService(
             categoryLookups,
             committeeLookups,
             lookups);
-        cache.Set(SettingsCacheKey, snapshot, SettingsCacheTtl);
-        return snapshot;
     }
 
     private async Task<IReadOnlyList<ApplicationSettingsGraduationYearEntity>> LoadActiveYearsAsync(
@@ -245,42 +232,38 @@ public sealed class ApplicantEligibilityService(
         CancellationToken ct)
     {
         var module = $"admissionSetup.applicationSettings.{cycleId}";
-        var cacheKey = $"eligibility:cycle-draft:{cycleId}";
-        if (!cache.TryGetValue(cacheKey, out JsonObject? draft) || draft is null)
+        JsonObject? draft;
+        if (db.Database.IsSqlServer())
         {
-            if (db.Database.IsSqlServer())
-            {
-                var parameter = new SqlParameter("@id", module);
+            var parameter = new SqlParameter("@id", module);
 #pragma warning disable EF1002
-                string? payload;
-                try
-                {
-                    payload = await db.Database
-                        .SqlQueryRaw<string>($"""
-                            SELECT TOP(1) [payload_json] AS [Value]
-                            FROM {AdminDbContext.QualifiedTableName("cycle_application_settings")}
-                            WHERE [id] = @id
-                            """, parameter)
-                        .FirstOrDefaultAsync(ct);
-                }
-                catch (SqlException ex) when (ex.Number == 208)
-                {
-                    var record = await db.AdminRecords
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
-                    payload = record?.PayloadJson;
-                }
-#pragma warning restore EF1002
-                draft = payload is null ? null : AdminRecordJson.Parse(payload);
+            string? payload;
+            try
+            {
+                payload = await db.Database
+                    .SqlQueryRaw<string>($"""
+                        SELECT TOP(1) [payload_json] AS [Value]
+                        FROM {AdminDbContext.QualifiedTableName("cycle_application_settings")}
+                        WHERE [id] = @id
+                        """, parameter)
+                    .FirstOrDefaultAsync(ct);
             }
-            else
+            catch (SqlException ex) when (ex.Number == 208)
             {
                 var record = await db.AdminRecords
                     .AsNoTracking()
                     .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
-                draft = record is null ? null : AdminRecordJson.Parse(record.PayloadJson);
+                payload = record?.PayloadJson;
             }
-            cache.Set(cacheKey, draft, DraftCacheTtl);
+#pragma warning restore EF1002
+            draft = payload is null ? null : AdminRecordJson.Parse(payload);
+        }
+        else
+        {
+            var record = await db.AdminRecords
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
+            draft = record is null ? null : AdminRecordJson.Parse(record.PayloadJson);
         }
         if (draft is null) return [];
 

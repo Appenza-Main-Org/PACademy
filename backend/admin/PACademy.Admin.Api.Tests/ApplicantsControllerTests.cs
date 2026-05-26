@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using PACademy.Admin.Api.Controllers;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions.Eligibility;
@@ -39,7 +38,7 @@ public sealed class ApplicantsControllerTests
     private static ApplicantsController CreateController(AdminDbContext db)
     {
         var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
-        var eligibility = new ApplicantEligibilityService(db, new MemoryCache(new MemoryCacheOptions()), records);
+        var eligibility = new ApplicantEligibilityService(db, records);
         return new ApplicantsController(records, eligibility)
         {
             ControllerContext = new ControllerContext
