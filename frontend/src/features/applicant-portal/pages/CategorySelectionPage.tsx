@@ -164,6 +164,12 @@ export function CategorySelectionPage(): JSX.Element {
     }
   }, [eligibilityCategoriesQuery.data, selectedCategoryKey, navigate]);
 
+  useEffect(() => {
+    if (!eligibilityCategoriesQuery.error) return;
+    if (selectedCategoryKey) return;
+    navigate(ROUTES.applicantIneligible, { replace: true });
+  }, [eligibilityCategoriesQuery.error, selectedCategoryKey, navigate]);
+
   /* Lookup-derived option lists — declared HERE (above the conditional
    * returns below) so they sit in a stable hook position across renders.
    * Moving the useMemo calls below the `if (loading) return` violated
@@ -342,6 +348,7 @@ export function CategorySelectionPage(): JSX.Element {
           <CategoryRows
             categoriesQuery={categoriesQuery}
             eligibility={eligibilityCategoriesQuery.data?.categories ?? []}
+            eligibilityLoading={eligibilityCategoriesQuery.isLoading}
             /* When MOI verified the applicant for a specific category,
              * show only that one. For not_found / no MOI session, show
              * the full catalogue so the applicant can pick. */
@@ -575,18 +582,20 @@ function InlineSection({
 function CategoryRows({
   categoriesQuery,
   eligibility,
+  eligibilityLoading,
   eligibleKey,
   onPick,
 }: {
   categoriesQuery: ReturnType<typeof useCategories>;
   eligibility: readonly ApplicantCategoryEligibility[];
+  eligibilityLoading: boolean;
   /** Restrict the rendered list to a single category when the MOI
    *  lookup already decided eligibility — Ahmed sees only قسم الضباط
    *  (officers_general). When null, the full catalogue renders. */
   eligibleKey: string | null;
   onPick: (key: string, enabled: boolean) => void;
 }): JSX.Element {
-  if (categoriesQuery.isLoading) {
+  if (categoriesQuery.isLoading || eligibilityLoading) {
     return (
       <div className="px-5 py-4">
         <LoadingState variant="list" rows={4} />
