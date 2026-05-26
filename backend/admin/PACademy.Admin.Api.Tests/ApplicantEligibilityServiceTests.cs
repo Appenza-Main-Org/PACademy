@@ -27,6 +27,10 @@ public sealed class ApplicantEligibilityServiceTests
         var category = Assert.Single(response.Categories);
         Assert.True(category.Eligible);
         Assert.True(category.Checks.GradesCheck.Passed);
+        Assert.Equal(new DateOnly(2026, 1, 1), category.ApplicationStartDate);
+        Assert.Equal(new DateOnly(2026, 12, 31), category.ApplicationEndDate);
+        Assert.Equal(new DateOnly(2026, 1, 1), category.AgeReferenceDate);
+        Assert.Equal(30, category.MaxAge);
         Assert.Contains(category.Committees, x => x.CommitteeId == "CMT-1");
         Assert.Equal("cycle-2026", response.CycleId);
     }

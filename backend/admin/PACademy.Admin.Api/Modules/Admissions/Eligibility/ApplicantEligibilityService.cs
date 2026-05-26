@@ -8,7 +8,10 @@ using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.Admissions.Eligibility;
 
-public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache cache)
+public sealed class ApplicantEligibilityService(
+    AdminDbContext db,
+    IMemoryCache cache,
+    AdminRecordsService? records = null)
 {
     private const string SettingsCacheKey = "eligibility:active-settings:v2";
     private static readonly TimeSpan SettingsCacheTtl = TimeSpan.FromMinutes(2);
@@ -78,6 +81,10 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
                 settings.CategoryId,
                 settings.CategoryName,
                 failedReasons.Count == 0,
+                evaluation.MatchedRule?.ApplicationStartDate,
+                evaluation.MatchedRule?.ApplicationEndDate,
+                evaluation.MatchedRule?.AgeReferenceDate,
+                evaluation.MatchedRule?.MaxAge,
                 checks,
                 committees,
                 academicPrograms,
@@ -190,15 +197,16 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
         string cycleId,
         CancellationToken ct)
     {
-        var rows = await db.AdminRecords
-            .AsNoTracking()
-            .Where(x => x.Module == "committeeInstances")
-            .OrderBy(x => x.Id)
-            .Select(x => x.PayloadJson)
-            .ToListAsync(ct);
+        var rows = records is not null
+            ? await records.ListAsync("committeeInstances", ct)
+            : await db.AdminRecords
+                .AsNoTracking()
+                .Where(x => x.Module == "committeeInstances")
+                .OrderBy(x => x.Id)
+                .Select(x => EligibilityJson.ParseObject(x.PayloadJson))
+                .ToListAsync(ct);
 
         return rows
-            .Select(EligibilityJson.ParseObject)
             .Where(row => EligibilityJson.TextEquals(EligibilityJson.StringProp(row, "cycleId"), cycleId))
             .Select(ToCommitteeExamSlot)
             .Where(x => x is not null)
@@ -358,7 +366,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
         if (category.Rules.Count == 0)
         {
             var checks = RunChecks(applicant, category, lookups);
-            return new CategoryEvaluation(checks, null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
+            return new CategoryEvaluation(checks, null, null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
         }
 
         CategoryEvaluation? best = null;
@@ -379,7 +387,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
             };
             var checks = RunChecks(applicant, rowSettings, lookups);
             var failedReasons = BuildFailedReasons(checks, rowSettings);
-            var evaluation = new CategoryEvaluation(checks, rule.Id, failedReasons);
+            var evaluation = new CategoryEvaluation(checks, rule.Id, rule, failedReasons);
             if (failedReasons.Count == 0)
             {
                 return evaluation;
@@ -391,7 +399,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
             }
         }
 
-        return best ?? new CategoryEvaluation(RunChecks(applicant, category, lookups), null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
+        return best ?? new CategoryEvaluation(RunChecks(applicant, category, lookups), null, null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
     }
 
     private static EligibilityChecks RunChecks(
@@ -600,6 +608,7 @@ public sealed class ApplicantEligibilityService(AdminDbContext db, IMemoryCache 
     private sealed record CategoryEvaluation(
         EligibilityChecks Checks,
         string? MatchedRuleId,
+        ApplicationSettingsGraduationYearEntity? MatchedRule,
         IReadOnlyList<string> FailedReasons);
 
     private sealed record DraftEligibilityRule(

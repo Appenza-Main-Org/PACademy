@@ -49,6 +49,10 @@ export interface ApplicantCategoryEligibility {
   categoryId: string;
   categoryName: string;
   eligible: boolean;
+  applicationStartDate: string | null;
+  applicationEndDate: string | null;
+  ageReferenceDate: string | null;
+  maxAge: number | null;
   checks: {
     ageCheck: { passed: boolean; applicantAge: number; maxAge: number | null; minAge?: number | null };
     genderCheck: { passed: boolean; applicantGender: string; allowedGender: string[] };
@@ -341,6 +345,10 @@ export const categoriesPublicService = {
           categoryId: category.key,
           categoryName: category.labelAr,
           eligible: result.eligible,
+          applicationStartDate: cycle?.openDate ?? null,
+          applicationEndDate: cycle?.closeDate ?? null,
+          ageReferenceDate: cycle?.openDate ?? null,
+          maxAge: category.conditions.ageMax,
           checks: {
             ageCheck: {
               passed: !result.reasons.includes('age_out_of_range'),
