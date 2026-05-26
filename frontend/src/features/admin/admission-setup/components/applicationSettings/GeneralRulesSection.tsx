@@ -1818,14 +1818,16 @@ function LocalUniversityGrid({
                 <Td>{r.grade ? labelForGrade(r.grade) : '—'}</Td>
                 <Td>{r.gradeMax ? labelForGrade(r.gradeMax) : '—'}</Td>
                 <Td>
-                  {r.scoreMin !== null
-                    ? `${MIN_OPERATOR_SYMBOL[r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMin)}٪`
-                    : '—'}
+                  {formatScore(
+                    r.scoreMin,
+                    r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR,
+                  )}
                 </Td>
                 <Td>
-                  {r.scoreMax !== null
-                    ? `${MAX_OPERATOR_SYMBOL[r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR]} ${toEasternArabicNumerals(r.scoreMax)}٪`
-                    : '—'}
+                  {formatScore(
+                    r.scoreMax,
+                    r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR,
+                  )}
                 </Td>
                 <Td>
                   <MultiValueCell
@@ -1884,16 +1886,27 @@ function Th({ children }: { children: React.ReactNode }): JSX.Element {
 
 function Td({ children }: { children: React.ReactNode }): JSX.Element {
   return (
-    <td className="max-w-[12rem] px-3 py-2 align-middle font-ar text-2xs text-ink-900">
+    <td className="max-w-[12rem] whitespace-normal break-words px-3 py-2 align-middle font-ar text-2xs text-ink-900">
       {children}
     </td>
   );
 }
 
+function formatScore(
+  value: number | null | undefined,
+  operator: MinScoreOperator | MaxScoreOperator,
+): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  const symbol =
+    operator in MIN_OPERATOR_SYMBOL
+      ? MIN_OPERATOR_SYMBOL[operator as MinScoreOperator]
+      : MAX_OPERATOR_SYMBOL[operator as MaxScoreOperator];
+  return `${symbol} ${toEasternArabicNumerals(value)}٪`;
+}
+
 /** Renders a list of resolved labels as a comma-separated string that
- *  truncates with ellipsis when it overflows the parent cell. The full
- *  list always sits behind a Radix Tooltip so callers can recover the
- *  truncated portion via hover or keyboard focus. Self-mounts its own
+ *  wraps inside the parent cell. The full list also sits behind a Radix
+ *  Tooltip for hover and keyboard focus. Self-mounts its own
  *  `TooltipProvider` because the wizard shell does not provide one. */
 function MultiValueCell({ values }: { values: readonly string[] }): JSX.Element {
   if (values.length === 0) return <>—</>;
@@ -1903,7 +1916,7 @@ function MultiValueCell({ values }: { values: readonly string[] }): JSX.Element 
       <Tooltip content={text} delayDuration={120}>
         <span
           tabIndex={0}
-          className="block max-w-full truncate focus-visible:outline-none focus-visible:shadow-focus-teal"
+          className="block max-w-full whitespace-normal break-words leading-relaxed focus-visible:outline-none focus-visible:shadow-focus-teal"
         >
           {text}
         </span>

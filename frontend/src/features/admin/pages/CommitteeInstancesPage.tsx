@@ -82,13 +82,21 @@ interface DayGroup {
   rows: InstanceRow[];
 }
 
+function normalizeNonNegativeInteger(value: unknown, fallback = 0): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return Math.floor(parsed);
+}
+
 /** Reserved is hard-capped at capacity for display purposes — the
  *  invariant the user requested: «المحجوز can't exceed سعة اللجنة».
  *  Capacity = 0 falls back to the raw value (defensive: an unset
  *  capacity shouldn't blank the count). */
-function effectiveReserved(row: { reserved: number; capacity: number }): number {
-  if (!row.capacity || row.capacity <= 0) return row.reserved;
-  return Math.min(row.reserved, row.capacity);
+function effectiveReserved(row: { reserved: unknown; capacity: unknown }): number {
+  const reserved = normalizeNonNegativeInteger(row.reserved);
+  const capacity = normalizeNonNegativeInteger(row.capacity);
+  if (capacity <= 0) return reserved;
+  return Math.min(reserved, capacity);
 }
 
 /** Today, normalised to local midnight, as a yyyy-mm-dd ISO string.
@@ -177,6 +185,8 @@ export function CommitteeInstancesPage(): JSX.Element {
       .filter((i) => i.cycleId === activeCycleId)
       .map((inst) => ({
         ...inst,
+        capacity: normalizeNonNegativeInteger(inst.capacity),
+        reserved: normalizeNonNegativeInteger(inst.reserved),
         categoryLabelAr: categoryLabelByKey.get(inst.categoryKey) ?? inst.categoryKey,
         committeeName: definitionNameByCode.get(inst.definitionCode) ?? inst.definitionCode,
       }));

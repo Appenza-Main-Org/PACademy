@@ -61,7 +61,18 @@ export interface ApplicantCategoryEligibility {
       source: string | null;
     };
   };
-  committees: Array<{ committeeId: string; committeeName: string; reason: string }>;
+  committees: Array<{
+    committeeId: string;
+    committeeName: string;
+    reason: string;
+    examDates: string[];
+    examSlots: Array<{
+      id: string;
+      date: string;
+      capacity: number;
+      reserved: number;
+    }>;
+  }>;
   academicPrograms: Array<{
     facultyCode: string;
     facultyName: string;

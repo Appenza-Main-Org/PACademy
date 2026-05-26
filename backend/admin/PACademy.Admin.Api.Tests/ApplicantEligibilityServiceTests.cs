@@ -32,6 +32,30 @@ public sealed class ApplicantEligibilityServiceTests
     }
 
     [Fact]
+    public async Task EligibleCommitteeIncludesConfiguredExamDatesForActiveCycle()
+    {
+        await using var db = CreateDb();
+        await SeedBaseAsync(db, gradeSource: "استيراد خارجي");
+        db.AdminRecords.AddRange(
+            CommitteeInstance("ci-1", "cycle-2026", "CAT-GEN", "CMT-1", "2026-06-10", capacity: 120, reserved: 7),
+            CommitteeInstance("ci-2", "cycle-2026", "CAT-GEN", "CMT-1", "2026-06-12", capacity: 80, reserved: 3),
+            CommitteeInstance("ci-other-cycle", "cycle-2025", "CAT-GEN", "CMT-1", "2025-06-10", capacity: 40, reserved: 0),
+            CommitteeInstance("ci-other-committee", "cycle-2026", "CAT-GEN", "CMT-2", "2026-06-20", capacity: 50, reserved: 0));
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var service = CreateService(db);
+
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
+
+        var json = JsonSerializer.Serialize(response, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var root = JsonNode.Parse(json)!.AsObject();
+        var committee = root["categories"]![0]!["committees"]![0]!.AsObject();
+        var dates = committee["examDates"]!.AsArray();
+        Assert.Equal(["2026-06-10", "2026-06-12"], dates.Select(x => x!.GetValue<string>()).ToArray());
+        Assert.Equal(120, committee["examSlots"]![0]!["capacity"]!.GetValue<int>());
+        Assert.Equal(7, committee["examSlots"]![0]!["reserved"]!.GetValue<int>());
+    }
+
+    [Fact]
     public async Task SameApplicantWithInternalSourceFailsGradesCheck()
     {
         await using var db = CreateDb();
@@ -274,6 +298,36 @@ public sealed class ApplicantEligibilityServiceTests
             PayloadJson = payload.ToJsonString(),
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
+        };
+    }
+
+    private static AdminRecordEntity CommitteeInstance(
+        string id,
+        string cycleId,
+        string categoryKey,
+        string definitionCode,
+        string date,
+        int capacity,
+        int reserved)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new AdminRecordEntity
+        {
+            Module = "committeeInstances",
+            Id = id,
+            PayloadJson = new JsonObject
+            {
+                ["id"] = id,
+                ["cycleId"] = cycleId,
+                ["categoryKey"] = categoryKey,
+                ["definitionCode"] = definitionCode,
+                ["date"] = date,
+                ["capacity"] = capacity,
+                ["reserved"] = reserved,
+                ["reservedRefreshedAt"] = now.ToString("O")
+            }.ToJsonString(),
+            CreatedAt = now,
+            UpdatedAt = now
         };
     }
 }
