@@ -22,6 +22,8 @@ import { date as fmtDate, shortName, maskNationalId } from '@/shared/lib/format'
 import type { Applicant, ApplicantStatus } from '@/shared/types/domain';
 
 const PAGE_SIZE = 15;
+const FILTER_TRIGGER_CLASS = 'h-[44px] rounded-lg text-sm';
+const FILTER_CONTAINER_CLASS = 'min-w-0';
 
 const CERT_TYPE_OPTIONS: readonly SearchSelectOption[] = [
   { value: 'ثانوية عامة', label: 'ثانوية عامة' },
@@ -128,16 +130,16 @@ export function ApplicantsPage(): JSX.Element {
       {
         key: 'name',
         label: 'المتقدم',
-        width: '260px',
+        width: '22%',
         sortable: true,
         getSortValue: (a) => a.name,
         filter: { kind: 'text', getValue: (a) => a.name },
         render: (a) => (
-          <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex min-w-[230px] items-center gap-3">
+          <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex min-w-0 items-center gap-3">
             <Avatar name={a.name} size="sm" />
             <div className="flex min-w-0 flex-col gap-1">
-              <span className="text-sm font-medium text-ink-900">{shortName(a.name, 3)}</span>
-              <span className="font-mono text-2xs text-ink-500" dir="ltr">{displayValue(a.adminRecordId ?? a.id)}</span>
+              <span className="truncate text-sm font-medium text-ink-900">{shortName(a.name, 3)}</span>
+              <span className="block truncate font-mono text-2xs text-ink-500" dir="ltr">{displayValue(a.adminRecordId ?? a.id)}</span>
               <Badge tone="neutral" className="w-fit">{sourceLabel(a.source)}</Badge>
             </div>
           </Link>
@@ -146,13 +148,13 @@ export function ApplicantsPage(): JSX.Element {
       {
         key: 'identity',
         label: 'الهوية',
-        width: '220px',
+        width: '18%',
         sortable: true,
         getSortValue: (a) => a.nationalId,
         filter: { kind: 'text', getValue: (a) => `${a.nationalId} ${genderLabel(a.gender)} ${a.religion ?? ''}` },
         render: (a) => (
-          <div className="flex min-w-[190px] flex-col gap-1">
-            <span className="font-mono text-sm text-ink-900" dir="ltr">{maskNationalId(a.nationalId)}</span>
+          <div className="min-w-0 space-y-1 text-start">
+            <span className="block text-end font-mono text-sm text-ink-900" dir="ltr">{maskNationalId(a.nationalId)}</span>
             <span className="text-2xs text-ink-600">{genderLabel(a.gender)} · {displayValue(a.religion)}</span>
             <span className="text-2xs text-ink-500">{a.birthDate ? fmtDate(a.birthDate, 'short') : 'تاريخ الميلاد غير مسجل'}</span>
           </div>
@@ -161,14 +163,15 @@ export function ApplicantsPage(): JSX.Element {
       {
         key: 'contact',
         label: 'الاتصال',
+        width: '18%',
         hideOn: 'md',
         sortable: true,
         getSortValue: (a) => a.phoneNumber ?? a.contact?.mobilePhone,
         filter: { kind: 'text', getValue: (a) => `${a.phoneNumber ?? a.contact?.mobilePhone ?? ''} ${a.email ?? a.contact?.email ?? ''}` },
         render: (a) => (
-          <div className="flex min-w-[190px] flex-col gap-1">
-            <span className="font-mono text-sm text-ink-900" dir="ltr">{displayValue(a.phoneNumber ?? a.contact?.mobilePhone)}</span>
-            <span className="max-w-[210px] break-words text-2xs text-ink-500" dir="ltr">
+          <div className="min-w-0 space-y-1 text-start">
+            <span className="block text-end font-mono text-sm text-ink-900" dir="ltr">{displayValue(a.phoneNumber ?? a.contact?.mobilePhone)}</span>
+            <span className="block truncate text-end text-2xs text-ink-500" dir="ltr">
               {displayValue(a.email ?? a.contact?.email)}
             </span>
           </div>
@@ -177,6 +180,7 @@ export function ApplicantsPage(): JSX.Element {
       {
         key: 'location',
         label: 'الميلاد / العنوان',
+        width: '18%',
         hideOn: 'md',
         sortable: true,
         getSortValue: (a) => a.governorate,
@@ -185,30 +189,32 @@ export function ApplicantsPage(): JSX.Element {
           getValue: (a) => `${a.birthGovernorate ?? ''} ${a.birthDistrict ?? ''} ${a.governorate} ${a.city}`,
         },
         render: (a) => (
-          <div className="flex min-w-[180px] flex-col gap-1">
-            <span className="text-sm text-ink-900">{displayValue(a.birthGovernorate)} · {displayValue(a.birthDistrict)}</span>
-            <span className="text-2xs text-ink-500">{a.governorate} · {a.city}</span>
+          <div className="min-w-0 space-y-1 text-start">
+            <span className="block truncate text-sm text-ink-900">{displayValue(a.birthGovernorate)} · {displayValue(a.birthDistrict)}</span>
+            <span className="block truncate text-2xs text-ink-500">{a.governorate} · {a.city}</span>
           </div>
         ),
       },
       {
         key: 'certType',
         label: 'الشهادة',
+        width: '13%',
         hideOn: 'md',
         sortable: true,
         getSortValue: (a) => a.certType,
         filter: { kind: 'text', getValue: (a) => a.certType },
         render: (a) => (
-          <div className="flex min-w-[150px] flex-col gap-1 text-2xs">
-            <span className="text-ink-700">{a.certType}</span>
-            <span className="text-ink-500">{a.certSection}</span>
-            <span className="font-mono text-ink-500" dir="ltr">{displayValue(a.certPercent)}</span>
+          <div className="min-w-0 space-y-1 text-start text-2xs">
+            <span className="block truncate text-ink-700">{a.certType}</span>
+            <span className="block truncate text-ink-500">{a.certSection}</span>
+            <span className="block text-end font-mono text-ink-500" dir="ltr">{displayValue(a.certPercent)}</span>
           </div>
         ),
       },
       {
         key: 'progress',
         label: 'الحالة',
+        width: '13%',
         sortable: true,
         getSortValue: (a) => a.status,
         filter: {
@@ -220,7 +226,7 @@ export function ApplicantsPage(): JSX.Element {
           const def = statusByValue.get(a.status);
           const live = a.status === 'pending' || a.status === 'under-review';
           return (
-            <div className="flex min-w-[150px] flex-col items-start gap-1">
+            <div className="flex min-w-0 flex-col items-start gap-1">
               <Badge tone={def?.color ?? 'neutral'} dot={live}>{def?.label ?? a.status}</Badge>
               <Badge tone="info">{a.stageLabel}</Badge>
               <PaymentBadge status={a.paymentStatus} />
@@ -231,6 +237,7 @@ export function ApplicantsPage(): JSX.Element {
       {
         key: 'registeredAt',
         label: 'التسجيل',
+        width: '10%',
         hideOn: 'sm',
         sortable: true,
         getSortValue: (a) => a.registeredAt,
@@ -311,8 +318,8 @@ export function ApplicantsPage(): JSX.Element {
 
       <Card>
         <div className="card-body">
-          <div className="filters items-end">
-            <div className="search min-w-[260px] flex-[2_1_360px]">
+          <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
+            <div className="search min-w-0 md:col-span-2 lg:col-span-2 2xl:col-span-2">
               <input className="input" type="search" placeholder="بحث بالاسم / الرقم القومي / كود التقدم" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
               <Search size={18} />
             </div>
@@ -326,7 +333,8 @@ export function ApplicantsPage(): JSX.Element {
                 { value: 'all', label: 'كل الحالات' },
                 ...statusOptions,
               ]}
-              containerClassName="min-w-[150px]"
+              className={FILTER_TRIGGER_CLASS}
+              containerClassName={FILTER_CONTAINER_CLASS}
             />
             <Select
               aria-label="تصفية حسب النوع"
@@ -336,7 +344,8 @@ export function ApplicantsPage(): JSX.Element {
                 { value: 'all', label: 'كل الأنواع' },
                 ...GENDER_OPTIONS,
               ]}
-              containerClassName="min-w-[130px]"
+              className={FILTER_TRIGGER_CLASS}
+              containerClassName={FILTER_CONTAINER_CLASS}
             />
             <Select
               aria-label="تصفية حسب الديانة"
@@ -346,9 +355,10 @@ export function ApplicantsPage(): JSX.Element {
                 { value: 'all', label: 'كل الديانات' },
                 ...RELIGION_OPTIONS,
               ]}
-              containerClassName="min-w-[130px]"
+              className={FILTER_TRIGGER_CLASS}
+              containerClassName={FILTER_CONTAINER_CLASS}
             />
-            <div className="min-w-[180px] flex-[0_1_200px]">
+            <div className={FILTER_CONTAINER_CLASS}>
               <SearchSelect
                 value={governorate === 'all' ? null : governorate}
                 onChange={(next) => {
@@ -358,10 +368,10 @@ export function ApplicantsPage(): JSX.Element {
                 options={governorateOptions}
                 ariaLabel="تصفية حسب المحافظة"
                 placeholder="كل المحافظات"
-                className="h-[38px]"
+                className={FILTER_TRIGGER_CLASS}
               />
             </div>
-            <div className="min-w-[180px] flex-[0_1_200px]">
+            <div className={FILTER_CONTAINER_CLASS}>
               <SearchSelect
                 value={birthGovernorate === 'all' ? null : birthGovernorate}
                 onChange={(next) => {
@@ -371,10 +381,10 @@ export function ApplicantsPage(): JSX.Element {
                 options={governorateOptions}
                 ariaLabel="تصفية حسب محافظة الميلاد"
                 placeholder="كل محافظات الميلاد"
-                className="h-[38px]"
+                className={FILTER_TRIGGER_CLASS}
               />
             </div>
-            <div className="min-w-[180px] flex-[0_1_200px]">
+            <div className={FILTER_CONTAINER_CLASS}>
               <SearchSelect
                 value={certType === 'all' ? null : certType}
                 onChange={(next) => {
@@ -384,7 +394,7 @@ export function ApplicantsPage(): JSX.Element {
                 options={CERT_TYPE_OPTIONS}
                 ariaLabel="تصفية حسب نوع الشهادة"
                 placeholder="كل الشهادات"
-                className="h-[38px]"
+                className={FILTER_TRIGGER_CLASS}
               />
             </div>
             <Select
@@ -395,7 +405,8 @@ export function ApplicantsPage(): JSX.Element {
                 { value: 'all', label: 'كل المصادر' },
                 ...SOURCE_OPTIONS,
               ]}
-              containerClassName="min-w-[150px]"
+              className={FILTER_TRIGGER_CLASS}
+              containerClassName={FILTER_CONTAINER_CLASS}
             />
             {hasActiveFilters && (
               <Button
@@ -403,6 +414,7 @@ export function ApplicantsPage(): JSX.Element {
                 size="md"
                 leadingIcon={<FilterX size={14} strokeWidth={1.75} />}
                 onClick={resetFilters}
+                className="h-[44px] w-full rounded-lg"
               >
                 مسح التصفية
               </Button>
