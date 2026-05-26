@@ -40,6 +40,7 @@ interface OperatorScoreFieldProps<V extends string> {
   scoreAriaLabel: string;
   /** Render the wrapper in error chrome (terra border + focus ring). */
   invalid?: boolean;
+  disabled?: boolean;
   /** Upper bound for blur-time clamping. `null` = no upper bound (max
    *  score may exceed 100). Defaults to 100 — the percentage convention
    *  the min field uses. */
@@ -66,6 +67,7 @@ export function OperatorScoreField<V extends string>({
   onScoreChange,
   scoreAriaLabel,
   invalid,
+  disabled = false,
   maxBound = 100,
   onClampMessage,
 }: OperatorScoreFieldProps<V>): JSX.Element {
@@ -149,6 +151,7 @@ export function OperatorScoreField<V extends string>({
         value={operatorValue}
         onChange={onOperatorChange}
         options={operatorOptions}
+        disabled={disabled}
         className={cn(
           'w-40 shrink-0 rounded-none border-0 bg-transparent',
           'hover:border-0',
@@ -164,6 +167,7 @@ export function OperatorScoreField<V extends string>({
         placeholder={maxBound === null ? '٠ فأكثر' : '٠ – ١٠٠'}
         aria-label={scoreAriaLabel}
         aria-invalid={invalid || undefined}
+        disabled={disabled}
         value={display}
         onKeyDown={handleKeyDown}
         onChange={handleChange}
@@ -172,6 +176,7 @@ export function OperatorScoreField<V extends string>({
           'min-w-0 flex-1 bg-transparent px-3 text-sm text-ink-900',
           'placeholder:text-ink-400 font-ar',
           'focus-visible:outline-none',
+          disabled && 'cursor-not-allowed opacity-60',
         )}
       />
     </div>

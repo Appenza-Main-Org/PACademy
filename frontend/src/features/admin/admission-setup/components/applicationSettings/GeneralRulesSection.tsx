@@ -52,6 +52,7 @@ import { cn } from '@/shared/lib/cn';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import type { ExcellenceMode } from '../../lib/excellenceMode';
+import { useAdmissionSetupCanWrite } from '../AdmissionSetupShell';
 import {
   DEFAULT_MAX_SCORE_OPERATOR,
   DEFAULT_MIN_SCORE_OPERATOR,
@@ -153,6 +154,7 @@ export function GeneralRulesSection({
   const degreesQuery = useLookup('academic-degrees');
   const committeesQuery = useLookup('committees');
   const graduationYearsQuery = useLookup('graduation-years');
+  const canWrite = useAdmissionSetupCanWrite();
 
   const approve = useAdmissionSetupWizardStore((s) => s.approveLocalForCategory);
   const localCount = useAdmissionSetupWizardStore(
@@ -287,6 +289,7 @@ export function GeneralRulesSection({
   /* ─── Approve handler ─────────────────────────────────────────── */
 
   const handleApprove = (): void => {
+    if (!canWrite) return;
     const moved = approve(categoryCode);
     if (moved === 0) {
       toast('لا توجد شروط جاهزة للاعتماد', 'info');
@@ -351,7 +354,11 @@ export function GeneralRulesSection({
         </div>
       </header>
 
-      <TopFields categoryCode={categoryCode} maritalOptions={maritalOptions} />
+      <TopFields
+        categoryCode={categoryCode}
+        maritalOptions={maritalOptions}
+        canWrite={canWrite}
+      />
 
       <div className="mt-4">
         {shouldUseScopedWorkspace ? (
@@ -361,6 +368,7 @@ export function GeneralRulesSection({
             filledFacultyCodes={filledFacultyCodes}
             filledSpecCodes={filledSpecCodes}
             options={formOptions}
+            canWrite={canWrite}
           />
         ) : (
           <ImplicitUniversityPanel
@@ -368,6 +376,7 @@ export function GeneralRulesSection({
             specsByFaculty={specsByFaculty}
             filledSpecCodes={filledSpecCodes}
             options={formOptions}
+            canWrite={canWrite}
           />
         )}
       </div>
@@ -377,7 +386,7 @@ export function GeneralRulesSection({
           variant="primary"
           size="md"
           onClick={handleApprove}
-          disabled={localCount === 0}
+          disabled={!canWrite || localCount === 0}
         >
           اعتماد الفئة
         </Button>
@@ -391,9 +400,14 @@ export function GeneralRulesSection({
 interface TopFieldsProps {
   categoryCode: string;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
+  canWrite: boolean;
 }
 
-function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Element {
+function TopFields({
+  categoryCode,
+  maritalOptions,
+  canWrite,
+}: TopFieldsProps): JSX.Element {
   const header = useAdmissionSetupWizardStore(
     (s) => s.headers[categoryCode] ?? s.getHeader(categoryCode),
   );
@@ -409,6 +423,7 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
               onChange={(d) =>
                 setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
               }
+              disabled={!canWrite}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -418,6 +433,7 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
               onChange={(d) =>
                 setHeaderField(categoryCode, 'applicationEnd', dateToIso(d))
               }
+              disabled={!canWrite}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -427,6 +443,7 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
               onChange={(d) =>
                 setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
               }
+              disabled={!canWrite}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -440,10 +457,11 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
               value={header.maritalStatus}
               onChange={(next) => setHeaderField(categoryCode, 'maritalStatus', next)}
               options={maritalOptions}
+              disabled={!canWrite}
               placeholder="اختر الحالة الاجتماعية…"
             />
           </FieldLabel>
-          <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} />
+          <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} canWrite={canWrite} />
         </div>
       </FieldGroup>
     </div>
@@ -461,9 +479,10 @@ function TopFields({ categoryCode, maritalOptions }: TopFieldsProps): JSX.Elemen
 interface MaxAgeFieldProps {
   categoryCode: string;
   maxAge: number | null;
+  canWrite: boolean;
 }
 
-function MaxAgeField({ categoryCode, maxAge }: MaxAgeFieldProps): JSX.Element {
+function MaxAgeField({ categoryCode, maxAge, canWrite }: MaxAgeFieldProps): JSX.Element {
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
   const [touched, setTouched] = useState(false);
 
@@ -498,6 +517,7 @@ function MaxAgeField({ categoryCode, maxAge }: MaxAgeFieldProps): JSX.Element {
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onBlur={() => setTouched(true)}
+          disabled={!canWrite}
           aria-label="الحد الأقصى للسن"
           placeholder="—"
           containerClassName="flex-1"
@@ -589,6 +609,7 @@ interface ImplicitUniversityPanelProps {
   /** Specialization codes with at least one authored row. */
   filledSpecCodes: ReadonlySet<string>;
   options: PerSpecFormOptions;
+  canWrite: boolean;
 }
 
 function ImplicitUniversityPanel({
@@ -596,6 +617,7 @@ function ImplicitUniversityPanel({
   specsByFaculty,
   filledSpecCodes,
   options,
+  canWrite,
 }: ImplicitUniversityPanelProps): JSX.Element {
   const firstFaculty =
     faculties.find((faculty) => (specsByFaculty.get(faculty.code) ?? []).length > 0) ??
@@ -646,6 +668,7 @@ function ImplicitUniversityPanel({
         specializationCode={firstSpec.code}
         specializationNameAr={firstSpec.name}
         options={options}
+        canWrite={canWrite}
       />
     </div>
   );
@@ -659,6 +682,7 @@ interface SpecializedOfficersWorkspaceProps {
   /** Specialization codes with at least one authored row. */
   filledSpecCodes: ReadonlySet<string>;
   options: PerSpecFormOptions;
+  canWrite: boolean;
 }
 
 function SpecializedOfficersWorkspace({
@@ -667,6 +691,7 @@ function SpecializedOfficersWorkspace({
   filledFacultyCodes,
   filledSpecCodes,
   options,
+  canWrite,
 }: SpecializedOfficersWorkspaceProps): JSX.Element {
   const [selectedFacultyCode, setSelectedFacultyCode] = useState<string | null>(
     null,
@@ -766,11 +791,13 @@ function SpecializedOfficersWorkspace({
   };
 
   const handleDeleteCategoryRow = (id: string): void => {
+    if (!canWrite) return;
     removeLocalRow(id);
     removeApprovedRow(id);
   };
 
   const handleEditCategoryRow = (id: string): void => {
+    if (!canWrite) return;
     const row = categoryRows.find((r) => r.id === id);
     if (!row) return;
     setSelectedFacultyCode(row.facultyCode);
@@ -878,7 +905,7 @@ function SpecializedOfficersWorkspace({
                 variant="ghost"
                 size="sm"
                 onClick={handleSelectAllSpecs}
-                disabled={selectedFacultySpecs.length === 0}
+                disabled={!canWrite || selectedFacultySpecs.length === 0}
               >
                 تحديد الكل
               </Button>
@@ -886,7 +913,7 @@ function SpecializedOfficersWorkspace({
                 variant="ghost"
                 size="sm"
                 onClick={handleClearSpecs}
-                disabled={selectedSpecCodesInFaculty.size === 0}
+                disabled={!canWrite || selectedSpecCodesInFaculty.size === 0}
               >
                 إلغاء
               </Button>
@@ -930,6 +957,7 @@ function SpecializedOfficersWorkspace({
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => handleSpecToggle(spec.code)}
+                          disabled={!canWrite}
                           aria-label={`اختيار ${spec.name}`}
                         />
                       </span>
@@ -976,6 +1004,7 @@ function SpecializedOfficersWorkspace({
                 targets={selectedSpecTargets}
               />
             }
+            canWrite={canWrite}
           />
         ) : (
           <EmptyState
@@ -1010,6 +1039,7 @@ function SpecializedOfficersWorkspace({
           onDelete={handleDeleteCategoryRow}
           emptyRowsLabel="لم تُضف شروط لجان بعد لهذه الفئة."
           showScopeColumn
+          canWrite={canWrite}
         />
       </section>
     </div>
@@ -1124,6 +1154,7 @@ interface PerSpecFormProps {
   showScopeColumn?: boolean;
   hideRowsGrid?: boolean;
   onAddSuccess?: () => void;
+  canWrite: boolean;
 }
 
 function rowToUniversityInput(r: LocalUniversityRow): GeneralRuleRowInput {
@@ -1199,6 +1230,7 @@ function PerSpecForm({
   showScopeColumn = false,
   hideRowsGrid = false,
   onAddSuccess,
+  canWrite,
 }: PerSpecFormProps): JSX.Element {
   const {
     categoryCode,
@@ -1271,6 +1303,7 @@ function PerSpecForm({
         r.specializationCode !== specializationCode,
     );
   const handleDelete = (id: string): void => {
+    if (!canWrite) return;
     removeLocalRow(id);
     removeApprovedRow(id);
   };
@@ -1357,6 +1390,7 @@ function PerSpecForm({
     : true;
 
   const canSubmit =
+    canWrite &&
     isHeaderComplete &&
     draft.type.length > 0 &&
     gradePairOk &&
@@ -1385,7 +1419,7 @@ function PerSpecForm({
   };
 
   const handleSubmit = (): void => {
-    if (!canSubmit) return;
+    if (!canWrite || !canSubmit) return;
     const payload = normalizeForSubmit(draft);
     if (isEditing && editingId !== null) {
       const editingSpec: SpecKey = editingRow
@@ -1452,6 +1486,7 @@ function PerSpecForm({
   };
 
   const handleEdit = (id: string): void => {
+    if (!canWrite) return;
     setEditingRow(id);
     requestAnimationFrame(() => {
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1480,6 +1515,7 @@ function PerSpecForm({
             </div>
             <ExcellenceModeToggle
               value={draft.excellenceMode}
+              disabled={!canWrite}
               onChange={(next) =>
                 setDraft((d) => ({
                   ...d,
@@ -1502,6 +1538,7 @@ function PerSpecForm({
                 value={draft.type}
                 onChange={(next) => setDraft((d) => ({ ...d, type: next }))}
                 options={GENDER_OPTIONS}
+                disabled={!canWrite}
                 placeholder="اختر النوع…"
               />
             </FieldLabel>
@@ -1514,6 +1551,7 @@ function PerSpecForm({
                     value={draft.grade || null}
                     onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
                     options={gradeOptions}
+                    disabled={!canWrite}
                     placeholder="اختر التقدير…"
                   />
                 </FieldLabel>
@@ -1526,6 +1564,7 @@ function PerSpecForm({
                       setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
                     }
                     options={gradeOptions}
+                    disabled={!canWrite}
                     placeholder="اختر التقدير…"
                     invalid={gradeOrderInvalid}
                   />
@@ -1554,6 +1593,7 @@ function PerSpecForm({
                     value: o.value,
                     label: o.label,
                   }))}
+                  disabled={!canWrite}
                   placeholder="اختر الدرجة العلمية…"
                 />
               )}
@@ -1574,6 +1614,7 @@ function PerSpecForm({
                     operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
                     operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
                     scoreValue={draft.scoreMin}
+                    disabled={!canWrite}
                     onScoreChange={(next) =>
                       setDraft((d) => ({ ...d, scoreMin: next }))
                     }
@@ -1598,6 +1639,7 @@ function PerSpecForm({
                     operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
                     operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
                     scoreValue={draft.scoreMax}
+                    disabled={!canWrite}
                     onScoreChange={(next) =>
                       setDraft((d) => ({ ...d, scoreMax: next }))
                     }
@@ -1635,6 +1677,7 @@ function PerSpecForm({
                       setDraft((d) => ({ ...d, committee: v ?? '' }))
                     }
                     options={committeeOptions}
+                    disabled={!canWrite}
                     placeholder="اختر اللجنة…"
                   />
                 )}
@@ -1646,6 +1689,7 @@ function PerSpecForm({
                   value={
                     draft.graduationYear !== null ? String(draft.graduationYear) : null
                   }
+                  disabled={!canWrite}
                   onChange={(v) =>
                     setDraft((d) => ({
                       ...d,
@@ -1671,6 +1715,7 @@ function PerSpecForm({
               variant="ghost"
               size="sm"
               onClick={handleCancelEdit}
+              disabled={!canWrite}
               leadingIcon={<X size={14} strokeWidth={1.75} aria-hidden />}
             >
               إلغاء
@@ -1699,6 +1744,7 @@ function PerSpecForm({
           onDelete={handleDelete}
           emptyRowsLabel={emptyRowsLabel}
           showScopeColumn={shouldShowScopeColumn}
+          canWrite={canWrite}
         />
       )}
     </div>
@@ -1719,6 +1765,7 @@ interface LocalUniversityGridProps {
   onDelete: (id: string) => void;
   emptyRowsLabel: string;
   showScopeColumn: boolean;
+  canWrite: boolean;
 }
 
 function LocalUniversityGrid({
@@ -1732,6 +1779,7 @@ function LocalUniversityGrid({
   onDelete,
   emptyRowsLabel,
   showScopeColumn,
+  canWrite,
 }: LocalUniversityGridProps): JSX.Element {
   const labelForGrade = (v: string): string =>
     gradeOptions.find((o) => o.value === v)?.label ?? v;
@@ -1775,7 +1823,7 @@ function LocalUniversityGrid({
             <Th>الحد الأقصى للدرجة</Th>
             <Th>الدرجة العلمية</Th>
             <Th>سنة التخرج</Th>
-            <Th>إجراءات</Th>
+            {canWrite && <Th>إجراءات</Th>}
           </tr>
         </thead>
         <tbody>
@@ -1841,27 +1889,29 @@ function LocalUniversityGrid({
                     )}
                   />
                 </Td>
-                <td className="px-3 py-2 align-middle text-end">
-                  <div className="inline-flex items-center gap-1">
-                    <button
-                      type="button"
-                      aria-label="تعديل الشرط"
-                      aria-pressed={isRowEditing}
-                      onClick={() => onEdit(r.id)}
-                      className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none aria-pressed:bg-teal-50 aria-pressed:text-teal-700"
-                    >
-                      <Pencil size={14} strokeWidth={1.75} aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="حذف الشرط"
-                      onClick={() => onDelete(r.id)}
-                      className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-                    >
-                      <Trash2 size={14} strokeWidth={1.75} aria-hidden />
-                    </button>
-                  </div>
-                </td>
+                {canWrite && (
+                  <td className="px-3 py-2 align-middle text-end">
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label="تعديل الشرط"
+                        aria-pressed={isRowEditing}
+                        onClick={() => onEdit(r.id)}
+                        className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none aria-pressed:bg-teal-50 aria-pressed:text-teal-700"
+                      >
+                        <Pencil size={14} strokeWidth={1.75} aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="حذف الشرط"
+                        onClick={() => onDelete(r.id)}
+                        className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                      >
+                        <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             );
           })}

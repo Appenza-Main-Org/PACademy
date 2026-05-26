@@ -48,6 +48,7 @@ import {
   useResolvedGradingModeForSpec,
   useYears,
 } from '../../api/applicationSettings.queries';
+import { useAdmissionSetupCanWrite } from '../AdmissionSetupShell';
 import type { ParentCategorySnapshot } from '../../api/applicationSettings.service';
 import {
   useAppSettingsDraftStore,
@@ -93,6 +94,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   const academicGradesQuery = useLookup('academic-grades');
   const schoolCategoriesQuery = useLookup('school-categories');
   const graduationYearsQuery = useLookup('graduation-years');
+  const canWrite = useAdmissionSetupCanWrite();
 
   const drafts = useDraftRows(categorySpecializationId);
   const hydrateSlice = useAppSettingsDraftStore((s) => s.hydrateSlice);
@@ -160,6 +162,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
    * genderTypes to the locked value as soon as we know it. The patch is
    * a no-op once everything is aligned. */
   useEffect(() => {
+    if (!canWrite) return;
     const locked = parentCategory?.lockedGender ?? null;
     if (locked === null) return;
     for (const draft of drafts) {
@@ -168,7 +171,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
       if (current.length === 1 && current[0] === locked) continue;
       patchRow(categorySpecializationId, draft.id, { genderTypes: [locked] });
     }
-  }, [parentCategory, drafts, categorySpecializationId, patchRow]);
+  }, [canWrite, parentCategory, drafts, categorySpecializationId, patchRow]);
 
   const validationByRow = useMemo(() => {
     const live = drafts.filter((d) => d.kind !== 'deleted').map((d) => d.row);
@@ -195,19 +198,21 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
         <p className="font-ar text-sm text-ink-500">
           لا توجد سنوات تخرج بعد لهذا التخصص.
         </p>
-        <Button
-          variant="secondary"
-          size="sm"
-          leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-          onClick={() =>
-            addRow(
-              categorySpecializationId,
-              gradingMode === 'TAGDIR' ? { gradeKind: 'TAGDIR' } : { gradeKind: 'GRADES' },
-            )
-          }
-        >
-          إضافة سنة
-        </Button>
+        {canWrite && (
+          <Button
+            variant="secondary"
+            size="sm"
+            leadingIcon={<Plus size={14} strokeWidth={1.75} />}
+            onClick={() =>
+              addRow(
+                categorySpecializationId,
+                gradingMode === 'TAGDIR' ? { gradeKind: 'TAGDIR' } : { gradeKind: 'GRADES' },
+              )
+            }
+          >
+            إضافة سنة
+          </Button>
+        )}
       </div>
     );
   }
@@ -240,6 +245,7 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
               academicGradeOptions={academicGradeOptions}
               academicGradeRangeByCode={academicGradeRangeByCode}
               graduationYearOptions={graduationYearOptions}
+              canWrite={canWrite}
               onPatch={(patch) => patchRow(categorySpecializationId, draft.id, patch)}
               onDelete={() => deleteRow(categorySpecializationId, draft.id)}
               onRestore={() => restoreRow(categorySpecializationId, draft.id)}
@@ -249,24 +255,26 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
       </ol>
 
       <div className="flex justify-start">
-        <Button
-          variant="secondary"
-          size="sm"
-          leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-          onClick={() => {
-            const seed: Partial<ApplicantSpecializationYear> = {};
-            if (gradingMode === 'TAGDIR') seed.gradeKind = 'TAGDIR';
-            else seed.gradeKind = 'GRADES';
-            /* Seed gender from the parent category's lock so new rows in
-             * male-only / female-only categories start in a valid state. */
-            if (parentCategory?.lockedGender) {
-              seed.genderTypes = [parentCategory.lockedGender];
-            }
-            addRow(categorySpecializationId, seed);
-          }}
-        >
-          إضافة سنة
-        </Button>
+        {canWrite && (
+          <Button
+            variant="secondary"
+            size="sm"
+            leadingIcon={<Plus size={14} strokeWidth={1.75} />}
+            onClick={() => {
+              const seed: Partial<ApplicantSpecializationYear> = {};
+              if (gradingMode === 'TAGDIR') seed.gradeKind = 'TAGDIR';
+              else seed.gradeKind = 'GRADES';
+              /* Seed gender from the parent category's lock so new rows in
+               * male-only / female-only categories start in a valid state. */
+              if (parentCategory?.lockedGender) {
+                seed.genderTypes = [parentCategory.lockedGender];
+              }
+              addRow(categorySpecializationId, seed);
+            }}
+          >
+            إضافة سنة
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -282,6 +290,7 @@ interface YearCardProps {
   academicGradeOptions: readonly { value: string; label: string }[];
   academicGradeRangeByCode: ReadonlyMap<string, { min: number; max: number } | null>;
   graduationYearOptions: readonly { value: string; label: string }[];
+  canWrite: boolean;
   onPatch: (patch: Partial<ApplicantSpecializationYear>) => void;
   onDelete: () => void;
   onRestore: () => void;
@@ -297,6 +306,7 @@ function YearCard({
   academicGradeOptions,
   academicGradeRangeByCode,
   graduationYearOptions,
+  canWrite,
   onPatch,
   onDelete,
   onRestore,
@@ -380,7 +390,7 @@ function YearCard({
         <div className="flex items-center gap-1">
           <StatusToggle
             active={row.isActive}
-            disabled={isDeleted}
+            disabled={!canWrite || isDeleted}
             onChange={(next) => onPatch({ isActive: next })}
           />
           {isDeleted ? (
@@ -388,11 +398,12 @@ function YearCard({
               variant="ghost"
               size="sm"
               onClick={onRestore}
+              disabled={!canWrite}
               leadingIcon={<RotateCcw size={14} strokeWidth={1.75} />}
             >
               استرجاع
             </Button>
-          ) : (
+          ) : canWrite ? (
             <button
               type="button"
               onClick={onDelete}
@@ -406,7 +417,7 @@ function YearCard({
               <Trash2 size={14} strokeWidth={1.75} aria-hidden />
               حذف
             </button>
-          )}
+          ) : null}
         </div>
       </header>
 
@@ -429,7 +440,7 @@ function YearCard({
                 })
               }
               options={graduationYearOptions}
-              disabled={isDeleted}
+              disabled={!canWrite || isDeleted}
               ariaLabel="سنة التخرج"
               placeholder="اختر سنة"
             />
@@ -445,7 +456,7 @@ function YearCard({
             ) : (
               <GenderToggle
                 value={row.genderTypes}
-                disabled={isDeleted}
+                disabled={!canWrite || isDeleted}
                 onChange={(next) => onPatch({ genderTypes: next })}
                 ariaLabel="النوع"
                 invalid={Boolean(genderError)}
@@ -458,7 +469,7 @@ function YearCard({
               value={row.maritalStatusCodes}
               onChange={(next) => onPatch({ maritalStatusCodes: next })}
               options={maritalOptions}
-              disabled={isDeleted}
+              disabled={!canWrite || isDeleted}
               ariaLabel="الحالة الاجتماعية"
               placeholder="أي حالة"
             />
@@ -477,7 +488,7 @@ function YearCard({
             <GradeBranchCell
               row={row}
               gradingMode={gradingMode}
-              disabled={isDeleted}
+              disabled={!canWrite || isDeleted}
               invalid={Boolean(gradeError)}
               academicGradeOptions={academicGradeOptions}
               onPatch={onPatch}
@@ -489,7 +500,7 @@ function YearCard({
               <Input
                 type="number"
                 min={1}
-                disabled={isDeleted}
+                disabled={!canWrite || isDeleted}
                 value={row.maxAge ?? ''}
                 onChange={(e) =>
                   onPatch({
@@ -513,7 +524,7 @@ function YearCard({
                 value={row.schoolCategoryCodes}
                 onChange={(next) => onPatch({ schoolCategoryCodes: next })}
                 options={schoolCategoryOptions}
-                disabled={isDeleted}
+                disabled={!canWrite || isDeleted}
                 ariaLabel="فئة المدرسة"
                 placeholder="أي فئة"
               />
@@ -529,7 +540,7 @@ function YearCard({
           <Field label="بداية التقديم">
             <DatePicker
               value={isoToDate(row.applicationStartDate)}
-              disabled={isDeleted}
+              disabled={!canWrite || isDeleted}
               onChange={(d) =>
                 onPatch({
                   applicationStartDate: dateToIso(d) ?? row.applicationStartDate,
@@ -541,7 +552,7 @@ function YearCard({
           <Field label="نهاية التقديم" error={dateError}>
             <DatePicker
               value={isoToDate(row.applicationEndDate)}
-              disabled={isDeleted}
+              disabled={!canWrite || isDeleted}
               onChange={(d) =>
                 onPatch({
                   applicationEndDate: dateToIso(d) ?? row.applicationEndDate,
@@ -557,7 +568,7 @@ function YearCard({
           >
             <DatePicker
               value={isoToDate(row.ageReferenceDate)}
-              disabled={isDeleted}
+              disabled={!canWrite || isDeleted}
               onChange={(d) =>
                 onPatch({ ageReferenceDate: dateToIso(d) ?? row.ageReferenceDate })
               }

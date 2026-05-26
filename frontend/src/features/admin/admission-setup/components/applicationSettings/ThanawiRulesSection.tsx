@@ -34,6 +34,7 @@ import { useLookup } from '@/features/lookups';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import type { ExcellenceMode } from '../../lib/excellenceMode';
+import { useAdmissionSetupCanWrite } from '../AdmissionSetupShell';
 import {
   DEFAULT_MAX_SCORE_OPERATOR,
   DEFAULT_MIN_SCORE_OPERATOR,
@@ -111,6 +112,7 @@ export function ThanawiRulesSection({
   const schoolCategoriesQuery = useLookup('school-categories');
   const graduationYearsQuery = useLookup('graduation-years');
   const gradesQuery = useLookup('academic-grades');
+  const canWrite = useAdmissionSetupCanWrite();
 
   const approve = useAdmissionSetupWizardStore((s) => s.approveLocalForCategory);
   const localCount = useAdmissionSetupWizardStore(
@@ -194,6 +196,7 @@ export function ThanawiRulesSection({
   }, [gradesQuery.data]);
 
   const handleApprove = (): void => {
+    if (!canWrite) return;
     const moved = approve(categoryCode);
     if (moved === 0) {
       toast('لا توجد شروط جاهزة للاعتماد', 'info');
@@ -239,6 +242,7 @@ export function ThanawiRulesSection({
       <ThanawiTopFields
         categoryCode={categoryCode}
         maritalOptions={maritalOptions}
+        canWrite={canWrite}
       />
 
       <div className="mt-4">
@@ -252,6 +256,7 @@ export function ThanawiRulesSection({
           gradeOptions={gradeOptions}
           gradeRank={gradeRank}
           excellenceMode={excellenceMode}
+          canWrite={canWrite}
         />
       </div>
 
@@ -260,7 +265,7 @@ export function ThanawiRulesSection({
           variant="primary"
           size="md"
           onClick={handleApprove}
-          disabled={localCount === 0}
+          disabled={!canWrite || localCount === 0}
         >
           اعتماد الفئة
         </Button>
@@ -274,11 +279,13 @@ export function ThanawiRulesSection({
 interface ThanawiTopFieldsProps {
   categoryCode: string;
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
+  canWrite: boolean;
 }
 
 function ThanawiTopFields({
   categoryCode,
   maritalOptions,
+  canWrite,
 }: ThanawiTopFieldsProps): JSX.Element {
   const header = useAdmissionSetupWizardStore(
     (s) => s.headers[categoryCode] ?? s.getHeader(categoryCode),
@@ -295,6 +302,7 @@ function ThanawiTopFields({
               onChange={(d) =>
                 setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
               }
+              disabled={!canWrite}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -304,6 +312,7 @@ function ThanawiTopFields({
               onChange={(d) =>
                 setHeaderField(categoryCode, 'applicationEnd', dateToIso(d))
               }
+              disabled={!canWrite}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -313,6 +322,7 @@ function ThanawiTopFields({
               onChange={(d) =>
                 setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
               }
+              disabled={!canWrite}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -326,10 +336,11 @@ function ThanawiTopFields({
               value={header.maritalStatus}
               onChange={(next) => setHeaderField(categoryCode, 'maritalStatus', next)}
               options={maritalOptions}
+              disabled={!canWrite}
               placeholder="اختر الحالة الاجتماعية…"
             />
           </FieldLabel>
-          <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} />
+          <MaxAgeField categoryCode={categoryCode} maxAge={header.maxAge} canWrite={canWrite} />
         </div>
       </FieldGroup>
     </div>
@@ -347,9 +358,10 @@ function ThanawiTopFields({
 interface MaxAgeFieldProps {
   categoryCode: string;
   maxAge: number | null;
+  canWrite: boolean;
 }
 
-function MaxAgeField({ categoryCode, maxAge }: MaxAgeFieldProps): JSX.Element {
+function MaxAgeField({ categoryCode, maxAge, canWrite }: MaxAgeFieldProps): JSX.Element {
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
   const [touched, setTouched] = useState(false);
 
@@ -384,6 +396,7 @@ function MaxAgeField({ categoryCode, maxAge }: MaxAgeFieldProps): JSX.Element {
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onBlur={() => setTouched(true)}
+          disabled={!canWrite}
           aria-label="الحد الأقصى للسن"
           placeholder="—"
           containerClassName="flex-1"
@@ -469,6 +482,7 @@ interface ThanawiFormProps {
   gradeOptions: ReadonlyArray<SearchSelectOption>;
   gradeRank: Map<string, number>;
   excellenceMode: ExcellenceMode | null;
+  canWrite: boolean;
 }
 
 function rowToThanawiInput(r: LocalThanawiRow): ThanawiRuleRowInput {
@@ -500,6 +514,7 @@ function ThanawiForm({
   gradeOptions,
   gradeRank,
   excellenceMode,
+  canWrite,
 }: ThanawiFormProps): JSX.Element {
   const defaultExcellenceMode = excellenceMode ?? 'GRADES';
   const [draft, setDraft] = useState<ThanawiRuleRowInput>(() =>
@@ -541,6 +556,7 @@ function ThanawiForm({
     [localRows, approvedRows, categoryCode],
   );
   const handleDelete = (id: string): void => {
+    if (!canWrite) return;
     removeLocalRow(id);
     removeApprovedRow(id);
   };
@@ -619,6 +635,7 @@ function ThanawiForm({
     : true;
 
   const canSubmit =
+    canWrite &&
     isHeaderComplete &&
     draft.examRound.length > 0 &&
     draft.committee.length > 0 &&
@@ -646,7 +663,7 @@ function ThanawiForm({
   };
 
   const handleSubmit = (): void => {
-    if (!canSubmit) return;
+    if (!canWrite || !canSubmit) return;
     const payload = normalizeForSubmit(draft);
     if (isEditing && editingId !== null) {
       const result = updateThanawiRow(editingId, payload);
@@ -677,6 +694,7 @@ function ThanawiForm({
   };
 
   const handleEdit = (id: string): void => {
+    if (!canWrite) return;
     setEditingRow(id);
     /* Defer scroll so the layout has reflowed with edit-mode chrome
      * (cancel button) before we measure scroll position. */
@@ -706,6 +724,7 @@ function ThanawiForm({
             </div>
             <ExcellenceModeToggle
               value={draft.excellenceMode}
+              disabled={!canWrite}
               onChange={(next) =>
                 setDraft((d) => ({
                   ...d,
@@ -730,6 +749,7 @@ function ThanawiForm({
                   setDraft((d) => ({ ...d, examRound: v ?? '' }))
                 }
                 options={examRoundOptions}
+                disabled={!canWrite}
                 placeholder="اختر الدور…"
               />
             </FieldLabel>
@@ -741,6 +761,7 @@ function ThanawiForm({
                   setDraft((d) => ({ ...d, committee: v ?? '' }))
                 }
                 options={committeeOptions}
+                disabled={!canWrite}
                 placeholder="اختر اللجنة…"
               />
             </FieldLabel>
@@ -757,6 +778,7 @@ function ThanawiForm({
                   }))
                 }
                 options={graduationYearOptions}
+                disabled={!canWrite}
                 placeholder="اختر السنة…"
               />
             </FieldLabel>
@@ -771,6 +793,7 @@ function ThanawiForm({
                   value: o.value,
                   label: o.label,
                 }))}
+                disabled={!canWrite}
                 placeholder="اختر فئة المدرسة…"
               />
             </FieldLabel>
@@ -787,6 +810,7 @@ function ThanawiForm({
                     value={draft.grade || null}
                     onChange={(v) => setDraft((d) => ({ ...d, grade: v ?? '' }))}
                     options={gradeOptions}
+                    disabled={!canWrite}
                     placeholder="اختر التقدير…"
                   />
                 </FieldLabel>
@@ -799,6 +823,7 @@ function ThanawiForm({
                       setDraft((d) => ({ ...d, gradeMax: v ?? '' }))
                     }
                     options={gradeOptions}
+                    disabled={!canWrite}
                     placeholder="اختر التقدير…"
                     invalid={gradeOrderInvalid}
                   />
@@ -822,6 +847,7 @@ function ThanawiForm({
                     operatorOptions={MIN_SCORE_OPERATOR_OPTIONS}
                     operatorAriaLabel="عملية المقارنة للحد الأدنى للدرجة"
                     scoreValue={draft.scoreMin}
+                    disabled={!canWrite}
                     onScoreChange={(next) =>
                       setDraft((d) => ({ ...d, scoreMin: next }))
                     }
@@ -846,6 +872,7 @@ function ThanawiForm({
                     operatorOptions={MAX_SCORE_OPERATOR_OPTIONS}
                     operatorAriaLabel="عملية المقارنة للحد الأقصى للدرجة"
                     scoreValue={draft.scoreMax}
+                    disabled={!canWrite}
                     onScoreChange={(next) =>
                       setDraft((d) => ({ ...d, scoreMax: next }))
                     }
@@ -878,6 +905,7 @@ function ThanawiForm({
               variant="ghost"
               size="sm"
               onClick={handleCancelEdit}
+              disabled={!canWrite}
               leadingIcon={<X size={14} strokeWidth={1.75} aria-hidden />}
             >
               إلغاء
@@ -904,6 +932,7 @@ function ThanawiForm({
         gradeOptions={gradeOptions}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        canWrite={canWrite}
       />
     </div>
   );
@@ -920,6 +949,7 @@ interface ThanawiGridProps {
   gradeOptions: ReadonlyArray<SearchSelectOption>;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  canWrite: boolean;
 }
 
 function ThanawiGrid({
@@ -932,6 +962,7 @@ function ThanawiGrid({
   gradeOptions,
   onEdit,
   onDelete,
+  canWrite,
 }: ThanawiGridProps): JSX.Element {
   const labelForRound = (v: string): string =>
     examRoundOptions.find((o) => o.value === v)?.label ?? v;
@@ -974,7 +1005,7 @@ function ThanawiGrid({
             <Th>الحد الأقصى للتقدير</Th>
             <Th>الحد الأدنى للدرجة</Th>
             <Th>الحد الأقصى للدرجة</Th>
-            <Th>إجراءات</Th>
+            {canWrite && <Th>إجراءات</Th>}
           </tr>
         </thead>
         <tbody>
@@ -1022,27 +1053,29 @@ function ThanawiGrid({
                     r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR,
                   )}
                 </Td>
-                <td className="px-3 py-2 align-middle text-end">
-                  <div className="inline-flex items-center gap-1">
-                    <button
-                      type="button"
-                      aria-label="تعديل الشرط"
-                      aria-pressed={isRowEditing}
-                      onClick={() => onEdit(r.id)}
-                      className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none aria-pressed:bg-teal-50 aria-pressed:text-teal-700"
-                    >
-                      <Pencil size={14} strokeWidth={1.75} aria-hidden />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="حذف الشرط"
-                      onClick={() => onDelete(r.id)}
-                      className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
-                    >
-                      <Trash2 size={14} strokeWidth={1.75} aria-hidden />
-                    </button>
-                  </div>
-                </td>
+                {canWrite && (
+                  <td className="px-3 py-2 align-middle text-end">
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        aria-label="تعديل الشرط"
+                        aria-pressed={isRowEditing}
+                        onClick={() => onEdit(r.id)}
+                        className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-teal-50 hover:text-teal-700 focus-visible:shadow-focus-teal focus-visible:outline-none aria-pressed:bg-teal-50 aria-pressed:text-teal-700"
+                      >
+                        <Pencil size={14} strokeWidth={1.75} aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="حذف الشرط"
+                        onClick={() => onDelete(r.id)}
+                        className="inline-flex items-center justify-center rounded-md p-1.5 text-ink-500 transition-colors hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none"
+                      >
+                        <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             );
           })}

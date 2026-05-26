@@ -29,7 +29,7 @@
 
 import { useEffect, useMemo } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -240,28 +240,28 @@ export function AdmissionSetupWizardPage(): JSX.Element {
           <CycleSwitcher cycleCtx={cycleCtx} />
         </div>
 
-        {/* Read-only banner — visible whenever the chosen cycle has passed
+        {/* Read-only alert — visible whenever the chosen cycle has passed
          * the إدراج ومراجعة stage. Admins can navigate every step and
-         * inspect every value, but the descendant `<fieldset disabled>`
-         * neutralises every form control so nothing can be mutated. */}
+         * inspect every value, but write actions are disabled at their
+         * source by `useAdmissionSetupCanWrite()`. */}
         {isReadOnly && cycleCtx.cycle && (
           <div
-            role="status"
-            className="no-print flex flex-wrap items-start gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700"
+            role="alert"
+            className="no-print flex flex-wrap items-start gap-2 rounded-md border border-terra-200 bg-terra-50 px-3 py-2 text-2xs text-terra-800"
           >
-            <Eye size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+            <AlertTriangle size={14} strokeWidth={1.75} className="mt-0.5 shrink-0" />
             <div className="flex-1">
-              <p className="font-medium text-gold-700">
-                هذه الدورة في حالة «اعتماد ونشر» — وضع الاطلاع فقط
+              <p className="font-medium text-terra-800">
+                تنبيه: الدورة الحالية نشطة ومعتمدة — لا يمكن تعديل إعداد التقديم
               </p>
-              <p className="mt-0.5 text-gold-700/85">
-                يمكن استعراض كافة خطوات إعداد التقديم لدورة{' '}
-                <span className="font-medium">{cycleCtx.cycle.nameAr}</span> دون
-                إجراء أي تعديل. للعودة إلى وضع التحرير، يلزم إعادة الدورة إلى
-                حالة «إدراج ومراجعة» من{' '}
+              <p className="mt-0.5 text-terra-700">
+                دورة <span className="font-medium">{cycleCtx.cycle.nameAr}</span>{' '}
+                في حالة «اعتماد ونشر» و«نشطة»، لذلك يستطيع المدير استعراض إعداد
+                التقديم فقط دون إضافة أو تعديل أو حذف. لإجراء تغييرات، يلزم إعادة
+                الدورة إلى حالة «إدراج ومراجعة» من{' '}
                 <Link
                   to={ROUTES.admin.cycles}
-                  className="underline underline-offset-2 hover:text-gold-800"
+                  className="underline underline-offset-2 hover:text-terra-900"
                 >
                   إدارة الدورات
                 </Link>
