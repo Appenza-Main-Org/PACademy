@@ -581,11 +581,9 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         // Soft-delete guard: never return tombstoned rows from the list endpoint.
         var where = new List<string>
         {
-            "[a].[module] = @module",
             LiveGradeSql()
         };
         var hasFilters = false;
-        parameters.Add(new SqlParameter("@module", "grades"));
 
         string AddParam(object value)
         {
@@ -680,9 +678,14 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var orderSql = BuildOrderSql();
         var offsetParam = AddParam(Math.Max(0, page - 1) * pageSize);
         var pageSizeParam = AddParam(pageSize);
-        var tableName = AdminDbContext.QualifiedTableName("admin_records");
+        var tableName = AdminDbContext.QualifiedTableName("applicant_grades");
         var selectSql = """
-            SELECT [a].[module], [a].[id], [a].[payload_json], [a].[created_at], [a].[updated_at], [a].[row_version]
+            SELECT N'grades' AS [module],
+                   COALESCE([a].[admin_record_id], CONVERT(nvarchar(128), [a].[seat])) AS [id],
+                   [a].[payload_json],
+                   [a].[created_at],
+                   [a].[updated_at],
+                   [a].[row_version]
             FROM __ADMIN_RECORDS_TABLE__ AS [a]
             """.Replace("__ADMIN_RECORDS_TABLE__", tableName, StringComparison.Ordinal);
         return new GradesPageSql
@@ -726,7 +729,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
             "pct" => PercentageSql(),
             "eff" => EffectiveGradeSql(),
             "effPct" => $"(({EffectiveGradeSql()}) / NULLIF(({GradeMaxSql()}), 0) * 100.0)",
-            _ => "TRY_CONVERT(float, [a].[id])"
+            _ => "TRY_CONVERT(float, [a].[seat])"
         };
         var isNumeric = expr.StartsWith("TRY_CONVERT", StringComparison.Ordinal) ||
             expr.StartsWith("COALESCE(TRY_CONVERT", StringComparison.Ordinal) ||
@@ -751,9 +754,8 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                     COALESCE(SUM(CASE WHEN {JsonValue("kind")} = N'general' THEN 1 ELSE 0 END), 0) AS [General],
                     COALESCE(SUM(CASE WHEN {JsonValue("kind")} = N'azhar' THEN 1 ELSE 0 END), 0) AS [Azhar],
                     COALESCE(SUM(CASE WHEN {JsonValue("gradeChangedAt")} IS NOT NULL OR JSON_QUERY([a].[payload_json], '$.log') IS NOT NULL AND JSON_QUERY([a].[payload_json], '$.log') <> N'[]' THEN 1 ELSE 0 END), 0) AS [WithAdjustments]
-                FROM {AdminDbContext.QualifiedTableName("admin_records")} AS [a]
-                WHERE [a].[module] = N'grades'
-                  AND {LiveGradeSql()}
+                FROM {AdminDbContext.QualifiedTableName("applicant_grades")} AS [a]
+                WHERE {LiveGradeSql()}
                 """)
             .SingleAsync(ct);
 #pragma warning restore EF1002
@@ -779,9 +781,8 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var branches = await db.Database
             .SqlQueryRaw<string>($"""
                 SELECT DISTINCT {JsonValue("branch")} AS [Value]
-                FROM {AdminDbContext.QualifiedTableName("admin_records")} AS [a]
-                WHERE [a].[module] = N'grades'
-                  AND {LiveGradeSql()}
+                FROM {AdminDbContext.QualifiedTableName("applicant_grades")} AS [a]
+                WHERE {LiveGradeSql()}
                   AND {JsonValue("branch")} IS NOT NULL
                   AND {JsonValue("branch")} <> N''
                 ORDER BY [Value]
