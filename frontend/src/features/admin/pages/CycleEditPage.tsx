@@ -1,7 +1,8 @@
 /**
  * CycleEditPage — edit a saved admission cycle.
  *
- * Exposes the editable cycle name only. System year fields remain internal
+ * Exposes the admin-editable cycle metadata: name, list-facing lifecycle
+ * status, and the orthogonal active flag. System year fields remain internal
  * and are not modified by this form.
  *
  * Available regardless of cycle status — the prior published-status gate
@@ -10,7 +11,7 @@
 
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm, type FieldPath } from 'react-hook-form';
+import { Controller, useForm, type FieldPath } from 'react-hook-form';
 import { z } from 'zod';
 import { Save } from 'lucide-react';
 import {
@@ -21,6 +22,8 @@ import {
   Input,
   LoadingState,
   PageHeader,
+  Select,
+  Switch,
   toast,
 } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
@@ -28,7 +31,12 @@ import { isValidationError } from '@/shared/lib/errors';
 import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
-import { useCycle, useCycleUpdate } from '../api/cycles.queries';
+import { useCycle, useCycleSetActive, useCycleUpdate } from '../api/cycles.queries';
+import {
+  fromListStatus,
+  LIST_STATUS_OPTIONS,
+  toListStatus,
+} from '../components/cycles/cycleListStatus';
 
 const cycleSchema = z.object({
   name: z
@@ -37,6 +45,8 @@ const cycleSchema = z.object({
     .min(1, 'اسم الدورة مطلوب')
     .min(3, 'اسم الدورة يجب ألا يقل عن 3 أحرف')
     .max(80, 'اسم الدورة يجب ألا يزيد عن 80 حرفًا'),
+  status: z.enum(['review', 'published']),
+  isActive: z.boolean(),
 });
 
 type CycleValues = z.infer<typeof cycleSchema>;
@@ -54,8 +64,10 @@ export function CycleEditPage(): JSX.Element {
   const navigate = useNavigate();
   const cycleQuery = useCycle(id);
   const updateMut = useCycleUpdate();
+  const setActiveMut = useCycleSetActive();
 
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -63,7 +75,7 @@ export function CycleEditPage(): JSX.Element {
     formState: { errors },
   } = useForm<CycleValues>({
     resolver: zodResolver(cycleSchema),
-    defaultValues: { name: '' },
+    defaultValues: { name: '', status: 'review', isActive: false },
   });
 
   /* Pre-fill once the cycle resolves. We use reset rather than
@@ -71,7 +83,11 @@ export function CycleEditPage(): JSX.Element {
    * leave stale form state behind. */
   useEffect(() => {
     if (cycleQuery.data) {
-      reset({ name: cycleQuery.data.nameAr });
+      reset({
+        name: cycleQuery.data.nameAr,
+        status: toListStatus(cycleQuery.data.status),
+        isActive: Boolean(cycleQuery.data.isActive),
+      });
     }
   }, [cycleQuery.data, reset]);
 
@@ -97,37 +113,46 @@ export function CycleEditPage(): JSX.Element {
     );
   }
 
-  const onSubmit = (values: CycleValues): void => {
+  const cycle = cycleQuery.data;
+
+  const onSubmit = async (values: CycleValues): Promise<void> => {
     const name = values.name.trim();
     const nameError = cycleNameError(name);
     if (nameError !== null) {
       setError('name', { type: 'manual', message: nameError }, { shouldFocus: true });
       return;
     }
-    updateMut.mutate(
-      {
+
+    const nextStatus = fromListStatus(values.status);
+
+    try {
+      if (values.isActive && !cycle.isActive) {
+        await setActiveMut.mutateAsync(id);
+      }
+
+      await updateMut.mutateAsync({
         id,
         patch: {
           nameAr: name,
+          status: nextStatus,
+          isActive: values.isActive,
         },
-      },
-      {
-        onSuccess: () => {
-          toast('تم حفظ تعديلات الدورة', 'success');
-          navigate(ROUTES.admin.cycles);
-        },
-        onError: (err) => {
-          if (isValidationError(err)) {
-            for (const [field, message] of Object.entries(validationFieldErrors(err))) {
-              const fieldName = field === 'nameAr' ? 'name' : field;
-              setError(fieldName as FieldPath<CycleValues>, { type: 'server', message });
-            }
-          }
-          toast(validationMessage(err, 'تعذر حفظ تعديلات الدورة'), 'danger');
-        },
-      },
-    );
+      });
+
+      toast('تم حفظ تعديلات الدورة', 'success');
+      navigate(ROUTES.admin.cycles);
+    } catch (err) {
+      if (isValidationError(err)) {
+        for (const [field, message] of Object.entries(validationFieldErrors(err))) {
+          const fieldName = field === 'nameAr' ? 'name' : field;
+          setError(fieldName as FieldPath<CycleValues>, { type: 'server', message });
+        }
+      }
+      toast(validationMessage(err, 'تعذر حفظ تعديلات الدورة'), 'danger');
+    }
   };
+
+  const isSaving = updateMut.isPending || setActiveMut.isPending;
 
   return (
     <CenteredShell>
@@ -137,7 +162,7 @@ export function CycleEditPage(): JSX.Element {
           breadcrumbs={[
             { label: 'الإدارة' },
             { label: 'دورات القبول', href: ROUTES.admin.cycles },
-            { label: cycleQuery.data.nameAr },
+            { label: cycle.nameAr },
           ]}
         />
 
@@ -151,11 +176,43 @@ export function CycleEditPage(): JSX.Element {
               error={errors.name?.message}
             />
 
+            <div className="grid gap-4 md:grid-cols-2">
+              <Select
+                label="حالة الدورة"
+                required
+                options={LIST_STATUS_OPTIONS}
+                {...register('status')}
+                error={errors.status?.message}
+              />
+
+              <Controller
+                control={control}
+                name="isActive"
+                render={({ field }) => (
+                  <div className="flex min-h-[4.625rem] flex-col justify-end gap-2 rounded-md border border-ink-200 bg-white px-4 py-3">
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      label="التفعيل"
+                      helper={field.value ? 'نشطة' : 'غير نشطة'}
+                      disabled={isSaving}
+                    />
+                    {errors.isActive?.message && (
+                      <span className="text-xs text-terra-700">
+                        {errors.isActive.message}
+                      </span>
+                    )}
+                  </div>
+                )}
+              />
+            </div>
+
             <div className="mt-2 flex items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => navigate(ROUTES.admin.cycles)}
+                disabled={isSaving}
               >
                 إلغاء
               </Button>
@@ -163,7 +220,7 @@ export function CycleEditPage(): JSX.Element {
                 type="submit"
                 variant="primary"
                 leadingIcon={<Save size={14} strokeWidth={1.75} />}
-                isLoading={updateMut.isPending}
+                isLoading={isSaving}
               >
                 حفظ التعديلات
               </Button>
