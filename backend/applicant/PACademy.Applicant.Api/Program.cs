@@ -20,17 +20,13 @@ builder.Services.AddPacademyExceptionHandling();
 /* ── OpenAPI (.NET 10 built-in) + Scalar UI ─────────────────────── */
 builder.Services.AddOpenApi();
 
-/* ── CORS — allow the Vite frontend origin ──────────────────────── */
-var frontendOrigin = builder.Configuration["Cors:ApplicantFrontendOrigin"]
-    ?? "http://localhost:5173";
+/* ── CORS — origins driven by Cors:AllowedOrigins config array ───── */
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? [];
 const string CorsPolicyName = "applicant-frontend";
 builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
-    .WithOrigins(
-        frontendOrigin,
-        "http://localhost:5173",
-        "https://appenzademo.com",
-        "https://www.appenzademo.com",
-        "https://admin-staging.appenzademo.com")
+    .WithOrigins(["http://localhost:5173", .. allowedOrigins])
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials()));
