@@ -43,7 +43,7 @@ function without<K extends keyof ReportsFilters>(filters: ReportsFilters, key: K
 
 export function ReportsFiltersBar(): JSX.Element {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const cycles = useCycles();
   const categories = useLookup('applicant-categories');
   const specializations = useLookup('specializations');
@@ -104,6 +104,11 @@ export function ReportsFiltersBar(): JSX.Element {
       ].filter(Boolean) as Array<{ key: keyof ReportsFilters; label: string }>,
     [filters],
   );
+  const activeFilterCount = chips.length;
+  const filterSummary =
+    activeFilterCount > 0
+      ? `${activeFilterCount} فلاتر مفعلة`
+      : 'لا توجد فلاتر إضافية';
 
   const controls = (
     <div className="space-y-4">
@@ -196,6 +201,10 @@ export function ReportsFiltersBar(): JSX.Element {
             <p className="m-0 text-sm font-semibold text-ink-900">تصفية التقارير</p>
             <p className="m-0 mt-0.5 truncate text-xs text-ink-500">
               {selectedCycle ? `النطاق الحالي: ${selectedCycle.nameAr}` : 'اختر دورة لعرض تقاريرها'}
+              <span className="mx-1 text-ink-300">·</span>
+              <span className={activeFilterCount > 0 ? 'text-teal-700' : undefined}>
+                {filterSummary}
+              </span>
             </p>
           </div>
         </div>
@@ -209,26 +218,35 @@ export function ReportsFiltersBar(): JSX.Element {
             </Badge>
           )}
           <Button
-            variant="ghost"
+            variant={isExpanded ? 'secondary' : 'primary'}
             size="sm"
             leadingIcon={isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             aria-expanded={isExpanded}
             aria-controls="reports-filters-panel"
             onClick={() => setIsExpanded((current) => !current)}
           >
-            {isExpanded ? 'طي الفلاتر' : 'عرض الفلاتر'}
+            {isExpanded ? 'إخفاء الفلاتر' : 'عرض الفلاتر'}
           </Button>
-          <Button variant="accent" size="sm" leadingIcon={<Search size={14} />} onClick={() => setFilters({ cycleId: effectiveCycleId })}>
-            تطبيق
-          </Button>
-          <Button variant="ghost" size="sm" leadingIcon={<RotateCcw size={14} />} onClick={reset}>
-            إعادة ضبط
-          </Button>
+          {!isExpanded && activeFilterCount > 0 && (
+            <Button variant="ghost" size="sm" leadingIcon={<RotateCcw size={14} />} onClick={reset}>
+              إعادة ضبط
+            </Button>
+          )}
         </div>
       </div>
       {isExpanded && (
         <div id="reports-filters-panel">
-          <div className="hidden p-4 lg:block">{controls}</div>
+          <div className="hidden p-4 lg:block">
+            {controls}
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle pt-3">
+              <Button variant="ghost" size="sm" leadingIcon={<RotateCcw size={14} />} onClick={reset}>
+                إعادة ضبط
+              </Button>
+              <Button variant="accent" size="sm" leadingIcon={<Search size={14} />} onClick={() => setFilters({ cycleId: effectiveCycleId })}>
+                تطبيق
+              </Button>
+            </div>
+          </div>
           <div className="lg:hidden">
             <div className="p-4">
               <Button variant="secondary" leadingIcon={<SlidersHorizontal size={16} />} onClick={() => setMobileOpen(true)} fullWidth>
@@ -237,12 +255,29 @@ export function ReportsFiltersBar(): JSX.Element {
             </div>
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen} title="تصفية التقارير" size="md">
               {controls}
+              <div className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle pt-3">
+                <Button variant="ghost" size="sm" leadingIcon={<RotateCcw size={14} />} onClick={reset}>
+                  إعادة ضبط
+                </Button>
+                <Button
+                  variant="accent"
+                  size="sm"
+                  leadingIcon={<Search size={14} />}
+                  onClick={() => {
+                    setFilters({ cycleId: effectiveCycleId });
+                    setMobileOpen(false);
+                  }}
+                >
+                  تطبيق
+                </Button>
+              </div>
             </Sheet>
           </div>
         </div>
       )}
       {chips.length > 0 && (
-        <div className="flex flex-wrap gap-2 border-t border-border-subtle px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle px-4 py-3">
+          <span className="text-2xs font-medium text-ink-500">الفلاتر المطبقة:</span>
           {chips.map((chip) => (
             <Badge key={chip.key} tone="neutral">
               <span className="inline-flex items-center gap-1">
