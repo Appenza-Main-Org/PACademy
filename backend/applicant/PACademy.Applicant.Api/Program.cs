@@ -30,7 +30,8 @@ builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
         "http://localhost:5173",
         "https://appenzademo.com",
         "https://www.appenzademo.com",
-        "https://admin-staging.appenzademo.com")
+        "https://admin-staging.appenzademo.com",
+        "https://admin-prod.appenzademo.com")
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials()));
