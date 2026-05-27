@@ -989,7 +989,7 @@ function ThanawiGrid({
 
   return (
     <div className="overflow-x-auto rounded-md border border-border-subtle bg-surface-card">
-      <table className="w-full border-collapse text-sm">
+      <table className="min-w-[104rem] border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
             <Th>اللجنة</Th>
@@ -1100,7 +1100,7 @@ function Th({ children }: { children: React.ReactNode }): JSX.Element {
 
 function Td({ children }: { children: React.ReactNode }): JSX.Element {
   return (
-    <td className="max-w-[12rem] whitespace-normal break-words px-3 py-2 align-middle font-ar text-2xs text-ink-900">
+    <td className="min-w-[7rem] max-w-[14rem] whitespace-normal break-words px-3 py-2 align-middle font-ar text-2xs leading-relaxed text-ink-900">
       {children}
     </td>
   );

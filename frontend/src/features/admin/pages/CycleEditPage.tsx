@@ -155,7 +155,7 @@ export function CycleEditPage(): JSX.Element {
   const isSaving = updateMut.isPending || setActiveMut.isPending;
 
   return (
-    <CenteredShell>
+    <CenteredShell size="default">
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
         <PageHeader
           title="تعديل الدورة"
