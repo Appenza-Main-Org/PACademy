@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace PACademy.Applicant.Api.Modules.ApplicantPortal;
 
@@ -7,11 +8,12 @@ namespace PACademy.Applicant.Api.Modules.ApplicantPortal;
 /// Migrations are owned by the admin backend's AdminDbContext — this
 /// context has no MigrationsAssembly so a stray 'dotnet ef' command here
 /// is a no-op.
+/// Schema is read from Database:Schema config key (mirrors admin backend convention).
 /// </summary>
-public sealed class PortalDbContext(DbContextOptions<PortalDbContext> options)
+public sealed class PortalDbContext(DbContextOptions<PortalDbContext> options, IConfiguration configuration)
     : DbContext(options)
 {
-    private const string Schema = "PACademy_staging_db";
+    private string Schema => configuration["Database:Schema"] ?? "admin_v2";
 
     public DbSet<ApplicantPortalRecordEntity> PortalRecords => Set<ApplicantPortalRecordEntity>();
     public DbSet<ExamSlotEntity> ExamSlots => Set<ExamSlotEntity>();
