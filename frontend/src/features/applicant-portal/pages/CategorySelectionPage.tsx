@@ -615,10 +615,9 @@ function CategoryRows({
   /* Demo direction (2026-05-18):
    *  - Show every category from the mock catalogue even when no live
    *    cycle is in window (force isOpen so the row is clickable).
-   *  - Hide بكالوريوس تربية رياضية (physical_education_bachelor) per
-   *    client request. */
+   *  - When the backend has resolved a single eligible category, render
+   *    that category only and let the backend verdict control availability. */
   const categories = (categoriesQuery.data ?? [])
-    .filter((c) => c.key !== 'physical_education_bachelor')
     .filter((c) => eligibleKey === null || c.key === eligibleKey)
     .map((c) => {
       const verdict = eligibility.find((item) => item.categoryId === c.key);
