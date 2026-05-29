@@ -66,6 +66,7 @@ export function useApplicantGradeByNid(nid: string | null, cycleId: string | nul
     queryKey: gradesKeys.byNid(nid ?? '', cycleId ?? ''),
     queryFn: () => gradesService.findByNationalId(nid!, cycleId!),
     enabled: Boolean(nid && cycleId),
+    retry: false,
   });
 }
 
