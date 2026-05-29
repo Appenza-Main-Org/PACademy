@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
+using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Controllers;
 using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.AdminRecords;
@@ -170,6 +171,28 @@ public sealed class ApiRegressionTests
         Assert.IsType<NotFoundObjectResult>(response.Result);
     }
 
+    [Fact]
+    public async Task BlockedLookupDeleteReturnsConflict()
+    {
+        await using var db = CreateDb();
+        SeedLookup(db, "applicant-categories", "CAT-02", "قسم الضباط المتخصصين");
+        SeedLookup(db, "announcements", "ANN-01", "تنبيه", new JsonObject
+        {
+            ["categoryCode"] = "CAT-02"
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var service = new LookupsService(db, new LookupRowValidator());
+        var controller = new LookupsController(service);
+
+        var response = await controller.Delete("applicant-categories", "CAT-02", TestContext.Current.CancellationToken);
+
+        var conflict = Assert.IsType<ConflictObjectResult>(response.Result);
+        var body = Assert.IsType<DeleteLookupRowResult>(conflict.Value);
+        Assert.False(body.Deleted);
+        Assert.Equal(1, body.ReferenceCount);
+        Assert.Contains("تنبيه مرتبط بهذه الفئة", body.Reason);
+    }
+
     private static void AssertRequireBearerAuth(MemberInfo? target)
     {
         Assert.NotNull(target);
@@ -182,6 +205,25 @@ public sealed class ApiRegressionTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString("N"))
             .Options;
         return new AdminDbContext(options);
+    }
+
+    private static void SeedLookup(AdminDbContext db, string key, string code, string name, JsonObject? extra = null)
+    {
+        var payload = extra is null ? [] : LookupJson.Clone(extra);
+        payload["code"] = code;
+        payload["name"] = name;
+        payload["isActive"] = true;
+        var now = DateTimeOffset.UtcNow;
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = key,
+            Code = code,
+            Name = name,
+            IsActive = true,
+            PayloadJson = payload.ToJsonString(LookupJson.Options),
+            CreatedAt = now,
+            UpdatedAt = now
+        });
     }
 
     private sealed class TestHostEnvironment : IWebHostEnvironment

@@ -138,6 +138,13 @@ function normalizeErrorPayload(status: number, parsed: unknown): ApiEnvelopeErro
   return { message: `HTTP ${status}` };
 }
 
+function isDeleteBlockedPayload(parsed: unknown): parsed is { deleted: false; reason: string; referenceCount: number } {
+  return isRecord(parsed) &&
+    parsed.deleted === false &&
+    typeof parsed.reason === 'string' &&
+    typeof parsed.referenceCount === 'number';
+}
+
 function toServiceError(status: number, parsed: unknown): Error {
   const err = normalizeErrorPayload(status, parsed);
   if (err.code === 'CONFLICT' && err.conflictCode) {
@@ -261,7 +268,12 @@ async function request<T>(
     throw new Error('استجابة الخادم غير صالحة. تحقق من إعدادات اتصال الواجهة الخلفية.');
   }
   const parsed = await parseResponse(res);
-  if (!res.ok) throw toServiceError(res.status, parsed);
+  if (!res.ok) {
+    if (method === 'DELETE' && res.status === 409 && isDeleteBlockedPayload(parsed)) {
+      return parsed as T;
+    }
+    throw toServiceError(res.status, parsed);
+  }
   return parsed as T;
 }
 
