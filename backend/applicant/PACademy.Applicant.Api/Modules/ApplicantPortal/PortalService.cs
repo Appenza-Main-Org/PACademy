@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Shared.Contracts;
 
@@ -297,10 +298,11 @@ public sealed class PortalService(PortalDbContext db)
 
     public async Task<string> PickExamDateAsync(string applicantId, string slotId, CancellationToken ct)
     {
-        // Accept either the full slot ID ("SLT-2026-06-15") or just the date
-        // ("2026-06-15") — the eligible-categories API returns bare date strings.
+        // Accept full slot IDs, ISO dates, and the day-first date strings
+        // currently emitted by the admin eligibility schedule.
+        var candidateIds = CandidateSlotIds(slotId);
         var slot = await db.ExamSlots.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == slotId || x.Id == $"SLT-{slotId}", ct)
+            .FirstOrDefaultAsync(x => candidateIds.Contains(x.Id), ct)
             ?? throw new KeyNotFoundException($"موعد الاختبار '{slotId}' غير موجود");
 
         var draft = await GetOrCreateDraftAsync(applicantId, ct);
@@ -310,13 +312,53 @@ public sealed class PortalService(PortalDbContext db)
             ["furthestStage"] = Math.Max(current, 8),
             ["examSlot"] = new JsonObject
             {
-                ["slotId"] = slotId,
+                ["slotId"] = slot.Id,
                 ["date"] = slot.Date.ToString("yyyy-MM-dd"),
                 ["time"] = slot.Time,
                 ["location"] = slot.Location,
             },
         }, ct);
         return slot.Date.ToString("yyyy-MM-dd");
+    }
+
+    private static string[] CandidateSlotIds(string slotId)
+    {
+        var trimmed = slotId.Trim();
+        var ids = new List<string> { trimmed };
+        if (!trimmed.StartsWith("SLT-", StringComparison.OrdinalIgnoreCase))
+            ids.Add($"SLT-{trimmed}");
+
+        var dateText = trimmed.StartsWith("SLT-", StringComparison.OrdinalIgnoreCase)
+            ? trimmed[4..]
+            : trimmed;
+        if (TryNormalizeDate(dateText, out var normalized))
+        {
+            ids.Add(normalized);
+            ids.Add($"SLT-{normalized}");
+        }
+
+        return ids
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static bool TryNormalizeDate(string value, out string normalized)
+    {
+        string[] formats = ["yyyy-MM-dd", "dd-MM-yyyy", "d-M-yyyy", "dd/MM/yyyy", "d/M/yyyy"];
+        if (DateOnly.TryParseExact(
+            value.Trim(),
+            formats,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var parsed))
+        {
+            normalized = parsed.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            return true;
+        }
+
+        normalized = "";
+        return false;
     }
 
     // ── Follow-up ──────────────────────────────────────────────────────

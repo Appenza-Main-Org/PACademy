@@ -62,9 +62,9 @@ export function Stage8ExamSchedulePage(): JSX.Element {
 
   const dayOptions = useMemo(() =>
     examDates.map((dateStr) => ({
-      value: dateStr,
-      dayName: arabicDayOfWeek(new Date(dateStr)),
-      dateLabel: fmtDate(dateStr, 'full'),
+      value: normalizeExamDateValue(dateStr) ?? dateStr,
+      dayName: formatExamDayName(dateStr),
+      dateLabel: formatExamDateLabel(dateStr),
     })),
   [examDates]);
 
@@ -233,4 +233,43 @@ function DefRow({
       </dd>
     </div>
   );
+}
+
+function normalizeExamDateValue(value: string): string | null {
+  const trimmed = value.trim();
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (isoMatch) return trimmed;
+
+  const dayFirstMatch = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(trimmed);
+  if (!dayFirstMatch) return null;
+
+  const day = Number(dayFirstMatch[1]);
+  const month = Number(dayFirstMatch[2]);
+  const year = Number(dayFirstMatch[3]);
+  if (!isValidDateParts(year, month, day)) return null;
+
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function isValidDateParts(year: number, month: number, day: number): boolean {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day;
+}
+
+function dateFromIsoDay(value: string): Date {
+  return new Date(`${value}T00:00:00.000Z`);
+}
+
+function formatExamDayName(value: string): string {
+  const normalized = normalizeExamDateValue(value);
+  return arabicDayOfWeek(normalized ? dateFromIsoDay(normalized) : new Date(value));
+}
+
+function formatExamDateLabel(value: string): string {
+  const normalized = normalizeExamDateValue(value);
+  return fmtDate(normalized ? dateFromIsoDay(normalized) : value, 'full');
 }
