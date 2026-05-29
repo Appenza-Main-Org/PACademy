@@ -184,7 +184,7 @@ public sealed class ApiRegressionTests
         var service = new LookupsService(db, new LookupRowValidator());
         var controller = new LookupsController(service);
 
-        var response = await controller.Delete("applicant-categories", "CAT-02", TestContext.Current.CancellationToken);
+        var response = await controller.Delete("applicant-categories", "CAT-02", force: false, TestContext.Current.CancellationToken);
 
         var conflict = Assert.IsType<ConflictObjectResult>(response.Result);
         var body = Assert.IsType<DeleteLookupRowResult>(conflict.Value);

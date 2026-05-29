@@ -202,7 +202,7 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
 
   const confirmDelete = (): void => {
     if (!pendingDelete) return;
-    deleteMut.mutate(pendingDelete.code, {
+    deleteMut.mutate({ code: pendingDelete.code }, {
       onSuccess: (result) => {
         if (result.deleted) {
           toast(`تم حذف "${pendingDelete.name}"`, 'success');
@@ -212,6 +212,24 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
         }
       },
     });
+  };
+
+  const confirmForceDelete = (): void => {
+    if (!pendingDelete) return;
+    deleteMut.mutate(
+      { code: pendingDelete.code, force: true },
+      {
+        onSuccess: (result) => {
+          if (!result.deleted) {
+            setDeleteBlocked(result.reason);
+            return;
+          }
+          toast(`تم حذف "${pendingDelete.name}" رغم وجود ارتباطات`, 'success');
+          setDeleteBlocked(null);
+          setPendingDelete(null);
+        },
+      },
+    );
   };
 
   const submit = (values: LookupRow<K>): void => {
@@ -381,11 +399,14 @@ export function LookupTabPanel<K extends LookupKey>({ lookupKey }: LookupTabPane
       <AlertDialog
         open={deleteBlocked !== null}
         onOpenChange={(next) => { if (!next) { setDeleteBlocked(null); setPendingDelete(null); } }}
-        title="تعذر الحذف"
+        title="السجل مرتبط ببيانات أخرى"
         description={deleteBlocked ?? ''}
-        actionLabel="إغلاق"
-        tone="primary"
-        onAction={() => { setDeleteBlocked(null); setPendingDelete(null); }}
+        actionLabel="حذف على أي حال"
+        cancelLabel="إلغاء"
+        tone="danger"
+        isActionLoading={deleteMut.isPending}
+        actionLoadingLabel="جارٍ الحذف…"
+        onAction={confirmForceDelete}
       />
     </div>
   );

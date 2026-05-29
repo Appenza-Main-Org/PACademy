@@ -32,9 +32,13 @@ public sealed class LookupsController(LookupsService service) : ControllerBase
     }
 
     [HttpDelete("{key}/{code}")]
-    public async Task<ActionResult<DeleteLookupRowResult>> Delete(string key, string code, CancellationToken ct)
+    public async Task<ActionResult<DeleteLookupRowResult>> Delete(
+        string key,
+        string code,
+        [FromQuery] bool force,
+        CancellationToken ct)
     {
-        var result = await service.DeleteAsync(key, code, ct);
+        var result = await service.DeleteAsync(key, code, force, ct);
         return result.Deleted ? Ok(result) : Conflict(result);
     }
 }

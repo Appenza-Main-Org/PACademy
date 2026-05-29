@@ -39,8 +39,15 @@ export const lookupsService = {
     );
   },
 
-  async deleteLookupRow<K extends LookupKey>(key: K, code: string): Promise<DeleteResult> {
-    return apiClient.delete(`/api/lookups/${encodeURIComponent(key)}/${encodeURIComponent(code)}`);
+  async deleteLookupRow<K extends LookupKey>(
+    key: K,
+    code: string,
+    options: { force?: boolean } = {},
+  ): Promise<DeleteResult> {
+    return apiClient.delete(
+      `/api/lookups/${encodeURIComponent(key)}/${encodeURIComponent(code)}`,
+      { query: options.force ? { force: true } : undefined },
+    );
   },
 };
 
