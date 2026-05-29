@@ -139,15 +139,15 @@ export function CategorySelectionPage(): JSX.Element {
   const categoriesQuery = useCategories(selectedCycle?.id);
   const eligibilityCategoriesQuery = useEligibleCategories(identity?.nationalId ?? storeNid);
 
-  /* Restrict the category list to the backend eligibility verdict.
-   * Mock-bypass logins keep their pre-selected category, while real backend
-   * sessions can legitimately return more than one eligible category. */
+  /* Restrict the category list to the backend eligibility verdict when it
+   * exists. A previously selected category can stay in sessionStorage after
+   * navigating back to /applicant/start, so it must not override a live
+   * backend response that can legitimately return multiple categories. */
   const derivedEligibleKeys = useMemo<readonly string[] | null>(() => {
-    if (selectedCategoryKey) return [selectedCategoryKey];
     const cats = eligibilityCategoriesQuery.data?.categories;
-    if (!cats) return null;
-    const eligible = cats.filter((c) => c.eligible);
-    return eligible.map((c) => c.categoryId);
+    if (cats) return cats.filter((c) => c.eligible).map((c) => c.categoryId);
+    if (selectedCategoryKey) return [selectedCategoryKey];
+    return null;
   }, [selectedCategoryKey, eligibilityCategoriesQuery.data]);
 
   /* When the backend returns an empty eligible list (no category matches
