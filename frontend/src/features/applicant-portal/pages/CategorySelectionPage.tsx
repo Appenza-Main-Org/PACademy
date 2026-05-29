@@ -612,19 +612,37 @@ function CategoryRows({
   /* Demo direction (2026-05-18), tightened for backend eligibility:
    *  - Show every category from the mock catalogue even when no live
    *    cycle is in window (force isOpen so the row is clickable).
-   *  - When the backend has resolved eligible categories, render only
-   *    those categories and let the backend verdict control availability. */
+   *  - When the backend has resolved eligible categories, let that
+   *    response be the source of truth and use the catalogue only to
+   *    enrich labels/descriptions. Staging can legitimately return
+   *    eligible categories that the local catalogue does not know yet. */
   const allowedKeys = eligibleKeys === null ? null : new Set(eligibleKeys);
-  const categories = (categoriesQuery.data ?? [])
-    .filter((c) => allowedKeys === null || allowedKeys.has(c.key))
-    .map((c) => {
-      const verdict = eligibility.find((item) => item.categoryId === c.key);
-      return {
-        ...c,
-        isOpen: verdict ? verdict.eligible : true,
-        backendFailedReasons: verdict?.failedReasons ?? [],
-      };
-    });
+  const catalogue = categoriesQuery.data ?? [];
+  const catalogueByKey = new Map<string, ApplicantCategory>(
+    catalogue.map((category) => [category.key, category]),
+  );
+  const verdictByKey = new Map(eligibility.map((verdict) => [verdict.categoryId, verdict]));
+  const backendOrderedKeys = eligibility
+    .filter((verdict) => allowedKeys === null || allowedKeys.has(verdict.categoryId))
+    .map((verdict) => verdict.categoryId);
+  const catalogueOrderedKeys = catalogue
+    .filter((category) => allowedKeys === null || allowedKeys.has(category.key))
+    .map((category) => category.key);
+  const orderedKeys = eligibility.length > 0
+    ? [
+        ...catalogueOrderedKeys.filter((key) => verdictByKey.has(key)),
+        ...backendOrderedKeys.filter((key) => !catalogueByKey.has(key)),
+      ]
+    : catalogueOrderedKeys;
+  const categories = orderedKeys.map((key) => {
+    const verdict = verdictByKey.get(key);
+    const catalogueCategory = catalogueByKey.get(key);
+    return {
+      category: catalogueCategory ?? categoryFromEligibility(verdict, key),
+      isEnabled: verdict ? verdict.eligible : true,
+      failedReasons: verdict?.failedReasons ?? [],
+    };
+  });
   if (categories.length === 0) {
     return (
       <div className="px-5 py-6">
@@ -635,12 +653,13 @@ function CategoryRows({
 
   return (
     <div className="border-t border-border-default">
-      {categories.map((c, i) => (
+      {categories.map(({ category, isEnabled, failedReasons }, i) => (
         <CategoryRow
-          key={c.key}
-          category={c}
-          failedReasons={c.backendFailedReasons}
-          onPick={(enabled) => onPick(c.key, enabled)}
+          key={category.key}
+          category={category}
+          isEnabled={isEnabled}
+          failedReasons={failedReasons}
+          onPick={(enabled) => onPick(category.key, enabled)}
           isLast={i === categories.length - 1}
         />
       ))}
@@ -648,18 +667,50 @@ function CategoryRows({
   );
 }
 
+function categoryFromEligibility(
+  verdict: ApplicantCategoryEligibility | undefined,
+  categoryId: string,
+): ApplicantCategory {
+  return {
+    key: categoryId as ApplicantCategory['key'],
+    labelAr: verdict?.categoryName ?? categoryId,
+    labelEn: verdict?.categoryName ?? categoryId,
+    description: 'مطابق لإعدادات القبول لهذه الدورة',
+    isOpen: verdict?.eligible ?? true,
+    conditions: {
+      ageMin: verdict?.checks.ageCheck.minAge ?? null,
+      ageMax: verdict?.maxAge ?? null,
+      minScorePercent: null,
+      requiredQualification: 'any',
+      gender: 'any',
+      minHeightCm: null,
+      medicalRequired: true,
+      maritalStatus: 'any',
+      conductCheck: true,
+      egyptianNationalityRequired: true,
+      employerApprovalRequired: false,
+      nominationOnly: false,
+      freeText: [],
+    },
+    requiredTests: [],
+    procedures: [],
+  };
+}
+
 function CategoryRow({
   category,
+  isEnabled,
   failedReasons,
   onPick,
   isLast,
 }: {
   category: ApplicantCategory;
+  isEnabled: boolean;
   failedReasons: readonly string[];
   onPick: (enabled: boolean) => void;
   isLast: boolean;
 }): JSX.Element {
-  const enabled = category.isOpen;
+  const enabled = isEnabled;
   const disabledReason = enabled
     ? null
     : failedReasons.length > 0
