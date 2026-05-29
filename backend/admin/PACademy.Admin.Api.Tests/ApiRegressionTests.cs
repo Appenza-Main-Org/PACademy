@@ -1,14 +1,21 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 using PACademy.Admin.Api.Controllers;
 using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Exams;
+using PACademy.Admin.Api.Modules.Reports.Dtos;
+using PACademy.Admin.Api.Modules.Reports.Validators;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Audit;
+using PACademy.Shared.Contracts;
+using PACademy.Shared.Web;
 
 namespace PACademy.Admin.Api.Tests;
 
@@ -66,6 +73,68 @@ public sealed class ApiRegressionTests
     }
 
     [Fact]
+    public async Task QuestionAndExamCreationAcceptMinimalValidPayloads()
+    {
+        await using var db = CreateDb();
+        var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var service = new ExamsService(records, db);
+
+        var question = await service.CreateQuestionAsync(new JsonObject
+        {
+            ["category"] = "منطق",
+            ["type"] = "mcq",
+            ["text"] = "سؤال صالح",
+            ["options"] = new JsonArray("أ", "ب"),
+            ["correctIndex"] = 1
+        }, TestContext.Current.CancellationToken);
+
+        var exam = await service.CreateExamAsync(new JsonObject
+        {
+            ["nameAr"] = "اختبار صالح",
+            ["cycleId"] = "CYC-TEST",
+            ["rules"] = new JsonArray(new JsonObject { ["category"] = "منطق", ["count"] = 1 }),
+            ["questionIds"] = new JsonArray(question["id"]!.GetValue<string>())
+        }, TestContext.Current.CancellationToken);
+
+        Assert.False(string.IsNullOrWhiteSpace(question["id"]?.GetValue<string>()));
+        Assert.False(string.IsNullOrWhiteSpace(exam["id"]?.GetValue<string>()));
+        Assert.Equal("اختبار صالح", exam["nameAr"]?.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("conflict", StatusCodes.Status409Conflict)]
+    [InlineData("not-found", StatusCodes.Status404NotFound)]
+    public async Task GlobalExceptionHandlerMapsDomainExceptionsTo4xx(string kind, int expectedStatus)
+    {
+        var handler = new GlobalExceptionHandler(
+            NullLogger<GlobalExceptionHandler>.Instance,
+            new TestHostEnvironment());
+        var context = new DefaultHttpContext();
+        Exception exception = kind == "conflict"
+            ? new ConflictException(ErrorCodes.ActiveCycleExists, "توجد دورة قبول نشطة بالفعل")
+            : new EntityNotFoundException("السجل غير موجود");
+
+        var handled = await handler.TryHandleAsync(context, exception, TestContext.Current.CancellationToken);
+
+        Assert.True(handled);
+        Assert.Equal(expectedStatus, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ReportsWideFiltersAreAccepted()
+    {
+        var validator = new ReportsFiltersValidator();
+
+        var result = await validator.ValidateAsync(new ReportsFiltersDto
+        {
+            AgeMax = 120,
+            StoppedAtStage = 0
+        }, TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
     public void ReportedUnauthenticatedEndpointsRequireBearerAuth()
     {
         AssertRequireBearerAuth(typeof(CommitteesController));
@@ -113,5 +182,15 @@ public sealed class ApiRegressionTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString("N"))
             .Options;
         return new AdminDbContext(options);
+    }
+
+    private sealed class TestHostEnvironment : IWebHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Production";
+        public string ApplicationName { get; set; } = "PACademy.Admin.Api.Tests";
+        public string WebRootPath { get; set; } = "";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string ContentRootPath { get; set; } = Directory.GetCurrentDirectory();
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 }

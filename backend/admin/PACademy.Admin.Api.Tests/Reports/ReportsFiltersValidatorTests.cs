@@ -26,7 +26,6 @@ public sealed class ReportsFiltersValidatorTests
     }
 
     [Theory]
-    [InlineData(0)]
     [InlineData(12)]
     public void Rejects_invalid_stage(int stage)
     {
