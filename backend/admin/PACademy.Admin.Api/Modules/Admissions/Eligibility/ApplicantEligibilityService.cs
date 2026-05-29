@@ -178,6 +178,11 @@ public sealed class ApplicantEligibilityService(
                                     [total],
                                     [import_max] AS [importMax],
                                     [override_max] AS [overrideMax],
+                                    JSON_VALUE([payload_json], '$.academicGradeId') AS [academicGradeId],
+                                    JSON_VALUE([payload_json], '$.academicGrade') AS [academicGrade],
+                                    JSON_VALUE([payload_json], '$.grade') AS [grade],
+                                    JSON_VALUE([payload_json], '$.facultyCode') AS [facultyCode],
+                                    JSON_VALUE([payload_json], '$.specializationCode') AS [specializationCode],
                                     [status]
                                 FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
                             ) AS [Value]

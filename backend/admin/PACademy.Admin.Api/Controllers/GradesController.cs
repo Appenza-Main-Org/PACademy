@@ -996,10 +996,15 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         ["nid"] = nid,
         ["name"] = name,
         ["kind"] = KindFromSchoolCategoryCode(schoolCategoryCode ?? AdminRecordJson.StringProp(row, "schoolCategory")),
-        ["gender"] = "male",
+        ["gender"] = AdminRecordJson.StringProp(row, "gender") ?? "male",
         ["branch"] = AdminRecordJson.StringProp(row, "track") ?? "",
         ["graduationYear"] = graduationYear,
         ["schoolCategoryCode"] = schoolCategoryCode ?? AdminRecordJson.StringProp(row, "schoolCategory"),
+        ["academicGradeId"] = AdminRecordJson.StringProp(row, "academicGradeId")
+            ?? AdminRecordJson.StringProp(row, "academicGrade")
+            ?? AdminRecordJson.StringProp(row, "grade"),
+        ["facultyCode"] = AdminRecordJson.StringProp(row, "facultyCode"),
+        ["specializationCode"] = AdminRecordJson.StringProp(row, "specializationCode"),
         ["school"] = AdminRecordJson.StringProp(row, "schoolName") ?? "",
         ["region"] = AdminRecordJson.StringProp(row, "regionName") ?? "",
         ["examRound"] = AdminRecordJson.StringProp(row, "examRound"),
