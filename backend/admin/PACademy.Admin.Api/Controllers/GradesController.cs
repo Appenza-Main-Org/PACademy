@@ -74,16 +74,6 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         return Ok(FilterRows(allRows));
     }
 
-    [HttpGet("api/admin/applicant-grades/by-nid/{nid}")]
-    public async Task<ActionResult<JsonObject>> ByNationalId(string nid, CancellationToken ct)
-    {
-        var row = (await records.ListAsync("grades", ct))
-            .FirstOrDefault(x =>
-                AdminRecordJson.StringProp(x, "nid") == nid
-                && !AdminRecordJson.IsSoftDeleted(x));
-        return row is null ? NotFound() : Ok(row);
-    }
-
     [HttpDelete("api/grades")]
     public Task<ActionResult<object>> Delete([FromBody] JsonObject? body, CancellationToken ct)
     {

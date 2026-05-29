@@ -37,6 +37,8 @@ var corsOrigins = configuredOrigins
     .Concat(envOrigins)
     .Concat([
         frontendOrigin,
+        "https://admin-staging.appenzademo.com",
+        "https://pacademy-staging.vercel.app",
         "https://admin.appenzademo.com",
         "https://admin-prod.appenzademo.com",
         "https://appenzademo.com",
