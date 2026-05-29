@@ -19,6 +19,26 @@ import type { Role } from '../rbac';
 import type { AuthUser } from '../types';
 import { ROUTES } from '@/config/routes';
 
+const STAFF_LOGIN_ROLES = [
+  'super_admin',
+  'exams_admin',
+  'admissions_system_admin',
+  'student_committee_head',
+  'exam_committee_head',
+  'security_gate_user',
+  'medical_committee_head',
+  'medical_clinic_manager',
+] as const;
+
+const BIOMETRIC_LOGIN_ROLES: readonly Role[] = [
+  'admissions_system_admin',
+  'student_committee_head',
+  'exam_committee_head',
+  'security_gate_user',
+  'medical_committee_head',
+  'medical_clinic_manager',
+];
+
 const loginSchema = z.object({
   nationalId: z
     .string()
@@ -31,9 +51,9 @@ const loginSchema = z.object({
       /^01[0125][0-9]{8}$/,
       'رقم المحمول يجب أن يكون 11 رقماً ويبدأ بـ 010 / 011 / 012 / 015',
     ),
-  role: z.enum(['super_admin', 'exams_admin']),
+  role: z.enum(STAFF_LOGIN_ROLES),
 });
-type LoginValues = z.infer<typeof loginSchema>;
+type LoginValues = Omit<z.infer<typeof loginSchema>, 'role'> & { role: Role };
 
 export function LoginForm(): JSX.Element {
   const navigate = useNavigate();
@@ -62,6 +82,10 @@ export function LoginForm(): JSX.Element {
     }, {
       onSuccess: (user) => {
         toast('تم تسجيل الدخول بنجاح', 'success');
+        if (BIOMETRIC_LOGIN_ROLES.includes(values.role)) {
+          navigate(ROUTES.biometric.overview, { replace: true });
+          return;
+        }
         if (values.role === 'exams_admin' && user.role === 'super_admin') {
           navigate(ROUTES.questionBank.exams, { replace: true });
           return;
@@ -117,7 +141,7 @@ export function LoginForm(): JSX.Element {
         <RoleSelector
           value={role}
           onChange={(r: Role) => {
-            if (r === 'super_admin' || r === 'exams_admin') {
+            if ((STAFF_LOGIN_ROLES as readonly Role[]).includes(r)) {
               setValue('role', r, { shouldValidate: true });
             }
           }}

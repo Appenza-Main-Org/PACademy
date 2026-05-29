@@ -129,8 +129,11 @@ import {
 import {
   BiometricEnrollPage,
   BiometricHistoryPage,
+  BiometricIdentityVerifyPage,
   BiometricLayout,
+  BiometricMedicalVerifyPage,
   BiometricMonitoringPage,
+  BiometricSecurityGatePage,
   BiometricVerifyOpsPage,
   BiometricVerifyPage,
 } from '@/features/biometric';
@@ -419,7 +422,10 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <BiometricVerifyPage /> },
       { path: 'enroll', element: <BiometricEnrollPage /> },
+      { path: 'verify', element: <BiometricIdentityVerifyPage /> },
       { path: 'history', element: <BiometricHistoryPage /> },
+      { path: 'security-gate', element: <BiometricSecurityGatePage /> },
+      { path: 'medical-verify', element: <BiometricMedicalVerifyPage /> },
       { path: 'verify-ops', element: <BiometricVerifyOpsPage /> },
       { path: 'monitoring', element: <BiometricMonitoringPage /> },
     ],

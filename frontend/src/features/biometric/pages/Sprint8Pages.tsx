@@ -56,7 +56,12 @@ export function BiometricVerifyOpsPage(): JSX.Element {
               size="lg"
               leadingIcon={method === 'face' ? <Camera size={14} strokeWidth={1.75} /> : method === 'fingerprint' ? <Fingerprint size={14} strokeWidth={1.75} /> : <ScanLine size={14} strokeWidth={1.75} />}
               onClick={async () => {
-                const r = await biometricService.verify({ nationalId, station, method });
+                const r = await biometricService.verify({
+                  nationalId,
+                  method,
+                  module: station === 'gate' ? 'security-gate' : station === 'exam-room' ? 'exam-committee' : 'admissions-committee',
+                  operator: 'U-006',
+                });
                 setResult(r);
                 if (r.ok) toast(`تطابق · ${Math.round((r.matchScore ?? 0) * 100)}%`, 'success');
                 else toast(r.reason ?? 'لم يتطابق', 'danger');
@@ -72,10 +77,10 @@ export function BiometricVerifyOpsPage(): JSX.Element {
           {!result && <EmptyState variant="generic" title="ابدأ التحقق لاستعراض نتيجة" />}
           {result && result.applicant && (
             <div className="flex items-start gap-4 rounded-lg border border-border-subtle bg-ink-50 p-4">
-              <Avatar name={result.applicant.name} size="xl" />
-              <div className="flex-1">
-                <p className="font-bold text-ink-900">{result.applicant.name}</p>
-                <p className="text-2xs text-ink-500 font-mono" dir="ltr">{result.applicant.id} · {result.applicant.nationalId}</p>
+                <Avatar name={result.applicant.applicant.name} size="xl" />
+                <div className="flex-1">
+                <p className="font-bold text-ink-900">{result.applicant.applicant.name}</p>
+                <p className="text-2xs text-ink-500 font-mono" dir="ltr">{result.applicant.applicant.id} · {result.applicant.applicant.nationalId}</p>
                 <div className="mt-3 flex items-center gap-2">
                   {result.matchScore && result.matchScore >= 0.85 ? (
                     <Badge tone="success" icon={<ShieldCheck size={11} strokeWidth={1.75} />}>
