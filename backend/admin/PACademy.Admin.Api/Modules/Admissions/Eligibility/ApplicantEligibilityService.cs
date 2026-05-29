@@ -165,6 +165,9 @@ public sealed class ApplicantEligibilityService(
                         SELECT TOP(1)
                             (
                                 SELECT
+                                    CONVERT(nvarchar(36), [id]) AS [id],
+                                    [admin_record_id] AS [adminRecordId],
+                                    [seat],
                                     [nid],
                                     COALESCE([seating_number], CONVERT(nvarchar(32), [seat])) AS [seatingNumber],
                                     [name],
@@ -184,7 +187,15 @@ public sealed class ApplicantEligibilityService(
                                     JSON_VALUE([payload_json], '$.grade') AS [grade],
                                     JSON_VALUE([payload_json], '$.facultyCode') AS [facultyCode],
                                     JSON_VALUE([payload_json], '$.specializationCode') AS [specializationCode],
-                                    [status]
+                                    [status],
+                                    [last_edited_at] AS [lastEditedAt],
+                                    [last_edited_by] AS [lastEditedBy],
+                                    [grade_changed_at] AS [gradeChangedAt],
+                                    [previous_grade] AS [previousGrade],
+                                    [created_at] AS [createdAt],
+                                    [updated_at] AS [updatedAt],
+                                    CONVERT(nvarchar(max), [row_version], 1) AS [rowVersion],
+                                    JSON_QUERY([payload_json]) AS [payload]
                                 FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
                             ) AS [Value]
                         FROM {AdminDbContext.QualifiedTableName("applicant_grades")}
@@ -198,10 +209,26 @@ public sealed class ApplicantEligibilityService(
                 return await LoadGradeFromAdminRecordsAsync(nationalId, ct);
             }
 #pragma warning restore EF1002
-            return payload is null ? null : AdminRecordJson.Parse(payload);
+            return payload is null ? null : MergeGradePayload(AdminRecordJson.Parse(payload));
         }
 
         return await LoadGradeFromAdminRecordsAsync(nationalId, ct);
+    }
+
+    private static JsonObject MergeGradePayload(JsonObject row)
+    {
+        var payload = EligibilityJson.ObjectProp(row, "payload");
+        if (payload is null) return row;
+
+        foreach (var field in payload)
+        {
+            if (row.ContainsKey(field.Key)) continue;
+            row[field.Key] = field.Value is null
+                ? null
+                : JsonNode.Parse(field.Value.ToJsonString());
+        }
+
+        return row;
     }
 
     private async Task<JsonObject?> LoadGradeFromAdminRecordsAsync(string nationalId, CancellationToken ct)
