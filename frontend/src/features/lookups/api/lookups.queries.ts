@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/shared/components';
 import { ConflictError, isConflictError } from '@/shared/lib/errors';
+import { noServerStateCacheOptions } from '@/shared/lib/query-options';
 import { lookupsService } from './lookups.service';
 import type {
   ApplicantCategoryRow,
@@ -23,10 +24,16 @@ export const lookupKeys = {
   list: <K extends LookupKey>(key: K) => [...lookupKeys.all, key] as const,
 };
 
+const NO_CACHE_LOOKUPS = new Set<LookupKey>([
+  'applicant-categories',
+  'school-categories',
+]);
+
 export function useLookup<K extends LookupKey>(key: K) {
   return useQuery<LookupRow<K>[]>({
     queryKey: lookupKeys.list(key),
     queryFn: () => lookupsService.listLookup(key),
+    ...(NO_CACHE_LOOKUPS.has(key) ? noServerStateCacheOptions : {}),
   });
 }
 

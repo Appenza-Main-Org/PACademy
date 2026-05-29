@@ -14,6 +14,9 @@
  *   POST /api/v1/applicants
  *   PUT  /api/v1/applicants/:id
  *   POST /api/v1/applicants/:id/transition
+ *   POST /api/v1/applicants/:id/reset
+ *   DELETE /api/v1/applicants/:id
+ *   POST /api/v1/applicants/:id/suspension
  *   GET  /api/v1/applicants/:id/workflow-progress
  *   GET  /api/v1/applicants/:id/workflow-transitions
  *   GET  /api/v1/applicants/:id/active-workflow
@@ -24,6 +27,7 @@ import { apiClient } from '@/shared/lib/api-client';
 import type {
   Applicant,
   ApplicantCategoryKey,
+  ApplicantResults,
   ApplicantStatus,
   ApplicantWorkflowProgress,
   AuditColor,
@@ -101,6 +105,13 @@ const STAGE_LABELS: Record<number, string> = {
   9: 'طباعة بطاقة التردد',
   10: 'المتابعة',
   11: 'وثائق التعارف',
+};
+
+const EMPTY_RESULTS: ApplicantResults = {
+  medical: null,
+  fitness: null,
+  interview: null,
+  finalExam: null,
 };
 
 const NID_GOVERNORATE_LABELS: Record<string, string> = {
@@ -252,6 +263,10 @@ function normalizeApplicant(applicant: Applicant): Applicant {
     stageLabel,
     religion,
     maritalStatus,
+    results: {
+      ...EMPTY_RESULTS,
+      ...(applicant.results ?? {}),
+    },
     currentAddress: applicant.currentAddress
       ? {
           ...applicant.currentAddress,
@@ -377,6 +392,41 @@ export const applicantService = {
     payload: { toStatus: ApplicantStatus; reason: string },
   ): Promise<Applicant> {
     const applicant = await apiClient.post<Applicant>(`/api/v1/applicants/${encodeURIComponent(id)}/transition`, payload);
+    return normalizeApplicant(applicant);
+  },
+
+  /**
+   * INTEGRATION CONTRACT: POST /api/v1/applicants/:id/reset
+   * Resets applicant-entered sections while preserving MOI verified first-step
+   * identity and education verification fields. Server checks GradesRead
+   * eligibility by NID before mutating.
+   */
+  async resetApplicant(id: string): Promise<Applicant> {
+    const applicant = await apiClient.post<Applicant>(`/api/v1/applicants/${encodeURIComponent(id)}/reset`);
+    return normalizeApplicant(applicant);
+  },
+
+  /**
+   * INTEGRATION CONTRACT: DELETE /api/v1/applicants/:id
+   * Permanently deletes the applicant and dependent rows under database cascade.
+   */
+  async deleteApplicant(id: string): Promise<void> {
+    await apiClient.delete<void>(`/api/v1/applicants/${encodeURIComponent(id)}`);
+  },
+
+  /**
+   * INTEGRATION CONTRACT: POST /api/v1/applicants/:id/suspension
+   * Sets or clears admin suspension. When suspended, the applicant can sign in
+   * but write operations are blocked by the applicant backend.
+   */
+  async setApplicantSuspension(
+    id: string,
+    payload: { suspended: boolean; reason?: string },
+  ): Promise<Applicant> {
+    const applicant = await apiClient.post<Applicant>(
+      `/api/v1/applicants/${encodeURIComponent(id)}/suspension`,
+      payload,
+    );
     return normalizeApplicant(applicant);
   },
 

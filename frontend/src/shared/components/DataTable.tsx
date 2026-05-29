@@ -226,6 +226,7 @@ export function DataTable<TRow>({
     density === 'compact' ? 'px-3 py-2' : density === 'comfortable' ? 'px-5 py-4' : 'px-4 py-3';
   const headerPad =
     density === 'compact' ? 'px-3 py-2' : density === 'comfortable' ? 'px-5 py-4' : 'px-4 py-3';
+  const visibleColumnCount = columns.length + (selectionMode !== 'none' ? 1 : 0) + (listActions?.rowActions ? 1 : 0);
 
   const selectedSet = useMemo(() => new Set(selectedRowKeys), [selectedRowKeys]);
 
@@ -372,13 +373,22 @@ export function DataTable<TRow>({
                     </th>
                   );
                 })}
+                {listActions?.rowActions && (
+                  <th
+                    scope="col"
+                    style={{ width: listActions.rowActions.width ?? 72 }}
+                    className={cn(headerPad, 'text-center')}
+                  >
+                    {listActions.rowActions.labelAr ?? 'إجراءات'}
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
                   <td
-                    colSpan={columns.length + (selectionMode !== 'none' ? 1 : 0)}
+                    colSpan={visibleColumnCount}
                     className="px-4 py-9"
                   >
                     <LoadingState variant="list" rows={6} />
@@ -388,7 +398,7 @@ export function DataTable<TRow>({
               {!loading && error && (
                 <tr>
                   <td
-                    colSpan={columns.length + (selectionMode !== 'none' ? 1 : 0)}
+                    colSpan={visibleColumnCount}
                     className="px-4 py-9"
                   >
                     {error}
@@ -398,7 +408,7 @@ export function DataTable<TRow>({
               {!loading && !error && processed.length === 0 && (
                 <tr>
                   <td
-                    colSpan={columns.length + (selectionMode !== 'none' ? 1 : 0)}
+                    colSpan={visibleColumnCount}
                     className="px-4 py-9"
                   >
                     {empty ?? (
@@ -470,6 +480,14 @@ export function DataTable<TRow>({
                           </td>
                         );
                       })}
+                      {listActions?.rowActions && (
+                        <td
+                          className={cn(cellPad, 'text-center align-middle')}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {listActions.rowActions.render(row)}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApplicantStatus } from '@/shared/types/domain';
 import { applicantService, type ApplicantFilters } from './applicant.service';
 import { auditService } from '@/features/audit/api/audit.service';
+import { noServerStateCacheOptions } from '@/shared/lib/query-options';
+import { toast } from '@/shared/components';
 import type { ApplicantInput } from '../schemas';
 
 export const applicantKeys = {
@@ -24,6 +26,7 @@ export function useApplicants(filters: ApplicantFilters = {}) {
   return useQuery({
     queryKey: applicantKeys.list(filters),
     queryFn: () => applicantService.list(filters),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -32,6 +35,7 @@ export function useApplicant(id: string) {
     queryKey: applicantKeys.detail(id),
     queryFn: () => applicantService.getById(id),
     enabled: Boolean(id),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -39,6 +43,7 @@ export function useApplicantStats() {
   return useQuery({
     queryKey: applicantKeys.stats(),
     queryFn: () => applicantService.getStats(),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -46,6 +51,7 @@ export function useApplicantStatusOptions() {
   return useQuery({
     queryKey: applicantKeys.statusOptions(),
     queryFn: () => applicantService.getStatusOptions(),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -54,6 +60,7 @@ export function useApplicantTimeline(id: string) {
     queryKey: applicantKeys.timeline(id),
     queryFn: () => applicantService.getTimeline(id),
     enabled: Boolean(id),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -61,6 +68,7 @@ export function useApplicantDistribution(field: 'governorate' | 'certType' | 'st
   return useQuery({
     queryKey: applicantKeys.distribution(field),
     queryFn: () => applicantService.getDistribution(field),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -69,6 +77,7 @@ export function useApplicantProgress(id: string) {
     queryKey: applicantKeys.progress(id),
     queryFn: () => applicantService.getProgress(id),
     enabled: Boolean(id),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -80,6 +89,7 @@ export function useApplicantWorkflowTransitions(id: string) {
     queryKey: [...applicantKeys.all, 'transitions', id] as const,
     queryFn: () => applicantService.getWorkflowTransitions(id),
     enabled: Boolean(id),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -88,6 +98,7 @@ export function useApplicantWorkflow(id: string) {
     queryKey: applicantKeys.workflow(id),
     queryFn: () => applicantService.getActiveWorkflowFor(id),
     enabled: Boolean(id),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -96,6 +107,7 @@ export function useApplicantAudit(id: string) {
     queryKey: applicantKeys.audit(id),
     queryFn: () => applicantService.getAuditTrail(id),
     enabled: Boolean(id),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -149,6 +161,54 @@ export function useTransitionApplicant() {
       qc.invalidateQueries({ queryKey: applicantKeys.audit(a.id) });
       qc.invalidateQueries({ queryKey: applicantKeys.progress(a.id) });
       qc.invalidateQueries({ queryKey: applicantKeys.lists() });
+    },
+  });
+}
+
+function invalidateApplicantMutation(
+  qc: ReturnType<typeof useQueryClient>,
+  id: string,
+): void {
+  qc.invalidateQueries({ queryKey: applicantKeys.detail(id) });
+  qc.invalidateQueries({ queryKey: applicantKeys.audit(id) });
+  qc.invalidateQueries({ queryKey: applicantKeys.progress(id) });
+  qc.invalidateQueries({ queryKey: applicantKeys.lists() });
+  qc.invalidateQueries({ queryKey: applicantKeys.stats() });
+}
+
+export function useResetApplicant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => applicantService.resetApplicant(id),
+    onSuccess: (applicant) => {
+      invalidateApplicantMutation(qc, applicant.id);
+      toast('تمت إعادة تعيين الطلب مع حفظ بيانات التحقق الأولى', 'success');
+    },
+  });
+}
+
+export function useDeleteApplicant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => applicantService.deleteApplicant(id),
+    onSuccess: (_result, id) => {
+      invalidateApplicantMutation(qc, id);
+      toast('تم حذف الطلب نهائياً', 'success');
+    },
+  });
+}
+
+export function useSetApplicantSuspension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; suspended: boolean; reason?: string }) =>
+      applicantService.setApplicantSuspension(input.id, {
+        suspended: input.suspended,
+        reason: input.reason,
+      }),
+    onSuccess: (applicant) => {
+      invalidateApplicantMutation(qc, applicant.id);
+      toast(applicant.suspended ? 'تم إيقاف الطلب' : 'تم إلغاء إيقاف الطلب', 'success');
     },
   });
 }

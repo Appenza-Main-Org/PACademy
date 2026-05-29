@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { categoriesPublicService } from './categories.service';
+import { noServerStateCacheOptions } from '@/shared/lib/query-options';
 import type { ApplicantCategoryKey } from '@/shared/types/domain';
 
 export const categoryKeys = {
@@ -16,6 +17,7 @@ export function useCategories(cycleId?: string) {
   return useQuery({
     queryKey: categoryKeys.list(cycleId),
     queryFn: () => categoriesPublicService.list(cycleId),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -24,6 +26,7 @@ export function useActiveCycles() {
   return useQuery({
     queryKey: categoryKeys.activeCycles(),
     queryFn: () => categoriesPublicService.getActiveCycles(),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -32,6 +35,7 @@ export function useActiveCycle() {
   return useQuery({
     queryKey: categoryKeys.activeCycle(),
     queryFn: () => categoriesPublicService.getActiveCycle(),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -40,8 +44,7 @@ export function useEligibleCategories(nationalId?: string | null) {
     queryKey: categoryKeys.eligibleCategories(nationalId),
     queryFn: () => categoriesPublicService.eligibleCategories(nationalId ?? ''),
     enabled: Boolean(nationalId),
-    staleTime: 0,
-    gcTime: 0,
+    ...noServerStateCacheOptions,
   });
 }
 

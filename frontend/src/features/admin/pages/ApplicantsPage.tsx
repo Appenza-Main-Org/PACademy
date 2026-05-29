@@ -16,7 +16,9 @@ import {
 import type { DataTableColumn, ListActionsConfig, SearchSelectOption } from '@/shared/components';
 import { PaymentBadge } from '@/shared/components/StatusBadge';
 import { useApplicants, useApplicantStatusOptions } from '@/features/applicants/api/applicant.queries';
+import { useActiveCycle } from '@/features/admin/api/cycles.queries';
 import { useLookup } from '@/features/lookups';
+import { ApplicantRowActions } from '@/features/admin/components/applicants/ApplicantRowActions';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, shortName, maskNationalId } from '@/shared/lib/format';
 import type { Applicant, ApplicantStatus } from '@/shared/types/domain';
@@ -73,6 +75,7 @@ export function ApplicantsPage(): JSX.Element {
   const [religion, setReligion] = useState<string>('all');
   const [source, setSource] = useState<string>('all');
   const governoratesQuery = useLookup('governorates');
+  const activeCycleQuery = useActiveCycle();
   const statusOptionsQuery = useApplicantStatusOptions();
   const statusOptions = useMemo(
     () => (statusOptionsQuery.data ?? []).map((item) => ({ value: item.value, label: item.label })),
@@ -296,8 +299,18 @@ export function ApplicantsPage(): JSX.Element {
           },
         ],
       },
+      rowActions: {
+        labelAr: 'إجراءات',
+        width: 72,
+        render: (applicant) => (
+          <ApplicantRowActions
+            applicant={applicant}
+            activeCycleId={activeCycleQuery.data?.id ?? null}
+          />
+        ),
+      },
     }),
-    [statusByValue],
+    [activeCycleQuery.data?.id, statusByValue],
   );
 
   return (
