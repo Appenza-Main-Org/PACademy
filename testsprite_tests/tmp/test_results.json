@@ -1,0 +1,44 @@
+[
+  {
+    "projectId": "a6ac8495-afe2-4356-adce-cadbe893b61b",
+    "testId": "b58cd35c-9ba8-4433-b826-56e3063ee391",
+    "userId": "44e80438-8051-70a2-22fc-d7dc27d7b62d",
+    "title": "TC001-get health endpoint returns basic health status",
+    "description": "Verify that a GET request to /health returns a 200 status code with a basic health status object indicating the API is operational.",
+    "code": "import requests\n\nBASE_URL = \"http://localhost:5101\"\n\ndef test_get_health_endpoint_returns_basic_health_status():\n    url = f\"{BASE_URL}/health\"\n    headers = {\n        \"Accept\": \"application/json\"\n    }\n    try:\n        response = requests.get(url, headers=headers, timeout=30)\n    except requests.RequestException as e:\n        assert False, f\"GET request to /health failed: {e}\"\n\n    assert response.status_code == 200, f\"Expected status code 200 but got {response.status_code}\"\n\n    try:\n        data = response.json()\n    except ValueError:\n        assert False, \"Response is not valid JSON\"\n\n    assert isinstance(data, dict), \"Response JSON is not an object\"\n\n    # Basic health status checks - the API is operational\n    # Since no schema specified, check some common health keys or just presence of keys\n    # We'll check that keys exist and some indication of status in the content\n    assert any(key in data for key in ['status', 'health', 'message', 'version']), \\\n        \"Health response does not contain expected status indicator keys\"\n\ntest_get_health_endpoint_returns_basic_health_status()",
+    "testStatus": "PASSED",
+    "testError": "",
+    "testType": "BACKEND",
+    "createFrom": "mcp",
+    "created": "2026-05-26T18:52:14.705Z",
+    "modified": "2026-05-26T18:52:19.485Z"
+  },
+  {
+    "projectId": "a6ac8495-afe2-4356-adce-cadbe893b61b",
+    "testId": "3312a224-6858-4ffc-9e0f-468171444cde",
+    "userId": "44e80438-8051-70a2-22fc-d7dc27d7b62d",
+    "title": "TC002-get health db endpoint returns database diagnostics",
+    "description": "Verify that a GET request to /health/db returns a 200 status code with database provider, schema, and connection-name diagnostics when using a relational database provider.",
+    "code": "import requests\n\nBASE_URL = \"http://localhost:5101\"\nTIMEOUT = 30\n\ndef test_tc002_get_health_db_endpoint_returns_database_diagnostics():\n    url = f\"{BASE_URL}/health/db\"\n    headers = {\n        \"Accept\": \"application/json\"\n    }\n    try:\n        response = requests.get(url, headers=headers, timeout=TIMEOUT)\n        response.raise_for_status()\n    except requests.RequestException as e:\n        assert False, f\"Request failed: {e}\"\n\n    assert response.status_code == 200, f\"Expected status code 200 but got {response.status_code}\"\n\n    try:\n        data = response.json()\n    except ValueError as e:\n        assert False, f\"Response is not valid JSON: {e}\"\n\n    # Validate expected keys for database diagnostics\n    expected_keys = {\"provider\", \"schema\", \"connection-name\"}\n    assert isinstance(data, dict), \"Response JSON is not an object\"\n    missing_keys = expected_keys - set(data.keys())\n    assert not missing_keys, f\"Missing keys in response: {missing_keys}\"\n\n    # Additional type checks (basic)\n    assert isinstance(data[\"provider\"], str) and data[\"provider\"], \"Invalid or empty 'provider'\"\n    assert isinstance(data[\"schema\"], str) and data[\"schema\"], \"Invalid or empty 'schema'\"\n    assert isinstance(data[\"connection-name\"], str) and data[\"connection-name\"], \"Invalid or empty 'connection-name'\"\n\ntest_tc002_get_health_db_endpoint_returns_database_diagnostics()",
+    "testStatus": "FAILED",
+    "testError": "Traceback (most recent call last):\n  File \"<string>\", line 13, in test_tc002_get_health_db_endpoint_returns_database_diagnostics\n  File \"/var/lang/lib/python3.12/site-packages/requests/models.py\", line 1024, in raise_for_status\n    raise HTTPError(http_error_msg, response=self)\nrequests.exceptions.HTTPError: 500 Server Error: Internal Server Error for url: http://localhost:5101/health/db\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"/var/task/handler.py\", line 258, in run_with_retry\n    exec(code, exec_env)\n  File \"<string>\", line 35, in <module>\n  File \"<string>\", line 15, in test_tc002_get_health_db_endpoint_returns_database_diagnostics\nAssertionError: Request failed: 500 Server Error: Internal Server Error for url: http://localhost:5101/health/db\n",
+    "testType": "BACKEND",
+    "createFrom": "mcp",
+    "created": "2026-05-26T18:52:14.711Z",
+    "modified": "2026-05-26T18:52:22.220Z"
+  },
+  {
+    "projectId": "a6ac8495-afe2-4356-adce-cadbe893b61b",
+    "testId": "88ba6c59-fa8f-4921-a65e-ac95dbf56cae",
+    "userId": "44e80438-8051-70a2-22fc-d7dc27d7b62d",
+    "title": "TC003-get health db endpoint returns error on inmemory provider",
+    "description": "Verify that a GET request to /health/db returns a 500 status code with an error envelope indicating relational diagnostics are unavailable when the backend uses the InMemory database provider.",
+    "code": "import requests\n\nBASE_URL = \"http://localhost:5101\"\nTIMEOUT = 30\n\ndef test_get_health_db_returns_error_on_inmemory_provider():\n    url = f\"{BASE_URL}/health/db\"\n    headers = {\n        \"Accept\": \"application/json\"\n    }\n    try:\n        response = requests.get(url, headers=headers, timeout=TIMEOUT)\n        # We expect a 500 status code\n        assert response.status_code == 500, f\"Expected status code 500, got {response.status_code}\"\n        json_response = response.json()\n        # Validate that it has an error envelope indicating relational diagnostics unavailable\n        assert isinstance(json_response, dict), \"Response is not a JSON object\"\n        # Check specific expected detail message\n        detail = json_response.get('detail', '')\n        assert isinstance(detail, str), \"Detail field is not a string\"\n        assert \"relational-specific methods\" in detail.lower(), f\"Expected 'relational-specific methods' in detail, got: {detail}\"\n    except requests.RequestException as e:\n        assert False, f\"Request to {url} failed: {str(e)}\"\n\ntest_get_health_db_returns_error_on_inmemory_provider()",
+    "testStatus": "PASSED",
+    "testError": "",
+    "testType": "BACKEND",
+    "createFrom": "mcp",
+    "created": "2026-05-26T18:52:14.716Z",
+    "modified": "2026-05-26T18:52:26.075Z"
+  }
+]

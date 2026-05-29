@@ -1,0 +1,17 @@
+[
+  {
+    "id": "TC001",
+    "title": "get health endpoint returns basic health status",
+    "description": "Verify that a GET request to /health returns a 200 status code with a basic health status object indicating the API is operational."
+  },
+  {
+    "id": "TC002",
+    "title": "get health db endpoint returns database diagnostics",
+    "description": "Verify that a GET request to /health/db returns a 200 status code with database provider, schema, and connection-name diagnostics when using a relational database provider."
+  },
+  {
+    "id": "TC003",
+    "title": "get health db endpoint returns error on inmemory provider",
+    "description": "Verify that a GET request to /health/db returns a 500 status code with an error envelope indicating relational diagnostics are unavailable when the backend uses the InMemory database provider."
+  }
+]

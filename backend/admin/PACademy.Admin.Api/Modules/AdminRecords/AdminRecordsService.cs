@@ -751,7 +751,6 @@ public sealed class AdminRecordsService(
 
     private static string? NormalizedModuleKind(string module)
     {
-        if (module.StartsWith("admissionSetup.applicationSettings.", StringComparison.Ordinal)) return "cycleApplicationSettings";
         return module switch
         {
             "applicants" => "applicants",
@@ -1006,6 +1005,8 @@ public sealed class AdminRecordsService(
                     VALUES
                         (@id, COALESCE(JSON_VALUE(@payload, '$.cycleId'), @cycleId), COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.version')), 1), TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.updatedAt')), @payload, @now, @now);
 
+                    DELETE FROM {AdminDbContext.QualifiedTableName("cycle_application_setting_values")} WHERE [cycle_setting_id] = @id;
+                    DELETE FROM {AdminDbContext.QualifiedTableName("cycle_application_setting_entries")} WHERE [cycle_setting_id] = @id;
                     DELETE FROM {AdminDbContext.QualifiedTableName("cycle_application_setting_headers")} WHERE [cycle_setting_id] = @id;
                     INSERT INTO {AdminDbContext.QualifiedTableName("cycle_application_setting_headers")}
                         ([cycle_setting_id], [category_key], [application_start], [application_end], [age_reference_date], [age_min], [max_age], [grade_kind], [min_percentage], [academic_grade_id], [payload_json])
@@ -1014,7 +1015,6 @@ public sealed class AdminRecordsService(
                            JSON_VALUE(header.[value], '$.gradeKind'), TRY_CONVERT(decimal(7,2), JSON_VALUE(header.[value], '$.minPercentage')), JSON_VALUE(header.[value], '$.academicGradeId'), CONVERT(nvarchar(max), header.[value])
                     FROM OPENJSON(@payload, '$.headers') AS header;
 
-                    DELETE FROM {AdminDbContext.QualifiedTableName("cycle_application_setting_values")} WHERE [cycle_setting_id] = @id;
                     INSERT INTO {AdminDbContext.QualifiedTableName("cycle_application_setting_values")} ([cycle_setting_id], [category_key], [value_group], [value_order], [value])
                     SELECT @id, header.[key], groups.[value_group], TRY_CONVERT(int, item.[key]), CONVERT(nvarchar(256), item.[value])
                     FROM OPENJSON(@payload, '$.headers') AS header
@@ -1028,7 +1028,6 @@ public sealed class AdminRecordsService(
                     CROSS APPLY OPENJSON(groups.[json_array]) AS item
                     WHERE groups.[json_array] IS NOT NULL;
 
-                    DELETE FROM {AdminDbContext.QualifiedTableName("cycle_application_setting_entries")} WHERE [cycle_setting_id] = @id;
                     INSERT INTO {AdminDbContext.QualifiedTableName("cycle_application_setting_entries")} ([cycle_setting_id], [entry_group], [entry_order], [entry_id], [category_key], [payload_json])
                     SELECT @id, N'local', TRY_CONVERT(int, entry.[key]), JSON_VALUE(entry.[value], '$.id'), JSON_VALUE(entry.[value], '$.category'), CONVERT(nvarchar(max), entry.[value])
                     FROM OPENJSON(@payload, '$.local') AS entry
