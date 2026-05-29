@@ -12,6 +12,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/shared/components';
 import { ConflictError, isConflictError } from '@/shared/lib/errors';
+import { noServerStateCacheOptions } from '@/shared/lib/query-options';
 import type { GradingMode } from '@/features/lookups';
 import { useLookup } from '@/features/lookups';
 import type { SpecializationRow } from '@/features/lookups/types';
@@ -96,6 +97,7 @@ export function useCategoryConfigs() {
       lookupQuery.dataUpdatedAt ?? 0,
     ],
     queryFn: () => applicationSettingsService.listCategoryConfigs(),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -110,6 +112,7 @@ export function useSpecializationsForConfig(
       return applicationSettingsService.listSpecializationsForConfig(configId);
     },
     enabled: enabled && Boolean(configId),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -124,6 +127,7 @@ export function useEligibleSpecializations(
       return applicationSettingsService.getEligibleSpecializations(configId);
     },
     enabled: enabled && Boolean(configId),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -138,6 +142,7 @@ export function useYears(
       return applicationSettingsService.listYears(categorySpecializationId);
     },
     enabled: enabled && Boolean(categorySpecializationId),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -158,7 +163,7 @@ export function useResolvedGradingModeForSpec(
       return applicationSettingsService.getGradingModeForSpec(categorySpecializationId);
     },
     enabled: enabled && Boolean(categorySpecializationId),
-    staleTime: 60_000,
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -172,6 +177,7 @@ export function useApplicationSettingsSummary() {
   return useQuery<CategorySettingsSummary[]>({
     queryKey: appSettingsKeys.summary(),
     queryFn: () => applicationSettingsService.getApplicationSettingsSummary(),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -191,7 +197,7 @@ export function useParentCategoryForSpec(
       return applicationSettingsService.getParentCategoryForSpec(categorySpecializationId);
     },
     enabled: enabled && Boolean(categorySpecializationId),
-    staleTime: 60_000,
+    ...noServerStateCacheOptions,
   });
 }
 

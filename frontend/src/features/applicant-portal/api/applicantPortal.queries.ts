@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { applicantPortalService } from './applicantPortal.service';
+import { noServerStateCacheOptions } from '@/shared/lib/query-options';
 import type { ApplicantDraft } from '@/shared/types/domain';
 
 export const apKeys = {
@@ -17,7 +18,7 @@ export function useMoiVerification(nid: string | null) {
     queryKey: apKeys.moi(nid ?? ''),
     queryFn: () => applicantPortalService.fetchMoiVerification(nid!),
     enabled: Boolean(nid),
-    staleTime: 5 * 60_000,
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -25,6 +26,7 @@ export function useDraft(applicantId: string) {
   return useQuery({
     queryKey: apKeys.draft(applicantId),
     queryFn: () => applicantPortalService.getDraft(applicantId),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -46,7 +48,11 @@ export function useSubmitStage(applicantId: string) {
 }
 
 export function useExamSlots() {
-  return useQuery({ queryKey: apKeys.slots(), queryFn: () => applicantPortalService.getExamSlots() });
+  return useQuery({
+    queryKey: apKeys.slots(),
+    queryFn: () => applicantPortalService.getExamSlots(),
+    ...noServerStateCacheOptions,
+  });
 }
 
 export function useInitiatePayment(applicantId: string) {
@@ -79,6 +85,7 @@ export function useFollowUp(applicantId: string) {
   return useQuery({
     queryKey: apKeys.followUp(applicantId),
     queryFn: () => applicantPortalService.getFollowUp(applicantId),
+    ...noServerStateCacheOptions,
   });
 }
 

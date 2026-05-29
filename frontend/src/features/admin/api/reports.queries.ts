@@ -5,6 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { NotFoundError } from '@/shared/lib/errors';
+import { noServerStateCacheOptions } from '@/shared/lib/query-options';
 import { reportsService } from './reports.service';
 import type { GroupByDimension, ReportsFilters } from '../reports/types';
 
@@ -33,6 +34,7 @@ export function useCycleSnapshot() {
   return useQuery({
     queryKey: reportsKeys.cycleSnapshot(),
     queryFn: () => reportsService.getCycleSnapshot(),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -83,6 +85,7 @@ export function useApplicantsAggregateQuery(filters: ReportsFilters, groupBy: Gr
     queryKey: reportsKeys.applicantsAggregate(filters, groupBy),
     queryFn: () => reportsService.getApplicantsAggregate(filters, groupBy),
     enabled: Boolean(filters.cycleId),
+    ...noServerStateCacheOptions,
     retry: reportRetry,
   });
 }
@@ -95,6 +98,7 @@ export function useApplicantsDetailQuery(
     queryKey: reportsKeys.applicantsDetail(filters, opts),
     queryFn: () => reportsService.getApplicantsDetail(filters, opts),
     enabled: Boolean(filters.cycleId),
+    ...noServerStateCacheOptions,
     retry: reportRetry,
   });
 }
@@ -107,6 +111,7 @@ export function useStageDropoffQuery(
     queryKey: reportsKeys.stageDropoff(filters, opts),
     queryFn: () => reportsService.getStageDropoff(filters, opts),
     enabled: Boolean(filters.cycleId),
+    ...noServerStateCacheOptions,
     retry: reportRetry,
   });
 }
@@ -116,8 +121,7 @@ export function useDataAvailabilityProbeQuery(filters: ReportsFilters) {
     queryKey: reportsKeys.dataAvailability(filters),
     queryFn: () => reportsService.getDataAvailability(filters),
     enabled: Boolean(filters.cycleId),
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    ...noServerStateCacheOptions,
     retry: reportRetry,
   });
 }

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cyclesService } from './cycles.service';
+import { noServerStateCacheOptions } from '@/shared/lib/query-options';
 import type {
   AdmissionCycle,
   AdmissionCycleCategoryConfig,
@@ -36,7 +37,11 @@ function invalidateCycle(qc: ReturnType<typeof useQueryClient>, id: string): voi
 }
 
 export function useCycles(opts: { includeDeleted?: boolean } = {}) {
-  return useQuery({ queryKey: cyclesKeys.list(opts), queryFn: () => cyclesService.list(opts) });
+  return useQuery({
+    queryKey: cyclesKeys.list(opts),
+    queryFn: () => cyclesService.list(opts),
+    ...noServerStateCacheOptions,
+  });
 }
 
 export function useCycleDependencies(id: string | null) {
@@ -44,6 +49,7 @@ export function useCycleDependencies(id: string | null) {
     queryKey: cyclesKeys.dependencies(id ?? ''),
     queryFn: () => cyclesService.getDependencies(id!),
     enabled: Boolean(id),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -68,11 +74,16 @@ export function useCycle(id: string | null) {
     queryKey: cyclesKeys.detail(id ?? ''),
     queryFn: () => cyclesService.getById(id!),
     enabled: Boolean(id),
+    ...noServerStateCacheOptions,
   });
 }
 
 export function useActiveCycle() {
-  return useQuery({ queryKey: cyclesKeys.active(), queryFn: () => cyclesService.getActive() });
+  return useQuery({
+    queryKey: cyclesKeys.active(),
+    queryFn: () => cyclesService.getActive(),
+    ...noServerStateCacheOptions,
+  });
 }
 
 export function useCycleClone() {

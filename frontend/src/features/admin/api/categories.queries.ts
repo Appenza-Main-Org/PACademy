@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { categoriesAdminService } from './categories.service';
+import { noServerStateCacheOptions } from '@/shared/lib/query-options';
 import type {
   ApplicantCategory,
   ApplicantCategoryKey,
@@ -18,6 +19,7 @@ export function useCategoriesAdmin(opts: { includeDeleted?: boolean } = {}) {
   return useQuery({
     queryKey: adminCategoriesKeys.list(opts),
     queryFn: () => categoriesAdminService.list(opts),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -26,6 +28,7 @@ export function useCategoryDependencies(key: ApplicantCategoryKey | null) {
     queryKey: adminCategoriesKeys.dependencies(key ?? ''),
     queryFn: () => categoriesAdminService.getDependencies(key!),
     enabled: Boolean(key),
+    ...noServerStateCacheOptions,
   });
 }
 
@@ -34,6 +37,7 @@ export function useCategoryAdmin(key: ApplicantCategoryKey | null) {
     queryKey: adminCategoriesKeys.detail(key ?? ''),
     queryFn: () => categoriesAdminService.getByKey(key!),
     enabled: Boolean(key),
+    ...noServerStateCacheOptions,
   });
 }
 
