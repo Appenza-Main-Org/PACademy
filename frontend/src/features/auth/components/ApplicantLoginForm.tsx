@@ -65,10 +65,11 @@ const VOTHIQA_MARRIED_NIDS = new Set<string>([
   VOTHIQA_LAW_BACHELOR_NID,
 ]);
 
-/* When VITE_DEMO_BYPASS=false all NIDs (including demo ones) hit the
- * real applicant backend auth flow. Default is true so the demo
- * presentation runs without a backend dependency. */
-const DEMO_BYPASS_ENABLED = import.meta.env.VITE_DEMO_BYPASS !== 'false';
+/* When the active environment's *_DEMO_BYPASS=false all NIDs (including
+ * demo ones) hit the real applicant backend auth flow. Default is true
+ * so the demo presentation runs without a backend dependency. */
+const DEMO_BYPASS_ENABLED =
+  (import.meta.env.VITE_PROD_DEMO_BYPASS ?? import.meta.env.VITE_STAGING_DEMO_BYPASS) !== 'false';
 const DEMO_BYPASS_NIDS = new Set<string>(DEMO_TEST_USERS.map((u) => u.nationalId));
 
 /** Map a saved backend draft to the correct wizard route to resume from. */

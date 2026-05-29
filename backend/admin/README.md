@@ -56,9 +56,13 @@ Staging API docs use the same paths:
 - `https://admin-staging-api.appenzademo.com/scalar`
 - `https://admin-staging-api.appenzademo.com/openapi/v1.json`
 
-To skip the auto-migration on startup (e.g. when running multiple admin
-instances): `dotnet run --no-seed` or set `SkipMigrationsAndSeed=true` in
-the environment.
+Production data safety:
+- `Database:SkipSeed=true` (or `SKIP_SEED=true`) applies EF migrations but
+  does not run startup seeders, preserving existing cycles, categories,
+  applicants, lookups, and other persisted rows.
+- `dotnet run --skip-seed` is the equivalent local command-line switch.
+- `dotnet run --no-seed` or `SkipMigrationsAndSeed=true` remains the legacy
+  full skip for environments where neither migrations nor seeders should run.
 
 ---
 
@@ -418,7 +422,7 @@ sqlcmd -S <server> -U <user> -P '<password>' -d PACademy_Admin \
 ```
 
 Run the UAT backend as a separate service with `ASPNETCORE_ENVIRONMENT=Uat`, `Database__ActiveConnectionName=AdminDbUat`, `Database__Schema=PACademy_staging_db`, and its own CORS origins.
-For a staging schema that was already created and copied from prod, set `SkipMigrationsAndSeed=true` so startup does not try to rerun EF migrations against the runtime-switched schema.
+For a staging schema that was already created and copied from prod, set `SkipMigrationsAndSeed=true` so startup does not try to rerun EF migrations against the runtime-switched schema. For production deploys where the schema should move forward but existing data must stay untouched, set `Database__SkipSeed=true` instead.
 
 Deploy the UAT frontend as a separate Vercel project using:
 

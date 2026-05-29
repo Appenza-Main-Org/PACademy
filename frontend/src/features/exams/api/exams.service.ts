@@ -1,7 +1,7 @@
 /**
  * Exams / Question Bank API — Sprint 7 (RFP Scope Document §9).
  *
- * INTEGRATION CONTRACT (backend default; mock fallback when VITE_USE_MOCKS=true):
+ * INTEGRATION CONTRACT (backend default; mock fallback when the active *_USE_MOCKS flag is true):
  *   GET    /api/questions?status=&category=                  → BankQuestion[]
  *   GET    /api/questions/:id                                → BankQuestion
  *   POST   /api/questions                                    → BankQuestion (draft)

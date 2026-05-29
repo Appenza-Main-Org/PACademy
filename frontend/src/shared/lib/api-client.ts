@@ -1,9 +1,10 @@
 /**
  * Backend API client.
  *
- * Services use real backend calls by default. `VITE_API_BASE_URL` may point
- * at another origin; when it is empty, calls go to same-origin `/api/...`.
- * Set `VITE_USE_MOCKS=true` only for explicit local demo/mock mode.
+ * Services use real backend calls by default. Production builds on `main`
+ * read `VITE_PROD_*`; staging preview builds read `VITE_STAGING_*`.
+ * Empty backend URLs fall back to same-origin `/api/...`.
+ * Set the matching `*_USE_MOCKS=true` only for explicit local demo/mock mode.
  */
 
 import { AccountInactiveError, ConflictError, NotFoundError, ValidationError, type ConflictCode } from '@/shared/lib/errors';
@@ -36,10 +37,11 @@ const READ_RETRY_DELAYS_MS = [300, 900] as const;
 const TRANSIENT_READ_STATUSES = new Set([502, 503, 504]);
 
 export function isBackendEnabled(): boolean {
-  if (import.meta.env.PROD && import.meta.env.VITE_USE_MOCKS === 'true') {
-    throw new Error('VITE_USE_MOCKS=true is not allowed in production admin builds.');
+  const useMocks = firstEnv(import.meta.env.VITE_PROD_USE_MOCKS, import.meta.env.VITE_STAGING_USE_MOCKS);
+  if (import.meta.env.PROD && useMocks === 'true') {
+    throw new Error('Mock mode is not allowed in production admin builds.');
   }
-  return import.meta.env.VITE_USE_MOCKS !== 'true';
+  return useMocks !== 'true';
 }
 
 function normalizeBaseUrl(value: string | undefined): string | undefined {
@@ -55,24 +57,14 @@ function firstEnv(...values: Array<string | undefined>): string {
   return '';
 }
 
-function apiBaseUrl(): string {
-  return firstEnv(import.meta.env.VITE_API_BASE_URL);
-}
-
 function adminApiBaseUrl(): string {
-  return firstEnv(
-    import.meta.env.VITE_ADMIN_API_BASE_URL as string | undefined,
-    import.meta.env.VITE_ADMIN_API_URL as string | undefined,
-    import.meta.env.VITE_API_BASE_URL,
-  );
+  return firstEnv(import.meta.env.VITE_PROD_ADMIN_API_BASE_URL, import.meta.env.VITE_STAGING_ADMIN_API_BASE_URL);
 }
 
 function applicantApiBaseUrl(): string {
   return firstEnv(
-    import.meta.env.VITE_APPLICANT_API_BASE_URL as string | undefined,
-    import.meta.env.VITE_APPLICANT_API_URL as string | undefined,
-    import.meta.env.VITE_APPLICANT_API_BASE as string | undefined,
-    import.meta.env.VITE_API_BASE_URL,
+    import.meta.env.VITE_PROD_APPLICANT_API_BASE_URL,
+    import.meta.env.VITE_STAGING_APPLICANT_API_BASE_URL,
   );
 }
 
@@ -251,7 +243,7 @@ async function request<T>(
   const token = options.skipAuth || !shouldSendAuthHeader() ? null : readAuthToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const base = baseOverride ?? apiBaseUrl();
+  const base = baseOverride ?? adminApiBaseUrl();
   const body2 = prepareBody(options.body, headers);
   const res = await fetchWithReadRetry(method, `${base}${path}${queryString(options.query)}`, {
     method,
@@ -277,13 +269,14 @@ async function request<T>(
   return parsed as T;
 }
 
-async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+async function requestBlob(path: string, options: RequestOptions = {}, baseOverride?: string): Promise<Blob> {
   const headers = new Headers(options.headers);
   headers.set('Accept', '*/*');
   const token = options.skipAuth || !shouldSendAuthHeader() ? null : readAuthToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const res = await fetchWithReadRetry('GET', `${apiBaseUrl()}${path}${queryString(options.query)}`, {
+  const base = baseOverride ?? adminApiBaseUrl();
+  const res = await fetchWithReadRetry('GET', `${base}${path}${queryString(options.query)}`, {
     method: 'GET',
     headers,
     signal: options.signal,
@@ -306,18 +299,18 @@ function makeClient(baseUrl: () => string) {
     put: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
       request<T>('PUT', path, { ...options, body }, baseUrl()),
     delete: <T>(path: string, options?: RequestOptions) => request<T>('DELETE', path, options, baseUrl()),
-    blob: (path: string, options?: RequestOptions) => requestBlob(path, options),
+    blob: (path: string, options?: RequestOptions) => requestBlob(path, options, baseUrl()),
   };
 }
 
-/** Default client — uses VITE_API_BASE_URL (admin API in admin-first integration). */
-export const apiClient = makeClient(apiBaseUrl);
+/** Default client — uses the active environment's admin API base URL. */
+export const apiClient = makeClient(adminApiBaseUrl);
 
-/** Admin API client — uses VITE_ADMIN_API_BASE_URL, falls back to VITE_API_BASE_URL.
+/** Admin API client — uses the active environment's admin API base URL.
  *  Use this for any call that must reach the admin backend from the applicant portal
  *  (e.g. GET /api/applicants/:nid/eligible-categories). */
 export const adminApiClient = makeClient(adminApiBaseUrl);
 
-/** Applicant API client — uses VITE_APPLICANT_API_BASE_URL, falls back to VITE_API_BASE_URL.
+/** Applicant API client — uses the active environment's applicant API base URL.
  *  Use this from the applicant portal for all portal-specific endpoints. */
 export const applicantApiClient = makeClient(applicantApiBaseUrl);
