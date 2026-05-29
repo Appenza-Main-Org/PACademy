@@ -15,7 +15,7 @@
 
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Award,
   BookOpen,
@@ -51,6 +51,7 @@ import { num } from '@/shared/lib/format';
 import { downloadBlob } from '@/shared/lib/download';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/shared/lib/cn';
+import type { ElectronicExamResult, ExamAuditRecord } from '@/shared/types/domain';
 
 /* ─────────── Question Bank overview (`/question-bank`) ─────────── */
 
@@ -368,10 +369,81 @@ interface ResultRow {
   name: string;
   score: number;
   category: string;
+  resultId?: string;
+  status?: ElectronicExamResult['status'];
 }
 
+const RESULT_STATUS_LABEL: Record<ElectronicExamResult['status'], string> = {
+  draft: 'مسودة',
+  submitted: 'مُسلّمة',
+  preliminary: 'نتيجة مبدئية',
+  approved: 'معتمدة',
+  published: 'منشورة',
+};
+
+const RESULT_STATUS_TONE: Record<ElectronicExamResult['status'], 'neutral' | 'warning' | 'info' | 'success'> = {
+  draft: 'neutral',
+  submitted: 'warning',
+  preliminary: 'info',
+  approved: 'success',
+  published: 'success',
+};
+
+const AUDIT_ACTION_LABEL: Record<ExamAuditRecord['action'], string> = {
+  'question.created': 'إنشاء سؤال',
+  'question.edited': 'تعديل سؤال',
+  'question.hidden': 'إخفاء سؤال',
+  'question.shown': 'إظهار سؤال',
+  'question.imported': 'استيراد أسئلة',
+  'exam.created': 'إنشاء اختبار',
+  'exam.published': 'نشر اختبار',
+  'exam.stopped': 'إيقاف اختبار',
+  'attempt.opened': 'فتح محاولة أخرى',
+  'applicant.started': 'بدء اختبار',
+  'applicant.submitted': 'تسليم اختبار',
+  'applicant.auto_submitted': 'تسليم تلقائي بانتهاء الوقت',
+  'result.approved': 'اعتماد نتيجة',
+  'result.published': 'نشر نتيجة',
+};
+
 export function ExamsResultsPage(): JSX.Element {
+  const qc = useQueryClient();
+  const { data: resultRecords } = useQuery({
+    queryKey: ['exams', 'results'],
+    queryFn: () => examsService.listResults(),
+  });
+  const { data: auditRecords } = useQuery({
+    queryKey: ['exams', 'audit'],
+    queryFn: () => examsService.listAudit(),
+  });
+  const approveMut = useMutation({
+    mutationFn: (id: string) => examsService.approveResult(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['exams', 'results'] });
+      qc.invalidateQueries({ queryKey: ['exams', 'audit'] });
+      toast('تم اعتماد النتيجة', 'success');
+    },
+  });
+  const publishMut = useMutation({
+    mutationFn: (id: string) => examsService.publishResult(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['exams', 'results'] });
+      qc.invalidateQueries({ queryKey: ['exams', 'audit'] });
+      toast('تم نشر النتيجة', 'success');
+    },
+  });
   const rows: ResultRow[] = useMemo(() => {
+    if (resultRecords && resultRecords.length > 0) {
+      return resultRecords.map((r, i) => ({
+        rank: i + 1,
+        applicantId: r.applicantId,
+        name: r.applicantName,
+        score: r.percentage,
+        category: r.examId,
+        resultId: r.id,
+        status: r.status,
+      }));
+    }
     const cats = ['قدرات لفظية', 'قدرات عددية', 'منطق', 'سرعة بديهة', 'ثقافة عامة'];
     return MOCK.applicants.slice(0, 200).map((a, i) => ({
       rank: i + 1,
@@ -381,7 +453,7 @@ export function ExamsResultsPage(): JSX.Element {
       score: Math.max(50, 96 - i * 0.18 - ((i * 13) % 7)),
       category: cats[i % cats.length]!,
     }));
-  }, []);
+  }, [resultRecords]);
 
   const summary = useMemo(() => {
     const total = rows.length;
@@ -458,7 +530,7 @@ export function ExamsResultsPage(): JSX.Element {
     },
     {
       key: 'category',
-      label: 'الفئة',
+      label: 'الاختبار / الفئة',
       hideOn: 'md',
       render: (r) => <Badge tone="neutral">{r.category}</Badge>,
     },
@@ -476,6 +548,30 @@ export function ExamsResultsPage(): JSX.Element {
         </span>
       ),
     },
+    {
+      key: 'status',
+      label: 'حالة النتيجة',
+      render: (r) => r.status ? <Badge tone={RESULT_STATUS_TONE[r.status]}>{RESULT_STATUS_LABEL[r.status]}</Badge> : <Badge tone="neutral">تقرير</Badge>,
+    },
+    {
+      key: '_actions',
+      label: <span className="sr-only">إجراءات</span>,
+      align: 'end',
+      render: (r) => (
+        <div className="inline-flex items-center gap-1">
+          {r.resultId && r.status !== 'approved' && r.status !== 'published' && (
+            <Button variant="ghost" size="sm" onClick={() => approveMut.mutate(r.resultId ?? '')}>
+              اعتماد
+            </Button>
+          )}
+          {r.resultId && r.status === 'approved' && (
+            <Button variant="ghost" size="sm" onClick={() => publishMut.mutate(r.resultId ?? '')}>
+              نشر
+            </Button>
+          )}
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -491,7 +587,15 @@ export function ExamsResultsPage(): JSX.Element {
               leadingIcon={<Download size={14} strokeWidth={1.75} />}
               onClick={handleExportCsv}
             >
-              تصدير CSV
+              Excel
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leadingIcon={<Download size={14} strokeWidth={1.75} />}
+              onClick={handleExportCsv}
+            >
+              Word
             </Button>
             <Button
               variant="ghost"
@@ -499,7 +603,7 @@ export function ExamsResultsPage(): JSX.Element {
               leadingIcon={<Printer size={14} strokeWidth={1.75} />}
               onClick={handlePrint}
             >
-              طباعة (PDF)
+              PDF
             </Button>
           </div>
         }
@@ -587,6 +691,50 @@ export function ExamsResultsPage(): JSX.Element {
           }}
         />
       </Card>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <Card>
+          <CardHeader title="تقارير واستعلامات" subtitle="حزمة التقارير المطلوبة في كراسة الشروط" />
+          <CardBody>
+            <div className="grid gap-2 md:grid-cols-2">
+              {[
+                'تقرير نتيجة ممتحن',
+                'تقرير تنفيذ الاختبار',
+                'حضور / غياب',
+                'إحصائيات نجاح / رسوب',
+                'متوسط الدرجات',
+                'توزيع الدرجات',
+                'تحليل صعوبة الأسئلة',
+                'أصعب وأسهل الأسئلة',
+                'طباعة إجابات المتقدم',
+                'Audit Trail',
+              ].map((label) => (
+                <Button key={label} variant="ghost" size="sm" leadingIcon={<FileText size={13} strokeWidth={1.75} />}>
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader title="سجل تدقيق الاختبارات" subtitle="آخر إجراءات بنك الأسئلة والاختبارات والنتائج" />
+          <CardBody>
+            <ul className="flex flex-col gap-2">
+              {(auditRecords ?? []).slice(0, 8).map((record) => (
+                <li key={record.id} className="rounded-md border border-border-subtle bg-surface-page px-3 py-2 text-2xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-ink-900">{AUDIT_ACTION_LABEL[record.action]}</span>
+                    <span className="font-mono text-ink-500" dir="ltr">{record.entityId}</span>
+                  </div>
+                  <p className="mt-1 text-ink-500">
+                    {record.user} · {new Date(record.timestamp).toLocaleString('ar-EG')}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
+      </div>
     </>
   );
 }

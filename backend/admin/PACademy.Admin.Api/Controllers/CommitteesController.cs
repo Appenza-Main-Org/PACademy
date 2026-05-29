@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Shared.Contracts;
@@ -9,6 +10,7 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("api/committees")]
+[RequireBearerAuth]
 public sealed class CommitteesController(AdminRecordsService records, IIdentityDbContext identity) : ControllerBase
 {
     [HttpGet]

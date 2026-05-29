@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using PACademy.Admin.Api.Persistence;
 
 namespace PACademy.Admin.Api.Modules.AdminRecords;
 
@@ -19,13 +20,13 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
         "kpis"
     ];
 
-    public async Task SeedAsync(IAdminRecordsDbContext db, CancellationToken ct = default)
+    public async Task SeedAsync(AdminDbContext db, CancellationToken ct = default)
     {
         await RemoveLegacyAuditRecordsAsync(db, ct);
         if (!ShouldSeedMockRecords()) return;
 
         await RemoveMockSeedRecordsAsync(db, ct);
-        if (await db.AdminRecords.AnyAsync(ct)) return;
+        if (await db.AdminRecordDocuments.AnyAsync(ct)) return;
         var path = Path.Combine(environment.ContentRootPath, "SeedData", "admin-records.seed.json");
         await using var stream = File.OpenRead(path);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -40,7 +41,7 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
             {
                 var obj = JsonNode.Parse(row.GetRawText())!.AsObject();
                 var id = ResolveId(module, obj);
-                db.AdminRecords.Add(new AdminRecordEntity
+                db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
                 {
                     Module = module,
                     Id = id,
@@ -56,7 +57,7 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
         {
             if (!root.TryGetProperty(singleton, out var value)) continue;
             var obj = JsonNode.Parse(value.GetRawText())!.AsObject();
-            db.AdminRecords.Add(new AdminRecordEntity
+            db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
             {
                 Module = singleton,
                 Id = singleton,
@@ -74,9 +75,9 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
     private static bool ShouldSeedMockRecords() =>
         string.Equals(Environment.GetEnvironmentVariable("SEED_ADMIN_MOCK_RECORDS"), "true", StringComparison.OrdinalIgnoreCase);
 
-    private async Task RemoveMockSeedRecordsAsync(IAdminRecordsDbContext db, CancellationToken ct)
+    private async Task RemoveMockSeedRecordsAsync(AdminDbContext db, CancellationToken ct)
     {
-        var query = db.AdminRecords.Where(x => MockSeedModules.Contains(x.Module));
+        var query = db.AdminRecordDocuments.Where(x => MockSeedModules.Contains(x.Module));
         var deleted = await RemoveRowsAsync(query, db, ct);
         if (deleted == 0) return;
 
@@ -84,8 +85,8 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
     }
 
     private static async Task<int> RemoveRowsAsync(
-        IQueryable<AdminRecordEntity> query,
-        IAdminRecordsDbContext db,
+        IQueryable<AdminRecordDocumentEntity> query,
+        AdminDbContext db,
         CancellationToken ct)
     {
         try
@@ -95,20 +96,38 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
         catch (InvalidOperationException ex) when (ex.Message.Contains("ExecuteDelete", StringComparison.Ordinal))
         {
             var rows = await query.ToListAsync(ct);
-            db.AdminRecords.RemoveRange(rows);
+            db.AdminRecordDocuments.RemoveRange(rows);
             await db.SaveChangesAsync(ct);
             return rows.Count;
         }
     }
 
-    private async Task RemoveLegacyAuditRecordsAsync(IAdminRecordsDbContext db, CancellationToken ct)
+    private async Task RemoveLegacyAuditRecordsAsync(AdminDbContext db, CancellationToken ct)
     {
         var rows = await db.AdminRecords.Where(x => x.Module == "audit").ToListAsync(ct);
-        if (rows.Count == 0) return;
+        if (rows.Count > 0)
+        {
+            db.AdminRecords.RemoveRange(rows);
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("Removed {Count} legacy seeded audit records; /api/audit now reads durable audit_entries only", rows.Count);
+        }
 
-        db.AdminRecords.RemoveRange(rows);
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("Removed {Count} legacy seeded audit records; /api/audit now reads durable audit_entries only", rows.Count);
+        var legacyRows = await db.AdminRecords.ToListAsync(ct);
+        foreach (var row in legacyRows)
+        {
+            var exists = await db.AdminRecordDocuments.AnyAsync(x => x.Module == row.Module && x.Id == row.Id, ct);
+            if (exists) continue;
+            db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
+            {
+                Module = row.Module,
+                Id = row.Id,
+                PayloadJson = row.PayloadJson,
+                CreatedAt = row.CreatedAt,
+                UpdatedAt = row.UpdatedAt
+            });
+        }
+        db.AdminRecords.RemoveRange(legacyRows);
+        if (legacyRows.Count > 0) await db.SaveChangesAsync(ct);
     }
 
     private static string ResolveId(string module, JsonObject obj)

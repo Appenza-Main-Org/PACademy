@@ -11,6 +11,11 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import { examsService } from './exams.service';
 import type {
   BatchCreateResult,
+  ElectronicExamResult,
+  ExamAuditRecord,
+  ExamAuthorizedDevice,
+  ExamCommitteeUser,
+  ExamConfig,
   LiveSessionsResponse,
   QuestionDraft,
 } from '@/shared/types/domain';
@@ -18,9 +23,49 @@ import type {
 export const examsKeys = {
   all: ['exams'] as const,
   questions: () => [...examsKeys.all, 'questions'] as const,
+  list: () => [...examsKeys.all, 'list'] as const,
+  users: () => [...examsKeys.all, 'committee-users'] as const,
+  devices: () => [...examsKeys.all, 'devices'] as const,
+  results: () => [...examsKeys.all, 'results'] as const,
+  audit: () => [...examsKeys.all, 'audit'] as const,
   liveSessions: (examId: string) =>
     [...examsKeys.all, 'sessions', 'live', examId] as const,
 };
+
+export function useExamsList(): UseQueryResult<ExamConfig[]> {
+  return useQuery({
+    queryKey: examsKeys.list(),
+    queryFn: () => examsService.listExams(),
+  });
+}
+
+export function useExamCommitteeUsers(): UseQueryResult<ExamCommitteeUser[]> {
+  return useQuery({
+    queryKey: examsKeys.users(),
+    queryFn: () => examsService.listCommitteeUsers(),
+  });
+}
+
+export function useExamDevices(): UseQueryResult<ExamAuthorizedDevice[]> {
+  return useQuery({
+    queryKey: examsKeys.devices(),
+    queryFn: () => examsService.listDevices(),
+  });
+}
+
+export function useExamResults(): UseQueryResult<ElectronicExamResult[]> {
+  return useQuery({
+    queryKey: examsKeys.results(),
+    queryFn: () => examsService.listResults(),
+  });
+}
+
+export function useExamAudit(): UseQueryResult<ExamAuditRecord[]> {
+  return useQuery({
+    queryKey: examsKeys.audit(),
+    queryFn: () => examsService.listAudit(),
+  });
+}
 
 export function useLiveSessions(
   examId: string,

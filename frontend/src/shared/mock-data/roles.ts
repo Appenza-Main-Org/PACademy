@@ -187,6 +187,48 @@ const CLOUD_ROLE_BLUEPRINT: ReadonlyArray<CloudRoleBlueprint> = [
     apps: ['applicant'],
     permissions: ['applicant:view', 'applicant:apply'],
   },
+  {
+    key: 'student_committee_head',
+    labelAr: 'رئيس لجنة الطلبة',
+    labelEn: 'Student Committee Head',
+    apps: ['committee', 'barcode', 'biometric'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:history'],
+  },
+  {
+    key: 'exam_committee_head',
+    labelAr: 'رئيس لجنة الاختبار',
+    labelEn: 'Exam Committee Head',
+    apps: ['committee', 'barcode', 'biometric', 'exams'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:history', ...EXAM_PERMISSIONS],
+  },
+  {
+    key: 'security_gate_user',
+    labelAr: 'مستخدم بوابة التأمين',
+    labelEn: 'Security Gate User',
+    apps: ['barcode', 'biometric'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:gate', 'biometric:history'],
+  },
+  {
+    key: 'admissions_system_admin',
+    labelAr: 'مدير نظام القبول',
+    labelEn: 'Admissions System Admin',
+    apps: ['admin', 'committee', 'barcode', 'biometric'],
+    permissions: ['admin:view', 'applicants:view', 'audit:view', 'reports:view', 'biometric:*'],
+  },
+  {
+    key: 'medical_committee_head',
+    labelAr: 'رئيس اللجنة الطبية',
+    labelEn: 'Medical Committee Head',
+    apps: ['medical', 'barcode', 'biometric'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:medical', 'biometric:history'],
+  },
+  {
+    key: 'medical_clinic_manager',
+    labelAr: 'مدير عيادة طبية',
+    labelEn: 'Medical Clinic Manager',
+    apps: ['medical', 'biometric'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:medical', 'biometric:history'],
+  },
 ];
 
 const systemRows: RoleDefinitionRow[] = CLOUD_ROLE_BLUEPRINT.map((b) => ({

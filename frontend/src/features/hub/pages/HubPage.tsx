@@ -21,7 +21,7 @@ import {
   StatCard,
 } from '@/shared/components';
 import { IconBarcode } from '@/shared/components/icons';
-import { useAuthStore } from '@/features/auth';
+import { hasPermission, useAuthStore } from '@/features/auth';
 import { MOCK } from '@/shared/mock-data';
 import { date as fmtDate, num, shortName } from '@/shared/lib/format';
 import { cn } from '@/shared/lib/cn';
@@ -74,7 +74,11 @@ export function HubPage(): JSX.Element {
   const user = useAuthStore((s) => s.user);
   if (!user) return <></>;
 
-  const accessible = APPS.map((a) => ({ ...a, locked: !user.apps.includes(a.key) }));
+  const hasUniversalAccess = user.role === 'super_admin' || hasPermission(user.permissions, '*');
+  const accessible = APPS.map((a) => ({
+    ...a,
+    locked: !hasUniversalAccess && !user.apps.includes(a.key),
+  }));
   const internet = accessible.filter((a) => a.platform === 'إنترنت');
   const internal = accessible.filter((a) => a.platform === 'شبكة داخلية');
   const k = MOCK.kpis;

@@ -9,4 +9,5 @@ export {
   LiveExamPage,
   ProctorListPage,
   ProctorViewPage,
+  TakeExamEntryPage,
 } from './pages/Sprint7Pages';

@@ -1509,6 +1509,7 @@ export interface MatchingPair {
 export interface BankQuestion {
   id: string;
   category: string;
+  classification?: string;
   difficulty: 1 | 2 | 3 | 4 | 5;
   type: QuestionType;
   text: string;
@@ -1526,10 +1527,23 @@ export interface ExamConfig {
   id: string;
   nameAr: string;
   cycleId: string;
+  cycleName?: string;
   scheduledFor: string;
+  accessStartAt?: string;
+  accessEndAt?: string;
+  durationMinutes?: number;
+  questionCount?: number;
+  randomSelection?: boolean;
+  randomQuestionOrder?: boolean;
+  displayMode?: 'full-page' | 'one-question';
+  assignedCategories?: string[];
+  assignedTypes?: string[];
+  assignedGenders?: Array<'male' | 'female'>;
+  assignedSpecializations?: string[];
+  reopenedApplicantIds?: string[];
   rules: { category: string; difficultyMin: number; difficultyMax: number; count: number; minutes: number }[];
   questionIds: string[];
-  status: 'draft' | 'published' | 'completed';
+  status: 'draft' | 'published' | 'stopped' | 'completed';
 }
 
 export interface ExamAttempt {
@@ -1542,9 +1556,115 @@ export interface ExamAttempt {
   flagged: string[];
   score?: number;
   passFail?: 'pass' | 'fail';
+  resultState?: ElectronicExamResultStatus;
+  approvedAt?: number;
+  publishedAt?: number;
+  deviceId?: string;
+  ipAddress?: string;
 }
 
 export type ExamAnswer = number | Record<string, string>;
+
+export type ExamCommitteePermission =
+  | 'system-admin'
+  | 'committee-manager'
+  | 'proctor'
+  | 'question-editor'
+  | 'results-approver'
+  | 'reports-viewer';
+
+export interface ExamCommitteeUser {
+  id: string;
+  fullName: string;
+  username: string;
+  passwordMask: string;
+  permission: ExamCommitteePermission;
+  examType: string;
+  status: 'active' | 'suspended';
+  authorizedDeviceId: string;
+  authorizedIp: string;
+}
+
+export interface ExamAuthorizedDevice {
+  id: string;
+  label: string;
+  macAddress: string;
+  ipAddress: string;
+  status: 'active' | 'inactive';
+  allowedFrom: string;
+  allowedTo: string;
+  examId?: string;
+}
+
+export interface ExamAccessValidationRequest {
+  nationalId: string;
+  applicantCode: string;
+  examId: string;
+  ipAddress: string;
+  deviceIdentifier: string;
+}
+
+export interface ExamAccessValidationResult {
+  ok: boolean;
+  applicantId?: string;
+  examId?: string;
+  attemptId?: string;
+  reason?: string;
+  checks: Array<{ key: string; label: string; ok: boolean; detail: string }>;
+}
+
+export type ElectronicExamResultStatus =
+  | 'draft'
+  | 'submitted'
+  | 'preliminary'
+  | 'approved'
+  | 'published';
+
+export type ExamResultState = ElectronicExamResultStatus;
+export type AuthorizedExamDevice = ExamAuthorizedDevice;
+
+export interface ElectronicExamResult {
+  id: string;
+  examId: string;
+  attemptId: string;
+  applicantId: string;
+  applicantName: string;
+  score: number;
+  maxScore: number;
+  percentage: number;
+  passFail: 'pass' | 'fail';
+  status: ElectronicExamResultStatus;
+  submittedAt: string;
+  approvedAt?: string;
+  publishedAt?: string;
+}
+
+export type ExamAuditAction =
+  | 'question.created'
+  | 'question.edited'
+  | 'question.hidden'
+  | 'question.shown'
+  | 'question.imported'
+  | 'exam.created'
+  | 'exam.published'
+  | 'exam.stopped'
+  | 'attempt.opened'
+  | 'applicant.started'
+  | 'applicant.submitted'
+  | 'applicant.auto_submitted'
+  | 'result.approved'
+  | 'result.published';
+
+export interface ExamAuditRecord {
+  id: string;
+  user: string;
+  timestamp: string;
+  action: ExamAuditAction;
+  entity: string;
+  entityId: string;
+  previousValue?: string;
+  newValue?: string;
+}
 
 /** Payload for the bulk import wizard — mirrors a manually-created question.
  *  Resolves to a `BankQuestion` after the service stamps id/status/version.

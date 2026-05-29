@@ -90,14 +90,14 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
         return ToJson(entity);
     }
 
-    public async Task<DeleteLookupRowResult> DeleteAsync(string key, string code, CancellationToken ct)
+    public async Task<DeleteLookupRowResult> DeleteAsync(string key, string code, bool force, CancellationToken ct)
     {
         EnsureKnown(key);
         var entity = await db.LookupRows.FirstOrDefaultAsync(x => x.LookupKey == key && x.Code == code, ct)
             ?? throw new EntityNotFoundException("كود المرجع غير موجود");
 
         var check = await CountReferencesAsync(key, code, ct);
-        if (check.Count > 0)
+        if (check.Count > 0 && !force)
         {
             return new DeleteLookupRowResult(false, check.Reason, check.Count);
         }

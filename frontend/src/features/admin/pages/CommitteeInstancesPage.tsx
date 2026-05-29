@@ -172,6 +172,15 @@ export function CommitteeInstancesPage(): JSX.Element {
     for (const r of categoriesQuery.data ?? []) map.set(r.code, r.name);
     return map;
   }, [categoriesQuery.data]);
+  const activeCategoryCodes = useMemo(
+    () =>
+      new Set(
+        (categoriesQuery.data ?? [])
+          .filter((category) => category.isActive)
+          .map((category) => category.code),
+      ),
+    [categoriesQuery.data],
+  );
 
   const definitionNameByCode = useMemo(() => {
     const map = new Map<string, string>();
@@ -183,6 +192,7 @@ export function CommitteeInstancesPage(): JSX.Element {
     if (!activeCycleId) return [];
     return (allInstancesQuery.data ?? [])
       .filter((i) => i.cycleId === activeCycleId)
+      .filter((i) => activeCategoryCodes.has(i.categoryKey))
       .map((inst) => ({
         ...inst,
         capacity: normalizeNonNegativeInteger(inst.capacity),
@@ -193,6 +203,7 @@ export function CommitteeInstancesPage(): JSX.Element {
   }, [
     allInstancesQuery.data,
     activeCycleId,
+    activeCategoryCodes,
     categoryLabelByKey,
     definitionNameByCode,
   ]);

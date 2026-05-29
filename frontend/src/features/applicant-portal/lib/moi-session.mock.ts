@@ -514,7 +514,7 @@ export function mockMoiLookup(nid: string): MoiLookupResult {
 
 /* ── Backend-aware MOI lookup ─────────────────────────────────────────
  *
- * When `VITE_USE_APPLICANT_AUTH_BACKEND=true` the helper calls the real
+ * When the active environment's `*_USE_APPLICANT_AUTH_BACKEND=true` flag is set, the helper calls the real
  * .NET endpoint `GET /applicant/moi/verify/:nid` and reshapes the
  * response into a `MoiLookupResult`. The backend currently returns just
  * `MoiApplicantSession | 404` — it doesn't yet decide eligibility
@@ -524,9 +524,11 @@ export function mockMoiLookup(nid: string): MoiLookupResult {
  *
  * Flag off → synchronous fallback to `mockMoiLookup` so demos without
  * the backend running stay unchanged. */
-const APPLICANT_API_BASE = (import.meta.env.VITE_APPLICANT_API_BASE as string | undefined)
+const APPLICANT_API_BASE = (import.meta.env.VITE_PROD_APPLICANT_API_BASE_URL
+  ?? import.meta.env.VITE_STAGING_APPLICANT_API_BASE_URL)
   ?? 'http://localhost:5102';
-const USE_BACKEND = import.meta.env.VITE_USE_APPLICANT_AUTH_BACKEND === 'true';
+const USE_BACKEND = (import.meta.env.VITE_PROD_USE_APPLICANT_AUTH_BACKEND
+  ?? import.meta.env.VITE_STAGING_USE_APPLICANT_AUTH_BACKEND) === 'true';
 
 export async function lookupMoiSession(nid: string): Promise<MoiLookupResult> {
   if (!USE_BACKEND) return mockMoiLookup(nid);

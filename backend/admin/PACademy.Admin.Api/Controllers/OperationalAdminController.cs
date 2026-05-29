@@ -1,15 +1,35 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Lookups;
+using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class OperationalAdminController(AdminRecordsService records) : ControllerBase
+public sealed class OperationalAdminController(AdminRecordsService records, ILookupsDbContext lookups) : ControllerBase
 {
     [HttpGet("api/committee-instances")]
-    public async Task<ActionResult<IReadOnlyList<JsonObject>>> CommitteeInstances(CancellationToken ct) => Ok(await records.ListAsync("committeeInstances", ct));
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> CommitteeInstances(CancellationToken ct)
+    {
+        var activeCategoryCodes = await lookups.LookupRows
+            .AsNoTracking()
+            .Where(x => x.LookupKey == "applicant-categories" && x.IsActive)
+            .Select(x => x.Code)
+            .ToListAsync(ct);
+        var active = activeCategoryCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var rows = (await records.ListAsync("committeeInstances", ct))
+            .Where(row =>
+            {
+                var categoryKey = AdminRecordJson.StringProp(row, "categoryKey");
+                return !string.IsNullOrWhiteSpace(categoryKey) && active.Contains(categoryKey);
+            })
+            .ToList();
+        return Ok(rows);
+    }
 
     [HttpPost("api/committee-instances")]
     public async Task<ActionResult<object>> AddCommitteeInstances([FromBody] JsonNode body, CancellationToken ct)
@@ -91,6 +111,7 @@ public sealed class OperationalAdminController(AdminRecordsService records) : Co
     }
 
     [HttpGet("api/v1/admin/workflows")]
+    [RequireBearerAuth]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> Workflows(CancellationToken ct) => Ok(await records.ListAsync("workflows", ct));
 
     [HttpGet("api/v1/admin/workflows/{id}")]
@@ -101,13 +122,23 @@ public sealed class OperationalAdminController(AdminRecordsService records) : Co
     }
 
     [HttpGet("api/v1/admin/workflows/by-department")]
-    public async Task<ActionResult<JsonObject?>> WorkflowByDepartment([FromQuery] string department, CancellationToken ct)
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject?>> WorkflowByDepartment([FromQuery] string? department, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(department))
+        {
+            return BadRequest(new ApiErrorEnvelope(
+                ErrorCodes.ValidationFailed,
+                Errors: new Dictionary<string, string[]> { ["department"] = ["القسم مطلوب"] },
+                Message: "تحقق من البيانات المدخلة"));
+        }
+
         var row = (await records.ListAsync("workflows", ct)).FirstOrDefault(x => AdminRecordJson.StringProp(x, "department") == department);
-        return Ok(row);
+        return row is null ? NotFound(new ApiErrorEnvelope(ErrorCodes.NotFound, Message: "مسار العمل غير موجود")) : Ok(row);
     }
 
     [HttpPost("api/v1/admin/workflows")]
+    [RequireBearerAuth]
     public async Task<ActionResult<JsonObject>> CreateWorkflow([FromBody] JsonObject body, CancellationToken ct)
     {
         var id = AdminRecordJson.StringProp(body, "id") ?? $"WF-{Guid.NewGuid():N}";

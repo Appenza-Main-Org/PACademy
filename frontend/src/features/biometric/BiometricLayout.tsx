@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { Activity, History, ScanFace, ShieldCheck, UserPlus } from 'lucide-react';
+import { Activity, History, ShieldCheck, Stethoscope, UserPlus, DoorOpen, Search } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
@@ -8,8 +8,10 @@ const SIDEBAR: SidebarSection[] = [
   {
     label: 'العمليات',
     items: [
-      { key: 'overview',   label: 'تحقق فوري',   icon: <ScanFace size={18} />,    to: ROUTES.biometric.overview, end: true },
-      { key: 'verify-ops', label: 'بوابة التحقق', icon: <ShieldCheck size={18} />, to: ROUTES.biometric.verifyOps },
+      { key: 'lookup',     label: 'استعلام متقدم', icon: <Search size={18} />, to: ROUTES.biometric.overview, end: true },
+      { key: 'verify',     label: 'التحقق من الهوية', icon: <ShieldCheck size={18} />, to: ROUTES.biometric.verify },
+      { key: 'security',   label: 'بوابة التأمين', icon: <DoorOpen size={18} />, to: ROUTES.biometric.securityGate },
+      { key: 'medical',    label: 'تحقق القومسيون', icon: <Stethoscope size={18} />, to: ROUTES.biometric.medicalVerify },
     ],
   },
   {

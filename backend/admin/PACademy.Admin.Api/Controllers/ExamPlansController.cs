@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Lookups;
+using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
@@ -86,7 +87,27 @@ public sealed class ExamPlansController(AdminRecordsService records, LookupsServ
     public ActionResult<object> CanEnter() => Ok(new { canEnter = true });
 
     [HttpPost("api/exams/results/{resultId}/transition")]
-    public ActionResult<object> TransitionResult(string resultId, [FromBody] JsonObject body) => Ok(new { id = resultId, status = body["status"]?.GetValue<string>() ?? "draft" });
+    public async Task<ActionResult<object>> TransitionResult(string resultId, [FromBody] JsonObject body, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(resultId) ||
+            resultId == "00000000-0000-0000-0000-000000000000")
+        {
+            return BadRequest(new ApiErrorEnvelope(
+                ErrorCodes.ValidationFailed,
+                Errors: new Dictionary<string, string[]> { ["resultId"] = ["معرّف النتيجة غير صحيح"] },
+                Message: "تحقق من البيانات المدخلة"));
+        }
+
+        var current = await records.GetAsync("examResults", resultId, ct);
+        if (current is null)
+        {
+            return NotFound(new ApiErrorEnvelope(ErrorCodes.NotFound, Message: "نتيجة الاختبار غير موجودة"));
+        }
+
+        current["status"] = body["status"]?.GetValue<string>() ?? "draft";
+        current["transitionedAt"] = DateTimeOffset.UtcNow.ToString("O");
+        return Ok(await records.UpsertAsync("examResults", resultId, current, ct));
+    }
 
     [HttpPost("api/cycles/{cycleId}/exams/{examId}/results")]
     [HttpPost("api/cycles/{cycleId}/exams/{examId}/device-callback")]

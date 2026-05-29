@@ -66,7 +66,9 @@ export function writeApplicationSettingsCycleDraft(cycleId: string): void {
       approved: state.approved,
     };
     localStorage.setItem(storageKey(cycleId), JSON.stringify(draft));
-    void applicationSettingsService.saveCycleDraft(cycleId, draft);
+    void applicationSettingsService.saveCycleDraft(cycleId, draft).catch(() => {
+      /* Remote draft sync is best-effort; localStorage remains authoritative. */
+    });
   } catch {
     /* localStorage unavailable; the in-memory store still works. */
   }
@@ -86,7 +88,9 @@ export async function hydrateApplicationSettingsCycleDraft(cycleId: string): Pro
     ) {
       draft = remoteCandidate;
     } else if (localDraft) {
-      void applicationSettingsService.saveCycleDraft(cycleId, localDraft);
+      void applicationSettingsService.saveCycleDraft(cycleId, localDraft).catch(() => {
+        /* Remote draft sync is best-effort; localStorage remains authoritative. */
+      });
     }
   } catch {
     /* Backend sync is best-effort; local draft remains the fallback. */

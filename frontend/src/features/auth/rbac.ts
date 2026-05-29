@@ -27,6 +27,12 @@ export const ROLES = [
   'auditor',
   'exams_admin',
   'applicant',
+  'student_committee_head',
+  'exam_committee_head',
+  'security_gate_user',
+  'admissions_system_admin',
+  'medical_committee_head',
+  'medical_clinic_manager',
   /* On-prem roles (legacy keys — see file header) ───────────────────── */
   'committee_admin',
   'committee_user',
@@ -122,7 +128,16 @@ export type Permission =
   | 'exams:delete'
   | 'exams:publish'
   | 'exams:proctor'
-  | 'exams:results';
+  | 'exams:results'
+  | 'biometric:view'
+  | 'biometric:lookup'
+  | 'biometric:enroll'
+  | 'biometric:verify'
+  | 'biometric:gate'
+  | 'biometric:medical'
+  | 'biometric:history'
+  | 'biometric:reports'
+  | 'biometric:audit';
 
 export interface RoleDefinition {
   labelAr: string;
@@ -291,6 +306,42 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
     labelAr: 'متقدم',
     apps: ['applicant'],
     permissions: ['applicant:view', 'applicant:apply'],
+  },
+
+  student_committee_head: {
+    labelAr: 'رئيس لجنة الطلبة',
+    apps: ['committee', 'barcode', 'biometric'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:history'],
+  },
+
+  exam_committee_head: {
+    labelAr: 'رئيس لجنة الاختبار',
+    apps: ['committee', 'barcode', 'biometric', 'exams'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:history', ...EXAM_PERMISSIONS],
+  },
+
+  security_gate_user: {
+    labelAr: 'مستخدم بوابة التأمين',
+    apps: ['barcode', 'biometric'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:gate', 'biometric:history'],
+  },
+
+  admissions_system_admin: {
+    labelAr: 'مدير نظام القبول',
+    apps: ['admin', 'committee', 'barcode', 'biometric'],
+    permissions: ['admin:view', 'applicants:view', 'audit:view', 'reports:view', 'biometric:*'],
+  },
+
+  medical_committee_head: {
+    labelAr: 'رئيس اللجنة الطبية',
+    apps: ['medical', 'barcode', 'biometric'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:medical', 'biometric:history'],
+  },
+
+  medical_clinic_manager: {
+    labelAr: 'مدير عيادة طبية',
+    apps: ['medical', 'biometric'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:medical', 'biometric:history'],
   },
 
   /* ── On-prem roles ─────────────────────────────────────────────────

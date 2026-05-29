@@ -129,8 +129,11 @@ import {
 import {
   BiometricEnrollPage,
   BiometricHistoryPage,
+  BiometricIdentityVerifyPage,
   BiometricLayout,
+  BiometricMedicalVerifyPage,
   BiometricMonitoringPage,
+  BiometricSecurityGatePage,
   BiometricVerifyOpsPage,
   BiometricVerifyPage,
 } from '@/features/biometric';
@@ -147,6 +150,7 @@ import {
   ProctorViewPage,
   QuestionBankCRUDPage,
   QuestionBankPage,
+  TakeExamEntryPage,
 } from '@/features/exams';
 import {
   ApplicantGradesChangesPage,
@@ -419,7 +423,10 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <BiometricVerifyPage /> },
       { path: 'enroll', element: <BiometricEnrollPage /> },
+      { path: 'verify', element: <BiometricIdentityVerifyPage /> },
       { path: 'history', element: <BiometricHistoryPage /> },
+      { path: 'security-gate', element: <BiometricSecurityGatePage /> },
+      { path: 'medical-verify', element: <BiometricMedicalVerifyPage /> },
       { path: 'verify-ops', element: <BiometricVerifyOpsPage /> },
       { path: 'monitoring', element: <BiometricMonitoringPage /> },
     ],
@@ -438,6 +445,7 @@ export const routes: RouteObject[] = [
       { path: 'exams/:examId/preview', element: <ExamPreviewPage /> },
       { path: 'exams/:examId/take', element: <LiveExamPage /> },
       { path: 'exams/:examId/proctor', element: <ProctorViewPage /> },
+      { path: 'take', element: <TakeExamEntryPage /> },
       { path: 'proctor', element: <ProctorListPage /> },
       { path: 'results', element: <ExamsResultsPage /> },
     ],

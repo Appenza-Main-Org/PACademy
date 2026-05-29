@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { Activity, BookOpen, ChartBar, FileText, Pencil } from 'lucide-react';
+import { Activity, BookOpen, ChartBar, FileText, KeyRound, Pencil } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
@@ -16,6 +16,7 @@ const SIDEBAR: SidebarSection[] = [
     label: 'الاختبارات والنتائج',
     items: [
       { key: 'exams',   label: 'الاختبارات', icon: <FileText size={18} />, to: ROUTES.questionBank.exams },
+      { key: 'take',    label: 'دخول مختبر', icon: <KeyRound size={18} />, to: ROUTES.questionBank.take },
       { key: 'proctor', label: 'المراقبة',   icon: <Activity size={18} />, to: ROUTES.questionBank.proctor },
       { key: 'results', label: 'النتائج',    icon: <ChartBar size={18} />, to: ROUTES.questionBank.results },
     ],

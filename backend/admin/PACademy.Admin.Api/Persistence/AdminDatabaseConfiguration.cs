@@ -5,6 +5,7 @@ public sealed record AdminDatabaseSettings(
     string? ConnectionString,
     string Schema,
     bool SkipMigrationsAndSeed,
+    bool SkipSeed,
     bool UseInMemory);
 
 public static class AdminDatabaseConfiguration
@@ -39,11 +40,17 @@ public static class AdminDatabaseConfiguration
             || configuration.GetValue<bool>("Database:SkipMigrationsAndSeed")
             || string.Equals(Environment.GetEnvironmentVariable("SKIP_MIGRATIONS_AND_SEED"), "true", StringComparison.OrdinalIgnoreCase);
 
+        var skipSeed =
+            configuration.GetValue<bool>("SkipSeed")
+            || configuration.GetValue<bool>("Database:SkipSeed")
+            || string.Equals(Environment.GetEnvironmentVariable("SKIP_SEED"), "true", StringComparison.OrdinalIgnoreCase);
+
         return new AdminDatabaseSettings(
             connectionName,
             connectionString,
             AdminDbContext.NormalizeSchema(schema),
             skipMigrationsAndSeed,
+            skipSeed,
             useInMemory);
     }
 

@@ -7,6 +7,7 @@ public static class ExamsModule
     public static IServiceCollection AddExamsModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ExamsSeeder>();
+        services.AddScoped<IExamsDbContext>(sp => sp.GetRequiredService<AdminDbContext>());
         services.AddScoped<ExamsService>();
         return services;
     }

@@ -72,10 +72,13 @@ builder.Services.AddIdentityApplicantAdminModule(builder.Configuration);
 var app = builder.Build();
 
 /* ── Apply migrations + idempotent seed ─────────────────────────── */
-var skipSeed = args.Contains("--no-seed")
-    || app.Configuration.GetValue<bool>("SkipMigrationsAndSeed");
+var database = app.Configuration.ResolveAdminDatabaseSettings();
+var skipMigrationsAndSeed = args.Contains("--no-seed")
+    || database.SkipMigrationsAndSeed;
+var skipSeed = args.Contains("--skip-seed")
+    || database.SkipSeed;
 
-if (!skipSeed)
+if (!skipMigrationsAndSeed)
 {
     // Migrate the main AdminDbContext (covers portal tables, admission tables, etc.)
     await using (var scope = app.Services.CreateAsyncScope())
@@ -84,7 +87,10 @@ if (!skipSeed)
         if (db.Database.IsRelational())
             await db.Database.MigrateAsync();
     }
+}
 
+if (!skipMigrationsAndSeed && !skipSeed)
+{
     // Seed each internal module (idempotent — skips rows that already exist).
     await app.SeedLookupsAsync();
     await app.SeedIdentityAsync();
@@ -101,7 +107,10 @@ if (!skipSeed)
 /* ── HTTP pipeline ──────────────────────────────────────────────── */
 app.UsePacademyExceptionHandling();
 
-if (app.Environment.IsDevelopment())
+var openApiEnabled = app.Environment.IsStaging()
+    || app.Environment.IsEnvironment("Uat");
+
+if (openApiEnabled)
 {
     app.MapOpenApi();
     app.MapScalarApiReference(o => o
@@ -118,7 +127,6 @@ app.MapGet("/health", () => Results.Ok(new
 }));
 app.MapGet("/health/db", async (AdminDbContext db, CancellationToken ct) =>
 {
-    var database = app.Configuration.ResolveAdminDatabaseSettings();
     var result = await db.Database.SqlQueryRaw<int>("SELECT CAST(1 AS int) AS [Value]").FirstAsync(ct);
     return Results.Ok(new
     {
@@ -127,6 +135,7 @@ app.MapGet("/health/db", async (AdminDbContext db, CancellationToken ct) =>
         connectionName = database.ConnectionName,
         schema = database.Schema,
         skipMigrationsAndSeed = database.SkipMigrationsAndSeed,
+        skipSeed = database.SkipSeed,
         useInMemory = database.UseInMemory,
         database = result,
         timestamp = DateTimeOffset.UtcNow

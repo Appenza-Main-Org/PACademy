@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -13,17 +13,21 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  ClipboardCheck,
   Download,
   Eye,
   FileText,
   Flag,
   Folder,
+  KeyRound,
   ListChecks,
+  Monitor,
   Pause,
   Pencil,
   Plus,
   Send,
   ShieldCheck,
+  StopCircle,
   Target,
   Timer,
   UploadCloud,
@@ -89,11 +93,29 @@ import { ROUTES } from '@/config/routes';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { downloadBlob } from '@/shared/lib/download';
 import { examsService } from '../api/exams.service';
-import { useLiveSessions } from '../api/exams.queries';
+import {
+  examsKeys,
+  useExamCommitteeUsers,
+  useExamDevices,
+  useLiveSessions,
+} from '../api/exams.queries';
 import { ImportWizard } from '../components/ImportWizard';
 import { LiveSessionsTable } from '../components/LiveSessionsTable';
 import { SESSION_STATUS_LABEL } from '../components/SessionStatusBadge';
-import type { BankQuestion, ExamAnswer, ExamConfig, MatchingPair, QuestionStatus, QuestionType, SessionStatus } from '@/shared/types/domain';
+import type {
+  BankQuestion,
+  ExamAccessValidationResult,
+  ExamAnswer,
+  ExamAuthorizedDevice,
+  ExamCommitteeUser,
+  ExamConfig,
+  MatchingPair,
+  QuestionStatus,
+  QuestionType,
+  SessionStatus,
+} from '@/shared/types/domain';
+
+const CURRENT_CYCLE_ID = 'CYC-2026-M';
 
 /* ─────────── Question Bank list with create/edit ─────────── */
 
@@ -203,9 +225,14 @@ export function QuestionBankCRUDPage(): JSX.Element {
     mutationFn: (payload: Parameters<typeof examsService.createQuestion>[0]) => examsService.createQuestion(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['exams', 'questions'] }),
   });
+  const updateMut = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<BankQuestion> }) => examsService.updateQuestion(id, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['exams', 'questions'] }),
+  });
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<BankQuestion | null>(null);
   const [draft, setDraft] = useState<QuestionDraftState>({
     category: 'قدرات لفظية',
     type: 'mcq',
@@ -216,6 +243,38 @@ export function QuestionBankCRUDPage(): JSX.Element {
     difficulty: 3,
     timeLimitSeconds: 60,
   });
+
+  const resetDraft = (): QuestionDraftState => ({
+    category: 'قدرات لفظية',
+    type: 'mcq',
+    text: '',
+    options: ['', '', '', ''],
+    matchingPairs: DEFAULT_MATCHING_PAIRS.map((pair) => ({ ...pair })),
+    correctIndex: 0,
+    difficulty: 3,
+    timeLimitSeconds: 60,
+  });
+
+  const openCreateQuestion = (): void => {
+    setEditingQuestion(null);
+    setDraft(resetDraft());
+    setDrawerOpen(true);
+  };
+
+  const openEditQuestion = (question: BankQuestion): void => {
+    setEditingQuestion(question);
+    setDraft({
+      category: question.category,
+      type: question.type,
+      text: question.text,
+      options: question.options.length > 0 ? [...question.options] : ['', '', '', ''],
+      matchingPairs: question.matchingPairs?.map((pair) => ({ ...pair })) ?? resetDraft().matchingPairs,
+      correctIndex: question.correctIndex,
+      difficulty: question.difficulty,
+      timeLimitSeconds: question.timeLimitSeconds,
+    });
+    setDrawerOpen(true);
+  };
 
   const columns: DataTableColumn<BankQuestion>[] = [
     { key: 'id', label: 'الرقم', width: 100, render: (q) => <span className="font-mono" dir="ltr">{q.id}</span> },
@@ -230,7 +289,9 @@ export function QuestionBankCRUDPage(): JSX.Element {
       align: 'end',
       render: (q) => (
         <div className="inline-flex items-center gap-1">
-          <Button variant="ghost" size="icon" aria-label="عرض"><Eye size={14} strokeWidth={1.75} /></Button>
+          <Button variant="ghost" size="icon" aria-label="تعديل السؤال" onClick={() => openEditQuestion(q)}>
+            <Pencil size={14} strokeWidth={1.75} />
+          </Button>
           <DuplicateAction
             row={q}
             entityKey="exams.questions"
@@ -265,6 +326,18 @@ export function QuestionBankCRUDPage(): JSX.Element {
               نشر
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              updateMut.mutate(
+                { id: q.id, payload: { status: q.status === 'live' ? 'draft' : 'live' } },
+                { onSuccess: () => toast(q.status === 'live' ? 'تم إخفاء السؤال' : 'تم إظهار السؤال', q.status === 'live' ? 'warning' : 'success') },
+              )
+            }
+          >
+            {q.status === 'live' ? 'إخفاء' : 'إظهار'}
+          </Button>
         </div>
       ),
     },
@@ -281,7 +354,7 @@ export function QuestionBankCRUDPage(): JSX.Element {
             <Button variant="secondary" leadingIcon={<UploadCloud size={14} strokeWidth={1.75} />} onClick={() => setImportOpen(true)}>
               استيراد من Excel
             </Button>
-            <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />} onClick={() => setDrawerOpen(true)}>سؤال جديد</Button>
+            <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />} onClick={openCreateQuestion}>سؤال جديد</Button>
           </div>
         }
       />
@@ -451,8 +524,8 @@ export function QuestionBankCRUDPage(): JSX.Element {
       <Modal
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title="سؤال جديد"
-        subtitle="أدخل بيانات السؤال وسيتم حفظه كمسودّة"
+        title={editingQuestion ? 'تعديل سؤال' : 'سؤال جديد'}
+        subtitle={editingQuestion ? 'عدّل بيانات السؤال مع حفظ رقم الإصدار وسجل التدقيق' : 'أدخل بيانات السؤال وسيتم حفظه كمسودّة'}
         size="lg"
         transparentBackdrop={false}
       >
@@ -462,7 +535,15 @@ export function QuestionBankCRUDPage(): JSX.Element {
             className="flex flex-col gap-4"
             onSubmit={(e) => {
               e.preventDefault();
-              createMut.mutate(normaliseQuestionDraft(draft), {
+              const payload = normaliseQuestionDraft(draft);
+              if (editingQuestion) {
+                updateMut.mutate(
+                  { id: editingQuestion.id, payload },
+                  { onSuccess: () => { toast('تم تعديل السؤال', 'success'); setDrawerOpen(false); } },
+                );
+                return;
+              }
+              createMut.mutate(payload, {
                 onSuccess: () => { toast('تم حفظ السؤال كمسودّة', 'success'); setDrawerOpen(false); },
               });
             }}
@@ -540,8 +621,8 @@ export function QuestionBankCRUDPage(): JSX.Element {
         </Modal.Body>
         <Modal.Footer>
           <Button type="button" variant="ghost" onClick={() => setDrawerOpen(false)}>إلغاء</Button>
-          <Button type="submit" form="new-question-form" variant="primary" isLoading={createMut.isPending}>
-            حفظ كمسودّة
+          <Button type="submit" form="new-question-form" variant="primary" isLoading={createMut.isPending || updateMut.isPending}>
+            {editingQuestion ? 'حفظ التعديل' : 'حفظ كمسودّة'}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -573,8 +654,19 @@ const POOL_STATUS_FILTERS: ReadonlyArray<{ value: QuestionStatus | 'all'; label:
 export function ExamCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const [name, setName] = useState('');
+  const [cycleId, setCycleId] = useState(CURRENT_CYCLE_ID);
   const [scheduledFor, setScheduledFor] = useState(new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
+  const [durationMinutes, setDurationMinutes] = useState(45);
+  const [accessStartAt, setAccessStartAt] = useState(`${scheduledFor}T09:00`);
+  const [accessEndAt, setAccessEndAt] = useState(`${scheduledFor}T12:00`);
   const [targetCount, setTargetCount] = useState(40);
+  const [randomSelection, setRandomSelection] = useState(true);
+  const [randomQuestionOrder, setRandomQuestionOrder] = useState(true);
+  const [displayMode, setDisplayMode] = useState<ExamConfig['displayMode']>('one-question');
+  const [assignedCategory, setAssignedCategory] = useState('كل الفئات');
+  const [assignedType, setAssignedType] = useState('قدرات عامة');
+  const [assignedGender, setAssignedGender] = useState<'all' | 'male' | 'female'>('all');
+  const [assignedSpecialization, setAssignedSpecialization] = useState('كل التخصصات');
   const [categoryFilter, setCategoryFilter] = useState<string | 'all'>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<QuestionStatus | 'all'>('live');
@@ -620,14 +712,26 @@ export function ExamCreatePage(): JSX.Element {
   const createMut = useMutation({
     mutationFn: () => examsService.createExam({
       nameAr: name.trim(),
-      cycleId: 'CYC-2026-M',
+      cycleId,
+      cycleName: 'عام القبول 2026',
       scheduledFor: new Date(scheduledFor).toISOString(),
+      accessStartAt: new Date(accessStartAt).toISOString(),
+      accessEndAt: new Date(accessEndAt).toISOString(),
+      durationMinutes,
+      questionCount: targetCount,
+      randomSelection,
+      randomQuestionOrder,
+      displayMode,
+      assignedCategories: assignedCategory === 'كل الفئات' ? [] : [assignedCategory],
+      assignedTypes: [assignedType],
+      assignedGenders: assignedGender === 'all' ? [] : [assignedGender],
+      assignedSpecializations: assignedSpecialization === 'كل التخصصات' ? [] : [assignedSpecialization],
       rules: [{
         category: categoryFilter === 'all' ? 'متعدد' : categoryFilter,
         difficultyMin: 1,
         difficultyMax: 5,
         count: selectedIds.length,
-        minutes: estimatedMinutes,
+        minutes: durationMinutes || estimatedMinutes,
       }],
       questionIds: selectedIds,
     }),
@@ -669,7 +773,25 @@ export function ExamCreatePage(): JSX.Element {
               error={nameError ?? undefined}
               containerClassName="md:col-span-2"
             />
-            <Input label="موعد الاختبار" type="date" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} />
+            <Select
+              label="عام القبول / الدورة"
+              value={cycleId}
+              onChange={(e) => setCycleId(e.target.value)}
+              options={[
+                { value: CURRENT_CYCLE_ID, label: 'عام القبول 2026 · الدورة الحالية' },
+                { value: 'CYC-2026-F', label: 'عام القبول 2026 · احتياطي' },
+              ]}
+            />
+            <Input
+              label="موعد الاختبار"
+              type="date"
+              value={scheduledFor}
+              onChange={(e) => {
+                setScheduledFor(e.target.value);
+                setAccessStartAt(`${e.target.value}T09:00`);
+                setAccessEndAt(`${e.target.value}T12:00`);
+              }}
+            />
             <Input
               label="العدد المستهدف للأسئلة"
               type="number"
@@ -679,6 +801,70 @@ export function ExamCreatePage(): JSX.Element {
               onChange={(e) => setTargetCount(Math.max(1, Number(e.target.value) || 1))}
               helper="يُستخدم لزر «اختيار تلقائي» أدناه"
             />
+            <Input
+              label="مدة الاختبار (دقيقة)"
+              type="number"
+              min={5}
+              max={240}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(Math.max(5, Number(e.target.value) || 5))}
+            />
+            <Input label="بداية نافذة الدخول" type="datetime-local" value={accessStartAt} onChange={(e) => setAccessStartAt(e.target.value)} />
+            <Input label="نهاية نافذة الدخول" type="datetime-local" value={accessEndAt} onChange={(e) => setAccessEndAt(e.target.value)} />
+            <Select
+              label="طريقة عرض الاختبار"
+              value={displayMode ?? 'one-question'}
+              onChange={(e) => setDisplayMode(e.target.value as ExamConfig['displayMode'])}
+              options={[
+                { value: 'one-question', label: 'سؤال واحد في كل صفحة' },
+                { value: 'full-page', label: 'كل الأسئلة في صفحة واحدة' },
+              ]}
+            />
+            <Select
+              label="فئة المتقدمين"
+              value={assignedCategory}
+              onChange={(e) => setAssignedCategory(e.target.value)}
+              options={['كل الفئات', 'الثانوية العامة', 'مؤهلات عليا', 'ضباط متخصصون'].map((value) => ({ value, label: value }))}
+            />
+            <Select
+              label="نوع الاختبار"
+              value={assignedType}
+              onChange={(e) => setAssignedType(e.target.value)}
+              options={['قدرات عامة', 'قدرات عددية', 'ثقافة عامة'].map((value) => ({ value, label: value }))}
+            />
+            <Select
+              label="الجنس"
+              value={assignedGender}
+              onChange={(e) => setAssignedGender(e.target.value as 'all' | 'male' | 'female')}
+              options={[
+                { value: 'all', label: 'الجميع' },
+                { value: 'male', label: 'ذكور' },
+                { value: 'female', label: 'إناث' },
+              ]}
+            />
+            <Input label="التخصص" value={assignedSpecialization} onChange={(e) => setAssignedSpecialization(e.target.value)} />
+            <div className="md:col-span-2 grid gap-3 rounded-md border border-dashed border-border-default bg-surface-page p-3 md:grid-cols-2">
+              <label className="flex items-center gap-2 text-sm text-ink-700">
+                <input
+                  type="checkbox"
+                  checked={randomSelection}
+                  onChange={(e) => setRandomSelection(e.target.checked)}
+                  className="h-4 w-4"
+                  style={{ accentColor: 'var(--accent-500)' }}
+                />
+                اختيار الأسئلة عشوائياً من القواعد
+              </label>
+              <label className="flex items-center gap-2 text-sm text-ink-700">
+                <input
+                  type="checkbox"
+                  checked={randomQuestionOrder}
+                  onChange={(e) => setRandomQuestionOrder(e.target.checked)}
+                  className="h-4 w-4"
+                  style={{ accentColor: 'var(--accent-500)' }}
+                />
+                ترتيب الأسئلة عشوائياً لكل مختبر
+              </label>
+            </div>
           </div>
         </Card>
 
@@ -803,29 +989,122 @@ export function LiveExamPage(): JSX.Element {
   return <LiveExamExperience />;
 }
 
+export function TakeExamEntryPage(): JSX.Element {
+  const navigate = useNavigate();
+  const { data: exams, isLoading } = useQuery({
+    queryKey: ['exams', 'list'],
+    queryFn: () => examsService.listExams(),
+  });
+  const available = (exams ?? []).filter((exam) => exam.status === 'published');
+  const [selectedExamId, setSelectedExamId] = useState('');
+  const [nationalId, setNationalId] = useState('');
+  const [applicantCode, setApplicantCode] = useState('');
+  const [ipAddress, setIpAddress] = useState('10.20.14.11');
+  const [deviceIdentifier, setDeviceIdentifier] = useState('A4:8D:3B:91:22:10');
+  const examId = selectedExamId || available[0]?.id || '';
+
+  return (
+    <CenteredShell>
+      <PageHeader
+        title="دخول المختبر"
+        subtitle="تحقق من الرقم القومي والكود والجهاز قبل فتح الاختبار الإلكتروني"
+      />
+      <Card>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Select
+            label="الاختبار"
+            value={examId}
+            onChange={(e) => setSelectedExamId(e.target.value)}
+            options={available.map((exam) => ({ value: exam.id, label: `${exam.nameAr} · ${exam.cycleId}` }))}
+            disabled={isLoading || available.length === 0}
+          />
+          <Input label="الرقم القومي" dir="ltr" value={nationalId} onChange={(e) => setNationalId(e.target.value)} />
+          <Input label="كود المتقدم / الطالب" dir="ltr" value={applicantCode} onChange={(e) => setApplicantCode(e.target.value)} />
+          <Input label="IP الجهاز" dir="ltr" value={ipAddress} onChange={(e) => setIpAddress(e.target.value)} />
+          <Input label="MAC / معرف الجهاز" dir="ltr" value={deviceIdentifier} onChange={(e) => setDeviceIdentifier(e.target.value)} />
+        </div>
+        <div className="mt-5 flex justify-end">
+          <Button
+            variant="primary"
+            leadingIcon={<KeyRound size={14} strokeWidth={1.75} />}
+            disabled={!examId || !nationalId.trim() || !applicantCode.trim()}
+            onClick={() => {
+              const params = new URLSearchParams({ nationalId, applicantCode, ip: ipAddress, device: deviceIdentifier });
+              navigate(`${ROUTES.questionBank.examTake(examId)}?${params.toString()}`);
+            }}
+          >
+            متابعة التحقق
+          </Button>
+        </div>
+      </Card>
+    </CenteredShell>
+  );
+}
+
 function LiveExamExperience({ isPreview = false }: { isPreview?: boolean }): JSX.Element {
   const { examId = '' } = useParams<{ examId: string }>();
+  const [searchParams] = useSearchParams();
   const { data: exam, isLoading, error, refetch } = useQuery({ queryKey: ['exams', 'config', examId], queryFn: () => examsService.getExam(examId), enabled: Boolean(examId) });
   const [phase, setPhase] = useState<'pre' | 'exam' | 'submitted'>('pre');
   const [activeIdx, setActiveIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, ExamAnswer>>({});
   const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [seconds, setSeconds] = useState(45 * 60);
-  const [questions, setQuestions] = useState<BankQuestion[]>([]);
+  const [nationalId, setNationalId] = useState(searchParams.get('nationalId') ?? '');
+  const [applicantCode, setApplicantCode] = useState(searchParams.get('applicantCode') ?? '');
+  const [ipAddress, setIpAddress] = useState(searchParams.get('ip') ?? '10.20.14.11');
+  const [deviceIdentifier, setDeviceIdentifier] = useState(searchParams.get('device') ?? 'A4:8D:3B:91:22:10');
+  const [validation, setValidation] = useState<ExamAccessValidationResult | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
 
-  /* Fetch the exam's questions when entering exam phase. */
-  useEffect(() => {
-    if (phase !== 'exam' || !exam) return;
-    Promise.all(exam.questionIds.map((id) => examsService.getQuestion(id))).then((qs) => {
-      setQuestions(qs.filter(Boolean) as BankQuestion[]);
-    });
-  }, [phase, exam]);
+  const { data: questionsData, isLoading: questionsLoading } = useQuery({
+    queryKey: ['exams', 'config', examId, 'questions'],
+    queryFn: async () => {
+      if (!exam) return [] as BankQuestion[];
+      const qs = await Promise.all(exam.questionIds.map((id) => examsService.getQuestion(id)));
+      const loaded = qs.filter((q): q is BankQuestion => Boolean(q));
+      return exam.randomQuestionOrder ? [...loaded].reverse() : loaded;
+    },
+    enabled: phase === 'exam' && Boolean(exam),
+  });
+  const questions = questionsData ?? [];
+
+  const submitMut = useMutation({
+    mutationFn: (opts: { auto?: boolean }) =>
+      attemptId ? examsService.submitAttempt(attemptId, answers, opts) : Promise.reject(new Error('لم تبدأ محاولة الاختبار بعد.')),
+    onSuccess: () => setPhase('submitted'),
+  });
+
+  const validateMut = useMutation({
+    mutationFn: () =>
+      examsService.validateAccess({
+        nationalId,
+        applicantCode,
+        examId: exam?.id ?? examId,
+        ipAddress,
+        deviceIdentifier,
+      }),
+    onSuccess: async (result) => {
+      setValidation(result);
+      if (!result.ok || !exam) return;
+      const attempt = await examsService.startAttempt(exam.id, result.applicantId ?? applicantCode);
+      setAttemptId(attempt.id);
+      setSeconds((exam.durationMinutes ?? Math.max(1, exam.rules.reduce((sum, rule) => sum + rule.minutes, 0))) * 60);
+      setPhase('exam');
+    },
+  });
 
   useEffect(() => {
     if (phase !== 'exam' || seconds <= 0) return;
     const t = window.setInterval(() => setSeconds((s) => Math.max(0, s - 1)), 1000);
     return () => window.clearInterval(t);
   }, [phase, seconds]);
+
+  useEffect(() => {
+    if (phase === 'exam' && seconds === 0 && !isPreview && attemptId && !submitMut.isPending) {
+      submitMut.mutate({ auto: true });
+    }
+  }, [attemptId, isPreview, phase, seconds, submitMut]);
 
   if (isLoading) return <CenteredShell><LoadingState variant="page" /></CenteredShell>;
   if (error) return <CenteredShell><ErrorState error={error} onRetry={() => refetch()} /></CenteredShell>;
@@ -847,10 +1126,45 @@ function LiveExamExperience({ isPreview = false }: { isPreview?: boolean }): JSX
           </p>
           <div className="my-6 flex flex-col items-center gap-3">
             <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-teal-50 text-teal-700"><ShieldCheck size={32} strokeWidth={1.75} /></span>
-            <Badge tone={isPreview ? 'info' : 'success'}>{isPreview ? 'وضع المعاينة' : 'تم التحقق البيومتري'}</Badge>
+            <Badge tone={isPreview ? 'info' : validation?.ok ? 'success' : 'warning'}>{isPreview ? 'وضع المعاينة' : validation?.ok ? 'تم التحقق من الدخول' : 'يلزم التحقق قبل البدء'}</Badge>
           </div>
-          <Button variant="primary" size="lg" onClick={() => setPhase('exam')}>
-            {isPreview ? 'بدء المعاينة' : 'ابدأ الاختبار'}
+          {!isPreview && (
+            <div className="mx-auto mb-5 grid max-w-2xl gap-3 text-start md:grid-cols-2">
+              <Input label="الرقم القومي" dir="ltr" value={nationalId} onChange={(e) => setNationalId(e.target.value)} />
+              <Input label="كود المتقدم / الطالب" dir="ltr" value={applicantCode} onChange={(e) => setApplicantCode(e.target.value)} />
+              <Input label="IP الجهاز" dir="ltr" value={ipAddress} onChange={(e) => setIpAddress(e.target.value)} />
+              <Input label="MAC / معرف الجهاز" dir="ltr" value={deviceIdentifier} onChange={(e) => setDeviceIdentifier(e.target.value)} />
+            </div>
+          )}
+          {validation && !validation.ok && (
+            <div className="mx-auto mb-4 max-w-2xl rounded-md border border-dashed border-terra-300 bg-terra-50 p-3 text-start text-2xs text-terra-700">
+              {validation.reason}
+            </div>
+          )}
+          {validation && (
+            <div className="mx-auto mb-5 grid max-w-2xl gap-2 text-start md:grid-cols-2">
+              {validation.checks.map((check) => (
+                <div key={check.key} className="flex items-start gap-2 rounded-md bg-surface-page px-3 py-2 text-2xs">
+                  <Badge tone={check.ok ? 'success' : 'warning'}>{check.ok ? 'صحيح' : 'مرفوض'}</Badge>
+                  <span>{check.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <Button
+            variant="primary"
+            size="lg"
+            isLoading={validateMut.isPending}
+            onClick={() => {
+              if (isPreview) {
+                setSeconds((exam.durationMinutes ?? 45) * 60);
+                setPhase('exam');
+                return;
+              }
+              validateMut.mutate();
+            }}
+          >
+            {isPreview ? 'بدء المعاينة' : 'تحقق وابدأ الاختبار'}
           </Button>
         </Card>
       </CenteredShell>
@@ -881,22 +1195,25 @@ function LiveExamExperience({ isPreview = false }: { isPreview?: boolean }): JSX
               <Timer size={12} strokeWidth={1.75} />
               <span dir="ltr" className="font-numeric tnum">{String(minutes).padStart(2, '0')}:{String(secs).padStart(2, '0')}</span>
             </span>
-            <Button
-              variant="primary"
-              onClick={async () => {
-                if (!isPreview) {
-                  const att = await examsService.startAttempt(exam.id, 'APP-2026000');
-                  await examsService.submitAttempt(att.id, answers);
-                }
-                setPhase('submitted');
-              }}
-            >
-              {isPreview ? 'إنهاء المعاينة' : 'تسليم'}
-            </Button>
+	            <Button
+	              variant="primary"
+	              isLoading={submitMut.isPending}
+	              onClick={() => {
+	                if (!isPreview) {
+	                  submitMut.mutate({});
+	                  return;
+	                }
+	                setPhase('submitted');
+	              }}
+	            >
+	              {isPreview ? 'إنهاء المعاينة' : 'تسليم'}
+	            </Button>
           </div>
         }
       />
-      {activeQ ? (
+      {questionsLoading ? (
+        <LoadingState variant="card-grid" count={1} />
+      ) : activeQ ? (
         <Card>
           <p className="mb-4 text-md font-medium text-ink-900">{activeQ.text}</p>
           <StudentQuestionAnswer
@@ -1251,12 +1568,33 @@ export function ExamsListPageNew(): JSX.Element {
   });
 
   const exams = data ?? [];
+  const { data: usersData } = useExamCommitteeUsers();
+  const { data: devicesData } = useExamDevices();
+  const qc = useQueryClient();
+  const stopExamMut = useMutation({
+    mutationFn: (examId: string) => examsService.stopExam(examId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: examsKeys.list() });
+      toast('تم إيقاف الاختبار', 'warning');
+    },
+  });
+  const toggleUserMut = useMutation({
+    mutationFn: (user: ExamCommitteeUser) =>
+      examsService.updateCommitteeUser(user.id, { status: user.status === 'active' ? 'suspended' : 'active' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: examsKeys.users() });
+      toast('تم تحديث حالة مستخدم لجنة الاختبار', 'success');
+    },
+  });
   const counts = {
     total: exams.length,
     published: exams.filter((e) => e.status === 'published').length,
     drafts: exams.filter((e) => e.status === 'draft').length,
     completed: exams.filter((e) => e.status === 'completed').length,
   };
+  const currentCycleExams = exams.filter((e) => e.cycleId === CURRENT_CYCLE_ID);
+  const activeUsers = (usersData ?? []).filter((u) => u.status === 'active').length;
+  const activeDevices = (devicesData ?? []).filter((d) => d.status === 'active').length;
 
   const columns: DataTableColumn<ExamConfig>[] = [
     {
@@ -1284,7 +1622,7 @@ export function ExamsListPageNew(): JSX.Element {
       render: (e) => (
         <Badge tone={e.status === 'published' ? 'success' : e.status === 'completed' ? 'info' : 'warning'}>
           {e.status === 'published' && <IconStamp width={12} height={12} className="me-1 inline-block" />}
-          {e.status === 'published' ? 'منشور' : e.status === 'completed' ? 'منتهي' : 'مسودّة'}
+          {e.status === 'published' ? 'منشور' : e.status === 'completed' ? 'منتهي' : e.status === 'stopped' ? 'موقوف' : 'مسودّة'}
         </Badge>
       ),
     },
@@ -1317,17 +1655,30 @@ export function ExamsListPageNew(): JSX.Element {
             معاينة
           </Button>
           {e.status === 'published' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              leadingIcon={<Wifi size={12} strokeWidth={1.75} />}
-              onClick={(ev) => {
-                ev.stopPropagation();
-                navigate(ROUTES.questionBank.examProctor(e.id));
-              }}
-            >
-              مراقبة
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<Wifi size={12} strokeWidth={1.75} />}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  navigate(ROUTES.questionBank.examProctor(e.id));
+                }}
+              >
+                مراقبة
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<StopCircle size={12} strokeWidth={1.75} />}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  stopExamMut.mutate(e.id);
+                }}
+              >
+                إيقاف
+              </Button>
+            </>
           )}
         </div>
       ),
@@ -1362,6 +1713,54 @@ export function ExamsListPageNew(): JSX.Element {
         <StatCard label="منشور" value={counts.published} icon={<CheckCircle2 size={16} strokeWidth={1.75} />} iconBg="var(--success-bg)" iconColor="var(--success)" />
         <StatCard label="مسوّدات" value={counts.drafts} icon={<Pencil size={16} strokeWidth={1.75} />} iconBg="var(--gold-50)" iconColor="var(--gold-700)" />
         <StatCard label="منتهية" value={counts.completed} icon={<ShieldCheck size={16} strokeWidth={1.75} />} iconBg="var(--ink-100)" iconColor="var(--ink-700)" />
+      </div>
+      <div className="mb-5 grid gap-5 lg:grid-cols-3">
+        <Card>
+          <CardHeader title="ربط عام القبول" subtitle="الاختبارات المرتبطة بالدورة الحالية" />
+          <div className="grid gap-3 text-sm">
+            <div className="flex items-center justify-between rounded-md bg-surface-page px-3 py-2">
+              <span>الدورة الحالية</span>
+              <span className="font-mono text-2xs text-ink-700" dir="ltr">{CURRENT_CYCLE_ID}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-md bg-surface-page px-3 py-2">
+              <span>اختبارات مرتبطة</span>
+              <strong className="font-numeric tnum">{num(currentCycleExams.length)}</strong>
+            </div>
+            <Button variant="secondary" size="sm" leadingIcon={<ClipboardCheck size={13} strokeWidth={1.75} />}>
+              تقرير ربط الدورة
+            </Button>
+          </div>
+        </Card>
+        <Card>
+          <CardHeader title="مستخدمو لجان الاختبار" subtitle={`${num(activeUsers)} مفعل · صلاحيات واستعلامات`} />
+          <div className="flex flex-col gap-2">
+            {(usersData ?? []).slice(0, 3).map((user) => (
+              <div key={user.id} className="flex items-center justify-between gap-2 rounded-md border border-border-default px-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink-900">{user.fullName}</p>
+                  <p className="font-mono text-2xs text-ink-500" dir="ltr">{user.username} · {user.authorizedIp}</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => toggleUserMut.mutate(user)}>
+                  {user.status === 'active' ? 'تعليق' : 'تفعيل'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <CardHeader title="الأجهزة المصرح بها" subtitle={`${num(activeDevices)} جهاز مفعل`} />
+          <div className="grid gap-2">
+            {(devicesData ?? []).slice(0, 3).map((device) => (
+              <div key={device.id} className="rounded-md bg-surface-page px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-ink-900">{device.label}</span>
+                  <Badge tone={device.status === 'active' ? 'success' : 'neutral'}>{device.status === 'active' ? 'مفعل' : 'غير مفعل'}</Badge>
+                </div>
+                <p className="font-mono text-2xs text-ink-500" dir="ltr">{device.ipAddress} · {device.macAddress}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
       <Card>
         <DataTable
@@ -1425,9 +1824,36 @@ export function ExamsListPageNew(): JSX.Element {
 
 export function ProctorListPage(): JSX.Element {
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [deviceMac, setDeviceMac] = useState('');
+  const [deviceIp, setDeviceIp] = useState('');
+  const [deviceFrom, setDeviceFrom] = useState(new Date(Date.now() - 15 * 60_000).toISOString().slice(0, 16));
+  const [deviceTo, setDeviceTo] = useState(new Date(Date.now() + 3 * 60 * 60_000).toISOString().slice(0, 16));
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['exams', 'list'],
     queryFn: () => examsService.listExams(),
+  });
+  const { data: devices } = useExamDevices();
+  const createDeviceMut = useMutation({
+    mutationFn: () => examsService.createDevice({
+      label: `جهاز لجنة ${deviceIp || deviceMac || 'جديد'}`,
+      macAddress: deviceMac,
+      ipAddress: deviceIp,
+      status: 'active',
+      allowedFrom: new Date(deviceFrom).toISOString(),
+      allowedTo: new Date(deviceTo).toISOString(),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: examsKeys.devices() });
+      setDeviceMac('');
+      setDeviceIp('');
+      toast('تم إضافة الجهاز المصرح به', 'success');
+    },
+  });
+  const toggleDeviceMut = useMutation({
+    mutationFn: (device: ExamAuthorizedDevice) =>
+      examsService.updateDevice(device.id, { status: device.status === 'active' ? 'inactive' : 'active' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: examsKeys.devices() }),
   });
 
   if (error) {
@@ -1448,6 +1874,7 @@ export function ProctorListPage(): JSX.Element {
   const live = exams.filter(isLive);
   const upcoming = exams.filter((e) => e.status === 'published' && !isLive(e));
   const completed = exams.filter((e) => e.status === 'completed');
+  const activeDevices = (devices ?? []).filter((device) => device.status === 'active');
 
   return (
     <CenteredShell>
@@ -1455,6 +1882,41 @@ export function ProctorListPage(): JSX.Element {
         title="مراقبة الاختبارات"
         subtitle="اختر اختبارًا لمتابعة جلساته اللحظية وإدارة المختبرين"
       />
+
+      <Card className="mb-6">
+        <CardHeader title="التحكم في أجهزة الدخول" subtitle={`${num(activeDevices.length)} جهاز مصرح · MAC/IP ونافذة زمنية`} />
+        <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input label="MAC Address" dir="ltr" value={deviceMac} onChange={(e) => setDeviceMac(e.target.value)} />
+            <Input label="IP" dir="ltr" value={deviceIp} onChange={(e) => setDeviceIp(e.target.value)} />
+            <Input label="بداية السماح" type="datetime-local" value={deviceFrom} onChange={(e) => setDeviceFrom(e.target.value)} />
+            <Input label="نهاية السماح" type="datetime-local" value={deviceTo} onChange={(e) => setDeviceTo(e.target.value)} />
+            <Button
+              className="md:col-span-2"
+              variant="secondary"
+              leadingIcon={<Monitor size={14} strokeWidth={1.75} />}
+              disabled={!deviceMac.trim() || !deviceIp.trim()}
+              isLoading={createDeviceMut.isPending}
+              onClick={() => createDeviceMut.mutate()}
+            >
+              إضافة جهاز مصرح
+            </Button>
+          </div>
+          <div className="grid gap-2">
+            {(devices ?? []).slice(0, 4).map((device) => (
+              <div key={device.id} className="flex items-center justify-between gap-3 rounded-md border border-border-default px-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink-900">{device.label}</p>
+                  <p className="font-mono text-2xs text-ink-500" dir="ltr">{device.macAddress} · {device.ipAddress}</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => toggleDeviceMut.mutate(device)}>
+                  {device.status === 'active' ? 'إيقاف' : 'تفعيل'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
 
       {isLoading ? (
         <LoadingState />
@@ -1599,12 +2061,14 @@ const EXAM_STATUS_LABEL: Record<ExamConfig['status'], string> = {
   draft: 'مسودّة',
   published: 'منشور',
   completed: 'منتهي',
+  stopped: 'متوقف',
 };
 
 const EXAM_STATUS_TONE: Record<ExamConfig['status'], 'warning' | 'success' | 'info'> = {
   draft: 'warning',
   published: 'success',
   completed: 'info',
+  stopped: 'warning',
 };
 
 export function ExamDetailPage(): JSX.Element {

@@ -1,0 +1,1792 @@
+[
+  {
+    "id": "TC001",
+    "title": "Super admin reaches reports after signing in",
+    "description": "This verifies that a super admin can sign in and land in the authorized reports area for admin analytics.",
+    "category": "Admin reports command center",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the super admin role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the reports command center is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user is in the authenticated admin area"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Admin operator signs in to the admin workspace",
+    "description": "This verifies that an admin operator can sign in and reach the authorized admin workspace instead of an unauthorized page.",
+    "category": "Applicant administration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated admin workspace is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user is not blocked by a role-denied state"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Signed-in staff lands on the correct authenticated workspace",
+    "description": "This verifies that after successful sign-in the user arrives at the appropriate authenticated landing area for their role.",
+    "category": "Staff authentication and RBAC routing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select a staff role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated workspace is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Staff with no access is routed away from a denied area",
+    "description": "This verifies that a signed-in staff user who lacks permission for an admin area is redirected away from the denied route.",
+    "category": "Staff authentication and RBAC routing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select a staff role that does not permit the requested admin area"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open a denied admin route"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is routed away from the denied area"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Admin operator reaches the applicant list after signing in",
+    "description": "This verifies that an admin operator can sign in and open the applicant administration list from the authenticated area.",
+    "category": "Applicant administration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the applicant administration page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the applicant list is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Super admin reviews the full analytics dashboard",
+    "description": "This verifies that the reports page shows the main operational views a super admin needs to review admissions performance.",
+    "category": "Admin reports command center",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the super admin role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the reports command center"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify funnel analytics are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify department breakdowns are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify operational status and alerts are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Super admin reviews the reports dashboard",
+    "description": "This verifies that a super admin can open the reports dashboard and review the key analytics sections on the page.",
+    "category": "Admin reports command center",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the super admin role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the reports area from the admin shell"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify KPI cards and analytics sections are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify operational alerts or status information is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "Authenticated users can open the hub launcher from the signed-in area",
+    "description": "This verifies that a signed-in staff user can reach the main hub launcher and see permitted internal applications.",
+    "category": "Authenticated staff hub",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select an authorized staff role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the hub launcher"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify permitted internal applications are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC009",
+    "title": "Admin operator reviews and narrows the applicant list",
+    "description": "This verifies that an admin operator can open the applicant list, search and filter records, and see matching results remain visible.",
+    "category": "Applicant administration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the applicant administration area"
+      },
+      {
+        "type": "action",
+        "description": "Search for an applicant"
+      },
+      {
+        "type": "action",
+        "description": "Apply an applicant filter"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the applicant list is displayed with matching results"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify applicant statistics remain visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC010",
+    "title": "Super admin can use the reports command center from the landing route",
+    "description": "This verifies that opening the admin landing route routes a super admin into the reports area rather than leaving them on a generic admin shell.",
+    "category": "Admin reports command center",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the super admin role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the admin landing route"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the reports command center is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC011",
+    "title": "Admin operator can search and filter applicants",
+    "description": "This verifies that an admin operator can narrow the applicant list using search and filters and see matching results update in the list.",
+    "category": "Applicant administration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the applicant administration page"
+      },
+      {
+        "type": "action",
+        "description": "Enter a search term for an applicant"
+      },
+      {
+        "type": "action",
+        "description": "Apply an applicant filter"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the applicant list updates to matching results"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC012",
+    "title": "Admin operator opens an applicant record and reviews its progress",
+    "description": "This verifies that an admin operator can open an applicant record from the list and review the status and timeline details.",
+    "category": "Applicant administration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the applicant administration area"
+      },
+      {
+        "type": "action",
+        "description": "Open a matching applicant record from the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the applicant detail view is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the applicant status and timeline are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC013",
+    "title": "Admin operator can open an applicant record and review its progress",
+    "description": "This verifies that an admin operator can open an applicant detail view and review the applicant status and timeline.",
+    "category": "Applicant administration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the applicant administration page"
+      },
+      {
+        "type": "action",
+        "description": "Open an applicant record from the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify applicant status is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify applicant timeline is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC014",
+    "title": "Authorized staff loads the admission setup application settings",
+    "description": "This verifies that an authorized staff user can open the application settings step and review the active cycle configuration.",
+    "category": "Admission setup wizard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the admission setup wizard application settings step"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the active cycle application settings summary is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify category settings are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC015",
+    "title": "Authorized staff can review and save application settings in the admission setup wizard",
+    "description": "This verifies that staff can open the application settings step, review the active cycle, change allowed values, and save the configuration.",
+    "category": "Admission setup wizard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select an authorized staff role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the application settings step in the admission setup wizard"
+      },
+      {
+        "type": "action",
+        "description": "Review the active cycle settings"
+      },
+      {
+        "type": "action",
+        "description": "Update an allowed value in the settings"
+      },
+      {
+        "type": "action",
+        "description": "Save the configuration"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a success confirmation is visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC016",
+    "title": "Authorized staff saves changes in the admission setup wizard",
+    "description": "This verifies that an authorized staff user can edit allowed application settings and save the configuration successfully.",
+    "category": "Admission setup wizard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the admission setup wizard application settings step"
+      },
+      {
+        "type": "action",
+        "description": "Edit an allowed application setting"
+      },
+      {
+        "type": "action",
+        "description": "Save the configuration"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a success confirmation is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated application settings are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC017",
+    "title": "Authorized staff opens the lookup hub and chooses a lookup type",
+    "description": "This verifies that an authorized staff user can open the lookups area and select a lookup type for maintenance.",
+    "category": "Lookups management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the lookups management area"
+      },
+      {
+        "type": "action",
+        "description": "Select a lookup type"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the selected lookup type entries are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC018",
+    "title": "Authorized staff can open the lookup management hub",
+    "description": "This verifies that an authenticated staff user can reach the lookup management area from the admin shell.",
+    "category": "Lookup management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select an authorized staff role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the lookup management page"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify lookup types are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC019",
+    "title": "Authorized staff can add and activate a lookup row",
+    "description": "This verifies that staff can create a new lookup row and set it active in the lookup management workflow.",
+    "category": "Lookup management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select an authorized staff role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the lookup management page"
+      },
+      {
+        "type": "action",
+        "description": "Select a lookup type"
+      },
+      {
+        "type": "action",
+        "description": "Add a new lookup row"
+      },
+      {
+        "type": "action",
+        "description": "Mark the new row as active"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new lookup row is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC020",
+    "title": "Authorized staff adds a new lookup row",
+    "description": "This verifies that an authorized staff user can add a new lookup entry and see it appear in the selected lookup list.",
+    "category": "Lookups management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the lookups management area"
+      },
+      {
+        "type": "action",
+        "description": "Select a lookup type"
+      },
+      {
+        "type": "action",
+        "description": "Add a new lookup row with valid values"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new lookup row is displayed in the list"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC021",
+    "title": "Authorized staff edits and activates a lookup row",
+    "description": "This verifies that an authorized staff user can update a lookup row, change its active state, and see the saved state reflected in the list.",
+    "category": "Lookups management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the lookups management area"
+      },
+      {
+        "type": "action",
+        "description": "Select a lookup type"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing lookup row for editing"
+      },
+      {
+        "type": "action",
+        "description": "Update the lookup row with valid values"
+      },
+      {
+        "type": "action",
+        "description": "Toggle the active state for the lookup row"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated lookup row is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the active state is reflected in the list"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC022",
+    "title": "Authorized staff can edit and reorder lookup rows",
+    "description": "This verifies that staff can update a lookup row and change its position within the selected lookup list.",
+    "category": "Lookup management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select an authorized staff role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the lookup management page"
+      },
+      {
+        "type": "action",
+        "description": "Select a lookup type"
+      },
+      {
+        "type": "action",
+        "description": "Edit an existing lookup row"
+      },
+      {
+        "type": "action",
+        "description": "Reorder the lookup entries"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated lookup rows are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC023",
+    "title": "Authorized staff reorders lookup rows",
+    "description": "This verifies that an authorized staff user can change the order of lookup entries and see the updated ordering in the list.",
+    "category": "Lookups management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the lookups management area"
+      },
+      {
+        "type": "action",
+        "description": "Select a lookup type"
+      },
+      {
+        "type": "action",
+        "description": "Move a lookup row to a new position"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the lookup rows appear in the updated order"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC024",
+    "title": "Authorized staff is warned before leaving unsaved application settings",
+    "description": "This verifies that unsaved changes in the application settings step are detected and the user is warned before navigating away.",
+    "category": "Admission setup wizard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select an authorized staff role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Open the application settings step in the admission setup wizard"
+      },
+      {
+        "type": "action",
+        "description": "Change a settings value without saving"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to navigate away from the settings step"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an unsaved changes warning is visible"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC025",
+    "title": "Admin operator sees an empty applicant list when no results match",
+    "description": "This verifies that the applicant list shows an empty state when a search or filter produces no matching records.",
+    "category": "Applicant administration",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the applicant administration area"
+      },
+      {
+        "type": "action",
+        "description": "Search for a value that does not match any applicant"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an empty state message is displayed for the applicant list"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC026",
+    "title": "Authorized staff is prevented from deleting a referenced lookup row",
+    "description": "This verifies that a referenced lookup entry cannot be removed and that the interface shows a blocked deletion state.",
+    "category": "Lookups management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the admin operator role"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the form"
+      },
+      {
+        "type": "action",
+        "description": "Open the lookups management area"
+      },
+      {
+        "type": "action",
+        "description": "Select a lookup type"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to remove a referenced lookup row"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the deletion is blocked"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a reference constraint message is displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC027",
+    "title": "Super admin manages system users with National Verification data",
+    "description": "BRD admin coverage for National Verification Platform-backed staff management, including NID/mobile identity data and role review.",
+    "category": "BRD - Admin users and permissions",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the Super Admin role / إدارة منظومة القبول"
+      },
+      {
+        "type": "action",
+        "description": "Fill the national ID or username field with 28705260103619"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile or password field with 01119441198"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated admin shell is displayed without an access-denied state"
+      },
+      {
+        "type": "action",
+        "description": "Open /admin/users/new"
+      },
+      {
+        "type": "action",
+        "description": "Enter National ID 28705260103619 and mobile 01119441198 in the staff creation identity fields"
+      },
+      {
+        "type": "action",
+        "description": "Review the Super Admin role or permission matrix selection"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user form accepts National ID/mobile data and exposes role or permission controls"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation feedback is shown instead of silently failing when required identity data is missing or duplicated"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC028",
+    "title": "Super admin configures admission application settings from the BRD workflow",
+    "description": "BRD admin coverage for opening the admission window, category setup, conditions, and save behavior in the admission setup wizard.",
+    "category": "BRD - Admission setup",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the Super Admin role / إدارة منظومة القبول"
+      },
+      {
+        "type": "action",
+        "description": "Fill the national ID or username field with 28705260103619"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile or password field with 01119441198"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated admin shell is displayed without an access-denied state"
+      },
+      {
+        "type": "action",
+        "description": "Open /admin/cycles/admission-setup/wizard/application_settings"
+      },
+      {
+        "type": "action",
+        "description": "Review application settings for the active admission cycle and category rows"
+      },
+      {
+        "type": "action",
+        "description": "Save the current application settings draft"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the page stays on the application settings step and shows a successful save or persisted state"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the backend draft save does not surface a 500 error in the UI"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC029",
+    "title": "Super admin maintains BRD reference data lookups",
+    "description": "BRD admin coverage for lookup/reference-data management used by admission categories, certificates, governorates, committees, and related forms.",
+    "category": "BRD - Reference data",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the Super Admin role / إدارة منظومة القبول"
+      },
+      {
+        "type": "action",
+        "description": "Fill the national ID or username field with 28705260103619"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile or password field with 01119441198"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated admin shell is displayed without an access-denied state"
+      },
+      {
+        "type": "action",
+        "description": "Open /admin/lookups"
+      },
+      {
+        "type": "action",
+        "description": "Choose a lookup group and open one lookup type"
+      },
+      {
+        "type": "action",
+        "description": "Add or edit a lookup row using required Arabic fields"
+      },
+      {
+        "type": "action",
+        "description": "Toggle row active status or reorder rows when available"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the lookup table refreshes with the edited row and preserves active/order state"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify delete of referenced rows is blocked with a clear warning"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC030",
+    "title": "Super admin searches applicants by BRD identity criteria",
+    "description": "BRD admin coverage for inquiry screens: search, filter, and open applicant progress details using identity data.",
+    "category": "BRD - Applicant inquiry",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the Super Admin role / إدارة منظومة القبول"
+      },
+      {
+        "type": "action",
+        "description": "Fill the national ID or username field with 28705260103619"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile or password field with 01119441198"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated admin shell is displayed without an access-denied state"
+      },
+      {
+        "type": "action",
+        "description": "Open /admin/applicants"
+      },
+      {
+        "type": "action",
+        "description": "Search using applicant National ID 30412180103456 or name أحمد محمد إبراهيم سعد"
+      },
+      {
+        "type": "action",
+        "description": "Apply a status/category filter when available"
+      },
+      {
+        "type": "action",
+        "description": "Open a matching applicant record from the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify applicant identity, status, and progress/timeline details are visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC031",
+    "title": "Super admin reviews BRD reports and statistics outputs",
+    "description": "BRD admin coverage for reports, statistics, dashboards, KPI cards, and export/report command actions.",
+    "category": "BRD - Reports and statistics",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the Super Admin role / إدارة منظومة القبول"
+      },
+      {
+        "type": "action",
+        "description": "Fill the national ID or username field with 28705260103619"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile or password field with 01119441198"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated admin shell is displayed without an access-denied state"
+      },
+      {
+        "type": "action",
+        "description": "Open /admin/reports"
+      },
+      {
+        "type": "action",
+        "description": "Review KPI cards, funnel analytics, category breakdowns, and operational status sections"
+      },
+      {
+        "type": "action",
+        "description": "Use the available export or report action if enabled"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify report sections render data from the staging backend without empty crash states"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC032",
+    "title": "Super admin reviews education result data exchange screens",
+    "description": "BRD admin coverage for imported education/grade data, changes, and exchange history screens.",
+    "category": "BRD - Data exchange",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the Super Admin role / إدارة منظومة القبول"
+      },
+      {
+        "type": "action",
+        "description": "Fill the national ID or username field with 28705260103619"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile or password field with 01119441198"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated admin shell is displayed without an access-denied state"
+      },
+      {
+        "type": "action",
+        "description": "Open /admin/applicant-grades"
+      },
+      {
+        "type": "action",
+        "description": "Open import, import history, or changes tabs/routes when available"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify imported grade rows, upload/import controls, or change history states are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify unsupported or missing files show validation feedback rather than breaking the page"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC033",
+    "title": "Super admin monitors applicant electronic payments",
+    "description": "BRD admin coverage for electronic payment monitoring and transaction status review.",
+    "category": "BRD - Payments",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the Super Admin role / إدارة منظومة القبول"
+      },
+      {
+        "type": "action",
+        "description": "Fill the national ID or username field with 28705260103619"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile or password field with 01119441198"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated admin shell is displayed without an access-denied state"
+      },
+      {
+        "type": "action",
+        "description": "Open /admin/payments"
+      },
+      {
+        "type": "action",
+        "description": "Search or filter payment records if controls are available"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify transaction status, applicant identity, payment reference, and totals/summary data are visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC034",
+    "title": "Super admin reviews the audit trail for BRD administrative actions",
+    "description": "BRD admin coverage for audit/inquiry of administrative activity and operational traceability.",
+    "category": "BRD - Audit trail",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /staff-login"
+      },
+      {
+        "type": "action",
+        "description": "Select the Super Admin role / إدارة منظومة القبول"
+      },
+      {
+        "type": "action",
+        "description": "Fill the national ID or username field with 28705260103619"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile or password field with 01119441198"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated admin shell is displayed without an access-denied state"
+      },
+      {
+        "type": "action",
+        "description": "Open /admin/audit"
+      },
+      {
+        "type": "action",
+        "description": "Filter or open an audit entry when available"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify audit actor, action, timestamp, status, and parsed details are visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC035",
+    "title": "Applicant eligible normal flow routes to category start",
+    "description": "BRD applicant coverage for أحمد محمد إبراهيم سعد: login by National ID/mobile and verify the expected admissions route.",
+    "category": "BRD - Applicant authentication and routing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /applicant-login"
+      },
+      {
+        "type": "action",
+        "description": "Fill the National ID field with 30412180103456"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile field with 01012345678"
+      },
+      {
+        "type": "action",
+        "description": "Submit the applicant login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the browser route is /applicant/start"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify category selection or applicant start content is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC036",
+    "title": "Applicant over age flow routes to ineligible page",
+    "description": "BRD applicant coverage for خالد عبد الرحمن سامي مصطفى: login by National ID/mobile and verify the expected admissions route.",
+    "category": "BRD - Applicant authentication and routing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /applicant-login"
+      },
+      {
+        "type": "action",
+        "description": "Fill the National ID field with 28503150103456"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile field with 01098765432"
+      },
+      {
+        "type": "action",
+        "description": "Submit the applicant login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the browser route is /applicant/ineligible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the ineligible reason is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC037",
+    "title": "Submitted paid applicant opens post-submission portal",
+    "description": "BRD applicant coverage for يوسف عمر فاروق منصور: login by National ID/mobile and verify the expected admissions route.",
+    "category": "BRD - Applicant authentication and routing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /applicant-login"
+      },
+      {
+        "type": "action",
+        "description": "Fill the National ID field with 30407010103456"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile field with 01098765432"
+      },
+      {
+        "type": "action",
+        "description": "Submit the applicant login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the browser route is /applicant"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify post-submission tabs, follow-up, exam appointment, or admission card actions are visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC038",
+    "title": "Applicant opens fillable acquaintance document",
+    "description": "BRD applicant coverage for كريم محمود فؤاد العقّاد: login by National ID/mobile and verify the expected admissions route.",
+    "category": "BRD - Applicant authentication and routing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /applicant-login"
+      },
+      {
+        "type": "action",
+        "description": "Fill the National ID field with 30501010103456"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile field with 01098765432"
+      },
+      {
+        "type": "action",
+        "description": "Submit the applicant login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the browser route is /applicant/acquaintance-doc"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the acquaintance document form is editable and can save or print"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC039",
+    "title": "Applicant with expired acquaintance edit window is read-only",
+    "description": "BRD applicant coverage for كريم محمود فؤاد العقّاد: login by National ID/mobile and verify the expected admissions route.",
+    "category": "BRD - Applicant authentication and routing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /applicant-login"
+      },
+      {
+        "type": "action",
+        "description": "Fill the National ID field with 30501010203456"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile field with 01098765433"
+      },
+      {
+        "type": "action",
+        "description": "Submit the applicant login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the browser route is /applicant/acquaintance-doc"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the expired edit-window/read-only state is displayed with print available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC040",
+    "title": "Specialized officers applicant sees spouse and children acquaintance sections",
+    "description": "BRD applicant coverage for محمود فؤاد عبد الرحمن العقّاد: login by National ID/mobile and verify the expected admissions route.",
+    "category": "BRD - Applicant authentication and routing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /applicant-login"
+      },
+      {
+        "type": "action",
+        "description": "Fill the National ID field with 30502010103456"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile field with 01098765434"
+      },
+      {
+        "type": "action",
+        "description": "Submit the applicant login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the browser route is /applicant/acquaintance-doc"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify specialized officers context and spouse/children sections are available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC041",
+    "title": "Law bachelor applicant sees spouse and children acquaintance sections",
+    "description": "BRD applicant coverage for يوسف عمر محمد فاروق: login by National ID/mobile and verify the expected admissions route.",
+    "category": "BRD - Applicant authentication and routing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /applicant-login"
+      },
+      {
+        "type": "action",
+        "description": "Fill the National ID field with 30503010103456"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile field with 01098765435"
+      },
+      {
+        "type": "action",
+        "description": "Submit the applicant login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the browser route is /applicant/acquaintance-doc"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify law bachelor context and spouse/children sections are available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC042",
+    "title": "MOI not found applicant can start manual entry",
+    "description": "BRD applicant coverage for Created during testing: login by National ID/mobile and verify the expected admissions route.",
+    "category": "BRD - Applicant authentication and routing",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /applicant-login"
+      },
+      {
+        "type": "action",
+        "description": "Fill the National ID field with 30506200103456"
+      },
+      {
+        "type": "action",
+        "description": "Fill the mobile field with 01011112222"
+      },
+      {
+        "type": "action",
+        "description": "Submit the applicant login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the browser route is /applicant/start"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify manual category selection is displayed because MOI lookup returned not found"
+      }
+    ],
+    "priority": "High"
+  }
+]

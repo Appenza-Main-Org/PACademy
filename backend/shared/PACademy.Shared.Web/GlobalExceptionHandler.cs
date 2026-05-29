@@ -92,6 +92,28 @@ public sealed class GlobalExceptionHandler(
             detail = isDev ? ex.InnerException?.Message ?? ex.Message : null,
         }),
 
+        ConflictException ce => (StatusCodes.Status409Conflict, new
+        {
+            code = ErrorCodes.Conflict,
+            conflictCode = ce.ConflictCode,
+            message = string.IsNullOrWhiteSpace(ce.Message) ? ce.ConflictCode : ce.Message,
+            payload = ce.Payload,
+        }),
+
+        DependencyBlockedException dbe => (StatusCodes.Status409Conflict, new
+        {
+            code = ErrorCodes.DependencyBlocked,
+            conflictCode = dbe.DependencyCode,
+            message = string.IsNullOrWhiteSpace(dbe.Message) ? dbe.DependencyCode : dbe.Message,
+            result = dbe.Result,
+        }),
+
+        EntityNotFoundException enf => (StatusCodes.Status404NotFound, new
+        {
+            code = ErrorCodes.NotFound,
+            message = string.IsNullOrWhiteSpace(enf.Message) ? "السجل غير موجود." : enf.Message,
+        }),
+
         /* Missing resource — use cases throw KeyNotFoundException when
          * the requested id doesn't resolve. */
         KeyNotFoundException knf => (StatusCodes.Status404NotFound, new

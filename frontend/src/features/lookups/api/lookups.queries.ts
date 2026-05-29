@@ -93,8 +93,8 @@ export function useUpdateLookupRow<K extends LookupKey>(key: K) {
 
 export function useDeleteLookupRow<K extends LookupKey>(key: K) {
   const qc = useQueryClient();
-  return useMutation<DeleteResult, Error, string>({
-    mutationFn: (code) => lookupsService.deleteLookupRow(key, code),
+  return useMutation<DeleteResult, Error, { code: string; force?: boolean }>({
+    mutationFn: ({ code, force }) => lookupsService.deleteLookupRow(key, code, { force }),
     onSuccess: (result) => {
       if (result.deleted) {
         qc.invalidateQueries({ queryKey: lookupKeys.list(key) });

@@ -23,6 +23,46 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.AdminRecords.AdminRecordDocumentEntity", b =>
+                {
+                    b.Property<string>("Module")
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("module");
+
+                    b.Property<string>("Id")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("payload_json");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Module", "Id");
+
+                    b.HasIndex("Module")
+                        .HasDatabaseName("ix_admin_record_documents_module");
+
+                    b.ToTable("admin_record_documents", "PACademy_staging_db");
+                });
+
             modelBuilder.Entity("PACademy.Admin.Api.Modules.AdminRecords.AdminRecordEntity", b =>
                 {
                     b.Property<string>("Module")
@@ -476,6 +516,321 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.ToTable("audit_entries", "PACademy_staging_db");
                 });
 
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamAssignmentEntity", b =>
+                {
+                    b.Property<string>("ExamId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("exam_id");
+
+                    b.Property<string>("AssignmentKind")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("assignment_kind");
+
+                    b.Property<int>("AssignmentOrder")
+                        .HasColumnType("int")
+                        .HasColumnName("assignment_order");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnName("value");
+
+                    b.HasKey("ExamId", "AssignmentKind", "AssignmentOrder");
+
+                    b.ToTable("exam_assignments", "PACademy_staging_db");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccessEndAt")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("access_end_at");
+
+                    b.Property<string>("AccessStartAt")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("access_start_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CycleId")
+                        .IsRequired()
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("cycle_id");
+
+                    b.Property<string>("CycleName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnName("cycle_name");
+
+                    b.Property<string>("DisplayMode")
+                        .HasMaxLength(48)
+                        .HasColumnType("nvarchar(48)")
+                        .HasColumnName("display_mode");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("int")
+                        .HasColumnName("duration_minutes");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnName("name_ar");
+
+                    b.Property<int?>("QuestionCount")
+                        .HasColumnType("int")
+                        .HasColumnName("question_count");
+
+                    b.Property<bool?>("RandomQuestionOrder")
+                        .HasColumnType("bit")
+                        .HasColumnName("random_question_order");
+
+                    b.Property<bool?>("RandomSelection")
+                        .HasColumnType("bit")
+                        .HasColumnName("random_selection");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("ScheduledFor")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("scheduled_for");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("nvarchar(48)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CycleId")
+                        .HasDatabaseName("ix_exams_cycle_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_exams_status");
+
+                    b.ToTable("exams", "PACademy_staging_db");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamQuestionEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("category");
+
+                    b.Property<string>("Classification")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("classification");
+
+                    b.Property<int>("CorrectIndex")
+                        .HasColumnType("int")
+                        .HasColumnName("correct_index");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Difficulty")
+                        .HasColumnType("int")
+                        .HasColumnName("difficulty");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)")
+                        .HasColumnName("image_url");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("notes");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("nvarchar(48)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("text");
+
+                    b.Property<int>("TimeLimitSeconds")
+                        .HasColumnType("int")
+                        .HasColumnName("time_limit_seconds");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("nvarchar(48)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category")
+                        .HasDatabaseName("ix_exam_questions_category");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_exam_questions_status");
+
+                    b.ToTable("exam_questions", "PACademy_staging_db");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamQuestionLinkEntity", b =>
+                {
+                    b.Property<string>("ExamId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("exam_id");
+
+                    b.Property<int>("QuestionOrder")
+                        .HasColumnType("int")
+                        .HasColumnName("question_order");
+
+                    b.Property<string>("QuestionId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("question_id");
+
+                    b.HasKey("ExamId", "QuestionOrder");
+
+                    b.HasIndex("QuestionId")
+                        .HasDatabaseName("ix_exam_question_links_question_id");
+
+                    b.ToTable("exam_question_links", "PACademy_staging_db");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamQuestionMatchingPairEntity", b =>
+                {
+                    b.Property<string>("QuestionId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("question_id");
+
+                    b.Property<int>("PairOrder")
+                        .HasColumnType("int")
+                        .HasColumnName("pair_order");
+
+                    b.Property<string>("MatchText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("match_text");
+
+                    b.Property<string>("Prompt")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("prompt");
+
+                    b.HasKey("QuestionId", "PairOrder");
+
+                    b.ToTable("exam_question_matching_pairs", "PACademy_staging_db");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamQuestionOptionEntity", b =>
+                {
+                    b.Property<string>("QuestionId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("question_id");
+
+                    b.Property<int>("OptionOrder")
+                        .HasColumnType("int")
+                        .HasColumnName("option_order");
+
+                    b.Property<string>("OptionText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("option_text");
+
+                    b.HasKey("QuestionId", "OptionOrder");
+
+                    b.ToTable("exam_question_options", "PACademy_staging_db");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamRuleEntity", b =>
+                {
+                    b.Property<string>("ExamId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("exam_id");
+
+                    b.Property<int>("RuleOrder")
+                        .HasColumnType("int")
+                        .HasColumnName("rule_order");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("category");
+
+                    b.Property<int>("DifficultyMax")
+                        .HasColumnType("int")
+                        .HasColumnName("difficulty_max");
+
+                    b.Property<int>("DifficultyMin")
+                        .HasColumnType("int")
+                        .HasColumnName("difficulty_min");
+
+                    b.Property<int>("Minutes")
+                        .HasColumnType("int")
+                        .HasColumnName("minutes");
+
+                    b.Property<int>("QuestionCount")
+                        .HasColumnType("int")
+                        .HasColumnName("question_count");
+
+                    b.HasKey("ExamId", "RuleOrder");
+
+                    b.ToTable("exam_rules", "PACademy_staging_db");
+                });
+
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Identity.OfficerEntity", b =>
                 {
                     b.Property<string>("NationalId")
@@ -772,6 +1127,67 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasDatabaseName("ix_exam_slots_date");
 
                     b.ToTable("exam_slots", "PACademy_staging_db");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamAssignmentEntity", b =>
+                {
+                    b.HasOne("PACademy.Admin.Api.Modules.Exams.ExamEntity", null)
+                        .WithMany("Assignments")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamQuestionLinkEntity", b =>
+                {
+                    b.HasOne("PACademy.Admin.Api.Modules.Exams.ExamEntity", null)
+                        .WithMany("QuestionLinks")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamQuestionMatchingPairEntity", b =>
+                {
+                    b.HasOne("PACademy.Admin.Api.Modules.Exams.ExamQuestionEntity", null)
+                        .WithMany("MatchingPairs")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamQuestionOptionEntity", b =>
+                {
+                    b.HasOne("PACademy.Admin.Api.Modules.Exams.ExamQuestionEntity", null)
+                        .WithMany("Options")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamRuleEntity", b =>
+                {
+                    b.HasOne("PACademy.Admin.Api.Modules.Exams.ExamEntity", null)
+                        .WithMany("Rules")
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamEntity", b =>
+                {
+                    b.Navigation("Assignments");
+
+                    b.Navigation("QuestionLinks");
+
+                    b.Navigation("Rules");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamQuestionEntity", b =>
+                {
+                    b.Navigation("MatchingPairs");
+
+                    b.Navigation("Options");
                 });
 #pragma warning restore 612, 618
         }

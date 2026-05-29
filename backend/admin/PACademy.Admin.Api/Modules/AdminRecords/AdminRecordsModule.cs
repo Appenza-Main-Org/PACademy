@@ -7,6 +7,7 @@ public static class AdminRecordsModule
     public static IServiceCollection AddAdminRecordsModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IAdminRecordsDbContext>(sp => sp.GetRequiredService<AdminDbContext>());
+        services.AddScoped<IAdminRecordDocumentsDbContext>(sp => sp.GetRequiredService<AdminDbContext>());
         services.AddScoped<AdminRecordsSeeder>();
         services.AddScoped<AdminRecordsService>();
         return services;

@@ -52,9 +52,17 @@ Open these URLs after startup:
 - `http://localhost:5101/scalar` — interactive API docs (Scalar, replaces Swagger)
 - `http://localhost:5101/openapi/v1.json` — raw OpenAPI spec
 
-To skip the auto-migration on startup (e.g. when running multiple admin
-instances): `dotnet run --no-seed` or set `SkipMigrationsAndSeed=true` in
-the environment.
+Staging API docs use the same paths:
+- `https://admin-staging-api.appenzademo.com/scalar`
+- `https://admin-staging-api.appenzademo.com/openapi/v1.json`
+
+Production data safety:
+- `Database:SkipSeed=true` (or `SKIP_SEED=true`) applies EF migrations but
+  does not run startup seeders, preserving existing cycles, categories,
+  applicants, lookups, and other persisted rows.
+- `dotnet run --skip-seed` is the equivalent local command-line switch.
+- `dotnet run --no-seed` or `SkipMigrationsAndSeed=true` remains the legacy
+  full skip for environments where neither migrations nor seeders should run.
 
 ---
 
@@ -353,9 +361,11 @@ dotnet run --project admin/PACademy.Admin.Api --no-seed
 - `LookupsAdmin`: concrete CRUD over 25 lookup dictionaries, seeded from `frontend/src/features/lookups/mock/lookups.mock.ts`.
 - `AdmissionsAdmin`: concrete cycles, applicant categories, and admission rules seed/read/write basics, seeded from `frontend/src/shared/mock-data/admissionCycles.ts` and applicant-category lookup rows.
 - `Identity`: concrete users, roles, and officer directory seed/read/write basics, seeded from `frontend/src/shared/mock-data/roles.ts`, `officers.ts`, and the deterministic `USER_SEED`.
-- `AdminRecords`: seeded backend JSON records for applicants, payments, audit, notifications, committee instances, workflows, reports, and settings.
+- `AdminRecords`: legacy table kept for migration compatibility only. Current generic document fallback rows are drained into `admin_record_documents`; question-bank and exam catalog rows are normalized into dedicated exam tables.
+- `Exams`: normalized question bank and exam catalog tables (`exam_questions`, `exam_question_options`, `exam_question_matching_pairs`, `exams`, `exam_rules`, `exam_question_links`, `exam_assignments`) with seed/migration coverage from `SeedData/exams.seed.json`.
 - Admission setup endpoint coverage for app settings, exam schedule, committee bindings, declarations, and exam-date config.
 - Auth/officer lookup, committees, and exam-plan/result endpoint coverage.
+- Smoke tests log in as the seeded super admin and send `Authorization: Bearer <token>` because committee, role creation, user status, and exam list/create endpoints enforce bearer auth.
 - The temporary fallback controller has been removed; OpenAPI no longer contains a `{**path}` catchall.
 
 ## UAT database copy and switching
@@ -412,7 +422,7 @@ sqlcmd -S <server> -U <user> -P '<password>' -d PACademy_Admin \
 ```
 
 Run the UAT backend as a separate service with `ASPNETCORE_ENVIRONMENT=Uat`, `Database__ActiveConnectionName=AdminDbUat`, `Database__Schema=PACademy_staging_db`, and its own CORS origins.
-For a staging schema that was already created and copied from prod, set `SkipMigrationsAndSeed=true` so startup does not try to rerun EF migrations against the runtime-switched schema.
+For a staging schema that was already created and copied from prod, set `SkipMigrationsAndSeed=true` so startup does not try to rerun EF migrations against the runtime-switched schema. For production deploys where the schema should move forward but existing data must stay untouched, set `Database__SkipSeed=true` instead.
 
 Deploy the UAT frontend as a separate Vercel project using:
 

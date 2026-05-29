@@ -6,7 +6,7 @@
  * accent of its primary app via inline style.
  */
 
-import { ScrollText, UserCog } from 'lucide-react';
+import { Fingerprint, ScrollText, UserCog } from 'lucide-react';
 import type { ElementType } from 'react';
 import { cn } from '@/shared/lib/cn';
 import type { Role } from '../rbac';
@@ -20,6 +20,7 @@ interface RoleOption {
 const ROLE_OPTIONS: readonly RoleOption[] = [
   { key: 'super_admin',     Icon: UserCog,        label: 'إدارة منظومة القبول' },
   { key: 'exams_admin',     Icon: ScrollText,     label: 'بنك الأسئلة والاختبارات' },
+  { key: 'admissions_system_admin', Icon: Fingerprint, label: 'إدارة البيومتري' },
 ];
 
 interface RoleSelectorProps {

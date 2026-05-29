@@ -168,7 +168,10 @@ export const ROUTES = {
   biometric: {
     overview: '/biometric',
     enroll: '/biometric/enroll',
+    verify: '/biometric/verify',
     history: '/biometric/history',
+    securityGate: '/biometric/security-gate',
+    medicalVerify: '/biometric/medical-verify',
     verifyOps: '/biometric/verify-ops',
     monitoring: '/biometric/monitoring',
   },
@@ -180,6 +183,7 @@ export const ROUTES = {
     examDetail: (id = ':examId'): string => `/question-bank/exams/${id}`,
     examPreview: (id = ':examId'): string => `/question-bank/exams/${id}/preview`,
     examTake: (id = ':examId'): string => `/question-bank/exams/${id}/take`,
+    take: '/question-bank/take',
     examProctor: (id = ':examId'): string => `/question-bank/exams/${id}/proctor`,
     proctor: '/question-bank/proctor',
     results: '/question-bank/results',

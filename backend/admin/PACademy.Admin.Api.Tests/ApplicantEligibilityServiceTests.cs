@@ -180,7 +180,7 @@ public sealed class ApplicantEligibilityServiceTests
 
     private static ApplicantEligibilityService CreateService(AdminDbContext db)
     {
-        return new ApplicantEligibilityService(db);
+        return new ApplicantEligibilityService(db, new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink()));
     }
 
     private static async Task SeedBaseAsync(
