@@ -161,7 +161,26 @@ public sealed class ApplicantEligibilityService(
             {
                 payload = await db.Database
                     .SqlQueryRaw<string>($"""
-                        SELECT TOP(1) [payload_json] AS [Value]
+                        SELECT TOP(1)
+                            (
+                                SELECT
+                                    [nid],
+                                    COALESCE([seating_number], CONVERT(nvarchar(32), [seat])) AS [seatingNumber],
+                                    [name],
+                                    [kind],
+                                    [gender],
+                                    [branch],
+                                    [graduation_year] AS [graduationYear],
+                                    [school_category_code] AS [schoolCategoryCode],
+                                    [school],
+                                    [region],
+                                    [exam_round] AS [examRound],
+                                    [total],
+                                    [import_max] AS [importMax],
+                                    [override_max] AS [overrideMax],
+                                    [status]
+                                FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+                            ) AS [Value]
                         FROM {AdminDbContext.QualifiedTableName("applicant_grades")}
                         WHERE [nid] = @nid
                         ORDER BY [seat]

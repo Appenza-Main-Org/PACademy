@@ -193,6 +193,28 @@ public sealed class ApiRegressionTests
         Assert.Contains("تنبيه مرتبط بهذه الفئة", body.Reason);
     }
 
+    [Fact]
+    public async Task CommitteeInstancesExcludeInactiveAndDeletedCategories()
+    {
+        await using var db = CreateDb();
+        SeedLookup(db, "applicant-categories", "CAT-ACTIVE", "فئة نشطة");
+        SeedLookup(db, "applicant-categories", "CAT-INACTIVE", "فئة موقوفة", isActive: false);
+        db.AdminRecordDocuments.AddRange(
+            CommitteeInstance("CI-ACTIVE", "CAT-ACTIVE"),
+            CommitteeInstance("CI-INACTIVE", "CAT-INACTIVE"),
+            CommitteeInstance("CI-DELETED", "CAT-DELETED"));
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var controller = new OperationalAdminController(records, db);
+
+        var response = await controller.CommitteeInstances(TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var rows = Assert.IsAssignableFrom<IReadOnlyList<JsonObject>>(ok.Value);
+        var row = Assert.Single(rows);
+        Assert.Equal("CI-ACTIVE", row["id"]?.GetValue<string>());
+    }
+
     private static void AssertRequireBearerAuth(MemberInfo? target)
     {
         Assert.NotNull(target);
@@ -207,23 +229,46 @@ public sealed class ApiRegressionTests
         return new AdminDbContext(options);
     }
 
-    private static void SeedLookup(AdminDbContext db, string key, string code, string name, JsonObject? extra = null)
+    private static void SeedLookup(AdminDbContext db, string key, string code, string name, JsonObject? extra = null, bool isActive = true)
     {
         var payload = extra is null ? [] : LookupJson.Clone(extra);
         payload["code"] = code;
         payload["name"] = name;
-        payload["isActive"] = true;
+        payload["isActive"] = isActive;
         var now = DateTimeOffset.UtcNow;
         db.LookupRows.Add(new LookupRowEntity
         {
             LookupKey = key,
             Code = code,
             Name = name,
-            IsActive = true,
+            IsActive = isActive,
             PayloadJson = payload.ToJsonString(LookupJson.Options),
             CreatedAt = now,
             UpdatedAt = now
         });
+    }
+
+    private static AdminRecordDocumentEntity CommitteeInstance(string id, string categoryKey)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var payload = new JsonObject
+        {
+            ["id"] = id,
+            ["cycleId"] = "CYC-2026-M",
+            ["categoryKey"] = categoryKey,
+            ["definitionCode"] = "COM-GEN-01",
+            ["date"] = "2026-07-10",
+            ["capacity"] = 100,
+            ["reserved"] = 0
+        };
+        return new AdminRecordDocumentEntity
+        {
+            Module = "committeeInstances",
+            Id = id,
+            PayloadJson = payload.ToJsonString(),
+            CreatedAt = now,
+            UpdatedAt = now
+        };
     }
 
     private sealed class TestHostEnvironment : IWebHostEnvironment
