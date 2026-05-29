@@ -68,7 +68,7 @@ public sealed class ApplicantGradesController(
         => Ok((await listGrades.ExecuteAsync(new GradeListFilters(null, null, q, null, null, null, null, null, null), ct)).Rows);
 
     [HttpGet("by-nid/{nid}")]
-    public async Task<IActionResult> ByNid([FromRoute] string nid, [FromQuery] Guid? cycleId, CancellationToken ct)
+    public async Task<IActionResult> ByNid([FromRoute] string nid, [FromQuery] string? cycleId, CancellationToken ct)
         => Ok(await findByNid.ExecuteAsync(nid, ct));
 
     [HttpDelete]

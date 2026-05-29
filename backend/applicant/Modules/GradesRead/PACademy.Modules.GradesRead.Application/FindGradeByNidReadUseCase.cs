@@ -5,7 +5,7 @@ namespace PACademy.Modules.GradesRead.Application;
 
 public sealed class FindGradeByNidReadUseCase(IGradesReadDbContext db)
 {
-    public async Task<GradeRowReadDto?> ExecuteAsync(string nid, Guid? cycleId, CancellationToken ct = default)
+    public async Task<GradeRowReadDto?> ExecuteAsync(string nid, string? cycleId, CancellationToken ct = default)
     {
         var row = await db.ApplicantGrades
             .Include(x => x.Adjustments)

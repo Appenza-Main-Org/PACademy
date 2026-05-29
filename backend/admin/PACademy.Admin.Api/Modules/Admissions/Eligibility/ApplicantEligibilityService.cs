@@ -11,6 +11,9 @@ public sealed class ApplicantEligibilityService(
     AdminDbContext db,
     AdminRecordsService? records = null)
 {
+    private const int SqlInvalidColumnName = 207;
+    private const int SqlInvalidObjectName = 208;
+
     public async Task<ApplicantEligibilityResponse> GetEligibleCategoriesAsync(
         string nationalId,
         CancellationToken ct,
@@ -194,7 +197,7 @@ public sealed class ApplicantEligibilityService(
                                     [previous_grade] AS [previousGrade],
                                     [created_at] AS [createdAt],
                                     [updated_at] AS [updatedAt],
-                                    CONVERT(nvarchar(max), [row_version], 1) AS [rowVersion],
+                                    sys.fn_varbintohexstr([row_version]) AS [rowVersion],
                                     JSON_QUERY([payload_json]) AS [payload]
                                 FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
                             ) AS [Value]
@@ -204,7 +207,11 @@ public sealed class ApplicantEligibilityService(
                         """, parameter)
                     .FirstOrDefaultAsync(ct);
             }
-            catch (SqlException ex) when (ex.Number == 208)
+            catch (SqlException ex) when (HasSqlError(ex, SqlInvalidColumnName))
+            {
+                return await LoadGradeFromLegacyApplicantGradesAsync(nationalId, ct);
+            }
+            catch (SqlException ex) when (HasSqlError(ex, SqlInvalidObjectName))
             {
                 return await LoadGradeFromAdminRecordsAsync(nationalId, ct);
             }
@@ -213,6 +220,67 @@ public sealed class ApplicantEligibilityService(
         }
 
         return await LoadGradeFromAdminRecordsAsync(nationalId, ct);
+    }
+
+    private async Task<JsonObject?> LoadGradeFromLegacyApplicantGradesAsync(string nationalId, CancellationToken ct)
+    {
+        var parameter = new SqlParameter("@nid", nationalId);
+#pragma warning disable EF1002
+        try
+        {
+            var payload = await db.Database
+                .SqlQueryRaw<string>($"""
+                    SELECT TOP(1)
+                        (
+                            SELECT
+                                CONVERT(nvarchar(36), [id]) AS [id],
+                                [seat],
+                                [nid],
+                                COALESCE([seating_number], CONVERT(nvarchar(32), [seat])) AS [seatingNumber],
+                                [name],
+                                [kind],
+                                [gender],
+                                [branch],
+                                [graduation_year] AS [graduationYear],
+                                [school_category_code] AS [schoolCategoryCode],
+                                [school],
+                                [region],
+                                [exam_round] AS [examRound],
+                                [total],
+                                [import_max] AS [importMax],
+                                [override_max] AS [overrideMax],
+                                [status],
+                                [last_edited_at] AS [lastEditedAt],
+                                [last_edited_by] AS [lastEditedBy],
+                                [grade_changed_at] AS [gradeChangedAt],
+                                [previous_grade] AS [previousGrade],
+                                [created_at] AS [createdAt],
+                                [updated_at] AS [updatedAt],
+                                sys.fn_varbintohexstr([row_version]) AS [rowVersion]
+                            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+                        ) AS [Value]
+                    FROM {AdminDbContext.QualifiedTableName("applicant_grades")}
+                    WHERE [nid] = @nid
+                    ORDER BY [seat]
+                    """, parameter)
+                .FirstOrDefaultAsync(ct);
+            return payload is null ? null : AdminRecordJson.Parse(payload);
+        }
+        catch (SqlException ex) when (HasSqlError(ex, SqlInvalidObjectName))
+        {
+            return await LoadGradeFromAdminRecordsAsync(nationalId, ct);
+        }
+#pragma warning restore EF1002
+    }
+
+    private static bool HasSqlError(SqlException ex, int number)
+    {
+        foreach (SqlError error in ex.Errors)
+        {
+            if (error.Number == number) return true;
+        }
+
+        return ex.Number == number;
     }
 
     private static JsonObject MergeGradePayload(JsonObject row)
@@ -227,6 +295,7 @@ public sealed class ApplicantEligibilityService(
                 ? null
                 : JsonNode.Parse(field.Value.ToJsonString());
         }
+        row.Remove("payload");
 
         return row;
     }
@@ -464,7 +533,7 @@ public sealed class ApplicantEligibilityService(
     {
         if (grade is null) return null;
 
-        var output = EligibilityJson.Clone(grade);
+        var output = MergeGradePayload(EligibilityJson.Clone(grade));
         if (!string.IsNullOrWhiteSpace(gradeSource)
             && EligibilityJson.FirstString(output, "gradesSource", "source", "مصدر الدرجات") is null)
         {

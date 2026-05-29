@@ -15,6 +15,16 @@ namespace PACademy.Admin.Api.Tests;
 public sealed class ApplicantEligibilityServiceTests
 {
     [Fact]
+    public void SqlServerGradeLookupHandlesLegacySchemaWithoutPayloadJson()
+    {
+        var source = File.ReadAllText(FindRepoFile(
+            "backend/admin/PACademy.Admin.Api/Modules/Admissions/Eligibility/ApplicantEligibilityService.cs"));
+
+        Assert.Contains("SqlInvalidColumnName", source);
+        Assert.Contains("LoadGradeFromLegacyApplicantGradesAsync", source);
+    }
+
+    [Fact]
     public async Task ValidApplicantWithExternalGradesPasses()
     {
         await using var db = CreateDb();
@@ -50,6 +60,20 @@ public sealed class ApplicantEligibilityServiceTests
         Assert.True(category.Checks.GradesCheck.HasGrade);
         Assert.Equal("استيراد خارجي", EligibilityJson.StringProp(response.Grade, "gradesSource"));
         Assert.Equal("استيراد خارجي", category.Checks.GradesCheck.Source);
+    }
+
+    [Fact]
+    public async Task GradeResponseDoesNotExposeNestedPayload()
+    {
+        await using var db = CreateDb();
+        await SeedBaseAsync(db, includeNestedGradePayload: true);
+        var service = CreateService(db);
+
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None, includeIneligible: true);
+
+        Assert.NotNull(response.Grade);
+        Assert.False(response.Grade.ContainsKey("payload"));
+        Assert.Equal("FAC-01", EligibilityJson.StringProp(response.Grade, "facultyCode"));
     }
 
     [Fact]
@@ -201,6 +225,19 @@ public sealed class ApplicantEligibilityServiceTests
         return new ApplicantEligibilityService(db, new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink()));
     }
 
+    private static string FindRepoFile(string relativePath)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir.FullName, relativePath);
+            if (File.Exists(candidate)) return candidate;
+            dir = dir.Parent;
+        }
+
+        throw new FileNotFoundException(relativePath);
+    }
+
     private static async Task SeedBaseAsync(
         AdminDbContext db,
         string? gradeSource = "استيراد خارجي",
@@ -210,7 +247,8 @@ public sealed class ApplicantEligibilityServiceTests
         IReadOnlyList<string>? genders = null,
         int maxAge = 30,
         int? ageMin = null,
-        int categoryMinAge = 17)
+        int categoryMinAge = 17,
+        bool includeNestedGradePayload = false)
     {
         var now = DateTimeOffset.UtcNow;
         db.AdmissionCycles.Add(new AdmissionCycleEntity
@@ -305,6 +343,14 @@ public sealed class ApplicantEligibilityServiceTests
         if (gradeSource is not null)
         {
             gradePayload["gradesSource"] = gradeSource;
+        }
+        if (includeNestedGradePayload)
+        {
+            gradePayload["payload"] = new JsonObject
+            {
+                ["facultyCode"] = "FAC-01",
+                ["specializationCode"] = "SPC-01"
+            };
         }
 
         db.AdminRecords.Add(new AdminRecordEntity
