@@ -64,6 +64,14 @@ The following admin-relevant service groups now call real endpoints by default a
 - Category soft-delete now validates `{key}` before handler work and returns `200` for valid soft-delete requests.
 - Missing audit diffs and exam-result transitions return deterministic 4xx envelopes; placeholder/zero UUID result IDs no longer hit a success path.
 
+## Storage Rule For New API Work
+
+All new backend features must persist to a first-class normalized SQL table owned by the relevant module. Do not add new modules, write paths, or seed paths to `admin_records`.
+
+If a feature needs a compatibility JSON snapshot for frontend response shape, keep it as a secondary `payload_json` column on the normalized domain table or, for temporary low-volume compatibility only, in `admin_record_documents`. `admin_records` is legacy migration-only storage and must stay empty after the drain migrations.
+
+Before merging a new API feature, add at least one persistence regression test proving the write path does not insert into `AdminRecords`.
+
 ## Admin UI Mock-Data Cleanup
 
 Admin-facing pages/components that previously read seeded lookup or committee data directly now use query-backed data sources where touched in this pass:

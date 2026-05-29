@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
@@ -43,6 +44,19 @@ public sealed class AdminRecordsServiceTests
         Assert.Equal("WF-TEST", AdminRecordJson.StringProp(saved, "id"));
         Assert.Single(rows);
         Assert.Equal(0, adminRecordsCount);
+    }
+
+    [Fact]
+    public void AdminRecordsServiceDoesNotAddLegacyAdminRecordEntities()
+    {
+        var servicePath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "../../../../PACademy.Admin.Api/Modules/AdminRecords/AdminRecordsService.cs"));
+        var source = File.ReadAllText(servicePath);
+
+        Assert.DoesNotMatch(
+            new Regex(@"\bAdminRecords\s*\.\s*Add(?:Range)?\s*\(", RegexOptions.Multiline),
+            source);
     }
 
     [Fact]
