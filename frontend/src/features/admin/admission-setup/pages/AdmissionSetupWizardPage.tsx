@@ -378,8 +378,8 @@ function deriveStepperState(
   activeKey: WizardStepKey,
   inputs: StepStatusInputs,
 ): VerticalStepState {
-  if (activeKey === key) return 'current';
   const status = computeStepStatus(key, inputs);
+  if (activeKey === key) return status === 'complete' ? 'current_complete' : 'current';
   if (status === 'complete') return 'complete';
   if (status === 'in_progress') return 'in_progress';
   return 'upcoming';

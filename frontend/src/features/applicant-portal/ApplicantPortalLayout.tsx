@@ -10,7 +10,7 @@
  */
 
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Ban, LogOut, Pencil } from 'lucide-react';
 import {
   AlertDialog,
@@ -96,6 +96,7 @@ export function ApplicantPortalLayout(): JSX.Element {
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const submittedDemo = useApplicantPortalStore((s) => s.submittedDemo);
   const currentNid = useApplicantPortalStore((s) => s.nationalId);
+  const firstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
   const vothiqaEnabled = currentNid !== null && VOTHIQA_ENABLED_NIDS.has(currentNid);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const selectedCategory = selectedCategoryKey
@@ -117,6 +118,22 @@ export function ApplicantPortalLayout(): JSX.Element {
     return idx === -1 ? 0 : idx;
   }, [location.pathname]);
 
+  const applicationLocked = Boolean(firstExamDate || draft?.examSlot);
+  const isLockedEditableRoute = useMemo(() => {
+    if (!applicationLocked) return false;
+    const path = location.pathname.replace(/^\/applicant\/?/, '');
+    return path === 'profile' ||
+      path.startsWith('profile/') ||
+      path === 'payment' ||
+      path === 'exam-schedule';
+  }, [applicationLocked, location.pathname]);
+
+  useEffect(() => {
+    if (!isLockedEditableRoute) return;
+    toast('تم قفل بيانات الطلب بعد اختيار موعد الاختبار. يمكنك العرض والطباعة فقط.', 'warning');
+    navigate(ROUTES.applicantPrintCard, { replace: true });
+  }, [isLockedEditableRoute, navigate]);
+
   /* Step rendering — the empty-key entry (summary, served by the
    * `/applicant` index) is filtered out of the visible stepper per
    * client request. Raw STAGE_KEYS indices are preserved upstream so
@@ -128,6 +145,13 @@ export function ApplicantPortalLayout(): JSX.Element {
     else if (i === activeIndex) state = 'current';
     else if (!reached && i > activeIndex) state = 'upcoming';
     if (draft?.suspended && i > 0) state = 'blocked';
+    if (
+      applicationLocked &&
+      (key === 'profile' || key === 'payment' || key === 'profile/family' ||
+        key === 'profile/family-review' || key === 'exam-schedule')
+    ) {
+      state = 'blocked';
+    }
     /* وثيقة التعارف is parked for most demo users — render the step
      * as dimmed/skipped so the stepper still shows it. The Case-1
      * demo NIDs (VOTHIQA_ENABLED_NIDS) un-skip it so they can walk
@@ -209,7 +233,7 @@ export function ApplicantPortalLayout(): JSX.Element {
              replaces the wizard. */
           <div className="flex flex-col gap-4">
             <PostExamNav vothiqaEnabled={vothiqaEnabled} />
-            {draft?.suspended ? <SuspendedScreen /> : <Outlet />}
+            {draft?.suspended ? <SuspendedScreen /> : isLockedEditableRoute ? null : <Outlet />}
           </div>
         ) : (
           <Wizard
@@ -220,7 +244,7 @@ export function ApplicantPortalLayout(): JSX.Element {
           >
             {/* AUD-007 — when suspended, gate every stage form behind a single
                 read-only screen instead of rendering the Outlet's form. */}
-            {draft?.suspended ? <SuspendedScreen /> : <Outlet />}
+            {draft?.suspended ? <SuspendedScreen /> : isLockedEditableRoute ? null : <Outlet />}
           </Wizard>
         )}
       </div>

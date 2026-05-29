@@ -20,21 +20,23 @@ import { hydrateApplicationSettingsCycleDraft } from '../lib/application-setting
  * already hides chrome-side elements that carry `.no-print`. */
 const PRINT_CSS = `
 @media print {
-  @page { size: A4 landscape; margin: 16mm 10mm 12mm; }
+  @page { size: A4 landscape; margin: 18mm 12mm 12mm; }
   body:has(.app-settings-review-print) .app-settings-review-print {
     display: block !important;
     width: 100% !important;
     max-width: none !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 2mm 0 0 !important;
+    overflow: visible !important;
   }
   .app-settings-review-print-header {
     display: block !important;
-    margin: 0 0 7mm !important;
+    margin: 0 0 6mm !important;
     padding: 0 0 4mm !important;
     border-bottom: 1px solid var(--border-default);
     break-after: avoid;
     page-break-after: avoid;
+    overflow: visible !important;
   }
   .app-settings-review-print-kicker {
     margin: 0 0 2mm !important;
@@ -48,8 +50,9 @@ const PRINT_CSS = `
     font-family: var(--font-ar-display);
     font-size: 18pt;
     font-weight: var(--weight-bold);
-    line-height: 1.35;
+    line-height: 1.5;
     color: var(--ink-900);
+    overflow: visible !important;
   }
   .app-settings-review-print-subtitle {
     margin: 1.5mm 0 0 !important;
