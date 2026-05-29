@@ -41,6 +41,7 @@ export interface ApplicantEligibleCategoriesResponse {
     gender: string;
     governorate: string;
   };
+  grade: Record<string, unknown> | null;
   cycleId: string;
   categories: ApplicantCategoryEligibility[];
 }
@@ -383,6 +384,7 @@ export const categoriesPublicService = {
     return {
       nationalId,
       derived,
+      grade: null,
       cycleId: cycle?.id ?? '',
       categories,
     };

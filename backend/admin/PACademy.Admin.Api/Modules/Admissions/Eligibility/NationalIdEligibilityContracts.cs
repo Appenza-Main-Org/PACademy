@@ -6,6 +6,7 @@ namespace PACademy.Admin.Api.Modules.Admissions.Eligibility;
 public sealed record ApplicantEligibilityResponse(
     string NationalId,
     ApplicantDerivedEligibility Derived,
+    JsonObject? Grade,
     string CycleId,
     IReadOnlyList<CategoryEligibilityResult> Categories);
 

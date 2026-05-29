@@ -139,17 +139,15 @@ export function CategorySelectionPage(): JSX.Element {
   const categoriesQuery = useCategories(selectedCycle?.id);
   const eligibilityCategoriesQuery = useEligibleCategories(identity?.nationalId ?? storeNid);
 
-  /* Derive the single eligible category key to restrict the category list.
-   * For mock-bypass logins `selectedCategoryKey` is already set by the MOI
-   * mock. For real backend logins it is null — use the backend eligibility
-   * response instead (show only the category/ies the backend says are eligible). */
-  const derivedEligibleKey = useMemo<string | null>(() => {
-    if (selectedCategoryKey) return selectedCategoryKey;
+  /* Restrict the category list to the backend eligibility verdict.
+   * Mock-bypass logins keep their pre-selected category, while real backend
+   * sessions can legitimately return more than one eligible category. */
+  const derivedEligibleKeys = useMemo<readonly string[] | null>(() => {
+    if (selectedCategoryKey) return [selectedCategoryKey];
     const cats = eligibilityCategoriesQuery.data?.categories;
     if (!cats) return null;
     const eligible = cats.filter((c) => c.eligible);
-    if (eligible.length === 1) return eligible[0]!.categoryId;
-    return null;
+    return eligible.map((c) => c.categoryId);
   }, [selectedCategoryKey, eligibilityCategoriesQuery.data]);
 
   /* When the backend returns an empty eligible list (no category matches
@@ -349,10 +347,10 @@ export function CategorySelectionPage(): JSX.Element {
             categoriesQuery={categoriesQuery}
             eligibility={eligibilityCategoriesQuery.data?.categories ?? []}
             eligibilityLoading={eligibilityCategoriesQuery.isLoading}
-            /* When MOI verified the applicant for a specific category,
-             * show only that one. For not_found / no MOI session, show
-             * the full catalogue so the applicant can pick. */
-            eligibleKey={derivedEligibleKey}
+            /* When MOI/backend eligibility is available, show only those
+             * categories. For not_found / no MOI session, show the full
+             * catalogue so the applicant can pick. */
+            eligibleKeys={derivedEligibleKeys}
             onPick={onPickCategory}
           />
         </Card>
@@ -583,16 +581,15 @@ function CategoryRows({
   categoriesQuery,
   eligibility,
   eligibilityLoading,
-  eligibleKey,
+  eligibleKeys,
   onPick,
 }: {
   categoriesQuery: ReturnType<typeof useCategories>;
   eligibility: readonly ApplicantCategoryEligibility[];
   eligibilityLoading: boolean;
-  /** Restrict the rendered list to a single category when the MOI
-   *  lookup already decided eligibility — Ahmed sees only قسم الضباط
-   *  (officers_general). When null, the full catalogue renders. */
-  eligibleKey: string | null;
+  /** Restrict the rendered list to categories returned by MOI/backend
+   *  eligibility. When null, the full catalogue renders. */
+  eligibleKeys: readonly string[] | null;
   onPick: (key: string, enabled: boolean) => void;
 }): JSX.Element {
   if (categoriesQuery.isLoading || eligibilityLoading) {
@@ -612,13 +609,14 @@ function CategoryRows({
       </div>
     );
   }
-  /* Demo direction (2026-05-18):
+  /* Demo direction (2026-05-18), tightened for backend eligibility:
    *  - Show every category from the mock catalogue even when no live
    *    cycle is in window (force isOpen so the row is clickable).
-   *  - When the backend has resolved a single eligible category, render
-   *    that category only and let the backend verdict control availability. */
+   *  - When the backend has resolved eligible categories, render only
+   *    those categories and let the backend verdict control availability. */
+  const allowedKeys = eligibleKeys === null ? null : new Set(eligibleKeys);
   const categories = (categoriesQuery.data ?? [])
-    .filter((c) => eligibleKey === null || c.key === eligibleKey)
+    .filter((c) => allowedKeys === null || allowedKeys.has(c.key))
     .map((c) => {
       const verdict = eligibility.find((item) => item.categoryId === c.key);
       return {
