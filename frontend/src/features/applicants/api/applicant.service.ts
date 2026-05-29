@@ -24,6 +24,7 @@ import { apiClient } from '@/shared/lib/api-client';
 import type {
   Applicant,
   ApplicantCategoryKey,
+  ApplicantResults,
   ApplicantStatus,
   ApplicantWorkflowProgress,
   AuditColor,
@@ -101,6 +102,13 @@ const STAGE_LABELS: Record<number, string> = {
   9: 'طباعة بطاقة التردد',
   10: 'المتابعة',
   11: 'وثائق التعارف',
+};
+
+const EMPTY_RESULTS: ApplicantResults = {
+  medical: null,
+  fitness: null,
+  interview: null,
+  finalExam: null,
 };
 
 const NID_GOVERNORATE_LABELS: Record<string, string> = {
@@ -252,6 +260,10 @@ function normalizeApplicant(applicant: Applicant): Applicant {
     stageLabel,
     religion,
     maritalStatus,
+    results: {
+      ...EMPTY_RESULTS,
+      ...(applicant.results ?? {}),
+    },
     currentAddress: applicant.currentAddress
       ? {
           ...applicant.currentAddress,
