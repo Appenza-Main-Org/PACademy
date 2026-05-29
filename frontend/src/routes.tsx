@@ -150,6 +150,7 @@ import {
   ProctorViewPage,
   QuestionBankCRUDPage,
   QuestionBankPage,
+  TakeExamEntryPage,
 } from '@/features/exams';
 import {
   ApplicantGradesChangesPage,
@@ -444,6 +445,7 @@ export const routes: RouteObject[] = [
       { path: 'exams/:examId/preview', element: <ExamPreviewPage /> },
       { path: 'exams/:examId/take', element: <LiveExamPage /> },
       { path: 'exams/:examId/proctor', element: <ProctorViewPage /> },
+      { path: 'take', element: <TakeExamEntryPage /> },
       { path: 'proctor', element: <ProctorListPage /> },
       { path: 'results', element: <ExamsResultsPage /> },
     ],

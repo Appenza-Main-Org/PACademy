@@ -86,8 +86,8 @@ export function LoginForm(): JSX.Element {
           navigate(ROUTES.biometric.overview, { replace: true });
           return;
         }
-        if (values.role === 'exams_admin' && user.role === 'super_admin') {
-          navigate(ROUTES.questionBank.exams, { replace: true });
+        if (values.role === 'exams_admin') {
+          navigate(ROUTES.questionBank.overview, { replace: true });
           return;
         }
         goToLanding(user);
