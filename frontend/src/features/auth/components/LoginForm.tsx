@@ -23,20 +23,10 @@ const STAFF_LOGIN_ROLES = [
   'super_admin',
   'exams_admin',
   'admissions_system_admin',
-  'student_committee_head',
-  'exam_committee_head',
-  'security_gate_user',
-  'medical_committee_head',
-  'medical_clinic_manager',
 ] as const;
 
 const BIOMETRIC_LOGIN_ROLES: readonly Role[] = [
   'admissions_system_admin',
-  'student_committee_head',
-  'exam_committee_head',
-  'security_gate_user',
-  'medical_committee_head',
-  'medical_clinic_manager',
 ];
 
 const loginSchema = z.object({
