@@ -88,6 +88,61 @@ export interface ApplicationSettingsCycleDraftPayload {
   approved: unknown[];
 }
 
+function summaryHasSavedSettings(summary: readonly CategorySettingsSummary[]): boolean {
+  return summary.some((category) =>
+    category.groups.some((group) => group.years.length > 0),
+  );
+}
+
+async function buildApplicationSettingsSummaryFromTree(): Promise<CategorySettingsSummary[]> {
+  const configs = await apiClient.get<CategoryConfigJoined[]>('/api/admin/app-settings/category-configs');
+
+  return Promise.all(
+    configs.map(async (config) => {
+      const groups = await buildReviewGroups(config);
+      return {
+        config,
+        groups,
+        gradingMode: await resolveReviewGradingMode(groups),
+      };
+    }),
+  );
+}
+
+async function buildReviewGroups(
+  config: CategoryConfigJoined,
+): Promise<YearGroupForReview[]> {
+  const specializations = await apiClient.get<CategorySpecializationJoined[]>(
+    `/api/admin/app-settings/category-configs/${encodeURIComponent(config.id)}/specializations`,
+  );
+
+  return Promise.all(
+    specializations.map(async (specialization) => ({
+      csId: specialization.id,
+      nameAr: config.singleAxis ? null : specialization.specializationNameAr,
+      years: await apiClient.get<ApplicantSpecializationYear[]>(
+        `/api/admin/app-settings/specializations/${encodeURIComponent(specialization.id)}/years`,
+      ),
+    })),
+  );
+}
+
+async function resolveReviewGradingMode(
+  groups: readonly YearGroupForReview[],
+): Promise<YearGradeKind | null> {
+  const firstGroup = groups[0];
+  if (!firstGroup) return null;
+
+  try {
+    const response = await apiClient.get<{ gradingMode: YearGradeKind | null }>(
+      `/api/admin/app-settings/specializations/${encodeURIComponent(firstGroup.csId)}/grading-mode`,
+    );
+    return response.gradingMode;
+  } catch {
+    return groups.flatMap((group) => group.years)[0]?.gradeKind ?? null;
+  }
+}
+
 export const applicationSettingsService = {
   async listCategoryConfigs(): Promise<CategoryConfigJoined[]> {
     return apiClient.get('/api/admin/app-settings/category-configs');
@@ -112,7 +167,13 @@ export const applicationSettingsService = {
   },
 
   async getApplicationSettingsSummary(): Promise<CategorySettingsSummary[]> {
-    return apiClient.get('/api/admin/app-settings/summary');
+    try {
+      const summary = await apiClient.get<CategorySettingsSummary[]>('/api/admin/app-settings/summary');
+      if (summaryHasSavedSettings(summary)) return summary;
+    } catch {
+      /* Some backend environments do not yet expose the aggregate summary. */
+    }
+    return buildApplicationSettingsSummaryFromTree();
   },
 
   async getCycleDraft(cycleId: string): Promise<ApplicationSettingsCycleDraftPayload> {
