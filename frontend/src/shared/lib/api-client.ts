@@ -42,18 +42,38 @@ export function isBackendEnabled(): boolean {
   return import.meta.env.VITE_USE_MOCKS !== 'true';
 }
 
+function normalizeBaseUrl(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.replace(/\/+$/, '') : undefined;
+}
+
+function firstEnv(...values: Array<string | undefined>): string {
+  for (const value of values) {
+    const normalized = normalizeBaseUrl(value);
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
 function apiBaseUrl(): string {
-  return (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+  return firstEnv(import.meta.env.VITE_API_BASE_URL);
 }
 
 function adminApiBaseUrl(): string {
-  const explicit = import.meta.env.VITE_ADMIN_API_BASE_URL as string | undefined;
-  return (explicit ?? import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+  return firstEnv(
+    import.meta.env.VITE_ADMIN_API_BASE_URL as string | undefined,
+    import.meta.env.VITE_ADMIN_API_URL as string | undefined,
+    import.meta.env.VITE_API_BASE_URL,
+  );
 }
 
 function applicantApiBaseUrl(): string {
-  const explicit = import.meta.env.VITE_APPLICANT_API_BASE_URL as string | undefined;
-  return (explicit ?? import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+  return firstEnv(
+    import.meta.env.VITE_APPLICANT_API_BASE_URL as string | undefined,
+    import.meta.env.VITE_APPLICANT_API_URL as string | undefined,
+    import.meta.env.VITE_APPLICANT_API_BASE as string | undefined,
+    import.meta.env.VITE_API_BASE_URL,
+  );
 }
 
 function readAuthToken(): string | null {
