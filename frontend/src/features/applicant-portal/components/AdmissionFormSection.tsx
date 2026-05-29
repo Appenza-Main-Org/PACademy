@@ -35,6 +35,7 @@ import {
   professionLabel,
   type FamilyMemberForm,
 } from '../lib/familyData';
+import type { ApplicantDraft } from '@/shared/types/domain';
 
 const MARITAL_LABEL: Record<string, string> = {
   single: 'أعزب',
@@ -45,9 +46,10 @@ const MARITAL_LABEL: Record<string, string> = {
 
 interface Props {
   fileNumber: string;
+  draft?: ApplicantDraft;
 }
 
-export function AdmissionFormSection({ fileNumber: _fileNumber }: Props): JSX.Element {
+export function AdmissionFormSection({ fileNumber: _fileNumber, draft }: Props): JSX.Element {
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
   const storeNid = useApplicantPortalStore((s) => s.nationalId);
   const selectedFaculty = useApplicantPortalStore((s) => s.selectedFaculty);
@@ -57,34 +59,53 @@ export function AdmissionFormSection({ fileNumber: _fileNumber }: Props): JSX.El
 
   const v = profile?.values ?? null;
   const mp = profile?.manualPersonal ?? null;
+  const submittedProfile = draft?.profile;
 
-  const fullName = moiSession?.fullName || mp?.fullName || '';
-  const nationalId = moiSession?.nationalId || storeNid || '';
-  const dob = moiSession?.dateOfBirthAr || mp?.dateOfBirthAr || '';
-  const birthGov = moiSession?.birthGovernorate || mp?.birthGovernorate || '';
-  const birthDistrict = moiSession?.birthDistrict || mp?.birthDistrict || v?.birthDistrict || '';
-  const mobile = moiSession?.mobile || mp?.mobile || '';
-  const maritalCode = mp?.maritalStatus || '';
+  const fullName = readProfileString(submittedProfile, 'fullName') || moiSession?.fullName || mp?.fullName || '';
+  const nationalId = readProfileString(submittedProfile, 'nationalId') || moiSession?.nationalId || storeNid || '';
+  const dob = readProfileString(submittedProfile, 'dateOfBirthAr') || moiSession?.dateOfBirthAr || mp?.dateOfBirthAr || '';
+  const birthGov = readProfileString(submittedProfile, 'birthGovernorate') || moiSession?.birthGovernorate || mp?.birthGovernorate || '';
+  const birthDistrict =
+    readProfileString(submittedProfile, 'birthDistrict') ||
+    moiSession?.birthDistrict ||
+    mp?.birthDistrict ||
+    v?.birthDistrict ||
+    '';
+  const mobile = readProfileString(submittedProfile, 'mobile') || moiSession?.mobile || mp?.mobile || '';
+  const maritalCode = readProfileString(submittedProfile, 'maritalStatus') || mp?.maritalStatus || '';
   const marital = maritalCode ? MARITAL_LABEL[maritalCode] ?? '' : '';
 
-  const facultyText = selectedFaculty ?? v?.bachelorFaculty ?? '';
-  const universityText = v?.bachelorUniversity ?? '';
-  const bachelorYearText = v?.bachelorYear != null && v?.bachelorYear !== '' ? String(v.bachelorYear) : '';
-  const bachelorGradeText = v?.bachelorGrade ?? '';
+  const facultyText =
+    readProfileString(submittedProfile, 'bachelorFaculty') ||
+    selectedFaculty ||
+    v?.bachelorFaculty ||
+    '';
+  const universityText = readProfileString(submittedProfile, 'bachelorUniversity') || v?.bachelorUniversity || '';
+  const bachelorYearText =
+    readProfileString(submittedProfile, 'bachelorYear') ||
+    (v?.bachelorYear != null && v?.bachelorYear !== '' ? String(v.bachelorYear) : '');
+  const bachelorGradeText = readProfileString(submittedProfile, 'bachelorGrade') || v?.bachelorGrade || '';
   /* The PDF reads «المؤهل» as the bachelor degree title (دبلوم/ليسانس/بكالوريوس/…)
    * not the level code. Fall back to a sensible textual description if
    * the profile only carries the level. */
-  const qualificationText =
-    v?.bachelorMajor || profile?.qualificationLevel === 'master'
+  const bachelorMajorText = readProfileString(submittedProfile, 'bachelorMajor') || v?.bachelorMajor || '';
+  const qualificationLevel =
+    readProfileString(submittedProfile, 'qualificationLevel') || profile?.qualificationLevel || '';
+  const qualificationText = bachelorMajorText ||
+    (qualificationLevel === 'master'
       ? 'ماجستير'
-      : profile?.qualificationLevel === 'doctorate'
+      : qualificationLevel === 'doctorate'
         ? 'دكتوراه'
-        : 'بكالوريوس';
+        : 'بكالوريوس');
 
-  const addressLine = [v?.currentAddressDetail, v?.addressDistrict, v?.addressGovernorate]
+  const addressLine = [
+    readProfileString(submittedProfile, 'currentAddressDetail') || v?.currentAddressDetail,
+    readProfileString(submittedProfile, 'addressDistrict') || v?.addressDistrict,
+    readProfileString(submittedProfile, 'addressGovernorate') || v?.addressGovernorate,
+  ]
     .filter(Boolean)
     .join(' — ');
-  const homePhone = v?.homePhone ?? '';
+  const homePhone = readProfileString(submittedProfile, 'homePhone') || v?.homePhone || '';
 
   /* Nationality + governorate-of-birth are emitted from the MOI session;
    * keep both visible even when one is missing. */
@@ -367,7 +388,7 @@ function StudentNameWatermark({ name }: { name: string }): JSX.Element | null {
    * a data URI so we don't need a separate asset. */
   const tileWidth = 240;
   const tileHeight = 96;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${tileWidth}" height="${tileHeight}" viewBox="0 0 ${tileWidth} ${tileHeight}"><text x="${tileWidth / 2}" y="${tileHeight / 2}" text-anchor="middle" dominant-baseline="middle" font-family="Cairo, sans-serif" font-size="14" fill="rgba(0,0,0,0.08)" transform="rotate(-28 ${tileWidth / 2} ${tileHeight / 2})">${escapeSvgText(text)}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${tileWidth}" height="${tileHeight}" viewBox="0 0 ${tileWidth} ${tileHeight}"><text x="${tileWidth / 2}" y="${tileHeight / 2}" text-anchor="middle" dominant-baseline="middle" font-family="Cairo, sans-serif" font-size="16" fill="rgba(0,0,0,0.16)" transform="rotate(-28 ${tileWidth / 2} ${tileHeight / 2})">${escapeSvgText(text)}</text></svg>`;
   const dataUri = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
   return (
     <div
@@ -386,6 +407,16 @@ function escapeSvgText(s: string): string {
     if (c === '"') return '&quot;';
     return '&apos;';
   });
+}
+
+function readProfileString(
+  profile: ApplicantDraft['profile'] | undefined,
+  key: keyof NonNullable<ApplicantDraft['profile']>,
+): string {
+  const value = profile?.[key];
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  return '';
 }
 
 function toArabicNumeral(n: number): string {
@@ -553,7 +584,7 @@ const ADMISSION_FORM_CSS = `
    * overrides so other features' prints are untouched. */
   @page {
     size: A4 portrait;
-    margin: 0 !important;
+    margin: 8mm !important;
     @top-left      { content: ""; }
     @top-center    { content: ""; }
     @top-right     { content: ""; }
@@ -625,7 +656,7 @@ const ADMISSION_FORM_CSS = `
     max-width: 100% !important;
     min-height: 0 !important;
     margin: 0 !important;
-    padding: 14mm 14mm !important;
+    padding: 6mm !important;
     box-sizing: border-box !important;
   }
 

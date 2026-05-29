@@ -46,6 +46,7 @@ export function ApplicationSummaryPage(): JSX.Element {
   const examSummary = draft.examSlot
     ? `${draft.examSlot.date.slice(0, 10)} · ${draft.examSlot.time}`
     : '— لم يُحجَز موعد —';
+  const applicationLocked = Boolean(draft.examSlot);
 
   /* MOI-aligned: stageIndex values mirror the new STAGE_KEYS order:
    *   2 = profile (collapsed 3/4/5)
@@ -57,25 +58,25 @@ export function ApplicationSummaryPage(): JSX.Element {
       stageIndex: 2,
       heading: 'البيانات الشخصية والدراسية',
       summary: profileSummary,
-      locked: false,
+      locked: applicationLocked,
     },
     {
       stageIndex: 5,
       heading: 'سداد الرسوم',
       summary: paymentSummary,
-      locked: Boolean(draft.payment?.paidAt),
+      locked: applicationLocked || Boolean(draft.payment?.paidAt),
     },
     {
       stageIndex: 6,
       heading: 'بيانات الوالدين',
       summary: familySummary,
-      locked: false,
+      locked: applicationLocked,
     },
     {
       stageIndex: 7,
       heading: 'موعد الاختبار',
       summary: examSummary,
-      locked: Boolean(draft.examSlot),
+      locked: applicationLocked,
     },
   ];
 

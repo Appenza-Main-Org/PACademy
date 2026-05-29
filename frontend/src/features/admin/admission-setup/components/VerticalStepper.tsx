@@ -27,7 +27,12 @@ import { useEffect, useRef } from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 
-export type VerticalStepState = 'complete' | 'current' | 'in_progress' | 'upcoming';
+export type VerticalStepState =
+  | 'complete'
+  | 'current'
+  | 'current_complete'
+  | 'in_progress'
+  | 'upcoming';
 
 export interface VerticalStepDescriptor {
   key: string;
@@ -117,7 +122,7 @@ export function VerticalStepper({
                     'whitespace-normal font-ar text-[13px] leading-5',
                     isActive
                       ? 'font-bold text-ink-900'
-                      : step.state === 'complete'
+                      : step.state === 'complete' || step.state === 'current_complete'
                         ? 'font-medium text-ink-700'
                         : step.state === 'in_progress'
                           ? 'font-medium text-gold-700'
@@ -144,9 +149,16 @@ function StepDot({
 }): JSX.Element {
   const base =
     'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-2xs font-numeric tnum';
-  if (state === 'complete') {
+  if (state === 'complete' || state === 'current_complete') {
     return (
-      <span className={cn(base, 'border-teal-500 bg-teal-500 text-white')} aria-hidden>
+      <span
+        className={cn(
+          base,
+          'border-teal-500 bg-teal-500 text-white',
+          state === 'current_complete' && 'shadow-focus-teal',
+        )}
+        aria-hidden
+      >
         <Check size={13} strokeWidth={2.4} />
       </span>
     );

@@ -81,9 +81,8 @@ export function Stage8ExamSchedulePage(): JSX.Element {
       toast('اختر تاريخ الإختبار أولاً', 'warning');
       return;
     }
-    const selectedOpt = dayOptions.find((o) => o.value === picked);
     await pickMut.mutateAsync({ slotId: picked });
-    setFirstExamDate(selectedOpt?.dateLabel ?? picked);
+    setFirstExamDate(picked);
     setConfirmOpen(true);
   };
 
@@ -100,14 +99,14 @@ export function Stage8ExamSchedulePage(): JSX.Element {
           <h2 className="font-ar-display text-xl font-bold text-ink-900">تحديد موعد إختبار قدرات</h2>
           <p className="mt-1 text-sm text-ink-500 leading-normal">
             اختر يوماً واحداً من المواعيد المتاحة. تُحدِّد الأكاديمية ميعاد بدء الإختبار داخل اليوم
-            وتُطبَع على بطاقة التردد.
+            ويظهر اليوم المختار على بطاقة التردد.
           </p>
         </div>
       </header>
 
       <dl className="mb-4 grid grid-cols-1 gap-x-6 gap-y-3 rounded-md border border-border-default bg-ink-50/50 p-4 sm:grid-cols-3">
-        <DefRow label="إسم الطالب" value={MOI_APPLICANT_SESSION.fullName} />
-        <DefRow label="الرقم القومي" value={MOI_APPLICANT_SESSION.nationalId} ltr mono />
+        <DefRow label="إسم الطالب" value={moiSession?.fullName ?? MOI_APPLICANT_SESSION.fullName} />
+        <DefRow label="الرقم القومي" value={nid} ltr mono />
         <DefRow label="اللجنة" value={committeeName} />
       </dl>
 

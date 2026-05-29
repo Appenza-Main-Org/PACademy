@@ -26,7 +26,6 @@ import { date as fmtDate } from '@/shared/lib/format';
 import {
   arabicDayOfWeek,
   arabicOrdinal,
-  arabicTimeOfDay,
   toEasternArabicNumerals,
 } from '@/shared/lib/arabic';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
@@ -166,14 +165,12 @@ export function Stage9PrintCardPage(): JSX.Element {
           const dateStr = toEasternArabicNumerals(
             `${examDate.getFullYear()}/${String(examDate.getMonth() + 1).padStart(2, '0')}/${String(examDate.getDate()).padStart(2, '0')}`,
           );
-          const { hourWord, periodWord } = arabicTimeOfDay(slot.time);
           return (
             <p className="mb-5 rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-sm text-ink-900">
               تاريخ إختبار قدرات يوم {dayName}{' '}
               <span dir="ltr" className="font-numeric tnum">
                 {dateStr}
-              </span>{' '}
-              الساعة {hourWord} {periodWord}
+              </span>
             </p>
           );
         })()}
@@ -223,7 +220,7 @@ export function Stage9PrintCardPage(): JSX.Element {
               produces a single document with one ministry letterhead. The
               section itself sets break-before:page so the form starts on
               its own printed page. ── */}
-        <AdmissionFormSection fileNumber={fileNumber} />
+        <AdmissionFormSection fileNumber={fileNumber} draft={draft} />
 
         <KhayameyaStripe height="lg" />
       </PrintLayout>
