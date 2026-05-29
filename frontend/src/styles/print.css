@@ -161,6 +161,7 @@
   /* Force the page body into a single full-bleed column. */
   .arch-page {
     direction: ltr;
+    page: architecture-handout;
   }
   .arch-page-grid {
     display: block !important;
@@ -280,12 +281,65 @@
   .arch-page thead th { font-size: 8pt; }
 
   /* Print footer — page numbers via @page where supported. */
-  @page {
+  @page architecture-handout {
     @bottom-center {
       content: "Police Academy Admissions System — Technical Reference — Page " counter(page) " of " counter(pages);
       font-family: 'Cairo', sans-serif;
       font-size: 8pt;
       color: #6b6b6b;
     }
+  }
+}
+
+/* Applicant attendance-card print. Keep these rules outside component
+   style tags so Chrome's print engine applies the named @page boxes. */
+@media print {
+  .print-card-page {
+    page: applicant-print-card;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-card-page article[data-print-orientation] {
+    page: applicant-print-card;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 auto !important;
+    padding: 14mm !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    border: 0 !important;
+  }
+
+  .print-card-page .admission-form {
+    page: applicant-admission-form;
+    margin-top: 0 !important;
+    break-before: page;
+    page-break-before: always;
+  }
+
+  @page applicant-print-card {
+    size: A4 portrait;
+    margin: 0;
+    @top-left      { content: ""; }
+    @top-center    { content: ""; }
+    @top-right     { content: ""; }
+    @bottom-left   { content: ""; }
+    @bottom-center { content: ""; }
+    @bottom-right  { content: ""; }
+  }
+
+  @page applicant-admission-form {
+    size: A4 portrait;
+    margin: 0;
+    @top-left      { content: ""; }
+    @top-center    { content: ""; }
+    @top-right     { content: ""; }
+    @bottom-left   { content: ""; }
+    @bottom-center { content: ""; }
+    @bottom-right  { content: ""; }
   }
 }
