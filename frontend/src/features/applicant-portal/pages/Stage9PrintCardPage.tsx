@@ -64,7 +64,7 @@ export function Stage9PrintCardPage(): JSX.Element {
 
   return (
     <div
-      className="mx-auto flex flex-col gap-4"
+      className="print-card-page mx-auto flex flex-col gap-4"
       style={{ width: '210mm' }}
     >
       {/* ── Required documents — bullet list, on-screen only ── */}
@@ -99,6 +99,7 @@ export function Stage9PrintCardPage(): JSX.Element {
         title="بطاقة التردد"
         subtitle={`دفعة قبول 2026 — ${category?.labelAr ?? 'أكاديمية الشرطة'}`}
         generatedAt={fmtDate(Date.now(), 'short')}
+        className="attendance-card-print"
       >
         <div className="mb-6 grid grid-cols-[140px_1fr_auto] gap-5 rounded-lg border-2 border-teal-500 bg-teal-50/40 p-4">
           {/* Barcode column (PDF p.12 left) */}
@@ -251,4 +252,3 @@ export function Stage9PrintCardPage(): JSX.Element {
     </div>
   );
 }
-
