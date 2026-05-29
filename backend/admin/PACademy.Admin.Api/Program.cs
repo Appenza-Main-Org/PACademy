@@ -101,7 +101,10 @@ if (!skipSeed)
 /* ── HTTP pipeline ──────────────────────────────────────────────── */
 app.UsePacademyExceptionHandling();
 
-if (app.Environment.IsDevelopment())
+var openApiEnabled = app.Environment.IsStaging()
+    || app.Environment.IsEnvironment("Uat");
+
+if (openApiEnabled)
 {
     app.MapOpenApi();
     app.MapScalarApiReference(o => o
