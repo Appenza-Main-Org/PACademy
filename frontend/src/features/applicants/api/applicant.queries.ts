@@ -3,6 +3,7 @@ import type { ApplicantStatus } from '@/shared/types/domain';
 import { applicantService, type ApplicantFilters } from './applicant.service';
 import { auditService } from '@/features/audit/api/audit.service';
 import { noServerStateCacheOptions } from '@/shared/lib/query-options';
+import { toast } from '@/shared/components';
 import type { ApplicantInput } from '../schemas';
 
 export const applicantKeys = {
@@ -160,6 +161,54 @@ export function useTransitionApplicant() {
       qc.invalidateQueries({ queryKey: applicantKeys.audit(a.id) });
       qc.invalidateQueries({ queryKey: applicantKeys.progress(a.id) });
       qc.invalidateQueries({ queryKey: applicantKeys.lists() });
+    },
+  });
+}
+
+function invalidateApplicantMutation(
+  qc: ReturnType<typeof useQueryClient>,
+  id: string,
+): void {
+  qc.invalidateQueries({ queryKey: applicantKeys.detail(id) });
+  qc.invalidateQueries({ queryKey: applicantKeys.audit(id) });
+  qc.invalidateQueries({ queryKey: applicantKeys.progress(id) });
+  qc.invalidateQueries({ queryKey: applicantKeys.lists() });
+  qc.invalidateQueries({ queryKey: applicantKeys.stats() });
+}
+
+export function useResetApplicant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => applicantService.resetApplicant(id),
+    onSuccess: (applicant) => {
+      invalidateApplicantMutation(qc, applicant.id);
+      toast('تمت إعادة تعيين الطلب مع حفظ بيانات التحقق الأولى', 'success');
+    },
+  });
+}
+
+export function useDeleteApplicant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => applicantService.deleteApplicant(id),
+    onSuccess: (_result, id) => {
+      invalidateApplicantMutation(qc, id);
+      toast('تم حذف الطلب نهائياً', 'success');
+    },
+  });
+}
+
+export function useSetApplicantSuspension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; suspended: boolean; reason?: string }) =>
+      applicantService.setApplicantSuspension(input.id, {
+        suspended: input.suspended,
+        reason: input.reason,
+      }),
+    onSuccess: (applicant) => {
+      invalidateApplicantMutation(qc, applicant.id);
+      toast(applicant.suspended ? 'تم إيقاف الطلب' : 'تم إلغاء إيقاف الطلب', 'success');
     },
   });
 }

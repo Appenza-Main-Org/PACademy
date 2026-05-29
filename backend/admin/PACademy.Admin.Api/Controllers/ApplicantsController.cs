@@ -141,6 +141,26 @@ public sealed class ApplicantsController(AdminRecordsService records, ApplicantE
         return Ok(await records.UpsertAsync("applicants", id, patch, ct));
     }
 
+    [HttpPost("api/v1/applicants/{id}/reset")]
+    public async Task<ActionResult<JsonObject>> Reset(string id, CancellationToken ct)
+    {
+        var row = await records.ResetApplicantAsync(id, ct);
+        return row is null ? NotFound() : Ok(row);
+    }
+
+    [HttpDelete("api/v1/applicants/{id}")]
+    public async Task<IActionResult> Delete(string id, CancellationToken ct)
+    {
+        return await records.DeleteApplicantAsync(id, ct) ? NoContent() : NotFound();
+    }
+
+    [HttpPost("api/v1/applicants/{id}/suspension")]
+    public async Task<ActionResult<JsonObject>> Suspension(string id, [FromBody] ApplicantSuspensionRequest body, CancellationToken ct)
+    {
+        var row = await records.SetApplicantSuspensionAsync(id, body.Suspended, body.Reason, ct);
+        return row is null ? NotFound() : Ok(row);
+    }
+
     [HttpGet("api/v1/applicants/{id}/workflow-progress")]
     public async Task<ActionResult<JsonObject?>> Progress(string id, CancellationToken ct)
     {
@@ -288,3 +308,5 @@ public sealed class ApplicantsController(AdminRecordsService records, ApplicantE
 }
 
 public sealed record ApplicantStatusOption(string Value, string Label, string Color);
+
+public sealed record ApplicantSuspensionRequest(bool Suspended, string? Reason);

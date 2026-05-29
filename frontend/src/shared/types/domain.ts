@@ -152,6 +152,8 @@ export interface ApplicantExtended {
   currentAddress?: ApplicantAddress;
   education?: ApplicantEducation;
   family?: ApplicantFamily;
+  /** Admin-controlled suspension flag; applicants may authenticate but cannot write while true. */
+  suspended?: boolean;
   /** Free-text reason for any soft "موقوف" status applied by an admin. */
   suspensionReason?: string;
   /** Set when Stage 9 (attendance card print) has fired — locks personal data. */

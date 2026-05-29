@@ -93,6 +93,15 @@ export interface DuplicateConfig<TRow> {
   guard?: (row: TRow) => string | null;
 }
 
+export interface RowActionsConfig<TRow> {
+  /** Header label for the trailing actions column. */
+  labelAr?: string;
+  /** Fixed column width; defaults to a compact icon-menu column. */
+  width?: string | number;
+  /** Render the row-level action primitive for this row. */
+  render: (row: TRow) => ReactNode;
+}
+
 export interface ListActionsConfig<TRow> {
   /** `<surface>.<entity>` — e.g. `admin.users`. Drives audit + permissions. */
   entityKey: string;
@@ -103,6 +112,7 @@ export interface ListActionsConfig<TRow> {
   export?: ExportConfig<TRow>;
   import?: ImportConfig<unknown>;
   duplicate?: DuplicateConfig<TRow>;
+  rowActions?: RowActionsConfig<TRow>;
 }
 
 /* ── Public helpers shared by the primitives ─────────────────────────── */

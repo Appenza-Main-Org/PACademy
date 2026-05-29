@@ -344,6 +344,111 @@ public sealed class AdminRecordsService(
         return true;
     }
 
+    public async Task<JsonObject?> ResetApplicantAsync(string id, CancellationToken ct)
+    {
+        var current = await GetAsync("applicants", id, ct);
+        if (current is null) return null;
+
+        var nationalId = AdminRecordJson.StringProp(current, "nationalId")
+            ?? AdminRecordJson.StringProp(current, "national_id")
+            ?? AdminRecordJson.StringProp(current, "nid")
+            ?? throw new ConflictException("INVALID_APPLICANT_NID", "لا يمكن إعادة تعيين طلب بدون رقم قومي");
+
+        if (!await ApplicantHasGradeAsync(nationalId, ct))
+        {
+            throw new ConflictException(
+                "APPLICANT_GRADE_REQUIRED",
+                "لا يمكن إعادة تعيين الطلب قبل وجود درجة للمتقدم في دورة القبول النشطة");
+        }
+
+        var next = current.DeepClone().AsObject();
+        ClearApplicantEnteredData(next);
+        next["stage"] = 3;
+        next["furthestStage"] = 3;
+        next["furthest_stage"] = 3;
+        next["stageLabel"] = "استكمال البيانات الشخصية";
+        next["paymentStatus"] = "pending";
+        next["hasDocuments"] = false;
+        next["updatedAt"] = DateTimeOffset.UtcNow.ToString("O");
+
+        var saved = await UpsertAsync("applicants", id, next, ct);
+        await EmitAuditAsync(
+            "applicants",
+            "applicant.reset",
+            nationalId,
+            $"admin.applicants.reset · targetNid={nationalId}",
+            DateTimeOffset.UtcNow,
+            ct);
+        return saved;
+    }
+
+    public async Task<bool> DeleteApplicantAsync(string id, CancellationToken ct)
+    {
+        var current = await GetAsync("applicants", id, ct);
+        if (current is null) return false;
+        var nationalId = AdminRecordJson.StringProp(current, "nationalId")
+            ?? AdminRecordJson.StringProp(current, "national_id")
+            ?? AdminRecordJson.StringProp(current, "nid")
+            ?? id;
+
+        var deleted = await DeleteAsync("applicants", id, ct);
+        if (deleted)
+        {
+            await EmitAuditAsync(
+                "applicants",
+                "applicant.delete",
+                nationalId,
+                $"admin.applicants.delete · targetNid={nationalId}",
+                DateTimeOffset.UtcNow,
+                ct);
+        }
+        return deleted;
+    }
+
+    public async Task<JsonObject?> SetApplicantSuspensionAsync(
+        string id,
+        bool suspended,
+        string? reason,
+        CancellationToken ct)
+    {
+        var current = await GetAsync("applicants", id, ct);
+        if (current is null) return null;
+
+        if (suspended && string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ConflictException("SUSPENSION_REASON_REQUIRED", "سبب الإيقاف مطلوب");
+        }
+
+        var nationalId = AdminRecordJson.StringProp(current, "nationalId")
+            ?? AdminRecordJson.StringProp(current, "national_id")
+            ?? AdminRecordJson.StringProp(current, "nid")
+            ?? id;
+        var next = current.DeepClone().AsObject();
+        next["suspended"] = suspended;
+        next["updatedAt"] = DateTimeOffset.UtcNow.ToString("O");
+        if (suspended)
+        {
+            var trimmedReason = reason?.Trim() ?? "";
+            next["suspensionReason"] = trimmedReason;
+            next["suspension_reason"] = trimmedReason;
+        }
+        else
+        {
+            next.Remove("suspensionReason");
+            next.Remove("suspension_reason");
+        }
+
+        var saved = await UpsertAsync("applicants", id, next, ct);
+        await EmitAuditAsync(
+            "applicants",
+            suspended ? "applicant.suspend" : "applicant.unsuspend",
+            nationalId,
+            $"admin.applicants.{(suspended ? "suspend" : "unsuspend")} · targetNid={nationalId}",
+            DateTimeOffset.UtcNow,
+            ct);
+        return saved;
+    }
+
     public async Task<int> DeleteModuleAsync(string module, CancellationToken ct)
     {
         var deleted = await DocumentsDb.AdminRecordDocuments
@@ -1276,6 +1381,61 @@ public sealed class AdminRecordsService(
         }
     }
 
+    private async Task<bool> ApplicantHasGradeAsync(string nationalId, CancellationToken ct)
+    {
+        var rows = await ListAsync("grades", ct);
+        return rows.Any(row =>
+            !AdminRecordJson.IsSoftDeleted(row)
+            && (AdminRecordJson.StringProp(row, "nid") == nationalId
+                || AdminRecordJson.StringProp(row, "nationalId") == nationalId
+                || AdminRecordJson.StringProp(row, "national_id") == nationalId));
+    }
+
+    private static void ClearApplicantEnteredData(JsonObject payload)
+    {
+        string[] keys =
+        [
+            "manualPersonalJson",
+            "manual_personal_json",
+            "manualPersonal",
+            "socialHandlesJson",
+            "social_handles_json",
+            "socialHandles",
+            "applicantAddress",
+            "applicant_address",
+            "currentAddress",
+            "address",
+            "applicantEducation",
+            "applicant_education",
+            "family",
+            "applicantFamilyMembers",
+            "applicant_family_members",
+            "examReservations",
+            "applicantExamReservations",
+            "applicant_exam_reservations",
+            "paymentRefNumber",
+            "payment_ref_number",
+            "paymentReference",
+            "paidAt",
+            "paid_at",
+            "parentsApproved",
+            "parents_approved",
+            "parentsApprovedAt",
+            "parents_approved_at",
+            "parentsApprovedBy",
+            "parents_approved_by",
+            "firstExamDate",
+            "first_exam_date",
+            "attendanceCardPrintedAt",
+            "attendance_card_printed_at"
+        ];
+
+        foreach (var key in keys)
+        {
+            payload.Remove(key);
+        }
+    }
+
     private async Task<IReadOnlyList<JsonObject>> ExecuteNormalizedQueryAsync(
         string sql,
         Action<DbCommand>? bind,
@@ -1323,6 +1483,15 @@ public sealed class AdminRecordsService(
         var kind = NormalizedModuleKind(module);
         var affected = kind switch
         {
+            "applicants" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"""
+                DELETE FROM {AdminDbContext.QualifiedTableName("applicant_portal_records")}
+                WHERE [applicant_id] = @id;
+                DELETE FROM {AdminDbContext.QualifiedTableName("applicants")}
+                WHERE [admin_record_id] = @id OR [national_id] = @id OR CONVERT(nvarchar(64), [id]) = @id;
+                """,
+                command => AddParameter(command, "@id", id),
+                ct),
             "questions" => await ExecuteNormalizedNonQueryWithCountAsync(
                 $"""
                 DELETE FROM {AdminDbContext.QualifiedTableName("exam_question_options")} WHERE [question_id] = @id;
