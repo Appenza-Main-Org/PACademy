@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Audit;
+using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
@@ -79,8 +80,19 @@ public sealed class AuditController(IAuditDbContext auditDb) : ControllerBase
     [HttpGet("api/audit/{id}/diff")]
     public async Task<ActionResult<object>> Diff(string id, CancellationToken ct)
     {
-        var row = await Get(id, ct);
-        return row.Result is NotFoundResult ? NotFound() : Ok(new { before = (object?)null, after = row.Value });
+        if (string.IsNullOrWhiteSpace(id) ||
+            id == "00000000-0000-0000-0000-000000000000")
+        {
+            return BadRequest(new ApiErrorEnvelope(
+                ErrorCodes.ValidationFailed,
+                Errors: new Dictionary<string, string[]> { ["id"] = ["معرّف سجل التدقيق غير صحيح"] },
+                Message: "تحقق من البيانات المدخلة"));
+        }
+
+        var durable = await auditDb.AuditRows.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+        return durable is null
+            ? NotFound(new ApiErrorEnvelope(ErrorCodes.NotFound, Message: "سجل التدقيق غير موجود"))
+            : Ok(new { before = (object?)null, after = ToJson(durable) });
     }
 
     private async Task<IReadOnlyList<JsonObject>> AuditRowsAsync(CancellationToken ct)

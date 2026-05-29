@@ -204,7 +204,7 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
 
     private async Task<int> CountApplicantsForCycleAsync(string cycleId, int year, CancellationToken ct)
     {
-        var rows = await db.AdminRecords.AsNoTracking().Where(x => x.Module == "applicants").ToListAsync(ct);
+        var rows = await db.AdminRecordDocuments.AsNoTracking().Where(x => x.Module == "applicants").ToListAsync(ct);
         return rows.Select(x => AdminRecordJson.Parse(x.PayloadJson)).Count(applicant =>
             StringProp(applicant, "cycleId") == cycleId ||
             StringProp(applicant, "admissionCycleId") == cycleId ||
@@ -213,7 +213,7 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
 
     private async Task<int> CountRecordsForCycleAsync(string module, string cycleId, CancellationToken ct)
     {
-        var rows = await db.AdminRecords.AsNoTracking().Where(x => x.Module == module).ToListAsync(ct);
+        var rows = await db.AdminRecordDocuments.AsNoTracking().Where(x => x.Module == module).ToListAsync(ct);
         return rows.Select(x => AdminRecordJson.Parse(x.PayloadJson)).Count(row =>
             StringProp(row, "cycleId") == cycleId ||
             StringProp(row, "admissionCycleId") == cycleId);

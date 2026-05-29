@@ -4,10 +4,11 @@ using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Modules.Audit;
+using PACademy.Admin.Api.Modules.Exams;
 
 namespace PACademy.Admin.Api.Persistence;
 
-public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext, IAdminRecordsDbContext
+public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext, IAdminRecordsDbContext, IAdminRecordDocumentsDbContext, IExamsDbContext
 {
     public const string DefaultSchema = "admin_v2";
     public const string MigrationsHistoryTable = "__EFMigrationsHistory_AdminApi";
@@ -50,6 +51,14 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<OfficerEntity> Officers => Set<OfficerEntity>();
     public DbSet<AdminRecordEntity> AdminRecords => Set<AdminRecordEntity>();
+    public DbSet<AdminRecordDocumentEntity> AdminRecordDocuments => Set<AdminRecordDocumentEntity>();
+    public DbSet<ExamQuestionEntity> ExamQuestions => Set<ExamQuestionEntity>();
+    public DbSet<ExamQuestionOptionEntity> ExamQuestionOptions => Set<ExamQuestionOptionEntity>();
+    public DbSet<ExamQuestionMatchingPairEntity> ExamQuestionMatchingPairs => Set<ExamQuestionMatchingPairEntity>();
+    public DbSet<ExamEntity> Exams => Set<ExamEntity>();
+    public DbSet<ExamRuleEntity> ExamRules => Set<ExamRuleEntity>();
+    public DbSet<ExamQuestionLinkEntity> ExamQuestionLinks => Set<ExamQuestionLinkEntity>();
+    public DbSet<ExamAssignmentEntity> ExamAssignments => Set<ExamAssignmentEntity>();
     public DbSet<ApplicantPortalRecordEntity> ApplicantPortalRecords => Set<ApplicantPortalRecordEntity>();
     public DbSet<ExamSlotEntity> ExamSlots => Set<ExamSlotEntity>();
 
@@ -242,6 +251,138 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
             entity.HasIndex(x => x.Module).HasDatabaseName("ix_admin_records_module");
+        });
+
+        modelBuilder.Entity<AdminRecordDocumentEntity>(entity =>
+        {
+            entity.ToTable("admin_record_documents");
+            entity.HasKey(x => new { x.Module, x.Id });
+            entity.Property(x => x.Module).HasColumnName("module").HasMaxLength(96);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.Module).HasDatabaseName("ix_admin_record_documents_module");
+        });
+
+        modelBuilder.Entity<ExamQuestionEntity>(entity =>
+        {
+            entity.ToTable("exam_questions");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.Category).HasColumnName("category").HasMaxLength(128);
+            entity.Property(x => x.Classification).HasColumnName("classification").HasMaxLength(128);
+            entity.Property(x => x.Difficulty).HasColumnName("difficulty");
+            entity.Property(x => x.Type).HasColumnName("type").HasMaxLength(48);
+            entity.Property(x => x.Text).HasColumnName("text");
+            entity.Property(x => x.CorrectIndex).HasColumnName("correct_index");
+            entity.Property(x => x.TimeLimitSeconds).HasColumnName("time_limit_seconds");
+            entity.Property(x => x.Notes).HasColumnName("notes");
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(48);
+            entity.Property(x => x.Version).HasColumnName("version");
+            entity.Property(x => x.ImageUrl).HasColumnName("image_url").HasMaxLength(1024);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.Category).HasDatabaseName("ix_exam_questions_category");
+            entity.HasIndex(x => x.Status).HasDatabaseName("ix_exam_questions_status");
+        });
+
+        modelBuilder.Entity<ExamQuestionOptionEntity>(entity =>
+        {
+            entity.ToTable("exam_question_options");
+            entity.HasKey(x => new { x.QuestionId, x.OptionOrder });
+            entity.Property(x => x.QuestionId).HasColumnName("question_id").HasMaxLength(128);
+            entity.Property(x => x.OptionOrder).HasColumnName("option_order");
+            entity.Property(x => x.OptionText).HasColumnName("option_text");
+            entity.HasOne<ExamQuestionEntity>()
+                .WithMany(x => x.Options)
+                .HasForeignKey(x => x.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExamQuestionMatchingPairEntity>(entity =>
+        {
+            entity.ToTable("exam_question_matching_pairs");
+            entity.HasKey(x => new { x.QuestionId, x.PairOrder });
+            entity.Property(x => x.QuestionId).HasColumnName("question_id").HasMaxLength(128);
+            entity.Property(x => x.PairOrder).HasColumnName("pair_order");
+            entity.Property(x => x.Prompt).HasColumnName("prompt");
+            entity.Property(x => x.MatchText).HasColumnName("match_text");
+            entity.HasOne<ExamQuestionEntity>()
+                .WithMany(x => x.MatchingPairs)
+                .HasForeignKey(x => x.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExamEntity>(entity =>
+        {
+            entity.ToTable("exams");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.NameAr).HasColumnName("name_ar").HasMaxLength(256);
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.CycleName).HasColumnName("cycle_name").HasMaxLength(256);
+            entity.Property(x => x.ScheduledFor).HasColumnName("scheduled_for").HasMaxLength(64);
+            entity.Property(x => x.AccessStartAt).HasColumnName("access_start_at").HasMaxLength(64);
+            entity.Property(x => x.AccessEndAt).HasColumnName("access_end_at").HasMaxLength(64);
+            entity.Property(x => x.DurationMinutes).HasColumnName("duration_minutes");
+            entity.Property(x => x.QuestionCount).HasColumnName("question_count");
+            entity.Property(x => x.RandomSelection).HasColumnName("random_selection");
+            entity.Property(x => x.RandomQuestionOrder).HasColumnName("random_question_order");
+            entity.Property(x => x.DisplayMode).HasColumnName("display_mode").HasMaxLength(48);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(48);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.CycleId).HasDatabaseName("ix_exams_cycle_id");
+            entity.HasIndex(x => x.Status).HasDatabaseName("ix_exams_status");
+        });
+
+        modelBuilder.Entity<ExamRuleEntity>(entity =>
+        {
+            entity.ToTable("exam_rules");
+            entity.HasKey(x => new { x.ExamId, x.RuleOrder });
+            entity.Property(x => x.ExamId).HasColumnName("exam_id").HasMaxLength(128);
+            entity.Property(x => x.RuleOrder).HasColumnName("rule_order");
+            entity.Property(x => x.Category).HasColumnName("category").HasMaxLength(128);
+            entity.Property(x => x.DifficultyMin).HasColumnName("difficulty_min");
+            entity.Property(x => x.DifficultyMax).HasColumnName("difficulty_max");
+            entity.Property(x => x.QuestionCount).HasColumnName("question_count");
+            entity.Property(x => x.Minutes).HasColumnName("minutes");
+            entity.HasOne<ExamEntity>()
+                .WithMany(x => x.Rules)
+                .HasForeignKey(x => x.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExamQuestionLinkEntity>(entity =>
+        {
+            entity.ToTable("exam_question_links");
+            entity.HasKey(x => new { x.ExamId, x.QuestionOrder });
+            entity.Property(x => x.ExamId).HasColumnName("exam_id").HasMaxLength(128);
+            entity.Property(x => x.QuestionOrder).HasColumnName("question_order");
+            entity.Property(x => x.QuestionId).HasColumnName("question_id").HasMaxLength(128);
+            entity.HasIndex(x => x.QuestionId).HasDatabaseName("ix_exam_question_links_question_id");
+            entity.HasOne<ExamEntity>()
+                .WithMany(x => x.QuestionLinks)
+                .HasForeignKey(x => x.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ExamAssignmentEntity>(entity =>
+        {
+            entity.ToTable("exam_assignments");
+            entity.HasKey(x => new { x.ExamId, x.AssignmentKind, x.AssignmentOrder });
+            entity.Property(x => x.ExamId).HasColumnName("exam_id").HasMaxLength(128);
+            entity.Property(x => x.AssignmentKind).HasColumnName("assignment_kind").HasMaxLength(64);
+            entity.Property(x => x.AssignmentOrder).HasColumnName("assignment_order");
+            entity.Property(x => x.Value).HasColumnName("value").HasMaxLength(256);
+            entity.HasOne<ExamEntity>()
+                .WithMany(x => x.Assignments)
+                .HasForeignKey(x => x.ExamId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ApplicantPortalRecordEntity>(entity =>

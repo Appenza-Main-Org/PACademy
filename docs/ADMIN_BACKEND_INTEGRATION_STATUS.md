@@ -1,6 +1,6 @@
 # Admin Backend Integration Status
 
-**Date:** 2026-05-21
+**Date:** 2026-05-29
 **Scope:** admin-first backend integration pass for `/admin/*`, `/admin/committee/*`, and admin-owned support features.
 
 This note is the current context snapshot for the backend workstream. It updates the older `admin-gaps-verified` handoff: the frontend is no longer purely mock-first for the admin surface.
@@ -14,6 +14,7 @@ For backend implementation instructions ingested from the attached handoff files
 - Production builds throw if `VITE_USE_MOCKS=true` is set.
 - `VITE_API_BASE_URL` points at the backend origin; when empty, requests use same-origin `/api/...`.
 - Auth tokens are read from persisted `pa-auth` session state and sent as `Authorization: Bearer <token>`.
+- Staging admin API base URL: `https://admin-staging-api.appenzademo.com`.
 - Backend error envelopes map into shared typed errors:
   - `ConflictError`
   - `DependencyBlockedError`
@@ -49,6 +50,19 @@ The following admin-relevant service groups now call real endpoints by default a
 - `features/committees/api/committee.service.ts` for `/admin/committee/*`
 - `features/committees/api/committeeInstance.service.ts` for `/admin/committees-exam-config`
 - `features/applicant-grades/api/grades.service.ts`
+- `features/exams/api/exams.service.ts` for question-bank and exam catalog APIs.
+
+## 2026-05-29 API Storage/Auth Update
+
+- `GET /api/questions` now reads from normalized question-bank tables and should return a stable list response instead of falling through the generic admin-record path.
+- Question-bank data is persisted in `exam_questions`, `exam_question_options`, and `exam_question_matching_pairs`.
+- Exam catalog data is persisted in `exams`, `exam_rules`, `exam_question_links`, and `exam_assignments`.
+- The migrations `20260529120000_NormalizeExamCatalog` and `20260529123000_DrainAdminRecords` migrate legacy `admin_records` payloads forward and clear the old table.
+- New generic fallback writes go to `admin_record_documents`; no current service should create new `admin_records` rows.
+- Bearer auth is now enforced on the previously permissive admin paths called out by API tests: `GET/POST /api/exams`, `GET /api/committees`, `POST /api/roles`, and `GET/POST /api/users/{id}/status`.
+- Workflow endpoints validate department filters and return validation/not-found envelopes rather than unhandled exceptions.
+- Category soft-delete now validates `{key}` before handler work and returns `200` for valid soft-delete requests.
+- Missing audit diffs and exam-result transitions return deterministic 4xx envelopes; placeholder/zero UUID result IDs no longer hit a success path.
 
 ## Admin UI Mock-Data Cleanup
 
@@ -80,6 +94,7 @@ VITE_USE_MOCKS=false
 Latest verified commands:
 
 ```bash
+dotnet test backend/admin/PACademy.Admin.Api.Tests/PACademy.Admin.Api.Tests.csproj
 node frontend/node_modules/typescript/lib/tsc.js -p frontend/tsconfig.json --noEmit
 node node_modules/typescript/lib/tsc.js -b tsconfig.json && node node_modules/vite/bin/vite.js build
 ```

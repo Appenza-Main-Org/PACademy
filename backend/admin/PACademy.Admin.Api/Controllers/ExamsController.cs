@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
+using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.Exams;
 
 namespace PACademy.Admin.Api.Controllers;
@@ -55,6 +56,7 @@ public sealed class ExamsController(ExamsService service) : ControllerBase
     /* ── Exams ─────────────────────────────────────────────────────── */
 
     [HttpGet("api/exams")]
+    [RequireBearerAuth]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> ListExams(CancellationToken ct)
         => Ok(await service.ListExamsAsync(ct));
 
@@ -66,6 +68,7 @@ public sealed class ExamsController(ExamsService service) : ControllerBase
     }
 
     [HttpPost("api/exams")]
+    [RequireBearerAuth]
     public async Task<ActionResult<JsonObject>> CreateExam([FromBody] JsonObject payload, CancellationToken ct)
         => Ok(await service.CreateExamAsync(payload, ct));
 

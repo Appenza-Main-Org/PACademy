@@ -2,20 +2,18 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Persistence;
 
 namespace PACademy.Admin.Api.Modules.Exams;
 
 /// <summary>
-/// Seeds the Question Bank + Exams catalog into the shared <c>admin_records</c>
-/// JSON store. Uses two module buckets:
-///   <c>questions</c> — <see cref="ExamsService.QuestionsModule"/>
-///   <c>exams</c>     — <see cref="ExamsService.ExamsModule"/>
+/// Seeds the Question Bank + Exams catalog into normalized exam tables.
 /// Idempotent: only seeds when the bucket is empty, so manual edits via
 /// the API are preserved across restarts.
 /// </summary>
 public sealed class ExamsSeeder(IWebHostEnvironment environment, ILogger<ExamsSeeder> logger)
 {
-    public async Task SeedAsync(IAdminRecordsDbContext db, CancellationToken ct = default)
+    public async Task SeedAsync(AdminDbContext db, CancellationToken ct = default)
     {
         var path = Path.Combine(environment.ContentRootPath, "SeedData", "exams.seed.json");
         if (!File.Exists(path))
@@ -24,9 +22,13 @@ public sealed class ExamsSeeder(IWebHostEnvironment environment, ILogger<ExamsSe
             return;
         }
 
-        var hasQuestions = await db.AdminRecords.AnyAsync(x => x.Module == ExamsService.QuestionsModule, ct);
-        var hasExams = await db.AdminRecords.AnyAsync(x => x.Module == ExamsService.ExamsModule, ct);
-        if (hasQuestions && hasExams) return;
+        var hasQuestions = await db.ExamQuestions.AnyAsync(ct);
+        var hasExams = await db.Exams.AnyAsync(ct);
+        if (hasQuestions && hasExams)
+        {
+            await RemoveLegacyAdminRecordsAsync(db, ct);
+            return;
+        }
 
         await using var stream = File.OpenRead(path);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -41,13 +43,40 @@ public sealed class ExamsSeeder(IWebHostEnvironment environment, ILogger<ExamsSe
                 var obj = JsonNode.Parse(row.GetRawText())!.AsObject();
                 var id = AdminRecordJson.StringProp(obj, "id")
                     ?? $"Q-{Guid.NewGuid():N}".ToUpperInvariant();
-                db.AdminRecords.Add(new AdminRecordEntity
+                db.ExamQuestions.Add(new ExamQuestionEntity
                 {
-                    Module = ExamsService.QuestionsModule,
                     Id = id,
-                    PayloadJson = obj.ToJsonString(AdminRecordJson.Options),
+                    Category = AdminRecordJson.StringProp(obj, "category") ?? "",
+                    Classification = AdminRecordJson.StringProp(obj, "classification"),
+                    Difficulty = (int)(AdminRecordJson.NumberProp(obj, "difficulty") ?? 1),
+                    Type = AdminRecordJson.StringProp(obj, "type") ?? "mcq",
+                    Text = AdminRecordJson.StringProp(obj, "text") ?? "",
+                    CorrectIndex = (int)(AdminRecordJson.NumberProp(obj, "correctIndex") ?? 0),
+                    TimeLimitSeconds = (int)(AdminRecordJson.NumberProp(obj, "timeLimitSeconds") ?? 60),
+                    Notes = AdminRecordJson.StringProp(obj, "notes"),
+                    Status = AdminRecordJson.StringProp(obj, "status") ?? "draft",
+                    Version = (int)(AdminRecordJson.NumberProp(obj, "version") ?? 1),
+                    ImageUrl = AdminRecordJson.StringProp(obj, "imageUrl"),
                     CreatedAt = now,
                     UpdatedAt = now,
+                    Options = (obj["options"] as JsonArray ?? [])
+                        .Select((node, index) => new ExamQuestionOptionEntity
+                        {
+                            QuestionId = id,
+                            OptionOrder = index,
+                            OptionText = node?.GetValue<string>() ?? ""
+                        })
+                        .ToList(),
+                    MatchingPairs = (obj["matchingPairs"] as JsonArray ?? [])
+                        .OfType<JsonObject>()
+                        .Select((pair, index) => new ExamQuestionMatchingPairEntity
+                        {
+                            QuestionId = id,
+                            PairOrder = index,
+                            Prompt = AdminRecordJson.StringProp(pair, "prompt") ?? "",
+                            MatchText = AdminRecordJson.StringProp(pair, "match") ?? ""
+                        })
+                        .ToList()
                 });
                 inserted++;
             }
@@ -60,20 +89,69 @@ public sealed class ExamsSeeder(IWebHostEnvironment environment, ILogger<ExamsSe
                 var obj = JsonNode.Parse(row.GetRawText())!.AsObject();
                 var id = AdminRecordJson.StringProp(obj, "id")
                     ?? $"EXAM-{Guid.NewGuid():N}".ToUpperInvariant();
-                db.AdminRecords.Add(new AdminRecordEntity
+                db.Exams.Add(new ExamEntity
                 {
-                    Module = ExamsService.ExamsModule,
                     Id = id,
-                    PayloadJson = obj.ToJsonString(AdminRecordJson.Options),
+                    NameAr = AdminRecordJson.StringProp(obj, "nameAr") ?? id,
+                    CycleId = AdminRecordJson.StringProp(obj, "cycleId") ?? "",
+                    CycleName = AdminRecordJson.StringProp(obj, "cycleName"),
+                    ScheduledFor = AdminRecordJson.StringProp(obj, "scheduledFor"),
+                    AccessStartAt = AdminRecordJson.StringProp(obj, "accessStartAt"),
+                    AccessEndAt = AdminRecordJson.StringProp(obj, "accessEndAt"),
+                    DurationMinutes = (int?)AdminRecordJson.NumberProp(obj, "durationMinutes"),
+                    QuestionCount = (int?)AdminRecordJson.NumberProp(obj, "questionCount"),
+                    RandomSelection = BoolProp(obj, "randomSelection"),
+                    RandomQuestionOrder = BoolProp(obj, "randomQuestionOrder"),
+                    DisplayMode = AdminRecordJson.StringProp(obj, "displayMode"),
+                    Status = AdminRecordJson.StringProp(obj, "status") ?? "draft",
                     CreatedAt = now,
                     UpdatedAt = now,
+                    Rules = (obj["rules"] as JsonArray ?? [])
+                        .OfType<JsonObject>()
+                        .Select((rule, index) => new ExamRuleEntity
+                        {
+                            ExamId = id,
+                            RuleOrder = index,
+                            Category = AdminRecordJson.StringProp(rule, "category") ?? "",
+                            DifficultyMin = (int)(AdminRecordJson.NumberProp(rule, "difficultyMin") ?? 1),
+                            DifficultyMax = (int)(AdminRecordJson.NumberProp(rule, "difficultyMax") ?? 5),
+                            QuestionCount = (int)(AdminRecordJson.NumberProp(rule, "count") ?? 0),
+                            Minutes = (int)(AdminRecordJson.NumberProp(rule, "minutes") ?? 0)
+                        })
+                        .ToList(),
+                    QuestionLinks = (obj["questionIds"] as JsonArray ?? [])
+                        .Select((node, index) => new ExamQuestionLinkEntity
+                        {
+                            ExamId = id,
+                            QuestionOrder = index,
+                            QuestionId = node?.GetValue<string>() ?? ""
+                        })
+                        .ToList()
                 });
                 inserted++;
             }
         }
 
-        if (inserted == 0) return;
+        var removedLegacyRows = await RemoveLegacyAdminRecordsAsync(db, ct);
+
+        if (inserted == 0 && removedLegacyRows == 0) return;
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Seeded {Count} Question Bank rows", inserted);
+    }
+
+    private static async Task<int> RemoveLegacyAdminRecordsAsync(AdminDbContext db, CancellationToken ct)
+    {
+        var staleRows = await db.AdminRecords
+            .Where(x => x.Module == ExamsService.QuestionsModule || x.Module == ExamsService.ExamsModule)
+            .ToListAsync(ct);
+        db.AdminRecords.RemoveRange(staleRows);
+        if (staleRows.Count > 0) await db.SaveChangesAsync(ct);
+        return staleRows.Count;
+    }
+
+    private static bool? BoolProp(JsonObject obj, string name)
+    {
+        if (!obj.TryGetPropertyValue(name, out var node) || node is null) return null;
+        return node.GetValue<bool>();
     }
 }

@@ -25,29 +25,43 @@ public sealed class AdminRecordsServiceTests
     }
 
     [Fact]
+    public async Task GenericAdminRecordWritesDoNotUseAdminRecordsTable()
+    {
+        await using var db = CreateDb();
+        var service = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+
+        var saved = await service.UpsertAsync("workflows", "WF-TEST", new JsonObject
+        {
+            ["id"] = "WF-TEST",
+            ["department"] = "medical",
+            ["steps"] = new JsonArray("review", "approve")
+        }, TestContext.Current.CancellationToken);
+
+        var rows = await service.ListAsync("workflows", TestContext.Current.CancellationToken);
+        var adminRecordsCount = await db.AdminRecords.CountAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("WF-TEST", AdminRecordJson.StringProp(saved, "id"));
+        Assert.Single(rows);
+        Assert.Equal(0, adminRecordsCount);
+    }
+
+    [Fact]
     public async Task SoftDeleteModuleAsyncProcessesRowsPastFirstBatch()
     {
         await using var db = CreateDb();
-        var now = DateTimeOffset.UtcNow;
+        var payloads = new List<JsonObject>();
         for (var i = 1; i <= 5001; i++)
         {
             var id = i.ToString("D5");
-            db.AdminRecords.Add(new AdminRecordEntity
+            payloads.Add(new JsonObject
             {
-                Module = "grades",
-                Id = id,
-                PayloadJson = new JsonObject
-                {
-                    ["id"] = id,
-                    ["seat"] = i,
-                    ["deletedAt"] = null
-                }.ToJsonString(),
-                CreatedAt = now,
-                UpdatedAt = now
+                ["id"] = id,
+                ["seat"] = i,
+                ["deletedAt"] = null
             });
         }
-        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var service = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        await service.InsertManyAsync("grades", payloads, TestContext.Current.CancellationToken);
 
         var deleted = await service.SoftDeleteModuleAsync(
             "grades",
@@ -56,11 +70,8 @@ public sealed class AdminRecordsServiceTests
             TestContext.Current.CancellationToken);
 
         Assert.Equal(5001, deleted);
-        var liveRows = await db.AdminRecords
-            .AsNoTracking()
-            .Where(x => x.Module == "grades")
-            .Select(x => AdminRecordJson.Parse(x.PayloadJson))
-            .CountAsync(x => !AdminRecordJson.IsSoftDeleted(x), TestContext.Current.CancellationToken);
+        var liveRows = (await service.ListAsync("grades", TestContext.Current.CancellationToken))
+            .Count(x => !AdminRecordJson.IsSoftDeleted(x));
         Assert.Equal(0, liveRows);
     }
 

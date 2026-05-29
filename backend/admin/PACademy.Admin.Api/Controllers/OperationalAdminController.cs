@@ -1,6 +1,8 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
+using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
@@ -91,6 +93,7 @@ public sealed class OperationalAdminController(AdminRecordsService records) : Co
     }
 
     [HttpGet("api/v1/admin/workflows")]
+    [RequireBearerAuth]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> Workflows(CancellationToken ct) => Ok(await records.ListAsync("workflows", ct));
 
     [HttpGet("api/v1/admin/workflows/{id}")]
@@ -101,13 +104,23 @@ public sealed class OperationalAdminController(AdminRecordsService records) : Co
     }
 
     [HttpGet("api/v1/admin/workflows/by-department")]
-    public async Task<ActionResult<JsonObject?>> WorkflowByDepartment([FromQuery] string department, CancellationToken ct)
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject?>> WorkflowByDepartment([FromQuery] string? department, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(department))
+        {
+            return BadRequest(new ApiErrorEnvelope(
+                ErrorCodes.ValidationFailed,
+                Errors: new Dictionary<string, string[]> { ["department"] = ["القسم مطلوب"] },
+                Message: "تحقق من البيانات المدخلة"));
+        }
+
         var row = (await records.ListAsync("workflows", ct)).FirstOrDefault(x => AdminRecordJson.StringProp(x, "department") == department);
-        return Ok(row);
+        return row is null ? NotFound(new ApiErrorEnvelope(ErrorCodes.NotFound, Message: "مسار العمل غير موجود")) : Ok(row);
     }
 
     [HttpPost("api/v1/admin/workflows")]
+    [RequireBearerAuth]
     public async Task<ActionResult<JsonObject>> CreateWorkflow([FromBody] JsonObject body, CancellationToken ct)
     {
         var id = AdminRecordJson.StringProp(body, "id") ?? $"WF-{Guid.NewGuid():N}";

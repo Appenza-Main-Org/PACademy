@@ -91,9 +91,24 @@ public sealed class CategoriesService(IAdmissionsDbContext db, IAuditSink auditS
         return new { impactedApplicants = impacted, conflicts, proposed = patch ?? [] };
     }
 
-    public Task<JsonObject> SoftDeleteAsync(string key, CancellationToken ct)
+    public async Task<JsonObject> SoftDeleteAsync(string key, CancellationToken ct)
     {
-        throw new ConflictException(ErrorCodes.InUse, "فئات المتقدمين مغلقة حسب كراسة الشروط ولا يمكن إنشاء أو حذف فئات");
+        if (string.IsNullOrWhiteSpace(key) || !SpecKeys.Contains(key))
+        {
+            throw new EntityNotFoundException("الفئة غير موجودة");
+        }
+
+        var entity = await db.ApplicantCategories.FirstOrDefaultAsync(x => x.Key == key, ct)
+            ?? throw new EntityNotFoundException("الفئة غير موجودة");
+        var obj = ToJson(entity);
+        obj["deletedAt"] = DateTimeOffset.UtcNow.ToString("O");
+        obj["isOpen"] = false;
+        entity.IsOpen = false;
+        entity.PayloadJson = obj.ToJsonString(AdmissionJson.Options);
+        entity.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("delete", key, $"تعطيل فئة قبول · {entity.LabelAr}", ct);
+        return ToJson(entity);
     }
 
     private static JsonObject ToJson(ApplicantCategoryEntity entity)
@@ -110,7 +125,7 @@ public sealed class CategoriesService(IAdmissionsDbContext db, IAuditSink auditS
 
     private async Task<IReadOnlyList<JsonObject>> ApplicantsForCategoryAsync(string key, CancellationToken ct)
     {
-        var rows = await db.AdminRecords.AsNoTracking().Where(x => x.Module == "applicants").ToListAsync(ct);
+        var rows = await db.AdminRecordDocuments.AsNoTracking().Where(x => x.Module == "applicants").ToListAsync(ct);
         return rows
             .Select(x => AdminRecordJson.Parse(x.PayloadJson))
             .Where(applicant => ResolveCategoryKey(applicant) == key)
@@ -119,7 +134,7 @@ public sealed class CategoriesService(IAdmissionsDbContext db, IAuditSink auditS
 
     private async Task<int> RecordsForCategoryAsync(string module, string key, CancellationToken ct)
     {
-        var rows = await db.AdminRecords.AsNoTracking().Where(x => x.Module == module).ToListAsync(ct);
+        var rows = await db.AdminRecordDocuments.AsNoTracking().Where(x => x.Module == module).ToListAsync(ct);
         return rows.Select(x => AdminRecordJson.Parse(x.PayloadJson)).Count(row =>
             StringProp(row, "categoryKey") == key ||
             StringProp(row, "categoryId") == key ||

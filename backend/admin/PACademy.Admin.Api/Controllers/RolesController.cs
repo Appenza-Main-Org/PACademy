@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
+using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.Identity;
 
 namespace PACademy.Admin.Api.Controllers;
@@ -20,6 +21,7 @@ public sealed class RolesController(RolesService service) : ControllerBase
     }
 
     [HttpPost]
+    [RequireBearerAuth]
     public async Task<ActionResult<JsonObject>> Create([FromBody] JsonObject payload, CancellationToken ct) =>
         Ok(await service.CreateAsync(payload, ct));
 

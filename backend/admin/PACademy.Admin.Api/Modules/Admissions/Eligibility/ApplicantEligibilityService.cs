@@ -181,13 +181,16 @@ public sealed class ApplicantEligibilityService(
 
     private async Task<JsonObject?> LoadGradeFromAdminRecordsAsync(string nationalId, CancellationToken ct)
     {
-        var candidates = await db.AdminRecords
-            .AsNoTracking()
-            .Where(x => x.Module == "grades" && x.PayloadJson.Contains(nationalId))
-            .OrderBy(x => x.Id)
-            .ToListAsync(ct);
+        var candidates = records is not null
+            ? await records.ListAsync("grades", ct)
+            : (await db.AdminRecordDocuments
+                .AsNoTracking()
+                .Where(x => x.Module == "grades" && x.PayloadJson.Contains(nationalId))
+                .OrderBy(x => x.Id)
+                .ToListAsync(ct))
+                .Select(x => AdminRecordJson.Parse(x.PayloadJson))
+                .ToList();
         return candidates
-            .Select(x => AdminRecordJson.Parse(x.PayloadJson))
             .FirstOrDefault(x =>
                 !AdminRecordJson.IsSoftDeleted(x) &&
                 string.Equals(AdminRecordJson.StringProp(x, "nid") ?? AdminRecordJson.StringProp(x, "nationalId"), nationalId, StringComparison.Ordinal));
@@ -199,7 +202,7 @@ public sealed class ApplicantEligibilityService(
     {
         var rows = records is not null
             ? await records.ListAsync("committeeInstances", ct)
-            : await db.AdminRecords
+            : await db.AdminRecordDocuments
                 .AsNoTracking()
                 .Where(x => x.Module == "committeeInstances")
                 .OrderBy(x => x.Id)
@@ -250,7 +253,7 @@ public sealed class ApplicantEligibilityService(
             }
             catch (SqlException ex) when (ex.Number == 208)
             {
-                var record = await db.AdminRecords
+                var record = await db.AdminRecordDocuments
                     .AsNoTracking()
                     .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
                 payload = record?.PayloadJson;
@@ -260,7 +263,7 @@ public sealed class ApplicantEligibilityService(
         }
         else
         {
-            var record = await db.AdminRecords
+            var record = await db.AdminRecordDocuments
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
             draft = record is null ? null : AdminRecordJson.Parse(record.PayloadJson);

@@ -1,6 +1,8 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
+using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.Identity;
+using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
@@ -28,8 +30,22 @@ public sealed class UsersController(UsersService service) : ControllerBase
         Ok(await service.UpdateAsync(id, patch, ct));
 
     [HttpPost("{id}/status")]
+    [RequireBearerAuth]
     public async Task<ActionResult<JsonObject>> Status(string id, [FromBody] JsonObject body, CancellationToken ct) =>
         Ok(await service.UpdateAsync(id, new JsonObject { ["accountStatus"] = body["status"]?.DeepClone() ?? body["next"]?.DeepClone() ?? "active" }, ct));
+
+    [HttpGet("{id}/status")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<object>> GetStatus(string id, CancellationToken ct)
+    {
+        var user = await service.GetByIdAsync(id, ct);
+        if (user is null) return NotFound(new ApiErrorEnvelope(ErrorCodes.NotFound, Message: "المستخدم غير موجود"));
+        return Ok(new
+        {
+            id,
+            status = user["accountStatus"]?.GetValue<string?>() ?? user["status"]?.GetValue<string?>() ?? "active"
+        });
+    }
 
     [HttpPost("{id}/deactivate")]
     public async Task<ActionResult<JsonObject>> Deactivate(string id, CancellationToken ct) =>

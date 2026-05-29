@@ -96,5 +96,6 @@ public interface IAdmissionsDbContext
     DbSet<LookupRowEntity> LookupRows { get; }
     DbSet<AuditRowEntity> AuditRows { get; }
     DbSet<AdminRecordEntity> AdminRecords { get; }
+    DbSet<AdminRecordDocumentEntity> AdminRecordDocuments { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

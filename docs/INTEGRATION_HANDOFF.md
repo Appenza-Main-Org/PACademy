@@ -410,6 +410,15 @@ contracts" below.
 | `listLiveSessions` | `GET /api/exams/:id/sessions/live` |
 | `categoryCounts` | `GET /api/exams/categories` |
 
+Storage/auth note as of 2026-05-29: question-bank data is no longer
+stored in `admin_records`; it is persisted through `exam_questions`,
+`exam_question_options`, and `exam_question_matching_pairs`. Exam catalog
+data is persisted through `exams`, `exam_rules`, `exam_question_links`,
+and `exam_assignments`. `GET /api/exams` and `POST /api/exams` require a
+bearer token. `GET /api/questions` remains the list endpoint used by the
+question bank and must return a normal list response, not a generic
+`INTERNAL_ERROR` envelope.
+
 ### admissionSetupService — `src/features/admin/admission-setup/api/admission-setup.service.ts`
 
 Net-new entities for the 15-step Admission Setup section. Composed

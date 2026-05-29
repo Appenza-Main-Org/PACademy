@@ -17,14 +17,15 @@ public sealed class GradesControllerTests
     public async Task CommitV2UpdatesExistingGradeMatchedBySeatingNumberWhenNationalIdDiffers()
     {
         await using var db = CreateDb();
+        var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
         await SeedGradeAsync(
-            db,
+            records,
             seat: 1,
             seatingNumber: "1000992",
             nid: "30601232335315",
             name: "عمرو عبدالرحمن عبدالرحمن النجار",
             total: 665);
-        var controller = CreateController(db);
+        var controller = CreateController(db, records);
         var body = new JsonObject
         {
             ["graduationYear"] = 2026,
@@ -54,12 +55,9 @@ public sealed class GradesControllerTests
         var ok = Assert.IsType<OkObjectResult>(response.Result);
         var result = JsonSerializer.SerializeToNode(ok.Value)?.AsObject();
         Assert.Equal(1, result?["insertedCount"]?.GetValue<int>());
-        var rows = await db.AdminRecords
-            .AsNoTracking()
-            .Where(x => x.Module == "grades")
-            .ToListAsync(TestContext.Current.CancellationToken);
+        var rows = await records.ListAsync("grades", TestContext.Current.CancellationToken);
         var row = Assert.Single(rows);
-        var payload = AdminRecordJson.Parse(row.PayloadJson);
+        var payload = row;
         Assert.Equal(346, AdminRecordJson.NumberProp(payload, "total"));
         Assert.Equal("30601232335315", AdminRecordJson.StringProp(payload, "nid"));
         Assert.Equal(665, AdminRecordJson.NumberProp(payload, "previousGrade"));
@@ -73,9 +71,9 @@ public sealed class GradesControllerTests
         return new AdminDbContext(options);
     }
 
-    private static GradesController CreateController(AdminDbContext db)
+    private static GradesController CreateController(AdminDbContext db, AdminRecordsService? records = null)
     {
-        var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        records ??= new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
         var controller = new GradesController(records, db, new MemoryCache(new MemoryCacheOptions()))
         {
             ControllerContext = new ControllerContext
@@ -87,19 +85,14 @@ public sealed class GradesControllerTests
     }
 
     private static async Task SeedGradeAsync(
-        AdminDbContext db,
+        AdminRecordsService records,
         int seat,
         string seatingNumber,
         string nid,
         string name,
         double total)
     {
-        var now = DateTimeOffset.UtcNow;
-        db.AdminRecords.Add(new AdminRecordEntity
-        {
-            Module = "grades",
-            Id = seat.ToString(),
-            PayloadJson = new JsonObject
+        await records.UpsertAsync("grades", seat.ToString(), new JsonObject
             {
                 ["id"] = seat.ToString(),
                 ["seat"] = seat,
@@ -123,10 +116,6 @@ public sealed class GradesControllerTests
                 ["previousGrade"] = null,
                 ["status"] = "مستجد",
                 ["log"] = new JsonArray()
-            }.ToJsonString(),
-            CreatedAt = now,
-            UpdatedAt = now
-        });
-        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+            }, TestContext.Current.CancellationToken);
     }
 }

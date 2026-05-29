@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using PACademy.Admin.Api.Modules.Admissions;
+using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
@@ -27,9 +28,15 @@ public sealed class CategoriesController(CategoriesService service) : Controller
     public async Task<ActionResult<object>> Dependencies(string key, CancellationToken ct) =>
         Ok(await service.DependenciesAsync(key, ct));
 
+    [HttpPatch("{key}/soft-delete")]
     [HttpPost("{key}/soft-delete")]
     public async Task<ActionResult<JsonObject>> SoftDelete(string key, CancellationToken ct) =>
-        Ok(await service.SoftDeleteAsync(key, ct));
+        string.IsNullOrWhiteSpace(key)
+            ? BadRequest(new ApiErrorEnvelope(
+                ErrorCodes.ValidationFailed,
+                Errors: new Dictionary<string, string[]> { ["key"] = ["مفتاح الفئة مطلوب"] },
+                Message: "تحقق من البيانات المدخلة"))
+            : Ok(await service.SoftDeleteAsync(key, ct));
 
     [HttpPost("{key}/restore")]
     public async Task<ActionResult<JsonObject?>> Restore(string key, CancellationToken ct)
