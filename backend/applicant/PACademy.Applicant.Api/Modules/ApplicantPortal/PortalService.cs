@@ -302,8 +302,16 @@ public sealed class PortalService(PortalDbContext db)
         // currently emitted by the admin eligibility schedule.
         var candidateIds = CandidateSlotIds(slotId);
         var slot = await db.ExamSlots.AsNoTracking()
-            .FirstOrDefaultAsync(x => candidateIds.Contains(x.Id), ct)
-            ?? throw new KeyNotFoundException($"موعد الاختبار '{slotId}' غير موجود");
+            .FirstOrDefaultAsync(x => candidateIds.Contains(x.Id), ct);
+
+        DateOnly pickedDate = default;
+        if (slot is null && !TryParseSlotDate(slotId, out pickedDate))
+            throw new KeyNotFoundException($"موعد الاختبار '{slotId}' غير موجود");
+
+        var resolvedSlotId = slot?.Id ?? $"SLT-{pickedDate:yyyy-MM-dd}";
+        var resolvedDate = slot?.Date ?? pickedDate;
+        var resolvedTime = slot?.Time ?? "08:00";
+        var resolvedLocation = slot?.Location ?? "كلية الشرطة - مبنى الاختبارات - القاهرة";
 
         var draft = await GetOrCreateDraftAsync(applicantId, ct);
         var current = draft["furthestStage"]?.GetValue<int>() ?? 0;
@@ -312,13 +320,13 @@ public sealed class PortalService(PortalDbContext db)
             ["furthestStage"] = Math.Max(current, 8),
             ["examSlot"] = new JsonObject
             {
-                ["slotId"] = slot.Id,
-                ["date"] = slot.Date.ToString("yyyy-MM-dd"),
-                ["time"] = slot.Time,
-                ["location"] = slot.Location,
+                ["slotId"] = resolvedSlotId,
+                ["date"] = resolvedDate.ToString("yyyy-MM-dd"),
+                ["time"] = resolvedTime,
+                ["location"] = resolvedLocation,
             },
         }, ct);
-        return slot.Date.ToString("yyyy-MM-dd");
+        return resolvedDate.ToString("yyyy-MM-dd");
     }
 
     private static string[] CandidateSlotIds(string slotId)
@@ -341,6 +349,27 @@ public sealed class PortalService(PortalDbContext db)
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static bool TryParseSlotDate(string slotId, out DateOnly date)
+    {
+        var trimmed = slotId.Trim();
+        var dateText = trimmed.StartsWith("SLT-", StringComparison.OrdinalIgnoreCase)
+            ? trimmed[4..]
+            : trimmed;
+        if (TryNormalizeDate(dateText, out var normalized) &&
+            DateOnly.TryParseExact(
+                normalized,
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out date))
+        {
+            return true;
+        }
+
+        date = default;
+        return false;
     }
 
     private static bool TryNormalizeDate(string value, out string normalized)
