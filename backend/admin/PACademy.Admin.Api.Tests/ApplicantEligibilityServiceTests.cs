@@ -25,6 +25,8 @@ public sealed class ApplicantEligibilityServiceTests
 
         var category = Assert.Single(response.Categories);
         Assert.True(category.Eligible);
+        Assert.NotNull(response.Grade);
+        Assert.Equal("30001010123457", EligibilityJson.StringProp(response.Grade, "nid"));
         Assert.True(category.Checks.GradesCheck.Passed);
         Assert.Equal(new DateOnly(2026, 1, 1), category.ApplicationStartDate);
         Assert.Equal(new DateOnly(2026, 12, 31), category.ApplicationEndDate);
@@ -32,6 +34,22 @@ public sealed class ApplicantEligibilityServiceTests
         Assert.Equal(30, category.MaxAge);
         Assert.Contains(category.Committees, x => x.CommitteeId == "CMT-1");
         Assert.Equal("cycle-2026", response.CycleId);
+    }
+
+    [Fact]
+    public async Task ImportedGradeWithoutSourceStillReturnsGradeAndExternalSource()
+    {
+        await using var db = CreateDb();
+        await SeedBaseAsync(db, gradeSource: null, lookupGradesSource: null);
+        var service = CreateService(db);
+
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None, includeIneligible: true);
+
+        var category = Assert.Single(response.Categories);
+        Assert.NotNull(response.Grade);
+        Assert.True(category.Checks.GradesCheck.HasGrade);
+        Assert.Equal("استيراد خارجي", EligibilityJson.StringProp(response.Grade, "gradesSource"));
+        Assert.Equal("استيراد خارجي", category.Checks.GradesCheck.Source);
     }
 
     [Fact]
@@ -185,7 +203,8 @@ public sealed class ApplicantEligibilityServiceTests
 
     private static async Task SeedBaseAsync(
         AdminDbContext db,
-        string gradeSource = "استيراد خارجي",
+        string? gradeSource = "استيراد خارجي",
+        string? lookupGradesSource = "استيراد خارجي",
         string schoolCategoryCode = "SCH-EXT",
         IReadOnlyList<string>? requiredCodes = null,
         IReadOnlyList<string>? genders = null,
@@ -244,6 +263,16 @@ public sealed class ApplicantEligibilityServiceTests
             CreatedAt = now,
             UpdatedAt = now
         });
+        var externalSchoolPayload = new JsonObject
+        {
+            ["certificateType"] = "ثانوية عامة",
+            ["externalGradesImport"] = true
+        };
+        if (lookupGradesSource is not null)
+        {
+            externalSchoolPayload["gradesSource"] = lookupGradesSource;
+        }
+
         db.LookupRows.AddRange(
             Lookup("applicant-categories", "CAT-GEN", "قسم الضباط (قسم عام)", new JsonObject
             {
@@ -251,11 +280,7 @@ public sealed class ApplicantEligibilityServiceTests
                 ["requiredStage"] = "general",
                 ["metadata"] = new JsonObject { ["requiredGradesSource"] = "استيراد خارجي" }
             }),
-            Lookup("school-categories", "SCH-EXT", "ثانوية عامة", new JsonObject
-            {
-                ["certificateType"] = "ثانوية عامة",
-                ["gradesSource"] = "استيراد خارجي"
-            }),
+            Lookup("school-categories", "SCH-EXT", "ثانوية عامة", externalSchoolPayload),
             Lookup("school-categories", "SCH-INT", "ثانوية عامة", new JsonObject
             {
                 ["certificateType"] = "ثانوية عامة",
@@ -265,23 +290,28 @@ public sealed class ApplicantEligibilityServiceTests
             {
                 ["applicantCategoryId"] = "CAT-GEN"
             }));
+        var gradePayload = new JsonObject
+        {
+            ["id"] = "1",
+            ["nid"] = "30001010123457",
+            ["schoolCategoryCode"] = schoolCategoryCode,
+            ["schoolCategoryName"] = "ثانوية عامة",
+            ["certificateType"] = "ثانوية عامة",
+            ["graduationYear"] = 2026,
+            ["total"] = 80,
+            ["max"] = 100,
+            ["kind"] = "general"
+        };
+        if (gradeSource is not null)
+        {
+            gradePayload["gradesSource"] = gradeSource;
+        }
+
         db.AdminRecords.Add(new AdminRecordEntity
         {
             Module = "grades",
             Id = "1",
-            PayloadJson = new JsonObject
-            {
-                ["id"] = "1",
-                ["nid"] = "30001010123457",
-                ["schoolCategoryCode"] = schoolCategoryCode,
-                ["schoolCategoryName"] = "ثانوية عامة",
-                ["certificateType"] = "ثانوية عامة",
-                ["graduationYear"] = 2026,
-                ["total"] = 80,
-                ["max"] = 100,
-                ["kind"] = "general",
-                ["gradesSource"] = gradeSource
-            }.ToJsonString(),
+            PayloadJson = gradePayload.ToJsonString(),
             CreatedAt = now,
             UpdatedAt = now
         });

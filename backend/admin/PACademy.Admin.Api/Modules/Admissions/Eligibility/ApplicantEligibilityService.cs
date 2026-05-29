@@ -31,7 +31,7 @@ public sealed class ApplicantEligibilityService(
         var grade = await LoadGradeAsync(nid.NationalId, ct);
         var firstReferenceDate = years.Select(x => (DateOnly?)x.AgeReferenceDate).OrderBy(x => x).FirstOrDefault()
             ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
-        var applicant = BuildApplicantContext(nid, grade, firstReferenceDate);
+        var applicant = BuildApplicantContext(nid, grade, firstReferenceDate, lookups);
         var draftRules = await LoadCycleDraftRulesAsync(activeCycle.Id, configs, specs, categoryLookups, ct);
         var committeeIdsByRuleId = draftRules
             .Where(x => x.CommitteeIds.Count > 0)
@@ -92,6 +92,7 @@ public sealed class ApplicantEligibilityService(
                 applicant.Age,
                 nid.GenderAr,
                 nid.GovernorateCode),
+            BuildGradeResponse(grade, applicant.GradeSource),
             activeCycle.Id,
             includeIneligible ? results : results.Where(x => x.Eligible).ToArray());
     }
@@ -362,12 +363,14 @@ public sealed class ApplicantEligibilityService(
     private static ApplicantEligibilityContext BuildApplicantContext(
         EgyptianNationalIdInfo nid,
         JsonObject? grade,
-        DateOnly referenceDate)
+        DateOnly referenceDate,
+        EligibilityLookupSnapshot lookups)
     {
         var schoolCategoryCode = EligibilityJson.FirstString(grade, "schoolCategoryCode", "schoolCategory");
         var schoolCategory = EligibilityJson.FirstString(grade, "schoolCategoryName", "schoolCategory", "certificateTypeName", "kind");
         var certificateType = EligibilityJson.FirstString(grade, "certificateType", "certificateTypeName", "kind", "schoolCategory");
-        var gradeSource = EligibilityJson.FirstString(grade, "gradesSource", "source", "مصدر الدرجات");
+        var gradeSource = EligibilityJson.FirstString(grade, "gradesSource", "source", "مصدر الدرجات")
+            ?? InferGradeSourceFromSchoolCategory(grade, schoolCategoryCode, schoolCategory, certificateType, lookups);
         var stage = EligibilityJson.FirstString(grade, "stage", "requiredStage", "gradeKind", "kind");
         var graduationYear = EligibilityJson.IntProp(grade, "graduationYear")
             ?? EligibilityJson.IntProp(grade, "year")
@@ -390,6 +393,58 @@ public sealed class ApplicantEligibilityService(
             academicGradeId,
             stage,
             nid.GovernorateCode);
+    }
+
+    private static string? InferGradeSourceFromSchoolCategory(
+        JsonObject? grade,
+        string? schoolCategoryCode,
+        string? schoolCategory,
+        string? certificateType,
+        EligibilityLookupSnapshot lookups)
+    {
+        if (grade is null) return null;
+
+        var matched = lookups.SchoolCategories.FirstOrDefault(lookup =>
+        {
+            var lookupCode = EligibilityJson.StringProp(lookup, "code");
+            var lookupNames = new[]
+            {
+                EligibilityJson.StringProp(lookup, "name"),
+                EligibilityJson.StringProp(lookup, "certificateType"),
+                EligibilityJson.StringProp(lookup, "certificateTypeName"),
+                EligibilityJson.StringProp(lookup, "نوع الشهادة"),
+                lookupCode
+            };
+            var gradeNames = new[] { schoolCategoryCode, schoolCategory, certificateType };
+            return lookupNames.Any(lookupValue =>
+                gradeNames.Any(gradeValue => EligibilityJson.TextEquals(lookupValue, gradeValue)));
+        });
+
+        if (matched is null) return "استيراد خارجي";
+
+        var explicitSource = EligibilityJson.FirstString(matched, "gradesSource", "source", "مصدر الدرجات");
+        if (!string.IsNullOrWhiteSpace(explicitSource)) return explicitSource;
+
+        if (EligibilityJson.BoolProp(matched, "externalGradesImport") is { } externalImport)
+        {
+            return externalImport ? "استيراد خارجي" : "إدخال يدوي";
+        }
+
+        return "استيراد خارجي";
+    }
+
+    private static JsonObject? BuildGradeResponse(JsonObject? grade, string? gradeSource)
+    {
+        if (grade is null) return null;
+
+        var output = EligibilityJson.Clone(grade);
+        if (!string.IsNullOrWhiteSpace(gradeSource)
+            && EligibilityJson.FirstString(output, "gradesSource", "source", "مصدر الدرجات") is null)
+        {
+            output["gradesSource"] = gradeSource;
+        }
+
+        return output;
     }
 
     private static CategoryEvaluation EvaluateCategory(
