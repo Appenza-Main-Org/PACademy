@@ -6,6 +6,7 @@ using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Identity.Moi;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Modules.Reports;
+using PACademy.Admin.Api.Modules.Settings;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Modules.LookupsAdmin.Infrastructure;
 using PACademy.Modules.ApplicantGradesAdmin.Infrastructure;
@@ -67,6 +68,7 @@ builder.Services.AddAdmissionsModule(builder.Configuration);
 builder.Services.AddAuditModule();
 builder.Services.AddExamsModule(builder.Configuration);
 builder.Services.AddReportsModule(builder.Configuration);
+builder.Services.AddSettingsModule(builder.Configuration);
 
 /* ── External legacy modules (separate DbContexts + migrations) ─── */
 builder.Services.AddLookupsAdminModule(builder.Configuration);
