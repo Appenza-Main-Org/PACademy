@@ -76,6 +76,75 @@ public sealed class ExamsController(ExamsService service) : ControllerBase
     public async Task<ActionResult<JsonObject>> PublishExam(string id, CancellationToken ct)
         => Ok(await service.PublishExamAsync(id, ct));
 
+    [HttpPost("api/exams/{id}/stop")]
+    public async Task<ActionResult<JsonObject>> StopExam(string id, CancellationToken ct)
+        => Ok(await service.StopExamAsync(id, ct));
+
+    [HttpPost("api/exams/{id}/attempts/open")]
+    public async Task<ActionResult<JsonObject>> OpenAttempt(string id, [FromBody] JsonObject body, CancellationToken ct)
+    {
+        var applicantId = body["applicantId"]?.GetValue<string>() ?? "unknown";
+        return Ok(await service.OpenAttemptAsync(id, applicantId, ct));
+    }
+
+    [HttpPost("api/exams/access/validate")]
+    public async Task<ActionResult<object>> ValidateAccess([FromBody] JsonObject request, CancellationToken ct)
+        => Ok(await service.ValidateAccessAsync(request, ct));
+
+    /* ── Committee users + authorized devices ──────────────────────── */
+
+    [HttpGet("api/exams/committee-users")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> ListCommitteeUsers(CancellationToken ct)
+        => Ok(await service.ListCommitteeUsersAsync(ct));
+
+    [HttpPost("api/exams/committee-users")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject>> CreateCommitteeUser([FromBody] JsonObject payload, CancellationToken ct)
+        => Ok(await service.CreateCommitteeUserAsync(payload, ct));
+
+    [HttpPatch("api/exams/committee-users/{id}")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject>> UpdateCommitteeUser(string id, [FromBody] JsonObject patch, CancellationToken ct)
+        => Ok(await service.UpdateCommitteeUserAsync(id, patch, ct));
+
+    [HttpGet("api/exams/devices")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> ListDevices(CancellationToken ct)
+        => Ok(await service.ListDevicesAsync(ct));
+
+    [HttpPost("api/exams/devices")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject>> CreateDevice([FromBody] JsonObject payload, CancellationToken ct)
+        => Ok(await service.CreateDeviceAsync(payload, ct));
+
+    [HttpPatch("api/exams/devices/{id}")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject>> UpdateDevice(string id, [FromBody] JsonObject patch, CancellationToken ct)
+        => Ok(await service.UpdateDeviceAsync(id, patch, ct));
+
+    /* ── Electronic results + audit ────────────────────────────────── */
+
+    [HttpGet("api/exams/results")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> ListResults(CancellationToken ct)
+        => Ok(await service.ListResultsAsync(ct));
+
+    [HttpPost("api/exams/results/{id}/approve")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject>> ApproveResult(string id, CancellationToken ct)
+        => Ok(await service.ApproveResultAsync(id, ct));
+
+    [HttpPost("api/exams/results/{id}/publish")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject>> PublishResult(string id, CancellationToken ct)
+        => Ok(await service.PublishResultAsync(id, ct));
+
+    [HttpGet("api/exams/audit")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> ListAudit(CancellationToken ct)
+        => Ok(await service.ListAuditAsync(ct));
+
     /* ── Attempts ──────────────────────────────────────────────────── */
 
     [HttpPost("api/exams/{id}/take/start")]

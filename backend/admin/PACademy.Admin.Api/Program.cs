@@ -1,6 +1,7 @@
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
+using PACademy.Admin.Api.Modules.Biometric;
 using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Identity.Moi;
@@ -67,6 +68,7 @@ builder.Services.AddAdminRecordsModule(builder.Configuration);
 builder.Services.AddAdmissionsModule(builder.Configuration);
 builder.Services.AddAuditModule();
 builder.Services.AddExamsModule(builder.Configuration);
+builder.Services.AddBiometricModule(builder.Configuration);
 builder.Services.AddReportsModule(builder.Configuration);
 builder.Services.AddSettingsModule(builder.Configuration);
 
@@ -103,6 +105,7 @@ if (!skipMigrationsAndSeed && !skipSeed)
     await app.SeedAdminRecordsAsync();
     await app.SeedAdmissionsAsync();
     await app.SeedExamsAsync();
+    await app.SeedBiometricAsync();
 
     // External-module DbContexts (each owns its own migrations history table).
     LookupsAdminSeeder.MigrateAndSeed(app.Services);

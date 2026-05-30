@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-05-24",
-  "source": "frontend/src/shared/mock-data/sprint3to9.ts BANK_QUESTIONS + EXAM_CONFIGS (verbatim — CLAUDE.md backend rule)",
+  "source": "frontend/src/shared/mock-data/sprint3to9.ts BANK_QUESTIONS + EXAM_CONFIGS (verbatim — CLAUDE.md backend rule) + committeeUsers/devices/results/audit (QB backend gap-fill)",
   "questions": [
     {
       "id": "Q-00051",
@@ -1016,6 +1016,178 @@
         "Q-00028"
       ],
       "status": "draft"
+    }
+  ],
+  "committeeUsers": [
+    {
+      "id": "EXU-001",
+      "fullName": "العقيد أحمد فاروق سعد",
+      "username": "exam.manager",
+      "passwordMask": "••••••••",
+      "permission": "committee-manager",
+      "examType": "قدرات عامة",
+      "status": "active",
+      "authorizedDeviceId": "DEV-001",
+      "authorizedIp": "10.20.14.11"
+    },
+    {
+      "id": "EXU-002",
+      "fullName": "الرائد د. كريم البنا",
+      "username": "exam.results",
+      "passwordMask": "••••••••",
+      "permission": "results-approver",
+      "examType": "قدرات عامة",
+      "status": "active",
+      "authorizedDeviceId": "DEV-002",
+      "authorizedIp": "10.20.14.12"
+    },
+    {
+      "id": "EXU-003",
+      "fullName": "النقيب سامح عبد الرازق",
+      "username": "exam.proctor.3",
+      "passwordMask": "••••••••",
+      "permission": "proctor",
+      "examType": "قدرات عددية",
+      "status": "suspended",
+      "authorizedDeviceId": "DEV-003",
+      "authorizedIp": "10.20.30.27"
+    }
+  ],
+  "devices": [
+    {
+      "id": "DEV-001",
+      "label": "معمل الاختبارات الرئيسي · جهاز 01",
+      "macAddress": "A4:8D:3B:91:22:10",
+      "ipAddress": "10.20.14.11",
+      "status": "active",
+      "allowedFrom": "2026-05-29T07:00:00.000Z",
+      "allowedTo": "2026-05-29T15:00:00.000Z",
+      "examId": "EXAM-0001"
+    },
+    {
+      "id": "DEV-002",
+      "label": "معمل الاختبارات الرئيسي · جهاز 02",
+      "macAddress": "A4:8D:3B:91:22:11",
+      "ipAddress": "10.20.14.12",
+      "status": "active",
+      "allowedFrom": "2026-05-29T07:00:00.000Z",
+      "allowedTo": "2026-05-29T15:00:00.000Z",
+      "examId": "EXAM-0001"
+    },
+    {
+      "id": "DEV-003",
+      "label": "معمل احتياطي · جهاز 07",
+      "macAddress": "B8:17:C2:4A:90:07",
+      "ipAddress": "10.20.30.27",
+      "status": "inactive",
+      "allowedFrom": "2026-05-30T07:00:00.000Z",
+      "allowedTo": "2026-05-30T10:00:00.000Z"
+    }
+  ],
+  "results": [
+    {
+      "id": "ER-00001",
+      "examId": "EXAM-0001",
+      "attemptId": "ATT-00001",
+      "applicantId": "APP-202600001",
+      "applicantName": "محمد عبد الله إبراهيم",
+      "score": 88,
+      "maxScore": 100,
+      "percentage": 88,
+      "passFail": "pass",
+      "status": "published",
+      "submittedAt": "2026-05-29T09:30:00.000Z",
+      "approvedAt": "2026-05-29T11:00:00.000Z",
+      "publishedAt": "2026-05-29T12:00:00.000Z"
+    },
+    {
+      "id": "ER-00002",
+      "examId": "EXAM-0001",
+      "attemptId": "ATT-00002",
+      "applicantId": "APP-202600002",
+      "applicantName": "يوسف أحمد علي",
+      "score": 74,
+      "maxScore": 100,
+      "percentage": 74,
+      "passFail": "pass",
+      "status": "approved",
+      "submittedAt": "2026-05-29T09:30:00.000Z",
+      "approvedAt": "2026-05-29T11:00:00.000Z"
+    },
+    {
+      "id": "ER-00003",
+      "examId": "EXAM-0001",
+      "attemptId": "ATT-00003",
+      "applicantId": "APP-202600003",
+      "applicantName": "كريم مصطفى حسن",
+      "score": 61,
+      "maxScore": 100,
+      "percentage": 61,
+      "passFail": "pass",
+      "status": "preliminary",
+      "submittedAt": "2026-05-29T09:30:00.000Z"
+    },
+    {
+      "id": "ER-00004",
+      "examId": "EXAM-0001",
+      "attemptId": "ATT-00004",
+      "applicantId": "APP-202600004",
+      "applicantName": "عمر خالد سعيد",
+      "score": 92,
+      "maxScore": 100,
+      "percentage": 92,
+      "passFail": "pass",
+      "status": "approved",
+      "submittedAt": "2026-05-29T09:30:00.000Z",
+      "approvedAt": "2026-05-29T11:00:00.000Z"
+    },
+    {
+      "id": "ER-00005",
+      "examId": "EXAM-0001",
+      "attemptId": "ATT-00005",
+      "applicantId": "APP-202600005",
+      "applicantName": "أحمد سمير فؤاد",
+      "score": 55,
+      "maxScore": 100,
+      "percentage": 55,
+      "passFail": "fail",
+      "status": "preliminary",
+      "submittedAt": "2026-05-29T09:30:00.000Z"
+    },
+    {
+      "id": "ER-00006",
+      "examId": "EXAM-0001",
+      "attemptId": "ATT-00006",
+      "applicantId": "APP-202600006",
+      "applicantName": "مازن وليد رشاد",
+      "score": 67,
+      "maxScore": 100,
+      "percentage": 67,
+      "passFail": "pass",
+      "status": "preliminary",
+      "submittedAt": "2026-05-29T09:30:00.000Z"
+    }
+  ],
+  "audit": [
+    {
+      "id": "EXAUD-0001",
+      "user": "العقيد أحمد فاروق سعد",
+      "timestamp": "2026-05-29T08:00:00.000Z",
+      "action": "exam.published",
+      "entity": "exam",
+      "entityId": "EXAM-0001",
+      "previousValue": "draft",
+      "newValue": "published"
+    },
+    {
+      "id": "EXAUD-0002",
+      "user": "الرائد د. كريم البنا",
+      "timestamp": "2026-05-29T11:00:00.000Z",
+      "action": "result.approved",
+      "entity": "result",
+      "entityId": "ER-00002",
+      "previousValue": "preliminary",
+      "newValue": "approved"
     }
   ]
 }
