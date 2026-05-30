@@ -8,7 +8,17 @@
 
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Pencil, Power, ShieldCheck, ShieldOff } from 'lucide-react';
+import {
+  ArrowRight,
+  AtSign,
+  History,
+  KeyRound,
+  Pencil,
+  Power,
+  RotateCcw,
+  ShieldCheck,
+  ShieldOff,
+} from 'lucide-react';
 import {
   AlertDialog,
   Avatar,
@@ -21,7 +31,6 @@ import {
   buttonClassName,
   toast,
 } from '@/shared/components';
-import { RotateCcw } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
 import { ROLE_DEFINITIONS, type Role, useAuthStore } from '@/features/auth';
 import { useAuditLog } from '@/features/audit';
@@ -125,16 +134,6 @@ export function UserDetailPage(): JSX.Element {
             <Link to={ROUTES.admin.users} className={buttonClassName({ variant: 'ghost' })}>
               <ArrowRight size={16} className="rtl:rotate-180" /> العودة إلى القائمة
             </Link>
-            {isSuperAdmin && (
-              <Button
-                variant="ghost"
-                leadingIcon={<RotateCcw size={14} strokeWidth={1.75} />}
-                onClick={handleResetPassword}
-                isLoading={resetPassword.isPending}
-              >
-                إعادة تعيين كلمة المرور
-              </Button>
-            )}
             <Link
               to={ROUTES.admin.userEdit(user.id)}
               className={buttonClassName({ variant: 'primary' })}
@@ -145,7 +144,7 @@ export function UserDetailPage(): JSX.Element {
         }
       />
 
-      {/* ─── Hero: avatar · name · roles · status ─────────────────── */}
+      {/* ─── Hero: avatar · name · username · roles · status ──────── */}
       <Card variant="feature" withAccentBorder className="mb-4">
         <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center">
           <Avatar size="xl" name={user.fullArabicName} />
@@ -153,6 +152,12 @@ export function UserDetailPage(): JSX.Element {
             <h2 className="font-ar-display text-lg font-semibold leading-snug text-ink-900">
               {user.fullArabicName}
             </h2>
+            {user.username && (
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-pill bg-ink-50 px-2.5 py-1 font-mono text-2xs text-ink-700">
+                <AtSign size={12} strokeWidth={2} aria-hidden />
+                <bdi>{user.username}</bdi>
+              </span>
+            )}
             <div className="flex flex-wrap items-center gap-1.5">
               {user.roles.length === 0 ? (
                 <span className="text-sm text-ink-500">— لا توجد أدوار</span>
@@ -176,6 +181,11 @@ export function UserDetailPage(): JSX.Element {
                 style={{ background: 'var(--accent-50)', color: 'var(--accent-700)' }}
               >
                 <ShieldCheck size={12} strokeWidth={2} aria-hidden /> الحساب نشط
+              </span>
+            )}
+            {user.mustChangePassword && (
+              <span className="inline-flex items-center gap-1.5 rounded-pill border border-dashed border-gold-300 bg-gold-50 px-2.5 py-1 text-2xs font-medium text-gold-700">
+                <KeyRound size={12} strokeWidth={2} aria-hidden /> كلمة مرور مؤقتة
               </span>
             )}
             <span className="text-2xs text-ink-500">
@@ -209,7 +219,6 @@ export function UserDetailPage(): JSX.Element {
             <DefRow label="الاسم رباعياً" value={user.fullArabicName} />
             <DefRow label="الرقم القومى" value={user.nationalId} mono />
             <DefRow label="رمز الضابط / الكود" value={user.officerCode} mono />
-            <DefRow label="اسم المستخدم" value={user.username ?? '—'} mono />
             <DefRow label="رقم المحمول" value={user.mobileNumber} mono />
             <DefRow label="الفئة" value={USER_TYPE_LABEL[user.userType]} />
             <DefRow label="تاريخ الإنشاء" value={fmtDate(user.createdAt, 'full')} />
@@ -219,6 +228,70 @@ export function UserDetailPage(): JSX.Element {
               value={user.lastLogin ? fmtDate(user.lastLogin, 'rel') : 'لم يسجل بعد'}
             />
           </dl>
+        </div>
+      </Card>
+
+      {/* ─── الدخول والأمان — credentials + password state ─────────── */}
+      <Card className="mt-4">
+        <div className="flex flex-col gap-4 p-5">
+          <div className="flex items-center gap-2">
+            <span
+              className="flex h-7 w-7 items-center justify-center rounded-md"
+              style={{ background: 'var(--accent-50)', color: 'var(--accent-700)' }}
+            >
+              <KeyRound size={15} strokeWidth={1.75} aria-hidden />
+            </span>
+            <h2 className="text-base font-semibold text-ink-900">الدخول والأمان</h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <span className="text-2xs font-medium uppercase tracking-wide text-ink-500">
+                اسم المستخدم
+              </span>
+              {user.username ? (
+                <span className="inline-flex w-fit items-center gap-1.5 rounded-md border border-border-subtle bg-ink-50 px-2.5 py-1.5 font-mono text-sm text-ink-900">
+                  <AtSign size={13} strokeWidth={2} className="text-ink-500" aria-hidden />
+                  <bdi>{user.username}</bdi>
+                </span>
+              ) : (
+                <span className="text-sm text-ink-500">— لم يُنشأ بعد</span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-2xs font-medium uppercase tracking-wide text-ink-500">
+                حالة كلمة المرور
+              </span>
+              {!user.hasCredentials ? (
+                <Badge tone="neutral">لا توجد كلمة مرور</Badge>
+              ) : user.mustChangePassword ? (
+                <span className="inline-flex w-fit items-center gap-1.5 rounded-pill border border-dashed border-gold-300 bg-gold-50 px-2.5 py-1 text-2xs font-medium text-gold-700">
+                  <KeyRound size={12} strokeWidth={2} aria-hidden /> مؤقتة · بانتظار تغيير المستخدم
+                </span>
+              ) : (
+                <Badge tone="success">مُعيّنة من قِبل المستخدم</Badge>
+              )}
+            </div>
+          </div>
+
+          {isSuperAdmin && (
+            <div className="flex flex-col gap-2 border-t border-dashed border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-2xs leading-relaxed text-ink-500">
+                إعادة التعيين تُنشئ كلمة مرور مؤقتة جديدة تظهر لمرة واحدة فقط لتسليمها للمستخدم.
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                leadingIcon={<RotateCcw size={14} strokeWidth={1.75} />}
+                onClick={handleResetPassword}
+                isLoading={resetPassword.isPending}
+                className="sm:flex-shrink-0"
+              >
+                إعادة تعيين كلمة المرور
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -235,7 +308,10 @@ export function UserDetailPage(): JSX.Element {
             </Link>
           </div>
           {recentAudit.length === 0 ? (
-            <p className="text-sm text-ink-500">لا توجد عمليات مسجلة لهذا الحساب.</p>
+            <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border-subtle bg-ink-50/40 px-4 py-8 text-center">
+              <History size={22} strokeWidth={1.5} className="text-ink-400" aria-hidden />
+              <p className="text-sm text-ink-500">لا توجد عمليات مسجلة لهذا الحساب بعد.</p>
+            </div>
           ) : (
             <ol className="flex flex-col gap-2">
               {recentAudit.map((entry) => (
@@ -286,11 +362,10 @@ function DefRow({ label, value, mono }: { label: string; value: string; mono?: b
   return (
     <div className="flex flex-col gap-0.5 border-b border-dashed border-border-subtle pb-3 sm:border-0 sm:pb-0">
       <dt className="text-2xs font-medium uppercase tracking-wide text-ink-500">{label}</dt>
-      <dd
-        className="text-sm font-medium text-ink-900"
-        dir={mono ? 'ltr' : undefined}
-      >
-        <span className={mono ? 'font-mono tnum' : undefined}>{value}</span>
+      <dd className="text-start text-sm font-medium text-ink-900">
+        {/* <bdi> isolates LTR digits so they render correctly while the value
+            stays aligned to the row's start edge under its label (RTL-safe). */}
+        <bdi className={mono ? 'font-mono tnum' : undefined}>{value}</bdi>
       </dd>
     </div>
   );
