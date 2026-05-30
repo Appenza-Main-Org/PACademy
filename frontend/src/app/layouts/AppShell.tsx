@@ -101,7 +101,7 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
   return (
     <div
       data-app={app ?? undefined}
-      className="page-enter relative flex h-[100dvh] flex-col overflow-hidden bg-surface-page"
+      className="app-shell page-enter relative flex h-[100dvh] flex-col overflow-hidden bg-surface-page"
     >
       <KhayameyaStripe height="sm" />
 

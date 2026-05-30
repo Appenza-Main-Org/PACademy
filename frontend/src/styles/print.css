@@ -41,6 +41,36 @@
     overflow: visible !important;
   }
 
+  /* ── React AppShell (staff chrome) ───────────────────────────────────
+     The legacy .header/.sidebar/.shell/.main selectors above target the
+     old vanilla demo and do NOT match the React shell, which uses a
+     semantic <header> + sidebar <aside> inside a CSS-grid body
+     (md:grid-cols-[256px_1fr]) and an h-[100dvh]/overflow-hidden root.
+     Left unhandled, every staff page that prints (investigations, board,
+     medical certificate, exams, barcode, admin reports, admission-setup
+     review …) leaks the chrome into print and the 256px sidebar track
+     squeezes the content off the page edge — cropped output.
+
+     Hide the chrome and flatten the height/scroll/grid chain so the
+     printable <main> goes full-bleed on every staff surface at once. */
+  .app-shell > header,
+  .app-shell aside {
+    display: none !important;
+  }
+  .app-shell,
+  .app-shell > div:has(> main),
+  .app-shell main {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .app-shell > main,
+  .app-shell > div:has(> main) > main {
+    padding: 0 !important;
+  }
+
   /* Cards drop shadows in print */
   .card,
   [data-print-card] {
