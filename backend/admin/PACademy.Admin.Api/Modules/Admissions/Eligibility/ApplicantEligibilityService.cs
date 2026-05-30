@@ -372,12 +372,9 @@ public sealed class ApplicantEligibilityService(
                         """, parameter)
                     .FirstOrDefaultAsync(ct);
             }
-            catch (SqlException ex) when (ex.Number == 208)
+            catch (SqlException ex) when (HasSqlError(ex, SqlInvalidObjectName))
             {
-                var record = await db.AdminRecordDocuments
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
-                payload = record?.PayloadJson;
+                payload = await LoadCompatibilityDocumentPayloadAsync(module, ct);
             }
 #pragma warning restore EF1002
             draft = payload is null ? null : AdminRecordJson.Parse(payload);
@@ -454,6 +451,30 @@ public sealed class ApplicantEligibilityService(
         }
 
         return output;
+    }
+
+    private async Task<string?> LoadCompatibilityDocumentPayloadAsync(string module, CancellationToken ct)
+    {
+        if (records is not null)
+        {
+            var record = await records.SingletonAsync(module, [], ct);
+            return record.Count == 0 ? null : record.ToJsonString(AdminRecordJson.Options);
+        }
+
+        try
+        {
+            var document = await db.AdminRecordDocuments
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
+            return document?.PayloadJson;
+        }
+        catch (SqlException ex) when (HasSqlError(ex, SqlInvalidObjectName))
+        {
+            var legacy = await db.AdminRecords
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
+            return legacy?.PayloadJson;
+        }
     }
 
     private static ApplicantEligibilityContext BuildApplicantContext(
