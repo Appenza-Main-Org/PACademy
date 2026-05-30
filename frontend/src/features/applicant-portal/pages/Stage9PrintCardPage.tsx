@@ -21,11 +21,10 @@ import {
 } from '@/shared/components';
 import { useDraft } from '../api/applicantPortal.queries';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
-import { useCategories } from '../api/categories.queries';
+import { useCategories, useEligibleCategories } from '../api/categories.queries';
 import { date as fmtDate } from '@/shared/lib/format';
 import {
   arabicDayOfWeek,
-  arabicOrdinal,
   toEasternArabicNumerals,
 } from '@/shared/lib/arabic';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
@@ -34,8 +33,6 @@ import {
   deterministicPaymentReference,
 } from '../lib/deterministic-codes';
 import { AdmissionFormSection } from '../components/AdmissionFormSection';
-
-const COMMITTEE_NUMBER = 2;
 
 export function Stage9PrintCardPage(): JSX.Element {
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
@@ -49,6 +46,18 @@ export function Stage9PrintCardPage(): JSX.Element {
   const categoriesQuery = useCategories();
   const category = (categoriesQuery.data ?? []).find((c) => c.key === selectedCategoryKey);
   const fileNumber = deterministicFileNumber(applicantId);
+
+  /* Committee assigned on Stage 8. Prefer the value persisted in the store;
+   * if the applicant landed here via direct nav, re-derive it from the same
+   * eligible-categories source Stage 8 uses so the card never falls back to a
+   * placeholder committee. */
+  const assignedCommitteeName = useApplicantPortalStore((s) => s.assignedCommitteeName);
+  const nid = moiSession?.nationalId ?? MOI_APPLICANT_SESSION.nationalId;
+  const eligibilityQuery = useEligibleCategories(assignedCommitteeName ? null : nid);
+  const fallbackCommitteeName = eligibilityQuery.data?.categories
+    .find((c) => c.categoryId === selectedCategoryKey)
+    ?.committees?.[0]?.committeeName;
+  const committeeName = assignedCommitteeName ?? fallbackCommitteeName ?? '—';
 
   /* Prefer the draft's examSlot (has real time + location from DB); fall
    * back to the store's firstExamDate (set on Stage 8 completion) with
@@ -124,7 +133,7 @@ export function Stage9PrintCardPage(): JSX.Element {
               <div>
                 <p className="text-2xs uppercase tracking-wide text-ink-500">اللجنة</p>
                 <p className="font-ar-display text-md font-bold text-ink-900">
-                  {arabicOrdinal(COMMITTEE_NUMBER)}
+                  {committeeName}
                 </p>
               </div>
               <div>
