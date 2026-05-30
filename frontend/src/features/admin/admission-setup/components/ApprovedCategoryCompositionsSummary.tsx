@@ -334,13 +334,14 @@ function DraftUniversityRowsTable({
   rows: readonly LocalUniversityRow[];
   labels: LabelMaps;
 }): JSX.Element {
+  /* بداية/نهاية التقديم · تاريخ احتساب السن · الحالة الاجتماعية · الحد
+   * الأقصى للسن are category-level fields already shown in the header
+   * summary card above (all sourced from the same `header` object —
+   * marital is built from `header.maritalStatus`). Don't repeat them on
+   * every row. */
   const headers = [
     'الكلية / التخصص',
     'اللجنة',
-    'بداية التقديم',
-    'نهاية التقديم',
-    'تاريخ احتساب السن',
-    'الحالة الاجتماعية',
     'النوع',
     'معيار التمييز',
     'الحد الأدنى للتقدير',
@@ -349,11 +350,10 @@ function DraftUniversityRowsTable({
     'الحد الأقصى للدرجة',
     'الدرجة العلمية',
     'سنة التخرج',
-    'الحد الأقصى للسن',
   ];
 
   return (
-    <DraftTable headers={headers} minWidthClass="min-w-[112rem]">
+    <DraftTable headers={headers} minWidthClass="min-w-[76rem]">
       {rows.map((row) => (
         <tr key={row.id} className="border-t border-border-subtle">
           <Td>
@@ -361,10 +361,6 @@ function DraftUniversityRowsTable({
             <span className="mt-0.5 block text-ink-500">{row.specializationNameAr}</span>
           </Td>
           <Td><ChipList values={row.committees.map((c) => labels.committee.get(c) ?? c)} /></Td>
-          <Td>{formatIsoDate(row.header.applicationStart)}</Td>
-          <Td>{formatIsoDate(row.header.applicationEnd)}</Td>
-          <Td>{formatIsoDate(row.header.ageReferenceDate)}</Td>
-          <Td><ChipList values={row.maritalStatus.map((c) => labels.marital.get(c) ?? c)} /></Td>
           <Td><ChipList values={row.type.map((g) => GENDER_LABEL[g] ?? g)} /></Td>
           <Td>{formatExcellenceMode(row.excellenceMode)}</Td>
           <Td>{row.grade ? labels.academicGrade.get(row.grade) ?? row.grade : '—'}</Td>
@@ -373,7 +369,6 @@ function DraftUniversityRowsTable({
           <Td>{formatScore(row.scoreMax, row.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR)}</Td>
           <Td><ChipList values={row.academicDegrees.map((d) => labels.academicDegree.get(d) ?? d)} /></Td>
           <Td><ChipList values={row.graduationYears.map((y) => toEasternArabicNumerals(y))} /></Td>
-          <Td>{formatMaxAge(row.header.maxAge)}</Td>
         </tr>
       ))}
     </DraftTable>
@@ -387,12 +382,11 @@ function DraftThanawiRowsTable({
   rows: readonly LocalThanawiRow[];
   labels: LabelMaps;
 }): JSX.Element {
+  /* Same as the university table: بداية/نهاية التقديم · تاريخ احتساب السن
+   * · الحالة الاجتماعية · الحد الأقصى للسن live in the header summary card
+   * above, so they're dropped from the per-row grid. */
   const headers = [
     'اللجنة',
-    'بداية التقديم',
-    'نهاية التقديم',
-    'تاريخ احتساب السن',
-    'الحالة الاجتماعية',
     'الدور',
     'سنة التخرج',
     'فئة المدرسة',
@@ -401,18 +395,13 @@ function DraftThanawiRowsTable({
     'الحد الأقصى للتقدير',
     'الحد الأدنى للدرجة',
     'الحد الأقصى للدرجة',
-    'الحد الأقصى للسن',
   ];
 
   return (
-    <DraftTable headers={headers} minWidthClass="min-w-[104rem]">
+    <DraftTable headers={headers} minWidthClass="min-w-[68rem]">
       {rows.map((row) => (
         <tr key={row.id} className="border-t border-border-subtle">
           <Td>{labels.committee.get(row.committee) ?? row.committee}</Td>
-          <Td>{formatIsoDate(row.header.applicationStart)}</Td>
-          <Td>{formatIsoDate(row.header.applicationEnd)}</Td>
-          <Td>{formatIsoDate(row.header.ageReferenceDate)}</Td>
-          <Td><ChipList values={row.maritalStatus.map((c) => labels.marital.get(c) ?? c)} /></Td>
           <Td>{labels.examRound.get(row.examRound) ?? row.examRound}</Td>
           <Td>{row.graduationYear !== null ? toEasternArabicNumerals(row.graduationYear) : '—'}</Td>
           <Td><ChipList values={row.schoolCategories.map((c) => labels.schoolCategory.get(c) ?? c)} /></Td>
@@ -421,7 +410,6 @@ function DraftThanawiRowsTable({
           <Td>{row.gradeMax ? labels.academicGrade.get(row.gradeMax) ?? row.gradeMax : '—'}</Td>
           <Td>{formatScore(row.scoreMin, row.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR)}</Td>
           <Td>{formatScore(row.scoreMax, row.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR)}</Td>
-          <Td>{formatMaxAge(row.header.maxAge)}</Td>
         </tr>
       ))}
     </DraftTable>
