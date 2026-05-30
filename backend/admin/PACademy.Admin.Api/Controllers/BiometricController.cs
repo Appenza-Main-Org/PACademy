@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.Biometric;
+using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
@@ -35,12 +36,29 @@ public sealed class BiometricController(BiometricService service) : ControllerBa
     [HttpPost("api/biometric/enroll")]
     [RequireBearerAuth]
     public async Task<ActionResult<JsonObject>> Enroll([FromBody] JsonObject input, CancellationToken ct)
-        => Ok(await service.EnrollAsync(input, ct));
+    {
+        try { return Ok(await service.EnrollAsync(input, ct)); }
+        catch (BiometricDeviceException ex) { return DeviceUnavailable(ex); }
+    }
 
     [HttpPost("api/biometric/verify")]
     [RequireBearerAuth]
     public async Task<ActionResult<JsonObject>> Verify([FromBody] JsonObject input, CancellationToken ct)
-        => Ok(await service.VerifyAsync(input, ct));
+    {
+        try { return Ok(await service.VerifyAsync(input, ct)); }
+        catch (BiometricDeviceException ex) { return DeviceUnavailable(ex); }
+    }
+
+    /// <summary>
+    /// Maps a device-side failure to a clean 503 envelope (mirrors the MOI
+    /// gateway's controller-level handling). When <c>Biometric:Mode=real</c>
+    /// but the device API isn't configured/reachable, the seam surfaces this
+    /// instead of leaking a generic 500 — proving the swap is clean and the
+    /// failure is attributable to the device, not the app.
+    /// </summary>
+    private ObjectResult DeviceUnavailable(BiometricDeviceException ex) =>
+        StatusCode(StatusCodes.Status503ServiceUnavailable,
+            new ApiErrorEnvelope("BIOMETRIC_DEVICE_UNAVAILABLE", Message: ex.Message));
 
     [HttpPost("api/biometric/gate-log")]
     [RequireBearerAuth]

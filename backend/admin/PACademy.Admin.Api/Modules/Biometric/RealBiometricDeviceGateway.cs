@@ -12,8 +12,9 @@ namespace PACademy.Admin.Api.Modules.Biometric;
 /// </summary>
 public sealed class RealBiometricDeviceGateway(HttpClient http, IConfiguration config) : IBiometricDeviceGateway
 {
-    private string BaseUrl => config["Biometric:BaseUrl"]
-        ?? throw new BiometricDeviceException("لم يتم ضبط عنوان جهاز البصمة (Biometric:BaseUrl)");
+    private string BaseUrl => config["Biometric:BaseUrl"] is { } url && !string.IsNullOrWhiteSpace(url)
+        ? url
+        : throw new BiometricDeviceException("لم يتم ضبط عنوان جهاز البصمة (Biometric:BaseUrl)");
     private string CapturePath => config["Biometric:CapturePath"] ?? "/api/biometric/capture";
     private string MatchPath => config["Biometric:MatchPath"] ?? "/api/biometric/match";
 
