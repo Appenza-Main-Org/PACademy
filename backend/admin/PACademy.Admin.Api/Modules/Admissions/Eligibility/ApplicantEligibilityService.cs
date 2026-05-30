@@ -72,7 +72,7 @@ public sealed class ApplicantEligibilityService(
                     examSlotsByCommitteeKey)
                 : [];
             var academicPrograms = failedReasons.Count == 0
-                ? ResolveAcademicPrograms(settings.CategoryName, evaluation.MatchedRuleId, academicProgramsByRuleId)
+                ? ResolveAcademicPrograms(settings.CategoryName, evaluation.MatchedRuleIds, academicProgramsByRuleId)
                 : [];
             results.Add(new CategoryEligibilityResult(
                 settings.CategoryId,
@@ -572,10 +572,12 @@ public sealed class ApplicantEligibilityService(
         if (category.Rules.Count == 0)
         {
             var checks = RunChecks(applicant, category, lookups);
-            return new CategoryEvaluation(checks, null, null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
+            return new CategoryEvaluation(checks, null, [], null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
         }
 
         CategoryEvaluation? best = null;
+        CategoryEvaluation? firstMatch = null;
+        var matchingRuleIds = new List<string>();
         var validatesGrades = IsPreUniversityCategory(category.CategoryLookup) ||
             category.Rules.Any(rule => EligibilityJson.StringArray(rule.SchoolCategoryCodesJson).Count > 0);
         foreach (var rule in category.Rules)
@@ -596,10 +598,12 @@ public sealed class ApplicantEligibilityService(
             };
             var checks = RunChecks(applicant, rowSettings, lookups);
             var failedReasons = BuildFailedReasons(checks, rowSettings);
-            var evaluation = new CategoryEvaluation(checks, rule.Id, rule, failedReasons);
+            var evaluation = new CategoryEvaluation(checks, rule.Id, [rule.Id], rule, failedReasons);
             if (failedReasons.Count == 0)
             {
-                return evaluation;
+                matchingRuleIds.Add(rule.Id);
+                firstMatch ??= evaluation;
+                continue;
             }
 
             if (best is null || CountPassed(checks) > CountPassed(best.Checks))
@@ -608,7 +612,12 @@ public sealed class ApplicantEligibilityService(
             }
         }
 
-        return best ?? new CategoryEvaluation(RunChecks(applicant, category, lookups), null, null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
+        if (matchingRuleIds.Count > 0)
+        {
+            return firstMatch! with { MatchedRuleIds = matchingRuleIds };
+        }
+
+        return best ?? new CategoryEvaluation(RunChecks(applicant, category, lookups), null, [], null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
     }
 
     private static EligibilityChecks RunChecks(
@@ -691,15 +700,25 @@ public sealed class ApplicantEligibilityService(
 
     private static IReadOnlyList<EligibleAcademicProgramResult> ResolveAcademicPrograms(
         string categoryName,
-        string? matchedRuleId,
+        IReadOnlyList<string> matchedRuleIds,
         IReadOnlyDictionary<string, IReadOnlyList<EligibleAcademicProgramResult>> academicProgramsByRuleId)
     {
-        if (matchedRuleId is null || !academicProgramsByRuleId.TryGetValue(matchedRuleId, out var programs))
+        if (matchedRuleIds.Count == 0)
         {
             return [];
         }
 
-        return programs
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        return matchedRuleIds
+            .SelectMany(ruleId =>
+                academicProgramsByRuleId.TryGetValue(ruleId, out var programs)
+                    ? programs
+                    : [])
+            .Where(program =>
+            {
+                var key = $"{program.FacultyCode}::{program.SpecializationCode}";
+                return seen.Add(key);
+            })
             .Select(program => program with
             {
                 Reason = $"مطابق لإعدادات فئة {categoryName} لهذا التخصص"
@@ -817,6 +836,7 @@ public sealed class ApplicantEligibilityService(
     private sealed record CategoryEvaluation(
         EligibilityChecks Checks,
         string? MatchedRuleId,
+        IReadOnlyList<string> MatchedRuleIds,
         ApplicationSettingsGraduationYearEntity? MatchedRule,
         IReadOnlyList<string> FailedReasons);
 
