@@ -93,6 +93,44 @@ public sealed class Applicant
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
+    /// <summary>True when the row is missing MOI identity fields — e.g. a
+    /// bare <see cref="CreateManual"/> row created before NID-derivation
+    /// landed. Used by the login flow to decide whether to backfill.</summary>
+    public bool IsIdentityIncomplete =>
+        string.IsNullOrWhiteSpace(FullName) || DateOfBirth is null;
+
+    /// <summary>
+    /// Backfill MOI identity onto an existing row, filling only the fields
+    /// that are still empty so any applicant-entered data is never
+    /// clobbered. Self-heals rows created before NID-derivation existed.
+    /// </summary>
+    public void EnrichIdentity(
+        string? fullName,
+        string? email,
+        string? gender,
+        string? religion,
+        DateOnly? dateOfBirth,
+        string? birthGovernorate,
+        string? birthDistrict)
+    {
+        if (string.IsNullOrWhiteSpace(FullName) && !string.IsNullOrWhiteSpace(fullName))
+            FullName = fullName;
+        if (string.IsNullOrWhiteSpace(Email) && !string.IsNullOrWhiteSpace(email))
+            Email = email;
+        if (string.IsNullOrWhiteSpace(Gender) && !string.IsNullOrWhiteSpace(gender))
+            Gender = gender;
+        if (string.IsNullOrWhiteSpace(Religion) && !string.IsNullOrWhiteSpace(religion))
+            Religion = religion;
+        if (DateOfBirth is null && dateOfBirth is not null)
+            DateOfBirth = dateOfBirth;
+        if (string.IsNullOrWhiteSpace(BirthGovernorate) && !string.IsNullOrWhiteSpace(birthGovernorate))
+            BirthGovernorate = birthGovernorate;
+        if (string.IsNullOrWhiteSpace(BirthDistrict) && !string.IsNullOrWhiteSpace(birthDistrict))
+            BirthDistrict = birthDistrict;
+        Source = "moi";
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
     private static void Guard(string nationalId, string phoneNumber)
     {
         if (string.IsNullOrWhiteSpace(nationalId)) throw new ArgumentException("nid required", nameof(nationalId));

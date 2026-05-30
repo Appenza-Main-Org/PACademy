@@ -49,6 +49,28 @@ public sealed class LoginUseCase(
         {
             if (!string.Equals(existing.PhoneNumber, mobile, StringComparison.Ordinal))
                 return (null, ErrorCodes.InvalidCredentials);
+
+            // Self-heal rows created before NID-derivation existed (bare
+            // CreateManual rows whose name/DOB/birthplace were left blank).
+            // The account already passed the mobile check above, so no
+            // impersonation risk in backfilling the read-only MOI fields.
+            if (existing.IsIdentityIncomplete)
+            {
+                var identity = await ResolveIdentityAsync(nid, mobile, ct);
+                if (identity is not null)
+                {
+                    DateOnly.TryParse(identity.DateOfBirth, out var enrichDob);
+                    existing.EnrichIdentity(
+                        fullName: identity.FullName,
+                        email: identity.Email,
+                        gender: identity.Gender,
+                        religion: identity.Religion,
+                        dateOfBirth: enrichDob == default ? null : enrichDob,
+                        birthGovernorate: identity.BirthGovernorate,
+                        birthDistrict: identity.BirthDistrict);
+                    await db.SaveChangesAsync(ct);
+                }
+            }
             return (BuildAuth(existing), null);
         }
 
@@ -109,6 +131,15 @@ public sealed class LoginUseCase(
         await db.SaveChangesAsync(ct);
         return (BuildAuth(created), null);
     }
+
+    /// <summary>
+    /// Resolve the identity to fill onto an existing incomplete row: the
+    /// authoritative MOI record when one exists, otherwise the NID-derived
+    /// fallback. Returns null only when the NID can't be parsed at all.
+    /// </summary>
+    private async Task<Moi.MoiApplicantSessionDto?> ResolveIdentityAsync(
+        string nid, string mobile, CancellationToken ct)
+        => await moi.VerifyAsync(nid, ct) ?? NidIdentityDeriver.Derive(nid, mobile);
 
     private AuthUserDto BuildAuth(Applicant a)
     {
