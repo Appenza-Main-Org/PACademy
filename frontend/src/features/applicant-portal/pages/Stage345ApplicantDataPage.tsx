@@ -76,6 +76,14 @@ import {
   getEligibilityGradeExtras,
   mapEligibilityGradeToGradeRow,
 } from '../lib/grade-prefill';
+import {
+  RELIGION_OPTIONS,
+  buildAllowedAcademicDegreeOptions,
+  buildAllowedMaritalStatusOptions,
+  getAllowedApplicantProfileCodes,
+  type AcademicDegreeValue,
+  type MaritalStatusValue,
+} from '../lib/profile-options';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 
@@ -211,9 +219,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
    *  whether the postgraduate block renders (master/doctorate) or just
    *  the bachelor row (license/bachelor). Local state because schemas
    *  for this category vary; the picked value is surfaced on submit. */
-  const [qualificationLevel, setQualificationLevel] = useState<
-    '' | 'license' | 'bachelor' | 'master' | 'doctorate'
-  >('');
+  const [qualificationLevel, setQualificationLevel] = useState<'' | AcademicDegreeValue>('');
   const showPostgrad = isSpecializedOfficers && (qualificationLevel === 'master' || qualificationLevel === 'doctorate');
 
   /* Manual-entry buffer for the personal-data block. Used only on the
@@ -223,7 +229,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   const [manualPersonal, setManualPersonal] = useState({
     fullName: '',
     gender: '' as '' | 'male' | 'female',
-    religion: '' as '' | 'مسلم' | 'مسيحي',
+    religion: 'مسلم' as 'مسلم' | 'مسيحي',
     dateOfBirthAr: '',
     birthGovernorate: '',
     birthDistrict: '',
@@ -234,7 +240,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     shuhra: '',
     /** Marital status — required in البيانات الشخصية for every applicant
      *  (MOI doesn't carry this field, so it's always editable). */
-    maritalStatus: '' as '' | 'single' | 'married' | 'divorced' | 'widowed',
+    maritalStatus: '' as '' | MaritalStatusValue,
     /** Sub-type the applicant must declare when MOI didn't return data
      *  AND they're applying to the general-officers category. Values:
      *  'expat' (وافدين) / 'foreign_certificate' (شهادات أجنبية). */
@@ -270,6 +276,8 @@ export function Stage345ApplicantDataPage(): JSX.Element {
    * narrows to lookup rows whose `externalGradesImport` is false (the
    * manual-entry tracks: foreign equivalent diplomas, etc.). */
   const schoolCategoriesQuery = useLookup('school-categories');
+  const maritalStatusesQuery = useLookup('marital-statuses');
+  const academicDegreesQuery = useLookup('academic-degrees');
   /* Bachelor / postgrad pickers are sourced from the admin lookups module
    * (/admin/lookups/{faculties,specializations,universities}) so the
    * options stay in lockstep with whatever the admin team configures. */
@@ -301,6 +309,30 @@ export function Stage345ApplicantDataPage(): JSX.Element {
 
   const governoratesQuery = useLookup('governorates');
   const policeStationsQuery = useLookup('police-stations');
+  const allowedProfileCodes = useMemo(
+    () =>
+      getAllowedApplicantProfileCodes(
+        eligibilityCategoriesQuery.data?.categories,
+        selectedCategoryKey,
+      ),
+    [eligibilityCategoriesQuery.data?.categories, selectedCategoryKey],
+  );
+  const maritalStatusOptions = useMemo(
+    () =>
+      buildAllowedMaritalStatusOptions(
+        maritalStatusesQuery.data ?? [],
+        allowedProfileCodes.maritalStatusCodes,
+      ),
+    [maritalStatusesQuery.data, allowedProfileCodes.maritalStatusCodes],
+  );
+  const academicDegreeOptions = useMemo(
+    () =>
+      buildAllowedAcademicDegreeOptions(
+        academicDegreesQuery.data ?? [],
+        allowedProfileCodes.academicDegreeCodes,
+      ),
+    [academicDegreesQuery.data, allowedProfileCodes.academicDegreeCodes],
+  );
 
   const govNameToCode = useMemo(() => {
     const m = new Map<string, string>();
@@ -476,6 +508,28 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     if (!valid) setValue('bachelorSpecialization', '');
   }, [scopedSpecializationOptions, watchedSpecialization, setValue]);
 
+  useEffect(() => {
+    if (maritalStatusOptions.length === 0) return;
+    const currentAllowed =
+      manualPersonal.maritalStatus !== '' &&
+      maritalStatusOptions.some((option) => option.value === manualPersonal.maritalStatus);
+    if (currentAllowed) return;
+    setManualPersonal((prev) => ({
+      ...prev,
+      maritalStatus: maritalStatusOptions.length === 1 ? maritalStatusOptions[0]!.value : '',
+    }));
+  }, [maritalStatusOptions, manualPersonal.maritalStatus]);
+
+  useEffect(() => {
+    if (!isSpecializedOfficers) return;
+    if (academicDegreeOptions.length === 0) return;
+    const currentAllowed =
+      qualificationLevel !== '' &&
+      academicDegreeOptions.some((option) => option.value === qualificationLevel);
+    if (currentAllowed) return;
+    setQualificationLevel(academicDegreeOptions.length === 1 ? academicDegreeOptions[0]!.value : '');
+  }, [academicDegreeOptions, isSpecializedOfficers, qualificationLevel]);
+
   /* Demo prefill for the "submitted" user. Reads from a single source
    * (SUBMITTED_APPLICANT_PROFILE) shared with ApplicantPortalPage so the
    * summary view and the editable form stay in lockstep. */
@@ -574,7 +628,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           nationalId: nid,
           dateOfBirthAr: manualPersonal.dateOfBirthAr,
           gender: manualPersonal.gender,
-          religion: manualPersonal.religion,
+          religion: manualPersonal.religion || 'مسلم',
           birthGovernorate: manualPersonal.birthGovernorate,
           birthDistrict: manualPersonal.birthDistrict,
           mobile: manualPersonal.mobile,
@@ -583,6 +637,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
         };
     const profilePayload = {
       ...personalBase,
+      religion: manualPersonal.religion || 'مسلم',
       maritalStatus: manualPersonal.maritalStatus,
       shuhra: manualPersonal.shuhra,
       qualificationLevel,
@@ -630,15 +685,12 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                   value={qualificationLevel}
                   onChange={(e) =>
                     setQualificationLevel(
-                      e.target.value as '' | 'license' | 'bachelor' | 'master' | 'doctorate',
+                      e.target.value as '' | AcademicDegreeValue,
                     )
                   }
                   options={[
                     { value: '', label: '— اختر —' },
-                    { value: 'license', label: 'ليسانس' },
-                    { value: 'bachelor', label: 'بكالوريوس' },
-                    { value: 'master', label: 'ماجستير' },
-                    { value: 'doctorate', label: 'دكتوراه' },
+                    ...academicDegreeOptions,
                   ]}
                 />
               </Field>
@@ -873,21 +925,13 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               />
             </Field>
           ) : null}
-          {isMoiVerified ? (
-            <ReadOnlyRow label="الديانة" value={session.religion} />
-          ) : (
-            <Field label="الديانة" required>
-              <Select
-                value={manualPersonal.religion}
-                onChange={(e) => setManual('religion', e.target.value as 'مسلم' | 'مسيحي' | '')}
-                options={[
-                  { value: '', label: '— اختر —' },
-                  { value: 'مسلم', label: 'مسلم' },
-                  { value: 'مسيحي', label: 'مسيحي' },
-                ]}
-              />
-            </Field>
-          )}
+          <Field label="الديانة" required>
+            <Select
+              value={manualPersonal.religion || 'مسلم'}
+              onChange={(e) => setManual('religion', e.target.value as 'مسلم' | 'مسيحي')}
+              options={RELIGION_OPTIONS}
+            />
+          </Field>
           {isMoiVerified ? (
             <ReadOnlyRow label="تاريخ الميلاد" value={session.dateOfBirthAr} />
           ) : (
@@ -922,15 +966,12 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               onChange={(e) =>
                 setManual(
                   'maritalStatus',
-                  e.target.value as 'single' | 'married' | 'divorced' | 'widowed' | '',
+                  e.target.value as MaritalStatusValue | '',
                 )
               }
               options={[
                 { value: '', label: '— اختر —' },
-                { value: 'single', label: 'أعزب' },
-                { value: 'married', label: 'متزوج' },
-                { value: 'divorced', label: 'مطلق' },
-                { value: 'widowed', label: 'أرمل' },
+                ...maritalStatusOptions,
               ]}
             />
           </Field>

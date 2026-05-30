@@ -85,6 +85,8 @@ export interface ApplicantCategoryEligibility {
     specializationName: string;
     reason: string;
   }>;
+  allowedMaritalStatusCodes?: string[];
+  allowedAcademicDegreeCodes?: string[];
   failedReasons: string[];
 }
 
@@ -376,6 +378,8 @@ export const categoriesPublicService = {
           },
           committees: [],
           academicPrograms: [],
+          allowedMaritalStatusCodes: [],
+          allowedAcademicDegreeCodes: [],
           failedReasons: result.reasons,
         };
       }),
