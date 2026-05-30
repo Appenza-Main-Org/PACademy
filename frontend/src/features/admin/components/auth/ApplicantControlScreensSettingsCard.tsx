@@ -20,7 +20,10 @@ import {
   toast,
 } from '@/shared/components';
 import { useAdminSettings, useUpdateAdminSettings } from '../../api/settings.queries';
-import type { AdminSettings } from '../../api/settings.service';
+import {
+  buildApplicantControlScreensSettingsPatch,
+  type AdminSettings,
+} from '../../api/settings.service';
 
 type LockTiming = NonNullable<AdminSettings['acquaintanceDocumentsMutationLockTiming']>;
 
@@ -38,7 +41,6 @@ interface FormState {
   acquaintanceDocumentsEntryResponsibleTestCode: string;
   acquaintanceDocumentsPrintResponsibleTestCode: string;
   acquaintanceDocumentsMutationLockTiming: LockTiming;
-  primaryRelativesVisibilityResponsibleTestCode: string;
 }
 
 function toForm(settings?: AdminSettings): FormState {
@@ -48,8 +50,6 @@ function toForm(settings?: AdminSettings): FormState {
     acquaintanceDocumentsPrintResponsibleTestCode: settings?.acquaintanceDocumentsPrintResponsibleTestCode ?? '',
     acquaintanceDocumentsMutationLockTiming:
       settings?.acquaintanceDocumentsMutationLockTiming ?? DEFAULT_LOCK_TIMING,
-    primaryRelativesVisibilityResponsibleTestCode:
-      settings?.primaryRelativesVisibilityResponsibleTestCode ?? '',
   };
 }
 
@@ -81,8 +81,7 @@ export function ApplicantControlScreensSettingsCard(): JSX.Element {
     touched &&
     (!form.primaryRelativesEntryResponsibleTestCode ||
       !form.acquaintanceDocumentsEntryResponsibleTestCode ||
-      !form.acquaintanceDocumentsPrintResponsibleTestCode ||
-      !form.primaryRelativesVisibilityResponsibleTestCode);
+      !form.acquaintanceDocumentsPrintResponsibleTestCode);
   const initialForm = toForm(settingsQuery.data);
   const isDirty = settingsQuery.data !== undefined && !isSameForm(form, initialForm);
 
@@ -94,10 +93,7 @@ export function ApplicantControlScreensSettingsCard(): JSX.Element {
     setTouched(true);
     if (isInvalid || !hasTests) return;
     updateMut.mutate(
-      {
-        ...settingsQuery.data,
-        ...form,
-      },
+      buildApplicantControlScreensSettingsPatch(form),
       {
         onSuccess: () => toast('تم حفظ إعدادات شاشات التحكم', 'success'),
         onError: (err) => toast(err.message, 'danger'),
@@ -145,14 +141,6 @@ export function ApplicantControlScreensSettingsCard(): JSX.Element {
             onChange={(event) =>
               patch('acquaintanceDocumentsMutationLockTiming', event.target.value as LockTiming)
             }
-          />
-          <Select
-            label="المرحلة (الاختبار) المسؤول عن إظهار شاشات الأقارب الأولية"
-            value={form.primaryRelativesVisibilityResponsibleTestCode}
-            options={testOptions}
-            disabled={settingsQuery.isLoading || testsQuery.isLoading || !hasTests}
-            error={isInvalid && !form.primaryRelativesVisibilityResponsibleTestCode ? 'اختر اختباراً' : undefined}
-            onChange={(event) => patch('primaryRelativesVisibilityResponsibleTestCode', event.target.value)}
           />
         </div>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-4">

@@ -95,6 +95,21 @@ export const EMPTY_MEMBER: FamilyMemberForm = {
   professionDetail: '',
 };
 
+export function isBirthLocalityRequired(
+  member: Pick<FamilyMemberForm, 'nidUnavailable' | 'nidUnavailableReason'>,
+): boolean {
+  return !(member.nidUnavailable && member.nidUnavailableReason === 'born_abroad');
+}
+
+export function sanitizeFamilyMemberForBirthplace<T extends FamilyMemberForm>(member: T): T {
+  if (isBirthLocalityRequired(member)) return member;
+  return {
+    ...member,
+    birthGovernorate: '',
+    birthDistrict: '',
+  };
+}
+
 export interface GrandparentsForm {
   paternalGrandfather: FamilyMemberForm;
   paternalGrandmother: FamilyMemberForm;

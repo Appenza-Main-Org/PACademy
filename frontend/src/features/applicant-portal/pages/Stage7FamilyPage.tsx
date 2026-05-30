@@ -35,9 +35,11 @@ import {
   EMPTY_GUARDIAN,
   EMPTY_MEMBER,
   formatMemberName,
+  isBirthLocalityRequired,
   PROFESSION_OPTIONS,
   RELATIVE_LABEL,
   saveFamilySnapshot,
+  sanitizeFamilyMemberForBirthplace,
   type FamilyMemberForm,
   type GrandparentsForm,
   type GuardianForm,
@@ -623,10 +625,15 @@ function MemberFormCard({
   const profession = watch('profession');
   const birthGov = watch('birthGovernorate');
   const residenceGov = watch('residenceGovernorate');
+  const nidUnavailableReason = watch('nidUnavailableReason');
   /* When requireNationalId is on, ignore any stale `nidUnavailable=true`
    * the form may have carried over from a different role and treat the
    * NID input as always-visible / always-required. */
   const nidUnavailable = requireNationalId ? false : watch('nidUnavailable');
+  const birthLocalityRequired = isBirthLocalityRequired({
+    nidUnavailable,
+    nidUnavailableReason,
+  });
   const showSeniority = MEMBERSHIP_PROFESSIONS.has(profession);
 
   /* Lookup-backed governorate + police-station data. TanStack Query caches
@@ -671,6 +678,11 @@ function MemberFormCard({
     setValue('birthDistrict', '');
   }, [birthGov, setValue]);
   useEffect(() => {
+    if (birthLocalityRequired) return;
+    setValue('birthGovernorate', '');
+    setValue('birthDistrict', '');
+  }, [birthLocalityRequired, setValue]);
+  useEffect(() => {
     if (!residenceGovMounted.current) { residenceGovMounted.current = true; return; }
     setValue('residenceDistrict', '');
   }, [residenceGov, setValue]);
@@ -688,8 +700,12 @@ function MemberFormCard({
   }, [form_]);
 
   const submit = handleSubmit((values) => {
-    onChange(values);
-    onSave(values);
+    const normalized = sanitizeFamilyMemberForBirthplace({
+      ...values,
+      nidUnavailable,
+    });
+    onChange(normalized);
+    onSave(normalized);
   });
 
   return (
@@ -793,39 +809,43 @@ function MemberFormCard({
           })}
           error={errors.dateOfBirth?.message}
         />
-        <Field label="محافظة الميلاد" required error={errors.birthGovernorate?.message}>
-          <Controller
-            control={control}
-            name="birthGovernorate"
-            rules={{ required: 'مطلوب' }}
-            render={({ field }) => (
-              <SearchSelect
-                ariaLabel="محافظة الميلاد"
-                placeholder="اختر المحافظة"
-                options={govOptions}
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v ?? '')}
+        {birthLocalityRequired && (
+          <>
+            <Field label="محافظة الميلاد" required error={errors.birthGovernorate?.message}>
+              <Controller
+                control={control}
+                name="birthGovernorate"
+                rules={{ required: 'مطلوب' }}
+                render={({ field }) => (
+                  <SearchSelect
+                    ariaLabel="محافظة الميلاد"
+                    placeholder="اختر المحافظة"
+                    options={govOptions}
+                    value={field.value ?? null}
+                    onChange={(v) => field.onChange(v ?? '')}
+                  />
+                )}
               />
-            )}
-          />
-        </Field>
-        <Field label="قسم / مركز الميلاد" required error={errors.birthDistrict?.message}>
-          <Controller
-            control={control}
-            name="birthDistrict"
-            rules={{ required: 'مطلوب' }}
-            render={({ field }) => (
-              <SearchSelect
-                ariaLabel="قسم / مركز الميلاد"
-                placeholder={birthGov ? 'اختر القسم أو المركز' : 'اختر المحافظة أولاً'}
-                options={birthDistrictOptions}
-                value={field.value ?? null}
-                onChange={(v) => field.onChange(v ?? '')}
-                disabled={!birthGov}
+            </Field>
+            <Field label="قسم / مركز الميلاد" required error={errors.birthDistrict?.message}>
+              <Controller
+                control={control}
+                name="birthDistrict"
+                rules={{ required: 'مطلوب' }}
+                render={({ field }) => (
+                  <SearchSelect
+                    ariaLabel="قسم / مركز الميلاد"
+                    placeholder={birthGov ? 'اختر القسم أو المركز' : 'اختر المحافظة أولاً'}
+                    options={birthDistrictOptions}
+                    value={field.value ?? null}
+                    onChange={(v) => field.onChange(v ?? '')}
+                    disabled={!birthGov}
+                  />
+                )}
               />
-            )}
-          />
-        </Field>
+            </Field>
+          </>
+        )}
 
         {/* Profession + qualification block */}
         <Select
@@ -1390,14 +1410,16 @@ function GrandparentsPanel({
 }
 
 function isFilled(m: FamilyMemberForm): boolean {
+  const birthLocalityOk =
+    !isBirthLocalityRequired(m) ||
+    (m.birthGovernorate.length > 0 && m.birthDistrict.length > 0);
   const baseOk =
     m.firstName.length >= 2 &&
     (m.nidUnavailable
       ? m.nidUnavailableReason.length > 0
       : /^[0-9]{14}$/.test(m.nationalId)) &&
     m.dateOfBirth.length > 0 &&
-    m.birthGovernorate.length > 0 &&
-    m.birthDistrict.length > 0 &&
+    birthLocalityOk &&
     m.profession.length > 0 &&
     m.qualification.length > 0 &&
     (!MEMBERSHIP_PROFESSIONS.has(m.profession) || (m.seniorityNumber ?? '').length > 0);

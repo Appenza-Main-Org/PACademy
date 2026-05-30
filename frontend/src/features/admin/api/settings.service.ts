@@ -25,6 +25,25 @@ export interface AdminSettings {
   primaryRelativesVisibilityResponsibleTestCode?: string;
 }
 
+export type ApplicantControlScreensSettingsPatch = Pick<
+  AdminSettings,
+  | 'primaryRelativesEntryResponsibleTestCode'
+  | 'acquaintanceDocumentsEntryResponsibleTestCode'
+  | 'acquaintanceDocumentsPrintResponsibleTestCode'
+  | 'acquaintanceDocumentsMutationLockTiming'
+>;
+
+export function buildApplicantControlScreensSettingsPatch(
+  settings: ApplicantControlScreensSettingsPatch,
+): ApplicantControlScreensSettingsPatch {
+  return {
+    primaryRelativesEntryResponsibleTestCode: settings.primaryRelativesEntryResponsibleTestCode,
+    acquaintanceDocumentsEntryResponsibleTestCode: settings.acquaintanceDocumentsEntryResponsibleTestCode,
+    acquaintanceDocumentsPrintResponsibleTestCode: settings.acquaintanceDocumentsPrintResponsibleTestCode,
+    acquaintanceDocumentsMutationLockTiming: settings.acquaintanceDocumentsMutationLockTiming,
+  };
+}
+
 export const adminSettingsService = {
   async get(): Promise<AdminSettings> {
     return apiClient.get('/api/admin/settings');
