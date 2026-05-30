@@ -1,88 +1,59 @@
 /**
- * ApplicantControlScreensSettingsCard — general settings for applicant
- * control-screen visibility gates. Values are stored in the existing
- * `/api/admin/settings` singleton so backend consumers can resolve which
- * admission test unlocks each applicant-facing screen.
+ * ApplicantControlScreensSettingsCard — applicant control-screen visibility
+ * gates section of /admin/settings. Determines which admission test unlocks
+ * each applicant-facing screen (relatives entry, acquaintance-doc open/lock).
+ *
+ * Presentational + controlled: form state, validation, and persistence live in
+ * the parent SettingsPage so the whole page saves with one button.
  *
  * Usage:
- *   <ApplicantControlScreensSettingsCard />
+ *   <ApplicantControlScreensSettingsCard
+ *     form={control}
+ *     testOptions={testOptions}
+ *     hasTests={hasTests}
+ *     showErrors={touched}
+ *     onChange={(key, value) => setControl((c) => ({ ...c, [key]: value }))}
+ *   />
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { Save, Settings2 } from 'lucide-react';
-import { useLookup } from '@/features/lookups/api/lookups.queries';
-import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Select,
-  toast,
-} from '@/shared/components';
-import { useAdminSettings, useUpdateAdminSettings } from '../../api/settings.queries';
-import {
-  buildApplicantControlScreensSettingsPatch,
-  type AdminSettings,
-} from '../../api/settings.service';
+import { Settings2 } from 'lucide-react';
+import { Card, CardBody, CardHeader, Select } from '@/shared/components';
+import type { AdminSettings } from '../../api/settings.service';
 
-interface FormState {
+export type LockTiming = NonNullable<AdminSettings['acquaintanceDocumentsMutationLockTiming']>;
+
+export const DEFAULT_LOCK_TIMING: LockTiming = 'on_test_start';
+
+const LOCK_TIMING_OPTIONS: Array<{ value: LockTiming; label: string }> = [
+  { value: 'on_test_start', label: 'عند بدء الاختبار المحدد' },
+  { value: 'on_test_end', label: 'بعد انتهاء الاختبار المحدد' },
+  { value: 'after_print', label: 'بعد طباعة وثيقة التعارف' },
+  { value: 'manual', label: 'يدوي بواسطة المسؤول' },
+];
+
+export interface ControlScreensForm {
   acquaintanceDocumentsEntryResponsibleTestCode: string;
-  acquaintanceDocumentsPrintResponsibleTestCode: string;
+  acquaintanceDocumentsMutationLockTiming: LockTiming;
 }
 
-function toForm(settings?: AdminSettings): FormState {
-  return {
-    acquaintanceDocumentsEntryResponsibleTestCode: settings?.acquaintanceDocumentsEntryResponsibleTestCode ?? '',
-    acquaintanceDocumentsPrintResponsibleTestCode: settings?.acquaintanceDocumentsPrintResponsibleTestCode ?? '',
-  };
+interface ApplicantControlScreensSettingsCardProps {
+  form: ControlScreensForm;
+  testOptions: Array<{ value: string; label: string }>;
+  hasTests: boolean;
+  showErrors: boolean;
+  loading?: boolean;
+  onChange: <K extends keyof ControlScreensForm>(key: K, value: ControlScreensForm[K]) => void;
 }
 
-function isSameForm(a: FormState, b: FormState): boolean {
-  return Object.keys(a).every((key) => a[key as keyof FormState] === b[key as keyof FormState]);
-}
-
-export function ApplicantControlScreensSettingsCard(): JSX.Element {
-  const settingsQuery = useAdminSettings();
-  const updateMut = useUpdateAdminSettings();
-  const testsQuery = useLookup('tests');
-  const [form, setForm] = useState<FormState>(() => toForm());
-  const [touched, setTouched] = useState(false);
-
-  useEffect(() => {
-    if (settingsQuery.data) setForm(toForm(settingsQuery.data));
-  }, [settingsQuery.data]);
-
-  const testOptions = useMemo(() => {
-    const rows = [...(testsQuery.data ?? [])].sort((a, b) => a.order - b.order);
-    return [
-      { value: '', label: rows.length ? 'اختر الاختبار' : 'لا توجد اختبارات معرفة' },
-      ...rows.map((row) => ({ value: row.code, label: `${row.order}. ${row.name}` })),
-    ];
-  }, [testsQuery.data]);
-
-  const hasTests = (testsQuery.data?.length ?? 0) > 0;
-  const isInvalid =
-    touched &&
-    (!form.acquaintanceDocumentsEntryResponsibleTestCode ||
-      !form.acquaintanceDocumentsPrintResponsibleTestCode);
-  const initialForm = toForm(settingsQuery.data);
-  const isDirty = settingsQuery.data !== undefined && !isSameForm(form, initialForm);
-
-  const patch = <K extends keyof FormState>(key: K, value: FormState[K]): void => {
-    setForm((current) => ({ ...current, [key]: value }));
-  };
-
-  const onSave = (): void => {
-    setTouched(true);
-    if (isInvalid || !hasTests) return;
-    updateMut.mutate(
-      buildApplicantControlScreensSettingsPatch(form),
-      {
-        onSuccess: () => toast('تم حفظ إعدادات شاشات التحكم', 'success'),
-        onError: (err) => toast(err.message, 'danger'),
-      },
-    );
-  };
+export function ApplicantControlScreensSettingsCard({
+  form,
+  testOptions,
+  hasTests,
+  showErrors,
+  loading,
+  onChange,
+}: ApplicantControlScreensSettingsCardProps): JSX.Element {
+  const disabled = loading || !hasTests;
 
   return (
     <Card>
@@ -93,38 +64,27 @@ export function ApplicantControlScreensSettingsCard(): JSX.Element {
       <CardBody>
         <div className="grid gap-4 lg:grid-cols-2">
           <Select
-            label="الاختبار المسؤول عن إظهار شاشات إدراج وثائق التعارف"
+            label="تحديد الاختبار المسؤول عن فتح إدراج وثائق التعارف"
             value={form.acquaintanceDocumentsEntryResponsibleTestCode}
             options={testOptions}
-            disabled={settingsQuery.isLoading || testsQuery.isLoading || !hasTests}
-            error={isInvalid && !form.acquaintanceDocumentsEntryResponsibleTestCode ? 'اختر اختباراً' : undefined}
-            onChange={(event) => patch('acquaintanceDocumentsEntryResponsibleTestCode', event.target.value)}
+            disabled={disabled}
+            error={showErrors && !form.acquaintanceDocumentsEntryResponsibleTestCode ? 'اختر اختباراً' : undefined}
+            onChange={(event) => onChange('acquaintanceDocumentsEntryResponsibleTestCode', event.target.value)}
           />
           <Select
-            label="الاختبار المسؤول عن إظهار شاشات طباعة وثائق التعارف"
-            value={form.acquaintanceDocumentsPrintResponsibleTestCode}
-            options={testOptions}
-            disabled={settingsQuery.isLoading || testsQuery.isLoading || !hasTests}
-            error={isInvalid && !form.acquaintanceDocumentsPrintResponsibleTestCode ? 'اختر اختباراً' : undefined}
-            onChange={(event) => patch('acquaintanceDocumentsPrintResponsibleTestCode', event.target.value)}
+            label="توقيت غلق الإدراج والحذف والتعديل لوثائق التعارف"
+            value={form.acquaintanceDocumentsMutationLockTiming}
+            options={LOCK_TIMING_OPTIONS}
+            disabled={loading}
+            onChange={(event) =>
+              onChange('acquaintanceDocumentsMutationLockTiming', event.target.value as LockTiming)
+            }
           />
         </div>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-4">
-          <p className="inline-flex items-center gap-2 text-2xs text-ink-500">
-            <Settings2 size={12} strokeWidth={1.75} aria-hidden />
-            تُحفظ هذه القيم كإعدادات عامة وتُقرأها شاشات المتقدم عند تحديد الإتاحة.
-          </p>
-          <Button
-            variant="primary"
-            size="md"
-            isLoading={updateMut.isPending}
-            disabled={!isDirty || updateMut.isPending || !hasTests}
-            leadingIcon={<Save size={14} strokeWidth={1.75} />}
-            onClick={onSave}
-          >
-            حفظ إعدادات الشاشات
-          </Button>
-        </div>
+        <p className="mt-5 inline-flex items-center gap-2 border-t border-border-subtle pt-4 text-2xs text-ink-500">
+          <Settings2 size={12} strokeWidth={1.75} aria-hidden />
+          تُحفظ هذه القيم كإعدادات عامة وتُقرأها شاشات المتقدم عند تحديد الإتاحة.
+        </p>
       </CardBody>
     </Card>
   );

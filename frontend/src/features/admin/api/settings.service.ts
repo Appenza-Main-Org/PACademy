@@ -28,7 +28,7 @@ export interface AdminSettings {
 export type ApplicantControlScreensSettingsPatch = Pick<
   AdminSettings,
   | 'acquaintanceDocumentsEntryResponsibleTestCode'
-  | 'acquaintanceDocumentsPrintResponsibleTestCode'
+  | 'acquaintanceDocumentsMutationLockTiming'
 >;
 
 export function buildApplicantControlScreensSettingsPatch(
@@ -36,7 +36,7 @@ export function buildApplicantControlScreensSettingsPatch(
 ): ApplicantControlScreensSettingsPatch {
   return {
     acquaintanceDocumentsEntryResponsibleTestCode: settings.acquaintanceDocumentsEntryResponsibleTestCode,
-    acquaintanceDocumentsPrintResponsibleTestCode: settings.acquaintanceDocumentsPrintResponsibleTestCode,
+    acquaintanceDocumentsMutationLockTiming: settings.acquaintanceDocumentsMutationLockTiming,
   };
 }
 

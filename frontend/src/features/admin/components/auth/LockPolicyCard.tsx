@@ -1,57 +1,26 @@
 /**
- * LockPolicyCard — Gap A (admin-gaps).
+ * LockPolicyCard — account lock-policy section of /admin/settings.
  *
- * Surfaces the configurable lock policy alongside the list of currently
- * locked users. Super-admin only — the parent SettingsPage gates render.
- *
- * Exposes a single knob — lock-duration-minutes. The former
- * `maxFailedAttempts` admin setting was retired; the OTP flow's lockout
- * threshold is now a fixed internal constant inside `auth.service.ts`.
+ * The lock-duration knob is controlled by the parent SettingsPage so it saves
+ * with the single unified settings button. The locked-accounts list (and its
+ * per-row unlock action) stays internal — unlocking is an immediate action,
+ * not part of the settings save.
  */
 
-import { useEffect, useState } from 'react';
-import { Lock, ShieldOff, Unlock } from 'lucide-react';
-import {
-  Badge,
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Input,
-  toast,
-} from '@/shared/components';
-import {
-  useLockPolicy,
-  useLockedUsers,
-  useUnlockUser,
-  useUpdateLockPolicy,
-} from '@/features/auth';
+import { ShieldOff, Unlock } from 'lucide-react';
+import { Badge, Button, Card, CardBody, CardHeader, Input, toast } from '@/shared/components';
+import { useLockedUsers, useUnlockUser } from '@/features/auth';
 import { date as fmtDate } from '@/shared/lib/format';
 
-export function LockPolicyCard(): JSX.Element {
-  const policyQuery = useLockPolicy();
+interface LockPolicyCardProps {
+  lockMinutes: number;
+  loading?: boolean;
+  onLockMinutesChange: (value: number) => void;
+}
+
+export function LockPolicyCard({ lockMinutes, loading, onLockMinutesChange }: LockPolicyCardProps): JSX.Element {
   const lockedUsersQuery = useLockedUsers();
-  const updateMut = useUpdateLockPolicy();
   const unlockMut = useUnlockUser();
-
-  const [lockMinutes, setLockMinutes] = useState<number>(30);
-
-  /* Hydrate local state once the server snapshot arrives. */
-  useEffect(() => {
-    if (policyQuery.data) {
-      setLockMinutes(policyQuery.data.lockDurationMinutes);
-    }
-  }, [policyQuery.data]);
-
-  const onSave = (): void => {
-    updateMut.mutate(
-      { lockDurationMinutes: lockMinutes },
-      {
-        onSuccess: () => toast('تم حفظ سياسة الإيقاف', 'success'),
-        onError: (err) => toast(err.message, 'danger'),
-      },
-    );
-  };
 
   const onUnlock = (userId: string, name: string): void => {
     unlockMut.mutate(
@@ -79,19 +48,9 @@ export function LockPolicyCard(): JSX.Element {
             min={5}
             max={120}
             value={lockMinutes}
-            onChange={(e) => setLockMinutes(Number(e.target.value))}
+            disabled={loading}
+            onChange={(e) => onLockMinutesChange(Number(e.target.value))}
           />
-          <div className="flex items-end md:col-span-2">
-            <Button
-              variant="primary"
-              size="md"
-              isLoading={updateMut.isPending}
-              leadingIcon={<Lock size={14} strokeWidth={1.75} />}
-              onClick={onSave}
-            >
-              حفظ السياسة
-            </Button>
-          </div>
         </div>
 
         <div className="mt-5">

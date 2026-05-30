@@ -1,113 +1,56 @@
 /**
- * GeneralSettingsCard — surfaces the general admin-side settings on
- * /admin/settings (super-admin only). Currently exposes
- * «عدد أيام الاختبار للطالب» and «عدد الأيام المسموح للطالب خلالها
- * باختيار موعد الاختبار قبل تاريخ الاختبار» — positive integers backed
- * by `adminSettingsService`.
+ * GeneralSettingsCard — exam-control section of /admin/settings
+ * («عدد أيام الاختبار للطالب» + «عدد الأيام المسموح ... قبل تاريخ الاختبار»).
  *
- * The input mirrors the existing admin numeric-input pattern: strict
- * keystroke filtering (digits only), `inputMode="numeric"`, and inline
- * Arabic validation. Save is a single Save button that fires the
- * `useUpdateAdminSettings` mutation; the TanStack Query refetch keeps
- * the form in sync with any future consumer that reads
- * the settings snapshot.
+ * Presentational + controlled: form state, validation, and persistence are
+ * owned by the parent SettingsPage so the whole page saves with one button.
+ * The numeric inputs keep the admin numeric-input pattern (digits only,
+ * `inputMode="numeric"`, inline Arabic validation).
+ *
+ * Usage:
+ *   <GeneralSettingsCard
+ *     examDays={examDays}
+ *     slotWindowDays={slotWindowDays}
+ *     onExamDaysChange={setExamDays}
+ *     onSlotWindowChange={setSlotWindowDays}
+ *   />
  */
 
-import { useEffect, useState } from 'react';
-import { CalendarDays, Save } from 'lucide-react';
-import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Input,
-  toast,
-} from '@/shared/components';
-import { useAdminSettings, useUpdateAdminSettings } from '../../api/settings.queries';
+import type { KeyboardEvent } from 'react';
+import { CalendarDays } from 'lucide-react';
+import { Card, CardBody, CardHeader, Input } from '@/shared/components';
 
 const EXAM_DAYS_LABEL = 'عدد أيام الاختبار للطالب';
 const SLOT_WINDOW_LABEL = 'عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار';
 
-export function GeneralSettingsCard(): JSX.Element {
-  const settingsQuery = useAdminSettings();
-  const updateMut = useUpdateAdminSettings();
+const sanitizeNumber = (raw: string): string => raw.replace(/\D/g, '').replace(/^0+/, '');
 
-  const [examDays, setExamDays] = useState<string>('');
-  const [slotWindowDays, setSlotWindowDays] = useState<string>('');
-  const [touched, setTouched] = useState(false);
+interface GeneralSettingsCardProps {
+  examDays: string;
+  slotWindowDays: string;
+  examDaysError?: string;
+  slotWindowError?: string;
+  loading?: boolean;
+  onExamDaysChange: (value: string) => void;
+  onSlotWindowChange: (value: string) => void;
+  onBlur?: () => void;
+}
 
-  /* Hydrate local state once the server snapshot arrives. */
-  useEffect(() => {
-    if (settingsQuery.data) {
-      setExamDays(settingsQuery.data.examDaysPerApplicant != null ? String(settingsQuery.data.examDaysPerApplicant) : '');
-      setSlotWindowDays(
-        settingsQuery.data.examSlotSelectionWindowDays != null
-          ? String(settingsQuery.data.examSlotSelectionWindowDays)
-          : '',
-      );
-    }
-  }, [settingsQuery.data]);
-
-  const parsedExamDays = examDays === '' ? null : Number(examDays);
-  const parsedSlotWindowDays = slotWindowDays === '' ? null : Number(slotWindowDays);
-  const isExamDaysInvalid =
-    touched &&
-    (parsedExamDays === null || !Number.isInteger(parsedExamDays) || parsedExamDays < 1);
-  const isSlotWindowInvalid =
-    touched &&
-    (parsedSlotWindowDays === null ||
-      !Number.isInteger(parsedSlotWindowDays) ||
-      parsedSlotWindowDays < 1);
-  const isInvalid = isExamDaysInvalid || isSlotWindowInvalid;
-  const examDaysError = isExamDaysInvalid ? 'يجب أن يكون رقمًا صحيحًا موجبًا' : undefined;
-  const slotWindowError = isSlotWindowInvalid ? 'يجب أن يكون رقمًا صحيحًا موجبًا' : undefined;
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+export function GeneralSettingsCard({
+  examDays,
+  slotWindowDays,
+  examDaysError,
+  slotWindowError,
+  loading,
+  onExamDaysChange,
+  onSlotWindowChange,
+  onBlur,
+}: GeneralSettingsCardProps): JSX.Element {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     if (['-', '+', '.', ',', 'e', 'E'].includes(e.key)) {
       e.preventDefault();
     }
   };
-
-  const sanitizeNumber = (raw: string): string => raw.replace(/\D/g, '').replace(/^0+/, '');
-
-  const handleExamDaysChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setExamDays(sanitizeNumber(e.target.value));
-  };
-
-  const handleSlotWindowChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    setSlotWindowDays(sanitizeNumber(e.target.value));
-  };
-
-  const onSave = (): void => {
-    setTouched(true);
-    if (
-      parsedExamDays === null ||
-      !Number.isInteger(parsedExamDays) ||
-      parsedExamDays < 1 ||
-      parsedSlotWindowDays === null ||
-      !Number.isInteger(parsedSlotWindowDays) ||
-      parsedSlotWindowDays < 1
-    ) {
-      return;
-    }
-    updateMut.mutate(
-      {
-        examDaysPerApplicant: parsedExamDays,
-        examSlotSelectionWindowDays: parsedSlotWindowDays,
-      },
-      {
-        onSuccess: () => toast('تم حفظ الإعدادات العامة', 'success'),
-        onError: (err) => toast(err.message, 'danger'),
-      },
-    );
-  };
-
-  const isDirty =
-    settingsQuery.data !== undefined &&
-    parsedExamDays !== null &&
-    parsedSlotWindowDays !== null &&
-    (parsedExamDays !== settingsQuery.data.examDaysPerApplicant ||
-      parsedSlotWindowDays !== settingsQuery.data.examSlotSelectionWindowDays);
 
   return (
     <Card>
@@ -116,7 +59,7 @@ export function GeneralSettingsCard(): JSX.Element {
         subtitle="ضوابط مشتركة تستخدمها وحدات إدارة الاختبارات والجداول."
       />
       <CardBody>
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+        <div className="grid gap-3 md:grid-cols-2">
           <Input
             label={EXAM_DAYS_LABEL}
             type="text"
@@ -124,11 +67,11 @@ export function GeneralSettingsCard(): JSX.Element {
             pattern="[0-9]*"
             value={examDays}
             onKeyDown={handleKeyDown}
-            onChange={handleExamDaysChange}
-            onBlur={() => setTouched(true)}
+            onChange={(e) => onExamDaysChange(sanitizeNumber(e.target.value))}
+            onBlur={onBlur}
             error={examDaysError}
             aria-label={EXAM_DAYS_LABEL}
-            disabled={settingsQuery.isLoading}
+            disabled={loading}
           />
           <Input
             label={SLOT_WINDOW_LABEL}
@@ -137,24 +80,12 @@ export function GeneralSettingsCard(): JSX.Element {
             pattern="[0-9]*"
             value={slotWindowDays}
             onKeyDown={handleKeyDown}
-            onChange={handleSlotWindowChange}
-            onBlur={() => setTouched(true)}
+            onChange={(e) => onSlotWindowChange(sanitizeNumber(e.target.value))}
+            onBlur={onBlur}
             error={slotWindowError}
             aria-label={SLOT_WINDOW_LABEL}
-            disabled={settingsQuery.isLoading}
+            disabled={loading}
           />
-          <div className="flex items-end">
-            <Button
-              variant="primary"
-              size="md"
-              isLoading={updateMut.isPending}
-              disabled={!isDirty || isInvalid}
-              leadingIcon={<Save size={14} strokeWidth={1.75} />}
-              onClick={onSave}
-            >
-              حفظ الإعدادات
-            </Button>
-          </div>
         </div>
         <p className="mt-3 inline-flex items-center gap-2 text-2xs text-ink-500">
           <CalendarDays size={12} strokeWidth={1.75} aria-hidden />

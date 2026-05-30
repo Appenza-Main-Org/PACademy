@@ -5,10 +5,11 @@ using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Exams;
+using PACademy.Admin.Api.Modules.Settings;
 
 namespace PACademy.Admin.Api.Persistence;
 
-public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext, IAdminRecordsDbContext, IAdminRecordDocumentsDbContext, IExamsDbContext
+public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext, IAdminRecordsDbContext, IAdminRecordDocumentsDbContext, IExamsDbContext, IGeneralSettingsDbContext
 {
     public const string DefaultSchema = "admin_v2";
     public const string MigrationsHistoryTable = "__EFMigrationsHistory_AdminApi";
@@ -61,6 +62,7 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     public DbSet<ExamAssignmentEntity> ExamAssignments => Set<ExamAssignmentEntity>();
     public DbSet<ApplicantPortalRecordEntity> ApplicantPortalRecords => Set<ApplicantPortalRecordEntity>();
     public DbSet<ExamSlotEntity> ExamSlots => Set<ExamSlotEntity>();
+    public DbSet<GeneralSettingsEntity> GeneralSettings => Set<GeneralSettingsEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -413,6 +415,23 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
             entity.HasIndex(x => x.Date).HasDatabaseName("ix_exam_slots_date");
+        });
+
+        modelBuilder.Entity<GeneralSettingsEntity>(entity =>
+        {
+            entity.ToTable("general_settings");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(64);
+            entity.Property(x => x.ExamDaysPerApplicant).HasColumnName("exam_days_per_applicant");
+            entity.Property(x => x.ExamSlotSelectionWindowDays).HasColumnName("exam_slot_selection_window_days");
+            entity.Property(x => x.PrimaryRelativesEntryResponsibleTestCode).HasColumnName("primary_relatives_entry_responsible_test_code").HasMaxLength(96);
+            entity.Property(x => x.AcquaintanceDocumentsEntryResponsibleTestCode).HasColumnName("acquaintance_documents_entry_responsible_test_code").HasMaxLength(96);
+            entity.Property(x => x.AcquaintanceDocumentsPrintResponsibleTestCode).HasColumnName("acquaintance_documents_print_responsible_test_code").HasMaxLength(96);
+            entity.Property(x => x.AcquaintanceDocumentsMutationLockTiming).HasColumnName("acquaintance_documents_mutation_lock_timing").HasMaxLength(48);
+            entity.Property(x => x.PrimaryRelativesVisibilityResponsibleTestCode).HasColumnName("primary_relatives_visibility_responsible_test_code").HasMaxLength(96);
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
         });
     }
 }
