@@ -29,10 +29,14 @@ const NO_CACHE_LOOKUPS = new Set<LookupKey>([
   'school-categories',
 ]);
 
-export function useLookup<K extends LookupKey>(key: K) {
+export function useLookup<K extends LookupKey>(
+  key: K,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery<LookupRow<K>[]>({
     queryKey: lookupKeys.list(key),
     queryFn: () => lookupsService.listLookup(key),
+    enabled: options.enabled,
     ...(NO_CACHE_LOOKUPS.has(key) ? noServerStateCacheOptions : {}),
   });
 }

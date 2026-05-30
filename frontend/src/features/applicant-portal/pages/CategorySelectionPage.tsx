@@ -62,6 +62,7 @@ import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { applicantPortalService } from '../api/applicantPortal.service';
 import { useLookup } from '@/features/lookups/api/lookups.queries';
 import type { FacultyRow, SpecializationRow } from '@/features/lookups';
+import { toSpecializedProgramPickerOptions } from '../lib/specialized-program-options';
 
 const COHORT_LABEL: Record<AdmissionCycle['cohort'], string> = {
   male: 'الذكور',
@@ -102,8 +103,6 @@ export function CategorySelectionPage(): JSX.Element {
   const [specializationPickerOpen, setSpecializationPickerOpen] = useState(false);
   const [pickedFacultyCode, setPickedFacultyCode] = useState<string | null>(null);
   const [pickedSpecializationCode, setPickedSpecializationCode] = useState<string | null>(null);
-  const facultiesQuery = useLookup('faculties');
-  const specializationsQuery = useLookup('specializations');
   /* Source-of-truth for the identity strip: prefer the MOI snapshot
    * captured at login; for not_found scenarios we fall back to a stub
    * derived from the entered NID and route directly to the profile
@@ -137,7 +136,23 @@ export function CategorySelectionPage(): JSX.Element {
   }, [selectedCycle, cycleParam, params, setParams, storedCycleId, setStoredCycleId]);
 
   const categoriesQuery = useCategories(selectedCycle?.id);
-  const eligibilityCategoriesQuery = useEligibleCategories(identity?.nationalId ?? storeNid);
+  const applicantNationalId = identity?.nationalId ?? storeNid;
+  const eligibilityCategoriesQuery = useEligibleCategories(applicantNationalId);
+
+  const specializedOfficersEligibility = useMemo(
+    () =>
+      eligibilityCategoriesQuery.data?.categories.find(
+        (category) => category.categoryId === 'specialized_officers',
+      ) ?? null,
+    [eligibilityCategoriesQuery.data],
+  );
+  /* When the backend/MOI eligibility response includes the specialized
+   * officers category, its academicPrograms are already filtered by age,
+   * gender, cycle, and configured rules. In that path we do not fetch the
+   * full lookup catalogue for the applicant picker. */
+  const shouldLoadLookupPickerCatalog = !applicantNationalId && specializedOfficersEligibility === null;
+  const facultiesQuery = useLookup('faculties', { enabled: shouldLoadLookupPickerCatalog });
+  const specializationsQuery = useLookup('specializations', { enabled: shouldLoadLookupPickerCatalog });
 
   /* Restrict the category list to the backend eligibility verdict when it
    * exists. A previously selected category can stay in sessionStorage after
@@ -173,8 +188,17 @@ export function CategorySelectionPage(): JSX.Element {
    * Moving the useMemo calls below the `if (loading) return` violated
    * Rules of Hooks and crashed the page on first paint (blank screen).
    */
-  const allFaculties: readonly FacultyRow[] = facultiesQuery.data ?? [];
-  const allSpecializations: readonly SpecializationRow[] = specializationsQuery.data ?? [];
+  const allowedSpecializedPickerOptions = useMemo(
+    () =>
+      specializedOfficersEligibility
+        ? toSpecializedProgramPickerOptions(specializedOfficersEligibility.academicPrograms)
+        : null,
+    [specializedOfficersEligibility],
+  );
+  const allFaculties: readonly FacultyRow[] =
+    allowedSpecializedPickerOptions?.faculties ?? facultiesQuery.data ?? [];
+  const allSpecializations: readonly SpecializationRow[] =
+    allowedSpecializedPickerOptions?.specializations ?? specializationsQuery.data ?? [];
   const facultyByCode = useMemo(
     () => new Map(allFaculties.map((f) => [f.code, f])),
     [allFaculties],
@@ -379,7 +403,10 @@ export function CategorySelectionPage(): JSX.Element {
                 setPickedSpecializationCode(null);
               }}
               onPickSpecialization={setPickedSpecializationCode}
-              loading={facultiesQuery.isLoading || specializationsQuery.isLoading}
+              loading={
+                shouldLoadLookupPickerCatalog &&
+                (facultiesQuery.isLoading || specializationsQuery.isLoading)
+              }
             />
           </Modal.Body>
           <Modal.Footer>
@@ -437,20 +464,26 @@ function SpecializationPickerBody({
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-2">
           <h3 className="font-ar-display text-sm font-bold text-ink-900">الكلية</h3>
-          <ul className="flex max-h-80 flex-col gap-1.5 overflow-y-auto pe-1">
-            {activeFaculties.map((f) => {
-              const active = f.code === pickedFacultyCode;
-              return (
-                <li key={f.code}>
-                  <PickerButton
-                    active={active}
-                    onClick={() => onPickFaculty(f.code)}
-                    label={f.name}
-                  />
-                </li>
-              );
-            })}
-          </ul>
+          {activeFaculties.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border-default bg-ink-50 px-3 py-3 text-2xs text-ink-500">
+              لا توجد كليات أو تخصصات مطابقة لبيانات المتقدم حالياً.
+            </p>
+          ) : (
+            <ul className="flex max-h-80 flex-col gap-1.5 overflow-y-auto pe-1">
+              {activeFaculties.map((f) => {
+                const active = f.code === pickedFacultyCode;
+                return (
+                  <li key={f.code}>
+                    <PickerButton
+                      active={active}
+                      onClick={() => onPickFaculty(f.code)}
+                      label={f.name}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
         <div className="flex flex-col gap-2">
           <h3 className="font-ar-display text-sm font-bold text-ink-900">التخصص</h3>

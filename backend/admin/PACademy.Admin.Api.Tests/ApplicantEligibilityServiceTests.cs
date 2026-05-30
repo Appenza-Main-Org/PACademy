@@ -177,6 +177,108 @@ public sealed class ApplicantEligibilityServiceTests
     }
 
     [Fact]
+    public async Task SpecializedOfficersReturnsEveryAcademicProgramMatchingApplicantRules()
+    {
+        await using var db = CreateDb();
+        await SeedBaseAsync(db, schoolCategoryCode: "SCH-EXT");
+        var now = DateTimeOffset.UtcNow;
+        db.ApplicationSettingsCategoryConfigs.Add(new ApplicationSettingsCategoryConfigEntity
+        {
+            Id = "acc-specialized",
+            CategoryId = "specialized_officers",
+            IsActive = true,
+            SortOrder = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        db.ApplicationSettingsCategorySpecializations.AddRange(
+            new ApplicationSettingsCategorySpecializationEntity
+            {
+                Id = "acs-specialized-general-surgery",
+                ConfigId = "acc-specialized",
+                SpecializationId = "SPC-01",
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            new ApplicationSettingsCategorySpecializationEntity
+            {
+                Id = "acs-specialized-neuro-surgery",
+                ConfigId = "acc-specialized",
+                SpecializationId = "SPC-02",
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        db.LookupRows.Add(Lookup("applicant-categories", "specialized_officers", "الضباط المتخصصون", new JsonObject
+        {
+            ["minAge"] = 17,
+            ["type"] = "university",
+            ["genderScope"] = new JsonArray("male", "female")
+        }));
+        db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
+        {
+            Module = "admissionSetup.applicationSettings.cycle-2026",
+            Id = "admissionSetup.applicationSettings.cycle-2026",
+            PayloadJson = new JsonObject
+            {
+                ["id"] = "admissionSetup.applicationSettings.cycle-2026",
+                ["cycleId"] = "cycle-2026",
+                ["approved"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["id"] = "specialized-general-surgery",
+                        ["categoryCode"] = "specialized_officers",
+                        ["header"] = new JsonObject
+                        {
+                            ["applicationStart"] = "2026-06-01",
+                            ["applicationEnd"] = "2026-06-30",
+                            ["ageReferenceDate"] = "2026-06-01",
+                            ["maxAge"] = 30
+                        },
+                        ["facultyCode"] = "FAC-01",
+                        ["facultyNameAr"] = "الطب البشري",
+                        ["specializationCode"] = "SPC-01",
+                        ["specializationNameAr"] = "جراحة عامة",
+                        ["type"] = new JsonArray("male"),
+                        ["graduationYears"] = new JsonArray(2026)
+                    },
+                    new JsonObject
+                    {
+                        ["id"] = "specialized-neuro-surgery",
+                        ["categoryCode"] = "specialized_officers",
+                        ["header"] = new JsonObject
+                        {
+                            ["applicationStart"] = "2026-06-01",
+                            ["applicationEnd"] = "2026-06-30",
+                            ["ageReferenceDate"] = "2026-06-01",
+                            ["maxAge"] = 30
+                        },
+                        ["facultyCode"] = "FAC-01",
+                        ["facultyNameAr"] = "الطب البشري",
+                        ["specializationCode"] = "SPC-02",
+                        ["specializationNameAr"] = "جراحة مخ وأعصاب",
+                        ["type"] = new JsonArray("male"),
+                        ["graduationYears"] = new JsonArray(2026)
+                    }),
+                ["local"] = new JsonArray()
+            }.ToJsonString(),
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var service = CreateService(db);
+
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
+
+        var specialized = Assert.Single(response.Categories, x => x.CategoryId == "specialized_officers");
+        Assert.True(specialized.Eligible);
+        Assert.Equal(
+            ["SPC-01", "SPC-02"],
+            specialized.AcademicPrograms.Select(x => x.SpecializationCode).ToArray());
+    }
+
+    [Fact]
     public async Task GradeResponseDoesNotExposeNestedPayload()
     {
         await using var db = CreateDb();

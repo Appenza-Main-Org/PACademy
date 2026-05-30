@@ -6,20 +6,31 @@
  *   - /applicant/tests         TestScheduleAndResultsPage
  *
  * Mirrors the slim header from `ApplicantPortalLayout` (logo + branding +
- * Khayameya stripe + tessellation watermark) but with explicit nav back to:
- *   - بوابة المتقدم (`/applicant`)
- *   - الرئيسية (`/hub`) — for staff users hitting these URLs directly
+ * Khayameya stripe + tessellation watermark) with a single logout action.
  *
  * Source: ARCH-04 4-layer split — this is the "applicant pre-wizard"
  * variant, no Wizard chrome.
  */
 
-import { Link, Outlet } from 'react-router-dom';
-import { HelpCircle, Home, Phone } from 'lucide-react';
-import { KhayameyaStripe, LogoMark, Pattern } from '@/shared/components';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
+import { KhayameyaStripe, LogoMark, Pattern, toast } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
+import { useLogoutMutation } from '@/features/auth';
 
 export function ApplicantPreWizardLayout(): JSX.Element {
+  const navigate = useNavigate();
+  const logoutMutation = useLogoutMutation();
+
+  const handleLogout = (): void => {
+    logoutMutation.mutate(undefined, {
+      onSuccess: () => {
+        toast('تم تسجيل الخروج بنجاح', 'success');
+        navigate(ROUTES.landing, { replace: true });
+      },
+    });
+  };
+
   return (
     <div
       data-app="applicant"
@@ -44,31 +55,17 @@ export function ApplicantPreWizardLayout(): JSX.Element {
           </span>
         </Link>
 
-        <nav aria-label="التنقل العام" className="flex items-center gap-2">
-          <a
-            href="tel:19000"
-            className="hidden items-center gap-1.5 rounded-pill bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition-colors duration-fast ease-standard hover:bg-teal-100 focus-visible:shadow-focus-teal focus-visible:outline-none sm:inline-flex"
-            title="الخط الساخن"
-          >
-            <Phone size={13} strokeWidth={1.75} aria-hidden />
-            <span dir="ltr" className="font-mono">19000</span>
-          </a>
-          <Link
-            to={ROUTES.help}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-700 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
-            title="الأسئلة الشائعة"
-            aria-label="الأسئلة الشائعة"
-          >
-            <HelpCircle size={18} strokeWidth={1.75} />
-          </Link>
-          <Link
-            to={ROUTES.hub}
-            className="inline-flex items-center gap-1.5 rounded-md bg-teal-500 px-3 py-2 text-sm font-medium text-white shadow-xs transition-colors duration-fast ease-standard hover:bg-teal-600 focus-visible:shadow-focus-teal focus-visible:outline-none"
-          >
-            <Home size={15} strokeWidth={1.75} aria-hidden />
-            <span className="hidden sm:inline">الرئيسية</span>
-          </Link>
-        </nav>
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={logoutMutation.isPending}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border-default bg-surface-card px-3 py-1.5 text-xs font-medium text-ink-800 transition-colors duration-fast ease-standard hover:border-terra-500 hover:bg-terra-50 hover:text-terra-700 focus-visible:shadow-focus-teal focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          title="تسجيل الخروج"
+          aria-label="تسجيل الخروج"
+        >
+          <LogOut size={15} strokeWidth={1.75} aria-hidden />
+          <span>تسجيل الخروج</span>
+        </button>
       </header>
 
       <Pattern variant="tessellation-8" tile={96} opacity={0.04} />
