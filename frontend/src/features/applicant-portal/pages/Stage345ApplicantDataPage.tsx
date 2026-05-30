@@ -61,6 +61,7 @@ import {
 import {
   useApplicantGradeByNid,
 } from '@/features/applicant-grades/api/grades.queries';
+import { useEligibleCategories } from '../api/categories.queries';
 import { useApplicantCategories, useLookup } from '@/features/lookups/api/lookups.queries';
 import type { GradeRow } from '@/features/applicant-grades/types';
 import type {
@@ -71,6 +72,10 @@ import type {
   UniversityRow,
 } from '@/features/lookups';
 import { emitAudit } from '@/shared/lib/audit';
+import {
+  getEligibilityGradeExtras,
+  mapEligibilityGradeToGradeRow,
+} from '../lib/grade-prefill';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 
@@ -138,11 +143,25 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     };
   const isMoiVerified = effectiveSession !== null;
 
-  const gradeByNidQuery = useApplicantGradeByNid(nid, selectedCycleId);
+  const eligibilityCategoriesQuery = useEligibleCategories(nid);
   const allCategoriesQuery = useApplicantCategories();
 
-  const gateLoading = gradeByNidQuery.isLoading || allCategoriesQuery.isLoading;
-  const gradesMatched = gradeByNidQuery.data ?? null;
+  const eligibilityGrade = eligibilityCategoriesQuery.data?.grade ?? null;
+  const eligibilityGradeRow = useMemo(
+    () => mapEligibilityGradeToGradeRow(eligibilityGrade),
+    [eligibilityGrade],
+  );
+  const shouldUseLegacyGradeLookup =
+    !eligibilityCategoriesQuery.isLoading &&
+    !eligibilityGradeRow;
+  const gradeByNidQuery = useApplicantGradeByNid(nid, selectedCycleId, {
+    enabled: shouldUseLegacyGradeLookup,
+  });
+  const gateLoading =
+    eligibilityCategoriesQuery.isLoading ||
+    gradeByNidQuery.isLoading ||
+    allCategoriesQuery.isLoading;
+  const gradesMatched = eligibilityGradeRow ?? gradeByNidQuery.data ?? null;
 
   /* Audit emit once per (nid + cycle + match-state + selection) tuple so
    * refreshes / re-renders don't spam the audit log. */
@@ -296,18 +315,24 @@ export function Stage345ApplicantDataPage(): JSX.Element {
         .map((g) => ({ value: g.name, label: g.name })),
     [governoratesQuery.data],
   );
-  /* MOI-returned school metadata that doesn't live on the canonical
-   * GradeRow shape (yet) — country + graduation date come back together
-   * with the matched Thanaweya row and are rendered read-only on the
-   * profile page. Only the demo Ahmed seed populates these today;
-   * production rows will surface them via the real grades API. */
+  /* School metadata that doesn't live on the canonical GradeRow shape
+   * (yet) — country + graduation date come back together with some
+   * matched Thanaweya feeds and are rendered read-only on the profile
+   * page. */
   const matchedSchoolExtras = useMemo<{ country: string; gradDate: string } | null>(() => {
+    const fromEligibility = getEligibilityGradeExtras(eligibilityGrade);
+    if (fromEligibility) return fromEligibility;
     const demo = DEMO_APPLICANT_GRADES[session.nationalId];
     if (!demo) return null;
     return { country: demo.country, gradDate: demo.graduationDate };
-  }, [session.nationalId]);
+  }, [eligibilityGrade, session.nationalId]);
 
   const matchedGradeRow = useMemo<GradeRow | null>(() => {
+    /* The eligible-categories endpoint is the applicant flow's canonical
+     * source: it already uses the active cycle + imported grades table and
+     * returns the grade used to compute eligibility. The older by-NID grade
+     * endpoint can legitimately 404 in staging, so it is only a fallback. */
+    if (eligibilityGradeRow) return eligibilityGradeRow;
     /* Prefer a real row from the backend when available. */
     const fromBackend = gradeByNidQuery.data ?? null;
     if (fromBackend) return fromBackend;
@@ -340,7 +365,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       status: '—',
       log: [],
     };
-  }, [gradeByNidQuery.data, session.nationalId, session.fullName, session.gender]);
+  }, [eligibilityGradeRow, gradeByNidQuery.data, session.nationalId, session.fullName, session.gender]);
   const externalImport = matchedGradeRow !== null;
 
   const manualSchoolCategories = useMemo<SchoolCategoryRow[]>(() => {
@@ -508,11 +533,11 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       'thanawiPercentage',
       Number((pct * 100).toFixed(2)),
     );
-    /* School name / address are still manual on the matched path (the
-     * MOI grades feed doesn't carry them today). Country + graduation
-     * date DO come back when present — sync into the form so the
-     * read-only display in SchoolDetailFields stays in lockstep with
-     * the submit payload. Client direction 2026-05-21. */
+    if (matchedGradeRow.school) setValue('schoolNameAr', matchedGradeRow.school);
+    if (matchedGradeRow.region) setValue('schoolAddress', matchedGradeRow.region);
+    /* Country + graduation date arrive with some grade feeds. Sync them
+     * into the form so the read-only display in SchoolDetailFields stays
+     * in lockstep with the submit payload. Client direction 2026-05-21. */
     if (matchedSchoolExtras) {
       setValue('thanawiCountry', matchedSchoolExtras.country);
       setValue('thanawiGradDate', matchedSchoolExtras.gradDate);
@@ -788,7 +813,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           icon={<GraduationCap size={16} strokeWidth={1.75} />}
           title="بيانات الدراسة"
         />
-        {gradeByNidQuery.isLoading || schoolCategoriesQuery.isLoading ? (
+        {eligibilityCategoriesQuery.isLoading || gradeByNidQuery.isLoading || schoolCategoriesQuery.isLoading ? (
           <LoadingState variant="list" rows={3} />
         ) : externalImport && matchedGradeRow ? (
           <div className="flex flex-col gap-4">
@@ -1368,6 +1393,10 @@ function ExternalGradesPanel({ row }: { row: GradeRow }): JSX.Element {
       <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
         <ReadOnlyRow label="رقم الجلوس" value={row.seatingNumber ?? '—'} ltr mono />
         <ReadOnlyRow label="الشعبة" value={row.branch} />
+        {row.school && <ReadOnlyRow label="اسم المدرسة" value={row.school} />}
+        {row.graduationYear !== null && (
+          <ReadOnlyRow label="سنة التخرج" value={String(row.graduationYear)} ltr />
+        )}
         <ReadOnlyRow label="المجموع" value={`${row.total} / ${row.importMax}`} ltr />
         <ReadOnlyRow label="النسبة المئوية" value={`${percent}%`} ltr />
       </dl>

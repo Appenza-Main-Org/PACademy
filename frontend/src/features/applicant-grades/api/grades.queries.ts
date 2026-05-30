@@ -61,11 +61,19 @@ export function useGrades() {
  * available — TanStack Query won't fire and the consumer can render a
  * skeleton in the meantime.
  */
-export function useApplicantGradeByNid(nid: string | null, cycleId: string | null) {
+interface ApplicantGradeByNidOptions {
+  enabled?: boolean;
+}
+
+export function useApplicantGradeByNid(
+  nid: string | null,
+  cycleId: string | null,
+  options: ApplicantGradeByNidOptions = {},
+) {
   return useQuery({
     queryKey: gradesKeys.byNid(nid ?? '', cycleId ?? ''),
     queryFn: () => gradesService.findByNationalId(nid!, cycleId!),
-    enabled: Boolean(nid && cycleId),
+    enabled: Boolean(nid && cycleId) && (options.enabled ?? true),
     retry: false,
   });
 }

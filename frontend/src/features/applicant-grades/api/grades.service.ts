@@ -142,10 +142,11 @@ export const gradesService = {
 
   async findByNationalId(nid: string, cycleId: string): Promise<GradeRow | null> {
     try {
-      return await apiClient.get<GradeRow>(
+      const row = await apiClient.get<GradeRow | null | undefined>(
         `/api/admin/applicant-grades/by-nid/${encodeURIComponent(nid)}`,
         { query: { cycleId } },
       );
+      return row ?? null;
     } catch (err) {
       if (isNotFoundError(err)) return null;
       throw err;
