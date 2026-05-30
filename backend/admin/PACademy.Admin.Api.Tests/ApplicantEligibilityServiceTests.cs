@@ -25,6 +25,17 @@ public sealed class ApplicantEligibilityServiceTests
     }
 
     [Fact]
+    public void AdminRecordsFallbackHandlesMissingDocumentStore()
+    {
+        var source = File.ReadAllText(FindRepoFile(
+            "backend/admin/PACademy.Admin.Api/Modules/AdminRecords/AdminRecordsService.cs"));
+
+        Assert.Contains("IsMissingDocumentStore", source);
+        Assert.Contains("ListLegacyAdminRecordsAsync", source);
+        Assert.Contains("GetLegacyAdminRecordAsync", source);
+    }
+
+    [Fact]
     public async Task ValidApplicantWithExternalGradesPasses()
     {
         await using var db = CreateDb();
