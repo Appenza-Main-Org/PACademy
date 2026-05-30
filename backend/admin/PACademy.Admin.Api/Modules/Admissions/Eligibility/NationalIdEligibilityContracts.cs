@@ -148,6 +148,8 @@ internal sealed record CategoryEligibilitySettings(
         Rules.Select(x => x.AcademicGradeId)
             .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
 
+    public bool ValidateGrades { get; init; } = true;
+
     public bool AllowsManualGradeEntryWithoutRecord { get; init; }
 }
 
