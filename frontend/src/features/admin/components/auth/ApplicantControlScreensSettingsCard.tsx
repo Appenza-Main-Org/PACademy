@@ -25,31 +25,15 @@ import {
   type AdminSettings,
 } from '../../api/settings.service';
 
-type LockTiming = NonNullable<AdminSettings['acquaintanceDocumentsMutationLockTiming']>;
-
-const LOCK_TIMING_OPTIONS: Array<{ value: LockTiming; label: string }> = [
-  { value: 'on_test_start', label: 'عند بدء الاختبار المحدد' },
-  { value: 'on_test_end', label: 'بعد انتهاء الاختبار المحدد' },
-  { value: 'after_print', label: 'بعد طباعة وثيقة التعارف' },
-  { value: 'manual', label: 'يدوي بواسطة المسؤول' },
-];
-
-const DEFAULT_LOCK_TIMING: LockTiming = 'on_test_start';
-
 interface FormState {
-  primaryRelativesEntryResponsibleTestCode: string;
   acquaintanceDocumentsEntryResponsibleTestCode: string;
   acquaintanceDocumentsPrintResponsibleTestCode: string;
-  acquaintanceDocumentsMutationLockTiming: LockTiming;
 }
 
 function toForm(settings?: AdminSettings): FormState {
   return {
-    primaryRelativesEntryResponsibleTestCode: settings?.primaryRelativesEntryResponsibleTestCode ?? '',
     acquaintanceDocumentsEntryResponsibleTestCode: settings?.acquaintanceDocumentsEntryResponsibleTestCode ?? '',
     acquaintanceDocumentsPrintResponsibleTestCode: settings?.acquaintanceDocumentsPrintResponsibleTestCode ?? '',
-    acquaintanceDocumentsMutationLockTiming:
-      settings?.acquaintanceDocumentsMutationLockTiming ?? DEFAULT_LOCK_TIMING,
   };
 }
 
@@ -79,8 +63,7 @@ export function ApplicantControlScreensSettingsCard(): JSX.Element {
   const hasTests = (testsQuery.data?.length ?? 0) > 0;
   const isInvalid =
     touched &&
-    (!form.primaryRelativesEntryResponsibleTestCode ||
-      !form.acquaintanceDocumentsEntryResponsibleTestCode ||
+    (!form.acquaintanceDocumentsEntryResponsibleTestCode ||
       !form.acquaintanceDocumentsPrintResponsibleTestCode);
   const initialForm = toForm(settingsQuery.data);
   const isDirty = settingsQuery.data !== undefined && !isSameForm(form, initialForm);
@@ -110,14 +93,6 @@ export function ApplicantControlScreensSettingsCard(): JSX.Element {
       <CardBody>
         <div className="grid gap-4 lg:grid-cols-2">
           <Select
-            label="الاختبار المسؤول عن إظهار شاشات إدراج بيانات الأقارب الأولية"
-            value={form.primaryRelativesEntryResponsibleTestCode}
-            options={testOptions}
-            disabled={settingsQuery.isLoading || testsQuery.isLoading || !hasTests}
-            error={isInvalid && !form.primaryRelativesEntryResponsibleTestCode ? 'اختر اختباراً' : undefined}
-            onChange={(event) => patch('primaryRelativesEntryResponsibleTestCode', event.target.value)}
-          />
-          <Select
             label="الاختبار المسؤول عن إظهار شاشات إدراج وثائق التعارف"
             value={form.acquaintanceDocumentsEntryResponsibleTestCode}
             options={testOptions}
@@ -132,15 +107,6 @@ export function ApplicantControlScreensSettingsCard(): JSX.Element {
             disabled={settingsQuery.isLoading || testsQuery.isLoading || !hasTests}
             error={isInvalid && !form.acquaintanceDocumentsPrintResponsibleTestCode ? 'اختر اختباراً' : undefined}
             onChange={(event) => patch('acquaintanceDocumentsPrintResponsibleTestCode', event.target.value)}
-          />
-          <Select
-            label="توقيت غلق الإدراج والحذف والتعديل لوثائق التعارف"
-            value={form.acquaintanceDocumentsMutationLockTiming}
-            options={LOCK_TIMING_OPTIONS}
-            disabled={settingsQuery.isLoading}
-            onChange={(event) =>
-              patch('acquaintanceDocumentsMutationLockTiming', event.target.value as LockTiming)
-            }
           />
         </div>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-4">

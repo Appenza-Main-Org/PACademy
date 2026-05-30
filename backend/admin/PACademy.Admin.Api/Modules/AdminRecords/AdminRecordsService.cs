@@ -976,7 +976,11 @@ public sealed class AdminRecordsService(
         {
             "applicants" => "applicants",
             "grades" => "grades",
-            "settings" => "settings",
+            // NOTE: "settings" is intentionally NOT normalized. No migration ever
+            // creates the `admin_settings` table, so routing settings writes through
+            // UpsertNormalizedAsync threw INTERNAL_ERROR while reads (SingletonAsync ->
+            // GetDocumentAsync) came from the admin_records document store. Keep settings
+            // on the document store so reads and writes stay consistent.
             _ => null
         };
     }
