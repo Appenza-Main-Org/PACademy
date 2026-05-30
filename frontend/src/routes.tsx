@@ -33,7 +33,6 @@ import {
   ApplicantPortalPage,
   ApplicantPreWizardLayout,
   CategorySelectionPage,
-  EligibilityCheckPage,
   Stage10FollowUpPage,
   Stage11AcquaintanceDocPage,
   Stage345ApplicantDataPage,
@@ -300,7 +299,7 @@ export const routes: RouteObject[] = [
     element: <AuthGuard app="applicant"><ApplicantPreWizardLayout /></AuthGuard>,
     children: [
       { path: '/applicant/start', element: <CategorySelectionPage /> },
-      { path: '/applicant/eligibility', element: <EligibilityCheckPage /> },
+      { path: '/applicant/eligibility', element: <Navigate to="/applicant/start" replace /> },
       { path: '/applicant/tests', element: <TestScheduleAndResultsPage /> },
       { path: '/applicant/ineligible', element: <ApplicantIneligiblePage /> },
     ],

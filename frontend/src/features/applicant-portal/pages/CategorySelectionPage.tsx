@@ -265,12 +265,14 @@ export function CategorySelectionPage(): JSX.Element {
       navigate(ROUTES.applicantProfile);
       return;
     }
+    /* Eligibility is already resolved on /applicant/start (only eligible
+     * categories are clickable), so skip the standalone eligibility-check
+     * page and let the applicant start filling their data directly. */
+    setSelectedCategoryKey(categoryKey);
     setSelectedFaculty(null);
     setSelectedSpecialization(null);
     saveCommitteeForCategory(categoryKey);
-    navigate(
-      `${ROUTES.applicantEligibility}?category=${categoryKey}&cycle=${effectiveCycleId}`,
-    );
+    navigate(ROUTES.applicantProfile);
   };
 
   const confirmSpecialization = (): void => {
@@ -292,9 +294,9 @@ export function CategorySelectionPage(): JSX.Element {
       navigate(ROUTES.applicantProfile);
       return;
     }
-    navigate(
-      `${ROUTES.applicantEligibility}?category=specialized_officers&cycle=${effectiveCycleId}`,
-    );
+    /* Eligibility already resolved on /applicant/start — go straight to
+     * the data-entry profile instead of the standalone check page. */
+    navigate(ROUTES.applicantProfile);
   };
 
   return (
@@ -766,8 +768,8 @@ function CategoryRow({
       size="md"
       disabled={!enabled}
       onClick={() => onPick(enabled)}
+      trailingIcon={<ArrowLeft size={15} strokeWidth={1.75} aria-hidden />}
     >
-      <ArrowLeft size={15} strokeWidth={1.75} className="rtl:rotate-180" aria-hidden />
       التقدم للإلتحاق
     </Button>
   );
@@ -807,24 +809,6 @@ function CategoryRow({
             {enabled ? 'متاح للتقدم' : 'مغلق'}
           </Badge>
         </div>
-        <p className="mt-2 max-w-[72ch] text-sm leading-relaxed text-ink-700">
-          {category.description}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className="rounded-pill bg-ink-100 px-3 py-1 text-2xs font-medium text-ink-700">
-            {QUALIFICATION_LABEL[category.conditions.requiredQualification]}
-          </span>
-          {category.requiredTests.length > 0 && (
-            <span className="rounded-pill bg-teal-50 px-3 py-1 text-2xs font-medium text-teal-700">
-              {category.requiredTests.length} اختبارات
-            </span>
-          )}
-          {category.conditions.ageMax !== null && (
-            <span className="rounded-pill bg-gold-50 px-3 py-1 text-2xs font-medium text-gold-700">
-              حتى {category.conditions.ageMax} سنة
-            </span>
-          )}
-        </div>
       </div>
       <div className="flex-shrink-0 md:justify-self-end">
         {disabledReason ? (
@@ -851,7 +835,6 @@ function IdentityDrawerBody(): JSX.Element {
     { label: 'تاريخ الميلاد', value: s.dateOfBirthAr },
     { label: 'النوع', value: s.gender === 'male' ? 'ذكر' : 'أنثى' },
     { label: 'محل الميلاد', value: `${s.birthGovernorate} — ${s.birthDistrict}` },
-    { label: 'الديانة', value: s.religion },
     { label: 'رقم المحمول', value: s.mobile, ltr: true, mono: true },
     { label: 'البريد الإلكتروني', value: s.email, ltr: true, mono: true },
   ];
