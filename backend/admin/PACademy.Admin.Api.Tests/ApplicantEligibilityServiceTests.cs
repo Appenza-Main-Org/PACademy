@@ -22,6 +22,7 @@ public sealed class ApplicantEligibilityServiceTests
 
         Assert.Contains("SqlInvalidColumnName", source);
         Assert.Contains("LoadGradeFromLegacyApplicantGradesAsync", source);
+        Assert.Contains("LoadCompatibilityDocumentPayloadAsync", source);
     }
 
     [Fact]
