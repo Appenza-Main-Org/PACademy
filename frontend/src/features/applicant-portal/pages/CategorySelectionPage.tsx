@@ -15,8 +15,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  ArrowLeft,
   CalendarRange,
   ChevronDown,
+  CheckCircle2,
   ClipboardList,
   FileText,
   GraduationCap,
@@ -574,26 +576,30 @@ function InlineSection({
 }): JSX.Element {
   const [open, setOpen] = useState(true);
   return (
-    <Card>
+    <Card className="overflow-hidden p-0">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         className={cn(
-          'group -mx-1 -mt-1 mb-0 flex w-full items-center gap-2 rounded-md px-1 py-1 text-start',
-          'transition-colors duration-fast ease-standard hover:bg-ink-50/60',
+          'group flex w-full items-center gap-3 border-b border-border-subtle bg-ink-50/55 px-5 py-4 text-start',
+          'transition-colors duration-fast ease-standard hover:bg-ink-50',
           'focus-visible:shadow-focus-teal focus-visible:outline-none',
-          open && 'mb-3',
+          !open && 'border-b-transparent',
         )}
       >
         <span
           aria-hidden
-          className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700"
+          className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700 ring-1 ring-teal-500/10"
         >
           {icon}
         </span>
-        <h3 className="font-ar-display text-md font-bold text-ink-900">{title}</h3>
-        {headerExtra && <span className="ms-auto">{headerExtra}</span>}
+        <h3 className="font-ar-display text-lg font-bold text-ink-900">{title}</h3>
+        {headerExtra && (
+          <span className="ms-auto hidden rounded-pill bg-gold-50 px-3 py-1 text-2xs font-medium text-gold-700 md:inline-flex">
+            {headerExtra}
+          </span>
+        )}
         <ChevronDown
           size={16}
           strokeWidth={1.75}
@@ -605,7 +611,7 @@ function InlineSection({
           aria-hidden
         />
       </button>
-      {open && <div>{children}</div>}
+      {open && <div className="px-5 py-5">{children}</div>}
     </Card>
   );
 }
@@ -759,6 +765,7 @@ function CategoryRow({
       disabled={!enabled}
       onClick={() => onPick(enabled)}
     >
+      <ArrowLeft size={15} strokeWidth={1.75} className="rtl:rotate-180" aria-hidden />
       التقدم للإلتحاق
     </Button>
   );
@@ -766,24 +773,58 @@ function CategoryRow({
   return (
     <div
       className={cn(
-        'grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_auto] items-center gap-4 px-5 py-4',
-        !isLast && 'border-b border-border-default',
+        'grid gap-4 px-5 py-4 transition-colors duration-fast ease-standard md:grid-cols-[minmax(0,1fr)_auto] md:items-center',
+        enabled ? 'hover:bg-teal-50/45' : 'bg-ink-50/45',
+        !isLast && 'border-b border-border-subtle',
       )}
     >
-      <div className="flex items-center gap-2">
-        <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-teal-500" />
-        <span className="font-ar-display text-md font-bold text-ink-900">
-          {category.labelAr}
-        </span>
-        {!enabled && (
-          <Badge tone="neutral">
-            <Lock size={11} strokeWidth={1.75} className="me-1 inline-block" />
-            مغلق
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            aria-hidden
+            className={cn(
+              'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+              enabled ? 'bg-teal-50 text-teal-700' : 'bg-ink-100 text-ink-500',
+            )}
+          >
+            {enabled ? (
+              <GraduationCap size={15} strokeWidth={1.75} />
+            ) : (
+              <Lock size={15} strokeWidth={1.75} />
+            )}
+          </span>
+          <h4 className="font-ar-display text-lg font-bold text-ink-900">
+            {category.labelAr}
+          </h4>
+          <Badge tone={enabled ? 'success' : 'neutral'}>
+            {enabled ? (
+              <CheckCircle2 size={11} strokeWidth={1.75} className="me-1 inline-block" />
+            ) : (
+              <Lock size={11} strokeWidth={1.75} className="me-1 inline-block" />
+            )}
+            {enabled ? 'متاح للتقدم' : 'مغلق'}
           </Badge>
-        )}
+        </div>
+        <p className="mt-2 max-w-[72ch] text-sm leading-relaxed text-ink-700">
+          {category.description}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="rounded-pill bg-ink-100 px-3 py-1 text-2xs font-medium text-ink-700">
+            {QUALIFICATION_LABEL[category.conditions.requiredQualification]}
+          </span>
+          {category.requiredTests.length > 0 && (
+            <span className="rounded-pill bg-teal-50 px-3 py-1 text-2xs font-medium text-teal-700">
+              {category.requiredTests.length} اختبارات
+            </span>
+          )}
+          {category.conditions.ageMax !== null && (
+            <span className="rounded-pill bg-gold-50 px-3 py-1 text-2xs font-medium text-gold-700">
+              حتى {category.conditions.ageMax} سنة
+            </span>
+          )}
+        </div>
       </div>
-      <p className="text-sm leading-normal text-ink-700">{category.description}</p>
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 md:justify-self-end">
         {disabledReason ? (
           <Tooltip content={disabledReason}>
             <span tabIndex={0} className="inline-block">
@@ -817,12 +858,15 @@ function IdentityDrawerBody(): JSX.Element {
       {/* <div className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
         هذه البيانات مستوردة من بوابة وزارة الداخلية ولا يمكن تعديلها من داخل البوابة.
       </div> */}
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {rows.map((r) => (
-          <div key={r.label}>
-            <dt className="text-2xs uppercase tracking-wide text-ink-500">{r.label}</dt>
+          <div
+            key={r.label}
+            className="rounded-md border border-border-subtle bg-ink-50/70 px-3 py-2.5"
+          >
+            <dt className="text-2xs font-medium uppercase tracking-wide text-ink-500">{r.label}</dt>
             <dd
-              className={cn('mt-0.5 text-sm font-medium text-ink-900', r.mono && 'font-mono')}
+              className={cn('mt-1 text-sm font-bold text-ink-900', r.mono && 'font-mono')}
               dir={r.ltr ? 'ltr' : undefined}
             >
               {r.value}
@@ -844,7 +888,8 @@ function EligibilityDrawerBody({
   return (
     <div className="flex flex-col gap-5 text-base leading-relaxed">
       {cycle && (
-        <div className="rounded-md border border-border-default bg-ink-50 px-4 py-3 text-sm text-ink-700">
+        <div className="inline-flex w-fit max-w-full flex-wrap items-center gap-2 rounded-md border border-border-default bg-ink-50 px-4 py-3 text-sm text-ink-700">
+          <CalendarRange size={16} strokeWidth={1.75} className="shrink-0 text-teal-700" aria-hidden />
           الدورة الحالية: <span className="font-medium">{cycle.nameAr}</span> · فترة التقدم تنتهي في{' '}
           {fmtDate(cycle.closeDate, 'short')}
         </div>
@@ -852,20 +897,23 @@ function EligibilityDrawerBody({
       {categories.length === 0 ? (
         <p className="text-base text-ink-700">لا توجد شروط معروضة في الوقت الحالي.</p>
       ) : (
-        <ul className="flex flex-col gap-6">
+        <ul className="grid gap-4 lg:grid-cols-2">
           {categories.map((c) => (
-            <li key={c.key}>
-              <p className="mb-3 font-ar-display text-lg font-bold text-ink-900">{c.labelAr}</p>
-              <ul className="space-y-2 text-base leading-relaxed text-ink-800">
+            <li key={c.key} className="rounded-md border border-border-subtle bg-ink-50/55 p-4">
+              <p className="mb-3 inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
+                <ShieldCheck size={16} strokeWidth={1.75} className="text-teal-700" aria-hidden />
+                {c.labelAr}
+              </p>
+              <ul className="grid gap-2 text-sm leading-relaxed text-ink-800 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                 {summariseConditions(c.conditions).map((line, i) => (
                   <li key={`${c.key}-c-${i}`} className="flex items-start gap-2.5">
-                    <span aria-hidden className="mt-2 inline-block h-2 w-2 shrink-0 rounded-full bg-teal-500" />
+                    <CheckCircle2 size={15} strokeWidth={1.75} className="mt-0.5 shrink-0 text-teal-700" aria-hidden />
                     <span>{line}</span>
                   </li>
                 ))}
               </ul>
               {c.conditions.freeText.length > 0 && (
-                <ul className="mt-3 list-inside list-disc space-y-1.5 ps-2 text-sm text-ink-600">
+                <ul className="mt-3 list-inside list-disc space-y-1.5 ps-2 text-xs text-ink-600">
                   {c.conditions.freeText.map((t, i) => (
                     <li key={`${c.key}-f-${i}`}>{t}</li>
                   ))}
@@ -906,23 +954,26 @@ function SpecializationsDrawerBody({
     return <p className="text-base text-ink-700">لا توجد تخصصات معروضة في الوقت الحالي.</p>;
   }
   return (
-    <ul className="flex flex-col gap-6 text-base leading-relaxed">
+    <ul className="grid gap-4 lg:grid-cols-2">
       {categories.map((c) => (
-        <li key={c.key}>
-          <p className="mb-3 inline-flex items-center gap-2 font-ar-display text-lg font-bold text-ink-900">
-            <GraduationCap size={18} strokeWidth={1.75} className="text-teal-700" aria-hidden />
+        <li key={c.key} className="rounded-md border border-border-subtle bg-ink-50/55 p-4">
+          <p className="mb-3 inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
+            <GraduationCap size={16} strokeWidth={1.75} className="text-teal-700" aria-hidden />
             {c.labelAr}
           </p>
           {c.requiredTests.length === 0 ? (
             <p className="text-sm text-ink-500">لم تُحدَّد اختبارات بعد لهذه الفئة.</p>
           ) : (
-            <ul className="space-y-2.5 text-base text-ink-800">
+            <ul className="flex flex-wrap gap-2 text-sm text-ink-800">
               {c.requiredTests.map((t) => {
                 const Icon = TEST_KIND_ICON[t.kind];
                 return (
-                  <li key={`${c.key}-t-${t.kind}`} className="flex items-center gap-2.5">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-ink-50 text-ink-700">
-                      <Icon size={16} strokeWidth={1.75} />
+                  <li
+                    key={`${c.key}-t-${t.kind}`}
+                    className="inline-flex items-center gap-2 rounded-md border border-border-subtle bg-ink-50 px-2.5 py-2"
+                  >
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-surface-card text-ink-700">
+                      <Icon size={15} strokeWidth={1.75} />
                     </span>
                     <span className="font-numeric tnum text-sm text-ink-500">{t.order}.</span>
                     <span>{TEST_KIND_LABEL_AR[t.kind]}</span>
@@ -943,19 +994,26 @@ function SpecializationsDrawerBody({
 function InstructionsDrawerBody(): JSX.Element {
   return (
     <div className="flex flex-col gap-4 text-base leading-relaxed text-ink-800">
-      <p>
-        <strong>قبل التقدم:</strong> راجع البيانات المُسجَّلة على بوابة وزارة الداخلية (الاسم رباعي
-        والرقم القومي ورقم المحمول)، وتأكد من صحتها — حيث ستُستخدم لاستكمال إجراءات التقدم وارسال
-        إخطارات التقدم.
-      </p>
-      <p>
-        <strong>أثناء التقدم:</strong> سيُطلب منك إدخال بيانات الدراسة بدقة طبقاً لأوراقك الثبوتية.
-        أيّ مخالفة بين البيان المُدرَج والأوراق الأصلية قد تؤدي إلى منعك من الإختبار.
-      </p>
-      <p>
-        <strong>مقابل الخدمة:</strong> {APPLICATION_FEE_LABEL.replace('مقابل تقديم الخدمة إلكترونياً: ', '')} — يُسدَّد مرة واحدة
-        خلال الدورة الحالية، ويُستحَق فور تأكيد البيانات.
-      </p>
+      <div className="grid gap-3 lg:grid-cols-3">
+        <InstructionNote
+          icon={<User size={16} strokeWidth={1.75} />}
+          title="قبل التقدم"
+        >
+          راجع البيانات المُسجَّلة على بوابة وزارة الداخلية وتأكد من صحة الاسم والرقم القومي ورقم المحمول.
+        </InstructionNote>
+        <InstructionNote
+          icon={<GraduationCap size={16} strokeWidth={1.75} />}
+          title="أثناء التقدم"
+        >
+          أدخل بيانات الدراسة بدقة طبقاً لأوراقك الثبوتية، فأي مخالفة قد تؤدي إلى منعك من الإختبار.
+        </InstructionNote>
+        <InstructionNote
+          icon={<FileText size={16} strokeWidth={1.75} />}
+          title="مقابل الخدمة"
+        >
+          {APPLICATION_FEE_LABEL.replace('مقابل تقديم الخدمة إلكترونياً: ', '')}، يُسدَّد مرة واحدة خلال الدورة الحالية.
+        </InstructionNote>
+      </div>
       <p className="flex items-start gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 px-4 py-3 text-sm leading-relaxed text-gold-700">
         <FileText size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
         <span>
@@ -963,6 +1021,28 @@ function InstructionsDrawerBody(): JSX.Element {
           الأمر.
         </span>
       </p>
+    </div>
+  );
+}
+
+function InstructionNote({
+  icon,
+  title,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}): JSX.Element {
+  return (
+    <div className="rounded-md border border-border-subtle bg-ink-50/70 px-4 py-3">
+      <div className="mb-2 flex items-center gap-2 font-ar-display text-sm font-bold text-ink-900">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-surface-card text-teal-700">
+          {icon}
+        </span>
+        {title}
+      </div>
+      <p className="text-sm leading-relaxed text-ink-700">{children}</p>
     </div>
   );
 }
