@@ -53,6 +53,7 @@ import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import type { ExcellenceMode } from '../../lib/excellenceMode';
 import { useAdmissionSetupCanWrite } from '../AdmissionSetupShell';
+import { applicationSettingsQueryOptions } from '../../api/applicationSettings.queries';
 import {
   DEFAULT_MAX_SCORE_OPERATOR,
   DEFAULT_MIN_SCORE_OPERATOR,
@@ -147,13 +148,13 @@ export function GeneralRulesSection({
   specializationCodes,
   excellenceMode,
 }: GeneralRulesSectionProps): JSX.Element {
-  const facultiesQuery = useLookup('faculties');
-  const specializationsQuery = useLookup('specializations');
-  const maritalQuery = useLookup('marital-statuses');
-  const gradesQuery = useLookup('academic-grades');
-  const degreesQuery = useLookup('academic-degrees');
-  const committeesQuery = useLookup('committees');
-  const graduationYearsQuery = useLookup('graduation-years');
+  const facultiesQuery = useLookup('faculties', applicationSettingsQueryOptions);
+  const specializationsQuery = useLookup('specializations', applicationSettingsQueryOptions);
+  const maritalQuery = useLookup('marital-statuses', applicationSettingsQueryOptions);
+  const gradesQuery = useLookup('academic-grades', applicationSettingsQueryOptions);
+  const degreesQuery = useLookup('academic-degrees', applicationSettingsQueryOptions);
+  const committeesQuery = useLookup('committees', applicationSettingsQueryOptions);
+  const graduationYearsQuery = useLookup('graduation-years', applicationSettingsQueryOptions);
   const canWrite = useAdmissionSetupCanWrite();
 
   const approve = useAdmissionSetupWizardStore((s) => s.approveLocalForCategory);

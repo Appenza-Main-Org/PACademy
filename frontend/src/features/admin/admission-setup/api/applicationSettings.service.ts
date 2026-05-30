@@ -88,12 +88,6 @@ export interface ApplicationSettingsCycleDraftPayload {
   approved: unknown[];
 }
 
-function summaryHasSavedSettings(summary: readonly CategorySettingsSummary[]): boolean {
-  return summary.some((category) =>
-    category.groups.some((group) => group.years.length > 0),
-  );
-}
-
 async function buildApplicationSettingsSummaryFromTree(): Promise<CategorySettingsSummary[]> {
   const configs = await apiClient.get<CategoryConfigJoined[]>('/api/admin/app-settings/category-configs');
 
@@ -168,8 +162,7 @@ export const applicationSettingsService = {
 
   async getApplicationSettingsSummary(): Promise<CategorySettingsSummary[]> {
     try {
-      const summary = await apiClient.get<CategorySettingsSummary[]>('/api/admin/app-settings/summary');
-      if (summaryHasSavedSettings(summary)) return summary;
+      return await apiClient.get<CategorySettingsSummary[]>('/api/admin/app-settings/summary');
     } catch {
       /* Some backend environments do not yet expose the aggregate summary. */
     }

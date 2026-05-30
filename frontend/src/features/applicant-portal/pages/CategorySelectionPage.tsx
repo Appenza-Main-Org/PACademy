@@ -124,6 +124,7 @@ export function CategorySelectionPage(): JSX.Element {
       (cycles.length === 1 ? cycles[0]! : null)
     );
   }, [cycles, cycleParam, storedCycleId]);
+  const effectiveCycleId = selectedCycle?.id ?? cycleParam ?? null;
 
   useEffect(() => {
     if (!selectedCycle) return;
@@ -137,9 +138,12 @@ export function CategorySelectionPage(): JSX.Element {
     }
   }, [selectedCycle, cycleParam, params, setParams, storedCycleId, setStoredCycleId]);
 
-  const categoriesQuery = useCategories(selectedCycle?.id);
+  const categoriesQuery = useCategories(effectiveCycleId ?? undefined);
   const applicantNationalId = identity?.nationalId ?? storeNid;
-  const eligibilityCategoriesQuery = useEligibleCategories(applicantNationalId);
+  const eligibilityCategoriesQuery = useEligibleCategories(
+    applicantNationalId,
+    effectiveCycleId,
+  );
 
   const specializedOfficersEligibility = useMemo(
     () =>
@@ -249,14 +253,14 @@ export function CategorySelectionPage(): JSX.Element {
     /* For not_found-in-MOI users (or when there's no live cycle to run
      * an eligibility check against) skip the eligibility step and go
      * straight to the profile. */
-    if (!identity || !selectedCycle) {
+    if (!identity || !effectiveCycleId) {
       setSelectedCategoryKey(categoryKey);
       saveCommitteeForCategory(categoryKey);
       setSelectedFaculty(null);
       setSelectedSpecialization(null);
       void applicantPortalService.saveDraft(MOI_APPLICANT_SESSION.applicantId, {
         categoryKey,
-        ...(selectedCycle ? { cycleId: selectedCycle.id } : {}),
+        ...(effectiveCycleId ? { cycleId: effectiveCycleId } : {}),
       } as Parameters<typeof applicantPortalService.saveDraft>[1]);
       navigate(ROUTES.applicantProfile);
       return;
@@ -265,7 +269,7 @@ export function CategorySelectionPage(): JSX.Element {
     setSelectedSpecialization(null);
     saveCommitteeForCategory(categoryKey);
     navigate(
-      `${ROUTES.applicantEligibility}?category=${categoryKey}&cycle=${selectedCycle.id}`,
+      `${ROUTES.applicantEligibility}?category=${categoryKey}&cycle=${effectiveCycleId}`,
     );
   };
 
@@ -280,16 +284,16 @@ export function CategorySelectionPage(): JSX.Element {
     /* Same routing logic as the standard onPickCategory path: skip the
      * eligibility step for not_found-in-MOI users, otherwise navigate
      * to the eligibility-check page first. */
-    if (!identity || !selectedCycle) {
+    if (!identity || !effectiveCycleId) {
       void applicantPortalService.saveDraft(MOI_APPLICANT_SESSION.applicantId, {
         categoryKey: 'specialized_officers',
-        ...(selectedCycle ? { cycleId: selectedCycle.id } : {}),
+        ...(effectiveCycleId ? { cycleId: effectiveCycleId } : {}),
       } as Parameters<typeof applicantPortalService.saveDraft>[1]);
       navigate(ROUTES.applicantProfile);
       return;
     }
     navigate(
-      `${ROUTES.applicantEligibility}?category=specialized_officers&cycle=${selectedCycle.id}`,
+      `${ROUTES.applicantEligibility}?category=specialized_officers&cycle=${effectiveCycleId}`,
     );
   };
 

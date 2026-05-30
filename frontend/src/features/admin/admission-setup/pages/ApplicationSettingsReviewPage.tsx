@@ -29,6 +29,15 @@ const PRINT_CSS = `
     padding: 2mm 0 0 !important;
     overflow: visible !important;
   }
+  body:has(.app-settings-review-print) #root,
+  body:has(.app-settings-review-print) .page-enter,
+  body:has(.app-settings-review-print) main {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
   .app-settings-review-print-header {
     display: block !important;
     margin: 0 0 6mm !important;
@@ -64,10 +73,15 @@ const PRINT_CSS = `
   .app-settings-review-print table { font-size: 8pt; }
   .app-settings-review-print thead th { font-size: 7.5pt; }
   .app-settings-review-print .overflow-x-auto { overflow: visible !important; }
-  .app-settings-review-print .card,
   .app-settings-review-print [data-print-card] {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    display: block !important;
+    break-inside: auto;
+    page-break-inside: auto;
+    overflow: visible !important;
+  }
+  .app-settings-review-print [data-print-card] + [data-print-card] {
+    break-before: auto;
+    page-break-before: auto;
   }
 }
 `;

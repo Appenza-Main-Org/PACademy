@@ -91,11 +91,15 @@ export function EligibilityCheckPage(): JSX.Element {
   const cycleParam = params.get('cycle');
   const resolvedCycleId = cycleParam ?? storedCycleId ?? null;
   const categoriesQuery = useCategories(resolvedCycleId ?? undefined);
+  const startUrl = resolvedCycleId
+    ? `${ROUTES.applicantStart}?cycle=${resolvedCycleId}`
+    : ROUTES.applicantStart;
+  const homeUrl = startUrl;
 
   /* If the user hits this page without ?category=, send them back. */
   useEffect(() => {
-    if (!categoryParam) navigate(ROUTES.applicantStart, { replace: true });
-  }, [categoryParam, navigate]);
+    if (!categoryParam) navigate(startUrl, { replace: true });
+  }, [categoryParam, navigate, startUrl]);
 
   /* Mirror an explicit ?cycle= into the store so refreshing keeps it. */
   useEffect(() => {
@@ -141,7 +145,7 @@ export function EligibilityCheckPage(): JSX.Element {
       <div className="flex flex-col gap-6">
         <PageHeader title="التحقق من الأهلية" />
         <RejectionPanel reasons={['nomination_required']} />
-        <BackToCategories />
+        <BackToCategories href={startUrl} />
       </div>
     );
   }
@@ -154,18 +158,14 @@ export function EligibilityCheckPage(): JSX.Element {
     navigate(ROUTES.applicantProfile);
   };
 
-  const startUrl = resolvedCycleId
-    ? `${ROUTES.applicantStart}?cycle=${resolvedCycleId}`
-    : ROUTES.applicantStart;
-
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="التحقق من الأهلية"
         subtitle={`الفئة: ${category.labelAr}`}
         breadcrumbs={[
-          { label: 'الرئيسية', href: ROUTES.hub },
-          { label: 'بوابة المتقدم', href: ROUTES.applicant },
+          { label: 'الرئيسية', href: homeUrl },
+          { label: 'بوابة المتقدم', href: homeUrl },
           { label: 'اختيار الفئة', href: startUrl },
           { label: 'التحقق من الأهلية' },
         ]}
@@ -174,7 +174,7 @@ export function EligibilityCheckPage(): JSX.Element {
             <Link to={startUrl} className={LINK_GHOST}>
               <ArrowRight size={16} className="rtl:rotate-180" /> اختيار الفئة
             </Link>
-            <Link to={ROUTES.hub} className={LINK_SECONDARY}>
+            <Link to={homeUrl} className={LINK_SECONDARY}>
               <Home size={16} />
               الرئيسية
             </Link>
@@ -229,7 +229,7 @@ export function EligibilityCheckPage(): JSX.Element {
 
           {result && !result.eligible && <RejectionPanel reasons={result.reasons} />}
 
-          <BackToCategories />
+          <BackToCategories href={startUrl} />
         </Card>
 
         <Card variant="feature">
@@ -268,17 +268,16 @@ function RejectionPanel({ reasons }: { reasons: EligibilityRejectionReason[] }):
   );
 }
 
-function BackToCategories(): JSX.Element {
+function BackToCategories({ href }: { href: string }): JSX.Element {
   return (
     <div className="mt-4 flex justify-end">
-      <Button
-        variant="ghost"
-        size="sm"
-        leadingIcon={<ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />}
-        onClick={() => window.history.length > 1 ? window.history.back() : null}
+      <Link
+        to={href}
+        className={LINK_GHOST}
       >
+        <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
         اختيار فئة أخرى
-      </Button>
+      </Link>
     </div>
   );
 }
@@ -369,4 +368,3 @@ function CategoryProceduresList({ procedures }: { procedures: string[] }): JSX.E
     </section>
   );
 }
-
