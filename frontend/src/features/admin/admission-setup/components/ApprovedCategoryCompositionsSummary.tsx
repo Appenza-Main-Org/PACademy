@@ -43,6 +43,7 @@ import { useLookup } from '@/features/lookups';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import { date as fmtDate } from '@/shared/lib/format';
 import {
+  applicationSettingsQueryOptions,
   useApplicationSettingsSummary,
   useCategoryConfigs,
 } from '../api/applicationSettings.queries';
@@ -75,14 +76,6 @@ const GENDER_LABEL: Readonly<Record<string, string>> = {
 };
 
 export function ApprovedCategoryCompositionsSummary(): JSX.Element {
-  const summaryQuery = useApplicationSettingsSummary();
-  const configsQuery = useCategoryConfigs();
-  const maritalQuery = useLookup('marital-statuses');
-  const academicGradesQuery = useLookup('academic-grades');
-  const academicDegreesQuery = useLookup('academic-degrees');
-  const committeesQuery = useLookup('committees');
-  const examRoundsQuery = useLookup('exam-rounds');
-  const schoolCategoriesQuery = useLookup('school-categories');
   const localDraftRows = useAdmissionSetupWizardStore((state) => state.local);
   const approvedDraftRows = useAdmissionSetupWizardStore((state) => state.approved);
   const draftHeaders = useAdmissionSetupWizardStore((state) => state.headers);
@@ -91,10 +84,18 @@ export function ApprovedCategoryCompositionsSummary(): JSX.Element {
     [localDraftRows, approvedDraftRows],
   );
   const hasDraftData = draftRows.length > 0 || Object.keys(draftHeaders).length > 0;
+  const summaryQuery = useApplicationSettingsSummary(!hasDraftData);
+  const configsQuery = useCategoryConfigs(hasDraftData);
+  const maritalQuery = useLookup('marital-statuses', applicationSettingsQueryOptions);
+  const academicGradesQuery = useLookup('academic-grades', applicationSettingsQueryOptions);
+  const academicDegreesQuery = useLookup('academic-degrees', applicationSettingsQueryOptions);
+  const committeesQuery = useLookup('committees', applicationSettingsQueryOptions);
+  const examRoundsQuery = useLookup('exam-rounds', applicationSettingsQueryOptions);
+  const schoolCategoriesQuery = useLookup('school-categories', applicationSettingsQueryOptions);
 
   const isLoading =
-    summaryQuery.isLoading ||
-    configsQuery.isLoading ||
+    (!hasDraftData && summaryQuery.isLoading) ||
+    (hasDraftData && configsQuery.isLoading) ||
     maritalQuery.isLoading ||
     academicGradesQuery.isLoading ||
     academicDegreesQuery.isLoading ||
@@ -168,7 +169,7 @@ export function ApprovedCategoryCompositionsSummary(): JSX.Element {
           التركيبات المعتمدة لكل فئة
         </h2>
         {categoriesWithSavedSettings.map((cat) => (
-          <Card key={cat.config.id} variant="compact">
+          <Card key={cat.config.id} variant="compact" data-print-card>
             <CategoryBlock summary={cat} labels={labels} />
           </Card>
         ))}
@@ -196,7 +197,7 @@ function DraftCompositionsSummary({
         التركيبات المحفوظة لكل فئة
       </h2>
       {grouped.map((group) => (
-        <Card key={group.categoryCode} variant="compact">
+        <Card key={group.categoryCode} variant="compact" data-print-card>
           <section
             className="flex flex-col gap-3"
             aria-label={`تركيبات فئة ${group.categoryNameAr}`}

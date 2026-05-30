@@ -15,7 +15,7 @@
  */
 
 import { MOCK } from '@/shared/mock-data';
-import { adminApiClient, isBackendEnabled } from '@/shared/lib/api-client';
+import { adminApiClient, applicantApiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { parseNationalId } from '@/shared/lib/national-id';
 import type {
@@ -115,6 +115,19 @@ function getActiveCycles(): AdmissionCycle[] {
     );
 }
 
+function normalizeActiveCycles(
+  value: AdmissionCycle | AdmissionCycle[] | null,
+): AdmissionCycle[] {
+  const rows = Array.isArray(value) ? value : value ? [value] : [];
+  return rows
+    .filter(isCycleLive)
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(a.closeDate).getTime() - new Date(b.closeDate).getTime(),
+    );
+}
+
 /** Resolve a single cycle: explicit id (if live) → MOCK.activeCycleId →
  *  first live cycle. Returns null when nothing matches. */
 function resolveCycle(cycleId?: string): AdmissionCycle | null {
@@ -193,6 +206,11 @@ export const categoriesPublicService = {
   /** Public list — filters out nomination-only, computes isOpen from the
    *  chosen cycle (defaults to the first active cycle when omitted). */
   async list(cycleId?: string): Promise<ApplicantCategory[]> {
+    if (isBackendEnabled()) {
+      return applicantApiClient.get<ApplicantCategory[]>('/api/applicant/categories', {
+        query: { cycleId },
+      });
+    }
     await simulateLatency();
     const cycle = resolveCycle(cycleId);
     return MOCK.categories
@@ -210,10 +228,10 @@ export const categoriesPublicService = {
    *  active cycle never opens the portal. */
   async getActiveCycles(): Promise<AdmissionCycle[]> {
     if (isBackendEnabled()) {
-      const active = await adminApiClient
-        .get<AdmissionCycle | null>('/api/cycles/active')
+      const active = await applicantApiClient
+        .get<AdmissionCycle | AdmissionCycle[] | null>('/api/applicant/cycles/active')
         .catch(() => null);
-      return active && isCycleLive(active) ? [active] : [];
+      return normalizeActiveCycles(active);
     }
     await simulateLatency(80, 200);
     return getActiveCycles();
@@ -222,16 +240,20 @@ export const categoriesPublicService = {
   /** First cycle open to applicants (kept for legacy single-cycle consumers). */
   async getActiveCycle(): Promise<AdmissionCycle | null> {
     if (isBackendEnabled()) {
-      const active = await adminApiClient
-        .get<AdmissionCycle | null>('/api/cycles/active')
+      const active = await applicantApiClient
+        .get<AdmissionCycle | AdmissionCycle[] | null>('/api/applicant/cycles/active')
         .catch(() => null);
-      return active && isCycleLive(active) ? active : null;
+      return normalizeActiveCycles(active)[0] ?? null;
     }
     await simulateLatency(80, 200);
     return resolveCycle();
   },
 
   async checkEligibility(input: EligibilityInput): Promise<EligibilityResult> {
+    if (isBackendEnabled()) {
+      return applicantApiClient.post<EligibilityResult>('/api/applicant/eligibility', input);
+    }
+
     await simulateLatency(400, 800);
     const reasons: EligibilityRejectionReason[] = [];
     const category = MOCK.categories.find((c) => c.key === input.categoryKey);
@@ -339,15 +361,19 @@ export const categoriesPublicService = {
     };
   },
 
-  async eligibleCategories(nationalId: string): Promise<ApplicantEligibleCategoriesResponse> {
+  async eligibleCategories(
+    nationalId: string,
+    cycleId?: string,
+  ): Promise<ApplicantEligibleCategoriesResponse> {
     if (isBackendEnabled()) {
       return adminApiClient.get<ApplicantEligibleCategoriesResponse>(
         `/api/applicants/${encodeURIComponent(nationalId)}/eligible-categories`,
+        { query: { cycleId } },
       );
     }
 
     await simulateLatency(160, 320);
-    const cycle = resolveCycle();
+    const cycle = resolveCycle(cycleId);
     const parsed = parseNationalId(nationalId);
     const derived = {
       birthDate: parsed.birthDate?.toISOString().slice(0, 10) ?? '',

@@ -29,15 +29,26 @@ const NO_CACHE_LOOKUPS = new Set<LookupKey>([
   'school-categories',
 ]);
 
+type LookupQueryOptions = {
+  enabled?: boolean;
+  staleTime?: number;
+  gcTime?: number;
+  refetchOnMount?: boolean | 'always';
+  refetchOnWindowFocus?: boolean | 'always';
+  refetchOnReconnect?: boolean | 'always';
+};
+
 export function useLookup<K extends LookupKey>(
   key: K,
-  options: { enabled?: boolean } = {},
+  options: LookupQueryOptions = {},
 ) {
+  const { enabled, ...queryOptions } = options;
   return useQuery<LookupRow<K>[]>({
     queryKey: lookupKeys.list(key),
     queryFn: () => lookupsService.listLookup(key),
-    enabled: options.enabled,
+    enabled,
     ...(NO_CACHE_LOOKUPS.has(key) ? noServerStateCacheOptions : {}),
+    ...queryOptions,
   });
 }
 

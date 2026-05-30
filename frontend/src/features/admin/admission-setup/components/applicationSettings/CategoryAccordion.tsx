@@ -40,7 +40,10 @@ import {
   type ApplicantCategoryType,
 } from '@/features/lookups';
 import { cn } from '@/shared/lib/cn';
-import { useCategoryConfigs } from '../../api/applicationSettings.queries';
+import {
+  applicationSettingsQueryOptions,
+  useCategoryConfigs,
+} from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
 import {
   deriveExcellenceMode,
@@ -56,8 +59,8 @@ import { ThanawiRulesSection } from './ThanawiRulesSection';
 
 export function CategoryAccordion(): JSX.Element {
   const configsQuery = useCategoryConfigs();
-  const categoriesQuery = useLookup('applicant-categories');
-  const excellenceQuery = useLookup('excellence-criteria');
+  const categoriesQuery = useLookup('applicant-categories', applicationSettingsQueryOptions);
+  const excellenceQuery = useLookup('excellence-criteria', applicationSettingsQueryOptions);
 
   const [openId, setOpenId] = useState<string | undefined>(undefined);
 
@@ -152,10 +155,21 @@ function mergeCategoryConfigsWithActiveLookups(
       const category = activeCategoryByCode.get(config.categoryCode);
       return {
         ...config,
+        categoryNameAr: category?.name ?? config.categoryNameAr,
         categoryType: normalizeApplicantCategoryType(
           config.categoryType,
           category,
         ),
+        categoryFacultyCodes: category?.facultyCodes ?? config.categoryFacultyCodes,
+        categorySpecializationCodes:
+          category?.specializationCodes ?? config.categorySpecializationCodes,
+        lockedGender: category
+          ? category.genderScope.length === 1
+            ? category.genderScope[0]
+            : null
+          : config.lockedGender,
+        excellenceCriterion:
+          category?.excellenceCriterion ?? config.excellenceCriterion,
       };
     });
 

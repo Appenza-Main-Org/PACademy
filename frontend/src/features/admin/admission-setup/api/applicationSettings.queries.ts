@@ -10,11 +10,10 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { QueryObserverOptions } from '@tanstack/react-query';
 import { toast } from '@/shared/components';
 import { ConflictError, isConflictError } from '@/shared/lib/errors';
-import { noServerStateCacheOptions } from '@/shared/lib/query-options';
 import type { GradingMode } from '@/features/lookups';
-import { useLookup } from '@/features/lookups';
 import type { SpecializationRow } from '@/features/lookups/types';
 import { applicationSettingsService } from './applicationSettings.service';
 import type {
@@ -51,6 +50,21 @@ export const appSettingsKeys = {
   summary: () => [...appSettingsKeys.all, 'summary'] as const,
 };
 
+export const APPLICATION_SETTINGS_STALE_TIME_MS = 2 * 60 * 1000;
+
+export const applicationSettingsQueryOptions = {
+  staleTime: APPLICATION_SETTINGS_STALE_TIME_MS,
+  gcTime: 10 * 60 * 1000,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: true,
+} satisfies Pick<
+  QueryObserverOptions,
+  | 'staleTime'
+  | 'gcTime'
+  | 'refetchOnWindowFocus'
+  | 'refetchOnReconnect'
+>;
+
 /* ─── Conflict messages ──────────────────────────────────────────────── */
 
 const CONFLICT_MESSAGES_AR: Record<AppSettingsConflict, string> = {
@@ -83,21 +97,12 @@ function surfaceConflict(err: unknown, fallback: string): void {
 
 /* ─── Reads ──────────────────────────────────────────────────────────── */
 
-export function useCategoryConfigs() {
-  /* Tie the configs query to the applicant-categories lookup's data
-   * identity. When an admin edits a lookup row (e.g. changes the
-   * excellence criterion), the lookup query's `dataUpdatedAt` advances
-   * on next read, which rotates this query's key and forces a refetch
-   * of the join. Without this seam the wizard would render stale
-   * lookup values until a full reload. */
-  const lookupQuery = useLookup('applicant-categories');
+export function useCategoryConfigs(enabled = true) {
   return useQuery<CategoryConfigJoined[]>({
-    queryKey: [
-      ...appSettingsKeys.configs(),
-      lookupQuery.dataUpdatedAt ?? 0,
-    ],
+    queryKey: appSettingsKeys.configs(),
     queryFn: () => applicationSettingsService.listCategoryConfigs(),
-    ...noServerStateCacheOptions,
+    enabled,
+    ...applicationSettingsQueryOptions,
   });
 }
 
@@ -112,7 +117,7 @@ export function useSpecializationsForConfig(
       return applicationSettingsService.listSpecializationsForConfig(configId);
     },
     enabled: enabled && Boolean(configId),
-    ...noServerStateCacheOptions,
+    ...applicationSettingsQueryOptions,
   });
 }
 
@@ -127,7 +132,7 @@ export function useEligibleSpecializations(
       return applicationSettingsService.getEligibleSpecializations(configId);
     },
     enabled: enabled && Boolean(configId),
-    ...noServerStateCacheOptions,
+    ...applicationSettingsQueryOptions,
   });
 }
 
@@ -142,7 +147,7 @@ export function useYears(
       return applicationSettingsService.listYears(categorySpecializationId);
     },
     enabled: enabled && Boolean(categorySpecializationId),
-    ...noServerStateCacheOptions,
+    ...applicationSettingsQueryOptions,
   });
 }
 
@@ -163,7 +168,7 @@ export function useResolvedGradingModeForSpec(
       return applicationSettingsService.getGradingModeForSpec(categorySpecializationId);
     },
     enabled: enabled && Boolean(categorySpecializationId),
-    ...noServerStateCacheOptions,
+    ...applicationSettingsQueryOptions,
   });
 }
 
@@ -173,11 +178,12 @@ export function useResolvedGradingModeForSpec(
  * review step). Cache invalidates on any app-settings mutation via the
  * shared `appSettingsKeys.all` prefix.
  */
-export function useApplicationSettingsSummary() {
+export function useApplicationSettingsSummary(enabled = true) {
   return useQuery<CategorySettingsSummary[]>({
     queryKey: appSettingsKeys.summary(),
     queryFn: () => applicationSettingsService.getApplicationSettingsSummary(),
-    ...noServerStateCacheOptions,
+    enabled,
+    ...applicationSettingsQueryOptions,
   });
 }
 
@@ -197,7 +203,7 @@ export function useParentCategoryForSpec(
       return applicationSettingsService.getParentCategoryForSpec(categorySpecializationId);
     },
     enabled: enabled && Boolean(categorySpecializationId),
-    ...noServerStateCacheOptions,
+    ...applicationSettingsQueryOptions,
   });
 }
 
@@ -212,27 +218,21 @@ export function useAttachSpecialization() {
   >({
     mutationFn: ({ configId, specializationId }) =>
       applicationSettingsService.attachSpecialization(configId, specializationId),
-    onSuccess: (_row, vars) => {
-      qc.invalidateQueries({ queryKey: appSettingsKeys.specs(vars.configId) });
-      qc.invalidateQueries({ queryKey: appSettingsKeys.eligible(vars.configId) });
-      qc.invalidateQueries({ queryKey: appSettingsKeys.configs() });
+    onSuccess: (_row, _vars) => {
+      qc.invalidateQueries({ queryKey: appSettingsKeys.all });
       toast('تم إضافة التخصص', 'success');
     },
     onError: (err) => surfaceConflict(err, 'تعذر إضافة التخصص'),
   });
 }
 
-export function useDetachSpecialization(configId: string | null) {
+export function useDetachSpecialization(_configId: string | null) {
   const qc = useQueryClient();
   return useMutation<void, Error, string>({
     mutationFn: (categorySpecializationId) =>
       applicationSettingsService.detachSpecialization(categorySpecializationId),
     onSuccess: () => {
-      if (configId) {
-        qc.invalidateQueries({ queryKey: appSettingsKeys.specs(configId) });
-        qc.invalidateQueries({ queryKey: appSettingsKeys.eligible(configId) });
-      }
-      qc.invalidateQueries({ queryKey: appSettingsKeys.configs() });
+      qc.invalidateQueries({ queryKey: appSettingsKeys.all });
       toast('تم حذف التخصص وكل السنوات المرتبطة', 'success');
     },
     onError: () => toast('تعذر حذف التخصص', 'danger'),
@@ -247,11 +247,8 @@ export function useCreateYear() {
     YearRowDraft
   >({
     mutationFn: (input) => applicationSettingsService.createYear(input),
-    onSuccess: (row) => {
-      qc.invalidateQueries({
-        queryKey: appSettingsKeys.years(row.categorySpecializationId),
-      });
-      qc.invalidateQueries({ queryKey: appSettingsKeys.configs() });
+    onSuccess: (_row) => {
+      qc.invalidateQueries({ queryKey: appSettingsKeys.all });
     },
     onError: (err) => surfaceConflict(err, 'تعذر إنشاء السنة'),
   });
@@ -266,10 +263,8 @@ export function useUpdateYear() {
   >({
     mutationFn: ({ id, patch }) =>
       applicationSettingsService.updateYear(id, patch),
-    onSuccess: (row) => {
-      qc.invalidateQueries({
-        queryKey: appSettingsKeys.years(row.categorySpecializationId),
-      });
+    onSuccess: (_row) => {
+      qc.invalidateQueries({ queryKey: appSettingsKeys.all });
     },
     onError: (err) => surfaceConflict(err, 'تعذر تحديث السنة'),
   });
@@ -279,11 +274,8 @@ export function useDeleteYear() {
   const qc = useQueryClient();
   return useMutation<void, Error, { id: string; categorySpecializationId: string }>({
     mutationFn: ({ id }) => applicationSettingsService.deleteYear(id),
-    onSuccess: (_v, vars) => {
-      qc.invalidateQueries({
-        queryKey: appSettingsKeys.years(vars.categorySpecializationId),
-      });
-      qc.invalidateQueries({ queryKey: appSettingsKeys.configs() });
+    onSuccess: (_v, _vars) => {
+      qc.invalidateQueries({ queryKey: appSettingsKeys.all });
     },
     onError: () => toast('تعذر حذف السنة', 'danger'),
   });
@@ -293,10 +285,8 @@ export function useToggleYearActive() {
   const qc = useQueryClient();
   return useMutation<ApplicantSpecializationYear, Error, string>({
     mutationFn: (id) => applicationSettingsService.toggleYearActive(id),
-    onSuccess: (row) => {
-      qc.invalidateQueries({
-        queryKey: appSettingsKeys.years(row.categorySpecializationId),
-      });
+    onSuccess: (_row) => {
+      qc.invalidateQueries({ queryKey: appSettingsKeys.all });
     },
     onError: () => toast('تعذر تحديث حالة السنة', 'danger'),
   });
@@ -308,7 +298,7 @@ export function useToggleCategoryActive() {
     mutationFn: (configId) =>
       applicationSettingsService.toggleCategoryActive(configId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: appSettingsKeys.configs() });
+      qc.invalidateQueries({ queryKey: appSettingsKeys.all });
     },
     onError: (err) => surfaceConflict(err, 'تعذر تغيير حالة الفئة'),
   });

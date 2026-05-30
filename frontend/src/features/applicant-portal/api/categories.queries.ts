@@ -9,8 +9,8 @@ export const categoryKeys = {
     [...categoryKeys.all, 'public-list', cycleId ?? null] as const,
   activeCycle: () => [...categoryKeys.all, 'active-cycle'] as const,
   activeCycles: () => [...categoryKeys.all, 'active-cycles'] as const,
-  eligibleCategories: (nationalId?: string | null) =>
-    [...categoryKeys.all, 'eligible-categories', nationalId ?? null] as const,
+  eligibleCategories: (nationalId?: string | null, cycleId?: string | null) =>
+    [...categoryKeys.all, 'eligible-categories', nationalId ?? null, cycleId ?? null] as const,
 };
 
 export function useCategories(cycleId?: string) {
@@ -39,10 +39,13 @@ export function useActiveCycle() {
   });
 }
 
-export function useEligibleCategories(nationalId?: string | null) {
+export function useEligibleCategories(
+  nationalId?: string | null,
+  cycleId?: string | null,
+) {
   return useQuery({
-    queryKey: categoryKeys.eligibleCategories(nationalId),
-    queryFn: () => categoriesPublicService.eligibleCategories(nationalId ?? ''),
+    queryKey: categoryKeys.eligibleCategories(nationalId, cycleId),
+    queryFn: () => categoriesPublicService.eligibleCategories(nationalId ?? '', cycleId ?? undefined),
     enabled: Boolean(nationalId),
     ...noServerStateCacheOptions,
   });

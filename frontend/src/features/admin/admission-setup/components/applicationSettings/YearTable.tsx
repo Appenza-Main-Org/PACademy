@@ -44,6 +44,7 @@ import {
   type GradingMode,
 } from '@/features/lookups';
 import {
+  applicationSettingsQueryOptions,
   useParentCategoryForSpec,
   useResolvedGradingModeForSpec,
   useYears,
@@ -90,10 +91,10 @@ export function YearTable({ categorySpecializationId }: YearTableProps): JSX.Ele
   const yearsQuery = useYears(categorySpecializationId);
   const gradingModeQuery = useResolvedGradingModeForSpec(categorySpecializationId);
   const parentCategoryQuery = useParentCategoryForSpec(categorySpecializationId);
-  const maritalQuery = useLookup('marital-statuses');
-  const academicGradesQuery = useLookup('academic-grades');
-  const schoolCategoriesQuery = useLookup('school-categories');
-  const graduationYearsQuery = useLookup('graduation-years');
+  const maritalQuery = useLookup('marital-statuses', applicationSettingsQueryOptions);
+  const academicGradesQuery = useLookup('academic-grades', applicationSettingsQueryOptions);
+  const schoolCategoriesQuery = useLookup('school-categories', applicationSettingsQueryOptions);
+  const graduationYearsQuery = useLookup('graduation-years', applicationSettingsQueryOptions);
   const canWrite = useAdmissionSetupCanWrite();
 
   const drafts = useDraftRows(categorySpecializationId);

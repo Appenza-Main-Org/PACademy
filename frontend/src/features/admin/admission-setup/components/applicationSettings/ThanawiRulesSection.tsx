@@ -35,6 +35,7 @@ import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
 import type { ExcellenceMode } from '../../lib/excellenceMode';
 import { useAdmissionSetupCanWrite } from '../AdmissionSetupShell';
+import { applicationSettingsQueryOptions } from '../../api/applicationSettings.queries';
 import {
   DEFAULT_MAX_SCORE_OPERATOR,
   DEFAULT_MIN_SCORE_OPERATOR,
@@ -106,12 +107,12 @@ export function ThanawiRulesSection({
   categoryCode,
   excellenceMode,
 }: ThanawiRulesSectionProps): JSX.Element {
-  const maritalQuery = useLookup('marital-statuses');
-  const examRoundsQuery = useLookup('exam-rounds');
-  const committeesQuery = useLookup('committees');
-  const schoolCategoriesQuery = useLookup('school-categories');
-  const graduationYearsQuery = useLookup('graduation-years');
-  const gradesQuery = useLookup('academic-grades');
+  const maritalQuery = useLookup('marital-statuses', applicationSettingsQueryOptions);
+  const examRoundsQuery = useLookup('exam-rounds', applicationSettingsQueryOptions);
+  const committeesQuery = useLookup('committees', applicationSettingsQueryOptions);
+  const schoolCategoriesQuery = useLookup('school-categories', applicationSettingsQueryOptions);
+  const graduationYearsQuery = useLookup('graduation-years', applicationSettingsQueryOptions);
+  const gradesQuery = useLookup('academic-grades', applicationSettingsQueryOptions);
   const canWrite = useAdmissionSetupCanWrite();
 
   const approve = useAdmissionSetupWizardStore((s) => s.approveLocalForCategory);
