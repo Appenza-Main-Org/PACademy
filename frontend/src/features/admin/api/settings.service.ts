@@ -27,20 +27,16 @@ export interface AdminSettings {
 
 export type ApplicantControlScreensSettingsPatch = Pick<
   AdminSettings,
-  | 'primaryRelativesEntryResponsibleTestCode'
   | 'acquaintanceDocumentsEntryResponsibleTestCode'
   | 'acquaintanceDocumentsPrintResponsibleTestCode'
-  | 'acquaintanceDocumentsMutationLockTiming'
 >;
 
 export function buildApplicantControlScreensSettingsPatch(
   settings: ApplicantControlScreensSettingsPatch,
 ): ApplicantControlScreensSettingsPatch {
   return {
-    primaryRelativesEntryResponsibleTestCode: settings.primaryRelativesEntryResponsibleTestCode,
     acquaintanceDocumentsEntryResponsibleTestCode: settings.acquaintanceDocumentsEntryResponsibleTestCode,
     acquaintanceDocumentsPrintResponsibleTestCode: settings.acquaintanceDocumentsPrintResponsibleTestCode,
-    acquaintanceDocumentsMutationLockTiming: settings.acquaintanceDocumentsMutationLockTiming,
   };
 }
 

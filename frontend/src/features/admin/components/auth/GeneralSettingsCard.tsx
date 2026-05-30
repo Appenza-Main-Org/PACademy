@@ -39,8 +39,12 @@ export function GeneralSettingsCard(): JSX.Element {
   /* Hydrate local state once the server snapshot arrives. */
   useEffect(() => {
     if (settingsQuery.data) {
-      setExamDays(String(settingsQuery.data.examDaysPerApplicant));
-      setSlotWindowDays(String(settingsQuery.data.examSlotSelectionWindowDays));
+      setExamDays(settingsQuery.data.examDaysPerApplicant != null ? String(settingsQuery.data.examDaysPerApplicant) : '');
+      setSlotWindowDays(
+        settingsQuery.data.examSlotSelectionWindowDays != null
+          ? String(settingsQuery.data.examSlotSelectionWindowDays)
+          : '',
+      );
     }
   }, [settingsQuery.data]);
 
