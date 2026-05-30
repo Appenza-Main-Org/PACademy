@@ -1,9 +1,11 @@
 /**
  * Applicant categories — Public API Contract (Bucket B2).
  *
- * INTEGRATION CONTRACT:
- *   GET    /api/applicant/categories?cycleId=…       → ApplicantCategory[] (public, nomination-only filtered out)
- *   GET    /api/applicant/cycles/active              → AdmissionCycle[] (all currently-active cycles)
+ * INTEGRATION CONTRACT (served by the admin API — the applicant service
+ * does not expose these public reads, and the deployed applicant-*-api
+ * hosts are not serving; everything resolves on the admin API):
+ *   GET    /api/admin/categories                     → ApplicantCategory[] (nomination-only filtered out)
+ *   GET    /api/cycles/active                         → AdmissionCycle (the single active cycle, or null)
  *   POST   /api/applicant/eligibility                → EligibilityResult (body carries cycleId)
  *
  * The list endpoint computes each category's `isOpen` from the chosen
@@ -207,9 +209,11 @@ export const categoriesPublicService = {
    *  chosen cycle (defaults to the first active cycle when omitted). */
   async list(cycleId?: string): Promise<ApplicantCategory[]> {
     if (isBackendEnabled()) {
-      return applicantApiClient.get<ApplicantCategory[]>('/api/applicant/categories', {
-        query: { cycleId },
-      });
+      /* The admin API is the source of truth; it returns the
+       * ApplicantCategory shape directly. Filter nomination-only rows to
+       * preserve the public-list contract. */
+      const categories = await adminApiClient.get<ApplicantCategory[]>('/api/admin/categories');
+      return categories.filter((c) => !c.conditions.nominationOnly);
     }
     await simulateLatency();
     const cycle = resolveCycle(cycleId);
@@ -228,8 +232,8 @@ export const categoriesPublicService = {
    *  active cycle never opens the portal. */
   async getActiveCycles(): Promise<AdmissionCycle[]> {
     if (isBackendEnabled()) {
-      const active = await applicantApiClient
-        .get<AdmissionCycle | AdmissionCycle[] | null>('/api/applicant/cycles/active')
+      const active = await adminApiClient
+        .get<AdmissionCycle | AdmissionCycle[] | null>('/api/cycles/active')
         .catch(() => null);
       return normalizeActiveCycles(active);
     }
@@ -240,8 +244,8 @@ export const categoriesPublicService = {
   /** First cycle open to applicants (kept for legacy single-cycle consumers). */
   async getActiveCycle(): Promise<AdmissionCycle | null> {
     if (isBackendEnabled()) {
-      const active = await applicantApiClient
-        .get<AdmissionCycle | AdmissionCycle[] | null>('/api/applicant/cycles/active')
+      const active = await adminApiClient
+        .get<AdmissionCycle | AdmissionCycle[] | null>('/api/cycles/active')
         .catch(() => null);
       return normalizeActiveCycles(active)[0] ?? null;
     }
