@@ -27,6 +27,8 @@ public sealed record CategoryEligibilityResult(
     EligibilityChecks Checks,
     IReadOnlyList<EligibleCommitteeResult> Committees,
     IReadOnlyList<EligibleAcademicProgramResult> AcademicPrograms,
+    IReadOnlyList<string> AllowedMaritalStatusCodes,
+    IReadOnlyList<string> AllowedAcademicDegreeCodes,
     IReadOnlyList<string> FailedReasons);
 
 public sealed record EligibleCommitteeResult(

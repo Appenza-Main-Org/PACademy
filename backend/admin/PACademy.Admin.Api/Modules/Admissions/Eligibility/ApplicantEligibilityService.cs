@@ -74,6 +74,12 @@ public sealed class ApplicantEligibilityService(
             var academicPrograms = failedReasons.Count == 0
                 ? ResolveAcademicPrograms(settings.CategoryName, evaluation.MatchedRuleIds, academicProgramsByRuleId)
                 : [];
+            var allowedMaritalStatusCodes = failedReasons.Count == 0
+                ? ResolveAllowedMaritalStatusCodes(evaluation.MatchedRuleIds, categoryRules)
+                : [];
+            var allowedAcademicDegreeCodes = failedReasons.Count == 0
+                ? ResolveAllowedAcademicDegreeCodes(evaluation.MatchedRuleIds, draftRules)
+                : [];
             results.Add(new CategoryEligibilityResult(
                 settings.CategoryId,
                 settings.CategoryName,
@@ -85,6 +91,8 @@ public sealed class ApplicantEligibilityService(
                 checks,
                 committees,
                 academicPrograms,
+                allowedMaritalStatusCodes,
+                allowedAcademicDegreeCodes,
                 failedReasons));
         }
 
@@ -447,7 +455,8 @@ public sealed class ApplicantEligibilityService(
                     UpdatedAt = DateTimeOffset.UtcNow
                 },
                 ResolveDraftCommitteeIds(row),
-                ResolveDraftAcademicPrograms(row)));
+                ResolveDraftAcademicPrograms(row),
+                EligibilityJson.StringArray(row, "academicDegrees")));
         }
 
         return output;
@@ -726,6 +735,34 @@ public sealed class ApplicantEligibilityService(
             .ToArray();
     }
 
+    private static IReadOnlyList<string> ResolveAllowedMaritalStatusCodes(
+        IReadOnlyList<string> matchedRuleIds,
+        IReadOnlyList<ApplicationSettingsGraduationYearEntity> categoryRules)
+    {
+        if (matchedRuleIds.Count == 0) return [];
+        var matched = new HashSet<string>(matchedRuleIds, StringComparer.OrdinalIgnoreCase);
+        return categoryRules
+            .Where(rule => matched.Contains(rule.Id))
+            .SelectMany(rule => EligibilityJson.StringArray(rule.MaritalStatusCodesJson))
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> ResolveAllowedAcademicDegreeCodes(
+        IReadOnlyList<string> matchedRuleIds,
+        IReadOnlyList<DraftEligibilityRule> draftRules)
+    {
+        if (matchedRuleIds.Count == 0) return [];
+        var matched = new HashSet<string>(matchedRuleIds, StringComparer.OrdinalIgnoreCase);
+        return draftRules
+            .Where(rule => matched.Contains(rule.Rule.Id))
+            .SelectMany(rule => rule.AcademicDegreeCodes)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     private static decimal? CalculatePercentage(JsonObject? grade)
     {
         var total = EligibilityJson.DecimalProp(grade, "effectiveTotal")
@@ -843,7 +880,8 @@ public sealed class ApplicantEligibilityService(
     private sealed record DraftEligibilityRule(
         ApplicationSettingsGraduationYearEntity Rule,
         IReadOnlyList<string> CommitteeIds,
-        IReadOnlyList<EligibleAcademicProgramResult> AcademicPrograms);
+        IReadOnlyList<EligibleAcademicProgramResult> AcademicPrograms,
+        IReadOnlyList<string> AcademicDegreeCodes);
 
     private sealed record CommitteeExamSlotCandidate(
         string CategoryKey,
