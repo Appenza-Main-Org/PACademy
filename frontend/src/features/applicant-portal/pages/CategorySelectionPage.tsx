@@ -328,11 +328,9 @@ export function CategorySelectionPage(): JSX.Element {
             <IdentityDrawerBody />
           ) : (
             <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-ink-700">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="text-2xs uppercase tracking-wide text-ink-500">
-                  الرقم القومي:
-                </span>
-                <span className="font-mono text-sm font-medium text-ink-900" dir="ltr">
+              <span className="inline-flex items-center gap-2">
+                <span className="text-xs font-medium text-ink-500">الرقم القومي</span>
+                <span className="font-mono text-sm font-bold text-ink-900" dir="ltr">
                   {storeNid ?? '—'}
                 </span>
               </span>
@@ -360,14 +358,14 @@ export function CategorySelectionPage(): JSX.Element {
         </InlineSection>
 
         <Card variant="elevated" className="overflow-hidden p-0">
-          <header className="flex items-center gap-3 border-b border-border-default bg-ink-50/40 px-5 py-3">
+          <header className="flex items-center gap-3 border-b border-border-subtle bg-ink-50/55 px-5 py-4">
             <span
               aria-hidden
-              className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700"
+              className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700 ring-1 ring-teal-500/10"
             >
               <GraduationCap size={16} strokeWidth={1.75} />
             </span>
-            <h3 className="font-ar-display text-md font-bold text-ink-900">اختر فئة التقدم</h3>
+            <h3 className="font-ar-display text-lg font-bold text-ink-900">اختر فئة التقدم</h3>
           </header>
           <CategoryRows
             categoriesQuery={categoriesQuery}
@@ -862,11 +860,11 @@ function IdentityDrawerBody(): JSX.Element {
         {rows.map((r) => (
           <div
             key={r.label}
-            className="rounded-md border border-border-subtle bg-ink-50/70 px-3 py-2.5"
+            className="flex flex-col gap-1 rounded-md border border-border-subtle bg-ink-50/70 px-3.5 py-3"
           >
-            <dt className="text-2xs font-medium uppercase tracking-wide text-ink-500">{r.label}</dt>
+            <dt className="text-xs font-medium leading-none text-ink-500">{r.label}</dt>
             <dd
-              className={cn('mt-1 text-sm font-bold text-ink-900', r.mono && 'font-mono')}
+              className={cn('text-sm font-bold leading-snug text-ink-900', r.mono && 'font-mono')}
               dir={r.ltr ? 'ltr' : undefined}
             >
               {r.value}
@@ -886,7 +884,7 @@ function EligibilityDrawerBody({
   categories: readonly ApplicantCategory[];
 }): JSX.Element {
   return (
-    <div className="flex flex-col gap-5 text-base leading-relaxed">
+    <div className="flex flex-col gap-5">
       {cycle && (
         <div className="inline-flex w-fit max-w-full flex-wrap items-center gap-2 rounded-md border border-border-default bg-ink-50 px-4 py-3 text-sm text-ink-700">
           <CalendarRange size={16} strokeWidth={1.75} className="shrink-0 text-teal-700" aria-hidden />
@@ -895,7 +893,7 @@ function EligibilityDrawerBody({
         </div>
       )}
       {categories.length === 0 ? (
-        <p className="text-base text-ink-700">لا توجد شروط معروضة في الوقت الحالي.</p>
+        <p className="text-sm text-ink-600">لا توجد شروط معروضة في الوقت الحالي.</p>
       ) : (
         <ul className="grid gap-4 lg:grid-cols-2">
           {categories.map((c) => (
@@ -913,9 +911,15 @@ function EligibilityDrawerBody({
                 ))}
               </ul>
               {c.conditions.freeText.length > 0 && (
-                <ul className="mt-3 list-inside list-disc space-y-1.5 ps-2 text-xs text-ink-600">
+                <ul className="mt-3 space-y-1.5 border-t border-border-subtle pt-3 text-xs leading-relaxed text-ink-600">
                   {c.conditions.freeText.map((t, i) => (
-                    <li key={`${c.key}-f-${i}`}>{t}</li>
+                    <li key={`${c.key}-f-${i}`} className="flex items-start gap-2">
+                      <span
+                        aria-hidden
+                        className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-ink-300"
+                      />
+                      <span>{t}</span>
+                    </li>
                   ))}
                 </ul>
               )}
@@ -951,7 +955,7 @@ function SpecializationsDrawerBody({
   categories: readonly ApplicantCategory[];
 }): JSX.Element {
   if (categories.length === 0) {
-    return <p className="text-base text-ink-700">لا توجد تخصصات معروضة في الوقت الحالي.</p>;
+    return <p className="text-sm text-ink-600">لا توجد تخصصات معروضة في الوقت الحالي.</p>;
   }
   return (
     <ul className="grid gap-4 lg:grid-cols-2">
@@ -993,7 +997,7 @@ function SpecializationsDrawerBody({
 
 function InstructionsDrawerBody(): JSX.Element {
   return (
-    <div className="flex flex-col gap-4 text-base leading-relaxed text-ink-800">
+    <div className="flex flex-col gap-4 text-ink-800">
       <div className="grid gap-3 lg:grid-cols-3">
         <InstructionNote
           icon={<User size={16} strokeWidth={1.75} />}
