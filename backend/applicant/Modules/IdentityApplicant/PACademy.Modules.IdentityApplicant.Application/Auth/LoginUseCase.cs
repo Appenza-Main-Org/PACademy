@@ -76,8 +76,33 @@ public sealed class LoginUseCase(
         }
         else
         {
-            // not_found-in-MOI — minimal manual-entry row.
-            created = Applicant.CreateManual(nid, mobile);
+            // not_found-in-MOI. The MOI directory has no authoritative
+            // record, but the NID itself encodes date-of-birth, gender and
+            // governorate — derive those (plus a placeholder name) so the
+            // applicant arrives with بيانات المتقدم pre-filled instead of a
+            // blank row they'd have to retype. Mirrors the frontend
+            // mockMoiVerifyNid fallback. The supplied mobile is trusted as-is
+            // (a derived record has no authoritative number to match).
+            var derived = NidIdentityDeriver.Derive(nid, mobile);
+            if (derived is not null)
+            {
+                DateOnly.TryParse(derived.DateOfBirth, out var derivedDob);
+                created = Applicant.CreateFromMoi(
+                    nationalId: derived.NationalId,
+                    phoneNumber: mobile,
+                    fullName: derived.FullName,
+                    email: derived.Email,
+                    gender: derived.Gender,
+                    religion: derived.Religion,
+                    dateOfBirth: derivedDob,
+                    birthGovernorate: derived.BirthGovernorate,
+                    birthDistrict: derived.BirthDistrict);
+            }
+            else
+            {
+                // NID couldn't be parsed (impossible date) — minimal row.
+                created = Applicant.CreateManual(nid, mobile);
+            }
         }
 
         db.Applicants.Add(created);
