@@ -42,7 +42,7 @@ public sealed class ApplicantEligibilityService(
         var academicProgramsByRuleId = draftRules
             .Where(x => x.AcademicPrograms.Count > 0)
             .ToDictionary(x => x.Rule.Id, x => x.AcademicPrograms, StringComparer.OrdinalIgnoreCase);
-        var allYears = years.Concat(draftRules.Select(x => x.Rule)).ToArray();
+        var allYears = draftRules.Select(x => x.Rule).Concat(years).ToArray();
 
         var results = new List<CategoryEligibilityResult>();
         foreach (var config in configs)
@@ -555,6 +555,8 @@ public sealed class ApplicantEligibilityService(
         }
 
         CategoryEvaluation? best = null;
+        var validatesGrades = IsPreUniversityCategory(category.CategoryLookup) ||
+            category.Rules.Any(rule => EligibilityJson.StringArray(rule.SchoolCategoryCodesJson).Count > 0);
         foreach (var rule in category.Rules)
         {
             var rowSettings = category with
@@ -568,7 +570,8 @@ public sealed class ApplicantEligibilityService(
                 AgeReferenceDate = rule.AgeReferenceDate,
                 MinPercentage = rule.MinPercentage,
                 AcademicGradeId = rule.AcademicGradeId,
-                AllowsManualGradeEntryWithoutRecord = IsPreUniversityCategory(category.CategoryLookup)
+                ValidateGrades = validatesGrades,
+                AllowsManualGradeEntryWithoutRecord = validatesGrades
             };
             var checks = RunChecks(applicant, rowSettings, lookups);
             var failedReasons = BuildFailedReasons(checks, rowSettings);

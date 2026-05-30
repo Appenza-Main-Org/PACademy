@@ -61,6 +61,11 @@ internal static class EligibilityCheckRegistry
     public static GradesCheckResult GradesCheck(ApplicantEligibilityContext applicant, CategoryEligibilitySettings category, EligibilityLookupSnapshot lookups)
     {
         var hasGrade = applicant.Grade is not null;
+        if (!category.ValidateGrades)
+        {
+            return new GradesCheckResult(true, hasGrade, applicant.SchoolCategory, [], applicant.GradeSource);
+        }
+
         if (!RequiresGrade(category))
         {
             return new GradesCheckResult(true, hasGrade, applicant.SchoolCategory, [], applicant.GradeSource);

@@ -63,6 +63,108 @@ public sealed class ApplicantEligibilityServiceTests
     }
 
     [Fact]
+    public async Task UniversityCategoriesUseNationalIdAgeAndGenderWithoutGradeGate()
+    {
+        await using var db = CreateDb();
+        await SeedBaseAsync(db, schoolCategoryCode: "SCH-EXT");
+        var now = DateTimeOffset.UtcNow;
+        db.ApplicationSettingsCategoryConfigs.Add(new ApplicationSettingsCategoryConfigEntity
+        {
+            Id = "acc-law",
+            CategoryId = "law_bachelor",
+            IsActive = true,
+            SortOrder = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        db.ApplicationSettingsCategorySpecializations.Add(new ApplicationSettingsCategorySpecializationEntity
+        {
+            Id = "acs-law",
+            ConfigId = "acc-law",
+            SpecializationId = "SPC-70",
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        db.LookupRows.AddRange(
+            Lookup("applicant-categories", "law_bachelor", "ليسانس حقوق", new JsonObject
+            {
+                ["minAge"] = 17,
+                ["type"] = "university",
+                ["genderScope"] = new JsonArray("male", "female")
+            }),
+            Lookup("committees", "CMT-LAW-M", "لجنة ليسانس حقوق طلبة", new JsonObject
+            {
+                ["applicantCategoryId"] = "law_bachelor"
+            }),
+            Lookup("committees", "CMT-LAW-F", "لجنة ليسانس حقوق طالبات", new JsonObject
+            {
+                ["applicantCategoryId"] = "law_bachelor"
+            }));
+        db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
+        {
+            Module = "admissionSetup.applicationSettings.cycle-2026",
+            Id = "admissionSetup.applicationSettings.cycle-2026",
+            PayloadJson = new JsonObject
+            {
+                ["id"] = "admissionSetup.applicationSettings.cycle-2026",
+                ["cycleId"] = "cycle-2026",
+                ["approved"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["id"] = "law-draft-male",
+                        ["categoryCode"] = "law_bachelor",
+                        ["header"] = new JsonObject
+                        {
+                            ["applicationStart"] = "2026-06-01",
+                            ["applicationEnd"] = "2026-06-30",
+                            ["ageReferenceDate"] = "2026-06-01",
+                            ["maxAge"] = 30
+                        },
+                        ["facultyCode"] = "FAC-17",
+                        ["specializationCode"] = "SPC-70",
+                        ["type"] = new JsonArray("male"),
+                        ["grade"] = "AGR-03",
+                        ["committees"] = new JsonArray("CMT-LAW-M"),
+                        ["graduationYears"] = new JsonArray(2026)
+                    },
+                    new JsonObject
+                    {
+                        ["id"] = "law-draft-female",
+                        ["categoryCode"] = "law_bachelor",
+                        ["header"] = new JsonObject
+                        {
+                            ["applicationStart"] = "2026-06-01",
+                            ["applicationEnd"] = "2026-06-30",
+                            ["ageReferenceDate"] = "2026-06-01",
+                            ["maxAge"] = 30
+                        },
+                        ["facultyCode"] = "FAC-17",
+                        ["specializationCode"] = "SPC-70",
+                        ["type"] = new JsonArray("female"),
+                        ["grade"] = "AGR-03",
+                        ["committees"] = new JsonArray("CMT-LAW-F"),
+                        ["graduationYears"] = new JsonArray(2026)
+                    }),
+                ["local"] = new JsonArray()
+            }.ToJsonString(),
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var service = CreateService(db);
+
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
+
+        var law = Assert.Single(response.Categories, x => x.CategoryId == "law_bachelor");
+        Assert.True(law.Eligible);
+        Assert.True(law.Checks.GradesCheck.Passed);
+        Assert.Contains(law.Committees, x => x.CommitteeId == "CMT-LAW-M");
+        Assert.DoesNotContain(law.Committees, x => x.CommitteeId == "CMT-LAW-F");
+        Assert.Empty(law.FailedReasons);
+    }
+
+    [Fact]
     public async Task GradeResponseDoesNotExposeNestedPayload()
     {
         await using var db = CreateDb();
