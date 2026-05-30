@@ -27,6 +27,7 @@ import { ROUTES } from '@/config/routes';
 import { useAuthStore } from '@/features/auth';
 import { useDraft } from './api/applicantPortal.queries';
 import { useApplicantPortalStore } from './store/applicantPortal.store';
+import { ApplicantAvailabilityGate } from './components/ApplicantAvailabilityGate';
 import {
   VOTHIQA_EXPIRED_NID,
   VOTHIQA_FILLABLE_NID,
@@ -88,6 +89,21 @@ export function nextApplicantStageUrl(furthestStage: number): string {
   return `${ROUTES.applicant}/${STAGE_KEYS[idx]}`;
 }
 
+/**
+ * URL of the previous visible stage relative to `activeIndex`, or `null`
+ * when there's no earlier step. Skips the empty summary key so «السابق»
+ * lands on a real page (e.g. payment → profile, not the filtered-out
+ * summary index). Used to wire the wizard's back button — see the
+ * `backUrl` gate in ApplicantPortalLayout, which suppresses it once the
+ * exam slot is chosen (the application locks).
+ */
+export function prevApplicantStageUrl(activeIndex: number): string | null {
+  for (let i = activeIndex - 1; i >= 0; i--) {
+    if (STAGE_KEYS[i] !== '') return `${ROUTES.applicant}/${STAGE_KEYS[i]}`;
+  }
+  return null;
+}
+
 export function ApplicantPortalLayout(): JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
@@ -133,6 +149,13 @@ export function ApplicantPortalLayout(): JSX.Element {
     toast('تم قفل بيانات الطلب بعد اختيار موعد الاختبار. يمكنك العرض والطباعة فقط.', 'warning');
     navigate(ROUTES.applicantPrintCard, { replace: true });
   }, [isLockedEditableRoute, navigate]);
+
+  /* «السابق» — backward navigation through the wizard steps. Available
+   * until the exam slot is chosen; once the application locks, the steps
+   * become read-only (and the guard above bounces edits to the print
+   * card), so the back button is suppressed. Forward navigation stays
+   * owned by each page's own CTA so step validation isn't bypassed. */
+  const backUrl = applicationLocked ? null : prevApplicantStageUrl(activeIndex);
 
   /* Step rendering — the empty-key entry (summary, served by the
    * `/applicant` index) is filtered out of the visible stepper per
@@ -223,6 +246,7 @@ export function ApplicantPortalLayout(): JSX.Element {
       <Pattern variant="tessellation-8" tile={96} opacity={0.04} />
 
       <div className="relative mx-auto w-full max-w-[1200px] flex-1 px-6 pb-12 pt-6">
+        <ApplicantAvailabilityGate>
         {draft?.suspended && <SuspendedBanner />}
         {submittedDemo ? (
           /* Post-submission view (client direction 2026-05-19): only the
@@ -241,12 +265,14 @@ export function ApplicantPortalLayout(): JSX.Element {
             steps={steps}
             activeStepKey={STAGE_KEYS[activeIndex] ?? STAGE_KEYS[0]}
             autoSaveStatus={autoSaveStatus}
+            onBack={backUrl ? () => navigate(backUrl) : undefined}
           >
             {/* AUD-007 — when suspended, gate every stage form behind a single
                 read-only screen instead of rendering the Outlet's form. */}
             {draft?.suspended ? <SuspendedScreen /> : isLockedEditableRoute ? null : <Outlet />}
           </Wizard>
         )}
+        </ApplicantAvailabilityGate>
       </div>
 
       <FloatingHelp />
