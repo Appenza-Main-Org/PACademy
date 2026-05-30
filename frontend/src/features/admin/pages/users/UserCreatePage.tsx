@@ -25,6 +25,7 @@ import { ROUTES } from '@/config/routes';
 import type { Role } from '@/features/auth';
 import {
   AccountStatusToggle,
+  CredentialsModal,
   NidLookupField,
   NidLookupResultCard,
   RoleMultiSelect,
@@ -32,7 +33,7 @@ import {
 import { useUserCreate } from '../../api/users.queries';
 import type { OfficerCandidate } from '../../api/nid-lookup.service';
 import { validateRoleSet } from '../../lib/role-rules';
-import type { AccountStatus, UserType } from '@/shared/types/domain';
+import type { AccountStatus, SystemUser, UserType } from '@/shared/types/domain';
 import { isValidationError } from '@/shared/lib/errors';
 import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 
@@ -76,6 +77,7 @@ export function UserCreatePage(): JSX.Element {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [rolesError, setRolesError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [createdUser, setCreatedUser] = useState<SystemUser | null>(null);
 
   const merged: OfficerCandidate | null = form.candidate
     ? { ...form.candidate, ...form.overrides }
@@ -153,7 +155,8 @@ export function UserCreatePage(): JSX.Element {
         accountStatus: form.accountStatus,
       });
       toast(`تم إنشاء حساب ${created.fullArabicName}`, 'success');
-      navigate(ROUTES.admin.userDetail(created.id));
+      /* Reveal the one-time MOI credentials before leaving the page. */
+      setCreatedUser(created);
     } catch (err) {
       const message = validationMessage(err, 'تعذر إنشاء الحساب');
       if (isValidationError(err)) {
@@ -299,6 +302,18 @@ export function UserCreatePage(): JSX.Element {
           </Button>
         </div>
       </form>
+
+      {createdUser && (
+        <CredentialsModal
+          open
+          title="تم إنشاء الحساب · بيانات الدخول"
+          username={createdUser.generatedUsername ?? createdUser.username ?? ''}
+          password={createdUser.temporaryPassword ?? ''}
+          doneLabel="الانتقال إلى الحساب"
+          onDone={() => navigate(ROUTES.admin.userDetail(createdUser.id))}
+          onClose={() => navigate(ROUTES.admin.userDetail(createdUser.id))}
+        />
+      )}
     </>
   );
 }

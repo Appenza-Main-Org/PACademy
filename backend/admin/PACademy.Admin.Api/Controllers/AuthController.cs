@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.Identity;
+using PACademy.Admin.Api.Modules.Identity.Moi;
 using PACademy.Shared.Audit;
 using PACademy.Shared.Contracts;
 
@@ -10,7 +11,7 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) : ControllerBase
+public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink, IMoiAuthGateway moi) : ControllerBase
 {
     private const string BootstrapAdminNationalId = "28705260103619";
     private const string BootstrapAdminMobile = "01119441198";
@@ -93,6 +94,109 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
                 Message: "هذا الحساب غير مصرح له بالدخول إلى التطبيق المحدد"));
         }
 
+        var authUser = await BuildAuthUserAsync(userRow, ct);
+        await EmitLoginAuditAsync(userRow, authUser["roleLabel"]?.GetValue<string>() ?? userRow.Role, ct);
+        return Ok(authUser);
+    }
+
+    /* ── MOI SSO (two-call protocol) ────────────────────────────────────
+     * Until the ministry API is live, IMoiAuthGateway resolves to the
+     * SimulatedMoiAuthGateway. Flip `Moi:Mode=real` to use the real one —
+     * these endpoints and the orchestration below stay identical. */
+
+    /// <summary>STEP 1 — exchange username + password for an access token (form-urlencoded).</summary>
+    [HttpPost("api/auth/moi/token")]
+    public async Task<ActionResult<object>> MoiToken([FromForm] string? userName, [FromForm] string? password, CancellationToken ct)
+    {
+        try
+        {
+            var token = await moi.GetAccessTokenAsync(userName ?? "", password ?? "", ct);
+            return Ok(new
+            {
+                access_token = token.AccessToken,
+                token_type = token.TokenType,
+                expires_in = token.ExpiresIn
+            });
+        }
+        catch (MoiAuthException ex)
+        {
+            return Unauthorized(new ApiErrorEnvelope("AUTH_INVALID", Message: ex.Message));
+        }
+    }
+
+    /// <summary>STEP 2 — exchange email + access token for the member's real data.</summary>
+    [HttpPost("api/auth/moi/validate-login")]
+    public async Task<ActionResult<object>> MoiValidateLogin([FromBody] JsonObject body, CancellationToken ct)
+    {
+        var email = ReadString(body, "Email") ?? ReadString(body, "email") ?? "";
+        var token = ReadString(body, "Token") ?? ReadString(body, "token") ?? BearerToken(HttpContext) ?? "";
+        try
+        {
+            var result = await moi.ValidateLoginAsync(email, token, ct);
+            return Ok(result);
+        }
+        catch (MoiAuthException ex)
+        {
+            return Unauthorized(new ApiErrorEnvelope("AUTH_INVALID", Message: ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Combined MOI sign-in used by the SPA: runs STEP 1 + STEP 2 server-side and
+    /// returns the app AuthUser (role/apps/permissions + app session token).
+    /// </summary>
+    [HttpPost("api/auth/moi/login")]
+    public async Task<ActionResult<object>> MoiLogin([FromBody] JsonObject body, CancellationToken ct)
+    {
+        var userName = ReadString(body, "userName") ?? ReadString(body, "username");
+        var password = ReadString(body, "password");
+        var requestedRole = ReadString(body, "role");
+        if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(password))
+        {
+            return UnprocessableEntity(new ApiErrorEnvelope(
+                ErrorCodes.ValidationFailed,
+                Errors: new Dictionary<string, string[]> { ["userName"] = ["اسم المستخدم وكلمة المرور مطلوبان"] },
+                Message: "تحقق من البيانات المدخلة"));
+        }
+
+        try
+        {
+            var token = await moi.GetAccessTokenAsync(userName, password, ct);
+            var userRow = await FindUserByUsernameAsync(userName, ct)
+                ?? throw new MoiAuthException("بيانات الدخول غير صحيحة");
+            var userJson = IdentityJson.Parse(userRow.PayloadJson);
+            var email = IdentityJson.StringProp(userJson, "email") ?? "";
+
+            var validation = await moi.ValidateLoginAsync(email, token.AccessToken, ct);
+            if (validation.Status != 1 || validation.Data is null)
+            {
+                return Unauthorized(new ApiErrorEnvelope("AUTH_INVALID", Message: validation.Message ?? "بيانات الدخول غير صحيحة"));
+            }
+
+            if (userRow.AccountStatus != "active")
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorEnvelope(
+                    "ACCOUNT_INACTIVE", Message: "الحساب غير مفعّل", Payload: new { userId = userRow.Id }));
+            }
+            if (!string.IsNullOrWhiteSpace(requestedRole) && requestedRole != userRow.Role)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorEnvelope(
+                    ErrorCodes.Forbidden, Message: "هذا الحساب غير مصرح له بالدخول إلى التطبيق المحدد"));
+            }
+
+            var authUser = await BuildAuthUserAsync(userRow, ct);
+            await EmitLoginAuditAsync(userRow, authUser["roleLabel"]?.GetValue<string>() ?? userRow.Role, ct);
+            return Ok(authUser);
+        }
+        catch (MoiAuthException ex)
+        {
+            return Unauthorized(new ApiErrorEnvelope("AUTH_INVALID", Message: ex.Message));
+        }
+    }
+
+    private async Task<JsonObject> BuildAuthUserAsync(UserEntity userRow, CancellationToken ct)
+    {
+        var userJson = IdentityJson.Parse(userRow.PayloadJson);
         var roleRow = await db.Roles.AsNoTracking().FirstOrDefaultAsync(x => x.Key == userRow.Role, ct)
             ?? throw new EntityNotFoundException("الدور غير موجود");
         var roleJson = IdentityJson.Parse(roleRow.PayloadJson);
@@ -101,28 +205,47 @@ public sealed class AuthController(IIdentityDbContext db, IAuditSink auditSink) 
             ["id"] = userRow.Id,
             ["name"] = userRow.FullArabicName,
             ["nationalId"] = userRow.NationalId,
-            ["mobileNumber"] = registeredMobile,
+            ["mobileNumber"] = IdentityJson.StringProp(userJson, "mobileNumber"),
             ["email"] = IdentityJson.StringProp(userJson, "email"),
             ["officerCode"] = IdentityJson.StringProp(userJson, "officerCode"),
+            ["username"] = IdentityJson.StringProp(userJson, "username"),
             ["role"] = roleRow.Key,
             ["roleLabel"] = roleRow.LabelAr,
             ["apps"] = roleJson["apps"]?.DeepClone() ?? new JsonArray("admin"),
             ["permissions"] = roleJson["permissions"]?.DeepClone() ?? new JsonArray(),
+            ["mustChangePassword"] = userJson["mustChangePassword"]?.DeepClone() ?? false,
             ["loggedInAt"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
-        var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{userRow.Id}:{roleRow.Key}:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}"));
-        authUser["token"] = token;
+        authUser["token"] = Convert.ToBase64String(
+            Encoding.UTF8.GetBytes($"{userRow.Id}:{roleRow.Key}:{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}"));
+        return authUser;
+    }
+
+    private async Task EmitLoginAuditAsync(UserEntity userRow, string roleLabel, CancellationToken ct)
+    {
         await auditSink.EmitAsync(new AuditEntry(
-            $"AUD-AUTH-{Guid.NewGuid():N}",
-            "auth",
-            "login",
-            "users",
-            userRow.Id,
-            userRow.Id,
-            userRow.FullArabicName,
-            $"تسجيل دخول · {roleRow.LabelAr}",
-            DateTimeOffset.UtcNow), ct);
-        return Ok(authUser);
+            $"AUD-AUTH-{Guid.NewGuid():N}", "auth", "login", "users",
+            userRow.Id, userRow.Id, userRow.FullArabicName,
+            $"تسجيل دخول · {roleLabel}", DateTimeOffset.UtcNow), ct);
+    }
+
+    private async Task<UserEntity?> FindUserByUsernameAsync(string userName, CancellationToken ct)
+    {
+        var normalized = userName.Trim();
+        var users = await db.Users.AsNoTracking().ToListAsync(ct);
+        return users.FirstOrDefault(u =>
+            string.Equals(
+                IdentityJson.StringProp(IdentityJson.Parse(u.PayloadJson), "username"),
+                normalized,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string? BearerToken(HttpContext context)
+    {
+        var header = context.Request.Headers.Authorization.ToString();
+        return header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            ? header["Bearer ".Length..].Trim()
+            : null;
     }
 
     [HttpPost("api/auth/login/request-otp")]

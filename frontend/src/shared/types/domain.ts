@@ -351,6 +351,17 @@ export interface SystemUser {
   /** ISO timestamps — admin audit and ordering. */
   createdAt: string;
   updatedAt: string;
+  /* ── MOI sign-in credentials ── */
+  /** MOI sign-in username (generated on create). */
+  username?: string;
+  /** Whether the account holds an admin-issued temporary password. */
+  mustChangePassword?: boolean;
+  /** True once the account has a password set. */
+  hasCredentials?: boolean;
+  /** Transient — returned ONLY in the create response so the UI can reveal it. */
+  generatedUsername?: string;
+  /** Transient — plaintext one-time password, present only right after create/reset. */
+  temporaryPassword?: string;
 }
 
 /* ── Dynamic roles + permission matrix — Gap C (admin-gaps) ──────────── */

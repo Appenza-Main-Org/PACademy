@@ -69,4 +69,37 @@ public sealed class UsersController(UsersService service) : ControllerBase
     [HttpGet("{id}/activity")]
     public async Task<ActionResult<IReadOnlyList<object>>> Activity(string id, CancellationToken ct) =>
         Ok(await service.ActivityAsync(id, ct));
+
+    /// <summary>Self-service password change. The caller may only change their own password.</summary>
+    [HttpPost("{id}/password")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<object>> ChangePassword(string id, [FromBody] JsonObject body, CancellationToken ct)
+    {
+        var actor = AuthActor.FromRequest(Request);
+        if (actor is null)
+            return Unauthorized(new ApiErrorEnvelope("UNAUTHENTICATED", Message: "يتطلب تسجيل الدخول"));
+        if (!actor.IsSuperAdmin && !string.Equals(actor.UserId, id, StringComparison.Ordinal))
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorEnvelope(
+                "FORBIDDEN", Message: "لا يمكنك تغيير كلمة مرور مستخدم آخر"));
+
+        var currentPassword = body["currentPassword"]?.GetValue<string>() ?? "";
+        var newPassword = body["newPassword"]?.GetValue<string>() ?? "";
+        return Ok(await service.ChangePasswordAsync(id, currentPassword, newPassword, ct));
+    }
+
+    /// <summary>Super-admin password reset. Sets the supplied password or generates one.</summary>
+    [HttpPost("{id}/password/reset")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<object>> ResetPassword(string id, [FromBody] JsonObject? body, CancellationToken ct)
+    {
+        var actor = AuthActor.FromRequest(Request);
+        if (actor is null)
+            return Unauthorized(new ApiErrorEnvelope("UNAUTHENTICATED", Message: "يتطلب تسجيل الدخول"));
+        if (!actor.IsSuperAdmin)
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorEnvelope(
+                "FORBIDDEN", Message: "إعادة تعيين كلمة المرور مقصورة على مدير النظام الرئيسي"));
+
+        var newPassword = body?["newPassword"]?.GetValue<string>();
+        return Ok(await service.ResetPasswordAsync(id, newPassword, ct));
+    }
 }

@@ -3,17 +3,21 @@
  * Source: Tasks/KARASA_GAPS.md §10.4.C.
  */
 
-import { IdCard, Mail, Phone, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { IdCard, KeyRound, Mail, Phone, ShieldCheck } from 'lucide-react';
 import {
   Avatar,
   Badge,
+  Button,
   Card,
   CardHeader,
+  Input,
   PageHeader,
+  toast,
 } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { AppShell } from '@/app/layouts/AppShell';
-import { useAuthStore } from '@/features/auth';
+import { useAuthStore, useChangeOwnPassword } from '@/features/auth';
 
 export function ProfilePage(): JSX.Element {
   const user = useAuthStore((s) => s.user);
@@ -68,8 +72,104 @@ export function ProfilePage(): JSX.Element {
             </div>
           </Card>
         </div>
+
+        <div className="mt-5">
+          <ChangePasswordCard userId={user.id} mustChange={user.mustChangePassword} />
+        </div>
       </CenteredShell>
     </AppShell>
+  );
+}
+
+interface ChangePasswordCardProps {
+  userId: string;
+  mustChange?: boolean;
+}
+
+function ChangePasswordCard({ userId, mustChange }: ChangePasswordCardProps): JSX.Element {
+  const changePassword = useChangeOwnPassword();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = (e: React.FormEvent): void => {
+    e.preventDefault();
+    setError(null);
+    if (newPassword.length < 8) {
+      setError('كلمة المرور الجديدة يجب ألا تقل عن 8 أحرف');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('تأكيد كلمة المرور غير مطابق');
+      return;
+    }
+    changePassword.mutate(
+      { userId, currentPassword, newPassword },
+      {
+        onSuccess: () => {
+          toast('تم تغيير كلمة المرور بنجاح', 'success');
+          setCurrentPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+        },
+        onError: (err) => setError(err.message || 'تعذّر تغيير كلمة المرور'),
+      },
+    );
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="تغيير كلمة المرور"
+        subtitle="كلمة مرور الدخول إلى المنظومة عبر بوابة وزارة الداخلية"
+      />
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        {mustChange && (
+          <div className="flex items-start gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 px-4 py-3 text-2xs text-gold-700">
+            <KeyRound size={14} className="mt-0.5 flex-shrink-0" />
+            <span>تستخدم حالياً كلمة مرور مؤقتة صادرة من الإدارة. يُنصح بتغييرها الآن.</span>
+          </div>
+        )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Input
+            label="كلمة المرور الحالية"
+            type="password"
+            dir="ltr"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+          />
+          <Input
+            label="كلمة المرور الجديدة"
+            type="password"
+            dir="ltr"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+          <Input
+            label="تأكيد كلمة المرور"
+            type="password"
+            dir="ltr"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            error={error ?? undefined}
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            variant="primary"
+            isLoading={changePassword.isPending}
+            disabled={!currentPassword || !newPassword || !confirmPassword}
+          >
+            تحديث كلمة المرور
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 }
 

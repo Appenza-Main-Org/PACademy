@@ -21,12 +21,14 @@ import {
   buttonClassName,
   toast,
 } from '@/shared/components';
+import { RotateCcw } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
 import { ROLE_DEFINITIONS, type Role, useAuthStore } from '@/features/auth';
 import { useAuditLog } from '@/features/audit';
 import { isStatusChangeBlockedError } from '@/shared/lib/errors';
 import { date as fmtDate } from '@/shared/lib/format';
-import { useSetUserAccountStatus, useUser } from '../../api/users.queries';
+import { useSetUserAccountStatus, useUser, useUserResetPassword } from '../../api/users.queries';
+import { CredentialsModal } from '../../components/users';
 import type { AccountStatus } from '@/shared/types/domain';
 
 const USER_TYPE_LABEL: Record<'officer' | 'civilian' | 'contractor', string> = {
@@ -43,11 +45,28 @@ export function UserDetailPage(): JSX.Element {
   const currentUser = useAuthStore((s) => s.user);
   const { data: auditEntries } = useAuditLog({ entityType: 'SystemUser', limit: 50 });
   const [confirmToggle, setConfirmToggle] = useState<AccountStatus | null>(null);
+  const resetPassword = useUserResetPassword();
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const [resetResult, setResetResult] = useState<{ username: string; password: string } | null>(null);
 
   const recentAudit = useMemo(
     () => (auditEntries ?? []).filter((e) => e.entityId === id).slice(0, 10),
     [auditEntries, id],
   );
+
+  const handleResetPassword = (): void => {
+    if (!user) return;
+    resetPassword.mutate(
+      { id: user.id },
+      {
+        onSuccess: (res) => {
+          setResetResult({ username: res.username, password: res.temporaryPassword });
+          toast('تم إعادة تعيين كلمة المرور', 'success');
+        },
+        onError: () => toast('تعذّر إعادة تعيين كلمة المرور', 'danger'),
+      },
+    );
+  };
 
   if (isLoading) return <LoadingState variant="detail" />;
   if (error) return <ErrorState error={error as Error} />;
@@ -106,6 +125,16 @@ export function UserDetailPage(): JSX.Element {
             <Link to={ROUTES.admin.users} className={buttonClassName({ variant: 'ghost' })}>
               <ArrowRight size={16} className="rtl:rotate-180" /> العودة إلى القائمة
             </Link>
+            {isSuperAdmin && (
+              <Button
+                variant="ghost"
+                leadingIcon={<RotateCcw size={14} strokeWidth={1.75} />}
+                onClick={handleResetPassword}
+                isLoading={resetPassword.isPending}
+              >
+                إعادة تعيين كلمة المرور
+              </Button>
+            )}
             <Link
               to={ROUTES.admin.userEdit(user.id)}
               className={buttonClassName({ variant: 'primary' })}
@@ -180,6 +209,7 @@ export function UserDetailPage(): JSX.Element {
             <DefRow label="الاسم رباعياً" value={user.fullArabicName} />
             <DefRow label="الرقم القومى" value={user.nationalId} mono />
             <DefRow label="رمز الضابط / الكود" value={user.officerCode} mono />
+            <DefRow label="اسم المستخدم" value={user.username ?? '—'} mono />
             <DefRow label="رقم المحمول" value={user.mobileNumber} mono />
             <DefRow label="الفئة" value={USER_TYPE_LABEL[user.userType]} />
             <DefRow label="تاريخ الإنشاء" value={fmtDate(user.createdAt, 'full')} />
@@ -238,6 +268,16 @@ export function UserDetailPage(): JSX.Element {
         onAction={performToggle}
         isActionLoading={setStatusMut.isPending}
       />
+
+      {resetResult && (
+        <CredentialsModal
+          open
+          title="بيانات الدخول الجديدة"
+          username={resetResult.username}
+          password={resetResult.password}
+          onClose={() => setResetResult(null)}
+        />
+      )}
     </>
   );
 }

@@ -3,9 +3,9 @@ using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Identity;
+using PACademy.Admin.Api.Modules.Identity.Moi;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Modules.Reports;
-using PACademy.Admin.Api.Modules.Settings;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Modules.LookupsAdmin.Infrastructure;
 using PACademy.Modules.ApplicantGradesAdmin.Infrastructure;
@@ -61,12 +61,12 @@ builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
 // LookupsModule registers AdminDbContext first; all others resolve it.
 builder.Services.AddLookupsModule(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
+builder.Services.AddMoiAuthModule(builder.Configuration);
 builder.Services.AddAdminRecordsModule(builder.Configuration);
 builder.Services.AddAdmissionsModule(builder.Configuration);
 builder.Services.AddAuditModule();
 builder.Services.AddExamsModule(builder.Configuration);
 builder.Services.AddReportsModule(builder.Configuration);
-builder.Services.AddSettingsModule(builder.Configuration);
 
 /* ── External legacy modules (separate DbContexts + migrations) ─── */
 builder.Services.AddLookupsAdminModule(builder.Configuration);

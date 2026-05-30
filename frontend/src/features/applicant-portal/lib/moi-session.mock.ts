@@ -8,6 +8,14 @@
  * is the deterministic stand-in for the session payload until the real MOI
  * SSO link lands in production.
  *
+ * MOI two-step alignment: this module is the applicant-side mirror of the
+ * ministry protocol used by the admin login (POST /token → POST
+ * /api/moiMemberApi/ValidateLogin). For the applicant the service receives the
+ * identity hand-off and resolves the member data by national id; `lookupMoiSession`
+ * is that ValidateLogin-equivalent. Flip `*_USE_APPLICANT_AUTH_BACKEND=true` to
+ * call the real endpoint — the call site does not change. See the admin
+ * SimulatedMoiAuthGateway for the username/password variant of the same flow.
+ *
  * Values are static (no rng()) so the same render always shows the same
  * applicant — matching the seed=42 determinism guarantee in
  * `shared/mock-data/seed.ts`. The applicant id is the same APP-2026000

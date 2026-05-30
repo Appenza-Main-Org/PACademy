@@ -73,3 +73,10 @@ export function useOfficerLookup(): ReturnType<
       authService.lookupOfficer(input),
   });
 }
+
+export function useChangeOwnPassword() {
+  return useMutation({
+    mutationFn: (input: { userId: string; currentPassword: string; newPassword: string }) =>
+      authService.changePassword(input),
+  });
+}
