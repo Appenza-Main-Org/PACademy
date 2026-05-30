@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   usersService,
+  type ChangePasswordInput,
   type CreateUserPayload,
   type SetAccountStatusInput,
   type UpdateUserPayload,
@@ -120,6 +121,21 @@ export function useUserDeactivate() {
 
 export function useUserReset2fa() {
   return useMutation({ mutationFn: (id: string) => usersService.reset2fa(id) });
+}
+
+export function useUserChangePassword() {
+  return useMutation({
+    mutationFn: (input: ChangePasswordInput) => usersService.changePassword(input),
+  });
+}
+
+export function useUserResetPassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, newPassword }: { id: string; newPassword?: string }) =>
+      usersService.resetPassword(id, newPassword),
+    onSuccess: (_data, { id }) => qc.invalidateQueries({ queryKey: usersKeys.detail(id) }),
+  });
 }
 
 export function useUserBulkAssign() {

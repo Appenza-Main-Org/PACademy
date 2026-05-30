@@ -28,7 +28,8 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
             throw new ConflictException("USER_NID_DUPLICATE", "يوجد مستخدم مسجل بهذا الرقم القومي");
 
         var now = DateTimeOffset.UtcNow;
-        var id = $"U-{(await db.Users.CountAsync(ct) + 1).ToString().PadLeft(3, '0')}";
+        var sequence = await db.Users.CountAsync(ct) + 1;
+        var id = $"U-{sequence.ToString().PadLeft(3, '0')}";
         var obj = IdentityJson.Clone(payload);
         obj["id"] = id;
         obj["fullArabicName"] = fullArabicName;
@@ -38,6 +39,17 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
         obj["status"] = IdentityJson.StringProp(obj, "accountStatus") == "inactive" ? "suspended" : "active";
         obj["createdAt"] = now;
         obj["updatedAt"] = now;
+
+        /* Generate the MOI sign-in credentials (username + one-time password).
+         * The plaintext password is returned once below and never persisted. */
+        var roleKey = IdentityJson.StringProp(obj, "role") ?? "committee_user";
+        var username = await GenerateUniqueUsernameAsync(roleKey, sequence, ct);
+        var temporaryPassword = IdentityCredentials.GeneratePassword();
+        obj["username"] = username;
+        obj["passwordHash"] = IdentityCredentials.HashPassword(temporaryPassword);
+        obj["passwordUpdatedAt"] = now;
+        obj["mustChangePassword"] = true;
+        obj.Remove("passwordSalt");
 
         var entity = new UserEntity
         {
@@ -54,7 +66,88 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
         db.Users.Add(entity);
         await db.SaveChangesAsync(ct);
         await EmitAuditAsync("create", entity.Id, $"إنشاء مستخدم · {entity.FullArabicName}", ct);
-        return ToJson(entity);
+        var created = ToJson(entity);
+        created["username"] = username;
+        created["generatedUsername"] = username;
+        created["temporaryPassword"] = temporaryPassword;
+        return created;
+    }
+
+    /// <summary>Self-service password change: verify the current password, set a new one.</summary>
+    public async Task<object> ChangePasswordAsync(string id, string currentPassword, string newPassword, CancellationToken ct)
+    {
+        ValidateNewPassword(newPassword);
+        var entity = await db.Users.FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new EntityNotFoundException("المستخدم غير موجود");
+        var obj = IdentityJson.Parse(entity.PayloadJson);
+        var storedHash = IdentityJson.StringProp(obj, "passwordHash");
+        if (!IdentityCredentials.VerifyPassword(currentPassword, storedHash))
+            throw new ConflictException("PASSWORD_MISMATCH", "كلمة المرور الحالية غير صحيحة");
+
+        ApplyNewPassword(entity, obj, newPassword, mustChange: false);
+        await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("password_change", id, $"تغيير كلمة المرور · {entity.FullArabicName}", ct);
+        return new { ok = true, changedAt = DateTimeOffset.UtcNow };
+    }
+
+    /// <summary>Super-admin reset: set the supplied password, or generate a new one when omitted.</summary>
+    public async Task<object> ResetPasswordAsync(string id, string? newPassword, CancellationToken ct)
+    {
+        var entity = await db.Users.FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new EntityNotFoundException("المستخدم غير موجود");
+        var obj = IdentityJson.Parse(entity.PayloadJson);
+
+        var generated = string.IsNullOrWhiteSpace(newPassword);
+        var password = generated ? IdentityCredentials.GeneratePassword() : newPassword!.Trim();
+        ValidateNewPassword(password);
+
+        /* Ensure the account has a username even if it predates credential support. */
+        var username = IdentityJson.StringProp(obj, "username");
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            username = await GenerateUniqueUsernameAsync(entity.Role, 0, ct);
+            obj["username"] = username;
+        }
+
+        ApplyNewPassword(entity, obj, password, mustChange: true);
+        await db.SaveChangesAsync(ct);
+        await EmitAuditAsync("password_reset", id, $"إعادة تعيين كلمة المرور · {entity.FullArabicName}", ct);
+        return new { ok = true, username, temporaryPassword = password, generated };
+    }
+
+    private static void ApplyNewPassword(UserEntity entity, JsonObject obj, string password, bool mustChange)
+    {
+        var now = DateTimeOffset.UtcNow;
+        obj["passwordHash"] = IdentityCredentials.HashPassword(password);
+        obj["passwordUpdatedAt"] = now;
+        obj["mustChangePassword"] = mustChange;
+        obj.Remove("passwordSalt");
+        obj["updatedAt"] = now;
+        entity.PayloadJson = obj.ToJsonString(IdentityJson.Options);
+        entity.UpdatedAt = now;
+    }
+
+    private static void ValidateNewPassword(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password) || password.Trim().Length < 8)
+            throw new ConflictException("PASSWORD_WEAK", "كلمة المرور يجب ألا تقل عن 8 أحرف");
+    }
+
+    private async Task<string> GenerateUniqueUsernameAsync(string roleKey, int sequence, CancellationToken ct)
+    {
+        var existing = (await db.Users.AsNoTracking().ToListAsync(ct))
+            .Select(u => IdentityJson.StringProp(IdentityJson.Parse(u.PayloadJson), "username"))
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!.ToLowerInvariant())
+            .ToHashSet();
+
+        var seed = IdentityCredentials.BuildUsernameSeed(roleKey, sequence);
+        var candidate = seed;
+        while (existing.Contains(candidate.ToLowerInvariant()))
+        {
+            candidate = IdentityCredentials.Randomize(seed);
+        }
+        return candidate;
     }
 
     public async Task<JsonObject> UpdateAsync(string id, JsonObject patch, CancellationToken ct)
@@ -196,8 +289,24 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
         obj["active"] = normalizedStatus == "active";
         obj["status"] = normalizedStatus;
         obj["updatedAt"] = DateTimeOffset.UtcNow;
+        PreserveCredentials(entity, obj);
         entity.PayloadJson = obj.ToJsonString(IdentityJson.Options);
         entity.UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /* `obj` is often sourced from the sanitized `ToJson` (no hash). Re-inject the
+     * credential fields from the row's current payload so a profile/status/role
+     * update never wipes the stored password. */
+    private static void PreserveCredentials(UserEntity entity, JsonObject obj)
+    {
+        var existing = IdentityJson.Parse(entity.PayloadJson);
+        foreach (var key in new[] { "username", "passwordHash", "passwordUpdatedAt", "mustChangePassword" })
+        {
+            if (obj[key] is null && existing[key] is not null)
+            {
+                obj[key] = existing[key]!.DeepClone();
+            }
+        }
     }
 
     private static string RequiredFullArabicName(JsonObject obj)
@@ -224,7 +333,8 @@ public sealed class UsersService(IIdentityDbContext db, IAuditSink auditSink)
         obj["createdAt"] = entity.CreatedAt;
         obj["updatedAt"] = entity.UpdatedAt;
         obj["rowVersion"] = Convert.ToBase64String(entity.RowVersion);
-        return obj;
+        obj["hasCredentials"] = !string.IsNullOrWhiteSpace(IdentityJson.StringProp(obj, "passwordHash"));
+        return IdentityCredentials.Sanitize(obj);
     }
 
     private async Task EmitAuditAsync(string action, string entityId, string details, CancellationToken ct)

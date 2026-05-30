@@ -7,6 +7,7 @@ export type { Permission, Role, RoleDefinition } from './rbac';
 export type { AuthUser, LoginCredentials } from './types';
 export {
   authKeys,
+  useChangeOwnPassword,
   useLockPolicy,
   useLockedUsers,
   useLoginMutation,
