@@ -20,15 +20,19 @@
  *   POST /applicant/parents/approve                 → { approvedAt }     (MOI اعتماد gate)
  *   POST /applicant/exam-date                       → { date }           (MOI first-exam-date pick)
  *   GET  /applicant/follow-up/:applicantId         → followUp pipeline
+ *   GET  /api/lookups/tests?isActive=true          → active test names/order
+ *   GET  /api/cycles/:cycleId/categories/:categoryId/exam-plan
+ *                                                  → configured cycle tests
  *   POST /applicant/attendance-card/:applicantId   → { ok, draft }
  *   POST /applicant/acquaintance-doc/:applicantId  → { ok, draft }
  */
 
 import { MOCK } from '@/shared/mock-data';
-import { applicantApiClient, isBackendEnabled } from '@/shared/lib/api-client';
+import { adminApiClient, applicantApiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import type { ApplicantDraft, ExamSlot, PaymentTransaction } from '@/shared/types/domain';
 import { useAuthStore } from '@/features/auth';
+import type { FollowUpExam, FollowUpExamPlan } from '../lib/follow-up-exam-plan';
 
 /* When the real backend is active the applicantId must be the GUID
  * issued by auth/verify, not the mock "APP-2026000" constant that pages
@@ -43,6 +47,59 @@ let DRAFT: ApplicantDraft = { ...MOCK.sampleApplicantDraft };
 const SLOTS: ExamSlot[] = MOCK.examSlots.map((s) => ({ ...s }));
 let TXN_COUNTER = 1;
 const PAYMENTS: PaymentTransaction[] = [];
+
+interface TestLookupRow {
+  code: string;
+  name: string;
+  isActive: boolean;
+  order: number;
+  required: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+interface BackendExamPlan {
+  id: string;
+  cycleId: string;
+  categoryId: string;
+  exams: {
+    examId: string;
+    order: number;
+    isRequired: boolean;
+  }[];
+}
+
+function metadataString(row: TestLookupRow, key: string): string | undefined {
+  const value = row.metadata?.[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function lookupRowToFollowUpExam(row: TestLookupRow): FollowUpExam {
+  return {
+    id: row.code,
+    key: metadataString(row, 'key') ?? row.code,
+    nameAr: row.name,
+  };
+}
+
+function mockConfiguredPlan(cycleId: string, categoryKey: string): FollowUpExamPlan {
+  const existing = MOCK.cycleCategoryExamPlans.find(
+    (plan) => plan.cycleId === cycleId && plan.categoryId === categoryKey,
+  );
+  if (existing) return existing;
+
+  return {
+    id: `mock-${cycleId}-${categoryKey}-exam-plan`,
+    cycleId,
+    categoryId: categoryKey,
+    exams: MOCK.academyExams
+      .filter((exam) => exam.isQualifying)
+      .map((exam, index) => ({
+        examId: exam.id,
+        order: index + 1,
+        isRequired: true,
+      })),
+  };
+}
 
 export const applicantPortalService = {
   async initiateAuth(nationalId: string, phoneNumber: string): Promise<{ sessionId: string; expiresAt: number }> {
@@ -230,6 +287,39 @@ export const applicantPortalService = {
     }
     await simulateLatency(200, 400);
     return DRAFT.followUp ?? MOCK.sampleApplicantDraft.followUp!;
+  },
+
+  async getConfiguredFollowUpExamPlan(input: {
+    cycleId: string;
+    categoryKey: string;
+  }): Promise<{ exams: FollowUpExam[]; plan: FollowUpExamPlan }> {
+    if (isBackendEnabled()) {
+      const [lookupRows, plan] = await Promise.all([
+        adminApiClient.get<TestLookupRow[]>('/api/lookups/tests', {
+          query: { isActive: true },
+        }),
+        adminApiClient.get<BackendExamPlan>(
+          `/api/cycles/${encodeURIComponent(input.cycleId)}/categories/${encodeURIComponent(input.categoryKey)}/exam-plan`,
+        ),
+      ]);
+      return {
+        exams: lookupRows
+          .slice()
+          .sort((a, b) => a.order - b.order)
+          .map(lookupRowToFollowUpExam),
+        plan,
+      };
+    }
+
+    await simulateLatency(150, 300);
+    return {
+      exams: MOCK.academyExams.map((exam) => ({
+        id: exam.id,
+        key: exam.key,
+        nameAr: exam.nameAr,
+      })),
+      plan: mockConfiguredPlan(input.cycleId, input.categoryKey),
+    };
   },
 
   /** Admin-only: update one or more exam result fields for a given applicant.

@@ -8,6 +8,8 @@ export const apKeys = {
   draft: (applicantId: string) => [...apKeys.all, 'draft', applicantId] as const,
   slots: () => [...apKeys.all, 'exam-slots'] as const,
   followUp: (applicantId: string) => [...apKeys.all, 'follow-up', applicantId] as const,
+  followUpExamPlan: (cycleId: string, categoryKey: string) =>
+    [...apKeys.all, 'follow-up-exam-plan', cycleId, categoryKey] as const,
   moi: (nid: string) => [...apKeys.all, 'moi', nid] as const,
 };
 
@@ -85,6 +87,19 @@ export function useFollowUp(applicantId: string) {
   return useQuery({
     queryKey: apKeys.followUp(applicantId),
     queryFn: () => applicantPortalService.getFollowUp(applicantId),
+    ...noServerStateCacheOptions,
+  });
+}
+
+export function useFollowUpExamPlan(cycleId: string | null, categoryKey: string | null) {
+  return useQuery({
+    queryKey: apKeys.followUpExamPlan(cycleId ?? '', categoryKey ?? ''),
+    queryFn: () =>
+      applicantPortalService.getConfiguredFollowUpExamPlan({
+        cycleId: cycleId!,
+        categoryKey: categoryKey!,
+      }),
+    enabled: Boolean(cycleId && categoryKey),
     ...noServerStateCacheOptions,
   });
 }

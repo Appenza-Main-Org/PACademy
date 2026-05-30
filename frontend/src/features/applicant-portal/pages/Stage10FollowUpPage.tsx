@@ -16,67 +16,50 @@ import {
   Badge,
   Card,
   DataTable,
+  EmptyState,
+  ErrorState,
   LoadingState,
 } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components';
-import { useDraft, useFollowUp } from '../api/applicantPortal.queries';
+import { useDraft, useFollowUp, useFollowUpExamPlan } from '../api/applicantPortal.queries';
 import { date as fmtDate } from '@/shared/lib/format';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
+import {
+  buildFollowUpRows,
+  type FollowUpResultRow,
+} from '../lib/follow-up-exam-plan';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 
-interface ResultRow {
-  serial: number;
-  testLabel: string;
-  date: string | null;
-  result: { label: string; tone: 'success' | 'danger' | 'warning' | 'neutral' };
-  notes: string;
-}
-
-const TEST_LABELS: Record<string, string> = {
-  capacities: 'قدرات',
-  traits: 'السمات',
-  sports: 'لياقة بدنية',
-  medical: 'القومسيون الطبي',
-  investigation: 'التحريات',
-  finalResult: 'النتيجة النهائية',
-};
-
-const RESULT_TONE: Record<string, ResultRow['result']> = {
-  passed: { label: 'اجتاز', tone: 'success' },
-  failed: { label: 'لم يجتز', tone: 'danger' },
-  'in-progress': { label: 'جارٍ', tone: 'warning' },
-  'awaiting-approval': { label: 'بانتظار الاعتماد', tone: 'warning' },
-  pending: { label: 'لم يبدأ', tone: 'neutral' },
-};
-
 export function Stage10FollowUpPage(): JSX.Element {
-  const { data: draft } = useDraft(APPLICANT_ID);
-  const { data: followUp, isLoading } = useFollowUp(APPLICANT_ID);
+  const { data: draft, isLoading: isDraftLoading, error: draftError, refetch: refetchDraft } = useDraft(APPLICANT_ID);
+  const { data: followUp, isLoading: isFollowUpLoading, error: followUpError, refetch: refetchFollowUp } = useFollowUp(APPLICANT_ID);
   const firstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
+  const selectedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
+  const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  const cycleId = draft?.cycleId ?? selectedCycleId ?? null;
+  const categoryKey = draft?.categoryKey ?? selectedCategoryKey ?? 'officers_general';
+  const examPlanQuery = useFollowUpExamPlan(cycleId, categoryKey);
 
-  const rows: readonly ResultRow[] = useMemo(() => {
-    if (!followUp) return [];
+  const rows: readonly FollowUpResultRow[] = useMemo(() => {
     const examDate = firstExamDate ?? draft?.examSlot?.date ?? null;
-    const order = ['capacities', 'traits', 'sports', 'medical', 'investigation', 'finalResult'] as const;
-    return order.map((key, i) => ({
-      serial: i + 1,
-      testLabel: TEST_LABELS[key] ?? key,
-      date: key === 'capacities' ? examDate : null,
-      result: RESULT_TONE[followUp[key as keyof typeof followUp] ?? 'pending'] ?? RESULT_TONE.pending!,
-      notes: '—',
-    }));
-  }, [followUp, firstExamDate, draft?.examSlot?.date]);
+    return buildFollowUpRows({
+      plan: examPlanQuery.data?.plan,
+      exams: examPlanQuery.data?.exams ?? [],
+      followUp: followUp ?? null,
+      firstExamDate: examDate,
+    });
+  }, [examPlanQuery.data, followUp, firstExamDate, draft?.examSlot?.date]);
 
-  const columns: DataTableColumn<ResultRow>[] = useMemo(
+  const columns: DataTableColumn<FollowUpResultRow>[] = useMemo(
     () => [
-      { key: 'serial', label: 'م', width: '56px', render: (r: ResultRow) => <span className="font-numeric tnum">{r.serial}</span> },
-      { key: 'testLabel', label: 'الإختبار', render: (r: ResultRow) => r.testLabel },
+      { key: 'serial', label: 'م', width: '56px', render: (r: FollowUpResultRow) => <span className="font-numeric tnum">{r.serial}</span> },
+      { key: 'testLabel', label: 'الإختبار', render: (r: FollowUpResultRow) => r.testLabel },
       {
         key: 'date',
         label: 'التاريخ',
-        render: (r: ResultRow) =>
+        render: (r: FollowUpResultRow) =>
           r.date ? (
             <span className="font-numeric tnum" dir="ltr">
               {fmtDate(r.date, 'short')}
@@ -88,14 +71,29 @@ export function Stage10FollowUpPage(): JSX.Element {
       {
         key: 'result',
         label: 'النتيجة',
-        render: (r: ResultRow) => <Badge tone={r.result.tone}>{r.result.label}</Badge>,
+        render: (r: FollowUpResultRow) => <Badge tone={r.result.tone}>{r.result.label}</Badge>,
       },
-      { key: 'notes', label: 'ملاحظات', render: (r: ResultRow) => <span className="text-ink-500">{r.notes}</span> },
+      { key: 'notes', label: 'ملاحظات', render: (r: FollowUpResultRow) => <span className="text-ink-500">{r.notes}</span> },
     ],
     [],
   );
 
-  if (isLoading || !followUp) return <LoadingState variant="table" rows={6} />;
+  const error = draftError ?? followUpError ?? examPlanQuery.error;
+  if (isDraftLoading || isFollowUpLoading || examPlanQuery.isLoading) {
+    return <LoadingState variant="table" rows={6} />;
+  }
+  if (error) {
+    return (
+      <ErrorState
+        error={error as Error}
+        onRetry={() => {
+          void refetchDraft();
+          void refetchFollowUp();
+          void examPlanQuery.refetch();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -111,11 +109,19 @@ export function Stage10FollowUpPage(): JSX.Element {
             </p>
           </div>
         </header>
-        <DataTable<ResultRow>
-          data={[...rows]}
-          columns={columns}
-          rowKey={(r: ResultRow) => `result-${r.serial}`}
-        />
+        {rows.length > 0 ? (
+          <DataTable<FollowUpResultRow>
+            data={[...rows]}
+            columns={columns}
+            rowKey={(r: FollowUpResultRow) => `result-${r.serial}`}
+          />
+        ) : (
+          <EmptyState
+            variant="generic"
+            title="لم يتم تفعيل اختبارات لهذه الفئة"
+            description="ستظهر هنا الاختبارات بعد اعتماد إعدادات دورة القبول من لوحة الإدارة."
+          />
+        )}
       </Card>
     </div>
   );
