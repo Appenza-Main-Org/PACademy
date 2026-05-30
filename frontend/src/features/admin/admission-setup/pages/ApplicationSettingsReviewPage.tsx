@@ -38,6 +38,25 @@ const PRINT_CSS = `
     max-height: none !important;
     overflow: visible !important;
   }
+  /* The AppShell renders a staff <header> + sidebar <aside> inside a CSS
+   * grid body (md:grid-cols-[256px_1fr]). The global print.css hides chrome
+   * via legacy .header/.sidebar class selectors this React shell never uses,
+   * so the chrome leaks into print and the 256px sidebar track squeezes the
+   * wide landscape tables off the page edge (cropped output). Hide the chrome
+   * and collapse the grid wrapper so <main> prints full-bleed — same model
+   * the /architecture handout uses. */
+  body:has(.app-settings-review-print) .page-enter > header,
+  body:has(.app-settings-review-print) .page-enter aside {
+    display: none !important;
+  }
+  body:has(.app-settings-review-print) .page-enter > div:has(> main) {
+    display: block !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  body:has(.app-settings-review-print) main {
+    padding: 0 !important;
+  }
   .app-settings-review-print-header {
     display: block !important;
     margin: 0 0 6mm !important;
