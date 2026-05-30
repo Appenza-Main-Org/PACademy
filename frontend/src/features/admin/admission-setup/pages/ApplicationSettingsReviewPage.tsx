@@ -89,8 +89,27 @@ const PRINT_CSS = `
     line-height: 1.5;
     color: var(--ink-600);
   }
-  .app-settings-review-print table { font-size: 8pt; }
-  .app-settings-review-print thead th { font-size: 7.5pt; }
+  /* The year/spec tables carry an on-screen min-width (≈1680px for the
+   * 15-column university grid) + per-cell min-widths so the horizontal
+   * scroller works. On paper that's far wider than A4 landscape (~1032px
+   * printable) and bled off the page edge — the real crop. Drop the
+   * min-widths and pin the table to the page width with a fixed layout so
+   * every column wraps in place instead of overflowing. */
+  .app-settings-review-print table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+    font-size: 7pt;
+  }
+  .app-settings-review-print thead th { font-size: 6.5pt; }
+  .app-settings-review-print th,
+  .app-settings-review-print td {
+    min-width: 0 !important;
+    padding: 2px 3px !important;
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
   .app-settings-review-print .overflow-x-auto { overflow: visible !important; }
   .app-settings-review-print [data-print-card] {
     display: block !important;
