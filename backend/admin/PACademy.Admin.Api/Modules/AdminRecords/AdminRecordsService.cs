@@ -15,6 +15,7 @@ public sealed class AdminRecordsService(
     IAdminRecordDocumentsDbContext? documentsDb = null)
 {
     private const int DefaultBulkBatchSize = 5000;
+    private const string DocumentTableName = "admin_record_documents";
 
     private IAdminRecordDocumentsDbContext DocumentsDb =>
         documentsDb ?? (db as IAdminRecordDocumentsDbContext)
@@ -771,8 +772,8 @@ public sealed class AdminRecordsService(
 
     public async Task<JsonObject> SingletonAsync(string module, JsonObject fallback, CancellationToken ct)
     {
-        var row = await GetDocumentEntityAsync(module, module, tracking: false, ct);
-        return row is null ? fallback : ToJson(row);
+        var row = await GetDocumentAsync(module, module, ct);
+        return row ?? fallback;
     }
 
     public async Task<object> DistributionAsync(string field, CancellationToken ct)
@@ -802,19 +803,33 @@ public sealed class AdminRecordsService(
 
     private async Task<IReadOnlyList<JsonObject>> ListDocumentAsync(string module, CancellationToken ct)
     {
-        await DrainLegacyAdminRecordsAsync(module, ct);
-        var rows = await DocumentsDb.AdminRecordDocuments
-            .AsNoTracking()
-            .Where(x => x.Module == module)
-            .OrderBy(x => x.Id)
-            .ToListAsync(ct);
-        return rows.Select(ToJson).ToList();
+        try
+        {
+            await DrainLegacyAdminRecordsAsync(module, ct);
+            var rows = await DocumentsDb.AdminRecordDocuments
+                .AsNoTracking()
+                .Where(x => x.Module == module)
+                .OrderBy(x => x.Id)
+                .ToListAsync(ct);
+            return rows.Select(ToJson).ToList();
+        }
+        catch (Exception ex) when (IsMissingDocumentStore(ex))
+        {
+            return await ListLegacyAdminRecordsAsync(module, ct);
+        }
     }
 
     private async Task<JsonObject?> GetDocumentAsync(string module, string id, CancellationToken ct)
     {
-        var row = await GetDocumentEntityAsync(module, id, tracking: false, ct);
-        return row is null ? null : ToJson(row);
+        try
+        {
+            var row = await GetDocumentEntityAsync(module, id, tracking: false, ct);
+            return row is null ? null : ToJson(row);
+        }
+        catch (Exception ex) when (IsMissingDocumentStore(ex))
+        {
+            return await GetLegacyAdminRecordAsync(module, id, ct);
+        }
     }
 
     private async Task<AdminRecordDocumentEntity?> GetDocumentEntityAsync(
@@ -834,24 +849,60 @@ public sealed class AdminRecordsService(
         var rows = await db.AdminRecords.Where(x => x.Module == module).ToListAsync(ct);
         if (rows.Count == 0) return;
 
-        foreach (var row in rows)
+        try
         {
-            var exists = await DocumentsDb.AdminRecordDocuments
-                .AnyAsync(x => x.Module == row.Module && x.Id == row.Id, ct);
-            if (!exists)
+            foreach (var row in rows)
             {
-                DocumentsDb.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
+                var exists = await DocumentsDb.AdminRecordDocuments
+                    .AnyAsync(x => x.Module == row.Module && x.Id == row.Id, ct);
+                if (!exists)
                 {
-                    Module = row.Module,
-                    Id = row.Id,
-                    PayloadJson = row.PayloadJson,
-                    CreatedAt = row.CreatedAt,
-                    UpdatedAt = row.UpdatedAt
-                });
+                    DocumentsDb.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
+                    {
+                        Module = row.Module,
+                        Id = row.Id,
+                        PayloadJson = row.PayloadJson,
+                        CreatedAt = row.CreatedAt,
+                        UpdatedAt = row.UpdatedAt
+                    });
+                }
             }
+            db.AdminRecords.RemoveRange(rows);
+            await DocumentsDb.SaveChangesAsync(ct);
         }
-        db.AdminRecords.RemoveRange(rows);
-        await DocumentsDb.SaveChangesAsync(ct);
+        catch (Exception ex) when (IsMissingDocumentStore(ex))
+        {
+            /* Production can temporarily run before the compatibility document
+             * table migration. Keep reads on the legacy table instead of
+             * failing the public applicant eligibility endpoint. */
+        }
+    }
+
+    private async Task<IReadOnlyList<JsonObject>> ListLegacyAdminRecordsAsync(string module, CancellationToken ct)
+    {
+        var rows = await db.AdminRecords
+            .AsNoTracking()
+            .Where(x => x.Module == module)
+            .OrderBy(x => x.Id)
+            .ToListAsync(ct);
+        return rows.Select(ToJson).ToList();
+    }
+
+    private async Task<JsonObject?> GetLegacyAdminRecordAsync(string module, string id, CancellationToken ct)
+    {
+        var row = await db.AdminRecords
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Module == module && x.Id == id, ct);
+        return row is null ? null : ToJson(row);
+    }
+
+    private static bool IsMissingDocumentStore(Exception ex)
+    {
+        if (ex is not DbException dbException) return false;
+        var message = dbException.Message;
+        return message.Contains(DocumentTableName, StringComparison.OrdinalIgnoreCase)
+            && (message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("no such table", StringComparison.OrdinalIgnoreCase));
     }
 
     private static JsonObject ToJson(AdminRecordDocumentEntity entity)
