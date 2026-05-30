@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Lookups;
+using PACademy.Admin.Api.Modules.Settings;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class OperationalAdminController(AdminRecordsService records, ILookupsDbContext lookups) : ControllerBase
+public sealed class OperationalAdminController(AdminRecordsService records, ILookupsDbContext lookups, GeneralSettingsService generalSettings) : ControllerBase
 {
     [HttpGet("api/committee-instances")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> CommitteeInstances(CancellationToken ct)
@@ -158,17 +159,9 @@ public sealed class OperationalAdminController(AdminRecordsService records, ILoo
 
     [HttpGet("api/admin/settings")]
     public async Task<ActionResult<JsonObject>> Settings(CancellationToken ct) =>
-        Ok(await records.SingletonAsync("settings", new JsonObject(), ct));
+        Ok(await generalSettings.GetAsync(ct));
 
     [HttpPatch("api/admin/settings")]
-    public async Task<ActionResult<JsonObject>> UpdateSettings([FromBody] JsonObject body, CancellationToken ct)
-    {
-        var current = await records.SingletonAsync("settings", new JsonObject(), ct);
-        foreach (var item in body)
-        {
-            current[item.Key] = item.Value?.DeepClone();
-        }
-
-        return Ok(await records.UpsertAsync("settings", "settings", current, ct));
-    }
+    public async Task<ActionResult<JsonObject>> UpdateSettings([FromBody] JsonObject body, CancellationToken ct) =>
+        Ok(await generalSettings.UpdateAsync(body, ct));
 }
