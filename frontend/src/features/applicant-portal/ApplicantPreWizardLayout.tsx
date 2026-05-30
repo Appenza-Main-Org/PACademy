@@ -17,6 +17,7 @@ import { LogOut } from 'lucide-react';
 import { KhayameyaStripe, LogoMark, Pattern, toast } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useLogoutMutation } from '@/features/auth';
+import { ApplicantAvailabilityGate } from './components/ApplicantAvailabilityGate';
 
 export function ApplicantPreWizardLayout(): JSX.Element {
   const navigate = useNavigate();
@@ -71,7 +72,9 @@ export function ApplicantPreWizardLayout(): JSX.Element {
       <Pattern variant="tessellation-8" tile={96} opacity={0.04} />
 
       <main className="relative mx-auto w-full max-w-[1200px] flex-1 px-6 pb-12 pt-6">
-        <Outlet />
+        <ApplicantAvailabilityGate>
+          <Outlet />
+        </ApplicantAvailabilityGate>
       </main>
     </div>
   );

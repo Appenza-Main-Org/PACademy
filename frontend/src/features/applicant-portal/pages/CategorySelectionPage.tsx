@@ -856,21 +856,34 @@ function IdentityDrawerBody(): JSX.Element {
       {/* <div className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
         هذه البيانات مستوردة من بوابة وزارة الداخلية ولا يمكن تعديلها من داخل البوابة.
       </div> */}
-      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {rows.map((r) => (
-          <div
-            key={r.label}
-            className="flex flex-col gap-1 rounded-md border border-border-subtle bg-ink-50/70 px-3.5 py-3"
-          >
-            <dt className="text-xs font-medium leading-none text-ink-500">{r.label}</dt>
-            <dd
-              className={cn('text-sm font-bold leading-snug text-ink-900', r.mono && 'font-mono')}
-              dir={r.ltr ? 'ltr' : undefined}
+      <dl className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map((r) => {
+          const hasValue = Boolean(r.value && r.value.replace(/—/g, '').trim());
+          return (
+            <div
+              key={r.label}
+              className="flex flex-col gap-1.5 rounded-lg border border-border-default bg-ink-50/60 px-4 py-3"
             >
-              {r.value}
-            </dd>
-          </div>
-        ))}
+              <dt className="text-xs font-medium text-ink-500">{r.label}</dt>
+              <dd
+                className={cn(
+                  'text-sm font-bold text-ink-900',
+                  r.mono && 'font-mono tracking-tight',
+                )}
+              >
+                {hasValue ? (
+                  r.ltr ? (
+                    <bdi dir="ltr">{r.value}</bdi>
+                  ) : (
+                    r.value
+                  )
+                ) : (
+                  <span className="font-normal text-ink-400">—</span>
+                )}
+              </dd>
+            </div>
+          );
+        })}
       </dl>
     </div>
   );
@@ -895,28 +908,36 @@ function EligibilityDrawerBody({
       {categories.length === 0 ? (
         <p className="text-sm text-ink-600">لا توجد شروط معروضة في الوقت الحالي.</p>
       ) : (
-        <ul className="grid gap-4 lg:grid-cols-2">
+        <ul className="grid gap-4 md:grid-cols-2">
           {categories.map((c) => (
-            <li key={c.key} className="rounded-md border border-border-subtle bg-ink-50/55 p-4">
-              <p className="mb-3 inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
-                <ShieldCheck size={16} strokeWidth={1.75} className="text-teal-700" aria-hidden />
+            <li
+              key={c.key}
+              className="flex flex-col rounded-lg border border-border-default bg-surface-card p-4"
+            >
+              <p className="mb-3 inline-flex items-center gap-2 border-b border-border-subtle pb-3 font-ar-display text-md font-bold text-ink-900">
+                <ShieldCheck size={17} strokeWidth={1.75} className="shrink-0 text-teal-700" aria-hidden />
                 {c.labelAr}
               </p>
-              <ul className="grid gap-2 text-sm leading-relaxed text-ink-800 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <ul className="flex flex-col gap-2.5 text-sm leading-relaxed text-ink-800">
                 {summariseConditions(c.conditions).map((line, i) => (
                   <li key={`${c.key}-c-${i}`} className="flex items-start gap-2.5">
-                    <CheckCircle2 size={15} strokeWidth={1.75} className="mt-0.5 shrink-0 text-teal-700" aria-hidden />
+                    <CheckCircle2
+                      size={16}
+                      strokeWidth={2}
+                      className="mt-px shrink-0 text-teal-600"
+                      aria-hidden
+                    />
                     <span>{line}</span>
                   </li>
                 ))}
               </ul>
               {c.conditions.freeText.length > 0 && (
-                <ul className="mt-3 space-y-1.5 border-t border-border-subtle pt-3 text-xs leading-relaxed text-ink-600">
+                <ul className="mt-3 flex flex-col gap-1.5 border-t border-border-subtle pt-3 text-xs leading-relaxed text-ink-600">
                   {c.conditions.freeText.map((t, i) => (
-                    <li key={`${c.key}-f-${i}`} className="flex items-start gap-2">
+                    <li key={`${c.key}-f-${i}`} className="flex items-start gap-2.5">
                       <span
                         aria-hidden
-                        className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-ink-300"
+                        className="mt-[7px] inline-block h-1 w-1 shrink-0 rounded-full bg-ink-300"
                       />
                       <span>{t}</span>
                     </li>
@@ -958,11 +979,14 @@ function SpecializationsDrawerBody({
     return <p className="text-sm text-ink-600">لا توجد تخصصات معروضة في الوقت الحالي.</p>;
   }
   return (
-    <ul className="grid gap-4 lg:grid-cols-2">
+    <ul className="grid gap-4 md:grid-cols-2">
       {categories.map((c) => (
-        <li key={c.key} className="rounded-md border border-border-subtle bg-ink-50/55 p-4">
-          <p className="mb-3 inline-flex items-center gap-2 font-ar-display text-md font-bold text-ink-900">
-            <GraduationCap size={16} strokeWidth={1.75} className="text-teal-700" aria-hidden />
+        <li
+          key={c.key}
+          className="flex flex-col rounded-lg border border-border-default bg-surface-card p-4"
+        >
+          <p className="mb-3 inline-flex items-center gap-2 border-b border-border-subtle pb-3 font-ar-display text-md font-bold text-ink-900">
+            <GraduationCap size={17} strokeWidth={1.75} className="shrink-0 text-teal-700" aria-hidden />
             {c.labelAr}
           </p>
           {c.requiredTests.length === 0 ? (

@@ -91,13 +91,17 @@ export interface ApplicantCategoryEligibility {
 }
 
 function isCycleLive(cycle: AdmissionCycle): boolean {
-  /* Treat `'open'` (legacy) and `'active'` as live; require status to be one
-   * of those AND the time window to bracket now. */
-  if (cycle.status !== 'open' && cycle.status !== 'active') return false;
-  const now = Date.now();
-  const open = new Date(cycle.openDate).getTime();
-  const close = new Date(cycle.closeDate).getTime();
-  return now >= open && now <= close;
+  /* Applicant gate (2026-05-30): a cycle accepts applications only when it is
+   * BOTH flagged active (نشطة → `isActive`) AND approved-and-published
+   * (اعتماد ونشر → status `'open'`/`'active'`/`'extended'`). A draft cycle
+   * (إدراج ومراجعة) or an inactive published cycle is closed to applicants —
+   * the portal shows «التقديم غير متاح في الوقت الحالي» until both hold. */
+  if (cycle.isActive !== true) return false;
+  return (
+    cycle.status === 'open' ||
+    cycle.status === 'active' ||
+    cycle.status === 'extended'
+  );
 }
 
 /** All currently-active cycles, ordered earliest-closing first. */
@@ -199,14 +203,30 @@ export const categoriesPublicService = {
       }));
   },
 
-  /** All currently-active cycles. May be empty. */
+  /** All cycles currently open to applicants (active + approved & published).
+   *  May be empty — drives the «التقديم غير متاح» gate. On the backend the
+   *  single active cycle is exposed publicly at GET /api/cycles/active; we
+   *  still re-check the gate predicate client-side so a draft/unpublished
+   *  active cycle never opens the portal. */
   async getActiveCycles(): Promise<AdmissionCycle[]> {
+    if (isBackendEnabled()) {
+      const active = await adminApiClient
+        .get<AdmissionCycle | null>('/api/cycles/active')
+        .catch(() => null);
+      return active && isCycleLive(active) ? [active] : [];
+    }
     await simulateLatency(80, 200);
     return getActiveCycles();
   },
 
-  /** First active cycle (kept for legacy single-cycle consumers). */
+  /** First cycle open to applicants (kept for legacy single-cycle consumers). */
   async getActiveCycle(): Promise<AdmissionCycle | null> {
+    if (isBackendEnabled()) {
+      const active = await adminApiClient
+        .get<AdmissionCycle | null>('/api/cycles/active')
+        .catch(() => null);
+      return active && isCycleLive(active) ? active : null;
+    }
     await simulateLatency(80, 200);
     return resolveCycle();
   },
