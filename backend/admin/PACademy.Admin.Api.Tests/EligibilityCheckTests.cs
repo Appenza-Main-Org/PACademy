@@ -183,7 +183,7 @@ public sealed class EligibilityCheckTests
         ["kind"] = stage
     };
 
-    private static EligibilityLookupSnapshot Lookups(params JsonObject[] rows) => new(rows);
+    private static EligibilityLookupSnapshot Lookups(params JsonObject[] rows) => new(rows, []);
 
     private static JsonObject SchoolLookup(string code, string certificateType, string source) => new()
     {
