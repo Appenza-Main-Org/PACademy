@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,64 @@ namespace PACademy.Admin.Api.Tests;
 
 public sealed class ApplicantsControllerTests
 {
+    [Fact]
+    public void ApplicantManagementProjectionPromotesSubmittedPortalDraft()
+    {
+        var createdAt = new DateTimeOffset(2026, 5, 31, 8, 30, 0, TimeSpan.Zero);
+        var identity = new ApplicantIdentityProjection(
+            TableId: "5d4f19bc-6b75-41da-bfe2-3374ecde9a4f",
+            AdminRecordId: null,
+            NationalId: "30412180103456",
+            PhoneNumber: "01012345678",
+            FullName: "أحمد محمد إبراهيم سعد",
+            Email: "ahmed.ibrahim.saad@gmail.com",
+            Gender: "male",
+            Religion: "مسلم",
+            BirthDate: "2004-12-18",
+            BirthGovernorate: "القاهرة",
+            BirthDistrict: "مدينة نصر",
+            CertificateType: null,
+            Source: "moi",
+            CreatedAt: createdAt,
+            UpdatedAt: createdAt);
+        var draft = new JsonObject
+        {
+            ["applicantId"] = identity.TableId,
+            ["furthestStage"] = 8,
+            ["profile"] = new JsonObject
+            {
+                ["nationalId"] = identity.NationalId,
+                ["fullName"] = identity.FullName,
+                ["mobile"] = identity.PhoneNumber,
+                ["email"] = identity.Email,
+                ["religion"] = identity.Religion,
+                ["maritalStatus"] = "أعزب",
+                ["certificateName"] = "الثانوية العامة"
+            },
+            ["payment"] = new JsonObject
+            {
+                ["refNumber"] = "PAY-2026-0001"
+            },
+            ["examSlot"] = new JsonObject
+            {
+                ["date"] = "2026-06-10",
+                ["time"] = "08:00",
+                ["location"] = "كلية الشرطة - مبنى الاختبارات - القاهرة"
+            }
+        };
+
+        var row = AdminRecordsService.ProjectApplicantManagementPayload(draft, identity);
+
+        Assert.Equal(identity.TableId, row["id"]?.GetValue<string>());
+        Assert.Equal(identity.NationalId, row["nationalId"]?.GetValue<string>());
+        Assert.Equal("under-review", row["status"]?.GetValue<string>());
+        Assert.Equal(8, row["stage"]?.GetValue<int>());
+        Assert.Equal("حجز الاختبارات", row["stageLabel"]?.GetValue<string>());
+        Assert.Equal("paid", row["paymentStatus"]?.GetValue<string>());
+        Assert.Equal("2026-06-10", row["firstExamDate"]?.GetValue<string>());
+        Assert.Equal("applicant-portal", row["source"]?.GetValue<string>());
+    }
+
     [Fact]
     public async Task EligibleCategoriesReturnsConflictWhenNoActiveCycleExists()
     {

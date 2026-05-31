@@ -8,6 +8,23 @@ using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.AdminRecords;
 
+internal sealed record ApplicantIdentityProjection(
+    string TableId,
+    string? AdminRecordId,
+    string? NationalId,
+    string? PhoneNumber,
+    string? FullName,
+    string? Email,
+    string? Gender,
+    string? Religion,
+    string? BirthDate,
+    string? BirthGovernorate,
+    string? BirthDistrict,
+    string? CertificateType,
+    string? Source,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt);
+
 public sealed class AdminRecordsService(
     IAdminRecordsDbContext db,
     IHttpContextAccessor httpContextAccessor,
@@ -16,6 +33,22 @@ public sealed class AdminRecordsService(
 {
     private const int DefaultBulkBatchSize = 5000;
     private const string DocumentTableName = "admin_record_documents";
+    private const string ApplicantsIdentityTableName = "[applicants]";
+
+    private static readonly IReadOnlyDictionary<int, string> ApplicantStageLabels = new Dictionary<int, string>
+    {
+        [1] = "تسجيل أولي",
+        [2] = "التحقق من البيانات",
+        [3] = "استكمال البيانات الشخصية",
+        [4] = "بيانات المؤهل",
+        [5] = "المراجعة",
+        [6] = "سداد الرسوم",
+        [7] = "بيانات الأسرة",
+        [8] = "حجز الاختبارات",
+        [9] = "طباعة بطاقة التردد",
+        [10] = "المتابعة",
+        [11] = "وثائق التعارف"
+    };
 
     private IAdminRecordDocumentsDbContext DocumentsDb =>
         documentsDb ?? (db as IAdminRecordDocumentsDbContext)
@@ -992,10 +1025,69 @@ public sealed class AdminRecordsService(
         {
             "applicants" => await QueryApplicantRowsAsync(
                 $"""
-                SELECT [payload_json], [id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender],
+                SELECT [payload_json], [table_id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender],
                        [religion], [date_of_birth], [birth_governorate], [birth_district], [certificate_type], [source],
                        [created_at], [updated_at]
-                FROM {AdminDbContext.QualifiedTableName("applicants")}
+                FROM (
+                    SELECT
+                        draft.[payload_json],
+                        CONVERT(nvarchar(64), applicant.[id]) AS [table_id],
+                        NULL AS [admin_record_id],
+                        applicant.[national_id],
+                        applicant.[phone_number],
+                        applicant.[full_name],
+                        applicant.[email],
+                        applicant.[gender],
+                        applicant.[religion],
+                        applicant.[date_of_birth],
+                        applicant.[birth_governorate],
+                        applicant.[birth_district],
+                        COALESCE(
+                            JSON_VALUE(draft.[payload_json], '$.profile.certificateName'),
+                            JSON_VALUE(draft.[payload_json], '$.profile.education.certificateName'),
+                            JSON_VALUE(draft.[payload_json], '$.profile.qualificationLevel')
+                        ) AS [certificate_type],
+                        N'applicant-portal' AS [source],
+                        applicant.[created_at],
+                        draft.[updated_at]
+                    FROM {ApplicantsIdentityTableName} applicant
+                    INNER JOIN {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
+                        ON draft.[type] = N'draft'
+                       AND draft.[applicant_id] = CONVERT(nvarchar(64), applicant.[id])
+                    WHERE COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 8
+
+                    UNION ALL
+
+                    SELECT
+                        document.[payload_json],
+                        COALESCE(CONVERT(nvarchar(64), applicant.[id]), document.[id]) AS [table_id],
+                        document.[id] AS [admin_record_id],
+                        COALESCE(applicant.[national_id], JSON_VALUE(document.[payload_json], '$.nationalId')) AS [national_id],
+                        COALESCE(applicant.[phone_number], JSON_VALUE(document.[payload_json], '$.phoneNumber'), JSON_VALUE(document.[payload_json], '$.contact.mobilePhone')) AS [phone_number],
+                        COALESCE(applicant.[full_name], JSON_VALUE(document.[payload_json], '$.name')) AS [full_name],
+                        COALESCE(applicant.[email], JSON_VALUE(document.[payload_json], '$.email'), JSON_VALUE(document.[payload_json], '$.contact.email')) AS [email],
+                        COALESCE(applicant.[gender], JSON_VALUE(document.[payload_json], '$.gender')) AS [gender],
+                        COALESCE(applicant.[religion], JSON_VALUE(document.[payload_json], '$.religion')) AS [religion],
+                        COALESCE(applicant.[date_of_birth], TRY_CONVERT(date, JSON_VALUE(document.[payload_json], '$.birthDate')), TRY_CONVERT(date, JSON_VALUE(document.[payload_json], '$.dateOfBirth'))) AS [date_of_birth],
+                        COALESCE(applicant.[birth_governorate], JSON_VALUE(document.[payload_json], '$.birthGovernorate'), JSON_VALUE(document.[payload_json], '$.currentAddress.governorate'), JSON_VALUE(document.[payload_json], '$.governorate')) AS [birth_governorate],
+                        COALESCE(applicant.[birth_district], JSON_VALUE(document.[payload_json], '$.birthDistrict'), JSON_VALUE(document.[payload_json], '$.currentAddress.city'), JSON_VALUE(document.[payload_json], '$.city')) AS [birth_district],
+                        COALESCE(JSON_VALUE(document.[payload_json], '$.certType'), JSON_VALUE(document.[payload_json], '$.education.certificateName')) AS [certificate_type],
+                        COALESCE(applicant.[source], JSON_VALUE(document.[payload_json], '$.source'), N'api') AS [source],
+                        COALESCE(applicant.[created_at], document.[created_at]) AS [created_at],
+                        document.[updated_at]
+                    FROM {AdminDbContext.QualifiedTableName("admin_record_documents")} document
+                    LEFT JOIN {ApplicantsIdentityTableName} applicant
+                        ON applicant.[national_id] = JSON_VALUE(document.[payload_json], '$.nationalId')
+                        OR CONVERT(nvarchar(64), applicant.[id]) = document.[id]
+                    WHERE document.[module] = N'applicants'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
+                          WHERE draft.[type] = N'draft'
+                            AND draft.[applicant_id] = CONVERT(nvarchar(64), applicant.[id])
+                            AND COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 8
+                      )
+                ) rows
                 ORDER BY [national_id]
                 """,
                 ct),
@@ -1031,11 +1123,63 @@ public sealed class AdminRecordsService(
         {
             "applicants" => await QueryApplicantRowsAsync(
                 $"""
-                SELECT TOP (1) [payload_json], [id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender],
+                SELECT TOP (1) [payload_json], [table_id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender],
                        [religion], [date_of_birth], [birth_governorate], [birth_district], [certificate_type], [source],
                        [created_at], [updated_at]
-                FROM {AdminDbContext.QualifiedTableName("applicants")}
-                WHERE [admin_record_id] = @id OR [national_id] = @id OR CONVERT(nvarchar(64), [id]) = @id
+                FROM (
+                    SELECT
+                        draft.[payload_json],
+                        CONVERT(nvarchar(64), applicant.[id]) AS [table_id],
+                        NULL AS [admin_record_id],
+                        applicant.[national_id],
+                        applicant.[phone_number],
+                        applicant.[full_name],
+                        applicant.[email],
+                        applicant.[gender],
+                        applicant.[religion],
+                        applicant.[date_of_birth],
+                        applicant.[birth_governorate],
+                        applicant.[birth_district],
+                        COALESCE(
+                            JSON_VALUE(draft.[payload_json], '$.profile.certificateName'),
+                            JSON_VALUE(draft.[payload_json], '$.profile.education.certificateName'),
+                            JSON_VALUE(draft.[payload_json], '$.profile.qualificationLevel')
+                        ) AS [certificate_type],
+                        N'applicant-portal' AS [source],
+                        applicant.[created_at],
+                        draft.[updated_at]
+                    FROM {ApplicantsIdentityTableName} applicant
+                    INNER JOIN {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
+                        ON draft.[type] = N'draft'
+                       AND draft.[applicant_id] = CONVERT(nvarchar(64), applicant.[id])
+                    WHERE COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 8
+
+                    UNION ALL
+
+                    SELECT
+                        document.[payload_json],
+                        COALESCE(CONVERT(nvarchar(64), applicant.[id]), document.[id]) AS [table_id],
+                        document.[id] AS [admin_record_id],
+                        COALESCE(applicant.[national_id], JSON_VALUE(document.[payload_json], '$.nationalId')) AS [national_id],
+                        COALESCE(applicant.[phone_number], JSON_VALUE(document.[payload_json], '$.phoneNumber'), JSON_VALUE(document.[payload_json], '$.contact.mobilePhone')) AS [phone_number],
+                        COALESCE(applicant.[full_name], JSON_VALUE(document.[payload_json], '$.name')) AS [full_name],
+                        COALESCE(applicant.[email], JSON_VALUE(document.[payload_json], '$.email'), JSON_VALUE(document.[payload_json], '$.contact.email')) AS [email],
+                        COALESCE(applicant.[gender], JSON_VALUE(document.[payload_json], '$.gender')) AS [gender],
+                        COALESCE(applicant.[religion], JSON_VALUE(document.[payload_json], '$.religion')) AS [religion],
+                        COALESCE(applicant.[date_of_birth], TRY_CONVERT(date, JSON_VALUE(document.[payload_json], '$.birthDate')), TRY_CONVERT(date, JSON_VALUE(document.[payload_json], '$.dateOfBirth'))) AS [date_of_birth],
+                        COALESCE(applicant.[birth_governorate], JSON_VALUE(document.[payload_json], '$.birthGovernorate'), JSON_VALUE(document.[payload_json], '$.currentAddress.governorate'), JSON_VALUE(document.[payload_json], '$.governorate')) AS [birth_governorate],
+                        COALESCE(applicant.[birth_district], JSON_VALUE(document.[payload_json], '$.birthDistrict'), JSON_VALUE(document.[payload_json], '$.currentAddress.city'), JSON_VALUE(document.[payload_json], '$.city')) AS [birth_district],
+                        COALESCE(JSON_VALUE(document.[payload_json], '$.certType'), JSON_VALUE(document.[payload_json], '$.education.certificateName')) AS [certificate_type],
+                        COALESCE(applicant.[source], JSON_VALUE(document.[payload_json], '$.source'), N'api') AS [source],
+                        COALESCE(applicant.[created_at], document.[created_at]) AS [created_at],
+                        document.[updated_at]
+                    FROM {AdminDbContext.QualifiedTableName("admin_record_documents")} document
+                    LEFT JOIN {ApplicantsIdentityTableName} applicant
+                        ON applicant.[national_id] = JSON_VALUE(document.[payload_json], '$.nationalId')
+                        OR CONVERT(nvarchar(64), applicant.[id]) = document.[id]
+                    WHERE document.[module] = N'applicants'
+                ) rows
+                WHERE [admin_record_id] = @id OR [national_id] = @id OR [table_id] = @id
                 """,
                 ct,
                 command => AddParameter(command, "@id", id)),
@@ -1178,11 +1322,10 @@ public sealed class AdminRecordsService(
                     ?? AdminRecordJson.StringProp(payload, "nid")
                     ?? throw new ConflictException("INVALID_APPLICANT_NID", "لا يمكن حفظ متقدم بدون رقم قومي");
                 await ExecuteNormalizedNonQueryAsync($"""
-                    MERGE {AdminDbContext.QualifiedTableName("applicants")} WITH (HOLDLOCK) AS target
+                    MERGE {ApplicantsIdentityTableName} WITH (HOLDLOCK) AS target
                     USING (SELECT @nationalId AS [national_id]) AS source
                     ON target.[national_id] COLLATE DATABASE_DEFAULT = source.[national_id] COLLATE DATABASE_DEFAULT
                     WHEN MATCHED THEN UPDATE SET
-                        [admin_record_id] = @id,
                         [phone_number] = COALESCE(JSON_VALUE(@payload, '$.phoneNumber'), JSON_VALUE(@payload, '$.phone_number'), JSON_VALUE(@payload, '$.contact.mobilePhone'), [phone_number]),
                         [full_name] = COALESCE(JSON_VALUE(@payload, '$.name'), [full_name]),
                         [email] = COALESCE(JSON_VALUE(@payload, '$.email'), JSON_VALUE(@payload, '$.contact.email'), [email]),
@@ -1191,18 +1334,16 @@ public sealed class AdminRecordsService(
                         [date_of_birth] = COALESCE(TRY_CONVERT(date, JSON_VALUE(@payload, '$.birthDate')), TRY_CONVERT(date, JSON_VALUE(@payload, '$.dateOfBirth')), [date_of_birth]),
                         [birth_governorate] = COALESCE(JSON_VALUE(@payload, '$.birthGovernorate'), JSON_VALUE(@payload, '$.currentAddress.governorate'), JSON_VALUE(@payload, '$.governorate'), [birth_governorate]),
                         [birth_district] = COALESCE(JSON_VALUE(@payload, '$.birthDistrict'), JSON_VALUE(@payload, '$.currentAddress.city'), JSON_VALUE(@payload, '$.city'), [birth_district]),
-                        [certificate_type] = COALESCE(JSON_VALUE(@payload, '$.certType'), JSON_VALUE(@payload, '$.education.certificateName'), [certificate_type]),
-                        [payload_json] = @payload,
                         [updated_at] = @now
                     WHEN NOT MATCHED THEN INSERT
-                        ([id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender], [religion], [date_of_birth], [birth_governorate], [birth_district], [certificate_type], [source], [payload_json], [created_at], [updated_at])
+                        ([id], [national_id], [phone_number], [full_name], [email], [gender], [religion], [date_of_birth], [birth_governorate], [birth_district], [source], [created_at], [updated_at])
                     VALUES
-                        (NEWID(), @id, @nationalId, COALESCE(JSON_VALUE(@payload, '$.phoneNumber'), JSON_VALUE(@payload, '$.phone_number'), JSON_VALUE(@payload, '$.contact.mobilePhone')),
+                        (NEWID(), @nationalId, COALESCE(JSON_VALUE(@payload, '$.phoneNumber'), JSON_VALUE(@payload, '$.phone_number'), JSON_VALUE(@payload, '$.contact.mobilePhone')),
                          JSON_VALUE(@payload, '$.name'), COALESCE(JSON_VALUE(@payload, '$.email'), JSON_VALUE(@payload, '$.contact.email')), JSON_VALUE(@payload, '$.gender'),
                          JSON_VALUE(@payload, '$.religion'), COALESCE(TRY_CONVERT(date, JSON_VALUE(@payload, '$.birthDate')), TRY_CONVERT(date, JSON_VALUE(@payload, '$.dateOfBirth'))),
                          COALESCE(JSON_VALUE(@payload, '$.birthGovernorate'), JSON_VALUE(@payload, '$.currentAddress.governorate'), JSON_VALUE(@payload, '$.governorate')),
                          COALESCE(JSON_VALUE(@payload, '$.birthDistrict'), JSON_VALUE(@payload, '$.currentAddress.city'), JSON_VALUE(@payload, '$.city')),
-                         COALESCE(JSON_VALUE(@payload, '$.certType'), JSON_VALUE(@payload, '$.education.certificateName')), N'api', @payload, @now, @now);
+                         N'api', @now, @now);
                     """, command =>
                 {
                     AddParameter(command, "@id", id);
@@ -1210,6 +1351,7 @@ public sealed class AdminRecordsService(
                     AddParameter(command, "@payload", payloadJson);
                     AddParameter(command, "@now", now);
                 }, ct);
+                await UpsertDocumentMirrorAsync("applicants", id, payload, now, ct);
                 return await GetNormalizedAsync(module, id, ct);
 
             case "cycleApplicationSettings":
@@ -1320,6 +1462,37 @@ public sealed class AdminRecordsService(
         return null;
     }
 
+    private async Task UpsertDocumentMirrorAsync(
+        string module,
+        string id,
+        JsonObject payload,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var existing = await DocumentsDb.AdminRecordDocuments
+            .FirstOrDefaultAsync(x => x.Module == module && x.Id == id, ct);
+        var next = payload.DeepClone().AsObject();
+        next["id"] ??= id;
+        if (existing is null)
+        {
+            DocumentsDb.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
+            {
+                Module = module,
+                Id = id,
+                PayloadJson = next.ToJsonString(AdminRecordJson.Options),
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+        }
+        else
+        {
+            existing.PayloadJson = next.ToJsonString(AdminRecordJson.Options);
+            existing.UpdatedAt = now;
+        }
+
+        await DocumentsDb.SaveChangesAsync(ct);
+    }
+
     private async Task<IReadOnlyList<JsonObject>> QueryPayloadRowsAsync(
         string sql,
         string idColumn,
@@ -1345,39 +1518,94 @@ public sealed class AdminRecordsService(
         return await ExecuteNormalizedQueryAsync(sql, bind, reader =>
         {
             var payload = reader.IsDBNull(0) ? new JsonObject() : AdminRecordJson.Parse(reader.GetString(0));
-            var tableId = reader.GetGuid(1).ToString();
-            var adminRecordId = ReadString(reader, 2);
-            var nationalId = ReadString(reader, 3);
-            var phoneNumber = ReadString(reader, 4);
-            var fullName = ReadString(reader, 5);
-            var email = ReadString(reader, 6);
-            var gender = ReadString(reader, 7);
-            var religion = ReadString(reader, 8);
-            var birthDate = reader.IsDBNull(9) ? null : reader.GetFieldValue<DateTime>(9).ToString("yyyy-MM-dd");
-            var birthGovernorate = ReadString(reader, 10);
-            var birthDistrict = ReadString(reader, 11);
-            var certificateType = ReadString(reader, 12);
-            var source = ReadString(reader, 13);
+            var identity = new ApplicantIdentityProjection(
+                TableId: ReadString(reader, 1) ?? "",
+                AdminRecordId: ReadString(reader, 2),
+                NationalId: ReadString(reader, 3),
+                PhoneNumber: ReadString(reader, 4),
+                FullName: ReadString(reader, 5),
+                Email: ReadString(reader, 6),
+                Gender: ReadString(reader, 7),
+                Religion: ReadString(reader, 8),
+                BirthDate: reader.IsDBNull(9) ? null : reader.GetFieldValue<DateTime>(9).ToString("yyyy-MM-dd"),
+                BirthGovernorate: ReadString(reader, 10),
+                BirthDistrict: ReadString(reader, 11),
+                CertificateType: ReadString(reader, 12),
+                Source: ReadString(reader, 13),
+                CreatedAt: reader.GetFieldValue<DateTimeOffset>(14),
+                UpdatedAt: reader.GetFieldValue<DateTimeOffset>(15));
 
-            payload["applicantTableId"] = tableId;
-            if (!string.IsNullOrWhiteSpace(adminRecordId)) payload["adminRecordId"] = adminRecordId;
-            payload["id"] ??= adminRecordId ?? tableId;
-            SetIfPresent(payload, "nationalId", nationalId);
-            SetIfPresent(payload, "phoneNumber", phoneNumber);
-            SetIfPresent(payload, "name", fullName);
-            SetIfPresent(payload, "email", email);
-            SetIfPresent(payload, "gender", gender);
-            SetIfPresent(payload, "religion", religion);
-            SetIfPresent(payload, "birthDate", birthDate);
-            SetIfPresent(payload, "birthGovernorate", birthGovernorate);
-            SetIfPresent(payload, "birthDistrict", birthDistrict);
-            SetIfPresent(payload, "certType", certificateType);
-            SetIfPresent(payload, "source", source);
-            payload["createdAt"] ??= reader.GetFieldValue<DateTimeOffset>(14);
-            payload["updatedAt"] ??= reader.GetFieldValue<DateTimeOffset>(15);
-            return payload;
+            return ProjectApplicantManagementPayload(payload, identity);
         }, ct);
     }
+
+    internal static JsonObject ProjectApplicantManagementPayload(JsonObject payload, ApplicantIdentityProjection identity)
+    {
+        var projected = payload.DeepClone().AsObject();
+        var profile = ObjectProp(projected, "profile");
+        var examSlot = ObjectProp(projected, "examSlot");
+        var payment = ObjectProp(projected, "payment");
+        var stage = IntProp(projected, "stage") ?? IntProp(projected, "furthestStage");
+
+        projected["applicantTableId"] = identity.TableId;
+        if (!string.IsNullOrWhiteSpace(identity.AdminRecordId)) projected["adminRecordId"] = identity.AdminRecordId;
+        projected["id"] ??= identity.AdminRecordId ?? identity.TableId;
+        SetIfPresent(projected, "nationalId", identity.NationalId ?? StringProp(profile, "nationalId"));
+        SetIfPresent(projected, "phoneNumber", identity.PhoneNumber ?? StringProp(profile, "mobile"));
+        SetIfPresent(projected, "name", identity.FullName ?? StringProp(profile, "fullName"));
+        SetIfPresent(projected, "email", identity.Email ?? StringProp(profile, "email"));
+        SetIfPresent(projected, "gender", identity.Gender ?? StringProp(profile, "gender"));
+        SetIfPresent(projected, "religion", identity.Religion ?? StringProp(profile, "religion"));
+        SetIfPresent(projected, "birthDate", identity.BirthDate ?? StringProp(profile, "dateOfBirth"));
+        SetIfPresent(projected, "birthGovernorate", identity.BirthGovernorate ?? StringProp(profile, "birthGovernorate"));
+        SetIfPresent(projected, "birthDistrict", identity.BirthDistrict ?? StringProp(profile, "birthDistrict"));
+        SetIfPresent(
+            projected,
+            "certType",
+            identity.CertificateType
+                ?? StringProp(profile, "certificateName")
+                ?? StringProp(profile, "qualificationLevel"));
+
+        if (stage is > 0)
+        {
+            projected["stage"] = stage.Value;
+            projected["stageLabel"] ??= ApplicantStageLabels.TryGetValue(stage.Value, out var label)
+                ? label
+                : "مرحلة غير محددة";
+        }
+
+        if (stage >= 8)
+        {
+            projected["status"] ??= "under-review";
+        }
+        else
+        {
+            projected["status"] ??= "pending";
+        }
+
+        projected["paymentStatus"] ??= payment is null ? "pending" : "paid";
+        SetIfPresent(projected, "firstExamDate", StringProp(examSlot, "date"));
+        projected["registeredAt"] ??= identity.CreatedAt;
+        projected["createdAt"] ??= identity.CreatedAt;
+        projected["updatedAt"] ??= identity.UpdatedAt;
+        projected["source"] = HasPortalDraftShape(payload)
+            ? "applicant-portal"
+            : AdminRecordJson.StringProp(projected, "source") ?? identity.Source ?? "api";
+
+        return projected;
+    }
+
+    private static bool HasPortalDraftShape(JsonObject payload) =>
+        payload.ContainsKey("furthestStage") || payload.ContainsKey("profile") || payload.ContainsKey("examSlot");
+
+    private static JsonObject? ObjectProp(JsonObject? obj, string key) =>
+        obj is not null && obj.TryGetPropertyValue(key, out var node) && node is JsonObject child ? child : null;
+
+    private static string? StringProp(JsonObject? obj, string key) =>
+        obj is null ? null : AdminRecordJson.StringProp(obj, key);
+
+    private static int? IntProp(JsonObject obj, string key) =>
+        AdminRecordJson.NumberProp(obj, key) is { } value ? Convert.ToInt32(value) : null;
 
     private static string? ReadString(DbDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
@@ -1540,10 +1768,17 @@ public sealed class AdminRecordsService(
         {
             "applicants" => await ExecuteNormalizedNonQueryWithCountAsync(
                 $"""
+                DELETE FROM {AdminDbContext.QualifiedTableName("admin_record_documents")}
+                WHERE [module] = N'applicants' AND [id] = @id;
                 DELETE FROM {AdminDbContext.QualifiedTableName("applicant_portal_records")}
-                WHERE [applicant_id] = @id;
-                DELETE FROM {AdminDbContext.QualifiedTableName("applicants")}
-                WHERE [admin_record_id] = @id OR [national_id] = @id OR CONVERT(nvarchar(64), [id]) = @id;
+                WHERE [applicant_id] = @id
+                   OR [applicant_id] IN (
+                       SELECT CONVERT(nvarchar(64), [id])
+                       FROM {ApplicantsIdentityTableName}
+                       WHERE [national_id] = @id
+                   );
+                DELETE FROM {ApplicantsIdentityTableName}
+                WHERE [national_id] = @id OR CONVERT(nvarchar(64), [id]) = @id;
                 """,
                 command => AddParameter(command, "@id", id),
                 ct),
