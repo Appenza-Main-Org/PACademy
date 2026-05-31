@@ -29,6 +29,7 @@ public sealed record CategoryEligibilityResult(
     IReadOnlyList<EligibleAcademicProgramResult> AcademicPrograms,
     IReadOnlyList<string> AllowedMaritalStatusCodes,
     IReadOnlyList<string> AllowedAcademicDegreeCodes,
+    IReadOnlyList<string> AllowedAcademicGradeCodes,
     IReadOnlyList<string> FailedReasons);
 
 public sealed record EligibleCommitteeResult(
@@ -155,4 +156,6 @@ internal sealed record CategoryEligibilitySettings(
     public bool AllowsManualGradeEntryWithoutRecord { get; init; }
 }
 
-internal sealed record EligibilityLookupSnapshot(IReadOnlyList<JsonObject> SchoolCategories);
+internal sealed record EligibilityLookupSnapshot(
+    IReadOnlyList<JsonObject> SchoolCategories,
+    IReadOnlyList<JsonObject> AcademicGrades);

@@ -46,12 +46,17 @@ public sealed class ApplicantEligibilityAllowedOptionsTests
             CreatedAt = now,
             UpdatedAt = now
         });
-        db.LookupRows.Add(Lookup("applicant-categories", "specialized_officers", "الضباط المتخصصون", new JsonObject
-        {
-            ["minAge"] = 17,
-            ["type"] = "university",
-            ["genderScope"] = new JsonArray("male", "female")
-        }));
+        db.LookupRows.AddRange(
+            Lookup("applicant-categories", "specialized_officers", "الضباط المتخصصون", new JsonObject
+            {
+                ["minAge"] = 17,
+                ["type"] = "university",
+                ["genderScope"] = new JsonArray("male", "female")
+            }),
+            Lookup("academic-grades", "AGR-01", "امتياز", new JsonObject()),
+            Lookup("academic-grades", "AGR-02", "جيد جداً", new JsonObject()),
+            Lookup("academic-grades", "AGR-03", "جيد", new JsonObject()),
+            Lookup("academic-grades", "AGR-04", "مقبول", new JsonObject()));
         db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
         {
             Module = "admissionSetup.applicationSettings.cycle-2026",
@@ -78,6 +83,8 @@ public sealed class ApplicantEligibilityAllowedOptionsTests
                     ["specializationNameAr"] = "جراحة عامة",
                     ["type"] = new JsonArray("male"),
                     ["academicDegrees"] = new JsonArray("DEG-02", "DEG-03"),
+                    ["grade"] = "AGR-03",
+                    ["gradeMax"] = "AGR-01",
                     ["graduationYears"] = new JsonArray(2026)
                 }),
                 ["local"] = new JsonArray()
@@ -95,6 +102,7 @@ public sealed class ApplicantEligibilityAllowedOptionsTests
         var category = Assert.Single(response.Categories);
         Assert.Equal(["MAR-01"], category.AllowedMaritalStatusCodes);
         Assert.Equal(["DEG-02", "DEG-03"], category.AllowedAcademicDegreeCodes);
+        Assert.Equal(["AGR-01", "AGR-02", "AGR-03"], category.AllowedAcademicGradeCodes);
     }
 
     private static AdminDbContext CreateDb()
