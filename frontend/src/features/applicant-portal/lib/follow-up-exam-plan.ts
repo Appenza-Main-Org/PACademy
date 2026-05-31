@@ -10,6 +10,10 @@ export interface FollowUpExamPlanEntry {
   examId: string;
   order: number;
   isRequired: boolean;
+  /** Optional backend guard: inactive plan/stage rows must not appear to applicants. */
+  isActive?: boolean;
+  isEnabled?: boolean;
+  stageIsActive?: boolean;
 }
 
 export interface FollowUpExamPlan {
@@ -78,14 +82,21 @@ export function buildFollowUpRows({
   const examById = new Map(exams.map((exam) => [exam.id, exam]));
   return plan.exams
     .slice()
+    .filter(
+      (entry) =>
+        entry.isActive !== false &&
+        entry.isEnabled !== false &&
+        entry.stageIsActive !== false,
+    )
+    .filter((entry) => examById.has(entry.examId))
     .sort((a, b) => a.order - b.order)
     .map((entry, index) => {
-      const exam = examById.get(entry.examId);
+      const exam = examById.get(entry.examId)!;
       return {
         serial: index + 1,
-        testLabel: exam?.nameAr ?? entry.examId,
+        testLabel: exam.nameAr,
         date: index === 0 ? firstExamDate : null,
-        result: exam ? resultForExam(followUp, exam) : RESULT_TONE.pending,
+        result: resultForExam(followUp, exam),
         notes: entry.isRequired ? '—' : 'اختبار تكميلي',
       };
     });
