@@ -20,6 +20,12 @@ import { LockPolicyCard } from '../components/auth/LockPolicyCard';
 const EMPTY_CONTROL: ControlScreensForm = {
   acquaintanceDocumentsEntryResponsibleTestCode: '',
   acquaintanceDocumentsMutationLockTiming: DEFAULT_LOCK_TIMING,
+  applicationInstructionsText: [
+    'قبل التقدم: راجع البيانات المسجلة على بوابة وزارة الداخلية، وتأكد من صحتها.',
+    'أثناء التقدم: سيطلب منك إدخال بيانات الدراسة بدقة. أي مخالفة قد تؤدي إلى منعك من الاختبار.',
+    'مقابل الخدمة: يسدد مرة واحدة خلال الدورة الحالية من خلال وسيلة السداد المعتمدة.',
+    'احرص على طباعة بطاقة التردد والإقرار قبل موعد أول اختبار، وعلى توقيعها من المتقدم وولي الأمر.',
+  ].join('\n'),
 };
 
 export function SettingsPage(): JSX.Element {
@@ -48,6 +54,7 @@ export function SettingsPage(): JSX.Element {
     setControl({
       acquaintanceDocumentsEntryResponsibleTestCode: data.acquaintanceDocumentsEntryResponsibleTestCode ?? '',
       acquaintanceDocumentsMutationLockTiming: data.acquaintanceDocumentsMutationLockTiming ?? DEFAULT_LOCK_TIMING,
+      applicationInstructionsText: formatInstructionsText(data.applicationInstructions),
     });
   }, [settingsQuery.data]);
 
@@ -89,7 +96,11 @@ export function SettingsPage(): JSX.Element {
         updateSettings.mutateAsync({
           examDaysPerApplicant: parsedExamDays!,
           examSlotSelectionWindowDays: parsedSlotWindow!,
-          ...buildApplicantControlScreensSettingsPatch(control),
+          ...buildApplicantControlScreensSettingsPatch({
+            acquaintanceDocumentsEntryResponsibleTestCode: control.acquaintanceDocumentsEntryResponsibleTestCode,
+            acquaintanceDocumentsMutationLockTiming: control.acquaintanceDocumentsMutationLockTiming,
+            applicationInstructions: parseInstructionsText(control.applicationInstructionsText),
+          }),
         }),
         updatePolicy.mutateAsync({ lockDurationMinutes: lockMinutes }),
       ]);
@@ -148,4 +159,16 @@ export function SettingsPage(): JSX.Element {
       )}
     </>
   );
+}
+
+function formatInstructionsText(lines: readonly string[] | undefined): string {
+  const normalized = lines?.map((line) => line.trim()).filter(Boolean);
+  return normalized && normalized.length > 0
+    ? normalized.join('\n')
+    : EMPTY_CONTROL.applicationInstructionsText;
+}
+
+function parseInstructionsText(value: string): readonly string[] {
+  const lines = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return lines.length > 0 ? lines : EMPTY_CONTROL.applicationInstructionsText.split('\n');
 }

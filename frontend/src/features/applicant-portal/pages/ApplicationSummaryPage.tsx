@@ -14,6 +14,7 @@ import { Badge, Button, Card, LoadingState, PageHeader } from '@/shared/componen
 import { ROUTES } from '@/config/routes';
 import { useDraft } from '../api/applicantPortal.queries';
 import { APPLICANT_STAGE_KEYS, APPLICANT_STAGE_LABELS } from '..';
+import { isApplicationLocked } from '../lib/application-lock';
 
 const APPLICANT_ID = 'APP-2026000';
 
@@ -46,7 +47,7 @@ export function ApplicationSummaryPage(): JSX.Element {
   const examSummary = draft.examSlot
     ? `${draft.examSlot.date.slice(0, 10)} · ${draft.examSlot.time}`
     : '— لم يُحجَز موعد —';
-  const applicationLocked = Boolean(draft.examSlot);
+  const applicationLocked = isApplicationLocked(draft, false);
 
   /* MOI-aligned: stageIndex values mirror the new STAGE_KEYS order:
    *   2 = profile (collapsed 3/4/5)
@@ -83,8 +84,12 @@ export function ApplicationSummaryPage(): JSX.Element {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        title="تعديل الطلب"
-        subtitle="مراجعة وتعديل بياناتك المُسجَّلة قبل الإغلاق النهائي للطلب"
+        title={applicationLocked ? 'عرض الطلب' : 'تعديل الطلب'}
+        subtitle={
+          applicationLocked
+            ? 'بياناتك مقفلة بعد السداد ومتاحة للعرض فقط'
+            : 'مراجعة وتعديل بياناتك المُسجَّلة قبل الإغلاق النهائي للطلب'
+        }
         breadcrumbs={[
           { label: 'بوابة المتقدم', href: ROUTES.applicant },
           { label: 'تعديل الطلب' },

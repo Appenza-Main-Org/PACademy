@@ -28,6 +28,7 @@ import { useAuthStore } from '@/features/auth';
 import { useDraft } from './api/applicantPortal.queries';
 import { useApplicantPortalStore } from './store/applicantPortal.store';
 import { ApplicantAvailabilityGate } from './components/ApplicantAvailabilityGate';
+import { isApplicantEditRoute, isApplicationLocked } from './lib/application-lock';
 import {
   VOTHIQA_EXPIRED_NID,
   VOTHIQA_FILLABLE_NID,
@@ -112,7 +113,7 @@ export function ApplicantPortalLayout(): JSX.Element {
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const submittedDemo = useApplicantPortalStore((s) => s.submittedDemo);
   const currentNid = useApplicantPortalStore((s) => s.nationalId);
-  const firstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
+  const paid = useApplicantPortalStore((s) => s.paid);
   const vothiqaEnabled = currentNid !== null && VOTHIQA_ENABLED_NIDS.has(currentNid);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const selectedCategory = selectedCategoryKey
@@ -120,7 +121,8 @@ export function ApplicantPortalLayout(): JSX.Element {
     : null;
   /* "Irreversible step" = Stage 6 payment committed. After that the user
    * cannot switch category without an admin action; the badge becomes read-only. */
-  const categoryLocked = Boolean(draft?.payment?.paidAt);
+  const applicationLocked = isApplicationLocked(draft, paid);
+  const categoryLocked = applicationLocked;
 
   const activeIndex = useMemo(() => {
     const path = location.pathname.replace(/^\/applicant\/?/, '');
@@ -134,27 +136,21 @@ export function ApplicantPortalLayout(): JSX.Element {
     return idx === -1 ? 0 : idx;
   }, [location.pathname]);
 
-  const applicationLocked = Boolean(firstExamDate || draft?.examSlot);
   const isLockedEditableRoute = useMemo(() => {
     if (!applicationLocked) return false;
-    const path = location.pathname.replace(/^\/applicant\/?/, '');
-    return path === 'profile' ||
-      path.startsWith('profile/') ||
-      path === 'payment' ||
-      path === 'exam-schedule';
+    return isApplicantEditRoute(location.pathname);
   }, [applicationLocked, location.pathname]);
 
   useEffect(() => {
     if (!isLockedEditableRoute) return;
-    toast('تم قفل بيانات الطلب بعد اختيار موعد الاختبار. يمكنك العرض والطباعة فقط.', 'warning');
-    navigate(ROUTES.applicantPrintCard, { replace: true });
+    toast('تم قفل بيانات الطلب بعد السداد. يمكنك عرض البيانات فقط.', 'warning');
+    navigate(ROUTES.applicant, { replace: true });
   }, [isLockedEditableRoute, navigate]);
 
   /* «السابق» — backward navigation through the wizard steps. Available
-   * until the exam slot is chosen; once the application locks, the steps
-   * become read-only (and the guard above bounces edits to the print
-   * card), so the back button is suppressed. Forward navigation stays
-   * owned by each page's own CTA so step validation isn't bypassed. */
+   * until payment/submission locks the file; once locked, the guard above
+   * returns editable routes to the read-only dashboard. Forward navigation
+   * stays owned by each page's own CTA so step validation isn't bypassed. */
   const backUrl = applicationLocked ? null : prevApplicantStageUrl(activeIndex);
 
   /* Step rendering — the empty-key entry (summary, served by the
