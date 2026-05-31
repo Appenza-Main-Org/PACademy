@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
-using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.DataExchangeAdmin;
 using PACademy.Admin.Api.Modules.Lookups;
@@ -12,6 +11,12 @@ namespace PACademy.Admin.Api.Tests;
 
 public sealed class DataExchangeServiceTests
 {
+    private static DataExchangeService Build(AdminDbContext db)
+        => new(db, new DbAuditSink(db), new SystemActorProvider());
+
+    private static Task SeedOperationalAsync(AdminDbContext db, string module, string id, string payloadJson)
+        => new OperationalRecordStore(db).UpsertAsync(module, id, JsonNode.Parse(payloadJson)!.AsObject(), default);
+
     private static (DataExchangeService svc, AdminDbContext db) Create()
     {
         var options = new DbContextOptionsBuilder<AdminDbContext>()
@@ -19,8 +24,7 @@ public sealed class DataExchangeServiceTests
             .AddInterceptors(new ChangeTrackingInterceptor(new SystemActorProvider()))
             .Options;
         var db = new AdminDbContext(options);
-        var svc = new DataExchangeService(db, new DbAuditSink(db), new SystemActorProvider());
-        return (svc, db);
+        return (Build(db), db);
     }
 
     private static async Task SeedLookupAsync(AdminDbContext db, string code, string name)
@@ -37,26 +41,49 @@ public sealed class DataExchangeServiceTests
     private static List<Dictionary<string, string?>> AsImportRows(ExportSheetDto sheet)
         => sheet.Rows.Select(r => new Dictionary<string, string?>(r, StringComparer.Ordinal)).ToList();
 
+    private static Dictionary<string, string?> NewLookupRow(string code, string name) => new(StringComparer.Ordinal)
+    {
+        ["id"] = $"academic-grades|{code}", ["business_key"] = $"academic-grades|{code}",
+        ["lookup_key"] = "academic-grades", ["code"] = code, ["name"] = name, ["is_active"] = "true",
+    };
+
     [Fact]
-    public async Task Export_emits_tracking_columns_and_checksum()
+    public async Task Export_emits_normalized_columns_not_payload_json()
     {
         var (svc, db) = Create();
         await SeedLookupAsync(db, "EXC-01", "ممتاز");
-
         var result = await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
 
         var sheet = Assert.Single(result.Sheets);
-        Assert.Equal("SystemCodes", sheet.SheetName);
-        Assert.Single(sheet.Rows);
-        foreach (var col in new[] { "id", "business_key", "created_at", "updated_at", "row_version", "last_modified_by", "source_system", "checksum" })
+        Assert.DoesNotContain("payload_json", sheet.Columns);             // normalized — no JSON blob column
+        foreach (var col in new[] { "id", "business_key", "lookup_key", "code", "name", "is_active", "checksum" })
             Assert.Contains(col, sheet.Columns);
-        var row = sheet.Rows[0];
-        Assert.Equal("academic-grades|EXC-01", row["business_key"]);
-        Assert.False(string.IsNullOrEmpty(row["checksum"]));
+        Assert.Equal("academic-grades|EXC-01", sheet.Rows[0]["business_key"]);
+        Assert.Equal("ممتاز", sheet.Rows[0]["name"]);
+        Assert.False(string.IsNullOrEmpty(sheet.Rows[0]["checksum"]));
     }
 
     [Fact]
-    public async Task Preview_classifies_unchanged_as_skipped_and_edited_as_changed()
+    public async Task DocStore_payload_flattens_into_columns()
+    {
+        var (svc, db) = Create();
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم","address":{"governorate":"القاهرة"}}""");
+
+        var result = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
+        var sheet = result.Sheets[0];
+
+        Assert.Contains("nationalId", sheet.Columns);
+        Assert.Contains("fullName", sheet.Columns);
+        Assert.Contains("address.governorate", sheet.Columns);            // nested → dotted column
+        Assert.DoesNotContain("payload_json", sheet.Columns);
+        Assert.Equal(1, sheet.Columns.Count(c => c == "id"));             // no duplicate id column
+        Assert.Equal("القاهرة", sheet.Rows[0]["address.governorate"]);
+        Assert.Equal("29801011234567", sheet.Rows[0]["business_key"]);    // business key from nationalId
+    }
+
+    [Fact]
+    public async Task Preview_classifies_unchanged_skipped_edited_changed_new_new()
     {
         var (svc, db) = Create();
         await SeedLookupAsync(db, "EXC-01", "ممتاز");
@@ -64,16 +91,8 @@ public sealed class DataExchangeServiceTests
         var export = await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
         var rows = AsImportRows(export.Sheets[0]);
 
-        // Edit one row's name (offline cell edit — checksum cell untouched).
-        rows[0]["name"] = "ممتاز (معدّل)";
-        rows[0]["payload_json"] = """{"code":"EXC-01","name":"ممتاز (معدّل)"}""";
-        // Add a brand-new row.
-        rows.Add(new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            ["id"] = "academic-grades|EXC-09", ["business_key"] = "academic-grades|EXC-09",
-            ["lookup_key"] = "academic-grades", ["code"] = "EXC-09", ["name"] = "مقبول",
-            ["is_active"] = "true", ["payload_json"] = """{"code":"EXC-09","name":"مقبول"}""",
-        });
+        rows[0]["name"] = "ممتاز (معدّل)";                                 // edited normalized column → Changed
+        rows.Add(NewLookupRow("EXC-09", "مقبول"));                         // New
 
         var preview = await svc.PreviewAsync(new ImportPreviewRequest([new("SystemCodes", rows)]), default);
 
@@ -84,23 +103,16 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
-    public async Task Apply_new_and_changed_inserts_and_updates_and_never_duplicates_keys()
+    public async Task Apply_new_and_changed_inserts_updates_and_never_duplicates_keys()
     {
         var (svc, db) = Create();
         await SeedLookupAsync(db, "EXC-01", "ممتاز");
         var export = await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
         var rows = AsImportRows(export.Sheets[0]);
         rows[0]["name"] = "ممتاز (معدّل)";
-        rows[0]["payload_json"] = """{"code":"EXC-01","name":"ممتاز (معدّل)"}""";
-        rows.Add(new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            ["id"] = "academic-grades|EXC-09", ["business_key"] = "academic-grades|EXC-09",
-            ["lookup_key"] = "academic-grades", ["code"] = "EXC-09", ["name"] = "مقبول",
-            ["is_active"] = "true", ["payload_json"] = """{"code":"EXC-09","name":"مقبول"}""",
-        });
+        rows.Add(NewLookupRow("EXC-09", "مقبول"));
 
-        var apply = await svc.ApplyAsync(
-            new ImportApplyRequest([new("SystemCodes", rows)], "new-and-changed", SkipConflicts: false, ForceUpdate: false), default);
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("SystemCodes", rows)], "new-and-changed", false, false), default);
 
         Assert.Equal(1, apply.InsertedCount);
         Assert.Equal(1, apply.UpdatedCount);
@@ -108,11 +120,9 @@ public sealed class DataExchangeServiceTests
         Assert.Equal("ممتاز (معدّل)", db.LookupRows.Single(x => x.Code == "EXC-01").Name);
         Assert.Equal(2, db.LookupRows.Count());
 
-        // Re-apply the SAME workbook → no new rows; the edited row is now Skipped.
-        var apply2 = await svc.ApplyAsync(
-            new ImportApplyRequest([new("SystemCodes", rows)], "new-and-changed", SkipConflicts: false, ForceUpdate: false), default);
+        var apply2 = await svc.ApplyAsync(new ImportApplyRequest([new("SystemCodes", rows)], "new-and-changed", false, false), default);
         Assert.Equal(0, apply2.InsertedCount);
-        Assert.Equal(2, db.LookupRows.Count()); // still 2 — key never duplicated
+        Assert.Equal(2, db.LookupRows.Count()); // key never duplicated
     }
 
     [Fact]
@@ -123,33 +133,25 @@ public sealed class DataExchangeServiceTests
         var export = await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
         var rows = AsImportRows(export.Sheets[0]);
         rows[0]["name"] = "تغيير";
-        rows[0]["payload_json"] = """{"code":"EXC-01","name":"تغيير"}""";
 
-        var apply = await svc.ApplyAsync(
-            new ImportApplyRequest([new("SystemCodes", rows)], "new-only", SkipConflicts: false, ForceUpdate: false), default);
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("SystemCodes", rows)], "new-only", false, false), default);
 
         Assert.Equal(0, apply.InsertedCount);
-        Assert.Equal(0, apply.UpdatedCount);
         Assert.Equal(1, apply.SkippedCount);
-        Assert.Equal("ممتاز", db.LookupRows.Single().Name); // unchanged
+        Assert.Equal("ممتاز", db.LookupRows.Single().Name);
     }
 
     [Fact]
     public async Task Intra_file_duplicate_key_is_invalid()
     {
         var (svc, _) = Create();
-        var dup = new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            ["id"] = "academic-grades|EXC-01", ["business_key"] = "academic-grades|EXC-01",
-            ["lookup_key"] = "academic-grades", ["code"] = "EXC-01", ["name"] = "ممتاز",
-            ["is_active"] = "true", ["payload_json"] = "{}",
-        };
+        var dup = NewLookupRow("EXC-01", "ممتاز");
         var rows = new List<Dictionary<string, string?>> { dup, new(dup, StringComparer.Ordinal) };
 
         var preview = await svc.PreviewAsync(new ImportPreviewRequest([new("SystemCodes", rows)]), default);
 
         Assert.Equal(1, preview.Counts["new"]);
-        Assert.Equal(1, preview.Counts["invalid"]); // the second occurrence
+        Assert.Equal(1, preview.Counts["invalid"]);
     }
 
     [Fact]
@@ -160,9 +162,7 @@ public sealed class DataExchangeServiceTests
         var export = await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
         var rows = AsImportRows(export.Sheets[0]);
         rows[0]["name"] = "محاولة قديمة";
-        rows[0]["payload_json"] = """{"code":"EXC-01","name":"محاولة قديمة"}""";
 
-        // DB row changes AFTER the export snapshot → DB is newer than the import.
         var dbRow = db.LookupRows.Single();
         dbRow.UpdatedAt = DateTimeOffset.UtcNow.AddHours(1);
         dbRow.Name = "تحديث أحدث";
@@ -171,15 +171,11 @@ public sealed class DataExchangeServiceTests
         var preview = await svc.PreviewAsync(new ImportPreviewRequest([new("SystemCodes", rows)]), default);
         Assert.Equal(1, preview.Counts["outdated"]);
 
-        // Without forceUpdate → held.
-        var held = await svc.ApplyAsync(
-            new ImportApplyRequest([new("SystemCodes", rows)], "new-and-changed", SkipConflicts: false, ForceUpdate: false), default);
+        var held = await svc.ApplyAsync(new ImportApplyRequest([new("SystemCodes", rows)], "new-and-changed", false, false), default);
         Assert.Equal(0, held.UpdatedCount);
         Assert.Equal("تحديث أحدث", db.LookupRows.Single().Name);
 
-        // With forceUpdate → overwrites.
-        var forced = await svc.ApplyAsync(
-            new ImportApplyRequest([new("SystemCodes", rows)], "new-and-changed", SkipConflicts: false, ForceUpdate: true), default);
+        var forced = await svc.ApplyAsync(new ImportApplyRequest([new("SystemCodes", rows)], "new-and-changed", false, true), default);
         Assert.Equal(1, forced.UpdatedCount);
         Assert.Equal("محاولة قديمة", db.LookupRows.Single().Name);
     }
@@ -199,17 +195,10 @@ public sealed class DataExchangeServiceTests
     [Fact]
     public async Task Applicant_invalid_national_id_is_invalid()
     {
-        var (svc, db) = Create();
-        await new OperationalRecordStore(db).UpsertAsync(
-            "applicants",
-            "APP-1",
-            JsonNode.Parse("""{"id":"APP-1","nationalId":"29801011234567"}""")!.AsObject(),
-            TestContext.Current.CancellationToken);
-
+        var (svc, _) = Create();
         var badRow = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
             ["id"] = "APP-2", ["business_key"] = "123", ["nationalId"] = "123",
-            ["payload_json"] = """{"id":"APP-2","nationalId":"123"}""",
         };
         var preview = await svc.PreviewAsync(new ImportPreviewRequest([new("Applicants", [badRow])]), default);
 
@@ -217,28 +206,25 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
-    public async Task DocStore_round_trip_export_then_apply_persists_payload()
+    public async Task DocStore_round_trip_preserves_types_and_persists_edits()
     {
         var (svc, db) = Create();
-        var store = new OperationalRecordStore(db);
-        await store.UpsertAsync(
-            "committees",
-            "CMT-1",
-            JsonNode.Parse("""{"id":"CMT-1","name":"لجنة أ","capacity":50}""")!.AsObject(),
-            TestContext.Current.CancellationToken);
+        await SeedOperationalAsync(db, "committeeInstances", "CMT-1",
+            """{"id":"CMT-1","name":"لجنة أ","capacity":50,"active":true}""");
 
         var export = await svc.ExportAsync([ExchangeDomain.Committees], "single-workbook", ExportFilter.Default, default);
         var rows = AsImportRows(export.Sheets[0]);
-        rows[0]["payload_json"] = """{"id":"CMT-1","name":"لجنة أ معدلة","capacity":60}""";
+        rows[0]["name"] = "لجنة أ معدلة";       // edit string column
+        rows[0]["capacity"] = "60";             // edit numeric column
 
-        var apply = await svc.ApplyAsync(
-            new ImportApplyRequest([new("Committees", rows)], "new-and-changed", SkipConflicts: false, ForceUpdate: false), default);
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("Committees", rows)], "new-and-changed", false, false), default);
 
         Assert.Equal(1, apply.UpdatedCount);
-        var saved = await store.GetAsync("committees", "CMT-1", TestContext.Current.CancellationToken);
-        Assert.NotNull(saved);
-        Assert.Equal("لجنة أ معدلة", AdminRecordJson.StringProp(saved, "name"));
-        Assert.Equal("data-exchange-import", AdminRecordJson.StringProp(saved, "sourceSystem"));
+        var p = (await new OperationalRecordStore(db).GetAsync("committeeInstances", "CMT-1", default))!;
+        Assert.Equal("لجنة أ معدلة", p["name"]!.GetValue<string>());           // edit persisted
+        Assert.Equal(60, p["capacity"]!.GetValue<int>());                       // stayed a NUMBER (type-safe), not "60"
+        Assert.True(p["active"]!.GetValue<bool>());                             // untouched field preserved with type
+        Assert.Equal("data-exchange-import", p["sourceSystem"]!.GetValue<string>());
     }
 
     [Fact]
@@ -248,12 +234,7 @@ public sealed class DataExchangeServiceTests
         await SeedLookupAsync(db, "EXC-01", "ممتاز");
         await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
         await svc.ApplyAsync(new ImportApplyRequest(
-            [new("SystemCodes", [new(StringComparer.Ordinal)
-            {
-                ["id"] = "academic-grades|EXC-09", ["business_key"] = "academic-grades|EXC-09",
-                ["lookup_key"] = "academic-grades", ["code"] = "EXC-09", ["name"] = "مقبول",
-                ["is_active"] = "true", ["payload_json"] = "{}",
-            }])], "new-and-changed", false, false), default);
+            [new("SystemCodes", [NewLookupRow("EXC-09", "مقبول")])], "new-and-changed", false, false), default);
 
         var history = await svc.HistoryAsync(default);
         Assert.Equal(2, history.Count);
@@ -264,22 +245,20 @@ public sealed class DataExchangeServiceTests
     [Fact]
     public async Task ModifiedSinceCreation_filter_only_returns_touched_rows()
     {
-        // Seed WITHOUT the interceptor so the hand-set updated_at==created_at on the
-        // "never touched" row survives (the interceptor would refresh updated_at).
         var options = new DbContextOptionsBuilder<AdminDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options;
         var db = new AdminDbContext(options);
-        var svc = new DataExchangeService(db, new DbAuditSink(db), new SystemActorProvider());
+        var svc = Build(db);
         var created = DateTimeOffset.UtcNow.AddDays(-3);
         db.LookupRows.Add(new LookupRowEntity
         {
             LookupKey = "academic-grades", Code = "FRESH", Name = "جديد", IsActive = true,
-            PayloadJson = "{}", CreatedAt = created, UpdatedAt = created, // never touched
+            PayloadJson = "{}", CreatedAt = created, UpdatedAt = created,
         });
         db.LookupRows.Add(new LookupRowEntity
         {
             LookupKey = "academic-grades", Code = "TOUCHED", Name = "معدّل", IsActive = true,
-            PayloadJson = "{}", CreatedAt = created, UpdatedAt = DateTimeOffset.UtcNow, // touched after creation
+            PayloadJson = "{}", CreatedAt = created, UpdatedAt = DateTimeOffset.UtcNow,
         });
         await db.SaveChangesAsync();
 

@@ -64,11 +64,11 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
         => Ok(await service.HistoryAsync(ct));
 
     [HttpGet("templates/{type}")]
-    public ActionResult<TemplateDto> Template(string type)
+    public async Task<ActionResult<TemplateDto>> Template(string type, CancellationToken ct)
     {
         if (!DataExchangeRegistry.TryParseDomain(type, out var spec))
             return Conflict(new { code = ErrorCodes.DataExchangeUnknownDomain, message = $"نطاق غير معروف: {type}" });
-        return Ok(service.Template(spec));
+        return Ok(await service.TemplateAsync(spec, ct));
     }
 
     // ── helpers ──────────────────────────────────────────────────────────

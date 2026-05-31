@@ -57,7 +57,7 @@ public static class DataExchangeRegistry
         new(ExchangeDomain.Exams,               "Exams",               "الاختبارات",           ExchangeStorage.Exams,          null,          []),
         new(ExchangeDomain.Relatives,           "Relatives",           "الأقارب المبدئيون",     ExchangeStorage.DocStore,       "relatives",   []),
         new(ExchangeDomain.AcquaintanceDocs,    "AcquaintanceDocs",    "وثائق التعارف",         ExchangeStorage.DocStore,       "acquaintance",[]),
-        new(ExchangeDomain.Committees,          "Committees",          "اللجان",               ExchangeStorage.DocStore,       "committees",  []),
+        new(ExchangeDomain.Committees,          "Committees",          "اللجان",               ExchangeStorage.DocStore,       "committeeInstances", []),
         new(ExchangeDomain.AdmissionConditions, "AdmissionConditions", "شروط القبول",           ExchangeStorage.AdmissionRules, null,          []),
         new(ExchangeDomain.SystemCodes,         "SystemCodes",         "أكواد النظام والقوائم", ExchangeStorage.Lookups,        null,          []),
         new(ExchangeDomain.ExamResults,         "ExamResults",         "نتائج الاختبارات",      ExchangeStorage.DocStore,       "examResults", []),

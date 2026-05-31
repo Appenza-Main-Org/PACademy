@@ -107,15 +107,16 @@ export const dataExchangeService = {
 // ──────────────────────────────────────────────────────────────────────────
 
 function mockColumns(domain: ExchangeDomain): string[] {
+  // Normalized columns (no payload_json) — mirrors the backend's flattened export.
   const data: Record<ExchangeDomain, string[]> = {
-    Applicants: ['nationalId', 'payload_json'],
+    Applicants: ['nationalId', 'fullName', 'gender', 'status'],
     Exams: ['name_ar', 'cycle_id', 'status'],
-    Relatives: ['payload_json'],
-    AcquaintanceDocs: ['payload_json'],
-    Committees: ['payload_json'],
-    AdmissionConditions: ['cycle_id', 'version', 'payload_json'],
-    SystemCodes: ['lookup_key', 'code', 'name', 'is_active', 'payload_json'],
-    ExamResults: ['payload_json'],
+    Relatives: ['applicantNationalId', 'name', 'kinship'],
+    AcquaintanceDocs: ['applicantNationalId', 'docType', 'status'],
+    Committees: ['categoryKey', 'capacity', 'reserved'],
+    AdmissionConditions: ['cycle_id', 'version', 'minPercentage'],
+    SystemCodes: ['lookup_key', 'code', 'name', 'is_active'],
+    ExamResults: ['applicantNationalId', 'examId', 'result'],
     ExamSchedules: ['date', 'time', 'location', 'capacity', 'reserved'],
   };
   return ['id', 'business_key', ...data[domain], ...TRACKING];
@@ -157,20 +158,25 @@ function buildMockRow(domain: ExchangeDomain, i: number): MockRow {
     cells.code = code;
     cells.name = ['ممتاز', 'جيد جداً', 'جيد', 'مقبول', 'ضعيف', 'راسب'][i] ?? code;
     cells.is_active = 'true';
-    cells.payload_json = JSON.stringify({ code, name: cells.name });
   } else if (domain === 'Applicants') {
     const nid = `2980101${String(1000000 + Math.floor(rng() * 8999999)).slice(0, 7)}`;
     businessKey = nid;
     cells.id = `APP-${i + 1}`;
     cells.business_key = nid;
     cells.nationalId = nid;
-    cells.payload_json = JSON.stringify({ id: cells.id, nationalId: nid, fullName: `متقدم ${i + 1}` });
+    cells.fullName = `متقدم ${i + 1}`;
+    cells.gender = i % 2 === 0 ? 'male' : 'female';
+    cells.status = 'submitted';
   } else {
     const id = `${domain}-${i + 1}`;
     businessKey = id;
     cells.id = id;
     cells.business_key = id;
-    cells.payload_json = JSON.stringify({ id, label: `${DOMAIN_TITLES_AR[domain]} ${i + 1}` });
+    // Fill the domain's normalized columns with deterministic sample values.
+    for (const col of mockColumns(domain)) {
+      if (col === 'id' || col === 'business_key' || TRACKING.includes(col)) continue;
+      cells[col] = col === 'capacity' ? '30' : col === 'reserved' ? String(10 + i) : `${col}-${i + 1}`;
+    }
   }
 
   cells.created_at = created;
