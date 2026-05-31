@@ -13,6 +13,7 @@ using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Reports.Dtos;
 using PACademy.Admin.Api.Modules.Reports.Validators;
+using PACademy.Admin.Api.Modules.Settings;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Audit;
 using PACademy.Shared.Contracts;
@@ -205,7 +206,7 @@ public sealed class ApiRegressionTests
             CommitteeInstance("CI-DELETED", "CAT-DELETED"));
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
-        var controller = new OperationalAdminController(records, db);
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
 
         var response = await controller.CommitteeInstances(TestContext.Current.CancellationToken);
 
