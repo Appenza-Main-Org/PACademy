@@ -370,19 +370,27 @@ dotnet run --project admin/PACademy.Admin.Api --no-seed
 
 ## UAT database copy and switching
 
-The backend can switch between named SQL Server connection strings without code changes:
+> **Updated (environment-separation migration).** Environments are now separate
+> **databases** — `DB_PAcademy_Prod` and `DB_PAcademy_Staging` — on a single `dbo`
+> schema, **not** separate schemas in one DB. The schema-switch flow below
+> (`Database__Schema=admin_v2` / `PACademy_staging_db`, "Option B") is **retired**.
+> Leave `Database__Schema` unset (it defaults to `dbo`) and select an environment by
+> its connection string. See `docs/db-migration/RUNBOOK.md` for the current procedure.
+
+The backend selects an environment database via its connection string (no code changes):
 
 ```bash
 export Database__ActiveConnectionName=AdminDbUat
-export Database__Schema=PACademy_staging_db
-export ConnectionStrings__AdminDbUat='Server=...;Database=PACademy_Admin_UAT;User Id=...;Password=...;TrustServerCertificate=True'
+# Schema is always dbo now — do NOT set Database__Schema.
+export ConnectionStrings__AdminDbUat='Server=...;Database=DB_PAcademy_Staging;User Id=...;Password=...;TrustServerCertificate=True'
+export ConnectionStrings__Default="$ConnectionStrings__AdminDbUat"   # module DbContexts read ConnectionStrings:Default
 dotnet run --project backend/admin/PACademy.Admin.Api/PACademy.Admin.Api.csproj --urls http://localhost:5101
 ```
 
 Supported overrides:
 
 - `Database__ActiveConnectionName` or `ADMIN_DB_CONNECTION_NAME` selects the connection-string key.
-- `Database__Schema` or `ADMIN_DB_SCHEMA` selects the SQL Server schema, for example `admin_v2` or `PACademy_staging_db`.
+- `Database__Schema` / `ADMIN_DB_SCHEMA` is **legacy** — leave it unset so the schema defaults to `dbo`. Do not set it to `admin_v2` / `PACademy_staging_db` (those schemas are retired; environments are separated by database).
 - `ConnectionStrings__AdminDb` / `ConnectionStrings__AdminDbUat` hold environment-specific SQL Server strings.
 - `ADMIN_DB_CONNECTION_STRING` can override the selected connection string directly for one-off backend runs.
 

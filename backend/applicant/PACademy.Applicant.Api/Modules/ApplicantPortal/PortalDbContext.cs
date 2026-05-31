@@ -13,7 +13,7 @@ namespace PACademy.Applicant.Api.Modules.ApplicantPortal;
 public sealed class PortalDbContext(DbContextOptions<PortalDbContext> options, IConfiguration configuration)
     : DbContext(options)
 {
-    private string Schema => configuration["Database:Schema"] ?? "admin_v2";
+    private string Schema => configuration["Database:Schema"] ?? "dbo";
 
     public DbSet<ApplicantPortalRecordEntity> PortalRecords => Set<ApplicantPortalRecordEntity>();
     public DbSet<ExamSlotEntity> ExamSlots => Set<ExamSlotEntity>();

@@ -11,7 +11,11 @@ namespace PACademy.Admin.Api.Persistence;
 
 public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext, IAdminRecordsDbContext, IAdminRecordDocumentsDbContext, IExamsDbContext, IGeneralSettingsDbContext
 {
-    public const string DefaultSchema = "admin_v2";
+    // Canonical schema for ALL admin EF tables. Environment separation is by
+    // DATABASE (DB_PAcademy_Prod / DB_PAcademy_Staging), never by schema, so this
+    // stays "dbo". (Overridable via Database:Schema / ADMIN_DB_SCHEMA for legacy
+    // setups, but production/staging no longer set it.)
+    public const string DefaultSchema = "dbo";
     public const string MigrationsHistoryTable = "__EFMigrationsHistory_AdminApi";
     public static string Schema { get; private set; } = DefaultSchema;
 

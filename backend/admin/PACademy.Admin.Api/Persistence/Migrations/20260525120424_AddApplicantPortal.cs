@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using PACademy.Admin.Api.Persistence;
 
 #nullable disable
 
@@ -11,9 +12,11 @@ namespace PACademy.Admin.Api.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.EnsureSchema(name: AdminDbContext.Schema);
+
             migrationBuilder.CreateTable(
                 name: "applicant_portal_records",
-                schema: "admin_v2",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     type = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
@@ -31,7 +34,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateTable(
                 name: "exam_slots",
-                schema: "admin_v2",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     id = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
@@ -51,13 +54,13 @@ namespace PACademy.Admin.Api.Persistence.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "ix_portal_records_applicant_id",
-                schema: "admin_v2",
+                schema: AdminDbContext.Schema,
                 table: "applicant_portal_records",
                 column: "applicant_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_exam_slots_date",
-                schema: "admin_v2",
+                schema: AdminDbContext.Schema,
                 table: "exam_slots",
                 column: "date");
         }
@@ -67,11 +70,11 @@ namespace PACademy.Admin.Api.Persistence.Migrations
         {
             migrationBuilder.DropTable(
                 name: "applicant_portal_records",
-                schema: "admin_v2");
+                schema: AdminDbContext.Schema);
 
             migrationBuilder.DropTable(
                 name: "exam_slots",
-                schema: "admin_v2");
+                schema: AdminDbContext.Schema);
         }
     }
 }

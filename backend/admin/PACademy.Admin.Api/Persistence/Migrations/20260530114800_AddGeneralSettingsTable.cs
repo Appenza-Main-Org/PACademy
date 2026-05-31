@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using PACademy.Admin.Api.Persistence;
 
 #nullable disable
 
@@ -11,9 +12,11 @@ namespace PACademy.Admin.Api.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.EnsureSchema(name: AdminDbContext.Schema);
+
             migrationBuilder.CreateTable(
                 name: "general_settings",
-                schema: "PACademy_staging_db",
+                schema: AdminDbContext.Schema,
                 columns: table => new
                 {
                     id = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
@@ -39,7 +42,7 @@ namespace PACademy.Admin.Api.Persistence.Migrations
         {
             migrationBuilder.DropTable(
                 name: "general_settings",
-                schema: "PACademy_staging_db");
+                schema: AdminDbContext.Schema);
         }
     }
 }

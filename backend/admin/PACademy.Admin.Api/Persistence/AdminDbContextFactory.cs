@@ -21,7 +21,7 @@ public sealed class AdminDbContextFactory : IDesignTimeDbContextFactory<AdminDbC
         var options = new DbContextOptionsBuilder<AdminDbContext>()
             .UseSqlServer(
                 database.ConnectionString
-                ?? "Server=localhost;Database=PACademy_Admin;Trusted_Connection=True;TrustServerCertificate=True",
+                ?? "Server=localhost;Database=DB_PAcademy_Staging;Trusted_Connection=True;TrustServerCertificate=True",
                 sql => sql.MigrationsHistoryTable(AdminDbContext.MigrationsHistoryTable, AdminDbContext.Schema))
             .Options;
 
