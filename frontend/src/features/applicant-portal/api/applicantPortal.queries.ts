@@ -10,6 +10,7 @@ export const apKeys = {
   followUp: (applicantId: string) => [...apKeys.all, 'follow-up', applicantId] as const,
   followUpExamPlan: (cycleId: string, categoryKey: string) =>
     [...apKeys.all, 'follow-up-exam-plan', cycleId, categoryKey] as const,
+  applicationInstructions: () => [...apKeys.all, 'application-instructions'] as const,
   moi: (nid: string) => [...apKeys.all, 'moi', nid] as const,
 };
 
@@ -100,6 +101,14 @@ export function useFollowUpExamPlan(cycleId: string | null, categoryKey: string 
         categoryKey: categoryKey!,
       }),
     enabled: Boolean(cycleId && categoryKey),
+    ...noServerStateCacheOptions,
+  });
+}
+
+export function useApplicationInstructions() {
+  return useQuery({
+    queryKey: apKeys.applicationInstructions(),
+    queryFn: () => applicantPortalService.getApplicationInstructions(),
     ...noServerStateCacheOptions,
   });
 }

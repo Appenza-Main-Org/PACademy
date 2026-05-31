@@ -32,15 +32,28 @@ import { Badge, Button, Card, Drawer, IconStamp } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate } from '@/shared/lib/format';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
-import { useDraft } from '../api/applicantPortal.queries';
+import { useApplicationInstructions, useDraft } from '../api/applicantPortal.queries';
 import { useActiveCycle, useCategories } from '../api/categories.queries';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { deterministicFileNumber } from '../lib/deterministic-codes';
+import {
+  DEFAULT_APPLICATION_INSTRUCTIONS,
+  isApplicationLocked,
+} from '../lib/application-lock';
+import {
+  RELATIVE_LABEL,
+  formatMemberName,
+  professionLabel,
+  type FamilyMemberForm,
+  type GrandparentsForm,
+  type GuardianForm,
+  type RelativeKind,
+} from '../lib/familyData';
 
 export function ApplicantPortalPage(): JSX.Element {
-  const paid = useApplicantPortalStore((s) => s.paid);
-  const parentsApproved = useApplicantPortalStore((s) => s.parentsApproved);
-  const firstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
+  const storePaid = useApplicantPortalStore((s) => s.paid);
+  const storeParentsApproved = useApplicantPortalStore((s) => s.parentsApproved);
+  const storeFirstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
   /* Read the MOI session from the store first — it's set by the login
@@ -49,6 +62,12 @@ export function ApplicantPortalPage(): JSX.Element {
   const session = moiSession ?? MOI_APPLICANT_SESSION;
   const APPLICANT_ID = session.applicantId;
   const { data: draft } = useDraft(APPLICANT_ID);
+  const instructionsQuery = useApplicationInstructions();
+  const instructionLines = instructionsQuery.data ?? DEFAULT_APPLICATION_INSTRUCTIONS;
+  const paid = storePaid || Boolean(draft?.payment?.paidAt);
+  const parentsApproved = storeParentsApproved || Boolean(draft?.parentsApproved || draft?.parentsApprovedAt);
+  const firstExamDate = storeFirstExamDate ?? draft?.examSlot?.date ?? null;
+  const applicationLocked = isApplicationLocked(draft, storePaid);
   /* Profile fields come from the draft saved in Stage 3 (real data).
    * The draft is undefined until fetched, so every field is optional. */
   const profile = draft?.profile;
@@ -66,6 +85,15 @@ export function ApplicantPortalPage(): JSX.Element {
   const modificationDeadline = activeCycle.data?.closeDate;
 
   const primaryCta = (() => {
+    if (applicationLocked && firstExamDate) {
+      return {
+        label: 'بطاقة التردد',
+        to: ROUTES.applicantPrintCard,
+        variant: 'primary' as const,
+        leadingIcon: <ArrowLeft size={14} strokeWidth={1.75} className="rtl:rotate-180" />,
+      };
+    }
+    if (applicationLocked) return null;
     if (!paid) {
       return {
         label: 'الدفع',
@@ -90,12 +118,7 @@ export function ApplicantPortalPage(): JSX.Element {
         leadingIcon: <CalendarCheck size={14} strokeWidth={1.75} />,
       };
     }
-    return {
-      label: 'بطاقة التردد',
-      to: ROUTES.applicantPrintCard,
-      variant: 'primary' as const,
-      leadingIcon: <ArrowLeft size={14} strokeWidth={1.75} className="rtl:rotate-180" />,
-    };
+    return null;
   })();
 
   return (
@@ -127,8 +150,15 @@ export function ApplicantPortalPage(): JSX.Element {
               </Link>
             )}
             <Link to={ROUTES.applicantApplicationSummary}>
-              <Button variant="secondary" leadingIcon={<Pencil size={14} strokeWidth={1.75} />}>
-                تعديل الطلب
+              <Button
+                variant="secondary"
+                leadingIcon={
+                  applicationLocked
+                    ? <ScrollText size={14} strokeWidth={1.75} />
+                    : <Pencil size={14} strokeWidth={1.75} />
+                }
+              >
+                {applicationLocked ? 'عرض الطلب' : 'تعديل الطلب'}
               </Button>
             </Link>
             <Button
@@ -244,20 +274,24 @@ export function ApplicantPortalPage(): JSX.Element {
       })()}
 
       {/* ── بيانات الوالدين (only when approved) ────────────── */}
-      {parentsApproved && <ParentsSection />}
+      <FamilySection family={draft?.family} parentsApproved={parentsApproved} />
 
       {/* ── Primary CTA strip ────────────────────────────────── */}
       <Card className="border-teal-500 bg-teal-50/30">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-ar-display text-md font-bold text-ink-900">الخطوة التالية</p>
-            <p className="mt-0.5 text-sm text-ink-500">{nextStepCaption(paid, parentsApproved, firstExamDate)}</p>
+            <p className="mt-0.5 text-sm text-ink-500">
+              {nextStepCaption(paid, parentsApproved, firstExamDate, applicationLocked)}
+            </p>
           </div>
-          <Link to={primaryCta.to}>
-            <Button variant={primaryCta.variant} size="lg" leadingIcon={primaryCta.leadingIcon}>
-              {primaryCta.label}
-            </Button>
-          </Link>
+          {primaryCta && (
+            <Link to={primaryCta.to}>
+              <Button variant={primaryCta.variant} size="lg" leadingIcon={primaryCta.leadingIcon}>
+                {primaryCta.label}
+              </Button>
+            </Link>
+          )}
         </div>
       </Card>
 
@@ -265,46 +299,23 @@ export function ApplicantPortalPage(): JSX.Element {
       <Drawer open={showInstructions} onClose={() => setShowInstructions(false)} title="إرشادات التقدم">
         <Drawer.Body>
           <div className="flex flex-col gap-3 text-sm leading-normal text-ink-800">
-            <p>
-              <strong>قبل التقدم:</strong> راجع البيانات المُسجَّلة على بوابة وزارة الداخلية، وتأكد من
-              صحتها.
-            </p>
-            <p>
-              <strong>أثناء التقدم:</strong> سيُطلب منك إدخال بيانات الدراسة بدقة. أي مخالفة قد تؤدي إلى
-              منعك من الإختبار.
-            </p>
-            <p>
-              <strong>مقابل الخدمة:</strong> ٢٥٠ جنيه — يُسدَّد مرة واحدة خلال الدورة الحالية.
-            </p>
-            <p className="rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700">
-              احرص على طباعة بطاقة التردد والإقرار قبل موعد أول اختبار، وعلى توقيعها من المتقدم
-              وولي الأمر.
-            </p>
+            {instructionLines.map((line, index) => (
+              <p
+                key={`${index}-${line}`}
+                className={
+                  index === instructionLines.length - 1
+                    ? 'rounded-md border border-dashed border-gold-300 bg-gold-50 px-3 py-2 text-2xs text-gold-700'
+                    : undefined
+                }
+              >
+                {line}
+              </p>
+            ))}
           </div>
         </Drawer.Body>
       </Drawer>
     </div>
   );
-
-  function ParentsSection(): JSX.Element {
-    return (
-      <Card>
-        <header className="mb-3 flex items-center gap-2">
-          <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-            <Info size={14} strokeWidth={1.75} />
-          </span>
-          <h3 className="font-ar-display text-md font-bold text-ink-900">بيانات الوالدين</h3>
-          <Badge tone="success">
-            <IconStamp width={11} height={11} className="me-1 inline-block" />
-            معتمد
-          </Badge>
-        </header>
-        <p className="text-sm text-ink-700">
-          تم اعتماد بيانات الوالدين. يمكنك المتابعة لتحديد موعد الإختبار.
-        </p>
-      </Card>
-    );
-  }
 }
 
 const MARITAL_LABEL: Record<string, string> = {
@@ -313,6 +324,22 @@ const MARITAL_LABEL: Record<string, string> = {
   divorced: 'مطلق',
   widowed: 'أرمل',
 };
+
+const GRANDPARENT_LABELS: Array<{ key: keyof GrandparentsForm; label: string }> = [
+  { key: 'paternalGrandfather', label: 'الجد لأب' },
+  { key: 'paternalGrandmother', label: 'الجدة لأب' },
+  { key: 'maternalGrandfather', label: 'الجد لأم' },
+  { key: 'maternalGrandmother', label: 'الجدة لأم' },
+];
+
+const RELATIVE_KINDS: readonly RelativeKind[] = [
+  'brothers',
+  'sisters',
+  'paternal_uncles',
+  'paternal_aunts',
+  'maternal_aunts',
+  'maternal_uncles',
+];
 
 function maritalLabel(key: string | undefined): string {
   if (!key) return '—';
@@ -352,7 +379,215 @@ function Row({
   );
 }
 
-function nextStepCaption(paid: boolean, parentsApproved: boolean, firstExamDate: string | null): string {
+function FamilySection({
+  family,
+  parentsApproved,
+}: {
+  family: Record<string, unknown> | undefined;
+  parentsApproved: boolean;
+}): JSX.Element | null {
+  const storedFamily = readStoredFamily(family);
+  if (!storedFamily && !parentsApproved) return null;
+
+  const familyRows: Array<{ key: string; relation: string; member: FamilyMemberForm }> = [];
+  const pushMember = (key: string, relation: string, member: FamilyMemberForm | null): void => {
+    if (!member) return;
+    familyRows.push({ key, relation, member });
+  };
+
+  pushMember('father', 'الأب', storedFamily?.father ?? null);
+  pushMember('mother', 'الأم', storedFamily?.mother ?? null);
+  storedFamily?.fatherWives.forEach((member, index) =>
+    pushMember(`father-wife-${index}`, `زوجة الأب ${index + 1}`, member),
+  );
+  storedFamily?.motherHusbands.forEach((member, index) =>
+    pushMember(`mother-husband-${index}`, `زوج الأم ${index + 1}`, member),
+  );
+  GRANDPARENT_LABELS.forEach(({ key, label }) =>
+    pushMember(key, label, storedFamily?.grandparents?.[key] ?? null),
+  );
+  for (const kind of RELATIVE_KINDS) {
+    storedFamily?.relatives[kind]?.forEach((member, index) =>
+      pushMember(`${kind}-${index}`, `${RELATIVE_LABEL[kind].singular} ${index + 1}`, member),
+    );
+  }
+
+  return (
+    <Card>
+      <header className="mb-3 flex flex-wrap items-center gap-2">
+        <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+          <Info size={14} strokeWidth={1.75} />
+        </span>
+        <h3 className="font-ar-display text-md font-bold text-ink-900">بيانات العائلة</h3>
+        {parentsApproved && (
+          <Badge tone="success">
+            <IconStamp width={11} height={11} className="me-1 inline-block" />
+            معتمد
+          </Badge>
+        )}
+      </header>
+      {familyRows.length > 0 ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {familyRows.map((row) => (
+            <FamilyMemberPanel key={row.key} relation={row.relation} member={row.member} />
+          ))}
+          {storedFamily?.guardian && <GuardianPanel guardian={storedFamily.guardian} />}
+        </div>
+      ) : (
+        <p className="text-sm text-ink-700">
+          تم اعتماد بيانات الوالدين. لا توجد تفاصيل إضافية محفوظة للعرض.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+function FamilyMemberPanel({
+  relation,
+  member,
+}: {
+  relation: string;
+  member: FamilyMemberForm;
+}): JSX.Element {
+  return (
+    <div className="rounded-md border border-border-subtle bg-surface-page px-4 py-3">
+      <p className="text-2xs font-bold uppercase tracking-wide text-ink-500">{relation}</p>
+      <p className="mt-1 font-ar-display text-sm font-bold text-ink-900">
+        {formatMemberName(member)}
+      </p>
+      <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+        <Row label="الرقم القومي" value={member.nationalId || member.nidUnavailableReason || '—'} ltr mono />
+        <Row label="الديانة" value={member.religion || '—'} />
+        <Row label="تاريخ الميلاد" value={member.dateOfBirth || '—'} ltr />
+        <Row label="المهنة" value={professionLabel(member.profession)} />
+        <Row label="المؤهل" value={member.qualificationDetail || member.qualification || '—'} />
+        <Row
+          label="محل الإقامة"
+          value={
+            member.residenceGovernorate
+              ? `${member.residenceGovernorate} — ${member.residenceDistrict} — ${member.residenceDetail}`
+              : '—'
+          }
+          containerClassName="sm:col-span-2"
+        />
+      </dl>
+    </div>
+  );
+}
+
+function GuardianPanel({ guardian }: { guardian: GuardianForm }): JSX.Element {
+  return (
+    <div className="rounded-md border border-border-subtle bg-surface-page px-4 py-3">
+      <p className="text-2xs font-bold uppercase tracking-wide text-ink-500">ولي الأمر</p>
+      <p className="mt-1 font-ar-display text-sm font-bold text-ink-900">
+        {formatGuardianName(guardian)}
+      </p>
+      <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+        <Row label="المهنة" value={professionLabel(guardian.profession)} />
+        <Row label="رقم الأقدمية" value={guardian.seniorityNumber || '—'} ltr mono />
+        <Row label="المؤهل" value={guardian.qualificationDetail || guardian.qualification || '—'} />
+        <Row label="جهة العمل" value={guardian.workplaceDetail || guardian.professionDetail || '—'} />
+      </dl>
+    </div>
+  );
+}
+
+interface StoredFamily {
+  father?: FamilyMemberForm;
+  mother?: FamilyMemberForm;
+  fatherWives: readonly FamilyMemberForm[];
+  motherHusbands: readonly FamilyMemberForm[];
+  grandparents?: Partial<GrandparentsForm>;
+  relatives: Partial<Record<RelativeKind, readonly FamilyMemberForm[]>>;
+  guardian?: GuardianForm;
+}
+
+function readStoredFamily(family: Record<string, unknown> | undefined): StoredFamily | null {
+  if (!family) return null;
+  const stored: StoredFamily = {
+    father: toFamilyMember(family.father),
+    mother: toFamilyMember(family.mother),
+    fatherWives: toFamilyMemberArray(family.fatherWives),
+    motherHusbands: toFamilyMemberArray(family.motherHusbands),
+    grandparents: toGrandparents(family.grandparents),
+    relatives: toRelatives(family.relatives),
+    guardian: toGuardian(family.guardian),
+  };
+  const hasMembers = Boolean(
+    stored.father ||
+      stored.mother ||
+      stored.fatherWives.length > 0 ||
+      stored.motherHusbands.length > 0 ||
+      (stored.grandparents && Object.keys(stored.grandparents).length > 0) ||
+      Object.values(stored.relatives).some((rows) => (rows?.length ?? 0) > 0) ||
+      stored.guardian,
+  );
+  return hasMembers ? stored : null;
+}
+
+function toFamilyMember(value: unknown): FamilyMemberForm | undefined {
+  if (!isRecord(value)) return undefined;
+  const member = value as Partial<FamilyMemberForm>;
+  if (!member.firstName && !member.nationalId) return undefined;
+  return member as FamilyMemberForm;
+}
+
+function toFamilyMemberArray(value: unknown): readonly FamilyMemberForm[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(toFamilyMember).filter((member): member is FamilyMemberForm => Boolean(member));
+}
+
+function toGrandparents(value: unknown): Partial<GrandparentsForm> | undefined {
+  if (!isRecord(value)) return undefined;
+  const grandparents: Partial<GrandparentsForm> = {};
+  for (const { key } of GRANDPARENT_LABELS) {
+    const member = toFamilyMember(value[key]);
+    if (member) grandparents[key] = member;
+  }
+  return Object.keys(grandparents).length > 0 ? grandparents : undefined;
+}
+
+function toRelatives(value: unknown): Partial<Record<RelativeKind, readonly FamilyMemberForm[]>> {
+  if (!isRecord(value)) return {};
+  const relatives: Partial<Record<RelativeKind, readonly FamilyMemberForm[]>> = {};
+  for (const kind of RELATIVE_KINDS) {
+    const members = toFamilyMemberArray(value[kind]);
+    if (members.length > 0) relatives[kind] = members;
+  }
+  return relatives;
+}
+
+function toGuardian(value: unknown): GuardianForm | undefined {
+  if (!isRecord(value)) return undefined;
+  const guardian = value as Partial<GuardianForm>;
+  if (!guardian.firstName && !guardian.workplaceDetail) return undefined;
+  return guardian as GuardianForm;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function formatGuardianName(guardian: GuardianForm): string {
+  const joined = [guardian.firstName, guardian.secondName, guardian.thirdName]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(' ');
+  return joined || '—';
+}
+
+function nextStepCaption(
+  paid: boolean,
+  parentsApproved: boolean,
+  firstExamDate: string | null,
+  applicationLocked: boolean,
+): string {
+  if (applicationLocked && firstExamDate) {
+    return 'البيانات مكتملة ومقفلة بعد السداد. اطبع بطاقة التردد قبل الذهاب للأكاديمية.';
+  }
+  if (applicationLocked) {
+    return 'تم قفل بيانات الطلب بعد السداد. البيانات متاحة للعرض فقط من بوابة المتقدم.';
+  }
   if (!paid) return 'لإتمام التقدم يلزم سداد مقابل الخدمة عبر كود فوري.';
   if (!parentsApproved) return 'بعد السداد يلزم إدراج واعتماد بيانات الوالدين قبل تحديد موعد الإختبار.';
   if (!firstExamDate) return 'البيانات مكتملة — اختر يوم اختبار قدرات من المواعيد المتاحة.';

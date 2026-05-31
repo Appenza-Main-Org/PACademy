@@ -23,12 +23,15 @@ export interface AdminSettings {
   acquaintanceDocumentsMutationLockTiming?: 'on_test_start' | 'on_test_end' | 'after_print' | 'manual';
   /** المرحلة/الاختبار المسؤول عن إظهار شاشات الأقارب الأولية. */
   primaryRelativesVisibilityResponsibleTestCode?: string;
+  /** Applicant-facing application instructions shown in the portal drawer. */
+  applicationInstructions?: readonly string[];
 }
 
 export type ApplicantControlScreensSettingsPatch = Pick<
   AdminSettings,
   | 'acquaintanceDocumentsEntryResponsibleTestCode'
   | 'acquaintanceDocumentsMutationLockTiming'
+  | 'applicationInstructions'
 >;
 
 export function buildApplicantControlScreensSettingsPatch(
@@ -37,6 +40,7 @@ export function buildApplicantControlScreensSettingsPatch(
   return {
     acquaintanceDocumentsEntryResponsibleTestCode: settings.acquaintanceDocumentsEntryResponsibleTestCode,
     acquaintanceDocumentsMutationLockTiming: settings.acquaintanceDocumentsMutationLockTiming,
+    applicationInstructions: settings.applicationInstructions,
   };
 }
 

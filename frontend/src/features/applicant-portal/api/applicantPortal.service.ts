@@ -33,6 +33,7 @@ import { simulateLatency } from '@/shared/lib/mock-helpers';
 import type { ApplicantDraft, ExamSlot, PaymentTransaction } from '@/shared/types/domain';
 import { useAuthStore } from '@/features/auth';
 import type { FollowUpExam, FollowUpExamPlan } from '../lib/follow-up-exam-plan';
+import { normalizeApplicationInstructions } from '../lib/application-lock';
 
 /* When the real backend is active the applicantId must be the GUID
  * issued by auth/verify, not the mock "APP-2026000" constant that pages
@@ -66,6 +67,10 @@ interface BackendExamPlan {
     order: number;
     isRequired: boolean;
   }[];
+}
+
+interface ApplicationInstructionsResponse {
+  applicationInstructions?: readonly string[] | string | null;
 }
 
 function metadataString(row: TestLookupRow, key: string): string | undefined {
@@ -322,6 +327,16 @@ export const applicantPortalService = {
     };
   },
 
+  async getApplicationInstructions(): Promise<readonly string[]> {
+    if (isBackendEnabled()) {
+      const settings = await adminApiClient.get<ApplicationInstructionsResponse>('/api/admin/settings');
+      return normalizeApplicationInstructions(settings.applicationInstructions);
+    }
+
+    await simulateLatency(100, 200);
+    return normalizeApplicationInstructions(null);
+  },
+
   /** Admin-only: update one or more exam result fields for a given applicant.
    *  INTEGRATION CONTRACT: PUT /applicant/follow-up/:applicantId
    *    Body: Partial<followUp> — only known keys (capacities|traits|sports|medical|investigation|finalResult) are written.
@@ -391,6 +406,12 @@ export const applicantPortalService = {
     const paidAt = Date.now();
     DRAFT = {
       ...DRAFT,
+      payment: {
+        method: 'fawry-code',
+        refNumber: _input.intentId.replace(/^INT-/, ''),
+        amount: 250,
+        paidAt,
+      },
       furthestStage: Math.max(DRAFT.furthestStage, 6),
       lastSavedAt: paidAt,
     };

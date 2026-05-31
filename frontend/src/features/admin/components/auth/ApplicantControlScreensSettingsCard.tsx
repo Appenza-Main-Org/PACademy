@@ -17,7 +17,7 @@
  */
 
 import { Settings2 } from 'lucide-react';
-import { Card, CardBody, CardHeader, Select } from '@/shared/components';
+import { Card, CardBody, CardHeader, Select, Textarea } from '@/shared/components';
 import type { AdminSettings } from '../../api/settings.service';
 
 export type LockTiming = NonNullable<AdminSettings['acquaintanceDocumentsMutationLockTiming']>;
@@ -34,6 +34,7 @@ const LOCK_TIMING_OPTIONS: Array<{ value: LockTiming; label: string }> = [
 export interface ControlScreensForm {
   acquaintanceDocumentsEntryResponsibleTestCode: string;
   acquaintanceDocumentsMutationLockTiming: LockTiming;
+  applicationInstructionsText: string;
 }
 
 interface ApplicantControlScreensSettingsCardProps {
@@ -81,6 +82,15 @@ export function ApplicantControlScreensSettingsCard({
             }
           />
         </div>
+        <Textarea
+          label="إرشادات التقدم"
+          value={form.applicationInstructionsText}
+          rows={6}
+          disabled={loading}
+          containerClassName="mt-4"
+          helper="اكتب كل تعليمة في سطر مستقل. تظهر هذه التعليمات في درج إرشادات التقدم ببوابة المتقدم."
+          onChange={(event) => onChange('applicationInstructionsText', event.target.value)}
+        />
         <p className="mt-5 inline-flex items-center gap-2 border-t border-border-subtle pt-4 text-2xs text-ink-500">
           <Settings2 size={12} strokeWidth={1.75} aria-hidden />
           تُحفظ هذه القيم كإعدادات عامة وتُقرأها شاشات المتقدم عند تحديد الإتاحة.

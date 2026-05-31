@@ -91,8 +91,7 @@ assert.deepEqual(
   [
     'acquaintanceDocumentsEntryResponsibleTestCode',
     'acquaintanceDocumentsMutationLockTiming',
-    'acquaintanceDocumentsPrintResponsibleTestCode',
-    'primaryRelativesEntryResponsibleTestCode',
+    'applicationInstructions',
   ],
   'applicant-control settings PATCH should include only the control-screen fields currently rendered',
 );
@@ -110,6 +109,11 @@ assert.equal(
   cardSource.includes('primaryRelativesVisibilityResponsibleTestCode'),
   false,
   'settings card should not render the duplicate primary-relatives visibility select',
+);
+assert.equal(
+  cardSource.includes('applicationInstructionsText'),
+  true,
+  'settings card should render the admin-managed applicant instructions textarea',
 );
 
 console.log('family/settings regression checks passed');
