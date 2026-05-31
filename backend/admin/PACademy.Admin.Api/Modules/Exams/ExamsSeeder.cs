@@ -22,18 +22,25 @@ public sealed class ExamsSeeder(IWebHostEnvironment environment, ILogger<ExamsSe
             return;
         }
 
-        var hasQuestions = await db.ExamQuestions.AnyAsync(ct);
-        var hasExams = await db.Exams.AnyAsync(ct);
-        if (hasQuestions && hasExams)
-        {
-            await RemoveLegacyAdminRecordsAsync(db, ct);
-            return;
-        }
-
         await using var stream = File.OpenRead(path);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
         var root = doc.RootElement;
         var now = DateTimeOffset.UtcNow;
+
+        // Document-store buckets (committee users, devices, results, audit) seed
+        // independently of the normalized question/exam tables, so an
+        // already-seeded database still picks them up. Each bucket is idempotent.
+        var docInserted = await SeedDocumentBucketsAsync(db, root, now, ct);
+
+        var hasQuestions = await db.ExamQuestions.AnyAsync(ct);
+        var hasExams = await db.Exams.AnyAsync(ct);
+        if (hasQuestions && hasExams)
+        {
+            var removed = await RemoveLegacyAdminRecordsAsync(db, ct);
+            if (docInserted > 0 || removed > 0) await db.SaveChangesAsync(ct);
+            return;
+        }
+
         var inserted = 0;
 
         if (!hasQuestions && root.TryGetProperty("questions", out var questions) && questions.ValueKind == JsonValueKind.Array)
@@ -134,9 +141,42 @@ public sealed class ExamsSeeder(IWebHostEnvironment environment, ILogger<ExamsSe
 
         var removedLegacyRows = await RemoveLegacyAdminRecordsAsync(db, ct);
 
-        if (inserted == 0 && removedLegacyRows == 0) return;
+        if (inserted == 0 && removedLegacyRows == 0 && docInserted == 0) return;
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded {Count} Question Bank rows", inserted);
+        logger.LogInformation("Seeded {Count} Question Bank rows + {Docs} exam document rows", inserted, docInserted);
+    }
+
+    private static readonly (string JsonKey, string Module)[] DocumentBuckets =
+    [
+        ("committeeUsers", ExamsService.CommitteeUsersModule),
+        ("devices", ExamsService.DevicesModule),
+        ("results", ExamsService.ResultsModule),
+        ("audit", ExamsService.AuditModule)
+    ];
+
+    private static async Task<int> SeedDocumentBucketsAsync(AdminDbContext db, JsonElement root, DateTimeOffset now, CancellationToken ct)
+    {
+        var inserted = 0;
+        foreach (var (jsonKey, module) in DocumentBuckets)
+        {
+            if (await db.AdminRecordDocuments.AnyAsync(x => x.Module == module, ct)) continue;
+            if (!root.TryGetProperty(jsonKey, out var rows) || rows.ValueKind != JsonValueKind.Array) continue;
+            foreach (var row in rows.EnumerateArray())
+            {
+                var obj = JsonNode.Parse(row.GetRawText())!.AsObject();
+                var id = AdminRecordJson.StringProp(obj, "id") ?? $"{module}-{Guid.NewGuid():N}".ToUpperInvariant();
+                db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
+                {
+                    Module = module,
+                    Id = id,
+                    PayloadJson = obj.ToJsonString(AdminRecordJson.Options),
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+                inserted++;
+            }
+        }
+        return inserted;
     }
 
     private static async Task<int> RemoveLegacyAdminRecordsAsync(AdminDbContext db, CancellationToken ct)

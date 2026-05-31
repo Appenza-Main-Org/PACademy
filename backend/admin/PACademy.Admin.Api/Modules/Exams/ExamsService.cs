@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.Exams;
@@ -18,6 +19,10 @@ public sealed class ExamsService(AdminRecordsService records, IExamsDbContext ex
     public const string ExamsModule = "exams";
     public const string AttemptsModule = "exam-attempts";
     public const string LiveSessionsModule = "exam-live-sessions";
+    public const string CommitteeUsersModule = "exam-committee-users";
+    public const string DevicesModule = "exam-devices";
+    public const string ResultsModule = "exam-results";
+    public const string AuditModule = "exam-audit";
 
     /* ── Questions ─────────────────────────────────────────────────── */
 
@@ -142,11 +147,265 @@ public sealed class ExamsService(AdminRecordsService records, IExamsDbContext ex
     {
         var existing = await LoadExamAsync(id, ct, asTracking: true)
             ?? throw new EntityNotFoundException("الاختبار غير موجود");
+        var previous = existing.Status;
         existing.Status = "published";
         existing.UpdatedAt = DateTimeOffset.UtcNow;
         await examsDb.SaveChangesAsync(ct);
+        await RecordAuditAsync("exam.published", "exam", id, previous, "published", ct);
         return ToExamJson((await LoadExamAsync(id, ct, asTracking: false))!);
     }
+
+    /// <summary>Halts an exam (draft|published → stopped). Mirrors the frontend stopExam.</summary>
+    public async Task<JsonObject> StopExamAsync(string id, CancellationToken ct)
+    {
+        var existing = await LoadExamAsync(id, ct, asTracking: true)
+            ?? throw new EntityNotFoundException("الاختبار غير موجود");
+        var previous = existing.Status;
+        existing.Status = "stopped";
+        existing.UpdatedAt = DateTimeOffset.UtcNow;
+        await examsDb.SaveChangesAsync(ct);
+        await RecordAuditAsync("exam.stopped", "exam", id, previous, "stopped", ct);
+        return ToExamJson((await LoadExamAsync(id, ct, asTracking: false))!);
+    }
+
+    /// <summary>
+    /// Re-opens an exam for one applicant by adding them to the
+    /// <c>reopenedApplicant</c> assignments — overrides the 6-month re-take guard.
+    /// </summary>
+    public async Task<JsonObject> OpenAttemptAsync(string examId, string applicantId, CancellationToken ct)
+    {
+        var existing = await LoadExamAsync(examId, ct, asTracking: true)
+            ?? throw new EntityNotFoundException("الاختبار غير موجود");
+        var already = existing.Assignments
+            .Any(a => a.AssignmentKind == "reopenedApplicant" && a.Value == applicantId);
+        if (!already)
+        {
+            var nextOrder = existing.Assignments
+                .Where(a => a.AssignmentKind == "reopenedApplicant")
+                .Select(a => a.AssignmentOrder)
+                .DefaultIfEmpty(-1)
+                .Max() + 1;
+            examsDb.ExamAssignments.Add(new ExamAssignmentEntity
+            {
+                ExamId = examId,
+                AssignmentKind = "reopenedApplicant",
+                AssignmentOrder = nextOrder,
+                Value = applicantId
+            });
+            existing.UpdatedAt = DateTimeOffset.UtcNow;
+            await examsDb.SaveChangesAsync(ct);
+        }
+        await RecordAuditAsync("attempt.opened", "exam", examId, null, applicantId, ct);
+        return ToExamJson((await LoadExamAsync(examId, ct, asTracking: false))!);
+    }
+
+    /* ── Access validation: the 7-point pre-exam gate ──────────────── */
+
+    public async Task<object> ValidateAccessAsync(JsonObject request, CancellationToken ct)
+    {
+        var nationalId = AdminRecordJson.StringProp(request, "nationalId");
+        var applicantCode = AdminRecordJson.StringProp(request, "applicantCode");
+        var requestedExamId = AdminRecordJson.StringProp(request, "examId");
+        var ipAddress = AdminRecordJson.StringProp(request, "ipAddress") ?? "";
+        var deviceIdentifier = AdminRecordJson.StringProp(request, "deviceIdentifier") ?? "";
+
+        var applicants = await records.ListAsync("applicants", ct);
+        var applicant = applicants.FirstOrDefault(a =>
+            (!string.IsNullOrWhiteSpace(nationalId) && AdminRecordJson.StringProp(a, "nationalId") == nationalId) ||
+            (!string.IsNullOrWhiteSpace(applicantCode) && AdminRecordJson.StringProp(a, "id") == applicantCode));
+
+        var exams = await ListExamsAsync(ct);
+        var exam = exams.FirstOrDefault(e => AdminRecordJson.StringProp(e, "id") == requestedExamId)
+            ?? exams.FirstOrDefault(e => AdminRecordJson.StringProp(e, "status") == "published");
+
+        var devices = await records.ListAsync(DevicesModule, ct);
+        var device = devices.FirstOrDefault(d =>
+            AdminRecordJson.StringProp(d, "status") == "active" &&
+            ((AdminRecordJson.StringProp(d, "macAddress")?.Equals(deviceIdentifier, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             AdminRecordJson.StringProp(d, "ipAddress") == ipAddress) &&
+            (exam is null ||
+             string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(d, "examId")) ||
+             AdminRecordJson.StringProp(d, "examId") == StrN(exam,"id")));
+
+        var now = DateTimeOffset.UtcNow;
+        var startsAt = ParseDate(StrN(exam,"accessStartAt") ?? StrN(exam,"scheduledFor"));
+        var endsAt = ParseDate(StrN(exam,"accessEndAt"))
+            ?? (startsAt is { } s ? s.AddHours(3) : (DateTimeOffset?)null);
+        var hasTimeWindow = startsAt is { } st && endsAt is { } en && now >= st && now <= en;
+
+        var applicantStatus = StrN(applicant,"status");
+        var attempts = await records.ListAsync(AttemptsModule, ct);
+        var previousAttempt = exam is not null && applicant is not null && attempts.Any(t =>
+            AdminRecordJson.StringProp(t, "examId") == StrN(exam,"id") &&
+            AdminRecordJson.StringProp(t, "applicantId") == StrN(applicant,"id") &&
+            t.ContainsKey("submittedAt"));
+        var reopened = exam is not null && applicant is not null &&
+            (exam["reopenedApplicantIds"] as JsonArray ?? [])
+                .Any(n => n?.GetValue<string>() == StrN(applicant,"id"));
+
+        var examGenders = (exam?["assignedGenders"] as JsonArray ?? [])
+            .Select(n => n?.GetValue<string>())
+            .Where(x => x is not null)
+            .ToList();
+        var applicantGender = StrN(applicant,"gender");
+
+        var checks = new List<object>
+        {
+            CheckRow("applicant", "المتقدم موجود في بيانات لجان القبول", applicant is not null,
+                applicant is not null ? StrN(applicant,"name") ?? "" : "لا يوجد متقدم مطابق للرقم القومي/الكود."),
+            CheckRow("today", "لديه اختبار اليوم", exam is not null,
+                exam is not null ? StrN(exam,"nameAr") ?? "" : "لا يوجد اختبار منشور متاح."),
+            CheckRow("assignment", "المتقدم مخصص لهذا الاختبار",
+                exam is not null && applicant is not null && (examGenders.Count == 0 || applicantGender is null || examGenders.Contains(applicantGender)),
+                "مطابقة الفئة/النوع/الجنس/التخصص محفوظة على تكوين الاختبار."),
+            CheckRow("suspension", "المتقدم غير موقوف",
+                applicantStatus != "on-hold" && applicantStatus != "rejected",
+                applicant is not null ? StrN(applicant,"stageLabel") ?? "" : "لا يمكن التحقق قبل العثور على المتقدم."),
+            CheckRow("device", "الجهاز أو IP مصرح به", device is not null,
+                device is not null ? $"{StrN(device, "label")} · {StrN(device, "ipAddress")}" : "الجهاز غير مسجل أو غير مفعل."),
+            CheckRow("window", "نافذة وقت الاختبار صالحة", hasTimeWindow,
+                startsAt is { } ws && endsAt is { } we ? $"{ws:yyyy-MM-dd HH:mm} → {we:yyyy-MM-dd HH:mm}" : "لا توجد نافذة مفعلة."),
+            CheckRow("duplicate", "لا توجد محاولة سابقة مغلقة", !previousAttempt || reopened,
+                previousAttempt && !reopened ? "تم تسليم محاولة سابقة، ويلزم فتح محاولة أخرى." : "مسموح بالبدء."),
+        };
+
+        var ok = checks.All(c => ((dynamic)c).ok);
+        return new
+        {
+            ok,
+            applicantId = StrN(applicant,"id"),
+            examId = StrN(exam,"id"),
+            reason = ok ? null : checks.Select(c => (dynamic)c).FirstOrDefault(c => !c.ok)?.detail,
+            checks
+        };
+    }
+
+    /* ── Committee users (BRD "user management") ───────────────────── */
+
+    public async Task<IReadOnlyList<JsonObject>> ListCommitteeUsersAsync(CancellationToken ct) =>
+        (await records.ListAsync(CommitteeUsersModule, ct)).Select(MaskUser).ToList();
+
+    public async Task<JsonObject> CreateCommitteeUserAsync(JsonObject payload, CancellationToken ct)
+    {
+        var id = AdminRecordJson.StringProp(payload, "id") ?? $"EXU-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        var password = AdminRecordJson.StringProp(payload, "password");
+        payload.Remove("password");
+        payload["id"] = id;
+        if (!string.IsNullOrWhiteSpace(password)) payload["passwordHash"] = IdentityCredentials.HashPassword(password);
+        payload["passwordMask"] = "••••••••";
+        payload["status"] ??= "active";
+        var saved = await records.UpsertAsync(CommitteeUsersModule, id, payload, ct);
+        return MaskUser(saved);
+    }
+
+    public async Task<JsonObject> UpdateCommitteeUserAsync(string id, JsonObject patch, CancellationToken ct)
+    {
+        var existing = await records.GetAsync(CommitteeUsersModule, id, ct)
+            ?? throw new EntityNotFoundException("المستخدم غير موجود");
+        var password = AdminRecordJson.StringProp(patch, "password");
+        patch.Remove("password");
+        if (!string.IsNullOrWhiteSpace(password))
+        {
+            patch["passwordHash"] = IdentityCredentials.HashPassword(password);
+            patch["passwordMask"] = "••••••••";
+        }
+        var saved = await records.UpsertAsync(CommitteeUsersModule, id, patch, ct);
+        return MaskUser(saved);
+    }
+
+    /* ── Authorized devices ────────────────────────────────────────── */
+
+    public async Task<IReadOnlyList<JsonObject>> ListDevicesAsync(CancellationToken ct) =>
+        await records.ListAsync(DevicesModule, ct);
+
+    public async Task<JsonObject> CreateDeviceAsync(JsonObject payload, CancellationToken ct)
+    {
+        var id = AdminRecordJson.StringProp(payload, "id") ?? $"DEV-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        payload["id"] = id;
+        payload["status"] ??= "active";
+        return await records.UpsertAsync(DevicesModule, id, payload, ct);
+    }
+
+    public async Task<JsonObject> UpdateDeviceAsync(string id, JsonObject patch, CancellationToken ct)
+    {
+        _ = await records.GetAsync(DevicesModule, id, ct)
+            ?? throw new EntityNotFoundException("الجهاز غير موجود");
+        return await records.UpsertAsync(DevicesModule, id, patch, ct);
+    }
+
+    /* ── Electronic results: preliminary → approved → published ────── */
+
+    public async Task<IReadOnlyList<JsonObject>> ListResultsAsync(CancellationToken ct) =>
+        await records.ListAsync(ResultsModule, ct);
+
+    public async Task<JsonObject> ApproveResultAsync(string id, CancellationToken ct)
+    {
+        var current = await records.GetAsync(ResultsModule, id, ct)
+            ?? throw new EntityNotFoundException("النتيجة غير موجودة");
+        if (AdminRecordJson.StringProp(current, "status") == "published") return current;
+        var previous = AdminRecordJson.StringProp(current, "status");
+        var patch = new JsonObject { ["status"] = "approved", ["approvedAt"] = DateTimeOffset.UtcNow.ToString("O") };
+        var saved = await records.UpsertAsync(ResultsModule, id, patch, ct);
+        await RecordAuditAsync("result.approved", "result", id, previous, "approved", ct);
+        return saved;
+    }
+
+    public async Task<JsonObject> PublishResultAsync(string id, CancellationToken ct)
+    {
+        var current = await records.GetAsync(ResultsModule, id, ct)
+            ?? throw new EntityNotFoundException("النتيجة غير موجودة");
+        if (AdminRecordJson.StringProp(current, "status") != "approved") return current;
+        var patch = new JsonObject { ["status"] = "published", ["publishedAt"] = DateTimeOffset.UtcNow.ToString("O") };
+        var saved = await records.UpsertAsync(ResultsModule, id, patch, ct);
+        await RecordAuditAsync("result.published", "result", id, "approved", "published", ct);
+        return saved;
+    }
+
+    /* ── Exam audit trail ──────────────────────────────────────────── */
+
+    public async Task<IReadOnlyList<JsonObject>> ListAuditAsync(CancellationToken ct) =>
+        (await records.ListAsync(AuditModule, ct))
+            .OrderByDescending(x => AdminRecordJson.StringProp(x, "timestamp") ?? "")
+            .ToList();
+
+    private async Task RecordAuditAsync(string action, string entity, string entityId, string? previous, string? next, CancellationToken ct)
+    {
+        var id = $"EXAUD-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        var row = new JsonObject
+        {
+            ["id"] = id,
+            ["user"] = "مدير نظام الاختبارات",
+            ["timestamp"] = DateTimeOffset.UtcNow.ToString("O"),
+            ["action"] = action,
+            ["entity"] = entity,
+            ["entityId"] = entityId,
+        };
+        if (previous is not null) row["previousValue"] = previous;
+        if (next is not null) row["newValue"] = next;
+        await records.UpsertAsync(AuditModule, id, row, ct);
+    }
+
+    private static JsonObject MaskUser(JsonObject user)
+    {
+        var clone = user.DeepClone().AsObject();
+        clone.Remove("passwordHash");
+        clone.Remove("password");
+        clone["passwordMask"] = "••••••••";
+        return clone;
+    }
+
+    private static object CheckRow(string key, string label, bool ok, string detail) =>
+        new { key, label, ok, detail };
+
+    private static DateTimeOffset? ParseDate(string? value) =>
+        DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
+
+    /// <summary>Null-safe string-prop read — returns null when the object is null
+    /// (the validate-access flow holds nullable applicant/exam/device handles).</summary>
+    private static string? StrN(JsonObject? obj, string name) =>
+        obj is null ? null : AdminRecordJson.StringProp(obj, name);
+
+    /* ── Internals ─────────────────────────────────────────────────── */
 
     /* ── Attempts + grading ────────────────────────────────────────── */
 

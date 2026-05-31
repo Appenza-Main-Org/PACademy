@@ -100,21 +100,22 @@ export const authService = {
       return buildMockUser(credentials);
     }
 
-    /* Login flow:
-     *   1. Try with the role the picker submitted.
-     *   2. On rejection, retry without a role so the backend uses the
-     *      user's actual stored role (covers users whose role isn't one
-     *      of the picker tiles — e.g. `admissions_manager`).
-     *   3. As a last resort, retry as `super_admin` so the legacy
-     *      bootstrap account keeps working when the picker is on the
-     *      Question Bank tile. */
+    /* MOI SSO sign-in.
+     *
+     * The two-step ministry protocol (POST /token → POST /ValidateLogin) is
+     * orchestrated server-side by `/api/auth/moi/login`, which returns the app
+     * AuthUser. Until the ministry API is live the backend runs the
+     * SimulatedMoiAuthGateway against the local admin store; flipping
+     * `Moi:Mode=real` on the backend is the entire migration — this client call
+     * does not change.
+     *
+     * Fallback: retry without a role so the backend uses the user's stored role
+     * when it isn't one of the picker tiles (e.g. `admissions_manager`). */
     const tryLogin = (role: Role | undefined): Promise<AuthLoginResponse> =>
-      apiClient.postForm<AuthLoginResponse>('/api/auth/login-simple', {
-        username: credentials.username,
+      apiClient.post<AuthLoginResponse>('/api/auth/moi/login', {
+        userName: credentials.username,
         password: credentials.password,
         ...(role ? { role } : {}),
-        nationalId: credentials.username,
-        mobile: credentials.password,
       });
 
     try {
@@ -123,12 +124,7 @@ export const authService = {
       try {
         return normalizeAuthResponse(await tryLogin(undefined));
       } catch {
-        if (credentials.role === 'super_admin') throw firstError;
-        try {
-          return normalizeAuthResponse(await tryLogin('super_admin'));
-        } catch {
-          throw firstError;
-        }
+        throw firstError;
       }
     }
   },
@@ -178,6 +174,18 @@ export const authService = {
 
   async unlockUser(userId: string, reason?: string): Promise<{ ok: true }> {
     return apiClient.post('/api/auth/lock-policy/unlock', { userId, reason });
+  },
+
+  /** Self-service password change for the signed-in user. */
+  async changePassword(input: {
+    userId: string;
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<{ ok: true }> {
+    return apiClient.post(`/api/users/${encodeURIComponent(input.userId)}/password`, {
+      currentPassword: input.currentPassword,
+      newPassword: input.newPassword,
+    });
   },
 };
 

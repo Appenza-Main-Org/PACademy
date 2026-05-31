@@ -1,16 +1,23 @@
 /**
  * Biometric API — registration, inquiry, verification, gate logs, reports.
  *
- * INTEGRATION CONTRACT:
- *   GET    /api/biometric/applicants/search?field=&q=       → BiometricApplicantLookup[]
- *   POST   /api/biometric/enroll                            → BiometricEnrollmentRecord
- *   POST   /api/biometric/verify                            → VerifyResult
- *   POST   /api/biometric/gate-log                          → GateLog
- *   GET    /api/biometric/verifications?module=&failedOnly= → VerificationLog[]
- *   GET    /api/biometric/reports                           → BiometricReports
- *   GET    /api/biometric/monitoring                        → live counts per station
+ * INTEGRATION CONTRACT (backend default; mock fallback when VITE_USE_MOCKS=true):
+ *   GET    /api/biometric/applicants/search?field=&q=                 → BiometricApplicantLookup[]
+ *   GET    /api/biometric/applicants/lookup?applicantId=&nationalId=&barcode= → BiometricApplicantLookup | 404
+ *   POST   /api/biometric/enroll                                      → BiometricEnrollmentRecord
+ *   POST   /api/biometric/verify                                      → VerifyResult
+ *   POST   /api/biometric/gate-log                                    → GateLog
+ *   GET    /api/biometric/verifications?module=&failedOnly=           → VerificationLog[]
+ *   GET    /api/biometric/gate-logs                                   → GateLog[]
+ *   GET    /api/biometric/audit                                       → BiometricAuditLog[]
+ *   GET    /api/biometric/reports                                     → BiometricReports
+ *   GET    /api/biometric/monitoring                                  → { last24h, perStation, recentFailures }
+ *
+ * The capture/match steps run behind the backend's IBiometricDeviceGateway —
+ * simulated by default, real device via the Biometric:Mode flag (BRD §8).
  */
 
+import { apiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import type { Applicant, BiometricEnrollment, BiometricVerification } from '@/shared/types/domain';
@@ -246,6 +253,11 @@ function pushAudit(input: Omit<BiometricAuditLog, 'id'>): void {
 
 export const biometricService = {
   async searchApplicants(input: { field: SearchField; query: string }): Promise<BiometricApplicantLookup[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<BiometricApplicantLookup[]>('/api/biometric/applicants/search', {
+        query: { field: input.field, q: input.query },
+      });
+    }
     await simulateLatency(250, 500);
     const q = input.query.trim().toLowerCase();
     if (!q) return MOCK.applicants.slice(0, 12).map(lookupFromApplicant);
@@ -262,12 +274,24 @@ export const biometricService = {
   },
 
   async getApplicant(input: { applicantId?: string; nationalId?: string; barcode?: string }): Promise<BiometricApplicantLookup | null> {
+    if (isBackendEnabled()) {
+      try {
+        return await apiClient.get<BiometricApplicantLookup>('/api/biometric/applicants/lookup', {
+          query: { applicantId: input.applicantId, nationalId: input.nationalId, barcode: input.barcode },
+        });
+      } catch {
+        return null;
+      }
+    }
     await simulateLatency(200, 420);
     const applicant = findApplicant(input);
     return applicant ? lookupFromApplicant(applicant) : null;
   },
 
   async enroll(input: EnrollInput): Promise<BiometricEnrollmentRecord> {
+    if (isBackendEnabled()) {
+      return apiClient.post<BiometricEnrollmentRecord>('/api/biometric/enroll', input);
+    }
     await simulateLatency(600, 1100);
     const status: EnrollmentStatus = input.faceCaptured && input.fingerprintCaptured
       ? 'enrolled'
@@ -314,6 +338,9 @@ export const biometricService = {
   },
 
   async verify(input: VerifyInput): Promise<VerifyResult> {
+    if (isBackendEnabled()) {
+      return apiClient.post<VerifyResult>('/api/biometric/verify', input);
+    }
     await simulateLatency(500, 900);
     const applicant = findApplicant(input);
     const timestamp = Date.now();
@@ -387,6 +414,9 @@ export const biometricService = {
     verificationResult: VerificationStatus;
     operator: string;
   }): Promise<GateLog> {
+    if (isBackendEnabled()) {
+      return apiClient.post<GateLog>('/api/biometric/gate-log', input);
+    }
     await simulateLatency(250, 500);
     const applicant = findApplicant({ applicantId: input.applicantId });
     const next: GateLog = {
@@ -411,6 +441,11 @@ export const biometricService = {
   },
 
   async listVerifications(filters: { module?: VerificationModule; failedOnly?: boolean; since?: number } = {}): Promise<VerificationLog[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<VerificationLog[]>('/api/biometric/verifications', {
+        query: { module: filters.module, failedOnly: filters.failedOnly ? true : undefined },
+      });
+    }
     await simulateLatency();
     let out = VERIFY_STATE;
     if (filters.module) out = out.filter((v) => v.module === filters.module);
@@ -420,16 +455,25 @@ export const biometricService = {
   },
 
   async listGateLogs(): Promise<GateLog[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<GateLog[]>('/api/biometric/gate-logs');
+    }
     await simulateLatency();
     return [...GATE_STATE];
   },
 
   async listAuditLogs(): Promise<BiometricAuditLog[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<BiometricAuditLog[]>('/api/biometric/audit');
+    }
     await simulateLatency();
     return [...AUDIT_STATE];
   },
 
   async reports(): Promise<BiometricReports> {
+    if (isBackendEnabled()) {
+      return apiClient.get<BiometricReports>('/api/biometric/reports');
+    }
     await simulateLatency();
     const days = Array.from({ length: 7 }, (_, i) => {
       const dayStart = Date.now() - i * 24 * 3600_000;
@@ -468,6 +512,13 @@ export const biometricService = {
     perStation: Record<string, { total: number; match: number; failed: number }>;
     recentFailures: BiometricVerification[];
   }> {
+    if (isBackendEnabled()) {
+      return apiClient.get<{
+        last24h: { ts: number; count: number }[];
+        perStation: Record<string, { total: number; match: number; failed: number }>;
+        recentFailures: BiometricVerification[];
+      }>('/api/biometric/monitoring');
+    }
     await simulateLatency();
     const oneDay = 24 * 3600_000;
     const since = Date.now() - oneDay;

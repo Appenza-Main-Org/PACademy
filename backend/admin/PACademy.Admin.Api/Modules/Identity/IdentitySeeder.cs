@@ -74,6 +74,12 @@ public sealed class IdentitySeeder(IWebHostEnvironment environment, ILogger<Iden
             var obj = JsonNode.Parse(user.GetRawText())!.AsObject();
             var nationalId = IdentityJson.StringProp(obj, "nationalId")!;
             if (nationalId != BootstrapAdminNationalId) continue;
+            /* Bootstrap MOI credentials so the super admin can sign in through the
+             * simulated MOI flow (username + password). Documented default. */
+            obj["username"] = "superadmin";
+            obj["passwordHash"] = IdentityCredentials.HashPassword("Admin@12345");
+            obj["passwordUpdatedAt"] = now;
+            obj["mustChangePassword"] = false;
             var existingUser = await db.Users.FirstOrDefaultAsync(x => x.NationalId == nationalId, ct);
             if (existingUser is null)
             {

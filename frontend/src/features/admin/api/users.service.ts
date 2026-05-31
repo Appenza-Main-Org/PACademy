@@ -9,6 +9,8 @@
  *   POST   /api/users/:id/status
  *   POST   /api/users/:id/deactivate
  *   POST   /api/users/:id/reset-2fa
+ *   POST   /api/users/:id/password          (self change: currentPassword + newPassword)
+ *   POST   /api/users/:id/password/reset    (super-admin reset → username + temporaryPassword)
  *   POST   /api/users/bulk-assign
  *   POST   /api/users/bulk-import
  *   POST   /api/users/from-template
@@ -61,6 +63,20 @@ export interface BulkImportUserRow {
   accountStatus: AccountStatus;
 }
 
+export interface ChangePasswordInput {
+  id: string;
+  currentPassword: string;
+  newPassword: string;
+}
+
+/** Result of a super-admin password reset — the one-time plaintext to reveal. */
+export interface ResetPasswordResult {
+  ok: true;
+  username: string;
+  temporaryPassword: string;
+  generated: boolean;
+}
+
 export const usersService = {
   async list(): Promise<SystemUser[]> {
     return apiClient.get('/api/users');
@@ -92,6 +108,21 @@ export const usersService = {
 
   async reset2fa(id: string): Promise<{ ok: true }> {
     return apiClient.post(`/api/users/${encodeURIComponent(id)}/reset-2fa`);
+  },
+
+  /** Self-service password change (caller must be the same user, or super admin). */
+  async changePassword(input: ChangePasswordInput): Promise<{ ok: true }> {
+    return apiClient.post(`/api/users/${encodeURIComponent(input.id)}/password`, {
+      currentPassword: input.currentPassword,
+      newPassword: input.newPassword,
+    });
+  },
+
+  /** Super-admin reset. Omit `newPassword` to have the backend generate one. */
+  async resetPassword(id: string, newPassword?: string): Promise<ResetPasswordResult> {
+    return apiClient.post(`/api/users/${encodeURIComponent(id)}/password/reset`, {
+      newPassword: newPassword ?? null,
+    });
   },
 
   async bulkAssign(ids: ReadonlyArray<string>, role: string): Promise<{ updated: number }> {

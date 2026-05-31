@@ -1,9 +1,10 @@
 /**
- * LoginForm — staff login via MOIPASS-styled flow.
- * Source: ARCH-03 (MOIPASS framing) + AUD-004 (RHF retrofit).
+ * LoginForm — staff login via the MOI SSO flow.
  *
- * Staff users log in through the admin backend using national ID + mobile
- * number. No OTP step is required for this sprint.
+ * Staff sign in with the MOI-issued username + password. The two-step ministry
+ * protocol (token exchange → validate-login) is orchestrated by the admin
+ * backend (`/api/auth/moi/login`); this form only collects the credentials.
+ * Until the ministry API is live the backend runs a simulated MOI gateway.
  */
 
 import { useNavigate } from 'react-router-dom';
@@ -30,17 +31,13 @@ const BIOMETRIC_LOGIN_ROLES: readonly Role[] = [
 ];
 
 const loginSchema = z.object({
-  nationalId: z
+  username: z
     .string()
-    .min(14, 'الرقم القومي يجب أن يكون 14 رقماً')
-    .max(14, 'الرقم القومي يجب أن يكون 14 رقماً')
-    .regex(/^[0-9]{14}$/, 'الرقم القومي يجب أن يحتوي على أرقام فقط'),
-  mobile: z
+    .trim()
+    .min(1, 'اسم المستخدم مطلوب'),
+  password: z
     .string()
-    .regex(
-      /^01[0125][0-9]{8}$/,
-      'رقم المحمول يجب أن يكون 11 رقماً ويبدأ بـ 010 / 011 / 012 / 015',
-    ),
+    .min(1, 'كلمة المرور مطلوبة'),
   role: z.enum(STAFF_LOGIN_ROLES),
 });
 type LoginValues = Omit<z.infer<typeof loginSchema>, 'role'> & { role: Role };
@@ -52,8 +49,8 @@ export function LoginForm(): JSX.Element {
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      nationalId: '28705260103619',
-      mobile: '01119441198',
+      username: 'superadmin',
+      password: 'Admin@12345',
       role: 'super_admin',
     },
   });
@@ -66,8 +63,8 @@ export function LoginForm(): JSX.Element {
 
   const onSubmit = async (values: LoginValues): Promise<void> => {
     loginMut.mutate({
-      username: values.nationalId,
-      password: values.mobile,
+      username: values.username,
+      password: values.password,
       role: values.role,
     }, {
       onSuccess: (user) => {
@@ -95,7 +92,7 @@ export function LoginForm(): JSX.Element {
         </div>
         <h2 className="font-ar-display text-xl font-bold text-ink-900 lg:text-2xl">دخول الموظفين</h2>
         <p className="mt-1 text-sm leading-relaxed text-ink-500">
-          يتم التحقق من هوية الضباط والموظفين بالرقم القومي ورقم المحمول المسجل.
+          يتم التحقق من هوية الضباط والموظفين عبر وزارة الداخلية باسم المستخدم وكلمة المرور.
           المتقدّمون للالتحاق يستخدمون
           <a href={ROUTES.applicantLogin} className="mx-1 font-medium text-teal-700 hover:underline">صفحة التقديم</a>
           مباشرةً.
@@ -103,25 +100,25 @@ export function LoginForm(): JSX.Element {
       </header>
 
       <Input
-        label="الرقم القومي"
+        label="اسم المستخدم"
         required
-        dir="rtl"
-        placeholder="14 رقماً"
-        maxLength={14}
-        {...register('nationalId')}
-        error={errors.nationalId?.message}
+        dir="ltr"
+        autoComplete="username"
+        placeholder="اسم المستخدم"
+        {...register('username')}
+        error={errors.username?.message}
       />
 
       <Input
-        label="رقم المحمول"
-        type="tel"
+        label="كلمة المرور"
+        type="password"
         required
-        dir="rtl"
-        placeholder="01XXXXXXXXX"
-        maxLength={11}
-        helper="يجب أن يطابق الرقم المسجل على حساب الموظف"
-        {...register('mobile')}
-        error={errors.mobile?.message}
+        dir="ltr"
+        autoComplete="current-password"
+        placeholder="••••••••"
+        helper="كلمة المرور صادرة من إدارة المنظومة. يمكنك تغييرها بعد الدخول."
+        {...register('password')}
+        error={errors.password?.message}
       />
 
       <div className="flex flex-col gap-2">
@@ -159,7 +156,7 @@ export function LoginForm(): JSX.Element {
           <p className="font-medium">دخول آمن</p>
           <p className="mt-0.5 text-xs text-teal-700/80 leading-normal">
             بياناتك مُشفّرة وكل عمليات الدخول تُسجَّل في سجل العمليات (Audit Trail).
-            لتحديث رقم المحمول المسجل تواصَل مع إدارة المنظومة.
+            لإعادة تعيين كلمة المرور تواصَل مع مدير النظام.
           </p>
         </div>
       </aside>

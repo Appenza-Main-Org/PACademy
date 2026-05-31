@@ -1,8 +1,10 @@
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
+using PACademy.Admin.Api.Modules.Biometric;
 using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Identity;
+using PACademy.Admin.Api.Modules.Identity.Moi;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Modules.Reports;
 using PACademy.Admin.Api.Modules.Settings;
@@ -61,10 +63,12 @@ builder.Services.AddCors(opt => opt.AddPolicy(CorsPolicyName, p => p
 // LookupsModule registers AdminDbContext first; all others resolve it.
 builder.Services.AddLookupsModule(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
+builder.Services.AddMoiAuthModule(builder.Configuration);
 builder.Services.AddAdminRecordsModule(builder.Configuration);
 builder.Services.AddAdmissionsModule(builder.Configuration);
 builder.Services.AddAuditModule();
 builder.Services.AddExamsModule(builder.Configuration);
+builder.Services.AddBiometricModule(builder.Configuration);
 builder.Services.AddReportsModule(builder.Configuration);
 builder.Services.AddSettingsModule(builder.Configuration);
 
@@ -101,6 +105,7 @@ if (!skipMigrationsAndSeed && !skipSeed)
     await app.SeedAdminRecordsAsync();
     await app.SeedAdmissionsAsync();
     await app.SeedExamsAsync();
+    await app.SeedBiometricAsync();
 
     // External-module DbContexts (each owns its own migrations history table).
     LookupsAdminSeeder.MigrateAndSeed(app.Services);
