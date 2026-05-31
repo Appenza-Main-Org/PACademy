@@ -28,12 +28,13 @@ namespace PACademy.Admin.Api.Modules.DataExchangeAdmin;
 /// </summary>
 public sealed class DataExchangeService(
     AdminDbContext db,
+    OperationalRecordsService records,
     IAuditSink auditSink,
     IChangeTrackingActorProvider actor)
 {
-    // Operational doc-store domains (applicants, committees, …) now live in
-    // dedicated normalized tables fronted by OperationalRecordStore.
-    private OperationalRecordStore Store => new(db);
+    // Read/write doc-store domains through OperationalRecordsService — the facade
+    // ApplicantsController uses. It routes `applicants` to the core dbo.applicants
+    // projection and other modules to their normalized operational tables.
 
     private const string Module = "data-exchange";
     private const string ImportSource = "data-exchange-import";
@@ -298,12 +299,13 @@ public sealed class DataExchangeService(
 
     private async Task<IReadOnlyList<LoadedRow>> LoadDocStoreAsync(DomainSpec spec, CancellationToken ct)
     {
-        // Read through OperationalRecordStore so domains backed by NORMALIZED tables
-        // (notably applicants) return their real rows. The store's bucket map can
-        // evolve (e.g. a domain may stop being registered) — if a module isn't
-        // supported, export it as empty rather than throwing.
-        if (!Store.Supports(spec.DocModule!)) return [];
-        var payloads = await Store.ListAsync(spec.DocModule!, ct);
+        // Read through OperationalRecordsService so applicants resolve to the core
+        // dbo.applicants projection and other modules to their operational tables.
+        // If a module isn't registered in the (evolving) store, export it as empty
+        // rather than throwing.
+        IReadOnlyList<JsonObject> payloads;
+        try { payloads = await records.ListAsync(spec.DocModule!, ct); }
+        catch (InvalidOperationException) { return []; }
         var result = new List<LoadedRow>(payloads.Count);
         foreach (var payload in payloads)
         {
@@ -404,17 +406,15 @@ public sealed class DataExchangeService(
 
     private async Task UpsertDocStoreAsync(DomainSpec spec, IReadOnlyDictionary<string, string?> row, CancellationToken ct)
     {
-        if (!Store.Supports(spec.DocModule!))
-            throw Invalid($"النطاق «{spec.TitleAr}» غير مدعوم في قاعدة البيانات الحالية.");
         var id = Get(row, "id") ?? Get(row, "business_key") ?? throw Invalid("id مفقود");
         // Merge edited normalized columns into the existing payload (type-safe),
-        // then write through OperationalRecordStore so normalized-table domains
+        // then write through OperationalRecordsService so normalized-table domains
         // (applicants) take the correct write path.
-        var original = await Store.GetAsync(spec.DocModule!, id, ct);
+        var original = await records.GetAsync(spec.DocModule!, id, ct);
         var payload = JsonFlatten.Unflatten(row, original, SkipKeys());
         payload["id"] = id;
         payload["sourceSystem"] = ImportSource;
-        await Store.UpsertAsync(spec.DocModule!, id, payload, ct);
+        await records.UpsertAsync(spec.DocModule!, id, payload, ct);
     }
 
     private async Task UpsertLookupAsync(IReadOnlyDictionary<string, string?> row, CancellationToken ct)

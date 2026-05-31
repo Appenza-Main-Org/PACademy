@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.DataExchangeAdmin;
 using PACademy.Admin.Api.Modules.Lookups;
@@ -12,7 +14,11 @@ namespace PACademy.Admin.Api.Tests;
 public sealed class DataExchangeServiceTests
 {
     private static DataExchangeService Build(AdminDbContext db)
-        => new(db, new DbAuditSink(db), new SystemActorProvider());
+    {
+        var sink = new DbAuditSink(db);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), sink, new OperationalRecordStore(db));
+        return new DataExchangeService(db, records, sink, new SystemActorProvider());
+    }
 
     private static Task SeedOperationalAsync(AdminDbContext db, string module, string id, string payloadJson)
         => new OperationalRecordStore(db).UpsertAsync(module, id, JsonNode.Parse(payloadJson)!.AsObject(), default);
