@@ -298,9 +298,11 @@ public sealed class DataExchangeService(
 
     private async Task<IReadOnlyList<LoadedRow>> LoadDocStoreAsync(DomainSpec spec, CancellationToken ct)
     {
-        // Read through AdminRecordsService so domains backed by NORMALIZED tables
-        // (notably applicants → dbo.applicants) return their real rows, not just
-        // the document-store mirror. Returns payloads as JsonObjects.
+        // Read through OperationalRecordStore so domains backed by NORMALIZED tables
+        // (notably applicants) return their real rows. The store's bucket map can
+        // evolve (e.g. a domain may stop being registered) — if a module isn't
+        // supported, export it as empty rather than throwing.
+        if (!Store.Supports(spec.DocModule!)) return [];
         var payloads = await Store.ListAsync(spec.DocModule!, ct);
         var result = new List<LoadedRow>(payloads.Count);
         foreach (var payload in payloads)
@@ -402,9 +404,11 @@ public sealed class DataExchangeService(
 
     private async Task UpsertDocStoreAsync(DomainSpec spec, IReadOnlyDictionary<string, string?> row, CancellationToken ct)
     {
+        if (!Store.Supports(spec.DocModule!))
+            throw Invalid($"النطاق «{spec.TitleAr}» غير مدعوم في قاعدة البيانات الحالية.");
         var id = Get(row, "id") ?? Get(row, "business_key") ?? throw Invalid("id مفقود");
         // Merge edited normalized columns into the existing payload (type-safe),
-        // then write through AdminRecordsService so normalized-table domains
+        // then write through OperationalRecordStore so normalized-table domains
         // (applicants) take the correct write path.
         var original = await Store.GetAsync(spec.DocModule!, id, ct);
         var payload = JsonFlatten.Unflatten(row, original, SkipKeys());
