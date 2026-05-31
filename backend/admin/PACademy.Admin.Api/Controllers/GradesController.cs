@@ -645,7 +645,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         if (changedOnly)
         {
             hasFilters = true;
-            where.Add($"({JsonValue("gradeChangedAt")} IS NOT NULL OR EXISTS (SELECT 1 FROM OPENJSON([a].[payload_json], '$.log')))");
+            where.Add($"({JsonValue("gradeChangedAt")} IS NOT NULL OR {HasAdjustmentsSql()})");
         }
 
         void AddNumberRange(string field, string minKey, string maxKey)
@@ -669,15 +669,15 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var offsetParam = AddParam(Math.Max(0, page - 1) * pageSize);
         var pageSizeParam = AddParam(pageSize);
         var tableName = AdminDbContext.QualifiedTableName("applicant_grades");
-        var selectSql = """
+        var selectSql = $"""
             SELECT N'grades' AS [module],
-                   COALESCE([a].[admin_record_id], CONVERT(nvarchar(128), [a].[seat])) AS [id],
-                   [a].[payload_json],
+                   CONVERT(nvarchar(128), [a].[seat]) AS [id],
+                   {GradePayloadSql()} AS [payload_json],
                    [a].[created_at],
                    [a].[updated_at],
                    [a].[row_version]
-            FROM __ADMIN_RECORDS_TABLE__ AS [a]
-            """.Replace("__ADMIN_RECORDS_TABLE__", tableName, StringComparison.Ordinal);
+            FROM {tableName} AS [a]
+            """;
         return new GradesPageSql
         {
             RowsSql = $"""
@@ -743,7 +743,7 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
                     COUNT(1) AS [Total],
                     COALESCE(SUM(CASE WHEN {JsonValue("kind")} = N'general' THEN 1 ELSE 0 END), 0) AS [General],
                     COALESCE(SUM(CASE WHEN {JsonValue("kind")} = N'azhar' THEN 1 ELSE 0 END), 0) AS [Azhar],
-                    COALESCE(SUM(CASE WHEN {JsonValue("gradeChangedAt")} IS NOT NULL OR JSON_QUERY([a].[payload_json], '$.log') IS NOT NULL AND JSON_QUERY([a].[payload_json], '$.log') <> N'[]' THEN 1 ELSE 0 END), 0) AS [WithAdjustments]
+                    COALESCE(SUM(CASE WHEN {JsonValue("gradeChangedAt")} IS NOT NULL OR {HasAdjustmentsSql()} THEN 1 ELSE 0 END), 0) AS [WithAdjustments]
                 FROM {AdminDbContext.QualifiedTableName("applicant_grades")} AS [a]
                 WHERE {LiveGradeSql()}
                 """)
@@ -799,13 +799,81 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         return obj;
     }
 
-    private static string JsonValue(string property) => $"JSON_VALUE([a].[payload_json], '$.{property}')";
-    private static string LiveGradeSql() =>
-        $"({JsonValue("deletedAt")} IS NULL AND COALESCE(LOWER({JsonValue("isDeleted")}), N'false') <> N'true')";
-    private static string NumberValue(string property) => $"TRY_CONVERT(float, {JsonValue(property)})";
-    private static string GradeMaxSql() => $"COALESCE(TRY_CONVERT(float, {JsonValue("overrideMax")}), TRY_CONVERT(float, {JsonValue("importMax")}), 410.0)";
+    private static string GradePayloadSql() =>
+        $"""
+        (
+            SELECT
+                CONVERT(nvarchar(128), [a].[seat]) AS [id],
+                [a].[seat],
+                [a].[seating_number] AS [seatingNumber],
+                [a].[nid],
+                [a].[name],
+                [a].[kind],
+                [a].[gender],
+                [a].[branch],
+                [a].[graduation_year] AS [graduationYear],
+                [a].[school_category_code] AS [schoolCategoryCode],
+                [a].[school],
+                [a].[region],
+                [a].[exam_round] AS [examRound],
+                [a].[total],
+                [a].[import_max] AS [importMax],
+                [a].[override_max] AS [overrideMax],
+                [a].[last_edited_at] AS [lastEditedAt],
+                [a].[last_edited_by] AS [lastEditedBy],
+                [a].[grade_changed_at] AS [gradeChangedAt],
+                [a].[previous_grade] AS [previousGrade],
+                [a].[status],
+                JSON_QUERY(COALESCE((
+                    SELECT
+                        CONVERT(nvarchar(36), [adj].[id]) AS [id],
+                        [adj].[reason],
+                        [adj].[reason_label] AS [reasonLabel],
+                        [adj].[note],
+                        [adj].[amount],
+                        [adj].[by],
+                        [adj].[when_label] AS [when],
+                        [adj].[is_active] AS [isActive]
+                    FROM {AdminDbContext.QualifiedTableName("applicant_grade_adjustments")} AS [adj]
+                    WHERE [adj].[applicant_grade_id] = [a].[id]
+                    FOR JSON PATH
+                ), N'[]')) AS [log]
+            FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+        )
+        """;
+
+    private static string JsonValue(string property) => property switch
+    {
+        "nid" => "[a].[nid]",
+        "seatingNumber" => "[a].[seating_number]",
+        "name" => "[a].[name]",
+        "kind" => "[a].[kind]",
+        "gender" => "[a].[gender]",
+        "branch" => "[a].[branch]",
+        "schoolCategoryCode" => "[a].[school_category_code]",
+        "school" => "[a].[school]",
+        "region" => "[a].[region]",
+        "examRound" => "[a].[exam_round]",
+        "status" => "[a].[status]",
+        "gradeChangedAt" => "CONVERT(nvarchar(64), [a].[grade_changed_at], 127)",
+        _ => "NULL"
+    };
+    private static string LiveGradeSql() => "1 = 1";
+    private static string NumberValue(string property) => property switch
+    {
+        "seat" => "TRY_CONVERT(float, [a].[seat])",
+        "graduationYear" => "TRY_CONVERT(float, [a].[graduation_year])",
+        "total" => "TRY_CONVERT(float, [a].[total])",
+        "importMax" => "TRY_CONVERT(float, [a].[import_max])",
+        "overrideMax" => "TRY_CONVERT(float, [a].[override_max])",
+        "previousGrade" => "TRY_CONVERT(float, [a].[previous_grade])",
+        _ => $"TRY_CONVERT(float, {JsonValue(property)})"
+    };
+    private static string GradeMaxSql() => $"COALESCE({NumberValue("overrideMax")}, {NumberValue("importMax")}, 410.0)";
     private static string AdjustmentSumSql() =>
-        "COALESCE((SELECT SUM(CASE WHEN COALESCE(JSON_VALUE([adj].[value], '$.isActive'), N'true') = N'true' THEN COALESCE(TRY_CONVERT(float, JSON_VALUE([adj].[value], '$.amount')), 0.0) ELSE 0.0 END) FROM OPENJSON([a].[payload_json], '$.log') AS [adj]), 0.0)";
+        $"COALESCE((SELECT SUM(CASE WHEN [adj].[is_active] = CAST(1 AS bit) THEN COALESCE(TRY_CONVERT(float, [adj].[amount]), 0.0) ELSE 0.0 END) FROM {AdminDbContext.QualifiedTableName("applicant_grade_adjustments")} AS [adj] WHERE [adj].[applicant_grade_id] = [a].[id]), 0.0)";
+    private static string HasAdjustmentsSql() =>
+        $"EXISTS (SELECT 1 FROM {AdminDbContext.QualifiedTableName("applicant_grade_adjustments")} AS [adj] WHERE [adj].[applicant_grade_id] = [a].[id])";
     private static string EffectiveGradeSql() =>
         $"CASE WHEN {NumberValue("total")} IS NULL THEN NULL ELSE (CASE WHEN {NumberValue("total")} + {AdjustmentSumSql()} < 0 THEN 0.0 WHEN {NumberValue("total")} + {AdjustmentSumSql()} > {GradeMaxSql()} THEN {GradeMaxSql()} ELSE {NumberValue("total")} + {AdjustmentSumSql()} END) END";
     private static string PercentageSql() =>
