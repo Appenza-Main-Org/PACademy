@@ -2,10 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Lookups;
+using PACademy.Shared.Persistence.ChangeTracking;
 
 namespace PACademy.Admin.Api.Modules.Admissions;
 
-public sealed class AdmissionCycleEntity
+public sealed class AdmissionCycleEntity : IChangeTracked
 {
     public required string Id { get; set; }
     public required string NameAr { get; set; }
@@ -16,9 +17,12 @@ public sealed class AdmissionCycleEntity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+    public string? LastModifiedBy { get; set; }
+    public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
+    public string? Checksum { get; set; }
 }
 
-public sealed class ApplicantCategoryEntity
+public sealed class ApplicantCategoryEntity : IChangeTracked
 {
     public required string Key { get; set; }
     public required string LabelAr { get; set; }
@@ -27,9 +31,12 @@ public sealed class ApplicantCategoryEntity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+    public string? LastModifiedBy { get; set; }
+    public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
+    public string? Checksum { get; set; }
 }
 
-public sealed class AdmissionRuleEntity
+public sealed class AdmissionRuleEntity : IChangeTracked
 {
     public required string Id { get; set; }
     public required string CycleId { get; set; }
@@ -38,9 +45,12 @@ public sealed class AdmissionRuleEntity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+    public string? LastModifiedBy { get; set; }
+    public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
+    public string? Checksum { get; set; }
 }
 
-public sealed class ApplicationSettingsCategoryConfigEntity
+public sealed class ApplicationSettingsCategoryConfigEntity : IChangeTracked
 {
     public required string Id { get; set; }
     public required string CategoryId { get; set; }
@@ -49,9 +59,12 @@ public sealed class ApplicationSettingsCategoryConfigEntity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+    public string? LastModifiedBy { get; set; }
+    public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
+    public string? Checksum { get; set; }
 }
 
-public sealed class ApplicationSettingsCategorySpecializationEntity
+public sealed class ApplicationSettingsCategorySpecializationEntity : IChangeTracked
 {
     public required string Id { get; set; }
     public required string ConfigId { get; set; }
@@ -60,9 +73,12 @@ public sealed class ApplicationSettingsCategorySpecializationEntity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+    public string? LastModifiedBy { get; set; }
+    public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
+    public string? Checksum { get; set; }
 }
 
-public sealed class ApplicationSettingsGraduationYearEntity
+public sealed class ApplicationSettingsGraduationYearEntity : IChangeTracked
 {
     public required string Id { get; set; }
     public required string CategorySpecializationId { get; set; }
@@ -83,6 +99,9 @@ public sealed class ApplicationSettingsGraduationYearEntity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+    public string? LastModifiedBy { get; set; }
+    public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
+    public string? Checksum { get; set; }
 }
 
 public interface IAdmissionsDbContext

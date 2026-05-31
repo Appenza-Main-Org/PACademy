@@ -60,6 +60,8 @@ export const ROUTES = {
     workflowNew: '/admin/workflows/new',
     /** Applicant Grades — import + adjustments console (per-cycle data). */
     applicantGrades: '/admin/applicant-grades',
+    /** Data Exchange hub — centralized Excel export/import for all domains. */
+    dataExchange: '/admin/data-exchange',
     /** Standalone v2 import wizard (renders inside AdminLayout). */
     applicantGradesImport: '/admin/applicant-grades/import',
     /** Import audit history + downloadable reports. */

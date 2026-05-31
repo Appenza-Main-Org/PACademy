@@ -2,6 +2,7 @@ using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Biometric;
+using PACademy.Admin.Api.Modules.DataExchangeAdmin;
 using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Identity.Moi;
@@ -71,6 +72,7 @@ builder.Services.AddExamsModule(builder.Configuration);
 builder.Services.AddBiometricModule(builder.Configuration);
 builder.Services.AddReportsModule(builder.Configuration);
 builder.Services.AddSettingsModule(builder.Configuration);
+builder.Services.AddDataExchangeAdminModule(builder.Configuration);
 
 /* ── External legacy modules (separate DbContexts + migrations) ─── */
 builder.Services.AddLookupsAdminModule(builder.Configuration);

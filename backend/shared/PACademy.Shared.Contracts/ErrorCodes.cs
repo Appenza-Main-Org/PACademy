@@ -46,4 +46,11 @@ public static class ErrorCodes
     public const string LookupKeyUnknown    = "LOOKUP_KEY_UNKNOWN";
     public const string DuplicateCode       = "DUPLICATE_CODE";
     public const string InUse               = "IN_USE";
+
+    // ── Data Exchange (تبادل البيانات) ──────────────────────────────────
+    public const string DataExchangeUnknownDomain   = "DATA_EXCHANGE_UNKNOWN_DOMAIN";
+    public const string DataExchangeInvalidWorkbook = "DATA_EXCHANGE_INVALID_WORKBOOK";
+    public const string DataExchangeKeyDuplicate    = "DATA_EXCHANGE_KEY_DUPLICATE";
+    public const string DataExchangeRowOutdated     = "DATA_EXCHANGE_ROW_OUTDATED";
+    public const string DataExchangeVersionConflict = "DATA_EXCHANGE_VERSION_CONFLICT";
 }

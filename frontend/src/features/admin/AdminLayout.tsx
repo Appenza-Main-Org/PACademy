@@ -5,6 +5,7 @@ import {
   Bell,
   CalendarDays,
   ClipboardList,
+  ArrowDownUp,
   Database,
   FileSpreadsheet,
   Gavel,
@@ -64,6 +65,7 @@ const SIDEBAR: SidebarSection[] = [
     label: 'البيانات المرجعية والإعدادات',
     items: [
       { key: 'lookups',       label: 'الأكواد المرجعية', icon: <Database size={18} />,  to: ROUTES.admin.adminLookupsType('applicant-categories'), permission: 'lookups:view' },
+      { key: 'data-exchange', label: 'آليات تبادل البيانات', icon: <ArrowDownUp size={18} />, to: ROUTES.admin.dataExchange, permission: 'data-exchange:view' },
       { key: 'notifications', label: 'الإشعارات',         icon: <Bell size={18} />,      to: ROUTES.admin.notifications, permission: 'notifications:view' },
       { key: 'payments',      label: 'المدفوعات',          icon: <Banknote size={18} />,  to: ROUTES.admin.payments, permission: 'payments:review' },
       { key: 'settings',      label: 'الإعدادات العامة',   icon: <Settings size={18} />,  to: ROUTES.admin.settings, permission: 'settings:view' },

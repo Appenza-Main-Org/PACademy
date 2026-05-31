@@ -151,3 +151,44 @@ const requiresSportFields =
   and the path forward — so a future session can pick it up cold
   without context-archaeology.
 - When an item ships, delete the section (don't comment it out).
+
+---
+
+## Data Exchange (آليات تبادل البيانات) — deferred follow-ups
+
+Surfaced while delivering the centralized `/admin/data-exchange` hub
+(backend `Modules/DataExchangeAdmin` + frontend `features/data-exchange`).
+Core requirements shipped (row-level created/updated/version/checksum on
+every exchangeable row; no key ever duplicated via intra-file + DB-key
+preview routing). These are intentional, documented deferrals:
+
+1. **Arabic column-header labels in export sheets.** Sheet header rows
+   currently carry the machine column keys (`lookup_key`, `payload_json`, …)
+   so the importer can map deterministically and the round-trip stays
+   lossless. The locked §0a sheet TAB names are ASCII by design; the Arabic
+   domain title is shown in the UI. A future enhancement can add a second
+   Arabic-label header row (importer would skip it). Files:
+   `features/data-exchange/lib/workbook.ts`, `DataExchangeService.ColumnsFor`.
+
+2. **`cycleId` / `categoryKey` export scoping.** The `ExportFilter` type
+   accepts these, but the backend currently treats them as `all` (the
+   row-level filters `changedAfter` / `modifiedSinceCreation` /
+   `sinceLastExport` are fully implemented). Wire per-domain data-scoping
+   when a concrete cycle/category export need lands.
+
+3. **Checksum covers an entity's own scalar columns, not nested child
+   collections** (e.g. an exam question's options). Child-only edits are
+   still detected via the parent's `updated_at` / `row_version`, which the
+   classifier also keys on. Fold child collections into the parent checksum
+   if deep child-diffing becomes a requirement.
+
+4. **`data-exchange:view` permission is not yet in the cloud permission
+   matrix** (`features/admin/users/lib/cloudPermissions.ts`). The route +
+   sidebar gate on `data-exchange:view`; `super_admin` sees it via the `*`
+   wildcard. Add a `data-exchange` module (view/export/import actions) to the
+   admin section of the matrix to grant it to `admissions_manager` etc.
+
+5. **`audit_entries` append-only DB trigger (DB_CONSTRAINTS §9) is still
+   app-enforced only.** `IAuditSink` only ever inserts; the DENY/INSTEAD-OF
+   trigger is not yet present in any migration. Out of scope for this feature
+   (shared backend hardening) — tracked here so it isn't lost.

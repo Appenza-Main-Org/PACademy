@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using PACademy.Shared.Persistence.ChangeTracking;
 
 namespace PACademy.Admin.Api.Modules.Exams;
 
-public sealed class ExamQuestionEntity
+public sealed class ExamQuestionEntity : IChangeTracked
 {
     public required string Id { get; set; }
     public required string Category { get; set; }
@@ -19,6 +20,9 @@ public sealed class ExamQuestionEntity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+    public string? LastModifiedBy { get; set; }
+    public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
+    public string? Checksum { get; set; }
     public List<ExamQuestionOptionEntity> Options { get; set; } = [];
     public List<ExamQuestionMatchingPairEntity> MatchingPairs { get; set; } = [];
 }
@@ -38,7 +42,7 @@ public sealed class ExamQuestionMatchingPairEntity
     public required string MatchText { get; set; }
 }
 
-public sealed class ExamEntity
+public sealed class ExamEntity : IChangeTracked
 {
     public required string Id { get; set; }
     public required string NameAr { get; set; }
@@ -56,6 +60,9 @@ public sealed class ExamEntity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+    public string? LastModifiedBy { get; set; }
+    public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
+    public string? Checksum { get; set; }
     public List<ExamRuleEntity> Rules { get; set; } = [];
     public List<ExamQuestionLinkEntity> QuestionLinks { get; set; } = [];
     public List<ExamAssignmentEntity> Assignments { get; set; } = [];

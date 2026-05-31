@@ -6,6 +6,7 @@ using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Settings;
+using PACademy.Shared.Persistence.ChangeTracking;
 
 namespace PACademy.Admin.Api.Persistence;
 
@@ -437,5 +438,27 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
         });
+
+        // Data-Exchange change-tracking columns — mapped uniformly on every
+        // IChangeTracked entity (the 8 exchangeable domains). created_at/updated_at/
+        // row_version already exist per-entity above; these three are additive.
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            if (!typeof(IChangeTracked).IsAssignableFrom(entityType.ClrType)) continue;
+
+            var b = modelBuilder.Entity(entityType.ClrType);
+            b.Property(nameof(IChangeTracked.LastModifiedBy))
+                .HasColumnName(ChangeTrackingColumns.LastModifiedBy).HasMaxLength(128);
+            // NOT NULL with a DB default. The CLR property is initialized to the
+            // same default on every entity, so direct construction never produces
+            // null; the interceptor leaves a non-blank value intact (import
+            // provenance survives) and the DB default backfills raw inserts.
+            b.Property(nameof(IChangeTracked.SourceSystem))
+                .HasColumnName(ChangeTrackingColumns.SourceSystem).HasMaxLength(64)
+                .HasDefaultValue(ChangeTrackingColumns.DefaultSourceSystem)
+                .IsRequired();
+            b.Property(nameof(IChangeTracked.Checksum))
+                .HasColumnName(ChangeTrackingColumns.Checksum).HasMaxLength(64);
+        }
     }
 }

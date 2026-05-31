@@ -1,3 +1,5 @@
+using PACademy.Shared.Persistence.ChangeTracking;
+
 namespace PACademy.Admin.Api.Persistence;
 
 /// <summary>
@@ -24,7 +26,7 @@ public sealed class ApplicantPortalRecordEntity
 /// Exam slot available for applicants to pick. Seeded by admin when
 /// configuring committee instances for the active cycle.
 /// </summary>
-public sealed class ExamSlotEntity
+public sealed class ExamSlotEntity : IChangeTracked
 {
     public string Id { get; set; } = "";
     public DateOnly Date { get; set; }
@@ -35,4 +37,7 @@ public sealed class ExamSlotEntity
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public byte[] RowVersion { get; set; } = [];
+    public string? LastModifiedBy { get; set; }
+    public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
+    public string? Checksum { get; set; }
 }

@@ -157,6 +157,7 @@ import {
   ApplicantGradesImportPage,
   ApplicantGradesPage,
 } from '@/features/applicant-grades';
+import { DataExchangePage } from '@/features/data-exchange';
 
 /**
  * AdminIndexRoute — every admin role lands on the live admissions dashboard.
@@ -262,6 +263,7 @@ export const routes: RouteObject[] = [
       { path: 'workflows/new', element: <AuthGuard app="admin" perm="workflows:create"><WorkflowEditorPage /></AuthGuard> },
       { path: 'workflows/:id', element: <AuthGuard app="admin" perm="workflows:edit"><WorkflowEditorPage /></AuthGuard> },
       { path: 'applicant-grades', element: <AuthGuard app="admin" perm="applicant-grades:view"><ApplicantGradesPage /></AuthGuard> },
+      { path: 'data-exchange', element: <AuthGuard app="admin" perm="data-exchange:view"><DataExchangePage /></AuthGuard> },
       { path: 'applicant-grades/import', element: <AuthGuard app="admin" perm="applicant-grades:import"><ApplicantGradesImportPage /></AuthGuard> },
       { path: 'applicant-grades/import-history', element: <AuthGuard app="admin" perm="applicant-grades:view"><ApplicantGradesImportHistoryPage /></AuthGuard> },
       { path: 'applicant-grades/changes', element: <AuthGuard app="admin" perm="applicant-grades:edit"><ApplicantGradesChangesPage /></AuthGuard> },
