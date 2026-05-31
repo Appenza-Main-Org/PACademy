@@ -7,7 +7,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Download } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, ShieldAlert } from 'lucide-react';
 import { Badge, Button, Card, CardBody, CardHeader, DataTable } from '@/shared/components';
 import type { BadgeTone } from '@/shared/components/Badge';
 import type { DataTableColumn } from '@/shared/components/DataTable';
@@ -55,6 +55,8 @@ export function DataExchangePreview({
 
   const outdatedCount = preview.counts.outdated ?? 0;
   const hasInvalid = (preview.counts.invalid ?? 0) > 0 || preview.rows.some((r) => r.class === 'invalid');
+  const conflictCount = preview.counts.conflict ?? 0;
+  const actionableCount = (preview.counts.new ?? 0) + (preview.counts.changed ?? 0);
 
   const columns: DataTableColumn<ImportRowOutcome>[] = [
     { key: 'sheet', label: 'الورقة', accessor: 'sheetName', width: 160 },
@@ -84,6 +86,7 @@ export function DataExchangePreview({
     <Card>
       <CardHeader
         title="معاينة الاستيراد"
+        subtitle="راجع تصنيف الصفوف قبل تطبيق أي تغيير على قاعدة البيانات."
         actions={
           hasInvalid ? (
             <Button variant="ghost" size="sm" onClick={() => void downloadErrors()}>
@@ -94,8 +97,29 @@ export function DataExchangePreview({
         }
       />
       <CardBody className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-3">
+          <PreviewMetric
+            icon={<CheckCircle2 size={17} />}
+            label="قابل للتطبيق"
+            value={actionableCount}
+            tone="success"
+          />
+          <PreviewMetric
+            icon={<ShieldAlert size={17} />}
+            label="تعارضات"
+            value={conflictCount}
+            tone={conflictCount > 0 ? 'danger' : 'neutral'}
+          />
+          <PreviewMetric
+            icon={<AlertTriangle size={17} />}
+            label="غير صالح"
+            value={preview.counts.invalid ?? 0}
+            tone={hasInvalid ? 'danger' : 'neutral'}
+          />
+        </div>
+
         {/* Count chips */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" role="toolbar" aria-label="تصفية تصنيفات الاستيراد">
           <ClassChip
             label="الكل"
             count={preview.rows.length}
@@ -137,52 +161,76 @@ export function DataExchangePreview({
         />
 
         {/* Apply controls */}
-        <div className="space-y-3 rounded-md border border-ink-200 bg-ink-50 p-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="text-2xs font-semibold text-ink-700">وضع التطبيق:</span>
-            <label className="flex items-center gap-1.5 text-sm">
-              <input type="radio" name="dx-mode" checked={mode === 'new-only'} onChange={() => setMode('new-only')} />
-              الجديد فقط
-            </label>
-            <label className="flex items-center gap-1.5 text-sm">
-              <input
-                type="radio"
-                name="dx-mode"
-                checked={mode === 'new-and-changed'}
-                onChange={() => setMode('new-and-changed')}
-              />
-              الجديد والمُعدَّل
-            </label>
-          </div>
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-1.5 text-sm">
-              <input type="checkbox" checked={skipConflicts} onChange={(e) => setSkipConflicts(e.target.checked)} />
-              تخطّي التعارضات
-            </label>
-            <label
-              className="flex items-center gap-1.5 text-sm"
-              title={isSuperAdmin ? '' : 'متاح لمدير النظام الرئيسي فقط'}
+        <div className="rounded-lg border border-border-subtle bg-ink-50 p-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+            <div className="space-y-3">
+              <fieldset className="space-y-2">
+                <legend className="text-2xs font-semibold text-ink-700">وضع التطبيق</legend>
+                <div className="flex flex-wrap gap-2">
+                  <ModePill
+                    name="dx-mode"
+                    checked={mode === 'new-only'}
+                    label="الجديد فقط"
+                    onChange={() => setMode('new-only')}
+                  />
+                  <ModePill
+                    name="dx-mode"
+                    checked={mode === 'new-and-changed'}
+                    label="الجديد والمُعدَّل"
+                    onChange={() => setMode('new-and-changed')}
+                  />
+                </div>
+              </fieldset>
+
+              <div className="flex flex-wrap gap-2">
+                <TogglePill
+                  checked={skipConflicts}
+                  label="تخطّي التعارضات"
+                  onChange={(checked) => setSkipConflicts(checked)}
+                />
+                <TogglePill
+                  checked={forceUpdate}
+                  disabled={!isSuperAdmin || outdatedCount === 0}
+                  label={`فرض تحديث الصفوف القديمة (${outdatedCount})`}
+                  title={isSuperAdmin ? undefined : 'متاح لمدير النظام الرئيسي فقط'}
+                  onChange={(checked) => setForceUpdate(checked)}
+                />
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              isLoading={applying}
+              disabled={preview.rows.length === 0}
+              onClick={() => onApply({ mode, skipConflicts, forceUpdate })}
             >
-              <input
-                type="checkbox"
-                checked={forceUpdate}
-                disabled={!isSuperAdmin || outdatedCount === 0}
-                onChange={(e) => setForceUpdate(e.target.checked)}
-              />
-              فرض تحديث الصفوف القديمة ({outdatedCount})
-            </label>
+              تطبيق الاستيراد
+            </Button>
           </div>
-          <Button
-            variant="primary"
-            isLoading={applying}
-            disabled={preview.rows.length === 0}
-            onClick={() => onApply({ mode, skipConflicts, forceUpdate })}
-          >
-            تطبيق الاستيراد
-          </Button>
         </div>
       </CardBody>
     </Card>
+  );
+}
+
+function PreviewMetric({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: JSX.Element;
+  label: string;
+  value: number;
+  tone: BadgeTone;
+}): JSX.Element {
+  return (
+    <div className="rounded-lg border border-border-subtle bg-ink-50 px-3 py-3">
+      <div className="mb-2 flex items-center gap-2 text-ink-500">
+        {icon}
+        <span className="text-2xs font-semibold">{label}</span>
+      </div>
+      <Badge tone={tone}>{value}</Badge>
+    </div>
   );
 }
 
@@ -204,12 +252,95 @@ function ClassChip({
       type="button"
       onClick={onClick}
       className={[
-        'flex items-center gap-1.5 rounded-full border px-3 py-1 text-2xs transition-colors',
-        active ? 'border-[var(--accent-500)] bg-[var(--accent-50)]' : 'border-ink-200 bg-white hover:bg-ink-50',
+        'flex items-center gap-1.5 rounded-full border px-3 py-1 text-2xs transition-colors duration-fast ease-standard',
+        'focus-visible:shadow-focus-teal focus-visible:outline-none',
+        active
+          ? 'border-[var(--accent-500)] bg-[var(--accent-50)]'
+          : 'border-border-subtle bg-surface-card hover:border-border-default hover:bg-ink-50',
       ].join(' ')}
+      aria-pressed={active}
     >
       <Badge tone={tone}>{count}</Badge>
       <span className="text-ink-700">{label}</span>
     </button>
+  );
+}
+
+function ModePill({
+  name,
+  checked,
+  label,
+  onChange,
+}: {
+  name: string;
+  checked: boolean;
+  label: string;
+  onChange: () => void;
+}): JSX.Element {
+  return (
+    <label
+      className={[
+        'inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors duration-fast ease-standard',
+        'focus-within:shadow-focus-teal',
+        checked
+          ? 'border-[var(--accent-500)] bg-[var(--accent-50)] text-ink-900'
+          : 'border-border-subtle bg-surface-card text-ink-600 hover:border-border-default hover:bg-ink-50',
+      ].join(' ')}
+    >
+      <input type="radio" name={name} checked={checked} onChange={onChange} className="sr-only" />
+      <span
+        aria-hidden
+        className={[
+          'h-2.5 w-2.5 rounded-full',
+          checked ? 'bg-[var(--accent-500)]' : 'bg-ink-200',
+        ].join(' ')}
+      />
+      {label}
+    </label>
+  );
+}
+
+function TogglePill({
+  checked,
+  disabled,
+  label,
+  title,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  label: string;
+  title?: string;
+  onChange: (checked: boolean) => void;
+}): JSX.Element {
+  return (
+    <label
+      title={title}
+      className={[
+        'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm transition-colors duration-fast ease-standard',
+        disabled ? 'cursor-not-allowed opacity-55' : 'cursor-pointer focus-within:shadow-focus-teal',
+        checked
+          ? 'border-[var(--accent-500)] bg-[var(--accent-50)] text-ink-900'
+          : 'border-border-subtle bg-surface-card text-ink-600 hover:border-border-default hover:bg-ink-50',
+      ].join(' ')}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        className="sr-only"
+      />
+      <span
+        aria-hidden
+        className={[
+          'flex h-4 w-4 items-center justify-center rounded-md border',
+          checked ? 'border-[var(--accent-500)] bg-[var(--accent-500)] text-white' : 'border-border-default',
+        ].join(' ')}
+      >
+        {checked && <CheckCircle2 size={12} strokeWidth={2.25} />}
+      </span>
+      {label}
+    </label>
   );
 }
