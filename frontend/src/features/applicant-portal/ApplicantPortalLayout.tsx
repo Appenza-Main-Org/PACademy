@@ -152,6 +152,11 @@ export function ApplicantPortalLayout(): JSX.Element {
    * returns editable routes to the read-only dashboard. Forward navigation
    * stays owned by each page's own CTA so step validation isn't bypassed. */
   const backUrl = applicationLocked ? null : prevApplicantStageUrl(activeIndex);
+  const handleStepClick = (key: string): void => {
+    const targetIndex = STAGE_KEYS.indexOf(key as typeof STAGE_KEYS[number]);
+    if (applicationLocked || targetIndex === -1 || targetIndex > activeIndex) return;
+    navigate(`${ROUTES.applicant}/${key}`);
+  };
 
   /* Step rendering — the empty-key entry (summary, served by the
    * `/applicant` index) is filtered out of the visible stepper per
@@ -261,6 +266,7 @@ export function ApplicantPortalLayout(): JSX.Element {
             steps={steps}
             activeStepKey={STAGE_KEYS[activeIndex] ?? STAGE_KEYS[0]}
             autoSaveStatus={autoSaveStatus}
+            onStepClick={applicationLocked ? undefined : handleStepClick}
             onBack={backUrl ? () => navigate(backUrl) : undefined}
           >
             {/* AUD-007 — when suspended, gate every stage form behind a single
