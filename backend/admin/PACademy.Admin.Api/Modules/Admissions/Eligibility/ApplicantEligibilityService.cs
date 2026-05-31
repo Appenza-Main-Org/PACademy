@@ -35,7 +35,7 @@ public sealed class ApplicantEligibilityService(
         var firstReferenceDate = years.Select(x => (DateOnly?)x.AgeReferenceDate).OrderBy(x => x).FirstOrDefault()
             ?? DateOnly.FromDateTime(DateTime.UtcNow.Date);
         var applicant = BuildApplicantContext(nid, grade, firstReferenceDate, lookups);
-        var draftRules = await LoadCycleDraftRulesAsync(activeCycle.Id, configs, specs, categoryLookups, ct);
+        var draftRules = await LoadCycleDraftRulesAsync(activeCycle.Id, configs, specs, categoryLookups, lookups.AcademicGrades, ct);
         var committeeIdsByRuleId = draftRules
             .Where(x => x.CommitteeIds.Count > 0)
             .ToDictionary(x => x.Rule.Id, x => x.CommitteeIds, StringComparer.OrdinalIgnoreCase);
@@ -80,6 +80,9 @@ public sealed class ApplicantEligibilityService(
             var allowedAcademicDegreeCodes = failedReasons.Count == 0
                 ? ResolveAllowedAcademicDegreeCodes(evaluation.MatchedRuleIds, draftRules)
                 : [];
+            var allowedAcademicGradeCodes = failedReasons.Count == 0
+                ? ResolveAllowedAcademicGradeCodes(evaluation.MatchedRuleIds, draftRules)
+                : [];
             results.Add(new CategoryEligibilityResult(
                 settings.CategoryId,
                 settings.CategoryName,
@@ -93,6 +96,7 @@ public sealed class ApplicantEligibilityService(
                 academicPrograms,
                 allowedMaritalStatusCodes,
                 allowedAcademicDegreeCodes,
+                allowedAcademicGradeCodes,
                 failedReasons));
         }
 
@@ -128,7 +132,9 @@ public sealed class ApplicantEligibilityService(
 
         var lookupRows = await db.LookupRows
             .AsNoTracking()
-            .Where(x => x.IsActive && (x.LookupKey == "applicant-categories" || x.LookupKey == "school-categories" || x.LookupKey == "committees"))
+            .Where(x => x.IsActive && (x.LookupKey == "applicant-categories" || x.LookupKey == "school-categories" || x.LookupKey == "committees" || x.LookupKey == "academic-grades"))
+            .OrderBy(x => x.LookupKey)
+            .ThenBy(x => x.Code)
             .ToListAsync(ct);
         var categoryLookups = lookupRows
             .Where(x => x.LookupKey == "applicant-categories")
@@ -139,7 +145,8 @@ public sealed class ApplicantEligibilityService(
             .Select(LookupToJson)
             .ToArray();
         var lookups = new EligibilityLookupSnapshot(
-            lookupRows.Where(x => x.LookupKey == "school-categories").Select(LookupToJson).ToArray());
+            lookupRows.Where(x => x.LookupKey == "school-categories").Select(LookupToJson).ToArray(),
+            lookupRows.Where(x => x.LookupKey == "academic-grades").Select(LookupToJson).ToArray());
 
         return new ActiveEligibilitySnapshot(
             activeCycle,
@@ -361,6 +368,7 @@ public sealed class ApplicantEligibilityService(
         IReadOnlyList<ApplicationSettingsCategoryConfigEntity> configs,
         IReadOnlyList<ApplicationSettingsCategorySpecializationEntity> specs,
         IReadOnlyDictionary<string, JsonObject> categoryLookups,
+        IReadOnlyList<JsonObject> academicGrades,
         CancellationToken ct)
     {
         var module = $"admissionSetup.applicationSettings.{cycleId}";
@@ -456,7 +464,8 @@ public sealed class ApplicantEligibilityService(
                 },
                 ResolveDraftCommitteeIds(row),
                 ResolveDraftAcademicPrograms(row),
-                EligibilityJson.StringArray(row, "academicDegrees")));
+                EligibilityJson.StringArray(row, "academicDegrees"),
+                ResolveDraftAcademicGradeCodes(row, academicGrades)));
         }
 
         return output;
@@ -763,6 +772,20 @@ public sealed class ApplicantEligibilityService(
             .ToArray();
     }
 
+    private static IReadOnlyList<string> ResolveAllowedAcademicGradeCodes(
+        IReadOnlyList<string> matchedRuleIds,
+        IReadOnlyList<DraftEligibilityRule> draftRules)
+    {
+        if (matchedRuleIds.Count == 0) return [];
+        var matched = new HashSet<string>(matchedRuleIds, StringComparer.OrdinalIgnoreCase);
+        return draftRules
+            .Where(rule => matched.Contains(rule.Rule.Id))
+            .SelectMany(rule => rule.AcademicGradeCodes)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     private static decimal? CalculatePercentage(JsonObject? grade)
     {
         var total = EligibilityJson.DecimalProp(grade, "effectiveTotal")
@@ -823,6 +846,37 @@ public sealed class ApplicantEligibilityService(
         ];
     }
 
+    private static IReadOnlyList<string> ResolveDraftAcademicGradeCodes(
+        JsonObject row,
+        IReadOnlyList<JsonObject> academicGrades)
+    {
+        var minCode = EligibilityJson.FirstString(row, "grade", "academicGradeId");
+        var maxCode = EligibilityJson.FirstString(row, "gradeMax", "academicGradeMaxId");
+        var orderedCodes = academicGrades
+            .Select(grade => EligibilityJson.StringProp(grade, "code"))
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (!string.IsNullOrWhiteSpace(minCode) && !string.IsNullOrWhiteSpace(maxCode))
+        {
+            var minIndex = Array.FindIndex(orderedCodes, code => EligibilityJson.TextEquals(code, minCode));
+            var maxIndex = Array.FindIndex(orderedCodes, code => EligibilityJson.TextEquals(code, maxCode));
+            if (minIndex >= 0 && maxIndex >= 0)
+            {
+                var start = Math.Min(minIndex, maxIndex);
+                var count = Math.Abs(minIndex - maxIndex) + 1;
+                return orderedCodes.Skip(start).Take(count).ToArray();
+            }
+        }
+
+        return new[] { minCode, maxCode }
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     private static DateOnly ParseDate(string? value) =>
         DateOnly.TryParse(value, out var parsed) ? parsed : DateOnly.FromDateTime(DateTime.UtcNow.Date);
 
@@ -881,7 +935,8 @@ public sealed class ApplicantEligibilityService(
         ApplicationSettingsGraduationYearEntity Rule,
         IReadOnlyList<string> CommitteeIds,
         IReadOnlyList<EligibleAcademicProgramResult> AcademicPrograms,
-        IReadOnlyList<string> AcademicDegreeCodes);
+        IReadOnlyList<string> AcademicDegreeCodes,
+        IReadOnlyList<string> AcademicGradeCodes);
 
     private sealed record CommitteeExamSlotCandidate(
         string CategoryKey,
