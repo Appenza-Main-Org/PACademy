@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 namespace PACademy.Shared.Domain.Grades;
 
 /// <summary>
@@ -11,6 +13,7 @@ public sealed class ApplicantGrade
     private ApplicantGrade() { }
 
     public Guid Id { get; private set; }
+    public string? AdminRecordId { get; private set; }
     public int Seat { get; private set; }
     public string? SeatingNumber { get; private set; }
     public string Nid { get; private set; } = default!;
@@ -33,6 +36,7 @@ public sealed class ApplicantGrade
     public string Status { get; private set; } = "—";
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
+    public string PayloadJson { get; private set; } = "{}";
     public byte[] RowVersion { get; private set; } = default!;
     public IReadOnlyCollection<ApplicantGradeAdjustment> Adjustments => _adjustments;
 
@@ -59,9 +63,10 @@ public sealed class ApplicantGrade
         if (importMax <= 0) throw new ArgumentException("import max must be positive", nameof(importMax));
 
         var now = DateTimeOffset.UtcNow;
-        return new ApplicantGrade
+        var grade = new ApplicantGrade
         {
             Id = Guid.NewGuid(),
+            AdminRecordId = seat.ToString(),
             Seat = seat,
             SeatingNumber = string.IsNullOrWhiteSpace(seatingNumber) ? null : seatingNumber.Trim(),
             Nid = nid.Trim(),
@@ -81,6 +86,8 @@ public sealed class ApplicantGrade
             UpdatedAt = now,
             RowVersion = [],
         };
+        grade.RefreshPayloadJson();
+        return grade;
     }
 
     public void ReplaceFromImport(
@@ -118,12 +125,14 @@ public sealed class ApplicantGrade
         LastEditedAt = "الآن";
         LastEditedBy = "استيراد ملف";
         UpdatedAt = DateTimeOffset.UtcNow;
+        RefreshPayloadJson();
     }
 
     public void SetOverrideMax(decimal? value)
     {
         OverrideMax = value;
         TouchEdited();
+        RefreshPayloadJson();
     }
 
     public ApplicantGradeAdjustment AddAdjustment(
@@ -136,6 +145,7 @@ public sealed class ApplicantGrade
         var adjustment = ApplicantGradeAdjustment.Create(Id, reason, reasonLabel, note, amount, by);
         _adjustments.Add(adjustment);
         TouchEdited();
+        RefreshPayloadJson();
         return adjustment;
     }
 
@@ -145,6 +155,7 @@ public sealed class ApplicantGrade
             ?? throw new KeyNotFoundException("التعديل غير موجود.");
         adjustment.SetActive(isActive);
         TouchEdited();
+        RefreshPayloadJson();
     }
 
     public void DeleteAdjustment(Guid adjustmentId)
@@ -153,6 +164,7 @@ public sealed class ApplicantGrade
             ?? throw new KeyNotFoundException("التعديل غير موجود.");
         _adjustments.Remove(adjustment);
         TouchEdited();
+        RefreshPayloadJson();
     }
 
     public void DeactivateAdjustments()
@@ -162,6 +174,7 @@ public sealed class ApplicantGrade
             adjustment.SetActive(false);
         }
         TouchEdited();
+        RefreshPayloadJson();
     }
 
     private void TouchEdited()
@@ -170,5 +183,47 @@ public sealed class ApplicantGrade
         LastEditedBy ??= "مسؤول النظام";
         GradeChangedAt = DateTimeOffset.UtcNow;
         UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    private void RefreshPayloadJson()
+    {
+        AdminRecordId = string.IsNullOrWhiteSpace(AdminRecordId) ? Seat.ToString() : AdminRecordId;
+        var log = new JsonArray(_adjustments.Select(adjustment => new JsonObject
+        {
+            ["id"] = adjustment.Id.ToString(),
+            ["reason"] = adjustment.Reason,
+            ["reasonLabel"] = adjustment.ReasonLabel,
+            ["note"] = adjustment.Note,
+            ["amount"] = adjustment.Amount,
+            ["by"] = adjustment.By,
+            ["when"] = adjustment.When,
+            ["isActive"] = adjustment.IsActive,
+        }).Select(node => (JsonNode)node).ToArray());
+
+        PayloadJson = new JsonObject
+        {
+            ["id"] = AdminRecordId,
+            ["seat"] = Seat,
+            ["seatingNumber"] = SeatingNumber,
+            ["nid"] = Nid,
+            ["name"] = Name,
+            ["kind"] = Kind,
+            ["gender"] = Gender,
+            ["branch"] = Branch,
+            ["graduationYear"] = GraduationYear,
+            ["schoolCategoryCode"] = SchoolCategoryCode,
+            ["school"] = School,
+            ["region"] = Region,
+            ["examRound"] = ExamRound,
+            ["total"] = Total,
+            ["importMax"] = ImportMax,
+            ["overrideMax"] = OverrideMax,
+            ["lastEditedAt"] = LastEditedAt,
+            ["lastEditedBy"] = LastEditedBy,
+            ["gradeChangedAt"] = GradeChangedAt,
+            ["previousGrade"] = PreviousGrade,
+            ["status"] = Status,
+            ["log"] = log,
+        }.ToJsonString();
     }
 }

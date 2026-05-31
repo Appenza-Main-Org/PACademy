@@ -29,6 +29,11 @@ namespace PACademy.Modules.ApplicantGradesAdmin.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("id");
 
+                    b.Property<string>("AdminRecordId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("admin_record_id");
+
                     b.Property<string>("Branch")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -101,6 +106,11 @@ namespace PACademy.Modules.ApplicantGradesAdmin.Infrastructure.Migrations
                         .HasColumnType("decimal(7,2)")
                         .HasColumnName("previous_grade");
 
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("payload_json");
+
                     b.Property<string>("Region")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -150,6 +160,10 @@ namespace PACademy.Modules.ApplicantGradesAdmin.Infrastructure.Migrations
                         .HasColumnName("updated_at");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AdminRecordId")
+                        .IsUnique()
+                        .HasFilter("[admin_record_id] IS NOT NULL");
 
                     b.HasIndex("GraduationYear");
 

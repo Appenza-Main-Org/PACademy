@@ -12,6 +12,7 @@ public sealed class ApplicantGradeConfiguration : IEntityTypeConfiguration<Appli
         b.HasKey(x => x.Id);
 
         b.Property(x => x.Id).HasColumnName("id");
+        b.Property(x => x.AdminRecordId).HasColumnName("admin_record_id").HasMaxLength(128);
         b.Property(x => x.Seat).HasColumnName("seat").IsRequired();
         b.Property(x => x.SeatingNumber).HasColumnName("seating_number").HasMaxLength(32);
         b.Property(x => x.Nid).HasColumnName("nid").HasMaxLength(14).IsRequired();
@@ -34,8 +35,10 @@ public sealed class ApplicantGradeConfiguration : IEntityTypeConfiguration<Appli
         b.Property(x => x.Status).HasColumnName("status").HasMaxLength(64).IsRequired();
         b.Property(x => x.CreatedAt).HasColumnName("created_at").IsRequired();
         b.Property(x => x.UpdatedAt).HasColumnName("updated_at").IsRequired();
+        b.Property(x => x.PayloadJson).HasColumnName("payload_json").HasColumnType("nvarchar(max)").IsRequired();
         b.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
 
+        b.HasIndex(x => x.AdminRecordId).IsUnique().HasFilter("[admin_record_id] IS NOT NULL");
         b.HasIndex(x => x.Nid).IsUnique();
         b.HasIndex(x => x.Seat).IsUnique();
         b.HasIndex(x => x.SchoolCategoryCode);

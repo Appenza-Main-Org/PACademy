@@ -233,6 +233,33 @@ function normalizeMaritalStatus(value: Applicant['maritalStatus']): MaritalStatu
   return text === 'أعزب' || text === 'متزوج' || text === 'مطلق' || text === 'أرمل' ? text : undefined;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toFamilyMemberArray(value: unknown): NonNullable<NonNullable<Applicant['family']>['siblings']> {
+  if (Array.isArray(value)) {
+    return value.filter(isRecord) as unknown as NonNullable<NonNullable<Applicant['family']>['siblings']>;
+  }
+  if (!isRecord(value)) return [];
+
+  const values = Object.values(value);
+  if (values.length > 0 && values.every(isRecord)) {
+    return values as unknown as NonNullable<NonNullable<Applicant['family']>['siblings']>;
+  }
+
+  return [value as unknown as NonNullable<NonNullable<Applicant['family']>['siblings']>[number]];
+}
+
+function normalizeFamily(value: unknown): Applicant['family'] {
+  if (!isRecord(value)) return undefined;
+  return {
+    ...(value as NonNullable<Applicant['family']>),
+    siblings: toFamilyMemberArray(value.siblings),
+    relatives: toFamilyMemberArray(value.relatives),
+  };
+}
+
 function normalizeApplicant(applicant: Applicant): Applicant {
   const name = usableText(applicant.name) ?? joinedFullName(applicant) ?? applicant.name;
   const governorate = usableText(applicant.governorate)
@@ -275,6 +302,7 @@ function normalizeApplicant(applicant: Applicant): Applicant {
         }
       : applicant.currentAddress,
     education: normalizeEducation(applicant, certType, certSection),
+    family: normalizeFamily((applicant as Applicant & { family?: unknown }).family),
   };
 }
 

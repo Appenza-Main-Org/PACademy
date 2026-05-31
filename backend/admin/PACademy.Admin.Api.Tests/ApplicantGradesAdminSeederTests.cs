@@ -19,6 +19,9 @@ public sealed class ApplicantGradesAdminSeederTests
         Assert.Equal(2026, row.GraduationYear);
         Assert.Equal(392m, row.Total);
         Assert.Equal(410m, row.ImportMax);
+        Assert.Equal("142018", row.AdminRecordId);
+        Assert.Contains("\"nid\":\"30412180103456\"", row.PayloadJson);
+        Assert.Contains("\"log\":[]", row.PayloadJson);
     }
 
     private static ApplicantGradesAdminDbContext CreateDb()
