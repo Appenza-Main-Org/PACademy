@@ -103,25 +103,13 @@ export function Wizard({
           <div className="overflow-x-auto pb-2 text-sm">
             <ol className="flex items-center gap-2 whitespace-nowrap text-ink-500">
               {steps.map((s, i) => (
-                <li key={s.key} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onStepClick?.(s.key)}
-                    disabled={s.state === 'blocked' || s.state === 'skipped'}
-                    className={cn(
-                      'rounded-md px-2 py-1 transition-colors duration-fast ease-standard',
-                      s.key === activeStepKey
-                        ? 'bg-teal-50 font-bold text-teal-700'
-                        : 'hover:bg-ink-50',
-                      s.state === 'complete' && 'text-success',
-                      s.state === 'blocked' && 'cursor-not-allowed text-terra-500',
-                      s.state === 'skipped' && 'cursor-not-allowed text-ink-300',
-                    )}
-                  >
-                    {s.label}
-                  </button>
-                  {i < steps.length - 1 && <span className="text-ink-300">›</span>}
-                </li>
+                <MobileStepItem
+                  key={s.key}
+                  step={s}
+                  isActive={s.key === activeStepKey}
+                  isLast={i === steps.length - 1}
+                  onStepClick={onStepClick}
+                />
               ))}
             </ol>
           </div>
@@ -175,10 +163,8 @@ function VerticalStepper({
     <ol className="flex flex-col gap-1">
       {steps.map((s, i) => {
         const isActive = s.key === activeKey;
-        // Demo mode: any step that has a click handler is reachable,
-        // including upcoming ones. Blocked + skipped stay non-clickable.
         const clickable =
-          s.state !== 'blocked' && s.state !== 'skipped' && Boolean(onStepClick);
+          Boolean(onStepClick) && (s.state === 'complete' || s.state === 'current');
         return (
           <li key={s.key} className="relative">
             {i < steps.length - 1 && (
@@ -226,6 +212,42 @@ function VerticalStepper({
         );
       })}
     </ol>
+  );
+}
+
+function MobileStepItem({
+  step,
+  isActive,
+  isLast,
+  onStepClick,
+}: {
+  step: WizardStep;
+  isActive: boolean;
+  isLast: boolean;
+  onStepClick?: (key: string) => void;
+}): JSX.Element {
+  const clickable = Boolean(onStepClick) && (step.state === 'complete' || step.state === 'current');
+  return (
+    <li className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={clickable ? () => onStepClick?.(step.key) : undefined}
+        disabled={!clickable}
+        className={cn(
+          'rounded-md px-2 py-1 transition-colors duration-fast ease-standard',
+          isActive
+            ? 'bg-teal-50 font-bold text-teal-700'
+            : clickable && 'hover:bg-ink-50',
+          step.state === 'complete' && 'text-success',
+          step.state === 'upcoming' && 'cursor-not-allowed text-ink-400',
+          step.state === 'blocked' && 'cursor-not-allowed text-terra-500',
+          step.state === 'skipped' && 'cursor-not-allowed text-ink-300',
+        )}
+      >
+        {step.label}
+      </button>
+      {!isLast && <span className="text-ink-300">›</span>}
+    </li>
   );
 }
 
