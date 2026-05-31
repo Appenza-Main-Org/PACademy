@@ -4,7 +4,7 @@ using PACademy.Admin.Api.Modules.Reports.Dtos;
 
 namespace PACademy.Admin.Api.Modules.Reports.Queries;
 
-public sealed class ReportsQueryService(AdminRecordsService records)
+public sealed class ReportsQueryService(OperationalRecordsService records)
 {
     private static readonly string[] StageLabels =
     [

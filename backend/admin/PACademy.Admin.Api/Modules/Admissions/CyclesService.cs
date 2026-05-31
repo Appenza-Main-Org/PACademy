@@ -3,12 +3,13 @@ using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Shared.Audit;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.Admissions;
 
-public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
+public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink, OperationalRecordStore operationalRecords)
 {
     public async Task<IReadOnlyList<JsonObject>> ListAsync(bool includeDeleted, CancellationToken ct)
     {
@@ -204,8 +205,8 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
 
     private async Task<int> CountApplicantsForCycleAsync(string cycleId, int year, CancellationToken ct)
     {
-        var rows = await db.AdminRecordDocuments.AsNoTracking().Where(x => x.Module == "applicants").ToListAsync(ct);
-        return rows.Select(x => AdminRecordJson.Parse(x.PayloadJson)).Count(applicant =>
+        var rows = await operationalRecords.ListAsync("applicants", ct);
+        return rows.Count(applicant =>
             StringProp(applicant, "cycleId") == cycleId ||
             StringProp(applicant, "admissionCycleId") == cycleId ||
             RegisteredYear(applicant) == year);
@@ -213,8 +214,8 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink)
 
     private async Task<int> CountRecordsForCycleAsync(string module, string cycleId, CancellationToken ct)
     {
-        var rows = await db.AdminRecordDocuments.AsNoTracking().Where(x => x.Module == module).ToListAsync(ct);
-        return rows.Select(x => AdminRecordJson.Parse(x.PayloadJson)).Count(row =>
+        var rows = await operationalRecords.ListAsync(module, ct);
+        return rows.Count(row =>
             StringProp(row, "cycleId") == cycleId ||
             StringProp(row, "admissionCycleId") == cycleId);
     }

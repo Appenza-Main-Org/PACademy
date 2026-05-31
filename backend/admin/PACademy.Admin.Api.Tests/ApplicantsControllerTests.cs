@@ -59,7 +59,7 @@ public sealed class ApplicantsControllerTests
             }
         };
 
-        var row = AdminRecordsService.ProjectApplicantManagementPayload(draft, identity);
+        var row = OperationalRecordsService.ProjectApplicantManagementPayload(draft, identity);
 
         Assert.Equal(identity.TableId, row["id"]?.GetValue<string>());
         Assert.Equal(identity.NationalId, row["nationalId"]?.GetValue<string>());
@@ -96,7 +96,7 @@ public sealed class ApplicantsControllerTests
 
     private static ApplicantsController CreateController(AdminDbContext db)
     {
-        var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
         var eligibility = new ApplicantEligibilityService(db, records);
         return new ApplicantsController(records, eligibility)
         {

@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Contracts;
 
@@ -9,7 +10,8 @@ namespace PACademy.Admin.Api.Modules.Admissions.Eligibility;
 
 public sealed class ApplicantEligibilityService(
     AdminDbContext db,
-    AdminRecordsService? records = null)
+    OperationalRecordsService? records = null,
+    OperationalRecordStore? operationalRecords = null)
 {
     private const int SqlInvalidColumnName = 207;
     private const int SqlInvalidObjectName = 208;
@@ -319,12 +321,8 @@ public sealed class ApplicantEligibilityService(
     {
         var candidates = records is not null
             ? await records.ListAsync("grades", ct)
-            : (await db.AdminRecordDocuments
-                .AsNoTracking()
-                .Where(x => x.Module == "grades" && x.PayloadJson.Contains(nationalId))
-                .OrderBy(x => x.Id)
-                .ToListAsync(ct))
-                .Select(x => AdminRecordJson.Parse(x.PayloadJson))
+            : (await Store().ListAsync("grades", ct))
+                .Where(x => x.ToJsonString(AdminRecordJson.Options).Contains(nationalId, StringComparison.Ordinal))
                 .ToList();
         return candidates
             .FirstOrDefault(x =>
@@ -338,12 +336,7 @@ public sealed class ApplicantEligibilityService(
     {
         var rows = records is not null
             ? await records.ListAsync("committeeInstances", ct)
-            : await db.AdminRecordDocuments
-                .AsNoTracking()
-                .Where(x => x.Module == "committeeInstances")
-                .OrderBy(x => x.Id)
-                .Select(x => EligibilityJson.ParseObject(x.PayloadJson))
-                .ToListAsync(ct);
+            : await Store().ListAsync("committeeInstances", ct);
 
         return rows
             .Where(row => EligibilityJson.TextEquals(EligibilityJson.StringProp(row, "cycleId"), cycleId))
@@ -397,10 +390,7 @@ public sealed class ApplicantEligibilityService(
         }
         else
         {
-            var record = await db.AdminRecordDocuments
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
-            draft = record is null ? null : AdminRecordJson.Parse(record.PayloadJson);
+            draft = await Store().GetAsync(module, module, ct);
         }
         if (draft is null) return [];
 
@@ -481,19 +471,16 @@ public sealed class ApplicantEligibilityService(
 
         try
         {
-            var document = await db.AdminRecordDocuments
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
-            return document?.PayloadJson;
+            var document = await Store().GetAsync(module, module, ct);
+            return document?.ToJsonString(AdminRecordJson.Options);
         }
         catch (SqlException ex) when (HasSqlError(ex, SqlInvalidObjectName))
         {
-            var legacy = await db.AdminRecords
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Module == module && x.Id == module, ct);
-            return legacy?.PayloadJson;
+            return null;
         }
     }
+
+    private OperationalRecordStore Store() => operationalRecords ?? new OperationalRecordStore(db);
 
     private static ApplicantEligibilityContext BuildApplicantContext(
         EgyptianNationalIdInfo nid,

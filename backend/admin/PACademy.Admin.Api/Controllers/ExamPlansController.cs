@@ -8,7 +8,7 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class ExamPlansController(AdminRecordsService records, LookupsService lookups) : ControllerBase
+public sealed class ExamPlansController(OperationalRecordsService records, LookupsService lookups) : ControllerBase
 {
     [HttpGet("api/exams/academy")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> AcademyExams(CancellationToken ct) =>

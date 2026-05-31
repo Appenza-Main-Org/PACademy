@@ -6,7 +6,7 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("api/admin/payments")]
-public sealed class PaymentsController(AdminRecordsService records) : ControllerBase
+public sealed class PaymentsController(OperationalRecordsService records) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> List(CancellationToken ct) => Ok(await records.ListAsync("payments", ct));

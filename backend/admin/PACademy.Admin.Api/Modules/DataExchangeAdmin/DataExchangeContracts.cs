@@ -22,7 +22,7 @@ public enum ExchangeDomain
 /// <summary>How a domain's rows are physically stored in the admin DB.</summary>
 public enum ExchangeStorage
 {
-    /// <summary>Generic JSON document store (admin_record_documents) filtered by module.</summary>
+    /// <summary>Normalized operational JSON tables filtered by module.</summary>
     DocStore,
     /// <summary>lookup_rows table (composite key lookup_key + code).</summary>
     Lookups,

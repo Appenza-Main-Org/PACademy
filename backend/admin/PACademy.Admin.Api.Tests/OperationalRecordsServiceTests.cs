@@ -8,7 +8,7 @@ using PACademy.Shared.Audit;
 
 namespace PACademy.Admin.Api.Tests;
 
-public sealed class AdminRecordsServiceTests
+public sealed class OperationalRecordsServiceTests
 {
     [Theory]
     [InlineData(true)]
@@ -29,7 +29,7 @@ public sealed class AdminRecordsServiceTests
     public async Task GenericAdminRecordWritesDoNotUseAdminRecordsTable()
     {
         await using var db = CreateDb();
-        var service = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var service = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
 
         var saved = await service.UpsertAsync("workflows", "WF-TEST", new JsonObject
         {
@@ -47,11 +47,11 @@ public sealed class AdminRecordsServiceTests
     }
 
     [Fact]
-    public void AdminRecordsServiceDoesNotAddLegacyAdminRecordEntities()
+    public void OperationalRecordsServiceDoesNotAddLegacyAdminRecordEntities()
     {
         var servicePath = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
-            "../../../../PACademy.Admin.Api/Modules/AdminRecords/AdminRecordsService.cs"));
+            "../../../../PACademy.Admin.Api/Modules/AdminRecords/OperationalRecordsService.cs"));
         var source = File.ReadAllText(servicePath);
 
         Assert.DoesNotMatch(
@@ -74,7 +74,7 @@ public sealed class AdminRecordsServiceTests
                 ["deletedAt"] = null
             });
         }
-        var service = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var service = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
         await service.InsertManyAsync("grades", payloads, TestContext.Current.CancellationToken);
 
         var deleted = await service.SoftDeleteModuleAsync(

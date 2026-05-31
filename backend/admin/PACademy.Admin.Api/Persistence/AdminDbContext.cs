@@ -6,11 +6,12 @@ using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Settings;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Shared.Persistence.ChangeTracking;
 
 namespace PACademy.Admin.Api.Persistence;
 
-public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext, IAdminRecordsDbContext, IAdminRecordDocumentsDbContext, IExamsDbContext, IGeneralSettingsDbContext
+public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options), ILookupsDbContext, IAuditDbContext, IAdmissionsDbContext, IIdentityDbContext, IAdminRecordsDbContext, IExamsDbContext, IGeneralSettingsDbContext, IOperationalRecordsDbContext
 {
     // Canonical schema for ALL admin EF tables. Environment separation is by
     // DATABASE (DB_PAcademy_Prod / DB_PAcademy_Staging), never by schema, so this
@@ -57,7 +58,6 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<OfficerEntity> Officers => Set<OfficerEntity>();
     public DbSet<AdminRecordEntity> AdminRecords => Set<AdminRecordEntity>();
-    public DbSet<AdminRecordDocumentEntity> AdminRecordDocuments => Set<AdminRecordDocumentEntity>();
     public DbSet<ExamQuestionEntity> ExamQuestions => Set<ExamQuestionEntity>();
     public DbSet<ExamQuestionOptionEntity> ExamQuestionOptions => Set<ExamQuestionOptionEntity>();
     public DbSet<ExamQuestionMatchingPairEntity> ExamQuestionMatchingPairs => Set<ExamQuestionMatchingPairEntity>();
@@ -68,6 +68,16 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     public DbSet<ApplicantPortalRecordEntity> ApplicantPortalRecords => Set<ApplicantPortalRecordEntity>();
     public DbSet<ExamSlotEntity> ExamSlots => Set<ExamSlotEntity>();
     public DbSet<GeneralSettingsEntity> GeneralSettings => Set<GeneralSettingsEntity>();
+    public DbSet<PaymentRecordEntity> PaymentRecords => Set<PaymentRecordEntity>();
+    public DbSet<ApplicantManagementRecordEntity> ApplicantManagementRecords => Set<ApplicantManagementRecordEntity>();
+    public DbSet<GradeOperationalRecordEntity> GradeOperationalRecords => Set<GradeOperationalRecordEntity>();
+    public DbSet<NotificationRecordEntity> NotificationRecords => Set<NotificationRecordEntity>();
+    public DbSet<WorkflowRecordEntity> WorkflowRecords => Set<WorkflowRecordEntity>();
+    public DbSet<CommitteeRecordEntity> CommitteeRecords => Set<CommitteeRecordEntity>();
+    public DbSet<ExamOperationalRecordEntity> ExamOperationalRecords => Set<ExamOperationalRecordEntity>();
+    public DbSet<BiometricRecordEntity> BiometricRecords => Set<BiometricRecordEntity>();
+    public DbSet<AdmissionSetupRecordEntity> AdmissionSetupRecords => Set<AdmissionSetupRecordEntity>();
+    public DbSet<ReportSnapshotRecordEntity> ReportSnapshotRecords => Set<ReportSnapshotRecordEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -260,18 +270,16 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.HasIndex(x => x.Module).HasDatabaseName("ix_admin_records_module");
         });
 
-        modelBuilder.Entity<AdminRecordDocumentEntity>(entity =>
-        {
-            entity.ToTable("admin_record_documents");
-            entity.HasKey(x => new { x.Module, x.Id });
-            entity.Property(x => x.Module).HasColumnName("module").HasMaxLength(96);
-            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
-            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
-            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
-            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
-            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
-            entity.HasIndex(x => x.Module).HasDatabaseName("ix_admin_record_documents_module");
-        });
+        ConfigureOperationalRecord<PaymentRecordEntity>(modelBuilder, "payments");
+        ConfigureOperationalRecord<ApplicantManagementRecordEntity>(modelBuilder, "applicant_management_records");
+        ConfigureOperationalRecord<GradeOperationalRecordEntity>(modelBuilder, "grade_operational_records");
+        ConfigureOperationalRecord<NotificationRecordEntity>(modelBuilder, "notifications");
+        ConfigureOperationalRecord<WorkflowRecordEntity>(modelBuilder, "workflow_records");
+        ConfigureOperationalRecord<CommitteeRecordEntity>(modelBuilder, "committee_records");
+        ConfigureOperationalRecord<ExamOperationalRecordEntity>(modelBuilder, "exam_operational_records");
+        ConfigureOperationalRecord<BiometricRecordEntity>(modelBuilder, "biometric_records");
+        ConfigureOperationalRecord<AdmissionSetupRecordEntity>(modelBuilder, "admission_setup_records");
+        ConfigureOperationalRecord<ReportSnapshotRecordEntity>(modelBuilder, "report_snapshots");
 
         modelBuilder.Entity<ExamQuestionEntity>(entity =>
         {
@@ -460,5 +468,35 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             b.Property(nameof(IChangeTracked.Checksum))
                 .HasColumnName(ChangeTrackingColumns.Checksum).HasMaxLength(64);
         }
+    }
+
+    private static void ConfigureOperationalRecord<TEntity>(ModelBuilder modelBuilder, string tableName)
+        where TEntity : OperationalRecordEntity
+    {
+        modelBuilder.Entity<TEntity>(entity =>
+        {
+            entity.ToTable(tableName);
+            entity.HasKey(x => new { x.Module, x.Id });
+            entity.Property(x => x.Module).HasColumnName("module").HasMaxLength(128);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.ApplicantId).HasColumnName("applicant_id").HasMaxLength(128);
+            entity.Property(x => x.NationalId).HasColumnName("national_id").HasMaxLength(32);
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.CommitteeId).HasColumnName("committee_id").HasMaxLength(128);
+            entity.Property(x => x.CategoryKey).HasColumnName("category_key").HasMaxLength(128);
+            entity.Property(x => x.Department).HasColumnName("department").HasMaxLength(128);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(96);
+            entity.Property(x => x.Kind).HasColumnName("kind").HasMaxLength(96);
+            entity.Property(x => x.OccurredAt).HasColumnName("occurred_at");
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.Module).HasDatabaseName($"ix_{tableName}_module");
+            entity.HasIndex(x => x.ApplicantId).HasDatabaseName($"ix_{tableName}_applicant_id");
+            entity.HasIndex(x => x.NationalId).HasDatabaseName($"ix_{tableName}_national_id");
+            entity.HasIndex(x => x.CycleId).HasDatabaseName($"ix_{tableName}_cycle_id");
+            entity.HasIndex(x => x.Status).HasDatabaseName($"ix_{tableName}_status");
+        });
     }
 }

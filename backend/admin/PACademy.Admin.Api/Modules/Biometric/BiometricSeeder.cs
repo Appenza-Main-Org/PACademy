@@ -1,13 +1,13 @@
 using System.Text.Json.Nodes;
-using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Persistence;
 
 namespace PACademy.Admin.Api.Modules.Biometric;
 
 /// <summary>
 /// Seeds biometric enrollments, verifications, gate logs, and audit rows into
-/// the AdminRecords document store. Mirrors the frontend mock generators
+/// normalized biometric operational tables. Mirrors the frontend mock generators
 /// (<c>shared/mock-data/sprint3to9.ts</c>): timestamps are spread over the last
 /// 7–30 days relative to seed time so the history / monitoring / reports
 /// surfaces show realistic, time-windowed numbers regardless of run date.
@@ -34,31 +34,24 @@ public sealed class BiometricSeeder(ILogger<BiometricSeeder> logger)
 
     public async Task SeedAsync(AdminDbContext db, CancellationToken ct = default)
     {
-        var hasEnrollments = await db.AdminRecordDocuments.AnyAsync(x => x.Module == BiometricService.EnrollmentsModule, ct);
-        var hasVerifications = await db.AdminRecordDocuments.AnyAsync(x => x.Module == BiometricService.VerificationsModule, ct);
-        var hasGateLogs = await db.AdminRecordDocuments.AnyAsync(x => x.Module == BiometricService.GateLogsModule, ct);
-        var hasAudit = await db.AdminRecordDocuments.AnyAsync(x => x.Module == BiometricService.AuditModule, ct);
+        var store = new OperationalRecordStore(db);
+        var hasEnrollments = (await store.ListAsync(BiometricService.EnrollmentsModule, ct)).Count > 0;
+        var hasVerifications = (await store.ListAsync(BiometricService.VerificationsModule, ct)).Count > 0;
+        var hasGateLogs = (await store.ListAsync(BiometricService.GateLogsModule, ct)).Count > 0;
+        var hasAudit = (await store.ListAsync(BiometricService.AuditModule, ct)).Count > 0;
         if (hasEnrollments && hasVerifications && hasGateLogs && hasAudit) return;
 
         var rng = new Random(42);
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         const long day = 24L * 3600_000L;
-        var seedNow = DateTimeOffset.UtcNow;
         var inserted = 0;
 
         string ApplicantId(int i) => $"APP-BIO-{i:00000}";
         string Name(int i) => Names[i % Names.Length];
 
-        void Add(string module, string id, JsonObject payload)
+        async Task AddAsync(string module, string id, JsonObject payload)
         {
-            db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-            {
-                Module = module,
-                Id = id,
-                PayloadJson = payload.ToJsonString(AdminRecordJson.Options),
-                CreatedAt = seedNow,
-                UpdatedAt = seedNow,
-            });
+            await store.UpsertAsync(module, id, payload, ct);
             inserted++;
         }
 
@@ -70,7 +63,7 @@ public sealed class BiometricSeeder(ILogger<BiometricSeeder> logger)
                 var fingerprint = rng.NextDouble() > 0.05;
                 var status = face && fingerprint ? "enrolled" : "partial";
                 var id = $"BIO-{i:00000}";
-                Add(BiometricService.EnrollmentsModule, id, new JsonObject
+                await AddAsync(BiometricService.EnrollmentsModule, id, new JsonObject
                 {
                     ["id"] = id,
                     ["applicantId"] = ApplicantId(i),
@@ -102,7 +95,7 @@ public sealed class BiometricSeeder(ILogger<BiometricSeeder> logger)
                 var verId = $"VER-{i:00000}";
                 if (!hasVerifications)
                 {
-                    Add(BiometricService.VerificationsModule, verId, new JsonObject
+                    await AddAsync(BiometricService.VerificationsModule, verId, new JsonObject
                     {
                         ["id"] = verId,
                         ["applicantId"] = ApplicantId(idx),
@@ -118,7 +111,7 @@ public sealed class BiometricSeeder(ILogger<BiometricSeeder> logger)
                 if (!hasAudit && i <= 60)
                 {
                     var audId = $"BIO-AUD-{verId}";
-                    Add(BiometricService.AuditModule, audId, new JsonObject
+                    await AddAsync(BiometricService.AuditModule, audId, new JsonObject
                     {
                         ["id"] = audId,
                         ["user"] = Operator,
@@ -139,7 +132,7 @@ public sealed class BiometricSeeder(ILogger<BiometricSeeder> logger)
                 var idx = rng.Next(1, 61);
                 var entry = rng.NextDouble() > 0.5;
                 var id = $"GATE-{i:00000}";
-                Add(BiometricService.GateLogsModule, id, new JsonObject
+                await AddAsync(BiometricService.GateLogsModule, id, new JsonObject
                 {
                     ["id"] = id,
                     ["applicantId"] = ApplicantId(idx),
@@ -153,7 +146,6 @@ public sealed class BiometricSeeder(ILogger<BiometricSeeder> logger)
         }
 
         if (inserted == 0) return;
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded {Count} biometric document rows", inserted);
+        logger.LogInformation("Seeded {Count} biometric records", inserted);
     }
 }

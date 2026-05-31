@@ -18,7 +18,7 @@ public sealed class GradesControllerTests
     public async Task CommitV2UpdatesExistingGradeMatchedBySeatingNumberWhenNationalIdDiffers()
     {
         await using var db = CreateDb();
-        var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
         await SeedGradeAsync(
             records,
             seat: 1,
@@ -72,9 +72,9 @@ public sealed class GradesControllerTests
         return new AdminDbContext(options);
     }
 
-    private static GradesController CreateController(AdminDbContext db, AdminRecordsService? records = null)
+    private static GradesController CreateController(AdminDbContext db, OperationalRecordsService? records = null)
     {
-        records ??= new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        records ??= new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
         var controller = new GradesController(records, db, new MemoryCache(new MemoryCacheOptions()), NullLogger<GradesController>.Instance)
         {
             ControllerContext = new ControllerContext
@@ -86,7 +86,7 @@ public sealed class GradesControllerTests
     }
 
     private static async Task SeedGradeAsync(
-        AdminRecordsService records,
+        OperationalRecordsService records,
         int seat,
         string seatingNumber,
         string nid,

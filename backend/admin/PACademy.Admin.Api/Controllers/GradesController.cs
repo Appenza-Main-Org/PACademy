@@ -16,7 +16,7 @@ namespace PACademy.Admin.Api.Controllers;
 [ApiController]
 [Route("")]
 public sealed class GradesController(
-    AdminRecordsService records,
+    OperationalRecordsService records,
     AdminDbContext db,
     IMemoryCache cache,
     ILogger<GradesController> logger) : ControllerBase
@@ -61,11 +61,10 @@ public sealed class GradesController(
     private async Task<ActionResult<object>> ListPageFastAsync(int page, int pageSize, CancellationToken ct)
     {
         var sql = BuildGradesPageSql(page, pageSize);
-        var entities = await db.AdminRecords
-            .FromSqlRaw(sql.RowsSql, sql.Parameters.ToArray())
-            .AsNoTracking()
+        var entities = await db.Database
+            .SqlQueryRaw<GradePayloadRow>(sql.RowsSql, sql.Parameters.ToArray())
             .ToListAsync(ct);
-        var rows = entities.Select(EntityToJson).ToList();
+        var rows = entities.Select(GradePayloadRowToJson).ToList();
         var summary = await BuildSummaryFastAsync(ct);
         var total = summary.total;
         if (sql.HasFilters)
@@ -575,6 +574,14 @@ public sealed class GradesController(
         public int WithAdjustments { get; init; }
     }
 
+    private sealed class GradePayloadRow
+    {
+        public required string Id { get; init; }
+        public required string PayloadJson { get; init; }
+        public DateTimeOffset CreatedAt { get; init; }
+        public DateTimeOffset UpdatedAt { get; init; }
+    }
+
     private sealed class GradesSummaryPayload
     {
         public int total { get; init; }
@@ -690,12 +697,10 @@ public sealed class GradesController(
         var pageSizeParam = AddParam(pageSize);
         var tableName = AdminDbContext.QualifiedTableName("applicant_grades");
         var selectSql = $"""
-            SELECT N'grades' AS [module],
-                   CONVERT(nvarchar(128), [a].[seat]) AS [id],
-                   {GradePayloadSql()} AS [payload_json],
-                   [a].[created_at],
-                   [a].[updated_at],
-                   [a].[row_version]
+            SELECT CONVERT(nvarchar(128), [a].[seat]) AS [Id],
+                   {GradePayloadSql()} AS [PayloadJson],
+                   [a].[created_at] AS [CreatedAt],
+                   [a].[updated_at] AS [UpdatedAt]
             FROM {tableName} AS [a]
             """;
         return new GradesPageSql
@@ -810,7 +815,7 @@ public sealed class GradesController(
         cache.Remove(GradesFacetsCacheKey);
     }
 
-    private static JsonObject EntityToJson(AdminRecordEntity entity)
+    private static JsonObject GradePayloadRowToJson(GradePayloadRow entity)
     {
         var obj = AdminRecordJson.Parse(entity.PayloadJson);
         obj["id"] ??= entity.Id;

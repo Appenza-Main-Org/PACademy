@@ -1,4 +1,5 @@
 using PACademy.Admin.Api.Persistence;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 
 namespace PACademy.Admin.Api.Modules.AdminRecords;
 
@@ -7,9 +8,10 @@ public static class AdminRecordsModule
     public static IServiceCollection AddAdminRecordsModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IAdminRecordsDbContext>(sp => sp.GetRequiredService<AdminDbContext>());
-        services.AddScoped<IAdminRecordDocumentsDbContext>(sp => sp.GetRequiredService<AdminDbContext>());
+        services.AddScoped<IOperationalRecordsDbContext>(sp => sp.GetRequiredService<AdminDbContext>());
+        services.AddScoped<OperationalRecordStore>();
         services.AddScoped<AdminRecordsSeeder>();
-        services.AddScoped<AdminRecordsService>();
+        services.AddScoped<OperationalRecordsService>();
         return services;
     }
 

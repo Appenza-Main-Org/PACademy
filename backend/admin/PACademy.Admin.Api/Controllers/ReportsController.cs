@@ -13,7 +13,7 @@ namespace PACademy.Admin.Api.Controllers;
 [ApiController]
 [Route("api/admin/reports")]
 public sealed class ReportsController(
-    AdminRecordsService records,
+    OperationalRecordsService records,
     IAuditDbContext auditDb,
     ReportsQueryService reportQueries,
     ReportsExportHandler exportHandler,
@@ -258,8 +258,8 @@ public sealed class ReportsController(
     [HttpGet("governance")]
     public async Task<ActionResult<object>> Governance(CancellationToken ct)
     {
-        var audit = (await records.ListAsync("audit", ct))
-            .Concat((await auditDb.AuditRows.AsNoTracking().OrderByDescending(x => x.CreatedAt).Take(500).ToListAsync(ct)).Select(AuditToJson))
+        var audit = (await auditDb.AuditRows.AsNoTracking().OrderByDescending(x => x.CreatedAt).Take(500).ToListAsync(ct))
+            .Select(AuditToJson)
             .ToList();
         var hourly = audit
             .GroupBy(x => DateTimeOffset.FromUnixTimeMilliseconds((long)(AdminRecordJson.NumberProp(x, "timestamp") ?? 0)).ToString("HH"))

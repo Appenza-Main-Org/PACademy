@@ -11,7 +11,7 @@ namespace PACademy.Admin.Api.Controllers;
 [ApiController]
 [Route("api/committees")]
 [RequireBearerAuth]
-public sealed class CommitteesController(AdminRecordsService records, IIdentityDbContext identity) : ControllerBase
+public sealed class CommitteesController(OperationalRecordsService records, IIdentityDbContext identity) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> List(CancellationToken ct) => Ok(await records.ListAsync("committees", ct));

@@ -11,7 +11,7 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class OperationalAdminController(AdminRecordsService records, ILookupsDbContext lookups, GeneralSettingsService generalSettings) : ControllerBase
+public sealed class OperationalAdminController(OperationalRecordsService records, ILookupsDbContext lookups, GeneralSettingsService generalSettings) : ControllerBase
 {
     [HttpGet("api/committee-instances")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> CommitteeInstances(CancellationToken ct)

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PACademy.Admin.Api.Persistence;
 
@@ -11,9 +12,11 @@ using PACademy.Admin.Api.Persistence;
 namespace PACademy.Admin.Api.Persistence.Migrations
 {
     [DbContext(typeof(AdminDbContext))]
-    partial class AdminDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260531133336_NormalizeOperationalRecords")]
+    partial class NormalizeOperationalRecords
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -70,11 +73,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(96)")
                         .HasColumnName("id");
 
-                    b.Property<string>("Checksum")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("checksum");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
@@ -82,11 +80,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit")
                         .HasColumnName("is_active");
-
-                    b.Property<string>("LastModifiedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("last_modified_by");
 
                     b.Property<string>("NameAr")
                         .IsRequired()
@@ -105,14 +98,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion")
                         .HasColumnName("row_version");
-
-                    b.Property<string>("SourceSystem")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasDefaultValue("appenza-admin")
-                        .HasColumnName("source_system");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -143,11 +128,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(128)")
                         .HasColumnName("id");
 
-                    b.Property<string>("Checksum")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("checksum");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
@@ -157,11 +137,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasMaxLength(96)
                         .HasColumnType("nvarchar(96)")
                         .HasColumnName("cycle_id");
-
-                    b.Property<string>("LastModifiedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("last_modified_by");
 
                     b.Property<string>("PayloadJson")
                         .IsRequired()
@@ -174,14 +149,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion")
                         .HasColumnName("row_version");
-
-                    b.Property<string>("SourceSystem")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasDefaultValue("appenza-admin")
-                        .HasColumnName("source_system");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset")
@@ -207,11 +174,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(96)")
                         .HasColumnName("key");
 
-                    b.Property<string>("Checksum")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("checksum");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
@@ -226,11 +188,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(256)")
                         .HasColumnName("label_ar");
 
-                    b.Property<string>("LastModifiedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("last_modified_by");
-
                     b.Property<string>("PayloadJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
@@ -242,14 +199,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion")
                         .HasColumnName("row_version");
-
-                    b.Property<string>("SourceSystem")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasDefaultValue("appenza-admin")
-                        .HasColumnName("source_system");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset")
@@ -273,11 +222,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(96)")
                         .HasColumnName("category_id");
 
-                    b.Property<string>("Checksum")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("checksum");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
@@ -285,11 +229,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit")
                         .HasColumnName("is_active");
-
-                    b.Property<string>("LastModifiedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("last_modified_by");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -301,14 +240,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("int")
                         .HasColumnName("sort_order");
-
-                    b.Property<string>("SourceSystem")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasDefaultValue("appenza-admin")
-                        .HasColumnName("source_system");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset")
@@ -333,11 +264,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(96)")
                         .HasColumnName("id");
 
-                    b.Property<string>("Checksum")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("checksum");
-
                     b.Property<string>("ConfigId")
                         .IsRequired()
                         .HasMaxLength(96)
@@ -352,25 +278,12 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasColumnName("is_active");
 
-                    b.Property<string>("LastModifiedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("last_modified_by");
-
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion")
                         .HasColumnName("row_version");
-
-                    b.Property<string>("SourceSystem")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasDefaultValue("appenza-admin")
-                        .HasColumnName("source_system");
 
                     b.Property<string>("SpecializationId")
                         .IsRequired()
@@ -428,11 +341,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(96)")
                         .HasColumnName("category_specialization_id");
 
-                    b.Property<string>("Checksum")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("checksum");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
@@ -462,11 +370,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasColumnName("is_active");
 
-                    b.Property<string>("LastModifiedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("last_modified_by");
-
                     b.Property<string>("MaritalStatusCodesJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
@@ -492,14 +395,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("school_category_codes_json");
-
-                    b.Property<string>("SourceSystem")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasDefaultValue("appenza-admin")
-                        .HasColumnName("source_system");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset")
@@ -628,11 +523,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(64)")
                         .HasColumnName("access_start_at");
 
-                    b.Property<string>("Checksum")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("checksum");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
@@ -656,11 +546,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.Property<int?>("DurationMinutes")
                         .HasColumnType("int")
                         .HasColumnName("duration_minutes");
-
-                    b.Property<string>("LastModifiedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("last_modified_by");
 
                     b.Property<string>("NameAr")
                         .IsRequired()
@@ -691,14 +576,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)")
                         .HasColumnName("scheduled_for");
-
-                    b.Property<string>("SourceSystem")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasDefaultValue("appenza-admin")
-                        .HasColumnName("source_system");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -734,11 +611,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(128)")
                         .HasColumnName("category");
 
-                    b.Property<string>("Checksum")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("checksum");
-
                     b.Property<string>("Classification")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)")
@@ -761,11 +633,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(1024)")
                         .HasColumnName("image_url");
 
-                    b.Property<string>("LastModifiedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("last_modified_by");
-
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
@@ -776,14 +643,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion")
                         .HasColumnName("row_version");
-
-                    b.Property<string>("SourceSystem")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasDefaultValue("appenza-admin")
-                        .HasColumnName("source_system");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1095,11 +954,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(96)")
                         .HasColumnName("code");
 
-                    b.Property<string>("Checksum")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("checksum");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
@@ -1107,11 +961,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit")
                         .HasColumnName("is_active");
-
-                    b.Property<string>("LastModifiedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("last_modified_by");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1130,14 +979,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion")
                         .HasColumnName("row_version");
-
-                    b.Property<string>("SourceSystem")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasDefaultValue("appenza-admin")
-                        .HasColumnName("source_system");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset")
@@ -2228,11 +2069,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("capacity");
 
-                    b.Property<string>("Checksum")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("checksum");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
@@ -2240,11 +2076,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date")
                         .HasColumnName("date");
-
-                    b.Property<string>("LastModifiedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("last_modified_by");
 
                     b.Property<string>("Location")
                         .IsRequired()
@@ -2262,14 +2093,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion")
                         .HasColumnName("row_version");
-
-                    b.Property<string>("SourceSystem")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasDefaultValue("appenza-admin")
-                        .HasColumnName("source_system");
 
                     b.Property<string>("Time")
                         .IsRequired()

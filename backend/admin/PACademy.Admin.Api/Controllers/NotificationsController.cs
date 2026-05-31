@@ -6,7 +6,7 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class NotificationsController(AdminRecordsService records) : ControllerBase
+public sealed class NotificationsController(OperationalRecordsService records) : ControllerBase
 {
     [HttpGet("api/admin/notifications")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> List(CancellationToken ct) => Ok(await records.ListAsync("notifications", ct));

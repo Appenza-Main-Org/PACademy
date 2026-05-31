@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Persistence;
 
 namespace PACademy.Admin.Api.Modules.Exams;
@@ -27,17 +28,17 @@ public sealed class ExamsSeeder(IWebHostEnvironment environment, ILogger<ExamsSe
         var root = doc.RootElement;
         var now = DateTimeOffset.UtcNow;
 
-        // Document-store buckets (committee users, devices, results, audit) seed
-        // independently of the normalized question/exam tables, so an
+        // Exam operational buckets (committee users, devices, results, audit) seed
+        // independently of the normalized question/exam catalog tables, so an
         // already-seeded database still picks them up. Each bucket is idempotent.
-        var docInserted = await SeedDocumentBucketsAsync(db, root, now, ct);
+        var operationalInserted = await SeedOperationalBucketsAsync(db, root, ct);
 
         var hasQuestions = await db.ExamQuestions.AnyAsync(ct);
         var hasExams = await db.Exams.AnyAsync(ct);
         if (hasQuestions && hasExams)
         {
             var removed = await RemoveLegacyAdminRecordsAsync(db, ct);
-            if (docInserted > 0 || removed > 0) await db.SaveChangesAsync(ct);
+            if (operationalInserted > 0 || removed > 0) await db.SaveChangesAsync(ct);
             return;
         }
 
@@ -141,12 +142,12 @@ public sealed class ExamsSeeder(IWebHostEnvironment environment, ILogger<ExamsSe
 
         var removedLegacyRows = await RemoveLegacyAdminRecordsAsync(db, ct);
 
-        if (inserted == 0 && removedLegacyRows == 0 && docInserted == 0) return;
+        if (inserted == 0 && removedLegacyRows == 0 && operationalInserted == 0) return;
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded {Count} Question Bank rows + {Docs} exam document rows", inserted, docInserted);
+        logger.LogInformation("Seeded {Count} Question Bank rows + {Rows} exam operational rows", inserted, operationalInserted);
     }
 
-    private static readonly (string JsonKey, string Module)[] DocumentBuckets =
+    private static readonly (string JsonKey, string Module)[] OperationalBuckets =
     [
         ("committeeUsers", ExamsService.CommitteeUsersModule),
         ("devices", ExamsService.DevicesModule),
@@ -154,25 +155,19 @@ public sealed class ExamsSeeder(IWebHostEnvironment environment, ILogger<ExamsSe
         ("audit", ExamsService.AuditModule)
     ];
 
-    private static async Task<int> SeedDocumentBucketsAsync(AdminDbContext db, JsonElement root, DateTimeOffset now, CancellationToken ct)
+    private static async Task<int> SeedOperationalBucketsAsync(AdminDbContext db, JsonElement root, CancellationToken ct)
     {
+        var store = new OperationalRecordStore(db);
         var inserted = 0;
-        foreach (var (jsonKey, module) in DocumentBuckets)
+        foreach (var (jsonKey, module) in OperationalBuckets)
         {
-            if (await db.AdminRecordDocuments.AnyAsync(x => x.Module == module, ct)) continue;
+            if ((await store.ListAsync(module, ct)).Count > 0) continue;
             if (!root.TryGetProperty(jsonKey, out var rows) || rows.ValueKind != JsonValueKind.Array) continue;
             foreach (var row in rows.EnumerateArray())
             {
                 var obj = JsonNode.Parse(row.GetRawText())!.AsObject();
                 var id = AdminRecordJson.StringProp(obj, "id") ?? $"{module}-{Guid.NewGuid():N}".ToUpperInvariant();
-                db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-                {
-                    Module = module,
-                    Id = id,
-                    PayloadJson = obj.ToJsonString(AdminRecordJson.Options),
-                    CreatedAt = now,
-                    UpdatedAt = now
-                });
+                await store.UpsertAsync(module, id, obj, ct);
                 inserted++;
             }
         }

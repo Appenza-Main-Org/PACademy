@@ -8,7 +8,7 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class AdmissionSetupController(AdminRecordsService records, ApplicationSettingsService appSettings) : ControllerBase
+public sealed class AdmissionSetupController(OperationalRecordsService records, ApplicationSettingsService appSettings) : ControllerBase
 {
     [HttpGet("api/admission-setup/cycles/{cycleId}/exam-dates")]
     public async Task<ActionResult<JsonObject>> ExamDates(string cycleId, CancellationToken ct) =>

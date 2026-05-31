@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Admissions.Eligibility;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Audit;
@@ -26,14 +27,14 @@ public sealed class ApplicantEligibilityServiceTests
     }
 
     [Fact]
-    public void AdminRecordsFallbackHandlesMissingDocumentStore()
+    public void AdminRecordsRuntimeUsesOperationalStoreInsteadOfDocumentStore()
     {
         var source = File.ReadAllText(FindRepoFile(
-            "backend/admin/PACademy.Admin.Api/Modules/AdminRecords/AdminRecordsService.cs"));
+            "backend/admin/PACademy.Admin.Api/Modules/AdminRecords/OperationalRecordsService.cs"));
 
-        Assert.Contains("IsMissingDocumentStore", source);
-        Assert.Contains("ListLegacyAdminRecordsAsync", source);
-        Assert.Contains("GetLegacyAdminRecordAsync", source);
+        Assert.Contains("OperationalRecordStore", source);
+        Assert.DoesNotContain("DocumentsDb.AdminRecordDocuments", source);
+        Assert.DoesNotContain("IsMissingDocumentStore", source);
     }
 
     [Fact]
@@ -113,11 +114,10 @@ public sealed class ApplicantEligibilityServiceTests
             {
                 ["applicantCategoryId"] = "law_bachelor"
             }));
-        db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-        {
-            Module = "admissionSetup.applicationSettings.cycle-2026",
-            Id = "admissionSetup.applicationSettings.cycle-2026",
-            PayloadJson = new JsonObject
+        await new OperationalRecordStore(db).UpsertAsync(
+            "admissionSetup.applicationSettings.cycle-2026",
+            "admissionSetup.applicationSettings.cycle-2026",
+            new JsonObject
             {
                 ["id"] = "admissionSetup.applicationSettings.cycle-2026",
                 ["cycleId"] = "cycle-2026",
@@ -159,10 +159,8 @@ public sealed class ApplicantEligibilityServiceTests
                         ["graduationYears"] = new JsonArray(2026)
                     }),
                 ["local"] = new JsonArray()
-            }.ToJsonString(),
-            CreatedAt = now,
-            UpdatedAt = now
-        });
+            },
+            TestContext.Current.CancellationToken);
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var service = CreateService(db);
 
@@ -216,11 +214,10 @@ public sealed class ApplicantEligibilityServiceTests
             ["type"] = "university",
             ["genderScope"] = new JsonArray("male", "female")
         }));
-        db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-        {
-            Module = "admissionSetup.applicationSettings.cycle-2026",
-            Id = "admissionSetup.applicationSettings.cycle-2026",
-            PayloadJson = new JsonObject
+        await new OperationalRecordStore(db).UpsertAsync(
+            "admissionSetup.applicationSettings.cycle-2026",
+            "admissionSetup.applicationSettings.cycle-2026",
+            new JsonObject
             {
                 ["id"] = "admissionSetup.applicationSettings.cycle-2026",
                 ["cycleId"] = "cycle-2026",
@@ -262,10 +259,8 @@ public sealed class ApplicantEligibilityServiceTests
                         ["graduationYears"] = new JsonArray(2026)
                     }),
                 ["local"] = new JsonArray()
-            }.ToJsonString(),
-            CreatedAt = now,
-            UpdatedAt = now
-        });
+            },
+            TestContext.Current.CancellationToken);
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var service = CreateService(db);
 
@@ -297,12 +292,11 @@ public sealed class ApplicantEligibilityServiceTests
     {
         await using var db = CreateDb();
         await SeedBaseAsync(db, gradeSource: "استيراد خارجي");
-        db.AdminRecords.AddRange(
-            CommitteeInstance("ci-1", "cycle-2026", "CAT-GEN", "CMT-1", "2026-06-10", capacity: 120, reserved: 7),
-            CommitteeInstance("ci-2", "cycle-2026", "CAT-GEN", "CMT-1", "2026-06-12", capacity: 80, reserved: 3),
-            CommitteeInstance("ci-other-cycle", "cycle-2025", "CAT-GEN", "CMT-1", "2025-06-10", capacity: 40, reserved: 0),
-            CommitteeInstance("ci-other-committee", "cycle-2026", "CAT-GEN", "CMT-2", "2026-06-20", capacity: 50, reserved: 0));
-        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var store = new OperationalRecordStore(db);
+        await store.UpsertAsync("committeeInstances", "ci-1", CommitteeInstance("ci-1", "cycle-2026", "CAT-GEN", "CMT-1", "2026-06-10", capacity: 120, reserved: 7), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-2", CommitteeInstance("ci-2", "cycle-2026", "CAT-GEN", "CMT-1", "2026-06-12", capacity: 80, reserved: 3), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-other-cycle", CommitteeInstance("ci-other-cycle", "cycle-2025", "CAT-GEN", "CMT-1", "2025-06-10", capacity: 40, reserved: 0), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-other-committee", CommitteeInstance("ci-other-committee", "cycle-2026", "CAT-GEN", "CMT-2", "2026-06-20", capacity: 50, reserved: 0), TestContext.Current.CancellationToken);
         var service = CreateService(db);
 
         var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
@@ -438,7 +432,7 @@ public sealed class ApplicantEligibilityServiceTests
 
     private static ApplicantEligibilityService CreateService(AdminDbContext db)
     {
-        return new ApplicantEligibilityService(db, new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink()));
+        return new ApplicantEligibilityService(db, new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink()));
     }
 
     private static string FindRepoFile(string relativePath)
@@ -569,15 +563,8 @@ public sealed class ApplicantEligibilityServiceTests
             };
         }
 
-        db.AdminRecords.Add(new AdminRecordEntity
-        {
-            Module = "grades",
-            Id = "1",
-            PayloadJson = gradePayload.ToJsonString(),
-            CreatedAt = now,
-            UpdatedAt = now
-        });
         await db.SaveChangesAsync();
+        await new OperationalRecordStore(db).UpsertAsync("grades", "1", gradePayload, CancellationToken.None);
     }
 
     private static LookupRowEntity Lookup(string key, string code, string name, JsonObject payload)
@@ -596,7 +583,7 @@ public sealed class ApplicantEligibilityServiceTests
         };
     }
 
-    private static AdminRecordEntity CommitteeInstance(
+    private static JsonObject CommitteeInstance(
         string id,
         string cycleId,
         string categoryKey,
@@ -606,23 +593,16 @@ public sealed class ApplicantEligibilityServiceTests
         int reserved)
     {
         var now = DateTimeOffset.UtcNow;
-        return new AdminRecordEntity
+        return new JsonObject
         {
-            Module = "committeeInstances",
-            Id = id,
-            PayloadJson = new JsonObject
-            {
-                ["id"] = id,
-                ["cycleId"] = cycleId,
-                ["categoryKey"] = categoryKey,
-                ["definitionCode"] = definitionCode,
-                ["date"] = date,
-                ["capacity"] = capacity,
-                ["reserved"] = reserved,
-                ["reservedRefreshedAt"] = now.ToString("O")
-            }.ToJsonString(),
-            CreatedAt = now,
-            UpdatedAt = now
+            ["id"] = id,
+            ["cycleId"] = cycleId,
+            ["categoryKey"] = categoryKey,
+            ["definitionCode"] = definitionCode,
+            ["date"] = date,
+            ["capacity"] = capacity,
+            ["reserved"] = reserved,
+            ["reservedRefreshedAt"] = now.ToString("O")
         };
     }
 }

@@ -3,12 +3,13 @@ using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Shared.Audit;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.Admissions;
 
-public sealed class CategoriesService(IAdmissionsDbContext db, IAuditSink auditSink)
+public sealed class CategoriesService(IAdmissionsDbContext db, IAuditSink auditSink, OperationalRecordStore operationalRecords)
 {
     private static readonly string[] SpecKeys =
     [
@@ -125,17 +126,15 @@ public sealed class CategoriesService(IAdmissionsDbContext db, IAuditSink auditS
 
     private async Task<IReadOnlyList<JsonObject>> ApplicantsForCategoryAsync(string key, CancellationToken ct)
     {
-        var rows = await db.AdminRecordDocuments.AsNoTracking().Where(x => x.Module == "applicants").ToListAsync(ct);
-        return rows
-            .Select(x => AdminRecordJson.Parse(x.PayloadJson))
+        return (await operationalRecords.ListAsync("applicants", ct))
             .Where(applicant => ResolveCategoryKey(applicant) == key)
             .ToList();
     }
 
     private async Task<int> RecordsForCategoryAsync(string module, string key, CancellationToken ct)
     {
-        var rows = await db.AdminRecordDocuments.AsNoTracking().Where(x => x.Module == module).ToListAsync(ct);
-        return rows.Select(x => AdminRecordJson.Parse(x.PayloadJson)).Count(row =>
+        var rows = await operationalRecords.ListAsync(module, ct);
+        return rows.Count(row =>
             StringProp(row, "categoryKey") == key ||
             StringProp(row, "categoryId") == key ||
             StringProp(row, "applicantCategory") == key);

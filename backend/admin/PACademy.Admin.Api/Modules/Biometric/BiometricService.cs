@@ -5,13 +5,13 @@ namespace PACademy.Admin.Api.Modules.Biometric;
 
 /// <summary>
 /// Biometric Registration &amp; Inquiry service (BRD §5). Persists enrollments,
-/// verifications, gate logs, and an audit trail in the AdminRecords document
-/// store, and delegates the actual capture/match to
+/// verifications, gate logs, and an audit trail in normalized operational
+/// tables, and delegates the actual capture/match to
 /// <see cref="IBiometricDeviceGateway"/> (simulated or real). Returns JSON
 /// shapes verbatim to the frontend contract in
 /// <c>frontend/src/features/biometric/api/biometric.service.ts</c>.
 /// </summary>
-public sealed class BiometricService(AdminRecordsService records, IBiometricDeviceGateway device)
+public sealed class BiometricService(OperationalRecordsService records, IBiometricDeviceGateway device)
 {
     public const string EnrollmentsModule = "biometric-enrollments";
     public const string VerificationsModule = "biometric-verifications";

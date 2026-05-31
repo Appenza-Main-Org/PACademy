@@ -1,8 +1,10 @@
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.DataExchangeAdmin;
 using PACademy.Admin.Api.Modules.Lookups;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Persistence.ChangeTracking;
 
@@ -198,13 +200,11 @@ public sealed class DataExchangeServiceTests
     public async Task Applicant_invalid_national_id_is_invalid()
     {
         var (svc, db) = Create();
-        db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-        {
-            Module = "applicants", Id = "APP-1",
-            PayloadJson = """{"id":"APP-1","nationalId":"29801011234567"}""",
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
-        });
-        await db.SaveChangesAsync();
+        await new OperationalRecordStore(db).UpsertAsync(
+            "applicants",
+            "APP-1",
+            JsonNode.Parse("""{"id":"APP-1","nationalId":"29801011234567"}""")!.AsObject(),
+            TestContext.Current.CancellationToken);
 
         var badRow = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
@@ -220,13 +220,12 @@ public sealed class DataExchangeServiceTests
     public async Task DocStore_round_trip_export_then_apply_persists_payload()
     {
         var (svc, db) = Create();
-        db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-        {
-            Module = "committees", Id = "CMT-1",
-            PayloadJson = """{"id":"CMT-1","name":"لجنة أ","capacity":50}""",
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
-        });
-        await db.SaveChangesAsync();
+        var store = new OperationalRecordStore(db);
+        await store.UpsertAsync(
+            "committees",
+            "CMT-1",
+            JsonNode.Parse("""{"id":"CMT-1","name":"لجنة أ","capacity":50}""")!.AsObject(),
+            TestContext.Current.CancellationToken);
 
         var export = await svc.ExportAsync([ExchangeDomain.Committees], "single-workbook", ExportFilter.Default, default);
         var rows = AsImportRows(export.Sheets[0]);
@@ -236,9 +235,10 @@ public sealed class DataExchangeServiceTests
             new ImportApplyRequest([new("Committees", rows)], "new-and-changed", SkipConflicts: false, ForceUpdate: false), default);
 
         Assert.Equal(1, apply.UpdatedCount);
-        var saved = db.AdminRecordDocuments.Single(x => x.Module == "committees" && x.Id == "CMT-1");
-        Assert.Contains("لجنة أ معدلة", saved.PayloadJson);
-        Assert.Equal("data-exchange-import", saved.SourceSystem);
+        var saved = await store.GetAsync("committees", "CMT-1", TestContext.Current.CancellationToken);
+        Assert.NotNull(saved);
+        Assert.Equal("لجنة أ معدلة", AdminRecordJson.StringProp(saved, "name"));
+        Assert.Equal("data-exchange-import", AdminRecordJson.StringProp(saved, "sourceSystem"));
     }
 
     [Fact]

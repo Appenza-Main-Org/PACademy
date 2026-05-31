@@ -7,6 +7,7 @@ using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Lookups;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Audit;
 using PACademy.Shared.Persistence.ChangeTracking;
@@ -356,22 +357,30 @@ public sealed class DataExchangeService(
 
     private async Task<IReadOnlyList<LoadedRow>> LoadDocStoreAsync(DomainSpec spec, CancellationToken ct)
     {
-        var rows = await db.AdminRecordDocuments.AsNoTracking()
-            .Where(x => x.Module == spec.DocModule)
-            .ToListAsync(ct);
+        var rows = await new OperationalRecordStore(db).ListAsync(spec.DocModule!, ct);
         var result = new List<LoadedRow>(rows.Count);
-        foreach (var x in rows)
+        foreach (var payload in rows)
         {
-            var payload = ParseObject(x.PayloadJson);
             if (AdminRecordJson.IsSoftDeleted(payload)) continue;
+            var id = AdminRecordJson.StringProp(payload, "id") ?? ResolveDocBusinessKey(spec, payload, "");
+            var createdAt = ParseDateTime(payload, "createdAt") ?? DateTimeOffset.UtcNow;
+            var updatedAt = ParseDateTime(payload, "updatedAt") ?? createdAt;
             var data = new Dictionary<string, string?>(StringComparer.Ordinal)
             {
                 ["payload_json"] = payload.ToJsonString(Json),
             };
             foreach (var f in spec.BusinessKeyFields)
                 data[f] = payload[f]?.ToString();
-            var bk = ResolveDocBusinessKey(spec, payload, x.Id);
-            result.Add(Loaded(x.Id, bk, data, x.CreatedAt, x.UpdatedAt, x.RowVersion, x.LastModifiedBy, x.SourceSystem));
+            var bk = ResolveDocBusinessKey(spec, payload, id);
+            result.Add(Loaded(
+                id,
+                bk,
+                data,
+                createdAt,
+                updatedAt,
+                [],
+                AdminRecordJson.StringProp(payload, "lastModifiedBy"),
+                AdminRecordJson.StringProp(payload, "sourceSystem") ?? ChangeTrackingColumns.DefaultSourceSystem));
         }
         return result;
     }
@@ -471,21 +480,8 @@ public sealed class DataExchangeService(
         var id = Get(row, "id") ?? Get(row, "business_key") ?? throw Invalid("id مفقود");
         var payload = ParseObject(Get(row, "payload_json") ?? "{}");
         payload["id"] = id;
-        var existing = await db.AdminRecordDocuments
-            .FirstOrDefaultAsync(x => x.Module == spec.DocModule && x.Id == id, ct);
-        if (existing is null)
-        {
-            db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-            {
-                Module = spec.DocModule!, Id = id, PayloadJson = payload.ToJsonString(Json),
-                SourceSystem = ImportSource,
-            });
-        }
-        else
-        {
-            existing.PayloadJson = payload.ToJsonString(Json);
-            existing.SourceSystem = ImportSource;
-        }
+        payload["sourceSystem"] = ImportSource;
+        await new OperationalRecordStore(db).UpsertAsync(spec.DocModule!, id, payload, ct);
     }
 
     private async Task UpsertLookupAsync(IReadOnlyDictionary<string, string?> row, CancellationToken ct)
@@ -666,6 +662,15 @@ public sealed class DataExchangeService(
     private static int? ParseInt(string? s) => int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : null;
     private static bool? ParseBool(string? s) => bool.TryParse(s, out var v) ? v : (s == "1" ? true : s == "0" ? false : null);
     private static DateOnly? ParseDateOnly(string? s) => DateOnly.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out var v) ? v : null;
+    private static DateTimeOffset? ParseDateTime(JsonObject payload, string key)
+    {
+        if (!payload.TryGetPropertyValue(key, out var node) || node is not JsonValue value) return null;
+        if (value.TryGetValue<DateTimeOffset>(out var instant)) return instant;
+        return value.TryGetValue<string>(out var text)
+            && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
+                ? parsed
+                : null;
+    }
 
     private static InvalidOperationException Invalid(string message) => new(message);
 

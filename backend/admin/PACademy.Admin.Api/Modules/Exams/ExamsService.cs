@@ -13,7 +13,7 @@ namespace PACademy.Admin.Api.Modules.Exams;
 /// <c>correctIndex</c>, matching compares <c>matchingPairs</c> against the
 /// applicant's <c>{ prompt: match }</c> dict).
 /// </summary>
-public sealed class ExamsService(AdminRecordsService records, IExamsDbContext examsDb)
+public sealed class ExamsService(OperationalRecordsService records, IExamsDbContext examsDb)
 {
     public const string QuestionsModule = "questions";
     public const string ExamsModule = "exams";

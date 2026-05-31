@@ -36,7 +36,7 @@ public sealed class ApiRegressionTests
     public async Task CreatingQuestionAndExamDoesNotWriteAdminRecords()
     {
         await using var db = CreateDb();
-        var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
         var service = new ExamsService(records, db);
 
         _ = await service.CreateQuestionAsync(new JsonObject
@@ -78,7 +78,7 @@ public sealed class ApiRegressionTests
     public async Task QuestionAndExamCreationAcceptMinimalValidPayloads()
     {
         await using var db = CreateDb();
-        var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
         var service = new ExamsService(records, db);
 
         var question = await service.CreateQuestionAsync(new JsonObject
@@ -200,12 +200,10 @@ public sealed class ApiRegressionTests
         await using var db = CreateDb();
         SeedLookup(db, "applicant-categories", "CAT-ACTIVE", "فئة نشطة");
         SeedLookup(db, "applicant-categories", "CAT-INACTIVE", "فئة موقوفة", isActive: false);
-        db.AdminRecordDocuments.AddRange(
-            CommitteeInstance("CI-ACTIVE", "CAT-ACTIVE"),
-            CommitteeInstance("CI-INACTIVE", "CAT-INACTIVE"),
-            CommitteeInstance("CI-DELETED", "CAT-DELETED"));
-        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
-        var records = new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        await records.UpsertAsync("committeeInstances", "CI-ACTIVE", CommitteeInstance("CI-ACTIVE", "CAT-ACTIVE"), TestContext.Current.CancellationToken);
+        await records.UpsertAsync("committeeInstances", "CI-INACTIVE", CommitteeInstance("CI-INACTIVE", "CAT-INACTIVE"), TestContext.Current.CancellationToken);
+        await records.UpsertAsync("committeeInstances", "CI-DELETED", CommitteeInstance("CI-DELETED", "CAT-DELETED"), TestContext.Current.CancellationToken);
         var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
 
         var response = await controller.CommitteeInstances(TestContext.Current.CancellationToken);
@@ -249,10 +247,9 @@ public sealed class ApiRegressionTests
         });
     }
 
-    private static AdminRecordDocumentEntity CommitteeInstance(string id, string categoryKey)
+    private static JsonObject CommitteeInstance(string id, string categoryKey)
     {
-        var now = DateTimeOffset.UtcNow;
-        var payload = new JsonObject
+        return new JsonObject
         {
             ["id"] = id,
             ["cycleId"] = "CYC-2026-M",
@@ -261,14 +258,6 @@ public sealed class ApiRegressionTests
             ["date"] = "2026-07-10",
             ["capacity"] = 100,
             ["reserved"] = 0
-        };
-        return new AdminRecordDocumentEntity
-        {
-            Module = "committeeInstances",
-            Id = id,
-            PayloadJson = payload.ToJsonString(),
-            CreatedAt = now,
-            UpdatedAt = now
         };
     }
 

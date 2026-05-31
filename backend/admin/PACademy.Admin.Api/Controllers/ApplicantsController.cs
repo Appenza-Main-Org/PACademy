@@ -8,7 +8,7 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class ApplicantsController(AdminRecordsService records, ApplicantEligibilityService eligibility) : ControllerBase
+public sealed class ApplicantsController(OperationalRecordsService records, ApplicantEligibilityService eligibility) : ControllerBase
 {
     private static readonly ApplicantStatusOption[] StatusOptions =
     [

@@ -5,8 +5,8 @@ namespace PACademy.Admin.Api.Modules.AdminRecords;
 /// <summary>
 /// Legacy table mapping kept only so migrations and one-way drains can read
 /// historical rows. New feature storage must use a normalized domain table;
-/// temporary compatibility rows use <see cref="AdminRecordDocumentEntity"/>
-/// while the domain is being normalized. Do not add write paths here.
+/// operational compatibility rows use domain-owned tables. Do not add write
+/// paths here.
 /// </summary>
 [Obsolete("admin_records is legacy migration-only storage. New features must use normalized tables.", error: false)]
 public sealed class AdminRecordEntity

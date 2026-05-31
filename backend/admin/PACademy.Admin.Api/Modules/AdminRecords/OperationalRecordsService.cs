@@ -3,6 +3,7 @@ using System.Data;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Persistence;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Shared.Audit;
 using PACademy.Shared.Contracts;
 
@@ -25,14 +26,13 @@ internal sealed record ApplicantIdentityProjection(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
-public sealed class AdminRecordsService(
+public sealed class OperationalRecordsService(
     IAdminRecordsDbContext db,
     IHttpContextAccessor httpContextAccessor,
     IAuditSink auditSink,
-    IAdminRecordDocumentsDbContext? documentsDb = null)
+    OperationalRecordStore operationalRecords)
 {
     private const int DefaultBulkBatchSize = 5000;
-    private const string DocumentTableName = "admin_record_documents";
     private const string ApplicantsIdentityTableName = "[applicants]";
 
     private static readonly IReadOnlyDictionary<int, string> ApplicantStageLabels = new Dictionary<int, string>
@@ -50,9 +50,17 @@ public sealed class AdminRecordsService(
         [11] = "وثائق التعارف"
     };
 
-    private IAdminRecordDocumentsDbContext DocumentsDb =>
-        documentsDb ?? (db as IAdminRecordDocumentsDbContext)
-        ?? throw new InvalidOperationException("Admin record document store is not registered.");
+    public OperationalRecordsService(
+        IAdminRecordsDbContext db,
+        IHttpContextAccessor httpContextAccessor,
+        IAuditSink auditSink)
+        : this(
+            db,
+            httpContextAccessor,
+            auditSink,
+            new OperationalRecordStore((IOperationalRecordsDbContext)db))
+    {
+    }
 
     public async Task<IReadOnlyList<JsonObject>> ListAsync(string module, CancellationToken ct)
     {
@@ -108,30 +116,8 @@ public sealed class AdminRecordsService(
         }
 
         var now = DateTimeOffset.UtcNow;
-        var existing = await GetDocumentEntityAsync(module, id, tracking: true, ct);
-        var isCreate = existing is null;
-        var next = payload.DeepClone().AsObject();
-        next["id"] ??= id;
-        if (existing is null)
-        {
-            DocumentsDb.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-            {
-                Module = module,
-                Id = id,
-                PayloadJson = next.ToJsonString(AdminRecordJson.Options),
-                CreatedAt = now,
-                UpdatedAt = now
-            });
-        }
-        else
-        {
-            var current = ToJson(existing);
-            foreach (var item in payload) current[item.Key] = item.Value?.DeepClone();
-            existing.PayloadJson = current.ToJsonString(AdminRecordJson.Options);
-            existing.UpdatedAt = now;
-            next = current;
-        }
-        await DocumentsDb.SaveChangesAsync(ct);
+        var isCreate = await operationalRecords.GetAsync(module, id, ct) is null;
+        var next = await operationalRecords.UpsertAsync(module, id, payload, ct);
         await EmitAuditAsync(module, isCreate ? "create" : "update", id, payload, now, ct);
         return next;
     }
@@ -167,14 +153,8 @@ public sealed class AdminRecordsService(
         var nids = new HashSet<string>(StringComparer.Ordinal);
         var maxSeat = 0;
 
-        await foreach (var payloadJson in DocumentsDb.AdminRecordDocuments
-            .AsNoTracking()
-            .Where(x => x.Module == "grades")
-            .Select(x => x.PayloadJson)
-            .AsAsyncEnumerable()
-            .WithCancellation(ct))
+        foreach (var payload in await operationalRecords.ListAsync("grades", ct))
         {
-            var payload = AdminRecordJson.Parse(payloadJson);
             // `seat` still counts soft-deleted rows so we never reissue a tombstoned seat id.
             maxSeat = Math.Max(maxSeat, (int)(AdminRecordJson.NumberProp(payload, "seat") ?? 0));
             if (AdminRecordJson.IsSoftDeleted(payload)) continue;
@@ -210,46 +190,7 @@ public sealed class AdminRecordsService(
             return inserted;
         }
 
-        var context = db as DbContext;
-        var previousAutoDetectChanges = context?.ChangeTracker.AutoDetectChangesEnabled;
-        if (context is not null) context.ChangeTracker.AutoDetectChangesEnabled = false;
-
-        try
-        {
-            var now = DateTimeOffset.UtcNow;
-            var inserted = 0;
-
-            for (var offset = 0; offset < payloads.Count; offset += batchSize)
-            {
-                var count = Math.Min(batchSize, payloads.Count - offset);
-                for (var i = offset; i < offset + count; i++)
-                {
-                    var payload = payloads[i];
-                    var id = AdminRecordJson.StringProp(payload, "id")
-                        ?? throw new InvalidOperationException("Bulk admin record payload is missing id.");
-                    DocumentsDb.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-                    {
-                        Module = module,
-                        Id = id,
-                        PayloadJson = payload.ToJsonString(AdminRecordJson.Options),
-                        CreatedAt = now,
-                        UpdatedAt = now
-                    });
-                }
-
-                inserted += await DocumentsDb.SaveChangesAsync(ct);
-                context?.ChangeTracker.Clear();
-            }
-
-            return inserted;
-        }
-        finally
-        {
-            if (context is not null && previousAutoDetectChanges is not null)
-            {
-                context.ChangeTracker.AutoDetectChangesEnabled = previousAutoDetectChanges.Value;
-            }
-        }
+        return await operationalRecords.InsertManyAsync(module, payloads, ct, batchSize);
     }
 
     private async Task<int> InsertManyNormalizedGradesAsync(
@@ -368,12 +309,10 @@ public sealed class AdminRecordsService(
             }
         }
 
-        var row = await GetDocumentEntityAsync(module, id, tracking: true, ct);
-        if (row is null) return false;
-        var payload = ToJson(row);
-        DocumentsDb.AdminRecordDocuments.Remove(row);
+        var payload = await operationalRecords.GetAsync(module, id, ct);
+        if (payload is null) return false;
         var now = DateTimeOffset.UtcNow;
-        await DocumentsDb.SaveChangesAsync(ct);
+        await operationalRecords.DeleteAsync(module, id, ct);
         await EmitAuditAsync(module, "delete", id, payload, now, ct);
         return true;
     }
@@ -485,9 +424,7 @@ public sealed class AdminRecordsService(
 
     public async Task<int> DeleteModuleAsync(string module, CancellationToken ct)
     {
-        var deleted = await DocumentsDb.AdminRecordDocuments
-            .Where(x => x.Module == module)
-            .ExecuteDeleteAsync(ct);
+        var deleted = await operationalRecords.DeleteModuleAsync(module, ct);
         if (deleted > 0)
         {
             await EmitAuditAsync(
@@ -503,19 +440,7 @@ public sealed class AdminRecordsService(
 
     public async Task<int> DeleteModuleTrackedAsync(string module, CancellationToken ct)
     {
-        var deleted = 0;
-        while (true)
-        {
-            var rows = await DocumentsDb.AdminRecordDocuments
-                .Where(x => x.Module == module)
-                .OrderBy(x => x.Id)
-                .Take(DefaultBulkBatchSize)
-                .ToListAsync(ct);
-            if (rows.Count == 0) break;
-
-            DocumentsDb.AdminRecordDocuments.RemoveRange(rows);
-            deleted += await DocumentsDb.SaveChangesAsync(ct);
-        }
+        var deleted = await operationalRecords.DeleteModuleAsync(module, ct);
 
         if (deleted > 0)
         {
@@ -533,9 +458,7 @@ public sealed class AdminRecordsService(
     public async Task<int> DeleteManyAsync(string module, IReadOnlyCollection<string> ids, CancellationToken ct)
     {
         if (ids.Count == 0) return 0;
-        var deleted = await DocumentsDb.AdminRecordDocuments
-            .Where(x => x.Module == module && ids.Contains(x.Id))
-            .ExecuteDeleteAsync(ct);
+        var deleted = await operationalRecords.DeleteManyAsync(module, ids, ct);
         if (deleted > 0)
         {
             await EmitAuditAsync(
@@ -551,26 +474,7 @@ public sealed class AdminRecordsService(
 
     public async Task<int> DeleteManyTrackedAsync(string module, IReadOnlyCollection<string> ids, CancellationToken ct)
     {
-        if (ids.Count == 0) return 0;
-        var idSet = ids.ToHashSet(StringComparer.Ordinal);
-        var deleted = 0;
-
-        while (idSet.Count > 0)
-        {
-            var batchIds = idSet.Take(DefaultBulkBatchSize).ToArray();
-            var rows = await DocumentsDb.AdminRecordDocuments
-                .Where(x => x.Module == module && batchIds.Contains(x.Id))
-                .ToListAsync(ct);
-            if (rows.Count == 0)
-            {
-                foreach (var id in batchIds) idSet.Remove(id);
-                continue;
-            }
-
-            DocumentsDb.AdminRecordDocuments.RemoveRange(rows);
-            deleted += await DocumentsDb.SaveChangesAsync(ct);
-            foreach (var row in rows) idSet.Remove(row.Id);
-        }
+        var deleted = await operationalRecords.DeleteManyAsync(module, ids, ct);
 
         if (deleted > 0)
         {
@@ -634,45 +538,7 @@ public sealed class AdminRecordsService(
             return normalizedDeleted;
         }
 
-        var idSet = ids.ToHashSet(StringComparer.Ordinal);
-        var deleted = 0;
-
-        while (idSet.Count > 0)
-        {
-            var batchIds = idSet.Take(DefaultBulkBatchSize).ToArray();
-            var rows = await DocumentsDb.AdminRecordDocuments
-                .Where(x => x.Module == module && batchIds.Contains(x.Id))
-                .ToListAsync(ct);
-            if (rows.Count == 0)
-            {
-                foreach (var id in batchIds) idSet.Remove(id);
-                continue;
-            }
-
-            var now = DateTimeOffset.UtcNow;
-            var batchModified = 0;
-            foreach (var row in rows)
-            {
-                var payload = AdminRecordJson.Parse(row.PayloadJson);
-                if (AdminRecordJson.IsSoftDeleted(payload))
-                {
-                    idSet.Remove(row.Id);
-                    continue;
-                }
-                payload["deletedAt"] = now.ToString("O");
-                payload["deletedBy"] = deletedBy ?? "system";
-                if (!string.IsNullOrWhiteSpace(reason)) payload["deleteReason"] = reason;
-                row.PayloadJson = payload.ToJsonString(AdminRecordJson.Options);
-                row.UpdatedAt = now;
-                deleted++;
-                batchModified++;
-                idSet.Remove(row.Id);
-            }
-            // Also drop any batch ids whose rows weren't found (and thus weren't in `rows`).
-            foreach (var id in batchIds) idSet.Remove(id);
-
-            if (batchModified > 0) await DocumentsDb.SaveChangesAsync(ct);
-        }
+        var deleted = await operationalRecords.SoftDeleteManyAsync(module, ids, deletedBy, reason, ct);
 
         if (deleted > 0)
         {
@@ -729,35 +595,8 @@ public sealed class AdminRecordsService(
             return normalizedDeleted;
         }
 
-        var deleted = 0;
         var now = DateTimeOffset.UtcNow;
-        var nowIso = now.ToString("O");
-        var offset = 0;
-        while (true)
-        {
-            var rows = await DocumentsDb.AdminRecordDocuments
-                .Where(x => x.Module == module)
-                .OrderBy(x => x.Id)
-                .Skip(offset)
-                .Take(DefaultBulkBatchSize)
-                .ToListAsync(ct);
-            if (rows.Count == 0) break;
-            offset += rows.Count;
-            var batchModified = 0;
-            foreach (var row in rows)
-            {
-                var payload = AdminRecordJson.Parse(row.PayloadJson);
-                if (AdminRecordJson.IsSoftDeleted(payload)) continue;
-                payload["deletedAt"] = nowIso;
-                payload["deletedBy"] = deletedBy ?? "system";
-                if (!string.IsNullOrWhiteSpace(reason)) payload["deleteReason"] = reason;
-                row.PayloadJson = payload.ToJsonString(AdminRecordJson.Options);
-                row.UpdatedAt = now;
-                deleted++;
-                batchModified++;
-            }
-            if (batchModified > 0) await DocumentsDb.SaveChangesAsync(ct);
-        }
+        var deleted = await operationalRecords.SoftDeleteModuleAsync(module, deletedBy, reason, ct);
 
         if (deleted > 0)
         {
@@ -774,38 +613,12 @@ public sealed class AdminRecordsService(
 
     public async Task<int> DeleteFromArrayModulesAsync(string modulePrefix, string arrayName, string id, CancellationToken ct)
     {
-        var rows = await DocumentsDb.AdminRecordDocuments
-            .Where(x => x.Module.StartsWith(modulePrefix))
-            .ToListAsync(ct);
-        var removed = 0;
-        foreach (var row in rows)
-        {
-            var payload = ToJson(row);
-            if (payload[arrayName] is not JsonArray array) continue;
-            var kept = new JsonArray();
-            var rowRemoved = 0;
-            foreach (var item in array.OfType<JsonObject>())
-            {
-                if (AdminRecordJson.StringProp(item, "id") == id)
-                {
-                    rowRemoved++;
-                    continue;
-                }
-                kept.Add(item.DeepClone());
-            }
-            if (rowRemoved == 0) continue;
-            removed += rowRemoved;
-            payload[arrayName] = kept;
-            row.PayloadJson = payload.ToJsonString(AdminRecordJson.Options);
-            row.UpdatedAt = DateTimeOffset.UtcNow;
-        }
-        if (removed > 0) await DocumentsDb.SaveChangesAsync(ct);
-        return removed;
+        return await operationalRecords.DeleteFromArrayModulesAsync(modulePrefix, arrayName, id, ct);
     }
 
     public async Task<JsonObject> SingletonAsync(string module, JsonObject fallback, CancellationToken ct)
     {
-        var row = await GetDocumentAsync(module, module, ct);
+        var row = await GetAsync(module, module, ct);
         return row ?? fallback;
     }
 
@@ -825,126 +638,14 @@ public sealed class AdminRecordsService(
         return kpis;
     }
 
-    private static JsonObject ToJson(AdminRecordEntity entity)
-    {
-        var obj = AdminRecordJson.Parse(entity.PayloadJson);
-        obj["id"] ??= entity.Id;
-        obj["createdAt"] ??= entity.CreatedAt;
-        obj["updatedAt"] ??= entity.UpdatedAt;
-        return obj;
-    }
-
     private async Task<IReadOnlyList<JsonObject>> ListDocumentAsync(string module, CancellationToken ct)
     {
-        try
-        {
-            await DrainLegacyAdminRecordsAsync(module, ct);
-            var rows = await DocumentsDb.AdminRecordDocuments
-                .AsNoTracking()
-                .Where(x => x.Module == module)
-                .OrderBy(x => x.Id)
-                .ToListAsync(ct);
-            return rows.Select(ToJson).ToList();
-        }
-        catch (Exception ex) when (IsMissingDocumentStore(ex))
-        {
-            return await ListLegacyAdminRecordsAsync(module, ct);
-        }
+        return await operationalRecords.ListAsync(module, ct);
     }
 
     private async Task<JsonObject?> GetDocumentAsync(string module, string id, CancellationToken ct)
     {
-        try
-        {
-            var row = await GetDocumentEntityAsync(module, id, tracking: false, ct);
-            return row is null ? null : ToJson(row);
-        }
-        catch (Exception ex) when (IsMissingDocumentStore(ex))
-        {
-            return await GetLegacyAdminRecordAsync(module, id, ct);
-        }
-    }
-
-    private async Task<AdminRecordDocumentEntity?> GetDocumentEntityAsync(
-        string module,
-        string id,
-        bool tracking,
-        CancellationToken ct)
-    {
-        await DrainLegacyAdminRecordsAsync(module, ct);
-        var query = DocumentsDb.AdminRecordDocuments.Where(x => x.Module == module && x.Id == id);
-        if (!tracking) query = query.AsNoTracking();
-        return await query.FirstOrDefaultAsync(ct);
-    }
-
-    private async Task DrainLegacyAdminRecordsAsync(string module, CancellationToken ct)
-    {
-        var rows = await db.AdminRecords.Where(x => x.Module == module).ToListAsync(ct);
-        if (rows.Count == 0) return;
-
-        try
-        {
-            foreach (var row in rows)
-            {
-                var exists = await DocumentsDb.AdminRecordDocuments
-                    .AnyAsync(x => x.Module == row.Module && x.Id == row.Id, ct);
-                if (!exists)
-                {
-                    DocumentsDb.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-                    {
-                        Module = row.Module,
-                        Id = row.Id,
-                        PayloadJson = row.PayloadJson,
-                        CreatedAt = row.CreatedAt,
-                        UpdatedAt = row.UpdatedAt
-                    });
-                }
-            }
-            db.AdminRecords.RemoveRange(rows);
-            await DocumentsDb.SaveChangesAsync(ct);
-        }
-        catch (Exception ex) when (IsMissingDocumentStore(ex))
-        {
-            /* Production can temporarily run before the compatibility document
-             * table migration. Keep reads on the legacy table instead of
-             * failing the public applicant eligibility endpoint. */
-        }
-    }
-
-    private async Task<IReadOnlyList<JsonObject>> ListLegacyAdminRecordsAsync(string module, CancellationToken ct)
-    {
-        var rows = await db.AdminRecords
-            .AsNoTracking()
-            .Where(x => x.Module == module)
-            .OrderBy(x => x.Id)
-            .ToListAsync(ct);
-        return rows.Select(ToJson).ToList();
-    }
-
-    private async Task<JsonObject?> GetLegacyAdminRecordAsync(string module, string id, CancellationToken ct)
-    {
-        var row = await db.AdminRecords
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Module == module && x.Id == id, ct);
-        return row is null ? null : ToJson(row);
-    }
-
-    private static bool IsMissingDocumentStore(Exception ex)
-    {
-        if (ex is not DbException dbException) return false;
-        var message = dbException.Message;
-        return message.Contains(DocumentTableName, StringComparison.OrdinalIgnoreCase)
-            && (message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
-                || message.Contains("no such table", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static JsonObject ToJson(AdminRecordDocumentEntity entity)
-    {
-        var obj = AdminRecordJson.Parse(entity.PayloadJson);
-        obj["id"] ??= entity.Id;
-        obj["createdAt"] ??= entity.CreatedAt;
-        obj["updatedAt"] ??= entity.UpdatedAt;
-        return obj;
+        return await operationalRecords.GetAsync(module, id, ct);
     }
 
     private static IReadOnlyList<JsonObject> ApplyApplicantFilters(
@@ -1009,11 +710,8 @@ public sealed class AdminRecordsService(
         {
             "applicants" => "applicants",
             "grades" => "grades",
-            // NOTE: "settings" is intentionally NOT normalized. No migration ever
-            // creates the `admin_settings` table, so routing settings writes through
-            // UpsertNormalizedAsync threw INTERNAL_ERROR while reads (SingletonAsync ->
-            // GetDocumentAsync) came from the admin_records document store. Keep settings
-            // on the document store so reads and writes stay consistent.
+            "cycles" => "cycles",
+            "categories" => "categories",
             _ => null
         };
     }
@@ -1075,7 +773,7 @@ public sealed class AdminRecordsService(
                         COALESCE(applicant.[source], JSON_VALUE(document.[payload_json], '$.source'), N'api') AS [source],
                         COALESCE(applicant.[created_at], document.[created_at]) AS [created_at],
                         document.[updated_at]
-                    FROM {AdminDbContext.QualifiedTableName("admin_record_documents")} document
+                    FROM {AdminDbContext.QualifiedTableName("applicant_management_records")} document
                     LEFT JOIN {ApplicantsIdentityTableName} applicant
                         ON applicant.[national_id] = JSON_VALUE(document.[payload_json], '$.nationalId')
                         OR CONVERT(nvarchar(64), applicant.[id]) = document.[id]
@@ -1094,6 +792,14 @@ public sealed class AdminRecordsService(
             "grades" => await QueryPayloadRowsAsync(
                 $"SELECT [payload_json], CONVERT(nvarchar(128), [seat]) AS [row_id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicant_grades")} ORDER BY [seat]",
                 "row_id",
+                ct),
+            "cycles" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("admission_cycles")} ORDER BY [year] DESC",
+                "id",
+                ct),
+            "categories" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [key] AS [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicant_categories")} ORDER BY [key]",
+                "id",
                 ct),
             "questions" => await QueryPayloadRowsAsync(
                 $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_questions")} ORDER BY [id]",
@@ -1173,7 +879,7 @@ public sealed class AdminRecordsService(
                         COALESCE(applicant.[source], JSON_VALUE(document.[payload_json], '$.source'), N'api') AS [source],
                         COALESCE(applicant.[created_at], document.[created_at]) AS [created_at],
                         document.[updated_at]
-                    FROM {AdminDbContext.QualifiedTableName("admin_record_documents")} document
+                    FROM {AdminDbContext.QualifiedTableName("applicant_management_records")} document
                     LEFT JOIN {ApplicantsIdentityTableName} applicant
                         ON applicant.[national_id] = JSON_VALUE(document.[payload_json], '$.nationalId')
                         OR CONVERT(nvarchar(64), applicant.[id]) = document.[id]
@@ -1186,6 +892,16 @@ public sealed class AdminRecordsService(
             "grades" => await QueryPayloadRowsAsync(
                 $"SELECT TOP (1) [payload_json], CONVERT(nvarchar(128), [seat]) AS [row_id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicant_grades")} WHERE CONVERT(nvarchar(128), [seat]) = @id OR [admin_record_id] = @id OR [nid] = @id",
                 "row_id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "cycles" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("admission_cycles")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "categories" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [key] AS [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicant_categories")} WHERE [key] = @id",
+                "id",
                 ct,
                 command => AddParameter(command, "@id", id)),
             "questions" => await QueryPayloadRowsAsync(
@@ -1469,28 +1185,7 @@ public sealed class AdminRecordsService(
         DateTimeOffset now,
         CancellationToken ct)
     {
-        var existing = await DocumentsDb.AdminRecordDocuments
-            .FirstOrDefaultAsync(x => x.Module == module && x.Id == id, ct);
-        var next = payload.DeepClone().AsObject();
-        next["id"] ??= id;
-        if (existing is null)
-        {
-            DocumentsDb.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-            {
-                Module = module,
-                Id = id,
-                PayloadJson = next.ToJsonString(AdminRecordJson.Options),
-                CreatedAt = now,
-                UpdatedAt = now
-            });
-        }
-        else
-        {
-            existing.PayloadJson = next.ToJsonString(AdminRecordJson.Options);
-            existing.UpdatedAt = now;
-        }
-
-        await DocumentsDb.SaveChangesAsync(ct);
+        await operationalRecords.UpsertAsync(module, id, payload, ct);
     }
 
     private async Task<IReadOnlyList<JsonObject>> QueryPayloadRowsAsync(
@@ -1768,7 +1463,7 @@ public sealed class AdminRecordsService(
         {
             "applicants" => await ExecuteNormalizedNonQueryWithCountAsync(
                 $"""
-                DELETE FROM {AdminDbContext.QualifiedTableName("admin_record_documents")}
+                DELETE FROM {AdminDbContext.QualifiedTableName("applicant_management_records")}
                 WHERE [module] = N'applicants' AND [id] = @id;
                 DELETE FROM {AdminDbContext.QualifiedTableName("applicant_portal_records")}
                 WHERE [applicant_id] = @id

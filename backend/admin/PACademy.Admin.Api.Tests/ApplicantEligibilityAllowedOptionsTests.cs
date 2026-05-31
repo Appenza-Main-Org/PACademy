@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Admissions.Eligibility;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Audit;
@@ -57,11 +58,10 @@ public sealed class ApplicantEligibilityAllowedOptionsTests
             Lookup("academic-grades", "AGR-02", "جيد جداً", new JsonObject()),
             Lookup("academic-grades", "AGR-03", "جيد", new JsonObject()),
             Lookup("academic-grades", "AGR-04", "مقبول", new JsonObject()));
-        db.AdminRecordDocuments.Add(new AdminRecordDocumentEntity
-        {
-            Module = "admissionSetup.applicationSettings.cycle-2026",
-            Id = "admissionSetup.applicationSettings.cycle-2026",
-            PayloadJson = new JsonObject
+        await new OperationalRecordStore(db).UpsertAsync(
+            "admissionSetup.applicationSettings.cycle-2026",
+            "admissionSetup.applicationSettings.cycle-2026",
+            new JsonObject
             {
                 ["id"] = "admissionSetup.applicationSettings.cycle-2026",
                 ["cycleId"] = "cycle-2026",
@@ -88,14 +88,12 @@ public sealed class ApplicantEligibilityAllowedOptionsTests
                     ["graduationYears"] = new JsonArray(2026)
                 }),
                 ["local"] = new JsonArray()
-            }.ToJsonString(),
-            CreatedAt = now,
-            UpdatedAt = now
-        });
+            },
+            TestContext.Current.CancellationToken);
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
         var service = new ApplicantEligibilityService(
             db,
-            new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink()));
+            new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink()));
 
         var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
 
