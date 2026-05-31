@@ -94,6 +94,22 @@ if (!skipMigrationsAndSeed)
         var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
         if (db.Database.IsRelational())
             await db.Database.MigrateAsync();
+
+        /* External module DbContexts own separate migration histories. Keep
+         * their schema migrations independent from demo seed toggles so
+         * Production/Staging can run with SkipSeed=true and still receive
+         * required table changes. */
+        var lookupsDb = scope.ServiceProvider.GetRequiredService<LookupsAdminDbContext>();
+        if (lookupsDb.Database.IsRelational())
+            await lookupsDb.Database.MigrateAsync();
+
+        var applicantGradesDb = scope.ServiceProvider.GetRequiredService<ApplicantGradesAdminDbContext>();
+        if (applicantGradesDb.Database.IsRelational())
+            await applicantGradesDb.Database.MigrateAsync();
+
+        var identityApplicantDb = scope.ServiceProvider.GetRequiredService<IdentityApplicantAdminDbContext>();
+        if (identityApplicantDb.Database.IsRelational())
+            await identityApplicantDb.Database.MigrateAsync();
     }
 }
 
