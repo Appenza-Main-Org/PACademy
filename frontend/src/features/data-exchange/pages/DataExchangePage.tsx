@@ -1,5 +1,5 @@
 /**
- * مركز تبادل البيانات — centralized admin Data-Exchange hub at
+ * استيراد وتصدير البيانات — centralized admin Data-Exchange hub at
  * `/admin/data-exchange`. Four sections: Export, Import, dedicated Preview,
  * and History. RTL. Composes existing shared primitives only.
  */
@@ -149,7 +149,7 @@ export function DataExchangePage(): JSX.Element {
         action: 'entity_exported',
         module: 'admin',
         entityType: 'data-exchange',
-        entityLabel: 'مركز تبادل البيانات',
+        entityLabel: 'استيراد وتصدير البيانات',
         entityId: `export-${stamp}`,
         details: `تصدير ${result.sheets.length} ورقة · ${result.totalRows} صف`,
       });
@@ -193,7 +193,7 @@ export function DataExchangePage(): JSX.Element {
         action: 'entity_imported',
         module: 'admin',
         entityType: 'data-exchange',
-        entityLabel: 'مركز تبادل البيانات',
+        entityLabel: 'استيراد وتصدير البيانات',
         entityId: `import-${Date.now()}`,
         details: `استيراد · ${result.insertedCount} إضافة · ${result.updatedCount} تحديث · ${result.failedCount} فشل`,
         after: result,
@@ -210,13 +210,13 @@ export function DataExchangePage(): JSX.Element {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="مركز تبادل البيانات"
+        title="استيراد وتصدير البيانات"
         subtitle="نقطة تشغيل واحدة لتصدير واستيراد بيانات المنظومة عبر Excel مع كشف التغييرات وحماية مفاتيح السجلات."
         actions={<Badge tone="accent" icon={<ShieldCheck size={14} />}>مسار مُراقب</Badge>}
       />
 
       <section
-        aria-label="ملخص مركز تبادل البيانات"
+        aria-label="ملخص استيراد وتصدير البيانات"
         className="rounded-lg border border-border-subtle bg-surface-card p-5 shadow-xs"
       >
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
@@ -439,7 +439,7 @@ export function DataExchangePage(): JSX.Element {
         <CardHeader
           title={
             <span className="flex items-center gap-2">
-              <History size={18} /> سجل المركز
+              <History size={18} /> سجل الاستيراد والتصدير
             </span>
           }
           subtitle="آخر عمليات التصدير والاستيراد المسجلة لأغراض المراجعة."
