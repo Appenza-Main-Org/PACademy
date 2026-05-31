@@ -4,7 +4,7 @@ import {
   type FollowUpExam,
   type FollowUpExamPlan,
   type FollowUpPipelineState,
-} from '../src/features/applicant-portal/lib/follow-up-exam-plan.js';
+} from '../src/features/applicant-portal/lib/follow-up-exam-plan.ts';
 
 const exams: FollowUpExam[] = [
   {
@@ -27,6 +27,11 @@ const exams: FollowUpExam[] = [
     key: 'physical',
     nameAr: 'لياقة تكتيكية',
   },
+  {
+    id: 'AX-99',
+    key: 'archived',
+    nameAr: 'اختبار مؤرشف',
+  },
 ];
 
 const plan: FollowUpExamPlan = {
@@ -36,6 +41,9 @@ const plan: FollowUpExamPlan = {
   exams: [
     { examId: 'AX-12', order: 3, isRequired: true },
     { examId: 'AX-01', order: 1, isRequired: true },
+    { examId: 'AX-DISABLED', order: 5, isRequired: true },
+    { examId: 'AX-REMOVED', order: 6, isRequired: true, isActive: false },
+    { examId: 'AX-99', order: 7, isRequired: true, stageIsActive: false },
     { examId: 'AX-05', order: 4, isRequired: false },
     { examId: 'AX-10', order: 2, isRequired: true },
   ],
