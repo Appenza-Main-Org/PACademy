@@ -15,7 +15,11 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class GradesController(AdminRecordsService records, AdminDbContext db, IMemoryCache cache) : ControllerBase
+public sealed class GradesController(
+    AdminRecordsService records,
+    AdminDbContext db,
+    IMemoryCache cache,
+    ILogger<GradesController> logger) : ControllerBase
 {
     private const int ImportCommitBatchSize = 5000;
     private const int PreflightFailureSampleLimit = 1000;
@@ -28,7 +32,15 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
     {
         if (page is not null || pageSize is not null || size is not null)
         {
-            return await ListPageFastAsync(page.GetValueOrDefault(1), pageSize ?? size ?? 25, ct);
+            try
+            {
+                return await ListPageFastAsync(page.GetValueOrDefault(1), pageSize ?? size ?? 25, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Grades paginated list failed; returning empty fallback page.");
+                return Ok(EmptyGradesPage());
+            }
         }
 
         var allRows = (await records.ListAsync("grades", ct))
@@ -37,6 +49,14 @@ public sealed class GradesController(AdminRecordsService records, AdminDbContext
         var rows = FilterRows(allRows);
         return Ok(rows);
     }
+
+    private static object EmptyGradesPage() => new
+    {
+        rows = Array.Empty<object>(),
+        total = 0,
+        summary = new { total = 0, general = 0, azhar = 0, withAdjustments = 0 },
+        facets = new { branches = Array.Empty<string>() }
+    };
 
     private async Task<ActionResult<object>> ListPageFastAsync(int page, int pageSize, CancellationToken ct)
     {

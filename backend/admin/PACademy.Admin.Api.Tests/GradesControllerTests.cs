@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
 using PACademy.Admin.Api.Controllers;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Persistence;
@@ -74,7 +75,7 @@ public sealed class GradesControllerTests
     private static GradesController CreateController(AdminDbContext db, AdminRecordsService? records = null)
     {
         records ??= new AdminRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
-        var controller = new GradesController(records, db, new MemoryCache(new MemoryCacheOptions()))
+        var controller = new GradesController(records, db, new MemoryCache(new MemoryCacheOptions()), NullLogger<GradesController>.Instance)
         {
             ControllerContext = new ControllerContext
             {
