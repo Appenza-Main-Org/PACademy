@@ -1,0 +1,3327 @@
+{
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/appsettings.Uat.json": {
+    "mtime": 1780221769.1829634,
+    "ast_hash": "ec084d6d18315e12c444993db3a33de9",
+    "semantic_hash": "ec084d6d18315e12c444993db3a33de9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/appsettings.json": {
+    "mtime": 1780221766.7963033,
+    "ast_hash": "b7425eecaaa484d4b9e7877b2db4b07f",
+    "semantic_hash": "b7425eecaaa484d4b9e7877b2db4b07f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/appsettings.Development.json": {
+    "mtime": 1780221768.0490775,
+    "ast_hash": "98859d6bec4790567af64ffacc41d035",
+    "semantic_hash": "98859d6bec4790567af64ffacc41d035"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/PACademy.Admin.Api.csproj": {
+    "mtime": 1780230139.707765,
+    "ast_hash": "a5345660308310436d886edba592b126",
+    "semantic_hash": "a5345660308310436d886edba592b126"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/appsettings.Production.json": {
+    "mtime": 1780055780.6119118,
+    "ast_hash": "89b8184f04bee96ff6d93b586f0c344e",
+    "semantic_hash": "89b8184f04bee96ff6d93b586f0c344e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Program.cs": {
+    "mtime": 1780231176.4187925,
+    "ast_hash": "0ab3c2bf5c69e05b9ef2a938617dfd69",
+    "semantic_hash": "0ab3c2bf5c69e05b9ef2a938617dfd69"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/SeedData/exams.seed.json": {
+    "mtime": 1780148597.3682983,
+    "ast_hash": "f943b020284e11bb82001c85130e13a7",
+    "semantic_hash": "f943b020284e11bb82001c85130e13a7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/SeedData/admin-records.seed.json": {
+    "mtime": 1779505088.5763285,
+    "ast_hash": "3cad642909e42f9537bea744a103e999",
+    "semantic_hash": "3cad642909e42f9537bea744a103e999"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/SeedData/lookups.seed.json": {
+    "mtime": 1779505102.0388844,
+    "ast_hash": "615984e0b9fcfd3ce2c702875b823ecb",
+    "semantic_hash": "615984e0b9fcfd3ce2c702875b823ecb"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/SeedData/admissions.seed.json": {
+    "mtime": 1779505070.7688453,
+    "ast_hash": "e2580ab36e118858f626931b9e3ce668",
+    "semantic_hash": "e2580ab36e118858f626931b9e3ce668"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/SeedData/identity.seed.json": {
+    "mtime": 1779585595.7230651,
+    "ast_hash": "21ca630f71906cc96c6516f017d112a3",
+    "semantic_hash": "21ca630f71906cc96c6516f017d112a3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Properties/AssemblyInfo.cs": {
+    "mtime": 1779699787.3173797,
+    "ast_hash": "ce325504506b96e4272bbb9d810c708c",
+    "semantic_hash": "ce325504506b96e4272bbb9d810c708c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Properties/launchSettings.json": {
+    "mtime": 1779840423.5602956,
+    "ast_hash": "97863feaf78a0b081d845d82d315f5d8",
+    "semantic_hash": "97863feaf78a0b081d845d82d315f5d8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/AdminDbContext.cs": {
+    "mtime": 1780231015.6673222,
+    "ast_hash": "54db38a3977748773929669df640b998",
+    "semantic_hash": "54db38a3977748773929669df640b998"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/ApplicantPortalEntities.cs": {
+    "mtime": 1780231021.508041,
+    "ast_hash": "7a939af688307554449f77a24a6ef402",
+    "semantic_hash": "7a939af688307554449f77a24a6ef402"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/AdminDbContextFactory.cs": {
+    "mtime": 1780221765.2498045,
+    "ast_hash": "e92ff9678d8d825092fca7e8c40dace8",
+    "semantic_hash": "e92ff9678d8d825092fca7e8c40dace8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/AdminDatabaseConfiguration.cs": {
+    "mtime": 1780055780.6072521,
+    "ast_hash": "dd8693674b976ecd3df3cd1dd527b8ec",
+    "semantic_hash": "dd8693674b976ecd3df3cd1dd527b8ec"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/AdminDatabaseInitializer.cs": {
+    "mtime": 1780055363.6430552,
+    "ast_hash": "b2ccc3971bc25bc4632c64e8dd87d6e4",
+    "semantic_hash": "b2ccc3971bc25bc4632c64e8dd87d6e4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/HttpChangeTrackingActorProvider.cs": {
+    "mtime": 1780230127.3286924,
+    "ast_hash": "b5bfe7643d5fc71899dff4506195ef39",
+    "semantic_hash": "b5bfe7643d5fc71899dff4506195ef39"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260531123741_AddChangeTrackingForDataExchange.cs": {
+    "mtime": 1780231061.7629964,
+    "ast_hash": "e4cdb0b13784e4927b23c02d364b019a",
+    "semantic_hash": "e4cdb0b13784e4927b23c02d364b019a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260529123000_DrainAdminRecords.cs": {
+    "mtime": 1780055780.6099095,
+    "ast_hash": "f9cb8bf3c77e39890cb45f78ad79cce9",
+    "semantic_hash": "f9cb8bf3c77e39890cb45f78ad79cce9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260521200238_InitialAdminSchema.cs": {
+    "mtime": 1779463994.9704435,
+    "ast_hash": "7cf1571317e5066623d9f7d319dc9396",
+    "semantic_hash": "7cf1571317e5066623d9f7d319dc9396"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/AdminDbContextModelSnapshot.cs": {
+    "mtime": 1780231061.632619,
+    "ast_hash": "665957faa414d0f07b4a04fe3ada625e",
+    "semantic_hash": "665957faa414d0f07b4a04fe3ada625e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260530114800_AddGeneralSettingsTable.Designer.cs": {
+    "mtime": 1780146982.4404995,
+    "ast_hash": "93bff8a50b31e06bcecdf1002acc30d9",
+    "semantic_hash": "93bff8a50b31e06bcecdf1002acc30d9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260521200238_InitialAdminSchema.Designer.cs": {
+    "mtime": 1779440887.1259148,
+    "ast_hash": "d028480ebff7a4c499cbd545afefcf86",
+    "semantic_hash": "d028480ebff7a4c499cbd545afefcf86"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260522114816_AddApplicationSettingsTables.Designer.cs": {
+    "mtime": 1779450496.763227,
+    "ast_hash": "06a83b69395659c881ac494d864a20c7",
+    "semantic_hash": "06a83b69395659c881ac494d864a20c7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260526194218_PendingModelChanges.Designer.cs": {
+    "mtime": 1779840423.5580854,
+    "ast_hash": "07f193405d37aac4e34cae38116f78b3",
+    "semantic_hash": "07f193405d37aac4e34cae38116f78b3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260525120424_AddApplicantPortal.Designer.cs": {
+    "mtime": 1779840423.5574293,
+    "ast_hash": "22906fedefa70c248301a49c8a5105dd",
+    "semantic_hash": "22906fedefa70c248301a49c8a5105dd"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260531123741_AddChangeTrackingForDataExchange.Designer.cs": {
+    "mtime": 1780231061.6315591,
+    "ast_hash": "446925ec8eebc13cc8c036a626e07f86",
+    "semantic_hash": "446925ec8eebc13cc8c036a626e07f86"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260525120424_AddApplicantPortal.cs": {
+    "mtime": 1780221743.2580192,
+    "ast_hash": "21fb8b7568b59eec47b4c9640ace727b",
+    "semantic_hash": "21fb8b7568b59eec47b4c9640ace727b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260526194218_PendingModelChanges.cs": {
+    "mtime": 1780221746.415489,
+    "ast_hash": "a3de41281b27a637e06196a344051242",
+    "semantic_hash": "a3de41281b27a637e06196a344051242"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260529120000_NormalizeExamCatalog.cs": {
+    "mtime": 1780055780.6091616,
+    "ast_hash": "d0aa6d49ba73369aa56c5ea0d8e90186",
+    "semantic_hash": "d0aa6d49ba73369aa56c5ea0d8e90186"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260530114800_AddGeneralSettingsTable.cs": {
+    "mtime": 1780219037.910279,
+    "ast_hash": "8e5709f4b0cafcabb8ad7e8f67bd8280",
+    "semantic_hash": "8e5709f4b0cafcabb8ad7e8f67bd8280"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Persistence/Migrations/20260522114816_AddApplicationSettingsTables.cs": {
+    "mtime": 1779464000.4001207,
+    "ast_hash": "f01f37d102aa79aa649c9ee4ee9b6528",
+    "semantic_hash": "f01f37d102aa79aa649c9ee4ee9b6528"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Api/ExceptionHandlingMiddleware.cs": {
+    "mtime": 1779440886.8129447,
+    "ast_hash": "844548a50d4c435dc1f623c8dca688bc",
+    "semantic_hash": "844548a50d4c435dc1f623c8dca688bc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Infrastructure/AuthActor.cs": {
+    "mtime": 1780148075.231498,
+    "ast_hash": "692c8d16be6709c8d6531b147c05ec8f",
+    "semantic_hash": "692c8d16be6709c8d6531b147c05ec8f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Infrastructure/RequireBearerAuthAttribute.cs": {
+    "mtime": 1780055780.5938432,
+    "ast_hash": "eba34bf612fdfc82412681ed7a1010ec",
+    "semantic_hash": "eba34bf612fdfc82412681ed7a1010ec"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Settings/GeneralSettingsEntity.cs": {
+    "mtime": 1780146982.437643,
+    "ast_hash": "674aef3b97067d564c333efe9c1e72fc",
+    "semantic_hash": "674aef3b97067d564c333efe9c1e72fc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Settings/SettingsModule.cs": {
+    "mtime": 1780146982.4384232,
+    "ast_hash": "d859bbcfa66aaa5f389805ffa886c447",
+    "semantic_hash": "d859bbcfa66aaa5f389805ffa886c447"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Settings/GeneralSettingsService.cs": {
+    "mtime": 1780146982.4380245,
+    "ast_hash": "cb96339ad4112819d26e0295cb4d971b",
+    "semantic_hash": "cb96339ad4112819d26e0295cb4d971b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Lookups/LookupRowValidator.cs": {
+    "mtime": 1779699787.3671086,
+    "ast_hash": "3dee3511dd967e284cef789a48b886a0",
+    "semantic_hash": "3dee3511dd967e284cef789a48b886a0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Lookups/LookupsSeeder.cs": {
+    "mtime": 1779440886.8568962,
+    "ast_hash": "1d59967b56a2dc28f473adfbca97188c",
+    "semantic_hash": "1d59967b56a2dc28f473adfbca97188c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Lookups/LookupsModule.cs": {
+    "mtime": 1780230150.6900058,
+    "ast_hash": "e5c6edb7424c0aee983df668d12764f3",
+    "semantic_hash": "e5c6edb7424c0aee983df668d12764f3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Lookups/LookupsService.cs": {
+    "mtime": 1780055780.6059926,
+    "ast_hash": "7080e675becc61d299b8e02c1a6e7bc5",
+    "semantic_hash": "7080e675becc61d299b8e02c1a6e7bc5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Lookups/LookupRowEntity.cs": {
+    "mtime": 1780231021.4696777,
+    "ast_hash": "b075c2a3885e488691e4ad37a5c964f4",
+    "semantic_hash": "b075c2a3885e488691e4ad37a5c964f4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Lookups/LookupContracts.cs": {
+    "mtime": 1779699787.3665667,
+    "ast_hash": "44fb89d9708680686ef1452d48e8c9d2",
+    "semantic_hash": "44fb89d9708680686ef1452d48e8c9d2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/RolesService.cs": {
+    "mtime": 1779735706.2658956,
+    "ast_hash": "d6df590363a90b7204179362440111b9",
+    "semantic_hash": "d6df590363a90b7204179362440111b9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/IdentityEntities.cs": {
+    "mtime": 1779451820.0029953,
+    "ast_hash": "a1e1ecc945f6adb9f85045b21ca7d850",
+    "semantic_hash": "a1e1ecc945f6adb9f85045b21ca7d850"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/UsersService.cs": {
+    "mtime": 1780148075.236662,
+    "ast_hash": "78098183565b09213b30b416b8c3496f",
+    "semantic_hash": "78098183565b09213b30b416b8c3496f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/IdentityJson.cs": {
+    "mtime": 1779440886.9232018,
+    "ast_hash": "51bc5f7154bc4c948f1c8f3bd2b7f516",
+    "semantic_hash": "51bc5f7154bc4c948f1c8f3bd2b7f516"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/IdentitySeeder.cs": {
+    "mtime": 1780148075.2332537,
+    "ast_hash": "3e666cb184412d6515063d8c083cb535",
+    "semantic_hash": "3e666cb184412d6515063d8c083cb535"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/IdentityCredentials.cs": {
+    "mtime": 1780148075.23199,
+    "ast_hash": "dfc712fb370ee8871487df5b63bbf66b",
+    "semantic_hash": "dfc712fb370ee8871487df5b63bbf66b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/IdentityModule.cs": {
+    "mtime": 1779440886.9246328,
+    "ast_hash": "9e20b10c3422c39c77918cfc2cc7d61e",
+    "semantic_hash": "9e20b10c3422c39c77918cfc2cc7d61e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/Moi/RealMoiAuthGateway.cs": {
+    "mtime": 1780148075.23524,
+    "ast_hash": "9b27ea22744b74facf0b65e2eedd4bef",
+    "semantic_hash": "9b27ea22744b74facf0b65e2eedd4bef"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/Moi/MoiModule.cs": {
+    "mtime": 1780148075.2347887,
+    "ast_hash": "63b0d19ee1fe130bffc6c6bf624fcce3",
+    "semantic_hash": "63b0d19ee1fe130bffc6c6bf624fcce3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/Moi/IMoiAuthGateway.cs": {
+    "mtime": 1780148075.2338772,
+    "ast_hash": "90889807273826d4ed43c3ad5465631a",
+    "semantic_hash": "90889807273826d4ed43c3ad5465631a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/Moi/MoiContracts.cs": {
+    "mtime": 1780148075.2343109,
+    "ast_hash": "82a71c1ef04ba8c938c50bd16bb39976",
+    "semantic_hash": "82a71c1ef04ba8c938c50bd16bb39976"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Identity/Moi/SimulatedMoiAuthGateway.cs": {
+    "mtime": 1780148075.2356634,
+    "ast_hash": "81ec3bebbc2c9ae9cfc491457c69dbf5",
+    "semantic_hash": "81ec3bebbc2c9ae9cfc491457c69dbf5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/AdminRecords/AdminRecordDocumentEntity.cs": {
+    "mtime": 1780231021.4850905,
+    "ast_hash": "ebd9c1cb966e7cd2eaacab296d8b2534",
+    "semantic_hash": "ebd9c1cb966e7cd2eaacab296d8b2534"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/AdminRecords/AdminRecordEntity.cs": {
+    "mtime": 1780055780.5952349,
+    "ast_hash": "8b7e83fb5855024d686e7fc61736b9af",
+    "semantic_hash": "8b7e83fb5855024d686e7fc61736b9af"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/AdminRecords/AdminRecordsSeeder.cs": {
+    "mtime": 1780055780.5967042,
+    "ast_hash": "921dc334961cf063d5a2013e0a640bf2",
+    "semantic_hash": "921dc334961cf063d5a2013e0a640bf2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/AdminRecords/AdminRecordsService.cs": {
+    "mtime": 1780221326.4954865,
+    "ast_hash": "a59307572bb5b94ab3223d8153006cf4",
+    "semantic_hash": "a59307572bb5b94ab3223d8153006cf4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/AdminRecords/AdminRecordJson.cs": {
+    "mtime": 1779840423.5422382,
+    "ast_hash": "f22428c59f8b825c1c207a7e31f4def7",
+    "semantic_hash": "f22428c59f8b825c1c207a7e31f4def7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/AdminRecords/AdminRecordsModule.cs": {
+    "mtime": 1780055780.5959764,
+    "ast_hash": "dc33f5086aeefc2ebcb62f0666cfd431",
+    "semantic_hash": "dc33f5086aeefc2ebcb62f0666cfd431"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Biometric/BiometricModule.cs": {
+    "mtime": 1780148755.5676513,
+    "ast_hash": "a28157df12a7fdbb07e89f33f7c1f7ca",
+    "semantic_hash": "a28157df12a7fdbb07e89f33f7c1f7ca"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Biometric/BiometricSeeder.cs": {
+    "mtime": 1780148883.0815167,
+    "ast_hash": "030395a36d9b2d520e8aabc0c1268d82",
+    "semantic_hash": "030395a36d9b2d520e8aabc0c1268d82"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Biometric/SimulatedBiometricDeviceGateway.cs": {
+    "mtime": 1780148734.3201234,
+    "ast_hash": "192998880ba25883bc70bd49b9ff7d54",
+    "semantic_hash": "192998880ba25883bc70bd49b9ff7d54"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Biometric/BiometricService.cs": {
+    "mtime": 1780148829.100513,
+    "ast_hash": "85be27f3cf8a823e9d7362a7197aa642",
+    "semantic_hash": "85be27f3cf8a823e9d7362a7197aa642"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Biometric/IBiometricDeviceGateway.cs": {
+    "mtime": 1780148725.9548504,
+    "ast_hash": "a33eb966087917d152a2dd5432b99c38",
+    "semantic_hash": "a33eb966087917d152a2dd5432b99c38"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Biometric/RealBiometricDeviceGateway.cs": {
+    "mtime": 1780152408.8290124,
+    "ast_hash": "be2bb79760648686b8aa42fe66b5470b",
+    "semantic_hash": "be2bb79760648686b8aa42fe66b5470b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Biometric/BiometricDeviceContracts.cs": {
+    "mtime": 1780148720.1874685,
+    "ast_hash": "6ccc776fd4a56a02453ef7415db7cff1",
+    "semantic_hash": "6ccc776fd4a56a02453ef7415db7cff1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Audit/AuditModule.cs": {
+    "mtime": 1779440886.845673,
+    "ast_hash": "d5ae830fe555e32a1db5b53e8882e6b6",
+    "semantic_hash": "d5ae830fe555e32a1db5b53e8882e6b6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Audit/DbAuditSink.cs": {
+    "mtime": 1779440886.8471968,
+    "ast_hash": "529b1af19e268a5cd1e5333ec799d84e",
+    "semantic_hash": "529b1af19e268a5cd1e5333ec799d84e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Audit/AuditRowEntity.cs": {
+    "mtime": 1779440886.8464603,
+    "ast_hash": "e698cbd712df0589b3f828b9bddc8115",
+    "semantic_hash": "e698cbd712df0589b3f828b9bddc8115"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/CategoriesService.cs": {
+    "mtime": 1780055780.5998785,
+    "ast_hash": "f8ee07abf39dd63ac8ddbf49946d7106",
+    "semantic_hash": "f8ee07abf39dd63ac8ddbf49946d7106"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/AdmissionRulesService.cs": {
+    "mtime": 1779440886.8408704,
+    "ast_hash": "5a589cc535bdd6040b119b8fb6d5d0f7",
+    "semantic_hash": "5a589cc535bdd6040b119b8fb6d5d0f7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/AdmissionsSeeder.cs": {
+    "mtime": 1779504304.2353477,
+    "ast_hash": "34808f167bfe61da597b2247c34089b0",
+    "semantic_hash": "34808f167bfe61da597b2247c34089b0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/ApplicationSettingsService.cs": {
+    "mtime": 1779576245.63934,
+    "ast_hash": "fce1f05f1f595dbc4e2a3eb47250106a",
+    "semantic_hash": "fce1f05f1f595dbc4e2a3eb47250106a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/AdmissionEntities.cs": {
+    "mtime": 1780231021.4392726,
+    "ast_hash": "287b717bd34faee997669fec26ef5c18",
+    "semantic_hash": "287b717bd34faee997669fec26ef5c18"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/AdmissionsModule.cs": {
+    "mtime": 1779699787.3147168,
+    "ast_hash": "1cde442b0b8f87b97d4020437addbacc",
+    "semantic_hash": "1cde442b0b8f87b97d4020437addbacc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/AdmissionJson.cs": {
+    "mtime": 1779440886.840114,
+    "ast_hash": "cbc608c179ec231c603a77c2e7bc56cd",
+    "semantic_hash": "cbc608c179ec231c603a77c2e7bc56cd"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/ApplicationSettingsValidators.cs": {
+    "mtime": 1779450740.3620737,
+    "ast_hash": "119c4eb89159ecf42bd1fe16699e5fd1",
+    "semantic_hash": "119c4eb89159ecf42bd1fe16699e5fd1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/CyclesService.cs": {
+    "mtime": 1780055780.60083,
+    "ast_hash": "2b537cde01f0eb0d5fc3482c5b91b318",
+    "semantic_hash": "2b537cde01f0eb0d5fc3482c5b91b318"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/Eligibility/EligibilityChecks.cs": {
+    "mtime": 1780100402.6762302,
+    "ast_hash": "47ee5d6e65b4613360a9ea9e949e0a1e",
+    "semantic_hash": "47ee5d6e65b4613360a9ea9e949e0a1e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/Eligibility/ApplicantEligibilityService.cs": {
+    "mtime": 1780220734.3167863,
+    "ast_hash": "24a8a67f8734b3e3ab1b1126d5af70f5",
+    "semantic_hash": "24a8a67f8734b3e3ab1b1126d5af70f5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/Eligibility/NationalIdEligibilityContracts.cs": {
+    "mtime": 1780220714.2613206,
+    "ast_hash": "694e87f84a748a79f775f2af4494a996",
+    "semantic_hash": "694e87f84a748a79f775f2af4494a996"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Admissions/Eligibility/EligibilityJson.cs": {
+    "mtime": 1779705163.4370828,
+    "ast_hash": "003590714cdf469d58b559d31fdfb3f2",
+    "semantic_hash": "003590714cdf469d58b559d31fdfb3f2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Exams/ExamsModule.cs": {
+    "mtime": 1780055780.6037188,
+    "ast_hash": "86aa8aeb61e6bf0b09f2f55d5f8533d1",
+    "semantic_hash": "86aa8aeb61e6bf0b09f2f55d5f8533d1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Exams/ExamEntities.cs": {
+    "mtime": 1780231021.454575,
+    "ast_hash": "96a5a88ca5bd578b5200ea1e34365d70",
+    "semantic_hash": "96a5a88ca5bd578b5200ea1e34365d70"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Exams/ExamsSeeder.cs": {
+    "mtime": 1780148654.389455,
+    "ast_hash": "1d554199769299916e92fb73a5bd1aca",
+    "semantic_hash": "1d554199769299916e92fb73a5bd1aca"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Exams/ExamsService.cs": {
+    "mtime": 1780151878.4114122,
+    "ast_hash": "3a9d2a1b61c43a839910c9460c390f06",
+    "semantic_hash": "3a9d2a1b61c43a839910c9460c390f06"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Reports/ReportsEndpoints.cs": {
+    "mtime": 1779840423.552541,
+    "ast_hash": "a488f2e7a35e61e7f69e6973c86b8117",
+    "semantic_hash": "a488f2e7a35e61e7f69e6973c86b8117"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Reports/ReportsModule.cs": {
+    "mtime": 1779840423.554531,
+    "ast_hash": "f56ce5bf5afc1430fb11e666da6a037d",
+    "semantic_hash": "f56ce5bf5afc1430fb11e666da6a037d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Reports/Queries/ReportsQueryService.cs": {
+    "mtime": 1779840423.5514493,
+    "ast_hash": "e4bc4c09c81225bb7b0c4bc11a5477b0",
+    "semantic_hash": "e4bc4c09c81225bb7b0c4bc11a5477b0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Reports/Dtos/ReportsDtos.cs": {
+    "mtime": 1779840423.5490627,
+    "ast_hash": "c9e986ebf3918141afda2a7714c1222d",
+    "semantic_hash": "c9e986ebf3918141afda2a7714c1222d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Reports/Validators/ReportsFiltersValidator.cs": {
+    "mtime": 1780055780.6067321,
+    "ast_hash": "517b6c8b0426c62ae66864486b80fa4a",
+    "semantic_hash": "517b6c8b0426c62ae66864486b80fa4a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Modules/Reports/Export/ReportsExportHandler.cs": {
+    "mtime": 1779840423.5499935,
+    "ast_hash": "8ed14182fce50b560324f4eec5473a76",
+    "semantic_hash": "8ed14182fce50b560324f4eec5473a76"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/LookupsController.cs": {
+    "mtime": 1780055780.590973,
+    "ast_hash": "5fb3ecc857b738dfec42c184fedf790b",
+    "semantic_hash": "5fb3ecc857b738dfec42c184fedf790b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/CategoriesController.cs": {
+    "mtime": 1780055780.587729,
+    "ast_hash": "fe5a7adabf5f3764aa279bac7c1fef8c",
+    "semantic_hash": "fe5a7adabf5f3764aa279bac7c1fef8c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/PaymentsController.cs": {
+    "mtime": 1779440886.99766,
+    "ast_hash": "0407dd4131e848c30279f3893754ff76",
+    "semantic_hash": "0407dd4131e848c30279f3893754ff76"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/FacultiesController.cs": {
+    "mtime": 1779840423.5373912,
+    "ast_hash": "09a71391b98aa772300656842f1fc3ac",
+    "semantic_hash": "09a71391b98aa772300656842f1fc3ac"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/GradesController.cs": {
+    "mtime": 1780092972.3504462,
+    "ast_hash": "e81b852c0a5f432f4d7c17ccc00c05ad",
+    "semantic_hash": "e81b852c0a5f432f4d7c17ccc00c05ad"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/OperationalAdminController.cs": {
+    "mtime": 1780146982.4371228,
+    "ast_hash": "783460130c98e0253528e1bc3cd80ba7",
+    "semantic_hash": "783460130c98e0253528e1bc3cd80ba7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/ExamsController.cs": {
+    "mtime": 1780148559.181216,
+    "ast_hash": "1ef3c742f2979913343eb21ae84f6d0d",
+    "semantic_hash": "1ef3c742f2979913343eb21ae84f6d0d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/BiometricController.cs": {
+    "mtime": 1780152218.6721003,
+    "ast_hash": "0e2f2b8accd527f24fc4f7bd4ce52c09",
+    "semantic_hash": "0e2f2b8accd527f24fc4f7bd4ce52c09"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/ApplicantGradesController.cs": {
+    "mtime": 1780098470.5029547,
+    "ast_hash": "03a3fdb9dea351daa2c7fa84887bf538",
+    "semantic_hash": "03a3fdb9dea351daa2c7fa84887bf538"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/RolesController.cs": {
+    "mtime": 1780055780.5924528,
+    "ast_hash": "d7f408be51ef6b2782b2bbdfe29505a8",
+    "semantic_hash": "d7f408be51ef6b2782b2bbdfe29505a8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/CyclesController.cs": {
+    "mtime": 1779577292.2768464,
+    "ast_hash": "939fa37c4392042bc7f99be990d556fa",
+    "semantic_hash": "939fa37c4392042bc7f99be990d556fa"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/ReportsController.cs": {
+    "mtime": 1779840423.5407648,
+    "ast_hash": "f4bab4753d668bf5c345f7bbdc53bd50",
+    "semantic_hash": "f4bab4753d668bf5c345f7bbdc53bd50"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/ApplicantsController.cs": {
+    "mtime": 1780063539.946624,
+    "ast_hash": "670cedfd1adac92f6dec0e009f81446f",
+    "semantic_hash": "670cedfd1adac92f6dec0e009f81446f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/ExamPlansController.cs": {
+    "mtime": 1780055780.5894587,
+    "ast_hash": "1ec366819964ae655739af66d71191bb",
+    "semantic_hash": "1ec366819964ae655739af66d71191bb"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/AuthController.cs": {
+    "mtime": 1780148075.2300928,
+    "ast_hash": "d01eff6f7d1510069268802598795ef3",
+    "semantic_hash": "d01eff6f7d1510069268802598795ef3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/AdmissionRulesController.cs": {
+    "mtime": 1779440886.8294075,
+    "ast_hash": "855a36430c0cb7fa618d236b1dec06e6",
+    "semantic_hash": "855a36430c0cb7fa618d236b1dec06e6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/CommitteesController.cs": {
+    "mtime": 1780055780.5886045,
+    "ast_hash": "f80d7c151d0006277cc6e158f562d0af",
+    "semantic_hash": "f80d7c151d0006277cc6e158f562d0af"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/LookupAliasesController.cs": {
+    "mtime": 1779462108.1866734,
+    "ast_hash": "4f6417c81233f49c609ae329ca5f380b",
+    "semantic_hash": "4f6417c81233f49c609ae329ca5f380b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/AdmissionSetupController.cs": {
+    "mtime": 1779702753.075692,
+    "ast_hash": "e451d716e325f1f303212338a2775ab7",
+    "semantic_hash": "e451d716e325f1f303212338a2775ab7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/UsersController.cs": {
+    "mtime": 1780148075.230844,
+    "ast_hash": "27fc9ae8c34ecacadd2add253f11e7dc",
+    "semantic_hash": "27fc9ae8c34ecacadd2add253f11e7dc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/NotificationsController.cs": {
+    "mtime": 1779440886.996079,
+    "ast_hash": "635dc46e48e9cf298050847c85b0f64a",
+    "semantic_hash": "635dc46e48e9cf298050847c85b0f64a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api/Controllers/AuditController.cs": {
+    "mtime": 1780055780.5869863,
+    "ast_hash": "01d539f229b0da20d482e62422e1a9f8",
+    "semantic_hash": "01d539f229b0da20d482e62422e1a9f8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/scripts/smoke-admin-api.sh": {
+    "mtime": 1780055780.6139216,
+    "ast_hash": "5ddfed003e2d8951188a20c7cdc1b228",
+    "semantic_hash": "5ddfed003e2d8951188a20c7cdc1b228"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/scripts/copy-admin-schema-to-uat-schema.sql": {
+    "mtime": 1779735706.3352244,
+    "ast_hash": "4b9c26ebdd3a23188c3f05eb22953f5f",
+    "semantic_hash": "4b9c26ebdd3a23188c3f05eb22953f5f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/scripts/copy-admin-db-to-uat.sql": {
+    "mtime": 1779735706.3341732,
+    "ast_hash": "507f37a06a1a5c55cb7da0d62ab7b845",
+    "semantic_hash": "507f37a06a1a5c55cb7da0d62ab7b845"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/GradesControllerTests.cs": {
+    "mtime": 1780055780.5834217,
+    "ast_hash": "fc37bb450321a60be2610ff93ce00d00",
+    "semantic_hash": "fc37bb450321a60be2610ff93ce00d00"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/ChangeTrackingInterceptorTests.cs": {
+    "mtime": 1780230582.5977058,
+    "ast_hash": "35ae6802d262c74cc48298109aba3edb",
+    "semantic_hash": "35ae6802d262c74cc48298109aba3edb"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/ApplicantEligibilityAllowedOptionsTests.cs": {
+    "mtime": 1780220709.4058907,
+    "ast_hash": "fc3cf4898c785f97c6475cef0a928f58",
+    "semantic_hash": "fc3cf4898c785f97c6475cef0a928f58"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/ApplicantGradesAdminSeederTests.cs": {
+    "mtime": 1780229225.4702044,
+    "ast_hash": "bc3000509e7a76af1ddcadc1d5c0e4b5",
+    "semantic_hash": "bc3000509e7a76af1ddcadc1d5c0e4b5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/PACademy.Admin.Api.Tests.csproj": {
+    "mtime": 1779699787.3132038,
+    "ast_hash": "17c6ac77e3568633a205e7cb83ebee56",
+    "semantic_hash": "17c6ac77e3568633a205e7cb83ebee56"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/EligibilityCheckTests.cs": {
+    "mtime": 1780221769.3817444,
+    "ast_hash": "99037a64a38d93bef1cfd7a8703bda15",
+    "semantic_hash": "99037a64a38d93bef1cfd7a8703bda15"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/NationalIdParserTests.cs": {
+    "mtime": 1779699787.3125358,
+    "ast_hash": "69674c3558717e3c5db761c3fe7aad1c",
+    "semantic_hash": "69674c3558717e3c5db761c3fe7aad1c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/ApiRegressionTests.cs": {
+    "mtime": 1780219058.605307,
+    "ast_hash": "c5f34930083baab094262055a54ca615",
+    "semantic_hash": "c5f34930083baab094262055a54ca615"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/LookupsControllerTests.cs": {
+    "mtime": 1780055780.5843809,
+    "ast_hash": "876b24fa90ebcd0f3ce5033c35c7cb5e",
+    "semantic_hash": "876b24fa90ebcd0f3ce5033c35c7cb5e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/ApplicantEligibilityServiceTests.cs": {
+    "mtime": 1780102822.2274678,
+    "ast_hash": "10724797650c8ded19ca8fe18d4376e3",
+    "semantic_hash": "10724797650c8ded19ca8fe18d4376e3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/ApplicantsControllerTests.cs": {
+    "mtime": 1780221275.18809,
+    "ast_hash": "033ec57ac4505521204b40960c41b80a",
+    "semantic_hash": "033ec57ac4505521204b40960c41b80a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/AdminRecordsServiceTests.cs": {
+    "mtime": 1780055780.580072,
+    "ast_hash": "7ec0caee706af87b11786e5c9d667721",
+    "semantic_hash": "7ec0caee706af87b11786e5c9d667721"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/GlobalUsings.cs": {
+    "mtime": 1779699787.3069227,
+    "ast_hash": "c3e519221de089efbc6b81008eceeb7c",
+    "semantic_hash": "c3e519221de089efbc6b81008eceeb7c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/PACademy.Admin.Api.Tests/Reports/ReportsFiltersValidatorTests.cs": {
+    "mtime": 1780055780.5860832,
+    "ast_hash": "7f3a6caf5b757b5e10a068c1611e79da",
+    "semantic_hash": "7f3a6caf5b757b5e10a068c1611e79da"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/PACademy.Modules.ApplicantGradesAdmin.Application.csproj": {
+    "mtime": 1779840423.5228872,
+    "ast_hash": "c6e9ac395441b7e8c7c3451c36b0f423",
+    "semantic_hash": "c6e9ac395441b7e8c7c3451c36b0f423"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/Grades/IAuditApi.cs": {
+    "mtime": 1779840423.5220046,
+    "ast_hash": "6e002380eed8813141bb5e69b170c6d2",
+    "semantic_hash": "6e002380eed8813141bb5e69b170c6d2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/Grades/GradeDtos.cs": {
+    "mtime": 1779840423.5208876,
+    "ast_hash": "c6127a2cd0e6e6c9b0c1e4746ea21f1b",
+    "semantic_hash": "c6127a2cd0e6e6c9b0c1e4746ea21f1b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/Grades/AdjustmentUseCases.cs": {
+    "mtime": 1779840423.5205903,
+    "ast_hash": "820e9c7cb563f63ef3baaa6a3be9ef67",
+    "semantic_hash": "820e9c7cb563f63ef3baaa6a3be9ef67"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/Grades/GradeValidators.cs": {
+    "mtime": 1779840423.521448,
+    "ast_hash": "4daf97c8c83ff98c6d666b13a8b81044",
+    "semantic_hash": "4daf97c8c83ff98c6d666b13a8b81044"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/Grades/ImportGradesUseCases.cs": {
+    "mtime": 1779840423.5223315,
+    "ast_hash": "70eb6b3abe9cb0d8186a68de44388380",
+    "semantic_hash": "70eb6b3abe9cb0d8186a68de44388380"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/Grades/IApplicantGradesAdminDbContext.cs": {
+    "mtime": 1779840423.5217137,
+    "ast_hash": "dcabde65249aa37d8a6309ef0270ff17",
+    "semantic_hash": "dcabde65249aa37d8a6309ef0270ff17"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/Grades/ListGradesUseCase.cs": {
+    "mtime": 1779840423.522615,
+    "ast_hash": "f61f6410e5b4176361dff2d9126e22d5",
+    "semantic_hash": "f61f6410e5b4176361dff2d9126e22d5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Application/Grades/GradeHelpers.cs": {
+    "mtime": 1779840423.521188,
+    "ast_hash": "8efa3aeecad422fa4b97a5c8e676b557",
+    "semantic_hash": "8efa3aeecad422fa4b97a5c8e676b557"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/ApplicantGradesAdminDbContext.cs": {
+    "mtime": 1779840423.5231743,
+    "ast_hash": "ce6d2a07cbe6224107930147b6f030e4",
+    "semantic_hash": "ce6d2a07cbe6224107930147b6f030e4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/NoopAuditApi.cs": {
+    "mtime": 1779840423.5253992,
+    "ast_hash": "6f1318ddc9c4d7c69eadb7c9c75bb7ba",
+    "semantic_hash": "6f1318ddc9c4d7c69eadb7c9c75bb7ba"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/ApplicantGradesAdminModule.cs": {
+    "mtime": 1779840423.5237074,
+    "ast_hash": "523d249c6ede60644fcdaa3eccb9e63f",
+    "semantic_hash": "523d249c6ede60644fcdaa3eccb9e63f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/PACademy.Modules.ApplicantGradesAdmin.Infrastructure.csproj": {
+    "mtime": 1779840423.5256581,
+    "ast_hash": "2910f1d9f695ad8b2ca65a08b9e144ac",
+    "semantic_hash": "2910f1d9f695ad8b2ca65a08b9e144ac"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/ApplicantGradesAdminSeeder.cs": {
+    "mtime": 1780055780.5793285,
+    "ast_hash": "d3b032be475ac3b169e8c48d60978ce7",
+    "semantic_hash": "d3b032be475ac3b169e8c48d60978ce7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/ApplicantGradesAdminDbContextFactory.cs": {
+    "mtime": 1779840423.5234287,
+    "ast_hash": "1a9e6a96d41e9595668ad423c8b9311b",
+    "semantic_hash": "1a9e6a96d41e9595668ad423c8b9311b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/Migrations/20260521011646_InitialApplicantGrades.cs": {
+    "mtime": 1779840423.5248506,
+    "ast_hash": "8a02b8e79bdda770af887a6674504309",
+    "semantic_hash": "8a02b8e79bdda770af887a6674504309"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/Migrations/20260521011646_InitialApplicantGrades.Designer.cs": {
+    "mtime": 1779840423.5244963,
+    "ast_hash": "7431f267b1f0ba941a19d3f8469b6bf5",
+    "semantic_hash": "7431f267b1f0ba941a19d3f8469b6bf5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/Migrations/ApplicantGradesAdminDbContextModelSnapshot.cs": {
+    "mtime": 1780229225.4686394,
+    "ast_hash": "837bcc8014b940a08a0084d39f233a5f",
+    "semantic_hash": "837bcc8014b940a08a0084d39f233a5f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/ApplicantGradesAdmin/PACademy.Modules.ApplicantGradesAdmin.Infrastructure/Migrations/20260531120000_AddApplicantGradePayloadMirror.cs": {
+    "mtime": 1780229225.4601545,
+    "ast_hash": "93154faeebeb8f4bc755c9eb7446d990",
+    "semantic_hash": "93154faeebeb8f4bc755c9eb7446d990"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/IdentityApplicantAdmin/PACademy.Modules.IdentityApplicantAdmin.Infrastructure/IdentityApplicantAdminDbContext.cs": {
+    "mtime": 1779840423.5259638,
+    "ast_hash": "e172b1a8715f5a56a50416d1dda78a8c",
+    "semantic_hash": "e172b1a8715f5a56a50416d1dda78a8c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/IdentityApplicantAdmin/PACademy.Modules.IdentityApplicantAdmin.Infrastructure/PACademy.Modules.IdentityApplicantAdmin.Infrastructure.csproj": {
+    "mtime": 1779840423.5280867,
+    "ast_hash": "9e4aaba1ac408c69004973d0d36676d1",
+    "semantic_hash": "9e4aaba1ac408c69004973d0d36676d1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/IdentityApplicantAdmin/PACademy.Modules.IdentityApplicantAdmin.Infrastructure/IdentityApplicantAdminModule.cs": {
+    "mtime": 1779840423.526467,
+    "ast_hash": "b9171be8061b56042e4f8a85e5cbd20c",
+    "semantic_hash": "b9171be8061b56042e4f8a85e5cbd20c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/IdentityApplicantAdmin/PACademy.Modules.IdentityApplicantAdmin.Infrastructure/IdentityApplicantAdminSeeder.cs": {
+    "mtime": 1779840423.5267363,
+    "ast_hash": "d2da23bddd92bf5f58ddedbb389f40ca",
+    "semantic_hash": "d2da23bddd92bf5f58ddedbb389f40ca"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/IdentityApplicantAdmin/PACademy.Modules.IdentityApplicantAdmin.Infrastructure/IdentityApplicantAdminDbContextFactory.cs": {
+    "mtime": 1779840423.5262086,
+    "ast_hash": "9632a5f12ad1f44549aefd752c899809",
+    "semantic_hash": "9632a5f12ad1f44549aefd752c899809"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/IdentityApplicantAdmin/PACademy.Modules.IdentityApplicantAdmin.Infrastructure/Migrations/20260521092833_InitialIdentityApplicant.cs": {
+    "mtime": 1779840423.527411,
+    "ast_hash": "e301cd1c8107848c0ed6f4e830199811",
+    "semantic_hash": "e301cd1c8107848c0ed6f4e830199811"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/IdentityApplicantAdmin/PACademy.Modules.IdentityApplicantAdmin.Infrastructure/Migrations/IdentityApplicantAdminDbContextModelSnapshot.cs": {
+    "mtime": 1779840423.5276642,
+    "ast_hash": "131197bdb4162a158a1f1615c7d5c4fe",
+    "semantic_hash": "131197bdb4162a158a1f1615c7d5c4fe"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/IdentityApplicantAdmin/PACademy.Modules.IdentityApplicantAdmin.Infrastructure/Migrations/20260521092833_InitialIdentityApplicant.Designer.cs": {
+    "mtime": 1779840423.5271688,
+    "ast_hash": "eb69fb2831a82f09b1425c4f71c4e8f5",
+    "semantic_hash": "eb69fb2831a82f09b1425c4f71c4e8f5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/LookupsAdminModule.cs": {
+    "mtime": 1779840423.530652,
+    "ast_hash": "1607bea93d525ccba5fd6a50a34873fa",
+    "semantic_hash": "1607bea93d525ccba5fd6a50a34873fa"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/LookupsAdminDbContextFactory.cs": {
+    "mtime": 1779840423.5303524,
+    "ast_hash": "a3ebc3f7c2d217d28132e73a312615e1",
+    "semantic_hash": "a3ebc3f7c2d217d28132e73a312615e1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/LookupsAdminSeeder.cs": {
+    "mtime": 1779840423.5308971,
+    "ast_hash": "944917ef7d7e46454732426042930ddc",
+    "semantic_hash": "944917ef7d7e46454732426042930ddc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/LookupsAdminDbContext.cs": {
+    "mtime": 1779840423.5301034,
+    "ast_hash": "3ec82c54e86a3aff03783c9d0ece5dfb",
+    "semantic_hash": "3ec82c54e86a3aff03783c9d0ece5dfb"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/PACademy.Modules.LookupsAdmin.Infrastructure.csproj": {
+    "mtime": 1779840423.532107,
+    "ast_hash": "a8e6aad2ecbbdcce2eb3119e24f84c40",
+    "semantic_hash": "a8e6aad2ecbbdcce2eb3119e24f84c40"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/Migrations/20260520113946_InitialLookups.cs": {
+    "mtime": 1779840423.531524,
+    "ast_hash": "fa1e938ab87f3e6b055cd4ab274e9f4b",
+    "semantic_hash": "fa1e938ab87f3e6b055cd4ab274e9f4b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/Migrations/20260520113946_InitialLookups.Designer.cs": {
+    "mtime": 1779840423.5312827,
+    "ast_hash": "3c934eec6cf12f0177183300a7278b58",
+    "semantic_hash": "3c934eec6cf12f0177183300a7278b58"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Infrastructure/Migrations/LookupsAdminDbContextModelSnapshot.cs": {
+    "mtime": 1779840423.5318186,
+    "ast_hash": "36b518acc227b851ce3a74cb006afa29",
+    "semantic_hash": "36b518acc227b851ce3a74cb006afa29"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Application/PACademy.Modules.LookupsAdmin.Application.csproj": {
+    "mtime": 1779840423.5298295,
+    "ast_hash": "c6e9ac395441b7e8c7c3451c36b0f423",
+    "semantic_hash": "c6e9ac395441b7e8c7c3451c36b0f423"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Application/Faculties/ListFacultiesUseCase.cs": {
+    "mtime": 1779840423.5295672,
+    "ast_hash": "6f81140f0ad99ad6612db39b100b37d0",
+    "semantic_hash": "6f81140f0ad99ad6612db39b100b37d0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Application/Faculties/CreateFacultyValidator.cs": {
+    "mtime": 1779840423.5288208,
+    "ast_hash": "ae1db82806184da39c8214e5e447173b",
+    "semantic_hash": "ae1db82806184da39c8214e5e447173b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Application/Faculties/CreateFacultyUseCase.cs": {
+    "mtime": 1779840423.5285454,
+    "ast_hash": "cd3f0168cd6bf5ba029a0547a187e4ab",
+    "semantic_hash": "cd3f0168cd6bf5ba029a0547a187e4ab"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Application/Faculties/ILookupsAdminDbContext.cs": {
+    "mtime": 1779840423.5293078,
+    "ast_hash": "a790c824180f1bc66284a17847918667",
+    "semantic_hash": "a790c824180f1bc66284a17847918667"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/Modules/LookupsAdmin/PACademy.Modules.LookupsAdmin.Application/Faculties/FacultyDtos.cs": {
+    "mtime": 1779840423.5290577,
+    "ast_hash": "1d0a5189530cd839b8d4040d3d06c521",
+    "semantic_hash": "1d0a5189530cd839b8d4040d3d06c521"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/App.tsx": {
+    "mtime": 1779491897.3503575,
+    "ast_hash": "bd17d81ef7c14b36d8137fc03751faa9",
+    "semantic_hash": "bd17d81ef7c14b36d8137fc03751faa9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/main.tsx": {
+    "mtime": 1777636302.177798,
+    "ast_hash": "f76edea8b62603d6eb2e7720e6dc5f88",
+    "semantic_hash": "f76edea8b62603d6eb2e7720e6dc5f88"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/vite-env.d.ts": {
+    "mtime": 1780055780.6492517,
+    "ast_hash": "887942e4891ac5d3b82c4d30305ac090",
+    "semantic_hash": "887942e4891ac5d3b82c4d30305ac090"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/routes.tsx": {
+    "mtime": 1780136844.4364462,
+    "ast_hash": "d9e779cefd38de0ae45ad5242b3a4701",
+    "semantic_hash": "d9e779cefd38de0ae45ad5242b3a4701"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/app/providers/AuthGuard.tsx": {
+    "mtime": 1780055780.6213262,
+    "ast_hash": "bbd68ad2ac3f7b21a37b9bba7eb509ac",
+    "semantic_hash": "bbd68ad2ac3f7b21a37b9bba7eb509ac"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/app/providers/QueryProvider.tsx": {
+    "mtime": 1777636302.1587608,
+    "ast_hash": "cee4badf0557adc1617eb28b5489aa6c",
+    "semantic_hash": "cee4badf0557adc1617eb28b5489aa6c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/app/layouts/CenteredShell.tsx": {
+    "mtime": 1777653554.3594203,
+    "ast_hash": "2f65d553c9de35024fd29cfe6182a4b7",
+    "semantic_hash": "2f65d553c9de35024fd29cfe6182a4b7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/app/layouts/AppShell.tsx": {
+    "mtime": 1780135163.4687681,
+    "ast_hash": "28d193da367532990b3c33d060a53a7b",
+    "semantic_hash": "28d193da367532990b3c33d060a53a7b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/app/layouts/PublicShell.tsx": {
+    "mtime": 1779491897.3565538,
+    "ast_hash": "a5c99e994cf24e469c98cb2314d58560",
+    "semantic_hash": "a5c99e994cf24e469c98cb2314d58560"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/app/layouts/Sidebar.tsx": {
+    "mtime": 1779735706.3470955,
+    "ast_hash": "3c4f3c7c7b92e88342ca4dd24fa3861b",
+    "semantic_hash": "3c4f3c7c7b92e88342ca4dd24fa3861b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/config/routes.ts": {
+    "mtime": 1780055780.6224172,
+    "ast_hash": "624dd7489c3ec3e8df04ae42362bed1d",
+    "semantic_hash": "624dd7489c3ec3e8df04ae42362bed1d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/landing/index.ts": {
+    "mtime": 1779056960.7054722,
+    "ast_hash": "0292ae0f0c24caba616931a5daa88868",
+    "semantic_hash": "0292ae0f0c24caba616931a5daa88868"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/landing/pages/TermsPage.tsx": {
+    "mtime": 1777699058.5110328,
+    "ast_hash": "6fcb6121247d402527a3f1aef7354a07",
+    "semantic_hash": "6fcb6121247d402527a3f1aef7354a07"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/landing/pages/PublicLandingPage.tsx": {
+    "mtime": 1779735706.3913515,
+    "ast_hash": "05d9b998014cca1c99a0244915c7952d",
+    "semantic_hash": "05d9b998014cca1c99a0244915c7952d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/investigations/InvestigationsLayout.tsx": {
+    "mtime": 1779581825.1978095,
+    "ast_hash": "27ca21c07a9dbf8983a2a0d9ab5b7a25",
+    "semantic_hash": "27ca21c07a9dbf8983a2a0d9ab5b7a25"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/investigations/index.ts": {
+    "mtime": 1777695624.2077255,
+    "ast_hash": "fdbafbccbd1aae423e3f0c01afd23e51",
+    "semantic_hash": "fdbafbccbd1aae423e3f0c01afd23e51"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/investigations/api/investigations.service.ts": {
+    "mtime": 1777834920.4861977,
+    "ast_hash": "1e995882e4ff8e4757eeab883b390fb8",
+    "semantic_hash": "1e995882e4ff8e4757eeab883b390fb8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/investigations/pages/InvestigationDetailPage.tsx": {
+    "mtime": 1778156595.5504117,
+    "ast_hash": "7512281fb04532cfb3de8cf6b48c2efa",
+    "semantic_hash": "7512281fb04532cfb3de8cf6b48c2efa"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/investigations/pages/InvestigationCreatePage.tsx": {
+    "mtime": 1777834920.4886723,
+    "ast_hash": "1d67bf2b96e8434adc1a435fe7cb0bd1",
+    "semantic_hash": "1d67bf2b96e8434adc1a435fe7cb0bd1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/investigations/pages/InvestigationsPages.tsx": {
+    "mtime": 1778453093.244409,
+    "ast_hash": "bf84abbd20ad68921a4840adfc5f9fee",
+    "semantic_hash": "bf84abbd20ad68921a4840adfc5f9fee"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/investigations/pages/OutgoingLettersPage.tsx": {
+    "mtime": 1778453111.4423847,
+    "ast_hash": "52e48cb9ecf2dec012249e252a2c1159",
+    "semantic_hash": "52e48cb9ecf2dec012249e252a2c1159"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/investigations/pages/DistributionPage.tsx": {
+    "mtime": 1778453123.6116545,
+    "ast_hash": "aad11cc61626f3a714d593ac2e47b972",
+    "semantic_hash": "aad11cc61626f3a714d593ac2e47b972"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/types.ts": {
+    "mtime": 1779699787.3716285,
+    "ast_hash": "712dc2719fd728bd676b48d6d5a7b347",
+    "semantic_hash": "712dc2719fd728bd676b48d6d5a7b347"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/index.ts": {
+    "mtime": 1779164922.164954,
+    "ast_hash": "493ba52809ddbc03a4d25338d1c5ea2a",
+    "semantic_hash": "493ba52809ddbc03a4d25338d1c5ea2a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/mock/lookups.mock.ts": {
+    "mtime": 1779699787.3703885,
+    "ast_hash": "1b0421dbb2e5885925e45adac934c446",
+    "semantic_hash": "1b0421dbb2e5885925e45adac934c446"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/components/LookupTabPanel.tsx": {
+    "mtime": 1780055780.6445818,
+    "ast_hash": "7a372fd480ac24a8a3465ee21aeb3fcc",
+    "semantic_hash": "7a372fd480ac24a8a3465ee21aeb3fcc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/components/LookupRowDrawer.tsx": {
+    "mtime": 1779735706.395212,
+    "ast_hash": "56dbdcad6218622299bc3e9bc6dcf00a",
+    "semantic_hash": "56dbdcad6218622299bc3e9bc6dcf00a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/lib/submissionType.ts": {
+    "mtime": 1778586000.5160172,
+    "ast_hash": "9580fb1b9f83058bb17518f1ccc9dfc9",
+    "semantic_hash": "9580fb1b9f83058bb17518f1ccc9dfc9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/lib/gradingModes.ts": {
+    "mtime": 1778585993.4650898,
+    "ast_hash": "41f2144d6ec16273ae7f57cd25b39a92",
+    "semantic_hash": "41f2144d6ec16273ae7f57cd25b39a92"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/lib/academicGrade.ts": {
+    "mtime": 1778587469.5898066,
+    "ast_hash": "e0a1b20edb3eb3950898e5361c2a3003",
+    "semantic_hash": "e0a1b20edb3eb3950898e5361c2a3003"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/api/lookups.queries.ts": {
+    "mtime": 1780130436.5147,
+    "ast_hash": "a56bb8bf1f7489ce29eefed3c68546f1",
+    "semantic_hash": "a56bb8bf1f7489ce29eefed3c68546f1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/api/lookups.service.ts": {
+    "mtime": 1780055780.6437352,
+    "ast_hash": "93caa028720bb4ede36ff825ba130b73",
+    "semantic_hash": "93caa028720bb4ede36ff825ba130b73"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/pages/LookupsHubPage.tsx": {
+    "mtime": 1779572538.7310703,
+    "ast_hash": "f0687346bebdec43696675839afac183",
+    "semantic_hash": "f0687346bebdec43696675839afac183"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/lookups/pages/ApplicantCategoryDetailPage.tsx": {
+    "mtime": 1779699787.3710036,
+    "ast_hash": "8665dccec9ff5bee0d1b12cb88530bc0",
+    "semantic_hash": "8665dccec9ff5bee0d1b12cb88530bc0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/board/BoardLayout.tsx": {
+    "mtime": 1779581825.1966755,
+    "ast_hash": "4657eb6c60bf2f7cdac29cba91542da4",
+    "semantic_hash": "4657eb6c60bf2f7cdac29cba91542da4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/board/index.ts": {
+    "mtime": 1777695888.4267948,
+    "ast_hash": "92934dab53a7f8c4507b2a9a4192b357",
+    "semantic_hash": "92934dab53a7f8c4507b2a9a4192b357"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/board/api/board.service.ts": {
+    "mtime": 1778452816.8572307,
+    "ast_hash": "f55a15efe383a1069ef8358c78748650",
+    "semantic_hash": "f55a15efe383a1069ef8358c78748650"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/board/pages/BoardPages.tsx": {
+    "mtime": 1777810160.8160274,
+    "ast_hash": "1f782bccd810ed2520a7f0a30c7e129b",
+    "semantic_hash": "1f782bccd810ed2520a7f0a30c7e129b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/board/pages/Sprint6Pages.tsx": {
+    "mtime": 1778452878.7850182,
+    "ast_hash": "abcca54aef1b7d14f4fd55fe01c263b0",
+    "semantic_hash": "abcca54aef1b7d14f4fd55fe01c263b0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/types.ts": {
+    "mtime": 1780148075.2476346,
+    "ast_hash": "5720ebd0d94697d2ce13775235e855fa",
+    "semantic_hash": "5720ebd0d94697d2ce13775235e855fa"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/rbac.ts": {
+    "mtime": 1780055780.63068,
+    "ast_hash": "35764d5732ae5dd44169c6cc46a73fac",
+    "semantic_hash": "35764d5732ae5dd44169c6cc46a73fac"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/index.ts": {
+    "mtime": 1780148075.2470794,
+    "ast_hash": "f2132ed094240d51ab93ed28e4f52959",
+    "semantic_hash": "f2132ed094240d51ab93ed28e4f52959"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/components/LoginForm.tsx": {
+    "mtime": 1780148075.2465258,
+    "ast_hash": "0f9dd9a913c014f8aaf220a6c729a078",
+    "semantic_hash": "0f9dd9a913c014f8aaf220a6c729a078"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/components/ApplicantLoginForm.tsx": {
+    "mtime": 1780055780.6284192,
+    "ast_hash": "16edbce5e44a38bf0742ce755f1e0a74",
+    "semantic_hash": "16edbce5e44a38bf0742ce755f1e0a74"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/components/RoleSelector.tsx": {
+    "mtime": 1780055780.629867,
+    "ast_hash": "4d33fe53b89ae64b98123adfb11699cc",
+    "semantic_hash": "4d33fe53b89ae64b98123adfb11699cc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/components/LoginArtPanel.tsx": {
+    "mtime": 1777943371.6762202,
+    "ast_hash": "741782c51d9f66f6b264d33caa2e98bd",
+    "semantic_hash": "741782c51d9f66f6b264d33caa2e98bd"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/components/OtpStep.tsx": {
+    "mtime": 1778161081.0474257,
+    "ast_hash": "428d5b4ba29d374fdc137c9da7028278",
+    "semantic_hash": "428d5b4ba29d374fdc137c9da7028278"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/lib/default-route.ts": {
+    "mtime": 1779581728.6211672,
+    "ast_hash": "9b7ae1a9f8b4d5ccffc4bd1fa9f7785e",
+    "semantic_hash": "9b7ae1a9f8b4d5ccffc4bd1fa9f7785e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/api/auth.service.ts": {
+    "mtime": 1780148075.2458923,
+    "ast_hash": "e4b5aea7c256357dc7fc73c0ca4c47b1",
+    "semantic_hash": "e4b5aea7c256357dc7fc73c0ca4c47b1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/api/auth.queries.ts": {
+    "mtime": 1780148075.245268,
+    "ast_hash": "7b1185b273472a23fa423b40cecf5845",
+    "semantic_hash": "7b1185b273472a23fa423b40cecf5845"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/pages/LoginPage.tsx": {
+    "mtime": 1779589294.2391365,
+    "ast_hash": "69fd3b550952bce1445a32e3421214a5",
+    "semantic_hash": "69fd3b550952bce1445a32e3421214a5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/pages/ApplicantLoginPage.tsx": {
+    "mtime": 1779581794.1938202,
+    "ast_hash": "d112af1c13a8ea2885d94d3716f7e59b",
+    "semantic_hash": "d112af1c13a8ea2885d94d3716f7e59b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/auth/store/auth.store.ts": {
+    "mtime": 1777636302.166626,
+    "ast_hash": "5baa20681c70f8e81f69028cf4c3aaee",
+    "semantic_hash": "5baa20681c70f8e81f69028cf4c3aaee"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/CommitteeLayout.tsx": {
+    "mtime": 1779581825.1938474,
+    "ast_hash": "d0699364936216245ff64ce26af0744f",
+    "semantic_hash": "d0699364936216245ff64ce26af0744f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/index.ts": {
+    "mtime": 1779294761.307621,
+    "ast_hash": "bbdd8c48909094b5fa36036c0fbe85b1",
+    "semantic_hash": "bbdd8c48909094b5fa36036c0fbe85b1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/components/ScheduleCategoryPanel.tsx": {
+    "mtime": 1779280339.2904487,
+    "ast_hash": "b304f032f4d0575fe14d5d2284b807b9",
+    "semantic_hash": "b304f032f4d0575fe14d5d2284b807b9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/components/CommitteeEditDialog.tsx": {
+    "mtime": 1778663596.1009393,
+    "ast_hash": "9631bbb2badd2c3f228491e2b569c2aa",
+    "semantic_hash": "9631bbb2badd2c3f228491e2b569c2aa"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/components/OfficerMultiSelect.tsx": {
+    "mtime": 1779164917.5498946,
+    "ast_hash": "d5d774a881e64c77eee90ddbc3bb3adc",
+    "semantic_hash": "d5d774a881e64c77eee90ddbc3bb3adc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/components/CommitteeForm.tsx": {
+    "mtime": 1779440887.3508024,
+    "ast_hash": "7fb335c1e1c7838ca7a11745caeb4652",
+    "semantic_hash": "7fb335c1e1c7838ca7a11745caeb4652"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/lib/formatCommitteeGrade.ts": {
+    "mtime": 1778663246.6826165,
+    "ast_hash": "2061f12423f25a9884cdc69cdbf425fe",
+    "semantic_hash": "2061f12423f25a9884cdc69cdbf425fe"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/api/committeeInstance.service.ts": {
+    "mtime": 1779502912.160718,
+    "ast_hash": "a70c27ec0ad3cd361c1f9a8472bcc1b8",
+    "semantic_hash": "a70c27ec0ad3cd361c1f9a8472bcc1b8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/api/committee.queries.ts": {
+    "mtime": 1779503074.0176554,
+    "ast_hash": "f494f6af465bb7ab96e3b896a6efabb8",
+    "semantic_hash": "f494f6af465bb7ab96e3b896a6efabb8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/api/committee.service.ts": {
+    "mtime": 1779503032.2299607,
+    "ast_hash": "a923dfd0cce96497ce586b30aa27fa6d",
+    "semantic_hash": "a923dfd0cce96497ce586b30aa27fa6d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/api/committeeInstance.queries.ts": {
+    "mtime": 1779296525.695545,
+    "ast_hash": "f401e613d2c4ba061080810493977870",
+    "semantic_hash": "f401e613d2c4ba061080810493977870"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/pages/CommitteeCreatePage.tsx": {
+    "mtime": 1779735706.383687,
+    "ast_hash": "640331c54d82191f11ff70ad41ea8754",
+    "semantic_hash": "640331c54d82191f11ff70ad41ea8754"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/pages/CommitteeEditPage.tsx": {
+    "mtime": 1778923196.1928754,
+    "ast_hash": "e589497919f4e3a666260a3d5cf78c2e",
+    "semantic_hash": "e589497919f4e3a666260a3d5cf78c2e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/pages/CommitteeOverviewPage.tsx": {
+    "mtime": 1779440887.3538442,
+    "ast_hash": "65372db0c9582449eecc849b8cf1dde5",
+    "semantic_hash": "65372db0c9582449eecc849b8cf1dde5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/pages/CommitteeSchedulePage.tsx": {
+    "mtime": 1778665405.4602783,
+    "ast_hash": "7623e94e67ee038e3e966dba5cdab46e",
+    "semantic_hash": "7623e94e67ee038e3e966dba5cdab46e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/pages/CommitteeDetailPage.tsx": {
+    "mtime": 1779440887.3529165,
+    "ast_hash": "029a8a8e9b398597e4fbbabfdb7cef1c",
+    "semantic_hash": "029a8a8e9b398597e4fbbabfdb7cef1c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/committees/pages/CommitteeApplicantsPage.tsx": {
+    "mtime": 1778923219.5834236,
+    "ast_hash": "dff03ff61e56dd510e5a639cd2c629f6",
+    "semantic_hash": "dff03ff61e56dd510e5a639cd2c629f6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/types.ts": {
+    "mtime": 1779840423.649148,
+    "ast_hash": "af5ccbc26e0bb65629107f6ff69a7227",
+    "semantic_hash": "af5ccbc26e0bb65629107f6ff69a7227"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/index.ts": {
+    "mtime": 1779608058.4865994,
+    "ast_hash": "ea0c0b4827c67364e22d0e43a20a2aee",
+    "semantic_hash": "ea0c0b4827c67364e22d0e43a20a2aee"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/StudentDetailsDrawer.tsx": {
+    "mtime": 1779572391.5207014,
+    "ast_hash": "a469525c602e86c051e05f1fc84536ae",
+    "semantic_hash": "a469525c602e86c051e05f1fc84536ae"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/EditMaxDegreeDialog.tsx": {
+    "mtime": 1778717229.9326766,
+    "ast_hash": "28d8be19ac28615b3a4aacacc0d96def",
+    "semantic_hash": "28d8be19ac28615b3a4aacacc0d96def"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/AddAdjustmentDialog.tsx": {
+    "mtime": 1779440886.430226,
+    "ast_hash": "d9f0d5e0ef18622527d77cb86056a6ee",
+    "semantic_hash": "d9f0d5e0ef18622527d77cb86056a6ee"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/ImportWizard.tsx": {
+    "mtime": 1779280339.2847211,
+    "ast_hash": "b665290f714b343984e814facf264ec1",
+    "semantic_hash": "b665290f714b343984e814facf264ec1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/LogDrawer.tsx": {
+    "mtime": 1779067942.7250686,
+    "ast_hash": "3bd0cf826dffe1a472ec82ce7619ebb9",
+    "semantic_hash": "3bd0cf826dffe1a472ec82ce7619ebb9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/importWizard/steps/Step1Settings.tsx": {
+    "mtime": 1779290603.4959328,
+    "ast_hash": "2adef4f5c30c2ecf18b76b5db0e39f8c",
+    "semantic_hash": "2adef4f5c30c2ecf18b76b5db0e39f8c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/importWizard/steps/Step2TableSelect.tsx": {
+    "mtime": 1779061419.811276,
+    "ast_hash": "1361442d32174ec45a42e3382e6c3993",
+    "semantic_hash": "1361442d32174ec45a42e3382e6c3993"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/importWizard/steps/Step5DuplicateReview.tsx": {
+    "mtime": 1779840423.6396604,
+    "ast_hash": "1889fcfb8d31614ce38133f4780ff6a7",
+    "semantic_hash": "1889fcfb8d31614ce38133f4780ff6a7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/importWizard/steps/Step6Result.tsx": {
+    "mtime": 1779840423.642564,
+    "ast_hash": "61a67cc94f635ee8e8a2f6e396e2edbc",
+    "semantic_hash": "61a67cc94f635ee8e8a2f6e396e2edbc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/importWizard/steps/Step3ColumnMapping.tsx": {
+    "mtime": 1779290660.2215297,
+    "ast_hash": "6875f32529842a80db92983945e1a759",
+    "semantic_hash": "6875f32529842a80db92983945e1a759"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/importWizard/steps/Step4Filters.tsx": {
+    "mtime": 1779293493.5001073,
+    "ast_hash": "4401e2f0fae23756019feac384760d0e",
+    "semantic_hash": "4401e2f0fae23756019feac384760d0e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/components/importWizard/steps/Step6ChangesReview.tsx": {
+    "mtime": 1779840423.6409855,
+    "ast_hash": "e9aa346778ec123b39244c43b441e545",
+    "semantic_hash": "e9aa346778ec123b39244c43b441e545"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/lib/parseGradesFile.ts": {
+    "mtime": 1779066613.9023185,
+    "ast_hash": "dada1be670f7fac86034f44eb9d7afd1",
+    "semantic_hash": "dada1be670f7fac86034f44eb9d7afd1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/lib/buildDiff.ts": {
+    "mtime": 1779840423.6436186,
+    "ast_hash": "87f5f1c9bec9d0578cbf59c1f9d531af",
+    "semantic_hash": "87f5f1c9bec9d0578cbf59c1f9d531af"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/lib/normalise.ts": {
+    "mtime": 1779505695.4903164,
+    "ast_hash": "34fe59e6f4d74c206f65b3b9dbee3982",
+    "semantic_hash": "34fe59e6f4d74c206f65b3b9dbee3982"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/lib/targetFields.ts": {
+    "mtime": 1779164917.49115,
+    "ast_hash": "824f9dbc09f9300d09dd7f1e4c4d769f",
+    "semantic_hash": "824f9dbc09f9300d09dd7f1e4c4d769f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/lib/buildTemplateWorkbook.ts": {
+    "mtime": 1779064269.01773,
+    "ast_hash": "0c447dfb6cc492775bc531cd2a1dd86a",
+    "semantic_hash": "0c447dfb6cc492775bc531cd2a1dd86a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/lib/derive.ts": {
+    "mtime": 1778715284.887666,
+    "ast_hash": "12ecaa8e51528f7514dc875e43d50739",
+    "semantic_hash": "12ecaa8e51528f7514dc875e43d50739"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/lib/importHistory.ts": {
+    "mtime": 1779707032.987517,
+    "ast_hash": "6e491d8b0338fa57c1d0343768a4dd10",
+    "semantic_hash": "6e491d8b0338fa57c1d0343768a4dd10"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/lib/parseAccessFile.ts": {
+    "mtime": 1778936839.2311106,
+    "ast_hash": "b8d1de51d28b4e8ce54975b798095a27",
+    "semantic_hash": "b8d1de51d28b4e8ce54975b798095a27"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/lib/duplicateAudit.ts": {
+    "mtime": 1779840423.6449733,
+    "ast_hash": "54d66011c8a4bb9d93d96de6b6e3906b",
+    "semantic_hash": "54d66011c8a4bb9d93d96de6b6e3906b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/api/grades.queries.ts": {
+    "mtime": 1780100188.0045428,
+    "ast_hash": "a459ee2af7ac1908ce599148cf38b565",
+    "semantic_hash": "a459ee2af7ac1908ce599148cf38b565"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/api/grades.service.ts": {
+    "mtime": 1780100193.7785454,
+    "ast_hash": "d0b5c7ae3a988a8428970fc9fcefd2db",
+    "semantic_hash": "d0b5c7ae3a988a8428970fc9fcefd2db"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/pages/ApplicantGradesImportHistoryPage.tsx": {
+    "mtime": 1779608058.4909446,
+    "ast_hash": "fc75d475251257c205d93e170446d4e6",
+    "semantic_hash": "fc75d475251257c205d93e170446d4e6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/pages/ApplicantGradesPage.tsx": {
+    "mtime": 1779705784.7806861,
+    "ast_hash": "b514bdcdf72f48bbea03e2f769fecb50",
+    "semantic_hash": "b514bdcdf72f48bbea03e2f769fecb50"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/pages/ApplicantGradesChangesPage.tsx": {
+    "mtime": 1779297705.5462217,
+    "ast_hash": "fe5fe66dcc91c9ff94126e2173b0ddf6",
+    "semantic_hash": "fe5fe66dcc91c9ff94126e2173b0ddf6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/pages/ApplicantGradesImportPage.tsx": {
+    "mtime": 1779840423.6469862,
+    "ast_hash": "c93d8cd318c7469ccb8bb602a177804b",
+    "semantic_hash": "c93d8cd318c7469ccb8bb602a177804b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-grades/store/importWizard.store.ts": {
+    "mtime": 1779840423.6481414,
+    "ast_hash": "324537bcb344c8b41df85baa298a0e80",
+    "semantic_hash": "324537bcb344c8b41df85baa298a0e80"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicants/schemas.ts": {
+    "mtime": 1779550652.8196821,
+    "ast_hash": "a4bbe2182fd221eff8060411f3985629",
+    "semantic_hash": "a4bbe2182fd221eff8060411f3985629"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicants/index.ts": {
+    "mtime": 1777888411.1230047,
+    "ast_hash": "d840bd9c4683b552f5f6d6c1f33973c0",
+    "semantic_hash": "d840bd9c4683b552f5f6d6c1f33973c0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicants/lib/transitions.ts": {
+    "mtime": 1777888411.1236596,
+    "ast_hash": "4c3647aea70128b350d0765739ad2113",
+    "semantic_hash": "4c3647aea70128b350d0765739ad2113"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicants/api/applicant.queries.ts": {
+    "mtime": 1780063539.9608667,
+    "ast_hash": "a2676b4261c60cc59c4a95abcdffd519",
+    "semantic_hash": "a2676b4261c60cc59c4a95abcdffd519"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicants/api/applicant.service.ts": {
+    "mtime": 1780229225.4723387,
+    "ast_hash": "bf628777c6a17153e9f3025e80d9fbb2",
+    "semantic_hash": "bf628777c6a17153e9f3025e80d9fbb2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/AdminLayout.tsx": {
+    "mtime": 1779840423.5969646,
+    "ast_hash": "126758e4909acd3056068d557694a349",
+    "semantic_hash": "126758e4909acd3056068d557694a349"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/index.ts": {
+    "mtime": 1779440886.5590897,
+    "ast_hash": "3073b8251d52e2691247bc6043074305",
+    "semantic_hash": "3073b8251d52e2691247bc6043074305"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/types.ts": {
+    "mtime": 1779296264.4218755,
+    "ast_hash": "8ff8105207318c32e9024021bd47df06",
+    "semantic_hash": "8ff8105207318c32e9024021bd47df06"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/index.ts": {
+    "mtime": 1779181087.3544703,
+    "ast_hash": "26c3e34a60656986b2e287f12762066a",
+    "semantic_hash": "26c3e34a60656986b2e287f12762066a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/config.ts": {
+    "mtime": 1779296272.5643005,
+    "ast_hash": "42c4bf8908a4103326a8e5375dc52652",
+    "semantic_hash": "42c4bf8908a4103326a8e5375dc52652"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/StepPlaceholder.tsx": {
+    "mtime": 1778413949.6814368,
+    "ast_hash": "aae53c552339084ed9b9971b65b976d2",
+    "semantic_hash": "aae53c552339084ed9b9971b65b976d2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/EmbeddedAdmissionSetupWizard.tsx": {
+    "mtime": 1780066964.1210456,
+    "ast_hash": "cc147f5c38628afe3a90e24803cf8048",
+    "semantic_hash": "cc147f5c38628afe3a90e24803cf8048"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/AdmissionSetupBreadcrumbs.tsx": {
+    "mtime": 1778413911.9618566,
+    "ast_hash": "a7f6e3f2cb972d5b673132782c988ac5",
+    "semantic_hash": "a7f6e3f2cb972d5b673132782c988ac5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/WizardModeContext.tsx": {
+    "mtime": 1778420875.032698,
+    "ast_hash": "09dabfafc1dd3c78352776e793c89e22",
+    "semantic_hash": "09dabfafc1dd3c78352776e793c89e22"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/VerticalStepper.tsx": {
+    "mtime": 1780066964.122088,
+    "ast_hash": "75ce037c9f946335752e46e3cedb28cd",
+    "semantic_hash": "75ce037c9f946335752e46e3cedb28cd"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/StepHeader.tsx": {
+    "mtime": 1779321919.8562694,
+    "ast_hash": "e5f86ffb00af066b017f12ba641e8e2e",
+    "semantic_hash": "e5f86ffb00af066b017f12ba641e8e2e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/ApprovedCategoryCompositionsSummary.tsx": {
+    "mtime": 1780138688.748605,
+    "ast_hash": "d36f7289e42e93b79c837f539f360ea6",
+    "semantic_hash": "d36f7289e42e93b79c837f539f360ea6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/AdmissionSetupShell.tsx": {
+    "mtime": 1779067906.4998891,
+    "ast_hash": "bb6496403acc24375ccf44ad6a8ea6fd",
+    "semantic_hash": "bb6496403acc24375ccf44ad6a8ea6fd"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/committeeBinding/CommitteeInstanceAddForm.tsx": {
+    "mtime": 1779502945.14138,
+    "ast_hash": "8c50e9cf8892e2e4d416c0bbad12ba8d",
+    "semantic_hash": "8c50e9cf8892e2e4d416c0bbad12ba8d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/committeeBinding/CommitteeBindingsPanel.tsx": {
+    "mtime": 1779502912.1680875,
+    "ast_hash": "68c59804e15829d2e8df837399882199",
+    "semantic_hash": "68c59804e15829d2e8df837399882199"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/GeneralRulesSection.tsx": {
+    "mtime": 1780130370.249865,
+    "ast_hash": "a31dfc5e17fe6534483c0787d847b432",
+    "semantic_hash": "a31dfc5e17fe6534483c0787d847b432"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/ThanawiRulesSection.tsx": {
+    "mtime": 1780130375.5269983,
+    "ast_hash": "4cccb4f789cb620761880ab275bd035f",
+    "semantic_hash": "4cccb4f789cb620761880ab275bd035f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/ExcellenceModeToggle.tsx": {
+    "mtime": 1779840423.603393,
+    "ast_hash": "b238ba4f6c8ba43f1e94bcf2b8b62ed8",
+    "semantic_hash": "b238ba4f6c8ba43f1e94bcf2b8b62ed8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/AttachSpecializationCombobox.tsx": {
+    "mtime": 1778621622.9038656,
+    "ast_hash": "20c67b60fc258abf5b727ab13ddeb66e",
+    "semantic_hash": "20c67b60fc258abf5b727ab13ddeb66e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/SpecializationList.tsx": {
+    "mtime": 1779574751.3566499,
+    "ast_hash": "d9812a632adc623815a5a50c89211ba4",
+    "semantic_hash": "d9812a632adc623815a5a50c89211ba4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/OperatorScoreField.tsx": {
+    "mtime": 1779840423.6068532,
+    "ast_hash": "cdfc582bc244aa4eebccb66cd543f608",
+    "semantic_hash": "cdfc582bc244aa4eebccb66cd543f608"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/CategoryAccordion.tsx": {
+    "mtime": 1780130360.0409367,
+    "ast_hash": "fa02120a56bc6cae8080b4416036dab4",
+    "semantic_hash": "fa02120a56bc6cae8080b4416036dab4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/ScopeBanner.tsx": {
+    "mtime": 1778530192.4036071,
+    "ast_hash": "30bca5ad440f244d8eb9f956a754951b",
+    "semantic_hash": "30bca5ad440f244d8eb9f956a754951b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/YearTable.tsx": {
+    "mtime": 1780130364.403701,
+    "ast_hash": "c4d493365a93634fe375f25bb413da55",
+    "semantic_hash": "c4d493365a93634fe375f25bb413da55"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/StickyBulkSaveBar.tsx": {
+    "mtime": 1779068329.8263743,
+    "ast_hash": "fdc286c98d08edad98b838c883f03c82",
+    "semantic_hash": "fdc286c98d08edad98b838c883f03c82"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/SpecializationRow.tsx": {
+    "mtime": 1779280339.2774897,
+    "ast_hash": "77b581c9e0b4244a97fc9a727c805672",
+    "semantic_hash": "77b581c9e0b4244a97fc9a727c805672"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/applicationSettings/UnsavedChangesPrompt.tsx": {
+    "mtime": 1778530799.6414068,
+    "ast_hash": "3900006fc65e1b9b8884e9b844550688",
+    "semantic_hash": "3900006fc65e1b9b8884e9b844550688"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/examSchedule/BulkGenerateDialog.tsx": {
+    "mtime": 1778625998.8037436,
+    "ast_hash": "ef4b502419245d59bb3570d16cf8dda5",
+    "semantic_hash": "ef4b502419245d59bb3570d16cf8dda5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/examSchedule/CopyScheduleDialog.tsx": {
+    "mtime": 1778626018.3475223,
+    "ast_hash": "a34e0600a1893470b2cd3b4fded82113",
+    "semantic_hash": "a34e0600a1893470b2cd3b4fded82113"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/examSchedule/DayFormDialog.tsx": {
+    "mtime": 1778625953.948498,
+    "ast_hash": "80aab0724eea3cc7b47f84b8704776da",
+    "semantic_hash": "80aab0724eea3cc7b47f84b8704776da"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/examSchedule/ExamScheduleStep.tsx": {
+    "mtime": 1778629921.0890412,
+    "ast_hash": "3b76f0bb6c9dd014fc18b5a2fc5a4df1",
+    "semantic_hash": "3b76f0bb6c9dd014fc18b5a2fc5a4df1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/components/examSchedule/DaysTable.tsx": {
+    "mtime": 1778627417.4083502,
+    "ast_hash": "3627df1e9d9d094aa7a665fc7d817d3c",
+    "semantic_hash": "3627df1e9d9d094aa7a665fc7d817d3c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/hooks/useAdmissionSetupCycle.ts": {
+    "mtime": 1778413846.5602512,
+    "ast_hash": "2ff787b01f3e6b34cb085b6d9a903372",
+    "semantic_hash": "2ff787b01f3e6b34cb085b6d9a903372"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/lib/excellenceMode.ts": {
+    "mtime": 1779175000.5014732,
+    "ast_hash": "9c8c9f4dbe6bce73972abc4eba4e651e",
+    "semantic_hash": "9c8c9f4dbe6bce73972abc4eba4e651e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/lib/activeCategories.ts": {
+    "mtime": 1779581528.4157128,
+    "ast_hash": "fbe5e09ecb48a7d052e241af0ffb55f8",
+    "semantic_hash": "fbe5e09ecb48a7d052e241af0ffb55f8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/lib/application-settings-cycle-draft.ts": {
+    "mtime": 1780055780.623905,
+    "ast_hash": "63c1d5e27a47d275408c93597b9d46ca",
+    "semantic_hash": "63c1d5e27a47d275408c93597b9d46ca"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/lib/step-status.ts": {
+    "mtime": 1779296318.7034752,
+    "ast_hash": "1d56f09a1df7238fab42103e122e7d2d",
+    "semantic_hash": "1d56f09a1df7238fab42103e122e7d2d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/lib/resolveGradingMode.ts": {
+    "mtime": 1778628631.3392785,
+    "ast_hash": "bbba4a43304b4e9d99aa347acb586f6c",
+    "semantic_hash": "bbba4a43304b4e9d99aa347acb586f6c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/lib/appSettingsValidation.ts": {
+    "mtime": 1778618805.5012102,
+    "ast_hash": "6f6b4276c97179742ebb0362cd0938c5",
+    "semantic_hash": "6f6b4276c97179742ebb0362cd0938c5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/lib/maritalStatuses.ts": {
+    "mtime": 1779468245.100423,
+    "ast_hash": "69b2b11306d43a1a9dd8c3230e3114a3",
+    "semantic_hash": "69b2b11306d43a1a9dd8c3230e3114a3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/lib/wizard-draft.ts": {
+    "mtime": 1778420936.8912053,
+    "ast_hash": "098d87b87c9eebade12bb72ca189db0b",
+    "semantic_hash": "098d87b87c9eebade12bb72ca189db0b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/api/committeeBinding.queries.ts": {
+    "mtime": 1778628810.2235708,
+    "ast_hash": "888f2888b48ec33932b13f881047cb46",
+    "semantic_hash": "888f2888b48ec33932b13f881047cb46"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/api/admission-setup.queries.ts": {
+    "mtime": 1779842739.7038758,
+    "ast_hash": "f580d41c43c7a072ef85d21fa1b9f13f",
+    "semantic_hash": "f580d41c43c7a072ef85d21fa1b9f13f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/api/examSchedule.service.ts": {
+    "mtime": 1779440887.3105316,
+    "ast_hash": "51d98f9c035573b2ccb2e46080b977fc",
+    "semantic_hash": "51d98f9c035573b2ccb2e46080b977fc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/api/applicationSettings.service.ts": {
+    "mtime": 1780130335.9735692,
+    "ast_hash": "919197d1c60be75700e200592a7dfb98",
+    "semantic_hash": "919197d1c60be75700e200592a7dfb98"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/api/examSchedule.queries.ts": {
+    "mtime": 1778626168.1928668,
+    "ast_hash": "3857850cb86e881d6bd5ea0942686de7",
+    "semantic_hash": "3857850cb86e881d6bd5ea0942686de7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/api/admission-setup.service.ts": {
+    "mtime": 1779840423.5985985,
+    "ast_hash": "342160e9d387424456bdc84f141b2405",
+    "semantic_hash": "342160e9d387424456bdc84f141b2405"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/api/applicationSettings.queries.ts": {
+    "mtime": 1780130341.1639338,
+    "ast_hash": "d2d3bab846a43f4e6096c2f1c5f74b37",
+    "semantic_hash": "d2d3bab846a43f4e6096c2f1c5f74b37"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/api/committeeBinding.service.ts": {
+    "mtime": 1779440887.3089535,
+    "ast_hash": "532ebe135b405555e0f3abf3221990c4",
+    "semantic_hash": "532ebe135b405555e0f3abf3221990c4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/pages/ApplicationSettingsReviewPage.tsx": {
+    "mtime": 1780138281.2332985,
+    "ast_hash": "249f51cd29e14a4a87d76b8ad39e387d",
+    "semantic_hash": "249f51cd29e14a4a87d76b8ad39e387d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/pages/ElectronicDeclarationPage.tsx": {
+    "mtime": 1779072579.252756,
+    "ast_hash": "356877265b6b8646ff21a100a6b962ac",
+    "semantic_hash": "356877265b6b8646ff21a100a6b962ac"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/pages/FeesPage.tsx": {
+    "mtime": 1778932606.998882,
+    "ast_hash": "3c3d257ea4338ad92333122bb5c738a7",
+    "semantic_hash": "3c3d257ea4338ad92333122bb5c738a7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/pages/WizardReviewPage.tsx": {
+    "mtime": 1779504140.9279006,
+    "ast_hash": "0a9a301baa992cc151de1508d19f24d5",
+    "semantic_hash": "0a9a301baa992cc151de1508d19f24d5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/pages/ApplicationStatusPage.tsx": {
+    "mtime": 1778721583.9849823,
+    "ast_hash": "764dc4a7643825ec19928280c73a5d64",
+    "semantic_hash": "764dc4a7643825ec19928280c73a5d64"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/pages/ApplicationSettingsPage.tsx": {
+    "mtime": 1779702837.5030048,
+    "ast_hash": "2f9db5299b9171161a99f82a515c90ef",
+    "semantic_hash": "2f9db5299b9171161a99f82a515c90ef"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/pages/CommitteesManagementPage.tsx": {
+    "mtime": 1779502912.1692827,
+    "ast_hash": "097ecd06087883e3cbc1cf560d5c7109",
+    "semantic_hash": "097ecd06087883e3cbc1cf560d5c7109"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/pages/AdmissionSetupWizardPage.tsx": {
+    "mtime": 1780066964.1230607,
+    "ast_hash": "223acb923854fcda025c0defcd3442e8",
+    "semantic_hash": "223acb923854fcda025c0defcd3442e8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/pages/ExamsManagementPage.tsx": {
+    "mtime": 1778625854.2926843,
+    "ast_hash": "c733625e17de358337fd29ec3f59d00b",
+    "semantic_hash": "c733625e17de358337fd29ec3f59d00b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/pages/AdmissionSetupIndexPage.tsx": {
+    "mtime": 1778726110.3461468,
+    "ast_hash": "09897dcb44125aaa081cd93665eeb18b",
+    "semantic_hash": "09897dcb44125aaa081cd93665eeb18b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/store/wizardSharedState.ts": {
+    "mtime": 1779309954.8295672,
+    "ast_hash": "9745829c27682240248d959115ca3814",
+    "semantic_hash": "9745829c27682240248d959115ca3814"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/admission-setup/store/appSettingsDraft.ts": {
+    "mtime": 1778619048.193447,
+    "ast_hash": "f4e46cb3dc64ae484ffdec8dc2b4cbff",
+    "semantic_hash": "f4e46cb3dc64ae484ffdec8dc2b4cbff"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/cycles/cycleListStatus.ts": {
+    "mtime": 1778924753.7844179,
+    "ast_hash": "9e0b9f4692e9c6a53685956538a76371",
+    "semantic_hash": "9e0b9f4692e9c6a53685956538a76371"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/cycles/FawryConfigCard.tsx": {
+    "mtime": 1778414643.016203,
+    "ast_hash": "7ea433602ebb16fa24536ec007ffa3d3",
+    "semantic_hash": "7ea433602ebb16fa24536ec007ffa3d3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/cycles/LifecycleActions.tsx": {
+    "mtime": 1778414685.5257852,
+    "ast_hash": "ac502f586e82d42f7e7b964cf0faab4d",
+    "semantic_hash": "ac502f586e82d42f7e7b964cf0faab4d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/cycles/ActiveCycleIndicator.tsx": {
+    "mtime": 1778584967.98483,
+    "ast_hash": "8a9acb0b8b8528a71ebd4f1281885b3a",
+    "semantic_hash": "8a9acb0b8b8528a71ebd4f1281885b3a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/cycles/CategoriesPanel.tsx": {
+    "mtime": 1779280339.2825828,
+    "ast_hash": "53f14792d25395dab75f7ac922d46722",
+    "semantic_hash": "53f14792d25395dab75f7ac922d46722"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/auth/GeneralSettingsCard.tsx": {
+    "mtime": 1780146995.6555696,
+    "ast_hash": "d1498a7fb7faef6ef8aa0c16afa849bb",
+    "semantic_hash": "d1498a7fb7faef6ef8aa0c16afa849bb"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/auth/LockPolicyCard.tsx": {
+    "mtime": 1780146982.4460187,
+    "ast_hash": "11ae2a1698b059009e27d99ae6c6b6cb",
+    "semantic_hash": "11ae2a1698b059009e27d99ae6c6b6cb"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/auth/ApplicantControlScreensSettingsCard.tsx": {
+    "mtime": 1780221003.5046582,
+    "ast_hash": "0b135430f1730ca7d11ba5dafad70645",
+    "semantic_hash": "0b135430f1730ca7d11ba5dafad70645"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/applicants/ApplicantRowActions.tsx": {
+    "mtime": 1780063539.950803,
+    "ast_hash": "563e8e42ff49913e78b3c6ae92e8f51c",
+    "semantic_hash": "563e8e42ff49913e78b3c6ae92e8f51c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/applicants/ApplicantForm.tsx": {
+    "mtime": 1779468219.9769034,
+    "ast_hash": "b6441f82de8afa751c2a4959a7953659",
+    "semantic_hash": "b6441f82de8afa751c2a4959a7953659"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/applicants/AuditTimeline.tsx": {
+    "mtime": 1779280339.2811997,
+    "ast_hash": "2240ad052b2e0e3ab8212d73c0f05dd0",
+    "semantic_hash": "2240ad052b2e0e3ab8212d73c0f05dd0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/roles/PermissionMatrix.tsx": {
+    "mtime": 1779497309.3866143,
+    "ast_hash": "c921f9a899060633fc28a515d0e865b7",
+    "semantic_hash": "c921f9a899060633fc28a515d0e865b7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/workflow/SortableStageCard.tsx": {
+    "mtime": 1779287094.3978179,
+    "ast_hash": "fe5fd6c56b9dc411c8b302cd45a8fbe3",
+    "semantic_hash": "fe5fd6c56b9dc411c8b302cd45a8fbe3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/workflow/ApplicantWorkflowPanel.tsx": {
+    "mtime": 1777888411.1054988,
+    "ast_hash": "570e17d89d4d3a5c7c2cbd3589c63470",
+    "semantic_hash": "570e17d89d4d3a5c7c2cbd3589c63470"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/users/AccountStatusToggle.tsx": {
+    "mtime": 1778417727.3074794,
+    "ast_hash": "552acb8376280c1ed7a4cad0103083a2",
+    "semantic_hash": "552acb8376280c1ed7a4cad0103083a2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/users/NidLookupResultCard.tsx": {
+    "mtime": 1778417727.309877,
+    "ast_hash": "fbaac4017c4b6fd390d5e4274ac847f4",
+    "semantic_hash": "fbaac4017c4b6fd390d5e4274ac847f4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/users/index.ts": {
+    "mtime": 1780148075.2423937,
+    "ast_hash": "8c1f6cd20c895d928d81a87f542bf8fb",
+    "semantic_hash": "8c1f6cd20c895d928d81a87f542bf8fb"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/users/CredentialsModal.tsx": {
+    "mtime": 1780148075.2417693,
+    "ast_hash": "1a3673ceecca8ea799bb7883a6e29cc2",
+    "semantic_hash": "1a3673ceecca8ea799bb7883a6e29cc2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/users/NidLookupField.tsx": {
+    "mtime": 1779503270.4290564,
+    "ast_hash": "c0b020338c4934cdfa7c1754fb8c5e90",
+    "semantic_hash": "c0b020338c4934cdfa7c1754fb8c5e90"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/users/RoleMultiSelect.tsx": {
+    "mtime": 1779440886.4180708,
+    "ast_hash": "822712339179e89cfa45717560f99331",
+    "semantic_hash": "822712339179e89cfa45717560f99331"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/exams/ExamPlanEditor.tsx": {
+    "mtime": 1779572656.5837574,
+    "ast_hash": "efd2f7decc0f4e7c0605666067d38719",
+    "semantic_hash": "efd2f7decc0f4e7c0605666067d38719"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/categories/CategoryConditionBuilder.tsx": {
+    "mtime": 1779287077.2653146,
+    "ast_hash": "d4b49952177d4f52b24e88e86d15914f",
+    "semantic_hash": "d4b49952177d4f52b24e88e86d15914f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/notifications/AudienceSelector.tsx": {
+    "mtime": 1779581533.787169,
+    "ast_hash": "9c3b150910c454ec540f20b469b88c62",
+    "semantic_hash": "9c3b150910c454ec540f20b469b88c62"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/CycleOverviewSection.tsx": {
+    "mtime": 1778156528.7879002,
+    "ast_hash": "7aa538144878c0a2ea05201a7ac4f8cc",
+    "semantic_hash": "7aa538144878c0a2ea05201a7ac4f8cc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/GovernanceSection.tsx": {
+    "mtime": 1779581945.0867157,
+    "ast_hash": "8d26a616fee4e7d2a22737177fb82bdc",
+    "semantic_hash": "8d26a616fee4e7d2a22737177fb82bdc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/RangeChips.tsx": {
+    "mtime": 1779581881.8516638,
+    "ast_hash": "0ab0b33d628497c00476c006e9d460b7",
+    "semantic_hash": "0ab0b33d628497c00476c006e9d460b7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/TestResultsSection.tsx": {
+    "mtime": 1779581937.745085,
+    "ast_hash": "a47e3d664c9dda49a17dd44f898828a2",
+    "semantic_hash": "a47e3d664c9dda49a17dd44f898828a2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/OperationalStatusSection.tsx": {
+    "mtime": 1779735706.3518214,
+    "ast_hash": "9b5110cb25db07bcc01118de6ae3eaee",
+    "semantic_hash": "9b5110cb25db07bcc01118de6ae3eaee"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/StagePipelineFunnel.tsx": {
+    "mtime": 1779735706.3553529,
+    "ast_hash": "dc1bb9281d2e2a3f461eecc1b061f3c5",
+    "semantic_hash": "dc1bb9281d2e2a3f461eecc1b061f3c5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/SectionHeading.tsx": {
+    "mtime": 1778156500.0912797,
+    "ast_hash": "8a16ce22ad7b63520dd13864af45b377",
+    "semantic_hash": "8a16ce22ad7b63520dd13864af45b377"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/StatusPulseStrip.tsx": {
+    "mtime": 1779581889.8225281,
+    "ast_hash": "017ee15299bb70d3702ad69d7d513f40",
+    "semantic_hash": "017ee15299bb70d3702ad69d7d513f40"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/DepartmentBreakdownSection.tsx": {
+    "mtime": 1779581931.9692655,
+    "ast_hash": "ea863ce25e0606c436d2ad455ab22640",
+    "semantic_hash": "ea863ce25e0606c436d2ad455ab22640"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/RegistrationTempoChart.tsx": {
+    "mtime": 1777896382.3913245,
+    "ast_hash": "17ca90193f6a4d2f293a852a50df8f44",
+    "semantic_hash": "17ca90193f6a4d2f293a852a50df8f44"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/ReportsExportRow.tsx": {
+    "mtime": 1777895112.369735,
+    "ast_hash": "fc8d867ae21661075a08a1229dd0a04d",
+    "semantic_hash": "fc8d867ae21661075a08a1229dd0a04d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/DecisionBriefSection.tsx": {
+    "mtime": 1779582173.8842254,
+    "ast_hash": "5d742a4c8a88aab79015ad07afdc923e",
+    "semantic_hash": "5d742a4c8a88aab79015ad07afdc923e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/SuperAdminSignalsSection.tsx": {
+    "mtime": 1779582186.9481304,
+    "ast_hash": "0d326f514764b6133b0a4e554ba447da",
+    "semantic_hash": "0d326f514764b6133b0a4e554ba447da"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/ReportsFiltersBar.tsx": {
+    "mtime": 1779845075.6920736,
+    "ast_hash": "78c709ba156e18ee4a99e3c2e10273e2",
+    "semantic_hash": "78c709ba156e18ee4a99e3c2e10273e2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/ReportsAvailabilityGate.tsx": {
+    "mtime": 1779840423.617077,
+    "ast_hash": "ce2b7c899a3817b66602f1a7db4315e7",
+    "semantic_hash": "ce2b7c899a3817b66602f1a7db4315e7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/components/reports/ReportsExportButtons.tsx": {
+    "mtime": 1779840423.6177619,
+    "ast_hash": "d94fd4bbdbd137b4dd8f786c717c6a24",
+    "semantic_hash": "d94fd4bbdbd137b4dd8f786c717c6a24"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/hooks/useNidLookup.ts": {
+    "mtime": 1778417727.3452194,
+    "ast_hash": "732591336738413fcf104b20f1dfd9b4",
+    "semantic_hash": "732591336738413fcf104b20f1dfd9b4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/users/lib/cloudPermissions.ts": {
+    "mtime": 1779585279.6944737,
+    "ast_hash": "7dd91d37ae5278726d73208e745275ae",
+    "semantic_hash": "7dd91d37ae5278726d73208e745275ae"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/lib/role-rules.ts": {
+    "mtime": 1779585476.138562,
+    "ast_hash": "38a68bb9452f89468c84e6ed18bdb686",
+    "semantic_hash": "38a68bb9452f89468c84e6ed18bdb686"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/lib/workflow-validation.ts": {
+    "mtime": 1777888411.1089237,
+    "ast_hash": "83a885d2c5ee06183cf34ad0e9711850",
+    "semantic_hash": "83a885d2c5ee06183cf34ad0e9711850"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/cycles.service.ts": {
+    "mtime": 1779840423.6121607,
+    "ast_hash": "94f488baec19c391f0bddcdd8fdabd66",
+    "semantic_hash": "94f488baec19c391f0bddcdd8fdabd66"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/nid-lookup.service.ts": {
+    "mtime": 1779503188.0318215,
+    "ast_hash": "5732803ff3ae4525a44d3e65d43a3d3d",
+    "semantic_hash": "5732803ff3ae4525a44d3e65d43a3d3d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/categories.queries.ts": {
+    "mtime": 1780063539.9490054,
+    "ast_hash": "5d7554e9e8affacad1256a7454907bb9",
+    "semantic_hash": "5d7554e9e8affacad1256a7454907bb9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/examPlans.queries.ts": {
+    "mtime": 1778162703.5335634,
+    "ast_hash": "989d489452f69fc3ed1e836a5fe7de7a",
+    "semantic_hash": "989d489452f69fc3ed1e836a5fe7de7a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/roles.service.ts": {
+    "mtime": 1779440887.3254454,
+    "ast_hash": "a8f12797240db80dfedfbe48795069ab",
+    "semantic_hash": "a8f12797240db80dfedfbe48795069ab"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/admissionRules.service.ts": {
+    "mtime": 1779440887.3145182,
+    "ast_hash": "6ea192feeb93b648531c9cb1f6f2ae6b",
+    "semantic_hash": "6ea192feeb93b648531c9cb1f6f2ae6b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/payments.queries.ts": {
+    "mtime": 1778163769.5943182,
+    "ast_hash": "f5063a592a2e3cb8cf76f0c03a4c0a8b",
+    "semantic_hash": "f5063a592a2e3cb8cf76f0c03a4c0a8b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/reports.service.ts": {
+    "mtime": 1779840423.6138935,
+    "ast_hash": "75fa5ca37960bebf73036a4477ea706b",
+    "semantic_hash": "75fa5ca37960bebf73036a4477ea706b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/users.service.ts": {
+    "mtime": 1780148075.2408571,
+    "ast_hash": "70dc4cff1728809037837a2d6afc527d",
+    "semantic_hash": "70dc4cff1728809037837a2d6afc527d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/workflows.queries.ts": {
+    "mtime": 1777888411.1015563,
+    "ast_hash": "5c6f8a627e1b90ccc14fdbaaf454ee23",
+    "semantic_hash": "5c6f8a627e1b90ccc14fdbaaf454ee23"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/notifications.queries.ts": {
+    "mtime": 1779582069.936403,
+    "ast_hash": "f5943ed0a96fb5cdc9615ecd5910a33e",
+    "semantic_hash": "f5943ed0a96fb5cdc9615ecd5910a33e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/settings.service.ts": {
+    "mtime": 1780220996.302555,
+    "ast_hash": "051c2ec21e1360abd62f78b068abebc3",
+    "semantic_hash": "051c2ec21e1360abd62f78b068abebc3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/roles.queries.ts": {
+    "mtime": 1778162997.143715,
+    "ast_hash": "46b04eba172bad222427bb7b814b6cd5",
+    "semantic_hash": "46b04eba172bad222427bb7b814b6cd5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/categories.service.ts": {
+    "mtime": 1779440887.3159807,
+    "ast_hash": "7dd691aa68387bf9eb38efc1f54171b8",
+    "semantic_hash": "7dd691aa68387bf9eb38efc1f54171b8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/examPlans.service.ts": {
+    "mtime": 1779572587.5389507,
+    "ast_hash": "105fcdbcd6b45838fb59c3bf9b245782",
+    "semantic_hash": "105fcdbcd6b45838fb59c3bf9b245782"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/cycles.queries.ts": {
+    "mtime": 1780063539.9496229,
+    "ast_hash": "9b2cd0c6f619fecd5e8e6653ba67ccb3",
+    "semantic_hash": "9b2cd0c6f619fecd5e8e6653ba67ccb3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/workflows.service.ts": {
+    "mtime": 1779440887.3286242,
+    "ast_hash": "50757f40205391a5f8fdf79e09c58092",
+    "semantic_hash": "50757f40205391a5f8fdf79e09c58092"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/users.queries.ts": {
+    "mtime": 1780148075.2395346,
+    "ast_hash": "65213e50de439b06c1f8e046a989ab50",
+    "semantic_hash": "65213e50de439b06c1f8e046a989ab50"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/settings.queries.ts": {
+    "mtime": 1779164135.2831998,
+    "ast_hash": "a97a569136342c39575eaed68eb80ef8",
+    "semantic_hash": "a97a569136342c39575eaed68eb80ef8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/notifications.service.ts": {
+    "mtime": 1779440887.322652,
+    "ast_hash": "ebff3b8fd0a70eb6aa633dc70b200887",
+    "semantic_hash": "ebff3b8fd0a70eb6aa633dc70b200887"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/reports.queries.ts": {
+    "mtime": 1780063539.950192,
+    "ast_hash": "b3fb350ccf316964e5a2d599bf784470",
+    "semantic_hash": "b3fb350ccf316964e5a2d599bf784470"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/admissionRules.queries.ts": {
+    "mtime": 1777691917.2669275,
+    "ast_hash": "3ed4e537604b764b262c37e9bd159b3c",
+    "semantic_hash": "3ed4e537604b764b262c37e9bd159b3c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/api/payments.service.ts": {
+    "mtime": 1779440887.3236482,
+    "ast_hash": "7e9f3fa4b3b883dd399e200c68c2980f",
+    "semantic_hash": "7e9f3fa4b3b883dd399e200c68c2980f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/WorkflowEditorPage.tsx": {
+    "mtime": 1779286302.443645,
+    "ast_hash": "1cff1a3fefafe70039552c7896e465e4",
+    "semantic_hash": "1cff1a3fefafe70039552c7896e465e4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/CycleDetailPage.tsx": {
+    "mtime": 1779840423.6274304,
+    "ast_hash": "5498941c4faac053e6d828aed3fa2c46",
+    "semantic_hash": "5498941c4faac053e6d828aed3fa2c46"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/CycleEditPage.tsx": {
+    "mtime": 1779845075.6935465,
+    "ast_hash": "d5c22f1e1f73e0f7ae848707ed23b644",
+    "semantic_hash": "d5c22f1e1f73e0f7ae848707ed23b644"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/ApplicantsPage.tsx": {
+    "mtime": 1780063539.9517372,
+    "ast_hash": "a9ffd534dc4c7027ed0150c5bcde7dc1",
+    "semantic_hash": "a9ffd534dc4c7027ed0150c5bcde7dc1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/SettingsPage.tsx": {
+    "mtime": 1780221016.0227332,
+    "ast_hash": "30effa5b8298eeb606a620322184902e",
+    "semantic_hash": "30effa5b8298eeb606a620322184902e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/ApplicantDetailPage.tsx": {
+    "mtime": 1779840423.6196105,
+    "ast_hash": "4c16775881b87b91ac9c4dd5ca33c8ec",
+    "semantic_hash": "4c16775881b87b91ac9c4dd5ca33c8ec"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/AdmissionRulesPage.tsx": {
+    "mtime": 1778369760.4189386,
+    "ast_hash": "1284ca782859a024fc1f1626145a92ad",
+    "semantic_hash": "1284ca782859a024fc1f1626145a92ad"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/ApplicantEditPage.tsx": {
+    "mtime": 1779840423.6210415,
+    "ast_hash": "dd8c79b4e9e971185501ce545ceeadc0",
+    "semantic_hash": "dd8c79b4e9e971185501ce545ceeadc0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/ReportsPage.tsx": {
+    "mtime": 1779840423.6320667,
+    "ast_hash": "70f354fd0ed759a24568b76312495b7b",
+    "semantic_hash": "70f354fd0ed759a24568b76312495b7b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/UsersPage.tsx": {
+    "mtime": 1779286302.439948,
+    "ast_hash": "cc2a55da49f07abb63137e59bc28590d",
+    "semantic_hash": "cc2a55da49f07abb63137e59bc28590d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/WorkflowsListPage.tsx": {
+    "mtime": 1779286302.4406059,
+    "ast_hash": "0da04745f253cc1f6d2c82256e7a0b58",
+    "semantic_hash": "0da04745f253cc1f6d2c82256e7a0b58"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/CategoriesListPage.tsx": {
+    "mtime": 1779164135.2381797,
+    "ast_hash": "15d69fee9b5d95c95701671e7d53320d",
+    "semantic_hash": "15d69fee9b5d95c95701671e7d53320d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/NotificationsPage.tsx": {
+    "mtime": 1779286302.442245,
+    "ast_hash": "5efa0a29ff17ed560893a174b7c24a94",
+    "semantic_hash": "5efa0a29ff17ed560893a174b7c24a94"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/AuditPage.tsx": {
+    "mtime": 1779840423.6242514,
+    "ast_hash": "04d9c03c622f94a905cdc6291da98d46",
+    "semantic_hash": "04d9c03c622f94a905cdc6291da98d46"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/CommitteeInstancesPage.tsx": {
+    "mtime": 1780055780.6251593,
+    "ast_hash": "b79441142f79c51dc93fb2170e02e72b",
+    "semantic_hash": "b79441142f79c51dc93fb2170e02e72b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/CycleNewPage.tsx": {
+    "mtime": 1779735706.3608594,
+    "ast_hash": "2b0e80a192d10a4d8a0f3055f6f86ae2",
+    "semantic_hash": "2b0e80a192d10a4d8a0f3055f6f86ae2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/CyclesPage.tsx": {
+    "mtime": 1779840423.629389,
+    "ast_hash": "d56c562fd8fbd19575ab0eb7125a2198",
+    "semantic_hash": "d56c562fd8fbd19575ab0eb7125a2198"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/CategoryEditPage.tsx": {
+    "mtime": 1779735706.356946,
+    "ast_hash": "83b7243380b2f8867eaa2a2dd9d9c5fa",
+    "semantic_hash": "83b7243380b2f8867eaa2a2dd9d9c5fa"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/PaymentsPage.tsx": {
+    "mtime": 1779280339.283616,
+    "ast_hash": "a314531cbc74314b5ef9c7066b961ea7",
+    "semantic_hash": "a314531cbc74314b5ef9c7066b961ea7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/RolesPage.tsx": {
+    "mtime": 1779735706.3641279,
+    "ast_hash": "4106a1f4706e47292644cd6e3f866547",
+    "semantic_hash": "4106a1f4706e47292644cd6e3f866547"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/DashboardPage.tsx": {
+    "mtime": 1779840423.6310248,
+    "ast_hash": "a8b25ef77812b8f7a846ddf6654d759f",
+    "semantic_hash": "a8b25ef77812b8f7a846ddf6654d759f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/ApplicantNewPage.tsx": {
+    "mtime": 1779440887.3315935,
+    "ast_hash": "9e658c134a9344cc7cc42922d9a545a6",
+    "semantic_hash": "9e658c134a9344cc7cc42922d9a545a6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/committee-instances/expansionStore.ts": {
+    "mtime": 1779167867.431905,
+    "ast_hash": "ab2c39d9c0bd88cd0acb516e6391dbbe",
+    "semantic_hash": "ab2c39d9c0bd88cd0acb516e6391dbbe"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/users/UserCreatePage.tsx": {
+    "mtime": 1780148075.243054,
+    "ast_hash": "c1db088be0235ba0f513eaf6bcb01b68",
+    "semantic_hash": "c1db088be0235ba0f513eaf6bcb01b68"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/users/UserEditPage.tsx": {
+    "mtime": 1779735706.3689713,
+    "ast_hash": "5222ff95a5608d90840b0c0bbec81897",
+    "semantic_hash": "5222ff95a5608d90840b0c0bbec81897"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/users/UserDetailPage.tsx": {
+    "mtime": 1780149932.6524794,
+    "ast_hash": "4b7d03c6a1a014a37f94411518e80063",
+    "semantic_hash": "4b7d03c6a1a014a37f94411518e80063"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/reports/ApplicantsReportTab.tsx": {
+    "mtime": 1779840423.634382,
+    "ast_hash": "6c7b375f6f8ab2feffa3fe665805800b",
+    "semantic_hash": "6c7b375f6f8ab2feffa3fe665805800b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/pages/reports/StageDropoffTab.tsx": {
+    "mtime": 1779840423.6352644,
+    "ast_hash": "409e48b860248d03610cbea449f01dc8",
+    "semantic_hash": "409e48b860248d03610cbea449f01dc8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/reports/types.ts": {
+    "mtime": 1779840423.6374896,
+    "ast_hash": "a18c3a09672219ef084ed82b4740070f",
+    "semantic_hash": "a18c3a09672219ef084ed82b4740070f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/admin/reports/store.ts": {
+    "mtime": 1779840423.6366577,
+    "ast_hash": "cd909ec985d974787366300f5de07c00",
+    "semantic_hash": "cd909ec985d974787366300f5de07c00"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/ApplicantPortalLayout.tsx": {
+    "mtime": 1780227500.2867696,
+    "ast_hash": "3713ba2c2b29caf690ed6c56c051ba8f",
+    "semantic_hash": "3713ba2c2b29caf690ed6c56c051ba8f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/index.ts": {
+    "mtime": 1779177102.8529825,
+    "ast_hash": "8db63f8cf7b9b85bbe034af91f0c7956",
+    "semantic_hash": "8db63f8cf7b9b85bbe034af91f0c7956"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/ApplicantPreWizardLayout.tsx": {
+    "mtime": 1780106611.1223063,
+    "ast_hash": "94f19781ca09ba0a523589cd4e760659",
+    "semantic_hash": "94f19781ca09ba0a523589cd4e760659"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/schemas/index.ts": {
+    "mtime": 1779840423.656956,
+    "ast_hash": "998d861679245c83ec20eedcc20a56b4",
+    "semantic_hash": "998d861679245c83ec20eedcc20a56b4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/AdmissionFormSection.tsx": {
+    "mtime": 1780066964.1260436,
+    "ast_hash": "fadc57845ec8dcd71c493afe4e5981f2",
+    "semantic_hash": "fadc57845ec8dcd71c493afe4e5981f2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/ApplicantAvailabilityGate.tsx": {
+    "mtime": 1780106611.124271,
+    "ast_hash": "ac640d3706160c37d18d13d3832ba3ae",
+    "semantic_hash": "ac640d3706160c37d18d13d3832ba3ae"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/TestInstructionsCards.tsx": {
+    "mtime": 1777900170.57104,
+    "ast_hash": "63f6e1a110147838582da385678f380b",
+    "semantic_hash": "63f6e1a110147838582da385678f380b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/TestTimeline.tsx": {
+    "mtime": 1777900248.8999243,
+    "ast_hash": "3e9dd9050939835cf7bf6f24e7951335",
+    "semantic_hash": "3e9dd9050939835cf7bf6f24e7951335"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/vothiqaTaaruf/RelativesListPanel.tsx": {
+    "mtime": 1779608058.3954499,
+    "ast_hash": "e22484e2773e7ad86dd171fb35d91c4e",
+    "semantic_hash": "e22484e2773e7ad86dd171fb35d91c4e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/vothiqaTaaruf/SpecialTables.tsx": {
+    "mtime": 1779608058.3964024,
+    "ast_hash": "c530da94ee9f88898e18ebd5999a1062",
+    "semantic_hash": "c530da94ee9f88898e18ebd5999a1062"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/vothiqaTaaruf/AccordionGroup.tsx": {
+    "mtime": 1779608058.3889375,
+    "ast_hash": "2fbbdbef2884a863d8546fd7c37485a5",
+    "semantic_hash": "2fbbdbef2884a863d8546fd7c37485a5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/vothiqaTaaruf/Cell.tsx": {
+    "mtime": 1779608058.389797,
+    "ast_hash": "840ff56c243eb60a5d90452ddb7c38dc",
+    "semantic_hash": "840ff56c243eb60a5d90452ddb7c38dc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/vothiqaTaaruf/index.ts": {
+    "mtime": 1779608058.396923,
+    "ast_hash": "14a199c915ccf75559d9e683e0b433ac",
+    "semantic_hash": "14a199c915ccf75559d9e683e0b433ac"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/vothiqaTaaruf/PrintableDocument.tsx": {
+    "mtime": 1779699787.2417855,
+    "ast_hash": "338aae7484dd327c1918269ff9dd6e45",
+    "semantic_hash": "338aae7484dd327c1918269ff9dd6e45"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/components/vothiqaTaaruf/RecordGrid.tsx": {
+    "mtime": 1779608058.3939512,
+    "ast_hash": "8d441f3cba21599d41087c16c3355eb5",
+    "semantic_hash": "8d441f3cba21599d41087c16c3355eb5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/hooks/useApplicantGuard.tsx": {
+    "mtime": 1777700187.6042037,
+    "ast_hash": "301552bf4131eb4b923b61056df4c839",
+    "semantic_hash": "301552bf4131eb4b923b61056df4c839"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/profile-options.ts": {
+    "mtime": 1780104541.7325907,
+    "ast_hash": "5070d421a878d07501ca31c44b008e00",
+    "semantic_hash": "5070d421a878d07501ca31c44b008e00"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/vothiqaTaaruf.derive.ts": {
+    "mtime": 1779608058.3982744,
+    "ast_hash": "46be8149186e5b6558dfe7787e81f524",
+    "semantic_hash": "46be8149186e5b6558dfe7787e81f524"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/application-lock.ts": {
+    "mtime": 1780221151.179873,
+    "ast_hash": "82e8da76992214f59c493c7f4a2a19d9",
+    "semantic_hash": "82e8da76992214f59c493c7f4a2a19d9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/deterministic-codes.ts": {
+    "mtime": 1778940177.146884,
+    "ast_hash": "252bc62364ef5f0064e3bb40b2bdbaf6",
+    "semantic_hash": "252bc62364ef5f0064e3bb40b2bdbaf6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/profileData.ts": {
+    "mtime": 1779181087.328063,
+    "ast_hash": "d052db0f3b156fa88fccb723f6837191",
+    "semantic_hash": "d052db0f3b156fa88fccb723f6837191"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/moi-session.mock.ts": {
+    "mtime": 1780148075.244643,
+    "ast_hash": "dfd0d4b113db41b83c46d9fb05d8371d",
+    "semantic_hash": "dfd0d4b113db41b83c46d9fb05d8371d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/specialized-program-options.ts": {
+    "mtime": 1780102822.2371268,
+    "ast_hash": "176d47b42ce08e8ee3ef64ef36146e7d",
+    "semantic_hash": "176d47b42ce08e8ee3ef64ef36146e7d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/certificate-type-options.ts": {
+    "mtime": 1780219864.315587,
+    "ast_hash": "fce48b6609ef6cc8cfbcab66f77391f1",
+    "semantic_hash": "fce48b6609ef6cc8cfbcab66f77391f1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/university-qualification-options.ts": {
+    "mtime": 1780220363.9722114,
+    "ast_hash": "a6adc433dd56b6a7e954c8f115862388",
+    "semantic_hash": "a6adc433dd56b6a7e954c8f115862388"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/vothiqaTaaruf.expiredDemo.ts": {
+    "mtime": 1779608058.3985922,
+    "ast_hash": "0e03e449f0fdb6a7cba6db138e72053a",
+    "semantic_hash": "0e03e449f0fdb6a7cba6db138e72053a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/familyData.ts": {
+    "mtime": 1780227500.2862732,
+    "ast_hash": "9b305122767e3c89f45aa793405f8747",
+    "semantic_hash": "9b305122767e3c89f45aa793405f8747"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/vothiqaTaaruf.snapshot.ts": {
+    "mtime": 1779608058.3993366,
+    "ast_hash": "5149651f9ed2ee652bd12a8808d8d0c8",
+    "semantic_hash": "5149651f9ed2ee652bd12a8808d8d0c8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/category-test-labels.ts": {
+    "mtime": 1777850458.5431235,
+    "ast_hash": "817169582102b262c59793371719983d",
+    "semantic_hash": "817169582102b262c59793371719983d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/grade-prefill.ts": {
+    "mtime": 1780099796.8795063,
+    "ast_hash": "5c2992bc0cdd36e1e527b2ca07cfe54b",
+    "semantic_hash": "5c2992bc0cdd36e1e527b2ca07cfe54b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/vothiqaTaaruf.types.ts": {
+    "mtime": 1779699787.2449443,
+    "ast_hash": "c6b6a1f317be0e543edb27beb2d47a08",
+    "semantic_hash": "c6b6a1f317be0e543edb27beb2d47a08"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/test-instructions.ts": {
+    "mtime": 1777850833.3894286,
+    "ast_hash": "74746fa9a29d7dc273dc2f40c9fb586b",
+    "semantic_hash": "74746fa9a29d7dc273dc2f40c9fb586b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/validateParentDob.ts": {
+    "mtime": 1779608058.3978453,
+    "ast_hash": "a1f50e4aba1f44aa2877e9a4b21d4e3d",
+    "semantic_hash": "a1f50e4aba1f44aa2877e9a4b21d4e3d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/follow-up-exam-plan.ts": {
+    "mtime": 1780221143.5205688,
+    "ast_hash": "582720a9de89f32548b1ca68c877251b",
+    "semantic_hash": "582720a9de89f32548b1ca68c877251b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/lib/vothiqaTaaruf.options.ts": {
+    "mtime": 1779608058.399035,
+    "ast_hash": "0e3917724655b18dec90414201f63224",
+    "semantic_hash": "0e3917724655b18dec90414201f63224"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/api/categories.queries.ts": {
+    "mtime": 1780131240.058499,
+    "ast_hash": "a88d6525e0aa637468b4343c94ce89d3",
+    "semantic_hash": "a88d6525e0aa637468b4343c94ce89d3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/api/applicantPortal.queries.ts": {
+    "mtime": 1780220844.7145956,
+    "ast_hash": "3a0989df97008d1e2e33007f309504b0",
+    "semantic_hash": "3a0989df97008d1e2e33007f309504b0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/api/test-schedule.service.ts": {
+    "mtime": 1777850844.2149982,
+    "ast_hash": "6a09404f59f1650284bad934c6dc4edd",
+    "semantic_hash": "6a09404f59f1650284bad934c6dc4edd"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/api/applicantPortal.service.ts": {
+    "mtime": 1780220838.4781795,
+    "ast_hash": "773d87836e54720d78fa858ac625a86a",
+    "semantic_hash": "773d87836e54720d78fa858ac625a86a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/api/categories.service.ts": {
+    "mtime": 1780220401.6067264,
+    "ast_hash": "bc3c1802bf2b8ecd50439fea3a6612d2",
+    "semantic_hash": "bc3c1802bf2b8ecd50439fea3a6612d2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/api/test-schedule.queries.ts": {
+    "mtime": 1777850851.0166495,
+    "ast_hash": "8592c71bbbd193fc9fbb23a11d04860e",
+    "semantic_hash": "8592c71bbbd193fc9fbb23a11d04860e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/Stage6PaymentPage.tsx": {
+    "mtime": 1779164135.0919902,
+    "ast_hash": "6c761c6e6a91828f4b7e32aff2cd21e3",
+    "semantic_hash": "6c761c6e6a91828f4b7e32aff2cd21e3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/EligibilityCheckPage.tsx": {
+    "mtime": 1780131288.0167475,
+    "ast_hash": "f591fd996556eafec90d93c97c9555d4",
+    "semantic_hash": "f591fd996556eafec90d93c97c9555d4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/Stage10FollowUpPage.tsx": {
+    "mtime": 1780131488.2154982,
+    "ast_hash": "72a46d677de854c7b61394ca1c04c0bc",
+    "semantic_hash": "72a46d677de854c7b61394ca1c04c0bc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/Stage8ExamSchedulePage.tsx": {
+    "mtime": 1780066964.127867,
+    "ast_hash": "20e56cdf1ae2e943e72aebc5e11a5104",
+    "semantic_hash": "20e56cdf1ae2e943e72aebc5e11a5104"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/ApplicantPortalPage.tsx": {
+    "mtime": 1780220973.3053446,
+    "ast_hash": "f9724103820cb7e2e8fd38a3cd796050",
+    "semantic_hash": "f9724103820cb7e2e8fd38a3cd796050"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/ApplicationSummaryPage.tsx": {
+    "mtime": 1780221027.425568,
+    "ast_hash": "f1a95eb01f0835f50c4859baff959acd",
+    "semantic_hash": "f1a95eb01f0835f50c4859baff959acd"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/Stage345ApplicantDataPage.tsx": {
+    "mtime": 1780220597.0236795,
+    "ast_hash": "d65332b06967ef49c434d9525be0a267",
+    "semantic_hash": "d65332b06967ef49c434d9525be0a267"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/TestScheduleAndResultsPage.tsx": {
+    "mtime": 1777939931.571197,
+    "ast_hash": "84923a7b673eb5138827953dacfff5e0",
+    "semantic_hash": "84923a7b673eb5138827953dacfff5e0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/ApplicantIneligiblePage.tsx": {
+    "mtime": 1779056960.6938004,
+    "ast_hash": "801e0e822b2b9d262bd3c739e0cdd922",
+    "semantic_hash": "801e0e822b2b9d262bd3c739e0cdd922"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/Stage7ReviewFamilyPage.tsx": {
+    "mtime": 1779177102.8555112,
+    "ast_hash": "eafc15ae0d7a325c3c87dff3c637954d",
+    "semantic_hash": "eafc15ae0d7a325c3c87dff3c637954d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/CategorySelectionPage.tsx": {
+    "mtime": 1780136844.43533,
+    "ast_hash": "eb0040145c32142e11408b50e88d9b85",
+    "semantic_hash": "eb0040145c32142e11408b50e88d9b85"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/Stage11AcquaintanceDocPage.tsx": {
+    "mtime": 1779699787.2498345,
+    "ast_hash": "7a894fdf970cb21c8c1decf20f8f4931",
+    "semantic_hash": "7a894fdf970cb21c8c1decf20f8f4931"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/Stage9PrintCardPage.tsx": {
+    "mtime": 1780141161.0965664,
+    "ast_hash": "62e2dc8c36aa7e86ccc84053a31ab7ef",
+    "semantic_hash": "62e2dc8c36aa7e86ccc84053a31ab7ef"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/pages/Stage7FamilyPage.tsx": {
+    "mtime": 1780227500.285491,
+    "ast_hash": "a72d8715b3199e8817e5736e13d18ecf",
+    "semantic_hash": "a72d8715b3199e8817e5736e13d18ecf"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/applicant-portal/store/applicantPortal.store.ts": {
+    "mtime": 1779840423.6572597,
+    "ast_hash": "cf69ea0867d10b16b330806b66c1a9be",
+    "semantic_hash": "cf69ea0867d10b16b330806b66c1a9be"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/architecture/data.ts": {
+    "mtime": 1777890598.7970119,
+    "ast_hash": "f22c9f1d900ddd4418f99b54ea92022f",
+    "semantic_hash": "f22c9f1d900ddd4418f99b54ea92022f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/architecture/index.ts": {
+    "mtime": 1777636302.162695,
+    "ast_hash": "2256643ec637bb1c996cbd85a2bb7fa9",
+    "semantic_hash": "2256643ec637bb1c996cbd85a2bb7fa9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/architecture/components/SectionTOC.tsx": {
+    "mtime": 1777822275.3607304,
+    "ast_hash": "d19be54df86b70ed7a280b193b3e600f",
+    "semantic_hash": "d19be54df86b70ed7a280b193b3e600f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/architecture/components/IntegrationCard.tsx": {
+    "mtime": 1777822372.849309,
+    "ast_hash": "0b35538b8cbcc043d5736a0a0b7f5478",
+    "semantic_hash": "0b35538b8cbcc043d5736a0a0b7f5478"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/architecture/components/SystemDiagram.tsx": {
+    "mtime": 1777890716.6741023,
+    "ast_hash": "599cf6d784f6a07dcb2ccb291be24bf3",
+    "semantic_hash": "599cf6d784f6a07dcb2ccb291be24bf3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/architecture/pages/ArchitecturePage.tsx": {
+    "mtime": 1780055780.6274893,
+    "ast_hash": "d9481a39d4549a71d11e29959f8aee84",
+    "semantic_hash": "d9481a39d4549a71d11e29959f8aee84"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/biometric/BiometricLayout.tsx": {
+    "mtime": 1780055780.6314344,
+    "ast_hash": "9db9e52802bc82622c4d593446c6d48c",
+    "semantic_hash": "9db9e52802bc82622c4d593446c6d48c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/biometric/index.ts": {
+    "mtime": 1780055780.6329057,
+    "ast_hash": "3651ccbc8201215ae72529cb51070f88",
+    "semantic_hash": "3651ccbc8201215ae72529cb51070f88"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/biometric/api/biometric.service.ts": {
+    "mtime": 1780149000.3632977,
+    "ast_hash": "3e7e860763d4579bce064da2fbf50657",
+    "semantic_hash": "3e7e860763d4579bce064da2fbf50657"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/biometric/pages/BiometricPages.tsx": {
+    "mtime": 1780055780.6337345,
+    "ast_hash": "78ae6f29996441cfdeb68fc7d130ce78",
+    "semantic_hash": "78ae6f29996441cfdeb68fc7d130ce78"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/biometric/pages/Sprint8Pages.tsx": {
+    "mtime": 1780055780.6349413,
+    "ast_hash": "a6c3fd9d0548d208c76c0f59ead392e2",
+    "semantic_hash": "a6c3fd9d0548d208c76c0f59ead392e2"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/audit/index.ts": {
+    "mtime": 1779840423.6603575,
+    "ast_hash": "e54309e2986a809983411e13edde17a1",
+    "semantic_hash": "e54309e2986a809983411e13edde17a1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/audit/components/AuditDiffDrawer.tsx": {
+    "mtime": 1779440887.3446305,
+    "ast_hash": "82b5a6824555dfd943e8ee91f0004220",
+    "semantic_hash": "82b5a6824555dfd943e8ee91f0004220"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/audit/components/fieldLabels.ts": {
+    "mtime": 1778160276.4998944,
+    "ast_hash": "9355fa16a2ad8670713428efc9891d27",
+    "semantic_hash": "9355fa16a2ad8670713428efc9891d27"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/audit/api/audit.queries.ts": {
+    "mtime": 1779468138.1844153,
+    "ast_hash": "f0cf36a1c9efe8f5859f12aed54e8afa",
+    "semantic_hash": "f0cf36a1c9efe8f5859f12aed54e8afa"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/audit/api/audit.service.ts": {
+    "mtime": 1779840423.6592898,
+    "ast_hash": "2a88650a693ca1f37c6d91f78966b560",
+    "semantic_hash": "2a88650a693ca1f37c6d91f78966b560"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/profile/index.ts": {
+    "mtime": 1777696822.7872465,
+    "ast_hash": "f9226f659dab05dc8cec8665b97b63ec",
+    "semantic_hash": "f9226f659dab05dc8cec8665b97b63ec"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/profile/pages/ProfilePage.tsx": {
+    "mtime": 1780148075.2483015,
+    "ast_hash": "283e278a858508b81ede92a26ede7129",
+    "semantic_hash": "283e278a858508b81ede92a26ede7129"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/design-revamp/index.ts": {
+    "mtime": 1777750799.1854706,
+    "ast_hash": "7f73b5663d7499363c7fda246dab214a",
+    "semantic_hash": "7f73b5663d7499363c7fda246dab214a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/design-revamp/pages/RevampComparisonPage.tsx": {
+    "mtime": 1778450037.4153593,
+    "ast_hash": "cf4d1fa247dcbdfa8d3735d3ab65b23a",
+    "semantic_hash": "cf4d1fa247dcbdfa8d3735d3ab65b23a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/medical/MedicalLayout.tsx": {
+    "mtime": 1779581825.1891696,
+    "ast_hash": "b4703931aa3c59575c7ed7271b1a36cd",
+    "semantic_hash": "b4703931aa3c59575c7ed7271b1a36cd"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/medical/index.ts": {
+    "mtime": 1777695250.4391823,
+    "ast_hash": "c7556e530d8c5c1e90b03a7ca35af089",
+    "semantic_hash": "c7556e530d8c5c1e90b03a7ca35af089"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/medical/api/medical.service.ts": {
+    "mtime": 1777834920.5394406,
+    "ast_hash": "1e2f9e892126125a83fb32b5894393a9",
+    "semantic_hash": "1e2f9e892126125a83fb32b5894393a9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/medical/pages/MedicalCertificatePage.tsx": {
+    "mtime": 1778156645.1622608,
+    "ast_hash": "08a9658496f77e4cdd5d420b59a7a221",
+    "semantic_hash": "08a9658496f77e4cdd5d420b59a7a221"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/medical/pages/MedicalPages.tsx": {
+    "mtime": 1779286999.3238366,
+    "ast_hash": "7c118311e5dbb618c5e1e035aa0c1fff",
+    "semantic_hash": "7c118311e5dbb618c5e1e035aa0c1fff"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/medical/pages/StationExamPage.tsx": {
+    "mtime": 1778156653.9368615,
+    "ast_hash": "ca4e1ad95bfcd3616b5c80fa02129c0f",
+    "semantic_hash": "ca4e1ad95bfcd3616b5c80fa02129c0f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/ExamsLayout.tsx": {
+    "mtime": 1780055780.6357841,
+    "ast_hash": "53d0520ff5e76e00cbfa08180c827314",
+    "semantic_hash": "53d0520ff5e76e00cbfa08180c827314"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/index.ts": {
+    "mtime": 1780055780.6382065,
+    "ast_hash": "73db0506e32645a33ce39ee23fedaf2d",
+    "semantic_hash": "73db0506e32645a33ce39ee23fedaf2d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/components/ImportPreviewTable.tsx": {
+    "mtime": 1777850189.2292495,
+    "ast_hash": "493aded96b05254122961b8428c17a66",
+    "semantic_hash": "493aded96b05254122961b8428c17a66"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/components/ProgressBar.tsx": {
+    "mtime": 1777850280.49,
+    "ast_hash": "fd5e88e29b8211f77582b49167b24516",
+    "semantic_hash": "fd5e88e29b8211f77582b49167b24516"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/components/ImportWizard.tsx": {
+    "mtime": 1779280339.2921681,
+    "ast_hash": "c320ead4a9f529f1243c26a93561eb14",
+    "semantic_hash": "c320ead4a9f529f1243c26a93561eb14"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/components/LiveSessionsTable.tsx": {
+    "mtime": 1779280339.2938263,
+    "ast_hash": "58430ab4aa3de6e5e0ff213826002ceb",
+    "semantic_hash": "58430ab4aa3de6e5e0ff213826002ceb"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/components/SessionStatusBadge.tsx": {
+    "mtime": 1777850294.0036042,
+    "ast_hash": "ac304d34d7601ff4f5738cf61629d822",
+    "semantic_hash": "ac304d34d7601ff4f5738cf61629d822"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/lib/import-questions.ts": {
+    "mtime": 1777850552.4802887,
+    "ast_hash": "854bd1f68ed284c0e24808886844680c",
+    "semantic_hash": "854bd1f68ed284c0e24808886844680c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/api/exams.queries.ts": {
+    "mtime": 1780055780.636682,
+    "ast_hash": "f43ef56e46de67a83738fe04b01d7261",
+    "semantic_hash": "f43ef56e46de67a83738fe04b01d7261"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/api/exams.service.ts": {
+    "mtime": 1780055780.6372697,
+    "ast_hash": "dd0a6f1c239053424c5e4338c195bab8",
+    "semantic_hash": "dd0a6f1c239053424c5e4338c195bab8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/pages/Sprint7Pages.tsx": {
+    "mtime": 1780055780.6408315,
+    "ast_hash": "cb4c2ca683c4fe905551c23169046690",
+    "semantic_hash": "cb4c2ca683c4fe905551c23169046690"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/exams/pages/ExamsPages.tsx": {
+    "mtime": 1780055780.6390095,
+    "ast_hash": "4146400f10f54a2bea3b850f7cb64780",
+    "semantic_hash": "4146400f10f54a2bea3b850f7cb64780"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/dev/LookupsReviewPage.tsx": {
+    "mtime": 1778588969.5954242,
+    "ast_hash": "7096035186854fd20e054b335a632129",
+    "semantic_hash": "7096035186854fd20e054b335a632129"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/dev/ApplicantGradesImportReviewPage.tsx": {
+    "mtime": 1778933108.6127396,
+    "ast_hash": "980ff9ddcfe36293c6b5a496556c0238",
+    "semantic_hash": "980ff9ddcfe36293c6b5a496556c0238"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/dev/AppSettingsReviewPage.tsx": {
+    "mtime": 1778530622.9291553,
+    "ast_hash": "7ebf2c5e12a6e1ad0a7fe4bdd138e157",
+    "semantic_hash": "7ebf2c5e12a6e1ad0a7fe4bdd138e157"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/dev/index.ts": {
+    "mtime": 1778933115.8564994,
+    "ast_hash": "c144dcc8a2619f9911b2f749b8b7c81c",
+    "semantic_hash": "c144dcc8a2619f9911b2f749b8b7c81c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/dev/PrimitivesReviewPage.tsx": {
+    "mtime": 1778165534.1090915,
+    "ast_hash": "0de8f7b02b80b8c8773cf727b9653df7",
+    "semantic_hash": "0de8f7b02b80b8c8773cf727b9653df7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/barcode/BarcodeLayout.tsx": {
+    "mtime": 1779581825.2013233,
+    "ast_hash": "03b7e0c4fe24f2b8bfbdf0574f7c7fdb",
+    "semantic_hash": "03b7e0c4fe24f2b8bfbdf0574f7c7fdb"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/barcode/index.ts": {
+    "mtime": 1777696469.3598921,
+    "ast_hash": "74faebfb51cbc9b2ae6b9be8d270c4f9",
+    "semantic_hash": "74faebfb51cbc9b2ae6b9be8d270c4f9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/barcode/api/barcode.service.ts": {
+    "mtime": 1777834920.544517,
+    "ast_hash": "0bbab72071bf9072eed3a1e210ba3eaa",
+    "semantic_hash": "0bbab72071bf9072eed3a1e210ba3eaa"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/barcode/pages/BarcodePages.tsx": {
+    "mtime": 1779286991.115096,
+    "ast_hash": "4836951eaa0b1fb2e7134b99eaaaef31",
+    "semantic_hash": "4836951eaa0b1fb2e7134b99eaaaef31"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/barcode/pages/Sprint8Pages.tsx": {
+    "mtime": 1778453173.089936,
+    "ast_hash": "8c7b56e0b935c6e3404dcff8f624716a",
+    "semantic_hash": "8c7b56e0b935c6e3404dcff8f624716a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/hub/index.ts": {
+    "mtime": 1777636302.174323,
+    "ast_hash": "7911ae128592e79dd0f0315041dc50db",
+    "semantic_hash": "7911ae128592e79dd0f0315041dc50db"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/hub/pages/HubPage.tsx": {
+    "mtime": 1780055780.642291,
+    "ast_hash": "7db977dd626c0c7429b240428592de81",
+    "semantic_hash": "7db977dd626c0c7429b240428592de81"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/help/index.ts": {
+    "mtime": 1777696864.2592037,
+    "ast_hash": "bbea0a524420b4a19bf9e3b713f34a18",
+    "semantic_hash": "bbea0a524420b4a19bf9e3b713f34a18"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/features/help/pages/HelpPage.tsx": {
+    "mtime": 1777834920.5484257,
+    "ast_hash": "2bd41f9c8bded3ddd90dffb309b2fc5d",
+    "semantic_hash": "2bd41f9c8bded3ddd90dffb309b2fc5d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/types/api.ts": {
+    "mtime": 1777636302.1853158,
+    "ast_hash": "0f11a00e5e463a284ff6716737fbbd58",
+    "semantic_hash": "0f11a00e5e463a284ff6716737fbbd58"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/types/domain.ts": {
+    "mtime": 1780148075.2494924,
+    "ast_hash": "536a04cb9df16f232868d710ffec47ca",
+    "semantic_hash": "536a04cb9df16f232868d710ffec47ca"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/workflows.ts": {
+    "mtime": 1777888411.1303275,
+    "ast_hash": "4ee6564adbfea12979468dcbb74aa187",
+    "semantic_hash": "4ee6564adbfea12979468dcbb74aa187"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/sprint3to9.ts": {
+    "mtime": 1779583263.2350018,
+    "ast_hash": "90c7c74fad3cda3babaef712e4e57a38",
+    "semantic_hash": "90c7c74fad3cda3babaef712e4e57a38"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/adminPayments.ts": {
+    "mtime": 1778163718.8071415,
+    "ast_hash": "593a2df20b31025bc6bdd3909a7114e5",
+    "semantic_hash": "593a2df20b31025bc6bdd3909a7114e5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/committeeInstances.ts": {
+    "mtime": 1779179764.1068118,
+    "ast_hash": "b55112543fa5d43f823f10913e7e0c7d",
+    "semantic_hash": "b55112543fa5d43f823f10913e7e0c7d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/dictionaries.ts": {
+    "mtime": 1777888411.128137,
+    "ast_hash": "8611b1a088474b5fadfe683180ee9c36",
+    "semantic_hash": "8611b1a088474b5fadfe683180ee9c36"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/seed.ts": {
+    "mtime": 1777636302.184947,
+    "ast_hash": "b8ba6457d9cb0b16d7b995287a83023f",
+    "semantic_hash": "b8ba6457d9cb0b16d7b995287a83023f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/_applicantsRefs.ts": {
+    "mtime": 1777694588.1376956,
+    "ast_hash": "be7211e0f7be691b9eec2099f3a8c8b0",
+    "semantic_hash": "be7211e0f7be691b9eec2099f3a8c8b0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/applicantPortal.ts": {
+    "mtime": 1778364841.4970107,
+    "ast_hash": "025dd3e2d10e82c9eb25eac513052644",
+    "semantic_hash": "025dd3e2d10e82c9eb25eac513052644"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/testSchedules.ts": {
+    "mtime": 1777849950.3785956,
+    "ast_hash": "b7cd4352ee44c2f847d89264d4e3d225",
+    "semantic_hash": "b7cd4352ee44c2f847d89264d4e3d225"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/academyExams.ts": {
+    "mtime": 1778627356.7919555,
+    "ast_hash": "9c51b4f1fd6aad7e16b78ec039d7a919",
+    "semantic_hash": "9c51b4f1fd6aad7e16b78ec039d7a919"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/referenceData.ts": {
+    "mtime": 1778524853.7549617,
+    "ast_hash": "c013000c9b322293533b4f2fd9c5ffbc",
+    "semantic_hash": "c013000c9b322293533b4f2fd9c5ffbc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/officers.ts": {
+    "mtime": 1778417727.3868587,
+    "ast_hash": "1a517f21fa3c02d583b12d305734dffd",
+    "semantic_hash": "1a517f21fa3c02d583b12d305734dffd"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/categoryCommittees.ts": {
+    "mtime": 1778618140.831488,
+    "ast_hash": "c147a797e6d48a659e530012f71791e7",
+    "semantic_hash": "c147a797e6d48a659e530012f71791e7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/admissionCycles.ts": {
+    "mtime": 1780106742.9203374,
+    "ast_hash": "27afc0adff1404c4f41c8f46418443d3",
+    "semantic_hash": "27afc0adff1404c4f41c8f46418443d3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/roles.ts": {
+    "mtime": 1780055780.6467845,
+    "ast_hash": "79a5a537c127a15bc35b122c48d1494f",
+    "semantic_hash": "79a5a537c127a15bc35b122c48d1494f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/index.ts": {
+    "mtime": 1779471960.4184566,
+    "ast_hash": "f46cb6ec6347002a044090537fe6f5ac",
+    "semantic_hash": "f46cb6ec6347002a044090537fe6f5ac"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/questionPool.ts": {
+    "mtime": 1777943031.1522279,
+    "ast_hash": "351a92f4c437d2937f7238988359ffc7",
+    "semantic_hash": "351a92f4c437d2937f7238988359ffc7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/admissionSetup.ts": {
+    "mtime": 1779576226.9034238,
+    "ast_hash": "5fc31f1b2ab3575fb9cdd242d66c2f5c",
+    "semantic_hash": "5fc31f1b2ab3575fb9cdd242d66c2f5c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/mock-data/adminNotifications.ts": {
+    "mtime": 1778725170.6392808,
+    "ast_hash": "fccc6caf7a797c6ebf0a466ee79042a6",
+    "semantic_hash": "fccc6caf7a797c6ebf0a466ee79042a6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/AlertDialog.tsx": {
+    "mtime": 1779550725.462021,
+    "ast_hash": "d8bd7ed8d745c50e48de5bebe2783bab",
+    "semantic_hash": "d8bd7ed8d745c50e48de5bebe2783bab"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/KhayameyaStripe.tsx": {
+    "mtime": 1777652412.7757175,
+    "ast_hash": "f82c1487fbb2047e03bc68cc50773ffe",
+    "semantic_hash": "f82c1487fbb2047e03bc68cc50773ffe"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/LogoMark.tsx": {
+    "mtime": 1779735706.398461,
+    "ast_hash": "f8a34c111205d5c7a5b00f56c462d00e",
+    "semantic_hash": "f8a34c111205d5c7a5b00f56c462d00e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Tabs.tsx": {
+    "mtime": 1778627388.5874493,
+    "ast_hash": "f71255ed3676d0baba0cd617167fa895",
+    "semantic_hash": "f71255ed3676d0baba0cd617167fa895"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/NotificationCenter.tsx": {
+    "mtime": 1779582069.937222,
+    "ast_hash": "fc72b2093272ac360c379bbf547ccd60",
+    "semantic_hash": "fc72b2093272ac360c379bbf547ccd60"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/DatePicker.tsx": {
+    "mtime": 1779503290.3665955,
+    "ast_hash": "175d7a1c93916ad8bc9efd63a5ba928b",
+    "semantic_hash": "175d7a1c93916ad8bc9efd63a5ba928b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/RadixSelect.tsx": {
+    "mtime": 1779286896.1121042,
+    "ast_hash": "1d160efb1622c2bf4c9b83de1dce2a5b",
+    "semantic_hash": "1d160efb1622c2bf4c9b83de1dce2a5b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Card.tsx": {
+    "mtime": 1777653195.074758,
+    "ast_hash": "f569a4e6ab7d2e449f77be2d5943bc50",
+    "semantic_hash": "f569a4e6ab7d2e449f77be2d5943bc50"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Popover.tsx": {
+    "mtime": 1778164969.9522464,
+    "ast_hash": "d88de839e86f31fef21799bce677c4f1",
+    "semantic_hash": "d88de839e86f31fef21799bce677c4f1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/CommandPalette.tsx": {
+    "mtime": 1779581840.9211035,
+    "ast_hash": "f3ceb5068097b5f0461e44e6244b6109",
+    "semantic_hash": "f3ceb5068097b5f0461e44e6244b6109"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/StageStepper.tsx": {
+    "mtime": 1777653300.116896,
+    "ast_hash": "ce8b7b5765420cde8874463f938647b8",
+    "semantic_hash": "ce8b7b5765420cde8874463f938647b8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Icon.tsx": {
+    "mtime": 1777653390.9114184,
+    "ast_hash": "92c62532c319a66e50213c5d84fc0d9f",
+    "semantic_hash": "92c62532c319a66e50213c5d84fc0d9f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/SoftDeleteDialog.tsx": {
+    "mtime": 1778160636.09471,
+    "ast_hash": "d71fa140a311aa0d10ad93c0b1091a86",
+    "semantic_hash": "d71fa140a311aa0d10ad93c0b1091a86"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Sheet.tsx": {
+    "mtime": 1778615149.6596444,
+    "ast_hash": "31c7b8e374597354b0fad4fffcb55fbc",
+    "semantic_hash": "31c7b8e374597354b0fad4fffcb55fbc"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Field.tsx": {
+    "mtime": 1779440886.4907925,
+    "ast_hash": "c67e05829be2161db9a121cc023dda2a",
+    "semantic_hash": "c67e05829be2161db9a121cc023dda2a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/DateRangePicker.tsx": {
+    "mtime": 1779175000.3432274,
+    "ast_hash": "89e05281a980281682ad3a3d1e9a1a21",
+    "semantic_hash": "89e05281a980281682ad3a3d1e9a1a21"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/PrintLayout.tsx": {
+    "mtime": 1777704153.9195085,
+    "ast_hash": "7b86c89b52c9a286504d02d6dd3516f0",
+    "semantic_hash": "7b86c89b52c9a286504d02d6dd3516f0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/PageHeader.tsx": {
+    "mtime": 1779286286.4631982,
+    "ast_hash": "145b5e6cc10a5b5120ca445028196a03",
+    "semantic_hash": "145b5e6cc10a5b5120ca445028196a03"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Pattern.tsx": {
+    "mtime": 1777652400.5846481,
+    "ast_hash": "ed38ba3413383e2cb5613e3ec6972b99",
+    "semantic_hash": "ed38ba3413383e2cb5613e3ec6972b99"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/StatCard.tsx": {
+    "mtime": 1777653354.9962132,
+    "ast_hash": "00546f7f8089a3300f2cad3474eb6711",
+    "semantic_hash": "00546f7f8089a3300f2cad3474eb6711"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/ErrorState.tsx": {
+    "mtime": 1777652513.942366,
+    "ast_hash": "28448e367095f2e02ed8b3845aea27a9",
+    "semantic_hash": "28448e367095f2e02ed8b3845aea27a9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Wizard.tsx": {
+    "mtime": 1780227500.2848976,
+    "ast_hash": "14eae061e1e3bc99d062743c082733e1",
+    "semantic_hash": "14eae061e1e3bc99d062743c082733e1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Accordion.tsx": {
+    "mtime": 1779322102.6635575,
+    "ast_hash": "ee3b4af3259699b4eafe7098940257c3",
+    "semantic_hash": "ee3b4af3259699b4eafe7098940257c3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Drawer.tsx": {
+    "mtime": 1778448013.8579304,
+    "ast_hash": "fbc3fbe2f9e4c449650bc74b8c859dc4",
+    "semantic_hash": "fbc3fbe2f9e4c449650bc74b8c859dc4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Tooltip.tsx": {
+    "mtime": 1778165019.6985013,
+    "ast_hash": "15844d98227694c647706bbcaf2c857f",
+    "semantic_hash": "15844d98227694c647706bbcaf2c857f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Combobox.tsx": {
+    "mtime": 1779440886.488153,
+    "ast_hash": "11663ce8d997bc9807f933d0205cbd70",
+    "semantic_hash": "11663ce8d997bc9807f933d0205cbd70"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Switch.tsx": {
+    "mtime": 1779735706.3995895,
+    "ast_hash": "d78e67a9e0455839cfe8964d61198457",
+    "semantic_hash": "d78e67a9e0455839cfe8964d61198457"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/FileUpload.tsx": {
+    "mtime": 1777652712.7865345,
+    "ast_hash": "d914e11619bf2728c0f9e561c56445c6",
+    "semantic_hash": "d914e11619bf2728c0f9e561c56445c6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/StatusBadge.tsx": {
+    "mtime": 1777834920.5467703,
+    "ast_hash": "4c125f974ab7b0e56243da8c0d227408",
+    "semantic_hash": "4c125f974ab7b0e56243da8c0d227408"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Avatar.tsx": {
+    "mtime": 1777653338.274116,
+    "ast_hash": "8b80e1723697e72a7b08b94ffadb85da",
+    "semantic_hash": "8b80e1723697e72a7b08b94ffadb85da"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/DataTable.tsx": {
+    "mtime": 1780063539.9652395,
+    "ast_hash": "d3c43c7564c0bb58408a31301c985008",
+    "semantic_hash": "d3c43c7564c0bb58408a31301c985008"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Dialog.tsx": {
+    "mtime": 1778615061.6052961,
+    "ast_hash": "ce2dab068db85aaf612e9cb1800b98b1",
+    "semantic_hash": "ce2dab068db85aaf612e9cb1800b98b1"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Badge.tsx": {
+    "mtime": 1777743483.3148599,
+    "ast_hash": "4cb4720a5ca6545ce7568b71ea3b35f9",
+    "semantic_hash": "4cb4720a5ca6545ce7568b71ea3b35f9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/SearchSelect.tsx": {
+    "mtime": 1779286896.1139784,
+    "ast_hash": "08b3ed9a042201f483adaa03949c0db5",
+    "semantic_hash": "08b3ed9a042201f483adaa03949c0db5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/DropdownMenu.tsx": {
+    "mtime": 1778165100.0217397,
+    "ast_hash": "3abe57cf5482846e3c13838b368c2797",
+    "semantic_hash": "3abe57cf5482846e3c13838b368c2797"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/index.ts": {
+    "mtime": 1779286286.462585,
+    "ast_hash": "fc8829d621e039fe151382aee6d4cd48",
+    "semantic_hash": "fc8829d621e039fe151382aee6d4cd48"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/RadixMultiSelect.tsx": {
+    "mtime": 1779286929.085688,
+    "ast_hash": "85ff75f31ec58d1ee680f7f528575b9b",
+    "semantic_hash": "85ff75f31ec58d1ee680f7f528575b9b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Button.tsx": {
+    "mtime": 1779286286.4615676,
+    "ast_hash": "01818ee9f48ec274a069b177f0737ee8",
+    "semantic_hash": "01818ee9f48ec274a069b177f0737ee8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/CornerFlourish.tsx": {
+    "mtime": 1777652424.8658948,
+    "ast_hash": "dbdc487eebe810fc77191857211a71f0",
+    "semantic_hash": "dbdc487eebe810fc77191857211a71f0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Modal.tsx": {
+    "mtime": 1778448040.8674896,
+    "ast_hash": "22b343d67ba5f7f6f087f8c046d6236b",
+    "semantic_hash": "22b343d67ba5f7f6f087f8c046d6236b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Toast.tsx": {
+    "mtime": 1777653324.5515354,
+    "ast_hash": "a2ce79b00add8c41968dff7b46836d4a",
+    "semantic_hash": "a2ce79b00add8c41968dff7b46836d4a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Checkbox.tsx": {
+    "mtime": 1779468461.5897,
+    "ast_hash": "17f37a019d37056943e2e3525454ee3d",
+    "semantic_hash": "17f37a019d37056943e2e3525454ee3d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/MultiSelect.tsx": {
+    "mtime": 1779440886.4928098,
+    "ast_hash": "08c06aefad4632d2dc8e6ca8fb6485c4",
+    "semantic_hash": "08c06aefad4632d2dc8e6ca8fb6485c4"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/EmptyState.tsx": {
+    "mtime": 1777652466.582653,
+    "ast_hash": "fb747c24e36bf4ec50f613392fa7470c",
+    "semantic_hash": "fb747c24e36bf4ec50f613392fa7470c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/dropdownStyles.ts": {
+    "mtime": 1779286861.662129,
+    "ast_hash": "cfcfd06c14491203dbf4725a228a272d",
+    "semantic_hash": "cfcfd06c14491203dbf4725a228a272d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Code128Barcode.tsx": {
+    "mtime": 1777909504.3967183,
+    "ast_hash": "a049bcd093778982290d760ba7ee6300",
+    "semantic_hash": "a049bcd093778982290d760ba7ee6300"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/DependencyWarning.tsx": {
+    "mtime": 1778160603.822603,
+    "ast_hash": "677e9cc7dbe6f1f02197bd3934f04be5",
+    "semantic_hash": "677e9cc7dbe6f1f02197bd3934f04be5"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Select.tsx": {
+    "mtime": 1779440886.4933484,
+    "ast_hash": "ba04d6531691fe4a4f242902f7807803",
+    "semantic_hash": "ba04d6531691fe4a4f242902f7807803"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Input.tsx": {
+    "mtime": 1779440886.4920287,
+    "ast_hash": "a692da6f0e3c63e65ed21b9bbe9e983a",
+    "semantic_hash": "a692da6f0e3c63e65ed21b9bbe9e983a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/Skeleton.tsx": {
+    "mtime": 1777653380.063651,
+    "ast_hash": "9cd69ac69249e883ac0353689802e40b",
+    "semantic_hash": "9cd69ac69249e883ac0353689802e40b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/LoadingState.tsx": {
+    "mtime": 1777652493.722321,
+    "ast_hash": "22c940c5605e4f444b7e87db5da15912",
+    "semantic_hash": "22c940c5605e4f444b7e87db5da15912"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/charts/Funnel.tsx": {
+    "mtime": 1777653070.3945494,
+    "ast_hash": "a52da99eced65e1665d733d5c346327c",
+    "semantic_hash": "a52da99eced65e1665d733d5c346327c"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/charts/Sparkline.tsx": {
+    "mtime": 1777653037.2143452,
+    "ast_hash": "49a1edd9930a3d9bac170aa3c179bd30",
+    "semantic_hash": "49a1edd9930a3d9bac170aa3c179bd30"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/charts/index.ts": {
+    "mtime": 1777894761.6202626,
+    "ast_hash": "98053ad4b8fdc9c13c78ad99126509d9",
+    "semantic_hash": "98053ad4b8fdc9c13c78ad99126509d9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/charts/Heatmap.tsx": {
+    "mtime": 1777896095.7760708,
+    "ast_hash": "fe5dfed33106f5506dfe581b7b306086",
+    "semantic_hash": "fe5dfed33106f5506dfe581b7b306086"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/charts/DonutChart.tsx": {
+    "mtime": 1779735706.4029777,
+    "ast_hash": "d4733114782efe376f3caeda078b8c50",
+    "semantic_hash": "d4733114782efe376f3caeda078b8c50"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/charts/Gauge.tsx": {
+    "mtime": 1779735706.4069247,
+    "ast_hash": "e10ffce9c9afd844660ec25221d1d62f",
+    "semantic_hash": "e10ffce9c9afd844660ec25221d1d62f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/charts/LineChart.tsx": {
+    "mtime": 1777652987.4854412,
+    "ast_hash": "efc08c4763acfc59fa70adf15d9de0c3",
+    "semantic_hash": "efc08c4763acfc59fa70adf15d9de0c3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/charts/HeatmapChart.tsx": {
+    "mtime": 1777895856.0344903,
+    "ast_hash": "be16b9d483ccd4440d65a9402dca2da9",
+    "semantic_hash": "be16b9d483ccd4440d65a9402dca2da9"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/charts/BarChart.tsx": {
+    "mtime": 1779735706.4012532,
+    "ast_hash": "aa00e2e9593ed728cccb518d69093373",
+    "semantic_hash": "aa00e2e9593ed728cccb518d69093373"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/icons/IconStamp.tsx": {
+    "mtime": 1777653123.9412336,
+    "ast_hash": "3cacaa10cb60b956ef1b25b0141c1a41",
+    "semantic_hash": "3cacaa10cb60b956ef1b25b0141c1a41"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/icons/IconCertificate.tsx": {
+    "mtime": 1777653115.522042,
+    "ast_hash": "5d51c15412b3a9e59dcb825094b693a0",
+    "semantic_hash": "5d51c15412b3a9e59dcb825094b693a0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/icons/IconBiometric.tsx": {
+    "mtime": 1777653108.1867988,
+    "ast_hash": "0d76bb3ccaff6334da8200ed37ed2713",
+    "semantic_hash": "0d76bb3ccaff6334da8200ed37ed2713"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/icons/IconBarcode.tsx": {
+    "mtime": 1777653099.1207516,
+    "ast_hash": "657e795f595b10775549febb23041519",
+    "semantic_hash": "657e795f595b10775549febb23041519"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/icons/types.ts": {
+    "mtime": 1777653090.6449416,
+    "ast_hash": "e4af2239547da12b2b6fd724f4bb18f0",
+    "semantic_hash": "e4af2239547da12b2b6fd724f4bb18f0"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/icons/index.ts": {
+    "mtime": 1777653085.0622475,
+    "ast_hash": "e1566ea45f9a7dcccefda30c85519af6",
+    "semantic_hash": "e1566ea45f9a7dcccefda30c85519af6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/icons/IconSeal.tsx": {
+    "mtime": 1777653132.1645384,
+    "ast_hash": "ea6cea31ae7c8cb02a1e6a3c3102602b",
+    "semantic_hash": "ea6cea31ae7c8cb02a1e6a3c3102602b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/data-table/ColumnFilter.tsx": {
+    "mtime": 1779164135.2509127,
+    "ast_hash": "e80f06bfdcef4d44aa1bcde836daa9ac",
+    "semantic_hash": "e80f06bfdcef4d44aa1bcde836daa9ac"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/data-table/ListActions.tsx": {
+    "mtime": 1778454937.9131708,
+    "ast_hash": "2aab4df57c7e4f9810df456c43a46c20",
+    "semantic_hash": "2aab4df57c7e4f9810df456c43a46c20"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/data-table/ImportPreviewTable.tsx": {
+    "mtime": 1778451504.3810842,
+    "ast_hash": "a926cfd23e26b4044d42f46074bf4134",
+    "semantic_hash": "a926cfd23e26b4044d42f46074bf4134"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/data-table/ImportDialog.tsx": {
+    "mtime": 1778451550.6143744,
+    "ast_hash": "730eac940b9c58f65b7c0fdd35ff0294",
+    "semantic_hash": "730eac940b9c58f65b7c0fdd35ff0294"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/data-table/list-actions.types.ts": {
+    "mtime": 1780063539.966819,
+    "ast_hash": "828d8b19e7dfe6af10c2544de607fe60",
+    "semantic_hash": "828d8b19e7dfe6af10c2544de607fe60"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/data-table/export-runner.ts": {
+    "mtime": 1778451398.9376411,
+    "ast_hash": "3e16e2fd7de1eadc6709834a5402aa71",
+    "semantic_hash": "3e16e2fd7de1eadc6709834a5402aa71"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/data-table/ExportMenu.tsx": {
+    "mtime": 1778454923.447596,
+    "ast_hash": "8862efca7541903d0b7ce0fee25696c3",
+    "semantic_hash": "8862efca7541903d0b7ce0fee25696c3"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/data-table/DuplicateAction.tsx": {
+    "mtime": 1778451585.7145555,
+    "ast_hash": "2b837a6b207b2f4bca920fa2a1a4b779",
+    "semantic_hash": "2b837a6b207b2f4bca920fa2a1a4b779"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/components/data-table/index.ts": {
+    "mtime": 1779297041.4225912,
+    "ast_hash": "56acd086c19010fdde9faf340d552d5b",
+    "semantic_hash": "56acd086c19010fdde9faf340d552d5b"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/mock-helpers.ts": {
+    "mtime": 1777636302.1841598,
+    "ast_hash": "3eabccaf8f958715fa4d4394ff188f54",
+    "semantic_hash": "3eabccaf8f958715fa4d4394ff188f54"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/api-client.ts": {
+    "mtime": 1780055780.6460829,
+    "ast_hash": "8deeb057d8e330859884c4ddeed2cdda",
+    "semantic_hash": "8deeb057d8e330859884c4ddeed2cdda"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/committee-gender.ts": {
+    "mtime": 1778727498.9546118,
+    "ast_hash": "e8cd680f67e3501f7d763cba1c2a23bb",
+    "semantic_hash": "e8cd680f67e3501f7d763cba1c2a23bb"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/errors.ts": {
+    "mtime": 1779440887.3616533,
+    "ast_hash": "ce0b880430b781d658bf0f55f905fe5e",
+    "semantic_hash": "ce0b880430b781d658bf0f55f905fe5e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/cn.ts": {
+    "mtime": 1777636302.183628,
+    "ast_hash": "2d01b535f0be7422af24560c9f31c327",
+    "semantic_hash": "2d01b535f0be7422af24560c9f31c327"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/xlsx.ts": {
+    "mtime": 1778451731.135156,
+    "ast_hash": "9a720e3e66d9b5778b263f4b783def50",
+    "semantic_hash": "9a720e3e66d9b5778b263f4b783def50"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/query-options.ts": {
+    "mtime": 1780063539.9676085,
+    "ast_hash": "b5ee261209ff1b31b50bc5dae917ee53",
+    "semantic_hash": "b5ee261209ff1b31b50bc5dae917ee53"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/csv.ts": {
+    "mtime": 1778451726.0940864,
+    "ast_hash": "ac2c279d4aa2ab79e828bc539dea5fd8",
+    "semantic_hash": "ac2c279d4aa2ab79e828bc539dea5fd8"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/motion.ts": {
+    "mtime": 1777652361.1566384,
+    "ast_hash": "2439aed9b6cf538d392d0102a15cdba6",
+    "semantic_hash": "2439aed9b6cf538d392d0102a15cdba6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/list-action-permissions.ts": {
+    "mtime": 1778923147.8866518,
+    "ast_hash": "87d90ced86aa9b5acf874a81611c4930",
+    "semantic_hash": "87d90ced86aa9b5acf874a81611c4930"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/arabic.ts": {
+    "mtime": 1778361230.4803648,
+    "ast_hash": "11818429e8c8e178ce1667a19d6a1fe6",
+    "semantic_hash": "11818429e8c8e178ce1667a19d6a1fe6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/format.ts": {
+    "mtime": 1777636302.1839476,
+    "ast_hash": "d16fc6f8b7905637ec8a412b50ba358f",
+    "semantic_hash": "d16fc6f8b7905637ec8a412b50ba358f"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/constants.ts": {
+    "mtime": 1779170565.843001,
+    "ast_hash": "2b69d8716c47f5721ba16ee889009a2d",
+    "semantic_hash": "2b69d8716c47f5721ba16ee889009a2d"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/national-id.ts": {
+    "mtime": 1777636302.1843271,
+    "ast_hash": "c72776fcf6f6bbad0991d58c8c1e36d7",
+    "semantic_hash": "c72776fcf6f6bbad0991d58c8c1e36d7"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/download.ts": {
+    "mtime": 1777692000.3369014,
+    "ast_hash": "57292e99bd5f4b763e525e68e24b3016",
+    "semantic_hash": "57292e99bd5f4b763e525e68e24b3016"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/zod-resolver.ts": {
+    "mtime": 1777707434.7340727,
+    "ast_hash": "7ca4f1c51ddefa3d02e2139ea05cf325",
+    "semantic_hash": "7ca4f1c51ddefa3d02e2139ea05cf325"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/validation-errors.ts": {
+    "mtime": 1779440887.3623059,
+    "ast_hash": "7882daf4428906d15bc8512bd0ea3258",
+    "semantic_hash": "7882daf4428906d15bc8512bd0ea3258"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/audit.ts": {
+    "mtime": 1778925263.736207,
+    "ast_hash": "f2a8a80fd1323a767bca3faf2ead887a",
+    "semantic_hash": "f2a8a80fd1323a767bca3faf2ead887a"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/list-action-actor.ts": {
+    "mtime": 1778451645.3784804,
+    "ast_hash": "788df269b9ccfb175f6bda66d3361bf6",
+    "semantic_hash": "788df269b9ccfb175f6bda66d3361bf6"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/frontend/src/shared/lib/soft-delete.ts": {
+    "mtime": 1778160587.6828117,
+    "ast_hash": "0cd7b9b9d0ba3156c2a1bc385330b04e",
+    "semantic_hash": "0cd7b9b9d0ba3156c2a1bc385330b04e"
+  },
+  "/Users/mac/Projects/PACademy/PACademy/backend/admin/README.md": {
+    "mtime": 1780221918.892854,
+    "ast_hash": "5d26aa64228b58c0c18cb6834fa70f86",
+    "semantic_hash": "5d26aa64228b58c0c18cb6834fa70f86"
+  }
+}
