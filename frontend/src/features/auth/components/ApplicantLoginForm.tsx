@@ -39,6 +39,7 @@ import {
 } from '@/features/applicant-portal/lib/moi-session.mock';
 import { useApplicantPortalStore } from '@/features/applicant-portal/store/applicantPortal.store';
 import { applicantPortalService } from '@/features/applicant-portal/api/applicantPortal.service';
+import { normalizeApplicantGender } from '@/features/applicant-portal/lib/applicant-gender';
 import { saveVothiqaTaarufSnapshot } from '@/features/applicant-portal/lib/vothiqaTaaruf.snapshot';
 import { EXPIRED_DEMO_DOCUMENT } from '@/features/applicant-portal/lib/vothiqaTaaruf.expiredDemo';
 import { emptyDocument } from '@/features/applicant-portal/lib/vothiqaTaaruf.types';
@@ -240,7 +241,7 @@ export function ApplicantLoginForm(): JSX.Element {
           dateOfBirthAr: profile.dateOfBirth
             ? new Date(profile.dateOfBirth).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' })
             : '',
-          gender: (profile.gender as 'male' | 'female') ?? 'male',
+          gender: normalizeApplicantGender(profile.gender, profile.nationalId),
           mobile: profile.mobile,
           email: profile.email,
           birthGovernorate: profile.birthGovernorate,

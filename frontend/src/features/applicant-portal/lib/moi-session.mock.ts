@@ -98,6 +98,7 @@ export function moiSessionMatches(input: {
  * ──────────────────────────────────────────────────────────────────── */
 
 import type { ApplicantCategoryKey } from '@/shared/types/domain';
+import { normalizeApplicantGender } from './applicant-gender';
 
 export type MoiLookupResult =
   | { kind: 'eligible'; session: MoiApplicantSession; categoryKey: ApplicantCategoryKey }
@@ -547,7 +548,11 @@ export async function lookupMoiSession(nid: string): Promise<MoiLookupResult> {
     // Network/5xx — fall back to the mock so the demo flow doesn't dead-end.
     return mockMoiLookup(nid);
   }
-  const session = (await res.json()) as MoiApplicantSession;
+  const rawSession = (await res.json()) as MoiApplicantSession;
+  const session: MoiApplicantSession = {
+    ...rawSession,
+    gender: normalizeApplicantGender(rawSession.gender, rawSession.nationalId),
+  };
   /* Verdict derivation — until the backend ships its eligibility
    * endpoint, mirror the existing NID-keyed routing exactly. */
   if (session.nationalId === KHALED_SESSION.nationalId) {
