@@ -12,14 +12,22 @@ import { buildApplicantControlScreensSettingsPatch } from '../api/settings.servi
 import { GeneralSettingsCard } from '../components/auth/GeneralSettingsCard';
 import {
   ApplicantControlScreensSettingsCard,
-  DEFAULT_LOCK_TIMING,
+  DEFAULT_DOCUMENT_TIMING,
+  DEFAULT_DURATION_UNIT,
+  type DocumentTiming,
   type ControlScreensForm,
 } from '../components/auth/ApplicantControlScreensSettingsCard';
 import { LockPolicyCard } from '../components/auth/LockPolicyCard';
 
 const EMPTY_CONTROL: ControlScreensForm = {
   acquaintanceDocumentsEntryResponsibleTestCode: '',
-  acquaintanceDocumentsMutationLockTiming: DEFAULT_LOCK_TIMING,
+  acquaintanceDocumentsOpenTiming: DEFAULT_DOCUMENT_TIMING,
+  acquaintanceDocumentsOpenOffsetValue: '',
+  acquaintanceDocumentsOpenOffsetUnit: DEFAULT_DURATION_UNIT,
+  acquaintanceDocumentsCloseResponsibleTestCode: '',
+  acquaintanceDocumentsCloseTiming: DEFAULT_DOCUMENT_TIMING,
+  acquaintanceDocumentsCloseOffsetValue: '',
+  acquaintanceDocumentsCloseOffsetUnit: DEFAULT_DURATION_UNIT,
   applicationInstructionsText: [
     'قبل التقدم: راجع البيانات المسجلة على بوابة وزارة الداخلية، وتأكد من صحتها.',
     'أثناء التقدم: سيطلب منك إدخال بيانات الدراسة بدقة. أي مخالفة قد تؤدي إلى منعك من الاختبار.',
@@ -53,7 +61,19 @@ export function SettingsPage(): JSX.Element {
     );
     setControl({
       acquaintanceDocumentsEntryResponsibleTestCode: data.acquaintanceDocumentsEntryResponsibleTestCode ?? '',
-      acquaintanceDocumentsMutationLockTiming: data.acquaintanceDocumentsMutationLockTiming ?? DEFAULT_LOCK_TIMING,
+      acquaintanceDocumentsOpenTiming: data.acquaintanceDocumentsOpenTiming ?? DEFAULT_DOCUMENT_TIMING,
+      acquaintanceDocumentsOpenOffsetValue: formatOptionalNumber(data.acquaintanceDocumentsOpenOffsetValue),
+      acquaintanceDocumentsOpenOffsetUnit: data.acquaintanceDocumentsOpenOffsetUnit ?? DEFAULT_DURATION_UNIT,
+      acquaintanceDocumentsCloseResponsibleTestCode:
+        data.acquaintanceDocumentsCloseResponsibleTestCode
+        ?? data.acquaintanceDocumentsPrintResponsibleTestCode
+        ?? data.acquaintanceDocumentsEntryResponsibleTestCode
+        ?? '',
+      acquaintanceDocumentsCloseTiming:
+        data.acquaintanceDocumentsCloseTiming
+        ?? mapLegacyLockTiming(data.acquaintanceDocumentsMutationLockTiming),
+      acquaintanceDocumentsCloseOffsetValue: formatOptionalNumber(data.acquaintanceDocumentsCloseOffsetValue),
+      acquaintanceDocumentsCloseOffsetUnit: data.acquaintanceDocumentsCloseOffsetUnit ?? DEFAULT_DURATION_UNIT,
       applicationInstructionsText: formatInstructionsText(data.applicationInstructions),
     });
   }, [settingsQuery.data]);
@@ -78,7 +98,17 @@ export function SettingsPage(): JSX.Element {
     parsedExamDays === null || !Number.isInteger(parsedExamDays) || parsedExamDays < 1;
   const isSlotWindowInvalid =
     parsedSlotWindow === null || !Number.isInteger(parsedSlotWindow) || parsedSlotWindow < 1;
-  const isControlInvalid = !control.acquaintanceDocumentsEntryResponsibleTestCode;
+  const parsedOpenOffset = parseOptionalNumber(control.acquaintanceDocumentsOpenOffsetValue);
+  const parsedCloseOffset = parseOptionalNumber(control.acquaintanceDocumentsCloseOffsetValue);
+  const isOpenOffsetInvalid = isDurationRequired(control.acquaintanceDocumentsOpenTiming)
+    && (parsedOpenOffset === null || !Number.isInteger(parsedOpenOffset) || parsedOpenOffset < 1);
+  const isCloseOffsetInvalid = isDurationRequired(control.acquaintanceDocumentsCloseTiming)
+    && (parsedCloseOffset === null || !Number.isInteger(parsedCloseOffset) || parsedCloseOffset < 1);
+  const isControlInvalid =
+    !control.acquaintanceDocumentsEntryResponsibleTestCode
+    || !control.acquaintanceDocumentsCloseResponsibleTestCode
+    || isOpenOffsetInvalid
+    || isCloseOffsetInvalid;
   const isInvalid = isExamDaysInvalid || isSlotWindowInvalid || isControlInvalid;
 
   const isPending = updateSettings.isPending || updatePolicy.isPending;
@@ -98,7 +128,17 @@ export function SettingsPage(): JSX.Element {
           examSlotSelectionWindowDays: parsedSlotWindow!,
           ...buildApplicantControlScreensSettingsPatch({
             acquaintanceDocumentsEntryResponsibleTestCode: control.acquaintanceDocumentsEntryResponsibleTestCode,
-            acquaintanceDocumentsMutationLockTiming: control.acquaintanceDocumentsMutationLockTiming,
+            acquaintanceDocumentsOpenTiming: control.acquaintanceDocumentsOpenTiming,
+            acquaintanceDocumentsOpenOffsetValue: isDurationRequired(control.acquaintanceDocumentsOpenTiming)
+              ? parsedOpenOffset
+              : null,
+            acquaintanceDocumentsOpenOffsetUnit: control.acquaintanceDocumentsOpenOffsetUnit,
+            acquaintanceDocumentsCloseResponsibleTestCode: control.acquaintanceDocumentsCloseResponsibleTestCode,
+            acquaintanceDocumentsCloseTiming: control.acquaintanceDocumentsCloseTiming,
+            acquaintanceDocumentsCloseOffsetValue: isDurationRequired(control.acquaintanceDocumentsCloseTiming)
+              ? parsedCloseOffset
+              : null,
+            acquaintanceDocumentsCloseOffsetUnit: control.acquaintanceDocumentsCloseOffsetUnit,
             applicationInstructions: parseInstructionsText(control.applicationInstructionsText),
           }),
         }),
@@ -132,6 +172,8 @@ export function SettingsPage(): JSX.Element {
             hasTests={hasTests}
             showErrors={touched}
             loading={settingsQuery.isLoading || testsQuery.isLoading}
+            openDurationError={isOpenOffsetInvalid ? 'أدخل مدة صحيحة أكبر من صفر' : undefined}
+            closeDurationError={isCloseOffsetInvalid ? 'أدخل مدة صحيحة أكبر من صفر' : undefined}
             onChange={patchControl}
           />
           <LockPolicyCard
@@ -171,4 +213,23 @@ function formatInstructionsText(lines: readonly string[] | undefined): string {
 function parseInstructionsText(value: string): readonly string[] {
   const lines = value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   return lines.length > 0 ? lines : EMPTY_CONTROL.applicationInstructionsText.split('\n');
+}
+
+function formatOptionalNumber(value: number | null | undefined): string {
+  return value == null ? '' : String(value);
+}
+
+function parseOptionalNumber(value: string): number | null {
+  return value.trim() === '' ? null : Number(value);
+}
+
+function isDurationRequired(timing: DocumentTiming): boolean {
+  return timing === 'before_test' || timing === 'after_test_passed';
+}
+
+function mapLegacyLockTiming(
+  timing: 'on_test_start' | 'on_test_end' | 'after_print' | 'manual' | undefined,
+): DocumentTiming {
+  if (timing === 'on_test_end' || timing === 'after_print') return 'after_test_passed';
+  return DEFAULT_DOCUMENT_TIMING;
 }

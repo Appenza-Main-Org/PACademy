@@ -21,6 +21,20 @@ export interface AdminSettings {
   acquaintanceDocumentsPrintResponsibleTestCode?: string;
   /** توقيت غلق الإدراج/الحذف/التعديل لوثائق التعارف. */
   acquaintanceDocumentsMutationLockTiming?: 'on_test_start' | 'on_test_end' | 'after_print' | 'manual';
+  /** توقيت فتح وثيقة التعارف بالنسبة للاختبار المختار. */
+  acquaintanceDocumentsOpenTiming?: 'before_test' | 'after_test_passed' | 'on_test_time';
+  /** مقدار مدة فتح وثيقة التعارف عند اختيار قبل/بعد الاختبار. */
+  acquaintanceDocumentsOpenOffsetValue?: number | null;
+  /** وحدة مدة فتح وثيقة التعارف. */
+  acquaintanceDocumentsOpenOffsetUnit?: 'days' | 'hours';
+  /** الاختبار المسؤول عن إغلاق وثيقة التعارف. */
+  acquaintanceDocumentsCloseResponsibleTestCode?: string;
+  /** توقيت إغلاق وثيقة التعارف بالنسبة للاختبار المختار. */
+  acquaintanceDocumentsCloseTiming?: 'before_test' | 'after_test_passed' | 'on_test_time';
+  /** مقدار مدة إغلاق وثيقة التعارف عند اختيار قبل/بعد الاختبار. */
+  acquaintanceDocumentsCloseOffsetValue?: number | null;
+  /** وحدة مدة إغلاق وثيقة التعارف. */
+  acquaintanceDocumentsCloseOffsetUnit?: 'days' | 'hours';
   /** المرحلة/الاختبار المسؤول عن إظهار شاشات الأقارب الأولية. */
   primaryRelativesVisibilityResponsibleTestCode?: string;
   /** Applicant-facing application instructions shown in the portal drawer. */
@@ -30,7 +44,13 @@ export interface AdminSettings {
 export type ApplicantControlScreensSettingsPatch = Pick<
   AdminSettings,
   | 'acquaintanceDocumentsEntryResponsibleTestCode'
-  | 'acquaintanceDocumentsMutationLockTiming'
+  | 'acquaintanceDocumentsOpenTiming'
+  | 'acquaintanceDocumentsOpenOffsetValue'
+  | 'acquaintanceDocumentsOpenOffsetUnit'
+  | 'acquaintanceDocumentsCloseResponsibleTestCode'
+  | 'acquaintanceDocumentsCloseTiming'
+  | 'acquaintanceDocumentsCloseOffsetValue'
+  | 'acquaintanceDocumentsCloseOffsetUnit'
   | 'applicationInstructions'
 >;
 
@@ -39,7 +59,13 @@ export function buildApplicantControlScreensSettingsPatch(
 ): ApplicantControlScreensSettingsPatch {
   return {
     acquaintanceDocumentsEntryResponsibleTestCode: settings.acquaintanceDocumentsEntryResponsibleTestCode,
-    acquaintanceDocumentsMutationLockTiming: settings.acquaintanceDocumentsMutationLockTiming,
+    acquaintanceDocumentsOpenTiming: settings.acquaintanceDocumentsOpenTiming,
+    acquaintanceDocumentsOpenOffsetValue: settings.acquaintanceDocumentsOpenOffsetValue,
+    acquaintanceDocumentsOpenOffsetUnit: settings.acquaintanceDocumentsOpenOffsetUnit,
+    acquaintanceDocumentsCloseResponsibleTestCode: settings.acquaintanceDocumentsCloseResponsibleTestCode,
+    acquaintanceDocumentsCloseTiming: settings.acquaintanceDocumentsCloseTiming,
+    acquaintanceDocumentsCloseOffsetValue: settings.acquaintanceDocumentsCloseOffsetValue,
+    acquaintanceDocumentsCloseOffsetUnit: settings.acquaintanceDocumentsCloseOffsetUnit,
     applicationInstructions: settings.applicationInstructions,
   };
 }

@@ -83,17 +83,28 @@ const patch = settings.buildApplicantControlScreensSettingsPatch({
   primaryRelativesEntryResponsibleTestCode: 'T01',
   acquaintanceDocumentsEntryResponsibleTestCode: 'T02',
   acquaintanceDocumentsPrintResponsibleTestCode: 'T03',
-  acquaintanceDocumentsMutationLockTiming: 'on_test_end',
+  acquaintanceDocumentsOpenTiming: 'before_test',
+  acquaintanceDocumentsOpenOffsetValue: 2,
+  acquaintanceDocumentsOpenOffsetUnit: 'days',
+  acquaintanceDocumentsCloseTiming: 'after_test_passed',
+  acquaintanceDocumentsCloseOffsetValue: 6,
+  acquaintanceDocumentsCloseOffsetUnit: 'hours',
   primaryRelativesVisibilityResponsibleTestCode: 'T04',
 });
 assert.deepEqual(
   Object.keys(patch).sort(),
   [
+    'acquaintanceDocumentsCloseOffsetUnit',
+    'acquaintanceDocumentsCloseOffsetValue',
+    'acquaintanceDocumentsCloseResponsibleTestCode',
+    'acquaintanceDocumentsCloseTiming',
     'acquaintanceDocumentsEntryResponsibleTestCode',
-    'acquaintanceDocumentsMutationLockTiming',
+    'acquaintanceDocumentsOpenOffsetUnit',
+    'acquaintanceDocumentsOpenOffsetValue',
+    'acquaintanceDocumentsOpenTiming',
     'applicationInstructions',
   ],
-  'applicant-control settings PATCH should include only the control-screen fields currently rendered',
+  'applicant-control settings PATCH should include separate open/close document scheduling fields',
 );
 assert.equal(
   Object.hasOwn(patch, 'primaryRelativesVisibilityResponsibleTestCode'),
@@ -114,6 +125,21 @@ assert.equal(
   cardSource.includes('applicationInstructionsText'),
   true,
   'settings card should render the admin-managed applicant instructions textarea',
+);
+assert.equal(
+  cardSource.includes('إعدادات فتح الوثيقة'),
+  true,
+  'settings card should render the document-open section',
+);
+assert.equal(
+  cardSource.includes('إعدادات إغلاق الوثيقة'),
+  true,
+  'settings card should render the document-close section',
+);
+assert.equal(
+  cardSource.includes('توقيت غلق الإدراج والحذف والتعديل لوثائق التعارف'),
+  false,
+  'settings card should replace the old combined mutation-lock timing select',
 );
 
 console.log('family/settings regression checks passed');

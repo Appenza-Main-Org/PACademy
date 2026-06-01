@@ -55,6 +55,20 @@ public sealed class GeneralSettingsService(IGeneralSettingsDbContext db)
             entity.AcquaintanceDocumentsPrintResponsibleTestCode = StringOrNull(patch, "acquaintanceDocumentsPrintResponsibleTestCode");
         if (patch.ContainsKey("acquaintanceDocumentsMutationLockTiming"))
             entity.AcquaintanceDocumentsMutationLockTiming = StringOrNull(patch, "acquaintanceDocumentsMutationLockTiming");
+        if (patch.ContainsKey("acquaintanceDocumentsOpenTiming"))
+            entity.AcquaintanceDocumentsOpenTiming = StringOrNull(patch, "acquaintanceDocumentsOpenTiming");
+        if (patch.ContainsKey("acquaintanceDocumentsOpenOffsetValue"))
+            entity.AcquaintanceDocumentsOpenOffsetValue = NullableIntOrNull(patch, "acquaintanceDocumentsOpenOffsetValue");
+        if (patch.ContainsKey("acquaintanceDocumentsOpenOffsetUnit"))
+            entity.AcquaintanceDocumentsOpenOffsetUnit = StringOrNull(patch, "acquaintanceDocumentsOpenOffsetUnit");
+        if (patch.ContainsKey("acquaintanceDocumentsCloseResponsibleTestCode"))
+            entity.AcquaintanceDocumentsCloseResponsibleTestCode = StringOrNull(patch, "acquaintanceDocumentsCloseResponsibleTestCode");
+        if (patch.ContainsKey("acquaintanceDocumentsCloseTiming"))
+            entity.AcquaintanceDocumentsCloseTiming = StringOrNull(patch, "acquaintanceDocumentsCloseTiming");
+        if (patch.ContainsKey("acquaintanceDocumentsCloseOffsetValue"))
+            entity.AcquaintanceDocumentsCloseOffsetValue = NullableIntOrNull(patch, "acquaintanceDocumentsCloseOffsetValue");
+        if (patch.ContainsKey("acquaintanceDocumentsCloseOffsetUnit"))
+            entity.AcquaintanceDocumentsCloseOffsetUnit = StringOrNull(patch, "acquaintanceDocumentsCloseOffsetUnit");
         if (patch.ContainsKey("primaryRelativesVisibilityResponsibleTestCode"))
             entity.PrimaryRelativesVisibilityResponsibleTestCode = StringOrNull(patch, "primaryRelativesVisibilityResponsibleTestCode");
     }
@@ -67,6 +81,13 @@ public sealed class GeneralSettingsService(IGeneralSettingsDbContext db)
         ["acquaintanceDocumentsEntryResponsibleTestCode"] = e.AcquaintanceDocumentsEntryResponsibleTestCode,
         ["acquaintanceDocumentsPrintResponsibleTestCode"] = e.AcquaintanceDocumentsPrintResponsibleTestCode,
         ["acquaintanceDocumentsMutationLockTiming"] = e.AcquaintanceDocumentsMutationLockTiming,
+        ["acquaintanceDocumentsOpenTiming"] = e.AcquaintanceDocumentsOpenTiming,
+        ["acquaintanceDocumentsOpenOffsetValue"] = e.AcquaintanceDocumentsOpenOffsetValue,
+        ["acquaintanceDocumentsOpenOffsetUnit"] = e.AcquaintanceDocumentsOpenOffsetUnit,
+        ["acquaintanceDocumentsCloseResponsibleTestCode"] = e.AcquaintanceDocumentsCloseResponsibleTestCode,
+        ["acquaintanceDocumentsCloseTiming"] = e.AcquaintanceDocumentsCloseTiming,
+        ["acquaintanceDocumentsCloseOffsetValue"] = e.AcquaintanceDocumentsCloseOffsetValue,
+        ["acquaintanceDocumentsCloseOffsetUnit"] = e.AcquaintanceDocumentsCloseOffsetUnit,
         ["primaryRelativesVisibilityResponsibleTestCode"] = e.PrimaryRelativesVisibilityResponsibleTestCode,
     };
 
@@ -96,5 +117,18 @@ public sealed class GeneralSettingsService(IGeneralSettingsDbContext db)
         if (!obj.TryGetPropertyValue(name, out var node) || node is null) return null;
         var value = node.GetValue<string?>();
         return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private static int? NullableIntOrNull(JsonObject obj, string name)
+    {
+        if (!obj.TryGetPropertyValue(name, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<int?>();
+        }
+        catch
+        {
+            return int.TryParse(node.ToString(), out var parsed) ? parsed : null;
+        }
     }
 }

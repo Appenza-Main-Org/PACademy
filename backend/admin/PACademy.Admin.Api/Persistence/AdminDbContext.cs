@@ -441,6 +441,13 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.AcquaintanceDocumentsEntryResponsibleTestCode).HasColumnName("acquaintance_documents_entry_responsible_test_code").HasMaxLength(96);
             entity.Property(x => x.AcquaintanceDocumentsPrintResponsibleTestCode).HasColumnName("acquaintance_documents_print_responsible_test_code").HasMaxLength(96);
             entity.Property(x => x.AcquaintanceDocumentsMutationLockTiming).HasColumnName("acquaintance_documents_mutation_lock_timing").HasMaxLength(48);
+            entity.Property(x => x.AcquaintanceDocumentsOpenTiming).HasColumnName("acquaintance_documents_open_timing").HasMaxLength(48);
+            entity.Property(x => x.AcquaintanceDocumentsOpenOffsetValue).HasColumnName("acquaintance_documents_open_offset_value");
+            entity.Property(x => x.AcquaintanceDocumentsOpenOffsetUnit).HasColumnName("acquaintance_documents_open_offset_unit").HasMaxLength(16);
+            entity.Property(x => x.AcquaintanceDocumentsCloseResponsibleTestCode).HasColumnName("acquaintance_documents_close_responsible_test_code").HasMaxLength(96);
+            entity.Property(x => x.AcquaintanceDocumentsCloseTiming).HasColumnName("acquaintance_documents_close_timing").HasMaxLength(48);
+            entity.Property(x => x.AcquaintanceDocumentsCloseOffsetValue).HasColumnName("acquaintance_documents_close_offset_value");
+            entity.Property(x => x.AcquaintanceDocumentsCloseOffsetUnit).HasColumnName("acquaintance_documents_close_offset_unit").HasMaxLength(16);
             entity.Property(x => x.PrimaryRelativesVisibilityResponsibleTestCode).HasColumnName("primary_relatives_visibility_responsible_test_code").HasMaxLength(96);
             entity.Property(x => x.CreatedAt).HasColumnName("created_at");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");

@@ -34,6 +34,27 @@ public sealed class GeneralSettingsEntity
     /// <summary>توقيت غلق الإدراج/الحذف/التعديل لوثائق التعارف.</summary>
     public string? AcquaintanceDocumentsMutationLockTiming { get; set; }
 
+    /// <summary>توقيت فتح وثيقة التعارف بالنسبة للاختبار المختار.</summary>
+    public string? AcquaintanceDocumentsOpenTiming { get; set; }
+
+    /// <summary>مقدار مدة فتح وثيقة التعارف عند اختيار قبل/بعد الاختبار.</summary>
+    public int? AcquaintanceDocumentsOpenOffsetValue { get; set; }
+
+    /// <summary>وحدة مدة فتح وثيقة التعارف.</summary>
+    public string? AcquaintanceDocumentsOpenOffsetUnit { get; set; }
+
+    /// <summary>الاختبار المسؤول عن إغلاق وثيقة التعارف.</summary>
+    public string? AcquaintanceDocumentsCloseResponsibleTestCode { get; set; }
+
+    /// <summary>توقيت إغلاق وثيقة التعارف بالنسبة للاختبار المختار.</summary>
+    public string? AcquaintanceDocumentsCloseTiming { get; set; }
+
+    /// <summary>مقدار مدة إغلاق وثيقة التعارف عند اختيار قبل/بعد الاختبار.</summary>
+    public int? AcquaintanceDocumentsCloseOffsetValue { get; set; }
+
+    /// <summary>وحدة مدة إغلاق وثيقة التعارف.</summary>
+    public string? AcquaintanceDocumentsCloseOffsetUnit { get; set; }
+
     /// <summary>المرحلة/الاختبار المسؤول عن إظهار شاشات الأقارب الأولية.</summary>
     public string? PrimaryRelativesVisibilityResponsibleTestCode { get; set; }
 
