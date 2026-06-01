@@ -44,6 +44,7 @@ import {
   toast,
 } from '@/shared/components';
 import type { SearchSelectOption } from '@/shared/components';
+import { isBackendEnabled } from '@/shared/lib/api-client';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { ROUTES } from '@/config/routes';
 import { stage345Schema, type Stage345Values } from '../schemas';
@@ -176,6 +177,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     [eligibilityGrade],
   );
   const shouldUseLegacyGradeLookup =
+    !isBackendEnabled() &&
     !eligibilityCategoriesQuery.isLoading &&
     !eligibilityGradeRow;
   const gradeByNidQuery = useApplicantGradeByNid(nid, selectedCycleId, {

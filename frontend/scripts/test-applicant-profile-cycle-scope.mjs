@@ -19,4 +19,10 @@ assert.match(
   'applicant profile must fetch eligible categories with selectedCycleId so academic degree options come from the configured admission cycle',
 );
 
+assert.match(
+  normalized,
+  /const\s+shouldUseLegacyGradeLookup\s*=\s*!isBackendEnabled\(\)\s*&&\s*!eligibilityCategoriesQuery\.isLoading\s*&&\s*!eligibilityGradeRow\s*;/,
+  'applicant profile must not call the legacy admin by-NID grade endpoint in backend/staging mode',
+);
+
 console.log('applicant profile cycle scoping regression passed');
