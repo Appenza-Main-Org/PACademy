@@ -48,7 +48,7 @@ public static class LookupCatalog
         ["submission-types"] = new("نوع التقديم", "SUB", 2),
         ["applicant-categories"] = new("فئات المتقدمين", "CAT", 2),
         ["nationalities-countries"] = new("الجنسيات والدول", "CNT", 3),
-        ["governorates"] = new("المحافظات", "GOV", 2),
+        ["governorates"] = new("المحافظات", "", 2),
         ["police-stations"] = new("أقسام ومراكز الشرطة", "PST", 4),
         ["jobs"] = new("الوظائف وفئاتها", "JOB", 3),
         ["qualifications"] = new("المؤهلات", "QUA", 2),

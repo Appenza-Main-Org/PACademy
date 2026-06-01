@@ -128,7 +128,7 @@ export const LOOKUP_META: Record<LookupKey, { label: string; codePrefix: string;
   'submission-types':             { label: 'نوع التقديم',                  codePrefix: 'SUB', padding: 2 },
   'applicant-categories':         { label: 'فئات المتقدمين',               codePrefix: 'CAT', padding: 2 },
   'nationalities-countries':      { label: 'الجنسيات والدول',              codePrefix: 'CNT', padding: 3 },
-  'governorates':                 { label: 'المحافظات',                    codePrefix: 'GOV', padding: 2 },
+  'governorates':                 { label: 'المحافظات',                    codePrefix: '', padding: 2 },
   'police-stations':              { label: 'أقسام ومراكز الشرطة',          codePrefix: 'PST', padding: 4 },
   'jobs':                         { label: 'الوظائف وفئاتها',              codePrefix: 'JOB', padding: 3 },
   'qualifications':               { label: 'المؤهلات',                     codePrefix: 'QUA', padding: 2 },
@@ -318,10 +318,7 @@ export interface NationalityCountryRow extends LookupRowBase {
   isArab: boolean;
 }
 
-export interface GovernorateRow extends LookupRowBase {
-  /** Two-digit civil registry governorate code embedded in Egyptian NIDs. */
-  nationalIdCode?: string;
-}
+export type GovernorateRow = LookupRowBase;
 
 export type PoliceStationKind = 'قسم' | 'مركز' | 'بندر';
 

@@ -133,8 +133,7 @@ public sealed class LookupsSeeder(IWebHostEnvironment environment, ILogger<Looku
     {
         ["code"] = governorate.Code,
         ["name"] = governorate.Name,
-        ["isActive"] = true,
-        ["nationalIdCode"] = governorate.Code
+        ["isActive"] = true
     };
 
     private static void RewritePoliceStationGovernorateRefs(

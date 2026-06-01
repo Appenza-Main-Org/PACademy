@@ -13,7 +13,7 @@ namespace PACademy.Admin.Api.Tests;
 public sealed class LookupsControllerTests
 {
     [Fact]
-    public async Task GovernorateCreateAndEditUseNationalIdCodeAsLookupCode()
+    public async Task GovernorateCreateAndEditUseCodeOnlyForNationalIdCode()
     {
         await using var db = CreateDb();
         var service = new LookupsService(db, new LookupRowValidator());
@@ -32,7 +32,8 @@ public sealed class LookupsControllerTests
         var createdBody = Assert.IsType<JsonObject>(created.Value);
 
         Assert.Equal("04", createdBody["code"]?.GetValue<string>());
-        Assert.Equal("04", createdBody["nationalIdCode"]?.GetValue<string>());
+        Assert.False(createdBody.ContainsKey("nationalIdCode"));
+        Assert.False(createdBody.ContainsKey("region"));
         SeedLookup(db, "police-stations", "PST-SUEZ", "قسم السويس", new JsonObject
         {
             ["governorateCode"] = "04",
@@ -54,7 +55,8 @@ public sealed class LookupsControllerTests
         var updatedBody = Assert.IsType<JsonObject>(updated.Value);
 
         Assert.Equal("24", updatedBody["code"]?.GetValue<string>());
-        Assert.Equal("24", updatedBody["nationalIdCode"]?.GetValue<string>());
+        Assert.False(updatedBody.ContainsKey("nationalIdCode"));
+        Assert.False(updatedBody.ContainsKey("region"));
         var station = await db.LookupRows.SingleAsync(
             x => x.LookupKey == "police-stations" && x.Code == "PST-SUEZ",
             TestContext.Current.CancellationToken);
@@ -68,8 +70,16 @@ public sealed class LookupsControllerTests
     public async Task SeederSynchronizesGovernoratesToNationalIdCodes()
     {
         await using var db = CreateDb();
-        SeedLookup(db, "governorates", "GOV-14", "المنيا");
-        SeedLookup(db, "governorates", "GOV-22", "السويس");
+        SeedLookup(db, "governorates", "GOV-14", "المنيا", new JsonObject
+        {
+            ["region"] = "الوجه القبلي",
+            ["nationalIdCode"] = "24"
+        });
+        SeedLookup(db, "governorates", "GOV-22", "السويس", new JsonObject
+        {
+            ["region"] = "القناة",
+            ["nationalIdCode"] = "04"
+        });
         SeedLookup(db, "police-stations", "PST-1", "قسم المنيا", new JsonObject
         {
             ["governorateCode"] = "GOV-14",
@@ -90,9 +100,31 @@ public sealed class LookupsControllerTests
             x => x.LookupKey == "police-stations" && x.Code == "PST-1",
             TestContext.Current.CancellationToken);
         var stationPayload = LookupJson.ParseObject(station.PayloadJson);
+        var officialCodes = await db.LookupRows
+            .Where(x => x.LookupKey == "governorates")
+            .OrderBy(x => x.Code)
+            .Select(x => x.Code)
+            .ToListAsync(TestContext.Current.CancellationToken);
 
+        Assert.Equal(
+            [
+                "01", "02", "03", "04",
+                "11", "12", "13", "14", "15", "16", "17", "18", "19",
+                "21", "22", "23", "24", "25", "26", "27", "28", "29",
+                "31", "32", "33", "34", "35",
+                "88"
+            ],
+            officialCodes);
         Assert.Equal("محافظة المنيا", minya.Name);
         Assert.Equal("محافظة السويس", suez.Name);
+        var minyaPayload = LookupJson.ParseObject(minya.PayloadJson);
+        var suezPayload = LookupJson.ParseObject(suez.PayloadJson);
+        Assert.Equal("24", LookupJson.StringProp(minyaPayload, "code"));
+        Assert.Equal("04", LookupJson.StringProp(suezPayload, "code"));
+        Assert.False(minyaPayload.ContainsKey("nationalIdCode"));
+        Assert.False(minyaPayload.ContainsKey("region"));
+        Assert.False(suezPayload.ContainsKey("nationalIdCode"));
+        Assert.False(suezPayload.ContainsKey("region"));
         Assert.Equal("24", LookupJson.StringProp(stationPayload, "governorateCode"));
         Assert.False(await db.LookupRows.AnyAsync(
             x => x.LookupKey == "governorates" && x.Code.StartsWith("GOV-"),

@@ -708,13 +708,13 @@ function extrasFor(
     case 'governorates':
       return [
         {
-          key: 'nationalIdCode',
-          label: 'كود الرقم القومي',
+          key: 'code',
+          label: 'الكود',
           sortable: true,
-          width: 140,
+          width: 100,
           render: (r: GovernorateRow) => (
             <span dir="ltr" className="font-mono text-xs font-semibold text-ink-900">
-              {r.nationalIdCode ?? r.code}
+              {r.code}
             </span>
           ),
         },

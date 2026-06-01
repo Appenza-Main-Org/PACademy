@@ -115,7 +115,6 @@ export function LookupRowDrawer<K extends LookupKey>({
         return;
       }
       next.code = code;
-      next.nationalIdCode = code;
     }
     if (lookupKey === 'graduation-years') {
       const parsed = Number.parseInt(String(next.name ?? '').trim(), 10);
@@ -1115,7 +1114,7 @@ function blankRow(key: LookupKey): Record<string, unknown> {
     case 'nationalities-countries':
       return { ...base, iso2: '', isArab: false };
     case 'governorates':
-      return { ...base, nationalIdCode: '' };
+      return base;
     case 'police-stations':
       return { ...base, governorateCode: '', kind: 'قسم' };
     case 'jobs':

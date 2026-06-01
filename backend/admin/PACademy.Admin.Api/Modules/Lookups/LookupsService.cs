@@ -27,14 +27,15 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
         EnsureKnown(key);
         await validator.ValidateAndThrowAsync(input, ct);
 
-        var code = LookupJson.StringProp(input, "code");
+        var code = LookupJson.StringProp(input, "code")?.Trim();
+        if (key == "governorates" && string.IsNullOrWhiteSpace(code))
+        {
+            throw new ValidationException("كود المحافظة في الرقم القومي يجب أن يكون رقمين");
+        }
+
         if (string.IsNullOrWhiteSpace(code))
         {
             code = await NextCodeAsync(key, ct);
-        }
-        else
-        {
-            code = code.Trim();
         }
 
         EnsureValidCode(key, code);
@@ -42,7 +43,6 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
 
         var rowJson = NormalizeRow(key, LookupJson.Clone(input));
         rowJson["code"] = code;
-        if (key == "governorates") rowJson["nationalIdCode"] = code;
         rowJson["isActive"] = LookupJson.BoolProp(rowJson, "isActive") ?? true;
         var now = DateTimeOffset.UtcNow;
         var entity = new LookupRowEntity
@@ -89,7 +89,6 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
         var nextActive = LookupJson.BoolProp(current, "isActive") ?? true;
         var now = DateTimeOffset.UtcNow;
         current["code"] = nextCode;
-        if (key == "governorates") current["nationalIdCode"] = nextCode;
         current["isActive"] = nextActive;
 
         if (nextCode != code)
@@ -247,6 +246,12 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
 
     private static JsonObject NormalizeRow(string key, JsonObject row)
     {
+        if (key == "governorates")
+        {
+            row.Remove("nationalIdCode");
+            row.Remove("region");
+        }
+
         if (key == "applicant-categories")
         {
             row["minAge"] = LookupJson.IntProp(row, "minAge") ?? 17;

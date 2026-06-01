@@ -611,44 +611,44 @@ const nationalitiesCountries: NationalityCountryRow[] = [
 
 const governorates: GovernorateRow[] = [
   // Greater Cairo
-  { code: '01', name: 'محافظة القاهرة',        isActive: true, nationalIdCode: '01' },
-  { code: '21', name: 'محافظة الجيزة',         isActive: true, nationalIdCode: '21' },
-  { code: '14', name: 'محافظة القليوبية',      isActive: true, nationalIdCode: '14' },
+  { code: '01', name: 'محافظة القاهرة',        isActive: true },
+  { code: '21', name: 'محافظة الجيزة',         isActive: true },
+  { code: '14', name: 'محافظة القليوبية',      isActive: true },
   // Lower Egypt (Delta)
-  { code: '02', name: 'محافظة الإسكندرية',     isActive: true, nationalIdCode: '02' },
-  { code: '12', name: 'محافظة الدقهلية',       isActive: true, nationalIdCode: '12' },
-  { code: '13', name: 'محافظة الشرقية',        isActive: true, nationalIdCode: '13' },
-  { code: '17', name: 'محافظة المنوفية',       isActive: true, nationalIdCode: '17' },
-  { code: '18', name: 'محافظة البحيرة',        isActive: true, nationalIdCode: '18' },
-  { code: '16', name: 'محافظة الغربية',        isActive: true, nationalIdCode: '16' },
-  { code: '15', name: 'محافظة كفر الشيخ',      isActive: true, nationalIdCode: '15' },
-  { code: '11', name: 'محافظة دمياط',          isActive: true, nationalIdCode: '11' },
+  { code: '02', name: 'محافظة الإسكندرية',     isActive: true },
+  { code: '12', name: 'محافظة الدقهلية',       isActive: true },
+  { code: '13', name: 'محافظة الشرقية',        isActive: true },
+  { code: '17', name: 'محافظة المنوفية',       isActive: true },
+  { code: '18', name: 'محافظة البحيرة',        isActive: true },
+  { code: '16', name: 'محافظة الغربية',        isActive: true },
+  { code: '15', name: 'محافظة كفر الشيخ',      isActive: true },
+  { code: '11', name: 'محافظة دمياط',          isActive: true },
   // Upper Egypt
-  { code: '22', name: 'محافظة بني سويف',       isActive: true, nationalIdCode: '22' },
-  { code: '23', name: 'محافظة الفيوم',         isActive: true, nationalIdCode: '23' },
-  { code: '24', name: 'محافظة المنيا',         isActive: true, nationalIdCode: '24' },
-  { code: '25', name: 'محافظة أسيوط',          isActive: true, nationalIdCode: '25' },
-  { code: '26', name: 'محافظة سوهاج',          isActive: true, nationalIdCode: '26' },
-  { code: '27', name: 'محافظة قنا',             isActive: true, nationalIdCode: '27' },
-  { code: '29', name: 'محافظة الأقصر',          isActive: true, nationalIdCode: '29' },
-  { code: '28', name: 'محافظة أسوان',           isActive: true, nationalIdCode: '28' },
+  { code: '22', name: 'محافظة بني سويف',       isActive: true },
+  { code: '23', name: 'محافظة الفيوم',         isActive: true },
+  { code: '24', name: 'محافظة المنيا',         isActive: true },
+  { code: '25', name: 'محافظة أسيوط',          isActive: true },
+  { code: '26', name: 'محافظة سوهاج',          isActive: true },
+  { code: '27', name: 'محافظة قنا',             isActive: true },
+  { code: '29', name: 'محافظة الأقصر',          isActive: true },
+  { code: '28', name: 'محافظة أسوان',           isActive: true },
   // Canal
-  { code: '03', name: 'محافظة بورسعيد',         isActive: true, nationalIdCode: '03' },
-  { code: '19', name: 'محافظة الإسماعيلية',     isActive: true, nationalIdCode: '19' },
-  { code: '04', name: 'محافظة السويس',          isActive: true, nationalIdCode: '04' },
+  { code: '03', name: 'محافظة بورسعيد',         isActive: true },
+  { code: '19', name: 'محافظة الإسماعيلية',     isActive: true },
+  { code: '04', name: 'محافظة السويس',          isActive: true },
   // Frontier
-  { code: '31', name: 'محافظة البحر الأحمر',    isActive: true, nationalIdCode: '31' },
-  { code: '32', name: 'محافظة الوادي الجديد',   isActive: true, nationalIdCode: '32' },
-  { code: '33', name: 'محافظة مطروح',           isActive: true, nationalIdCode: '33' },
-  { code: '34', name: 'محافظة شمال سيناء',      isActive: true, nationalIdCode: '34' },
-  { code: '35', name: 'محافظة جنوب سيناء',      isActive: true, nationalIdCode: '35' },
-  { code: '88', name: 'خارج الجمهورية',         isActive: true, nationalIdCode: '88' },
+  { code: '31', name: 'محافظة البحر الأحمر',    isActive: true },
+  { code: '32', name: 'محافظة الوادي الجديد',   isActive: true },
+  { code: '33', name: 'محافظة مطروح',           isActive: true },
+  { code: '34', name: 'محافظة شمال سيناء',      isActive: true },
+  { code: '35', name: 'محافظة جنوب سيناء',      isActive: true },
+  { code: '88', name: 'خارج الجمهورية',         isActive: true },
 ];
 
 /* ─── 12. police-stations — 60+ representative seeds ─────────────────── */
 
 const policeStations: PoliceStationRow[] = [
-  // القاهرة (GOV-01)
+  // القاهرة (01)
   { code: 'PST-0001', name: 'قسم عابدين',         isActive: true, governorateCode: '01', kind: 'قسم' },
   { code: 'PST-0002', name: 'قسم السيدة زينب',    isActive: true, governorateCode: '01', kind: 'قسم' },
   { code: 'PST-0003', name: 'قسم مصر القديمة',     isActive: true, governorateCode: '01', kind: 'قسم' },
@@ -659,7 +659,7 @@ const policeStations: PoliceStationRow[] = [
   { code: 'PST-0008', name: 'قسم حلوان',           isActive: true, governorateCode: '01', kind: 'قسم' },
   { code: 'PST-0009', name: 'قسم شبرا',            isActive: true, governorateCode: '01', kind: 'قسم' },
   { code: 'PST-0010', name: 'قسم الزيتون',          isActive: true, governorateCode: '01', kind: 'قسم' },
-  // الجيزة (GOV-02)
+  // الجيزة (21)
   { code: 'PST-0011', name: 'قسم الدقي',           isActive: true, governorateCode: '21', kind: 'قسم' },
   { code: 'PST-0012', name: 'قسم العجوزة',         isActive: true, governorateCode: '21', kind: 'قسم' },
   { code: 'PST-0013', name: 'قسم العمرانية',       isActive: true, governorateCode: '21', kind: 'قسم' },
@@ -668,80 +668,80 @@ const policeStations: PoliceStationRow[] = [
   { code: 'PST-0016', name: 'مركز إمبابة',          isActive: true, governorateCode: '21', kind: 'مركز' },
   { code: 'PST-0017', name: 'مركز كرداسة',          isActive: true, governorateCode: '21', kind: 'مركز' },
   { code: 'PST-0018', name: 'مركز أوسيم',           isActive: true, governorateCode: '21', kind: 'مركز' },
-  // القليوبية (GOV-03)
+  // القليوبية (14)
   { code: 'PST-0019', name: 'قسم بنها',            isActive: true, governorateCode: '14', kind: 'قسم' },
   { code: 'PST-0020', name: 'قسم القناطر الخيرية',  isActive: true, governorateCode: '14', kind: 'قسم' },
   { code: 'PST-0021', name: 'مركز شبرا الخيمة',     isActive: true, governorateCode: '14', kind: 'مركز' },
   { code: 'PST-0022', name: 'مركز قها',             isActive: true, governorateCode: '14', kind: 'مركز' },
-  // الإسكندرية (GOV-04)
+  // الإسكندرية (02)
   { code: 'PST-0023', name: 'قسم محرم بك',         isActive: true, governorateCode: '02', kind: 'قسم' },
   { code: 'PST-0024', name: 'قسم سيدي جابر',        isActive: true, governorateCode: '02', kind: 'قسم' },
   { code: 'PST-0025', name: 'قسم الرمل',           isActive: true, governorateCode: '02', kind: 'قسم' },
   { code: 'PST-0026', name: 'قسم المنتزة',         isActive: true, governorateCode: '02', kind: 'قسم' },
   { code: 'PST-0027', name: 'قسم العامرية',         isActive: true, governorateCode: '02', kind: 'قسم' },
   { code: 'PST-0028', name: 'قسم العطارين',         isActive: true, governorateCode: '02', kind: 'قسم' },
-  // الدقهلية (GOV-05)
+  // الدقهلية (12)
   { code: 'PST-0029', name: 'قسم أول المنصورة',    isActive: true, governorateCode: '12', kind: 'قسم' },
   { code: 'PST-0030', name: 'قسم ثاني المنصورة',   isActive: true, governorateCode: '12', kind: 'قسم' },
   { code: 'PST-0031', name: 'مركز ميت غمر',         isActive: true, governorateCode: '12', kind: 'مركز' },
   { code: 'PST-0032', name: 'مركز السنبلاوين',      isActive: true, governorateCode: '12', kind: 'مركز' },
-  // الشرقية (GOV-06)
+  // الشرقية (13)
   { code: 'PST-0033', name: 'قسم أول الزقازيق',    isActive: true, governorateCode: '13', kind: 'قسم' },
   { code: 'PST-0034', name: 'قسم ثاني الزقازيق',   isActive: true, governorateCode: '13', kind: 'قسم' },
   { code: 'PST-0035', name: 'مركز بلبيس',           isActive: true, governorateCode: '13', kind: 'مركز' },
   { code: 'PST-0036', name: 'مركز فاقوس',           isActive: true, governorateCode: '13', kind: 'مركز' },
   { code: 'PST-0037', name: 'مركز أبو حماد',        isActive: true, governorateCode: '13', kind: 'مركز' },
-  // المنوفية (GOV-07)
+  // المنوفية (17)
   { code: 'PST-0038', name: 'قسم شبين الكوم',       isActive: true, governorateCode: '17', kind: 'قسم' },
   { code: 'PST-0039', name: 'مركز منوف',            isActive: true, governorateCode: '17', kind: 'مركز' },
   { code: 'PST-0040', name: 'مركز قويسنا',          isActive: true, governorateCode: '17', kind: 'مركز' },
-  // البحيرة (GOV-08)
+  // البحيرة (18)
   { code: 'PST-0041', name: 'قسم دمنهور',           isActive: true, governorateCode: '18', kind: 'قسم' },
   { code: 'PST-0042', name: 'مركز كفر الدوار',       isActive: true, governorateCode: '18', kind: 'مركز' },
   { code: 'PST-0043', name: 'مركز إيتاي البارود',    isActive: true, governorateCode: '18', kind: 'مركز' },
-  // الغربية (GOV-09)
+  // الغربية (16)
   { code: 'PST-0044', name: 'قسم أول طنطا',         isActive: true, governorateCode: '16', kind: 'قسم' },
   { code: 'PST-0045', name: 'قسم ثاني طنطا',        isActive: true, governorateCode: '16', kind: 'قسم' },
   { code: 'PST-0046', name: 'قسم المحلة الكبرى',    isActive: true, governorateCode: '16', kind: 'قسم' },
-  // كفر الشيخ (GOV-10)
+  // كفر الشيخ (15)
   { code: 'PST-0047', name: 'قسم كفر الشيخ',         isActive: true, governorateCode: '15', kind: 'قسم' },
   { code: 'PST-0048', name: 'مركز دسوق',             isActive: true, governorateCode: '15', kind: 'مركز' },
-  // دمياط (GOV-11)
+  // دمياط (11)
   { code: 'PST-0049', name: 'قسم دمياط',             isActive: true, governorateCode: '11', kind: 'قسم' },
   { code: 'PST-0050', name: 'بندر فارسكور',          isActive: true, governorateCode: '11', kind: 'بندر' },
-  // بني سويف (GOV-12)
+  // بني سويف (22)
   { code: 'PST-0065', name: 'قسم بني سويف',           isActive: true, governorateCode: '22', kind: 'قسم' },
   { code: 'PST-0066', name: 'مركز الواسطى',           isActive: true, governorateCode: '22', kind: 'مركز' },
   { code: 'PST-0067', name: 'مركز ببا',               isActive: true, governorateCode: '22', kind: 'مركز' },
-  // الفيوم (GOV-13)
+  // الفيوم (23)
   { code: 'PST-0068', name: 'قسم أول الفيوم',         isActive: true, governorateCode: '23', kind: 'قسم' },
   { code: 'PST-0069', name: 'مركز سنورس',             isActive: true, governorateCode: '23', kind: 'مركز' },
   { code: 'PST-0070', name: 'مركز إطسا',              isActive: true, governorateCode: '23', kind: 'مركز' },
-  // المنيا (GOV-14)
+  // المنيا (24)
   { code: 'PST-0071', name: 'قسم المنيا',             isActive: true, governorateCode: '24', kind: 'قسم' },
   { code: 'PST-0072', name: 'مركز مغاغة',             isActive: true, governorateCode: '24', kind: 'مركز' },
   { code: 'PST-0073', name: 'مركز ملوي',              isActive: true, governorateCode: '24', kind: 'مركز' },
-  // أسيوط (GOV-15)
+  // أسيوط (25)
   { code: 'PST-0051', name: 'قسم أول أسيوط',         isActive: true, governorateCode: '25', kind: 'قسم' },
   { code: 'PST-0052', name: 'مركز ديروط',            isActive: true, governorateCode: '25', kind: 'مركز' },
   { code: 'PST-0053', name: 'مركز منفلوط',           isActive: true, governorateCode: '25', kind: 'مركز' },
-  // سوهاج (GOV-16)
+  // سوهاج (26)
   { code: 'PST-0054', name: 'قسم سوهاج',             isActive: true, governorateCode: '26', kind: 'قسم' },
   { code: 'PST-0055', name: 'مركز جرجا',             isActive: true, governorateCode: '26', kind: 'مركز' },
-  // قنا (GOV-17)
+  // قنا (27)
   { code: 'PST-0056', name: 'قسم قنا',               isActive: true, governorateCode: '27', kind: 'قسم' },
   { code: 'PST-0057', name: 'مركز قوص',               isActive: true, governorateCode: '27', kind: 'مركز' },
-  // الأقصر (GOV-18)
+  // الأقصر (29)
   { code: 'PST-0058', name: 'قسم الأقصر',            isActive: true, governorateCode: '29', kind: 'قسم' },
-  // أسوان (GOV-19)
+  // أسوان (28)
   { code: 'PST-0059', name: 'قسم أسوان',             isActive: true, governorateCode: '28', kind: 'قسم' },
   { code: 'PST-0060', name: 'مركز كوم أمبو',          isActive: true, governorateCode: '28', kind: 'مركز' },
-  // بورسعيد (GOV-20)
+  // بورسعيد (03)
   { code: 'PST-0061', name: 'قسم بورسعيد',           isActive: true, governorateCode: '03', kind: 'قسم' },
   { code: 'PST-0062', name: 'قسم الشرق',             isActive: true, governorateCode: '03', kind: 'قسم' },
-  // الإسماعيلية (GOV-21)
+  // الإسماعيلية (19)
   { code: 'PST-0063', name: 'قسم الإسماعيلية',       isActive: true, governorateCode: '19', kind: 'قسم' },
-  // السويس (GOV-22)
+  // السويس (04)
   { code: 'PST-0064', name: 'قسم السويس',            isActive: true, governorateCode: '04', kind: 'قسم' },
 ];
 
