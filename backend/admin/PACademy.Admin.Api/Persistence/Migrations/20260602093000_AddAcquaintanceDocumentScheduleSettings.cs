@@ -6,6 +6,7 @@ using PACademy.Admin.Api.Persistence;
 namespace PACademy.Admin.Api.Persistence.Migrations
 {
     /// <inheritdoc />
+    [Migration("20260602093000_AddAcquaintanceDocumentScheduleSettings")]
     public partial class AddAcquaintanceDocumentScheduleSettings : Migration
     {
         /// <inheritdoc />
