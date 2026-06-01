@@ -37,10 +37,12 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
             code = code.Trim();
         }
 
+        EnsureValidCode(key, code);
         await EnsureUniqueAsync(key, code, ignoreCode: null, ct);
 
         var rowJson = NormalizeRow(key, LookupJson.Clone(input));
         rowJson["code"] = code;
+        if (key == "governorates") rowJson["nationalIdCode"] = code;
         rowJson["isActive"] = LookupJson.BoolProp(rowJson, "isActive") ?? true;
         var now = DateTimeOffset.UtcNow;
         var entity = new LookupRowEntity
@@ -74,17 +76,51 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
         var nextCode = LookupJson.StringProp(current, "code") ?? code;
         if (nextCode != code)
         {
+            EnsureValidCode(key, nextCode);
             await EnsureUniqueAsync(key, nextCode, ignoreCode: code, ct);
-            entity.Code = nextCode;
+        }
+        else
+        {
+            EnsureValidCode(key, nextCode);
         }
 
         await validator.ValidateAndThrowAsync(current, ct);
-        entity.Name = LookupJson.StringProp(current, "name")!;
-        entity.IsActive = LookupJson.BoolProp(current, "isActive") ?? true;
-        current["code"] = entity.Code;
-        current["isActive"] = entity.IsActive;
+        var nextName = LookupJson.StringProp(current, "name")!;
+        var nextActive = LookupJson.BoolProp(current, "isActive") ?? true;
+        var now = DateTimeOffset.UtcNow;
+        current["code"] = nextCode;
+        if (key == "governorates") current["nationalIdCode"] = nextCode;
+        current["isActive"] = nextActive;
+
+        if (nextCode != code)
+        {
+            if (key == "governorates")
+            {
+                await RewriteLookupReferencesAsync("police-stations", "governorateCode", code, nextCode, now, ct);
+            }
+
+            var replacement = new LookupRowEntity
+            {
+                LookupKey = key,
+                Code = nextCode,
+                Name = nextName,
+                IsActive = nextActive,
+                PayloadJson = current.ToJsonString(LookupJson.Options),
+                CreatedAt = entity.CreatedAt,
+                UpdatedAt = now,
+                LastModifiedBy = entity.LastModifiedBy,
+                SourceSystem = entity.SourceSystem
+            };
+            db.LookupRows.Remove(entity);
+            db.LookupRows.Add(replacement);
+            await db.SaveChangesAsync(ct);
+            return ToJson(replacement);
+        }
+
+        entity.Name = nextName;
+        entity.IsActive = nextActive;
         entity.PayloadJson = current.ToJsonString(LookupJson.Options);
-        entity.UpdatedAt = DateTimeOffset.UtcNow;
+        entity.UpdatedAt = now;
 
         await db.SaveChangesAsync(ct);
         return ToJson(entity);
@@ -176,6 +212,26 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
             : string.Empty);
     }
 
+    private async Task RewriteLookupReferencesAsync(
+        string lookupKey,
+        string propertyName,
+        string fromCode,
+        string toCode,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var rows = await db.LookupRows.Where(x => x.LookupKey == lookupKey).ToListAsync(ct);
+        foreach (var row in rows)
+        {
+            var payload = LookupJson.ParseObject(row.PayloadJson);
+            if (LookupJson.StringProp(payload, propertyName) != fromCode) continue;
+
+            payload[propertyName] = toCode;
+            row.PayloadJson = payload.ToJsonString(LookupJson.Options);
+            row.UpdatedAt = now;
+        }
+    }
+
     private static JsonObject ToJson(LookupRowEntity entity)
     {
         var obj = LookupJson.ParseObject(entity.PayloadJson);
@@ -197,6 +253,15 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
         }
 
         return row;
+    }
+
+    private static void EnsureValidCode(string key, string code)
+    {
+        if (key != "governorates") return;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(code, "^\\d{2}$"))
+        {
+            throw new ValidationException("كود المحافظة في الرقم القومي يجب أن يكون رقمين");
+        }
     }
 
     private static void EnsureKnown(string key)

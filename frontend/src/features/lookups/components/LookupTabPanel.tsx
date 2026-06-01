@@ -720,6 +720,17 @@ function extrasFor(
       ];
     case 'governorates':
       return [
+        {
+          key: 'nationalIdCode',
+          label: 'كود الرقم القومي',
+          sortable: true,
+          width: 140,
+          render: (r: GovernorateRow) => (
+            <span dir="ltr" className="font-mono text-xs font-semibold text-ink-900">
+              {r.nationalIdCode ?? r.code}
+            </span>
+          ),
+        },
         { key: 'region', label: 'الإقليم', sortable: true, width: 160, render: (r: GovernorateRow) => <Badge tone="neutral">{r.region}</Badge> },
       ];
     case 'police-stations':

@@ -99,6 +99,7 @@ export function LookupRowDrawer<K extends LookupKey>({
   const submit = handleSubmit((values) => {
     const next = { ...values } as Record<string, unknown>;
     const name = typeof next.name === 'string' ? next.name.trim() : '';
+    const code = typeof next.code === 'string' ? next.code.trim() : '';
     if (name.length === 0) {
       methods.setError('name', { type: 'manual', message: 'الاسم مطلوب' }, { shouldFocus: true });
       return;
@@ -108,6 +109,14 @@ export function LookupRowDrawer<K extends LookupKey>({
       return;
     }
     next.name = name;
+    if (lookupKey === 'governorates') {
+      if (!/^\d{2}$/.test(code)) {
+        methods.setError('code', { type: 'manual', message: 'كود الرقم القومي يجب أن يكون رقمين' }, { shouldFocus: true });
+        return;
+      }
+      next.code = code;
+      next.nationalIdCode = code;
+    }
     if (lookupKey === 'graduation-years') {
       const parsed = Number.parseInt(String(next.name ?? '').trim(), 10);
       if (Number.isFinite(parsed)) {
@@ -185,7 +194,12 @@ export function LookupRowDrawer<K extends LookupKey>({
 /* ─── Per-key form fields (read via context) ─────────────────────────── */
 
 function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
-  const { register, control, watch } = useFormContext();
+  const {
+    register,
+    control,
+    watch,
+    formState: { errors },
+  } = useFormContext();
   const codeOfSelf = watch('code') as string | undefined;
 
   switch (lookupKey) {
@@ -338,18 +352,27 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
       );
     case 'governorates':
       return (
-        <Select
-          label="الإقليم"
-          containerClassName="col-span-2"
-          options={[
-            { value: 'القاهرة الكبرى', label: 'القاهرة الكبرى' },
-            { value: 'الوجه البحري',   label: 'الوجه البحري' },
-            { value: 'الوجه القبلي',   label: 'الوجه القبلي' },
-            { value: 'القناة',         label: 'القناة' },
-            { value: 'الحدود',         label: 'الحدود' },
-          ]}
-          {...register('region')}
-        />
+        <>
+          <Input
+            label="كود المحافظة في الرقم القومي"
+            required
+            inputMode="numeric"
+            maxLength={2}
+            error={(errors.code as { message?: string } | undefined)?.message}
+            {...register('code')}
+          />
+          <Select
+            label="الإقليم"
+            options={[
+              { value: 'القاهرة الكبرى', label: 'القاهرة الكبرى' },
+              { value: 'الوجه البحري',   label: 'الوجه البحري' },
+              { value: 'الوجه القبلي',   label: 'الوجه القبلي' },
+              { value: 'القناة',         label: 'القناة' },
+              { value: 'الحدود',         label: 'الحدود' },
+            ]}
+            {...register('region')}
+          />
+        </>
       );
     case 'police-stations':
       return (
@@ -1104,7 +1127,7 @@ function blankRow(key: LookupKey): Record<string, unknown> {
     case 'nationalities-countries':
       return { ...base, iso2: '', isArab: false };
     case 'governorates':
-      return { ...base, region: 'الوجه البحري' };
+      return { ...base, nationalIdCode: '', region: 'الوجه البحري' };
     case 'police-stations':
       return { ...base, governorateCode: '', kind: 'قسم' };
     case 'jobs':

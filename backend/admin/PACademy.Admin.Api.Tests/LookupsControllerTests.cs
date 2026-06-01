@@ -13,6 +13,60 @@ namespace PACademy.Admin.Api.Tests;
 public sealed class LookupsControllerTests
 {
     [Fact]
+    public async Task GovernorateCreateAndEditUseNationalIdCodeAsLookupCode()
+    {
+        await using var db = CreateDb();
+        var service = new LookupsService(db, new LookupRowValidator());
+        var controller = new LookupsController(service);
+
+        var createdResponse = await controller.Create(
+            "governorates",
+            new JsonObject
+            {
+                ["code"] = "04",
+                ["name"] = "محافظة السويس",
+                ["region"] = "القناة",
+                ["isActive"] = true
+            },
+            TestContext.Current.CancellationToken);
+        var created = Assert.IsType<CreatedResult>(createdResponse.Result);
+        var createdBody = Assert.IsType<JsonObject>(created.Value);
+
+        Assert.Equal("04", createdBody["code"]?.GetValue<string>());
+        Assert.Equal("04", createdBody["nationalIdCode"]?.GetValue<string>());
+        SeedLookup(db, "police-stations", "PST-SUEZ", "قسم السويس", new JsonObject
+        {
+            ["governorateCode"] = "04",
+            ["kind"] = "قسم"
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        var updatedResponse = await controller.Update(
+            "governorates",
+            "04",
+            new JsonObject
+            {
+                ["code"] = "24",
+                ["name"] = "محافظة المنيا",
+                ["region"] = "الوجه القبلي",
+                ["isActive"] = true
+            },
+            TestContext.Current.CancellationToken);
+        var updated = Assert.IsType<OkObjectResult>(updatedResponse.Result);
+        var updatedBody = Assert.IsType<JsonObject>(updated.Value);
+
+        Assert.Equal("24", updatedBody["code"]?.GetValue<string>());
+        Assert.Equal("24", updatedBody["nationalIdCode"]?.GetValue<string>());
+        var station = await db.LookupRows.SingleAsync(
+            x => x.LookupKey == "police-stations" && x.Code == "PST-SUEZ",
+            TestContext.Current.CancellationToken);
+        Assert.Equal("24", LookupJson.StringProp(LookupJson.ParseObject(station.PayloadJson), "governorateCode"));
+        Assert.False(await db.LookupRows.AnyAsync(
+            x => x.LookupKey == "governorates" && x.Code == "04",
+            TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task SeederSynchronizesGovernoratesToNationalIdCodes()
     {
         await using var db = CreateDb();
