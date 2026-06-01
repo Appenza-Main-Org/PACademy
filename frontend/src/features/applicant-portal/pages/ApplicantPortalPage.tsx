@@ -120,6 +120,10 @@ export function ApplicantPortalPage(): JSX.Element {
     }
     return null;
   })();
+  const birthplace = [session.birthGovernorate, session.birthDistrict]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(' — ');
 
   return (
     <div className="flex flex-col gap-5">
@@ -205,7 +209,7 @@ export function ApplicantPortalPage(): JSX.Element {
           <Row label="رقم الملف" value={fileNumber ?? '—'} ltr mono />
           <Row label="الديانة" value={session.religion} />
           <Row label="الحالة الاجتماعية" value={maritalLabel(profile?.maritalStatus)} />
-          <Row label="محل الميلاد" value={`${session.birthGovernorate} — ${session.birthDistrict}`} />
+          <Row label="محل الميلاد" value={birthplace || '—'} />
           <Row
             label="العنوان"
             value={

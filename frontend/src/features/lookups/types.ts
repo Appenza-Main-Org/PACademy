@@ -322,6 +322,8 @@ export type GovernorateRegion = 'الوجه البحري' | 'الوجه القب
 
 export interface GovernorateRow extends LookupRowBase {
   region: GovernorateRegion;
+  /** Two-digit civil registry governorate code embedded in Egyptian NIDs. */
+  nationalIdCode?: string;
 }
 
 export type PoliceStationKind = 'قسم' | 'مركز' | 'بندر';

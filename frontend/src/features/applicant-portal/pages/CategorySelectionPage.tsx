@@ -829,12 +829,16 @@ function CategoryRow({
 
 function IdentityDrawerBody(): JSX.Element {
   const s = useApplicantPortalStore((st) => st.moiSession) ?? MOI_APPLICANT_SESSION;
+  const birthplace = [s.birthGovernorate, s.birthDistrict]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(' — ');
   const rows: Array<{ label: string; value: string; ltr?: boolean; mono?: boolean }> = [
     { label: 'الإسم رباعي', value: s.fullName },
     { label: 'الرقم القومي', value: s.nationalId, ltr: true, mono: true },
     { label: 'تاريخ الميلاد', value: s.dateOfBirthAr },
     { label: 'النوع', value: s.gender === 'male' ? 'ذكر' : 'أنثى' },
-    { label: 'محل الميلاد', value: `${s.birthGovernorate} — ${s.birthDistrict}` },
+    { label: 'محل الميلاد', value: birthplace },
     { label: 'رقم المحمول', value: s.mobile, ltr: true, mono: true },
     { label: 'البريد الإلكتروني', value: s.email, ltr: true, mono: true },
   ];

@@ -10,6 +10,7 @@ const frontendRoot = path.resolve(here, '..');
 const outDir = path.join(frontendRoot, '.tmp-tests');
 const outFile = path.join(outDir, 'applicant-profile-options.mjs');
 const governorateOutFile = path.join(outDir, 'governorate-lookup.mjs');
+const moiSessionOutFile = path.join(outDir, 'moi-session.mjs');
 
 const aliasPlugin = {
   name: 'src-alias',
@@ -43,6 +44,16 @@ try {
     logLevel: 'silent',
     plugins: [aliasPlugin],
   });
+  await build({
+    entryPoints: [path.join(frontendRoot, 'src/features/applicant-portal/lib/moi-session.mock.ts')],
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    outfile: moiSessionOutFile,
+    define: { 'import.meta.env': '{}' },
+    logLevel: 'silent',
+    plugins: [aliasPlugin],
+  });
 
   const {
     buildAllowedAcademicDegreeOptions,
@@ -54,6 +65,7 @@ try {
     resolveBirthGovernorateRow,
     resolveGovernorateRow,
   } = await import(pathToFileURL(governorateOutFile).href);
+  const { mockMoiVerifyNid } = await import(pathToFileURL(moiSessionOutFile).href);
 
   const selectedCodes = getAllowedApplicantProfileCodes(
     [
@@ -108,17 +120,26 @@ try {
   assert.equal(defaultReligion.value, 'مسلم');
 
   const governorates = [
-    { code: 'GOV-09', name: 'الغربية', isActive: true, region: 'الوجه البحري' },
-    { code: 'GOV-14', name: 'المنيا', isActive: true, region: 'الوجه القبلي' },
+    { code: '16', name: 'محافظة الغربية', isActive: true, region: 'الوجه البحري', nationalIdCode: '16' },
+    { code: '04', name: 'محافظة السويس', isActive: true, region: 'القناة', nationalIdCode: '04' },
+    { code: '24', name: 'محافظة المنيا', isActive: true, region: 'الوجه القبلي', nationalIdCode: '24' },
   ];
   const birthGov = resolveBirthGovernorateRow(governorates, 'المنيا', '30509211602852');
   assert.equal(
     birthGov?.name,
-    'الغربية',
+    'محافظة الغربية',
     'NID governorate code should override a stale MOI/session governorate label',
   );
+  const minyaBirthGov = resolveBirthGovernorateRow(governorates, 'محافظة السويس', '30509212402852');
+  assert.equal(
+    minyaBirthGov?.name,
+    'محافظة المنيا',
+    'NID governorate code 24 should resolve to محافظة المنيا, not stale MOI/session labels',
+  );
+  const suezBirthGov = resolveBirthGovernorateRow(governorates, 'محافظة المنيا', '30509210402852');
+  assert.equal(suezBirthGov?.name, 'محافظة السويس', 'NID governorate code 04 should resolve to محافظة السويس');
   const minyaRow = resolveGovernorateRow(governorates, '24');
-  assert.equal(minyaRow?.code, 'GOV-14', 'numeric NID governorate codes should resolve to lookup rows');
+  assert.equal(minyaRow?.code, '24', 'numeric NID governorate code 24 should resolve to محافظة المنيا');
   assert.equal(
     policeStationMatchesGovernorate(
       { code: 'PST-1', name: 'قسم المنيا', isActive: true, governorateCode: '24', kind: 'قسم' },
@@ -129,11 +150,18 @@ try {
   );
   assert.equal(
     policeStationMatchesGovernorate(
-      { code: 'PST-2', name: 'قسم طنطا', isActive: true, governorateCode: 'GOV-09', kind: 'قسم' },
+      { code: 'PST-2', name: 'قسم طنطا', isActive: true, governorateCode: '16', kind: 'قسم' },
       birthGov,
     ),
     true,
     'district filtering should keep supporting lookup governorate codes',
+  );
+  const derivedMoiSession = mockMoiVerifyNid('30509212402852');
+  assert.equal(derivedMoiSession?.birthGovernorate, 'محافظة المنيا');
+  assert.equal(
+    derivedMoiSession?.birthDistrict,
+    '',
+    'MOI fallback must not derive birthplace district from the application center',
   );
 
   console.log('applicant profile option filtering tests passed');

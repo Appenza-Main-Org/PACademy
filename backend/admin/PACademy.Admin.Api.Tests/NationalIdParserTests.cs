@@ -1,4 +1,5 @@
 using PACademy.Shared.Contracts;
+using PACademy.Modules.IdentityApplicant.Application.Moi;
 
 namespace PACademy.Admin.Api.Tests;
 
@@ -43,5 +44,25 @@ public sealed class NationalIdParserTests
 
         Assert.Equal(26, age);
         Assert.Equal(26, afterBirthday);
+    }
+
+    [Fact]
+    public void DerivedMoiIdentityMapsGovernorateCode24ToMinya()
+    {
+        var session = NidIdentityDeriver.Derive("30509212402852", "01167345289");
+
+        Assert.NotNull(session);
+        Assert.Equal("محافظة المنيا", session.BirthGovernorate);
+        Assert.Equal(string.Empty, session.BirthDistrict);
+    }
+
+    [Fact]
+    public void DerivedMoiIdentityMapsGovernorateCode04ToSuez()
+    {
+        var session = NidIdentityDeriver.Derive("30509210402852", "01167345289");
+
+        Assert.NotNull(session);
+        Assert.Equal("محافظة السويس", session.BirthGovernorate);
+        Assert.Equal(string.Empty, session.BirthDistrict);
     }
 }

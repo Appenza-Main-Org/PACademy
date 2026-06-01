@@ -1,6 +1,9 @@
 using System.Text.Json.Nodes;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 using PACademy.Admin.Api.Controllers;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Persistence;
@@ -9,6 +12,41 @@ namespace PACademy.Admin.Api.Tests;
 
 public sealed class LookupsControllerTests
 {
+    [Fact]
+    public async Task SeederSynchronizesGovernoratesToNationalIdCodes()
+    {
+        await using var db = CreateDb();
+        SeedLookup(db, "governorates", "GOV-14", "المنيا", new JsonObject { ["region"] = "الوجه القبلي" });
+        SeedLookup(db, "governorates", "GOV-22", "السويس", new JsonObject { ["region"] = "القناة" });
+        SeedLookup(db, "police-stations", "PST-1", "قسم المنيا", new JsonObject
+        {
+            ["governorateCode"] = "GOV-14",
+            ["kind"] = "قسم"
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var seeder = new LookupsSeeder(new StubWebHostEnvironment(), NullLogger<LookupsSeeder>.Instance);
+
+        await seeder.SeedAsync(db, TestContext.Current.CancellationToken);
+
+        var minya = await db.LookupRows.SingleAsync(
+            x => x.LookupKey == "governorates" && x.Code == "24",
+            TestContext.Current.CancellationToken);
+        var suez = await db.LookupRows.SingleAsync(
+            x => x.LookupKey == "governorates" && x.Code == "04",
+            TestContext.Current.CancellationToken);
+        var station = await db.LookupRows.SingleAsync(
+            x => x.LookupKey == "police-stations" && x.Code == "PST-1",
+            TestContext.Current.CancellationToken);
+        var stationPayload = LookupJson.ParseObject(station.PayloadJson);
+
+        Assert.Equal("محافظة المنيا", minya.Name);
+        Assert.Equal("محافظة السويس", suez.Name);
+        Assert.Equal("24", LookupJson.StringProp(stationPayload, "governorateCode"));
+        Assert.False(await db.LookupRows.AnyAsync(
+            x => x.LookupKey == "governorates" && x.Code.StartsWith("GOV-"),
+            TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task ForcedLookupDeleteRemovesRowDespiteDependencies()
     {
@@ -64,5 +102,15 @@ public sealed class LookupsControllerTests
             CreatedAt = now,
             UpdatedAt = now
         });
+    }
+
+    private sealed class StubWebHostEnvironment : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "PACademy.Admin.Api.Tests";
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+        public string ContentRootPath { get; set; } = Directory.GetCurrentDirectory();
+        public string EnvironmentName { get; set; } = "Development";
+        public string WebRootPath { get; set; } = Directory.GetCurrentDirectory();
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
     }
 }

@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PACademy.Admin.Api\PACademy.Admin.Api.csproj" />
+    <ProjectReference Include="..\..\applicant\Modules\IdentityApplicant\PACademy.Modules.IdentityApplicant.Application\PACademy.Modules.IdentityApplicant.Application.csproj" />
     <ProjectReference Include="..\..\shared\PACademy.Shared.Contracts\PACademy.Shared.Contracts.csproj" />
     <ProjectReference Include="..\..\shared\PACademy.Shared.Audit\PACademy.Shared.Audit.csproj" />
   </ItemGroup>
