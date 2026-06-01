@@ -318,10 +318,7 @@ export interface NationalityCountryRow extends LookupRowBase {
   isArab: boolean;
 }
 
-export type GovernorateRegion = 'الوجه البحري' | 'الوجه القبلي' | 'القاهرة الكبرى' | 'الحدود' | 'القناة';
-
 export interface GovernorateRow extends LookupRowBase {
-  region: GovernorateRegion;
   /** Two-digit civil registry governorate code embedded in Egyptian NIDs. */
   nationalIdCode?: string;
 }

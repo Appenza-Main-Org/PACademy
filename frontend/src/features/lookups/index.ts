@@ -32,7 +32,6 @@ export {
   type ApplicantCategoryType,
   type NationalityCountryRow,
   type GovernorateRow,
-  type GovernorateRegion,
   type PoliceStationRow,
   type PoliceStationKind,
   type JobRow,

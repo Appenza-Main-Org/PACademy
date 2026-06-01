@@ -352,27 +352,15 @@ function KeyFields({ lookupKey }: { lookupKey: LookupKey }): JSX.Element {
       );
     case 'governorates':
       return (
-        <>
-          <Input
-            label="كود المحافظة في الرقم القومي"
-            required
-            inputMode="numeric"
-            maxLength={2}
-            error={(errors.code as { message?: string } | undefined)?.message}
-            {...register('code')}
-          />
-          <Select
-            label="الإقليم"
-            options={[
-              { value: 'القاهرة الكبرى', label: 'القاهرة الكبرى' },
-              { value: 'الوجه البحري',   label: 'الوجه البحري' },
-              { value: 'الوجه القبلي',   label: 'الوجه القبلي' },
-              { value: 'القناة',         label: 'القناة' },
-              { value: 'الحدود',         label: 'الحدود' },
-            ]}
-            {...register('region')}
-          />
-        </>
+        <Input
+          label="كود المحافظة في الرقم القومي"
+          required
+          inputMode="numeric"
+          maxLength={2}
+          containerClassName="col-span-2"
+          error={(errors.code as { message?: string } | undefined)?.message}
+          {...register('code')}
+        />
       );
     case 'police-stations':
       return (
@@ -1127,7 +1115,7 @@ function blankRow(key: LookupKey): Record<string, unknown> {
     case 'nationalities-countries':
       return { ...base, iso2: '', isArab: false };
     case 'governorates':
-      return { ...base, nationalIdCode: '', region: 'الوجه البحري' };
+      return { ...base, nationalIdCode: '' };
     case 'police-stations':
       return { ...base, governorateCode: '', kind: 'قسم' };
     case 'jobs':

@@ -467,18 +467,6 @@ function filterDescriptor(key: LookupKey, sources: LookupLabelSources): FilterDe
           { value: 'دكتوراه',   label: 'دكتوراه' },
         ],
       };
-    case 'governorates':
-      return {
-        label: 'تصفية بالإقليم',
-        field: 'region',
-        options: [
-          { value: 'القاهرة الكبرى', label: 'القاهرة الكبرى' },
-          { value: 'الوجه البحري',   label: 'الوجه البحري' },
-          { value: 'الوجه القبلي',   label: 'الوجه القبلي' },
-          { value: 'القناة',         label: 'القناة' },
-          { value: 'الحدود',         label: 'الحدود' },
-        ],
-      };
     case 'nationalities-countries':
       return {
         label: 'تصفية',
@@ -503,7 +491,6 @@ function applyKeyFilter<K extends LookupKey>(key: K, rows: LookupRow<K>[], value
     case 'announcements':         return r.filter((row) => row.categoryCode === value) as LookupRow<K>[];
     case 'specializations':       return r.filter((row) => row.facultyCode === value) as LookupRow<K>[];
     case 'qualifications':        return r.filter((row) => row.level === value) as LookupRow<K>[];
-    case 'governorates':          return r.filter((row) => row.region === value) as LookupRow<K>[];
     case 'nationalities-countries': return r.filter((row) => value === 'arab' ? row.isArab : !row.isArab) as LookupRow<K>[];
     default:                      return rows;
   }
@@ -731,7 +718,6 @@ function extrasFor(
             </span>
           ),
         },
-        { key: 'region', label: 'الإقليم', sortable: true, width: 160, render: (r: GovernorateRow) => <Badge tone="neutral">{r.region}</Badge> },
       ];
     case 'police-stations':
       return [

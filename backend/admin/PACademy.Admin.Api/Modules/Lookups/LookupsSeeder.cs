@@ -8,34 +8,34 @@ public sealed class LookupsSeeder(IWebHostEnvironment environment, ILogger<Looku
 {
     private static readonly OfficialGovernorate[] OfficialGovernorates =
     [
-        new("01", "محافظة القاهرة", "القاهرة الكبرى"),
-        new("02", "محافظة الإسكندرية", "الوجه البحري"),
-        new("03", "محافظة بورسعيد", "القناة"),
-        new("04", "محافظة السويس", "القناة"),
-        new("11", "محافظة دمياط", "الوجه البحري"),
-        new("12", "محافظة الدقهلية", "الوجه البحري"),
-        new("13", "محافظة الشرقية", "الوجه البحري"),
-        new("14", "محافظة القليوبية", "القاهرة الكبرى"),
-        new("15", "محافظة كفر الشيخ", "الوجه البحري"),
-        new("16", "محافظة الغربية", "الوجه البحري"),
-        new("17", "محافظة المنوفية", "الوجه البحري"),
-        new("18", "محافظة البحيرة", "الوجه البحري"),
-        new("19", "محافظة الإسماعيلية", "القناة"),
-        new("21", "محافظة الجيزة", "القاهرة الكبرى"),
-        new("22", "محافظة بني سويف", "الوجه القبلي"),
-        new("23", "محافظة الفيوم", "الوجه القبلي"),
-        new("24", "محافظة المنيا", "الوجه القبلي"),
-        new("25", "محافظة أسيوط", "الوجه القبلي"),
-        new("26", "محافظة سوهاج", "الوجه القبلي"),
-        new("27", "محافظة قنا", "الوجه القبلي"),
-        new("28", "محافظة أسوان", "الوجه القبلي"),
-        new("29", "محافظة الأقصر", "الوجه القبلي"),
-        new("31", "محافظة البحر الأحمر", "الحدود"),
-        new("32", "محافظة الوادي الجديد", "الحدود"),
-        new("33", "محافظة مطروح", "الحدود"),
-        new("34", "محافظة شمال سيناء", "الحدود"),
-        new("35", "محافظة جنوب سيناء", "الحدود"),
-        new("88", "خارج الجمهورية", "الحدود"),
+        new("01", "محافظة القاهرة"),
+        new("02", "محافظة الإسكندرية"),
+        new("03", "محافظة بورسعيد"),
+        new("04", "محافظة السويس"),
+        new("11", "محافظة دمياط"),
+        new("12", "محافظة الدقهلية"),
+        new("13", "محافظة الشرقية"),
+        new("14", "محافظة القليوبية"),
+        new("15", "محافظة كفر الشيخ"),
+        new("16", "محافظة الغربية"),
+        new("17", "محافظة المنوفية"),
+        new("18", "محافظة البحيرة"),
+        new("19", "محافظة الإسماعيلية"),
+        new("21", "محافظة الجيزة"),
+        new("22", "محافظة بني سويف"),
+        new("23", "محافظة الفيوم"),
+        new("24", "محافظة المنيا"),
+        new("25", "محافظة أسيوط"),
+        new("26", "محافظة سوهاج"),
+        new("27", "محافظة قنا"),
+        new("28", "محافظة أسوان"),
+        new("29", "محافظة الأقصر"),
+        new("31", "محافظة البحر الأحمر"),
+        new("32", "محافظة الوادي الجديد"),
+        new("33", "محافظة مطروح"),
+        new("34", "محافظة شمال سيناء"),
+        new("35", "محافظة جنوب سيناء"),
+        new("88", "خارج الجمهورية"),
     ];
 
     public async Task SeedAsync(ILookupsDbContext db, CancellationToken ct = default)
@@ -134,7 +134,6 @@ public sealed class LookupsSeeder(IWebHostEnvironment environment, ILogger<Looku
         ["code"] = governorate.Code,
         ["name"] = governorate.Name,
         ["isActive"] = true,
-        ["region"] = governorate.Region,
         ["nationalIdCode"] = governorate.Code
     };
 
@@ -168,5 +167,5 @@ public sealed class LookupsSeeder(IWebHostEnvironment environment, ILogger<Looku
         return string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
-    private sealed record OfficialGovernorate(string Code, string Name, string Region);
+    private sealed record OfficialGovernorate(string Code, string Name);
 }

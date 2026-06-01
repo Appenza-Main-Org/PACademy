@@ -25,7 +25,6 @@ public sealed class LookupsControllerTests
             {
                 ["code"] = "04",
                 ["name"] = "محافظة السويس",
-                ["region"] = "القناة",
                 ["isActive"] = true
             },
             TestContext.Current.CancellationToken);
@@ -48,7 +47,6 @@ public sealed class LookupsControllerTests
             {
                 ["code"] = "24",
                 ["name"] = "محافظة المنيا",
-                ["region"] = "الوجه القبلي",
                 ["isActive"] = true
             },
             TestContext.Current.CancellationToken);
@@ -70,8 +68,8 @@ public sealed class LookupsControllerTests
     public async Task SeederSynchronizesGovernoratesToNationalIdCodes()
     {
         await using var db = CreateDb();
-        SeedLookup(db, "governorates", "GOV-14", "المنيا", new JsonObject { ["region"] = "الوجه القبلي" });
-        SeedLookup(db, "governorates", "GOV-22", "السويس", new JsonObject { ["region"] = "القناة" });
+        SeedLookup(db, "governorates", "GOV-14", "المنيا");
+        SeedLookup(db, "governorates", "GOV-22", "السويس");
         SeedLookup(db, "police-stations", "PST-1", "قسم المنيا", new JsonObject
         {
             ["governorateCode"] = "GOV-14",
