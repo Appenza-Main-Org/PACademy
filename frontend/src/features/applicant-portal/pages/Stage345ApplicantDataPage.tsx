@@ -89,6 +89,11 @@ import {
   type MaritalStatusValue,
 } from '../lib/profile-options';
 import {
+  policeStationMatchesGovernorate,
+  resolveBirthGovernorateRow,
+  resolveGovernorateRow,
+} from '../lib/governorateLookup';
+import {
   buildCycleAcademicGradeOptions,
   buildCycleFacultyOptions,
   buildCycleSpecializationOptions,
@@ -162,7 +167,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     };
   const isMoiVerified = effectiveSession !== null;
 
-  const eligibilityCategoriesQuery = useEligibleCategories(nid);
+  const eligibilityCategoriesQuery = useEligibleCategories(nid, selectedCycleId);
   const allCategoriesQuery = useApplicantCategories();
 
   const eligibilityGrade = eligibilityCategoriesQuery.data?.grade ?? null;
@@ -364,12 +369,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     [universityGradeOptions],
   );
 
-  const govNameToCode = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const g of governoratesQuery.data ?? []) m.set(g.name, g.code);
-    return m;
-  }, [governoratesQuery.data]);
-
   const governorateOptions: readonly SearchSelectOption[] = useMemo(
     () =>
       (governoratesQuery.data ?? [])
@@ -511,34 +510,45 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     );
   }, [facultyByName, watchedFaculty, selectedCategoryEligibility]);
 
-  const birthGovCode = useMemo(
+  const rawBirthGovernorate =
+    (isMoiVerified && session.birthGovernorate) ? session.birthGovernorate : manualPersonal.birthGovernorate;
+  const birthGovernorateRow = useMemo(
     () =>
-      govNameToCode.get(
-        (isMoiVerified && session.birthGovernorate) ? session.birthGovernorate : manualPersonal.birthGovernorate,
-      ) ?? null,
-    [govNameToCode, isMoiVerified, session.birthGovernorate, manualPersonal.birthGovernorate],
+      resolveBirthGovernorateRow(
+        governoratesQuery.data ?? [],
+        rawBirthGovernorate,
+        isMoiVerified ? session.nationalId : null,
+      ),
+    [governoratesQuery.data, isMoiVerified, rawBirthGovernorate, session.nationalId],
   );
-  const addressGovCode = useMemo(
-    () => govNameToCode.get(watchedAddressGovernorate ?? '') ?? null,
-    [govNameToCode, watchedAddressGovernorate],
+  const birthGovernorateValue = birthGovernorateRow?.name ?? rawBirthGovernorate;
+  const addressGovernorateRow = useMemo(
+    () => resolveGovernorateRow(governoratesQuery.data ?? [], watchedAddressGovernorate),
+    [governoratesQuery.data, watchedAddressGovernorate],
   );
   const birthDistrictOptions: readonly SearchSelectOption[] = useMemo(
     () =>
-      birthGovCode
+      birthGovernorateRow
         ? (policeStationsQuery.data ?? [])
-            .filter((ps: PoliceStationRow) => ps.isActive && ps.governorateCode === birthGovCode)
+            .filter(
+              (ps: PoliceStationRow) =>
+                ps.isActive && policeStationMatchesGovernorate(ps, birthGovernorateRow),
+            )
             .map((ps) => ({ value: ps.name, label: ps.name }))
         : [],
-    [policeStationsQuery.data, birthGovCode],
+    [policeStationsQuery.data, birthGovernorateRow],
   );
   const addressDistrictOptions: readonly SearchSelectOption[] = useMemo(
     () =>
-      addressGovCode
+      addressGovernorateRow
         ? (policeStationsQuery.data ?? [])
-            .filter((ps: PoliceStationRow) => ps.isActive && ps.governorateCode === addressGovCode)
+            .filter(
+              (ps: PoliceStationRow) =>
+                ps.isActive && policeStationMatchesGovernorate(ps, addressGovernorateRow),
+            )
             .map((ps) => ({ value: ps.name, label: ps.name }))
         : [],
-    [policeStationsQuery.data, addressGovCode],
+    [policeStationsQuery.data, addressGovernorateRow],
   );
   const scopedSpecializationOptions: readonly SearchSelectOption[] = useMemo(() => {
     if (!watchedFaculty) return [];
@@ -1076,15 +1086,12 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               ariaLabel="محل الميلاد"
               placeholder="اختر المحافظة"
               options={governorateOptions}
-              value={
-                (isMoiVerified ? session.birthGovernorate : manualPersonal.birthGovernorate) ||
-                null
-              }
+              value={birthGovernorateValue || null}
               onChange={(v) => {
                 setManual('birthGovernorate', v ?? '');
                 setValue('birthDistrict', '');
               }}
-              disabled={isMoiVerified && !!session.birthGovernorate}
+              disabled={isMoiVerified && !!birthGovernorateRow}
             />
           </Field>
           <Field label="القسم / مركز الميلاد" required error={errors.birthDistrict?.message}>
@@ -1094,11 +1101,11 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               render={({ field }) => (
                 <SearchSelect
                   ariaLabel="القسم / مركز الميلاد"
-                  placeholder={birthGovCode ? 'اختر القسم أو المركز' : 'اختر المحافظة أولاً'}
+                  placeholder={birthGovernorateRow ? 'اختر القسم أو المركز' : 'اختر المحافظة أولاً'}
                   options={birthDistrictOptions}
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v ?? '')}
-                  disabled={!birthGovCode}
+                  disabled={!birthGovernorateRow}
                 />
               )}
             />
@@ -1138,11 +1145,11 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               render={({ field }) => (
                 <SearchSelect
                   ariaLabel="القسم / مركز الإقامة"
-                  placeholder={addressGovCode ? 'اختر القسم أو المركز' : 'اختر المحافظة أولاً'}
+                  placeholder={addressGovernorateRow ? 'اختر القسم أو المركز' : 'اختر المحافظة أولاً'}
                   options={addressDistrictOptions}
                   value={field.value ?? null}
                   onChange={(v) => field.onChange(v ?? '')}
-                  disabled={!addressGovCode}
+                  disabled={!addressGovernorateRow}
                 />
               )}
             />

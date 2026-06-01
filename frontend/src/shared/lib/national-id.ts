@@ -20,7 +20,8 @@ export interface NationalIdInfo {
 
 export function parseNationalId(id: string): NationalIdInfo {
   if (!id || !/^\d{14}$/.test(id)) return { valid: false };
-  const century = id[0] === '2' ? 2000 : 1900;
+  const century = id[0] === '2' ? 1900 : id[0] === '3' ? 2000 : 0;
+  if (century === 0) return { valid: false };
   const yy = Number(id.slice(1, 3));
   const mm = Number(id.slice(3, 5));
   const dd = Number(id.slice(5, 7));

@@ -1320,9 +1320,43 @@ public sealed class OperationalRecordsService(
         {
             payload["birthDate"] ??= info.BirthDate.ToString("yyyy-MM-dd");
             payload["gender"] ??= info.Gender == EgyptianNationalIdGender.Male ? "male" : "female";
-            payload["birthGovernorate"] ??= info.GovernorateCode;
+            payload["birthGovernorate"] ??= GovernorateNameFromNationalIdCode(info.GovernorateCode);
         }
     }
+
+    private static string GovernorateNameFromNationalIdCode(string code)
+        => code switch
+        {
+            "01" => "القاهرة",
+            "02" => "الإسكندرية",
+            "03" => "بورسعيد",
+            "04" => "السويس",
+            "11" => "دمياط",
+            "12" => "الدقهلية",
+            "13" => "الشرقية",
+            "14" => "القليوبية",
+            "15" => "كفر الشيخ",
+            "16" => "الغربية",
+            "17" => "المنوفية",
+            "18" => "البحيرة",
+            "19" => "الإسماعيلية",
+            "21" => "الجيزة",
+            "22" => "بني سويف",
+            "23" => "الفيوم",
+            "24" => "المنيا",
+            "25" => "أسيوط",
+            "26" => "سوهاج",
+            "27" => "قنا",
+            "28" => "أسوان",
+            "29" => "الأقصر",
+            "31" => "البحر الأحمر",
+            "32" => "الوادي الجديد",
+            "33" => "مرسى مطروح",
+            "34" => "شمال سيناء",
+            "35" => "جنوب سيناء",
+            "88" => "خارج الجمهورية",
+            _ => code,
+        };
 
     private static string? JoinedFullName(JsonObject payload)
     {

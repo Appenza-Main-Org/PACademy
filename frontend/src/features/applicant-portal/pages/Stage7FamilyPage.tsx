@@ -52,6 +52,10 @@ import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { useDraft } from '../api/applicantPortal.queries';
 import { useLookup } from '@/features/lookups/api/lookups.queries';
 import type { GovernorateRow, PoliceStationRow } from '@/features/lookups';
+import {
+  policeStationMatchesGovernorate,
+  resolveGovernorateRow,
+} from '../lib/governorateLookup';
 
 const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
 
@@ -647,27 +651,34 @@ function MemberFormCard({
       .map((g: GovernorateRow) => ({ value: g.name, label: g.name })),
     [governoratesQuery.data],
   );
-  const govNameToCode = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const g of governoratesQuery.data ?? []) m.set(g.name, g.code);
-    return m;
-  }, [governoratesQuery.data]);
+  const birthGovernorateRow = useMemo(
+    () => resolveGovernorateRow(governoratesQuery.data ?? [], birthGov),
+    [governoratesQuery.data, birthGov],
+  );
+  const residenceGovernorateRow = useMemo(
+    () => resolveGovernorateRow(governoratesQuery.data ?? [], residenceGov),
+    [governoratesQuery.data, residenceGov],
+  );
 
   const birthDistrictOptions = useMemo<SearchSelectOption[]>(() => {
-    const code = govNameToCode.get(birthGov ?? '');
-    if (!code) return [];
+    if (!birthGovernorateRow) return [];
     return (policeStationsQuery.data ?? [])
-      .filter((ps: PoliceStationRow) => ps.isActive && ps.governorateCode === code)
+      .filter(
+        (ps: PoliceStationRow) =>
+          ps.isActive && policeStationMatchesGovernorate(ps, birthGovernorateRow),
+      )
       .map((ps: PoliceStationRow) => ({ value: ps.name, label: ps.name }));
-  }, [birthGov, govNameToCode, policeStationsQuery.data]);
+  }, [birthGovernorateRow, policeStationsQuery.data]);
 
   const residenceDistrictOptions = useMemo<SearchSelectOption[]>(() => {
-    const code = govNameToCode.get(residenceGov ?? '');
-    if (!code) return [];
+    if (!residenceGovernorateRow) return [];
     return (policeStationsQuery.data ?? [])
-      .filter((ps: PoliceStationRow) => ps.isActive && ps.governorateCode === code)
+      .filter(
+        (ps: PoliceStationRow) =>
+          ps.isActive && policeStationMatchesGovernorate(ps, residenceGovernorateRow),
+      )
       .map((ps: PoliceStationRow) => ({ value: ps.name, label: ps.name }));
-  }, [residenceGov, govNameToCode, policeStationsQuery.data]);
+  }, [residenceGovernorateRow, policeStationsQuery.data]);
 
   /* Reset district when governorate changes so stale values don't persist.
    * Mount guards skip the first run so hydrated district values are preserved. */

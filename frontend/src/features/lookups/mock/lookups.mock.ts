@@ -708,6 +708,18 @@ const policeStations: PoliceStationRow[] = [
   // دمياط (GOV-11)
   { code: 'PST-0049', name: 'قسم دمياط',             isActive: true, governorateCode: 'GOV-11', kind: 'قسم' },
   { code: 'PST-0050', name: 'بندر فارسكور',          isActive: true, governorateCode: 'GOV-11', kind: 'بندر' },
+  // بني سويف (GOV-12)
+  { code: 'PST-0065', name: 'قسم بني سويف',           isActive: true, governorateCode: 'GOV-12', kind: 'قسم' },
+  { code: 'PST-0066', name: 'مركز الواسطى',           isActive: true, governorateCode: 'GOV-12', kind: 'مركز' },
+  { code: 'PST-0067', name: 'مركز ببا',               isActive: true, governorateCode: 'GOV-12', kind: 'مركز' },
+  // الفيوم (GOV-13)
+  { code: 'PST-0068', name: 'قسم أول الفيوم',         isActive: true, governorateCode: 'GOV-13', kind: 'قسم' },
+  { code: 'PST-0069', name: 'مركز سنورس',             isActive: true, governorateCode: 'GOV-13', kind: 'مركز' },
+  { code: 'PST-0070', name: 'مركز إطسا',              isActive: true, governorateCode: 'GOV-13', kind: 'مركز' },
+  // المنيا (GOV-14)
+  { code: 'PST-0071', name: 'قسم المنيا',             isActive: true, governorateCode: 'GOV-14', kind: 'قسم' },
+  { code: 'PST-0072', name: 'مركز مغاغة',             isActive: true, governorateCode: 'GOV-14', kind: 'مركز' },
+  { code: 'PST-0073', name: 'مركز ملوي',              isActive: true, governorateCode: 'GOV-14', kind: 'مركز' },
   // أسيوط (GOV-15)
   { code: 'PST-0051', name: 'قسم أول أسيوط',         isActive: true, governorateCode: 'GOV-15', kind: 'قسم' },
   { code: 'PST-0052', name: 'مركز ديروط',            isActive: true, governorateCode: 'GOV-15', kind: 'مركز' },

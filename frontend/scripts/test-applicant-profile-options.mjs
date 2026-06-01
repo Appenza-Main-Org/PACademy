@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -8,6 +9,19 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const frontendRoot = path.resolve(here, '..');
 const outDir = path.join(frontendRoot, '.tmp-tests');
 const outFile = path.join(outDir, 'applicant-profile-options.mjs');
+const governorateOutFile = path.join(outDir, 'governorate-lookup.mjs');
+
+const aliasPlugin = {
+  name: 'src-alias',
+  setup(buildContext) {
+    buildContext.onResolve({ filter: /^@\// }, (args) => {
+      const base = path.join(frontendRoot, 'src', args.path.slice(2));
+      const resolved = [base, `${base}.ts`, `${base}.tsx`, path.join(base, 'index.ts')]
+        .find((candidate) => existsSync(candidate));
+      return { path: resolved ?? base };
+    });
+  },
+};
 
 await mkdir(outDir, { recursive: true });
 try {
@@ -18,6 +32,16 @@ try {
     format: 'esm',
     outfile: outFile,
     logLevel: 'silent',
+    plugins: [aliasPlugin],
+  });
+  await build({
+    entryPoints: [path.join(frontendRoot, 'src/features/applicant-portal/lib/governorateLookup.ts')],
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    outfile: governorateOutFile,
+    logLevel: 'silent',
+    plugins: [aliasPlugin],
   });
 
   const {
@@ -25,6 +49,11 @@ try {
     buildAllowedMaritalStatusOptions,
     getAllowedApplicantProfileCodes,
   } = await import(pathToFileURL(outFile).href);
+  const {
+    policeStationMatchesGovernorate,
+    resolveBirthGovernorateRow,
+    resolveGovernorateRow,
+  } = await import(pathToFileURL(governorateOutFile).href);
 
   const selectedCodes = getAllowedApplicantProfileCodes(
     [
@@ -77,6 +106,35 @@ try {
 
   const defaultReligion = { value: 'مسلم', label: 'مسلم' };
   assert.equal(defaultReligion.value, 'مسلم');
+
+  const governorates = [
+    { code: 'GOV-09', name: 'الغربية', isActive: true, region: 'الوجه البحري' },
+    { code: 'GOV-14', name: 'المنيا', isActive: true, region: 'الوجه القبلي' },
+  ];
+  const birthGov = resolveBirthGovernorateRow(governorates, 'المنيا', '30509211602852');
+  assert.equal(
+    birthGov?.name,
+    'الغربية',
+    'NID governorate code should override a stale MOI/session governorate label',
+  );
+  const minyaRow = resolveGovernorateRow(governorates, '24');
+  assert.equal(minyaRow?.code, 'GOV-14', 'numeric NID governorate codes should resolve to lookup rows');
+  assert.equal(
+    policeStationMatchesGovernorate(
+      { code: 'PST-1', name: 'قسم المنيا', isActive: true, governorateCode: '24', kind: 'قسم' },
+      minyaRow,
+    ),
+    true,
+    'district filtering should accept admin rows keyed by NID governorate code',
+  );
+  assert.equal(
+    policeStationMatchesGovernorate(
+      { code: 'PST-2', name: 'قسم طنطا', isActive: true, governorateCode: 'GOV-09', kind: 'قسم' },
+      birthGov,
+    ),
+    true,
+    'district filtering should keep supporting lookup governorate codes',
+  );
 
   console.log('applicant profile option filtering tests passed');
 } finally {
