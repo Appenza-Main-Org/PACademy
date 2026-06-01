@@ -15,6 +15,7 @@ internal static class GovernorateLookupNormalizer
         var policeStations = await db.LookupRows
             .Where(x => x.LookupKey == "police-stations")
             .ToListAsync(ct);
+        changed = NormalizePoliceStationGovernorateRefs(policeStations, now) || changed;
         var byCode = existingGovernorates
             .GroupBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
@@ -84,6 +85,54 @@ internal static class GovernorateLookupNormalizer
             station.UpdatedAt = now;
         }
     }
+
+    private static bool NormalizePoliceStationGovernorateRefs(
+        IEnumerable<LookupRowEntity> policeStations,
+        DateTimeOffset now)
+    {
+        var changed = false;
+        foreach (var station in policeStations)
+        {
+            var payload = LookupJson.ParseObject(station.PayloadJson);
+            var governorateCode = LookupJson.StringProp(payload, "governorateCode");
+            if (governorateCode is null) continue;
+            if (!OldGovernorateCodeMap.TryGetValue(governorateCode, out var officialCode)) continue;
+
+            payload["governorateCode"] = officialCode;
+            station.PayloadJson = payload.ToJsonString(LookupJson.Options);
+            station.UpdatedAt = now;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static readonly IReadOnlyDictionary<string, string> OldGovernorateCodeMap =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["GOV-01"] = "01",
+            ["GOV-02"] = "21",
+            ["GOV-03"] = "14",
+            ["GOV-04"] = "02",
+            ["GOV-05"] = "12",
+            ["GOV-06"] = "13",
+            ["GOV-07"] = "17",
+            ["GOV-08"] = "18",
+            ["GOV-09"] = "16",
+            ["GOV-10"] = "15",
+            ["GOV-11"] = "11",
+            ["GOV-12"] = "22",
+            ["GOV-13"] = "23",
+            ["GOV-14"] = "24",
+            ["GOV-15"] = "25",
+            ["GOV-16"] = "26",
+            ["GOV-17"] = "27",
+            ["GOV-18"] = "29",
+            ["GOV-19"] = "28",
+            ["GOV-20"] = "03",
+            ["GOV-21"] = "19",
+            ["GOV-22"] = "04"
+        };
 }
 
 internal static class EgyptianGovernorateLookupData

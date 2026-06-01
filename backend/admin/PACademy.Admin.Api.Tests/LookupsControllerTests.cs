@@ -164,6 +164,35 @@ public sealed class LookupsControllerTests
     }
 
     [Fact]
+    public async Task ListPoliceStationsNormalizesLegacyGovernorateRefsBeforeReturning()
+    {
+        await using var db = CreateDb();
+        SeedLookup(db, "police-stations", "PST-MINYA", "قسم المنيا", new JsonObject
+        {
+            ["governorateCode"] = "GOV-14",
+            ["kind"] = "قسم"
+        });
+        SeedLookup(db, "police-stations", "PST-ASWAN", "قسم أسوان", new JsonObject
+        {
+            ["governorateCode"] = "GOV-19",
+            ["kind"] = "قسم"
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var service = new LookupsService(db, new LookupRowValidator());
+
+        var rows = await service.ListAsync("police-stations", null, null, TestContext.Current.CancellationToken);
+
+        Assert.Contains(rows, row =>
+            LookupJson.StringProp(row, "code") == "PST-MINYA" &&
+            LookupJson.StringProp(row, "governorateCode") == "24");
+        Assert.Contains(rows, row =>
+            LookupJson.StringProp(row, "code") == "PST-ASWAN" &&
+            LookupJson.StringProp(row, "governorateCode") == "28");
+        Assert.DoesNotContain(rows, row =>
+            LookupJson.StringProp(row, "governorateCode")?.StartsWith("GOV-", StringComparison.OrdinalIgnoreCase) == true);
+    }
+
+    [Fact]
     public async Task ForcedLookupDeleteRemovesRowDespiteDependencies()
     {
         await using var db = CreateDb();

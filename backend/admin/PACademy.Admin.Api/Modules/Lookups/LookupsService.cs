@@ -10,7 +10,7 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
     public async Task<IReadOnlyList<JsonObject>> ListAsync(string key, bool? isActive, string? search, CancellationToken ct)
     {
         EnsureKnown(key);
-        if (key == "governorates")
+        if (key is "governorates" or "police-stations")
         {
             await GovernorateLookupNormalizer.SynchronizeAsync(db, ct);
         }
