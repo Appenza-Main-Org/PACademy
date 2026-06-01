@@ -3,8 +3,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Download,
-  DoorClosed,
-  DoorOpen,
   FileSpreadsheet,
   FileText,
   Fingerprint,
@@ -39,7 +37,6 @@ import type {
   BiometricAuditLog,
   EnrollmentStatus,
   ExportFormat,
-  GateDirection,
   SearchField,
   VerificationLog,
   VerificationMethod,
@@ -499,78 +496,6 @@ export function BiometricIdentityVerifyPage(): JSX.Element {
       module="exam-committee"
       title="التحقق من الهوية"
       subtitle="تحقق بالبصمة أو الوجه أو الباركود قبل السماح باستكمال الاختبار"
-    />
-  );
-}
-
-export function BiometricSecurityGatePage(): JSX.Element {
-  const [lastResult, setLastResult] = useState<VerifyResult | null>(null);
-  const [logs, setLogs] = useState<Awaited<ReturnType<typeof biometricService.listGateLogs>>>([]);
-
-  const refreshLogs = async (): Promise<void> => {
-    setLogs(await biometricService.listGateLogs());
-  };
-
-  useEffect(() => {
-    void refreshLogs();
-  }, []);
-
-  const record = async (direction: GateDirection): Promise<void> => {
-    if (!lastResult?.applicant) return;
-    await biometricService.recordGateLog({
-      applicantId: lastResult.applicant.applicant.id,
-      direction,
-      verificationResult: lastResult.status,
-      operator: 'U-006',
-    });
-    await refreshLogs();
-    toast(direction === 'entry' ? 'تم تسجيل وقت الدخول' : 'تم تسجيل وقت الخروج', 'success');
-  };
-
-  return (
-    <>
-      <VerificationConsole
-        module="security-gate"
-        title="بوابة التأمين"
-        subtitle="مسح الباركود ثم استرجاع المتقدم والتحقق وتسجيل الدخول أو الخروج"
-        defaultMethod="barcode"
-        onResult={setLastResult}
-      />
-      <Card className="mt-5">
-        <CardHeader
-          title="حركة البوابة"
-          actions={
-            <div className="flex gap-2">
-              <Button variant="success" size="sm" leadingIcon={<DoorOpen size={14} />} onClick={() => void record('entry')} disabled={!lastResult?.canContinue}>
-                دخول
-              </Button>
-              <Button variant="secondary" size="sm" leadingIcon={<DoorClosed size={14} />} onClick={() => void record('exit')} disabled={!lastResult?.applicant}>
-                خروج
-              </Button>
-            </div>
-          }
-        />
-        <VerificationTable rows={logs.slice(0, 12).map((log) => ({
-          id: log.id,
-          applicantId: log.applicantId,
-          applicantName: log.applicantName,
-          method: 'barcode',
-          result: log.verificationResult,
-          operator: log.operator,
-          module: 'security-gate',
-          timestamp: log.at,
-        }))} />
-      </Card>
-    </>
-  );
-}
-
-export function BiometricMedicalVerifyPage(): JSX.Element {
-  return (
-    <VerificationConsole
-      module="medical-commission"
-      title="تحقق القومسيون الطبي"
-      subtitle="إثبات هوية المتقدم داخل القومسيون والعيادات قبل تسجيل نتيجة الكشف"
     />
   );
 }

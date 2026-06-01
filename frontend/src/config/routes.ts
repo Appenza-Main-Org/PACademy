@@ -172,8 +172,6 @@ export const ROUTES = {
     enroll: '/biometric/enroll',
     verify: '/biometric/verify',
     history: '/biometric/history',
-    securityGate: '/biometric/security-gate',
-    medicalVerify: '/biometric/medical-verify',
     verifyOps: '/biometric/verify-ops',
     monitoring: '/biometric/monitoring',
   },
