@@ -22,10 +22,11 @@ export function useCategories(cycleId?: string) {
 }
 
 /** All currently-active cycles (may be empty). */
-export function useActiveCycles() {
+export function useActiveCycles(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: categoryKeys.activeCycles(),
     queryFn: () => categoriesPublicService.getActiveCycles(),
+    enabled: options?.enabled ?? true,
     ...noServerStateCacheOptions,
   });
 }

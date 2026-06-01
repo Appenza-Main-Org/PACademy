@@ -20,6 +20,10 @@
  *   POST /applicant/parents/approve                 → { approvedAt }     (MOI اعتماد gate)
  *   POST /applicant/exam-date                       → { date }           (MOI first-exam-date pick)
  *   GET  /applicant/follow-up/:applicantId         → followUp pipeline
+ *   GET  /api/applicant/acquaintance-doc/status    → AcquaintanceDocStatus
+ *   GET  /api/applicant/acquaintance-doc           → AcquaintanceDocResponse
+ *   PATCH /api/applicant/acquaintance-doc          → AcquaintanceDocResponse
+ *   GET  /api/applicant/acquaintance-doc/print     → AcquaintanceDocResponse
  *   GET  /api/lookups/tests?isActive=true          → active test names/order
  *   GET  /api/cycles/:cycleId/categories/:categoryId/exam-plan
  *                                                  → configured cycle tests
@@ -34,6 +38,7 @@ import type { ApplicantDraft, ExamSlot, PaymentTransaction } from '@/shared/type
 import { useAuthStore } from '@/features/auth';
 import type { FollowUpExam, FollowUpExamPlan } from '../lib/follow-up-exam-plan';
 import { normalizeApplicationInstructions } from '../lib/application-lock';
+import { emptyDocument, type VothiqaTaarufDocument } from '../lib/vothiqaTaaruf.types';
 
 /* When the real backend is active the applicantId must be the GUID
  * issued by auth/verify, not the mock "APP-2026000" constant that pages
@@ -48,6 +53,8 @@ let DRAFT: ApplicantDraft = { ...MOCK.sampleApplicantDraft };
 const SLOTS: ExamSlot[] = MOCK.examSlots.map((s) => ({ ...s }));
 let TXN_COUNTER = 1;
 const PAYMENTS: PaymentTransaction[] = [];
+let ACQUAINTANCE_DOC: VothiqaTaarufDocument | null = null;
+let ACQUAINTANCE_DOC_CLOSED = false;
 
 interface TestLookupRow {
   code: string;
@@ -71,6 +78,31 @@ interface BackendExamPlan {
 
 interface ApplicationInstructionsResponse {
   applicationInstructions?: readonly string[] | string | null;
+}
+
+export interface AcquaintanceDocStatus {
+  cycleId: string;
+  status: 'not_open' | 'open' | 'closed';
+  isOpen: boolean;
+  isClosed: boolean;
+  isLocked: boolean;
+  canEdit: boolean;
+  canPrint: boolean;
+  reason: string;
+  openingTestKey?: string;
+  closingTestKey?: string;
+  closingMode?: string;
+  openedAt?: number | null;
+  closedAt?: number | null;
+  lastAutosavedAt?: number | null;
+  version: number;
+}
+
+export interface AcquaintanceDocResponse {
+  status: AcquaintanceDocStatus;
+  document: Partial<VothiqaTaarufDocument> | null;
+  lastAutosavedAt?: number | null;
+  version?: number;
 }
 
 function metadataString(row: TestLookupRow, key: string): string | undefined {
@@ -362,6 +394,68 @@ export const applicantPortalService = {
   async generateAcquaintanceDoc(_applicantId: string): Promise<void> {
     await simulateLatency(200, 400);
     if (typeof window !== 'undefined') window.print();
+  },
+
+  async getAcquaintanceDocStatus(_applicantId: string): Promise<AcquaintanceDocStatus> {
+    if (isBackendEnabled()) {
+      return applicantApiClient.get<AcquaintanceDocStatus>('/api/applicant/acquaintance-doc/status');
+    }
+    await simulateLatency(120, 220);
+    const isOpen = !ACQUAINTANCE_DOC_CLOSED && DRAFT.furthestStage >= 8;
+    return {
+      cycleId: DRAFT.cycleId,
+      status: ACQUAINTANCE_DOC_CLOSED ? 'closed' : isOpen ? 'open' : 'not_open',
+      isOpen,
+      isClosed: ACQUAINTANCE_DOC_CLOSED,
+      isLocked: !isOpen,
+      canEdit: isOpen,
+      canPrint: ACQUAINTANCE_DOC_CLOSED,
+      reason: ACQUAINTANCE_DOC_CLOSED ? 'closed_by_backend_rule' : isOpen ? 'open' : 'waiting_for_configured_test',
+      openingTestKey: 'physical',
+      closingTestKey: 'medical',
+      closingMode: 'after_test_passed',
+      lastAutosavedAt: DRAFT.lastSavedAt,
+      version: ACQUAINTANCE_DOC ? 1 : 0,
+    };
+  },
+
+  async getAcquaintanceDoc(applicantId: string): Promise<AcquaintanceDocResponse> {
+    if (isBackendEnabled()) {
+      return applicantApiClient.get<AcquaintanceDocResponse>('/api/applicant/acquaintance-doc');
+    }
+    const status = await this.getAcquaintanceDocStatus(applicantId);
+    if (!status.isOpen && !status.isClosed) return { status, document: null };
+    ACQUAINTANCE_DOC ??= emptyDocument();
+    return { status, document: ACQUAINTANCE_DOC, lastAutosavedAt: DRAFT.lastSavedAt, version: 1 };
+  },
+
+  async saveAcquaintanceDoc(
+    applicantId: string,
+    partial: Partial<VothiqaTaarufDocument>,
+  ): Promise<AcquaintanceDocResponse> {
+    if (isBackendEnabled()) {
+      return applicantApiClient.patch<AcquaintanceDocResponse>('/api/applicant/acquaintance-doc', partial);
+    }
+    await simulateLatency(180, 320);
+    const status = await this.getAcquaintanceDocStatus(applicantId);
+    if (!status.canEdit) throw new Error('وثيقة التعارف غير متاحة للتعديل حالياً');
+    ACQUAINTANCE_DOC = { ...emptyDocument(), ...(ACQUAINTANCE_DOC ?? {}), ...partial };
+    DRAFT = { ...DRAFT, lastSavedAt: Date.now() };
+    return {
+      status: { ...status, lastAutosavedAt: DRAFT.lastSavedAt, version: 1 },
+      document: ACQUAINTANCE_DOC,
+      lastAutosavedAt: DRAFT.lastSavedAt,
+      version: 1,
+    };
+  },
+
+  async getPrintableAcquaintanceDoc(applicantId: string): Promise<AcquaintanceDocResponse> {
+    if (isBackendEnabled()) {
+      return applicantApiClient.get<AcquaintanceDocResponse>('/api/applicant/acquaintance-doc/print');
+    }
+    const status = await this.getAcquaintanceDocStatus(applicantId);
+    if (!status.canPrint) throw new Error('لا يمكن طباعة وثيقة التعارف قبل غلقها');
+    return { status, document: ACQUAINTANCE_DOC ?? emptyDocument(), version: 1 };
   },
 
   /* ── MOI-aligned methods ──────────────────────────────────────────── */

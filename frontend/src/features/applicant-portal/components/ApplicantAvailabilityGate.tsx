@@ -26,10 +26,14 @@ import { useActiveCycles } from '../api/categories.queries';
 
 export function ApplicantAvailabilityGate({
   children,
+  allowWhenUnavailable = false,
 }: {
   children: ReactNode;
+  /** Allows already-submitted applicants to view post-submission pages
+   * after the public application window closes. */
+  allowWhenUnavailable?: boolean;
 }): JSX.Element {
-  const cyclesQuery = useActiveCycles();
+  const cyclesQuery = useActiveCycles({ enabled: !allowWhenUnavailable });
 
   if (cyclesQuery.isLoading) {
     return (
@@ -52,7 +56,7 @@ export function ApplicantAvailabilityGate({
   }
 
   const hasOpenCycle = (cyclesQuery.data ?? []).length > 0;
-  if (!hasOpenCycle) {
+  if (!hasOpenCycle && !allowWhenUnavailable) {
     return <ApplicationUnavailableNotice />;
   }
 

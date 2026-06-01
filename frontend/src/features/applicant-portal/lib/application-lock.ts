@@ -21,8 +21,7 @@ export function isApplicantEditRoute(pathname: string): boolean {
   return path === 'profile' ||
     path.startsWith('profile/') ||
     path === 'payment' ||
-    path === 'exam-schedule' ||
-    path === 'acquaintance-doc';
+    path === 'exam-schedule';
 }
 
 export function normalizeApplicationInstructions(

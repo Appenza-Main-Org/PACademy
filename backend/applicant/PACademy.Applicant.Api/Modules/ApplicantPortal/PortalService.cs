@@ -13,6 +13,18 @@ namespace PACademy.Applicant.Api.Modules.ApplicantPortal;
 /// </summary>
 public sealed class PortalService(PortalDbContext db)
 {
+    private static readonly string[] AcquaintanceDocSectionKeys =
+    [
+        "personal",
+        "applicantFamily",
+        "parents",
+        "grandparents",
+        "siblings",
+        "paternalRelatives",
+        "maternalRelatives",
+        "foreignAndCases",
+    ];
+
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -464,6 +476,102 @@ public sealed class PortalService(PortalDbContext db)
         return ParseJson(record.PayloadJson);
     }
 
+    // ── Acquaintance document ─────────────────────────────────────────
+
+    public async Task<JsonObject> GetAcquaintanceDocStatusAsync(string applicantId, CancellationToken ct)
+    {
+        var lifecycle = await EvaluateAcquaintanceDocLifecycleAsync(applicantId, ct);
+        return lifecycle.Status;
+    }
+
+    public async Task<JsonObject> GetOrCreateAcquaintanceDocAsync(string applicantId, CancellationToken ct)
+    {
+        var lifecycle = await EvaluateAcquaintanceDocLifecycleAsync(applicantId, ct);
+        if (!lifecycle.IsOpen && lifecycle.Doc is null)
+        {
+            return new JsonObject
+            {
+                ["status"] = lifecycle.Status,
+                ["document"] = null,
+            };
+        }
+
+        var doc = lifecycle.Doc ?? await InitializeAcquaintanceDocAsync(applicantId, lifecycle.CycleId, ct);
+        await CloseAcquaintanceDocIfDueAsync(doc, lifecycle, ct);
+
+        return new JsonObject
+        {
+            ["status"] = lifecycle.Status,
+            ["document"] = await BuildAcquaintanceDocPayloadAsync(doc.Id, ct),
+            ["lastAutosavedAt"] = doc.LastAutosavedAt?.ToUnixTimeMilliseconds(),
+            ["version"] = doc.Version,
+        };
+    }
+
+    public async Task<JsonObject> SaveAcquaintanceDocAsync(string applicantId, JsonObject partial, CancellationToken ct)
+    {
+        var lifecycle = await EvaluateAcquaintanceDocLifecycleAsync(applicantId, ct);
+        if (!lifecycle.IsOpen)
+            throw new ConflictException(
+                lifecycle.IsClosed ? ErrorCodes.AcquaintanceDocClosed : ErrorCodes.AcquaintanceDocNotOpen,
+                lifecycle.IsClosed
+                    ? "تم غلق وثيقة التعارف ولا يمكن تعديلها."
+                    : "وثيقة التعارف لم تُفتح بعد لهذا المتقدم.");
+
+        var doc = lifecycle.Doc ?? await InitializeAcquaintanceDocAsync(applicantId, lifecycle.CycleId, ct);
+        await CloseAcquaintanceDocIfDueAsync(doc, lifecycle, ct);
+        if (doc.Status == "closed")
+            throw new ConflictException(ErrorCodes.AcquaintanceDocClosed, "تم غلق وثيقة التعارف ولا يمكن تعديلها.");
+
+        var changed = new JsonArray();
+        var now = DateTimeOffset.UtcNow;
+        foreach (var key in AcquaintanceDocSectionKeys)
+        {
+            if (partial[key] is not JsonObject section) continue;
+            await UpsertAcquaintanceDocSectionAsync(doc.Id, key, section, now, ct);
+            changed.Add(key);
+        }
+
+        if (changed.Count > 0)
+        {
+            doc.Version += 1;
+            doc.LastAutosavedAt = now;
+            doc.UpdatedAt = now;
+            db.AcquaintanceDocRevisions.Add(new ApplicantAcquaintanceDocRevisionEntity
+            {
+                Id = $"adr-{Guid.NewGuid():N}",
+                AcquaintanceDocId = doc.Id,
+                Version = doc.Version,
+                ChangeKind = "autosave",
+                ChangedSectionKeysJson = changed.ToJsonString(JsonOpts),
+                CreatedAt = now,
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
+        return new JsonObject
+        {
+            ["status"] = await GetAcquaintanceDocStatusAsync(applicantId, ct),
+            ["document"] = await BuildAcquaintanceDocPayloadAsync(doc.Id, ct),
+            ["lastAutosavedAt"] = doc.LastAutosavedAt?.ToUnixTimeMilliseconds(),
+            ["version"] = doc.Version,
+        };
+    }
+
+    public async Task<JsonObject> GetPrintableAcquaintanceDocAsync(string applicantId, CancellationToken ct)
+    {
+        var lifecycle = await EvaluateAcquaintanceDocLifecycleAsync(applicantId, ct);
+        if (!lifecycle.IsClosed || lifecycle.Doc is null)
+            throw new ConflictException(ErrorCodes.AcquaintanceDocNotOpen, "لا يمكن طباعة وثيقة التعارف قبل غلقها.");
+
+        return new JsonObject
+        {
+            ["status"] = lifecycle.Status,
+            ["document"] = await BuildAcquaintanceDocPayloadAsync(lifecycle.Doc.Id, ct),
+            ["version"] = lifecycle.Doc.Version,
+        };
+    }
+
     // ── Reset (dev/test) ───────────────────────────────────────────────
 
     public async Task DeleteDraftAsync(string applicantId, CancellationToken ct)
@@ -472,10 +580,338 @@ public sealed class PortalService(PortalDbContext db)
             .Where(x => x.ApplicantId == applicantId)
             .ToListAsync(ct);
         db.PortalRecords.RemoveRange(records);
+        var docs = await db.AcquaintanceDocs
+            .Where(x => x.ApplicantId == applicantId)
+            .ToListAsync(ct);
+        db.AcquaintanceDocs.RemoveRange(docs);
         await db.SaveChangesAsync(ct);
     }
 
     // ── Helpers ────────────────────────────────────────────────────────
+
+    private sealed record AcquaintanceLifecycle(
+        string CycleId,
+        bool IsOpen,
+        bool IsClosed,
+        ApplicantAcquaintanceDocEntity? Doc,
+        JsonObject Status);
+
+    private async Task<AcquaintanceLifecycle> EvaluateAcquaintanceDocLifecycleAsync(string applicantId, CancellationToken ct)
+    {
+        var draft = await GetOrCreateDraftAsync(applicantId, ct);
+        var cycleId = draft["cycleId"]?.GetValue<string>() ?? "CYC-2026-M";
+        var settings = await ResolveAcquaintanceDocSettingsAsync(cycleId, ct);
+        var doc = await db.AcquaintanceDocs
+            .FirstOrDefaultAsync(x => x.CycleId == cycleId && x.ApplicantId == applicantId, ct);
+
+        var openingTest = settings.OpeningTestKey;
+        var openingPassed = string.IsNullOrWhiteSpace(openingTest) ||
+            IsOutcomeSatisfied(draft, openingTest, settings.OpeningRequiredOutcome);
+        var scheduleOpen = IsScheduleOpen(draft, settings);
+        var isEnabled = settings.IsEnabled;
+        var isOpen = isEnabled && (openingPassed || scheduleOpen);
+        var closeDue = IsCloseDue(draft, settings);
+
+        if (doc is not null && (doc.Status == "closed" || closeDue))
+        {
+            await CloseAcquaintanceDocIfDueAsync(doc, closeDue, ct);
+        }
+
+        var isClosed = doc?.Status == "closed" || closeDue;
+        if (isClosed) isOpen = false;
+
+        var reason = !isEnabled
+            ? "disabled"
+            : isClosed
+                ? "closed_by_backend_rule"
+                : isOpen
+                    ? "open"
+                    : "waiting_for_configured_test";
+
+        var status = new JsonObject
+        {
+            ["cycleId"] = cycleId,
+            ["status"] = isClosed ? "closed" : isOpen ? "open" : "not_open",
+            ["isOpen"] = isOpen,
+            ["isClosed"] = isClosed,
+            ["isLocked"] = !isOpen,
+            ["canEdit"] = isOpen,
+            ["canPrint"] = isClosed,
+            ["reason"] = reason,
+            ["openingTestKey"] = openingTest,
+            ["closingTestKey"] = settings.ClosingTestKey,
+            ["closingMode"] = settings.ClosingMode,
+            ["openedAt"] = doc?.OpenedAt?.ToUnixTimeMilliseconds(),
+            ["closedAt"] = doc?.ClosedAt?.ToUnixTimeMilliseconds(),
+            ["lastAutosavedAt"] = doc?.LastAutosavedAt?.ToUnixTimeMilliseconds(),
+            ["version"] = doc?.Version ?? 0,
+        };
+
+        return new AcquaintanceLifecycle(cycleId, isOpen, isClosed, doc, status);
+    }
+
+    private async Task<AcquaintanceDocSettingsEntity> ResolveAcquaintanceDocSettingsAsync(string cycleId, CancellationToken ct)
+    {
+        var explicitSettings = await db.AcquaintanceDocSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CycleId == cycleId, ct);
+        if (explicitSettings is not null) return explicitSettings;
+
+        var general = await db.GeneralSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == "settings", ct);
+
+        var now = DateTimeOffset.UtcNow;
+        return new AcquaintanceDocSettingsEntity
+        {
+            Id = $"ads-{cycleId}",
+            CycleId = cycleId,
+            OpeningTestKey = general?.AcquaintanceDocumentsEntryResponsibleTestCode ?? "",
+            OpeningRequiredOutcome = "passed",
+            ClosingTestKey = general?.AcquaintanceDocumentsCloseResponsibleTestCode ?? "",
+            ClosingMode = general?.AcquaintanceDocumentsCloseTiming ?? "after_test_passed",
+            ClosingAt = null,
+            IsEnabled = true,
+            CreatedAt = now,
+            UpdatedAt = now,
+        };
+    }
+
+    private async Task<ApplicantAcquaintanceDocEntity> InitializeAcquaintanceDocAsync(
+        string applicantId,
+        string cycleId,
+        CancellationToken ct)
+    {
+        var existing = await db.AcquaintanceDocs
+            .Include(x => x.Sections)
+            .FirstOrDefaultAsync(x => x.CycleId == cycleId && x.ApplicantId == applicantId, ct);
+        if (existing is not null) return existing;
+
+        var now = DateTimeOffset.UtcNow;
+        var doc = new ApplicantAcquaintanceDocEntity
+        {
+            Id = $"adoc-{Guid.NewGuid():N}",
+            CycleId = cycleId,
+            ApplicantId = applicantId,
+            Status = "open",
+            OpenedAt = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+            Version = 1,
+        };
+        db.AcquaintanceDocs.Add(doc);
+
+        var initial = await BuildInitialAcquaintanceDocPayloadAsync(applicantId, cycleId, ct);
+        foreach (var key in AcquaintanceDocSectionKeys)
+        {
+            var section = initial[key] as JsonObject ?? new JsonObject();
+            db.AcquaintanceDocSections.Add(new ApplicantAcquaintanceDocSectionEntity
+            {
+                Id = $"adsx-{Guid.NewGuid():N}",
+                AcquaintanceDocId = doc.Id,
+                SectionKey = key,
+                DataJson = section.ToJsonString(JsonOpts),
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        return doc;
+    }
+
+    private async Task<JsonObject> BuildInitialAcquaintanceDocPayloadAsync(string applicantId, string cycleId, CancellationToken ct)
+    {
+        var draft = await GetOrCreateDraftAsync(applicantId, ct);
+        var family = await GetFamilyAsync(applicantId, ct);
+        var profile = draft["profile"] as JsonObject;
+        var personal = new JsonObject
+        {
+            ["cover"] = new JsonObject
+            {
+                ["fullName"] = StringFrom(profile, "fullName"),
+                ["fileNumber"] = applicantId,
+                ["admissionYear"] = cycleId.Contains("2026", StringComparison.Ordinal) ? "2026" : "",
+                ["committee"] = StringFrom(draft["examSlot"] as JsonObject, "location"),
+                ["governorate"] = StringFrom(profile, "birthGovernorate"),
+            },
+            ["personal"] = new JsonObject
+            {
+                ["fullName"] = StringFrom(profile, "fullName"),
+                ["fileNumber"] = applicantId,
+                ["shuhraName"] = "",
+                ["committee"] = StringFrom(draft["examSlot"] as JsonObject, "location"),
+                ["dateOfBirth"] = StringFrom(profile, "dateOfBirth"),
+                ["nationality"] = "مصرية",
+                ["governorate"] = StringFrom(profile, "birthGovernorate"),
+                ["birthPlace"] = StringFrom(profile, "birthDistrict"),
+                ["religion"] = StringFrom(profile, "religion"),
+                ["nationalId"] = StringFrom(profile, "nationalId"),
+                ["qualificationOrTrack"] = StringFrom(profile, "certificateName"),
+                ["qualificationYear"] = "",
+                ["totalGrades"] = "",
+                ["gradesPercent"] = "",
+                ["homePhone"] = "",
+                ["mobile"] = StringFrom(profile, "mobile"),
+                ["maritalStatus"] = "",
+                ["address"] = "",
+            },
+        };
+
+        return new JsonObject
+        {
+            ["section"] = "general",
+            ["personal"] = personal,
+            ["applicantFamily"] = new JsonObject(),
+            ["parents"] = family is null ? new JsonObject() : family.DeepClone(),
+            ["grandparents"] = new JsonObject(),
+            ["siblings"] = new JsonObject(),
+            ["paternalRelatives"] = new JsonObject(),
+            ["maternalRelatives"] = new JsonObject(),
+            ["foreignAndCases"] = new JsonObject(),
+        };
+    }
+
+    private async Task<JsonObject> BuildAcquaintanceDocPayloadAsync(string docId, CancellationToken ct)
+    {
+        var sections = await db.AcquaintanceDocSections
+            .AsNoTracking()
+            .Where(x => x.AcquaintanceDocId == docId)
+            .ToListAsync(ct);
+        var payload = new JsonObject { ["section"] = "general" };
+        foreach (var key in AcquaintanceDocSectionKeys)
+        {
+            var section = sections.FirstOrDefault(x => x.SectionKey == key);
+            payload[key] = section is null ? new JsonObject() : ParseJson(section.DataJson);
+        }
+        return payload;
+    }
+
+    private async Task UpsertAcquaintanceDocSectionAsync(
+        string docId,
+        string key,
+        JsonObject section,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var row = await db.AcquaintanceDocSections
+            .FirstOrDefaultAsync(x => x.AcquaintanceDocId == docId && x.SectionKey == key, ct);
+        if (row is null)
+        {
+            db.AcquaintanceDocSections.Add(new ApplicantAcquaintanceDocSectionEntity
+            {
+                Id = $"adsx-{Guid.NewGuid():N}",
+                AcquaintanceDocId = docId,
+                SectionKey = key,
+                DataJson = section.ToJsonString(JsonOpts),
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+            return;
+        }
+
+        row.DataJson = section.ToJsonString(JsonOpts);
+        row.UpdatedAt = now;
+    }
+
+    private async Task CloseAcquaintanceDocIfDueAsync(
+        ApplicantAcquaintanceDocEntity doc,
+        AcquaintanceLifecycle lifecycle,
+        CancellationToken ct)
+    {
+        await CloseAcquaintanceDocIfDueAsync(doc, lifecycle.IsClosed, ct);
+    }
+
+    private async Task CloseAcquaintanceDocIfDueAsync(
+        ApplicantAcquaintanceDocEntity doc,
+        bool closeDue,
+        CancellationToken ct)
+    {
+        if (!closeDue || doc.Status == "closed") return;
+        var now = DateTimeOffset.UtcNow;
+        doc.Status = "closed";
+        doc.ClosedAt = now;
+        doc.UpdatedAt = now;
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static bool IsScheduleOpen(JsonObject draft, AcquaintanceDocSettingsEntity settings)
+    {
+        if (settings.ClosingMode == "after_test_passed") return false;
+        return false;
+    }
+
+    private static bool IsCloseDue(JsonObject draft, AcquaintanceDocSettingsEntity settings)
+    {
+        if (settings.ClosingAt is { } closingAt && DateTimeOffset.UtcNow >= closingAt) return true;
+        if (settings.ClosingMode == "after_test_passed" &&
+            !string.IsNullOrWhiteSpace(settings.ClosingTestKey) &&
+            IsOutcomeSatisfied(draft, settings.ClosingTestKey, "passed"))
+        {
+            return true;
+        }
+
+        var examDate = DateFromDraft(draft);
+        if (examDate is null) return false;
+        var due = settings.ClosingMode switch
+        {
+            "before_test" => examDate.Value - TimeSpan.FromDays(1),
+            "on_test_time" => examDate.Value,
+            _ => (DateTimeOffset?)null,
+        };
+        return due is not null && DateTimeOffset.UtcNow >= due;
+    }
+
+    private static DateTimeOffset? DateFromDraft(JsonObject draft)
+    {
+        var dateText = draft["examSlot"]?["date"]?.GetValue<string>();
+        return DateOnly.TryParse(dateText, out var date)
+            ? new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)
+            : null;
+    }
+
+    private static bool IsOutcomeSatisfied(JsonObject draft, string testKey, string requiredOutcome)
+    {
+        var followUp = draft["followUp"] as JsonObject;
+        if (followUp is null) return false;
+        var normalizedRequired = NormalizeOutcome(requiredOutcome);
+        var candidates = new[] { testKey, MapLegacyFollowUpKey(testKey) }
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in candidates)
+        {
+            var value = followUp[key]?.GetValue<string>();
+            if (NormalizeOutcome(value) == normalizedRequired) return true;
+        }
+        return false;
+    }
+
+    private static string NormalizeOutcome(string? value) => value switch
+    {
+        "pass" => "passed",
+        "passed" => "passed",
+        "success" => "passed",
+        _ => value ?? "",
+    };
+
+    private static string MapLegacyFollowUpKey(string key) => key switch
+    {
+        "aptitude" => "capacities",
+        "appearance_external" => "traits",
+        "appearance_internal" => "traits",
+        "posture" => "traits",
+        "build" => "traits",
+        "physical" => "sports",
+        "security_review" => "investigation",
+        _ => key,
+    };
+
+    private static string StringFrom(JsonObject? obj, string key)
+    {
+        if (obj is null || obj[key] is null) return "";
+        try { return obj[key]!.GetValue<string>() ?? ""; }
+        catch { return obj[key]!.ToString(); }
+    }
 
     private static void MergeJson(JsonObject target, JsonObject source)
     {

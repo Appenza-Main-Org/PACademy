@@ -36,6 +36,8 @@ public static class ErrorCodes
     public const string GradeNidCycleDuplicate    = "GRADE_NID_CYCLE_DUPLICATE";
     public const string ApplicantIdentityMismatch = "APPLICANT_IDENTITY_MISMATCH";
     public const string DraftVersionConflict      = "DRAFT_VERSION_CONFLICT";
+    public const string AcquaintanceDocNotOpen    = "ACQUAINTANCE_DOC_NOT_OPEN";
+    public const string AcquaintanceDocClosed     = "ACQUAINTANCE_DOC_CLOSED";
 
     // ── Committees / exams ──────────────────────────────────────────────
     public const string CommitteeAtCapacity = "COMMITTEE_AT_CAPACITY";

@@ -24,8 +24,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, FileCheck, Lock, Printer, Save } from 'lucide-react';
-import { Button, Drawer, toast } from '@/shared/components';
+import { Button, Drawer, ErrorState, LoadingState, toast } from '@/shared/components';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
+import {
+  useAcquaintanceDoc,
+  usePrintableAcquaintanceDoc,
+  useSaveAcquaintanceDoc,
+} from '../api/applicantPortal.queries';
 import {
   formatMemberName,
   loadFamilySnapshot,
@@ -35,14 +40,11 @@ import {
   type GrandparentsForm,
   type RelativeKind,
 } from '../lib/familyData';
-import {
-  loadVothiqaTaarufSnapshot,
-  saveVothiqaTaarufSnapshot,
-} from '../lib/vothiqaTaaruf.snapshot';
 import { deriveInitialDocument } from '../lib/vothiqaTaaruf.derive';
 import {
   GROUP_KEYS,
   GROUP_LABELS,
+  emptyDocument,
   emptyAdultRelative,
   type ApplicantSpouseRecord,
   type GroupKey,
@@ -69,9 +71,6 @@ import {
   RELIGION_OPTIONS,
   RELIGION_OPTIONS_FEMALE,
 } from '../lib/vothiqaTaaruf.options';
-
-/* The 24-hour edit window after «تأكيد الإرسال». */
-const EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /* Mirrors `MEMBERSHIP_PROFESSIONS` in Stage7FamilyPage — when the
  * profession is police/army officer, the form must collect the
@@ -209,18 +208,15 @@ function applyMemberToGuardian(
 export function Stage11AcquaintanceDocPage(): JSX.Element {
   const nationalId = useApplicantPortalStore((s) => s.nationalId);
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
-  const submittedAt = useApplicantPortalStore((s) => s.vothiqaTaarufSubmittedAt);
-  const setSubmittedAt = useApplicantPortalStore((s) => s.setVothiqaTaarufSubmittedAt);
+  const applicantId = nationalId || 'current';
+  const docQuery = useAcquaintanceDoc(applicantId);
+  const saveDoc = useSaveAcquaintanceDoc(applicantId);
+  const printableDoc = usePrintableAcquaintanceDoc(applicantId);
+  const backendStatus = docQuery.data?.status;
+  const isLocked = !backendStatus?.canEdit;
 
-  const isLocked = useMemo(() => {
-    if (!submittedAt) return false;
-    return Date.now() - submittedAt > EDIT_WINDOW_MS;
-  }, [submittedAt]);
-
-  /* Derive-or-load doc once, then own it in state. */
+  /* Derive a local fallback once, then hydrate it from the backend document. */
   const [doc, setDoc] = useState<VothiqaTaarufDocument>(() => {
-    const cached = loadVothiqaTaarufSnapshot(nationalId);
-    if (cached) return cached;
     const family = loadFamilySnapshot();
     return deriveInitialDocument({
       moiSession,
@@ -228,12 +224,21 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
       admissionYear: '2026',
     });
   });
+  const [hasHydratedBackendDoc, setHasHydratedBackendDoc] = useState(false);
 
-  /* Persist on every change (debounce-free is fine here — only one
-   * accordion is open at a time so writes are bounded). */
   useEffect(() => {
-    saveVothiqaTaarufSnapshot(nationalId, doc);
-  }, [doc, nationalId]);
+    if (!docQuery.data?.document) return;
+    setDoc(normalizeBackendDocument(docQuery.data.document));
+    setHasHydratedBackendDoc(true);
+  }, [docQuery.data?.document]);
+
+  useEffect(() => {
+    if (!hasHydratedBackendDoc || !backendStatus?.canEdit) return;
+    const timeoutId = window.setTimeout(() => {
+      saveDoc.mutate(doc);
+    }, 900);
+    return () => window.clearTimeout(timeoutId);
+  }, [backendStatus?.canEdit, doc, hasHydratedBackendDoc, saveDoc]);
 
   const [expanded, setExpanded] = useState<GroupKey>('personal');
   const [completed, setCompleted] = useState<Record<GroupKey, boolean>>(() =>
@@ -246,6 +251,7 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
    * Hidden on screen; revealed by the `body:has(#vothiqa-print-portal)`
    * @media print rules in PrintableDocument. */
   const [printing, setPrinting] = useState(false);
+  const [printDoc, setPrintDoc] = useState<VothiqaTaarufDocument | null>(null);
 
   useEffect(() => {
     if (!printing) return;
@@ -265,8 +271,23 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
   }, [printing]);
 
   const handlePrint = useCallback((): void => {
-    setPrinting(true);
-  }, []);
+    if (!backendStatus?.canPrint) {
+      toast('لا يمكن طباعة وثيقة التعارف قبل غلقها من النظام.', 'warning');
+      return;
+    }
+    printableDoc.mutate(undefined, {
+      onSuccess: (result) => {
+        if (result.document) {
+          const next = normalizeBackendDocument(result.document);
+          setPrintDoc(next);
+          setPrinting(true);
+        }
+      },
+      onError: (error) => {
+        toast(error instanceof Error ? error.message : 'تعذر تجهيز النسخة النهائية للطباعة.', 'danger');
+      },
+    });
+  }, [backendStatus?.canPrint, printableDoc]);
 
   /* Patch a top-level section of the doc by key. */
   const patchSection = useCallback(
@@ -288,14 +309,34 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
   };
 
   const handleSubmit = (): void => {
-    setSubmittedAt(Date.now());
-    toast('تم إرسال وثيقة التعارف. فترة التعديل: 24 ساعة.', 'success');
-    setPreviewOpen(false);
+    saveDoc.mutate(doc, {
+      onSuccess: () => {
+        toast('تم حفظ وثيقة التعارف تلقائياً.', 'success');
+        setPreviewOpen(false);
+      },
+      onError: (error) => {
+        toast(error instanceof Error ? error.message : 'تعذر حفظ وثيقة التعارف.', 'danger');
+      },
+    });
   };
 
-  /* If the user lands here in locked state, the accordion is still
-   * rendered but every Cell/RelativesListPanel is `readOnly`. The
-   * preview Drawer is immediately available via the action bar. */
+  if (docQuery.isLoading) {
+    return <LoadingState variant="page" label="جاري تحميل وثيقة التعارف" />;
+  }
+
+  if (docQuery.error) {
+    return (
+      <ErrorState
+        title="تعذر تحميل وثيقة التعارف"
+        description={docQuery.error instanceof Error ? docQuery.error.message : undefined}
+        onRetry={() => void docQuery.refetch()}
+      />
+    );
+  }
+
+  if (backendStatus && !backendStatus.isOpen && !backendStatus.isClosed) {
+    return <AcquaintanceDocLockedState openingTestKey={backendStatus.openingTestKey} />;
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -306,8 +347,7 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
               وثيقة تعارف 
             </h2>
             <p className="mt-1 text-sm text-ink-500 leading-relaxed">
-              املأ المجموعات السبع بالترتيب، ثم استعرض النسخة المطبوعة قبل الاعتماد.
-              عند الانتهاء يبدأ احتساب فترة تعديل مدتها 24 ساعة.
+              املأ المجموعات بالترتيب. يتم حفظ التعديلات تلقائياً، وتظهر الطباعة النهائية بعد غلق الوثيقة من النظام.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -319,18 +359,21 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
             >
               معاينة الطباعة
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              leadingIcon={<Printer size={14} strokeWidth={1.75} />}
-              onClick={handlePrint}
-            >
-              طباعة مباشرة
-            </Button>
+            {backendStatus?.canPrint && (
+              <Button
+                type="button"
+                variant="ghost"
+                leadingIcon={<Printer size={14} strokeWidth={1.75} />}
+                onClick={handlePrint}
+                disabled={printableDoc.isPending}
+              >
+                طباعة وثيقة التعارف
+              </Button>
+            )}
           </div>
         </div>
 
-        {isLocked && (
+        {backendStatus?.isClosed && (
           <div
             role="status"
             className="mt-3 flex items-start gap-3 rounded-md border border-gold-300 bg-gold-50 px-4 py-3 text-sm text-gold-700"
@@ -338,20 +381,25 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
             <Lock size={18} strokeWidth={1.75} className="mt-0.5 flex-shrink-0" />
             <p className="leading-relaxed">
               <span className="font-bold">انتهت فترة التعديل.</span>{' '}
-              يمكنك الآن العرض أو الطباعة فقط — لا يمكن تغيير أيٍّ من البيانات.
+              يمكنك الآن العرض أو الطباعة فقط، ولا يمكن تغيير أيٍّ من البيانات.
             </p>
           </div>
         )}
 
-        {!isLocked && submittedAt && !isLocked && (
+        {backendStatus?.canEdit && (
           <div
             role="status"
             className="mt-3 flex items-start gap-3 rounded-md border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700"
           >
             <FileCheck size={18} strokeWidth={1.75} className="mt-0.5 flex-shrink-0" />
             <p className="leading-relaxed">
-              تم الإرسال. تنتهي فترة التعديل خلال{' '}
-              {formatHoursRemaining(submittedAt + EDIT_WINDOW_MS - Date.now())}.
+              {saveDoc.isPending
+                ? 'جاري حفظ التعديلات...'
+                : saveDoc.isError
+                  ? 'تعذر حفظ آخر تعديل. راجع الاتصال ثم حاول مرة أخرى.'
+                  : backendStatus.lastAutosavedAt
+                    ? `آخر حفظ تلقائي: ${formatSavedAt(backendStatus.lastAutosavedAt)}`
+                    : 'الوثيقة مفتوحة للتعديل وسيتم حفظ التغييرات تلقائياً.'}
             </p>
           </div>
         )}
@@ -527,22 +575,26 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
       >
         <div className="flex h-full flex-col">
           <div className="flex flex-wrap items-center justify-end gap-2 border-b border-border-subtle bg-surface-card px-4 py-3 no-print">
-            <Button
-              type="button"
-              variant="secondary"
-              leadingIcon={<Printer size={14} strokeWidth={1.75} />}
-              onClick={handlePrint}
-            >
-              طباعة
-            </Button>
+            {backendStatus?.canPrint && (
+              <Button
+                type="button"
+                variant="secondary"
+                leadingIcon={<Printer size={14} strokeWidth={1.75} />}
+                onClick={handlePrint}
+                disabled={printableDoc.isPending}
+              >
+                طباعة
+              </Button>
+            )}
             {!isLocked && (
               <Button
                 type="button"
                 variant="primary"
                 leadingIcon={<Save size={14} strokeWidth={1.75} />}
                 onClick={handleSubmit}
+                disabled={saveDoc.isPending}
               >
-                تأكيد الإرسال
+                حفظ الآن
               </Button>
             )}
           </div>
@@ -555,12 +607,58 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
       {printing &&
         createPortal(
           <div id="vothiqa-print-portal">
-            <PrintableDocument doc={doc} />
+            <PrintableDocument doc={printDoc ?? doc} />
           </div>,
           document.body,
         )}
     </div>
   );
+}
+
+function AcquaintanceDocLockedState({ openingTestKey }: { openingTestKey?: string }): JSX.Element {
+  return (
+    <div className="rounded-lg border border-border-default bg-surface-card p-6">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold-50 text-gold-700">
+          <Lock size={20} strokeWidth={1.75} aria-hidden />
+        </span>
+        <div>
+          <h2 className="font-ar-display text-xl font-bold text-ink-900">
+            وثيقة التعارف غير متاحة حالياً
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-600">
+            يتم فتح وثيقة التعارف بعد اجتياز الاختبار المحدد من إدارة النظام
+            {openingTestKey ? ` (${openingTestKey})` : ''}. ستظهر البيانات المحفوظة تلقائياً عند فتح الوثيقة.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function normalizeBackendDocument(partial: Partial<VothiqaTaarufDocument>): VothiqaTaarufDocument {
+  const empty = emptyDocument();
+  return {
+    ...empty,
+    ...partial,
+    personal: { ...empty.personal, ...partial.personal },
+    applicantFamily: { ...empty.applicantFamily, ...partial.applicantFamily },
+    parents: { ...empty.parents, ...partial.parents },
+    grandparents: { ...empty.grandparents, ...partial.grandparents },
+    siblings: { ...empty.siblings, ...partial.siblings },
+    paternalRelatives: { ...empty.paternalRelatives, ...partial.paternalRelatives },
+    maternalRelatives: { ...empty.maternalRelatives, ...partial.maternalRelatives },
+    foreignAndCases: { ...empty.foreignAndCases, ...partial.foreignAndCases },
+  };
+}
+
+function formatSavedAt(value: number): string {
+  return new Intl.DateTimeFormat('ar-EG', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+  }).format(new Date(value));
 }
 
 /* ────────────────────────────────────────────────────────────────────
@@ -1456,10 +1554,4 @@ function validateForeignAndCases(doc: VothiqaTaarufDocument): string | null {
     }
   }
   return null;
-}
-
-function formatHoursRemaining(ms: number): string {
-  const hours = Math.max(0, Math.floor(ms / (60 * 60 * 1000)));
-  const mins = Math.max(0, Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000)));
-  return `${hours} ساعة و${mins} دقيقة`;
 }

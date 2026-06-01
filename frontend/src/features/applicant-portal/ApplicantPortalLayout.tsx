@@ -247,7 +247,7 @@ export function ApplicantPortalLayout(): JSX.Element {
       <Pattern variant="tessellation-8" tile={96} opacity={0.04} />
 
       <div className="relative mx-auto w-full max-w-[1200px] flex-1 px-6 pb-12 pt-6">
-        <ApplicantAvailabilityGate>
+        <ApplicantAvailabilityGate allowWhenUnavailable={submittedDemo}>
         {draft?.suspended && <SuspendedBanner />}
         {submittedDemo ? (
           /* Post-submission view (client direction 2026-05-19): only the

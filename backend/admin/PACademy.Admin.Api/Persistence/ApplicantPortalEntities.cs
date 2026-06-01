@@ -41,3 +41,65 @@ public sealed class ExamSlotEntity : IChangeTracked
     public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
     public string? Checksum { get; set; }
 }
+
+/// <summary>
+/// Backend-owned rules that decide when an applicant's acquaintance document
+/// opens and closes for a cycle. Admin migrations own this table; applicant
+/// APIs read it while enforcing applicant-side edit/print permissions.
+/// </summary>
+public sealed class AcquaintanceDocSettingsEntity
+{
+    public string Id { get; set; } = "";
+    public string CycleId { get; set; } = "";
+    public string OpeningTestKey { get; set; } = "";
+    public string OpeningRequiredOutcome { get; set; } = "passed";
+    public string ClosingTestKey { get; set; } = "";
+    public string ClosingMode { get; set; } = "after_test_passed";
+    public DateTimeOffset? ClosingAt { get; set; }
+    public bool IsEnabled { get; set; } = true;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>
+/// Root lifecycle row for one applicant acquaintance document in one cycle.
+/// Section data is split into <see cref="ApplicantAcquaintanceDocSectionEntity"/>
+/// rows to avoid the old single-document JSON blob storage model.
+/// </summary>
+public sealed class ApplicantAcquaintanceDocEntity
+{
+    public string Id { get; set; } = "";
+    public string CycleId { get; set; } = "";
+    public string ApplicantId { get; set; } = "";
+    public string Status { get; set; } = "open";
+    public DateTimeOffset? OpenedAt { get; set; }
+    public DateTimeOffset? ClosedAt { get; set; }
+    public DateTimeOffset? LastAutosavedAt { get; set; }
+    public int Version { get; set; } = 1;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+    public List<ApplicantAcquaintanceDocSectionEntity> Sections { get; set; } = [];
+}
+
+public sealed class ApplicantAcquaintanceDocSectionEntity
+{
+    public string Id { get; set; } = "";
+    public string AcquaintanceDocId { get; set; } = "";
+    public string SectionKey { get; set; } = "";
+    public string DataJson { get; set; } = "{}";
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
+public sealed class ApplicantAcquaintanceDocRevisionEntity
+{
+    public string Id { get; set; } = "";
+    public string AcquaintanceDocId { get; set; } = "";
+    public int Version { get; set; }
+    public string ChangeKind { get; set; } = "autosave";
+    public string ChangedSectionKeysJson { get; set; } = "[]";
+    public DateTimeOffset CreatedAt { get; set; }
+}

@@ -8,6 +8,8 @@ export const apKeys = {
   draft: (applicantId: string) => [...apKeys.all, 'draft', applicantId] as const,
   slots: () => [...apKeys.all, 'exam-slots'] as const,
   followUp: (applicantId: string) => [...apKeys.all, 'follow-up', applicantId] as const,
+  acquaintanceDoc: (applicantId: string) => [...apKeys.all, 'acquaintance-doc', applicantId] as const,
+  acquaintanceDocStatus: (applicantId: string) => [...apKeys.all, 'acquaintance-doc-status', applicantId] as const,
   followUpExamPlan: (cycleId: string, categoryKey: string) =>
     [...apKeys.all, 'follow-up-exam-plan', cycleId, categoryKey] as const,
   applicationInstructions: () => [...apKeys.all, 'application-instructions'] as const,
@@ -89,6 +91,40 @@ export function useFollowUp(applicantId: string) {
     queryKey: apKeys.followUp(applicantId),
     queryFn: () => applicantPortalService.getFollowUp(applicantId),
     ...noServerStateCacheOptions,
+  });
+}
+
+export function useAcquaintanceDocStatus(applicantId: string) {
+  return useQuery({
+    queryKey: apKeys.acquaintanceDocStatus(applicantId),
+    queryFn: () => applicantPortalService.getAcquaintanceDocStatus(applicantId),
+    ...noServerStateCacheOptions,
+  });
+}
+
+export function useAcquaintanceDoc(applicantId: string) {
+  return useQuery({
+    queryKey: apKeys.acquaintanceDoc(applicantId),
+    queryFn: () => applicantPortalService.getAcquaintanceDoc(applicantId),
+    ...noServerStateCacheOptions,
+  });
+}
+
+export function useSaveAcquaintanceDoc(applicantId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (partial: Parameters<typeof applicantPortalService.saveAcquaintanceDoc>[1]) =>
+      applicantPortalService.saveAcquaintanceDoc(applicantId, partial),
+    onSuccess: (result) => {
+      qc.setQueryData(apKeys.acquaintanceDoc(applicantId), result);
+      qc.setQueryData(apKeys.acquaintanceDocStatus(applicantId), result.status);
+    },
+  });
+}
+
+export function usePrintableAcquaintanceDoc(applicantId: string) {
+  return useMutation({
+    mutationFn: () => applicantPortalService.getPrintableAcquaintanceDoc(applicantId),
   });
 }
 
