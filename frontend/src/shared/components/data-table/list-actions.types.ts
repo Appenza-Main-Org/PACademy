@@ -41,6 +41,8 @@ export interface ExportConfig<TRow> {
   defaultScope?: 'filtered' | 'all';
   /** Async supplier for "تصدير الكل" — defaults to the current `rows`. */
   allSupplier?: () => Promise<readonly TRow[]> | readonly TRow[];
+  /** Optional export-only filter. Does not affect the table rows shown on screen. */
+  rowFilter?: (row: TRow) => boolean;
 }
 
 export interface ImportPreviewRow<TIn = unknown> {

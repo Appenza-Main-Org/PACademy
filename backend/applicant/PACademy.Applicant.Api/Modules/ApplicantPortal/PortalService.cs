@@ -25,6 +25,21 @@ public sealed class PortalService(PortalDbContext db)
         "foreignAndCases",
     ];
 
+    private static readonly IReadOnlyDictionary<int, string> ApplicantStageLabels = new Dictionary<int, string>
+    {
+        [1] = "تسجيل أولي",
+        [2] = "التحقق من البيانات",
+        [3] = "استكمال البيانات الشخصية",
+        [4] = "بيانات المؤهل",
+        [5] = "المراجعة",
+        [6] = "سداد الرسوم",
+        [7] = "بيانات الأسرة",
+        [8] = "حجز الاختبارات",
+        [9] = "طباعة بطاقة التردد",
+        [10] = "المتابعة",
+        [11] = "وثائق التعارف"
+    };
+
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -75,6 +90,7 @@ public sealed class PortalService(PortalDbContext db)
                 ["lastSavedAt"] = now.ToUnixTimeMilliseconds(),
             };
             MergeJson(draft, partial);
+            EnsureStartedStage(draft);
             draft["lastSavedAt"] = now.ToUnixTimeMilliseconds();
 
             record = new ApplicantPortalRecordEntity
@@ -92,11 +108,13 @@ public sealed class PortalService(PortalDbContext db)
         {
             var draft = ParseJson(record.PayloadJson);
             MergeJson(draft, partial);
+            EnsureStartedStage(draft);
             draft["lastSavedAt"] = now.ToUnixTimeMilliseconds();
             record.PayloadJson = draft.ToJsonString(JsonOpts);
             record.UpdatedAt = now;
         }
 
+        await UpsertApplicantManagementMirrorAsync(ParseJson(record.PayloadJson), now, ct);
         await db.SaveChangesAsync(ct);
         return ParseJson(record.PayloadJson);
     }
@@ -402,6 +420,141 @@ public sealed class PortalService(PortalDbContext db)
         return false;
     }
 
+    private async Task UpsertApplicantManagementMirrorAsync(
+        JsonObject draft,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var applicantId = StringProp(draft, "applicantId");
+        if (string.IsNullOrWhiteSpace(applicantId)) return;
+
+        var payload = BuildApplicantManagementPayload(draft, now);
+        var existing = await db.ApplicantManagementRecords
+            .FirstOrDefaultAsync(x => x.Module == "applicants" && x.Id == applicantId, ct);
+
+        if (existing is null)
+        {
+            db.ApplicantManagementRecords.Add(new ApplicantManagementRecordEntity
+            {
+                Module = "applicants",
+                Id = applicantId,
+                ApplicantId = applicantId,
+                NationalId = FirstString(payload, "nationalId"),
+                CycleId = FirstString(payload, "cycleId"),
+                CommitteeId = FirstString(payload, "committeeId"),
+                CategoryKey = FirstString(payload, "categoryKey"),
+                Department = FirstString(payload, "department"),
+                Status = FirstString(payload, "status"),
+                Kind = FirstString(payload, "kind"),
+                OccurredAt = now,
+                PayloadJson = payload.ToJsonString(JsonOpts),
+                CreatedAt = now,
+                UpdatedAt = now,
+            });
+            return;
+        }
+
+        existing.ApplicantId = applicantId;
+        existing.NationalId = FirstString(payload, "nationalId");
+        existing.CycleId = FirstString(payload, "cycleId");
+        existing.CommitteeId = FirstString(payload, "committeeId");
+        existing.CategoryKey = FirstString(payload, "categoryKey");
+        existing.Department = FirstString(payload, "department");
+        existing.Status = FirstString(payload, "status");
+        existing.Kind = FirstString(payload, "kind");
+        existing.OccurredAt = now;
+        existing.PayloadJson = payload.ToJsonString(JsonOpts);
+        existing.UpdatedAt = now;
+    }
+
+    private static JsonObject BuildApplicantManagementPayload(JsonObject draft, DateTimeOffset now)
+    {
+        var payload = draft.DeepClone().AsObject();
+        var applicantId = StringProp(payload, "applicantId") ?? "";
+        var profile = ObjectProp(payload, "profile");
+        var auth = ObjectProp(payload, "auth");
+        var payment = ObjectProp(payload, "payment");
+        var examSlot = ObjectProp(payload, "examSlot");
+        var stage = Math.Max(IntProp(payload, "furthestStage") ?? IntProp(payload, "stage") ?? 1, 1);
+
+        payload["id"] = applicantId;
+        payload["applicantId"] = applicantId;
+        payload["stage"] = stage;
+        payload["stageLabel"] = ApplicantStageLabels.TryGetValue(stage, out var label)
+            ? label
+            : "مرحلة غير محددة";
+        payload["status"] = stage >= 8 ? "under-review" : "pending";
+        payload["paymentStatus"] = payment is null ? "pending" : "paid";
+        payload["source"] = "applicant-portal";
+        payload["registeredAt"] ??= now.ToString("O");
+        payload["updatedAt"] = now.ToString("O");
+
+        SetIfPresent(payload, "nationalId", StringProp(profile, "nationalId") ?? StringProp(auth, "nationalId"));
+        SetIfPresent(payload, "phoneNumber", StringProp(profile, "mobile") ?? StringProp(auth, "phoneNumber"));
+        SetIfPresent(payload, "name", StringProp(profile, "fullName"));
+        SetIfPresent(payload, "email", StringProp(profile, "email"));
+        SetIfPresent(payload, "gender", StringProp(profile, "gender"));
+        SetIfPresent(payload, "religion", StringProp(profile, "religion"));
+        SetIfPresent(payload, "birthDate", StringProp(profile, "dateOfBirth"));
+        SetIfPresent(payload, "birthGovernorate", StringProp(profile, "birthGovernorate"));
+        SetIfPresent(payload, "birthDistrict", StringProp(profile, "birthDistrict"));
+        SetIfPresent(payload, "certType", StringProp(profile, "certificateName") ?? StringProp(profile, "qualificationLevel"));
+        SetIfPresent(payload, "firstExamDate", StringProp(examSlot, "date"));
+
+        return payload;
+    }
+
+    private static void EnsureStartedStage(JsonObject draft)
+    {
+        if (!draft.ContainsKey("categoryKey")) return;
+        var current = IntProp(draft, "furthestStage") ?? 0;
+        if (current < 1) draft["furthestStage"] = 1;
+    }
+
+    private static JsonObject? ObjectProp(JsonObject? obj, string key) =>
+        obj is not null && obj.TryGetPropertyValue(key, out var node) && node is JsonObject child ? child : null;
+
+    private static int? IntProp(JsonObject obj, string key)
+    {
+        if (!obj.TryGetPropertyValue(key, out var node) || node is null) return null;
+        try
+        {
+            return Convert.ToInt32(node.GetValue<double>());
+        }
+        catch (Exception) when (node is JsonValue)
+        {
+            return int.TryParse(node.ToString(), out var parsed) ? parsed : null;
+        }
+    }
+
+    private static string? StringProp(JsonObject? obj, string key)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(key, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<string>()?.Trim();
+        }
+        catch (InvalidOperationException)
+        {
+            return node.ToString().Trim();
+        }
+    }
+
+    private static string? FirstString(JsonObject payload, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = StringProp(payload, key);
+            if (!string.IsNullOrWhiteSpace(value)) return value;
+        }
+        return null;
+    }
+
+    private static void SetIfPresent(JsonObject payload, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value)) payload[key] = value;
+    }
+
     // ── Follow-up ──────────────────────────────────────────────────────
 
     public async Task<JsonObject> GetFollowUpAsync(string applicantId, CancellationToken ct)
@@ -431,7 +584,7 @@ public sealed class PortalService(PortalDbContext db)
             if (data[key] is { } val)
                 existing[key] = val.DeepClone();
         }
-        await SaveDraftAsync(applicantId, new JsonObject { ["followUp"] = existing }, ct);
+        await SaveDraftAsync(applicantId, new JsonObject { ["followUp"] = existing.DeepClone() }, ct);
     }
 
     // ── Family ─────────────────────────────────────────────────────────

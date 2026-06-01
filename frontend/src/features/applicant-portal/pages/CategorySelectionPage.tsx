@@ -236,6 +236,18 @@ export function CategorySelectionPage(): JSX.Element {
     setAssignedCommittee(first?.committeeId ?? null, first?.committeeName ?? null);
   };
 
+  const persistCategoryStart = (
+    categoryKey: string,
+    extra: Record<string, unknown> = {},
+  ): void => {
+    void applicantPortalService.saveDraft(MOI_APPLICANT_SESSION.applicantId, {
+      categoryKey,
+      furthestStage: 1,
+      ...(effectiveCycleId ? { cycleId: effectiveCycleId } : {}),
+      ...extra,
+    } as Parameters<typeof applicantPortalService.saveDraft>[1]);
+  };
+
   const onPickCategory = (categoryKey: string, enabled: boolean): void => {
     if (!enabled) return;
     /* For الضباط المتخصصون the applicant must pick a sub-specialization
@@ -258,10 +270,7 @@ export function CategorySelectionPage(): JSX.Element {
       saveCommitteeForCategory(categoryKey);
       setSelectedFaculty(null);
       setSelectedSpecialization(null);
-      void applicantPortalService.saveDraft(MOI_APPLICANT_SESSION.applicantId, {
-        categoryKey,
-        ...(effectiveCycleId ? { cycleId: effectiveCycleId } : {}),
-      } as Parameters<typeof applicantPortalService.saveDraft>[1]);
+      persistCategoryStart(categoryKey);
       navigate(ROUTES.applicantProfile);
       return;
     }
@@ -272,6 +281,7 @@ export function CategorySelectionPage(): JSX.Element {
     setSelectedFaculty(null);
     setSelectedSpecialization(null);
     saveCommitteeForCategory(categoryKey);
+    persistCategoryStart(categoryKey);
     navigate(ROUTES.applicantProfile);
   };
 
@@ -287,15 +297,19 @@ export function CategorySelectionPage(): JSX.Element {
      * eligibility step for not_found-in-MOI users, otherwise navigate
      * to the eligibility-check page first. */
     if (!identity || !effectiveCycleId) {
-      void applicantPortalService.saveDraft(MOI_APPLICANT_SESSION.applicantId, {
-        categoryKey: 'specialized_officers',
-        ...(effectiveCycleId ? { cycleId: effectiveCycleId } : {}),
-      } as Parameters<typeof applicantPortalService.saveDraft>[1]);
+      persistCategoryStart('specialized_officers', {
+        selectedFaculty: faculty.name,
+        selectedSpecialization: specialization.name,
+      });
       navigate(ROUTES.applicantProfile);
       return;
     }
     /* Eligibility already resolved on /applicant/start — go straight to
      * the data-entry profile instead of the standalone check page. */
+    persistCategoryStart('specialized_officers', {
+      selectedFaculty: faculty.name,
+      selectedSpecialization: specialization.name,
+    });
     navigate(ROUTES.applicantProfile);
   };
 

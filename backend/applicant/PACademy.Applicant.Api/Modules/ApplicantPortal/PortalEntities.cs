@@ -11,6 +11,25 @@ public sealed class ApplicantPortalRecordEntity
     public byte[] RowVersion { get; set; } = [];
 }
 
+public sealed class ApplicantManagementRecordEntity
+{
+    public string Module { get; set; } = "";
+    public string Id { get; set; } = "";
+    public string? ApplicantId { get; set; }
+    public string? NationalId { get; set; }
+    public string? CycleId { get; set; }
+    public string? CommitteeId { get; set; }
+    public string? CategoryKey { get; set; }
+    public string? Department { get; set; }
+    public string? Status { get; set; }
+    public string? Kind { get; set; }
+    public DateTimeOffset? OccurredAt { get; set; }
+    public string PayloadJson { get; set; } = "{}";
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}
+
 public sealed class ExamSlotEntity
 {
     public string Id { get; set; } = "";

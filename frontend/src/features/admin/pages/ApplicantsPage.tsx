@@ -64,6 +64,10 @@ function sourceLabel(value: string | undefined): string {
   return displayValue(value);
 }
 
+function isCompletedApplicant(row: Applicant): boolean {
+  return row.stage >= 8;
+}
+
 export function ApplicantsPage(): JSX.Element {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -260,6 +264,7 @@ export function ApplicantsPage(): JSX.Element {
         enabled: true,
         formats: ['csv', 'xlsx'],
         filenamePrefix: 'متقدمين-',
+        rowFilter: isCompletedApplicant,
         columns: [
           { key: 'id', labelAr: 'كود التقدم' },
           { key: 'applicantTableId', labelAr: 'معرف جدول المتقدمين' },

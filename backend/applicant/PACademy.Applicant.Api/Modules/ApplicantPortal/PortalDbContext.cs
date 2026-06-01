@@ -16,6 +16,7 @@ public sealed class PortalDbContext(DbContextOptions<PortalDbContext> options, I
     private string Schema => configuration["Database:Schema"] ?? "dbo";
 
     public DbSet<ApplicantPortalRecordEntity> PortalRecords => Set<ApplicantPortalRecordEntity>();
+    public DbSet<ApplicantManagementRecordEntity> ApplicantManagementRecords => Set<ApplicantManagementRecordEntity>();
     public DbSet<ExamSlotEntity> ExamSlots => Set<ExamSlotEntity>();
     public DbSet<GeneralSettingsReadEntity> GeneralSettings => Set<GeneralSettingsReadEntity>();
     public DbSet<AcquaintanceDocSettingsEntity> AcquaintanceDocSettings => Set<AcquaintanceDocSettingsEntity>();
@@ -38,6 +39,30 @@ public sealed class PortalDbContext(DbContextOptions<PortalDbContext> options, I
             entity.Property(x => x.CreatedAt).HasColumnName("created_at");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+        });
+
+        modelBuilder.Entity<ApplicantManagementRecordEntity>(entity =>
+        {
+            entity.ToTable("applicant_management_records");
+            entity.HasKey(x => new { x.Module, x.Id });
+            entity.Property(x => x.Module).HasColumnName("module").HasMaxLength(128);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.ApplicantId).HasColumnName("applicant_id").HasMaxLength(128);
+            entity.Property(x => x.NationalId).HasColumnName("national_id").HasMaxLength(32);
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.CommitteeId).HasColumnName("committee_id").HasMaxLength(128);
+            entity.Property(x => x.CategoryKey).HasColumnName("category_key").HasMaxLength(128);
+            entity.Property(x => x.Department).HasColumnName("department").HasMaxLength(128);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(96);
+            entity.Property(x => x.Kind).HasColumnName("kind").HasMaxLength(96);
+            entity.Property(x => x.OccurredAt).HasColumnName("occurred_at");
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.ApplicantId).HasDatabaseName("ix_applicant_management_records_applicant_id");
+            entity.HasIndex(x => x.NationalId).HasDatabaseName("ix_applicant_management_records_national_id");
+            entity.HasIndex(x => x.Status).HasDatabaseName("ix_applicant_management_records_status");
         });
 
         modelBuilder.Entity<ExamSlotEntity>(entity =>

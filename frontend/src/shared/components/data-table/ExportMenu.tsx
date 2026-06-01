@@ -50,6 +50,9 @@ export function ExportMenu<TRow>({
         const supplied = await config.allSupplier();
         source = supplied;
       }
+      if (config.rowFilter) {
+        source = source.filter(config.rowFilter);
+      }
       if (scope === 'all' && source.length > 10_000) {
         toast(`تنبيه: تصدير ${source.length.toLocaleString('en-US')} سجلاً قد يستغرق وقتاً.`, 'warning');
       }

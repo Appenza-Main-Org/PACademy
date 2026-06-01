@@ -752,7 +752,7 @@ public sealed class OperationalRecordsService(
                     INNER JOIN {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
                         ON draft.[type] = N'draft'
                        AND draft.[applicant_id] = CONVERT(nvarchar(64), applicant.[id])
-                    WHERE COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 8
+                    WHERE COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 1
 
                     UNION ALL
 
@@ -783,7 +783,7 @@ public sealed class OperationalRecordsService(
                           FROM {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
                           WHERE draft.[type] = N'draft'
                             AND draft.[applicant_id] = CONVERT(nvarchar(64), applicant.[id])
-                            AND COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 8
+                            AND COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 1
                       )
                 ) rows
                 ORDER BY [national_id]
@@ -858,7 +858,7 @@ public sealed class OperationalRecordsService(
                     INNER JOIN {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
                         ON draft.[type] = N'draft'
                        AND draft.[applicant_id] = CONVERT(nvarchar(64), applicant.[id])
-                    WHERE COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 8
+                    WHERE COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 1
 
                     UNION ALL
 
