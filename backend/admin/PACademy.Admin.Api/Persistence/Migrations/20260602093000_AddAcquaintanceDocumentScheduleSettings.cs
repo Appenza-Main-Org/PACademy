@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using PACademy.Admin.Api.Persistence;
 
 #nullable disable
@@ -6,6 +7,7 @@ using PACademy.Admin.Api.Persistence;
 namespace PACademy.Admin.Api.Persistence.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AdminDbContext))]
     [Migration("20260602093000_AddAcquaintanceDocumentScheduleSettings")]
     public partial class AddAcquaintanceDocumentScheduleSettings : Migration
     {
