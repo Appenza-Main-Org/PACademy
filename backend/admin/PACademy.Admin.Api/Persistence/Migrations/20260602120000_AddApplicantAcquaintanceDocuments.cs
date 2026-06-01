@@ -1,4 +1,5 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using PACademy.Admin.Api.Persistence;
 
@@ -7,6 +8,8 @@ using PACademy.Admin.Api.Persistence;
 namespace PACademy.Admin.Api.Persistence.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AdminDbContext))]
+    [Migration("20260602120000_AddApplicantAcquaintanceDocuments")]
     public partial class AddApplicantAcquaintanceDocuments : Migration
     {
         /// <inheritdoc />

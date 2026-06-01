@@ -2118,6 +2118,25 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasColumnType("nvarchar(64)")
                         .HasColumnName("id");
 
+                    b.Property<string>("AcquaintanceDocumentsCloseOffsetUnit")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasColumnName("acquaintance_documents_close_offset_unit");
+
+                    b.Property<int?>("AcquaintanceDocumentsCloseOffsetValue")
+                        .HasColumnType("int")
+                        .HasColumnName("acquaintance_documents_close_offset_value");
+
+                    b.Property<string>("AcquaintanceDocumentsCloseResponsibleTestCode")
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("acquaintance_documents_close_responsible_test_code");
+
+                    b.Property<string>("AcquaintanceDocumentsCloseTiming")
+                        .HasMaxLength(48)
+                        .HasColumnType("nvarchar(48)")
+                        .HasColumnName("acquaintance_documents_close_timing");
+
                     b.Property<string>("AcquaintanceDocumentsEntryResponsibleTestCode")
                         .HasMaxLength(96)
                         .HasColumnType("nvarchar(96)")
@@ -2127,6 +2146,20 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasMaxLength(48)
                         .HasColumnType("nvarchar(48)")
                         .HasColumnName("acquaintance_documents_mutation_lock_timing");
+
+                    b.Property<string>("AcquaintanceDocumentsOpenOffsetUnit")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)")
+                        .HasColumnName("acquaintance_documents_open_offset_unit");
+
+                    b.Property<int?>("AcquaintanceDocumentsOpenOffsetValue")
+                        .HasColumnType("int")
+                        .HasColumnName("acquaintance_documents_open_offset_value");
+
+                    b.Property<string>("AcquaintanceDocumentsOpenTiming")
+                        .HasMaxLength(48)
+                        .HasColumnType("nvarchar(48)")
+                        .HasColumnName("acquaintance_documents_open_timing");
 
                     b.Property<string>("AcquaintanceDocumentsPrintResponsibleTestCode")
                         .HasMaxLength(96)
@@ -2169,6 +2202,234 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("general_settings", "dbo");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Persistence.AcquaintanceDocSettingsEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ClosingAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("closing_at");
+
+                    b.Property<string>("ClosingMode")
+                        .IsRequired()
+                        .HasMaxLength(48)
+                        .HasColumnType("nvarchar(48)")
+                        .HasColumnName("closing_mode");
+
+                    b.Property<string>("ClosingTestKey")
+                        .IsRequired()
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("closing_test_key");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CycleId")
+                        .IsRequired()
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("cycle_id");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_enabled");
+
+                    b.Property<string>("OpeningRequiredOutcome")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasColumnName("opening_required_outcome");
+
+                    b.Property<string>("OpeningTestKey")
+                        .IsRequired()
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("opening_test_key");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CycleId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_acquaintance_doc_settings_cycle_id");
+
+                    b.ToTable("acquaintance_doc_settings", "dbo");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ApplicantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("applicant_id");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CycleId")
+                        .IsRequired()
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("cycle_id");
+
+                    b.Property<DateTimeOffset?>("LastAutosavedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("last_autosaved_at");
+
+                    b.Property<DateTimeOffset?>("OpenedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("opened_at");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicantId")
+                        .HasDatabaseName("ix_applicant_acquaintance_docs_applicant_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_applicant_acquaintance_docs_status");
+
+                    b.HasIndex("CycleId", "ApplicantId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_applicant_acquaintance_docs_cycle_applicant");
+
+                    b.ToTable("applicant_acquaintance_docs", "dbo");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocRevisionEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AcquaintanceDocId")
+                        .IsRequired()
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("acquaintance_doc_id");
+
+                    b.Property<string>("ChangeKind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasColumnName("change_kind");
+
+                    b.Property<string>("ChangedSectionKeysJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("changed_section_keys_json");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcquaintanceDocId")
+                        .HasDatabaseName("ix_applicant_acquaintance_doc_revisions_doc_id");
+
+                    b.ToTable("applicant_acquaintance_doc_revisions", "dbo");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocSectionEntity", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AcquaintanceDocId")
+                        .IsRequired()
+                        .HasMaxLength(96)
+                        .HasColumnType("nvarchar(96)")
+                        .HasColumnName("acquaintance_doc_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DataJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("data_json");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("SectionKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("section_key");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcquaintanceDocId", "SectionKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_applicant_acquaintance_doc_sections_doc_section");
+
+                    b.ToTable("applicant_acquaintance_doc_sections", "dbo");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Persistence.ApplicantPortalRecordEntity", b =>
@@ -2334,6 +2595,24 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocRevisionEntity", b =>
+                {
+                    b.HasOne("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocEntity", null)
+                        .WithMany()
+                        .HasForeignKey("AcquaintanceDocId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocSectionEntity", b =>
+                {
+                    b.HasOne("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocEntity", null)
+                        .WithMany("Sections")
+                        .HasForeignKey("AcquaintanceDocId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamEntity", b =>
                 {
                     b.Navigation("Assignments");
@@ -2348,6 +2627,11 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.Navigation("MatchingPairs");
 
                     b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocEntity", b =>
+                {
+                    b.Navigation("Sections");
                 });
 #pragma warning restore 612, 618
         }
