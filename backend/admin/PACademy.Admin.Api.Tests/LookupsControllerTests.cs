@@ -132,6 +132,38 @@ public sealed class LookupsControllerTests
     }
 
     [Fact]
+    public async Task ListGovernoratesNormalizesLegacyGovCodesBeforeReturning()
+    {
+        await using var db = CreateDb();
+        SeedLookup(db, "governorates", "GOV-19", "محافظة أسوان", new JsonObject
+        {
+            ["region"] = "الوجه القبلي",
+            ["nationalIdCode"] = "28"
+        });
+        SeedLookup(db, "police-stations", "PST-ASWAN", "قسم أسوان", new JsonObject
+        {
+            ["governorateCode"] = "GOV-19",
+            ["kind"] = "قسم"
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var service = new LookupsService(db, new LookupRowValidator());
+
+        var rows = await service.ListAsync("governorates", null, null, TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain(rows, row => LookupJson.StringProp(row, "code")?.StartsWith("GOV-", StringComparison.OrdinalIgnoreCase) == true);
+        Assert.Contains(rows, row =>
+            LookupJson.StringProp(row, "code") == "28" &&
+            LookupJson.StringProp(row, "name") == "محافظة أسوان");
+        Assert.Contains(rows, row =>
+            LookupJson.StringProp(row, "code") == "19" &&
+            LookupJson.StringProp(row, "name") == "محافظة الإسماعيلية");
+        var station = await db.LookupRows.SingleAsync(
+            x => x.LookupKey == "police-stations" && x.Code == "PST-ASWAN",
+            TestContext.Current.CancellationToken);
+        Assert.Equal("28", LookupJson.StringProp(LookupJson.ParseObject(station.PayloadJson), "governorateCode"));
+    }
+
+    [Fact]
     public async Task ForcedLookupDeleteRemovesRowDespiteDependencies()
     {
         await using var db = CreateDb();

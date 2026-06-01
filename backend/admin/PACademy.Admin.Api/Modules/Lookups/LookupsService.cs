@@ -10,6 +10,11 @@ public sealed class LookupsService(ILookupsDbContext db, IValidator<JsonObject> 
     public async Task<IReadOnlyList<JsonObject>> ListAsync(string key, bool? isActive, string? search, CancellationToken ct)
     {
         EnsureKnown(key);
+        if (key == "governorates")
+        {
+            await GovernorateLookupNormalizer.SynchronizeAsync(db, ct);
+        }
+
         var query = db.LookupRows.AsNoTracking().Where(x => x.LookupKey == key);
         if (isActive is not null) query = query.Where(x => x.IsActive == isActive);
         if (!string.IsNullOrWhiteSpace(search))
