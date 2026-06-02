@@ -30,3 +30,11 @@ export { ApplicationSummaryPage } from './pages/ApplicationSummaryPage';
 /* MOI-driven rejection screen — shown when MOI returned a session for
  * an applicant who doesn't qualify for any open category. */
 export { ApplicantIneligiblePage } from './pages/ApplicantIneligiblePage';
+
+/* Admin-facing portal follow-up access — lets the admin reach a portal
+ * applicant's exam outcomes from an admin record (bridged by national ID). */
+export {
+  useAdminPortalStatus,
+  useUpdateFollowUpMutation,
+} from './api/applicantPortal.queries';
+export type { AdminPortalStatus } from './api/applicantPortal.service';

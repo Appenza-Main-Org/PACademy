@@ -47,6 +47,7 @@ import {
   type ApplicantFamilyMember,
 } from '@/shared/types/domain';
 import { AuditTimeline } from '@/features/admin/components/applicants/AuditTimeline';
+import { ApplicantPortalExamsCard } from '@/features/admin/components/applicants/ApplicantPortalExamsCard';
 import { SECTION_LABELS } from '@/features/applicants/schemas';
 
 function displayValue(value: React.ReactNode | null | undefined): React.ReactNode {
@@ -268,6 +269,9 @@ export function ApplicantDetailPage(): JSX.Element {
               </div>
             </CardBody>
           </Card>
+
+          {/* Portal exam outcomes — admin-editable (gates وثيقة التعارف) */}
+          <ApplicantPortalExamsCard nationalId={applicant.nationalId} canEdit={canEdit} />
 
           {/* Investigation */}
           <Card>

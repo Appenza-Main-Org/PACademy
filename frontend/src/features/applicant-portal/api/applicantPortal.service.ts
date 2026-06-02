@@ -105,6 +105,18 @@ export interface AcquaintanceDocResponse {
   version?: number;
 }
 
+/** Admin-only portal status for a single applicant, resolved by GUID or national ID.
+ *  Backed by GET /applicant/admin/status/:identifier — returns the portal applicantId
+ *  (GUID) plus the live draft (which carries the follow-up exam outcomes). This is the
+ *  bridge an admin uses to reach a portal applicant from an admin record (which only
+ *  carries the national ID, not the portal GUID). */
+export interface AdminPortalStatus {
+  applicantId: string;
+  furthestStage: number;
+  status: string;
+  draft: ApplicantDraft;
+}
+
 function metadataString(row: TestLookupRow, key: string): string | undefined {
   const value = row.metadata?.[key];
   return typeof value === 'string' && value.length > 0 ? value : undefined;
@@ -324,6 +336,25 @@ export const applicantPortalService = {
     }
     await simulateLatency(200, 400);
     return DRAFT.followUp ?? MOCK.sampleApplicantDraft.followUp!;
+  },
+
+  /** Admin-only: resolve a portal applicant by GUID or national ID and return their
+   *  current draft + computed status.
+   *  INTEGRATION CONTRACT: GET /applicant/admin/status/:identifier
+   *    → { applicantId, furthestStage, status, draft } */
+  async getAdminPortalStatus(identifier: string): Promise<AdminPortalStatus> {
+    if (isBackendEnabled()) {
+      return applicantApiClient.get<AdminPortalStatus>(
+        `/applicant/admin/status/${encodeURIComponent(identifier)}`,
+      );
+    }
+    await simulateLatency(150, 300);
+    return {
+      applicantId: identifier,
+      furthestStage: DRAFT.furthestStage,
+      status: 'in_progress',
+      draft: { ...DRAFT },
+    };
   },
 
   async getConfiguredFollowUpExamPlan(input: {

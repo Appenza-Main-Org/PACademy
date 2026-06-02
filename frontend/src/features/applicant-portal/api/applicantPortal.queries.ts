@@ -14,6 +14,7 @@ export const apKeys = {
     [...apKeys.all, 'follow-up-exam-plan', cycleId, categoryKey] as const,
   applicationInstructions: () => [...apKeys.all, 'application-instructions'] as const,
   moi: (nid: string) => [...apKeys.all, 'moi', nid] as const,
+  adminStatus: (identifier: string) => [...apKeys.all, 'admin-status', identifier] as const,
 };
 
 /** Fetch the applicant's MOI-verified identity payload. Disabled until a
@@ -145,6 +146,18 @@ export function useApplicationInstructions() {
   return useQuery({
     queryKey: apKeys.applicationInstructions(),
     queryFn: () => applicantPortalService.getApplicationInstructions(),
+    ...noServerStateCacheOptions,
+  });
+}
+
+/** Admin-only: resolve a portal applicant by GUID or national ID. Disabled until an
+ *  identifier is available so the query won't fire on an empty value. */
+export function useAdminPortalStatus(identifier: string | null | undefined) {
+  return useQuery({
+    queryKey: apKeys.adminStatus(identifier ?? ''),
+    queryFn: () => applicantPortalService.getAdminPortalStatus(identifier!),
+    enabled: Boolean(identifier),
+    retry: false,
     ...noServerStateCacheOptions,
   });
 }
