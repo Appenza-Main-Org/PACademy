@@ -1269,6 +1269,7 @@ public sealed class OperationalRecordsService(
         SetIfPresent(projected, "certSection", StringProp(profile, "thanawiType"));
         SetIfPresent(projected, "governorate", StringProp(profile, "addressGovernorate"));
         SetIfPresent(projected, "city", StringProp(profile, "addressDistrict"));
+        SetIfPresent(projected, "department", DepartmentFromPortalCategory(projected));
 
         if (stage is > 0)
         {
@@ -1414,6 +1415,27 @@ public sealed class OperationalRecordsService(
             "divorced" => "مطلق",
             "widowed" => "أرمل",
             _ => value
+        };
+
+    private static string? DepartmentFromPortalCategory(JsonObject projected)
+    {
+        var categoryKey = StringProp(projected, "categoryKey");
+        if (!string.IsNullOrWhiteSpace(StringProp(projected, "department"))) return null;
+        return categoryKey switch
+        {
+            "officers_general" => "general_first",
+            "law_bachelor" => "lawyers",
+            "specialized_officers" => QualificationDepartment(StringProp(ObjectProp(projected, "profile"), "qualificationLevel")),
+            _ => null
+        };
+    }
+
+    private static string QualificationDepartment(string? qualificationLevel) =>
+        qualificationLevel switch
+        {
+            "master" => "masters",
+            "doctorate" => "doctorate",
+            _ => "special"
         };
 
     private static double? NumberProp(JsonObject? obj, string key) =>

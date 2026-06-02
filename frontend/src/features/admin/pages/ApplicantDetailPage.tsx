@@ -60,6 +60,20 @@ function genderLabel(value: Applicant['gender'] | string | undefined): string {
   return '—';
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  officers_general: 'قسم عام',
+  law_bachelor: 'ليسانس حقوق',
+  physical_education_bachelor: 'بكالوريوس تربية رياضية',
+  specialized_officers: 'الضباط المتخصصون',
+};
+
+function applicantCategoryLabel(applicant: Applicant): string {
+  const categoryKey = (applicant as Applicant & { categoryKey?: string }).categoryKey;
+  if (categoryKey && CATEGORY_LABELS[categoryKey]) return CATEGORY_LABELS[categoryKey];
+  if (applicant.department) return DEPARTMENT_LABELS[applicant.department];
+  return '—';
+}
+
 export function ApplicantDetailPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const { data: applicant, isLoading, error, refetch } = useApplicant(id);
@@ -98,8 +112,8 @@ export function ApplicantDetailPage(): JSX.Element {
               <span className="text-2xs font-normal text-ink-500">
                 <span className="font-mono">{applicant.id}</span>
                 {' · '}
-                {applicant.department
-                  ? DEPARTMENT_LABELS[applicant.department]
+                {applicantCategoryLabel(applicant) !== '—'
+                  ? applicantCategoryLabel(applicant)
                   : applicant.certType}
                 {' · '}
                 <Badge tone="info">{applicant.stageLabel}</Badge>
@@ -206,9 +220,7 @@ export function ApplicantDetailPage(): JSX.Element {
           <SectionCard id="section-department" title={SECTION_LABELS.department}>
             <DefRow
               label="فئة التقدم"
-              value={
-                applicant.department ? DEPARTMENT_LABELS[applicant.department] : '—'
-              }
+              value={applicantCategoryLabel(applicant)}
             />
             <DefRow label="رقم الدورة" value={applicant.cycleId ?? '—'} />
           </SectionCard>

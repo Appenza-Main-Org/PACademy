@@ -37,6 +37,7 @@ public sealed class ApplicantsControllerTests
         {
             ["applicantId"] = identity.TableId,
             ["furthestStage"] = 8,
+            ["categoryKey"] = "officers_general",
             ["profile"] = new JsonObject
             {
                 ["nationalId"] = identity.NationalId,
@@ -76,6 +77,7 @@ public sealed class ApplicantsControllerTests
         Assert.Equal("أعزب", row["maritalStatus"]?.GetValue<string>());
         Assert.Equal("الجيزة", row["governorate"]?.GetValue<string>());
         Assert.Equal("الدقي", row["city"]?.GetValue<string>());
+        Assert.Equal("general_first", row["department"]?.GetValue<string>());
         Assert.Equal("12 شارع التحرير", row["currentAddress"]?["detail"]?.GetValue<string>());
         Assert.Equal("0233456789", row["contact"]?["homePhone"]?.GetValue<string>());
         Assert.Equal("ahmed.updated", row["contact"]?["socialFacebook"]?.GetValue<string>());
