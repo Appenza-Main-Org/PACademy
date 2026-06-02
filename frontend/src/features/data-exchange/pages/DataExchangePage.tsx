@@ -54,8 +54,20 @@ import {
 } from '../api/queries';
 import { buildPerTypeBlobs, buildWorkbookBlob, downloadBlob, parseWorkbook } from '../lib/workbook';
 import { DataExchangePreview } from '../components/DataExchangePreview';
+import { SectionErrorBoundary } from '../components/SectionErrorBoundary';
+import { ApplicationSettingsCycleExportCard } from '@/features/admin/admission-setup';
 
 type FilterKind = 'all' | 'changedAfter' | 'modifiedSinceCreation' | 'sinceLastExport';
+
+/** Parse a `<input type="date">` value to an ISO timestamp, or null when it
+ *  is empty / not a valid date. Guards against `new Date('').toISOString()`
+ *  (which throws a RangeError) reaching the export call. */
+function toIsoOrNull(dateStr: string): string | null {
+  if (!dateStr) return null;
+  const ms = Date.parse(dateStr);
+  if (Number.isNaN(ms)) return null;
+  return new Date(ms).toISOString();
+}
 
 const LAYOUT_OPTIONS: Array<{ value: ExportLayout; label: string; description: string }> = [
   {
@@ -71,14 +83,26 @@ const LAYOUT_OPTIONS: Array<{ value: ExportLayout; label: string; description: s
 ];
 
 const FILTER_OPTIONS: Array<{ value: FilterKind; label: string; description: string }> = [
-  { value: 'all', label: 'الكل', description: 'تصدير نسخة كاملة من النطاقات المختارة.' },
+  {
+    value: 'all',
+    label: 'كل السجلات',
+    description: 'تصدير نسخة كاملة من جميع صفوف النطاقات المختارة.',
+  },
   {
     value: 'modifiedSinceCreation',
-    label: 'المُعدَّل بعد الإنشاء',
-    description: 'الصفوف التي تغيّرت بعد إنشائها فقط.',
+    label: 'السجلات المُعدَّلة فقط',
+    description: 'الصفوف التي طرأ عليها تعديل بعد إنشائها فقط.',
   },
-  { value: 'sinceLastExport', label: 'منذ آخر تصدير', description: 'تجهيز دفعة متابعة قصيرة.' },
-  { value: 'changedAfter', label: 'منذ تاريخ', description: 'تحديد نقطة زمنية يدوية للتبادل.' },
+  {
+    value: 'sinceLastExport',
+    label: 'المُستجدّ منذ آخر تصدير',
+    description: 'الصفوف المُضافة أو المُعدَّلة بعد آخر عملية تصدير.',
+  },
+  {
+    value: 'changedAfter',
+    label: 'اعتبارًا من تاريخ مُحدَّد',
+    description: 'الصفوف المُعدَّلة منذ تاريخ تختاره يدويًا.',
+  },
 ];
 
 export function DataExchangePage(): JSX.Element {
@@ -119,7 +143,10 @@ export function DataExchangePage(): JSX.Element {
   }
 
   function resolveFilter(): ExportFilter {
-    if (filterKind === 'changedAfter') return { changedAfter: new Date(changedAfter).toISOString() };
+    if (filterKind === 'changedAfter') {
+      const iso = toIsoOrNull(changedAfter);
+      return iso ? { changedAfter: iso } : 'all';
+    }
     if (filterKind === 'modifiedSinceCreation') return 'modifiedSinceCreation';
     if (filterKind === 'sinceLastExport') return 'sinceLastExport';
     return 'all';
@@ -131,8 +158,8 @@ export function DataExchangePage(): JSX.Element {
       toast('اختر نطاقًا واحدًا على الأقل للتصدير.', 'warning');
       return;
     }
-    if (filterKind === 'changedAfter' && !changedAfter) {
-      toast('حدّد التاريخ لفلتر «منذ تاريخ».', 'warning');
+    if (filterKind === 'changedAfter' && !toIsoOrNull(changedAfter)) {
+      toast('حدّد تاريخًا صالحًا لفلتر «اعتبارًا من تاريخ مُحدَّد».', 'warning');
       return;
     }
     try {
@@ -262,7 +289,13 @@ export function DataExchangePage(): JSX.Element {
         </div>
       </section>
 
+      {/* ── Cycle application-settings export ───────────────────────── */}
+      <SectionErrorBoundary title="تعذّر عرض قسم تصدير شروط التخصص">
+        <ApplicationSettingsCycleExportCard />
+      </SectionErrorBoundary>
+
       {/* ── Export ──────────────────────────────────────────────────── */}
+      <SectionErrorBoundary title="تعذّر عرض قسم تصدير البيانات">
       <Card>
         <CardHeader
           title={
@@ -349,7 +382,7 @@ export function DataExchangePage(): JSX.Element {
               </div>
               {filterKind === 'changedAfter' && (
                 <label className="mt-3 flex max-w-xs flex-col gap-1 text-2xs font-semibold text-ink-700">
-                  تاريخ بداية التبادل
+                  التعديلات اعتبارًا من تاريخ
                   <input
                     type="date"
                     value={changedAfter}
@@ -372,6 +405,7 @@ export function DataExchangePage(): JSX.Element {
           </div>
         </CardBody>
       </Card>
+      </SectionErrorBoundary>
 
       {/* ── Import ──────────────────────────────────────────────────── */}
       <Card>

@@ -39,3 +39,7 @@ export { ElectronicDeclarationPage } from './pages/ElectronicDeclarationPage';
 export { CommitteeInstanceAddForm } from './components/committeeBinding/CommitteeInstanceAddForm';
 export { useActiveCategoriesForCycle } from './lib/activeCategories';
 export type { ActiveCategoryView } from './lib/activeCategories';
+
+/* Embeddable export card — surfaced on the Data-Exchange hub so admins can
+ * export a selected cycle's full application settings (شروط التخصص) to Excel. */
+export { ApplicationSettingsCycleExportCard } from './components/ApplicationSettingsCycleExportCard';
