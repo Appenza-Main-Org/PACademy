@@ -134,6 +134,22 @@ public sealed class ApplicantsController(OperationalRecordsService records, Appl
         return Ok(await records.UpsertAsync("applicants", id, body, ct));
     }
 
+    [HttpGet("api/applicants/{id}/follow-up")]
+    [HttpGet("api/v1/applicants/{id}/follow-up")]
+    public async Task<ActionResult<JsonObject>> GetFollowUp(string id, CancellationToken ct)
+    {
+        var result = await records.GetApplicantFollowUpAsync(id, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
+    [HttpPut("api/applicants/{id}/follow-up")]
+    [HttpPut("api/v1/applicants/{id}/follow-up")]
+    public async Task<ActionResult<JsonObject>> UpdateFollowUp(string id, [FromBody] JsonObject body, CancellationToken ct)
+    {
+        var result = await records.UpdateApplicantFollowUpAsync(id, body, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [HttpPost("api/v1/applicants/{id}/transition")]
     public async Task<ActionResult<JsonObject>> Transition(string id, [FromBody] JsonObject body, CancellationToken ct)
     {

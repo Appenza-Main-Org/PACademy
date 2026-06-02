@@ -1,18 +1,18 @@
 /**
  * ApplicantPortalExamsCard — admin control for an applicant's portal exam outcomes.
  *
- * The admin record only carries the national ID; the portal stores exam results
- * (the "follow-up" pipeline) keyed by the portal applicant GUID. This card bridges
- * the two: it resolves the applicant by national ID (GET /applicant/admin/status/:nid),
- * shows their current per-exam outcome, and lets an admin set any outcome
- * (PUT /applicant/follow-up/:guid).
+ * Exam results (the portal "follow-up" pipeline) live in the shared portal draft row.
+ * The admin frontend is authenticated against the ADMIN API (not the applicant API),
+ * so this card reads/writes through the admin backend, keyed by the admin route id:
+ *   GET  /api/applicants/:id/follow-up  → { applicantId, hasPortalRecord, followUp }
+ *   PUT  /api/applicants/:id/follow-up  → merges the supplied outcomes into the draft.
  *
  * Marking the first exam (القدرات) as «اجتاز» is the gate the backend evaluates to
  * open «وثيقة التعارف» for the applicant, when general-settings ties the document to
  * passing that test.
  *
  * @example
- *   <ApplicantPortalExamsCard nationalId={applicant.nationalId} canEdit={canEdit} />
+ *   <ApplicantPortalExamsCard applicantId={id} canEdit={canEdit} />
  */
 
 import { useEffect, useState } from 'react';
@@ -70,26 +70,26 @@ function readOutcomes(followUp: Record<string, PipelineState> | undefined): Reco
 }
 
 export function ApplicantPortalExamsCard({
-  nationalId,
+  applicantId,
   canEdit,
 }: {
-  nationalId: string;
+  applicantId: string;
   canEdit: boolean;
 }): JSX.Element | null {
-  const statusQuery = useAdminPortalStatus(nationalId || null);
-  const applicantId = statusQuery.data?.applicantId ?? '';
+  const statusQuery = useAdminPortalStatus(applicantId || null);
   const mutation = useUpdateFollowUpMutation(applicantId);
 
   const [outcomes, setOutcomes] = useState<Record<string, PipelineState>>({});
 
-  // Hydrate the editable outcomes whenever the resolved draft changes.
+  // Hydrate the editable outcomes whenever the resolved follow-up changes.
   useEffect(() => {
-    setOutcomes(readOutcomes(statusQuery.data?.draft.followUp));
-  }, [statusQuery.data?.applicantId, statusQuery.data?.draft.followUp]);
+    setOutcomes(readOutcomes(statusQuery.data?.followUp));
+  }, [statusQuery.data?.applicantId, statusQuery.data?.followUp]);
 
-  if (!nationalId) return null;
+  if (!applicantId) return null;
 
-  const saved = readOutcomes(statusQuery.data?.draft.followUp);
+  const hasPortalRecord = statusQuery.data?.hasPortalRecord ?? false;
+  const saved = readOutcomes(statusQuery.data?.followUp);
   const isDirty = PORTAL_EXAMS.some((e) => outcomes[e.key] !== saved[e.key]);
 
   function persist(patch: Record<string, PipelineState>) {
@@ -126,6 +126,13 @@ export function ApplicantPortalExamsCard({
         {statusQuery.isLoading ? (
           <LoadingState variant="list" />
         ) : statusQuery.isError ? (
+          <div
+            className="rounded-md text-sm text-danger-700"
+            style={{ padding: 12, background: 'var(--surface-muted)' }}
+          >
+            تعذّر تحميل نتائج الاختبارات. حدّث الصفحة وحاول مرة أخرى.
+          </div>
+        ) : !hasPortalRecord ? (
           <div
             className="rounded-md text-sm text-ink-600"
             style={{ padding: 12, background: 'var(--surface-muted)' }}

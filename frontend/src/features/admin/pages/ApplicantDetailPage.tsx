@@ -46,7 +46,6 @@ import {
   type ApplicantEducation,
   type ApplicantFamilyMember,
 } from '@/shared/types/domain';
-import { AuditTimeline } from '@/features/admin/components/applicants/AuditTimeline';
 import { ApplicantPortalExamsCard } from '@/features/admin/components/applicants/ApplicantPortalExamsCard';
 import { SECTION_LABELS } from '@/features/applicants/schemas';
 
@@ -271,7 +270,7 @@ export function ApplicantDetailPage(): JSX.Element {
           </Card>
 
           {/* Portal exam outcomes — admin-editable (gates وثيقة التعارف) */}
-          <ApplicantPortalExamsCard nationalId={applicant.nationalId} canEdit={canEdit} />
+          <ApplicantPortalExamsCard applicantId={id} canEdit={canEdit} />
 
           {/* Investigation */}
           <Card>
@@ -294,7 +293,6 @@ export function ApplicantDetailPage(): JSX.Element {
 
         {/* ── Right rail: audit and timeline ───────────────────────────── */}
         <div className="flex flex-col gap-5">
-          <AuditTimeline applicantId={id} />
           <LegacyTimelineCard applicantId={id} />
         </div>
       </div>

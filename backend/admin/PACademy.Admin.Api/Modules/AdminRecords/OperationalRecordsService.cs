@@ -1593,4 +1593,153 @@ public sealed class OperationalRecordsService(
             details,
             now), ct);
     }
+
+    // ── Portal follow-up exam results (read + merge-write the draft row) ──────
+    // The applicant's exam outcomes live in the shared applicant_portal_records
+    // draft row, keyed by [type]='draft' AND [record_id] = the identity GUID
+    // (same row the applicant API reads when it evaluates the وثيقة التعارف gate).
+    private static readonly string[] FollowUpExamKeys =
+        ["capacities", "traits", "sports", "medical", "investigation", "finalResult"];
+
+    private static readonly HashSet<string> FollowUpOutcomes =
+        new(StringComparer.OrdinalIgnoreCase) { "pending", "in-progress", "awaiting-approval", "passed", "failed" };
+
+    /// <summary>
+    /// Returns the applicant's portal exam outcomes resolved by GUID / national id /
+    /// admin record id. Always returns the six canonical keys (defaulting to
+    /// "pending"); <c>hasPortalRecord</c> is false when no portal draft exists yet.
+    /// Null only when the applicant id itself is unknown.
+    /// </summary>
+    public async Task<JsonObject?> GetApplicantFollowUpAsync(string id, CancellationToken ct)
+    {
+        var applicant = await GetNormalizedAsync("applicants", id, ct);
+        if (applicant is null) return null;
+
+        var applicantGuid = AdminRecordJson.StringProp(applicant, "applicantTableId");
+        if (string.IsNullOrWhiteSpace(applicantGuid))
+        {
+            return new JsonObject
+            {
+                ["applicantId"] = null,
+                ["hasPortalRecord"] = false,
+                ["followUp"] = ExtractFollowUp(null),
+            };
+        }
+
+        var payloadJson = await ReadDraftPayloadAsync(applicantGuid, ct);
+        return new JsonObject
+        {
+            ["applicantId"] = applicantGuid,
+            ["hasPortalRecord"] = payloadJson is not null,
+            ["followUp"] = ExtractFollowUp(payloadJson),
+        };
+    }
+
+    /// <summary>
+    /// Merges the supplied follow-up outcomes into the applicant's portal draft
+    /// (only the six known keys with valid outcome values are written) and returns
+    /// the refreshed follow-up snapshot.
+    /// </summary>
+    public async Task<JsonObject?> UpdateApplicantFollowUpAsync(string id, JsonObject patch, CancellationToken ct)
+    {
+        var applicant = await GetNormalizedAsync("applicants", id, ct);
+        if (applicant is null) return null;
+
+        var applicantGuid = AdminRecordJson.StringProp(applicant, "applicantTableId");
+        if (string.IsNullOrWhiteSpace(applicantGuid))
+            throw new ConflictException("NO_PORTAL_RECORD", "هذا المتقدم لا يملك ملفاً في بوابة المتقدم");
+
+        var payloadJson = await ReadDraftPayloadAsync(applicantGuid, ct);
+        var payload = payloadJson is not null && JsonNode.Parse(payloadJson) is JsonObject existing
+            ? existing
+            : new JsonObject();
+        var followUp = payload["followUp"] as JsonObject ?? new JsonObject();
+
+        var changed = false;
+        foreach (var key in FollowUpExamKeys)
+        {
+            if (!patch.TryGetPropertyValue(key, out var node) || node is null) continue;
+            string? value;
+            try { value = node.GetValue<string>(); }
+            catch (InvalidOperationException) { value = node.ToString(); }
+            if (string.IsNullOrWhiteSpace(value) || !FollowUpOutcomes.Contains(value)) continue;
+            followUp[key] = value;
+            changed = true;
+        }
+
+        if (!changed)
+            throw new ConflictException("NO_VALID_FOLLOW_UP", "لا توجد نتائج اختبارات صالحة للتحديث");
+
+        payload["followUp"] = followUp;
+        var now = DateTimeOffset.UtcNow;
+        var fullPayload = payload.ToJsonString(AdminRecordJson.Options);
+
+        await ExecuteNormalizedNonQueryAsync(
+            $"""
+            MERGE {AdminDbContext.QualifiedTableName("applicant_portal_records")} WITH (HOLDLOCK) AS target
+            USING (SELECT N'draft' AS [type], @guid AS [record_id]) AS source
+                ON target.[type] = source.[type] AND target.[record_id] = source.[record_id]
+            WHEN MATCHED THEN
+                UPDATE SET [payload_json] = @payload, [updated_at] = @now
+            WHEN NOT MATCHED THEN
+                INSERT ([type], [record_id], [applicant_id], [payload_json], [created_at], [updated_at])
+                VALUES (N'draft', @guid, @guid, @payload, @now, @now);
+            """,
+            command =>
+            {
+                AddParameter(command, "@guid", applicantGuid);
+                AddParameter(command, "@payload", fullPayload);
+                AddParameter(command, "@now", now);
+            },
+            ct);
+
+        await EmitAuditAsync(
+            "applicants",
+            "follow_up.update",
+            AdminRecordJson.StringProp(applicant, "nationalId") ?? applicantGuid,
+            $"applicants.follow_up.update · {AdminRecordJson.StringProp(applicant, "name") ?? applicantGuid}",
+            now,
+            ct);
+
+        return await GetApplicantFollowUpAsync(id, ct);
+    }
+
+    private async Task<string?> ReadDraftPayloadAsync(string applicantGuid, CancellationToken ct)
+    {
+        var rows = await ExecuteNormalizedQueryAsync(
+            $"SELECT TOP (1) [payload_json] FROM {AdminDbContext.QualifiedTableName("applicant_portal_records")} WHERE [type] = N'draft' AND [applicant_id] = @guid",
+            command => AddParameter(command, "@guid", applicantGuid),
+            reader => new JsonObject
+            {
+                ["payload_json"] = reader.IsDBNull(0) ? null : JsonValue.Create(reader.GetString(0)),
+            },
+            ct);
+        return rows.Count > 0 ? AdminRecordJson.StringProp(rows[0], "payload_json") : null;
+    }
+
+    private static JsonObject ExtractFollowUp(string? payloadJson)
+    {
+        var result = new JsonObject();
+        foreach (var key in FollowUpExamKeys) result[key] = "pending";
+        if (string.IsNullOrWhiteSpace(payloadJson)) return result;
+        try
+        {
+            if (JsonNode.Parse(payloadJson) is JsonObject payload && payload["followUp"] is JsonObject followUp)
+            {
+                foreach (var key in FollowUpExamKeys)
+                {
+                    if (followUp[key] is not JsonNode node) continue;
+                    string? value;
+                    try { value = node.GetValue<string>(); }
+                    catch (InvalidOperationException) { value = node.ToString(); }
+                    if (!string.IsNullOrWhiteSpace(value)) result[key] = value;
+                }
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Malformed draft payload — fall back to the all-"pending" default.
+        }
+        return result;
+    }
 }

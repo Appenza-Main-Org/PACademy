@@ -105,16 +105,16 @@ export interface AcquaintanceDocResponse {
   version?: number;
 }
 
-/** Admin-only portal status for a single applicant, resolved by GUID or national ID.
- *  Backed by GET /applicant/admin/status/:identifier — returns the portal applicantId
- *  (GUID) plus the live draft (which carries the follow-up exam outcomes). This is the
- *  bridge an admin uses to reach a portal applicant from an admin record (which only
- *  carries the national ID, not the portal GUID). */
+/** Admin-only portal follow-up snapshot for a single applicant, resolved by the admin
+ *  route id (GUID / national id / admin record id). Served by the ADMIN API
+ *  (GET /api/applicants/:id/follow-up) — the admin frontend is authenticated against the
+ *  admin API, whereas the applicant API only accepts applicant JWTs, so the admin must
+ *  go through the admin backend (which reads/writes the shared portal draft row).
+ *  `hasPortalRecord` is false when the applicant has no portal draft yet. */
 export interface AdminPortalStatus {
-  applicantId: string;
-  furthestStage: number;
-  status: string;
-  draft: ApplicantDraft;
+  applicantId: string | null;
+  hasPortalRecord: boolean;
+  followUp: Record<string, import('@/shared/types/domain').PipelineState>;
 }
 
 function metadataString(row: TestLookupRow, key: string): string | undefined {
@@ -338,22 +338,21 @@ export const applicantPortalService = {
     return DRAFT.followUp ?? MOCK.sampleApplicantDraft.followUp!;
   },
 
-  /** Admin-only: resolve a portal applicant by GUID or national ID and return their
-   *  current draft + computed status.
-   *  INTEGRATION CONTRACT: GET /applicant/admin/status/:identifier
-   *    → { applicantId, furthestStage, status, draft } */
-  async getAdminPortalStatus(identifier: string): Promise<AdminPortalStatus> {
+  /** Admin-only: read an applicant's portal exam follow-up by admin route id
+   *  (GUID / national id / admin record id).
+   *  INTEGRATION CONTRACT: GET /api/applicants/:id/follow-up (admin API)
+   *    → { applicantId, hasPortalRecord, followUp } */
+  async getAdminPortalStatus(id: string): Promise<AdminPortalStatus> {
     if (isBackendEnabled()) {
-      return applicantApiClient.get<AdminPortalStatus>(
-        `/applicant/admin/status/${encodeURIComponent(identifier)}`,
+      return adminApiClient.get<AdminPortalStatus>(
+        `/api/applicants/${encodeURIComponent(id)}/follow-up`,
       );
     }
     await simulateLatency(150, 300);
     return {
-      applicantId: identifier,
-      furthestStage: DRAFT.furthestStage,
-      status: 'in_progress',
-      draft: { ...DRAFT },
+      applicantId: id,
+      hasPortalRecord: true,
+      followUp: { ...(DRAFT.followUp ?? MOCK.sampleApplicantDraft.followUp!) },
     };
   },
 
@@ -401,16 +400,18 @@ export const applicantPortalService = {
   },
 
   /** Admin-only: update one or more exam result fields for a given applicant.
-   *  INTEGRATION CONTRACT: PUT /applicant/follow-up/:applicantId
+   *  Goes through the ADMIN API (the admin frontend isn't authenticated against the
+   *  applicant API), which merges the outcomes into the shared portal draft row.
+   *  INTEGRATION CONTRACT: PUT /api/applicants/:id/follow-up (admin API)
    *    Body: Partial<followUp> — only known keys (capacities|traits|sports|medical|investigation|finalResult) are written.
-   *    Returns: { ok: true }
+   *    Returns: { applicantId, hasPortalRecord, followUp }
    */
   async updateFollowUp(
-    applicantId: string,
+    id: string,
     data: Partial<NonNullable<ApplicantDraft['followUp']>>,
   ): Promise<void> {
     if (isBackendEnabled()) {
-      await applicantApiClient.put(`/applicant/follow-up/${encodeURIComponent(applicantId)}`, data);
+      await adminApiClient.put(`/api/applicants/${encodeURIComponent(id)}/follow-up`, data);
       return;
     }
     await simulateLatency(200, 400);
