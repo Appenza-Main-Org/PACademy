@@ -38,6 +38,7 @@ import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { deterministicFileNumber } from '../lib/deterministic-codes';
 import {
   DEFAULT_APPLICATION_INSTRUCTIONS,
+  isApplicantAppointmentLocked,
   isApplicationLocked,
 } from '../lib/application-lock';
 import {
@@ -68,6 +69,7 @@ export function ApplicantPortalPage(): JSX.Element {
   const parentsApproved = storeParentsApproved || Boolean(draft?.parentsApproved || draft?.parentsApprovedAt);
   const firstExamDate = storeFirstExamDate ?? draft?.examSlot?.date ?? null;
   const applicationLocked = isApplicationLocked(draft, storePaid);
+  const appointmentLocked = isApplicantAppointmentLocked(draft);
   /* Profile fields come from the draft saved in Stage 3 (real data).
    * The draft is undefined until fetched, so every field is optional. */
   const profile = draft?.profile;
@@ -85,7 +87,7 @@ export function ApplicantPortalPage(): JSX.Element {
   const modificationDeadline = activeCycle.data?.closeDate;
 
   const primaryCta = (() => {
-    if (applicationLocked && firstExamDate) {
+    if (appointmentLocked && firstExamDate) {
       return {
         label: 'بطاقة التردد',
         to: ROUTES.applicantPrintCard,
@@ -93,7 +95,6 @@ export function ApplicantPortalPage(): JSX.Element {
         leadingIcon: <ArrowLeft size={14} strokeWidth={1.75} className="rtl:rotate-180" />,
       };
     }
-    if (applicationLocked) return null;
     if (!paid) {
       return {
         label: 'الدفع',
@@ -286,7 +287,7 @@ export function ApplicantPortalPage(): JSX.Element {
           <div>
             <p className="font-ar-display text-md font-bold text-ink-900">الخطوة التالية</p>
             <p className="mt-0.5 text-sm text-ink-500">
-              {nextStepCaption(paid, parentsApproved, firstExamDate, applicationLocked)}
+              {nextStepCaption(paid, parentsApproved, firstExamDate, appointmentLocked)}
             </p>
           </div>
           {primaryCta && (
@@ -584,13 +585,10 @@ function nextStepCaption(
   paid: boolean,
   parentsApproved: boolean,
   firstExamDate: string | null,
-  applicationLocked: boolean,
+  appointmentLocked: boolean,
 ): string {
-  if (applicationLocked && firstExamDate) {
+  if (appointmentLocked && firstExamDate) {
     return 'البيانات مكتملة ومقفلة بعد السداد. اطبع بطاقة التردد قبل الذهاب للأكاديمية.';
-  }
-  if (applicationLocked) {
-    return 'تم قفل بيانات الطلب بعد السداد. البيانات متاحة للعرض فقط من بوابة المتقدم.';
   }
   if (!paid) return 'لإتمام التقدم يلزم سداد مقابل الخدمة عبر كود فوري.';
   if (!parentsApproved) return 'بعد السداد يلزم إدراج واعتماد بيانات الوالدين قبل تحديد موعد الإختبار.';

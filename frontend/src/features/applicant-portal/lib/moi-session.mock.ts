@@ -214,6 +214,70 @@ export const VOTHIQA_LAW_BACHELOR_SESSION: MoiApplicantSession = {
   religion: 'مسلم',
 };
 
+/* UAT full-cycle applicants — synthetic valid-format NIDs, mapped to the
+ * applicant categories so staging/demo testers can exercise every path
+ * without depending on real citizen data. */
+export const UAT_GENERAL_FULL_CYCLE_NID = '30606060123451';
+export const UAT_SPECIALIZED_FULL_CYCLE_NID = '29202150167831';
+export const UAT_LAW_FULL_CYCLE_NID = '29809220145624';
+export const UAT_PHYSICAL_EDUCATION_CLOSED_NID = '30103150246828';
+
+export const UAT_GENERAL_FULL_CYCLE_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-UAT-GEN-2026',
+  fullName: 'عمر مصطفى عبد العزيز الشيخ',
+  nationalId: UAT_GENERAL_FULL_CYCLE_NID,
+  dateOfBirth: '2006-06-06',
+  dateOfBirthAr: fmtArabic(new Date('2006-06-06')),
+  gender: 'male',
+  mobile: '01066000101',
+  email: 'uat.general.123451@example.eg',
+  birthGovernorate: 'القاهرة',
+  birthDistrict: 'مدينة نصر',
+  religion: 'مسلم',
+};
+
+export const UAT_SPECIALIZED_FULL_CYCLE_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-UAT-SPEC-2026',
+  fullName: 'محمود فؤاد عبد الرحمن العقاد',
+  nationalId: UAT_SPECIALIZED_FULL_CYCLE_NID,
+  dateOfBirth: '1992-02-15',
+  dateOfBirthAr: fmtArabic(new Date('1992-02-15')),
+  gender: 'male',
+  mobile: '01066000102',
+  email: 'uat.specialized.167831@example.eg',
+  birthGovernorate: 'القاهرة',
+  birthDistrict: 'مصر الجديدة',
+  religion: 'مسلم',
+};
+
+export const UAT_LAW_FULL_CYCLE_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-UAT-LAW-2026',
+  fullName: 'مريم عادل محمد منصور',
+  nationalId: UAT_LAW_FULL_CYCLE_NID,
+  dateOfBirth: '1998-09-22',
+  dateOfBirthAr: fmtArabic(new Date('1998-09-22')),
+  gender: 'female',
+  mobile: '01066000103',
+  email: 'uat.law.145624@example.eg',
+  birthGovernorate: 'الإسكندرية',
+  birthDistrict: 'سيدي جابر',
+  religion: 'مسلم',
+};
+
+export const UAT_PHYSICAL_EDUCATION_CLOSED_SESSION: MoiApplicantSession = {
+  applicantId: 'APP-UAT-PE-2026',
+  fullName: 'نورهان أحمد حسن عبد اللطيف',
+  nationalId: UAT_PHYSICAL_EDUCATION_CLOSED_NID,
+  dateOfBirth: '2001-03-15',
+  dateOfBirthAr: fmtArabic(new Date('2001-03-15')),
+  gender: 'female',
+  mobile: '01066000104',
+  email: 'uat.physical.246828@example.eg',
+  birthGovernorate: 'الجيزة',
+  birthDistrict: 'الدقي',
+  religion: 'مسلم',
+};
+
 /** Demo-only prefill bundle for the submitted user. Both
  *  Stage345ApplicantDataPage (form prefill) and ApplicantPortalPage
  *  (read-only summary) read from this single source. */
@@ -302,6 +366,30 @@ export const DEMO_TEST_USERS = [
     fullName: VOTHIQA_LAW_BACHELOR_SESSION.fullName,
     note: 'متقدم متزوج لقسم ليسانس الحقوق — يعبّئ بيانات الزوجة والأبناء ضمن وثيقة التعارف.',
   },
+  {
+    label: 'UAT دورة كاملة · قسم عام',
+    nationalId: UAT_GENERAL_FULL_CYCLE_NID,
+    fullName: UAT_GENERAL_FULL_CYCLE_SESSION.fullName,
+    note: 'متقدم ذكر للقسم العام — استخدمه لاختبار الدورة الكاملة حتى وثيقة التعارف بعد فتحها.',
+  },
+  {
+    label: 'UAT دورة كاملة · الضباط المتخصصون',
+    nationalId: UAT_SPECIALIZED_FULL_CYCLE_NID,
+    fullName: UAT_SPECIALIZED_FULL_CYCLE_SESSION.fullName,
+    note: 'متقدم جامعي للضباط المتخصصين — مناسب لاختبار مسار الجامعيين ووثيقة التعارف.',
+  },
+  {
+    label: 'UAT دورة كاملة · ليسانس حقوق',
+    nationalId: UAT_LAW_FULL_CYCLE_NID,
+    fullName: UAT_LAW_FULL_CYCLE_SESSION.fullName,
+    note: 'متقدمة ليسانس حقوق — مناسب لاختبار فئة الحقوق وفروق النوع.',
+  },
+  {
+    label: 'UAT فئة مغلقة · تربية رياضية',
+    nationalId: UAT_PHYSICAL_EDUCATION_CLOSED_NID,
+    fullName: UAT_PHYSICAL_EDUCATION_CLOSED_SESSION.fullName,
+    note: 'متقدمة تربية رياضية — هذه الفئة مغلقة في دورة 2026 الحالية ويجب أن يظهر سبب عدم الإتاحة.',
+  },
 ] as const;
 
 /**
@@ -320,6 +408,10 @@ export const DEMO_TEST_USERS = [
 export function mockMoiVerifyNid(nid: string): MoiApplicantSession | null {
   if (nid === MOI_APPLICANT_SESSION.nationalId) return MOI_APPLICANT_SESSION;
   if (nid === KHALED_SESSION.nationalId) return KHALED_SESSION;
+  if (nid === UAT_GENERAL_FULL_CYCLE_NID) return UAT_GENERAL_FULL_CYCLE_SESSION;
+  if (nid === UAT_SPECIALIZED_FULL_CYCLE_NID) return UAT_SPECIALIZED_FULL_CYCLE_SESSION;
+  if (nid === UAT_LAW_FULL_CYCLE_NID) return UAT_LAW_FULL_CYCLE_SESSION;
+  if (nid === UAT_PHYSICAL_EDUCATION_CLOSED_NID) return UAT_PHYSICAL_EDUCATION_CLOSED_SESSION;
   if (nid === MOHAMED_UNKNOWN_NID) return null;
   const parsed = parseNidStructure(nid);
   if (!parsed) return null;
@@ -516,6 +608,34 @@ export function mockMoiLookup(nid: string): MoiLookupResult {
       kind: 'eligible',
       session: VOTHIQA_LAW_BACHELOR_SESSION,
       categoryKey: 'law_bachelor',
+    };
+  }
+  if (nid === UAT_GENERAL_FULL_CYCLE_NID) {
+    return {
+      kind: 'eligible',
+      session: UAT_GENERAL_FULL_CYCLE_SESSION,
+      categoryKey: 'officers_general',
+    };
+  }
+  if (nid === UAT_SPECIALIZED_FULL_CYCLE_NID) {
+    return {
+      kind: 'eligible',
+      session: UAT_SPECIALIZED_FULL_CYCLE_SESSION,
+      categoryKey: 'specialized_officers',
+    };
+  }
+  if (nid === UAT_LAW_FULL_CYCLE_NID) {
+    return {
+      kind: 'eligible',
+      session: UAT_LAW_FULL_CYCLE_SESSION,
+      categoryKey: 'law_bachelor',
+    };
+  }
+  if (nid === UAT_PHYSICAL_EDUCATION_CLOSED_NID) {
+    return {
+      kind: 'eligible',
+      session: UAT_PHYSICAL_EDUCATION_CLOSED_SESSION,
+      categoryKey: 'physical_education_bachelor',
     };
   }
   return { kind: 'not_found' };

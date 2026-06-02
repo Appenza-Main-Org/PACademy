@@ -14,7 +14,11 @@ import { Badge, Button, Card, LoadingState, PageHeader } from '@/shared/componen
 import { ROUTES } from '@/config/routes';
 import { useDraft } from '../api/applicantPortal.queries';
 import { APPLICANT_STAGE_KEYS, APPLICANT_STAGE_LABELS } from '..';
-import { isApplicationLocked } from '../lib/application-lock';
+import {
+  isApplicantAppointmentLocked,
+  isApplicantFamilyLocked,
+  isApplicantPaymentLocked,
+} from '../lib/application-lock';
 
 const APPLICANT_ID = 'APP-2026000';
 
@@ -47,7 +51,9 @@ export function ApplicationSummaryPage(): JSX.Element {
   const examSummary = draft.examSlot
     ? `${draft.examSlot.date.slice(0, 10)} · ${draft.examSlot.time}`
     : '— لم يُحجَز موعد —';
-  const applicationLocked = isApplicationLocked(draft, false);
+  const paymentLocked = isApplicantPaymentLocked(draft, false);
+  const familyLocked = isApplicantFamilyLocked(draft, false);
+  const appointmentLocked = isApplicantAppointmentLocked(draft);
 
   /* MOI-aligned: stageIndex values mirror the new STAGE_KEYS order:
    *   2 = profile (collapsed 3/4/5)
@@ -59,35 +65,35 @@ export function ApplicationSummaryPage(): JSX.Element {
       stageIndex: 2,
       heading: 'البيانات الشخصية والدراسية',
       summary: profileSummary,
-      locked: applicationLocked,
+      locked: paymentLocked,
     },
     {
       stageIndex: 5,
       heading: 'سداد الرسوم',
       summary: paymentSummary,
-      locked: applicationLocked || Boolean(draft.payment?.paidAt),
+      locked: paymentLocked,
     },
     {
       stageIndex: 6,
       heading: 'بيانات الوالدين',
       summary: familySummary,
-      locked: applicationLocked,
+      locked: familyLocked,
     },
     {
       stageIndex: 7,
       heading: 'موعد الاختبار',
       summary: examSummary,
-      locked: applicationLocked,
+      locked: appointmentLocked,
     },
   ];
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        title={applicationLocked ? 'عرض الطلب' : 'تعديل الطلب'}
+        title={paymentLocked ? 'عرض الطلب' : 'تعديل الطلب'}
         subtitle={
-          applicationLocked
-            ? 'بياناتك مقفلة بعد السداد ومتاحة للعرض فقط'
+          paymentLocked
+            ? 'بياناتك الأساسية مقفلة بعد السداد، ويمكنك استكمال الخطوات غير المكتملة'
             : 'مراجعة وتعديل بياناتك المُسجَّلة قبل الإغلاق النهائي للطلب'
         }
         breadcrumbs={[

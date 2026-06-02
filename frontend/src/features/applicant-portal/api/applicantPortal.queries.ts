@@ -194,6 +194,9 @@ export function usePickFirstExamDateMutation(applicantId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { slotId: string }) => applicantPortalService.pickFirstExamDate(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) });
+      void qc.invalidateQueries({ queryKey: apKeys.acquaintanceDocStatus(applicantId) });
+    },
   });
 }
