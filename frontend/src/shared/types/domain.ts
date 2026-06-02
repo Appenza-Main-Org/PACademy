@@ -1557,6 +1557,12 @@ export interface ExamConfig {
   assignedGenders?: Array<'male' | 'female'>;
   assignedSpecializations?: string[];
   reopenedApplicantIds?: string[];
+  /** Public exam-room token used by `/exam-room/:token`. */
+  publishToken?: string;
+  /** Full public URL copied by admins after publishing. */
+  publishedUrl?: string;
+  /** IP allowlist for real exam-room access. Supports exact IPs and `*` octet wildcards. */
+  allowedIps?: string[];
   rules: { category: string; difficultyMin: number; difficultyMax: number; count: number; minutes: number }[];
   questionIds: string[];
   status: 'draft' | 'published' | 'stopped' | 'completed';

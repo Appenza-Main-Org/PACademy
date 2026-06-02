@@ -11,6 +11,7 @@ export const ROUTES = {
   login: '/staff-login',
   terms: '/terms',
   help: '/help',
+  examRoom: (token = ':token'): string => `/exam-room/${token}`,
 
   /* ── Staff surface (AuthGuard required) ── */
   hub: '/hub',

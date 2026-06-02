@@ -11,8 +11,10 @@
  *   GET    /api/exams/categories                             → { name, count }[]
  *   GET    /api/exams                                        → ExamConfig[]
  *   GET    /api/exams/:id                                    → ExamConfig
+ *   GET    /api/exams/published/:token                       → ExamConfig (public exam-room lookup)
  *   POST   /api/exams                                        → ExamConfig
  *   POST   /api/exams/:id/publish                            → ExamConfig (published)
+ *          body: { allowedIps: string[], accessStartAt: ISO, accessEndAt: ISO, publishedUrl?: string }
  *   POST   /api/exams/:id/take/start                         → ExamAttempt
  *   POST   /api/exams/attempts/:attemptId/submit             → ExamAttempt (auto-graded)
  *   GET    /api/exams/:id/attempts                           → ExamAttempt[]
@@ -32,6 +34,12 @@
 import { apiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
+import {
+  buildExamRoomUrl,
+  createPublishToken,
+  isIpAllowed,
+  normaliseIpAllowlist,
+} from '../lib/exam-publishing';
 import type {
   BankQuestion,
   BatchCreateResult,
@@ -51,6 +59,13 @@ import type {
   QuestionStatus,
   SessionStatus,
 } from '@/shared/types/domain';
+
+interface PublishExamPayload {
+  allowedIps?: string[];
+  accessStartAt?: string;
+  accessEndAt?: string;
+  publishedUrl?: string;
+}
 
 const QS_STATE: BankQuestion[] = [...MOCK.bankQuestions];
 const EX_STATE: ExamConfig[] = [...MOCK.examConfigs];
@@ -313,6 +328,21 @@ export const examsService = {
     return EX_STATE.find((e) => e.id === id) ?? null;
   },
 
+  async getPublishedExamByToken(token: string): Promise<ExamConfig | null> {
+    if (isBackendEnabled()) {
+      try {
+        return await apiClient.get<ExamConfig>(`/api/exams/published/${encodeURIComponent(token)}`);
+      } catch {
+        return null;
+      }
+    }
+    await simulateLatency();
+    return EX_STATE.find((row) => {
+      const rowToken = row.publishToken ?? createPublishToken(row.id);
+      return row.status === 'published' && rowToken === token;
+    }) ?? null;
+  },
+
   async createExam(payload: Omit<ExamConfig, 'id' | 'status'>): Promise<ExamConfig> {
     if (isBackendEnabled()) {
       return apiClient.post<ExamConfig>('/api/exams', payload);
@@ -329,10 +359,10 @@ export const examsService = {
     return next;
   },
 
-  async publishExam(id: string): Promise<ExamConfig | null> {
+  async publishExam(id: string, payload: PublishExamPayload = {}): Promise<ExamConfig | null> {
     if (isBackendEnabled()) {
       try {
-        return await apiClient.post<ExamConfig>(`/api/exams/${encodeURIComponent(id)}/publish`);
+        return await apiClient.post<ExamConfig>(`/api/exams/${encodeURIComponent(id)}/publish`, payload);
       } catch {
         return null;
       }
@@ -341,7 +371,18 @@ export const examsService = {
     const e = EX_STATE.find((x) => x.id === id);
     if (!e) return null;
     const previous = e.status;
+    const publishToken = e.publishToken ?? createPublishToken(e.id);
+    const accessStartAt = payload.accessStartAt ?? e.accessStartAt ?? e.scheduledFor;
+    const accessEndAt =
+      payload.accessEndAt ??
+      e.accessEndAt ??
+      new Date(new Date(e.scheduledFor).getTime() + 3 * 60 * 60_000).toISOString();
     e.status = 'published';
+    e.publishToken = publishToken;
+    e.publishedUrl = payload.publishedUrl ?? e.publishedUrl ?? buildExamRoomUrl(publishToken);
+    e.allowedIps = normaliseIpAllowlist(payload.allowedIps ?? e.allowedIps ?? []);
+    e.accessStartAt = accessStartAt;
+    e.accessEndAt = accessEndAt;
     recordAudit({
       action: 'exam.published',
       entity: 'exam',
@@ -496,6 +537,8 @@ export const examsService = {
       (row) => row.nationalId === request.nationalId || row.id === request.applicantCode,
     );
     const exam = EX_STATE.find((row) => row.id === request.examId) ?? EX_STATE.find((row) => row.status === 'published');
+    const allowedIps = normaliseIpAllowlist(exam?.allowedIps);
+    const publishedIpAllowed = isIpAllowed(request.ipAddress, allowedIps);
     const device = DEVICE_STATE.find(
       (row) =>
         row.status === 'active' &&
@@ -520,8 +563,8 @@ export const examsService = {
       {
         key: 'today',
         label: 'لديه اختبار اليوم',
-        ok: Boolean(exam),
-        detail: exam ? exam.nameAr : 'لا يوجد اختبار منشور متاح.',
+        ok: Boolean(exam && exam.status === 'published'),
+        detail: exam && exam.status === 'published' ? exam.nameAr : 'لا يوجد اختبار منشور متاح.',
       },
       {
         key: 'assignment',
@@ -537,9 +580,13 @@ export const examsService = {
       },
       {
         key: 'device',
-        label: 'الجهاز أو IP مصرح به',
-        ok: Boolean(device),
-        detail: device ? `${device.label} · ${device.ipAddress}` : 'الجهاز غير مسجل أو غير مفعل.',
+        label: 'IP غرفة الاختبار مصرح به',
+        ok: publishedIpAllowed || (allowedIps.length === 0 && Boolean(device)),
+        detail: publishedIpAllowed
+          ? `${request.ipAddress} ضمن قائمة النشر`
+          : device && allowedIps.length === 0
+            ? `${device.label} · ${device.ipAddress}`
+            : 'هذا الـ IP غير مصرح له بفتح رابط الاختبار.',
       },
       {
         key: 'window',

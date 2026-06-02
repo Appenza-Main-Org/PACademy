@@ -14,12 +14,14 @@ import {
   CheckCircle2,
   Clock,
   ClipboardCheck,
+  Copy,
   Download,
   Eye,
   FileText,
   Flag,
   Folder,
   KeyRound,
+  Link2,
   ListChecks,
   Monitor,
   Pause,
@@ -94,6 +96,11 @@ import { date as fmtDate, num } from '@/shared/lib/format';
 import { downloadBlob } from '@/shared/lib/download';
 import { examsService } from '../api/exams.service';
 import {
+  buildExamRoomUrl,
+  createPublishToken,
+  normaliseIpAllowlist,
+} from '../lib/exam-publishing';
+import {
   examsKeys,
   useExamCommitteeUsers,
   useExamDevices,
@@ -116,6 +123,141 @@ import type {
 } from '@/shared/types/domain';
 
 const CURRENT_CYCLE_ID = 'CYC-2026-M';
+
+interface ExamPublishFormState {
+  allowedIps: string;
+  accessStartAt: string;
+  accessEndAt: string;
+}
+
+interface ExamPublishSettings {
+  allowedIps: string[];
+  accessStartAt: string;
+  accessEndAt: string;
+  publishedUrl: string;
+}
+
+function toDateTimeInputValue(value: string | undefined, fallbackMs: number): string {
+  const date = value ? new Date(value) : new Date(fallbackMs);
+  if (Number.isNaN(date.getTime())) return new Date(fallbackMs).toISOString().slice(0, 16);
+  return date.toISOString().slice(0, 16);
+}
+
+function createPublishFormState(exam: ExamConfig): ExamPublishFormState {
+  const start = new Date(exam.accessStartAt ?? exam.scheduledFor).getTime();
+  const fallbackStart = Number.isNaN(start) ? Date.now() : start;
+  return {
+    allowedIps: normaliseIpAllowlist(exam.allowedIps).join('\n'),
+    accessStartAt: toDateTimeInputValue(exam.accessStartAt ?? exam.scheduledFor, fallbackStart),
+    accessEndAt: toDateTimeInputValue(exam.accessEndAt, fallbackStart + 3 * 60 * 60_000),
+  };
+}
+
+function createPublishSettings(exam: ExamConfig, form: ExamPublishFormState): ExamPublishSettings {
+  const publishToken = exam.publishToken ?? createPublishToken(exam.id);
+  const accessStart = new Date(form.accessStartAt);
+  const accessEnd = new Date(form.accessEndAt);
+  return {
+    allowedIps: normaliseIpAllowlist(form.allowedIps),
+    accessStartAt: Number.isNaN(accessStart.getTime()) ? exam.scheduledFor : accessStart.toISOString(),
+    accessEndAt: Number.isNaN(accessEnd.getTime())
+      ? new Date(new Date(exam.scheduledFor).getTime() + 3 * 60 * 60_000).toISOString()
+      : accessEnd.toISOString(),
+    publishedUrl: buildExamRoomUrl(publishToken),
+  };
+}
+
+async function copyExamRoomUrl(url: string | undefined): Promise<void> {
+  if (!url) {
+    toast('لا يوجد رابط منشور لهذا الاختبار بعد.', 'warning');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('تم نسخ رابط الاختبار', 'success');
+  } catch {
+    toast('تعذّر نسخ الرابط تلقائيًا. انسخه يدويًا من الحقل المعروض.', 'warning');
+  }
+}
+
+interface PublishExamDialogProps {
+  exam: ExamConfig | null;
+  form: ExamPublishFormState;
+  isLoading: boolean;
+  onChange: (form: ExamPublishFormState) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}
+
+function PublishExamDialog({
+  exam,
+  form,
+  isLoading,
+  onChange,
+  onClose,
+  onSubmit,
+}: PublishExamDialogProps): JSX.Element {
+  const allowedIps = normaliseIpAllowlist(form.allowedIps);
+  const previewUrl = exam ? buildExamRoomUrl(exam.publishToken ?? createPublishToken(exam.id)) : '';
+
+  return (
+    <Modal
+      open={Boolean(exam)}
+      onClose={onClose}
+      title="نشر رابط الاختبار"
+      subtitle={exam ? `${exam.nameAr} · رابط غرفة الاختبار الحقيقي` : undefined}
+      size="md"
+    >
+      <Modal.Body>
+        <div className="grid gap-4">
+          <div className="rounded-md border border-border-subtle bg-surface-page px-3 py-2">
+            <p className="mb-1 text-2xs font-bold text-ink-700">الرابط الذي سيُفتح في غرفة الاختبار</p>
+            <p className="break-all font-mono text-xs text-ink-900" dir="ltr">{previewUrl}</p>
+          </div>
+          <Textarea
+            label="IP المسموح بها"
+            helper="اكتب IP في كل سطر. يمكن استخدام نمط مثل 10.20.14.* لمعمل كامل."
+            dir="ltr"
+            rows={5}
+            value={form.allowedIps}
+            onChange={(event) => onChange({ ...form, allowedIps: event.target.value })}
+          />
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input
+              label="بداية فتح الرابط"
+              type="datetime-local"
+              value={form.accessStartAt}
+              onChange={(event) => onChange({ ...form, accessStartAt: event.target.value })}
+            />
+            <Input
+              label="نهاية فتح الرابط"
+              type="datetime-local"
+              value={form.accessEndAt}
+              onChange={(event) => onChange({ ...form, accessEndAt: event.target.value })}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-md bg-ink-50 px-3 py-2 text-2xs">
+            <span className="text-ink-600">عدد عناوين IP المصرح بها</span>
+            <strong className="font-numeric tnum text-ink-900">{num(allowedIps.length)}</strong>
+          </div>
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="ghost" onClick={onClose}>إلغاء</Button>
+        <Button
+          variant="primary"
+          leadingIcon={<Send size={14} strokeWidth={1.75} />}
+          disabled={allowedIps.length === 0}
+          isLoading={isLoading}
+          onClick={onSubmit}
+        >
+          نشر الرابط
+        </Button>
+      </Modal.Footer>
+    </Modal>
+  );
+}
 
 /* ─────────── Question Bank list with create/edit ─────────── */
 
@@ -989,6 +1131,32 @@ export function LiveExamPage(): JSX.Element {
   return <LiveExamExperience />;
 }
 
+export function PublishedExamRoomPage(): JSX.Element {
+  const { token = '' } = useParams<{ token: string }>();
+  const { data: exam, isLoading, error, refetch } = useQuery({
+    queryKey: ['exams', 'published-room', token],
+    queryFn: () => examsService.getPublishedExamByToken(token),
+    enabled: Boolean(token),
+  });
+
+  if (isLoading) return <CenteredShell><LoadingState variant="page" /></CenteredShell>;
+  if (error) return <CenteredShell><ErrorState error={error} onRetry={() => refetch()} /></CenteredShell>;
+
+  if (!exam) {
+    return (
+      <CenteredShell>
+        <EmptyState
+          variant="generic"
+          title="رابط الاختبار غير متاح"
+          description="الرابط غير منشور أو تم إيقاف الاختبار."
+        />
+      </CenteredShell>
+    );
+  }
+
+  return <LiveExamExperience examIdOverride={exam.id} isExamRoom />;
+}
+
 export function TakeExamEntryPage(): JSX.Element {
   const navigate = useNavigate();
   const { data: exams, isLoading } = useQuery({
@@ -1041,8 +1209,19 @@ export function TakeExamEntryPage(): JSX.Element {
   );
 }
 
-function LiveExamExperience({ isPreview = false }: { isPreview?: boolean }): JSX.Element {
-  const { examId = '' } = useParams<{ examId: string }>();
+interface LiveExamExperienceProps {
+  isPreview?: boolean;
+  isExamRoom?: boolean;
+  examIdOverride?: string;
+}
+
+function LiveExamExperience({
+  isPreview = false,
+  isExamRoom = false,
+  examIdOverride,
+}: LiveExamExperienceProps): JSX.Element {
+  const { examId: routeExamId = '' } = useParams<{ examId: string }>();
+  const examId = examIdOverride ?? routeExamId;
   const [searchParams] = useSearchParams();
   const { data: exam, isLoading, error, refetch } = useQuery({ queryKey: ['exams', 'config', examId], queryFn: () => examsService.getExam(examId), enabled: Boolean(examId) });
   const [phase, setPhase] = useState<'pre' | 'exam' | 'submitted'>('pre');
@@ -1122,6 +1301,8 @@ function LiveExamExperience({ isPreview = false }: { isPreview?: boolean }): JSX
           <p className="mt-2 text-sm text-ink-500">
             {isPreview
               ? 'معاينة إدارية بنفس واجهة المختبر. لن تُحفظ إجابات ولن تُنشأ محاولة اختبار.'
+              : isExamRoom
+                ? 'يرجى التحقق من الهوية قبل بدء الاختبار. هذه هي واجهة غرفة الاختبار الفعلية.'
               : 'يرجى التحقق من هويتك بيومترياً قبل بدء الاختبار. الاختبار يقفل في وضع ملء الشاشة ولا يُسمح بمغادرة الصفحة.'}
           </p>
           <div className="my-6 flex flex-col items-center gap-3">
@@ -1562,6 +1743,12 @@ function AnswersHeatStrip({ data }: { data: readonly number[] }): JSX.Element {
 
 export function ExamsListPageNew(): JSX.Element {
   const navigate = useNavigate();
+  const [publishTarget, setPublishTarget] = useState<ExamConfig | null>(null);
+  const [publishForm, setPublishForm] = useState<ExamPublishFormState>(() => ({
+    allowedIps: '',
+    accessStartAt: toDateTimeInputValue(undefined, Date.now()),
+    accessEndAt: toDateTimeInputValue(undefined, Date.now() + 3 * 60 * 60_000),
+  }));
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['exams', 'list'],
     queryFn: () => examsService.listExams(),
@@ -1577,6 +1764,19 @@ export function ExamsListPageNew(): JSX.Element {
       qc.invalidateQueries({ queryKey: examsKeys.list() });
       toast('تم إيقاف الاختبار', 'warning');
     },
+  });
+  const publishExamMut = useMutation({
+    mutationFn: () => {
+      if (!publishTarget) throw new Error('لم يتم تحديد الاختبار.');
+      return examsService.publishExam(publishTarget.id, createPublishSettings(publishTarget, publishForm));
+    },
+    onSuccess: (updated) => {
+      qc.invalidateQueries({ queryKey: examsKeys.list() });
+      setPublishTarget(null);
+      toast('تم نشر رابط الاختبار', 'success');
+      void copyExamRoomUrl(updated?.publishedUrl);
+    },
+    onError: (err) => toast(err instanceof Error ? err.message : 'تعذّر نشر رابط الاختبار', 'danger'),
   });
   const toggleUserMut = useMutation({
     mutationFn: (user: ExamCommitteeUser) =>
@@ -1595,6 +1795,10 @@ export function ExamsListPageNew(): JSX.Element {
   const currentCycleExams = exams.filter((e) => e.cycleId === CURRENT_CYCLE_ID);
   const activeUsers = (usersData ?? []).filter((u) => u.status === 'active').length;
   const activeDevices = (devicesData ?? []).filter((d) => d.status === 'active').length;
+  const openPublishDialog = (exam: ExamConfig): void => {
+    setPublishTarget(exam);
+    setPublishForm(createPublishFormState(exam));
+  };
 
   const columns: DataTableColumn<ExamConfig>[] = [
     {
@@ -1620,10 +1824,17 @@ export function ExamsListPageNew(): JSX.Element {
       key: 'status',
       label: 'الحالة',
       render: (e) => (
-        <Badge tone={e.status === 'published' ? 'success' : e.status === 'completed' ? 'info' : 'warning'}>
-          {e.status === 'published' && <IconStamp width={12} height={12} className="me-1 inline-block" />}
-          {e.status === 'published' ? 'منشور' : e.status === 'completed' ? 'منتهي' : e.status === 'stopped' ? 'موقوف' : 'مسودّة'}
-        </Badge>
+        <div className="flex flex-col gap-1">
+          <Badge tone={e.status === 'published' ? 'success' : e.status === 'completed' ? 'info' : 'warning'}>
+            {e.status === 'published' && <IconStamp width={12} height={12} className="me-1 inline-block" />}
+            {e.status === 'published' ? 'منشور' : e.status === 'completed' ? 'منتهي' : e.status === 'stopped' ? 'موقوف' : 'مسودّة'}
+          </Badge>
+          {e.status === 'published' && (
+            <span className="font-numeric tnum text-2xs text-ink-500">
+              {num(normaliseIpAllowlist(e.allowedIps).length)} IP
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -1659,6 +1870,17 @@ export function ExamsListPageNew(): JSX.Element {
               <Button
                 variant="ghost"
                 size="sm"
+                leadingIcon={<Copy size={12} strokeWidth={1.75} />}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  void copyExamRoomUrl(e.publishedUrl ?? buildExamRoomUrl(e.publishToken ?? createPublishToken(e.id)));
+                }}
+              >
+                نسخ الرابط
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 leadingIcon={<Wifi size={12} strokeWidth={1.75} />}
                 onClick={(ev) => {
                   ev.stopPropagation();
@@ -1679,6 +1901,19 @@ export function ExamsListPageNew(): JSX.Element {
                 إيقاف
               </Button>
             </>
+          )}
+          {(e.status === 'draft' || e.status === 'stopped') && (
+            <Button
+              variant="primary"
+              size="sm"
+              leadingIcon={<Link2 size={12} strokeWidth={1.75} />}
+              onClick={(ev) => {
+                ev.stopPropagation();
+                openPublishDialog(e);
+              }}
+            >
+              نشر الرابط
+            </Button>
           )}
         </div>
       ),
@@ -1816,6 +2051,14 @@ export function ExamsListPageNew(): JSX.Element {
           }}
         />
       </Card>
+      <PublishExamDialog
+        exam={publishTarget}
+        form={publishForm}
+        isLoading={publishExamMut.isPending}
+        onChange={setPublishForm}
+        onClose={() => setPublishTarget(null)}
+        onSubmit={() => publishExamMut.mutate()}
+      />
     </CenteredShell>
   );
 }
@@ -2075,6 +2318,12 @@ export function ExamDetailPage(): JSX.Element {
   const { examId = '' } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
+  const [publishForm, setPublishForm] = useState<ExamPublishFormState>(() => ({
+    allowedIps: '',
+    accessStartAt: toDateTimeInputValue(undefined, Date.now()),
+    accessEndAt: toDateTimeInputValue(undefined, Date.now() + 3 * 60 * 60_000),
+  }));
 
   const { data: exam, isLoading, error, refetch } = useQuery({
     queryKey: ['exams', 'config', examId],
@@ -2099,12 +2348,18 @@ export function ExamDetailPage(): JSX.Element {
   });
 
   const publishMut = useMutation({
-    mutationFn: () => examsService.publishExam(examId),
-    onSuccess: () => {
+    mutationFn: () => {
+      if (!exam) throw new Error('لم يتم تحميل بيانات الاختبار.');
+      return examsService.publishExam(examId, createPublishSettings(exam, publishForm));
+    },
+    onSuccess: (updated) => {
       qc.invalidateQueries({ queryKey: ['exams', 'config', examId] });
       qc.invalidateQueries({ queryKey: ['exams', 'list'] });
-      toast('تم نشر الاختبار', 'success');
+      setIsPublishDialogOpen(false);
+      toast('تم نشر رابط الاختبار', 'success');
+      void copyExamRoomUrl(updated?.publishedUrl);
     },
+    onError: (err) => toast(err instanceof Error ? err.message : 'تعذّر نشر رابط الاختبار', 'danger'),
   });
 
   if (isLoading) {
@@ -2141,6 +2396,12 @@ export function ExamDetailPage(): JSX.Element {
     submitted.length > 0
       ? Math.round(submitted.reduce((acc, a) => acc + (a.score ?? 0), 0) / submitted.length)
       : 0;
+  const publishedUrl = exam.publishedUrl ?? (exam.publishToken ? buildExamRoomUrl(exam.publishToken) : undefined);
+  const allowedIps = normaliseIpAllowlist(exam.allowedIps);
+  const openDetailPublishDialog = (): void => {
+    setPublishForm(createPublishFormState(exam));
+    setIsPublishDialogOpen(true);
+  };
 
   /* Difficulty distribution for the questions in this exam. */
   const difficultyBuckets = qs.reduce<Record<number, number>>((acc, q) => {
@@ -2189,24 +2450,32 @@ export function ExamDetailPage(): JSX.Element {
             >
               معاينة الاختبار
             </Button>
-            {exam.status === 'draft' && (
+            {(exam.status === 'draft' || exam.status === 'stopped') && (
               <Button
                 variant="primary"
-                leadingIcon={<Send size={14} strokeWidth={1.75} />}
-                isLoading={publishMut.isPending}
-                onClick={() => publishMut.mutate()}
+                leadingIcon={<Link2 size={14} strokeWidth={1.75} />}
+                onClick={openDetailPublishDialog}
               >
-                نشر الاختبار
+                نشر رابط الاختبار
               </Button>
             )}
             {exam.status === 'published' && (
-              <Button
-                variant="primary"
-                leadingIcon={<Wifi size={14} strokeWidth={1.75} />}
-                onClick={() => navigate(ROUTES.questionBank.examProctor(exam.id))}
-              >
-                مراقبة لحظية
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  leadingIcon={<Copy size={14} strokeWidth={1.75} />}
+                  onClick={() => void copyExamRoomUrl(publishedUrl)}
+                >
+                  نسخ الرابط
+                </Button>
+                <Button
+                  variant="primary"
+                  leadingIcon={<Wifi size={14} strokeWidth={1.75} />}
+                  onClick={() => navigate(ROUTES.questionBank.examProctor(exam.id))}
+                >
+                  مراقبة لحظية
+                </Button>
+              </>
             )}
           </div>
         }
@@ -2218,6 +2487,27 @@ export function ExamDetailPage(): JSX.Element {
           {EXAM_STATUS_LABEL[exam.status]}
         </Badge>
       </div>
+
+      {exam.status === 'published' && (
+        <Card className="mb-6">
+          <CardHeader
+            title="رابط غرفة الاختبار"
+            subtitle={`${num(allowedIps.length)} IP مصرح · ${exam.accessStartAt ? fmtDate(exam.accessStartAt, 'short') : 'بدون بداية'} → ${exam.accessEndAt ? fmtDate(exam.accessEndAt, 'short') : 'بدون نهاية'}`}
+          />
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+            <div className="rounded-md bg-surface-page px-3 py-2">
+              <p className="break-all font-mono text-xs text-ink-900" dir="ltr">{publishedUrl}</p>
+            </div>
+            <Button
+              variant="secondary"
+              leadingIcon={<Copy size={14} strokeWidth={1.75} />}
+              onClick={() => void copyExamRoomUrl(publishedUrl)}
+            >
+              نسخ الرابط
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="mb-6 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
         <StatCard
@@ -2327,6 +2617,14 @@ export function ExamDetailPage(): JSX.Element {
           density="compact"
         />
       </Card>
+      <PublishExamDialog
+        exam={isPublishDialogOpen ? exam : null}
+        form={publishForm}
+        isLoading={publishMut.isPending}
+        onChange={setPublishForm}
+        onClose={() => setIsPublishDialogOpen(false)}
+        onSubmit={() => publishMut.mutate()}
+      />
     </CenteredShell>
   );
 }

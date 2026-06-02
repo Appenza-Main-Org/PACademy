@@ -146,6 +146,7 @@ import {
   ExamsListPageNew,
   ExamsResultsPage,
   LiveExamPage,
+  PublishedExamRoomPage,
   ProctorListPage,
   ProctorViewPage,
   QuestionBankCRUDPage,
@@ -433,6 +434,11 @@ export const routes: RouteObject[] = [
       { path: 'verify-ops', element: <BiometricVerifyOpsPage /> },
       { path: 'monitoring', element: <BiometricMonitoringPage /> },
     ],
+  },
+
+  {
+    path: '/exam-room/:token',
+    element: <PublishedExamRoomPage />,
   },
 
   {

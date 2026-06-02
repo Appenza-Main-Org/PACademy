@@ -7,6 +7,7 @@ export {
   ExamPreviewPage,
   ExamsListPageNew,
   LiveExamPage,
+  PublishedExamRoomPage,
   ProctorListPage,
   ProctorViewPage,
   TakeExamEntryPage,
