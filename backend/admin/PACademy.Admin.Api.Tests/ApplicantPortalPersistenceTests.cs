@@ -121,6 +121,24 @@ public sealed class ApplicantPortalPersistenceTests
     }
 
     [Fact]
+    public async Task PickExamDateRejectsExpiredDate()
+    {
+        await using var db = CreateDb();
+        var service = new PortalService(db);
+        var applicantId = Guid.NewGuid().ToString("D");
+        var expiredDate = DateOnly
+            .FromDateTime(DateTime.UtcNow.AddDays(-1))
+            .ToString("yyyy-MM-dd");
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.PickExamDateAsync(applicantId, expiredDate, TestContext.Current.CancellationToken));
+
+        Assert.Equal("هذا الموعد لم يعد متاحاً للحجز", ex.Message);
+        var draft = await service.GetOrCreateDraftAsync(applicantId, TestContext.Current.CancellationToken);
+        Assert.Null(draft["examSlot"]);
+    }
+
+    [Fact]
     public async Task AcquaintanceDocLifecycleOpensAutosavesAndClosesFromConfiguredRules()
     {
         await using var db = CreateDb();

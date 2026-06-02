@@ -46,6 +46,8 @@ public sealed class PortalService(PortalDbContext db)
         WriteIndented = false,
     };
 
+    private static readonly TimeZoneInfo EgyptTimeZone = ResolveEgyptTimeZone();
+
     // ── Draft ──────────────────────────────────────────────────────────
 
     public async Task<JsonObject> GetOrCreateDraftAsync(string applicantId, CancellationToken ct)
@@ -284,6 +286,8 @@ public sealed class PortalService(PortalDbContext db)
         var slot = await db.ExamSlots.FirstOrDefaultAsync(x => x.Id == slotId, ct)
             ?? throw new KeyNotFoundException($"موعد الاختبار '{slotId}' غير موجود");
 
+        EnsureExamDateBookable(slot.Date);
+
         if (slot.Reserved >= slot.Capacity)
             throw new InvalidOperationException("انتهت الأماكن المتاحة في هذا الموعد");
 
@@ -342,6 +346,8 @@ public sealed class PortalService(PortalDbContext db)
         var resolvedDate = slot?.Date ?? pickedDate;
         var resolvedTime = slot?.Time ?? "08:00";
         var resolvedLocation = slot?.Location ?? "كلية الشرطة - مبنى الاختبارات - القاهرة";
+
+        EnsureExamDateBookable(resolvedDate);
 
         var draft = await GetOrCreateDraftAsync(applicantId, ct);
         var current = draft["furthestStage"]?.GetValue<int>() ?? 0;
@@ -418,6 +424,30 @@ public sealed class PortalService(PortalDbContext db)
 
         normalized = "";
         return false;
+    }
+
+    private static void EnsureExamDateBookable(DateOnly date)
+    {
+        if (date < ApplicantToday())
+            throw new InvalidOperationException("هذا الموعد لم يعد متاحاً للحجز");
+    }
+
+    private static DateOnly ApplicantToday()
+    {
+        var now = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, EgyptTimeZone);
+        return DateOnly.FromDateTime(now.DateTime);
+    }
+
+    private static TimeZoneInfo ResolveEgyptTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+        }
     }
 
     private async Task UpsertApplicantManagementMirrorAsync(

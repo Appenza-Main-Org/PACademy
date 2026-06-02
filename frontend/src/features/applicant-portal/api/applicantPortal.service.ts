@@ -39,6 +39,10 @@ import { useAuthStore } from '@/features/auth';
 import type { FollowUpExam, FollowUpExamPlan } from '../lib/follow-up-exam-plan';
 import { normalizeApplicationInstructions } from '../lib/application-lock';
 import { emptyDocument, type VothiqaTaarufDocument } from '../lib/vothiqaTaaruf.types';
+import {
+  isBookableExamDate,
+  normalizeExamDateValue,
+} from '../lib/exam-date-availability';
 
 /* When the real backend is active the applicantId must be the GUID
  * issued by auth/verify, not the mock "APP-2026000" constant that pages
@@ -559,12 +563,19 @@ export const applicantPortalService = {
   },
 
   async pickFirstExamDate(input: { slotId: string }): Promise<{ date: string }> {
+    const normalizedInputDate = normalizeExamDateValue(input.slotId);
+    if (normalizedInputDate && !isBookableExamDate(normalizedInputDate)) {
+      throw new Error('هذا الموعد لم يعد متاحاً للحجز');
+    }
+
     if (isBackendEnabled()) {
       return applicantApiClient.post('/applicant/exam-date', input);
     }
     await simulateLatency(250, 500);
     const slot = SLOTS.find((s) => s.id === input.slotId);
-    const date = slot?.date ?? input.slotId;
+    if (!slot && !normalizedInputDate) throw new Error('الموعد غير موجود');
+    const date = slot?.date ?? normalizedInputDate ?? input.slotId;
+    if (!isBookableExamDate(date)) throw new Error('هذا الموعد لم يعد متاحاً للحجز');
     DRAFT = {
       ...DRAFT,
       examSlot: {
