@@ -11,7 +11,8 @@
  * applicant made earlier in the flow.
  */
 
-import { FileDown, Printer } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, FileDown, Printer } from 'lucide-react';
 import {
   Button,
   Card,
@@ -33,8 +34,10 @@ import {
   deterministicPaymentReference,
 } from '../lib/deterministic-codes';
 import { AdmissionFormSection } from '../components/AdmissionFormSection';
+import { ROUTES } from '@/config/routes';
 
 export function Stage9PrintCardPage(): JSX.Element {
+  const navigate = useNavigate();
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
   const applicantId = moiSession?.applicantId ?? MOI_APPLICANT_SESSION.applicantId;
   const { data: draft } = useDraft(applicantId);
@@ -236,22 +239,32 @@ export function Stage9PrintCardPage(): JSX.Element {
 
       {/* ── Bottom action row: print + download (screen only) ── */}
       <Card className="no-print">
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button
-            variant="secondary"
-            size="lg"
-            leadingIcon={<FileDown size={16} strokeWidth={1.75} />}
-            onClick={() => window.print()}
-          >
-            تحميل
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              size="lg"
+              leadingIcon={<FileDown size={16} strokeWidth={1.75} />}
+              onClick={() => window.print()}
+            >
+              تحميل
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              leadingIcon={<Printer size={16} strokeWidth={1.75} />}
+              onClick={() => window.print()}
+            >
+              طباعة
+            </Button>
+          </div>
           <Button
             variant="primary"
             size="lg"
-            leadingIcon={<Printer size={16} strokeWidth={1.75} />}
-            onClick={() => window.print()}
+            trailingIcon={<ArrowLeft size={16} strokeWidth={1.75} className="rtl:rotate-180" />}
+            onClick={() => navigate(ROUTES.applicantFollowUp)}
           >
-            طباعة
+            متابعة لنتائج الاختبارات
           </Button>
         </div>
       </Card>
