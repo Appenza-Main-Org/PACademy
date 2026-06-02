@@ -1598,17 +1598,14 @@ public sealed class OperationalRecordsService(
     // The applicant's exam outcomes live in the shared applicant_portal_records
     // draft row, keyed by [type]='draft' AND [record_id] = the identity GUID
     // (same row the applicant API reads when it evaluates the وثيقة التعارف gate).
-    private static readonly string[] FollowUpExamKeys =
-        ["capacities", "traits", "sports", "medical", "investigation", "finalResult"];
-
     private static readonly HashSet<string> FollowUpOutcomes =
         new(StringComparer.OrdinalIgnoreCase) { "pending", "in-progress", "awaiting-approval", "passed", "failed" };
 
     /// <summary>
-    /// Returns the applicant's portal exam outcomes resolved by GUID / national id /
-    /// admin record id. Always returns the six canonical keys (defaulting to
-    /// "pending"); <c>hasPortalRecord</c> is false when no portal draft exists yet.
-    /// Null only when the applicant id itself is unknown.
+    /// Returns the applicant's portal exam outcomes (keyed by the cycle test code,
+    /// e.g. TST-01) resolved by GUID / national id / admin record id.
+    /// <c>hasPortalRecord</c> is false when no portal draft exists yet; the followUp
+    /// object then is empty. Null only when the applicant id itself is unknown.
     /// </summary>
     public async Task<JsonObject?> GetApplicantFollowUpAsync(string id, CancellationToken ct)
     {
@@ -1622,7 +1619,7 @@ public sealed class OperationalRecordsService(
             {
                 ["applicantId"] = null,
                 ["hasPortalRecord"] = false,
-                ["followUp"] = ExtractFollowUp(null),
+                ["followUp"] = new JsonObject(),
             };
         }
 
@@ -1636,9 +1633,10 @@ public sealed class OperationalRecordsService(
     }
 
     /// <summary>
-    /// Merges the supplied follow-up outcomes into the applicant's portal draft
-    /// (only the six known keys with valid outcome values are written) and returns
-    /// the refreshed follow-up snapshot.
+    /// Merges the supplied follow-up outcomes (keyed by cycle test code) into the
+    /// applicant's portal draft — the same draft row the applicant API reads when it
+    /// evaluates the وثيقة التعارف gate — and returns the refreshed snapshot. Any test
+    /// code is accepted; only the outcome value is validated.
     /// </summary>
     public async Task<JsonObject?> UpdateApplicantFollowUpAsync(string id, JsonObject patch, CancellationToken ct)
     {
@@ -1656,9 +1654,9 @@ public sealed class OperationalRecordsService(
         var followUp = payload["followUp"] as JsonObject ?? new JsonObject();
 
         var changed = false;
-        foreach (var key in FollowUpExamKeys)
+        foreach (var (key, node) in patch)
         {
-            if (!patch.TryGetPropertyValue(key, out var node) || node is null) continue;
+            if (string.IsNullOrWhiteSpace(key) || node is null) continue;
             string? value;
             try { value = node.GetValue<string>(); }
             catch (InvalidOperationException) { value = node.ToString(); }
@@ -1719,27 +1717,19 @@ public sealed class OperationalRecordsService(
 
     private static JsonObject ExtractFollowUp(string? payloadJson)
     {
-        var result = new JsonObject();
-        foreach (var key in FollowUpExamKeys) result[key] = "pending";
-        if (string.IsNullOrWhiteSpace(payloadJson)) return result;
+        if (string.IsNullOrWhiteSpace(payloadJson)) return new JsonObject();
         try
         {
-            if (JsonNode.Parse(payloadJson) is JsonObject payload && payload["followUp"] is JsonObject followUp)
+            if (JsonNode.Parse(payloadJson) is JsonObject payload
+                && payload["followUp"] is JsonObject followUp)
             {
-                foreach (var key in FollowUpExamKeys)
-                {
-                    if (followUp[key] is not JsonNode node) continue;
-                    string? value;
-                    try { value = node.GetValue<string>(); }
-                    catch (InvalidOperationException) { value = node.ToString(); }
-                    if (!string.IsNullOrWhiteSpace(value)) result[key] = value;
-                }
+                return followUp.DeepClone().AsObject();
             }
         }
         catch (System.Text.Json.JsonException)
         {
-            // Malformed draft payload — fall back to the all-"pending" default.
+            // Malformed draft payload — treat as no recorded outcomes.
         }
-        return result;
+        return new JsonObject();
     }
 }

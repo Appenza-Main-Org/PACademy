@@ -1,15 +1,16 @@
 /**
  * ApplicantPortalExamsCard — admin control for an applicant's portal exam outcomes.
  *
- * Exam results (the portal "follow-up" pipeline) live in the shared portal draft row.
- * The admin frontend is authenticated against the ADMIN API (not the applicant API),
- * so this card reads/writes through the admin backend, keyed by the admin route id:
+ * Exam results (the portal "follow-up" pipeline) live in the shared portal draft row,
+ * keyed by the cycle test CODE (TST-01 … TST-15 — the same codes Stage 10 and the
+ * وثيقة التعارف gate read). The admin frontend is authenticated against the ADMIN API
+ * (not the applicant API), so this card reads/writes through the admin backend:
  *   GET  /api/applicants/:id/follow-up  → { applicantId, hasPortalRecord, followUp }
- *   PUT  /api/applicants/:id/follow-up  → merges the supplied outcomes into the draft.
+ *   PUT  /api/applicants/:id/follow-up  → merges the supplied { code: outcome } map.
  *
- * Marking the first exam (القدرات) as «اجتاز» is the gate the backend evaluates to
- * open «وثيقة التعارف» for the applicant, when general-settings ties the document to
- * passing that test.
+ * The exam that opens «وثيقة التعارف» is whichever test the admission settings name as
+ * the entry test (acquaintanceDocumentsEntryResponsibleTestCode); that row is flagged,
+ * and a one-click action marks it «اجتاز» so the document opens for the applicant.
  *
  * @example
  *   <ApplicantPortalExamsCard applicantId={id} canEdit={canEdit} />
@@ -31,17 +32,9 @@ import {
   useAdminPortalStatus,
   useUpdateFollowUpMutation,
 } from '@/features/applicant-portal';
+import { useLookup } from '@/features/lookups';
+import { useAdminSettings } from '../../api/settings.queries';
 import type { PipelineState } from '@/shared/types/domain';
-
-/** The six canonical follow-up keys the portal/backend accept. القدرات is exam #1. */
-const PORTAL_EXAMS: ReadonlyArray<{ key: string; label: string; isFirst?: boolean }> = [
-  { key: 'capacities', label: 'القدرات', isFirst: true },
-  { key: 'traits', label: 'السمات (الخارجية / الداخلية / الهيئة / القوام)' },
-  { key: 'sports', label: 'اللياقة الرياضية' },
-  { key: 'medical', label: 'الكشف الطبي' },
-  { key: 'investigation', label: 'التحريات' },
-  { key: 'finalResult', label: 'النتيجة النهائية' },
-];
 
 const OUTCOME_OPTIONS: ReadonlyArray<{ value: PipelineState; label: string }> = [
   { value: 'pending', label: 'لم يبدأ' },
@@ -63,10 +56,8 @@ function outcomeLabel(state: PipelineState): string {
   return OUTCOME_OPTIONS.find((o) => o.value === state)?.label ?? state;
 }
 
-function readOutcomes(followUp: Record<string, PipelineState> | undefined): Record<string, PipelineState> {
-  const next: Record<string, PipelineState> = {};
-  for (const exam of PORTAL_EXAMS) next[exam.key] = followUp?.[exam.key] ?? 'pending';
-  return next;
+function outcomeOf(map: Record<string, PipelineState> | undefined, code: string): PipelineState {
+  return map?.[code] ?? 'pending';
 }
 
 export function ApplicantPortalExamsCard({
@@ -77,20 +68,29 @@ export function ApplicantPortalExamsCard({
   canEdit: boolean;
 }): JSX.Element | null {
   const statusQuery = useAdminPortalStatus(applicantId || null);
+  const testsQuery = useLookup('tests');
+  const settingsQuery = useAdminSettings();
   const mutation = useUpdateFollowUpMutation(applicantId);
 
   const [outcomes, setOutcomes] = useState<Record<string, PipelineState>>({});
 
   // Hydrate the editable outcomes whenever the resolved follow-up changes.
   useEffect(() => {
-    setOutcomes(readOutcomes(statusQuery.data?.followUp));
+    setOutcomes({ ...(statusQuery.data?.followUp ?? {}) });
   }, [statusQuery.data?.applicantId, statusQuery.data?.followUp]);
 
   if (!applicantId) return null;
 
+  const exams = (testsQuery.data ?? [])
+    .filter((t) => t.isActive)
+    .slice()
+    .sort((a, b) => a.order - b.order);
+  const openingTestCode = settingsQuery.data?.acquaintanceDocumentsEntryResponsibleTestCode ?? '';
+  const openingExam = exams.find((e) => e.code === openingTestCode);
+
+  const saved = statusQuery.data?.followUp;
   const hasPortalRecord = statusQuery.data?.hasPortalRecord ?? false;
-  const saved = readOutcomes(statusQuery.data?.followUp);
-  const isDirty = PORTAL_EXAMS.some((e) => outcomes[e.key] !== saved[e.key]);
+  const isDirty = exams.some((e) => outcomeOf(outcomes, e.code) !== outcomeOf(saved, e.code));
 
   function persist(patch: Record<string, PipelineState>) {
     mutation.mutate(patch, {
@@ -104,26 +104,36 @@ export function ApplicantPortalExamsCard({
 
   function handleSave() {
     const patch: Record<string, PipelineState> = {};
-    for (const exam of PORTAL_EXAMS) {
-      if (outcomes[exam.key] !== saved[exam.key]) patch[exam.key] = outcomes[exam.key];
+    for (const exam of exams) {
+      if (outcomeOf(outcomes, exam.code) !== outcomeOf(saved, exam.code)) {
+        patch[exam.code] = outcomeOf(outcomes, exam.code);
+      }
     }
     if (Object.keys(patch).length === 0) return;
     persist(patch);
   }
 
-  function handlePassFirstExam() {
-    setOutcomes((prev) => ({ ...prev, capacities: 'passed' }));
-    persist({ capacities: 'passed' });
+  function handlePassGateExam() {
+    if (!openingExam) return;
+    setOutcomes((prev) => ({ ...prev, [openingExam.code]: 'passed' }));
+    persist({ [openingExam.code]: 'passed' });
   }
+
+  const isLoading = statusQuery.isLoading || testsQuery.isLoading;
+  const gatePassed = openingExam ? outcomeOf(saved, openingExam.code) === 'passed' : false;
 
   return (
     <Card>
       <CardHeader
         title="نتائج اختبارات بوابة المتقدم"
-        subtitle="تحديث النتائج المسجّلة في بوابة المتقدم — اجتياز اختبار القدرات يفتح وثيقة التعارف"
+        subtitle={
+          openingExam
+            ? `تحديث النتائج المسجّلة في بوابة المتقدم — اجتياز اختبار «${openingExam.name}» يفتح وثيقة التعارف`
+            : 'تحديث النتائج المسجّلة في بوابة المتقدم'
+        }
       />
       <CardBody>
-        {statusQuery.isLoading ? (
+        {isLoading ? (
           <LoadingState variant="list" />
         ) : statusQuery.isError ? (
           <div
@@ -139,43 +149,58 @@ export function ApplicantPortalExamsCard({
           >
             لم يبدأ هذا المتقدم التقديم عبر بوابة المتقدم بعد، فلا توجد نتائج اختبارات لتحديثها.
           </div>
+        ) : exams.length === 0 ? (
+          <div
+            className="rounded-md text-sm text-ink-600"
+            style={{ padding: 12, background: 'var(--surface-muted)' }}
+          >
+            لا توجد اختبارات مُفعّلة في قائمة الاختبارات.
+          </div>
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3">
-              {PORTAL_EXAMS.map((exam) => (
-                <div
-                  key={exam.key}
-                  className="flex flex-col gap-2 rounded-md sm:flex-row sm:items-center sm:justify-between"
-                  style={{ padding: 12, background: 'var(--surface-muted)' }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-ink-900">{exam.label}</span>
-                    {exam.isFirst && <Badge tone="info">الاختبار الأول</Badge>}
-                    <Badge tone={OUTCOME_TONE[saved[exam.key]]}>{outcomeLabel(saved[exam.key])}</Badge>
+              {exams.map((exam) => {
+                const isGate = exam.code === openingTestCode;
+                const savedOutcome = outcomeOf(saved, exam.code);
+                return (
+                  <div
+                    key={exam.code}
+                    className="flex flex-col gap-2 rounded-md sm:flex-row sm:items-center sm:justify-between"
+                    style={{ padding: 12, background: 'var(--surface-muted)' }}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium text-ink-900">{exam.name}</span>
+                      {isGate && <Badge tone="info">يفتح وثيقة التعارف</Badge>}
+                      <Badge tone={OUTCOME_TONE[savedOutcome]}>{outcomeLabel(savedOutcome)}</Badge>
+                    </div>
+                    <Select
+                      options={OUTCOME_OPTIONS}
+                      value={outcomeOf(outcomes, exam.code)}
+                      onChange={(e) =>
+                        setOutcomes((prev) => ({ ...prev, [exam.code]: e.target.value as PipelineState }))
+                      }
+                      disabled={!canEdit || mutation.isPending}
+                      containerClassName="sm:w-56"
+                    />
                   </div>
-                  <Select
-                    options={OUTCOME_OPTIONS}
-                    value={outcomes[exam.key] ?? 'pending'}
-                    onChange={(e) =>
-                      setOutcomes((prev) => ({ ...prev, [exam.key]: e.target.value as PipelineState }))
-                    }
-                    disabled={!canEdit || mutation.isPending}
-                    containerClassName="sm:w-56"
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {canEdit && (
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <Button
-                  variant="secondary"
-                  leadingIcon={<CheckCircle2 size={16} />}
-                  onClick={handlePassFirstExam}
-                  disabled={mutation.isPending || saved.capacities === 'passed'}
-                >
-                  تعيين اجتياز اختبار القدرات
-                </Button>
+                {openingExam ? (
+                  <Button
+                    variant="secondary"
+                    leadingIcon={<CheckCircle2 size={16} />}
+                    onClick={handlePassGateExam}
+                    disabled={mutation.isPending || gatePassed}
+                  >
+                    {`اجتياز اختبار «${openingExam.name}» (فتح وثيقة التعارف)`}
+                  </Button>
+                ) : (
+                  <span />
+                )}
                 <Button
                   variant="primary"
                   onClick={handleSave}
