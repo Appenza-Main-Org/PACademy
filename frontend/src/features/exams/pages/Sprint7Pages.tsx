@@ -98,6 +98,7 @@ import { examsService } from '../api/exams.service';
 import {
   buildExamRoomUrl,
   createPublishToken,
+  getPublishedExamRoomUrl,
   normaliseIpAllowlist,
 } from '../lib/exam-publishing';
 import {
@@ -131,6 +132,7 @@ interface ExamPublishFormState {
 }
 
 interface ExamPublishSettings {
+  publishToken: string;
   allowedIps: string[];
   accessStartAt: string;
   accessEndAt: string;
@@ -158,6 +160,7 @@ function createPublishSettings(exam: ExamConfig, form: ExamPublishFormState): Ex
   const accessStart = new Date(form.accessStartAt);
   const accessEnd = new Date(form.accessEndAt);
   return {
+    publishToken,
     allowedIps: normaliseIpAllowlist(form.allowedIps),
     accessStartAt: Number.isNaN(accessStart.getTime()) ? exam.scheduledFor : accessStart.toISOString(),
     accessEndAt: Number.isNaN(accessEnd.getTime())
@@ -1873,7 +1876,7 @@ export function ExamsListPageNew(): JSX.Element {
                 leadingIcon={<Copy size={12} strokeWidth={1.75} />}
                 onClick={(ev) => {
                   ev.stopPropagation();
-                  void copyExamRoomUrl(e.publishedUrl ?? buildExamRoomUrl(e.publishToken ?? createPublishToken(e.id)));
+                  void copyExamRoomUrl(getPublishedExamRoomUrl(e));
                 }}
               >
                 نسخ الرابط
@@ -2396,7 +2399,7 @@ export function ExamDetailPage(): JSX.Element {
     submitted.length > 0
       ? Math.round(submitted.reduce((acc, a) => acc + (a.score ?? 0), 0) / submitted.length)
       : 0;
-  const publishedUrl = exam.publishedUrl ?? (exam.publishToken ? buildExamRoomUrl(exam.publishToken) : undefined);
+  const publishedUrl = getPublishedExamRoomUrl(exam);
   const allowedIps = normaliseIpAllowlist(exam.allowedIps);
   const openDetailPublishDialog = (): void => {
     setPublishForm(createPublishFormState(exam));
@@ -2461,6 +2464,13 @@ export function ExamDetailPage(): JSX.Element {
             )}
             {exam.status === 'published' && (
               <>
+                <Button
+                  variant="secondary"
+                  leadingIcon={<Link2 size={14} strokeWidth={1.75} />}
+                  onClick={openDetailPublishDialog}
+                >
+                  تحديث الرابط
+                </Button>
                 <Button
                   variant="secondary"
                   leadingIcon={<Copy size={14} strokeWidth={1.75} />}

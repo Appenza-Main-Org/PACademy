@@ -31,6 +31,7 @@ execFileSync(
 const {
   buildExamRoomUrl,
   createPublishToken,
+  getPublishedExamRoomUrl,
   isIpAllowed,
   normaliseIpAllowlist,
 } = await import(pathToFileURL(resolve(outDir, 'exam-publishing.js')).href);
@@ -44,6 +45,14 @@ assert.equal(
   'https://admin-staging.appenzademo.com/exam-room/exam-exam-0001',
 );
 assert.equal(buildExamRoomUrl('exam-exam-0001', ''), '/exam-room/exam-exam-0001');
+assert.equal(
+  getPublishedExamRoomUrl({ id: 'EXAM-2026-CAP-01' }, 'https://admin-staging.appenzademo.com/question-bank/exams/EXAM-2026-CAP-01'),
+  'https://admin-staging.appenzademo.com/exam-room/exam-exam-2026-cap-01',
+);
+assert.equal(
+  getPublishedExamRoomUrl({ id: 'EXAM-2026-CAP-01', publishedUrl: 'https://example.test/exam-room/custom' }, ''),
+  'https://example.test/exam-room/custom',
+);
 
 assert.deepEqual(
   normaliseIpAllowlist('10.20.14.11\n10.20.14.12, 10.20.14.*\n\n10.20.14.11'),

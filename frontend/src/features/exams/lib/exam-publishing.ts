@@ -26,6 +26,14 @@ export function buildExamRoomUrl(token: string, baseHref = typeof window !== 'un
   }
 }
 
+export function getPublishedExamRoomUrl(
+  exam: { id: string; publishToken?: string; publishedUrl?: string },
+  baseHref = typeof window !== 'undefined' ? window.location.href : '',
+): string {
+  if (exam.publishedUrl?.trim()) return exam.publishedUrl;
+  return buildExamRoomUrl(exam.publishToken ?? createPublishToken(exam.id), baseHref);
+}
+
 export function normaliseIpAllowlist(value: string | readonly string[] | undefined): string[] {
   const raw = typeof value === 'string' ? value.split(/[\s,]+/) : value ?? [];
   const seen = new Set<string>();

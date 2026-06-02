@@ -14,7 +14,7 @@
  *   GET    /api/exams/published/:token                       → ExamConfig (public exam-room lookup)
  *   POST   /api/exams                                        → ExamConfig
  *   POST   /api/exams/:id/publish                            → ExamConfig (published)
- *          body: { allowedIps: string[], accessStartAt: ISO, accessEndAt: ISO, publishedUrl?: string }
+ *          body: { publishToken: string, allowedIps: string[], accessStartAt: ISO, accessEndAt: ISO, publishedUrl?: string }
  *   POST   /api/exams/:id/take/start                         → ExamAttempt
  *   POST   /api/exams/attempts/:attemptId/submit             → ExamAttempt (auto-graded)
  *   GET    /api/exams/:id/attempts                           → ExamAttempt[]
@@ -61,6 +61,7 @@ import type {
 } from '@/shared/types/domain';
 
 interface PublishExamPayload {
+  publishToken?: string;
   allowedIps?: string[];
   accessStartAt?: string;
   accessEndAt?: string;
@@ -371,7 +372,7 @@ export const examsService = {
     const e = EX_STATE.find((x) => x.id === id);
     if (!e) return null;
     const previous = e.status;
-    const publishToken = e.publishToken ?? createPublishToken(e.id);
+    const publishToken = payload.publishToken ?? e.publishToken ?? createPublishToken(e.id);
     const accessStartAt = payload.accessStartAt ?? e.accessStartAt ?? e.scheduledFor;
     const accessEndAt =
       payload.accessEndAt ??
