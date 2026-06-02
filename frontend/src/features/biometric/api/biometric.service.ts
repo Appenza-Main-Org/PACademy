@@ -5,12 +5,14 @@
  *   GET    /api/biometric/applicants/search?field=&q=                 → BiometricApplicantLookup[]
  *   GET    /api/biometric/applicants/lookup?applicantId=&nationalId=&barcode= → BiometricApplicantLookup | 404
  *   POST   /api/biometric/enroll                                      → BiometricEnrollmentRecord
+ *   POST   /api/biometric/enroll/link-previous                        → BiometricEnrollmentRecord
  *   POST   /api/biometric/verify                                      → VerifyResult
  *   POST   /api/biometric/gate-log                                    → GateLog
  *   GET    /api/biometric/verifications?module=&failedOnly=           → VerificationLog[]
  *   GET    /api/biometric/gate-logs                                   → GateLog[]
  *   GET    /api/biometric/audit                                       → BiometricAuditLog[]
  *   GET    /api/biometric/reports                                     → BiometricReports
+ *   GET    /api/biometric/presence                                    → BiometricPresence
  *   GET    /api/biometric/monitoring                                  → { last24h, perStation, recentFailures }
  *
  * The capture/match steps run behind the backend's IBiometricDeviceGateway —
@@ -20,18 +22,20 @@
 import { apiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
-import type { Applicant, BiometricEnrollment, BiometricVerification } from '@/shared/types/domain';
+import type { Applicant, BiometricEnrollment } from '@/shared/types/domain';
 
 export type SearchField = 'barcode' | 'nationalId' | 'name' | 'applicantNumber';
 export type VerificationMethod = 'face' | 'fingerprint' | 'barcode';
-export type VerificationModule = 'security-gate' | 'exam-committee' | 'admissions-committee' | 'medical-commission';
+export type VerificationModule = 'security-gate' | 'exam-committee' | 'admissions-committee' | 'medical-commission' | 'medical-clinic';
 export type VerificationStatus = 'match' | 'no_match' | 'not_enrolled' | 'manual_review_required';
 export type EnrollmentStatus = 'enrolled' | 'partial' | 'not_enrolled';
 export type GateDirection = 'entry' | 'exit';
 export type ExportFormat = 'pdf' | 'excel' | 'word';
+export type BiometricAlertCode = 'NOT_REGISTERED' | 'EXAM_DATE_MISMATCH' | 'COMMITTEE_MISMATCH';
 export type BiometricAuditAction =
   | 'enrollment'
   | 're_enrollment'
+  | 'link_previous'
   | 'verification'
   | 'failed_verification'
   | 'manual_review'
@@ -43,10 +47,17 @@ export interface BiometricApplicantLookup {
   barcode: string;
   cycleId: string;
   currentExam: string;
+  currentExamDate: string;
+  currentExamResult: string;
   committee: string;
   admissionStatus: Applicant['status'];
   enrollmentStatus: EnrollmentStatus;
   enrollment?: BiometricEnrollment;
+  academyVisitCount: number;
+  studentCommitteeVisitCount: number;
+  examCommitteeVisitCount: number;
+  medicalCommitteeVisitCount: number;
+  clinicVisitCount: number;
   canProceed: boolean;
   blockedReason?: string;
 }
@@ -60,6 +71,7 @@ export interface EnrollInput {
   retake?: boolean;
   faceCaptured: boolean;
   fingerprintCaptured: boolean;
+  fingerprintCount?: number;
 }
 
 export interface BiometricEnrollmentRecord extends BiometricEnrollment {
@@ -69,6 +81,12 @@ export interface BiometricEnrollmentRecord extends BiometricEnrollment {
   enrolledBy: string;
   status: EnrollmentStatus;
   retake: boolean;
+  fingerprintCount?: number;
+  fingerprintTemplates?: Array<{ finger: number; templateRef: string; quality: number }>;
+  faceTemplateRef?: string | null;
+  linkedFromEnrollmentId?: string;
+  linkedFromCycleId?: string;
+  source?: 'live_capture' | 'retake' | 'linked_previous';
 }
 
 export interface VerifyInput {
@@ -78,6 +96,8 @@ export interface VerifyInput {
   method: VerificationMethod;
   module: VerificationModule;
   operator: string;
+  stationCommittee?: string;
+  today?: string;
 }
 
 export interface VerifyResult {
@@ -88,6 +108,8 @@ export interface VerifyResult {
   applicant?: BiometricApplicantLookup;
   timestamp: number;
   canContinue: boolean;
+  alertCodes?: BiometricAlertCode[];
+  voiceAlerts?: string[];
 }
 
 export interface VerificationLog {
@@ -116,7 +138,15 @@ export interface BiometricReports {
   daily: Array<{ label: string; total: number; matched: number; failed: number }>;
   failed: VerificationLog[];
   attendance: GateLog[];
+  registeredAttendance: GateLog[];
+  insideCommittees: Array<{ committee: string; count: number; applicants?: Array<{ applicantId: string; applicantName: string; enteredAt: number }> }>;
   enrollment: Array<{ label: string; value: number }>;
+}
+
+export interface BiometricPresence {
+  totalInside: number;
+  byCommittee: Array<{ committee: string; count: number; applicants: Array<{ applicantId: string; applicantName: string; enteredAt: number }> }>;
+  rows: GateLog[];
 }
 
 export interface BiometricAuditLog {
@@ -204,6 +234,25 @@ function getCurrentExam(applicantId: string): string {
   return scheduled?.kind ?? 'كشف الهيئة والتحقق من الحضور';
 }
 
+function getCurrentExamDate(applicantId: string): string {
+  const scheduled = MOCK.testSchedules.find((t) => t.applicantId === applicantId);
+  return scheduled?.scheduledAt?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
+}
+
+function getCurrentExamResult(applicant: Applicant): string {
+  if (applicant.results.interview === 'pass') return 'ناجح';
+  if (applicant.results.interview === 'fail') return 'راسب';
+  return 'لم تظهر';
+}
+
+function countVerifications(applicantId: string, module: VerificationModule): number {
+  return VERIFY_STATE.filter((v) => v.applicantId === applicantId && v.module === module).length;
+}
+
+function countGateVisits(applicantId: string): number {
+  return GATE_STATE.filter((g) => g.applicantId === applicantId && g.direction === 'entry').length;
+}
+
 function lookupFromApplicant(applicant: Applicant): BiometricApplicantLookup {
   const enrollment = ENROLL_STATE.find((e) => e.applicantId === applicant.id);
   const enrollmentStatus: EnrollmentStatus = enrollment?.status ?? 'not_enrolled';
@@ -215,10 +264,17 @@ function lookupFromApplicant(applicant: Applicant): BiometricApplicantLookup {
     barcode: getBarcode(applicant.id),
     cycleId: enrollment?.cycleId ?? 'CYC-2026-M',
     currentExam: getCurrentExam(applicant.id),
+    currentExamDate: getCurrentExamDate(applicant.id),
+    currentExamResult: getCurrentExamResult(applicant),
     committee: applicant.committee,
     admissionStatus: applicant.status,
     enrollmentStatus,
     ...(enrollment ? { enrollment } : {}),
+    academyVisitCount: countGateVisits(applicant.id),
+    studentCommitteeVisitCount: countVerifications(applicant.id, 'admissions-committee'),
+    examCommitteeVisitCount: countVerifications(applicant.id, 'exam-committee'),
+    medicalCommitteeVisitCount: countVerifications(applicant.id, 'medical-commission'),
+    clinicVisitCount: countVerifications(applicant.id, 'medical-clinic'),
     canProceed: !isStopped && hasCommittee,
     ...(isStopped ? { blockedReason: 'المتقدم موقوف أو غير مستوفٍ ولا يسمح باستكمال الاختبار' } : {}),
   };
@@ -238,10 +294,35 @@ function findApplicant(input: { applicantId?: string; nationalId?: string; barco
   return null;
 }
 
-function mapStatusToStation(module: VerificationModule): BiometricVerification['station'] {
+function mapStatusToStation(module: VerificationModule): string {
   if (module === 'security-gate') return 'gate';
   if (module === 'exam-committee') return 'exam-room';
+  if (module === 'medical-commission') return 'medical-commission';
+  if (module === 'medical-clinic') return 'medical-clinic';
   return 'committee';
+}
+
+function buildPresence(): BiometricPresence {
+  const latest = new Map<string, GateLog>();
+  for (const row of GATE_STATE) {
+    if (!latest.has(row.applicantId)) latest.set(row.applicantId, row);
+  }
+  const rows = [...latest.values()].filter((row) => row.direction === 'entry');
+  const grouped = new Map<string, GateLog[]>();
+  for (const row of rows) {
+    const applicant = MOCK.applicants.find((a) => a.id === row.applicantId);
+    const key = applicant?.committee ?? 'غير محدد';
+    grouped.set(key, [...(grouped.get(key) ?? []), row]);
+  }
+  return {
+    totalInside: rows.length,
+    rows,
+    byCommittee: [...grouped.entries()].map(([committee, list]) => ({
+      committee,
+      count: list.length,
+      applicants: list.map((row) => ({ applicantId: row.applicantId, applicantName: row.applicantName, enteredAt: row.at })),
+    })),
+  };
 }
 
 function pushAudit(input: Omit<BiometricAuditLog, 'id'>): void {
@@ -308,10 +389,18 @@ export const biometricService = {
       enrolledBy: input.userId,
       faceCaptured: input.faceCaptured,
       fingerprintCaptured: input.fingerprintCaptured,
+      fingerprintCount: input.fingerprintCaptured ? Math.max(1, input.fingerprintCount ?? 1) : 0,
+      fingerprintTemplates: Array.from({ length: input.fingerprintCaptured ? Math.max(1, input.fingerprintCount ?? 1) : 0 }, (_, index) => ({
+        finger: index + 1,
+        templateRef: `tmpl/${input.cycleId}/${input.applicantId}/finger-${index + 1}`,
+        quality: 94 - Math.min(index, 4),
+      })),
+      faceTemplateRef: input.faceCaptured ? `tmpl/${input.cycleId}/${input.applicantId}/face` : null,
       livenessConfirmed: input.faceCaptured,
       templateRef: `tmpl/${input.cycleId}/${input.applicantId}`,
       status,
       retake: Boolean(input.retake),
+      source: input.retake ? 'retake' : 'live_capture',
     };
 
     ENROLL_STATE.unshift(next);
@@ -337,6 +426,44 @@ export const biometricService = {
     return next;
   },
 
+  async linkPreviousEnrollment(input: {
+    applicantId: string;
+    nationalId: string;
+    barcode: string;
+    cycleId: string;
+    userId: string;
+  }): Promise<BiometricEnrollmentRecord> {
+    if (isBackendEnabled()) {
+      return apiClient.post<BiometricEnrollmentRecord>('/api/biometric/enroll/link-previous', input);
+    }
+    await simulateLatency(350, 700);
+    const previous = ENROLL_STATE.find((e) => e.applicantId === input.applicantId && e.cycleId !== input.cycleId);
+    if (!previous) throw new Error('لا توجد بيانات بيومترية سابقة لهذا المتقدم');
+    const next: BiometricEnrollmentRecord = {
+      ...previous,
+      id: `BIO-LINK-${String(enrollId++).padStart(5, '0')}`,
+      nationalId: input.nationalId,
+      barcode: input.barcode,
+      cycleId: input.cycleId,
+      enrolledAt: Date.now(),
+      enrolledBy: input.userId,
+      linkedFromEnrollmentId: previous.id,
+      linkedFromCycleId: previous.cycleId,
+      source: 'linked_previous',
+      retake: false,
+    };
+    ENROLL_STATE.unshift(next);
+    pushAudit({
+      user: input.userId,
+      timestamp: next.enrolledAt,
+      applicantId: input.applicantId,
+      applicantName: findApplicant({ applicantId: input.applicantId })?.name ?? 'متقدم غير معروف',
+      action: 'link_previous',
+      result: 'enrolled',
+    });
+    return next;
+  },
+
   async verify(input: VerifyInput): Promise<VerifyResult> {
     if (isBackendEnabled()) {
       return apiClient.post<VerifyResult>('/api/biometric/verify', input);
@@ -358,10 +485,14 @@ export const biometricService = {
     let status: VerificationStatus;
     let confidence: number | undefined;
     let reason: string | undefined;
+    const alertCodes: BiometricAlertCode[] = [];
+    const voiceAlerts: string[] = [];
 
     if (lookup.enrollmentStatus === 'not_enrolled') {
       status = 'not_enrolled';
       reason = 'المتقدم غير مسجل بيومترياً';
+      alertCodes.push('NOT_REGISTERED');
+      voiceAlerts.push('المتقدم غير مسجل على المنظومة');
     } else if (!lookup.canProceed) {
       status = 'manual_review_required';
       confidence = 70;
@@ -375,6 +506,18 @@ export const biometricService = {
       status = score >= 88 ? 'match' : score >= 76 ? 'manual_review_required' : 'no_match';
       if (status === 'manual_review_required') reason = 'درجة التطابق أقل من حد الاعتماد الآلي';
       if (status === 'no_match') reason = 'فشل التحقق ولا يسمح باستكمال الاختبار';
+    }
+    if (input.today && lookup.currentExamDate && input.today !== lookup.currentExamDate) {
+      status = 'manual_review_required';
+      reason ??= 'تاريخ اختبار المتقدم لا يوافق اليوم';
+      alertCodes.push('EXAM_DATE_MISMATCH');
+      voiceAlerts.push('تاريخ اختبار المتقدم لا يوافق اليوم');
+    }
+    if (input.stationCommittee && input.stationCommittee !== lookup.committee) {
+      status = 'manual_review_required';
+      reason ??= 'المتقدم غير مسجل في هذه اللجنة';
+      alertCodes.push('COMMITTEE_MISMATCH');
+      voiceAlerts.push('المتقدم غير مسجل في هذه اللجنة');
     }
 
     VERIFY_STATE.unshift({
@@ -404,7 +547,9 @@ export const biometricService = {
       ...(confidence ? { matchScore: confidence / 100 } : {}),
       applicant: lookup,
       timestamp,
-      canContinue: status === 'match',
+      canContinue: status === 'match' && alertCodes.length === 0,
+      alertCodes,
+      voiceAlerts,
     };
   },
 
@@ -413,6 +558,7 @@ export const biometricService = {
     direction: GateDirection;
     verificationResult: VerificationStatus;
     operator: string;
+    committee?: string;
   }): Promise<GateLog> {
     if (isBackendEnabled()) {
       return apiClient.post<GateLog>('/api/biometric/gate-log', input);
@@ -494,12 +640,22 @@ export const biometricService = {
       daily: days,
       failed: VERIFY_STATE.filter((v) => v.result !== 'match').slice(0, 50),
       attendance: GATE_STATE.slice(0, 50),
+      registeredAttendance: GATE_STATE.slice(0, 100),
+      insideCommittees: buildPresence().byCommittee,
       enrollment: [
         { label: 'مسجل بالكامل', value: enrolled },
         { label: 'تسجيل جزئي', value: partial },
         { label: 'غير مسجل', value: notEnrolled },
       ],
     };
+  },
+
+  async presence(): Promise<BiometricPresence> {
+    if (isBackendEnabled()) {
+      return apiClient.get<BiometricPresence>('/api/biometric/presence');
+    }
+    await simulateLatency();
+    return buildPresence();
   },
 
   async exportReport(format: ExportFormat): Promise<{ fileName: string }> {
@@ -510,13 +666,29 @@ export const biometricService = {
   async monitoring(): Promise<{
     last24h: { ts: number; count: number }[];
     perStation: Record<string, { total: number; match: number; failed: number }>;
-    recentFailures: BiometricVerification[];
+    recentFailures: Array<{
+      id: string;
+      applicantId: string;
+      station: string;
+      ts: number;
+      method: VerificationMethod;
+      match: boolean;
+      confidence?: number;
+    }>;
   }> {
     if (isBackendEnabled()) {
       return apiClient.get<{
         last24h: { ts: number; count: number }[];
         perStation: Record<string, { total: number; match: number; failed: number }>;
-        recentFailures: BiometricVerification[];
+        recentFailures: Array<{
+          id: string;
+          applicantId: string;
+          station: string;
+          ts: number;
+          method: VerificationMethod;
+          match: boolean;
+          confidence?: number;
+        }>;
       }>('/api/biometric/monitoring');
     }
     await simulateLatency();
@@ -533,6 +705,8 @@ export const biometricService = {
       gate: { total: 0, match: 0, failed: 0 },
       'exam-room': { total: 0, match: 0, failed: 0 },
       committee: { total: 0, match: 0, failed: 0 },
+      'medical-commission': { total: 0, match: 0, failed: 0 },
+      'medical-clinic': { total: 0, match: 0, failed: 0 },
     };
     for (const v of recent) {
       const station = mapStatusToStation(v.module);
@@ -540,7 +714,15 @@ export const biometricService = {
       if (v.result === 'match') perStation[station]!.match += 1;
       else perStation[station]!.failed += 1;
     }
-    const recentFailures: BiometricVerification[] = recent
+    const recentFailures: Array<{
+      id: string;
+      applicantId: string;
+      station: string;
+      ts: number;
+      method: VerificationMethod;
+      match: boolean;
+      confidence?: number;
+    }> = recent
       .filter((v) => v.result !== 'match')
       .slice(0, 10)
       .map((v) => ({

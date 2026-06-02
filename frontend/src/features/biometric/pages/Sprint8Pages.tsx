@@ -25,7 +25,7 @@ import { date as fmtDate, num } from '@/shared/lib/format';
 
 export function BiometricVerifyOpsPage(): JSX.Element {
   const [method, setMethod] = useState<'face' | 'fingerprint' | 'barcode'>('face');
-  const [station, setStation] = useState<'gate' | 'exam-room' | 'committee'>('gate');
+  const [station, setStation] = useState<'gate' | 'exam-room' | 'committee' | 'medical-commission' | 'medical-clinic'>('gate');
   const [nationalId, setNationalId] = useState('29812345678901');
   const [result, setResult] = useState<Awaited<ReturnType<typeof biometricService.verify>> | null>(null);
 
@@ -44,6 +44,8 @@ export function BiometricVerifyOpsPage(): JSX.Element {
               { value: 'gate', label: 'البوابة الرئيسية' },
               { value: 'exam-room', label: 'قاعة الاختبارات' },
               { value: 'committee', label: 'اللجنة' },
+              { value: 'medical-commission', label: 'القومسيون الطبي' },
+              { value: 'medical-clinic', label: 'العيادة الطبية' },
             ]} />
             <Select label="طريقة التحقق" value={method} onChange={(e) => setMethod(e.target.value as typeof method)} options={[
               { value: 'face', label: 'الوجه' },
@@ -59,7 +61,15 @@ export function BiometricVerifyOpsPage(): JSX.Element {
                 const r = await biometricService.verify({
                   nationalId,
                   method,
-                  module: station === 'gate' ? 'security-gate' : station === 'exam-room' ? 'exam-committee' : 'admissions-committee',
+                  module: station === 'gate'
+                    ? 'security-gate'
+                    : station === 'exam-room'
+                      ? 'exam-committee'
+                      : station === 'medical-commission'
+                        ? 'medical-commission'
+                        : station === 'medical-clinic'
+                          ? 'medical-clinic'
+                          : 'admissions-committee',
                   operator: 'U-006',
                 });
                 setResult(r);
@@ -116,9 +126,20 @@ export function BiometricMonitoringPage(): JSX.Element {
       <PageHeader title="مراقبة العمليات البيومترية" subtitle="نظرة فورية على العمليات بكل المحطات خلال آخر 24 ساعة" />
 
       <div className="grid gap-5 lg:grid-cols-3">
-        {(['gate', 'exam-room', 'committee'] as const).map((s) => (
+        {(['gate', 'exam-room', 'committee', 'medical-commission', 'medical-clinic'] as const).map((s) => (
           <Card key={s}>
-            <CardHeader title={s === 'gate' ? 'البوابة الرئيسية' : s === 'exam-room' ? 'قاعات الاختبارات' : 'اللجنة'} subtitle="آخر 24 ساعة" />
+            <CardHeader
+              title={s === 'gate'
+                ? 'البوابة الرئيسية'
+                : s === 'exam-room'
+                  ? 'قاعات الاختبارات'
+                  : s === 'medical-commission'
+                    ? 'القومسيون الطبي'
+                    : s === 'medical-clinic'
+                      ? 'العيادات الطبية'
+                      : 'لجنة الطلبة'}
+              subtitle="آخر 24 ساعة"
+            />
             <div className="flex items-baseline gap-3">
               <span className="text-2xl font-bold font-numeric tnum text-ink-900">{num(data?.perStation?.[s]?.total ?? 0)}</span>
               <span className="text-2xs text-ink-500">عملية</span>

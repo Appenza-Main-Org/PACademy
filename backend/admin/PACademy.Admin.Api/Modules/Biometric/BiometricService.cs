@@ -26,6 +26,8 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
     {
         var applicants = await records.ListAsync("applicants", ct);
         var enrollments = await records.ListAsync(EnrollmentsModule, ct);
+        var verifications = await records.ListAsync(VerificationsModule, ct);
+        var gateLogs = await ListGateLogsAsync(ct);
         var q = (query ?? "").Trim().ToLowerInvariant();
 
         IEnumerable<JsonObject> matches = applicants;
@@ -36,7 +38,8 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
                 "nationalId" => (AdminRecordJson.StringProp(a, "nationalId") ?? "").Contains(q),
                 "name" => ApplicantName(a).ToLowerInvariant().Contains(q),
                 "applicantNumber" => (AdminRecordJson.StringProp(a, "id") ?? "").ToLowerInvariant().Contains(q),
-                _ => (AdminRecordJson.StringProp(a, "id") ?? "").ToLowerInvariant().Contains(q),
+                _ => ApplicantBarcode(a, enrollments).ToLowerInvariant().Contains(q)
+                    || (AdminRecordJson.StringProp(a, "id") ?? "").ToLowerInvariant().Contains(q),
             });
         }
         else
@@ -44,15 +47,17 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             matches = applicants.Take(12);
         }
 
-        return matches.Take(25).Select(a => BuildLookup(a, enrollments)).ToList();
+        return matches.Take(25).Select(a => BuildLookup(a, enrollments, verifications, gateLogs)).ToList();
     }
 
     public async Task<JsonObject?> GetApplicantAsync(string? applicantId, string? nationalId, string? barcode, CancellationToken ct)
     {
         var applicants = await records.ListAsync("applicants", ct);
         var enrollments = await records.ListAsync(EnrollmentsModule, ct);
-        var applicant = FindApplicant(applicants, applicantId, nationalId, barcode);
-        return applicant is null ? null : BuildLookup(applicant, enrollments);
+        var verifications = await records.ListAsync(VerificationsModule, ct);
+        var gateLogs = await ListGateLogsAsync(ct);
+        var applicant = FindApplicant(applicants, enrollments, applicantId, nationalId, barcode);
+        return applicant is null ? null : BuildLookup(applicant, enrollments, verifications, gateLogs);
     }
 
     /* ── Enrollment ────────────────────────────────────────────────── */
@@ -63,20 +68,36 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         var userId = AdminRecordJson.StringProp(input, "userId") ?? "system";
         var face = BoolProp(input, "faceCaptured");
         var fingerprint = BoolProp(input, "fingerprintCaptured");
+        var fingerprintCount = fingerprint
+            ? Math.Max(1, (int)(AdminRecordJson.NumberProp(input, "fingerprintCount") ?? 1))
+            : 0;
         var retake = BoolProp(input, "retake");
 
         var templateRefs = new List<string>();
+        var fingerprintTemplates = new JsonArray();
+        string? faceTemplateRef = null;
         var livenessConfirmed = false;
         if (face)
         {
             var cap = await device.CaptureAsync(new BiometricCaptureRequest(applicantId, "face", null), ct);
             templateRefs.Add(cap.TemplateRef);
+            faceTemplateRef = cap.TemplateRef;
             livenessConfirmed = cap.LivenessConfirmed;
         }
         if (fingerprint)
         {
-            var cap = await device.CaptureAsync(new BiometricCaptureRequest(applicantId, "fingerprint", null), ct);
-            templateRefs.Add(cap.TemplateRef);
+            for (var index = 1; index <= fingerprintCount; index++)
+            {
+                var modality = fingerprintCount == 1 ? "fingerprint" : $"fingerprint-{index}";
+                var cap = await device.CaptureAsync(new BiometricCaptureRequest(applicantId, modality, null), ct);
+                templateRefs.Add(cap.TemplateRef);
+                fingerprintTemplates.Add(new JsonObject
+                {
+                    ["finger"] = index,
+                    ["templateRef"] = cap.TemplateRef,
+                    ["quality"] = cap.Quality,
+                });
+            }
         }
 
         var status = face && fingerprint ? "enrolled" : face || fingerprint ? "partial" : "not_enrolled";
@@ -96,10 +117,14 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             ["enrolledBy"] = userId,
             ["faceCaptured"] = face,
             ["fingerprintCaptured"] = fingerprint,
+            ["fingerprintCount"] = fingerprintCount,
+            ["fingerprintTemplates"] = fingerprintTemplates,
+            ["faceTemplateRef"] = faceTemplateRef,
             ["livenessConfirmed"] = livenessConfirmed || face,
             ["templateRef"] = templateRefs.Count > 0 ? string.Join(";", templateRefs) : $"tmpl/{applicantId}",
             ["status"] = status,
             ["retake"] = retake,
+            ["source"] = retake ? "retake" : "live_capture",
         };
         await records.UpsertAsync(EnrollmentsModule, id, record, ct);
 
@@ -119,6 +144,44 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         return record;
     }
 
+    public async Task<JsonObject> LinkPreviousEnrollmentAsync(JsonObject input, CancellationToken ct)
+    {
+        var applicantId = AdminRecordJson.StringProp(input, "applicantId") ?? "unknown";
+        var userId = AdminRecordJson.StringProp(input, "userId") ?? "system";
+        var targetCycleId = AdminRecordJson.StringProp(input, "cycleId") ?? DefaultCycleId;
+        var now = NowMs();
+        var applicantName = await ApplicantNameByIdAsync(applicantId, ct);
+        var previous = (await records.ListAsync(EnrollmentsModule, ct))
+            .Where(e => AdminRecordJson.StringProp(e, "applicantId") == applicantId)
+            .Where(e => AdminRecordJson.StringProp(e, "cycleId") != targetCycleId)
+            .OrderByDescending(e => AdminRecordJson.NumberProp(e, "enrolledAt") ?? 0)
+            .FirstOrDefault()
+            ?? throw new InvalidOperationException("لا توجد بيانات بيومترية سابقة لهذا المتقدم");
+
+        var id = $"BIO-LINK-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        var record = AdminRecordJson.Clone(previous);
+        record["id"] = id;
+        record["applicantId"] = applicantId;
+        record["applicantName"] = applicantName;
+        record["nationalId"] = AdminRecordJson.StringProp(input, "nationalId")
+            ?? AdminRecordJson.StringProp(previous, "nationalId")
+            ?? "";
+        record["barcode"] = AdminRecordJson.StringProp(input, "barcode")
+            ?? AdminRecordJson.StringProp(previous, "barcode")
+            ?? applicantId;
+        record["cycleId"] = targetCycleId;
+        record["enrolledAt"] = now;
+        record["enrolledBy"] = userId;
+        record["linkedFromEnrollmentId"] = AdminRecordJson.StringProp(previous, "id");
+        record["linkedFromCycleId"] = AdminRecordJson.StringProp(previous, "cycleId");
+        record["source"] = "linked_previous";
+        record["retake"] = false;
+
+        await records.UpsertAsync(EnrollmentsModule, id, record, ct);
+        await AppendAuditAsync(userId, applicantId, applicantName, "link_previous", "enrolled", now, ct);
+        return record;
+    }
+
     /* ── Verification ──────────────────────────────────────────────── */
 
     public async Task<JsonObject> VerifyAsync(JsonObject input, CancellationToken ct)
@@ -130,7 +193,7 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
 
         var applicants = await records.ListAsync("applicants", ct);
         var enrollments = await records.ListAsync(EnrollmentsModule, ct);
-        var applicant = FindApplicant(applicants,
+        var applicant = FindApplicant(applicants, enrollments,
             AdminRecordJson.StringProp(input, "applicantId"),
             AdminRecordJson.StringProp(input, "nationalId"),
             AdminRecordJson.StringProp(input, "barcode"));
@@ -147,11 +210,15 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             };
         }
 
-        var lookup = BuildLookup(applicant, enrollments);
+        var verifications = await records.ListAsync(VerificationsModule, ct);
+        var gateLogs = await ListGateLogsAsync(ct);
+        var lookup = BuildLookup(applicant, enrollments, verifications, gateLogs);
         var applicantId = AdminRecordJson.StringProp(applicant, "id") ?? "";
         var applicantName = ApplicantName(applicant);
         var enrollmentStatus = AdminRecordJson.StringProp(lookup, "enrollmentStatus") ?? "not_enrolled";
         var canProceed = BoolProp(lookup, "canProceed");
+        var alertCodes = new JsonArray();
+        var voiceAlerts = new JsonArray();
 
         string status;
         int? confidence = null;
@@ -161,6 +228,8 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         {
             status = "not_enrolled";
             reason = "المتقدم غير مسجل بيومترياً";
+            alertCodes.Add("NOT_REGISTERED");
+            voiceAlerts.Add("المتقدم غير مسجل على المنظومة");
         }
         else if (!canProceed)
         {
@@ -176,6 +245,32 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             if (status == "manual_review_required") reason = "درجة التطابق أقل من حد الاعتماد الآلي";
             if (status == "no_match") reason = "فشل التحقق ولا يسمح باستكمال الاختبار";
         }
+
+        var today = AdminRecordJson.StringProp(input, "today");
+        var examDate = AdminRecordJson.StringProp(lookup, "currentExamDate");
+        if (!string.IsNullOrWhiteSpace(today)
+            && !string.IsNullOrWhiteSpace(examDate)
+            && !string.Equals(today, examDate, StringComparison.Ordinal))
+        {
+            alertCodes.Add("EXAM_DATE_MISMATCH");
+            voiceAlerts.Add("تاريخ اختبار المتقدم لا يوافق اليوم");
+            status = "manual_review_required";
+            reason ??= "تاريخ اختبار المتقدم لا يوافق اليوم";
+        }
+
+        var stationCommittee = AdminRecordJson.StringProp(input, "stationCommittee");
+        var applicantCommittee = AdminRecordJson.StringProp(lookup, "committee");
+        if (!string.IsNullOrWhiteSpace(stationCommittee)
+            && !string.IsNullOrWhiteSpace(applicantCommittee)
+            && !string.Equals(stationCommittee, applicantCommittee, StringComparison.Ordinal))
+        {
+            alertCodes.Add("COMMITTEE_MISMATCH");
+            voiceAlerts.Add("المتقدم غير مسجل في هذه اللجنة");
+            status = "manual_review_required";
+            reason ??= "المتقدم غير مسجل في هذه اللجنة";
+        }
+
+        var ok = status == "match" && alertCodes.Count == 0;
 
         await AppendVerificationAsync(new JsonObject
         {
@@ -195,10 +290,12 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         var result = new JsonObject
         {
             ["status"] = status,
-            ["ok"] = status == "match",
+            ["ok"] = ok,
             ["applicant"] = lookup.DeepClone(),
             ["timestamp"] = now,
-            ["canContinue"] = status == "match",
+            ["canContinue"] = ok,
+            ["alertCodes"] = alertCodes,
+            ["voiceAlerts"] = voiceAlerts,
         };
         if (reason is not null) result["reason"] = reason;
         if (confidence is not null) result["matchScore"] = confidence.Value / 100.0;
@@ -226,6 +323,7 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             ["at"] = now,
             ["verificationResult"] = verificationResult,
             ["operator"] = operatorId,
+            ["committee"] = AdminRecordJson.StringProp(input, "committee"),
         };
         await records.UpsertAsync(GateLogsModule, id, record, ct);
         await AppendAuditAsync(operatorId, applicantId, applicantName, direction == "entry" ? "gate_entry" : "gate_exit", direction, now, ct);
@@ -281,6 +379,7 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         var enrolled = enrollments.Count(e => AdminRecordJson.StringProp(e, "status") == "enrolled");
         var partial = enrollments.Count(e => AdminRecordJson.StringProp(e, "status") == "partial");
         var notEnrolled = Math.Max(0, applicants.Count - enrolled - partial);
+        var presence = BuildPresence(gateLogs);
 
         return new
         {
@@ -288,6 +387,8 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             failed = verifications.Where(v => AdminRecordJson.StringProp(v, "result") != "match")
                 .OrderByDescending(v => AdminRecordJson.NumberProp(v, "timestamp") ?? 0).Take(50).ToList(),
             attendance = gateLogs.Take(50).ToList(),
+            registeredAttendance = gateLogs.Take(100).ToList(),
+            insideCommittees = presence["byCommittee"]?.AsArray() ?? [],
             enrollment = new[]
             {
                 new { label = "مسجل بالكامل", value = enrolled },
@@ -345,6 +446,12 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         return new { last24h, perStation, recentFailures };
     }
 
+    public async Task<JsonObject> PresenceAsync(CancellationToken ct)
+    {
+        var gateLogs = await ListGateLogsAsync(ct);
+        return BuildPresence(gateLogs);
+    }
+
     /* ── Internals ─────────────────────────────────────────────────── */
 
     private async Task AppendVerificationAsync(JsonObject row, CancellationToken ct)
@@ -370,7 +477,11 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         await records.UpsertAsync(AuditModule, id, row, ct);
     }
 
-    private JsonObject BuildLookup(JsonObject applicant, IReadOnlyList<JsonObject> enrollments)
+    private JsonObject BuildLookup(
+        JsonObject applicant,
+        IReadOnlyList<JsonObject> enrollments,
+        IReadOnlyList<JsonObject>? verifications = null,
+        IReadOnlyList<JsonObject>? gateLogs = null)
     {
         var applicantId = AdminRecordJson.StringProp(applicant, "id") ?? "";
         var enrollment = enrollments.FirstOrDefault(e => AdminRecordJson.StringProp(e, "applicantId") == applicantId);
@@ -385,10 +496,17 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             ["applicant"] = applicant.DeepClone(),
             ["barcode"] = enrollment is not null ? AdminRecordJson.StringProp(enrollment, "barcode") ?? applicantId : applicantId,
             ["cycleId"] = enrollment is not null ? AdminRecordJson.StringProp(enrollment, "cycleId") ?? DefaultCycleId : DefaultCycleId,
-            ["currentExam"] = "كشف الهيئة والتحقق من الحضور",
+            ["currentExam"] = AdminRecordJson.StringProp(applicant, "currentExam") ?? "كشف الهيئة والتحقق من الحضور",
+            ["currentExamDate"] = AdminRecordJson.StringProp(applicant, "currentExamDate") ?? DateTimeOffset.UtcNow.ToString("yyyy-MM-dd"),
+            ["currentExamResult"] = AdminRecordJson.StringProp(applicant, "currentExamResult") ?? "لم تظهر",
             ["committee"] = committee,
             ["admissionStatus"] = status,
             ["enrollmentStatus"] = enrollmentStatus,
+            ["academyVisitCount"] = CountGateVisits(gateLogs, applicantId),
+            ["studentCommitteeVisitCount"] = CountVerifications(verifications, applicantId, "admissions-committee"),
+            ["examCommitteeVisitCount"] = CountVerifications(verifications, applicantId, "exam-committee"),
+            ["medicalCommitteeVisitCount"] = CountVerifications(verifications, applicantId, "medical-commission"),
+            ["clinicVisitCount"] = CountVerifications(verifications, applicantId, "medical-clinic"),
             ["canProceed"] = canProceed,
         };
         if (enrollment is not null) lookup["enrollment"] = enrollment.DeepClone();
@@ -396,15 +514,73 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         return lookup;
     }
 
-    private static JsonObject? FindApplicant(IReadOnlyList<JsonObject> applicants, string? applicantId, string? nationalId, string? barcode)
+    private static JsonObject? FindApplicant(
+        IReadOnlyList<JsonObject> applicants,
+        IReadOnlyList<JsonObject> enrollments,
+        string? applicantId,
+        string? nationalId,
+        string? barcode)
     {
         if (!string.IsNullOrWhiteSpace(applicantId))
             return applicants.FirstOrDefault(a => AdminRecordJson.StringProp(a, "id") == applicantId);
         if (!string.IsNullOrWhiteSpace(nationalId))
             return applicants.FirstOrDefault(a => AdminRecordJson.StringProp(a, "nationalId") == nationalId);
         if (!string.IsNullOrWhiteSpace(barcode))
-            return applicants.FirstOrDefault(a => AdminRecordJson.StringProp(a, "id") == barcode);
+        {
+            var enrollmentApplicantId = enrollments
+                .FirstOrDefault(e => AdminRecordJson.StringProp(e, "barcode") == barcode);
+            var resolvedId = AdminRecordJson.StringProp(enrollmentApplicantId ?? [], "applicantId") ?? barcode;
+            return applicants.FirstOrDefault(a => AdminRecordJson.StringProp(a, "id") == resolvedId);
+        }
         return null;
+    }
+
+    private static string ApplicantBarcode(JsonObject applicant, IReadOnlyList<JsonObject> enrollments)
+    {
+        var applicantId = AdminRecordJson.StringProp(applicant, "id") ?? "";
+        return enrollments
+            .FirstOrDefault(e => AdminRecordJson.StringProp(e, "applicantId") == applicantId) is { } enrollment
+            ? AdminRecordJson.StringProp(enrollment, "barcode") ?? applicantId
+            : applicantId;
+    }
+
+    private static int CountGateVisits(IReadOnlyList<JsonObject>? gateLogs, string applicantId) =>
+        gateLogs?.Count(g => AdminRecordJson.StringProp(g, "applicantId") == applicantId
+            && AdminRecordJson.StringProp(g, "direction") == "entry") ?? 0;
+
+    private static int CountVerifications(IReadOnlyList<JsonObject>? verifications, string applicantId, string module) =>
+        verifications?.Count(v => AdminRecordJson.StringProp(v, "applicantId") == applicantId
+            && AdminRecordJson.StringProp(v, "module") == module) ?? 0;
+
+    private static JsonObject BuildPresence(IReadOnlyList<JsonObject> gateLogs)
+    {
+        var latestByApplicant = gateLogs
+            .GroupBy(g => AdminRecordJson.StringProp(g, "applicantId") ?? "")
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key))
+            .Select(g => g.OrderByDescending(x => AdminRecordJson.NumberProp(x, "at") ?? 0).First())
+            .Where(g => AdminRecordJson.StringProp(g, "direction") == "entry")
+            .ToList();
+        var byCommittee = new JsonArray(latestByApplicant
+            .GroupBy(g => AdminRecordJson.StringProp(g, "committee") ?? "غير محدد")
+            .Select(g => new JsonObject
+            {
+                ["committee"] = g.Key,
+                ["count"] = g.Count(),
+                ["applicants"] = new JsonArray(g.Select(x => new JsonObject
+                {
+                    ["applicantId"] = AdminRecordJson.StringProp(x, "applicantId"),
+                    ["applicantName"] = AdminRecordJson.StringProp(x, "applicantName"),
+                    ["enteredAt"] = AdminRecordJson.NumberProp(x, "at"),
+                }).ToArray<JsonNode?>()),
+            })
+            .ToArray<JsonNode?>());
+
+        return new JsonObject
+        {
+            ["totalInside"] = latestByApplicant.Count,
+            ["byCommittee"] = byCommittee,
+            ["rows"] = new JsonArray(latestByApplicant.Select(x => AdminRecordJson.Clone(x)).ToArray<JsonNode?>()),
+        };
     }
 
     private async Task<string> ApplicantNameByIdAsync(string applicantId, CancellationToken ct)
@@ -433,6 +609,8 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
     {
         "security-gate" => "gate",
         "exam-committee" => "exam-room",
+        "medical-commission" => "medical-commission",
+        "medical-clinic" => "medical-clinic",
         _ => "committee",
     };
 

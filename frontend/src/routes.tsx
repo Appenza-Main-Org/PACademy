@@ -126,11 +126,14 @@ import {
   BarcodeScansHistoryPage,
 } from '@/features/barcode';
 import {
+  BiometricAttendancePage,
   BiometricEnrollPage,
+  BiometricGatePage,
   BiometricHistoryPage,
   BiometricIdentityVerifyPage,
   BiometricLayout,
   BiometricMonitoringPage,
+  BiometricRoleInquiryPage,
   BiometricVerifyOpsPage,
   BiometricVerifyPage,
 } from '@/features/biometric';
@@ -423,6 +426,9 @@ export const routes: RouteObject[] = [
       { index: true, element: <BiometricVerifyPage /> },
       { path: 'enroll', element: <BiometricEnrollPage /> },
       { path: 'verify', element: <BiometricIdentityVerifyPage /> },
+      { path: 'gate', element: <BiometricGatePage /> },
+      { path: 'attendance', element: <BiometricAttendancePage /> },
+      { path: 'role-inquiry', element: <BiometricRoleInquiryPage /> },
       { path: 'history', element: <BiometricHistoryPage /> },
       { path: 'verify-ops', element: <BiometricVerifyOpsPage /> },
       { path: 'monitoring', element: <BiometricMonitoringPage /> },

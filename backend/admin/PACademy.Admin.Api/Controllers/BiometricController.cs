@@ -41,6 +41,11 @@ public sealed class BiometricController(BiometricService service) : ControllerBa
         catch (BiometricDeviceException ex) { return DeviceUnavailable(ex); }
     }
 
+    [HttpPost("api/biometric/enroll/link-previous")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject>> LinkPreviousEnrollment([FromBody] JsonObject input, CancellationToken ct)
+        => Ok(await service.LinkPreviousEnrollmentAsync(input, ct));
+
     [HttpPost("api/biometric/verify")]
     [RequireBearerAuth]
     public async Task<ActionResult<JsonObject>> Verify([FromBody] JsonObject input, CancellationToken ct)
@@ -83,6 +88,10 @@ public sealed class BiometricController(BiometricService service) : ControllerBa
     [HttpGet("api/biometric/reports")]
     public async Task<ActionResult<object>> Reports(CancellationToken ct)
         => Ok(await service.ReportsAsync(ct));
+
+    [HttpGet("api/biometric/presence")]
+    public async Task<ActionResult<JsonObject>> Presence(CancellationToken ct)
+        => Ok(await service.PresenceAsync(ct));
 
     [HttpGet("api/biometric/monitoring")]
     public async Task<ActionResult<object>> Monitoring(CancellationToken ct)
