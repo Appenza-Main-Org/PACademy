@@ -498,7 +498,7 @@ function FamilyView({
   family: Applicant['family'];
   fallbackSize: number;
 }): JSX.Element {
-  if (!family || !family.father) {
+  if (!family) {
     return (
       <DefRow
         label="حجم الأسرة"
@@ -514,7 +514,22 @@ function FamilyView({
     { label: 'الجدة لأب', member: family.paternalGrandmother },
     { label: 'الجد لأم', member: family.maternalGrandfather },
     { label: 'الجدة لأم', member: family.maternalGrandmother },
+    { label: 'ولي الأمر', member: family.guardian },
   ];
+  const hasDetailedMembers =
+    fixed.some(({ member }) => Boolean(member?.fullName))
+    || Boolean(family.fatherWives?.length)
+    || Boolean(family.motherHusbands?.length)
+    || Boolean(family.siblings?.length);
+  if (!hasDetailedMembers) {
+    return (
+      <DefRow
+        label="حجم الأسرة"
+        value={`${num(fallbackSize)} أفراد (لم تُسجَّل بيانات تفصيلية بعد)`}
+        wide
+      />
+    );
+  }
   return (
     <>
       {fixed.map(({ label, member }) =>
@@ -522,33 +537,63 @@ function FamilyView({
           <DefRow
             key={label}
             label={label}
-            value={
-              <div className="flex flex-col gap-0.5">
-                <span>{member.fullName}</span>
-                <span className="text-2xs text-ink-500">
-                  {member.occupation ?? ''} {member.alive ? '' : '· (متوفى)'}
-                </span>
-              </div>
-            }
+            value={<FamilyMemberSummary member={member} />}
           />
         ) : null,
       )}
+      {family.fatherWives && family.fatherWives.length > 0 && (
+        <FamilyMembersList label="زوجات الأب" members={family.fatherWives} />
+      )}
+      {family.motherHusbands && family.motherHusbands.length > 0 && (
+        <FamilyMembersList label="أزواج الأم" members={family.motherHusbands} />
+      )}
       {family.siblings && family.siblings.length > 0 && (
-        <DefRow
-          label="الإخوة والأخوات"
-          value={
-            <ul className="flex flex-col gap-0.5">
-              {family.siblings.map((s, i) => (
-                <li key={i} className="text-sm">
-                  {s.fullName} {s.occupation ? `· ${s.occupation}` : ''}
-                </li>
-              ))}
-            </ul>
-          }
-          wide
-        />
+        <FamilyMembersList label="الإخوة والأخوات" members={family.siblings} />
       )}
     </>
+  );
+}
+
+function FamilyMemberSummary({ member }: { member: ApplicantFamilyMember }): JSX.Element {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span>{member.fullName}</span>
+      {member.nationalId && (
+        <span className="font-mono text-2xs text-ink-500" dir="ltr">
+          {member.nationalId}
+        </span>
+      )}
+      <span className="text-2xs text-ink-500">
+        {[member.relationshipId, member.occupation, member.education, member.governorate]
+          .filter(Boolean)
+          .join(' · ') || '—'}
+        {member.alive ? '' : ' · (متوفى)'}
+      </span>
+    </div>
+  );
+}
+
+function FamilyMembersList({
+  label,
+  members,
+}: {
+  label: string;
+  members: ApplicantFamilyMember[];
+}): JSX.Element {
+  return (
+    <DefRow
+      label={label}
+      value={
+        <ul className="flex flex-col gap-2">
+          {members.map((member, i) => (
+            <li key={`${member.fullName}-${i}`} className="text-sm">
+              <FamilyMemberSummary member={member} />
+            </li>
+          ))}
+        </ul>
+      }
+      wide
+    />
   );
 }
 
@@ -581,10 +626,7 @@ function RelativesView({
           <ul className="flex flex-col gap-1">
             {relatives.map((r, i) => (
               <li key={i} className="text-sm">
-                {r.fullName}
-                {r.relationshipId && (
-                  <span className="ms-1 text-2xs text-ink-500">· {r.relationshipId}</span>
-                )}
+                <FamilyMemberSummary member={r} />
               </li>
             ))}
           </ul>

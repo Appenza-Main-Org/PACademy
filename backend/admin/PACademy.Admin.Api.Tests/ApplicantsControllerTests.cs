@@ -58,13 +58,50 @@ public sealed class ApplicantsControllerTests
             },
             ["payment"] = new JsonObject
             {
-                ["refNumber"] = "PAY-2026-0001"
+                ["refNumber"] = "PAY-2026-0001",
+                ["amount"] = 250
             },
             ["examSlot"] = new JsonObject
             {
                 ["date"] = "2026-06-10",
                 ["time"] = "08:00",
                 ["location"] = "كلية الشرطة - مبنى الاختبارات - القاهرة"
+            },
+            ["family"] = new JsonObject
+            {
+                ["father"] = FamilyMember("محمد", "إبراهيم", "سعيد", "27901010101234", "engineer"),
+                ["mother"] = FamilyMember("سعاد", "عبدالله", "محمد", "28102020202345", "teacher"),
+                ["fatherWives"] = new JsonArray
+                {
+                    FamilyMember("ليلى", "حسن", "محمود", "28303030303456", "doctor")
+                },
+                ["grandparents"] = new JsonObject
+                {
+                    ["paternalGrandfather"] = FamilyMember("إبراهيم", "سعيد", "علي", "24904040404567", "retired"),
+                    ["paternalGrandmother"] = FamilyMember("أمينة", "محمد", "حسن", "25205050505678", "housewife"),
+                    ["maternalGrandfather"] = FamilyMember("عبدالله", "محمد", "سالم", "24806060606789", "retired"),
+                    ["maternalGrandmother"] = FamilyMember("فاطمة", "محمود", "علي", "25107070707890", "housewife")
+                },
+                ["relatives"] = new JsonObject
+                {
+                    ["brothers"] = new JsonArray
+                    {
+                        FamilyMember("كريم", "محمد", "إبراهيم", "30608080808901", "student")
+                    },
+                    ["paternal_uncles"] = new JsonArray
+                    {
+                        FamilyMember("حسن", "إبراهيم", "سعيد", "27709090909012", "lawyer")
+                    }
+                },
+                ["guardian"] = new JsonObject
+                {
+                    ["firstName"] = "محمد",
+                    ["secondName"] = "إبراهيم",
+                    ["thirdName"] = "سعيد",
+                    ["profession"] = "engineer",
+                    ["qualification"] = "bachelor",
+                    ["workplaceDetail"] = "القاهرة"
+                }
             }
         };
 
@@ -87,7 +124,18 @@ public sealed class ApplicantsControllerTests
         Assert.Equal(8, row["stage"]?.GetValue<int>());
         Assert.Equal("حجز الاختبارات", row["stageLabel"]?.GetValue<string>());
         Assert.Equal("paid", row["paymentStatus"]?.GetValue<string>());
+        Assert.Equal(250, row["paymentAmount"]?.GetValue<double>());
         Assert.Equal("2026-06-10", row["firstExamDate"]?.GetValue<string>());
+        Assert.Equal("كلية الشرطة - مبنى الاختبارات - القاهرة", row["committee"]?.GetValue<string>());
+        Assert.Equal("محمد إبراهيم سعيد", row["family"]?["father"]?["fullName"]?.GetValue<string>());
+        Assert.Equal("مهندس", row["family"]?["father"]?["occupation"]?.GetValue<string>());
+        Assert.Equal("أمينة محمد حسن", row["family"]?["paternalGrandmother"]?["fullName"]?.GetValue<string>());
+        Assert.Equal("ليلى حسن محمود", row["family"]?["fatherWives"]?[0]?["fullName"]?.GetValue<string>());
+        Assert.Equal("الأخ", row["family"]?["siblings"]?[0]?["relationshipId"]?.GetValue<string>());
+        Assert.Equal("العم", row["family"]?["relatives"]?[0]?["relationshipId"]?.GetValue<string>());
+        Assert.Equal("ولي الأمر", row["family"]?["guardian"]?["relationshipId"]?.GetValue<string>());
+        Assert.Equal(9, row["familySize"]?.GetValue<int>());
+        Assert.Equal(1, row["relativesCount"]?.GetValue<int>());
         Assert.Equal("applicant-portal", row["source"]?.GetValue<string>());
     }
 
@@ -126,4 +174,21 @@ public sealed class ApplicantsControllerTests
             }
         };
     }
+
+    private static JsonObject FamilyMember(
+        string firstName,
+        string secondName,
+        string thirdName,
+        string nationalId,
+        string profession) => new()
+        {
+            ["firstName"] = firstName,
+            ["secondName"] = secondName,
+            ["thirdName"] = thirdName,
+            ["nationalId"] = nationalId,
+            ["profession"] = profession,
+            ["qualification"] = "bachelor",
+            ["residenceGovernorate"] = "القاهرة",
+            ["deceased"] = false
+        };
 }

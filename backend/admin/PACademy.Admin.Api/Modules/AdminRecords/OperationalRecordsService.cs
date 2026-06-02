@@ -1241,6 +1241,7 @@ public sealed class OperationalRecordsService(
     {
         var projected = payload.DeepClone().AsObject();
         var profile = ObjectProp(projected, "profile");
+        var family = ObjectProp(projected, "family");
         var examSlot = ObjectProp(projected, "examSlot");
         var payment = ObjectProp(projected, "payment");
         var stage = IntProp(projected, "stage") ?? IntProp(projected, "furthestStage");
@@ -1270,6 +1271,7 @@ public sealed class OperationalRecordsService(
         SetIfPresent(projected, "governorate", StringProp(profile, "addressGovernorate"));
         SetIfPresent(projected, "city", StringProp(profile, "addressDistrict"));
         SetIfPresent(projected, "department", DepartmentFromPortalCategory(projected));
+        ApplyPortalFamilySections(projected, family);
 
         if (stage is > 0)
         {
@@ -1289,7 +1291,9 @@ public sealed class OperationalRecordsService(
         }
 
         projected["paymentStatus"] ??= payment is null ? "pending" : "paid";
+        SetNumberIfMissing(projected, "paymentAmount", NumberProp(payment, "amount"));
         SetIfPresent(projected, "firstExamDate", StringProp(examSlot, "date"));
+        SetIfPresent(projected, "committee", StringProp(examSlot, "location"));
         projected["registeredAt"] ??= identity.CreatedAt;
         projected["createdAt"] ??= identity.CreatedAt;
         projected["updatedAt"] ??= identity.UpdatedAt;
@@ -1306,11 +1310,22 @@ public sealed class OperationalRecordsService(
     private static JsonObject? ObjectProp(JsonObject? obj, string key) =>
         obj is not null && obj.TryGetPropertyValue(key, out var node) && node is JsonObject child ? child : null;
 
+    private static JsonArray? ArrayProp(JsonObject? obj, string key) =>
+        obj is not null && obj.TryGetPropertyValue(key, out var node) && node is JsonArray child ? child : null;
+
     private static string? StringProp(JsonObject? obj, string key) =>
         obj is null ? null : AdminRecordJson.StringProp(obj, key);
 
     private static int? IntProp(JsonObject obj, string key) =>
         AdminRecordJson.NumberProp(obj, key) is { } value ? Convert.ToInt32(value) : null;
+
+    private static bool? BoolProp(JsonObject? obj, string key)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(key, out var node) || node is null) return null;
+        if (node.GetValueKind() == System.Text.Json.JsonValueKind.True) return true;
+        if (node.GetValueKind() == System.Text.Json.JsonValueKind.False) return false;
+        return bool.TryParse(node.ToString(), out var parsed) ? parsed : null;
+    }
 
     private static void ApplyPortalProfileSections(JsonObject projected, JsonObject? profile)
     {
@@ -1333,6 +1348,198 @@ public sealed class OperationalRecordsService(
 
         var education = BuildPortalEducation(profile);
         if (education is not null) projected["education"] = education;
+    }
+
+    private static void ApplyPortalFamilySections(JsonObject projected, JsonObject? family)
+    {
+        var portalFamily = BuildPortalFamily(family);
+        if (portalFamily is null) return;
+
+        projected["family"] = portalFamily;
+        projected["familySize"] = CountFamilyMembers(portalFamily);
+        projected["relativesCount"] = ArrayProp(portalFamily, "relatives")?.Count ?? 0;
+    }
+
+    private static JsonObject? BuildPortalFamily(JsonObject? family)
+    {
+        if (family is null) return null;
+
+        var result = new JsonObject();
+        SetObjectIfPresent(result, "father", BuildPortalFamilyMember(ObjectProp(family, "father")));
+        SetObjectIfPresent(result, "mother", BuildPortalFamilyMember(ObjectProp(family, "mother")));
+
+        var grandparents = ObjectProp(family, "grandparents");
+        SetObjectIfPresent(result, "paternalGrandfather", BuildPortalFamilyMember(ObjectProp(grandparents, "paternalGrandfather")));
+        SetObjectIfPresent(result, "paternalGrandmother", BuildPortalFamilyMember(ObjectProp(grandparents, "paternalGrandmother")));
+        SetObjectIfPresent(result, "maternalGrandfather", BuildPortalFamilyMember(ObjectProp(grandparents, "maternalGrandfather")));
+        SetObjectIfPresent(result, "maternalGrandmother", BuildPortalFamilyMember(ObjectProp(grandparents, "maternalGrandmother")));
+
+        var fatherWives = BuildPortalFamilyMemberArray(ArrayProp(family, "fatherWives"), "زوجة الأب");
+        if (fatherWives.Count > 0) result["fatherWives"] = fatherWives;
+
+        var motherHusbands = BuildPortalFamilyMemberArray(ArrayProp(family, "motherHusbands"), "زوج الأم");
+        if (motherHusbands.Count > 0) result["motherHusbands"] = motherHusbands;
+
+        var relatives = ObjectProp(family, "relatives");
+        var siblings = new JsonArray();
+        AddPortalRelativeMembers(siblings, relatives, "brothers", "الأخ");
+        AddPortalRelativeMembers(siblings, relatives, "sisters", "الأخت");
+        if (siblings.Count > 0) result["siblings"] = siblings;
+
+        var extendedRelatives = new JsonArray();
+        AddPortalRelativeMembers(extendedRelatives, relatives, "paternal_uncles", "العم");
+        AddPortalRelativeMembers(extendedRelatives, relatives, "paternal_aunts", "العمة");
+        AddPortalRelativeMembers(extendedRelatives, relatives, "maternal_uncles", "الخال");
+        AddPortalRelativeMembers(extendedRelatives, relatives, "maternal_aunts", "الخالة");
+        if (extendedRelatives.Count > 0) result["relatives"] = extendedRelatives;
+
+        SetObjectIfPresent(result, "guardian", BuildPortalGuardian(ObjectProp(family, "guardian")));
+
+        return result.Count > 0 ? result : null;
+    }
+
+    private static JsonArray BuildPortalFamilyMemberArray(JsonArray? members, string relationshipId)
+    {
+        var result = new JsonArray();
+        if (members is null) return result;
+        foreach (var node in members)
+        {
+            if (node is JsonObject member)
+            {
+                var projected = BuildPortalFamilyMember(member, relationshipId);
+                if (projected is not null) result.Add(projected);
+            }
+        }
+        return result;
+    }
+
+    private static void AddPortalRelativeMembers(JsonArray target, JsonObject? relatives, string key, string relationshipId)
+    {
+        foreach (var node in ArrayProp(relatives, key) ?? [])
+        {
+            if (node is JsonObject member)
+            {
+                var projected = BuildPortalFamilyMember(member, relationshipId);
+                if (projected is not null) target.Add(projected);
+            }
+        }
+    }
+
+    private static JsonObject? BuildPortalFamilyMember(JsonObject? member, string? relationshipId = null)
+    {
+        if (member is null) return null;
+
+        var fullName = JoinedPortalPersonName(member);
+        var nationalId = BoolProp(member, "nidUnavailable") == true ? null : StringProp(member, "nationalId");
+        if (string.IsNullOrWhiteSpace(fullName) && string.IsNullOrWhiteSpace(nationalId)) return null;
+
+        var result = new JsonObject
+        {
+            ["fullName"] = fullName ?? nationalId,
+            ["alive"] = BoolProp(member, "deceased") != true
+        };
+        SetIfPresent(result, "nationalId", nationalId);
+        SetIfPresent(result, "occupation", ProfessionLabel(StringProp(member, "profession"), StringProp(member, "professionDetail")));
+        SetIfPresent(result, "governorate", StringProp(member, "residenceGovernorate") ?? StringProp(member, "birthGovernorate"));
+        SetIfPresent(result, "education", QualificationLabel(StringProp(member, "qualification"), StringProp(member, "qualificationDetail")));
+        SetIfPresent(result, "relationshipId", relationshipId);
+        return result;
+    }
+
+    private static JsonObject? BuildPortalGuardian(JsonObject? guardian)
+    {
+        if (guardian is null) return null;
+        var fullName = JoinedPortalPersonName(guardian);
+        if (string.IsNullOrWhiteSpace(fullName)) return null;
+
+        var result = new JsonObject
+        {
+            ["fullName"] = fullName,
+            ["alive"] = true
+        };
+        SetIfPresent(result, "occupation", ProfessionLabel(StringProp(guardian, "profession"), StringProp(guardian, "professionDetail")));
+        SetIfPresent(result, "education", QualificationLabel(StringProp(guardian, "qualification"), StringProp(guardian, "qualificationDetail")));
+        SetIfPresent(result, "governorate", StringProp(guardian, "workplaceDetail"));
+        SetIfPresent(result, "relationshipId", "ولي الأمر");
+        return result;
+    }
+
+    private static string? JoinedPortalPersonName(JsonObject person)
+    {
+        var parts = new[]
+        {
+            StringProp(person, "firstName"),
+            StringProp(person, "secondName"),
+            StringProp(person, "thirdName")
+        }.Where(part => !string.IsNullOrWhiteSpace(part));
+        var joined = string.Join(" ", parts);
+        return string.IsNullOrWhiteSpace(joined) ? null : joined;
+    }
+
+    private static string? ProfessionLabel(string? code, string? detail) =>
+        code switch
+        {
+            "police_officer" => WithDetail("ضابط شرطة", detail),
+            "army_officer" => WithDetail("ضابط جيش", detail),
+            "doctor" => WithDetail("طبيب", detail),
+            "engineer" => WithDetail("مهندس", detail),
+            "teacher" => WithDetail("معلّم", detail),
+            "lawyer" => WithDetail("محامي", detail),
+            "merchant" => WithDetail("تاجر", detail),
+            "gov_employee" => WithDetail("موظف حكومي", detail),
+            "private_employee" => WithDetail("موظف قطاع خاص", detail),
+            "retired" => WithDetail("متقاعد", detail),
+            "housewife" => WithDetail("ربة منزل", detail),
+            "other" => detail,
+            _ => detail ?? code
+        };
+
+    private static string? QualificationLabel(string? code, string? detail) =>
+        code switch
+        {
+            "none" => WithDetail("بدون مؤهل", detail),
+            "primary" => WithDetail("ابتدائي", detail),
+            "preparatory" => WithDetail("إعدادي", detail),
+            "secondary" => WithDetail("ثانوي", detail),
+            "diploma" => WithDetail("دبلوم", detail),
+            "bachelor" => WithDetail("بكالوريوس / ليسانس", detail),
+            "masters" => WithDetail("ماجستير", detail),
+            "phd" => WithDetail("دكتوراه", detail),
+            "other" => detail,
+            _ => detail ?? code
+        };
+
+    private static string? WithDetail(string label, string? detail) =>
+        string.IsNullOrWhiteSpace(detail) ? label : $"{label} · {detail}";
+
+    private static void SetObjectIfPresent(JsonObject payload, string key, JsonObject? value)
+    {
+        if (value is not null)
+        {
+            payload[key] = value;
+        }
+    }
+
+    private static int CountFamilyMembers(JsonObject family)
+    {
+        var count = 0;
+        foreach (var key in new[]
+        {
+            "father",
+            "mother",
+            "paternalGrandfather",
+            "paternalGrandmother",
+            "maternalGrandfather",
+            "maternalGrandmother",
+            "guardian"
+        })
+        {
+            if (ObjectProp(family, key) is not null) count++;
+        }
+        count += ArrayProp(family, "fatherWives")?.Count ?? 0;
+        count += ArrayProp(family, "motherHusbands")?.Count ?? 0;
+        count += ArrayProp(family, "siblings")?.Count ?? 0;
+        return count;
     }
 
     private static JsonObject? BuildPortalEducation(JsonObject profile)
@@ -1455,6 +1662,14 @@ public sealed class OperationalRecordsService(
     private static void SetNumberIfPresent(JsonObject payload, string key, double? value)
     {
         if (value is not null)
+        {
+            payload[key] = value.Value;
+        }
+    }
+
+    private static void SetNumberIfMissing(JsonObject payload, string key, double? value)
+    {
+        if (value is not null && !payload.ContainsKey(key))
         {
             payload[key] = value.Value;
         }

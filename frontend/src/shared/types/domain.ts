@@ -138,6 +138,9 @@ export interface ApplicantFamily {
   paternalGrandmother?: ApplicantFamilyMember;
   maternalGrandfather?: ApplicantFamilyMember;
   maternalGrandmother?: ApplicantFamilyMember;
+  fatherWives?: ApplicantFamilyMember[];
+  motherHusbands?: ApplicantFamilyMember[];
+  guardian?: ApplicantFamilyMember;
   siblings?: ApplicantFamilyMember[];
   relatives?: ApplicantFamilyMember[];
 }
