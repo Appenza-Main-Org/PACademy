@@ -253,21 +253,25 @@ export function ApplicantDetailPage(): JSX.Element {
             </CardBody>
           </Card>
 
-          {/* Test Results snapshot */}
-          <Card>
-            <CardHeader
-              title="نتائج الاختبارات"
-              subtitle="آخر النتائج المسجّلة في الملف"
-            />
-            <CardBody>
-              <div className="grid gap-3 md:grid-cols-4">
-                <ResultRow label="الكشف الطبي" outcome={applicant.results.medical} />
-                <ResultRow label="اللياقة البدنية" outcome={applicant.results.fitness} />
-                <ResultRow label="المقابلة" outcome={applicant.results.interview} />
-                <ResultRow label="الاختبار النهائي" outcome={applicant.results.finalExam} />
-              </div>
-            </CardBody>
-          </Card>
+          {/* Test Results snapshot — legacy aggregate results. Hidden for portal
+              applicants, whose authoritative exam outcomes live in the portal card
+              below (the legacy fields are empty for them and read as misleading). */}
+          {applicant.source !== 'applicant-portal' && (
+            <Card>
+              <CardHeader
+                title="نتائج الاختبارات"
+                subtitle="آخر النتائج المسجّلة في الملف"
+              />
+              <CardBody>
+                <div className="grid gap-3 md:grid-cols-4">
+                  <ResultRow label="الكشف الطبي" outcome={applicant.results.medical} />
+                  <ResultRow label="اللياقة البدنية" outcome={applicant.results.fitness} />
+                  <ResultRow label="المقابلة" outcome={applicant.results.interview} />
+                  <ResultRow label="الاختبار النهائي" outcome={applicant.results.finalExam} />
+                </div>
+              </CardBody>
+            </Card>
+          )}
 
           {/* Portal exam outcomes — admin-editable (gates وثيقة التعارف) */}
           <ApplicantPortalExamsCard applicantId={id} canEdit={canEdit} />
