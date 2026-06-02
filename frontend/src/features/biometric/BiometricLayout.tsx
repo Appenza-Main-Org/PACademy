@@ -6,19 +6,24 @@ import { ROUTES } from '@/config/routes';
 
 const SIDEBAR: SidebarSection[] = [
   {
-    label: 'العمليات',
+    label: 'الاستعلام والتحقق',
     items: [
       { key: 'lookup',     label: 'استعلام متقدم', icon: <Search size={18} />, to: ROUTES.biometric.overview, end: true },
-      { key: 'enroll',     label: 'تسجيل البصمة', icon: <UserPlus size={18} />, to: ROUTES.biometric.enroll },
       { key: 'verify',     label: 'التحقق من الهوية', icon: <ShieldCheck size={18} />, to: ROUTES.biometric.verify },
-      { key: 'gate',       label: 'بوابة الدخول والخروج', icon: <DoorOpen size={18} />, to: ROUTES.biometric.gate },
       { key: 'roleInquiry', label: 'استعلام حسب الدور', icon: <Users size={18} />, to: ROUTES.biometric.roleInquiry },
     ],
   },
   {
-    label: 'الإدارة والسجلات',
+    label: 'التسجيل والحركة',
     items: [
+      { key: 'enroll',     label: 'تسجيل البصمة', icon: <UserPlus size={18} />, to: ROUTES.biometric.enroll },
+      { key: 'gate',       label: 'بوابة الدخول والخروج', icon: <DoorOpen size={18} />, to: ROUTES.biometric.gate },
       { key: 'attendance', label: 'الحضور والتواجد', icon: <Users size={18} />, to: ROUTES.biometric.attendance },
+    ],
+  },
+  {
+    label: 'السجلات والرقابة',
+    items: [
       { key: 'history',    label: 'سجل التحقق',   icon: <History size={18} />,  to: ROUTES.biometric.history },
       { key: 'monitoring', label: 'المراقبة',     icon: <Activity size={18} />, to: ROUTES.biometric.monitoring },
     ],
