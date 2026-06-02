@@ -314,7 +314,7 @@ export function DataExchangePage(): JSX.Element {
                 <label
                   key={domain}
                   className={[
-                    'group flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-sm transition-colors duration-fast ease-standard',
+                    'group relative flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-sm transition-colors duration-fast ease-standard',
                     'focus-within:shadow-focus-teal',
                     selected.has(domain)
                       ? 'border-[var(--accent-500)] bg-[var(--accent-50)] text-ink-900'
@@ -323,7 +323,7 @@ export function DataExchangePage(): JSX.Element {
                 >
                   <input
                     type="checkbox"
-                    className="sr-only"
+                    className="absolute inset-0 cursor-pointer opacity-0"
                     checked={selected.has(domain)}
                     onChange={() => toggleDomain(domain)}
                   />
@@ -554,14 +554,20 @@ function ChoiceCard({
   return (
     <label
       className={[
-        'flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition-colors duration-fast ease-standard',
+        'relative flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition-colors duration-fast ease-standard',
         'focus-within:shadow-focus-teal',
         checked
           ? 'border-[var(--accent-500)] bg-[var(--accent-50)]'
           : 'border-border-subtle bg-surface-card hover:border-border-default hover:bg-ink-50',
       ].join(' ')}
     >
-      <input type="radio" name={name} checked={checked} onChange={onChange} className="sr-only" />
+      <input
+        type="radio"
+        name={name}
+        checked={checked}
+        onChange={onChange}
+        className="absolute inset-0 cursor-pointer opacity-0"
+      />
       <span
         aria-hidden
         className={[
