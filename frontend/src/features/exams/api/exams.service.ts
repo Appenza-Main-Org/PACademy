@@ -37,6 +37,7 @@ import { simulateLatency } from '@/shared/lib/mock-helpers';
 import {
   buildExamRoomUrl,
   createPublishToken,
+  deriveExamIdFromPublishToken,
   isIpAllowed,
   normaliseIpAllowlist,
 } from '../lib/exam-publishing';
@@ -334,7 +335,10 @@ export const examsService = {
       try {
         return await apiClient.get<ExamConfig>(`/api/exams/published/${encodeURIComponent(token)}`);
       } catch {
-        return null;
+        const fallbackExamId = deriveExamIdFromPublishToken(token);
+        if (!fallbackExamId) return null;
+        const fallback = await examsService.getExam(fallbackExamId);
+        return fallback?.status === 'published' ? fallback : null;
       }
     }
     await simulateLatency();

@@ -31,6 +31,7 @@ execFileSync(
 const {
   buildExamRoomUrl,
   createPublishToken,
+  deriveExamIdFromPublishToken,
   getPublishedExamRoomUrl,
   isIpAllowed,
   normaliseIpAllowlist,
@@ -39,6 +40,8 @@ const {
 assert.equal(createPublishToken('EXAM-0001'), 'exam-exam-0001');
 assert.equal(createPublishToken('قدرات عامة 2026'), 'exam-2026');
 assert.equal(createPublishToken(''), 'exam-room');
+assert.equal(deriveExamIdFromPublishToken('exam-exam-2026-cap-01'), 'EXAM-2026-CAP-01');
+assert.equal(deriveExamIdFromPublishToken('bad-token'), null);
 
 assert.equal(
   buildExamRoomUrl('exam-exam-0001', 'https://admin-staging.appenzademo.com/question-bank/exams'),

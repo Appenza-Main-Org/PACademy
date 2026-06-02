@@ -14,6 +14,16 @@ export function createPublishToken(seed: string): string {
   return slug ? `${TOKEN_PREFIX}-${slug}` : 'exam-room';
 }
 
+export function deriveExamIdFromPublishToken(token: string): string | null {
+  const normalized = token.trim().toLowerCase();
+  const prefix = `${TOKEN_PREFIX}-exam-`;
+  if (!normalized.startsWith(prefix)) return null;
+
+  const idPart = normalized.slice(TOKEN_PREFIX.length + 1);
+  if (!/^exam-[a-z0-9-]+$/.test(idPart)) return null;
+  return idPart.toUpperCase();
+}
+
 export function buildExamRoomUrl(token: string, baseHref = typeof window !== 'undefined' ? window.location.href : ''): string {
   const path = `/exam-room/${encodeURIComponent(token)}`;
   if (!baseHref) return path;
