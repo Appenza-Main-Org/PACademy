@@ -765,7 +765,12 @@ public sealed class PortalService(PortalDbContext db)
         var isOpen = isEnabled && (openingPassed || scheduleOpen);
         var closeDue = IsCloseDue(draft, settings);
 
-        if (doc is not null && (doc.Status == "closed" || closeDue))
+        if (doc is not null && doc.Status == "closed" && !closeDue && isOpen)
+        {
+            await ReopenAcquaintanceDocIfAllowedAsync(doc, ct);
+        }
+
+        if (doc is not null && closeDue)
         {
             await CloseAcquaintanceDocIfDueAsync(doc, closeDue, ct);
         }
@@ -988,6 +993,17 @@ public sealed class PortalService(PortalDbContext db)
         await db.SaveChangesAsync(ct);
     }
 
+    private async Task ReopenAcquaintanceDocIfAllowedAsync(
+        ApplicantAcquaintanceDocEntity doc,
+        CancellationToken ct)
+    {
+        if (doc.Status != "closed") return;
+        doc.Status = "open";
+        doc.ClosedAt = null;
+        doc.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
     private static bool IsScheduleOpen(JsonObject draft, AcquaintanceDocSettingsEntity settings)
     {
         if (settings.ClosingMode == "after_test_passed") return false;
@@ -1004,7 +1020,7 @@ public sealed class PortalService(PortalDbContext db)
             return true;
         }
 
-        var examDate = DateFromDraft(draft);
+        var examDate = DateForConfiguredTestFromDraft(draft, settings.ClosingTestKey);
         if (examDate is null) return false;
         var due = settings.ClosingMode switch
         {
@@ -1015,12 +1031,79 @@ public sealed class PortalService(PortalDbContext db)
         return due is not null && DateTimeOffset.UtcNow >= due;
     }
 
+    private static DateTimeOffset? DateForConfiguredTestFromDraft(JsonObject draft, string testKey)
+    {
+        var scheduled = DateFromScheduledTests(draft, testKey);
+        if (scheduled is not null) return scheduled;
+
+        // The draft's examSlot is the first applicant-picked exam date only.
+        // Do not use it for later configured tests such as external traits;
+        // otherwise وثيقة التعارف closes before that test has even started.
+        return IsFirstExamTestKey(testKey) ? DateFromDraft(draft) : null;
+    }
+
+    private static DateTimeOffset? DateFromScheduledTests(JsonObject draft, string testKey)
+    {
+        if (string.IsNullOrWhiteSpace(testKey)) return null;
+        var candidates = CandidateTestKeys(testKey).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var arrayKey in new[] { "testSchedules", "tests", "examSchedules", "examResults" })
+        {
+            if (draft[arrayKey] is not JsonArray schedules) continue;
+            foreach (var node in schedules)
+            {
+                if (node is not JsonObject schedule) continue;
+                if (!ScheduleMatchesTest(schedule, candidates)) continue;
+                var parsed = DateFromSchedule(schedule);
+                if (parsed is not null) return parsed;
+            }
+        }
+        return null;
+    }
+
+    private static bool ScheduleMatchesTest(JsonObject schedule, HashSet<string> candidates)
+    {
+        foreach (var key in new[] { "testKey", "testCode", "code", "kind", "examId", "id" })
+        {
+            var value = schedule[key]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(value) && candidates.Contains(value)) return true;
+        }
+        return false;
+    }
+
+    private static DateTimeOffset? DateFromSchedule(JsonObject schedule)
+    {
+        foreach (var key in new[] { "scheduledAt", "startsAt", "examDateTime", "dateTime" })
+        {
+            var value = schedule[key]?.GetValue<string>();
+            if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dto))
+                return dto;
+        }
+
+        foreach (var key in new[] { "date", "examDate", "scheduledDate" })
+        {
+            var value = schedule[key]?.GetValue<string>();
+            var time = schedule["time"]?.GetValue<string>() ?? schedule["scheduledTime"]?.GetValue<string>();
+            var parsed = DateFromParts(value, time);
+            if (parsed is not null) return parsed;
+        }
+
+        return null;
+    }
+
     private static DateTimeOffset? DateFromDraft(JsonObject draft)
     {
         var dateText = draft["examSlot"]?["date"]?.GetValue<string>();
-        return DateOnly.TryParse(dateText, out var date)
-            ? new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero)
-            : null;
+        var timeText = draft["examSlot"]?["time"]?.GetValue<string>();
+        return DateFromParts(dateText, timeText);
+    }
+
+    private static DateTimeOffset? DateFromParts(string? dateText, string? timeText)
+    {
+        if (!DateOnly.TryParse(dateText, out var date)) return null;
+        var time = TimeOnly.MinValue;
+        if (!string.IsNullOrWhiteSpace(timeText))
+            _ = TimeOnly.TryParse(timeText, out time);
+        return new DateTimeOffset(date.ToDateTime(time), TimeSpan.Zero);
     }
 
     private static bool IsOutcomeSatisfied(JsonObject draft, string testKey, string requiredOutcome)
@@ -1028,10 +1111,7 @@ public sealed class PortalService(PortalDbContext db)
         var followUp = draft["followUp"] as JsonObject;
         if (followUp is null) return false;
         var normalizedRequired = NormalizeOutcome(requiredOutcome);
-        var candidates = new[] { testKey, MapLegacyFollowUpKey(testKey) }
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in candidates)
+        foreach (var key in CandidateTestKeys(testKey))
         {
             var value = followUp[key]?.GetValue<string>();
             if (NormalizeOutcome(value) == normalizedRequired) return true;
@@ -1047,8 +1127,31 @@ public sealed class PortalService(PortalDbContext db)
         _ => value ?? "",
     };
 
+    private static IEnumerable<string> CandidateTestKeys(string key)
+    {
+        if (!string.IsNullOrWhiteSpace(key)) yield return key;
+        var legacy = MapLegacyFollowUpKey(key);
+        if (!string.IsNullOrWhiteSpace(legacy)) yield return legacy;
+    }
+
+    private static bool IsFirstExamTestKey(string key) =>
+        CandidateTestKeys(key).Any(candidate =>
+            string.Equals(candidate, "TST-01", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(candidate, "AX-01", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(candidate, "aptitude", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(candidate, "capacities", StringComparison.OrdinalIgnoreCase));
+
     private static string MapLegacyFollowUpKey(string key) => key switch
     {
+        "TST-01" => "capacities",
+        "TST-02" => "traits",
+        "TST-03" => "traits",
+        "TST-04" => "traits",
+        "TST-05" => "traits",
+        "TST-06" => "sports",
+        "TST-07" => "medical",
+        "TST-08" => "traits",
+        "TST-09" => "traits",
         "aptitude" => "capacities",
         "appearance_external" => "traits",
         "appearance_internal" => "traits",

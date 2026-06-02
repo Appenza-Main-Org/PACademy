@@ -200,6 +200,79 @@ public sealed class ApplicantPortalPersistenceTests
         Assert.NotNull(printable["document"]);
     }
 
+    [Fact]
+    public async Task AcquaintanceDocDoesNotCloseOnFirstExamDateWhenClosingTestHasNotStarted()
+    {
+        await using var db = CreateDb();
+        var service = new PortalService(db);
+        var applicantId = Guid.NewGuid().ToString("D");
+        const string cycleId = "CYC-2026-M";
+
+        db.AcquaintanceDocSettings.Add(new AcquaintanceDocSettingsEntity
+        {
+            Id = $"ads-{cycleId}",
+            CycleId = cycleId,
+            OpeningTestKey = "TST-01",
+            OpeningRequiredOutcome = "passed",
+            ClosingTestKey = "TST-04",
+            ClosingMode = "on_test_time",
+            IsEnabled = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        db.AcquaintanceDocs.Add(new ApplicantAcquaintanceDocEntity
+        {
+            Id = "adoc-premature",
+            CycleId = cycleId,
+            ApplicantId = applicantId,
+            Status = "closed",
+            OpenedAt = DateTimeOffset.UtcNow.AddHours(-2),
+            ClosedAt = DateTimeOffset.UtcNow.AddHours(-1),
+            CreatedAt = DateTimeOffset.UtcNow.AddHours(-2),
+            UpdatedAt = DateTimeOffset.UtcNow.AddHours(-1),
+            Version = 1,
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        await service.SaveDraftAsync(applicantId, new JsonObject
+        {
+            ["cycleId"] = cycleId,
+            ["categoryKey"] = "officers_general",
+            ["profile"] = new JsonObject
+            {
+                ["fullName"] = "متقدم سمات خارجية",
+                ["nationalId"] = "30412180103456",
+                ["mobile"] = "01012345678",
+                ["dateOfBirth"] = "2004-12-18",
+                ["birthGovernorate"] = "القاهرة",
+                ["birthDistrict"] = "مدينة نصر",
+                ["religion"] = "مسلم",
+                ["certificateName"] = "الثانوية العامة"
+            },
+            ["examSlot"] = new JsonObject
+            {
+                ["slotId"] = "SLT-first",
+                ["date"] = "2026-01-01",
+                ["time"] = "08:00",
+                ["location"] = "اللجنة الثانية"
+            },
+            ["followUp"] = new JsonObject
+            {
+                ["TST-01"] = "passed",
+                ["TST-04"] = "pending"
+            }
+        }, TestContext.Current.CancellationToken);
+
+        var status = await service.GetAcquaintanceDocStatusAsync(applicantId, TestContext.Current.CancellationToken);
+        Assert.Equal("open", status["status"]?.GetValue<string>());
+        Assert.True(status["canEdit"]?.GetValue<bool>());
+        Assert.False(status["canPrint"]?.GetValue<bool>());
+
+        var doc = await db.AcquaintanceDocs.SingleAsync(x => x.ApplicantId == applicantId, TestContext.Current.CancellationToken);
+        Assert.Equal("open", doc.Status);
+        Assert.Null(doc.ClosedAt);
+    }
+
     private static PortalDbContext CreateDb()
     {
         var options = new DbContextOptionsBuilder<PortalDbContext>()
